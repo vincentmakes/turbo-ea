@@ -3,9 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const navigate = vi.fn();
+// Mutable so a single test can mount the builder in edit mode (hydrating a
+// saved draft); reset it in that test's finally.
+let routeParams: Record<string, string> = {};
 vi.mock("react-router", () => ({
   useNavigate: () => navigate,
-  useParams: () => ({}),
+  useParams: () => routeParams,
 }));
 vi.mock("@/api/client", () => ({
   api: {
@@ -431,5 +434,99 @@ describe("SurveyBuilder — fields grouped by section", () => {
     );
     // The header must not keep claiming Confirm for a section that is now split.
     expect(within(header).getByRole("combobox")).toHaveTextContent(/mixed/i);
+  });
+});
+
+describe("SurveyBuilder — section action select stability", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    routeParams = {};
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve({ items: [] });
+      if (path.startsWith("/stakeholder-roles")) return Promise.resolve(ROLE_DEFS);
+      return Promise.resolve([]);
+    });
+    mockPost.mockResolvedValue({ id: "survey-1" });
+    (api.patch as ReturnType<typeof vi.fn>).mockResolvedValue({});
+  });
+
+  it("shows the action just picked when the whole section shares it", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    const header = screen.getByText("Assessment").closest("tr")!;
+    await user.click(within(header).getByRole("checkbox"));
+
+    // Confirm, then back to Maintain — the closed control must state each
+    // choice, never Mixed for a uniform section and never a blank.
+    await choose(user, within(header).getByRole("combobox"), "Confirm");
+    await waitFor(() =>
+      expect(within(header).getByRole("combobox")).toHaveTextContent(/confirm/i),
+    );
+
+    await choose(user, within(header).getByRole("combobox"), "Maintain");
+    await waitFor(() =>
+      expect(within(header).getByRole("combobox")).toHaveTextContent(/maintain/i),
+    );
+  });
+
+  it("does not toggle the section when the header text is clicked", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    await user.click(screen.getByText("Assessment"));
+    expect(screen.getByText("0/2")).toBeInTheDocument();
+
+    // The tickbox is the toggle — and clicking the text afterwards must not
+    // silently clear what it selected.
+    const header = screen.getByText("Assessment").closest("tr")!;
+    await user.click(within(header).getByRole("checkbox"));
+    await waitFor(() => expect(screen.getByText("2/2")).toBeInTheDocument());
+    await user.click(screen.getByText("Assessment"));
+    expect(screen.getByText("2/2")).toBeInTheDocument();
+  });
+
+  it("ignores a hydrated field the section no longer lists", async () => {
+    // A draft saved against an older schema: two visible Assessment fields,
+    // both confirm, plus a ghost whose key the metamodel no longer has. The
+    // ghost used to be counted by the header (by section name) but never
+    // updated by it (by key), pinning the select on Mixed.
+    routeParams = { id: "survey-1" };
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
+      if (path === "/surveys/survey-1") {
+        return Promise.resolve({
+          id: "survey-1",
+          name: "Hydrated",
+          description: "",
+          message: "",
+          status: "draft",
+          target_type_key: "Application",
+          target_roles: ["responsible"],
+          target_filters: {},
+          fields: [
+            { key: "businessCriticality", section: "Assessment", label: "Business Criticality", type: "single_select", action: "confirm" },
+            { key: "timeModel", section: "Assessment", label: "TIME Model", type: "single_select", action: "confirm" },
+            { key: "ghostField", section: "Assessment", label: "Ghost", type: "text", action: "maintain" },
+          ],
+        });
+      }
+      if (path.startsWith("/cards")) return Promise.resolve({ items: [] });
+      if (path.startsWith("/stakeholder-roles")) return Promise.resolve(ROLE_DEFS);
+      return Promise.resolve([]);
+    });
+
+    try {
+      const user = userEvent.setup();
+      render(<SurveyBuilder />);
+      await waitFor(() => expect(screen.getByLabelText(/survey name/i)).toHaveValue("Hydrated"));
+      await user.click(screen.getByRole("button", { name: /next/i }));
+      await user.click(screen.getByRole("button", { name: /next/i }));
+      await waitFor(() => expect(screen.getByText("Assessment")).toBeInTheDocument());
+
+      const header = screen.getByText("Assessment").closest("tr")!;
+      expect(within(header).getByRole("combobox")).toHaveTextContent(/confirm/i);
+    } finally {
+      routeParams = {};
+    }
   });
 });

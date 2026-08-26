@@ -419,6 +419,19 @@ export default function SurveyBuilder() {
     }
   };
 
+  /** The keys of the fields the section actually lists. Every section-level
+   *  helper works off this one set: derive from anything else (the stored
+   *  section name, say) and an entry hydrated from an old draft that no longer
+   *  matches a visible row makes the header describe rows the user can't see. */
+  const sectionFieldKeys = (section: string) =>
+    new Set(allFields.filter((f) => f.section === section).map((f) => f.key));
+
+  /** Field lists round-trip through JSONB (drafts, extension templates), so an
+   *  action is only trusted after normalising — an unexpected value must not
+   *  escape the union and flip the select uncontrolled. */
+  const normAction = (a: unknown): "maintain" | "confirm" =>
+    a === "confirm" ? "confirm" : "maintain";
+
   /** The section's default action — what a newly ticked field inherits. */
   const sectionAction = (section: string): "maintain" | "confirm" =>
     sectionActions[section] ?? "maintain";
@@ -427,16 +440,17 @@ export default function SurveyBuilder() {
    *  `sectionActions`, so a field overridden on its own row can't leave the
    *  header claiming an action its fields don't all have. "" renders as Mixed. */
   const sectionActionValue = (section: string): "maintain" | "confirm" | "" => {
-    const picked = selectedFields.filter((f) => f.section === section && f.kind !== "relation");
+    const keys = sectionFieldKeys(section);
+    const picked = selectedFields.filter((f) => keys.has(f.key));
     if (picked.length === 0) return sectionAction(section);
-    const first = picked[0].action;
-    return picked.every((f) => f.action === first) ? first : "";
+    const first = normAction(picked[0].action);
+    return picked.every((f) => normAction(f.action) === first) ? first : "";
   };
 
   const sectionSelection = (section: string) => {
-    const group = allFields.filter((f) => f.section === section);
-    const picked = group.filter((f) => selectedFields.some((sf) => sf.key === f.key));
-    return { total: group.length, picked: picked.length };
+    const keys = sectionFieldKeys(section);
+    const picked = selectedFields.filter((f) => keys.has(f.key));
+    return { total: keys.size, picked: picked.length };
   };
 
   const asSurveyField = (
@@ -479,10 +493,12 @@ export default function SurveyBuilder() {
   };
 
   /** Set every selected field in a section to one action, and make it the
-   *  section's default so later ticks inherit it. */
+   *  section's default so later ticks inherit it. Same key set as the
+   *  derivation above, so picking an action always updates exactly the
+   *  entries the header's value is computed from. */
   const setSectionAction = (section: string, action: "maintain" | "confirm") => {
     setSectionActions((prev) => ({ ...prev, [section]: action }));
-    const keys = new Set(allFields.filter((f) => f.section === section).map((f) => f.key));
+    const keys = sectionFieldKeys(section);
     setSelectedFields((prev) => prev.map((f) => (keys.has(f.key) ? { ...f, action } : f)));
   };
 
@@ -989,16 +1005,18 @@ export default function SurveyBuilder() {
                     const value = sectionActionValue(group.section);
                     return (
                       <Fragment key={group.section}>
-                        <TableRow
-                          hover
-                          onClick={() => setSectionSelected(group.section, picked < total)}
-                          sx={{ cursor: "pointer", bgcolor: "action.hover" }}
-                        >
+                        {/* Deliberately not click-to-toggle like the field rows:
+                            a whole section (de)selecting on a stray click on the
+                            header text is too much action for too little intent.
+                            Only the tickbox itself toggles. */}
+                        <TableRow sx={{ bgcolor: "action.hover" }}>
                           <TableCell padding="checkbox">
                             <Checkbox
                               size="small"
-                              checked={picked === total}
+                              checked={picked === total && total > 0}
                               indeterminate={picked > 0 && picked < total}
+                              onChange={() => setSectionSelected(group.section, picked < total)}
+                              onClick={(e) => e.stopPropagation()}
                             />
                           </TableCell>
                           <TableCell colSpan={2}>
@@ -1021,21 +1039,21 @@ export default function SurveyBuilder() {
                                 setSectionAction(group.section, e.target.value as "maintain" | "confirm")
                               }
                               sx={{ minWidth: 120 }}
-                              slotProps={{
-                                select: {
-                                  // "" is the mixed state — without displayEmpty
-                                  // the control would render blank and read as
-                                  // "nothing chosen" rather than "these differ".
-                                  displayEmpty: true,
-                                  renderValue: (v: unknown) =>
-                                    v === "maintain"
-                                      ? t("surveyBuilder.fields.maintain")
-                                      : v === "confirm"
-                                        ? t("surveyBuilder.fields.confirm")
-                                        : t("surveyBuilder.fields.mixed"),
-                                },
-                              }}
+                              // Without displayEmpty MUI renders "" as an empty
+                              // placeholder even when a MenuItem matches it.
+                              slotProps={{ select: { displayEmpty: true } }}
                             >
+                              {/* Always mounted so the "" (Mixed) value matches a
+                                  real item and the closed control renders its
+                                  label — an unmatched value renders blank. Hidden
+                                  from the open menu unless it is the state. */}
+                              <MenuItem
+                                value=""
+                                disabled
+                                sx={{ display: value === "" ? undefined : "none" }}
+                              >
+                                {t("surveyBuilder.fields.mixed")}
+                              </MenuItem>
                               <MenuItem value="maintain">{t("surveyBuilder.fields.maintain")}</MenuItem>
                               <MenuItem value="confirm">{t("surveyBuilder.fields.confirm")}</MenuItem>
                             </TextField>
@@ -1051,10 +1069,12 @@ export default function SurveyBuilder() {
                               onClick={() => toggleField(f)}
                               sx={{ cursor: "pointer" }}
                             >
-                              <TableCell padding="checkbox">
+                              {/* Indented under the section's own tickbox so the
+                                  hierarchy reads at a glance. */}
+                              <TableCell padding="checkbox" sx={{ pl: 3 }}>
                                 <Checkbox checked={!!selected} size="small" />
                               </TableCell>
-                              <TableCell sx={{ pl: 4 }}>
+                              <TableCell>
                                 {f.label}
                                 {isEnforcedRequiredField(f as FieldDef) && (
                                   <Tooltip title={t("common:labels.required")}>
