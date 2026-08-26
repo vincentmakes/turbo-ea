@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, act, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
+import { AuthProvider } from "@/hooks/AuthContext";
 import { setViewportWidth } from "@/test/matchMedia";
 import PpmTaskDialog from "./PpmTaskDialog";
 import PpmOverviewTab from "./PpmOverviewTab";
@@ -102,7 +103,9 @@ describe("Task board kanban on mobile", () => {
     renderAt(
       PHONE,
       <MemoryRouter>
-        <PpmTaskBoard initiativeId="i1" />
+        <AuthProvider user={null} refreshUser={async () => {}}>
+          <PpmTaskBoard initiativeId="i1" />
+        </AuthProvider>
       </MemoryRouter>,
     );
     // The board used to be repeat(4, 1fr) with no breakpoint, squashing each

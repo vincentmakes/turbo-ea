@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.90.0] - 2026-08-26
+
+### Added
+
+- **A "My tasks" shortcut on the PPM task board.** One click narrows an initiative's Kanban board — and its list view — to the tasks assigned to you, with a count on the button so you can see your workload without filtering first. It combines with the Work Package filter and Group by, and the choice is kept in the page address, so a refresh or a shared link keeps the same view.
+
+### Changed
+
+- **Admin → Settings → Integrations now stays on the integration you were configuring.** Refreshing the page, or coming back to Integrations after visiting another Settings tab, used to drop you back on ServiceNow. The selected integration is now remembered, and its address can be shared to open the same one directly.
+
 ## [2.89.2] - 2026-08-26
 
 ### Fixed

@@ -43,6 +43,7 @@ import {
 import { useDroppable } from "@dnd-kit/core";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useAuthContext } from "@/hooks/AuthContext";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import PpmTaskCard from "./PpmTaskCard";
 import PpmTaskDialog from "./PpmTaskDialog";
@@ -107,6 +108,7 @@ function DroppableColumn({
 export default function PpmTaskBoard({ initiativeId }: Props) {
   const { t } = useTranslation("ppm");
   const { formatDate } = useDateFormat();
+  const { user } = useAuthContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const [tasks, setTasks] = useState<PpmTask[]>([]);
   const [wbsList, setWbsList] = useState<PpmWbs[]>([]);
@@ -128,6 +130,7 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
   // Filter & group state
   const [filterWbs, setFilterWbs] = useState<string>(searchParams.get("wbs") || "");
   const [groupByWbs, setGroupByWbs] = useState(searchParams.get("groupWbs") === "1");
+  const [onlyMine, setOnlyMine] = useState(searchParams.get("mine") === "1");
 
   // Sync filter/view state to URL
   useEffect(() => {
@@ -139,9 +142,11 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
       else next.delete("wbs");
       if (groupByWbs) next.set("groupWbs", "1");
       else next.delete("groupWbs");
+      if (onlyMine) next.set("mine", "1");
+      else next.delete("mine");
       return next;
     }, { replace: true });
-  }, [view, filterWbs, groupByWbs, setSearchParams]);
+  }, [view, filterWbs, groupByWbs, onlyMine, setSearchParams]);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
@@ -172,12 +177,30 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
     return m;
   }, [wbsList]);
 
-  // Filtered tasks
-  const filteredTasks = useMemo(() => {
+  // The board narrowed by the WBS filter alone — the baseline the "My tasks"
+  // shortcut narrows further.
+  const scopedTasks = useMemo(() => {
     if (!filterWbs) return tasks;
-    if (filterWbs === "__none__") return tasks.filter((t) => !t.wbs_id);
-    return tasks.filter((t) => t.wbs_id === filterWbs);
+    if (filterWbs === "__none__") return tasks.filter((task) => !task.wbs_id);
+    return tasks.filter((task) => task.wbs_id === filterWbs);
   }, [tasks, filterWbs]);
+
+  // Drives the "My tasks" badge. Counted off the WBS-scoped list, not the whole
+  // board, so the number always equals what clicking the shortcut shows — a
+  // count taken from every task would advertise "1" and then render an empty
+  // board whenever that task sits in a different work package.
+  const myTaskCount = useMemo(
+    () => (user ? scopedTasks.filter((task) => task.assignee_id === user.id).length : 0),
+    [scopedTasks, user],
+  );
+
+  const filteredTasks = useMemo(
+    () =>
+      onlyMine && user
+        ? scopedTasks.filter((task) => task.assignee_id === user.id)
+        : scopedTasks,
+    [scopedTasks, onlyMine, user],
+  );
 
   // Group tasks by WBS for grouped views
   const wbsGroups = useMemo(() => {
@@ -621,6 +644,27 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
           {t("tasks")} ({filteredTasks.length})
         </Typography>
         <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
+          {/* My tasks shortcut — one click to the viewer's own workload */}
+          {user && (
+            <ToggleButton
+              value="onlyMine"
+              selected={onlyMine}
+              onChange={() => setOnlyMine((v) => !v)}
+              size="small"
+              sx={{ textTransform: "none", px: 1.5 }}
+            >
+              <MaterialSymbol icon="person" size={18} />
+              <Typography variant="caption" sx={{ ml: 0.5 }}>
+                {t("myTasks")}
+              </Typography>
+              <Chip
+                label={myTaskCount}
+                size="small"
+                sx={{ height: 18, fontSize: "0.65rem", ml: 0.5 }}
+              />
+            </ToggleButton>
+          )}
+
           {/* WBS Filter */}
           {wbsList.length > 0 && (
             <FormControl
