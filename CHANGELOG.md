@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.95.0] - 2026-08-27
+
+### Added
+
+- **Sign in through an authenticating reverse proxy — no OIDC client needed.** Instances running behind a proxy that already signs users in (Azure App Service's built-in authentication, oauth2-proxy, Authelia, Cloudflare Access) can now accept that identity directly: users land in Turbo EA already signed in, and no identity-provider client registration or client secret is required. Off by default and enabled with environment variables; a shared proxy secret (or, on Azure, verification of the forwarded identity token) keeps a forged header from ever becoming a session, an email-domain allowlist is required, and an unverified identity can only sign in accounts that already exist. Signing out can end the proxy session too via a configurable logout address. See Administration → Authentication & SSO → Reverse proxy authentication. ([#1006](https://github.com/vincentmakes/turbo-ea/discussions/1006))
+
+### Security
+
+- **A role with full administrative access can no longer be made the default role for new accounts.** New accounts created automatically — through SSO or reverse-proxy sign-in — land on the default role, so allowing the admin role there would have turned any newly asserted identity into a site administrator.
+
 ## [2.94.0] - 2026-08-27
 
 ### Added

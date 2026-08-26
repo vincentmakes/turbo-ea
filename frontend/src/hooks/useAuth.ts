@@ -14,6 +14,13 @@ import type { User } from "@/types";
  */
 export const PROXY_SIGNOUT_KEY = "turboea_proxy_signed_out";
 
+/**
+ * The login page caches the resolved /auth/sso/config payload here so a
+ * refresh renders the correct layout instantly. Logout reads it back for the
+ * proxy logout URL. One definition, shared with LoginPage.
+ */
+export const SSO_CACHE_KEY = "turboea_sso_config";
+
 const TOKEN_REFRESH_INTERVAL = 10 * 60 * 1000; // Refresh every 10 minutes
 
 export function useAuth() {
@@ -131,6 +138,33 @@ export function useAuth() {
     resetExtensionHost();
     invalidateExtensionCapabilities();
     setUser(null);
+    // When the operator configured a proxy logout URL (/.auth/logout on Azure,
+    // /oauth2/sign_out on oauth2-proxy), send the browser there so the proxy
+    // session ends too — otherwise it outlives Turbo EA's and "sign out" only
+    // half happens. Local state is already cleared above, so if the navigation
+    // is blocked the user still lands signed out. Read the login page's cached
+    // config; when a cookie-restored tab has no cache, fetch it best-effort.
+    let proxyLogoutUrl: string | undefined;
+    let haveCachedConfig = false;
+    try {
+      const cached = sessionStorage.getItem(SSO_CACHE_KEY);
+      if (cached) {
+        haveCachedConfig = true;
+        proxyLogoutUrl = JSON.parse(cached).proxy_logout_url;
+      }
+    } catch {
+      // Cache unavailable or unparsable — treat as absent.
+    }
+    if (!haveCachedConfig) {
+      try {
+        proxyLogoutUrl = (await auth.ssoConfig()).proxy_logout_url;
+      } catch {
+        // Backend unreachable — the local logout above already happened.
+      }
+    }
+    if (proxyLogoutUrl) {
+      window.location.assign(proxyLogoutUrl);
+    }
   };
 
   return {

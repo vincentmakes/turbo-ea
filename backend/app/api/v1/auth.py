@@ -522,6 +522,10 @@ async def sso_config_endpoint(db: AsyncSession = Depends(get_db)):
         }
         if proxy_auth:
             payload["local_login_available"] = await _local_login_available(db)
+            # Where to send the browser after logout so the proxy session ends
+            # too — without it the proxy re-asserts the identity immediately.
+            if settings.PROXY_AUTH_LOGOUT_URL:
+                payload["proxy_logout_url"] = settings.PROXY_AUTH_LOGOUT_URL
         return payload
 
     provider = sso.get("provider", "microsoft")
@@ -573,6 +577,8 @@ async def sso_config_endpoint(db: AsyncSession = Depends(get_db)):
         "local_login_available": local_login_available,
         "proxy_auth": proxy_auth,
     }
+    if proxy_auth and settings.PROXY_AUTH_LOGOUT_URL:
+        result["proxy_logout_url"] = settings.PROXY_AUTH_LOGOUT_URL
 
     # Include extra auth params (e.g. Google hd parameter)
     if provider_cfg.get("extra_auth_params"):
