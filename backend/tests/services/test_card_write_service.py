@@ -15,6 +15,8 @@ from fastapi import HTTPException
 from sqlalchemy import select
 
 from app.models.event import Event
+from app.models.notification import Notification
+from app.models.stakeholder import Stakeholder
 from app.services import card_write_service as svc
 from app.services.card_write_service import WriteActor
 from tests.conftest import (
@@ -205,3 +207,49 @@ class TestNoCommit:
         src = pathlib.Path(svc.__file__).read_text(encoding="utf-8")
         assert "db.commit()" not in src
         assert "db.rollback()" not in src
+
+
+class TestSelfNotificationOnUpdate:
+    """You should not be told about your own edit.
+
+    ``create_notification`` has always dropped a notification whose actor is
+    its recipient, but this path never passed ``actor_id``, so the check could
+    not fire and every stakeholder — the editor included — got told about their
+    own change. The bell, email and any extension channel all inherit the fix,
+    because the suppression lives in the service, not per channel.
+    """
+
+    async def _watched_card(self, db, env):
+        editor = env["user"]
+        other = await create_user(db, email="watcher@test.com")
+        card = await create_card(db, name="Watched App")
+        db.add(Stakeholder(card_id=card.id, user_id=editor.id, role="owner"))
+        db.add(Stakeholder(card_id=card.id, user_id=other.id, role="owner"))
+        await db.flush()
+        return editor, other, card
+
+    async def _recipients(self, db):
+        rows = (
+            (await db.execute(select(Notification).where(Notification.type == "card_updated")))
+            .scalars()
+            .all()
+        )
+        return {r.user_id for r in rows}
+
+    async def test_the_editor_is_not_notified_about_their_own_edit(self, db, env):
+        editor, other, card = await self._watched_card(db, env)
+
+        await svc.update_card(db, WriteActor.from_user(editor), card, {"description": "changed"})
+
+        recipients = await self._recipients(db)
+        assert other.id in recipients, "the other stakeholder should still be told"
+        assert editor.id not in recipients, "the editor was told about their own edit"
+
+    async def test_an_extension_edit_still_notifies_every_stakeholder(self, db, env):
+        """An extension has no user id, so nobody is the actor and nobody is
+        suppressed — the whole point of keeping the check keyed on the actor."""
+        editor, other, card = await self._watched_card(db, env)
+
+        await svc.update_card(db, ext_actor(), card, {"description": "changed by a connector"})
+
+        assert await self._recipients(db) == {editor.id, other.id}

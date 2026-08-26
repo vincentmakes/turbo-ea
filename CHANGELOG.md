@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.89.2] - 2026-08-26
+
+### Fixed
+
+- **You are no longer notified about your own changes.** Editing a card you are a stakeholder on told *you* about the edit, alongside everyone else watching it. The same went for requesting, signing, recalling or rejecting a signature on an Architecture Decision Record or a Statement of Architecture Work. Turbo EA has always meant to leave the person who acted out of it — commenting on your own card already worked that way — but these paths never said who had acted, so the rule had nothing to apply. Everyone else watching is notified exactly as before, and the few types that deliberately do reach you (a task or risk assigned to yourself, a survey you sent, process-flow approvals) are unchanged.
+
 ## [2.89.1] - 2026-08-26
 
 ### Added

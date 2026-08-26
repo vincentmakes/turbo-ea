@@ -564,6 +564,7 @@ async def request_signatures(
         await notification_service.create_notification(
             db,
             user_id=uuid.UUID(sig["user_id"]),
+            actor_id=user.id,
             notif_type="adr_sign_requested",
             title="ADR Signature Requested",
             message=(
@@ -649,6 +650,7 @@ async def sign_adr(
             await notification_service.create_notification(
                 db,
                 user_id=adr.created_by,
+                actor_id=user.id,
                 notif_type="adr_signed",
                 title="ADR Fully Signed",
                 message=(f'All signatories have signed "{adr.reference_number} — {adr.title}"'),
@@ -661,6 +663,7 @@ async def sign_adr(
             await notification_service.create_notification(
                 db,
                 user_id=adr.created_by,
+                actor_id=user.id,
                 notif_type="adr_signed",
                 title="ADR Signature Received",
                 message=(
@@ -722,6 +725,7 @@ async def recall_adr_signatures(
             await notification_service.create_notification(
                 db,
                 user_id=uuid.UUID(sig["user_id"]),
+                actor_id=user.id,
                 notif_type="adr_sign_recalled",
                 title="ADR Signature Request Recalled",
                 message=(
@@ -788,6 +792,7 @@ async def reject_adr(
         await notification_service.create_notification(
             db,
             user_id=adr.created_by,
+            actor_id=user.id,
             notif_type="adr_rejected",
             title="ADR Rejected",
             message=(
@@ -808,6 +813,7 @@ async def reject_adr(
             await notification_service.create_notification(
                 db,
                 user_id=uuid.UUID(sig["user_id"]),
+                actor_id=user.id,
                 notif_type="adr_rejected",
                 title="ADR Rejected",
                 message=(

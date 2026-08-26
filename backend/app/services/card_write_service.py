@@ -820,6 +820,7 @@ async def update_card(
         await notification_service.create_notifications_for_subscribers(
             db,
             card_id=card.id,
+            actor_id=actor.user_id,
             notif_type="card_updated",
             title=f"{card.name} Updated",
             message=f'{actor.display_name} updated "{card.name}" ({changed_fields})',
