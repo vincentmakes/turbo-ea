@@ -250,6 +250,16 @@ async def update_role(
 
     # Handle is_default change
     if data.get("is_default") is True:
+        # The default role is what every auto-provisioned account lands on — SSO
+        # just-in-time creation and trusted-proxy sign-in both use it. Making a
+        # wildcard role the default would mean any identity the provider asserts
+        # becomes a site admin on first sign-in, so refuse it outright.
+        if role.permissions.get("*"):
+            raise HTTPException(
+                400,
+                "A role with full administrative access cannot be the default role: "
+                "new accounts are created with it automatically.",
+            )
         existing_defaults = await db.execute(
             select(Role).where(Role.is_default == True, Role.key != key)  # noqa: E712
         )
