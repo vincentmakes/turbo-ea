@@ -13,6 +13,12 @@
  * never a child: a `<button>` inside a `<button>` is invalid HTML. That is
  * also why the topical tag chips live in the drawer — they are the tile's
  * other would-be nested interactive.
+ *
+ * A tile that opens a panel has to say so. The ripple only appears once you
+ * are already pressing, so an `info` glyph sits in the corner as the resting
+ * affordance and the whole tile lifts on hover — the icon is the promise that
+ * there is more behind the click, the lift is the confirmation you are on a
+ * target. Both are suppressed under `prefers-reduced-motion`.
  */
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
@@ -21,10 +27,17 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
+import Tooltip from "@mui/material/Tooltip";
 import { useTranslation } from "react-i18next";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import EntitlementChip from "./EntitlementChip";
 import ExtensionLogo from "./ExtensionLogo";
-import { BuyButton, InstallButton, type StoreActionHandlers } from "./StoreActions";
+import {
+  BuyButton,
+  InstallButton,
+  TrialButton,
+  type StoreActionHandlers,
+} from "./StoreActions";
 import { tileActions } from "./storeActionRules";
 import { storeEntitlement, type StoreItem } from "./types";
 
@@ -83,7 +96,53 @@ export default function StoreTile({ item, bundleLogoUrl, handlers, onOpen }: Pro
   const claiming = handlers.claimingKey === item.key;
 
   return (
-    <Card variant="outlined" sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <Card
+      variant="outlined"
+      sx={{
+        position: "relative",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        transition: (theme) =>
+          theme.transitions.create(["transform", "box-shadow", "border-color"], {
+            duration: theme.transitions.duration.shorter,
+          }),
+        "&:hover": {
+          transform: "translateY(-2px)",
+          boxShadow: 3,
+          borderColor: "primary.main",
+        },
+        // The icon is the tile's resting hint; hovering promotes it from a
+        // quiet mark to the thing you are about to press.
+        "&:hover .store-tile-info": { opacity: 1, color: "primary.main" },
+        "@media (prefers-reduced-motion: reduce)": {
+          transition: "none",
+          "&:hover": { transform: "none", boxShadow: 1, borderColor: "primary.main" },
+        },
+      }}
+    >
+      <Tooltip title={t("extensions.store.moreDetails", "More details")}>
+        <Box
+          className="store-tile-info"
+          aria-hidden
+          sx={{
+            position: "absolute",
+            top: 8,
+            insetInlineEnd: 8,
+            display: "flex",
+            opacity: 0.4,
+            color: "text.secondary",
+            pointerEvents: "none",
+            transition: (theme) =>
+              theme.transitions.create(["opacity", "color"], {
+                duration: theme.transitions.duration.shorter,
+              }),
+            "@media (prefers-reduced-motion: reduce)": { transition: "none" },
+          }}
+        >
+          <MaterialSymbol icon="info" size={18} />
+        </Box>
+      </Tooltip>
       <CardActionArea
         onClick={() => onOpen(item.key)}
         aria-label={t("extensions.store.openDetails", "Open details for {{name}}", {
@@ -103,6 +162,7 @@ export default function StoreTile({ item, bundleLogoUrl, handlers, onOpen }: Pro
             <Typography
               variant="subtitle2"
               sx={{
+                pr: 2.5,
                 fontWeight: 600,
                 display: "-webkit-box",
                 WebkitLineClamp: 2,
@@ -148,6 +208,9 @@ export default function StoreTile({ item, bundleLogoUrl, handlers, onOpen }: Pro
           {item.price}
         </Typography>
         <Stack direction="row" spacing={1}>
+          {actions.includes("trial") && (
+            <TrialButton item={item} handlers={handlers} fullWidth compact />
+          )}
           {actions.includes("buy") && <BuyButton item={item} handlers={handlers} fullWidth />}
           {actions.includes("install") && (
             <InstallButton item={item} handlers={handlers} fullWidth />

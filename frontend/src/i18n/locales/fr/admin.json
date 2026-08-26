@@ -1882,6 +1882,8 @@
   "extensions.store.licensed": "Sous licence",
   "extensions.store.buy": "Acheter",
   "extensions.store.startTrial": "Démarrer l'essai de 30 jours",
+  "extensions.store.moreDetails": "Plus de détails",
+  "extensions.store.tryFree": "Essai gratuit",
   "extensions.store.seeInAction": "Voir en action",
   "extensions.store.details": "Détails",
   "extensions.store.source": "Source",

@@ -1882,6 +1882,8 @@
   "extensions.store.licensed": "Лицензировано",
   "extensions.store.buy": "Купить",
   "extensions.store.startTrial": "Начать 30-дневный пробный период",
+  "extensions.store.moreDetails": "Подробнее",
+  "extensions.store.tryFree": "Попробовать",
   "extensions.store.seeInAction": "Посмотреть в действии",
   "extensions.store.details": "Подробности",
   "extensions.store.source": "Источник",

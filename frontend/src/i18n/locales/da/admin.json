@@ -1882,6 +1882,8 @@
   "extensions.store.licensed": "Licenseret",
   "extensions.store.buy": "Køb",
   "extensions.store.startTrial": "Start 30-dages prøveperiode",
+  "extensions.store.moreDetails": "Flere detaljer",
+  "extensions.store.tryFree": "Prøv gratis",
   "extensions.store.seeInAction": "Se det i praksis",
   "extensions.store.details": "Detaljer",
   "extensions.store.source": "Kilde",

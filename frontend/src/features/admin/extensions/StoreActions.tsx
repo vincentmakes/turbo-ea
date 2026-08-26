@@ -84,10 +84,13 @@ export function TrialButton({
   item,
   handlers,
   fullWidth = false,
+  compact = false,
 }: {
   item: StoreItem;
   handlers: StoreActionHandlers;
   fullWidth?: boolean;
+  /** Tile variant: half a tile's width has no room for the full sentence. */
+  compact?: boolean;
 }) {
   const { t } = useTranslation("admin");
   return (
@@ -97,8 +100,11 @@ export function TrialButton({
       variant="outlined"
       onClick={() => handlers.onTrial(item)}
       startIcon={<MaterialSymbol icon="hourglass_top" size={18} />}
+      sx={{ whiteSpace: "nowrap" }}
     >
-      {t("extensions.store.startTrial", "Start 30-day trial")}
+      {compact
+        ? t("extensions.store.tryFree", "Try free")
+        : t("extensions.store.startTrial", "Start 30-day trial")}
     </Button>
   );
 }

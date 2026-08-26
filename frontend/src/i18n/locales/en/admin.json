@@ -1882,6 +1882,8 @@
   "extensions.store.licensed": "Licensed",
   "extensions.store.buy": "Buy",
   "extensions.store.startTrial": "Start 30-day trial",
+  "extensions.store.moreDetails": "More details",
+  "extensions.store.tryFree": "Try free",
   "extensions.store.seeInAction": "See it in action",
   "extensions.store.details": "Details",
   "extensions.store.source": "Source",

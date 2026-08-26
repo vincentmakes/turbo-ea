@@ -1882,6 +1882,8 @@
   "extensions.store.licensed": "已授权",
   "extensions.store.buy": "购买",
   "extensions.store.startTrial": "开始 30 天试用",
+  "extensions.store.moreDetails": "更多详情",
+  "extensions.store.tryFree": "免费试用",
   "extensions.store.seeInAction": "观看演示",
   "extensions.store.details": "详情",
   "extensions.store.source": "来源",

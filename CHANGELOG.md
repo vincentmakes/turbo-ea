@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **The Store tab is now a grid of compact tiles with a detail panel.** Two large cards per row meant a lot of scrolling to survey a handful of extensions, and every card had to carry every field it owned. Tiles now fit roughly four to a row on a normal screen — logo, name, licence state, price and the action you are most likely to want — and clicking one opens a panel on the right with the full description, screenshots, categories and source and licence credits. The panel keeps the grid in view, so looking through several extensions no longer means opening and closing a dialog each time.
+- **The Store tab is now a grid of compact tiles with a detail panel.** Two large cards per row meant a lot of scrolling to survey a handful of extensions, and every card had to carry every field it owned. Tiles now fit roughly four to a row on a normal screen — logo, name, licence state, price and the actions you are most likely to want — and clicking one opens a panel on the right with the full description, screenshots, categories and source and licence credits. Each tile carries a small info mark and lifts as you point at it, so it is obvious there is more behind the click, and where an extension offers a free trial the tile shows **Try free** beside **Buy** rather than hiding the trial a click away. The panel keeps the grid in view, so looking through several extensions no longer means opening and closing a dialog each time.
 
 ### Fixed
 

@@ -36,16 +36,28 @@ export function canInstall(item: StoreItem): boolean {
 /**
  * The actions a compact tile shows, in render order.
  *
- * At most two, because an unlicensed paid item genuinely has two different
- * next steps and burying either costs something real: Buy is the revenue
- * path, and Install is how somebody who already holds a licence file gets to
- * the paste dialog. Everything else — the trial, the demo — is one click
- * away in the drawer.
+ * At most two — a third does not fit at this width, and a tile with three
+ * equal-weight buttons has no primary action at all. Which two depends on
+ * what is actually on offer:
+ *
+ * - **A trial is available** → *Try free* and *Buy*. A no-card trial is the
+ *   strongest path for someone who has not bought yet, so it earns the slot;
+ *   Install drops to the drawer because on an unlicensed paid item it only
+ *   serves somebody who already holds a licence file.
+ * - **Otherwise** → *Buy* and *Install*. Buy is the revenue path, Install is
+ *   how that licence-file holder reaches the paste dialog.
+ *
+ * The demo, and whichever of these lost its slot, are one click away in the
+ * drawer — nothing becomes unreachable.
  */
-export function tileActions(item: StoreItem, claimingKey: string | null): ("buy" | "install")[] {
-  const actions: ("buy" | "install")[] = [];
+export type TileAction = "trial" | "buy" | "install";
+
+export function tileActions(item: StoreItem, claimingKey: string | null): TileAction[] {
+  const trial = canTrial(item, claimingKey);
+  const actions: TileAction[] = [];
+  if (trial) actions.push("trial");
   if (canBuy(item, claimingKey)) actions.push("buy");
-  if (canInstall(item)) actions.push("install");
+  if (!trial && canInstall(item)) actions.push("install");
   return actions;
 }
 

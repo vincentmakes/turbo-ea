@@ -219,10 +219,28 @@ export default function StoreDetailDrawer({
             {canBuy(item, handlers.claimingKey) && (
               <BuyButton item={item} handlers={handlers} fullWidth />
             )}
-            {canTrial(item, handlers.claimingKey) && (
-              <TrialButton item={item} handlers={handlers} fullWidth />
+            {/* The two secondary actions share a row so their edges line up
+                instead of stacking as two lone full-width bars. `minmax(0,
+                1fr)`, not `1fr`: the implicit `auto` minimum is the button's
+                min-content width, which overflows the track on a narrow
+                drawer. A single secondary still spans the row. */}
+            {(canTrial(item, handlers.claimingKey) || item.demo_url) && (
+              <Box
+                sx={{
+                  display: "grid",
+                  gap: 1,
+                  gridTemplateColumns:
+                    canTrial(item, handlers.claimingKey) && item.demo_url
+                      ? "repeat(2, minmax(0, 1fr))"
+                      : "minmax(0, 1fr)",
+                }}
+              >
+                {canTrial(item, handlers.claimingKey) && (
+                  <TrialButton item={item} handlers={handlers} fullWidth compact />
+                )}
+                {item.demo_url && <DemoButton item={item} fullWidth />}
+              </Box>
             )}
-            {item.demo_url && <DemoButton item={item} fullWidth />}
           </Stack>
         </Box>
       )}

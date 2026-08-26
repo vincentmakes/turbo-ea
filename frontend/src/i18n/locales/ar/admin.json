@@ -1882,6 +1882,8 @@
   "extensions.store.licensed": "مرخَّص",
   "extensions.store.buy": "شراء",
   "extensions.store.startTrial": "بدء تجربة 30 يومًا",
+  "extensions.store.moreDetails": "مزيد من التفاصيل",
+  "extensions.store.tryFree": "جرّب مجانًا",
   "extensions.store.seeInAction": "شاهدها أثناء العمل",
   "extensions.store.details": "تفاصيل",
   "extensions.store.source": "المصدر",
