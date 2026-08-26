@@ -480,6 +480,68 @@ async def test_an_admin_who_muted_the_types_is_not_notified_but_state_advances(d
     assert "b" in (await _state(db))["knownKeys"]
 
 
+async def test_a_user_who_never_touched_preferences_is_notified(db):
+    """On by default. A type nobody has expressed an opinion about falls back
+    to its spec default, so an administrator gets the notice without having to
+    go and switch anything on first."""
+    await _one_admin(db)
+    await _seeded(db)
+
+    created = await record_result(db, items=_catalogue(("b", "Beta", "1.0.0")), error=None)
+
+    assert created == 1
+    assert len(await _notifications(db, NEW_NOTIFICATION_TYPE)) == 1
+
+
+async def test_preferences_saved_before_the_type_existed_still_notify(db):
+    """The subtle half of "on by default".
+
+    An account that saved its notification preferences before these types were
+    added carries a populated ``in_app`` dict that simply has no key for them.
+    Resolution is per-key with a spec fallback, not "the stored dict wins
+    wholesale" — otherwise every pre-existing account would have been silently
+    opted out of a type it had never seen.
+    """
+    admin = await _one_admin(db)
+    admin.notification_preferences = {
+        "in_app": {"todo_assigned": True, "comment_added": False},
+        "email": {"todo_assigned": True},
+    }
+    await db.flush()
+    await _seeded(db)
+
+    created = await record_result(db, items=_catalogue(("b", "Beta", "1.0.0")), error=None)
+
+    assert created == 1
+
+
+async def test_an_explicit_opt_out_survives(db):
+    """...and the opposite must hold just as firmly: somebody who turned these
+    off stays off, and nothing about adding the type re-enables them."""
+    admin = await _one_admin(db)
+    admin.notification_preferences = {"in_app": {"extension_available": False}}
+    await db.flush()
+    await _seeded(db)
+
+    assert await record_result(db, items=_catalogue(("b", "Beta", "1.0.0")), error=None) == 0
+    assert await _notifications(db, NEW_NOTIFICATION_TYPE) == []
+
+
+async def test_the_instance_toggle_is_on_until_an_admin_turns_it_off(db):
+    await _one_admin(db)
+    assert await extension_notices_enabled(db) is True
+
+    row = (
+        await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    ).scalar_one_or_none()
+    if row is None:
+        row = AppSettings(id="default", general_settings={})
+        db.add(row)
+    row.general_settings = {**(row.general_settings or {}), "extensionNoticesEnabled": False}
+    await db.flush()
+    assert await extension_notices_enabled(db) is False
+
+
 async def test_an_unreachable_store_records_the_error_and_stays_quiet(db):
     await _one_admin(db)
 
