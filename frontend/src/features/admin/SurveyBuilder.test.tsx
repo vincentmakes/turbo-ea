@@ -530,3 +530,30 @@ describe("SurveyBuilder — section action select stability", () => {
     }
   });
 });
+
+describe("SurveyBuilder — fields step layout", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    routeParams = {};
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve({ items: [] });
+      if (path.startsWith("/stakeholder-roles")) return Promise.resolve(ROLE_DEFS);
+      return Promise.resolve([]);
+    });
+    mockPost.mockResolvedValue({ id: "survey-1" });
+    (api.patch as ReturnType<typeof vi.fn>).mockResolvedValue({});
+  });
+
+  it("indents the field tickboxes inside their section's", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    const cellOf = (label: string | RegExp) =>
+      screen.getByText(label).closest("tr")!.querySelector("td")!;
+    const padLeft = (el: Element) => parseFloat(getComputedStyle(el).paddingLeft || "0");
+
+    // Mechanical, not visual: the last attempt put the indent on a
+    // padding="checkbox" cell, which silently swallowed it.
+    expect(padLeft(cellOf("TIME Model"))).toBeGreaterThan(padLeft(cellOf("Assessment")));
+  });
+});

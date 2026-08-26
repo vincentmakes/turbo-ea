@@ -1070,8 +1070,13 @@ export default function SurveyBuilder() {
                               sx={{ cursor: "pointer" }}
                             >
                               {/* Indented under the section's own tickbox so the
-                                  hierarchy reads at a glance. */}
-                              <TableCell padding="checkbox" sx={{ pl: 3 }}>
+                                  hierarchy reads at a glance. Deliberately NOT
+                                  padding="checkbox": that variant sets both
+                                  `width: 48` and the `padding` shorthand, so a
+                                  lone padding-left override half-fights a
+                                  shorthand inside a box too narrow to hold the
+                                  indent, and nothing moves. */}
+                              <TableCell sx={{ width: 56, py: 0, pr: 0, pl: 4 }}>
                                 <Checkbox checked={!!selected} size="small" />
                               </TableCell>
                               <TableCell>
