@@ -101,6 +101,8 @@ export interface SsoConfig {
   extra_auth_params?: Record<string, string>;
   registration_enabled?: boolean;
   local_login_available?: boolean;
+  /** Instance sits behind an authenticating reverse proxy (#1006). */
+  proxy_auth?: boolean;
 }
 
 export interface SsoInvitation {

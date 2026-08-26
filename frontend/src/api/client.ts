@@ -194,9 +194,15 @@ export const auth = {
       extra_auth_params?: Record<string, string>;
       registration_enabled?: boolean;
       local_login_available?: boolean;
+      proxy_auth?: boolean;
     }>("/auth/sso/config"),
   ssoCallback: (code: string, redirect_uri: string) =>
     api.post<{ access_token: string }>("/auth/sso/callback", { code, redirect_uri }),
+  /**
+   * Exchange the identity an authenticating reverse proxy already established
+   * for a Turbo EA session. 404s unless the instance opted in (#1006).
+   */
+  proxySession: () => api.post<{ access_token: string }>("/auth/proxy/session"),
   setPassword: (token: string, password: string) =>
     api.post<{ access_token: string }>("/auth/set-password", { token, password }),
   forgotPassword: (email: string) =>

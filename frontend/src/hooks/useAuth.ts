@@ -7,6 +7,13 @@ import { resetExtensionHost } from "@/lib/extensionHost";
 import i18n from "@/i18n";
 import type { User } from "@/types";
 
+/**
+ * Set on logout to stop the login page immediately re-authenticating through a
+ * trusted reverse proxy. Per-tab and deliberately not persistent: a new tab
+ * should sign in automatically again.
+ */
+export const PROXY_SIGNOUT_KEY = "turboea_proxy_signed_out";
+
 const TOKEN_REFRESH_INTERVAL = 10 * 60 * 1000; // Refresh every 10 minutes
 
 export function useAuth() {
@@ -75,6 +82,17 @@ export function useAuth() {
     await loadUser();
   };
 
+  /**
+   * Sign in from the identity a reverse proxy already established (#1006).
+   * Throws when the instance has not opted in (the endpoint 404s) or the proxy
+   * asserted nothing usable; callers fall back to the normal login form.
+   */
+  const proxySession = async () => {
+    const { access_token } = await auth.proxySession();
+    setToken(access_token);
+    await loadUser();
+  };
+
   const ssoCallback = async (code: string, redirectUri: string) => {
     const { access_token } = await auth.ssoCallback(code, redirectUri);
     setToken(access_token);
@@ -92,6 +110,15 @@ export function useAuth() {
       await auth.logout();
     } catch {
       // Best-effort — clear local state regardless
+    }
+    // Behind an authenticating proxy the identity is still asserted on the very
+    // next request, so the login page would sign the user straight back in and
+    // logout would be impossible. This sentinel suppresses the automatic
+    // attempt for this tab; an explicit click still signs in.
+    try {
+      sessionStorage.setItem(PROXY_SIGNOUT_KEY, "1");
+    } catch {
+      // sessionStorage unavailable (private mode etc.) — non-fatal.
     }
     clearToken();
     stopEventStream();
@@ -112,6 +139,7 @@ export function useAuth() {
     login,
     register,
     ssoCallback,
+    proxySession,
     setPassword,
     logout,
     refreshUser: loadUser,
