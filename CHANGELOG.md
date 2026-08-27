@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.94.0] - 2026-08-27
+
+### Added
+
+- Extension UI SDK 1.18: the `loadAgGrid` loader now also resolves core's grid-template hooks (`useColumnFreeze` / `useColumnOrder`), so an extension grid offers the same column freeze and drag-reorder affordances as the Inventory.
+- The inventory grid renders extension-contributed custom field types with the extension's own display component, matching card detail (read-only in the grid; values degrade to plain text when the extension is absent).
+
 ## [2.93.0] - 2026-08-27
 
 ### Added

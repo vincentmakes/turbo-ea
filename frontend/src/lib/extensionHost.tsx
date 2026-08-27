@@ -91,7 +91,7 @@ import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
 import * as tokens from "@/theme/tokens";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.17";
+export const UI_SDK_VERSION = "1.18";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -940,14 +940,25 @@ export function initExtensionHost(): void {
       // core's grid look without bundling AG Grid; `CreateCardDialog` is
       // core's create-card modal (lazy wrapper), openable pre-configured
       // via initialType/initialSubtype/initialAttributes.
+      // Since SDK 1.18 the resolved module also carries the documented grid
+      // template hooks (UI_GUIDELINES §3.6) — `useColumnFreeze` and
+      // `useColumnOrder` — lazily, so they stay in the code-split grid chunk.
+      // Extension components call them off the loaded module; that is safe
+      // because the grid component only mounts once the module resolved, so
+      // hook call order stays stable.
       loadAgGrid: () =>
-        Promise.all([import("ag-grid-react"), import("@/lib/agGridSetup")]).then(
-          ([agReact, setup]) => ({
-            AgGridReact: agReact.AgGridReact,
-            gridThemeLight: setup.gridThemeLight,
-            gridThemeDark: setup.gridThemeDark,
-          }),
-        ),
+        Promise.all([
+          import("ag-grid-react"),
+          import("@/lib/agGridSetup"),
+          import("@/components/grid/useColumnFreeze"),
+          import("@/components/grid/useColumnOrder"),
+        ]).then(([agReact, setup, freeze, order]) => ({
+          AgGridReact: agReact.AgGridReact,
+          gridThemeLight: setup.gridThemeLight,
+          gridThemeDark: setup.gridThemeDark,
+          useColumnFreeze: freeze.useColumnFreeze,
+          useColumnOrder: order.useColumnOrder,
+        })),
       CreateCardDialog: ExtensionCreateCardDialog,
     },
     register: registerExtension,

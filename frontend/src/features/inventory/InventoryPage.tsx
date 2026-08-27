@@ -64,6 +64,7 @@ import {
 import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import RelationCellPopover from "./RelationCellPopover";
+import ExtFieldCell from "./ExtFieldCell";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCardSearch } from "@/hooks/useCardSearch";
 import { useTypeLabel, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
@@ -3003,6 +3004,18 @@ export default function InventoryPage() {
                 }
               : {}),
             ...(field.type === "date" ? dateColumnFilterDef : {}),
+            // Extension-typed columns render through the fieldTypes registry
+            // (same display component as card detail) and are never
+            // grid-editable — the spread order deliberately overrides the
+            // `editable` set above.
+            ...(field.type.startsWith("ext.")
+              ? {
+                  editable: false,
+                  cellRenderer: (p: { value: unknown }) => (
+                    <ExtFieldCell field={field} value={p.value} />
+                  ),
+                }
+              : {}),
           });
         }
       }
@@ -3046,6 +3059,13 @@ export default function InventoryPage() {
               }
             : {}),
           ...(field.type === "date" ? dateColumnFilterDef : {}),
+          ...(field.type.startsWith("ext.")
+            ? {
+                cellRenderer: (p: { value: unknown }) => (
+                  <ExtFieldCell field={field} value={p.value} />
+                ),
+              }
+            : {}),
         });
       }
     }
