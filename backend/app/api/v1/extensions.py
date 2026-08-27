@@ -62,7 +62,9 @@ from app.services.extensions.content_pack import (
 )
 from app.services.extensions.field_contributions import (
     apply_field_contributions,
+    apply_subtype_contributions,
     remove_field_contributions,
+    remove_subtype_contributions,
 )
 from app.services.extensions.installer import install_bundle, uninstall
 from app.services.extensions.instance_id import get_instance_id, license_binding_problem
@@ -996,8 +998,10 @@ async def set_extension_enabled(
     # values untouched), re-merge them on enable.
     if payload.enabled:
         await apply_field_contributions(db, key, row.manifest or {})
+        await apply_subtype_contributions(db, key, row.manifest or {})
     else:
         await remove_field_contributions(db, key)
+        await remove_subtype_contributions(db, key)
     await db.commit()
     await db.refresh(row)
     await extension_registry.refresh_from_db(db)
@@ -1298,9 +1302,10 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
             await set_content_visibility(
                 db, ext_installer.EXTENSIONS_DIR / extension.key, bundle.manifest, False
             )
-            # Merge manifest field contributions into their target card types
-            # (idempotent; updates re-sync the extension-owned sections).
+            # Merge manifest field + subtype contributions into their target
+            # card types (idempotent; updates re-sync the ext-owned entries).
             await apply_field_contributions(db, extension.key, bundle.manifest)
+            await apply_subtype_contributions(db, extension.key, bundle.manifest)
         else:
             # Updating a DISABLED extension: content stays hidden — including
             # card/relation types NEW in this version — and field

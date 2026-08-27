@@ -292,9 +292,33 @@ def _validate_metamodel_block(manifest: dict[str, Any], ext_key: str) -> None:
     if not isinstance(block, dict):
         raise BundleError("metamodel capability requires a metamodel object in the manifest")
     sections = block.get("field_sections")
-    if not isinstance(sections, list) or not sections:
-        raise BundleError("metamodel block must declare a non-empty field_sections list")
-    for i, contrib in enumerate(sections):
+    subtype_rows = block.get("subtypes")
+    if (not isinstance(sections, list) or not sections) and (
+        not isinstance(subtype_rows, list) or not subtype_rows
+    ):
+        raise BundleError(
+            "metamodel block must declare a non-empty field_sections and/or subtypes list"
+        )
+    if subtype_rows is not None:
+        if not isinstance(subtype_rows, list):
+            raise BundleError("metamodel.subtypes must be a list")
+        for i, contrib in enumerate(subtype_rows):
+            where = f"metamodel.subtypes[{i}]"
+            if not isinstance(contrib, dict):
+                raise BundleError(f"{where} must be an object")
+            if not isinstance(contrib.get("card_type"), str) or not contrib["card_type"].strip():
+                raise BundleError(f"{where} is missing card_type")
+            rows = contrib.get("subtypes")
+            if not isinstance(rows, list) or not rows:
+                raise BundleError(f"{where} must declare a non-empty subtypes list")
+            for j, s in enumerate(rows):
+                sw = f"{where}.subtypes[{j}]"
+                if not isinstance(s, dict):
+                    raise BundleError(f"{sw} must be an object")
+                for req in ("key", "label"):
+                    if not isinstance(s.get(req), str) or not s[req].strip():
+                        raise BundleError(f"{sw} is missing {req}")
+    for i, contrib in enumerate(sections or []):
         where = f"metamodel.field_sections[{i}]"
         if not isinstance(contrib, dict):
             raise BundleError(f"{where} must be an object")

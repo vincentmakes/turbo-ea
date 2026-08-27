@@ -306,8 +306,30 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str], list[str]
     if "metamodel" in capabilities:
         block = manifest.get("metamodel") or {}
         sections = block.get("field_sections")
-        if not isinstance(sections, list) or not sections:
-            problems.append("metamodel capability needs metamodel.field_sections")
+        subtype_rows = block.get("subtypes")
+        if (not isinstance(sections, list) or not sections) and (
+            not isinstance(subtype_rows, list) or not subtype_rows
+        ):
+            problems.append("metamodel capability needs field_sections and/or subtypes")
+        for i, contrib in enumerate(subtype_rows if isinstance(subtype_rows, list) else []):
+            where = f"metamodel.subtypes[{i}]"
+            if not isinstance(contrib, dict):
+                problems.append(f"{where} must be an object")
+                continue
+            if not str(contrib.get("card_type", "")).strip():
+                problems.append(f"{where} is missing card_type")
+            rows = contrib.get("subtypes")
+            if not isinstance(rows, list) or not rows:
+                problems.append(f"{where} needs a non-empty subtypes list")
+                continue
+            for j, s in enumerate(rows):
+                sw = f"{where}.subtypes[{j}]"
+                if not isinstance(s, dict):
+                    problems.append(f"{sw} must be an object")
+                    continue
+                for req in ("key", "label"):
+                    if not str(s.get(req, "")).strip():
+                        problems.append(f"{sw} is missing {req}")
         for i, contrib in enumerate(sections or []):
             where = f"metamodel.field_sections[{i}]"
             if not isinstance(contrib, dict):

@@ -242,6 +242,135 @@ async def apply_field_contributions(
     return applied
 
 
+# ---------------------------------------------------------------------------
+# Subtype contributions — the same additive merge/strip lifecycle, applied to
+# a card type's ``subtypes`` list. An extension may declare::
+#
+#     "metamodel": {
+#       "subtypes": [
+#         {"card_type": "Organization",
+#          "subtypes": [{"key": "branch", "label": "Branch",
+#                        "translations": {"de": "Zweigniederlassung"}}]}
+#       ]
+#     }
+#
+# Contributed subtypes are stamped ``"ext": "<key>"``; a key that already
+# exists outside the extension is skipped (never hijacked); disable/uninstall
+# strips the stamped entries while ``cards.subtype`` VALUES are untouched —
+# rendering degrades to the raw key (never gated), and re-enabling restores
+# the label. No data-quality recompute: subtypes carry no weights.
+# ---------------------------------------------------------------------------
+
+_ALLOWED_SUBTYPE_PROPS = ("key", "label", "color", "translations")
+
+
+def subtype_contributions_from_manifest(manifest: dict[str, Any] | None) -> list[dict]:
+    """The ``metamodel.subtypes`` list, or ``[]``."""
+    block = (manifest or {}).get("metamodel") or {}
+    rows = block.get("subtypes")
+    return rows if isinstance(rows, list) else []
+
+
+async def apply_subtype_contributions(
+    db: AsyncSession, ext_key: str, manifest: dict[str, Any] | None
+) -> int:
+    """Merge the manifest's subtype contributions into their target card types.
+
+    Idempotent upsert mirroring :func:`apply_field_contributions`: stamped
+    entries are replaced from the manifest on every apply; subtypes owned by
+    core/admins/other extensions are never touched. Returns the number of
+    subtypes now contributed. The caller commits.
+    """
+    contributions = subtype_contributions_from_manifest(manifest)
+    applied = 0
+    touched_types: set[str] = set()
+    for contrib in contributions:
+        if not isinstance(contrib, dict):
+            continue
+        type_key = contrib.get("card_type")
+        wanted = contrib.get("subtypes") or []
+        if not type_key or not isinstance(wanted, list) or not wanted:
+            continue
+        ct = (
+            await db.execute(select(CardType).where(CardType.key == type_key))
+        ).scalar_one_or_none()
+        if ct is None:
+            logger.warning(
+                "Extension %s contributes subtypes to missing card type %r — skipped",
+                ext_key,
+                type_key,
+            )
+            continue
+
+        existing = [dict(s) if isinstance(s, dict) else s for s in (ct.subtypes or [])]
+        foreign = {
+            s.get("key")
+            for s in existing
+            if isinstance(s, dict) and s.get("key") and s.get("ext") != ext_key
+        }
+        stamped: list[dict] = []
+        for s in wanted:
+            if not isinstance(s, dict) or not s.get("key") or not s.get("label"):
+                continue
+            if s["key"] in foreign:
+                logger.warning(
+                    "Extension %s: subtype %r already exists on %s outside the "
+                    "extension — skipped (never hijack an existing subtype)",
+                    ext_key,
+                    s["key"],
+                    type_key,
+                )
+                continue
+            out = {k: v for k, v in s.items() if k in _ALLOWED_SUBTYPE_PROPS}
+            out["ext"] = ext_key
+            stamped.append(out)
+        kept = [s for s in existing if not (isinstance(s, dict) and s.get("ext") == ext_key)]
+        if not stamped and kept == existing:
+            continue
+        ct.subtypes = kept + stamped
+        flag_modified(ct, "subtypes")
+        touched_types.add(type_key)
+        applied += len(stamped)
+
+    # Clean stamped subtypes off types the current manifest no longer targets
+    # (same retarget handling as field sections — scans stamps).
+    stale = await remove_subtype_contributions(db, ext_key, except_types=touched_types)
+    if stale:
+        logger.info(
+            "Extension %s: removed %d stale contributed subtype(s) from retargeted types",
+            ext_key,
+            stale,
+        )
+    if touched_types:
+        await db.flush()
+    return applied
+
+
+async def remove_subtype_contributions(
+    db: AsyncSession, ext_key: str, *, except_types: AbstractSet[str] = frozenset()
+) -> int:
+    """Strip this extension's stamped subtypes from every card type.
+
+    ``cards.subtype`` values are deliberately preserved — a card keeps its
+    subtype key and the UI degrades to rendering the raw key until the
+    extension is re-enabled. Returns the number removed. The caller commits.
+    """
+    removed = 0
+    all_types = (await db.execute(select(CardType))).scalars().all()
+    for ct in all_types:
+        if ct.key in except_types:
+            continue
+        subtypes = ct.subtypes or []
+        kept = [s for s in subtypes if not (isinstance(s, dict) and s.get("ext") == ext_key)]
+        if len(kept) != len(subtypes):
+            removed += len(subtypes) - len(kept)
+            ct.subtypes = kept
+            flag_modified(ct, "subtypes")
+    if removed:
+        await db.flush()
+    return removed
+
+
 async def remove_field_contributions(
     db: AsyncSession, ext_key: str, *, except_types: AbstractSet[str] = frozenset()
 ) -> int:

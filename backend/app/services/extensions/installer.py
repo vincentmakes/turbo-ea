@@ -202,7 +202,10 @@ async def uninstall(
     layer surfaces that.
     """
     from app.services.extensions.content_pack import set_content_visibility
-    from app.services.extensions.field_contributions import remove_field_contributions
+    from app.services.extensions.field_contributions import (
+        remove_field_contributions,
+        remove_subtype_contributions,
+    )
 
     extensions_dir = extensions_dir if extensions_dir is not None else EXTENSIONS_DIR
     row = (await db.execute(select(Extension).where(Extension.key == key))).scalar_one_or_none()
@@ -213,6 +216,7 @@ async def uninstall(
     # (attribute values stay in cards.attributes — reinstalling restores them).
     hidden = await set_content_visibility(db, extensions_dir / key, row.manifest or {}, True)
     hidden += await remove_field_contributions(db, key)
+    hidden += await remove_subtype_contributions(db, key)
     # The DB row lookup above already guarantees a legitimate key, but never
     # hand a deletion sink a path that could have escaped the extensions root.
     # Realpath + os.sep-terminated prefix guard is the canonical containment

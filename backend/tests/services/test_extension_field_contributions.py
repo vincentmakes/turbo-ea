@@ -274,3 +274,143 @@ class TestBundleValidation:
         path = self.bundle(tmp_path, keypair, metamodel={"field_sections": [bad]})
         with pytest.raises(BundleError, match="missing key"):
             read_bundle(path)
+
+
+# ---------------------------------------------------------------------------
+# Subtype contributions — same merge/strip lifecycle on card_types.subtypes
+# ---------------------------------------------------------------------------
+
+from app.services.extensions.field_contributions import (  # noqa: E402
+    apply_subtype_contributions,
+    remove_subtype_contributions,
+)
+
+
+def subtype_manifest(card_type="Organization", subtypes=None):
+    return {
+        "metamodel": {
+            "subtypes": [
+                {
+                    "card_type": card_type,
+                    "subtypes": subtypes
+                    if subtypes is not None
+                    else [
+                        {
+                            "key": "branch",
+                            "label": "Branch",
+                            "translations": {"de": "Zweigniederlassung"},
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+
+
+class TestSubtypeContributions:
+    async def test_apply_appends_stamped_subtype(self, db):
+        ct = await create_card_type(
+            db,
+            key="Organization",
+            label="Organization",
+            subtypes=[{"key": "legalEntity", "label": "Legal Entity"}],
+        )
+        applied = await apply_subtype_contributions(db, EXT, subtype_manifest())
+        assert applied == 1
+        keys = [s["key"] for s in ct.subtypes]
+        assert keys == ["legalEntity", "branch"]
+        branch = ct.subtypes[-1]
+        assert branch["ext"] == EXT
+        assert branch["translations"]["de"] == "Zweigniederlassung"
+        # Idempotent: re-applying changes nothing.
+        assert await apply_subtype_contributions(db, EXT, subtype_manifest()) == 1
+        assert [s["key"] for s in ct.subtypes] == ["legalEntity", "branch"]
+
+    async def test_existing_subtype_is_never_hijacked(self, db):
+        ct = await create_card_type(
+            db,
+            key="Organization",
+            label="Organization",
+            subtypes=[{"key": "branch", "label": "Admin's Branch"}],
+        )
+        applied = await apply_subtype_contributions(db, EXT, subtype_manifest())
+        assert applied == 0
+        assert ct.subtypes == [{"key": "branch", "label": "Admin's Branch"}]
+
+    async def test_remove_strips_stamped_but_card_values_survive(self, db):
+        ct = await create_card_type(db, key="Organization", label="Organization", subtypes=[])
+        await apply_subtype_contributions(db, EXT, subtype_manifest())
+        card = await create_card(db, type="Organization", name="Berlin office", subtype="branch")
+        removed = await remove_subtype_contributions(db, EXT)
+        assert removed == 1
+        assert ct.subtypes == []
+        assert card.subtype == "branch"  # value untouched — rendering degrades
+        # Re-applying restores the label for the surviving value.
+        await apply_subtype_contributions(db, EXT, subtype_manifest())
+        assert ct.subtypes[0]["key"] == "branch"
+
+    async def test_retargeted_contribution_cleans_old_type(self, db):
+        org = await create_card_type(db, key="Organization", label="Organization", subtypes=[])
+        prov = await create_card_type(db, key="Provider", label="Provider", subtypes=[])
+        await apply_subtype_contributions(db, EXT, subtype_manifest("Organization"))
+        assert [s["key"] for s in org.subtypes] == ["branch"]
+        await apply_subtype_contributions(db, EXT, subtype_manifest("Provider"))
+        assert org.subtypes == []
+        assert [s["key"] for s in prov.subtypes] == ["branch"]
+
+    async def test_missing_card_type_is_skipped(self, db):
+        assert await apply_subtype_contributions(db, EXT, subtype_manifest("NoSuchType")) == 0
+
+    async def test_unknown_props_are_dropped_and_stamped(self, db):
+        ct = await create_card_type(db, key="Organization", label="Organization", subtypes=[])
+        await apply_subtype_contributions(
+            db,
+            EXT,
+            subtype_manifest(
+                subtypes=[{"key": "branch", "label": "Branch", "evil": "x", "color": "#123456"}]
+            ),
+        )
+        branch = ct.subtypes[0]
+        assert "evil" not in branch
+        assert branch["color"] == "#123456"
+        assert branch["ext"] == EXT
+
+
+class TestSubtypeBundleValidation(TestBundleValidation):
+    """metamodel.subtypes shape checks at signature-verification time."""
+
+    def test_subtypes_only_metamodel_block_accepted(self, tmp_path, keypair):
+        path = self.bundle(
+            tmp_path,
+            keypair,
+            metamodel={
+                "subtypes": [
+                    {
+                        "card_type": "Organization",
+                        "subtypes": [{"key": "branch", "label": "Branch"}],
+                    }
+                ]
+            },
+        )
+        bundle = read_bundle(path)
+        assert bundle.manifest["metamodel"]["subtypes"][0]["card_type"] == "Organization"
+
+    def test_subtype_missing_label_rejected(self, tmp_path, keypair):
+        path = self.bundle(
+            tmp_path,
+            keypair,
+            metamodel={
+                "subtypes": [{"card_type": "Organization", "subtypes": [{"key": "branch"}]}]
+            },
+        )
+        with pytest.raises(BundleError, match="missing label"):
+            read_bundle(path)
+
+    def test_subtype_row_missing_card_type_rejected(self, tmp_path, keypair):
+        path = self.bundle(
+            tmp_path,
+            keypair,
+            metamodel={"subtypes": [{"subtypes": [{"key": "branch", "label": "Branch"}]}]},
+        )
+        with pytest.raises(BundleError, match="missing card_type"):
+            read_bundle(path)

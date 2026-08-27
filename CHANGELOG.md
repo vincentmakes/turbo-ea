@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.92.0] - 2026-08-27
+
+### Added
+
+- Extensions can now contribute **subtypes to existing card types** through the manifest's `metamodel.subtypes` block — additive and reversible like field-section contributions: contributed subtypes are stamped, never hijack an existing subtype key, are stripped on disable/uninstall while card subtype values survive untouched, and reappear on re-enable. `teax lint` validates the new block.
+
 ## [2.91.0] - 2026-08-26
 
 ### Added
