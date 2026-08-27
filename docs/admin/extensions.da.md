@@ -8,6 +8,10 @@ Siden har to faner: **Butik** gennemser leverandørens udvidelseskatalog med ins
 
 **Udvidelser bygges og signeres af Turbo EA** — de er ikke selvbyggede eller åbne for tredjeparter. Hvis du har brug for en funktion, der er skræddersyet til din organisation, kan vi bygge og licensere den til dig. Se [Turbo EA-rådgivning](https://www.turbo-ea.org/consulting).
 
+## Vejledninger til hver udvidelse
+
+Hver udvidelse, der er offentliggjort i butikken, har sin egen brugervejledning — hvad den gør, hvordan den sættes op, og hvordan den bruges i det daglige. Se [Udvidelser](../extensions/index.md).
+
 ## Sådan fungerer tilliden
 
 To uafhængige kontroller beskytter din installation:

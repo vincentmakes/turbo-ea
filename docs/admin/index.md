@@ -19,3 +19,4 @@ The **Admin** section is available to users with the **Admin** role. It provides
 | [Surveys](surveys.md) | Data-maintenance surveys targeting specific card types and stakeholders |
 | [Web Portals](web-portals.md) | Public, read-only portals accessible without authentication |
 | [ServiceNow Integration](servicenow.md) | Bi-directional sync between Turbo EA cards and ServiceNow CMDB |
+| [Extension Store](extensions.md) | Install vendor-signed extensions, apply licences, and manage what is installed |

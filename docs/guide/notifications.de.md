@@ -51,4 +51,4 @@ zustellt (etwa als Chat-Nachricht), fügt sie neben «In der App» und «E-Mail�
 eine eigene Spalte hinzu, und Sie wählen pro Typ, ob er dorthin geht. Diese
 Spalten sind immer zunächst **aus**. Wird die Erweiterung deaktiviert oder läuft
 ihre Lizenz ab, verschwindet die Spalte und die Zustellung pausiert — Ihre
-Einstellungen bleiben jedoch erhalten und kehren mit der Erweiterung zurück.
+Einstellungen bleiben jedoch erhalten und kehren mit der Erweiterung zurück. [Slack Notifications](../extensions/slack-notify.md) ist eine solche Erweiterung.

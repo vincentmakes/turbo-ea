@@ -69,6 +69,7 @@ TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL=you@yourcompany.com
 
 ```
 TURBO_EA_PROXY_AUTH_ENABLED=true
+TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true
 TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true
 TURBO_EA_PROXY_AUTH_ISSUER=https://login.microsoftonline.com/TENANT/v2.0
 TURBO_EA_PROXY_AUTH_AUDIENCE=your-easyauth-app-client-id
@@ -77,7 +78,18 @@ TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS=yourcompany.com
 TURBO_EA_PROXY_AUTH_LOGOUT_URL=/.auth/logout
 ```
 
-Se il vostro token store è disabilitato, impostate invece `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=false` e `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true`. Questo si affida esplicitamente al fatto che Azure rimuova gli header di identità in ingresso prima che raggiungano la vostra app, e senza un token verificato **i nuovi account non vengono creati automaticamente** — invitate prima gli utenti, oppure usate l'email dell'amministratore di bootstrap.
+!!! warning "`TRUST_PLATFORM_HEADERS` è obbligatorio su App Service"
+    App Service non può iniettare un header segreto personalizzato, quindi
+    `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true` prende il posto di
+    `TURBO_EA_PROXY_AUTH_SHARED_SECRET`: è un riconoscimento esplicito del fatto
+    che vi affidate ad Azure per rimuovere gli header di identità in ingresso
+    prima che raggiungano la vostra app. Il controllo avviene **prima** ancora
+    che il token di identità venga analizzato, perciò verificare il token non lo
+    sostituisce. Se mancano sia questa impostazione sia un segreto condiviso,
+    ogni accesso fallisce con *Proxy authentication is enabled but not secured*,
+    anche con `VERIFY_ID_TOKEN=true`.
+
+Se il vostro token store è disabilitato, impostate inoltre `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=false` e affidatevi alla sola sanificazione degli header. Senza un token verificato **i nuovi account non vengono creati automaticamente**: invitate prima gli utenti, oppure usate l'email dell'amministratore di bootstrap.
 
 **Proxy generico (oauth2-proxy, Authelia, Traefik forwardAuth, …).** Configurate il proxy in modo che inietti un header con un segreto condiviso su ogni richiesta, così una richiesta che non è passata dal proxy non potrà mai essere scambiata per una che lo ha fatto. Generate il valore con `openssl rand -hex 32`:
 
@@ -106,7 +118,7 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 | `TURBO_EA_PROXY_AUTH_SECRET_HEADER` | `X-Turbo-EA-Proxy-Secret` | Header che trasporta il segreto condiviso |
 | `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN` | `false` | Verifica il token di identità inoltrato (modalità Azure) |
 | `TURBO_EA_PROXY_AUTH_ISSUER` / `_AUDIENCE` / `_JWKS_URI` | — | Impostazioni di verifica del token |
-| `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS` | `false` | Solo Azure: affidarsi alla sanificazione degli header della piattaforma invece che a un segreto |
+| `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS` | `false` | Solo Azure: affidarsi alla sanificazione degli header della piattaforma invece che a un segreto. Obbligatorio su App Service |
 | `TURBO_EA_PROXY_AUTH_EMAIL_HEADER` | `X-Forwarded-Email` | Modalità `header`: header dell'email |
 | `TURBO_EA_PROXY_AUTH_NAME_HEADER` | `X-Forwarded-User` | Modalità `header`: header del nome visualizzato |
 | `TURBO_EA_PROXY_AUTH_SUBJECT_HEADER` | `X-Forwarded-Subject` | Modalità `header`: header dell'identificativo stabile del soggetto |

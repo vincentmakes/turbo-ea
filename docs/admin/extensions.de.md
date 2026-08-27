@@ -8,6 +8,10 @@ Die Seite hat zwei Tabs: **Store** durchsucht den Erweiterungskatalog Ihres Anbi
 
 **Erweiterungen werden von Turbo EA erstellt und signiert** — sie sind nicht selbst erstellbar und nicht für Dritte offen. Wenn Sie eine auf Ihre Organisation zugeschnittene Funktion benötigen, erstellen und lizenzieren wir sie für Sie. Siehe [Turbo-EA-Beratung](https://www.turbo-ea.org/consulting).
 
+## Anleitungen zu den einzelnen Erweiterungen
+
+Zu jeder im Store veröffentlichten Erweiterung gibt es eine eigene Anleitung — was sie leistet, wie sie eingerichtet wird und wie man sie im Alltag nutzt. Siehe [Erweiterungen](../extensions/index.md).
+
 ## So funktioniert das Vertrauensmodell
 
 Zwei unabhängige Prüfungen schützen Ihre Instanz:

@@ -52,4 +52,4 @@ accanto a «Nell'app» ed «Email», e potete scegliere tipo per tipo se la noti
 ci finisce. Quelle colonne partono sempre **disattivate**. Disattivare
 l'estensione o lasciar scadere la sua licenza nasconde la colonna e mette in
 pausa il recapito, ma conserva tutte le vostre scelte: tornano con
-l'estensione.
+l'estensione. [Slack Notifications](../extensions/slack-notify.md) è una di queste estensioni.

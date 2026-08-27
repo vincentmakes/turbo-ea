@@ -116,6 +116,7 @@ plugins:
             Platform Migration: Migración de plataforma
             Workspace Transfer: Transferencia de espacio de trabajo
             Extensions: Extensiones
+            Extension Store: Tienda de extensiones
             Operations & Upgrades: Operaciones y actualizaciones
             Supply Chain: Cadena de suministro
             Reference: Referencia
@@ -181,6 +182,7 @@ plugins:
             Platform Migration: Plattform-Migration
             Workspace Transfer: Workspace-Transfer
             Extensions: Erweiterungen
+            Extension Store: Erweiterungs-Store
             Operations & Upgrades: Betrieb & Upgrades
             Supply Chain: Lieferkette
             Reference: Referenz
@@ -246,6 +248,7 @@ plugins:
             Platform Migration: Migration de plateforme
             Workspace Transfer: Transfert d'espace de travail
             Extensions: Extensions
+            Extension Store: Boutique d'extensions
             Operations & Upgrades: Exploitation et mises à niveau
             Supply Chain: Chaîne d'approvisionnement
             Reference: Référence
@@ -311,6 +314,7 @@ plugins:
             Platform Migration: Migrazione di piattaforma
             Workspace Transfer: Trasferimento workspace
             Extensions: Estensioni
+            Extension Store: Store delle estensioni
             Operations & Upgrades: Operazioni e aggiornamenti
             Supply Chain: Catena di approvvigionamento
             Reference: Riferimenti
@@ -376,6 +380,7 @@ plugins:
             Platform Migration: Migração de plataforma
             Workspace Transfer: Transferência de workspace
             Extensions: Extensões
+            Extension Store: Loja de extensões
             Operations & Upgrades: Operações e atualizações
             Supply Chain: Cadeia de suprimentos
             Reference: Referência
@@ -441,6 +446,7 @@ plugins:
             Platform Migration: 平台迁移
             Workspace Transfer: 工作区迁移
             Extensions: 扩展
+            Extension Store: 扩展商店
             Operations & Upgrades: 运维与升级
             Supply Chain: 供应链
             Reference: 参考
@@ -506,6 +512,7 @@ plugins:
             Platform Migration: Миграция платформы
             Workspace Transfer: Перенос рабочей области
             Extensions: Расширения
+            Extension Store: Магазин расширений
             Operations & Upgrades: Эксплуатация и обновления
             Supply Chain: Цепочка поставок
             Reference: Справочник
@@ -571,6 +578,7 @@ plugins:
             Platform Migration: Platformsmigrering
             Workspace Transfer: Workspace-overførsel
             Extensions: Udvidelser
+            Extension Store: Udvidelsesbutik
             Operations & Upgrades: Drift og opgraderinger
             Supply Chain: Forsyningskæde
             Reference: Reference
@@ -636,6 +644,7 @@ plugins:
             Platform Migration: ترحيل المنصة
             Workspace Transfer: نقل مساحة العمل
             Extensions: الإضافات
+            Extension Store: متجر الإضافات
             Operations & Upgrades: العمليات والترقيات
             Supply Chain: سلسلة التوريد
             Reference: المرجع
@@ -729,9 +738,16 @@ nav:
       - ServiceNow Integration: admin/servicenow.md
       - Platform Migration: admin/migration.md
       - Workspace Transfer: admin/workspace-transfer.md
-      - Extensions: admin/extensions.md
+      - Extension Store: admin/extensions.md
       - Operations & Upgrades: admin/operations.md
       - Supply Chain: admin/supply-chain.md
+  - Extensions:
+      - Overview: extensions/index.md
+      - Digital Autonomy Assessment: extensions/digital-autonomy.md
+      - EA Value Tracker: extensions/value-savings.md
+      - Jira Todo Sync: extensions/jira-todos.md
+      - Slack Notifications: extensions/slack-notify.md
+      - DORA Register of Information: extensions/dora-roi.md
   - Reference:
       - Glossary: reference/glossary.md
       - Compatibility Policy: reference/compatibility.md

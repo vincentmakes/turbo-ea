@@ -25,6 +25,10 @@
 | **Extension Bundle (.teax)** | The signed zip file an extension is delivered as. Its Ed25519 signature is verified on upload and at every backend start; unsigned or tampered bundles are rejected |
 | **Entitlement** | One line of a signed extension license: the right to run a specific extension until an expiry date, followed by a grace window before soft-disable |
 | **Content Pack** | The data-only part of an extension: card types, tags, cards, and relations applied through the same idempotent engine as Workspace Transfer, with a dry-run preview |
+| **DAAF** | Digital Autonomy Assessment Framework — Utrecht University's method for scoring how exposed an application is to a supplier and how well that exposure can be mitigated. Reproduced by a free extension |
+| **Register of Information** | The record every EU financial entity must keep of its ICT third-party arrangements and file annually under DORA Art. 28, as 15 interlocking templates |
+| **LEI** | Legal Entity Identifier — a 20-character ISO 17442 code identifying a legal entity, with two check digits. Required throughout the DORA Register of Information |
+| **xBRL-CSV** | The machine-readable report package format supervisors accept for regulatory filings such as the DORA Register of Information |
 | **Gantt Chart** | A visual timeline with horizontal bars showing project schedule, duration, and progress for each work package and task |
 | **Initiative** | A project or program involving changes to the architecture |
 | **Lifecycle** | The five phases a component goes through: Plan, Phase In, Active, Phase Out, End of Life |

@@ -51,4 +51,4 @@ chatbesked), er installeret og licenseret, tilføjer den sin egen kolonne ved
 siden af «I appen» og «E-mail», og du vælger pr. type, om notifikationen sendes
 dertil. De kolonner starter altid **fra**. Deaktiveres udvidelsen, eller udløber
 dens licens, skjules kolonnen og leveringen sættes på pause, men alt hvad du
-valgte, bevares — det kommer tilbage sammen med udvidelsen.
+valgte, bevares — det kommer tilbage sammen med udvidelsen. [Slack Notifications](../extensions/slack-notify.md) er en sådan udvidelse.

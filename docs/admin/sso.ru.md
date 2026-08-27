@@ -69,6 +69,7 @@ TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL=you@yourcompany.com
 
 ```
 TURBO_EA_PROXY_AUTH_ENABLED=true
+TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true
 TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true
 TURBO_EA_PROXY_AUTH_ISSUER=https://login.microsoftonline.com/TENANT/v2.0
 TURBO_EA_PROXY_AUTH_AUDIENCE=your-easyauth-app-client-id
@@ -77,7 +78,18 @@ TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS=yourcompany.com
 TURBO_EA_PROXY_AUTH_LOGOUT_URL=/.auth/logout
 ```
 
-Если ваше хранилище токенов отключено, вместо этого задайте `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=false` и `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true`. Это явным образом полагается на то, что Azure удаляет входящие заголовки идентификации до того, как они достигнут вашего приложения, а без проверенного токена **новые учётные записи не создаются автоматически** — сначала пригласите пользователей или используйте адрес bootstrap-администратора.
+!!! warning "`TRUST_PLATFORM_HEADERS` обязателен на App Service"
+    App Service не может внедрить собственный секретный заголовок, поэтому
+    `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true` занимает место
+    `TURBO_EA_PROXY_AUTH_SHARED_SECRET` — это явное подтверждение того, что вы
+    полагаетесь на удаление Azure входящих заголовков идентификации до того, как
+    они достигнут вашего приложения. Проверка выполняется **до** разбора токена
+    идентификации, поэтому проверка токена её не заменяет. Если отсутствуют и эта
+    настройка, и общий секрет, каждый вход завершается ошибкой *Proxy
+    authentication is enabled but not secured* — даже при
+    `VERIFY_ID_TOKEN=true`.
+
+Если ваше хранилище токенов отключено, дополнительно задайте `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=false` и положитесь только на очистку заголовков. Без проверенного токена **новые учётные записи не создаются автоматически** — сначала пригласите пользователей или используйте адрес bootstrap-администратора.
 
 **Универсальный прокси (oauth2-proxy, Authelia, Traefik forwardAuth, …).** Настройте прокси так, чтобы он добавлял заголовок с общим секретом к каждому запросу — тогда запрос, не прошедший через прокси, никогда не будет принят за прошедший. Сгенерируйте значение командой `openssl rand -hex 32`:
 
@@ -106,7 +118,7 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 | `TURBO_EA_PROXY_AUTH_SECRET_HEADER` | `X-Turbo-EA-Proxy-Secret` | Заголовок, несущий общий секрет |
 | `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN` | `false` | Проверять пересылаемый токен идентификации (режим Azure) |
 | `TURBO_EA_PROXY_AUTH_ISSUER` / `_AUDIENCE` / `_JWKS_URI` | — | Параметры проверки токена |
-| `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS` | `false` | Только для Azure: полагаться на очистку заголовков платформой вместо секрета |
+| `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS` | `false` | Только для Azure: полагаться на очистку заголовков платформой вместо секрета. Обязателен на App Service |
 | `TURBO_EA_PROXY_AUTH_EMAIL_HEADER` | `X-Forwarded-Email` | Режим `header`: заголовок с адресом электронной почты |
 | `TURBO_EA_PROXY_AUTH_NAME_HEADER` | `X-Forwarded-User` | Режим `header`: заголовок с отображаемым именем |
 | `TURBO_EA_PROXY_AUTH_SUBJECT_HEADER` | `X-Forwarded-Subject` | Режим `header`: заголовок со стабильным идентификатором субъекта |

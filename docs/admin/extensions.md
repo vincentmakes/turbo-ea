@@ -8,6 +8,10 @@ The page has two tabs: **Store** browses your vendor's extension catalogue with 
 
 **Extensions are built and signed by Turbo EA** — they are not self-built or open to third parties. If you need a capability tailored to your organisation, we can build and license it for you. See [Turbo EA consulting](https://www.turbo-ea.org/consulting).
 
+## Guides for each extension
+
+Every extension published in the store has its own user guide — what it does, how to set it up, and how to use it day to day. See [Extensions](../extensions/index.md).
+
 ## How trust works
 
 Two independent checks protect your instance:

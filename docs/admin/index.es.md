@@ -19,3 +19,4 @@ La sección **Admin** está disponible para usuarios con el rol **Admin**. Propo
 | [Encuestas](surveys.md) | Encuestas de mantenimiento de datos dirigidas a tipos de fichas y partes interesadas específicas |
 | [Portales Web](web-portals.md) | Portales públicos de solo lectura accesibles sin autenticación |
 | [Integración ServiceNow](servicenow.md) | Sincronización bidireccional entre fichas de Turbo EA y CMDB de ServiceNow |
+| [Tienda de extensiones](extensions.md) | Instalar extensiones firmadas por el proveedor, aplicar licencias y gestionar lo instalado |

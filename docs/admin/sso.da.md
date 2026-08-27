@@ -69,6 +69,7 @@ TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL=you@yourcompany.com
 
 ```
 TURBO_EA_PROXY_AUTH_ENABLED=true
+TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true
 TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true
 TURBO_EA_PROXY_AUTH_ISSUER=https://login.microsoftonline.com/TENANT/v2.0
 TURBO_EA_PROXY_AUTH_AUDIENCE=your-easyauth-app-client-id
@@ -77,7 +78,18 @@ TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS=yourcompany.com
 TURBO_EA_PROXY_AUTH_LOGOUT_URL=/.auth/logout
 ```
 
-Hvis dit token store er deaktiveret, skal du i stedet sætte `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=false` og `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true`. Dette forlader sig eksplicit på, at Azure fjerner indgående identitetsheadere, før de når din app, og uden et verificeret token **oprettes nye konti ikke automatisk** — invitér brugerne først, eller brug bootstrap-administratorens e-mail.
+!!! warning "`TRUST_PLATFORM_HEADERS` er påkrævet på App Service"
+    App Service kan ikke indsætte en egen hemmelig header, så
+    `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true` træder i stedet for
+    `TURBO_EA_PROXY_AUTH_SHARED_SECRET` — det er en udtrykkelig anerkendelse af,
+    at I forlader jer på, at Azure fjerner indgående identitetsheadere, før de
+    når jeres app. Kontrollen sker **før** identitetstokenet overhovedet
+    fortolkes, så tokenverifikation træder ikke i stedet for den. Mangler både
+    denne indstilling og en delt hemmelighed, fejler hvert eneste login med
+    *Proxy authentication is enabled but not secured* — også med
+    `VERIFY_ID_TOKEN=true`.
+
+Hvis dit token store er deaktiveret, skal du desuden sætte `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=false` og forlade dig alene på header-saneringen. Uden et verificeret token **oprettes nye konti ikke automatisk** — invitér brugerne først, eller brug bootstrap-administratorens e-mail.
 
 **Generisk proxy (oauth2-proxy, Authelia, Traefik forwardAuth, …).** Konfigurér proxyen til at injicere en header med en delt hemmelighed på hver forespørgsel, så en forespørgsel, der ikke kom gennem proxyen, aldrig kan forveksles med en, der gjorde. Generér værdien med `openssl rand -hex 32`:
 
@@ -106,7 +118,7 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 | `TURBO_EA_PROXY_AUTH_SECRET_HEADER` | `X-Turbo-EA-Proxy-Secret` | Header, der bærer den delte hemmelighed |
 | `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN` | `false` | Verificér det videresendte identitetstoken (Azure-tilstand) |
 | `TURBO_EA_PROXY_AUTH_ISSUER` / `_AUDIENCE` / `_JWKS_URI` | — | Indstillinger for tokenverifikation |
-| `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS` | `false` | Kun Azure: stol på platformens header-sanering i stedet for en hemmelighed |
+| `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS` | `false` | Kun Azure: stol på platformens header-sanering i stedet for en hemmelighed. Påkrævet på App Service |
 | `TURBO_EA_PROXY_AUTH_EMAIL_HEADER` | `X-Forwarded-Email` | `header`-tilstand: e-mail-header |
 | `TURBO_EA_PROXY_AUTH_NAME_HEADER` | `X-Forwarded-User` | `header`-tilstand: header med visningsnavn |
 | `TURBO_EA_PROXY_AUTH_SUBJECT_HEADER` | `X-Forwarded-Subject` | `header`-tilstand: header med stabilt subjekt-id |

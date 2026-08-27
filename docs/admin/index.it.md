@@ -19,3 +19,4 @@ La sezione **Admin** è disponibile per gli utenti con il ruolo **Admin**. Forni
 | [Sondaggi](surveys.md) | Sondaggi di manutenzione dati destinati a tipi di card e stakeholder specifici |
 | [Portali web](web-portals.md) | Portali pubblici in sola lettura accessibili senza autenticazione |
 | [Integrazione ServiceNow](servicenow.md) | Sincronizzazione bidirezionale tra card Turbo EA e CMDB ServiceNow |
+| [Store delle estensioni](extensions.md) | Installare estensioni firmate dal fornitore, applicare licenze e gestire ciò che è installato |

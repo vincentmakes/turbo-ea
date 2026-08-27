@@ -51,4 +51,4 @@ sítio (uma mensagem de chat, por exemplo), esta acrescenta a sua própria colun
 ao lado de «Na aplicação» e «E-mail», e escolhe tipo a tipo se a notificação
 segue para lá. Essas colunas começam sempre **desativadas**. Desativar a extensão
 ou deixar caducar a licença oculta a coluna e coloca a entrega em pausa, mas
-conserva tudo o que escolheu: volta com a extensão.
+conserva tudo o que escolheu: volta com a extensão. [Slack Notifications](../extensions/slack-notify.md) é uma dessas extensões.

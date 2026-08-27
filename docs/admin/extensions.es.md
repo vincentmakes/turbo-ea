@@ -8,6 +8,10 @@ La página tiene dos pestañas: **Tienda** explora el catálogo de extensiones d
 
 **Las extensiones las crea y firma Turbo EA** — no son de creación propia ni están abiertas a terceros. Si necesitas una funcionalidad adaptada a tu organización, podemos crearla y licenciarla para ti. Consulta [la consultoría de Turbo EA](https://www.turbo-ea.org/consulting).
 
+## Guías de cada extensión
+
+Cada extensión publicada en la tienda tiene su propia guía de usuario: qué hace, cómo configurarla y cómo utilizarla en el día a día. Véase [Extensiones](../extensions/index.md).
+
 ## Cómo funciona la confianza
 
 Dos comprobaciones independientes protegen su instancia:

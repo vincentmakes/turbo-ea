@@ -25,6 +25,10 @@
 | **Extension Bundle (.teax)** | Le fichier zip signé dans lequel une extension est livrée. Sa signature Ed25519 est vérifiée au téléversement et à chaque démarrage du backend ; les paquets non signés ou altérés sont refusés |
 | **Entitlement (droit)** | Une ligne d'une licence d'extension signée : le droit d'exécuter une extension donnée jusqu'à une date d'échéance, suivie d'un délai de grâce avant la désactivation douce |
 | **Content Pack (pack de contenu)** | La partie purement données d'une extension : types de cartes, étiquettes, cartes et relations appliqués via le même moteur idempotent que le transfert d'espace de travail, avec aperçu |
+| **DAAF** | Digital Autonomy Assessment Framework — la méthode de l'université d'Utrecht pour évaluer l'exposition d'une application à un fournisseur et la capacité à l'atténuer. Reproduite par une extension gratuite |
+| **Registre d'informations** | Le registre que toute entité financière de l'UE doit tenir sur ses accords avec des prestataires TIC tiers et transmettre chaque année au titre de l'article 28 de DORA — 15 modèles imbriqués |
+| **LEI** | Legal Entity Identifier — code ISO 17442 de 20 caractères identifiant une entité juridique, avec deux chiffres de contrôle. Requis dans tout le registre d'informations DORA |
+| **xBRL-CSV** | Le format de paquet de rapport lisible par machine que les autorités acceptent pour les dépôts réglementaires tels que le registre d'informations DORA |
 | **Diagramme de Gantt** | Une chronologie visuelle avec des barres horizontales montrant le calendrier, la durée et l'avancement du projet |
 | **Initiative** | Un projet ou programme impliquant des modifications de l'architecture |
 | **Cycle de vie** | Les cinq phases par lesquelles passe un composant : Planification, Mise en service, Actif, Retrait progressif, Fin de vie |

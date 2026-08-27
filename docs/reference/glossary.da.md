@@ -25,6 +25,10 @@
 | **Extension Bundle (.teax)** | Den signerede zip-fil, en udvidelse leveres som. Ed25519-signaturen verificeres ved upload og ved hver backend-start; usignerede eller manipulerede pakker afvises |
 | **Entitlement (rettighed)** | Én linje i en signeret udvidelseslicens: retten til at køre en bestemt udvidelse indtil en udløbsdato, efterfulgt af en henstandsperiode før blød deaktivering |
 | **Content Pack (indholdspakke)** | Den rene datadel af en udvidelse: korttyper, tags, kort og relationer anvendt gennem samme idempotente motor som workspace-overførsel, med forhåndsvisning |
+| **DAAF** | Digital Autonomy Assessment Framework — Utrecht Universitets metode til at score, hvor afhængig en applikation er af en leverandør, og hvor godt det kan afbødes. Gengivet af en gratis udvidelse |
+| **Informationsregister** | Det register, enhver finansiel enhed i EU skal føre over sine aftaler med IKT-tredjeparter og indberette årligt efter DORA art. 28 — 15 sammenhængende skemaer |
+| **LEI** | Legal Entity Identifier — en ISO 17442-kode på 20 tegn, der identificerer en juridisk enhed, med to kontrolcifre. Påkrævet overalt i DORA-informationsregistret |
+| **xBRL-CSV** | Det maskinlæsbare rapportpakkeformat, som tilsynsmyndigheder accepterer til regulatoriske indberetninger såsom DORA-informationsregistret |
 | **Gantt-diagram** | En visuel tidslinje med vandrette bjælker, der viser projektplan, varighed og fremskridt for hver arbejdspakke og opgave |
 | **Initiativ** | Et projekt eller program, der involverer ændringer af arkitekturen |
 | **Livscyklus** | De fem faser, en komponent gennemgår: Planlægning, Indfasning, Aktiv, Udfasning, End of Life |

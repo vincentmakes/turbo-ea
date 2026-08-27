@@ -8,6 +8,10 @@ La page comporte deux onglets : **Boutique** parcourt le catalogue d'extensions 
 
 **Les extensions sont conçues et signées par Turbo EA** — elles ne sont ni auto-développées ni ouvertes à des tiers. Si vous avez besoin d'une fonctionnalité adaptée à votre organisation, nous pouvons la développer et la licencier pour vous. Voir [le conseil Turbo EA](https://www.turbo-ea.org/consulting).
 
+## Guides pour chaque extension
+
+Chaque extension publiée dans la boutique dispose de son propre guide : ce qu'elle fait, comment la configurer et comment l'utiliser au quotidien. Voir [Extensions](../extensions/index.md).
+
 ## Fonctionnement de la confiance
 
 Deux vérifications indépendantes protègent votre instance :

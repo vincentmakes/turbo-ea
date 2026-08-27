@@ -51,4 +51,4 @@ otro sitio (un mensaje de chat, por ejemplo), esta añade su propia columna junt
 a «En la aplicación» y «Correo», y usted elige tipo por tipo si la notificación
 va allí. Esas columnas empiezan siempre **desactivadas**. Desactivar la extensión
 o dejar que caduque su licencia oculta la columna y pausa la entrega, pero
-conserva todo lo que eligió: vuelve con la extensión.
+conserva todo lo que eligió: vuelve con la extensión. [Slack Notifications](../extensions/slack-notify.md) es una de esas extensiones.

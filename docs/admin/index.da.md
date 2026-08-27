@@ -19,3 +19,4 @@
 | [Undersøgelser](surveys.md) | Datavedligeholdelsesundersøgelser rettet mod specifikke korttyper og interessenter |
 | [Webportaler](web-portals.md) | Offentlige, skrivebeskyttede portaler tilgængelige uden godkendelse |
 | [ServiceNow-integration](servicenow.md) | Tovejssynkronisering mellem Turbo EA-kort og ServiceNow CMDB |
+| [Udvidelsesbutik](extensions.md) | Installér leverandørsignerede udvidelser, anvend licenser og administrér det installerede |

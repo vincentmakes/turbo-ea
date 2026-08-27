@@ -8,6 +8,10 @@ A página tem dois separadores: **Loja** percorre o catálogo de extensões do f
 
 **As extensões são criadas e assinadas pela Turbo EA** — não são de criação própria nem abertas a terceiros. Se precisar de uma funcionalidade adaptada à sua organização, podemos criá-la e licenciá-la para si. Consulte [a consultoria da Turbo EA](https://www.turbo-ea.org/consulting).
 
+## Guias de cada extensão
+
+Cada extensão publicada na loja tem o seu próprio guia: o que faz, como configurá-la e como utilizá-la no dia a dia. Ver [Extensões](../extensions/index.md).
+
 ## Como funciona a confiança
 
 Duas verificações independentes protegem a sua instância:

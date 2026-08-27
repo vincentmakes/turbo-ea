@@ -52,4 +52,4 @@ exemple) est installée et sous licence, elle ajoute sa propre colonne à côté
 notification y est envoyée. Ces colonnes démarrent toujours **désactivées**.
 Désactiver l'extension ou laisser sa licence expirer masque la colonne et met la
 remise en pause, mais conserve tous vos choix : ils reviennent avec
-l'extension.
+l'extension. [Slack Notifications](../extensions/slack-notify.md) est l'une de ces extensions.

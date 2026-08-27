@@ -69,6 +69,7 @@ TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL=you@yourcompany.com
 
 ```
 TURBO_EA_PROXY_AUTH_ENABLED=true
+TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true
 TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true
 TURBO_EA_PROXY_AUTH_ISSUER=https://login.microsoftonline.com/TENANT/v2.0
 TURBO_EA_PROXY_AUTH_AUDIENCE=your-easyauth-app-client-id
@@ -77,7 +78,17 @@ TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS=yourcompany.com
 TURBO_EA_PROXY_AUTH_LOGOUT_URL=/.auth/logout
 ```
 
-إذا كان مخزن الرموز لديك معطّلًا، فاضبط بدلًا من ذلك `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=false` و `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true`. يعتمد هذا صراحةً على قيام Azure بإزالة ترويسات الهوية الواردة قبل وصولها إلى تطبيقك، وبدون رمز متحقَّق منه **لا تُنشأ حسابات جديدة تلقائيًا** — ادعُ المستخدمين أولًا، أو استخدم بريد مسؤول التمهيد.
+!!! warning "`TRUST_PLATFORM_HEADERS` مطلوب على App Service"
+    لا يستطيع App Service حقن ترويسة سرّية مخصّصة، ولذا يحلّ
+    `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true` محل
+    `TURBO_EA_PROXY_AUTH_SHARED_SECRET` — وهو إقرار صريح بأنكم تعتمدون على قيام
+    Azure بإزالة ترويسات الهوية الواردة قبل وصولها إلى تطبيقكم. ويجري هذا الفحص
+    **قبل** تحليل رمز الهوية أصلًا، ومن ثمّ فإن التحقق من الرمز لا يغني عنه. وإذا
+    غاب هذا الإعداد والسرّ المشترك معًا، فشل كل تسجيل دخول برسالة *Proxy
+    authentication is enabled but not secured*، حتى مع
+    `VERIFY_ID_TOKEN=true`.
+
+إذا كان مخزن الرموز لديكم معطّلًا، فاضبطوا إضافةً إلى ذلك `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=false` واعتمدوا على تنقية الترويسات وحدها. وبدون رمز متحقَّق منه **لا تُنشأ حسابات جديدة تلقائيًا** — ادعُوا المستخدمين أولًا، أو استخدموا بريد مسؤول التمهيد.
 
 **وكيل عام (oauth2-proxy، Authelia، Traefik forwardAuth، …).** هيّئ الوكيل بحيث يحقن ترويسة سرّ مشترك في كل طلب، بحيث لا يمكن أبدًا الخلط بين طلب لم يمرّ عبر الوكيل وطلب مرّ عبره. ولّد القيمة باستخدام `openssl rand -hex 32`:
 
@@ -106,7 +117,7 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 | `TURBO_EA_PROXY_AUTH_SECRET_HEADER` | `X-Turbo-EA-Proxy-Secret` | الترويسة الحاملة للسرّ المشترك |
 | `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN` | `false` | التحقّق من رمز الهوية المُمرَّر (وضع Azure) |
 | `TURBO_EA_PROXY_AUTH_ISSUER` / `_AUDIENCE` / `_JWKS_URI` | — | إعدادات التحقّق من الرمز |
-| `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS` | `false` | لـ Azure فقط: الاعتماد على تنقية المنصّة للترويسات بدلًا من سرّ |
+| `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS` | `false` | لـ Azure فقط: الاعتماد على تنقية المنصّة للترويسات بدلًا من سرّ، ومطلوب على App Service |
 | `TURBO_EA_PROXY_AUTH_EMAIL_HEADER` | `X-Forwarded-Email` | وضع `header`: ترويسة البريد الإلكتروني |
 | `TURBO_EA_PROXY_AUTH_NAME_HEADER` | `X-Forwarded-User` | وضع `header`: ترويسة الاسم المعروض |
 | `TURBO_EA_PROXY_AUTH_SUBJECT_HEADER` | `X-Forwarded-Subject` | وضع `header`: ترويسة معرّف الكيان الثابت |

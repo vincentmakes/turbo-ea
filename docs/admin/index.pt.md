@@ -19,3 +19,4 @@ A seção **Admin** está disponível para usuários com o papel **Admin**. Ela 
 | [Pesquisas](surveys.md) | Pesquisas de manutenção de dados direcionadas a tipos de cards e partes interessadas específicas |
 | [Portais Web](web-portals.md) | Portais públicos somente leitura acessíveis sem autenticação |
 | [Integração ServiceNow](servicenow.md) | Sincronização bidirecional entre cards Turbo EA e CMDB ServiceNow |
+| [Loja de extensões](extensions.md) | Instalar extensões assinadas pelo fornecedor, aplicar licenças e gerir o que está instalado |

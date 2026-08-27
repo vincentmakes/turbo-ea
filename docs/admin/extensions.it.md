@@ -8,6 +8,10 @@ La pagina ha due schede: **Store** sfoglia il catalogo delle estensioni del forn
 
 **Le estensioni sono realizzate e firmate da Turbo EA** — non sono auto-sviluppate né aperte a terzi. Se ti serve una funzionalità su misura per la tua organizzazione, possiamo realizzarla e concederla in licenza per te. Vedi [la consulenza Turbo EA](https://www.turbo-ea.org/consulting).
 
+## Guide per ogni estensione
+
+Ogni estensione pubblicata nello store ha la propria guida: che cosa fa, come configurarla e come usarla ogni giorno. Si veda [Estensioni](../extensions/index.md).
+
 ## Come funziona la fiducia
 
 Due verifiche indipendenti proteggono l'istanza:

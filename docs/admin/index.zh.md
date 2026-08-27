@@ -19,3 +19,4 @@
 | [问卷调查](surveys.md) | 针对特定卡片类型和利益相关者的数据维护问卷 |
 | [Web 门户](web-portals.md) | 无需认证即可访问的公共只读门户 |
 | [ServiceNow 集成](servicenow.md) | Turbo EA 卡片与 ServiceNow CMDB 之间的双向同步 |
+| [扩展商店](extensions.md) | 安装由供应商签名的扩展、应用许可证并管理已安装内容 |

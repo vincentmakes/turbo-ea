@@ -69,6 +69,7 @@ TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL=vous@votreentreprise.com
 
 ```
 TURBO_EA_PROXY_AUTH_ENABLED=true
+TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true
 TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true
 TURBO_EA_PROXY_AUTH_ISSUER=https://login.microsoftonline.com/TENANT/v2.0
 TURBO_EA_PROXY_AUTH_AUDIENCE=your-easyauth-app-client-id
@@ -77,7 +78,18 @@ TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS=votreentreprise.com
 TURBO_EA_PROXY_AUTH_LOGOUT_URL=/.auth/logout
 ```
 
-Si votre magasin de jetons est désactivé, définissez plutôt `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=false` et `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true`. Cela repose explicitement sur le fait qu'Azure supprime les en-têtes d'identité entrants avant qu'ils n'atteignent votre application, et sans jeton vérifié, **les nouveaux comptes ne sont pas créés automatiquement** — invitez d'abord les utilisateurs, ou utilisez l'e-mail de l'administrateur d'amorçage.
+!!! warning "`TRUST_PLATFORM_HEADERS` est obligatoire sur App Service"
+    App Service ne peut pas injecter d'en-tête secret personnalisé ;
+    `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true` remplace donc
+    `TURBO_EA_PROXY_AUTH_SHARED_SECRET` — c'est une reconnaissance explicite du
+    fait que vous vous reposez sur la suppression par Azure des en-têtes
+    d'identité entrants avant qu'ils n'atteignent votre application. Le contrôle
+    a lieu **avant** même l'analyse du jeton d'identité : vérifier le jeton ne
+    s'y substitue donc pas. Si ce paramètre et le secret partagé manquent tous
+    les deux, chaque connexion échoue avec *Proxy authentication is enabled but
+    not secured*, même avec `VERIFY_ID_TOKEN=true`.
+
+Si votre magasin de jetons est désactivé, définissez en plus `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=false` et reposez-vous uniquement sur l'assainissement des en-têtes. Sans jeton vérifié, **les nouveaux comptes ne sont pas créés automatiquement** — invitez d'abord les utilisateurs, ou utilisez l'e-mail de l'administrateur d'amorçage.
 
 **Proxy générique (oauth2-proxy, Authelia, Traefik forwardAuth, …).** Configurez le proxy pour qu'il injecte un en-tête contenant un secret partagé sur chaque requête, afin qu'une requête qui n'est pas passée par le proxy ne puisse jamais être confondue avec une requête qui l'a fait. Générez la valeur avec `openssl rand -hex 32` :
 
@@ -106,7 +118,7 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 | `TURBO_EA_PROXY_AUTH_SECRET_HEADER` | `X-Turbo-EA-Proxy-Secret` | En-tête transportant le secret partagé |
 | `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN` | `false` | Vérifier le jeton d'identité transmis (mode Azure) |
 | `TURBO_EA_PROXY_AUTH_ISSUER` / `_AUDIENCE` / `_JWKS_URI` | — | Paramètres de vérification du jeton |
-| `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS` | `false` | Azure uniquement : accepter l'assainissement des en-têtes par la plateforme au lieu d'un secret |
+| `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS` | `false` | Azure uniquement : accepter l'assainissement des en-têtes par la plateforme au lieu d'un secret. Obligatoire sur App Service |
 | `TURBO_EA_PROXY_AUTH_EMAIL_HEADER` | `X-Forwarded-Email` | Mode `header` : en-tête de l'e-mail |
 | `TURBO_EA_PROXY_AUTH_NAME_HEADER` | `X-Forwarded-User` | Mode `header` : en-tête du nom d'affichage |
 | `TURBO_EA_PROXY_AUTH_SUBJECT_HEADER` | `X-Forwarded-Subject` | Mode `header` : en-tête de l'identifiant de sujet stable |

@@ -50,4 +50,4 @@ instance) is installed and licensed, it adds its own column next to In-app and
 Email, and you choose per type whether it goes there. Those columns always start
 switched **off**. Disabling the extension or letting its licence lapse hides the
 column and pauses delivery, but keeps everything you chose — it all comes back if
-the extension does.
+the extension does. [Slack Notifications](../extensions/slack-notify.md) is one such extension.

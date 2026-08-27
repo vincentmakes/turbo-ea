@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.96.0] - 2026-08-27
+
+### Added
+
+- **User manual: a guide for every extension published in the Extension Store.** A new **Extensions** section in the manual documents what each published extension does and how to use it — setup, every screen and field, permissions, what happens if a licence lapses, and known limitations — in all 10 languages, alongside the existing Extension Store page that covers installing and licensing. Reachable from Administration → Extension Store and from the relevant feature guides.
+
+### Fixed
+
+- **Reverse proxy authentication: the Azure App Service setup example was incomplete.** The recommended EasyAuth configuration in `.env.example` and the Authentication & SSO guide omitted `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS`, so following it literally made every sign-in fail with *Proxy authentication is enabled but not secured*. That flag is checked before the identity token is parsed, so verifying the token does not substitute for it; it is now shown as a required part of the App Service setup rather than only as a fallback for instances whose token store is disabled.
+
 ## [2.95.0] - 2026-08-27
 
 ### Added

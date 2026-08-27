@@ -19,7 +19,7 @@ Todos are tasks assigned to you or created by you. They can be linked to specifi
 - **Extension** — Created by an installed extension
 - **Manual** — Created by hand, on a card or standalone
 
-Each row also carries a colour-coded origin icon and accent stripe, so mixed lists scan at a glance. A task that a connector extension has mirrored to an external tracker (Jira, GitLab, …) keeps its real origin and shows the external reference (e.g. *KAN-6*) as a small link — the mirror is for reference only, and the task is always completed in Turbo EA.
+Each row also carries a colour-coded origin icon and accent stripe, so mixed lists scan at a glance. A task that a connector extension has mirrored to an external tracker (Jira, GitLab, …) keeps its real origin and shows the external reference (e.g. *KAN-6*) as a small link — the mirror is for reference only, and the task is always completed in Turbo EA. See [Jira Todo Sync](../extensions/jira-todos.md) for the Jira connector.
 
 **Grouped view** — By default the list is segmented into one collapsible section per origin, in a fixed order. Each section header shows the origin icon, the number of tasks, and — when some are overdue — a red count so a collapsed section still signals urgency. Click a header to collapse or expand it; collapsed sections are remembered. The group/flat toggle next to the sort control switches to a single flat list (useful to triage by due date across all origins); this choice is remembered too. A list where every task shares one origin renders flat automatically.
 

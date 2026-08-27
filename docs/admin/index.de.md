@@ -19,3 +19,4 @@ Der **Admin**-Bereich ist für Benutzer mit der **Admin**-Rolle verfügbar. Er b
 | [Umfragen](surveys.md) | Datenpflege-Umfragen für bestimmte Kartentypen und Stakeholder |
 | [Webportale](web-portals.md) | Öffentliche, schreibgeschützte Portale ohne Authentifizierung |
 | [ServiceNow-Integration](servicenow.md) | Bidirektionale Synchronisation zwischen Turbo EA-Karten und ServiceNow CMDB |
+| [Extension Store](extensions.md) | Herstellersignierte Erweiterungen installieren, Lizenzen anwenden und Installiertes verwalten |

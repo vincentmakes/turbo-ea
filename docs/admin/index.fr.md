@@ -19,3 +19,4 @@ La section **Admin** est disponible pour les utilisateurs ayant le rôle **Admin
 | [Enquêtes](surveys.md) | Enquêtes de maintenance des données ciblant des types de fiches et des parties prenantes spécifiques |
 | [Portails web](web-portals.md) | Portails publics en lecture seule accessibles sans authentification |
 | [Intégration ServiceNow](servicenow.md) | Synchronisation bidirectionnelle entre les fiches Turbo EA et le CMDB ServiceNow |
+| [Boutique d'extensions](extensions.md) | Installer des extensions signées par l'éditeur, appliquer les licences et gérer ce qui est installé |
