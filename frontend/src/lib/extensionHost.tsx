@@ -91,7 +91,7 @@ import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
 import * as tokens from "@/theme/tokens";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.16";
+export const UI_SDK_VERSION = "1.17";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -580,6 +580,7 @@ export function useExtensionFieldVisibilityProviders(): RegisteredFieldVisibilit
  */
 const LazyCardDetailSidePanel = React.lazy(() => import("@/components/CardDetailSidePanel"));
 const LazyReportShell = React.lazy(() => import("@/features/reports/ReportShell"));
+const LazyCreateCardDialog = React.lazy(() => import("@/components/CreateCardDialog"));
 
 export function ExtensionCardDetailSidePanel(props: {
   cardId: string | null;
@@ -597,6 +598,36 @@ export function ExtensionReportShell(props: ReportShellProps) {
   return (
     <React.Suspense fallback={null}>
       <LazyReportShell {...props} />
+    </React.Suspense>
+  );
+}
+
+/**
+ * SDK 1.17 — core's create-card dialog for extension pages. Lazy for the
+ * same reason as the side panel (AiSuggestPanel/CardPicker graph). The
+ * caller supplies `onCreate` (typically `api.post("/cards", data)` resolving
+ * to the new card id); `initialType`/`initialSubtype`/`initialAttributes`
+ * open it pre-configured. On success the dialog navigates to the new card.
+ */
+export function ExtensionCreateCardDialog(props: {
+  open: boolean;
+  onClose: () => void;
+  onCreate: (data: {
+    type: string;
+    subtype?: string;
+    name: string;
+    description?: string;
+    parent_id?: string;
+    attributes?: Record<string, unknown>;
+    lifecycle?: Record<string, string>;
+  }) => Promise<string>;
+  initialType?: string;
+  initialSubtype?: string;
+  initialAttributes?: Record<string, unknown>;
+}) {
+  return (
+    <React.Suspense fallback={null}>
+      <LazyCreateCardDialog {...props} />
     </React.Suspense>
   );
 }
@@ -903,6 +934,21 @@ export function initExtensionHost(): void {
       CardScopeFilter,
       useCardScope,
       applyScope,
+      // SDK 1.17 — data-grid + card-creation reuse. `loadAgGrid` resolves
+      // core's code-split AG Grid chunk (module registration + the Theming
+      // API themes ride along via agGridSetup) so extension grids share
+      // core's grid look without bundling AG Grid; `CreateCardDialog` is
+      // core's create-card modal (lazy wrapper), openable pre-configured
+      // via initialType/initialSubtype/initialAttributes.
+      loadAgGrid: () =>
+        Promise.all([import("ag-grid-react"), import("@/lib/agGridSetup")]).then(
+          ([agReact, setup]) => ({
+            AgGridReact: agReact.AgGridReact,
+            gridThemeLight: setup.gridThemeLight,
+            gridThemeDark: setup.gridThemeDark,
+          }),
+        ),
+      CreateCardDialog: ExtensionCreateCardDialog,
     },
     register: registerExtension,
   };

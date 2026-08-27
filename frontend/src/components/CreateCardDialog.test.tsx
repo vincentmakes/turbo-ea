@@ -172,7 +172,14 @@ beforeEach(() => {
 const onCreate = vi.fn();
 const onClose = vi.fn();
 
-function renderDialog(props: { open?: boolean; initialType?: string } = {}) {
+function renderDialog(
+  props: {
+    open?: boolean;
+    initialType?: string;
+    initialSubtype?: string;
+    initialAttributes?: Record<string, unknown>;
+  } = {},
+) {
   return render(
     <MemoryRouter>
       <CreateCardDialog
@@ -180,6 +187,8 @@ function renderDialog(props: { open?: boolean; initialType?: string } = {}) {
         onClose={onClose}
         onCreate={onCreate}
         initialType={props.initialType}
+        initialSubtype={props.initialSubtype}
+        initialAttributes={props.initialAttributes}
       />
     </MemoryRouter>,
   );
@@ -212,6 +221,30 @@ describe("CreateCardDialog", () => {
 
     await user.click(screen.getByRole("button", { name: /cancel/i }));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("presets subtype and attributes for the initial type, and clears them on a type switch", async () => {
+    const user = userEvent.setup();
+    renderDialog({
+      initialType: "Application",
+      initialSubtype: "microservice",
+      initialAttributes: { hostingModel: ["cloud"] },
+    });
+
+    // The subtype combobox shows the preset's label.
+    const comboboxes = screen.getAllByRole("combobox");
+    expect(comboboxes[1]).toHaveTextContent("Microservice");
+
+    // Fill the name and submit — the preset attribute rides the payload.
+    await user.type(screen.getByRole("textbox", { name: /name/i }), "Presets App");
+    // A required cost field exists on Application; fill it so submit enables.
+    const cost = screen.getByRole("spinbutton");
+    await user.type(cost, "10");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalled());
+    const payload = onCreate.mock.calls[0][0];
+    expect(payload.subtype).toBe("microservice");
+    expect(payload.attributes.hostingModel).toEqual(["cloud"]);
   });
 
   it("pre-selects type when initialType is provided", () => {

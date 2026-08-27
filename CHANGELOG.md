@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.93.0] - 2026-08-27
+
+### Added
+
+- Extension UI SDK 1.17: extensions can render data grids with core's own AG Grid look via a lazy `loadAgGrid` loader, and open core's create-card dialog (`CreateCardDialog`) from their pages.
+- The create-card dialog accepts subtype and attribute presets (`initialSubtype` / `initialAttributes`), so callers can open it pre-configured for a specific kind of card.
+- Inventory deep links can filter by subtype (`/inventory?type=…&subtype=…`), alongside the existing attribute filters.
+
 ## [2.92.0] - 2026-08-27
 
 ### Added

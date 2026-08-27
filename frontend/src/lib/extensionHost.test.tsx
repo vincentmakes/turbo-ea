@@ -74,6 +74,18 @@ describe("extensionHost", () => {
     expect(sdk.CardScopeFilter).toBeDefined();
     expect(typeof sdk.useCardScope).toBe("function");
     expect(typeof sdk.applyScope).toBe("function");
+    // SDK 1.17 — data-grid loader + create-card dialog
+    expect(typeof sdk.loadAgGrid).toBe("function");
+    expect(sdk.CreateCardDialog).toBeDefined();
+  });
+
+  it("loadAgGrid resolves core's AG Grid module and themes", async () => {
+    initExtensionHost();
+    const sdk = window.TurboEA?.sdk as Record<string, unknown>;
+    const loaded = (await (sdk.loadAgGrid as () => Promise<Record<string, unknown>>)()) ?? {};
+    expect(loaded.AgGridReact).toBeDefined();
+    expect(loaded.gridThemeLight).toBeDefined();
+    expect(loaded.gridThemeDark).toBeDefined();
   });
 
   it("registers a plugin and lists its routes", () => {
@@ -368,7 +380,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.16");
+    expect(UI_SDK_VERSION).toBe("1.17");
   });
 
   it("aggregates generic slots (component + data), sorts by order, drops invalid ones", () => {

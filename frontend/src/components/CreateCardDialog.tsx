@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
@@ -66,6 +66,13 @@ interface Props {
     lifecycle?: Record<string, string>;
   }) => Promise<string>;
   initialType?: string;
+  // Preset the subtype / seed attribute values for the initial type. They
+  // apply while the selected type IS the initial type — picking a different
+  // type clears them like any other dependent field, and switching back
+  // re-applies them. Callers use these to open the dialog pre-configured
+  // (e.g. "new Branch" = Organization + subtype preset).
+  initialSubtype?: string;
+  initialAttributes?: Record<string, unknown>;
 }
 
 
@@ -74,6 +81,8 @@ export default function CreateCardDialog({
   onClose,
   onCreate,
   initialType,
+  initialSubtype,
+  initialAttributes,
 }: Props) {
   const navigate = useNavigate();
   const { t } = useTranslation(["cards", "common"]);
@@ -84,7 +93,7 @@ export default function CreateCardDialog({
   const stLabel = useSubtypeLabel();
 
   const [selectedType, setSelectedType] = useState(initialType || "");
-  const [subtype, setSubtype] = useState("");
+  const [subtype, setSubtype] = useState(initialType ? initialSubtype || "" : "");
   const [parentCard, setParentCard] = useState<CardOption | null>(null);
   const [name, setName] = useState("");
   // Field-level error for the Name input — populated when the backend
@@ -98,7 +107,13 @@ export default function CreateCardDialog({
     typeKey?: string;
   } | null>(null);
   const [description, setDescription] = useState("");
-  const [attributes, setAttributes] = useState<Record<string, unknown>>({});
+  const [attributes, setAttributes] = useState<Record<string, unknown>>(() =>
+    initialType ? { ...(initialAttributes || {}) } : {},
+  );
+  // Ref, not an effect dep: callers routinely pass an inline object literal,
+  // whose identity changes every render and would loop the reset effect.
+  const initialAttributesRef = useRef(initialAttributes);
+  initialAttributesRef.current = initialAttributes;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [eolProduct, setEolProduct] = useState("");
@@ -179,11 +194,14 @@ export default function CreateCardDialog({
       .catch(() => setTagGroups([]));
   }, [open]);
 
-  // Reset dependent fields when type changes
+  // Reset dependent fields when type changes. The initial presets survive
+  // while the selected type is still the initial one (the open-effect's
+  // setSelectedType lands here too, and must not wipe them).
   useEffect(() => {
-    setSubtype("");
+    const presetsApply = Boolean(selectedType) && selectedType === initialType;
+    setSubtype(presetsApply ? initialSubtype || "" : "");
     setParentCard(null);
-    setAttributes({});
+    setAttributes(presetsApply ? { ...(initialAttributesRef.current || {}) } : {});
     setError("");
     setEolProduct("");
     setEolCycle("");
@@ -193,7 +211,7 @@ export default function CreateCardDialog({
     setAiError("");
     setTagIds([]);
     setPendingProvider(null);
-  }, [selectedType]);
+  }, [selectedType, initialType, initialSubtype]);
 
   // Set initial type when dialog opens
   useEffect(() => {
@@ -202,16 +220,17 @@ export default function CreateCardDialog({
     }
   }, [open, initialType]);
 
-  // Reset form when dialog closes
+  // Reset form when dialog closes — back to the presets, so reopening with
+  // the same initial type starts pre-seeded again.
   useEffect(() => {
     if (!open) {
       setSelectedType(initialType || "");
-      setSubtype("");
+      setSubtype(initialType ? initialSubtype || "" : "");
       setParentCard(null);
       setName("");
       setNameConflict(null);
       setDescription("");
-      setAttributes({});
+      setAttributes(initialType ? { ...(initialAttributesRef.current || {}) } : {});
       setLoading(false);
       setError("");
       setEolProduct("");
@@ -225,7 +244,7 @@ export default function CreateCardDialog({
       setTagIds([]);
       setPendingProvider(null);
     }
-  }, [open, initialType]);
+  }, [open, initialType, initialSubtype]);
 
   // Auto-search EOL when name changes (debounced). Cancelling the timer never
   // cancelled a dispatched request, so suggestions for a half-typed name could

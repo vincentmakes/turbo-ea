@@ -300,6 +300,7 @@ type InventoryRow = GroupedRow<Card>;
 function urlHasFilterParams(searchParams: URLSearchParams): boolean {
   return (
     searchParams.has("type") ||
+    searchParams.has("subtype") ||
     searchParams.has("search") ||
     searchParams.has("approval_status") ||
     searchParams.has("show_archived") ||
@@ -766,7 +767,9 @@ export default function InventoryPage() {
       return {
         types: searchParams.get("type") ? [searchParams.get("type")!] : [],
         search: searchParams.get("search") || "",
-        subtypes: [],
+        // Repeatable, like the sidebar's subtype filter (client-side over the
+        // fetched page — GET /cards has no subtype param).
+        subtypes: searchParams.getAll("subtype"),
         lifecyclePhases: [],
         dataQualityBands: searchParams.getAll("dq").filter(isDataQualityBand),
         approvalStatuses: searchParams.get("approval_status") ? [searchParams.get("approval_status")!] : [],
