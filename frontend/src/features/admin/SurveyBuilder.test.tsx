@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { toIsoDate } from "@/lib/dates";
 
 const navigate = vi.fn();
 // Mutable so a single test can mount the builder in edit mode (hydrating a
@@ -17,8 +18,12 @@ vi.mock("@/api/client", () => ({
     patch: vi.fn(),
   },
 }));
+// Mirrors what the real `formatDate` does: `stalenessCutoffDate` returns a
+// *local*-midnight Date carrying UTC-derived digits, and the formatter reads it
+// back with the local getters. Reading UTC here instead would agree only on a
+// UTC runner (#1016).
 vi.mock("@/hooks/useDateFormat", () => ({
-  useDateFormat: () => ({ formatDate: (d: Date) => (d as Date).toISOString().slice(0, 10) }),
+  useDateFormat: () => ({ formatDate: (d: Date) => toIsoDate(d as Date) }),
 }));
 vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: () => ({
@@ -121,7 +126,11 @@ describe("SurveyBuilder — last-update (staleness) filter", () => {
     expect(screen.queryByText(/cards last changed before/i)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "90 days" }));
 
-    const expected = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
+    // The caption promises the *UTC* day the server will subtract from, so the
+    // expectation is built from UTC components on purpose — see the docblock on
+    // `stalenessCutoffDate`.
+    const cutoff = new Date(Date.now() - 90 * 86_400_000);
+    const expected = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-${String(cutoff.getUTCDate()).padStart(2, "0")}`;
     await waitFor(() =>
       expect(screen.getByText(new RegExp(`cards last changed before ${expected}`, "i"))).toBeInTheDocument(),
     );

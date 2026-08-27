@@ -31,6 +31,20 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-expressions": "warn",
       "prefer-const": "warn",
       "prefer-rest-params": "warn",
+      // `toISOString()` is UTC, so slicing a calendar day off it yields the
+      // wrong day for every user west of UTC — a PPM status report saved on
+      // 27 Aug displayed as 26 Aug in California (#1016). Three private copies
+      // of the workaround had grown before `@/lib/dates` existed; this rule is
+      // what stops a fourth. Same posture as `components/DateField.tsx` (#865).
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "CallExpression[callee.object.callee.property.name='toISOString'][callee.property.name=/^(slice|split|substring)$/]",
+          message:
+            "toISOString() is UTC and yields the wrong calendar day west of UTC. Use todayIsoDate() / toIsoDate() from @/lib/dates.",
+        },
+      ],
     },
   },
 );

@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.96.1] - 2026-08-27
+
+### Fixed
+
+- **Dates showed one day early for everyone west of UTC.** A PPM status report saved for 27 August displayed as 26 August in the Americas, and the same shift affected every date-only value in the app — lifecycle dates, task due dates, risk target dates, end-of-life dates — as well as the date filters on the Inventory and Decisions grids. ([#1016](https://github.com/vincentmakes/turbo-ea/issues/1016))
+- **"Today" defaults and overdue markers used UTC rather than your own timezone.** From late afternoon in the Americas, new status reports, cost lines and process assessments pre-filled tomorrow's date; the same mismatch flagged mitigation tasks and PPM tasks as overdue a day early, and let a lifecycle phase begin a day before its date.
+
 ## [2.96.0] - 2026-08-27
 
 ### Added

@@ -43,6 +43,7 @@ import {
 import { useDroppable } from "@dnd-kit/core";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { todayIsoDate } from "@/lib/dates";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import PpmTaskCard from "./PpmTaskCard";
@@ -462,10 +463,11 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
   // ── List View ──
   const renderListRows = (taskList: PpmTask[]) =>
     taskList.map((task) => {
+      // Compared as local `YYYY-MM-DD` strings: `new Date(due_date) < new Date()`
+      // marked a task due *today* overdue from midnight, and read the due date as
+      // UTC on top of that (#1016).
       const isOverdue =
-        task.due_date &&
-        new Date(task.due_date) < new Date() &&
-        task.status !== "done";
+        task.due_date && task.due_date < todayIsoDate() && task.status !== "done";
       return (
         <TableRow key={task.id} hover>
           <TableCell>

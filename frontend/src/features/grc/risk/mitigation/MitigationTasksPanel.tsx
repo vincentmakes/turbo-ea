@@ -30,6 +30,7 @@ import CompleteOccurrenceDialog, {
   type CompleteMode,
 } from "./CompleteOccurrenceDialog";
 import { activationDate } from "@/lib/recurrence/leadTime";
+import { todayIsoDate } from "@/lib/dates";
 import MitigationTaskDialog, {
   type MitigationTaskDialogPayload,
 } from "./MitigationTaskDialog";
@@ -64,7 +65,7 @@ export interface TaskSummary {
 }
 
 function deriveSummary(tasks: MitigationTask[]): TaskSummary {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIsoDate();
   let open = 0;
   let done = 0;
   let skipped = 0;
@@ -214,7 +215,7 @@ export default function MitigationTasksPanel({
     }
   };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIsoDate();
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>

@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import { toPng } from "html-to-image";
 import PptxGenJS from "pptxgenjs";
 import i18n from "@/i18n";
+import { toIsoDate } from "@/lib/dates";
 
 export type ExportColumnType = "text" | "number" | "currency" | "date";
 
@@ -110,7 +111,7 @@ const formatCellValue = (value: unknown, type?: ExportColumnType): unknown => {
     return Number.isFinite(n) ? n : value;
   }
   if (type === "date") {
-    if (value instanceof Date) return value.toISOString().slice(0, 10);
+    if (value instanceof Date) return toIsoDate(value);
     return String(value);
   }
   if (Array.isArray(value)) return value.join(", ");

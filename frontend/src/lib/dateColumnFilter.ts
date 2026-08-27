@@ -6,6 +6,13 @@
 // the filter Date against the raw cell value via a comparator; its built-in
 // comparator does not reliably parse full ISO datetime strings, so we supply
 // our own that parses the string and compares at day granularity.
+//
+// Parsing goes through `toLocalDate` so a bare `YYYY-MM-DD` is read as a local
+// calendar day. `new Date` would read it as UTC midnight while `toDayValue`
+// below reads local, which made every date-only column filter match the
+// following day west of UTC (#1016).
+
+import { toLocalDate } from "./dates";
 
 /** Truncate a Date to local midnight so comparisons are day-level. */
 function toDayValue(d: Date): number {
@@ -22,8 +29,8 @@ function toDayValue(d: Date): number {
  */
 export function compareDateFilter(filterDate: Date, cellValue: unknown): number {
   if (cellValue === null || cellValue === undefined || cellValue === "") return -1;
-  const cell = new Date(cellValue as string);
-  if (Number.isNaN(cell.getTime())) return -1;
+  const cell = toLocalDate(cellValue as string | number | Date);
+  if (!cell) return -1;
   return toDayValue(cell) - toDayValue(filterDate);
 }
 

@@ -26,6 +26,7 @@ import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
+import { toLocalDate } from "@/lib/dates";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -100,13 +101,15 @@ function fmtDate(s: string | boolean | undefined | null): string {
   if (s === true) return "Yes (EOL)";
   if (s === false) return "No";
   if (!s || typeof s !== "string") return "\u2014";
-  return new Date(s).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  const d = toLocalDate(s);
+  if (!d) return "\u2014";
+  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
 function daysUntil(dateStr: string | undefined | null): number | null {
   if (!dateStr || typeof dateStr !== "string") return null;
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return null;
+  const d = toLocalDate(dateStr);
+  if (!d) return null;
   return Math.ceil((d.getTime() - Date.now()) / 86400000);
 }
 

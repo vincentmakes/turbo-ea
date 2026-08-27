@@ -50,6 +50,7 @@ import { Link as RouterLink, useNavigate } from "react-router";
 import { useAuthContext } from "@/hooks/AuthContext";
 import ComplianceScanCard from "./ComplianceScanCard";
 import { useAnalysisPolling } from "@/features/turbolens/useAnalysisPolling";
+import { todayIsoDate } from "@/lib/dates";
 
 /**
  * Resolve a regulation key to a display label. Order of precedence:
@@ -132,7 +133,7 @@ function exportComplianceToCsv(
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = todayIsoDate();
   a.download = `compliance-findings-${stamp}.csv`;
   document.body.appendChild(a);
   a.click();

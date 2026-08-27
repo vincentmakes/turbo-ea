@@ -25,6 +25,7 @@ import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { todayIsoDate } from "@/lib/dates";
 import { KPI_VALUE_SX } from "./ppmStyles";
 import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -156,7 +157,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
         description: "",
         category: "capex",
         actual: 0,
-        date: new Date().toISOString().slice(0, 10),
+        date: todayIsoDate(),
       });
     }
     setCostDialog({ open: true, item });

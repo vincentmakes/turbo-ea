@@ -13,6 +13,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { PHASE_ICONS } from "@/components/LifecycleBadge";
 import { PHASES, getPhaseLabels } from "@/features/cards/sections/cardDetailUtils";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { todayIsoDate } from "@/lib/dates";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import type { Card } from "@/types";
 
@@ -121,7 +122,7 @@ function LifecycleSection({
             }}
           />
           {(() => {
-            const now = new Date().toISOString().slice(0, 10);
+            const now = todayIsoDate();
             // Determine current phase index (latest phase whose date has passed)
             let currentIdx = -1;
             for (let i = PHASES.length - 1; i >= 0; i--) {
@@ -177,7 +178,7 @@ function LifecycleSection({
           >
             {PHASES.map((phase, i) => {
               const date = lifecycle[phase];
-              const now = new Date().toISOString().slice(0, 10);
+              const now = todayIsoDate();
               const isPast =
                 i < PHASES.length - 1 &&
                 PHASES.slice(i + 1).some(

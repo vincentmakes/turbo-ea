@@ -47,6 +47,7 @@ import { brand } from "@/theme/tokens";
 import PpmWbsDialog from "./PpmWbsDialog";
 import PpmTaskDialog from "./PpmTaskDialog";
 import type { PpmDependency, PpmWbs, PpmTask, PpmTaskStatus } from "@/types";
+import { startOfLocalDay, toIsoDate, toLocalDate } from "@/lib/dates";
 
 /** Bar colors per task status — reuses the standard palette from PpmTaskBoard. */
 const TASK_STATUS_BAR_COLORS: Record<
@@ -296,25 +297,14 @@ function deriveRange(card?: { attributes?: Record<string, unknown> }): {
   return { start, end };
 }
 
-/** Parse a "YYYY-MM-DD" string as a local-timezone date at start-of-day. */
+/** Parse a date string as a local-timezone date at start-of-day.
+ *
+ *  The date-only handling lives in `@/lib/dates` — this used to carry a private
+ *  copy of it, one of three that had grown across the app before that module
+ *  existed (#1016). */
 function parseDate(s: string | null, fallback: Date): Date {
-  if (!s) return fallback;
-  // "YYYY-MM-DD" → new Date() treats as UTC midnight, which can shift the day
-  // in positive timezones. Split and construct as local date instead.
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
-  if (m) return new Date(+m[1], +m[2] - 1, +m[3], 0, 0, 0, 0);
-  const d = new Date(s);
-  if (isNaN(d.getTime())) return fallback;
-  // Normalize to start-of-day local
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-/** Snap a Date to start-of-day (00:00) in local timezone. */
-function startOfDay(d: Date): Date {
-  const r = new Date(d);
-  r.setHours(0, 0, 0, 0);
-  return r;
+  const d = toLocalDate(s);
+  return d ? startOfLocalDay(d) : fallback;
 }
 
 /** Snap a Date to end-of-day (23:59:59.999) in local timezone. */
@@ -322,14 +312,6 @@ function endOfDay(d: Date): Date {
   const r = new Date(d);
   r.setHours(23, 59, 59, 999);
   return r;
-}
-
-/** Format a Date to "YYYY-MM-DD" using local date components (not UTC). */
-function toIso(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }
 
 /** Add a number of whole days to a "YYYY-MM-DD" string and return the same
@@ -341,7 +323,7 @@ function addDaysIso(iso: string, days: number): string {
   if (!m) return iso;
   const d = new Date(+m[1], +m[2] - 1, +m[3]);
   d.setDate(d.getDate() + days);
-  return toIso(d);
+  return toIsoDate(d);
 }
 
 /** Whole-day difference `to - from` between two ISO dates. Returned as
@@ -363,7 +345,7 @@ function roundToDay(
   dateExtremity?: string,
 ): Date {
   if (dateExtremity === "endOfTask") return endOfDay(date);
-  return startOfDay(date);
+  return startOfLocalDay(date);
 }
 
 /** Check if a date falls on Saturday or Sunday (unused params from library API). */
@@ -526,8 +508,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   const defaultNewDate = useMemo(() => {
     const now = new Date();
     const range = deriveRange(card);
-    if (now >= range.start && now <= range.end) return toIso(now);
-    return toIso(range.start);
+    if (now >= range.start && now <= range.end) return toIsoDate(now);
+    return toIsoDate(range.start);
   }, [card]);
 
   // Today button → scroll gantt to current date
@@ -656,7 +638,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     // WBS items as "project" or "milestone" type
     for (const w of wbsList) {
       const wbsId = `wbs-${w.id}`;
-      const start = startOfDay(parseDate(w.start_date, defStart));
+      const start = startOfLocalDay(parseDate(w.start_date, defStart));
       const deps = depsBySuccessor.get(wbsId);
       if (w.is_milestone) {
         items.push({
@@ -700,7 +682,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     // Tasks as "task" type
     for (const tk of tasks) {
       const taskId = `task-${tk.id}`;
-      const start = startOfDay(
+      const start = startOfLocalDay(
         parseDate(tk.start_date, parseDate(tk.created_at, defStart)),
       );
       let end = endOfDay(
@@ -764,8 +746,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       if (!("start" in task)) return;
       const t = task as Task;
       const id = t.id;
-      const newStart = toIso(t.start);
-      const newEnd = toIso(t.end);
+      const newStart = toIsoDate(t.start);
+      const newEnd = toIsoDate(t.end);
 
       // Optimistic local update — prevents the bar from jumping back to old dates
       if (id.startsWith("wbs-")) {

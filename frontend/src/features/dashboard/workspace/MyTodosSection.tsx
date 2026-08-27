@@ -6,6 +6,7 @@ import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
+import { todayIsoDate } from "@/lib/dates";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import SectionPaper, { EmptyState, ViewAllLink } from "./SectionPaper";
@@ -21,11 +22,6 @@ interface TodoRow {
 }
 
 const MAX_VISIBLE = 6;
-
-function todayIsoDate(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-}
 
 export default function MyTodosSection() {
   const { t } = useTranslation("common");

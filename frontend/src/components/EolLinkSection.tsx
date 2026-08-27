@@ -27,6 +27,7 @@ import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { STATUS_COLORS } from "@/theme/tokens";
+import { toLocalDate } from "@/lib/dates";
 import type { Card, EolProduct, EolCycle, EolProductMatch } from "@/types";
 
 const EOL_TYPES = ["Application", "ITComponent"];
@@ -43,9 +44,8 @@ function formatEolField(
   if (val === true) return { label: t("eol.status.yesEol"), color: STATUS_COLORS.error };
   if (val === false) return { label: t("common:labels.no"), color: STATUS_COLORS.success };
   if (typeof val === "string") {
-    const d = new Date(val);
-    const now = new Date();
-    const isPast = d <= now;
+    const d = toLocalDate(val);
+    const isPast = !!d && d <= new Date();
     return { label: val, color: isPast ? STATUS_COLORS.error : STATUS_COLORS.success };
   }
   return { label: t("eol.status.unknown"), color: STATUS_COLORS.neutral };
@@ -63,8 +63,11 @@ function computeEolStatus(
   const eol = cycle.eol;
   if (eol === true)
     return { label: t("eol.status.endOfLife"), color: STATUS_COLORS.error, icon: "cancel" };
-  if (typeof eol === "string") {
-    const eolDate = new Date(eol);
+  const eolDate = typeof eol === "string" ? toLocalDate(eol) : null;
+  if (eolDate) {
+    // Parsed locally: `new Date("2026-08-27")` is UTC midnight, which is
+    // 17:00 the previous day in the Americas, so the chip flipped to
+    // "End of life" a day early there (#1016).
     const now = new Date();
     if (eolDate <= now)
       return { label: t("eol.status.endOfLife"), color: STATUS_COLORS.error, icon: "cancel" };
@@ -81,7 +84,8 @@ function computeEolStatus(
   // Check active support
   const support = cycle.support;
   if (support === true || support === false || typeof support === "string") {
-    if (support === false || (typeof support === "string" && new Date(support) <= new Date())) {
+    const supportEnds = typeof support === "string" ? toLocalDate(support) : null;
+    if (support === false || (supportEnds && supportEnds <= new Date())) {
       return {
         label: t("eol.status.securityOnly"),
         color: STATUS_COLORS.warning,

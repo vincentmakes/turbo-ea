@@ -10,6 +10,7 @@ import { CSS } from "@dnd-kit/utilities";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { PRIORITY_COLORS } from "@/theme/tokens";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { todayIsoDate } from "@/lib/dates";
 import type { PpmTask } from "@/types";
 
 function initials(name: string): string {
@@ -47,8 +48,10 @@ export default function PpmTaskCard({ task, wbsName, onClick, onMarkDone, isDrag
     opacity: isDragging ? 0.4 : 1,
   };
 
+  // See PpmTaskBoard: local date-string comparison, so a task due today is
+  // not overdue until tomorrow, in every timezone.
   const isOverdue =
-    task.due_date && new Date(task.due_date) < new Date() && task.status !== "done";
+    task.due_date && task.due_date < todayIsoDate() && task.status !== "done";
   const isDone = task.status === "done";
 
   return (

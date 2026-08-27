@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { toIsoDate, toLocalDate } from "@/lib/dates";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -46,8 +47,8 @@ const RAG_LABEL: Record<string, string> = {
 
 /** Format a date string as "Q3'25" */
 function fmtQuarter(dateStr: string | null): string {
-  if (!dateStr) return "\u2014";
-  const d = new Date(dateStr);
+  const d = toLocalDate(dateStr);
+  if (!d) return "\u2014";
   const q = Math.floor(d.getMonth() / 3) + 1;
   const y = String(d.getFullYear()).slice(2);
   return `Q${q}'${y}`;
@@ -55,7 +56,8 @@ function fmtQuarter(dateStr: string | null): string {
 
 /** Format a date as "Feb-26" style */
 function fmtMonthYear(dateStr: string): string {
-  const d = new Date(dateStr);
+  const d = toLocalDate(dateStr);
+  if (!d) return "\u2014";
   const m = d.toLocaleString("en", { month: "short" });
   const y = String(d.getFullYear()).slice(2);
   return `${m}-${y}`;
@@ -349,8 +351,10 @@ export default function PpmPortfolio() {
   }, [filtered, t]);
 
   const pctOf = (dateStr: string | null) => {
-    if (!dateStr) return null;
-    const d = new Date(dateStr);
+    // `windowStart` and `now` below are local Dates, so the date-only argument
+    // has to be parsed locally too or the two baselines disagree (#1016).
+    const d = toLocalDate(dateStr);
+    if (!d) return null;
     return Math.max(0, Math.min(100, ((d.getTime() - windowStart.getTime()) / windowMs) * 100));
   };
 
@@ -856,7 +860,7 @@ export default function PpmPortfolio() {
             }}
           >
             {quarters.map((q) => {
-              const leftPct = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
+              const leftPct = pctOf(toIsoDate(q.start)) ?? 0;
               return (
                 <Typography
                   key={q.label}

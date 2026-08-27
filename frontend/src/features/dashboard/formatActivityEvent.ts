@@ -2,6 +2,7 @@ import type { TFunction } from "i18next";
 import type { EventEntry } from "@/types";
 import { STATUS_COLORS, SEVERITY_COLORS } from "@/theme/tokens";
 import { formatDateWith, getCachedDateFormat } from "@/hooks/useDateFormat";
+import { toIsoDate } from "@/lib/dates";
 
 export type ActivityCategory =
   | "create"
@@ -211,7 +212,7 @@ export function dayBucket(
   const target = new Date(d);
   target.setHours(0, 0, 0, 0);
   const dayDiff = Math.round((today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24));
-  const key = target.toISOString().slice(0, 10);
+  const key = toIsoDate(target);
   let label: string;
   if (dayDiff === 0) label = t("dashboard.activity.day.today");
   else if (dayDiff === 1) label = t("dashboard.activity.day.yesterday");

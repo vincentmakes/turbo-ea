@@ -38,6 +38,7 @@ import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
 import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
 import { arrayFacetBinding } from "@/components/grid/facetColumnSync";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
+import { todayIsoDate } from "@/lib/dates";
 import MetricCard from "@/features/reports/MetricCard";
 import { api, ApiError } from "@/api/client";
 import type {
@@ -573,7 +574,7 @@ export default function RiskRegisterPage() {
     navigate(`/grc/risks/${risk.id}`);
   };
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const today = useMemo(() => todayIsoDate(), []);
 
   // ── AG Grid wiring ───────────────────────────────────────────────
   const levelWeight: Record<RiskLevel, number> = useMemo(

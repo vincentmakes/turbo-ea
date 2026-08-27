@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/api/client";
+import { toLocalDate } from "@/lib/dates";
 
 export type DateFormatKey =
   | "MM/DD/YYYY"
@@ -49,21 +50,23 @@ function _fetchOnce(): Promise<DateFormatKey> {
   return _inflight;
 }
 
-function toDate(value: Date | string | number | null | undefined): Date | null {
-  if (value === null || value === undefined || value === "") return null;
-  const d = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
 function shortMonth(d: Date): string {
   return d.toLocaleString(undefined, { month: "short" });
 }
 
+/**
+ * Format a value as its **local** calendar day.
+ *
+ * Parsed with `toLocalDate`, not `new Date` — a bare `YYYY-MM-DD` from the API
+ * is a calendar day, and `new Date` reads it as UTC midnight while the getters
+ * below read local, showing the previous day everywhere west of UTC (#1016).
+ * Full ISO timestamps carry their own offset and are unaffected.
+ */
 export function formatDateWith(
   fmt: DateFormatKey,
   value: Date | string | number | null | undefined,
 ): string {
-  const d = toDate(value);
+  const d = toLocalDate(value);
   if (!d) return "";
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -87,7 +90,7 @@ export function formatDateTimeWith(
   fmt: DateFormatKey,
   value: Date | string | number | null | undefined,
 ): string {
-  const d = toDate(value);
+  const d = toLocalDate(value);
   if (!d) return "";
   const datePart = formatDateWith(fmt, d);
   const hh = String(d.getHours()).padStart(2, "0");

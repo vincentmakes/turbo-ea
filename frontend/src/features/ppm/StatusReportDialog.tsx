@@ -13,6 +13,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import { api } from "@/api/client";
+import { todayIsoDate } from "@/lib/dates";
 import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
 import type { PpmStatusReport, PpmHealthValue } from "@/types";
 
@@ -88,7 +89,7 @@ export default function StatusReportDialog({
   const isEdit = !!report;
 
   const [reportDate, setReportDate] = useState(
-    report?.report_date || new Date().toISOString().slice(0, 10),
+    report?.report_date || todayIsoDate(),
   );
   const [scheduleHealth, setScheduleHealth] = useState<PpmHealthValue>(
     (report?.schedule_health as PpmHealthValue) || "onTrack",

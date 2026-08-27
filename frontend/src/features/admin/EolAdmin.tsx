@@ -21,6 +21,7 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { toLocalDate } from "@/lib/dates";
 import type { MassEolResult, EolCycle } from "@/types";
 
 type LinkSelection = Record<
@@ -34,8 +35,11 @@ function computeEolStatus(cycle: EolCycle, t: (key: string) => string): {
 } {
   const eol = cycle.eol;
   if (eol === true) return { label: t("eol.status.endOfLife"), color: "#f44336" };
-  if (typeof eol === "string") {
-    const eolDate = new Date(eol);
+  const eolDate = typeof eol === "string" ? toLocalDate(eol) : null;
+  if (eolDate) {
+    // Parsed locally: `new Date("2026-08-27")` is UTC midnight, which is
+    // 17:00 the previous day in the Americas, so the chip flipped to
+    // "End of life" a day early there (#1016).
     const now = new Date();
     if (eolDate <= now) return { label: t("eol.status.endOfLife"), color: "#f44336" };
     const sixMonths = new Date();

@@ -36,6 +36,7 @@ import {
 } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { bandColor, bandOf, type DataQualityBand } from "@/lib/dataQualityBands";
+import { todayIsoDate } from "@/lib/dates";
 import TagPicker from "@/components/TagPicker";
 import type {
   PublicPortal,
@@ -202,7 +203,7 @@ function LifecycleBar({ lifecycle, t }: { lifecycle?: Record<string, string>; t:
   const filled = phases.filter((p) => lifecycle[p.key]);
   if (filled.length === 0) return null;
 
-  const now = new Date().toISOString().slice(0, 10);
+  const now = todayIsoDate();
   let currentPhase = filled[0].key;
   for (const p of phases) {
     if (lifecycle[p.key] && lifecycle[p.key] <= now) {
