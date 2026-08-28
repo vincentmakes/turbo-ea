@@ -47,7 +47,7 @@ import { ICON_PATHS } from "./iconPaths";
 const RASTER_SCALE = 2;
 
 /** Edge of the square the logo occupies at the card's left, in cell units. */
-export const LOGO_BOX_PX = 28;
+export const LOGO_BOX_PX = 30;
 
 /** Edge of the type glyph in the card's top-right corner, in cell units. */
 export const TYPE_GLYPH_PX = 16;
@@ -91,6 +91,18 @@ const CARD_H = 60;
  */
 export function logoBoxFor(cardH: number): number {
   return Math.max(12, Math.min(LOGO_BOX_PX, Math.round(cardH) - EDGE_PAD * 2));
+}
+
+/**
+ * How much room the card name must leave on each side, on a card this tall.
+ *
+ * The logo's own inset counts: the box starts {@link EDGE_PAD} in from the
+ * left, so a gutter of just the box width left the name butted up against the
+ * plate with two pixels to spare. This is that inset, plus the box, plus a
+ * gap you can actually see.
+ */
+export function logoGutterFor(cardH: number): number {
+  return EDGE_PAD + logoBoxFor(cardH) + 8;
 }
 
 /**
@@ -331,10 +343,11 @@ export async function composeCardLogoImage(
     const natural = Math.max(img.naturalWidth || img.width, 1);
     const naturalH = Math.max(img.naturalHeight || img.height, 1);
     const box = logoBoxFor(cardH);
-    // The plate is a backing for the mark, not a frame around it: at 3px it
-    // read as a chunky tile with a small logo inside, which is the opposite of
-    // what it is for. 2px is enough to keep dark ink off the card's own colour.
-    const pad = 2;
+    // The plate is a backing for the mark, not a frame around it. Every pixel
+    // of padding is paid twice — the plate grows and the mark shrinks to fit
+    // what is left — which is what made it read as a chunky tile with a small
+    // logo inside. 1px is enough to keep dark ink off the card's own colour.
+    const pad = 1;
     const scale = Math.min((box - pad * 2) / natural, (box - pad * 2) / naturalH);
     const w = Math.max(1, Math.round(natural * scale));
     const h = Math.max(1, Math.round(naturalH * scale));

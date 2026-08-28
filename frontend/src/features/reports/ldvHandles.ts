@@ -17,7 +17,7 @@ export const LDV_NODE_W = 200;
  * floating in a corner sat on top of it as soon as a name was long enough to
  * reach that corner. Putting the logo in the card's own vertical flow is the
  * fix, and that costs height: a 26px logo, the name, and up to
- * `MAX_CARD_LINES` (2) caption lines need about 77px of content.
+ * `MAX_CARD_LINES` (2) caption lines need about 76px of content.
  *
  * Deliberately **not** conditional on whether logos are switched on. The logo
  * toggle patches already-positioned nodes precisely so it does not disturb a
@@ -25,7 +25,7 @@ export const LDV_NODE_W = 200;
  * would force a relayout on every flip. The extra room is no loss on a card
  * with no logo — it is where the caption lines used to crowd the name.
  */
-export const LDV_NODE_H = 84;
+export const LDV_NODE_H = 80;
 
 /** Horizontal positions of the 5 top/bottom slots, as a fraction of node width. */
 export const LDV_HANDLE_FRACTIONS = [0.12, 0.3, 0.5, 0.7, 0.88] as const;

@@ -7,7 +7,7 @@
  * it avoids XML merge root-cell conflicts and plugin lifecycle issues.
  */
 
-import { logoBoxFor } from "./cardLogoImage";
+import { logoGutterFor } from "./cardLogoImage";
 import { ICON_PATHS } from "./iconPaths";
 import { readableTextColor, tint } from "@/lib/color";
 
@@ -220,8 +220,9 @@ function iconStyleParts(
     // cell's real geometry, and the image is rebuilt when that changes.
     //
     // The gutter comes from the same helper that sizes the drawn logo, so a
-    // short card reserves the room its smaller mark actually takes.
-    const gutter = logoBoxFor(cardH) + 8;
+    // short card reserves the room its smaller mark actually takes — and it
+    // counts the logo's own inset, or the name ends up touching the plate.
+    const gutter = logoGutterFor(cardH);
     return [
       "shape=label",
       `image=${image}`,

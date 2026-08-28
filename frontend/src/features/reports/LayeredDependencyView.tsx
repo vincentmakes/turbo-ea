@@ -156,7 +156,7 @@ function computeObstacles(nodeList: Node[]): ObstacleBounds[] {
 const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
 
 // The logo tile, in the card's own vertical flow above the name. Sized against
-// the 200×84 node: big enough that a mark is recognisable at a glance, small
+// the 200×80 node: big enough that a mark is recognisable at a glance, small
 // enough to leave the name and its caption lines their room. The type icon
 // does NOT sit on it — see below.
 const LOGO_SIZE = 26;
@@ -444,9 +444,14 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
             width: LOGO_SIZE,
             height: LOGO_SIZE,
             flexShrink: 0,
-            mb: "3px",
+            // Hard left, where a card's mark has always been. Centred over the
+            // name it read as a stray icon floating in the card rather than as
+            // the card's identity — the column centres everything else, so this
+            // has to opt out of it.
+            alignSelf: "flex-start",
+            mb: "2px",
             boxSizing: "border-box",
-            p: "2px",
+            p: "1px",
             borderRadius: 0.75,
             // Never `cover` — a vendor's mark must not be cropped.
             objectFit: "contain",
