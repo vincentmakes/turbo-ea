@@ -155,10 +155,12 @@ function computeObstacles(nodeList: Node[]): ObstacleBounds[] {
 
 const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
 
-// The logo tile in the card's top-left corner. Free to be this big: the room
-// the name gives up is set by the card's RIGHT-hand corner (the type icon and
-// the lifecycle dot), not by the logo — see TEXT_GUTTER.
-const LOGO_SIZE = 28;
+// The logo tile in the card's top-left corner, and how far into that corner it
+// tucks. Small and close in: the mark is an aid to recognition, not the card's
+// subject — every pixel it takes is a pixel of name, since the text starts
+// under it (see TEXT_TOP_WITH_LOGO).
+const LOGO_SIZE = 22;
+const LOGO_INSET = 4;
 
 /**
  * Where the type icon sits when a logo has taken the top-left corner: on the
@@ -186,13 +188,17 @@ const TYPE_ICON_RIGHT_BESIDE_DOT = DOT_INSET + DOT_BOX + 3;
  * width and starts under the band instead, which is what actually shows a long
  * name whole.
  *
- * A few pixels ABOVE the logo's bottom edge (5 + LOGO_SIZE), not level with
- * it: a line box is taller than its glyphs, so half the difference sits above
- * them as leading. Offsetting by the box would push the letters visibly below
- * the mark, where a card with no logo has its name starting level with the
- * bottom of the type icon. This is the same relationship, measured in glyphs.
+ * A few pixels ABOVE the logo's bottom edge, not level with it: a line box is
+ * taller than its glyphs, so half the difference sits above them as leading.
+ * Offsetting by the box would push the letters visibly below the mark, where a
+ * card with no logo has its name starting level with the bottom of the type
+ * icon. This is the same relationship, measured in glyphs.
+ *
+ * 3 is the measured limit, not a guess: at 5 a full-width first line's
+ * ascenders poked into the tile's bottom-left corner. The room comes out of
+ * the logo instead — it is the mark that should shrink, not the name.
  */
-const TEXT_TOP_WITH_LOGO = 5 + LOGO_SIZE - 3;
+const TEXT_TOP_WITH_LOGO = LOGO_INSET + LOGO_SIZE - 3;
 
 const HANDLE_POSITIONS = {
   top: Position.Top,
@@ -462,8 +468,8 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           onError={handleLogoError}
           sx={{
             position: "absolute",
-            top: 5,
-            left: 6,
+            top: LOGO_INSET,
+            left: LOGO_INSET,
             width: LOGO_SIZE,
             height: LOGO_SIZE,
             boxSizing: "border-box",
