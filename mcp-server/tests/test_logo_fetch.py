@@ -89,7 +89,12 @@ class TestTheAllowlist:
                 await logo_fetch.fetch_logo("https://evil.test/logo.png", _sniff)
         assert err.value.status == "image_url_not_allowed"
         # And it names what would work, so the agent can retry rather than stop.
-        assert "raw.githubusercontent.com" in (err.value.remedy or "")
+        # Checked against the real list rather than a hard-coded host: a literal
+        # domain in a substring test reads to a scanner as URL sanitisation,
+        # which is exactly the bug class this module is careful NOT to have.
+        remedy = err.value.remedy or ""
+        for host in logo_fetch.allowed_hosts():
+            assert host in remedy
 
     @pytest.mark.asyncio
     async def test_a_lookalike_suffix_does_not_pass(self, public_dns):
