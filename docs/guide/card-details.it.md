@@ -39,6 +39,10 @@ I loghi sono disponibili per i tipi di scheda che un amministratore ha
 attivato; di serie sono Applicazione e Componente IT. Vedi
 [Metamodello](../admin/metamodel.md).
 
+Un assistente IA collegato tramite [MCP](../admin/mcp.md) può anche impostare un
+logo da un pacchetto integrato di alcune migliaia di icone di marchi, indicandolo
+per nome — senza trasferire alcun file immagine.
+
 ### Workflow di approvazione
 
 Le card possono attraversare un ciclo di approvazione:

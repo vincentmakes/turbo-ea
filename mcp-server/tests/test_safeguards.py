@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import base64
 import json
+import pathlib
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -243,3 +244,42 @@ class TestToolAnnotations:
         tool = server.mcp._tool_manager._tools["upsert_relations_bulk"]
         assert tool.annotations is not None
         assert tool.annotations.destructiveHint is True
+
+
+class TestDocumentedToolCounts:
+    """`docs/admin/mcp.md` states tool counts in prose and nothing enforces
+    them, so they drift. They have twice: a bump pass once left the Chinese
+    page saying 47 where every other locale said 48, and the Arabic page
+    spelling "seventeen" in words where no digit pattern could reach it.
+    Guard the English source of truth — the translations are checked against
+    it by the normal translation pass."""
+
+    def _doc(self):
+        import pytest
+
+        doc = pathlib.Path(__file__).resolve().parents[2] / "docs" / "admin" / "mcp.md"
+        if not doc.exists():
+            pytest.skip("docs tree not present — mcp-server is installable on its own")
+        return doc.read_text(encoding="utf-8")
+
+    def _counts(self):
+        tools = server.mcp._tool_manager._tools
+        read = [n for n, t in tools.items() if t.annotations and t.annotations.readOnlyHint]
+        destructive = [
+            n for n, t in tools.items() if t.annotations and t.annotations.destructiveHint
+        ]
+        return len(tools), len(read), len(tools) - len(read), len(destructive)
+
+    def test_the_prose_totals_match_the_registry(self):
+        total, read, write, destructive = self._counts()
+        doc = self._doc()
+        assert f"**{total} tools**" in doc
+        assert f"**{read} read tools**" in doc
+        assert f"**{write} write tools**" in doc
+        assert f"{destructive} destructive)" in doc
+
+    def test_every_registered_tool_is_documented(self):
+        doc = self._doc()
+        missing = [name for name in server.mcp._tool_manager._tools if f"`{name}`" not in doc]
+        assert not missing, f"tools missing from docs/admin/mcp.md: {missing}"
+

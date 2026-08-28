@@ -155,7 +155,7 @@ In this mode, the server authenticates with email/password and refreshes the tok
 
 ## Available Capabilities
 
-The MCP server exposes **48 tools** across two groups: **30 read tools** that query EA data and **18 write tools** (14 additive, 4 destructive) that create and maintain cards, relations, diagrams, risks, ADRs and more — including turning artifacts an AI tool has in its own context (spreadsheets, BPMN XML, DrawIO XML, documents, images) into structured EA data. Every tool carries MCP `ToolAnnotations` (read-only / destructive / idempotent hints) so connectors can surface destructiveness in their UI.
+The MCP server exposes **51 tools** across two groups: **32 read tools** that query EA data and **19 write tools** (14 additive, 5 destructive) that create and maintain cards, relations, diagrams, risks, ADRs and more — including turning artifacts an AI tool has in its own context (spreadsheets, BPMN XML, DrawIO XML, documents, images) into structured EA data. Every tool carries MCP `ToolAnnotations` (read-only / destructive / idempotent hints) so connectors can surface destructiveness in their UI.
 
 ### Dry-run safety on writes
 
@@ -163,7 +163,7 @@ Every write tool defaults to **`dry_run=true`**. In this mode the backend runs e
 
 ### Read tools
 
-The server exposes 30 read tools grouped into eight clusters.
+The server exposes 32 read tools grouped into eight clusters.
 
 **Cards & metamodel**
 
@@ -226,6 +226,8 @@ The server exposes 30 read tools grouped into eight clusters.
 | `get_card_stakeholders` | Users + roles assigned to a card |
 | `get_card_comments` | Threaded comments on a card |
 | `get_card_documents` | Document links attached to a card |
+| `get_card_logo` | A card's logo: mime, size and a sha256 of the stored bytes, so a write can be verified without transferring the image (pass `include_image` when you do want it) |
+| `list_available_icons` | Search the built-in brand-icon pack for a slug to pass to `set_card_logos` |
 
 **Diagrams**
 
@@ -244,7 +246,7 @@ All tools are bound by the authenticated user's RBAC — a viewer will simply ge
 
 ### Write tools
 
-The server exposes 18 write tools, each annotated as **additive** (creates or extends data) or **destructive** (modifies or removes existing data) so connectors can warn accordingly.
+The server exposes 19 write tools, each annotated as **additive** (creates or extends data) or **destructive** (modifies or removes existing data) so connectors can warn accordingly.
 
 **Additive (14)**
 
@@ -263,9 +265,9 @@ The server exposes 18 write tools, each annotated as **additive** (creates or ex
 | `sign_adr` | Sign an ADR (requires the `adr.sign` permission; otherwise returns a UI deep-link to sign in the browser). |
 | `create_diagram` | Create a free-form DrawIO diagram with optional links to existing cards. |
 | `import_bpmn` | Save a BPMN 2.0 XML diagram against an **existing** Business Process card. If no card matches the given name, the tool returns a `card_not_found` error pointing the agent at `create_cards_bulk` — this forces the agent to create the card explicitly with description, subtype and attributes first, instead of taking a shortcut that lands a sparse card. |
-| `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Image bytes are supplied base64 from the agent's own context; there is no fetch-from-URL path. PNG/JPEG/WebP/GIF only, 1 MB each. Removing a logo is deliberately not exposed — do that from the card in the web UI. |
+| `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Supply either a built-in `icon_slug` (resolved server-side, no image transferred) or `image_base64` from the agent's own context; there is no fetch-from-URL path. `mime` is optional and sniffed from the bytes. PNG/JPEG/WebP/GIF only, 1 MB each. Each row echoes a sha256 so the caller can prove what landed. Use `clear_card_logos` to remove one. |
 
-**Destructive (4)**
+**Destructive (5)**
 
 | Tool | Description |
 |------|-------------|
@@ -273,6 +275,7 @@ The server exposes 18 write tools, each annotated as **additive** (creates or ex
 | `archive_cards` | Soft-delete cards. Recoverable — archived cards can be restored for 30 days before auto-purge. |
 | `update_diagram` | Replace a diagram's DrawIO XML, name, or card links. |
 | `rollback_batch` | Reverse the writes performed under a previous mutation batch. |
+| `clear_card_logos` | Remove the custom logo from cards, falling them back to their card-type icon. Recoverable — set it again to restore. |
 
 ### Artifact upload
 
@@ -292,7 +295,7 @@ Defense in depth on top of dry-run, so an LLM mishap can't cause mass damage:
 
 - **Per-call size caps.** The MCP write tools enforce a much smaller cap than the underlying Excel-importer endpoints: 200 rows for `create_cards_bulk`, 500 ops for `upsert_relations_bulk`. Big enough for any realistic single artifact upload, small enough that a dry-run preview is still scannable.
 - **No relation deletion by default.** `upsert_relations_bulk` refuses `action: "delete"` ops — to remove relations, use the web UI where the action is captured under the user's identity. Operators can opt in by setting `MCP_ALLOW_RELATION_DELETE=true`.
-- **Kill switch.** `MCP_WRITES_ENABLED=false` turns off all 18 write tools without redeploying code. The 30 read tools keep working.
+- **Kill switch.** `MCP_WRITES_ENABLED=false` turns off all 19 write tools without redeploying code. The 32 read tools keep working.
 - **Audit origin tag.** Every backend request from the MCP server carries an `X-Turbo-EA-Origin: mcp` header. Events emitted from those requests are tagged `origin: "mcp"` in the audit-log payload, so admins can filter MCP-driven writes out of the timeline distinct from web-UI actions.
 - **Mutation batches.** Every MCP write call opens a mutation batch before any writes; every event emitted during the call is stamped with the batch id. Admins (or the `get_change_history` tool) can reconstruct the full per-event diff of a commit from one id, and `rollback_batch` can reverse it. Commits above `MCP_BATCH_CONFIRMATION_THRESHOLD` rows must echo back a one-shot `confirm_token` issued by the prior dry-run (15-minute TTL), so a large commit always follows a reviewed preview.
 - **No hard delete.** The toolset deliberately omits permanent card deletion. `archive_cards` and `update_cards_bulk` *are* exposed, but archiving is a recoverable soft-delete (30-day restore window) and both are destructiveness-annotated and dry-run-gated. Adding any tool that performs an irreversible mutation (hard delete, force-purge) would require an explicit design review.

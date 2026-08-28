@@ -155,7 +155,7 @@ Neste modo, o servidor se autentica com email/senha e renova o token automaticam
 
 ## Capacidades disponíveis
 
-O servidor MCP expõe **48 ferramentas** divididas em dois grupos: **30 ferramentas de leitura** que consultam dados de EA e **18 ferramentas de escrita** (14 aditivas, 4 destrutivas) que criam e mantêm cards, relações, diagramas, riscos, ADRs e mais — incluindo transformar artefatos que uma ferramenta de IA tem no seu próprio contexto (planilhas, BPMN XML, DrawIO XML, documentos, imagens) em dados de EA estruturados. Cada ferramenta carrega `ToolAnnotations` MCP (indicações de somente leitura / destrutiva / idempotente) para que os conectores possam sinalizar a destrutividade na sua interface.
+O servidor MCP expõe **51 ferramentas** divididas em dois grupos: **32 ferramentas de leitura** que consultam dados de EA e **19 ferramentas de escrita** (14 aditivas, 5 destrutivas) que criam e mantêm cards, relações, diagramas, riscos, ADRs e mais — incluindo transformar artefatos que uma ferramenta de IA tem no seu próprio contexto (planilhas, BPMN XML, DrawIO XML, documentos, imagens) em dados de EA estruturados. Cada ferramenta carrega `ToolAnnotations` MCP (indicações de somente leitura / destrutiva / idempotente) para que os conectores possam sinalizar a destrutividade na sua interface.
 
 ### Segurança por execução simulada nas escritas
 
@@ -163,7 +163,7 @@ Cada ferramenta de escrita usa por padrão **`dry_run=true`**. Nesse modo, o bac
 
 ### Ferramentas de leitura
 
-O servidor expõe 30 ferramentas de leitura agrupadas em oito clusters.
+O servidor expõe 32 ferramentas de leitura agrupadas em oito clusters.
 
 **Cards & metamodelo**
 
@@ -226,6 +226,8 @@ O servidor expõe 30 ferramentas de leitura agrupadas em oito clusters.
 | `get_card_stakeholders` | Usuários + papéis atribuídos a um card |
 | `get_card_comments` | Fio de comentários de um card |
 | `get_card_documents` | Links de documentos anexados a um card (URLs, não arquivos) |
+| `get_card_logo` | A card's logo: mime, size and a sha256 of the stored bytes, so a write can be verified without transferring the image (pass `include_image` when you do want it) |
+| `list_available_icons` | Search the built-in brand-icon pack for a slug to pass to `set_card_logos` |
 
 **Diagramas**
 
@@ -244,7 +246,7 @@ Todas as ferramentas respeitam o RBAC do usuário autenticado — um visualizado
 
 ### Ferramentas de escrita
 
-O servidor expõe 18 ferramentas de escrita, cada uma anotada como **aditiva** (cria ou estende dados) ou **destrutiva** (modifica ou remove dados existentes), para que os conectores possam alertar de acordo.
+O servidor expõe 19 ferramentas de escrita, cada uma anotada como **aditiva** (cria ou estende dados) ou **destrutiva** (modifica ou remove dados existentes), para que os conectores possam alertar de acordo.
 
 **Aditivas (14)**
 
@@ -263,9 +265,9 @@ O servidor expõe 18 ferramentas de escrita, cada uma anotada como **aditiva** (
 | `sign_adr` | Assina um ADR (requer a permissão `adr.sign`; caso contrário, retorna um deep-link da interface para assinar no navegador). |
 | `create_diagram` | Cria um diagrama DrawIO livre com vínculos opcionais a cards existentes. |
 | `import_bpmn` | Salva um diagrama BPMN 2.0 XML em um card de Processo de negócio **existente**. Se nenhum card corresponder ao nome fornecido, a ferramenta retorna um erro `card_not_found` que aponta o agente para `create_cards_bulk` — isso obriga a criação explícita do card com descrição, subtipo e atributos antes, em vez de um atalho que deixa um card pobre. |
-| `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Image bytes are supplied base64 from the agent's own context; there is no fetch-from-URL path. PNG/JPEG/WebP/GIF only, 1 MB each. Removing a logo is deliberately not exposed — do that from the card in the web UI. |
+| `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Supply either a built-in `icon_slug` (resolved server-side, no image transferred) or `image_base64` from the agent's own context; there is no fetch-from-URL path. `mime` is optional and sniffed from the bytes. PNG/JPEG/WebP/GIF only, 1 MB each. Each row echoes a sha256 so the caller can prove what landed. Use `clear_card_logos` to remove one. |
 
-**Destrutivas (4)**
+**Destrutivas (5)**
 
 | Ferramenta | Descrição |
 |------------|-----------|
@@ -273,6 +275,7 @@ O servidor expõe 18 ferramentas de escrita, cada uma anotada como **aditiva** (
 | `archive_cards` | Arquiva cards (soft-delete). Recuperável — cards arquivados podem ser restaurados por 30 dias antes da exclusão automática. |
 | `update_diagram` | Substitui o XML DrawIO de um diagrama, o nome ou os vínculos a cards. |
 | `rollback_batch` | Reverte as gravações realizadas em um lote de mutação anterior. |
+| `clear_card_logos` | Remove the custom logo from cards, falling them back to their card-type icon. Recoverable — set it again to restore. |
 
 ### Upload de artefatos
 
@@ -292,7 +295,7 @@ Defesa em profundidade além da execução simulada, para que um descuido do LLM
 
 - **Limite de tamanho por chamada.** As ferramentas de escrita MCP aplicam um limite muito menor que os endpoints subjacentes do importador Excel: 200 linhas para `create_cards_bulk`, 500 operações para `upsert_relations_bulk`. Grande o suficiente para qualquer carregamento realista de um único artefato, pequeno o suficiente para que uma prévia de execução simulada permaneça revisável.
 - **Sem exclusão de relações por padrão.** `upsert_relations_bulk` recusa operações `action: "delete"` — para remover relações, use a interface web onde a ação é registrada sob a identidade do usuário. Operadores podem habilitar definindo `MCP_ALLOW_RELATION_DELETE=true`.
-- **Interruptor de desligamento.** `MCP_WRITES_ENABLED=false` desliga todas as 18 ferramentas de escrita sem reimplantar código. As 30 ferramentas de leitura continuam funcionando.
+- **Interruptor de desligamento.** `MCP_WRITES_ENABLED=false` desliga todas as 19 ferramentas de escrita sem reimplantar código. As 32 ferramentas de leitura continuam funcionando.
 - **Marcador de origem para auditoria.** Cada requisição backend do servidor MCP carrega um cabeçalho `X-Turbo-EA-Origin: mcp`. Eventos emitidos dessas requisições são marcados com `origin: "mcp"` no payload do log de auditoria, de forma que administradores possam filtrar gravações dirigidas por MCP fora da linha do tempo, separadas das ações da interface web.
 - **Lotes de mutação.** Cada chamada de escrita MCP abre um lote de mutação antes de qualquer gravação; cada evento emitido durante a chamada é marcado com o id do lote. Administradores (ou a ferramenta `get_change_history`) podem reconstruir o diff completo por evento de um commit a partir de um único id, e `rollback_batch` pode revertê-lo. Commits acima de `MCP_BATCH_CONFIRMATION_THRESHOLD` linhas devem devolver um `confirm_token` de uso único emitido pela execução simulada anterior (TTL de 15 minutos), de forma que um commit grande sempre segue uma prévia revisada.
 - **Sem exclusão definitiva.** O conjunto de ferramentas omite deliberadamente a exclusão permanente de cards. `archive_cards` e `update_cards_bulk` *estão* expostas, mas o arquivamento é um soft-delete recuperável (janela de restauração de 30 dias) e ambas são anotadas quanto à destrutividade e protegidas por execução simulada. Adicionar qualquer ferramenta que realize uma mutação irreversível (exclusão definitiva, force-purge) exigiria uma revisão de projeto explícita.

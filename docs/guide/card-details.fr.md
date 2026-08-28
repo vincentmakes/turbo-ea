@@ -39,6 +39,10 @@ Les logos sont disponibles pour les types de fiches qu'un administrateur a
 activés ; par défaut, il s'agit d'Application et de Composant informatique.
 Voir [Métamodèle](../admin/metamodel.md).
 
+Un assistant IA connecté via [MCP](../admin/mcp.md) peut également définir un
+logo depuis une bibliothèque intégrée de plusieurs milliers d'icônes de marques,
+par son nom — aucun fichier image n'est transféré.
+
 ### Workflow d'approbation
 
 Les fiches peuvent passer par un cycle d'approbation :

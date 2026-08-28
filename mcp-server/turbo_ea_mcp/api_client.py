@@ -88,6 +88,34 @@ class TurboEAClient:
                 return {}
             return resp.json()
 
+    async def post_multipart(
+        self,
+        path: str,
+        *,
+        data: dict[str, str] | None = None,
+        file: tuple[str, bytes, str] | None = None,
+        field: str = "file",
+    ) -> dict | list:
+        """POST multipart/form-data — a file, some plain fields, or both.
+
+        The image endpoints take a real upload rather than JSON, and one of
+        them also accepts a bare form field instead of a file (a brand-icon
+        slug, resolved server-side). ``_headers()`` supplies the origin and
+        batch ids as usual; the content type is left to httpx so it sets the
+        multipart boundary.
+        """
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{self._base}{path}",
+                headers=self._headers(),
+                files={field: file} if file else None,
+                data=data or None,
+            )
+            _raise_for_status_with_detail(resp)
+            if resp.status_code == 204:
+                return {}
+            return resp.json()
+
     async def post_file(
         self,
         path: str,
@@ -96,22 +124,26 @@ class TurboEAClient:
         mime: str,
         field: str = "file",
     ) -> dict | list:
-        """POST a single file as multipart/form-data.
+        """POST a single file as multipart/form-data."""
+        return await self.post_multipart(
+            path, file=(filename, content, mime), field=field
+        )
 
-        Used by the image-upload endpoints, which take a real upload rather
-        than JSON. ``_headers()`` supplies the origin and batch ids as usual;
-        the content type is left to httpx so it sets the multipart boundary.
+    async def get_bytes(self, path: str, params: dict | None = None) -> tuple[bytes, str]:
+        """GET a binary artefact, returning ``(content, content_type)``.
+
+        ``get()`` JSON-decodes, which is wrong for the image endpoints. The
+        content type comes back with the bytes so a caller needs no second
+        request to learn what it received.
         """
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(
+            resp = await client.get(
                 f"{self._base}{path}",
                 headers=self._headers(),
-                files={field: (filename, content, mime)},
+                params=params,
             )
             _raise_for_status_with_detail(resp)
-            if resp.status_code == 204:
-                return {}
-            return resp.json()
+            return resp.content, resp.headers.get("content-type", "").split(";")[0].strip()
 
     async def put(self, path: str, json: dict | None = None) -> dict | list:
         async with httpx.AsyncClient(timeout=30.0) as client:

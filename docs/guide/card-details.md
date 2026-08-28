@@ -39,6 +39,10 @@ Logos are available on card types where an administrator has switched them on;
 out of the box that is Application and IT Component. See
 [Meta Model](../admin/metamodel.md).
 
+An AI assistant connected over [MCP](../admin/mcp.md) can also set a logo from a
+built-in pack of several thousand brand icons, by name — no image file changes
+hands at all.
+
 ### Approval Workflow
 
 Cards can go through an approval cycle:

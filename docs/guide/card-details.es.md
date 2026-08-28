@@ -41,6 +41,10 @@ Los logotipos están disponibles en los tipos de tarjeta que un administrador
 haya activado; de fábrica son Aplicación y Componente de TI. Consulte
 [Metamodelo](../admin/metamodel.md).
 
+Un asistente de IA conectado por [MCP](../admin/mcp.md) también puede establecer
+un logotipo desde un paquete integrado de varios miles de iconos de marcas, por
+su nombre, sin transferir ningún archivo de imagen.
+
 ### Flujo de Aprobación
 
 Las fichas pueden pasar por un ciclo de aprobación:

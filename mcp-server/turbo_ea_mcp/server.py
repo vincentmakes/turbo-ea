@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+import hashlib
 import json
 import logging
 import re
@@ -18,6 +19,7 @@ from urllib.parse import urlparse
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
+from pydantic import ValidationError
 from starlette.applications import Starlette
 from starlette.routing import Route
 
@@ -37,6 +39,7 @@ from turbo_ea_mcp.config import (
     MCP_WRITES_ENABLED,
     TURBO_EA_PUBLIC_URL,
 )
+from turbo_ea_mcp.models import CardLogoItem
 
 # ── MCP tool annotation presets ────────────────────────────────────────────
 #
@@ -1858,47 +1861,170 @@ def _sniff_logo_mime(head: bytes) -> str | None:
     return None
 
 
+def _logo_validation_problem(index: int, item: object, exc: ValidationError) -> dict:
+    """Map a pydantic failure onto the tool's own status vocabulary.
+
+    The rule everywhere in this tool is that a status names the field or the
+    condition the caller must change — `unsupported_mime` for a bad `mime` is
+    actionable, a raw pydantic dump is not.
+    """
+    for err in exc.errors():
+        loc = err.get("loc") or ()
+        field = loc[0] if loc else None
+        if err.get("type") == "missing" and field == "card_id":
+            return {"row_index": index, "status": "missing_card_id"}
+        if field == "mime":
+            declared = item.get("mime") if isinstance(item, dict) else None
+            return {
+                "row_index": index,
+                "card_id": item.get("card_id") if isinstance(item, dict) else None,
+                "status": "unsupported_mime",
+                "mime": declared,
+                "accepted": sorted(_LOGO_MIMES),
+            }
+    return {
+        "row_index": index,
+        "card_id": item.get("card_id") if isinstance(item, dict) else None,
+        "status": "invalid_item",
+        "errors": [
+            {"field": ".".join(str(p) for p in (e.get("loc") or ())), "message": e.get("msg")}
+            for e in exc.errors()
+        ],
+    }
+
+
+async def _check_logo_types(token: str, prepared: list[dict]) -> tuple[dict, list[dict], list[dict]]:
+    """Settle the per-type 'custom logos' switch during the preview.
+
+    Two batched requests for the whole call, never one per row. Degrades
+    rather than fails: if either read is unavailable — a caller without
+    `inventory.view`, a transient error — every row stays previewable and the
+    caller is told the check did not run. A preview exists to be informative,
+    so turning it into a new failure mode would be a regression.
+
+    Returns ``(type_check, kept_rows, disabled_rows)``.
+    """
+    ids = [p["card_id"] for p in prepared]
+    try:
+        client = TurboEAClient(token)
+        cards = await client.get(
+            "/cards", params={"ids": ",".join(ids), "page_size": len(ids)}
+        )
+        types = await client.get("/metamodel/types")
+    except Exception as exc:  # noqa: BLE001 — informative, never fatal
+        return {"status": "unavailable", "reason": str(exc)}, prepared, []
+
+    items = cards.get("items", []) if isinstance(cards, dict) else []
+    type_of = {str(c.get("id")): c.get("type") for c in items}
+    allows = {
+        t.get("key"): bool(t.get("allow_card_logo"))
+        for t in (types if isinstance(types, list) else [])
+    }
+
+    kept: list[dict] = []
+    disabled: list[dict] = []
+    for p in prepared:
+        card_type = type_of.get(str(p["card_id"]))
+        if card_type is None:
+            disabled.append(
+                {
+                    "row_index": p["row_index"],
+                    "card_id": p["card_id"],
+                    "status": "unknown_card_id",
+                    "message": "No such card, or it is not visible to you.",
+                }
+            )
+            continue
+        if not allows.get(card_type, False):
+            disabled.append(
+                {
+                    "row_index": p["row_index"],
+                    "card_id": p["card_id"],
+                    "status": "logos_disabled_for_type",
+                    "type": card_type,
+                    # Same wording the backend uses on commit, so the preview
+                    # and the real thing never disagree.
+                    "message": (
+                        f"Custom logos are not enabled for card type '{card_type}'. "
+                        f"An administrator can enable them under Admin → Meta Model."
+                    ),
+                }
+            )
+            continue
+        kept.append(p)
+    return {"status": "ok", "checked": len(prepared)}, kept, disabled
+
+
+def _logo_preview_note(type_check: dict) -> str:
+    """Say exactly what the preview could not settle — no more, no less."""
+    if type_check.get("status") == "ok":
+        return (
+            "Card-edit permission is enforced server-side and is not checked by this "
+            "preview; it is reported per row on commit. Rows using icon_slug are "
+            "resolved server-side, so an unknown slug also surfaces only on commit."
+        )
+    return (
+        "Card-edit permission and the per-type 'custom logos' switch could not be "
+        "checked by this preview; both are reported per row on commit."
+    )
+
+
+def _classify_logo_upload_error(exc: Exception) -> str:
+    """Name the condition behind a commit failure, keeping the raw error too."""
+    msg = str(exc)
+    if "403" in msg or "Not enough permissions" in msg:
+        return "forbidden"
+    if "not enabled for card type" in msg:
+        return "logos_disabled_for_type"
+    if "Unknown brand icon" in msg:
+        return "unknown_icon_slug"
+    return "failed"
+
+
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
 async def set_card_logos(
-    items: list[dict],
+    items: list[CardLogoItem],
     dry_run: bool = True,
     confirm_token: str = "",
 ) -> str:
     """Set the custom logo on many cards in one call — the bulk way to put
     product marks (SAP, Kafka, Jira…) on an Application inventory.
 
-    Image bytes come from your own context, base64-encoded: files the user
-    shared, or artwork you already hold. There is deliberately no
-    fetch-from-URL path — the server never makes an outbound request on your
-    behalf.
+    Two ways to supply the image, one per row:
+
+    - ``icon_slug`` — a built-in brand icon resolved server-side, e.g.
+      ``"simpleicons:sap"``. Nothing is transferred, so this is both the
+      cheapest and the safest option for well-known products. Use
+      ``list_available_icons`` to find a slug.
+    - ``image_base64`` — the bytes, from your own context: a file the user
+      shared, or artwork you already hold. There is deliberately no
+      fetch-from-URL path; the server never makes an outbound request on
+      your behalf.
+
+    ``mime`` is optional. It is sniffed from the bytes, and only compared
+    when you supply it. SVG is refused: it is scriptable and is not
+    sanitised anywhere in the product.
 
     Args:
-        items: One dict per card, carrying:
-            - ``card_id`` (UUID string) — required.
-            - ``image_base64`` (str) — the raw image, base64-encoded.
-            - ``mime`` (str) — one of ``image/png``, ``image/jpeg``,
-              ``image/webp``, ``image/gif``. SVG is refused: it is
-              scriptable and is not sanitised anywhere in the product.
-            The bytes must actually be the format ``mime`` claims; the
-            leading-byte signature is checked here and again server-side.
-            Each image must be under 1 MB.
+        items: One row per card. ``card_id`` is required; supply exactly one
+            of ``icon_slug`` and ``image_base64``. Each image must be under
+            1 MB.
         dry_run: When True (default), validate every row and return the
-            preview without uploading anything. Note that two checks can
-            only run server-side and are therefore *not* covered by the
-            preview: whether you may edit each card, and whether its card
-            type has custom logos switched on (Admin → Meta Model). Both
-            surface per row on the commit.
+            preview without uploading anything. The preview resolves each
+            card's type and reports rows whose type has custom logos
+            switched off. Card-edit permission, and whether an ``icon_slug``
+            exists, are settled server-side and reported per row on commit.
         confirm_token: Echoed back on commits above the per-call
             confirmation threshold (see ``create_cards_bulk``).
 
     Replacing a logo overwrites the previous image, and the audit trail
     records that a logo changed, not the bytes — so ``rollback_batch``
-    cannot restore the image a commit replaced. Removing a logo is
-    deliberately not exposed here; do it from the card in the web UI.
+    cannot restore the image a commit replaced. To remove one, use
+    ``clear_card_logos``.
 
     Returns: JSON with ``results[]`` (one ``{row_index, card_id, status,
-    mime, bytes}`` per row), ``would_set`` or ``set`` count, ``dry_run``,
-    and ``batch_id``.
+    mime, bytes_received, sha256_received}`` per row), ``would_set`` or
+    ``set`` count, ``dry_run``, and ``batch_id``.
     """
     token = await _get_current_token()
     if not token:
@@ -1924,29 +2050,71 @@ async def set_card_logos(
 
     # Validate every row before opening a batch, so a malformed payload never
     # leaves a half-written batch behind.
+    #
+    # `@mcp.tool()` returns the undecorated function, so this body is reached
+    # two ways: FastMCP hands it validated `CardLogoItem`s, while the test
+    # suite and any in-process caller pass plain dicts. Coerce here so the
+    # rest of the body only ever sees attributes, and so a malformed row is
+    # reported alongside the others rather than raising.
     prepared: list[dict] = []
     problems: list[dict] = []
+    rows: list[tuple[int, CardLogoItem]] = []
     for index, item in enumerate(items):
-        card_id = item.get("card_id")
-        if not card_id:
-            problems.append(
-                {"row_index": index, "status": "missing_card_id"},
-            )
+        if isinstance(item, CardLogoItem):
+            rows.append((index, item))
             continue
-        mime = _LOGO_MIME_ALIASES.get(item.get("mime", ""), item.get("mime", ""))
-        if mime not in _LOGO_MIMES:
+        try:
+            rows.append((index, CardLogoItem.model_validate(item)))
+        except ValidationError as exc:
+            problems.append(_logo_validation_problem(index, item, exc))
+
+    for index, row in rows:
+        card_id = row.card_id
+        if not card_id:
+            problems.append({"row_index": index, "status": "missing_card_id"})
+            continue
+
+        # Exactly one source. Enforced here rather than on the model so the
+        # row is reported, not raised.
+        if row.icon_slug and row.image_base64:
             problems.append(
                 {
                     "row_index": index,
                     "card_id": card_id,
-                    "status": "unsupported_mime",
-                    "mime": item.get("mime"),
-                    "accepted": sorted(_LOGO_MIMES),
+                    "status": "conflicting_image_source",
+                    "message": "Supply either icon_slug or image_base64, not both.",
                 }
             )
             continue
+        if not row.icon_slug and not row.image_base64:
+            problems.append(
+                {
+                    "row_index": index,
+                    "card_id": card_id,
+                    "status": "missing_image_source",
+                    "message": "Supply either icon_slug or image_base64.",
+                }
+            )
+            continue
+
+        if row.icon_slug:
+            # The pack lives in the backend image, so the slug is resolved
+            # there. Nothing local to validate — an unknown slug surfaces on
+            # commit, which the preview note says out loud.
+            prepared.append(
+                {
+                    "row_index": index,
+                    "card_id": card_id,
+                    "icon_slug": row.icon_slug,
+                    "raw": None,
+                    "mime": None,
+                    "filename": row.filename or "logo",
+                }
+            )
+            continue
+
         try:
-            raw = base64.b64decode(item.get("image_base64") or "", validate=True)
+            raw = base64.b64decode(row.image_base64 or "", validate=True)
         except (binascii.Error, ValueError):
             problems.append({"row_index": index, "card_id": card_id, "status": "invalid_base64"})
             continue
@@ -1964,27 +2132,56 @@ async def set_card_logos(
                 }
             )
             continue
+
+        declared = _LOGO_MIME_ALIASES.get(row.mime or "", row.mime or "") or None
         sniffed = _sniff_logo_mime(raw[:16])
-        if sniffed != mime:
+        if sniffed is None:
             problems.append(
                 {
                     "row_index": index,
                     "card_id": card_id,
-                    "status": "content_mime_mismatch",
-                    "declared": mime,
+                    "status": "missing_mime",
+                    "declared": declared,
+                    "message": (
+                        "These bytes carry no PNG, JPEG, WebP or GIF signature, so the "
+                        "format could not be determined. Check the image is intact and "
+                        "base64-encoded whole."
+                    ),
+                    "accepted": sorted(_LOGO_MIMES),
+                }
+            )
+            continue
+        if declared is not None and declared != sniffed:
+            problems.append(
+                {
+                    "row_index": index,
+                    "card_id": card_id,
+                    "status": "mime_mismatch",
+                    "declared": declared,
                     "detected": sniffed,
                 }
             )
             continue
+
         prepared.append(
             {
                 "row_index": index,
                 "card_id": card_id,
-                "mime": mime,
+                "icon_slug": None,
+                "mime": sniffed,
                 "raw": raw,
-                "filename": item.get("filename") or "logo",
+                "sha256": hashlib.sha256(raw).hexdigest(),
+                "filename": row.filename or "logo",
             }
         )
+
+    # Resolve each card's type so the preview can settle the per-type switch
+    # rather than deferring it to commit. Two batched requests for the whole
+    # call, never one per row.
+    type_check: dict = {"status": "skipped"}
+    if dry_run and prepared:
+        type_check, prepared, disabled_rows = await _check_logo_types(token, prepared)
+        problems.extend(disabled_rows)
 
     if dry_run:
         return _fmt(
@@ -1997,16 +2194,15 @@ async def set_card_logos(
                         "card_id": p["card_id"],
                         "status": "ok",
                         "mime": p["mime"],
-                        "bytes": len(p["raw"]),
+                        "bytes_received": len(p["raw"]) if p["raw"] is not None else None,
+                        "sha256_received": p.get("sha256"),
+                        "icon_slug": p["icon_slug"],
                     }
                     for p in prepared
                 ]
                 + problems,
-                "note": (
-                    "Card-edit permission and the per-type 'custom logos' "
-                    "switch are enforced server-side and are not checked by "
-                    "this preview; both are reported per row on commit."
-                ),
+                "type_check": type_check,
+                "note": _logo_preview_note(type_check),
             }
         )
 
@@ -2027,23 +2223,34 @@ async def set_card_logos(
             # Per-row isolation: one card whose type has logos switched off,
             # or that this user may not edit, must not abandon the rest.
             try:
-                resp = await client.post_file(
-                    f"/cards/{p['card_id']}/logo",
-                    p["filename"],
-                    p["raw"],
-                    p["mime"],
-                )
+                if p["icon_slug"]:
+                    resp = await client.post_multipart(
+                        f"/cards/{p['card_id']}/logo",
+                        data={"icon_slug": p["icon_slug"]},
+                    )
+                else:
+                    resp = await client.post_file(
+                        f"/cards/{p['card_id']}/logo",
+                        p["filename"],
+                        p["raw"],
+                        p["mime"],
+                    )
                 succeeded += 1
+                body = resp if isinstance(resp, dict) else {}
                 results.append(
                     {
                         "row_index": p["row_index"],
                         "card_id": p["card_id"],
                         "status": "set",
-                        "mime": p["mime"],
-                        "bytes": len(p["raw"]),
-                        "logo_updated_at": (
-                            resp.get("logo_updated_at") if isinstance(resp, dict) else None
-                        ),
+                        "mime": body.get("mime") or p["mime"],
+                        "bytes_received": len(p["raw"]) if p["raw"] is not None else None,
+                        "sha256_received": p.get("sha256"),
+                        # The server's digest of what it actually stored, so a
+                        # caller can prove the bytes that landed are its own —
+                        # including on the icon path, where it never held them.
+                        "sha256": body.get("sha256"),
+                        "icon_slug": body.get("icon_slug") or p["icon_slug"],
+                        "logo_updated_at": body.get("logo_updated_at"),
                     }
                 )
             except Exception as exc:  # noqa: BLE001 — reported, never raised
@@ -2051,7 +2258,7 @@ async def set_card_logos(
                     {
                         "row_index": p["row_index"],
                         "card_id": p["card_id"],
-                        "status": "failed",
+                        "status": _classify_logo_upload_error(exc),
                         "error": str(exc),
                     }
                 )
@@ -2060,6 +2267,203 @@ async def set_card_logos(
             {
                 "dry_run": False,
                 "set": succeeded,
+                "batch_id": batch.batch_id,
+                "results": results,
+            }
+        )
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def get_card_logo(card_id: str, include_image: bool = False) -> str:
+    """Read back a card's logo, so you can verify a write or inspect what is
+    already there before overwriting someone else's.
+
+    Args:
+        card_id: The card to read.
+        include_image: When True, also return the image itself as base64.
+            Off by default: an image can be up to 1 MB, so round-tripping it
+            costs roughly 1.4 MB of context — and ``sha256`` already answers
+            "did the bytes I sent land?" without paying that. Hash your
+            source file locally and compare.
+
+    Pixel dimensions are not reported. Nothing in the product decodes images,
+    by design, and adding a parser for attacker-supplied bytes to report a
+    number nothing acts on would be a poor trade.
+
+    Returns: JSON ``{card_id, status, mime, bytes, sha256, updated_at}``,
+    plus ``image_base64`` when asked. ``status`` is ``no_logo`` when the card
+    has none.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    client = TurboEAClient(token)
+
+    # Read the card first, through the authenticated route. The raw image
+    # endpoint is unauthenticated by design — an <img> cannot carry a bearer
+    # token — so going straight to it would make this the one tool in the
+    # server that bypasses RBAC. The card read also supplies updated_at.
+    card = await client.get(f"/cards/{card_id}")
+    updated_at = card.get("logo_updated_at") if isinstance(card, dict) else None
+    if not updated_at:
+        return _fmt({"card_id": card_id, "status": "no_logo"})
+
+    try:
+        raw, mime = await client.get_bytes(f"/cards/{card_id}/logo")
+    except Exception as exc:  # noqa: BLE001 — a logo deleted between the two reads
+        if "404" in str(exc):
+            return _fmt({"card_id": card_id, "status": "no_logo"})
+        raise
+
+    out = {
+        "card_id": card_id,
+        "status": "ok",
+        "mime": mime,
+        "bytes": len(raw),
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "updated_at": updated_at,
+    }
+    if include_image:
+        out["image_base64"] = base64.b64encode(raw).decode()
+    return _fmt(out)
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def list_available_icons(search: str = "", limit: int = 50) -> str:
+    """Search the built-in brand-icon pack for a slug to pass to
+    ``set_card_logos``.
+
+    The pack ships inside Turbo EA, so setting a logo from it transfers no
+    image at all — which is both cheaper and safer than carrying base64.
+    Icons are monochrome, each in its own official brand colour; there is no
+    tint parameter.
+
+    Args:
+        search: Matches slug and title. Exact matches rank first, then
+            prefixes, then substrings — so "sap" finds SAP before WhatsApp.
+        limit: Rows to return, capped at 200.
+
+    Returns: JSON ``{items: [{slug, title, hex}], total}``.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    client = TurboEAClient(token)
+    data = await client.get(
+        "/card-logos/brand-icons",
+        params=_compact({"search": search, "limit": min(limit, 200)}),
+    )
+    return _fmt(data)
+
+
+@mcp.tool(annotations=_WRITE_DESTRUCTIVE_ANNOT)
+async def clear_card_logos(
+    card_ids: list[str],
+    dry_run: bool = True,
+    confirm_token: str = "",
+) -> str:
+    """Remove the custom logo from one or more cards, falling them back to
+    their card-type icon.
+
+    Relation deletion is deliberately web-UI-only, and this is not that. A
+    deleted relation loses an edge nothing else records; a cleared logo is
+    trivially recoverable by running ``set_card_logos`` again. Without this
+    tool an agent that has just written a wrong logo has no remedy at all and
+    must send the user to the UI to undo the agent's own mistake.
+
+    ``rollback_batch`` still cannot restore the image itself — the audit trail
+    records that a logo changed, not the bytes.
+
+    Args:
+        card_ids: Cards to clear. Cards that have no logo are reported and
+            skipped, not treated as failures.
+        dry_run: When True (default), report which cards actually carry a
+            logo without deleting anything.
+        confirm_token: Echoed back on commits above the per-call
+            confirmation threshold.
+
+    Returns: JSON with ``results[]``, ``would_clear`` or ``cleared``,
+    ``dry_run`` and ``batch_id``.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    if (disabled := _writes_disabled_message()) is not None:
+        return disabled
+    if len(card_ids) > MCP_MAX_LOGOS_PER_CALL:
+        return _fmt(
+            {
+                "error": "batch_too_large",
+                "message": (
+                    f"This batch has {len(card_ids)} cards but the MCP "
+                    f"per-call cap is {MCP_MAX_LOGOS_PER_CALL}."
+                ),
+                "cap": MCP_MAX_LOGOS_PER_CALL,
+                "received": len(card_ids),
+            }
+        )
+    if not dry_run:
+        gate = _confirmation_required_message("clear_card_logos", len(card_ids))
+        if gate is not None and not confirm_token:
+            return gate
+
+    if dry_run:
+        # Say how many images would actually disappear, rather than echoing
+        # back the ids that were asked for.
+        results: list[dict] = []
+        would = 0
+        try:
+            client = TurboEAClient(token)
+            cards = await client.get(
+                "/cards", params={"ids": ",".join(card_ids), "page_size": len(card_ids)}
+            )
+            items = cards.get("items", []) if isinstance(cards, dict) else []
+            has_logo = {str(c.get("id")): bool(c.get("logo_updated_at")) for c in items}
+        except Exception as exc:  # noqa: BLE001 — informative, never fatal
+            return _fmt(
+                {
+                    "dry_run": True,
+                    "would_clear": len(card_ids),
+                    "results": [{"card_id": cid, "status": "unknown"} for cid in card_ids],
+                    "note": f"Could not check which cards carry a logo: {exc}",
+                }
+            )
+        for cid in card_ids:
+            if cid not in has_logo:
+                results.append({"card_id": cid, "status": "unknown_card_id"})
+            elif has_logo[cid]:
+                would += 1
+                results.append({"card_id": cid, "status": "would_clear"})
+            else:
+                results.append({"card_id": cid, "status": "no_logo"})
+        return _fmt({"dry_run": True, "would_clear": would, "results": results})
+
+    async with mutation_batch(
+        token,
+        tool_name="clear_card_logos",
+        row_count=len(card_ids),
+        dry_run=False,
+        confirm_token=confirm_token or None,
+    ) as batch:
+        client = batch.client()
+        results = []
+        cleared = 0
+        for cid in card_ids:
+            # Per-row isolation, as everywhere else: one card the caller may
+            # not edit must not abandon the rest.
+            try:
+                await client.delete(f"/cards/{cid}/logo")
+                cleared += 1
+                results.append({"card_id": cid, "status": "cleared"})
+            except Exception as exc:  # noqa: BLE001 — reported, never raised
+                msg = str(exc)
+                status = "no_logo" if "404" in msg else _classify_logo_upload_error(exc)
+                results.append({"card_id": cid, "status": status, "error": msg})
+        batch.summary = {"rows": len(card_ids), "cleared": cleared}
+        return _fmt(
+            {
+                "dry_run": False,
+                "cleared": cleared,
                 "batch_id": batch.batch_id,
                 "results": results,
             }

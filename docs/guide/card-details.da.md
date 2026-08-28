@@ -38,6 +38,10 @@ Logoer er tilgængelige for de korttyper, en administrator har slået dem til
 for; fra start er det Application og IT Component. Se
 [Metamodel](../admin/metamodel.md).
 
+En AI-assistent, der er forbundet via [MCP](../admin/mcp.md), kan også sætte et
+logo fra en indbygget pakke med flere tusinde brandikoner — ved navn, uden at der
+overføres en billedfil.
+
 ### Godkendelses­arbejdsproces
 
 Kort kan gå gennem en godkendelses­cyklus:

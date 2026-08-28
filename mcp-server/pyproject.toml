@@ -16,6 +16,9 @@ dependencies = [
     # Lift the cap only together with a port off FastMCP.
     "mcp>=1.9.0,<2",
     "httpx>=0.28.0",
+    # Declared rather than leaned on transitively via `mcp`: `models.py`
+    # depends on it directly for the typed tool schema.
+    "pydantic>=2,<3",
     "pyjwt>=2.9.0",
     # Same reasoning as the cap above: starlette crossed 0.x -> 1.x, and this
     # image installs unpinned at build time.

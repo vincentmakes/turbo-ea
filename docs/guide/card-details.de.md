@@ -40,6 +40,10 @@ Logos stehen für Kartentypen zur Verfügung, für die eine Administratorin oder
 ein Administrator sie aktiviert hat; standardmäßig sind das Anwendung und
 IT-Komponente. Siehe [Metamodell](../admin/metamodel.md).
 
+Ein über [MCP](../admin/mcp.md) verbundener KI-Assistent kann ein Logo auch aus
+einem integrierten Paket mit mehreren tausend Markensymbolen per Name setzen —
+ganz ohne Bilddatei.
+
 ### Genehmigungsworkflow
 
 Karten können einen Genehmigungszyklus durchlaufen:

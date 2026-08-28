@@ -38,6 +38,10 @@ Os logótipos estão disponíveis nos tipos de cartão que um administrador tenh
 ativado; de origem, são Aplicação e Componente de TI. Consulte
 [Metamodelo](../admin/metamodel.md).
 
+Um assistente de IA ligado por [MCP](../admin/mcp.md) também pode definir um
+logótipo a partir de um pacote integrado com vários milhares de ícones de marcas,
+pelo nome — sem transferir qualquer ficheiro de imagem.
+
 ### Fluxo de Aprovação
 
 Os cards podem passar por um ciclo de aprovação:

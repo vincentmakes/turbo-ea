@@ -155,7 +155,7 @@ pip install ./mcp-server
 
 ## القدرات المتاحة
 
-يعرض خادم MCP عدد **48 أداة** موزّعة على مجموعتين: **30 أداة قراءة** تستعلم عن بيانات هندسة المؤسسة، و**18 أداة كتابة** (14 إضافية و4 هدّامة) تنشئ البطاقات والعلاقات والمخططات والمخاطر وسجلات ADR وغيرها وتصونها — بما في ذلك تحويل المُخرجات التي تحتفظ بها أداة الذكاء الاصطناعي في سياقها الخاص (جداول البيانات، وملفات BPMN XML، وملفات DrawIO XML، والمستندات، والصور) إلى بيانات هندسة مؤسسة منظّمة. وتحمل كل أداة تعليقات `ToolAnnotations` الخاصة بـ MCP (تلميحات قراءة فقط / هدّامة / متساوية القوى idempotent) حتى تتمكّن الموصّلات من إظهار درجة الخطورة في واجهتها.
+يعرض خادم MCP عدد **51 أداة** موزّعة على مجموعتين: **32 أداة قراءة** تستعلم عن بيانات هندسة المؤسسة، و**19 أداة كتابة** (14 إضافية و5 هدّامة) تنشئ البطاقات والعلاقات والمخططات والمخاطر وسجلات ADR وغيرها وتصونها — بما في ذلك تحويل المُخرجات التي تحتفظ بها أداة الذكاء الاصطناعي في سياقها الخاص (جداول البيانات، وملفات BPMN XML، وملفات DrawIO XML، والمستندات، والصور) إلى بيانات هندسة مؤسسة منظّمة. وتحمل كل أداة تعليقات `ToolAnnotations` الخاصة بـ MCP (تلميحات قراءة فقط / هدّامة / متساوية القوى idempotent) حتى تتمكّن الموصّلات من إظهار درجة الخطورة في واجهتها.
 
 ### أمان التشغيل التجريبي على عمليات الكتابة
 
@@ -163,7 +163,7 @@ pip install ./mcp-server
 
 ### أدوات القراءة
 
-يعرض الخادم 30 أداة قراءة موزّعة على ثماني مجموعات.
+يعرض الخادم 32 أداة قراءة موزّعة على ثماني مجموعات.
 
 **البطاقات والنموذج الفوقي**
 
@@ -226,6 +226,8 @@ pip install ./mcp-server
 | `get_card_stakeholders` | المستخدمون والأدوار المُسندة إلى بطاقة |
 | `get_card_comments` | التعليقات المتسلسلة على بطاقة |
 | `get_card_documents` | روابط المستندات المرفقة ببطاقة |
+| `get_card_logo` | A card's logo: mime, size and a sha256 of the stored bytes, so a write can be verified without transferring the image (pass `include_image` when you do want it) |
+| `list_available_icons` | Search the built-in brand-icon pack for a slug to pass to `set_card_logos` |
 
 **المخططات**
 
@@ -244,7 +246,7 @@ pip install ./mcp-server
 
 ### أدوات الكتابة
 
-يعرض الخادم 18 أداة كتابة، كل منها موسومة بأنها **إضافية** (تنشئ البيانات أو توسّعها) أو **هدّامة** (تعدّل البيانات القائمة أو تزيلها) حتى تتمكّن الموصّلات من التحذير وفقًا لذلك.
+يعرض الخادم 19 أداة كتابة، كل منها موسومة بأنها **إضافية** (تنشئ البيانات أو توسّعها) أو **هدّامة** (تعدّل البيانات القائمة أو تزيلها) حتى تتمكّن الموصّلات من التحذير وفقًا لذلك.
 
 **الإضافية (14)**
 
@@ -263,9 +265,9 @@ pip install ./mcp-server
 | `sign_adr` | توقيع سجل ADR (يتطلب إذن `adr.sign`؛ وإلا يُعيد رابطًا عميقًا إلى الواجهة للتوقيع في المتصفح). |
 | `create_diagram` | إنشاء مخطط DrawIO حرّ مع روابط اختيارية إلى بطاقات قائمة. |
 | `import_bpmn` | حفظ مخطط BPMN 2.0 XML مقابل بطاقة عملية أعمال **قائمة**. إذا لم تطابق أي بطاقة الاسم المُعطى، تُعيد الأداة خطأ `card_not_found` يوجّه الوكيل إلى `create_cards_bulk` — يُلزم هذا الوكيل بإنشاء البطاقة صراحةً بوصف ونوع فرعي وسمات أولًا، بدلًا من اختصار يُنتج بطاقة هزيلة. |
-| `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Image bytes are supplied base64 from the agent's own context; there is no fetch-from-URL path. PNG/JPEG/WebP/GIF only, 1 MB each. Removing a logo is deliberately not exposed — do that from the card in the web UI. |
+| `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Supply either a built-in `icon_slug` (resolved server-side, no image transferred) or `image_base64` from the agent's own context; there is no fetch-from-URL path. `mime` is optional and sniffed from the bytes. PNG/JPEG/WebP/GIF only, 1 MB each. Each row echoes a sha256 so the caller can prove what landed. Use `clear_card_logos` to remove one. |
 
-**الهدّامة (4)**
+**الهدّامة (5)**
 
 | الأداة | الوصف |
 |------|-------------|
@@ -273,6 +275,7 @@ pip install ./mcp-server
 | `archive_cards` | حذف مرن للبطاقات. قابل للاسترداد — يمكن استعادة البطاقات المؤرشفة خلال 30 يومًا قبل التطهير التلقائي. |
 | `update_diagram` | استبدال ملف DrawIO XML لمخطط أو اسمه أو روابطه بالبطاقات. |
 | `rollback_batch` | التراجع عن عمليات الكتابة المنفّذة ضمن دفعة تعديلات سابقة. |
+| `clear_card_logos` | Remove the custom logo from cards, falling them back to their card-type icon. Recoverable — set it again to restore. |
 
 ### رفع المُخرجات
 
@@ -292,7 +295,7 @@ pip install ./mcp-server
 
 - **حدود قصوى لحجم كل استدعاء.** تفرض أدوات كتابة MCP حدًّا أصغر بكثير من نقاط نهاية مستورد Excel الأساسية: 200 صف لـ `create_cards_bulk`، و500 عملية لـ `upsert_relations_bulk`. كبير بما يكفي لأي رفع مُخرج واقعي مفرد، وصغير بما يكفي ليظل بالإمكان فحص معاينة التشغيل التجريبي.
 - **لا حذف للعلاقات افتراضيًا.** ترفض `upsert_relations_bulk` عمليات `action: "delete"` — لإزالة العلاقات، استخدم الواجهة الإلكترونية حيث تُسجّل العملية تحت هوية المستخدم. يمكن للمشغّلين الاشتراك بضبط `MCP_ALLOW_RELATION_DELETE=true`.
-- **مفتاح الإيقاف.** يوقف `MCP_WRITES_ENABLED=false` جميع أدوات الكتابة السبع عشرة دون إعادة نشر الشيفرة. وتظل أدوات القراءة الثلاثون تعمل.
+- **مفتاح الإيقاف.** يوقف `MCP_WRITES_ENABLED=false` جميع أدوات الكتابة التسع عشرة دون إعادة نشر الشيفرة. وتظل أدوات القراءة الثلاثون تعمل.
 - **وسم مصدر التدقيق.** يحمل كل طلب من خادم MCP إلى الواجهة الخلفية ترويسة `X-Turbo-EA-Origin: mcp`. وتُوسَم الأحداث المنبثقة من تلك الطلبات بـ `origin: "mcp"` في حمولة سجل التدقيق، بحيث يمكن للمسؤولين تصفية عمليات الكتابة المدفوعة من MCP خارج المخطط الزمني تمييزًا لها عن إجراءات الواجهة الإلكترونية.
 - **دفعات التعديلات.** يفتح كل استدعاء كتابة عبر MCP دفعة تعديلات قبل أي عمليات كتابة؛ ويُوسَم كل حدث يُبثّ أثناء الاستدعاء بمعرّف الدفعة. ويمكن للمسؤولين (أو أداة `get_change_history`) إعادة بناء الفرق الكامل حدثًا بحدث لأي تنفيذ من معرّف واحد، كما يمكن لـ `rollback_batch` التراجع عنه. ويجب على التنفيذات التي تتجاوز `MCP_BATCH_CONFIRMATION_THRESHOLD` صفًا إرجاع رمز `confirm_token` أحادي الاستخدام صادر عن التشغيل التجريبي السابق (صلاحيته 15 دقيقة)، بحيث يعقب التنفيذ الكبير دائمًا معاينة جرت مراجعتها.
 - **لا حذف نهائي.** تتعمّد مجموعة الأدوات إغفال الحذف الدائم للبطاقات. أما `archive_cards` و`update_cards_bulk` فهما *معروضتان* بالفعل، لكن الأرشفة حذف مرن قابل للاسترداد (نافذة استعادة مدتها 30 يومًا)، وكلتاهما موسومتان بالخطورة ومحكومتان بالتشغيل التجريبي. وستتطلب إضافة أي أداة تُجري تعديلًا لا رجعة فيه (حذف نهائي، تطهير قسري) مراجعة تصميم صريحة.
