@@ -386,3 +386,134 @@ class TestAllowCardLogoToggle:
 
         # And the upload it unblocks now succeeds.
         assert (await _upload(client, logo_env["plain"].id, logo_env["admin"])).status_code == 200
+
+
+# -------------------------------------------------------------------
+# Brand icons (bundled pack)
+# -------------------------------------------------------------------
+
+
+async def _post_slug(client, card_id, user, slug):
+    return await client.post(
+        f"/api/v1/cards/{card_id}/logo",
+        data={"icon_slug": slug},
+        headers=auth_headers(user),
+    )
+
+
+class TestUploadByIconSlug:
+    async def test_resolves_a_known_slug(self, client, db, logo_env):
+        resp = await _post_slug(client, logo_env["card"].id, logo_env["admin"], "apachekafka")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["source"] == "icon"
+        assert body["icon_slug"] == "apachekafka"
+        assert body["mime"] == "image/png"
+        assert body["bytes"] > 0
+
+        row = (
+            await db.execute(select(CardLogo).where(CardLogo.card_id == logo_env["card"].id))
+        ).scalar_one()
+        assert row.mime_type == "image/png"
+
+    async def test_accepts_the_pack_prefixed_form(self, client, db, logo_env):
+        resp = await _post_slug(
+            client, logo_env["card"].id, logo_env["admin"], "simpleicons:apachekafka"
+        )
+        assert resp.status_code == 200
+        assert resp.json()["icon_slug"] == "apachekafka"
+
+    async def test_unknown_slug_points_at_the_discovery_endpoint(self, client, db, logo_env):
+        resp = await _post_slug(client, logo_env["card"].id, logo_env["admin"], "not-a-real-brand")
+        assert resp.status_code == 400
+        assert "brand-icons" in resp.json()["detail"]
+
+    @pytest.mark.parametrize(
+        "slug", ["../../../etc/passwd", "..%2f..%2fetc", "sap/../../secret", "SAP/../sap"]
+    )
+    async def test_a_traversal_slug_is_refused(self, client, db, logo_env, slug):
+        """The slug becomes a filename, so it is checked against the parsed
+        index before the filesystem is touched at all."""
+        resp = await _post_slug(client, logo_env["card"].id, logo_env["admin"], slug)
+        assert resp.status_code == 400
+
+    async def test_neither_file_nor_slug_is_rejected(self, client, db, logo_env):
+        resp = await client.post(
+            f"/api/v1/cards/{logo_env['card'].id}/logo",
+            data={"unused": "x"},
+            headers=auth_headers(logo_env["admin"]),
+        )
+        assert resp.status_code == 400
+        assert "either" in resp.json()["detail"]
+
+    async def test_both_file_and_slug_is_rejected(self, client, db, logo_env):
+        resp = await client.post(
+            f"/api/v1/cards/{logo_env['card'].id}/logo",
+            files={"file": ("logo.png", PNG_BYTES, "image/png")},
+            data={"icon_slug": "apachekafka"},
+            headers=auth_headers(logo_env["admin"]),
+        )
+        assert resp.status_code == 400
+
+    async def test_icon_path_honours_the_per_type_switch(self, client, db, logo_env):
+        resp = await _post_slug(client, logo_env["plain"].id, logo_env["admin"], "apachekafka")
+        assert resp.status_code == 400
+        assert "not enabled" in resp.json()["detail"]
+
+    async def test_icon_path_honours_file_uploads_disabled(self, client, db, logo_env):
+        """One operator switch means one thing: no images on this instance."""
+        from app.models.app_settings import AppSettings
+
+        db.add(AppSettings(id="default", general_settings={"fileUploadsEnabled": False}))
+        await db.flush()
+
+        resp = await _post_slug(client, logo_env["card"].id, logo_env["admin"], "apachekafka")
+        assert resp.status_code == 403
+
+    async def test_viewer_cannot_set_an_icon(self, client, db, logo_env):
+        resp = await _post_slug(client, logo_env["card"].id, logo_env["viewer"], "apachekafka")
+        assert resp.status_code == 403
+
+    async def test_icon_upload_records_the_slug_in_history(self, client, db, logo_env):
+        await _post_slug(client, logo_env["card"].id, logo_env["admin"], "apachekafka")
+        event = (
+            await db.execute(
+                select(Event).where(
+                    Event.card_id == logo_env["card"].id,
+                    Event.event_type == "card_logo.updated",
+                )
+            )
+        ).scalar_one()
+        assert event.data["icon_slug"] == "apachekafka"
+
+
+class TestUploadResponseDigest:
+    async def test_response_carries_a_sha256_of_the_stored_bytes(self, client, db, logo_env):
+        import hashlib
+
+        resp = await _upload(client, logo_env["card"].id, logo_env["admin"])
+        body = resp.json()
+        assert body["sha256"] == hashlib.sha256(PNG_BYTES).hexdigest()
+        assert body["bytes"] == len(PNG_BYTES)
+        assert body["source"] == "upload"
+
+
+class TestBrandIconDiscovery:
+    async def test_search_ranks_an_exact_slug_first(self, client, db, logo_env):
+        resp = await client.get(
+            "/api/v1/card-logos/brand-icons?search=sap", headers=auth_headers(logo_env["admin"])
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] > 1000
+        assert body["items"][0]["slug"] == "sap"
+
+    async def test_limit_is_capped(self, client, db, logo_env):
+        resp = await client.get(
+            "/api/v1/card-logos/brand-icons?limit=500", headers=auth_headers(logo_env["admin"])
+        )
+        assert resp.status_code == 422
+
+    async def test_requires_authentication(self, client, db, logo_env):
+        resp = await client.get("/api/v1/card-logos/brand-icons")
+        assert resp.status_code in (401, 403)

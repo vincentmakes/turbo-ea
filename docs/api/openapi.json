@@ -790,14 +790,29 @@
       "Body_upload_card_logo_api_v1_cards__card_id__logo_post": {
         "properties": {
           "file": {
-            "contentMediaType": "application/octet-stream",
-            "title": "File",
-            "type": "string"
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "icon_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon Slug"
           }
         },
-        "required": [
-          "file"
-        ],
         "title": "Body_upload_card_logo_api_v1_cards__card_id__logo_post",
         "type": "object"
       },
@@ -20444,6 +20459,61 @@
         ]
       }
     },
+    "/api/v1/card-logos/brand-icons": {
+      "get": {
+        "description": "Search the bundled brand-icon pack.\n\nGated on ``inventory.view``: the payload is public CC0 metadata, so nothing\nhere needs shaping, but this would otherwise be the only authenticated read\nin the file with no permission at all \u2014 and ``inventory.view`` is the\nweakest permission anyone who could act on the result already holds.",
+        "operationId": "list_brand_icons_api_v1_card_logos_brand_icons_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 64,
+              "title": "Search",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Brand Icons",
+        "tags": [
+          "card-logos"
+        ]
+      }
+    },
     "/api/v1/cards": {
       "get": {
         "operationId": "list_cards_api_v1_cards_get",
@@ -22146,7 +22216,7 @@
         ]
       },
       "post": {
-        "description": "Upload or replace the card's logo.",
+        "description": "Upload or replace the card's logo, from a file or a built-in brand icon.\n\nExactly one of ``file`` and ``icon_slug`` is required. The icon path exists\nso an agent can set a product's mark without carrying the image at all \u2014\nsee ``app/services/brand_icons.py``.",
         "operationId": "upload_card_logo_api_v1_cards__card_id__logo_post",
         "parameters": [
           {
@@ -22166,8 +22236,7 @@
                 "$ref": "#/components/schemas/Body_upload_card_logo_api_v1_cards__card_id__logo_post"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {

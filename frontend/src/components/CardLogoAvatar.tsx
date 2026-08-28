@@ -77,6 +77,12 @@ export default function CardLogoAvatar({
   }
 
   const badgeSize = Math.round(size * 0.45);
+  // `contain` fits the mark to the full square, so a logo whose artwork runs
+  // edge to edge lands under the rounded corners and loses them — Apache
+  // Kafka's mark touches the top and bottom of its canvas, and did exactly
+  // that. Inset the content box instead of rounding the artwork off: it costs
+  // nothing, and it fixes every logo already uploaded with no re-upload.
+  const inset = Math.max(2, Math.round(size * 0.1));
 
   return (
     <Box sx={{ ...common, position: "relative" }}>
@@ -92,6 +98,10 @@ export default function CardLogoAvatar({
         sx={{
           width: "100%",
           height: "100%",
+          // With `border-box` the tile still measures exactly `size`, so the
+          // badge overhang below is unaffected.
+          boxSizing: "border-box",
+          p: `${inset}px`,
           borderRadius: radius,
           // Never `cover` — a vendor's mark must not be cropped. The paper
           // plate keeps a transparent PNG legible in both themes.

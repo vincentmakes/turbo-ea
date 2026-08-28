@@ -73,4 +73,23 @@ describe("CardLogoAvatar", () => {
     // The timestamp is encoded — a raw ':' in a query value is asking for it.
     expect(first).toContain("v=2026-08-28T10%3A00%3A00Z");
   });
+
+  it("insets the artwork so an edge-to-edge logo is not clipped by the corners", () => {
+    // `objectFit: contain` fits the mark to the whole square, so without an
+    // inset a logo whose artwork touches the canvas edge loses its corners to
+    // the border radius. This is the Kafka case.
+    render(<CardLogoAvatar {...BASE} logoUpdatedAt="2026-08-28T10:00:00Z" size={40} />);
+
+    const img = document.querySelector("img")!;
+    const style = getComputedStyle(img);
+    expect(style.boxSizing).toBe("border-box");
+    expect(parseFloat(style.paddingTop)).toBeGreaterThan(0);
+  });
+
+  it("keeps a usable inset at the smallest size we render", () => {
+    render(<CardLogoAvatar {...BASE} logoUpdatedAt="2026-08-28T10:00:00Z" size={20} />);
+
+    const style = getComputedStyle(document.querySelector("img")!);
+    expect(parseFloat(style.paddingTop)).toBeGreaterThanOrEqual(2);
+  });
 });
