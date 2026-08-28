@@ -18,6 +18,7 @@ from app.core.security import create_portal_token, decode_portal_token, portal_t
 from app.database import get_db
 from app.models.app_settings import AppSettings
 from app.models.card import Card
+from app.models.card_logo import CardLogo
 from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
@@ -819,11 +820,30 @@ async def get_public_portal_cards(
             )
 
     # Public portal: always strip cost fields — there is no authenticated user
-    # to evaluate, so default to "no costs.view".
-    portal_type_row = await db.execute(
-        select(CardType.fields_schema).where(CardType.key == portal.card_type)
+    # to evaluate, so default to "no costs.view". The logo toggle rides along in
+    # the same row rather than costing a second round trip.
+    portal_type_row = (
+        await db.execute(
+            select(CardType.fields_schema, CardType.allow_card_logo).where(
+                CardType.key == portal.card_type
+            )
+        )
+    ).one_or_none()
+    portal_cost_keys = cost_field_keys_from_card_schema(
+        portal_type_row.fields_schema if portal_type_row else None
     )
-    portal_cost_keys = cost_field_keys_from_card_schema(portal_type_row.scalar_one_or_none())
+
+    # Custom logos, when this portal's card type has them switched on. The
+    # image itself is served by the unauthenticated /cards/{id}/logo route, so
+    # an anonymous visitor renders it with no further plumbing.
+    logo_map: dict[str, str] = {}
+    if card_ids and portal_type_row and portal_type_row.allow_card_logo:
+        logo_rows = await db.execute(
+            select(CardLogo.card_id, CardLogo.updated_at).where(CardLogo.card_id.in_(card_ids))
+        )
+        logo_map = {
+            str(cid): updated_at.isoformat() for cid, updated_at in logo_rows.all() if updated_at
+        }
 
     items = []
     for card in cards:
@@ -846,6 +866,7 @@ async def get_public_portal_cards(
                 "relations": relations_map.get(fsid, []),
                 "stakeholders": subs_map.get(fsid, []),
                 "updated_at": card.updated_at.isoformat() if card.updated_at else None,
+                "logo_updated_at": logo_map.get(fsid),
             }
         )
 

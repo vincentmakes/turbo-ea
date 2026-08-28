@@ -72,6 +72,41 @@ class TestPublicPortalCards:
         assert data["page"] == 1
         assert data["page_size"] == 24
 
+    async def test_exposes_card_logo_when_the_type_allows_it(self, client, db, portal_env):
+        """An anonymous visitor gets logo_updated_at, which is all the viewer
+        needs — the image itself comes from the unauthenticated logo route."""
+        from sqlalchemy import select
+
+        from app.models.card_logo import CardLogo
+        from app.models.card_type import CardType
+
+        admin = portal_env["admin"]
+        card = await create_card(db, card_type="Application", name="Kafka", user_id=admin.id)
+        ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+        ct.allow_card_logo = True
+        db.add(
+            CardLogo(
+                card_id=card.id,
+                mime_type="image/png",
+                size=8,
+                data=b"\x89PNG\r\n\x1a\n",
+                created_by=admin.id,
+            )
+        )
+        await db.flush()
+
+        resp = await client.get("/api/v1/web-portals/public/app-portal/cards")
+        assert resp.status_code == 200
+        item = next(i for i in resp.json()["items"] if i["name"] == "Kafka")
+        assert item["logo_updated_at"] is not None
+
+        # Switching the type off returns the portal to type-icon rendering.
+        ct.allow_card_logo = False
+        await db.flush()
+        resp = await client.get("/api/v1/web-portals/public/app-portal/cards")
+        item = next(i for i in resp.json()["items"] if i["name"] == "Kafka")
+        assert item["logo_updated_at"] is None
+
     async def test_empty_portal(self, client, portal_env):
         resp = await client.get("/api/v1/web-portals/public/app-portal/cards")
         assert resp.status_code == 200

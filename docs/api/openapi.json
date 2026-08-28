@@ -2655,6 +2655,18 @@
             ],
             "title": "Lifecycle"
           },
+          "logo_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Updated At"
+          },
           "name": {
             "title": "Name",
             "type": "string"

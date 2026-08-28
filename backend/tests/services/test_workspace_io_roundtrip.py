@@ -427,6 +427,54 @@ async def test_diagram_with_card_link_roundtrips(db):
     assert any(row.diagram_id == diag_id and row.card_id == card.id for row in links)
 
 
+async def test_card_logo_roundtrips(db):
+    """A card's custom logo — bytes and all — plus the per-type switch that
+    governs it survive export → delete → re-import."""
+    from app.models.card_logo import CardLogo
+    from app.models.card_type import CardType
+
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    user = await create_user(db, email="logo@test.com", role="admin")
+    await create_card_type(db, key="Application", label="Application", allow_card_logo=True)
+    card = await create_card(db, card_type="Application", name="Kafka", user_id=user.id)
+    db.add(
+        CardLogo(
+            card_id=card.id,
+            mime_type="image/png",
+            size=len(png),
+            data=png,
+            created_by=user.id,
+        )
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+    # The image is offloaded to the assets folder, not inlined in a cell.
+    _, _, assets = bundle_io.unpack(raw)
+    assert any(p.startswith("CardLogos/") for p in assets)
+
+    await db.execute(delete(CardLogo))
+    ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+    ct.allow_card_logo = False
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    # `data` is deferred on the model, so ask for the columns explicitly —
+    # the same way the serving endpoint does.
+    restored = (
+        await db.execute(
+            select(CardLogo.data, CardLogo.mime_type).where(CardLogo.card_id == card.id)
+        )
+    ).one()
+    assert restored.data == png
+    assert restored.mime_type == "image/png"
+
+    await db.refresh(ct)
+    assert ct.allow_card_logo is True, "the per-type switch must transfer too"
+
+
 async def test_diagram_groups_and_favorites_roundtrip(db):
     """Diagram groups, their membership, and per-user favorites survive
     export → delete → re-import."""

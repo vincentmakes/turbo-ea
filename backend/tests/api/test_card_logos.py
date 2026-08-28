@@ -309,3 +309,80 @@ class TestCardLogoEvents:
         assert (
             await db.execute(select(CardLogo).where(CardLogo.card_id == logo_env["card"].id))
         ).scalar_one_or_none() is not None
+
+
+# -------------------------------------------------------------------
+# logo_updated_at on the card payloads
+# -------------------------------------------------------------------
+
+
+class TestLogoUpdatedAtInPayloads:
+    async def test_absent_before_upload(self, client, db, logo_env):
+        resp = await client.get(
+            f"/api/v1/cards/{logo_env['card'].id}", headers=auth_headers(logo_env["admin"])
+        )
+        assert resp.status_code == 200
+        assert resp.json()["logo_updated_at"] is None
+
+    async def test_present_on_card_detail(self, client, db, logo_env):
+        await _upload(client, logo_env["card"].id, logo_env["admin"])
+        resp = await client.get(
+            f"/api/v1/cards/{logo_env['card'].id}", headers=auth_headers(logo_env["admin"])
+        )
+        assert resp.json()["logo_updated_at"] is not None
+
+    async def test_present_in_card_list(self, client, db, logo_env):
+        await _upload(client, logo_env["card"].id, logo_env["admin"])
+        resp = await client.get(
+            "/api/v1/cards?type=Application", headers=auth_headers(logo_env["admin"])
+        )
+        assert resp.status_code == 200
+        item = next(i for i in resp.json()["items"] if i["id"] == str(logo_env["card"].id))
+        assert item["logo_updated_at"] is not None
+
+    async def test_omitted_when_type_toggle_is_off(self, client, db, logo_env):
+        """Switching the type off must make every surface render as before,
+        without the client needing a rule of its own."""
+        from app.models.card_type import CardType
+
+        card = logo_env["card"]
+        await _upload(client, card.id, logo_env["admin"])
+        ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+        ct.allow_card_logo = False
+        await db.flush()
+
+        detail = await client.get(
+            f"/api/v1/cards/{card.id}", headers=auth_headers(logo_env["admin"])
+        )
+        assert detail.json()["logo_updated_at"] is None
+
+        listing = await client.get(
+            "/api/v1/cards?type=Application", headers=auth_headers(logo_env["admin"])
+        )
+        item = next(i for i in listing.json()["items"] if i["id"] == str(card.id))
+        assert item["logo_updated_at"] is None
+
+
+# -------------------------------------------------------------------
+# Metamodel toggle
+# -------------------------------------------------------------------
+
+
+class TestAllowCardLogoToggle:
+    async def test_type_payload_exposes_the_flag(self, client, db, logo_env):
+        resp = await client.get("/api/v1/metamodel/types", headers=auth_headers(logo_env["admin"]))
+        by_key = {t["key"]: t for t in resp.json()}
+        assert by_key["Application"]["allow_card_logo"] is True
+        assert by_key["Objective"]["allow_card_logo"] is False
+
+    async def test_admin_can_flip_the_flag(self, client, db, logo_env):
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Objective",
+            json={"allow_card_logo": True},
+            headers=auth_headers(logo_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["allow_card_logo"] is True
+
+        # And the upload it unblocks now succeeds.
+        assert (await _upload(client, logo_env["plain"].id, logo_env["admin"])).status_code == 200

@@ -59,6 +59,7 @@ CARD_TYPE_COLUMNS = (
     "category",
     "has_hierarchy",
     "has_successors",
+    "allow_card_logo",
     "subtypes",
     "fields_schema",
     "stakeholder_roles",

@@ -15,6 +15,7 @@ import sqlalchemy as sa
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.bookmark import Bookmark
+from app.models.card_logo import CardLogo
 from app.models.comment import Comment
 from app.models.diagram import Diagram
 from app.models.diagram_favorite import DiagramFavorite
@@ -78,6 +79,13 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         user_fk_columns=("created_by",),
         asset_columns=(("data", "bytes", "bin"),),
         filename_column="name",  # keep the original filename + extension
+    ),
+    EntitySection(
+        "CardLogos",
+        CardLogo,
+        card_fk_columns=("card_id",),
+        user_fk_columns=("created_by",),
+        asset_columns=(("data", "bytes", "bin"),),
     ),
     EntitySection(
         "Diagrams",

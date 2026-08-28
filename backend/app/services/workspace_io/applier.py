@@ -127,10 +127,22 @@ class ApplyResult:
 
 
 def _coerce(row: dict[str, Any], columns: tuple[str, ...], json_cols: frozenset[str]) -> dict:
+    """Coerce one sheet row into column values.
+
+    A column the sheet does not carry is left out of the result entirely,
+    rather than coerced to None. "This bundle has nothing to say about the
+    column" is not the same statement as "set this column to NULL": a bundle
+    written before the column existed, or a hand-authored content pack that
+    lists only the columns it cares about, must not blank it — and for a
+    NOT NULL column with a default, writing None fails the insert outright.
+    An empty *cell* in a column the sheet does declare still clears the value,
+    so exports keep their ability to blank a field.
+    """
     out: dict[str, Any] = {}
     for col in columns:
-        raw = row.get(col)
-        out[col] = from_cell(raw, is_json=col in json_cols)
+        if col not in row:
+            continue
+        out[col] = from_cell(row[col], is_json=col in json_cols)
     return out
 
 
@@ -140,8 +152,11 @@ def _update_if_changed(current: Any, data: dict[str, Any], cols, sr: SectionResu
     re-importing an unchanged export into the same instance is a true no-op."""
     changed = False
     for col in cols:
-        if getattr(current, col) != data.get(col):
-            setattr(current, col, data.get(col))
+        # A column the bundle does not carry is left alone — see _coerce.
+        if col not in data:
+            continue
+        if getattr(current, col) != data[col]:
+            setattr(current, col, data[col])
             changed = True
     if changed:
         sr.updated += 1

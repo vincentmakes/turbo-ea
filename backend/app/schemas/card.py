@@ -144,6 +144,11 @@ class CardResponse(BaseModel):
     updated_by: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # When the card's custom logo was last written, or None when it has none —
+    # or when its type has logos switched off, so the client needs no rule of
+    # its own to fall back to the type icon. Doubles as the image URL's
+    # cache-buster.
+    logo_updated_at: datetime | None = None
     tags: list[TagRef] = []
     stakeholders: list[StakeholderRef] = []
 

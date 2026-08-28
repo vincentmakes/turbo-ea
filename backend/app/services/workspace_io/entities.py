@@ -203,6 +203,14 @@ async def export_entity_section(
 ) -> tuple[list[str], list[dict[str, Any]]]:
     """Return ``(header, rows)`` for a section and append any binary assets."""
     stmt = sa.select(section.model)
+    # A blob column is normally deferred on the model so ordinary reads never
+    # haul the bytes. Export is the one place that does want them, and reaching
+    # them through a plain attribute access would emit a lazy load — illegal on
+    # an async session. Ask for them up front instead.
+    for _col, _kind_, _ext in section.asset_columns:
+        attr = getattr(section.model, _col, None)
+        if attr is not None:
+            stmt = stmt.options(sa.orm.undefer(attr))
     if section.export_where is not None:
         stmt = stmt.where(section.export_where)
     objs: list[Any] = list((await db.execute(stmt)).scalars().all())
