@@ -31,6 +31,10 @@ vi.mock("@/hooks/useEventStream", () => ({
   useEventStream: vi.fn(),
 }));
 
+vi.mock("@/hooks/useGrcEnabled", () => ({
+  useGrcEnabled: vi.fn(),
+}));
+
 // Stub notification components that make their own API calls
 vi.mock("@/components/NotificationBell", () => ({
   default: () => <div data-testid="notification-bell" />,
@@ -45,6 +49,7 @@ vi.mock("@/components/SearchDialog", () => ({
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
+import { useGrcEnabled } from "@/hooks/useGrcEnabled";
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -63,6 +68,12 @@ beforeEach(() => {
   });
 
   vi.mocked(useBpmEnabled).mockReturnValue({ bpmEnabled: true, loading: false });
+
+  vi.mocked(useGrcEnabled).mockReturnValue({
+    grcEnabled: true,
+    grcLoaded: true,
+    invalidateGrc: vi.fn(),
+  });
 
   // Badge counts API
   vi.mocked(api.get).mockResolvedValue({ open_todos: 0, pending_surveys: 0 });
@@ -288,6 +299,95 @@ describe("AppLayout — extension nav placement", () => {
     });
     renderLayout();
     expect(screen.getByRole("link", { name: /Legacy Page/i })).toBeInTheDocument();
+  });
+
+  it("places a grc-group extension route under the GRC menu, keeping the GRC page itself", async () => {
+    registerExtension("gov-ext", {
+      key: "gov-ext",
+      sdkVersion: UI_SDK_VERSION,
+      routes: [
+        {
+          id: "register",
+          path: "/ext/gov-ext/register",
+          label: "Gov Register",
+          icon: "gavel",
+          navGroup: "grc",
+          component: () => null,
+        },
+      ],
+    });
+    const user = userEvent.setup();
+    renderLayout();
+
+    expect(screen.queryByRole("link", { name: /Gov Register/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /GRC/i }));
+    const item = await screen.findByRole("menuitem", { name: /Gov Register/i });
+    expect(item).toHaveAttribute("href", "/ext/gov-ext/register");
+    // GRC is a page, not just a menu — becoming a dropdown must not lose it.
+    expect(screen.getByRole("menuitem", { name: /GRC/i })).toHaveAttribute("href", "/grc");
+  });
+
+  it("opens each group's own children — not the first group's", async () => {
+    // One shared menu anchor used to render `navItems.find(n => n.children)`,
+    // so a second group showed the Reports entries under its own button.
+    registerExtension("both-ext", {
+      key: "both-ext",
+      sdkVersion: UI_SDK_VERSION,
+      routes: [
+        {
+          id: "r",
+          path: "/ext/both-ext/report",
+          label: "Grouped Report",
+          icon: "insights",
+          navGroup: "reports",
+          component: () => null,
+        },
+        {
+          id: "g",
+          path: "/ext/both-ext/register",
+          label: "Grouped Register",
+          icon: "gavel",
+          navGroup: "grc",
+          component: () => null,
+        },
+      ],
+    });
+    const user = userEvent.setup();
+    renderLayout();
+
+    await user.click(screen.getByRole("button", { name: /GRC/i }));
+    expect(await screen.findByRole("menuitem", { name: /Grouped Register/i })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /Grouped Report/i })).not.toBeInTheDocument();
+  });
+
+  it("falls back to a top-level entry when the group's nav item is absent", async () => {
+    // GRC module off (or no grc.view): the group host is gone, and swallowing
+    // the route there would make a licensed page unreachable from the nav.
+    vi.mocked(useGrcEnabled).mockReturnValue({
+      grcEnabled: false,
+      grcLoaded: true,
+      invalidateGrc: vi.fn(),
+    });
+    registerExtension("gov-ext", {
+      key: "gov-ext",
+      sdkVersion: UI_SDK_VERSION,
+      routes: [
+        {
+          id: "register",
+          path: "/ext/gov-ext/register",
+          label: "Gov Register",
+          icon: "gavel",
+          navGroup: "grc",
+          component: () => null,
+        },
+      ],
+    });
+    renderLayout();
+    expect(screen.getByRole("link", { name: /Gov Register/i })).toHaveAttribute(
+      "href",
+      "/ext/gov-ext/register",
+    );
   });
 
   it("ignores a route whose navGroup is not whitelisted (no crash, no injection)", async () => {

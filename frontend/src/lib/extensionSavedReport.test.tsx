@@ -29,6 +29,22 @@ describe("SDK saved-report participation (SDK 1.6)", () => {
     expect(window.TurboEA?.sdk.CardDetailSidePanel).toBeTypeOf("function");
   });
 
+  it("exposes the SDK 1.19 select-option pill + label resolvers", () => {
+    // An extension rendering a choice value must get core's exact pill —
+    // colour, contrast foreground, uniform per-field width — and core's label
+    // resolution, instead of hand-rolling a chip that drifts from the grid.
+    initExtensionHost();
+    const sdk = window.TurboEA?.sdk;
+    expect(sdk?.OptionChip).toBeTypeOf("function");
+    expect(sdk?.chipWidthForField).toBeTypeOf("function");
+    expect(sdk?.readableTextColor).toBeTypeOf("function");
+    expect(sdk?.SELECT_CHIP_BASE).toBeTypeOf("object");
+    expect(sdk?.useOptionLabel).toBeTypeOf("function");
+    expect(sdk?.useFieldLabel).toBeTypeOf("function");
+    expect(sdk?.optionLabel).toBeTypeOf("function");
+    expect(sdk?.fieldLabel).toBeTypeOf("function");
+  });
+
   it("useSavedReport exposes the SDK 1.13 localStorage-persistence layer", () => {
     // consumeConfig / persistConfig / resetAll let an extension report keep its
     // filters + selection across a refresh exactly like a core report.

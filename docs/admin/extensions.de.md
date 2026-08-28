@@ -124,4 +124,4 @@ Jede Änderung einer Erweiterung erscheint unter **Admin → Audit-Log** als `ex
 
 ## Wo Erweiterungsseiten erscheinen
 
-Erweiterungsseiten erscheinen in der Navigation, sobald die Erweiterung installiert und lizenziert ist — in der Regel als eigener Menüpunkt der obersten Ebene, wobei einige Berichte unter dem Menü **Berichte** neben den eingebauten platziert werden.
+Erweiterungsseiten erscheinen in der Navigation, sobald die Erweiterung installiert und lizenziert ist — in der Regel als eigener Menüpunkt der obersten Ebene, wobei einige innerhalb eines Kernmenüs neben den eingebauten Einträgen platziert werden: Berichte unter **Berichte**, Seiten zu Governance, Risiko oder Compliance unter **GRC**. Eine gruppierte Seite fällt auf einen Eintrag der obersten Ebene zurück, wenn ihr Menü nicht verfügbar ist — das Modul ist deaktiviert oder Ihnen fehlt die Berechtigung — und verschwindet damit nie aus der Navigation.

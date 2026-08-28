@@ -5,6 +5,22 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.98.0] - 2026-08-28
+
+### Added
+
+- **Extension pages can now sit inside the Governance menu.** An installed extension may place its page under **GRC** as well as **Reports**, so a compliance or governance extension lands where its subject already lives instead of adding another top-level icon to the nav bar. The GRC entry keeps its own link as the first item of the menu, and a page whose group is unavailable (module switched off, or the user lacks its permission) falls back to a top-level entry rather than disappearing.
+- **Extensions render choice fields with core's own coloured pill.** The select-option chip and the metamodel label resolvers are now part of the extension UI SDK (1.19), so a value shown on an extension page looks exactly like the same value on a card or in the Inventory grid — same colour, same width, same translated label.
+
+### Changed
+
+- **A field section contributed by an extension now appears above Relations on the card**, next to the card's own content, instead of being appended below it. Sections an administrator has since moved are never repositioned, and removing an extension no longer leaves the remaining sections' saved order pointing at the wrong ones.
+
+### Fixed
+
+- **The notification bell and user menu could be pushed off screen.** With enough pages in the top navigation the toolbar overflowed and the bell, search and account menu became unreachable; the navigation now shrinks and scrolls instead.
+- **A second navigation menu opened the first menu's contents.** With more than one grouped menu in the nav bar, opening one showed the other's entries (and in the mobile drawer, expanding one expanded them all).
+
 ## [2.97.0] - 2026-08-28
 
 ### Added

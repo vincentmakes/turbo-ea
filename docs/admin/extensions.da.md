@@ -124,4 +124,4 @@ Hver ændring en udvidelse foretager, vises i **Admin → Auditlog** som en `ext
 
 ## Hvor udvidelsessider vises
 
-Udvidelsessider vises i navigationen, når udvidelsen er installeret og licenseret — normalt som deres eget menupunkt på øverste niveau, selvom nogle rapporter placeres under menuen **Rapporter** sammen med de indbyggede.
+Udvidelsessider vises i navigationen, når udvidelsen er installeret og licenseret — normalt som deres eget menupunkt på øverste niveau, selvom nogle placeres inde i en kernemenu sammen med de indbyggede punkter: rapporter under **Rapporter**, og sider om governance, risiko eller compliance under **GRC**. En grupperet side falder tilbage til et menupunkt på øverste niveau, når dens menu ikke er tilgængelig — modulet er slået fra, eller du mangler tilladelsen — så den forsvinder aldrig fra navigationen.

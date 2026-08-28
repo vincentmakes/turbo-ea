@@ -124,4 +124,4 @@ Operators keep the last word on inventory writes: setting the environment variab
 
 ## Where extension pages appear
 
-Extension pages appear in the navigation once the extension is installed and licensed — usually as their own top-level menu item, though some reports are placed under the **Reports** menu alongside the built-in ones.
+Extension pages appear in the navigation once the extension is installed and licensed — usually as their own top-level menu item, though some are placed inside a core menu alongside the built-in entries: reports under **Reports**, and governance, risk or compliance pages under **GRC**. A grouped page falls back to a top-level entry when its menu is unavailable — the module is switched off, or you lack its permission — so it never disappears from the navigation.

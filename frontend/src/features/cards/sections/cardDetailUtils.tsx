@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import { readableTextColor, readableTypeColor } from "@/lib/color";
+import { OptionChip, SELECT_CHIP_BASE, chipWidthForField } from "@/components/OptionChip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
@@ -344,21 +345,11 @@ export function safeString(value: unknown): string {
   try { return JSON.stringify(value); } catch { return "[invalid]"; }
 }
 
-// Consistent chip style for all select fields (same fixed width for visual alignment)
-// Base chip style -- width is computed per-field from the longest option label
-export const SELECT_CHIP_BASE = {
-  maxWidth: "100%",
-  justifyContent: "center",
-  "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis" },
-} as const;
-
-/** Compute a uniform chip width for a field based on its longest option label. */
-export function chipWidthForField(options: FieldDef["options"]): number {
-  if (!options || options.length === 0) return 180;
-  const maxLen = Math.max(...options.map((o) => o.label.length));
-  // ~7.5px per char + 28px chip padding, clamped between 180 and 300
-  return Math.max(180, Math.min(300, Math.round(maxLen * 7.5 + 28)));
-}
+// The select-option pill lives in `@/components/OptionChip` (a leaf module, so
+// the extension SDK can re-export it without a cycle back into this file).
+// Re-exported here because these two names are imported from `cardDetailUtils`
+// across the app.
+export { SELECT_CHIP_BASE, chipWidthForField };
 
 // ── Read-only field value renderer ──────────────────────────────
 export function FieldValue({
@@ -421,13 +412,7 @@ export function FieldValue({
     const w = chipWidthForField(field.options);
     const strVal = typeof value === "string" ? value : safeString(value);
     const opt = field.options.find((o) => o.key === strVal);
-    return opt ? (
-      <Chip size="small" label={optLabel(opt)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: readableTextColor(opt.color) } : {}) }} />
-    ) : (
-      <Tooltip title={t("utils.unknownOption", { key: strVal })}>
-        <Chip size="small" label={strVal} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
-      </Tooltip>
-    );
+    return <OptionChip option={opt} value={strVal} label={opt && optLabel(opt)} width={w} />;
   }
 
   if (field.type === "multiple_select" && field.options) {
@@ -438,10 +423,14 @@ export function FieldValue({
         {arr.map((v, i) => {
           const key = typeof v === "string" ? v : safeString(v);
           const opt = field.options!.find((o) => o.key === key);
-          return opt ? (
-            <Chip key={key + i} size="small" label={optLabel(opt)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: readableTextColor(opt.color) } : {}) }} />
-          ) : (
-            <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
+          return (
+            <OptionChip
+              key={key + i}
+              option={opt}
+              value={key}
+              label={opt && optLabel(opt)}
+              width={w}
+            />
           );
         })}
       </Box>

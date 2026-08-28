@@ -221,6 +221,130 @@ class TestRemove:
         assert section_named(ct, "Other") is not None
 
 
+class TestSectionPlacement:
+    """A contributed section belongs with the card's own content, above Relations.
+
+    ``custom:N`` is a POSITIONAL index into ``fields_schema`` minus the magic
+    ``__description`` section, and card detail appends any ``custom:N`` missing
+    from a stored ``__order`` to the very END — i.e. below Relations, unlike
+    ``tags``/``successors``, which are spliced in before it. So a type with a
+    stored order needs the new key inserted; a type without one already renders
+    custom sections high and must be left alone.
+    """
+
+    async def test_new_section_lands_before_relations(self, db):
+        ct = await create_card_type(
+            db,
+            key="Application",
+            label="Application",
+            fields_schema=[
+                {"section": "__description", "fields": []},
+                {"section": "Core", "fields": [{"key": "hosting", "label": "H", "type": "text"}]},
+            ],
+            section_config={
+                "__order": ["description", "custom:0", "hierarchy", "relations", "tags"]
+            },
+        )
+        await apply_field_contributions(db, EXT, manifest_with([contribution()]))
+        # __description is filtered out, so Core is custom:0 and ours is custom:1.
+        assert ct.section_config["__order"] == [
+            "description",
+            "custom:0",
+            "hierarchy",
+            "custom:1",
+            "relations",
+            "tags",
+        ]
+
+    async def test_order_without_relations_appends(self, db):
+        ct = await create_card_type(
+            db,
+            key="Application",
+            label="Application",
+            fields_schema=[{"section": "Core", "fields": []}],
+            section_config={"__order": ["description", "custom:0"]},
+        )
+        await apply_field_contributions(db, EXT, manifest_with([contribution()]))
+        assert ct.section_config["__order"] == ["description", "custom:0", "custom:1"]
+
+    async def test_no_stored_order_stays_unwritten(self, db):
+        """That path already renders custom sections above Relations; writing an
+        order here would freeze a layout the admin never chose."""
+        ct = await create_card_type(db, key="Application", label="Application")
+        await apply_field_contributions(db, EXT, manifest_with([contribution()]))
+        assert not (ct.section_config or {}).get("__order")
+
+    async def test_reapply_never_moves_a_section_the_admin_dragged(self, db):
+        ct = await create_card_type(
+            db,
+            key="Application",
+            label="Application",
+            fields_schema=[{"section": "Core", "fields": []}],
+            section_config={"__order": ["description", "custom:0", "relations"]},
+        )
+        m = manifest_with([contribution()])
+        await apply_field_contributions(db, EXT, m)
+        # Admin drags our section to the very bottom.
+        ct.section_config = {"__order": ["description", "custom:0", "relations", "custom:1"]}
+        await apply_field_contributions(db, EXT, m)
+        assert ct.section_config["__order"] == [
+            "description",
+            "custom:0",
+            "relations",
+            "custom:1",
+        ]
+
+    async def test_removal_reindexes_later_sections(self, db):
+        """Dropping our section shifts every later one down by one — a stored
+        order that is not rewritten silently starts addressing the wrong ones."""
+        ct = await create_card_type(
+            db,
+            key="Application",
+            label="Application",
+            fields_schema=[{"section": "Core", "fields": []}],
+            section_config={"__order": ["description", "custom:0", "relations"]},
+        )
+        await apply_field_contributions(db, EXT, manifest_with([contribution()]))
+        # Admin adds a section of their own AFTER ours and orders it last.
+        ct.fields_schema = [*ct.fields_schema, {"section": "Ops", "fields": []}]
+        ct.section_config = {
+            "__order": ["description", "custom:0", "custom:1", "custom:2", "relations"]
+        }
+        await remove_field_contributions(db, EXT)
+        # Ours (custom:1) is gone; Ops slides from custom:2 down to custom:1.
+        assert [s["section"] for s in ct.fields_schema] == ["Core", "Ops"]
+        assert ct.section_config["__order"] == [
+            "description",
+            "custom:0",
+            "custom:1",
+            "relations",
+        ]
+
+    async def test_removal_keeps_order_when_the_section_survives(self, db):
+        """The removal loop rebuilds every EDITED section as a new dict, so an
+        identity-based reindex would read them all as removed and drop their
+        order entries. Here only our fields go; the section stays."""
+        ct = await create_card_type(
+            db,
+            key="Application",
+            label="Application",
+            fields_schema=[{"section": "Core", "fields": []}],
+            section_config={"__order": ["description", "custom:0", "custom:1", "relations"]},
+        )
+        await apply_field_contributions(db, EXT, manifest_with([contribution()]))
+        section_named(ct, "ESG Metrics")["fields"].append(
+            {"key": "adminNote", "label": "Note", "type": "text"}
+        )
+        await remove_field_contributions(db, EXT)
+        assert section_named(ct, "ESG Metrics") is not None
+        assert ct.section_config["__order"] == [
+            "description",
+            "custom:0",
+            "custom:1",
+            "relations",
+        ]
+
+
 class TestBundleValidation:
     """Manifest shape checks run at signature-verification time."""
 

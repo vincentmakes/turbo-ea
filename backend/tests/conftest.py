@@ -319,6 +319,7 @@ async def create_card_type(
         icon=kwargs.get("icon", "apps"),
         color=kwargs.get("color", "#0f7eb5"),
         fields_schema=fields_schema if fields_schema is not None else [],
+        section_config=kwargs.get("section_config", {}),
         subtypes=kwargs.get("subtypes", []),
         # Legacy JSONB mirror of the stakeholder role definitions — only read
         # when the definition table has no rows for the type.

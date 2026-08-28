@@ -124,4 +124,4 @@ Cada cambio realizado por una extensión aparece en **Admin → Registro de audi
 
 ## Dónde aparecen las páginas de extensión
 
-Las páginas de extensión aparecen en la navegación una vez que la extensión está instalada y con licencia — normalmente como su propia entrada de menú de nivel superior, aunque algunos informes se colocan bajo el menú **Informes** junto a los integrados.
+Las páginas de extensión aparecen en la navegación una vez que la extensión está instalada y con licencia — normalmente como su propia entrada de menú de nivel superior, aunque algunas se colocan dentro de un menú del núcleo junto a las entradas integradas: los informes bajo **Informes**, y las páginas de gobierno, riesgo o cumplimiento bajo **GRC**. Una página agrupada vuelve a una entrada de nivel superior cuando su menú no está disponible — el módulo está desactivado o no tienes su permiso — de modo que nunca desaparece de la navegación.

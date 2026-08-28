@@ -124,4 +124,4 @@ Ogni modifica fatta da un'estensione compare in **Admin → Registro di audit** 
 
 ## Dove compaiono le pagine delle estensioni
 
-Le pagine delle estensioni compaiono nella navigazione una volta che l'estensione è installata e provvista di licenza — di solito come una propria voce di menu di primo livello, anche se alcuni report vengono collocati sotto il menu **Report** accanto a quelli integrati.
+Le pagine delle estensioni compaiono nella navigazione una volta che l'estensione è installata e provvista di licenza — di solito come una propria voce di menu di primo livello, anche se alcune vengono collocate dentro un menu del core accanto alle voci integrate: i report sotto il menu **Report**, e le pagine di governance, rischio o conformità sotto **GRC**. Una pagina raggruppata torna a essere una voce di primo livello quando il suo menu non è disponibile — il modulo è disattivato, oppure non hai il permesso relativo — così non scompare mai dalla navigazione.

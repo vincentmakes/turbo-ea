@@ -124,4 +124,4 @@ Chaque modification faite par une extension apparaît dans **Admin → Journal d
 
 ## Où apparaissent les pages d'extension
 
-Les pages d'extension apparaissent dans la navigation une fois l'extension installée et sous licence — généralement comme leur propre entrée de menu de premier niveau, bien que certains rapports soient placés sous le menu **Rapports** aux côtés de ceux intégrés.
+Les pages d'extension apparaissent dans la navigation une fois l'extension installée et sous licence — généralement comme leur propre entrée de menu de premier niveau, bien que certaines soient placées dans un menu du cœur aux côtés des entrées intégrées : les rapports sous **Rapports**, et les pages de gouvernance, de risque ou de conformité sous **GRC**. Une page regroupée revient à une entrée de premier niveau lorsque son menu n'est pas disponible — le module est désactivé, ou vous n'avez pas la permission correspondante — elle ne disparaît donc jamais de la navigation.

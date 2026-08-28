@@ -89,16 +89,22 @@ import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
 import * as tokens from "@/theme/tokens";
+// SDK 1.19 — choice-field pill rendering + metamodel label resolution, so an
+// extension renders a select value exactly like core. All leaf/pure modules:
+// no code-split graph, and no cycle back through cardDetailUtils.
+import { OptionChip, SELECT_CHIP_BASE, chipWidthForField } from "@/components/OptionChip";
+import { readableTextColor } from "@/lib/color";
+import { fieldLabel, optionLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.18";
+export const UI_SDK_VERSION = "1.19";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
  * default top-level nav entry). Whitelisted on purpose so an extension can only
  * land in sanctioned menus (never admin/arbitrary ones); extend deliberately.
  */
-export const EXTENSION_NAV_GROUPS = ["reports"] as const;
+export const EXTENSION_NAV_GROUPS = ["reports", "grc"] as const;
 export type ExtensionNavGroup = (typeof EXTENSION_NAV_GROUPS)[number];
 
 export interface ExtensionRouteContribution {
@@ -899,6 +905,15 @@ export function initExtensionHost(): void {
       useTranslation,
       tokens,
       uiSdkVersion: UI_SDK_VERSION,
+      // SDK 1.19 — render a select option the way core does.
+      OptionChip,
+      SELECT_CHIP_BASE,
+      chipWidthForField,
+      readableTextColor,
+      useOptionLabel,
+      useFieldLabel,
+      optionLabel,
+      fieldLabel,
       // SDK 1.6 — saved-report participation (see useExtensionSavedReport).
       useSavedReport: useExtensionSavedReport,
       SaveReportDialog,

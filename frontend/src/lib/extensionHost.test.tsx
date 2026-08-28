@@ -11,6 +11,7 @@ import type { User } from "@/types";
 import {
   ExtensionBoundary,
   ExtensionSlot,
+  EXTENSION_NAV_GROUPS,
   getExtensionAdrExportSections,
   getExtensionAdrGridColumns,
   getExtensionAdrPanels,
@@ -383,7 +384,44 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.18");
+    expect(UI_SDK_VERSION).toBe("1.19");
+  });
+
+  it("whitelists the nav groups an extension route may request", () => {
+    // A route can only land in a sanctioned core menu — never admin or an
+    // arbitrary one. Extend deliberately; this pins the current set.
+    expect([...EXTENSION_NAV_GROUPS]).toEqual(["reports", "grc"]);
+  });
+
+  it("returns routes for the grc nav group independently of reports", () => {
+    registerExtension("gov", {
+      key: "gov",
+      sdkVersion: UI_SDK_VERSION,
+      routes: [
+        {
+          id: "register",
+          path: "/ext/gov/register",
+          label: "Register",
+          icon: "gavel",
+          navGroup: "grc",
+          component: () => null,
+        },
+        {
+          id: "report",
+          path: "/ext/gov/report",
+          label: "Report",
+          icon: "insights",
+          navGroup: "reports",
+          component: () => null,
+        },
+      ],
+    });
+    expect(getExtensionRoutesForGroup("grc").map((r) => r.route.path)).toEqual([
+      "/ext/gov/register",
+    ]);
+    expect(getExtensionRoutesForGroup("reports").map((r) => r.route.path)).toEqual([
+      "/ext/gov/report",
+    ]);
   });
 
   it("aggregates generic slots (component + data), sorts by order, drops invalid ones", () => {

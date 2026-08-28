@@ -96,6 +96,63 @@ def _sanitize_field(ext_key: str, field: dict) -> dict:
     return out
 
 
+def _is_custom_section(section: Any) -> bool:
+    """Does this section occupy a ``custom:N`` slot?
+
+    Card detail filters out only the magic ``__description`` section and then
+    indexes what remains POSITIONALLY (``CardDetailContent`` /
+    ``CardLayoutEditor``), so every other entry counts — a malformed non-dict
+    one included, since it still shifts the sections after it.
+    """
+    return not (isinstance(section, dict) and section.get("section") == "__description")
+
+
+def _custom_section_index(schema: list[dict], section: dict) -> int | None:
+    """The ``custom:N`` index the frontend will address this section by.
+
+    Computed exactly the way card detail computes it (see
+    :func:`_is_custom_section`) or an inserted order entry would point at a
+    different section.
+    """
+    customs = [s for s in schema if _is_custom_section(s)]
+    for idx, candidate in enumerate(customs):
+        if candidate is section:
+            return idx
+    return None
+
+
+def _place_section_before_relations(ct, schema: list[dict], section: dict) -> None:
+    """Give a NEWLY created contributed section a place in ``__order``.
+
+    Card detail appends any ``custom:N`` missing from a stored ``__order`` to
+    the very end — i.e. *below* Relations — while ``tags``/``successors`` are
+    spliced in before it. A contributed section belongs with the card's own
+    content, so insert it before ``relations`` too.
+
+    Two deliberate limits:
+    - **no-op when no ``__order`` is stored.** That branch already renders
+      custom sections above hierarchy/tags/relations, and writing an order
+      where none existed would freeze a layout the admin never chose.
+    - **first creation only** (the caller). A re-apply or version update must
+      never move a section the admin has since dragged somewhere else.
+    """
+    config = dict(ct.section_config or {})
+    order = list(config.get("__order") or [])
+    if not order:
+        return
+    index = _custom_section_index(schema, section)
+    if index is None:
+        return
+    key = f"custom:{index}"
+    if key in order:
+        return
+    at = order.index("relations") if "relations" in order else len(order)
+    order.insert(at, key)
+    config["__order"] = order
+    ct.section_config = config
+    flag_modified(ct, "section_config")
+
+
 def _own_sections(schema: list, ext_key: str) -> list[dict]:
     return [s for s in schema if isinstance(s, dict) and s.get("ext") == ext_key]
 
@@ -205,6 +262,7 @@ async def apply_field_contributions(
         if target is None:
             target = {"section": section_name, "ext": ext_key, "fields": []}
             schema.append(target)
+            _place_section_before_relations(ct, schema, target)
         target["section"] = section_name
         target["ext"] = ext_key
         if "columns" in contrib:
@@ -371,6 +429,47 @@ async def remove_subtype_contributions(
     return removed
 
 
+def _reindex_section_order(ct, kept_flags: list[bool]) -> None:
+    """Keep ``__order``'s ``custom:N`` keys pointing at the same sections.
+
+    ``custom:N`` is a POSITIONAL index into ``fields_schema`` (minus
+    ``__description``), so dropping a section shifts every later one down by
+    one and a stored order silently starts addressing the wrong sections.
+
+    ``kept_flags`` is one boolean per *pre-removal* custom section, in schema
+    order — it must come from the removal loop rather than be recovered by
+    comparing the two schemas, because that loop rebuilds every edited section
+    as a NEW dict, which makes identity comparison read them all as removed.
+    """
+    config = dict(ct.section_config or {})
+    order = list(config.get("__order") or [])
+    if not order:
+        return
+    new_index_of: dict[int, int] = {}
+    cursor = 0
+    for old_index, kept in enumerate(kept_flags):
+        if kept:
+            new_index_of[old_index] = cursor
+            cursor += 1
+    remapped: list[str] = []
+    for key in order:
+        if not key.startswith("custom:"):
+            remapped.append(key)
+            continue
+        try:
+            old_index = int(key.split(":", 1)[1])
+        except ValueError:
+            continue
+        new_index = new_index_of.get(old_index)
+        if new_index is None:
+            continue  # already stale, or the section it pointed at was removed
+        remapped.append(f"custom:{new_index}")
+    if remapped != order:
+        config["__order"] = remapped
+        ct.section_config = config
+        flag_modified(ct, "section_config")
+
+
 async def remove_field_contributions(
     db: AsyncSession, ext_key: str, *, except_types: AbstractSet[str] = frozenset()
 ) -> int:
@@ -390,10 +489,14 @@ async def remove_field_contributions(
         if ct.key in except_types:
             continue
         schema = []
+        kept_flags: list[bool] = []
         changed = False
         for section in ct.fields_schema or []:
+            custom = _is_custom_section(section)
             if not isinstance(section, dict):
                 schema.append(section)
+                if custom:
+                    kept_flags.append(True)
                 continue
             fields = section.get("fields", [])
             kept = [f for f in fields if not (isinstance(f, dict) and f.get("ext") == ext_key)]
@@ -401,11 +504,18 @@ async def remove_field_contributions(
             if len(kept) != len(fields):
                 changed = True
             if section.get("ext") == ext_key and not kept:
-                continue  # drop the now-empty contributed section entirely
+                # drop the now-empty contributed section entirely
+                changed = True
+                if custom:
+                    kept_flags.append(False)
+                continue
+            if custom:
+                kept_flags.append(True)
             if len(kept) != len(fields):
                 section = {**section, "fields": kept}
             schema.append(section)
         if changed:
+            _reindex_section_order(ct, kept_flags)
             ct.fields_schema = schema
             flag_modified(ct, "fields_schema")
             touched_types.add(ct.key)

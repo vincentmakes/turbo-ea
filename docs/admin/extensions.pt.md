@@ -124,4 +124,4 @@ Cada alteração feita por uma extensão aparece em **Admin → Registo de audit
 
 ## Onde as páginas de extensão aparecem
 
-As páginas de extensão aparecem na navegação assim que a extensão está instalada e licenciada — geralmente como seu próprio item de menu de nível superior, embora alguns relatórios sejam colocados no menu **Relatórios** ao lado dos integrados.
+As páginas de extensão aparecem na navegação assim que a extensão está instalada e licenciada — geralmente como seu próprio item de menu de nível superior, embora algumas sejam colocadas dentro de um menu do núcleo ao lado das entradas integradas: os relatórios no menu **Relatórios**, e as páginas de governação, risco ou conformidade no menu **GRC**. Uma página agrupada volta a ser um item de nível superior quando o seu menu não está disponível — o módulo está desativado, ou não tem a permissão correspondente — pelo que nunca desaparece da navegação.

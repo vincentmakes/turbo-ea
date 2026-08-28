@@ -40,7 +40,11 @@ import { useNavbarStyle } from "@/hooks/useNavbarStyle";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import SearchDialog from "@/components/SearchDialog";
-import { getExtensionRoutesForGroup, useExtensionUI } from "@/lib/extensionHost";
+import {
+  EXTENSION_NAV_GROUPS,
+  getExtensionRoutesForGroup,
+  useExtensionUI,
+} from "@/lib/extensionHost";
 import CreateCardDialog from "@/components/CreateCardDialog";
 import type { BadgeCounts, Card } from "@/types";
 
@@ -86,7 +90,9 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "bpm", icon: "route", path: "/bpm", permission: "bpm.view" },
   { labelKey: "ppm", icon: "view_timeline", path: "/ppm", permission: "ppm.view" },
   { labelKey: "diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
-  { labelKey: "grc", icon: "policy", path: "/grc", permission: "grc.view" },
+  // `children` is filled only by extension routes requesting navGroup "grc";
+  // with none installed this stays a plain top-level link.
+  { labelKey: "grc", icon: "policy", path: "/grc", permission: "grc.view", children: [] },
   { labelKey: "todos", icon: "checklist", path: "/todos" },
 ];
 
@@ -222,25 +228,47 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       return can(perm);
     };
 
-    // Inject extension routes that requested the Reports group as children of
-    // the Reports menu (desktop dropdown + mobile drawer both read `children`).
-    // Placed before the "saved" entry so they sit with the core reports. Labels
-    // are plain strings from the bundle, so t() falls through to them.
-    const reportExtChildren = getExtensionRoutesForGroup("reports").map(({ route }) => ({
-      labelKey: route.label,
-      icon: route.icon,
-      path: route.path,
-      permission: route.permission,
-    }));
-    if (reportExtChildren.length) {
+    // Inject extension routes that requested a core nav group as children of
+    // that group's menu (desktop dropdown + mobile drawer both read `children`).
+    // Reports places them before the "saved" entry so they sit with the core
+    // reports; other groups append. Labels are plain strings from the bundle,
+    // so t() falls through to them.
+    //
+    // A group whose nav item is absent for this user — the module is off, or
+    // they lack its permission — would otherwise swallow the route entirely, so
+    // those fall back to a TOP-LEVEL entry: a licensed extension page stays
+    // reachable whatever a core module toggle says.
+    const groupedFallbacks: NavItemDef[] = [];
+    for (const group of EXTENSION_NAV_GROUPS) {
+      const groupRoutes = getExtensionRoutesForGroup(group).map(({ route }) => ({
+        labelKey: route.label,
+        icon: route.icon,
+        path: route.path,
+        permission: route.permission,
+      }));
+      if (!groupRoutes.length) continue;
+      const host = items.find((item) => item.labelKey === group);
+      // The permission check matters here, not only below: injecting into a
+      // host that the final filter then drops would swallow the route silently.
+      if (!host || !hasPerm(host.permission)) {
+        groupedFallbacks.push(...groupRoutes);
+        continue;
+      }
       items = items.map((item) => {
-        if (item.labelKey !== "reports") return item;
+        if (item.labelKey !== group) return item;
         const kids = [...(item.children || [])];
+        // A group that is itself a page (GRC) turns into a dropdown the moment
+        // it gains children, so seed its own link as the first entry or the
+        // page becomes unreachable from the nav.
+        if (item.path && !kids.some((c) => c.path === item.path)) {
+          kids.unshift({ labelKey: item.labelKey, icon: item.icon, path: item.path });
+        }
         const savedIdx = kids.findIndex((c) => c.path === "/reports/saved");
-        kids.splice(savedIdx >= 0 ? savedIdx : kids.length, 0, ...reportExtChildren);
+        kids.splice(savedIdx >= 0 ? savedIdx : kids.length, 0, ...groupRoutes);
         return { ...item, children: kids };
       });
     }
+    items = [...items, ...groupedFallbacks];
 
     // Append pages contributed by installed UI extensions as top-level entries.
     // Routes that requested a core nav group (e.g. Reports, handled above) are
@@ -262,13 +290,19 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       }
     }
 
-    const resolve = (def: NavItemDef): NavItem => ({
-      ...def,
-      label: t(def.labelKey),
-      children: def.children
+    const resolve = (def: NavItemDef): NavItem => {
+      const children = def.children
         ?.filter((c) => hasPerm(c.permission))
-        .map((c) => ({ ...c, label: t(c.labelKey) })),
-    });
+        .map((c) => ({ ...c, label: t(c.labelKey) }));
+      return {
+        ...def,
+        label: t(def.labelKey),
+        // Normalise an empty list to undefined: a group host whose children are
+        // all filtered out (or that has none installed) renders as a plain link
+        // rather than a dropdown that opens onto nothing.
+        children: children && children.length ? children : undefined,
+      };
+    };
 
     return items.filter((item) => hasPerm(item.permission)).map(resolve);
   }, [bpmEnabled, ppmEnabled, grcEnabled, turboLensReady, uiExtensions, can, t]);
@@ -286,7 +320,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const showAdmin = adminItems.length > 0;
 
   const [userMenu, setUserMenu] = useState<HTMLElement | null>(null);
-  const [reportsMenu, setReportsMenu] = useState<HTMLElement | null>(null);
+  // Anchor AND which group opened it — one shared anchor rendered the first
+  // group-with-children's items under whichever group you clicked.
+  const [navMenu, setNavMenu] = useState<{ el: HTMLElement; group: string } | null>(null);
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [impersonateDialogOpen, setImpersonateDialogOpen] = useState(false);
   const [stopImpersonatingBusy, setStopImpersonatingBusy] = useState(false);
@@ -308,7 +344,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   // from any route without navigating to /inventory first.
   const [createOpen, setCreateOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerReportsOpen, setDrawerReportsOpen] = useState(false);
+  // Keyed by group label — a single boolean expanded every group together.
+  const [drawerGroupOpen, setDrawerGroupOpen] = useState<Record<string, boolean>>({});
   const [drawerAdminOpen, setDrawerAdminOpen] = useState(false);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [sponsorshipOpen, setSponsorshipOpen] = useState(false);
@@ -489,7 +526,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           item.children ? (
             <Box key={item.label}>
               <ListItemButton
-                onClick={() => setDrawerReportsOpen((p) => !p)}
+                onClick={() =>
+                  setDrawerGroupOpen((p) => ({ ...p, [item.label]: !p[item.label] }))
+                }
                 sx={{
                   borderRadius: 1,
                   color: isGroupActive(item.children) ? nav.fg : nav.fgMuted,
@@ -501,12 +540,12 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 </ListItemIcon>
                 <ListItemText primary={item.label} />
                 <MaterialSymbol
-                  icon={drawerReportsOpen ? "expand_less" : "expand_more"}
+                  icon={drawerGroupOpen[item.label] ? "expand_less" : "expand_more"}
                   size={18}
                   color="inherit"
                 />
               </ListItemButton>
-              <Collapse in={drawerReportsOpen}>
+              <Collapse in={!!drawerGroupOpen[item.label]}>
                 <List disablePadding sx={{ pl: 2 }}>
                   {item.children.map((child) => (
                     <ListItemButton
@@ -669,7 +708,20 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
           {/* Desktop / tablet nav items */}
           {!isMobile && (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexShrink: 0 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                // Shrinkable + scrollable: with enough installed extensions the
+                // nav used to push the notification bell and user menu off the
+                // right edge (everything else in the toolbar is flexShrink: 0).
+                minWidth: 0,
+                overflowX: "auto",
+                scrollbarWidth: "none",
+                "&::-webkit-scrollbar": { display: "none" },
+              }}
+            >
               {navItems.map((item) =>
                 item.children ? (
                   isCompact ? (
@@ -677,7 +729,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                       <IconButton
                         size="small"
                         sx={{ color: isGroupActive(item.children) ? nav.fg : nav.fgMuted }}
-                        onClick={(e) => setReportsMenu(e.currentTarget)}
+                        onClick={(e) => setNavMenu({ el: e.currentTarget, group: item.label })}
                       >
                         <MaterialSymbol icon={item.icon} size={20} />
                       </IconButton>
@@ -689,7 +741,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                       startIcon={<MaterialSymbol icon={item.icon} size={18} />}
                       endIcon={<MaterialSymbol icon="expand_more" size={16} />}
                       sx={navBtnSx(isGroupActive(item.children))}
-                      onClick={(e) => setReportsMenu(e.currentTarget)}
+                      onClick={(e) => setNavMenu({ el: e.currentTarget, group: item.label })}
                     >
                       {item.label}
                     </Button>
@@ -731,13 +783,15 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             </Box>
           )}
 
-          {/* Reports dropdown menu */}
+          {/* Nav group dropdown menu (Reports, GRC, …) */}
           <Menu
-            anchorEl={reportsMenu}
-            open={!!reportsMenu}
-            onClose={() => setReportsMenu(null)}
+            anchorEl={navMenu?.el ?? null}
+            open={!!navMenu}
+            onClose={() => setNavMenu(null)}
           >
-            {navItems.find((n) => n.children)?.children?.map((child, idx) => {
+            {navItems
+              .find((n) => n.children && n.label === navMenu?.group)
+              ?.children?.map((child, idx) => {
               const needsDivider =
                 child.path === "/reports/saved" || child.path === "/turbolens";
               return (
@@ -747,7 +801,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                     component={RouterLink}
                     to={child.path}
                     selected={isActive(child.path)}
-                    onClick={() => setReportsMenu(null)}
+                    onClick={() => setNavMenu(null)}
                   >
                     <ListItemIcon>
                       <MaterialSymbol icon={child.icon} size={18} />
