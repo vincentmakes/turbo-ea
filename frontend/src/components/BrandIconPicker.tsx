@@ -32,9 +32,14 @@ import { useApiQuery } from "@/hooks/useApiQuery";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 export interface BrandIcon {
+  /** Pack-qualified address, e.g. "logos:sap". What to pick and to render. */
+  ref: string;
   slug: string;
   title: string;
-  hex: string;
+  /** Which pack it came from — "logos" (colour) or "simpleicons" (mono). */
+  pack: string;
+  /** Only the monochrome pack has a single brand colour. */
+  hex?: string;
 }
 
 /** One page of results. Small enough to render eagerly, large enough that a
@@ -50,10 +55,11 @@ interface Props {
   busy?: boolean;
 }
 
-export function brandIconUrl(slug: string): string {
+export function brandIconUrl(ref: string): string {
   // Public and same-origin, so a plain <img> renders it — the same reasoning
-  // as a card's own logo.
-  return `/api/v1/card-logos/brand-icons/${encodeURIComponent(slug)}.png`;
+  // as a card's own logo. Always the pack-qualified `ref`, never a bare slug:
+  // the picker shows one specific mark and must set exactly that one.
+  return `/api/v1/card-logos/brand-icons/${encodeURIComponent(ref)}.png`;
 }
 
 export default function BrandIconPicker({ open, onClose, onPick, busy }: Props) {
@@ -111,11 +117,11 @@ export default function BrandIconPicker({ open, onClose, onPick, busy }: Props) 
           }}
         >
           {items.map((icon) => (
-            <Tooltip key={icon.slug} title={icon.title} enterDelay={400}>
+            <Tooltip key={icon.ref} title={icon.title} enterDelay={400}>
               <Box
                 component="button"
                 type="button"
-                onClick={() => onPick(icon.slug)}
+                onClick={() => onPick(icon.ref)}
                 aria-label={icon.title}
                 sx={{
                   display: "flex",
@@ -134,7 +140,7 @@ export default function BrandIconPicker({ open, onClose, onPick, busy }: Props) 
               >
                 <Box
                   component="img"
-                  src={brandIconUrl(icon.slug)}
+                  src={brandIconUrl(icon.ref)}
                   alt=""
                   aria-hidden
                   loading="lazy"

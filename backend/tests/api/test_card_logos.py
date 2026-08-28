@@ -608,3 +608,19 @@ class TestBrandIconImage:
         # the pack.
         resp = await client.get("/api/v1/card-logos/brand-icons")
         assert resp.status_code == 401
+
+    async def test_serves_a_pack_qualified_ref_url_encoded(self, client, db, logo_env):
+        """What the picker actually requests: the colon percent-encoded.
+
+        The picker addresses one specific mark — the colour SAP, not the
+        silhouette — so it sends the pack-qualified ref rather than a bare
+        slug, and that colon arrives as %3A.
+        """
+        resp = await client.get("/api/v1/card-logos/brand-icons/logos%3Asap.png")
+        assert resp.status_code == 200
+        assert resp.content.startswith(b"\x89PNG\r\n\x1a\n")
+
+        mono = await client.get("/api/v1/card-logos/brand-icons/simpleicons%3Asap.png")
+        assert mono.status_code == 200
+        # Two different packs, two different pictures.
+        assert mono.content != resp.content

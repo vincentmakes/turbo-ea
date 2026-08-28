@@ -12,6 +12,7 @@ from app.services.brand_icons import (
     _read_icon_bytes,
     icon_count,
     normalise_slug,
+    parse_ref,
     resolve_brand_icon,
     search_brand_icons,
 )
@@ -26,6 +27,7 @@ class TestNormaliseSlug:
             ("  sap  ", "sap"),
             ("simpleicons:sap", "sap"),
             ("SimpleIcons:SAP", "sap"),
+            ("logos:sap", "sap"),
             ("apache-kafka", "apache-kafka"),
             ("dot.name", "dot.name"),
         ],
@@ -87,8 +89,11 @@ class TestSearch:
 
 
 class TestPackIntegrity:
-    def test_the_pack_is_present_and_substantial(self):
-        assert icon_count() > 3000
+    def test_both_packs_are_present_and_substantial(self):
+        index = json.loads(_INDEX_PATH.read_text(encoding="utf-8"))
+        packs = {e["pack"] for e in index}
+        assert packs == {"logos", "simpleicons"}
+        assert icon_count() > 5000
 
     def test_every_index_entry_points_at_a_real_png_inside_the_pack(self):
         """Catches a half-run generator or a stale index.
@@ -105,7 +110,7 @@ class TestPackIntegrity:
             offset, length = entry["offset"], entry["length"]
             assert length > 0
             assert offset + length <= pack_size, f"{entry['slug']} runs past the pack"
-            data = _read_icon_bytes(entry["slug"])
+            data = _read_icon_bytes(entry["slug"], entry["pack"])
             assert data is not None and len(data) == length
             assert data.startswith(b"\x89PNG\r\n\x1a\n"), entry["slug"]
 
@@ -125,9 +130,22 @@ class TestPackIntegrity:
             cursor += entry["length"]
         assert cursor == _PACK_PATH.stat().st_size
 
-    def test_every_entry_carries_a_title_and_a_hex(self):
+    def test_every_entry_carries_a_title(self):
         index = json.loads(_INDEX_PATH.read_text(encoding="utf-8"))
-        assert all(e.get("title") and e.get("hex") for e in index)
+        assert all(e.get("title") for e in index)
+
+    def test_only_the_monochrome_pack_carries_a_brand_hex(self):
+        """The colour set has no single brand colour — it has the real logo.
+
+        Pinned because the search payload omits `hex` for those entries, and a
+        caller that assumed it was always present would break on 2110 of them.
+        """
+        index = json.loads(_INDEX_PATH.read_text(encoding="utf-8"))
+        mono = [e for e in index if e["pack"] == "simpleicons"]
+        colour = [e for e in index if e["pack"] == "logos"]
+        assert mono and colour
+        assert all(e.get("hex") for e in mono)
+        assert not any(e.get("hex") for e in colour)
 
 
 class TestNoPathIsBuiltFromCallerInput:
@@ -164,6 +182,57 @@ class TestNoPathIsBuiltFromCallerInput:
 class TestSearchPayload:
     def test_results_do_not_leak_the_storage_layout(self):
         # Offsets are an implementation detail; a client depending on them
-        # would freeze the pack format.
+        # would freeze the pack format. `hex` is optional — the colour pack
+        # has no single brand colour.
         for entry in search_brand_icons("sap", 5):
-            assert set(entry) == {"slug", "title", "hex"}
+            assert set(entry) <= {"ref", "slug", "title", "pack", "hex"}
+            assert {"ref", "slug", "title", "pack"} <= set(entry)
+            assert "offset" not in entry and "length" not in entry
+
+
+class TestTwoPacks:
+    """Addressing, and which pack a bare slug lands in."""
+
+    def test_a_bare_slug_prefers_the_colour_pack(self):
+        # A reader recognises Google's four colours far faster than a grey
+        # silhouette of them, so the real mark wins where both packs have one.
+        resolved = resolve_brand_icon("sap")
+        assert resolved is not None
+        assert resolved[2]["pack"] == "logos"
+
+    def test_either_pack_can_be_addressed_exactly(self):
+        colour = resolve_brand_icon("logos:sap")
+        mono = resolve_brand_icon("simpleicons:sap")
+        assert colour is not None and mono is not None
+        assert colour[2]["pack"] == "logos"
+        assert mono[2]["pack"] == "simpleicons"
+        # Different artwork, not the same bytes served twice.
+        assert colour[0] != mono[0]
+
+    def test_a_slug_only_the_monochrome_pack_has_still_resolves(self):
+        # The colour set is the smaller of the two; the fallback is the whole
+        # reason the monochrome pack is still shipped.
+        resolved = resolve_brand_icon("apachekafka")
+        assert resolved is not None
+        assert resolved[2]["pack"] == "simpleicons"
+
+    def test_an_unknown_pack_name_is_rejected_rather_than_read_as_a_slug(self):
+        # Otherwise "bogus:sap" would quietly resolve to something, and a typo
+        # in the pack name would be invisible.
+        assert parse_ref("bogus:sap") is None
+        assert resolve_brand_icon("bogus:sap") is None
+
+    def test_search_returns_each_slug_once_with_an_exact_ref(self):
+        results = search_brand_icons("sap", 20)
+        refs = [e["ref"] for e in results]
+        assert len(set(refs)) == len(refs)
+        # One row per slug: SAP twice, once in colour and once as a
+        # silhouette, would look broken and give an agent two
+        # indistinguishable choices.
+        slugs = [e["slug"] for e in results]
+        assert len(set(slugs)) == len(slugs)
+        # Every ref pins its pack, so a pick cannot drift if the preference
+        # order ever changes.
+        for ref in refs:
+            assert ref.split(":")[0] in {"logos", "simpleicons"}
+            assert resolve_brand_icon(ref) is not None

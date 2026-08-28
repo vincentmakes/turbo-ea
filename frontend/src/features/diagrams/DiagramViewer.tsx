@@ -12,6 +12,11 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import { useAuthContext } from "@/hooks/AuthContext";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { cardLogoUrl } from "@/components/CardLogoAvatar";
+import { applyCardLogosToXml, extractCardIds } from "./drawio-shapes";
+import { composeCardLogoImage } from "./cardLogoImage";
+import type { Card } from "@/types";
 
 /* ------------------------------------------------------------------ */
 /*  DrawIO native lightbox viewer                                      */
@@ -90,6 +95,15 @@ export default function DiagramViewer() {
   const [snackMsg, setSnackMsg] = useState("");
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
+  // Read through a ref: the load effect must not re-run (and re-render the
+  // whole iframe) just because the metamodel singleton resolved.
+  const { types } = useMetamodel();
+  const typesRef = useRef(new Map<string, { icon?: string; color?: string }>());
+  typesRef.current = useMemo(
+    () => new Map(types.map((tp) => [tp.key, { icon: tp.icon, color: tp.color }])),
+    [types],
+  );
+
   const canEdit = useMemo(() => {
     const perms = user?.permissions;
     if (!perms) return false;
@@ -99,14 +113,60 @@ export default function DiagramViewer() {
   /* ---------- Listen for card clicks from the lightbox ---------- */
   useEffect(() => listenForCardClicks(setSelectedCardId), []);
 
-  /* ---------- Load diagram ---------- */
+  /* ---------- Load diagram, then draw each card's logo into its XML ----------
+     The viewer hands DrawIO its XML in the URL fragment and never builds a
+     graph on this side, so there is no live model to patch the way the editor
+     does — the logos have to be in the document before it is handed over.
+     Done here rather than left to the editor because a diagram that showed
+     its logos only after someone opened it for editing would look broken to
+     everyone who merely reads it. */
   useEffect(() => {
     if (!id) return;
-    api
-      .get<DiagramData>(`/diagrams/${id}`)
-      .then(setDiagram)
-      .catch(() => setSnackMsg(t("editor.errors.loadFailed")))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    (async () => {
+      try {
+        const d = await api.get<DiagramData>(`/diagrams/${id}`);
+        if (cancelled) return;
+        const xml = d.data?.xml || "";
+        const ids = xml ? extractCardIds(xml) : [];
+        if (ids.length === 0) {
+          setDiagram(d);
+          return;
+        }
+        // One round trip for the whole canvas. Any failure below leaves the
+        // diagram exactly as stored — a logo is never worth a blank viewer.
+        const params = new URLSearchParams({ ids: ids.join(",") });
+        const resp = await api.get<{ items: Card[] }>(`/cards?${params.toString()}`);
+        const withLogos = resp.items.filter((c) => c.logo_updated_at);
+        if (withLogos.length === 0) {
+          if (!cancelled) setDiagram(d);
+          return;
+        }
+        const composed = await Promise.all(
+          withLogos.map(async (c) => {
+            const tp = typesRef.current.get(c.type);
+            const image = await composeCardLogoImage(
+              cardLogoUrl(c.id, c.logo_updated_at as string),
+              tp?.icon,
+              tp?.color ?? "#999999",
+            );
+            return image ? ([c.id, image] as const) : null;
+          }),
+        );
+        if (cancelled) return;
+        const map = new Map(
+          composed.filter((e): e is readonly [string, string] => e !== null),
+        );
+        setDiagram({ ...d, data: { ...d.data, xml: applyCardLogosToXml(xml, map) } });
+      } catch {
+        if (!cancelled) setSnackMsg(t("editor.errors.loadFailed"));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [id, t]);
 
   /* ---------- Render ---------- */

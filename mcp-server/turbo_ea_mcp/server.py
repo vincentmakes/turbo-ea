@@ -2030,9 +2030,12 @@ async def set_card_logos(
     Two ways to supply the image, one per row:
 
     - ``icon_slug`` — a built-in brand icon resolved server-side, e.g.
-      ``"simpleicons:sap"``. Nothing is transferred, so this is both the
-      cheapest and the safest option for well-known products. Use
-      ``list_available_icons`` to find a slug.
+      ``"sap"``. Nothing is transferred, so this is both the cheapest and the
+      safest option for well-known products. Two packs ship: ``logos``
+      (full-colour marks, better recognition) and ``simpleicons`` (one flat
+      brand colour, broader coverage). A bare slug takes the colour one where
+      both carry it; pin a pack with ``"logos:sap"`` / ``"simpleicons:sap"``.
+      Use ``list_available_icons`` and pass back the ``ref`` it returns.
     - ``image_base64`` — the bytes, from your own context: a file the user
       shared, artwork you already hold, or a logo you fetched yourself. There
       is deliberately no fetch-from-URL path; the server never makes an
@@ -2376,20 +2379,28 @@ async def get_card_logo(card_id: str, include_image: bool = False) -> str:
 
 @mcp.tool(annotations=_READ_ANNOT)
 async def list_available_icons(search: str = "", limit: int = 50) -> str:
-    """Search the built-in brand-icon pack for a slug to pass to
+    """Search the built-in brand icons for a reference to pass to
     ``set_card_logos``.
 
-    The pack ships inside Turbo EA, so setting a logo from it transfers no
-    image at all — which is both cheaper and safer than carrying base64.
-    Icons are monochrome, each in its own official brand colour; there is no
-    tint parameter.
+    They ship inside Turbo EA, so setting a logo from them transfers no image
+    at all — which is both cheaper and safer than carrying base64.
+
+    Two packs, deduplicated to one row per brand: ``logos`` is the real
+    full-colour mark, ``simpleicons`` is a single-colour silhouette with
+    broader coverage. Colour wins where both carry a brand. Neither is
+    tintable.
+
+    Pass back the ``ref`` verbatim — it pins the pack, so the icon you set is
+    the one you looked at.
 
     Args:
         search: Matches slug and title. Exact matches rank first, then
             prefixes, then substrings — so "sap" finds SAP before WhatsApp.
         limit: Rows to return, capped at 200.
 
-    Returns: JSON ``{items: [{slug, title, hex}], total}``.
+    Returns: JSON ``{items: [{ref, slug, title, pack, hex?}], total}``. ``hex``
+        is present only on ``simpleicons`` rows; a colour mark has no single
+        brand colour.
     """
     token = await _get_current_token()
     if not token:

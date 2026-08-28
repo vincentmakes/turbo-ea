@@ -4132,6 +4132,61 @@ export function applyCardLogos(
 }
 
 /**
+ * Draw each card's logo into a diagram's stored XML, without a live graph.
+ *
+ * The read-only viewer hands DrawIO its XML in the URL fragment and never
+ * constructs a graph this side of the iframe, so `applyCardLogos` has nothing
+ * to walk. Rewriting the styles in the document itself is the only seam — and
+ * it has to exist, because otherwise a diagram would show its logos in the
+ * editor and lose them the moment anyone merely *looked* at it.
+ *
+ * Purely additive and non-destructive: cells with no logo are returned byte
+ * for byte, so this can run over any diagram. Returns the original string
+ * unchanged when there is nothing to do or the document will not parse — a
+ * viewer must never fail to render because a logo could not be drawn.
+ */
+export function applyCardLogosToXml(
+  xml: string,
+  logoByCardId: Map<string, string>,
+): string {
+  if (!xml || logoByCardId.size === 0) return xml;
+  let doc: Document;
+  try {
+    doc = new DOMParser().parseFromString(xml, "text/xml");
+  } catch {
+    return xml;
+  }
+  if (doc.getElementsByTagName("parsererror").length > 0) return xml;
+
+  let touched = 0;
+  // The cardId lives on the user object that WRAPS the cell, so walk the
+  // objects and reach down to the mxCell they carry.
+  for (const obj of Array.from(doc.getElementsByTagName("object"))) {
+    const cardId = obj.getAttribute("cardId");
+    if (!cardId) continue;
+    const logo = logoByCardId.get(cardId);
+    if (!logo) continue;
+    const cell = obj.getElementsByTagName("mxCell")[0];
+    if (!cell) continue;
+    const style = cell.getAttribute("style") || "";
+    // Same guard as the live pass: never touch a swimlane, ellipse or any
+    // other shape the user chose.
+    const shape = style.match(/(?:^|;)shape=([^;]+)/);
+    if (shape && shape[1] !== "label") continue;
+    const next = stripImageParts(style.split(";").filter(Boolean))
+      .concat([`${LOGO_STAMP_KEY}=icon`])
+      .concat(iconStyleParts(undefined, logo))
+      .join(";");
+    if (next !== style) {
+      cell.setAttribute("style", next);
+      touched += 1;
+    }
+  }
+  if (touched === 0) return xml;
+  return new XMLSerializer().serializeToString(doc);
+}
+
+/**
  * Add (or refresh) the card-type icon on every card-shaped cell already on the
  * canvas. Used by the "Apply card-type icons" toolbar action so cards placed on
  * a diagram before the icon feature existed can be upgraded in one click.

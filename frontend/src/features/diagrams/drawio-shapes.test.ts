@@ -3,6 +3,7 @@ import {
   buildCardCellData,
   applyCardTypeIcons,
   applyCardLogos,
+  applyCardLogosToXml,
   buildLdvDiagramXml,
   rollUpInto,
   drillDownInto,
@@ -2357,5 +2358,56 @@ describe("applyCardTypeIcons — with logos on the canvas", () => {
     applyCardTypeIcons(fakeFrame(cells), iconByType, new Map([["card-1", LOGO]]));
     expect(cells.c1._style).toContain(`image=${LOGO}`);
     expect(cells.c2._style).toContain("image=data:image/svg+xml,");
+  });
+});
+
+describe("applyCardLogosToXml — logos for the read-only viewer", () => {
+  const LOGO = "data:image/png,%89PNG%1A";
+  // The shape the editor actually saves: the cardId lives on the user object
+  // wrapping the cell, not on the cell itself.
+  const xml = (style: string, cardId = "card-1") =>
+    `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>` +
+    `<object label="NexaCore" cardId="${cardId}" cardType="Application" id="c1">` +
+    `<mxCell style="${style}" vertex="1" parent="1">` +
+    `<mxGeometry x="0" y="0" width="210" height="60" as="geometry"/>` +
+    `</mxCell></object></root></mxGraphModel>`;
+
+  const PLAIN = "rounded=1;whiteSpace=wrap;html=1;fillColor=#0f7eb5";
+
+  it("writes the logo into the stored style", () => {
+    const out = applyCardLogosToXml(xml(PLAIN), new Map([["card-1", LOGO]]));
+    expect(out).toContain(`image=${LOGO}`);
+    expect(out).toContain("shape=label");
+    expect(out).toContain("fillColor=#0f7eb5");
+  });
+
+  it("leaves a diagram untouched when no card on it has a logo", () => {
+    // Byte-for-byte: the viewer renders the stored document unless there is
+    // something to add, so an unrelated diagram cannot be perturbed.
+    const original = xml(PLAIN);
+    expect(applyCardLogosToXml(original, new Map())).toBe(original);
+    expect(applyCardLogosToXml(original, new Map([["other", LOGO]]))).toBe(original);
+  });
+
+  it("preserves shapes the user chose", () => {
+    const swim = "shape=swimlane;startSize=28;fillColor=#0f7eb5";
+    const out = applyCardLogosToXml(xml(swim), new Map([["card-1", LOGO]]));
+    expect(out).toContain(swim);
+    expect(out).not.toContain("image=");
+  });
+
+  it("returns the input unchanged rather than throwing on unparseable XML", () => {
+    // A viewer must never fail to render because a logo could not be drawn.
+    const junk = "<mxGraphModel><root><broken";
+    expect(applyCardLogosToXml(junk, new Map([["card-1", LOGO]]))).toBe(junk);
+  });
+
+  it("keeps the result parseable as `;`-delimited style pairs", () => {
+    const out = applyCardLogosToXml(xml(PLAIN), new Map([["card-1", LOGO]]));
+    const style = out.match(/style="([^"]*)"/)?.[1] ?? "";
+    expect(style).not.toBe("");
+    for (const part of style.split(";").filter(Boolean)) {
+      expect(part).toMatch(/^[^;]+=[^;]*$/);
+    }
   });
 });

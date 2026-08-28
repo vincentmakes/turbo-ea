@@ -60,9 +60,12 @@ class CardLogoItem(BaseModel):
     icon_slug: str | None = Field(
         default=None,
         description=(
-            "A built-in brand icon, e.g. 'simpleicons:sap' or just 'sap'. "
-            "Resolved server-side, so no image is transferred. Call "
-            "list_available_icons to find one. Mutually exclusive with "
+            "A built-in brand icon, e.g. 'sap'. Two packs ship: 'logos' "
+            "(full-colour marks) and 'simpleicons' (one flat brand colour). "
+            "A bare slug takes the colour one where both have it; pin a pack "
+            "with 'logos:sap' or 'simpleicons:sap'. Resolved server-side, so "
+            "no image is transferred. Call list_available_icons to find one "
+            "and use the 'ref' it returns. Mutually exclusive with "
             "image_base64."
         ),
     )

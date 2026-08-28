@@ -20,9 +20,9 @@ vi.mock("@/api/client", () => ({
 }));
 
 const ICONS = [
-  { slug: "sap", title: "SAP", hex: "0FAAFF" },
-  { slug: "gsap", title: "GSAP", hex: "88CE02" },
-  { slug: "whatsapp", title: "WhatsApp", hex: "25D366" },
+  { ref: "logos:sap", slug: "sap", title: "SAP", pack: "logos" },
+  { ref: "simpleicons:gsap", slug: "gsap", title: "GSAP", pack: "simpleicons", hex: "88CE02" },
+  { ref: "logos:whatsapp", slug: "whatsapp", title: "WhatsApp", pack: "logos" },
 ];
 
 beforeEach(() => {
@@ -45,7 +45,9 @@ describe("BrandIconPicker", () => {
     open();
     await waitFor(() => expect(screen.getByLabelText("SAP")).toBeInTheDocument());
     const img = screen.getByLabelText("SAP").querySelector("img");
-    expect(img?.getAttribute("src")).toBe("/api/v1/card-logos/brand-icons/sap.png");
+    expect(img?.getAttribute("src")).toBe(
+      "/api/v1/card-logos/brand-icons/logos%3Asap.png",
+    );
   });
 
   it("keeps the server's ranking rather than re-sorting", async () => {
@@ -82,7 +84,10 @@ describe("BrandIconPicker", () => {
     const onPick = open();
     await waitFor(() => expect(screen.getByLabelText("SAP")).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText("SAP"));
-    expect(onPick).toHaveBeenCalledWith("sap");
+    // The pack-qualified ref, never the bare slug: the picker shows one
+    // specific mark — the colour SAP, not the silhouette — and must set
+    // exactly the one that was on screen.
+    expect(onPick).toHaveBeenCalledWith("logos:sap");
   });
 
   it("fetches nothing at all while closed", () => {
@@ -92,7 +97,11 @@ describe("BrandIconPicker", () => {
 });
 
 describe("brandIconUrl", () => {
-  it("escapes a slug rather than interpolating it raw", () => {
+  it("escapes a ref rather than interpolating it raw", () => {
     expect(brandIconUrl("a/b")).toBe("/api/v1/card-logos/brand-icons/a%2Fb.png");
+  });
+
+  it("keeps the pack qualifier, escaped", () => {
+    expect(brandIconUrl("logos:sap")).toBe("/api/v1/card-logos/brand-icons/logos%3Asap.png");
   });
 });
