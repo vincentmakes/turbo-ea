@@ -182,7 +182,12 @@ describe("LdvNode card logo", () => {
     const block = (document.querySelector("p") as HTMLElement).parentElement as HTMLElement;
     const blockStyle = getComputedStyle(block);
     const logoBottom = parseFloat(imgStyle.top) + parseFloat(imgStyle.height);
-    expect(parseFloat(blockStyle.marginTop)).toBeGreaterThanOrEqual(logoBottom);
+    // Level with the bottom of the mark, give or take the line box's leading —
+    // a few pixels of the box sit above the glyphs, so offsetting by the full
+    // box would leave a gap a card without a logo does not have.
+    const top = parseFloat(blockStyle.marginTop);
+    expect(top).toBeGreaterThan(logoBottom - 6);
+    expect(top).toBeLessThanOrEqual(logoBottom);
     // Full width: no side gutters eating into a long name.
     expect(parseFloat(blockStyle.paddingLeft) || 0).toBe(0);
     expect(parseFloat(blockStyle.paddingRight) || 0).toBe(0);

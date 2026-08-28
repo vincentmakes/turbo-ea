@@ -185,8 +185,14 @@ const TYPE_ICON_RIGHT_BESIDE_DOT = DOT_INSET + DOT_BOX + 3;
  * for a 14px name to share a line with anything. So the text takes the whole
  * width and starts under the band instead, which is what actually shows a long
  * name whole.
+ *
+ * A few pixels ABOVE the logo's bottom edge (5 + LOGO_SIZE), not level with
+ * it: a line box is taller than its glyphs, so half the difference sits above
+ * them as leading. Offsetting by the box would push the letters visibly below
+ * the mark, where a card with no logo has its name starting level with the
+ * bottom of the type icon. This is the same relationship, measured in glyphs.
  */
-const TEXT_TOP_WITH_LOGO = 33;
+const TEXT_TOP_WITH_LOGO = 5 + LOGO_SIZE - 3;
 
 const HANDLE_POSITIONS = {
   top: Position.Top,
