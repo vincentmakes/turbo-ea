@@ -36,6 +36,22 @@ jobs:
       - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: filter
         with:
+          # Detect changes with local git, NOT the REST API. On a pull request
+          # the action's default is `GET /pulls/{n}/files`, which returns at
+          # most 3000 entries — and a PR past that limit does not fail, it
+          # reports the files that fell off the end as *unchanged*. PR #1030
+          # added 3453 icon files under `backend/`, which consumed the whole
+          # allowance alphabetically: `frontend/`, `mcp-server/` and `docs/`
+          # were invisible, so their suites were skipped and CI went green
+          # having never run them. A skipped suite is worse than a red one —
+          # nothing on the PR says the tests did not run.
+          #
+          # An empty `token` is the action's documented switch to git mode; it
+          # then uses `git merge-base` against `base` and fetches history as
+          # needed. `base` is empty on push-to-main, where the action compares
+          # against the commit before the push.
+          token: ""
+          base: ${{ github.event.pull_request.base.ref }}
           filters: |
             backend:
               - 'backend/**'
