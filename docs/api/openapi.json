@@ -20514,6 +20514,47 @@
         ]
       }
     },
+    "/api/v1/card-logos/brand-icons/{slug}.png": {
+      "get": {
+        "description": "Public endpoint \u2014 one brand icon's PNG, for the picker to render.\n\nUnauthenticated, on the same reasoning as ``GET /settings/logo`` beside it:\nan ``<img>`` is what loads this, and the bytes are public CC0 artwork that\nships inside the image. Nothing here is instance data \u2014 not a card, not a\nname, not a count \u2014 so there is nothing for a permission to protect.\n\nThe *listing* endpoint above stays gated all the same: enumerating the pack\nis a different act from rendering one icon a caller already knows the name\nof, and least privilege is free there.\n\nTakes no database session on purpose \u2014 the pack is read from disk, so this\nroute never needs a connection out of the pool.",
+        "operationId": "get_brand_icon_api_v1_card_logos_brand_icons__slug__png_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Brand Icon",
+        "tags": [
+          "card-logos"
+        ]
+      }
+    },
     "/api/v1/cards": {
       "get": {
         "operationId": "list_cards_api_v1_cards_get",

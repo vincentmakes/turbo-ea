@@ -39,9 +39,12 @@ Logos are available on card types where an administrator has switched them on;
 out of the box that is Application and IT Component. See
 [Meta Model](../admin/metamodel.md).
 
-An AI assistant connected over [MCP](../admin/mcp.md) can also set a logo from a
-built-in pack of several thousand brand icons, by name — no image file changes
-hands at all.
+Click the logo and choose **Choose a brand icon…** to pick from a built-in
+pack of several thousand brand marks — search for the product by name and
+select it; no image file is needed. **Upload** takes your own file instead.
+An AI assistant connected over [MCP](../admin/mcp.md) can set logos the same
+way in bulk, and where a product is not in the pack it will fetch the mark
+itself and upload it.
 
 ### Approval Workflow
 

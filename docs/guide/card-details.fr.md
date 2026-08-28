@@ -39,9 +39,12 @@ Les logos sont disponibles pour les types de fiches qu'un administrateur a
 activés ; par défaut, il s'agit d'Application et de Composant informatique.
 Voir [Métamodèle](../admin/metamodel.md).
 
-Un assistant IA connecté via [MCP](../admin/mcp.md) peut également définir un
-logo depuis une bibliothèque intégrée de plusieurs milliers d'icônes de marques,
-par son nom — aucun fichier image n'est transféré.
+Cliquez sur le logo et choisissez **Choisir un logo de marque…** pour puiser
+dans un jeu intégré de plusieurs milliers de marques : recherchez le produit par
+son nom et sélectionnez-le, aucun fichier image n'est nécessaire. **Téléverser**
+permet d'utiliser votre propre fichier. Un assistant IA connecté via
+[MCP](../admin/mcp.md) peut définir les logos de la même façon en masse et, si un
+produit ne figure pas dans le jeu, il récupère la marque lui-même.
 
 ### Workflow d'approbation
 

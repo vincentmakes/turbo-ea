@@ -39,9 +39,12 @@ I loghi sono disponibili per i tipi di scheda che un amministratore ha
 attivato; di serie sono Applicazione e Componente IT. Vedi
 [Metamodello](../admin/metamodel.md).
 
-Un assistente IA collegato tramite [MCP](../admin/mcp.md) può anche impostare un
-logo da un pacchetto integrato di alcune migliaia di icone di marchi, indicandolo
-per nome — senza trasferire alcun file immagine.
+Fai clic sul logo e scegli **Scegli un'icona di marca…** per attingere a un
+insieme integrato di diverse migliaia di marchi: cerca il prodotto per nome e
+selezionalo, non serve alcun file immagine. **Carica** consente invece di usare
+un tuo file. Un assistente IA collegato via [MCP](../admin/mcp.md) può impostare
+i logo allo stesso modo in blocco e, se un prodotto non è nell'insieme, recupera
+il marchio da sé.
 
 ### Workflow di approvazione
 

@@ -136,14 +136,17 @@ export const api = {
       method: "DELETE",
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     }),
+  // `file` is optional: one endpoint (a card's logo) accepts EITHER an upload
+  // or a form field naming a built-in icon, and a multipart body with no file
+  // part is how the second form is sent.
   upload: <T>(
     path: string,
-    file: File,
+    file: File | undefined,
     fieldName = "file",
     extraFields?: Record<string, string>,
   ) => {
     const form = new FormData();
-    form.append(fieldName, file);
+    if (file) form.append(fieldName, file);
     if (extraFields) {
       for (const [k, v] of Object.entries(extraFields)) form.append(k, v);
     }

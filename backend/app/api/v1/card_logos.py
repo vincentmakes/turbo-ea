@@ -121,6 +121,39 @@ async def list_brand_icons(
     return {"items": search_brand_icons(search, limit), "total": icon_count()}
 
 
+@router.get("/card-logos/brand-icons/{slug}.png")
+async def get_brand_icon(slug: str):
+    """Public endpoint — one brand icon's PNG, for the picker to render.
+
+    Unauthenticated, on the same reasoning as ``GET /settings/logo`` beside it:
+    an ``<img>`` is what loads this, and the bytes are public CC0 artwork that
+    ships inside the image. Nothing here is instance data — not a card, not a
+    name, not a count — so there is nothing for a permission to protect.
+
+    The *listing* endpoint above stays gated all the same: enumerating the pack
+    is a different act from rendering one icon a caller already knows the name
+    of, and least privilege is free there.
+
+    Takes no database session on purpose — the pack is read from disk, so this
+    route never needs a connection out of the pool.
+    """
+    resolved = resolve_brand_icon(slug)
+    if resolved is None:
+        raise HTTPException(404, "Not found")
+    data, mime, _entry = resolved
+    return Response(
+        content=data,
+        media_type=mime,
+        headers={
+            # The pack only changes when the instance is upgraded, and a stale
+            # icon for a day is harmless — but it is not `immutable`, because
+            # a slug's artwork can be redrawn upstream between releases.
+            "Cache-Control": "public, max-age=86400",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
 async def _load_card_for_write(db: AsyncSession, card_id: str, user: User) -> Card:
     """Resolve the card and authorise a logo write on it."""
     card_uuid = _parse_uuid(card_id)

@@ -38,9 +38,11 @@ Logoer er tilgængelige for de korttyper, en administrator har slået dem til
 for; fra start er det Application og IT Component. Se
 [Metamodel](../admin/metamodel.md).
 
-En AI-assistent, der er forbundet via [MCP](../admin/mcp.md), kan også sætte et
-logo fra en indbygget pakke med flere tusinde brandikoner — ved navn, uden at der
-overføres en billedfil.
+Klik på logoet og vælg **Vælg et brandikon…** for at hente det fra et indbygget
+sæt på flere tusinde brandmærker — søg efter produktet på navn og vælg det; der
+skal ingen billedfil til. **Upload** bruger din egen fil i stedet. En
+AI-assistent forbundet via [MCP](../admin/mcp.md) kan sætte logoer på samme måde
+i stor skala, og er et produkt ikke i sættet, henter den selv mærket.
 
 ### Godkendelses­arbejdsproces
 

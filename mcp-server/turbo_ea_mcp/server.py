@@ -1955,30 +1955,67 @@ async def _check_logo_types(token: str, prepared: list[dict]) -> tuple[dict, lis
     return {"status": "ok", "checked": len(prepared)}, kept, disabled
 
 
-def _logo_preview_note(type_check: dict) -> str:
-    """Say exactly what the preview could not settle — no more, no less."""
+def _logo_preview_note(type_check: dict, has_icon_rows: bool = False) -> str:
+    """Say exactly what the preview could not settle — no more, no less.
+
+    The slug sentence is added only when a row actually uses `icon_slug`: a
+    batch carrying nothing but bytes has no slug to miss, and telling it about
+    one would be noise it has to reason past.
+    """
     if type_check.get("status") == "ok":
-        return (
+        note = (
             "Card-edit permission is enforced server-side and is not checked by this "
-            "preview; it is reported per row on commit. Rows using icon_slug are "
-            "resolved server-side, so an unknown slug also surfaces only on commit."
+            "preview; it is reported per row on commit."
         )
-    return (
-        "Card-edit permission and the per-type 'custom logos' switch could not be "
-        "checked by this preview; both are reported per row on commit."
-    )
+    else:
+        note = (
+            "Card-edit permission and the per-type 'custom logos' switch could not be "
+            "checked by this preview; both are reported per row on commit."
+        )
+    if has_icon_rows:
+        note += (
+            " Rows using icon_slug are resolved server-side, so an unknown slug also "
+            "surfaces only on commit — and it is not a dead end: fetch that product's "
+            "mark yourself and retry the row with image_base64."
+        )
+    return note
 
 
-def _classify_logo_upload_error(exc: Exception) -> str:
-    """Name the condition behind a commit failure, keeping the raw error too."""
+# What to do about a slug the pack does not carry. The server deliberately
+# never fetches on the caller's behalf — that would be an outbound request from
+# inside the customer's network, chosen by an LLM, and it would break every
+# air-gapped install. The agent is the component that already has web access
+# and the judgement to tell a real logo from a lookalike, so the remedy is to
+# hand the work back to it, explicitly, rather than to fail and stop.
+_ICON_MISS_REMEDY = (
+    "This slug is not in the bundled pack. Do not give up on the logo: fetch "
+    "the product's mark yourself (a PNG, JPEG, WebP or GIF under 1 MB) and "
+    "retry this row with image_base64 instead of icon_slug. Call "
+    "list_available_icons first if you only mistyped the name."
+)
+
+
+def _classify_logo_upload_error(exc: Exception) -> tuple[str, str | None]:
+    """Name the condition behind a commit failure, and how to fix it.
+
+    Returns ``(status, remedy)``. A status names the field to change; the
+    remedy is only set where the next step is not obvious from the status
+    alone.
+    """
     msg = str(exc)
     if "403" in msg or "Not enough permissions" in msg:
-        return "forbidden"
+        return "forbidden", None
     if "not enabled for card type" in msg:
-        return "logos_disabled_for_type"
+        return "logos_disabled_for_type", None
     if "Unknown brand icon" in msg:
-        return "unknown_icon_slug"
-    return "failed"
+        return "unknown_icon_slug", _ICON_MISS_REMEDY
+    return "failed", None
+
+
+def _logo_failure_fields(exc: Exception) -> dict:
+    """`status`, plus `remedy` when there is a concrete next step."""
+    status, remedy = _classify_logo_upload_error(exc)
+    return {"status": status, **({"remedy": remedy} if remedy else {})}
 
 
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
@@ -1997,9 +2034,16 @@ async def set_card_logos(
       cheapest and the safest option for well-known products. Use
       ``list_available_icons`` to find a slug.
     - ``image_base64`` — the bytes, from your own context: a file the user
-      shared, or artwork you already hold. There is deliberately no
-      fetch-from-URL path; the server never makes an outbound request on
-      your behalf.
+      shared, artwork you already hold, or a logo you fetched yourself. There
+      is deliberately no fetch-from-URL path; the server never makes an
+      outbound request on your behalf, so an air-gapped install behaves the
+      same as a connected one.
+
+    **When a slug is not in the pack**, the row comes back
+    ``unknown_icon_slug`` with a ``remedy``: go and fetch that product's mark
+    yourself and retry the row with ``image_base64``. The pack covers a few
+    thousand well-known brands, not every product a customer runs, so this is
+    an ordinary outcome rather than an error to report and abandon.
 
     ``mime`` is optional. It is sniffed from the bytes, and only compared
     when you supply it. SVG is refused: it is scriptable and is not
@@ -2202,7 +2246,9 @@ async def set_card_logos(
                 ]
                 + problems,
                 "type_check": type_check,
-                "note": _logo_preview_note(type_check),
+                "note": _logo_preview_note(
+                    type_check, any(p["icon_slug"] for p in prepared)
+                ),
             }
         )
 
@@ -2258,7 +2304,7 @@ async def set_card_logos(
                     {
                         "row_index": p["row_index"],
                         "card_id": p["card_id"],
-                        "status": _classify_logo_upload_error(exc),
+                        **_logo_failure_fields(exc),
                         "error": str(exc),
                     }
                 )
@@ -2457,8 +2503,12 @@ async def clear_card_logos(
                 results.append({"card_id": cid, "status": "cleared"})
             except Exception as exc:  # noqa: BLE001 — reported, never raised
                 msg = str(exc)
-                status = "no_logo" if "404" in msg else _classify_logo_upload_error(exc)
-                results.append({"card_id": cid, "status": status, "error": msg})
+                # A 404 here means "this card had no logo", which is the
+                # desired end state, not a failure to explain.
+                fields = (
+                    {"status": "no_logo"} if "404" in msg else _logo_failure_fields(exc)
+                )
+                results.append({"card_id": cid, **fields, "error": msg})
         batch.summary = {"rows": len(card_ids), "cleared": cleared}
         return _fmt(
             {

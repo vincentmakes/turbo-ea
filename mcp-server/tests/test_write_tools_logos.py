@@ -532,3 +532,73 @@ class TestGetCardLogo:
             out = await server.get_card_logo(card_id="c1")
         assert _parse(out)["status"] == "no_logo"
 
+
+
+class TestUnknownIconSlugIsActionable:
+    """A slug the pack lacks must send the agent to fetch it, not stop it.
+
+    The pack covers a few thousand well-known brands, not every product a
+    customer runs, so a miss is an ordinary outcome. The server deliberately
+    never fetches on the caller's behalf — that would be an outbound request
+    from inside the customer's network, chosen by an LLM, and it would break
+    every air-gapped install — so the remedy has to be handed back explicitly.
+    """
+
+    @staticmethod
+    def _commit(error: Exception):
+        async def post_router(path, json=None):
+            if path.startswith("/mutation-batches/") and path.endswith("/commit"):
+                return {"id": "B-001", "committed_at": "now"}
+            if path.startswith("/mutation-batches"):
+                return {"id": "B-001"}
+            return {}
+
+        async def multipart_router(path, *, data=None, file=None, field="file"):
+            raise error
+
+        return post_router, multipart_router
+
+    async def _run_icon_row(self, error: Exception) -> dict:
+        post, multipart = self._commit(error)
+        with (
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+            patch.object(
+                server.TurboEAClient, "post_multipart", AsyncMock(side_effect=multipart)
+            ),
+        ):
+            out = await server.set_card_logos(
+                items=[{"card_id": "c1", "icon_slug": "acme-corp"}],
+                dry_run=False,
+            )
+        return _parse(out)["results"][0]
+
+    @pytest.mark.asyncio
+    async def test_commit_reports_the_status_and_the_remedy(self, fake_token):
+        row = await self._run_icon_row(RuntimeError("400: Unknown brand icon 'acme-corp'."))
+        assert row["status"] == "unknown_icon_slug"
+        # The next step, spelled out: the agent has web access, the server does not.
+        assert "image_base64" in row["remedy"]
+        assert "fetch" in row["remedy"].lower()
+        # The raw error is preserved alongside it.
+        assert "acme-corp" in row["error"]
+
+    @pytest.mark.asyncio
+    async def test_other_failures_carry_no_remedy(self, fake_token):
+        # A remedy is only set where the next step is not obvious from the
+        # status — otherwise it is noise on every row.
+        row = await self._run_icon_row(RuntimeError("403: Not enough permissions"))
+        assert row["status"] == "forbidden"
+        assert "remedy" not in row
+
+    @pytest.mark.asyncio
+    async def test_the_preview_says_a_slug_miss_is_recoverable(self, fake_token):
+        out = _parse(await server.set_card_logos(items=[{"card_id": "c1", "icon_slug": "sap"}]))
+        assert "image_base64" in out["note"]
+
+    @pytest.mark.asyncio
+    async def test_a_bytes_only_batch_is_not_told_about_slugs(self, fake_token):
+        # The note describes what this preview could not settle. A batch with
+        # no icon_slug row has no slug to miss, so the sentence would be noise.
+        out = _parse(await server.set_card_logos(items=[_row("c1")]))
+        assert "image_base64" not in out["note"]
+        assert "icon_slug" not in out["note"]

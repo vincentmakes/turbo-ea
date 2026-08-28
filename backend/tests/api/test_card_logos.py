@@ -568,3 +568,43 @@ class TestDependencyReportLogos:
         )
         nodes = {n["id"]: n for n in resp.json()["nodes"]}
         assert nodes[str(logo_env["plain"].id)]["logo_updated_at"] is None
+
+
+# -------------------------------------------------------------------
+# GET /card-logos/brand-icons/{slug}.png
+# -------------------------------------------------------------------
+
+
+class TestBrandIconImage:
+    """The picker renders these through <img>, so the route is public.
+
+    Same split as `/settings/logo` (public image) versus `/settings/logo-info`
+    (gated metadata): the bytes are CC0 artwork shipped in the image and carry
+    no instance data, while enumerating the pack stays behind a permission.
+    """
+
+    async def test_serves_a_known_icon_without_authentication(self, client, db, logo_env):
+        resp = await client.get("/api/v1/card-logos/brand-icons/apachekafka.png")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/png"
+        assert resp.content.startswith(b"\x89PNG\r\n\x1a\n")
+        assert "max-age" in resp.headers.get("cache-control", "")
+        assert resp.headers.get("x-content-type-options") == "nosniff"
+
+    async def test_accepts_the_prefixed_form(self, client, db, logo_env):
+        resp = await client.get("/api/v1/card-logos/brand-icons/simpleicons:sap.png")
+        assert resp.status_code == 200
+
+    @pytest.mark.parametrize(
+        "slug",
+        ["not-a-real-brand", "..", "../../etc/passwd"],
+    )
+    async def test_unknown_or_malformed_slugs_are_404(self, client, db, logo_env, slug):
+        resp = await client.get(f"/api/v1/card-logos/brand-icons/{slug}.png")
+        assert resp.status_code == 404
+
+    async def test_listing_the_pack_still_requires_permission(self, client, db, logo_env):
+        # The asymmetry is deliberate: rendering one icon is not enumerating
+        # the pack.
+        resp = await client.get("/api/v1/card-logos/brand-icons")
+        assert resp.status_code == 401

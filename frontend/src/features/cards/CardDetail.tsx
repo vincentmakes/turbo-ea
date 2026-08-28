@@ -20,6 +20,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import BrandIconPicker from "@/components/BrandIconPicker";
 import CardLogoAvatar from "@/components/CardLogoAvatar";
 import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
@@ -87,6 +88,8 @@ export default function CardDetail() {
 
   // Custom logo (discussion #1024)
   const [logoMenuAnchor, setLogoMenuAnchor] = useState<HTMLElement | null>(null);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [iconPickerBusy, setIconPickerBusy] = useState(false);
   const logoInputRef = useRef<HTMLInputElement | null>(null);
 
   // Favorite star
@@ -283,6 +286,27 @@ export default function CardDetail() {
       setSnack(t("cards:logo.uploaded"));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
+    }
+  };
+
+  const handleLogoIconPicked = async (slug: string) => {
+    setIconPickerBusy(true);
+    try {
+      // The bytes never leave the server: the slug is resolved against the
+      // bundled pack, the same path `set_card_logos` takes over MCP.
+      const resp = await api.upload<{ logo_updated_at: string | null }>(
+        `/cards/${card.id}/logo`,
+        undefined,
+        "file",
+        { icon_slug: slug },
+      );
+      setCard({ ...card, logo_updated_at: resp.logo_updated_at });
+      setIconPickerOpen(false);
+      setSnack(t("cards:logo.uploaded"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setIconPickerBusy(false);
     }
   };
 
@@ -832,6 +856,17 @@ export default function CardDetail() {
             {card.logo_updated_at ? t("cards:logo.replace") : t("cards:logo.upload")}
           </ListItemText>
         </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setLogoMenuAnchor(null);
+            setIconPickerOpen(true);
+          }}
+        >
+          <ListItemIcon>
+            <MaterialSymbol icon="apps" size={20} />
+          </ListItemIcon>
+          <ListItemText>{t("cards:logo.pickIcon")}</ListItemText>
+        </MenuItem>
         {card.logo_updated_at && (
           <MenuItem
             onClick={() => {
@@ -846,6 +881,13 @@ export default function CardDetail() {
           </MenuItem>
         )}
       </Menu>
+
+      <BrandIconPicker
+        open={iconPickerOpen}
+        onClose={() => setIconPickerOpen(false)}
+        onPick={(slug) => void handleLogoIconPicked(slug)}
+        busy={iconPickerBusy}
+      />
 
       <Snackbar
         open={!!snack}

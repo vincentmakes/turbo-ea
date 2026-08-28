@@ -40,9 +40,13 @@ Logos stehen für Kartentypen zur Verfügung, für die eine Administratorin oder
 ein Administrator sie aktiviert hat; standardmäßig sind das Anwendung und
 IT-Komponente. Siehe [Metamodell](../admin/metamodel.md).
 
-Ein über [MCP](../admin/mcp.md) verbundener KI-Assistent kann ein Logo auch aus
-einem integrierten Paket mit mehreren tausend Markensymbolen per Name setzen —
-ganz ohne Bilddatei.
+Klicken Sie auf das Logo und wählen Sie **Markensymbol wählen…**, um aus einem
+integrierten Satz von mehreren tausend Markenzeichen auszuwählen — suchen Sie das
+Produkt nach Namen und wählen Sie es aus; eine Bilddatei ist nicht nötig. Mit
+**Hochladen** verwenden Sie stattdessen eine eigene Datei. Ein über
+[MCP](../admin/mcp.md) verbundener KI-Assistent kann Logos auf demselben Weg in
+großer Zahl setzen und holt das Zeichen selbst, wenn ein Produkt nicht im Satz
+enthalten ist.
 
 ### Genehmigungsworkflow
 

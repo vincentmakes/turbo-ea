@@ -41,9 +41,12 @@ Los logotipos están disponibles en los tipos de tarjeta que un administrador
 haya activado; de fábrica son Aplicación y Componente de TI. Consulte
 [Metamodelo](../admin/metamodel.md).
 
-Un asistente de IA conectado por [MCP](../admin/mcp.md) también puede establecer
-un logotipo desde un paquete integrado de varios miles de iconos de marcas, por
-su nombre, sin transferir ningún archivo de imagen.
+Haga clic en el logotipo y elija **Elegir un icono de marca…** para seleccionar
+de un conjunto integrado de varios miles de marcas: busque el producto por su
+nombre y selecciónelo; no hace falta ningún archivo de imagen. **Subir** permite
+usar su propio archivo. Un asistente de IA conectado por [MCP](../admin/mcp.md)
+puede asignar logotipos del mismo modo de forma masiva y, si un producto no está
+en el conjunto, obtiene la marca por su cuenta.
 
 ### Flujo de Aprobación
 
