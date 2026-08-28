@@ -88,6 +88,31 @@ class TurboEAClient:
                 return {}
             return resp.json()
 
+    async def post_file(
+        self,
+        path: str,
+        filename: str,
+        content: bytes,
+        mime: str,
+        field: str = "file",
+    ) -> dict | list:
+        """POST a single file as multipart/form-data.
+
+        Used by the image-upload endpoints, which take a real upload rather
+        than JSON. ``_headers()`` supplies the origin and batch ids as usual;
+        the content type is left to httpx so it sets the multipart boundary.
+        """
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{self._base}{path}",
+                headers=self._headers(),
+                files={field: (filename, content, mime)},
+            )
+            _raise_for_status_with_detail(resp)
+            if resp.status_code == 204:
+                return {}
+            return resp.json()
+
     async def put(self, path: str, json: dict | None = None) -> dict | list:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.put(

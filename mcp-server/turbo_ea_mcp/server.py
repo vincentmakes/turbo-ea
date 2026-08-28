@@ -6,6 +6,8 @@ Run: python -m turbo_ea_mcp.server --host 0.0.0.0 --port 8001
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import json
 import logging
 import re
@@ -27,6 +29,7 @@ from turbo_ea_mcp.config import (
     MCP_ALLOW_RELATION_DELETE,
     MCP_BATCH_CONFIRMATION_THRESHOLD,
     MCP_MAX_CARDS_PER_CALL,
+    MCP_MAX_LOGOS_PER_CALL,
     MCP_MAX_RELATIONS_PER_CALL,
     MCP_PORT,
     MCP_PUBLIC_URL,
@@ -1829,6 +1832,238 @@ async def update_cards_bulk(
             }
             batch.summary = {"rows": len(updates), "updated": len(updates)}
         return _fmt(data)
+
+
+# Mirrors ``ALLOWED_CARD_LOGO_MIMES`` / ``MAX_CARD_LOGO_SIZE`` and
+# ``sniff_image_mime`` in ``backend/app/api/v1/card_logos.py``. Duplicated on
+# purpose: validating here means a dry-run can report a bad image per row
+# without a round trip, and a hundred-image batch fails on the agent's side
+# rather than a hundred times over HTTP. The backend still enforces all three
+# — this copy is a courtesy, never the control.
+_LOGO_MIMES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
+_LOGO_MIME_ALIASES = {"image/jpg": "image/jpeg"}
+_MAX_LOGO_BYTES = 1 * 1024 * 1024
+
+
+def _sniff_logo_mime(head: bytes) -> str | None:
+    """Identify an image from its leading bytes, or None. See the backend twin."""
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if head.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if head.startswith(b"GIF87a") or head.startswith(b"GIF89a"):
+        return "image/gif"
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+@mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
+async def set_card_logos(
+    items: list[dict],
+    dry_run: bool = True,
+    confirm_token: str = "",
+) -> str:
+    """Set the custom logo on many cards in one call — the bulk way to put
+    product marks (SAP, Kafka, Jira…) on an Application inventory.
+
+    Image bytes come from your own context, base64-encoded: files the user
+    shared, or artwork you already hold. There is deliberately no
+    fetch-from-URL path — the server never makes an outbound request on your
+    behalf.
+
+    Args:
+        items: One dict per card, carrying:
+            - ``card_id`` (UUID string) — required.
+            - ``image_base64`` (str) — the raw image, base64-encoded.
+            - ``mime`` (str) — one of ``image/png``, ``image/jpeg``,
+              ``image/webp``, ``image/gif``. SVG is refused: it is
+              scriptable and is not sanitised anywhere in the product.
+            The bytes must actually be the format ``mime`` claims; the
+            leading-byte signature is checked here and again server-side.
+            Each image must be under 1 MB.
+        dry_run: When True (default), validate every row and return the
+            preview without uploading anything. Note that two checks can
+            only run server-side and are therefore *not* covered by the
+            preview: whether you may edit each card, and whether its card
+            type has custom logos switched on (Admin → Meta Model). Both
+            surface per row on the commit.
+        confirm_token: Echoed back on commits above the per-call
+            confirmation threshold (see ``create_cards_bulk``).
+
+    Replacing a logo overwrites the previous image, and the audit trail
+    records that a logo changed, not the bytes — so ``rollback_batch``
+    cannot restore the image a commit replaced. Removing a logo is
+    deliberately not exposed here; do it from the card in the web UI.
+
+    Returns: JSON with ``results[]`` (one ``{row_index, card_id, status,
+    mime, bytes}`` per row), ``would_set`` or ``set`` count, ``dry_run``,
+    and ``batch_id``.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    if (disabled := _writes_disabled_message()) is not None:
+        return disabled
+    if len(items) > MCP_MAX_LOGOS_PER_CALL:
+        return _fmt(
+            {
+                "error": "batch_too_large",
+                "message": (
+                    f"This batch has {len(items)} logos but the MCP "
+                    f"per-call cap is {MCP_MAX_LOGOS_PER_CALL}."
+                ),
+                "cap": MCP_MAX_LOGOS_PER_CALL,
+                "received": len(items),
+            }
+        )
+    if not dry_run:
+        gate = _confirmation_required_message("set_card_logos", len(items))
+        if gate is not None and not confirm_token:
+            return gate
+
+    # Validate every row before opening a batch, so a malformed payload never
+    # leaves a half-written batch behind.
+    prepared: list[dict] = []
+    problems: list[dict] = []
+    for index, item in enumerate(items):
+        card_id = item.get("card_id")
+        if not card_id:
+            problems.append(
+                {"row_index": index, "status": "missing_card_id"},
+            )
+            continue
+        mime = _LOGO_MIME_ALIASES.get(item.get("mime", ""), item.get("mime", ""))
+        if mime not in _LOGO_MIMES:
+            problems.append(
+                {
+                    "row_index": index,
+                    "card_id": card_id,
+                    "status": "unsupported_mime",
+                    "mime": item.get("mime"),
+                    "accepted": sorted(_LOGO_MIMES),
+                }
+            )
+            continue
+        try:
+            raw = base64.b64decode(item.get("image_base64") or "", validate=True)
+        except (binascii.Error, ValueError):
+            problems.append({"row_index": index, "card_id": card_id, "status": "invalid_base64"})
+            continue
+        if not raw:
+            problems.append({"row_index": index, "card_id": card_id, "status": "empty_image"})
+            continue
+        if len(raw) > _MAX_LOGO_BYTES:
+            problems.append(
+                {
+                    "row_index": index,
+                    "card_id": card_id,
+                    "status": "too_large",
+                    "bytes": len(raw),
+                    "cap_bytes": _MAX_LOGO_BYTES,
+                }
+            )
+            continue
+        sniffed = _sniff_logo_mime(raw[:16])
+        if sniffed != mime:
+            problems.append(
+                {
+                    "row_index": index,
+                    "card_id": card_id,
+                    "status": "content_mime_mismatch",
+                    "declared": mime,
+                    "detected": sniffed,
+                }
+            )
+            continue
+        prepared.append(
+            {
+                "row_index": index,
+                "card_id": card_id,
+                "mime": mime,
+                "raw": raw,
+                "filename": item.get("filename") or "logo",
+            }
+        )
+
+    if dry_run:
+        return _fmt(
+            {
+                "dry_run": True,
+                "would_set": len(prepared),
+                "results": [
+                    {
+                        "row_index": p["row_index"],
+                        "card_id": p["card_id"],
+                        "status": "ok",
+                        "mime": p["mime"],
+                        "bytes": len(p["raw"]),
+                    }
+                    for p in prepared
+                ]
+                + problems,
+                "note": (
+                    "Card-edit permission and the per-type 'custom logos' "
+                    "switch are enforced server-side and are not checked by "
+                    "this preview; both are reported per row on commit."
+                ),
+            }
+        )
+
+    if not prepared:
+        return _fmt({"dry_run": False, "set": 0, "results": problems})
+
+    async with mutation_batch(
+        token,
+        tool_name="set_card_logos",
+        row_count=len(prepared),
+        dry_run=False,
+        confirm_token=confirm_token or None,
+    ) as batch:
+        client = batch.client()
+        results: list[dict] = list(problems)
+        succeeded = 0
+        for p in prepared:
+            # Per-row isolation: one card whose type has logos switched off,
+            # or that this user may not edit, must not abandon the rest.
+            try:
+                resp = await client.post_file(
+                    f"/cards/{p['card_id']}/logo",
+                    p["filename"],
+                    p["raw"],
+                    p["mime"],
+                )
+                succeeded += 1
+                results.append(
+                    {
+                        "row_index": p["row_index"],
+                        "card_id": p["card_id"],
+                        "status": "set",
+                        "mime": p["mime"],
+                        "bytes": len(p["raw"]),
+                        "logo_updated_at": (
+                            resp.get("logo_updated_at") if isinstance(resp, dict) else None
+                        ),
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001 — reported, never raised
+                results.append(
+                    {
+                        "row_index": p["row_index"],
+                        "card_id": p["card_id"],
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                )
+        batch.summary = {"rows": len(prepared), "set": succeeded}
+        return _fmt(
+            {
+                "dry_run": False,
+                "set": succeeded,
+                "batch_id": batch.batch_id,
+                "results": results,
+            }
+        )
 
 
 @mcp.tool(annotations=_WRITE_DESTRUCTIVE_ANNOT)
