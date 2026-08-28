@@ -624,3 +624,35 @@ class TestBrandIconImage:
         assert mono.status_code == 200
         # Two different packs, two different pictures.
         assert mono.content != resp.content
+
+
+class TestResolveBrandIcons:
+    """Bulk existence check, so a dry run can warn before it commits."""
+
+    async def test_separates_known_from_unknown_and_canonicalises(self, client, db, logo_env):
+        resp = await client.get(
+            "/api/v1/card-logos/brand-icons/resolve",
+            params={"refs": "sap,simpleicons:sap,acme-corp,not-a-brand"},
+            headers=auth_headers(logo_env["admin"]),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        # A bare slug comes back canonicalised, so the caller can store the
+        # exact pack it resolved to rather than re-resolving later.
+        assert body["known"]["sap"].startswith("logos:")
+        assert body["known"]["simpleicons:sap"] == "simpleicons:sap"
+        assert sorted(body["unknown"]) == ["acme-corp", "not-a-brand"]
+
+    async def test_requires_permission(self, client, db, logo_env):
+        resp = await client.get("/api/v1/card-logos/brand-icons/resolve", params={"refs": "sap"})
+        assert resp.status_code == 401
+
+    async def test_an_empty_request_is_not_an_error(self, client, db, logo_env):
+        # A batch that uses no icon_slug at all still calls this; answering
+        # with an error would turn "nothing to check" into a failure.
+        resp = await client.get(
+            "/api/v1/card-logos/brand-icons/resolve",
+            headers=auth_headers(logo_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"known": {}, "unknown": []}

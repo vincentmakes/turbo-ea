@@ -158,7 +158,20 @@ const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
 // The logo tile in a card's top-left corner. Sized against the 200×72 node:
 // big enough that a mark is recognisable at a glance, small enough not to
 // crowd the name. The type icon does NOT sit on it — see below.
-const LOGO_SIZE = 34;
+const LOGO_SIZE = 30;
+
+/**
+ * Where the type icon sits when a logo has taken the top-left corner: on the
+ * card's top edge, immediately LEFT of the lifecycle dot.
+ *
+ * The dot is 9px wide with a 1.5px border, inset 6px from the right, so this
+ * clears it by 3px. Computed rather than written as a literal so the two can
+ * never drift apart — and applied only when a dot is actually drawn, since
+ * reserving room for one that isn't there would leave the icon floating.
+ */
+const DOT_INSET = 6;
+const DOT_BOX = 9 + 1.5 * 2;
+const TYPE_ICON_RIGHT_BESIDE_DOT = DOT_INSET + DOT_BOX + 3;
 
 const HANDLE_POSITIONS = {
   top: Position.Top,
@@ -405,9 +418,10 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
       }}
     >
       {/* The card's own logo, when it has one and the reader has logos on. It
-          takes the top-left slot and pushes the type icon into a small badge
-          overhanging its corner — the same grammar as `CardLogoAvatar`, so a
-          card reads the same here as on its detail page.
+          takes the top-left slot and pushes the type icon along the top edge
+          to sit beside the lifecycle dot — the same grammar as
+          `CardLogoAvatar`, so a card reads the same here as on its detail
+          page.
 
           Deliberately NOT tagged `ldv-type-icon`: that class is the export
           filter's drop list, and a real <img> is exactly what html-to-image
@@ -440,9 +454,10 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         />
       )}
       {/* Card-type icon from the metamodel. Top-left on a card with no logo,
-          where it has always been; BOTTOM-left when a logo takes that corner,
-          so the two never compete for the same space and the logo can be drawn
-          large. Not top-right: the lifecycle status dot lives there.
+          where it has always been; when a logo takes that corner it moves to
+          the top-RIGHT, immediately left of the lifecycle dot, so the two
+          pieces of card chrome read as one row along the top edge and the
+          logo keeps the whole left side to itself.
 
           Tagged `ldv-type-icon` so image export can drop it — it's a Material
           Symbols font ligature, which html-to-image can't rasterise (it would
@@ -456,20 +471,24 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
             lineHeight: 0,
             opacity: 0.9,
             pointerEvents: "none",
-            left: 6,
-            ...(logoUrl ? { bottom: 5 } : { top: 5 }),
+            top: 5,
+            ...(logoUrl
+              ? { right: dotColor ? TYPE_ICON_RIGHT_BESIDE_DOT : DOT_INSET }
+              : { left: 6 }),
           }}
         >
           <MaterialSymbol icon={data.typeIcon} size={16} color={accent} />
         </Box>
       )}
-      {/* Lifecycle status dot (top-right corner) */}
+      {/* Lifecycle status dot (top-right corner). Its size and inset are the
+          constants the type icon measures itself against, so moving one moves
+          the other. */}
       {dotColor && (
         <Box
           sx={{
             position: "absolute",
-            top: 6,
-            right: 6,
+            top: DOT_INSET,
+            right: DOT_INSET,
             width: 9,
             height: 9,
             borderRadius: "50%",

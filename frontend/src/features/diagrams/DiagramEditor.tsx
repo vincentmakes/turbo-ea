@@ -83,9 +83,14 @@ import {
   applyCardLogos,
   applyCardLabels,
   attachCardLabelEditListener,
+  attachCardResizeListener,
+  logoKey,
+  logoLookupFor,
+  readCardCellBoxes,
   readCardName,
 } from "./drawio-shapes";
 import type {
+  CardLogoLookup,
   HierarchyChild,
   ParentChangeEvent,
   PendingParentChange,
@@ -3133,9 +3138,13 @@ export default function DiagramEditor() {
 
   /** Fetch the canvas cards and re-render their labels only — used by the
    *  card-type (no colour perspective) branch, which has no fetch of its own. */
-  /** The composed logo image per card id, as last applied to the canvas.
-   *  Read by the "Apply card-type icons" action so it cannot overwrite them. */
-  const logoImagesRef = useRef<Map<string, string>>(new Map());
+  /** The composed logo images, as last applied to the canvas — keyed by card
+   *  id AND the cell size each was built for, since the composite is
+   *  card-shaped and one card can sit on the canvas at two sizes. Read by the
+   *  logo pass and by the "Apply card-type icons" action, which needs it so it
+   *  cannot overwrite a logo with a generic glyph. */
+  const logoLookupRef = useRef<CardLogoLookup>(() => undefined);
+  const lastLogoCardsRef = useRef<Card[]>([]);
 
   /**
    * Draw each card's own logo on its cell, and take it off cards that no longer
@@ -3161,30 +3170,60 @@ export default function DiagramEditor() {
       // that already carries a logo has to lose it when the reader turns them
       // off, not keep the one baked into the saved style.
       const wanted = showsCardLogos(cardLabels) ? cards : [];
+      // Remembered so a resize can rebuild the pictures at the new size without
+      // going back to the API for cards it already has.
+      lastLogoCardsRef.current = cards;
+
+      // One composite per (card, cell size) actually on the canvas. Reading the
+      // geometry first is what keeps the type glyph inside the card: a picture
+      // built for the plain 210x60 card puts it off a 190x40 group child, off a
+      // 180x50 drill-down child, and off every card exported from the
+      // dependency view (200x72).
+      const byCard = new Map(wanted.filter((c) => c.logo_updated_at).map((c) => [c.id, c]));
+      const boxes = new Map<string, { cardId: string; w: number; h: number }>();
+      for (const b of readCardCellBoxes(frame)) {
+        if (byCard.has(b.cardId)) boxes.set(logoKey(b.cardId, b.w, b.h), b);
+      }
 
       void (async () => {
         const composed = await Promise.all(
-          wanted
-            .filter((c) => c.logo_updated_at)
-            .map(async (c) => {
-              const image = await composeCardLogoImage(
-                cardLogoUrl(c.id, c.logo_updated_at as string),
-                iconByType.get(c.type),
-                colorByType.get(c.type) ?? "#999999",
-              );
-              return image ? ([c.id, image] as const) : null;
-            }),
+          Array.from(boxes.entries()).map(async ([key, b]) => {
+            const c = byCard.get(b.cardId) as Card;
+            const image = await composeCardLogoImage(
+              cardLogoUrl(c.id, c.logo_updated_at as string),
+              iconByType.get(c.type),
+              colorByType.get(c.type) ?? "#999999",
+              b.w,
+              b.h,
+            );
+            return image ? ([key, image] as const) : null;
+          }),
         );
         if (iframeRef.current !== frame) return; // the reader moved on mid-compose
         const map = new Map(
           composed.filter((e): e is readonly [string, string] => e !== null),
         );
-        logoImagesRef.current = map;
-        applyCardLogos(frame, map, iconByType);
+        logoLookupRef.current = logoLookupFor(map);
+        applyCardLogos(frame, logoLookupRef.current, iconByType);
       })();
     },
     [cardLabels],
   );
+
+  // Rebuild the logos after a resize. The composite is card-shaped, so a card
+  // dragged wider keeps a picture whose type glyph now stops short of the
+  // corner — the same wrong-size symptom, arrived at by hand. Cheap: the cards
+  // are already in hand and every unchanged cell hits the compose cache.
+  useEffect(() => {
+    const frame = iframeRef.current;
+    if (!drawioReady || !frame) return;
+    return attachCardResizeListener(frame, () => {
+      const f = iframeRef.current;
+      if (f && lastLogoCardsRef.current.length) {
+        applyLogosFromCards(f, lastLogoCardsRef.current);
+      }
+    });
+  }, [drawioReady, applyLogosFromCards]);
 
   const refreshCardDisplay = useCallback(
     async (frame: HTMLIFrameElement, ids: string[], wantLabels: boolean) => {
@@ -3370,11 +3409,7 @@ export default function DiagramEditor() {
         .filter((tp) => tp.icon)
         .map((tp) => [tp.key, tp.icon] as const),
     );
-    const touched = applyCardTypeIcons(
-      frame,
-      iconByType,
-      logoImagesRef.current,
-    );
+    const touched = applyCardTypeIcons(frame, iconByType, logoLookupRef.current);
     setSnackMsg(
       touched > 0
         ? t("editor.toolbar.iconsApplied", { count: touched })

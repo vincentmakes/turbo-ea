@@ -121,6 +121,39 @@ async def list_brand_icons(
     return {"items": search_brand_icons(search, limit), "total": icon_count()}
 
 
+@router.get("/card-logos/brand-icons/resolve")
+async def resolve_brand_icons(
+    refs: str = Query("", max_length=8192),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Say which of many icon references the packs actually carry.
+
+    Exists for the MCP dry run. Previewing a batch of logos has to be able to
+    tell the caller that a slug is unknown *before* it commits — otherwise a
+    preview says every row is fine and the commit is where it learns
+    otherwise, which is precisely when an agent stops rather than going to
+    fetch the mark itself. Searching one slug at a time would be one request
+    per row, so this answers the whole batch in one.
+
+    Returns ``{known: {ref: canonical_ref}, unknown: [ref]}``; the canonical
+    form is what a caller should store, since a bare slug resolves to whichever
+    pack carries it.
+    """
+    await PermissionService.require_permission(db, user, "inventory.view")
+    wanted = [r.strip() for r in refs.split(",") if r.strip()][:500]
+    known: dict[str, str] = {}
+    unknown: list[str] = []
+    for ref in wanted:
+        resolved = resolve_brand_icon(ref)
+        if resolved is None:
+            unknown.append(ref)
+        else:
+            entry = resolved[2]
+            known[ref] = f"{entry['pack']}:{entry['slug']}"
+    return {"known": known, "unknown": unknown}
+
+
 @router.get("/card-logos/brand-icons/{slug}.png")
 async def get_brand_icon(slug: str):
     """Public endpoint — one brand icon's PNG, for the picker to render.

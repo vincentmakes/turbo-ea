@@ -29,12 +29,12 @@ LogoMime = Literal[
 
 
 class CardLogoItem(BaseModel):
-    """One card's logo, supplied either as bytes or as a built-in icon slug.
+    """One card's logo: bytes, a URL to fetch, or a built-in icon slug.
 
-    Exactly one of `image_base64` and `icon_slug` must be given. That rule is
-    enforced in the tool body rather than by a validator here, on purpose: a
-    row that breaks it is reported as a problem row alongside the others,
-    instead of raising and abandoning the whole batch.
+    Exactly one of `image_base64`, `image_url` and `icon_slug` must be given.
+    That rule is enforced in the tool body rather than by a validator here, on
+    purpose: a row that breaks it is reported as a problem row alongside the
+    others, instead of raising and abandoning the whole batch.
     """
 
     # Extras are ignored rather than forbidden: a stray key from an agent must
@@ -46,7 +46,22 @@ class CardLogoItem(BaseModel):
         default=None,
         description=(
             "The image, base64-encoded. PNG, JPEG, WebP or GIF, under 1 MB. "
-            "Mutually exclusive with icon_slug."
+            "Use this when you already hold the bytes — a file the user "
+            "shared, or a logo you fetched yourself. Mutually exclusive with "
+            "image_url and icon_slug."
+        ),
+    )
+    image_url: str | None = Field(
+        default=None,
+        description=(
+            "An https URL the SERVER downloads the image from. Use this for "
+            "any brand the built-in packs do not carry, and especially when "
+            "you cannot reach the web yourself — filling those gaps is the "
+            "expected way to use this tool, not a workaround. Only a short "
+            "allowlist of public icon hosts is fetched (a refusal names them); "
+            "the answer must be a PNG, JPEG, WebP or GIF under 1 MB, so a "
+            "page about a logo will not do — link the image file itself. "
+            "Mutually exclusive with image_base64 and icon_slug."
         ),
     )
     mime: LogoMime | None = Field(
@@ -60,13 +75,14 @@ class CardLogoItem(BaseModel):
     icon_slug: str | None = Field(
         default=None,
         description=(
-            "A built-in brand icon, e.g. 'sap'. Two packs ship: 'logos' "
-            "(full-colour marks) and 'simpleicons' (one flat brand colour). "
-            "A bare slug takes the colour one where both have it; pin a pack "
-            "with 'logos:sap' or 'simpleicons:sap'. Resolved server-side, so "
-            "no image is transferred. Call list_available_icons to find one "
-            "and use the 'ref' it returns. Mutually exclusive with "
-            "image_base64."
+            "A built-in brand icon, e.g. 'sap' — a shortcut for brands the "
+            "packs happen to carry, resolved server-side so no image is "
+            "transferred. Two packs ship: 'logos' (full-colour) and "
+            "'simpleicons' (one flat brand colour, broader coverage). A bare "
+            "slug takes the colour one where both have it; pin a pack with "
+            "'logos:sap' or 'simpleicons:sap'. If the brand is not in the "
+            "packs, do not give up on the logo — pass image_url (or "
+            "image_base64) instead. Mutually exclusive with those two."
         ),
     )
     filename: str | None = Field(

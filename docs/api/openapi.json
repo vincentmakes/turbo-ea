@@ -20514,6 +20514,49 @@
         ]
       }
     },
+    "/api/v1/card-logos/brand-icons/resolve": {
+      "get": {
+        "description": "Say which of many icon references the packs actually carry.\n\nExists for the MCP dry run. Previewing a batch of logos has to be able to\ntell the caller that a slug is unknown *before* it commits \u2014 otherwise a\npreview says every row is fine and the commit is where it learns\notherwise, which is precisely when an agent stops rather than going to\nfetch the mark itself. Searching one slug at a time would be one request\nper row, so this answers the whole batch in one.\n\nReturns ``{known: {ref: canonical_ref}, unknown: [ref]}``; the canonical\nform is what a caller should store, since a bare slug resolves to whichever\npack carries it.",
+        "operationId": "resolve_brand_icons_api_v1_card_logos_brand_icons_resolve_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "refs",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 8192,
+              "title": "Refs",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Brand Icons",
+        "tags": [
+          "card-logos"
+        ]
+      }
+    },
     "/api/v1/card-logos/brand-icons/{slug}.png": {
       "get": {
         "description": "Public endpoint \u2014 one brand icon's PNG, for the picker to render.\n\nUnauthenticated, on the same reasoning as ``GET /settings/logo`` beside it:\nan ``<img>`` is what loads this, and the bytes are public CC0 artwork that\nships inside the image. Nothing here is instance data \u2014 not a card, not a\nname, not a count \u2014 so there is nothing for a permission to protect.\n\nThe *listing* endpoint above stays gated all the same: enumerating the pack\nis a different act from rendering one icon a caller already knows the name\nof, and least privilege is free there.\n\nTakes no database session on purpose \u2014 the pack is read from disk, so this\nroute never needs a connection out of the pool.",

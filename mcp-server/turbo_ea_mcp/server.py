@@ -39,6 +39,7 @@ from turbo_ea_mcp.config import (
     MCP_WRITES_ENABLED,
     TURBO_EA_PUBLIC_URL,
 )
+from turbo_ea_mcp.logo_fetch import LogoFetchError, allowed_hosts, fetch_logo_cached
 from turbo_ea_mcp.models import CardLogoItem
 
 # ── MCP tool annotation presets ────────────────────────────────────────────
@@ -1955,12 +1956,129 @@ async def _check_logo_types(token: str, prepared: list[dict]) -> tuple[dict, lis
     return {"status": "ok", "checked": len(prepared)}, kept, disabled
 
 
-def _logo_preview_note(type_check: dict, has_icon_rows: bool = False) -> str:
+async def _check_logo_icon_slugs(
+    token: str, prepared: list[dict]
+) -> tuple[dict, list[dict], list[dict]]:
+    """Settle, during the preview, which ``icon_slug`` values the packs carry.
+
+    Deferring this to commit is what made an agent stop: the preview said
+    every row was fine, the commit reported a miss, and by then the batch was
+    half written. Answering it up front turns a miss into the ordinary next
+    step — go and fetch that mark — while there is still nothing to undo.
+
+    One request for the whole call. Degrades exactly like the type check: an
+    unavailable answer leaves every row previewable rather than inventing a
+    failure. Membership is read off ``known`` rather than ``unknown`` so a
+    value that is not a well-formed ref at all (a comma, say, which the
+    request joins on) still lands on the unknown side.
+
+    Returns ``(icon_check, kept_rows, unknown_rows)``.
+    """
+    slugs = sorted({p["icon_slug"] for p in prepared if p["icon_slug"]})
+    if not slugs:
+        return {"status": "skipped"}, prepared, []
+    try:
+        client = TurboEAClient(token)
+        resp = await client.get(
+            "/card-logos/brand-icons/resolve", params={"refs": ",".join(slugs)}
+        )
+    except Exception as exc:  # noqa: BLE001 — informative, never fatal
+        return {"status": "unavailable", "reason": str(exc)}, prepared, []
+
+    known = resp.get("known", {}) if isinstance(resp, dict) else {}
+    missing = [s for s in slugs if s not in known]
+
+    kept: list[dict] = []
+    unknown_rows: list[dict] = []
+    for p in prepared:
+        if p["icon_slug"] and p["icon_slug"] in missing:
+            unknown_rows.append(
+                {
+                    "row_index": p["row_index"],
+                    "card_id": p["card_id"],
+                    "status": "unknown_icon_slug",
+                    "icon_slug": p["icon_slug"],
+                    "remedy": _icon_miss_remedy(),
+                }
+            )
+        else:
+            kept.append(p)
+    return (
+        {"status": "ok", "checked": len(slugs), "unknown": missing, "resolved": known},
+        kept,
+        unknown_rows,
+    )
+
+
+async def _resolve_logo_urls(prepared: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Turn every `image_url` row into an ordinary bytes row, or report why not.
+
+    Runs on the preview as well as the commit, and the bytes are cached between
+    them, so a URL that cannot produce a usable image is named while there is
+    still nothing to undo — and a commit right after a preview downloads
+    nothing a second time.
+
+    A failure is per row: one dead link must not cost the other forty-nine
+    logos in the batch.
+
+    Returns ``(kept_rows, problem_rows)``.
+    """
+    kept: list[dict] = []
+    problems: list[dict] = []
+    for p in prepared:
+        url = p.get("image_url")
+        if not url:
+            kept.append(p)
+            continue
+        try:
+            raw, mime = await fetch_logo_cached(url, _sniff_logo_mime)
+        except LogoFetchError as exc:
+            problems.append(
+                {
+                    "row_index": p["row_index"],
+                    "card_id": p["card_id"],
+                    "status": exc.status,
+                    "image_url": url,
+                    "message": exc.message,
+                    **({"remedy": exc.remedy} if exc.remedy else {}),
+                }
+            )
+            continue
+        except Exception as exc:  # noqa: BLE001 — one row, never the batch
+            problems.append(
+                {
+                    "row_index": p["row_index"],
+                    "card_id": p["card_id"],
+                    "status": "image_url_unreachable",
+                    "image_url": url,
+                    "message": str(exc),
+                }
+            )
+            continue
+        if len(raw) > _MAX_LOGO_BYTES:
+            problems.append(
+                {
+                    "row_index": p["row_index"],
+                    "card_id": p["card_id"],
+                    "status": "too_large",
+                    "bytes": len(raw),
+                    "cap_bytes": _MAX_LOGO_BYTES,
+                }
+            )
+            continue
+        kept.append(
+            {**p, "raw": raw, "mime": mime, "sha256": hashlib.sha256(raw).hexdigest()}
+        )
+    return kept, problems
+
+
+def _logo_preview_note(type_check: dict, icon_check: dict | None = None) -> str:
     """Say exactly what the preview could not settle — no more, no less.
 
-    The slug sentence is added only when a row actually uses `icon_slug`: a
+    A slug sentence is added only when a row actually uses `icon_slug`: a
     batch carrying nothing but bytes has no slug to miss, and telling it about
-    one would be noise it has to reason past.
+    one would be noise it has to reason past. When the slug check ran, the
+    note says what to *do* about the misses rather than deferring them.
     """
     if type_check.get("status") == "ok":
         note = (
@@ -1972,27 +2090,44 @@ def _logo_preview_note(type_check: dict, has_icon_rows: bool = False) -> str:
             "Card-edit permission and the per-type 'custom logos' switch could not be "
             "checked by this preview; both are reported per row on commit."
         )
-    if has_icon_rows:
+    status = (icon_check or {}).get("status")
+    if status == "ok" and (icon_check or {}).get("unknown"):
         note += (
-            " Rows using icon_slug are resolved server-side, so an unknown slug also "
-            "surfaces only on commit — and it is not a dead end: fetch that product's "
-            "mark yourself and retry the row with image_base64."
+            " The packs do not carry every slug in this batch (see "
+            "unknown_icon_slugs). That is an ordinary gap, not a dead end: "
+            "re-send those rows with image_url and let the server fetch the "
+            "mark, or with image_base64 if you hold the bytes."
+        )
+    elif status == "unavailable":
+        note += (
+            " Whether each icon_slug exists could not be checked by this preview, "
+            "so an unknown slug surfaces only on commit — and it is not a dead "
+            "end: retry the row with image_url or image_base64."
         )
     return note
 
 
-# What to do about a slug the pack does not carry. The server deliberately
-# never fetches on the caller's behalf — that would be an outbound request from
-# inside the customer's network, chosen by an LLM, and it would break every
-# air-gapped install. The agent is the component that already has web access
-# and the judgement to tell a real logo from a lookalike, so the remedy is to
-# hand the work back to it, explicitly, rather than to fail and stop.
-_ICON_MISS_REMEDY = (
-    "This slug is not in the bundled pack. Do not give up on the logo: fetch "
-    "the product's mark yourself (a PNG, JPEG, WebP or GIF under 1 MB) and "
-    "retry this row with image_base64 instead of icon_slug. Call "
-    "list_available_icons first if you only mistyped the name."
-)
+# What to do about a slug the packs do not carry.
+#
+# This used to end at "fetch it yourself", on the reasoning that the agent is
+# the component with web access and the judgement to tell a real logo from a
+# lookalike. Half of that held: the judgement is the agent's, but the web
+# access frequently is not — a sandboxed assistant reaches its package
+# registries and nothing else, and answered that the logo was impossible. So
+# the remedy now offers both directions, and names `image_url` first: the
+# agent decides WHICH mark, and the server, which sits on the customer's
+# network, does the fetching if the agent cannot.
+def _icon_miss_remedy() -> str:
+    return (
+        "This slug is not in the bundled packs, which is ordinary — they do "
+        "not cover every product. Do not give up on the logo. If you can name "
+        "where the mark lives, retry this row with image_url and let the "
+        "server fetch it (allowed hosts: "
+        + ", ".join(allowed_hosts())
+        + "); if you already hold the bytes, use image_base64 (PNG, JPEG, "
+        "WebP or GIF under 1 MB). Call list_available_icons first if you only "
+        "mistyped the name."
+    )
 
 
 def _classify_logo_upload_error(exc: Exception) -> tuple[str, str | None]:
@@ -2008,7 +2143,7 @@ def _classify_logo_upload_error(exc: Exception) -> tuple[str, str | None]:
     if "not enabled for card type" in msg:
         return "logos_disabled_for_type", None
     if "Unknown brand icon" in msg:
-        return "unknown_icon_slug", _ICON_MISS_REMEDY
+        return "unknown_icon_slug", _icon_miss_remedy()
     return "failed", None
 
 
@@ -2027,26 +2162,39 @@ async def set_card_logos(
     """Set the custom logo on many cards in one call — the bulk way to put
     product marks (SAP, Kafka, Jira…) on an Application inventory.
 
-    Two ways to supply the image, one per row:
+    Three equally good ways to supply the image, one per row. None is a
+    fallback for the others — pick per card whichever one you can satisfy:
 
     - ``icon_slug`` — a built-in brand icon resolved server-side, e.g.
-      ``"sap"``. Nothing is transferred, so this is both the cheapest and the
-      safest option for well-known products. Two packs ship: ``logos``
+      ``"sap"``. Nothing is transferred, so it is the cheapest option for the
+      brands the packs happen to carry. Two packs ship: ``logos``
       (full-colour marks, better recognition) and ``simpleicons`` (one flat
       brand colour, broader coverage). A bare slug takes the colour one where
       both carry it; pin a pack with ``"logos:sap"`` / ``"simpleicons:sap"``.
       Use ``list_available_icons`` and pass back the ``ref`` it returns.
-    - ``image_base64`` — the bytes, from your own context: a file the user
-      shared, artwork you already hold, or a logo you fetched yourself. There
-      is deliberately no fetch-from-URL path; the server never makes an
-      outbound request on your behalf, so an air-gapped install behaves the
-      same as a connected one.
+    - ``image_url`` — an https link **this server** downloads for you. Use it
+      whenever you can name where a mark lives but cannot reach it yourself:
+      a sandboxed assistant often has no route to the open web, and this
+      server usually does. Only a short allowlist of public icon hosts is
+      fetched, and a refusal names them, so an unusable URL costs one row and
+      tells you what would work. A path in an open icon repository is the
+      usual shape — for example
+      ``https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@main/png/<slug>.png``,
+      which covers a good deal of enterprise software the bundled packs do
+      not. Link the image file itself; a page *about* a logo is not one.
+    - ``image_base64`` — the bytes, when you already hold them: a file the
+      user shared, or artwork from your own context.
 
-    **When a slug is not in the pack**, the row comes back
-    ``unknown_icon_slug`` with a ``remedy``: go and fetch that product's mark
-    yourself and retry the row with ``image_base64``. The pack covers a few
-    thousand well-known brands, not every product a customer runs, so this is
-    an ordinary outcome rather than an error to report and abandon.
+    **The packs are a shortcut, not the source of truth.** They cover a few
+    thousand well-known brands, not every product a customer runs — an
+    in-house system, a niche vendor and a rebranded product are all normal
+    misses. When a brand is not in them, get its logo another way: pass
+    ``image_url`` if you can name where the mark lives, or ``image_base64``
+    if you already hold it. Do not report back that a logo could not be set
+    because it was missing from the packs. A dry run settles both halves of
+    that before anything is written: unknown slugs come back under
+    ``unknown_icon_slugs``, and every ``image_url`` is actually fetched, so a
+    dead or disallowed link is a preview row rather than a surprise at commit.
 
     ``mime`` is optional. It is sniffed from the bytes, and only compared
     when you supply it. SVG is refused: it is scriptable and is not
@@ -2054,13 +2202,16 @@ async def set_card_logos(
 
     Args:
         items: One row per card. ``card_id`` is required; supply exactly one
-            of ``icon_slug`` and ``image_base64``. Each image must be under
-            1 MB.
+            of ``icon_slug``, ``image_url`` and ``image_base64``. Each image
+            must be under 1 MB.
         dry_run: When True (default), validate every row and return the
             preview without uploading anything. The preview resolves each
-            card's type and reports rows whose type has custom logos
-            switched off. Card-edit permission, and whether an ``icon_slug``
-            exists, are settled server-side and reported per row on commit.
+            card's type and reports rows whose type has custom logos switched
+            off, checks every ``icon_slug`` against the packs (misses come
+            back under ``unknown_icon_slugs``), and downloads every
+            ``image_url`` so a bad link is reported now — the bytes are
+            reused by the commit, so nothing is fetched twice. Card-edit
+            permission is settled server-side and reported per row on commit.
         confirm_token: Echoed back on commits above the per-call
             confirmation threshold (see ``create_cards_bulk``).
 
@@ -2123,23 +2274,53 @@ async def set_card_logos(
 
         # Exactly one source. Enforced here rather than on the model so the
         # row is reported, not raised.
-        if row.icon_slug and row.image_base64:
+        sources = [
+            name
+            for name, value in (
+                ("icon_slug", row.icon_slug),
+                ("image_base64", row.image_base64),
+                ("image_url", row.image_url),
+            )
+            if value
+        ]
+        if len(sources) > 1:
             problems.append(
                 {
                     "row_index": index,
                     "card_id": card_id,
                     "status": "conflicting_image_source",
-                    "message": "Supply either icon_slug or image_base64, not both.",
+                    "message": (
+                        "Supply exactly one of icon_slug, image_base64 and "
+                        f"image_url — this row has {', '.join(sources)}."
+                    ),
                 }
             )
             continue
-        if not row.icon_slug and not row.image_base64:
+        if not sources:
             problems.append(
                 {
                     "row_index": index,
                     "card_id": card_id,
                     "status": "missing_image_source",
-                    "message": "Supply either icon_slug or image_base64.",
+                    "message": "Supply one of icon_slug, image_base64 or image_url.",
+                }
+            )
+            continue
+
+        if row.image_url:
+            # Fetched below, once, whether this is a preview or a commit — the
+            # preview's job is to tell the caller now whether the URL yields a
+            # usable image, and its bytes are reused by the commit that
+            # follows. Nothing is validated here beyond deferring the work.
+            prepared.append(
+                {
+                    "row_index": index,
+                    "card_id": card_id,
+                    "icon_slug": None,
+                    "image_url": row.image_url,
+                    "raw": None,
+                    "mime": None,
+                    "filename": row.filename or "logo",
                 }
             )
             continue
@@ -2153,6 +2334,7 @@ async def set_card_logos(
                     "row_index": index,
                     "card_id": card_id,
                     "icon_slug": row.icon_slug,
+                    "image_url": None,
                     "raw": None,
                     "mime": None,
                     "filename": row.filename or "logo",
@@ -2215,6 +2397,7 @@ async def set_card_logos(
                 "row_index": index,
                 "card_id": card_id,
                 "icon_slug": None,
+                "image_url": None,
                 "mime": sniffed,
                 "raw": raw,
                 "sha256": hashlib.sha256(raw).hexdigest(),
@@ -2225,10 +2408,19 @@ async def set_card_logos(
     # Resolve each card's type so the preview can settle the per-type switch
     # rather than deferring it to commit. Two batched requests for the whole
     # call, never one per row.
+    # Fetch every `image_url` row before anything else looks at the batch, so a
+    # dead link is reported the same way on a preview and on a commit.
+    if prepared:
+        prepared, fetch_problems = await _resolve_logo_urls(prepared)
+        problems.extend(fetch_problems)
+
     type_check: dict = {"status": "skipped"}
+    icon_check: dict = {"status": "skipped"}
     if dry_run and prepared:
         type_check, prepared, disabled_rows = await _check_logo_types(token, prepared)
         problems.extend(disabled_rows)
+        icon_check, prepared, unknown_rows = await _check_logo_icon_slugs(token, prepared)
+        problems.extend(unknown_rows)
 
     if dry_run:
         return _fmt(
@@ -2249,9 +2441,9 @@ async def set_card_logos(
                 ]
                 + problems,
                 "type_check": type_check,
-                "note": _logo_preview_note(
-                    type_check, any(p["icon_slug"] for p in prepared)
-                ),
+                "icon_check": icon_check,
+                "unknown_icon_slugs": icon_check.get("unknown", []),
+                "note": _logo_preview_note(type_check, icon_check),
             }
         )
 

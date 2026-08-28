@@ -7,7 +7,7 @@
  * it avoids XML merge root-cell conflicts and plugin lifecycle issues.
  */
 
-import { LOGO_BOX_PX } from "./cardLogoImage";
+import { logoBoxFor } from "./cardLogoImage";
 import { ICON_PATHS } from "./iconPaths";
 import { readableTextColor, tint } from "@/lib/color";
 
@@ -218,7 +218,10 @@ function iconStyleParts(
     // glyph in the card's own top-right corner, since a `shape=label` cell has
     // exactly one image slot. `cardW`/`cardH` therefore have to match the
     // cell's real geometry, and the image is rebuilt when that changes.
-    const gutter = LOGO_BOX_PX + 8;
+    //
+    // The gutter comes from the same helper that sizes the drawn logo, so a
+    // short card reserves the room its smaller mark actually takes.
+    const gutter = logoBoxFor(cardH) + 8;
     return [
       "shape=label",
       `image=${image}`,
@@ -4080,9 +4083,105 @@ export function resetViewColors(
  * `cardLogoImage.ts`), already built; this pass does no I/O and no decoding, so
  * it is a single synchronous model update — one undo step for the reader.
  */
+/** One card-shaped cell on a canvas, and the size a logo must be built for. */
+export interface CardCellBox {
+  cardId: string;
+  w: number;
+  h: number;
+}
+
+/** Default geometry for a cell whose own geometry cannot be read. */
+const DEFAULT_CARD_BOX = { w: 210, h: CARD_BASE_H };
+
+/**
+ * Is this cell one a logo may be painted on? The guards are shared by every
+ * pass below so they cannot drift: a cell the reader has turned into a
+ * swimlane, an ellipse or any other shape keeps what they chose.
+ */
+function isLogoTarget(cell: unknown): boolean {
+  const c = cell as { value?: { getAttribute?: (k: string) => string | null }; edge?: boolean };
+  if (!c?.value?.getAttribute) return false;
+  if (c.edge) return false;
+  return true;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function boxOf(graph: any, cell: unknown): { w: number; h: number } {
+  try {
+    const geo = graph.getCellGeometry?.(cell);
+    if (geo && geo.width > 0 && geo.height > 0) {
+      return { w: Math.round(geo.width), h: Math.round(geo.height) };
+    }
+  } catch {
+    /* fall through to the plain card */
+  }
+  return DEFAULT_CARD_BOX;
+}
+
+/**
+ * Every card-shaped cell on the canvas, with the geometry its logo must match.
+ *
+ * The composite that carries a logo IS the card (see `cardLogoImage.ts`), so it
+ * has to be built at the cell's real size — and composing is asynchronous while
+ * applying is one synchronous model update. This is the read that lets the
+ * caller do the first before the second. The same card may appear more than
+ * once, at different sizes; each occurrence is its own entry.
+ */
+export function readCardCellBoxes(iframe: HTMLIFrameElement): CardCellBox[] {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return [];
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cells = model.cells || {};
+  const out: CardCellBox[] = [];
+  for (const k of Object.keys(cells)) {
+    const cell = cells[k];
+    if (!isLogoTarget(cell)) continue;
+    const cardId = cell.value.getAttribute("cardId");
+    if (!cardId || cardId.startsWith("pending-")) continue;
+    const styleStr = (model.getStyle(cell) || "") as string;
+    const shapeMatch = styleStr.match(/(?:^|;)shape=([^;]+)/);
+    if (shapeMatch && shapeMatch[1] !== "label") continue;
+    const { w, h } = boxOf(graph, cell);
+    out.push({ cardId, w, h });
+  }
+  return out;
+}
+
+/**
+ * The composed image for a card at a given cell size, or nothing.
+ *
+ * A lookup rather than a map because one card can be on the canvas at several
+ * sizes and each needs its own picture.
+ */
+export type CardLogoLookup = (cardId: string, w: number, h: number) => string | undefined;
+
+/** Cache key for one card's composite at one cell size. */
+export function logoKey(cardId: string, w: number, h: number): string {
+  return `${cardId}|${w}x${h}`;
+}
+
+/**
+ * Build a lookup over a map keyed by {@link logoKey}.
+ *
+ * A miss on the exact size falls back to any picture this card has, because
+ * the alternative is worse: "Apply card-type icons" reads this lookup so it
+ * does not wipe logos, and a card resized since the last logo pass would
+ * otherwise come back a miss and lose its logo to a generic glyph. A picture
+ * built for the previous size is briefly off; the next logo pass corrects it.
+ */
+export function logoLookupFor(map: Map<string, string>): CardLogoLookup {
+  const anySize = new Map<string, string>();
+  for (const [key, image] of map) {
+    const cardId = key.slice(0, key.lastIndexOf("|"));
+    if (!anySize.has(cardId)) anySize.set(cardId, image);
+  }
+  return (cardId, w, h) => map.get(logoKey(cardId, w, h)) ?? anySize.get(cardId);
+}
+
 export function applyCardLogos(
   iframe: HTMLIFrameElement,
-  logoByCardId: Map<string, string>,
+  logoFor: CardLogoLookup,
   iconByType: Map<string, string>,
 ): { painted: number; restored: number } {
   const ctx = getMxGraph(iframe);
@@ -4097,8 +4196,7 @@ export function applyCardLogos(
   try {
     for (const k of Object.keys(cells)) {
       const cell = cells[k];
-      if (!cell?.value?.getAttribute) continue;
-      if (cell.edge) continue;
+      if (!isLogoTarget(cell)) continue;
       const cardId = cell.value.getAttribute("cardId");
       if (!cardId || cardId.startsWith("pending-")) continue;
 
@@ -4111,7 +4209,8 @@ export function applyCardLogos(
 
       const parts = styleStr.split(";").filter(Boolean);
       const stamp = readStylePart(parts, LOGO_STAMP_KEY);
-      const logo = logoByCardId.get(cardId);
+      const { w, h } = boxOf(graph, cell);
+      const logo = logoFor(cardId, w, h);
 
       let next: string;
       if (logo) {
@@ -4120,7 +4219,9 @@ export function applyCardLogos(
         const had = stamp ?? (parts.some((p) => p.startsWith("image=")) ? "icon" : "none");
         next = stripImageParts(parts)
           .concat([`${LOGO_STAMP_KEY}=${had}`])
-          .concat(iconStyleParts(undefined, logo))
+          // The picture is sized to THIS cell, not to the plain card — a
+          // composite built for 210×60 puts its type glyph off a 190×40 one.
+          .concat(iconStyleParts(undefined, logo, w, h))
           .join(";");
       } else if (stamp != null) {
         const cardType = cell.value.getAttribute("cardType") || "";
@@ -4146,6 +4247,45 @@ export function applyCardLogos(
   return { painted, restored };
 }
 
+/** The geometry an `<mxCell>` carries in stored XML, or the plain card. */
+function boxFromXmlCell(cell: Element): { w: number; h: number } {
+  const geo = cell.getElementsByTagName("mxGeometry")[0];
+  const w = Number(geo?.getAttribute("width"));
+  const h = Number(geo?.getAttribute("height"));
+  return w > 0 && h > 0 ? { w: Math.round(w), h: Math.round(h) } : DEFAULT_CARD_BOX;
+}
+
+/**
+ * Every card-shaped cell in stored XML, with the geometry its logo must match.
+ *
+ * The viewer's counterpart to {@link readCardCellBoxes}: composing is
+ * asynchronous and needs the size up front, so the document is read once for
+ * geometry before anything is drawn and once again to write the styles.
+ */
+export function readCardBoxesFromXml(xml: string): CardCellBox[] {
+  if (!xml) return [];
+  let doc: Document;
+  try {
+    doc = new DOMParser().parseFromString(xml, "text/xml");
+  } catch {
+    return [];
+  }
+  if (doc.getElementsByTagName("parsererror").length > 0) return [];
+  const out: CardCellBox[] = [];
+  for (const obj of Array.from(doc.getElementsByTagName("object"))) {
+    const cardId = obj.getAttribute("cardId");
+    if (!cardId) continue;
+    const cell = obj.getElementsByTagName("mxCell")[0];
+    if (!cell) continue;
+    const style = cell.getAttribute("style") || "";
+    const shape = style.match(/(?:^|;)shape=([^;]+)/);
+    if (shape && shape[1] !== "label") continue;
+    const { w, h } = boxFromXmlCell(cell);
+    out.push({ cardId, w, h });
+  }
+  return out;
+}
+
 /**
  * Draw each card's logo into a diagram's stored XML, without a live graph.
  *
@@ -4160,11 +4300,8 @@ export function applyCardLogos(
  * unchanged when there is nothing to do or the document will not parse — a
  * viewer must never fail to render because a logo could not be drawn.
  */
-export function applyCardLogosToXml(
-  xml: string,
-  logoByCardId: Map<string, string>,
-): string {
-  if (!xml || logoByCardId.size === 0) return xml;
+export function applyCardLogosToXml(xml: string, logoFor: CardLogoLookup): string {
+  if (!xml) return xml;
   let doc: Document;
   try {
     doc = new DOMParser().parseFromString(xml, "text/xml");
@@ -4179,10 +4316,11 @@ export function applyCardLogosToXml(
   for (const obj of Array.from(doc.getElementsByTagName("object"))) {
     const cardId = obj.getAttribute("cardId");
     if (!cardId) continue;
-    const logo = logoByCardId.get(cardId);
-    if (!logo) continue;
     const cell = obj.getElementsByTagName("mxCell")[0];
     if (!cell) continue;
+    const { w, h } = boxFromXmlCell(cell);
+    const logo = logoFor(cardId, w, h);
+    if (!logo) continue;
     const style = cell.getAttribute("style") || "";
     // Same guard as the live pass: never touch a swimlane, ellipse or any
     // other shape the user chose.
@@ -4190,7 +4328,7 @@ export function applyCardLogosToXml(
     if (shape && shape[1] !== "label") continue;
     const next = stripImageParts(style.split(";").filter(Boolean))
       .concat([`${LOGO_STAMP_KEY}=icon`])
-      .concat(iconStyleParts(undefined, logo))
+      .concat(iconStyleParts(undefined, logo, w, h))
       .join(";");
     if (next !== style) {
       cell.setAttribute("style", next);
@@ -4216,7 +4354,7 @@ export function applyCardLogosToXml(
 export function applyCardTypeIcons(
   iframe: HTMLIFrameElement,
   iconByType: Map<string, string>,
-  logoByCardId: Map<string, string> = new Map(),
+  logoFor: CardLogoLookup = () => undefined,
 ): number {
   const ctx = getMxGraph(iframe);
   if (!ctx) return 0;
@@ -4244,10 +4382,11 @@ export function applyCardTypeIcons(
       // image family and silently replace every logo on the canvas with a
       // generic type glyph.
       const cardId = cell.value.getAttribute("cardId") || "";
-      const logo = logoByCardId.get(cardId);
+      const { w, h } = boxOf(graph, cell);
+      const logo = logoFor(cardId, w, h);
       const next = kept
         .concat(logo ? [`${LOGO_STAMP_KEY}=icon`] : [])
-        .concat(iconStyleParts(iconByType.get(cardType), logo))
+        .concat(iconStyleParts(iconByType.get(cardType), logo, w, h))
         .join(";");
       if (next !== styleStr) {
         model.setStyle(cell, next);
@@ -4439,6 +4578,42 @@ function resizeContainerHeader(
  * renamed by hand: DrawIO writes only `label`, so `cardName` would keep the old
  * value and `staleCheck` would keep comparing that instead of what is on screen.
  */
+/**
+ * Call back when the reader finishes resizing cells, so a logo can be rebuilt
+ * at the new size.
+ *
+ * A logo composite is card-shaped and therefore size-specific: drag a card
+ * wider and the type glyph baked into the old picture is suddenly short of the
+ * corner it belongs in. Nothing else on a cell cares about a resize, which is
+ * why this listener did not exist before.
+ *
+ * Debounced, because mxGraph fires `CELLS_RESIZED` once per drag *step* on some
+ * paths, and each callback costs an image decode per affected card.
+ */
+export function attachCardResizeListener(
+  iframe: HTMLIFrameElement,
+  onResized: () => void,
+  delayMs = 300,
+): () => void {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return () => {};
+  const { win, graph } = ctx;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const listener = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(onResized, delayMs);
+  };
+  graph.addListener(win.mxEvent.CELLS_RESIZED, listener);
+  return () => {
+    if (timer) clearTimeout(timer);
+    try {
+      graph.removeListener(listener);
+    } catch {
+      // Editor already torn down.
+    }
+  };
+}
+
 export function attachCardLabelEditListener(
   iframe: HTMLIFrameElement,
   onRenamed?: (cellId: string, name: string) => void,

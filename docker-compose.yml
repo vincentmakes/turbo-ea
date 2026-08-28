@@ -133,6 +133,11 @@ services:
       TURBO_EA_PUBLIC_URL: ${TURBO_EA_PUBLIC_URL:-http://localhost:8920}
       MCP_PORT: ${MCP_PORT:-8001}
       MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-http://localhost:8920/mcp}
+      # Logo fetching. Passed through so the kill switch is reachable without
+      # editing the compose file: an empty host list means the built-in
+      # allowlist of public icon CDNs.
+      MCP_LOGO_FETCH_ENABLED: ${MCP_LOGO_FETCH_ENABLED:-true}
+      MCP_LOGO_FETCH_HOSTS: ${MCP_LOGO_FETCH_HOSTS:-}
     depends_on:
       backend:
         condition: service_healthy

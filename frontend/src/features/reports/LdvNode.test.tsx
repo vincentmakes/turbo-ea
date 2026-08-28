@@ -196,19 +196,28 @@ describe("LdvNode type icon placement", () => {
     expect(isSet(p.bottom)).toBe(false);
   });
 
-  it("moves the type icon to the bottom-left when a logo takes the top corner", () => {
-    // Not top-right: the lifecycle status dot lives there. Bottom-left is the
-    // corner left free, and moving out of the logo's way is what lets the logo
-    // be drawn large.
+  it("moves the type icon along the top edge when a logo takes the left corner", () => {
+    // The logo owns the whole left side; the type icon joins the lifecycle dot
+    // on the right, so the card's chrome reads as one row along the top.
     renderNode({ logoUrl: "/api/v1/cards/app-1/logo?v=1" });
     const p = iconPos();
-    expect(isSet(p.bottom)).toBe(true);
-    expect(isSet(p.top)).toBe(false);
-    expect(isSet(p.left)).toBe(true);
+    expect(isSet(p.top)).toBe(true);
+    expect(isSet(p.right)).toBe(true);
+    expect(isSet(p.bottom)).toBe(false);
+    expect(isSet(p.left)).toBe(false);
   });
 
-  it("never puts the type icon in the lifecycle dot's corner", () => {
+  it("sits clear of the lifecycle dot rather than under it", () => {
+    // The dot is 9px plus a 1.5px border at right:6, so anything less than
+    // ~18px of inset would overlap it.
     renderNode({ logoUrl: "/api/v1/cards/app-1/logo?v=1", lifecyclePhase: "active" });
-    expect(isSet(iconPos().right)).toBe(false);
+    expect(parseFloat(iconPos().right)).toBeGreaterThanOrEqual(18);
+  });
+
+  it("takes the dot's own inset when there is no dot to clear", () => {
+    // Reserving room for a dot that is not drawn would leave the icon
+    // floating in from the edge for no reason.
+    renderNode({ logoUrl: "/api/v1/cards/app-1/logo?v=1", lifecyclePhase: null });
+    expect(parseFloat(iconPos().right)).toBeLessThan(18);
   });
 });

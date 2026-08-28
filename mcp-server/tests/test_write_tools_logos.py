@@ -592,13 +592,172 @@ class TestUnknownIconSlugIsActionable:
 
     @pytest.mark.asyncio
     async def test_the_preview_says_a_slug_miss_is_recoverable(self, fake_token):
-        out = _parse(await server.set_card_logos(items=[{"card_id": "c1", "icon_slug": "sap"}]))
+        async def unreachable(path, params=None):
+            raise RuntimeError("connection refused")
+
+        with patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=unreachable)):
+            out = _parse(
+                await server.set_card_logos(items=[{"card_id": "c1", "icon_slug": "sap"}])
+            )
         assert "image_base64" in out["note"]
 
     @pytest.mark.asyncio
     async def test_a_bytes_only_batch_is_not_told_about_slugs(self, fake_token):
         # The note describes what this preview could not settle. A batch with
         # no icon_slug row has no slug to miss, so the sentence would be noise.
-        out = _parse(await server.set_card_logos(items=[_row("c1")]))
+        async def unreachable(path, params=None):
+            raise RuntimeError("connection refused")
+
+        with patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=unreachable)):
+            out = _parse(await server.set_card_logos(items=[_row("c1")]))
         assert "image_base64" not in out["note"]
         assert "icon_slug" not in out["note"]
+
+
+class TestDryRunIconSlugCheck:
+    """The preview settles which slugs the packs carry.
+
+    The point is not validation for its own sake: a miss reported at preview
+    time is a gap the agent can still go and fill from the web before anything
+    is written, which is the whole difference between "logo set" and "could not
+    set a logo, the pack didn't have it".
+    """
+
+    def _get(self, *, known: dict, cards_allow: bool = True):
+        async def get_router(path, params=None):
+            if path == "/cards":
+                return {
+                    "items": [
+                        {"id": "c1", "type": "Application"},
+                        {"id": "c2", "type": "Application"},
+                    ]
+                }
+            if path == "/metamodel/types":
+                return [{"key": "Application", "allow_card_logo": cards_allow}]
+            if path == "/card-logos/brand-icons/resolve":
+                asked = (params or {}).get("refs", "").split(",")
+                return {
+                    "known": {k: v for k, v in known.items() if k in asked},
+                    "unknown": [a for a in asked if a and a not in known],
+                }
+            return {}
+
+        return get_router
+
+    @pytest.mark.asyncio
+    async def test_an_unknown_slug_is_reported_before_anything_is_written(self, fake_token):
+        post_file = AsyncMock()
+        with (
+            patch.object(
+                server.TurboEAClient,
+                "get",
+                AsyncMock(side_effect=self._get(known={"sap": "logos:sap"})),
+            ),
+            patch.object(server.TurboEAClient, "post_file", post_file),
+        ):
+            out = _parse(
+                await server.set_card_logos(
+                    items=[
+                        {"card_id": "c1", "icon_slug": "sap"},
+                        {"card_id": "c2", "icon_slug": "acme-corp"},
+                    ]
+                )
+            )
+
+        assert out["would_set"] == 1
+        assert out["unknown_icon_slugs"] == ["acme-corp"]
+        miss = next(r for r in out["results"] if r.get("status") == "unknown_icon_slug")
+        assert miss["card_id"] == "c2"
+        # The remedy is the same one the commit path gives, so the agent reads
+        # the same instruction whichever side it hits.
+        assert "image_base64" in miss["remedy"]
+        assert "fetch" in miss["remedy"].lower()
+        # And it says so without touching the network beyond the two reads.
+        post_file.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_the_note_tells_the_agent_to_go_and_fetch_them(self, fake_token):
+        with patch.object(
+            server.TurboEAClient, "get", AsyncMock(side_effect=self._get(known={}))
+        ):
+            out = _parse(
+                await server.set_card_logos(items=[{"card_id": "c1", "icon_slug": "acme"}])
+            )
+        assert "fetch" in out["note"].lower()
+        assert "image_base64" in out["note"]
+
+    @pytest.mark.asyncio
+    async def test_known_slugs_leave_the_preview_clean(self, fake_token):
+        with patch.object(
+            server.TurboEAClient,
+            "get",
+            AsyncMock(side_effect=self._get(known={"sap": "logos:sap"})),
+        ):
+            out = _parse(
+                await server.set_card_logos(items=[{"card_id": "c1", "icon_slug": "sap"}])
+            )
+        assert out["would_set"] == 1
+        assert out["unknown_icon_slugs"] == []
+        assert out["icon_check"]["resolved"] == {"sap": "logos:sap"}
+        assert "unknown_icon_slugs" not in out["note"]
+
+    @pytest.mark.asyncio
+    async def test_a_bytes_row_never_asks_the_pack_anything(self, fake_token):
+        seen: list[str] = []
+
+        async def get_router(path, params=None):
+            seen.append(path)
+            if path == "/cards":
+                return {"items": [{"id": "c1", "type": "Application"}]}
+            if path == "/metamodel/types":
+                return [{"key": "Application", "allow_card_logo": True}]
+            return {}
+
+        with patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=get_router)):
+            out = _parse(await server.set_card_logos(items=[_row("c1")]))
+        assert "/card-logos/brand-icons/resolve" not in seen
+        assert out["icon_check"]["status"] == "skipped"
+
+    @pytest.mark.asyncio
+    async def test_the_check_degrades_rather_than_failing(self, fake_token):
+        """An older backend, or a caller without inventory.view, still previews."""
+
+        async def get_router(path, params=None):
+            if path == "/cards":
+                return {"items": [{"id": "c1", "type": "Application"}]}
+            if path == "/metamodel/types":
+                return [{"key": "Application", "allow_card_logo": True}]
+            raise RuntimeError("404: Not Found")
+
+        with patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=get_router)):
+            out = _parse(
+                await server.set_card_logos(items=[{"card_id": "c1", "icon_slug": "sap"}])
+            )
+        assert out["would_set"] == 1
+        assert out["icon_check"]["status"] == "unavailable"
+        assert "image_base64" in out["note"]
+
+    @pytest.mark.asyncio
+    async def test_a_slug_that_is_not_a_ref_at_all_lands_on_the_unknown_side(
+        self, fake_token
+    ):
+        """Membership is read off `known`, not off `unknown`.
+
+        The request joins refs with a comma, so a value carrying one would be
+        split apart server-side and could never come back verbatim in
+        `unknown`. Reading the positive side keeps it unknown regardless.
+        """
+
+        async def get_router(path, params=None):
+            if path == "/cards":
+                return {"items": [{"id": "c1", "type": "Application"}]}
+            if path == "/metamodel/types":
+                return [{"key": "Application", "allow_card_logo": True}]
+            return {"known": {}, "unknown": ["sap", "oracle"]}
+
+        with patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=get_router)):
+            out = _parse(
+                await server.set_card_logos(items=[{"card_id": "c1", "icon_slug": "sap,oracle"}])
+            )
+        assert out["would_set"] == 0
+        assert out["results"][0]["status"] == "unknown_icon_slug"

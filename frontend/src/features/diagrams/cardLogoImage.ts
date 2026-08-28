@@ -47,7 +47,7 @@ import { ICON_PATHS } from "./iconPaths";
 const RASTER_SCALE = 2;
 
 /** Edge of the square the logo occupies at the card's left, in cell units. */
-export const LOGO_BOX_PX = 44;
+export const LOGO_BOX_PX = 34;
 
 /** Edge of the type glyph in the card's top-right corner, in cell units. */
 export const TYPE_GLYPH_PX = 16;
@@ -58,6 +58,21 @@ const EDGE_PAD = 6;
 /** The card geometry the composite is built for — see `composeCardLogoImage`. */
 const CARD_W = 210;
 const CARD_H = 60;
+
+/**
+ * The edge the logo actually gets on a card this tall.
+ *
+ * A diagram carries cards of several heights — 40 for an expanded group child,
+ * 50 for a drill-down child, 60 for a plain card, more once detail rows are on
+ * — so the box has to shrink on a short one or the mark runs past the card.
+ *
+ * Exported because `iconStyleParts` sizes the label's gutters from the same
+ * number: the picture and the room reserved for it beside the name are two
+ * views of one measurement, and computing them separately is how they drift.
+ */
+export function logoBoxFor(cardH: number): number {
+  return Math.max(12, Math.min(LOGO_BOX_PX, Math.round(cardH) - EDGE_PAD * 2));
+}
 
 /**
  * Cache of composed images, keyed by card id + logo timestamp + type icon.
@@ -260,12 +275,14 @@ export async function composeCardLogoImage(
   logoUrl: string,
   icon: string | undefined,
   color: string,
-  // Deliberately the BASE card geometry rather than each cell's real size.
-  // mxGraph draws the image at these dimensions anchored top-left, so on a
-  // card that detail rows have grown, the composite simply occupies the top
-  // 60px — which is where the glyph belongs anyway. Reading every cell's
-  // geometry would mean threading it through an async compose and a cache key
-  // per size, to move a logo a few pixels down on the minority of cards.
+  // The REAL geometry of the cell this will be painted on. The composite is
+  // card-shaped — that is the only way to put the type glyph in the card's own
+  // top-right corner, since a `shape=label` cell has exactly one image slot —
+  // so a composite built for the wrong size puts the glyph off the card. A
+  // canvas carries several sizes (190×40 group children, 180×50 drill-down
+  // children, 200×72 from the dependency view, taller again with detail rows,
+  // plus anything a reader drags), and the cache keys on the size, so callers
+  // read each cell's geometry and pass it. The default is the plain card.
   cardW: number = CARD_W,
   cardH: number = CARD_H,
 ): Promise<string | null> {
@@ -292,7 +309,7 @@ export async function composeCardLogoImage(
     // wordmark simply letterboxes inside it.
     const natural = Math.max(img.naturalWidth || img.width, 1);
     const naturalH = Math.max(img.naturalHeight || img.height, 1);
-    const box = Math.min(LOGO_BOX_PX, cardH - EDGE_PAD * 2);
+    const box = logoBoxFor(cardH);
     const pad = 3;
     const scale = Math.min((box - pad * 2) / natural, (box - pad * 2) / naturalH);
     const w = Math.max(1, Math.round(natural * scale));

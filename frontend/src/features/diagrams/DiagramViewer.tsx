@@ -14,7 +14,13 @@ import { api } from "@/api/client";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { cardLogoUrl } from "@/components/CardLogoAvatar";
-import { applyCardLogosToXml, extractCardIds } from "./drawio-shapes";
+import {
+  applyCardLogosToXml,
+  extractCardIds,
+  logoKey,
+  logoLookupFor,
+  readCardBoxesFromXml,
+} from "./drawio-shapes";
 import { composeCardLogoImage } from "./cardLogoImage";
 import type { Card } from "@/types";
 
@@ -137,27 +143,43 @@ export default function DiagramViewer() {
         // diagram exactly as stored — a logo is never worth a blank viewer.
         const params = new URLSearchParams({ ids: ids.join(",") });
         const resp = await api.get<{ items: Card[] }>(`/cards?${params.toString()}`);
-        const withLogos = resp.items.filter((c) => c.logo_updated_at);
-        if (withLogos.length === 0) {
+        const byCard = new Map(
+          resp.items.filter((c) => c.logo_updated_at).map((c) => [c.id, c]),
+        );
+        if (byCard.size === 0) {
           if (!cancelled) setDiagram(d);
           return;
         }
+        // The composite is card-shaped, so it has to be built at each cell's
+        // real size — read the geometry out of the stored document first, or a
+        // card the editor left at 190x40 gets a 210x60 picture and wears its
+        // type glyph off the edge.
+        const boxes = new Map<string, { cardId: string; w: number; h: number }>();
+        for (const b of readCardBoxesFromXml(xml)) {
+          if (byCard.has(b.cardId)) boxes.set(logoKey(b.cardId, b.w, b.h), b);
+        }
         const composed = await Promise.all(
-          withLogos.map(async (c) => {
+          Array.from(boxes.entries()).map(async ([key, b]) => {
+            const c = byCard.get(b.cardId) as Card;
             const tp = typesRef.current.get(c.type);
             const image = await composeCardLogoImage(
               cardLogoUrl(c.id, c.logo_updated_at as string),
               tp?.icon,
               tp?.color ?? "#999999",
+              b.w,
+              b.h,
             );
-            return image ? ([c.id, image] as const) : null;
+            return image ? ([key, image] as const) : null;
           }),
         );
         if (cancelled) return;
         const map = new Map(
           composed.filter((e): e is readonly [string, string] => e !== null),
         );
-        setDiagram({ ...d, data: { ...d.data, xml: applyCardLogosToXml(xml, map) } });
+        setDiagram({
+          ...d,
+          data: { ...d.data, xml: applyCardLogosToXml(xml, logoLookupFor(map)) },
+        });
       } catch {
         if (!cancelled) setSnackMsg(t("editor.errors.loadFailed"));
       } finally {
