@@ -178,3 +178,37 @@ describe("LdvNode card logo", () => {
     expect(typeIcon()).not.toBeNull();
   });
 });
+
+describe("LdvNode type icon placement", () => {
+  // `sx` compiles to an emotion class, so the inline `style` attribute is
+  // empty — read the resolved value, as the outline test above does.
+  const iconPos = () => {
+    const el = document.querySelector(".ldv-type-icon") as HTMLElement;
+    const cs = getComputedStyle(el);
+    return { top: cs.top, bottom: cs.bottom, left: cs.left, right: cs.right };
+  };
+  const isSet = (v: string) => v !== "" && v !== "auto";
+
+  it("keeps the type icon at the top when there is no logo", () => {
+    renderNode();
+    const p = iconPos();
+    expect(isSet(p.top)).toBe(true);
+    expect(isSet(p.bottom)).toBe(false);
+  });
+
+  it("moves the type icon to the bottom-left when a logo takes the top corner", () => {
+    // Not top-right: the lifecycle status dot lives there. Bottom-left is the
+    // corner left free, and moving out of the logo's way is what lets the logo
+    // be drawn large.
+    renderNode({ logoUrl: "/api/v1/cards/app-1/logo?v=1" });
+    const p = iconPos();
+    expect(isSet(p.bottom)).toBe(true);
+    expect(isSet(p.top)).toBe(false);
+    expect(isSet(p.left)).toBe(true);
+  });
+
+  it("never puts the type icon in the lifecycle dot's corner", () => {
+    renderNode({ logoUrl: "/api/v1/cards/app-1/logo?v=1", lifecyclePhase: "active" });
+    expect(isSet(iconPos().right)).toBe(false);
+  });
+});

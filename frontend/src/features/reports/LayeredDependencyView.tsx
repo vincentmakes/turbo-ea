@@ -33,7 +33,7 @@ import { toBlob, toSvg } from "html-to-image";
 import { saveAs } from "file-saver";
 import { useNavigate } from "react-router";
 import { api } from "@/api/client";
-import { readableTypeColor } from "@/lib/color";
+import { readableTypeColor, tint as washColor } from "@/lib/color";
 import {
   buildFieldCatalog,
   EMPTY_VALUE,
@@ -155,11 +155,10 @@ function computeObstacles(nodeList: Node[]): ObstacleBounds[] {
 
 const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
 
-// The logo tile in a card's top-left corner, and the type-icon badge that
-// overhangs it. Sized against the 200×72 card: big enough that a mark is
-// recognisable at a glance, small enough that it does not crowd the name.
-const LOGO_SIZE = 22;
-const LOGO_BADGE = 12;
+// The logo tile in a card's top-left corner. Sized against the 200×72 node:
+// big enough that a mark is recognisable at a glance, small enough not to
+// crowd the name. The type icon does NOT sit on it — see below.
+const LOGO_SIZE = 34;
 
 const HANDLE_POSITIONS = {
   top: Position.Top,
@@ -422,28 +421,32 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           onError={handleLogoError}
           sx={{
             position: "absolute",
-            top: 4,
-            left: 5,
+            top: 5,
+            left: 6,
             width: LOGO_SIZE,
             height: LOGO_SIZE,
             boxSizing: "border-box",
-            p: "2px",
+            p: "3px",
             borderRadius: 0.75,
             // Never `cover` — a vendor's mark must not be cropped.
             objectFit: "contain",
-            bgcolor: "background.paper",
-            border: "1px solid",
-            borderColor: "divider",
+            // A pale wash of the card type's colour rather than paper: a great
+            // many marks are dark ink drawn for a white page, and the node is
+            // already tinted, so a white tile would read as a hole punched in
+            // it. Same treatment, and the same helper, as the diagram cards.
+            bgcolor: washColor(color),
             pointerEvents: "none",
           }}
         />
       )}
-      {/* Card-type icon from the metamodel (top-left corner, or badged onto the
-          logo's corner when one is shown). Tagged `ldv-type-icon` so image
-          export can drop it — it's a Material Symbols font ligature, which
-          html-to-image can't rasterise (it would emit the raw icon name as
-          text). The badge chrome carries the class too, so export drops the
-          whole badge rather than leaving an empty plate behind. */}
+      {/* Card-type icon from the metamodel. Top-left on a card with no logo,
+          where it has always been; BOTTOM-left when a logo takes that corner,
+          so the two never compete for the same space and the logo can be drawn
+          large. Not top-right: the lifecycle status dot lives there.
+
+          Tagged `ldv-type-icon` so image export can drop it — it's a Material
+          Symbols font ligature, which html-to-image can't rasterise (it would
+          emit the raw icon name as text). */}
       {data.typeIcon && (
         <Box
           className="ldv-type-icon"
@@ -451,28 +454,13 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
             position: "absolute",
             display: "flex",
             lineHeight: 0,
+            opacity: 0.9,
             pointerEvents: "none",
-            ...(logoUrl
-              ? {
-                  top: 4 + LOGO_SIZE - LOGO_BADGE * 0.75,
-                  left: 5 + LOGO_SIZE - LOGO_BADGE * 0.75,
-                  width: LOGO_BADGE,
-                  height: LOGO_BADGE,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 0.5,
-                  bgcolor: "background.paper",
-                  border: "1px solid",
-                  borderColor: "divider",
-                }
-              : { top: 5, left: 6, opacity: 0.9 }),
+            left: 6,
+            ...(logoUrl ? { bottom: 5 } : { top: 5 }),
           }}
         >
-          <MaterialSymbol
-            icon={data.typeIcon}
-            size={logoUrl ? Math.round(LOGO_BADGE * 0.7) : 16}
-            color={accent}
-          />
+          <MaterialSymbol icon={data.typeIcon} size={16} color={accent} />
         </Box>
       )}
       {/* Lifecycle status dot (top-right corner) */}

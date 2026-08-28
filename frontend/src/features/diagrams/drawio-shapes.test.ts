@@ -4,7 +4,6 @@ import {
   applyCardTypeIcons,
   applyCardLogos,
   applyCardLogosToXml,
-  CARD_LOGO_SLOT_PX,
   CARD_BASE_H,
   buildLdvDiagramXml,
   rollUpInto,
@@ -39,6 +38,7 @@ import {
   type DiagramRelInput,
   type DiagramLayerInput,
 } from "./drawio-shapes";
+import { LOGO_BOX_PX } from "./cardLogoImage";
 import { ICON_PATHS } from "./iconPaths";
 
 /** Minimal fake mxGraph model so applyCardTypeIcons can run without DrawIO. */
@@ -2426,32 +2426,48 @@ describe("iconStyleParts sizing — logo versus bare type icon", () => {
   const read = (style: string, key: string) =>
     Number(style.split(";").find((p) => p.startsWith(`${key}=`))?.split("=")[1]);
 
-  it("gives a logo a bigger slot than a bare type glyph", () => {
-    // The logo shares its tile with the type mark below it, so at the bare
-    // icon's 18px the glyph came out around 7px — present without being
-    // legible.
+  it("gives a logo an image the size of the card, and a bare glyph a small one", () => {
+    // A `shape=label` cell has one image slot, so the ONLY way to put the type
+    // glyph in the card's own top-right corner is for the image to be the
+    // card. A card with no logo keeps the small corner glyph it always had.
     const withLogo = { c1: cellStyle("rounded=1;fillColor=#0f7eb5") };
     applyCardLogos(fakeFrame(withLogo), new Map([["card-1", LOGO]]), new Map());
 
     const bare = { c1: cellStyle("rounded=1;fillColor=#0f7eb5") };
     applyCardTypeIcons(fakeFrame(bare), new Map([["Application", "apps"]]));
 
-    expect(read(withLogo.c1._style, "imageWidth")).toBe(CARD_LOGO_SLOT_PX);
+    expect(read(withLogo.c1._style, "imageWidth")).toBe(210);
+    expect(read(withLogo.c1._style, "imageHeight")).toBe(CARD_BASE_H);
     expect(read(bare.c1._style, "imageWidth")).toBe(18);
-    expect(read(withLogo.c1._style, "imageWidth")).toBeGreaterThan(
-      read(bare.c1._style, "imageWidth"),
-    );
   });
 
-  it("keeps the image inside the card and the label clear of it", () => {
+  it("centres the card name on the card, not on what is left beside the image", () => {
+    // `spacingLeft` alone centres the label in the REMAINING width, so a left
+    // gutter silently pushes the name right of true centre by half the gutter.
+    // Symmetric gutters are what put it back.
+    for (const cells of [
+      (() => {
+        const c = { c1: cellStyle("rounded=1;fillColor=#0f7eb5") };
+        applyCardLogos(fakeFrame(c), new Map([["card-1", LOGO]]), new Map());
+        return c;
+      })(),
+      (() => {
+        const c = { c1: cellStyle("rounded=1;fillColor=#0f7eb5") };
+        applyCardTypeIcons(fakeFrame(c), new Map([["Application", "apps"]]));
+        return c;
+      })(),
+    ]) {
+      const style = cells.c1._style;
+      expect(read(style, "spacingRight")).toBe(read(style, "spacingLeft"));
+    }
+  });
+
+  it("keeps the label gutter clear of the logo", () => {
+    // The gutter has to clear the logo box, or a centred card name runs over
+    // the mark.
     const cells = { c1: cellStyle("rounded=1;fillColor=#0f7eb5") };
     applyCardLogos(fakeFrame(cells), new Map([["card-1", LOGO]]), new Map());
-    const style = cells.c1._style;
-    // 4px top spacing plus the slot has to clear the card's own height, or the
-    // image is drawn past the bottom edge.
-    expect(read(style, "spacing") + read(style, "imageHeight")).toBeLessThan(CARD_BASE_H);
-    // And the label gutter has to clear the image, or a centred card name
-    // runs under it.
-    expect(read(style, "spacingLeft")).toBeGreaterThan(read(style, "imageWidth"));
+    expect(read(cells.c1._style, "spacingLeft")).toBeGreaterThan(LOGO_BOX_PX);
   });
 });
+

@@ -44,7 +44,20 @@ import { ICON_PATHS } from "./iconPaths";
  * on a 2x display. Raising it raises the bytes in every card's style string,
  * which is saved into the diagram XML — measured at ~11 KB per card here.
  */
-export const LOGO_EMBED_PX = 88;
+const RASTER_SCALE = 2;
+
+/** Edge of the square the logo occupies at the card's left, in cell units. */
+export const LOGO_BOX_PX = 44;
+
+/** Edge of the type glyph in the card's top-right corner, in cell units. */
+export const TYPE_GLYPH_PX = 16;
+
+/** Inset of the logo and the glyph from the card's edges. */
+const EDGE_PAD = 6;
+
+/** The card geometry the composite is built for — see `composeCardLogoImage`. */
+const CARD_W = 210;
+const CARD_H = 60;
 
 /**
  * Cache of composed images, keyed by card id + logo timestamp + type icon.
@@ -59,8 +72,17 @@ const _cache = new Map<string, string | null>();
 /** Bounded so a long editing session over many diagrams cannot grow forever. */
 const MAX_CACHE = 500;
 
-function cacheKey(logoUrl: string, icon: string | undefined, color: string): string {
-  return `${logoUrl}|${icon ?? ""}|${color}`;
+function cacheKey(
+  logoUrl: string,
+  icon: string | undefined,
+  color: string,
+  w: number,
+  h: number,
+): string {
+  // The composite is card-shaped, so cards of different sizes cannot share one.
+  // In practice a canvas holds very few distinct sizes — the base card, and
+  // whatever detail rows have grown it to — so this stays a small set.
+  return `${logoUrl}|${icon ?? ""}|${color}|${w}x${h}`;
 }
 
 function remember(key: string, value: string | null): string | null {
@@ -95,17 +117,17 @@ function remember(key: string, value: string | null): string | null {
  * The nested `data:` reference is not an external fetch, so it resolves inside
  * an image-rendered SVG; verified painting real pixels in Chromium.
  */
-function toStyleSafeDataUri(base64Url: string, size: number): string | null {
+function toStyleSafeDataUri(base64Url: string, w: number, h: number): string | null {
   if (!base64Url.startsWith("data:image/png")) return null;
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" ` +
     `xmlns:xlink="http://www.w3.org/1999/xlink" ` +
-    `width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">` +
+    `width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
     // `href` for SVG 2, `xlink:href` for renderers still on SVG 1.1 — the
     // cost is a duplicated attribute, the alternative is a blank tile on
     // whichever one the viewer happens to use.
     `<image href="${base64Url}" xlink:href="${base64Url}" ` +
-    `x="0" y="0" width="${size}" height="${size}" ` +
+    `x="0" y="0" width="${w}" height="${h}" ` +
     `preserveAspectRatio="xMidYMid meet"/></svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
@@ -124,22 +146,6 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
     }
   });
 }
-
-/**
- * Share of the tile's HEIGHT the logo gets. The type glyph takes the band
- * below it, at the left edge.
- *
- * Stacked rather than cornered because a third of the colour pack is
- * wordmarks — up to 11.8:1 — and those are fitted by their longer side, so
- * they need the tile's full WIDTH. A glyph tucked into either bottom corner
- * would sit under the end of every one of them; a band underneath collides
- * with nothing.
- *
- * The split is 64/36 rather than something more generous to the logo: at the
- * size a cell draws this, a thinner band left the type glyph around 7px, which
- * is present without being legible — the worst of both.
- */
-const LOGO_BAND = 0.64;
 
 /**
  * How far the plate behind the logo is washed toward white.
@@ -207,14 +213,15 @@ function drawLogoPlate(
  * plate, and at the size a diagram actually draws this, the plate was a
  * conspicuous white block sitting over the logo.
  *
- * Centred on the tile, so it shares a vertical axis with the plate above it.
- * Hard-left looked misaligned precisely because the logo is centred: two marks
- * stacked on different axes read as a mistake rather than a pairing.
+ * Placed in the CARD's top-right corner — the opposite corner from the logo,
+ * so the two never compete for room. Earlier versions put it inside the logo's
+ * own tile, first over the mark and then stacked beneath it; both cost the
+ * logo the space it needed and left the glyph too small to read.
  */
 function drawTypeBadge(
   ctx: CanvasRenderingContext2D,
   icon: string | undefined,
-  size: number,
+  cardW: number,
 ): void {
   const entry = icon ? ICON_PATHS[icon] : undefined;
   if (!entry) return;
@@ -232,11 +239,10 @@ function drawTypeBadge(
   const [vx, vy, vw, vh] = entry.vb.split(/\s+/).map(Number);
   if (!vw || !vh) return;
 
-  const glyph = size * (1 - LOGO_BAND);
-  const scale = glyph / Math.max(vw, vh);
+  const scale = TYPE_GLYPH_PX / Math.max(vw, vh);
 
   ctx.save();
-  ctx.translate((size - glyph) / 2, size - glyph);
+  ctx.translate(cardW - TYPE_GLYPH_PX - EDGE_PAD, EDGE_PAD);
   ctx.scale(scale, scale);
   ctx.translate(-vx, -vy);
   ctx.fillStyle = "#ffffff";
@@ -254,9 +260,16 @@ export async function composeCardLogoImage(
   logoUrl: string,
   icon: string | undefined,
   color: string,
-  size: number = LOGO_EMBED_PX,
+  // Deliberately the BASE card geometry rather than each cell's real size.
+  // mxGraph draws the image at these dimensions anchored top-left, so on a
+  // card that detail rows have grown, the composite simply occupies the top
+  // 60px — which is where the glyph belongs anyway. Reading every cell's
+  // geometry would mean threading it through an async compose and a cache key
+  // per size, to move a logo a few pixels down on the minority of cards.
+  cardW: number = CARD_W,
+  cardH: number = CARD_H,
 ): Promise<string | null> {
-  const key = cacheKey(logoUrl, icon, color);
+  const key = cacheKey(logoUrl, icon, color, cardW, cardH);
   const hit = _cache.get(key);
   if (hit !== undefined) return hit;
 
@@ -264,37 +277,41 @@ export async function composeCardLogoImage(
   if (!img) return remember(key, null);
 
   try {
+    // Card-shaped, not a small tile: a `shape=label` cell has exactly ONE
+    // image slot, so the only way to put the type glyph in the card's own
+    // top-right corner is for the image to BE the card.
     const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width = Math.max(1, Math.round(cardW * RASTER_SCALE));
+    canvas.height = Math.max(1, Math.round(cardH * RASTER_SCALE));
     const ctx = canvas.getContext("2d");
     if (!ctx) return remember(key, null);
+    ctx.scale(RASTER_SCALE, RASTER_SCALE);
 
-    // Fit the mark inside the square without cropping it — a vendor's logo
-    // must never be cut — and centre what is left over.
+    // Fit the mark inside its box without cropping it — a vendor's logo must
+    // never be cut — and centre what is left over. The box is square, so a
+    // wordmark simply letterboxes inside it.
     const natural = Math.max(img.naturalWidth || img.width, 1);
     const naturalH = Math.max(img.naturalHeight || img.height, 1);
-    // The logo gets the full tile width and the upper band of its height, so
-    // a wordmark is never squeezed by the glyph sitting below it.
-    // The plate eats into the band, so fit the mark to what is left of it.
-    const bandH = size * LOGO_BAND;
-    const pad = Math.max(1, Math.round(size * 0.05));
-    const scale = Math.min((size - pad * 2) / natural, (bandH - pad * 2) / naturalH);
+    const box = Math.min(LOGO_BOX_PX, cardH - EDGE_PAD * 2);
+    const pad = 3;
+    const scale = Math.min((box - pad * 2) / natural, (box - pad * 2) / naturalH);
     const w = Math.max(1, Math.round(natural * scale));
     const h = Math.max(1, Math.round(naturalH * scale));
-    const x = Math.round((size - w) / 2);
-    const y = Math.round((bandH - h) / 2);
+    // Vertically centred in the card, so the logo does not float against the
+    // top edge on a card that detail rows have grown.
+    const x = EDGE_PAD + Math.round((box - w) / 2);
+    const y = Math.round((cardH - h) / 2);
 
-    drawLogoPlate(ctx, x - pad, y - pad, w + pad * 2, h + pad * 2, size, color);
+    drawLogoPlate(ctx, x - pad, y - pad, w + pad * 2, h + pad * 2, box, color);
     ctx.drawImage(img, x, y, w, h);
 
-    drawTypeBadge(ctx, icon, size);
+    drawTypeBadge(ctx, icon, cardW);
 
     const url = canvas.toDataURL("image/png");
     // A canvas with no 2d implementation behind it (jsdom, some headless
     // runners) answers `toDataURL` with the bare "data:," sentinel.
     if (!url || !url.startsWith("data:image/png")) return remember(key, null);
-    return remember(key, toStyleSafeDataUri(url, size));
+    return remember(key, toStyleSafeDataUri(url, cardW, cardH));
   } catch {
     return remember(key, null);
   }

@@ -7,6 +7,7 @@
  * it avoids XML merge root-cell conflicts and plugin lifecycle issues.
  */
 
+import { LOGO_BOX_PX } from "./cardLogoImage";
 import { ICON_PATHS } from "./iconPaths";
 import { readableTextColor, tint } from "@/lib/color";
 
@@ -202,29 +203,50 @@ function buildIconImage(icon?: string): string | null {
  * Using `shape=label` bakes the icon into the single cell — it drags, copies
  * and exports with the shape, with no child cells or groups to manage.
  */
-function iconStyleParts(icon?: string, logoImage?: string | null): string[] {
+function iconStyleParts(
+  icon?: string,
+  logoImage?: string | null,
+  cardW = 210,
+  cardH = CARD_BASE_H,
+): string[] {
   // A card's own logo wins the single image slot — it already carries the type
   // glyph as a badge (see `cardLogoImage.ts`), so nothing is lost by it.
   const image = logoImage || buildIconImage(icon);
   if (!image) return [];
-  // A logo gets a much bigger slot than a bare type glyph, because it shares
-  // its tile with the type mark below it. At 18px the glyph came out around
-  // 5px — present without being legible; at 44 both are readable, and the
-  // image still clears the 60px card with its 4px top spacing.
-  const px = logoImage ? CARD_LOGO_SLOT_PX : 18;
+  if (logoImage) {
+    // A logo's composite IS the card: that is the only way to put the type
+    // glyph in the card's own top-right corner, since a `shape=label` cell has
+    // exactly one image slot. `cardW`/`cardH` therefore have to match the
+    // cell's real geometry, and the image is rebuilt when that changes.
+    const gutter = LOGO_BOX_PX + 8;
+    return [
+      "shape=label",
+      `image=${image}`,
+      "imageAlign=left",
+      "imageVerticalAlign=top",
+      `imageWidth=${cardW}`,
+      `imageHeight=${cardH}`,
+      "spacing=0",
+      // Symmetric gutters. `spacingLeft` alone centres the label in what is
+      // LEFT of the card, not on the card — a 52px gutter pushed the name 26px
+      // right of true centre, which is exactly what it looked like.
+      `spacingLeft=${gutter}`,
+      `spacingRight=${gutter}`,
+    ];
+  }
   return [
     "shape=label",
     `image=${image}`,
     "imageAlign=left",
     "imageVerticalAlign=top",
-    `imageWidth=${px}`,
-    `imageHeight=${px}`,
-    // `spacing` insets the icon from the top-left corner; `spacingLeft`
-    // reserves a matching left gutter for the label so the (centered) card
-    // name is always laid out to the right of the glyph and never overlaps it,
-    // even when it wraps to several lines.
+    "imageWidth=18",
+    "imageHeight=18",
+    // `spacing` insets the icon from the top-left corner; the gutters reserve
+    // room on BOTH sides so the centred card name stays centred on the card
+    // and never overlaps the glyph, even when it wraps to several lines.
     "spacing=4",
-    `spacingLeft=${px + 6}`,
+    "spacingLeft=24",
+    "spacingRight=24",
   ];
 }
 
@@ -326,9 +348,6 @@ export interface CardDetailLine {
  * Rows render at `font-size:9px`; 14px covers the line box plus mxGraph's own
  * label padding.
  */
-/** Edge of the image slot a card with a logo gets, in cell units. */
-export const CARD_LOGO_SLOT_PX = 44;
-
 export const CARD_DETAIL_LINE_H = 14;
 
 /** Natural height of a freshly inserted top-level card cell. */
