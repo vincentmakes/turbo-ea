@@ -155,11 +155,10 @@ function computeObstacles(nodeList: Node[]): ObstacleBounds[] {
 
 const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
 
-// The logo tile, in the card's own vertical flow above the name. Sized against
-// the 200×80 node: big enough that a mark is recognisable at a glance, small
-// enough to leave the name and its caption lines their room. The type icon
-// does NOT sit on it — see below.
-const LOGO_SIZE = 26;
+// The logo tile in the card's top-left corner. Free to be this big: the room
+// the name gives up is set by the card's RIGHT-hand corner (the type icon and
+// the lifecycle dot), not by the logo — see TEXT_GUTTER.
+const LOGO_SIZE = 28;
 
 /**
  * Where the type icon sits when a logo has taken the top-left corner: on the
@@ -173,6 +172,21 @@ const LOGO_SIZE = 26;
 const DOT_INSET = 6;
 const DOT_BOX = 9 + 1.5 * 2;
 const TYPE_ICON_RIGHT_BESIDE_DOT = DOT_INSET + DOT_BOX + 3;
+
+/**
+ * Where the card's text starts when a logo is present: clear of the top band
+ * the logo, the type icon and the lifecycle dot occupy.
+ *
+ * The alternative was the diagram's grammar — symmetric side gutters and a
+ * wrapping label, keeping the name centred beside the mark. Measured on the
+ * real card it makes long names WORSE: the gutters leave ~124px, which breaks
+ * "Salesforce Customer Community" as "Salesforce / Customer…" — fewer
+ * characters than the single cut line it replaced. A 200px card is too narrow
+ * for a 14px name to share a line with anything. So the text takes the whole
+ * width and starts under the band instead, which is what actually shows a long
+ * name whole.
+ */
+const TEXT_TOP_WITH_LOGO = 33;
 
 const HANDLE_POSITIONS = {
   top: Position.Top,
@@ -215,7 +229,11 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   // by mixing toward white rather than going translucent.
   const tint = isDark ? `rgba(${r},${g},${b},0.22)` : `rgba(${r},${g},${b},0.12)`;
 
-  const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
+  // The whole name. It used to be cut at 26 characters here, in JavaScript,
+  // before CSS ever saw it \u2014 which is why a long name stayed truncated however
+  // much room the card was given. The name now wraps and the clamp below bounds
+  // it, so the cut is the renderer's to make, not this line's.
+  const name = data.name;
 
   // A logo that fails to load falls the card back to the plain type icon it
   // rendered before logos existed \u2014 never a broken-image glyph. Keyed on the
@@ -406,7 +424,9 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
+        // Centred on a plain card, exactly as before logos existed. With a logo
+        // the text hangs from the band instead, so it cannot drift up into it.
+        justifyContent: logoUrl ? "flex-start" : "center",
         px: 1,
         // Cards are draggable: use the grab/grabbing cursor so it doesn't
         // flicker against React Flow's drag cursor (the previous "pointer" did).
@@ -418,17 +438,11 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         "&:hover": { boxShadow: 4 },
       }}
     >
-      {/* The card's own logo, when it has one and the reader has logos on.
-          Rendered here, in the card's flow, so it sits ABOVE the name — the
-          same grammar as `CardLogoAvatar`, so a card reads the same here as on
-          its detail page.
-
-          It used to be absolutely positioned in the top-left corner, which put
-          it *over* the name rather than above it: the name is one ellipsised
-          line across the card's full width, so any name long enough to reach
-          that corner ran underneath the tile. Reserving a horizontal gutter
-          instead would have cost a long name the very width it needs, so the
-          card grew taller (LDV_NODE_H) and the logo took a band of its own.
+      {/* The card's own logo, when it has one and the reader has logos on. It
+          takes the top-left corner — where a card's mark belongs, and where the
+          type icon sat before logos existed — and the NAME keeps out of its way
+          rather than the other way round: see TEXT_GUTTER. Being absolute is
+          what makes that free, since the tile then costs the card no height.
 
           Deliberately NOT tagged `ldv-type-icon`: that class is the export
           filter's drop list, and a real <img> is exactly what html-to-image
@@ -441,15 +455,11 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           aria-hidden
           onError={handleLogoError}
           sx={{
+            position: "absolute",
+            top: 5,
+            left: 6,
             width: LOGO_SIZE,
             height: LOGO_SIZE,
-            flexShrink: 0,
-            // Hard left, where a card's mark has always been. Centred over the
-            // name it read as a stray icon floating in the card rather than as
-            // the card's identity — the column centres everything else, so this
-            // has to opt out of it.
-            alignSelf: "flex-start",
-            mb: "2px",
             boxSizing: "border-box",
             p: "1px",
             borderRadius: 0.75,
@@ -659,53 +669,81 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           )}
         />
       ))}
-      <Typography
-        variant="body2"
+      {/* The card's text, centred on the CARD and using its whole width — the
+          same place and the same width as on a card with no logo. On a card
+          that has one it simply starts below the logo's band, which is what
+          keeps a wrapping name clear of the mark without narrowing it. */}
+      <Box
         sx={{
-          fontWeight: 600,
-          lineHeight: 1.3,
-          textAlign: "center",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
           width: "100%",
+          mt: logoUrl ? `${TEXT_TOP_WITH_LOGO}px` : 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          minWidth: 0,
         }}
       >
-        {name}
-      </Typography>
-      {extraLines.length > 0 ? (
-        extraLines.slice(0, MAX_CARD_LINES).map((line) => (
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 600,
+            lineHeight: 1.3,
+            textAlign: "center",
+            width: "100%",
+            // Wraps rather than running off: the clamp is what bounds a long
+            // name now that it is no longer cut short before rendering. Two
+            // lines is what the card's height affords beside two caption lines.
+            display: "-webkit-box",
+            // The name takes the room the caption lines leave: two lines
+            // normally, one when the reader has switched on two extra fields.
+            // Without this a full card spills past its own border, which
+            // nothing clips (the badges deliberately overhang it).
+            WebkitLineClamp: extraLines.length > 1 ? 1 : 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            wordBreak: "break-word",
+          }}
+        >
+          {name}
+        </Typography>
+        {extraLines.length > 0 ? (
+          extraLines.slice(0, MAX_CARD_LINES).map((line) => (
+            <Typography
+              key={line.label}
+              variant="caption"
+              sx={{
+                lineHeight: 1.25,
+                maxWidth: "100%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                color: "text.secondary",
+              }}
+            >
+              <Box component="span" sx={{ color: accent, fontWeight: 600 }}>
+                {line.label}:
+              </Box>{" "}
+              {line.value}
+            </Typography>
+          ))
+        ) : showType ? (
           <Typography
-            key={line.label}
             variant="caption"
             sx={{
-              lineHeight: 1.25,
+              color: accent,
+              fontStyle: "italic",
+              lineHeight: 1.2,
+              mt: 0.25,
               maxWidth: "100%",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
-              color: "text.secondary",
             }}
           >
-            <Box component="span" sx={{ color: accent, fontWeight: 600 }}>
-              {line.label}:
-            </Box>{" "}
-            {line.value}
+            [{typeLabel({ key: data.typeKey, label: data.typeLabel }) || data.typeLabel}]
           </Typography>
-        ))
-      ) : showType ? (
-        <Typography
-          variant="caption"
-          sx={{
-            color: accent,
-            fontStyle: "italic",
-            lineHeight: 1.2,
-            mt: 0.25,
-          }}
-        >
-          [{typeLabel({ key: data.typeKey, label: data.typeLabel }) || data.typeLabel}]
-        </Typography>
-      ) : null}
+        ) : null}
+      </Box>
     </Box>
   );
 });

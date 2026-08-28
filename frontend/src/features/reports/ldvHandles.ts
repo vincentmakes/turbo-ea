@@ -11,21 +11,22 @@
 
 export const LDV_NODE_W = 200;
 /**
- * Tall enough for a logo ABOVE the name, not over it.
+ * Tall enough for a logo's band plus a two-line name at the card's FULL width:
+ * 33px of band + 2 × 18.2px of name + a 16.4px caption = 85.8px inside an 87px
+ * content box.
  *
- * The name is one ellipsised line across the card's full width, so a logo
- * floating in a corner sat on top of it as soon as a name was long enough to
- * reach that corner. Putting the logo in the card's own vertical flow is the
- * fix, and that costs height: a 26px logo, the name, and up to
- * `MAX_CARD_LINES` (2) caption lines need about 76px of content.
+ * The narrower alternative — keep 72px and have the name wrap in the space
+ * beside the logo — was measured and is worse than doing nothing: a 200px card
+ * leaves ~124px between the mark and the corner icons, which breaks a name like
+ * "Salesforce Customer Community" after its second word. Height is what buys a
+ * long name its width back.
  *
  * Deliberately **not** conditional on whether logos are switched on. The logo
  * toggle patches already-positioned nodes precisely so it does not disturb a
  * reader's drags (see `cardDisplayData`), and a height that changed with it
- * would force a relayout on every flip. The extra room is no loss on a card
- * with no logo — it is where the caption lines used to crowd the name.
+ * would force a relayout on every flip.
  */
-export const LDV_NODE_H = 80;
+export const LDV_NODE_H = 90;
 
 /** Horizontal positions of the 5 top/bottom slots, as a fraction of node width. */
 export const LDV_HANDLE_FRACTIONS = [0.12, 0.3, 0.5, 0.7, 0.88] as const;

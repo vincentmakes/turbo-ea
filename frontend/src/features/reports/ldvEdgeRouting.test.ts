@@ -300,8 +300,15 @@ describe("routeLdvEdges port assignment", () => {
       edge("platform", "altium"),
     ];
     const { routes } = route(oriented, positions, lanes);
+    // Derived, never written out: a hard-coded half-height silently shrinks
+    // the clearance box — and so weakens every assertion below — the day the
+    // card changes size.
     const bounds = Object.entries(positions).map(([id, p]) => ({
-      id, x1: p.x - 100, y1: p.y - 36, x2: p.x + 100, y2: p.y + 36,
+      id,
+      x1: p.x - LDV_NODE_W / 2,
+      y1: p.y - LDV_NODE_H / 2,
+      x2: p.x + LDV_NODE_W / 2,
+      y2: p.y + LDV_NODE_H / 2,
     }));
     for (let i = 0; i < routes.length; i++) {
       const r = routes[i];
@@ -441,10 +448,11 @@ describe("routeLdvEdges horizontal-run placement (centerY)", () => {
       { s: { x: 0, y: 0 }, t: { x: 300, y: 400 } },
       { s: "A", t: "B" },
     );
-    // Handle ys: 36 (source bottom) and 364 (target top) — the run must sit
-    // between them, at the midpoint when nothing conflicts.
-    expect(routes[0].centerY).toBeGreaterThan(36);
-    expect(routes[0].centerY).toBeLessThan(364);
+    // The run must sit between the two handle ys — half a card below the
+    // source centre and half a card above the target's — at the midpoint when
+    // nothing conflicts.
+    expect(routes[0].centerY).toBeGreaterThan(LDV_NODE_H / 2);
+    expect(routes[0].centerY).toBeLessThan(400 - LDV_NODE_H / 2);
     expect(routes[0].centerY).toBe(200);
   });
 

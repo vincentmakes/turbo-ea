@@ -169,20 +169,55 @@ describe("LdvNode card logo", () => {
     expect(typeIcon()).not.toBeNull();
   });
 
-  it("puts the logo in the card's flow, above the name, not over it", () => {
-    // The name is one ellipsised line across the card's whole width, so an
-    // absolutely-positioned logo sat ON a long name rather than above it. Being
-    // a flow child is what guarantees the name starts below the mark, and it is
-    // the reason the card is tall enough to hold both.
+  it("starts the text below the logo's band, at the card's full width", () => {
+    // The logo is out of the flow, so it costs no height; the text hangs from
+    // its band instead. Narrowing the text to sit BESIDE the mark was measured
+    // and is worse than doing nothing — ~124px breaks a name after its second
+    // word — so the name keeps the whole width and drops below the logo.
     renderNode({ logoUrl: "/api/v1/cards/app-1/logo?v=1" });
     const img = logo() as HTMLElement;
-    expect(getComputedStyle(img).position).not.toBe("absolute");
-    const name = document.body.textContent ?? "";
-    expect(name).toContain("NexaCore ERP");
-    expect(
-      img.compareDocumentPosition(document.querySelector("p") as HTMLElement) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    const imgStyle = getComputedStyle(img);
+    expect(imgStyle.position).toBe("absolute");
+
+    const block = (document.querySelector("p") as HTMLElement).parentElement as HTMLElement;
+    const blockStyle = getComputedStyle(block);
+    const logoBottom = parseFloat(imgStyle.top) + parseFloat(imgStyle.height);
+    expect(parseFloat(blockStyle.marginTop)).toBeGreaterThanOrEqual(logoBottom);
+    // Full width: no side gutters eating into a long name.
+    expect(parseFloat(blockStyle.paddingLeft) || 0).toBe(0);
+    expect(parseFloat(blockStyle.paddingRight) || 0).toBe(0);
+  });
+
+  it("leaves a card with no logo exactly as it was before logos existed", () => {
+    renderNode();
+    const block = (document.querySelector("p") as HTMLElement).parentElement as HTMLElement;
+    expect(parseFloat(getComputedStyle(block).marginTop) || 0).toBe(0);
+  });
+
+  it("shows a long name whole, wrapped, rather than cutting it short", () => {
+    // The name used to be sliced at 26 characters in JS, before CSS ever saw
+    // it — so no amount of room ever made a long name readable. The renderer
+    // owns the cut now: the text is complete in the DOM and wraps.
+    const long = "Salesforce Customer Community Portal";
+    renderNode({ name: long, logoUrl: "/api/v1/cards/app-1/logo?v=1" });
+    const nameEl = document.querySelector("p") as HTMLElement;
+    expect(nameEl.textContent).toBe(long);
+    expect(getComputedStyle(nameEl).whiteSpace).not.toBe("nowrap");
+    expect(getComputedStyle(nameEl).webkitLineClamp).toBe("2");
+  });
+
+  it("gives the name one line when two extra fields need the other", () => {
+    // Nothing clips a card — the badges deliberately overhang it — so the name
+    // has to yield the line rather than let the card spill past its border.
+    renderNode({
+      logoUrl: "/api/v1/cards/app-1/logo?v=1",
+      extraLines: [
+        { label: "Subtype", value: "Business Application" },
+        { label: "Owner", value: "A. Someone" },
+      ],
+    });
+    const nameEl = document.querySelector("p") as HTMLElement;
+    expect(getComputedStyle(nameEl).webkitLineClamp).toBe("1");
   });
 
   it("falls back to the plain type icon when the image fails to load", () => {
