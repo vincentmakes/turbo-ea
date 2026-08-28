@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.103.0] - 2026-08-28
+
+### Added
+
+- **Dates in an extension's pages now follow your date format.** An extension can read the workspace date format from **Admin → Settings**, so a date it shows is written the same way as everywhere else in Turbo EA rather than in whatever format the extension happened to pick. Extensions can also link into a Turbo EA page — an inventory view, a report — without the full page reload that used to cost.
+
 ## [2.102.0] - 2026-08-28
 
 ### Added

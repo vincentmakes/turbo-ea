@@ -78,6 +78,11 @@ describe("extensionHost", () => {
     // SDK 1.17 — data-grid loader + create-card dialog
     expect(typeof sdk.loadAgGrid).toBe("function");
     expect(sdk.CreateCardDialog).toBeDefined();
+    // SDK 1.20 — workspace date format + in-app navigation. Without these an
+    // extension can only approximate core: a hand-rolled date ignores the
+    // workspace setting, and an <a href> to a core route reloads the SPA.
+    expect(typeof sdk.useDateFormat).toBe("function");
+    expect(typeof sdk.useNavigate).toBe("function");
   });
 
   it("loadAgGrid resolves core's AG Grid module and themes", async () => {
@@ -384,7 +389,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.19");
+    expect(UI_SDK_VERSION).toBe("1.20");
   });
 
   it("whitelists the nav groups an extension route may request", () => {

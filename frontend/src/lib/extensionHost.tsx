@@ -95,9 +95,16 @@ import * as tokens from "@/theme/tokens";
 import { OptionChip, SELECT_CHIP_BASE, chipWidthForField } from "@/components/OptionChip";
 import { readableTextColor } from "@/lib/color";
 import { fieldLabel, optionLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
+// SDK 1.20 - the workspace date format, and in-app navigation. Both are things
+// an extension can only otherwise approximate: a hand-rolled toLocaleDateString
+// ignores Admin -> Settings -> Date format, and an <a href> to a core route
+// reloads the whole SPA even though the extension page already renders inside
+// core's router.
+import { useDateFormat } from "@/hooks/useDateFormat";
+import { useNavigate } from "react-router";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.19";
+export const UI_SDK_VERSION = "1.20";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -931,6 +938,14 @@ export function initExtensionHost(): void {
       MetricCard,
       ReportLegend,
       UserMultiSelect,
+      // SDK 1.20 - `useDateFormat` returns the same bound `formatDate` /
+      // `formatDateTime` core renders every date through, so an extension
+      // follows the workspace setting instead of inventing a format.
+      // `useNavigate` is react-router's, re-exported: an extension page is
+      // mounted inside core's router, so it can route without a document
+      // reload - but it must not bundle react-router itself.
+      useDateFormat,
+      useNavigate,
       loadRecharts: () => import("recharts"),
       // SDK 1.9 — theme-aware Recharts chrome (grid/axis/tooltip), the same
       // conventions core reports use, so extension charts cannot drift from
