@@ -18,8 +18,10 @@
  *  - **It must contain no raw `;` or `=`.** mxGraph parses a style as
  *    `;`-delimited `key=value` pairs and this file's own helpers `split(";")`,
  *    so `data:image/png;base64,…==` would truncate the token and corrupt every
- *    style part after it. The bytes are therefore percent-encoded — the same
- *    reason `buildIconImage` runs its SVG through `encodeURIComponent`.
+ *    style part after it. The composed raster is therefore handed over inside
+ *    an `encodeURIComponent`-ed SVG — byte for byte the encoding the card-type
+ *    icons have always used, and the only one this product has proof DrawIO
+ *    renders. See `toStyleSafeDataUri` for what was tried before it.
  *  - **It has to be small.** The image lives in the cell's style string, which
  *    is saved into the diagram XML — so the megabyte a real logo may weigh
  *    would be paid again per card, per save, per thumbnail. A downscaled copy
@@ -64,42 +66,40 @@ function remember(key: string, value: string | null): string | null {
   return value;
 }
 
-/** Bytes that may appear literally in a percent-encoded data URI payload. */
-const SAFE_BYTES = new Set(
-  Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()", (c) =>
-    c.charCodeAt(0),
-  ),
-);
-
 /**
- * Re-encode a `data:image/png;base64,…` URI so it carries no `;` or `=`.
+ * Wrap the composed PNG in an SVG, and encode it the way the card-type icons
+ * already are.
  *
- * The result is `data:image/png,<percent-encoded bytes>` — a plain
- * (non-base64) data URI, which RFC 2397 defines and browsers render. It is
- * roughly twice the size of the base64 form; at a few kilobytes per card that
- * is the cheap half of the trade, and the alternative is a style string that
- * silently truncates.
+ * The style value cannot carry a raw `;` or `=` — mxGraph parses a style as
+ * `;`-delimited `key=value`, and this file's own helpers `split(";")` — which
+ * rules out `data:image/png;base64,…==` directly.
  *
- * `encodeURIComponent` cannot be used: it would read the bytes as UTF-16 code
- * units and UTF-8 them, mangling every byte above 0x7F.
+ * A percent-encoded PNG (`data:image/png,%89PNG…`) satisfies that too, and
+ * loads correctly in a browser, including through the SVG `<image>` element
+ * mxGraph renders into — both verified. It nonetheless came back as a broken
+ * image inside DrawIO. Rather than keep guessing at which layer mangles it,
+ * this uses the one encoding this product already proves DrawIO renders: the
+ * card-type icons are `data:image/svg+xml,` + `encodeURIComponent`, and they
+ * have shipped that way since before logos existed. Wrapping the raster in an
+ * SVG makes the outer URI the same scheme, media type and encoding as the
+ * icons beside it, leaving no untested variable.
+ *
+ * The nested `data:` reference is not an external fetch, so it resolves inside
+ * an image-rendered SVG; verified painting real pixels in Chromium.
  */
-function toStyleSafeDataUri(base64Url: string): string | null {
-  const comma = base64Url.indexOf(",");
-  if (comma < 0) return null;
-  let binary: string;
-  try {
-    binary = atob(base64Url.slice(comma + 1));
-  } catch {
-    return null;
-  }
-  let out = "";
-  for (let i = 0; i < binary.length; i++) {
-    const b = binary.charCodeAt(i);
-    out += SAFE_BYTES.has(b)
-      ? binary[i]
-      : `%${b.toString(16).toUpperCase().padStart(2, "0")}`;
-  }
-  return `data:image/png,${out}`;
+function toStyleSafeDataUri(base64Url: string, size: number): string | null {
+  if (!base64Url.startsWith("data:image/png")) return null;
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" ` +
+    `xmlns:xlink="http://www.w3.org/1999/xlink" ` +
+    `width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">` +
+    // `href` for SVG 2, `xlink:href` for renderers still on SVG 1.1 — the
+    // cost is a duplicated attribute, the alternative is a blank tile on
+    // whichever one the viewer happens to use.
+    `<image href="${base64Url}" xlink:href="${base64Url}" ` +
+    `x="0" y="0" width="${size}" height="${size}" ` +
+    `preserveAspectRatio="xMidYMid meet"/></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
@@ -217,7 +217,7 @@ export async function composeCardLogoImage(
     // A canvas with no 2d implementation behind it (jsdom, some headless
     // runners) answers `toDataURL` with the bare "data:," sentinel.
     if (!url || !url.startsWith("data:image/png")) return remember(key, null);
-    return remember(key, toStyleSafeDataUri(url));
+    return remember(key, toStyleSafeDataUri(url, size));
   } catch {
     return remember(key, null);
   }

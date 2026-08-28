@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A card logo on a diagram showed as a broken image.** The composed picture is now handed to the diagram in the same encoding the card-type icons have always used, which is the one this product has proof the embedded editor renders.
 - **A diagram shows its logos when you open it, not only when you edit it.** The read-only diagram view renders the stored drawing directly and never ran the display pass, so logos appeared in the editor and vanished the moment anyone merely looked at the diagram.
 - **A logo whose artwork runs to the edge is no longer clipped.** The rounded tile cropped marks that filled their canvas — Apache Kafka's among them. Existing logos are fixed as they are, with no need to upload them again.
 - **The row-selection checkboxes stay at the far left of every grid.** Freezing a column on a narrow window could hand the checkbox column back to the scrolling area, so it slid away with the content instead of staying beside the rows it selects.

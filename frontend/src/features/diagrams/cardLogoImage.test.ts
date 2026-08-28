@@ -75,20 +75,34 @@ describe("composeCardLogoImage", () => {
     // token would truncate it and corrupt every part after it.
     const uri = await composeCardLogoImage("/api/v1/cards/c1/logo?v=1", "apps", "#0f7eb5");
     expect(uri).not.toBeNull();
-    expect(uri!.startsWith("data:image/png,")).toBe(true);
-    expect(uri!.slice("data:image/png,".length)).not.toMatch(/[;=]/);
+    expect(uri!.slice("data:image/svg+xml,".length)).not.toMatch(/[;=]/);
+  });
+
+  it("uses the same encoding the card-type icons already use", async () => {
+    // Not an arbitrary choice: `data:image/svg+xml,` + encodeURIComponent is
+    // the one form this product has proof DrawIO renders, because the type
+    // icons have shipped that way since before logos existed. A percent-
+    // encoded PNG met the parser constraint too and still came back as a
+    // broken image inside DrawIO.
+    const uri = await composeCardLogoImage("/api/v1/cards/c1/logo?v=1", "apps", "#0f7eb5");
+    expect(uri!.startsWith("data:image/svg+xml,")).toBe(true);
+  });
+
+  it("carries the raster inside, addressed both ways", async () => {
+    const uri = await composeCardLogoImage("/api/v1/cards/c1/logo?v=1", "apps", "#0f7eb5");
+    const svg = decodeURIComponent(uri!.slice("data:image/svg+xml,".length));
+    // `href` for SVG 2 and `xlink:href` for SVG 1.1 renderers — dropping
+    // either leaves a blank tile on whichever one the viewer uses.
+    expect(svg).toContain("<image href=\"data:image/png;base64,");
+    expect(svg).toContain("xlink:href=\"data:image/png;base64,");
+    expect(svg).toContain("preserveAspectRatio=\"xMidYMid meet\"");
   });
 
   it("round-trips to the same bytes the canvas produced", async () => {
     const uri = await composeCardLogoImage("/api/v1/cards/c1/logo?v=1", "apps", "#0f7eb5");
-    // Decoded byte by byte, not with `decodeURIComponent`: the payload is raw
-    // PNG octets, which are not valid UTF-8 — the very reason the encoder is
-    // hand-rolled rather than delegating to it.
-    const payload = uri!.slice("data:image/png,".length);
-    const decoded = payload.replace(/%([0-9A-F]{2})/g, (_m, h) =>
-      String.fromCharCode(parseInt(h, 16)),
-    );
-    expect(decoded).toBe(atob(PNG_B64));
+    const svg = decodeURIComponent(uri!.slice("data:image/svg+xml,".length));
+    const b64 = svg.match(/href="data:image\/png;base64,([^"]+)"/)?.[1];
+    expect(b64).toBe(PNG_B64);
   });
 
   it("returns null when the image cannot be loaded", async () => {
