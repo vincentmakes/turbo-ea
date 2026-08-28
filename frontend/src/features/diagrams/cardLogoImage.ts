@@ -132,6 +132,19 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
 const LOGO_BAND = 0.72;
 
 /**
+ * How far the plate behind the logo is washed toward white.
+ *
+ * Deliberately darker than `tint`'s own default, which exists for a swimlane
+ * fill covering a large area: at that strength a plate this small reads as
+ * near-white, which is the stark hole-in-the-card look it is meant to avoid.
+ * Measured across every seeded card colour, this keeps better than 13:1
+ * contrast against black, so a mark drawn in dark ink still sits cleanly on
+ * it — pinned by a test, because darkening it further is exactly the tweak
+ * that would quietly cost legibility.
+ */
+const PLATE_TINT = 0.78;
+
+/**
  * A plate behind the logo, sized to the mark rather than the tile, in a pale
  * wash of the card's own colour.
  *
@@ -163,7 +176,7 @@ function drawLogoPlate(
 ): void {
   const r = Math.max(1, Math.round(size * 0.06));
   ctx.save();
-  ctx.fillStyle = tint(color);
+  ctx.fillStyle = tint(color, PLATE_TINT);
   ctx.beginPath();
   // `roundRect` is not universally available; a square plate is a perfectly
   // good fallback and never worth failing the whole composite over.

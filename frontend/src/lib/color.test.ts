@@ -136,8 +136,11 @@ describe("tint", () => {
   it("stays light enough for a dark mark to sit on", () => {
     // Docker's and Kafka's marks are dark ink drawn for a white page; the
     // whole point of the plate is that they remain legible on any card.
-    for (const hex of ["#0f7eb5", "#d29270", "#003399", "#028f00"]) {
-      expect(contrastRatio(tint(hex), "#000000")).toBeGreaterThan(10);
+    // 0.78 is the strength the card-logo plate actually uses — assert on it
+    // rather than the helper's default, since darkening the plate is the
+    // tweak that would quietly cost legibility.
+    for (const hex of ["#0f7eb5", "#d29270", "#003399", "#028f00", "#774fcc", "#c7527d"]) {
+      expect(contrastRatio(tint(hex, 0.78), "#000000")).toBeGreaterThan(12);
     }
   });
 
