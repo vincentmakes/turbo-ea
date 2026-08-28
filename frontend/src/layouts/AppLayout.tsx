@@ -53,6 +53,7 @@ import {
   NAV_ITEM_DEFS,
   type NavItemDef,
 } from "@/layouts/navItems";
+import { hasPermission } from "@/components/RequirePermission";
 import { canAccessPath, permissionForPath } from "@/lib/routePermissions";
 import type { BadgeCounts, Card } from "@/types";
 
@@ -181,11 +182,11 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       );
     }
 
-    const hasPerm = (perm?: string | string[]) => {
-      if (!perm) return true;
-      if (Array.isArray(perm)) return perm.some((p) => can(p));
-      return can(perm);
-    };
+    // Delegates to the shared helper rather than re-deriving the semantics —
+    // OR over a list, wildcard, fail-closed — so the nav can never drift from
+    // what RouteGuard enforces.
+    const hasPerm = (perm?: string | string[]) =>
+      !perm || hasPermission(user.permissions, perm);
 
     // A nav entry that points at a route inherits that route's permission from
     // ROUTE_PERMISSIONS, so the menu and the router can never disagree. An
@@ -276,7 +277,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     };
 
     return items.filter((item) => hasNavPerm(item)).map(resolve);
-  }, [bpmEnabled, ppmEnabled, grcEnabled, turboLensReady, uiExtensions, can, t]);
+  }, [bpmEnabled, ppmEnabled, grcEnabled, turboLensReady, uiExtensions, can, user.permissions, t]);
 
   // Resolve admin item labels via i18n and filter based on permissions
   const adminItems = useMemo(() => {

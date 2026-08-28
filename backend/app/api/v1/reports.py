@@ -1450,7 +1450,12 @@ async def cost_report(
     type: str = Query("Application"),
 ):
     """Cost aggregation report."""
-    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    # `costs.view` is the whole gate here, not an add-on. Elsewhere a report
+    # carries its own base permission and adds `costs.view` only when the
+    # request actually returns money (portfolio when an axis is a cost field,
+    # capability-heatmap when metric == "total_cost"). This report is entirely
+    # cost data, so its subject permission *is* its base permission — and
+    # `costs.view` is documented as covering cost reports.
     await PermissionService.require_permission(db, user, "costs.view")
 
     # Detect cost fields from type schema
@@ -1505,7 +1510,8 @@ async def cost_treemap(
     powers the treemap drill-down — clicking a parent rectangle re-queries with
     the related type as ``type`` and the parent's id as ``parent_card_id``.
     """
-    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    # See `cost_report` above: `costs.view` alone gates a report that is
+    # nothing but costs.
     await PermissionService.require_permission(db, user, "costs.view")
     # M-3: Validate cost_field format
     if not _SAFE_KEY_RE.match(cost_field):

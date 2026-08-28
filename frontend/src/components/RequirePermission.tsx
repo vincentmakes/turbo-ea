@@ -9,6 +9,11 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useAuthContext } from "@/hooks/AuthContext";
 
 interface Props {
+  /**
+   * Permission key, or a list any ONE of which grants access. The OR reading is
+   * the documented contract for permissions declared in extension manifests, so
+   * it must not change — see the regression test in RequirePermission.test.tsx.
+   */
   permission: string | string[];
   children: React.ReactNode;
 }

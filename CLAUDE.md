@@ -124,7 +124,7 @@ To add an Ardoq / HOPEX / BiZZdesign / etc. adapter, the only surface area is a 
 
 4. **Frontend** — no changes required. The source picker in `MigrationAdmin.tsx`'s upload dialog reads from `GET /migration/sources`, so the new adapter shows up automatically. The file picker's `accept=` attribute is driven by the adapter's `accepted_extensions`.
 
-5. **i18n** — no new keys required. The picker uses the adapter's `label` directly; the staging/apply UI is source-agnostic and uses the existing `migration.*` keys in all 8 locales.
+5. **i18n** — no new keys required. The picker uses the adapter's `label` directly; the staging/apply UI is source-agnostic and uses the existing `migration.*` keys in all 10 locales.
 
 6. **Docs** — update `docs/admin/migration.md` (+ 7 locale variants `.de`/`.fr`/`.es`/`.it`/`.pt`/`.zh`/`.ru`) to add the new source to the **Supported sources** table at the top. If the new source has format-specific guidance (e.g. how to obtain the export), add a short subsection like the existing LeanIX one. Keep the workflow / re-running / permissions sections generic.
 
@@ -280,7 +280,7 @@ Screenshots can stay in `docs/assets/img/en/` and the new docs can reference `..
 Every change that introduces user-visible content must include translations. Before marking a task as complete, verify:
 
 - [ ] **New UI strings**: Added translation keys to `frontend/src/i18n/locales/en/{namespace}.json` and all 9 non-English locale files (`de`, `fr`, `es`, `it`, `pt`, `zh`, `ru`, `da`, `ar`). Never hardcode English text in components.
-- [ ] **New metamodel content** (card types, subtypes, fields, options, sections, relation types): Added `"translations"` dicts with all 8 non-English locales in `backend/app/services/seed.py`.
+- [ ] **New metamodel content** (card types, subtypes, fields, options, sections, relation types): Added `"translations"` dicts with all 9 non-English locales (`de`, `fr`, `es`, `it`, `pt`, `zh`, `ru`, `da`, `ar`) in `backend/app/services/seed.py`.
 - [ ] **New select options** (in seed data or reusable option arrays): Each option object includes a `"translations"` dict.
 - [ ] **New field labels**: Each field in `fields_schema` includes a `"translations"` dict.
 - [ ] **New section names**: Each section in `fields_schema` includes a `"translations"` dict.

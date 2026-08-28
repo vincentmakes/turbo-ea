@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.104.1] - 2026-08-28
+
+### Fixed
+
+- **A role granted cost visibility can now open the Cost report.** The report also demanded the separate EA-dashboard permission, so a role given **Costs → View** — which is described as covering cost reports — saw the menu entry, opened the page, and got nothing but a permission error. Cost visibility is now the only permission the report asks for. No default role changes: Admin, BPM Admin and Member could already open it, and Viewer, which has no cost visibility, still cannot.
+
 ## [2.104.0] - 2026-08-28
 
 ### Added

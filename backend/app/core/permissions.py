@@ -81,7 +81,7 @@ APP_PERMISSIONS: dict[str, dict] = {
             "reports.ea_dashboard": "View EA dashboard and reports",
             "reports.bpm_dashboard": "View BPM dashboard and reports",
             "reports.ppm_dashboard": "View PPM dashboard and reports",
-            "reports.portfolio": "View portfolio and cost reports",
+            "reports.portfolio": "View the portfolio reports",
         },
     },
     "surveys": {

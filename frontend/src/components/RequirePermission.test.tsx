@@ -44,6 +44,14 @@ describe("hasPermission", () => {
     expect(hasPermission({ "*": true }, "admin.users")).toBe(true);
   });
 
+  it("keeps a bare array as OR — extension manifests depend on it", () => {
+    // Regression guard: extension-declared permissions are lists whose
+    // documented meaning is "any one of these". Tightening this to AND would
+    // silently lock users out of every installed extension's pages.
+    expect(hasPermission({ "adr.view": true }, ["adr.view", "adr.manage"])).toBe(true);
+    expect(hasPermission({ "adr.manage": true }, ["adr.view", "adr.manage"])).toBe(true);
+  });
+
   it("grants when any permission in the OR-list matches", () => {
     expect(
       hasPermission({ "eol.manage": true }, ["admin.settings", "eol.manage"]),

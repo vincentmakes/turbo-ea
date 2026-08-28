@@ -135,6 +135,7 @@ describe("canAccessPath", () => {
     expect(canAccessPath({ "ppm.view": true }, "/ppm")).toBe(true);
     expect(canAccessPath({ "ppm.view": true }, "/bpm")).toBe(false);
   });
+
 });
 
 describe("parity", () => {

@@ -38,6 +38,6 @@
 - [ ] I used `async def` for all new route handlers and DB operations
 - [ ] I did not expose sensitive fields (password hashes, encrypted secrets) in API responses
 - [ ] I bumped `/VERSION` and added a `CHANGELOG.md` entry (if user-facing change)
-- [ ] I added translations for new UI strings in all 8 locales (if applicable)
+- [ ] I added translations for new UI strings in all 10 locales (if applicable)
 - [ ] I updated user documentation in `docs/` (if UI or feature change)
 - [ ] Screenshots attached for UI changes (if applicable)
