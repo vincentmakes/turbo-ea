@@ -167,6 +167,45 @@ describe("PpmPortfolioView withheld data", () => {
   });
 });
 
+describe("PpmPortfolioView opening state", () => {
+  const OPTIONS = [
+    { type_key: "Organization", label: "Organization" },
+    { type_key: "Platform", label: "Platform" },
+  ];
+
+  /** The two MUI Selects, in render order: Group by, then Subtype. */
+  const selects = () => screen.getAllByRole("combobox");
+
+  it("opens on Organization with no subtype by default", () => {
+    renderBoard({ groupOptions: OPTIONS });
+    const [groupBy, subtype] = selects();
+    expect(groupBy).toHaveTextContent("Organization");
+    // No subtype preselected — the Select renders its zero-width-space
+    // placeholder rather than "All", which is MUI's behaviour for an empty
+    // value without `displayEmpty`.
+    expect(subtype.textContent?.replace(/\u200b/g, "").trim()).toBe("");
+  });
+
+  it("opens on the grouping and subtype a portal configures", () => {
+    renderBoard({
+      groupOptions: OPTIONS,
+      initialGroupBy: "Platform",
+      initialSubtype: "Project",
+    });
+    const [groupBy, subtype] = selects();
+    expect(groupBy).toHaveTextContent("Platform");
+    expect(subtype).toHaveTextContent("Project");
+  });
+
+  it("tells its container which grouping to load", () => {
+    const onGroupByChange = vi.fn();
+    renderBoard({ groupOptions: OPTIONS, initialGroupBy: "Platform", onGroupByChange });
+    // The container seeds its own fetch from the same default, so the board must
+    // not fire on mount — only when the visitor actually changes the control.
+    expect(onGroupByChange).not.toHaveBeenCalled();
+  });
+});
+
 describe("PpmPortfolioView chrome", () => {
   const HEADING = "Project Portfolio Management";
 

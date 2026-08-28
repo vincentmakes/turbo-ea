@@ -47,6 +47,18 @@ Tres interruptores controlan lo que revela el tablero publicado:
 | **Mostrar comentarios de los informes de estado** | Activado | Resumen, logros y próximos pasos en la vista emergente. La fecha del informe y los indicadores de estado siempre se muestran |
 | **Mostrar nombres de los jefes de proyecto** | **Desactivado** | Los nombres de jefes de proyecto y autores de informes. Desactivado por defecto porque los nombres son datos personales |
 
+El tablero también se abre con una agrupación y un subtipo que usted elige:
+
+| Ajuste | Por defecto | Efecto |
+|--------|-------------|--------|
+| **Se abre agrupado por** | Organización | Qué agrupación muestra el tablero primero |
+| **Se abre mostrando el subtipo** | Todos | Qué subtipo se selecciona primero |
+
+Ambos son solo un punto de partida: el visitante puede cambiar cualquiera de los
+dos y nada se recuerda, así que volver a abrir el portal regresa a lo que usted
+configuró. Es distinto del **filtro por subtipos** de más arriba, que decide qué
+iniciativas se publican.
+
 !!! note
     Hay cosas que nunca se publican, elija lo que elija: los campos de coste guardados
     en la propia tarjeta de Iniciativa, las direcciones de correo de los usuarios y todo

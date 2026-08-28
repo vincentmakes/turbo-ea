@@ -46,6 +46,18 @@ Drei Schalter steuern, was das veröffentlichte Board preisgibt:
 | **Kommentare aus Statusberichten anzeigen** | Ein | Zusammenfassung, Erreichtes und nächste Schritte in der Hover-Übersicht. Berichtsdatum und Statusampeln werden immer angezeigt |
 | **Namen der Projektleitung anzeigen** | **Aus** | Die Namen von Projektleitungen und Berichtsverfassern. Standardmäßig aus, da Namen personenbezogene Daten sind |
 
+Das Board öffnet außerdem mit einer Gruppierung und einem Subtyp Ihrer Wahl:
+
+| Einstellung | Standard | Wirkung |
+|-------------|----------|---------|
+| **Öffnet gruppiert nach** | Organisation | Welche Gruppierung das Board zuerst zeigt |
+| **Öffnet mit Subtyp** | Alle | Welcher Subtyp zuerst ausgewählt ist |
+
+Beides ist nur ein Ausgangspunkt — Besucher können beide Bedienelemente ändern,
+und nichts wird gespeichert; ein erneuter Aufruf kehrt zu Ihrer Konfiguration
+zurück. Das ist etwas anderes als der **Subtyp-Filter** oben, der bestimmt,
+welche Initiativen überhaupt veröffentlicht werden.
+
 !!! note
     Manches wird niemals veröffentlicht, unabhängig von Ihrer Auswahl: Kosten-Felder
     auf der Initiative-Karte selbst, E-Mail-Adressen von Benutzern und alles auf der

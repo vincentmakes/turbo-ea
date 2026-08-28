@@ -46,6 +46,18 @@ Trois interrupteurs contrôlent ce que le tableau publié révèle :
 | **Afficher les commentaires des rapports d'avancement** | Activé | Résumé, réalisations et prochaines étapes dans l'aperçu au survol. La date du rapport et les indicateurs de santé sont toujours affichés |
 | **Afficher les noms des chefs de projet** | **Désactivé** | Les noms des chefs de projet et des auteurs de rapports. Désactivé par défaut car les noms sont des données personnelles |
 
+Le tableau s'ouvre également sur un regroupement et un sous-type de votre choix :
+
+| Paramètre | Par défaut | Effet |
+|-----------|------------|-------|
+| **S'ouvre groupé par** | Organisation | Le regroupement affiché en premier |
+| **S'ouvre sur le sous-type** | Tous | Le sous-type sélectionné en premier |
+
+Ce ne sont que des points de départ : un visiteur peut changer l'un ou l'autre, et
+rien n'est mémorisé — rouvrir le portail revient à votre configuration. À ne pas
+confondre avec le **filtre par sous-types** ci-dessus, qui décide quelles
+initiatives sont publiées.
+
 !!! note
     Certaines choses ne sont jamais publiées, quel que soit votre choix : les champs de
     coût stockés sur la carte Initiative elle-même, les adresses e-mail des utilisateurs,

@@ -17,7 +17,7 @@
  */
 
 import { useState, useCallback } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import PpmPortfolioView from "@/features/ppm/PpmPortfolioView";
 import { publicGet } from "./publicApi";
@@ -36,11 +36,22 @@ interface Props {
 
 export default function PortalPpmPortfolio({ slug, portal }: Props) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // What the portal is configured to open on. The visitor can change either
+  // control freely; nothing is persisted, so a reload returns to these.
+  const ppmCfg = (portal.card_config?.ppm ?? {}) as {
+    default_group_by?: string;
+    default_subtype?: string;
+  };
+  const initialGroupBy = ppmCfg.default_group_by || "Organization";
+  const initialSubtype = ppmCfg.default_subtype || "";
+
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PpmPortfolioItem[]>([]);
   const [dashboard, setDashboard] = useState<PpmPortfolioDashboard | null>(null);
   const [groupOptions, setGroupOptions] = useState<PpmPortfolioGroupOption[]>([]);
-  const [groupBy, setGroupBy] = useState("Organization");
+  const [groupBy, setGroupBy] = useState(searchParams.get("groupBy") || initialGroupBy);
 
   useAbortableEffect(
     async ({ signal, isCurrent }) => {
@@ -80,6 +91,8 @@ export default function PortalPpmPortfolio({ slug, portal }: Props) {
       subtypeDefs={portal.type_info?.subtypes ?? []}
       loading={loading}
       onGroupByChange={setGroupBy}
+      initialGroupBy={initialGroupBy}
+      initialSubtype={initialSubtype}
       onOpen={handleOpen}
       showTitle={false}
     />

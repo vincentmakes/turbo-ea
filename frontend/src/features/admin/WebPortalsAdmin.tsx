@@ -35,7 +35,7 @@ import {
   useSubtypeLabel,
 } from "@/hooks/useResolveLabel";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
-import type { WebPortal, TagGroup, PortalView } from "@/types";
+import type { WebPortal, TagGroup, PortalView, PpmGroupOption } from "@/types";
 
 interface ToggleEntry {
   card: boolean;
@@ -112,6 +112,11 @@ export default function WebPortalsAdmin() {
   const [ppmShowCosts, setPpmShowCosts] = useState(true);
   const [ppmShowPeople, setPpmShowPeople] = useState(false);
   const [ppmShowNarrative, setPpmShowNarrative] = useState(true);
+  // What the published board opens on. Visitors can change both; nothing is
+  // persisted, so a reload returns to whatever is configured here.
+  const [ppmGroupBy, setPpmGroupBy] = useState("Organization");
+  const [ppmSubtype, setPpmSubtype] = useState("");
+  const [ppmGroupOptions, setPpmGroupOptions] = useState<PpmGroupOption[]>([]);
   const [allowedDomains, setAllowedDomains] = useState<string[]>([]);
   const [domainInput, setDomainInput] = useState("");
   const [ssoEnabled, setSsoEnabled] = useState(false);
@@ -134,6 +139,12 @@ export default function WebPortalsAdmin() {
       .get<TagGroup[]>("/tag-groups")
       .then(setTagGroups)
       .catch(() => setTagGroups([]));
+    // The same list the board's Group by dropdown is built from, so the admin
+    // cannot configure a grouping the board would not offer.
+    api
+      .get<PpmGroupOption[]>("/reports/ppm/group-options")
+      .then(setPpmGroupOptions)
+      .catch(() => setPpmGroupOptions([]));
     api
       .get<{ enabled: boolean }>("/auth/sso/config")
       .then((cfg) => setSsoEnabled(cfg.enabled === true))
@@ -156,6 +167,8 @@ export default function WebPortalsAdmin() {
     setPpmShowCosts(true);
     setPpmShowPeople(false);
     setPpmShowNarrative(true);
+    setPpmGroupBy("Organization");
+    setPpmSubtype("");
     setAllowedDomains([]);
     setDomainInput("");
     setError("");
@@ -194,6 +207,8 @@ export default function WebPortalsAdmin() {
     setPpmShowCosts(ppmCfg.show_costs !== false);
     setPpmShowPeople(ppmCfg.show_people === true);
     setPpmShowNarrative(ppmCfg.show_report_narrative !== false);
+    setPpmGroupBy((ppmCfg.default_group_by as string) || "Organization");
+    setPpmSubtype((ppmCfg.default_subtype as string) || "");
     setAllowedDomains(portal.allowed_email_domains || []);
     setDomainInput("");
     setError("");
@@ -260,6 +275,8 @@ export default function WebPortalsAdmin() {
           show_costs: ppmShowCosts,
           show_people: ppmShowPeople,
           show_report_narrative: ppmShowNarrative,
+          default_group_by: ppmGroupBy,
+          default_subtype: ppmSubtype,
         }
       : null;
     // `card_config` collapses to null when there is nothing in it — the PPM
@@ -775,6 +792,49 @@ export default function WebPortalsAdmin() {
               >
                 {t("webPortals.ppm.hint")}
               </Typography>
+
+              {/* What the board opens on. Distinct from the subtype *filter*
+                  above, which decides which initiatives are published at all —
+                  this only picks the selection the visitor first sees. */}
+              <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
+                <TextField
+                  select
+                  size="small"
+                  label={t("webPortals.ppm.defaultGroupBy")}
+                  value={ppmGroupBy}
+                  onChange={(e) => setPpmGroupBy(e.target.value)}
+                  sx={{ minWidth: 220, flex: 1 }}
+                  helperText={t("webPortals.ppm.defaultGroupByHelper")}
+                >
+                  {ppmGroupOptions.map((opt) => (
+                    <MenuItem key={opt.type_key} value={opt.type_key}>
+                      {typeLabel(
+                        types.find((tp) => tp.key === opt.type_key) ?? {
+                          key: opt.type_key,
+                          label: opt.type_label,
+                        },
+                      )}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  label={t("webPortals.ppm.defaultSubtype")}
+                  value={ppmSubtype}
+                  onChange={(e) => setPpmSubtype(e.target.value)}
+                  sx={{ minWidth: 220, flex: 1 }}
+                  helperText={t("webPortals.ppm.defaultSubtypeHelper")}
+                >
+                  <MenuItem value="">{t("common:all", "All")}</MenuItem>
+                  {(selectedType?.subtypes || []).map((st) => (
+                    <MenuItem key={st.key} value={st.key}>
+                      {stLabel(st)}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Box>
+
               <FormControlLabel
                 control={
                   <Switch

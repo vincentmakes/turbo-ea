@@ -46,6 +46,18 @@ Três interruptores controlam o que o painel publicado revela:
 | **Mostrar comentários dos relatórios de estado** | Ligado | Resumo, realizações e próximos passos na vista sobreposta. A data do relatório e os indicadores de estado são sempre apresentados |
 | **Mostrar nomes dos gestores de projeto** | **Desligado** | Os nomes dos gestores de projeto e dos autores dos relatórios. Desligado por predefinição porque os nomes são dados pessoais |
 
+O painel abre também com um agrupamento e um subtipo à sua escolha:
+
+| Definição | Predefinição | Efeito |
+|-----------|--------------|--------|
+| **Abre agrupado por** | Organização | Que agrupamento o painel mostra primeiro |
+| **Abre a mostrar o subtipo** | Todos | Que subtipo fica selecionado primeiro |
+
+Ambos são apenas um ponto de partida: o visitante pode alterar qualquer um dos
+controlos e nada é memorizado, pelo que reabrir o portal regressa ao que aqui
+configurou. É diferente do **filtro por subtipos** acima, que decide que
+iniciativas são publicadas.
+
 !!! note
     Há coisas que nunca são publicadas, seja qual for a sua escolha: os campos de custo
     guardados no próprio cartão de Iniciativa, os endereços de e-mail dos utilizadores e

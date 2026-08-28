@@ -46,6 +46,18 @@ Three switches control what the published board reveals:
 | **Show status report commentary** | On | Summary, accomplishments and next steps in the hover overview. The report date and health indicators are always shown |
 | **Show project manager names** | **Off** | The names of project managers and report authors. Off by default because names are personal data |
 
+The board also opens on a grouping and subtype of your choosing:
+
+| Setting | Default | Effect |
+|---------|---------|--------|
+| **Opens grouped by** | Organization | Which grouping the board shows first |
+| **Opens showing subtype** | All | Which subtype is selected first |
+
+Both are only a starting point — a visitor can change either control, and nothing
+is remembered, so reopening the portal returns to what you configured here. This
+is separate from the **subtype filter** above, which decides which initiatives
+are published at all.
+
 !!! note
     Some things are never published, whatever you choose: cost fields stored on the
     Initiative card itself, user email addresses, and everything on the initiative

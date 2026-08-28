@@ -46,6 +46,18 @@ Tre kontakter styrer, hvad den offentliggjorte tavle viser:
 | **Vis kommentarer fra statusrapporter** | Til | Resumé, resultater og næste skridt i oversigten ved museover. Rapportdato og statusindikatorer vises altid |
 | **Vis projektledernes navne** | **Fra** | Navnene på projektledere og rapportforfattere. Slået fra som standard, fordi navne er personoplysninger |
 
+Tavlen åbner desuden med en gruppering og en undertype, du vælger:
+
+| Indstilling | Standard | Virkning |
+|-------------|----------|----------|
+| **Åbner grupperet efter** | Organisation | Hvilken gruppering tavlen viser først |
+| **Åbner med undertype** | Alle | Hvilken undertype der er valgt først |
+
+Begge er kun et udgangspunkt — en besøgende kan ændre begge dele, og intet huskes,
+så gensyn med portalen vender tilbage til det, du har konfigureret her. Det er ikke
+det samme som **undertypefilteret** ovenfor, der afgør, hvilke initiativer der
+overhovedet offentliggøres.
+
 !!! note
     Noget offentliggøres aldrig, uanset hvad du vælger: omkostningsfelter gemt på selve
     Initiativ-kortet, brugernes e-mailadresser og alt på et initiativs detaljeside —

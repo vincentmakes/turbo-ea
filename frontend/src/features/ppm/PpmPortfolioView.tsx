@@ -174,6 +174,14 @@ export interface PpmPortfolioViewProps {
   /** Called when the grouping changes, so a container can refetch. */
   onGroupByChange?: (groupBy: string) => void;
   /**
+   * What the board opens on when the URL carries no filter of its own. A web
+   * portal seeds these from its configuration so it can open on the grouping and
+   * subtype its audience cares about; the visitor is then free to change either.
+   * The choice is not persisted — a reload returns to these.
+   */
+  initialGroupBy?: string;
+  initialSubtype?: string;
+  /**
    * Opens an initiative. Omit to make the board non-interactive — every row,
    * bar and report date then renders without a click handler or pointer
    * affordance, so there are no dead links.
@@ -196,6 +204,8 @@ export default function PpmPortfolioView({
   subtypeDefs,
   loading,
   onGroupByChange,
+  initialGroupBy = "Organization",
+  initialSubtype = "",
   onOpen,
   shell,
   showTitle = true,
@@ -207,9 +217,9 @@ export default function PpmPortfolioView({
   const { fmtShort, currency } = useCurrency();
   const stLabel = useSubtypeLabel();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const [groupBy, setGroupByState] = useState(searchParams.get("groupBy") || "Organization");
+  const [groupBy, setGroupByState] = useState(searchParams.get("groupBy") || initialGroupBy);
   const [search, setSearch] = useState(searchParams.get("search") || "");
-  const [subtypeFilter, setSubtypeFilter] = useState(searchParams.get("subtype") || "");
+  const [subtypeFilter, setSubtypeFilter] = useState(searchParams.get("subtype") || initialSubtype);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const setGroupBy = useCallback(
@@ -238,15 +248,19 @@ export default function PpmPortfolioView({
   useEffect(() => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      if (groupBy && groupBy !== "Organization") next.set("groupBy", groupBy);
+      // Only a departure from the opening state is worth carrying in the URL —
+      // comparing against the defaults keeps a portal's configured grouping out
+      // of the address bar, and clearing a configured subtype drops the param
+      // rather than writing an empty one that would read back as "unset".
+      if (groupBy && groupBy !== initialGroupBy) next.set("groupBy", groupBy);
       else next.delete("groupBy");
       if (search) next.set("search", search);
       else next.delete("search");
-      if (subtypeFilter) next.set("subtype", subtypeFilter);
+      if (subtypeFilter && subtypeFilter !== initialSubtype) next.set("subtype", subtypeFilter);
       else next.delete("subtype");
       return next;
     }, { replace: true });
-  }, [groupBy, search, subtypeFilter, setSearchParams]);
+  }, [groupBy, search, subtypeFilter, initialGroupBy, initialSubtype, setSearchParams]);
 
   // ── Report hover popover state ──
   const [reportAnchorEl, setReportAnchorEl] = useState<HTMLElement | null>(null);

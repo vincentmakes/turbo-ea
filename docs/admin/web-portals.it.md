@@ -47,6 +47,18 @@ Tre interruttori controllano cosa rivela la bacheca pubblicata:
 | **Mostrare i commenti dei rapporti di stato** | Attivo | Sintesi, risultati raggiunti e prossimi passi nell'anteprima. La data del rapporto e gli indicatori di stato sono sempre visibili |
 | **Mostrare i nomi dei project manager** | **Disattivo** | I nomi dei project manager e degli autori dei rapporti. Disattivo per impostazione predefinita perché i nomi sono dati personali |
 
+La bacheca si apre inoltre con un raggruppamento e un sottotipo a vostra scelta:
+
+| Impostazione | Predefinito | Effetto |
+|--------------|-------------|---------|
+| **Si apre raggruppato per** | Organizzazione | Quale raggruppamento mostra per primo |
+| **Si apre mostrando il sottotipo** | Tutti | Quale sottotipo è selezionato per primo |
+
+Sono solo un punto di partenza: il visitatore può cambiare entrambi i controlli e
+nulla viene memorizzato, quindi riaprendo il portale si torna a quanto configurato
+qui. È cosa diversa dal **filtro per sottotipi** sopra, che decide quali iniziative
+vengono pubblicate.
+
 !!! note
     Alcune informazioni non vengono mai pubblicate, qualunque sia la scelta: i campi di
     costo memorizzati sulla scheda Iniziativa, gli indirizzi e-mail degli utenti e tutto
