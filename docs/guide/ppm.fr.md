@@ -26,6 +26,14 @@ Utilisez la barre d'outils pour :
 
 Ces filtres sont conservés dans l'URL, donc l'actualisation de la page conserve votre vue actuelle.
 
+### Impression et export
+
+Le portefeuille propose les mêmes actions de barre de titre que les rapports :
+
+- **Imprimer / Enregistrer en PDF** — l'icône d'imprimante imprime le portefeuille tel qu'il apparaît à l'écran. La barre d'onglets, la barre de filtres et les fenêtres contextuelles de survol sont masquées, le regroupement, le sous-type et la recherche actifs sont imprimés sous forme de ligne de paramètres compacte, et la grille chronologique n'est plus rognée : toutes les colonnes tiennent dans la page.
+- **Exporter vers PowerPoint (.pptx)** — depuis le menu **⋮**. La première diapositive porte le titre, l'horodatage de génération et les filtres actifs, accompagnés du portefeuille en qualité de présentation ; les portefeuilles longs se poursuivent sur d'autres diapositives, découpées uniquement entre initiatives — jamais au milieu d'une ligne, d'un en-tête de groupe ou d'une ligne de totaux.
+- **Exporter vers Excel (.xlsx)** — également depuis le menu **⋮**. Une ligne par initiative avec son groupe, son sous-type, son chef de projet, ses dates de début et de fin, les trois indicateurs de santé, le CapEx / OpEx prévu et réel, et la date du dernier rapport d'avancement.
+
 ## Vue Détaillée de l'Initiative
 
 Cliquez sur n'importe quelle initiative pour ouvrir sa page de détail avec sept onglets :

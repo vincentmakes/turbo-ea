@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.100.0] - 2026-08-28
+
+### Added
+
+- **The PPM Portfolio view now prints and exports like a report.** The portfolio picks up the reports' title bar: **Print / Save as PDF**, **Export to PowerPoint (.pptx)** and **Export to Excel (.xlsx)**. Printing drops the tabs, filter bar and hover cards, prints the active grouping / subtype / search as a compact parameter line, and unclips the timeline grid so every column fits the page instead of being cut off at the scroll edge. The PowerPoint deck carries the portfolio at presentation quality and continues onto further slides for long portfolios, splitting only between initiatives. The Excel workbook has one row per initiative — group, subtype, project manager, start and end dates, the three health ratings, CapEx / OpEx planned vs. actual, and the latest report date.
+
 ## [2.99.0] - 2026-08-28
 
 ### Added

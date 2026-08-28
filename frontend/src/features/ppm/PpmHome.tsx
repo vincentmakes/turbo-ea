@@ -72,6 +72,7 @@ export default function PpmHome() {
   return (
     <Box>
       <Tabs
+        className="ppm-home-tabs"
         value={tab}
         onChange={handleChange}
         variant="scrollable"

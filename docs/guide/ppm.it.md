@@ -26,6 +26,14 @@ Utilizzare la barra degli strumenti per:
 
 Questi filtri vengono mantenuti nell'URL, quindi l'aggiornamento della pagina conserva la vista corrente.
 
+### Stampa ed esportazione
+
+Il portafoglio offre le stesse azioni nella barra del titolo dei report:
+
+- **Stampa / Salva come PDF** — l'icona della stampante stampa il portafoglio così come appare a schermo. La barra delle schede, la barra dei filtri e i popover al passaggio del mouse vengono nascosti, il raggruppamento, il sottotipo e la ricerca attivi vengono stampati come una riga compatta di parametri e la griglia della timeline non viene più ritagliata, così tutte le colonne entrano nella pagina.
+- **Esporta in PowerPoint (.pptx)** — dal menu **⋮**. La prima diapositiva riporta titolo, data e ora di generazione e filtri attivi insieme al portafoglio in qualità da presentazione; i portafogli lunghi proseguono su altre diapositive, tagliate solo tra le iniziative — mai attraverso una riga, un'intestazione di gruppo o una riga dei totali.
+- **Esporta in Excel (.xlsx)** — anch'esso dal menu **⋮**. Una riga per iniziativa con gruppo, sottotipo, project manager, date di inizio e fine, i tre indicatori di salute, CapEx/OpEx pianificato ed effettivo e la data dell'ultimo report di stato.
+
 ## Vista Dettagliata dell'Iniziativa
 
 Cliccare su qualsiasi iniziativa per aprire la sua pagina di dettaglio con sette schede:

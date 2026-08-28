@@ -26,6 +26,14 @@ Use la barra de herramientas para:
 
 Estos filtros se mantienen en la URL, por lo que al actualizar la página se conserva su vista actual.
 
+### Impresión y exportación
+
+La cartera ofrece las mismas acciones en la barra de título que los informes:
+
+- **Imprimir / Guardar como PDF** — el icono de impresora imprime la cartera tal como se ve en pantalla. La barra de pestañas, la barra de filtros y las ventanas emergentes al pasar el ratón se ocultan, la agrupación, el subtipo y la búsqueda activos se imprimen como una línea compacta de parámetros, y la cuadrícula de cronología deja de recortarse para que todas las columnas quepan en la página.
+- **Exportar a PowerPoint (.pptx)** — desde el menú **⋮**. La primera diapositiva incluye el título, la marca de tiempo de generación y los filtros activos junto con la cartera con calidad de presentación; las carteras largas continúan en más diapositivas, cortadas solo entre iniciativas, nunca a través de una fila, un encabezado de grupo o una línea de totales.
+- **Exportar a Excel (.xlsx)** — también desde el menú **⋮**. Una fila por iniciativa con su grupo, subtipo, jefe de proyecto, fechas de inicio y fin, los tres indicadores de salud, CapEx/OpEx planificado frente a real y la fecha del último informe de estado.
+
 ## Vista de detalle de iniciativa
 
 Haga clic en cualquier iniciativa para abrir su página de detalle con siete pestañas:

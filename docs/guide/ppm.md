@@ -26,6 +26,14 @@ Use the toolbar to:
 
 These filters persist in the URL, so refreshing the page retains your current view.
 
+### Printing & exporting
+
+The portfolio offers the same title-bar actions as the reports:
+
+- **Print / Save as PDF** — the printer icon prints the portfolio the way it looks on screen. The tab strip, the filter toolbar and hover popovers are dropped, the active grouping / subtype / search are printed as a compact parameter line, and the timeline grid is unclipped so every column fits the page instead of being cut off at the scroll edge.
+- **Export to PowerPoint (.pptx)** — from the **⋮** menu. The first slide carries the title, the generation timestamp and the active filters together with the portfolio at presentation quality; long portfolios continue onto further slides, split only between initiatives — never through a row, a group header or a totals line.
+- **Export to Excel (.xlsx)** — also from the **⋮** menu. One row per initiative with its group, subtype, project manager, start and end dates, the three health ratings, CapEx / OpEx planned vs. actual, and the date of the latest status report.
+
 ## Initiative Detail View
 
 Click any initiative to open its detail page with seven tabs:

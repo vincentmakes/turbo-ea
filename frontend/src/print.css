@@ -132,6 +132,41 @@
     break-inside: avoid;
   }
 
+  /* ---- PPM Portfolio (Gantt grid) ---- */
+
+  /* The tab strip is navigation, not content */
+  .ppm-home-tabs {
+    display: none !important;
+  }
+
+  /* On screen the grid scrolls horizontally inside a 1100px floor. Printing
+     that clips every column past the page edge, so release both and let the
+     columns compress into the printable width. */
+  .ppm-portfolio-scroll {
+    overflow: visible !important;
+  }
+  .ppm-portfolio-grid {
+    min-width: 0 !important;
+  }
+
+  /* A sticky header prints only on the first page and can overlap rows —
+     put it back in flow. */
+  .ppm-portfolio-head {
+    position: static !important;
+  }
+
+  /* The rows live in one tall Paper; the generic report rule above would
+     keep it on a single page and clip the overflow. Let it break, but never
+     through an initiative row, a group header or a totals row. */
+  .ppm-portfolio .MuiPaper-root,
+  .ppm-portfolio > .MuiBox-root,
+  .ppm-portfolio .MuiBox-root > .MuiBox-root {
+    break-inside: auto !important;
+  }
+  .ppm-portfolio [data-export-row] {
+    break-inside: avoid !important;
+  }
+
   /* Remove box shadows and unnecessary borders */
   .MuiPaper-root {
     box-shadow: none !important;

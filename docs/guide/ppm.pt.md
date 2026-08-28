@@ -26,6 +26,14 @@ Use a barra de ferramentas para:
 
 Esses filtros são mantidos na URL, então atualizar a página preserva sua visualização atual.
 
+### Impressão e exportação
+
+O portfólio oferece as mesmas ações na barra de título que os relatórios:
+
+- **Imprimir / Salvar como PDF** — o ícone de impressora imprime o portfólio como ele aparece na tela. A barra de abas, a barra de filtros e os balões exibidos ao passar o mouse são ocultados, o agrupamento, o subtipo e a busca ativos são impressos como uma linha compacta de parâmetros, e a grade de cronograma deixa de ser cortada, para que todas as colunas caibam na página.
+- **Exportar para PowerPoint (.pptx)** — pelo menu **⋮**. O primeiro slide traz o título, o carimbo de data/hora de geração e os filtros ativos junto com o portfólio em qualidade de apresentação; portfólios longos continuam em outros slides, divididos apenas entre iniciativas — nunca no meio de uma linha, de um cabeçalho de grupo ou de uma linha de totais.
+- **Exportar para Excel (.xlsx)** — também pelo menu **⋮**. Uma linha por iniciativa com seu grupo, subtipo, gerente de projeto, datas de início e término, os três indicadores de saúde, CapEx/OpEx planejado e realizado, e a data do último relatório de status.
+
 ## Visão Detalhada da Iniciativa
 
 Clique em qualquer iniciativa para abrir sua página de detalhes com sete abas:

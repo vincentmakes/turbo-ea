@@ -26,6 +26,8 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
+import ReportShell, { type PrintParam } from "@/features/reports/ReportShell";
+import type { ExportColumn, ReportExportData } from "@/features/reports/reportExport";
 import type {
   PpmGanttItem,
   PpmGroupOption,
@@ -228,6 +230,7 @@ export default function PpmPortfolio() {
   const [hoveredReport, setHoveredReport] = useState<PpmStatusReport | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
 
   // After every render / resize, hide quarter labels that overlap
   const pruneQuarterLabels = useCallback(() => {
@@ -360,13 +363,84 @@ export default function PpmPortfolio() {
 
   const nowPct = ((now.getTime() - windowStart.getTime()) / windowMs) * 100;
 
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" mt={8}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  // ── Print / export ──
+  const groupTypeLabel = useMemo(() => {
+    const ct = getType(groupBy);
+    if (ct) return rml(ct.label, ct.translations, "label");
+    return groupOptions.find((o) => o.type_key === groupBy)?.type_label || groupBy;
+  }, [getType, rml, groupOptions, groupBy]);
+
+  const printParams: PrintParam[] = useMemo(
+    () => [
+      { label: t("groupBy"), value: groupTypeLabel },
+      { label: t("subtype"), value: subtypeFilter ? resolveSubtype(subtypeFilter) : "" },
+      { label: t("common:actions.search", "Search"), value: search },
+    ],
+    [t, groupTypeLabel, subtypeFilter, search], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  const healthLabel = (value: string | null | undefined): string =>
+    value ? t(RAG_LABEL[value] || "health_noReport") : t("health_noReport");
+
+  /**
+   * Real tabular data for the XLSX export. Built from the same grouped,
+   * filtered rows the grid renders, so the workbook always matches what is
+   * on screen — rather than scraping the DOM, which would only ever see the
+   * Gantt bars and mini cost bars as unreadable markup.
+   */
+  const buildExportData = useCallback((): ReportExportData => {
+    const columns: ExportColumn[] = [
+      { key: "group", label: groupTypeLabel, type: "text" },
+      { key: "name", label: t("initiativeName"), type: "text" },
+      { key: "subtype", label: t("subtype"), type: "text" },
+      { key: "pm", label: t("projectManager"), type: "text" },
+      { key: "start", label: t("startDate"), type: "date" },
+      { key: "end", label: t("endDate"), type: "date" },
+      { key: "schedule", label: t("health_schedule"), type: "text" },
+      { key: "cost", label: t("health_cost"), type: "text" },
+      { key: "scope", label: t("health_scope"), type: "text" },
+      { key: "capexPlanned", label: `${t("capex")} — ${t("planned")}`, type: "currency" },
+      { key: "capexActual", label: `${t("capex")} — ${t("actual")}`, type: "currency" },
+      { key: "opexPlanned", label: `${t("opex")} — ${t("planned")}`, type: "currency" },
+      { key: "opexActual", label: `${t("opex")} — ${t("actual")}`, type: "currency" },
+      { key: "lastReport", label: t("lastReport", "Report"), type: "date" },
+    ];
+
+    const rows: Record<string, unknown>[] = [];
+    for (const [, group] of groups) {
+      for (const item of group.items) {
+        const rep = item.latest_report;
+        const pm =
+          item.stakeholders.find((sh) => sh.role_key === "itProjectManager") ||
+          item.stakeholders.find((sh) => sh.role_key === "responsible");
+        rows.push({
+          group: group.name,
+          name: item.name,
+          subtype: item.subtype ? resolveSubtype(item.subtype) : "",
+          pm: pm?.display_name || "",
+          start: item.start_date || "",
+          end: item.end_date || "",
+          schedule: healthLabel(rep?.schedule_health),
+          cost: healthLabel(rep?.cost_health),
+          scope: healthLabel(rep?.scope_health),
+          capexPlanned: item.capex_planned,
+          capexActual: item.capex_actual,
+          opexPlanned: item.opex_planned,
+          opexActual: item.opex_actual,
+          lastReport: rep ? (rep.report_date as unknown as string) : "",
+        });
+      }
+    }
+
+    return {
+      title: t("title"),
+      filterSummary: printParams.filter((p) => p.value),
+      chartNode: chartRef.current,
+      paginateRowSelector: "[data-export-row]",
+      sheets: [{ name: t("tabs.portfolio"), columns, rows }],
+    };
+  }, [groups, groupTypeLabel, printParams, t]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // ── Desktop: Gantt timeline bar ──
   const renderBar = (item: PpmGanttItem) => {
@@ -431,6 +505,7 @@ export default function PpmPortfolio() {
     return (
       <Box
         key={item.id}
+        data-export-row
         sx={{
           display: "grid",
           gridTemplateColumns: gridCols,
@@ -552,6 +627,7 @@ export default function PpmPortfolio() {
     return (
       <Box
         key={item.id}
+        data-export-row
         sx={{
           p: 1.5,
           borderBottom: `1px solid ${theme.palette.divider}`,
@@ -675,6 +751,7 @@ export default function PpmPortfolio() {
 
     return (
       <Box
+        data-export-row
         sx={{
           display: "grid",
           gridTemplateColumns: gridCols,
@@ -706,326 +783,253 @@ export default function PpmPortfolio() {
     );
   };
 
-  return (
-    <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 1800, mx: "auto" }}>
-      {/* Header */}
-      <Box display="flex" alignItems="center" gap={1.5} mb={2}>
-        <MaterialSymbol icon="view_timeline" size={28} />
-        <Typography variant="h5" fontWeight={700}>
-          {t("title")}
-        </Typography>
-      </Box>
-
-      {/* KPI Bar */}
-      {dashboard && (
-        <Paper
-          sx={{
-            display: "flex",
-            gap: { xs: 2, sm: 4 },
-            px: { xs: 2, sm: 3 },
-            py: 1.5,
-            mb: 2,
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-          variant="outlined"
+  // Rendered by the shell's toolbar slot, which print.css hides so a printed
+  // portfolio shows the parameter summary instead of dead dropdowns.
+  const filters = (
+    <>
+      <TextField
+        size="small"
+        placeholder={t("searchInitiatives")}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        sx={{ width: { xs: "100%", sm: 240 } }}
+      />
+      <FormControl size="small" sx={{ minWidth: { xs: "calc(50% - 8px)", sm: 180 } }}>
+        <InputLabel>{t("groupBy")}</InputLabel>
+        <Select
+          value={groupBy}
+          label={t("groupBy")}
+          onChange={(e) => setGroupBy(e.target.value)}
         >
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              {t("totalInitiatives")}
-            </Typography>
-            <Typography variant="h6" fontWeight={700}>
-              {dashboard.total_initiatives}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              {t("totalBudget")}
-            </Typography>
-            <Typography variant="h6" fontWeight={700}>
-              {fmtShort(dashboard.total_budget)}
-            </Typography>
-          </Box>
-          <Box display="flex" gap={2} alignItems="center">
-            {(
-              [
-                ["onTrack", dashboard.health_schedule.onTrack],
-                ["atRisk", dashboard.health_schedule.atRisk],
-                ["offTrack", dashboard.health_schedule.offTrack],
-              ] as const
-            ).map(([key, count]) => (
-              <Box key={key} display="flex" alignItems="center" gap={0.5}>
-                <Box
-                  sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: RAG[key] }}
-                />
-                <Typography variant="body2" fontWeight={600}>
-                  {count}
-                </Typography>
-                {!isMobile && (
-                  <Typography variant="caption" color="text.secondary">
-                    {t(`health_${key}`)}
-                  </Typography>
-                )}
-              </Box>
-            ))}
-          </Box>
-        </Paper>
-      )}
-
-      {/* Filters */}
-      <Box display="flex" gap={2} mb={2} flexWrap="wrap">
-        <TextField
-          size="small"
-          placeholder={t("searchInitiatives")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: { xs: "100%", sm: 240 } }}
-        />
-        <FormControl size="small" sx={{ minWidth: { xs: "calc(50% - 8px)", sm: 180 } }}>
-          <InputLabel>{t("groupBy")}</InputLabel>
-          <Select
-            value={groupBy}
-            label={t("groupBy")}
-            onChange={(e) => setGroupBy(e.target.value)}
-          >
-            {groupOptions.map((opt) => {
-              const ct = getType(opt.type_key);
-              const label = ct
-                ? rml(ct.label, ct.translations, "label")
-                : opt.type_label;
-              return (
-                <MenuItem key={opt.type_key} value={opt.type_key}>
-                  {label}
-                </MenuItem>
-              );
-            })}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: { xs: "calc(50% - 8px)", sm: 140 } }}>
-          <InputLabel>{t("subtype")}</InputLabel>
-          <Select
-            value={subtypeFilter}
-            label={t("subtype")}
-            onChange={(e) => setSubtypeFilter(e.target.value)}
-          >
-            <MenuItem value="">{t("common:all", "All")}</MenuItem>
-            {subtypes.map((s) => (
-              <MenuItem key={s} value={s!}>
-                {resolveSubtype(s)}
+          {groupOptions.map((opt) => {
+            const ct = getType(opt.type_key);
+            const label = ct
+              ? rml(ct.label, ct.translations, "label")
+              : opt.type_label;
+            return (
+              <MenuItem key={opt.type_key} value={opt.type_key}>
+                {label}
               </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Box>
-
-      {/* Scrollable wrapper for desktop grid — enables horizontal scroll on iPad */}
-      {!isMobile && (
-        <Box sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-        <Box sx={{ minWidth: GRID_MIN_WIDTH }}>
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: gridCols,
-            alignItems: "end",
-            bgcolor: alpha(theme.palette.primary.main, 0.08),
-            borderRadius: "8px 8px 0 0",
-            minHeight: 56,
-            pb: 0.5,
-            position: "sticky",
-            top: 0,
-            zIndex: 2,
-          }}
+            );
+          })}
+        </Select>
+      </FormControl>
+      <FormControl size="small" sx={{ minWidth: { xs: "calc(50% - 8px)", sm: 140 } }}>
+        <InputLabel>{t("subtype")}</InputLabel>
+        <Select
+          value={subtypeFilter}
+          label={t("subtype")}
+          onChange={(e) => setSubtypeFilter(e.target.value)}
         >
-          <Typography variant="caption" fontWeight={600} sx={{ px: 1.5 }}>
-            {t("initiativeName")}
-          </Typography>
-          <Typography variant="caption" fontWeight={600} sx={{ px: 1 }}>
-            {t("projectManager")}
-          </Typography>
-          <Typography
-            variant="caption"
-            fontWeight={600}
-            sx={{ px: 0.5, textAlign: "center" }}
-          >
-            {t("planColumn", "Plan")}
-          </Typography>
-          {/* Quarter labels spanning timeline column */}
-          <Box
-            ref={timelineRef}
+          <MenuItem value="">{t("common:all", "All")}</MenuItem>
+          {subtypes.map((s) => (
+            <MenuItem key={s} value={s!}>
+              {resolveSubtype(s)}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    </>
+  );
+
+  return (
+    <ReportShell
+      title={t("title")}
+      icon="view_timeline"
+      hasTableToggle={false}
+      maxWidth={1800}
+      chartRef={chartRef}
+      printParams={printParams}
+      buildExportData={buildExportData}
+      paginateRowSelector="[data-export-row]"
+      toolbar={filters}
+    >
+      {loading ? (
+        <Box display="flex" justifyContent="center" py={8}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Box className="ppm-portfolio">
+        {/* KPI Bar */}
+        {dashboard && (
+          <Paper
             sx={{
               display: "flex",
-              position: "relative",
-              height: "100%",
-              overflow: "hidden",
+              gap: { xs: 2, sm: 4 },
+              px: { xs: 2, sm: 3 },
+              py: 1.5,
+              mb: 2,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+            variant="outlined"
+          >
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                {t("totalInitiatives")}
+              </Typography>
+              <Typography variant="h6" fontWeight={700}>
+                {dashboard.total_initiatives}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                {t("totalBudget")}
+              </Typography>
+              <Typography variant="h6" fontWeight={700}>
+                {fmtShort(dashboard.total_budget)}
+              </Typography>
+            </Box>
+            <Box display="flex" gap={2} alignItems="center">
+              {(
+                [
+                  ["onTrack", dashboard.health_schedule.onTrack],
+                  ["atRisk", dashboard.health_schedule.atRisk],
+                  ["offTrack", dashboard.health_schedule.offTrack],
+                ] as const
+              ).map(([key, count]) => (
+                <Box key={key} display="flex" alignItems="center" gap={0.5}>
+                  <Box
+                    sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: RAG[key] }}
+                  />
+                  <Typography variant="body2" fontWeight={600}>
+                    {count}
+                  </Typography>
+                  {!isMobile && (
+                    <Typography variant="caption" color="text.secondary">
+                      {t(`health_${key}`)}
+                    </Typography>
+                  )}
+                </Box>
+              ))}
+            </Box>
+          </Paper>
+        )}
+
+        {/* Scrollable wrapper for desktop grid — enables horizontal scroll on iPad */}
+        {!isMobile && (
+          <Box
+            className="ppm-portfolio-scroll"
+            sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}
+          >
+          <Box className="ppm-portfolio-grid" sx={{ minWidth: GRID_MIN_WIDTH }}>
+          <Box
+            className="ppm-portfolio-head"
+            sx={{
+              display: "grid",
+              gridTemplateColumns: gridCols,
+              alignItems: "end",
+              bgcolor: alpha(theme.palette.primary.main, 0.08),
+              borderRadius: "8px 8px 0 0",
+              minHeight: 56,
+              pb: 0.5,
+              position: "sticky",
+              top: 0,
+              zIndex: 2,
             }}
           >
-            {quarters.map((q) => {
-              const leftPct = pctOf(toIsoDate(q.start)) ?? 0;
-              return (
-                <Typography
-                  key={q.label}
-                  data-qlabel
-                  variant="caption"
-                  fontWeight={600}
-                  sx={{
-                    position: "absolute",
-                    left: `${leftPct}%`,
-                    bottom: 2,
-                    whiteSpace: "nowrap",
-                    fontSize: "0.65rem",
-                  }}
-                >
-                  {q.label}
-                </Typography>
-              );
-            })}
-          </Box>
-          {(
-            [
-              ["health_schedule", "onTime"],
-              ["health_cost", "onCost"],
-              ["health_scope", "onScope"],
-            ] as const
-          ).map(([tooltipKey, labelKey]) => (
-            <Tooltip key={tooltipKey} title={t(tooltipKey)}>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "flex-end",
-                  overflow: "hidden",
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  fontWeight={600}
-                  sx={{
-                    writingMode: "vertical-rl",
-                    transform: "rotate(180deg)",
-                    whiteSpace: "nowrap",
-                    fontSize: "0.65rem",
-                    lineHeight: 1,
-                  }}
-                >
-                  {t(labelKey)}
-                </Typography>
-              </Box>
-            </Tooltip>
-          ))}
-          <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
-            {t("capex")}
-          </Typography>
-          <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
-            {t("opex")}
-          </Typography>
-          <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
-            {t("lastReport", "Report")}
-          </Typography>
-        </Box>
-
-      {/* Rows grouped */}
-      <Paper
-        variant="outlined"
-        sx={{
-          borderTop: 0,
-          borderRadius: "0 0 8px 8px",
-        }}
-      >
-        {groups.map(([groupId, group]) => {
-          const isCollapsed = collapsed.has(groupId);
-          return (
-            <Box key={groupId}>
-              {/* Group header */}
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  px: 1,
-                  py: 0.75,
-                  bgcolor:
-                    theme.palette.mode === "dark"
-                      ? alpha(theme.palette.primary.main, 0.2)
-                      : theme.palette.primary.dark,
-                  borderBottom: `1px solid ${theme.palette.divider}`,
-                  cursor: "pointer",
-                }}
-                onClick={() => {
-                  setCollapsed((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(groupId)) next.delete(groupId);
-                    else next.add(groupId);
-                    return next;
-                  });
-                }}
-              >
-                <IconButton
-                  size="small"
-                  sx={{
-                    mr: 0.5,
-                    color: theme.palette.mode === "dark" ? "text.primary" : "#fff",
-                  }}
-                >
-                  <MaterialSymbol
-                    icon={isCollapsed ? "chevron_right" : "expand_more"}
-                    size={18}
-                  />
-                </IconButton>
-                <MaterialSymbol
-                  icon="folder"
-                  size={18}
-                  style={{
-                    marginRight: 6,
-                    color: theme.palette.mode === "dark" ? undefined : "#fff",
-                  }}
-                />
-                <Typography
-                  variant="body2"
-                  fontWeight={700}
-                  sx={{ color: theme.palette.mode === "dark" ? "text.primary" : "#fff" }}
-                >
-                  {group.name}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    ml: 1,
-                    color:
-                      theme.palette.mode === "dark"
-                        ? "text.secondary"
-                        : alpha("#fff", 0.8),
-                  }}
-                >
-                  &mdash; {t("projectCount", { count: group.items.length })}
-                </Typography>
-              </Box>
-              {!isCollapsed &&
-                group.items.map((item) => renderRow(item))}
-              {!isCollapsed && renderGroupTotals(group.items)}
+            <Typography variant="caption" fontWeight={600} sx={{ px: 1.5 }}>
+              {t("initiativeName")}
+            </Typography>
+            <Typography variant="caption" fontWeight={600} sx={{ px: 1 }}>
+              {t("projectManager")}
+            </Typography>
+            <Typography
+              variant="caption"
+              fontWeight={600}
+              sx={{ px: 0.5, textAlign: "center" }}
+            >
+              {t("planColumn", "Plan")}
+            </Typography>
+            {/* Quarter labels spanning timeline column */}
+            <Box
+              ref={timelineRef}
+              sx={{
+                display: "flex",
+                position: "relative",
+                height: "100%",
+                overflow: "hidden",
+              }}
+            >
+              {quarters.map((q) => {
+                const leftPct = pctOf(toIsoDate(q.start)) ?? 0;
+                return (
+                  <Typography
+                    key={q.label}
+                    data-qlabel
+                    variant="caption"
+                    fontWeight={600}
+                    sx={{
+                      position: "absolute",
+                      left: `${leftPct}%`,
+                      bottom: 2,
+                      whiteSpace: "nowrap",
+                      fontSize: "0.65rem",
+                    }}
+                  >
+                    {q.label}
+                  </Typography>
+                );
+              })}
             </Box>
-          );
-        })}
-
-        {filtered.length === 0 && (
-          <Box textAlign="center" py={4}>
-            <Typography color="text.secondary">{t("noInitiatives")}</Typography>
+            {(
+              [
+                ["health_schedule", "onTime"],
+                ["health_cost", "onCost"],
+                ["health_scope", "onScope"],
+              ] as const
+            ).map(([tooltipKey, labelKey]) => (
+              <Tooltip key={tooltipKey} title={t(tooltipKey)}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "flex-end",
+                    overflow: "hidden",
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    fontWeight={600}
+                    sx={{
+                      writingMode: "vertical-rl",
+                      transform: "rotate(180deg)",
+                      whiteSpace: "nowrap",
+                      fontSize: "0.65rem",
+                      lineHeight: 1,
+                    }}
+                  >
+                    {t(labelKey)}
+                  </Typography>
+                </Box>
+              </Tooltip>
+            ))}
+            <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
+              {t("capex")}
+            </Typography>
+            <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
+              {t("opex")}
+            </Typography>
+            <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
+              {t("lastReport", "Report")}
+            </Typography>
           </Box>
-        )}
-      </Paper>
-      </Box>
-      </Box>
-      )}
 
-      {/* Mobile rows — outside scrollable wrapper */}
-      {isMobile && (
+        {/* Rows grouped */}
         <Paper
           variant="outlined"
-          sx={{ borderRadius: 2 }}
+          sx={{
+            borderTop: 0,
+            borderRadius: "0 0 8px 8px",
+          }}
         >
           {groups.map(([groupId, group]) => {
             const isCollapsed = collapsed.has(groupId);
             return (
               <Box key={groupId}>
+                {/* Group header */}
                 <Box
+                  data-export-row
                   sx={{
                     display: "flex",
                     alignItems: "center",
@@ -1088,7 +1092,8 @@ export default function PpmPortfolio() {
                   </Typography>
                 </Box>
                 {!isCollapsed &&
-                  group.items.map((item) => renderMobileCard(item))}
+                  group.items.map((item) => renderRow(item))}
+                {!isCollapsed && renderGroupTotals(group.items)}
               </Box>
             );
           })}
@@ -1099,6 +1104,97 @@ export default function PpmPortfolio() {
             </Box>
           )}
         </Paper>
+        </Box>
+        </Box>
+        )}
+
+        {/* Mobile rows — outside scrollable wrapper */}
+        {isMobile && (
+          <Paper
+            variant="outlined"
+            sx={{ borderRadius: 2 }}
+          >
+            {groups.map(([groupId, group]) => {
+              const isCollapsed = collapsed.has(groupId);
+              return (
+                <Box key={groupId}>
+                  <Box
+                    data-export-row
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      px: 1,
+                      py: 0.75,
+                      bgcolor:
+                        theme.palette.mode === "dark"
+                          ? alpha(theme.palette.primary.main, 0.2)
+                          : theme.palette.primary.dark,
+                      borderBottom: `1px solid ${theme.palette.divider}`,
+                      cursor: "pointer",
+                    }}
+                    onClick={() => {
+                      setCollapsed((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(groupId)) next.delete(groupId);
+                        else next.add(groupId);
+                        return next;
+                      });
+                    }}
+                  >
+                    <IconButton
+                      size="small"
+                      sx={{
+                        mr: 0.5,
+                        color: theme.palette.mode === "dark" ? "text.primary" : "#fff",
+                      }}
+                    >
+                      <MaterialSymbol
+                        icon={isCollapsed ? "chevron_right" : "expand_more"}
+                        size={18}
+                      />
+                    </IconButton>
+                    <MaterialSymbol
+                      icon="folder"
+                      size={18}
+                      style={{
+                        marginRight: 6,
+                        color: theme.palette.mode === "dark" ? undefined : "#fff",
+                      }}
+                    />
+                    <Typography
+                      variant="body2"
+                      fontWeight={700}
+                      sx={{ color: theme.palette.mode === "dark" ? "text.primary" : "#fff" }}
+                    >
+                      {group.name}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        ml: 1,
+                        color:
+                          theme.palette.mode === "dark"
+                            ? "text.secondary"
+                            : alpha("#fff", 0.8),
+                      }}
+                    >
+                      &mdash; {t("projectCount", { count: group.items.length })}
+                    </Typography>
+                  </Box>
+                  {!isCollapsed &&
+                    group.items.map((item) => renderMobileCard(item))}
+                </Box>
+              );
+            })}
+
+            {filtered.length === 0 && (
+              <Box textAlign="center" py={4}>
+                <Typography color="text.secondary">{t("noInitiatives")}</Typography>
+              </Box>
+            )}
+          </Paper>
+        )}
+        </Box>
       )}
 
       {/* ── Report Hover Popover ── */}
@@ -1225,6 +1321,6 @@ export default function PpmPortfolio() {
           </Box>
         )}
       </Popover>
-    </Box>
+    </ReportShell>
   );
 }

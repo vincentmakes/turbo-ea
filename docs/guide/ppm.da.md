@@ -26,6 +26,14 @@ Brug værktøjslinjen til at:
 
 Disse filtre vedvarer i URL'en, så opdatering af siden bibeholder din nuværende visning.
 
+### Udskrivning og eksport
+
+Porteføljen tilbyder de samme handlinger i titellinjen som rapporterne:
+
+- **Udskriv / Gem som PDF** — printerikonet udskriver porteføljen, som den ser ud på skærmen. Fanebjælken, filterværktøjslinjen og pop op-vinduer ved museover udelades, den aktive gruppering, undertype og søgning udskrives som en kompakt parameterlinje, og tidslinjegitteret beskæres ikke længere, så alle kolonner er med på siden.
+- **Eksportér til PowerPoint (.pptx)** — fra **⋮**-menuen. Det første dias indeholder titlen, tidsstemplet for genereringen og de aktive filtre sammen med porteføljen i præsentationskvalitet; lange porteføljer fortsætter på flere dias og opdeles kun mellem initiativer — aldrig midt i en række, en gruppeoverskrift eller en totallinje.
+- **Eksportér til Excel (.xlsx)** — også fra **⋮**-menuen. Én række pr. initiativ med gruppe, undertype, projektleder, start- og slutdato, de tre sundhedsvurderinger, planlagt og faktisk CapEx/OpEx samt datoen for den seneste statusrapport.
+
 ## Initiativ-detaljevisning
 
 Klik på et initiativ for at åbne dets detaljeside med syv faner:
