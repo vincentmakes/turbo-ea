@@ -4,9 +4,14 @@ import i18n from "@/i18n";
 // AG Grid module registration (mandatory since v33) for every test that
 // mounts a real <AgGridReact> — same side-effect import the grid pages use.
 import "@/lib/agGridSetup";
+import { installAgGridScrollbarProbe } from "./agGridScrollbarProbe";
 import { installMatchMedia, setViewportWidth } from "./matchMedia";
 
 installMatchMedia();
+// Must run before any grid mounts: it is what lets AG Grid cache its scrollbar
+// measurement instead of re-probing `document` from a timer that can outlive
+// the test environment. See the module for the full account.
+installAgGridScrollbarProbe();
 
 // Provide a minimal sessionStorage for tests (jsdom includes one, but
 // this ensures it's always clean between test files).
@@ -23,6 +28,10 @@ beforeEach(() => {
 // `LocalEventService.dispatchAsync`, reached from a late `RowRenderer` redraw
 // — which fails the run even though every test passed, and only on loaded CI
 // runners.
+//
+// One member of that family is NOT a race and cannot be drained away: AG
+// Grid's scrollbar probe re-armed itself on every call under jsdom. That one is
+// closed at the source by `installAgGridScrollbarProbe` above.
 //
 // Two queues matter, and they are drained separately because neither drains
 // the other:
