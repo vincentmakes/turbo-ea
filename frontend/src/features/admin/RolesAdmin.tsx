@@ -101,7 +101,23 @@ const PRESET_COLORS = [
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
-export default function RolesAdmin() {
+interface RolesAdminProps {
+  /**
+   * Fired after a role is created, saved, archived or restored.
+   *
+   * The parent (`UsersAdmin`) keeps its own copy of the role list for the Users
+   * tab — the grid's role chips, the inline role dropdown, the bulk-role dialog
+   * and the filter sidebar all read it — and fetches it once on mount. Without
+   * this callback a role added or renamed here stays invisible over there until
+   * the page is reloaded (#1020).
+   *
+   * Deliberately not fired from `fetchRoles`: that also runs on mount and on the
+   * "Show archived" toggle, neither of which changes anything for the parent.
+   */
+  onRolesChanged?: () => void;
+}
+
+export default function RolesAdmin({ onRolesChanged }: RolesAdminProps) {
   const { t } = useTranslation(["admin", "common"]);
   /* ---- Data state ---- */
   const [roles, setRoles] = useState<AppRole[]>([]);
@@ -231,6 +247,7 @@ export default function RolesAdmin() {
       // Refresh list and detail
       await fetchRoles();
       await fetchRoleDetail(selectedKey);
+      onRolesChanged?.();
     } catch (err) {
       setDetailError(
         err instanceof Error ? err.message : t("roles.saveError")
@@ -261,6 +278,7 @@ export default function RolesAdmin() {
       await fetchRoles();
       setSelectedKey(created.key);
       setSnack(t("roles.createdSuccess"));
+      onRolesChanged?.();
     } catch (err) {
       setCreateError(
         err instanceof Error ? err.message : t("roles.createError")
@@ -286,6 +304,7 @@ export default function RolesAdmin() {
       }
       await fetchRoles();
       setSnack(t("roles.archivedSuccess"));
+      onRolesChanged?.();
     } catch (err) {
       setError(
         err instanceof Error ? err.message : t("roles.archiveError")
@@ -303,6 +322,7 @@ export default function RolesAdmin() {
         await fetchRoleDetail(key);
       }
       setSnack(t("roles.restoredSuccess"));
+      onRolesChanged?.();
     } catch (err) {
       setError(
         err instanceof Error ? err.message : t("roles.restoreError")

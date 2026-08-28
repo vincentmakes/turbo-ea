@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.96.2] - 2026-08-28
+
+### Fixed
+
+- **A role added or edited on the Roles tab now shows up on the Users tab straight away.** Creating, renaming, recolouring, archiving or restoring a role left the Users tab showing the list as it was when the page loaded — the new role was missing from the role dropdown, the bulk-role dialog and the filter sidebar until you reloaded the page. ([#1020](https://github.com/vincentmakes/turbo-ea/issues/1020))
+
 ## [2.96.1] - 2026-08-27
 
 ### Fixed

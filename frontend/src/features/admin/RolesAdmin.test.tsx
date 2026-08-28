@@ -97,8 +97,8 @@ beforeEach(() => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function renderRoles() {
-  return render(<RolesAdmin />);
+function renderRoles(props: { onRolesChanged?: () => void } = {}) {
+  return render(<RolesAdmin {...props} />);
 }
 
 // ---------------------------------------------------------------------------
@@ -283,6 +283,133 @@ describe("RolesAdmin", () => {
     await waitFor(() => {
       expect(screen.getByText(/5 users assigned to this role/i)).toBeInTheDocument();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// onRolesChanged — #1020
+//
+// `UsersAdmin` owns the copy of the role list the Users tab renders (grid role
+// chips, the inline role dropdown, the bulk-role dialog, the filter sidebar)
+// and fetches it once on mount. These assertions are what keep a role created
+// or renamed here from staying invisible over there until a page reload.
+// ---------------------------------------------------------------------------
+
+describe("RolesAdmin onRolesChanged", () => {
+  it("does not fire on mount", async () => {
+    const onRolesChanged = vi.fn();
+    renderRoles({ onRolesChanged });
+
+    await waitFor(() => {
+      expect(screen.getByText("Member")).toBeInTheDocument();
+    });
+
+    expect(onRolesChanged).not.toHaveBeenCalled();
+  });
+
+  it("does not fire when the Show archived toggle refetches", async () => {
+    const user = userEvent.setup();
+    const onRolesChanged = vi.fn();
+    renderRoles({ onRolesChanged });
+
+    await waitFor(() => {
+      expect(screen.getByText("Show archived")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("checkbox", { name: /show archived/i }));
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith("/roles?include_archived=true");
+    });
+    expect(onRolesChanged).not.toHaveBeenCalled();
+  });
+
+  it("fires after a role is created", async () => {
+    const user = userEvent.setup();
+    const onRolesChanged = vi.fn();
+    vi.mocked(api.post).mockResolvedValue({ ...MOCK_ROLES[2], key: "auditor", label: "Auditor" });
+    renderRoles({ onRolesChanged });
+
+    await user.click(screen.getByRole("button", { name: /add role/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /create role/i })).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText(/^key/i), "auditor");
+    await user.type(screen.getByLabelText(/^name/i), "Auditor");
+    await user.click(screen.getByRole("button", { name: /create role/i }));
+
+    await waitFor(() => {
+      expect(onRolesChanged).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("fires after a role is saved", async () => {
+    const user = userEvent.setup();
+    const onRolesChanged = vi.fn();
+    vi.mocked(api.patch).mockResolvedValue({});
+    renderRoles({ onRolesChanged });
+
+    await waitFor(() => {
+      expect(screen.getByText("Member")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("Member"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /save changes/i })).toBeEnabled();
+    });
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(onRolesChanged).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("fires after a role is archived", async () => {
+    const user = userEvent.setup();
+    const onRolesChanged = vi.fn();
+    vi.mocked(api.post).mockResolvedValue({});
+    renderRoles({ onRolesChanged });
+
+    await waitFor(() => {
+      expect(screen.getByText("Member")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("Member"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /archive role/i })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /archive role/i }));
+
+    // Confirm dialog
+    await user.click(screen.getByRole("button", { name: /^archive$/i }));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith("/roles/member/archive");
+      expect(onRolesChanged).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("does not fire when a save fails", async () => {
+    const user = userEvent.setup();
+    const onRolesChanged = vi.fn();
+    vi.mocked(api.patch).mockRejectedValue(new Error("nope"));
+    renderRoles({ onRolesChanged });
+
+    await waitFor(() => {
+      expect(screen.getByText("Member")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("Member"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /save changes/i })).toBeEnabled();
+    });
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("nope")).toBeInTheDocument();
+    });
+    expect(onRolesChanged).not.toHaveBeenCalled();
   });
 });
 

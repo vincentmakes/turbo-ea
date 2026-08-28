@@ -1476,7 +1476,7 @@ export default function UsersAdmin() {
       {/* ============================================================ */}
       {/*  TAB 1 -- Roles                                              */}
       {/* ============================================================ */}
-      {tab === 1 && <RolesAdmin />}
+      {tab === 1 && <RolesAdmin onRolesChanged={fetchRoles} />}
     </Box>
   );
 }
