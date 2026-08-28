@@ -2876,6 +2876,7 @@ TYPES = [
         "category": "Application & Data",
         "has_hierarchy": True,
         "has_successors": True,
+        "allow_card_logo": True,
         "subtypes": [
             {
                 "key": "businessApplication",
@@ -3466,6 +3467,7 @@ TYPES = [
         "category": "Technical Architecture",
         "has_hierarchy": True,
         "has_successors": True,
+        "allow_card_logo": True,
         "subtypes": [
             {
                 "key": "software",
@@ -5910,6 +5912,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
             category=t.get("category"),
             has_hierarchy=t.get("has_hierarchy", False),
             has_successors=t.get("has_successors", False),
+            allow_card_logo=t.get("allow_card_logo", False),
             subtypes=t.get("subtypes", []),
             fields_schema=t.get("fields_schema", []),
             stakeholder_roles=t.get("stakeholder_roles", roles),

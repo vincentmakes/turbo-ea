@@ -325,6 +325,7 @@ async def create_card_type(
         # when the definition table has no rows for the type.
         stakeholder_roles=kwargs.get("stakeholder_roles", []),
         has_hierarchy=kwargs.get("has_hierarchy", False),
+        allow_card_logo=kwargs.get("allow_card_logo", False),
         built_in=kwargs.get("built_in", False),
         is_hidden=kwargs.get("is_hidden", False),
         translations=kwargs.get("translations", {}),

@@ -20,6 +20,11 @@ class CardType(Base, UUIDMixin, TimestampMixin):
     category: Mapped[str | None] = mapped_column(String(100))  # free-text layer label, not enum
     has_hierarchy: Mapped[bool] = mapped_column(Boolean, default=False)
     has_successors: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Whether editors may upload a per-card logo image (shown in place of this
+    # type's icon, with the icon kept as a corner badge). Governs display and
+    # upload only — never the serving endpoint, so switching it off hides logos
+    # without destroying them.
+    allow_card_logo: Mapped[bool] = mapped_column(Boolean, default=False)
     subtypes: Mapped[list | None] = mapped_column(JSONB, default=list)  # [{key, label}]
     fields_schema: Mapped[list] = mapped_column(JSONB, default=list)
     stakeholder_roles: Mapped[list | None] = mapped_column(JSONB, default=list)  # [{key, label}]
