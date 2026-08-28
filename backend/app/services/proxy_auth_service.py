@@ -96,9 +96,14 @@ class ProxyIdentity:
     ``verified`` is the load-bearing field: it is True only when the identity came
     from a signature-verified id token. An unverified identity may sign in a user
     that already exists, but must never create one — see ``app/api/v1/auth.py``.
+
+    ``roles`` carries the raw directory role values, before any mapping. An empty
+    tuple means the claim was **absent**, which is deliberately distinct from
+    "present but matching nothing in the map": the first leaves the user's role
+    alone, the second falls back to the default role.
     """
 
-    __slots__ = ("email", "display_name", "subject_id", "verified", "email_verified")
+    __slots__ = ("email", "display_name", "subject_id", "verified", "email_verified", "roles")
 
     def __init__(
         self,
@@ -108,12 +113,14 @@ class ProxyIdentity:
         subject_id: str,
         verified: bool,
         email_verified: bool | None,
+        roles: tuple[str, ...] = (),
     ) -> None:
         self.email = email
         self.display_name = display_name
         self.subject_id = subject_id
         self.verified = verified
         self.email_verified = email_verified
+        self.roles = roles
 
     def __repr__(self) -> str:  # pragma: no cover — debugging aid
         return (
@@ -161,8 +168,14 @@ def _decode_azure_principal(raw: str) -> dict:
     """Decode App Service's base64 JSON principal into a flat claim dict.
 
     The payload shape is ``{"auth_typ": ..., "claims": [{"typ": ..., "val": ...}]}``.
-    Repeated claim types collapse to the first occurrence, which is what the
-    single-valued lookups below want.
+
+    A repeated claim type is kept as a **list**, in document order. That matters
+    for exactly one claim: App Service emits one entry per app role, so a user in
+    two roles produces two ``{"typ": "roles"}`` entries, while the verified
+    id-token path hands the same claim back as a list. Collapsing to the first
+    occurrence here — which this did until #1006 — meant the same user could
+    resolve differently depending on whether the token store was on. Single-valued
+    lookups are unaffected: ``_first_claim`` already takes ``value[0]`` for a list.
     """
     try:
         padded = raw + "=" * (-len(raw) % 4)
@@ -174,13 +187,20 @@ def _decode_azure_principal(raw: str) -> dict:
     if not isinstance(payload, dict):
         raise HTTPException(401, "Malformed proxy identity header.")
 
-    claims: dict[str, str] = {}
+    claims: dict[str, str | list[str]] = {}
     for entry in payload.get("claims") or []:
         if not isinstance(entry, dict):
             continue
         typ, val = entry.get("typ"), entry.get("val")
-        if isinstance(typ, str) and isinstance(val, str) and typ not in claims:
+        if not (isinstance(typ, str) and isinstance(val, str)):
+            continue
+        existing = claims.get(typ)
+        if existing is None:
             claims[typ] = val
+        elif isinstance(existing, list):
+            existing.append(val)
+        else:
+            claims[typ] = [existing, val]
     return claims
 
 
@@ -192,6 +212,56 @@ def _first_claim(claims: dict, candidates: tuple[str, ...]) -> str:
         if isinstance(value, str) and value.strip():
             return value.strip()
     return ""
+
+
+def _claim_values(claims: dict, key: str) -> tuple[str, ...]:
+    """Every value of one claim, normalising the two shapes into a tuple.
+
+    The principal blob yields ``str`` (one value) or ``list[str]`` (several); a
+    verified id token yields whatever the IdP put there. Non-string entries are
+    dropped rather than coerced — a role name is a string or it is nothing.
+    """
+    if not key:
+        return ()
+    value = claims.get(key)
+    if isinstance(value, str):
+        return (value.strip(),) if value.strip() else ()
+    if isinstance(value, list):
+        return tuple(v.strip() for v in value if isinstance(v, str) and v.strip())
+    return ()
+
+
+def map_role(values: tuple[str, ...]) -> str | None:
+    """Resolve directory role values to a Turbo EA role key, or None for no match.
+
+    **First match in map order**, not in claim order. A user can hold several
+    directory roles and the two claim shapes do not agree on their ordering, so
+    the only deterministic tie-break is the operator's own configuration order.
+    "Highest role" is not available: role keys are operator-defined and have no
+    ranking.
+
+    Pure — no request, no database. The caller validates the returned key against
+    the ``roles`` table.
+    """
+    if not values:
+        return None
+    held = {v.lower() for v in values}
+    for source, target in settings.PROXY_AUTH_ROLE_MAP:
+        if source in held:
+            return target
+    return None
+
+
+def role_mapping_trusted(identity: ProxyIdentity) -> bool:
+    """Whether this identity is trustworthy enough to *grant* a role, not just a name.
+
+    Mirrors the ``allow_create`` tiering in ``_provision_federated_user``: on the
+    weakest tier (Azure + ``TRUST_PLATFORM_HEADERS`` with no token verification and
+    no shared secret) a forged principal header can already impersonate an existing
+    account, but it must not additionally hand out that account's *permissions*.
+    A signature-verified token or a pre-shared secret both clear the bar.
+    """
+    return bool(identity.verified or settings.PROXY_AUTH_SHARED_SECRET)
 
 
 def _verify_forwarded_id_token(token: str) -> dict:
@@ -274,6 +344,7 @@ def resolve_identity(request: Request) -> ProxyIdentity:
         email = _first_claim(claims, _EMAIL_CLAIM_TYPES)
         display_name = _first_claim(claims, _NAME_CLAIM_TYPES)
         subject_id = _first_claim(claims, _SUBJECT_CLAIM_TYPES)
+        roles = _claim_values(claims, settings.PROXY_AUTH_ROLE_CLAIM)
         if not verified:
             # Scalar fallbacks, used only when the principal header carried no
             # usable claim. -NAME is the UPN, so it is a display/subject hint and
@@ -290,6 +361,10 @@ def resolve_identity(request: Request) -> ProxyIdentity:
         email = request.headers.get(settings.PROXY_AUTH_EMAIL_HEADER.lower(), "").strip()
         display_name = request.headers.get(settings.PROXY_AUTH_NAME_HEADER.lower(), "").strip()
         subject_id = request.headers.get(settings.PROXY_AUTH_SUBJECT_HEADER.lower(), "").strip()
+        # oauth2-proxy et al. carry group / role membership as one comma-separated
+        # header rather than a claim set.
+        raw_roles = request.headers.get(settings.PROXY_AUTH_ROLE_HEADER.lower(), "")
+        roles = tuple(r.strip() for r in raw_roles.split(",") if r.strip())
 
     if not email:
         raise HTTPException(401, "The proxy asserted no email address for this user.")
@@ -316,4 +391,5 @@ def resolve_identity(request: Request) -> ProxyIdentity:
         subject_id=subject_id,
         verified=verified,
         email_verified=email_verified,
+        roles=roles,
     )

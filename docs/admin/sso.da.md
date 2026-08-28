@@ -108,6 +108,25 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 - En identitet, der ikke er kryptografisk verificeret, kan logge eksisterende brugere på, men opretter aldrig en ny konto, og afventende invitationer tildeler ikke deres rolle ad denne vej.
 - `TURBO_EA_PROXY_AUTH_LOGOUT_URL` er der, hvor Turbo EA sender browseren hen efter **Log ud**, så proxy-sessionen også afsluttes. Uden den betragter proxyen stadig brugeren som logget på — de lander tilbage på loginsiden og kan komme ind igen med ét klik.
 
+**Rollekortlægning (valgfrit).** Som standard lander alle på den konfigurerede standardrolle, og en administrator forfremmer derfra. Hvis jeres identitetsudbyder allerede kender svaret — en Entra-appregistrering, der erklærer sine egne approller, eller en oauth2-proxy, der videresender gruppemedlemskab — kan Turbo EA læse det og tildele rollen selv:
+
+```
+TURBO_EA_PROXY_AUTH_ROLE_CLAIM=roles
+TURBO_EA_PROXY_AUTH_ROLE_MAP=ADMIN:admin,MANAGER:member,READ-ONLY:viewer
+```
+
+Hvert par skrives `KATALOGVÆRDI:turbo-ea-rollenøgle`. Når en bruger har flere katalogroller, **vinder den første post i kortlægningen** — kortlægningens rækkefølge, ikke den rækkefølge udbyderen tilfældigvis sendte dem i, for de to Azure-identitetsformater er ikke enige om den. Matchningen skelner ikke mellem store og små bogstaver på katalogsiden. I generisk proxytilstand læser den samme kortlægning en kommasepareret header i stedet for et claim: `TURBO_EA_PROXY_AUTH_ROLE_HEADER=X-Forwarded-Groups`.
+
+!!! warning "Kortlægningen er afgørende ved hvert log ind"
+    Ikke kun ved oprettelsen af kontoen. En rolle, der er tildelt manuelt under **Administration → Brugere**, rulles tilbage, næste gang den person logger ind — hvilket er hele pointen, eftersom det skal have effekt at fjerne nogens katalogrolle. Lad `TURBO_EA_PROXY_AUTH_ROLE_MAP` være tom, og intet ændrer sig: roller forbliver helt manuelle.
+
+Grænsetilfældene, alle valgt så en konfigurationsfejl ikke kan lukke jer ude:
+
+- **`TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` vinder altid** over kortlægningen. Hvis de to er uenige, er den adresse administrator.
+- **En værdi, der ikke matcher noget i kortlægningen** — eller som peger på en Turbo EA-rolle, der ikke findes eller er arkiveret — falder tilbage til standardrollen.
+- **Et claim, der mangler helt**, lader brugerens nuværende rolle være urørt. Det er bevidst forskelligt fra tilfældet ovenfor: et fejlskrevet `ROLE_CLAIM` eller et token-lager, der holder op med at videresende, ville ellers degradere alle brugere på instansen på én gang.
+- **Identiteten skal være værd at betro rettigheder.** Rollekortlægning gælder, når identitetstokenet er blevet verificeret (`TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true`), eller der er konfigureret en delt hemmelighed. På App Service med token-lageret slået fra og uden hemmelighed ignoreres kortlægningen, og der skrives en linje i loggen om det — samme ræsonnement som forhindrer en uverificeret header i at oprette en konto.
+
 **Alle variabler:**
 
 | Variabel | Standard | Formål |
@@ -125,6 +144,9 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 | `TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS` | — | Kommaseparerede tilladte e-maildomæner (påkrævet) |
 | `TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN` | `false` | Acceptér eksplicit ethvert e-maildomæne |
 | `TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` | — | Tildeles admin-rollen ved første login |
+| `TURBO_EA_PROXY_AUTH_ROLE_MAP` | — | `KATALOGVÆRDI:rollenøgle,…` — tom betyder, at roller forbliver manuelle |
+| `TURBO_EA_PROXY_AUTH_ROLE_CLAIM` | `roles` | Claim, der bærer katalogrollen (Azure-tilstand) |
+| `TURBO_EA_PROXY_AUTH_ROLE_HEADER` | `X-Forwarded-Groups` | `header`-tilstand: kommasepareret rolle-header |
 | `TURBO_EA_PROXY_AUTH_LOGOUT_URL` | — | Hvor Log ud sender browseren hen |
 
 **Begrænsninger:** MCP-serverens OAuth-flow kræver, at almindelig SSO er konfigureret; proxy-godkendelse alene dækker det ikke.

@@ -19,8 +19,9 @@ import json
 import pytest
 from sqlalchemy import func, select
 
-from app.config import settings
+from app.config import _parse_role_map, settings
 from app.models.user import User
+from app.services import proxy_auth_service, sso_service
 from tests.conftest import create_role, create_user
 
 
@@ -64,6 +65,10 @@ def proxy_enabled(monkeypatch):
     monkeypatch.setattr(settings, "PROXY_AUTH_ALLOW_ANY_DOMAIN", False)
     monkeypatch.setattr(settings, "PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL", "")
     monkeypatch.setattr(settings, "PROXY_AUTH_TRUST_PLATFORM_HEADERS", False)
+    # Pinned off: role mapping must be inert unless an operator configures it.
+    monkeypatch.setattr(settings, "PROXY_AUTH_ROLE_MAP", [])
+    monkeypatch.setattr(settings, "PROXY_AUTH_ROLE_CLAIM", "roles")
+    monkeypatch.setattr(settings, "PROXY_AUTH_ROLE_HEADER", "X-Forwarded-Groups")
 
 
 def hdrs(email: str = "alice@example.com", **extra: str) -> dict:
@@ -280,6 +285,303 @@ async def test_register_is_closed_while_proxy_auth_is_on(client, db, proxy_enabl
         },
     )
     assert response.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Directory role mapping — the pure half
+# ---------------------------------------------------------------------------
+
+
+def test_map_role_takes_the_first_match_in_map_order(monkeypatch):
+    """Map order decides, not claim order.
+
+    The principal blob and the verified id token disagree on the ordering of a
+    multi-valued claim, so claim order cannot be the tie-break — this is the whole
+    reason the map is a list of pairs rather than a dict.
+    """
+    monkeypatch.setattr(
+        settings,
+        "PROXY_AUTH_ROLE_MAP",
+        [("admin", "admin"), ("manager", "member")],
+    )
+    assert proxy_auth_service.map_role(("MANAGER", "ADMIN")) == "admin"
+    assert proxy_auth_service.map_role(("ADMIN", "MANAGER")) == "admin"
+
+
+def test_map_role_matches_the_source_case_insensitively(monkeypatch):
+    monkeypatch.setattr(settings, "PROXY_AUTH_ROLE_MAP", [("read-only", "viewer")])
+    assert proxy_auth_service.map_role(("Read-Only",)) == "viewer"
+
+
+def test_map_role_returns_none_when_nothing_matches(monkeypatch):
+    monkeypatch.setattr(settings, "PROXY_AUTH_ROLE_MAP", [("admin", "admin")])
+    assert proxy_auth_service.map_role(("Monitoring",)) is None
+    assert proxy_auth_service.map_role(()) is None
+
+
+def test_role_map_parsing_keeps_order_and_skips_malformed_entries():
+    assert _parse_role_map("ADMIN:admin, MANAGER:member ,READ-ONLY:viewer") == [
+        ("admin", "admin"),
+        ("manager", "member"),
+        ("read-only", "viewer"),
+    ]
+    assert _parse_role_map("nocolon,:orphan,ADMIN:,ok:member") == [("ok", "member")]
+    assert _parse_role_map("") == []
+
+
+def test_principal_blob_keeps_every_value_of_a_repeated_claim():
+    """App Service emits one entry per app role; dropping all but the first was #1006.
+
+    The verified id-token path returns the same claim as a list, so collapsing here
+    made one user resolve two ways depending on whether the token store was on.
+    """
+    payload = {
+        "auth_typ": "aad",
+        "claims": [
+            {"typ": "preferred_username", "val": "first.last@example.org"},
+            {"typ": "roles", "val": "ADMIN"},
+            {"typ": "roles", "val": "MANAGER"},
+        ],
+    }
+    claims = proxy_auth_service._decode_azure_principal(
+        base64.b64encode(json.dumps(payload).encode()).decode()
+    )
+    assert claims["roles"] == ["ADMIN", "MANAGER"]
+    # Single-valued lookups are unchanged by the list shape.
+    assert (
+        proxy_auth_service._first_claim(claims, ("preferred_username",)) == "first.last@example.org"
+    )
+
+
+def test_claim_values_normalises_both_shapes():
+    assert proxy_auth_service._claim_values({"roles": "ADMIN"}, "roles") == ("ADMIN",)
+    assert proxy_auth_service._claim_values({"roles": ["A", "B"]}, "roles") == ("A", "B")
+    assert proxy_auth_service._claim_values({}, "roles") == ()
+    # Non-strings are dropped rather than coerced.
+    assert proxy_auth_service._claim_values({"roles": [1, "A", None]}, "roles") == ("A",)
+
+
+# ---------------------------------------------------------------------------
+# Directory role mapping — sign-in behaviour
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def role_map(monkeypatch):
+    monkeypatch.setattr(
+        settings,
+        "PROXY_AUTH_ROLE_MAP",
+        [("admin", "admin"), ("manager", "member"), ("read-only", "viewer")],
+    )
+
+
+async def seed_roles(db):
+    for key in ("admin", "member", "viewer"):
+        await create_role(db, key=key)
+    await db.commit()
+
+
+async def role_of(db, email: str) -> str:
+    result = await db.execute(select(User).where(User.email == email))
+    return result.scalar_one().role
+
+
+async def test_mapped_claim_promotes_on_sign_in(client, db, proxy_enabled, role_map):
+    """Also pins the comma split and that map order, not header order, decides."""
+    await seed_roles(db)
+    await create_federated_user(db, email="alice@example.com", role="viewer")
+    await db.commit()
+
+    response = await client.post(
+        ENDPOINT, headers=hdrs("alice@example.com", **{"X-Forwarded-Groups": "MANAGER, ADMIN"})
+    )
+
+    assert response.status_code == 200
+    assert await role_of(db, "alice@example.com") == "admin"
+
+
+async def test_mapped_claim_demotes_a_role_granted_by_hand(client, db, proxy_enabled, role_map):
+    """The directory is authoritative on every sign-in — that is the point of the map.
+
+    An admin promoted in the Users admin does not survive their next sign-in, which
+    is what makes removing someone's directory role actually take effect.
+    """
+    await seed_roles(db)
+    await create_federated_user(db, email="alice@example.com", role="admin")
+    await db.commit()
+
+    response = await client.post(
+        ENDPOINT, headers=hdrs("alice@example.com", **{"X-Forwarded-Groups": "READ-ONLY"})
+    )
+
+    assert response.status_code == 200
+    assert await role_of(db, "alice@example.com") == "viewer"
+
+
+async def test_bootstrap_admin_beats_a_conflicting_map_entry(
+    client, db, monkeypatch, proxy_enabled, role_map
+):
+    """Otherwise one mapping mistake locks the operator out of their own instance."""
+    monkeypatch.setattr(settings, "PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL", "founder@example.com")
+    await seed_roles(db)
+    await create_federated_user(db, email="founder@example.com", role="admin")
+    await db.commit()
+
+    response = await client.post(
+        ENDPOINT, headers=hdrs("founder@example.com", **{"X-Forwarded-Groups": "READ-ONLY"})
+    )
+
+    assert response.status_code == 200
+    assert await role_of(db, "founder@example.com") == "admin"
+
+
+async def test_unrecognised_claim_value_falls_back_to_the_default_role(
+    client, db, proxy_enabled, role_map
+):
+    """Present but unmapped means the directory has spoken: no role here."""
+    await seed_roles(db)
+    await create_federated_user(db, email="alice@example.com", role="admin")
+    await db.commit()
+
+    response = await client.post(
+        ENDPOINT, headers=hdrs("alice@example.com", **{"X-Forwarded-Groups": "Monitoring"})
+    )
+
+    assert response.status_code == 200
+    assert await role_of(db, "alice@example.com") == "member"
+
+
+async def test_absent_claim_leaves_the_existing_role_untouched(client, db, proxy_enabled, role_map):
+    """Deliberately distinct from "present but unmapped".
+
+    A mistyped ROLE_CLAIM, or a token store that stopped forwarding the claim,
+    would otherwise demote every user on the instance in a single pass.
+    """
+    await seed_roles(db)
+    await create_federated_user(db, email="alice@example.com", role="admin")
+    await db.commit()
+
+    response = await client.post(ENDPOINT, headers=hdrs("alice@example.com"))
+
+    assert response.status_code == 200
+    assert await role_of(db, "alice@example.com") == "admin"
+
+
+async def test_archived_target_role_falls_back_to_the_default_role(
+    client, db, monkeypatch, proxy_enabled
+):
+    """The roles table is the authority, not the env var."""
+    await seed_roles(db)
+    archived = await create_role(db, key="viewer_old")
+    archived.is_archived = True
+    monkeypatch.setattr(settings, "PROXY_AUTH_ROLE_MAP", [("contractor", "viewer_old")])
+    await create_federated_user(db, email="alice@example.com", role="admin")
+    await db.commit()
+
+    response = await client.post(
+        ENDPOINT, headers=hdrs("alice@example.com", **{"X-Forwarded-Groups": "CONTRACTOR"})
+    )
+
+    assert response.status_code == 200
+    assert await role_of(db, "alice@example.com") == "member"
+
+
+async def test_unknown_target_role_falls_back_to_the_default_role(
+    client, db, monkeypatch, proxy_enabled
+):
+    await seed_roles(db)
+    monkeypatch.setattr(settings, "PROXY_AUTH_ROLE_MAP", [("admin", "no_such_role")])
+    await create_federated_user(db, email="alice@example.com", role="admin")
+    await db.commit()
+
+    response = await client.post(
+        ENDPOINT, headers=hdrs("alice@example.com", **{"X-Forwarded-Groups": "ADMIN"})
+    )
+
+    assert response.status_code == 200
+    assert await role_of(db, "alice@example.com") == "member"
+
+
+async def test_role_is_never_touched_without_a_configured_map(client, db, proxy_enabled):
+    """Backwards-compatibility pin: an unset map means today's behaviour, exactly."""
+    await seed_roles(db)
+    await create_federated_user(db, email="alice@example.com", role="admin")
+    await db.commit()
+
+    response = await client.post(
+        ENDPOINT, headers=hdrs("alice@example.com", **{"X-Forwarded-Groups": "READ-ONLY"})
+    )
+
+    assert response.status_code == 200
+    assert await role_of(db, "alice@example.com") == "admin"
+
+
+async def test_role_map_is_ignored_on_the_untrusted_tier(client, db, monkeypatch, role_map):
+    """Azure + TRUST_PLATFORM_HEADERS, no secret, no token verification.
+
+    A forged principal header can already impersonate an existing account on this
+    tier; it must not additionally hand out that account's permissions.
+    """
+    monkeypatch.setattr(settings, "PROXY_AUTH_ENABLED", True)
+    monkeypatch.setattr(settings, "PROXY_AUTH_MODE", "azure_easyauth")
+    monkeypatch.setattr(settings, "PROXY_AUTH_SHARED_SECRET", "")
+    monkeypatch.setattr(settings, "PROXY_AUTH_TRUST_PLATFORM_HEADERS", True)
+    monkeypatch.setattr(settings, "PROXY_AUTH_VERIFY_ID_TOKEN", False)
+    monkeypatch.setattr(settings, "PROXY_AUTH_ALLOWED_DOMAINS", ["example.com"])
+    monkeypatch.setattr(settings, "PROXY_AUTH_ALLOW_ANY_DOMAIN", False)
+    monkeypatch.setattr(settings, "PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL", "")
+    monkeypatch.setattr(settings, "PROXY_AUTH_ROLE_CLAIM", "roles")
+    await seed_roles(db)
+    await create_federated_user(db, email="alice@example.com", role="viewer")
+    await db.commit()
+
+    response = await client.post(
+        ENDPOINT,
+        headers={
+            "X-MS-CLIENT-PRINCIPAL": azure_principal(
+                preferred_username="alice@example.com", roles="ADMIN"
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    assert await role_of(db, "alice@example.com") == "viewer"
+
+
+async def test_verified_id_token_maps_a_list_valued_roles_claim(client, db, monkeypatch, role_map):
+    """The production shape on App Service with the token store on.
+
+    Also the first end-to-end exercise of the verified path at all — everything
+    else here runs unverified.
+    """
+    monkeypatch.setattr(settings, "PROXY_AUTH_ENABLED", True)
+    monkeypatch.setattr(settings, "PROXY_AUTH_MODE", "azure_easyauth")
+    monkeypatch.setattr(settings, "PROXY_AUTH_SHARED_SECRET", "")
+    monkeypatch.setattr(settings, "PROXY_AUTH_TRUST_PLATFORM_HEADERS", True)
+    monkeypatch.setattr(settings, "PROXY_AUTH_VERIFY_ID_TOKEN", True)
+    monkeypatch.setattr(settings, "PROXY_AUTH_ISSUER", "https://issuer.example")
+    monkeypatch.setattr(settings, "PROXY_AUTH_AUDIENCE", "client-id")
+    monkeypatch.setattr(settings, "PROXY_AUTH_JWKS_URI", "https://issuer.example/keys")
+    monkeypatch.setattr(settings, "PROXY_AUTH_ALLOWED_DOMAINS", ["example.com"])
+    monkeypatch.setattr(settings, "PROXY_AUTH_ALLOW_ANY_DOMAIN", False)
+    monkeypatch.setattr(settings, "PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL", "")
+    monkeypatch.setattr(settings, "PROXY_AUTH_ROLE_CLAIM", "roles")
+    monkeypatch.setattr(
+        sso_service,
+        "verify_id_token",
+        lambda *a, **k: {
+            "preferred_username": "alice@example.com",
+            "oid": "entra-object-id",
+            "roles": ["MANAGER", "ADMIN"],
+        },
+    )
+    await seed_roles(db)
+
+    response = await client.post(ENDPOINT, headers={"X-MS-TOKEN-AAD-ID-TOKEN": "signed.id.token"})
+
+    assert response.status_code == 200
+    # Created by the verified identity, and mapped in map order, not claim order.
+    assert await role_of(db, "alice@example.com") == "admin"
 
 
 # ---------------------------------------------------------------------------

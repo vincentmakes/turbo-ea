@@ -108,6 +108,25 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 - Uma identidade que não foi verificada criptograficamente pode autenticar usuários existentes, mas nunca cria uma nova conta, e convites pendentes não conferem seu papel por esse caminho.
 - `TURBO_EA_PROXY_AUTH_LOGOUT_URL` é para onde o Turbo EA envia o navegador após **Sair**, para que a sessão do proxy também seja encerrada. Sem ele, o proxy ainda considera o usuário autenticado — ele volta para a página de login e pode entrar de novo com um clique.
 
+**Mapeamento de funções (opcional).** Por predefinição, todos aterram na função predefinida configurada e um administrador promove a partir daí. Se o seu fornecedor de identidade já sabe a resposta — um registo de aplicação Entra que declara as suas próprias funções de aplicação, um oauth2-proxy que reencaminha a pertença a grupos — o Turbo EA pode lê-la e atribuir a função por si:
+
+```
+TURBO_EA_PROXY_AUTH_ROLE_CLAIM=roles
+TURBO_EA_PROXY_AUTH_ROLE_MAP=ADMIN:admin,MANAGER:member,READ-ONLY:viewer
+```
+
+Cada par escreve-se `VALOR_DIRETÓRIO:chave-de-função-turbo-ea`. Quando um utilizador detém várias funções de diretório, **ganha a primeira entrada do mapeamento** — a ordem do mapeamento, e não a ordem pela qual o fornecedor as enviou, porque os dois formatos de identidade do Azure não concordam nisso. A correspondência ignora maiúsculas e minúsculas do lado do diretório. No modo de proxy genérico, o mesmo mapeamento lê um cabeçalho separado por vírgulas em vez de uma reivindicação: `TURBO_EA_PROXY_AUTH_ROLE_HEADER=X-Forwarded-Groups`.
+
+!!! warning "O mapeamento é autoritativo em cada início de sessão"
+    Não apenas na criação da conta. Uma função concedida à mão em **Administração → Utilizadores** é revertida no próximo início de sessão dessa pessoa — que é justamente o objetivo, já que retirar a função de diretório de alguém tem de produzir efeito. Deixe `TURBO_EA_PROXY_AUTH_ROLE_MAP` por definir e nada muda: as funções continuam inteiramente manuais.
+
+Os casos limite, todos escolhidos para que um erro de configuração não o possa deixar de fora:
+
+- **`TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` ganha sempre** ao mapeamento. Se os dois discordarem, esse endereço é administrador.
+- **Um valor que não corresponde a nada no mapeamento** — ou que nomeia uma função Turbo EA inexistente ou arquivada — recai na função predefinida.
+- **Uma reivindicação totalmente ausente** deixa intacta a função atual do utilizador. Isto é deliberadamente diferente do caso anterior: um `ROLE_CLAIM` mal escrito, ou um arquivo de tokens que deixa de reencaminhar, despromoveria de outro modo todos os utilizadores da instância de uma só vez.
+- **A identidade tem de merecer que lhe sejam confiadas permissões.** O mapeamento de funções aplica-se quando o token de identidade foi verificado (`TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true`) ou existe um segredo partilhado configurado. No App Service com o arquivo de tokens desativado e sem segredo, o mapeamento é ignorado e é escrita uma linha no registo a dizê-lo — o mesmo raciocínio que impede um cabeçalho não verificado de criar uma conta.
+
 **Todas as variáveis:**
 
 | Variável | Padrão | Finalidade |
@@ -125,6 +144,9 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 | `TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS` | — | Domínios de e-mail permitidos, separados por vírgula (obrigatório) |
 | `TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN` | `false` | Aceita explicitamente qualquer domínio de e-mail |
 | `TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` | — | Recebe o papel de admin no primeiro login |
+| `TURBO_EA_PROXY_AUTH_ROLE_MAP` | — | `VALOR_DIRETÓRIO:chave-de-função,…` — vazio significa que as funções continuam manuais |
+| `TURBO_EA_PROXY_AUTH_ROLE_CLAIM` | `roles` | Reivindicação que transporta a função do diretório (modo Azure) |
+| `TURBO_EA_PROXY_AUTH_ROLE_HEADER` | `X-Forwarded-Groups` | Modo `header`: cabeçalho de funções separadas por vírgulas |
 | `TURBO_EA_PROXY_AUTH_LOGOUT_URL` | — | Para onde Sair envia o navegador |
 
 **Limitações:** o fluxo OAuth do servidor MCP requer que o SSO regular esteja configurado; a autenticação por proxy sozinha não o cobre.

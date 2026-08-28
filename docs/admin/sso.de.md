@@ -108,6 +108,25 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 - Eine Identität, die nicht kryptografisch verifiziert wurde, kann bestehende Benutzer anmelden, erstellt aber niemals ein neues Konto, und ausstehende Einladungen übertragen auf diesem Weg nicht ihre Rolle.
 - `TURBO_EA_PROXY_AUTH_LOGOUT_URL` ist die Adresse, an die Turbo EA den Browser nach **Abmelden** weiterleitet, damit auch die Proxy-Sitzung beendet wird. Ohne sie betrachtet der Proxy den Benutzer weiterhin als angemeldet — er landet wieder auf der Anmeldeseite und kann sich mit einem Klick erneut anmelden.
 
+**Rollenzuordnung (optional).** Standardmäßig landen alle auf der konfigurierten Standardrolle und ein Administrator befördert sie von dort aus. Wenn Ihr Identitätsanbieter die Antwort bereits kennt — eine Entra-App-Registrierung, die eigene App-Rollen deklariert, oder ein oauth2-proxy, der die Gruppenzugehörigkeit weiterleitet — kann Turbo EA sie auslesen und die Rolle selbst vergeben:
+
+```
+TURBO_EA_PROXY_AUTH_ROLE_CLAIM=roles
+TURBO_EA_PROXY_AUTH_ROLE_MAP=ADMIN:admin,MANAGER:member,READ-ONLY:viewer
+```
+
+Jedes Paar hat die Form `VERZEICHNISWERT:turbo-ea-rollenschlüssel`. Hält ein Benutzer mehrere Verzeichnisrollen, **gewinnt der erste Eintrag der Zuordnung** — die Reihenfolge in der Zuordnung, nicht die Reihenfolge, in der der Anbieter sie zufällig gesendet hat, denn die beiden Azure-Identitätsformate sind sich darüber nicht einig. Bei der Zuordnung wird die Groß- und Kleinschreibung auf Verzeichnisseite ignoriert. Im generischen Proxy-Modus liest dieselbe Zuordnung einen kommagetrennten Header statt eines Claims: `TURBO_EA_PROXY_AUTH_ROLE_HEADER=X-Forwarded-Groups`.
+
+!!! warning "Die Zuordnung ist bei jeder Anmeldung maßgeblich"
+    Nicht nur bei der Kontoerstellung. Eine unter **Administration → Benutzer** von Hand vergebene Rolle wird bei der nächsten Anmeldung dieser Person zurückgesetzt — und genau das ist der Sinn, denn das Entziehen einer Verzeichnisrolle muss wirksam werden. Lassen Sie `TURBO_EA_PROXY_AUTH_ROLE_MAP` leer, ändert sich nichts: Rollen bleiben vollständig manuell.
+
+Die Sonderfälle, alle so gewählt, dass ein Konfigurationsfehler Sie nicht aussperren kann:
+
+- **`TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` gewinnt immer** gegenüber der Zuordnung. Widersprechen sich beide, ist diese Adresse Administrator.
+- **Ein Wert, der zu keinem Eintrag der Zuordnung passt** — oder auf eine Turbo-EA-Rolle verweist, die nicht existiert oder archiviert wurde — fällt auf die Standardrolle zurück.
+- **Ein vollständig fehlender Claim** lässt die aktuelle Rolle des Benutzers unangetastet. Das unterscheidet sich bewusst vom Fall oben: ein falsch geschriebener `ROLE_CLAIM` oder ein Token-Speicher, der nichts mehr weiterleitet, würde sonst in einem einzigen Durchgang alle Benutzer der Instanz herabstufen.
+- **Die Identität muss der Vergabe von Berechtigungen würdig sein.** Die Rollenzuordnung greift, wenn das Identitätstoken verifiziert wurde (`TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true`) oder ein gemeinsames Geheimnis konfiguriert ist. Auf App Service mit deaktiviertem Token-Speicher und ohne Geheimnis wird die Zuordnung ignoriert und eine entsprechende Zeile ins Protokoll geschrieben — dieselbe Begründung, die einen unverifizierten Header daran hindert, ein Konto anzulegen.
+
 **Alle Variablen:**
 
 | Variable | Standard | Zweck |
@@ -125,6 +144,9 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 | `TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS` | — | Kommagetrennte erlaubte E-Mail-Domains (erforderlich) |
 | `TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN` | `false` | Ausdrücklich jede E-Mail-Domain akzeptieren |
 | `TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` | — | Erhält bei der ersten Anmeldung die Admin-Rolle |
+| `TURBO_EA_PROXY_AUTH_ROLE_MAP` | — | `VERZEICHNISWERT:rollenschlüssel,…` — leer bedeutet, Rollen bleiben manuell |
+| `TURBO_EA_PROXY_AUTH_ROLE_CLAIM` | `roles` | Claim, der die Verzeichnisrolle trägt (Azure-Modus) |
+| `TURBO_EA_PROXY_AUTH_ROLE_HEADER` | `X-Forwarded-Groups` | `header`-Modus: kommagetrennter Rollen-Header |
 | `TURBO_EA_PROXY_AUTH_LOGOUT_URL` | — | Wohin Abmelden den Browser weiterleitet |
 
 **Einschränkungen:** Der OAuth-Ablauf des MCP-Servers erfordert, dass reguläres SSO konfiguriert ist; die Proxy-Authentifizierung allein deckt ihn nicht ab.

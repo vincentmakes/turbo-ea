@@ -228,6 +228,63 @@ def _is_bootstrap_admin(email: str) -> bool:
     return bool(configured) and configured == email
 
 
+async def _resolve_proxy_role(
+    db: AsyncSession, identity: proxy_auth_service.ProxyIdentity
+) -> str | None:
+    """The role key to enforce for this proxy identity, or None to leave it alone.
+
+    Turns the directory's own answer into a Turbo EA role
+    (``TURBO_EA_PROXY_AUTH_ROLE_MAP``), so operators whose app registration already
+    declares app roles stop promoting every new user by hand.
+
+    Four rules, in this order:
+
+    1. **The bootstrap admin always wins.** Otherwise one mapping typo locks an
+       operator out of their own instance, with no route back in — ``/auth/register``
+       is closed while proxy auth is on.
+    2. **An absent claim changes nothing.** Deliberately different from "present but
+       unrecognised": a mistyped ``ROLE_CLAIM``, or a token store that stopped
+       forwarding, would otherwise demote every user on the instance in one pass.
+       An unrecognised *value* does fall back to the default role, so removing
+       someone's directory role takes effect.
+    3. **Only a trusted identity may be granted a role** (``role_mapping_trusted``),
+       mirroring the ``allow_create`` tiering above.
+    4. **An unknown or archived target falls back to the default role**, the way
+       ``_default_role_key`` already falls back to ``member``. Validated with the
+       existence + ``is_archived`` pair used by ``impersonate`` below — the roles
+       table is the authority, not the env var.
+    """
+    if _is_bootstrap_admin(identity.email):
+        return "admin"
+    if not settings.PROXY_AUTH_ROLE_MAP or not identity.roles:
+        return None
+    if not proxy_auth_service.role_mapping_trusted(identity):
+        logger.warning(
+            "Ignoring TURBO_EA_PROXY_AUTH_ROLE_MAP for %s: the identity was neither "
+            "signature-verified nor accompanied by a shared secret.",
+            identity.email,
+        )
+        return None
+
+    mapped = proxy_auth_service.map_role(identity.roles)
+    if mapped is None:
+        return await _default_role_key(db)
+
+    from app.models.role import Role
+
+    result = await db.execute(select(Role).where(Role.key == mapped))
+    role = result.scalar_one_or_none()
+    if role is None or role.is_archived:
+        logger.warning(
+            "TURBO_EA_PROXY_AUTH_ROLE_MAP points at role %r, which is %s. "
+            "Falling back to the default role.",
+            mapped,
+            "archived" if role is not None else "not defined",
+        )
+        return await _default_role_key(db)
+    return mapped
+
+
 @router.post("/register", response_model=TokenResponse)
 @limiter.limit("5/minute")
 async def register(
@@ -696,10 +753,27 @@ async def proxy_session(
         honour_invitation=False,
     )
 
-    # First-admin bootstrap: a proxy-auth-only install has no other route to one,
-    # because /auth/register is closed while proxy auth is on.
-    if user.role != "admin" and _is_bootstrap_admin(identity.email):
-        user.role = "admin"
+    # Role assignment, re-asserted on every sign-in. Two things live here: the
+    # first-admin bootstrap (a proxy-auth-only install has no other route to an
+    # admin, because /auth/register is closed while proxy auth is on) and the
+    # optional directory role map. See _resolve_proxy_role for the precedence.
+    #
+    # Deliberately *after* provisioning rather than inside it: that covers all
+    # three of _provision_federated_user's branches — including the subject-id
+    # match, which returns early without a commit — through one code path, and
+    # _issue_session then mints the JWT from the corrected role.
+    desired_role = await _resolve_proxy_role(db, identity)
+    if desired_role and user.role != desired_role:
+        # Logged because a demotion is otherwise invisible: the map is authoritative,
+        # so a role granted by hand in the Users admin is reverted here, and this
+        # line is what answers "why did I lose admin?".
+        logger.info(
+            "Proxy sign-in: role for %s changed from %r to %r.",
+            user.email,
+            user.role,
+            desired_role,
+        )
+        user.role = desired_role
         await db.commit()
         await db.refresh(user)
 

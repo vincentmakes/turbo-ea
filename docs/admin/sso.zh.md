@@ -106,6 +106,25 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 - 未经加密学验证的身份可以让现有用户登录，但永远不会创建新账户，且待处理的邀请在此路径上不会授予其预设角色。
 - `TURBO_EA_PROXY_AUTH_LOGOUT_URL` 是用户点击**退出登录**后 Turbo EA 将浏览器重定向到的地址，以便同时结束代理会话。如果不设置，代理仍会认为用户处于登录状态——用户会回到登录页面，并且只需一次点击即可重新进入。
 
+**角色映射（可选）。** 默认情况下，所有人都落在配置的默认角色上，再由管理员逐个提升。如果您的身份提供方已经知道答案 —— 例如声明了自有应用角色的 Entra 应用注册，或转发组成员身份的 oauth2-proxy —— Turbo EA 可以读取它并自行分配角色：
+
+```
+TURBO_EA_PROXY_AUTH_ROLE_CLAIM=roles
+TURBO_EA_PROXY_AUTH_ROLE_MAP=ADMIN:admin,MANAGER:member,READ-ONLY:viewer
+```
+
+每一对写作 `目录取值:turbo-ea-角色键`。当用户同时拥有多个目录角色时，**映射中的第一条优先** —— 依据的是映射顺序，而不是提供方碰巧发送的顺序，因为两种 Azure 身份格式在这一点上并不一致。匹配时忽略目录一侧的大小写。在通用代理模式下，同一份映射读取的是以逗号分隔的请求头而非声明：`TURBO_EA_PROXY_AUTH_ROLE_HEADER=X-Forwarded-Groups`。
+
+!!! warning "映射在每次登录时都具有决定权"
+    不仅仅是在创建账户时。在 **管理 → 用户** 中手工授予的角色，会在此人下次登录时被还原 —— 这正是目的所在，因为撤销某人的目录角色必须真正生效。将 `TURBO_EA_PROXY_AUTH_ROLE_MAP` 留空则一切照旧：角色完全由人工维护。
+
+以下边界情况的处理方式，都是为了让配置失误不会把您锁在门外：
+
+- **`TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` 始终优先于**映射。两者冲突时，该地址就是管理员。
+- **与映射中任何一条都不匹配的取值** —— 或指向不存在、已归档的 Turbo EA 角色 —— 回退到默认角色。
+- **完全缺失的声明**会让用户当前的角色保持不变。这与上一条是刻意区分开的：`ROLE_CLAIM` 拼错，或令牌存储不再转发，否则会在一次登录中把实例上的所有用户一并降级。
+- **身份必须可信到足以托付权限。** 当身份令牌已通过验证（`TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true`）或已配置共享密钥时，角色映射才会生效。在关闭了令牌存储且没有密钥的 App Service 上，映射会被忽略并在日志中写入一行说明 —— 与未经验证的请求头不得创建账户，出于同一个理由。
+
 **全部变量：**
 
 | 变量 | 默认值 | 用途 |
@@ -123,6 +142,9 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 | `TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS` | — | 逗号分隔的允许邮箱域名列表（必需） |
 | `TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN` | `false` | 明确接受任何邮箱域名 |
 | `TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` | — | 首次登录时被授予管理员角色 |
+| `TURBO_EA_PROXY_AUTH_ROLE_MAP` | — | `目录取值:角色键,…` —— 留空表示角色仍由人工维护 |
+| `TURBO_EA_PROXY_AUTH_ROLE_CLAIM` | `roles` | 承载目录角色的声明（Azure 模式） |
+| `TURBO_EA_PROXY_AUTH_ROLE_HEADER` | `X-Forwarded-Groups` | `header` 模式：以逗号分隔的角色请求头 |
 | `TURBO_EA_PROXY_AUTH_LOGOUT_URL` | — | 退出登录后浏览器跳转的地址 |
 
 **限制：** MCP 服务器的 OAuth 流程需要配置常规 SSO；仅有代理身份验证无法覆盖该场景。

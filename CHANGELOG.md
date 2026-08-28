@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.97.0] - 2026-08-28
+
+### Added
+
+- **Reverse-proxy sign-in can now take the user's role from your directory.** Set `TURBO_EA_PROXY_AUTH_ROLE_MAP` (for example `ADMIN:admin,MANAGER:member,READ-ONLY:viewer`) and the app roles your identity provider already assigns decide the Turbo EA role, instead of everyone landing on the default role for an administrator to promote by hand. The map is re-applied on every sign-in, so removing someone's directory role takes effect; the bootstrap admin address always overrides it. Off unless configured. ([#1006](https://github.com/vincentmakes/turbo-ea/discussions/1006))
+
+### Fixed
+
+- **A user in two Azure app roles had all but the first silently dropped.** When the App Service token store is off, the forwarded identity lists each role as its own entry; only the first was read, so the same person could resolve differently depending on whether token verification was on.
+
 ## [2.96.2] - 2026-08-28
 
 ### Fixed

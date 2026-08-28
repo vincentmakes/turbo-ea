@@ -108,6 +108,25 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 - Une identité qui n'a pas été vérifiée cryptographiquement peut connecter des utilisateurs existants mais ne crée jamais de nouveau compte, et les invitations en attente ne confèrent pas leur rôle par ce chemin.
 - `TURBO_EA_PROXY_AUTH_LOGOUT_URL` est l'adresse vers laquelle Turbo EA envoie le navigateur après **Se déconnecter**, afin que la session du proxy se termine aussi. Sans elle, le proxy considère toujours l'utilisateur comme connecté — il retombe sur la page de connexion et peut se reconnecter en un clic.
 
+**Mappage des rôles (facultatif).** Par défaut, tout le monde arrive sur le rôle par défaut configuré et un administrateur promeut à partir de là. Si votre fournisseur d'identité connaît déjà la réponse — une inscription d'application Entra qui déclare ses propres rôles d'application, un oauth2-proxy qui transmet l'appartenance aux groupes — Turbo EA peut la lire et attribuer le rôle lui-même :
+
+```
+TURBO_EA_PROXY_AUTH_ROLE_CLAIM=roles
+TURBO_EA_PROXY_AUTH_ROLE_MAP=ADMIN:admin,MANAGER:member,READ-ONLY:viewer
+```
+
+Chaque paire s'écrit `VALEUR_ANNUAIRE:clé-de-rôle-turbo-ea`. Lorsqu'un utilisateur détient plusieurs rôles d'annuaire, **la première entrée du mappage l'emporte** — l'ordre du mappage, et non celui dans lequel le fournisseur les a envoyés, car les deux formats d'identité Azure ne s'accordent pas là-dessus. La correspondance ignore la casse côté annuaire. En mode proxy générique, le même mappage lit un en-tête séparé par des virgules au lieu d'une revendication : `TURBO_EA_PROXY_AUTH_ROLE_HEADER=X-Forwarded-Groups`.
+
+!!! warning "Le mappage fait autorité à chaque connexion"
+    Pas seulement à la création du compte. Un rôle attribué à la main dans **Administration → Utilisateurs** est annulé à la connexion suivante de cette personne — c'est bien l'objectif, puisque le retrait d'un rôle d'annuaire doit prendre effet. Laissez `TURBO_EA_PROXY_AUTH_ROLE_MAP` vide et rien ne change : les rôles restent entièrement manuels.
+
+Les cas limites, tous choisis pour qu'une erreur de configuration ne puisse pas vous verrouiller dehors :
+
+- **`TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` l'emporte toujours** sur le mappage. En cas de désaccord, cette adresse est administratrice.
+- **Une valeur qui ne correspond à rien dans le mappage** — ou qui désigne un rôle Turbo EA inexistant ou archivé — retombe sur le rôle par défaut.
+- **Une revendication totalement absente** laisse le rôle actuel de l'utilisateur intact. C'est délibérément différent du cas précédent : un `ROLE_CLAIM` mal saisi, ou un magasin de jetons qui cesse de transmettre, rétrograderait sinon tous les utilisateurs de l'instance d'un seul coup.
+- **L'identité doit mériter qu'on lui confie des permissions.** Le mappage des rôles s'applique lorsque le jeton d'identité a été vérifié (`TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true`) ou qu'un secret partagé est configuré. Sur App Service avec le magasin de jetons désactivé et sans secret, le mappage est ignoré et une ligne le signalant est écrite dans le journal — le même raisonnement qui empêche un en-tête non vérifié de créer un compte.
+
 **Toutes les variables :**
 
 | Variable | Défaut | Rôle |
@@ -125,6 +144,9 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 | `TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS` | — | Domaines d'e-mail autorisés, séparés par des virgules (obligatoire) |
 | `TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN` | `false` | Accepter explicitement n'importe quel domaine d'e-mail |
 | `TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` | — | Reçoit le rôle admin lors de la première connexion |
+| `TURBO_EA_PROXY_AUTH_ROLE_MAP` | — | `VALEUR_ANNUAIRE:clé-de-rôle,…` — vide signifie que les rôles restent manuels |
+| `TURBO_EA_PROXY_AUTH_ROLE_CLAIM` | `roles` | Revendication portant le rôle d'annuaire (mode Azure) |
+| `TURBO_EA_PROXY_AUTH_ROLE_HEADER` | `X-Forwarded-Groups` | Mode `header` : en-tête de rôles séparés par des virgules |
 | `TURBO_EA_PROXY_AUTH_LOGOUT_URL` | — | Où Se déconnecter envoie le navigateur |
 
 **Limitations :** le flux OAuth du serveur MCP nécessite qu'un SSO classique soit configuré ; l'authentification par proxy seule ne le couvre pas.

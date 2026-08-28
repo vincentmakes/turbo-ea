@@ -110,6 +110,25 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 - An identity that was not cryptographically verified can sign in existing users but never creates a new account, and pending invitations do not confer their role on this path.
 - `TURBO_EA_PROXY_AUTH_LOGOUT_URL` is where Turbo EA sends the browser after **Sign out** so the proxy session ends too. Without it, the proxy still considers the user signed in — they land back on the login page and can re-enter with one click.
 
+**Role mapping (optional).** By default everyone arrives on the configured default role and an administrator promotes from there. If your identity provider already knows the answer — an Entra app registration that declares its own app roles, an oauth2-proxy that forwards group membership — Turbo EA can read it and assign the role itself:
+
+```
+TURBO_EA_PROXY_AUTH_ROLE_CLAIM=roles
+TURBO_EA_PROXY_AUTH_ROLE_MAP=ADMIN:admin,MANAGER:member,READ-ONLY:viewer
+```
+
+Each pair is `DIRECTORY_VALUE:turbo-ea-role-key`. When a user holds several directory roles, **the first entry in the map wins** — map order, not the order the provider happened to send them, because the two Azure identity formats disagree on that. Matching ignores case on the directory side. In generic proxy mode the same map reads a comma-separated header instead of a claim: `TURBO_EA_PROXY_AUTH_ROLE_HEADER=X-Forwarded-Groups`.
+
+!!! warning "The map is authoritative on every sign-in"
+    Not only at account creation. A role granted by hand in **Admin → Users** is reverted the next time that person signs in — which is the point, since removing someone's directory role has to take effect. Leave `TURBO_EA_PROXY_AUTH_ROLE_MAP` unset and nothing changes: roles stay entirely manual.
+
+The edge cases, all chosen so a configuration mistake cannot lock you out:
+
+- **`TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` always wins** over the map. If the two disagree, that address is admin.
+- **A value that matches nothing in the map** — or names a Turbo EA role that does not exist or has been archived — falls back to the default role.
+- **A claim that is absent entirely** leaves the user's current role untouched. This is deliberately different from the case above: a mistyped `ROLE_CLAIM`, or a token store that stopped forwarding, would otherwise demote every user on the instance in one pass.
+- **The identity has to be worth trusting with permissions.** Role mapping applies when the identity token was verified (`TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true`) or a shared secret is configured. On App Service with the token store disabled and no secret, the map is ignored and a line is written to the log saying so — the same reasoning that stops an unverified header creating an account.
+
 **All variables:**
 
 | Variable | Default | Purpose |
@@ -127,6 +146,9 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 | `TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS` | — | Comma-separated allowed email domains (required) |
 | `TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN` | `false` | Explicitly accept any email domain |
 | `TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` | — | Granted admin on first sign-in |
+| `TURBO_EA_PROXY_AUTH_ROLE_MAP` | — | `DIRECTORY_VALUE:role-key,…` — empty means roles stay manual |
+| `TURBO_EA_PROXY_AUTH_ROLE_CLAIM` | `roles` | Claim carrying the directory role (Azure mode) |
+| `TURBO_EA_PROXY_AUTH_ROLE_HEADER` | `X-Forwarded-Groups` | `header` mode: comma-separated role header |
 | `TURBO_EA_PROXY_AUTH_LOGOUT_URL` | — | Where Sign out sends the browser |
 
 **Limitations:** the MCP server's OAuth flow requires regular SSO to be configured; proxy authentication alone does not cover it.

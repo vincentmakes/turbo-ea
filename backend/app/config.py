@@ -33,6 +33,29 @@ APP_VERSION = _read_version()
 EXTENSION_STORE_URL = "https://store.turbo-ea.org"
 
 
+def _parse_role_map(raw: str) -> list[tuple[str, str]]:
+    """Parse ``SOURCE:target,SOURCE:target`` into ordered (source, target) pairs.
+
+    A **list of pairs, not a dict**: the configured order is the tie-break when a
+    user carries several directory roles, so it has to survive parsing.
+
+    The source side is lower-cased here so matching is case-insensitive (an Entra
+    app-role value is operator-typed and will not always match the map's case);
+    the target is a Turbo EA role key and is kept verbatim. Malformed entries are
+    skipped rather than raising — a typo in one pair must not stop the app
+    booting, and the sign-in path falls back to the default role anyway.
+    """
+    pairs: list[tuple[str, str]] = []
+    for entry in raw.split(","):
+        source, sep, target = entry.partition(":")
+        if not sep:
+            continue
+        source, target = source.strip().lower(), target.strip()
+        if source and target:
+            pairs.append((source, target))
+    return pairs
+
+
 class Settings:
     PROJECT_NAME: str = "Turbo EA"
     API_V1_PREFIX: str = "/api/v1"
@@ -159,6 +182,26 @@ class Settings:
     PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL: str = os.getenv(
         "TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL", ""
     )
+
+    # Directory-driven role assignment (#1006). Empty PROXY_AUTH_ROLE_MAP is the
+    # off switch and the default: without it every proxy sign-in behaves exactly
+    # as before, landing new users on the admin-configured default role.
+    #
+    # With it set, the directory becomes authoritative on EVERY sign-in, not just
+    # at account creation — a promotion made by hand in the Users admin does not
+    # survive the user's next sign-in. That is the point of it (removing someone's
+    # directory role must actually take effect), but it is a bigger behaviour
+    # change than the setting looks, hence the opt-in.
+    #
+    # PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL always wins over the map, so one mapping
+    # mistake can never lock an operator out of their own instance.
+    PROXY_AUTH_ROLE_CLAIM: str = os.getenv("TURBO_EA_PROXY_AUTH_ROLE_CLAIM", "roles")
+    PROXY_AUTH_ROLE_MAP: list[tuple[str, str]] = _parse_role_map(
+        os.getenv("TURBO_EA_PROXY_AUTH_ROLE_MAP", "")
+    )
+    # "header" mode equivalent of the claim above: a comma-separated header.
+    # X-Forwarded-Groups is what oauth2-proxy emits.
+    PROXY_AUTH_ROLE_HEADER: str = os.getenv("TURBO_EA_PROXY_AUTH_ROLE_HEADER", "X-Forwarded-Groups")
 
     # Where to send the browser on logout so the proxy session ends too
     # (/.auth/logout for EasyAuth, /oauth2/sign_out for oauth2-proxy). Without

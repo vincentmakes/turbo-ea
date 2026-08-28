@@ -108,6 +108,25 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 - Una identidad que no fue verificada criptográficamente puede iniciar sesión con usuarios existentes, pero nunca crea una cuenta nueva, y las invitaciones pendientes no confieren su rol por esta vía.
 - `TURBO_EA_PROXY_AUTH_LOGOUT_URL` es adonde Turbo EA envía el navegador después de **Cerrar sesión**, para que la sesión del proxy también termine. Sin ella, el proxy sigue considerando que el usuario tiene la sesión iniciada — vuelve a la página de inicio de sesión y puede reingresar con un clic.
 
+**Asignación de roles (opcional).** De forma predeterminada todos aterrizan en el rol predeterminado configurado y un administrador los promociona desde ahí. Si su proveedor de identidad ya conoce la respuesta — un registro de aplicación de Entra que declara sus propios roles de aplicación, un oauth2-proxy que reenvía la pertenencia a grupos — Turbo EA puede leerla y asignar el rol por sí mismo:
+
+```
+TURBO_EA_PROXY_AUTH_ROLE_CLAIM=roles
+TURBO_EA_PROXY_AUTH_ROLE_MAP=ADMIN:admin,MANAGER:member,READ-ONLY:viewer
+```
+
+Cada par se escribe `VALOR_DIRECTORIO:clave-de-rol-turbo-ea`. Cuando un usuario tiene varios roles de directorio, **gana la primera entrada de la asignación** — el orden de la asignación, no el orden en que el proveedor los haya enviado, porque los dos formatos de identidad de Azure no coinciden en eso. La coincidencia ignora mayúsculas y minúsculas en el lado del directorio. En modo de proxy genérico, la misma asignación lee una cabecera separada por comas en lugar de una reclamación: `TURBO_EA_PROXY_AUTH_ROLE_HEADER=X-Forwarded-Groups`.
+
+!!! warning "La asignación es autoritativa en cada inicio de sesión"
+    No solo al crear la cuenta. Un rol concedido a mano en **Administración → Usuarios** se revierte la próxima vez que esa persona inicia sesión — que es precisamente el objetivo, ya que retirar el rol de directorio de alguien tiene que surtir efecto. Deje `TURBO_EA_PROXY_AUTH_ROLE_MAP` sin definir y nada cambia: los roles siguen siendo totalmente manuales.
+
+Los casos límite, todos elegidos para que un error de configuración no pueda dejarle fuera:
+
+- **`TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` siempre gana** frente a la asignación. Si ambos discrepan, esa dirección es administradora.
+- **Un valor que no coincide con nada de la asignación** — o que nombra un rol de Turbo EA que no existe o está archivado — recae en el rol predeterminado.
+- **Una reclamación completamente ausente** deja intacto el rol actual del usuario. Esto es deliberadamente distinto del caso anterior: un `ROLE_CLAIM` mal escrito, o un almacén de tokens que deja de reenviar, degradaría de lo contrario a todos los usuarios de la instancia de una sola vez.
+- **La identidad debe merecer que se le confíen permisos.** La asignación de roles se aplica cuando el token de identidad se ha verificado (`TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true`) o hay un secreto compartido configurado. En App Service con el almacén de tokens deshabilitado y sin secreto, la asignación se ignora y se escribe una línea en el registro indicándolo — el mismo razonamiento que impide que una cabecera no verificada cree una cuenta.
+
 **Todas las variables:**
 
 | Variable | Por defecto | Propósito |
@@ -125,6 +144,9 @@ TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
 | `TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS` | — | Dominios de correo permitidos, separados por comas (obligatorio) |
 | `TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN` | `false` | Aceptar explícitamente cualquier dominio de correo electrónico |
 | `TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` | — | Recibe el rol de admin en el primer inicio de sesión |
+| `TURBO_EA_PROXY_AUTH_ROLE_MAP` | — | `VALOR_DIRECTORIO:clave-de-rol,…` — vacío significa que los roles siguen siendo manuales |
+| `TURBO_EA_PROXY_AUTH_ROLE_CLAIM` | `roles` | Reclamación que porta el rol del directorio (modo Azure) |
+| `TURBO_EA_PROXY_AUTH_ROLE_HEADER` | `X-Forwarded-Groups` | Modo `header`: cabecera de roles separados por comas |
 | `TURBO_EA_PROXY_AUTH_LOGOUT_URL` | — | Adonde Cerrar sesión envía el navegador |
 
 **Limitaciones:** el flujo OAuth del servidor MCP requiere que el SSO normal esté configurado; la autenticación por proxy por sí sola no lo cubre.
