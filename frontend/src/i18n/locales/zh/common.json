@@ -308,6 +308,7 @@
   "modules.turbolens": "TurboLens",
   "accessDenied.title": "访问被拒绝",
   "accessDenied.body": "您没有权限查看此页面。如需访问，请联系您的管理员。",
+  "accessDenied.redirectedToDashboard": "您无权访问该页面，因此我们已将您带到仪表板。",
   "moduleDisabled.title": "{{module}} 已停用",
   "moduleDisabled.body": "{{module}} 模块当前已被管理员停用。请在管理员设置中启用以访问此区域。",
   "moduleDisabled.backToDashboard": "返回仪表板",

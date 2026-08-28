@@ -390,6 +390,35 @@ describe("AppLayout — extension nav placement", () => {
     );
   });
 
+  it("falls back to a top-level entry when the user lacks the group's permission", async () => {
+    // The group's own permission is derived from ROUTE_PERMISSIONS rather than
+    // declared on the nav item, so the injection check has to go through
+    // hasNavPerm — reading a bare `permission` field would see "none required",
+    // inject into a host the final filter then drops, and swallow the route.
+    registerExtension("gov-ext", {
+      key: "gov-ext",
+      sdkVersion: UI_SDK_VERSION,
+      routes: [
+        {
+          id: "register",
+          path: "/ext/gov-ext/register",
+          label: "Gov Register",
+          icon: "gavel",
+          navGroup: "grc",
+          component: () => null,
+        },
+      ],
+    });
+    // GRC is enabled, but this role cannot open it.
+    renderLayout(viewerUser);
+
+    expect(screen.queryByRole("button", { name: /^GRC$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Gov Register/i })).toHaveAttribute(
+      "href",
+      "/ext/gov-ext/register",
+    );
+  });
+
   it("ignores a route whose navGroup is not whitelisted (no crash, no injection)", async () => {
     registerExtension("bad-ext", {
       key: "bad-ext",

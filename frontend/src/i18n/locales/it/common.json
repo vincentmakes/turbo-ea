@@ -308,6 +308,7 @@
   "modules.turbolens": "TurboLens",
   "accessDenied.title": "Accesso negato",
   "accessDenied.body": "Non hai i permessi per visualizzare questa pagina. Contatta il tuo amministratore se hai bisogno di accesso.",
+  "accessDenied.redirectedToDashboard": "Non hai accesso a quella pagina, quindi ti abbiamo portato alla dashboard.",
   "moduleDisabled.title": "{{module}} è disabilitato",
   "moduleDisabled.body": "Il modulo {{module}} è attualmente disabilitato da un amministratore. Abilitalo dalle impostazioni di amministrazione per accedere a questa sezione.",
   "moduleDisabled.backToDashboard": "Torna alla dashboard",

@@ -384,6 +384,7 @@
   "modules.turbolens": "TurboLens",
   "accessDenied.title": "Access denied",
   "accessDenied.body": "You don't have permission to view this page. Contact your administrator if you need access.",
+  "accessDenied.redirectedToDashboard": "You don't have access to that page, so we've brought you to the dashboard.",
   "moduleDisabled.title": "{{module}} is disabled",
   "moduleDisabled.body": "The {{module}} module is currently disabled by an administrator. Enable it from the admin settings to access this area.",
   "moduleDisabled.backToDashboard": "Back to dashboard",

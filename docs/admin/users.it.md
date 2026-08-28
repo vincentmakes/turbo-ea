@@ -119,6 +119,8 @@ La scheda **Ruoli** consente di gestire i ruoli a livello di applicazione. Ogni 
 
 I ruoli personalizzati possono essere creati con controllo granulare dei permessi su inventario, relazioni, stakeholder, commenti, documenti, diagrammi, BPM, report e altro.
 
+Le autorizzazioni valgono per la barra degli indirizzi come per il menu. Una pagina che un ruolo non può aprire mostra l'avviso **Accesso negato** con un collegamento alla dashboard, sia che vi si arrivi dalla navigazione, da un segnalibro o da un link condiviso: nascondere una voce di menu e bloccare la pagina sono sempre la stessa decisione.
+
 #### Disattivazione di un utente
 
 Cliccate sull'**icona toggle** nella colonna Azioni per attivare o disattivare un utente. Gli utenti disattivati:

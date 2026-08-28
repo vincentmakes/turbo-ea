@@ -31,6 +31,11 @@ function renderWith(user: Partial<User>, route = "/") {
     role: "member",
     is_active: true,
     ...user,
+    // These cases are about tab routing and pinning, not about who may read
+    // the EA dashboard — so every fixture holds `reports.ea_dashboard` unless
+    // it deliberately overrides it. The Overview tab is hidden without it; see
+    // the "EA dashboard permission" block at the bottom.
+    permissions: { "reports.ea_dashboard": true, ...user.permissions },
   };
   return {
     refreshUser,
@@ -133,5 +138,41 @@ describe("Dashboard tab routing", () => {
       });
     });
     expect(refreshUser).toHaveBeenCalled();
+  });
+});
+
+describe("Dashboard — EA dashboard permission", () => {
+  it("drops Overview and opens on My Workspace for a role that cannot read it", () => {
+    renderWith({ permissions: { "reports.ea_dashboard": false } });
+
+    expect(screen.getByTestId("workspace-tab")).toBeInTheDocument();
+    expect(screen.queryByTestId("overview-tab")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Overview/i })).not.toBeInTheDocument();
+  });
+
+  it("ignores a stale ?tab=overview rather than rendering an empty tab", () => {
+    renderWith({ permissions: { "reports.ea_dashboard": false } }, "/?tab=overview");
+
+    expect(screen.getByTestId("workspace-tab")).toBeInTheDocument();
+    expect(screen.queryByTestId("overview-tab")).not.toBeInTheDocument();
+  });
+
+  it("ignores a stale pinned Overview preference too", () => {
+    renderWith({
+      permissions: { "reports.ea_dashboard": false },
+      ui_preferences: { dashboard_default_tab: "overview" },
+    });
+
+    expect(screen.getByTestId("workspace-tab")).toBeInTheDocument();
+  });
+
+  it("still gives an admin without it the Workspace and Admin tabs", () => {
+    renderWith(
+      { permissions: { "reports.ea_dashboard": false, "admin.users": true } },
+      "/?tab=admin",
+    );
+
+    expect(screen.getByTestId("admin-tab")).toBeInTheDocument();
+    expect(screen.getAllByRole("tab").length).toBe(2);
   });
 });

@@ -119,6 +119,8 @@ The **Roles** tab allows managing application-level roles. Each role defines a s
 
 Custom roles can be created with granular permission control over inventory, relations, stakeholders, comments, documents, diagrams, BPM, reports, and more.
 
+Permissions apply to the address bar as well as the menu. A page a role cannot open shows an **Access denied** notice with a link back to the dashboard, whether it is reached from the navigation, a bookmark, or a link someone shared — so hiding a menu entry and blocking the page are always the same decision.
+
 #### Deactivating a User
 
 Click the **toggle icon** in the Actions column to activate or deactivate a user. Deactivated users:

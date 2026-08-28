@@ -83,6 +83,20 @@ export default function PpmWbsDialog({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [users, setUsers] = useState<UserOption[]>([]);
 
+  // The dialog serves work packages and milestones alike, switched by the
+  // Milestone toggle below — so every label follows `isMilestone` live rather
+  // than the mode the dialog happened to open in (#1018).
+  const titleLabel = isEdit
+    ? t(isMilestone ? "editMilestone" : "editWbs")
+    : t(isMilestone ? "addMilestone" : "addWbs");
+  const submitLabel = isEdit
+    ? t("common:actions.save", "Save")
+    : t(isMilestone ? "addMilestone" : "addWbs");
+  const deleteLabel = t(isMilestone ? "deleteMilestone" : "deleteWbs");
+  const confirmDeleteLabel = t(
+    isMilestone ? "confirmDeleteMilestone" : "confirmDeleteWbs",
+  );
+
   useEffect(() => {
     api
       .get<UserOption[]>("/users")
@@ -145,7 +159,7 @@ export default function PpmWbsDialog({
       fullScreen={fullScreen}
       disableRestoreFocus
     >
-      <DialogTitle>{isEdit ? t("editWbs") : t("addWbs")}</DialogTitle>
+      <DialogTitle>{titleLabel}</DialogTitle>
       <DialogContent>
         <Box display="flex" flexDirection="column" gap={2} mt={1}>
           <TextField
@@ -266,7 +280,7 @@ export default function PpmWbsDialog({
             </Box>
           }
         >
-          {t("confirmDeleteWbs")}
+          {confirmDeleteLabel}
         </Alert>
       )}
       <DialogActions>
@@ -276,7 +290,7 @@ export default function PpmWbsDialog({
             onClick={() => setConfirmDelete(true)}
             sx={{ mr: "auto" }}
           >
-            {t("deleteWbs")}
+            {deleteLabel}
           </Button>
         )}
         <Button onClick={onClose}>{t("common:actions.cancel", "Cancel")}</Button>
@@ -286,7 +300,7 @@ export default function PpmWbsDialog({
           disabled={saving || !title.trim()}
           startIcon={saving ? <CircularProgress size={16} /> : undefined}
         >
-          {isEdit ? t("common:actions.save", "Save") : t("addWbs")}
+          {submitLabel}
         </Button>
       </DialogActions>
     </Dialog>

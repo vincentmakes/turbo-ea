@@ -212,6 +212,98 @@ describe("LoginPage", () => {
     }
   });
 
+  it.each([
+    ["/ppm", "?tab=gantt", "/ppm?tab=gantt"],
+    ["/inventory", "", "/inventory"],
+  ])(
+    "remembers %s%s so the SSO round trip can return there",
+    async (pathname, search, expected) => {
+      vi.mocked(auth.ssoConfig).mockResolvedValueOnce({
+        enabled: true,
+        provider: "okta",
+        provider_name: "Okta",
+        client_id: "my-client-id",
+        authorization_endpoint: "https://myorg.okta.com/oauth2/default/v1/authorize",
+      });
+      const user = userEvent.setup();
+
+      // The login form renders in place at the requested URL, so window.location
+      // is the deep link at the moment the SSO button is clicked. The stub has
+      // to name pathname/search/hash explicitly — spreading the real Location
+      // does not copy its prototype accessors.
+      const originalLocation = window.location;
+      Object.defineProperty(window, "location", {
+        value: {
+          ...originalLocation,
+          origin: originalLocation.origin,
+          href: "",
+          pathname,
+          search,
+          hash: "",
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        renderLogin();
+        await user.click(await screen.findByText(/sign in with okta/i));
+        expect(sessionStorage.getItem("turboea_sso_return_path")).toBe(expected);
+      } finally {
+        Object.defineProperty(window, "location", {
+          value: originalLocation,
+          writable: true,
+          configurable: true,
+        });
+      }
+    },
+  );
+
+  it.each([
+    ["/", "the dashboard is not a deep link"],
+    ["/auth/callback", "returning here would loop the sign-in flow"],
+  ])(
+    "stores nothing for %s (%s), clearing any stale value",
+    async (pathname) => {
+      vi.mocked(auth.ssoConfig).mockResolvedValueOnce({
+        enabled: true,
+        provider: "okta",
+        provider_name: "Okta",
+        client_id: "my-client-id",
+        authorization_endpoint: "https://myorg.okta.com/oauth2/default/v1/authorize",
+      });
+      const user = userEvent.setup();
+      // A path left behind by an abandoned earlier attempt must not survive.
+      sessionStorage.setItem("turboea_sso_return_path", "/ppm");
+
+      const originalLocation = window.location;
+      Object.defineProperty(window, "location", {
+        value: {
+          ...originalLocation,
+          origin: originalLocation.origin,
+          href: "",
+          pathname,
+          search: "",
+          hash: "",
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        renderLogin();
+        await user.click(await screen.findByText(/sign in with okta/i));
+        expect(sessionStorage.getItem("turboea_sso_return_path")).toBeNull();
+      } finally {
+        Object.defineProperty(window, "location", {
+          value: originalLocation,
+          writable: true,
+          configurable: true,
+        });
+      }
+    },
+  );
+
   it("handles ssoConfig fetch failure gracefully", async () => {
     vi.mocked(auth.ssoConfig).mockRejectedValueOnce(new Error("network error"));
 

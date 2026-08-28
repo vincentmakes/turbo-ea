@@ -308,6 +308,7 @@
   "modules.turbolens": "TurboLens",
   "accessDenied.title": "Доступ запрещён",
   "accessDenied.body": "У вас нет разрешения на просмотр этой страницы. Обратитесь к администратору, если вам нужен доступ.",
+  "accessDenied.redirectedToDashboard": "У вас нет доступа к этой странице, поэтому мы перенаправили вас на панель управления.",
   "moduleDisabled.title": "{{module}} отключён",
   "moduleDisabled.body": "Модуль {{module}} в настоящее время отключён администратором. Включите его в настройках администратора, чтобы получить доступ к этому разделу.",
   "moduleDisabled.backToDashboard": "Вернуться к панели",

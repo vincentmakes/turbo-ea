@@ -384,6 +384,7 @@
   "modules.turbolens": "TurboLens",
   "accessDenied.title": "تم رفض الوصول",
   "accessDenied.body": "ليس لديك إذن لعرض هذه الصفحة. تواصل مع المسؤول إذا كنت بحاجة إلى الوصول.",
+  "accessDenied.redirectedToDashboard": "ليس لديك حق الوصول إلى تلك الصفحة، لذلك انتقلنا بك إلى لوحة المعلومات.",
   "moduleDisabled.title": "{{module}} معطّل",
   "moduleDisabled.body": "وحدة {{module}} معطّلة حاليًا بواسطة المسؤول. فعّلها من إعدادات المسؤول للوصول إلى هذه المنطقة.",
   "moduleDisabled.backToDashboard": "العودة إلى لوحة المعلومات",

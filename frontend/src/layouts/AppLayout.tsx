@@ -9,7 +9,9 @@ import Badge from "@mui/material/Badge";
 import Button from "@mui/material/Button";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
+import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
+import Snackbar from "@mui/material/Snackbar";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Drawer from "@mui/material/Drawer";
@@ -46,15 +48,13 @@ import {
   useExtensionUI,
 } from "@/lib/extensionHost";
 import CreateCardDialog from "@/components/CreateCardDialog";
+import {
+  ADMIN_ITEM_DEFS,
+  NAV_ITEM_DEFS,
+  type NavItemDef,
+} from "@/layouts/navItems";
+import { canAccessPath, permissionForPath } from "@/lib/routePermissions";
 import type { BadgeCounts, Card } from "@/types";
-
-interface NavItemDef {
-  labelKey: string;
-  icon: string;
-  path?: string;
-  children?: { labelKey: string; icon: string; path: string; permission?: string | string[] }[];
-  permission?: string | string[];
-}
 
 interface NavItem {
   label: string;
@@ -63,46 +63,6 @@ interface NavItem {
   children?: { label: string; icon: string; path: string; permission?: string | string[] }[];
   permission?: string | string[];
 }
-
-const NAV_ITEM_DEFS: NavItemDef[] = [
-  { labelKey: "dashboard", icon: "dashboard", path: "/" },
-  { labelKey: "inventory", icon: "inventory_2", path: "/inventory", permission: "inventory.view" },
-  {
-    labelKey: "reports",
-    icon: "analytics",
-    permission: "reports.ea_dashboard",
-    children: [
-      { labelKey: "reports.portfolio", icon: "dashboard", path: "/reports/portfolio" },
-      { labelKey: "reports.flexiblePortfolio", icon: "dashboard_customize", path: "/reports/flexible-portfolio" },
-      { labelKey: "reports.capabilityMap", icon: "grid_view", path: "/reports/capability-map" },
-      { labelKey: "reports.lifecycle", icon: "timeline", path: "/reports/lifecycle" },
-      { labelKey: "reports.dependencies", icon: "hub", path: "/reports/dependencies" },
-      { labelKey: "reports.cost", icon: "payments", path: "/reports/cost", permission: "costs.view" },
-      { labelKey: "reports.matrix", icon: "table_chart", path: "/reports/matrix" },
-      { labelKey: "reports.dataQuality", icon: "verified", path: "/reports/data-quality" },
-      { labelKey: "reports.endOfLife", icon: "update", path: "/reports/eol" },
-      // EA Delivery lives inside /ppm as a tab when PPM is enabled. When PPM
-      // is disabled the nav memo below promotes EA Delivery to a top-level
-      // nav item (in PPM's old slot) so the surface stays reachable.
-      { labelKey: "reports.saved", icon: "bookmarks", path: "/reports/saved" },
-    ],
-  },
-  { labelKey: "bpm", icon: "route", path: "/bpm", permission: "bpm.view" },
-  { labelKey: "ppm", icon: "view_timeline", path: "/ppm", permission: "ppm.view" },
-  { labelKey: "diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
-  // `children` is filled only by extension routes requesting navGroup "grc";
-  // with none installed this stays a plain top-level link.
-  { labelKey: "grc", icon: "policy", path: "/grc", permission: "grc.view", children: [] },
-  { labelKey: "todos", icon: "checklist", path: "/todos" },
-];
-
-const ADMIN_ITEM_DEFS: NavItemDef[] = [
-  { labelKey: "admin.metamodel", icon: "settings_suggest", path: "/admin/metamodel", permission: "admin.metamodel" },
-  { labelKey: "admin.usersAndRoles", icon: "group", path: "/admin/users", permission: "admin.users" },
-  { labelKey: "admin.surveys", icon: "assignment", path: "/admin/surveys", permission: "surveys.manage" },
-  { labelKey: "admin.extensions", icon: "extension", path: "/admin/extensions", permission: "admin.manage_extensions" },
-  { labelKey: "admin.settings", icon: "settings", path: "/admin/settings", permission: "admin.settings" },
-];
 
 interface PermissionMap {
   [key: string]: boolean;
@@ -200,7 +160,6 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         labelKey: "delivery",
         icon: "architecture",
         path: "/reports/ea-delivery",
-        permission: "soaw.view",
       };
       const diagramsIdx = items.findIndex((i) => i.labelKey === "diagrams");
       const insertAt = diagramsIdx >= 0 ? diagramsIdx : items.length;
@@ -228,6 +187,16 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       return can(perm);
     };
 
+    // A nav entry that points at a route inherits that route's permission from
+    // ROUTE_PERMISSIONS, so the menu and the router can never disagree. An
+    // explicit `permission` still wins — that is how the pathless Reports group
+    // and extension-contributed entries carry their own.
+    const hasNavPerm = (def: { path?: string; permission?: string | string[] }) => {
+      if (def.permission) return hasPerm(def.permission);
+      if (def.path) return hasPerm(permissionForPath(def.path));
+      return true;
+    };
+
     // Inject extension routes that requested a core nav group as children of
     // that group's menu (desktop dropdown + mobile drawer both read `children`).
     // Reports places them before the "saved" entry so they sit with the core
@@ -250,7 +219,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       const host = items.find((item) => item.labelKey === group);
       // The permission check matters here, not only below: injecting into a
       // host that the final filter then drops would swallow the route silently.
-      if (!host || !hasPerm(host.permission)) {
+      // Via hasNavPerm, so a core host whose permission is derived from
+      // ROUTE_PERMISSIONS rather than declared inline is still checked.
+      if (!host || !hasNavPerm(host)) {
         groupedFallbacks.push(...groupRoutes);
         continue;
       }
@@ -292,7 +263,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
     const resolve = (def: NavItemDef): NavItem => {
       const children = def.children
-        ?.filter((c) => hasPerm(c.permission))
+        ?.filter((c) => hasNavPerm(c))
         .map((c) => ({ ...c, label: t(c.labelKey) }));
       return {
         ...def,
@@ -304,20 +275,41 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       };
     };
 
-    return items.filter((item) => hasPerm(item.permission)).map(resolve);
+    return items.filter((item) => hasNavPerm(item)).map(resolve);
   }, [bpmEnabled, ppmEnabled, grcEnabled, turboLensReady, uiExtensions, can, t]);
 
   // Resolve admin item labels via i18n and filter based on permissions
   const adminItems = useMemo(() => {
-    return ADMIN_ITEM_DEFS.filter((item) => {
-      if (!item.permission) return true;
-      if (Array.isArray(item.permission)) return item.permission.some((p) => can(p));
-      return can(item.permission);
-    }).map((def) => ({ ...def, label: t(def.labelKey) }));
-  }, [can, t]);
+    return ADMIN_ITEM_DEFS.filter((item) =>
+      canAccessPath(user.permissions, item.path ?? "/"),
+    ).map((def) => ({ ...def, label: t(def.labelKey) }));
+  }, [user.permissions, t]);
 
   // Should the admin section be shown at all?
   const showAdmin = adminItems.length > 0;
+
+  // A deep link the user asked for before signing in, that their role cannot
+  // actually open — SsoCallback lands them here and leaves the path in router
+  // state. Copied into local state so the message survives clearing that
+  // state, and cleared immediately so a refresh cannot resurrect it.
+  const [deniedPath, setDeniedPath] = useState<string | null>(null);
+  const deniedFromState = (location.state as { deniedPath?: string } | null)?.deniedPath;
+  useEffect(() => {
+    if (!deniedFromState) return;
+    setDeniedPath(deniedFromState);
+    navigate(location.pathname + location.search, { replace: true, state: null });
+  }, [deniedFromState, location.pathname, location.search, navigate]);
+
+  // Reference Catalogue links, gated by the same table as their routes.
+  const canOpen = useCallback(
+    (path: string) => canAccessPath(user.permissions, path),
+    [user.permissions],
+  );
+  const canOpenAnyCatalogue =
+    canOpen("/capability-catalogue") ||
+    canOpen("/process-catalogue") ||
+    canOpen("/value-stream-catalogue") ||
+    canOpen("/principles-catalogue");
 
   const [userMenu, setUserMenu] = useState<HTMLElement | null>(null);
   // Anchor AND which group opened it — one shared anchor rendered the first
@@ -954,8 +946,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               </ListItemIcon>
               <ListItemText>{t("userMenu.userManual")}</ListItemText>
             </MenuItem>
-            {(can("inventory.view") || can("admin.metamodel")) && <Divider />}
-            {(can("inventory.view") || can("admin.metamodel")) && (
+            {canOpenAnyCatalogue && <Divider />}
+            {canOpenAnyCatalogue && (
               <MenuItem
                 onClick={toggleRefCat}
                 sx={{ minHeight: 32 }}
@@ -981,7 +973,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               </MenuItem>
             )}
             <Collapse in={refCatExpanded} timeout="auto" unmountOnExit>
-              {can("inventory.view") && (
+              {canOpen("/capability-catalogue") && (
                 <MenuItem
                   component={RouterLink}
                   to="/capability-catalogue"
@@ -994,7 +986,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                   <ListItemText>{t("userMenu.capabilityCatalogue")}</ListItemText>
                 </MenuItem>
               )}
-              {can("inventory.view") && (
+              {canOpen("/process-catalogue") && (
                 <MenuItem
                   component={RouterLink}
                   to="/process-catalogue"
@@ -1007,7 +999,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                   <ListItemText>{t("userMenu.processCatalogue")}</ListItemText>
                 </MenuItem>
               )}
-              {can("inventory.view") && (
+              {canOpen("/value-stream-catalogue") && (
                 <MenuItem
                   component={RouterLink}
                   to="/value-stream-catalogue"
@@ -1020,7 +1012,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                   <ListItemText>{t("userMenu.valueStreamCatalogue")}</ListItemText>
                 </MenuItem>
               )}
-              {can("admin.metamodel") && (
+              {canOpen("/principles-catalogue") && (
                 <MenuItem
                   component={RouterLink}
                   to="/principles-catalogue"
@@ -1230,6 +1222,21 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         )}
         <Box sx={{ p: { xs: 1.5, sm: 3 } }}>{children}</Box>
       </Box>
+      <Snackbar
+        open={!!deniedPath}
+        autoHideDuration={6000}
+        onClose={() => setDeniedPath(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          severity="info"
+          variant="filled"
+          onClose={() => setDeniedPath(null)}
+          sx={{ width: "100%" }}
+        >
+          {t("common:accessDenied.redirectedToDashboard")}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

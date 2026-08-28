@@ -5,6 +5,24 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.99.0] - 2026-08-28
+
+### Added
+
+- **Signing in with SSO now takes you to the page you asked for.** Opening a link to a specific report, initiative, diagram or card while signed out sends you through your identity provider and brings you back to that exact page instead of the dashboard. If your role cannot open it, you land on the dashboard with a short note explaining why. Signing in with an email and password already worked this way and now has a test guarding it.
+
+### Changed
+
+- **Typing a page's address now respects your permissions.** Every page checks your role before it opens, so a bookmarked or shared link to something your role cannot use shows «Access denied» with a link back to the dashboard, instead of a page that loads and then fails to fetch anything. **If you have a bookmark to a page your role cannot open, you will see this the first time you use it.**
+- **Menu entries now match exactly what each page needs.** The Reports menu hides an individual report your role cannot open rather than showing it and failing on click.
+
+### Fixed
+
+- **Adding a milestone to an Initiative's Gantt chart now says «Add Milestone».** The dialog is shared with work packages and kept its «Add Work Package» wording — on the title, the submit button and the delete confirmation — even when the Milestone toggle was on. Every label now follows the toggle. ([#1018](https://github.com/vincentmakes/turbo-ea/discussions/1018))
+- **The Reference Catalogue's EA Principles page no longer opens for roles that cannot read it.** It required administrator rights on the server but was reachable by anyone who knew the address, producing an empty page.
+- **The dashboard opens on My Workspace for roles without EA-dashboard access.** The Overview tab needs a permission not every role holds, which left those users on an empty landing page.
+- **An extension page placed under GRC no longer disappears for a role without GRC access.** It now falls back to a top-level entry, as it already did when the GRC module was switched off.
+
 ## [2.98.0] - 2026-08-28
 
 ### Added

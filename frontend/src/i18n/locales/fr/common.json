@@ -308,6 +308,7 @@
   "modules.turbolens": "TurboLens",
   "accessDenied.title": "Accès refusé",
   "accessDenied.body": "Vous n'avez pas l'autorisation de consulter cette page. Contactez votre administrateur si vous avez besoin d'un accès.",
+  "accessDenied.redirectedToDashboard": "Vous n'avez pas accès à cette page, nous vous avons donc dirigé vers le tableau de bord.",
   "moduleDisabled.title": "{{module}} est désactivé",
   "moduleDisabled.body": "Le module {{module}} est actuellement désactivé par un administrateur. Activez-le dans les paramètres d'administration pour accéder à cette section.",
   "moduleDisabled.backToDashboard": "Retour au tableau de bord",

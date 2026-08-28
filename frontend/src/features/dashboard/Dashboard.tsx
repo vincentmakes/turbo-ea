@@ -9,6 +9,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useAuthContext } from "@/hooks/AuthContext";
+import { hasPermission } from "@/components/RequirePermission";
 import { api } from "@/api/client";
 import type { DashboardTabKey } from "@/types";
 import AdminTab from "./admin/AdminTab";
@@ -68,10 +69,21 @@ export default function Dashboard() {
 
   const isAdmin =
     !!user?.permissions?.["*"] || !!user?.permissions?.[ADMIN_TAB_PERMISSION];
+  // `GET /reports/dashboard` requires `reports.ea_dashboard`, so a role without
+  // it has nothing to show on Overview. The dashboard is where the catch-all
+  // and the post-sign-in denial redirect send everyone, so it has to stay
+  // usable for them: drop the tab and open on My Workspace, which is per-user
+  // and needs no permission.
+  const canSeeOverview = hasPermission(user?.permissions, "reports.ea_dashboard");
   const validTabs = useMemo<DashboardTabKey[]>(
-    () => (isAdmin ? ["overview", "workspace", "admin"] : ["overview", "workspace"]),
-    [isAdmin],
+    () => [
+      ...(canSeeOverview ? (["overview"] as const) : []),
+      "workspace" as const,
+      ...(isAdmin ? (["admin"] as const) : []),
+    ],
+    [canSeeOverview, isAdmin],
   );
+  const fallbackTab: DashboardTabKey = validTabs[0];
 
   const rawTab = searchParams.get("tab");
   const preferredTabRaw: DashboardTabKey =
@@ -80,7 +92,7 @@ export default function Dashboard() {
   // user no longer has permission to see it.
   const preferredTab: DashboardTabKey = validTabs.includes(preferredTabRaw)
     ? preferredTabRaw
-    : "overview";
+    : fallbackTab;
   const requestedTab: DashboardTabKey = isValidTab(rawTab) ? rawTab : preferredTab;
   const activeTab: DashboardTabKey = validTabs.includes(requestedTab)
     ? requestedTab

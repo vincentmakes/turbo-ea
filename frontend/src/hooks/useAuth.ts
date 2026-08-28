@@ -4,6 +4,7 @@ import { primeBootstrap, resetBootstrap } from "@/api/bootstrap";
 import { stopEventStream } from "@/hooks/useEventStream";
 import { invalidateExtensionCapabilities } from "@/hooks/useExtensionCapabilities";
 import { resetExtensionHost } from "@/lib/extensionHost";
+import { clearReturnPath } from "@/lib/returnPath";
 import i18n from "@/i18n";
 import type { User } from "@/types";
 
@@ -48,7 +49,7 @@ export function useAuth() {
     }
   }, []);
 
-  const loadUser = useCallback(async () => {
+  const loadUser = useCallback(async (): Promise<User | null> => {
     try {
       const u = await auth.me();
       setAuthenticated(true);
@@ -65,12 +66,18 @@ export function useAuth() {
       setUser(u as User);
       i18n.changeLanguage(u.locale || "en");
       startRefreshTimer();
+      return u as User;
     } catch {
       setAuthenticated(false);
+      return null;
     } finally {
       setLoading(false);
     }
   }, [startRefreshTimer]);
+
+  const refreshUser = useCallback(async (): Promise<void> => {
+    await loadUser();
+  }, [loadUser]);
 
   useEffect(() => {
     loadUser();
@@ -103,7 +110,7 @@ export function useAuth() {
   const ssoCallback = async (code: string, redirectUri: string) => {
     const { access_token } = await auth.ssoCallback(code, redirectUri);
     setToken(access_token);
-    await loadUser();
+    return await loadUser();
   };
 
   const setPassword = async (token: string, password: string) => {
@@ -127,6 +134,7 @@ export function useAuth() {
     } catch {
       // sessionStorage unavailable (private mode etc.) — non-fatal.
     }
+    clearReturnPath();
     clearToken();
     stopEventStream();
     stopRefreshTimer();
@@ -176,6 +184,8 @@ export function useAuth() {
     proxySession,
     setPassword,
     logout,
-    refreshUser: loadUser,
+    // Narrowed to void: consumers only re-read `user` from context, and
+    // `loadUser`'s return value exists for the SSO landing decision alone.
+    refreshUser: refreshUser,
   };
 }

@@ -129,3 +129,57 @@ describe("useAuth", () => {
     expect(result.current.user).toBeNull();
   });
 });
+
+describe("useAuth — SSO landing support", () => {
+  const USER = {
+    id: "1",
+    email: "sso@example.com",
+    display_name: "SSO User",
+    role: "member",
+    permissions: { "ppm.view": true },
+  };
+
+  it("resolves ssoCallback with the signed-in user, so the caller can check permissions", async () => {
+    vi.mocked(auth.ssoCallback).mockResolvedValue({ access_token: "tok" });
+    vi.mocked(auth.me).mockResolvedValue(USER);
+
+    const { result } = renderHook(() => useAuth());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let signedIn: unknown;
+    await act(async () => {
+      signedIn = await result.current.ssoCallback("code", "https://app/auth/callback");
+    });
+
+    expect(signedIn).toMatchObject({ id: "1", permissions: { "ppm.view": true } });
+  });
+
+  it("resolves ssoCallback with null when the profile fetch fails", async () => {
+    vi.mocked(auth.ssoCallback).mockResolvedValue({ access_token: "tok" });
+    vi.mocked(auth.me).mockRejectedValue(new Error("Unauthorized"));
+
+    const { result } = renderHook(() => useAuth());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let signedIn: unknown = "unset";
+    await act(async () => {
+      signedIn = await result.current.ssoCallback("code", "https://app/auth/callback");
+    });
+
+    expect(signedIn).toBeNull();
+  });
+
+  it("drops any remembered deep link on logout", async () => {
+    vi.mocked(auth.me).mockResolvedValue(USER);
+    sessionStorage.setItem("turboea_sso_return_path", "/ppm");
+
+    const { result } = renderHook(() => useAuth());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.logout();
+    });
+
+    expect(sessionStorage.getItem("turboea_sso_return_path")).toBeNull();
+  });
+});

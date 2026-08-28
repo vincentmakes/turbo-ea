@@ -119,6 +119,8 @@ Fanebladet **Roller** giver mulighed for at administrere applikationsroller. Hve
 
 Brugerdefinerede roller kan oprettes med granulær tilladelseskontrol over lager, relationer, interessenter, kommentarer, dokumenter, diagrammer, BPM, rapporter og mere.
 
+Tilladelser gælder for adresselinjen såvel som for menuen. En side, som en rolle ikke må åbne, viser meddelelsen **Adgang nægtet** med et link tilbage til dashboardet — uanset om den nås fra navigationen, et bogmærke eller et delt link. At skjule et menupunkt og at blokere siden er dermed altid den samme beslutning.
+
 #### Deaktivering af en bruger
 
 Klik på **omskifterikonet** i kolonnen Handlinger for at aktivere eller deaktivere en bruger. Deaktiverede brugere:

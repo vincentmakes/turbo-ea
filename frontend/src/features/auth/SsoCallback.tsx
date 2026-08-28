@@ -7,8 +7,14 @@ import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import { useTranslation } from "react-i18next";
 
+import { canAccessPath } from "@/lib/routePermissions";
+import { consumeReturnPath } from "@/lib/returnPath";
+import type { User } from "@/types";
+
 interface Props {
-  onSsoCallback: (code: string, redirectUri: string) => Promise<void>;
+  /** Resolves with the signed-in user, so the landing decision below can check
+   *  their permissions before honouring a deep link. */
+  onSsoCallback: (code: string, redirectUri: string) => Promise<User | null | void>;
 }
 
 /** Which published, account-less resource an SSO round-trip belongs to. Both
@@ -77,6 +83,10 @@ export default function SsoCallback({ onSsoCallback }: Props) {
     // Single-use CSRF state, stored by LoginPage just before redirecting (#860).
     const storedState = sessionStorage.getItem("sso_login_state");
     sessionStorage.removeItem("sso_login_state");
+    // Single-use like the nonce, and read here rather than inside the .then()
+    // so the IdP-error, state-mismatch, no-code and token-exchange-failure
+    // paths clear it too — a stale value must never hijack a later sign-in.
+    const returnPath = consumeReturnPath();
     if (errorParam) {
       setError(errorDesc || errorParam);
       return;
@@ -91,7 +101,19 @@ export default function SsoCallback({ onSsoCallback }: Props) {
     }
     const redirectUri = `${window.location.origin}/auth/callback`;
     onSsoCallback(code, redirectUri)
-      .then(() => navigate("/", { replace: true }))
+      .then((signedIn) => {
+        if (!returnPath) {
+          navigate("/", { replace: true });
+          return;
+        }
+        // Fail-closed: no user, or no permissions on it, means the dashboard.
+        const perms = (signedIn as User | null | undefined)?.permissions;
+        if (canAccessPath(perms, returnPath)) {
+          navigate(returnPath, { replace: true });
+          return;
+        }
+        navigate("/", { replace: true, state: { deniedPath: returnPath } });
+      })
       .catch((err) => setError(err instanceof Error ? err.message : t("sso.failed")));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

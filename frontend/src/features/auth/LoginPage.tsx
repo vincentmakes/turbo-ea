@@ -14,6 +14,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import { PROXY_SIGNOUT_KEY, SSO_CACHE_KEY } from "@/hooks/useAuth";
 import { auth } from "@/api/client";
+import { stashReturnPath } from "@/lib/returnPath";
 import { useAppTitle } from "@/hooks/useAppTitle";
 import { useLoginBranding, normalizeContactLink } from "@/hooks/useLoginBranding";
 import type { SsoConfig } from "@/types";
@@ -174,6 +175,15 @@ export default function LoginPage({ onLogin, onRegister, onProxySession }: Props
         : String(Date.now());
     sessionStorage.setItem("sso_login_state", state);
     params.set("state", state);
+
+    // Remember where the user was heading. The login form renders in place at
+    // the requested URL, so this is that URL — but the trip to the identity
+    // provider navigates the whole document away and returns at
+    // /auth/callback, which would otherwise land everyone on the dashboard
+    // (#1018 follow-up). Always writes or clears, never leaves a stale value.
+    stashReturnPath(
+      window.location.pathname + window.location.search + window.location.hash,
+    );
 
     window.location.href = `${ssoConfig.authorization_endpoint}?${params.toString()}`;
   };
