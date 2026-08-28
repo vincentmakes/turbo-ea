@@ -71,6 +71,18 @@ export function costUnit(planned: number, actual: number, currency: string): str
   return currency;
 }
 
+/**
+ * The board's content width and page gutter.
+ *
+ * Shared by the authenticated page, the portal board and the portal banner above
+ * it, so the portal name sits directly over the first column instead of floating
+ * inset from it. The gutter deliberately matches `AppLayout`'s content padding —
+ * a portal has no AppLayout, so without this the board runs to the viewport edge
+ * and the filter row's floating labels collide with the banner.
+ */
+export const BOARD_MAX_WIDTH = 1800;
+export const BOARD_GUTTER = { xs: 1.5, sm: 3 } as const;
+
 // Use MUI default primary and error colors — these match the app theme
 export const COST_BAR_COLOR = "#1976d2";
 export const COST_BAR_OVER = "#c62828";

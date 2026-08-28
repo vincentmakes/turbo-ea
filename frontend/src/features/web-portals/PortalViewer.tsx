@@ -40,6 +40,7 @@ import { todayIsoDate } from "@/lib/dates";
 import TagPicker from "@/components/TagPicker";
 import { publicGet, type ApiError } from "./publicApi";
 import PortalPpmPortfolio from "./PortalPpmPortfolio";
+import { BOARD_MAX_WIDTH, BOARD_GUTTER } from "@/features/ppm/ppmPortfolioFormat";
 import type {
   PublicPortal,
   PortalCard,
@@ -625,11 +626,15 @@ export default function PortalViewer() {
         sx={{
           bgcolor: TOOLBAR_COLOR,
           color: "#fff",
-          py: { xs: 3, md: 4 },
-          px: { xs: 2, md: 4 },
+          // The portfolio board is a dense grid with no description or item
+          // count under the title, so the card portal's hero proportions leave
+          // a mostly-empty band above it. Its gutter matches the board's, which
+          // is what puts the portal name over the grid's first column.
+          py: isPortfolio ? { xs: 2, md: 2.5 } : { xs: 3, md: 4 },
+          px: isPortfolio ? BOARD_GUTTER : { xs: 2, md: 4 },
         }}
       >
-        <Box sx={{ maxWidth: 1200, mx: "auto" }}>
+        <Box sx={{ maxWidth: isPortfolio ? BOARD_MAX_WIDTH : 1200, mx: "auto" }}>
           <Box
             sx={{
               display: "flex",
@@ -645,8 +650,8 @@ export default function PortalViewer() {
               >
                 <Box
                   sx={{
-                    width: 40,
-                    height: 40,
+                    width: isPortfolio ? 32 : 40,
+                    height: isPortfolio ? 32 : 40,
                     borderRadius: 1.5,
                     bgcolor: "rgba(255,255,255,0.12)",
                     display: "flex",
@@ -657,11 +662,15 @@ export default function PortalViewer() {
                 >
                   <Icon
                     name={portal.type_info?.icon || "language"}
-                    size={24}
+                    size={isPortfolio ? 20 : 24}
                     color="#fff"
                   />
                 </Box>
-                <Typography variant="h4" fontWeight={700} sx={{ letterSpacing: -0.5 }}>
+                <Typography
+                  variant={isPortfolio ? "h5" : "h4"}
+                  fontWeight={700}
+                  sx={{ letterSpacing: -0.5 }}
+                >
                   {portal.name}
                 </Typography>
               </Box>
@@ -686,7 +695,7 @@ export default function PortalViewer() {
                 src="/api/v1/settings/logo"
                 alt=""
                 style={{
-                  height: 45,
+                  height: isPortfolio ? 32 : 45,
                   objectFit: "contain",
                   opacity: 0.85,
                   flexShrink: 0,

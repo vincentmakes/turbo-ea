@@ -20,6 +20,7 @@ import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import ReportShell from "@/features/reports/ReportShell";
 import PpmPortfolioView from "./PpmPortfolioView";
+import { BOARD_MAX_WIDTH } from "./ppmPortfolioFormat";
 import type { PpmPortfolioShellParts } from "./PpmPortfolioView";
 import type {
   PpmGanttItem,
@@ -95,7 +96,7 @@ export default function PpmPortfolio() {
         title={t("title")}
         icon="view_timeline"
         hasTableToggle={false}
-        maxWidth={1800}
+        maxWidth={BOARD_MAX_WIDTH}
         chartRef={chartRef}
         printParams={printParams}
         buildExportData={buildExportData}

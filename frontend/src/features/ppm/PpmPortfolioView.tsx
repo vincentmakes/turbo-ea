@@ -61,6 +61,8 @@ import {
   costUnit,
   COST_BAR_COLOR,
   COST_BAR_OVER,
+  BOARD_MAX_WIDTH,
+  BOARD_GUTTER,
 } from "./ppmPortfolioFormat";
 /** Mini cost bar matching the design: bar on top, label "578/1,350 kCHF" below */
 function CostBar({
@@ -1327,7 +1329,7 @@ export default function PpmPortfolioView({
   }
 
   return (
-    <Box sx={{ maxWidth: 1800, mx: "auto" }} ref={chartRef}>
+    <Box sx={{ maxWidth: BOARD_MAX_WIDTH, mx: "auto", p: BOARD_GUTTER }} ref={chartRef}>
       {showTitle && (
         <Box display="flex" alignItems="center" gap={1.5} mb={2}>
           <MaterialSymbol icon="view_timeline" size={28} />
