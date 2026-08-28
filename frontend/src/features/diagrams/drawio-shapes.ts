@@ -207,19 +207,24 @@ function iconStyleParts(icon?: string, logoImage?: string | null): string[] {
   // glyph as a badge (see `cardLogoImage.ts`), so nothing is lost by it.
   const image = logoImage || buildIconImage(icon);
   if (!image) return [];
+  // A logo gets a much bigger slot than a bare type glyph, because it shares
+  // its tile with the type mark below it. At 18px the glyph came out around
+  // 5px — present without being legible; at 44 both are readable, and the
+  // image still clears the 60px card with its 4px top spacing.
+  const px = logoImage ? CARD_LOGO_SLOT_PX : 18;
   return [
     "shape=label",
     `image=${image}`,
     "imageAlign=left",
     "imageVerticalAlign=top",
-    "imageWidth=18",
-    "imageHeight=18",
+    `imageWidth=${px}`,
+    `imageHeight=${px}`,
     // `spacing` insets the icon from the top-left corner; `spacingLeft`
     // reserves a matching left gutter for the label so the (centered) card
     // name is always laid out to the right of the glyph and never overlaps it,
     // even when it wraps to several lines.
     "spacing=4",
-    "spacingLeft=24",
+    `spacingLeft=${px + 6}`,
   ];
 }
 
@@ -321,6 +326,9 @@ export interface CardDetailLine {
  * Rows render at `font-size:9px`; 14px covers the line box plus mxGraph's own
  * label padding.
  */
+/** Edge of the image slot a card with a logo gets, in cell units. */
+export const CARD_LOGO_SLOT_PX = 44;
+
 export const CARD_DETAIL_LINE_H = 14;
 
 /** Natural height of a freshly inserted top-level card cell. */

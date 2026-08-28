@@ -4,6 +4,8 @@ import {
   applyCardTypeIcons,
   applyCardLogos,
   applyCardLogosToXml,
+  CARD_LOGO_SLOT_PX,
+  CARD_BASE_H,
   buildLdvDiagramXml,
   rollUpInto,
   drillDownInto,
@@ -2409,5 +2411,47 @@ describe("applyCardLogosToXml — logos for the read-only viewer", () => {
     for (const part of style.split(";").filter(Boolean)) {
       expect(part).toMatch(/^[^;]+=[^;]*$/);
     }
+  });
+});
+
+describe("iconStyleParts sizing — logo versus bare type icon", () => {
+  const LOGO = "data:image/svg+xml,%3Csvg%3E";
+  const cellStyle = (style: string, cardId = "card-1") => ({
+    _style: style,
+    value: {
+      getAttribute: (k: string) =>
+        k === "cardType" ? "Application" : k === "cardId" ? cardId : null,
+    },
+  });
+  const read = (style: string, key: string) =>
+    Number(style.split(";").find((p) => p.startsWith(`${key}=`))?.split("=")[1]);
+
+  it("gives a logo a bigger slot than a bare type glyph", () => {
+    // The logo shares its tile with the type mark below it, so at the bare
+    // icon's 18px the glyph came out around 7px — present without being
+    // legible.
+    const withLogo = { c1: cellStyle("rounded=1;fillColor=#0f7eb5") };
+    applyCardLogos(fakeFrame(withLogo), new Map([["card-1", LOGO]]), new Map());
+
+    const bare = { c1: cellStyle("rounded=1;fillColor=#0f7eb5") };
+    applyCardTypeIcons(fakeFrame(bare), new Map([["Application", "apps"]]));
+
+    expect(read(withLogo.c1._style, "imageWidth")).toBe(CARD_LOGO_SLOT_PX);
+    expect(read(bare.c1._style, "imageWidth")).toBe(18);
+    expect(read(withLogo.c1._style, "imageWidth")).toBeGreaterThan(
+      read(bare.c1._style, "imageWidth"),
+    );
+  });
+
+  it("keeps the image inside the card and the label clear of it", () => {
+    const cells = { c1: cellStyle("rounded=1;fillColor=#0f7eb5") };
+    applyCardLogos(fakeFrame(cells), new Map([["card-1", LOGO]]), new Map());
+    const style = cells.c1._style;
+    // 4px top spacing plus the slot has to clear the card's own height, or the
+    // image is drawn past the bottom edge.
+    expect(read(style, "spacing") + read(style, "imageHeight")).toBeLessThan(CARD_BASE_H);
+    // And the label gutter has to clear the image, or a centred card name
+    // runs under it.
+    expect(read(style, "spacingLeft")).toBeGreaterThan(read(style, "imageWidth"));
   });
 });

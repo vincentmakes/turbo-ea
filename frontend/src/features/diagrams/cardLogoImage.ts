@@ -37,8 +37,14 @@ import { tint } from "@/lib/color";
 
 import { ICON_PATHS } from "./iconPaths";
 
-/** Edge of the square the logo is downscaled into, in device-independent px. */
-export const LOGO_EMBED_PX = 48;
+/**
+ * Edge of the square the composite is rasterised into.
+ *
+ * Twice the {@link CARD_LOGO_SLOT_PX} the cell draws it at, so it stays sharp
+ * on a 2x display. Raising it raises the bytes in every card's style string,
+ * which is saved into the diagram XML — measured at ~11 KB per card here.
+ */
+export const LOGO_EMBED_PX = 88;
 
 /**
  * Cache of composed images, keyed by card id + logo timestamp + type icon.
@@ -128,8 +134,12 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
  * they need the tile's full WIDTH. A glyph tucked into either bottom corner
  * would sit under the end of every one of them; a band underneath collides
  * with nothing.
+ *
+ * The split is 64/36 rather than something more generous to the logo: at the
+ * size a cell draws this, a thinner band left the type glyph around 7px, which
+ * is present without being legible — the worst of both.
  */
-const LOGO_BAND = 0.72;
+const LOGO_BAND = 0.64;
 
 /**
  * How far the plate behind the logo is washed toward white.
@@ -197,9 +207,9 @@ function drawLogoPlate(
  * plate, and at the size a diagram actually draws this, the plate was a
  * conspicuous white block sitting over the logo.
  *
- * Left-aligned so it lines up with the card's own left edge, the tile being
- * anchored there — and deliberately smaller than the bare type icon a card
- * without a logo shows, because here it is the secondary mark.
+ * Centred on the tile, so it shares a vertical axis with the plate above it.
+ * Hard-left looked misaligned precisely because the logo is centred: two marks
+ * stacked on different axes read as a mistake rather than a pairing.
  */
 function drawTypeBadge(
   ctx: CanvasRenderingContext2D,
@@ -226,7 +236,7 @@ function drawTypeBadge(
   const scale = glyph / Math.max(vw, vh);
 
   ctx.save();
-  ctx.translate(0, size - glyph);
+  ctx.translate((size - glyph) / 2, size - glyph);
   ctx.scale(scale, scale);
   ctx.translate(-vx, -vy);
   ctx.fillStyle = "#ffffff";
