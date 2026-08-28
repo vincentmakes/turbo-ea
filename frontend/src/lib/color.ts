@@ -97,3 +97,22 @@ export function readableTypeColor(hex: string, isDark: boolean): string {
   if (isDark) return lum < 0.35 ? lighten(hex, 0.45) : hex;
   return lum > 0.8 ? darken(hex, 0.25) : hex;
 }
+
+/**
+ * Mix a hex colour toward white by a factor (0-1), for a faint background
+ * tint of something that already has a colour of its own.
+ *
+ * Lives here rather than in the diagram shapes module that first needed it,
+ * because a second caller — the plate behind a card logo — wanted exactly the
+ * same wash and a private copy would have been free to drift from it.
+ */
+export function tint(hex: string, factor = 0.88): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const t = (v: number) =>
+    Math.round(v + (255 - v) * factor)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${t(r)}${t(g)}${t(b)}`;
+}

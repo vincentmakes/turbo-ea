@@ -1,11 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  contrastRatio,
-  isHexColor,
-  readableTextColor,
-  readableTypeColor,
-  relativeLuminance,
-} from "./color";
+import { contrastRatio, isHexColor, readableTextColor, readableTypeColor, relativeLuminance, tint } from "./color";
 
 describe("isHexColor", () => {
   it("accepts 6-digit hex colors", () => {
@@ -120,5 +114,35 @@ describe("relativeLuminance", () => {
     expect(white).toBeCloseTo(1, 5);
     expect(mid).toBeGreaterThan(black);
     expect(mid).toBeLessThan(white);
+  });
+});
+
+describe("tint", () => {
+  it("washes a colour toward white without reaching it", () => {
+    // The plate behind a card logo is this wash of the card's own colour: a
+    // pure white rectangle on a coloured card reads as a hole punched in it.
+    const washed = tint("#0f7eb5");
+    expect(washed).not.toBe("#ffffff");
+    expect(washed).not.toBe("#0f7eb5");
+    // Every channel moves toward white, none past it.
+    for (const i of [1, 3, 5]) {
+      const before = parseInt("0f7eb5".slice(i - 1, i + 1), 16);
+      const after = parseInt(washed.slice(i, i + 2), 16);
+      expect(after).toBeGreaterThanOrEqual(before);
+      expect(after).toBeLessThanOrEqual(255);
+    }
+  });
+
+  it("stays light enough for a dark mark to sit on", () => {
+    // Docker's and Kafka's marks are dark ink drawn for a white page; the
+    // whole point of the plate is that they remain legible on any card.
+    for (const hex of ["#0f7eb5", "#d29270", "#003399", "#028f00"]) {
+      expect(contrastRatio(tint(hex), "#000000")).toBeGreaterThan(10);
+    }
+  });
+
+  it("honours an explicit factor", () => {
+    expect(tint("#000000", 0)).toBe("#000000");
+    expect(tint("#000000", 1)).toBe("#ffffff");
   });
 });

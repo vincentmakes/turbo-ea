@@ -33,6 +33,8 @@
  * plain type icon the card had before logos existed.
  */
 
+import { tint } from "@/lib/color";
+
 import { ICON_PATHS } from "./iconPaths";
 
 /** Edge of the square the logo is downscaled into, in device-independent px. */
@@ -51,8 +53,8 @@ const _cache = new Map<string, string | null>();
 /** Bounded so a long editing session over many diagrams cannot grow forever. */
 const MAX_CACHE = 500;
 
-function cacheKey(logoUrl: string, icon: string | undefined): string {
-  return `${logoUrl}|${icon ?? ""}`;
+function cacheKey(logoUrl: string, icon: string | undefined, color: string): string {
+  return `${logoUrl}|${icon ?? ""}|${color}`;
 }
 
 function remember(key: string, value: string | null): string | null {
@@ -130,6 +132,48 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
 const LOGO_BAND = 0.72;
 
 /**
+ * A plate behind the logo, sized to the mark rather than the tile, in a pale
+ * wash of the card's own colour.
+ *
+ * A card cell is filled with its card-type colour, and a great many marks are
+ * drawn in dark ink for a white page — Docker's and Kafka's among them — so
+ * without this they read as a smudge on anything but a pale card. The card
+ * detail page has never had the problem because `CardLogoAvatar` already puts
+ * the logo on a paper-coloured tile; this is the same treatment where the
+ * background is not ours to choose.
+ *
+ * Tinted rather than white: a white rectangle on a coloured card reads as a
+ * hole punched in it. The same wash `tint` gives every other faint background
+ * in the diagram module keeps the plate part of the card while still being
+ * light enough for a dark mark to sit on.
+ *
+ * Sized to the drawn mark plus a small pad, NOT to the whole tile: a wordmark
+ * 48×13 inside a 48×35 plate would be the conspicuous block this replaced.
+ * The type glyph is deliberately outside it, staying white on the card's own
+ * colour.
+ */
+function drawLogoPlate(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  size: number,
+  color: string,
+): void {
+  const r = Math.max(1, Math.round(size * 0.06));
+  ctx.save();
+  ctx.fillStyle = tint(color);
+  ctx.beginPath();
+  // `roundRect` is not universally available; a square plate is a perfectly
+  // good fallback and never worth failing the whole composite over.
+  if (typeof ctx.roundRect === "function") ctx.roundRect(x, y, w, h, r);
+  else ctx.rect(x, y, w, h);
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
  * Draw the card-type glyph in the band under the logo, at the left edge, as a
  * plain white mark.
  *
@@ -186,9 +230,10 @@ function drawTypeBadge(
 export async function composeCardLogoImage(
   logoUrl: string,
   icon: string | undefined,
+  color: string,
   size: number = LOGO_EMBED_PX,
 ): Promise<string | null> {
-  const key = cacheKey(logoUrl, icon);
+  const key = cacheKey(logoUrl, icon, color);
   const hit = _cache.get(key);
   if (hit !== undefined) return hit;
 
@@ -208,11 +253,17 @@ export async function composeCardLogoImage(
     const naturalH = Math.max(img.naturalHeight || img.height, 1);
     // The logo gets the full tile width and the upper band of its height, so
     // a wordmark is never squeezed by the glyph sitting below it.
+    // The plate eats into the band, so fit the mark to what is left of it.
     const bandH = size * LOGO_BAND;
-    const scale = Math.min(size / natural, bandH / naturalH);
+    const pad = Math.max(1, Math.round(size * 0.05));
+    const scale = Math.min((size - pad * 2) / natural, (bandH - pad * 2) / naturalH);
     const w = Math.max(1, Math.round(natural * scale));
     const h = Math.max(1, Math.round(naturalH * scale));
-    ctx.drawImage(img, Math.round((size - w) / 2), Math.round((bandH - h) / 2), w, h);
+    const x = Math.round((size - w) / 2);
+    const y = Math.round((bandH - h) / 2);
+
+    drawLogoPlate(ctx, x - pad, y - pad, w + pad * 2, h + pad * 2, size, color);
+    ctx.drawImage(img, x, y, w, h);
 
     drawTypeBadge(ctx, icon, size);
 

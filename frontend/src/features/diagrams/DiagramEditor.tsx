@@ -3153,6 +3153,9 @@ export default function DiagramEditor() {
           .filter((tp) => tp.icon)
           .map((tp) => [tp.key, tp.icon] as const),
       );
+      const colorByType = new Map(
+        fsTypesRef.current.map((tp) => [tp.key, tp.color] as const),
+      );
       // Switched off: hand `applyCardLogos` an empty map so it *restores* the
       // cells it took over, rather than simply not painting new ones — a card
       // that already carries a logo has to lose it when the reader turns them
@@ -3167,6 +3170,7 @@ export default function DiagramEditor() {
               const image = await composeCardLogoImage(
                 cardLogoUrl(c.id, c.logo_updated_at as string),
                 iconByType.get(c.type),
+                colorByType.get(c.type) ?? "#999999",
               );
               return image ? ([c.id, image] as const) : null;
             }),

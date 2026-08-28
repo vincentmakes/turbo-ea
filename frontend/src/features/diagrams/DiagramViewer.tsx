@@ -148,6 +148,7 @@ export default function DiagramViewer() {
             const image = await composeCardLogoImage(
               cardLogoUrl(c.id, c.logo_updated_at as string),
               tp?.icon,
+              tp?.color ?? "#999999",
             );
             return image ? ([c.id, image] as const) : null;
           }),

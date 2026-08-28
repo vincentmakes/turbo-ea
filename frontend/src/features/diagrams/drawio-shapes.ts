@@ -8,7 +8,7 @@
  */
 
 import { ICON_PATHS } from "./iconPaths";
-import { readableTextColor } from "@/lib/color";
+import { readableTextColor, tint } from "@/lib/color";
 
 /** Escape a string for safe inclusion in XML attribute/text content. */
 function escapeXml(value: string): string {
@@ -17,18 +17,6 @@ function escapeXml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-/** Mix a hex color toward white by a factor (0-1) for a faint background tint. */
-function tint(hex: string, factor = 0.88): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const t = (v: number) =>
-    Math.round(v + (255 - v) * factor)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${t(r)}${t(g)}${t(b)}`;
 }
 
 /** Darken a hex color by a factor (0-1) for stroke color */
