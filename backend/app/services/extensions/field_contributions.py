@@ -59,6 +59,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.services.extensions.bundle import DEFAULT_SECTION_PLACEMENT
 
 logger = logging.getLogger(__name__)
 
@@ -121,20 +122,64 @@ def _custom_section_index(schema: list[dict], section: dict) -> int | None:
     return None
 
 
-def _place_section_before_relations(ct, schema: list[dict], section: dict) -> None:
-    """Give a NEWLY created contributed section a place in ``__order``.
+def resolve_placement(order: list[str], placement: str | None) -> int:
+    """Index in ``order`` at which a contributed section should be inserted.
 
-    Card detail appends any ``custom:N`` missing from a stored ``__order`` to
-    the very end — i.e. *below* Relations — while ``tags``/``successors`` are
-    spliced in before it. A contributed section belongs with the card's own
-    content, so insert it before ``relations`` too.
+    Pure and unit-testable. Grammar is ``start`` / ``end`` /
+    ``before:<anchor>`` / ``after:<anchor>``; see ``SECTION_ANCHORS``.
 
-    Two deliberate limits:
-    - **no-op when no ``__order`` is stored.** That branch already renders
-      custom sections above hierarchy/tags/relations, and writing an order
-      where none existed would freeze a layout the admin never chose.
-    - **first creation only** (the caller). A re-apply or version update must
-      never move a section the admin has since dragged somewhere else.
+    An anchor a given card type does not carry is NOT an error — ``eol`` and
+    ``successors`` exist on some types and not others, and a contribution
+    targeting several types has one placement for all of them. It degrades to
+    the default rather than to the bottom of the card: an author who asked for
+    "after:eol" wants the section high, and silently sinking it below Relations
+    is the outcome they were most trying to avoid.
+    """
+    spec = (placement or DEFAULT_SECTION_PLACEMENT).strip()
+    for candidate in (spec, DEFAULT_SECTION_PLACEMENT):
+        if candidate == "start":
+            return 0
+        if candidate == "end":
+            return len(order)
+        prefix, _, anchor = candidate.partition(":")
+        if anchor in order:
+            return order.index(anchor) + (1 if prefix == "after" else 0)
+    return len(order)
+
+
+def _place_section(ct, schema: list[dict], section: dict, placement: str | None) -> None:
+    """Give a contributed section a stored place in ``__order``.
+
+    A ``custom:N`` absent from a stored ``__order`` has no position of its own,
+    and both order builders fall back to appending it last — below Relations,
+    the longest section on the page, where it reads as missing. So give it a
+    real position, chosen by the extension via the manifest's ``placement``
+    (default ``before:relations``). Core supplies a sensible default and no
+    opinion beyond it: where a contributed section belongs is a property of
+    what the extension is, not of the platform.
+
+    **Write the order; never compensate in a renderer.** Card detail and the
+    Card Layout editor each build an order from this same config, and they
+    disagree about an absent key (the editor appends, card detail splices
+    ``tags``/``successors`` before ``relations``). Fixing this in either one
+    makes the editor and the card show different positions for a section
+    neither has stored. Writing the key leaves both simply reading it, and
+    keeps the metamodel config the single source of truth.
+
+    Runs on **every** apply, not only on first creation: an instance whose
+    contributed section already exists takes the merge path, never the creation
+    path, so a first-creation-only call left every pre-existing install stuck at
+    the bottom with no upgrade able to fix it.
+
+    Two guards — not a creation check — are what make that safe:
+    - **no-op when no ``__order`` is stored.** That path already renders custom
+      sections above hierarchy/tags/relations, and writing an order where none
+      existed would freeze a layout the admin never chose.
+    - **no-op when the key is already in the order.** A placement is a starting
+      point, not a policy: once anything has placed the section — this helper on
+      an earlier apply, or an admin dragging it, including deliberately below
+      Relations — a re-apply leaves it exactly where it is. That is also what
+      stops a manifest edit re-homing a section somebody has since arranged.
     """
     config = dict(ct.section_config or {})
     order = list(config.get("__order") or [])
@@ -146,8 +191,7 @@ def _place_section_before_relations(ct, schema: list[dict], section: dict) -> No
     key = f"custom:{index}"
     if key in order:
         return
-    at = order.index("relations") if "relations" in order else len(order)
-    order.insert(at, key)
+    order.insert(resolve_placement(order, placement), key)
     config["__order"] = order
     ct.section_config = config
     flag_modified(ct, "section_config")
@@ -262,9 +306,9 @@ async def apply_field_contributions(
         if target is None:
             target = {"section": section_name, "ext": ext_key, "fields": []}
             schema.append(target)
-            _place_section_before_relations(ct, schema, target)
         target["section"] = section_name
         target["ext"] = ext_key
+        _place_section(ct, schema, target, contrib.get("placement"))
         if "columns" in contrib:
             target["columns"] = contrib["columns"]
         if "translations" in contrib:

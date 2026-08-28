@@ -83,6 +83,45 @@ VALID_GRANTS = {
 # Artwork an extension may ship as its own logo (manifest `logo`), shown on the
 # Store and Installed tabs. Deliberately duplicated from
 # backend/app/services/extensions/bundle.py (LOGO_EXTENSIONS / MAX_LOGO_BYTES).
+# Mirrors app.services.extensions.bundle — pinned by test_teax_grants_lint.py.
+# Where a contributed field section lands in a card type's stored section order
+# the first time anything places it. Core holds no opinion beyond the default;
+# the extension says where its own section belongs. Anchors are built-in
+# section keys only — `custom:N` is positional and means a different section
+# on every install.
+SECTION_ANCHORS = {
+    "description",
+    "eol",
+    "lifecycle",
+    "hierarchy",
+    "successors",
+    "tags",
+    "relations",
+}
+DEFAULT_SECTION_PLACEMENT = "before:relations"
+
+
+def placement_error(value):
+    """None when `value` is a usable placement, else why it is not."""
+    if not isinstance(value, str) or not value.strip():
+        return "placement must be a non-empty string"
+    spec = value.strip()
+    if spec in ("start", "end"):
+        return None
+    prefix, _, anchor = spec.partition(":")
+    if prefix not in ("before", "after") or not anchor:
+        return (
+            f"placement {spec!r} must be 'start', 'end', "
+            f"'before:<section>' or 'after:<section>'"
+        )
+    if anchor not in SECTION_ANCHORS:
+        return (
+            f"placement {spec!r} anchors on unknown section {anchor!r} "
+            f"(one of: {', '.join(sorted(SECTION_ANCHORS))})"
+        )
+    return None
+
+
 LOGO_EXTENSIONS = {".png", ".svg", ".webp", ".jpg", ".jpeg"}
 MAX_LOGO_BYTES = 512 * 1024
 # Grants that require SDK 1.2+ surfaces at runtime.
@@ -338,6 +377,10 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str], list[str]
             for req in ("card_type", "section"):
                 if not str(contrib.get(req, "")).strip():
                     problems.append(f"{where} is missing {req}")
+            if "placement" in contrib:
+                problem = placement_error(contrib["placement"])
+                if problem:
+                    problems.append(f"{where}: {problem}")
             flds = contrib.get("fields")
             if not isinstance(flds, list) or not flds:
                 problems.append(f"{where} needs a non-empty fields list")

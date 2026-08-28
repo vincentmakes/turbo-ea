@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.102.0] - 2026-08-28
+
+### Added
+
+- **An extension can say where the section it adds to a card type belongs.** Its manifest declares a placement — at the top, at the bottom, or before/after any built-in section — and Turbo EA writes that position into the card type's layout. Turbo EA itself has no opinion beyond a sensible default of "just above Relations": a block of regulatory attributes and a post-decision summary want different homes, and only the extension knows which it is.
+
+### Fixed
+
+- **A section an extension adds to a card type is now given a place in that type's saved layout.** Previously it had no position of its own, so on a card type whose layout had been arranged it rendered at the very bottom — underneath Relations, the longest section on the page — where it was easy to miss. The extension chooses where its section belongs and the position is written into the layout you see in **Admin → Metamodel → Card layout**, so the layout editor and the card always agree on it. Existing installs pick this up the next time the extension is installed, enabled or updated. It is only a starting position: move the section anywhere you like, including below Relations, and it stays where you put it — neither a re-install nor an extension update will move it again.
+
 ## [2.101.0] - 2026-08-28
 
 ### Added

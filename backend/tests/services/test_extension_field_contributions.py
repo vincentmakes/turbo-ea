@@ -28,8 +28,8 @@ def manifest_with(sections):
     return {"metamodel": {"field_sections": sections}}
 
 
-def contribution(card_type="Application", section="ESG Metrics", fields=None):
-    return {
+def contribution(card_type="Application", section="ESG Metrics", fields=None, placement=None):
+    row = {
         "card_type": card_type,
         "section": section,
         "columns": 1,
@@ -47,6 +47,9 @@ def contribution(card_type="Application", section="ESG Metrics", fields=None):
             {"key": "esgAudited", "label": "ESG Audited", "type": "boolean"},
         ],
     }
+    if placement is not None:
+        row["placement"] = placement
+    return row
 
 
 def section_named(ct, name):
@@ -273,6 +276,93 @@ class TestSectionPlacement:
         ct = await create_card_type(db, key="Application", label="Application")
         await apply_field_contributions(db, EXT, manifest_with([contribution()]))
         assert not (ct.section_config or {}).get("__order")
+
+    async def test_placement_is_the_extensions_call_not_cores(self, db):
+        """Core supplies a default and no opinion beyond it. "Just above
+        Relations" suits a regulatory attribute block and not, say, a
+        post-decision summary meant to read last."""
+        for placement, expected in [
+            (None, ["description", "custom:0", "custom:1", "relations", "tags"]),
+            ("before:relations", ["description", "custom:0", "custom:1", "relations", "tags"]),
+            ("end", ["description", "custom:0", "relations", "tags", "custom:1"]),
+            ("start", ["custom:1", "description", "custom:0", "relations", "tags"]),
+            ("after:description", ["description", "custom:1", "custom:0", "relations", "tags"]),
+            ("before:tags", ["description", "custom:0", "relations", "custom:1", "tags"]),
+        ]:
+            ct = await create_card_type(
+                db,
+                key=f"Application{placement or 'default'}".replace(":", ""),
+                label="Application",
+                fields_schema=[{"section": "Core", "fields": []}],
+                section_config={"__order": ["description", "custom:0", "relations", "tags"]},
+            )
+            await apply_field_contributions(
+                db, EXT, manifest_with([contribution(card_type=ct.key, placement=placement)])
+            )
+            assert ct.section_config["__order"] == expected, placement
+
+    async def test_unknown_anchor_falls_back_to_the_default_not_the_bottom(self, db):
+        """`eol` and `successors` exist on some card types and not others, and
+        one contribution can target several. An author who asked for a high
+        position must not get the one outcome they were avoiding."""
+        ct = await create_card_type(
+            db,
+            key="Application",
+            label="Application",
+            fields_schema=[{"section": "Core", "fields": []}],
+            section_config={"__order": ["description", "custom:0", "relations"]},
+        )
+        await apply_field_contributions(
+            db, EXT, manifest_with([contribution(placement="after:eol")])
+        )
+        assert ct.section_config["__order"] == [
+            "description",
+            "custom:0",
+            "custom:1",
+            "relations",
+        ]
+
+    async def test_a_manifest_edit_never_rehomes_a_placed_section(self, db):
+        """Placement is a starting point, not a policy — the same guard that
+        protects an admin's drag protects them from a vendor changing its mind."""
+        ct = await create_card_type(
+            db,
+            key="Application",
+            label="Application",
+            fields_schema=[{"section": "Core", "fields": []}],
+            section_config={"__order": ["description", "custom:0", "relations"]},
+        )
+        await apply_field_contributions(
+            db, EXT, manifest_with([contribution(placement="before:relations")])
+        )
+        before = list(ct.section_config["__order"])
+        await apply_field_contributions(db, EXT, manifest_with([contribution(placement="end")]))
+        assert ct.section_config["__order"] == before
+
+    async def test_reapply_places_a_section_that_was_never_placed(self, db):
+        """The upgrade path: an install whose contributed section already exists
+        but is absent from ``__order`` (it predates this rule, or the order was
+        saved before the section existed). Placement therefore runs on EVERY
+        apply — a first-creation-only call left those instances rendering the
+        section below Relations forever, with no reinstall able to fix it."""
+        ct = await create_card_type(
+            db,
+            key="Application",
+            label="Application",
+            fields_schema=[{"section": "Core", "fields": []}],
+            section_config={"__order": ["description", "custom:0", "relations"]},
+        )
+        m = manifest_with([contribution()])
+        await apply_field_contributions(db, EXT, m)
+        # Rewind to the pre-rule state: the section exists, the order forgets it.
+        ct.section_config = {"__order": ["description", "custom:0", "relations"]}
+        await apply_field_contributions(db, EXT, m)
+        assert ct.section_config["__order"] == [
+            "description",
+            "custom:0",
+            "custom:1",
+            "relations",
+        ]
 
     async def test_reapply_never_moves_a_section_the_admin_dragged(self, db):
         ct = await create_card_type(

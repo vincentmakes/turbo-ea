@@ -12,9 +12,14 @@ from pathlib import Path
 
 import pytest
 
+from app.services.extensions.bundle import (
+    DEFAULT_SECTION_PLACEMENT as BACKEND_DEFAULT_PLACEMENT,
+)
 from app.services.extensions.bundle import LOGO_EXTENSIONS as BACKEND_LOGO_EXTENSIONS
 from app.services.extensions.bundle import MAX_LOGO_BYTES as BACKEND_MAX_LOGO_BYTES
+from app.services.extensions.bundle import SECTION_ANCHORS as BACKEND_SECTION_ANCHORS
 from app.services.extensions.bundle import VALID_GRANTS as BACKEND_VALID_GRANTS
+from app.services.extensions.bundle import placement_error as backend_placement_error
 
 TEAX_PATH = Path(__file__).resolve().parents[3] / "scripts" / "extension-tools" / "teax.py"
 
@@ -48,6 +53,28 @@ class TestTeaxGrantsLint:
     def test_valid_grants_mirror_backend(self, teax):
         # The two deliberately-duplicated constants must never drift.
         assert set(teax.VALID_GRANTS) == set(BACKEND_VALID_GRANTS)
+
+    def test_placement_constants_and_verdicts_mirror_backend(self, teax):
+        # teax lints what the backend will accept: if these drift, an extension
+        # passes lint and then fails verify on the customer's instance.
+        assert set(teax.SECTION_ANCHORS) == set(BACKEND_SECTION_ANCHORS)
+        assert teax.DEFAULT_SECTION_PLACEMENT == BACKEND_DEFAULT_PLACEMENT
+        for value in (
+            "start",
+            "end",
+            "before:relations",
+            "after:lifecycle",
+            "before:custom:0",  # positional — deliberately not addressable
+            "beside:relations",
+            "before:",
+            "before:nope",
+            "",
+            None,
+            7,
+        ):
+            assert (teax.placement_error(value) is None) == (
+                backend_placement_error(value) is None
+            ), value
 
     def test_logo_constants_mirror_backend(self, teax):
         # Same reasoning: teax lints what the backend will accept, so the two

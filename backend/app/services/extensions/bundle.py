@@ -90,6 +90,57 @@ KEY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{1,63}$")
 # readable through the unauthenticated asset route. Keep in sync with
 # LOGO_EXTENSIONS / MAX_LOGO_BYTES in scripts/extension-tools/teax.py
 # (deliberately duplicated — teax is stdlib-vendorable).
+# Where a contributed field section lands in a card type's stored section order
+# (``section_config["__order"]``) the first time anything places it.
+#
+# Core holds NO opinion beyond the default: an extension says where its own
+# section belongs, because "just above Relations" is right for a regulatory
+# attribute block and wrong for, say, a post-decision summary meant to read
+# last. Grammar: ``start``, ``end``, ``before:<anchor>`` or ``after:<anchor>``.
+#
+# Anchors are the built-in section keys only. ``custom:N`` is deliberately not
+# addressable: it is a POSITIONAL index into the target type's fields_schema,
+# so it means a different section on every install.
+SECTION_ANCHORS = frozenset(
+    {
+        "description",
+        "eol",
+        "lifecycle",
+        "hierarchy",
+        "successors",
+        "tags",
+        "relations",
+    }
+)
+
+# Applied when a contribution declares no placement — which every bundle built
+# before the key existed does. Keeps a contributed section with the card's own
+# content, matching where custom sections render when no order is stored.
+DEFAULT_SECTION_PLACEMENT = "before:relations"
+
+
+def placement_error(value: object) -> str | None:
+    """``None`` when ``value`` is a usable placement, else why it is not.
+
+    Shared by the bundle verifier and (mirrored) by ``teax lint`` so an
+    extension cannot pass lint and then fail verify.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return "placement must be a non-empty string"
+    spec = value.strip()
+    if spec in ("start", "end"):
+        return None
+    prefix, _, anchor = spec.partition(":")
+    if prefix not in ("before", "after") or not anchor:
+        return f"placement {spec!r} must be 'start', 'end', 'before:<section>' or 'after:<section>'"
+    if anchor not in SECTION_ANCHORS:
+        return (
+            f"placement {spec!r} anchors on unknown section {anchor!r} "
+            f"(one of: {', '.join(sorted(SECTION_ANCHORS))})"
+        )
+    return None
+
+
 LOGO_EXTENSIONS = frozenset({".png", ".svg", ".webp", ".jpg", ".jpeg"})
 MAX_LOGO_BYTES = 512 * 1024
 
@@ -325,6 +376,10 @@ def _validate_metamodel_block(manifest: dict[str, Any], ext_key: str) -> None:
         for req in ("card_type", "section"):
             if not isinstance(contrib.get(req), str) or not contrib[req].strip():
                 raise BundleError(f"{where} is missing {req}")
+        if "placement" in contrib:
+            problem = placement_error(contrib["placement"])
+            if problem:
+                raise BundleError(f"{where}: {problem}")
         fields = contrib.get("fields")
         if not isinstance(fields, list) or not fields:
             raise BundleError(f"{where} must declare a non-empty fields list")
