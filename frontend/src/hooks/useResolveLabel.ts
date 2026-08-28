@@ -25,7 +25,7 @@ import type { TranslationMap, MetamodelTranslations } from "@/types";
  */
 
 /** Card/relation type, portal type info, stakeholder role def — top-level `translations`. */
-interface MetaEntityLike {
+export interface MetaEntityLike {
   key: string;
   label: string;
   translations?: MetamodelTranslations;
@@ -37,7 +37,7 @@ interface RelationLike extends MetaEntityLike {
 }
 
 /** Field, option, subtype — inline `translations` map keyed directly by locale. */
-interface InlineEntityLike {
+export interface InlineEntityLike {
   key: string;
   label: string;
   translations?: TranslationMap;

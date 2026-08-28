@@ -9,6 +9,20 @@ from app.models.user import User
 from tests.conftest import auth_headers, create_card_type, create_role, create_user
 
 
+async def _enable_ppm(db):
+    """Switch the PPM module on in the singleton app_settings row."""
+    from app.models.app_settings import AppSettings
+
+    row = (
+        await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    ).scalar_one_or_none()
+    if row is None:
+        db.add(AppSettings(id="default", general_settings={"ppmEnabled": True}))
+    else:
+        row.general_settings = {**(row.general_settings or {}), "ppmEnabled": True}
+    await db.flush()
+
+
 async def _set_sso_config(db, *, enabled=True):
     """Seed the singleton app_settings row with an SSO config."""
     from app.models.app_settings import AppSettings
@@ -143,6 +157,35 @@ class TestGateEnforcement:
             resp = await client.get(f"/api/v1/web-portals/public/catalog{path}")
             assert resp.status_code == 401, path
             assert resp.json()["detail"] == "portal_locked"
+
+    async def test_sso_portfolio_portal_locked_without_cookie(self, client, db, portals_env):
+        """The portfolio board sits behind the same gate as every other data route.
+
+        This needs its own portfolio portal: asserting against the ``cards``
+        portal above would 404 (wrong view) rather than 401, and pass vacuously.
+        """
+        await _set_sso_config(db, enabled=True)
+        await _enable_ppm(db)
+        await create_card_type(db, key="Initiative", label="Initiative")
+        resp = await _create_portal(
+            client,
+            portals_env["admin"],
+            slug="board",
+            card_type="Initiative",
+            view="ppm_portfolio",
+            access_mode="sso",
+        )
+        assert resp.status_code == 201, resp.text
+
+        locked = await client.get("/api/v1/web-portals/public/board/ppm/portfolio")
+        assert locked.status_code == 401
+        assert locked.json()["detail"] == "portal_locked"
+
+    async def test_portfolio_route_404s_on_a_cards_portal(self, client, db, portals_env):
+        """A card portal's slug must not confirm the portfolio route exists."""
+        await _create_portal(client, portals_env["admin"])
+        resp = await client.get("/api/v1/web-portals/public/catalog/ppm/portfolio")
+        assert resp.status_code == 404
 
     async def test_public_portal_serves_cookieless(self, client, db, portals_env):
         await _create_portal(client, portals_env["admin"])

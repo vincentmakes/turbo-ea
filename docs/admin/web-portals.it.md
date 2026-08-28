@@ -12,6 +12,51 @@ I portali web sono utili per condividere informazioni architetturali con stakeho
 - **Directory dei servizi** — Pubblicate i servizi IT e i loro responsabili
 - **Mappa delle capability** — Fornite una vista pubblica delle business capability
 
+## Tipo di portale
+
+Ogni portale pubblica una di due viste, scelta tramite **Tipo di portale**:
+
+| Tipo | Cosa vedono i visitatori |
+|------|--------------------------|
+| **Elenco di schede** | Una griglia di schede con ricerca e filtri: il portale classico, configurato con le proprietà indicate sotto. |
+| **Bacheca del portfolio PPM** | La [bacheca del portfolio PPM](../guide/ppm.md) in sola lettura: cronologia, indicatori di stato e budget rispetto all'effettivo per ogni iniziativa attiva. |
+
+### Portali di portfolio PPM
+
+Scegliendo **Bacheca del portfolio PPM** il portale diventa una vista direzionale del
+portfolio progetti, raggiungibile tramite un collegamento pubblico **senza account,
+senza licenza e senza accesso**. Pensata per il caso frequente in cui la direzione vuole
+visibilità sul portfolio ma non intende gestire altre credenziali.
+
+La bacheca riguarda sempre le schede **Iniziativa**, quindi il selettore del tipo di
+scheda è bloccato. I filtri per **sottotipi** e **tag** restano attivi: è così che si
+pubblica un singolo programma invece dell'intero portfolio.
+
+I visitatori vedono la stessa bacheca che il vostro team usa dentro Turbo EA: la
+cronologia trimestrale, gli indicatori di tempi/costi/ambito, le barre CapEx e OpEx, il
+raggruppamento per qualsiasi tipo di scheda collegato e l'anteprima del rapporto di stato
+al passaggio del mouse sulla data **Ultimo rapporto**. Facendo clic su un'iniziativa si
+entra in Turbo EA dietro il consueto accesso: una volta effettuato, si arriva
+sull'iniziativa selezionata.
+
+Tre interruttori controllano cosa rivela la bacheca pubblicata:
+
+| Interruttore | Predefinito | Pubblica |
+|--------------|-------------|----------|
+| **Mostrare budget e spesa effettiva** | Attivo | Le barre CapEx e OpEx e il budget totale |
+| **Mostrare i commenti dei rapporti di stato** | Attivo | Sintesi, risultati raggiunti e prossimi passi nell'anteprima. La data del rapporto e gli indicatori di stato sono sempre visibili |
+| **Mostrare i nomi dei project manager** | **Disattivo** | I nomi dei project manager e degli autori dei rapporti. Disattivo per impostazione predefinita perché i nomi sono dati personali |
+
+!!! note
+    Alcune informazioni non vengono mai pubblicate, qualunque sia la scelta: i campi di
+    costo memorizzati sulla scheda Iniziativa, gli indirizzi e-mail degli utenti e tutto
+    ciò che si trova nella pagina di dettaglio di un'iniziativa — pacchetti di lavoro,
+    milestone, rischi, attività e cronologia dei rapporti restano dietro l'accesso.
+
+Un portale di portfolio può essere protetto con SSO come qualsiasi altro portale.
+Disattivando il modulo PPM in **Admin > Impostazioni** tutti i portali di portfolio
+diventano immediatamente inaccessibili, senza doverli ritirare uno a uno.
+
 ## Protezione dell'accesso
 
 Ogni portale ha una **modalità di accesso** che controlla chi può aprirlo:

@@ -7743,6 +7743,34 @@
       },
       "PpmGroupOption": {
         "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "translations": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Translations",
+            "type": "object"
+          },
           "type_key": {
             "title": "Type Key",
             "type": "string"
@@ -7757,6 +7785,360 @@
           "type_label"
         ],
         "title": "PpmGroupOption",
+        "type": "object"
+      },
+      "PpmPublicDashboard": {
+        "description": "The three KPI values the board actually renders.\n\nThe internal dashboard also carries ``by_subtype``, ``by_status``,\n``health_cost``, ``health_scope`` and ``total_actual``; none of them is drawn\non the board, so none of them is published.",
+        "properties": {
+          "health_schedule": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "default": {},
+            "title": "Health Schedule",
+            "type": "object"
+          },
+          "total_budget": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Budget"
+          },
+          "total_initiatives": {
+            "title": "Total Initiatives",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_initiatives"
+        ],
+        "title": "PpmPublicDashboard",
+        "type": "object"
+      },
+      "PpmPublicGroupOption": {
+        "description": "A card type the board can group by.\n\nShips the metamodel entity (``label`` + ``translations``) rather than a\nresolved string: label resolution lives on the client, in the shared\nresolvers, so there is exactly one implementation of it and no second place\nfor the key-as-fallback bug to reappear.",
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "translations": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Translations",
+            "type": "object"
+          },
+          "type_key": {
+            "title": "Type Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type_key",
+          "label"
+        ],
+        "title": "PpmPublicGroupOption",
+        "type": "object"
+      },
+      "PpmPublicItem": {
+        "description": "One board row.\n\n``id`` is the initiative's real card UUID \u2014 a portfolio portal links its rows\nto ``/ppm/{id}`` behind the login wall, so it is exposed by design. Every\nother identifier is withheld: ``group_id`` is an opaque per-response token,\nand the parent, report, reporter and stakeholder ids are not emitted at all.",
+        "properties": {
+          "capex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capex Actual"
+          },
+          "capex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capex Planned"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Name"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "latest_report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PpmPublicReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "opex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opex Actual"
+          },
+          "opex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opex Planned"
+          },
+          "stakeholders": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PpmPublicPerson"
+            },
+            "title": "Stakeholders",
+            "type": "array"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "PpmPublicItem",
+        "type": "object"
+      },
+      "PpmPublicPerson": {
+        "description": "A named person. Carries **no** user id and never an email address.",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "role_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Key"
+          }
+        },
+        "required": [
+          "display_name"
+        ],
+        "title": "PpmPublicPerson",
+        "type": "object"
+      },
+      "PpmPublicPortfolio": {
+        "description": "Everything the public board needs, in one round-trip.",
+        "properties": {
+          "dashboard": {
+            "$ref": "#/components/schemas/PpmPublicDashboard"
+          },
+          "group_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group By"
+          },
+          "group_options": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PpmPublicGroupOption"
+            },
+            "title": "Group Options",
+            "type": "array"
+          },
+          "items": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PpmPublicItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dashboard"
+        ],
+        "title": "PpmPublicPortfolio",
+        "type": "object"
+      },
+      "PpmPublicReport": {
+        "description": "The latest status report, as shown in the board's hover overview.\n\n``reporter`` is populated only when the portal enables people, and the three\nnarrative fields only when it enables narrative \u2014 the viewer's existing\ntruthiness guards then render the reduced popover with no extra branching.",
+        "properties": {
+          "accomplishments": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accomplishments"
+          },
+          "cost_health": {
+            "title": "Cost Health",
+            "type": "string"
+          },
+          "next_steps": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Steps"
+          },
+          "report_date": {
+            "format": "date",
+            "title": "Report Date",
+            "type": "string"
+          },
+          "reporter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PpmPublicPerson"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schedule_health": {
+            "title": "Schedule Health",
+            "type": "string"
+          },
+          "scope_health": {
+            "title": "Scope Health",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "required": [
+          "report_date",
+          "schedule_health",
+          "cost_health",
+          "scope_health"
+        ],
+        "title": "PpmPublicReport",
         "type": "object"
       },
       "PpmRiskCreate": {
@@ -15208,6 +15590,17 @@
           "slug": {
             "title": "Slug",
             "type": "string"
+          },
+          "view": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View"
           }
         },
         "required": [
@@ -15335,6 +15728,17 @@
               }
             ],
             "title": "Slug"
+          },
+          "view": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View"
           }
         },
         "title": "WebPortalUpdate",
@@ -39261,6 +39665,67 @@
           }
         },
         "summary": "Get Portal Gate",
+        "tags": [
+          "web-portals"
+        ]
+      }
+    },
+    "/api/v1/web-portals/public/{slug}/ppm/portfolio": {
+      "get": {
+        "description": "The read-only PPM portfolio board, for a portal published with that view.\n\nShares one builder with the authenticated ``/reports/ppm/*`` routes so the two\nboards cannot drift, then projects the result onto a separate, opt-in public\nshape (``to_public_portfolio``) rather than filtering fields out of the\ninternal one \u2014 a subtractive filter would publish whatever field someone adds\nto ``PpmGanttItem`` next.\n\nOn what may be published: ``show_costs`` governs the capex/opex aggregates and\nthe portfolio budget total, which are sums over ``ppm_cost_lines`` /\n``ppm_budget_lines``. It does **not** reach the Initiative card's own\n``costBudget`` / ``costActual`` attributes \u2014 those are ``type: \"cost\"``\nmetamodel fields, and public portals strip cost-typed fields unconditionally\n(see ``get_public_portal``). This is not an exemption from that invariant; the\nPPM tables simply sit outside it, and the board renders the two card\nattributes nowhere.\n\nA 404 (never a 400) is returned when the portal is not a portfolio portal or\nthe module is off, so a card-portal slug never confirms that this route exists.",
+        "operationId": "get_public_portal_ppm_portfolio_api_v1_web_portals_public__slug__ppm_portfolio_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Card type key to group by",
+            "in": "query",
+            "name": "group_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Card type key to group by",
+              "title": "Group By"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PpmPublicPortfolio"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Public Portal Ppm Portfolio",
         "tags": [
           "web-portals"
         ]

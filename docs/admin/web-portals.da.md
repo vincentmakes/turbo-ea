@@ -12,6 +12,49 @@ Webportaler er nyttige til at dele arkitekturinformation med interessenter, der 
 - **Servicekatalog** — Publicér IT-tjenester og deres ejere
 - **Capability-kort** — Tilbyd en offentlig visning af forretningskompetencer
 
+## Portaltype
+
+Hver portal offentliggør én af to visninger, valgt med **Portaltype**:
+
+| Type | Hvad besøgende ser |
+|------|--------------------|
+| **Kortliste** | Et gitter af kort, der kan søges og filtreres — den klassiske portal, konfigureret med egenskaberne nedenfor. |
+| **PPM-porteføljetavle** | Den skrivebeskyttede [PPM-porteføljetavle](../guide/ppm.md) — tidslinje, statusindikatorer og budget over for faktisk forbrug for hvert aktivt initiativ. |
+
+### PPM-porteføljeportaler
+
+Vælger du **PPM-porteføljetavle**, bliver portalen til en ledelsesvisning af din
+projektportefølje, tilgængelig via et offentligt link **uden konto, uden licens og uden
+login**. Lavet til det almindelige tilfælde, hvor ledelsen ønsker indblik i porteføljen,
+men ikke vil vedligeholde endnu et sæt loginoplysninger.
+
+Tavlen omfatter altid **Initiativ**-kort, så korttypevælgeren er låst. Filtrene for
+**undertyper** og **tags** gælder fortsat — det er sådan, du offentliggør ét program i
+stedet for hele porteføljen.
+
+Besøgende ser den samme tavle, som dit team bruger inde i Turbo EA: den kvartalsvise
+tidslinje, indikatorerne for tid/omkostning/omfang, CapEx- og OpEx-bjælkerne, gruppering
+efter enhver relateret korttype og statusrapportoversigten, der vises, når du holder
+musen over datoen **Seneste rapport**. Et klik på et initiativ fører ind i Turbo EA bag
+det normale login — efter login lander du på det initiativ, du klikkede på.
+
+Tre kontakter styrer, hvad den offentliggjorte tavle viser:
+
+| Kontakt | Standard | Offentliggør |
+|---------|----------|--------------|
+| **Vis budget og faktisk forbrug** | Til | CapEx- og OpEx-bjælkerne samt det samlede budget |
+| **Vis kommentarer fra statusrapporter** | Til | Resumé, resultater og næste skridt i oversigten ved museover. Rapportdato og statusindikatorer vises altid |
+| **Vis projektledernes navne** | **Fra** | Navnene på projektledere og rapportforfattere. Slået fra som standard, fordi navne er personoplysninger |
+
+!!! note
+    Noget offentliggøres aldrig, uanset hvad du vælger: omkostningsfelter gemt på selve
+    Initiativ-kortet, brugernes e-mailadresser og alt på et initiativs detaljeside —
+    arbejdspakker, milepæle, risici, opgaver og rapporthistorik forbliver bag login.
+
+En porteføljeportal kan SSO-beskyttes som enhver anden portal. Slår du PPM-modulet fra
+under **Admin > Indstillinger**, bliver alle porteføljeportaler utilgængelige med det
+samme; du behøver ikke afpublicere dem én ad gangen.
+
 ## Adgangsbeskyttelse
 
 Hver portal har en **adgangstilstand**, der styrer, hvem der kan åbne den:

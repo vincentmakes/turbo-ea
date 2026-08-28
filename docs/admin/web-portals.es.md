@@ -12,6 +12,51 @@ Los portales web son útiles para compartir información de arquitectura con par
 - **Directorio de servicios** — Publique los servicios de TI y sus responsables
 - **Mapa de capacidades** — Proporcione una vista pública de las capacidades de negocio
 
+## Tipo de portal
+
+Cada portal publica una de dos vistas, elegida con **Tipo de portal**:
+
+| Tipo | Lo que ven los visitantes |
+|------|---------------------------|
+| **Lista de tarjetas** | Una cuadrícula de tarjetas con búsqueda y filtros: el portal clásico, configurado con las propiedades de más abajo. |
+| **Tablero de cartera PPM** | El [tablero de cartera PPM](../guide/ppm.md) de solo lectura: cronograma, indicadores de estado y presupuesto frente a real de cada iniciativa activa. |
+
+### Portales de cartera PPM
+
+Elegir **Tablero de cartera PPM** convierte el portal en una vista directiva de su
+cartera de proyectos, accesible mediante un enlace público **sin cuenta, sin licencia
+y sin inicio de sesión**. Pensado para el caso habitual en el que la dirección quiere
+visibilidad de la cartera pero no va a mantener otras credenciales.
+
+El tablero siempre se refiere a tarjetas de **Iniciativa**, por lo que el selector de
+tipo de tarjeta queda bloqueado. Los filtros de **subtipos** y **etiquetas** siguen
+aplicándose, que es como se publica un único programa en lugar de toda la cartera.
+
+Los visitantes ven el mismo tablero que su equipo dentro de Turbo EA: el cronograma
+trimestral, los indicadores de plazo/coste/alcance, las barras de CapEx y OpEx, la
+agrupación por cualquier tipo de tarjeta relacionado y la vista emergente del informe
+de estado al pasar el ratón sobre la fecha de **Último informe**. Al hacer clic en una
+iniciativa se entra en Turbo EA tras el inicio de sesión habitual; una vez dentro,
+aterriza en la iniciativa que pulsó.
+
+Tres interruptores controlan lo que revela el tablero publicado:
+
+| Interruptor | Por defecto | Publica |
+|-------------|-------------|---------|
+| **Mostrar presupuesto y gasto real** | Activado | Las barras de CapEx y OpEx y la cifra de presupuesto total |
+| **Mostrar comentarios de los informes de estado** | Activado | Resumen, logros y próximos pasos en la vista emergente. La fecha del informe y los indicadores de estado siempre se muestran |
+| **Mostrar nombres de los jefes de proyecto** | **Desactivado** | Los nombres de jefes de proyecto y autores de informes. Desactivado por defecto porque los nombres son datos personales |
+
+!!! note
+    Hay cosas que nunca se publican, elija lo que elija: los campos de coste guardados
+    en la propia tarjeta de Iniciativa, las direcciones de correo de los usuarios y todo
+    lo que hay en la página de detalle de una iniciativa: paquetes de trabajo, hitos,
+    riesgos, tareas e historial de informes quedan detrás del inicio de sesión.
+
+Un portal de cartera puede protegerse con SSO como cualquier otro portal. Desactivar el
+módulo PPM en **Admin > Configuración** deja inaccesibles de inmediato todos los portales
+de cartera, sin necesidad de despublicarlos uno a uno.
+
 ## Protección de acceso
 
 Cada portal tiene un **modo de acceso** que controla quién puede abrirlo:

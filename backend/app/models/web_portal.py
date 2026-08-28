@@ -20,6 +20,12 @@ class WebPortal(Base, UUIDMixin, TimestampMixin):
     display_fields: Mapped[list | None] = mapped_column(JSONB, default=list)
     card_config: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Which board this portal publishes. "cards" is the card-list grid every
+    # portal rendered before this existed; "ppm_portfolio" is the read-only PPM
+    # portfolio board. A validated column rather than a card_config key because
+    # update_portal writes unknown fields with a bare setattr, so a typo'd JSONB
+    # key would silently no-op instead of 400-ing.
+    view: Mapped[str] = mapped_column(String(32), nullable=False, default="cards")
     # Access protection. "public" (world-readable when published, the historical
     # behaviour) or "sso" (visitor must authenticate against the org's configured
     # SSO IdP — an ephemeral, account-less portal session, no users row created).

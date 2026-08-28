@@ -313,3 +313,9 @@ class PpmGanttItem(BaseModel):
 class PpmGroupOption(BaseModel):
     type_key: str
     type_label: str
+    # The metamodel entity, so callers can resolve the display name themselves.
+    # `type_label` used to be the raw type key, which surfaced internal slugs in
+    # the grouping dropdown whenever the caller had no metamodel to look up.
+    translations: dict = {}
+    icon: str | None = None
+    color: str | None = None

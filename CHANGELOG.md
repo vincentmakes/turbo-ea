@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.101.0] - 2026-08-28
+
+### Added
+
+- **Publish the PPM portfolio board as a web portal.** A web portal now has a **Portal type**: the card list it has always shown, or the read-only **PPM portfolio board** — the same timeline, health indicators, budget-versus-actual bars and hover status-report overview your team sees inside Turbo EA, on a public link that needs no account and no licence. Built for executives who want portfolio visibility but will not maintain another login ([#1019](https://github.com/vincentmakes/turbo-ea/discussions/1019)). Three switches control what the published board reveals — budget and actual spend, status-report commentary, and project-manager names (off by default, since names are personal data). Card cost fields, email addresses and the per-initiative detail are never published, whatever you pick. Clicking an initiative still leads into Turbo EA behind the normal sign-in, and signing in lands you on the initiative you clicked. Portfolio portals honour the same subtype and tag filters as any other portal, so you can publish one programme rather than the whole portfolio, and they can be SSO-gated like any other portal too. Turning the PPM module off takes every portfolio portal dark immediately, without unpublishing anything.
+
+### Changed
+
+- **The portfolio board loads a fixed number of database queries** instead of two more for every initiative on it. A portfolio of 200 initiatives previously issued several hundred extra queries per page load.
+
+### Fixed
+
+- **The portfolio's Group by dropdown shows type names, not internal keys.** It listed the raw type key for any card type the browser had not already loaded into its metamodel cache.
+
 ## [2.100.0] - 2026-08-28
 
 ### Added

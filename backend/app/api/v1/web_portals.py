@@ -16,6 +16,7 @@ from app.api.v1.auth import _is_secure_request
 from app.core.rate_limit import limiter
 from app.core.security import create_portal_token, decode_portal_token, portal_token_matches
 from app.database import get_db
+from app.models.app_settings import AppSettings
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
@@ -25,6 +26,8 @@ from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.models.web_portal import WebPortal
 from app.schemas.common import WebPortalCreate, WebPortalUpdate
+from app.schemas.ppm_public import PpmPublicPortfolio
+from app.services import ppm_portfolio_service as ppm_portfolio
 from app.services import sso_service
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.permission_service import PermissionService
@@ -41,6 +44,12 @@ logger = logging.getLogger(__name__)
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _ACCESS_MODES = ("public", "sso")
+
+# Which board a portal publishes. "cards" is the card-list grid every portal
+# rendered before this existed; "ppm_portfolio" is the read-only PPM portfolio
+# board, which is always scoped to Initiative cards.
+_VIEWS = ("cards", "ppm_portfolio")
+PPM_PORTAL_CARD_TYPE = "Initiative"
 
 # Ephemeral portal-session cookie. Path-scoped per portal (see
 # ``_portal_cookie_path``) so a visitor's session for one portal is never sent
@@ -84,6 +93,35 @@ async def _validate_access(
     return mode, domains
 
 
+async def _ppm_enabled(db: AsyncSession) -> bool:
+    """Whether the PPM module is switched on for this instance."""
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    return bool(((row.general_settings if row else None) or {}).get("ppmEnabled", False))
+
+
+async def _validate_view(
+    db: AsyncSession, view: str | None, card_type: str | None
+) -> tuple[str, str | None]:
+    """Normalise + validate the portal view, returning ``(view, card_type)``.
+
+    A portfolio portal is always scoped to Initiative cards, so the card type is
+    pinned rather than trusted from the request — the filters, subtype picker and
+    tag picker downstream all key off it.
+    """
+    v = view or "cards"
+    if v not in _VIEWS:
+        raise HTTPException(400, f"Invalid view: {v!r}")
+    if v != "ppm_portfolio":
+        return v, card_type
+    if not await _ppm_enabled(db):
+        raise HTTPException(
+            400,
+            "The PPM module is not enabled. Enable it before creating a portfolio portal.",
+        )
+    return v, PPM_PORTAL_CARD_TYPE
+
+
 def _portal_to_dict(p: WebPortal) -> dict:
     return {
         "id": str(p.id),
@@ -95,6 +133,7 @@ def _portal_to_dict(p: WebPortal) -> dict:
         "display_fields": p.display_fields,
         "card_config": p.card_config,
         "is_published": p.is_published,
+        "view": p.view or "cards",
         "access_mode": p.access_mode or "public",
         "allowed_email_domains": p.allowed_email_domains,
         "created_by": str(p.created_by) if p.created_by else None,
@@ -132,10 +171,11 @@ async def create_portal(
     existing = await db.execute(select(WebPortal).where(WebPortal.slug == body.slug))
     if existing.scalar_one_or_none():
         raise HTTPException(400, "A portal with this slug already exists")
-    # Validate card type exists
-    fst = await db.execute(select(CardType).where(CardType.key == body.card_type))
+    view, card_type = await _validate_view(db, body.view, body.card_type)
+    # Validate card type exists (the pinned one, for a portfolio portal)
+    fst = await db.execute(select(CardType).where(CardType.key == card_type))
     if not fst.scalar_one_or_none():
-        raise HTTPException(400, f"Card type '{body.card_type}' not found")
+        raise HTTPException(400, f"Card type '{card_type}' not found")
 
     access_mode, allowed_domains = await _validate_access(
         db, body.access_mode, body.allowed_email_domains
@@ -145,11 +185,12 @@ async def create_portal(
         name=body.name,
         slug=body.slug,
         description=body.description,
-        card_type=body.card_type,
+        card_type=card_type,
         filters=body.filters,
         display_fields=body.display_fields,
         card_config=body.card_config,
         is_published=body.is_published,
+        view=view,
         access_mode=access_mode,
         allowed_email_domains=allowed_domains,
         created_by=user.id,
@@ -207,6 +248,16 @@ async def update_portal(
     # Re-validate access whenever the mode or the domain list is touched. Compute
     # the effective mode/domains from the incoming patch layered over the current
     # row, then normalise (clears the allowlist when switching away from sso).
+    # Re-validate the view whenever it or the card type is touched; a portfolio
+    # portal re-pins its card type so a patch can never point it elsewhere.
+    if "view" in updates or "card_type" in updates:
+        eff_view = updates.get("view", portal.view)
+        eff_card_type = updates.get("card_type", portal.card_type)
+        view, card_type = await _validate_view(db, eff_view, eff_card_type)
+        updates["view"] = view
+        if card_type is not None:
+            updates["card_type"] = card_type
+
     if "access_mode" in updates or "allowed_email_domains" in updates:
         eff_mode = updates.get("access_mode", portal.access_mode)
         eff_domains = updates.get("allowed_email_domains", portal.allowed_email_domains)
@@ -453,6 +504,7 @@ async def get_public_portal(
         "slug": portal.slug,
         "description": portal.description,
         "card_type": portal.card_type,
+        "view": portal.view or "cards",
         "filters": portal.filters,
         "display_fields": portal.display_fields,
         "card_config": portal.card_config,
@@ -803,3 +855,67 @@ async def get_public_portal_cards(
         "page": page,
         "page_size": page_size,
     }
+
+
+@router.get("/public/{slug}/ppm/portfolio", response_model=PpmPublicPortfolio)
+@limiter.limit("60/minute")
+async def get_public_portal_ppm_portfolio(
+    slug: str,
+    request: Request,
+    group_by: str | None = Query(None, description="Card type key to group by"),
+    portal: WebPortal = Depends(require_portal_access),
+    db: AsyncSession = Depends(get_db),
+):
+    """The read-only PPM portfolio board, for a portal published with that view.
+
+    Shares one builder with the authenticated ``/reports/ppm/*`` routes so the two
+    boards cannot drift, then projects the result onto a separate, opt-in public
+    shape (``to_public_portfolio``) rather than filtering fields out of the
+    internal one — a subtractive filter would publish whatever field someone adds
+    to ``PpmGanttItem`` next.
+
+    On what may be published: ``show_costs`` governs the capex/opex aggregates and
+    the portfolio budget total, which are sums over ``ppm_cost_lines`` /
+    ``ppm_budget_lines``. It does **not** reach the Initiative card's own
+    ``costBudget`` / ``costActual`` attributes — those are ``type: "cost"``
+    metamodel fields, and public portals strip cost-typed fields unconditionally
+    (see ``get_public_portal``). This is not an exemption from that invariant; the
+    PPM tables simply sit outside it, and the board renders the two card
+    attributes nowhere.
+
+    A 404 (never a 400) is returned when the portal is not a portfolio portal or
+    the module is off, so a card-portal slug never confirms that this route exists.
+    """
+    if (portal.view or "cards") != "ppm_portfolio":
+        raise HTTPException(404, "Portal not found")
+    # Defence in depth: switching the PPM module off must take every portfolio
+    # portal dark, without an admin having to remember to unpublish each one.
+    if not await _ppm_enabled(db):
+        raise HTTPException(404, "Portal not found")
+
+    scope = ppm_portfolio.PortfolioScope.from_portal_filters(portal.filters)
+    initiatives = await ppm_portfolio.load_initiatives(db, scope)
+    init_ids = [c.id for c in initiatives]
+    latest = await ppm_portfolio.latest_reports(db, init_ids)
+
+    items = await ppm_portfolio.build_gantt_items(
+        db,
+        initiatives,
+        latest,
+        group_by=group_by,
+        role_keys=ppm_portfolio.BOARD_ROLE_KEYS,
+        # An unnamed user must never be published by email address.
+        allow_email_fallback=False,
+    )
+    dashboard = ppm_portfolio.build_dashboard(
+        initiatives, latest, await ppm_portfolio.sum_budget_actual(db, init_ids)
+    )
+    group_options = await ppm_portfolio.build_group_options(db)
+
+    return ppm_portfolio.to_public_portfolio(
+        items,
+        dashboard,
+        group_options,
+        cfg=ppm_portfolio.PpmPortalConfig.from_card_config(portal.card_config),
+        group_by=group_by,
+    )

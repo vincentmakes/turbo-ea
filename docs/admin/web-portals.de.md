@@ -12,6 +12,50 @@ Web-Portale sind nützlich, um Architekturinformationen mit Stakeholdern zu teil
 - **Serviceverzeichnis** — IT-Services und ihre Eigentümer veröffentlichen
 - **Fähigkeitskarte** — Eine öffentliche Ansicht der Geschäftsfähigkeiten bereitstellen
 
+## Portaltyp
+
+Jedes Portal veröffentlicht eine von zwei Ansichten, ausgewählt über **Portaltyp**:
+
+| Typ | Was Besucher sehen |
+|-----|--------------------|
+| **Kartenliste** | Ein durchsuch- und filterbares Raster von Karten — das klassische Portal, konfiguriert über die unten stehenden Eigenschaften. |
+| **PPM-Portfolio-Board** | Das schreibgeschützte [PPM-Portfolio-Board](../guide/ppm.md) — Zeitachse, Statusampeln und Budget-gegen-Ist für jede aktive Initiative. |
+
+### PPM-Portfolio-Portale
+
+Mit **PPM-Portfolio-Board** wird das Portal zu einer Führungsansicht Ihres
+Projektportfolios, erreichbar über einen öffentlichen Link — **ohne Konto, ohne
+Lizenz und ohne Anmeldung**. Gedacht für den häufigen Fall, dass die Geschäftsleitung
+Einblick in das Portfolio möchte, aber keine weiteren Zugangsdaten pflegen will.
+
+Das Board bezieht sich immer auf **Initiative**-Karten, daher ist die Kartentyp-Auswahl
+gesperrt. Die Filter für **Subtypen** und **Tags** greifen weiterhin — so veröffentlichen
+Sie ein einzelnes Programm statt des gesamten Portfolios.
+
+Besucher sehen dasselbe Board wie Ihr Team in Turbo EA: die Quartals-Zeitachse, die
+Ampeln für Termin/Kosten/Umfang, die CapEx- und OpEx-Balken, die Gruppierung nach
+beliebigen verknüpften Kartentypen und die Statusbericht-Übersicht, die beim Überfahren
+des Datums **Letzter Bericht** erscheint. Ein Klick auf eine Initiative führt hinter die
+normale Anmeldung in Turbo EA — nach dem Anmelden landen Sie auf der angeklickten Initiative.
+
+Drei Schalter steuern, was das veröffentlichte Board preisgibt:
+
+| Schalter | Standard | Veröffentlicht |
+|----------|----------|----------------|
+| **Budget und Ist-Kosten anzeigen** | Ein | Die CapEx- und OpEx-Balken sowie das Gesamtbudget |
+| **Kommentare aus Statusberichten anzeigen** | Ein | Zusammenfassung, Erreichtes und nächste Schritte in der Hover-Übersicht. Berichtsdatum und Statusampeln werden immer angezeigt |
+| **Namen der Projektleitung anzeigen** | **Aus** | Die Namen von Projektleitungen und Berichtsverfassern. Standardmäßig aus, da Namen personenbezogene Daten sind |
+
+!!! note
+    Manches wird niemals veröffentlicht, unabhängig von Ihrer Auswahl: Kosten-Felder
+    auf der Initiative-Karte selbst, E-Mail-Adressen von Benutzern und alles auf der
+    Detailseite einer Initiative — Arbeitspakete, Meilensteine, Risiken, Aufgaben und
+    die Berichtshistorie bleiben hinter der Anmeldung.
+
+Ein Portfolio-Portal kann wie jedes andere Portal per SSO geschützt werden. Wird das
+PPM-Modul unter **Admin > Einstellungen** deaktiviert, sind alle Portfolio-Portale
+sofort nicht mehr erreichbar; Sie müssen sie nicht einzeln zurückziehen.
+
 ## Zugriffsschutz
 
 Jedes Portal hat einen **Zugriffsmodus**, der steuert, wer es öffnen darf:
