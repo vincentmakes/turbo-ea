@@ -2498,12 +2498,12 @@ describe("iconStyleParts sizing — logo versus bare type icon", () => {
 
   it("shrinks the label gutter with the logo on a short cell", () => {
     // The gutter reserves room for the mark, and the mark shrinks to fit a
-    // short card — reserving the full-size gutter would leave the name of a
-    // 40px child pushed off-centre for a logo that is not that wide.
+    // card too short to hold the full box — reserving the full-size gutter
+    // would push that card's name off-centre for a logo that is not that wide.
     const tall = { c1: cellStyle("rounded=1;fillColor=#0f7eb5") };
     applyCardLogos(fakeFrame(tall), logos({ "card-1": LOGO }), new Map());
     const short = {
-      c1: { ...cellStyle("rounded=1;fillColor=#0f7eb5"), _geo: { width: 190, height: 40 } },
+      c1: { ...cellStyle("rounded=1;fillColor=#0f7eb5"), _geo: { width: 190, height: 30 } },
     };
     applyCardLogos(fakeFrame(short), logos({ "card-1": LOGO }), new Map());
     expect(read(short.c1._style, "spacingLeft")).toBeLessThan(

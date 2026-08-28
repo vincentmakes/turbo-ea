@@ -47,13 +47,24 @@ import { ICON_PATHS } from "./iconPaths";
 const RASTER_SCALE = 2;
 
 /** Edge of the square the logo occupies at the card's left, in cell units. */
-export const LOGO_BOX_PX = 34;
+export const LOGO_BOX_PX = 28;
 
 /** Edge of the type glyph in the card's top-right corner, in cell units. */
 export const TYPE_GLYPH_PX = 16;
 
-/** Inset of the logo and the glyph from the card's edges. */
+/** Inset of the logo from the card's left edge. */
 const EDGE_PAD = 6;
+
+/**
+ * Inset of the type glyph from the card's top-right corner.
+ *
+ * Larger than {@link EDGE_PAD} because that corner is *rounded*
+ * (`rounded=1;arcSize=12` on every card cell), so a glyph sitting at the
+ * logo's own inset reads as hanging off the edge even though it is inside the
+ * image. The logo has no such problem: it is centred in a tall box against a
+ * straight edge.
+ */
+const GLYPH_PAD = 11;
 
 /** The card geometry the composite is built for — see `composeCardLogoImage`. */
 const CARD_W = 210;
@@ -229,9 +240,11 @@ function drawLogoPlate(
  * conspicuous white block sitting over the logo.
  *
  * Placed in the CARD's top-right corner — the opposite corner from the logo,
- * so the two never compete for room. Earlier versions put it inside the logo's
- * own tile, first over the mark and then stacked beneath it; both cost the
- * logo the space it needed and left the glyph too small to read.
+ * so the two never compete for room — and inset by {@link GLYPH_PAD} rather
+ * than the logo's own padding, because that corner is rounded and a glyph
+ * tucked tight into it reads as falling off the card. Earlier versions put it
+ * inside the logo's own tile, first over the mark and then stacked beneath it;
+ * both cost the logo the space it needed and left the glyph too small to read.
  */
 function drawTypeBadge(
   ctx: CanvasRenderingContext2D,
@@ -257,7 +270,7 @@ function drawTypeBadge(
   const scale = TYPE_GLYPH_PX / Math.max(vw, vh);
 
   ctx.save();
-  ctx.translate(cardW - TYPE_GLYPH_PX - EDGE_PAD, EDGE_PAD);
+  ctx.translate(cardW - TYPE_GLYPH_PX - GLYPH_PAD, GLYPH_PAD);
   ctx.scale(scale, scale);
   ctx.translate(-vx, -vy);
   ctx.fillStyle = "#ffffff";
