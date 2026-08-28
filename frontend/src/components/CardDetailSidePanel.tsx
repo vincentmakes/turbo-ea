@@ -10,6 +10,7 @@ import Alert from "@mui/material/Alert";
 import Tooltip from "@mui/material/Tooltip";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardLogoAvatar from "@/components/CardLogoAvatar";
 import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
@@ -164,24 +165,14 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
             <MaterialSymbol icon="close" size={20} />
           </IconButton>
           {card && typeConfig && (
-            <Box
-              sx={{
-                width: 32,
-                height: 32,
-                borderRadius: 1.5,
-                bgcolor: typeConfig.color + "18",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <MaterialSymbol
-                icon={typeConfig.icon}
-                size={20}
-                color={typeConfig.color}
-              />
-            </Box>
+            <CardLogoAvatar
+              cardId={card.id}
+              logoUpdatedAt={card.logo_updated_at}
+              typeIcon={typeConfig.icon}
+              typeColor={typeConfig.color}
+              size={32}
+              radius={1.5}
+            />
           )}
           <Box sx={{ flex: 1, minWidth: 0 }}>
             {card ? (

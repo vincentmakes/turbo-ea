@@ -116,6 +116,8 @@
   "metamodel.typeDrawer.resetColor": "Сбросить цвет по умолчанию",
   "metamodel.typeDrawer.supportsHierarchy": "Поддержка иерархии (Родитель / Потомок)",
   "metamodel.typeDrawer.supportsSuccessors": "Поддержка преемственности",
+  "metamodel.typeDrawer.allowCardLogo": "Разрешить свои логотипы",
+  "metamodel.typeDrawer.allowCardLogoHelp": "Редакторы могут загрузить логотип для каждой карточки — он отображается вместо значка типа.",
   "metamodel.typeDrawer.subtypes": "Подтипы",
   "metamodel.typeDrawer.noSubtypes": "Подтипы не определены",
   "metamodel.typeDrawer.key": "Ключ",

@@ -116,6 +116,8 @@
   "metamodel.typeDrawer.resetColor": "إعادة التعيين إلى اللون الافتراضي",
   "metamodel.typeDrawer.supportsHierarchy": "يدعم التسلسل الهرمي (الأصل / الفرع)",
   "metamodel.typeDrawer.supportsSuccessors": "يدعم النسب",
+  "metamodel.typeDrawer.allowCardLogo": "السماح بشعارات مخصصة",
+  "metamodel.typeDrawer.allowCardLogoHelp": "يمكن للمحررين رفع شعار لكل بطاقة، يظهر بدلاً من أيقونة النوع.",
   "metamodel.typeDrawer.subtypes": "الأنواع الفرعية",
   "metamodel.typeDrawer.noSubtypes": "لم يتم تعريف أنواع فرعية",
   "metamodel.typeDrawer.key": "المفتاح",

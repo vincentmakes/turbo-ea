@@ -116,6 +116,8 @@
   "metamodel.typeDrawer.resetColor": "Ripristina colore predefinito",
   "metamodel.typeDrawer.supportsHierarchy": "Supporta gerarchia (Genitore / Figlio)",
   "metamodel.typeDrawer.supportsSuccessors": "Supporta lignaggio",
+  "metamodel.typeDrawer.allowCardLogo": "Consenti loghi personalizzati",
+  "metamodel.typeDrawer.allowCardLogoHelp": "Gli editor possono caricare un logo per ogni scheda, mostrato al posto dell'icona del tipo.",
   "metamodel.typeDrawer.subtypes": "Sottotipi",
   "metamodel.typeDrawer.noSubtypes": "Nessun sottotipo definito",
   "metamodel.typeDrawer.key": "Chiave",

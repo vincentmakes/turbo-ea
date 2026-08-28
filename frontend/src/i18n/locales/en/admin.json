@@ -116,6 +116,8 @@
   "metamodel.typeDrawer.resetColor": "Reset to default color",
   "metamodel.typeDrawer.supportsHierarchy": "Supports Hierarchy (Parent / Child)",
   "metamodel.typeDrawer.supportsSuccessors": "Supports Lineage",
+  "metamodel.typeDrawer.allowCardLogo": "Allow custom logos",
+  "metamodel.typeDrawer.allowCardLogoHelp": "Editors can upload a logo image per card, shown in place of the type icon.",
   "metamodel.typeDrawer.subtypes": "Subtypes",
   "metamodel.typeDrawer.noSubtypes": "No subtypes defined",
   "metamodel.typeDrawer.key": "Key",

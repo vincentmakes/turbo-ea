@@ -116,6 +116,8 @@
   "metamodel.typeDrawer.resetColor": "Restablecer color predeterminado",
   "metamodel.typeDrawer.supportsHierarchy": "Soporta jerarquía (superior / subordinado)",
   "metamodel.typeDrawer.supportsSuccessors": "Soporta linaje",
+  "metamodel.typeDrawer.allowCardLogo": "Permitir logotipos personalizados",
+  "metamodel.typeDrawer.allowCardLogoHelp": "Los editores pueden subir un logotipo por tarjeta, que se muestra en lugar del icono del tipo.",
   "metamodel.typeDrawer.subtypes": "Subtipos",
   "metamodel.typeDrawer.noSubtypes": "No se han definido subtipos",
   "metamodel.typeDrawer.key": "Clave",

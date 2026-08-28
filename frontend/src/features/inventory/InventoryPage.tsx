@@ -33,6 +33,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme, darken, lighten, type Theme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardLogoAvatar from "@/components/CardLogoAvatar";
 import LifecycleBadge, { getCurrentPhase } from "@/components/LifecycleBadge";
 import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
 import BulkRestoreDialog from "@/features/cards/BulkRestoreDialog";
@@ -2652,6 +2653,24 @@ export default function InventoryPage() {
                       <MaterialSymbol icon="visibility" size={16} />
                     </IconButton>
                   </Tooltip>
+                  {p.data.logo_updated_at &&
+                    (() => {
+                      // Only when the card actually has a logo: without one the
+                      // column keeps exactly the markup it always had, and the
+                      // Type column already carries the type, so no badge here.
+                      const tp = types.find((x) => x.key === p.data!.type);
+                      return tp ? (
+                        <CardLogoAvatar
+                          cardId={id}
+                          logoUpdatedAt={p.data.logo_updated_at}
+                          typeIcon={tp.icon}
+                          typeColor={tp.color}
+                          size={20}
+                          radius={0.5}
+                          badge={false}
+                        />
+                      ) : null;
+                    })()}
                   <Box
                     component={RouterLink}
                     to={`/cards/${id}`}

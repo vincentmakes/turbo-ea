@@ -116,6 +116,8 @@
   "metamodel.typeDrawer.resetColor": "Nulstil til standardfarve",
   "metamodel.typeDrawer.supportsHierarchy": "Understøtter hierarki (forælder/barn)",
   "metamodel.typeDrawer.supportsSuccessors": "Understøtter slægtskab",
+  "metamodel.typeDrawer.allowCardLogo": "Tillad egne logoer",
+  "metamodel.typeDrawer.allowCardLogoHelp": "Redaktører kan uploade et logo pr. kort, som vises i stedet for typeikonet.",
   "metamodel.typeDrawer.subtypes": "Undertyper",
   "metamodel.typeDrawer.noSubtypes": "Ingen undertyper defineret",
   "metamodel.typeDrawer.key": "Nøgle",

@@ -268,6 +268,9 @@ export interface CardType {
   category?: string;
   has_hierarchy: boolean;
   has_successors: boolean;
+  /** Whether editors may upload a per-card logo for cards of this type
+   *  (discussion #1024). Governs upload and display, never the stored image. */
+  allow_card_logo: boolean;
   subtypes?: SubtypeDef[];
   fields_schema: SectionDef[];
   stakeholder_roles?: StakeholderRoleDefinition[];
@@ -347,6 +350,10 @@ export interface Card {
   updated_by?: string;
   created_at?: string;
   updated_at?: string;
+  /** When this card's custom logo was last written, or null when it has none —
+   *  or when its type has logos switched off, so no client-side rule is needed
+   *  to fall back to the type icon. Doubles as the image URL's cache-buster. */
+  logo_updated_at?: string | null;
   tags: TagRef[];
   stakeholders: StakeholderRef[];
 }
@@ -1293,6 +1300,10 @@ export interface PortalCard {
     display_name: string;
   }[];
   updated_at?: string;
+  /** Present only when the portal's card type allows logos — the image itself
+   *  comes from the unauthenticated /cards/{id}/logo route, so an anonymous
+   *  visitor renders it with no token. */
+  logo_updated_at?: string | null;
 }
 
 export interface PortalCardListResponse {

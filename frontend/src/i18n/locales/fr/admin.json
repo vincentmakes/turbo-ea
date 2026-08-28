@@ -116,6 +116,8 @@
   "metamodel.typeDrawer.resetColor": "Réinitialiser la couleur par défaut",
   "metamodel.typeDrawer.supportsHierarchy": "Supporte la hiérarchie (parent / enfant)",
   "metamodel.typeDrawer.supportsSuccessors": "Prend en charge la lignée",
+  "metamodel.typeDrawer.allowCardLogo": "Autoriser les logos personnalisés",
+  "metamodel.typeDrawer.allowCardLogoHelp": "Les éditeurs peuvent téléverser un logo par fiche, affiché à la place de l'icône du type.",
   "metamodel.typeDrawer.subtypes": "Sous-types",
   "metamodel.typeDrawer.noSubtypes": "Aucun sous-type défini",
   "metamodel.typeDrawer.key": "Clé",

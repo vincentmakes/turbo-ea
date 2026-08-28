@@ -116,6 +116,8 @@
   "metamodel.typeDrawer.resetColor": "重置为默认颜色",
   "metamodel.typeDrawer.supportsHierarchy": "支持层级（父级/子级）",
   "metamodel.typeDrawer.supportsSuccessors": "支持谱系",
+  "metamodel.typeDrawer.allowCardLogo": "允许自定义徽标",
+  "metamodel.typeDrawer.allowCardLogoHelp": "编辑者可为每张卡片上传徽标，显示在类型图标的位置。",
   "metamodel.typeDrawer.subtypes": "子类型",
   "metamodel.typeDrawer.noSubtypes": "未定义子类型",
   "metamodel.typeDrawer.key": "键",

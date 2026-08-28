@@ -2054,3 +2054,52 @@ describe("InventoryPage multi-select attribute cells", () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Custom card logos (discussion #1024)
+// ---------------------------------------------------------------------------
+
+describe("InventoryPage name column logo", () => {
+  /** Render the Name column's cellRenderer for one row. */
+  function renderNameCell(card: Record<string, unknown>) {
+    const renderer = col("core_name")!.cellRenderer as unknown as (p: {
+      data: Record<string, unknown>;
+      value: string;
+    }) => React.ReactElement;
+    return render(
+      <MemoryRouter>{renderer({ data: card, value: card.name as string })}</MemoryRouter>,
+    );
+  }
+
+  beforeEach(() => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve(MOCK_CARDS);
+      return Promise.resolve({ items: [], total: 0, page: 1, page_size: 500 });
+    });
+  });
+
+  it("renders the logo for a row that has one", async () => {
+    renderInventory();
+    await waitFor(() => expect(col("core_name")).toBeDefined());
+
+    const { container } = renderNameCell({
+      ...MOCK_CARDS.items[0],
+      logo_updated_at: "2026-08-28T10:00:00Z",
+    });
+
+    const img = container.querySelector("img");
+    expect(img?.getAttribute("src")).toContain("/api/v1/cards/c1/logo");
+  });
+
+  it("leaves a row without a logo exactly as it was", async () => {
+    renderInventory();
+    await waitFor(() => expect(col("core_name")).toBeDefined());
+
+    // No logo means no extra markup at all — the Type column already carries
+    // the type, so a badge on every name would be noise.
+    const { container } = renderNameCell(MOCK_CARDS.items[0]);
+
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.textContent).toContain("SAP ERP");
+  });
+});

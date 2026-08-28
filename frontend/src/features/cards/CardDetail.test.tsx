@@ -14,7 +14,9 @@ vi.mock("@/api/client", () => ({
     patch: vi.fn(),
     post: vi.fn(),
     delete: vi.fn(),
+    upload: vi.fn(),
   },
+  ApiError: class ApiError extends Error {},
 }));
 
 vi.mock("@/hooks/useMetamodel", () => ({
@@ -700,5 +702,95 @@ describe("CardDetail", () => {
     await waitFor(() => {
       expect(screen.getByTestId("comments-tab")).toBeInTheDocument();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Custom logo (discussion #1024)
+// ---------------------------------------------------------------------------
+
+describe("CardDetail custom logo", () => {
+  const LOGO_TYPE = { ...APPLICATION_TYPE, allow_card_logo: true };
+  const NO_LOGO_TYPE = { ...APPLICATION_TYPE, allow_card_logo: false };
+
+  function mockTypes(type: typeof APPLICATION_TYPE) {
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: [type],
+      relationTypes: [],
+      loading: false,
+      getType: (key: string) => (key === type.key ? type : undefined),
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+    } as unknown as ReturnType<typeof useMetamodel>);
+  }
+
+  function mockCardWith(card: Record<string, unknown>) {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve(card);
+    });
+  }
+
+  it("renders the logo when the card has one", async () => {
+    mockTypes(LOGO_TYPE);
+    mockCardWith({ ...mockCard, logo_updated_at: "2026-08-28T10:00:00Z" });
+
+    renderCardDetail();
+
+    await waitFor(() => {
+      const img = document.querySelector("img");
+      expect(img?.getAttribute("src")).toContain("/api/v1/cards/card-1/logo");
+    });
+  });
+
+  it("offers no logo menu when the type has logos switched off", async () => {
+    mockTypes(NO_LOGO_TYPE);
+    mockCardWith(mockCard);
+
+    renderCardDetail();
+    await waitFor(() => expect(screen.getByText("My Application")).toBeInTheDocument());
+
+    expect(screen.queryByRole("menuitem", { name: /logo/i })).toBeNull();
+  });
+
+  it("uploads a picked image and shows it without a refetch", async () => {
+    const user = userEvent.setup();
+    mockTypes(LOGO_TYPE);
+    mockCardWith(mockCard);
+    vi.mocked(api.upload).mockResolvedValue({
+      ok: true,
+      logo_updated_at: "2026-08-28T12:00:00Z",
+    });
+
+    const { container } = renderCardDetail();
+    await waitFor(() => expect(screen.getByText("My Application")).toBeInTheDocument());
+
+    const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "kafka.png", {
+      type: "image/png",
+    });
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, file);
+
+    await waitFor(() => {
+      expect(vi.mocked(api.upload)).toHaveBeenCalledWith("/cards/card-1/logo", file);
+    });
+    // The response timestamp lands in state, so the header updates in place.
+    await waitFor(() => {
+      const img = document.querySelector("img");
+      expect(img?.getAttribute("src")).toContain("2026-08-28T12");
+    });
+  });
+
+  it("only accepts the image formats the backend allows", async () => {
+    mockTypes(LOGO_TYPE);
+    mockCardWith(mockCard);
+
+    const { container } = renderCardDetail();
+    await waitFor(() => expect(screen.getByText("My Application")).toBeInTheDocument());
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(input.getAttribute("accept")).toBe("image/png,image/jpeg,image/webp,image/gif");
+    // SVG is refused server-side; offering it in the picker would invite a 400.
+    expect(input.getAttribute("accept")).not.toContain("svg");
   });
 });

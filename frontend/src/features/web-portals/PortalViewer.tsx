@@ -24,6 +24,7 @@ import Collapse from "@mui/material/Collapse";
 import LinearProgress from "@mui/material/LinearProgress";
 import Divider from "@mui/material/Divider";
 import Tooltip from "@mui/material/Tooltip";
+import CardLogoAvatar from "@/components/CardLogoAvatar";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import {
@@ -965,25 +966,36 @@ export default function PortalViewer() {
                         mb: 1.5,
                       }}
                     >
-                      <Box
-                        sx={{
-                          width: 42,
-                          height: 42,
-                          borderRadius: 1.5,
-                          bgcolor: `${typeColor}12`,
-                          border: `1px solid ${typeColor}30`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Icon
-                          name={portal.type_info?.icon || "description"}
-                          size={22}
-                          color={typeColor}
+                      {card.logo_updated_at ? (
+                        <CardLogoAvatar
+                          cardId={card.id}
+                          logoUpdatedAt={card.logo_updated_at}
+                          typeIcon={portal.type_info?.icon || "description"}
+                          typeColor={typeColor}
+                          size={42}
+                          radius={1.5}
                         />
-                      </Box>
+                      ) : (
+                        <Box
+                          sx={{
+                            width: 42,
+                            height: 42,
+                            borderRadius: 1.5,
+                            bgcolor: `${typeColor}12`,
+                            border: `1px solid ${typeColor}30`,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Icon
+                            name={portal.type_info?.icon || "description"}
+                            size={22}
+                            color={typeColor}
+                          />
+                        </Box>
+                      )}
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography
                           variant="subtitle1"
@@ -1305,26 +1317,38 @@ export default function PortalViewer() {
                   borderColor: "divider",
                 }}
               >
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 2,
-                    bgcolor: `${typeColor}12`,
-                    border: `1px solid ${typeColor}30`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    mt: 0.5,
-                  }}
-                >
-                  <Icon
-                    name={portal.type_info?.icon || "description"}
-                    size={28}
-                    color={typeColor}
-                  />
-                </Box>
+                {selectedFs.logo_updated_at ? (
+                  <Box sx={{ mt: 0.5 }}>
+                    <CardLogoAvatar
+                      cardId={selectedFs.id}
+                      logoUpdatedAt={selectedFs.logo_updated_at}
+                      typeIcon={portal.type_info?.icon || "description"}
+                      typeColor={typeColor}
+                      size={48}
+                    />
+                  </Box>
+                ) : (
+                  <Box
+                    sx={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 2,
+                      bgcolor: `${typeColor}12`,
+                      border: `1px solid ${typeColor}30`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      mt: 0.5,
+                    }}
+                  >
+                    <Icon
+                      name={portal.type_info?.icon || "description"}
+                      size={28}
+                      color={typeColor}
+                    />
+                  </Box>
+                )}
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography
                     variant="h5"

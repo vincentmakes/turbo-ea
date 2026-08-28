@@ -116,6 +116,8 @@
   "metamodel.typeDrawer.resetColor": "Auf Standardfarbe zurücksetzen",
   "metamodel.typeDrawer.supportsHierarchy": "Unterstützt Hierarchie (Über-/Untergeordnet)",
   "metamodel.typeDrawer.supportsSuccessors": "Unterstützt Abstammung",
+  "metamodel.typeDrawer.allowCardLogo": "Eigene Logos zulassen",
+  "metamodel.typeDrawer.allowCardLogoHelp": "Bearbeiter können pro Karte ein Logo hochladen, das anstelle des Typ-Symbols angezeigt wird.",
   "metamodel.typeDrawer.subtypes": "Subtypen",
   "metamodel.typeDrawer.noSubtypes": "Keine Subtypen definiert",
   "metamodel.typeDrawer.key": "Schlüssel",

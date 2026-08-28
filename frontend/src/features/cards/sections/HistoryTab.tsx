@@ -37,6 +37,8 @@ const EVENT_META_ICONS: Record<string, { icon: string; color: string }> = {
   "document.removed": { icon: "link_off", color: "#f44336" },
   "file.uploaded": { icon: "upload_file", color: "#1976d2" },
   "file.deleted": { icon: "delete", color: "#f44336" },
+  "card_logo.updated": { icon: "image", color: "#1976d2" },
+  "card_logo.deleted": { icon: "hide_image", color: "#f44336" },
   "comment.created": { icon: "chat", color: "#1976d2" },
   // Tagging rescores the card, which moves its Modified date — so it belongs
   // on the timeline like any other edit (#995).
@@ -74,6 +76,8 @@ function getEventMeta(t: (key: string) => string): Record<string, { label: strin
     "document.removed": { label: t("history.events.documentRemoved"), ...EVENT_META_ICONS["document.removed"] },
     "file.uploaded": { label: t("history.events.fileUploaded"), ...EVENT_META_ICONS["file.uploaded"] },
     "file.deleted": { label: t("history.events.fileDeleted"), ...EVENT_META_ICONS["file.deleted"] },
+    "card_logo.updated": { label: t("history.events.cardLogoUpdated"), ...EVENT_META_ICONS["card_logo.updated"] },
+    "card_logo.deleted": { label: t("history.events.cardLogoDeleted"), ...EVENT_META_ICONS["card_logo.deleted"] },
     "comment.created": { label: t("history.events.commentCreated"), ...EVENT_META_ICONS["comment.created"] },
     "tag.added": { label: t("history.events.tagAdded"), ...EVENT_META_ICONS["tag.added"] },
     "tag.removed": { label: t("history.events.tagRemoved"), ...EVENT_META_ICONS["tag.removed"] },
@@ -211,6 +215,11 @@ function EventDetail({ data, eventType, fallbackSummary, typeIconFor, t }: Event
       );
     }
     return <PlainSummary text={name} />;
+  }
+
+  if (eventType === "card_logo.updated" || eventType === "card_logo.deleted") {
+    // No `changes` payload: image bytes have no business in a diff.
+    return <PlainSummary text={fallbackSummary || ""} />;
   }
 
   if (eventType === "file.uploaded" || eventType === "file.deleted") {

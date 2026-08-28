@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -20,6 +20,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardLogoAvatar from "@/components/CardLogoAvatar";
 import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
@@ -83,6 +84,10 @@ export default function CardDetail() {
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
   const [snack, setSnack] = useState("");
+
+  // Custom logo (discussion #1024)
+  const [logoMenuAnchor, setLogoMenuAnchor] = useState<HTMLElement | null>(null);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
 
   // Favorite star
   const [isFavorite, setIsFavorite] = useState(false);
@@ -265,7 +270,31 @@ export default function CardDetail() {
   const hasSubtypes = !!(typeConfig?.subtypes && typeConfig.subtypes.length > 0);
   const isArchived = card.status === "ARCHIVED";
   const canEditSubtype = hasSubtypes && perms.can_edit && !isArchived;
+  const canEditLogo = !!typeConfig?.allow_card_logo && perms.can_edit && !isArchived;
 
+  const handleLogoPicked = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const resp = await api.upload<{ logo_updated_at: string | null }>(
+        `/cards/${card.id}/logo`,
+        file,
+      );
+      setCard({ ...card, logo_updated_at: resp.logo_updated_at });
+      setSnack(t("cards:logo.uploaded"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : String(err));
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    try {
+      await api.delete(`/cards/${card.id}/logo`);
+      setCard({ ...card, logo_updated_at: null });
+      setSnack(t("cards:logo.removed"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : String(err));
+    }
+  };
 
   const handleApprovalAction = async (action: "approve" | "reject" | "reset") => {
     try {
@@ -428,23 +457,45 @@ export default function CardDetail() {
           <MaterialSymbol icon="arrow_back" size={24} />
         </IconButton>
         {typeConfig && (
-          <Box
-            sx={{
-              width: { xs: 32, sm: 40 },
-              height: { xs: 32, sm: 40 },
-              borderRadius: 2,
-              bgcolor: typeConfig.color + "18",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <MaterialSymbol
-              icon={typeConfig.icon}
-              size={isMobile ? 20 : 24}
-              color={typeConfig.color}
-            />
-          </Box>
+          <Tooltip title={canEditLogo ? t("cards:logo.edit") : ""}>
+            <Box
+              onClick={canEditLogo ? (e) => setLogoMenuAnchor(e.currentTarget) : undefined}
+              sx={{
+                position: "relative",
+                cursor: canEditLogo ? "pointer" : "default",
+                // The affordance is the hover, so the tile stays quiet until
+                // the pointer is on it.
+                "&:hover .card-logo-edit": { opacity: canEditLogo ? 1 : 0 },
+              }}
+            >
+              <CardLogoAvatar
+                cardId={card.id}
+                logoUpdatedAt={card.logo_updated_at}
+                typeIcon={typeConfig.icon}
+                typeColor={typeConfig.color}
+                size={isMobile ? 32 : 40}
+              />
+              {canEditLogo && (
+                <Box
+                  className="card-logo-edit"
+                  sx={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: 2,
+                    bgcolor: "rgba(0,0,0,0.45)",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: 0,
+                    transition: "opacity 120ms",
+                  }}
+                >
+                  <MaterialSymbol icon="photo_camera" size={isMobile ? 16 : 20} color="#fff" />
+                </Box>
+              )}
+            </Box>
+          </Tooltip>
         )}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {editingName ? (
@@ -750,6 +801,51 @@ export default function CardDetail() {
         onClose={() => setRestoreDialogOpen(false)}
         onConfirmed={handleRestoreConfirmed}
       />
+
+      {/* ── Custom logo: hidden picker + its menu ── */}
+      <input
+        ref={logoInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        hidden
+        onChange={(e) => {
+          void handleLogoPicked(e.target.files?.[0]);
+          // Reset, or picking the same file twice fires no change event.
+          e.target.value = "";
+        }}
+      />
+      <Menu
+        anchorEl={logoMenuAnchor}
+        open={!!logoMenuAnchor}
+        onClose={() => setLogoMenuAnchor(null)}
+      >
+        <MenuItem
+          onClick={() => {
+            setLogoMenuAnchor(null);
+            logoInputRef.current?.click();
+          }}
+        >
+          <ListItemIcon>
+            <MaterialSymbol icon="upload" size={20} />
+          </ListItemIcon>
+          <ListItemText>
+            {card.logo_updated_at ? t("cards:logo.replace") : t("cards:logo.upload")}
+          </ListItemText>
+        </MenuItem>
+        {card.logo_updated_at && (
+          <MenuItem
+            onClick={() => {
+              setLogoMenuAnchor(null);
+              void handleLogoRemove();
+            }}
+          >
+            <ListItemIcon>
+              <MaterialSymbol icon="delete" size={20} />
+            </ListItemIcon>
+            <ListItemText>{t("cards:logo.remove")}</ListItemText>
+          </MenuItem>
+        )}
+      </Menu>
 
       <Snackbar
         open={!!snack}
