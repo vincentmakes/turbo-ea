@@ -169,6 +169,22 @@ describe("LdvNode card logo", () => {
     expect(typeIcon()).not.toBeNull();
   });
 
+  it("puts the logo in the card's flow, above the name, not over it", () => {
+    // The name is one ellipsised line across the card's whole width, so an
+    // absolutely-positioned logo sat ON a long name rather than above it. Being
+    // a flow child is what guarantees the name starts below the mark, and it is
+    // the reason the card is tall enough to hold both.
+    renderNode({ logoUrl: "/api/v1/cards/app-1/logo?v=1" });
+    const img = logo() as HTMLElement;
+    expect(getComputedStyle(img).position).not.toBe("absolute");
+    const name = document.body.textContent ?? "";
+    expect(name).toContain("NexaCore ERP");
+    expect(
+      img.compareDocumentPosition(document.querySelector("p") as HTMLElement) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("falls back to the plain type icon when the image fails to load", () => {
     // A wiped volume or a 404 must land on exactly the card this app drew
     // before logos existed — never a broken-image glyph.

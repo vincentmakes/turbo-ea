@@ -58,13 +58,21 @@ const EDGE_PAD = 6;
 /**
  * Inset of the type glyph from the card's top-right corner.
  *
- * Larger than {@link EDGE_PAD} because that corner is *rounded*
+ * Both are larger than {@link EDGE_PAD} because that corner is *rounded*
  * (`rounded=1;arcSize=12` on every card cell), so a glyph sitting at the
  * logo's own inset reads as hanging off the edge even though it is inside the
- * image. The logo has no such problem: it is centred in a tall box against a
+ * image. The logo has no such problem: it is centred in a box against a
  * straight edge.
+ *
+ * They differ from each other because the corner is a diagonal: coming in
+ * further from the right buys the clearance, which then lets the glyph sit
+ * nearer the top edge and stay level with the logo's band.
+ *
+ * Only the logo composite uses these — a card with no logo gets its glyph
+ * placed by mxGraph itself, from the `spacing` tokens in `iconStyleParts`.
  */
-const GLYPH_PAD = 11;
+const GLYPH_PAD_TOP = 8;
+const GLYPH_PAD_RIGHT = 14;
 
 /** The card geometry the composite is built for — see `composeCardLogoImage`. */
 const CARD_W = 210;
@@ -240,7 +248,7 @@ function drawLogoPlate(
  * conspicuous white block sitting over the logo.
  *
  * Placed in the CARD's top-right corner — the opposite corner from the logo,
- * so the two never compete for room — and inset by {@link GLYPH_PAD} rather
+ * so the two never compete for room — and inset by its own pads rather
  * than the logo's own padding, because that corner is rounded and a glyph
  * tucked tight into it reads as falling off the card. Earlier versions put it
  * inside the logo's own tile, first over the mark and then stacked beneath it;
@@ -270,7 +278,7 @@ function drawTypeBadge(
   const scale = TYPE_GLYPH_PX / Math.max(vw, vh);
 
   ctx.save();
-  ctx.translate(cardW - TYPE_GLYPH_PX - GLYPH_PAD, GLYPH_PAD);
+  ctx.translate(cardW - TYPE_GLYPH_PX - GLYPH_PAD_RIGHT, GLYPH_PAD_TOP);
   ctx.scale(scale, scale);
   ctx.translate(-vx, -vy);
   ctx.fillStyle = "#ffffff";
@@ -323,14 +331,19 @@ export async function composeCardLogoImage(
     const natural = Math.max(img.naturalWidth || img.width, 1);
     const naturalH = Math.max(img.naturalHeight || img.height, 1);
     const box = logoBoxFor(cardH);
-    const pad = 3;
+    // The plate is a backing for the mark, not a frame around it: at 3px it
+    // read as a chunky tile with a small logo inside, which is the opposite of
+    // what it is for. 2px is enough to keep dark ink off the card's own colour.
+    const pad = 2;
     const scale = Math.min((box - pad * 2) / natural, (box - pad * 2) / naturalH);
     const w = Math.max(1, Math.round(natural * scale));
     const h = Math.max(1, Math.round(naturalH * scale));
-    // Vertically centred in the card, so the logo does not float against the
-    // top edge on a card that detail rows have grown.
+    // Centred inside a box pinned to the TOP of the card, not centred in the
+    // card: the logo and the type glyph then read as one band along the top
+    // edge, and a card that detail rows have grown keeps its logo up with the
+    // name rather than floating it into the middle of the rows.
     const x = EDGE_PAD + Math.round((box - w) / 2);
-    const y = Math.round((cardH - h) / 2);
+    const y = EDGE_PAD + Math.round((box - h) / 2);
 
     drawLogoPlate(ctx, x - pad, y - pad, w + pad * 2, h + pad * 2, box, color);
     ctx.drawImage(img, x, y, w, h);

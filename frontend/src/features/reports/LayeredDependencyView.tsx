@@ -155,10 +155,11 @@ function computeObstacles(nodeList: Node[]): ObstacleBounds[] {
 
 const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
 
-// The logo tile in a card's top-left corner. Sized against the 200×72 node:
-// big enough that a mark is recognisable at a glance, small enough not to
-// crowd the name. The type icon does NOT sit on it — see below.
-const LOGO_SIZE = 30;
+// The logo tile, in the card's own vertical flow above the name. Sized against
+// the 200×84 node: big enough that a mark is recognisable at a glance, small
+// enough to leave the name and its caption lines their room. The type icon
+// does NOT sit on it — see below.
+const LOGO_SIZE = 26;
 
 /**
  * Where the type icon sits when a logo has taken the top-left corner: on the
@@ -417,11 +418,17 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         "&:hover": { boxShadow: 4 },
       }}
     >
-      {/* The card's own logo, when it has one and the reader has logos on. It
-          takes the top-left slot and pushes the type icon along the top edge
-          to sit beside the lifecycle dot — the same grammar as
-          `CardLogoAvatar`, so a card reads the same here as on its detail
-          page.
+      {/* The card's own logo, when it has one and the reader has logos on.
+          Rendered here, in the card's flow, so it sits ABOVE the name — the
+          same grammar as `CardLogoAvatar`, so a card reads the same here as on
+          its detail page.
+
+          It used to be absolutely positioned in the top-left corner, which put
+          it *over* the name rather than above it: the name is one ellipsised
+          line across the card's full width, so any name long enough to reach
+          that corner ran underneath the tile. Reserving a horizontal gutter
+          instead would have cost a long name the very width it needs, so the
+          card grew taller (LDV_NODE_H) and the logo took a band of its own.
 
           Deliberately NOT tagged `ldv-type-icon`: that class is the export
           filter's drop list, and a real <img> is exactly what html-to-image
@@ -434,13 +441,12 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           aria-hidden
           onError={handleLogoError}
           sx={{
-            position: "absolute",
-            top: 5,
-            left: 6,
             width: LOGO_SIZE,
             height: LOGO_SIZE,
+            flexShrink: 0,
+            mb: "3px",
             boxSizing: "border-box",
-            p: "3px",
+            p: "2px",
             borderRadius: 0.75,
             // Never `cover` — a vendor's mark must not be cropped.
             objectFit: "contain",

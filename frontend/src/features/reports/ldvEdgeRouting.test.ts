@@ -644,13 +644,22 @@ describe("routeLdvEdges vertical de-overlap", () => {
 describe("exportRoute", () => {
   const sourceCentre = { x: 0, y: 0 };
   const targetCentre = { x: 0, y: 400 };
-  // b-3 / t-3 are the centre slots, so the handle points are (0, 36), (0, 364).
+  // b-3 / t-3 are the centre slots, so the handle points sit half a card below
+  // and above the two centres. Derived from LDV_NODE_H rather than written out:
+  // a hard-coded 36 silently made every anchor look stale the day the card grew
+  // to hold a logo, and the whole suite reported dropped waypoints instead.
+  const halfCard = LDV_NODE_H / 2;
   const base = {
     sourceHandle: "b-3",
     targetHandle: "t-3",
     sourceCentre,
     targetCentre,
-    anchors: { sx: 0, sy: 36, tx: 0, ty: 364 },
+    anchors: {
+      sx: 0,
+      sy: sourceCentre.y + halfCard,
+      tx: 0,
+      ty: targetCentre.y - halfCard,
+    },
   };
 
   it("translates handles into fractional anchors on the cards", () => {
