@@ -154,11 +154,15 @@ async def latest_reports(
 
 
 async def load_reporters(
-    db: AsyncSession, reporter_ids: Sequence[uuid.UUID]
+    db: AsyncSession, reporter_ids: Sequence[uuid.UUID | None]
 ) -> dict[uuid.UUID, User]:
     """Batch-load report authors.
 
     Replaces a per-report ``SELECT User`` that ran inside the item loop.
+
+    ``reporter_id`` is a nullable column — a status report can outlive the user
+    who wrote it — so the parameter admits ``None`` and the ids are filtered
+    here rather than at each call site.
     """
     ids = {rid for rid in reporter_ids if rid}
     if not ids:
