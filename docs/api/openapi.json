@@ -787,6 +787,20 @@
         "title": "Body_upload_bundle_api_v1_admin_extensions_install_post",
         "type": "object"
       },
+      "Body_upload_card_logo_api_v1_cards__card_id__logo_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_card_logo_api_v1_cards__card_id__logo_post",
+        "type": "object"
+      },
       "Body_upload_favicon_api_v1_settings_favicon_post": {
         "properties": {
           "file": {
@@ -22042,6 +22056,130 @@
         "summary": "Get History",
         "tags": [
           "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/{card_id}/logo": {
+      "delete": {
+        "description": "Remove the card's logo, falling the card back to its type icon.\n\nAllowed even when the type's ``allow_card_logo`` switch is off, so turning\nthe feature off for a type never strands existing images as undeletable.",
+        "operationId": "delete_card_logo_api_v1_cards__card_id__logo_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Card Logo",
+        "tags": [
+          "card-logos"
+        ]
+      },
+      "get": {
+        "description": "Public endpoint \u2014 returns a card's logo image bytes, or 404.\n\nUnauthenticated on purpose. An ``<img>`` tag cannot carry the bearer token\n(it lives in sessionStorage), and published web portals are viewed with no\naccount at all, so a gated route would mean either blob-fetching through\nthe API client on every surface or a second portal-scoped copy of this\nendpoint. What is returned is the artefact and nothing else \u2014 no card name,\ntype, or any other field \u2014 keyed by an unguessable UUID, the same posture\n``GET /diagrams/public/{slug}`` and ``/ext-assets`` take.\n\nA missing card, a card with no logo, and a malformed id all answer 404\nidentically, so this cannot be used to probe which card ids exist. The\nper-type ``allow_card_logo`` switch deliberately does not gate this: it\ngoverns upload and display, and enforcing it here would 404 images that\nare still on screen in a portal the moment an admin flips it off.",
+        "operationId": "get_card_logo_api_v1_cards__card_id__logo_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Card Logo",
+        "tags": [
+          "card-logos"
+        ]
+      },
+      "post": {
+        "description": "Upload or replace the card's logo.",
+        "operationId": "upload_card_logo_api_v1_cards__card_id__logo_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_card_logo_api_v1_cards__card_id__logo_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Card Logo",
+        "tags": [
+          "card-logos"
         ]
       }
     },
