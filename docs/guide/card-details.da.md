@@ -16,6 +16,32 @@ Toppen af kortet viser:
 - **Datakvalitets­ring** — Visuel indikator for informationsfuldstændighed (0–100%)
 - **Handlingsmenu** — Arkivér, slet og godkendelseshandlinger. Indeholder også en ét-klik **Observe this card**-skifter (når korttypen definerer en Observer-rolle), så enhver bruger med læseadgang kan følge kortet uden at skulle gå gennem Stakeholders-fanen.
 
+### Eget logo
+
+Kort af en type, der tillader det, kan have deres eget **logo** i stedet for
+det generiske typeikon — så et Application-kort for SAP, Kafka eller Jira viser
+produktets eget mærke. Genkendelige logoer gør en fortegnelse langt hurtigere
+at skimme, især for dem, der læser den frem for at vedligeholde den.
+
+Hold musen over ikonet øverst til venstre på kortet og klik for at **uploade**,
+**erstatte** eller **fjerne** billedet. Typeikonet forsvinder ikke: det flytter
+ned som et lille mærke i hjørnet af logoet, så man stadig kan se med det samme,
+hvilken slags kort man har foran sig.
+
+- **Tilladte formater** — PNG, JPEG, WebP eller GIF på op til 1 MB. SVG
+  accepteres ikke, da formatet kan indeholde scripts.
+- **Hvor det vises** — i kortets overskrift, på fortegnelseslisten og i enhver
+  offentliggjort webportal bygget på den korttype.
+- **Uden logo** — kortet falder tilbage til sit typeikon præcis som før.
+
+Logoer er tilgængelige for de korttyper, en administrator har slået dem til
+for; fra start er det Application og IT Component. Se
+[Metamodel](../admin/metamodel.md).
+
+!!! note "Tredjeparts logoer"
+    Produktlogoer er som regel varemærker tilhørende deres ejere. Du er selv
+    ansvarlig for, at brugen af et uploadet logo er tilladt.
+
 ### Godkendelses­arbejdsproces
 
 Kort kan gå gennem en godkendelses­cyklus:

@@ -16,6 +16,34 @@ Der obere Bereich der Karte zeigt:
 - **Datenqualitätsring** — Visueller Indikator der Informationsvollständigkeit (0–100%)
 - **Aktionsmenü** — Archivieren, Löschen und Genehmigungsaktionen. Enthält außerdem eine Ein-Klick-Aktion **Diese Karte beobachten** (sofern der Kartentyp eine Beobachter-Rolle definiert), mit der jeder Benutzer mit Leserechten der Karte folgen kann, ohne den Stakeholder-Tab zu öffnen.
 
+### Eigenes Logo
+
+Karten eines Typs, der dies erlaubt, können ein eigenes **Logo** anstelle des
+allgemeinen Typ-Symbols tragen — eine Anwendung für SAP, Kafka oder Jira zeigt
+dann das Zeichen des jeweiligen Produkts. Wiedererkennbare Logos machen ein
+Inventar deutlich schneller erfassbar, vor allem für Personen, die es lesen und
+nicht pflegen.
+
+Fahren Sie mit der Maus über das Symbol oben links auf der Karte und klicken
+Sie darauf, um das Bild **hochzuladen**, zu **ersetzen** oder zu **entfernen**.
+Das Typ-Symbol verschwindet dabei nicht: Es wandert als kleines Abzeichen in
+die Ecke des Logos, sodass weiterhin auf einen Blick erkennbar bleibt, um
+welche Art von Karte es sich handelt.
+
+- **Zulässige Formate** — PNG, JPEG, WebP oder GIF, bis 1 MB. SVG wird nicht
+  akzeptiert, da es Skripte enthalten kann.
+- **Wo es erscheint** — im Kartenkopf, in der Inventarliste und in jedem
+  veröffentlichten Webportal, das auf diesem Kartentyp basiert.
+- **Ohne Logo** — die Karte greift wie bisher auf ihr Typ-Symbol zurück.
+
+Logos stehen für Kartentypen zur Verfügung, für die eine Administratorin oder
+ein Administrator sie aktiviert hat; standardmäßig sind das Anwendung und
+IT-Komponente. Siehe [Metamodell](../admin/metamodel.md).
+
+!!! note "Logos von Drittanbietern"
+    Produktlogos sind in der Regel Marken ihrer Eigentümer. Sie sind dafür
+    verantwortlich, dass die Verwendung eines hochgeladenen Logos zulässig ist.
+
 ### Genehmigungsworkflow
 
 Karten können einen Genehmigungszyklus durchlaufen:

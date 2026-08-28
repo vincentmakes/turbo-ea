@@ -29,6 +29,7 @@ Cliccate su **+ Nuovo tipo** per creare un tipo di card personalizzato. Configur
 | **Colore** | Colore del brand per il tipo (utilizzato nell'inventario, nei report e nei diagrammi) |
 | **Categoria** | Raggruppamento per livello architetturale |
 | **Ha gerarchia** | Se le card di questo tipo possono avere relazioni genitore/figlio |
+| **Consenti loghi personalizzati** | Se gli editor possono caricare un logo per ogni scheda, mostrato al posto dell'icona del tipo (attivo di serie per Applicazione e Componente IT) |
 
 ### Modifica di un tipo
 

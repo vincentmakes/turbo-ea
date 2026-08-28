@@ -29,6 +29,7 @@ Clique em **+ Novo Tipo** para criar um tipo de card personalizado. Configure:
 | **Cor** | Cor da marca para o tipo (usada no inventário, relatórios e diagramas) |
 | **Categoria** | Agrupamento por camada de arquitetura |
 | **Possui Hierarquia** | Se cards deste tipo podem ter relacionamentos pai/filho |
+| **Permitir logótipos personalizados** | Se os editores podem carregar um logótipo por cartão, apresentado em vez do ícone do tipo (ativo de origem para Aplicação e Componente de TI) |
 
 ### Editando um Tipo
 

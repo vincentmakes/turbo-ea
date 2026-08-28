@@ -155,7 +155,7 @@ Dans ce mode, le serveur s'authentifie avec email/mot de passe et renouvelle le 
 
 ## Capacités disponibles
 
-Le serveur MCP expose **47 outils** répartis en deux groupes : **30 outils de lecture** qui interrogent les données EA et **17 outils d'écriture** (13 additifs, 4 destructifs) qui créent et maintiennent fiches, relations, diagrammes, risques, ADRs et plus encore — y compris la transformation des artefacts qu'un outil d'IA a dans son propre contexte (tableurs, BPMN XML, DrawIO XML, documents, images) en données EA structurées. Chaque outil porte des `ToolAnnotations` MCP (indications lecture seule / destructif / idempotent) afin que les connecteurs puissent afficher la destructivité dans leur interface.
+Le serveur MCP expose **48 outils** répartis en deux groupes : **30 outils de lecture** qui interrogent les données EA et **18 outils d'écriture** (14 additifs, 4 destructifs) qui créent et maintiennent fiches, relations, diagrammes, risques, ADRs et plus encore — y compris la transformation des artefacts qu'un outil d'IA a dans son propre contexte (tableurs, BPMN XML, DrawIO XML, documents, images) en données EA structurées. Chaque outil porte des `ToolAnnotations` MCP (indications lecture seule / destructif / idempotent) afin que les connecteurs puissent afficher la destructivité dans leur interface.
 
 ### Sécurité par exécution à blanc lors des écritures
 
@@ -244,9 +244,9 @@ Tous les outils respectent le RBAC de l'utilisateur authentifié — un visualis
 
 ### Outils d'écriture
 
-Le serveur expose 17 outils d'écriture, chacun annoté comme **additif** (crée ou étend des données) ou **destructif** (modifie ou supprime des données existantes) afin que les connecteurs puissent avertir en conséquence.
+Le serveur expose 18 outils d'écriture, chacun annoté comme **additif** (crée ou étend des données) ou **destructif** (modifie ou supprime des données existantes) afin que les connecteurs puissent avertir en conséquence.
 
-**Additifs (13)**
+**Additifs (14)**
 
 | Outil | Description |
 |-------|-------------|
@@ -263,6 +263,7 @@ Le serveur expose 17 outils d'écriture, chacun annoté comme **additif** (crée
 | `sign_adr` | Signe un ADR (nécessite la permission `adr.sign` ; sinon renvoie un lien profond vers l'interface pour signer dans le navigateur). |
 | `create_diagram` | Crée un diagramme DrawIO libre avec des liens optionnels vers des fiches existantes. |
 | `import_bpmn` | Enregistre un diagramme XML BPMN 2.0 sur une fiche Processus métier **existante**. Si aucune fiche ne correspond au nom fourni, l'outil renvoie une erreur `card_not_found` qui renvoie l'agent vers `create_cards_bulk` — cela force la création explicite de la fiche avec description, sous-type et attributs au préalable, plutôt qu'un raccourci qui crée une fiche pauvre. |
+| `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Image bytes are supplied base64 from the agent's own context; there is no fetch-from-URL path. PNG/JPEG/WebP/GIF only, 1 MB each. Removing a logo is deliberately not exposed — do that from the card in the web UI. |
 
 **Destructifs (4)**
 
@@ -291,7 +292,7 @@ Défense en profondeur en plus de l'exécution à blanc, afin qu'une mauvaise in
 
 - **Plafond de taille par appel.** Les outils d'écriture MCP appliquent un plafond beaucoup plus petit que les endpoints sous-jacents de l'importateur Excel : 200 lignes pour `create_cards_bulk`, 500 opérations pour `upsert_relations_bulk`. Suffisamment grand pour tout téléversement d'artefact unique réaliste, suffisamment petit pour qu'une prévisualisation d'exécution à blanc reste scannable.
 - **Pas de suppression de relation par défaut.** `upsert_relations_bulk` refuse les opérations `action: "delete"` — pour supprimer des relations, utilisez l'interface web où l'action est consignée sous l'identité de l'utilisateur. Les opérateurs peuvent activer cette possibilité en définissant `MCP_ALLOW_RELATION_DELETE=true`.
-- **Interrupteur d'arrêt.** `MCP_WRITES_ENABLED=false` désactive les 17 outils d'écriture sans redéployer de code. Les 30 outils de lecture continuent de fonctionner.
+- **Interrupteur d'arrêt.** `MCP_WRITES_ENABLED=false` désactive les 18 outils d'écriture sans redéployer de code. Les 30 outils de lecture continuent de fonctionner.
 - **Étiquette d'origine d'audit.** Chaque requête backend du serveur MCP transporte un en-tête `X-Turbo-EA-Origin: mcp`. Les événements émis depuis ces requêtes sont étiquetés `origin: "mcp"` dans le payload du journal d'audit, ce qui permet aux administrateurs de filtrer les écritures pilotées par MCP hors de la chronologie, séparément des actions de l'interface web.
 - **Lots de mutation.** Chaque appel d'écriture MCP ouvre un lot de mutation avant toute écriture ; chaque événement émis pendant l'appel est estampillé avec l'id du lot. Les administrateurs (ou l'outil `get_change_history`) peuvent reconstruire le diff complet, événement par événement, d'un commit à partir d'un seul id, et `rollback_batch` peut l'annuler. Les commits dépassant `MCP_BATCH_CONFIRMATION_THRESHOLD` lignes doivent renvoyer un `confirm_token` à usage unique émis par l'exécution à blanc précédente (validité de 15 minutes), de sorte qu'un gros commit suit toujours un aperçu relu.
 - **Pas de suppression définitive.** L'ensemble d'outils omet délibérément la suppression permanente de fiches. `archive_cards` et `update_cards_bulk` *sont* exposés, mais l'archivage est une suppression douce récupérable (fenêtre de restauration de 30 jours) et les deux sont annotés comme destructifs et protégés par l'exécution à blanc. L'ajout d'un outil effectuant une mutation irréversible (suppression définitive, purge forcée) nécessiterait une revue de conception explicite.
@@ -303,6 +304,7 @@ Les six variables d'environnement de garde-fou sur le conteneur MCP :
 | `MCP_WRITES_ENABLED` | `true` | Interrupteur principal des outils d'écriture. `false` → MCP en lecture seule. |
 | `MCP_MAX_CARDS_PER_CALL` | `200` | Plafond strict du nombre de lignes `create_cards_bulk` / `update_cards_bulk` par requête. |
 | `MCP_MAX_RELATIONS_PER_CALL` | `500` | Plafond strict du nombre d'opérations `upsert_relations_bulk` par requête. |
+| `MCP_MAX_LOGOS_PER_CALL` | `50` | Hard cap on `set_card_logos` rows per request. Lower than the card cap because each logo is its own upload and carries image bytes. |
 | `MCP_ALLOW_RELATION_DELETE` | `false` | Lorsque `true`, `upsert_relations_bulk` accepte les opérations `action: "delete"`. |
 | `MCP_BATCH_CONFIRMATION_THRESHOLD` | `20` | Les commits touchant plus de lignes que ce seuil exigent le `confirm_token` issu d'une exécution à blanc préalable. |
 | `MCP_REQUIRE_DRYRUN_FIRST` | `true` | Active la barrière confirm-token ci-dessus. Ne mettez `false` que pour des pipelines d'automatisation de confiance qui sautent explicitement l'aller-retour d'aperçu. |

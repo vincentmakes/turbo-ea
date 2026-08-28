@@ -16,6 +16,7 @@
 | **Business Architecture** | Organization، Business Capability، Business Context، Business Process |
 | **Application & Data** | Application، Interface، Data Object |
 | **Technical Architecture** | IT Component، Tech Category، Provider، System |
+| **السماح بشعارات مخصصة** | ما إذا كان بإمكان المحررين رفع شعار لكل بطاقة يظهر بدلاً من أيقونة النوع (مفعّل افتراضياً لـ «تطبيق» و«مكوّن تقني») |
 
 ### إنشاء نوع مخصّص
 

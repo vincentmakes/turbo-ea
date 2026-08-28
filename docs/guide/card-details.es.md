@@ -16,6 +16,36 @@ La parte superior de la ficha muestra:
 - **Anillo de calidad de datos** — Indicador visual de la completitud de la información (0–100%)
 - **Menú de acciones** — Archivar, eliminar y acciones de aprobación. También incluye una acción de un clic **Observar esta ficha** (cuando el tipo de ficha define un rol Observador), para que cualquier usuario con permiso de lectura pueda seguir la ficha sin pasar por la pestaña de Partes interesadas.
 
+### Logotipo personalizado
+
+Las tarjetas de un tipo que lo permita pueden llevar su propio **logotipo** en
+lugar del icono genérico del tipo, de modo que una Aplicación de SAP, Kafka o
+Jira muestre la marca del propio producto. Los logotipos reconocibles hacen que
+un inventario se explore mucho más rápido, sobre todo para quienes lo consultan
+sin mantenerlo.
+
+Pase el ratón sobre el icono de la esquina superior izquierda de la tarjeta y
+haga clic para **subir**, **reemplazar** o **eliminar** la imagen. El icono del
+tipo no desaparece: se traslada como una pequeña insignia a la esquina del
+logotipo, así que sigue viéndose de un vistazo qué clase de tarjeta se está
+consultando.
+
+- **Formatos admitidos** — PNG, JPEG, WebP o GIF, hasta 1 MB. No se admite SVG,
+  porque puede contener scripts.
+- **Dónde aparece** — en la cabecera de la tarjeta, en la lista de inventario y
+  en cualquier portal web publicado sobre ese tipo de tarjeta.
+- **Si no hay logotipo** — la tarjeta vuelve a su icono de tipo, igual que
+  antes.
+
+Los logotipos están disponibles en los tipos de tarjeta que un administrador
+haya activado; de fábrica son Aplicación y Componente de TI. Consulte
+[Metamodelo](../admin/metamodel.md).
+
+!!! note "Logotipos de terceros"
+    Los logotipos de productos suelen ser marcas registradas de sus
+    propietarios. Usted es responsable de comprobar que el uso del logotipo
+    subido está permitido.
+
 ### Flujo de Aprobación
 
 Las fichas pueden pasar por un ciclo de aprobación:

@@ -29,6 +29,7 @@ Haga clic en **+ Nuevo Tipo** para crear un tipo de ficha personalizado. Configu
 | **Color** | Color de marca para el tipo (usado en inventario, informes y diagramas) |
 | **Categoría** | Agrupación por capa de arquitectura |
 | **Tiene Jerarquía** | Si las fichas de este tipo pueden tener relaciones padre/hijo |
+| **Permitir logotipos personalizados** | Si los editores pueden subir un logotipo por tarjeta, que se muestra en lugar del icono del tipo (activado de origen para Aplicación y Componente de TI) |
 
 ### Editar un Tipo
 

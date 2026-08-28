@@ -16,6 +16,33 @@ A parte superior do card mostra:
 - **Anel de qualidade dos dados** — Indicador visual da completude das informações (0-100%)
 - **Menu de ações** — Arquivar, excluir e ações de aprovação. Também inclui uma ação de um clique **Observar este cartão** (quando o tipo de card define um papel de Observador), permitindo que qualquer usuário com permissão de leitura siga o card sem precisar abrir a aba Partes interessadas.
 
+### Logótipo personalizado
+
+Os cartões de um tipo que o permita podem ter o seu próprio **logótipo** em vez
+do ícone genérico do tipo — assim, uma Aplicação para SAP, Kafka ou Jira mostra
+a marca do próprio produto. Logótipos reconhecíveis tornam um inventário muito
+mais rápido de percorrer, sobretudo para quem o consulta sem o manter.
+
+Passe o rato sobre o ícone no canto superior esquerdo do cartão e clique para
+**carregar**, **substituir** ou **remover** a imagem. O ícone do tipo não
+desaparece: passa a um pequeno emblema no canto do logótipo, pelo que continua
+a perceber-se num relance de que tipo de cartão se trata.
+
+- **Formatos aceites** — PNG, JPEG, WebP ou GIF, até 1 MB. O formato SVG não é
+  aceite, porque pode conter scripts.
+- **Onde aparece** — no cabeçalho do cartão, na lista de inventário e em
+  qualquer portal web publicado sobre esse tipo de cartão.
+- **Sem logótipo** — o cartão volta ao ícone do seu tipo, tal como antes.
+
+Os logótipos estão disponíveis nos tipos de cartão que um administrador tenha
+ativado; de origem, são Aplicação e Componente de TI. Consulte
+[Metamodelo](../admin/metamodel.md).
+
+!!! note "Logótipos de terceiros"
+    Os logótipos de produtos são geralmente marcas registadas dos seus
+    proprietários. É da sua responsabilidade assegurar que a utilização do
+    logótipo carregado é permitida.
+
 ### Fluxo de Aprovação
 
 Os cards podem passar por um ciclo de aprovação:

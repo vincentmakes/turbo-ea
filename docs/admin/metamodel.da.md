@@ -16,6 +16,7 @@ Fanebladet Korttyper viser alle typer i systemet. Turbo EA leveres med 14 indbyg
 | **Business Architecture** | Organization, Business Capability, Business Context, Business Process |
 | **Application & Data** | Application, Interface, Data Object |
 | **Technical Architecture** | IT Component, Tech Category, Provider, System |
+| **Tillad egne logoer** | Om redaktører må uploade et logo pr. kort, som vises i stedet for typeikonet (slået til for Application og IT Component fra start) |
 
 ### Oprettelse af en brugerdefineret type
 

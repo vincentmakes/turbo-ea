@@ -16,6 +16,7 @@ The Card Types tab lists all types in the system. Turbo EA ships with 14 built-i
 | **Business Architecture** | Organization, Business Capability, Business Context, Business Process |
 | **Application & Data** | Application, Interface, Data Object |
 | **Technical Architecture** | IT Component, Tech Category, Provider, System |
+| **Allow custom logos** | Whether editors may upload a logo image per card, shown in place of the type icon (on for Application and IT Component by default) |
 
 ### Creating a Custom Type
 

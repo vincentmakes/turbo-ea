@@ -16,6 +16,7 @@ Der Kartentypen-Tab listet alle Typen im System auf. Turbo EA wird mit 14 integr
 | **Geschäftsarchitektur** | Organisation, Geschäftsfähigkeit, Geschäftskontext, Geschäftsprozess |
 | **Anwendung & Daten** | Anwendung, Schnittstelle, Datenobjekt |
 | **Technische Architektur** | IT-Komponente, Technologiekategorie, Anbieter, System |
+| **Eigene Logos zulassen** | Ob Bearbeiter pro Karte ein Logo hochladen dürfen, das anstelle des Typ-Symbols angezeigt wird (standardmäßig aktiv für Anwendung und IT-Komponente) |
 
 ### Einen benutzerdefinierten Typ erstellen
 

@@ -16,6 +16,34 @@ Le haut de la fiche affiche :
 - **Anneau de qualité des données** -- Indicateur visuel de complétude des informations (0-100%)
 - **Menu d'actions** -- Archiver, supprimer et actions d'approbation. Contient aussi une option en un clic **Observer cette fiche** (lorsque le type de fiche définit un rôle Observateur) qui permet à tout utilisateur disposant d'un accès en lecture de suivre la fiche sans passer par l'onglet Parties prenantes.
 
+### Logo personnalisé
+
+Les fiches d'un type qui l'autorise peuvent porter leur propre **logo** à la
+place de l'icône générique du type — une Application pour SAP, Kafka ou Jira
+affiche ainsi la marque du produit. Des logos reconnaissables rendent un
+inventaire bien plus rapide à parcourir, en particulier pour les personnes qui
+le consultent sans le maintenir.
+
+Survolez l'icône en haut à gauche de la fiche et cliquez dessus pour
+**téléverser**, **remplacer** ou **supprimer** l'image. L'icône du type ne
+disparaît pas : elle se déplace sous forme de petit badge dans le coin du logo,
+si bien que l'on distingue toujours d'un coup d'œil le type de fiche consulté.
+
+- **Formats acceptés** — PNG, JPEG, WebP ou GIF, jusqu'à 1 Mo. Le format SVG
+  est refusé, car il peut contenir des scripts.
+- **Où il apparaît** — l'en-tête de la fiche, la liste d'inventaire et tout
+  portail web publié fondé sur ce type de fiche.
+- **En l'absence de logo** — la fiche revient à son icône de type, comme avant.
+
+Les logos sont disponibles pour les types de fiches qu'un administrateur a
+activés ; par défaut, il s'agit d'Application et de Composant informatique.
+Voir [Métamodèle](../admin/metamodel.md).
+
+!!! note "Logos de tiers"
+    Les logos de produits sont généralement des marques déposées de leurs
+    propriétaires. Il vous appartient de vous assurer que l'usage d'un logo
+    téléversé est autorisé.
+
 ### Workflow d'approbation
 
 Les fiches peuvent passer par un cycle d'approbation :

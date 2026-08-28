@@ -29,6 +29,7 @@ Cliquez sur **+ Nouveau type** pour créer un type de fiche personnalisé. Confi
 | **Couleur** | Couleur de marque pour le type (utilisée dans l'inventaire, les rapports et les diagrammes) |
 | **Catégorie** | Regroupement par couche d'architecture |
 | **À une hiérarchie** | Si les fiches de ce type peuvent avoir des relations parent/enfant |
+| **Autoriser les logos personnalisés** | Si les éditeurs peuvent téléverser un logo par fiche, affiché à la place de l'icône du type (activé par défaut pour Application et Composant informatique) |
 
 ### Modification d'un type
 

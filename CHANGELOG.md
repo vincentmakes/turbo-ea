@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.104.0] - 2026-08-28
+
+### Added
+
+- **Give a card its own logo.** An Application for SAP, Kafka or Jira can now show that product's own mark instead of the generic type icon — recognisable logos make an inventory far faster to scan, especially for the business stakeholders and managers who read it rather than maintain it ([#1024](https://github.com/vincentmakes/turbo-ea/discussions/1024)). Hover the icon on a card and click to upload, replace or remove the image. The type icon does not disappear: it moves to a small badge on the corner of the logo, so a reader still sees at a glance what kind of card they are looking at. Logos appear on the card header, in the inventory list and on published web portals, where visitors need no account to see them. Administrators decide which card types offer this, under Admin → Meta Model — Application and IT Component are switched on out of the box, everything else is off until you say otherwise. PNG, JPEG, WebP and GIF up to 1 MB are accepted; SVG is refused because it can carry scripts, and every upload is checked against its actual file signature rather than the label the browser puts on it. A card with no logo, or one whose type an administrator later switches off, renders exactly as it always has — nothing is deleted, so switching the type back on brings every image back.
+- **Populate logos in bulk from an AI assistant.** The MCP server gains a `set_card_logos` write tool, so an agent holding the artwork can put marks on a whole application portfolio in one reviewed step rather than one card at a time. It previews before it writes like every other MCP write tool, is capped at 50 images per call (`MCP_MAX_LOGOS_PER_CALL`), and reports each rejected image individually instead of abandoning the batch.
+
 ## [2.103.0] - 2026-08-28
 
 ### Added
