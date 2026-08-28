@@ -5,6 +5,7 @@ import {
   formatFieldValue,
   hasCardLabelLines,
   EMPTY_VALUE,
+  showsCardLogos,
 } from "./cardDisplayFields";
 import type { CardType } from "@/types";
 
@@ -167,5 +168,28 @@ describe("hasCardLabelLines", () => {
     expect(hasCardLabelLines({ fields: [], showType: true })).toBe(true);
     expect(hasCardLabelLines({ fields: [], showSubtype: true })).toBe(true);
     expect(hasCardLabelLines({ fields: ["owner"] })).toBe(true);
+  });
+});
+
+describe("showsCardLogos", () => {
+  it("treats a diagram saved before the option existed as logos-on", () => {
+    // The whole reason the flag is optional and read through a helper: a
+    // stored blob with no `showLogos` key is a diagram whose owner never made
+    // a choice, and reading that as `false` would silently strip the logos
+    // off every existing diagram the first time it was opened.
+    expect(showsCardLogos({ fields: [] })).toBe(true);
+    expect(showsCardLogos(undefined)).toBe(true);
+  });
+
+  it("honours an explicit choice in both directions", () => {
+    expect(showsCardLogos({ fields: [], showLogos: false })).toBe(false);
+    expect(showsCardLogos({ fields: [], showLogos: true })).toBe(true);
+  });
+
+  it("is not part of what counts as a label line", () => {
+    // `hasCardLabelLines` gates the *text* rows a shape carries; a logo is not
+    // one, so a logo-only diagram must not grow label space for rows it has
+    // none of.
+    expect(hasCardLabelLines({ fields: [], showLogos: true })).toBe(false);
   });
 });

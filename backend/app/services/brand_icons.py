@@ -18,24 +18,32 @@ meant adding a renderer to serve them. Each icon carries its own official brand
 colour, baked in at generation time; there is no tint parameter for the same
 reason.
 
-Security: ``icon_slug`` is caller-controlled, so no filesystem path is ever
-built from it. A slug selects from a map the server itself produced by listing
-the pack directory (``_paths_by_slug``) — the input picks an entry, it never
-becomes a path. Resolution additionally checks membership in the parsed index
-first, and ``_SLUG_RE`` is a character allowlist on top of that; but the
-listing is what makes traversal structurally impossible rather than merely
-filtered.
+**Storage.** Two files, not 3453: ``brand_icons.pack`` is every PNG
+concatenated, and ``brand_icons.json`` records ``offset``/``length`` per slug.
+A file per icon made the review diff unusable and silently truncated CI's
+changed-file detection, which caps at 3000 entries. Reads are ``os.pread`` on
+one descriptor: O(1), no seek state, and safe to call from several threads
+because ``pread`` does not move the file offset.
+
+**Security.** ``icon_slug`` is caller-controlled and never becomes a path — it
+is a key into the parsed index, and the only file this module ever opens is
+the pack itself, whose name is a constant. There is no string for a traversal
+to hide in. ``_SLUG_RE`` and the index-membership check are belt-and-braces on
+top of that, not the thing keeping it safe.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
+import threading
 from functools import lru_cache
 from pathlib import Path
 
-_ICON_DIR: Path = Path(__file__).parent / "data" / "brand_icons"
-_INDEX_PATH: Path = _ICON_DIR / "index.json"
+_DATA_DIR: Path = Path(__file__).parent / "data"
+_PACK_PATH: Path = _DATA_DIR / "brand_icons.pack"
+_INDEX_PATH: Path = _DATA_DIR / "brand_icons.json"
 
 # Accepted-and-stripped rather than required, so `simpleicons:sap` and `sap`
 # both work and a second pack can be added later without a wire break.
@@ -43,6 +51,10 @@ _PACK_PREFIX = "simpleicons:"
 _SLUG_RE = re.compile(r"^[a-z0-9._-]{1,64}$")
 
 BRAND_ICON_MIME = "image/png"
+
+# Guards only the lazy open, not the reads — `pread` needs no serialisation.
+_fd_lock = threading.Lock()
+_fd: int | None = None
 
 
 def normalise_slug(raw: str | None) -> str | None:
@@ -56,8 +68,8 @@ def normalise_slug(raw: str | None) -> str | None:
 
 
 @lru_cache(maxsize=1)
-def _index_by_slug() -> dict[str, dict[str, str]]:
-    """Slug → {slug, title, hex}, parsed once."""
+def _index_by_slug() -> dict[str, dict]:
+    """Slug → {slug, title, hex, offset, length}, parsed once."""
     if not _INDEX_PATH.exists():
         return {}
     with _INDEX_PATH.open("r", encoding="utf-8") as f:
@@ -70,37 +82,48 @@ def icon_count() -> int:
     return len(_index_by_slug())
 
 
-@lru_cache(maxsize=1)
-def _paths_by_slug() -> dict[str, Path]:
-    """Slug → the file on disk, built by *listing* the pack directory.
+def _pack_fd() -> int | None:
+    """The pack's file descriptor, opened once and kept for the process.
 
-    Deliberately not ``_ICON_DIR / f"{slug}.png"``. ``icon_slug`` is
-    caller-controlled, and interpolating caller input into a filesystem path is
-    a path-injection shape even when the value has been validated first — the
-    safety then lives in whoever remembers to call the validator, and CodeQL
-    flags it as high severity for exactly that reason.
-
-    Listing the directory inverts it: every path here was produced by the
-    server, and caller input can only *select* from that set. There is no
-    string for a traversal to hide in, and a future caller that skips
-    ``normalise_slug`` still cannot reach a file outside the pack.
+    Deliberately a descriptor rather than a re-opened file per read: the pack
+    is opened at most once, and `pread` against it is a single syscall with no
+    shared cursor to race on.
     """
-    if not _ICON_DIR.is_dir():
-        return {}
-    return {p.stem: p for p in _ICON_DIR.glob("*.png")}
+    global _fd
+    if _fd is not None:
+        return _fd
+    with _fd_lock:
+        if _fd is None:  # re-check: another thread may have won the race
+            try:
+                _fd = os.open(_PACK_PATH, os.O_RDONLY)
+            except OSError:
+                return None
+    return _fd
 
 
-# Bounded so a full batch of uploads does not re-read the same files from disk,
-# without pinning the whole pack (3400 × ~2 KB) in memory for the life of the
-# process.
-@lru_cache(maxsize=256)
 def _read_icon_bytes(slug: str) -> bytes | None:
-    """The icon's bytes, or None when the pack has no such file."""
-    path = _paths_by_slug().get(slug)
-    return path.read_bytes() if path is not None else None
+    """The icon's bytes, or None when the pack has no such entry.
+
+    Not cached: a read is one `pread` of ~2 KB out of the page cache, which is
+    cheaper than the dict of `bytes` a cache would pin.
+    """
+    entry = _index_by_slug().get(slug)
+    if entry is None:
+        return None
+    fd = _pack_fd()
+    if fd is None:
+        return None
+    length = entry.get("length") or 0
+    offset = entry.get("offset")
+    if not length or offset is None:
+        return None
+    data = os.pread(fd, length, offset)
+    # A short read means the index and the pack disagree — a half-written
+    # generator run. Report it as unknown rather than serving a truncated PNG.
+    return data if len(data) == length else None
 
 
-def resolve_brand_icon(raw: str | None) -> tuple[bytes, str, dict[str, str]] | None:
+def resolve_brand_icon(raw: str | None) -> tuple[bytes, str, dict] | None:
     """Resolve a slug to ``(png_bytes, mime, index_entry)``, or None.
 
     Returns None for an unknown or malformed slug — never raises, so a caller
@@ -115,11 +138,9 @@ def resolve_brand_icon(raw: str | None) -> tuple[bytes, str, dict[str, str]] | N
     try:
         data = _read_icon_bytes(slug)
     except OSError:
-        # The file is listed but unreadable — a truncated volume, a bad mode.
+        # The pack is present but unreadable — a truncated volume, a bad mode.
         return None
     if data is None:
-        # The index and the files disagree — a half-run generator. Treat it as
-        # unknown rather than 500ing on a request the caller cannot fix.
         return None
     return data, BRAND_ICON_MIME, entry
 
@@ -133,10 +154,17 @@ def search_brand_icons(search: str, limit: int) -> list[dict[str, str]]:
     """
     entries = list(_index_by_slug().values())
     term = (search or "").strip().lower()
-    if not term:
-        return sorted(entries, key=lambda e: e["slug"])[:limit]
 
-    def rank(entry: dict[str, str]) -> tuple[int, str]:
+    def public(entry: dict) -> dict[str, str]:
+        # Offsets are an implementation detail of the storage format; a client
+        # has no use for them and they would only invite someone to depend on
+        # the layout.
+        return {"slug": entry["slug"], "title": entry.get("title", ""), "hex": entry.get("hex", "")}
+
+    if not term:
+        return [public(e) for e in sorted(entries, key=lambda e: e["slug"])[:limit]]
+
+    def rank(entry: dict) -> tuple[int, str]:
         slug = entry["slug"]
         title = entry.get("title", "").lower()
         if slug == term or title == term:
@@ -146,4 +174,4 @@ def search_brand_icons(search: str, limit: int) -> list[dict[str, str]]:
         return (2, slug)
 
     matched = [e for e in entries if term in e["slug"] or term in e.get("title", "").lower()]
-    return sorted(matched, key=rank)[:limit]
+    return [public(e) for e in sorted(matched, key=rank)[:limit]]

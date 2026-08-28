@@ -249,6 +249,7 @@
   "public.locked.signIn": "Mit {{provider}} anmelden",
   "public.empty": "Dieses Diagramm hat noch keinen Inhalt.",
   "editor.toolbar.hideRelationLabels": "Beziehungsbeschriftungen ausblenden",
+  "editor.showCardLogos": "Kartenlogos",
   "editor.toolbar.showRelationLabels": "Beziehungsbeschriftungen einblenden",
   "editor.toolbar.relationLabelsHidden_one": "Beschriftung von {{count}} Beziehung ausgeblendet",
   "editor.toolbar.relationLabelsHidden_other": "Beschriftungen von {{count}} Beziehungen ausgeblendet",

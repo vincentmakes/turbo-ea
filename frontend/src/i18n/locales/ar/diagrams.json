@@ -249,6 +249,7 @@
   "public.locked.signIn": "تسجيل الدخول عبر {{provider}}",
   "public.empty": "لا يحتوي هذا المخطط على أي محتوى بعد.",
   "editor.toolbar.hideRelationLabels": "إخفاء تسميات العلاقات",
+  "editor.showCardLogos": "شعارات البطاقات",
   "editor.toolbar.showRelationLabels": "إظهار تسميات العلاقات",
   "editor.toolbar.relationLabelsHidden_one": "تم إخفاء تسمية {{count}} علاقة",
   "editor.toolbar.relationLabelsHidden_other": "تم إخفاء تسميات {{count}} علاقات",

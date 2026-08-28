@@ -249,6 +249,7 @@
   "public.locked.signIn": "Log ind med {{provider}}",
   "public.empty": "Dette diagram har endnu ikke noget indhold.",
   "editor.toolbar.hideRelationLabels": "Skjul relationsetiketter",
+  "editor.showCardLogos": "Kortlogoer",
   "editor.toolbar.showRelationLabels": "Vis relationsetiketter",
   "editor.toolbar.relationLabelsHidden_one": "Skjulte etiketten på {{count}} relation",
   "editor.toolbar.relationLabelsHidden_other": "Skjulte etiketterne på {{count}} relationer",

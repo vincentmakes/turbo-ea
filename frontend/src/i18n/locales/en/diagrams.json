@@ -249,6 +249,7 @@
   "public.locked.signIn": "Sign in with {{provider}}",
   "public.empty": "This diagram has no content yet.",
   "editor.toolbar.hideRelationLabels": "Hide relation labels",
+  "editor.showCardLogos": "Card logos",
   "editor.toolbar.showRelationLabels": "Show relation labels",
   "editor.toolbar.relationLabelsHidden_one": "Hid the label on {{count}} relation",
   "editor.toolbar.relationLabelsHidden_other": "Hid the labels on {{count}} relations",

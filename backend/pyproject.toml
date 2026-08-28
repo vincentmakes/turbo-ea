@@ -56,7 +56,7 @@ include = ["app*"]
 # Docker image already gets them by copying the whole `app` tree, so this is
 # what makes a plain `pip install backend/` correct too.
 [tool.setuptools.package-data]
-"app.services" = ["data/*.json", "data/brand_icons/*.png", "data/brand_icons/*.json"]
+"app.services" = ["data/*.json", "data/*.pack"]
 
 [build-system]
 requires = ["setuptools>=75.0"]

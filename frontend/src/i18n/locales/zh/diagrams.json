@@ -249,6 +249,7 @@
   "public.locked.signIn": "使用 {{provider}} 登录",
   "public.empty": "此图表尚无内容。",
   "editor.toolbar.hideRelationLabels": "隐藏关系标签",
+  "editor.showCardLogos": "卡片徽标",
   "editor.toolbar.showRelationLabels": "显示关系标签",
   "editor.toolbar.relationLabelsHidden_one": "已隐藏 {{count}} 条关系的标签",
   "editor.toolbar.relationLabelsHidden_other": "已隐藏 {{count}} 条关系的标签",

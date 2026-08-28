@@ -249,6 +249,7 @@
   "public.locked.signIn": "Accedi con {{provider}}",
   "public.empty": "Questo diagramma non ha ancora contenuti.",
   "editor.toolbar.hideRelationLabels": "Nascondi le etichette delle relazioni",
+  "editor.showCardLogos": "Logo delle schede",
   "editor.toolbar.showRelationLabels": "Mostra le etichette delle relazioni",
   "editor.toolbar.relationLabelsHidden_one": "Etichetta nascosta su {{count}} relazione",
   "editor.toolbar.relationLabelsHidden_other": "Etichette nascoste su {{count}} relazioni",

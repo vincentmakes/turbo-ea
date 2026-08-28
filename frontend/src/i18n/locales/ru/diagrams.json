@@ -249,6 +249,7 @@
   "public.locked.signIn": "Войти через {{provider}}",
   "public.empty": "В этой диаграмме пока нет содержимого.",
   "editor.toolbar.hideRelationLabels": "Скрыть подписи связей",
+  "editor.showCardLogos": "Логотипы карточек",
   "editor.toolbar.showRelationLabels": "Показать подписи связей",
   "editor.toolbar.relationLabelsHidden_one": "Скрыта подпись у {{count}} связи",
   "editor.toolbar.relationLabelsHidden_other": "Скрыты подписи у {{count}} связей",

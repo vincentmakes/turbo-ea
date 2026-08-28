@@ -249,6 +249,7 @@
   "public.locked.signIn": "Se connecter avec {{provider}}",
   "public.empty": "Ce diagramme n'a pas encore de contenu.",
   "editor.toolbar.hideRelationLabels": "Masquer les libellés de relation",
+  "editor.showCardLogos": "Logos des cartes",
   "editor.toolbar.showRelationLabels": "Afficher les libellés de relation",
   "editor.toolbar.relationLabelsHidden_one": "Libellé masqué sur {{count}} relation",
   "editor.toolbar.relationLabelsHidden_other": "Libellés masqués sur {{count}} relations",

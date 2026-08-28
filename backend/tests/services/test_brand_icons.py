@@ -7,9 +7,8 @@ import json
 import pytest
 
 from app.services.brand_icons import (
-    _ICON_DIR,
     _INDEX_PATH,
-    _paths_by_slug,
+    _PACK_PATH,
     _read_icon_bytes,
     icon_count,
     normalise_slug,
@@ -91,15 +90,40 @@ class TestPackIntegrity:
     def test_the_pack_is_present_and_substantial(self):
         assert icon_count() > 3000
 
-    def test_every_index_entry_has_a_file_and_every_file_is_indexed(self):
-        """Catches a half-run or interrupted generator, which would otherwise
-        surface as a 400 on one arbitrary slug."""
-        index = json.loads(_INDEX_PATH.read_text(encoding="utf-8"))
-        indexed = {e["slug"] for e in index}
-        on_disk = {p.stem for p in _ICON_DIR.glob("*.png")}
+    def test_every_index_entry_points_at_a_real_png_inside_the_pack(self):
+        """Catches a half-run generator or a stale index.
 
-        assert indexed - on_disk == set(), "index entries with no PNG on disk"
-        assert on_disk - indexed == set(), "PNGs on disk missing from the index"
+        The offsets are the only thing standing between a slug and the wrong
+        icon's bytes, so an off-by-one here would surface as a corrupted image
+        on a card rather than as an error anywhere.
+        """
+        index = json.loads(_INDEX_PATH.read_text(encoding="utf-8"))
+        pack_size = _PACK_PATH.stat().st_size
+        assert index
+
+        for entry in index:
+            offset, length = entry["offset"], entry["length"]
+            assert length > 0
+            assert offset + length <= pack_size, f"{entry['slug']} runs past the pack"
+            data = _read_icon_bytes(entry["slug"])
+            assert data is not None and len(data) == length
+            assert data.startswith(b"\x89PNG\r\n\x1a\n"), entry["slug"]
+
+    def test_the_entries_tile_the_pack_without_gaps_or_overlap(self):
+        """Every byte of the blob belongs to exactly one icon.
+
+        A gap means bytes nothing can reach; an overlap means two slugs share
+        a region and at least one of them is wrong.
+        """
+        index = sorted(
+            json.loads(_INDEX_PATH.read_text(encoding="utf-8")),
+            key=lambda e: e["offset"],
+        )
+        cursor = 0
+        for entry in index:
+            assert entry["offset"] == cursor, f"gap or overlap at {entry['slug']}"
+            cursor += entry["length"]
+        assert cursor == _PACK_PATH.stat().st_size
 
     def test_every_entry_carries_a_title_and_a_hex(self):
         index = json.loads(_INDEX_PATH.read_text(encoding="utf-8"))
@@ -107,27 +131,20 @@ class TestPackIntegrity:
 
 
 class TestNoPathIsBuiltFromCallerInput:
-    """The slug selects from a server-produced map; it never becomes a path.
+    """The slug is a key into an index; it never becomes a path.
 
-    CodeQL flagged the previous `_ICON_DIR / f"{slug}.png"` as high-severity
-    path injection. It was not exploitable — the callers validated first — but
-    the safety lived entirely in whoever remembered to call the validator.
+    CodeQL flagged an earlier `_ICON_DIR / f"{slug}.png"` as high-severity path
+    injection. It was not exploitable — the callers validated first — but the
+    safety lived entirely in whoever remembered to call the validator. With a
+    single packed blob the only file this module opens is a constant.
     """
-
-    def test_every_path_comes_from_listing_the_pack_directory(self):
-        paths = _paths_by_slug()
-        assert paths, "the pack directory should list files"
-        root = _ICON_DIR.resolve()
-        for slug, path in paths.items():
-            assert path.resolve().parent == root, f"{slug} escapes the pack directory"
-            assert path.suffix == ".png"
 
     @pytest.mark.parametrize(
         "slug",
         [
             "../../../etc/passwd",
             "..",
-            "../index",
+            "../brand_icons",
             "sap/../../../etc/passwd",
             "",
         ],
@@ -135,11 +152,18 @@ class TestNoPathIsBuiltFromCallerInput:
     def test_a_traversal_slug_reads_nothing_even_without_the_validator(self, slug):
         """Called directly, bypassing `normalise_slug` entirely.
 
-        This is the guarantee the map buys: a future caller that forgets the
-        validator still cannot reach a file outside the pack.
+        A future caller that forgets the validator still cannot reach anything
+        outside the pack, because there is nothing to reach.
         """
         assert _read_icon_bytes(slug) is None
 
-    def test_a_slug_the_index_claims_but_disk_lacks_resolves_to_none(self):
-        # A half-run generator: reported as unknown, never as a 500.
-        assert _read_icon_bytes("definitely-not-a-file-in-the-pack") is None
+    def test_a_slug_absent_from_the_index_resolves_to_none(self):
+        assert _read_icon_bytes("definitely-not-a-real-brand") is None
+
+
+class TestSearchPayload:
+    def test_results_do_not_leak_the_storage_layout(self):
+        # Offsets are an implementation detail; a client depending on them
+        # would freeze the pack format.
+        for entry in search_brand_icons("sap", 5):
+            assert set(entry) == {"slug", "title", "hex"}

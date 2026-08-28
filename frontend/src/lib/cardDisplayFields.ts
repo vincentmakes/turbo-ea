@@ -161,12 +161,28 @@ export function formatFieldValue(
 export interface CardLabelSettings {
   showType?: boolean;
   showSubtype?: boolean;
+  /**
+   * Show each card's own logo on the shape. Optional and read through
+   * {@link showsCardLogos}, so `undefined` — every diagram saved before the
+   * option existed — means *on*: a stored blob must not read as "the user
+   * turned logos off".
+   */
+  showLogos?: boolean;
   fields: string[];
 }
 
 export const DEFAULT_CARD_LABELS: CardLabelSettings = { fields: [] };
 
-/** True when nothing at all would be rendered — lets callers skip the work. */
+/** Whether logos should be drawn, defaulting on for settings that predate it. */
+export function showsCardLogos(s: CardLabelSettings | undefined): boolean {
+  return s?.showLogos !== false;
+}
+
+/** True when nothing at all would be rendered — lets callers skip the work.
+ *
+ *  Deliberately does NOT consider `showLogos`: this gates the *text* rows a
+ *  shape carries, and a logo is not one. Folding it in would make a
+ *  logo-only diagram grow label space for rows it has none of. */
 export function hasCardLabelLines(s: CardLabelSettings | undefined): boolean {
   if (!s) return false;
   return Boolean(s.showType || s.showSubtype || s.fields.length > 0);
