@@ -51,8 +51,8 @@ const _cache = new Map<string, string | null>();
 /** Bounded so a long editing session over many diagrams cannot grow forever. */
 const MAX_CACHE = 500;
 
-function cacheKey(logoUrl: string, icon: string | undefined, color: string): string {
-  return `${logoUrl}|${icon ?? ""}|${color}`;
+function cacheKey(logoUrl: string, icon: string | undefined): string {
+  return `${logoUrl}|${icon ?? ""}`;
 }
 
 function remember(key: string, value: string | null): string | null {
@@ -118,16 +118,35 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
 }
 
 /**
- * Draw the card-type glyph as a badge in the bottom-right corner.
+ * Share of the tile's HEIGHT the logo gets. The type glyph takes the band
+ * below it, at the left edge.
  *
- * The same grammar as `CardLogoAvatar` and the Layered Dependency View: the
- * logo says which product this is, the badge says what kind of card it is, and
- * a reader gets both without a second glance.
+ * Stacked rather than cornered because a third of the colour pack is
+ * wordmarks — up to 11.8:1 — and those are fitted by their longer side, so
+ * they need the tile's full WIDTH. A glyph tucked into either bottom corner
+ * would sit under the end of every one of them; a band underneath collides
+ * with nothing.
+ */
+const LOGO_BAND = 0.72;
+
+/**
+ * Draw the card-type glyph in the band under the logo, at the left edge, as a
+ * plain white mark.
+ *
+ * White, and with no plate behind it, for one reason: this composite is drawn
+ * ON the card cell, whose fill IS the card-type colour — so a glyph in that
+ * colour would be invisible against it, which is why `buildIconImage` renders
+ * the plain type icon white too. An earlier version compensated with a white
+ * plate, and at the size a diagram actually draws this, the plate was a
+ * conspicuous white block sitting over the logo.
+ *
+ * Left-aligned so it lines up with the card's own left edge, the tile being
+ * anchored there — and deliberately smaller than the bare type icon a card
+ * without a logo shows, because here it is the secondary mark.
  */
 function drawTypeBadge(
   ctx: CanvasRenderingContext2D,
   icon: string | undefined,
-  color: string,
   size: number,
 ): void {
   const entry = icon ? ICON_PATHS[icon] : undefined;
@@ -141,35 +160,19 @@ function drawTypeBadge(
   } catch {
     return;
   }
-
-  const badge = Math.round(size * 0.42);
-  const pad = Math.max(1, Math.round(size * 0.03));
-  const x = size - badge - pad;
-  const y = size - badge - pad;
-
-  ctx.save();
-  // A plate under the glyph, so the badge stays legible over a busy mark.
-  ctx.fillStyle = "#ffffff";
-  ctx.strokeStyle = "rgba(0,0,0,0.25)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.rect(x, y, badge, badge);
-  ctx.fill();
-  ctx.stroke();
-
   // The path table's viewBox varies by source ("0 0 24 24", "0 -960 960 960"),
   // so map it rather than assuming one.
   const [vx, vy, vw, vh] = entry.vb.split(/\s+/).map(Number);
-  if (!vw || !vh) {
-    ctx.restore();
-    return;
-  }
-  const glyph = badge * 0.72;
+  if (!vw || !vh) return;
+
+  const glyph = size * (1 - LOGO_BAND);
   const scale = glyph / Math.max(vw, vh);
-  ctx.translate(x + (badge - glyph) / 2, y + (badge - glyph) / 2);
+
+  ctx.save();
+  ctx.translate(0, size - glyph);
   ctx.scale(scale, scale);
   ctx.translate(-vx, -vy);
-  ctx.fillStyle = color;
+  ctx.fillStyle = "#ffffff";
   ctx.fill(path);
   ctx.restore();
 }
@@ -183,10 +186,9 @@ function drawTypeBadge(
 export async function composeCardLogoImage(
   logoUrl: string,
   icon: string | undefined,
-  color: string,
   size: number = LOGO_EMBED_PX,
 ): Promise<string | null> {
-  const key = cacheKey(logoUrl, icon, color);
+  const key = cacheKey(logoUrl, icon);
   const hit = _cache.get(key);
   if (hit !== undefined) return hit;
 
@@ -204,14 +206,15 @@ export async function composeCardLogoImage(
     // must never be cut — and centre what is left over.
     const natural = Math.max(img.naturalWidth || img.width, 1);
     const naturalH = Math.max(img.naturalHeight || img.height, 1);
-    const inset = Math.round(size * 0.06);
-    const box = size - inset * 2;
-    const scale = Math.min(box / natural, box / naturalH);
+    // The logo gets the full tile width and the upper band of its height, so
+    // a wordmark is never squeezed by the glyph sitting below it.
+    const bandH = size * LOGO_BAND;
+    const scale = Math.min(size / natural, bandH / naturalH);
     const w = Math.max(1, Math.round(natural * scale));
     const h = Math.max(1, Math.round(naturalH * scale));
-    ctx.drawImage(img, Math.round((size - w) / 2), Math.round((size - h) / 2), w, h);
+    ctx.drawImage(img, Math.round((size - w) / 2), Math.round((bandH - h) / 2), w, h);
 
-    drawTypeBadge(ctx, icon, color, size);
+    drawTypeBadge(ctx, icon, size);
 
     const url = canvas.toDataURL("image/png");
     // A canvas with no 2d implementation behind it (jsdom, some headless
