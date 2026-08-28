@@ -18,10 +18,13 @@ meant adding a renderer to serve them. Each icon carries its own official brand
 colour, baked in at generation time; there is no tint parameter for the same
 reason.
 
-Security: ``icon_slug`` is caller-controlled and becomes a filename. Resolution
-therefore checks membership in the parsed index *first* and only then touches
-the filesystem, so no path is ever built from unvalidated input. The character
-allowlist in ``_SLUG_RE`` is belt-and-braces on top of that.
+Security: ``icon_slug`` is caller-controlled, so no filesystem path is ever
+built from it. A slug selects from a map the server itself produced by listing
+the pack directory (``_paths_by_slug``) — the input picks an entry, it never
+becomes a path. Resolution additionally checks membership in the parsed index
+first, and ``_SLUG_RE`` is a character allowlist on top of that; but the
+listing is what makes traversal structurally impossible rather than merely
+filtered.
 """
 
 from __future__ import annotations
@@ -67,12 +70,34 @@ def icon_count() -> int:
     return len(_index_by_slug())
 
 
+@lru_cache(maxsize=1)
+def _paths_by_slug() -> dict[str, Path]:
+    """Slug → the file on disk, built by *listing* the pack directory.
+
+    Deliberately not ``_ICON_DIR / f"{slug}.png"``. ``icon_slug`` is
+    caller-controlled, and interpolating caller input into a filesystem path is
+    a path-injection shape even when the value has been validated first — the
+    safety then lives in whoever remembers to call the validator, and CodeQL
+    flags it as high severity for exactly that reason.
+
+    Listing the directory inverts it: every path here was produced by the
+    server, and caller input can only *select* from that set. There is no
+    string for a traversal to hide in, and a future caller that skips
+    ``normalise_slug`` still cannot reach a file outside the pack.
+    """
+    if not _ICON_DIR.is_dir():
+        return {}
+    return {p.stem: p for p in _ICON_DIR.glob("*.png")}
+
+
 # Bounded so a full batch of uploads does not re-read the same files from disk,
 # without pinning the whole pack (3400 × ~2 KB) in memory for the life of the
 # process.
 @lru_cache(maxsize=256)
-def _read_icon_bytes(slug: str) -> bytes:
-    return (_ICON_DIR / f"{slug}.png").read_bytes()
+def _read_icon_bytes(slug: str) -> bytes | None:
+    """The icon's bytes, or None when the pack has no such file."""
+    path = _paths_by_slug().get(slug)
+    return path.read_bytes() if path is not None else None
 
 
 def resolve_brand_icon(raw: str | None) -> tuple[bytes, str, dict[str, str]] | None:
@@ -88,11 +113,15 @@ def resolve_brand_icon(raw: str | None) -> tuple[bytes, str, dict[str, str]] | N
     if entry is None:
         return None
     try:
-        return _read_icon_bytes(slug), BRAND_ICON_MIME, entry
+        data = _read_icon_bytes(slug)
     except OSError:
+        # The file is listed but unreadable — a truncated volume, a bad mode.
+        return None
+    if data is None:
         # The index and the files disagree — a half-run generator. Treat it as
         # unknown rather than 500ing on a request the caller cannot fix.
         return None
+    return data, BRAND_ICON_MIME, entry
 
 
 def search_brand_icons(search: str, limit: int) -> list[dict[str, str]]:

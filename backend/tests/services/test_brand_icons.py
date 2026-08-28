@@ -9,6 +9,8 @@ import pytest
 from app.services.brand_icons import (
     _ICON_DIR,
     _INDEX_PATH,
+    _paths_by_slug,
+    _read_icon_bytes,
     icon_count,
     normalise_slug,
     resolve_brand_icon,
@@ -102,3 +104,42 @@ class TestPackIntegrity:
     def test_every_entry_carries_a_title_and_a_hex(self):
         index = json.loads(_INDEX_PATH.read_text(encoding="utf-8"))
         assert all(e.get("title") and e.get("hex") for e in index)
+
+
+class TestNoPathIsBuiltFromCallerInput:
+    """The slug selects from a server-produced map; it never becomes a path.
+
+    CodeQL flagged the previous `_ICON_DIR / f"{slug}.png"` as high-severity
+    path injection. It was not exploitable — the callers validated first — but
+    the safety lived entirely in whoever remembered to call the validator.
+    """
+
+    def test_every_path_comes_from_listing_the_pack_directory(self):
+        paths = _paths_by_slug()
+        assert paths, "the pack directory should list files"
+        root = _ICON_DIR.resolve()
+        for slug, path in paths.items():
+            assert path.resolve().parent == root, f"{slug} escapes the pack directory"
+            assert path.suffix == ".png"
+
+    @pytest.mark.parametrize(
+        "slug",
+        [
+            "../../../etc/passwd",
+            "..",
+            "../index",
+            "sap/../../../etc/passwd",
+            "",
+        ],
+    )
+    def test_a_traversal_slug_reads_nothing_even_without_the_validator(self, slug):
+        """Called directly, bypassing `normalise_slug` entirely.
+
+        This is the guarantee the map buys: a future caller that forgets the
+        validator still cannot reach a file outside the pack.
+        """
+        assert _read_icon_bytes(slug) is None
+
+    def test_a_slug_the_index_claims_but_disk_lacks_resolves_to_none(self):
+        # A half-run generator: reported as unknown, never as a 500.
+        assert _read_icon_bytes("definitely-not-a-file-in-the-pack") is None

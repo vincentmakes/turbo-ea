@@ -3222,11 +3222,20 @@ export default function DiagramEditor() {
   // view pass — including its `/cards?ids=` round-trip — after every single save
   // (discussion #905). Synced-cell additions still re-apply via the
   // syncOpen / refreshSyncPanel hooks.
+  // Also gated on `drawioReady`: `diagramId` lands well before DrawIO has a
+  // graph, so on a fresh load this fired once, `collectCanvasCards()` returned
+  // null, and the pass returned having done nothing. That went unnoticed for
+  // as long as the pass only set colours and label text, because both are
+  // saved *into the diagram XML* and so are already on the canvas when it
+  // opens. A logo is not — it is derived from the card record at display time
+  // — so opening a diagram showed no logos at all until something happened to
+  // re-run the pass, in practice picking a view. Same shape as the bug the
+  // comment on `refreshActiveTypeKeys` describes.
   useEffect(() => {
-    if (!diagramId) return;
+    if (!diagramId || !drawioReady) return;
     void applyView();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diagramId, view, cardLabels]);
+  }, [diagramId, drawioReady, view, cardLabels]);
 
   /* ---------- Restore banner: replace the XML with the locally-saved draft ---------- */
   const acceptRestore = useCallback(() => {
