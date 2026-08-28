@@ -30,18 +30,14 @@ what kind of card you are looking at.
 
 - **Accepted formats** — PNG, JPEG, WebP or GIF, up to 1 MB. SVG is not
   accepted, because it can carry scripts.
-- **Where it shows** — the card header, the inventory list, and any published
-  web portal built on that card type.
+- **Where it shows** — the card header and any published web portal built on
+  that card type.
 - **When there is no logo** — the card falls back to its type icon, exactly as
   before.
 
 Logos are available on card types where an administrator has switched them on;
 out of the box that is Application and IT Component. See
 [Meta Model](../admin/metamodel.md).
-
-!!! note "Third-party logos"
-    Product logos are usually trademarks of their owners. You are responsible
-    for making sure your use of an uploaded logo is permitted.
 
 ### Approval Workflow
 

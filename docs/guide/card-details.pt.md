@@ -30,18 +30,13 @@ a perceber-se num relance de que tipo de cartão se trata.
 
 - **Formatos aceites** — PNG, JPEG, WebP ou GIF, até 1 MB. O formato SVG não é
   aceite, porque pode conter scripts.
-- **Onde aparece** — no cabeçalho do cartão, na lista de inventário e em
-  qualquer portal web publicado sobre esse tipo de cartão.
+- **Onde aparece** — no cabeçalho do cartão e em qualquer portal web publicado
+  sobre esse tipo de cartão.
 - **Sem logótipo** — o cartão volta ao ícone do seu tipo, tal como antes.
 
 Os logótipos estão disponíveis nos tipos de cartão que um administrador tenha
 ativado; de origem, são Aplicação e Componente de TI. Consulte
 [Metamodelo](../admin/metamodel.md).
-
-!!! note "Logótipos de terceiros"
-    Os logótipos de produtos são geralmente marcas registadas dos seus
-    proprietários. É da sua responsabilidade assegurar que a utilização do
-    logótipo carregado é permitida.
 
 ### Fluxo de Aprovação
 

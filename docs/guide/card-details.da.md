@@ -30,17 +30,13 @@ hvilken slags kort man har foran sig.
 
 - **Tilladte formater** — PNG, JPEG, WebP eller GIF på op til 1 MB. SVG
   accepteres ikke, da formatet kan indeholde scripts.
-- **Hvor det vises** — i kortets overskrift, på fortegnelseslisten og i enhver
-  offentliggjort webportal bygget på den korttype.
+- **Hvor det vises** — i kortets overskrift og i enhver offentliggjort
+  webportal bygget på den korttype.
 - **Uden logo** — kortet falder tilbage til sit typeikon præcis som før.
 
 Logoer er tilgængelige for de korttyper, en administrator har slået dem til
 for; fra start er det Application og IT Component. Se
 [Metamodel](../admin/metamodel.md).
-
-!!! note "Tredjeparts logoer"
-    Produktlogoer er som regel varemærker tilhørende deres ejere. Du er selv
-    ansvarlig for, at brugen af et uploadet logo er tilladt.
 
 ### Godkendelses­arbejdsproces
 

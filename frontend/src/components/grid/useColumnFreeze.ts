@@ -44,7 +44,7 @@ import type { ColDef, GridApi } from "ag-grid-community";
 import type { AgGridReact } from "ag-grid-react";
 import type { SxProps, Theme } from "@mui/material";
 import { useTranslation } from "react-i18next";
-import { colIdOf, sameOrder } from "./columnOrder";
+import { colIdOf, isInternalColId, sameOrder } from "./columnOrder";
 
 /** Marker class on both pins — the click delegate keys on it. */
 export const FREEZE_TOGGLE_CLASS = "tea-freeze";
@@ -177,11 +177,26 @@ export const columnFreezeSx: SxProps<Theme> = {
  * frozen columns. `lockPosition: "left"` (AG Grid's own default for this
  * column) then holds it first within the pinned region.
  *
- * Static rather than derived from the frozen set: AG Grid rebuilds the
- * selection column only when its colId changes, so a `selectionColumnDef`
- * flipped at runtime would not take effect.
+ * `lockPinned` is what stops AG Grid taking the checkboxes away again. Since
+ * v33 the grid auto-unpins columns whenever the pinned region would leave the
+ * centre viewport under 50px, and it walks the pinned columns from index 0 —
+ * where this 50px column always sits — so the checkboxes are the *first* thing
+ * it sacrifices, after which they scroll away with the content. There is a
+ * global veto for that (`keepSelectionColumnPinned`, registered in
+ * `lib/agGridSetup.ts`), but `processUnpinnedColumns` is an *initial* grid
+ * option, so any grid constructed without that module in its import graph has
+ * no veto at all. `lockPinned` needs no such registration:
+ * `getPinnedColumnsOverflowingViewport` skips a locked column outright, before
+ * the veto is ever consulted. It also blocks the drag-to-unpin paths, and
+ * `toggleFrozen` below already refuses to act on a locked column — so the user
+ * cannot release it from the header pin or the sidebar either. It does not
+ * affect `colDef.pinned` at column creation, nor the `setColumnsPinned` API.
+ *
+ * Static rather than derived from the frozen set: there is nothing per-page to
+ * vary, and a stable object identity avoids churning AG Grid's managed
+ * `selectionColumnDef` property listener on every render.
  */
-export const freezeSelectionColumnDef: ColDef = { pinned: "left" };
+export const freezeSelectionColumnDef: ColDef = { pinned: "left", lockPinned: true };
 
 export interface UseColumnFreezeOptions {
   /**
@@ -240,11 +255,20 @@ export function apiOf<TData>(source: GridApiSource<TData>): GridApi<TData> | nul
   return "api" in source ? ((source.api as GridApi<TData> | undefined) ?? null) : source;
 }
 
-/** The colIds the grid currently has pinned to the leading edge. */
+/**
+ * The colIds the grid currently has pinned to the leading edge.
+ *
+ * AG Grid's own generated columns are excluded. The selection column is
+ * permanently pinned (see `freezeSelectionColumnDef`), so it turns up in every
+ * `getColumnState()` read — and without this filter its id would be published
+ * to `onFrozenChange` and persisted into each page's saved freeze list and
+ * into saved views, as a phantom nobody can unfreeze. Same guard
+ * `useColumnOrder` applies to the stored order.
+ */
 function frozenIdsFromGrid<TData>(api: GridApi<TData>): string[] {
   return api
     .getColumnState()
-    .filter((c) => c.pinned === "left" && c.colId)
+    .filter((c) => c.pinned === "left" && c.colId && !isInternalColId(c.colId))
     .map((c) => c.colId as string);
 }
 

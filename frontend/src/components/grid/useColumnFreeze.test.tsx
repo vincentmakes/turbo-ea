@@ -283,3 +283,50 @@ describe("useColumnFreeze", () => {
     expect(freezeRef.current!.applyFrozen(cols)).toBe(cols);
   });
 });
+
+describe("useColumnFreeze and AG Grid's own columns", () => {
+  // The selection column is permanently pinned (freezeSelectionColumnDef), so
+  // it turns up in every getColumnState() read. Its id must never reach the
+  // page's saved freeze list: nothing can unfreeze it, and it travels into
+  // saved views.
+  const withSelectionColumn = (): FakeColumn[] => [
+    { colId: "ag-Grid-SelectionColumn", pinned: "left" },
+    { colId: "name", pinned: null },
+    { colId: "type", pinned: null },
+  ];
+
+  it("does not publish the selection column when a data column is frozen", () => {
+    const columns = withSelectionColumn();
+    const { api } = makeApi(columns);
+    const onFrozenChange = vi.fn();
+    const { container } = render(
+      <Harness api={api} columns={columns} onFrozenChange={onFrozenChange} />,
+    );
+
+    clickPin(container, "name");
+
+    expect(onFrozenChange).toHaveBeenCalledWith(["name"]);
+  });
+
+  it("scrubs the selection column out of a page's frozen list on sync", () => {
+    const columns = withSelectionColumn();
+    const { api } = makeApi(columns);
+    const onFrozenChange = vi.fn();
+    const freezeRef: { current: ColumnFreeze | null } = { current: null };
+    render(
+      <Harness
+        api={api}
+        columns={columns}
+        onFrozenChange={onFrozenChange}
+        freezeRef={freezeRef}
+      />,
+    );
+    onFrozenChange.mockClear();
+
+    freezeRef.current!.syncFrozenFromGrid();
+
+    // The harness seeded `frozen` from the raw pinned state, phantom included;
+    // the sync hands the page back a list with only real columns in it.
+    expect(onFrozenChange).toHaveBeenCalledWith([]);
+  });
+});

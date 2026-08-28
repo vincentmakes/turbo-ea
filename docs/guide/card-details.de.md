@@ -32,17 +32,13 @@ welche Art von Karte es sich handelt.
 
 - **Zulässige Formate** — PNG, JPEG, WebP oder GIF, bis 1 MB. SVG wird nicht
   akzeptiert, da es Skripte enthalten kann.
-- **Wo es erscheint** — im Kartenkopf, in der Inventarliste und in jedem
-  veröffentlichten Webportal, das auf diesem Kartentyp basiert.
+- **Wo es erscheint** — im Kartenkopf und in jedem veröffentlichten Webportal,
+  das auf diesem Kartentyp basiert.
 - **Ohne Logo** — die Karte greift wie bisher auf ihr Typ-Symbol zurück.
 
 Logos stehen für Kartentypen zur Verfügung, für die eine Administratorin oder
 ein Administrator sie aktiviert hat; standardmäßig sind das Anwendung und
 IT-Komponente. Siehe [Metamodell](../admin/metamodel.md).
-
-!!! note "Logos von Drittanbietern"
-    Produktlogos sind in der Regel Marken ihrer Eigentümer. Sie sind dafür
-    verantwortlich, dass die Verwendung eines hochgeladenen Logos zulässig ist.
 
 ### Genehmigungsworkflow
 

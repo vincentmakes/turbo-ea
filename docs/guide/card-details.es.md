@@ -32,19 +32,14 @@ consultando.
 
 - **Formatos admitidos** — PNG, JPEG, WebP o GIF, hasta 1 MB. No se admite SVG,
   porque puede contener scripts.
-- **Dónde aparece** — en la cabecera de la tarjeta, en la lista de inventario y
-  en cualquier portal web publicado sobre ese tipo de tarjeta.
+- **Dónde aparece** — en la cabecera de la tarjeta y en cualquier portal web
+  publicado sobre ese tipo de tarjeta.
 - **Si no hay logotipo** — la tarjeta vuelve a su icono de tipo, igual que
   antes.
 
 Los logotipos están disponibles en los tipos de tarjeta que un administrador
 haya activado; de fábrica son Aplicación y Componente de TI. Consulte
 [Metamodelo](../admin/metamodel.md).
-
-!!! note "Logotipos de terceros"
-    Los logotipos de productos suelen ser marcas registradas de sus
-    propietarios. Usted es responsable de comprobar que el uso del logotipo
-    subido está permitido.
 
 ### Flujo de Aprobación
 

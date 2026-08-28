@@ -222,4 +222,47 @@ describe("Inventory — a frozen column survives a reload", () => {
     await waitFor(() => expect(header(container, "core_name")).not.toBeNull());
     await waitFor(() => expect(pinnedHeader(container, "core_name")).not.toBeNull());
   });
+
+  it("never saves AG Grid's own selection column as a frozen column", async () => {
+    // The selection column is permanently pinned, so it shows up in every
+    // getColumnState() read. If its id reached the saved list it would ride
+    // into saved views as a freeze nobody can release.
+    const { container } = mountPage();
+    await waitFor(() => expect(nameHeader(container)).not.toBeNull());
+
+    const pin = (nameHeader(container) as HTMLElement).querySelector(
+      ".tea-freeze-do",
+    ) as HTMLElement;
+    pin.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    pin.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    await waitFor(() => expect(pinnedName(container)).not.toBeNull());
+
+    await waitFor(() => {
+      const prefs = JSON.parse(localStorage.getItem("turboea_inventory") ?? "{}");
+      expect(prefs.frozenColumns).toEqual(["core_name"]);
+    });
+  });
+
+  it("drops AG Grid's own columns from a legacy columnState seed", async () => {
+    // A layout saved before `frozenColumns` existed is read back through the
+    // snapshot's `pinned` flags — which include the selection column.
+    seedPrefs({
+      columnState: [
+        { colId: "ag-Grid-SelectionColumn", pinned: "left" },
+        { colId: "core_name", pinned: "left" },
+      ],
+    });
+    const { container } = mountPage();
+    await waitFor(() => expect(pinnedName(container)).not.toBeNull());
+
+    await waitFor(() => {
+      const prefs = JSON.parse(localStorage.getItem("turboea_inventory") ?? "{}");
+      if (prefs.frozenColumns) {
+        expect(prefs.frozenColumns).not.toContain("ag-Grid-SelectionColumn");
+      }
+      if (prefs.columnOrder) {
+        expect(prefs.columnOrder).not.toContain("ag-Grid-SelectionColumn");
+      }
+    });
+  });
 });

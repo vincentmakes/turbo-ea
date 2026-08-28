@@ -31,18 +31,13 @@ si bien que l'on distingue toujours d'un coup d'œil le type de fiche consulté.
 
 - **Formats acceptés** — PNG, JPEG, WebP ou GIF, jusqu'à 1 Mo. Le format SVG
   est refusé, car il peut contenir des scripts.
-- **Où il apparaît** — l'en-tête de la fiche, la liste d'inventaire et tout
-  portail web publié fondé sur ce type de fiche.
+- **Où il apparaît** — l'en-tête de la fiche et tout portail web publié fondé
+  sur ce type de fiche.
 - **En l'absence de logo** — la fiche revient à son icône de type, comme avant.
 
 Les logos sont disponibles pour les types de fiches qu'un administrateur a
 activés ; par défaut, il s'agit d'Application et de Composant informatique.
 Voir [Métamodèle](../admin/metamodel.md).
-
-!!! note "Logos de tiers"
-    Les logos de produits sont généralement des marques déposées de leurs
-    propriétaires. Il vous appartient de vous assurer que l'usage d'un logo
-    téléversé est autorisé.
 
 ### Workflow d'approbation
 

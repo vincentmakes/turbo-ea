@@ -31,18 +31,13 @@ sempre chiaro a colpo d'occhio di che tipo di scheda si tratta.
 
 - **Formati accettati** — PNG, JPEG, WebP o GIF, fino a 1 MB. Il formato SVG
   non è accettato perché può contenere script.
-- **Dove compare** — nell'intestazione della scheda, nell'elenco
-  dell'inventario e in qualsiasi portale web pubblicato basato su quel tipo di
-  scheda.
+- **Dove compare** — nell'intestazione della scheda e in qualsiasi portale web
+  pubblicato basato su quel tipo di scheda.
 - **Se non c'è un logo** — la scheda torna alla sua icona di tipo, come prima.
 
 I loghi sono disponibili per i tipi di scheda che un amministratore ha
 attivato; di serie sono Applicazione e Componente IT. Vedi
 [Metamodello](../admin/metamodel.md).
-
-!!! note "Loghi di terze parti"
-    I loghi dei prodotti sono in genere marchi dei rispettivi proprietari. Sei
-    responsabile di verificare che l'uso del logo caricato sia consentito.
 
 ### Workflow di approvazione
 
