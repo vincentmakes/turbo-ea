@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 
 import { LdvNode } from "./LayeredDependencyView";
 import type { LdvNodeData } from "./layeredDependencyLayout";
@@ -136,5 +136,45 @@ describe("LdvNode badges and focus ring", () => {
     expect(outlineOf(centre)).toContain("solid");
     // The ring wears the card type's colour, not a palette entry of its own.
     expect(outlineOf(centre)).toContain("#0f7eb5");
+  });
+});
+
+describe("LdvNode card logo", () => {
+  const logo = () => document.querySelector("img");
+  const typeIcon = () => document.querySelector(".ldv-type-icon");
+
+  it("renders no image at all when the card has no logo", () => {
+    renderNode();
+    expect(logo()).toBeNull();
+    // The type icon keeps the corner it has always had.
+    expect(typeIcon()).not.toBeNull();
+  });
+
+  it("renders the logo and keeps the type icon as a badge when one is supplied", () => {
+    renderNode({ logoUrl: "/api/v1/cards/app-1/logo?v=2026-08-28T10%3A00%3A00Z" });
+    expect(logo()?.getAttribute("src")).toBe(
+      "/api/v1/cards/app-1/logo?v=2026-08-28T10%3A00%3A00Z",
+    );
+    // Both identities stay readable: the mark AND what kind of card it is.
+    expect(typeIcon()).not.toBeNull();
+  });
+
+  it("keeps the logo out of the export drop list and the type icon in it", () => {
+    // The image export filter drops `.ldv-type-icon` because a Material
+    // Symbols ligature rasterises as its raw name. A real same-origin <img>
+    // is the one thing html-to-image CAN inline, so tagging it would throw
+    // away the logo for no reason.
+    renderNode({ logoUrl: "/api/v1/cards/app-1/logo?v=1" });
+    expect(logo()?.classList.contains("ldv-type-icon")).toBe(false);
+    expect(typeIcon()).not.toBeNull();
+  });
+
+  it("falls back to the plain type icon when the image fails to load", () => {
+    // A wiped volume or a 404 must land on exactly the card this app drew
+    // before logos existed — never a broken-image glyph.
+    renderNode({ logoUrl: "/api/v1/cards/app-1/logo?v=1" });
+    fireEvent.error(logo() as HTMLElement);
+    expect(logo()).toBeNull();
+    expect(typeIcon()).not.toBeNull();
   });
 });

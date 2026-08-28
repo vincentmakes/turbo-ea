@@ -29,6 +29,8 @@ import type {
   PendingCard,
   PendingRelation,
 } from "./DiagramSyncPanel";
+import { composeCardLogoImage } from "./cardLogoImage";
+import { cardLogoUrl } from "@/components/CardLogoAvatar";
 import { diffStaleItems, fetchInventoryState } from "./staleCheck";
 import type { StaleItem } from "./staleCheck";
 import {
@@ -81,6 +83,7 @@ import {
   applyViewToGraph,
   setRelationLabelsHidden,
   applyCardTypeIcons,
+  applyCardLogos,
   applyCardLabels,
   attachCardLabelEditListener,
   readCardName,
@@ -2996,13 +2999,53 @@ export default function DiagramEditor() {
 
   /** Fetch the canvas cards and re-render their labels only — used by the
    *  card-type (no colour perspective) branch, which has no fetch of its own. */
-  const refreshCardLabels = useCallback(
-    async (frame: HTMLIFrameElement, ids: string[]) => {
+  /** The composed logo image per card id, as last applied to the canvas.
+   *  Read by the "Apply card-type icons" action so it cannot overwrite them. */
+  const logoImagesRef = useRef<Map<string, string>>(new Map());
+
+  /**
+   * Draw each card's own logo on its cell, and take it off cards that no longer
+   * have one.
+   *
+   * Composing downscales and rasterises, so it is asynchronous and deliberately
+   * not awaited by the view pass: colours and labels must not wait on images.
+   * The canvas mutation is one synchronous step at the end, guarded against
+   * landing on a diagram the reader has since navigated away from.
+   */
+  const applyLogosFromCards = useCallback((frame: HTMLIFrameElement, cards: Card[]) => {
+    const iconByType = new Map<string, string>(
+      fsTypesRef.current.filter((tp) => tp.icon).map((tp) => [tp.key, tp.icon] as const),
+    );
+    const colorByType = new Map(fsTypesRef.current.map((tp) => [tp.key, tp.color] as const));
+
+    void (async () => {
+      const composed = await Promise.all(
+        cards
+          .filter((c) => c.logo_updated_at)
+          .map(async (c) => {
+            const image = await composeCardLogoImage(
+              cardLogoUrl(c.id, c.logo_updated_at as string),
+              iconByType.get(c.type),
+              colorByType.get(c.type) ?? "#999999",
+            );
+            return image ? ([c.id, image] as const) : null;
+          }),
+      );
+      if (iframeRef.current !== frame) return; // the reader moved on mid-compose
+      const map = new Map(composed.filter((e): e is readonly [string, string] => e !== null));
+      logoImagesRef.current = map;
+      applyCardLogos(frame, map, iconByType);
+    })();
+  }, []);
+
+  const refreshCardDisplay = useCallback(
+    async (frame: HTMLIFrameElement, ids: string[], wantLabels: boolean) => {
       const params = new URLSearchParams({ ids: ids.join(",") });
       const resp = await api.get<{ items: Card[] }>(`/cards?${params.toString()}`);
-      applyCardLabels(frame, buildLinesByCardId(resp.items));
+      applyCardLabels(frame, wantLabels ? buildLinesByCardId(resp.items) : new Map());
+      applyLogosFromCards(frame, resp.items);
     },
-    [buildLinesByCardId],
+    [buildLinesByCardId, applyLogosFromCards],
   );
 
   /** Refresh the set of card types on the canvas — the list both halves of the
@@ -3040,8 +3083,10 @@ export default function DiagramEditor() {
       const { restored } = applyViewToGraph(frame, new Map(), restore);
       setViewLegendSections([]);
       setViewAppliedCount(restored);
-      if (snapshot.ids.length > 0 && hasCardLabelLines(cardLabels)) {
-        await refreshCardLabels(frame, snapshot.ids);
+      if (snapshot.ids.length > 0) {
+        // Fetched even when no label rows are switched on: a card's logo is
+        // display state too, and `logo_updated_at` only comes with the payload.
+        await refreshCardDisplay(frame, snapshot.ids, hasCardLabelLines(cardLabels));
       } else {
         applyCardLabels(frame, new Map());
       }
@@ -3091,6 +3136,7 @@ export default function DiagramEditor() {
         if (!isCurrent()) return;
         const { painted } = applyViewToGraph(frame, colorByCardId, restore);
         applyCardLabels(frame, buildLinesByCardId(resp.items));
+        applyLogosFromCards(frame, resp.items);
 
         // One legend section per rule. The "no value" swatch only appears where
         // a card on this canvas actually has no value — a permanent grey swatch
@@ -3119,7 +3165,8 @@ export default function DiagramEditor() {
     cardLabels,
     collectCanvasCards,
     buildLinesByCardId,
-    refreshCardLabels,
+    refreshCardDisplay,
+    applyLogosFromCards,
     viewResolvers,
     viewReq,
     t,
@@ -3161,7 +3208,7 @@ export default function DiagramEditor() {
         .filter((tp) => tp.icon)
         .map((tp) => [tp.key, tp.icon] as const),
     );
-    const touched = applyCardTypeIcons(frame, iconByType);
+    const touched = applyCardTypeIcons(frame, iconByType, logoImagesRef.current);
     setSnackMsg(
       touched > 0
         ? t("editor.toolbar.iconsApplied", { count: touched })

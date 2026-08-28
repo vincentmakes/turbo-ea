@@ -174,6 +174,8 @@
   "dependency.typeLabel": "Tipo",
   "dependency.showHierarchyMarkers": "Mostrar marcadores de hierarquia",
   "dependency.showHierarchyMarkersHint": "Marcar os cartões com um elemento-pai ou filhos não mostrados — use as ferramentas Mostrar para adicioná-los",
+  "dependency.showCardLogos": "Mostrar logótipos dos cartões",
+  "dependency.showCardLogosHint": "Mostra o logótipo próprio de cada cartão, quando existe, com o ícone do tipo como um pequeno emblema",
   "dependency.hasHiddenParent": "Tem um elemento-pai não mostrado — use Mostrar elemento-pai",
   "dependency.hasHiddenChildren": "Tem filhos não mostrados — use Mostrar filhos",
   "dependency.showEndOfLife": "Mostrar cartões em fim de vida",

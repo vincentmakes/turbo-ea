@@ -44,6 +44,7 @@ import {
 } from "@/lib/cardDisplayFields";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import MenuSectionHeader from "@/components/MenuSectionHeader";
+import { cardLogoUrl } from "@/components/CardLogoAvatar";
 import { getCurrentPhase } from "@/components/LifecycleBadge";
 import LdvShowOnCard from "./LdvShowOnCard";
 import LdvLineStyleSelect from "./LdvLineStyleSelect";
@@ -154,6 +155,12 @@ function computeObstacles(nodeList: Node[]): ObstacleBounds[] {
 
 const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
 
+// The logo tile in a card's top-left corner, and the type-icon badge that
+// overhangs it. Sized against the 200×72 card: big enough that a mark is
+// recognisable at a glance, small enough that it does not crowd the name.
+const LOGO_SIZE = 22;
+const LOGO_BADGE = 12;
+
 const HANDLE_POSITIONS = {
   top: Position.Top,
   bottom: Position.Bottom,
@@ -196,6 +203,14 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const tint = isDark ? `rgba(${r},${g},${b},0.22)` : `rgba(${r},${g},${b},0.12)`;
 
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
+
+  // A logo that fails to load falls the card back to the plain type icon it
+  // rendered before logos existed \u2014 never a broken-image glyph. Keyed on the
+  // URL so a replaced logo is retried rather than suppressed by a past failure.
+  const [logoFailed, setLogoFailed] = useState<string | null>(null);
+  const logoSrc = (data.logoUrl as string | undefined) ?? null;
+  const logoUrl = logoSrc && logoFailed !== logoSrc ? logoSrc : null;
+  const handleLogoError = useCallback(() => setLogoFailed(logoSrc), [logoSrc]);
 
   // Display extensions injected by the parent (see rfNodes memo)
   const lifecyclePhase = (data.lifecyclePhase as string | null | undefined) ?? null;
@@ -390,24 +405,74 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         "&:hover": { boxShadow: 4 },
       }}
     >
-      {/* Card-type icon from the metamodel (top-left corner). Tagged
-          `ldv-type-icon` so image export can drop it — it's a Material Symbols
-          font ligature, which html-to-image can't rasterise (it would emit the
-          raw icon name as text). */}
+      {/* The card's own logo, when it has one and the reader has logos on. It
+          takes the top-left slot and pushes the type icon into a small badge
+          overhanging its corner — the same grammar as `CardLogoAvatar`, so a
+          card reads the same here as on its detail page.
+
+          Deliberately NOT tagged `ldv-type-icon`: that class is the export
+          filter's drop list, and a real <img> is exactly what html-to-image
+          CAN inline (it is same-origin), so a logo exports correctly. */}
+      {logoUrl && (
+        <Box
+          component="img"
+          src={logoUrl}
+          alt=""
+          aria-hidden
+          onError={handleLogoError}
+          sx={{
+            position: "absolute",
+            top: 4,
+            left: 5,
+            width: LOGO_SIZE,
+            height: LOGO_SIZE,
+            boxSizing: "border-box",
+            p: "2px",
+            borderRadius: 0.75,
+            // Never `cover` — a vendor's mark must not be cropped.
+            objectFit: "contain",
+            bgcolor: "background.paper",
+            border: "1px solid",
+            borderColor: "divider",
+            pointerEvents: "none",
+          }}
+        />
+      )}
+      {/* Card-type icon from the metamodel (top-left corner, or badged onto the
+          logo's corner when one is shown). Tagged `ldv-type-icon` so image
+          export can drop it — it's a Material Symbols font ligature, which
+          html-to-image can't rasterise (it would emit the raw icon name as
+          text). The badge chrome carries the class too, so export drops the
+          whole badge rather than leaving an empty plate behind. */}
       {data.typeIcon && (
         <Box
           className="ldv-type-icon"
           sx={{
             position: "absolute",
-            top: 5,
-            left: 6,
             display: "flex",
             lineHeight: 0,
-            opacity: 0.9,
             pointerEvents: "none",
+            ...(logoUrl
+              ? {
+                  top: 4 + LOGO_SIZE - LOGO_BADGE * 0.75,
+                  left: 5 + LOGO_SIZE - LOGO_BADGE * 0.75,
+                  width: LOGO_BADGE,
+                  height: LOGO_BADGE,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 0.5,
+                  bgcolor: "background.paper",
+                  border: "1px solid",
+                  borderColor: "divider",
+                }
+              : { top: 5, left: 6, opacity: 0.9 }),
           }}
         >
-          <MaterialSymbol icon={data.typeIcon} size={16} color={accent} />
+          <MaterialSymbol
+            icon={data.typeIcon}
+            size={logoUrl ? Math.round(LOGO_BADGE * 0.7) : 16}
+            color={accent}
+          />
         </Box>
       )}
       {/* Lifecycle status dot (top-right corner) */}
@@ -1283,6 +1348,12 @@ function LayeredDependencyInner({
         // "apps"). The card keeps its colour, label and lifecycle dot.
         filter: (node: HTMLElement) =>
           !(node.classList && node.classList.contains("ldv-type-icon")),
+        // Card logos are real same-origin <img>s, so html-to-image inlines them
+        // and they export properly. Should one fail to fetch, this 1×1
+        // transparent GIF is what lands in its place — a broken-image glyph
+        // baked into a saved diagram would be worse than an empty corner.
+        imagePlaceholder:
+          "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
         style: {
           width: `${imageWidth}px`,
           height: `${imageHeight}px`,
@@ -1574,6 +1645,14 @@ function LayeredDependencyInner({
         // they dug into. Both ring the card in its type colour.
         isCenter: !!centerId && n.id === centerId,
         isExpanded: expandedIds?.has(n.id) ?? false,
+        // Resolved here rather than in the node so flipping the switch
+        // re-patches already-positioned nodes without disturbing their drags.
+        // A card with no logo, and every card of a type whose logos are off,
+        // has no `logo_updated_at` at all — so this is simply null for them.
+        logoUrl:
+          settings.showCardLogos && g?.logo_updated_at
+            ? cardLogoUrl(n.id, g.logo_updated_at)
+            : null,
       };
     },
     [
@@ -1582,6 +1661,7 @@ function LayeredDependencyInner({
       asOfMs,
       centerId,
       expandedIds,
+      settings.showCardLogos,
       settings.showLifecycle,
       settings.showType,
       settings.showSubtype,
@@ -2196,6 +2276,12 @@ function LayeredDependencyInner({
         </Typography>
         {(
           [
+            {
+              group: "cards",
+              key: "showCardLogos",
+              label: t("dependency.showCardLogos"),
+              hint: t("dependency.showCardLogosHint"),
+            },
             {
               group: "cards",
               key: "showHierarchyMarkers",

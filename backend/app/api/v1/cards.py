@@ -14,7 +14,6 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
-from app.models.card_logo import CardLogo
 from app.models.card_type import CardType
 from app.models.event import Event
 from app.models.relation import Relation
@@ -73,6 +72,7 @@ from app.services import card_lifecycle, card_reference, card_write_service, not
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_completeness import missing_mandatory
 from app.services.card_flags import orphaned_condition, stale_condition
+from app.services.card_logo_service import logo_updated_map
 from app.services.card_resolver import CardResolver
 from app.services.card_uniqueness import check_sibling_name_unique
 from app.services.card_write_service import (
@@ -192,46 +192,10 @@ async def _cost_redaction_map(
     return redact
 
 
-async def _logo_updated_map(db: AsyncSession, cards: list[Card]) -> dict[uuid.UUID, datetime]:
-    """Return a map of card_id → logo updated_at, for cards that have a logo.
-
-    Two batched queries, never one per card. Cards whose type has logos
-    switched off are filtered out here rather than in the client, which is what
-    makes "type toggle off ⇒ the card renders exactly as it did before" true on
-    every surface without a rule being restated in each of them.
-    """
-    if not cards:
-        return {}
-    type_keys = {c.type for c in cards if c.type}
-    if not type_keys:
-        return {}
-    allowed_types = set(
-        (
-            await db.execute(
-                select(CardType.key).where(
-                    CardType.key.in_(type_keys),
-                    CardType.allow_card_logo.is_(True),
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    if not allowed_types:
-        return {}
-    candidate_ids = [c.id for c in cards if c.type in allowed_types]
-    if not candidate_ids:
-        return {}
-    rows = await db.execute(
-        select(CardLogo.card_id, CardLogo.updated_at).where(CardLogo.card_id.in_(candidate_ids))
-    )
-    return {card_id: updated_at for card_id, updated_at in rows.all()}
-
-
 async def _card_response_with_cost_check(db: AsyncSession, user: User, card: Card) -> CardResponse:
     """Build a CardResponse, redacting cost fields per the cost permission rule."""
     redact = await _cost_redaction_map(db, user, [card])
-    logos = await _logo_updated_map(db, [card])
+    logos = await logo_updated_map(db, [card])
     return _card_to_response(
         card,
         strip_cost_keys=redact.get(card.id, frozenset()),
@@ -396,7 +360,7 @@ async def list_cards(
     result = await db.execute(q)
     cards = list(result.scalars().all())
     redact = await _cost_redaction_map(db, user, cards)
-    logos = await _logo_updated_map(db, cards)
+    logos = await logo_updated_map(db, cards)
     items = [
         _card_to_response(
             card,

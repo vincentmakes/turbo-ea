@@ -29,6 +29,23 @@ describe("LDV display settings", () => {
     expect(getLdvSettings().showRelationLabels).toBe(true);
   });
 
+  it("shows card logos by default", async () => {
+    // A logo is the fastest way to recognise a product on a dense landscape,
+    // so it is on out of the box; the switch exists for the reader who wants
+    // an unadorned diagram, not to make logos opt-in.
+    const { LDV_DEFAULT_SETTINGS, getLdvSettings } = await freshStore();
+    expect(LDV_DEFAULT_SETTINGS.showCardLogos).toBe(true);
+    expect(getLdvSettings().showCardLogos).toBe(true);
+  });
+
+  it("turns card logos on for a browser holding settings from before the option", async () => {
+    // The upgrade path: `read()` spreads the defaults under the stored blob,
+    // which is why this option needed no storage-key bump.
+    localStorage.setItem(KEY, JSON.stringify({ showType: false }));
+    const { getLdvSettings } = await freshStore();
+    expect(getLdvSettings().showCardLogos).toBe(true);
+  });
+
   it("fills in an option missing from previously stored settings", async () => {
     // What a browser holds after upgrading from a build that predates the
     // option. Without the merge onto the defaults it would read as undefined —

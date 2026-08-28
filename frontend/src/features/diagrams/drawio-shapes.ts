@@ -55,6 +55,20 @@ const BASE_STROKE_KEY = "turboBaseStroke";
 /** Sentinel recorded when the cell had no explicit value for that style key. */
 const NO_STYLE_VALUE = "-";
 
+/**
+ * Stamped onto a cell whose image slot a card logo has taken over, recording
+ * what the slot held beforehand: `icon` (a card-type glyph, restore it) or
+ * `none` (the cell had no image, and must not gain one).
+ *
+ * Deliberately a two-value marker rather than the previous image itself, the
+ * way {@link BASE_FILL_KEY} stores the previous colour: an image token is a
+ * data URI, and stamping one would put a second URI inside a style part — more
+ * than doubling every card's style and re-raising the `;`/`=` question the
+ * encoding above exists to answer. The icon is cheap to re-derive instead,
+ * because the caller already holds the metamodel map it came from.
+ */
+const LOGO_STAMP_KEY = "turboLogo";
+
 /** mxGraph suppresses a cell's label when its style carries this part. The
  *  label *value* is left untouched — hiding is a display decision, and the
  *  relation verb is still needed by the sync side-table and by anyone who
@@ -200,8 +214,10 @@ function buildIconImage(icon?: string): string | null {
  * Using `shape=label` bakes the icon into the single cell — it drags, copies
  * and exports with the shape, with no child cells or groups to manage.
  */
-function iconStyleParts(icon?: string): string[] {
-  const image = buildIconImage(icon);
+function iconStyleParts(icon?: string, logoImage?: string | null): string[] {
+  // A card's own logo wins the single image slot — it already carries the type
+  // glyph as a badge (see `cardLogoImage.ts`), so nothing is lost by it.
+  const image = logoImage || buildIconImage(icon);
   if (!image) return [];
   return [
     "shape=label",
@@ -217,6 +233,30 @@ function iconStyleParts(icon?: string): string[] {
     "spacing=4",
     "spacingLeft=24",
   ];
+}
+
+/**
+ * Drop every style part that makes up the image family, so it can be rebuilt.
+ *
+ * One list, used by both writers of that family — the logo pass and the
+ * "Apply card-type icons" action. They used to carry a copy each, which is
+ * exactly the shape of drift that lets one of them leave an orphaned
+ * `imageWidth` behind after the other has removed the `image` it sized.
+ */
+function stripImageParts(parts: string[]): string[] {
+  return parts.filter(
+    (p) =>
+      !(
+        p === "shape=label" ||
+        p.startsWith("image=") ||
+        p.startsWith("imageAlign=") ||
+        p.startsWith("imageVerticalAlign=") ||
+        p.startsWith("imageWidth=") ||
+        p.startsWith("imageHeight=") ||
+        p.startsWith("spacing") ||
+        p.startsWith(`${LOGO_STAMP_KEY}=`)
+      ),
+  );
 }
 
 /** Carry an existing cell's icon tokens across a full style rebuild. */
@@ -4013,6 +4053,85 @@ export function resetViewColors(
 }
 
 /**
+ * Show each card's own logo on the canvas, and take it back off again.
+ *
+ * Modelled on {@link applyViewToGraph}, and for the same reason: this owns one
+ * slot on a cell the user also controls, so it has to be able to tell what it
+ * put there from what was there already. A cell it takes over is stamped with
+ * {@link LOGO_STAMP_KEY}; only stamped cells are ever restored, and a cell that
+ * carried no image before gets none back.
+ *
+ * `logoByCardId` holds the composed logo-plus-badge images (see
+ * `cardLogoImage.ts`), already built; this pass does no I/O and no decoding, so
+ * it is a single synchronous model update — one undo step for the reader.
+ */
+export function applyCardLogos(
+  iframe: HTMLIFrameElement,
+  logoByCardId: Map<string, string>,
+  iconByType: Map<string, string>,
+): { painted: number; restored: number } {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return { painted: 0, restored: 0 };
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cells = model.cells || {};
+
+  let painted = 0;
+  let restored = 0;
+  model.beginUpdate();
+  try {
+    for (const k of Object.keys(cells)) {
+      const cell = cells[k];
+      if (!cell?.value?.getAttribute) continue;
+      if (cell.edge) continue;
+      const cardId = cell.value.getAttribute("cardId");
+      if (!cardId || cardId.startsWith("pending-")) continue;
+
+      const styleStr = (model.getStyle(cell) || "") as string;
+      // Preserve swimlane containers / ellipses / user shapes, exactly as
+      // `applyCardTypeIcons` does — only plain card rectangles and cells this
+      // pass or that action has already turned into `shape=label`.
+      const shapeMatch = styleStr.match(/(?:^|;)shape=([^;]+)/);
+      if (shapeMatch && shapeMatch[1] !== "label") continue;
+
+      const parts = styleStr.split(";").filter(Boolean);
+      const stamp = readStylePart(parts, LOGO_STAMP_KEY);
+      const logo = logoByCardId.get(cardId);
+
+      let next: string;
+      if (logo) {
+        // Record what the slot held the first time we take it, never again —
+        // re-stamping on a refresh would record our own logo as the base.
+        const had = stamp ?? (parts.some((p) => p.startsWith("image=")) ? "icon" : "none");
+        next = stripImageParts(parts)
+          .concat([`${LOGO_STAMP_KEY}=${had}`])
+          .concat(iconStyleParts(undefined, logo))
+          .join(";");
+      } else if (stamp != null) {
+        const cardType = cell.value.getAttribute("cardType") || "";
+        next = stripImageParts(parts)
+          .concat(stamp === "icon" ? iconStyleParts(iconByType.get(cardType)) : [])
+          .join(";");
+      } else {
+        // No logo and never taken over: leave the cell exactly as the user has
+        // it. This is what stops the pass imposing icons on a diagram drawn
+        // before icons existed.
+        continue;
+      }
+
+      if (next !== styleStr) {
+        model.setStyle(cell, next);
+        if (logo) painted += 1;
+        else restored += 1;
+      }
+    }
+  } finally {
+    model.endUpdate();
+  }
+  return { painted, restored };
+}
+
+/**
  * Add (or refresh) the card-type icon on every card-shaped cell already on the
  * canvas. Used by the "Apply card-type icons" toolbar action so cards placed on
  * a diagram before the icon feature existed can be upgraded in one click.
@@ -4027,6 +4146,7 @@ export function resetViewColors(
 export function applyCardTypeIcons(
   iframe: HTMLIFrameElement,
   iconByType: Map<string, string>,
+  logoByCardId: Map<string, string> = new Map(),
 ): number {
   const ctx = getMxGraph(iframe);
   if (!ctx) return 0;
@@ -4048,22 +4168,17 @@ export function applyCardTypeIcons(
       // `shape=label` cells are eligible.
       const shapeMatch = styleStr.match(/(?:^|;)shape=([^;]+)/);
       if (shapeMatch && shapeMatch[1] !== "label") continue;
-      const kept = styleStr
-        .split(";")
-        .filter(Boolean)
-        .filter(
-          (p) =>
-            !(
-              p === "shape=label" ||
-              p.startsWith("image=") ||
-              p.startsWith("imageAlign=") ||
-              p.startsWith("imageVerticalAlign=") ||
-              p.startsWith("imageWidth=") ||
-              p.startsWith("imageHeight=") ||
-              p.startsWith("spacing")
-            ),
-        );
-      const next = kept.concat(iconStyleParts(iconByType.get(cardType))).join(";");
+      const kept = stripImageParts(styleStr.split(";").filter(Boolean));
+      // A card showing its own logo keeps it: this action re-applies icons from
+      // the current metamodel, and without the logo map it would strip the
+      // image family and silently replace every logo on the canvas with a
+      // generic type glyph.
+      const cardId = cell.value.getAttribute("cardId") || "";
+      const logo = logoByCardId.get(cardId);
+      const next = kept
+        .concat(logo ? [`${LOGO_STAMP_KEY}=icon`] : [])
+        .concat(iconStyleParts(iconByType.get(cardType), logo))
+        .join(";");
       if (next !== styleStr) {
         model.setStyle(cell, next);
         touched += 1;

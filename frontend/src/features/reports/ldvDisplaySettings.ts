@@ -26,6 +26,12 @@ export interface LdvDisplaySettings {
    * into view — exploration is driven by the toolbar.
    */
   showHierarchyMarkers: boolean;
+  /**
+   * Show each card's custom logo, when it has one. Cards without a logo — and
+   * every card of a type whose logos an admin switched off — are unaffected:
+   * the backend simply does not send them one.
+   */
+  showCardLogos: boolean;
   /** Show related cards whose current lifecycle phase is End of Life. The centered card is always shown. */
   showEndOfLife: boolean;
   /** Show the verb on each relation edge ("supports", "uses", …). Off leaves
@@ -48,6 +54,7 @@ export const LDV_DEFAULT_SETTINGS: LdvDisplaySettings = {
   showSubtype: false,
   showLifecycle: true,
   showHierarchyMarkers: true,
+  showCardLogos: true,
   showEndOfLife: false,
   showRelationLabels: true,
   showRelationValues: true,

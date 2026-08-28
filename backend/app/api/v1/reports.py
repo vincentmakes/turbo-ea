@@ -29,6 +29,7 @@ from app.models.todo import Todo
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
 from app.services.card_flags import orphaned_condition, stale_condition, stale_cutoff
+from app.services.card_logo_service import logo_updated_map
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.kpi_snapshot_service import (
     compute_trend_block,
@@ -1961,11 +1962,18 @@ async def dependencies(
         return path
 
     # Build nodes
+    visible_cards = [c for c in (sheet_map.get(nid) for nid in visible_ids) if c]
+    # One pair of bulk queries for the whole graph, not one per node. Cards
+    # whose type has logos switched off never appear in the map, so the view
+    # needs no rule of its own.
+    logos = await logo_updated_map(db, visible_cards)
+
     nodes = []
     for nid in visible_ids:
         card = sheet_map.get(nid)
         if not card:
             continue
+        logo_at = logos.get(card.id)
         nodes.append(
             {
                 "id": nid,
@@ -1976,6 +1984,7 @@ async def dependencies(
                 "attributes": card.attributes,
                 "parent_id": str(card.parent_id) if card.parent_id else None,
                 "path": _ancestor_path(nid),
+                "logo_updated_at": logo_at.isoformat() if logo_at else None,
             }
         )
 

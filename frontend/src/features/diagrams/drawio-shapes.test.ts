@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildCardCellData,
   applyCardTypeIcons,
+  applyCardLogos,
   buildLdvDiagramXml,
   rollUpInto,
   drillDownInto,
@@ -2216,5 +2217,145 @@ describe("buildLdvDiagramXml — detail lines carried from the report", () => {
       layers,
     );
     expect(xml).toContain('label="Plain App"');
+  });
+});
+
+describe("applyCardLogos — a card's own logo on the canvas", () => {
+  const PLAIN =
+    "rounded=1;whiteSpace=wrap;html=1;fillColor=#0f7eb5;fontColor=#ffffff;strokeColor=#0a5a82";
+  const iconByType = new Map([["Application", "apps"]]);
+  // What `composeCardLogoImage` produces: a percent-encoded (never base64)
+  // PNG data URI, so it carries no `;` or `=` of its own.
+  const LOGO = "data:image/png,%89PNG%0D%0A%1A%0Aabc";
+
+  function logoCell(cardId: string | null, cardType: string, style: string, edge = false) {
+    return {
+      _style: style,
+      edge,
+      value: {
+        getAttribute: (k: string) =>
+          k === "cardType" ? cardType : k === "cardId" ? cardId : null,
+      },
+    };
+  }
+
+  it("puts the logo in the image slot of a plain card cell", () => {
+    const cells = { c1: logoCell("card-1", "Application", PLAIN) };
+    const { painted } = applyCardLogos(fakeFrame(cells), new Map([["card-1", LOGO]]), iconByType);
+    expect(painted).toBe(1);
+    expect(cells.c1._style).toContain(`image=${LOGO}`);
+    expect(cells.c1._style).toContain("shape=label");
+    expect(cells.c1._style).toContain("fillColor=#0f7eb5");
+  });
+
+  it("keeps the style parseable as `;`-delimited key=value pairs", () => {
+    // The whole reason the composed image is percent-encoded rather than
+    // base64: a raw `;` or `=` in the data URI would truncate the token and
+    // corrupt every style part after it — including this file's own helpers,
+    // which split on `;`.
+    const cells = { c1: logoCell("card-1", "Application", PLAIN) };
+    applyCardLogos(fakeFrame(cells), new Map([["card-1", LOGO]]), iconByType);
+    const parts = cells.c1._style.split(";").filter(Boolean);
+    expect(parts.filter((p) => p.startsWith("image=")).length).toBe(1);
+    for (const p of parts) expect(p).toMatch(/^[^;]+=[^;]*$/);
+  });
+
+  it("restores the card-type icon when the logo goes away", () => {
+    const cells = { c1: logoCell("card-1", "Application", PLAIN) };
+    const frame = fakeFrame(cells);
+    applyCardTypeIcons(frame, iconByType); // the cell starts with a type icon
+    applyCardLogos(frame, new Map([["card-1", LOGO]]), iconByType);
+    expect(cells.c1._style).toContain(`image=${LOGO}`);
+
+    const { restored } = applyCardLogos(frame, new Map(), iconByType);
+    expect(restored).toBe(1);
+    expect(cells.c1._style).toContain("image=data:image/svg+xml,");
+    expect(cells.c1._style).not.toContain("turboLogo=");
+  });
+
+  it("gives no icon back to a cell that never had one", () => {
+    // A diagram drawn before card icons existed must come out of a logo exactly
+    // as it went in — this pass owns the slot it took, and nothing else.
+    const cells = { c1: logoCell("card-1", "Application", PLAIN) };
+    const frame = fakeFrame(cells);
+    applyCardLogos(frame, new Map([["card-1", LOGO]]), iconByType);
+    applyCardLogos(frame, new Map(), iconByType);
+    expect(cells.c1._style).not.toContain("shape=label");
+    expect(cells.c1._style).not.toContain("image=");
+    expect(cells.c1._style).toContain("fillColor=#0f7eb5");
+  });
+
+  it("leaves an untouched card alone rather than imposing an icon on it", () => {
+    const cells = { c1: logoCell("card-1", "Application", PLAIN) };
+    const { painted, restored } = applyCardLogos(fakeFrame(cells), new Map(), iconByType);
+    expect({ painted, restored }).toEqual({ painted: 0, restored: 0 });
+    expect(cells.c1._style).toBe(PLAIN);
+  });
+
+  it("is idempotent, and never re-stamps its own logo as the base", () => {
+    const cells = { c1: logoCell("card-1", "Application", PLAIN) };
+    const frame = fakeFrame(cells);
+    applyCardTypeIcons(frame, iconByType);
+    applyCardLogos(frame, new Map([["card-1", LOGO]]), iconByType);
+    const after = cells.c1._style;
+    applyCardLogos(frame, new Map([["card-1", LOGO]]), iconByType);
+    expect(cells.c1._style).toBe(after);
+    expect(cells.c1._style.match(/turboLogo=/g)?.length).toBe(1);
+    // Re-stamping would have recorded "icon" as "icon" over our own image and
+    // the restore below would hand back the logo instead of the glyph.
+    applyCardLogos(frame, new Map(), iconByType);
+    expect(cells.c1._style).toContain("image=data:image/svg+xml,");
+  });
+
+  it("skips swimlanes, edges and pending cards", () => {
+    const cells = {
+      lane: logoCell("card-1", "Application", "shape=swimlane;startSize=28"),
+      edge: logoCell("card-1", "Application", "edgeStyle=entityRelationEdgeStyle", true),
+      pending: logoCell("pending-xyz", "Application", PLAIN),
+    };
+    const { painted } = applyCardLogos(
+      fakeFrame(cells),
+      new Map([
+        ["card-1", LOGO],
+        ["pending-xyz", LOGO],
+      ]),
+      iconByType,
+    );
+    expect(painted).toBe(0);
+  });
+});
+
+describe("applyCardTypeIcons — with logos on the canvas", () => {
+  const PLAIN = "rounded=1;whiteSpace=wrap;html=1;fillColor=#0f7eb5";
+  const iconByType = new Map([["Application", "apps"]]);
+  const LOGO = "data:image/png,%89PNG%1A";
+
+  function logoCell(cardId: string, cardType: string, style: string) {
+    return {
+      _style: style,
+      value: {
+        getAttribute: (k: string) =>
+          k === "cardType" ? cardType : k === "cardId" ? cardId : null,
+      },
+    };
+  }
+
+  it("does not replace a card's logo with a generic type glyph", () => {
+    // This action strips the whole image family and rebuilds it, so without
+    // the logo map it would silently wipe every logo on the canvas.
+    const cells = { c1: logoCell("card-1", "Application", PLAIN) };
+    applyCardTypeIcons(fakeFrame(cells), iconByType, new Map([["card-1", LOGO]]));
+    expect(cells.c1._style).toContain(`image=${LOGO}`);
+    expect(cells.c1._style).not.toContain("image=data:image/svg+xml,");
+  });
+
+  it("still icons the cards that have no logo", () => {
+    const cells = {
+      c1: logoCell("card-1", "Application", PLAIN),
+      c2: logoCell("card-2", "Application", PLAIN),
+    };
+    applyCardTypeIcons(fakeFrame(cells), iconByType, new Map([["card-1", LOGO]]));
+    expect(cells.c1._style).toContain(`image=${LOGO}`);
+    expect(cells.c2._style).toContain("image=data:image/svg+xml,");
   });
 });

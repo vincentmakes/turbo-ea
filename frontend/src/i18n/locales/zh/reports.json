@@ -174,6 +174,8 @@
   "dependency.typeLabel": "类型",
   "dependency.showHierarchyMarkers": "显示层级标记",
   "dependency.showHierarchyMarkersHint": "标记具有未显示的父级或子级的卡片——使用显示工具将其加入",
+  "dependency.showCardLogos": "显示卡片徽标",
+  "dependency.showCardLogosHint": "在卡片拥有自己的徽标时显示它，类型图标则作为小角标",
   "dependency.hasHiddenParent": "存在未显示的父级——请使用「显示父级」",
   "dependency.hasHiddenChildren": "存在未显示的子级——请使用「显示子级」",
   "dependency.showEndOfLife": "显示生命周期终止的卡片",

@@ -40,6 +40,10 @@ export interface GNode {
   attributes?: Record<string, unknown>;
   parent_id?: string | null;
   path?: string[];
+  /** When this card's logo was last written, or null when it has none. The
+   *  backend withholds it for types with logos switched off, so the view needs
+   *  no rule of its own. Doubles as the image URL's cache-buster. */
+  logo_updated_at?: string | null;
   proposed?: boolean;
   /** How this card's presence changes between today and the time-travelled date
    *  the consumer is showing (set by the consumer — the view has no timeline of

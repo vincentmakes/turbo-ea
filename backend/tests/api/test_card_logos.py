@@ -517,3 +517,54 @@ class TestBrandIconDiscovery:
     async def test_requires_authentication(self, client, db, logo_env):
         resp = await client.get("/api/v1/card-logos/brand-icons")
         assert resp.status_code in (401, 403)
+
+
+# -------------------------------------------------------------------
+# GET /reports/dependencies — logos on the Layered Dependency View
+# -------------------------------------------------------------------
+
+
+class TestDependencyReportLogos:
+    """The dependency graph carries the same logo fact every other surface does.
+
+    It is the one consumer that builds its nodes by hand rather than through
+    ``_card_to_response``, so it is also the one that can silently drift.
+    """
+
+    async def test_node_carries_logo_updated_at_for_a_card_with_a_logo(self, client, db, logo_env):
+        resp = await _upload(client, logo_env["card"].id, logo_env["admin"])
+        assert resp.status_code == 200
+
+        resp = await client.get(
+            "/api/v1/reports/dependencies",
+            headers=auth_headers(logo_env["admin"]),
+        )
+        assert resp.status_code == 200
+        nodes = {n["id"]: n for n in resp.json()["nodes"]}
+        assert nodes[str(logo_env["card"].id)]["logo_updated_at"] is not None
+
+    async def test_a_card_without_a_logo_reports_none(self, client, db, logo_env):
+        resp = await client.get(
+            "/api/v1/reports/dependencies",
+            headers=auth_headers(logo_env["admin"]),
+        )
+        nodes = {n["id"]: n for n in resp.json()["nodes"]}
+        # Present as a key, so the view reads one shape for every node.
+        assert nodes[str(logo_env["card"].id)]["logo_updated_at"] is None
+
+    async def test_a_type_with_logos_switched_off_is_withheld(self, client, db, logo_env):
+        """The per-type switch is applied server-side, once.
+
+        Uploading to the disabled type is refused, so this asserts the shape the
+        view relies on: a card of such a type never carries a logo timestamp,
+        and therefore renders exactly as it did before logos existed.
+        """
+        refused = await _upload(client, logo_env["plain"].id, logo_env["admin"])
+        assert refused.status_code == 400
+
+        resp = await client.get(
+            "/api/v1/reports/dependencies",
+            headers=auth_headers(logo_env["admin"]),
+        )
+        nodes = {n["id"]: n for n in resp.json()["nodes"]}
+        assert nodes[str(logo_env["plain"].id)]["logo_updated_at"] is None
