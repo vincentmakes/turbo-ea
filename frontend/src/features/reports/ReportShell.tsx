@@ -63,6 +63,12 @@ export interface ReportShellProps {
   /** Set to true to hide the XLSX/PPTX export menu entries for this report. */
   disableExport?: boolean;
   /**
+   * Set to true to drop the "View all saved reports" menu entry. The shell is
+   * also used outside /reports (the PPM Portfolio), where a link into the
+   * saved-report gallery points at an unrelated part of the app.
+   */
+  disableSavedReportsLink?: boolean;
+  /**
    * CSS selector identifying a single "card" / "row" inside the chart
    * area. Setting this opts the report into PPTX pagination — when the
    * captured chart exceeds one slide it will be split across multiple
@@ -94,6 +100,7 @@ export default function ReportShell({
   printParams,
   buildExportData,
   disableExport,
+  disableSavedReportsLink,
   paginateRowSelector,
   children,
 }: ReportShellProps) {
@@ -250,15 +257,17 @@ export default function ReportShell({
               <ListItemIcon><MaterialSymbol icon="link" size={18} /></ListItemIcon>
               <ListItemText>{t("shell.copyLink")}</ListItemText>
             </MenuItem>
-            <MenuItem
-              onClick={() => {
-                setExportMenu(null);
-                navigate("/reports/saved");
-              }}
-            >
-              <ListItemIcon><MaterialSymbol icon="bookmarks" size={18} /></ListItemIcon>
-              <ListItemText>{t("shell.viewAllSaved")}</ListItemText>
-            </MenuItem>
+            {!disableSavedReportsLink && (
+              <MenuItem
+                onClick={() => {
+                  setExportMenu(null);
+                  navigate("/reports/saved");
+                }}
+              >
+                <ListItemIcon><MaterialSymbol icon="bookmarks" size={18} /></ListItemIcon>
+                <ListItemText>{t("shell.viewAllSaved")}</ListItemText>
+              </MenuItem>
+            )}
           </Menu>
         </Box>
       </Box>

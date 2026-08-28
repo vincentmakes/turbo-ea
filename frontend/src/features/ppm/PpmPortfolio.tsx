@@ -842,6 +842,7 @@ export default function PpmPortfolio() {
       printParams={printParams}
       buildExportData={buildExportData}
       paginateRowSelector="[data-export-row]"
+      disableSavedReportsLink
       toolbar={filters}
     >
       {loading ? (

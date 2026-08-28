@@ -183,6 +183,16 @@ describe("PPM Portfolio print & export", () => {
     expect(screen.getByText("Export to Excel (.xlsx)")).toBeInTheDocument();
   });
 
+  it("does not offer the saved-reports gallery, which belongs to /reports", async () => {
+    await renderPortfolio();
+    await openExportMenu();
+
+    await waitFor(() => {
+      expect(screen.getByText("Copy link")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("View all saved reports")).not.toBeInTheDocument();
+  });
+
   it("exports the grid as rows rather than scraping the Gantt DOM", async () => {
     await renderPortfolio();
     const user = await openExportMenu();

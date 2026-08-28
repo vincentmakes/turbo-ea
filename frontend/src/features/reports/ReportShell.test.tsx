@@ -157,6 +157,20 @@ describe("ReportShell", () => {
     });
   });
 
+  it("drops the saved-reports entry when disableSavedReportsLink is set", async () => {
+    // The shell is reused outside /reports (the PPM Portfolio), where a link
+    // into the saved-report gallery points at an unrelated part of the app.
+    const user = userEvent.setup();
+    renderShell({ disableSavedReportsLink: true });
+
+    await user.click(screen.getByRole("button", { name: /more actions/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Copy link")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("View all saved reports")).not.toBeInTheDocument();
+  });
+
   it("navigates to saved reports page when View all saved reports is clicked", async () => {
     const user = userEvent.setup();
     renderShell();
