@@ -30,8 +30,9 @@ hvilken slags kort man har foran sig.
 
 - **Tilladte formater** — PNG, JPEG, WebP eller GIF på op til 1 MB. SVG
   accepteres ikke, da formatet kan indeholde scripts.
-- **Hvor det vises** — i kortets overskrift og i enhver offentliggjort
-  webportal bygget på den korttype.
+- **Hvor det vises** — i kortets overskrift, i den valgfri **Logo**-kolonne i
+  [Inventory](inventory.md) og i enhver offentliggjort webportal bygget på den
+  korttype.
 - **Uden logo** — kortet falder tilbage til sit typeikon præcis som før.
 
 Logoer er tilgængelige for de korttyper, en administrator har slået dem til
@@ -43,6 +44,11 @@ sæt på flere tusinde brandmærker — søg efter produktet på navn og vælg d
 skal ingen billedfil til. **Upload** bruger din egen fil i stedet. En
 AI-assistent forbundet via [MCP](../admin/mcp.md) kan sætte logoer på samme måde
 i stor skala, og er et produkt ikke i sættet, henter den selv mærket.
+
+Den samme menu findes i **Logo**-kolonnen i [Inventory](inventory.md) — hold
+musen over en logo-celle og klik — så et netop importeret landskab kan få
+mærker uden at åbne hvert enkelt kort. Det er ét kort ad gangen med vilje: et
+logo tilbydes hverken til udfyld-nedad eller Mass Edit.
 
 ### Godkendelses­arbejdsproces
 

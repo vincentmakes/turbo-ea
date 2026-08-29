@@ -30,8 +30,9 @@ a perceber-se num relance de que tipo de cartão se trata.
 
 - **Formatos aceites** — PNG, JPEG, WebP ou GIF, até 1 MB. O formato SVG não é
   aceite, porque pode conter scripts.
-- **Onde aparece** — no cabeçalho do cartão e em qualquer portal web publicado
-  sobre esse tipo de cartão.
+- **Onde aparece** — no cabeçalho do cartão, na coluna **Logótipo** opcional
+  do [Inventário](inventory.md) e em qualquer portal web publicado sobre esse
+  tipo de cartão.
 - **Sem logótipo** — o cartão volta ao ícone do seu tipo, tal como antes.
 
 Os logótipos estão disponíveis nos tipos de cartão que um administrador tenha
@@ -44,6 +45,12 @@ selecione-o; não é preciso qualquer ficheiro de imagem. **Carregar** permite u
 o seu próprio ficheiro. Um assistente de IA ligado por [MCP](../admin/mcp.md)
 pode definir logótipos da mesma forma em massa e, se um produto não constar do
 conjunto, vai buscar a marca por si.
+
+O mesmo menu está disponível na coluna **Logótipo** do
+[Inventário](inventory.md) — passe o rato sobre uma célula de logótipo e clique
+—, para que se possam colocar marcas num panorama acabado de importar sem abrir
+cada cartão. É cartão a cartão de propósito: o logótipo não é oferecido nem ao
+preenchimento para baixo nem à edição em massa.
 
 ### Fluxo de Aprovação
 

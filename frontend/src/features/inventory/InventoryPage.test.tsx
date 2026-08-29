@@ -805,6 +805,16 @@ describe("InventoryPage mass edit parent", () => {
     expect(await screen.findByText(/1 updated, 1 blocked/i)).toBeInTheDocument();
     expect(screen.getByText("Cloud Migration")).toBeInTheDocument();
   });
+
+  it("never offers the Logo as a mass-editable field", async () => {
+    // Applying one mark to every selected card is never what someone means,
+    // and there is no undo for it. Logos are set one card at a time from the
+    // grid's Logo cell, or in bulk over MCP where a dry run previews first.
+    await openMassEdit("select-application");
+
+    const listbox = await openFieldMenu();
+    expect(within(listbox).queryByRole("option", { name: /logo/i })).not.toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------

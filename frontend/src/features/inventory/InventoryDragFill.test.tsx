@@ -216,6 +216,14 @@ describe("isInventoryFillable", () => {
     expect(isInventoryFillable("ag-Grid-SelectionColumn", { field: undefined })).toBe(false);
   });
 
+  it("excludes the Logo column even when it looks fillable", () => {
+    // Deliberately asserted WITH a field: the exclusion has to be by column,
+    // not a side effect of how the column happens to be built today. One drag
+    // would rewrite the mark on every row it covered, with no undo.
+    expect(isInventoryFillable("core_logo", { field: "logo_updated_at" })).toBe(false);
+    expect(isInventoryFillable("core_logo", {})).toBe(false);
+  });
+
   it("excludes columns with nothing to persist through", () => {
     expect(isInventoryFillable("core_path", {})).toBe(false);
   });

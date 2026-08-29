@@ -32,8 +32,9 @@ consultando.
 
 - **Formatos admitidos** — PNG, JPEG, WebP o GIF, hasta 1 MB. No se admite SVG,
   porque puede contener scripts.
-- **Dónde aparece** — en la cabecera de la tarjeta y en cualquier portal web
-  publicado sobre ese tipo de tarjeta.
+- **Dónde aparece** — en la cabecera de la tarjeta, en la columna
+  **Logotipo** opcional del [Inventario](inventory.md) y en cualquier portal
+  web publicado sobre ese tipo de tarjeta.
 - **Si no hay logotipo** — la tarjeta vuelve a su icono de tipo, igual que
   antes.
 
@@ -47,6 +48,12 @@ nombre y selecciónelo; no hace falta ningún archivo de imagen. **Subir** permi
 usar su propio archivo. Un asistente de IA conectado por [MCP](../admin/mcp.md)
 puede asignar logotipos del mismo modo de forma masiva y, si un producto no está
 en el conjunto, obtiene la marca por su cuenta.
+
+El mismo menú está disponible desde la columna **Logotipo** del
+[Inventario](inventory.md) — pase el ratón sobre una celda de logotipo y haga
+clic —, de modo que se pueden poner marcas en un paisaje recién importado sin
+abrir cada ficha. Es ficha a ficha a propósito: el logotipo no se ofrece ni en
+el rellenado hacia abajo ni en la edición masiva.
 
 ### Flujo de Aprobación
 

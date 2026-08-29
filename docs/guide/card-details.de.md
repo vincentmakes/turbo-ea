@@ -32,8 +32,9 @@ welche Art von Karte es sich handelt.
 
 - **Zulässige Formate** — PNG, JPEG, WebP oder GIF, bis 1 MB. SVG wird nicht
   akzeptiert, da es Skripte enthalten kann.
-- **Wo es erscheint** — im Kartenkopf und in jedem veröffentlichten Webportal,
-  das auf diesem Kartentyp basiert.
+- **Wo es erscheint** — im Kartenkopf, in der optionalen Spalte **Logo** im
+  [Inventar](inventory.md) und in jedem veröffentlichten Webportal, das auf
+  diesem Kartentyp basiert.
 - **Ohne Logo** — die Karte greift wie bisher auf ihr Typ-Symbol zurück.
 
 Logos stehen für Kartentypen zur Verfügung, für die eine Administratorin oder
@@ -47,6 +48,12 @@ Produkt nach Namen und wählen Sie es aus; eine Bilddatei ist nicht nötig. Mit
 [MCP](../admin/mcp.md) verbundener KI-Assistent kann Logos auf demselben Weg in
 großer Zahl setzen und holt das Zeichen selbst, wenn ein Produkt nicht im Satz
 enthalten ist.
+
+Dasselbe Menü steht in der Spalte **Logo** im [Inventar](inventory.md) zur
+Verfügung — mit der Maus über eine Logo-Zelle fahren und klicken —, sodass sich
+eine frisch importierte Landschaft mit Marken versehen lässt, ohne jede Karte
+zu öffnen. Das geschieht bewusst Karte für Karte: Logos werden weder beim
+Ausfüllen nach unten noch in der Massenbearbeitung angeboten.
 
 ### Genehmigungsworkflow
 

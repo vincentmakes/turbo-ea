@@ -474,16 +474,23 @@ const FILL_CONCURRENCY = 6;
  * Everything else is gated by AG Grid's own `editable`, which the hook already
  * consults — so the readonly attributes, the Parent column outside a single
  * hierarchical type, and the stakeholder columns without the manage permission
- * need no special case here. Two exclusions are ours:
+ * need no special case here. Three exclusions are ours:
  *
  *  - **Name** is the card's identity. Copying one name down a column produces
  *    duplicates that the backend rejects on sibling-name uniqueness for every
  *    hierarchical type, so the affordance would be an invitation to fail.
  *  - **Relation columns** are driven by a popover, not an AG Grid editor;
  *    they carry no `editable` and no `field` to write through.
+ *  - **Logo** is an identity, and one drag would rewrite the mark on every row
+ *    it covered with no per-cell undo — re-uploading two hundred marks by hand
+ *    is not a recovery. It is excluded here *by name* rather than left to the
+ *    `colDef.field` test below, which it happens to fail today: that is a
+ *    property of how the column is built, and an unrelated edit could take it
+ *    away silently.
  */
 export function isInventoryFillable(colId: string, colDef: { field?: string }): boolean {
   if (colId === "core_name") return false;
+  if (colId === LOGO_COLUMN_KEY) return false;
   if (colId.startsWith("rel_")) return false;
   // AG Grid's own selection / controls column, and anything with no field to
   // persist through (Path, Data Quality, …).
@@ -2132,7 +2139,14 @@ export default function InventoryPage() {
     navigate(`/cards/${e.data.id}`);
   }, [gridEditMode, navigate]);
 
-  // Mass-editable fields for current type
+  // Mass-editable fields for current type.
+  //
+  // The Logo column is deliberately absent, and must stay absent: applying one
+  // mark to every selected card is never what someone means, and there is no
+  // undo for it. A logo is set one card at a time from its cell (or the card
+  // page), or in bulk by an agent over MCP — `set_card_logos`, which previews
+  // under a dry run first and lands in a revertible mutation batch. Drag-fill
+  // is excluded on the same reasoning, in `isInventoryFillable` above.
   type MassEditField = {
     key: string;
     label: string;

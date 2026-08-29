@@ -30,8 +30,9 @@ what kind of card you are looking at.
 
 - **Accepted formats** — PNG, JPEG, WebP or GIF, up to 1 MB. SVG is not
   accepted, because it can carry scripts.
-- **Where it shows** — the card header and any published web portal built on
-  that card type.
+- **Where it shows** — the card header, the optional **Logo** column in the
+  [Inventory](inventory.md), and any published web portal built on that card
+  type.
 - **When there is no logo** — the card falls back to its type icon, exactly as
   before.
 
@@ -45,6 +46,11 @@ select it; no image file is needed. **Upload** takes your own file instead.
 An AI assistant connected over [MCP](../admin/mcp.md) can set logos the same
 way in bulk, and where a product is not in the pack it will fetch the mark
 itself and upload it.
+
+The same menu is available from the **Logo** column in the
+[Inventory](inventory.md) — hover a logo cell and click — so marks can be put
+on a freshly imported landscape without opening every card. It is one card at a
+time on purpose: a logo is not offered to fill-down or Mass Edit.
 
 ### Approval Workflow
 

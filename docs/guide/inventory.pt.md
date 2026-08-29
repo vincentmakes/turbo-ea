@@ -64,6 +64,8 @@ A coluna **Pai** mostra apenas o cartão diretamente acima, enquanto **Caminho**
 
 A coluna **Caminho** mostra a hierarquia da ficha (por ex. «América do Norte / Vendas / Vendas internas») sem incluir o próprio nome da ficha, para que você possa exibir Nome e Caminho ao mesmo tempo.
 
+A coluna **Logótipo** mostra o logótipo próprio da ficha, ou o ícone do seu tipo quando nenhum foi definido, permitindo percorrer um panorama pela marca do produto em vez do nome. Só é oferecida para os tipos de ficha que permitem logótipos (de origem, Aplicação e Componente de TI), está desativada por predefinição e torna as linhas mais altas enquanto está visível, para que as marcas continuem legíveis. Se puder editar a ficha, passe o rato sobre a célula do logótipo e clique para carregar, substituir, escolher um ícone de marca ou remover o logótipo sem sair da grelha — o mesmo menu da página da ficha. Os logótipos ficam deliberadamente de fora do preenchimento para baixo e da edição em massa: uma marca por ficha, definida de propósito.
+
 Cada categoria tem uma caixa de seleção **Selecionar tudo** para ativar ou desativar rapidamente todas as colunas desse grupo. Um campo de pesquisa no topo permite encontrar colunas específicas por nome. O indicador em cada cabeçalho de seção mostra quantas colunas desse grupo estão atualmente visíveis.
 
 Quando um tipo de cartão é selecionado pela primeira vez, **todas as colunas de atributos e relações são ativadas por padrão**. Você pode então desmarcar as colunas que não precisa. Um botão **Redefinir** na parte inferior da aba «Colunas» restaura a seleção de colunas padrão.
@@ -80,6 +82,7 @@ O inventário usa uma tabela de dados **AG Grid** com recursos poderosos:
 |--------|-----------|
 | **Tipo** | Tipo do card com ícone colorido |
 | **Nome** | Nome do componente (clique para abrir o detalhe do card) |
+| **Logótipo** | O logótipo próprio da ficha, ou o ícone do seu tipo quando não tem nenhum. Desativada por predefinição — ative-a no separador Colunas; clique numa célula para o alterar |
 | **Descrição** | Breve descrição |
 | **Ciclo de Vida** | Estado atual do ciclo de vida |
 | **Status de Aprovação** | Badge de status de revisão |

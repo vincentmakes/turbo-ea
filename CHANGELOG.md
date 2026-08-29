@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.105.0] - 2026-08-29
+
+### Added
+
+- **See card logos in the inventory, and set them there.** The Columns tab gains a **Logo** column for card types that allow logos, so a portfolio can be scanned by product mark rather than by name — the thing logos were for, on the screen where the scanning actually happens. Hover a logo cell and click to upload, replace, choose a brand icon or remove it without leaving the grid; it is the same menu as on the card page, so there is one gesture to learn. Cards with no logo show their type icon, so the column reads as one column rather than a ragged mix of images and blanks, and a card whose type does not allow logos leaves the cell empty rather than offering an upload that would be refused. The column is off by default and rows grow taller only while it is shown. Logos are deliberately left out of fill-down and Mass Edit: a mark belongs to one card, and there is no undo for overwriting two hundred of them.
+
 ## [2.104.1] - 2026-08-28
 
 ### Fixed

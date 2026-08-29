@@ -31,7 +31,8 @@ sempre chiaro a colpo d'occhio di che tipo di scheda si tratta.
 
 - **Formati accettati** — PNG, JPEG, WebP o GIF, fino a 1 MB. Il formato SVG
   non è accettato perché può contenere script.
-- **Dove compare** — nell'intestazione della scheda e in qualsiasi portale web
+- **Dove compare** — nell'intestazione della scheda, nella colonna **Logo**
+  facoltativa dell'[Inventario](inventory.md) e in qualsiasi portale web
   pubblicato basato su quel tipo di scheda.
 - **Se non c'è un logo** — la scheda torna alla sua icona di tipo, come prima.
 
@@ -45,6 +46,12 @@ selezionalo, non serve alcun file immagine. **Carica** consente invece di usare
 un tuo file. Un assistente IA collegato via [MCP](../admin/mcp.md) può impostare
 i logo allo stesso modo in blocco e, se un prodotto non è nell'insieme, recupera
 il marchio da sé.
+
+Lo stesso menu è disponibile dalla colonna **Logo** dell'[Inventario](inventory.md)
+— passate il mouse su una cella del logo e fate clic —, così da poter applicare
+i marchi a un panorama appena importato senza aprire ogni scheda. È una scheda
+alla volta di proposito: il logo non viene offerto né al riempimento verso il
+basso né alla modifica di massa.
 
 ### Workflow di approvazione
 

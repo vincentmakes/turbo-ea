@@ -31,8 +31,9 @@ si bien que l'on distingue toujours d'un coup d'œil le type de fiche consulté.
 
 - **Formats acceptés** — PNG, JPEG, WebP ou GIF, jusqu'à 1 Mo. Le format SVG
   est refusé, car il peut contenir des scripts.
-- **Où il apparaît** — l'en-tête de la fiche et tout portail web publié fondé
-  sur ce type de fiche.
+- **Où il apparaît** — l'en-tête de la fiche, la colonne **Logo** facultative
+  de l'[Inventaire](inventory.md) et tout portail web publié fondé sur ce type
+  de fiche.
 - **En l'absence de logo** — la fiche revient à son icône de type, comme avant.
 
 Les logos sont disponibles pour les types de fiches qu'un administrateur a
@@ -45,6 +46,12 @@ son nom et sélectionnez-le, aucun fichier image n'est nécessaire. **Télévers
 permet d'utiliser votre propre fichier. Un assistant IA connecté via
 [MCP](../admin/mcp.md) peut définir les logos de la même façon en masse et, si un
 produit ne figure pas dans le jeu, il récupère la marque lui-même.
+
+Le même menu est disponible depuis la colonne **Logo** de
+l'[Inventaire](inventory.md) — survolez une cellule Logo et cliquez —, ce qui
+permet d'apposer des marques sur un paysage fraîchement importé sans ouvrir
+chaque fiche. C'est volontairement fiche par fiche : le logo n'est proposé ni
+au remplissage vers le bas ni à l'édition en masse.
 
 ### Workflow d'approbation
 
