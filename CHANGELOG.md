@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **The demo diagram gallery is organised, and the dashboard is not empty.** Demo diagrams are now filed into groups and a few are starred, and the demo admin starts with a handful of favourite cards, so **My Workspace** shows what it is for instead of an empty panel.
 - **The demo capability map has a top tier.** Six macro capabilities — Design & Engineer, Plan & Source, Make & Deliver, Market & Sell, Serve & Support, Govern & Enable — now sit above the ten level-1 capabilities, so the Macro tier and the capability hierarchy it heads can be seen without importing the catalogue first.
 
+### Changed
+
+- **The Inventory shows logos out of the box, right before the name.** The Logo column shipped switched off, which meant the marks were only ever seen by someone who went looking for them in the Columns tab — a cost the reader can see traded against a benefit they never discover. It is now on by default and sits immediately ahead of **Name**, where the eye lands first, because a logo is how a row is recognised before a word of it has been read. Rows are taller while it is shown, as before, and the column still disappears entirely on a view whose card types cannot carry a logo, so nothing changes outside Application and IT Component. Nobody's existing layout is touched: a browser that already holds a column arrangement keeps it, and **Reset columns** is the way to take up the new default. The demo's saved Application and IT Component views carry the column too, so it does not vanish the moment you open one.
+
 ## [2.106.0] - 2026-08-29
 
 ### Added

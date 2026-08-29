@@ -64,7 +64,7 @@ Die Spalte **Übergeordnetes Element** zeigt nur die direkt darüberliegende Kar
 
 Die Spalte **Pfad** zeigt den Hierarchie-Pfad der Karte (z. B. `Nordamerika / Vertrieb / Innendienst`) ohne den Namen der Karte selbst, sodass Sie Name und Pfad gleichzeitig anzeigen können.
 
-Die Spalte **Logo** zeigt das eigene Logo der Karte oder – wenn keines gesetzt ist – ihr Typsymbol, sodass sich eine Landschaft anhand der Produktmarken statt anhand der Namen überfliegen lässt. Sie wird nur für Kartentypen angeboten, die Logos erlauben (standardmäßig Anwendung und IT-Komponente), ist standardmäßig ausgeblendet und macht die Zeilen höher, solange sie eingeblendet ist, damit die Marken erkennbar bleiben. Wenn Sie die Karte bearbeiten dürfen, fahren Sie mit der Maus über die Logo-Zelle und klicken Sie darauf, um das Logo hochzuladen, zu ersetzen, ein Markensymbol auszuwählen oder es zu entfernen — ohne das Raster zu verlassen und mit demselben Menü wie auf der Kartenseite. Logos sind bewusst vom Ausfüllen nach unten und von der Massenbearbeitung ausgenommen: eine Marke pro Karte, bewusst gesetzt.
+Die Spalte **Logo** zeigt das eigene Logo der Karte oder – wenn keines gesetzt ist – ihr Typsymbol, sodass sich eine Landschaft anhand der Produktmarken statt anhand der Namen überfliegen lässt. Sie wird nur für Kartentypen angeboten, die Logos erlauben (standardmäßig Anwendung und IT-Komponente), steht direkt vor «Name», ist standardmäßig eingeblendet und macht die Zeilen höher, solange sie eingeblendet ist, damit die Marken erkennbar bleiben. Wenn Sie die Karte bearbeiten dürfen, fahren Sie mit der Maus über die Logo-Zelle und klicken Sie darauf, um das Logo hochzuladen, zu ersetzen, ein Markensymbol auszuwählen oder es zu entfernen — ohne das Raster zu verlassen und mit demselben Menü wie auf der Kartenseite. Logos sind bewusst vom Ausfüllen nach unten und von der Massenbearbeitung ausgenommen: eine Marke pro Karte, bewusst gesetzt.
 
 Jede Kategorie hat ein Kontrollkästchen **Alle auswählen**, um alle Spalten in dieser Gruppe schnell umzuschalten. Ein Suchfeld oben ermöglicht es, bestimmte Spalten nach Namen zu finden. Das Badge in jeder Abschnittsüberschrift zeigt an, wie viele Spalten aus dieser Gruppe derzeit sichtbar sind.
 
@@ -82,7 +82,7 @@ Das Inventar verwendet eine **AG Grid**-Datentabelle mit leistungsstarken Funkti
 |--------|-------------|
 | **Typ** | Kartentyp mit farbcodiertem Symbol |
 | **Name** | Komponentenname (klicken zum Öffnen der Kartendetails) |
-| **Logo** | Das eigene Logo der Karte oder ihr Typsymbol, wenn keines vorhanden ist. Standardmäßig ausgeblendet — in der Registerkarte «Spalten» aktivieren; zum Ändern auf die Zelle klicken |
+| **Logo** | Das eigene Logo der Karte oder ihr Typsymbol, wenn keines vorhanden ist. Standardmäßig eingeblendet, direkt vor «Name» — in der Registerkarte «Spalten» deaktivieren; zum Ändern auf die Zelle klicken |
 | **Beschreibung** | Kurzbeschreibung |
 | **Lebenszyklus** | Aktueller Lebenszyklusstatus |
 | **Genehmigungsstatus** | Badge des Prüfstatus |

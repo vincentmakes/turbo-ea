@@ -178,13 +178,40 @@ describe("logoColumnApplies", () => {
 });
 
 describe("Inventory — Logo column", () => {
-  it("is off by default: a fresh grid grows neither the column nor its rows", async () => {
+  it("is on by default: a fresh grid shows the column and the taller rows", async () => {
+    const { container } = mountPage();
+    await waitFor(() => expect(header(container, "core_name")).not.toBeNull());
+
+    expect(header(container, "core_logo")).not.toBeNull();
+    await waitFor(() => {
+      const row = container.querySelector(".ag-row") as HTMLElement;
+      expect(row.style.height).toBe(`${INVENTORY_LOGO_ROW_HEIGHT}px`);
+    });
+  });
+
+  it("sits ahead of the name, where the eye lands first", async () => {
+    const { container } = mountPage();
+    await waitFor(() => expect(header(container, "core_logo")).not.toBeNull());
+
+    const ids = Array.from(container.querySelectorAll(".ag-header-cell")).map((h) =>
+      h.getAttribute("col-id"),
+    );
+    const logo = ids.indexOf("core_logo");
+    const name = ids.indexOf("core_name");
+    expect(logo).toBeGreaterThanOrEqual(0);
+    expect(name).toBeGreaterThan(logo);
+  });
+
+  it("leaves a returning user's saved columns alone", async () => {
+    // Flipping the default deliberately ships NO migration: a browser that
+    // already holds a column set keeps it, rather than having a new column and
+    // taller rows imposed on a layout its owner chose. "Reset columns" is the
+    // way in for someone who wants the new default.
+    seedPrefs(["core_type", "core_name", "core_path"]);
     const { container } = mountPage();
     await waitFor(() => expect(header(container, "core_name")).not.toBeNull());
 
     expect(header(container, "core_logo")).toBeNull();
-    const row = container.querySelector(".ag-row") as HTMLElement;
-    expect(row.style.height).not.toBe(`${INVENTORY_LOGO_ROW_HEIGHT}px`);
   });
 
   it("renders the card's logo, centred, once the column is turned on", async () => {

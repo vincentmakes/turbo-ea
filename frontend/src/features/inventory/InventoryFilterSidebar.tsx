@@ -2029,10 +2029,13 @@ const METADATA_COLUMNS = [
 // The labels below are i18n keys, namespace-prefixed where applicable.
 export const CORE_COLUMNS = [
   { key: "core_type", icon: "category", tKey: "common:labels.type" as const },
+  // Ahead of the name, and on by default. A logo is how a reader recognises a
+  // row before they have read anything, so it belongs where the eye lands
+  // first — and a column nobody switches on shows nobody anything. Offered
+  // only for types that allow logos, so it is absent rather than empty
+  // everywhere else — see LOGO_COLUMN_KEY below.
+  { key: "core_logo", icon: "image", tKey: "columns.logo" as const },
   { key: "core_name", icon: "label", tKey: "common:labels.name" as const },
-  // Off by default (`optIn`), and offered only for types that allow logos —
-  // see LOGO_COLUMN_KEY below.
-  { key: "core_logo", icon: "image", tKey: "columns.logo" as const, optIn: true },
   { key: "core_reference", icon: "tag", tKey: "columns.id" as const },
   { key: "core_parent", icon: "account_tree", tKey: "columns.parent" as const },
   { key: "core_path", icon: "account_tree", tKey: "columns.path" as const },
@@ -2044,10 +2047,14 @@ export const CORE_COLUMNS = [
   { key: "core_tags", icon: "sell", tKey: "columns.tags" as const },
 ];
 
-// The core columns a freshly-selected type (or a "Reset columns") turns on.
-// `optIn` columns are deliberately excluded: the Logo column makes every row
-// taller, so it is a choice the user makes rather than one made for them.
-export const CORE_COLUMN_KEYS = CORE_COLUMNS.filter((c) => !c.optIn).map((c) => c.key);
+// The core columns a freshly-selected type (or a "Reset columns") turns on —
+// every one of them. There used to be an `optIn` flag here excluding the Logo
+// column, on the grounds that it makes rows taller; that traded a cost the
+// reader can see for a benefit they never discover, since the column has to be
+// found in this very sidebar before it shows anything. It is dropped rather
+// than left unused, so the next opt-out is a deliberate decision and not a
+// flag someone finds lying around.
+export const CORE_COLUMN_KEYS = CORE_COLUMNS.map((c) => c.key);
 
 export const LOGO_COLUMN_KEY = "core_logo";
 

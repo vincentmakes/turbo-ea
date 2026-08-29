@@ -64,7 +64,7 @@ La colonna **Padre** mostra solo la scheda immediatamente superiore, mentre **Pe
 
 La colonna **Percorso** mostra la gerarchia della scheda (per es. «Nord America / Vendite / Vendite interne») senza il nome della scheda stessa, così puoi tenere Nome e Percorso visibili contemporaneamente.
 
-La colonna **Logo** mostra il logo proprio della scheda, oppure la sua icona di tipo quando non ne è stato impostato alcuno, così da poter scorrere un panorama per marchio di prodotto anziché per nome. È offerta solo per i tipi di scheda che consentono i loghi (di serie, Applicazione e Componente IT), è disattivata per impostazione predefinita e rende le righe più alte finché è visibile, affinché i marchi restino leggibili. Se potete modificare la scheda, passate il mouse sulla cella del logo e fate clic per caricare, sostituire, scegliere un'icona di marchio o rimuovere il logo senza lasciare la griglia — lo stesso menu della pagina della scheda. I loghi sono deliberatamente esclusi dal riempimento verso il basso e dalla modifica di massa: un marchio per scheda, impostato con intenzione.
+La colonna **Logo** mostra il logo proprio della scheda, oppure la sua icona di tipo quando non ne è stato impostato alcuno, così da poter scorrere un panorama per marchio di prodotto anziché per nome. È offerta solo per i tipi di scheda che consentono i loghi (di serie, Applicazione e Componente IT), si trova appena prima di «Nome», è attiva per impostazione predefinita e rende le righe più alte finché è visibile, affinché i marchi restino leggibili. Se potete modificare la scheda, passate il mouse sulla cella del logo e fate clic per caricare, sostituire, scegliere un'icona di marchio o rimuovere il logo senza lasciare la griglia — lo stesso menu della pagina della scheda. I loghi sono deliberatamente esclusi dal riempimento verso il basso e dalla modifica di massa: un marchio per scheda, impostato con intenzione.
 
 Ogni categoria ha una casella di controllo **Seleziona tutto** per attivare o disattivare rapidamente tutte le colonne di quel gruppo. Un campo di ricerca in alto consente di trovare colonne specifiche per nome. Il badge su ogni intestazione di sezione mostra quante colonne di quel gruppo sono attualmente visibili.
 
@@ -82,7 +82,7 @@ L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:
 |---------|-------------|
 | **Tipo** | Tipo di card con icona colorata |
 | **Nome** | Nome del componente (cliccate per aprire il dettaglio della card) |
-| **Logo** | Il logo proprio della scheda, o la sua icona di tipo quando non ne ha. Disattivata per impostazione predefinita — attivatela nella scheda Colonne; fate clic su una cella per cambiarlo |
+| **Logo** | Il logo proprio della scheda, o la sua icona di tipo quando non ne ha. Visibile per impostazione predefinita, appena prima di «Nome» — disattivatela nella scheda Colonne; fate clic su una cella per cambiarlo |
 | **Descrizione** | Breve descrizione |
 | **Ciclo di vita** | Stato attuale del ciclo di vita |
 | **Stato di approvazione** | Badge dello stato di revisione |
