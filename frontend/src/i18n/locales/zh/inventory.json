@@ -11,6 +11,7 @@
   "columns.approvalStatus": "审批状态",
   "columns.dataQuality": "数据质量",
   "columns.tags": "标签",
+  "columns.logo": "徽标",
   "columns.clickToEdit": "点击编辑",
   "columns.createdAt": "创建时间",
   "columns.updatedAt": "修改时间",

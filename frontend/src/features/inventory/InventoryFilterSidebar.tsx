@@ -2030,6 +2030,9 @@ const METADATA_COLUMNS = [
 export const CORE_COLUMNS = [
   { key: "core_type", icon: "category", tKey: "common:labels.type" as const },
   { key: "core_name", icon: "label", tKey: "common:labels.name" as const },
+  // Off by default (`optIn`), and offered only for types that allow logos —
+  // see LOGO_COLUMN_KEY below.
+  { key: "core_logo", icon: "image", tKey: "columns.logo" as const, optIn: true },
   { key: "core_reference", icon: "tag", tKey: "columns.id" as const },
   { key: "core_parent", icon: "account_tree", tKey: "columns.parent" as const },
   { key: "core_path", icon: "account_tree", tKey: "columns.path" as const },
@@ -2041,7 +2044,28 @@ export const CORE_COLUMNS = [
   { key: "core_tags", icon: "sell", tKey: "columns.tags" as const },
 ];
 
-export const CORE_COLUMN_KEYS = CORE_COLUMNS.map((c) => c.key);
+// The core columns a freshly-selected type (or a "Reset columns") turns on.
+// `optIn` columns are deliberately excluded: the Logo column makes every row
+// taller, so it is a choice the user makes rather than one made for them.
+export const CORE_COLUMN_KEYS = CORE_COLUMNS.filter((c) => !c.optIn).map((c) => c.key);
+
+export const LOGO_COLUMN_KEY = "core_logo";
+
+/**
+ * Whether the Logo column applies to what is on screen — i.e. whether any of
+ * the card types in view can carry a logo at all.
+ *
+ * Shared by the column picker (which offers the column) and the grid (which
+ * builds it), so the two can never disagree about when it exists. With no type
+ * filter the grid shows everything, so any logo-bearing type qualifies.
+ */
+export function logoColumnApplies(types: CardType[], selectedTypeKeys: string[]): boolean {
+  const inView =
+    selectedTypeKeys.length > 0
+      ? types.filter((ct) => selectedTypeKeys.includes(ct.key))
+      : types;
+  return inView.some((ct) => ct.allow_card_logo);
+}
 
 // Columns that must always be visible — deselecting them broke the inventory
 // in subtle ways (no way to identify rows, broken keyboard navigation, etc.).
@@ -2181,8 +2205,12 @@ function ColumnsTab({
     filters.types.length === 1
       ? types.find((ct) => ct.key === filters.types[0])?.subtypes?.length ?? 0
       : 0;
+  // Logos exist per card type, so the column is only offered when a type in
+  // view can actually carry one.
+  const logoAvailable = logoColumnApplies(types, filters.types);
   const filteredCore = CORE_COLUMNS.filter((c) => {
     if (c.key === "core_subtype" && !singleTypeWithSubtypes) return false;
+    if (c.key === LOGO_COLUMN_KEY && !logoAvailable) return false;
     if (searchQuery && !t(c.tKey).toLowerCase().includes(lowerSearch)) return false;
     return true;
   });

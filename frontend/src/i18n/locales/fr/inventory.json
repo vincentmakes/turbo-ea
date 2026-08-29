@@ -11,6 +11,7 @@
   "columns.approvalStatus": "Statut d’approbation",
   "columns.dataQuality": "Qualité des données",
   "columns.tags": "Étiquettes",
+  "columns.logo": "Logo",
   "columns.clickToEdit": "Cliquer pour modifier",
   "columns.createdAt": "Créé",
   "columns.updatedAt": "Modifié",

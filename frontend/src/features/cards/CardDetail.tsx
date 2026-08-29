@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -20,7 +20,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import BrandIconPicker from "@/components/BrandIconPicker";
+import CardLogoMenu from "@/components/CardLogoMenu";
 import CardLogoAvatar from "@/components/CardLogoAvatar";
 import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
@@ -86,11 +86,9 @@ export default function CardDetail() {
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
   const [snack, setSnack] = useState("");
 
-  // Custom logo (discussion #1024)
+  // Custom logo (discussion #1024). The menu itself lives in CardLogoMenu,
+  // shared with the Inventory grid's Logo column.
   const [logoMenuAnchor, setLogoMenuAnchor] = useState<HTMLElement | null>(null);
-  const [iconPickerOpen, setIconPickerOpen] = useState(false);
-  const [iconPickerBusy, setIconPickerBusy] = useState(false);
-  const logoInputRef = useRef<HTMLInputElement | null>(null);
 
   // Favorite star
   const [isFavorite, setIsFavorite] = useState(false);
@@ -274,51 +272,6 @@ export default function CardDetail() {
   const isArchived = card.status === "ARCHIVED";
   const canEditSubtype = hasSubtypes && perms.can_edit && !isArchived;
   const canEditLogo = !!typeConfig?.allow_card_logo && perms.can_edit && !isArchived;
-
-  const handleLogoPicked = async (file: File | undefined) => {
-    if (!file) return;
-    try {
-      const resp = await api.upload<{ logo_updated_at: string | null }>(
-        `/cards/${card.id}/logo`,
-        file,
-      );
-      setCard({ ...card, logo_updated_at: resp.logo_updated_at });
-      setSnack(t("cards:logo.uploaded"));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err));
-    }
-  };
-
-  const handleLogoIconPicked = async (slug: string) => {
-    setIconPickerBusy(true);
-    try {
-      // The bytes never leave the server: the slug is resolved against the
-      // bundled pack, the same path `set_card_logos` takes over MCP.
-      const resp = await api.upload<{ logo_updated_at: string | null }>(
-        `/cards/${card.id}/logo`,
-        undefined,
-        "file",
-        { icon_slug: slug },
-      );
-      setCard({ ...card, logo_updated_at: resp.logo_updated_at });
-      setIconPickerOpen(false);
-      setSnack(t("cards:logo.uploaded"));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err));
-    } finally {
-      setIconPickerBusy(false);
-    }
-  };
-
-  const handleLogoRemove = async () => {
-    try {
-      await api.delete(`/cards/${card.id}/logo`);
-      setCard({ ...card, logo_updated_at: null });
-      setSnack(t("cards:logo.removed"));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err));
-    }
-  };
 
   const handleApprovalAction = async (action: "approve" | "reject" | "reset") => {
     try {
@@ -826,67 +779,17 @@ export default function CardDetail() {
         onConfirmed={handleRestoreConfirmed}
       />
 
-      {/* ── Custom logo: hidden picker + its menu ── */}
-      <input
-        ref={logoInputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
-        hidden
-        onChange={(e) => {
-          void handleLogoPicked(e.target.files?.[0]);
-          // Reset, or picking the same file twice fires no change event.
-          e.target.value = "";
-        }}
-      />
-      <Menu
+      {/* ── Custom logo: hidden file picker, menu and brand-icon dialog ── */}
+      <CardLogoMenu
+        cardId={card.id}
+        hasLogo={!!card.logo_updated_at}
         anchorEl={logoMenuAnchor}
-        open={!!logoMenuAnchor}
         onClose={() => setLogoMenuAnchor(null)}
-      >
-        <MenuItem
-          onClick={() => {
-            setLogoMenuAnchor(null);
-            logoInputRef.current?.click();
-          }}
-        >
-          <ListItemIcon>
-            <MaterialSymbol icon="upload" size={20} />
-          </ListItemIcon>
-          <ListItemText>
-            {card.logo_updated_at ? t("cards:logo.replace") : t("cards:logo.upload")}
-          </ListItemText>
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setLogoMenuAnchor(null);
-            setIconPickerOpen(true);
-          }}
-        >
-          <ListItemIcon>
-            <MaterialSymbol icon="apps" size={20} />
-          </ListItemIcon>
-          <ListItemText>{t("cards:logo.pickIcon")}</ListItemText>
-        </MenuItem>
-        {card.logo_updated_at && (
-          <MenuItem
-            onClick={() => {
-              setLogoMenuAnchor(null);
-              void handleLogoRemove();
-            }}
-          >
-            <ListItemIcon>
-              <MaterialSymbol icon="delete" size={20} />
-            </ListItemIcon>
-            <ListItemText>{t("cards:logo.remove")}</ListItemText>
-          </MenuItem>
-        )}
-      </Menu>
-
-      <BrandIconPicker
-        open={iconPickerOpen}
-        onClose={() => setIconPickerOpen(false)}
-        onPick={(slug) => void handleLogoIconPicked(slug)}
-        busy={iconPickerBusy}
+        onChanged={(_id, logoUpdatedAt) =>
+          setCard((prev) => (prev ? { ...prev, logo_updated_at: logoUpdatedAt } : prev))
+        }
+        onNotify={setSnack}
+        onError={setError}
       />
 
       <Snackbar

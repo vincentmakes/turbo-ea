@@ -11,6 +11,7 @@
   "columns.approvalStatus": "Godkendelsesstatus",
   "columns.dataQuality": "Datakvalitet",
   "columns.tags": "Tags",
+  "columns.logo": "Logo",
   "columns.clickToEdit": "Klik for at redigere",
   "columns.createdAt": "Oprettet",
   "columns.updatedAt": "Ændret",

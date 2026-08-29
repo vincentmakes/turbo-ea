@@ -11,6 +11,7 @@
   "columns.approvalStatus": "حالة الاعتماد",
   "columns.dataQuality": "جودة البيانات",
   "columns.tags": "الوسوم",
+  "columns.logo": "الشعار",
   "columns.clickToEdit": "انقر للتحرير",
   "columns.createdAt": "تاريخ الإنشاء",
   "columns.updatedAt": "تاريخ التعديل",

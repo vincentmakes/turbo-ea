@@ -11,6 +11,7 @@
   "columns.approvalStatus": "Статус утверждения",
   "columns.dataQuality": "Качество данных",
   "columns.tags": "Теги",
+  "columns.logo": "Логотип",
   "columns.clickToEdit": "Нажмите для редактирования",
   "columns.createdAt": "Создано",
   "columns.updatedAt": "Изменено",
