@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
 import DOMPurify from "dompurify";
@@ -47,8 +47,13 @@ import type {
   PortalCard,
   PortalCardListResponse,
   PortalGate,
+  PortalView,
   TagGroup,
 } from "@/types";
+
+// Lazy so the navigator — and the bpmn-js chunk behind its flow viewer — never
+// enters the bundle a card-portal visitor downloads.
+const PortalProcessNavigator = lazy(() => import("./PortalProcessNavigator"));
 
 const TOOLBAR_COLOR = "#1a1a2e";
 
@@ -469,7 +474,9 @@ export default function PortalViewer() {
   }, [slug, search, subtype, attrFilters, relationFilters, tagFilter, page, pageSize, sortBy, sortDir]);
 
   useEffect(() => {
-    if (portal && (portal.view || "cards") !== "ppm_portfolio") loadCards();
+    // A board portal renders its own data; issuing the card query would be a
+    // wasted round-trip on every load.
+    if (portal && (portal.view || "cards") === "cards") loadCards();
   }, [portal, loadCards]);
 
   const handleSearchChange = (value: string) => {
@@ -616,9 +623,17 @@ export default function PortalViewer() {
   }
 
   const typeColor = portal.type_info?.color || "#1976d2";
-  // A portfolio portal keeps the shared header and gate chrome but replaces the
-  // card grid, filter bar and detail dialog with the PPM board.
-  const isPortfolio = (portal.view || "cards") === "ppm_portfolio";
+  // A board portal keeps the shared header and gate chrome but replaces the card
+  // grid, filter bar and detail dialog with the board itself.
+  const view = (portal.view || "cards") as PortalView;
+  const isPortfolio = view === "ppm_portfolio";
+  const isNavigator = view === "process_navigator";
+  // Both boards are dense and carry no description or item count under the
+  // title, so the card portal's hero proportions leave a mostly-empty band above
+  // them. The gutter and max width stay portfolio-specific: they exist to align
+  // the banner with the Gantt grid's first column, and the house is a fluid
+  // responsive grid with no fixed first column and its own padding.
+  const isBoard = view !== "cards";
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
@@ -631,7 +646,7 @@ export default function PortalViewer() {
           // count under the title, so the card portal's hero proportions leave
           // a mostly-empty band above it. Its gutter matches the board's, which
           // is what puts the portal name over the grid's first column.
-          py: isPortfolio ? { xs: 2, md: 2.5 } : { xs: 3, md: 4 },
+          py: isBoard ? { xs: 2, md: 2.5 } : { xs: 3, md: 4 },
           px: isPortfolio ? BOARD_GUTTER : { xs: 2, md: 4 },
         }}
       >
@@ -651,8 +666,8 @@ export default function PortalViewer() {
               >
                 <Box
                   sx={{
-                    width: isPortfolio ? 32 : 40,
-                    height: isPortfolio ? 32 : 40,
+                    width: isBoard ? 32 : 40,
+                    height: isBoard ? 32 : 40,
                     borderRadius: 1.5,
                     bgcolor: "rgba(255,255,255,0.12)",
                     display: "flex",
@@ -663,12 +678,12 @@ export default function PortalViewer() {
                 >
                   <Icon
                     name={portal.type_info?.icon || "language"}
-                    size={isPortfolio ? 20 : 24}
+                    size={isBoard ? 20 : 24}
                     color="#fff"
                   />
                 </Box>
                 <Typography
-                  variant={isPortfolio ? "h5" : "h4"}
+                  variant={isBoard ? "h5" : "h4"}
                   fontWeight={700}
                   sx={{ letterSpacing: -0.5 }}
                 >
@@ -683,7 +698,7 @@ export default function PortalViewer() {
                   {portal.description}
                 </Typography>
               )}
-              {!isPortfolio && (
+              {!isBoard && (
                 <Typography variant="body2" sx={{ mt: 1.5, opacity: 0.5, fontSize: "0.8rem" }}>
                   {t("portal.itemCount", { count: total, label: portal.type_info ? typeLabel(portal.type_info) : "item" })}
                 </Typography>
@@ -696,7 +711,7 @@ export default function PortalViewer() {
                 src="/api/v1/settings/logo"
                 alt=""
                 style={{
-                  height: isPortfolio ? 32 : 45,
+                  height: isBoard ? 32 : 45,
                   objectFit: "contain",
                   opacity: 0.85,
                   flexShrink: 0,
@@ -710,6 +725,10 @@ export default function PortalViewer() {
 
       {isPortfolio ? (
         <PortalPpmPortfolio slug={slug!} portal={portal} />
+      ) : isNavigator ? (
+        <Suspense fallback={null}>
+          <PortalProcessNavigator slug={slug!} portal={portal} />
+        </Suspense>
       ) : (
         <>
         {/* Search & Filters Bar */}

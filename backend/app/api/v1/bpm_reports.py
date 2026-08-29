@@ -15,6 +15,7 @@ from app.models.process_element import ProcessElement, ProcessElementOrganizatio
 from app.models.process_flow_version import ProcessFlowVersion
 from app.models.relation import Relation
 from app.models.user import User
+from app.services import process_map_service
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/reports/bpm", tags=["reports"])
@@ -416,202 +417,46 @@ async def process_map(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Process landscape map: hierarchy + related apps, data objects, orgs, contexts."""
-    await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
-    # All active BusinessProcess cards
-    proc_result = await db.execute(
-        select(Card)
-        .where(
-            Card.type == "BusinessProcess",
-            Card.status == "ACTIVE",
-        )
-        .order_by(Card.name)
-    )
-    processes = proc_result.scalars().all()
-    proc_ids = [p.id for p in processes]
+    """Process landscape map: hierarchy + related apps, data objects, orgs, contexts.
 
-    if not proc_ids:
+    The landscape itself is assembled by ``process_map_service`` so this route and
+    the account-less Process Navigator portal are built from one implementation and
+    cannot drift. The response shape below stays this route's own — the service
+    returns the data, the route decides what an authenticated caller sees.
+    """
+    await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
+
+    data = await process_map_service.build_process_map(db, process_map_service.ProcessScope())
+    if not data.processes:
         return {"items": [], "organizations": [], "business_contexts": []}
 
-    # All Applications
-    app_result = await db.execute(
-        select(Card).where(Card.type == "Application", Card.status == "ACTIVE")
-    )
-    apps = app_result.scalars().all()
-    app_map = {a.id: a for a in apps}
-
-    # All DataObjects
-    do_result = await db.execute(
-        select(Card).where(Card.type == "DataObject", Card.status == "ACTIVE")
-    )
-    data_objects = do_result.scalars().all()
-    do_map = {d.id: d for d in data_objects}
-
-    # All Organizations (for filtering)
-    org_result = await db.execute(
-        select(Card)
-        .where(
-            Card.type == "Organization",
-            Card.status == "ACTIVE",
-        )
-        .order_by(Card.name)
-    )
-    orgs = org_result.scalars().all()
-    org_map = {o.id: o for o in orgs}
-
-    # All BusinessContexts (for filtering)
-    ctx_result = await db.execute(
-        select(Card)
-        .where(
-            Card.type == "BusinessContext",
-            Card.status == "ACTIVE",
-        )
-        .order_by(Card.name)
-    )
-    contexts = ctx_result.scalars().all()
-    ctx_map = {c.id: c for c in contexts}
-
-    # Fetch all relations touching process ids, org ids, or context ids
-    all_entity_ids = proc_ids + list(org_map.keys()) + list(ctx_map.keys())
-    rels_result = await db.execute(
-        select(Relation).where(
-            (Relation.source_id.in_(all_entity_ids)) | (Relation.target_id.in_(all_entity_ids))
-        )
-    )
-    rels = rels_result.scalars().all()
-
-    # Build mappings: process -> [apps], process -> [data objects],
-    # process -> [org_ids], process -> [ctx_ids]
-    proc_id_set = set(str(p.id) for p in processes)
-    app_id_set = set(str(a.id) for a in apps)
-    do_id_set = set(str(d.id) for d in data_objects)
-    org_id_set = set(str(o.id) for o in orgs)
-    ctx_id_set = set(str(c.id) for c in contexts)
-
-    proc_apps: dict[str, list] = {pid: [] for pid in proc_id_set}
-    proc_data: dict[str, list] = {pid: [] for pid in proc_id_set}
-    proc_orgs: dict[str, set[str]] = {pid: set() for pid in proc_id_set}
-    proc_ctxs: dict[str, set[str]] = {pid: set() for pid in proc_id_set}
-
-    for r in rels:
-        sid, tid = str(r.source_id), str(r.target_id)
-        rtype = r.type or ""
-
-        # Process -> Application (relProcessToApp)
-        if rtype == "relProcessToApp":
-            if sid in proc_id_set and tid in app_id_set:
-                proc_apps[sid].append(
-                    {
-                        "id": tid,
-                        "name": app_map[r.target_id].name,
-                        "subtype": app_map[r.target_id].subtype,
-                        "attributes": app_map[r.target_id].attributes or {},
-                        "lifecycle": app_map[r.target_id].lifecycle or {},
-                        "rel_attributes": r.attributes or {},
-                    }
-                )
-            elif tid in proc_id_set and sid in app_id_set:
-                proc_apps[tid].append(
-                    {
-                        "id": sid,
-                        "name": app_map[r.source_id].name,
-                        "subtype": app_map[r.source_id].subtype,
-                        "attributes": app_map[r.source_id].attributes or {},
-                        "lifecycle": app_map[r.source_id].lifecycle or {},
-                        "rel_attributes": r.attributes or {},
-                    }
-                )
-
-        # Process -> DataObject (relProcessToDataObj)
-        elif rtype == "relProcessToDataObj":
-            if sid in proc_id_set and tid in do_id_set:
-                proc_data[sid].append(
-                    {
-                        "id": tid,
-                        "name": do_map[r.target_id].name,
-                    }
-                )
-            elif tid in proc_id_set and sid in do_id_set:
-                proc_data[tid].append(
-                    {
-                        "id": sid,
-                        "name": do_map[r.source_id].name,
-                    }
-                )
-
-        # Process -> Organization (relProcessToOrg)
-        elif rtype == "relProcessToOrg":
-            if sid in proc_id_set and tid in org_id_set:
-                proc_orgs[sid].add(tid)
-            elif tid in proc_id_set and sid in org_id_set:
-                proc_orgs[tid].add(sid)
-
-        # Process -> BusinessContext (relProcessToBizCtx)
-        elif rtype == "relProcessToBizCtx":
-            if sid in proc_id_set and tid in ctx_id_set:
-                proc_ctxs[sid].add(tid)
-            elif tid in proc_id_set and sid in ctx_id_set:
-                proc_ctxs[tid].add(sid)
-
-    # Fetch diagram coverage and element counts per process
-    from sqlalchemy import func as sa_func
-
-    diag_result = await db.execute(
-        select(ProcessFlowVersion.process_id)
-        .where(ProcessFlowVersion.status == "published")
-        .distinct()
-    )
-    diag_map = {str(row[0]): True for row in diag_result}
-
-    elem_result = await db.execute(
-        select(
-            ProcessElement.process_id,
-            sa_func.count(ProcessElement.id).label("cnt"),
-        ).group_by(ProcessElement.process_id)
-    )
-    elem_count_map = {str(row.process_id): row.cnt for row in elem_result}
-
     items = []
-    for p in processes:
+    for p in data.processes:
         pid = str(p.id)
-        linked_apps = proc_apps.get(pid, [])
-        attrs = p.attributes or {}
-
-        total_cost = sum(
-            (
-                a.get("attributes", {}).get("costTotalAnnual", 0)
-                or a.get("attributes", {}).get("totalAnnualCost", 0)
-                or 0
-            )
-            for a in linked_apps
-        )
-
+        linked_apps = data.proc_apps.get(pid, [])
         items.append(
             {
                 "id": pid,
                 "name": p.name,
                 "subtype": p.subtype,
                 "parent_id": str(p.parent_id) if p.parent_id else None,
-                "attributes": attrs,
+                "attributes": p.attributes or {},
                 "lifecycle": p.lifecycle or {},
                 "app_count": len(linked_apps),
-                "total_cost": total_cost,
+                "total_cost": process_map_service.total_app_cost(linked_apps),
                 "apps": linked_apps,
-                "data_objects": proc_data.get(pid, []),
-                "org_ids": sorted(proc_orgs.get(pid, set())),
-                "ctx_ids": sorted(proc_ctxs.get(pid, set())),
-                "has_diagram": pid in diag_map,
-                "element_count": elem_count_map.get(pid, 0),
+                "data_objects": data.proc_data.get(pid, []),
+                "org_ids": sorted(data.proc_orgs.get(pid, set())),
+                "ctx_ids": sorted(data.proc_ctxs.get(pid, set())),
+                "has_diagram": pid in data.published_ids,
+                "element_count": data.element_counts.get(pid, 0),
             }
         )
 
-    organizations = [{"id": str(o.id), "name": o.name} for o in orgs]
-    business_contexts = [{"id": str(c.id), "name": c.name} for c in contexts]
-
     return {
         "items": items,
-        "organizations": organizations,
-        "business_contexts": business_contexts,
+        "organizations": [{"id": str(o.id), "name": o.name} for o in data.organizations],
+        "business_contexts": [{"id": str(c.id), "name": c.name} for c in data.business_contexts],
     }
 
 

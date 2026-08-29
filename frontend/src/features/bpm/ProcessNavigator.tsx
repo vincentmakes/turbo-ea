@@ -66,6 +66,20 @@ import { useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
 import { useProcessTypeOptions } from "./useProcessTypeOptions";
 import type { ProcessTypeOption } from "./useProcessTypeOptions";
+import {
+  FULL_CAPABILITIES,
+  ProcessNavigatorProvider,
+  useNavigatorCapabilities,
+  useNavigatorMeta,
+  useNavigatorSource,
+} from "./ProcessNavigatorContext";
+import type {
+  NavigatorCapabilities,
+  NavigatorMeta,
+  NavigatorStep,
+  ProcessFlowPayload,
+  ProcessNavigatorSource,
+} from "./ProcessNavigatorContext";
 import type { ProcessElement, ProcessFlowVersion } from "@/types";
 import { readableTextColor } from "@/lib/color";
 
@@ -94,6 +108,8 @@ interface ProcItem {
   name: string;
   subtype?: string;
   parent_id: string | null;
+  /** Carried by the public process map, so a portal drawer needs no card fetch. */
+  description?: string;
   attributes?: Record<string, unknown>;
   lifecycle?: Record<string, string>;
   app_count: number;
@@ -120,25 +136,6 @@ interface ProcNode extends ProcItem {
   deepDataObjects: Map<string, DataObjRef>;
 }
 
-interface ProcessElementData {
-  id: string;
-  process_id: string;
-  bpmn_element_id?: string;
-  element_type: string;
-  name: string;
-  documentation?: string;
-  lane_name?: string;
-  is_automated: boolean;
-  sequence_order: number;
-  application_id?: string;
-  application_name?: string;
-  data_object_id?: string;
-  data_object_name?: string;
-  it_component_id?: string;
-  it_component_name?: string;
-  organizations?: { id: string; name: string }[];
-  custom_fields?: Record<string, unknown>;
-}
 
 type ColorOverlay = "processType" | "maturity" | "automationLevel" | "riskLevel";
 type ViewMode = "house" | "matrix" | "dependencies";
@@ -370,15 +367,15 @@ function HouseCard({
 }) {
   const { t } = useTranslation(["bpm", "common"]);
   const stLabel = useSubtypeLabel();
-  const { getType } = useMetamodel();
-  const { resolve: resolveProcessType } = useProcessTypeOptions();
+  const meta = useNavigatorMeta();
+  const caps = useNavigatorCapabilities();
+  const { resolve: resolveProcessType } = meta.processTypes;
   const color = getCardColor(node, overlay, resolveProcessType);
   const isLeaf = node.level >= displayLevel || node.children.length === 0;
   const childCount = node.children.length;
   const hasElements = (node.element_count ?? 0) > 0;
   const hasDiagram = node.has_diagram ?? false;
-  const bpType = getType("BusinessProcess");
-  const stDef = node.subtype ? bpType?.subtypes?.find((s) => s.key === node.subtype) : undefined;
+  const stDef = node.subtype ? meta.subtypes.find((s) => s.key === node.subtype) : undefined;
   const subtypeLabel = stDef ? stLabel(stDef) : null;
 
   // Search highlight
@@ -516,7 +513,7 @@ function HouseCard({
               {subtypeLabel}
             </Typography>
           )}
-          {node.deepAppCount > 0 && (
+          {caps.showRollups && node.deepAppCount > 0 && (
             <Tooltip title={t("navigator.applicationCount", { count: node.deepAppCount })}>
               <Chip
                 size="small"
@@ -828,20 +825,34 @@ function DrawerOverview({
 }) {
   const { t } = useTranslation(["bpm", "common"]);
   const stLabel = useSubtypeLabel();
-  const { getType } = useMetamodel();
-  const { resolve: resolveProcessType } = useProcessTypeOptions();
+  const meta = useNavigatorMeta();
+  const caps = useNavigatorCapabilities();
+  const source = useNavigatorSource();
+  const { resolve: resolveProcessType } = meta.processTypes;
   const [card, setCard] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // A portal source has no `loadCard`: it never calls `/cards/{id}` and never
+  // links to one. The description and lifecycle below then fall back to what the
+  // process map already carries, so the tab stays useful without a card fetch.
+  const loadCard = source.loadCard;
   useEffect(() => {
+    if (!loadCard) {
+      setCard(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setCard(null);
-    api
-      .get<Record<string, unknown>>(`/cards/${node.id}`)
+    loadCard(node.id)
       .then(setCard)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [node.id]);
+  }, [node.id, loadCard]);
+
+  const description = (card?.description as string | undefined) ?? node.description;
+  const lifecycle =
+    (card?.lifecycle as Record<string, string> | undefined) ?? node.lifecycle ?? {};
 
   const attrChips: { label: string; color: string }[] = [];
   for (const opt of OVERLAY_OPTIONS) {
@@ -856,8 +867,7 @@ function DrawerOverview({
           : null;
     if (info) attrChips.push({ label: `${t(opt.labelKey)}: ${info.label}`, color: info.color });
   }
-  const bpType = getType("BusinessProcess");
-  const stDef = node.subtype ? bpType?.subtypes?.find((s) => s.key === node.subtype) : undefined;
+  const stDef = node.subtype ? meta.subtypes.find((s) => s.key === node.subtype) : undefined;
   const drawerSubtypeLabel = stDef ? stLabel(stDef) : null;
 
   return (
@@ -874,16 +884,21 @@ function DrawerOverview({
         </Box>
       )}
 
-      {/* KPI row */}
+      {/* KPI row — the application and data counts are landscape data, which a
+          portal does not publish, so it shows the step count alone. */}
       <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
-        <Box sx={{ textAlign: "center", minWidth: 70 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>{node.deepAppCount}</Typography>
-          <Typography variant="caption" color="text.secondary">{t("navigator.apps")}</Typography>
-        </Box>
-        <Box sx={{ textAlign: "center", minWidth: 70 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>{node.deepDataObjects.size}</Typography>
-          <Typography variant="caption" color="text.secondary">{t("navigator.dataObjects")}</Typography>
-        </Box>
+        {caps.showRollups && (
+          <>
+            <Box sx={{ textAlign: "center", minWidth: 70 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>{node.deepAppCount}</Typography>
+              <Typography variant="caption" color="text.secondary">{t("navigator.apps")}</Typography>
+            </Box>
+            <Box sx={{ textAlign: "center", minWidth: 70 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>{node.deepDataObjects.size}</Typography>
+              <Typography variant="caption" color="text.secondary">{t("navigator.dataObjects")}</Typography>
+            </Box>
+          </>
+        )}
         <Box sx={{ textAlign: "center", minWidth: 70 }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>{node.element_count ?? 0}</Typography>
           <Typography variant="caption" color="text.secondary">{t("navigator.elements")}</Typography>
@@ -903,7 +918,7 @@ function DrawerOverview({
               sx={{ cursor: "pointer" }}
             />
           )}
-          {node.has_diagram ? (
+          {node.has_diagram && caps.canOpenCard ? (
             <Chip
               size="small"
               icon={<MaterialSymbol icon="schema" size={14} />}
@@ -919,23 +934,23 @@ function DrawerOverview({
       {loading && <LinearProgress sx={{ mb: 2 }} />}
 
       {/* Description */}
-      {card && !!card.description && (
+      {!!description && (
         <>
           <Divider sx={{ my: 1.5 }} />
           <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t("common:labels.description")}</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap", mb: 1 }}>
-            {String(card.description)}
+            {String(description)}
           </Typography>
         </>
       )}
 
       {/* Lifecycle */}
-      {card && !!card.lifecycle && Object.keys(card.lifecycle as Record<string, string>).length > 0 && (
+      {Object.keys(lifecycle).length > 0 && (
         <>
           <Divider sx={{ my: 1.5 }} />
           <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t("navigator.lifecycle")}</Typography>
           <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mb: 1 }}>
-            {Object.entries(card.lifecycle as Record<string, string>).map(
+            {Object.entries(lifecycle).map(
               ([phase, date]) =>
                 date ? (
                   <Chip
@@ -1081,19 +1096,31 @@ function DrawerSteps({
   onNavigate: (id: string) => void;
 }) {
   const { t } = useTranslation(["bpm", "common"]);
-  const [elements, setElements] = useState<ProcessElementData[]>([]);
+  const source = useNavigatorSource();
+  const caps = useNavigatorCapabilities();
+  const [elements, setElements] = useState<NavigatorStep[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setError("");
-    api
-      .get<ProcessElementData[]>(`/bpm/processes/${processId}/elements`)
-      .then(setElements)
-      .catch((err) => setError(err?.message || "Failed to load elements"))
-      .finally(() => setLoading(false));
-  }, [processId]);
+    source
+      .loadFlow(processId)
+      .then((flow) => {
+        if (!cancelled) setElements(flow.steps);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err?.message || "Failed to load elements");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [processId, source]);
 
   if (loading) return <LinearProgress />;
   if (error)
@@ -1113,7 +1140,7 @@ function DrawerSteps({
     );
 
   // Group by lane
-  const lanes = new Map<string, ProcessElementData[]>();
+  const lanes = new Map<string, NavigatorStep[]>();
   for (const el of elements) {
     const lane = el.lane_name || t("navigator.defaultLane");
     lanes.set(lane, [...(lanes.get(lane) || []), el]);
@@ -1136,7 +1163,7 @@ function DrawerSteps({
               };
               const isLast = idx === laneElements.length - 1;
               return (
-                <Box key={el.id}>
+                <Box key={el.bpmn_element_id}>
                   {/* Step card */}
                   <Box
                     sx={{
@@ -1203,7 +1230,11 @@ function DrawerSteps({
                             size="small"
                             icon={<MaterialSymbol icon="apps" size={12} />}
                             label={el.application_name}
-                            onClick={() => el.application_id && onNavigate(el.application_id)}
+                            onClick={
+                              caps.canOpenCard && el.application_id
+                                ? () => onNavigate(el.application_id!)
+                                : undefined
+                            }
                             sx={{
                               height: 20,
                               fontSize: "0.65rem",
@@ -1218,7 +1249,11 @@ function DrawerSteps({
                             size="small"
                             icon={<MaterialSymbol icon="database" size={12} />}
                             label={el.data_object_name}
-                            onClick={() => el.data_object_id && onNavigate(el.data_object_id)}
+                            onClick={
+                              caps.canOpenCard && el.data_object_id
+                                ? () => onNavigate(el.data_object_id!)
+                                : undefined
+                            }
                             sx={{
                               height: 20,
                               fontSize: "0.65rem",
@@ -1233,7 +1268,11 @@ function DrawerSteps({
                             size="small"
                             icon={<MaterialSymbol icon="memory" size={12} />}
                             label={el.it_component_name}
-                            onClick={() => el.it_component_id && onNavigate(el.it_component_id)}
+                            onClick={
+                              caps.canOpenCard && el.it_component_id
+                                ? () => onNavigate(el.it_component_id!)
+                                : undefined
+                            }
                             sx={{
                               height: 20,
                               fontSize: "0.65rem",
@@ -1249,7 +1288,7 @@ function DrawerSteps({
                             size="small"
                             icon={<MaterialSymbol icon="corporate_fare" size={12} />}
                             label={org.name}
-                            onClick={() => onNavigate(org.id)}
+                            onClick={caps.canOpenCard ? () => onNavigate(org.id) : undefined}
                             sx={{
                               height: 20,
                               fontSize: "0.65rem",
@@ -1291,37 +1330,40 @@ function DrawerFlow({
   onNavigate: (path: string) => void;
 }) {
   const { t } = useTranslation(["bpm", "common"]);
+  const source = useNavigatorSource();
+  const caps = useNavigatorCapabilities();
   const [svgThumbnail, setSvgThumbnail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasPublished, setHasPublished] = useState(false);
   const [hasDrafts, setHasDrafts] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setHasPublished(false);
     setHasDrafts(false);
     setSvgThumbnail(null);
 
-    // Check for published version (the only version shown in this preview)
-    Promise.all([
-      api
-        .get<{ bpmn_xml?: string; svg_thumbnail?: string; status?: string } | null>(
-          `/bpm/processes/${processId}/flow/published`,
-        )
-        .catch(() => null),
-      api
-        .get<{ id: string }[]>(`/bpm/processes/${processId}/flow/drafts`)
-        .catch(() => [] as { id: string }[]),
-    ])
-      .then(([pub, drafts]) => {
-        if (pub?.bpmn_xml) {
+    // One call for the published flow, its thumbnail and its steps — the tab
+    // used to make two, and the fullscreen preview a third for the same data.
+    source
+      .loadFlow(processId)
+      .then((flow) => {
+        if (cancelled) return;
+        if (flow.bpmnXml) {
           setHasPublished(true);
-          if (pub.svg_thumbnail) setSvgThumbnail(pub.svg_thumbnail);
+          if (flow.svgThumbnail) setSvgThumbnail(flow.svgThumbnail);
         }
-        if (drafts && drafts.length > 0) setHasDrafts(true);
+        if (flow.hasDrafts) setHasDrafts(true);
       })
-      .finally(() => setLoading(false));
-  }, [processId]);
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [processId, source]);
 
   // Navigate to card detail Process Flow tab (read-only published view)
   const openFlowTab = () => onNavigate(`/cards/${processId}?tab=1`);
@@ -1342,14 +1384,16 @@ function DrawerFlow({
         <Typography color="text.secondary" sx={{ mt: 1 }}>
           {t("navigator.noProcessFlow")}
         </Typography>
-        <Chip
-          size="small"
-          icon={<MaterialSymbol icon="open_in_new" size={14} />}
-          label={t("navigator.goToProcessFlow")}
-          onClick={openFlowTab}
-          color="primary"
-          sx={{ mt: 1, cursor: "pointer" }}
-        />
+        {caps.canOpenCard && (
+          <Chip
+            size="small"
+            icon={<MaterialSymbol icon="open_in_new" size={14} />}
+            label={t("navigator.goToProcessFlow")}
+            onClick={openFlowTab}
+            color="primary"
+            sx={{ mt: 1, cursor: "pointer" }}
+          />
+        )}
       </Box>
     );
 
@@ -1378,14 +1422,16 @@ function DrawerFlow({
         <Typography color="text.secondary" sx={{ mt: 1 }}>
           {t("navigator.publishedFlowAvailable")}
         </Typography>
-        <Chip
-          size="small"
-          icon={<MaterialSymbol icon="open_in_new" size={14} />}
-          label={t("navigator.viewPublishedFlow")}
-          onClick={openFlowTab}
-          color="primary"
-          sx={{ mt: 1, cursor: "pointer" }}
-        />
+        {caps.canOpenCard && (
+          <Chip
+            size="small"
+            icon={<MaterialSymbol icon="open_in_new" size={14} />}
+            label={t("navigator.viewPublishedFlow")}
+            onClick={openFlowTab}
+            color="primary"
+            sx={{ mt: 1, cursor: "pointer" }}
+          />
+        )}
       </Box>
     );
 
@@ -1403,19 +1449,21 @@ function DrawerFlow({
           "&:hover": { boxShadow: 2 },
           "& svg": { maxWidth: "100%", height: "auto" },
         }}
-        onClick={openFlowTab}
+        onClick={caps.canOpenCard ? openFlowTab : undefined}
         dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svgThumbnail!, { USE_PROFILES: { svg: true } }) }}
       />
-      <Box sx={{ display: "flex", justifyContent: "center" }}>
-        <Chip
-          size="small"
-          icon={<MaterialSymbol icon="open_in_new" size={14} />}
-          label={t("navigator.viewPublishedFlow")}
-          onClick={openFlowTab}
-          color="primary"
-          sx={{ cursor: "pointer" }}
-        />
-      </Box>
+      {caps.canOpenCard && (
+        <Box sx={{ display: "flex", justifyContent: "center" }}>
+          <Chip
+            size="small"
+            icon={<MaterialSymbol icon="open_in_new" size={14} />}
+            label={t("navigator.viewPublishedFlow")}
+            onClick={openFlowTab}
+            color="primary"
+            sx={{ cursor: "pointer" }}
+          />
+        </Box>
+      )}
     </Box>
   );
 }
@@ -1434,35 +1482,32 @@ function FlowPreviewDialog({
   onNavigate: (path: string) => void;
 }) {
   const { t } = useTranslation(["bpm", "common"]);
+  const source = useNavigatorSource();
+  const caps = useNavigatorCapabilities();
   const [loading, setLoading] = useState(true);
   const [bpmnXml, setBpmnXml] = useState<string | null>(null);
-  const [elements, setElements] = useState<ProcessElement[]>([]);
+  const [elements, setElements] = useState<NavigatorStep[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setBpmnXml(null);
     setElements([]);
-    Promise.all([
-      api
-        .get<ProcessFlowVersion | null>(`/bpm/processes/${node.id}/flow/published`)
-        .catch(() => null),
-      api
-        .get<ProcessElement[]>(`/bpm/processes/${node.id}/elements`)
-        .catch(() => [] as ProcessElement[]),
-    ])
-      .then(([pub, els]) => {
+    source
+      .loadFlow(node.id)
+      .then((flow) => {
         if (cancelled) return;
-        setBpmnXml(pub?.bpmn_xml ?? null);
-        setElements(els ?? []);
+        setBpmnXml(flow.bpmnXml);
+        setElements(flow.steps);
       })
+      .catch(() => {})
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [node.id]);
+  }, [node.id, source]);
 
   const openFlowEditor = () => onNavigate(`/cards/${node.id}?tab=1`);
 
@@ -1476,13 +1521,15 @@ function FlowPreviewDialog({
           <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div" noWrap>
             {node.name} &mdash; {t("navigator.flow")}
           </Typography>
-          <Button
-            color="inherit"
-            startIcon={<MaterialSymbol icon="open_in_new" />}
-            onClick={openFlowEditor}
-          >
-            {t("navigator.viewFlow")}
-          </Button>
+          {caps.canOpenCard && (
+            <Button
+              color="inherit"
+              startIcon={<MaterialSymbol icon="open_in_new" />}
+              onClick={openFlowEditor}
+            >
+              {t("navigator.viewFlow")}
+            </Button>
+          )}
         </Toolbar>
       </AppBar>
       <DialogContent sx={{ p: 0, display: "flex", flexDirection: "column" }}>
@@ -1496,14 +1543,16 @@ function FlowPreviewDialog({
             <Typography color="text.secondary" sx={{ mt: 1 }}>
               {t("navigator.noProcessFlow")}
             </Typography>
-            <Chip
-              size="small"
-              icon={<MaterialSymbol icon="open_in_new" size={14} />}
-              label={t("navigator.goToProcessFlow")}
-              onClick={openFlowEditor}
-              color="primary"
-              sx={{ mt: 1.5, cursor: "pointer" }}
-            />
+            {caps.canOpenCard && (
+              <Chip
+                size="small"
+                icon={<MaterialSymbol icon="open_in_new" size={14} />}
+                label={t("navigator.goToProcessFlow")}
+                onClick={openFlowEditor}
+                color="primary"
+                sx={{ mt: 1.5, cursor: "pointer" }}
+              />
+            )}
           </Box>
         ) : (
           <Box sx={{ flex: 1, minHeight: 0 }}>
@@ -1679,7 +1728,12 @@ function ProcessDrawer({
   onDrill: (id: string) => void;
 }) {
   const { t } = useTranslation(["bpm", "common"]);
+  const caps = useNavigatorCapabilities();
   const [tab, setTab] = useState(0);
+  // Rendered by key, not by index: a portal publishes only the first three, so
+  // a positional `tab === 3` would silently show Data under an Apps label.
+  const tabs = caps.drawerTabs;
+  const activeTab = tabs[Math.min(tab, tabs.length - 1)];
 
   // Reset tab when node changes
   useEffect(() => {
@@ -1716,16 +1770,18 @@ function ProcessDrawer({
           <Typography variant="h6" sx={{ fontWeight: 700, flex: 1, fontSize: "1.1rem" }} noWrap>
             {node.name}
           </Typography>
-          <Tooltip title={t("navigator.openCard")}>
-            <IconButton
-              onClick={() => onNavigate(node.id)}
-              size="small"
-              sx={{ color: "#fff" }}
-              aria-label={t("navigator.openCard")}
-            >
-              <MaterialSymbol icon="open_in_new" size={20} />
-            </IconButton>
-          </Tooltip>
+          {caps.canOpenCard && (
+            <Tooltip title={t("navigator.openCard")}>
+              <IconButton
+                onClick={() => onNavigate(node.id)}
+                size="small"
+                sx={{ color: "#fff" }}
+                aria-label={t("navigator.openCard")}
+              >
+                <MaterialSymbol icon="open_in_new" size={20} />
+              </IconButton>
+            </Tooltip>
+          )}
           <IconButton onClick={onClose} size="small" sx={{ color: "#fff" }}>
             <MaterialSymbol icon="close" size={20} />
           </IconButton>
@@ -1745,28 +1801,39 @@ function ProcessDrawer({
           "& .MuiTab-root": { minHeight: 36, py: 0, fontSize: "0.8rem" },
         }}
       >
-        <Tab label={t("navigator.overview")} icon={<MaterialSymbol icon="info" size={16} />} iconPosition="start" />
-        <Tab
-          label={`${t("navigator.steps")}${node.element_count ? ` (${node.element_count})` : ""}`}
-          icon={<MaterialSymbol icon="checklist" size={16} />}
-          iconPosition="start"
-        />
-        <Tab label={t("navigator.flow")} icon={<MaterialSymbol icon="schema" size={16} />} iconPosition="start" />
-        <Tab
-          label={`${t("navigator.apps")} (${node.deepAppCount})`}
-          icon={<MaterialSymbol icon="apps" size={16} />}
-          iconPosition="start"
-        />
-        <Tab
-          label={`${t("navigator.data")} (${node.deepDataObjects.size})`}
-          icon={<MaterialSymbol icon="database" size={16} />}
-          iconPosition="start"
-        />
+        {tabs.map((key) =>
+          key === "overview" ? (
+            <Tab key={key} label={t("navigator.overview")} icon={<MaterialSymbol icon="info" size={16} />} iconPosition="start" />
+          ) : key === "steps" ? (
+            <Tab
+              key={key}
+              label={`${t("navigator.steps")}${node.element_count ? ` (${node.element_count})` : ""}`}
+              icon={<MaterialSymbol icon="checklist" size={16} />}
+              iconPosition="start"
+            />
+          ) : key === "flow" ? (
+            <Tab key={key} label={t("navigator.flow")} icon={<MaterialSymbol icon="schema" size={16} />} iconPosition="start" />
+          ) : key === "apps" ? (
+            <Tab
+              key={key}
+              label={`${t("navigator.apps")} (${node.deepAppCount})`}
+              icon={<MaterialSymbol icon="apps" size={16} />}
+              iconPosition="start"
+            />
+          ) : (
+            <Tab
+              key={key}
+              label={`${t("navigator.data")} (${node.deepDataObjects.size})`}
+              icon={<MaterialSymbol icon="database" size={16} />}
+              iconPosition="start"
+            />
+          ),
+        )}
       </Tabs>
 
       {/* Tab content */}
       <Box sx={{ flex: 1, overflowY: "auto", p: 2 }}>
-        {tab === 0 && (
+        {activeTab === "overview" && (
           <DrawerOverview
             node={node}
             overlay={overlay}
@@ -1775,10 +1842,10 @@ function ProcessDrawer({
             onDrill={onDrill}
           />
         )}
-        {tab === 1 && <DrawerSteps processId={node.id} onNavigate={onNavigate} />}
-        {tab === 2 && <DrawerFlow processId={node.id} onNavigate={onNavigate} />}
-        {tab === 3 && <DrawerApps node={node} onNavigate={onNavigate} />}
-        {tab === 4 && <DrawerData node={node} onNavigate={onNavigate} />}
+        {activeTab === "steps" && <DrawerSteps processId={node.id} onNavigate={onNavigate} />}
+        {activeTab === "flow" && <DrawerFlow processId={node.id} onNavigate={onNavigate} />}
+        {activeTab === "apps" && <DrawerApps node={node} onNavigate={onNavigate} />}
+        {activeTab === "data" && <DrawerData node={node} onNavigate={onNavigate} />}
       </Box>
     </Box>
   );
@@ -2023,7 +2090,7 @@ function LevelIndicator({
 
 function OverlayLegend({ overlay }: { overlay: ColorOverlay }) {
   const { t } = useTranslation(["bpm", "common"]);
-  const { options: processTypeOptions } = useProcessTypeOptions();
+  const { options: processTypeOptions } = useNavigatorMeta().processTypes;
   const items =
     overlay === "processType"
       ? processTypeOptions.map(({ label, color }) => ({ label, color }))
@@ -2070,19 +2137,23 @@ function OverlayLegend({ overlay }: { overlay: ColorOverlay }) {
 /*  Main: ProcessNavigator                                             */
 /* ================================================================== */
 
-export default function ProcessNavigator() {
+/**
+ * The navigator itself. Renders from the source, capabilities and metamodel
+ * facts on the context, so the in-app page and a published web portal share
+ * one implementation. See `ProcessNavigatorContext.tsx`.
+ */
+export function ProcessNavigatorBody() {
   const { t } = useTranslation(["bpm", "common"]);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { getType } = useMetamodel();
-  const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const source = useNavigatorSource();
+  const caps = useNavigatorCapabilities();
+  const meta = useNavigatorMeta();
+  const isAdmin = caps.canReorder;
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Metamodel type info for BusinessProcess
-  const processType = getType("BusinessProcess");
-  const typeIcon = processType?.icon ?? "route";
-  const typeColor = processType?.color ?? "#028f00";
+  const typeIcon = meta.typeIcon;
+  const typeColor = meta.typeColor;
 
   // ── Data ──
   const [data, setData] = useState<ProcItem[] | null>(null);
@@ -2094,6 +2165,22 @@ export default function ProcessNavigator() {
   // ── Load defaults from localStorage (URL params take priority) ──
   const STORAGE_KEY = "turboea-report:process-navigator";
   const [localConfig] = useState<Record<string, unknown> | null>(() => {
+    // A portal visitor gets the opening state its administrator configured, and
+    // nothing is remembered — a reload returns to it. Same contract as the
+    // published PPM board.
+    //
+    // Mapped onto the stored-preference key names rather than spread verbatim:
+    // the readers below look for `displayLevel`, so passing the capability's
+    // `level` through unchanged would silently ignore a configured opening level.
+    if (!caps.persistPreferences) {
+      const init = caps.initial;
+      if (!init) return null;
+      return {
+        displayLevel: init.level,
+        overlay: init.overlay,
+        columns: init.columns,
+      };
+    }
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) return JSON.parse(raw);
@@ -2125,20 +2212,16 @@ export default function ProcessNavigator() {
 
   // ── Load data ──
   const loadData = useCallback(() => {
-    Promise.all([
-      api.get<{ items: ProcItem[]; organizations: RefItem[]; business_contexts: RefItem[] }>(
-        "/reports/bpm/process-map",
-      ),
-      api.get<{ row_order: string[] }>("/settings/bpm-row-order").catch(() => ({ row_order: ["management", "core", "support"] })),
-    ])
-      .then(([r, rowOrderRes]) => {
-        setData(r.items);
+    source
+      .loadMap()
+      .then((r) => {
+        setData(r.items as ProcItem[]);
         setOrganizations(r.organizations ?? []);
-        if (rowOrderRes.row_order?.length) setRowOrder(rowOrderRes.row_order);
+        if (r.rowOrder?.length) setRowOrder(r.rowOrder);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [source]);
 
   useEffect(() => {
     loadData();
@@ -2204,6 +2287,7 @@ export default function ProcessNavigator() {
 
   // ── Auto-persist to localStorage ──
   useEffect(() => {
+    if (!caps.persistPreferences) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         viewMode,
@@ -2212,7 +2296,7 @@ export default function ProcessNavigator() {
         columns,
       }));
     } catch { /* ignore */ }
-  }, [viewMode, displayLevel, overlay, columns, STORAGE_KEY]);
+  }, [viewMode, displayLevel, overlay, columns, STORAGE_KEY, caps.persistPreferences]);
 
   // ── Reset all parameters to defaults ──
   const handleReset = useCallback(() => {
@@ -2277,7 +2361,7 @@ export default function ProcessNavigator() {
     options: ptOptions,
     defaultKey: ptDefaultKey,
     resolve: resolveProcessType,
-  } = useProcessTypeOptions();
+  } = meta.processTypes;
 
   const houseRows = useMemo(() => {
     const rows: Record<string, ProcNode[]> = {};
@@ -2332,15 +2416,10 @@ export default function ProcessNavigator() {
       const [moved] = reordered.splice(fromIdx, 1);
       reordered.splice(toIdx, 0, moved);
 
+      if (!source.reorderCards) return;
       setReordering(true);
       try {
-        await Promise.all(
-          reordered.map((s, i) =>
-            api.patch(`/cards/${s.id}`, {
-              attributes: { ...(s.attributes || {}), sortOrder: i },
-            }),
-          ),
-        );
+        await source.reorderCards(reordered.map((s, i) => ({ id: s.id, sortOrder: i })));
         loadData();
       } catch (e) {
         console.error("Drag reorder failed", e);
@@ -2348,7 +2427,7 @@ export default function ProcessNavigator() {
         setReordering(false);
       }
     },
-    [data, reordering, loadData, effectiveRowOrder, ptDefaultKey],
+    [data, reordering, loadData, effectiveRowOrder, ptDefaultKey, source],
   );
 
   // ── Row reorder (admin) ──
@@ -2362,12 +2441,12 @@ export default function ProcessNavigator() {
       setRowOrder(newOrder);
       // Persist to backend
       try {
-        await api.patch("/settings/bpm-row-order", { row_order: newOrder });
+        await source.saveRowOrder?.(newOrder);
       } catch (e) {
         console.error("Failed to save row order", e);
       }
     },
-    [effectiveRowOrder],
+    [effectiveRowOrder, source],
   );
 
   // ── Search filter for house view ──
@@ -2427,20 +2506,24 @@ export default function ProcessNavigator() {
               </Box>
             </Tooltip>
           </ToggleButton>
-          <ToggleButton value="matrix">
-            <Tooltip title={t("navigator.processAppMatrix")}>
-              <Box sx={{ display: "flex" }}>
-                <MaterialSymbol icon="table_chart" size={18} />
-              </Box>
-            </Tooltip>
-          </ToggleButton>
-          <ToggleButton value="dependencies">
-            <Tooltip title={t("reports.processDependencies")}>
-              <Box sx={{ display: "flex" }}>
-                <MaterialSymbol icon="hub" size={18} />
-              </Box>
-            </Tooltip>
-          </ToggleButton>
+          {caps.viewModes.includes("matrix") && (
+            <ToggleButton value="matrix">
+              <Tooltip title={t("navigator.processAppMatrix")}>
+                <Box sx={{ display: "flex" }}>
+                  <MaterialSymbol icon="table_chart" size={18} />
+                </Box>
+              </Tooltip>
+            </ToggleButton>
+          )}
+          {caps.viewModes.includes("dependencies") && (
+            <ToggleButton value="dependencies">
+              <Tooltip title={t("reports.processDependencies")}>
+                <Box sx={{ display: "flex" }}>
+                  <MaterialSymbol icon="hub" size={18} />
+                </Box>
+              </Tooltip>
+            </ToggleButton>
+          )}
         </ToggleButtonGroup>
 
         <Tooltip title={t("navigator.resetToDefaults")}>
@@ -2757,8 +2840,12 @@ export default function ProcessNavigator() {
         </>
       )}
 
-      {viewMode === "matrix" && <MatrixView onNavigate={handleNavigate} />}
-      {viewMode === "dependencies" && <DependenciesView onNavigate={handleNavigate} />}
+      {viewMode === "matrix" && caps.viewModes.includes("matrix") && (
+        <MatrixView onNavigate={handleNavigate} />
+      )}
+      {viewMode === "dependencies" && caps.viewModes.includes("dependencies") && (
+        <DependenciesView onNavigate={handleNavigate} />
+      )}
 
       {/* ── Detail Drawer ── */}
       <Drawer
@@ -2790,5 +2877,97 @@ export default function ProcessNavigator() {
         />
       )}
     </Box>
+  );
+}
+
+/* ================================================================== */
+/*  Authenticated container                                            */
+/* ================================================================== */
+
+/**
+ * The in-app Process Navigator.
+ *
+ * Supplies the authenticated source and the full capability set, so this export
+ * behaves exactly as it did before the context seam existed — which is what lets
+ * `ProcessNavigator.test.tsx` go on guarding it unchanged. The published portal
+ * twin is `features/web-portals/PortalProcessNavigator.tsx`.
+ */
+export default function ProcessNavigator() {
+  const { getType } = useMetamodel();
+  const processTypes = useProcessTypeOptions();
+  const { user } = useAuth();
+  const bpType = getType("BusinessProcess");
+
+  const source = useMemo<ProcessNavigatorSource>(
+    () => ({
+      loadMap: async () => {
+        const [r, rowOrderRes] = await Promise.all([
+          api.get<{ items: ProcItem[]; organizations: RefItem[] }>("/reports/bpm/process-map"),
+          api
+            .get<{ row_order: string[] }>("/settings/bpm-row-order")
+            .catch(() => ({ row_order: ["management", "core", "support"] })),
+        ]);
+        return {
+          items: r.items,
+          organizations: r.organizations ?? [],
+          rowOrder: rowOrderRes.row_order ?? [],
+        };
+      },
+      // One call for what used to be two endpoints fetched three times: the
+      // Steps tab, the flow thumbnail and the fullscreen preview all want the
+      // published flow and its elements.
+      loadFlow: async (processId): Promise<ProcessFlowPayload> => {
+        const [pub, els, drafts] = await Promise.all([
+          api
+            .get<ProcessFlowVersion | null>(`/bpm/processes/${processId}/flow/published`)
+            .catch(() => null),
+          api
+            .get<ProcessElement[]>(`/bpm/processes/${processId}/elements`)
+            .catch(() => [] as ProcessElement[]),
+          api
+            .get<{ id: string }[]>(`/bpm/processes/${processId}/flow/drafts`)
+            .catch(() => [] as { id: string }[]),
+        ]);
+        return {
+          bpmnXml: pub?.bpmn_xml ?? null,
+          svgThumbnail: pub?.svg_thumbnail ?? null,
+          steps: (els ?? []) as NavigatorStep[],
+          hasDrafts: (drafts?.length ?? 0) > 0,
+        };
+      },
+      loadCard: (processId) => api.get<Record<string, unknown>>(`/cards/${processId}`),
+      reorderCards: async (updates) => {
+        await Promise.all(
+          updates.map((u) =>
+            api.patch(`/cards/${u.id}`, { attributes: { sortOrder: u.sortOrder } }),
+          ),
+        );
+      },
+      saveRowOrder: async (order) => {
+        await api.patch("/settings/bpm-row-order", { row_order: order });
+      },
+    }),
+    [],
+  );
+
+  const capabilities = useMemo<NavigatorCapabilities>(
+    () => ({ ...FULL_CAPABILITIES, canReorder: user?.role === "admin" }),
+    [user?.role],
+  );
+
+  const meta = useMemo<NavigatorMeta>(
+    () => ({
+      typeIcon: bpType?.icon ?? "route",
+      typeColor: bpType?.color ?? "#028f00",
+      subtypes: bpType?.subtypes ?? [],
+      processTypes,
+    }),
+    [bpType, processTypes],
+  );
+
+  return (
+    <ProcessNavigatorProvider value={{ source, capabilities, meta }}>
+      <ProcessNavigatorBody />
+    </ProcessNavigatorProvider>
   );
 }

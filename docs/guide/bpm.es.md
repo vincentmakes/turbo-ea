@@ -21,6 +21,9 @@ Las tarjetas con un diagrama BPMN publicado muestran un **icono de flujo**: haga
 
 **Disposición en columnas:** la barra de herramientas incluye un **selector de columnas** —una, dos o tres— para ensanchar las tarjetas de proceso o encajar más de una fila en pantalla. Una fila nunca se estira sobre más columnas de las que tiene procesos, y la elección se recuerda entre visitas. La elección también se propaga a los niveles anidados, una columna menos por nivel, de modo que los procesos profundos ya no quedan reducidos a franjas estrechas.
 
+
+**Publicación:** el Navegador de Procesos puede publicarse como un [portal web](../admin/web-portals.md) de solo lectura, para que personas sin cuenta de Turbo EA — nuevas incorporaciones, auditores, socios — puedan recorrer la casa de procesos y abrir cada flujo BPMN publicado.
+
 ## Panel de Control BPM
 
 ![Panel de Control BPM con Estadísticas](../assets/img/es/15_bpm_panel_control.png)

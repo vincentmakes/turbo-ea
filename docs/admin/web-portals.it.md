@@ -14,12 +14,13 @@ I portali web sono utili per condividere informazioni architetturali con stakeho
 
 ## Tipo di portale
 
-Ogni portale pubblica una di due viste, scelta tramite **Tipo di portale**:
+Ogni portale pubblica una di tre viste, scelta tramite **Tipo di portale**:
 
 | Tipo | Cosa vedono i visitatori |
 |------|--------------------------|
 | **Elenco di schede** | Una griglia di schede con ricerca e filtri: il portale classico, configurato con le proprietà indicate sotto. |
 | **Bacheca del portfolio PPM** | La [bacheca del portfolio PPM](../guide/ppm.md) in sola lettura: cronologia, indicatori di stato e budget rispetto all'effettivo per ogni iniziativa attiva. |
+| **Navigatore di processi** | La [Casa dei Processi](../guide/bpm.md) in sola lettura: la gerarchia dei processi aziendali e il flusso BPMN pubblicato di ogni processo. |
 
 ### Portali di portfolio PPM
 
@@ -68,6 +69,51 @@ vengono pubblicate.
 Un portale di portfolio può essere protetto con SSO come qualsiasi altro portale.
 Disattivando il modulo PPM in **Admin > Impostazioni** tutti i portali di portfolio
 diventano immediatamente inaccessibili, senza doverli ritirare uno a uno.
+
+### Portali navigatore di processi
+
+Selezionando **Navigatore di processi** il portale diventa una vista in sola lettura
+della vostra **Casa dei Processi**, disponibile su un link pubblico **senza account,
+senza licenza e senza accesso**. Esiste per chi ha più bisogno di capire come lavora
+l'organizzazione e meno probabilità di avere un'utenza: nuovi assunti, revisori,
+personale operativo e partner esterni.
+
+Il portale è sempre limitato alle schede **Processo aziendale**, quindi il selettore
+del tipo di scheda è bloccato. I filtri **sottotipi** e **tag** restano validi: è così
+che si pubblica un ramo della casa anziché l'intera casa.
+
+I visitatori vedono la stessa casa che il vostro team usa in Turbo EA: la gerarchia
+raggruppata in righe per tipo di processo, il cursore dei livelli, zoom e briciole di
+pane, la ricerca, le colorazioni, il filtro per organizzazione e il numero di colonne.
+Aprendo un processo si vedono panoramica, passi e il **flusso BPMN pubblicato** — a
+schermo intero, con spostamento e zoom, esattamente come lo vede il vostro team.
+
+Due impostazioni e due stati di apertura governano la casa pubblicata:
+
+| Impostazione | Predefinito | Effetto |
+|--------------|-------------|---------|
+| **Mostra i sistemi collegati a ogni passo** | **Disattivato** | I nomi di applicazioni, oggetti dati, componenti IT e organizzazioni collegati a ogni passo. Disattivato per impostazione predefinita perché rivela quali sistemi eseguono i vostri processi |
+| **Si apre al livello** | 2 | Quanto in profondità viene mostrata la gerarchia all'inizio |
+| **Si apre colorato per** | Tipo di processo | Quale attributo colora i riquadri all'inizio |
+
+Gli ultimi due sono solo un punto di partenza: il visitatore può cambiare entrambi i
+controlli e nulla viene ricordato, quindi riaprire il portale riporta a quanto
+configurato qui.
+
+!!! note
+    Alcune cose non vengono mai pubblicate, qualunque sia la scelta: le applicazioni,
+    gli oggetti dati e i costi dietro un processo, la matrice Processo × Applicazione
+    e la vista delle dipendenze, e ogni BPMN non **pubblicato** — bozze, revisioni in
+    attesa, archiviate e ritirate restano dietro l'accesso.
+
+A differenza di un portale portafoglio, le cui righe conducono in Turbo EA dopo il
+normale accesso, un portale navigatore di processi **non porta da nessuna parte**. È
+voluto: una casa pubblicata per lettori senza account deve rispondere a «come lo
+facciamo» senza mostrare una porta che non possono aprire.
+
+Un portale navigatore di processi può essere protetto con SSO come qualsiasi altro
+portale. Disattivando il modulo BPM in **Admin > Impostazioni** tutti i portali di
+processo si spengono subito; non è necessario ritirarli uno a uno.
 
 ## Protezione dell'accesso
 

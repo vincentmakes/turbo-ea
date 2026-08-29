@@ -14,12 +14,13 @@ Web portals are useful for sharing architecture information with stakeholders wh
 
 ## Portal Type
 
-Each portal publishes one of two things, chosen with **Portal type**:
+Each portal publishes one of three things, chosen with **Portal type**:
 
 | Type | What visitors see |
 |------|-------------------|
 | **Card list** | A searchable, filterable grid of cards — the classic portal, configured with the properties below. |
 | **PPM portfolio board** | The read-only [PPM portfolio board](../guide/ppm.md) — timeline, health indicators and budget-versus-actual for every active initiative. |
+| **Process navigator** | The read-only [Process House](../guide/bpm.md) — your business process hierarchy, and each process's published BPMN flow. |
 
 ### PPM portfolio portals
 
@@ -67,6 +68,50 @@ are published at all.
 A portfolio portal can be SSO-gated like any other portal. Turning the PPM module
 off in **Admin > Settings** takes every portfolio portal dark immediately; you do
 not have to unpublish them one by one.
+
+### Process navigator portals
+
+Selecting **Process navigator** turns the portal into a read-only view of your
+**Process House**, available on a public link with **no account, no licence and no
+login**. It exists for the people who most need to read how the organisation
+works and are least likely to have a seat: new joiners, auditors, front-line
+staff and external partners.
+
+The board is always scoped to **Business Process** cards, so the card-type picker
+is locked. The **subtypes** and **tags** filters still apply, which is how you
+publish one branch of the house rather than all of it.
+
+Visitors get the same house your team uses inside Turbo EA: the process hierarchy
+grouped into rows by process type, the level slider, zoom and breadcrumbs, search,
+the colour overlays, the organization filter and the column-count control. Opening
+a process shows its overview, its steps, and its **published BPMN flow** — full
+screen, pan and zoom, exactly as your team sees it.
+
+Two switches and two opening settings control the published house:
+
+| Setting | Default | Effect |
+|---------|---------|--------|
+| **Show linked systems on each step** | **Off** | The names of the applications, data objects, IT components and organizations linked to each process step. Off by default because it reveals which systems run your processes |
+| **Opens at level** | 2 | How deep the hierarchy is shown first |
+| **Opens coloured by** | Process type | Which attribute colours the boxes first |
+
+The last two are only a starting point — a visitor can change either control, and
+nothing is remembered, so reopening the portal returns to what you configured here.
+
+!!! note
+    Some things are never published, whatever you choose: the applications, data
+    objects and costs behind a process, the Process × Application matrix and the
+    dependency view, and any BPMN that has not been **published** — drafts,
+    pending, archived and withdrawn revisions all stay behind the login.
+
+Unlike a portfolio portal, whose rows lead into Turbo EA behind the normal
+sign-in, a process navigator portal **links nowhere**. It is a dead end by
+design: a house published for readers without accounts should answer "how do we
+do this" without presenting a door they cannot open.
+
+A process navigator portal can be SSO-gated like any other portal. Turning the BPM
+module off in **Admin > Settings** takes every process portal dark immediately; you
+do not have to unpublish them one by one.
 
 ## Creating a Portal
 

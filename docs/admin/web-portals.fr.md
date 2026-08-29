@@ -14,12 +14,13 @@ Les portails web sont utiles pour partager des informations d'architecture avec 
 
 ## Type de portail
 
-Chaque portail publie l'une de deux vues, choisie via **Type de portail** :
+Chaque portail publie l'une de trois vues, choisie via **Type de portail** :
 
 | Type | Ce que voient les visiteurs |
 |------|-----------------------------|
 | **Liste de cartes** | Une grille de cartes consultable et filtrable — le portail classique, configuré avec les propriétés ci-dessous. |
 | **Tableau de portefeuille PPM** | Le [tableau de portefeuille PPM](../guide/ppm.md) en lecture seule — échéancier, indicateurs de santé et budget contre réalisé pour chaque initiative active. |
+| **Navigateur de processus** | La [Maison des processus](../guide/bpm.md) en lecture seule — votre hiérarchie de processus métier et le flux BPMN publié de chaque processus. |
 
 ### Portails de portefeuille PPM
 
@@ -67,6 +68,54 @@ initiatives sont publiées.
 Un portail de portefeuille peut être protégé par SSO comme n'importe quel autre portail.
 Désactiver le module PPM dans **Admin > Paramètres** rend immédiatement inaccessibles
 tous les portails de portefeuille, sans avoir à les dépublier un par un.
+
+### Portails navigateur de processus
+
+Choisir **Navigateur de processus** transforme le portail en une vue en lecture
+seule de votre **Maison des processus**, accessible par un lien public **sans
+compte, sans licence et sans connexion**. Il s'adresse à ceux qui ont le plus
+besoin de comprendre le fonctionnement de l'organisation et qui ont le moins de
+chances d'avoir un accès : nouveaux arrivants, auditeurs, équipes opérationnelles
+et partenaires externes.
+
+Le portail est toujours limité aux cartes **Processus métier**, le sélecteur de
+type de carte est donc verrouillé. Les filtres **sous-types** et **étiquettes**
+s'appliquent toujours : c'est ainsi que vous publiez une branche de la maison
+plutôt que l'ensemble.
+
+Les visiteurs obtiennent la même maison que votre équipe dans Turbo EA : la
+hiérarchie groupée en lignes par type de processus, le curseur de niveau, le zoom
+et le fil d'Ariane, la recherche, les colorations, le filtre par organisation et le
+choix du nombre de colonnes. L'ouverture d'un processus affiche sa vue d'ensemble,
+ses étapes et son **flux BPMN publié** — en plein écran, avec déplacement et zoom,
+exactement comme le voit votre équipe.
+
+Deux réglages et deux états d'ouverture contrôlent la maison publiée :
+
+| Réglage | Défaut | Effet |
+|---------|--------|-------|
+| **Afficher les systèmes liés à chaque étape** | **Désactivé** | Les noms des applications, objets de données, composants informatiques et organisations liés à chaque étape. Désactivé par défaut car cela révèle quels systèmes exécutent vos processus |
+| **S'ouvre au niveau** | 2 | Profondeur de hiérarchie affichée en premier |
+| **S'ouvre coloré par** | Type de processus | Quel attribut colore les cases en premier |
+
+Les deux derniers ne sont qu'un point de départ — un visiteur peut modifier chaque
+contrôle, et rien n'est mémorisé : rouvrir le portail revient à votre configuration.
+
+!!! note
+    Certaines choses ne sont jamais publiées, quel que soit votre choix : les
+    applications, objets de données et coûts derrière un processus, la matrice
+    Processus × Application et la vue des dépendances, ainsi que tout BPMN non
+    **publié** — brouillons, versions en attente, archivées et retirées restent
+    derrière la connexion.
+
+Contrairement à un portail portefeuille, dont les lignes mènent dans Turbo EA après
+la connexion habituelle, un portail navigateur de processus **ne mène nulle part**.
+C'est délibéré : une maison publiée pour des lecteurs sans compte doit répondre à
+« comment faisons-nous cela » sans présenter une porte qu'ils ne peuvent pas ouvrir.
+
+Un portail navigateur de processus peut être protégé par SSO comme tout autre
+portail. Désactiver le module BPM dans **Admin > Paramètres** éteint immédiatement
+tous les portails de processus ; il n'est pas nécessaire de les dépublier un par un.
 
 ## Protection de l'accès
 

@@ -21,6 +21,9 @@ Cards with a published BPMN diagram show a **flow icon** — click it to open th
 
 **Column layout:** the toolbar carries a **column picker** — one, two or three columns — so you can widen the process cards or fit more of a row on screen. A row never stretches across more columns than it has processes, and the choice is remembered between visits. The choice cascades into the nested levels too, one column fewer per level, so drilling down no longer squeezes deep processes into slivers.
 
+
+**Publishing it:** the Process Navigator can be published as a read-only [web portal](../admin/web-portals.md), so people without a Turbo EA account — new joiners, auditors, partners — can browse the process house and open each published BPMN flow.
+
 ## BPM Dashboard
 
 ![BPM Dashboard with Statistics](../assets/img/en/15_bpm_dashboard.png)

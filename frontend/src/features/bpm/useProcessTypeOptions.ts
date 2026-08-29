@@ -9,7 +9,7 @@
 import { useMemo } from "react";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useOptionLabel } from "@/hooks/useResolveLabel";
-import type { FieldOption } from "@/types";
+import type { FieldOption, SectionDef } from "@/types";
 
 export interface ProcessTypeOption {
   key: string;
@@ -40,38 +40,72 @@ export interface ProcessTypeOptionsResult {
   loading: boolean;
 }
 
+/**
+ * The pure resolver, given a card type's `fields_schema`.
+ *
+ * Split out so a surface with no metamodel session can reuse it: a web portal
+ * receives the (cost-stripped) schema of its pinned card type in the public
+ * portal payload, and must not call `useMetamodel()` — that hook fetches
+ * `/metamodel/types` unconditionally on mount, so an optional argument to
+ * `useProcessTypeOptions` would still 401 a portal visitor. A hook cannot be
+ * skipped; the resolution logic can be shared.
+ */
+export function processTypeOptionsFrom(
+  fieldsSchema: SectionDef[] | undefined,
+  optLabel: (o: FieldOption | ProcessTypeOption) => string,
+  loading: boolean,
+): ProcessTypeOptionsResult {
+  const field = (fieldsSchema ?? [])
+    .flatMap((s) => s.fields ?? [])
+    .find((f) => f.key === "processType");
+  const source: (FieldOption | ProcessTypeOption)[] = field?.options?.length
+    ? field.options
+    : FALLBACK_OPTIONS;
+
+  const all = source.map((o) => ({
+    key: o.key,
+    label: optLabel(o),
+    color: o.color || PROCESS_TYPE_NEUTRAL_COLOR,
+    hidden: (o as FieldOption).hidden === true,
+  }));
+  const byKey = new Map<string, ProcessTypeOption>(
+    all.map(({ key, label, color }) => [key, { key, label, color }]),
+  );
+  const options = all
+    .filter((o) => !o.hidden)
+    .map(({ key, label, color }) => ({ key, label, color }));
+  const defaultKey = byKey.has("core") ? "core" : (options[0]?.key ?? all[0].key);
+
+  const resolve = (key: string | null | undefined): ProcessTypeOption => {
+    if (!key) return { key: "", label: "", color: PROCESS_TYPE_NEUTRAL_COLOR };
+    return byKey.get(key) ?? { key, label: key, color: PROCESS_TYPE_NEUTRAL_COLOR };
+  };
+
+  return { options, byKey, defaultKey, resolve, loading };
+}
+
 export function useProcessTypeOptions(): ProcessTypeOptionsResult {
   const { getType, loading } = useMetamodel();
   const optLabel = useOptionLabel();
   const bpType = getType("BusinessProcess");
+  return useMemo(
+    () => processTypeOptionsFrom(bpType?.fields_schema, optLabel, loading),
+    [bpType, optLabel, loading],
+  );
+}
 
-  return useMemo(() => {
-    const field = (bpType?.fields_schema ?? [])
-      .flatMap((s) => s.fields ?? [])
-      .find((f) => f.key === "processType");
-    const source: (FieldOption | ProcessTypeOption)[] = field?.options?.length
-      ? field.options
-      : FALLBACK_OPTIONS;
-
-    const all = source.map((o) => ({
-      key: o.key,
-      label: optLabel(o),
-      color: o.color || PROCESS_TYPE_NEUTRAL_COLOR,
-      hidden: (o as FieldOption).hidden === true,
-    }));
-    const byKey = new Map<string, ProcessTypeOption>(
-      all.map(({ key, label, color }) => [key, { key, label, color }]),
-    );
-    const options = all
-      .filter((o) => !o.hidden)
-      .map(({ key, label, color }) => ({ key, label, color }));
-    const defaultKey = byKey.has("core") ? "core" : (options[0]?.key ?? all[0].key);
-
-    const resolve = (key: string | null | undefined): ProcessTypeOption => {
-      if (!key) return { key: "", label: "", color: PROCESS_TYPE_NEUTRAL_COLOR };
-      return byKey.get(key) ?? { key, label: key, color: PROCESS_TYPE_NEUTRAL_COLOR };
-    };
-
-    return { options, byKey, defaultKey, resolve, loading };
-  }, [bpType, optLabel, loading]);
+/**
+ * The same result, resolved from a schema the caller already holds.
+ *
+ * Used by the published Process House, which reads `type_info.fields_schema`
+ * off the public portal payload instead of the metamodel.
+ */
+export function useProcessTypeOptionsFrom(
+  fieldsSchema: SectionDef[] | undefined,
+): ProcessTypeOptionsResult {
+  const optLabel = useOptionLabel();
+  return useMemo(
+    () => processTypeOptionsFrom(fieldsSchema, optLabel, false),
+    [fieldsSchema, optLabel],
+  );
 }

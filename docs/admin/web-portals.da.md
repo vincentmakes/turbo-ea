@@ -14,12 +14,13 @@ Webportaler er nyttige til at dele arkitekturinformation med interessenter, der 
 
 ## Portaltype
 
-Hver portal offentliggør én af to visninger, valgt med **Portaltype**:
+Hver portal offentliggør én af tre visninger, valgt med **Portaltype**:
 
 | Type | Hvad besøgende ser |
 |------|--------------------|
 | **Kortliste** | Et gitter af kort, der kan søges og filtreres — den klassiske portal, konfigureret med egenskaberne nedenfor. |
 | **PPM-porteføljetavle** | Den skrivebeskyttede [PPM-porteføljetavle](../guide/ppm.md) — tidslinje, statusindikatorer og budget over for faktisk forbrug for hvert aktivt initiativ. |
+| **Procesnavigator** | Det skrivebeskyttede [Proceshus](../guide/bpm.md) — dit forretningsprocesthierarki og hver proces' offentliggjorte BPMN-flow. |
 
 ### PPM-porteføljeportaler
 
@@ -66,6 +67,50 @@ overhovedet offentliggøres.
 En porteføljeportal kan SSO-beskyttes som enhver anden portal. Slår du PPM-modulet fra
 under **Admin > Indstillinger**, bliver alle porteføljeportaler utilgængelige med det
 samme; du behøver ikke afpublicere dem én ad gangen.
+
+### Procesnavigator-portaler
+
+Vælger du **Procesnavigator**, bliver portalen en skrivebeskyttet visning af dit
+**Proceshus**, tilgængelig via et offentligt link **uden konto, uden licens og uden
+login**. Den findes for dem, der mest har brug for at forstå, hvordan organisationen
+arbejder, og mindst sandsynligt har en adgang: nye medarbejdere, revisorer,
+frontlinjemedarbejdere og eksterne partnere.
+
+Portalen er altid afgrænset til **Forretningsproces**-kort, så korttypevælgeren er
+låst. Filtrene **undertyper** og **tags** gælder stadig — sådan offentliggør du én
+gren af huset i stedet for det hele.
+
+Besøgende får det samme hus, som dit team bruger inde i Turbo EA: hierarkiet grupperet
+i rækker efter procestype, niveauskyderen, zoom og brødkrummer, søgningen,
+farvelægningerne, organisationsfilteret og kolonneantallet. Åbner man en proces, vises
+dens overblik, dens trin og dens **offentliggjorte BPMN-flow** — i fuld skærm, med
+panorering og zoom, præcis som dit team ser det.
+
+To indstillinger og to åbningstilstande styrer det offentliggjorte hus:
+
+| Indstilling | Standard | Virkning |
+|-------------|----------|----------|
+| **Vis tilknyttede systemer på hvert trin** | **Fra** | Navnene på de applikationer, dataobjekter, it-komponenter og organisationer, der er knyttet til hvert trin. Slået fra som standard, fordi det afslører, hvilke systemer der driver dine processer |
+| **Åbner på niveau** | 2 | Hvor dybt hierarkiet vises først |
+| **Åbner farvelagt efter** | Procestype | Hvilken egenskab der farver felterne først |
+
+De sidste to er kun et udgangspunkt — en besøgende kan ændre begge kontroller, og
+intet huskes, så genåbning af portalen vender tilbage til det, du har konfigureret her.
+
+!!! note
+    Nogle ting offentliggøres aldrig, uanset hvad du vælger: applikationerne,
+    dataobjekterne og omkostningerne bag en proces, Proces × Applikation-matricen og
+    afhængighedsvisningen samt enhver BPMN, der ikke er **offentliggjort** — udkast,
+    afventende, arkiverede og tilbagetrukne revisioner forbliver bag login.
+
+I modsætning til en porteføljeportal, hvis rækker fører ind i Turbo EA bag det normale
+login, **linker en procesnavigator-portal ingen steder hen**. Det er med vilje: et hus,
+der offentliggøres for læsere uden konto, bør besvare "hvordan gør vi det her" uden at
+vise en dør, de ikke kan åbne.
+
+En procesnavigator-portal kan SSO-sikres som enhver anden portal. Slår du BPM-modulet
+fra under **Admin > Indstillinger**, slukkes alle procesportaler straks; du behøver ikke
+at afpublicere dem én ad gangen.
 
 ## Adgangsbeskyttelse
 

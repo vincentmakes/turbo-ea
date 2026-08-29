@@ -1192,6 +1192,300 @@
         "title": "BpmEnabledPayload",
         "type": "object"
       },
+      "BpmPublicFlow": {
+        "description": "The published BPMN flow for one in-scope process.\n\n``bpmn_xml`` is ``None`` and ``steps`` empty when the process has no\npublished version \u2014 including when it has only drafts, only archived or\nwithdrawn revisions, or only a legacy ``process_diagrams`` row. That is not\nan error: the House marks such a process as having no flow, and the drawer\nrenders its empty state.",
+        "properties": {
+          "bpmn_xml": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bpmn Xml"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "steps": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BpmPublicStep"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "svg_thumbnail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Svg Thumbnail"
+          }
+        },
+        "title": "BpmPublicFlow",
+        "type": "object"
+      },
+      "BpmPublicProcess": {
+        "description": "One node of the published Process House.\n\n``parent_id`` shares the id space with ``id`` so the client's ``buildTree``\nstill assembles the hierarchy. A process whose parent is out of the portal's\nscope simply becomes a root \u2014 the same re-rooting the authenticated\nnavigator already does for a filtered tree.",
+        "properties": {
+          "attributes": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Attributes",
+            "type": "object"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "has_flow": {
+            "default": false,
+            "title": "Has Flow",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lifecycle": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Lifecycle",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "org_tokens": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Org Tokens",
+            "type": "array"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "step_count": {
+            "default": 0,
+            "title": "Step Count",
+            "type": "integer"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "BpmPublicProcess",
+        "type": "object"
+      },
+      "BpmPublicProcessMap": {
+        "description": "Everything the published Process House needs, in one round-trip.\n\n``row_order`` rides along rather than being a second request. It is served\nby ``GET /settings/bpm-row-order``, which happens to be unauthenticated\ntoday, but a portal must not depend on another route's incidental\npublic-ness \u2014 and one round-trip is the posture the PPM board set.",
+        "properties": {
+          "items": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BpmPublicProcess"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "organizations": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BpmPublicRef"
+            },
+            "title": "Organizations",
+            "type": "array"
+          },
+          "row_order": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Row Order",
+            "type": "array"
+          }
+        },
+        "title": "BpmPublicProcessMap",
+        "type": "object"
+      },
+      "BpmPublicRef": {
+        "description": "A named thing referenced by an opaque, per-response token.\n\nUsed for Organizations, which the House's organization filter matches on\nclient-side within a single payload \u2014 so the token only has to be stable\nfor the life of one response, and a real card id would be published for\nnothing.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "name"
+        ],
+        "title": "BpmPublicRef",
+        "type": "object"
+      },
+      "BpmPublicStep": {
+        "description": "One step of a published BPMN flow.\n\n``bpmn_element_id`` is an id local to the BPMN XML, not a card id, and it is\nthe correlation key the viewer needs to place overlays \u2014 it is already\ninside the XML the visitor is holding.\n\nThe four link fields are populated only when the portal enables\n``show_element_links``; they carry **names, never ids**. The viewer's and the\nSteps tab's existing truthiness guards then render the reduced row with no\nextra branching.",
+        "properties": {
+          "application_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Name"
+          },
+          "bpmn_element_id": {
+            "title": "Bpmn Element Id",
+            "type": "string"
+          },
+          "data_object_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Object Name"
+          },
+          "documentation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documentation"
+          },
+          "element_type": {
+            "title": "Element Type",
+            "type": "string"
+          },
+          "is_automated": {
+            "default": false,
+            "title": "Is Automated",
+            "type": "boolean"
+          },
+          "it_component_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "It Component Name"
+          },
+          "lane_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lane Name"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "organizations": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BpmPublicRef"
+            },
+            "title": "Organizations",
+            "type": "array"
+          },
+          "sequence_order": {
+            "default": 0,
+            "title": "Sequence Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bpmn_element_id",
+          "element_type"
+        ],
+        "title": "BpmPublicStep",
+        "type": "object"
+      },
       "BpmRowOrderPayload": {
         "properties": {
           "row_order": {
@@ -30504,7 +30798,7 @@
     },
     "/api/v1/reports/bpm/process-map": {
       "get": {
-        "description": "Process landscape map: hierarchy + related apps, data objects, orgs, contexts.",
+        "description": "Process landscape map: hierarchy + related apps, data objects, orgs, contexts.\n\nThe landscape itself is assembled by ``process_map_service`` so this route and\nthe account-less Process Navigator portal are built from one implementation and\ncannot drift. The response shape below stays this route's own \u2014 the service\nreturns the data, the route decides what an authenticated caller sees.",
         "operationId": "process_map_api_v1_reports_bpm_process_map_get",
         "responses": {
           "200": {
@@ -39731,6 +40025,101 @@
           }
         },
         "summary": "Get Public Portal",
+        "tags": [
+          "web-portals"
+        ]
+      }
+    },
+    "/api/v1/web-portals/public/{slug}/bpm/process-map": {
+      "get": {
+        "description": "The read-only Process House, for a portal published with that view.\n\nShares one builder with the authenticated ``/reports/bpm/process-map`` route\nso the two houses cannot drift, then projects the result onto a separate,\nopt-in public shape (``to_public_process_map``) rather than filtering fields\nout of the internal one \u2014 a subtractive filter would publish whatever field\nsomeone adds to the internal item next.\n\nOn what is *not* published: the internal item carries every linked\nApplication with its full attributes (costs included), every linked\nDataObject, an application count and a cost rollup. None of it is here, and\nthere is no switch to turn it on \u2014 a navigator portal publishes how the\norganisation works, not which systems run it. See ``app/schemas/bpm_public.py``.",
+        "operationId": "get_public_portal_process_map_api_v1_web_portals_public__slug__bpm_process_map_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BpmPublicProcessMap"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Public Portal Process Map",
+        "tags": [
+          "web-portals"
+        ]
+      }
+    },
+    "/api/v1/web-portals/public/{slug}/bpm/processes/{process_id}/flow": {
+      "get": {
+        "description": "The published BPMN flow and its steps for one in-scope process.\n\nOne route rather than two because the Steps tab, the flow thumbnail and the\nfullscreen preview are three renderings of the same published artefact; the\nauthenticated navigator fetches it three times over two endpoints today. One\nroute means one scope check and one rate-limit bucket.\n\n**The scope check is the security of this route.** A portal narrowed by\n``filters`` publishes a subset of processes, and process ids are handed out\nfreely by other portals' maps \u2014 so without re-running the portal's own\npredicate against the requested id, a portal scoped to one branch of the\nhouse would serve every other process's BPMN to anyone who asks.\n\nOnly a ``published`` version is ever served. A process with only drafts, only\narchived or withdrawn revisions, or only a legacy ``process_diagrams`` row\nreturns an empty flow \u2014 and its steps stay empty too, because that legacy\nsave path populates ``process_elements`` with no approval involved.",
+        "operationId": "get_public_portal_process_flow_api_v1_web_portals_public__slug__bpm_processes__process_id__flow_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "process_id",
+            "required": true,
+            "schema": {
+              "title": "Process Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BpmPublicFlow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Public Portal Process Flow",
         "tags": [
           "web-portals"
         ]

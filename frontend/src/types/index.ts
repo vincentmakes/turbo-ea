@@ -1197,8 +1197,8 @@ export interface DiagramGroup {
 
 export type PortalAccessMode = "public" | "sso";
 
-/** Which board a portal publishes: the card grid, or the PPM portfolio. */
-export type PortalView = "cards" | "ppm_portfolio";
+/** Which board a portal publishes: the card grid, the PPM portfolio, or the Process House. */
+export type PortalView = "cards" | "ppm_portfolio" | "process_navigator";
 
 export interface WebPortal {
   id: string;
@@ -1275,6 +1275,63 @@ export interface PublicPortal {
   type_info: PortalTypeInfo | null;
   relation_types: PortalRelationType[];
   tag_groups: PortalTagGroup[];
+}
+
+/**
+ * A named thing a portal references by an opaque, per-response token.
+ *
+ * Used for Organizations, which the published Process House filters on
+ * client-side within one payload — so no real card id is published for them.
+ */
+export interface PortalRef {
+  token: string;
+  name: string;
+}
+
+/** One node of the published Process House. */
+export interface PortalProcess {
+  id: string;
+  name: string;
+  subtype?: string;
+  parent_id?: string | null;
+  description?: string | null;
+  lifecycle?: Record<string, string>;
+  /** Only the four colour-overlay keys and `sortOrder` — never a custom field. */
+  attributes?: Record<string, unknown>;
+  org_tokens?: string[];
+  /** Whether a *published* BPMN version exists. Drafts are never published. */
+  has_flow?: boolean;
+  step_count?: number;
+}
+
+export interface PortalProcessMap {
+  row_order: string[];
+  organizations: PortalRef[];
+  items: PortalProcess[];
+}
+
+/** One step of a published BPMN flow, as a portal serves it. */
+export interface PortalProcessStep {
+  bpmn_element_id: string;
+  element_type: string;
+  name?: string;
+  documentation?: string;
+  lane_name?: string;
+  is_automated: boolean;
+  sequence_order: number;
+  /** Populated only when the portal enables `show_element_links`. Names, never ids. */
+  application_name?: string | null;
+  data_object_name?: string | null;
+  it_component_name?: string | null;
+  organizations?: PortalRef[];
+}
+
+export interface PortalProcessFlow {
+  revision?: number | null;
+  published_at?: string | null;
+  bpmn_xml?: string | null;
+  svg_thumbnail?: string | null;
+  steps: PortalProcessStep[];
 }
 
 export interface PortalCard {

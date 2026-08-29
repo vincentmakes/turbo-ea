@@ -21,6 +21,9 @@ Les cartes disposant d'un diagramme BPMN publié affichent une **icône de flux*
 
 **Disposition en colonnes :** la barre d'outils propose un **sélecteur de colonnes** — une, deux ou trois colonnes — pour élargir les cartes de processus ou faire tenir davantage d'une ligne à l'écran. Une ligne n'est jamais étirée sur plus de colonnes qu'elle ne compte de processus, et le choix est mémorisé d'une visite à l'autre. Le choix se propage aussi aux niveaux imbriqués, une colonne de moins par niveau, de sorte que les processus profonds ne sont plus réduits à de fines bandes.
 
+
+**Publication :** le Navigateur de processus peut être publié comme [portail web](../admin/web-portals.md) en lecture seule, afin que des personnes sans compte Turbo EA — nouveaux arrivants, auditeurs, partenaires — puissent parcourir la maison des processus et ouvrir chaque flux BPMN publié.
+
 ## Tableau de bord BPM
 
 ![Tableau de bord BPM avec statistiques](../assets/img/fr/15_bpm_tableau_de_bord.png)

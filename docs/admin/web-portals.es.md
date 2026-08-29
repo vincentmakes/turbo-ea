@@ -14,12 +14,13 @@ Los portales web son útiles para compartir información de arquitectura con par
 
 ## Tipo de portal
 
-Cada portal publica una de dos vistas, elegida con **Tipo de portal**:
+Cada portal publica una de tres vistas, elegida con **Tipo de portal**:
 
 | Tipo | Lo que ven los visitantes |
 |------|---------------------------|
 | **Lista de tarjetas** | Una cuadrícula de tarjetas con búsqueda y filtros: el portal clásico, configurado con las propiedades de más abajo. |
 | **Tablero de cartera PPM** | El [tablero de cartera PPM](../guide/ppm.md) de solo lectura: cronograma, indicadores de estado y presupuesto frente a real de cada iniciativa activa. |
+| **Navegador de procesos** | La [Casa de Procesos](../guide/bpm.md) de solo lectura: su jerarquía de procesos de negocio y el flujo BPMN publicado de cada proceso. |
 
 ### Portales de cartera PPM
 
@@ -68,6 +69,52 @@ iniciativas se publican.
 Un portal de cartera puede protegerse con SSO como cualquier otro portal. Desactivar el
 módulo PPM en **Admin > Configuración** deja inaccesibles de inmediato todos los portales
 de cartera, sin necesidad de despublicarlos uno a uno.
+
+### Portales de navegador de procesos
+
+Seleccionar **Navegador de procesos** convierte el portal en una vista de solo
+lectura de su **Casa de Procesos**, disponible en un enlace público **sin cuenta,
+sin licencia y sin inicio de sesión**. Existe para quienes más necesitan entender
+cómo funciona la organización y menos probabilidades tienen de tener acceso: nuevas
+incorporaciones, auditores, personal de primera línea y socios externos.
+
+El portal siempre se limita a tarjetas de **Proceso de Negocio**, por lo que el
+selector de tipo de tarjeta queda bloqueado. Los filtros de **subtipos** y
+**etiquetas** siguen aplicándose: así es como publica una rama de la casa en lugar
+de toda ella.
+
+Los visitantes obtienen la misma casa que usa su equipo dentro de Turbo EA: la
+jerarquía agrupada en filas por tipo de proceso, el control de nivel, el zoom y las
+migas de pan, la búsqueda, los coloreados, el filtro por organización y el número de
+columnas. Al abrir un proceso se muestran su resumen, sus pasos y su **flujo BPMN
+publicado**: a pantalla completa, con desplazamiento y zoom, tal como lo ve su equipo.
+
+Dos ajustes y dos estados de apertura controlan la casa publicada:
+
+| Ajuste | Predeterminado | Efecto |
+|--------|----------------|--------|
+| **Mostrar sistemas vinculados en cada paso** | **Desactivado** | Los nombres de las aplicaciones, objetos de datos, componentes de TI y organizaciones vinculados a cada paso. Desactivado por defecto porque revela qué sistemas ejecutan sus procesos |
+| **Se abre en el nivel** | 2 | Qué profundidad de jerarquía se muestra primero |
+| **Se abre coloreado por** | Tipo de proceso | Qué atributo colorea las cajas primero |
+
+Los dos últimos son solo un punto de partida: un visitante puede cambiar cualquiera
+de los controles y no se recuerda nada, así que reabrir el portal vuelve a lo que
+usted configuró aquí.
+
+!!! note
+    Algunas cosas nunca se publican, elija lo que elija: las aplicaciones, objetos de
+    datos y costes detrás de un proceso, la matriz Proceso × Aplicación y la vista de
+    dependencias, y cualquier BPMN que no esté **publicado**: borradores, versiones
+    pendientes, archivadas y retiradas permanecen detrás del inicio de sesión.
+
+A diferencia de un portal de cartera, cuyas filas llevan a Turbo EA tras el inicio de
+sesión habitual, un portal de navegador de procesos **no enlaza a ninguna parte**. Es
+deliberado: una casa publicada para lectores sin cuenta debe responder «cómo hacemos
+esto» sin mostrar una puerta que no pueden abrir.
+
+Un portal de navegador de procesos puede protegerse con SSO como cualquier otro
+portal. Desactivar el módulo BPM en **Admin > Configuración** apaga de inmediato todos
+los portales de procesos; no tiene que despublicarlos uno por uno.
 
 ## Protección de acceso
 

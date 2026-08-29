@@ -21,6 +21,9 @@ Os cartões com um diagrama BPMN publicado exibem um **ícone de fluxo** — cli
 
 **Disposição em colunas:** a barra de ferramentas inclui um **seletor de colunas** — uma, duas ou três — para alargar os cartões de processo ou encaixar mais de uma linha no ecrã. Uma linha nunca é esticada por mais colunas do que os processos que contém, e a escolha é memorizada entre visitas. A escolha também se propaga aos níveis aninhados, menos uma coluna por nível, de modo que os processos mais profundos deixam de ser espremidos em faixas estreitas.
 
+
+**Publicação:** o Navegador de Processos pode ser publicado como um [portal web](../admin/web-portals.md) só de leitura, para que pessoas sem conta Turbo EA — novos colaboradores, auditores, parceiros — possam percorrer a casa de processos e abrir cada fluxo BPMN publicado.
+
 ## Painel BPM
 
 ![Painel BPM com Estatísticas](../assets/img/pt/15_bpm_painel.png)

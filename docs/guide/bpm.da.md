@@ -21,6 +21,9 @@ Kort med et publiceret BPMN-diagram viser et **flow-ikon** — klik på det for 
 
 **Kolonnelayout:** værktøjslinjen har en **kolonnevælger** — én, to eller tre kolonner — så du kan gøre proceskortene bredere eller få mere af en række på skærmen. En række strækkes aldrig over flere kolonner, end den har processer, og valget huskes mellem besøg. Valget forplanter sig også til de indlejrede niveauer, én kolonne færre pr. niveau, så dybe processer ikke længere klemmes sammen til smalle striber.
 
+
+**Offentliggørelse:** Procesnavigatoren kan offentliggøres som en skrivebeskyttet [webportal](../admin/web-portals.md), så folk uden en Turbo EA-konto — nye medarbejdere, revisorer, partnere — kan gennemse proceshuset og åbne hvert offentliggjort BPMN-flow.
+
 ## BPM-dashboard
 
 ![BPM-dashboard med statistik](../assets/img/da/15_bpm_dashboard.png)

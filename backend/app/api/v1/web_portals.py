@@ -26,9 +26,11 @@ from app.models.stakeholder import Stakeholder
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.models.web_portal import WebPortal
+from app.schemas.bpm_public import BpmPublicFlow, BpmPublicProcessMap
 from app.schemas.common import WebPortalCreate, WebPortalUpdate
 from app.schemas.ppm_public import PpmPublicPortfolio
 from app.services import ppm_portfolio_service as ppm_portfolio
+from app.services import process_map_service as process_map
 from app.services import sso_service
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.permission_service import PermissionService
@@ -48,9 +50,19 @@ _ACCESS_MODES = ("public", "sso")
 
 # Which board a portal publishes. "cards" is the card-list grid every portal
 # rendered before this existed; "ppm_portfolio" is the read-only PPM portfolio
-# board, which is always scoped to Initiative cards.
-_VIEWS = ("cards", "ppm_portfolio")
+# board, always scoped to Initiative cards; "process_navigator" is the read-only
+# Process House, always scoped to BusinessProcess cards.
+_VIEWS = ("cards", "ppm_portfolio", "process_navigator")
 PPM_PORTAL_CARD_TYPE = "Initiative"
+BPM_PORTAL_CARD_TYPE = "BusinessProcess"
+
+# The card type each non-"cards" view is pinned to. Pinning happens in
+# ``_validate_view`` rather than at the call sites so ``update_portal``'s bare
+# ``setattr`` loop can never repoint a board portal at another type.
+_VIEW_CARD_TYPES = {
+    "ppm_portfolio": PPM_PORTAL_CARD_TYPE,
+    "process_navigator": BPM_PORTAL_CARD_TYPE,
+}
 
 # Ephemeral portal-session cookie. Path-scoped per portal (see
 # ``_portal_cookie_path``) so a visitor's session for one portal is never sent
@@ -94,11 +106,27 @@ async def _validate_access(
     return mode, domains
 
 
-async def _ppm_enabled(db: AsyncSession) -> bool:
-    """Whether the PPM module is switched on for this instance."""
+async def _module_enabled(db: AsyncSession, key: str, default: bool) -> bool:
+    """Whether an optional module is switched on for this instance.
+
+    The default differs per module and is not cosmetic: ``ppmEnabled`` is opt-in
+    (absent means off) while ``bpmEnabled`` is opt-out (absent means on, matching
+    ``GET /settings/bpm-enabled``). Getting the BPM default backwards would make
+    navigator portals uncreatable on every install that never touched the toggle.
+    """
     result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
-    return bool(((row.general_settings if row else None) or {}).get("ppmEnabled", False))
+    return bool(((row.general_settings if row else None) or {}).get(key, default))
+
+
+async def _ppm_enabled(db: AsyncSession) -> bool:
+    """Whether the PPM module is switched on for this instance."""
+    return await _module_enabled(db, "ppmEnabled", False)
+
+
+async def _bpm_enabled(db: AsyncSession) -> bool:
+    """Whether the BPM module is switched on for this instance."""
+    return await _module_enabled(db, "bpmEnabled", True)
 
 
 async def _validate_view(
@@ -106,21 +134,26 @@ async def _validate_view(
 ) -> tuple[str, str | None]:
     """Normalise + validate the portal view, returning ``(view, card_type)``.
 
-    A portfolio portal is always scoped to Initiative cards, so the card type is
-    pinned rather than trusted from the request — the filters, subtype picker and
-    tag picker downstream all key off it.
+    A board portal is always scoped to one card type, so the card type is pinned
+    rather than trusted from the request — the filters, subtype picker and tag
+    picker downstream all key off it.
     """
     v = view or "cards"
     if v not in _VIEWS:
         raise HTTPException(400, f"Invalid view: {v!r}")
-    if v != "ppm_portfolio":
+    if v == "cards":
         return v, card_type
-    if not await _ppm_enabled(db):
+    if v == "ppm_portfolio" and not await _ppm_enabled(db):
         raise HTTPException(
             400,
             "The PPM module is not enabled. Enable it before creating a portfolio portal.",
         )
-    return v, PPM_PORTAL_CARD_TYPE
+    if v == "process_navigator" and not await _bpm_enabled(db):
+        raise HTTPException(
+            400,
+            "The BPM module is not enabled. Enable it before creating a process portal.",
+        )
+    return v, _VIEW_CARD_TYPES[v]
 
 
 def _portal_to_dict(p: WebPortal) -> dict:
@@ -939,4 +972,101 @@ async def get_public_portal_ppm_portfolio(
         group_options,
         cfg=ppm_portfolio.PpmPortalConfig.from_card_config(portal.card_config),
         group_by=group_by,
+    )
+
+
+async def _require_navigator_portal(portal: WebPortal, db: AsyncSession) -> None:
+    """Guard shared by both Process Navigator routes.
+
+    A 404 (never a 400) is returned when the portal does not carry that view, so
+    a card-portal slug never confirms these routes exist. The module check is
+    defence in depth: switching BPM off must take every navigator portal dark
+    without an admin having to remember to unpublish each one.
+
+    Factored out rather than repeated so the second route cannot be added with
+    only half the guard.
+    """
+    if (portal.view or "cards") != "process_navigator":
+        raise HTTPException(404, "Portal not found")
+    if not await _bpm_enabled(db):
+        raise HTTPException(404, "Portal not found")
+
+
+@router.get("/public/{slug}/bpm/process-map", response_model=BpmPublicProcessMap)
+@limiter.limit("60/minute")
+async def get_public_portal_process_map(
+    slug: str,
+    request: Request,
+    portal: WebPortal = Depends(require_portal_access),
+    db: AsyncSession = Depends(get_db),
+):
+    """The read-only Process House, for a portal published with that view.
+
+    Shares one builder with the authenticated ``/reports/bpm/process-map`` route
+    so the two houses cannot drift, then projects the result onto a separate,
+    opt-in public shape (``to_public_process_map``) rather than filtering fields
+    out of the internal one — a subtractive filter would publish whatever field
+    someone adds to the internal item next.
+
+    On what is *not* published: the internal item carries every linked
+    Application with its full attributes (costs included), every linked
+    DataObject, an application count and a cost rollup. None of it is here, and
+    there is no switch to turn it on — a navigator portal publishes how the
+    organisation works, not which systems run it. See ``app/schemas/bpm_public.py``.
+    """
+    await _require_navigator_portal(portal, db)
+
+    scope = process_map.ProcessScope.from_portal_filters(portal.filters)
+    # The landscape behind a process is not published, so it is not loaded:
+    # only the Organization links the house's own filter needs.
+    data = await process_map.build_process_map(db, scope, include_landscape=False)
+    row_order = await process_map.load_row_order(db)
+    return process_map.to_public_process_map(data, row_order)
+
+
+@router.get("/public/{slug}/bpm/processes/{process_id}/flow", response_model=BpmPublicFlow)
+@limiter.limit("120/minute")
+async def get_public_portal_process_flow(
+    slug: str,
+    process_id: str,
+    request: Request,
+    portal: WebPortal = Depends(require_portal_access),
+    db: AsyncSession = Depends(get_db),
+):
+    """The published BPMN flow and its steps for one in-scope process.
+
+    One route rather than two because the Steps tab, the flow thumbnail and the
+    fullscreen preview are three renderings of the same published artefact; the
+    authenticated navigator fetches it three times over two endpoints today. One
+    route means one scope check and one rate-limit bucket.
+
+    **The scope check is the security of this route.** A portal narrowed by
+    ``filters`` publishes a subset of processes, and process ids are handed out
+    freely by other portals' maps — so without re-running the portal's own
+    predicate against the requested id, a portal scoped to one branch of the
+    house would serve every other process's BPMN to anyone who asks.
+
+    Only a ``published`` version is ever served. A process with only drafts, only
+    archived or withdrawn revisions, or only a legacy ``process_diagrams`` row
+    returns an empty flow — and its steps stay empty too, because that legacy
+    save path populates ``process_elements`` with no approval involved.
+    """
+    await _require_navigator_portal(portal, db)
+
+    try:
+        pid = uuid.UUID(process_id)
+    except (ValueError, AttributeError, TypeError):
+        # A malformed id is a miss, not a server error — this is a public path.
+        raise HTTPException(404, "Process not found") from None
+
+    scope = process_map.ProcessScope.from_portal_filters(portal.filters)
+    if not await process_map.process_in_scope(db, scope, pid):
+        raise HTTPException(404, "Process not found")
+
+    version = await process_map.load_published_version(db, pid)
+    elements = await process_map.load_elements(db, pid) if version else []
+    return process_map.to_public_flow(
+        version,
+        elements,
+        cfg=process_map.BpmPortalConfig.from_card_config(portal.card_config),
     )

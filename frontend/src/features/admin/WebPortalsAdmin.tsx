@@ -35,6 +35,7 @@ import {
   useSubtypeLabel,
 } from "@/hooks/useResolveLabel";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
+import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import type { WebPortal, TagGroup, PortalView, PpmGroupOption } from "@/types";
 
 interface ToggleEntry {
@@ -117,10 +118,15 @@ export default function WebPortalsAdmin() {
   const [ppmGroupBy, setPpmGroupBy] = useState("Organization");
   const [ppmSubtype, setPpmSubtype] = useState("");
   const [ppmGroupOptions, setPpmGroupOptions] = useState<PpmGroupOption[]>([]);
+  // Process Navigator portal: one exposure switch plus the state the house opens on.
+  const [bpmShowElementLinks, setBpmShowElementLinks] = useState(false);
+  const [bpmLevel, setBpmLevel] = useState(2);
+  const [bpmOverlay, setBpmOverlay] = useState("processType");
   const [allowedDomains, setAllowedDomains] = useState<string[]>([]);
   const [domainInput, setDomainInput] = useState("");
   const [ssoEnabled, setSsoEnabled] = useState(false);
   const { ppmEnabled } = usePpmEnabled();
+  const { bpmEnabled } = useBpmEnabled();
 
   const visibleTypes = types.filter((tp) => !tp.is_hidden);
 
@@ -164,6 +170,9 @@ export default function WebPortalsAdmin() {
     setShowLogo(true);
     setAccessMode("public");
     setView("cards");
+    setBpmShowElementLinks(false);
+    setBpmLevel(2);
+    setBpmOverlay("processType");
     setPpmShowCosts(true);
     setPpmShowPeople(false);
     setPpmShowNarrative(true);
@@ -201,7 +210,16 @@ export default function WebPortalsAdmin() {
       ((portal.filters as Record<string, unknown>)?.tag_ids as string[]) || []
     );
     setAccessMode(portal.access_mode === "sso" ? "sso" : "public");
-    setView(portal.view === "ppm_portfolio" ? "ppm_portfolio" : "cards");
+    setView(
+      portal.view === "ppm_portfolio" || portal.view === "process_navigator"
+        ? portal.view
+        : "cards",
+    );
+    const bpmCfg =
+      ((portal.card_config as Record<string, unknown>)?.bpm as Record<string, unknown>) || {};
+    setBpmShowElementLinks(bpmCfg.show_element_links === true);
+    setBpmLevel(typeof bpmCfg.default_level === "number" ? bpmCfg.default_level : 2);
+    setBpmOverlay((bpmCfg.default_overlay as string) || "processType");
     const ppmCfg =
       ((portal.card_config as Record<string, unknown>)?.ppm as Record<string, unknown>) || {};
     setPpmShowCosts(ppmCfg.show_costs !== false);
@@ -267,9 +285,11 @@ export default function WebPortalsAdmin() {
   const handleSave = async () => {
     setError("");
     const isPortfolio = view === "ppm_portfolio";
+    const isNavigator = view === "process_navigator";
+    const isBoard = isPortfolio || isNavigator;
     // Per-field toggles are meaningless on the portfolio board, which has a
     // fixed set of columns; it carries its own three exposure switches instead.
-    const hasToggles = !isPortfolio && Object.keys(toggles).length > 0;
+    const hasToggles = !isBoard && Object.keys(toggles).length > 0;
     const ppmConfig = isPortfolio
       ? {
           show_costs: ppmShowCosts,
@@ -281,7 +301,16 @@ export default function WebPortalsAdmin() {
       : null;
     // `card_config` collapses to null when there is nothing in it — the PPM
     // block has to count, or the switches would silently vanish on save.
-    const hasCardConfig = hasToggles || !showLogo || ppmConfig !== null;
+    const bpmConfig = isNavigator
+      ? {
+          show_element_links: bpmShowElementLinks,
+          default_level: bpmLevel,
+          default_overlay: bpmOverlay,
+        }
+      : null;
+    // `card_config` collapses to null when there is nothing in it — each board's
+    // block has to count, or its switches silently vanish on save.
+    const hasCardConfig = hasToggles || !showLogo || ppmConfig !== null || bpmConfig !== null;
     // Fold any un-committed text in the domain input into the list on save.
     const effectiveDomains =
       accessMode === "sso" && domainInput.trim()
@@ -293,7 +322,7 @@ export default function WebPortalsAdmin() {
       description: description || null,
       // The backend pins a portfolio portal to Initiative; send what the form
       // shows so the two never disagree.
-      card_type: isPortfolio ? "Initiative" : cardType,
+      card_type: isPortfolio ? "Initiative" : isNavigator ? "BusinessProcess" : cardType,
       view,
       is_published: isPublished,
       access_mode: accessMode,
@@ -311,6 +340,7 @@ export default function WebPortalsAdmin() {
         ? {
             ...(hasToggles ? { toggles } : {}),
             ...(ppmConfig ? { ppm: ppmConfig } : {}),
+            ...(bpmConfig ? { bpm: bpmConfig } : {}),
             show_logo: showLogo,
           }
         : null,
@@ -662,19 +692,22 @@ export default function WebPortalsAdmin() {
             onChange={(e) => {
               const next = e.target.value as PortalView;
               setView(next);
-              // The portfolio board is always the Initiative portfolio; the
-              // per-field toggles and filters below key off the card type, so
-              // reset them whenever the target changes.
+              // Each board is pinned to one card type; the per-field toggles
+              // and filters below key off the card type, so reset them whenever
+              // the target changes.
               setToggles({});
               setFilterSubtypes([]);
               setFilterTagIds([]);
               if (next === "ppm_portfolio") setCardType("Initiative");
+              if (next === "process_navigator") setCardType("BusinessProcess");
             }}
             sx={{ mb: 2 }}
             helperText={
               view === "ppm_portfolio"
                 ? t("webPortals.portalTypePpmHelper")
-                : t("webPortals.portalTypeCardsHelper")
+                : view === "process_navigator"
+                  ? t("webPortals.portalTypeBpmHelper")
+                  : t("webPortals.portalTypeCardsHelper")
             }
           >
             <MenuItem value="cards">
@@ -694,15 +727,26 @@ export default function WebPortalsAdmin() {
                 )}
               </Box>
             </MenuItem>
+            <MenuItem value="process_navigator" disabled={!bpmEnabled}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <MaterialSymbol icon="account_tree" size={18} />
+                {t("webPortals.portalTypeBpm")}
+                {!bpmEnabled && (
+                  <Typography variant="caption" color="text.secondary">
+                    {t("webPortals.portalTypeBpmDisabled")}
+                  </Typography>
+                )}
+              </Box>
+            </MenuItem>
           </TextField>
           <TextField
             fullWidth
             select
             label={t("common:labels.type")}
             value={cardType}
-            // Pinned for a portfolio portal — kept visible but locked, because
-            // the subtype and tag pickers below still resolve against it.
-            disabled={view === "ppm_portfolio"}
+            // Pinned for a board portal — kept visible but locked, because the
+            // subtype and tag pickers below still resolve against it.
+            disabled={view !== "cards"}
             onChange={(e) => {
               setCardType(e.target.value);
               setToggles({});
@@ -712,7 +756,9 @@ export default function WebPortalsAdmin() {
             helperText={
               view === "ppm_portfolio"
                 ? t("webPortals.cardTypePinnedHelper")
-                : t("webPortals.cardTypeHelper")
+                : view === "process_navigator"
+                  ? t("webPortals.cardTypePinnedBpmHelper")
+                  : t("webPortals.cardTypeHelper")
             }
           >
             {visibleTypes.map((ct) => (
@@ -889,7 +935,90 @@ export default function WebPortalsAdmin() {
             </>
           )}
 
-          {cardType && view !== "ppm_portfolio" && (
+          {view === "process_navigator" && (
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Typography
+                variant="overline"
+                sx={{
+                  display: "block",
+                  mb: 0.5,
+                  fontWeight: 700,
+                  color: "text.secondary",
+                  letterSpacing: 1,
+                }}
+              >
+                {t("webPortals.section.displayConfig")}
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", mb: 1.5 }}
+              >
+                {t("webPortals.bpm.hint")}
+              </Typography>
+
+              {/* What the house opens on. Distinct from the subtype *filter*
+                  above, which decides which processes are published at all —
+                  this only picks what the visitor first sees, and nothing is
+                  remembered, so a reload returns here. */}
+              <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
+                <TextField
+                  select
+                  size="small"
+                  label={t("webPortals.bpm.defaultLevel")}
+                  value={bpmLevel}
+                  onChange={(e) => setBpmLevel(Number(e.target.value))}
+                  sx={{ minWidth: 220, flex: 1 }}
+                  helperText={t("webPortals.bpm.defaultLevelHelper")}
+                >
+                  {[1, 2, 3, 4, 5].map((lvl) => (
+                    <MenuItem key={lvl} value={lvl}>
+                      {lvl}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  label={t("webPortals.bpm.defaultOverlay")}
+                  value={bpmOverlay}
+                  onChange={(e) => setBpmOverlay(e.target.value)}
+                  sx={{ minWidth: 220, flex: 1 }}
+                  helperText={t("webPortals.bpm.defaultOverlayHelper")}
+                >
+                  <MenuItem value="processType">{t("webPortals.bpm.overlayType")}</MenuItem>
+                  <MenuItem value="maturity">{t("webPortals.bpm.overlayMaturity")}</MenuItem>
+                  <MenuItem value="automationLevel">
+                    {t("webPortals.bpm.overlayAutomation")}
+                  </MenuItem>
+                  <MenuItem value="riskLevel">{t("webPortals.bpm.overlayRisk")}</MenuItem>
+                </TextField>
+              </Box>
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={bpmShowElementLinks}
+                    onChange={(e) => setBpmShowElementLinks(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">
+                      {t("webPortals.bpm.showElementLinks")}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("webPortals.bpm.showElementLinksHelper")}
+                    </Typography>
+                  </Box>
+                }
+                sx={{ display: "flex", alignItems: "flex-start" }}
+              />
+            </>
+          )}
+
+          {cardType && view === "cards" && (
             <>
             <Divider sx={{ my: 3 }} />
 

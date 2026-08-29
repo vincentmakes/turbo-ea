@@ -21,6 +21,9 @@ Karten mit einem veröffentlichten BPMN-Diagramm zeigen ein **Ablaufsymbol** —
 
 **Spaltenlayout:** Die Werkzeugleiste enthält eine **Spaltenauswahl** — eine, zwei oder drei Spalten —, mit der Sie die Prozesskarten verbreitern oder mehr einer Zeile auf den Bildschirm bringen. Eine Zeile wird nie über mehr Spalten gestreckt, als sie Prozesse enthält, und die Auswahl bleibt zwischen Besuchen erhalten. Die Auswahl wirkt auch auf die verschachtelten Ebenen — jeweils eine Spalte weniger pro Ebene —, sodass tiefe Prozesse beim Aufklappen nicht mehr zu schmalen Streifen zusammengedrückt werden.
 
+
+**Veröffentlichung:** Der Prozessnavigator kann als schreibgeschütztes [Web-Portal](../admin/web-portals.md) veröffentlicht werden, sodass Personen ohne Turbo-EA-Konto — neue Mitarbeitende, Prüfer, Partner — das Prozesshaus durchsuchen und jeden veröffentlichten BPMN-Ablauf öffnen können.
+
 ## BPM-Dashboard
 
 ![BPM-Dashboard mit Statistiken](../assets/img/de/15_bpm_dashboard.png)

@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.106.0] - 2026-08-29
+
+### Added
+
+- **Publish the Process Navigator as a web portal.** A portal can now serve the read-only Process House — the process hierarchy with its levels, zoom, search, colour overlays and organization filter — and open each process's **published** BPMN flow full-screen, all without an account. It is aimed at the people who most need to read how the organisation works and are least likely to have a seat: new joiners, auditors, front-line staff and external partners. Pick **Process navigator** as the portal type; the card type is pinned to Business Process, and the subtype and tag filters are how you publish one branch of the house rather than all of it. The portal can be SSO-gated like any other, and switching the BPM module off takes every process portal dark at once. Nothing is published beyond the process itself: the applications, data objects and costs behind it stay behind the login, as do the Process × Application matrix, the dependency view, and every draft, pending, archived or withdrawn BPMN revision. The names of the systems linked to each step are published only if you switch them on, and they are off by default. Unlike a portfolio portal, whose rows lead into Turbo EA, a process portal links nowhere at all — a house published for readers without accounts should not present doors they cannot open.
+
 ## [2.105.0] - 2026-08-29
 
 ### Added

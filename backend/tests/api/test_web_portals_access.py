@@ -187,6 +187,41 @@ class TestGateEnforcement:
         resp = await client.get("/api/v1/web-portals/public/catalog/ppm/portfolio")
         assert resp.status_code == 404
 
+    async def test_sso_navigator_portal_locked_without_cookie(self, client, db, portals_env):
+        """The Process House sits behind the same gate as every other data route.
+
+        Like the portfolio case above, this needs its own navigator portal: the
+        ``cards`` portal would 404 on a wrong view rather than 401, and the test
+        would pass without proving anything.
+        """
+        await _set_sso_config(db, enabled=True)
+        await create_card_type(db, key="BusinessProcess", label="Business Process")
+        resp = await _create_portal(
+            client,
+            portals_env["admin"],
+            slug="house",
+            card_type="BusinessProcess",
+            view="process_navigator",
+            access_mode="sso",
+        )
+        assert resp.status_code == 201, resp.text
+
+        for path in (
+            "/bpm/process-map",
+            "/bpm/processes/11111111-1111-1111-1111-111111111111/flow",
+        ):
+            locked = await client.get(f"/api/v1/web-portals/public/house{path}")
+            assert locked.status_code == 401, path
+            assert locked.json()["detail"] == "portal_locked"
+
+    async def test_navigator_routes_404_on_a_cards_portal(self, client, db, portals_env):
+        """A card portal's slug must not confirm the navigator routes exist."""
+        await _create_portal(client, portals_env["admin"])
+        base = "/api/v1/web-portals/public/catalog/bpm"
+        assert (await client.get(f"{base}/process-map")).status_code == 404
+        pid = "11111111-1111-1111-1111-111111111111"
+        assert (await client.get(f"{base}/processes/{pid}/flow")).status_code == 404
+
     async def test_public_portal_serves_cookieless(self, client, db, portals_env):
         await _create_portal(client, portals_env["admin"])
         assert (await client.get("/api/v1/web-portals/public/catalog")).status_code == 200

@@ -21,6 +21,9 @@ Le schede con un diagramma BPMN pubblicato mostrano un'**icona di flusso**: fai 
 
 **Disposizione in colonne:** la barra degli strumenti offre un **selettore di colonne** — una, due o tre — per allargare le schede di processo o far entrare più righe nello schermo. Una riga non viene mai distesa su più colonne di quanti processi contenga e la scelta viene ricordata tra una visita e l'altra. La scelta si propaga anche ai livelli annidati, una colonna in meno per livello, così i processi più profondi non vengono più compressi in strisce sottili.
 
+
+**Pubblicazione:** il Navigatore di processi può essere pubblicato come [portale web](../admin/web-portals.md) in sola lettura, così chi non ha un account Turbo EA — nuovi assunti, revisori, partner — può esplorare la casa dei processi e aprire ogni flusso BPMN pubblicato.
+
 ## Dashboard BPM
 
 ![Dashboard BPM con statistiche](../assets/img/it/15_bpm_dashboard.png)

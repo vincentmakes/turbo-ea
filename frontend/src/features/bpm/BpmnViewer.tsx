@@ -14,7 +14,26 @@ import "bpmn-js/dist/assets/diagram-js.css";
 import "bpmn-js/dist/assets/bpmn-js.css";
 import "bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css";
 
-import type { ProcessElement } from "@/types";
+/**
+ * The subset of a process element this viewer actually reads.
+ *
+ * `ProcessElement` is assignable to it, so every existing caller is unaffected —
+ * but a published web portal's payload carries no card identifiers at all, and
+ * this is what lets the same viewer render it. Widening the prop rather than
+ * duplicating the component is deliberate: an account-less visitor must see the
+ * exact diagram their colleagues see inside the app.
+ */
+export interface BpmnViewerElement {
+  bpmn_element_id: string;
+  element_type: string;
+  name?: string;
+  documentation?: string;
+  lane_name?: string;
+  is_automated: boolean;
+  application_name?: string | null;
+  data_object_name?: string | null;
+  organizations?: { id: string; name: string }[];
+}
 
 /**
  * True when the shape carries an explicit colour set by hand in the modeler.
@@ -31,7 +50,7 @@ export function hasExplicitFill(element: any): boolean {
 
 interface Props {
   bpmnXml: string;
-  elements?: ProcessElement[];
+  elements?: BpmnViewerElement[];
   onElementClick?: (bpmnElementId: string) => void;
   height?: number | string;
 }
@@ -42,7 +61,7 @@ export default function BpmnViewer({ bpmnXml, elements, onElementClick, height =
   const viewerRef = useRef<any>(null);
   const [popover, setPopover] = useState<{
     anchor: HTMLElement;
-    element: ProcessElement;
+    element: BpmnViewerElement;
   } | null>(null);
 
   useEffect(() => {
