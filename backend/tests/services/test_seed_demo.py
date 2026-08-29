@@ -871,6 +871,78 @@ class TestSalesGrowthStory:
         )
 
 
+class TestMacroCapabilities:
+    """The Macro tier sits above L1 and is what the depth relaxation is for.
+
+    `_check_hierarchy_depth` allows six levels instead of five for a
+    macro-rooted chain and `_sync_capability_level` pins a Macro rather than
+    recomputing it — but both detect a macro by walking to the ROOT of the
+    chain and reading `capabilityLevel` there. Every assertion below protects
+    one of the assumptions that walk makes.
+    """
+
+    @staticmethod
+    def _caps() -> list[dict]:
+        return [c for c in _ALL_DEMO_CARDS if c["type"] == "BusinessCapability"]
+
+    @staticmethod
+    def _level(card: dict) -> str | None:
+        return (card.get("attributes") or {}).get("capabilityLevel")
+
+    def test_macros_exist_and_are_roots(self):
+        macros = [c for c in self._caps() if self._level(c) == "Macro"]
+        assert macros, "no Macro capabilities — the tier cannot be seen in the demo"
+        parented = [c["name"] for c in macros if c.get("parent_id")]
+        assert not parented, (
+            f"a Macro must be the root of its chain, or the macro-aware depth and "
+            f"level maths never see it: {parented}"
+        )
+
+    def test_every_l1_hangs_off_a_macro(self):
+        by_id = {c["id"]: c for c in self._caps()}
+        orphans, wrong = [], []
+        for cap in self._caps():
+            if self._level(cap) != "L1":
+                continue
+            parent_id = cap.get("parent_id")
+            if not parent_id:
+                orphans.append(cap["name"])
+            elif self._level(by_id.get(parent_id, {})) != "Macro":
+                wrong.append(cap["name"])
+        assert not orphans, f"L1 capabilities with no macro above them: {orphans}"
+        assert not wrong, f"L1 capabilities whose parent is not a Macro: {wrong}"
+
+    def test_no_chain_exceeds_the_macro_depth_limit(self):
+        """Six levels, matching `_check_hierarchy_depth`'s macro allowance."""
+        by_id = {c["id"]: c for c in self._caps()}
+
+        def depth(card: dict) -> int:
+            seen, d = {card["id"]}, 1
+            while card.get("parent_id") in by_id:
+                card = by_id[card["parent_id"]]
+                assert card["id"] not in seen, "capability hierarchy has a cycle"
+                seen.add(card["id"])
+                d += 1
+            return d
+
+        deepest = max((depth(c), c["name"]) for c in self._caps())
+        assert deepest[0] <= 6, f"'{deepest[1]}' sits at depth {deepest[0]}, over the limit of 6"
+
+    def test_macros_carry_no_catalogue_id(self):
+        """`catalogueId` marks a capability imported FROM the bundled catalogue.
+
+        These are NexaTech's own, and the key is not declared on the
+        BusinessCapability schema — so setting it would also fail
+        `test_all_attribute_keys_valid`.
+        """
+        tagged = [
+            c["name"]
+            for c in self._caps()
+            if self._level(c) == "Macro" and (c.get("attributes") or {}).get("catalogueId")
+        ]
+        assert not tagged, f"hand-authored macros must not claim catalogue provenance: {tagged}"
+
+
 class TestCapabilityHinge:
     """The capability layer is what makes a Dependencies centre worth opening.
 

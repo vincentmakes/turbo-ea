@@ -51,7 +51,7 @@ Para cambiar el puerto del host, establezca `HOST_PORT` en `.env` (predeterminad
 
 ## Paso 3: Cargar datos de demostración (opcional)
 
-Turbo EA puede iniciarse vacío (solo el metamodelo integrado) o con el conjunto de datos de demostración **NexaTech Industries**, ideal para evaluación, formación y exploración de funciones.
+Turbo EA puede iniciarse vacío (solo el metamodelo integrado) o con el conjunto de datos de demostración **NexaTech Industries**, ideal para evaluación, formación y exploración de funciones. Incluye logotipos de producto en las aplicaciones y los componentes de TI, tres portales web publicados (un catálogo de aplicaciones, una cartera de entrega y la casa de procesos), un diagrama publicado, diagramas agrupados y marcados como favoritos, y un mapa de capacidades que comienza en el nivel macro.
 
 Establezca el flag de seed en `.env` **antes del primer arranque**:
 

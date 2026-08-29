@@ -51,7 +51,7 @@ Para alterar a porta do host, defina `HOST_PORT` em `.env` (padrão `8920`). A t
 
 ## Passo 3: Carregar dados de demonstração (opcional)
 
-O Turbo EA pode iniciar vazio (apenas o metamodelo integrado) ou com o conjunto de dados de demonstração **NexaTech Industries**, ideal para avaliação, treinamento e exploração de recursos.
+O Turbo EA pode iniciar vazio (apenas o metamodelo integrado) ou com o conjunto de dados de demonstração **NexaTech Industries**, ideal para avaliação, treinamento e exploração de recursos. Inclui logótipos de produto nas aplicações e nos componentes de TI, três portais web publicados (um catálogo de aplicações, uma carteira de entrega e a casa de processos), um diagrama publicado, diagramas agrupados e marcados como favoritos e um mapa de capacidades que começa no nível macro.
 
 Defina o flag de seed em `.env` **antes do primeiro arranque**:
 

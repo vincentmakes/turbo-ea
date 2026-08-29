@@ -855,6 +855,40 @@ async def lifespan(app: FastAPI):
             else:
                 print(f"[seed_security] Skipped: {result.get('reason', 'unknown')}")
 
+    # Seed card logos (brand marks from the bundled packs + NexaTech house
+    # marks). After the base cards and the admin user, both of which it needs.
+    if settings.SEED_DEMO:
+        from app.services.seed_demo_logos import seed_logo_demo_data
+
+        async with async_session() as db:
+            result = await seed_logo_demo_data(db)
+            if not result.get("skipped"):
+                print(
+                    f"[seed_logos] Seeded {result['brand_logos']} brand logos, "
+                    f"{result['house_logos']} house logos"
+                )
+            else:
+                print(f"[seed_logos] Skipped: {result.get('reason', 'unknown')}")
+
+    # Seed workspace organisation: web portals, diagram groups, one published
+    # diagram and favourites. Last, because it attaches to the diagrams the
+    # extras seeder creates and needs the ppmEnabled flag the PPM seeder sets.
+    if settings.SEED_DEMO:
+        from app.services.seed_demo_workspace import seed_workspace_demo_data
+
+        async with async_session() as db:
+            result = await seed_workspace_demo_data(db)
+            if not result.get("skipped"):
+                print(
+                    f"[seed_workspace] Seeded {result['portals']} web portals, "
+                    f"{result['diagram_groups']} diagram groups, "
+                    f"{result['published_diagrams']} published diagrams, "
+                    f"{result['card_favorites']} card favourites, "
+                    f"{result['diagram_favorites']} diagram favourites"
+                )
+            else:
+                print(f"[seed_workspace] Skipped: {result.get('reason', 'unknown')}")
+
     # ── Extension Store: mint/load the instance ID (licensing identity —
     # must exist before the registry evaluates license binding), then
     # reconcile statuses, load license/registry, run per-extension

@@ -51,7 +51,7 @@ To change the host port, set `HOST_PORT` in `.env` (default `8920`). Direct HTTP
 
 ## Step 3: Load demo data (optional)
 
-Turbo EA can start empty (just the built-in metamodel) or with the **NexaTech Industries** demo dataset, which is ideal for evaluation, training, and exploring features.
+Turbo EA can start empty (just the built-in metamodel) or with the **NexaTech Industries** demo dataset, which is ideal for evaluation, training, and exploring features. It ships with product logos on applications and IT components, three published web portals (an application catalogue, a delivery portfolio and the process house), a published diagram, grouped and starred diagrams, and a capability map that starts at the macro tier.
 
 Set the seed flag in `.env` **before the first startup**:
 

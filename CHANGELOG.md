@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.107.0] - 2026-08-29
+
+### Added
+
+- **The demo dataset now arrives with logos on.** Card logos shipped two releases ago, but nothing in the NexaTech demo data ever set one, so anyone evaluating Turbo EA with `SEED_DEMO=true` saw the feature switched on and entirely unused — a wall of identical type icons. Fifty-three of the demo applications and IT components now carry their real product mark, resolved from the brand-icon pack that already ships inside the product, and NexaTech's own software — NexaSCADA, NexaPortal, NexaCloud and the rest of the family — carries a house mark drawn for it. Nothing is downloaded: an air-gapped install gets exactly the same result. About a third of the landscape deliberately keeps its type icon, either because the packs genuinely have no mark for that brand or because the card is an internal service or a shadow-IT spreadsheet that would look wrong wearing one — which is also what a real landscape looks like.
+- **A demo instance now has something to publish.** The demo data ships three public web portals — an application catalogue, a delivery portfolio and the Process House — plus one published diagram, so the portal and diagram-sharing features can be opened and read rather than only configured. The process portal publishes the whole process hierarchy and opens the Order to Cash flow full-screen, with the systems behind each step named. Every published diagram gets a fresh unguessable address when it is seeded, so no two installs share a link.
+- **The demo diagram gallery is organised, and the dashboard is not empty.** Demo diagrams are now filed into groups and a few are starred, and the demo admin starts with a handful of favourite cards, so **My Workspace** shows what it is for instead of an empty panel.
+- **The demo capability map has a top tier.** Six macro capabilities — Design & Engineer, Plan & Source, Make & Deliver, Market & Sell, Serve & Support, Govern & Enable — now sit above the ten level-1 capabilities, so the Macro tier and the capability hierarchy it heads can be seen without importing the catalogue first.
+
 ## [2.106.0] - 2026-08-29
 
 ### Added

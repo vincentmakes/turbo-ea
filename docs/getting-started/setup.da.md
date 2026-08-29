@@ -51,7 +51,7 @@ For at ændre værtsporten skal du angive `HOST_PORT` i `.env` (standard `8920`)
 
 ## Trin 3: Indlæs demodata (valgfrit)
 
-Turbo EA kan starte tom (kun den indbyggede metamodel) eller med datasættet **NexaTech Industries**-demo, som er ideelt til evaluering, træning og udforskning af funktioner.
+Turbo EA kan starte tom (kun den indbyggede metamodel) eller med datasættet **NexaTech Industries**-demo, som er ideelt til evaluering, træning og udforskning af funktioner. Det indeholder produktlogoer på applikationer og IT-komponenter, tre publicerede webportaler (et applikationskatalog, en leveranceportefølje og proceshuset), et publiceret diagram, grupperede og markerede diagrammer samt et kapabilitetskort, der starter på makroniveau.
 
 Angiv seed-flaget i `.env` **før den første opstart**:
 

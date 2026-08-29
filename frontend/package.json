@@ -13,7 +13,8 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "gen:diagram-icons": "node scripts/gen-diagram-icon-paths.mjs",
-    "gen:brand-icons": "node scripts/gen-brand-icons.mjs"
+    "gen:brand-icons": "node scripts/gen-brand-icons.mjs",
+    "gen:demo-logos": "node scripts/gen-demo-logos.mjs"
   },
   "dependencies": {
     "@dagrejs/dagre": "^2.0.4",

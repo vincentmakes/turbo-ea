@@ -51,7 +51,7 @@ Um den Host-Port zu ändern, setzen Sie `HOST_PORT` in `.env` (Standard `8920`).
 
 ## Schritt 3: Demodaten laden (optional)
 
-Turbo EA kann leer starten (nur das integrierte Metamodell) oder mit dem **NexaTech Industries**-Demodatensatz, der ideal für Evaluierung, Schulungen und das Erkunden von Funktionen ist.
+Turbo EA kann leer starten (nur das integrierte Metamodell) oder mit dem **NexaTech Industries**-Demodatensatz, der ideal für Evaluierung, Schulungen und das Erkunden von Funktionen ist. Er enthält Produktlogos auf Anwendungen und IT-Komponenten, drei veröffentlichte Web-Portale (einen Anwendungskatalog, ein Lieferportfolio und das Prozesshaus), ein veröffentlichtes Diagramm, gruppierte und favorisierte Diagramme sowie eine Fähigkeitslandkarte, die auf der Makro-Ebene beginnt.
 
 Setzen Sie das Seed-Flag in `.env` **vor dem ersten Start**:
 

@@ -340,11 +340,63 @@ ORGANIZATIONS = [
 # ── Business Capabilities ─────────────────────────────────────────
 # capabilityLevel is auto-set by the API but we set it manually for direct DB insert
 BUSINESS_CAPABILITIES = [
+    # --- Macro ---
+    # The tier above L1, additive and optional: `_check_hierarchy_depth`
+    # relaxes the depth limit from 5 to 6 for a macro-rooted chain, and
+    # `_sync_capability_level` pins a Macro rather than recomputing it. Detected
+    # purely by `capabilityLevel == "Macro"` on the root of the chain — there is
+    # deliberately no `catalogueId` here, because the `MC-` prefix marks a
+    # capability that came FROM the bundled catalogue and these are NexaTech's
+    # own. Lifecycle is left to `_apply_derived_lifecycles`, whose "half stay
+    # dateless" branch is right for a capability at this altitude.
+    _fs(
+        "bc_macro_design",
+        "BusinessCapability",
+        "Design & Engineer",
+        desc="Conceiving, designing and validating the products NexaTech sells.",
+        attrs={"capabilityLevel": "Macro", "isCoreCapability": True},
+    ),
+    _fs(
+        "bc_macro_source",
+        "BusinessCapability",
+        "Plan & Source",
+        desc="Demand planning, procurement and the inbound supply of parts.",
+        attrs={"capabilityLevel": "Macro", "isCoreCapability": True},
+    ),
+    _fs(
+        "bc_macro_make",
+        "BusinessCapability",
+        "Make & Deliver",
+        desc="Producing, testing and shipping physical product to customers.",
+        attrs={"capabilityLevel": "Macro", "isCoreCapability": True},
+    ),
+    _fs(
+        "bc_macro_sell",
+        "BusinessCapability",
+        "Market & Sell",
+        desc="Winning demand and converting it into orders across every channel.",
+        attrs={"capabilityLevel": "Macro", "isCoreCapability": False},
+    ),
+    _fs(
+        "bc_macro_serve",
+        "BusinessCapability",
+        "Serve & Support",
+        desc="Keeping installed product running and customers supported.",
+        attrs={"capabilityLevel": "Macro", "isCoreCapability": True},
+    ),
+    _fs(
+        "bc_macro_enable",
+        "BusinessCapability",
+        "Govern & Enable",
+        desc="The corporate, IT and assurance functions every other macro relies on.",
+        attrs={"capabilityLevel": "Macro", "isCoreCapability": False},
+    ),
     # --- L1 ---
     _fs(
         "bc_plm",
         "BusinessCapability",
         "Product Lifecycle Management",
+        parent="bc_macro_design",
         desc="End-to-end management of product from ideation through retirement.",
         attrs={"capabilityLevel": "L1", "isCoreCapability": True},
     ),
@@ -352,6 +404,7 @@ BUSINESS_CAPABILITIES = [
         "bc_eng_design",
         "BusinessCapability",
         "Engineering & Design",
+        parent="bc_macro_design",
         desc="All engineering disciplines required to design electromechanical and IoT products.",
         attrs={"capabilityLevel": "L1", "isCoreCapability": True},
     ),
@@ -359,6 +412,7 @@ BUSINESS_CAPABILITIES = [
         "bc_manufacturing",
         "BusinessCapability",
         "Manufacturing & Production",
+        parent="bc_macro_make",
         desc="Physical production, assembly, testing and packaging of devices.",
         attrs={"capabilityLevel": "L1", "isCoreCapability": True},
     ),
@@ -366,6 +420,7 @@ BUSINESS_CAPABILITIES = [
         "bc_scm",
         "BusinessCapability",
         "Supply Chain Management",
+        parent="bc_macro_source",
         desc="Procurement, vendor management, inventory and logistics.",
         attrs={"capabilityLevel": "L1", "isCoreCapability": True},
     ),
@@ -373,6 +428,7 @@ BUSINESS_CAPABILITIES = [
         "bc_sales",
         "BusinessCapability",
         "Sales & Distribution",
+        parent="bc_macro_sell",
         desc="Lead-to-order processes, pricing, quoting and channel management.",
         attrs={"capabilityLevel": "L1", "isCoreCapability": False},
     ),
@@ -380,6 +436,7 @@ BUSINESS_CAPABILITIES = [
         "bc_crm",
         "BusinessCapability",
         "Customer Relationship Management",
+        parent="bc_macro_sell",
         desc="Customer onboarding, account management and analytics.",
         attrs={"capabilityLevel": "L1", "isCoreCapability": False},
     ),
@@ -387,6 +444,7 @@ BUSINESS_CAPABILITIES = [
         "bc_service",
         "BusinessCapability",
         "Service & After-Sales",
+        parent="bc_macro_serve",
         desc="Technical support, field service, warranty and remote monitoring.",
         attrs={"capabilityLevel": "L1", "isCoreCapability": True},
     ),
@@ -394,6 +452,7 @@ BUSINESS_CAPABILITIES = [
         "bc_corporate",
         "BusinessCapability",
         "Corporate Management",
+        parent="bc_macro_enable",
         desc="Finance, HR, legal and strategic management functions.",
         attrs={"capabilityLevel": "L1", "isCoreCapability": False},
     ),
@@ -401,6 +460,7 @@ BUSINESS_CAPABILITIES = [
         "bc_it",
         "BusinessCapability",
         "IT & Digital Infrastructure",
+        parent="bc_macro_enable",
         desc="IT services, cybersecurity, cloud and network management.",
         attrs={"capabilityLevel": "L1", "isCoreCapability": False},
     ),
@@ -408,6 +468,7 @@ BUSINESS_CAPABILITIES = [
         "bc_quality",
         "BusinessCapability",
         "Quality & Regulatory Compliance",
+        parent="bc_macro_enable",
         desc="QMS, regulatory affairs, certifications and audits.",
         attrs={"capabilityLevel": "L1", "isCoreCapability": True},
     ),

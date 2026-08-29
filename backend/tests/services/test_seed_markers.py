@@ -28,6 +28,10 @@ from app.models.comment import Comment
 from app.models.diagram import Diagram
 from app.models.saved_report import SavedReport
 from app.services.seed_demo_extras import SEEDER_KEY, seed_extras_demo_data
+from app.services.seed_demo_logos import SEEDER_KEY as LOGOS_SEEDER_KEY
+from app.services.seed_demo_logos import seed_logo_demo_data
+from app.services.seed_demo_workspace import SEEDER_KEY as WORKSPACE_SEEDER_KEY
+from app.services.seed_demo_workspace import seed_workspace_demo_data
 from app.services.seed_markers import (
     MARKER_KEY,
     demo_seed_completed,
@@ -163,3 +167,72 @@ async def test_partial_reseed_tops_up_without_duplicating(db) -> None:
     assert result.get("saved_reports") == 0
     names_after = sorted(n for (n,) in (await db.execute(select(Diagram.name))).all())
     assert names_after == names_before
+
+
+# ---------------------------------------------------------------------------
+# Every seeder key is distinct, and the newer seeders honour the same contract
+# ---------------------------------------------------------------------------
+
+
+def test_seeder_keys_are_distinct() -> None:
+    """Two seeders sharing a key would silently disable one of them: whichever
+    ran second would find the marker already set and skip for good."""
+    from app.services.seed_demo import SEEDER_KEY as BASE
+    from app.services.seed_demo_bpm import SEEDER_KEY as BPM
+    from app.services.seed_demo_ppm import SEEDER_KEY as PPM
+    from app.services.seed_demo_security import SEEDER_KEY as SECURITY
+
+    keys = [BASE, BPM, PPM, SEEDER_KEY, SECURITY, LOGOS_SEEDER_KEY, WORKSPACE_SEEDER_KEY]
+    assert len(keys) == len(set(keys)), f"duplicate seeder keys: {keys}"
+
+
+async def test_logo_seeder_does_not_re_create_deleted_logos(db) -> None:
+    """Deleting a demo logo is permanent, like every other piece of demo data."""
+    from app.models.card_logo import CardLogo
+    from app.services.seed_demo_logos import BRAND_LOGOS
+
+    await create_user(db, role="admin")
+    await _card_type_with_logos(db)
+    await _card(db, BRAND_LOGOS[0][0])
+    await db.commit()
+
+    first = await seed_logo_demo_data(db)
+    assert first.get("skipped") is not True
+    assert LOGOS_SEEDER_KEY in await _marker_map(db)
+
+    await db.execute(delete(CardLogo))
+    await db.commit()
+
+    again = await seed_logo_demo_data(db)
+    assert again["skipped"] is True
+    assert (await db.execute(select(CardLogo))).scalars().all() == []
+
+
+async def test_workspace_seeder_does_not_re_create_deleted_portals(db) -> None:
+    from app.models.web_portal import WebPortal
+
+    await create_user(db, role="admin")
+    await db.commit()
+
+    first = await seed_workspace_demo_data(db)
+    assert first.get("skipped") is not True
+    assert WORKSPACE_SEEDER_KEY in await _marker_map(db)
+
+    await db.execute(delete(WebPortal))
+    await db.commit()
+
+    again = await seed_workspace_demo_data(db)
+    assert again["skipped"] is True
+    assert (await db.execute(select(WebPortal))).scalars().all() == []
+
+
+async def _card_type_with_logos(db):
+    from tests.conftest import create_card_type
+
+    return await create_card_type(db, key="Application", label="Application", allow_card_logo=True)
+
+
+async def _card(db, name: str):
+    from tests.conftest import create_card
+
+    return await create_card(db, card_type="Application", name=name)

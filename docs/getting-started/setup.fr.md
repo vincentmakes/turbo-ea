@@ -51,7 +51,7 @@ Pour changer le port hôte, définissez `HOST_PORT` dans `.env` (par défaut `89
 
 ## Étape 3 : Charger les données de démonstration (optionnel)
 
-Turbo EA peut démarrer vide (juste le métamodèle intégré) ou avec le jeu de données de démonstration **NexaTech Industries**, idéal pour l'évaluation, la formation et l'exploration des fonctionnalités.
+Turbo EA peut démarrer vide (juste le métamodèle intégré) ou avec le jeu de données de démonstration **NexaTech Industries**, idéal pour l'évaluation, la formation et l'exploration des fonctionnalités. Il inclut les logos produits sur les applications et les composants informatiques, trois portails web publiés (un catalogue d'applications, un portefeuille de livraison et la maison des processus), un diagramme publié, des diagrammes regroupés et favoris, ainsi qu'une carte des capacités qui démarre au niveau macro.
 
 Définissez le flag de seed dans `.env` **avant le premier démarrage** :
 
