@@ -948,14 +948,7 @@ export default function InventoryPage() {
       for (const k of LOCKED_COLUMN_KEYS) restored.add(k);
       return restored;
     }
-    // A first visit, before any type is picked: the auto-populate effect below
-    // bails while the type filter is empty, so this set is what an unfiltered
-    // inventory actually renders. Logo joins the locked pair here because the
-    // whole point of showing it by default is that a first-time reader sees the
-    // marks without configuring anything — and an unfiltered grid is exactly
-    // where they land. It is seeded, not locked: it stays deselectable, and
-    // `logoColumnApplies` still drops it wherever no type in view carries one.
-    return new Set([...LOCKED_COLUMN_KEYS, LOGO_COLUMN_KEY]);
+    return new Set(LOCKED_COLUMN_KEYS);
   });
   // Track whether the user has explicitly set columns (vs auto-populated defaults)
   const [columnsInitialized, setColumnsInitialized] = useState(
@@ -2685,39 +2678,6 @@ export default function InventoryPage() {
         },
       },
       {
-        // The card's own mark, ahead of its name: on by default, because a
-        // reader recognises a row by its logo before they have read a word of
-        // it. Only built when a type in view can carry one — on a grid of
-        // types that cannot, the column would be a stripe of empty cells whose
-        // only effect was taller rows.
-        colId: LOGO_COLUMN_KEY,
-        headerName: t("columns.logo"),
-        width: 80,
-        minWidth: 60,
-        hide: !selectedColumns.has(LOGO_COLUMN_KEY),
-        // An image is neither sortable nor filterable, and it exports as
-        // nothing — the Excel writer is handed cells, not pictures.
-        sortable: false,
-        filter: false,
-        // Centres the tile in the cell; the renderer fills the cell so the
-        // type-icon placeholder lands in exactly the same place.
-        cellStyle: {
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 0,
-        },
-        cellRenderer: (p: { data?: Card }) =>
-          p.data ? (
-            <LogoCell
-              card={p.data}
-              type={types.find((x) => x.key === p.data!.type)}
-              editable={canEditLogos && p.data.status !== "ARCHIVED"}
-              onEdit={openLogoMenu}
-            />
-          ) : null,
-      },
-      {
         colId: "core_name",
         field: "name",
         headerName: t("common:labels.name"),
@@ -2791,6 +2751,37 @@ export default function InventoryPage() {
                 </Box>
               );
             },
+      },
+      {
+        // The card's own mark. Only built when a type in view can carry one —
+        // on a grid of types that cannot, the column would be a stripe of
+        // empty cells whose only effect was taller rows.
+        colId: LOGO_COLUMN_KEY,
+        headerName: t("columns.logo"),
+        width: 80,
+        minWidth: 60,
+        hide: !selectedColumns.has(LOGO_COLUMN_KEY),
+        // An image is neither sortable nor filterable, and it exports as
+        // nothing — the Excel writer is handed cells, not pictures.
+        sortable: false,
+        filter: false,
+        // Centres the tile in the cell; the renderer fills the cell so the
+        // type-icon placeholder lands in exactly the same place.
+        cellStyle: {
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 0,
+        },
+        cellRenderer: (p: { data?: Card }) =>
+          p.data ? (
+            <LogoCell
+              card={p.data}
+              type={types.find((x) => x.key === p.data!.type)}
+              editable={canEditLogos && p.data.status !== "ARCHIVED"}
+              onEdit={openLogoMenu}
+            />
+          ) : null,
       },
       {
         colId: "core_reference",
@@ -3393,8 +3384,8 @@ export default function InventoryPage() {
       }
     );
 
-    // Dropped rather than never built, so the Logo column keeps its place just
-    // ahead of Name for the types that do carry logos.
+    // Dropped rather than never built, so the Logo column keeps its place next
+    // to Name for the types that do carry logos.
     const applicable = logoColumnAvailable
       ? cols
       : cols.filter((c) => c.colId !== LOGO_COLUMN_KEY);

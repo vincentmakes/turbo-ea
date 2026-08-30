@@ -64,7 +64,7 @@ Kolonnen **Overordnet** viser kun kortet lige ovenover, mens **Path** viser hele
 
 Kolonnen **Path** viser kortets hierarki-brødkrumme (f.eks. `North America / Sales / Inside Sales`) uden at inkludere kortets eget navn, så du kan beholde både Name og Path på skærmen samtidig.
 
-Kolonnen **Logo** viser kortets eget logo, eller dets typeikon når der ikke er sat et, så et landskab kan skimmes efter produktmærker frem for navne. Den tilbydes kun for korttyper, der tillader logoer (som standard Application og IT Component), ligger lige før «Navn», er slået til som standard og gør rækkerne højere, mens den vises, så mærkerne forbliver læsbare. Hvis du må redigere kortet, kan du holde musen over dets logo-celle og klikke for at uploade, erstatte, vælge et brand-ikon eller fjerne logoet uden at forlade gitteret — samme menu som på kortsiden. Logoer er bevidst udeladt fra udfyld-nedad og Mass Edit: ét mærke pr. kort, sat med vilje.
+Kolonnen **Logo** viser kortets eget logo, eller dets typeikon når der ikke er sat et, så et landskab kan skimmes efter produktmærker frem for navne. Den tilbydes kun for korttyper, der tillader logoer (som standard Application og IT Component), er slået fra som standard og gør rækkerne højere, mens den vises, så mærkerne forbliver læsbare. Hvis du må redigere kortet, kan du holde musen over dets logo-celle og klikke for at uploade, erstatte, vælge et brand-ikon eller fjerne logoet uden at forlade gitteret — samme menu som på kortsiden. Logoer er bevidst udeladt fra udfyld-nedad og Mass Edit: ét mærke pr. kort, sat med vilje.
 
 Hver kategori har et **Vælg alle**-afkrydsningsfelt til hurtigt at skifte alle kolonner i den gruppe. Et søgefelt øverst lader dig finde specifikke kolonner efter navn. Badget på hver sektionsoverskrift viser, hvor mange kolonner fra den gruppe der aktuelt er synlige.
 
@@ -82,7 +82,7 @@ Lageret bruger en **AG Grid**-datatabel med kraftfulde funktioner:
 |---------|-------------|
 | **Type** | Korttype med farvekodet ikon |
 | **Name** | Komponent-navn (klik for at åbne kortdetalje). Hver navne-celle har et 👁 øje-ikon — klik på det for at åbne kortdetaljen i et sidepanel uden at forlade gitteret. Ctrl/Cmd-klik på navnet for at åbne kortet i en ny browser-fane. |
-| **Logo** | Kortets eget logo, eller dets typeikon når det ikke har et. Vist som standard, lige før «Navn» — slå den fra under fanen Kolonner; klik på en celle for at ændre logoet |
+| **Logo** | Kortets eget logo, eller dets typeikon når det ikke har et. Slået fra som standard — slå den til under fanen Kolonner; klik på en celle for at ændre logoet |
 | **Path** | Hierarki-brødkrumme op til kortets forælder — tom for rod-kort |
 | **Description** | Kort beskrivelse |
 | **Lifecycle** | Aktuel livscyklus-tilstand |

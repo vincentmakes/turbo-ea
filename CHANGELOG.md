@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **Every screenshot in the manual has been retaken, in all ten languages.** The previous set predates card logos, so the inventory and card pages showed a wall of identical type icons where the product now shows real product marks; it also predates the Logo column being on by default, the Process Navigator portal and the macro capability tier. Around 700 images across the ten locale manuals were recaptured against the current release.
+- **Every screenshot in the manual has been retaken, in all ten languages.** The previous set predates card logos, so the inventory and card pages showed a wall of identical type icons where the product now shows real product marks; it also predates the Process Navigator portal and the macro capability tier. Around 700 images across the ten locale manuals were recaptured against the current release.
 
 ### Added
 
@@ -28,10 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **A demo instance now has something to publish.** The demo data ships three public web portals — an application catalogue, a delivery portfolio and the Process House — plus one published diagram, so the portal and diagram-sharing features can be opened and read rather than only configured. The process portal publishes the whole process hierarchy and opens the Order to Cash flow full-screen, with the systems behind each step named. Every published diagram gets a fresh unguessable address when it is seeded, so no two installs share a link.
 - **The demo diagram gallery is organised, and the dashboard is not empty.** Demo diagrams are now filed into groups and a few are starred, and the demo admin starts with a handful of favourite cards, so **My Workspace** shows what it is for instead of an empty panel.
 - **The demo capability map has a top tier.** Six macro capabilities — Design & Engineer, Plan & Source, Make & Deliver, Market & Sell, Serve & Support, Govern & Enable — now sit above the ten level-1 capabilities, so the Macro tier and the capability hierarchy it heads can be seen without importing the catalogue first.
-
-### Changed
-
-- **The Inventory shows logos out of the box, right before the name.** The Logo column shipped switched off, which meant the marks were only ever seen by someone who went looking for them in the Columns tab — a cost the reader can see traded against a benefit they never discover. It is now on by default and sits immediately ahead of **Name**, where the eye lands first, because a logo is how a row is recognised before a word of it has been read. Rows are taller while it is shown, as before, and the column still disappears entirely on a view whose card types cannot carry a logo, so nothing changes outside Application and IT Component. Nobody's existing layout is touched: a browser that already holds a column arrangement keeps it, and **Reset columns** is the way to take up the new default. The demo's saved Application and IT Component views carry the column too, so it does not vanish the moment you open one.
 
 ## [2.106.0] - 2026-08-29
 

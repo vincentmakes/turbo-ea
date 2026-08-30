@@ -64,7 +64,7 @@ La colonne **Parent** n'affiche que la carte située directement au-dessus, alor
 
 La colonne **Chemin** affiche le fil d'Ariane hiérarchique (par ex. « Amérique du Nord / Ventes / Ventes internes ») sans le nom de la fiche elle-même, ce qui vous permet d'afficher Nom et Chemin en même temps.
 
-La colonne **Logo** affiche le logo propre à la fiche, ou son icône de type lorsqu'aucun logo n'a été défini, ce qui permet de parcourir un paysage par marque de produit plutôt que par nom. Elle n'est proposée que pour les types de fiches autorisant les logos (par défaut, Application et Composant informatique), elle se place juste avant « Nom », est affichée par défaut et rend les lignes plus hautes tant qu'elle est affichée, afin que les marques restent lisibles. Si vous pouvez modifier la fiche, survolez sa cellule Logo et cliquez pour téléverser, remplacer, choisir une icône de marque ou supprimer le logo sans quitter la grille — le même menu que sur la page de la fiche. Les logos sont volontairement exclus du remplissage vers le bas et de l'édition en masse : une marque par fiche, définie intentionnellement.
+La colonne **Logo** affiche le logo propre à la fiche, ou son icône de type lorsqu'aucun logo n'a été défini, ce qui permet de parcourir un paysage par marque de produit plutôt que par nom. Elle n'est proposée que pour les types de fiches autorisant les logos (par défaut, Application et Composant informatique), elle est masquée par défaut et rend les lignes plus hautes tant qu'elle est affichée, afin que les marques restent lisibles. Si vous pouvez modifier la fiche, survolez sa cellule Logo et cliquez pour téléverser, remplacer, choisir une icône de marque ou supprimer le logo sans quitter la grille — le même menu que sur la page de la fiche. Les logos sont volontairement exclus du remplissage vers le bas et de l'édition en masse : une marque par fiche, définie intentionnellement.
 
 Chaque catégorie dispose d'une case à cocher **Tout sélectionner** pour activer ou désactiver rapidement toutes les colonnes du groupe. Un champ de recherche en haut permet de trouver des colonnes spécifiques par nom. Le badge sur chaque en-tête de section indique combien de colonnes de ce groupe sont actuellement visibles.
 
@@ -82,7 +82,7 @@ L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalité
 |---------|-------------|
 | **Type** | Type de fiche avec icône colorée |
 | **Nom** | Nom du composant (cliquer pour ouvrir le détail de la fiche) |
-| **Logo** | Le logo propre à la fiche, ou son icône de type à défaut. Affichée par défaut, juste avant « Nom » — désactivez-la dans l'onglet Colonnes ; cliquez sur une cellule pour changer le logo |
+| **Logo** | Le logo propre à la fiche, ou son icône de type à défaut. Masquée par défaut — activez-la dans l'onglet Colonnes ; cliquez sur une cellule pour changer le logo |
 | **Description** | Description brève |
 | **Cycle de vie** | État actuel du cycle de vie |
 | **Statut d'approbation** | Badge de statut de révision |

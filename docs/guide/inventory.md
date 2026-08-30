@@ -64,7 +64,7 @@ The **Parent** column shows just the card directly above it in the hierarchy, wh
 
 The **Path** column shows the card's hierarchy breadcrumb (e.g. `North America / Sales / Inside Sales`) without including the card's own name, so you can keep both Name and Path on screen at once.
 
-The **Logo** column shows each card's own logo, or its type icon where none has been set, so a landscape can be scanned by product mark rather than by name. It is offered only for card types that allow logos (out of the box, Application and IT Component), sits just ahead of Name and is switched on by default, and makes the rows taller while it is shown so the marks stay legible. If you may edit the card, hover its logo cell and click to upload, replace, choose a brand icon or remove the logo without leaving the grid — the same menu as on the card page. Logos are deliberately excluded from fill-down and Mass Edit: one mark per card, set on purpose.
+The **Logo** column shows each card's own logo, or its type icon where none has been set, so a landscape can be scanned by product mark rather than by name. It is offered only for card types that allow logos (out of the box, Application and IT Component), is switched off by default, and makes the rows taller while it is shown so the marks stay legible. If you may edit the card, hover its logo cell and click to upload, replace, choose a brand icon or remove the logo without leaving the grid — the same menu as on the card page. Logos are deliberately excluded from fill-down and Mass Edit: one mark per card, set on purpose.
 
 Each category has a **Select all** checkbox to quickly toggle all columns in that group. A search field at the top lets you find specific columns by name. The badge on each section header shows how many columns from that group are currently visible.
 
@@ -82,7 +82,7 @@ The inventory uses an **AG Grid** data table with powerful features:
 |--------|-------------|
 | **Type** | Card type with color-coded icon |
 | **Name** | Component name (click to open card detail). Each name cell has a 👁 eye icon — click it to open the card detail in a side panel without leaving the grid. Ctrl/Cmd-click the name to open the card in a new browser tab. |
-| **Logo** | The card's own logo, or its type icon when it has none. Shown by default, just before Name — switch it off in the Columns tab; click a cell to change the logo |
+| **Logo** | The card's own logo, or its type icon when it has none. Off by default — switch it on in the Columns tab; click a cell to change the logo |
 | **Path** | Hierarchy breadcrumb up to the card's parent — empty for root cards |
 | **Description** | Brief description |
 | **Lifecycle** | Current lifecycle state |

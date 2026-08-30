@@ -694,7 +694,6 @@ BOOKMARK_DEFS: list[dict] = [
         },
         "columns": [
             "core_type",
-            "core_logo",
             "core_name",
             "core_path",
             "core_subtype",
@@ -756,7 +755,6 @@ BOOKMARK_DEFS: list[dict] = [
         },
         "columns": [
             "core_type",
-            "core_logo",
             "core_name",
             "core_path",
             "core_subtype",

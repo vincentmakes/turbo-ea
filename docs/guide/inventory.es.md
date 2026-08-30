@@ -64,7 +64,7 @@ La columna **Padre** muestra solo la tarjeta situada directamente encima, mientr
 
 La columna **Ruta** muestra la jerarquía de la ficha (p. ej. «América del Norte / Ventas / Ventas internas») sin incluir el nombre de la propia ficha, para que pueda ver Nombre y Ruta a la vez.
 
-La columna **Logotipo** muestra el logotipo propio de la ficha, o su icono de tipo cuando no se ha definido ninguno, de modo que un paisaje puede recorrerse por la marca del producto en lugar de por el nombre. Solo se ofrece para los tipos de ficha que permiten logotipos (de fábrica, Aplicación y Componente de TI), se sitúa justo antes de «Nombre», está activada de forma predeterminada y hace las filas más altas mientras está visible, para que las marcas se distingan. Si puede editar la ficha, pase el ratón sobre su celda de logotipo y haga clic para subir, sustituir, elegir un icono de marca o eliminar el logotipo sin salir de la cuadrícula — el mismo menú que en la página de la ficha. Los logotipos quedan deliberadamente fuera del rellenado hacia abajo y de la edición masiva: una marca por ficha, definida a propósito.
+La columna **Logotipo** muestra el logotipo propio de la ficha, o su icono de tipo cuando no se ha definido ninguno, de modo que un paisaje puede recorrerse por la marca del producto en lugar de por el nombre. Solo se ofrece para los tipos de ficha que permiten logotipos (de fábrica, Aplicación y Componente de TI), está desactivada de forma predeterminada y hace las filas más altas mientras está visible, para que las marcas se distingan. Si puede editar la ficha, pase el ratón sobre su celda de logotipo y haga clic para subir, sustituir, elegir un icono de marca o eliminar el logotipo sin salir de la cuadrícula — el mismo menú que en la página de la ficha. Los logotipos quedan deliberadamente fuera del rellenado hacia abajo y de la edición masiva: una marca por ficha, definida a propósito.
 
 Cada categoría tiene una casilla **Seleccionar todo** para activar o desactivar rápidamente todas las columnas de ese grupo. Un campo de búsqueda en la parte superior permite encontrar columnas específicas por nombre. La insignia en cada encabezado de sección muestra cuántas columnas de ese grupo están actualmente visibles.
 
@@ -82,7 +82,7 @@ El inventario utiliza una tabla de datos **AG Grid** con funciones avanzadas:
 |---------|-------------|
 | **Tipo** | Tipo de ficha con icono de color |
 | **Nombre** | Nombre del componente (haga clic para abrir el detalle de la ficha) |
-| **Logotipo** | El logotipo propio de la ficha, o su icono de tipo cuando no tiene ninguno. Visible de forma predeterminada, justo antes de «Nombre» — desactívela en la pestaña Columnas; haga clic en una celda para cambiarlo |
+| **Logotipo** | El logotipo propio de la ficha, o su icono de tipo cuando no tiene ninguno. Desactivada de forma predeterminada — actívela en la pestaña Columnas; haga clic en una celda para cambiarlo |
 | **Descripción** | Descripción breve |
 | **Ciclo de Vida** | Estado actual del ciclo de vida |
 | **Estado de Aprobación** | Insignia de estado de revisión |
