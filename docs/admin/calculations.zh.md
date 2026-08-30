@@ -11,6 +11,8 @@
 
 ## 创建计算
 
+![计算编辑器](../assets/img/zh/83_admin_calculation_editor.png)
+
 点击 **+ 新建计算**并配置：
 
 | 字段 | 描述 |

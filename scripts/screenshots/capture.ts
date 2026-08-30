@@ -195,6 +195,17 @@ async function login(
 // Locale switching
 // ---------------------------------------------------------------------------
 
+/**
+ * localStorage key the SPA's language detector actually reads — see
+ * `detection.lookupLocalStorage` in frontend/src/i18n/index.ts. Writing
+ * i18next's default `i18nextLng` key is inert here, and that was the bug:
+ * every authenticated page still rendered correctly because useAuth calls
+ * i18n.changeLanguage(user.locale) after /auth/me, but the login page — the
+ * one page with no authenticated user — fell back to `en`, so all ten
+ * locales captured the same English screenshot (and `ar` lost RTL with it).
+ */
+const LOCALE_STORAGE_KEY = "turboea-locale";
+
 async function switchLocale(
   page: Page,
   config: Config,
@@ -217,10 +228,15 @@ async function switchLocale(
     console.log(`  API locale switch returned ${resp.status()}, using localStorage fallback.`);
   }
 
-  // Also set i18next localStorage so the SPA picks up the locale immediately
-  await page.evaluate((loc: string) => {
-    localStorage.setItem("i18nextLng", loc);
-  }, locale);
+  // Also set the detector's localStorage key so the SPA picks up the locale
+  // immediately — and so pages with no authenticated user (the login page)
+  // render in the right language too.
+  await page.evaluate(
+    ([loc, key]: [string, string]) => {
+      localStorage.setItem(key, loc);
+    },
+    [locale, LOCALE_STORAGE_KEY] as [string, string]
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -412,15 +428,15 @@ async function capturePage(
   // 23_inventory_filters leaks into the next locale's 03_inventory, and the
   // dependency C4 view (13b) leaks into 13. Preserve the i18n locale key so the
   // page still renders in the locale we switched to.
-  await page.evaluate(() => {
+  await page.evaluate((key: string) => {
     try {
-      const lng = localStorage.getItem("i18nextLng");
+      const lng = localStorage.getItem(key);
       localStorage.clear();
-      if (lng !== null) localStorage.setItem("i18nextLng", lng);
+      if (lng !== null) localStorage.setItem(key, lng);
     } catch {
       // about:blank / no document origin yet — nothing to clear.
     }
-  });
+  }, LOCALE_STORAGE_KEY);
 
   // Navigate
   // Use "domcontentloaded" instead of "networkidle" because the app opens an

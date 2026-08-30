@@ -4,6 +4,8 @@ La función de **Etiquetas** (**Administrador > Metamodelo > pestaña Etiquetas*
 
 ## Grupos de etiquetas
 
+![La pestaña de administración de etiquetas](../assets/img/es/84_admin_etiquetas.png)
+
 Un grupo de etiquetas es una categoría de etiquetas. Por ejemplo, podría crear grupos como «Dominio de Negocio», «Marco de Cumplimiento» o «Propiedad del Equipo».
 
 ### Crear un grupo de etiquetas

@@ -32,6 +32,8 @@ Le notifiche vengono consegnate in tempo reale utilizzando Server-Sent Events (S
 
 ## Preferenze di notifica
 
+![La finestra delle preferenze di notifica](../assets/img/it/81_preferenze_notifiche.png)
+
 Cliccate sull'**icona dell'ingranaggio** nel menu a tendina delle notifiche (o andate al menu del profilo) per configurare le vostre preferenze di notifica.
 
 Per ogni tipo di notifica, potete attivare/disattivare indipendentemente:

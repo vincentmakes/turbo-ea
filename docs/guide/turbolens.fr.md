@@ -7,6 +7,8 @@ Le module **TurboLens** fournit une analyse assistée par IA de votre paysage d'
 
 ## Tableau de bord
 
+![Le tableau de bord TurboLens](../assets/img/fr/75_turbolens_tableau_de_bord.png)
+
 Le tableau de bord TurboLens offre une vue d'ensemble instantanée de l'analyse de votre paysage.
 
 | Indicateur | Description |
@@ -81,6 +83,8 @@ L'évaluation de la modernisation analyse les cartes pour identifier des opportu
 Les résultats sont regroupés par priorité afin que vous puissiez vous concentrer en premier sur les opportunités de modernisation les plus impactantes.
 
 ## Architecture IA
+
+![L'assistant Architecture IA, étape 1](../assets/img/fr/76_turbolens_architecte.png)
 
 L'Architecture IA est un assistant guidé en 5 étapes qui génère des recommandations d'architecture basées sur votre paysage existant. Elle relie vos objectifs métier et vos capacités à des propositions de solution concrètes, une analyse des écarts, une cartographie des dépendances et un diagramme d'architecture cible.
 
@@ -221,6 +225,8 @@ Le scanner de conformité est une analyse TurboLens qui produit des constats de 
 Les constats de conformité peuvent aussi être **saisis manuellement** sans qu'un fournisseur IA soit configuré, de sorte que l'onglet Conformité fonctionne dans les déploiements qui n'ont pas de LLM configuré.
 
 ## Historique des analyses
+
+![Historique des analyses TurboLens](../assets/img/fr/77_turbolens_historique.png)
 
 Toutes les exécutions d'analyse sont suivies dans **TurboLens > Historique**, affichant :
 

@@ -107,6 +107,8 @@ Recognised columns: `title` (required), `description`, `category`, `initial_prob
 
 ## Risk matrix
 
+![The 4x4 risk matrix on the Risk Register](../assets/img/en/78_risk_matrix.png)
+
 Both the TurboLens Security Overview and the Risk Register page render a 4×4 probability × impact heatmap. Cells are **clickable** — click one to filter the list below to just that bucket, click again (or the chip's ×) to clear. On the Risk Register you can toggle the matrix between **Initial** and **Residual** views so mitigation progress shows up visually.
 
 ## Register grid

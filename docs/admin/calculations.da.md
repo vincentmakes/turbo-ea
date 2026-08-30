@@ -11,6 +11,8 @@ Funktionen **Beregninger** (**Admin > Metamodel > Beregninger**-fanebladet) lade
 
 ## Oprettelse af en beregning
 
+![Beregningseditoren](../assets/img/da/83_admin_calculation_editor.png)
+
 Klik på **+ Ny beregning** og konfigurer:
 
 | Felt | Beskrivelse |

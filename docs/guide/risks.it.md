@@ -104,6 +104,8 @@ Colonne riconosciute: `title` (obbligatorio), `description`, `category`, `initia
 
 ## Matrice dei rischi
 
+![La matrice dei rischi 4×4 nel registro dei rischi](../assets/img/it/78_matrice_rischi.png)
+
 Sia la Panoramica Sicurezza di TurboLens sia la pagina del Registro dei Rischi mostrano una heatmap probabilità × impatto 4×4. Le celle sono **cliccabili** — cliccate su una per filtrare la lista sottostante su quel bucket, cliccate di nuovo (o sulla × del chip) per pulire. Nel Registro dei Rischi potete alternare la matrice fra le viste **Iniziale** e **Residua** per vedere visivamente il progresso della mitigazione.
 
 ## Griglia del registro

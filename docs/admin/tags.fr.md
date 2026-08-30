@@ -4,6 +4,8 @@ La fonctionnalité **Tags** (**Admin > Métamodèle > onglet Tags**) vous permet
 
 ## Groupes de tags
 
+![L'onglet d'administration des étiquettes](../assets/img/fr/84_admin_etiquettes.png)
+
 Un groupe de tags est une catégorie de tags. Par exemple, vous pouvez créer des groupes comme « Domaine Métier », « Cadre de Conformité » ou « Propriété par Équipe ».
 
 ### Créer un groupe de tags

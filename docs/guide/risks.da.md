@@ -107,6 +107,8 @@ Genkendte kolonner: `title` (påkrævet), `description`, `category`, `initial_pr
 
 ## Risikomatrix
 
+![4×4-risikomatricen i risikoregistret](../assets/img/da/78_risk_matrix.png)
+
 Både TurboLens Security Overview og Risikoregister-siden gengiver et 4×4 sandsynlighed × virkning-heatmap. Celler er **klikbare** — klik på en for at filtrere listen nedenfor til bare den bøtte, klik igen (eller chip'ens ×) for at rydde. På Risikoregistret kan du skifte matricen mellem **Initial**- og **Residual**-visninger, så afhjælpningsfremskridt vises visuelt.
 
 ## Register-gitter

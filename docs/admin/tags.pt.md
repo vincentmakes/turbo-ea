@@ -4,6 +4,8 @@ O recurso de **Tags** (**Admin > Metamodelo > aba Tags**) permite criar rótulos
 
 ## Grupos de tags
 
+![O separador de administração de etiquetas](../assets/img/pt/84_admin_etiquetas.png)
+
 Um grupo de tags é uma categoria de tags. Por exemplo, você pode criar grupos como «Domínio de Negócio», «Framework de Conformidade» ou «Propriedade da Equipe».
 
 ### Criar um grupo de tags

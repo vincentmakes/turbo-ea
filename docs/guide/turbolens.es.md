@@ -7,6 +7,8 @@ El módulo **TurboLens** proporciona análisis impulsado por IA de su paisaje de
 
 ## Panel de Control
 
+![El panel de TurboLens](../assets/img/es/75_turbolens_panel.png)
+
 El panel de control de TurboLens proporciona una visión general de un vistazo del análisis de su paisaje.
 
 | Indicador | Descripción |
@@ -81,6 +83,8 @@ La evaluación de modernización evalúa las tarjetas en busca de oportunidades 
 Los resultados se agrupan por prioridad para que pueda centrarse primero en las oportunidades de modernización de mayor impacto.
 
 ## IA de Arquitectura
+
+![El asistente de Arquitectura IA, paso 1](../assets/img/es/76_turbolens_arquitecto.png)
 
 La IA de Arquitectura es un asistente guiado de 5 pasos que genera recomendaciones de arquitectura basadas en su paisaje existente. Vincula sus objetivos empresariales y capacidades con propuestas de soluciones concretas, análisis de brechas, mapeo de dependencias y un diagrama de arquitectura objetivo.
 
@@ -221,6 +225,8 @@ El escáner de cumplimiento es un análisis TurboLens que produce hallazgos de c
 Los hallazgos de cumplimiento también pueden ser **redactados manualmente** sin un proveedor IA configurado, de modo que la pestaña Cumplimiento funcione en despliegues que no tienen un LLM configurado.
 
 ## Historial de Análisis
+
+![Historial de análisis de TurboLens](../assets/img/es/77_turbolens_historial.png)
 
 Todas las ejecuciones de análisis se rastrean en **TurboLens > History**, mostrando:
 

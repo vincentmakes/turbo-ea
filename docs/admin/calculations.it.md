@@ -11,6 +11,8 @@ La funzionalità **Calcoli** (**Admin > Metamodello > scheda Calcoli**) consente
 
 ## Creazione di un calcolo
 
+![L'editor dei calcoli](../assets/img/it/83_admin_editor_calcolo.png)
+
 Cliccate su **+ Nuovo calcolo** e configurate:
 
 | Campo | Descrizione |

@@ -32,6 +32,8 @@ Les notifications sont délivrées en temps réel via Server-Sent Events (SSE). 
 
 ## Préférences de notification
 
+![La boîte de dialogue des préférences de notification](../assets/img/fr/81_preferences_notifications.png)
+
 Cliquez sur l'**icône d'engrenage** dans le menu déroulant des notifications (ou allez dans votre menu de profil) pour configurer vos préférences de notification.
 
 Pour chaque type de notification, vous pouvez activer/désactiver indépendamment :

@@ -7,6 +7,8 @@ Il modulo **TurboLens** fornisce un'analisi basata su intelligenza artificiale d
 
 ## Panoramica
 
+![La dashboard di TurboLens](../assets/img/it/75_turbolens_dashboard.png)
+
 La panoramica di TurboLens offre una visione immediata dell'analisi del tuo panorama.
 
 | Indicatore | Descrizione |
@@ -81,6 +83,8 @@ La valutazione della modernizzazione analizza le card per individuare opportunit
 I risultati sono raggruppati per priorità, così puoi concentrarti prima sulle opportunità di modernizzazione più impattanti.
 
 ## Architecture AI
+
+![La procedura guidata Architettura IA, passaggio 1](../assets/img/it/76_turbolens_architetto.png)
 
 L'Architecture AI è una procedura guidata in 5 passaggi che genera raccomandazioni architetturali basate sul tuo panorama esistente. Collega i tuoi obiettivi aziendali e le tue capacità a proposte di soluzione concrete, analisi dei gap, mappatura delle dipendenze e un diagramma dell'architettura target.
 
@@ -221,6 +225,8 @@ Lo scanner di conformità è un'analisi TurboLens che produce rilevazioni di con
 Le rilevazioni di conformità possono anche essere **scritte manualmente** senza un provider IA configurato, in modo che la scheda Conformità funzioni in deployment senza un LLM configurato.
 
 ## Cronologia delle analisi
+
+![Cronologia delle analisi di TurboLens](../assets/img/it/77_turbolens_cronologia.png)
 
 Tutte le esecuzioni di analisi sono tracciate in **TurboLens > Cronologia**, con le seguenti informazioni:
 

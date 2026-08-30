@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.108.0] - 2026-08-30
+
+### Fixed
+
+- **The login screenshot in the manual was the English one, in every language.** The capture script wrote the browser's language into `i18nextLng`, which is i18next's default key — but Turbo EA's detector reads `turboea-locale`. Every other page survived that mismatch, because signing in applies the account's language directly; the login page is the one screen with nobody signed in, so it silently fell back to English. All ten manuals shipped the same English picture, six of them under a translated filename, and the Arabic one lost its right-to-left layout with it. The login page is now captured in each language, reading in the right direction.
+- **The manual's "AI Suggestion Panel" screenshot did not contain the panel.** The sparkle button only appears once an AI provider is configured, and the instance the screenshots were taken on had none — so the click quietly did nothing and the capture fell through to a plain card, byte-for-byte identical to the card-detail screenshot two pages earlier. The AI settings page documented a panel the reader could never see in it. The screenshot now shows the panel open with a real suggestion.
+
+### Changed
+
+- **Every screenshot in the manual has been retaken, in all ten languages.** The previous set predates card logos, so the inventory and card pages showed a wall of identical type icons where the product now shows real product marks; it also predates the Logo column being on by default, the Process Navigator portal and the macro capability tier. Around 700 images across the ten locale manuals were recaptured against the current release.
+
+### Added
+
+- **Seven screens that the manual described but never showed.** TurboLens now has pictures of its dashboard, the Architecture AI wizard and the analysis history; the Risk Register shows its 4x4 matrix; and the notification preferences dialog, the calculation editor and the Tags administration tab are all illustrated for the first time. Each is captured in all ten languages.
+
 ## [2.107.0] - 2026-08-29
 
 ### Added

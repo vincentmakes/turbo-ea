@@ -407,7 +407,7 @@ a `WARNING` — the run still captures a screenshot, just of the wrong tab.
 
 1. Launches headless Chromium via Playwright at 2x device scale (Retina quality).
 2. Authenticates via `POST /api/v1/auth/login` and injects the JWT into `sessionStorage`.
-3. Resolves card UUIDs from demo data (e.g., `{{cardId:sampleApp}}` → NexaCore ERP UUID).
+3. Resolves card UUIDs from demo data (e.g., `{{cardId:sampleApp}}` → the SAP S/4HANA UUID).
 4. Switches locale per capture run (EN, ES, etc.) via API + localStorage.
 5. Navigates to each configured route, executes pre-capture actions (scroll, click, hover, wait), and saves screenshots to `docs/assets/img/{locale}/`.
 

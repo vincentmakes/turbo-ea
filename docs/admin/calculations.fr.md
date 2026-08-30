@@ -11,6 +11,8 @@ La fonctionnalité **Calculs** (**Admin > Métamodèle > onglet Calculs**) vous 
 
 ## Création d'un calcul
 
+![L'éditeur de calcul](../assets/img/fr/83_admin_editeur_calcul.png)
+
 Cliquez sur **+ Nouveau calcul** et configurez :
 
 | Champ | Description |

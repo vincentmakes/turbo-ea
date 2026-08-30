@@ -16,6 +16,16 @@ Automated screenshot capture for Turbo EA documentation and marketing site using
    npm run install-browsers
    ```
 
+### Screenshot 27 needs an AI provider
+
+`27_ai_suggest_panel` clicks the sparkle button on a card, which the app only
+renders once `GET /ai/status` reports **both** `enabled` and `configured` —
+i.e. the workspace has an AI provider URL *and* a model set. Without one the
+click is a silent `WARNING` and the capture falls through to plain card
+detail, which is how that file once shipped byte-identical to
+`04_card_detail.png`. Configure a provider on the capture instance before a
+full run, and check the captured file actually differs from `04`.
+
 ## Usage
 
 ```bash
@@ -79,7 +89,12 @@ published in the root `README.md`.
 
 1. Launches headless Chromium via Playwright
 2. Logs in via `POST /api/v1/auth/login` and injects the JWT into `sessionStorage`
-3. Resolves card UUIDs from demo data (e.g., "NexaCore ERP" → UUID)
-4. For each locale: switches the user locale, then navigates through each page definition
+3. Resolves card UUIDs from demo data (e.g., "SAP S/4HANA" → UUID)
+4. For each locale: switches the user locale — via `PATCH /users/{id}` *and* the
+   `turboea-locale` localStorage key the SPA's detector actually reads (see
+   `detection.lookupLocalStorage` in `frontend/src/i18n/index.ts`; writing
+   i18next's default `i18nextLng` is inert, and getting this wrong makes the
+   login page — the one screen with no signed-in user — render in English for
+   every locale) — then navigates through each page definition
 5. Waits for selectors, executes actions (scroll, click, hover), then captures the screenshot
 6. Saves to the appropriate output directory with the correct locale-specific filename

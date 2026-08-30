@@ -104,6 +104,8 @@ Colonnes reconnues : `title` (obligatoire), `description`, `category`, `initial_
 
 ## Matrice des risques
 
+![La matrice de risques 4×4 du registre des risques](../assets/img/fr/78_matrice_risques.png)
+
 La Vue d'ensemble Sécurité de TurboLens comme la page du Registre des risques affichent une carte thermique probabilité × impact 4×4. Les cellules sont **cliquables** — cliquez sur une cellule pour filtrer la liste en dessous sur ce compartiment, cliquez à nouveau (ou sur le × du chip) pour effacer. Dans le Registre des risques, vous pouvez basculer la matrice entre les vues **Initiale** et **Résiduelle** pour visualiser les progrès de la mitigation.
 
 ## Grille du registre

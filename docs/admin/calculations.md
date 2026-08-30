@@ -11,6 +11,8 @@ The **Calculations** feature (**Admin > Metamodel > Calculations** tab) lets you
 
 ## Creating a Calculation
 
+![The calculation editor](../assets/img/en/83_admin_calculation_editor.png)
+
 Click **+ New Calculation** and configure:
 
 | Field | Description |

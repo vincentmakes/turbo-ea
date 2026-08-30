@@ -4,6 +4,8 @@ Funktionen **Tags** (**Admin > Metamodel > Tags**-fanebladet) lader dig oprette 
 
 ## Tag-grupper
 
+![Administrationsfanen «Tags»](../assets/img/da/84_admin_tags.png)
+
 En tag-gruppe er en kategori af tags. For eksempel kan du oprette grupper som "Forretningsdomæne", "Compliance-ramme" eller "Team-ejerskab".
 
 ### Oprettelse af en tag-gruppe

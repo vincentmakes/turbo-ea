@@ -11,6 +11,8 @@ O recurso de **Cálculos** (**Admin > Metamodelo > aba Cálculos**) permite defi
 
 ## Criando um Cálculo
 
+![O editor de cálculos](../assets/img/pt/83_admin_editor_calculo.png)
+
 Clique em **+ Novo Cálculo** e configure:
 
 | Campo | Descrição |

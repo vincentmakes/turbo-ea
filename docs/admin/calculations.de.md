@@ -11,6 +11,8 @@ Die **Berechnungen**-Funktion (**Admin > Metamodell > Berechnungen**-Tab) ermög
 
 ## Eine Berechnung erstellen
 
+![Der Berechnungseditor](../assets/img/de/83_admin_berechnung_editor.png)
+
 Klicken Sie auf **+ Neue Berechnung** und konfigurieren Sie:
 
 | Feld | Beschreibung |

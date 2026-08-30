@@ -7,6 +7,8 @@
 
 ## 仪表板
 
+![TurboLens 仪表板](../assets/img/zh/75_turbolens_dashboard.png)
+
 TurboLens 仪表板提供您的全景分析概览。
 
 | 指标 | 描述 |
@@ -81,6 +83,8 @@ TurboLens 仪表板提供您的全景分析概览。
 结果按优先级分组，以便您优先关注影响最大的现代化机会。
 
 ## Architecture AI
+
+![架构 AI 向导，第 1 步](../assets/img/zh/76_turbolens_architect.png)
 
 Architecture AI 是一个五步引导式向导，基于您现有的全景生成架构建议。它将您的业务目标和能力与具体解决方案建议、差距分析、依赖关系映射及目标架构图相关联。
 
@@ -221,6 +225,8 @@ AI 生成多个解决方案选项，每个选项以卡片形式呈现，包含�
 合规发现也可以在没有配置 AI 提供商的情况下**手工撰写**，因此合规标签页在没有设置 LLM 的部署中也能工作。
 
 ## 分析历史
+
+![TurboLens 分析历史](../assets/img/zh/77_turbolens_history.png)
 
 所有分析运行记录均在 **TurboLens > History** 中追踪，显示：
 

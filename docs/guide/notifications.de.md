@@ -32,6 +32,8 @@ Benachrichtigungen werden in Echtzeit über Server-Sent Events (SSE) zugestellt.
 
 ## Benachrichtigungseinstellungen
 
+![Der Dialog «Benachrichtigungseinstellungen»](../assets/img/de/81_benachrichtigungseinstellungen.png)
+
 Klicken Sie auf das **Zahnradsymbol** im Benachrichtigungs-Dropdown (oder gehen Sie zu Ihrem Profilmenü), um Ihre Benachrichtigungseinstellungen zu konfigurieren.
 
 Für jeden Benachrichtigungstyp können Sie unabhängig umschalten:

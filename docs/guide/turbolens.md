@@ -7,6 +7,8 @@ The **TurboLens** module provides AI-powered analysis of your enterprise archite
 
 ## Dashboard
 
+![The TurboLens dashboard](../assets/img/en/75_turbolens_dashboard.png)
+
 The TurboLens dashboard provides an at-a-glance overview of your landscape analysis.
 
 | Indicator | Description |
@@ -81,6 +83,8 @@ Modernization assessment evaluates cards for upgrade opportunities based on curr
 Results are grouped by priority so you can focus on the most impactful modernization opportunities first.
 
 ## Architecture AI
+
+![The Architecture AI wizard, step 1](../assets/img/en/76_turbolens_architect.png)
 
 The Architecture AI is a 5-step guided wizard that generates architecture recommendations based on your existing landscape. It links your business objectives and capabilities to concrete solution proposals, gap analysis, dependency mapping, and a target architecture diagram.
 
@@ -221,6 +225,8 @@ The Compliance scanner is a TurboLens analysis that produces compliance findings
 Compliance findings can also be **authored manually** without an AI provider configured, so the Compliance tab works in deployments that don't have an LLM set up.
 
 ## Analysis History
+
+![TurboLens analysis history](../assets/img/en/77_turbolens_history.png)
 
 All analysis runs are tracked in **TurboLens > History**, showing:
 

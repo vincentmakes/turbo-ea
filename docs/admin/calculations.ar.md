@@ -11,6 +11,8 @@
 
 ## إنشاء حساب
 
+![محرّر الحسابات](../assets/img/ar/83_admin_calculation_editor.png)
+
 انقر **+ New Calculation** وقم بالتهيئة:
 
 | الحقل | الوصف |

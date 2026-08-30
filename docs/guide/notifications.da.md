@@ -32,6 +32,8 @@ Notifikationer leveres i realtid ved hjælp af Server-Sent Events (SSE). Du beh�
 
 ## Notifikationspræferencer
 
+![Dialogen «Notifikationsindstillinger»](../assets/img/da/81_notification_preferences.png)
+
 Klik på **tandhjulsikonet** i notifikationsdropdownen (eller gå til din profilmenu) for at konfigurere dine notifikationspræferencer.
 
 For hver notifikationstype kan du uafhængigt slå til/fra:

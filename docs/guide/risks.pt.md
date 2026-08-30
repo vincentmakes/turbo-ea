@@ -104,6 +104,8 @@ Colunas reconhecidas: `title` (obrigatório), `description`, `category`, `initia
 
 ## Matriz de riscos
 
+![A matriz de riscos 4×4 no registo de riscos](../assets/img/pt/78_matriz_riscos.png)
+
 Tanto a Visão Geral de Segurança do TurboLens como a página do Registo de Riscos apresentam um mapa de calor probabilidade × impacto 4×4. As células são **clicáveis** — clique numa para filtrar a lista abaixo por esse compartimento, clique novamente (ou no × do chip) para limpar. No Registo de Riscos pode alternar a matriz entre as vistas **Inicial** e **Residual** para que o progresso da mitigação apareça visualmente.
 
 ## Grelha do registo

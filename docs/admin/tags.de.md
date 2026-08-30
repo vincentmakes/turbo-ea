@@ -4,6 +4,8 @@ Die **Tags**-Funktion (**Admin > Metamodell > Tab Tags**) ermöglicht es Ihnen, 
 
 ## Tag-Gruppen
 
+![Der Verwaltungstab «Tags»](../assets/img/de/84_admin_tags.png)
+
 Eine Tag-Gruppe ist eine Kategorie von Tags. Zum Beispiel könnten Sie Gruppen wie «Geschäftsdomäne», «Compliance-Framework» oder «Team-Zuständigkeit» erstellen.
 
 ### Eine Tag-Gruppe erstellen

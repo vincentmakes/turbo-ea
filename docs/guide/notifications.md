@@ -32,6 +32,8 @@ Notifications are delivered in real time using Server-Sent Events (SSE). You do 
 
 ## Notification Preferences
 
+![The notification preferences dialog](../assets/img/en/81_notification_preferences.png)
+
 Click the **gear icon** in the notification dropdown (or go to your profile menu) to configure your notification preferences.
 
 For each notification type, you can independently toggle:

@@ -104,6 +104,8 @@ Erkannte Spalten: `title` (erforderlich), `description`, `category`, `initial_pr
 
 ## Risikomatrix
 
+![Die 4×4-Risikomatrix im Risikoregister](../assets/img/de/78_risikomatrix.png)
+
 Sowohl die Sicherheits-Übersicht von TurboLens als auch die Risikoregister-Seite rendern eine 4×4-Heatmap Wahrscheinlichkeit × Auswirkung. Zellen sind **klickbar** — ein Klick filtert die Liste darunter auf diesen Bucket, ein weiterer Klick (oder das × des Chips) löscht den Filter. Im Risikoregister können Sie die Matrix zwischen **Initial**- und **Rest**-Ansicht umschalten, damit sich der Fortschritt der Minderung visuell zeigt.
 
 ## Register-Grid

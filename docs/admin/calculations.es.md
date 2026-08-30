@@ -11,6 +11,8 @@ La función de **Cálculos** (**Administrador > Metamodelo > pestaña Cálculos*
 
 ## Creación de un Cálculo
 
+![El editor de cálculos](../assets/img/es/83_admin_editor_calculo.png)
+
 Haga clic en **+ Nuevo Cálculo** y configure:
 
 | Campo | Descripción |

@@ -4,6 +4,8 @@ The **Tags** feature (**Admin > Metamodel > Tags** tab) lets you create classifi
 
 ## Tag groups
 
+![The Tags administration tab](../assets/img/en/84_admin_tags.png)
+
 A tag group is a category of tags. For example, you might create groups like "Business Domain", "Compliance Framework" or "Team Ownership".
 
 ### Creating a tag group

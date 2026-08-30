@@ -193,6 +193,21 @@ const TAB_PPM_GANTT = tabSelector(...i18nLabels("ppm:gantt"));
 const BTN_CREATE = i18nLabels("common:actions.create", "nav:create")
   .map((l) => `button:has-text("${hasTextArg(l)}")`)
   .join(", ");
+/** Build a has-text selector chain for a MUI menu item across locales. */
+function menuItemSelector(...labels: string[]): string {
+  return labels
+    .map((l) => `li[role='menuitem']:has-text("${hasTextArg(l)}")`)
+    .join(", ");
+}
+
+/** Build a has-text selector chain for a plain button across locales. */
+function buttonSelector(...labels: string[]): string {
+  return labels.map((l) => `button:has-text("${hasTextArg(l)}")`).join(", ");
+}
+
+const TAB_MM_CALCULATIONS = tabSelector(...i18nLabels("admin:metamodel.tabs.calculations"));
+const TAB_MM_TAGS = tabSelector(...i18nLabels("admin:metamodel.tabs.tags"));
+
 /** Top navbar "Reports" menu button, across locales. */
 const NAV_REPORTS = i18nLabels("nav:reports")
   .map((l) => `.MuiToolbar-root button:has-text("${hasTextArg(l)}")`)
@@ -517,9 +532,12 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "15_bpm_dashboard",
     route: "/bpm",
-    waitFor: ".MuiPaper-root",
+    // Wait for the tablist itself: the page paints Papers before its async
+    // load renders the Tabs, so a Paper wait can fire first and the tab
+    // click then finds nothing — a silent WARNING and a duplicate shot.
+    waitFor: "[role='tablist']",
     actions: [
-      { type: "wait", ms: 400 },
+      { type: "wait", ms: 1200 },
       { type: "click", selector: TAB_BPM_DASHBOARD },
       { type: "wait", ms: 600 },
     ],
@@ -783,9 +801,14 @@ export const DOC_PAGES: PageDef[] = [
     waitFor: "[data-testid='card-detail'], [class*='CardDetail'], h5, h4",
     actions: [
       { type: "wait", ms: 400 },
-      // Click the AI suggest sparkle button — see DescriptionSection.tsx
+      // Click the AI suggest sparkle button — see DescriptionSection.tsx.
+      // The button only renders when /ai/status reports BOTH enabled and
+      // configured (aiSuggestEnabledFor in hooks/useAiStatus.ts), so the
+      // capture instance needs a provider URL + model set, or this click is a
+      // silent WARNING and the shot is plain card detail — which is exactly
+      // how this file shipped as a byte-identical copy of 04_card_detail.png.
       { type: "click", selector: "[data-testid='ai-suggest-button']" },
-      { type: "wait", ms: 800 },
+      { type: "wait", ms: 2500 },
     ],
     filenames: {
       en: "27_ai_suggest_panel",
@@ -984,9 +1007,12 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "38_metamodel_graph",
     route: "/admin/metamodel",
-    waitFor: ".MuiPaper-root",
+    // Wait for the tablist itself: the page paints Papers before its async
+    // load renders the Tabs, so a Paper wait can fire first and the tab
+    // click then finds nothing — a silent WARNING and a duplicate shot.
+    waitFor: "[role='tablist']",
     actions: [
-      { type: "wait", ms: 400 },
+      { type: "wait", ms: 1200 },
       { type: "click", selector: TAB_METAMODEL_GRAPH },
       { type: "wait", ms: 600 },
     ],
@@ -1006,9 +1032,12 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "39_admin_roles",
     route: "/admin/users",
-    waitFor: ".MuiPaper-root",
+    // Wait for the tablist itself: the page paints Papers before its async
+    // load renders the Tabs, so a Paper wait can fire first and the tab
+    // click then finds nothing — a silent WARNING and a duplicate shot.
+    waitFor: "[role='tablist']",
     actions: [
-      { type: "wait", ms: 400 },
+      { type: "wait", ms: 1200 },
       { type: "click", selector: TAB_ROLES },
       { type: "wait", ms: 600 },
     ],
@@ -1044,9 +1073,12 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "41_ppm_overview",
     route: "/ppm/{{cardId:sampleInitiative}}",
-    waitFor: ".MuiPaper-root",
+    // Wait for the tablist itself: the page paints Papers before its async
+    // load renders the Tabs, so a Paper wait can fire first and the tab
+    // click then finds nothing — a silent WARNING and a duplicate shot.
+    waitFor: "[role='tablist']",
     actions: [
-      { type: "wait", ms: 400 },
+      { type: "wait", ms: 1200 },
       { type: "click", selector: TAB_PPM_OVERVIEW },
       { type: "wait", ms: 600 },
     ],
@@ -1064,9 +1096,12 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "42_ppm_status_reports",
     route: "/ppm/{{cardId:sampleInitiative}}",
-    waitFor: ".MuiPaper-root",
+    // Wait for the tablist itself: the page paints Papers before its async
+    // load renders the Tabs, so a Paper wait can fire first and the tab
+    // click then finds nothing — a silent WARNING and a duplicate shot.
+    waitFor: "[role='tablist']",
     actions: [
-      { type: "wait", ms: 400 },
+      { type: "wait", ms: 1200 },
       { type: "click", selector: TAB_PPM_STATUS_REPORTS },
       { type: "wait", ms: 600 },
     ],
@@ -1084,9 +1119,12 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "43_ppm_budget_costs",
     route: "/ppm/{{cardId:sampleInitiative}}",
-    waitFor: ".MuiPaper-root",
+    // Wait for the tablist itself: the page paints Papers before its async
+    // load renders the Tabs, so a Paper wait can fire first and the tab
+    // click then finds nothing — a silent WARNING and a duplicate shot.
+    waitFor: "[role='tablist']",
     actions: [
-      { type: "wait", ms: 400 },
+      { type: "wait", ms: 1200 },
       { type: "click", selector: TAB_PPM_BUDGET },
       { type: "wait", ms: 600 },
     ],
@@ -1104,9 +1142,12 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "44_ppm_risk_management",
     route: "/ppm/{{cardId:sampleInitiative}}",
-    waitFor: ".MuiPaper-root",
+    // Wait for the tablist itself: the page paints Papers before its async
+    // load renders the Tabs, so a Paper wait can fire first and the tab
+    // click then finds nothing — a silent WARNING and a duplicate shot.
+    waitFor: "[role='tablist']",
     actions: [
-      { type: "wait", ms: 400 },
+      { type: "wait", ms: 1200 },
       { type: "click", selector: TAB_PPM_RISK },
       { type: "wait", ms: 600 },
     ],
@@ -1124,9 +1165,12 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "45_ppm_task_board",
     route: "/ppm/{{cardId:sampleInitiative}}",
-    waitFor: ".MuiPaper-root",
+    // Wait for the tablist itself: the page paints Papers before its async
+    // load renders the Tabs, so a Paper wait can fire first and the tab
+    // click then finds nothing — a silent WARNING and a duplicate shot.
+    waitFor: "[role='tablist']",
     actions: [
-      { type: "wait", ms: 400 },
+      { type: "wait", ms: 1200 },
       { type: "click", selector: TAB_PPM_TASKS },
       { type: "wait", ms: 600 },
     ],
@@ -1144,9 +1188,12 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "46_ppm_gantt",
     route: "/ppm/{{cardId:sampleInitiative}}",
-    waitFor: ".MuiPaper-root",
+    // Wait for the tablist itself: the page paints Papers before its async
+    // load renders the Tabs, so a Paper wait can fire first and the tab
+    // click then finds nothing — a silent WARNING and a duplicate shot.
+    waitFor: "[role='tablist']",
     actions: [
-      { type: "wait", ms: 400 },
+      { type: "wait", ms: 1200 },
       { type: "click", selector: TAB_PPM_GANTT },
       { type: "wait", ms: 800 },
     ],
@@ -1568,6 +1615,175 @@ export const DOC_PAGES: PageDef[] = [
       pt: "62_inventario_menu_contextual",
       zh: "62_inventory_cell_menu",
       ru: "62_inventarizatsiya_kontekstnoe_menyu",
+    },
+  },
+
+  // ── TurboLens: Dashboard ────────────────────────────────────────────────
+  // /turbolens honours ?tab=, so no locale-dependent click is needed. The
+  // overview KPIs are computed from card data — no AI run required.
+  {
+    id: "75_turbolens_dashboard",
+    route: "/turbolens?tab=dashboard",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 1200 }],
+    filenames: {
+      en: "75_turbolens_dashboard",
+      de: "75_turbolens_uebersicht",
+      fr: "75_turbolens_tableau_de_bord",
+      es: "75_turbolens_panel",
+      it: "75_turbolens_dashboard",
+      pt: "75_turbolens_painel",
+      zh: "75_turbolens_dashboard",
+      ru: "75_turbolens_panel_upravleniya",
+    },
+  },
+
+  // ── TurboLens: Architecture AI (phase 0) ────────────────────────────────
+  // Phase 0 is a plain form (requirement + objective picker), rendered before
+  // any AI call, so this is deterministic without a provider.
+  {
+    id: "76_turbolens_architect",
+    route: "/turbolens?tab=architect",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 1500 }],
+    filenames: {
+      en: "76_turbolens_architect",
+      de: "76_turbolens_architekt",
+      fr: "76_turbolens_architecte",
+      es: "76_turbolens_arquitecto",
+      it: "76_turbolens_architetto",
+      pt: "76_turbolens_arquiteto",
+      zh: "76_turbolens_architect",
+      ru: "76_turbolens_arkhitektor",
+    },
+  },
+
+  // ── TurboLens: Analysis history ─────────────────────────────────────────
+  // seed_demo_security seeds a completed analysis run, so the table is not empty.
+  {
+    id: "77_turbolens_history",
+    route: "/turbolens?tab=history",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 1200 }],
+    filenames: {
+      en: "77_turbolens_history",
+      de: "77_turbolens_historie",
+      fr: "77_turbolens_historique",
+      es: "77_turbolens_historial",
+      it: "77_turbolens_cronologia",
+      pt: "77_turbolens_historico",
+      zh: "77_turbolens_history",
+      ru: "77_turbolens_istoriya",
+    },
+  },
+
+  // ── GRC: Risk matrix ────────────────────────────────────────────────────
+  // Complements 53_grc_risk_register, which deliberately scrolls 420px PAST
+  // the KPI tiles and the matrix to reach the grid. This captures the top.
+  {
+    id: "78_risk_matrix",
+    route: "/grc?tab=risk",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 1200 }],
+    filenames: {
+      en: "78_risk_matrix",
+      de: "78_risikomatrix",
+      fr: "78_matrice_risques",
+      es: "78_matriz_riesgos",
+      it: "78_matrice_rischi",
+      pt: "78_matriz_riscos",
+      zh: "78_risk_matrix",
+      ru: "78_matritsa_riskov",
+    },
+  },
+
+  // ── Notification preferences dialog ─────────────────────────────────────
+  // Opened from the user menu. The avatar button is matched by its Material
+  // Symbols ligature, which is locale-independent (same trick as 19_user_menu).
+  {
+    id: "81_notification_preferences",
+    route: "/",
+    waitFor: ".recharts-responsive-container, .MuiPaper-root",
+    actions: [
+      { type: "wait", ms: 600 },
+      {
+        type: "click",
+        selector:
+          ".MuiToolbar-root button:has(span.material-symbols-outlined:text-is('account_circle'))",
+      },
+      { type: "wait", ms: 500 },
+      {
+        type: "click",
+        selector: menuItemSelector(
+          ...i18nLabels("nav:userMenu.notificationSettings")
+        ),
+      },
+      { type: "wait", ms: 900 },
+    ],
+    filenames: {
+      en: "81_notification_preferences",
+      de: "81_benachrichtigungseinstellungen",
+      fr: "81_preferences_notifications",
+      es: "81_preferencias_notificaciones",
+      it: "81_preferenze_notifiche",
+      pt: "81_preferencias_notificacoes",
+      zh: "81_notification_preferences",
+      ru: "81_nastroyki_uvedomleniy",
+    },
+  },
+
+  // ── Admin: Calculation editor ───────────────────────────────────────────
+  // Deliberately the editor dialog, not the list: nothing seeds Calculation
+  // rows, so the list renders its empty state. The dialog is what the
+  // 300-line admin/calculations.md actually explains.
+  {
+    id: "83_admin_calculation_editor",
+    route: "/admin/metamodel",
+    // Wait for the tablist, not a Paper: the metamodel page paints Papers
+    // before its async type load renders the Tabs, so a Paper wait fires too
+    // early and the tab click finds nothing (a silent WARNING).
+    waitFor: "[role='tablist']",
+    actions: [
+      { type: "wait", ms: 1200 },
+      { type: "click", selector: TAB_MM_CALCULATIONS },
+      { type: "wait", ms: 700 },
+      {
+        type: "click",
+        selector: buttonSelector(...i18nLabels("admin:calculations.newCalculation")),
+      },
+      { type: "wait", ms: 900 },
+    ],
+    filenames: {
+      en: "83_admin_calculation_editor",
+      de: "83_admin_berechnung_editor",
+      fr: "83_admin_editeur_calcul",
+      es: "83_admin_editor_calculo",
+      it: "83_admin_editor_calcolo",
+      pt: "83_admin_editor_calculo",
+      zh: "83_admin_calculation_editor",
+      ru: "83_admin_redaktor_vychisleniy",
+    },
+  },
+
+  // ── Admin: Tags ─────────────────────────────────────────────────────────
+  {
+    id: "84_admin_tags",
+    route: "/admin/metamodel",
+    waitFor: "[role='tablist']",
+    actions: [
+      { type: "wait", ms: 1200 },
+      { type: "click", selector: TAB_MM_TAGS },
+      { type: "wait", ms: 900 },
+    ],
+    filenames: {
+      en: "84_admin_tags",
+      de: "84_admin_tags",
+      fr: "84_admin_etiquettes",
+      es: "84_admin_etiquetas",
+      it: "84_admin_tag",
+      pt: "84_admin_etiquetas",
+      zh: "84_admin_tags",
+      ru: "84_admin_tegi",
     },
   },
 
