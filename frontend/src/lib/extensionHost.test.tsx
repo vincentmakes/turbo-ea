@@ -142,6 +142,8 @@ describe("extensionHost", () => {
     // SDK 1.18 — the documented grid-template hooks ride the same chunk.
     expect(typeof loaded.useColumnFreeze).toBe("function");
     expect(typeof loaded.useColumnOrder).toBe("function");
+    // SDK 1.22 — the shared cell context-menu hook rides it too.
+    expect(typeof loaded.useCellContextMenu).toBe("function");
   });
 
   it("registers a plugin and lists its routes", () => {
@@ -436,7 +438,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.21");
+    expect(UI_SDK_VERSION).toBe("1.22");
   });
 
   it("whitelists the nav groups an extension route may request", () => {

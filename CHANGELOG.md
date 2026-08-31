@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.110.0] - 2026-08-31
+
+### Added
+
+- Extension UI SDK 1.22: `loadAgGrid` now also resolves the shared cell context-menu hook (`useCellContextMenu`), so an extension grid gets the same right-click / long-press menu core grids have — filter by cell value, copy, and page-specific row actions — instead of rebuilding its own menu.
+
 ## [2.109.0] - 2026-08-31
 
 ### Added

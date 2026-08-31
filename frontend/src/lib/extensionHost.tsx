@@ -119,7 +119,7 @@ import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import { FilterCheckboxList, FilterSectionHeader } from "@/components/FilterSidebarSection";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.21";
+export const UI_SDK_VERSION = "1.22";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -991,18 +991,24 @@ export function initExtensionHost(): void {
       // Extension components call them off the loaded module; that is safe
       // because the grid component only mounts once the module resolved, so
       // hook call order stays stable.
+      // Since SDK 1.22 it also resolves `useCellContextMenu`, so an
+      // extension grid offers the same right-click / long-press cell menu
+      // core grids have (Show matching · Filter out · Copy, plus
+      // page-specific row actions via `extraItems` — the AdrGrid pattern).
       loadAgGrid: () =>
         Promise.all([
           import("ag-grid-react"),
           import("@/lib/agGridSetup"),
           import("@/components/grid/useColumnFreeze"),
           import("@/components/grid/useColumnOrder"),
-        ]).then(([agReact, setup, freeze, order]) => ({
+          import("@/components/grid/useCellContextMenu"),
+        ]).then(([agReact, setup, freeze, order, cellMenu]) => ({
           AgGridReact: agReact.AgGridReact,
           gridThemeLight: setup.gridThemeLight,
           gridThemeDark: setup.gridThemeDark,
           useColumnFreeze: freeze.useColumnFreeze,
           useColumnOrder: order.useColumnOrder,
+          useCellContextMenu: cellMenu.useCellContextMenu,
         })),
       CreateCardDialog: ExtensionCreateCardDialog,
       // SDK 1.21 — timeline + dependency-view + filter-sidebar reuse.
