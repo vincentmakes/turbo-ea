@@ -91,6 +91,19 @@ describe("extensionHost", () => {
     expect(sdk.FilterSectionHeader).toBeDefined();
     expect(sdk.FilterCheckboxList).toBeDefined();
     expect(sdk.ColumnFreezeToggle).toBeDefined();
+    expect(typeof sdk.loadReportExport).toBe("function");
+  });
+
+  it("loadReportExport resolves core's own report exporters", async () => {
+    // An extension that wants a deck must reuse this rather than bundling a
+    // presentation library — so the entry point has to actually resolve.
+    initExtensionHost();
+    const sdk = window.TurboEA?.sdk as Record<string, unknown>;
+    const loaded =
+      (await (sdk.loadReportExport as () => Promise<Record<string, unknown>>)()) ?? {};
+    expect(typeof loaded.exportReportToPptx).toBe("function");
+    expect(typeof loaded.exportReportToXlsx).toBe("function");
+    expect(typeof loaded.extractSheetsFromDOM).toBe("function");
   });
 
   it("loadTimeline resolves the time-travel slider and its helpers", async () => {

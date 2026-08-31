@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Extension UI SDK 1.21: async loaders for the time-travel timeline slider (with its range/classification helpers) and the Layered Dependency View (renderer + layout engine, resolved from core's code-split chunk), plus the shared grid filter-sidebar primitives (`FilterSectionHeader`, `FilterCheckboxList`, `ColumnFreezeToggle`) — so extension timelines, dependency graphs, and grid sidebars reuse core's components instead of rebuilding them.
+- Extension UI SDK 1.21: async loaders for the time-travel timeline slider (with its range/classification helpers), the Layered Dependency View (renderer + layout engine), and the XLSX/PowerPoint report exporters — all resolved from core's code-split chunks — plus the shared grid filter-sidebar primitives (`FilterSectionHeader`, `FilterCheckboxList`, `ColumnFreezeToggle`). Extension timelines, dependency graphs, grid sidebars and exported decks now reuse core's own components instead of rebuilding them.
 
 ## [2.108.0] - 2026-08-30
 

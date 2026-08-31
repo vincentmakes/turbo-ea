@@ -54,7 +54,9 @@
  * extensions must never substitute another graph library), and the grid
  * filter-sidebar primitives `FilterSectionHeader` / `FilterCheckboxList` /
  * `ColumnFreezeToggle` (the §3.11 building blocks, so an extension's filter
- * sidebar cannot drift from the Inventory anatomy).
+ * sidebar cannot drift from the Inventory anatomy), and `loadReportExport`
+ * (core's own XLSX/PPTX report exporters, so an extension never bundles a
+ * presentation library and its decks match core's).
  *
  * Since SDK 1.12 the preferred way to add a plug point is the GENERIC SLOT
  * registry, not a new named extension point. An extension declares
@@ -1047,6 +1049,18 @@ export function initExtensionHost(): void {
       FilterSectionHeader,
       FilterCheckboxList,
       ColumnFreezeToggle,
+      // `loadReportExport` resolves core's own XLSX/PPTX report exporters.
+      // An extension that wants a deck must NOT bundle a presentation
+      // library: the engine that renders a core report to PowerPoint is the
+      // one that should render an extension's, so the decks match and the
+      // heavy dependency stays in the one code-split chunk that already
+      // carries it. Async for exactly that reason.
+      loadReportExport: () =>
+        import("@/features/reports/reportExport").then((module) => ({
+          exportReportToPptx: module.exportReportToPptx,
+          exportReportToXlsx: module.exportReportToXlsx,
+          extractSheetsFromDOM: module.extractSheetsFromDOM,
+        })),
     },
     register: registerExtension,
   };
