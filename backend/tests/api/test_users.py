@@ -344,6 +344,80 @@ class TestUpdateUser:
         )
         assert resp.status_code == 403
 
+    async def test_admin_cannot_demote_self(self, client, db, users_env):
+        """Self-demotion is refused even when other admins remain.
+
+        A second admin is essential here: with only one, the pre-existing
+        last-admin guard fires first and the test would pass without the
+        self-guard existing at all.
+        """
+        admin = users_env["admin"]
+        await create_user(db, email="admin2@test.com", role="admin")
+        resp = await client.patch(
+            f"/api/v1/users/{admin.id}",
+            json={"role": "viewer"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+        assert "your own role" in resp.json()["detail"].lower()
+
+    async def test_admin_cannot_deactivate_self(self, client, db, users_env):
+        admin = users_env["admin"]
+        await create_user(db, email="admin2@test.com", role="admin")
+        resp = await client.patch(
+            f"/api/v1/users/{admin.id}",
+            json={"is_active": False},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+        assert "your own account" in resp.json()["detail"].lower()
+
+    async def test_another_admin_can_demote_an_admin(self, client, db, users_env):
+        """The guard is self-scoped, not a blanket lock on the admin role."""
+        admin = users_env["admin"]
+        other_admin = await create_user(db, email="admin2@test.com", role="admin")
+        resp = await client.patch(
+            f"/api/v1/users/{other_admin.id}",
+            json={"role": "viewer"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["role"] == "viewer"
+
+    async def test_self_role_noop_allowed(self, client, db, users_env):
+        """Re-sending your own current role changes nothing and is not refused."""
+        admin = users_env["admin"]
+        resp = await client.patch(
+            f"/api/v1/users/{admin.id}",
+            json={"role": "admin"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["role"] == "admin"
+
+    async def test_admin_can_still_update_own_profile(self, client, db, users_env):
+        """Regression: the guards must not fire on self-updates that carry
+        neither `role` nor `is_active`."""
+        admin = users_env["admin"]
+        resp = await client.patch(
+            f"/api/v1/users/{admin.id}",
+            json={"display_name": "Still Me", "is_active": True},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["display_name"] == "Still Me"
+
+    async def test_non_admin_cannot_deactivate_self(self, client, db, users_env):
+        """A member has no business setting `is_active` at all — the existing
+        field allow-list refuses it before the self-guard is reached."""
+        member = users_env["member"]
+        resp = await client.patch(
+            f"/api/v1/users/{member.id}",
+            json={"is_active": False},
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 403
+
     async def test_update_nonexistent_returns_404(self, client, db, users_env):
         admin = users_env["admin"]
         fake_id = str(uuid.uuid4())

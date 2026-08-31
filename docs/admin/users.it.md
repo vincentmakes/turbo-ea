@@ -56,6 +56,9 @@ Cliccate sull'**icona di modifica** su qualsiasi riga utente per aprire la fines
 - **Password** (solo per utenti locali): Impostate una nuova password. Lasciate vuoto per mantenere la password corrente
 - **Ruolo**: Cambiate il ruolo a livello di applicazione dell'utente
 
+!!! note "Non puoi declassarti né disattivarti da solo"
+    Nella tua riga l'elenco **Ruolo** e il pulsante **Disattiva** sono disabilitati, e anche l'API rifiuta entrambe le modifiche. Un amministratore che abbandona il proprio ruolo perde le schermate di amministrazione con lo stesso clic, e solo un altro amministratore può restituirgliele. Per passare la mano, chiedi a un secondo amministratore di cambiarti il ruolo. Se nessuno riesce più ad accedere come amministratore, segui [Ripristinare l'accesso di amministratore](operations.md#recovering-administrator-access).
+
 #### Collegamento di un account locale esistente a SSO
 
 Se un utente ha già un account locale e la vostra organizzazione abilita SSO, l'utente vedrà l'errore "Un account locale con questa email esiste già" quando tenta di accedere tramite SSO. Per risolvere:
@@ -74,7 +77,7 @@ Usa le caselle di selezione delle righe nella tabella utenti per selezionare pi�
 - **Attiva** / **Disattiva** — inverti `is_active` per la selezione
 - **Elimina** — elimina definitivamente gli utenti selezionati (vengono rimossi solo gli utenti disattivati; gli utenti attivi nella selezione vengono saltati con una spiegazione)
 
-Si applica la protezione «ultimo amministratore»: le modifiche di ruolo in blocco che lascerebbero zero amministratori attivi vengono rifiutate. Lo stesso vale per la disattivazione o l'eliminazione dell'ultimo amministratore.
+Si applica la protezione «ultimo amministratore»: le modifiche di ruolo in blocco che lascerebbero zero amministratori attivi vengono rifiutate. Lo stesso vale per la disattivazione o l'eliminazione dell'ultimo amministratore. Per lo stesso motivo il tuo account viene ignorato dalle modifiche di ruolo e dalle disattivazioni in blocco.
 
 #### Importazione utenti da un foglio di calcolo
 

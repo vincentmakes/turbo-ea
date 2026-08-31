@@ -56,6 +56,9 @@ Clique no **ícone de edição** em qualquer linha de usuário para abrir o diá
 - **Senha** (apenas para usuários Locais): Definir uma nova senha. Deixe em branco para manter a senha atual
 - **Papel**: Alterar o papel em nível de aplicação do usuário
 
+!!! note "Você não pode rebaixar nem desativar a si mesmo"
+    Na sua própria linha, a lista **Função** e o botão **Desativar** ficam desabilitados, e a API também recusa as duas alterações. Um administrador que abandona a própria função perde as telas de administração no mesmo clique, e só outro administrador pode devolvê-las. Para passar o bastão, peça a um segundo administrador que altere a sua função. Se ninguém mais conseguir entrar como administrador, siga [Recuperar o acesso de administrador](operations.md#recovering-administrator-access).
+
 #### Vinculando uma Conta Local Existente ao SSO
 
 Se um usuário já possui uma conta local e sua organização habilita SSO, o usuário verá o erro "Uma conta local com este e-mail já existe" quando tentar fazer login via SSO. Para resolver isso:
@@ -74,7 +77,7 @@ Use as caixas de seleção das linhas na tabela de usuários para selecionar vá
 - **Ativar** / **Desativar** — alternar `is_active` para a seleção
 - **Excluir** — excluir permanentemente os usuários selecionados (apenas usuários desativados são removidos; os usuários ativos na seleção são ignorados com uma explicação)
 
-A salvaguarda do «último administrador» se aplica: alterações de função em massa que deixariam zero administradores ativos são recusadas. O mesmo vale para a desativação ou exclusão do último administrador.
+A salvaguarda do «último administrador» se aplica: alterações de função em massa que deixariam zero administradores ativos são recusadas. O mesmo vale para a desativação ou exclusão do último administrador. Pelo mesmo motivo, a sua própria conta é ignorada nas alterações de função e nas desativações em massa.
 
 #### Importar usuários a partir de uma planilha
 

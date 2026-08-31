@@ -122,6 +122,61 @@ Les migrations de schéma sont effectivement **à sens unique en production** : 
 !!! warning "Ne jamais revenir en arrière sur l'image seule"
     Revenir à l'image précédente tout en gardant la base de données migrée est la seule combinaison contre laquelle le système de migration automatique ne peut pas vous protéger. La sauvegarde de la base et le tag de l'image évoluent ensemble.
 
+## Récupérer l'accès administrateur { #recovering-administrator-access }
+
+Turbo EA refuse les deux modifications qui verrouillent le plus souvent un administrateur hors de son instance : vous ne pouvez pas changer votre propre rôle pour un rôle non administrateur, et vous ne pouvez pas désactiver votre propre compte (voir [Utilisateurs et rôles](users.md)). Reste le cas ordinaire — un mot de passe oublié, ou une instance dont l'unique administrateur a quitté l'entreprise. Parcourez cette liste dans l'ordre ; seule la dernière étape touche à la base de données.
+
+1. **Demandez à un autre administrateur.** **Admin → Utilisateurs → icône de modification → Mot de passe** définit un nouveau mot de passe sur n'importe quel compte local. C'est la voie normale, et elle ne demande aucun accès au serveur.
+2. **Utilisez la réinitialisation en libre-service.** Le lien **Mot de passe oublié** de la page de connexion envoie un lien de réinitialisation par e-mail. Il ne fonctionne que pour les comptes locaux, et uniquement si [SMTP est configuré](settings.md) — une instance sans serveur de messagerie n'a pas de réinitialisation en libre-service. Les comptes SSO n'ont pas de mot de passe à réinitialiser ; corrigez-les chez le fournisseur d'identité.
+3. **Réinitialisez-le dans la base de données.** Uniquement lorsque plus personne ne peut se connecter en tant qu'administrateur.
+
+### Réinitialiser un mot de passe directement dans la base de données
+
+Générez l'empreinte avec la fonction de hachage de l'application elle-même, afin que la valeur stockée corresponde exactement à ce qu'attend la vérification de connexion. Ne la bricolez pas avec `htpasswd` ou `openssl` :
+
+```bash
+docker compose exec -it backend python -c \
+  "from app.core.security import hash_password; print(hash_password(input('New password: ')))"
+```
+
+Saisir le mot de passe à l'invite le tient à l'écart de l'historique de votre shell. Copiez la ligne `$2b$…` affichée, puis :
+
+```bash
+docker compose exec -T db psql -v ON_ERROR_STOP=1 -U turboea -d turboea -c \
+  "UPDATE users
+      SET password_hash = '<empreinte collée ici>',
+          auth_provider = 'local',
+          is_active = true,
+          password_setup_token = NULL
+    WHERE lower(email) = lower('admin@example.com');"
+```
+
+Chaque clause a sa raison d'être, car la connexion les vérifie toutes :
+
+| Clause | Sa raison d'être |
+|---|---|
+| `password_hash` | Le nouvel identifiant secret. Gardez-le entre apostrophes simples — les empreintes bcrypt contiennent `$`, que le shell développerait sinon. |
+| `auth_provider = 'local'` | Un mot de passe n'authentifie jamais un compte marqué SSO. |
+| `is_active = true` | Un compte inactif est refusé *après* la vérification du mot de passe, ce qui ressemble exactement à un mot de passe erroné. |
+| `password_setup_token = NULL` | Annule tout lien d'invitation encore en circulation, pour qu'il ne puisse pas écraser plus tard le mot de passe que vous venez de définir. |
+
+Si le compte a également été rétrogradé, rétablissez le rôle dans la même instruction en ajoutant `role = 'admin'`.
+
+Attendez-vous à `UPDATE 1`. `UPDATE 0` signifie qu'aucune ligne ne correspondait — les adresses e-mail sont stockées telles qu'elles ont été saisies, et c'est le `lower()` des deux côtés qui rend la comparaison insensible à la casse. Pour trouver la bonne ligne au préalable :
+
+```bash
+docker compose exec -T db psql -U turboea -d turboea -c \
+  "SELECT email, role, is_active, auth_provider FROM users ORDER BY email;"
+```
+
+Deux points supplémentaires à connaître :
+
+- **Adaptez la connexion.** Utilisez vos propres `POSTGRES_USER` / `POSTGRES_DB` si vous les avez modifiés. Sur un service PostgreSQL géré, il n'y a pas de conteneur `db` — connectez-vous directement avec `psql`.
+- **Les autres sessions restent connectées.** Les sessions sont des JWT sans révocation côté serveur : les jetons émis avant la réinitialisation restent valides jusqu'à leur expiration (`ACCESS_TOKEN_EXPIRE_MINUTES`, 24 heures par défaut). Changer un mot de passe ne déconnecte personne.
+
+!!! note "L'exception admise à « ne modifiez pas la base de données »"
+    Modifier directement la base de données est par ailleurs un piège, et à juste titre. Cette procédure est sûre parce qu'elle met à jour quelques colonnes d'une seule ligne `users` : elle ne change aucun schéma, elle ne peut donc pas entrer en conflit avec une future migration, et c'est le seul état que l'interface et l'API ne peuvent par définition pas réparer — il faut un accès pour rétablir l'accès.
+
 ## Environnements et gouvernance des versions
 
 Pour la plupart des organisations, **deux environnements** (Staging + Production) suffisent, car les mises à niveau sont des images publiées par l'éditeur, pas des builds personnalisés — vous validez, vous ne développez pas. Une chaîne complète Dev/SIT/UAT/Prod n'apporte de la valeur que si vous construisez des extensions personnalisées ou des intégrations lourdes.
@@ -149,7 +204,7 @@ Côté gouvernance :
 2. **Mettre à niveau sans sauvegarde** — les migrations sont à sens unique ; la sauvegarde *est* votre retour en arrière.
 3. **Perdre ou changer `SECRET_KEY`** — il signe les JWT *et* dérive la clé de chiffrement des secrets stockés (identifiants SMTP, SSO, ServiceNow). Le changer rend les secrets stockés indéchiffrables. Traitez-le comme un identifiant de base de données : dans un coffre, stable, sauvegardé.
 4. **`RESET_DB=true` oublié dans un fichier d'environnement** — il fait exactement ce qu'il dit, à chaque démarrage.
-5. **Modifier la base de données directement** — l'état du schéma appartient à Alembic, et du DDL manuel entrera en collision avec les migrations futures. Idem pour les données : passez par l'API ou l'interface afin que les permissions, les événements d'audit et le recalcul de la qualité des données restent corrects.
+5. **Modifier la base de données directement** — l'état du schéma appartient à Alembic, et du DDL manuel entrera en collision avec les migrations futures. Idem pour les données : passez par l'API ou l'interface afin que les permissions, les événements d'audit et le recalcul de la qualité des données restent corrects. La seule exception admise est la [récupération de l'accès administrateur](#recovering-administrator-access), pour le cas où plus personne ne peut se connecter pour utiliser l'API ou l'interface.
 6. **Ne pas persister les volumes** — `postgres_data` et `backend_data` doivent survivre à la recréation des conteneurs ; vérifiez que vos outils d'instantané et de sauvegarde couvrent les deux.
 7. **Revenir en arrière sur l'image sans restaurer la base** — voir [Retour en arrière et reprise](#retour-en-arriere-et-reprise).
 8. **Pointer vers un PostgreSQL managé sans vérifier sa limite de connexions** — le backend a besoin de 30 connexions au maximum par défaut. Un plafond inférieur se manifeste par `too many connections for database "turboea"` en usage normal ; voir la section « Vérifier la limite de connexions » ci-dessus.

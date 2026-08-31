@@ -122,6 +122,61 @@ Le migrazioni di schema sono di fatto **solo in avanti in produzione**: sebbene 
 !!! warning "Mai fare rollback della sola immagine"
     Riportare indietro l'immagine mantenendo il database migrato è l'unica combinazione da cui il sistema di migrazione automatica non può proteggervi. Backup del database e tag dell'immagine si muovono insieme.
 
+## Ripristinare l'accesso di amministratore { #recovering-administrator-access }
+
+Turbo EA rifiuta le due modifiche che più spesso escludono un amministratore: non puoi cambiare il tuo ruolo in uno diverso da Amministratore, né disattivare il tuo account (vedi [Utenti e ruoli](users.md)). Resta il caso ordinario: una password dimenticata, o un'istanza il cui unico amministratore ha lasciato l'azienda. Segui questo elenco nell'ordine; solo l'ultimo passo tocca il database.
+
+1. **Chiedi a un altro amministratore.** **Admin → Utenti → icona di modifica → Password** imposta una nuova password su qualsiasi account locale. È la via normale e non richiede accesso al server.
+2. **Usa la reimpostazione self-service.** Il link **Password dimenticata** nella pagina di accesso invia per e-mail un link di reimpostazione. Funziona solo per gli account locali e soltanto se [SMTP è configurato](settings.md): un'istanza senza server di posta non ha alcuna reimpostazione self-service. Gli account SSO non hanno una password da reimpostare; correggili presso il provider di identità.
+3. **Reimpostala nel database.** Solo quando nessuno riesce più ad accedere come amministratore.
+
+### Reimpostare una password direttamente nel database
+
+Genera l'hash con la funzione di hashing dell'applicazione stessa, così il valore memorizzato è esattamente quello che il controllo di accesso si aspetta. Non improvvisarlo con `htpasswd` o `openssl`:
+
+```bash
+docker compose exec -it backend python -c \
+  "from app.core.security import hash_password; print(hash_password(input('New password: ')))"
+```
+
+Digitare la password al prompt la tiene fuori dalla cronologia della shell. Copia la riga `$2b$…` stampata, poi:
+
+```bash
+docker compose exec -T db psql -v ON_ERROR_STOP=1 -U turboea -d turboea -c \
+  "UPDATE users
+      SET password_hash = '<hash incollato qui>',
+          auth_provider = 'local',
+          is_active = true,
+          password_setup_token = NULL
+    WHERE lower(email) = lower('admin@example.com');"
+```
+
+Ogni clausola ha la sua ragione, perché l'accesso le verifica tutte:
+
+| Clausola | Perché è lì |
+|---|---|
+| `password_hash` | La nuova credenziale. Tienila fra apici singoli: gli hash bcrypt contengono `$`, che altrimenti la shell espanderebbe. |
+| `auth_provider = 'local'` | Una password non autentica mai un account contrassegnato come SSO. |
+| `is_active = true` | Un account inattivo viene rifiutato *dopo* il controllo della password, il che assomiglia esattamente a una password sbagliata. |
+| `password_setup_token = NULL` | Annulla un eventuale link di invito ancora in circolazione, così non potrà sovrascrivere in seguito la password appena impostata. |
+
+Se l'account è stato anche declassato, ripristina il ruolo nella stessa istruzione aggiungendo `role = 'admin'`.
+
+Attenditi `UPDATE 1`. `UPDATE 0` significa che nessuna riga corrispondeva: gli indirizzi e-mail sono memorizzati così come sono stati digitati, ed è il `lower()` su entrambi i lati a rendere il confronto indipendente da maiuscole e minuscole. Per individuare prima la riga giusta:
+
+```bash
+docker compose exec -T db psql -U turboea -d turboea -c \
+  "SELECT email, role, is_active, auth_provider FROM users ORDER BY email;"
+```
+
+Altre due cose da sapere:
+
+- **Adatta la connessione.** Usa i tuoi `POSTGRES_USER` / `POSTGRES_DB` se li hai modificati. Su un servizio PostgreSQL gestito non esiste il container `db`: collegati direttamente con `psql`.
+- **Le altre sessioni restano attive.** Le sessioni sono JWT senza revoca lato server, quindi i token emessi prima della reimpostazione restano validi fino alla scadenza (`ACCESS_TOKEN_EXPIRE_MINUTES`, 24 ore per impostazione predefinita). Cambiare una password non disconnette nessuno.
+
+!!! note "L'eccezione ammessa a «non modificare il database»"
+    Modificare direttamente il database è per il resto un'insidia, e a ragione. Questa procedura è sicura perché aggiorna poche colonne di una singola riga `users`: non cambia alcuno schema, quindi non può entrare in conflitto con una migrazione futura, ed è l'unico stato che l'interfaccia e l'API non possono riparare per definizione — serve accesso per ripristinare l'accesso.
+
 ## Ambienti e governance dei rilasci
 
 Per la maggior parte delle organizzazioni bastano **due ambienti** (Staging + Produzione), perché gli aggiornamenti sono immagini rilasciate dal fornitore, non build personalizzate — si valida, non si sviluppa. Una catena completa Dev/SIT/UAT/Prod aggiunge valore soprattutto se costruite estensioni personalizzate o integrazioni pesanti.
@@ -149,7 +204,7 @@ Sul fronte della governance:
 2. **Aggiornare senza backup** — le migrazioni sono solo in avanti; il backup *è* il vostro rollback.
 3. **Perdere o cambiare `SECRET_KEY`** — firma i JWT *e* deriva la chiave di cifratura dei segreti memorizzati (credenziali SMTP, SSO, ServiceNow). Cambiarlo rende i segreti memorizzati indecifrabili. Trattatelo come una credenziale di database: in cassaforte, stabile, sottoposto a backup.
 4. **`RESET_DB=true` dimenticato in un file di ambiente** — fa esattamente ciò che dice, a ogni avvio.
-5. **Modificare il database direttamente** — lo stato dello schema appartiene ad Alembic, e il DDL manuale entrerà in conflitto con le migrazioni future. Lo stesso vale per i dati: usate l'API o l'interfaccia così che permessi, eventi di audit e ricalcolo della qualità dei dati restino corretti.
+5. **Modificare il database direttamente** — lo stato dello schema appartiene ad Alembic, e il DDL manuale entrerà in conflitto con le migrazioni future. Lo stesso vale per i dati: usate l'API o l'interfaccia così che permessi, eventi di audit e ricalcolo della qualità dei dati restino corretti. L'unica eccezione ammessa è il [ripristino dell'accesso di amministratore](#recovering-administrator-access), per il caso in cui nessuno riesca più ad accedere per usare l'API o l'interfaccia.
 6. **Non rendere persistenti i volumi** — `postgres_data` e `backend_data` devono sopravvivere alla ricreazione dei container; verificate che i vostri strumenti di snapshot e backup li coprano entrambi.
 7. **Fare rollback dell'immagine senza ripristinare il database** — vedere [Rollback e ripristino](#rollback-e-ripristino).
 8. **Puntare a un PostgreSQL gestito senza verificarne il limite di connessioni** — il backend ha bisogno di un massimo di 30 connessioni per impostazione predefinita. Un tetto più basso si manifesta come `too many connections for database "turboea"` durante l'uso normale; vedere la sezione «Verificare il limite di connessioni» qui sopra.

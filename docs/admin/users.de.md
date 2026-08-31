@@ -56,6 +56,9 @@ Klicken Sie auf das **Bearbeitungssymbol** in einer beliebigen Benutzerzeile, um
 - **Passwort** (nur für lokale Benutzer): Ein neues Passwort setzen. Leer lassen, um das aktuelle Passwort beizubehalten
 - **Rolle**: Die anwendungsweite Rolle des Benutzers ändern
 
+!!! note "Sie können sich nicht selbst herabstufen oder deaktivieren"
+    In Ihrer eigenen Zeile sind das Auswahlfeld **Rolle** und die Schaltfläche **Deaktivieren** deaktiviert, und auch die API verweigert beide Änderungen. Wer die eigene Rolle ablegt, verliert mit demselben Klick die Administrationsbereiche, und nur eine andere Administratorin oder ein anderer Administrator kann sie zurückgeben. Für einen Rollenwechsel bitten Sie daher eine zweite Person mit Administratorrechten darum. Kann sich niemand mehr als Administrator anmelden, folgen Sie [Administratorzugang wiederherstellen](operations.md#recovering-administrator-access).
+
 #### Ein bestehendes lokales Konto mit SSO verknüpfen
 
 Wenn ein Benutzer bereits ein lokales Konto hat und Ihre Organisation SSO aktiviert, sieht der Benutzer die Fehlermeldung «Ein lokales Konto mit dieser E-Mail existiert bereits», wenn er versucht, sich per SSO anzumelden. Um dies zu beheben:
@@ -74,7 +77,7 @@ Verwenden Sie die Zeilen-Kontrollkästchen in der Benutzertabelle, um mehrere Be
 - **Aktivieren** / **Deaktivieren** — `is_active` für die Auswahl umschalten
 - **Löschen** — ausgewählte Benutzer endgültig entfernen (nur deaktivierte Benutzer werden gelöscht; aktive Benutzer in der Auswahl werden mit einer Erklärung übersprungen)
 
-Die «Letzter Administrator»-Sicherung gilt: Massen-Rollenänderungen, die keinen aktiven Administrator übrig lassen würden, werden abgelehnt. Das Gleiche gilt für das Deaktivieren oder Löschen des letzten Administrators.
+Die «Letzter Administrator»-Sicherung gilt: Massen-Rollenänderungen, die keinen aktiven Administrator übrig lassen würden, werden abgelehnt. Das Gleiche gilt für das Deaktivieren oder Löschen des letzten Administrators. Ihr eigenes Konto wird aus demselben Grund bei Massen-Rollenänderungen und Massen-Deaktivierungen übersprungen.
 
 #### Benutzer aus einer Tabelle importieren
 

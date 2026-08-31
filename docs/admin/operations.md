@@ -122,6 +122,61 @@ Schema migrations are effectively **forward-only in production**: while Alembic 
 !!! warning "Never roll back the image alone"
     Rolling back the image while keeping the migrated database is the one combination the automatic migration system cannot protect you from. Database backup and image tag move together.
 
+## Recovering administrator access { #recovering-administrator-access }
+
+Turbo EA refuses the two changes that most often lock an administrator out: you cannot change your own role away from Administrator, and you cannot deactivate your own account (see [Users & Roles](users.md)). What remains is the ordinary case — a forgotten password, or an instance whose only administrator has left the company. Work down this list; only the last step touches the database.
+
+1. **Ask another administrator.** **Admin → Users → edit icon → Password** sets a new password on any local account. This is the normal path and needs no server access.
+2. **Use the self-service reset.** The **Forgot password** link on the sign-in page emails a reset link. It works only for local accounts, and only when [SMTP is configured](settings.md) — an instance with no mail server has no self-service reset. SSO accounts have no password to reset; fix those at the identity provider.
+3. **Reset it in the database.** Only when nobody can sign in as an administrator at all.
+
+### Resetting a password directly in the database
+
+Generate the hash with the application's own hashing function, so the stored value is exactly what the sign-in check expects. Do not hand-roll one with `htpasswd` or `openssl`:
+
+```bash
+docker compose exec -it backend python -c \
+  "from app.core.security import hash_password; print(hash_password(input('New password: ')))"
+```
+
+Typing the password at the prompt keeps it out of your shell history. Copy the `$2b$…` line it prints, then:
+
+```bash
+docker compose exec -T db psql -v ON_ERROR_STOP=1 -U turboea -d turboea -c \
+  "UPDATE users
+      SET password_hash = '<paste the hash here>',
+          auth_provider = 'local',
+          is_active = true,
+          password_setup_token = NULL
+    WHERE lower(email) = lower('admin@example.com');"
+```
+
+Every clause earns its place, because sign-in checks all of them:
+
+| Clause | Why it is there |
+|---|---|
+| `password_hash` | The new credential. Keep it single-quoted — bcrypt hashes contain `$`, which the shell would otherwise expand. |
+| `auth_provider = 'local'` | A password never authenticates an account marked as SSO. |
+| `is_active = true` | An inactive account is refused *after* the password check, which looks exactly like a wrong password. |
+| `password_setup_token = NULL` | Retires any outstanding invitation link, so it cannot later overwrite the password you just set. |
+
+If the account was also demoted, restore the role in the same statement by adding `role = 'admin'`.
+
+Expect `UPDATE 1`. `UPDATE 0` means no row matched — email addresses are stored as they were entered, and the `lower()` on both sides is what makes the comparison case-insensitive. To find the right row first:
+
+```bash
+docker compose exec -T db psql -U turboea -d turboea -c \
+  "SELECT email, role, is_active, auth_provider FROM users ORDER BY email;"
+```
+
+Two more things worth knowing:
+
+- **Adjust the connection.** Use your own `POSTGRES_USER` / `POSTGRES_DB` if you changed them. On a managed PostgreSQL service there is no `db` container — connect with `psql` directly instead.
+- **Other sessions stay signed in.** Sessions are JWTs with no server-side revocation, so tokens issued before the reset remain valid until they expire (`ACCESS_TOKEN_EXPIRE_MINUTES`, 24 hours by default). Changing a password does not sign anyone out.
+
+!!! note "The sanctioned exception to «don't edit the database»"
+    Editing the database directly is otherwise a pitfall, and for good reason. This procedure is safe because it updates a few columns on a single `users` row: it changes no schema, so it cannot collide with a future migration, and it is the one state the UI and the API cannot repair by definition — you need access in order to restore access.
+
 ## Environments and release governance
 
 For most organizations, **two environments** (Staging + Production) are enough, because upgrades are vendor-released images, not custom builds — you're validating, not developing. A full Dev/SIT/UAT/Prod chain adds value mainly if you build custom extensions or heavy integrations.
@@ -149,7 +204,7 @@ Governance-wise:
 2. **Upgrading without a backup** — migrations are forward-only; the backup *is* your rollback.
 3. **Losing or changing `SECRET_KEY`** — it signs JWTs *and* derives the encryption key for stored secrets (SMTP, SSO, ServiceNow credentials). Changing it makes stored secrets undecryptable. Treat it like a database credential: vaulted, stable, backed up.
 4. **`RESET_DB=true` left in an env file** — it does exactly what it says, on every startup.
-5. **Editing the database directly** — schema state is owned by Alembic, and manual DDL will collide with future migrations. The same goes for data: use the API or UI so permissions, audit events, and data-quality recalculation stay correct.
+5. **Editing the database directly** — schema state is owned by Alembic, and manual DDL will collide with future migrations. The same goes for data: use the API or UI so permissions, audit events, and data-quality recalculation stay correct. The one sanctioned exception is [recovering administrator access](#recovering-administrator-access), for the case where nobody can sign in to use the API or UI at all.
 6. **Not persisting the volumes** — `postgres_data` and `backend_data` must survive container recreation; check that your snapshot and backup tooling covers both.
 7. **Rolling back the image without restoring the database** — see [Rollback and recovery](#rollback-and-recovery).
 8. **Pointing at a managed PostgreSQL without checking its connection limit** — the backend needs up to 30 connections by default. A lower cap surfaces as `too many connections for database "turboea"` under normal use; see [Check the connection limit](#check-the-connection-limit).

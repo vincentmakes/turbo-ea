@@ -122,6 +122,61 @@ Schemamigrationen sind in Produktion effektiv **nur vorwärts gerichtet**: Alemb
 !!! warning "Niemals nur das Image zurückrollen"
     Das Image zurückzurollen und die migrierte Datenbank zu behalten ist die eine Kombination, vor der das automatische Migrationssystem Sie nicht schützen kann. Datenbank-Backup und Image-Tag bewegen sich gemeinsam.
 
+## Administratorzugang wiederherstellen { #recovering-administrator-access }
+
+Turbo EA verweigert die beiden Änderungen, die Administratoren am häufigsten aussperren: Sie können Ihre eigene Rolle nicht von «Administrator» wegändern, und Sie können Ihr eigenes Konto nicht deaktivieren (siehe [Benutzer & Rollen](users.md)). Übrig bleibt der Normalfall — ein vergessenes Passwort oder eine Instanz, deren einziger Administrator das Unternehmen verlassen hat. Arbeiten Sie diese Liste von oben nach unten ab; nur der letzte Schritt berührt die Datenbank.
+
+1. **Eine andere Administratorin oder einen anderen Administrator bitten.** Unter **Admin → Benutzer → Bearbeiten-Symbol → Passwort** lässt sich für jedes lokale Konto ein neues Passwort setzen. Das ist der normale Weg und erfordert keinen Serverzugriff.
+2. **Die Selbstbedienungs-Zurücksetzung nutzen.** Der Link **Passwort vergessen** auf der Anmeldeseite verschickt einen Zurücksetzungs-Link per E-Mail. Er funktioniert nur für lokale Konten und nur, wenn [SMTP konfiguriert ist](settings.md) — eine Instanz ohne Mailserver hat keine Selbstbedienungs-Zurücksetzung. SSO-Konten haben kein Passwort, das zurückgesetzt werden könnte; diese korrigieren Sie beim Identitätsanbieter.
+3. **In der Datenbank zurücksetzen.** Nur dann, wenn sich überhaupt niemand mehr als Administrator anmelden kann.
+
+### Ein Passwort direkt in der Datenbank zurücksetzen
+
+Erzeugen Sie den Hash mit der Hash-Funktion der Anwendung selbst, damit der gespeicherte Wert exakt dem entspricht, was die Anmeldeprüfung erwartet. Basteln Sie ihn nicht mit `htpasswd` oder `openssl`:
+
+```bash
+docker compose exec -it backend python -c \
+  "from app.core.security import hash_password; print(hash_password(input('New password: ')))"
+```
+
+Das Passwort an der Eingabeaufforderung einzutippen hält es aus Ihrer Shell-History heraus. Kopieren Sie die ausgegebene `$2b$…`-Zeile und dann:
+
+```bash
+docker compose exec -T db psql -v ON_ERROR_STOP=1 -U turboea -d turboea -c \
+  "UPDATE users
+      SET password_hash = '<Hash hier einfügen>',
+          auth_provider = 'local',
+          is_active = true,
+          password_setup_token = NULL
+    WHERE lower(email) = lower('admin@example.com');"
+```
+
+Jede Klausel hat ihren Grund, denn die Anmeldung prüft sie alle:
+
+| Klausel | Wozu sie dient |
+|---|---|
+| `password_hash` | Das neue Anmeldegeheimnis. In einfachen Anführungszeichen belassen — bcrypt-Hashes enthalten `$`, das die Shell sonst expandieren würde. |
+| `auth_provider = 'local'` | Ein Passwort authentifiziert niemals ein als SSO markiertes Konto. |
+| `is_active = true` | Ein inaktives Konto wird *nach* der Passwortprüfung abgelehnt — das sieht exakt wie ein falsches Passwort aus. |
+| `password_setup_token = NULL` | Entwertet einen noch offenen Einladungslink, damit er das soeben gesetzte Passwort nicht später überschreibt. |
+
+Wurde das Konto zusätzlich herabgestuft, stellen Sie die Rolle in derselben Anweisung mit `role = 'admin'` wieder her.
+
+Erwartet wird `UPDATE 1`. `UPDATE 0` bedeutet, dass keine Zeile passte — E-Mail-Adressen werden so gespeichert, wie sie eingegeben wurden, und erst das `lower()` auf beiden Seiten macht den Vergleich unabhängig von Groß- und Kleinschreibung. So finden Sie vorab die richtige Zeile:
+
+```bash
+docker compose exec -T db psql -U turboea -d turboea -c \
+  "SELECT email, role, is_active, auth_provider FROM users ORDER BY email;"
+```
+
+Zwei weitere Punkte, die man wissen sollte:
+
+- **Verbindung anpassen.** Verwenden Sie Ihre eigenen Werte für `POSTGRES_USER` / `POSTGRES_DB`, falls Sie sie geändert haben. Bei einem verwalteten PostgreSQL-Dienst gibt es keinen `db`-Container — verbinden Sie sich stattdessen direkt mit `psql`.
+- **Andere Sitzungen bleiben angemeldet.** Sitzungen sind JWTs ohne serverseitigen Widerruf; vor der Zurücksetzung ausgestellte Tokens bleiben bis zu ihrem Ablauf gültig (`ACCESS_TOKEN_EXPIRE_MINUTES`, standardmäßig 24 Stunden). Eine Passwortänderung meldet niemanden ab.
+
+!!! note "Die zulässige Ausnahme von «die Datenbank nicht direkt bearbeiten»"
+    Die Datenbank direkt zu bearbeiten ist ansonsten ein Fallstrick, und das aus gutem Grund. Dieses Vorgehen ist unbedenklich, weil es einige Spalten einer einzigen `users`-Zeile aktualisiert: Es ändert kein Schema und kann daher nicht mit einer künftigen Migration kollidieren, und es ist der eine Zustand, den UI und API per Definition nicht reparieren können — Sie brauchen Zugang, um Zugang wiederherzustellen.
+
 ## Umgebungen und Release-Governance
 
 Für die meisten Organisationen reichen **zwei Umgebungen** (Staging + Produktion), denn Upgrades sind vom Anbieter veröffentlichte Images, keine eigenen Builds — Sie validieren, Sie entwickeln nicht. Eine vollständige Dev/SIT/UAT/Prod-Kette lohnt sich vor allem, wenn Sie eigene Erweiterungen oder umfangreiche Integrationen bauen.
@@ -149,7 +204,7 @@ Zur Governance:
 2. **Upgrade ohne Backup** — Migrationen sind nur vorwärts gerichtet; das Backup *ist* Ihr Rollback.
 3. **`SECRET_KEY` verlieren oder ändern** — er signiert JWTs *und* leitet den Verschlüsselungsschlüssel für gespeicherte Geheimnisse ab (SMTP-, SSO-, ServiceNow-Zugangsdaten). Eine Änderung macht gespeicherte Geheimnisse unentschlüsselbar. Behandeln Sie ihn wie ein Datenbank-Passwort: im Tresor, stabil, gesichert.
 4. **`RESET_DB=true` in einer Env-Datei vergessen** — es tut genau das, was es sagt, bei jedem Start.
-5. **Die Datenbank direkt bearbeiten** — der Schemazustand gehört Alembic, und manuelles DDL kollidiert mit künftigen Migrationen. Dasselbe gilt für Daten: Nutzen Sie API oder UI, damit Berechtigungen, Audit-Events und die Neuberechnung der Datenqualität korrekt bleiben.
+5. **Die Datenbank direkt bearbeiten** — der Schemazustand gehört Alembic, und manuelles DDL kollidiert mit künftigen Migrationen. Dasselbe gilt für Daten: Nutzen Sie API oder UI, damit Berechtigungen, Audit-Events und die Neuberechnung der Datenqualität korrekt bleiben. Die einzige zulässige Ausnahme ist die [Wiederherstellung des Administratorzugangs](#recovering-administrator-access) für den Fall, dass sich niemand mehr anmelden kann, um API oder UI überhaupt zu nutzen.
 6. **Volumes nicht persistieren** — `postgres_data` und `backend_data` müssen die Neuerstellung von Containern überleben; prüfen Sie, ob Ihre Snapshot- und Backup-Werkzeuge beide abdecken.
 7. **Das Image zurückrollen, ohne die Datenbank wiederherzustellen** — siehe [Rollback und Wiederherstellung](#rollback-und-wiederherstellung).
 8. **Auf ein verwaltetes PostgreSQL zeigen, ohne dessen Verbindungslimit zu prüfen** — das Backend benötigt standardmäßig bis zu 30 Verbindungen. Ein niedrigeres Limit zeigt sich im Normalbetrieb als `too many connections for database "turboea"`; siehe Abschnitt «Verbindungslimit prüfen» oben.

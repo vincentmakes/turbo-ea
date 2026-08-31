@@ -19,11 +19,22 @@ async def bulk_env(db):
     await create_role(db, key="admin", label="Admin", permissions={"*": True})
     await create_role(db, key="member", label="Member", permissions=MEMBER_PERMISSIONS)
     await create_role(db, key="viewer", label="Viewer", permissions=VIEWER_PERMISSIONS)
+    # A wildcard role whose key is NOT "admin": lets the last-admin tests below
+    # act on the sole admin without the caller being that admin, so the
+    # self-lockout guard cannot mask what they are actually asserting.
+    await create_role(db, key="superadmin", label="Superadmin", permissions={"*": True})
     admin = await create_user(db, email="admin@test.com", role="admin")
+    superadmin = await create_user(db, email="super@test.com", role="superadmin")
     member = await create_user(db, email="member@test.com", role="member")
     viewer1 = await create_user(db, email="viewer1@test.com", role="viewer")
     viewer2 = await create_user(db, email="viewer2@test.com", role="viewer")
-    return {"admin": admin, "member": member, "viewer1": viewer1, "viewer2": viewer2}
+    return {
+        "admin": admin,
+        "superadmin": superadmin,
+        "member": member,
+        "viewer1": viewer1,
+        "viewer2": viewer2,
+    }
 
 
 class TestBulkUpdate:
@@ -92,23 +103,84 @@ class TestBulkUpdate:
         assert resp.status_code == 400
 
     async def test_last_admin_role_change_refused(self, client, db, bulk_env):
-        """Bulk role change must not leave zero active admins."""
-        admin = bulk_env["admin"]
+        """Bulk role change must not leave zero active admins.
+
+        Driven by the superadmin caller, not by the admin acting on itself:
+        otherwise the self-lockout guard answers first and this asserts nothing
+        about the last-admin rule.
+        """
         resp = await client.patch(
             "/api/v1/users/bulk",
-            json={"ids": [str(admin.id)], "updates": {"role": "member"}},
-            headers=auth_headers(admin),
+            json={"ids": [str(bulk_env["admin"].id)], "updates": {"role": "member"}},
+            headers=auth_headers(bulk_env["superadmin"]),
         )
         assert resp.status_code == 400
+        assert "no active admin" in resp.json()["detail"].lower()
 
     async def test_last_admin_deactivate_refused(self, client, db, bulk_env):
-        admin = bulk_env["admin"]
         resp = await client.patch(
             "/api/v1/users/bulk",
-            json={"ids": [str(admin.id)], "updates": {"is_active": False}},
+            json={"ids": [str(bulk_env["admin"].id)], "updates": {"is_active": False}},
+            headers=auth_headers(bulk_env["superadmin"]),
+        )
+        assert resp.status_code == 400
+        assert "no active admin" in resp.json()["detail"].lower()
+
+    async def test_bulk_cannot_demote_self(self, client, db, bulk_env):
+        """Your own row in a bulk demotion is refused even with admins to spare."""
+        admin = bulk_env["admin"]
+        await create_user(db, email="admin2@test.com", role="admin")
+        resp = await client.patch(
+            "/api/v1/users/bulk",
+            json={
+                "ids": [str(admin.id), str(bulk_env["viewer1"].id)],
+                "updates": {"role": "member"},
+            },
             headers=auth_headers(admin),
         )
         assert resp.status_code == 400
+        assert "your own account" in resp.json()["detail"].lower()
+
+    async def test_bulk_cannot_deactivate_self(self, client, db, bulk_env):
+        admin = bulk_env["admin"]
+        await create_user(db, email="admin2@test.com", role="admin")
+        resp = await client.patch(
+            "/api/v1/users/bulk",
+            json={
+                "ids": [str(admin.id), str(bulk_env["viewer1"].id)],
+                "updates": {"is_active": False},
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+        assert "your own account" in resp.json()["detail"].lower()
+
+    async def test_bulk_role_change_excluding_self_succeeds(self, client, db, bulk_env):
+        """The guard is scoped to your own row, not to bulk role changes at all."""
+        admin = bulk_env["admin"]
+        resp = await client.patch(
+            "/api/v1/users/bulk",
+            json={
+                "ids": [str(bulk_env["viewer1"].id), str(bulk_env["viewer2"].id)],
+                "updates": {"role": "member"},
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert all(u["role"] == "member" for u in resp.json())
+
+    async def test_bulk_promoting_self_to_admin_is_allowed(self, client, db, bulk_env):
+        """Only demotion is blocked — a no-op re-assert of admin still works."""
+        admin = bulk_env["admin"]
+        resp = await client.patch(
+            "/api/v1/users/bulk",
+            json={
+                "ids": [str(admin.id), str(bulk_env["viewer1"].id)],
+                "updates": {"role": "admin"},
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
 
     async def test_unknown_ids_returns_404(self, client, db, bulk_env):
         admin = bulk_env["admin"]

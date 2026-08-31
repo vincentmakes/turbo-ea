@@ -122,6 +122,61 @@ As migrações de esquema são, na prática, **apenas para frente em produção*
 !!! warning "Nunca reverta apenas a imagem"
     Reverter a imagem mantendo o banco de dados migrado é a única combinação da qual o sistema de migração automática não pode protegê-lo. O backup do banco e a tag da imagem se movem juntos.
 
+## Recuperar o acesso de administrador { #recovering-administrator-access }
+
+O Turbo EA recusa as duas alterações que mais costumam deixar um administrador de fora: você não pode mudar a sua própria função para uma que não seja Administrador, nem desativar a sua própria conta (veja [Usuários e funções](users.md)). Resta o caso comum — uma senha esquecida, ou uma instância cujo único administrador saiu da empresa. Percorra esta lista na ordem; apenas o último passo toca o banco de dados.
+
+1. **Peça a outro administrador.** Em **Admin → Usuários → ícone de edição → Senha** é possível definir uma nova senha para qualquer conta local. É o caminho normal e não exige acesso ao servidor.
+2. **Use a redefinição de autoatendimento.** O link **Esqueceu a senha** na página de login envia por e-mail um link de redefinição. Funciona apenas para contas locais e somente quando o [SMTP está configurado](settings.md) — uma instância sem servidor de e-mail não tem redefinição de autoatendimento. Contas SSO não têm senha a redefinir; corrija-as no provedor de identidade.
+3. **Redefina no banco de dados.** Somente quando ninguém mais conseguir entrar como administrador.
+
+### Redefinir uma senha diretamente no banco de dados
+
+Gere o hash com a própria função de hash da aplicação, para que o valor armazenado seja exatamente o que a verificação de login espera. Não improvise com `htpasswd` ou `openssl`:
+
+```bash
+docker compose exec -it backend python -c \
+  "from app.core.security import hash_password; print(hash_password(input('New password: ')))"
+```
+
+Digitar a senha no prompt a mantém fora do histórico do shell. Copie a linha `$2b$…` exibida e, em seguida:
+
+```bash
+docker compose exec -T db psql -v ON_ERROR_STOP=1 -U turboea -d turboea -c \
+  "UPDATE users
+      SET password_hash = '<cole o hash aqui>',
+          auth_provider = 'local',
+          is_active = true,
+          password_setup_token = NULL
+    WHERE lower(email) = lower('admin@example.com');"
+```
+
+Cada cláusula tem o seu motivo, porque o login verifica todas elas:
+
+| Cláusula | Por que está ali |
+|---|---|
+| `password_hash` | A nova credencial. Mantenha entre aspas simples — hashes bcrypt contêm `$`, que o shell expandiria de outra forma. |
+| `auth_provider = 'local'` | Uma senha nunca autentica uma conta marcada como SSO. |
+| `is_active = true` | Uma conta inativa é recusada *depois* da verificação da senha, o que se parece exatamente com uma senha errada. |
+| `password_setup_token = NULL` | Invalida qualquer link de convite pendente, para que ele não sobrescreva mais tarde a senha que você acabou de definir. |
+
+Se a conta também tiver sido rebaixada, restaure a função na mesma instrução acrescentando `role = 'admin'`.
+
+Espere `UPDATE 1`. `UPDATE 0` significa que nenhuma linha correspondeu — os endereços de e-mail são armazenados como foram digitados, e é o `lower()` dos dois lados que torna a comparação indiferente a maiúsculas e minúsculas. Para localizar antes a linha certa:
+
+```bash
+docker compose exec -T db psql -U turboea -d turboea -c \
+  "SELECT email, role, is_active, auth_provider FROM users ORDER BY email;"
+```
+
+Mais duas coisas que vale saber:
+
+- **Ajuste a conexão.** Use os seus próprios `POSTGRES_USER` / `POSTGRES_DB` se os alterou. Num serviço de PostgreSQL gerenciado não existe o contêiner `db` — conecte-se diretamente com `psql`.
+- **As outras sessões continuam ativas.** As sessões são JWTs sem revogação no servidor, portanto os tokens emitidos antes da redefinição permanecem válidos até expirarem (`ACCESS_TOKEN_EXPIRE_MINUTES`, 24 horas por padrão). Alterar uma senha não desconecta ninguém.
+
+!!! note "A exceção autorizada a «não edite o banco de dados»"
+    Editar o banco de dados diretamente é, de resto, uma armadilha, e com razão. Este procedimento é seguro porque atualiza algumas colunas de uma única linha de `users`: não altera esquema algum, portanto não pode colidir com uma migração futura, e é o único estado que a interface e a API não conseguem reparar por definição — é preciso acesso para restaurar o acesso.
+
 ## Ambientes e governança de lançamentos
 
 Para a maioria das organizações, **dois ambientes** (Staging + Produção) bastam, porque as atualizações são imagens lançadas pelo fornecedor, não builds personalizados — você valida, não desenvolve. Uma cadeia completa Dev/SIT/UAT/Prod agrega valor principalmente se você constrói extensões próprias ou integrações pesadas.
@@ -149,7 +204,7 @@ Quanto à governança:
 2. **Atualizar sem backup** — as migrações são apenas para frente; o backup *é* a sua reversão.
 3. **Perder ou alterar o `SECRET_KEY`** — ele assina os JWTs *e* deriva a chave de criptografia dos segredos armazenados (credenciais SMTP, SSO, ServiceNow). Alterá-lo torna os segredos armazenados indecifráveis. Trate-o como uma credencial de banco de dados: em cofre, estável, com backup.
 4. **`RESET_DB=true` esquecido em um arquivo de ambiente** — ele faz exatamente o que diz, a cada inicialização.
-5. **Editar o banco de dados diretamente** — o estado do esquema pertence ao Alembic, e DDL manual colidirá com migrações futuras. O mesmo vale para os dados: use a API ou a interface para que permissões, eventos de auditoria e o recálculo da qualidade dos dados permaneçam corretos.
+5. **Editar o banco de dados diretamente** — o estado do esquema pertence ao Alembic, e DDL manual colidirá com migrações futuras. O mesmo vale para os dados: use a API ou a interface para que permissões, eventos de auditoria e o recálculo da qualidade dos dados permaneçam corretos. A única exceção autorizada é a [recuperação do acesso de administrador](#recovering-administrator-access), para o caso em que ninguém consegue mais entrar para usar a API ou a interface.
 6. **Não persistir os volumes** — `postgres_data` e `backend_data` precisam sobreviver à recriação dos contêineres; verifique se as suas ferramentas de snapshot e backup cobrem os dois.
 7. **Reverter a imagem sem restaurar o banco de dados** — veja [Reversão e recuperação](#reversao-e-recuperacao).
 8. **Apontar para um PostgreSQL gerido sem verificar o seu limite de conexões** — o backend precisa de até 30 conexões por predefinição. Um limite inferior manifesta-se como `too many connections for database "turboea"` durante o uso normal; veja a secção «Verifique o limite de conexões» acima.

@@ -56,6 +56,9 @@ Click the **edit icon** on any user row to open the Edit User dialog. You can ch
 - **Password** (only for Local users): Set a new password. Leave blank to keep the current password
 - **Role**: Change the user's application-level role
 
+!!! note "You cannot demote or deactivate yourself"
+    On your own row the **Role** dropdown and the **Deactivate** button are disabled, and the API refuses both changes as well. An administrator who drops their own role loses the administration screens in the same click, and only another administrator can hand them back. To step down, ask a second administrator to change your role for you. If nobody can sign in as an administrator any more, follow [Recovering administrator access](operations.md#recovering-administrator-access).
+
 #### Linking an Existing Local Account to SSO
 
 If a user already has a local account and your organization enables SSO, the user will see the error "A local account with this email already exists" when they try to log in via SSO. To resolve this:
@@ -74,7 +77,7 @@ Use the row checkboxes in the user grid to select multiple users at once. A bulk
 - **Activate** / **Deactivate** — flip `is_active` for the selection
 - **Delete** — permanently delete the selected users (only deactivated users are removed; active users in the selection are skipped with an explanation)
 
-The "last admin" guard applies: bulk role changes that would leave zero active admins are refused, and the same applies to deactivating or deleting the final admin.
+The "last admin" guard applies: bulk role changes that would leave zero active admins are refused, and the same applies to deactivating or deleting the final admin. Your own account is skipped by bulk role changes and bulk deactivation for the same reason.
 
 #### Importing Users from a Spreadsheet
 

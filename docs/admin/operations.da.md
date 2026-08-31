@@ -122,6 +122,61 @@ Skemamigrationer er reelt **kun fremadrettede i produktion**: Alembic understøt
 !!! warning "Rul aldrig kun imaget tilbage"
     At rulle imaget tilbage og beholde den migrerede database er den ene kombination, det automatiske migrationssystem ikke kan beskytte dig imod. Databasebackup og image-tag flytter sig sammen.
 
+## Gendan administratoradgang { #recovering-administrator-access }
+
+Turbo EA afviser de to ændringer, der oftest låser en administrator ude: du kan ikke ændre din egen rolle væk fra Administrator, og du kan ikke deaktivere din egen konto (se [Brugere og roller](users.md)). Tilbage står det almindelige tilfælde — en glemt adgangskode, eller en instans, hvis eneste administrator har forladt virksomheden. Gå listen igennem oppefra; kun det sidste trin rører databasen.
+
+1. **Spørg en anden administrator.** **Admin → Brugere → redigeringsikon → Adgangskode** sætter en ny adgangskode på enhver lokal konto. Det er den normale vej, og den kræver ingen serveradgang.
+2. **Brug selvbetjent nulstilling.** Linket **Glemt adgangskode** på login-siden sender et nulstillingslink på e-mail. Det virker kun for lokale konti og kun, når [SMTP er konfigureret](settings.md) — en instans uden mailserver har ingen selvbetjent nulstilling. SSO-konti har ingen adgangskode at nulstille; ret dem hos identitetsudbyderen.
+3. **Nulstil den i databasen.** Kun når ingen længere kan logge ind som administrator.
+
+### Nulstil en adgangskode direkte i databasen
+
+Generér hashen med programmets egen hash-funktion, så den gemte værdi er præcis den, login-kontrollen forventer. Lav den ikke selv med `htpasswd` eller `openssl`:
+
+```bash
+docker compose exec -it backend python -c \
+  "from app.core.security import hash_password; print(hash_password(input('New password: ')))"
+```
+
+At taste adgangskoden ved prompten holder den ude af din shell-historik. Kopiér den udskrevne `$2b$…`-linje, og derefter:
+
+```bash
+docker compose exec -T db psql -v ON_ERROR_STOP=1 -U turboea -d turboea -c \
+  "UPDATE users
+      SET password_hash = '<indsæt hashen her>',
+          auth_provider = 'local',
+          is_active = true,
+          password_setup_token = NULL
+    WHERE lower(email) = lower('admin@example.com');"
+```
+
+Hver klausul har sin grund, for login kontrollerer dem alle:
+
+| Klausul | Hvorfor den er der |
+|---|---|
+| `password_hash` | Den nye adgangsoplysning. Behold den i enkelte anførselstegn — bcrypt-hashes indeholder `$`, som shellen ellers ville udvide. |
+| `auth_provider = 'local'` | En adgangskode godkender aldrig en konto, der er markeret som SSO. |
+| `is_active = true` | En inaktiv konto afvises *efter* adgangskodekontrollen, hvilket ligner en forkert adgangskode til forveksling. |
+| `password_setup_token = NULL` | Ugyldiggør et eventuelt udestående invitationslink, så det ikke senere kan overskrive den adgangskode, du netop har sat. |
+
+Blev kontoen også nedgraderet, kan du gendanne rollen i samme sætning ved at tilføje `role = 'admin'`.
+
+Forvent `UPDATE 1`. `UPDATE 0` betyder, at ingen række matchede — e-mailadresser gemmes, som de blev indtastet, og det er `lower()` på begge sider, der gør sammenligningen ufølsom over for store og små bogstaver. Sådan finder du den rigtige række først:
+
+```bash
+docker compose exec -T db psql -U turboea -d turboea -c \
+  "SELECT email, role, is_active, auth_provider FROM users ORDER BY email;"
+```
+
+To ting mere, der er værd at vide:
+
+- **Tilpas forbindelsen.** Brug dine egne `POSTGRES_USER` / `POSTGRES_DB`, hvis du har ændret dem. På en hostet PostgreSQL-tjeneste findes der ingen `db`-container — forbind i stedet direkte med `psql`.
+- **Andre sessioner forbliver logget ind.** Sessioner er JWT'er uden tilbagekaldelse på serversiden, så tokens udstedt før nulstillingen er gyldige, indtil de udløber (`ACCESS_TOKEN_EXPIRE_MINUTES`, 24 timer som standard). At skifte adgangskode logger ingen ud.
+
+!!! note "Den tilladte undtagelse fra «redigér ikke databasen»"
+    At redigere databasen direkte er ellers en faldgrube, og med god grund. Denne fremgangsmåde er sikker, fordi den opdaterer nogle få kolonner i én enkelt `users`-række: den ændrer intet skema og kan derfor ikke kollidere med en fremtidig migrering, og det er den ene tilstand, som brugerfladen og API'et per definition ikke kan reparere — du skal have adgang for at gendanne adgang.
+
 ## Miljøer og udgivelsesstyring
 
 For de fleste organisationer er **to miljøer** (staging + produktion) nok, fordi opgraderinger er leverandørudgivne images, ikke egne builds — I validerer, I udvikler ikke. En fuld Dev/SIT/UAT/Prod-kæde giver primært værdi, hvis I bygger egne udvidelser eller tunge integrationer.
@@ -149,7 +204,7 @@ Hvad angår styring:
 2. **At opgradere uden backup** — migrationer er kun fremadrettede; backuppen *er* jeres rollback.
 3. **At miste eller ændre `SECRET_KEY`** — den signerer JWT'er *og* afleder krypteringsnøglen til gemte hemmeligheder (SMTP-, SSO-, ServiceNow-legitimationsoplysninger). Ændres den, kan gemte hemmeligheder ikke længere dekrypteres. Behandl den som en databaselegitimation: i en boks, stabil, med backup.
 4. **`RESET_DB=true` glemt i en env-fil** — den gør præcis, hvad den siger, ved hver opstart.
-5. **At redigere databasen direkte** — skematilstanden ejes af Alembic, og manuel DDL vil kollidere med fremtidige migrationer. Det samme gælder data: brug API'et eller brugergrænsefladen, så rettigheder, revisionshændelser og genberegning af datakvalitet forbliver korrekte.
+5. **At redigere databasen direkte** — skematilstanden ejes af Alembic, og manuel DDL vil kollidere med fremtidige migrationer. Det samme gælder data: brug API'et eller brugergrænsefladen, så rettigheder, revisionshændelser og genberegning af datakvalitet forbliver korrekte. Den eneste tilladte undtagelse er [gendannelse af administratoradgang](#recovering-administrator-access) i det tilfælde, hvor ingen længere kan logge ind for overhovedet at bruge API'et eller brugerfladen.
 6. **Ikke at persistere volumener** — `postgres_data` og `backend_data` skal overleve genoprettelse af containere; tjek, at jeres snapshot- og backupværktøjer dækker begge.
 7. **At rulle imaget tilbage uden at gendanne databasen** — se [Rollback og gendannelse](#rollback-og-gendannelse).
 8. **At pege på en hosted PostgreSQL uden at kontrollere dens forbindelsesgrænse** — backenden har som standard brug for op til 30 forbindelser. En lavere grænse viser sig som `too many connections for database "turboea"` under normal brug; se afsnittet «Kontrollér forbindelsesgrænsen» ovenfor.

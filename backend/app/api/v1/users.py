@@ -411,6 +411,28 @@ async def bulk_update_users(
     if not users:
         raise HTTPException(404, "No matching users found")
 
+    # Self-lockout guard. Distinct from the last-admin guard below: that one asks
+    # "does *an* admin remain?", this one asks "are you demoting or deactivating
+    # *yourself*?" — a mistake that stays possible with other admins around, and
+    # one only another admin can undo. ``current_user.role`` is the DB column, so
+    # an impersonation session cannot dodge it. Hard 400 rather than the
+    # skip-with-reason shape used by bulk-delete: this endpoint returns a bare
+    # list of users, and the UI already excludes the caller before it gets here.
+    if current_user.id in {u.id for u in users}:
+        if data.get("is_active") is False:
+            raise HTTPException(
+                400,
+                "Your own account is in the selection. You cannot deactivate your "
+                "own account — deselect it first.",
+            )
+        if current_user.role == "admin" and data.get("role", "admin") != "admin":
+            raise HTTPException(
+                400,
+                "Your own account is in the selection. You cannot change your own "
+                "role away from admin — ask another administrator, or deselect "
+                "yourself first.",
+            )
+
     # Guard against losing the last admin via bulk role change or deactivation.
     # We evaluate the *post-change* state and refuse if zero active admins
     # would remain.
@@ -743,6 +765,18 @@ async def update_user(
         role_result = await db.execute(select(Role).where(Role.key == data["role"]))
         if not role_result.scalar_one_or_none():
             raise HTTPException(400, f"Unknown role '{data['role']}'")
+        # Self-demotion guard, checked before the last-admin count so the more
+        # specific message wins. An admin who drops their own role loses the
+        # admin UI in the same request, and only another admin can give it back
+        # — the fact that other admins happen to exist does not make that a
+        # recoverable mistake for the person who made it. Re-sending your own
+        # current role is a no-op and stays allowed.
+        if is_self and u.role == "admin" and data["role"] != "admin":
+            raise HTTPException(
+                400,
+                "Cannot change your own role away from admin. "
+                "Ask another administrator to change it for you.",
+            )
         # Prevent last admin from losing admin role
         if u.role == "admin" and data["role"] != "admin":
             admin_count = await db.execute(
@@ -750,6 +784,13 @@ async def update_user(
             )
             if (admin_count.scalar() or 0) <= 1:
                 raise HTTPException(400, "Cannot remove the last admin role")
+
+    # Deactivating yourself signs you out of administration exactly like a
+    # self-demotion does, so it is refused on the same grounds. Role-independent
+    # and mirrors "Cannot delete your own account" below: only ``admin.users``
+    # holders can reach this field at all (non-admin self-updates 403 above).
+    if is_self and data.get("is_active") is False:
+        raise HTTPException(400, "Cannot deactivate your own account.")
 
     if "email" in data:
         existing = await db.execute(

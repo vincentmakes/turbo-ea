@@ -56,6 +56,9 @@ Haga clic en el **icono de edición** en cualquier fila de usuario para abrir el
 - **Contraseña** (solo para usuarios locales): Establecer una nueva contraseña. Dejar en blanco para mantener la contraseña actual
 - **Rol**: Cambiar el rol del usuario a nivel de aplicación
 
+!!! note "No puede degradarse ni desactivarse a sí mismo"
+    En su propia fila, la lista **Rol** y el botón **Desactivar** están deshabilitados, y la API también rechaza ambos cambios. Un administrador que abandona su propio rol pierde las pantallas de administración con ese mismo clic, y solo otro administrador puede devolvérselas. Para ceder el puesto, pida a un segundo administrador que le cambie el rol. Si ya nadie puede iniciar sesión como administrador, siga [Recuperar el acceso de administrador](operations.md#recovering-administrator-access).
+
 #### Vincular una Cuenta Local Existente a SSO
 
 Si un usuario ya tiene una cuenta local y su organización habilita SSO, el usuario verá el error «Ya existe una cuenta local con este correo electrónico» cuando intente iniciar sesión a través de SSO. Para resolver esto:
@@ -74,7 +77,7 @@ Use las casillas de las filas en la tabla de usuarios para seleccionar varios us
 - **Activar** / **Desactivar** — alternar `is_active` para la selección
 - **Eliminar** — eliminar definitivamente los usuarios seleccionados (solo se eliminan los desactivados; los usuarios activos de la selección se omiten con una explicación)
 
-La salvaguarda del «último administrador» se aplica: los cambios de rol masivos que dejarían sin ningún administrador activo se rechazan. Lo mismo ocurre al desactivar o eliminar al último administrador.
+La salvaguarda del «último administrador» se aplica: los cambios de rol masivos que dejarían sin ningún administrador activo se rechazan. Lo mismo ocurre al desactivar o eliminar al último administrador. Por la misma razón, su propia cuenta se omite en los cambios de rol y las desactivaciones masivas.
 
 #### Importar usuarios desde una hoja de cálculo
 

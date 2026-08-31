@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.110.1] - 2026-08-31
+
+### Fixed
+
+- **An administrator could lock themselves out of administration.** Turbo EA already refused any change that would leave the instance with no administrator, but nothing stopped you from demoting or deactivating *your own* account while other administrators existed — and an administrator who drops their own role loses the administration screens in the same click. Your own row's role dropdown and Deactivate button are now disabled, bulk role changes and bulk deactivations skip your own account, and the API refuses both changes on every path. Another administrator makes the change for you, which is the correct hand-over anyway.
+
+### Added
+
+- **Documentation: recovering administrator access.** Admin → Operations & Upgrades now documents what to do when nobody can sign in as an administrator — ask a second administrator, use the self-service password reset, or, as a last resort, reset the password directly in the database, with the exact commands and the reason each part of them is needed.
+
 ## [2.110.0] - 2026-08-31
 
 ### Added

@@ -122,6 +122,61 @@ docker compose exec db pg_dump -U turboea turboea > backup-$(date +%F).sql
 !!! warning "切勿只回滚镜像"
     只回滚镜像却保留已迁移的数据库，是自动迁移系统唯一无法保护你的组合。数据库备份和镜像标签必须一起变动。
 
+## 恢复管理员访问权限 { #recovering-administrator-access }
+
+Turbo EA 会拒绝最常把管理员挡在门外的两种改动：你无法把自己的角色改成非管理员，也无法停用自己的账户（见[用户与角色](users.md)）。剩下的就是普通情形——忘记密码，或者实例的唯一管理员已经离职。请按顺序逐条尝试；只有最后一步会触及数据库。
+
+1. **请另一位管理员代劳。** 在 **Admin → 用户 → 编辑图标 → 密码** 中可以为任何本地账户设置新密码。这是常规途径，无需服务器访问权限。
+2. **使用自助重置。** 登录页上的**忘记密码**链接会通过邮件发送重置链接。它只对本地账户有效，且必须[已配置 SMTP](settings.md)——没有邮件服务器的实例就没有自助重置。SSO 账户没有可重置的密码；请在身份提供方处修正。
+3. **在数据库中重置。** 仅当已经没有任何人能以管理员身份登录时才这样做。
+
+### 直接在数据库中重置密码
+
+请使用应用自身的哈希函数生成哈希值，这样存入的值才与登录校验所期望的完全一致。不要用 `htpasswd` 或 `openssl` 自行拼凑：
+
+```bash
+docker compose exec -it backend python -c \
+  "from app.core.security import hash_password; print(hash_password(input('New password: ')))"
+```
+
+在提示符处输入密码，可避免它进入 shell 历史记录。复制输出的 `$2b$…` 一行，然后：
+
+```bash
+docker compose exec -T db psql -v ON_ERROR_STOP=1 -U turboea -d turboea -c \
+  "UPDATE users
+      SET password_hash = '<在此粘贴哈希值>',
+          auth_provider = 'local',
+          is_active = true,
+          password_setup_token = NULL
+    WHERE lower(email) = lower('admin@example.com');"
+```
+
+每个子句都有存在的理由，因为登录会逐一校验：
+
+| 子句 | 为何需要 |
+|---|---|
+| `password_hash` | 新的凭据。请保留单引号——bcrypt 哈希中含有 `$`，否则会被 shell 展开。 |
+| `auth_provider = 'local'` | 密码永远无法认证标记为 SSO 的账户。 |
+| `is_active = true` | 未激活的账户是在密码校验*之后*被拒绝的，看上去与密码错误一模一样。 |
+| `password_setup_token = NULL` | 作废尚未使用的邀请链接，使其日后无法覆盖你刚刚设置的密码。 |
+
+如果该账户同时被降级，可在同一条语句中加上 `role = 'admin'` 来恢复角色。
+
+正常应返回 `UPDATE 1`。`UPDATE 0` 表示没有匹配到任何行——邮箱地址按录入时的原样存储，正是两侧的 `lower()` 才让比较不区分大小写。先确认目标行：
+
+```bash
+docker compose exec -T db psql -U turboea -d turboea -c \
+  "SELECT email, role, is_active, auth_provider FROM users ORDER BY email;"
+```
+
+另有两点值得了解：
+
+- **调整连接参数。** 若你改过 `POSTGRES_USER` / `POSTGRES_DB`，请换成自己的值。使用托管 PostgreSQL 服务时并没有 `db` 容器——请直接用 `psql` 连接。
+- **其他会话仍保持登录。** 会话是 JWT，服务端没有吊销机制，因此重置之前签发的令牌在过期前依然有效（`ACCESS_TOKEN_EXPIRE_MINUTES`，默认 24 小时）。修改密码不会让任何人退出登录。
+
+!!! note "这是「不要直接编辑数据库」的唯一许可例外"
+    直接编辑数据库在其他场合都是一个坑，这是有道理的。此处的做法之所以安全，是因为它只更新 `users` 表中某一行的少数几列：不改动任何模式，因而不会与未来的迁移冲突；而且从定义上讲，这正是界面和 API 无法自行修复的唯一状态——你需要访问权限才能恢复访问权限。
+
 ## 环境与发布治理
 
 对大多数组织而言，**两套环境**（预发 + 生产）就足够了，因为升级用的是厂商发布的镜像，而不是自定义构建——你在做验证，不是在做开发。只有在构建自定义扩展或重度集成时，完整的 Dev/SIT/UAT/Prod 链路才更有价值。
@@ -149,7 +204,7 @@ docker compose exec db pg_dump -U turboea turboea > backup-$(date +%F).sql
 2. **不备份就升级**——迁移只进不退；备份*就是*你的回滚手段。
 3. **丢失或更改 `SECRET_KEY`**——它既签发 JWT，*又*派生存储密钥的加密密钥（SMTP、SSO、ServiceNow 凭据）。更改它会让已存储的密钥无法解密。请像对待数据库凭据一样对待它：入库保管、保持稳定、做好备份。
 4. **环境文件里遗留 `RESET_DB=true`**——它每次启动都会不折不扣地执行字面含义。
-5. **直接编辑数据库**——模式状态由 Alembic 掌管，手工 DDL 会与未来的迁移冲突。数据也一样：请通过 API 或界面操作，以保证权限、审计事件和数据质量重算的正确性。
+5. **直接编辑数据库**——模式状态由 Alembic 掌管，手工 DDL 会与未来的迁移冲突。数据也一样：请通过 API 或界面操作，以保证权限、审计事件和数据质量重算的正确性。唯一获准的例外是[恢复管理员访问权限](#recovering-administrator-access)——也就是已经没有任何人能登录去使用 API 或界面的情形。
 6. **不持久化数据卷**——`postgres_data` 和 `backend_data` 必须在容器重建后仍然存在；确认你的快照和备份工具同时覆盖两者。
 7. **只回滚镜像而不恢复数据库**——见上文「回滚与恢复」一节。
 8. **切换到托管 PostgreSQL 却未检查其连接上限**——后端默认最多需要 30 个连接。上限更低时，正常使用中就会出现 `too many connections for database "turboea"`；见上文「检查连接上限」一节。

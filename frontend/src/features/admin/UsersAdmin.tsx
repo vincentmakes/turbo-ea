@@ -20,6 +20,7 @@ import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
+import FormHelperText from "@mui/material/FormHelperText";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
 import Alert from "@mui/material/Alert";
@@ -32,6 +33,7 @@ import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useIsRtl } from "@/hooks/useIsRtl";
+import { useAuthContext } from "@/hooks/AuthContext";
 import type { User, SsoInvitation, AppRole } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
@@ -53,6 +55,12 @@ import UserImportDialog from "./users/UserImportDialog";
 import BulkActionsToolbar from "./users/BulkActionsToolbar";
 import BulkRoleDialog from "./users/BulkRoleDialog";
 import { exportUsersToXlsx } from "./users/userExcelExport";
+import {
+  isOwnRoleLocked,
+  isOwnDeactivateLocked,
+  excludeSelfFromBulkRoleChange,
+  excludeSelfFromBulkDeactivate,
+} from "./users/userSelfGuards";
 
 interface CreateUserFormState {
   email: string;
@@ -118,6 +126,7 @@ export default function UsersAdmin() {
   const { formatDate, formatDateTime } = useDateFormat();
   const { mode } = useThemeMode();
   const isRtl = useIsRtl();
+  const { user: currentUser } = useAuthContext();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [tab, setTab] = useState(0);
@@ -321,10 +330,24 @@ export default function UsersAdmin() {
 
   const handleBulkRoleConfirm = useCallback(
     async (roleKey: string) => {
+      // Selecting yourself alongside fifty others is an ordinary thing to do,
+      // so drop your own row rather than refusing the whole batch — the backend
+      // rejects it outright, and that 400 would strand the other forty-nine.
+      const { ids, skippedSelf } = excludeSelfFromBulkRoleChange(
+        currentUser?.id,
+        selectedIds,
+        users,
+        roleKey,
+      );
+      if (skippedSelf) setWarning(t("users.bulk.selfSkipped"));
+      if (ids.length === 0) {
+        clearSelection();
+        return;
+      }
       setBulkBusy(true);
       try {
         const updated = await api.patch<User[]>("/users/bulk", {
-          ids: selectedIds,
+          ids,
           updates: { role: roleKey },
         });
         const byId = new Map(updated.map((u) => [u.id, u]));
@@ -337,16 +360,26 @@ export default function UsersAdmin() {
         setBulkBusy(false);
       }
     },
-    [selectedIds, clearSelection, t],
+    [selectedIds, users, currentUser?.id, clearSelection, t],
   );
 
   const handleBulkSetActive = useCallback(
     async (isActive: boolean) => {
       if (selectedIds.length === 0) return;
+      // Same reasoning as the bulk role change: never deactivate yourself, but
+      // do not let your own row veto the rest of the selection either.
+      const { ids, skippedSelf } = isActive
+        ? { ids: selectedIds, skippedSelf: false }
+        : excludeSelfFromBulkDeactivate(currentUser?.id, selectedIds);
+      if (skippedSelf) setWarning(t("users.bulk.selfSkipped"));
+      if (ids.length === 0) {
+        clearSelection();
+        return;
+      }
       setBulkBusy(true);
       try {
         const updated = await api.patch<User[]>("/users/bulk", {
-          ids: selectedIds,
+          ids,
           updates: { is_active: isActive },
         });
         const byId = new Map(updated.map((u) => [u.id, u]));
@@ -363,7 +396,7 @@ export default function UsersAdmin() {
         setBulkBusy(false);
       }
     },
-    [selectedIds, clearSelection, t],
+    [selectedIds, currentUser?.id, clearSelection, t],
   );
 
   const handleBulkDelete = useCallback(async () => {
@@ -664,19 +697,28 @@ export default function UsersAdmin() {
                 </Tooltip>
                 <Tooltip
                   title={
-                    u.is_active ? t("users.deactivateTooltip") : t("users.activateTooltip")
+                    isOwnDeactivateLocked(currentUser?.id, u)
+                      ? t("users.selfDeactivateTooltip")
+                      : u.is_active
+                        ? t("users.deactivateTooltip")
+                        : t("users.activateTooltip")
                   }
                 >
-                  <IconButton
-                    size="small"
-                    onClick={() => toggleActive(u)}
-                    color={u.is_active ? "warning" : "success"}
-                  >
-                    <MaterialSymbol
-                      icon={u.is_active ? "person_off" : "person"}
-                      size={18}
-                    />
-                  </IconButton>
+                  {/* span: a disabled MUI button emits no pointer events, so
+                      the Tooltip needs a live wrapper to listen on. */}
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={() => toggleActive(u)}
+                      disabled={isOwnDeactivateLocked(currentUser?.id, u)}
+                      color={u.is_active ? "warning" : "success"}
+                    >
+                      <MaterialSymbol
+                        icon={u.is_active ? "person_off" : "person"}
+                        size={18}
+                      />
+                    </IconButton>
+                  </span>
                 </Tooltip>
                 {inv && (
                   <Tooltip title={t("users.resendInviteTooltip")}>
@@ -742,6 +784,7 @@ export default function UsersAdmin() {
                   size="small"
                   value={u.role}
                   onChange={(e) => updateRole(u.id, e.target.value)}
+                  disabled={isOwnRoleLocked(currentUser?.id, u)}
                   sx={{
                     minWidth: 120,
                     "& .MuiSelect-select": { py: 0.25 },
@@ -796,6 +839,13 @@ export default function UsersAdmin() {
                     </MenuItem>
                   )}
                 </Select>
+                {isOwnRoleLocked(currentUser?.id, u) && (
+                  <Tooltip title={t("users.selfRoleLockedTooltip")}>
+                    <span style={{ display: "inline-flex", alignItems: "center" }}>
+                      <MaterialSymbol icon="lock" size={18} />
+                    </span>
+                  </Tooltip>
+                )}
                 {roleMap.get(u.role)?.is_archived && (
                   <Tooltip title={t("users.archivedRoleWarning")}>
                     <span style={{ display: "inline-flex", alignItems: "center" }}>
@@ -925,6 +975,7 @@ export default function UsersAdmin() {
       selectedColumns,
       activeRoles,
       roleMap,
+      currentUser?.id,
       updateRole,
       renderRoleChip,
       formatDate,
@@ -1405,7 +1456,11 @@ export default function UsersAdmin() {
                     {t("users.edit.ssoPasswordHint")}
                   </Alert>
                 )}
-                <FormControl fullWidth size="small">
+                <FormControl
+                  fullWidth
+                  size="small"
+                  disabled={!!editingUser && isOwnRoleLocked(currentUser?.id, editingUser)}
+                >
                   <InputLabel>{t("users.columns.role")}</InputLabel>
                   <Select
                     label={t("users.columns.role")}
@@ -1448,6 +1503,9 @@ export default function UsersAdmin() {
                       </MenuItem>
                     )}
                   </Select>
+                  {!!editingUser && isOwnRoleLocked(currentUser?.id, editingUser) && (
+                    <FormHelperText>{t("users.selfRoleLockedTooltip")}</FormHelperText>
+                  )}
                 </FormControl>
                 {editForm.role && roleMap.get(editForm.role)?.is_archived && (
                   <Alert severity="warning" variant="outlined">
