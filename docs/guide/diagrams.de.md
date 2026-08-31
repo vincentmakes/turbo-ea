@@ -33,8 +33,9 @@ Beim Öffnen eines Diagramms startet der DrawIO-Editor im Vollbildmodus in einem
 Verwenden Sie den Dialog **Karten einfügen** (aus der Symbolleiste oder dem Kontextmenü), um Karten zur Leinwand hinzuzufügen:
 
 - **Typen-Chips mit Live-Zählern** in der linken Spalte filtern die Ergebnisse.
-- Suchen Sie rechts nach Namen; jede Zeile hat ein Kontrollkästchen.
-- **Ausgewählte einfügen** fügt die markierten Karten als Raster ein; **Alle einfügen** fügt jede Karte ein, die dem aktuellen Filter entspricht (mit Bestätigung ab 50 Ergebnissen).
+- Suchen Sie rechts nach Namen; jede Zeile hat ein Kontrollkästchen. Beschränken Sie den Filter auf einen einzigen hierarchischen Typ, wird die Liste zu einem eingerückten Baum, sodass Sie eine Karte über ihren Zweig finden.
+- Markierte Karten erscheinen als Chips über der Liste und bleiben ausgewählt, während Sie Filter oder Suche ändern — entfernen Sie eine mit ihrem ×.
+- **Alle angezeigten auswählen** markiert alles, was der aktuelle Filter übrig lässt; **Ausgewählte einfügen** fügt die markierten Karten als Raster auf der Leinwand ein.
 
 Derselbe Dialog öffnet sich im Einzelauswahlmodus für **Verknüpfte Karte ändern** und **Mit bestehender Karte verknüpfen**.
 

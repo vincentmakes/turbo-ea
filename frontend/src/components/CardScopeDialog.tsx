@@ -70,6 +70,13 @@ const TREE_PAGE_SIZE = 1000;
  * full-screen on a phone. The candidate list lives in normal flow inside a Box
  * we own — never a popper, which could flip or clip (same reasoning as
  * `AddRelationsDialog`).
+ *
+ * **Choosing between this and `CardMultiPicker`**: this one is the compact
+ * control a report toolbar opens over ONE type the caller already knows;
+ * `CardMultiPicker` is the full browser — type rail, cross-type picking, live
+ * counts — for when the user chooses the type too. They share their hierarchy
+ * logic (`@/lib/cardTree`), so the two cannot drift on what a subtree root
+ * means.
  */
 export default function CardScopeDialog({
   open,

@@ -33,8 +33,9 @@ Aprire un diagramma avvia l'editor DrawIO a schermo intero in un iframe della st
 Usate la finestra **Inserisci schede** (dalla barra strumenti o dal menu contestuale) per aggiungere schede alla tela:
 
 - I **chip di tipo con contatori in tempo reale** nella colonna sinistra filtrano i risultati.
-- Cercate per nome nella colonna destra; ogni riga ha una casella di selezione.
-- **Inserisci selezionate** aggiunge le schede scelte in una griglia; **Inserisci tutte** aggiunge ogni scheda che corrisponde al filtro corrente (con conferma oltre 50 risultati).
+- Cercate per nome nella colonna destra; ogni riga ha una casella di selezione. Restringete il filtro a un solo tipo gerarchico e la lista diventa un albero rientrato, così trovate una scheda dal suo ramo.
+- Le schede selezionate compaiono come chip sopra la lista e restano selezionate mentre cambiate filtro o ricerca — rimuovetene una con la sua ×.
+- **Seleziona tutti i visibili** seleziona tutto ciò che il filtro corrente lascia a schermo; **Inserisci selezionate** aggiunge le schede scelte alla tela in una griglia.
 
 La stessa finestra si apre in modalità a selezione singola per **Cambia scheda collegata** e **Collega a scheda esistente**.
 

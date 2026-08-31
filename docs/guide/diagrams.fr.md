@@ -33,8 +33,9 @@ Ouvrir un diagramme lance l'éditeur DrawIO plein écran dans une iframe de mêm
 Utilisez le dialogue **Insérer des fiches** (depuis la barre d'outils ou le menu contextuel) pour ajouter des fiches au canevas :
 
 - Les **puces de types avec compteurs en direct** dans le rail gauche filtrent les résultats.
-- Recherchez par nom dans le rail droit ; chaque ligne porte une case à cocher.
-- **Insérer la sélection** ajoute les fiches choisies en grille ; **Tout insérer** ajoute toutes les fiches du filtre actif (avec une confirmation au-delà de 50 résultats).
+- Recherchez par nom dans le rail droit ; chaque ligne porte une case à cocher. Limitez le filtre à un seul type hiérarchique et la liste devient un arbre indenté, pour retrouver une fiche par sa branche.
+- Les fiches cochées apparaissent en puces au-dessus de la liste et restent sélectionnées pendant que vous changez de filtre ou de recherche — retirez-en une avec son ×.
+- **Sélectionner tout l'affichage** coche tout ce que laisse le filtre actif ; **Insérer la sélection** ajoute les fiches choisies au canevas en grille.
 
 Le même dialogue s'ouvre en mode sélection unique pour **Changer la fiche liée** et **Lier à une fiche existante**.
 

@@ -33,8 +33,9 @@ Abrir un diagrama lanza el editor DrawIO a pantalla completa en un iframe del mi
 Use el diálogo **Insertar tarjetas** (desde la barra de herramientas o el menú contextual) para añadir tarjetas al lienzo:
 
 - Las **fichas de tipo con contadores en directo** en la columna izquierda filtran los resultados.
-- Busque por nombre en la columna derecha; cada fila lleva una casilla.
-- **Insertar seleccionadas** añade las tarjetas elegidas en una cuadrícula; **Insertar todas** añade cada tarjeta que coincida con el filtro actual (con confirmación si supera 50 resultados).
+- Busque por nombre en la columna derecha; cada fila lleva una casilla. Limite el filtro a un único tipo jerárquico y la lista se convierte en un árbol con sangría, para encontrar una tarjeta por su rama.
+- Las tarjetas marcadas aparecen como fichas sobre la lista y siguen seleccionadas mientras cambia el filtro o la búsqueda; quite una con su ×.
+- **Seleccionar todo lo mostrado** marca todo lo que deja el filtro actual; **Insertar seleccionadas** añade las tarjetas elegidas al lienzo en una cuadrícula.
 
 El mismo diálogo se abre en modo de selección única para **Cambiar tarjeta vinculada** y **Vincular a tarjeta existente**.
 

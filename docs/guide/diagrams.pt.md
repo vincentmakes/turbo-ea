@@ -33,8 +33,9 @@ Abrir um diagrama lança o editor DrawIO em ecrã inteiro num iframe da mesma or
 Use a caixa de diálogo **Inserir cartões** (a partir da barra de ferramentas ou do menu de contexto) para adicionar cartões à tela:
 
 - Os **chips de tipo com contadores ao vivo** na coluna esquerda filtram os resultados.
-- Pesquise por nome na coluna direita; cada linha tem uma caixa de seleção.
-- **Inserir selecionados** adiciona os cartões escolhidos em grelha; **Inserir todos** adiciona cada cartão que corresponde ao filtro atual (com confirmação acima de 50 resultados).
+- Pesquise por nome na coluna direita; cada linha tem uma caixa de seleção. Restrinja o filtro a um único tipo hierárquico e a lista passa a ser uma árvore indentada, para encontrar um cartão pelo seu ramo.
+- Os cartões marcados surgem como chips acima da lista e continuam selecionados enquanto muda o filtro ou a pesquisa — remova um com o seu ×.
+- **Selecionar tudo o que é mostrado** marca tudo o que o filtro atual deixa no ecrã; **Inserir selecionados** adiciona os cartões escolhidos à tela em grelha.
 
 A mesma caixa abre em modo seleção única para **Mudar cartão vinculado** e **Vincular a cartão existente**.
 

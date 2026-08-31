@@ -34,7 +34,8 @@ Brug dialogen **Insert Cards** (åbnes fra værktøjslinjen eller højrekliks-me
 
 - Type-**chips med live-tællere** på venstre skinne filtrerer resultaterne.
 - Søg efter navn på højre skinne; hver række har et afkrydsningsfelt.
-- **Insert selected** tilføjer de valgte kort i et gitter; **Insert all** tilføjer hvert kort, der matcher det aktuelle filter (med et bekræftelsestrin ud over 50 resultater).
+- Kort, du sætter flueben ved, vises som chips over listen og forbliver valgte, mens du ændrer filter eller søgning — fjern et med dets ×. Begræns filteret til én hierarkisk type, og listen bliver et indrykket træ.
+- **Select all shown** vælger alt, som det aktuelle filter efterlader på skærmen; **Insert selected** tilføjer de valgte kort i et gitter.
 
 Den samme dialog åbnes i enkeltvalgstilstand for **Change Linked Card** og **Link to Existing Card**.
 

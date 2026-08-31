@@ -33,8 +33,9 @@ Opening a diagram launches the full-screen DrawIO editor in a same-origin iframe
 Use the **Insert Cards** dialog (opened from the toolbar or the right-click menu) to add cards to the canvas:
 
 - Type **chips with live counts** on the left rail filter the results.
-- Search by name on the right rail; each row carries a checkbox.
-- **Insert selected** adds the picked cards in a grid; **Insert all** adds every card matching the current filter (with a confirm step past 50 results).
+- Search by name on the right rail; each row carries a checkbox. Narrow the filter to a single hierarchical type and the list becomes an indented tree, so you can find a card by its branch.
+- Ticked cards appear as chips above the list and stay picked while you change the filter or the search — remove one with its ×.
+- **Select all shown** ticks everything the current filter leaves on screen; **Insert selected** adds the picked cards to the canvas in a grid.
 
 The same dialog opens in single-select mode for **Change Linked Card** and **Link to Existing Card**.
 

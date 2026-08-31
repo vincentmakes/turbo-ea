@@ -56,7 +56,11 @@
  * `ColumnFreezeToggle` (the §3.11 building blocks, so an extension's filter
  * sidebar cannot drift from the Inventory anatomy), and `loadReportExport`
  * (core's own XLSX/PPTX report exporters, so an extension never bundles a
- * presentation library and its decks match core's).
+ * presentation library and its decks match core's). Since SDK 1.24
+ * `CardMultiPicker` is the full card browser — type rail with live counts,
+ * hierarchy, subtree-root semantics via `roots`, and a selection that
+ * survives re-faceting and re-searching — for anything bigger than the
+ * single-type scope control `CardScopeDialog` covers.
  *
  * Since SDK 1.12 the preferred way to add a plug point is the GENERIC SLOT
  * registry, not a new named extension point. An extension declares
@@ -83,6 +87,7 @@ import { useTranslation } from "react-i18next";
 
 import { api } from "@/api/client";
 import FilterSelect from "@/components/FilterSelect";
+import CardMultiPicker from "@/components/CardMultiPicker";
 import CardScopeDialog, { dedupeScopeRoots } from "@/components/CardScopeDialog";
 import CardScopeFilter from "@/components/CardScopeFilter";
 import { applyScope, useCardScope } from "@/hooks/useCardScope";
@@ -124,7 +129,7 @@ import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import { FilterCheckboxList, FilterSectionHeader } from "@/components/FilterSidebarSection";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.23";
+export const UI_SDK_VERSION = "1.24";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -980,6 +985,11 @@ export function initExtensionHost(): void {
       // than re-rolling a weaker one. MUI-only, so a static import is fine.
       CardScopeDialog,
       dedupeScopeRoots,
+      // SDK 1.24 — the full card browser. `CardScopeDialog` stays the compact
+      // control a report toolbar opens over ONE type; this is the one to reach
+      // for when the user picks across types, or when the caller doesn't know
+      // in advance which type they want. MUI-only leaf, so a static import.
+      CardMultiPicker,
       // SDK 1.15 — the whole report-scoping kit, so an extension report gets
       // "narrow this to a few cards and everything under them" with the same
       // saved-report round-trip and stale-id handling core reports have.

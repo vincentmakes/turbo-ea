@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.112.0] - 2026-08-31
+
+### Added
+
+- **Picking cards for a diagram now shows the hierarchy.** Narrow the type filter to a single hierarchical type (Business Capability, Organization, …) and the Insert-Cards dialog lists it as an indented tree instead of a flat list, so you can find a sub-capability by its branch rather than by remembering its name.
+- Extension UI SDK 1.24: the shared multi-select card picker is exposed on the SDK surface, so an extension that needs "pick some cards across types" gets the type rail, live counts, hierarchy and subtree semantics core uses rather than a weaker copy.
+
+### Fixed
+
+- **The diagram Insert-Cards dialog no longer loses a selected card.** Ticking a card, then switching the type filter or typing in the search box, silently dropped that card: only what was on screen at the moment you pressed Insert was actually inserted. Every tick now survives filtering and searching, and the selected cards are listed as removable chips so you can see what the basket holds.
+
+### Changed
+
+- The Insert-Cards dialog's **Insert all** button is now **Select all shown**, which fills the basket without inserting; **Insert selected** stays the one button that commits. The old "click again to confirm" step for large batches is gone — the basket itself is the review step, and it can be edited before you commit.
+
 ## [2.111.1] - 2026-08-31
 
 ### Fixed
