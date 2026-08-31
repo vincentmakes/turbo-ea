@@ -172,6 +172,6 @@ Omvendt viser **Card Details**-fanen inden i PPM Initiativ-detaljevisningen stan
 
 | Tilladelse | Beskrivelse |
 |------------|-------------|
-| `ppm.view` | Se PPM-dashboardet, Gantt-diagram og initiativrapporter. Givet til alle roller som standard |
+| `ppm.view` | Se PPM-dashboardet, Gantt-diagram og initiativrapporter samt læse initiativkort. Givet til alle roller som standard |
 | `ppm.manage` | Opret og administrer statusrapporter, opgaver, omkostninger, risici og WBS-elementer. Givet til Admin-, BPM Admin- og Member-roller |
 | `reports.ppm_dashboard` | Se PPM-portefølje-dashboardet. Givet til alle roller som standard |

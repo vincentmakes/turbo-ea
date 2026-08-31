@@ -162,6 +162,6 @@ A la inversa, la pestaña **Detalles de la ficha** dentro de la vista detallada 
 
 | Permiso | Descripción |
 |---------|-------------|
-| `ppm.view` | Ver el panel de PPM, diagrama de Gantt e informes de iniciativas. Concedido a todos los roles por defecto |
+| `ppm.view` | Ver el panel de PPM, diagrama de Gantt e informes de iniciativas, y leer las tarjetas de iniciativa. Concedido a todos los roles por defecto |
 | `ppm.manage` | Crear y gestionar informes de estado, tareas, costos, riesgos y elementos WBS. Concedido a los roles Admin, BPM Admin y Miembro |
 | `reports.ppm_dashboard` | Ver el panel del portafolio PPM. Concedido a todos los roles por defecto |

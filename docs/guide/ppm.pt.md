@@ -162,6 +162,6 @@ Por outro lado, a aba **Detalhes do Card** dentro da visualização detalhada PP
 
 | Permissão | Descrição |
 |-----------|-----------|
-| `ppm.view` | Visualizar o painel PPM, diagrama de Gantt e relatórios de iniciativas. Concedido a todos os papéis por padrão |
+| `ppm.view` | Visualizar o painel PPM, diagrama de Gantt e relatórios de iniciativas, e ler os cartões de iniciativa. Concedido a todos os papéis por padrão |
 | `ppm.manage` | Criar e gerenciar relatórios de status, tarefas, custos, riscos e itens WBS. Concedido aos papéis Admin, Admin BPM e Membro |
 | `reports.ppm_dashboard` | Visualizar o painel do portfólio PPM. Concedido a todos os papéis por padrão |

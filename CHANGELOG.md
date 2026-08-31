@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.111.1] - 2026-08-31
+
+### Fixed
+
+- **A role granted PPM view can now open a PPM initiative's detail page.** The page fronts the underlying Initiative card, and reading a card required the separate inventory-view permission — so a role given **PPM → View** could browse the portfolio but clicking any initiative failed with a permission error. PPM view now also grants read access to Initiative cards (including their hierarchy and history), matching what the permission's own description promises; other card types stay behind inventory view. ([#1043](https://github.com/vincentmakes/turbo-ea/issues/1043))
+- **The PPM initiative detail page no longer renders a blank page when loading fails.** A permission error, a deleted initiative, or a network failure now shows an error message with a way back to the portfolio instead of an empty screen.
+
 ## [2.111.0] - 2026-08-31
 
 ### Added
@@ -24,7 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **Documentation: recovering administrator access.** Admin → Operations & Upgrades now documents what to do when nobody can sign in as an administrator — ask a second administrator, use the self-service password reset, or, as a last resort, reset the password directly in the database, with the exact commands and the reason each part of them is needed.
-
 ## [2.110.0] - 2026-08-31
 
 ### Added

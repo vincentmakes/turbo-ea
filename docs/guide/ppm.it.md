@@ -162,6 +162,6 @@ Al contrario, la scheda **Dettagli della card** all'interno della vista dettagli
 
 | Permesso | Descrizione |
 |----------|-------------|
-| `ppm.view` | Visualizzare il dashboard PPM, il diagramma di Gantt e i report delle iniziative. Concesso a tutti i ruoli per impostazione predefinita |
+| `ppm.view` | Visualizzare il dashboard PPM, il diagramma di Gantt e i report delle iniziative, e leggere le card Iniziativa. Concesso a tutti i ruoli per impostazione predefinita |
 | `ppm.manage` | Creare e gestire report di stato, attività, costi, rischi ed elementi WBS. Concesso ai ruoli Admin, Admin BPM e Membro |
 | `reports.ppm_dashboard` | Visualizzare il dashboard del portafoglio PPM. Concesso a tutti i ruoli per impostazione predefinita |

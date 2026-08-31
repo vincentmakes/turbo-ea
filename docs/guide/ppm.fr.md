@@ -162,6 +162,6 @@ Inversement, l'onglet **Détails de la fiche** dans la vue détaillée PPM de l'
 
 | Permission | Description |
 |-----------|-------------|
-| `ppm.view` | Voir le tableau de bord PPM, le diagramme de Gantt et les rapports d'initiatives. Accordé à tous les rôles par défaut |
+| `ppm.view` | Voir le tableau de bord PPM, le diagramme de Gantt et les rapports d'initiatives, et lire les cartes d'initiative. Accordé à tous les rôles par défaut |
 | `ppm.manage` | Créer et gérer les rapports de statut, tâches, coûts, risques et éléments WBS. Accordé aux rôles Admin, Admin BPM et Membre |
 | `reports.ppm_dashboard` | Voir le tableau de bord du portefeuille PPM. Accordé à tous les rôles par défaut |

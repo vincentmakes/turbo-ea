@@ -164,6 +164,70 @@ class TestGetCard:
         assert response.status_code == 404
 
 
+class TestPpmViewCardRead:
+    """ppm.view alone must open an Initiative card (#1043) — and nothing else."""
+
+    @pytest.fixture
+    async def ppm_view_env(self, db, cards_env):
+        await create_card_type(db, key="Initiative", label="Initiative")
+        await create_role(
+            db,
+            key="ppm_only",
+            label="PPM Only",
+            permissions={"ppm.view": True, "inventory.view": False},
+        )
+        await create_role(db, key="no_view", label="No View", permissions={})
+        ppm_user = await create_user(db, email="ppmonly@test.com", role="ppm_only")
+        no_view_user = await create_user(db, email="noview@test.com", role="no_view")
+        initiative = await create_card(db, card_type="Initiative", name="Init A")
+        application = await create_card(db, card_type="Application", name="App A")
+        return {
+            "ppm_user": ppm_user,
+            "no_view_user": no_view_user,
+            "initiative": initiative,
+            "application": application,
+        }
+
+    async def test_ppm_view_can_read_initiative(self, client, db, ppm_view_env):
+        resp = await client.get(
+            f"/api/v1/cards/{ppm_view_env['initiative'].id}",
+            headers=auth_headers(ppm_view_env["ppm_user"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "Init A"
+
+    async def test_ppm_view_cannot_read_other_types(self, client, db, ppm_view_env):
+        resp = await client.get(
+            f"/api/v1/cards/{ppm_view_env['application'].id}",
+            headers=auth_headers(ppm_view_env["ppm_user"]),
+        )
+        assert resp.status_code == 403
+
+    async def test_ppm_view_can_read_initiative_hierarchy_and_history(
+        self, client, db, ppm_view_env
+    ):
+        headers = auth_headers(ppm_view_env["ppm_user"])
+        initiative_id = ppm_view_env["initiative"].id
+        resp = await client.get(f"/api/v1/cards/{initiative_id}/hierarchy", headers=headers)
+        assert resp.status_code == 200
+        resp = await client.get(f"/api/v1/cards/{initiative_id}/history", headers=headers)
+        assert resp.status_code == 200
+
+    async def test_no_permission_still_denied_on_initiative(self, client, db, ppm_view_env):
+        resp = await client.get(
+            f"/api/v1/cards/{ppm_view_env['initiative'].id}",
+            headers=auth_headers(ppm_view_env["no_view_user"]),
+        )
+        assert resp.status_code == 403
+
+    async def test_inventory_view_still_reads_initiative(self, client, db, cards_env, ppm_view_env):
+        resp = await client.get(
+            f"/api/v1/cards/{ppm_view_env['initiative'].id}",
+            headers=auth_headers(cards_env["viewer"]),
+        )
+        assert resp.status_code == 200
+
+
 # ---------------------------------------------------------------------------
 # GET /cards  (list)
 # ---------------------------------------------------------------------------

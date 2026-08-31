@@ -203,6 +203,23 @@ async def _card_response_with_cost_check(db: AsyncSession, user: User, card: Car
     )
 
 
+async def _require_card_read(db: AsyncSession, user: User, card_id: uuid.UUID) -> None:
+    """Read gate for card-scoped GETs: `inventory.view` OR stakeholder `card.view`
+    OR — when the card is an Initiative — the PPM module's `ppm.view`. The PPM
+    detail page (/ppm/:id, route-gated on ppm.view) fronts the Initiative card
+    itself, so ppm.view must be able to read it (#1043). The type lookup runs
+    only on the fallback path, so the common path costs nothing extra.
+    """
+    if await PermissionService.check_permission(db, user, "inventory.view", card_id, "card.view"):
+        return
+    card_type = (await db.execute(select(Card.type).where(Card.id == card_id))).scalar_one_or_none()
+    if card_type == "Initiative" and await PermissionService.has_app_permission(
+        db, user, "ppm.view"
+    ):
+        return
+    raise HTTPException(403, "Insufficient permissions")
+
+
 _ALLOWED_SORT_COLUMNS = {
     "name",
     "type",
@@ -991,9 +1008,7 @@ async def cards_counts(
 async def get_card(
     card_id: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
 ):
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uuid.UUID(card_id), card_permission="card.view"
-    )
+    await _require_card_read(db, user, uuid.UUID(card_id))
     result = await db.execute(
         select(Card)
         .where(Card.id == uuid.UUID(card_id))
@@ -1014,9 +1029,7 @@ async def get_hierarchy(
 ):
     """Return ancestors (root→parent), children, and computed level."""
     uid = uuid.UUID(card_id)
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uid, card_permission="card.view"
-    )
+    await _require_card_read(db, user, uid)
     result = await db.execute(select(Card).where(Card.id == uid))
     card = result.scalar_one_or_none()
     if not card:
@@ -2589,9 +2602,7 @@ async def get_history(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uuid.UUID(card_id), card_permission="card.view"
-    )
+    await _require_card_read(db, user, uuid.UUID(card_id))
     q = (
         select(Event)
         .where(Event.card_id == uuid.UUID(card_id))

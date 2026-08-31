@@ -172,6 +172,6 @@ Conversely, the **Card Details** tab within the PPM Initiative Detail View shows
 
 | Permission | Description |
 |-----------|-------------|
-| `ppm.view` | View the PPM dashboard, Gantt chart, and initiative reports. Granted to all roles by default |
+| `ppm.view` | View the PPM dashboard, Gantt chart, and initiative reports, and read Initiative cards. Granted to all roles by default |
 | `ppm.manage` | Create and manage status reports, tasks, costs, risks, and WBS items. Granted to Admin, BPM Admin, and Member roles |
 | `reports.ppm_dashboard` | View the PPM portfolio dashboard. Granted to all roles by default |
