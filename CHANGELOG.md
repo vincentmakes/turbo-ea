@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.109.0] - 2026-08-31
+
+### Added
+
+- Extension UI SDK 1.21: async loaders for the time-travel timeline slider (with its range/classification helpers) and the Layered Dependency View (renderer + layout engine, resolved from core's code-split chunk), plus the shared grid filter-sidebar primitives (`FilterSectionHeader`, `FilterCheckboxList`, `ColumnFreezeToggle`) — so extension timelines, dependency graphs, and grid sidebars reuse core's components instead of rebuilding them.
+
 ## [2.108.0] - 2026-08-30
 
 ### Fixed

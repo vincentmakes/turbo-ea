@@ -46,7 +46,15 @@
  * `integrationPanels` places an extension's integration configuration as a
  * sub-tab of Admin → Settings → Integrations, next to the built-in ServiceNow
  * integration (`adminPanels` is unchanged and still renders on Admin →
- * Extensions).
+ * Extensions). Since SDK 1.21 the sdk carries `loadTimeline` (an async loader
+ * resolving the time-travel `TimelineSlider` plus the `timelineRange` helpers
+ * and `useTimeline`, so an extension timeline behaves exactly like the core
+ * reports'), `loadDependencyView` (a lazy loader resolving the Layered
+ * Dependency View renderer + its layout engine from core's code-split chunk —
+ * extensions must never substitute another graph library), and the grid
+ * filter-sidebar primitives `FilterSectionHeader` / `FilterCheckboxList` /
+ * `ColumnFreezeToggle` (the §3.11 building blocks, so an extension's filter
+ * sidebar cannot drift from the Inventory anatomy).
  *
  * Since SDK 1.12 the preferred way to add a plug point is the GENERIC SLOT
  * registry, not a new named extension point. An extension declares
@@ -102,9 +110,14 @@ import { fieldLabel, optionLabel, useFieldLabel, useOptionLabel } from "@/hooks/
 // core's router.
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useNavigate } from "react-router";
+// SDK 1.21 — the shared filter-sidebar building blocks (UI_GUIDELINES §3.11).
+// MUI-only leaf modules like FilterSelect, so static imports are safe: no
+// code-split graph is dragged into the eager bundle and no cycle back here.
+import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
+import { FilterCheckboxList, FilterSectionHeader } from "@/components/FilterSidebarSection";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.20";
+export const UI_SDK_VERSION = "1.21";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -990,6 +1003,50 @@ export function initExtensionHost(): void {
           useColumnOrder: order.useColumnOrder,
         })),
       CreateCardDialog: ExtensionCreateCardDialog,
+      // SDK 1.21 — timeline + dependency-view + filter-sidebar reuse.
+      // `loadTimeline` resolves the time-travel slider and its pure helpers
+      // in one call, so an extension timeline shares the exact semantics the
+      // core reports have (range computation, arriving/retired classification,
+      // milestone clustering, the persisted `timelineDate` convention via
+      // `useTimeline`). An async loader, not a static import: the slider only
+      // lives in report chunks today and must not join the eager main bundle.
+      loadTimeline: () =>
+        Promise.all([
+          import("@/components/TimelineSlider"),
+          import("@/features/reports/timelineRange"),
+          import("@/hooks/useTimeline"),
+        ]).then(([slider, range, timeline]) => ({
+          TimelineSlider: slider.default,
+          useTimeline: timeline.useTimeline,
+          computeTimelineRange: range.computeTimelineRange,
+          classifyTimelineChange: range.classifyTimelineChange,
+          isPresentAtDate: range.isPresentAtDate,
+          isVisibleAtDate: range.isVisibleAtDate,
+          computeTimelineMilestones: range.computeTimelineMilestones,
+          cardsChangingBetween: range.cardsChangingBetween,
+        })),
+      // `loadDependencyView` resolves the house dependency notation (the
+      // Layered Dependency View) plus its layout engine from core's own
+      // code-split chunk (React Flow + dagre ride along) — the same
+      // reuse-over-rebuild posture as `loadRecharts`/`loadAgGrid`, and the
+      // §3.10 rule applies: never substitute another graph library. The
+      // layout module is handed back as a namespace so its node/edge
+      // builders and helpers stay available without re-listing them here.
+      loadDependencyView: () =>
+        Promise.all([
+          import("@/features/reports/LayeredDependencyView"),
+          import("@/features/reports/layeredDependencyLayout"),
+        ]).then(([view, layout]) => ({
+          LayeredDependencyView: view.default,
+          layeredDependencyLayout: layout,
+        })),
+      // The §3.11 filter-sidebar building blocks — section header with icon +
+      // count chip, dense checkbox rows with semantic dots/icons and the
+      // per-row freeze pin — so an extension grid page's sidebar is built
+      // from the same anatomy as the Inventory's instead of a lookalike.
+      FilterSectionHeader,
+      FilterCheckboxList,
+      ColumnFreezeToggle,
     },
     register: registerExtension,
   };

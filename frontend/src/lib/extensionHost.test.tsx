@@ -83,6 +83,40 @@ describe("extensionHost", () => {
     // workspace setting, and an <a href> to a core route reloads the SPA.
     expect(typeof sdk.useDateFormat).toBe("function");
     expect(typeof sdk.useNavigate).toBe("function");
+    // SDK 1.21 — timeline + dependency-view loaders and the filter-sidebar
+    // primitives. Without these an extension timeline/graph/sidebar can only
+    // be a drifting lookalike of core's.
+    expect(typeof sdk.loadTimeline).toBe("function");
+    expect(typeof sdk.loadDependencyView).toBe("function");
+    expect(sdk.FilterSectionHeader).toBeDefined();
+    expect(sdk.FilterCheckboxList).toBeDefined();
+    expect(sdk.ColumnFreezeToggle).toBeDefined();
+  });
+
+  it("loadTimeline resolves the time-travel slider and its helpers", async () => {
+    initExtensionHost();
+    const sdk = window.TurboEA?.sdk as Record<string, unknown>;
+    const loaded = (await (sdk.loadTimeline as () => Promise<Record<string, unknown>>)()) ?? {};
+    expect(loaded.TimelineSlider).toBeDefined();
+    expect(typeof loaded.useTimeline).toBe("function");
+    expect(typeof loaded.computeTimelineRange).toBe("function");
+    expect(typeof loaded.classifyTimelineChange).toBe("function");
+    expect(typeof loaded.isPresentAtDate).toBe("function");
+    expect(typeof loaded.isVisibleAtDate).toBe("function");
+    expect(typeof loaded.computeTimelineMilestones).toBe("function");
+    expect(typeof loaded.cardsChangingBetween).toBe("function");
+  });
+
+  it("loadDependencyView resolves the layered dependency view and layout engine", async () => {
+    initExtensionHost();
+    const sdk = window.TurboEA?.sdk as Record<string, unknown>;
+    const loaded =
+      (await (sdk.loadDependencyView as () => Promise<Record<string, unknown>>)()) ?? {};
+    expect(loaded.LayeredDependencyView).toBeDefined();
+    const layout = loaded.layeredDependencyLayout as Record<string, unknown>;
+    expect(layout).toBeDefined();
+    expect(typeof layout.filterEndOfLifeNodes).toBe("function");
+    expect(layout.LDV_NODE_W).toBeDefined();
   });
 
   it("loadAgGrid resolves core's AG Grid module and themes", async () => {
@@ -389,7 +423,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.20");
+    expect(UI_SDK_VERSION).toBe("1.21");
   });
 
   it("whitelists the nav groups an extension route may request", () => {
