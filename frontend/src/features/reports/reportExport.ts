@@ -303,6 +303,15 @@ async function captureChartImage(
       backgroundColor: "#ffffff",
       width: captureWidth,
       height: captureHeight,
+      // Neutralise any positioning on the capture root. html-to-image copies
+      // the node's computed cssText onto the clone it renders inside a
+      // foreignObject, so a root parked off-screen (position:absolute with a
+      // large negative left — the usual way to mount an export-only chart
+      // without display:none) lays out entirely outside the canvas and the
+      // PNG comes back blank. options.style is applied last, so this pins the
+      // clone at the canvas origin; core's own chart nodes are static and
+      // unaffected.
+      style: { position: "static", left: "0", top: "0", margin: "0" },
       // Skip Material Symbols icon spans — they rely on a font ligature
       // that html-to-image can't reliably embed, so they otherwise leak
       // through as raw glyph names ("payments", "trending_up", etc.).

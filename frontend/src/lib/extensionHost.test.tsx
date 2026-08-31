@@ -83,6 +83,8 @@ describe("extensionHost", () => {
     // workspace setting, and an <a href> to a core route reloads the SPA.
     expect(typeof sdk.useDateFormat).toBe("function");
     expect(typeof sdk.useNavigate).toBe("function");
+    // SDK 1.23 — the shared commit-on-blur native date input.
+    expect(sdk.DateField).toBeDefined();
     // SDK 1.21 — timeline + dependency-view loaders and the filter-sidebar
     // primitives. Without these an extension timeline/graph/sidebar can only
     // be a drifting lookalike of core's.
@@ -438,7 +440,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.22");
+    expect(UI_SDK_VERSION).toBe("1.23");
   });
 
   it("whitelists the nav groups an extension route may request", () => {

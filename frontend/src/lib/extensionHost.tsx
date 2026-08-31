@@ -112,6 +112,11 @@ import { fieldLabel, optionLabel, useFieldLabel, useOptionLabel } from "@/hooks/
 // core's router.
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useNavigate } from "react-router";
+// SDK 1.23 — the shared commit-on-blur native date input (focus-protected
+// draft), so an extension form gets the same date-entry behaviour as core
+// and cannot reintroduce the mid-edit value-clobber bug (#865). MUI-only
+// leaf module, so a static import is safe.
+import DateField from "@/components/DateField";
 // SDK 1.21 — the shared filter-sidebar building blocks (UI_GUIDELINES §3.11).
 // MUI-only leaf modules like FilterSelect, so static imports are safe: no
 // code-split graph is dragged into the eager bundle and no cycle back here.
@@ -119,7 +124,7 @@ import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import { FilterCheckboxList, FilterSectionHeader } from "@/components/FilterSidebarSection";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.22";
+export const UI_SDK_VERSION = "1.23";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -961,6 +966,8 @@ export function initExtensionHost(): void {
       // reload - but it must not bundle react-router itself.
       useDateFormat,
       useNavigate,
+      // SDK 1.23 — the shared native date input (see the import note above).
+      DateField,
       loadRecharts: () => import("recharts"),
       // SDK 1.9 — theme-aware Recharts chrome (grid/axis/tooltip), the same
       // conventions core reports use, so extension charts cannot drift from

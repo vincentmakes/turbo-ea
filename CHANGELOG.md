@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.111.0] - 2026-08-31
+
+### Added
+
+- Extension UI SDK 1.23: the shared `DateField` (commit-on-blur, focus-protected native date input) is exposed on the SDK surface, so extension forms get the same date-entry behaviour as core.
+
+### Fixed
+
+- Report chart capture now neutralises positioning on the capture root, so a chart mounted off-screen for export can no longer rasterise as a blank image.
+
 ## [2.110.1] - 2026-08-31
 
 ### Fixed
