@@ -1,32 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import Dialog from "@mui/material/Dialog";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
-import DialogActions from "@mui/material/DialogActions";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import TextField from "@mui/material/TextField";
-import InputAdornment from "@mui/material/InputAdornment";
-import Chip from "@mui/material/Chip";
-import Checkbox from "@mui/material/Checkbox";
-import Divider from "@mui/material/Divider";
-import IconButton from "@mui/material/IconButton";
-import CircularProgress from "@mui/material/CircularProgress";
-import Typography from "@mui/material/Typography";
-import MaterialSymbol from "@/components/MaterialSymbol";
-import { api } from "@/api/client";
+import CardMultiPicker, { type PickedCard } from "@/components/CardMultiPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useTypeLabel } from "@/hooks/useResolveLabel";
-import type { Card, CardType } from "@/types";
-import { useCardSearch } from "@/hooks/useCardSearch";
-import { compareByRank, searchRank } from "@/lib/searchRank";
-import { readableTextColor } from "@/lib/color";
-
-interface CountsResponse {
-  by_type: { type: string; count: number }[];
-  total: number;
-}
+import type { CardType } from "@/types";
 
 export type InsertMode = "multi" | "single";
 
@@ -37,453 +13,54 @@ interface Props {
    *  Change-Linked-Card and Link-to-Existing-Card flows. */
   mode?: InsertMode;
   onClose: () => void;
-  onInsert: (cards: Card[], cardTypeKeysByCardId: Map<string, CardType>) => void;
+  onInsert: (cards: PickedCard[], cardTypeKeysByCardId: Map<string, CardType>) => void;
 }
 
 /**
- * LeanIX-style multi-select Insert Cards dialog.
+ * The diagram's Insert-Cards dialog — a thin adapter over the shared
+ * `CardMultiPicker`.
  *
- * Left pane: type chips with live counts from /cards/counts.
- * Right pane: paginated search results with per-row checkboxes.
- * Footer: Insert selected / Insert all (with confirmation when > 50).
+ * This used to be its own browser with its own selection model, which is
+ * exactly how it acquired a bug the scope picker had already fixed: it kept a
+ * bare id `Set` and resolved it against `useCardSearch`'s results, so ticking
+ * a card, switching type or typing, and hitting Insert dropped the first pick
+ * without a word. Sharing the picker removes the divergence rather than
+ * patching the symptom.
+ *
+ * The card-type map it hands the editor is built here: the picker deals in
+ * cards, and only the diagram needs the type's colour and icon to draw a
+ * shape.
  */
-export default function InsertCardsDialog({
-  open,
-  mode = "multi",
-  onClose,
-  onInsert,
-}: Props) {
+export default function InsertCardsDialog({ open, mode = "multi", onClose, onInsert }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
-  const typeLabel = useTypeLabel();
-  const { types: allTypes } = useMetamodel();
-  const visibleTypes = useMemo(() => allTypes.filter((tp) => !tp.is_hidden), [allTypes]);
-  const typeMap = useMemo(
-    () => new Map(visibleTypes.map((tp) => [tp.key, tp] as const)),
-    [visibleTypes],
-  );
+  const { types } = useMetamodel();
+  const typeMap = useMemo(() => new Map(types.map((tp) => [tp.key, tp] as const)), [types]);
 
-  const [counts, setCounts] = useState<Map<string, number>>(new Map());
-  const [selectedTypeKeys, setSelectedTypeKeys] = useState<Set<string>>(new Set());
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(new Set());
-  const [confirmInsertAll, setConfirmInsertAll] = useState(false);
-
-  // Reset state when dialog closes.
-  useEffect(() => {
-    if (open) return;
-    setSelectedTypeKeys(new Set());
-    setSearch("");
-    setDebouncedSearch("");
-    setSelectedCardIds(new Set());
-    setConfirmInsertAll(false);
-  }, [open]);
-
-  // Debounce search so each keystroke doesn't refetch.
-  useEffect(() => {
-    const handle = window.setTimeout(() => setDebouncedSearch(search), 200);
-    return () => window.clearTimeout(handle);
-  }, [search]);
-
-  // Fetch type counts once per open.
-  useEffect(() => {
-    if (!open) return;
-    api
-      .get<CountsResponse>("/cards/counts")
-      .then((r) => setCounts(new Map(r.by_type.map((e) => [e.type, e.count]))))
-      .catch(() => setCounts(new Map()));
-  }, [open]);
-
-  const typeKeys = useMemo(() => Array.from(selectedTypeKeys), [selectedTypeKeys]);
-  // Skip the initial empty query — wait for the user to pick a chip or search.
-  const searchEnabled = open && (typeKeys.length > 0 || debouncedSearch.trim().length > 0);
-
-  const {
-    items: results,
-    total,
-    loading,
-    hasMore,
-    loadMore,
-  } = useCardSearch({
-    types: typeKeys,
-    search: debouncedSearch,
-    enabled: searchEnabled,
-  });
-
-  /**
-   * What the list actually shows: the loaded page narrowed and ranked on the
-   * RAW input, so it responds to the first character instead of waiting out
-   * the debounce plus a round-trip. The debounced value still drives the
-   * server query above — that is the only thing a debounce should protect.
-   * Ranking mirrors the server's own (`searchRank` ↔ `_search_rank`), so the
-   * order does not jump when the debounced response lands.
-   *
-   * Deliberately *not* used by `handleInsertSelected`: a card ticked before
-   * the search term was typed is still selected, and must still resolve.
-   */
-  const visibleResults = useMemo(() => {
-    const q = search.trim();
-    if (!q) return results;
-    return results.filter((c) => searchRank(c.name, q) >= 0).sort(compareByRank(q));
-  }, [results, search]);
-
-  // Infinite scroll: load the next page when the sentinel scrolls into view.
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    const root = scrollContainerRef.current;
-    if (!sentinel || !root || !hasMore) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) loadMore();
-      },
-      { root, rootMargin: "200px" },
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasMore, loadMore, results.length]);
-
-  const toggleType = useCallback((key: string) => {
-    setSelectedTypeKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }, []);
-
-  const toggleRow = useCallback((id: string) => {
-    setSelectedCardIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const buildTypeMapForCards = useCallback(
-    (cards: Card[]) => {
-      const result = new Map<string, CardType>();
-      for (const c of cards) {
+  const handleChange = useCallback(
+    (_ids: string[], picked: PickedCard[]) => {
+      if (picked.length === 0) return;
+      const byCard = new Map<string, CardType>();
+      for (const c of picked) {
         const ct = typeMap.get(c.type);
-        if (ct) result.set(c.id, ct);
+        if (ct) byCard.set(c.id, ct);
       }
-      return result;
+      onInsert(picked, byCard);
     },
-    [typeMap],
+    [typeMap, onInsert],
   );
-
-  const handleInsertSelected = useCallback(() => {
-    const picked = results.filter((c) => selectedCardIds.has(c.id));
-    if (picked.length === 0) return;
-    onInsert(picked, buildTypeMapForCards(picked));
-    onClose();
-  }, [results, selectedCardIds, onInsert, onClose, buildTypeMapForCards]);
-
-  const handleInsertSingle = useCallback(
-    (card: Card) => {
-      onInsert([card], buildTypeMapForCards([card]));
-      onClose();
-    },
-    [onInsert, onClose, buildTypeMapForCards],
-  );
-
-  // "Insert all" means all of what is on screen, so it follows the visible
-  // list — inserting rows the search has filtered out would not match the
-  // count on the button.
-  const handleInsertAll = useCallback(() => {
-    if (visibleResults.length > 50 && !confirmInsertAll) {
-      setConfirmInsertAll(true);
-      return;
-    }
-    onInsert(visibleResults, buildTypeMapForCards(visibleResults));
-    onClose();
-  }, [visibleResults, confirmInsertAll, onInsert, onClose, buildTypeMapForCards]);
-
-  if (!open) return null;
-  const isMulti = mode === "multi";
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-      <DialogTitle
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1,
-          pb: 1,
-          borderBottom: "1px solid",
-          borderColor: "divider",
-        }}
-      >
-        <MaterialSymbol icon="library_add" size={22} color="#1976d2" />
-        {isMulti ? t("insertDialog.titleMulti") : t("insertDialog.titleSingle")}
-        <Box sx={{ flex: 1 }} />
-        <IconButton size="small" onClick={onClose}>
-          <MaterialSymbol icon="close" size={18} />
-        </IconButton>
-      </DialogTitle>
-
-      <DialogContent
-        sx={{
-          display: "flex",
-          gap: 0,
-          p: 0,
-          height: "min(70vh, 640px)",
-          overflow: "hidden",
-        }}
-      >
-        {/* Left filter sidebar — type chips with counts */}
-        <Box
-          sx={{
-            width: 220,
-            flexShrink: 0,
-            borderRight: "1px solid",
-            borderColor: "divider",
-            overflow: "auto",
-            p: 2,
-          }}
-        >
-          <Typography variant="overline" color="text.secondary">
-            {t("insertDialog.typeFilter")}
-          </Typography>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, mt: 1 }}>
-            {visibleTypes
-              .slice()
-              .sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99))
-              .map((tp) => {
-                const count = counts.get(tp.key) ?? 0;
-                const active = selectedTypeKeys.has(tp.key);
-                return (
-                  <Chip
-                    key={tp.key}
-                    size="small"
-                    label={
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Box sx={{ flex: 1, textAlign: "left" }}>
-                          {typeLabel(tp)}
-                        </Box>
-                        <Box
-                          sx={{
-                            fontSize: "0.7rem",
-                            opacity: active ? 0.9 : 0.65,
-                          }}
-                        >
-                          {count}
-                        </Box>
-                      </Box>
-                    }
-                    variant={active ? "filled" : "outlined"}
-                    sx={{
-                      justifyContent: "flex-start",
-                      bgcolor: active ? tp.color : "transparent",
-                      color: active ? "#fff" : "text.primary",
-                      borderColor: tp.color,
-                      "& .MuiChip-label": { width: "100%", px: 1 },
-                      cursor: "pointer",
-                    }}
-                    onClick={() => toggleType(tp.key)}
-                  />
-                );
-              })}
-          </Box>
-        </Box>
-
-        {/* Right pane: search + results */}
-        <Box sx={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-          <Box sx={{ p: 2, pb: 1 }}>
-            <TextField
-              size="small"
-              fullWidth
-              autoFocus
-              placeholder={t("insertDialog.searchPlaceholder")}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <MaterialSymbol icon="search" size={18} color="#999" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-              {!searchEnabled
-                ? t("insertDialog.selectOrSearch")
-                : hasMore
-                  ? t("insertDialog.showingOf", { loaded: visibleResults.length, total })
-                  : t("insertDialog.resultsCount", { count: total })}
-            </Typography>
-          </Box>
-
-          <Divider />
-
-          <Box ref={scrollContainerRef} sx={{ flex: 1, overflow: "auto" }}>
-            {loading && visibleResults.length === 0 ? (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-                <CircularProgress size={24} />
-              </Box>
-            ) : visibleResults.length === 0 ? (
-              <Box sx={{ textAlign: "center", py: 6, color: "text.disabled" }}>
-                <MaterialSymbol icon="search_off" size={36} color="#bbb" />
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  {!searchEnabled
-                    ? t("insertDialog.selectOrSearch")
-                    : t("insertDialog.empty")}
-                </Typography>
-              </Box>
-            ) : (
-              <Box>
-                {visibleResults.map((c) => {
-                  const ct = typeMap.get(c.type);
-                  const selected = selectedCardIds.has(c.id);
-                  return (
-                    <Box
-                      key={c.id}
-                      onClick={() => {
-                        if (isMulti) toggleRow(c.id);
-                        else handleInsertSingle(c);
-                      }}
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1.5,
-                        px: 2,
-                        py: 0.75,
-                        cursor: "pointer",
-                        borderBottom: "1px solid",
-                        borderColor: "divider",
-                        bgcolor: selected ? "action.selected" : "transparent",
-                        "&:hover": { bgcolor: "action.hover" },
-                      }}
-                    >
-                      {isMulti && (
-                        <Checkbox
-                          size="small"
-                          checked={selected}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            toggleRow(c.id);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          sx={{ p: 0.5 }}
-                        />
-                      )}
-                      {ct && (
-                        <Box
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: "4px",
-                            bgcolor: ct.color,
-                            color: readableTextColor(ct.color),
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <MaterialSymbol icon={ct.icon} size={14} color={readableTextColor(ct.color)} />
-                        </Box>
-                      )}
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="body2" noWrap fontWeight={500}>
-                          {c.name}
-                        </Typography>
-                        {c.description && (
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            noWrap
-                            sx={{ display: "block" }}
-                          >
-                            {c.description}
-                          </Typography>
-                        )}
-                      </Box>
-                      {ct && (
-                        <Chip
-                          size="small"
-                          label={typeLabel(ct)}
-                          sx={{
-                            height: 20,
-                            fontSize: "0.7rem",
-                            bgcolor: ct.color,
-                            color: readableTextColor(ct.color),
-                          }}
-                        />
-                      )}
-                    </Box>
-                  );
-                })}
-                {hasMore && (
-                  <Box
-                    ref={sentinelRef}
-                    sx={{
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      gap: 1,
-                      py: 2,
-                      color: "text.secondary",
-                    }}
-                  >
-                    <CircularProgress size={16} />
-                    <Typography variant="caption">
-                      {t("insertDialog.loadingMore")}
-                    </Typography>
-                  </Box>
-                )}
-              </Box>
-            )}
-          </Box>
-        </Box>
-      </DialogContent>
-
-      {isMulti && (
-        <DialogActions
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            px: 2,
-            py: 1,
-            borderTop: "1px solid",
-            borderColor: "divider",
-          }}
-        >
-          <Box>
-            {selectedCardIds.size > 0 && (
-              <Typography variant="caption" color="text.secondary">
-                {t("insertDialog.selectedCount", { count: selectedCardIds.size })}
-              </Typography>
-            )}
-            {confirmInsertAll && (
-              <Typography variant="caption" color="warning.main" sx={{ ml: 1 }}>
-                {t("insertDialog.confirmInsertAll", { count: visibleResults.length })}
-              </Typography>
-            )}
-          </Box>
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
-            <Button
-              variant="outlined"
-              disabled={visibleResults.length === 0}
-              onClick={handleInsertAll}
-            >
-              {confirmInsertAll
-                ? t("insertDialog.insertAllConfirm")
-                : t("insertDialog.insertAll", { count: visibleResults.length })}
-            </Button>
-            <Button
-              variant="contained"
-              disabled={selectedCardIds.size === 0}
-              onClick={handleInsertSelected}
-            >
-              {t("insertDialog.insertSelected", { count: selectedCardIds.size })}
-            </Button>
-          </Box>
-        </DialogActions>
-      )}
-    </Dialog>
+    <CardMultiPicker
+      open={open}
+      mode={mode}
+      onClose={onClose}
+      // Insert always starts from an empty basket — the dialog is a way of
+      // adding cards to the canvas, never of editing what is already on it.
+      value={[]}
+      onChange={handleChange}
+      showSelectAll
+      title={mode === "multi" ? t("insertDialog.titleMulti") : t("insertDialog.titleSingle")}
+      applyLabel={(count) => t("insertDialog.insertSelected", { count })}
+    />
   );
 }

@@ -36,14 +36,15 @@ import { readableTextColor } from "@/lib/color";
 import { compareByRank, searchRank } from "@/lib/searchRank";
 import type { Card, CardListResponse } from "@/types";
 
-/** The card shape this picker hands back. */
-export interface PickedCard {
-  id: string;
-  name: string;
-  type: string;
-  parent_id?: string | null;
-  description?: string;
-}
+/**
+ * What the picker hands back.
+ *
+ * Everything the loaded page carried is preserved — a caller that needs the
+ * whole card (the diagram, which renders attribute lines onto the shape) gets
+ * it — while an id the picker could only *seed* from `value` and never resolve
+ * carries just the three fields it is sure of.
+ */
+export type PickedCard = Partial<Card> & Pick<Card, "id" | "name" | "type">;
 
 interface CountsResponse {
   by_type: { type: string; count: number }[];
@@ -233,13 +234,7 @@ export default function CardMultiPicker({
         for (const c of found) {
           const entry = next.get(c.id);
           if (entry && !entry.name) {
-            next.set(c.id, {
-              id: c.id,
-              name: c.name,
-              type: c.type,
-              parent_id: c.parent_id ?? null,
-              description: c.description,
-            });
+            next.set(c.id, c);
             changed = true;
           }
         }
@@ -296,19 +291,9 @@ export default function CardMultiPicker({
   /** True only when the faceted type is provably complete in memory. */
   const treeMode = treeAttempt && !hasMore && !loading && items.length > 0;
 
-  const byId = useMemo(() => {
-    const map = new Map<string, PickedCard>();
-    for (const c of items) {
-      map.set(c.id, {
-        id: c.id,
-        name: c.name,
-        type: c.type,
-        parent_id: c.parent_id ?? null,
-        description: c.description,
-      });
-    }
-    return map;
-  }, [items]);
+  // The whole card, never a projection — callers downstream of Apply render
+  // from its attributes and lifecycle, not just its name.
+  const byId = useMemo(() => new Map<string, PickedCard>(items.map((c) => [c.id, c])), [items]);
 
   const parentById = useMemo(() => {
     const map = new Map<string, string | null | undefined>();

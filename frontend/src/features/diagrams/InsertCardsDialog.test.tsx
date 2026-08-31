@@ -1,7 +1,13 @@
 /**
  * Tests for the diagram Insert-Cards dialog, focused on its candidate search:
  * it must narrow from the first character rather than waiting out the debounce
- * plus a round-trip, and rank the way every other card picker does.
+ * plus a round-trip, rank the way every other card picker does, and never lose
+ * a pick when the list underneath it is replaced.
+ *
+ * The api mock below HONOURS `type=` and `search=`. It used to return the same
+ * four rows for every request, which made the selection tests here pass
+ * vacuously: the loaded page never actually changed, so a picker that resolved
+ * its selection against that page looked correct.
  */
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -49,9 +55,21 @@ beforeEach(() => {
         total: CARDS.length,
       }) as never;
     }
+    const url = new URL(path, "http://x");
+    let items = CARDS;
+    const type = url.searchParams.get("type");
+    if (type) {
+      const keys = new Set(type.split(","));
+      items = items.filter((c) => keys.has(c.type));
+    }
+    const search = url.searchParams.get("search");
+    if (search) {
+      const q = search.toLowerCase();
+      items = items.filter((c) => c.name.toLowerCase().includes(q));
+    }
     return Promise.resolve({
-      items: CARDS,
-      total: CARDS.length,
+      items,
+      total: items.length,
       page: 1,
       page_size: 1000,
     }) as never;
@@ -67,9 +85,14 @@ function mountDialog() {
 /** The search only runs once a type chip is picked or a term is typed. */
 async function pickTypeChip(user: ReturnType<typeof userEvent.setup>) {
   const dialog = await screen.findByRole("dialog");
-  await user.click(within(dialog).getByText("Organization"));
+  await user.click(within(await screen.findByTestId("card-picker-rail")).getByText("Organization"));
   await within(dialog).findByText("Finance");
   return dialog;
+}
+
+/** The results list, so a query can't stray into the rail or the chip row. */
+function list() {
+  return screen.getByTestId("card-picker-list");
 }
 
 describe("InsertCardsDialog candidate search", () => {
@@ -83,8 +106,8 @@ describe("InsertCardsDialog candidate search", () => {
     // Asserted synchronously — no `waitFor`, no timer advance. The loaded page
     // is already in memory, so it filters instantly; before this the list sat
     // unchanged for 200ms plus a round-trip.
-    expect(within(dialog).queryByText("Finance")).not.toBeInTheDocument();
-    expect(within(dialog).getByText("Legal")).toBeInTheDocument();
+    expect(within(list()).queryByText("Finance")).not.toBeInTheDocument();
+    expect(within(list()).getByText("Legal")).toBeInTheDocument();
   });
 
   it("ranks an exact match above starts-with, and both above mid-word", async () => {
@@ -97,8 +120,8 @@ describe("InsertCardsDialog candidate search", () => {
     // Compare document order rather than reconstructing rows from the DOM
     // shape, which is an implementation detail of the row markup.
     const before = (a: string, b: string) => {
-      const nodeA = within(dialog).getByText(a);
-      const nodeB = within(dialog).getByText(b);
+      const nodeA = within(list()).getByText(a);
+      const nodeB = within(list()).getByText(b);
       // eslint-disable-next-line no-bitwise
       return Boolean(
         nodeA.compareDocumentPosition(nodeB) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -118,9 +141,9 @@ describe("InsertCardsDialog candidate search", () => {
     const { onInsert } = mountDialog();
     const dialog = await pickTypeChip(user);
 
-    await user.click(within(dialog).getByText("Finance"));
+    await user.click(within(list()).getByText("Finance"));
     await user.type(within(dialog).getByPlaceholderText(/Search by name/i), "Legal");
-    expect(within(dialog).queryByText("Finance")).not.toBeInTheDocument();
+    expect(within(list()).queryByText("Finance")).not.toBeInTheDocument();
 
     await user.click(within(dialog).getByRole("button", { name: /Insert selected/i }));
 
@@ -129,13 +152,14 @@ describe("InsertCardsDialog candidate search", () => {
     expect(inserted.map((c) => c.name)).toEqual(["Finance"]);
   });
 
-  it("insert-all follows what is on screen, not the whole loaded page", async () => {
+  it("select-all follows what is on screen, not the whole loaded page", async () => {
     const user = userEvent.setup();
     const { onInsert } = mountDialog();
     const dialog = await pickTypeChip(user);
 
     await user.type(within(dialog).getByPlaceholderText(/Search by name/i), "Legal");
-    await user.click(within(dialog).getByRole("button", { name: /Insert all/i }));
+    await user.click(within(dialog).getByRole("button", { name: /Select all shown/i }));
+    await user.click(within(dialog).getByRole("button", { name: /Insert selected/i }));
 
     await waitFor(() => expect(onInsert).toHaveBeenCalled());
     const inserted = vi.mocked(onInsert).mock.calls[0][0] as { name: string }[];
@@ -144,5 +168,39 @@ describe("InsertCardsDialog candidate search", () => {
       "Legal Operations",
       "Paralegal Services",
     ]);
+  });
+
+  it("still inserts a card selected before the SERVER results were replaced", async () => {
+    // The client filter is render-only, but the debounced query behind it
+    // genuinely swaps the loaded page. Resolving the selection against that
+    // page — what this dialog used to do — dropped the earlier pick.
+    const user = userEvent.setup();
+    const { onInsert } = mountDialog();
+    const dialog = await pickTypeChip(user);
+
+    await user.click(within(list()).getByText("Finance"));
+    await user.type(within(dialog).getByPlaceholderText(/Search by name/i), "Paralegal");
+    await waitFor(() =>
+      expect(within(list()).queryByText("Legal Operations")).not.toBeInTheDocument(),
+    );
+    await user.click(within(list()).getByText("Paralegal Services"));
+
+    await user.click(within(dialog).getByRole("button", { name: /Insert selected/i }));
+    await waitFor(() => expect(onInsert).toHaveBeenCalled());
+    const inserted = vi.mocked(onInsert).mock.calls[0][0] as { name: string }[];
+    expect(inserted.map((c) => c.name).sort()).toEqual(["Finance", "Paralegal Services"]);
+  });
+
+  it("hands the editor a card type for every inserted card", async () => {
+    const user = userEvent.setup();
+    const { onInsert } = mountDialog();
+    const dialog = await pickTypeChip(user);
+
+    await user.click(within(list()).getByText("Finance"));
+    await user.click(within(dialog).getByRole("button", { name: /Insert selected/i }));
+
+    await waitFor(() => expect(onInsert).toHaveBeenCalled());
+    const byId = vi.mocked(onInsert).mock.calls[0][1] as Map<string, { key: string }>;
+    expect(byId.get("org-d")?.key).toBe("Organization");
   });
 });

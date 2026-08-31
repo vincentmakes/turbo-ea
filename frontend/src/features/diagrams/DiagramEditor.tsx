@@ -21,6 +21,7 @@ import DialogActions from "@mui/material/DialogActions";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import InsertCardsDialog from "./InsertCardsDialog";
+import type { PickedCard } from "@/components/CardMultiPicker";
 import CreateOnDiagramDialog from "./CreateOnDiagramDialog";
 import RelationPickerDialog from "./RelationPickerDialog";
 import type { EdgeEndpoints } from "./RelationPickerDialog";
@@ -793,7 +794,7 @@ export default function DiagramEditor() {
   // `hideRelationLabelsRef` is one: the insert callback is declared far above
   // the builder and doesn't re-create when the settings change, so a plain
   // closure capture would go stale.
-  const detailLinesForCardRef = useRef<(card: Card) => CardDetailLine[]>(
+  const detailLinesForCardRef = useRef<(card: PickedCard) => CardDetailLine[]>(
     () => [],
   );
   /** Re-run the display pass (colours + detail rows) over the whole canvas.
@@ -1948,7 +1949,7 @@ export default function DiagramEditor() {
 
   /* ---------- Insert existing card(s) ---------- */
   const handleInsertCard = useCallback(
-    (cards: Card[], cardTypeKeysByCardId: Map<string, CardType>) => {
+    (cards: PickedCard[], cardTypeKeysByCardId: Map<string, CardType>) => {
       const frame = iframeRef.current;
       if (!frame || cards.length === 0) return;
 
@@ -3088,7 +3089,7 @@ export default function DiagramEditor() {
    *  the report's fixed-size nodes have to stop at `MAX_CARD_LINES`. */
   const buildDetailLines = useCallback(
     (
-      card: Card,
+      card: PickedCard,
       catalog: Map<string, ReturnType<typeof buildFieldCatalog>[number]>,
     ) => {
       const lines: CardDetailLine[] = [];
@@ -3120,7 +3121,7 @@ export default function DiagramEditor() {
     [cardLabels, t, typeLabel, subtypeLabel, optionLabel, fieldLabel],
   );
 
-  detailLinesForCardRef.current = (card: Card) =>
+  detailLinesForCardRef.current = (card: PickedCard) =>
     hasCardLabelLines(cardLabels)
       ? buildDetailLines(card, labelFieldMetaByKey)
       : [];

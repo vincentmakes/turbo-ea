@@ -460,7 +460,7 @@
   "cardPicker.typeFilter": "النوع",
   "cardPicker.searchPlaceholder": "ابحث بالاسم أو الوصف...",
   "cardPicker.selectOrSearch": "اختر نوعًا أو ابدأ الكتابة للبحث.",
-  "cardPicker.resultsCount_one": "نتيجة واحدة",
+  "cardPicker.resultsCount_one": "{{count}} نتيجة",
   "cardPicker.resultsCount_other": "{{count}} نتيجة",
   "cardPicker.showingOf": "عرض {{loaded}} من {{total}}",
   "cardPicker.pickedCount_one": "تم اختيار {{count}}",
