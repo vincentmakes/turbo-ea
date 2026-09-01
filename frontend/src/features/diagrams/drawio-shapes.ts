@@ -1359,8 +1359,69 @@ export interface ExpandedRelationEdge {
   relationLabel?: string;
 }
 
-/** Vertical gap between the lines of a fanned relation group, in px. */
-const FAN_SPACING = 22;
+/** Gap between the lines of a fanned relation group, in px. */
+const FAN_SPACING = 34;
+
+/**
+ * How far along the run the fanned lines split off and rejoin, as a fraction
+ * of the centre-to-centre distance. 0.25 holds the offset lines apart over the
+ * middle HALF of the run.
+ */
+const FAN_SPLIT = 0.25;
+
+/** Below this centre-to-centre distance a corridor has no room; pinch instead. */
+const FAN_MIN_RUN = 80;
+
+/**
+ * Waypoints that hold one line of a fanned group apart from its siblings.
+ *
+ * Two of them, not one: a single mid-run waypoint pinches the lines back
+ * together at both cards, so a pair separates only at the very middle and
+ * still reads as one line. A matched pair of waypoints gives each relation a
+ * parallel corridor over the middle half of the run instead — and carries its
+ * verb out there with it, so the two labels separate too.
+ *
+ * The offset is perpendicular to the run, decided by whichever axis dominates:
+ * nudging two vertically-stacked cards' edges further apart *vertically* moves
+ * them along the same corridor and separates nothing. Cards a user has dragged
+ * almost on top of each other have no room for a corridor, so those fall back
+ * to the single mid-run point.
+ */
+export function fanWaypoints(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  win: any,
+  from: { x: number; y: number; width: number; height: number },
+  to: { x: number; y: number; width: number; height: number },
+  offset: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any[] {
+  const ax = from.x + from.width / 2;
+  const ay = from.y + from.height / 2;
+  const bx = to.x + to.width / 2;
+  const by = to.y + to.height / 2;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const midX = (ax + bx) / 2;
+  const midY = (ay + by) / 2;
+  const horizontal = Math.abs(dx) >= Math.abs(dy);
+  const run = Math.abs(horizontal ? dx : dy);
+
+  if (run < FAN_MIN_RUN) {
+    return horizontal
+      ? [new win.mxPoint(midX, midY + offset)]
+      : [new win.mxPoint(midX + offset, midY)];
+  }
+  const split = run * FAN_SPLIT;
+  return horizontal
+    ? [
+        new win.mxPoint(midX - split, midY + offset),
+        new win.mxPoint(midX + split, midY + offset),
+      ]
+    : [
+        new win.mxPoint(midX + offset, midY - split),
+        new win.mxPoint(midX + offset, midY + split),
+      ];
+}
 
 /**
  * Draw EVERY relation between an expanded card and one child.
@@ -1376,8 +1437,9 @@ const FAN_SPACING = 22;
  * `entityRelationEdgeStyle` router ignores fixed anchors and would route every
  * line identically, drawing them exactly on top of each other — two verbs
  * superimposed on what looks like one line. A fanned group therefore routes
- * orthogonally through a waypoint offset per line, which the orthogonal router
- * does respect. A lone relation keeps the default ER curve, so nothing changes
+ * orthogonally through waypoints offset per line, which the orthogonal router
+ * does respect — see `fanWaypoints` for why that is a corridor rather than a
+ * single point. A lone relation keeps the default ER curve, so nothing changes
  * for the overwhelmingly common case.
  */
 function insertRelationEdges(
@@ -1410,17 +1472,10 @@ function insertRelationEdges(
   ];
   const fan = rels.length > 1;
 
-  // Midpoint between the two cards, used as the base for the fan waypoints.
-  let midX: number | undefined;
-  let midY: number | undefined;
-  if (fan) {
-    const pg = model.getGeometry(parentCell);
-    const cg = model.getGeometry(vertex);
-    if (pg && cg) {
-      midX = (pg.x + pg.width / 2 + cg.x + cg.width / 2) / 2;
-      midY = (pg.y + pg.height / 2 + cg.y + cg.height / 2) / 2;
-    }
-  }
+  // Both cards' boxes, the basis for every fanned line's corridor.
+  const fromGeo = fan ? model.getGeometry(parentCell) : null;
+  const toGeo = fan ? model.getGeometry(vertex) : null;
+  const canFan = fan && !!fromGeo && !!toGeo;
 
   const out: ExpandedRelationEdge[] = [];
   rels.forEach((rel, i) => {
@@ -1439,14 +1494,17 @@ function insertRelationEdges(
       }),
     );
 
-    if (fan && midX !== undefined && midY !== undefined) {
+    if (canFan) {
       const geo = model.getGeometry(edge);
       if (geo) {
         const g = geo.clone();
         // Spread the lines symmetrically around the straight run.
-        g.points = [
-          new win.mxPoint(midX, midY + (i - (rels.length - 1) / 2) * FAN_SPACING),
-        ];
+        g.points = fanWaypoints(
+          win,
+          fromGeo,
+          toGeo,
+          (i - (rels.length - 1) / 2) * FAN_SPACING,
+        );
         model.setGeometry(edge, g);
       }
     }
