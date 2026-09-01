@@ -26,7 +26,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import IconPicker from "@/components/IconPicker";
-import KeyInput, { isValidKey, coerceKey } from "@/components/KeyInput";
+import KeyInput, { isValidKey } from "@/components/KeyInput";
 import CalculationsAdmin from "@/features/admin/CalculationsAdmin";
 import PrinciplesAdmin from "@/features/admin/PrinciplesAdmin";
 import RegulationsAdmin from "@/features/admin/RegulationsAdmin";
@@ -47,7 +47,7 @@ import {
   RelationTypeValuesDialog,
   RelationTranslationDialog,
 } from "./metamodel";
-import { cleanTranslations } from "./metamodel/helpers";
+import { cleanTranslations, deriveRelationKey } from "./metamodel/helpers";
 import { CATEGORIES, CARDINALITY_OPTIONS } from "./metamodel/constants";
 import { successorRelationKeys } from "@/lib/successorRelation";
 
@@ -134,6 +134,10 @@ export default function MetamodelAdmin() {
   const [editRelOpen, setEditRelOpen] = useState(false);
   const [editRel, setEditRel] = useState<(RType & { translations?: MetamodelTranslations }) | null>(null);
   const [relError, setRelError] = useState<string | null>(null);
+  // True once the admin edits the key by hand. The suggestion tracks the types
+  // and verb until then; after that the key is theirs and a later type change
+  // must not silently wipe it.
+  const [relKeyTouched, setRelKeyTouched] = useState(false);
 
   /* --- Manage relation "type" values dialog --- */
   const [valuesRel, setValuesRel] = useState<RType | null>(null);
@@ -188,36 +192,19 @@ export default function MetamodelAdmin() {
     // self-pair relation type is an ordinary relation and must stay editable here.
   ).filter((r) => !successorRelKeys.has(r.key));
 
-  // Derived key for a new relation type.
-  //
-  // Several relation types may share an ordered card-type pair, so the plain
-  // `<Source>To<Target>` form collides on the second one. The key is not just an
-  // internal id — it is the Excel column (`rel:<key>`), the calculation variable
-  // (`relations.<key>`) and the survey field key — so a bare `...2` would leave
-  // the admin with two columns nobody can tell apart. Derive it from the verb
-  // they typed instead (`OrganizationOwnsApplication`), and fall back to a
-  // numeric suffix only when there is no usable verb yet. The field stays
-  // editable, so this is a suggestion, never a constraint.
-  const autoRelKey = useMemo(() => {
-    const src = newRel.source_type_key;
-    const tgt = newRel.target_type_key;
-    if (!src || !tgt) return "";
-    const taken = new Set(relationTypes.map((r) => r.key));
-    const base = `${src}To${tgt}`;
-    if (!taken.has(base)) return base;
-
-    const verb = coerceKey(
-      newRel.label.replace(/\b\w/g, (ch) => ch.toUpperCase()),
-    );
-    if (verb) {
-      const verbKey = `${src}${verb}${tgt}`;
-      if (!taken.has(verbKey)) return verbKey;
-    }
-
-    let n = 2;
-    while (taken.has(`${base}${n}`)) n += 1;
-    return `${base}${n}`;
-  }, [newRel.source_type_key, newRel.target_type_key, newRel.label, relationTypes]);
+  // Suggested key for a new relation type. The rule lives in
+  // `metamodel/helpers.deriveRelationKey` so the unit test exercises the real
+  // implementation rather than a copy that could silently drift from it.
+  const autoRelKey = useMemo(
+    () =>
+      deriveRelationKey(
+        newRel.source_type_key,
+        newRel.target_type_key,
+        newRel.label,
+        relationTypes,
+      ),
+    [newRel.source_type_key, newRel.target_type_key, newRel.label, relationTypes],
+  );
 
   // Relation types already connecting the chosen pair. Not an error — the
   // metamodel allows any number — but worth surfacing, since a variant of one
@@ -367,6 +354,7 @@ export default function MetamodelAdmin() {
       translations: {},
     });
     setRelError(null);
+    setRelKeyTouched(false);
     setCreateRelOpen(true);
   };
 
@@ -1038,8 +1026,9 @@ export default function MetamodelAdmin() {
                 setNewRel({
                   ...newRel,
                   source_type_key: src,
-                  // Clear so the collision-free `autoRelKey` fills the field.
-                  key: "",
+                  // Clear so the derived key refills — unless the admin typed
+                  // their own, which theirs to keep.
+                  key: relKeyTouched ? newRel.key : "",
                 });
               }}
             >
@@ -1074,8 +1063,9 @@ export default function MetamodelAdmin() {
                 setNewRel({
                   ...newRel,
                   target_type_key: tgt,
-                  // Clear so the collision-free `autoRelKey` fills the field.
-                  key: "",
+                  // Clear so the derived key refills — unless the admin typed
+                  // their own, which is theirs to keep.
+                  key: relKeyTouched ? newRel.key : "",
                 });
               }}
             >
@@ -1108,15 +1098,6 @@ export default function MetamodelAdmin() {
             </Alert>
           )}
 
-          <KeyInput
-            fullWidth
-            label={t("metamodel.keyLabel")}
-            value={newRel.key || autoRelKey}
-            onChange={(v) => setNewRel({ ...newRel, key: v })}
-            sx={{ mb: 2 }}
-            size="small"
-            required={!!newRel.label.trim()}
-          />
           <TextField
             fullWidth
             label={`${t("metamodel.labelVerb")}${localeSuffix}`}
@@ -1133,6 +1114,18 @@ export default function MetamodelAdmin() {
               setNewRel({ ...newRel, reverse_label: e.target.value })
             }
             sx={{ mb: 2 }}
+          />
+          <KeyInput
+            fullWidth
+            label={t("metamodel.keyLabel")}
+            value={newRel.key || autoRelKey}
+            onChange={(v) => {
+              setRelKeyTouched(true);
+              setNewRel({ ...newRel, key: v });
+            }}
+            sx={{ mb: 2 }}
+            size="small"
+            required={!!newRel.label.trim()}
           />
           <FormControl fullWidth>
             <InputLabel>{t("metamodel.cardinality")}</InputLabel>

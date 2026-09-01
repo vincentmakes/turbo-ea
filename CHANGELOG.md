@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - **Reports, portals and surveys can now target a specific relationship.** The Portfolio report offers a group-by axis and a filter per relation type, the Capability Map adds a filter per relation type, portal filters and relation sections carry their verb, and a survey's "related to" filter gains a **Via relation** picker. Existing saved reports, bookmarks, portals and surveys are unaffected — they keep meaning "related through any of them".
-- A new relation type's suggested key is derived from the verb you type when the obvious `<Source>To<Target>` name is already taken (`OrganizationOwnsApplication`), falling back to a numeric suffix. The key is what appears as an Excel column, a calculation variable and a survey field, so a second relation on a pair stays recognisable instead of colliding or reading as "…2".
+- **A second relation type between two card types gets a usable key.** Its suggested key now builds on the existing relation's key plus the verb you type (`relOrgToApp` + "owns" → `relOrgToAppOwns`), so a pair's keys read as one family; a numeric suffix is only the fallback when no verb has been entered. The key is what appears as an Excel column, a calculation variable and a survey field, so it has to be recognisable. The create dialog also asks for the verbs before the key, so the suggestion is meaningful the first time you see it, and a key you type by hand is no longer wiped if you change a card type afterwards.
 
 ## [2.113.0] - 2026-09-01
 
