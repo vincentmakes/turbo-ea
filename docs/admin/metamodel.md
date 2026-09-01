@@ -175,7 +175,7 @@ Use **Manage Translations** at the top of the Relation Types tab to translate ev
 
 Some relations carry extra attributes that you set on each individual link rather than on the relation type. For example, the built-in **Organization → Application** relation ("uses") has a **Usage Type** attribute — set it to **Owner**, **User**, or **Stakeholder** on each link. This lets you model an application that is *owned by* one Organization and *used by* others through a single relation type. The chosen value appears as a coloured chip in the card's **Relations** section; set it when adding the relation, or later via the edit icon on the relation row.
 
-Only one relation type can exist between a given pair of card types, so use these attributes to qualify the meaning of a link rather than creating a second relation type for the same source and target.
+You can also create **several relation types between the same pair of card types** — for example an Organization that *owns* an application alongside one that *uses* it. Prefer an attribute when you are describing variants of a single relationship (it keeps one column in the inventory and one line on a diagram); create a second relation type when the relationships are genuinely different and deserve their own verbs, their own attributes, or their own filters. When a pair carries more than one relation type, the inventory still shows a single column for the related card type, and opening that cell gives you one section per relation type.
 
 ### Managing relation values
 

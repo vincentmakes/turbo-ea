@@ -86,6 +86,7 @@
   "metamodel.supportsSuccessors": "Understøtter slægtskab",
   "metamodel.createRelationType": "Opret relationstype",
   "metamodel.relationSaveFailed": "Kunne ikke gemme relationstypen",
+  "metamodel.relPairExistsWarning": "Dette par af korttyper er allerede forbundet af: {{relations}}. Det er tilladt — men hvis du beskriver en variant af den samme relation, er en attribut på den eksisterende relationstype som regel bedre.",
   "metamodel.sourceType": "Kildetype",
   "metamodel.targetType": "Måltype",
   "metamodel.labelVerb": "Label (verbum, f.eks. «bruger»)",

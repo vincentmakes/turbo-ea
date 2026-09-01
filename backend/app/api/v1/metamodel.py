@@ -944,9 +944,10 @@ async def delete_type(
 
 # Successor relations (key ends with "Successor") are a separate, UI-isolated
 # category — see frontend RelationsSection/MetamodelGraph/MetamodelAdmin, which all
-# filter on key.endsWith("Successor"). They are exempt from the one-relation-per-pair
-# uniqueness rule so a custom self-relation can coexist with the built-in successor
-# (mirrors the seeded BusinessProcess "depends on" + "succeeds" pair).
+# filter on key.endsWith("Successor"). The suffix is how the auto-provisioned lineage
+# relation type is found and named when an admin enables "Supports Lineage"; it no
+# longer carries a uniqueness exemption, since any number of relation types may share
+# an ordered (source, target) pair.
 SUCCESSOR_KEY_SUFFIX = "Successor"
 
 # Canonical label + i18n for an auto-provisioned successor (lineage) relation type.
@@ -1125,22 +1126,6 @@ async def create_relation_type(
         if not exists.scalar_one_or_none():
             raise HTTPException(400, f"Type '{type_key}' does not exist")
 
-    # Prevent duplicate source+target pair (ignore hidden/soft-deleted + successors)
-    dup = await db.execute(
-        select(RelationType).where(
-            RelationType.source_type_key == body["source_type_key"],
-            RelationType.target_type_key == body["target_type_key"],
-            RelationType.is_hidden == False,  # noqa: E712
-            ~RelationType.key.endswith(SUCCESSOR_KEY_SUFFIX),
-        )
-    )
-    if dup.scalar_one_or_none():
-        raise HTTPException(
-            400,
-            f"A relation type from '{body['source_type_key']}' to "
-            f"'{body['target_type_key']}' already exists.",
-        )
-
     max_order = await db.execute(select(func.max(RelationType.sort_order)))
     next_order = (max_order.scalar() or 0) + 1
 
@@ -1197,23 +1182,6 @@ async def update_relation_type(
                 exists = await db.execute(select(CardType.key).where(CardType.key == body[fk]))
                 if not exists.scalar_one_or_none():
                     raise HTTPException(400, f"Type '{body[fk]}' does not exist")
-        # Check for duplicate source+target
-        new_src = body.get("source_type_key", r.source_type_key)
-        new_tgt = body.get("target_type_key", r.target_type_key)
-        dup = await db.execute(
-            select(RelationType).where(
-                RelationType.source_type_key == new_src,
-                RelationType.target_type_key == new_tgt,
-                RelationType.key != key,
-                RelationType.is_hidden == False,  # noqa: E712
-                ~RelationType.key.endswith(SUCCESSOR_KEY_SUFFIX),
-            )
-        )
-        if dup.scalar_one_or_none():
-            raise HTTPException(
-                400,
-                f"A relation type from '{new_src}' to '{new_tgt}' already exists.",
-            )
 
     updatable = [
         "label",
@@ -1328,23 +1296,6 @@ async def restore_relation_type(
         raise HTTPException(404, "Relation type not found")
     if not r.is_hidden:
         raise HTTPException(400, "Relation type is not hidden")
-
-    # Check for duplicate source+target before restoring
-    dup = await db.execute(
-        select(RelationType).where(
-            RelationType.source_type_key == r.source_type_key,
-            RelationType.target_type_key == r.target_type_key,
-            RelationType.key != key,
-            RelationType.is_hidden == False,  # noqa: E712
-            ~RelationType.key.endswith(SUCCESSOR_KEY_SUFFIX),
-        )
-    )
-    if dup.scalar_one_or_none():
-        raise HTTPException(
-            400,
-            f"Cannot restore: a relation type from '{r.source_type_key}' to "
-            f"'{r.target_type_key}' already exists.",
-        )
 
     r.is_hidden = False
     await db.commit()

@@ -5,6 +5,23 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.114.0] - 2026-09-01
+
+### Added
+
+- **You can now create several relation types between the same two card types.** An Organization that *owns* an application and one that *uses* it can be modelled as two relations with their own verbs, attributes and filters, instead of being squeezed into a single relation qualified by an attribute. Attributes are still the better fit for variants of one relationship, and the create dialog now says so — as a hint, not a refusal — when the pair you picked is already connected.
+
+### Fixed
+
+- The Landscape report listed a card twice in a group when it was related through more than one relation type.
+- The Dependencies report dropped an edge when two cards were connected by more than one relation type; each relation now contributes its own edge, and the diagram and tree views show the combined verbs (for example "owns / uses") on the single line joining the two cards.
+- The inventory relation cell could show a related card it would not let you edit or remove. The cell has always merged every relation type reaching that card type; the editor now opens a section per relation type instead of only reaching the first, and the filter sidebar offers a row per relation type rather than hiding all but one.
+- Grouping the PPM portfolio by a card type connected through more than one relation type no longer places initiatives unpredictably.
+
+### Changed
+
+- A new relation type's suggested key gets a numeric suffix when the obvious `<Source>To<Target>` name is already taken, so a second relation on the same pair no longer collides before you can save it.
+
 ## [2.113.0] - 2026-09-01
 
 ### Added

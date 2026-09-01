@@ -86,6 +86,7 @@
   "metamodel.supportsSuccessors": "Soporta linaje",
   "metamodel.createRelationType": "Crear tipo de relación",
   "metamodel.relationSaveFailed": "No se pudo guardar el tipo de relación",
+  "metamodel.relPairExistsWarning": "Este par de tipos de tarjeta ya está conectado por: {{relations}}. Está permitido, pero si describe una variante de la misma relación, normalmente es mejor un atributo en el tipo de relación existente.",
   "metamodel.sourceType": "Tipo de origen",
   "metamodel.targetType": "Tipo de destino",
   "metamodel.labelVerb": "Etiqueta (verbo, ej. \"usa\")",

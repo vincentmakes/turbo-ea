@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -182,10 +182,31 @@ export default function MetamodelAdmin() {
     : relationTypes.filter((r) => !r.is_hidden)
   ).filter((r) => !r.key.endsWith("Successor"));
 
-  const autoRelKey =
-    newRel.source_type_key && newRel.target_type_key
-      ? `${newRel.source_type_key}To${newRel.target_type_key}`
-      : "";
+  // Derived key for a new relation type. Several relation types may share an
+  // ordered card-type pair, so the plain `<Source>To<Target>` form collides on the
+  // second one — suffix it instead of making the admin invent a key by hand.
+  const autoRelKey = useMemo(() => {
+    if (!newRel.source_type_key || !newRel.target_type_key) return "";
+    const base = `${newRel.source_type_key}To${newRel.target_type_key}`;
+    const taken = new Set(relationTypes.map((r) => r.key));
+    if (!taken.has(base)) return base;
+    let n = 2;
+    while (taken.has(`${base}${n}`)) n += 1;
+    return `${base}${n}`;
+  }, [newRel.source_type_key, newRel.target_type_key, relationTypes]);
+
+  // Relation types already connecting the chosen pair. Not an error — the
+  // metamodel allows any number — but worth surfacing, since a variant of one
+  // relationship is usually better modelled as an attribute on the existing type.
+  const relPairConflicts = useMemo(() => {
+    if (!newRel.source_type_key || !newRel.target_type_key) return [];
+    return relationTypes.filter(
+      (r) =>
+        !r.is_hidden &&
+        r.source_type_key === newRel.source_type_key &&
+        r.target_type_key === newRel.target_type_key
+    );
+  }, [newRel.source_type_key, newRel.target_type_key, relationTypes]);
 
   /* ---- Handlers ---- */
   const handleCreateType = async () => {
@@ -993,10 +1014,8 @@ export default function MetamodelAdmin() {
                 setNewRel({
                   ...newRel,
                   source_type_key: src,
-                  key:
-                    src && newRel.target_type_key
-                      ? `${src}To${newRel.target_type_key}`
-                      : newRel.key,
+                  // Clear so the collision-free `autoRelKey` fills the field.
+                  key: "",
                 });
               }}
             >
@@ -1031,10 +1050,8 @@ export default function MetamodelAdmin() {
                 setNewRel({
                   ...newRel,
                   target_type_key: tgt,
-                  key:
-                    newRel.source_type_key && tgt
-                      ? `${newRel.source_type_key}To${tgt}`
-                      : newRel.key,
+                  // Clear so the collision-free `autoRelKey` fills the field.
+                  key: "",
                 });
               }}
             >
@@ -1058,6 +1075,14 @@ export default function MetamodelAdmin() {
               ))}
             </Select>
           </FormControl>
+
+          {relPairConflicts.length > 0 && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {t("metamodel.relPairExistsWarning", {
+                relations: relPairConflicts.map((r) => relationLabel(r)).join(", "),
+              })}
+            </Alert>
+          )}
 
           <KeyInput
             fullWidth

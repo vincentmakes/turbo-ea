@@ -86,6 +86,7 @@
   "metamodel.supportsSuccessors": "支持谱系",
   "metamodel.createRelationType": "创建关系类型",
   "metamodel.relationSaveFailed": "保存关系类型失败",
+  "metamodel.relPairExistsWarning": "此卡片类型组合已由以下关系连接：{{relations}}。这是允许的，但如果您描述的是同一关系的变体，通常更适合在现有关系类型上添加属性。",
   "metamodel.sourceType": "源类型",
   "metamodel.targetType": "目标类型",
   "metamodel.labelVerb": "标签（动词，例如「使用」）",

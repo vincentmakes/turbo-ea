@@ -282,6 +282,12 @@ async def build_group_map(
     if not rel_types:
         return {}
 
+    # Several relation types may connect Initiative to the grouping type (the
+    # metamodel allows any number per ordered pair). An initiative is placed in the
+    # first group it is related through, so fix that order — by sort_order then key —
+    # rather than letting it fall out of row order, which is not stable.
+    rel_types = sorted(rel_types, key=lambda rt: (rt.sort_order or 0, rt.key))
+    rt_priority = {rt.key: i for i, rt in enumerate(rel_types)}
     rt_keys = [rt.key for rt in rel_types]
     rel_result = await db.execute(
         select(Relation).where(
@@ -292,7 +298,9 @@ async def build_group_map(
             ),
         )
     )
-    relations = rel_result.scalars().all()
+    relations = sorted(
+        rel_result.scalars().all(), key=lambda rel: rt_priority.get(rel.type, len(rt_priority))
+    )
 
     source_is_initiative = {rt.key: rt.source_type_key == INITIATIVE_TYPE for rt in rel_types}
     init_to_group_id: dict[uuid.UUID, uuid.UUID] = {}

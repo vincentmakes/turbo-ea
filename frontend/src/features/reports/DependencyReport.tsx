@@ -26,6 +26,7 @@ import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import LayeredDependencyView, { readableTypeColor } from "./LayeredDependencyView";
 import { resolveRevealIds } from "./layeredDependencyLayout";
+import { buildAdjacency } from "./dependencyAdjacency";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -827,17 +828,9 @@ export default function DependencyReport() {
     activeSpan,
   ]);
 
-  // Adjacency map
-  const adjMap = useMemo(() => {
-    const m = new Map<string, { nodeId: string; relType: string; relLabel: string; relDescription?: string }[]>();
-    for (const e of edges) {
-      if (!m.has(e.source)) m.set(e.source, []);
-      m.get(e.source)!.push({ nodeId: e.target, relType: e.type, relLabel: e.label || e.type, relDescription: e.description });
-      if (!m.has(e.target)) m.set(e.target, []);
-      m.get(e.target)!.push({ nodeId: e.source, relType: e.type, relLabel: e.reverse_label || e.label || e.type, relDescription: e.description });
-    }
-    return m;
-  }, [edges]);
+  // Adjacency map — one entry per neighbouring CARD, not per edge, since two
+  // cards may be connected by several relation types. See dependencyAdjacency.ts.
+  const adjMap = useMemo(() => buildAdjacency(edges), [edges]);
 
   const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 

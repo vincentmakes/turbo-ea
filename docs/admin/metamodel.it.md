@@ -173,7 +173,7 @@ Usate **Gestisci traduzioni** in cima alla scheda Tipi di relazione per tradurre
 
 Alcune relazioni includono attributi aggiuntivi che si impostano su ogni singolo collegamento anziché sul tipo di relazione. Ad esempio, la relazione integrata **Organizzazione → Applicazione** («utilizza») ha un attributo **Tipo di utilizzo**: impostatelo su **Proprietario**, **Utente** o **Stakeholder** per ogni collegamento. In questo modo potete modellare un'applicazione *di proprietà di* un'organizzazione e *utilizzata da* altre tramite un unico tipo di relazione. Il valore scelto appare come un chip colorato nella sezione **Relazioni** della card; impostatelo quando aggiungete la relazione, oppure in seguito tramite l'icona di modifica sulla riga della relazione.
 
-Tra una determinata coppia di tipi di card può esistere un solo tipo di relazione, quindi utilizzate questi attributi per qualificare il significato di un collegamento anziché creare un secondo tipo di relazione per la stessa origine e destinazione.
+Potete anche creare **più tipi di relazione tra la stessa coppia di tipi di card** — ad esempio un'organizzazione che *possiede* un'applicazione accanto a una che la *utilizza*. Preferite un attributo quando descrivete varianti di una singola relazione (mantiene una sola colonna nell'inventario e una sola linea sul diagramma); create un secondo tipo di relazione quando le relazioni sono davvero diverse e meritano verbi, attributi o filtri propri. Quando una coppia porta più tipi di relazione, l'inventario mostra comunque un'unica colonna per il tipo di card collegato e, aprendo quella cella, ottenete una sezione per ciascun tipo di relazione.
 
 ### Gestire i valori di relazione
 

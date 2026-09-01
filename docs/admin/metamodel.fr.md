@@ -173,7 +173,7 @@ Utilisez **Gérer les traductions** en haut de l'onglet Types de relation pour t
 
 Certaines relations portent des attributs supplémentaires que vous définissez sur chaque lien plutôt que sur le type de relation. Par exemple, la relation intégrée **Organisation → Application** (« utilise ») possède un attribut **Type d'usage** — définissez-le sur **Propriétaire**, **Utilisateur** ou **Partie prenante** pour chaque lien. Vous pouvez ainsi modéliser une application *détenue par* une organisation et *utilisée par* d'autres au moyen d'un seul type de relation. La valeur choisie apparaît sous forme de puce colorée dans la section **Relations** de la fiche ; définissez-la lors de l'ajout de la relation, ou plus tard via l'icône de modification sur la ligne de la relation.
 
-Un seul type de relation peut exister entre une paire donnée de types de cartes ; utilisez donc ces attributs pour préciser le sens d'un lien plutôt que de créer un second type de relation pour les mêmes source et cible.
+Vous pouvez aussi créer **plusieurs types de relation entre la même paire de types de cartes** — par exemple une organisation qui *possède* une application et une autre qui l'*utilise*. Préférez un attribut lorsque vous décrivez des variantes d'une même relation (cela conserve une seule colonne dans l'inventaire et une seule ligne sur un diagramme) ; créez un second type de relation lorsque les relations sont réellement différentes et méritent leurs propres verbes, attributs ou filtres. Lorsqu'une paire porte plusieurs types de relation, l'inventaire affiche toujours une seule colonne pour le type de carte lié, et l'ouverture de cette cellule vous donne une section par type de relation.
 
 ### Gérer les valeurs de relation
 

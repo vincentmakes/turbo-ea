@@ -794,3 +794,40 @@ describe("resolveRevealIds", () => {
     expect(resolveRevealIds(nodes, nodeMap, "leafA", "children")).toEqual([]);
   });
 });
+
+describe("several relation types between the same pair", () => {
+  // The metamodel allows any number of relation types per ordered card-type
+  // pair, so the graph endpoint returns one edge per type. The LDV draws ONE
+  // line per card pair — parallel lines are noise in a layered layout — so the
+  // verbs are merged onto it rather than one of them being dropped.
+  const NODES: GNode[] = [
+    { id: "org", name: "Finance", type: "Organization" },
+    { id: "app", name: "CRM", type: "Application" },
+  ];
+
+  it("collapses parallel edges into one line carrying both verbs", () => {
+    const edges: GEdge[] = [
+      { source: "org", target: "app", type: "relOrgToApp", label: "uses" },
+      { source: "org", target: "app", type: "relOrgToAppOwns", label: "owns" },
+    ];
+    const result = buildLdvFlow(NODES, edges, TYPES);
+    const drawn = result.edges.filter((e) => e.type !== "ldvGroup");
+
+    expect(drawn).toHaveLength(1);
+    const relLabel = (drawn[0].data as { relLabel: string }).relLabel;
+    expect(relLabel).toContain("uses");
+    expect(relLabel).toContain("owns");
+    expect(relLabel).toBe("uses / owns");
+  });
+
+  it("still draws one line when only a single relation type connects the pair", () => {
+    const result = buildLdvFlow(
+      NODES,
+      [{ source: "org", target: "app", type: "relOrgToApp", label: "uses" }],
+      TYPES,
+    );
+    const drawn = result.edges.filter((e) => e.type !== "ldvGroup");
+    expect(drawn).toHaveLength(1);
+    expect((drawn[0].data as { relLabel: string }).relLabel).toBe("uses");
+  });
+});

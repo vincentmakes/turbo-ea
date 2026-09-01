@@ -173,7 +173,7 @@ Use **Gerir traduções** no topo do separador Tipos de Relacionamento para trad
 
 Algumas relações incluem atributos adicionais que define em cada ligação individual em vez de no tipo de relação. Por exemplo, a relação integrada **Organização → Aplicação** («utiliza») tem um atributo **Tipo de utilização** — defina-o como **Proprietário**, **Utilizador** ou **Parte interessada** em cada ligação. Assim, pode modelar uma aplicação *propriedade de* uma organização e *utilizada por* outras através de um único tipo de relação. O valor escolhido aparece como um marcador colorido na secção **Relações** da carta; defina-o ao adicionar a relação ou mais tarde através do ícone de edição na linha da relação.
 
-Só pode existir um tipo de relação entre um determinado par de tipos de carta, por isso utilize estes atributos para qualificar o significado de uma ligação em vez de criar um segundo tipo de relação para a mesma origem e destino.
+Também pode criar **vários tipos de relação entre o mesmo par de tipos de carta** — por exemplo, uma organização que *detém* uma aplicação a par de outra que a *utiliza*. Prefira um atributo quando estiver a descrever variantes de uma mesma relação (mantém uma só coluna no inventário e uma só linha num diagrama); crie um segundo tipo de relação quando as relações forem genuinamente diferentes e merecerem verbos, atributos ou filtros próprios. Quando um par tem mais do que um tipo de relação, o inventário continua a mostrar uma única coluna para o tipo de carta relacionado, e abrir essa célula dá-lhe uma secção por tipo de relação.
 
 ### Gerir valores de relação
 

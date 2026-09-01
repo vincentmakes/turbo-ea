@@ -34,7 +34,7 @@ import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import ColumnOrderSection, {
   type ColumnOrderItem,
 } from "@/components/grid/ColumnOrderSection";
-import { useTypeLabel, useSubtypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel, useSubtypeLabel, useFieldLabel, useOptionLabel, useRelationLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
 import {
@@ -93,6 +93,13 @@ interface Props {
   width: number;
   onWidthChange: (w: number) => void;
   relevantRelTypes?: RelationType[];
+  /**
+   * Every relation type touching the selected type, *without* the per-related-type
+   * dedup `relevantRelTypes` applies for columns. Relation facets are keyed by
+   * relation type, so they must come from this list or cards related only through
+   * a second relation type on the same card-type pair become unfilterable.
+   */
+  allRelevantRelTypes?: RelationType[];
   // Stakeholder roles of the single selected type — one togglable
   // "Stakeholders: <role>" column each.
   stakeholderRoles?: StakeholderRoleOption[];
@@ -309,6 +316,7 @@ export default function InventoryFilterSidebar({
   width,
   onWidthChange,
   relevantRelTypes = [],
+  allRelevantRelTypes = [],
   stakeholderRoles = [],
   relationsMap,
   tagGroups = [],
@@ -335,6 +343,7 @@ export default function InventoryFilterSidebar({
 }: Props) {
   const { t } = useTranslation(["inventory", "common"]);
   const typeLabel = useTypeLabel();
+  const relLabel = useRelationLabel();
   const stLabel = useSubtypeLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
@@ -455,11 +464,27 @@ export default function InventoryFilterSidebar({
     onFiltersChange({ ...filters, relations: next });
   };
 
+  // Relation facets are per relation type (never deduped by related card type), so
+  // each of several relation types sharing a card-type pair gets its own filter row.
+  const filterRelTypes = allRelevantRelTypes.length > 0 ? allRelevantRelTypes : relevantRelTypes;
+
+  // How many relation types in this list reach the same related card type — a
+  // count above 1 means the plain type label is ambiguous and needs its verb.
+  const relTypeCountByOtherKey = useMemo(() => {
+    const selected = filters.types.length === 1 ? filters.types[0] : "";
+    const counts = new Map<string, number>();
+    for (const rt of filterRelTypes) {
+      const otherKey = rt.source_type_key === selected ? rt.target_type_key : rt.source_type_key;
+      counts.set(otherKey, (counts.get(otherKey) || 0) + 1);
+    }
+    return counts;
+  }, [filterRelTypes, filters.types]);
+
   // Compute unique related names per relation type for filter dropdowns
   const relFilterOptions = useMemo(() => {
-    if (!relationsMap || relevantRelTypes.length === 0) return new Map<string, string[]>();
+    if (!relationsMap || filterRelTypes.length === 0) return new Map<string, string[]>();
     const result = new Map<string, string[]>();
-    for (const rt of relevantRelTypes) {
+    for (const rt of filterRelTypes) {
       const index = relationsMap.get(rt.key);
       if (!index) continue;
       const names = new Set<string>();
@@ -473,7 +498,7 @@ export default function InventoryFilterSidebar({
       }
     }
     return result;
-  }, [relationsMap, relevantRelTypes]);
+  }, [relationsMap, filterRelTypes]);
 
   const clearAll = () =>
     onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, orphanedOnly: false, staleOnly: false });
@@ -1201,13 +1226,19 @@ export default function InventoryFilterSidebar({
                   />
                   <Collapse in={expandedSections.relationships}>
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 2, px: 0.5 }}>
-                      {relevantRelTypes.map((rt) => {
+                      {filterRelTypes.map((rt) => {
                         const options = relFilterOptions.get(rt.key);
                         if (!options || options.length === 0) return null;
                         const isSource = rt.source_type_key === (filters.types.length === 1 ? filters.types[0] : "");
                         const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
                         const otherType = types.find((t) => t.key === otherTypeKey);
-                        const label = otherType ? typeLabel(otherType) : otherTypeKey;
+                        const baseLabel = otherType ? typeLabel(otherType) : otherTypeKey;
+                        // Several relation types can reach the same card type; the
+                        // verb is what tells their filter rows apart.
+                        const label =
+                          (relTypeCountByOtherKey.get(otherTypeKey) || 0) > 1
+                            ? `${baseLabel} · ${isSource ? relLabel(rt) : relLabel(rt, true)}`
+                            : baseLabel;
                         const selected = (filters.relations || {})[rt.key] || [];
                         const searchKey = `rel_${rt.key}`;
                         const searchTerm = (dropdownSearch[searchKey] || "").toLowerCase();

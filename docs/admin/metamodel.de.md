@@ -173,7 +173,7 @@ Mit **Übersetzungen verwalten** oben im Reiter Beziehungstypen übersetzen Sie 
 
 Manche Beziehungen tragen zusätzliche Attribute, die Sie an jeder einzelnen Verknüpfung statt am Beziehungstyp festlegen. Beispielsweise hat die integrierte Beziehung **Organisation → Anwendung** („nutzt") ein Attribut **Nutzungstyp** — setzen Sie es je Verknüpfung auf **Eigentümer**, **Benutzer** oder **Stakeholder**. So können Sie eine Anwendung, die einer Organisation *gehört* und von anderen *genutzt* wird, über einen einzigen Beziehungstyp abbilden. Der gewählte Wert erscheint als farbiger Chip im Abschnitt **Beziehungen** der Karte; legen Sie ihn beim Hinzufügen der Beziehung fest oder später über das Bearbeiten-Symbol in der Beziehungszeile.
 
-Zwischen einem bestimmten Paar von Kartentypen kann nur ein Beziehungstyp existieren. Nutzen Sie daher diese Attribute, um die Bedeutung einer Verknüpfung zu präzisieren, anstatt einen zweiten Beziehungstyp für dasselbe Quell- und Zielpaar zu erstellen.
+Sie können auch **mehrere Beziehungstypen zwischen demselben Paar von Kartentypen** anlegen — etwa eine Organisation, die eine Anwendung *besitzt*, neben einer, die sie *nutzt*. Bevorzugen Sie ein Attribut, wenn Sie Varianten einer einzigen Beziehung beschreiben (das behält eine Spalte im Inventar und eine Linie im Diagramm); legen Sie einen zweiten Beziehungstyp an, wenn die Beziehungen wirklich verschieden sind und eigene Verben, eigene Attribute oder eigene Filter verdienen. Trägt ein Paar mehrere Beziehungstypen, zeigt das Inventar weiterhin eine einzige Spalte für den verbundenen Kartentyp; beim Öffnen dieser Zelle erhalten Sie je Beziehungstyp einen eigenen Abschnitt.
 
 ### Beziehungswerte verwalten
 

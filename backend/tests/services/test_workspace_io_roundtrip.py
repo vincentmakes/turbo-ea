@@ -17,6 +17,7 @@ from app.models.app_settings import AppSettings
 from app.models.card import Card
 from app.models.comment import Comment
 from app.models.relation import Relation
+from app.models.relation_type import RelationType
 from app.models.risk import Risk, RiskCard
 from app.services.workspace_io import (
     apply_bundle,
@@ -1051,3 +1052,86 @@ async def test_import_renames_legacy_app_permission_keys(db):
     stored = (await db.execute(select(Role.permissions).where(Role.key == "auditor"))).scalar_one()
     assert "subscriptions.view" not in stored
     assert stored == {"inventory.view": True, "stakeholders.view": False}
+
+
+async def test_import_accepts_multiple_relation_types_per_pair(db):
+    """A bundle may carry several relation types on one ordered card-type pair.
+
+    The applier used to re-enforce a one-type-per-pair rule and skip the extra
+    rows as conflicts, so a workspace that legitimately modelled "owns" and
+    "uses" separately lost one of them on every transfer.
+    """
+    user = await create_user(db, email="wsmulti@test.com", role="admin")
+
+    card_types = [
+        {c: None for c in exp.CARD_TYPE_COLUMNS}
+        | {
+            "key": "Widget",
+            "label": "Widget",
+            "icon": "category",
+            "color": "#123456",
+            "category": "Application & Data",
+            "has_hierarchy": False,
+            "subtypes": [],
+            "fields_schema": [],
+            "stakeholder_roles": [],
+            "section_config": {},
+            "built_in": False,
+            "is_hidden": False,
+            "sort_order": 0,
+            "translations": {},
+        }
+    ]
+
+    def _rel_type(key: str, label: str, reverse: str) -> dict:
+        return {c: None for c in exp.RELATION_TYPE_COLUMNS} | {
+            "key": key,
+            "label": label,
+            "reverse_label": reverse,
+            "source_type_key": "Widget",
+            "target_type_key": "Widget",
+            "cardinality": "n:m",
+            "attributes_schema": [],
+            "built_in": False,
+            "is_hidden": False,
+            "sort_order": 0,
+            "translations": {},
+            "source_visible": True,
+            "source_mandatory": False,
+            "target_visible": True,
+            "target_mandatory": False,
+        }
+
+    relation_types = [
+        _rel_type("widget_uses", "uses", "is used by"),
+        _rel_type("widget_owns", "owns", "is owned by"),
+    ]
+
+    raw = _make_bundle(
+        {
+            schema.SHEET_CARD_TYPES: (exp.CARD_TYPE_COLUMNS, exp.CARD_TYPE_JSON, card_types),
+            schema.SHEET_RELATION_TYPES: (
+                exp.RELATION_TYPE_COLUMNS,
+                exp.RELATION_TYPE_JSON,
+                relation_types,
+            ),
+        }
+    )
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    assert result.total_conflict == 0, result.as_dict()
+
+    stored = set(
+        (
+            await db.execute(
+                select(RelationType.key).where(
+                    RelationType.source_type_key == "Widget",
+                    RelationType.target_type_key == "Widget",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert {"widget_uses", "widget_owns"} <= stored

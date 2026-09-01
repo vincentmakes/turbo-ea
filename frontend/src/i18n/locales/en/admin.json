@@ -86,6 +86,7 @@
   "metamodel.supportsSuccessors": "Supports Lineage",
   "metamodel.createRelationType": "Create Relation Type",
   "metamodel.relationSaveFailed": "Failed to save relation type",
+  "metamodel.relPairExistsWarning": "This pair of card types is already connected by: {{relations}}. That is allowed — but if you are describing a variant of the same relationship, an attribute on the existing relation type is usually the better fit.",
   "metamodel.sourceType": "Source Type",
   "metamodel.targetType": "Target Type",
   "metamodel.labelVerb": "Label (verb, e.g., \"uses\")",

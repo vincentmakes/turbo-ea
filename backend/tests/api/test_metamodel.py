@@ -465,7 +465,14 @@ class TestRelationTypeCRUD:
         assert data["source_type_key"] == "Application"
         assert data["target_type_key"] == "ITComponent"
 
-    async def test_duplicate_source_target_rejected(self, client, db, metamodel_env):
+    async def test_multiple_relation_types_per_pair_allowed(self, client, db, metamodel_env):
+        """Several relation types may connect the same ordered card-type pair.
+
+        An Organization that *owns* an Application and one that *uses* it are
+        different relationships, each with its own verb and attribute schema —
+        modelling them as one type qualified by an attribute is a choice, not a
+        constraint the metamodel imposes.
+        """
         admin = metamodel_env["admin"]
         await create_card_type(db, key="Application", label="Application")
         await create_card_type(db, key="ITComponent", label="IT Component")
@@ -480,6 +487,39 @@ class TestRelationTypeCRUD:
             "/api/v1/metamodel/relation-types",
             json={
                 "key": "app_to_itc_2",
+                "label": "Also Uses",
+                "source_type_key": "Application",
+                "target_type_key": "ITComponent",
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 201
+
+        listing = await client.get("/api/v1/metamodel/relation-types", headers=auth_headers(admin))
+        assert listing.status_code == 200
+        pair_keys = {
+            rt["key"]
+            for rt in listing.json()
+            if rt["source_type_key"] == "Application" and rt["target_type_key"] == "ITComponent"
+        }
+        assert {"app_to_itc", "app_to_itc_2"} <= pair_keys
+
+    async def test_duplicate_key_still_rejected_on_occupied_pair(self, client, db, metamodel_env):
+        """Lifting the pair rule must not weaken key uniqueness."""
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_relation_type(
+            db,
+            key="app_to_itc",
+            source_type_key="Application",
+            target_type_key="ITComponent",
+        )
+
+        response = await client.post(
+            "/api/v1/metamodel/relation-types",
+            json={
+                "key": "app_to_itc",
                 "label": "Also Uses",
                 "source_type_key": "Application",
                 "target_type_key": "ITComponent",
@@ -514,7 +554,7 @@ class TestRelationTypeCRUD:
         )
         assert response.status_code == 201
 
-        # A second non-successor self-relation on the same pair is still rejected.
+        # A second non-successor self-relation on the same pair is fine too.
         response = await client.post(
             "/api/v1/metamodel/relation-types",
             json={
@@ -525,7 +565,7 @@ class TestRelationTypeCRUD:
             },
             headers=auth_headers(admin),
         )
-        assert response.status_code == 400
+        assert response.status_code == 201
 
     async def test_invalid_source_type_rejected(self, client, db, metamodel_env):
         admin = metamodel_env["admin"]
@@ -842,6 +882,63 @@ class TestRestoreRelationType:
             headers=auth_headers(admin),
         )
         assert response.status_code == 400
+
+    async def test_restore_onto_occupied_pair_succeeds(self, client, db, metamodel_env):
+        """A hidden relation type restores even when another type holds its pair."""
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_relation_type(
+            db,
+            key="app_to_itc",
+            source_type_key="Application",
+            target_type_key="ITComponent",
+            built_in=True,
+            is_hidden=True,
+        )
+        await create_relation_type(
+            db,
+            key="app_to_itc_live",
+            source_type_key="Application",
+            target_type_key="ITComponent",
+        )
+
+        response = await client.post(
+            "/api/v1/metamodel/relation-types/app_to_itc/restore",
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        assert response.json()["is_hidden"] is False
+
+    async def test_repoint_endpoints_onto_occupied_pair_succeeds(self, client, db, metamodel_env):
+        """Moving a relation type's endpoints onto an occupied pair is allowed.
+
+        The "no instances exist" guard still applies — only the pair check is gone.
+        """
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_card_type(db, key="DataObject", label="Data Object")
+        await create_relation_type(
+            db,
+            key="app_to_itc",
+            source_type_key="Application",
+            target_type_key="ITComponent",
+        )
+        await create_relation_type(
+            db,
+            key="app_to_do",
+            source_type_key="Application",
+            target_type_key="DataObject",
+        )
+
+        response = await client.patch(
+            "/api/v1/metamodel/relation-types/app_to_do",
+            json={"source_type_key": "Application", "target_type_key": "ITComponent"},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        assert response.json()["target_type_key"] == "ITComponent"
 
 
 class TestRelationAttributeValues:

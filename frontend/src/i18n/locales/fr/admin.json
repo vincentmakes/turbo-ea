@@ -86,6 +86,7 @@
   "metamodel.supportsSuccessors": "Prend en charge la lignée",
   "metamodel.createRelationType": "Créer un type de relation",
   "metamodel.relationSaveFailed": "Échec de l'enregistrement du type de relation",
+  "metamodel.relPairExistsWarning": "Cette paire de types de fiches est déjà reliée par : {{relations}}. C'est autorisé — mais si vous décrivez une variante de la même relation, un attribut sur le type de relation existant est généralement plus adapté.",
   "metamodel.sourceType": "Type source",
   "metamodel.targetType": "Type cible",
   "metamodel.labelVerb": "Libellé (verbe, ex. « utilise »)",

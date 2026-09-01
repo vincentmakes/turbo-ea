@@ -796,30 +796,31 @@ async def landscape(
     for g in groups:
         group_map[str(g.id)] = {"id": str(g.id), "name": g.name, "items": []}
 
+    # A card may reach the same group through several relation types (the metamodel
+    # allows any number per ordered card-type pair) — list it once per group.
+    seen_in_group: dict[str, set[str]] = {gid: set() for gid in group_map}
+
+    def _add_to_group(group_id: str, card: Card) -> None:
+        card_id = str(card.id)
+        if card_id in seen_in_group[group_id]:
+            return
+        seen_in_group[group_id].add(card_id)
+        group_map[group_id]["items"].append(
+            {
+                "id": card_id,
+                "name": card.name,
+                "type": card.type,
+                "attributes": _strip_attrs(card.attributes),
+                "lifecycle": card.lifecycle,
+            }
+        )
+
     for rel in rels:
         sid, tid = str(rel.source_id), str(rel.target_id)
         if sid in sheet_map and tid in group_map:
-            card = sheet_map[sid]
-            group_map[tid]["items"].append(
-                {
-                    "id": str(card.id),
-                    "name": card.name,
-                    "type": card.type,
-                    "attributes": _strip_attrs(card.attributes),
-                    "lifecycle": card.lifecycle,
-                }
-            )
+            _add_to_group(tid, sheet_map[sid])
         elif tid in sheet_map and sid in group_map:
-            card = sheet_map[tid]
-            group_map[sid]["items"].append(
-                {
-                    "id": str(card.id),
-                    "name": card.name,
-                    "type": card.type,
-                    "attributes": _strip_attrs(card.attributes),
-                    "lifecycle": card.lifecycle,
-                }
-            )
+            _add_to_group(sid, sheet_map[tid])
 
     # Ungrouped
     grouped_ids = set()
@@ -1037,16 +1038,18 @@ async def app_portfolio(
     # 5. Get relation types for label resolution
     rt_result = await db.execute(select(RelationType).where(RelationType.is_hidden.is_(False)))
     relation_types_list = rt_result.scalars().all()
+    # One entry per relation type touching this card type. Several may share an
+    # ``other_type_key`` (the metamodel allows any number of relation types per
+    # ordered card-type pair); the grid groups them into a single column per related
+    # type, so the payload must carry them all or the extra types become invisible.
     rel_type_defs = []
-    seen_other_types: set[str] = set()
     for rt in relation_types_list:
         other = None
         if rt.source_type_key == type:
             other = rt.target_type_key
         elif rt.target_type_key == type:
             other = rt.source_type_key
-        if other and other not in seen_other_types:
-            seen_other_types.add(other)
+        if other:
             rel_type_defs.append(
                 {
                     "key": rt.key,
@@ -1259,8 +1262,9 @@ async def matrix(
             raise HTTPException(status_code=400, detail=f"Unknown card type {key!r}")
 
     # The whole relation-type table: small, and needed twice over. `declared`
-    # is the subset the metamodel says connects these two axes — at most two,
-    # one per orientation — which is what the attribute filters are validated
+    # is the subset the metamodel says connects these two axes — any number of
+    # relation types may share an ordered pair, so this is a list, not a single
+    # type per orientation — which is what the attribute filters are validated
     # against. `all_schemas` interprets the attributes of whatever type a
     # relation actually carries, which is not always a declared one.
     rt_rows = (
@@ -2000,7 +2004,11 @@ async def dependencies(
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
         if sid in visible_ids and tid in visible_ids:
-            edge_key = f"{min(sid, tid)}:{max(sid, tid)}"
+            # Keyed by card pair AND relation type: two cards may be connected by
+            # several relation types and each carries its own verb / attributes, so
+            # each contributes its own edge. Two rows of the SAME type between the
+            # same pair (either direction) still collapse to one.
+            edge_key = f"{min(sid, tid)}:{max(sid, tid)}:{r.type}"
             if edge_key not in seen_edges:
                 seen_edges.add(edge_key)
                 rt_info = rel_type_info.get(r.type, {})

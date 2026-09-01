@@ -173,7 +173,7 @@ Use **Gestionar traducciones** en la parte superior de la pestaña Tipos de rela
 
 Algunas relaciones incluyen atributos adicionales que se establecen en cada enlace individual en lugar de en el tipo de relación. Por ejemplo, la relación integrada **Organización → Aplicación** («utiliza») tiene un atributo **Tipo de uso**: establézcalo en **Propietario**, **Usuario** o **Parte interesada** en cada enlace. Así puede modelar una aplicación *propiedad de* una organización y *utilizada por* otras mediante un único tipo de relación. El valor elegido aparece como una etiqueta de color en la sección **Relaciones** de la tarjeta; establézcalo al añadir la relación o más tarde mediante el icono de edición en la fila de la relación.
 
-Solo puede existir un tipo de relación entre un par dado de tipos de tarjeta, así que utilice estos atributos para matizar el significado de un enlace en lugar de crear un segundo tipo de relación para el mismo origen y destino.
+También puede crear **varios tipos de relación entre el mismo par de tipos de tarjeta** — por ejemplo, una organización que *posee* una aplicación junto a otra que la *utiliza*. Prefiera un atributo cuando describa variantes de una misma relación (mantiene una sola columna en el inventario y una sola línea en un diagrama); cree un segundo tipo de relación cuando las relaciones sean realmente distintas y merezcan sus propios verbos, atributos o filtros. Cuando un par tiene más de un tipo de relación, el inventario sigue mostrando una única columna para el tipo de tarjeta relacionado, y al abrir esa celda obtiene una sección por tipo de relación.
 
 ### Gestionar valores de relación
 
