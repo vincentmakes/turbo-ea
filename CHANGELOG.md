@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.112.1] - 2026-09-01
+
+### Changed
+- Upgraded the bundled DrawIO editor from v31.1.8 to v31.4.1.
+- Upgraded `bpmn-js` from 18.25.1 to 18.27.0.
+
 ## [2.112.0] - 2026-08-31
 
 ### Added
