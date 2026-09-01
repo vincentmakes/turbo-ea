@@ -14,10 +14,10 @@ listed under ``manifest["content"]``. Each file is an object mapping
 Rows use exactly the shapes the workspace exporter produces
 (``CARD_TYPE_COLUMNS`` etc.), so packs are applied through the proven
 ``workspace_io`` engine and inherit all of its guarantees for free:
-idempotent upsert-by-natural-key, built-in-type protection, the
-one-relation-type-per-pair rule, topo-sorted card creation, and dry-run
-preview via savepoint rollback. Authoring workflow: build the content on
-a staging instance, export the workspace, and copy the relevant sheets.
+idempotent upsert-by-natural-key, built-in-type protection,
+topo-sorted card creation, and dry-run preview via savepoint rollback.
+Authoring workflow: build the content on a staging instance, export the
+workspace, and copy the relevant sheets.
 
 Only inventory/metamodel-shaped sheets are allowed — a content pack can
 never smuggle users, roles, or settings into an instance.

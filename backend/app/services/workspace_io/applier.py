@@ -189,8 +189,7 @@ async def apply_selected(
 
     Public facade for callers outside workspace transfer (the Extension
     Store's content packs) that reuse the idempotent upsert engine —
-    built-in protection, one-relation-type-per-pair enforcement,
-    topo-sorted cards, dry-run via savepoint — over an in-memory
+    built-in protection, topo-sorted cards, dry-run via savepoint — over an in-memory
     :class:`WorkspaceBundle` carrying only the listed sheets.
     """
     return await _run(db, bundle, user, dry_run=dry_run, sheets=sheets)

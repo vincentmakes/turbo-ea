@@ -14,7 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - The Landscape report listed a card twice in a group when it was related through more than one relation type.
-- The Dependencies report dropped an edge when two cards were connected by more than one relation type; each relation now contributes its own edge, and the diagram and tree views show the combined verbs (for example "owns / uses") on the single line joining the two cards.
+- The Dependencies report dropped an edge when two cards were connected by more than one relation type. Each relation now gets its own labelled line in the diagram view and on diagrams you build from it, so "owns" and "uses" are visibly two relationships. The tree view still shows the combined verbs (for example "owns / uses"), because it draws one branch per related card.
+- The TurboLens architect built its dependency graph — and the prompt derived from it — with the same collapse, silently losing one of the relationships.
+- Vendor analysis counted an application, and its annual cost, once per relation instead of once per vendor, so app counts and total spend were overstated wherever a vendor was linked through more than one relation type.
+- The End-of-Life report listed an affected application once per relation, so an item's "affected applications" count disagreed with the summary above it.
+- The JSON export used by integrations repeated a provider name per relation.
+- A card type with lineage enabled could fail to save when more than one successor relation existed for it.
+- The Process Map ignored any Process → Application, Data Object, Organization or Business Context relation beyond the built-in one.
+- A second self-referencing relation type whose key ended in "Successor" was invisible everywhere — it could not be seen, edited or deleted from the card, the metamodel tab or the relation graph.
 - The inventory relation cell could show a related card it would not let you edit or remove. The cell has always merged every relation type reaching that card type; the editor now opens a section per relation type instead of only reaching the first, and the filter sidebar offers a row per relation type rather than hiding all but one.
 - Opening the inventory from a report's relation grouping filtered by only one relation type when several connect that pair of card types; the link now means "related to this card type at all".
 - Expanding a card on a diagram drew a single line to a neighbour connected by more than one relation type, showing one verb and omitting the other relations. Each relation now gets its own labelled edge on that neighbour, and deleting one still removes the relation it stands for.

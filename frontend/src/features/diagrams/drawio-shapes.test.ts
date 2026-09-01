@@ -1252,6 +1252,7 @@ function expandFrame() {
   const parent = {
     id: "parent-cell",
     value: attrBag({ cardId: "org-1", cardType: "Organization", label: "Nexatech" }),
+    geometry: { x: 0, y: 0, width: 180, height: 50 },
   };
   cells["parent-cell"] = parent;
   const model = {
@@ -1263,20 +1264,34 @@ function expandFrame() {
     setValue: (cell: any, v: unknown) => {
       cell.value = v;
     },
+    // Geometry support: the fanned parallel-edge path reads both endpoints'
+    // boxes and writes a waypoint onto the edge.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getGeometry: (cell: any) => cell.geometry ?? null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setGeometry: (cell: any, g: unknown) => {
+      cell.geometry = g;
+    },
   };
   const graph = {
     getModel: () => model,
     getDefaultParent: () => root,
     getCellGeometry: () => ({ x: 0, y: 0, width: 180, height: 50 }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    insertVertex: (_p: any, id: string, obj: any, _x: number, _y: number, _w: number, _h: number, style: string) => {
-      const cell = { id, value: obj, style };
+    insertVertex: (_p: any, id: string, obj: any, x: number, y: number, w: number, h: number, style: string) => {
+      const cell = { id, value: obj, style, geometry: { x, y, width: w, height: h } };
       cells[id] = cell;
       return cell;
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     insertEdge: (_p: any, id: string, _v: unknown, _s: any, _t: any, style: string) => {
-      const cell = { id, value: null, style, edge: true };
+      const geometry = {
+        points: undefined as unknown,
+        clone() {
+          return { ...this, clone: this.clone };
+        },
+      };
+      const cell = { id, value: null, style, edge: true, geometry };
       cells[id] = cell;
       return cell;
     },
@@ -1285,6 +1300,12 @@ function expandFrame() {
     contentWindow: {
       __turboGraph: graph,
       mxUtils: { createXmlDocument: () => ({ createElement: () => attrBag() }) },
+      mxPoint: class {
+        constructor(
+          public x: number,
+          public y: number,
+        ) {}
+      },
     },
   } as unknown as HTMLIFrameElement;
   return { iframe, cells };
@@ -1345,6 +1366,73 @@ describe("expandCardGroup edges", () => {
     expect(edge.value.getAttribute("relationType")).toBe("relOrgToApp");
     expect(inserted[0].relationId).toBe("rel-1");
     expect(inserted[0].relationLabel).toBe("uses");
+  });
+
+  it("draws one edge per relation when a child is reached several times", () => {
+    // The card stays ONE vertex — a second cell with the same cardId would trip
+    // the canvas dedup and unlink one of them — so the extra relation becomes an
+    // extra edge on that vertex.
+    const f = expandFrame();
+    const inserted = expandCardGroup(f.iframe, "parent-cell", [
+      { ...expandChild(false), extraRelations: [
+        { relationType: "relOrgToAppOwns", relationId: "rel-2", relationLabel: "owns" },
+      ] },
+    ]);
+
+    const vertices = Object.values(f.cells).filter((c) => !c.edge && c.id !== "parent-cell");
+    const edges = Object.values(f.cells).filter((c) => c.edge);
+    expect(vertices).toHaveLength(1);
+    expect(edges).toHaveLength(2);
+
+    // Each edge carries its OWN relation id and verb.
+    const stamped = edges.map((e) => [
+      e.value.getAttribute("relationId"),
+      e.value.getAttribute("relationType"),
+      e.value.getAttribute("label"),
+    ]);
+    expect(stamped).toEqual(
+      expect.arrayContaining([
+        ["rel-1", "relOrgToApp", "uses"],
+        ["rel-2", "relOrgToAppOwns", "owns"],
+      ]),
+    );
+    // Distinct cell ids, so neither overwrites the other in the model.
+    expect(new Set(edges.map((e) => e.id)).size).toBe(2);
+
+    // Reported back so the editor can seed its edge → relation side-table for
+    // every edge, not just the first — extras have no other fallback.
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0].relationId).toBe("rel-1");
+    expect(inserted[0].extraEdges).toHaveLength(1);
+    expect(inserted[0].extraEdges?.[0].relationId).toBe("rel-2");
+  });
+
+  it("fans parallel edges apart instead of drawing them on top of each other", () => {
+    // The default ER router ignores fixed anchors, so without this both lines
+    // follow the same path and read as one line with two superimposed verbs.
+    const f = expandFrame();
+    expandCardGroup(f.iframe, "parent-cell", [
+      { ...expandChild(false), extraRelations: [
+        { relationType: "relOrgToAppOwns", relationId: "rel-2", relationLabel: "owns" },
+      ] },
+    ]);
+
+    const edges = Object.values(f.cells).filter((c) => c.edge);
+    for (const e of edges) {
+      expect(e.style).toContain("orthogonalEdgeStyle");
+    }
+    const ys = edges.map((e) => e.geometry.points?.[0]?.y);
+    expect(ys.every((y: unknown) => typeof y === "number")).toBe(true);
+    expect(new Set(ys).size).toBe(2);
+  });
+
+  it("leaves a lone relation on the default router with no waypoint", () => {
+    const f = expandFrame();
+    expandCardGroup(f.iframe, "parent-cell", [expandChild(false)]);
+
+    const edge = Object.values(f.cells).find((c) => c.edge);
+    expect(edge.style).toContain("entityRelationEdgeStyle");
+    expect(edge.geometry.points).toBeUndefined();
   });
 
   it("hides the verb on expansion edges when the diagram hides labels", () => {

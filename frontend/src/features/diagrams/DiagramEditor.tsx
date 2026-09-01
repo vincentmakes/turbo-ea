@@ -44,6 +44,7 @@ import {
   captureGroupChildLayout,
   detailRowsHeight,
   getGroupChildCardIds,
+  getGroupChildRelationIds,
   refreshCardOverlays,
   insertPendingCard,
   stampEdgeAsRelation,
@@ -104,7 +105,7 @@ import type {
   RelationFlowDirection,
   RemovedRelationTombstone,
 } from "./drawio-shapes";
-import { groupRelationsByOtherCard } from "./expandChildren";
+import { groupRelationsByOtherCard, pruneDeletedRelations } from "./expandChildren";
 import ExpandMenu from "./ExpandMenu";
 import type { ExpandMenuPick, ExpandMenuTarget } from "./ExpandMenu";
 import ColorBySelector from "./ColorBySelector";
@@ -656,6 +657,10 @@ export default function DiagramEditor() {
   // Expand/collapse caches — survive collapse/expand cycles so locally
   // deleted children don't reappear.
   const expandCacheRef = useRef<Map<string, ExpandChildData[]>>(new Map());
+  // Relations the user deleted from an expanded group, per parent cell. Tracked
+  // by RELATION id rather than card id: a child can carry several edges, so
+  // "is the card still connected?" no longer answers "was this relation removed?".
+  const deletedRelationsRef = useRef<Map<string, Set<string>>>(new Map());
   const deletedChildrenRef = useRef<Map<string, Set<string>>>(new Map());
   // Layout each group's children had immediately after we expanded them.
   // Compared against the live layout at collapse time to tell "the user
@@ -928,9 +933,15 @@ export default function DiagramEditor() {
       children: ExpandChildData[],
     ) => {
       const deleted = deletedChildrenRef.current.get(cellId);
-      const visible = deleted?.size
+      const byCard = deleted?.size
         ? children.filter((c) => !deleted.has(c.id))
         : children;
+      // Then drop the individual relations the user removed, so a child that
+      // kept one of its edges comes back with only that one.
+      const deletedRels = deletedRelationsRef.current.get(cellId);
+      const visible = deletedRels?.size
+        ? pruneDeletedRelations(byCard, deletedRels)
+        : byCard;
 
       if (visible.length === 0) {
         setSnackMsg(t("editor.noRelatedCards"));
@@ -995,6 +1006,27 @@ export default function DiagramEditor() {
             deletedChildrenRef.current.get(cellId) ?? new Set<string>();
           nowDeleted.forEach((id) => existing.add(id));
           deletedChildrenRef.current.set(cellId, existing);
+        }
+
+        // Same diff one level down: which RELATIONS were removed. A child kept
+        // one of its two edges, so it never shows up in `nowDeleted` — without
+        // this the deleted relation returns on the next expand.
+        const liveRelIds = getGroupChildRelationIds(frame, cellId);
+        const removedRelIds = new Set<string>();
+        for (const c of cached) {
+          for (const rel of [
+            { relationId: c.relationId },
+            ...(c.extraRelations ?? []),
+          ]) {
+            if (rel.relationId && !liveRelIds.has(rel.relationId)) {
+              removedRelIds.add(rel.relationId);
+            }
+          }
+        }
+        if (removedRelIds.size > 0) {
+          const existing = deletedRelationsRef.current.get(cellId) ?? new Set<string>();
+          removedRelIds.forEach((id) => existing.add(id));
+          deletedRelationsRef.current.set(cellId, existing);
         }
 
         // Snapshot where the user put each child (and how they styled it) so
@@ -1249,9 +1281,12 @@ export default function DiagramEditor() {
         // unlink one of them). Picking two relation types that both reach
         // the same neighbour draws that card once, with an edge per type.
         try {
-          const byCard = new Map<string, ExpandChildData>();
-          const children: ExpandChildData[] = [];
-          const skippedCards = new Set<string>();
+          // Collect every picked relation first, deduped BY RELATION ID: two
+          // picked entries can name the same relation (the expand menu keys on
+          // `direction:type` while the summary groups by `(type, peer type)`),
+          // and folding one relation in twice would draw two edges sharing a
+          // single relationId.
+          const relById = new Map<string, Relation>();
           for (const entry of pick.entries) {
             const params = new URLSearchParams({
               card_id: target.cardId,
@@ -1262,37 +1297,48 @@ export default function DiagramEditor() {
               const isOutgoing = r.source_id === target.cardId;
               if (entry.direction === "outgoing" && !isOutgoing) continue;
               if (entry.direction === "incoming" && isOutgoing) continue;
-              const other = isOutgoing ? r.target : r.source;
-              if (!other || skippedCards.has(other.id)) continue;
-              const meta = relationEdgeMeta(r.type, !isOutgoing, r.attributes);
-              const existing = byCard.get(other.id);
-              if (existing) {
-                (existing.extraRelations ??= []).push({
-                  relationType: r.type,
-                  relationId: r.id,
-                  ...meta,
-                });
-                continue;
-              }
-              if (findExistingCardCellId(frame, other.id)) {
-                skippedCards.add(other.id);
-                continue;
-              }
-              const child: ExpandChildData = {
-                id: other.id,
-                name: other.name,
-                type: other.type,
-                color: colorForType(other.type),
-                icon: iconForType(other.type),
-                relationType: r.type,
-                relationId: r.id,
-                ...meta,
-              };
-              byCard.set(other.id, child);
-              children.push(child);
+              if (!relById.has(r.id)) relById.set(r.id, r);
             }
           }
-          const skippedAlreadyPresent = skippedCards.size;
+          const allRels = [...relById.values()];
+
+          // Neighbours already drawn are left alone — a second cell with the
+          // same cardId would trip the canvas dedup and unlink one of them.
+          const onCanvas = new Set(
+            [
+              ...new Set(
+                allRels
+                  .map((r) => (r.source_id === target.cardId ? r.target?.id : r.source?.id))
+                  .filter((id): id is string => !!id),
+              ),
+            ].filter((id) => findExistingCardCellId(frame, id)),
+          );
+          const skippedAlreadyPresent = onCanvas.size;
+
+          // One child per related CARD; its further relations become extra edges.
+          const children: ExpandChildData[] = groupRelationsByOtherCard(
+            allRels,
+            target.cardId,
+            (id) => onCanvas.has(id),
+          ).map(({ other, primary, extras }) => ({
+            id: other.id,
+            name: other.name,
+            type: other.type,
+            color: colorForType(other.type),
+            icon: iconForType(other.type),
+            relationType: primary.type,
+            relationId: primary.id,
+            ...relationEdgeMeta(
+              primary.type,
+              primary.target_id === target.cardId,
+              primary.attributes,
+            ),
+            extraRelations: extras.map((r) => ({
+              relationType: r.type,
+              relationId: r.id,
+              ...relationEdgeMeta(r.type, r.target_id === target.cardId, r.attributes),
+            })),
+          }));
           if (children.length === 0) {
             setSnackMsg(
               skippedAlreadyPresent > 0
@@ -1326,16 +1372,29 @@ export default function DiagramEditor() {
           const childNameById = new Map(children.map((c) => [c.id, c.name]));
           for (const child of inserted) {
             registerCellId(child.cellId);
-            if (child.edgeCellId && child.relationId) {
+            // Register EVERY edge to this child, not just the first: a card
+            // reached through several relation types carries one edge per type,
+            // and an unregistered edge has no side-table fallback if DrawIO
+            // drops its user-object attributes.
+            const childEdges = [
+              {
+                edgeCellId: child.edgeCellId,
+                relationId: child.relationId,
+                relationType: child.relationType,
+              },
+              ...(child.extraEdges ?? []),
+            ];
+            for (const e of childEdges) {
+              if (!e.edgeCellId || !e.relationId) continue;
               // Snapshot the live edge state so a future delete +
               // restore puts the edge back with the same colour and
               // label. Show-Dependency edges have label="" so the
               // restored edge won't grow phantom text either.
-              const live = describeEdgeEndpoints(frame, child.edgeCellId);
-              const humanLabel = humanRelationLabel(child.relationType || "");
-              registerEdgeRelation(child.edgeCellId, {
-                relationId: child.relationId,
-                relationType: child.relationType || "",
+              const live = describeEdgeEndpoints(frame, e.edgeCellId);
+              const humanLabel = humanRelationLabel(e.relationType || "");
+              registerEdgeRelation(e.edgeCellId, {
+                relationId: e.relationId,
+                relationType: e.relationType || "",
                 relationLabel: humanLabel,
                 sourceName,
                 targetName: childNameById.get(child.cardId) || "",

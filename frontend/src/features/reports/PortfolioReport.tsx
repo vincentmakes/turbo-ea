@@ -898,9 +898,10 @@ export default function PortfolioReport({
   }, [groupByKey]);
 
   // Relation subtypes are only meaningful relative to a related card type, so
-  // we surface them only while grouping by that type. Each card chip then sits
-  // under exactly one related card (the group member), which lets us colour by
-  // that single relation rather than aggregating across all of them.
+  // we surface them only while grouping by that type. Each subtype stays scoped
+  // to its own relation type (`${relTypeKey}::${fieldKey}`), so when several
+  // relation types reach that card type each contributes its own options and a
+  // chip is coloured by the relation it actually came through.
   const relSubtypes = useMemo<RelSubtype[]>(() => {
     if (groupByMode.kind !== "relation") return [];
     return allRelSubtypes.filter((s) => s.relatedTypeKey === groupByMode.typeKey);

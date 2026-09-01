@@ -1343,18 +1343,44 @@ export interface ExpandedEdgeInfo {
   relationId?: string;
   relationType?: string;
   relationLabel?: string;
+  /** The child's FURTHER relations, each already drawn as its own edge on the
+   *  same vertex. Kept separate from the fields above so callers that key on the
+   *  child cell (chevron overlays, `childCellIds`) stay one-entry-per-child,
+   *  while the editor can still seed its edge → relation side-table for all of
+   *  them. */
+  extraEdges?: ExpandedRelationEdge[];
 }
 
+/** One relation drawn between an expanded card and a child, for the side-table. */
+export interface ExpandedRelationEdge {
+  edgeCellId: string;
+  relationId?: string;
+  relationType?: string;
+  relationLabel?: string;
+}
+
+/** Vertical gap between the lines of a fanned relation group, in px. */
+const FAN_SPACING = 22;
+
 /**
- * Draw one edge per *additional* relation between an expanded card and a child
- * that is already on the canvas.
+ * Draw EVERY relation between an expanded card and one child.
  *
- * The child is a single vertex however many relations reach it, so these edges
- * run parent → the same vertex, each stamped with its own `relationId` — which
- * is what `collectExistingEdgeRelations` reads back, so deleting one of them
- * still fires `DELETE /relations/{id}` for the right relation.
+ * The child is a single vertex however many relations reach it — a second vertex
+ * carrying the same `cardId` would trip the canvas dedup and unlink one of them —
+ * so each relation becomes its own edge on that one vertex, stamped with its own
+ * `relationId`. That stamp is what `collectExistingEdgeRelations` reads back, so
+ * deleting any one of them still fires `DELETE /relations/{id}` for the right
+ * relation, and the returned infos let the editor seed its side-table too.
+ *
+ * When more than one relation shares the pair the group is FANNED: the default
+ * `entityRelationEdgeStyle` router ignores fixed anchors and would route every
+ * line identically, drawing them exactly on top of each other — two verbs
+ * superimposed on what looks like one line. A fanned group therefore routes
+ * orthogonally through a waypoint offset per line, which the orthogonal router
+ * does respect. A lone relation keeps the default ER curve, so nothing changes
+ * for the overwhelmingly common case.
  */
-function insertExtraRelationEdges(
+function insertRelationEdges(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   win: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1366,27 +1392,80 @@ function insertExtraRelationEdges(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   vertex: any,
   baseEdgeCellId: string,
-  extras: ExpandChildRelation[] | undefined,
+  ch: ExpandChildData,
   hideLabels: boolean,
-): void {
-  if (!extras || extras.length === 0) return;
+): ExpandedRelationEdge[] {
+  const model = graph.getModel();
   const xmlDoc = win.mxUtils.createXmlDocument();
-  extras.forEach((rel, i) => {
+
+  const rels: ExpandChildRelation[] = [
+    {
+      relationType: ch.relationType,
+      relationId: ch.relationId,
+      relationLabel: ch.relationLabel,
+      incoming: ch.incoming,
+      flow: ch.flow,
+    },
+    ...(ch.extraRelations ?? []),
+  ];
+  const fan = rels.length > 1;
+
+  // Midpoint between the two cards, used as the base for the fan waypoints.
+  let midX: number | undefined;
+  let midY: number | undefined;
+  if (fan) {
+    const pg = model.getGeometry(parentCell);
+    const cg = model.getGeometry(vertex);
+    if (pg && cg) {
+      midX = (pg.x + pg.width / 2 + cg.x + cg.width / 2) / 2;
+      midY = (pg.y + pg.height / 2 + cg.y + cg.height / 2) / 2;
+    }
+  }
+
+  const out: ExpandedRelationEdge[] = [];
+  rels.forEach((rel, i) => {
+    const cellId = i === 0 ? baseEdgeCellId : `${baseEdgeCellId}-x${i - 1}`;
     const edge = graph.insertEdge(
       root,
-      `${baseEdgeCellId}-x${i}`,
+      cellId,
       "",
       parentCell,
       vertex,
-      relationEdgeStyle({ incoming: rel.incoming, flow: rel.flow, hideLabel: hideLabels }),
+      relationEdgeStyle({
+        incoming: rel.incoming,
+        flow: rel.flow,
+        hideLabel: hideLabels,
+        ...(fan ? { orthogonal: true } : {}),
+      }),
     );
+
+    if (fan && midX !== undefined && midY !== undefined) {
+      const geo = model.getGeometry(edge);
+      if (geo) {
+        const g = geo.clone();
+        // Spread the lines symmetrically around the straight run.
+        g.points = [
+          new win.mxPoint(midX, midY + (i - (rels.length - 1) / 2) * FAN_SPACING),
+        ];
+        model.setGeometry(edge, g);
+      }
+    }
+
     const edgeObj = xmlDoc.createElement("object");
     edgeObj.setAttribute("label", rel.relationLabel ?? "");
     if (rel.flow) edgeObj.setAttribute("flowDirection", rel.flow);
     if (rel.relationType) edgeObj.setAttribute("relationType", rel.relationType);
     if (rel.relationId) edgeObj.setAttribute("relationId", rel.relationId);
-    graph.getModel().setValue(edge, edgeObj);
+    model.setValue(edge, edgeObj);
+
+    out.push({
+      edgeCellId: cellId,
+      relationId: rel.relationId,
+      relationType: rel.relationType,
+      relationLabel: rel.relationLabel,
+    });
   });
+  return out;
 }
 
 export function expandCardGroup(
@@ -1457,38 +1536,24 @@ export function expandCardGroup(
         ch.layout?.style || style,
       );
 
-      // Stamp the connecting edge with the backend relation id (when known)
-      // so canvas-side deletions can fire DELETE /relations/{id}. Insert
-      // with an empty value first, then setValue so the XML user-object
-      // survives mxGraph's silent string-coercion of the insertEdge value.
-      // The editor also maintains a cellId → relation-meta side-table as
-      // the authoritative source for in-session deletes, since DrawIO
-      // sometimes drops user-object attributes on edges created inside an
-      // open transaction.
-      const edge = graph.insertEdge(
-        root, edgeCellId, "",
-        parentCell, vertex,
-        relationEdgeStyle({ incoming: ch.incoming, flow: ch.flow, hideLabel: hideLabels }),
-      );
-      const edgeObj = xmlDoc.createElement("object");
-      edgeObj.setAttribute("label", ch.relationLabel ?? "");
-      if (ch.flow) edgeObj.setAttribute("flowDirection", ch.flow);
-      if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
-      if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
-      model.setValue(edge, edgeObj);
-
-      // Further relations to the same card get their own edges on that vertex.
-      insertExtraRelationEdges(
-        win, graph, root, parentCell, vertex, edgeCellId, ch.extraRelations, hideLabels,
+      // Every relation to this child, each stamped with its own relation id so
+      // canvas-side deletions can fire DELETE /relations/{id}. The editor also
+      // maintains a cellId → relation-meta side-table as the authoritative
+      // source for in-session deletes, since DrawIO sometimes drops user-object
+      // attributes on edges created inside an open transaction — which is why
+      // every edge here is reported back, not just the first.
+      const edgeInfos = insertRelationEdges(
+        win, graph, root, parentCell, vertex, edgeCellId, ch, hideLabels,
       );
 
       inserted.push({
         cellId: cid,
         cardId: ch.id,
-        edgeCellId,
-        relationId: ch.relationId,
-        relationType: ch.relationType,
-        relationLabel: ch.relationLabel,
+        edgeCellId: edgeInfos[0].edgeCellId,
+        relationId: edgeInfos[0].relationId,
+        relationType: edgeInfos[0].relationType,
+        relationLabel: edgeInfos[0].relationLabel,
+        ...(edgeInfos.length > 1 ? { extraEdges: edgeInfos.slice(1) } : {}),
       });
       yOff += CHILD_CARD_H;
     }
@@ -1673,6 +1738,39 @@ export function getGroupChildCardIds(
     const edges = graph.getEdgesBetween(parentCell, c, false);
     if (edges && edges.length > 0) {
       result.add(fsId);
+    }
+  }
+  return result;
+}
+
+/**
+ * Relation ids still drawn between an expanded card and its children.
+ *
+ * The card-level companion {@link getGroupChildCardIds} cannot answer "which
+ * relations survive" once a child can carry several edges — it reports a card as
+ * connected while any one edge remains. Collapse diffs this against what it drew
+ * so a deleted relation is not resurrected by the next expand.
+ */
+export function getGroupChildRelationIds(
+  iframe: HTMLIFrameElement,
+  parentCellId: string,
+): Set<string> {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return new Set();
+  const { graph } = ctx;
+
+  const model = graph.getModel();
+  const parentCell = model.getCell(parentCellId);
+  if (!parentCell) return new Set();
+
+  const result = new Set<string>();
+  const cells = model.cells || {};
+  for (const k of Object.keys(cells)) {
+    const c = cells[k];
+    if (c?.value?.getAttribute?.("parentGroupCell") !== parentCellId) continue;
+    for (const e of graph.getEdgesBetween(parentCell, c, false) || []) {
+      const relId = e?.value?.getAttribute?.("relationId");
+      if (relId) result.add(relId);
     }
   }
   return result;
@@ -3489,38 +3587,23 @@ function insertChildVertex(
     ch.layout?.height ?? CHILD_CARD_H,
     ch.layout?.style || style,
   );
-  // Stamp the edge with relationId both on the XML user-object (so saves
+  // Stamp every edge with its relationId both on the XML user-object (so saves
   // serialise correctly) and via the returned info so the editor's
   // cellId → relation-meta side-table can mirror it. The side-table is
   // the authoritative source for in-session deletes — see the
   // `getRelationIdForEdge` resolver in CellLifecycleHandlers.
-  const edge = graph.insertEdge(
-    root,
-    edgeCellId,
-    "",
-    parentCell,
-    vertex,
-    relationEdgeStyle({ incoming: ch.incoming, flow: ch.flow, hideLabel: hideLabels }),
-  );
-  const edgeObj = xmlDoc.createElement("object");
-  edgeObj.setAttribute("label", ch.relationLabel ?? "");
-  if (ch.flow) edgeObj.setAttribute("flowDirection", ch.flow);
-  if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
-  if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
-  graph.getModel().setValue(edge, edgeObj);
-
-  // Further relations to the same card get their own edges on that vertex.
-  insertExtraRelationEdges(
-    win, graph, root, parentCell, vertex, edgeCellId, ch.extraRelations, hideLabels,
+  const edgeInfos = insertRelationEdges(
+    win, graph, root, parentCell, vertex, edgeCellId, ch, hideLabels,
   );
 
   return {
     cellId: cid,
     cardId: ch.id,
-    edgeCellId,
-    relationId: ch.relationId,
-    relationType: ch.relationType,
-    relationLabel: ch.relationLabel,
+    edgeCellId: edgeInfos[0].edgeCellId,
+    relationId: edgeInfos[0].relationId,
+    relationType: edgeInfos[0].relationType,
+    relationLabel: edgeInfos[0].relationLabel,
+    ...(edgeInfos.length > 1 ? { extraEdges: edgeInfos.slice(1) } : {}),
   };
 }
 

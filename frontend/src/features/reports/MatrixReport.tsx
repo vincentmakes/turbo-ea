@@ -401,8 +401,8 @@ export default function MatrixReport() {
     loadedAxes.current = axes;
   }, [rowType, colType]);
 
-  // Relation types able to connect the two axes — at most one per ordered pair
-  // by the metamodel rule, so at most two here (one per orientation). Everything
+  // Every relation type able to connect the two axes. Any number may share an
+  // ordered pair, so this is a list, not one per orientation. Everything
   // the filter bar, the legend, the cells and the export can show is derived
   // from these types' own `attributes_schema`; no attribute is named in code.
   const pairRelationTypes = useMemo(

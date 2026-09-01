@@ -219,9 +219,10 @@ export default function SurveyRespond() {
   const { types } = useMetamodel();
   const { surveyId, cardId } = useParams<{ surveyId: string; cardId: string }>();
 
-  // For a relation field, the related cards are all of one type (relation types
-  // are unique per type pair), so colour the pills by that type's metamodel
-  // colour and resolve its label for the "between X and Y" instruction.
+  // A relation field is scoped to ONE relation type, so its related cards are
+  // all of that type's other end — colour the pills by that type's metamodel
+  // colour and resolve its label for the "between X and Y" instruction. (Several
+  // relation types may share a card-type pair; each is its own field.)
   const relatedTypeColor = (key?: string): { bg: string; fg: string } => {
     const bg = types.find((ct) => ct.key === key)?.color || theme.palette.grey[500];
     return { bg, fg: theme.palette.getContrastText(bg) };

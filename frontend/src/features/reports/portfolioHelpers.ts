@@ -80,8 +80,10 @@ export interface RelSubtype {
   relTypeKey: string;
   fieldKey: string;
   /** The related card type this relation connects to (relation type's
-   * `other_type_key`). The portfolio only offers a subtype while grouping by
-   * this type, so each card chip maps to exactly one related card. */
+   * `other_type_key`). Several relation types may reach the same card type, so
+   * this is NOT a unique key — subtype options are keyed
+   * `${relTypeKey}::${fieldKey}` and matched on `relation_type`, which keeps
+   * each chip's colour exact. */
   relatedTypeKey: string;
   /** Direction-aware "uses · Usage Type" label. */
   comboLabel: string;

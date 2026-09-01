@@ -10,6 +10,7 @@
  */
 
 import type { Relation } from "@/types";
+import type { ExpandChildData, ExpandChildRelation } from "./drawio-shapes";
 
 export interface RelationGroup {
   /** The card at the other end. */
@@ -55,4 +56,53 @@ export function groupRelationsByOtherCard(
     groups.push(group);
   }
   return groups;
+}
+
+/**
+ * Drop relations the user deleted from the canvas while the group was expanded.
+ *
+ * Collapse removes the child cells, so what survives is remembered by id and
+ * re-applied on the next expand. Tracking that per CARD was right only while a
+ * card had exactly one edge: with several relation types reaching the same
+ * neighbour, deleting one edge leaves the card still connected, nothing is
+ * recorded, and re-expanding redraws the deleted relation — with a `relationId`
+ * the server no longer has.
+ *
+ * A child whose relations were all deleted is dropped; otherwise the first
+ * surviving relation becomes the primary and the rest stay as extras.
+ */
+export function pruneDeletedRelations(
+  children: ExpandChildData[],
+  deletedRelationIds: ReadonlySet<string>,
+): ExpandChildData[] {
+  if (deletedRelationIds.size === 0) return children;
+  const out: ExpandChildData[] = [];
+
+  for (const child of children) {
+    const rels: ExpandChildRelation[] = [
+      {
+        relationType: child.relationType,
+        relationId: child.relationId,
+        relationLabel: child.relationLabel,
+        incoming: child.incoming,
+        flow: child.flow,
+      },
+      ...(child.extraRelations ?? []),
+    ];
+    // A relation with no id was never persisted, so it cannot have been deleted.
+    const kept = rels.filter((r) => !r.relationId || !deletedRelationIds.has(r.relationId));
+    if (kept.length === 0) continue;
+
+    const [primary, ...extras] = kept;
+    out.push({
+      ...child,
+      relationType: primary.relationType,
+      relationId: primary.relationId,
+      relationLabel: primary.relationLabel,
+      incoming: primary.incoming,
+      flow: primary.flow,
+      ...(extras.length > 0 ? { extraRelations: extras } : { extraRelations: undefined }),
+    });
+  }
+  return out;
 }
