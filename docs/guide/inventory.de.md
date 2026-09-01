@@ -87,7 +87,7 @@ Das Inventar verwendet eine **AG Grid**-Datentabelle mit leistungsstarken Funkti
 | **Lebenszyklus** | Aktueller Lebenszyklusstatus |
 | **Genehmigungsstatus** | Badge des Prüfstatus |
 | **Datenqualität** | Vollständigkeitsprozentsatz mit visuellem Ring |
-| **Beziehungen** | Namen der verwandten Karten, alphabetisch sortiert, mit klickbarem Popover zum Hinzufügen oder Entfernen von Beziehungen — bereits verknüpfte Karten werden in dessen Auswahlliste ausgeblendet |
+| **Beziehungen** | Namen der verwandten Karten, alphabetisch sortiert, mit klickbarem Popover zum Hinzufügen oder Entfernen von Beziehungen — bereits verknüpfte Karten werden in dessen Auswahlliste ausgeblendet; bei einem hierarchischen Typ zeigt die Auswahlliste stattdessen die gesamte Hierarchie als eingerückten Baum und lässt diese Karten ausgegraut an ihrem Platz |
 
 **Tabellenfunktionen:**
 

@@ -10,7 +10,14 @@ vi.mock("@/api/client", () => ({
 
 vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: () => ({
-    getType: (key: string) => ({ key, color: "#123456" }),
+    // Only `BusinessCapability` is hierarchical. Every other test in this file
+    // browses `Application`, so they stay on the flat path whatever the
+    // hierarchy code does — which is the point.
+    getType: (key: string) => ({
+      key,
+      color: "#123456",
+      has_hierarchy: key === "BusinessCapability",
+    }),
   }),
 }));
 
@@ -288,5 +295,109 @@ describe("CardPicker — multi-select", () => {
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: /alpha app/i })).not.toBeInTheDocument(),
     );
+  });
+});
+
+/**
+ *  Sales
+ *    ├─ Lead Management
+ *    │    └─ Lead Scoring
+ *    └─ Quoting
+ *  Finance
+ */
+const CAPS = [
+  { id: "sales", name: "Sales", type: "BusinessCapability", parent_id: null },
+  { id: "leads", name: "Lead Management", type: "BusinessCapability", parent_id: "sales" },
+  { id: "scoring", name: "Lead Scoring", type: "BusinessCapability", parent_id: "leads" },
+  { id: "quoting", name: "Quoting", type: "BusinessCapability", parent_id: "sales" },
+  { id: "finance", name: "Finance", type: "BusinessCapability", parent_id: null },
+];
+
+const optionNames = () => screen.getAllByRole("option").map((el) => el.textContent ?? "");
+
+describe("CardPicker hierarchy mode (#1050)", () => {
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+    // `total === items.length` ⇒ the type is provably complete, the only state
+    // that renders a tree.
+    vi.mocked(api.get).mockResolvedValue({
+      items: CAPS,
+      total: CAPS.length,
+      page: 1,
+      page_size: 1000,
+    } as never);
+  });
+
+  it("stays flat by default, even on a hierarchical type", async () => {
+    // Regression guard for the 15 call sites that pass no `hierarchy`: a
+    // hierarchical type must not silently start loading itself whole.
+    render(<Harness types="BusinessCapability" placeholder="Search caps" />);
+    await userEvent.click(screen.getByPlaceholderText("Search caps"));
+    await waitFor(() => expect(screen.getByText("Sales")).toBeInTheDocument());
+
+    const url = vi.mocked(api.get).mock.calls[0][0] as string;
+    expect(url).toContain("page_size=50");
+    expect(url).not.toContain("page_size=1000");
+    // The server's own order, untouched — not re-nested depth-first.
+    expect(optionNames()).toEqual(CAPS.map((c) => c.name));
+  });
+
+  it("renders an indented, depth-first tree when asked", async () => {
+    render(<Harness types="BusinessCapability" hierarchy placeholder="Search caps" />);
+    await userEvent.click(screen.getByPlaceholderText("Search caps"));
+    await waitFor(() => expect(screen.getByText("Lead Scoring")).toBeInTheDocument());
+
+    expect(optionNames()).toEqual([
+      "Finance",
+      "Sales",
+      "Lead Management",
+      "Lead Scoring",
+      "Quoting",
+    ]);
+    const urls = vi.mocked(api.get).mock.calls.map((c) => c[0] as string);
+    for (const url of urls) expect(url).toContain("page_size=1000");
+  });
+
+  it("keeps a match's ancestors while typing, without querying the server", async () => {
+    const user = userEvent.setup();
+    render(<Harness types="BusinessCapability" hierarchy placeholder="Search caps" />);
+    await user.click(screen.getByPlaceholderText("Search caps"));
+    await waitFor(() => expect(screen.getByText("Lead Scoring")).toBeInTheDocument());
+
+    await user.type(screen.getByPlaceholderText("Search caps"), "Scoring");
+
+    const names = optionNames();
+    expect(names).toContain("Lead Scoring");
+    // Kept for context, though neither matches on its own name.
+    expect(names).toContain("Lead Management");
+    expect(names).toContain("Sales");
+    expect(names).not.toContain("Finance");
+    const urls = vi.mocked(api.get).mock.calls.map((c) => c[0] as string);
+    for (const url of urls) expect(url).not.toContain("search=");
+  });
+
+  it("shows excluded cards as unpickable context instead of hiding them", async () => {
+    // Hiding "Lead Management" would file "Lead Scoring" under `null` — i.e.
+    // promote it to a root — rewriting the hierarchy the tree exists to show.
+    render(
+      <Harness
+        types="BusinessCapability"
+        hierarchy
+        excludeIds={["leads"]}
+        placeholder="Search caps"
+      />,
+    );
+    await userEvent.click(screen.getByPlaceholderText("Search caps"));
+    await waitFor(() => expect(screen.getByText("Lead Scoring")).toBeInTheDocument());
+
+    const linked = screen.getByText("Lead Management").closest('[role="option"]');
+    expect(linked).toHaveAttribute("aria-disabled", "true");
+    expect(optionNames()).toEqual([
+      "Finance",
+      "Sales",
+      "Lead Management",
+      "Lead Scoring",
+      "Quoting",
+    ]);
   });
 });

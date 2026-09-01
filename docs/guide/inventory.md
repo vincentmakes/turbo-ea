@@ -88,7 +88,7 @@ The inventory uses an **AG Grid** data table with powerful features:
 | **Lifecycle** | Current lifecycle state |
 | **Approval Status** | Review status badge |
 | **Data Quality** | Completeness percentage with visual ring |
-| **Relations** | Related card names, listed alphabetically, with a clickable popover to add or remove relations — cards already linked are hidden from its picker |
+| **Relations** | Related card names, listed alphabetically, with a clickable popover to add or remove relations — cards already linked are hidden from its picker, except on a hierarchical type, where the picker shows the whole hierarchy as an indented tree and leaves those cards greyed out in place |
 
 **Table features:**
 

@@ -87,7 +87,7 @@ L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalité
 | **Cycle de vie** | État actuel du cycle de vie |
 | **Statut d'approbation** | Badge de statut de révision |
 | **Qualité des données** | Pourcentage de complétude avec anneau visuel |
-| **Relations** | Noms des cartes liées, classés par ordre alphabétique, avec un popover cliquable pour ajouter ou retirer des relations -- les cartes déjà liées sont masquées de son sélecteur |
+| **Relations** | Noms des cartes liées, classés par ordre alphabétique, avec un popover cliquable pour ajouter ou retirer des relations — les fiches déjà liées sont masquées dans son sélecteur, sauf pour un type hiérarchique, où le sélecteur affiche toute la hiérarchie sous forme d'arborescence indentée et laisse ces fiches en grisé à leur place |
 
 **Fonctionnalités du tableau :**
 

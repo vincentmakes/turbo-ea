@@ -242,6 +242,15 @@ function RelationTypeSection({
             <CardPicker
               fullWidth
               types={targetTypeKey}
+              // Relation targets are picked by level as much as by name
+              // (#1050). A dialog the user opened on purpose, so the whole-type
+              // load is affordable here — unlike a grid cell editor. Each
+              // relation-type section carries its own picker, so a pair joined
+              // by several relation types loads the target type once per
+              // section; that duplication predates the tree (every section
+              // already fetched its own page) and the level context is worth
+              // as much in the second section as in the first.
+              hierarchy
               value={selectedTarget}
               onChange={setSelectedTarget}
               onInputChange={setTargetSearch}

@@ -88,7 +88,7 @@ Lageret bruger en **AG Grid**-datatabel med kraftfulde funktioner:
 | **Lifecycle** | Aktuel livscyklus-tilstand |
 | **Approval Status** | Gennemgangs-status-badge |
 | **Data Quality** | Fuldstændigheds-procent med visuel ring |
-| **Relations** | Navne på relaterede kort, sorteret alfabetisk, med en klikbar popover til at tilføje eller fjerne relationer — kort, der allerede er tilknyttet, skjules fra dens vælger |
+| **Relations** | Navne på relaterede kort, sorteret alfabetisk, med en klikbar popover til at tilføje eller fjerne relationer — kort, der allerede er tilknyttet, skjules fra dens vælger, undtagen ved en hierarkisk type, hvor vælgeren viser hele hierarkiet som et indrykket træ og lader de kort blive liggende nedtonet |
 
 **Tabel-funktioner:**
 

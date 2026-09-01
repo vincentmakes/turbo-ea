@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.116.0] - 2026-09-01
+
+### Added
+
+- **Picking a card to link now shows the hierarchy.** When the type on the other end of a relation is hierarchical, the add-relation dialog — and the Inventory grid's relation cell — lists it as an indented tree instead of an alphabetical list, so a sub-capability is found by its branch rather than by remembering its name. Searching keeps a match's parents in view for context, and cards you cannot pick (already linked, just added, or the card itself) stay in place greyed out so the levels around them still read correctly.
+
 ## [2.115.0] - 2026-09-01
 
 ### Added

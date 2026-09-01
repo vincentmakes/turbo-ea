@@ -87,7 +87,7 @@ L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:
 | **Ciclo di vita** | Stato attuale del ciclo di vita |
 | **Stato di approvazione** | Badge dello stato di revisione |
 | **Qualità dei dati** | Percentuale di completezza con anello visivo |
-| **Relazioni** | Nomi delle carte correlate, in ordine alfabetico, con un popover cliccabile per aggiungere o rimuovere relazioni: le carte già collegate sono nascoste dal suo selettore |
+| **Relazioni** | Nomi delle carte correlate, in ordine alfabetico, con un popover cliccabile per aggiungere o rimuovere relazioni: le carte già collegate sono nascoste dal suo selettore, tranne per un tipo gerarchico, dove il selettore mostra l'intera gerarchia come albero indentato e lascia quelle carte in grigio al loro posto |
 
 **Funzionalità della tabella:**
 

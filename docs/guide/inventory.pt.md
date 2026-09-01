@@ -87,7 +87,7 @@ O inventário usa uma tabela de dados **AG Grid** com recursos poderosos:
 | **Ciclo de Vida** | Estado atual do ciclo de vida |
 | **Status de Aprovação** | Badge de status de revisão |
 | **Qualidade dos Dados** | Porcentagem de completude com anel visual |
-| **Relacionamentos** | Nomes dos cartões relacionados, em ordem alfabética, com um popover clicável para adicionar ou remover relacionamentos — os cartões já ligados ficam ocultos do seu seletor |
+| **Relacionamentos** | Nomes dos cartões relacionados, em ordem alfabética, com um popover clicável para adicionar ou remover relacionamentos — os cartões já ligados ficam ocultos do seu seletor, exceto num tipo hierárquico, onde o seletor mostra toda a hierarquia como uma árvore indentada e deixa esses cartões a cinzento no lugar |
 
 **Recursos da tabela:**
 
