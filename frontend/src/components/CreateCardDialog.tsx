@@ -357,13 +357,20 @@ export default function CreateCardDialog({
         }
       }
       if (pendingProvider) {
-        const relType = relationTypes.find(
-          (r) =>
-            (r.source_type_key === "Provider" &&
-              r.target_type_key === selectedType) ||
-            (r.target_type_key === "Provider" &&
-              r.source_type_key === selectedType),
-        );
+        // Several relation types may connect Provider to this card type; pick
+        // the same one VendorField shows — lowest sort_order, then key.
+        const relType = relationTypes
+          .filter(
+            (r) =>
+              (r.source_type_key === "Provider" &&
+                r.target_type_key === selectedType) ||
+              (r.target_type_key === "Provider" &&
+                r.source_type_key === selectedType),
+          )
+          .sort(
+            (a, b) =>
+              (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.key.localeCompare(b.key),
+          )[0];
         if (relType) {
           const providerIsSource = relType.source_type_key === "Provider";
           try {

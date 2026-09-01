@@ -1781,12 +1781,23 @@ async def capability_heatmap(
     # Build cap_id -> [app_card] and app -> {type: [related_id]} mappings
     cap_apps: dict[str, list] = {str(c.id): [] for c in caps}
     app_related: dict[str, dict[str, list[str]]] = {}  # app_id -> {type_key: [related_id, ...]}
+    # Both maps are keyed by CARD, while `rels` carries one row per relation — and
+    # two cards may be connected by several relation types. Track what has been
+    # added so a capability never lists the same application twice.
+    cap_app_seen: dict[str, set[str]] = {cid: set() for cid in cap_apps}
+
+    def _link_cap_app(cap_id: str, app_id: str) -> None:
+        if app_id in cap_app_seen[cap_id]:
+            return
+        cap_app_seen[cap_id].add(app_id)
+        cap_apps[cap_id].append(app_map[app_id])
+
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
         if sid in cap_id_set and tid in app_map:
-            cap_apps[sid].append(app_map[tid])
+            _link_cap_app(sid, tid)
         elif tid in cap_id_set and sid in app_map:
-            cap_apps[tid].append(app_map[sid])
+            _link_cap_app(tid, sid)
         # app -> related card relations (for filtering)
         if sid in app_id_set and tid in related_map:
             app_related.setdefault(sid, {}).setdefault(related_map[tid]["type"], []).append(tid)
@@ -1830,8 +1841,10 @@ async def capability_heatmap(
             "subtype": a.subtype,
             "attributes": attrs,
             "lifecycle": a.lifecycle,
-            "org_ids": sorted(by_type.get("Organization", [])),
-            "related_by_type": {k: sorted(v) for k, v in by_type.items()},
+            # Deduped: a related card reached through two relation types is one
+            # card, and these lists drive filter matching and counts.
+            "org_ids": sorted(set(by_type.get("Organization", []))),
+            "related_by_type": {k: sorted(set(v)) for k, v in by_type.items()},
             "tag_ids": cap_app_tag_ids.get(aid, []),
         }
 

@@ -104,6 +104,7 @@ import type {
   RelationFlowDirection,
   RemovedRelationTombstone,
 } from "./drawio-shapes";
+import { groupRelationsByOtherCard } from "./expandChildren";
 import ExpandMenu from "./ExpandMenu";
 import type { ExpandMenuPick, ExpandMenuTarget } from "./ExpandMenu";
 import ColorBySelector from "./ColorBySelector";
@@ -1133,24 +1134,32 @@ export default function DiagramEditor() {
         .get<Relation[]>(`/relations?card_id=${cardId}`)
         .then((rels) => {
           if (!iframeRef.current) return;
-          const seen = new Set<string>();
-          const children: ExpandChildData[] = [];
-          for (const r of rels) {
-            const other = r.source_id === cardId ? r.target : r.source;
-            if (!other || seen.has(other.id)) continue;
-            seen.add(other.id);
-            const ct = fsTypesRef.current.find((tp) => tp.key === other.type);
-            children.push({
-              id: other.id,
-              name: other.name,
-              type: other.type,
-              color: ct?.color || "#999",
-              icon: ct?.icon,
-              relationType: r.type,
-              relationId: r.id,
-              ...relationEdgeMeta(r.type, r.target_id === cardId, r.attributes),
-            });
-          }
+          // One child (vertex) per related CARD; a card reached through several
+          // relation types keeps the rest as extra edges on that same vertex.
+          const children: ExpandChildData[] = groupRelationsByOtherCard(rels, cardId).map(
+            ({ other, primary, extras }) => {
+              const ct = fsTypesRef.current.find((tp) => tp.key === other.type);
+              return {
+                id: other.id,
+                name: other.name,
+                type: other.type,
+                color: ct?.color || "#999",
+                icon: ct?.icon,
+                relationType: primary.type,
+                relationId: primary.id,
+                ...relationEdgeMeta(
+                  primary.type,
+                  primary.target_id === cardId,
+                  primary.attributes,
+                ),
+                extraRelations: extras.map((r) => ({
+                  relationType: r.type,
+                  relationId: r.id,
+                  ...relationEdgeMeta(r.type, r.target_id === cardId, r.attributes),
+                })),
+              };
+            },
+          );
           if (children.length === 0) {
             setSnackMsg(t("editor.noRelatedCards"));
             return;
@@ -1234,14 +1243,15 @@ export default function DiagramEditor() {
 
       if (pick.mode === "show") {
         // Multi-select Show Dependency: load relations for each picked
-        // (type, direction) pair, dedupe by neighbour, and skip any
+        // (type, direction) pair, one CELL per neighbour, and skip any
         // neighbour that's already on the canvas (inserting a second
         // cell with the same cardId would trigger our dedup logic and
-        // unlink one of them).
+        // unlink one of them). Picking two relation types that both reach
+        // the same neighbour draws that card once, with an edge per type.
         try {
-          const seen = new Set<string>();
+          const byCard = new Map<string, ExpandChildData>();
           const children: ExpandChildData[] = [];
-          let skippedAlreadyPresent = 0;
+          const skippedCards = new Set<string>();
           for (const entry of pick.entries) {
             const params = new URLSearchParams({
               card_id: target.cardId,
@@ -1253,13 +1263,22 @@ export default function DiagramEditor() {
               if (entry.direction === "outgoing" && !isOutgoing) continue;
               if (entry.direction === "incoming" && isOutgoing) continue;
               const other = isOutgoing ? r.target : r.source;
-              if (!other || seen.has(other.id)) continue;
-              seen.add(other.id);
-              if (findExistingCardCellId(frame, other.id)) {
-                skippedAlreadyPresent += 1;
+              if (!other || skippedCards.has(other.id)) continue;
+              const meta = relationEdgeMeta(r.type, !isOutgoing, r.attributes);
+              const existing = byCard.get(other.id);
+              if (existing) {
+                (existing.extraRelations ??= []).push({
+                  relationType: r.type,
+                  relationId: r.id,
+                  ...meta,
+                });
                 continue;
               }
-              children.push({
+              if (findExistingCardCellId(frame, other.id)) {
+                skippedCards.add(other.id);
+                continue;
+              }
+              const child: ExpandChildData = {
                 id: other.id,
                 name: other.name,
                 type: other.type,
@@ -1267,10 +1286,13 @@ export default function DiagramEditor() {
                 icon: iconForType(other.type),
                 relationType: r.type,
                 relationId: r.id,
-                ...relationEdgeMeta(r.type, !isOutgoing, r.attributes),
-              });
+                ...meta,
+              };
+              byCard.set(other.id, child);
+              children.push(child);
             }
           }
+          const skippedAlreadyPresent = skippedCards.size;
           if (children.length === 0) {
             setSnackMsg(
               skippedAlreadyPresent > 0
@@ -1517,24 +1539,32 @@ export default function DiagramEditor() {
         .get<Relation[]>(`/relations?card_id=${cardId}`)
         .then((rels) => {
           if (!iframeRef.current) return;
-          const seen = new Set<string>();
-          const children: ExpandChildData[] = [];
-          for (const r of rels) {
-            const other = r.source_id === cardId ? r.target : r.source;
-            if (!other || seen.has(other.id)) continue;
-            seen.add(other.id);
-            const ct = fsTypesRef.current.find((tp) => tp.key === other.type);
-            children.push({
-              id: other.id,
-              name: other.name,
-              type: other.type,
-              color: ct?.color || "#999",
-              icon: ct?.icon,
-              relationType: r.type,
-              relationId: r.id,
-              ...relationEdgeMeta(r.type, r.target_id === cardId, r.attributes),
-            });
-          }
+          // One child (vertex) per related CARD; a card reached through several
+          // relation types keeps the rest as extra edges on that same vertex.
+          const children: ExpandChildData[] = groupRelationsByOtherCard(rels, cardId).map(
+            ({ other, primary, extras }) => {
+              const ct = fsTypesRef.current.find((tp) => tp.key === other.type);
+              return {
+                id: other.id,
+                name: other.name,
+                type: other.type,
+                color: ct?.color || "#999",
+                icon: ct?.icon,
+                relationType: primary.type,
+                relationId: primary.id,
+                ...relationEdgeMeta(
+                  primary.type,
+                  primary.target_id === cardId,
+                  primary.attributes,
+                ),
+                extraRelations: extras.map((r) => ({
+                  relationType: r.type,
+                  relationId: r.id,
+                  ...relationEdgeMeta(r.type, r.target_id === cardId, r.attributes),
+                })),
+              };
+            },
+          );
           if (children.length === 0) {
             addExpandOverlay(iframeRef.current!, cellId, false, () =>
               handleToggleGroup(cellId, cardId, false),

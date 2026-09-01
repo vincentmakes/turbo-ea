@@ -16,7 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The Landscape report listed a card twice in a group when it was related through more than one relation type.
 - The Dependencies report dropped an edge when two cards were connected by more than one relation type; each relation now contributes its own edge, and the diagram and tree views show the combined verbs (for example "owns / uses") on the single line joining the two cards.
 - The inventory relation cell could show a related card it would not let you edit or remove. The cell has always merged every relation type reaching that card type; the editor now opens a section per relation type instead of only reaching the first, and the filter sidebar offers a row per relation type rather than hiding all but one.
+- Opening the inventory from a report's relation grouping filtered by only one relation type when several connect that pair of card types; the link now means "related to this card type at all".
+- Expanding a card on a diagram drew a single line to a neighbour connected by more than one relation type, showing one verb and omitting the other relations. Each relation now gets its own labelled edge on that neighbour, and deleting one still removes the relation it stands for.
+- The Capability Map counted an application twice under a capability, and listed a related card twice in its filters, when the link existed through more than one relation type.
 - Grouping the PPM portfolio by a card type connected through more than one relation type no longer places initiatives unpredictably.
+- The vendor field and the Provider link created with a new card now pick the same relation type consistently when several connect Provider to that card type.
 
 ### Changed
 

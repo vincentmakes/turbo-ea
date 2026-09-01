@@ -1235,9 +1235,24 @@ export interface ExpandChildData {
   /** Backend relation id, when known. Stamped onto the connecting edge so
    *  canvas deletions can fire `DELETE /relations/{id}`. */
   relationId?: string;
+  /** Further relations to the SAME card, beyond the one above. Any number of
+   *  relation types may connect a pair of card types, so a neighbour can be
+   *  reached by several at once — each gets its own edge (the card itself stays
+   *  a single vertex; a second vertex with the same `cardId` would trip the
+   *  canvas dedup and unlink one of them). */
+  extraRelations?: ExpandChildRelation[];
   /** Placement to restore instead of the computed default, when this child has
    *  been expanded and collapsed before and the user had moved or restyled it. */
   layout?: ChildLayout;
+}
+
+/** One additional relation between an expanded card and an already-drawn child. */
+export interface ExpandChildRelation {
+  relationType: string;
+  relationId?: string;
+  relationLabel?: string;
+  incoming?: boolean;
+  flow?: RelationFlowDirection;
 }
 
 /**
@@ -1330,6 +1345,50 @@ export interface ExpandedEdgeInfo {
   relationLabel?: string;
 }
 
+/**
+ * Draw one edge per *additional* relation between an expanded card and a child
+ * that is already on the canvas.
+ *
+ * The child is a single vertex however many relations reach it, so these edges
+ * run parent → the same vertex, each stamped with its own `relationId` — which
+ * is what `collectExistingEdgeRelations` reads back, so deleting one of them
+ * still fires `DELETE /relations/{id}` for the right relation.
+ */
+function insertExtraRelationEdges(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  win: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  graph: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  root: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  parentCell: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vertex: any,
+  baseEdgeCellId: string,
+  extras: ExpandChildRelation[] | undefined,
+  hideLabels: boolean,
+): void {
+  if (!extras || extras.length === 0) return;
+  const xmlDoc = win.mxUtils.createXmlDocument();
+  extras.forEach((rel, i) => {
+    const edge = graph.insertEdge(
+      root,
+      `${baseEdgeCellId}-x${i}`,
+      "",
+      parentCell,
+      vertex,
+      relationEdgeStyle({ incoming: rel.incoming, flow: rel.flow, hideLabel: hideLabels }),
+    );
+    const edgeObj = xmlDoc.createElement("object");
+    edgeObj.setAttribute("label", rel.relationLabel ?? "");
+    if (rel.flow) edgeObj.setAttribute("flowDirection", rel.flow);
+    if (rel.relationType) edgeObj.setAttribute("relationType", rel.relationType);
+    if (rel.relationId) edgeObj.setAttribute("relationId", rel.relationId);
+    graph.getModel().setValue(edge, edgeObj);
+  });
+}
+
 export function expandCardGroup(
   iframe: HTMLIFrameElement,
   parentCellId: string,
@@ -1417,6 +1476,11 @@ export function expandCardGroup(
       if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
       if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
       model.setValue(edge, edgeObj);
+
+      // Further relations to the same card get their own edges on that vertex.
+      insertExtraRelationEdges(
+        win, graph, root, parentCell, vertex, edgeCellId, ch.extraRelations, hideLabels,
+      );
 
       inserted.push({
         cellId: cid,
@@ -3444,6 +3508,12 @@ function insertChildVertex(
   if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
   if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
   graph.getModel().setValue(edge, edgeObj);
+
+  // Further relations to the same card get their own edges on that vertex.
+  insertExtraRelationEdges(
+    win, graph, root, parentCell, vertex, edgeCellId, ch.extraRelations, hideLabels,
+  );
+
   return {
     cellId: cid,
     cardId: ch.id,

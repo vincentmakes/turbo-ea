@@ -216,11 +216,15 @@ export function normalizeSelectAttributeFilters(
  * `rel_<relatedCardTypeKey>` (`rel_Provider`) because the report thinks in
  * related card types — an untranslated entry matches nothing and silently
  * empties the grid. Rules: a key that already is a relation-type key is kept;
- * a related-card-type key moves its names under the FIRST mapped relation
- * type (the same dedup rule the relation columns use), merging with any
- * existing values; an unresolvable key is DROPPED — a deep link may degrade
- * to showing more items, never to an inexplicable zero. Returns the SAME
- * object reference when nothing changed, so callers can setState safely.
+ * a related-card-type key that maps to exactly ONE relation type moves its
+ * names under it, merging with any existing values; a key mapping to SEVERAL
+ * relation types is KEPT AS THE CARD-TYPE KEY, because the matcher resolves it
+ * as the union across them — collapsing to the first would silently filter by
+ * one relationship when the report meant "related to this card type at all",
+ * and spreading it across the group would AND them. An unresolvable key is
+ * DROPPED — a deep link may degrade to showing more items, never to an
+ * inexplicable zero. Returns the SAME object reference when nothing changed,
+ * so callers can setState safely.
  */
 export function normalizeRelationFilterKeys(
   relations: Filters["relations"],
@@ -235,8 +239,14 @@ export function normalizeRelationFilterKeys(
       continue;
     }
     const mapped = cardTypeToRelTypes.get(key);
+    if (mapped && mapped.length > 1) {
+      // Several relation types reach this card type — keep the card-type key
+      // and let the matcher union across them.
+      next[key] = [...new Set([...(next[key] ?? []), ...names])];
+      continue;
+    }
     changed = true;
-    if (mapped && mapped.length > 0) {
+    if (mapped && mapped.length === 1) {
       const target = mapped[0];
       next[target] = [...new Set([...(next[target] ?? []), ...names])];
     }

@@ -879,6 +879,10 @@ export function buildLdvFlow(
     if (existing) {
       if (!existing.fwdLabels.includes(fwdLbl)) existing.fwdLabels.push(fwdLbl);
       if (!existing.revLabels.includes(revLbl)) existing.revLabels.push(revLbl);
+      // The pair renders as one line, so a description only survives if it is
+      // carried over — otherwise whichever relation type happened to come first
+      // decides whether the merged edge has one at all.
+      if (!existing.description && e.description) existing.description = e.description;
       // If existing pair has no direction yet, adopt this one. If they
       // disagree (e.g. one forward + one reverse), upgrade to bidirectional.
       if (fd && existing.flowDirection !== fd) {

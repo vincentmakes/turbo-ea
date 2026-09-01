@@ -130,10 +130,23 @@ describe("normalizeRelationFilterKeys", () => {
     ).toEqual({ relAppToProvider: ["Altium"] });
   });
 
-  it("uses the FIRST mapped relation type, matching the relation columns' dedup rule", () => {
+  it("keeps the card-type key when several relation types reach that type", () => {
+    // Collapsing to the first would filter by ONE relationship when the report
+    // meant "related to this card type at all"; spreading it across the group
+    // would AND them. The key survives and the matcher unions across the group.
     expect(
       normalizeRelationFilterKeys({ ITComponent: ["PostgreSQL"] }, relTypeKeys, cardTypeToRelTypes),
-    ).toEqual({ relAppToItComponent: ["PostgreSQL"] });
+    ).toEqual({ ITComponent: ["PostgreSQL"] });
+  });
+
+  it("merges names when a multi-type card-type key appears twice", () => {
+    expect(
+      normalizeRelationFilterKeys(
+        { ITComponent: ["PostgreSQL", "Redis"] },
+        relTypeKeys,
+        cardTypeToRelTypes,
+      ),
+    ).toEqual({ ITComponent: ["PostgreSQL", "Redis"] });
   });
 
   it("keeps keys that already are relation-type keys, same reference when nothing changes", () => {

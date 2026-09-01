@@ -77,14 +77,19 @@ export default function VendorField({
   const [pendingProvider, setPendingProvider] = useState<ProviderOption | null>(null);
   const [creating, setCreating] = useState(false);
 
-  // Dynamically find a Provider↔cardTypeKey relation type from the metamodel
+  // Dynamically find a Provider↔cardTypeKey relation type from the metamodel.
+  // Several may connect the pair, and this field carries one vendor link, so the
+  // choice is fixed to the lowest sort_order rather than left to row order.
   const relType = useMemo(() => {
-    const rt = relationTypes.find(
+    const candidates = relationTypes.filter(
       (r) =>
         (r.source_type_key === "Provider" && r.target_type_key === cardTypeKey) ||
         (r.target_type_key === "Provider" && r.source_type_key === cardTypeKey)
     );
-    return rt?.key ?? null;
+    if (candidates.length === 0) return null;
+    return [...candidates].sort(
+      (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.key.localeCompare(b.key)
+    )[0].key;
   }, [relationTypes, cardTypeKey]);
 
   // Determine if Provider is the source side of the relation

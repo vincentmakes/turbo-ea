@@ -1663,8 +1663,15 @@ export default function InventoryPage() {
       result = result.filter((card) => {
         return relEntries.every(([relTypeKey, selectedNames]) => {
           if (!Array.isArray(selectedNames) || selectedNames.length === 0) return true;
-          const index = relationsMap.get(relTypeKey);
-          const refs = index?.get(card.id);
+          // A key is normally a relation type. A deep link whose related card
+          // type is reached by several relation types keeps the CARD-TYPE key
+          // instead (see normalizeRelationFilterKeys), and resolves to the union
+          // across them — "related to this card type at all".
+          const refs = relationsMap.has(relTypeKey)
+            ? relationsMap.get(relTypeKey)?.get(card.id)
+            : relTypeGroupMap.has(relTypeKey)
+              ? relatedRefsOf(card.id, relTypeKey)
+              : undefined;
           const wantEmpty = selectedNames.includes(EMPTY_VALUE);
           // No related cards of this type → only matches when "(empty)" is selected.
           if (!refs || refs.length === 0) return wantEmpty;
@@ -1728,7 +1735,7 @@ export default function InventoryPage() {
     }
 
     return result;
-  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.dataQualityBands, filters.attributes, filters.relations, filters.tagIds, relationsMap, tagGroups]);
+  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.dataQualityBands, filters.attributes, filters.relations, filters.tagIds, relationsMap, relTypeGroupMap, relatedRefsOf, tagGroups]);
 
   // --- Grouped row data (shared hook — see components/grid/useRowGrouping) ---
   const grouping = useRowGrouping<Card>(gridRef, {
