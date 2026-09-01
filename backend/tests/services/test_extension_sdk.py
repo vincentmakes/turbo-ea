@@ -15,8 +15,8 @@ from app.database import get_db as core_get_db
 from app.services.extensions import sdk
 
 
-def test_sdk_version_is_1_6():
-    assert sdk.SDK_VERSION == "1.6"
+def test_sdk_version_is_1_7():
+    assert sdk.SDK_VERSION == "1.7"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():

@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.113.0] - 2026-09-01
+
+### Added
+
+- **Extension-created todos can deep-link into the app.** The extension todos bridge (backend SDK 1.7) accepts a `link` on create and update — the relative in-app path the todo's Open button navigates to, validated exactly like a human-created todo's. External-tracker references stay on `external_url`, and system todos keep refusing everything but their mirror fields.
+
 ## [2.112.1] - 2026-09-01
 
 ### Changed

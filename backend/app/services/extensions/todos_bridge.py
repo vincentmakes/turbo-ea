@@ -208,6 +208,7 @@ class ExtensionTodos(TodosBridge):
         card_id: str | None = None,
         assigned_to: str | None = None,
         due_date: str | None = None,
+        link: str | None = None,
         external_ref: str | None = None,
         external_url: str | None = None,
     ) -> ExtTodo:
@@ -219,6 +220,10 @@ class ExtensionTodos(TodosBridge):
                 card_id=uuid.UUID(card_id) if card_id else None,
                 assigned_to=assigned_to,
                 due_date=due_date,
+                # SDK 1.7: the in-app deep link, validated exactly like a
+                # human-created todo's (relative path only) — an extension
+                # must not turn someone's Open button into an off-site jump.
+                link=link,
                 external_ref=external_ref,
                 external_url=external_url,
                 # Never a parameter: the mirror is stamped with the writing
@@ -237,6 +242,7 @@ class ExtensionTodos(TodosBridge):
         status: str | None = None,
         assigned_to: str | None = None,
         due_date: str | None = None,
+        link: str | None = None,
         external_ref: str | None = None,
         external_url: str | None = None,
     ) -> ExtTodo:
@@ -247,6 +253,11 @@ class ExtensionTodos(TodosBridge):
                 "status": status,
                 "assigned_to": assigned_to,
                 "due_date": due_date,
+                # Not in _SYSTEM_WRITABLE_FIELDS on purpose: a system todo's
+                # link points at the core page that completes it, and an
+                # extension redirecting that is exactly what the mirror
+                # carve-out exists to prevent.
+                "link": link,
                 "external_ref": external_ref,
                 "external_url": external_url,
             }.items()

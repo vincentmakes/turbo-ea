@@ -150,7 +150,16 @@ from app.database import get_db  # noqa: F401
 #   return fast — persist to your own ``ext_{key}_*`` outbox and drain it
 #   from an ``ExtensionJob``.
 
-SDK_VERSION = "1.6"
+# SDK 1.7 widens one surface:
+#
+# - ``link`` on ``TodosBridge.create`` / ``update`` — the in-app deep link a
+#   todo's Open button navigates to. Validated by the same ``validated_link``
+#   the REST routes use (a relative path starting ``/``, never ``//`` or an
+#   absolute URL — external-tracker references stay on ``external_url``).
+#   System todos keep refusing it: their mirror carve-out remains
+#   ``external_ref`` / ``external_url`` only.
+
+SDK_VERSION = "1.7"
 
 
 @dataclass(frozen=True)
@@ -264,6 +273,7 @@ class TodosBridge(Protocol):
         card_id: str | None = None,
         assigned_to: str | None = None,
         due_date: str | None = None,
+        link: str | None = None,
         external_ref: str | None = None,
         external_url: str | None = None,
     ) -> ExtTodo: ...
@@ -276,6 +286,7 @@ class TodosBridge(Protocol):
         status: str | None = None,
         assigned_to: str | None = None,
         due_date: str | None = None,
+        link: str | None = None,
         external_ref: str | None = None,
         external_url: str | None = None,
     ) -> ExtTodo: ...

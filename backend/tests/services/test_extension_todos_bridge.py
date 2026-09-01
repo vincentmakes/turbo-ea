@@ -145,6 +145,39 @@ class TestWrites:
         assert ev.data["origin"] == "ext"
         assert ev.batch_id == row.id
 
+    async def test_create_carries_a_validated_in_app_link(self, db, env):
+        # SDK 1.7: the deep link a todo's Open button navigates to. Same
+        # validation as a human-created todo — relative in-app path only.
+        load_registry(grants=["core.todos.write"])
+        bridge = ExtensionTodos(KEY)
+        todo = await bridge.create(description="review the plan", link="/ext/some-page?x=1")
+        assert todo.link == "/ext/some-page?x=1"
+
+        moved = await bridge.update(todo.id, link="/ext/some-page?x=2")
+        assert moved.link == "/ext/some-page?x=2"
+
+    async def test_link_refuses_absolute_and_protocol_relative_urls(self, db, env):
+        # An extension must not turn someone's Open button into an off-site
+        # jump — external references belong on external_url.
+        load_registry(grants=["core.todos.write"])
+        bridge = ExtensionTodos(KEY)
+        with pytest.raises(ExtensionDataError):
+            await bridge.create(description="bad", link="https://evil.example/x")
+        with pytest.raises(ExtensionDataError):
+            await bridge.create(description="bad", link="//evil.example/x")
+
+    async def test_system_todo_still_refuses_link(self, db, env):
+        # The mirror carve-out stays external_ref/external_url ONLY: a system
+        # todo's link points at the core page that completes it, and
+        # redirecting that is exactly what the carve-out exists to prevent.
+        load_registry(grants=["core.todos.write"])
+        db.add(Todo(description="sign the ADR", is_system=True, link="/adr/1"))
+        await db.flush()
+        system = (await db.execute(select(Todo).where(Todo.is_system.is_(True)))).scalar_one()
+        bridge = ExtensionTodos(KEY)
+        with pytest.raises(ExtensionDataError):
+            await bridge.update(str(system.id), link="/ext/elsewhere")
+
     async def test_update_own_row_and_complete(self, db, env):
         load_registry(grants=["core.todos.write"])
         bridge = ExtensionTodos(KEY)
