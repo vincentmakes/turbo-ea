@@ -48,6 +48,7 @@ import PpmWbsDialog from "./PpmWbsDialog";
 import PpmTaskDialog from "./PpmTaskDialog";
 import type { PpmDependency, PpmWbs, PpmTask, PpmTaskStatus } from "@/types";
 import { startOfLocalDay, toIsoDate, toLocalDate } from "@/lib/dates";
+import { buildGanttArrowPath } from "./ganttArrowPath";
 
 /** Bar colors per task status — reuses the standard palette from PpmTaskBoard. */
 const TASK_STATUS_BAR_COLORS: Record<
@@ -1723,114 +1724,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     return out;
   }, [dependencies, arrowTick, portalTarget]);
 
-  /** Build the SVG path for one arrow.  Coordinates are already overlay-local.
-   *
-   *  When `clickSafe` is true we return a "click target" variant of the
-   *  same shape that stays clear of both bars' relation-circle handles
-   *  (which sit at `bar.right + 10` / `bar.left - 10`). Without that
-   *  clear zone, our 12 px wide transparent click stroke covers the
-   *  hover region for the lib's `:hover` rule that toggles the dots
-   *  from opacity 0 → 1, so once a bar has any outgoing dependency the
-   *  dot is hidden + ungrabbable and the user can't pull a second arrow
-   *  out of it. Routing decisions still use the original endpoints so
-   *  visible and clickable paths follow the exact same shape. */
-  const buildArrowPath = useCallback(
-    (
-      fromX: number,
-      fromY: number,
-      toX: number,
-      toY: number,
-      clickSafe = false,
-    ): string => {
-      const RADIUS = 6;
-      const STUB = 14; // horizontal exit/entry length for loop-back routing
-      const DETOUR_PAD = 18; // gap between detour line and bars
-      const SAFE = 18; // clear zone in px around each bar's relation handle
-
-      // Same row → one straight segment. Inset both ends linearly.
-      if (Math.abs(toY - fromY) < 1) {
-        const sx = clickSafe ? fromX + SAFE : fromX;
-        const ex = clickSafe ? toX - SAFE : toX;
-        return `M ${sx} ${fromY} H ${ex}`;
-      }
-
-      const vDir = toY > fromY ? 1 : -1; // +1 down, -1 up
-
-      // Forward routing — clean 3-segment H/V/H with 2 rounded corners
-      if (toX > fromX + 2 * RADIUS) {
-        const midX = (fromX + toX) / 2;
-        const r = Math.min(
-          RADIUS,
-          (toX - fromX) / 4,
-          Math.abs(toY - fromY) / 2,
-        );
-        // Cap inset so the click M never crosses past the first arc /
-        // the click H never crosses past the last arc — otherwise the
-        // segment would double back over the bar's edge.
-        const sx = clickSafe ? Math.min(fromX + SAFE, midX - r) : fromX;
-        const ex = clickSafe ? Math.max(toX - SAFE, midX + r) : toX;
-        if (r < 1) {
-          return `M ${sx} ${fromY} H ${midX} V ${toY} H ${ex}`;
-        }
-        // sweep flags: R→D=1, D→R=0; flip both for vDir=-1
-        const s1 = vDir > 0 ? 1 : 0;
-        const s2 = vDir > 0 ? 0 : 1;
-        return [
-          `M ${sx} ${fromY}`,
-          `H ${midX - r}`,
-          `A ${r} ${r} 0 0 ${s1} ${midX} ${fromY + vDir * r}`,
-          `V ${toY - vDir * r}`,
-          `A ${r} ${r} 0 0 ${s2} ${midX + r} ${toY}`,
-          `H ${ex}`,
-        ].join(" ");
-      }
-
-      // Loop-back — exit right, drop past source row, run LEFT past both
-      // bars, drop to target row, re-enter target.
-      const r = RADIUS;
-      const exitX = fromX + STUB;
-      const turnY = fromY + vDir * STUB;
-      const detourX = Math.min(fromX, toX) - DETOUR_PAD;
-      // Sweep flags by direction:
-      //   vDir +1 (down):  R→D=1, D→L=1, L→D=0, D→R=0
-      //   vDir -1 (up):    R→U=0, U→L=0, L→U=1, U→R=1
-      const s1 = vDir > 0 ? 1 : 0;
-      const s2 = vDir > 0 ? 1 : 0;
-      const s3 = vDir > 0 ? 0 : 1;
-      const s4 = vDir > 0 ? 0 : 1;
-      const ex = clickSafe ? toX - SAFE : toX;
-      // For the click path in loop-back routing we skip the first three
-      // segments (H exit → arc down → V) entirely. Those segments hug the
-      // source bar's row (only ~6 px below the bar centre) and any click
-      // stroke covering them would still overlap the source's right
-      // relation handle. Starting the click path at the END of the second
-      // arc — where the path begins running LEFT under both bars — keeps
-      // the bar's hover region completely clear.
-      if (clickSafe) {
-        return [
-          `M ${exitX - r} ${turnY}`,
-          `H ${detourX + r}`,
-          `A ${r} ${r} 0 0 ${s3} ${detourX} ${turnY + vDir * r}`,
-          `V ${toY - vDir * r}`,
-          `A ${r} ${r} 0 0 ${s4} ${detourX + r} ${toY}`,
-          `H ${ex}`,
-        ].join(" ");
-      }
-      return [
-        `M ${fromX} ${fromY}`,
-        `H ${exitX - r}`,
-        `A ${r} ${r} 0 0 ${s1} ${exitX} ${fromY + vDir * r}`,
-        `V ${turnY - vDir * r}`,
-        `A ${r} ${r} 0 0 ${s2} ${exitX - r} ${turnY}`,
-        `H ${detourX + r}`,
-        `A ${r} ${r} 0 0 ${s3} ${detourX} ${turnY + vDir * r}`,
-        `V ${toY - vDir * r}`,
-        `A ${r} ${r} 0 0 ${s4} ${detourX + r} ${toY}`,
-        `H ${ex}`,
-      ].join(" ");
-    },
-    [],
-  );
 
   /** Click handler for arrows: confirm + delete. */
   const handleArrowClick = useCallback(
@@ -2161,7 +2054,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           createPortal(
             <DependencyArrowOverlay
               arrows={arrowGeometry}
-              buildPath={buildArrowPath}
+              buildPath={buildGanttArrowPath}
               onClick={handleArrowClick}
               color={
                 theme.palette.mode === "dark"

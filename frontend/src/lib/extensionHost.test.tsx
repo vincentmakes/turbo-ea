@@ -97,6 +97,11 @@ describe("extensionHost", () => {
     expect(sdk.FilterCheckboxList).toBeDefined();
     expect(sdk.ColumnFreezeToggle).toBeDefined();
     expect(typeof sdk.loadReportExport).toBe("function");
+    // 1.25 — the card-detail lifecycle line plus gantt arrow routing.
+    expect(sdk.LifecycleSection).toBeTruthy();
+    expect(sdk.PHASES).toEqual(["plan", "phaseIn", "active", "phaseOut", "endOfLife"]);
+    expect(typeof sdk.getPhaseLabels).toBe("function");
+    expect(typeof sdk.buildGanttArrowPath).toBe("function");
   });
 
   it("loadReportExport resolves core's own report exporters", async () => {
@@ -443,7 +448,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.24");
+    expect(UI_SDK_VERSION).toBe("1.25");
   });
 
   it("whitelists the nav groups an extension route may request", () => {

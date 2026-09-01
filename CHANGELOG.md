@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.115.0] - 2026-09-01
+
+### Added
+
+- **The card-detail lifecycle line and the gantt's dependency-arrow routing are now on the extension UI SDK (1.25).** An extension can render a card's five lifecycle phases exactly as core does — including the edit mode, committing through its own writer via `onSave` — and can draw a finish-to-start arrow with the same three-case routing the project gantt uses, rather than a second convention that drifts. `LifecycleSection` gains an optional `phaseAnnotation` prop so a caller that knows something the component cannot (that a date differs from a baseline it tracks, say) can mark a phase and hang its own control under it.
+
+### Changed
+
+- Gantt dependency-arrow routing moved out of the project-gantt component into a pure module, and now has unit tests covering all three routings and the click-safe hit path it produces. No visual change to the project gantt.
+- `PHASES` and `getPhaseLabels` moved to a leaf module; `cardDetailUtils` re-exports them, so every existing import is unchanged.
+
 ## [2.114.0] - 2026-09-01
 
 ### Added

@@ -318,7 +318,10 @@ export function CardIdPill({
 }
 
 // ── Lifecycle Phase Labels ──────────────────────────────────────
-export const PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
+// `PHASES` / `getPhaseLabels` moved to the leaf `@/lib/lifecyclePhases` so the
+// extension host can re-export them without importing this module, which
+// imports the host. Re-exported here so every existing call site is unchanged.
+export { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 export const PHASE_LABELS: Record<string, string> = {
   plan: "Plan",
   phaseIn: "Phase In",
@@ -326,15 +329,6 @@ export const PHASE_LABELS: Record<string, string> = {
   phaseOut: "Phase Out",
   endOfLife: "End of Life",
 };
-export function getPhaseLabels(t: (key: string) => string): Record<string, string> {
-  return {
-    plan: t("common:lifecycle.plan"),
-    phaseIn: t("common:lifecycle.phaseIn"),
-    active: t("common:lifecycle.active"),
-    phaseOut: t("common:lifecycle.phaseOut"),
-    endOfLife: t("common:lifecycle.endOfLife"),
-  };
-}
 
 // ── Safe string coercion (never returns an object/array) ────────
 export function safeString(value: unknown): string {

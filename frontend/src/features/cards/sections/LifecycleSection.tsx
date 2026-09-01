@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { PHASE_ICONS } from "@/components/LifecycleBadge";
-import { PHASES, getPhaseLabels } from "@/features/cards/sections/cardDetailUtils";
+import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { todayIsoDate } from "@/lib/dates";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
@@ -25,6 +25,14 @@ const PHASE_PALETTE: Record<string, string> = {
   endOfLife: "#c62828",
 };
 
+/** What a caller wants said about one phase, beyond its date. */
+export type PhaseAnnotation = {
+  /** Rendered under the phase, in both the timeline and the edit row. */
+  note?: React.ReactNode;
+  /** Marks the phase as differing from some baseline the caller knows about. */
+  highlighted?: boolean;
+};
+
 // ── Section: Lifecycle ──────────────────────────────────────────
 function LifecycleSection({
   card,
@@ -32,12 +40,20 @@ function LifecycleSection({
   canEdit = true,
   initialExpanded = true,
   onDirtyChange,
+  phaseAnnotation,
 }: {
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   canEdit?: boolean;
   initialExpanded?: boolean;
   onDirtyChange?: (dirty: boolean) => void;
+  /**
+   * Optional per-phase annotation. A caller that knows something this
+   * component cannot — that a date differs from a stored baseline, say —
+   * marks the phase and hangs its own control under it. Deliberately generic:
+   * the component renders what it is given and knows nothing about why.
+   */
+  phaseAnnotation?: (phase: string) => PhaseAnnotation | null | undefined;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const theme = useTheme();
@@ -194,6 +210,7 @@ function LifecycleSection({
               const iconColor = isReached
                 ? "#fff"
                 : theme.palette.text.disabled;
+              const annotation = phaseAnnotation?.(phase);
               return (
                 <Box
                   key={phase}
@@ -240,11 +257,15 @@ function LifecycleSection({
                   </Typography>
                   <Typography
                     variant="caption"
-                    color="text.secondary"
-                    sx={{ fontSize: "0.7rem" }}
+                    color={annotation?.highlighted ? "primary.main" : "text.secondary"}
+                    sx={{
+                      fontSize: "0.7rem",
+                      fontWeight: annotation?.highlighted ? 700 : undefined,
+                    }}
                   >
                     {date ? formatDate(date) : "—"}
                   </Typography>
+                  {annotation?.note}
                 </Box>
               );
             })}
@@ -253,18 +274,33 @@ function LifecycleSection({
         {editing && (
           <Box>
             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
-              {PHASES.map((phase) => (
-                <DateField
-                  key={phase}
-                  label={phaseLabels[phase]}
-                  size="small"
-                  value={lifecycle[phase] || ""}
-                  onChange={(v) =>
-                    setLifecycle({ ...lifecycle, [phase]: v })
-                  }
-                  sx={{ width: 170 }}
-                />
-              ))}
+              {PHASES.map((phase) => {
+                const annotation = phaseAnnotation?.(phase);
+                return (
+                  <Box key={phase}>
+                    <DateField
+                      label={phaseLabels[phase]}
+                      size="small"
+                      value={lifecycle[phase] || ""}
+                      onChange={(v) =>
+                        setLifecycle({ ...lifecycle, [phase]: v })
+                      }
+                      sx={{
+                        width: 170,
+                        ...(annotation?.highlighted
+                          ? {
+                              "& .MuiOutlinedInput-notchedOutline": {
+                                borderColor: "primary.main",
+                              },
+                              "& .MuiInputLabel-root": { color: "primary.main" },
+                            }
+                          : null),
+                      }}
+                    />
+                    {annotation?.note}
+                  </Box>
+                );
+              })}
             </Box>
             <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
               <Button

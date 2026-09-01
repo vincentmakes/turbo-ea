@@ -127,9 +127,21 @@ import DateField from "@/components/DateField";
 // code-split graph is dragged into the eager bundle and no cycle back here.
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import { FilterCheckboxList, FilterSectionHeader } from "@/components/FilterSidebarSection";
+// SDK 1.25 — the card-detail lifecycle line, and gantt dependency-arrow
+// routing. `LifecycleSection` is props-driven (it commits through an `onSave`
+// callback and makes no API call of its own), so an extension can render a
+// card's phases exactly as core does and wire the save to its own writer. It
+// takes `PHASES`/`getPhaseLabels` from the leaf `@/lib/lifecyclePhases`
+// rather than `cardDetailUtils`, which imports THIS module — a static import
+// of the section is only safe because of that lift. `buildGanttArrowPath` is
+// pure geometry, so a finish-to-start arrow drawn by an extension is the same
+// shape as one drawn by the PPM gantt instead of a second convention.
+import LifecycleSection from "@/features/cards/sections/LifecycleSection";
+import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
+import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.24";
+export const UI_SDK_VERSION = "1.25";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -973,6 +985,10 @@ export function initExtensionHost(): void {
       useNavigate,
       // SDK 1.23 — the shared native date input (see the import note above).
       DateField,
+      LifecycleSection,
+      PHASES,
+      getPhaseLabels,
+      buildGanttArrowPath,
       loadRecharts: () => import("recharts"),
       // SDK 1.9 — theme-aware Recharts chrome (grid/axis/tooltip), the same
       // conventions core reports use, so extension charts cannot drift from
