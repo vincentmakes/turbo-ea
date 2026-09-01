@@ -156,7 +156,7 @@ Beziehungstypen definieren die zulässigen Verbindungen zwischen Kartentypen. Je
 
 | Feld | Beschreibung |
 |------|-------------|
-| **Schlüssel** | Eindeutiger Bezeichner |
+| **Schlüssel** | Eindeutiger Bezeichner — wird aus Ihrem Verb vorgeschlagen, ist beim Anlegen noch änderbar und danach fest |
 | **Bezeichnung** | Bezeichnung der Vorwärtsrichtung (z.B. «nutzt») |
 | **Umgekehrte Bezeichnung** | Bezeichnung der Rückwärtsrichtung (z.B. «wird genutzt von») |
 | **Quelltyp** | Der Kartentyp auf der «Von»-Seite |
@@ -173,7 +173,7 @@ Mit **Übersetzungen verwalten** oben im Reiter Beziehungstypen übersetzen Sie 
 
 Manche Beziehungen tragen zusätzliche Attribute, die Sie an jeder einzelnen Verknüpfung statt am Beziehungstyp festlegen. Beispielsweise hat die integrierte Beziehung **Organisation → Anwendung** („nutzt") ein Attribut **Nutzungstyp** — setzen Sie es je Verknüpfung auf **Eigentümer**, **Benutzer** oder **Stakeholder**. So können Sie eine Anwendung, die einer Organisation *gehört* und von anderen *genutzt* wird, über einen einzigen Beziehungstyp abbilden. Der gewählte Wert erscheint als farbiger Chip im Abschnitt **Beziehungen** der Karte; legen Sie ihn beim Hinzufügen der Beziehung fest oder später über das Bearbeiten-Symbol in der Beziehungszeile.
 
-Sie können auch **mehrere Beziehungstypen zwischen demselben Paar von Kartentypen** anlegen — etwa eine Organisation, die eine Anwendung *besitzt*, neben einer, die sie *nutzt*. Bevorzugen Sie ein Attribut, wenn Sie Varianten einer einzigen Beziehung beschreiben (das behält eine Spalte im Inventar und eine Linie im Diagramm); legen Sie einen zweiten Beziehungstyp an, wenn die Beziehungen wirklich verschieden sind und eigene Verben, eigene Attribute oder eigene Filter verdienen. Trägt ein Paar mehrere Beziehungstypen, zeigt das Inventar weiterhin eine einzige Spalte für den verbundenen Kartentyp; beim Öffnen dieser Zelle erhalten Sie je Beziehungstyp einen eigenen Abschnitt.
+Sie können auch **mehrere Beziehungstypen zwischen demselben Paar von Kartentypen** anlegen — etwa eine Organisation, die eine Anwendung *besitzt*, neben einer, die sie *nutzt*. Bevorzugen Sie ein Attribut, wenn Sie Varianten einer einzigen Beziehung beschreiben (das behält eine Spalte im Inventar und eine Linie im Diagramm); legen Sie einen zweiten Beziehungstyp an, wenn die Beziehungen wirklich verschieden sind und eigene Verben, eigene Attribute oder eigene Filter verdienen. Trägt ein Paar mehrere Beziehungstypen, zeigt das Inventar weiterhin eine einzige Spalte für den verbundenen Kartentyp; beim Öffnen dieser Zelle erhalten Sie je Beziehungstyp einen eigenen Abschnitt. Auf einer Karte behält jeder Beziehungstyp seinen eigenen Abschnitt: Abschnitte, die auf denselben Kartentyp zeigen, stehen beieinander, und eine Karte, die Sie über mehr als einen davon verknüpft haben, wird in jedem ihrer Abschnitte mit *Auch …* gekennzeichnet.
 
 Trägt ein Paar mehrere Beziehungstypen, können Berichte, Portale und Umfragen einen bestimmten auswählen: Der Portfolio-Bericht bietet eine Gruppierungsachse und einen Filter je Beziehung, die Capability Map einen Filter je Beziehung, Portalfilter und Beziehungsabschnitte werden mit ihrem Verb beschriftet, und der Filter **bezogen auf** einer Umfrage erhält eine Auswahl **Über Beziehung**. Keine Auswahl bedeutet weiterhin „über eine beliebige davon verbunden“.
 

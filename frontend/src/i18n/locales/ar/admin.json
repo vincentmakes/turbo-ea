@@ -87,6 +87,7 @@
   "metamodel.createRelationType": "إنشاء نوع علاقة",
   "metamodel.relationSaveFailed": "فشل حفظ نوع العلاقة",
   "metamodel.relPairExistsWarning": "هذا الزوج من أنواع البطاقات مرتبط بالفعل عبر: {{relations}}. هذا مسموح به، ولكن إذا كنت تصف صيغة أخرى من العلاقة نفسها، فعادةً ما تكون إضافة سمة إلى نوع العلاقة الحالي هي الخيار الأفضل.",
+  "metamodel.relKeyGeneratedHint": "يُنشأ من الفعل. لا يمكن تغييره بعد الإنشاء.",
   "metamodel.sourceType": "نوع المصدر",
   "metamodel.targetType": "نوع الهدف",
   "metamodel.labelVerb": "التسمية (فعل، مثل «يستخدم»)",

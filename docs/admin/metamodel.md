@@ -158,7 +158,7 @@ Relation types define the allowed connections between card types. Each relation 
 
 | Field | Description |
 |-------|-------------|
-| **Key** | Unique identifier |
+| **Key** | Unique identifier — suggested from your verb, editable while you create the relation type, and fixed once it exists |
 | **Label** | Forward direction label (e.g., "uses") |
 | **Reverse Label** | Backward direction label (e.g., "is used by") |
 | **Source Type** | The card type on the "from" side |
@@ -175,7 +175,7 @@ Use **Manage Translations** at the top of the Relation Types tab to translate ev
 
 Some relations carry extra attributes that you set on each individual link rather than on the relation type. For example, the built-in **Organization → Application** relation ("uses") has a **Usage Type** attribute — set it to **Owner**, **User**, or **Stakeholder** on each link. This lets you model an application that is *owned by* one Organization and *used by* others through a single relation type. The chosen value appears as a coloured chip in the card's **Relations** section; set it when adding the relation, or later via the edit icon on the relation row.
 
-You can also create **several relation types between the same pair of card types** — for example an Organization that *owns* an application alongside one that *uses* it. Prefer an attribute when you are describing variants of a single relationship (it keeps one column in the inventory and one line on a diagram); create a second relation type when the relationships are genuinely different and deserve their own verbs, their own attributes, or their own filters. When a pair carries more than one relation type, the inventory still shows a single column for the related card type, and opening that cell gives you one section per relation type.
+You can also create **several relation types between the same pair of card types** — for example an Organization that *owns* an application alongside one that *uses* it. Prefer an attribute when you are describing variants of a single relationship (it keeps one column in the inventory and one line on a diagram); create a second relation type when the relationships are genuinely different and deserve their own verbs, their own attributes, or their own filters. When a pair carries more than one relation type, the inventory still shows a single column for the related card type, and opening that cell gives you one section per relation type. On a card, each relation type keeps its own section: sections pointing at the same card type are shown together, and a card you have linked through more than one of them is marked *Also …* in each of its sections.
 
 When a pair carries more than one relation type, reports, portals and surveys can target a specific one: the Portfolio report offers a group-by axis and a filter per relationship, the Capability Map adds a filter per relationship, portal filters and relation sections are labelled with their verb, and a survey's **related to** filter gains a **Via relation** picker. Choosing nothing still means “related through any of them”.
 

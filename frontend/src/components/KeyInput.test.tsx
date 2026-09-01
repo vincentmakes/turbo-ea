@@ -157,4 +157,21 @@ describe("KeyInput component", () => {
     render(<KeyInput value="" onChange={vi.fn()} required locked label="Key" />);
     expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "false");
   });
+
+  it("shows the caller's hint instead of the generic character-set one", () => {
+    // A derived key needs to say it was generated; the generic hint does not.
+    render(<KeyInput value="relOrgToAppOwns" onChange={vi.fn()} hint="Generated from the verb." />);
+    expect(screen.getByText("Generated from the verb.")).toBeDefined();
+    expect(screen.queryByText(/key\.hint/)).toBeNull();
+  });
+
+  it("keeps the locked reason ahead of the hint", () => {
+    // Locked wins: a field that cannot be edited must not advertise how its
+    // value would be derived.
+    render(
+      <KeyInput value="relOrgToApp" onChange={vi.fn()} hint="Generated." locked lockedReason="Fixed." />,
+    );
+    expect(screen.getByText("Fixed.")).toBeDefined();
+    expect(screen.queryByText("Generated.")).toBeNull();
+  });
 });

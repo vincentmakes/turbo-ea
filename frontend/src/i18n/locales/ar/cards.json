@@ -124,6 +124,7 @@
   "relations.add": "إضافة علاقة",
   "relations.empty": "لا توجد علاقات بعد.",
   "relations.unknown": "غير معروف",
+  "relations.alsoLinked": "أيضًا {{verbs}}",
   "relations.relationType": "نوع العلاقة",
   "relations.search": "البحث في {{type}}",
   "relations.createNew": "إنشاء {{type}} جديد",

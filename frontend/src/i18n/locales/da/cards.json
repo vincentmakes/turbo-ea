@@ -124,6 +124,7 @@
   "relations.add": "Tilføj relation",
   "relations.empty": "Ingen relationer endnu.",
   "relations.unknown": "Ukendt",
+  "relations.alsoLinked": "Også {{verbs}}",
   "relations.relationType": "Relationstype",
   "relations.search": "Søg {{type}}",
   "relations.createNew": "Opret ny {{type}}",

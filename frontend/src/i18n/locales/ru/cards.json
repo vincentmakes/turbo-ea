@@ -124,6 +124,7 @@
   "relations.add": "Добавить связь",
   "relations.empty": "Связей пока нет.",
   "relations.unknown": "Неизвестно",
+  "relations.alsoLinked": "Также {{verbs}}",
   "relations.relationType": "Тип связи",
   "relations.search": "Поиск {{type}}",
   "relations.createNew": "Создать новый {{type}}",

@@ -49,9 +49,17 @@ import {
   sortRelationsByName,
   type SubtypeBucket,
 } from "./cardDetailUtils";
+import { orderRelationTypesByOtherEnd, otherEnd } from "@/lib/relationSort";
 import { successorRelationKeys } from "@/lib/successorRelation";
 
 /* ── helpers ────────────────────────────────────────────────── */
+
+/**
+ * Related card id → every relation type linking it to the card under view,
+ * with the verb read from this card's side. Only cards linked by MORE THAN
+ * ONE type appear — see `multiLinked` below.
+ */
+type MultiLinkedMap = Map<string, { key: string; verb: string }[]>;
 
 /** Determine visibility/mandatory from the perspective of the current card type. */
 function sideFlags(rt: RelationType, cardTypeKey: string) {
@@ -156,6 +164,7 @@ function RelationGroup({
   onRequestAdd,
   onRelationUpdated,
   rollupCount = 0,
+  multiLinked,
 }: {
   rt: RelationType;
   isSource: boolean;
@@ -169,6 +178,8 @@ function RelationGroup({
   onRelationUpdated: (updated: Relation) => void;
   /** Cards reachable only through descendants (#863). 0 hides the chip. */
   rollupCount?: number;
+  /** Cards reached through several relation types (see `multiLinked`). */
+  multiLinked?: MultiLinkedMap;
 }) {
   const { t, i18n } = useTranslation(["cards", "common"]);
   const rl = useResolveLabel();
@@ -271,6 +282,16 @@ function RelationGroup({
   const renderRow = (r: Relation) => {
     const other = r.source_id === fsId ? r.target : r.source;
     const oType = getType(other?.type ?? "");
+    // Several relation types may connect the same two cards, and each one is
+    // its own group — so without this the two rows for one card read as two
+    // unrelated cards under two near-identical headers. Verbs joined with
+    // " / ", the convention `mergeRelLabel` documents for a merged edge.
+    const alsoVerbs = other
+      ? (multiLinked?.get(other.id) ?? [])
+          .filter((e) => e.key !== rt.key)
+          .map((e) => e.verb)
+          .join(" / ")
+      : "";
     const attrs = r.attributes as RelationAttributes | undefined;
     const flowBadge = flowDirectionBadge(rt, attrs);
     // Generic value badges for non-directional single-selects (e.g. usageType,
@@ -344,6 +365,16 @@ function RelationGroup({
           {oType && <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: oType.color, flexShrink: 0 }} />}
           <ListItemText primary={other?.name || t("relations.unknown")} />
         </Box>
+        {alsoVerbs && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            noWrap
+            sx={{ ml: 1, minWidth: 0 }}
+          >
+            {t("relations.alsoLinked", { verbs: alsoVerbs })}
+          </Typography>
+        )}
       </ListItem>
     );
   };
@@ -742,19 +773,52 @@ function RelationsSection({
   // not every key that happens to end in "Successor" — any other self-pair type is
   // an ordinary relation and belongs here.
   const successorKeys = useMemo(() => successorRelationKeys(relationTypes), [relationTypes]);
+  // Ordered so every group pointing at the same card type is contiguous:
+  // several relation types may share an ordered pair (an Organization that
+  // *owns* an Application and one that *uses* it) and `sort_order` is flat, so
+  // otherwise the two groups for one pair can land at opposite ends of the
+  // section. Sorting here is what fixes all three consumers below — the
+  // displayed groups, the hidden-but-populated block, and the Add menu.
   const relevantRTs = useMemo(
     () =>
-      relationTypes.filter(
-        (rt) =>
-          !rt.is_hidden &&
-          !successorKeys.has(rt.key) &&
-          (rt.source_type_key === cardTypeKey || rt.target_type_key === cardTypeKey) &&
-          visibleTypeKeys.has(
-            rt.source_type_key === cardTypeKey ? rt.target_type_key : rt.source_type_key,
-          ),
+      orderRelationTypesByOtherEnd(
+        relationTypes.filter(
+          (rt) =>
+            !rt.is_hidden &&
+            !successorKeys.has(rt.key) &&
+            (rt.source_type_key === cardTypeKey || rt.target_type_key === cardTypeKey) &&
+            visibleTypeKeys.has(
+              rt.source_type_key === cardTypeKey ? rt.target_type_key : rt.source_type_key,
+            ),
+        ),
+        cardTypeKey,
       ),
     [relationTypes, successorKeys, cardTypeKey, visibleTypeKeys],
   );
+
+  // Cards this card reaches through MORE THAN ONE relation type. Each type is
+  // its own group, so adjacency alone does not tell the reader that the CRM
+  // under "owns" and the CRM under "uses" are the same card — the row caption
+  // does. Direction is read per row (`r.source_id === fsId`), never off the
+  // type's static side flag, or a self-referencing type labels the wrong verb.
+  const multiLinked = useMemo<MultiLinkedMap>(() => {
+    // Keyed off `relevantRTs`, not every relation type: a caption must only
+    // ever name a verb the reader can actually go and look at, and those are
+    // exactly the types that get a group.
+    const byKey = new Map(relevantRTs.map((rt) => [rt.key, rt]));
+    const byCard: MultiLinkedMap = new Map();
+    for (const r of relations) {
+      const other = otherEnd(r, fsId);
+      const rt = byKey.get(r.type);
+      if (!other || !rt) continue;
+      const entry = { key: rt.key, verb: relLabel(rt, r.source_id !== fsId) };
+      const list = byCard.get(other.id);
+      if (!list) byCard.set(other.id, [entry]);
+      else if (!list.some((e) => e.key === entry.key)) list.push(entry);
+    }
+    for (const [id, list] of byCard) if (list.length < 2) byCard.delete(id);
+    return byCard;
+  }, [relations, relevantRTs, fsId, relLabel]);
 
   // Displayed relation type groups: visible=true OR mandatory=true
   const displayedGroups = useMemo(() => {
@@ -818,6 +882,7 @@ function RelationsSection({
             onRequestAdd={() => openAddDialog(rt)}
             onRelationUpdated={handleRelationUpdated}
             rollupCount={rollup[rt.key] ?? 0}
+            multiLinked={multiLinked}
           />
         ))}
 
@@ -843,6 +908,7 @@ function RelationsSection({
                 onReload={reloadAll}
                 onRequestAdd={() => openAddDialog(rt)}
                 onRelationUpdated={handleRelationUpdated}
+                multiLinked={multiLinked}
               />
             );
           })}

@@ -87,6 +87,7 @@
   "metamodel.createRelationType": "Создать тип связи",
   "metamodel.relationSaveFailed": "Не удалось сохранить тип связи",
   "metamodel.relPairExistsWarning": "Эта пара типов карточек уже связана: {{relations}}. Это допустимо, но если вы описываете вариант той же связи, обычно лучше добавить атрибут к существующему типу связи.",
+  "metamodel.relKeyGeneratedHint": "Формируется из глагола. После создания изменить нельзя.",
   "metamodel.sourceType": "Тип источника",
   "metamodel.targetType": "Тип цели",
   "metamodel.labelVerb": "Метка (глагол, напр. «использует»)",

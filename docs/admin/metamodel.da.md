@@ -156,7 +156,7 @@ Relationstyper definerer de tilladte forbindelser mellem korttyper. Hver relatio
 
 | Felt | Beskrivelse |
 |-------|-------------|
-| **Nøgle** | Unik identifikator |
+| **Nøgle** | Unik identifikator — foreslås ud fra dit verbum, kan redigeres under oprettelsen og ligger fast bagefter |
 | **Etiket** | Etiket for fremadrettet retning (f.eks. "bruger") |
 | **Omvendt etiket** | Etiket for baglæns retning (f.eks. "bruges af") |
 | **Kildetype** | Korttypen på "fra"-siden |
@@ -173,7 +173,7 @@ Brug **Administrér oversættelser** øverst på fanen Relationstyper til at ove
 
 Nogle relationer bærer ekstra egenskaber, som du angiver på hvert enkelt link i stedet for på relationstypen. For eksempel har den indbyggede relation **Organisation → Applikation** (»bruger«) en **Brugstype**-egenskab — angiv den til **Ejer**, **Bruger** eller **Interessent** på hvert link. Dermed kan du modellere en applikation, der *ejes af* én organisation og *bruges af* andre, via en enkelt relationstype. Den valgte værdi vises som en farvet chip i kortets **Relationer**-sektion; angiv den, når du tilføjer relationen, eller senere via redigeringsikonet på relationsrækken.
 
-Du kan også oprette **flere relationstyper mellem det samme par af korttyper** — for eksempel en organisation, der *ejer* en applikation, ved siden af en, der *bruger* den. Foretræk en egenskab, når du beskriver varianter af én og samme relation (det bevarer én kolonne i inventaret og én linje på et diagram); opret en anden relationstype, når relationerne reelt er forskellige og fortjener deres egne verber, egne egenskaber eller egne filtre. Når et par bærer mere end én relationstype, viser inventaret stadig én kolonne for den relaterede korttype, og når du åbner den celle, får du et afsnit per relationstype.
+Du kan også oprette **flere relationstyper mellem det samme par af korttyper** — for eksempel en organisation, der *ejer* en applikation, ved siden af en, der *bruger* den. Foretræk en egenskab, når du beskriver varianter af én og samme relation (det bevarer én kolonne i inventaret og én linje på et diagram); opret en anden relationstype, når relationerne reelt er forskellige og fortjener deres egne verber, egne egenskaber eller egne filtre. Når et par bærer mere end én relationstype, viser inventaret stadig én kolonne for den relaterede korttype, og når du åbner den celle, får du et afsnit per relationstype. På et kort beholder hver relationstype sit eget afsnit: afsnit, der peger på den samme korttype, vises sammen, og et kort, du har knyttet via mere end én af dem, er markeret med *Også …* i hvert af sine afsnit.
 
 Når et par bærer mere end én relationstype, kan rapporter, portaler og undersøgelser målrette en bestemt: Porteføljerapporten tilbyder en grupperingsakse og et filter pr. relation, Kapabilitetskortet tilføjer et filter pr. relation, portalens filtre og relationsafsnit mærkes med deres verbum, og en undersøgelses **relateret til**-filter får en **Via relation**-vælger. At vælge intet betyder fortsat „relateret via en hvilken som helst af dem“.
 

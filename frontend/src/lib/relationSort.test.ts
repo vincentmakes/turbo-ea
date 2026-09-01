@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import type { Relation } from "@/types";
-import { otherEnd, sortRelationsByName } from "./relationSort";
+import {
+  orderRelationTypesByOtherEnd,
+  otherEnd,
+  sortRelationsByName,
+} from "./relationSort";
 
 const FS = "fs-1";
 
@@ -111,5 +115,96 @@ describe("sortRelationsByName", () => {
     const rels = [outgoing("1", "Zeta"), outgoing("2", "Alpha")];
     sortRelationsByName(rels, FS);
     expect(rels.map((r) => r.target?.name)).toEqual(["Zeta", "Alpha"]);
+  });
+});
+
+describe("orderRelationTypesByOtherEnd", () => {
+  const rt = (key: string, source_type_key: string, target_type_key: string) => ({
+    key,
+    source_type_key,
+    target_type_key,
+  });
+
+  it("pulls a second type on the same pair up next to the first", () => {
+    const ordered = orderRelationTypesByOtherEnd(
+      [
+        rt("relOrgToApp", "Organization", "Application"),
+        rt("relOrgToObj", "Organization", "Objective"),
+        rt("relOrgToAppOwns", "Organization", "Application"),
+      ],
+      "Organization",
+    );
+    expect(ordered.map((r) => r.key)).toEqual([
+      "relOrgToApp",
+      "relOrgToAppOwns",
+      "relOrgToObj",
+    ]);
+  });
+
+  it("anchors each run on its FIRST appearance, so no run jumps ahead", () => {
+    // relOrgToObj came first in the metamodel and stays first; only the
+    // stragglers move, and only far enough to join their own run.
+    const ordered = orderRelationTypesByOtherEnd(
+      [
+        rt("relOrgToObj", "Organization", "Objective"),
+        rt("relOrgToApp", "Organization", "Application"),
+        rt("relOrgToObj2", "Organization", "Objective"),
+      ],
+      "Organization",
+    );
+    expect(ordered.map((r) => r.key)).toEqual([
+      "relOrgToObj",
+      "relOrgToObj2",
+      "relOrgToApp",
+    ]);
+  });
+
+  it("groups an incoming type with an outgoing one on the same card type", () => {
+    // Both describe the card's relationship to an Application, so they read
+    // together whichever way the metamodel declared them.
+    const ordered = orderRelationTypesByOtherEnd(
+      [
+        rt("relOrgToApp", "Organization", "Application"),
+        rt("relOrgToObj", "Organization", "Objective"),
+        rt("relAppToOrg", "Application", "Organization"),
+      ],
+      "Organization",
+    );
+    expect(ordered.map((r) => r.key)).toEqual([
+      "relOrgToApp",
+      "relAppToOrg",
+      "relOrgToObj",
+    ]);
+  });
+
+  it("keeps a self-referencing type in one run", () => {
+    const ordered = orderRelationTypesByOtherEnd(
+      [
+        rt("relAppDependency", "Application", "Application"),
+        rt("relAppToOrg", "Application", "Organization"),
+        rt("relAppIntegration", "Application", "Application"),
+      ],
+      "Application",
+    );
+    expect(ordered.map((r) => r.key)).toEqual([
+      "relAppDependency",
+      "relAppIntegration",
+      "relAppToOrg",
+    ]);
+  });
+
+  it("leaves an already-contiguous list byte-for-byte alone", () => {
+    const input = [
+      rt("relOrgToApp", "Organization", "Application"),
+      rt("relOrgToObj", "Organization", "Objective"),
+    ];
+    expect(orderRelationTypesByOtherEnd(input, "Organization").map((r) => r.key)).toEqual([
+      "relOrgToApp",
+      "relOrgToObj",
+    ]);
+  });
+
+  it("returns an empty array unchanged", () => {
+    expect(orderRelationTypesByOtherEnd([], "Organization")).toEqual([]);
   });
 });

@@ -124,6 +124,7 @@
   "relations.add": "Beziehung hinzufügen",
   "relations.empty": "Noch keine Beziehungen.",
   "relations.unknown": "Unbekannt",
+  "relations.alsoLinked": "Auch {{verbs}}",
   "relations.relationType": "Beziehungstyp",
   "relations.search": "{{type}} suchen",
   "relations.createNew": "Neue(n) {{type}} erstellen",

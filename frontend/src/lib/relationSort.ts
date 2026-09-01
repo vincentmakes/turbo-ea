@@ -34,3 +34,33 @@ export function sortRelationsByName(
     }),
   );
 }
+
+/**
+ * Relation types ordered so every type pointing at the same card type sits
+ * together.
+ *
+ * Several relation types may share an ordered card-type pair — an Organization
+ * that *owns* an Application and one that *uses* it — and `sort_order` is a
+ * flat sequence with no notion of that, so the two groups for one pair could
+ * land at opposite ends of the Relations section and a card linked by both
+ * could not be read as one story.
+ *
+ * A stable group-by anchored on each other-type's FIRST appearance: the
+ * metamodel's own order is preserved inside a run and no run jumps ahead of an
+ * unrelated one, so the change is contiguity only — not a re-sort. A
+ * self-referencing type buckets under `cardTypeKey` and needs no special case.
+ */
+export function orderRelationTypesByOtherEnd<
+  T extends { source_type_key: string; target_type_key: string },
+>(rts: T[], cardTypeKey: string): T[] {
+  const runs = new Map<string, T[]>();
+  for (const rt of rts) {
+    const other = rt.source_type_key === cardTypeKey ? rt.target_type_key : rt.source_type_key;
+    const run = runs.get(other);
+    if (run) run.push(rt);
+    else runs.set(other, [rt]);
+  }
+  // `Map` iterates in insertion order, which is exactly first-appearance
+  // anchoring — no explicit sort needed.
+  return [...runs.values()].flat();
+}

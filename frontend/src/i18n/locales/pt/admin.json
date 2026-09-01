@@ -87,6 +87,7 @@
   "metamodel.createRelationType": "Criar tipo de relação",
   "metamodel.relationSaveFailed": "Falha ao guardar o tipo de relação",
   "metamodel.relPairExistsWarning": "Este par de tipos de cartão já está ligado por: {{relations}}. Isso é permitido — mas se estiver a descrever uma variante da mesma relação, um atributo no tipo de relação existente costuma ser mais adequado.",
+  "metamodel.relKeyGeneratedHint": "Gerada a partir do verbo. Não pode ser alterada após a criação.",
   "metamodel.sourceType": "Tipo de origem",
   "metamodel.targetType": "Tipo de destino",
   "metamodel.labelVerb": "Rótulo (verbo, ex: \"utiliza\")",

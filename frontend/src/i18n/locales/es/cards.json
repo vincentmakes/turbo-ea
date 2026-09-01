@@ -124,6 +124,7 @@
   "relations.add": "Agregar relación",
   "relations.empty": "Aún no hay relaciones.",
   "relations.unknown": "Desconocido",
+  "relations.alsoLinked": "También {{verbs}}",
   "relations.relationType": "Tipo de relación",
   "relations.search": "Buscar {{type}}",
   "relations.createNew": "Crear nuevo {{type}}",

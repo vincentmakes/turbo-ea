@@ -87,6 +87,7 @@
   "metamodel.createRelationType": "Crea tipo di relazione",
   "metamodel.relationSaveFailed": "Impossibile salvare il tipo di relazione",
   "metamodel.relPairExistsWarning": "Questa coppia di tipi di scheda è già collegata da: {{relations}}. È consentito, ma se stai descrivendo una variante della stessa relazione, di solito è preferibile un attributo sul tipo di relazione esistente.",
+  "metamodel.relKeyGeneratedHint": "Generata dal verbo. Non può essere modificata dopo la creazione.",
   "metamodel.sourceType": "Tipo sorgente",
   "metamodel.targetType": "Tipo destinazione",
   "metamodel.labelVerb": "Etichetta (verbo, es. \"utilizza\")",

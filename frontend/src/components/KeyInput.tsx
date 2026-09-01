@@ -32,6 +32,14 @@ export interface KeyInputProps
   /** Text shown when locked. */
   lockedReason?: string;
   /**
+   * Replaces the default `key.hint` helper text in the neutral state. For a
+   * field whose value is *derived* (from a label, a verb), say so here — the
+   * generic character-set hint does not tell the admin that the value they are
+   * looking at was generated, nor that a key can never be changed afterwards.
+   * The error, success and locked helper texts are unaffected.
+   */
+  hint?: string;
+  /**
    * When true, an empty value is treated as invalid and the border/label turn
    * red (no extra helper text) — used to flag a mandatory key field that still
    * needs filling in. Callers control *when* a key becomes required (e.g. once
@@ -68,6 +76,7 @@ export default function KeyInput({
   externalError,
   locked = false,
   lockedReason,
+  hint,
   required = false,
   ...rest
 }: KeyInputProps) {
@@ -112,7 +121,7 @@ export default function KeyInput({
       helperText={
         locked
           ? lockedReason || t("key.cannotChange")
-          : displayError || (showSuccess ? t("key.valid") : t("key.hint"))
+          : displayError || (showSuccess ? t("key.valid") : hint || t("key.hint"))
       }
       slotProps={{
         input: {

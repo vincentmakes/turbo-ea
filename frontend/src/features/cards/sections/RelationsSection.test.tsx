@@ -7,6 +7,10 @@
  *    silent no-op);
  *  - the picker stays open so several relations can be added in a row, and
  *    that batch costs one reconcile fetch, not one per add.
+ *
+ * Plus, since several relation types may share one card-type pair: the groups
+ * for one pair render next to each other, and a card reached through more than
+ * one of them says so on every one of its rows.
  */
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -17,7 +21,11 @@ vi.mock("@/api/client", () => ({
   ApiError: class extends Error {},
 }));
 
+/** Mutable so a test can put a second relation type on the same pair. */
+const mm = vi.hoisted(() => ({ relationTypes: [] as Record<string, unknown>[] }));
+
 const ORG_TYPE = { key: "Organization", label: "Organization", color: "#2889ff", subtypes: [] };
+const OBJ_TYPE = { key: "Objective", label: "Objective", color: "#c7527d", subtypes: [] };
 const APP_TYPE = { key: "Application", label: "Application", color: "#0f7eb5", subtypes: [] };
 
 const appToOrg = {
@@ -34,16 +42,34 @@ const appToOrg = {
   attributes_schema: [],
 };
 
+/** Same shape as `appToOrg`, differing only in key + verbs. */
+function relType(key: string, label: string, targetTypeKey = "Organization") {
+  return { ...appToOrg, key, label, reverse_label: `reverse ${label}`, target_type_key: targetTypeKey };
+}
+
+const appToOrgOwns = relType("appToOrgOwns", "owns");
+const appToObj = relType("appToObj", "supports", "Objective");
+
 vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: () => ({
     getType: (key: string) =>
-      key === "Organization" ? ORG_TYPE : key === "Application" ? APP_TYPE : undefined,
-    types: [APP_TYPE, ORG_TYPE],
-    relationTypes: [appToOrg],
+      key === "Organization"
+        ? ORG_TYPE
+        : key === "Application"
+          ? APP_TYPE
+          : key === "Objective"
+            ? OBJ_TYPE
+            : undefined,
+    types: [APP_TYPE, ORG_TYPE, OBJ_TYPE],
+    relationTypes: mm.relationTypes,
   }),
 }));
 
 vi.mock("react-router", () => ({ useNavigate: () => vi.fn() }));
+
+beforeEach(() => {
+  mm.relationTypes = [appToOrg];
+});
 
 import { api } from "@/api/client";
 import type { Relation } from "@/types";
@@ -51,14 +77,14 @@ import RelationsSection from "./RelationsSection";
 
 const FS = "app-1";
 
-function relation(id: string, name: string): Relation {
+function relation(id: string, name: string, type = "appToOrg", orgId = `org-${id}`): Relation {
   return {
     id,
-    type: "appToOrg",
+    type,
     source_id: FS,
-    target_id: `org-${id}`,
+    target_id: orgId,
     source: { id: FS, type: "Application", name: "NexaCore ERP" },
-    target: { id: `org-${id}`, type: "Organization", name },
+    target: { id: orgId, type: "Organization", name },
   };
 }
 
@@ -263,5 +289,49 @@ describe("RelationsSection add dialog", () => {
     // text rather than role: an open dialog aria-hides everything behind it.
     await waitFor(() => expect(screen.getAllByText("Legal")).toHaveLength(2));
     expect(screen.queryByText(/unknown/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("RelationsSection with several relation types on one pair", () => {
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+    vi.mocked(api.post).mockReset();
+  });
+
+  it("puts the two groups for one card-type pair next to each other", async () => {
+    // `sort_order` is flat and knows nothing about pairs, so the metamodel can
+    // hand back the two Organization types with an unrelated one between them.
+    mm.relationTypes = [appToOrg, appToObj, appToOrgOwns];
+    mockApi([], []);
+
+    await openSection();
+
+    await waitFor(() => expect(screen.getByText("owns")).toBeInTheDocument());
+    const text = document.body.textContent ?? "";
+    expect(text.indexOf("is used by")).toBeLessThan(text.indexOf("owns"));
+    expect(text.indexOf("owns")).toBeLessThan(text.indexOf("supports"));
+  });
+
+  it("tells each row that the same card is also linked by the other type", async () => {
+    mm.relationTypes = [appToOrg, appToOrgOwns];
+    // One Organization reached twice, plus one reached once — only the first
+    // should carry the caption.
+    mockApi(
+      [
+        relation("1", "Finance", "appToOrg", "org-shared"),
+        relation("2", "Finance", "appToOrgOwns", "org-shared"),
+        relation("3", "Legal"),
+      ],
+      [],
+    );
+
+    await openSection();
+
+    await waitFor(() => expect(screen.getByText("Legal")).toBeInTheDocument());
+    // The verb named is the OTHER type's, once per row, and never its own.
+    expect(screen.getByText("Also owns")).toBeInTheDocument();
+    expect(screen.getByText("Also is used by")).toBeInTheDocument();
+    const legalRow = screen.getAllByRole("listitem").find((el) => el.textContent?.includes("Legal"));
+    expect(legalRow?.textContent).not.toContain("Also");
   });
 });

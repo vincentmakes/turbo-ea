@@ -156,7 +156,7 @@ Les types de relations définissent les connexions autorisées entre les types d
 
 | Champ | Description |
 |-------|-------------|
-| **Clé** | Identifiant unique |
+| **Clé** | Identifiant unique — proposé à partir de votre verbe, modifiable pendant la création et figé ensuite |
 | **Libellé** | Libellé dans le sens direct (par ex. « utilise ») |
 | **Libellé inverse** | Libellé dans le sens inverse (par ex. « est utilisé par ») |
 | **Type source** | Le type de fiche côté « depuis » |
@@ -173,7 +173,7 @@ Utilisez **Gérer les traductions** en haut de l'onglet Types de relation pour t
 
 Certaines relations portent des attributs supplémentaires que vous définissez sur chaque lien plutôt que sur le type de relation. Par exemple, la relation intégrée **Organisation → Application** (« utilise ») possède un attribut **Type d'usage** — définissez-le sur **Propriétaire**, **Utilisateur** ou **Partie prenante** pour chaque lien. Vous pouvez ainsi modéliser une application *détenue par* une organisation et *utilisée par* d'autres au moyen d'un seul type de relation. La valeur choisie apparaît sous forme de puce colorée dans la section **Relations** de la fiche ; définissez-la lors de l'ajout de la relation, ou plus tard via l'icône de modification sur la ligne de la relation.
 
-Vous pouvez aussi créer **plusieurs types de relation entre la même paire de types de cartes** — par exemple une organisation qui *possède* une application et une autre qui l'*utilise*. Préférez un attribut lorsque vous décrivez des variantes d'une même relation (cela conserve une seule colonne dans l'inventaire et une seule ligne sur un diagramme) ; créez un second type de relation lorsque les relations sont réellement différentes et méritent leurs propres verbes, attributs ou filtres. Lorsqu'une paire porte plusieurs types de relation, l'inventaire affiche toujours une seule colonne pour le type de carte lié, et l'ouverture de cette cellule vous donne une section par type de relation.
+Vous pouvez aussi créer **plusieurs types de relation entre la même paire de types de cartes** — par exemple une organisation qui *possède* une application et une autre qui l'*utilise*. Préférez un attribut lorsque vous décrivez des variantes d'une même relation (cela conserve une seule colonne dans l'inventaire et une seule ligne sur un diagramme) ; créez un second type de relation lorsque les relations sont réellement différentes et méritent leurs propres verbes, attributs ou filtres. Lorsqu'une paire porte plusieurs types de relation, l'inventaire affiche toujours une seule colonne pour le type de carte lié, et l'ouverture de cette cellule vous donne une section par type de relation. Sur une fiche, chaque type de relation conserve sa propre section : les sections qui pointent vers le même type de carte sont regroupées, et une fiche que vous avez reliée par plusieurs d'entre elles porte la mention *Également …* dans chacune de ses sections.
 
 Lorsqu'une paire porte plusieurs types de relation, les rapports, portails et enquêtes peuvent en cibler un en particulier : le rapport Portefeuille propose un axe de regroupement et un filtre par relation, la Carte des capacités ajoute un filtre par relation, les filtres et sections de relation des portails affichent leur verbe, et le filtre **lié à** d'une enquête gagne un sélecteur **Via la relation**. Ne rien choisir signifie toujours « relié par l'une quelconque d'entre elles ».
 

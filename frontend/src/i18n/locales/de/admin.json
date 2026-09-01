@@ -87,6 +87,7 @@
   "metamodel.createRelationType": "Beziehungstyp erstellen",
   "metamodel.relationSaveFailed": "Beziehungstyp konnte nicht gespeichert werden",
   "metamodel.relPairExistsWarning": "Dieses Kartentyp-Paar ist bereits verbunden durch: {{relations}}. Das ist zulässig — wenn Sie jedoch eine Variante derselben Beziehung beschreiben, ist ein Attribut am bestehenden Beziehungstyp meist die bessere Wahl.",
+  "metamodel.relKeyGeneratedHint": "Wird aus dem Verb erzeugt. Nach dem Anlegen nicht mehr änderbar.",
   "metamodel.sourceType": "Quelltyp",
   "metamodel.targetType": "Zieltyp",
   "metamodel.labelVerb": "Bezeichnung (Verb, z. B. \"nutzt\")",

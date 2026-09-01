@@ -1126,6 +1126,7 @@ export default function MetamodelAdmin() {
             sx={{ mb: 2 }}
             size="small"
             required={!!newRel.label.trim()}
+            hint={t("metamodel.relKeyGeneratedHint")}
           />
           <FormControl fullWidth>
             <InputLabel>{t("metamodel.cardinality")}</InputLabel>

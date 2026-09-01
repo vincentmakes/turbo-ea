@@ -124,6 +124,7 @@
   "relations.add": "添加关系",
   "relations.empty": "暂无关系。",
   "relations.unknown": "未知",
+  "relations.alsoLinked": "同时{{verbs}}",
   "relations.relationType": "关系类型",
   "relations.search": "搜索 {{type}}",
   "relations.createNew": "创建新 {{type}}",
