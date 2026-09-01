@@ -9,6 +9,7 @@ import type {
 } from "@/types";
 import { truncate } from "./helpers";
 import { readableTextColor } from "@/lib/color";
+import { successorRelationKeys } from "@/lib/successorRelation";
 import {
   CATEGORIES,
   LAYER_ORDER,
@@ -163,9 +164,12 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
   /*  Build edges — track-based routing                                */
   /* ================================================================ */
   const edges = useMemo(() => {
+    // Each card type's ONE lineage relation is drawn by the node itself, not as an
+    // edge — but any other self-pair relation type is a real edge and must render.
+    const successorKeys = successorRelationKeys(relationTypes);
     const visible = relationTypes.filter(
       (r) =>
-        !r.key.endsWith("Successor") &&
+        !successorKeys.has(r.key) &&
         layout.map[r.source_type_key] &&
         layout.map[r.target_type_key],
     );

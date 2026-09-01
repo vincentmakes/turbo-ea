@@ -910,6 +910,33 @@ class TestRestoreRelationType:
         assert response.status_code == 200
         assert response.json()["is_hidden"] is False
 
+    async def test_two_successor_types_do_not_break_card_type_save(self, client, db, metamodel_env):
+        """Two `*Successor` types on one self-pair must not 500 a card-type save.
+
+        `_ensure_successor_relation_type` runs on every create/update with
+        `has_successors` and used `scalar_one_or_none()`, which raises
+        MultipleResultsFound once a second one exists. Successors were always
+        exempt from the old pair check, so this was reachable before the lift too.
+        """
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="DataObject", label="Data Object", has_successors=True)
+        for key in ("relDataObjectSuccessor", "relDataObjectLegacySuccessor"):
+            await create_relation_type(
+                db,
+                key=key,
+                label="succeeds",
+                source_type_key="DataObject",
+                target_type_key="DataObject",
+            )
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/DataObject",
+            json={"has_successors": True, "label": "Data Object v2"},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        assert response.json()["label"] == "Data Object v2"
+
     async def test_repoint_endpoints_onto_occupied_pair_succeeds(self, client, db, metamodel_env):
         """Moving a relation type's endpoints onto an occupied pair is allowed.
 

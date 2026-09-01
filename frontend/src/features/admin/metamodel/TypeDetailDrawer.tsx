@@ -39,6 +39,7 @@ import FieldEditorDialog from "./FieldEditorDialog";
 import DataQualityPanel from "./DataQualityPanel";
 import StakeholderRolePanel from "./StakeholderRolePanel";
 import TranslationDialog from "./TranslationDialog";
+import { successorRelationKeys } from "@/lib/successorRelation";
 
 /* ------------------------------------------------------------------ */
 /*  Type Detail Dialog (full-width, 2-panel layout)                    */
@@ -207,10 +208,13 @@ export default function TypeDetailDrawer({
 
   if (!cardTypeKey) return null;
 
+  // Only the card type's ONE lineage relation is hidden here (it is managed by the
+  // "Supports Lineage" toggle); any other self-pair type is an ordinary relation.
+  const successorKeys = successorRelationKeys(relationTypes);
   const connectedRelations = relationTypes.filter(
     (r) =>
       (r.source_type_key === cardTypeKey.key || r.target_type_key === cardTypeKey.key) &&
-      !r.key.endsWith("Successor"),
+      !successorKeys.has(r.key),
   );
 
   /* --- Save header --- */

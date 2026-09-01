@@ -49,6 +49,7 @@ import {
   sortRelationsByName,
   type SubtypeBucket,
 } from "./cardDetailUtils";
+import { successorRelationKeys } from "@/lib/successorRelation";
 
 /* ── helpers ────────────────────────────────────────────────── */
 
@@ -737,18 +738,22 @@ function RelationsSection({
 
   // All relevant (non-hidden) relation types for this card type
   // Successor relations are excluded — they are handled by SuccessorsSection
+  // Hide only each card type's ONE lineage relation (owned by SuccessorsSection),
+  // not every key that happens to end in "Successor" — any other self-pair type is
+  // an ordinary relation and belongs here.
+  const successorKeys = useMemo(() => successorRelationKeys(relationTypes), [relationTypes]);
   const relevantRTs = useMemo(
     () =>
       relationTypes.filter(
         (rt) =>
           !rt.is_hidden &&
-          !rt.key.endsWith("Successor") &&
+          !successorKeys.has(rt.key) &&
           (rt.source_type_key === cardTypeKey || rt.target_type_key === cardTypeKey) &&
           visibleTypeKeys.has(
             rt.source_type_key === cardTypeKey ? rt.target_type_key : rt.source_type_key,
           ),
       ),
-    [relationTypes, cardTypeKey, visibleTypeKeys],
+    [relationTypes, successorKeys, cardTypeKey, visibleTypeKeys],
   );
 
   // Displayed relation type groups: visible=true OR mandatory=true

@@ -23,6 +23,11 @@ from app.models.relation import Relation
 # The M:N step ↔ Organization links are deliberately NOT in this map:
 # they are informative only and never create card-to-card relations
 # (process ↔ Organization relations are managed on the card itself).
+# One canonical relation type per FK field. Several relation types may now share an
+# ordered card-type pair, so this is a *convention* (which type a flow element mints)
+# rather than the fact it used to be — a second BusinessProcess→Application type is
+# legal and simply cannot be created from the element table. Read paths must not
+# inherit this narrowing: process_map_service dispatches by endpoint card type.
 ELEMENT_LINK_RELATION_MAP: dict[str, str] = {
     "application_id": "relProcessToApp",
     "data_object_id": "relProcessToDataObj",

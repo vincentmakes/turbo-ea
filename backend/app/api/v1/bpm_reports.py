@@ -100,7 +100,11 @@ async def capability_process_matrix(
 ):
     """Capability × Process cross-reference grid."""
     await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
-    # Get all relProcessToBC relations
+    # Filters the one canonical relation type on purpose. Several relation types may
+    # now share an ordered card-type pair, so these reports are blind to a second one
+    # an admin adds — but widening by endpoint card type is NOT safe here: the
+    # BusinessProcess self-pair carries both relProcessDependency and
+    # relProcessSuccessor, which mean different things. Widen per report, by name.
     result = await db.execute(select(Relation).where(Relation.type == "relProcessToBC"))
     rels = result.scalars().all()
 

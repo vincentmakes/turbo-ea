@@ -24,6 +24,9 @@ from app.services.data_quality import calc_data_quality
 logger = logging.getLogger("turboea.turbolens.commit")
 
 # Map card type key → relation type key for Initiative → card type
+# One canonical Initiative→X relation type per target card type. Several relation
+# types may share an ordered pair, so this names the type a committed initiative
+# creates by default, not the only one that can exist.
 INITIATIVE_RELATION_MAP: dict[str, str] = {
     "Application": "relInitiativeToApp",
     "ITComponent": "relInitiativeToITC",

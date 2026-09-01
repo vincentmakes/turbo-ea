@@ -147,20 +147,30 @@ async def _load_cards_with_vendors(
     rels_result = await db.execute(select(Relation).where(Relation.type.in_(all_provider_rel_keys)))
     relations = rels_result.scalars().all()
 
-    # Build card -> vendors mapping
+    # Build card -> vendors mapping.
+    # A card may reach the same Provider through several relation types (the
+    # metamodel allows any number per ordered card-type pair) and through both
+    # orientations, so name each vendor ONCE per card: downstream this drives
+    # `appCount` and sums `costTotalAnnual` into a persisted `total_cost`, and a
+    # repeated name would count the application twice and its cost twice over.
     card_vendors: dict[str, list[str]] = {}
+    seen_vendor_names: dict[str, set[str]] = {}
+
+    def _add_vendor(card_id: str, vendor_name: str) -> None:
+        seen = seen_vendor_names.setdefault(card_id, set())
+        if vendor_name in seen:
+            return
+        seen.add(vendor_name)
+        card_vendors.setdefault(card_id, []).append(vendor_name)
+
     for rel in relations:
         src_id = str(rel.source_id)
         tgt_id = str(rel.target_id)
         # Determine which side is the Provider
         if tgt_id in card_map and card_map[tgt_id].type == "Provider":
-            if src_id not in card_vendors:
-                card_vendors[src_id] = []
-            card_vendors[src_id].append(card_map[tgt_id].name)
+            _add_vendor(src_id, card_map[tgt_id].name)
         elif src_id in card_map and card_map[src_id].type == "Provider":
-            if tgt_id not in card_vendors:
-                card_vendors[tgt_id] = []
-            card_vendors[tgt_id].append(card_map[src_id].name)
+            _add_vendor(tgt_id, card_map[src_id].name)
 
     rows = []
     for card in app_cards:

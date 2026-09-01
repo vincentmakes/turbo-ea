@@ -1035,6 +1035,10 @@ async def _ensure_successor_relation_type(db: AsyncSession, card_type_key: str) 
     The caller is responsible for committing.
     """
     # Already have a usable successor relation type for this self-pair? Nothing to do.
+    # `.first()`, not `scalar_one_or_none()`: any number of relation types may share
+    # an ordered pair, so more than one `*Successor` self-relation is possible and
+    # `scalar_one_or_none()` would raise MultipleResultsFound — a 500 on every
+    # card-type create/update with `has_successors`.
     existing = await db.execute(
         select(RelationType).where(
             RelationType.source_type_key == card_type_key,
@@ -1043,7 +1047,7 @@ async def _ensure_successor_relation_type(db: AsyncSession, card_type_key: str) 
             RelationType.key.endswith(SUCCESSOR_KEY_SUFFIX),
         )
     )
-    if existing.scalar_one_or_none():
+    if existing.scalars().first() is not None:
         return
 
     key = f"rel{card_type_key}{SUCCESSOR_KEY_SUFFIX}"

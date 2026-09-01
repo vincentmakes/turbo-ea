@@ -160,6 +160,11 @@ export interface LdvGroupData {
 }
 
 export interface LdvEdgeData {
+  /** Relation type key this line stands for. Each line is exactly one relation
+   *  type (several may connect the same card pair), so anything derived from the
+   *  view — notably "Create diagram" — can stamp the real type instead of
+   *  guessing one per card pair. `"hierarchy"` marks a synthetic parent/child line. */
+  relType?: string;
   relLabel: string;
   /**
    * Relation flow direction, surfaced separately from `relLabel` so the edge
@@ -835,114 +840,63 @@ export function buildLdvFlow(
     }
   }
 
-  // Deduplicate edges: merge multiple edges between the same pair into one.
-  // Track labels per-direction so we can pick the correct label when the
-  // visual arrow is flipped for top-to-bottom layout.
+  // ONE LINE PER RELATION TYPE.
+  //
+  // Several relation types may connect the same two cards — an Organization that
+  // *owns* an Application and one that *uses* it are different relationships — and
+  // each gets its own line, with its own verb, flow direction and description.
+  // Collapsing them into a single line labelled "uses / owns" hid that distinction
+  // and forced an arbitrary type onto anything derived from the view (the
+  // "Create diagram" action stamped only the first).
+  //
+  // Two rows of the SAME relation type between the same pair (either direction)
+  // still collapse to one line — that is a duplicate edge, not a second
+  // relationship. Mirrors `GET /reports/dependencies`, which keys on
+  // `min:max:type`.
+  //
+  // Note the dependency TREE deliberately does the opposite (see
+  // `dependencyAdjacency.ts`): it renders one child per neighbouring *card*, so
+  // joining the verbs there is structural, not a stylistic choice.
   type FlowDir = "bidirectional" | "forward" | "reverse";
-  const edgePairMap = new Map<
-    string,
-    {
-      fwdLabels: string[];
-      revLabels: string[];
-      description?: string;
-      // flowDirection captured per pair, in pair-normalised orientation
-      // (i.e. relative to lo→hi, not the relation's metamodel direction).
-      flowDirection?: FlowDir;
-    }
-  >();
   const readFlowDir = (attrs: Record<string, unknown> | undefined): FlowDir | undefined => {
     const v = attrs?.flowDirection;
     return v === "bidirectional" || v === "forward" || v === "reverse" ? v : undefined;
   };
-  for (const e of validEdges) {
-    const isNormalized = e.source < e.target;
-    const [lo, hi] = isNormalized ? [e.source, e.target] : [e.target, e.source];
-    const key = `${lo}||${hi}`;
-    // Append the relation's single-select attribute value (e.g. " [Leading]")
-    // so it flows through the per-pair merge / " / " join / dedup unchanged.
-    const valueSuffix = relValueResolver?.(e) ?? "";
-    // Forward label = label when arrow goes lo→hi; reverse = when hi→lo
-    const fwdLbl =
-      (isNormalized ? (e.label || e.type) : (e.reverse_label || e.label || e.type)) + valueSuffix;
-    const revLbl =
-      (isNormalized ? (e.reverse_label || e.label || e.type) : (e.label || e.type)) + valueSuffix;
-
-    // Re-orient flowDirection to the pair-normalised lo→hi axis so different
-    // relation types between the same pair don't fight each other.
-    let fd = readFlowDir(e.attributes);
-    if (fd && !isNormalized) {
-      if (fd === "forward") fd = "reverse";
-      else if (fd === "reverse") fd = "forward";
-    }
-
-    const existing = edgePairMap.get(key);
-    if (existing) {
-      if (!existing.fwdLabels.includes(fwdLbl)) existing.fwdLabels.push(fwdLbl);
-      if (!existing.revLabels.includes(revLbl)) existing.revLabels.push(revLbl);
-      // The pair renders as one line, so a description only survives if it is
-      // carried over — otherwise whichever relation type happened to come first
-      // decides whether the merged edge has one at all.
-      if (!existing.description && e.description) existing.description = e.description;
-      // If existing pair has no direction yet, adopt this one. If they
-      // disagree (e.g. one forward + one reverse), upgrade to bidirectional.
-      if (fd && existing.flowDirection !== fd) {
-        existing.flowDirection = existing.flowDirection ? "bidirectional" : fd;
-      }
-    } else {
-      edgePairMap.set(key, {
-        fwdLabels: [fwdLbl],
-        revLabels: [revLbl],
-        description: e.description,
-        flowDirection: fd,
-      });
-    }
-  }
 
   const seen = new Set<string>();
   const dedupedEdges: typeof validEdges = [];
   for (const e of validEdges) {
     const [lo, hi] = e.source < e.target ? [e.source, e.target] : [e.target, e.source];
-    const key = `${lo}||${hi}`;
+    const key = `${lo}||${hi}||${e.type ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
     dedupedEdges.push(e);
   }
 
-  // Keep metamodel source→target direction on edges.  The arrow (markerEnd)
-  // must always point from the relation's semantic source to its target so that
-  // it matches the metamodel definition.  We only choose the label that matches
-  // the original (un-flipped) direction and track a `flipped` flag so handle
-  // routing can use top→bottom or bottom→top handles as needed for the layout.
+  // Keep metamodel source→target direction on edges. The arrow (markerEnd) must
+  // always point from the relation's semantic source to its target so that it
+  // matches the metamodel definition. The label is ALWAYS the forward verb — a
+  // reader follows the arrowhead, so source-verb-target reads correctly whichever
+  // way the layout draws it (see CLAUDE.md on relation edge rendering). `flipped`
+  // only tells handle routing to use top→bottom or bottom→top handles.
   const oriented: OrientedEdge[] = dedupedEdges.map((e) => {
-    const [lo, hi] = e.source < e.target ? [e.source, e.target] : [e.target, e.source];
-    const merged = edgePairMap.get(`${lo}||${hi}`)!;
     const sP = absPos.get(e.source);
     const tP = absPos.get(e.target);
     // Source→target preserved; flipped when target is above source visually
     const flipped = !!(sP && tP && tP.y < sP.y);
-    // Labels always match the original metamodel direction (source→target)
-    const isNormalized = e.source < e.target;
-    const labels = isNormalized ? merged.fwdLabels : merged.revLabels;
-    // Re-orient the pair-normalised flowDirection back onto the metamodel
-    // source→target axis. When this edge is the "reverse" of the
-    // normalisation pair, swap forward ↔ reverse so the marker logic below
-    // reads relative to (e.source, e.target).
-    let fd = merged.flowDirection;
-    if (fd && !isNormalized) {
-      if (fd === "forward") fd = "reverse";
-      else if (fd === "reverse") fd = "forward";
-    }
+    // Append the relation's single-select attribute value (e.g. " [Leading]").
+    const valueSuffix = relValueResolver?.(e) ?? "";
     // The direction is carried on `flowDirection` and rendered as a vector SVG
     // arrow next to the label by the edge component, so it survives image
     // export (a Unicode glyph baked into the text does not — see LdvEdgeData).
-    const relLabel = labels.join(" / ");
     return {
       source: e.source,
       target: e.target,
-      relLabel,
-      description: merged.description,
+      relType: e.type,
+      relLabel: (e.label || e.type) + valueSuffix,
+      description: e.description,
       flipped,
-      flowDirection: fd,
+      flowDirection: readFlowDir(e.attributes),
     };
   });
 
@@ -1016,6 +970,7 @@ export function buildLdvFlow(
       type: "ldvEdge",
       label: e.relLabel,
       data: {
+        relType: e.relType,
         relLabel: e.relLabel,
         flowDirection: e.flowDirection,
         description: e.description,

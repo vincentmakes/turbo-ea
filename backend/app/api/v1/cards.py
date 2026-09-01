@@ -2766,7 +2766,11 @@ async def export_json(
                         prov_name = prov_name_map[rel.target_id]
                     else:
                         continue
-                    provider_names_by_card.setdefault(card_key, []).append(prov_name)
+                    # Name each provider once per card: a card may be linked to
+                    # the same provider through several relation types.
+                    names = provider_names_by_card.setdefault(card_key, [])
+                    if prov_name not in names:
+                        names.append(prov_name)
 
     redact = await _cost_redaction_map(db, user, list(cards))
     items = []

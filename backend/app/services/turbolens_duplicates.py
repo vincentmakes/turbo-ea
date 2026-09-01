@@ -69,10 +69,17 @@ async def _load_cards_by_type(
         for rel in rels_result.scalars().all():
             src_id = str(rel.source_id)
             tgt_id = str(rel.target_id)
+            # Name each vendor once per card: several relation types may connect
+            # the same card to the same Provider, and a repeated name reads to
+            # the model as a stronger signal than it is.
             if tgt_id in providers:
-                card_vendors.setdefault(src_id, []).append(providers[tgt_id].name)
+                names = card_vendors.setdefault(src_id, [])
+                if providers[tgt_id].name not in names:
+                    names.append(providers[tgt_id].name)
             elif src_id in providers:
-                card_vendors.setdefault(tgt_id, []).append(providers[src_id].name)
+                names = card_vendors.setdefault(tgt_id, [])
+                if providers[src_id].name not in names:
+                    names.append(providers[src_id].name)
 
     type_map: dict[str, list[dict[str, Any]]] = {}
     for card in cards:

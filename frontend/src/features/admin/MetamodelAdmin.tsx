@@ -49,6 +49,7 @@ import {
 } from "./metamodel";
 import { cleanTranslations } from "./metamodel/helpers";
 import { CATEGORIES, CARDINALITY_OPTIONS } from "./metamodel/constants";
+import { successorRelationKeys } from "@/lib/successorRelation";
 
 /**
  * English is the base language: it lives in the `label` / `reverse_label`
@@ -177,10 +178,15 @@ export default function MetamodelAdmin() {
     ? types
     : types.filter((ct) => !ct.is_hidden);
 
+  const successorRelKeys = useMemo(() => successorRelationKeys(relationTypes), [relationTypes]);
+
   const displayRelationTypes = (showHiddenRels
     ? relationTypes
     : relationTypes.filter((r) => !r.is_hidden)
-  ).filter((r) => !r.key.endsWith("Successor"));
+    // Hide each card type's ONE lineage relation (managed by the type's "Supports
+    // Lineage" toggle) — but never every `*Successor`-suffixed key: any other
+    // self-pair relation type is an ordinary relation and must stay editable here.
+  ).filter((r) => !successorRelKeys.has(r.key));
 
   // Derived key for a new relation type. Several relation types may share an
   // ordered card-type pair, so the plain `<Source>To<Target>` form collides on the
@@ -426,7 +432,7 @@ export default function MetamodelAdmin() {
               const subtypeCount = (ct.subtypes || []).length;
               const relCount = relationTypes.filter(
                 (r) =>
-                  !r.key.endsWith("Successor") &&
+                  !successorRelKeys.has(r.key) &&
                   (r.source_type_key === ct.key ||
                   r.target_type_key === ct.key),
               ).length;

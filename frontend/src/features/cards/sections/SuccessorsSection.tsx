@@ -25,24 +25,8 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { api } from "@/api/client";
-import type { Card, Relation, RelationType } from "@/types";
-
-/**
- * Find the successor relation type for a given card type.
- * Convention: key ends with "Successor" and source_type_key === target_type_key === typeKey.
- */
-function findSuccessorRelationType(
-  relationTypes: RelationType[],
-  typeKey: string,
-): RelationType | undefined {
-  return relationTypes.find(
-    (rt) =>
-      !rt.is_hidden &&
-      rt.source_type_key === typeKey &&
-      rt.target_type_key === typeKey &&
-      rt.key.endsWith("Successor"),
-  );
-}
+import type { Card, Relation } from "@/types";
+import { findSuccessorRelationType } from "@/lib/successorRelation";
 
 function SuccessorsSection({
   card,

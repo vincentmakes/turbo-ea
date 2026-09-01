@@ -52,10 +52,11 @@ DATA_OBJECT_TYPE = "DataObject"
 ORGANIZATION_TYPE = "Organization"
 BUSINESS_CONTEXT_TYPE = "BusinessContext"
 
-REL_PROCESS_TO_APP = "relProcessToApp"
-REL_PROCESS_TO_DATA_OBJ = "relProcessToDataObj"
-REL_PROCESS_TO_ORG = "relProcessToOrg"
-REL_PROCESS_TO_BIZ_CTX = "relProcessToBizCtx"
+# No relation-type constants here on purpose: the map reads by ENDPOINT card type,
+# so every relation type connecting BusinessProcess to Application / DataObject /
+# Organization / BusinessContext is included. The canonical keys a *write* path
+# creates (relProcessToApp, relProcessToDataObj, …) live in
+# ``element_relation_sync.ELEMENT_LINK_RELATION_MAP``, which has to choose one.
 
 DEFAULT_ROW_ORDER = ["management", "core", "support"]
 
@@ -237,33 +238,55 @@ async def build_process_map(
             "rel_attributes": rel.attributes or {},
         }
 
-    for r in rels:
+    # Dispatch on the ENDPOINTS' card types, not on a hardcoded relation-type key:
+    # any number of relation types may connect BusinessProcess to Application /
+    # DataObject / Organization / BusinessContext, and every one of them belongs on
+    # the process map. The `REL_PROCESS_TO_*` constants remain the canonical keys the
+    # *write* paths create (element_relation_sync), but reads must not be blind to a
+    # second type an admin has added.
+    #
+    # A process may reach the same card through several relation types, so the
+    # card-keyed collections dedupe by card id — sorting by (type, id) first makes
+    # the surviving `rel_attributes` a stable choice rather than query order.
+    seen_app: dict[str, set[str]] = {pid: set() for pid in proc_id_set}
+    seen_do: dict[str, set[str]] = {pid: set() for pid in proc_id_set}
+
+    def _link_app(proc_id: str, card: Card, rel: Relation) -> None:
+        card_id = str(card.id)
+        if card_id in seen_app[proc_id]:
+            return
+        seen_app[proc_id].add(card_id)
+        proc_apps[proc_id].append(_app_payload(card, rel))
+
+    def _link_do(proc_id: str, card: Card) -> None:
+        card_id = str(card.id)
+        if card_id in seen_do[proc_id]:
+            return
+        seen_do[proc_id].add(card_id)
+        proc_data[proc_id].append({"id": card_id, "name": card.name})
+
+    for r in sorted(rels, key=lambda rel: (rel.type or "", str(rel.id))):
         sid, tid = str(r.source_id), str(r.target_id)
-        rtype = r.type or ""
 
-        if rtype == REL_PROCESS_TO_APP:
-            if sid in proc_id_set and tid in app_id_set:
-                proc_apps[sid].append(_app_payload(app_map[r.target_id], r))
-            elif tid in proc_id_set and sid in app_id_set:
-                proc_apps[tid].append(_app_payload(app_map[r.source_id], r))
+        if sid in proc_id_set and tid in app_id_set:
+            _link_app(sid, app_map[r.target_id], r)
+        elif tid in proc_id_set and sid in app_id_set:
+            _link_app(tid, app_map[r.source_id], r)
 
-        elif rtype == REL_PROCESS_TO_DATA_OBJ:
-            if sid in proc_id_set and tid in do_id_set:
-                proc_data[sid].append({"id": tid, "name": do_map[r.target_id].name})
-            elif tid in proc_id_set and sid in do_id_set:
-                proc_data[tid].append({"id": sid, "name": do_map[r.source_id].name})
+        elif sid in proc_id_set and tid in do_id_set:
+            _link_do(sid, do_map[r.target_id])
+        elif tid in proc_id_set and sid in do_id_set:
+            _link_do(tid, do_map[r.source_id])
 
-        elif rtype == REL_PROCESS_TO_ORG:
-            if sid in proc_id_set and tid in org_id_set:
-                proc_orgs[sid].add(tid)
-            elif tid in proc_id_set and sid in org_id_set:
-                proc_orgs[tid].add(sid)
+        elif sid in proc_id_set and tid in org_id_set:
+            proc_orgs[sid].add(tid)
+        elif tid in proc_id_set and sid in org_id_set:
+            proc_orgs[tid].add(sid)
 
-        elif rtype == REL_PROCESS_TO_BIZ_CTX:
-            if sid in proc_id_set and tid in ctx_id_set:
-                proc_ctxs[sid].add(tid)
-            elif tid in proc_id_set and sid in ctx_id_set:
-                proc_ctxs[tid].add(sid)
+        elif sid in proc_id_set and tid in ctx_id_set:
+            proc_ctxs[sid].add(tid)
+        elif tid in proc_id_set and sid in ctx_id_set:
+            proc_ctxs[tid].add(sid)
 
     published_ids, element_counts = await load_flow_coverage(db)
 

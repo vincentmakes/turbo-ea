@@ -635,7 +635,10 @@ async def architect_objective_dependencies(
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
         if sid in visited and tid in visited:
-            edge_key = f"{min(sid, tid)}:{max(sid, tid)}"
+            # Keyed by card pair AND relation type: several relation types may
+            # connect the same two cards, each with its own verb, so each
+            # contributes its own edge. Two rows of the SAME type still collapse.
+            edge_key = f"{min(sid, tid)}:{max(sid, tid)}:{r.type}"
             if edge_key not in seen_edges:
                 seen_edges.add(edge_key)
                 rt_info = rel_type_info.get(r.type, {})
@@ -839,7 +842,8 @@ async def architect_phase3(
             for r in rels:
                 sid, tid = str(r.source_id), str(r.target_id)
                 if sid in visited and tid in visited:
-                    ek = f"{min(sid, tid)}:{max(sid, tid)}"
+                    # Per (card pair, relation type) — see the note above.
+                    ek = f"{min(sid, tid)}:{max(sid, tid)}:{r.type}"
                     if ek not in seen_e:
                         seen_e.add(ek)
                         rt_info = rel_type_info.get(r.type, {})

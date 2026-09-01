@@ -50,6 +50,9 @@ export interface Bounds {
 export interface OrientedEdge {
   source: string;
   target: string;
+  /** The relation type this line stands for — one line per type, so this is
+   *  unambiguous. `"hierarchy"` for the synthetic parent/child lines. */
+  relType?: string;
   relLabel: string;
   description?: string;
   /** true when the target is visually above the source (arrow goes upward) */
@@ -267,6 +270,8 @@ export function routeLdvEdges(
   const attachments = new Map<string, Attachment[]>();
   // Edges routed through top/bottom handles (false: side handles / fallback)
   const vertical = new Array<boolean>(n).fill(false);
+  // Card pairs that have already claimed the single side-handle route.
+  const sideRouted = new Set<string>();
   const attach = (nodeId: string, side: "top" | "bottom", a: Attachment) => {
     const key = `${nodeId}|${side}`;
     let list = attachments.get(key);
@@ -294,14 +299,25 @@ export function routeLdvEdges(
     if (sameLane && Math.abs(dx) > SIDE_RATIO * Math.abs(dy) && dx !== 0) {
       // Near-horizontal edge within one lane: use the facing side handles so
       // the connection renders as a short straight run between the two cards.
-      if (dx > 0) {
-        srcHandles[i] = "right";
-        tgtHandles[i] = "left";
-      } else {
-        srcHandles[i] = "left-src";
-        tgtHandles[i] = "right-tgt";
+      //
+      // Only the FIRST edge of a card pair may take this route. Several relation
+      // types can connect the same two cards, and the side handles are a single
+      // fixed point per side — a second edge taking them would be drawn exactly
+      // on top of the first. The rest fall through to the vertical path, where
+      // the slot allocator below gives each its own handle.
+      const pairKey =
+        e.source < e.target ? `${e.source}||${e.target}` : `${e.target}||${e.source}`;
+      if (!sideRouted.has(pairKey)) {
+        sideRouted.add(pairKey);
+        if (dx > 0) {
+          srcHandles[i] = "right";
+          tgtHandles[i] = "left";
+        } else {
+          srcHandles[i] = "left-src";
+          tgtHandles[i] = "right-tgt";
+        }
+        continue;
       }
-      continue;
     }
 
     vertical[i] = true;

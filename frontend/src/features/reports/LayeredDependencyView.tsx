@@ -1465,19 +1465,6 @@ function LayeredDependencyInner({
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(false);
 
-  // Real relation-type key per displayed card pair (one type per ordered pair
-  // in the metamodel). Synthetic hierarchy edges are excluded — they render as
-  // plain labelled lines, not relations.
-  const relTypeByPair = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const e of edges) {
-      if (!e.type || e.type === "hierarchy") continue;
-      const k = [e.source, e.target].sort().join("|");
-      if (!m.has(k)) m.set(k, e.type);
-    }
-    return m;
-  }, [edges]);
-
   const openCreateDialog = useCallback(() => {
     setCreateError(false);
     setCreateName(
@@ -1565,7 +1552,10 @@ function LayeredDependencyInner({
         rels.push({
           sourceCardId: e.source,
           targetCardId: e.target,
-          relationType: relTypeByPair.get([e.source, e.target].sort().join("|")) ?? "",
+          // Each line IS one relation type (several may connect a card pair), so
+          // take it off the edge rather than guessing one per pair. Synthetic
+          // hierarchy lines are not relations and carry no type.
+          relationType: d?.relType && d.relType !== "hierarchy" ? d.relType : "",
           label: d?.relLabel ?? "",
           flow: d?.flowDirection,
           ...route,
@@ -1593,7 +1583,7 @@ function LayeredDependencyInner({
     } finally {
       setCreating(false);
     }
-  }, [createName, creating, getNodes, rfEdges, relTypeByPair, navigate, settings, t]);
+  }, [createName, creating, getNodes, rfEdges, navigate, settings, t]);
 
   // ReactFlow's `fitView` prop only fits on the initial render. When the parent
   // navigates to a new centre, the new graph is laid out at different coordinates

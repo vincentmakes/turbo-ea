@@ -797,37 +797,117 @@ describe("resolveRevealIds", () => {
 
 describe("several relation types between the same pair", () => {
   // The metamodel allows any number of relation types per ordered card-type
-  // pair, so the graph endpoint returns one edge per type. The LDV draws ONE
-  // line per card pair — parallel lines are noise in a layered layout — so the
-  // verbs are merged onto it rather than one of them being dropped.
+  // pair, so the graph endpoint returns one edge per type. Each is a distinct
+  // relationship and gets its OWN line — merging them into one line labelled
+  // "uses / owns" hid the distinction and forced an arbitrary type onto
+  // anything derived from the view.
   const NODES: GNode[] = [
     { id: "org", name: "Finance", type: "Organization" },
     { id: "app", name: "CRM", type: "Application" },
   ];
 
-  it("collapses parallel edges into one line carrying both verbs", () => {
+  const drawn = (result: ReturnType<typeof buildLdvFlow>) =>
+    result.edges.filter((e) => e.type !== "ldvGroup");
+
+  it("draws one line per relation type, each with its own verb", () => {
     const edges: GEdge[] = [
       { source: "org", target: "app", type: "relOrgToApp", label: "uses" },
       { source: "org", target: "app", type: "relOrgToAppOwns", label: "owns" },
     ];
-    const result = buildLdvFlow(NODES, edges, TYPES);
-    const drawn = result.edges.filter((e) => e.type !== "ldvGroup");
+    const lines = drawn(buildLdvFlow(NODES, edges, TYPES));
 
-    expect(drawn).toHaveLength(1);
-    const relLabel = (drawn[0].data as { relLabel: string }).relLabel;
-    expect(relLabel).toContain("uses");
-    expect(relLabel).toContain("owns");
-    expect(relLabel).toBe("uses / owns");
+    expect(lines).toHaveLength(2);
+    const labels = lines.map((e) => (e.data as { relLabel: string }).relLabel);
+    expect(labels.sort()).toEqual(["owns", "uses"]);
+    // No line carries both verbs any more.
+    expect(labels.some((l) => l.includes(" / "))).toBe(false);
+  });
+
+  it("gives the parallel lines distinct handles so they do not superimpose", () => {
+    const edges: GEdge[] = [
+      { source: "org", target: "app", type: "relOrgToApp", label: "uses" },
+      { source: "org", target: "app", type: "relOrgToAppOwns", label: "owns" },
+    ];
+    const lines = drawn(buildLdvFlow(NODES, edges, TYPES));
+
+    const handles = lines.map((e) => `${e.sourceHandle}|${e.targetHandle}`);
+    expect(new Set(handles).size).toBe(handles.length);
+  });
+
+  it("keeps each line's own description and flow direction", () => {
+    const edges: GEdge[] = [
+      {
+        source: "org",
+        target: "app",
+        type: "relOrgToApp",
+        label: "uses",
+        description: "since 2019",
+        attributes: { flowDirection: "forward" },
+      },
+      {
+        source: "org",
+        target: "app",
+        type: "relOrgToAppOwns",
+        label: "owns",
+        attributes: { flowDirection: "reverse" },
+      },
+    ];
+    const lines = drawn(buildLdvFlow(NODES, edges, TYPES));
+    const byLabel = new Map(
+      lines.map((e) => [(e.data as { relLabel: string }).relLabel, e.data as Record<string, unknown>]),
+    );
+
+    // Previously the pair merged, so conflicting directions were forced to
+    // "bidirectional" and only the first description survived.
+    expect(byLabel.get("uses")?.description).toBe("since 2019");
+    expect(byLabel.get("uses")?.flowDirection).toBe("forward");
+    expect(byLabel.get("owns")?.description).toBeUndefined();
+    expect(byLabel.get("owns")?.flowDirection).toBe("reverse");
+  });
+
+  it("separates parallel lines in the SAME lane, where side handles are fixed", () => {
+    // The near-horizontal same-lane route uses the one `right`/`left` handle
+    // pair, so a second edge taking it would be drawn exactly on top of the
+    // first. Only the first may claim it; the rest route vertically.
+    const sameLane: GNode[] = [
+      { id: "a1", name: "App 1", type: "Application" },
+      { id: "a2", name: "App 2", type: "Application" },
+    ];
+    const lines = drawn(
+      buildLdvFlow(
+        sameLane,
+        [
+          { source: "a1", target: "a2", type: "relAppToApp", label: "calls" },
+          { source: "a1", target: "a2", type: "relAppToAppOwns", label: "owns" },
+        ],
+        TYPES,
+      ),
+    );
+
+    expect(lines).toHaveLength(2);
+    const handles = lines.map((e) => `${e.sourceHandle}|${e.targetHandle}`);
+    expect(new Set(handles).size).toBe(2);
+  });
+
+  it("still collapses two rows of the SAME relation type into one line", () => {
+    // A duplicate edge is not a second relationship. Mirrors the backend's
+    // `min:max:type` dedup in GET /reports/dependencies.
+    const edges: GEdge[] = [
+      { source: "org", target: "app", type: "relOrgToApp", label: "uses" },
+      { source: "app", target: "org", type: "relOrgToApp", label: "uses" },
+    ];
+    expect(drawn(buildLdvFlow(NODES, edges, TYPES))).toHaveLength(1);
   });
 
   it("still draws one line when only a single relation type connects the pair", () => {
-    const result = buildLdvFlow(
-      NODES,
-      [{ source: "org", target: "app", type: "relOrgToApp", label: "uses" }],
-      TYPES,
+    const lines = drawn(
+      buildLdvFlow(
+        NODES,
+        [{ source: "org", target: "app", type: "relOrgToApp", label: "uses" }],
+        TYPES,
+      ),
     );
-    const drawn = result.edges.filter((e) => e.type !== "ldvGroup");
-    expect(drawn).toHaveLength(1);
-    expect((drawn[0].data as { relLabel: string }).relLabel).toBe("uses");
+    expect(lines).toHaveLength(1);
+    expect((lines[0].data as { relLabel: string }).relLabel).toBe("uses");
   });
 });

@@ -2377,25 +2377,30 @@ async def eol_report(
         )
         rels = rels_result.scalars().all()
         it_id_strs = {str(i) for i in it_ids}
+        # An ITComponent may reach the same Application through several relation
+        # types; list each affected application ONCE, so the per-item count
+        # agrees with `summary.impacted_apps` (which is a set).
+        seen_apps: dict[str, set[str]] = {}
+
+        def _add_app(it_id: str, app_id: str) -> None:
+            if app_id in seen_apps.setdefault(it_id, set()):
+                return
+            seen_apps[it_id].add(app_id)
+            it_to_apps.setdefault(it_id, []).append(
+                {
+                    "id": app_id,
+                    "name": app_map[app_id].name,
+                    "lifecycle": app_map[app_id].lifecycle,
+                }
+            )
+
         for r in rels:
             sid, tid = str(r.source_id), str(r.target_id)
             # ITComponent → Application relation in either direction
             if sid in it_id_strs and tid in app_map:
-                it_to_apps.setdefault(sid, []).append(
-                    {
-                        "id": tid,
-                        "name": app_map[tid].name,
-                        "lifecycle": app_map[tid].lifecycle,
-                    }
-                )
+                _add_app(sid, tid)
             elif tid in it_id_strs and sid in app_map:
-                it_to_apps.setdefault(tid, []).append(
-                    {
-                        "id": sid,
-                        "name": app_map[sid].name,
-                        "lifecycle": app_map[sid].lifecycle,
-                    }
-                )
+                _add_app(tid, sid)
 
     # 4. Build response items
     items = []
