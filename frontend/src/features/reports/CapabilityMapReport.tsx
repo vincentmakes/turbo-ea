@@ -57,7 +57,7 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
 import { applyScope, useCardScope } from "@/hooks/useCardScope";
-import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel, useFieldLabel, useOptionLabel, useRelationLabel } from "@/hooks/useResolveLabel";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -90,7 +90,12 @@ interface AppData {
   attributes?: Record<string, unknown>;
   lifecycle?: Record<string, string>;
   org_ids: string[];
+  /** Related card ids keyed by CARD type — the union across every relation type
+   *  reaching that type. */
   related_by_type?: Record<string, string[]>;
+  /** The same, keyed by RELATION type, so "owned by" filters apart from
+   *  "used by" when several relation types reach one card type. */
+  related_by_rel_type?: Record<string, string[]>;
   tag_ids?: string[];
 }
 
@@ -99,6 +104,17 @@ interface TagGroupDef {
   name: string;
   mode: string;
   tags: { id: string; name: string; color?: string }[];
+}
+
+/** A relation type reaching Application, for per-relationship filter facets. */
+interface RelationTypeRef {
+  key: string;
+  label: string;
+  reverse_label?: string;
+  source_type_key: string;
+  target_type_key: string;
+  other_type_key: string;
+  translations?: Record<string, Record<string, string>>;
 }
 
 interface FilterableTypeRef {
@@ -206,6 +222,10 @@ function matchesFilters(
   relationFilters: Record<string, string[]>,
   tagFilterIds: string[],
   tagGroups: TagGroupDef[],
+  /** Every known relation-type key, so a filter keyed by a relation type is
+   *  told apart from one keyed by a card type. Absent = all card types, which
+   *  is how every saved report written before this behaves. */
+  relTypeKeys?: ReadonlySet<string>,
 ): boolean {
   // Attribute filters
   const attrs = app.attributes || {};
@@ -219,11 +239,15 @@ function matchesFilters(
     if (realVals.length > 0 && realVals.includes(v as string)) continue;
     return false;
   }
-  // Relation filters (e.g. Organization, Platform, etc.)
+  // Relation filters. A key is a CARD type ("related to an Organization at
+  // all") or a RELATION type ("owned by an Organization").
   const byType = app.related_by_type || {};
-  for (const [typeKey, ids] of Object.entries(relationFilters)) {
+  const byRelType = app.related_by_rel_type || {};
+  for (const [key, ids] of Object.entries(relationFilters)) {
     if (ids.length === 0) continue;
-    const appRelIds = byType[typeKey] || app.org_ids || [];
+    const appRelIds = relTypeKeys?.has(key)
+      ? (byRelType[key] ?? [])
+      : (byType[key] || app.org_ids || []);
     const wantEmpty = ids.includes(EMPTY_FILTER_KEY);
     const realIds = ids.filter((x) => x !== EMPTY_FILTER_KEY);
     if (wantEmpty && appRelIds.length === 0) continue;
@@ -277,12 +301,13 @@ function buildTree(
    *  spotlight runs — the map hides retired apps, so the pulse needs a ghost
    *  to point at. */
   revealedForPulse: Set<string>,
+  relTypeKeys?: ReadonlySet<string>,
 ): CapNode[] {
   const nodeMap = new Map<string, CapNode>();
   for (const item of items) {
     const filteredApps = item.apps.filter(
       (a) =>
-        matchesFilters(a, attrFilters, relationFilters, tagFilterIds, tagGroups) &&
+        matchesFilters(a, attrFilters, relationFilters, tagFilterIds, tagGroups, relTypeKeys) &&
         (isAliveAtDate(a.lifecycle, timelineDate) || revealedForPulse.has(a.id)),
     );
     nodeMap.set(item.id, {
@@ -692,6 +717,7 @@ export default function CapabilityMapReport() {
   const { fmtShort } = useCurrency();
   const { types: metamodelTypes } = useMetamodel();
   const typeLabel = useTypeLabel();
+  const relLabel = useRelationLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
   const saved = useSavedReport("capability-map");
@@ -701,6 +727,11 @@ export default function CapabilityMapReport() {
   const [data, setData] = useState<CapItem[] | null>(null);
   const [fieldsSchema, setFieldsSchema] = useState<SectionDef[]>([]);
   const [filterableTypes, setFilterableTypes] = useState<Record<string, FilterableTypeRef[]>>({});
+  const [relationTypesData, setRelationTypesData] = useState<RelationTypeRef[]>([]);
+  const allRelTypeKeys = useMemo(
+    () => new Set(relationTypesData.map((rt) => rt.key)),
+    [relationTypesData],
+  );
   const [drawer, setDrawer] = useState<CapNode | null>(null);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
 
@@ -825,12 +856,14 @@ export default function CapabilityMapReport() {
       const r = await api.get<{
         items: CapItem[];
         filterable_types?: Record<string, FilterableTypeRef[]>;
+        relation_types?: RelationTypeRef[];
         fields_schema?: SectionDef[];
         tag_groups?: TagGroupDef[];
       }>(`/reports/capability-heatmap?metric=${metric}`, { signal });
       if (!isCurrent()) return;
       setData(r.items);
       if (r.filterable_types) setFilterableTypes(r.filterable_types);
+      if (r.relation_types) setRelationTypesData(r.relation_types);
       if (r.fields_schema) setFieldsSchema(r.fields_schema);
       if (r.tag_groups) setTagGroupsData(r.tag_groups);
     },
@@ -858,16 +891,20 @@ export default function CapabilityMapReport() {
   // which can only widen the landing, never silently empty it.
   const carriedLinkFilters = useMemo<InventorySliceFilters>(() => {
     const relations: Record<string, string[]> = {};
-    for (const [typeKey, ids] of Object.entries(relationFilters)) {
+    for (const [key, ids] of Object.entries(relationFilters)) {
       if (ids.length === 0) continue;
-      const members = filterableTypes[typeKey] || [];
+      // A key is a card type or a relation type; the members always live under
+      // the CARD type at the relation's other end. The inventory keys relation
+      // filters the same way, so the key travels through unchanged.
+      const relType = relationTypesData.find((rt) => rt.key === key);
+      const members = filterableTypes[relType?.other_type_key ?? key] || [];
       const names = ids
         .map((id) => members.find((m) => m.id === id)?.name)
         .filter((n): n is string => !!n);
-      if (names.length > 0) relations[typeKey] = names;
+      if (names.length > 0) relations[key] = names;
     }
     return { attributes: attrFilters, relations, tagIds: tagFilterIds };
-  }, [attrFilters, relationFilters, tagFilterIds, filterableTypes]);
+  }, [attrFilters, relationFilters, tagFilterIds, filterableTypes, relationTypesData]);
 
   /**
    * "View in inventory" for the drawer, on LEAF capabilities only.
@@ -941,12 +978,16 @@ export default function CapabilityMapReport() {
     for (const cap of scopedData) {
       for (const app of cap.apps) {
         if (byId.has(app.id)) continue;
-        if (matchesFilters(app, attrFilters, relationFilters, tagFilterIds, tagGroupsData))
+        if (
+          matchesFilters(
+            app, attrFilters, relationFilters, tagFilterIds, tagGroupsData, allRelTypeKeys,
+          )
+        )
           byId.set(app.id, app);
       }
     }
     return [...byId.values()];
-  }, [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData]);
+  }, [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, allRelTypeKeys]);
 
   const milestones = useMemo(
     () => computeTimelineMilestones(milestoneScope.map((a) => a.lifecycle)),
@@ -999,8 +1040,8 @@ export default function CapabilityMapReport() {
   }, [milestoneScope, tl.timelineDate, tl.todayMs]);
 
   const tree = useMemo(
-    () => (scopedData ? buildTree(scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse) : []),
-    [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse],
+    () => (scopedData ? buildTree(scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys) : []),
+    [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys],
   );
   const maxLvl = useMemo(() => getMaxLevel(tree), [tree]);
 
@@ -1067,11 +1108,21 @@ export default function CapabilityMapReport() {
     for (const [typeKey, members] of Object.entries(filterableTypes)) {
       if (members.length === 0) continue;
       const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
-      out.push({
-        typeKey,
-        label: typeLabel(typeMeta) || typeKey,
-        options: members.map((m) => ({ key: m.id, label: m.name })),
-      });
+      const label = typeLabel(typeMeta) || typeKey;
+      const options = members.map((m) => ({ key: m.id, label: m.name }));
+      out.push({ typeKey, label, options });
+
+      // Several relation types can reach this card type — "owned by" is a
+      // different question from "used by" — so each gets its own facet, keyed
+      // by the relation-type key (the matcher tells the key kinds apart).
+      const reaching = relationTypesData.filter((rt) => rt.other_type_key === typeKey);
+      if (reaching.length > 1) {
+        for (const rt of reaching) {
+          const verb =
+            rt.source_type_key === typeKey ? relLabel(rt, true) : relLabel(rt);
+          out.push({ typeKey: rt.key, label: `${label} · ${verb}`, options });
+        }
+      }
     }
     // Sort so Organization comes first if present
     out.sort((a, b) => {
@@ -1080,7 +1131,7 @@ export default function CapabilityMapReport() {
       return a.typeKey.localeCompare(b.typeKey);
     });
     return out;
-  }, [filterableTypes, metamodelTypes, typeLabel]);
+  }, [filterableTypes, metamodelTypes, typeLabel, relationTypesData, relLabel]);
 
   // Level picker options
   const levelOptions = useMemo(() => {

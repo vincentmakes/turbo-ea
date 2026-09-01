@@ -93,7 +93,13 @@ export interface RelSubtype {
 
 export interface FilterState {
   attributeFilters: Record<string, string[]>;
+  /** Keyed by CARD type (union across every relation reaching it) or by
+   *  RELATION type — see the matcher. `relTypeKeys` tells the two apart. */
   relationFilters: Record<string, string[]>;
+  /** Every known relation-type key, so a `relationFilters` entry can be read as
+   *  a relation type rather than a card type. Absent = all keys are card types,
+   *  which is how every pre-existing saved report behaves. */
+  relTypeKeys?: ReadonlySet<string>;
   /** Keyed by RelSubtype.composite. */
   relSubtypeFilters: Record<string, string[]>;
   relSubtypes: RelSubtype[];
@@ -418,10 +424,16 @@ export function matchesStaticFilters(
     if (realVals.length > 0 && realVals.includes(v as string)) continue;
     return false;
   }
-  // Relation filters (e.g. Organization, Platform, etc.)
-  for (const [typeKey, ids] of Object.entries(filters.relationFilters)) {
+  // Relation filters. A key is a CARD type ("related to an Organization at
+  // all") or a RELATION type ("owned by an Organization"), so that several
+  // relation types reaching one card type can be filtered apart. Card-type keys
+  // are what every existing saved report carries and keep meaning the union.
+  for (const [key, ids] of Object.entries(filters.relationFilters)) {
     if (ids.length === 0) continue;
-    const appRels = app.relations.filter((r) => r.related_type === typeKey);
+    const byRelType = filters.relTypeKeys?.has(key) ?? false;
+    const appRels = app.relations.filter((r) =>
+      byRelType ? r.relation_type === key : r.related_type === key,
+    );
     const wantEmpty = ids.includes(EMPTY_FILTER_KEY);
     const realIds = ids.filter((x) => x !== EMPTY_FILTER_KEY);
     if (wantEmpty && appRels.length === 0) continue;

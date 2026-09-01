@@ -21,7 +21,7 @@ import { api } from "@/api/client";
 import { useCardSearch, useFillVisible } from "@/hooks/useCardSearch";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useTypeLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel, useRelationLabel } from "@/hooks/useResolveLabel";
 import { compareByRank, searchRank } from "@/lib/searchRank";
 import type { Relation, RelationType } from "@/types";
 import RelationAttributesEditor, {
@@ -79,6 +79,7 @@ export default function AddRelationsDialog({
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const { getType } = useMetamodel();
   const typeLabel = useTypeLabel();
+  const relLabel = useRelationLabel();
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, searchPending] = useDebouncedValue(search, 300);
@@ -274,7 +275,13 @@ export default function AddRelationsDialog({
       fullScreen={fullScreen}
     >
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, pr: 1 }}>
-        <Box sx={{ flex: 1 }}>{t("relations.addSpecific", { type: otherLabel })}</Box>
+        {/* The verb, not just the card type: two relation types reaching the
+            same type open two dialogs that would otherwise share a title. */}
+        <Box sx={{ flex: 1 }}>
+          {t("relations.addSpecific", {
+            type: rt ? `${otherLabel} · ${isSource ? relLabel(rt) : relLabel(rt, true)}` : otherLabel,
+          })}
+        </Box>
         <IconButton size="small" onClick={() => onClose(added.length)} aria-label={t("common:actions.close")}>
           <MaterialSymbol icon="close" size={20} />
         </IconButton>

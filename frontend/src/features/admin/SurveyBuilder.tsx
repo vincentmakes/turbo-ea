@@ -112,6 +112,10 @@ export default function SurveyBuilder() {
   const [targetTypeKey, setTargetTypeKey] = useState("");
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
   const [relatedIds, setRelatedIds] = useState<string[]>([]);
+  // Optional: narrow the target to ONE relationship. Several relation types may
+  // connect the same pair of card types, so "owned by Acme" is a different set
+  // from "used by Acme". Empty = related through any of them.
+  const [relationTypeKey, setRelationTypeKey] = useState<string>("");
   const [relatedItems, setRelatedItems] = useState<CardOption[]>([]);
   const [cardIds, setCardIds] = useState<string[]>([]);
   const [cardItems, setCardItems] = useState<CardOption[]>([]);
@@ -153,6 +157,7 @@ export default function SurveyBuilder() {
         setTargetTypeKey(s.target_type_key);
         setTargetRoles(s.target_roles || []);
         setRelatedIds(s.target_filters?.related_ids || []);
+        setRelationTypeKey(s.target_filters?.relation_type_key || "");
         setCardIds(s.target_filters?.card_ids || []);
         setTagIds(s.target_filters?.tag_ids || []);
         setAttributeFilters(s.target_filters?.attribute_filters || []);
@@ -346,12 +351,35 @@ export default function SurveyBuilder() {
     (): SurveyTargetFilters => ({
       card_ids: cardIds.length > 0 ? cardIds : undefined,
       related_ids: relatedIds.length > 0 ? relatedIds : undefined,
+      relation_type_key:
+        relatedIds.length > 0 && relationTypeKey ? relationTypeKey : undefined,
       tag_ids: tagIds.length > 0 ? tagIds : undefined,
       attribute_filters: attributeFilters.length > 0 ? attributeFilters : undefined,
       not_updated_for: staleness ?? undefined,
     }),
-    [cardIds, relatedIds, tagIds, attributeFilters, staleness],
+    [cardIds, relatedIds, relationTypeKey, tagIds, attributeFilters, staleness],
   );
+
+  /** Relation types that could connect the target type to the cards picked in
+   *  the "related to" filter. More than one means the filter is ambiguous
+   *  ("related to Acme" — owned by? used by?) and the verb picker is offered. */
+  const relatedRelationTypes = useMemo(() => {
+    if (!targetTypeKey || relatedItems.length === 0) return [];
+    const relatedTypeKeys = new Set(relatedItems.map((c) => c.type));
+    return relationTypes.filter(
+      (rt) =>
+        !rt.is_hidden &&
+        ((rt.source_type_key === targetTypeKey && relatedTypeKeys.has(rt.target_type_key)) ||
+          (rt.target_type_key === targetTypeKey && relatedTypeKeys.has(rt.source_type_key))),
+    );
+  }, [relationTypes, targetTypeKey, relatedItems]);
+
+  // A narrowed relation type is meaningless once it no longer applies.
+  useEffect(() => {
+    if (relationTypeKey && !relatedRelationTypes.some((rt) => rt.key === relationTypeKey)) {
+      setRelationTypeKey("");
+    }
+  }, [relatedRelationTypes, relationTypeKey]);
 
   // Save draft
   const saveDraft = useCallback(async () => {
@@ -725,8 +753,28 @@ export default function SurveyBuilder() {
             }}
             label={t("surveyBuilder.target.searchCards")}
             fullWidth
-            sx={{ mb: 3 }}
+            sx={{ mb: relatedRelationTypes.length > 1 ? 2 : 3 }}
           />
+          {/* Only worth asking when the picked cards can be reached by more than
+              one relationship — otherwise "any relation" is the only answer. */}
+          {relatedRelationTypes.length > 1 && (
+            <TextField
+              select
+              size="small"
+              fullWidth
+              label={t("surveyBuilder.target.viaRelation")}
+              value={relationTypeKey}
+              onChange={(e) => setRelationTypeKey(e.target.value)}
+              sx={{ mb: 3 }}
+            >
+              <MenuItem value="">{t("surveyBuilder.target.viaAnyRelation")}</MenuItem>
+              {relatedRelationTypes.map((rt) => (
+                <MenuItem key={rt.key} value={rt.key}>
+                  {rt.source_type_key === targetTypeKey ? relLabel(rt) : relLabel(rt, true)}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
 
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
             {t("surveyBuilder.target.filterTags")}

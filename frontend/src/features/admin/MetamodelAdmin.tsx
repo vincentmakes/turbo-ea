@@ -26,7 +26,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import IconPicker from "@/components/IconPicker";
-import KeyInput, { isValidKey } from "@/components/KeyInput";
+import KeyInput, { isValidKey, coerceKey } from "@/components/KeyInput";
 import CalculationsAdmin from "@/features/admin/CalculationsAdmin";
 import PrinciplesAdmin from "@/features/admin/PrinciplesAdmin";
 import RegulationsAdmin from "@/features/admin/RegulationsAdmin";
@@ -188,18 +188,36 @@ export default function MetamodelAdmin() {
     // self-pair relation type is an ordinary relation and must stay editable here.
   ).filter((r) => !successorRelKeys.has(r.key));
 
-  // Derived key for a new relation type. Several relation types may share an
-  // ordered card-type pair, so the plain `<Source>To<Target>` form collides on the
-  // second one — suffix it instead of making the admin invent a key by hand.
+  // Derived key for a new relation type.
+  //
+  // Several relation types may share an ordered card-type pair, so the plain
+  // `<Source>To<Target>` form collides on the second one. The key is not just an
+  // internal id — it is the Excel column (`rel:<key>`), the calculation variable
+  // (`relations.<key>`) and the survey field key — so a bare `...2` would leave
+  // the admin with two columns nobody can tell apart. Derive it from the verb
+  // they typed instead (`OrganizationOwnsApplication`), and fall back to a
+  // numeric suffix only when there is no usable verb yet. The field stays
+  // editable, so this is a suggestion, never a constraint.
   const autoRelKey = useMemo(() => {
-    if (!newRel.source_type_key || !newRel.target_type_key) return "";
-    const base = `${newRel.source_type_key}To${newRel.target_type_key}`;
+    const src = newRel.source_type_key;
+    const tgt = newRel.target_type_key;
+    if (!src || !tgt) return "";
     const taken = new Set(relationTypes.map((r) => r.key));
+    const base = `${src}To${tgt}`;
     if (!taken.has(base)) return base;
+
+    const verb = coerceKey(
+      newRel.label.replace(/\b\w/g, (ch) => ch.toUpperCase()),
+    );
+    if (verb) {
+      const verbKey = `${src}${verb}${tgt}`;
+      if (!taken.has(verbKey)) return verbKey;
+    }
+
     let n = 2;
     while (taken.has(`${base}${n}`)) n += 1;
     return `${base}${n}`;
-  }, [newRel.source_type_key, newRel.target_type_key, relationTypes]);
+  }, [newRel.source_type_key, newRel.target_type_key, newRel.label, relationTypes]);
 
   // Relation types already connecting the chosen pair. Not an error — the
   // metamodel allows any number — but worth surfacing, since a variant of one

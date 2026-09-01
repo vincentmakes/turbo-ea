@@ -67,6 +67,12 @@ export function buildGroupTree(
   typeKey: string,
   members: GroupMember[],
   memberMatch?: (app: AppData, memberId: string) => boolean,
+  /** Narrow the axis to ONE relation type. Several may reach `typeKey` — an
+   *  Organization that *owns* an application and one that *uses* it are
+   *  different axes — and leaving this unset means "related at all", which is
+   *  what the plain `rel:<cardType>` grouping (and every saved report using it)
+   *  has always meant. */
+  relTypeKey?: string,
 ): GroupNode[] {
   const direct = new Map<string, AppData[]>();
   for (const m of members) direct.set(m.id, []);
@@ -74,6 +80,7 @@ export function buildGroupTree(
     const seen = new Set<string>();
     for (const rel of app.relations) {
       if (rel.related_type !== typeKey) continue;
+      if (relTypeKey && rel.relation_type !== relTypeKey) continue;
       if (!direct.has(rel.related_id) || seen.has(rel.related_id)) continue;
       if (memberMatch && !memberMatch(app, rel.related_id)) continue;
       seen.add(rel.related_id);

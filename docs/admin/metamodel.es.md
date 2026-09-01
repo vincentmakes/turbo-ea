@@ -175,6 +175,8 @@ Algunas relaciones incluyen atributos adicionales que se establecen en cada enla
 
 También puede crear **varios tipos de relación entre el mismo par de tipos de tarjeta** — por ejemplo, una organización que *posee* una aplicación junto a otra que la *utiliza*. Prefiera un atributo cuando describa variantes de una misma relación (mantiene una sola columna en el inventario y una sola línea en un diagrama); cree un segundo tipo de relación cuando las relaciones sean realmente distintas y merezcan sus propios verbos, atributos o filtros. Cuando un par tiene más de un tipo de relación, el inventario sigue mostrando una única columna para el tipo de tarjeta relacionado, y al abrir esa celda obtiene una sección por tipo de relación.
 
+Cuando un par tiene más de un tipo de relación, los informes, portales y encuestas pueden apuntar a uno concreto: el informe de Cartera ofrece un eje de agrupación y un filtro por relación, el Mapa de capacidades añade un filtro por relación, los filtros y secciones de relación del portal se etiquetan con su verbo, y el filtro **relacionado con** de una encuesta incorpora un selector **A través de la relación**. No elegir nada sigue significando «relacionado por cualquiera de ellas».
+
 ### Gestionar valores de relación
 
 Haga clic en el icono **Gestionar valores de relación** (etiqueta) en una fila de relación para editar los valores de sus atributos de «tipo». Puede:

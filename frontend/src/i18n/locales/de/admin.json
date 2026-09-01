@@ -846,6 +846,8 @@
   "surveyBuilder.target.filterRelated": "Nach verknüpften Karten filtern (optional)",
   "surveyBuilder.target.filterRelatedHint": "Nur Karten ansprechen, die eine Beziehung zu einem dieser Elemente haben (z. B. alle Anwendungen verknüpft mit der Organisation Vertrieb)",
   "surveyBuilder.target.searchCards": "Karten suchen...",
+  "surveyBuilder.target.viaRelation": "Über Beziehung",
+  "surveyBuilder.target.viaAnyRelation": "Beliebige Beziehung",
   "surveyBuilder.target.filterTags": "Nach Tags filtern (optional)",
   "surveyBuilder.target.selectTags": "Tags auswählen...",
   "surveyBuilder.target.filterAttributes": "Nach Attributen filtern (optional)",

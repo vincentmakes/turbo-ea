@@ -846,6 +846,8 @@
   "surveyBuilder.target.filterRelated": "Filter by Related Cards (optional)",
   "surveyBuilder.target.filterRelatedHint": "Only target cards that have a relation to one of these items (e.g., all Applications related to the Sales organization)",
   "surveyBuilder.target.searchCards": "Search cards...",
+  "surveyBuilder.target.viaRelation": "Via relation",
+  "surveyBuilder.target.viaAnyRelation": "Any relation",
   "surveyBuilder.target.filterTags": "Filter by Tags (optional)",
   "surveyBuilder.target.selectTags": "Select tags...",
   "surveyBuilder.target.filterAttributes": "Filter by Attributes (optional)",

@@ -867,12 +867,26 @@ export default function PortalViewer() {
               {visibleRelTypes.map((rt) => {
                 const opts = relationOptions[rt.other_type_key] || [];
                 if (opts.length === 0) return null;
+                // The filter state is keyed by relation type, but the label was
+                // the CARD type — so two relation types reaching one card type
+                // rendered two identical dropdowns. Add the verb to tell them
+                // apart; a lone relation keeps the plain type label.
+                const sharesPair =
+                  visibleRelTypes.filter((o) => o.other_type_key === rt.other_type_key)
+                    .length > 1;
+                const relFilterLabel = sharesPair
+                  ? `${rt.other_type_label} · ${
+                      rt.source_type_key === rt.other_type_key
+                        ? relLabel(rt, true)
+                        : relLabel(rt)
+                    }`
+                  : rt.other_type_label;
                 return (
                   <TextField
                     key={rt.key}
                     select
                     size="small"
-                    label={rt.other_type_label}
+                    label={relFilterLabel}
                     value={relationFilters[rt.key] || ""}
                     onChange={(e) => {
                       setRelationFilters((prev) => ({
@@ -885,7 +899,7 @@ export default function PortalViewer() {
                     sx={{ width: 200 }}
                   >
                     <MenuItem value="">
-                      {t("portal.allRelType", { label: rt.other_type_label })}
+                      {t("portal.allRelType", { label: relFilterLabel })}
                     </MenuItem>
                     {opts.map((o) => (
                       <MenuItem key={o.id} value={o.id}>
@@ -1184,13 +1198,24 @@ export default function PortalViewer() {
                     {/* Card-level relations */}
                     {cardRelTypes.length > 0 && card.relations.length > 0 && (() => {
                       const cardRelKeys = new Set(cardRelTypes.map((r) => r.key));
-                      const visible = card.relations.filter((r) => cardRelKeys.has(r.type));
+                      // One chip per related CARD, not per relation: a card
+                      // reached through two relation types rendered twice, and
+                      // the "+N" counted relations rather than cards. The tile
+                      // names *what* this card is connected to; the verbs are on
+                      // the detail panel.
+                      const seenRelated = new Set<string>();
+                      const visible = card.relations.filter((r) => {
+                        if (!cardRelKeys.has(r.type)) return false;
+                        if (seenRelated.has(r.related_id)) return false;
+                        seenRelated.add(r.related_id);
+                        return true;
+                      });
                       if (visible.length === 0) return null;
                       return (
                         <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap", mt: 1.5 }}>
-                          {visible.slice(0, 4).map((rel, i) => (
+                          {visible.slice(0, 4).map((rel) => (
                             <Chip
-                              key={`${rel.related_id}-${i}`}
+                              key={rel.related_id}
                               label={rel.related_name}
                               size="small"
                               variant="outlined"
@@ -1706,15 +1731,25 @@ export default function PortalViewer() {
                   const visibleRels = selectedFs.relations.filter((r) => detailRelKeys.has(r.type));
                   if (visibleRels.length === 0) return null;
 
-                  const grouped: Record<string, typeof visibleRels> = {};
+                  // Group by RELATION TYPE + direction, not by the rendered verb:
+                  // several relation types may share a card-type pair, and two of
+                  // them can carry the same verb (or the same translation in some
+                  // locale), which silently merged them into one section — and
+                  // that string was the React key too.
+                  const grouped = new Map<
+                    string,
+                    { label: string; rels: typeof visibleRels }
+                  >();
                   for (const rel of visibleRels) {
                     const rt = portal.relation_types.find((r) => r.key === rel.type);
                     const label =
                       rel.direction === "outgoing"
                         ? (rt ? relLabel(rt) : rel.type)
                         : (rt ? relLabel(rt, true) : rel.type);
-                    grouped[label] = grouped[label] || [];
-                    grouped[label].push(rel);
+                    const groupKey = `${rel.type}|${rel.direction}`;
+                    const bucket = grouped.get(groupKey);
+                    if (bucket) bucket.rels.push(rel);
+                    else grouped.set(groupKey, { label, rels: [rel] });
                   }
 
                   return (
@@ -1732,8 +1767,8 @@ export default function PortalViewer() {
                       >
                         {t("portal.relatedItems")}
                       </Typography>
-                      {Object.entries(grouped).map(([label, rels]) => (
-                        <Box key={label} sx={{ mb: 2 }}>
+                      {[...grouped].map(([groupKey, { label, rels }]) => (
+                        <Box key={groupKey} sx={{ mb: 2 }}>
                           <Typography
                             variant="caption"
                             fontWeight={600}

@@ -846,6 +846,8 @@
   "surveyBuilder.target.filterRelated": "按关联卡片筛选（可选）",
   "surveyBuilder.target.filterRelatedHint": "仅定位与其中任一项存在关系的卡片（例如，所有与销售组织相关联的应用）",
   "surveyBuilder.target.searchCards": "搜索卡片...",
+  "surveyBuilder.target.viaRelation": "通过关系",
+  "surveyBuilder.target.viaAnyRelation": "任意关系",
   "surveyBuilder.target.filterTags": "按标签筛选（可选）",
   "surveyBuilder.target.selectTags": "选择标签...",
   "surveyBuilder.target.filterAttributes": "按属性筛选（可选）",

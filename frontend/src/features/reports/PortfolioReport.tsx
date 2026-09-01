@@ -158,7 +158,12 @@ interface DrawerData {
 /*  Grouping logic                                                     */
 /* ------------------------------------------------------------------ */
 
-type GroupByMode = { kind: "attribute"; fieldKey: string } | { kind: "relation"; typeKey: string };
+type GroupByMode =
+  | { kind: "attribute"; fieldKey: string }
+  /** `relTypeKey` narrows the axis to ONE relation type; without it the axis
+   *  means "related to `typeKey` at all", which is what every saved report
+   *  carrying a `rel:<cardType>` key has always meant. */
+  | { kind: "relation"; typeKey: string; relTypeKey?: string };
 
 function groupApps(
   apps: AppData[],
@@ -856,18 +861,32 @@ export default function PortfolioReport({
       }
     }
 
-    // Relation-based grouping
+    // Relation-based grouping. `rel:<cardType>` means "related to this card type
+    // at all" and is what every existing saved report carries, so it stays. When
+    // several relation types reach that card type they are genuinely different
+    // axes — "owned by" is not "used by" — so each also gets its own
+    // `relt:<relationType>` option, labelled with its verb.
     for (const [typeKey, members] of Object.entries(data.groupable_types)) {
-      if (members.length > 0) {
-        const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
-        const label = typeLabel(typeMeta) || typeKey;
-        const icon = typeMeta?.icon || "link";
-        opts.push({ key: `rel:${typeKey}`, label, icon });
+      if (members.length === 0) continue;
+      const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
+      const label = typeLabel(typeMeta) || typeKey;
+      const icon = typeMeta?.icon || "link";
+      opts.push({ key: `rel:${typeKey}`, label, icon });
+
+      const reaching = (data.relation_types || []).filter(
+        (rt) => rt.other_type_key === typeKey,
+      );
+      if (reaching.length > 1) {
+        for (const rt of reaching) {
+          const verb =
+            rt.source_type_key === typeKey ? relLabel(rt, true) : relLabel(rt);
+          opts.push({ key: `relt:${rt.key}`, label: `${label} · ${verb}`, icon });
+        }
       }
     }
 
     return opts;
-  }, [data, selectFields, metamodelTypes, typeLabel]);
+  }, [data, selectFields, metamodelTypes, typeLabel, relLabel]);
 
   // Apply defaults once data is available. Skip when `data` is stale (loaded
   // for a previous card type) — otherwise we'd pick options from the old
@@ -894,8 +913,15 @@ export default function PortfolioReport({
     if (groupByKey.startsWith("attr:")) {
       return { kind: "attribute", fieldKey: groupByKey.slice(5) };
     }
+    if (groupByKey.startsWith("relt:")) {
+      // One relation type. The axis still groups by cards of its other end, so
+      // `typeKey` is resolved from the relation type itself.
+      const relTypeKey = groupByKey.slice(5);
+      const rt = (data?.relation_types || []).find((r) => r.key === relTypeKey);
+      return { kind: "relation", typeKey: rt?.other_type_key ?? "", relTypeKey };
+    }
     return { kind: "relation", typeKey: groupByKey.slice(4) };
-  }, [groupByKey]);
+  }, [groupByKey, data]);
 
   // Relation subtypes are only meaningful relative to a related card type, so
   // we surface them only while grouping by that type. Each subtype stays scoped
@@ -959,17 +985,25 @@ export default function PortfolioReport({
   // memo: the transition marks, delta and pills are computed from the
   // statically-filtered set, and marks that churn while the slider is dragged
   // can never be clicked.
+  /** Every relation-type key the payload knows, so a relation filter keyed by a
+   *  relation type is told apart from one keyed by a card type. */
+  const allRelTypeKeys = useMemo(
+    () => new Set((data?.relation_types || []).map((rt) => rt.key)),
+    [data],
+  );
+
   const staticFilters = useMemo<Omit<FilterState, "timelineDate">>(
     () => ({
       attributeFilters: attrFilters,
       relationFilters,
+      relTypeKeys: allRelTypeKeys,
       relSubtypeFilters,
       relSubtypes,
       tagFilterIds,
       tagGroups: data?.tag_groups || [],
       search,
     }),
-    [attrFilters, relationFilters, relSubtypeFilters, relSubtypes, tagFilterIds, data, search],
+    [attrFilters, relationFilters, allRelTypeKeys, relSubtypeFilters, relSubtypes, tagFilterIds, data, search],
   );
 
   // Resolve the active Color By into a descriptor + shared bucket labels.
@@ -1080,6 +1114,7 @@ export default function PortfolioReport({
       groupByMode.typeKey,
       data.groupable_types[groupByMode.typeKey] || [],
       relMemberMatch,
+      groupByMode.relTypeKey,
     );
   }, [data, nestedActive, groupByMode, filteredApps, relMemberMatch]);
   const maxGroupLevel = useMemo(() => (groupTree ? getMaxGroupLevel(groupTree) : 0), [groupTree]);
@@ -1119,7 +1154,7 @@ export default function PortfolioReport({
     setTagFilterIds([]);
     setSearch("");
     tl.reset();
-  }, [tl]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tl]);
 
   const handleAppClick = useCallback((id: string) => {
     setDrawer(null);
@@ -1234,13 +1269,18 @@ export default function PortfolioReport({
   const carriedLinkFilters = useMemo<InventorySliceFilters>(() => {
     const relations: Record<string, string[]> = {};
     if (data) {
-      for (const [typeKey, memberIds] of Object.entries(relationFilters)) {
+      for (const [key, memberIds] of Object.entries(relationFilters)) {
         if (memberIds.length === 0) continue;
-        const members = data.groupable_types[typeKey] || [];
+        // A key is a card type or a relation type; the members to resolve names
+        // against always live under the CARD type at the relation's other end.
+        const relType = (data.relation_types || []).find((rt) => rt.key === key);
+        const members = data.groupable_types[relType?.other_type_key ?? key] || [];
         const names = memberIds
           .map((id) => members.find((m) => m.id === id)?.name)
           .filter((n): n is string => !!n);
-        if (names.length > 0) relations[typeKey] = names;
+        // The inventory keys relation filters the same way, so the key travels
+        // through unchanged and lands on exactly the relationship the user picked.
+        if (names.length > 0) relations[key] = names;
       }
     }
     return {
@@ -1262,15 +1302,28 @@ export default function PortfolioReport({
       const directMembers = members.filter((m) => !m.ancestor_only);
       if (directMembers.length === 0) continue;
       const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
-      out.push({
-        typeKey,
-        label: typeLabel(typeMeta) || typeKey,
-        icon: typeMeta?.icon || "link",
-        options: directMembers.map((m) => ({ key: m.id, label: m.name })),
-      });
+      const label = typeLabel(typeMeta) || typeKey;
+      const icon = typeMeta?.icon || "link";
+      const options = directMembers.map((m) => ({ key: m.id, label: m.name }));
+      out.push({ typeKey, label, icon, options });
+
+      // When several relation types reach this card type, "related to an
+      // Organization" is not the question a user wants to ask — "owned by" and
+      // "used by" are. Add a facet per relation type, keyed by the relation-type
+      // key (the matcher tells the two kinds of key apart via `relTypeKeys`).
+      const reaching = (data.relation_types || []).filter(
+        (rt) => rt.other_type_key === typeKey,
+      );
+      if (reaching.length > 1) {
+        for (const rt of reaching) {
+          const verb =
+            rt.source_type_key === typeKey ? relLabel(rt, true) : relLabel(rt);
+          out.push({ typeKey: rt.key, label: `${label} · ${verb}`, icon, options });
+        }
+      }
     }
     return out;
-  }, [data, metamodelTypes, typeLabel]);
+  }, [data, metamodelTypes, typeLabel, relLabel]);
 
   // Table helpers
   const tableSort = (k: string) => {

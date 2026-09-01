@@ -36,7 +36,13 @@ export const INVENTORY_NOT_SET_KEY = "__not_set__";
 
 export type InventorySliceMode =
   | { kind: "attribute"; fieldKey: string }
-  | { kind: "relation"; typeKey: string }
+  | {
+      kind: "relation";
+      typeKey: string;
+      /** Present when the axis is ONE relation type rather than "related to
+       *  this card type at all". */
+      relTypeKey?: string;
+    }
   /** Data-quality bands. Mirrors like an attribute — the inventory has a
    * matching `data_quality` group axis — but the axis key is fixed, so there
    * is nothing to carry. */
@@ -83,11 +89,17 @@ export function buildInventorySliceUrl(opts: {
   for (const [key, values] of Object.entries(filters?.attributes ?? {})) {
     for (const value of values) params.append(`attr_${key}`, value);
   }
+  // The inventory keys a relation filter by RELATION TYPE, falling back to the
+  // card type meaning "related through any of them" (see
+  // normalizeRelationFilterKeys). A per-relation-type axis therefore carries its
+  // own key, which lands on exactly that relationship rather than the union.
+  const relFilterKey =
+    mode.kind === "relation" ? (mode.relTypeKey ?? mode.typeKey) : "";
   const carriedRelations = { ...(filters?.relations ?? {}) };
   if (mode.kind === "relation" && group !== null) {
     // The clicked group IS the filter on that relation type — it replaces
     // any carried report filter on the same type rather than unioning.
-    delete carriedRelations[mode.typeKey];
+    delete carriedRelations[relFilterKey];
   }
   for (const [typeKey, names] of Object.entries(carriedRelations)) {
     for (const name of names) params.append(`rel_${typeKey}`, name);
@@ -99,7 +111,7 @@ export function buildInventorySliceUrl(opts: {
     // there is no filter to apply either.
     if (group !== null) {
       params.append(
-        `rel_${mode.typeKey}`,
+        `rel_${relFilterKey}`,
         group === "ungrouped" ? INVENTORY_EMPTY_VALUE : group.label,
       );
     }

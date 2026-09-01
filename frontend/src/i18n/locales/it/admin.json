@@ -846,6 +846,8 @@
   "surveyBuilder.target.filterRelated": "Filtra per schede correlate (facoltativo)",
   "surveyBuilder.target.filterRelatedHint": "Destina solo le schede che hanno una relazione con uno di questi elementi (es. tutte le applicazioni correlate all'organizzazione Vendite)",
   "surveyBuilder.target.searchCards": "Cerca schede...",
+  "surveyBuilder.target.viaRelation": "Tramite relazione",
+  "surveyBuilder.target.viaAnyRelation": "Qualsiasi relazione",
   "surveyBuilder.target.filterTags": "Filtra per tag (facoltativo)",
   "surveyBuilder.target.selectTags": "Seleziona tag...",
   "surveyBuilder.target.filterAttributes": "Filtra per attributi (facoltativo)",

@@ -1023,7 +1023,13 @@ export interface StalenessWindow {
 }
 
 export interface SurveyTargetFilters {
+  /** The related CARD type the picked `related_ids` belong to. */
   related_type?: string;
+  /** Narrow the target to ONE relationship. Several relation types may connect
+   *  the same pair of card types, so "owned by Acme" is a different target set
+   *  from "used by Acme". Absent = related through any of them, which is what
+   *  every survey written before this field means. */
+  relation_type_key?: string;
   related_ids?: string[];
   card_ids?: string[];
   tag_ids?: string[];

@@ -846,6 +846,8 @@
   "surveyBuilder.target.filterRelated": "Filtrar por fichas relacionadas (opcional)",
   "surveyBuilder.target.filterRelatedHint": "Apenas fichas que tenham uma relação com um destes itens (ex: todas as aplicações relacionadas à organização Vendas)",
   "surveyBuilder.target.searchCards": "Pesquisar fichas...",
+  "surveyBuilder.target.viaRelation": "Através da relação",
+  "surveyBuilder.target.viaAnyRelation": "Qualquer relação",
   "surveyBuilder.target.filterTags": "Filtrar por tags (opcional)",
   "surveyBuilder.target.selectTags": "Selecionar tags...",
   "surveyBuilder.target.filterAttributes": "Filtrar por atributos (opcional)",

@@ -175,6 +175,8 @@ Algumas relações incluem atributos adicionais que define em cada ligação ind
 
 Também pode criar **vários tipos de relação entre o mesmo par de tipos de carta** — por exemplo, uma organização que *detém* uma aplicação a par de outra que a *utiliza*. Prefira um atributo quando estiver a descrever variantes de uma mesma relação (mantém uma só coluna no inventário e uma só linha num diagrama); crie um segundo tipo de relação quando as relações forem genuinamente diferentes e merecerem verbos, atributos ou filtros próprios. Quando um par tem mais do que um tipo de relação, o inventário continua a mostrar uma única coluna para o tipo de carta relacionado, e abrir essa célula dá-lhe uma secção por tipo de relação.
 
+Quando um par tem mais do que um tipo de relação, relatórios, portais e questionários podem visar um específico: o relatório de Portefólio oferece um eixo de agrupamento e um filtro por relação, o Mapa de capacidades acrescenta um filtro por relação, os filtros e secções de relação do portal são identificados com o seu verbo, e o filtro **relacionado com** de um questionário ganha um seletor **Através da relação**. Não escolher nada continua a significar «relacionado por qualquer uma delas».
+
 ### Gerir valores de relação
 
 Clique no ícone **Gerir valores de relação** (etiqueta) numa linha de relação para editar os valores dos seus atributos de «tipo». Pode:

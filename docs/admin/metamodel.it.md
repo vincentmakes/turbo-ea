@@ -175,6 +175,8 @@ Alcune relazioni includono attributi aggiuntivi che si impostano su ogni singolo
 
 Potete anche creare **più tipi di relazione tra la stessa coppia di tipi di card** — ad esempio un'organizzazione che *possiede* un'applicazione accanto a una che la *utilizza*. Preferite un attributo quando descrivete varianti di una singola relazione (mantiene una sola colonna nell'inventario e una sola linea sul diagramma); create un secondo tipo di relazione quando le relazioni sono davvero diverse e meritano verbi, attributi o filtri propri. Quando una coppia porta più tipi di relazione, l'inventario mostra comunque un'unica colonna per il tipo di card collegato e, aprendo quella cella, ottenete una sezione per ciascun tipo di relazione.
 
+Quando una coppia porta più tipi di relazione, report, portali e sondaggi possono puntare a uno specifico: il report Portfolio offre un asse di raggruppamento e un filtro per relazione, la Mappa delle capacità aggiunge un filtro per relazione, i filtri e le sezioni di relazione del portale riportano il proprio verbo e il filtro **collegato a** di un sondaggio ottiene un selettore **Tramite relazione**. Non scegliere nulla continua a significare «collegato tramite una qualsiasi di esse».
+
 ### Gestire i valori di relazione
 
 Cliccate sull'icona **Gestisci valori di relazione** (etichetta) su una riga di relazione per modificare i valori dei suoi attributi di «tipo». Potete:

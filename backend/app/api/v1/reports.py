@@ -1781,6 +1781,11 @@ async def capability_heatmap(
     # Build cap_id -> [app_card] and app -> {type: [related_id]} mappings
     cap_apps: dict[str, list] = {str(c.id): [] for c in caps}
     app_related: dict[str, dict[str, list[str]]] = {}  # app_id -> {type_key: [related_id, ...]}
+    # Same shape keyed by RELATION type, so the report can filter "owned by" apart
+    # from "used by" when several relation types reach one card type. The
+    # card-type map above stays — it is the union, and what existing saved
+    # reports and deep links are keyed on.
+    app_related_by_rel: dict[str, dict[str, list[str]]] = {}
     # Both maps are keyed by CARD, while `rels` carries one row per relation — and
     # two cards may be connected by several relation types. Track what has been
     # added so a capability never lists the same application twice.
@@ -1801,8 +1806,10 @@ async def capability_heatmap(
         # app -> related card relations (for filtering)
         if sid in app_id_set and tid in related_map:
             app_related.setdefault(sid, {}).setdefault(related_map[tid]["type"], []).append(tid)
+            app_related_by_rel.setdefault(sid, {}).setdefault(r.type, []).append(tid)
         elif tid in app_id_set and sid in related_map:
             app_related.setdefault(tid, {}).setdefault(related_map[sid]["type"], []).append(sid)
+            app_related_by_rel.setdefault(tid, {}).setdefault(r.type, []).append(sid)
 
     # Tag assignments per application (for tag filter)
     cap_app_tag_ids: dict[str, list[str]] = {}
@@ -1845,6 +1852,9 @@ async def capability_heatmap(
             # card, and these lists drive filter matching and counts.
             "org_ids": sorted(set(by_type.get("Organization", []))),
             "related_by_type": {k: sorted(set(v)) for k, v in by_type.items()},
+            "related_by_rel_type": {
+                k: sorted(set(v)) for k, v in app_related_by_rel.get(aid, {}).items()
+            },
             "tag_ids": cap_app_tag_ids.get(aid, []),
         }
 
@@ -1897,6 +1907,36 @@ async def capability_heatmap(
         "items": items,
         "metric": metric,
         "filterable_types": filterable_types,
+        # Relation types reaching each filterable card type, so the report can
+        # offer a facet per relationship when several share a card-type pair.
+        "relation_types": [
+            {
+                "key": rt.key,
+                "label": rt.label,
+                "reverse_label": rt.reverse_label,
+                "source_type_key": rt.source_type_key,
+                "target_type_key": rt.target_type_key,
+                "other_type_key": (
+                    rt.target_type_key
+                    if rt.source_type_key == "Application"
+                    else rt.source_type_key
+                ),
+                "translations": rt.translations or {},
+            }
+            for rt in (
+                await db.execute(
+                    select(RelationType).where(
+                        RelationType.is_hidden.is_(False),
+                        or_(
+                            RelationType.source_type_key == "Application",
+                            RelationType.target_type_key == "Application",
+                        ),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        ],
         "fields_schema": app_fields_schema,
         "tag_groups": cap_tag_groups_payload,
     }

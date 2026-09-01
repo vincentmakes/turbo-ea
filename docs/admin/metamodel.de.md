@@ -175,6 +175,8 @@ Manche Beziehungen tragen zusätzliche Attribute, die Sie an jeder einzelnen Ver
 
 Sie können auch **mehrere Beziehungstypen zwischen demselben Paar von Kartentypen** anlegen — etwa eine Organisation, die eine Anwendung *besitzt*, neben einer, die sie *nutzt*. Bevorzugen Sie ein Attribut, wenn Sie Varianten einer einzigen Beziehung beschreiben (das behält eine Spalte im Inventar und eine Linie im Diagramm); legen Sie einen zweiten Beziehungstyp an, wenn die Beziehungen wirklich verschieden sind und eigene Verben, eigene Attribute oder eigene Filter verdienen. Trägt ein Paar mehrere Beziehungstypen, zeigt das Inventar weiterhin eine einzige Spalte für den verbundenen Kartentyp; beim Öffnen dieser Zelle erhalten Sie je Beziehungstyp einen eigenen Abschnitt.
 
+Trägt ein Paar mehrere Beziehungstypen, können Berichte, Portale und Umfragen einen bestimmten auswählen: Der Portfolio-Bericht bietet eine Gruppierungsachse und einen Filter je Beziehung, die Capability Map einen Filter je Beziehung, Portalfilter und Beziehungsabschnitte werden mit ihrem Verb beschriftet, und der Filter **bezogen auf** einer Umfrage erhält eine Auswahl **Über Beziehung**. Keine Auswahl bedeutet weiterhin „über eine beliebige davon verbunden“.
+
 ### Beziehungswerte verwalten
 
 Klicken Sie auf das Symbol **Beziehungswerte verwalten** (Etikett) in einer Beziehungszeile, um die Werte ihrer „Typ"-Attribute zu bearbeiten. Sie können:

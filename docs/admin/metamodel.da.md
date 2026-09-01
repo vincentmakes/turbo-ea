@@ -175,6 +175,8 @@ Nogle relationer bærer ekstra egenskaber, som du angiver på hvert enkelt link 
 
 Du kan også oprette **flere relationstyper mellem det samme par af korttyper** — for eksempel en organisation, der *ejer* en applikation, ved siden af en, der *bruger* den. Foretræk en egenskab, når du beskriver varianter af én og samme relation (det bevarer én kolonne i inventaret og én linje på et diagram); opret en anden relationstype, når relationerne reelt er forskellige og fortjener deres egne verber, egne egenskaber eller egne filtre. Når et par bærer mere end én relationstype, viser inventaret stadig én kolonne for den relaterede korttype, og når du åbner den celle, får du et afsnit per relationstype.
 
+Når et par bærer mere end én relationstype, kan rapporter, portaler og undersøgelser målrette en bestemt: Porteføljerapporten tilbyder en grupperingsakse og et filter pr. relation, Kapabilitetskortet tilføjer et filter pr. relation, portalens filtre og relationsafsnit mærkes med deres verbum, og en undersøgelses **relateret til**-filter får en **Via relation**-vælger. At vælge intet betyder fortsat „relateret via en hvilken som helst af dem“.
+
 ### Administrer relationsværdier
 
 Klik på ikonet **Administrer relationsværdier** (etiket) på en relationsrække for at redigere værdierne for dens «type»-attributter. Du kan:

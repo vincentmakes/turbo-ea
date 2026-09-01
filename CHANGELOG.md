@@ -28,10 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The Capability Map counted an application twice under a capability, and listed a related card twice in its filters, when the link existed through more than one relation type.
 - Grouping the PPM portfolio by a card type connected through more than one relation type no longer places initiatives unpredictably.
 - The vendor field and the Provider link created with a new card now pick the same relation type consistently when several connect Provider to that card type.
+- A web portal showed two identically-labelled filter dropdowns, and repeated a card's chip, when two relation types reached the same card type; its detail sections also merged two relationships that happened to share a verb in the current language.
 
 ### Changed
 
-- A new relation type's suggested key gets a numeric suffix when the obvious `<Source>To<Target>` name is already taken, so a second relation on the same pair no longer collides before you can save it.
+- **Reports, portals and surveys can now target a specific relationship.** The Portfolio report offers a group-by axis and a filter per relation type, the Capability Map adds a filter per relation type, portal filters and relation sections carry their verb, and a survey's "related to" filter gains a **Via relation** picker. Existing saved reports, bookmarks, portals and surveys are unaffected — they keep meaning "related through any of them".
+- A new relation type's suggested key is derived from the verb you type when the obvious `<Source>To<Target>` name is already taken (`OrganizationOwnsApplication`), falling back to a numeric suffix. The key is what appears as an Excel column, a calculation variable and a survey field, so a second relation on a pair stays recognisable instead of colliding or reading as "…2".
 
 ## [2.113.0] - 2026-09-01
 

@@ -846,6 +846,8 @@
   "surveyBuilder.target.filterRelated": "تصفية حسب البطاقات ذات الصلة (اختياري)",
   "surveyBuilder.target.filterRelatedHint": "استهدف البطاقات التي لها علاقة بأحد هذه العناصر فقط (مثل جميع التطبيقات المرتبطة بمؤسسة المبيعات)",
   "surveyBuilder.target.searchCards": "البحث عن البطاقات...",
+  "surveyBuilder.target.viaRelation": "عبر العلاقة",
+  "surveyBuilder.target.viaAnyRelation": "أي علاقة",
   "surveyBuilder.target.filterTags": "تصفية حسب الوسوم (اختياري)",
   "surveyBuilder.target.selectTags": "اختر الوسوم...",
   "surveyBuilder.target.filterAttributes": "تصفية حسب السمات (اختياري)",

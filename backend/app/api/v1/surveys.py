@@ -147,16 +147,22 @@ async def _resolve_targets(db: AsyncSession, survey: Survey) -> tuple[list[dict]
         tagged_fs = select(CardTag.card_id).where(CardTag.tag_id.in_(tag_uuids))
         q = q.where(Card.id.in_(tagged_fs))
 
-    # Related card filter — cards that have a Relation to/from one of these IDs
+    # Related card filter — cards that have a Relation to/from one of these IDs.
+    # ``relation_type_key`` narrows it to ONE relationship: several relation types
+    # may connect the same pair of card types, so "owned by Acme" is a different
+    # target set from "used by Acme". Absent = any relation, which is what every
+    # survey written before the field existed means.
     related_ids = filters.get("related_ids") or []
     if related_ids:
         related_uuids = [uuid.UUID(r) for r in related_ids]
+        rel_type_key = filters.get("relation_type_key")
+        outgoing = select(Relation.source_id).where(Relation.target_id.in_(related_uuids))
+        incoming = select(Relation.target_id).where(Relation.source_id.in_(related_uuids))
+        if rel_type_key:
+            outgoing = outgoing.where(Relation.type == rel_type_key)
+            incoming = incoming.where(Relation.type == rel_type_key)
         # Find cards related to any of these IDs (as source or target)
-        related_fs = (
-            select(Relation.source_id)
-            .where(Relation.target_id.in_(related_uuids))
-            .union(select(Relation.target_id).where(Relation.source_id.in_(related_uuids)))
-        )
+        related_fs = outgoing.union(incoming)
         q = q.where(Card.id.in_(related_fs))
 
     # Attribute filters

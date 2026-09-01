@@ -175,6 +175,8 @@ Certaines relations portent des attributs supplémentaires que vous définissez 
 
 Vous pouvez aussi créer **plusieurs types de relation entre la même paire de types de cartes** — par exemple une organisation qui *possède* une application et une autre qui l'*utilise*. Préférez un attribut lorsque vous décrivez des variantes d'une même relation (cela conserve une seule colonne dans l'inventaire et une seule ligne sur un diagramme) ; créez un second type de relation lorsque les relations sont réellement différentes et méritent leurs propres verbes, attributs ou filtres. Lorsqu'une paire porte plusieurs types de relation, l'inventaire affiche toujours une seule colonne pour le type de carte lié, et l'ouverture de cette cellule vous donne une section par type de relation.
 
+Lorsqu'une paire porte plusieurs types de relation, les rapports, portails et enquêtes peuvent en cibler un en particulier : le rapport Portefeuille propose un axe de regroupement et un filtre par relation, la Carte des capacités ajoute un filtre par relation, les filtres et sections de relation des portails affichent leur verbe, et le filtre **lié à** d'une enquête gagne un sélecteur **Via la relation**. Ne rien choisir signifie toujours « relié par l'une quelconque d'entre elles ».
+
 ### Gérer les valeurs de relation
 
 Cliquez sur l'icône **Gérer les valeurs de relation** (étiquette) sur une ligne de relation pour modifier les valeurs de ses attributs « type ». Vous pouvez :

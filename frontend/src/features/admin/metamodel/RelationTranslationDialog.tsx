@@ -234,9 +234,19 @@ export default function RelationTranslationDialog({
           relationTypes.map((rt) => {
             const source = typeByKey.get(rt.source_type_key);
             const target = typeByKey.get(rt.target_type_key);
-            const title = `${typeLabel(source) || rt.source_type_key} → ${
+            // Several relation types may share a card-type pair, so the pair
+            // alone renders two identical headings. Append the English verb —
+            // the reference the admin is translating from — to tell them apart.
+            const sharesPair =
+              relationTypes.filter(
+                (o) =>
+                  o.source_type_key === rt.source_type_key &&
+                  o.target_type_key === rt.target_type_key,
+              ).length > 1;
+            const pairTitle = `${typeLabel(source) || rt.source_type_key} → ${
               typeLabel(target) || rt.target_type_key
             }`;
+            const title = sharesPair ? `${pairTitle} · ${rt.label || rt.key}` : pairTitle;
             return (
               <TranslationGroup key={rt.key} title={title}>
                 {verbsFor(rt).map((property) => (

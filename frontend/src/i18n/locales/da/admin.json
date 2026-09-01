@@ -846,6 +846,8 @@
   "surveyBuilder.target.filterRelated": "Filtrér efter relaterede kort (valgfrit)",
   "surveyBuilder.target.filterRelatedHint": "Målret kun kort, der har en relation til et af disse elementer (f.eks. alle applikationer relateret til salgsorganisationen)",
   "surveyBuilder.target.searchCards": "Søg kort...",
+  "surveyBuilder.target.viaRelation": "Via relation",
+  "surveyBuilder.target.viaAnyRelation": "Enhver relation",
   "surveyBuilder.target.filterTags": "Filtrér efter tags (valgfrit)",
   "surveyBuilder.target.selectTags": "Vælg tags...",
   "surveyBuilder.target.filterAttributes": "Filtrér efter egenskaber (valgfrit)",

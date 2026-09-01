@@ -846,6 +846,8 @@
   "surveyBuilder.target.filterRelated": "Фильтр по связанным карточкам (необязательно)",
   "surveyBuilder.target.filterRelatedHint": "Показывать только карточки, у которых есть связь с одним из этих элементов (напр. все приложения, связанные с отделом продаж)",
   "surveyBuilder.target.searchCards": "Поиск карточек...",
+  "surveyBuilder.target.viaRelation": "Через связь",
+  "surveyBuilder.target.viaAnyRelation": "Любая связь",
   "surveyBuilder.target.filterTags": "Фильтр по тегам (необязательно)",
   "surveyBuilder.target.selectTags": "Выберите теги...",
   "surveyBuilder.target.filterAttributes": "Фильтр по атрибутам (необязательно)",

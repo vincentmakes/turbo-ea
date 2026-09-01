@@ -177,6 +177,8 @@ Some relations carry extra attributes that you set on each individual link rathe
 
 You can also create **several relation types between the same pair of card types** — for example an Organization that *owns* an application alongside one that *uses* it. Prefer an attribute when you are describing variants of a single relationship (it keeps one column in the inventory and one line on a diagram); create a second relation type when the relationships are genuinely different and deserve their own verbs, their own attributes, or their own filters. When a pair carries more than one relation type, the inventory still shows a single column for the related card type, and opening that cell gives you one section per relation type.
 
+When a pair carries more than one relation type, reports, portals and surveys can target a specific one: the Portfolio report offers a group-by axis and a filter per relationship, the Capability Map adds a filter per relationship, portal filters and relation sections are labelled with their verb, and a survey's **related to** filter gains a **Via relation** picker. Choosing nothing still means “related through any of them”.
+
 ### Managing relation values
 
 Click the **Manage relation values** (tag) icon on any relation row to edit the values of its "type" attributes. You can:
