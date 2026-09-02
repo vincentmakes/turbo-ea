@@ -60,7 +60,11 @@
  * `CardMultiPicker` is the full card browser — type rail with live counts,
  * hierarchy, subtree-root semantics via `roots`, and a selection that
  * survives re-faceting and re-searching — for anything bigger than the
- * single-type scope control `CardScopeDialog` covers.
+ * single-type scope control `CardScopeDialog` covers. Since SDK 1.27
+ * `CardPicker` is the single-select card picker every core dropdown that
+ * selects ONE card is built on — browse on open, rank as you type, page in
+ * more as the list scrolls — so an extension dialog that links one card
+ * behaves exactly like core's instead of hand-rolling an Autocomplete.
  *
  * Since SDK 1.12 the preferred way to add a plug point is the GENERIC SLOT
  * registry, not a new named extension point. An extension declares
@@ -88,6 +92,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import FilterSelect from "@/components/FilterSelect";
 import CardMultiPicker from "@/components/CardMultiPicker";
+import CardPicker from "@/components/CardPicker";
 import CardScopeDialog, { dedupeScopeRoots } from "@/components/CardScopeDialog";
 import CardScopeFilter from "@/components/CardScopeFilter";
 import { applyScope, useCardScope } from "@/hooks/useCardScope";
@@ -141,7 +146,7 @@ import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.26";
+export const UI_SDK_VERSION = "1.27";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -1017,6 +1022,10 @@ export function initExtensionHost(): void {
       // for when the user picks across types, or when the caller doesn't know
       // in advance which type they want. MUI-only leaf, so a static import.
       CardMultiPicker,
+      // SDK 1.27 — the single-select card picker (CLAUDE.md: *always use
+      // CardPicker*). Same engine as the multi picker, for the dialog that
+      // links ONE card. MUI-only leaf, so a static import.
+      CardPicker,
       // SDK 1.15 — the whole report-scoping kit, so an extension report gets
       // "narrow this to a few cards and everything under them" with the same
       // saved-report round-trip and stale-id handling core reports have.

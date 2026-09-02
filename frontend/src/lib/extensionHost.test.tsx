@@ -88,6 +88,9 @@ describe("extensionHost", () => {
     // SDK 1.24 — the full card browser, for anything wider than the
     // single-type scope control CardScopeDialog covers.
     expect(sdk.CardMultiPicker).toBeDefined();
+    // SDK 1.27 — the single-select card picker, for a dialog that links
+    // ONE card without hand-rolling an Autocomplete.
+    expect(sdk.CardPicker).toBeDefined();
     // SDK 1.21 — timeline + dependency-view loaders and the filter-sidebar
     // primitives. Without these an extension timeline/graph/sidebar can only
     // be a drifting lookalike of core's.
@@ -448,7 +451,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.26");
+    expect(UI_SDK_VERSION).toBe("1.27");
   });
 
   it("whitelists the nav groups an extension route may request", () => {

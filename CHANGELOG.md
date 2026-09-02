@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.118.0] - 2026-09-02
+
+### Added
+
+- **Extensions can reuse core's single-card picker (UI SDK 1.27).** `CardPicker` is now on the extension SDK, so an extension dialog that selects one card browses on open, ranks as you type and scrolls in more results exactly like every core dropdown that picks a card, instead of hand-rolling a weaker one.
+
 ## [2.117.1] - 2026-09-02
 
 ### Fixed
