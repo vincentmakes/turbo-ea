@@ -141,7 +141,7 @@ import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.25";
+export const UI_SDK_VERSION = "1.26";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -163,6 +163,17 @@ export interface ExtensionRouteContribution {
   // rendering are unchanged — only where the menu entry appears. Omit for the
   // current top-level behaviour. An unrecognised value shows nowhere in the nav.
   navGroup?: ExtensionNavGroup;
+  // Optional placement hint for a TOP-LEVEL entry: where in the bar it sits.
+  // `start` / `end` / `before:<anchor>` / `after:<anchor>`, anchors being the
+  // core nav keys in `NAV_ANCHORS` — the same grammar a manifest field section
+  // uses to place itself on a card type. Defaults to `end`, which is the
+  // behaviour every extension had before this existed, and an anchor not
+  // currently in the bar (a module switched off) degrades to that default
+  // rather than dropping the entry.
+  //
+  // Ignored when `navGroup` is set: the entry is then a child of that group,
+  // and where the group itself sits is core's business.
+  navPlacement?: string;
 }
 
 export interface ExtensionCardTabContribution {

@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.117.0] - 2026-09-02
+
+### Added
+
+- **An extension can say where its nav entry belongs (UI SDK 1.26).** A top-level route contribution takes an optional `navPlacement` — `start`, `end`, `before:<anchor>` or `after:<anchor>`, anchors being the core nav keys — so a page can sit next to the work it relates to instead of always at the end of the bar. It is the same grammar a manifest field section already uses to place itself on a card type, and it defaults to `end`, so every existing extension keeps the position it has.
+
+### Changed
+
+- A placement naming a nav entry that is not currently shown — one behind a module toggle — falls back to the default rather than dropping the entry, matching how a field-section placement handles an anchor its card type does not carry.
+
 ## [2.116.0] - 2026-09-01
 
 ### Added

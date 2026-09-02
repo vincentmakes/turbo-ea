@@ -51,6 +51,7 @@ import CreateCardDialog from "@/components/CreateCardDialog";
 import {
   ADMIN_ITEM_DEFS,
   NAV_ITEM_DEFS,
+  resolveNavPlacement,
   type NavItemDef,
 } from "@/layouts/navItems";
 import { hasPermission } from "@/components/RequirePermission";
@@ -250,15 +251,22 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     for (const { plugin } of uiExtensions) {
       for (const route of plugin.routes ?? []) {
         if (route.navGroup) continue;
-        items = [
-          ...items,
-          {
-            labelKey: route.label,
-            icon: route.icon,
-            path: route.path,
-            permission: route.permission,
-          },
-        ];
+        const entry: NavItemDef = {
+          labelKey: route.label,
+          icon: route.icon,
+          path: route.path,
+          permission: route.permission,
+        };
+        // The index is recomputed per route, against the list AS IT NOW
+        // STANDS. That is what keeps two routes sharing one placement in
+        // registration order: the first lands before the anchor, the second
+        // then lands before the anchor and after the first, rather than both
+        // resolving to the same stale index and coming out reversed.
+        const at = resolveNavPlacement(
+          items.map((item) => item.labelKey),
+          route.navPlacement,
+        );
+        items = [...items.slice(0, at), entry, ...items.slice(at)];
       }
     }
 
