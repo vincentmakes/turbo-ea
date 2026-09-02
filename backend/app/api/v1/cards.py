@@ -4,6 +4,7 @@ import csv
 import io
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -1193,13 +1194,23 @@ async def relation_summary(
 _MAX_DESCENDANT_RELATIONS = 20_000
 
 
+RelationDirection = Literal["outgoing", "incoming"]
+
+
 async def _descendant_relation_map(
     db: AsyncSession,
     root: Card,
     *,
     relation_type: str | None = None,
-) -> dict[str, dict[uuid.UUID, list[Card]]]:
-    """Map ``relation_type_key -> {peer_card_id: [descendants linking it]}``.
+    direction: RelationDirection | None = None,
+) -> dict[tuple[str, RelationDirection], dict[uuid.UUID, list[Card]]]:
+    """Map ``(relation_type_key, direction) -> {peer_card_id: [descendants linking it]}``.
+
+    ``direction`` is the DESCENDANT's side of the row — ``outgoing`` when it is
+    the source. A self-referencing type therefore rolls up twice, once per
+    side, matching the two groups the Relations section renders for it; a
+    cross-type type still yields exactly one bucket. Pass ``direction`` to keep
+    only one side.
 
     Rules (all three agreed on discussion #863):
 
@@ -1258,29 +1269,37 @@ async def _descendant_relation_map(
     if relation_type:
         direct_q = direct_q.where(Relation.type == relation_type)
     direct_rows = await db.execute(direct_q)
-    already_linked: set[tuple[str, uuid.UUID]] = set()
+    # Keyed per side too: a direct "root has site P" must not hide P from the
+    # INCOMING roll-up when a descendant is P's site — that is exactly the row
+    # the incoming chip has to say something new about.
+    already_linked: set[tuple[str, RelationDirection, uuid.UUID]] = set()
     for r in direct_rows.scalars().all():
-        peer_id = r.target_id if r.source_id == root.id else r.source_id
-        already_linked.add((r.type, peer_id))
+        if r.source_id == root.id:
+            already_linked.add((r.type, "outgoing", r.target_id))
+        else:
+            already_linked.add((r.type, "incoming", r.source_id))
 
     inside_tree = set(descendants.keys()) | {root.id}
-    out: dict[str, dict[uuid.UUID, list[Card]]] = {}
+    out: dict[tuple[str, RelationDirection], dict[uuid.UUID, list[Card]]] = {}
     for r in relations:
         # Resolve which end is the descendant and which is the peer. A relation
         # with both ends inside the subtree is skipped by the `inside_tree`
         # check below regardless of which end we pick here.
+        side: RelationDirection
         if r.source_id in descendants:
-            owner_id, peer_id = r.source_id, r.target_id
+            owner_id, peer_id, side = r.source_id, r.target_id, "outgoing"
         else:
-            owner_id, peer_id = r.target_id, r.source_id
+            owner_id, peer_id, side = r.target_id, r.source_id, "incoming"
+        if direction is not None and side != direction:
+            continue
         if peer_id in inside_tree:
             continue
-        if (r.type, peer_id) in already_linked:
+        if (r.type, side, peer_id) in already_linked:
             continue
         owner = descendants.get(owner_id)
         if owner is None:
             continue
-        by_peer = out.setdefault(r.type, {})
+        by_peer = out.setdefault((r.type, side), {})
         vias = by_peer.setdefault(peer_id, [])
         # Dedup provenance: one descendant may link the same peer more than
         # once if the metamodel ever allows parallel edges.
@@ -1308,13 +1327,15 @@ async def descendant_relation_summary(
     if not card:
         raise HTTPException(404, "Card not found")
 
-    by_type = await _descendant_relation_map(db, card)
+    by_side = await _descendant_relation_map(db, card)
     entries = [
-        DescendantRelationSummaryEntry(relation_type_key=rt_key, count=len(peers))
-        for rt_key, peers in by_type.items()
+        DescendantRelationSummaryEntry(relation_type_key=rt_key, direction=side, count=len(peers))
+        for (rt_key, side), peers in by_side.items()
         if peers
     ]
-    entries.sort(key=lambda e: e.relation_type_key)
+    # The key alone is no longer a total order — a self-referencing type has
+    # two entries. Outgoing first, as `relation_summary` orders its sides.
+    entries.sort(key=lambda e: (e.relation_type_key, 0 if e.direction == "outgoing" else 1))
     return entries
 
 
@@ -1322,6 +1343,13 @@ async def descendant_relation_summary(
 async def descendant_relations(
     card_id: str,
     relation_type: str = Query(..., description="Relation type key to roll up"),
+    direction: RelationDirection | None = Query(
+        None,
+        description=(
+            "Which side of the relation type to roll up — the card's outgoing or "
+            "incoming rows. Omit for both, which only differ for a self-referencing type."
+        ),
+    ),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
@@ -1341,8 +1369,20 @@ async def descendant_relations(
     if not card:
         raise HTTPException(404, "Card not found")
 
-    by_type = await _descendant_relation_map(db, card, relation_type=relation_type)
-    peers = by_type.get(relation_type, {})
+    by_side = await _descendant_relation_map(
+        db, card, relation_type=relation_type, direction=direction
+    )
+    # Union the requested sides. A peer reached on both sides of a
+    # self-referencing type is one row; its `via` owners are re-deduped here
+    # because the builder only dedups within a side.
+    peers: dict[uuid.UUID, list[Card]] = {}
+    for (rt_key, _side), by_peer in by_side.items():
+        if rt_key != relation_type:
+            continue
+        for peer_id, owners in by_peer.items():
+            vias = peers.setdefault(peer_id, [])
+            seen = {v.id for v in vias}
+            vias.extend(o for o in owners if o.id not in seen)
     if not peers:
         return DescendantRelationsResponse(rows=[], total=0, via_total=0)
 

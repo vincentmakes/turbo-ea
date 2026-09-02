@@ -8,7 +8,7 @@
  *
  * Pure functions only — unit-tested without a DOM.
  */
-import { appColorBucket } from "./portfolioHelpers";
+import { relationOnSide, appColorBucket } from "./portfolioHelpers";
 import type { AppData, ColorLabels, ColorResolution } from "./portfolioHelpers";
 
 /** A `groupable_types` member as returned by GET /reports/app-portfolio.
@@ -80,7 +80,7 @@ export function buildGroupTree(
     const seen = new Set<string>();
     for (const rel of app.relations) {
       if (rel.related_type !== typeKey) continue;
-      if (relTypeKey && rel.relation_type !== relTypeKey) continue;
+      if (relTypeKey && !relationOnSide(rel, relTypeKey)) continue;
       if (!direct.has(rel.related_id) || seen.has(rel.related_id)) continue;
       if (memberMatch && !memberMatch(app, rel.related_id)) continue;
       seen.add(rel.related_id);

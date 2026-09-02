@@ -18,6 +18,7 @@ import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { onSide } from "@/lib/relationSort";
 import { useCardSearch, useFillVisible } from "@/hooks/useCardSearch";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -92,8 +93,8 @@ export default function AddRelationsDialog({
   open,
   onClose,
   fsId,
-  cardTypeKey,
   relationType: rt,
+  isSource,
   relations,
   onAdded,
   onRemoved,
@@ -103,10 +104,18 @@ export default function AddRelationsDialog({
   /** `addedCount` lets the caller reconcile once per batch instead of per add. */
   onClose: (addedCount: number) => void;
   fsId: string;
-  cardTypeKey: string;
+  /** Kept for callers; the side is `isSource`, never derived from the type. */
+  cardTypeKey?: string;
   /** The relation being added to. Chosen before opening — the caller's `+`
    *  already says which one, so the dialog carries no type selector. */
   relationType: RelationType | null;
+  /**
+   * Which end of `relationType` the card sits at. Required, and supplied by
+   * the group that opened the dialog — never derived from the type here: for a
+   * self-referencing type the "am I the source" test is true at both ends,
+   * which is how the dialog could only ever create the OUTGOING direction.
+   */
+  isSource: boolean;
   /** The card's current relations, used to hide what is already linked. */
   relations: Relation[];
   onAdded: (rel: Relation) => void;
@@ -157,7 +166,6 @@ export default function AddRelationsDialog({
     setError("");
   }, [open]);
 
-  const isSource = rt ? rt.source_type_key === cardTypeKey : true;
   const otherTypeKey = rt ? (isSource ? rt.target_type_key : rt.source_type_key) : "";
   const otherType = getType(otherTypeKey);
   const otherLabel = typeLabel(otherType) || otherTypeKey;
@@ -176,9 +184,16 @@ export default function AddRelationsDialog({
   const allowsMany = rt ? rt.cardinality === "n:m" || (rt.cardinality === "1:n" && !isSource) : true;
 
   const rtKey = rt?.key ?? "";
+  // On THIS side only. It feeds the exclusion set, the "N already linked"
+  // caption and the empty-list text, so all three agree. For a cross-type rt
+  // that is every row of the type, as before. For a self-referencing type a
+  // card linked only the other way round stays pickable: the reverse row is a
+  // distinct edge under the `(type, source, target)` upsert key, and the group
+  // this dialog serves does not list it. (SuccessorsSection excludes both
+  // ends — lineage is the one self-pair where a mutual link is nonsense.)
   const linkedForType = useMemo(
-    () => relations.filter((r) => r.type === rtKey),
-    [relations, rtKey],
+    () => relations.filter((r) => onSide(r, rtKey, fsId, isSource)),
+    [relations, rtKey, fsId, isSource],
   );
 
   /** Self, everything already linked on this type, and this batch's adds. */

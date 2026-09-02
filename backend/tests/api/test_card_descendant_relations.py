@@ -89,11 +89,11 @@ def _summary(client, card, user):
     )
 
 
-def _rows(client, card, user, rel_type="capToApp"):
-    return client.get(
-        f"/api/v1/cards/{card.id}/descendant-relations?relation_type={rel_type}",
-        headers=auth_headers(user),
-    )
+def _rows(client, card, user, rel_type="capToApp", direction=None):
+    url = f"/api/v1/cards/{card.id}/descendant-relations?relation_type={rel_type}"
+    if direction:
+        url += f"&direction={direction}"
+    return client.get(url, headers=auth_headers(user))
 
 
 class TestDescendantRelationSummary:
@@ -278,3 +278,93 @@ class TestDescendantRelationRows:
         r = await _rows(client, rollup_env["root"], viewer)
         assert r.status_code == 200, r.text
         assert r.json()["total"] == 3
+
+
+@pytest.fixture
+async def self_pair_env(db, rollup_env):
+    """`rollup_env` plus a self-referencing capability type and an outside peer.
+
+    Ext (outside the tree)
+      ▲ LeafA ── capToCap ──> Ext      (LeafA is the SOURCE: outgoing)
+      └─ Ext  ── capToCap ──> SubB     (SubB is the TARGET: incoming)
+    """
+    await create_relation_type(
+        db,
+        key="capToCap",
+        label="has site",
+        reverse_label="is site of",
+        source_type_key="BusinessCapability",
+        target_type_key="BusinessCapability",
+    )
+    ext = await create_card(db, card_type="BusinessCapability", name="Ext")
+    await create_relation(
+        db, type_key="capToCap", source_id=rollup_env["leaf_a"].id, target_id=ext.id
+    )
+    await create_relation(
+        db, type_key="capToCap", source_id=ext.id, target_id=rollup_env["sub_b"].id
+    )
+    return {**rollup_env, "ext": ext}
+
+
+class TestSelfReferencingRollup:
+    """A self-referencing type rolls up per SIDE.
+
+    The Relations section renders such a type as two groups — "has site" and
+    "is site of" — so the chip and the drawer must be able to tell the two
+    apart; a single merged count would put the same number on both.
+    """
+
+    async def test_summary_has_one_entry_per_side(self, client, db, self_pair_env):
+        r = await _summary(client, self_pair_env["root"], self_pair_env["admin"])
+        assert r.status_code == 200, r.text
+        sides = {(e["relation_type_key"], e["direction"]): e["count"] for e in r.json()}
+        assert sides[("capToCap", "outgoing")] == 1
+        assert sides[("capToCap", "incoming")] == 1
+        # A cross-type type still yields exactly one entry, on its one side.
+        assert sides[("capToApp", "outgoing")] == 3
+        assert ("capToApp", "incoming") not in sides
+
+    async def test_summary_orders_outgoing_before_incoming(self, client, db, self_pair_env):
+        r = await _summary(client, self_pair_env["root"], self_pair_env["admin"])
+        entries = [(e["relation_type_key"], e["direction"]) for e in r.json()]
+        assert entries.index(("capToCap", "outgoing")) < entries.index(("capToCap", "incoming"))
+
+    async def test_rows_filter_by_direction(self, client, db, self_pair_env):
+        r = await _rows(
+            client, self_pair_env["root"], self_pair_env["admin"], "capToCap", "incoming"
+        )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert [row["name"] for row in body["rows"]] == ["Ext"]
+        assert [v["name"] for v in body["rows"][0]["via"]] == ["SubB"]
+
+    async def test_rows_without_direction_union_both_sides(self, client, db, self_pair_env):
+        """Omitting `direction` keeps today's behaviour: one row per peer, vias merged."""
+        r = await _rows(client, self_pair_env["root"], self_pair_env["admin"], "capToCap")
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["total"] == 1
+        assert sorted(v["name"] for v in body["rows"][0]["via"]) == ["LeafA", "SubB"]
+
+    async def test_direct_link_suppresses_only_its_own_side(self, client, db, self_pair_env):
+        """A direct `root has site Ext` hides Ext from the OUTGOING roll-up only.
+
+        The incoming side — a descendant is Ext's site — is exactly the row the
+        incoming chip has something new to say about.
+        """
+        await create_relation(
+            db,
+            type_key="capToCap",
+            source_id=self_pair_env["root"].id,
+            target_id=self_pair_env["ext"].id,
+        )
+        r = await _summary(client, self_pair_env["root"], self_pair_env["admin"])
+        sides = {(e["relation_type_key"], e["direction"]): e["count"] for e in r.json()}
+        assert ("capToCap", "outgoing") not in sides
+        assert sides[("capToCap", "incoming")] == 1
+
+    async def test_rows_reject_an_unknown_direction(self, client, db, self_pair_env):
+        r = await _rows(
+            client, self_pair_env["root"], self_pair_env["admin"], "capToCap", "sideways"
+        )
+        assert r.status_code == 422

@@ -84,6 +84,7 @@ export default function DescendantRelationsDrawer({
     api
       .get<DescendantRelationsResponse>(
         `/cards/${cardId}/descendant-relations?relation_type=${encodeURIComponent(rt.key)}` +
+          `&direction=${isSource ? "outgoing" : "incoming"}` +
           `&page=${page}&page_size=${PAGE_SIZE}`,
       )
       .then((res) => {
@@ -93,7 +94,7 @@ export default function DescendantRelationsDrawer({
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("relations.rollup.error")))
       .finally(() => setLoading(false));
-  }, [cardId, rt.key, page, t]);
+  }, [cardId, rt.key, isSource, page, t]);
 
   // Lazy — nothing is fetched until the drawer is actually opened.
   useEffect(() => {

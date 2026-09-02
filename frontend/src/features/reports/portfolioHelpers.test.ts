@@ -16,6 +16,7 @@ import {
   MULTIPLE_COLOR,
   REL_SUBTYPE_PREFIX,
   relationMemberMatchesSubtypeFilters,
+  relationOnSide,
   relSubtypeComposite,
   resolveColorBy,
   UNSET_COLOR,
@@ -353,5 +354,44 @@ describe("lifecycle date helpers", () => {
     const app = { lifecycle: { active: "2020-01-01", endOfLife: "2024-01-01" } } as AppData;
     expect(isAppAliveAtDate(app, ms("2022-01-01"))).toBe(true);
     expect(isAppAliveAtDate(app, at)).toBe(false);
+  });
+});
+
+describe("relation facets on a self-referencing type", () => {
+  // Organization → Organization "has site": the same row is outgoing on the
+  // parent and incoming on the site. A bare key matches either side; a side
+  // key (`__out` / `__in`) matches one — never decided from the TYPE, which
+  // reads as "source" at both ends.
+  const rel = (direction: "outgoing" | "incoming", relatedId: string): AppData["relations"][number] => ({
+    relation_type: "orgToOrg",
+    direction,
+    related_id: relatedId,
+    related_name: relatedId,
+    related_type: "Organization",
+    attributes: {},
+  });
+
+  it("relationOnSide: bare key either side, side key one side, no direction = either", () => {
+    const out = rel("outgoing", "site");
+    expect(relationOnSide(out, "orgToOrg")).toBe(true);
+    expect(relationOnSide(out, "orgToOrg__out")).toBe(true);
+    expect(relationOnSide(out, "orgToOrg__in")).toBe(false);
+    expect(relationOnSide(rel("incoming", "hq"), "orgToOrg__in")).toBe(true);
+    expect(relationOnSide(rel("incoming", "hq"), "other__in")).toBe(false);
+    // An older payload carries no direction: it matches either side, as it always did.
+    const legacy = { ...out, direction: undefined };
+    expect(relationOnSide(legacy, "orgToOrg__in")).toBe(true);
+  });
+
+  it("matchesFilters filters one side of a self-referencing type", () => {
+    const hq = app("hq", [rel("outgoing", "site")]);
+    const site = app("site", [rel("incoming", "hq")]);
+    const relTypeKeys = new Set(["orgToOrg", "orgToOrg__out", "orgToOrg__in"]);
+    const hasSite = baseFilters({ relationFilters: { orgToOrg__out: ["site"] }, relTypeKeys });
+    expect(matchesFilters(hq, hasSite)).toBe(true);
+    expect(matchesFilters(site, hasSite)).toBe(false);
+    const isSiteOf = baseFilters({ relationFilters: { orgToOrg__in: ["hq"] }, relTypeKeys });
+    expect(matchesFilters(site, isSiteOf)).toBe(true);
+    expect(matchesFilters(hq, isSiteOf)).toBe(false);
   });
 });

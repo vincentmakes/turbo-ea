@@ -50,6 +50,16 @@ function relType(key: string, label: string, targetTypeKey = "Organization") {
 const appToOrgOwns = relType("appToOrgOwns", "owns");
 const appToObj = relType("appToObj", "supports", "Objective");
 
+/** The reported case: Organization → Organization, "has site" / "is site of". */
+const orgToOrg = {
+  ...appToOrg,
+  key: "orgToOrg",
+  label: "has site",
+  reverse_label: "is site of",
+  source_type_key: "Organization",
+  target_type_key: "Organization",
+};
+
 vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: () => ({
     getType: (key: string) =>
@@ -116,8 +126,8 @@ function mockApi(rows: Relation[], catalogue: { id: string; name: string }[]) {
   return state;
 }
 
-async function openSection() {
-  render(<RelationsSection fsId={FS} cardTypeKey="Application" initialExpanded />);
+async function openSection(cardTypeKey = "Application", fsId = FS) {
+  render(<RelationsSection fsId={fsId} cardTypeKey={cardTypeKey} initialExpanded />);
   await waitFor(() => expect(api.get).toHaveBeenCalled());
 }
 
@@ -333,5 +343,101 @@ describe("RelationsSection with several relation types on one pair", () => {
     expect(screen.getByText("Also is used by")).toBeInTheDocument();
     const legalRow = screen.getAllByRole("listitem").find((el) => el.textContent?.includes("Legal"));
     expect(legalRow?.textContent).not.toContain("Also");
+  });
+});
+
+describe("RelationsSection with a self-referencing relation type", () => {
+  const HQ = "org-hq";
+  const orgRef = (id: string, name: string) => ({ id, type: "Organization", name });
+  /** HQ → other: HQ "has site" other. */
+  const outgoing = (id: string, name: string): Relation => ({
+    id,
+    type: "orgToOrg",
+    source_id: HQ,
+    target_id: `org-${id}`,
+    source: orgRef(HQ, "Palfinger India Pvt. Ltd"),
+    target: orgRef(`org-${id}`, name),
+  });
+  /** other → HQ: HQ "is site of" other. */
+  const incoming = (id: string, name: string): Relation => ({
+    id,
+    type: "orgToOrg",
+    source_id: `org-${id}`,
+    target_id: HQ,
+    source: orgRef(`org-${id}`, name),
+    target: orgRef(HQ, "INCHN"),
+  });
+
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+    vi.mocked(api.post).mockReset();
+    mm.relationTypes = [orgToOrg];
+  });
+
+  it("heads the group with the REVERSE verb when the card is the target", async () => {
+    // The reported bug: "am I the source" was read off the type, which is
+    // true at both ends of a self-referencing type — so INCHN's page said
+    // "has site Palfinger" instead of "is site of Palfinger".
+    mockApi([incoming("1", "Palfinger India Pvt. Ltd")], []);
+
+    await openSection("Organization", HQ);
+
+    await waitFor(() => expect(screen.getByText("Palfinger India Pvt. Ltd")).toBeInTheDocument());
+    expect(screen.getByText("is site of")).toBeInTheDocument();
+    // The outgoing group is visible too (its side is visible) but holds no row —
+    // the row must not be listed under the forward verb.
+    const text = document.body.textContent ?? "";
+    expect(text.indexOf("is site of")).toBeLessThan(text.indexOf("Palfinger India Pvt. Ltd"));
+    expect(text.indexOf("has site")).toBeGreaterThan(-1);
+    expect(text.indexOf("Palfinger India Pvt. Ltd")).toBeLessThan(
+      text.lastIndexOf("has site") === text.indexOf("has site")
+        ? Infinity
+        : text.lastIndexOf("has site"),
+    );
+  });
+
+  it("renders one group per side, adjacent, each with its own rows", async () => {
+    mockApi([outgoing("1", "INCHN"), incoming("2", "Palfinger Group")], []);
+
+    await openSection("Organization", HQ);
+
+    await waitFor(() => expect(screen.getByText("INCHN")).toBeInTheDocument());
+    const text = document.body.textContent ?? "";
+    // has site → INCHN, then is site of → Palfinger Group.
+    expect(text.indexOf("has site")).toBeLessThan(text.indexOf("INCHN"));
+    expect(text.indexOf("INCHN")).toBeLessThan(text.indexOf("is site of"));
+    expect(text.indexOf("is site of")).toBeLessThan(text.indexOf("Palfinger Group"));
+    // Each side has its own add button, named by its verb.
+    expect(screen.getByRole("button", { name: /Add Organization · has site/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Add Organization · is site of/ })).toBeInTheDocument();
+  });
+
+  it("captions a mutual link with the other side's verb", async () => {
+    // HQ has site X AND X has site HQ: same type, both sides.
+    const mutual = incoming("2", "INCHN");
+    mutual.source_id = "org-1";
+    mutual.source = orgRef("org-1", "INCHN");
+    mockApi([outgoing("1", "INCHN"), mutual], []);
+
+    await openSection("Organization", HQ);
+
+    await waitFor(() => expect(screen.getAllByText("INCHN")).toHaveLength(2));
+    expect(screen.getByText("Also is site of")).toBeInTheDocument();
+    expect(screen.getByText("Also has site")).toBeInTheDocument();
+  });
+
+  it("offers both verbs in the Add menu when neither side has a group", async () => {
+    mm.relationTypes = [{ ...orgToOrg, source_visible: false, target_visible: false }];
+    mockApi([], []);
+
+    await openSection("Organization", HQ);
+
+    // The Material Symbol ligature text prefixes the accessible name.
+    await userEvent.click(await screen.findByRole("button", { name: /Add Relation/ }));
+    const items = await screen.findAllByRole("menuitem");
+    expect(items.map((i) => i.textContent)).toEqual([
+      "Organization — has site",
+      "Organization — is site of",
+    ]);
   });
 });

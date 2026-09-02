@@ -14,7 +14,7 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker from "@/components/CardPicker";
-import { otherEnd, sortRelationsByName } from "@/lib/relationSort";
+import { expandSides, onSide, otherEnd, sideKey, sortRelationsByName } from "@/lib/relationSort";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel, useRelationLabel } from "@/hooks/useResolveLabel";
@@ -51,6 +51,14 @@ function otherTypeKeyOf(relationType: RelationType, selectedType: string): strin
 
 interface RelationTypeSectionProps {
   relationType: RelationType;
+  /**
+   * Which end of `relationType` the grid's card sits at. Passed in, never
+   * derived from the type: for a self-referencing type (source type ===
+   * target type) that test is true at both ends, which is how the popover
+   * headed both directions with the forward verb and could only ever CREATE
+   * the outgoing one.
+   */
+  isSource: boolean;
   selectedType: string;
   cardId: string;
   relations: Relation[];
@@ -64,7 +72,7 @@ interface RelationTypeSectionProps {
 
 function RelationTypeSection({
   relationType,
-  selectedType,
+  isSource,
   cardId,
   relations,
   loading,
@@ -78,8 +86,7 @@ function RelationTypeSection({
   const typeLabel = useTypeLabel();
   const relLabel = useRelationLabel();
 
-  const isSource = relationType.source_type_key === selectedType;
-  const targetTypeKey = otherTypeKeyOf(relationType, selectedType);
+  const targetTypeKey = isSource ? relationType.target_type_key : relationType.source_type_key;
   const targetTypeConfig = getType(targetTypeKey);
   const verb = isSource ? relLabel(relationType) : relLabel(relationType, true);
 
@@ -113,6 +120,9 @@ function RelationTypeSection({
   // property of the relation *type*, so for a self-referencing type (source
   // type === target type) it is true for every row and incoming relations
   // would resolve to the wrong end.
+  // `relations` is already this side's slice, so "already linked" means on
+  // this side: for a self-referencing type a card linked the other way round
+  // is still offered here — the reverse row is a distinct edge.
   const excludeIds = useMemo(() => {
     const ids = new Set(relations.map((r) => (r.source_id === cardId ? r.target_id : r.source_id)));
     ids.add(cardId);
@@ -349,7 +359,10 @@ export default function RelationCellPopover({
   const primary = relationTypes[0];
   const targetTypeKey = primary ? otherTypeKeyOf(primary, selectedType) : "";
   const otherType = getType(targetTypeKey);
-  const multi = relationTypes.length > 1;
+  // One section per SIDE: a self-referencing type contributes two ("has site"
+  // and "is site of"), each with its own rows, verb and add path.
+  const sides = useMemo(() => expandSides(relationTypes, selectedType), [relationTypes, selectedType]);
+  const multi = sides.length > 1;
 
   // One un-typed round-trip for the card, partitioned client-side across the
   // column's relation types — cheaper than one request per type.
@@ -383,17 +396,20 @@ export default function RelationCellPopover({
     onRelationsChanged();
   }, [loadRelations, onRelationsChanged]);
 
-  const relationsByType = useMemo(() => {
+  const relationsBySide = useMemo(() => {
     const map = new Map<string, Relation[]>();
-    for (const rt of relationTypes) map.set(rt.key, []);
-    for (const r of relations) map.get(r.type)?.push(r);
+    for (const { rt, isSource } of sides) {
+      map.set(
+        sideKey(rt, isSource),
+        relations.filter((r) => onSide(r, rt.key, cardId, isSource)),
+      );
+    }
     return map;
-  }, [relations, relationTypes]);
+  }, [relations, sides, cardId]);
 
   if (!primary) return null;
 
-  const singleVerb =
-    primary.source_type_key === selectedType ? relLabel(primary) : relLabel(primary, true);
+  const singleVerb = sides[0]?.isSource ? relLabel(primary) : relLabel(primary, true);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -427,14 +443,15 @@ export default function RelationCellPopover({
           </Alert>
         )}
 
-        {relationTypes.map((rt, i) => (
-          <Box key={rt.key}>
+        {sides.map(({ rt, isSource }, i) => (
+          <Box key={sideKey(rt, isSource)}>
             {i > 0 && <Divider sx={{ mb: 2.5 }} />}
             <RelationTypeSection
               relationType={rt}
+              isSource={isSource}
               selectedType={selectedType}
               cardId={cardId}
-              relations={relationsByType.get(rt.key) || []}
+              relations={relationsBySide.get(sideKey(rt, isSource)) || []}
               loading={loading}
               showHeading={multi}
               open={open}

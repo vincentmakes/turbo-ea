@@ -7,6 +7,7 @@
 /* ------------------------------------------------------------------ */
 
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
+import { parseSideKey } from "@/lib/relationSort";
 
 /* ------------------------------------------------------------------ */
 /*  Data shapes                                                       */
@@ -14,12 +15,28 @@ import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 
 export interface AppRelation {
   relation_type: string;
+  /** The card's side of the row — what tells "has site" from "is site of" on
+   * a self-referencing type. Absent on older payloads, which means "either". */
+  direction?: "outgoing" | "incoming";
   related_id: string;
   related_name: string;
   related_type: string;
   /** Relation attribute values keyed by attribute field key, e.g.
    * `{ usageType: "owner" }`. Drives the relation-subtype colour/filters. */
   attributes?: Record<string, unknown>;
+}
+
+/**
+ * Does `rel` match a relation-type facet key? The key is a bare relation-type
+ * key ("either side") or one side of a self-referencing type (`<key>__out` /
+ * `<key>__in`), and a row only carries `direction` on payloads new enough to
+ * split — an older row matches either side, as it always did.
+ */
+export function relationOnSide(rel: AppRelation, facetKey: string): boolean {
+  const { key, isSource } = parseSideKey(facetKey);
+  if (rel.relation_type !== key) return false;
+  if (isSource === undefined || !rel.direction) return true;
+  return (rel.direction === "outgoing") === isSource;
 }
 
 export interface AppData {
@@ -432,7 +449,7 @@ export function matchesStaticFilters(
     if (ids.length === 0) continue;
     const byRelType = filters.relTypeKeys?.has(key) ?? false;
     const appRels = app.relations.filter((r) =>
-      byRelType ? r.relation_type === key : r.related_type === key,
+      byRelType ? relationOnSide(r, key) : r.related_type === key,
     );
     const wantEmpty = ids.includes(EMPTY_FILTER_KEY);
     const realIds = ids.filter((x) => x !== EMPTY_FILTER_KEY);

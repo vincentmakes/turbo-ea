@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.117.1] - 2026-09-02
+
+### Fixed
+
+- **A relation type whose two ends are the same card type now shows the right verb at each end.** An Organization → Organization relation *has site* / *is site of* read "has site" on both cards; the target card now reads "is site of", as its own section, and the `+` on that section creates the relation in that direction — which was not possible before. A card linked both ways round is marked with the other verb on each row. The card's roll-up of relations held by its sub-items is also counted per direction.
+- Visibility and mandatory settings on the *target* side of such a relation type now take effect on card detail. They were already enforced when approving a card, so a card could be blocked by a required relation the page never displayed.
+- The inventory grid showed a self-referencing relation on its source card only; the target card's column was empty. Both cards now show it, the relation editor opens one section per direction, and the filter sidebar offers one filter per verb.
+- The Portfolio report and Capability Map dropped a self-referencing relation between two cards of the report's own type, and labelled its filter with the wrong verb. Both directions are now reported, each as its own filter.
+- A web portal's relation filter for a self-referencing relation type showed the reverse verb only.
+
 ## [2.117.0] - 2026-09-02
 
 ### Added

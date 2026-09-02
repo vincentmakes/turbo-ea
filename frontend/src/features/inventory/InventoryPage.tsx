@@ -84,6 +84,8 @@ import { FieldEditor } from "@/features/cards/sections/cardDetailUtils";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api, ApiError, isAbortError } from "@/api/client";
+import { sideKey } from "@/lib/relationSort";
+import { buildRelationIndex } from "./relationIndex";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
@@ -267,37 +269,6 @@ function buildDescendantIndex(items: Card[]): Map<string, string[]> {
   return index;
 }
 
-/**
- * Build a lookup: for each relation type, map cardId → array of related cards.
- * When the selected type is the source, we index by source_id and show targets.
- * When the selected type is the target, we index by target_id and show sources.
- *
- * The far end's **id** is kept, not just its name: the cell text needs the
- * name, but the context menu's Preview action needs to open the card, and
- * resolving a name back to an id is ambiguous the moment two cards share one.
- */
-function buildRelationIndex(
-  relations: Relation[],
-  relationType: RelationType,
-  selectedType: string
-): Map<string, RelatedCardRef[]> {
-  const index = new Map<string, RelatedCardRef[]>();
-  const isSource = relationType.source_type_key === selectedType;
-
-  for (const rel of relations) {
-    const myId = isSource ? rel.source_id : rel.target_id;
-    const other = isSource ? rel.target : rel.source;
-    if (!other?.name || !other.id) continue;
-    const ref: RelatedCardRef = { id: other.id, name: other.name, type: other.type };
-    const existing = index.get(myId);
-    if (existing) {
-      existing.push(ref);
-    } else {
-      index.set(myId, [ref]);
-    }
-  }
-  return index;
-}
 
 /** An inventory grid row: a card, or a member clone marked as group header. */
 type InventoryRow = GroupedRow<Card>;
@@ -1343,7 +1314,15 @@ export default function InventoryPage() {
   // matches nothing and silently empties the grid (#933 follow-up).
   useEffect(() => {
     if (!selectedType || relationTypes.length === 0) return;
-    const relTypeKeys = new Set(relationTypes.map((rt) => rt.key));
+    // Side keys too (`<key>__out` / `__in`): a persisted facet on one side of
+    // a self-referencing type must not be dropped as unresolvable.
+    const relTypeKeys = new Set(
+      relationTypes.flatMap((rt) =>
+        rt.source_type_key === rt.target_type_key
+          ? [rt.key, sideKey(rt, true), sideKey(rt, false)]
+          : [rt.key],
+      ),
+    );
     setFilters((prev) => {
       const relations = normalizeRelationFilterKeys(prev.relations, relTypeKeys, relTypeGroupMap);
       return relations === prev.relations ? prev : { ...prev, relations };
@@ -1564,7 +1543,15 @@ export default function InventoryPage() {
       for (const key of allRelTypeKeys) {
         const rt = relationTypes.find((r) => r.key === key);
         if (!rt) continue;
-        newMap.set(key, buildRelationIndex(byType.get(key) ?? [], rt, selectedType));
+        const bucket = byType.get(key) ?? [];
+        // The union drives the cell, Preview, export and the card-type deep
+        // link; a self-referencing type ALSO gets one index per side so the
+        // sidebar can offer "has site" and "is site of" as separate facets.
+        newMap.set(key, buildRelationIndex(bucket, rt, selectedType));
+        if (rt.source_type_key === rt.target_type_key) {
+          newMap.set(sideKey(rt, true), buildRelationIndex(bucket, rt, selectedType, "out"));
+          newMap.set(sideKey(rt, false), buildRelationIndex(bucket, rt, selectedType, "in"));
+        }
       }
       setRelationsMap(newMap);
       setRelationsLoading(false);

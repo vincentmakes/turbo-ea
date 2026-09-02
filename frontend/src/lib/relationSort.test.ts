@@ -1,8 +1,12 @@
 import { describe, it, expect } from "vitest";
 import type { Relation } from "@/types";
 import {
+  expandSides,
+  onSide,
   orderRelationTypesByOtherEnd,
   otherEnd,
+  parseSideKey,
+  sideKey,
   sortRelationsByName,
 } from "./relationSort";
 
@@ -206,5 +210,84 @@ describe("orderRelationTypesByOtherEnd", () => {
 
   it("returns an empty array unchanged", () => {
     expect(orderRelationTypesByOtherEnd([], "Organization")).toEqual([]);
+  });
+});
+
+describe("expandSides", () => {
+  const rt = (key: string, source_type_key: string, target_type_key: string) => ({
+    key,
+    source_type_key,
+    target_type_key,
+  });
+
+  it("gives a cross-type rt one side, from the right end", () => {
+    const out = rt("relOrgToApp", "Organization", "Application");
+    expect(expandSides([out], "Organization")).toEqual([{ rt: out, isSource: true }]);
+    expect(expandSides([out], "Application")).toEqual([{ rt: out, isSource: false }]);
+  });
+
+  it("gives a self-referencing rt two sides, outgoing first and adjacent", () => {
+    const self = rt("orgToOrg", "Organization", "Organization");
+    const other = rt("relOrgToApp", "Organization", "Application");
+    expect(expandSides([self, other], "Organization")).toEqual([
+      { rt: self, isSource: true },
+      { rt: self, isSource: false },
+      { rt: other, isSource: true },
+    ]);
+  });
+
+  it("drops a type that touches neither end rather than guessing", () => {
+    expect(expandSides([rt("x", "A", "B")], "C")).toEqual([]);
+  });
+});
+
+describe("sideKey", () => {
+  it("keeps a cross-type rt's bare key so persisted filters keep resolving", () => {
+    const out = { key: "relOrgToApp", source_type_key: "Organization", target_type_key: "Application" };
+    expect(sideKey(out, true)).toBe("relOrgToApp");
+    expect(sideKey(out, false)).toBe("relOrgToApp");
+  });
+
+  it("suffixes a self-referencing rt per side, the mass-edit way", () => {
+    const self = { key: "orgToOrg", source_type_key: "Organization", target_type_key: "Organization" };
+    expect(sideKey(self, true)).toBe("orgToOrg__out");
+    expect(sideKey(self, false)).toBe("orgToOrg__in");
+  });
+});
+
+describe("onSide", () => {
+  const row = (source_id: string, target_id: string, type = "orgToOrg") => ({ type, source_id, target_id });
+
+  it("files a row by the card's end, per row", () => {
+    expect(onSide(row("me", "them"), "orgToOrg", "me", true)).toBe(true);
+    expect(onSide(row("me", "them"), "orgToOrg", "me", false)).toBe(false);
+    expect(onSide(row("them", "me"), "orgToOrg", "me", false)).toBe(true);
+    expect(onSide(row("them", "me"), "orgToOrg", "me", true)).toBe(false);
+  });
+
+  it("never matches another type", () => {
+    expect(onSide(row("me", "them", "other"), "orgToOrg", "me", true)).toBe(false);
+  });
+
+  it("puts a self-loop on the outgoing side, once", () => {
+    expect(onSide(row("me", "me"), "orgToOrg", "me", true)).toBe(true);
+    expect(onSide(row("me", "me"), "orgToOrg", "me", false)).toBe(false);
+  });
+});
+
+describe("parseSideKey", () => {
+  it("returns a bare key as 'either side'", () => {
+    expect(parseSideKey("relOrgToApp")).toEqual({ key: "relOrgToApp" });
+  });
+
+  it("splits a side key back into key and side", () => {
+    expect(parseSideKey("orgToOrg__out")).toEqual({ key: "orgToOrg", isSource: true });
+    expect(parseSideKey("orgToOrg__in")).toEqual({ key: "orgToOrg", isSource: false });
+  });
+
+  it("round-trips sideKey", () => {
+    const self = { key: "orgToOrg", source_type_key: "Organization", target_type_key: "Organization" };
+    expect(parseSideKey(sideKey(self, true))).toEqual({ key: "orgToOrg", isSource: true });
+    expect(parseSideKey(sideKey(self, false))).toEqual({ key: "orgToOrg", isSource: false });
   });
 });

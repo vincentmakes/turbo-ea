@@ -17,6 +17,7 @@ import CardScopeFilter from "@/components/CardScopeFilter";
 import type { CardScopeOption } from "@/components/CardScopeDialog";
 import TagPicker from "@/components/TagPicker";
 import type { TagGroup } from "@/types";
+import { expandSides, sideKey } from "@/lib/relationSort";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ColumnCountPicker from "@/components/ColumnCountPicker";
@@ -729,7 +730,14 @@ export default function CapabilityMapReport() {
   const [filterableTypes, setFilterableTypes] = useState<Record<string, FilterableTypeRef[]>>({});
   const [relationTypesData, setRelationTypesData] = useState<RelationTypeRef[]>([]);
   const allRelTypeKeys = useMemo(
-    () => new Set(relationTypesData.map((rt) => rt.key)),
+    () =>
+      new Set(
+        relationTypesData.flatMap((rt) =>
+          rt.source_type_key === rt.target_type_key
+            ? [rt.key, sideKey(rt, true), sideKey(rt, false)]
+            : [rt.key],
+        ),
+      ),
     [relationTypesData],
   );
   const [drawer, setDrawer] = useState<CapNode | null>(null);
@@ -1115,12 +1123,16 @@ export default function CapabilityMapReport() {
       // Several relation types can reach this card type — "owned by" is a
       // different question from "used by" — so each gets its own facet, keyed
       // by the relation-type key (the matcher tells the key kinds apart).
-      const reaching = relationTypesData.filter((rt) => rt.other_type_key === typeKey);
+      // Per SIDE: a self-referencing type is two facets, and the backend keys
+      // `related_by_rel_type` the same way (`<key>__out` / `<key>__in`).
+      const reaching = expandSides(
+        relationTypesData.filter((rt) => rt.other_type_key === typeKey),
+        "Application",
+      );
       if (reaching.length > 1) {
-        for (const rt of reaching) {
-          const verb =
-            rt.source_type_key === typeKey ? relLabel(rt, true) : relLabel(rt);
-          out.push({ typeKey: rt.key, label: `${label} · ${verb}`, options });
+        for (const { rt, isSource } of reaching) {
+          const verb = isSource ? relLabel(rt) : relLabel(rt, true);
+          out.push({ typeKey: sideKey(rt, isSource), label: `${label} · ${verb}`, options });
         }
       }
     }

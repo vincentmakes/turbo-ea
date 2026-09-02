@@ -2032,3 +2032,34 @@ class TestDataQualityCards:
             headers=auth_headers(env["noreports"]),
         )
         assert resp.status_code == 403
+
+
+class TestCapabilityHeatmapSelfReferencing:
+    async def test_app_to_app_relation_lands_on_both_apps_per_side(self, client, db, env):
+        """An application-to-application relation used to be dropped entirely.
+
+        Both ends were excluded from `related_map` as applications, so the
+        filter maps never saw the row. Each application now carries it under a
+        per-side key so the report can offer the two verbs as separate facets.
+        """
+        admin = env["admin"]
+        bc = await create_card(db, card_type="BusinessCapability", name="Sales", user_id=admin.id)
+        crm = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
+        erp = await create_card(db, card_type="Application", name="ERP", user_id=admin.id)
+        await create_relation(db, type_key="app_to_bc", source_id=crm.id, target_id=bc.id)
+        await create_relation(db, type_key="app_to_bc", source_id=erp.id, target_id=bc.id)
+        await create_relation(db, type_key="app_to_app", source_id=crm.id, target_id=erp.id)
+
+        resp = await client.get(
+            "/api/v1/reports/capability-heatmap",
+            params={"metric": "app_count"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        (sales,) = resp.json()["items"]
+        by_name = {a["name"]: a for a in sales["apps"]}
+        assert by_name["CRM"]["related_by_rel_type"]["app_to_app__out"] == [str(erp.id)]
+        assert "app_to_app__in" not in by_name["CRM"]["related_by_rel_type"]
+        assert by_name["ERP"]["related_by_rel_type"]["app_to_app__in"] == [str(crm.id)]
+        # The card-type union still lists the peer once, either way round.
+        assert by_name["CRM"]["related_by_type"]["Application"] == [str(erp.id)]

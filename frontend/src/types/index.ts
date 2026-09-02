@@ -521,6 +521,8 @@ export interface Relation {
  */
 export interface DescendantRelationSummaryEntry {
   relation_type_key: string;
+  /** Which end of the type the card sits at; a self-referencing type rolls up twice. */
+  direction: "outgoing" | "incoming";
   count: number;
 }
 

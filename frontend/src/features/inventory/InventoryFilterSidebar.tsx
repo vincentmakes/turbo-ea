@@ -30,6 +30,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { expandSides, sideKey } from "@/lib/relationSort";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import ColumnOrderSection, {
   type ColumnOrderItem,
@@ -477,25 +478,33 @@ export default function InventoryFilterSidebar({
   // Relation facets are per relation type (never deduped by related card type), so
   // each of several relation types sharing a card-type pair gets its own filter row.
   const filterRelTypes = allRelevantRelTypes.length > 0 ? allRelevantRelTypes : relevantRelTypes;
+  // …and per SIDE: a self-referencing type ("has site" / "is site of") is two
+  // facets, each reading its own index (`<key>__out` / `<key>__in`), because
+  // "which end am I" is true at both ends when read off the type alone.
+  const selectedTypeKey = filters.types.length === 1 ? filters.types[0] : "";
+  const filterSides = useMemo(
+    () => expandSides(filterRelTypes, selectedTypeKey),
+    [filterRelTypes, selectedTypeKey],
+  );
 
   // How many relation types in this list reach the same related card type — a
   // count above 1 means the plain type label is ambiguous and needs its verb.
   const relTypeCountByOtherKey = useMemo(() => {
-    const selected = filters.types.length === 1 ? filters.types[0] : "";
     const counts = new Map<string, number>();
-    for (const rt of filterRelTypes) {
-      const otherKey = rt.source_type_key === selected ? rt.target_type_key : rt.source_type_key;
+    for (const { rt, isSource } of filterSides) {
+      const otherKey = isSource ? rt.target_type_key : rt.source_type_key;
       counts.set(otherKey, (counts.get(otherKey) || 0) + 1);
     }
     return counts;
-  }, [filterRelTypes, filters.types]);
+  }, [filterSides]);
 
   // Compute unique related names per relation type for filter dropdowns
   const relFilterOptions = useMemo(() => {
     if (!relationsMap || filterRelTypes.length === 0) return new Map<string, string[]>();
     const result = new Map<string, string[]>();
-    for (const rt of filterRelTypes) {
-      const index = relationsMap.get(rt.key);
+    for (const { rt, isSource } of filterSides) {
+      const facetKey = sideKey(rt, isSource);
+      const index = relationsMap.get(facetKey);
       if (!index) continue;
       const names = new Set<string>();
       // Facets filter on the related card's name, not its id — two cards
@@ -504,11 +513,11 @@ export default function InventoryFilterSidebar({
         for (const ref of arr) names.add(ref.name);
       }
       if (names.size > 0) {
-        result.set(rt.key, Array.from(names).sort());
+        result.set(facetKey, Array.from(names).sort());
       }
     }
     return result;
-  }, [relationsMap, filterRelTypes]);
+  }, [relationsMap, filterSides]);
 
   const clearAll = () =>
     onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, orphanedOnly: false, staleOnly: false });
@@ -1236,10 +1245,10 @@ export default function InventoryFilterSidebar({
                   />
                   <Collapse in={expandedSections.relationships}>
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 2, px: 0.5 }}>
-                      {filterRelTypes.map((rt) => {
-                        const options = relFilterOptions.get(rt.key);
+                      {filterSides.map(({ rt, isSource }) => {
+                        const facetKey = sideKey(rt, isSource);
+                        const options = relFilterOptions.get(facetKey);
                         if (!options || options.length === 0) return null;
-                        const isSource = rt.source_type_key === (filters.types.length === 1 ? filters.types[0] : "");
                         const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
                         const otherType = types.find((t) => t.key === otherTypeKey);
                         const baseLabel = otherType ? typeLabel(otherType) : otherTypeKey;
@@ -1249,20 +1258,20 @@ export default function InventoryFilterSidebar({
                           (relTypeCountByOtherKey.get(otherTypeKey) || 0) > 1
                             ? `${baseLabel} · ${isSource ? relLabel(rt) : relLabel(rt, true)}`
                             : baseLabel;
-                        const selected = (filters.relations || {})[rt.key] || [];
-                        const searchKey = `rel_${rt.key}`;
+                        const selected = (filters.relations || {})[facetKey] || [];
+                        const searchKey = `rel_${facetKey}`;
                         const searchTerm = (dropdownSearch[searchKey] || "").toLowerCase();
                         const filteredOpts = searchTerm
                           ? options.filter((n) => n.toLowerCase().includes(searchTerm))
                           : options;
                         return (
-                          <FormControl key={rt.key} size="small" fullWidth>
+                          <FormControl key={facetKey} size="small" fullWidth>
                             <InputLabel sx={{ fontSize: 14 }}>{label}</InputLabel>
                             <Select
                               multiple
                               value={selected}
                               label={label}
-                              onChange={(e) => setRelFilter(rt.key, e.target.value as string[])}
+                              onChange={(e) => setRelFilter(facetKey, e.target.value as string[])}
                               onClose={() => setDropdownSearch((s) => ({ ...s, [searchKey]: "" }))}
                               sx={{ fontSize: 14 }}
                               MenuProps={{ autoFocus: false, PaperProps: { sx: { maxHeight: 300 } } }}
@@ -1274,7 +1283,7 @@ export default function InventoryFilterSidebar({
                                       label={v === EMPTY_VALUE ? t("filter.emptyValue") : v}
                                       size="small"
                                       sx={{ height: 20, fontSize: 12, ...(v === EMPTY_VALUE ? { fontStyle: "italic" } : {}) }}
-                                      onDelete={() => setRelFilter(rt.key, selected.filter((s) => s !== v))}
+                                      onDelete={() => setRelFilter(facetKey, selected.filter((s) => s !== v))}
                                       onMouseDown={(e) => e.stopPropagation()}
                                     />
                                   ))}

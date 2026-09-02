@@ -228,3 +228,68 @@ describe("RelationCellPopover — several relation types on one pair", () => {
     expect(api.get).toHaveBeenCalledWith(`/relations?card_id=${ORG_ID}`);
   });
 });
+
+describe("RelationCellPopover — self-referencing relation type", () => {
+  // Organization → Organization "has site" / "is site of". "Am I the source"
+  // is true at both ends of such a type, so the popover used to head both
+  // directions "has site" and could only ever create the outgoing one.
+  const HAS_SITE = {
+    key: "orgToOrg",
+    label: "has site",
+    reverse_label: "is site of",
+    source_type_key: "Organization",
+    target_type_key: "Organization",
+    cardinality: "n:m",
+    attributes_schema: [],
+  } as unknown as RelationType;
+
+  const SELF_RELATIONS = [
+    {
+      id: "rel-out",
+      type: "orgToOrg",
+      source_id: ORG_ID,
+      target_id: "org-site",
+      source: { id: ORG_ID, name: "Finance", type: "Organization" },
+      target: { id: "org-site", name: "INCHN", type: "Organization" },
+    },
+    {
+      id: "rel-in",
+      type: "orgToOrg",
+      source_id: "org-parent",
+      target_id: ORG_ID,
+      source: { id: "org-parent", name: "Palfinger Group", type: "Organization" },
+      target: { id: ORG_ID, name: "Finance", type: "Organization" },
+    },
+  ];
+
+  beforeEach(() => {
+    vi.mocked(api.get).mockResolvedValue(SELF_RELATIONS);
+  });
+
+  it("renders one section per side, each headed by its own verb", async () => {
+    mount([HAS_SITE]);
+    expect(await screen.findByText("INCHN")).toBeInTheDocument();
+    expect(screen.getByText("Palfinger Group")).toBeInTheDocument();
+    const text = document.body.textContent ?? "";
+    // has site → INCHN, then is site of → Palfinger Group.
+    expect(text.indexOf("has site")).toBeLessThan(text.indexOf("INCHN"));
+    expect(text.indexOf("INCHN")).toBeLessThan(text.indexOf("is site of"));
+    expect(text.indexOf("is site of")).toBeLessThan(text.indexOf("Palfinger Group"));
+  });
+
+  it("creates an INCOMING relation from the second section", async () => {
+    mount([HAS_SITE]);
+    await screen.findByText("INCHN");
+
+    // Second picker / second Add button belong to the "is site of" section.
+    await userEvent.click(screen.getAllByTestId("card-picker")[1]);
+    await userEvent.click(screen.getAllByRole("button", { name: /^Add$/ })[1]);
+
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(api.post).toHaveBeenCalledWith("/relations", {
+      type: "orgToOrg",
+      source_id: "app-new",
+      target_id: ORG_ID,
+    });
+  });
+});

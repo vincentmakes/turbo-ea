@@ -201,6 +201,9 @@ class DescendantRelationSummaryEntry(BaseModel):
     """
 
     relation_type_key: str
+    # The card's side of the type. A self-referencing type yields two entries,
+    # one per side — the Relations section renders it as two groups.
+    direction: Literal["outgoing", "incoming"]
     count: int
 
 

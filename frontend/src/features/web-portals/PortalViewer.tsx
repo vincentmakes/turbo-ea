@@ -874,13 +874,17 @@ export default function PortalViewer() {
                 const sharesPair =
                   visibleRelTypes.filter((o) => o.other_type_key === rt.other_type_key)
                     .length > 1;
-                const relFilterLabel = sharesPair
-                  ? `${rt.other_type_label} · ${
-                      rt.source_type_key === rt.other_type_key
-                        ? relLabel(rt, true)
-                        : relLabel(rt)
-                    }`
-                  : rt.other_type_label;
+                // The verb from the PORTAL type's end. A self-referencing type
+                // has this filter matching either direction (the backend unions
+                // them), so it carries both verbs; "is the source the other
+                // type" alone is true at both of its ends and read inverted.
+                const selfPair = rt.source_type_key === rt.target_type_key;
+                const relVerb = selfPair
+                  ? `${relLabel(rt)} / ${relLabel(rt, true)}`
+                  : rt.source_type_key === rt.other_type_key
+                    ? relLabel(rt, true)
+                    : relLabel(rt);
+                const relFilterLabel = sharesPair ? `${rt.other_type_label} · ${relVerb}` : rt.other_type_label;
                 return (
                   <TextField
                     key={rt.key}

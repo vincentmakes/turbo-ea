@@ -49,23 +49,35 @@ import {
   sortRelationsByName,
   type SubtypeBucket,
 } from "./cardDetailUtils";
-import { orderRelationTypesByOtherEnd, otherEnd } from "@/lib/relationSort";
+import {
+  expandSides,
+  onSide,
+  orderRelationTypesByOtherEnd,
+  otherEnd,
+  sideKey,
+  type RelationSide,
+} from "@/lib/relationSort";
 import { successorRelationKeys } from "@/lib/successorRelation";
 
 /* ── helpers ────────────────────────────────────────────────── */
 
 /**
- * Related card id → every relation type linking it to the card under view,
- * with the verb read from this card's side. Only cards linked by MORE THAN
- * ONE type appear — see `multiLinked` below.
+ * Related card id → every (relation type, side) linking it to the card under
+ * view, with the verb read from this card's side. Only cards linked by MORE
+ * THAN ONE side appear — see `multiLinked` below. The side is part of the
+ * identity: "A has site B" and "B has site A" are two links of one type.
  */
-type MultiLinkedMap = Map<string, { key: string; verb: string }[]>;
+type MultiLinkedMap = Map<string, { key: string; isSource: boolean; verb: string }[]>;
 
-/** Determine visibility/mandatory from the perspective of the current card type. */
-function sideFlags(rt: RelationType, cardTypeKey: string) {
-  const isSource = rt.source_type_key === cardTypeKey;
+/**
+ * Visibility / mandatory flags for ONE side of a relation type. The side is
+ * passed in, never derived from the type: for a self-referencing type the
+ * "am I the source" test is true at both ends, which is how both directions
+ * used to collapse into one group under the forward verb and the target-side
+ * flags became unreachable.
+ */
+function sideFlags(rt: RelationType, isSource: boolean) {
   return {
-    isSource,
     visible: isSource ? rt.source_visible : rt.target_visible,
     mandatory: isSource ? rt.source_mandatory : rt.target_mandatory,
   };
@@ -288,7 +300,9 @@ function RelationGroup({
     // " / ", the convention `mergeRelLabel` documents for a merged edge.
     const alsoVerbs = other
       ? (multiLinked?.get(other.id) ?? [])
-          .filter((e) => e.key !== rt.key)
+          // Same type on the OTHER side still counts — that is the mutual
+          // "A has site B / B has site A" pair a reader most needs told about.
+          .filter((e) => !(e.key === rt.key && e.isSource === isSource))
           .map((e) => e.verb)
           .join(" / ")
       : "";
@@ -572,9 +586,12 @@ function RelationGroup({
             </IconButton>
           </Tooltip>
         )}
+        {/* The verb too: two sides of a self-referencing type are two adjacent
+            groups of the same card type, and "Add Organization" alone would
+            name both. Same shape as the dialog's title. */}
         {canManageRelations && (
           <Tooltip title={t("relations.addSpecific", {
-            type: typeLabel(otherType) || otherTypeKey,
+            type: `${typeLabel(otherType) || otherTypeKey} · ${verb}`,
           })}>
             <IconButton size="small" onClick={onRequestAdd} color="primary">
               <MaterialSymbol icon="add" size={18} />
@@ -679,7 +696,9 @@ function RelationsSection({
   // The single add surface: a dialog, opened either from a group's `+` (with
   // that relation type pre-selected) or from the section's Add button.
   const [addOpen, setAddOpen] = useState(false);
-  const [addRt, setAddRt] = useState<RelationType | null>(null);
+  // One object, not two states: the dialog must never see one side's type
+  // with the other side's direction between renders.
+  const [addSide, setAddSide] = useState<RelationSide<RelationType> | null>(null);
   // Relation types with no group of their own are reached through a menu on
   // the section button — the dialog itself carries no type selector.
   const [addMenuAnchor, setAddMenuAnchor] = useState<HTMLElement | null>(null);
@@ -724,7 +743,8 @@ function RelationsSection({
       .then((entries) => {
         if (cancelled) return;
         const next: Record<string, number> = {};
-        for (const e of entries) next[e.relation_type_key] = e.count;
+        // Keyed per side: a self-referencing type rolls up twice.
+        for (const e of entries) next[`${e.relation_type_key}::${e.direction}`] = e.count;
         setRollup(next);
       })
       // A roll-up failure must never break the Relations section — the chip
@@ -811,36 +831,48 @@ function RelationsSection({
       const other = otherEnd(r, fsId);
       const rt = byKey.get(r.type);
       if (!other || !rt) continue;
-      const entry = { key: rt.key, verb: relLabel(rt, r.source_id !== fsId) };
+      const isSource = r.source_id === fsId;
+      const entry = { key: rt.key, isSource, verb: relLabel(rt, !isSource) };
       const list = byCard.get(other.id);
       if (!list) byCard.set(other.id, [entry]);
-      else if (!list.some((e) => e.key === entry.key)) list.push(entry);
+      else if (!list.some((e) => e.key === entry.key && e.isSource === entry.isSource)) {
+        list.push(entry);
+      }
     }
     for (const [id, list] of byCard) if (list.length < 2) byCard.delete(id);
     return byCard;
   }, [relations, relevantRTs, fsId, relLabel]);
 
-  // Displayed relation type groups: visible=true OR mandatory=true
+  // A group is one SIDE of a relation type. A cross-type rt has one; a
+  // self-referencing rt has two — "has site" and "is site of" — each with its
+  // own rows, verb, flags and add button. Computed once so the displayed
+  // groups, the hidden-but-populated block and the Add menu cannot disagree.
+  const sides = useMemo(() => expandSides(relevantRTs, cardTypeKey), [relevantRTs, cardTypeKey]);
+
+  // Displayed groups: visible=true OR mandatory=true, on that side.
   const displayedGroups = useMemo(() => {
-    return relevantRTs
-      .map((rt) => {
-        const { isSource, visible, mandatory } = sideFlags(rt, cardTypeKey);
-        const rels = relations.filter((r) => r.type === rt.key);
+    return sides
+      .map(({ rt, isSource }) => {
+        const { visible, mandatory } = sideFlags(rt, isSource);
+        const rels = relations.filter((r) => onSide(r, rt.key, fsId, isSource));
         return { rt, isSource, visible, mandatory, rels };
       })
       .filter(({ visible, mandatory }) => visible || mandatory);
-  }, [relevantRTs, cardTypeKey, relations]);
+  }, [sides, relations, fsId]);
 
-  // Non-displayed relation types (only accessible via generic Add Relation dialog)
-  const hiddenRTs = useMemo(() => {
-    return relevantRTs.filter((rt) => {
-      const { visible, mandatory } = sideFlags(rt, cardTypeKey);
-      return !visible && !mandatory;
-    });
-  }, [relevantRTs, cardTypeKey]);
+  // Sides with no group of their own (reached via the section's Add menu, and
+  // rendered below only while they hold data).
+  const hiddenSides = useMemo(
+    () =>
+      sides.filter(({ rt, isSource }) => {
+        const { visible, mandatory } = sideFlags(rt, isSource);
+        return !visible && !mandatory;
+      }),
+    [sides],
+  );
 
-  const openAddDialog = (rt: RelationType) => {
-    setAddRt(rt);
+  const openAddDialog = (side: RelationSide<RelationType>) => {
+    setAddSide(side);
     setAddMenuAnchor(null);
     setAddOpen(true);
   };
@@ -871,7 +903,7 @@ function RelationsSection({
         {/* Displayed relation type groups */}
         {displayedGroups.map(({ rt, isSource, mandatory, rels }) => (
           <RelationGroup
-            key={rt.key}
+            key={sideKey(rt, isSource)}
             rt={rt}
             isSource={isSource}
             mandatory={mandatory}
@@ -879,39 +911,33 @@ function RelationsSection({
             fsId={fsId}
             canManageRelations={canManageRelations}
             onReload={reloadAll}
-            onRequestAdd={() => openAddDialog(rt)}
+            onRequestAdd={() => openAddDialog({ rt, isSource })}
             onRelationUpdated={handleRelationUpdated}
-            rollupCount={rollup[rt.key] ?? 0}
+            rollupCount={rollup[`${rt.key}::${isSource ? "outgoing" : "incoming"}`] ?? 0}
             multiLinked={multiLinked}
           />
         ))}
 
-        {/* Relation types with data that are NOT in displayed groups */}
-        {relevantRTs
-          .filter((rt) => {
-            const { visible, mandatory } = sideFlags(rt, cardTypeKey);
-            return !visible && !mandatory;
-          })
-          .map((rt) => {
-            const rels = relations.filter((r) => r.type === rt.key);
-            if (rels.length === 0) return null;
-            const isSource = rt.source_type_key === cardTypeKey;
-            return (
-              <RelationGroup
-                key={rt.key}
-                rt={rt}
-                isSource={isSource}
-                mandatory={false}
-                rels={rels}
-                fsId={fsId}
-                canManageRelations={canManageRelations}
-                onReload={reloadAll}
-                onRequestAdd={() => openAddDialog(rt)}
-                onRelationUpdated={handleRelationUpdated}
-                multiLinked={multiLinked}
-              />
-            );
-          })}
+        {/* Sides with data that have no displayed group of their own */}
+        {hiddenSides.map(({ rt, isSource }) => {
+          const rels = relations.filter((r) => onSide(r, rt.key, fsId, isSource));
+          if (rels.length === 0) return null;
+          return (
+            <RelationGroup
+              key={sideKey(rt, isSource)}
+              rt={rt}
+              isSource={isSource}
+              mandatory={false}
+              rels={rels}
+              fsId={fsId}
+              canManageRelations={canManageRelations}
+              onReload={reloadAll}
+              onRequestAdd={() => openAddDialog({ rt, isSource })}
+              onRelationUpdated={handleRelationUpdated}
+              multiLinked={multiLinked}
+            />
+          );
+        })}
 
         {/* Empty state when nothing is displayed at all */}
         {displayedGroups.length === 0 && totalRelations === 0 && (
@@ -922,7 +948,7 @@ function RelationsSection({
 
         {/* Relation types with no group of their own have no `+` to click, so
             they are reached from here: pick the type, then the same dialog. */}
-        {canManageRelations && hiddenRTs.length > 0 && (
+        {canManageRelations && hiddenSides.length > 0 && (
           <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
             <Button
               size="small"
@@ -937,13 +963,15 @@ function RelationsSection({
               open={Boolean(addMenuAnchor)}
               onClose={() => setAddMenuAnchor(null)}
             >
-              {hiddenRTs.map((rt) => {
-                const asSource = rt.source_type_key === cardTypeKey;
-                const otherKey = asSource ? rt.target_type_key : rt.source_type_key;
+              {hiddenSides.map(({ rt, isSource }) => {
+                const otherKey = isSource ? rt.target_type_key : rt.source_type_key;
                 return (
-                  <MenuItem key={rt.key} onClick={() => openAddDialog(rt)}>
+                  <MenuItem
+                    key={sideKey(rt, isSource)}
+                    onClick={() => openAddDialog({ rt, isSource })}
+                  >
                     {typeLabel(getType(otherKey)) || otherKey} —{" "}
-                    {asSource ? relLabel(rt) : relLabel(rt, true)}
+                    {isSource ? relLabel(rt) : relLabel(rt, true)}
                   </MenuItem>
                 );
               })}
@@ -958,7 +986,8 @@ function RelationsSection({
           onClose={handleAddClosed}
           fsId={fsId}
           cardTypeKey={cardTypeKey}
-          relationType={addRt}
+          relationType={addSide?.rt ?? null}
+          isSource={addSide?.isSource ?? true}
           relations={relations}
           onAdded={handleRelationAdded}
           onRemoved={handleRelationRemoved}

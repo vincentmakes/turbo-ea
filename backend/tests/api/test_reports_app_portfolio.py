@@ -573,3 +573,52 @@ class TestAppPortfolioRelationSubtypes:
         data = resp.json()
         for rt in data["relation_types"]:
             assert rt["attributes_schema"] == []
+
+
+class TestSelfReferencingRelations:
+    """A self-referencing type between two portfolio cards used to vanish.
+
+    Both ends were excluded from `related_map` as "portfolio cards", so neither
+    branch of the relation loop could resolve the far end. Each card now
+    carries the row on its own side, tagged with `direction`, so the report's
+    facets can tell "has site" from "is site of".
+    """
+
+    async def test_relation_between_two_portfolio_cards_is_kept_on_both_sides(
+        self, client, db, portfolio_env
+    ):
+        admin = portfolio_env["admin"]
+        await create_relation_type(
+            db,
+            key="app_to_app",
+            label="integrates with",
+            reverse_label="is integrated by",
+            source_type_key="Application",
+            target_type_key="Application",
+        )
+        crm = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
+        erp = await create_card(db, card_type="Application", name="ERP", user_id=admin.id)
+        await create_relation(db, type_key="app_to_app", source_id=crm.id, target_id=erp.id)
+
+        resp = await client.get("/api/v1/reports/app-portfolio", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        by_name = {item["name"]: item for item in resp.json()["items"]}
+
+        crm_rels = [r for r in by_name["CRM"]["relations"] if r["relation_type"] == "app_to_app"]
+        erp_rels = [r for r in by_name["ERP"]["relations"] if r["relation_type"] == "app_to_app"]
+        assert [(r["related_name"], r["direction"]) for r in crm_rels] == [("ERP", "outgoing")]
+        assert [(r["related_name"], r["direction"]) for r in erp_rels] == [("CRM", "incoming")]
+
+    async def test_cross_type_relations_carry_their_direction(self, client, db, portfolio_env):
+        admin = portfolio_env["admin"]
+        app = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
+        org = await create_card(db, card_type="Organization", name="Finance", user_id=admin.id)
+        await create_relation(db, type_key="app_to_org", source_id=org.id, target_id=app.id)
+
+        resp = await client.get("/api/v1/reports/app-portfolio", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        (item,) = resp.json()["items"]
+        (rel,) = [r for r in item["relations"] if r["relation_type"] == "app_to_org"]
+        # The application is the TARGET of app_to_org.
+        assert rel["direction"] == "incoming"
+        assert rel["related_name"] == "Finance"

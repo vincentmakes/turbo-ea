@@ -959,8 +959,19 @@ async def app_portfolio(
             related_ids.add(sid)
     related_ids -= app_id_set
 
-    # 3. Fetch related cards in bulk
-    related_map: dict[str, dict] = {}
+    # 3. Fetch related cards in bulk. The portfolio's own cards are seeded
+    # first: a self-referencing relation type links two portfolio cards, and
+    # excluding them from `related_map` used to drop that relation entirely —
+    # neither branch of the loop below could resolve its far end.
+    related_map: dict[str, dict] = {
+        str(a.id): {
+            "id": str(a.id),
+            "name": a.name,
+            "type": a.type,
+            "parent_id": str(a.parent_id) if a.parent_id else None,
+        }
+        for a in apps
+    }
     if related_ids:
         rel_result = await db.execute(
             select(Card).where(
@@ -976,7 +987,11 @@ async def app_portfolio(
                 "parent_id": str(card.parent_id) if card.parent_id else None,
             }
 
-    # 4. Build card -> relations lookup
+    # 4. Build card -> relations lookup. Each entry carries the card's side
+    # (`direction`): for a self-referencing type the same row is outgoing on
+    # one portfolio card and incoming on the other, and the report's facets
+    # split the two verbs on it. `if`/`if`, not `elif` — such a row must land
+    # on BOTH cards.
     app_relations: dict[str, list[dict]] = {str(a.id): [] for a in apps}
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
@@ -984,16 +999,18 @@ async def app_portfolio(
             app_relations[sid].append(
                 {
                     "relation_type": r.type,
+                    "direction": "outgoing",
                     "related_id": tid,
                     "related_name": related_map[tid]["name"],
                     "related_type": related_map[tid]["type"],
                     "attributes": r.attributes or {},
                 }
             )
-        elif tid in app_id_set and sid in related_map:
+        if tid in app_id_set and sid in related_map:
             app_relations[tid].append(
                 {
                     "relation_type": r.type,
+                    "direction": "incoming",
                     "related_id": sid,
                     "related_name": related_map[sid]["name"],
                     "related_type": related_map[sid]["type"],
@@ -1769,8 +1786,12 @@ async def capability_heatmap(
     related_ids -= app_id_set
     related_ids -= cap_id_set
 
-    # Fetch related cards in bulk
-    related_map: dict[str, dict] = {}
+    # Fetch related cards in bulk. Applications are seeded first so an
+    # application-to-application relation (a self-referencing type) resolves —
+    # excluding them dropped such rows from the filter maps altogether.
+    related_map: dict[str, dict] = {
+        str(a.id): {"id": str(a.id), "name": a.name, "type": a.type} for a in apps
+    }
     if related_ids:
         rel_cards_result = await db.execute(
             select(Card).where(Card.id.in_(list(related_ids)), Card.status == "ACTIVE")
@@ -1803,13 +1824,21 @@ async def capability_heatmap(
             _link_cap_app(sid, tid)
         elif tid in cap_id_set and sid in app_map:
             _link_cap_app(tid, sid)
-        # app -> related card relations (for filtering)
+        # app -> related card relations (for filtering). `if`/`if`, not `elif`:
+        # a self-referencing row belongs to BOTH applications, and lands under
+        # a per-side key (`<type>__out` / `<type>__in`) so the report can tell
+        # "has site" from "is site of"; a cross-type row keeps the bare key.
+        # Both ends are portfolio cards ⇒ the type is self-referencing (the
+        # portfolio is every active card of one type).
+        self_pair = sid in app_id_set and tid in app_id_set
         if sid in app_id_set and tid in related_map:
             app_related.setdefault(sid, {}).setdefault(related_map[tid]["type"], []).append(tid)
-            app_related_by_rel.setdefault(sid, {}).setdefault(r.type, []).append(tid)
-        elif tid in app_id_set and sid in related_map:
+            rel_key = f"{r.type}__out" if self_pair else r.type
+            app_related_by_rel.setdefault(sid, {}).setdefault(rel_key, []).append(tid)
+        if tid in app_id_set and sid in related_map:
             app_related.setdefault(tid, {}).setdefault(related_map[sid]["type"], []).append(sid)
-            app_related_by_rel.setdefault(tid, {}).setdefault(r.type, []).append(sid)
+            rel_key = f"{r.type}__in" if self_pair else r.type
+            app_related_by_rel.setdefault(tid, {}).setdefault(rel_key, []).append(sid)
 
     # Tag assignments per application (for tag filter)
     cap_app_tag_ids: dict[str, list[str]] = {}

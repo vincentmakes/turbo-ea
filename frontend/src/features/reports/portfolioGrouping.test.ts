@@ -237,3 +237,30 @@ describe("buildColorSegmentsFor", () => {
     expect(buildColorSegmentsFor(entries, { kind: "none" }, LABELS, false)).toEqual([]);
   });
 });
+
+describe("buildGroupTree on one side of a self-referencing type", () => {
+  it("groups by the given side only", () => {
+    // hq "has site" site: the row is outgoing on hq and incoming on site.
+    const row = (
+      direction: "outgoing" | "incoming",
+      relatedId: string,
+    ): AppData["relations"][number] => ({
+      relation_type: "org_to_org",
+      direction,
+      related_id: relatedId,
+      related_name: relatedId,
+      related_type: TYPE,
+      attributes: {},
+    });
+    const hq: AppData = { ...app("hq", []), relations: [row("outgoing", "l1")] };
+    const site: AppData = { ...app("site", []), relations: [row("incoming", "l1")] };
+    const members = HIER.filter((m) => m.id === "l1");
+
+    const outgoing = buildGroupTree([hq, site], TYPE, members, undefined, "org_to_org__out");
+    expect(outgoing.map((n) => n.directApps.map((a) => a.id))).toEqual([["hq"]]);
+    const incoming = buildGroupTree([hq, site], TYPE, members, undefined, "org_to_org__in");
+    expect(incoming.map((n) => n.directApps.map((a) => a.id))).toEqual([["site"]]);
+    const either = buildGroupTree([hq, site], TYPE, members, undefined, "org_to_org");
+    expect(either.map((n) => n.directApps.map((a) => a.id).sort())).toEqual([["hq", "site"]]);
+  });
+});

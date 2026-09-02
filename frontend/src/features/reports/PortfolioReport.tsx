@@ -33,6 +33,7 @@ import TimelineSlider from "@/components/TimelineSlider";
 import FilterSelect from "@/components/FilterSelect";
 import TagPicker from "@/components/TagPicker";
 import type { TagGroup } from "@/types";
+import { expandSides, parseSideKey, sideKey } from "@/lib/relationSort";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ColumnCountPicker from "@/components/ColumnCountPicker";
@@ -873,14 +874,18 @@ export default function PortfolioReport({
       const icon = typeMeta?.icon || "link";
       opts.push({ key: `rel:${typeKey}`, label, icon });
 
-      const reaching = (data.relation_types || []).filter(
-        (rt) => rt.other_type_key === typeKey,
+      // Per SIDE, not per type: a self-referencing type is two axes ("has
+      // site" / "is site of"), and its verb must be read from this card
+      // type's end of the row — not from "is the source the other type",
+      // which is true at both ends of such a type.
+      const reaching = expandSides(
+        (data.relation_types || []).filter((rt) => rt.other_type_key === typeKey),
+        cardType,
       );
       if (reaching.length > 1) {
-        for (const rt of reaching) {
-          const verb =
-            rt.source_type_key === typeKey ? relLabel(rt, true) : relLabel(rt);
-          opts.push({ key: `relt:${rt.key}`, label: `${label} · ${verb}`, icon });
+        for (const { rt, isSource } of reaching) {
+          const verb = isSource ? relLabel(rt) : relLabel(rt, true);
+          opts.push({ key: `relt:${sideKey(rt, isSource)}`, label: `${label} · ${verb}`, icon });
         }
       }
     }
@@ -917,7 +922,8 @@ export default function PortfolioReport({
       // One relation type. The axis still groups by cards of its other end, so
       // `typeKey` is resolved from the relation type itself.
       const relTypeKey = groupByKey.slice(5);
-      const rt = (data?.relation_types || []).find((r) => r.key === relTypeKey);
+      const bare = parseSideKey(relTypeKey).key;
+      const rt = (data?.relation_types || []).find((r) => r.key === bare);
       return { kind: "relation", typeKey: rt?.other_type_key ?? "", relTypeKey };
     }
     return { kind: "relation", typeKey: groupByKey.slice(4) };
@@ -987,8 +993,17 @@ export default function PortfolioReport({
   // can never be clicked.
   /** Every relation-type key the payload knows, so a relation filter keyed by a
    *  relation type is told apart from one keyed by a card type. */
+  // Bare keys plus, for a self-referencing type, its two side keys — the
+  // matcher tells a relation-type facet from a card-type one by this set.
   const allRelTypeKeys = useMemo(
-    () => new Set((data?.relation_types || []).map((rt) => rt.key)),
+    () =>
+      new Set(
+        (data?.relation_types || []).flatMap((rt) =>
+          rt.source_type_key === rt.target_type_key
+            ? [rt.key, sideKey(rt, true), sideKey(rt, false)]
+            : [rt.key],
+        ),
+      ),
     [data],
   );
 
@@ -1311,14 +1326,14 @@ export default function PortfolioReport({
       // Organization" is not the question a user wants to ask — "owned by" and
       // "used by" are. Add a facet per relation type, keyed by the relation-type
       // key (the matcher tells the two kinds of key apart via `relTypeKeys`).
-      const reaching = (data.relation_types || []).filter(
-        (rt) => rt.other_type_key === typeKey,
+      const reaching = expandSides(
+        (data.relation_types || []).filter((rt) => rt.other_type_key === typeKey),
+        cardType,
       );
       if (reaching.length > 1) {
-        for (const rt of reaching) {
-          const verb =
-            rt.source_type_key === typeKey ? relLabel(rt, true) : relLabel(rt);
-          out.push({ typeKey: rt.key, label: `${label} · ${verb}`, icon, options });
+        for (const { rt, isSource } of reaching) {
+          const verb = isSource ? relLabel(rt) : relLabel(rt, true);
+          out.push({ typeKey: sideKey(rt, isSource), label: `${label} · ${verb}`, icon, options });
         }
       }
     }

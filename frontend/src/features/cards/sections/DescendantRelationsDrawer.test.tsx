@@ -85,19 +85,28 @@ afterEach(async () => {
   if (i18n.language !== "en") await i18n.changeLanguage("en");
 });
 
-function renderDrawer(open = true) {
+function renderDrawer(open = true, isSource = true) {
   return render(
     <DescendantRelationsDrawer
       open={open}
       onClose={() => {}}
       cardId="root-1"
       rt={rt}
-      isSource
+      isSource={isSource}
     />,
   );
 }
 
 describe("DescendantRelationsDrawer", () => {
+  it("asks for the side it was opened from", async () => {
+    // A self-referencing type rolls up per side; the drawer for the incoming
+    // group must not show the outgoing peers.
+    vi.mocked(api.get).mockResolvedValue(payload);
+    renderDrawer(true, false);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    expect(vi.mocked(api.get).mock.calls[0][0]).toContain("direction=incoming");
+  });
+
   it("fetches nothing while closed", () => {
     vi.mocked(api.get).mockResolvedValue(payload);
     renderDrawer(false);

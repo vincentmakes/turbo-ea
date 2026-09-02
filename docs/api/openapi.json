@@ -4310,6 +4310,14 @@
             "title": "Count",
             "type": "integer"
           },
+          "direction": {
+            "enum": [
+              "outgoing",
+              "incoming"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
           "relation_type_key": {
             "title": "Relation Type Key",
             "type": "string"
@@ -4317,6 +4325,7 @@
         },
         "required": [
           "relation_type_key",
+          "direction",
           "count"
         ],
         "title": "DescendantRelationSummaryEntry",
@@ -22138,6 +22147,28 @@
               "description": "Relation type key to roll up",
               "title": "Relation Type",
               "type": "string"
+            }
+          },
+          {
+            "description": "Which side of the relation type to roll up \u2014 the card's outgoing or incoming rows. Omit for both, which only differ for a self-referencing type.",
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "outgoing",
+                    "incoming"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Which side of the relation type to roll up \u2014 the card's outgoing or incoming rows. Omit for both, which only differ for a self-referencing type.",
+              "title": "Direction"
             }
           },
           {
