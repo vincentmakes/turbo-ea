@@ -8,17 +8,16 @@ import logging
 import uuid
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
-from app.models.architecture_decision import ArchitectureDecision
-from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.turbolens import TurboLensAnalysisRun, TurboLensAssessment
+from app.services import adr_service
 from app.services.data_quality import calc_data_quality
 
 logger = logging.getLogger("turboea.turbolens.commit")
@@ -97,17 +96,6 @@ async def _generate_description(
     except Exception:
         logger.exception("AI description generation failed for %s", name)
         return None
-
-
-async def _next_adr_reference(db: AsyncSession) -> str:
-    """Generate the next ADR reference number."""
-    result = await db.execute(select(func.max(ArchitectureDecision.reference_number)))
-    max_ref = result.scalar_one_or_none()
-    if max_ref:
-        num = int(max_ref.replace("ADR-", "")) + 1
-    else:
-        num = 1
-    return f"ADR-{num:03d}"
 
 
 async def _validate_relation_type(db: AsyncSession, key: str) -> bool:
@@ -425,38 +413,19 @@ async def execute_commit(db: AsyncSession, run_id: str, data: dict[str, Any]) ->
         if isinstance(cap, dict) and cap.get("isNew") and cap.get("rationale"):
             consequences_parts.append(f"New capability: {cap['rationale']}")
 
-    ref_number = await _next_adr_reference(db)
-    adr = ArchitectureDecision(
-        id=uuid.uuid4(),
-        reference_number=ref_number,
+    # The shared writer behind POST /adr — one reference-number sequence,
+    # and the initiative plus every created card linked in the same flush.
+    adr = await adr_service.create_decision(
+        db,
         title=f"Architecture Decision: {initiative_name}",
-        status="draft",
         context="\n\n".join(context_parts) or None,
         decision="\n".join(decision_parts) or None,
         consequences="\n".join(consequences_parts) or None,
         alternatives_considered=alternatives_text or None,
         related_decisions=[{"type": "assessment", "id": assessment_id}],
+        linked_card_ids=[initiative.id, *(uuid.UUID(c) for c in created_card_ids)],
         created_by=user_id,
     )
-    db.add(adr)
-    await db.flush()
-
-    # Link ADR to Initiative
-    db.add(
-        ArchitectureDecisionCard(
-            architecture_decision_id=adr.id,
-            card_id=initiative.id,
-        )
-    )
-
-    # Link ADR to all newly created cards
-    for card_id_str in created_card_ids:
-        db.add(
-            ArchitectureDecisionCard(
-                architecture_decision_id=adr.id,
-                card_id=uuid.UUID(card_id_str),
-            )
-        )
 
     # ── Step 6: Update Assessment ────────────────────────────────────────
     assessment.status = "committed"
@@ -471,5 +440,5 @@ async def execute_commit(db: AsyncSession, run_id: str, data: dict[str, Any]) ->
         "card_count": len(created_card_ids),
         "relation_count": relations_created,
         "adr_id": str(adr.id),
-        "adr_reference": ref_number,
+        "adr_reference": adr.reference_number,
     }

@@ -1075,3 +1075,14 @@ async def test_search_wildcards_are_literal(client, db, adr_env):
 
     resp = await client.get("/api/v1/adr?search=100%25", headers=auth_headers(admin))
     assert [a["title"] for a in resp.json()] == ["100% availability decision"]
+
+
+class TestReferenceSequence:
+    async def test_consecutive_creates_get_consecutive_reference_numbers(self, client, db, adr_env):
+        # The route goes through the shared adr_service generator — the same
+        # sequence the analysis commit flow and the extension bridge draw from.
+        admin = adr_env["admin"]
+        first = await _create_adr(client, admin, title="One")
+        second = await _create_adr(client, admin, title="Two")
+        assert first.json()["reference_number"] == "ADR-001"
+        assert second.json()["reference_number"] == "ADR-002"

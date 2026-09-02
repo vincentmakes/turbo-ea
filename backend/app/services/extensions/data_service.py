@@ -38,7 +38,7 @@ from __future__ import annotations
 import time
 import uuid
 from collections import deque
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -56,16 +56,19 @@ from app.models.card_type import CardType
 from app.models.mutation_batch import MutationBatch
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
+from app.models.stakeholder import Stakeholder
 from app.services import card_lifecycle, card_write_service, mutation_batch_service
 from app.services.card_write_service import WriteActor
 from app.services.event_bus import request_batch_id, request_origin
 from app.services.extensions.registry import extension_registry
 from app.services.extensions.sdk import (
+    ExtBatch,
     ExtCard,
     ExtCardPage,
     ExtensionDataError,
     ExtensionPermissionError,
     ExtRelation,
+    ExtStakeholder,
 )
 from app.services.search_rank import search_filter, search_rank
 
@@ -73,6 +76,9 @@ READ_GRANTS = frozenset({"core.cards.read", "core.cards.write"})
 WRITE_GRANT = "core.cards.write"
 
 MAX_PAGE_SIZE = 500
+# Ids one batch read may carry (SDK 1.8) — the same figure as a search page
+# and as MAX_CARD_IDS_PER_QUERY on GET /relations?card_ids=.
+MAX_IDS_PER_CALL = MAX_PAGE_SIZE
 
 # Card fields an extension update may touch. Everything else — reference,
 # external_id (import identity), status / approval_status (workflow-owned),
@@ -117,6 +123,27 @@ def _parse_uuid(value: str, what: str) -> uuid.UUID:
         raise ExtensionDataError(f"Invalid {what}: {value!r}") from e
 
 
+def _parse_id_list(values: Sequence[str], what: str) -> list[uuid.UUID]:
+    """Dedupe (first occurrence wins), refuse malformed ids and over-long
+    lists. Unlike the single-id reads, which answer ``None`` / ``[]`` for a
+    malformed id, a batch call REFUSES: a silently dropped entry would be
+    indistinguishable from "not found" in the result."""
+    values = list(values)
+    if len(values) > MAX_IDS_PER_CALL:
+        raise ExtensionDataError(
+            f"{what} accepts at most {MAX_IDS_PER_CALL} ids per call (got {len(values)}); "
+            "split the set into smaller batches"
+        )
+    seen: set[uuid.UUID] = set()
+    out: list[uuid.UUID] = []
+    for raw in values:
+        parsed = _parse_uuid(raw, "card id")
+        if parsed not in seen:
+            seen.add(parsed)
+            out.append(parsed)
+    return out
+
+
 def _to_ext_card(card: Card) -> ExtCard:
     return ExtCard(
         id=str(card.id),
@@ -147,6 +174,10 @@ def _to_ext_relation(rel: Relation) -> ExtRelation:
         description=rel.description,
         created_at=rel.created_at.isoformat() if rel.created_at else None,
     )
+
+
+def _to_ext_stakeholder(row: Stakeholder) -> ExtStakeholder:
+    return ExtStakeholder(card_id=str(row.card_id), user_id=str(row.user_id), role=row.role)
 
 
 def _card_type_to_dict(ct: CardType) -> dict:
@@ -295,6 +326,80 @@ class ExtensionData:
             rels = (await db.execute(q)).scalars().all()
             return [_to_ext_relation(r) for r in rels]
 
+    async def get_cards(
+        self, ids: Sequence[str], *, include_archived: bool = False
+    ) -> list[ExtCard]:
+        """Many cards in one query (SDK 1.8), up to :data:`MAX_IDS_PER_CALL`.
+
+        Hidden-type cards are always excluded and archived cards unless
+        ``include_archived``, so the result is a SUBSET of the ids asked for
+        — ordered by name then id (the ``search_cards`` order), never by
+        input position; build ``{c.id: c}`` for lookups. Malformed ids and
+        over-long lists are refused, not skipped.
+        """
+        self._require(write=False)
+        id_list = _parse_id_list(ids, "get_cards")
+        if not id_list:
+            return []
+        hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+        q = select(Card).where(Card.id.in_(id_list), Card.type.not_in(hidden_types_sq))
+        if not include_archived:
+            q = q.where(Card.status == "ACTIVE")
+        q = q.order_by(Card.name.asc(), Card.id.asc())
+        async with async_session() as db:
+            cards = (await db.execute(q)).scalars().all()
+            return [_to_ext_card(c) for c in cards]
+
+    async def get_relations_for(self, card_ids: Sequence[str]) -> list[ExtRelation]:
+        """Every relation touching ANY of ``card_ids`` (SDK 1.8), each once.
+
+        Exactly the shape of ``GET /relations?card_ids=``: both endpoints
+        joined, hidden-type and archived endpoints excluded on either side.
+        (The 1.5 single-id ``get_relations`` filters archived endpoints but
+        not hidden-type ones; that is left as it was.) Refuses malformed ids
+        and lists over :data:`MAX_IDS_PER_CALL`.
+        """
+        self._require(write=False)
+        id_list = _parse_id_list(card_ids, "get_relations_for")
+        if not id_list:
+            return []
+        src = aliased(Card)
+        tgt = aliased(Card)
+        hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+        q = (
+            select(Relation)
+            .join(src, Relation.source_id == src.id)
+            .join(tgt, Relation.target_id == tgt.id)
+            .where(or_(Relation.source_id.in_(id_list), Relation.target_id.in_(id_list)))
+            .where(src.type.not_in(hidden_types_sq), tgt.type.not_in(hidden_types_sq))
+            .where(src.status != "ARCHIVED", tgt.status != "ARCHIVED")
+            .order_by(Relation.type.asc(), Relation.id.asc())
+        )
+        async with async_session() as db:
+            rels = (await db.execute(q)).scalars().all()
+            return [_to_ext_relation(r) for r in rels]
+
+    async def get_stakeholders_for(self, card_ids: Sequence[str]) -> list[ExtStakeholder]:
+        """Stakeholder assignments on ANY of ``card_ids`` (SDK 1.8): the card,
+        the user id and the raw role key — and nothing about the person.
+        Rows on hidden-type or archived cards are excluded like the cards
+        themselves. Names come from ``ctx.users`` (``core.users.read``)."""
+        self._require(write=False)
+        id_list = _parse_id_list(card_ids, "get_stakeholders_for")
+        if not id_list:
+            return []
+        hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+        q = (
+            select(Stakeholder)
+            .join(Card, Stakeholder.card_id == Card.id)
+            .where(Stakeholder.card_id.in_(id_list))
+            .where(Card.type.not_in(hidden_types_sq), Card.status != "ARCHIVED")
+            .order_by(Stakeholder.card_id.asc(), Stakeholder.created_at.asc(), Stakeholder.id.asc())
+        )
+        async with async_session() as db:
+            rows = (await db.execute(q)).scalars().all()
+            return [_to_ext_stakeholder(r) for r in rows]
+
     async def get_card_types(self) -> list[dict]:
         self._require(write=False)
         async with async_session() as db:
@@ -371,12 +476,14 @@ class ExtensionData:
         Usage: ``async with ctx.data.batch("nightly sync"): ...``. Without an
         open batch every write opens its own single-op batch. Batches never
         nest, and a dry-run write inside a batch still joins nothing (a
-        preview leaves no audit trail).
+        preview leaves no audit trail). Yields an :class:`ExtBatch` (SDK
+        1.8) carrying the audit batch id, so a caller that records where
+        its writes landed can: ``async with ctx.data.batch(l) as b: b.id``.
         """
         return self._batch_cm(label)
 
     @asynccontextmanager
-    async def _batch_cm(self, label: str) -> AsyncIterator[None]:
+    async def _batch_cm(self, label: str) -> AsyncIterator[ExtBatch]:
         self._require(write=True)
         self._require_writes_enabled()
         if _active_batch.get() is not None:
@@ -397,7 +504,7 @@ class ExtensionData:
         origin_token = request_origin.set("ext")
         batch_token = request_batch_id.set(batch_id)
         try:
-            yield
+            yield ExtBatch(id=str(batch_id), label=label)
             async with async_session() as db:
                 row = await db.get(MutationBatch, batch_id)
                 if row is not None:

@@ -159,7 +159,32 @@ from app.database import get_db  # noqa: F401
 #   System todos keep refusing it: their mirror carve-out remains
 #   ``external_ref`` / ``external_url`` only.
 
-SDK_VERSION = "1.7"
+# SDK 1.8 adds three additive surfaces (existing 1.x extensions load and run
+# unchanged):
+#
+# - ``ctx.data.get_cards(ids)`` / ``get_relations_for(card_ids)`` /
+#   ``get_stakeholders_for(card_ids)`` — batch lookups on the inventory
+#   bridge: one query for up to 500 ids (the same cap as a ``search_cards``
+#   page and ``GET /relations?card_ids=``), with the same hidden-type and
+#   archived exclusions as the single-id reads. Unlike ``get_card``, a
+#   malformed id or an over-long list is REFUSED with ``ExtensionDataError``
+#   — on a batch call a silently dropped id is indistinguishable from "not
+#   found". ``get_stakeholders_for`` returns ``(card_id, user_id, role)``
+#   only: no name, no email — an extension that needs names declares
+#   ``core.users.read`` and goes through ``ctx.users``.
+# - ``ctx.decisions`` — a typed bridge to core decision records (ADRs),
+#   gated by ``core.adr.read`` / ``core.adr.write`` (write implies read).
+#   ``create_draft`` files a DRAFT only: an extension can never sign, send
+#   for review or change status — the same posture as the todos bridge's
+#   system-todo carve-out. ``attributes`` keys must be namespaced
+#   ``ext.{own key}.*`` (stricter than REST's ``ext.*``), linked cards must
+#   exist and be active, ``created_by`` is NULL and provenance is the
+#   ``ext:{key}`` mutation batch with origin ``ext``.
+# - ``ctx.data.batch(label)`` now yields an ``ExtBatch(id, label)`` handle so
+#   an extension can record which audit batch its writes landed in.
+#   ``async with ctx.data.batch(label):`` (ignoring the value) is unchanged.
+
+SDK_VERSION = "1.8"
 
 
 @dataclass(frozen=True)
@@ -375,6 +400,70 @@ class ExtRelation:
     created_at: str | None
 
 
+@dataclass(frozen=True)
+class ExtBatch:
+    """Handle yielded by ``DataBridge.batch`` (SDK 1.8): the id of the
+    audited ``mutation_batches`` row the scope writes into, and the label
+    the caller gave it."""
+
+    id: str
+    label: str
+
+
+@dataclass(frozen=True)
+class ExtStakeholder:
+    """One stakeholder assignment on a card (SDK 1.8). Deliberately carries
+    no name or email: resolve the user through ``ctx.users`` (grant
+    ``core.users.read``) — the inventory grant alone never exposes the
+    directory."""
+
+    card_id: str
+    user_id: str
+    role: str
+
+
+@dataclass(frozen=True)
+class ExtDecision:
+    """Read model returned by the decisions bridge (SDK 1.8). Wire-shaped:
+    string ids, ISO timestamps, a plain ``attributes`` dict copy."""
+
+    id: str
+    reference_number: str
+    title: str
+    status: str
+    revision_number: int
+    linked_card_ids: tuple[str, ...]
+    attributes: dict[str, Any]
+    created_at: str | None
+
+
+class DecisionsBridge(Protocol):
+    """Typed access to core decision records (SDK 1.8).
+
+    ``get`` needs ``core.adr.read`` (or ``core.adr.write``, which implies
+    it); ``create_draft`` needs ``core.adr.write``. Both are re-evaluated per
+    call. Drafts only — status transitions, review requests and signing stay
+    human-only through the app; ``attributes`` keys must be namespaced under
+    the calling extension's own ``ext.{key}.`` prefix; every filing is an
+    ``ext:{key}`` mutation batch in the audit log.
+    """
+
+    async def get(self, decision_id: str) -> ExtDecision | None: ...
+
+    async def create_draft(
+        self,
+        *,
+        title: str,
+        context: str | None = None,
+        decision: str | None = None,
+        consequences: str | None = None,
+        alternatives_considered: str | None = None,
+        linked_card_ids: Sequence[str] = (),
+        attributes: dict[str, Any] | None = None,
+        related_decisions: Sequence[Any] | None = None,
+    ) -> ExtDecision: ...
+
+
 class DataBridge(Protocol):
     """Typed access to core cards, relations, and the metamodel (SDK 1.5).
 
@@ -415,15 +504,24 @@ class DataBridge(Protocol):
 
     async def get_relations(self, card_id: str) -> list[ExtRelation]: ...
 
+    async def get_cards(
+        self, ids: Sequence[str], *, include_archived: bool = False
+    ) -> list[ExtCard]: ...
+
+    async def get_relations_for(self, card_ids: Sequence[str]) -> list[ExtRelation]: ...
+
+    async def get_stakeholders_for(self, card_ids: Sequence[str]) -> list[ExtStakeholder]: ...
+
     async def get_card_types(self) -> list[dict]: ...
 
     async def get_relation_types(self) -> list[dict]: ...
 
     # -- writes -------------------------------------------------------------
 
-    def batch(self, label: str) -> AbstractAsyncContextManager[None]:
+    def batch(self, label: str) -> AbstractAsyncContextManager[ExtBatch]:
         """Group several writes into ONE audited mutation batch. Without it
-        each write opens its own single-op batch."""
+        each write opens its own single-op batch. Yields the batch handle
+        (SDK 1.8) — ``async with ctx.data.batch(label) as b: ... b.id``."""
         ...
 
     async def create_card(
@@ -476,7 +574,9 @@ class ExtensionContext:
     database transaction for N keys (``set_settings`` refuses ``secret.``
     names; use ``set_secret``). SDK 1.5 adds ``data`` — the inventory
     bridge to cards, relations, and the metamodel (grants
-    ``core.cards.read`` / ``core.cards.write``).
+    ``core.cards.read`` / ``core.cards.write``). SDK 1.8 adds ``decisions``
+    — the decision-record bridge (grants ``core.adr.read`` /
+    ``core.adr.write``; drafts only).
     """
 
     key: str
@@ -492,6 +592,7 @@ class ExtensionContext:
     get_settings: Callable[[Sequence[str]], Awaitable[dict[str, Any]]] | None = None
     set_settings: Callable[[dict[str, Any]], Awaitable[None]] | None = None
     data: DataBridge | None = None
+    decisions: DecisionsBridge | None = None
 
     def __post_init__(self) -> None:
         if not self.settings_namespace:

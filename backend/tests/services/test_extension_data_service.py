@@ -9,22 +9,26 @@ directly.
 
 from __future__ import annotations
 
+import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 
+from app.models.stakeholder import Stakeholder
 from app.services.extensions import data_service as bridge_mod
 from app.services.extensions.data_service import ExtensionData
 from app.services.extensions.license import Entitlement, LicenseDocument
 from app.services.extensions.registry import ExtensionInfo, extension_registry
-from app.services.extensions.sdk import ExtCard, ExtensionPermissionError
+from app.services.extensions.sdk import ExtCard, ExtensionDataError, ExtensionPermissionError
 from tests.conftest import (
     create_card,
     create_card_type,
     create_relation,
     create_relation_type,
+    create_role,
+    create_user,
 )
 
 NOW = datetime.now(timezone.utc)
@@ -116,6 +120,13 @@ class TestGrantGating:
             await bridge.get_card_types()
         with pytest.raises(ExtensionPermissionError):
             await bridge.get_relation_types()
+        # SDK 1.8 batch reads sit behind the same grant.
+        with pytest.raises(ExtensionPermissionError):
+            await bridge.get_cards([str(env["app"].id)])
+        with pytest.raises(ExtensionPermissionError):
+            await bridge.get_relations_for([str(env["app"].id)])
+        with pytest.raises(ExtensionPermissionError):
+            await bridge.get_stakeholders_for([str(env["app"].id)])
 
     async def test_other_core_grants_do_not_imply_cards(self, db, env):
         load_registry(grants=["core.todos.read", "core.users.read"])
@@ -242,6 +253,102 @@ class TestMetamodelSnapshots:
         rt = next(r for r in rts if r["key"] == "app_to_itc")
         assert rt["source_type_key"] == "Application"
         assert rt["target_type_key"] == "ITComponent"
+
+
+class TestGetCards:
+    async def test_fetches_many_in_one_call_ordered_by_name(self, db, env):
+        load_registry(grants=["core.cards.read"])
+        ids = [str(env["app"].id), str(env["micro"].id)]
+        cards = await ExtensionData(KEY).get_cards(ids)
+        assert [c.name for c in cards] == ["Auth Service", "Billing Service"]
+        assert all(isinstance(c, ExtCard) for c in cards)
+
+    async def test_excludes_hidden_and_archived_unless_asked(self, db, env):
+        load_registry(grants=["core.cards.read"])
+        bridge = ExtensionData(KEY)
+        ids = [str(env["app"].id), str(env["archived"].id), str(env["hidden_card"].id)]
+        assert [c.id for c in await bridge.get_cards(ids)] == [str(env["app"].id)]
+        with_archived = await bridge.get_cards(ids, include_archived=True)
+        assert {c.id for c in with_archived} == {str(env["app"].id), str(env["archived"].id)}
+
+    async def test_dedupes_and_ignores_unknown_ids(self, db, env):
+        load_registry(grants=["core.cards.read"])
+        ids = [str(env["app"].id), str(env["app"].id), str(uuid.uuid4())]
+        cards = await ExtensionData(KEY).get_cards(ids)
+        assert [c.id for c in cards] == [str(env["app"].id)]
+
+    async def test_malformed_and_over_cap_are_refused(self, db, env):
+        load_registry(grants=["core.cards.read"])
+        bridge = ExtensionData(KEY)
+        with pytest.raises(ExtensionDataError, match="Invalid card id"):
+            await bridge.get_cards([str(env["app"].id), "nope"])
+        too_many = [str(uuid.uuid4()) for _ in range(bridge_mod.MAX_IDS_PER_CALL + 1)]
+        with pytest.raises(ExtensionDataError, match="at most"):
+            await bridge.get_cards(too_many)
+
+    async def test_empty_list_returns_empty(self, db, env):
+        load_registry(grants=["core.cards.read"])
+        assert await ExtensionData(KEY).get_cards([]) == []
+
+
+class TestGetRelationsFor:
+    async def test_union_across_ids_without_duplicates(self, db, env):
+        load_registry(grants=["core.cards.read"])
+        # The one relation touches both requested ids; it comes back once.
+        rels = await ExtensionData(KEY).get_relations_for([str(env["app"].id), str(env["itc"].id)])
+        assert [r.id for r in rels] == [str(env["rel"].id)]
+        assert rels[0].source_id == str(env["app"].id)
+
+    async def test_archived_and_hidden_endpoints_hide_the_relation(self, db, env):
+        load_registry(grants=["core.cards.read"])
+        await create_relation_type(db, key="app_to_app")
+        await create_relation(
+            db, type_key="app_to_app", source_id=env["app"].id, target_id=env["archived"].id
+        )
+        await create_relation(
+            db, type_key="app_to_app", source_id=env["app"].id, target_id=env["hidden_card"].id
+        )
+        rels = await ExtensionData(KEY).get_relations_for([str(env["app"].id)])
+        assert [r.id for r in rels] == [str(env["rel"].id)]
+
+    async def test_malformed_or_over_cap_refused(self, db, env):
+        load_registry(grants=["core.cards.read"])
+        bridge = ExtensionData(KEY)
+        with pytest.raises(ExtensionDataError, match="Invalid card id"):
+            await bridge.get_relations_for(["nope"])
+        too_many = [str(uuid.uuid4()) for _ in range(bridge_mod.MAX_IDS_PER_CALL + 1)]
+        with pytest.raises(ExtensionDataError, match="at most"):
+            await bridge.get_relations_for(too_many)
+        assert await bridge.get_relations_for([]) == []
+
+
+class TestGetStakeholdersFor:
+    async def test_rows_for_several_cards_in_one_call_without_pii(self, db, env):
+        load_registry(grants=["core.cards.read"])
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        user = await create_user(db, email="owner@test.com", role="admin")
+        db.add(Stakeholder(card_id=env["app"].id, user_id=user.id, role="owner"))
+        db.add(Stakeholder(card_id=env["itc"].id, user_id=user.id, role="observer"))
+        db.add(Stakeholder(card_id=env["archived"].id, user_id=user.id, role="owner"))
+        await db.flush()
+        rows = await ExtensionData(KEY).get_stakeholders_for(
+            [str(env["app"].id), str(env["itc"].id), str(env["archived"].id)]
+        )
+        assert {(r.card_id, r.role) for r in rows} == {
+            (str(env["app"].id), "owner"),
+            (str(env["itc"].id), "observer"),
+        }
+        assert all(r.user_id == str(user.id) for r in rows)
+        assert not hasattr(rows[0], "display_name")
+        assert not hasattr(rows[0], "email")
+
+    async def test_grant_gate_and_refusals(self, db, env):
+        load_registry(grants=["core.users.read"])
+        with pytest.raises(ExtensionPermissionError):
+            await ExtensionData(KEY).get_stakeholders_for([str(env["app"].id)])
+        load_registry(grants=["core.cards.read"])
+        with pytest.raises(ExtensionDataError, match="Invalid card id"):
+            await ExtensionData(KEY).get_stakeholders_for(["nope"])
 
 
 class TestSessionDiscipline:

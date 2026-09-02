@@ -47,7 +47,8 @@ VALID_CAPABILITIES = frozenset({"content", "backend", "frontend", "metamodel"})
 # The authoring-affordance grants unlock admin UI features
 # (``metamodel.*`` — see api/v1/metamodel.py), the ``core.*`` grants unlock
 # SDK bridge access (todos bridge + event subscriptions since SDK 1.2, the
-# read-only users bridge since SDK 1.3 — evaluated at call/delivery time via
+# read-only users bridge since SDK 1.3, the decisions bridge since SDK 1.8 —
+# evaluated at call/delivery time via
 # registry.grants_for). An unknown grant is a hard BundleError: a signed
 # manifest carrying a typo'd scope would otherwise be silently inert. Keep in
 # sync with VALID_GRANTS in scripts/extension-tools/teax.py (deliberately
@@ -64,6 +65,8 @@ VALID_GRANTS = frozenset(
         "core.cards.write",
         "core.events.card",
         "core.notifications.channel",
+        "core.adr.read",
+        "core.adr.write",
     }
 )
 

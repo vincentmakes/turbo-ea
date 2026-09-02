@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -23,7 +23,7 @@ from app.schemas.adr import (
     ADRSignRequest,
     ADRUpdate,
 )
-from app.services import notification_service
+from app.services import adr_service, notification_service
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.search_rank import search_filter, search_rank
@@ -34,39 +34,6 @@ router = APIRouter(prefix="/adr", tags=["adr"])
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-async def _next_reference_number(db: AsyncSession) -> str:
-    """Generate the next ADR reference number (ADR-001, ADR-002, etc.)."""
-    result = await db.execute(select(func.max(ArchitectureDecision.reference_number)))
-    max_ref = result.scalar_one_or_none()
-    if max_ref:
-        num = int(max_ref.replace("ADR-", "")) + 1
-    else:
-        num = 1
-    return f"ADR-{num:03d}"
-
-
-async def _resolve_card_ids(db: AsyncSession, card_ids: list[str]) -> list[uuid.UUID]:
-    """Parse and verify a list of card UUIDs, raising 400/404 with the
-    offending values so a bad link list never silently no-ops."""
-    parsed: list[uuid.UUID] = []
-    seen: set[uuid.UUID] = set()
-    for cid in card_ids:
-        try:
-            parsed_id = uuid.UUID(cid)
-        except (ValueError, AttributeError, TypeError):
-            raise HTTPException(400, f"Invalid card id: {cid!r}") from None
-        if parsed_id not in seen:
-            seen.add(parsed_id)
-            parsed.append(parsed_id)
-    if parsed:
-        result = await db.execute(select(Card.id).where(Card.id.in_(parsed)))
-        found = set(result.scalars().all())
-        missing = [str(cid) for cid in parsed if cid not in found]
-        if missing:
-            raise HTTPException(404, f"Cards not found: {', '.join(missing)}")
-    return parsed
 
 
 async def _publish_adr_card_event(
@@ -327,22 +294,20 @@ async def create_adr(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "adr.manage")
-    card_ids = await _resolve_card_ids(db, body.linked_card_ids or [])
-    ref_num = await _next_reference_number(db)
-    adr = ArchitectureDecision(
-        reference_number=ref_num,
+    card_ids = await adr_service.resolve_card_ids(db, body.linked_card_ids or [])
+    # The shared writer (also behind the analysis commit flow and the
+    # extension decisions bridge) — one reference-number sequence for all.
+    adr = await adr_service.create_decision(
+        db,
         title=body.title,
         context=body.context,
         decision=body.decision,
         consequences=body.consequences,
         alternatives_considered=body.alternatives_considered,
         related_decisions=body.related_decisions or [],
+        linked_card_ids=card_ids,
         created_by=user.id,
     )
-    db.add(adr)
-    await db.flush()
-    for cid in card_ids:
-        db.add(ArchitectureDecisionCard(architecture_decision_id=adr.id, card_id=cid))
     await db.commit()
     await db.refresh(adr)
     return await _adr_to_dict(db, adr)
@@ -418,7 +383,7 @@ async def update_adr(
         adr.status = body.status
 
     if body.linked_card_ids is not None:
-        desired = set(await _resolve_card_ids(db, body.linked_card_ids))
+        desired = set(await adr_service.resolve_card_ids(db, body.linked_card_ids))
         result = await db.execute(
             select(ArchitectureDecisionCard).where(
                 ArchitectureDecisionCard.architecture_decision_id == adr.id
@@ -477,7 +442,7 @@ async def duplicate_adr(
     """Duplicate an ADR as a new draft with a new reference number."""
     await PermissionService.require_permission(db, user, "adr.manage")
     original = await _get_adr(db, adr_id)
-    ref_num = await _next_reference_number(db)
+    ref_num = await adr_service.next_reference_number(db)
     dup = ArchitectureDecision(
         reference_number=ref_num,
         title=f"{original.title} (copy)",
@@ -871,7 +836,7 @@ async def revise_adr(
     if adr.status != "signed":
         raise HTTPException(400, "Only signed decisions can be revised")
 
-    ref_num = await _next_reference_number(db)
+    ref_num = await adr_service.next_reference_number(db)
     new_revision = ArchitectureDecision(
         reference_number=ref_num,
         title=adr.title,

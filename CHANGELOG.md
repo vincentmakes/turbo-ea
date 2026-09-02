@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.119.0] - 2026-09-02
+
+### Added
+
+- **Extension SDK 1.8 — batch inventory reads.** An extension can now fetch many cards, the relations touching many cards, and the stakeholder assignments on many cards in one call each (`get_cards`, `get_relations_for`, `get_stakeholders_for`, up to 500 ids), with the same archived and hidden-type exclusions as the single-card reads. Stakeholder rows carry the user id and role only; names still come through the user-directory grant.
+- **Extension SDK 1.8 — decision-record bridge.** An extension that needs to record a decision (for example a planning extension filing the outcome of an analysis) can create a **draft** architecture decision through `ctx.decisions`, unlocked by the new manifest grants `core.adr.read` / `core.adr.write`. Drafts only: signing, review and status changes stay with people; linked cards must be active; extension data on the record is confined to the extension's own `ext.<key>.*` keys; and every filing appears in Admin → Audit log as an `ext:<key>` batch.
+- **Extension SDK 1.8 — batch handle.** `ctx.data.batch(label)` now yields the id of the audit batch it opened, so an extension can record where its writes landed.
+
+### Changed
+
+- Decision-record creation — the REST route, the analysis commit flow and the new bridge — now shares one service for reference-number sequencing and row creation. No behaviour change.
+
 ## [2.118.0] - 2026-09-02
 
 ### Added

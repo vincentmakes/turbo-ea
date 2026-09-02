@@ -186,6 +186,30 @@ class TestTeaxGrantsLint:
         # case is pinning that the *grants* draw no complaint.
         assert [w for w in warnings if "logo" not in w] == []
 
+    def test_adr_grant_with_pre_1_8_sdk_warns(self, teax, tmp_path):
+        src = write_source(
+            tmp_path,
+            {**BASE_MANIFEST, "grants": ["core.adr.write"], "sdk_version": "1.7"},
+        )
+        _, _, problems, warnings = teax._lint_source(src)
+        assert problems == []
+        assert any("SDK 1.8" in w for w in warnings)
+
+    def test_adr_grants_with_1_8_sdk_are_clean(self, teax, tmp_path):
+        src = write_source(
+            tmp_path,
+            {
+                **BASE_MANIFEST,
+                "grants": ["core.adr.read", "core.adr.write"],
+                "sdk_version": "1.8",
+            },
+        )
+        _, _, problems, warnings = teax._lint_source(src)
+        assert problems == []
+        # The logo advisory fires on any manifest shipping no artwork; this
+        # case is pinning that the *grants* draw no complaint.
+        assert [w for w in warnings if "logo" not in w] == []
+
     def test_non_list_grants_is_a_problem(self, teax, tmp_path):
         src = write_source(tmp_path, {**BASE_MANIFEST, "grants": "core.todos.write"})
         _, _, problems, _ = teax._lint_source(src)

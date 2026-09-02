@@ -15,8 +15,8 @@ from app.database import get_db as core_get_db
 from app.services.extensions import sdk
 
 
-def test_sdk_version_is_1_7():
-    assert sdk.SDK_VERSION == "1.7"
+def test_sdk_version_is_1_8():
+    assert sdk.SDK_VERSION == "1.8"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -161,6 +161,8 @@ def test_extension_context_1_1_construction_still_works():
     assert ctx.users is None
     assert ctx.get_settings is None
     assert ctx.set_settings is None
+    assert ctx.data is None
+    assert ctx.decisions is None
     assert ctx.settings_namespace == "ext.sample-ext."
 
 
@@ -197,6 +199,7 @@ def test_sdk_compatibility_is_major_only():
     assert sdk.sdk_compatible("1.3")
     assert sdk.sdk_compatible("1.4")
     assert sdk.sdk_compatible("1.5")
+    assert sdk.sdk_compatible("1.8")
     assert not sdk.sdk_compatible("2.0")
 
 
@@ -204,6 +207,7 @@ def test_sdk_minor_newer_truth_table():
     # Newer minor on the same major → warn (still loads).
     assert sdk.sdk_minor_newer("1.9")
     # Same or older minor → no warning.
+    assert not sdk.sdk_minor_newer("1.8")
     assert not sdk.sdk_minor_newer("1.5")
     assert not sdk.sdk_minor_newer("1.4")
     assert not sdk.sdk_minor_newer("1.3")
@@ -249,5 +253,54 @@ def test_notification_delivery_is_frozen_and_wire_shaped():
     try:
         payload.title = "x"  # type: ignore[misc]
         raise AssertionError("NotificationDelivery must be frozen")
+    except AttributeError:
+        pass
+
+
+def test_sdk_1_8_surface_exists():
+    # SDK 1.8 — batch inventory reads, the decisions bridge, the batch handle.
+    assert sdk.ExtBatch is not None
+    assert sdk.ExtStakeholder is not None
+    assert sdk.ExtDecision is not None
+    assert sdk.DecisionsBridge is not None
+    assert "decisions" in sdk.ExtensionContext.__dataclass_fields__
+    for name in ("get_cards", "get_relations_for", "get_stakeholders_for"):
+        assert hasattr(sdk.DataBridge, name)
+
+
+def test_ext_batch_and_stakeholder_are_frozen():
+    handle = sdk.ExtBatch(id="b1", label="nightly")
+    assert handle.id == "b1"
+    try:
+        handle.id = "x"  # type: ignore[misc]
+        raise AssertionError("ExtBatch must be frozen")
+    except AttributeError:
+        pass
+    row = sdk.ExtStakeholder(card_id="c1", user_id="u1", role="owner")
+    # Least privilege: the inventory grant alone never exposes the directory.
+    assert not hasattr(row, "display_name")
+    assert not hasattr(row, "email")
+    try:
+        row.role = "x"  # type: ignore[misc]
+        raise AssertionError("ExtStakeholder must be frozen")
+    except AttributeError:
+        pass
+
+
+def test_ext_decision_is_frozen_and_wire_shaped():
+    decision = sdk.ExtDecision(
+        id="d1",
+        reference_number="ADR-001",
+        title="Keep one billing system",
+        status="draft",
+        revision_number=1,
+        linked_card_ids=("c1",),
+        attributes={"ext.sample-planner.scenario_id": "s1"},
+        created_at=None,
+    )
+    assert decision.linked_card_ids == ("c1",)
+    try:
+        decision.status = "signed"  # type: ignore[misc]
+        raise AssertionError("ExtDecision must be frozen")
     except AttributeError:
         pass

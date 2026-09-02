@@ -20,6 +20,7 @@ from sqlalchemy import select
 
 from app.core.encryption import decrypt_value, encrypt_value
 from app.database import async_session
+from app.services.extensions.adr_bridge import ExtensionDecisions
 from app.services.extensions.cron import CronError, next_fire, validate_cron
 from app.services.extensions.data_service import ExtensionData
 from app.services.extensions.loader import LoadReport
@@ -143,6 +144,7 @@ def build_context(key: str) -> ExtensionContext:
         get_settings=get_settings,
         set_settings=set_settings,
         data=ExtensionData(key),
+        decisions=ExtensionDecisions(key),
     )
     _contexts[key] = ctx
     return ctx

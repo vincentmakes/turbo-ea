@@ -79,6 +79,8 @@ VALID_GRANTS = {
     "core.cards.write",
     "core.events.card",
     "core.notifications.channel",
+    "core.adr.read",
+    "core.adr.write",
 }
 # Artwork an extension may ship as its own logo (manifest `logo`), shown on the
 # Store and Installed tabs. Deliberately duplicated from
@@ -132,6 +134,8 @@ SDK_1_3_GRANTS = {"core.users.read"}
 SDK_1_5_GRANTS = {"core.cards.read", "core.cards.write", "core.events.card"}
 # Grants that require the SDK 1.6 notification-channel surface specifically.
 SDK_1_6_GRANTS = {"core.notifications.channel"}
+# Grants that require the SDK 1.8 decisions bridge specifically.
+SDK_1_8_GRANTS = {"core.adr.read", "core.adr.write"}
 BUILTIN_FIELD_TYPES = {
     "text",
     "multiline_text",
@@ -423,10 +427,15 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str], list[str]
             needs_1_3 = bool(set(grants) & SDK_1_3_GRANTS)
             needs_1_5 = bool(set(grants) & SDK_1_5_GRANTS)
             needs_1_6 = bool(set(grants) & SDK_1_6_GRANTS)
-            if (needs_1_2 or needs_1_3 or needs_1_5 or needs_1_6) and declared_sdk:
+            needs_1_8 = bool(set(grants) & SDK_1_8_GRANTS)
+            if (needs_1_2 or needs_1_3 or needs_1_5 or needs_1_6 or needs_1_8) and declared_sdk:
                 try:
                     major, minor = (int(x) for x in declared_sdk.split(".")[:2])
-                    if needs_1_6 and (major, minor) < (1, 6):
+                    if needs_1_8 and (major, minor) < (1, 8):
+                        warnings.append(
+                            f"core.adr.* grants require SDK 1.8+ but sdk_version is {declared_sdk}"
+                        )
+                    elif needs_1_6 and (major, minor) < (1, 6):
                         warnings.append(
                             f"core.notifications.channel requires SDK 1.6+ "
                             f"but sdk_version is {declared_sdk}"
