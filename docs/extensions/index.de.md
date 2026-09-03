@@ -13,12 +13,24 @@ beschreibt [Administration → Extension Store](../admin/extensions.md).
 
 ## Verfügbare Erweiterungen
 
+### Strategie, Planung & Transformation
+
 | Erweiterung | Funktion | Lizenz |
 |-------------|----------|--------|
 | [Digital Autonomy Assessment](digital-autonomy.md) | Bewertet jede Anwendung anhand des Digital Autonomy Assessment Framework der Universität Utrecht — 22 gewichtete Indikatoren, ein automatischer Autonomie-Wert von 1–10 und ein Risiko-/Mitigations-Quadrant | **Kostenlos** |
 | [EA Value Tracker](value-savings.md) | Macht aus Architekturentscheidungen ein prüfbares Wertregister: kategorisierte Einsparungsmeldungen, Vier-Augen-Genehmigung der Realisierung und ein Wert-Dashboard | Kommerziell |
+
+### Integrationen
+
+| Erweiterung | Funktion | Lizenz |
+|-------------|----------|--------|
 | [Jira Todo Sync](jira-todos.md) | Hält Turbo-EA-Todos und ein Jira-Cloud-Projekt in beide Richtungen synchron — Status, Titel, Fälligkeit und Zuständige | Kommerziell |
 | [Slack Notifications](slack-notify.md) | Stellt jeder Person ihre Turbo-EA-Benachrichtigungen als Slack-Direktnachricht zu, mit Opt-in pro Person und Typ | Kommerziell |
+
+### Regulierung
+
+| Erweiterung | Funktion | Lizenz |
+|-------------|----------|--------|
 | [DORA Register of Information](dora-roi.md) | Führt das Informationsregister nach EU-DORA Art. 28 auf Ihren vorhandenen Karten und exportiert das offizielle xBRL-CSV-Einreichungspaket | Kommerziell |
 
 ## Was alle Erweiterungen gemeinsam haben

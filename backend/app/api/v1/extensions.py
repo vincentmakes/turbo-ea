@@ -622,6 +622,11 @@ class StoreItemOut(BaseModel):
     # Same-origin catalogue logo, shown before the extension is installed.
     logo: str = ""
     tags: list[str] = []
+    # Store section the item is listed under. A slug the catalogue assigns
+    # from a small fixed vocabulary; the vocabulary, its order and the labels
+    # live in the frontend, which files anything it does not recognise under
+    # a trailing "Other" section — so this is shape-checked, never allow-listed.
+    category: str = ""
     version: str = ""
     # True while this instance's entitlement for the item is a trial (active
     # OR already expired) — the UI keeps the Buy button visible so a trialing
@@ -711,6 +716,18 @@ def _sanitize_tags(raw: object) -> list[str]:
     return out
 
 
+def _sanitize_category(raw: object) -> str:
+    """The catalogue's section slug, or ``""`` when it is not a slug.
+
+    Same shape rule as a tag: the value only ever becomes a lookup key for a
+    frontend label, so a slug that the frontend does not know degrades to its
+    "Other" section rather than being rejected here.
+    """
+    if isinstance(raw, str) and _STORE_TAG_RE.match(raw):
+        return raw
+    return ""
+
+
 @router.get("/store/catalog", response_model=StoreCatalogOut)
 async def store_catalog(
     db: AsyncSession = Depends(get_db),
@@ -769,6 +786,7 @@ async def store_catalog(
                 screenshots=_resolve_screenshots(base_url, item.get("screenshots")),
                 logo=_resolve_store_path(base_url, item.get("logo"), suffixes=LOGO_EXTENSIONS),
                 tags=_sanitize_tags(item.get("tags")),
+                category=_sanitize_category(item.get("category")),
                 version=catalog_version,
                 installed_version=installed_version,
                 update_available=store_update_available(catalog_version, installed_version),

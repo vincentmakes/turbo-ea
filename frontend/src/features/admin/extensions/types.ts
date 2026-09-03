@@ -105,6 +105,11 @@ export interface StoreItem {
   // Category slugs; the first is the commercial-model tag ("free"/"commercial")
   // the catalogue derives at publish time, the rest are topical.
   tags?: string[];
+  // Store section slug. The vocabulary, its order and the labels are
+  // STORE_CATEGORIES / storeCategories.ts on this side; a slug the catalogue
+  // sends that this build does not know files under the trailing "Other"
+  // section, so a newer catalogue never hides an item from an older core.
+  category?: string;
   version: string;
   installed_version?: string | null;
   update_available: boolean;
@@ -162,6 +167,13 @@ export interface StoreCheckRun {
 
 // The commercial-model tags always sort ahead of topical ones in the filter bar.
 export const MODEL_TAGS = ["free", "commercial"];
+
+// The store's sections, in display order. Labels are the i18n keys
+// `extensions.store.category.<slug>`; grouping lives in storeCategories.ts.
+export const STORE_CATEGORIES = ["strategy", "integrations", "regulations"] as const;
+export type StoreCategory = (typeof STORE_CATEGORIES)[number];
+// Where an item with no recognised category lands — always the last section.
+export const OTHER_CATEGORY = "other";
 
 export const ENTITLEMENT_COLOR: Record<
   EntitlementInfo["state"],

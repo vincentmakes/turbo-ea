@@ -761,13 +761,82 @@ describe("ExtensionsAdmin", () => {
     await userEvent.click(screen.getByText("free"));
     expect(screen.queryByText("Alpha Ext")).not.toBeInTheDocument();
     expect(
-      screen.getByText("No extensions match the selected categories."),
+      screen.getByText("No extensions match the selected tags."),
     ).toBeInTheDocument();
 
     // «All» resets the filter
     await userEvent.click(screen.getByText("All"));
     expect(screen.getByText("Alpha Ext")).toBeInTheDocument();
     expect(screen.getByText("Beta Ext")).toBeInTheDocument();
+  });
+
+  it("groups store items into sections in the fixed order, Other last", async () => {
+    primeInitialLoad({
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [
+          // catalogue order deliberately differs from section order
+          { ...STORE_ITEM, key: "reg", name: "Reg Ext", category: "regulations" },
+          { ...STORE_ITEM, key: "odd", name: "Odd Ext", category: "not-a-section" },
+          { ...STORE_ITEM, key: "str", name: "Strat Ext", category: "strategy" },
+        ],
+      },
+    });
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Reg Ext")).toBeInTheDocument());
+
+    const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    // Integrations is empty and therefore omitted; the unknown slug lands
+    // under Other, which always trails.
+    expect(headings).toEqual(["Strategy, Planning & Transformation", "Regulations", "Other"]);
+    const strat = screen.getByText("Strategy, Planning & Transformation");
+    const reg = screen.getByText("Regulations");
+    expect(strat.compareDocumentPosition(screen.getByText("Strat Ext"))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(screen.getByText("Strat Ext").compareDocumentPosition(reg)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it("drops a section heading when the tag filter empties it", async () => {
+    primeInitialLoad({
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [
+          { ...STORE_ITEM, key: "a", name: "Alpha Ext", category: "integrations", tags: ["commercial", "jira"] },
+          { ...STORE_ITEM, key: "b", name: "Beta Ext", category: "regulations", tags: ["commercial", "dora"] },
+        ],
+      },
+    });
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Alpha Ext")).toBeInTheDocument());
+    expect(screen.getByText("Integrations")).toBeInTheDocument();
+    expect(screen.getByText("Regulations")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText("jira"));
+    expect(screen.getByText("Integrations")).toBeInTheDocument();
+    expect(screen.queryByText("Regulations")).not.toBeInTheDocument();
+    expect(screen.queryByText("Beta Ext")).not.toBeInTheDocument();
+  });
+
+  it("renders a flat grid with no section headings for a catalogue without categories", async () => {
+    primeInitialLoad({
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [STORE_ITEM, { ...STORE_ITEM, key: "b", name: "Beta Ext" }],
+      },
+    });
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Beta Ext")).toBeInTheDocument());
+    expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
+    expect(screen.queryByText("Other")).not.toBeInTheDocument();
   });
 
   it("shows no tag filter bar when the catalogue carries no tags", async () => {

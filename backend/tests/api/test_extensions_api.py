@@ -1307,6 +1307,42 @@ class TestStoreCatalog:
         (item,) = res.json()["items"]
         assert item["tags"] == []
 
+    async def test_catalog_surfaces_category_slug(self, client, db, vendor, monkeypatch):
+        """The store section slug passes through untouched — the frontend owns
+        the vocabulary and files an unknown slug under its "Other" section."""
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload(category="integrations"))
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        assert res.status_code == 200
+        (item,) = res.json()["items"]
+        assert item["category"] == "integrations"
+
+    @pytest.mark.parametrize(
+        "raw",
+        ["<script>", "Not A Slug", 123, ["integrations"], "x" * 40],
+    )
+    async def test_catalog_drops_a_category_that_is_not_a_slug(
+        self, client, db, vendor, monkeypatch, raw
+    ):
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload(category=raw))
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        (item,) = res.json()["items"]
+        assert item["category"] == ""
+
+    async def test_catalog_without_category_defaults_empty(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload())
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        (item,) = res.json()["items"]
+        assert item["category"] == ""
+
     async def test_unlicensed_uninstalled_item(self, client, db, vendor, monkeypatch):
         admin = await make_admin(db)
         mock_store(monkeypatch, catalog=catalog_payload(key="other-ext", name="Other"))

@@ -12,12 +12,24 @@ veda [Amministrazione → Store delle estensioni](../admin/extensions.md).
 
 ## Estensioni disponibili
 
+### Strategia, pianificazione e trasformazione
+
 | Estensione | Che cosa fa | Licenza |
 |------------|-------------|---------|
 | [Digital Autonomy Assessment](digital-autonomy.md) | Valuta ogni applicazione secondo il Digital Autonomy Assessment Framework dell'Università di Utrecht — 22 indicatori ponderati, un punteggio di autonomia automatico da 1 a 10 e un quadrante rischio/mitigazione | **Gratuita** |
 | [EA Value Tracker](value-savings.md) | Trasforma le decisioni di architettura in un registro finanziario verificabile: risparmi dichiarati per categoria, approvazione della realizzazione a quattro occhi e un cruscotto del valore | Commerciale |
+
+### Integrazioni
+
+| Estensione | Che cosa fa | Licenza |
+|------------|-------------|---------|
 | [Jira Todo Sync](jira-todos.md) | Mantiene allineati in entrambe le direzioni i todo di Turbo EA e un progetto Jira Cloud — stato, titolo, scadenza e assegnatario | Commerciale |
 | [Slack Notifications](slack-notify.md) | Recapita a ciascuno le proprie notifiche di Turbo EA come messaggio diretto Slack, con adesione volontaria per persona e per tipo | Commerciale |
+
+### Normative
+
+| Estensione | Che cosa fa | Licenza |
+|------------|-------------|---------|
 | [DORA Register of Information](dora-roi.md) | Tiene il registro delle informazioni previsto dall'art. 28 DORA sulle vostre schede esistenti ed esporta il pacchetto ufficiale di trasmissione xBRL-CSV | Commerciale |
 
 ## Che cosa hanno in comune tutte le estensioni

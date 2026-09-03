@@ -56,6 +56,7 @@ import ExtensionLogo from "./extensions/ExtensionLogo";
 import StoreCheckStatusLine from "./extensions/StoreCheckStatusLine";
 import StoreDetailDrawer from "./extensions/StoreDetailDrawer";
 import StoreTile from "./extensions/StoreTile";
+import { groupStoreItems } from "./extensions/storeCategories";
 import type { StoreActionHandlers } from "./extensions/StoreActions";
 import {
   MODEL_TAGS,
@@ -137,6 +138,9 @@ export default function ExtensionsAdmin() {
     setActiveTags((current) =>
       current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag],
     );
+  // Sections are cut AFTER the tag filter so a filtered-out section simply
+  // disappears with its heading.
+  const storeGroups = useMemo(() => groupStoreItems(filteredItems), [filteredItems]);
   // key -> the installed bundle's own logo, for catalogue items already
   // installed here. The bundle artwork wins over the catalogue's: it is what
   // this instance actually runs, and it resolves with the store unreachable.
@@ -914,34 +918,44 @@ export default function ExtensionsAdmin() {
               <StoreCheckStatusLine />
               {filteredItems.length === 0 && (
                 <Typography variant="body2" color="text.secondary">
-                  {t(
-                    "extensions.store.noTagMatch",
-                    "No extensions match the selected categories.",
-                  )}
+                  {t("extensions.store.noTagMatch", "No extensions match the selected tags.")}
                 </Typography>
               )}
-              <Box
-                sx={{
-                  display: "grid",
-                  gap: 2,
-                  // auto-fill over a hard column count: four up on a normal
-                  // desktop, degrading to 3 / 2 / 1 with no extra breakpoints
-                  // and never squeezing a tile below a readable width.
-                  // auto-FIT would stretch a three-item catalogue into three
-                  // enormous cards, which is exactly this store's shape.
-                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                }}
-              >
-                {filteredItems.map((item) => (
-                  <StoreTile
-                    key={item.key}
-                    item={item}
-                    bundleLogoUrl={installedLogos[item.key]}
-                    handlers={storeHandlers}
-                    onOpen={setDrawerKey}
-                  />
-                ))}
-              </Box>
+              {storeGroups.map((group, index) => (
+                <Box key={group.category ?? "all"}>
+                  {group.category && (
+                    <Typography
+                      variant="subtitle1"
+                      component="h3"
+                      sx={{ fontWeight: 600, mb: 1.5, mt: index === 0 ? 0 : 1 }}
+                    >
+                      {t(`extensions.store.category.${group.category}`, group.category)}
+                    </Typography>
+                  )}
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gap: 2,
+                      // auto-fill over a hard column count: four up on a normal
+                      // desktop, degrading to 3 / 2 / 1 with no extra breakpoints
+                      // and never squeezing a tile below a readable width.
+                      // auto-FIT would stretch a three-item catalogue into three
+                      // enormous cards, which is exactly this store's shape.
+                      gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                    }}
+                  >
+                    {group.items.map((item) => (
+                      <StoreTile
+                        key={item.key}
+                        item={item}
+                        bundleLogoUrl={installedLogos[item.key]}
+                        handlers={storeHandlers}
+                        onOpen={setDrawerKey}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              ))}
               <Typography variant="caption" color="text.secondary">
                 {t(
                   "extensions.store.afterPurchase",

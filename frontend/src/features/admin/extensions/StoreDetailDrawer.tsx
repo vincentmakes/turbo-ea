@@ -30,7 +30,7 @@ import {
   type StoreActionHandlers,
 } from "./StoreActions";
 import { canBuy, canInstall, canTrial } from "./storeActionRules";
-import { MODEL_TAGS, storeEntitlement, type StoreItem } from "./types";
+import { MODEL_TAGS, STORE_CATEGORIES, storeEntitlement, type StoreItem } from "./types";
 
 interface Props {
   item: StoreItem | null;
@@ -63,6 +63,11 @@ export default function StoreDetailDrawer({
   }, [item?.key]);
 
   const topical = (item?.tags ?? []).filter((tag) => !MODEL_TAGS.includes(tag));
+  // The store section this item is listed under. Deliberately not clickable:
+  // the tag chips below filter the grid, and a section is not a filter.
+  const category = (STORE_CATEGORIES as readonly string[]).includes(item?.category ?? "")
+    ? item!.category!
+    : null;
   const screenshots = item?.screenshots ?? [];
 
   return (
@@ -125,6 +130,13 @@ export default function StoreDetailDrawer({
             )}
             {!item.installed_version && item.free && (
               <Chip size="small" color="info" label={t("extensions.store.free", "Free")} />
+            )}
+            {category && (
+              <Chip
+                size="small"
+                variant="outlined"
+                label={t(`extensions.store.category.${category}`, category)}
+              />
             )}
             {!item.free && item.entitlement_state !== "unlicensed" && (
               <EntitlementChip ent={storeEntitlement(item)} />

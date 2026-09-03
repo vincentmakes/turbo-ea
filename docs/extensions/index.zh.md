@@ -10,12 +10,24 @@
 
 ## 可用扩展
 
+### 战略、规划与转型
+
 | 扩展 | 功能 | 许可 |
 |------|------|------|
 | [Digital Autonomy Assessment](digital-autonomy.md) | 依据乌得勒支大学的 Digital Autonomy Assessment Framework 评估每个应用——22 项加权指标、自动生成的 1–10 自主性评分，以及风险/缓解四象限图 | **免费** |
 | [EA Value Tracker](value-savings.md) | 把架构决策变成可审计的财务台账：分类的节省申报、四眼原则的实现审批，以及价值仪表板 | 商业 |
+
+### 集成
+
+| 扩展 | 功能 | 许可 |
+|------|------|------|
 | [Jira Todo Sync](jira-todos.md) | 让 Turbo EA 待办事项与 Jira Cloud 项目双向保持一致——状态、标题、截止日期与负责人 | 商业 |
 | [Slack Notifications](slack-notify.md) | 以 Slack 私信向每个人投递其 Turbo EA 通知，按人、按类型自愿开启 | 商业 |
+
+### 法规
+
+| 扩展 | 功能 | 许可 |
+|------|------|------|
 | [DORA Register of Information](dora-roi.md) | 在既有卡片上维护欧盟 DORA 第 28 条的信息登记册，并导出官方 xBRL-CSV 报送包 | 商业 |
 
 ## 所有扩展的共同点

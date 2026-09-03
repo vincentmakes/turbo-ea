@@ -13,12 +13,24 @@ d'essai — voir [Administration → Boutique d'extensions](../admin/extensions.
 
 ## Extensions disponibles
 
+### Stratégie, planification & transformation
+
 | Extension | Rôle | Licence |
 |-----------|------|---------|
 | [Digital Autonomy Assessment](digital-autonomy.md) | Évalue chaque application selon le Digital Autonomy Assessment Framework de l'université d'Utrecht — 22 indicateurs pondérés, un score d'autonomie automatique de 1 à 10 et un quadrant risque/atténuation | **Gratuite** |
 | [EA Value Tracker](value-savings.md) | Transforme les décisions d'architecture en registre financier auditable : économies déclarées par catégorie, approbation de la réalisation à quatre yeux et tableau de bord de la valeur | Commerciale |
+
+### Intégrations
+
+| Extension | Rôle | Licence |
+|-----------|------|---------|
 | [Jira Todo Sync](jira-todos.md) | Maintient les todos Turbo EA et un projet Jira Cloud alignés dans les deux sens — statut, titre, échéance et personne assignée | Commerciale |
 | [Slack Notifications](slack-notify.md) | Remet à chaque personne ses notifications Turbo EA sous forme de message direct Slack, avec adhésion volontaire par personne et par type | Commerciale |
+
+### Réglementations
+
+| Extension | Rôle | Licence |
+|-----------|------|---------|
 | [DORA Register of Information](dora-roi.md) | Tient le registre d'informations DORA (art. 28) sur vos cartes existantes et exporte le paquet de soumission officiel xBRL-CSV | Commerciale |
 
 ## Ce que toutes les extensions ont en commun

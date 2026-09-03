@@ -13814,6 +13814,11 @@
       },
       "StoreItemOut": {
         "properties": {
+          "category": {
+            "default": "",
+            "title": "Category",
+            "type": "string"
+          },
           "demo_url": {
             "default": "",
             "title": "Demo Url",

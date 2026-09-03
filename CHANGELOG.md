@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.120.0] - 2026-09-03
+
+### Added
+
+- **The Store tab is organised into sections.** Extensions in Admin → Extensions → Store are now grouped under **Strategy, Planning & Transformation**, **Integrations** and **Regulations**, each with its own heading, so you can see at a glance what kind of extension each one is. Anything the catalogue has not classified appears under **Other**; the tag pills keep filtering within the sections, and a section with no match disappears.
+
 ## [2.119.0] - 2026-09-02
 
 ### Added
