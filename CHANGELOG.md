@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.120.1] - 2026-09-03
+
+### Security
+
+- Updated three build- and test-tooling dependencies past newly published advisories: `browserslist` ([GHSA-73wf-gq98-2v4g](https://github.com/advisories/GHSA-73wf-gq98-2v4g), [GHSA-c83g-rgw3-j3cx](https://github.com/advisories/GHSA-c83g-rgw3-j3cx)), `@humanfs/node` ([GHSA-p498-v437-472g](https://github.com/advisories/GHSA-p498-v437-472g)) and `nanoid` ([GHSA-2v37-7h3g-55p8](https://github.com/advisories/GHSA-2v37-7h3g-55p8)). All three are development-only — they run in the build and lint tooling, and none of them ships in the application a browser downloads — so no running Turbo EA instance was exposed and no action is needed beyond taking the next release.
+
 ## [2.120.0] - 2026-09-03
 
 ### Added
