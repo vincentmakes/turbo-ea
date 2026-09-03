@@ -34,7 +34,7 @@ The ID travels with a workspace transfer, so moving to a new host keeps your lic
 The **Store** tab works out of the box and lists the vendor's published extensions as a grid of compact tiles — logo, name, licence state and price. Click any tile to open a panel on the right with the full description, screenshots, category tags and source/licence credits. Extensions that ship no artwork show a generated tile carrying their initials.
 
 - **Buy** opens the payment page in a new browser tab. Once the payment is confirmed, your license applies automatically (a copy also arrives by email).
-- **Install** (or **Update** when a newer version is published) checks your license first — if the extension isn't licensed yet, a dialog offers to buy it or paste a license, then continues automatically — and downloads the bundle through the exact same signature verification and dry-run preview as a manual upload. Extensions with a demo show a **See it in action** link, and a published newer version turns the button into **Update**.
+- **Install** (or **Update** when a newer version is published) checks your license first — if the extension isn't licensed yet, a dialog offers to buy it or paste a license, then continues automatically — and downloads the bundle through the exact same signature verification and dry-run preview as a manual upload. Extensions with a demo show a **See it in action** link. The button reads **Update** only for an extension you already have installed; on anything else it is a plain **Install** that fetches the published version.
 
 The catalogue is arranged in three sections — **Strategy, Planning & Transformation**, **Integrations** and **Regulations** — each with its own heading, so you can see at a glance what kind of extension each one is; anything the catalogue has not classified appears under **Other** at the end. Within the sections, tag pills (free or commercial, plus topics such as integration) work as a filter: a filter bar appears above the list, clicking pills narrows it (several pills combine), sections with no match disappear, and **All** resets the view.
 
@@ -56,7 +56,7 @@ Some paid extensions offer a **free 30-day trial** — look for the **Start 30-d
 ## Installing an extension
 
 1. If you have not done so yet, apply your license first (see below).
-2. Open **Admin → Extensions** and choose **Install from file…** on the Store tab, then upload the `.teax` file you received.
+2. Open **Admin → Extensions** and press **Install from file…** at the top of the page (next to the instance ID — it is there on both tabs), then upload the `.teax` file you received.
 3. Turbo EA verifies the signature and shows a **preview**: for content-carrying extensions this is a dry-run of every card type, tag group, card, and relation the extension would create or update — nothing is written yet.
 4. Review the preview and press **Install extension**.
 5. If the extension carries backend code, a banner asks you to restart the backend container (`docker compose restart backend`). Content and UI extensions are active immediately — users pick up new UI on their next page load.
@@ -65,7 +65,7 @@ Uploading the same bundle again is safe — the preview shows everything as "ski
 
 ## Updating an extension
 
-When the store publishes a newer version of an installed extension, the Installed tab shows an **Update to X** chip next to the extension's version (and the Store tab's button turns into **Update**). One click runs the same signature verification, dry-run preview, and apply as a fresh install. Two safeguards apply:
+When the store publishes a newer version of an installed extension, the Installed tab shows an **Update to X** chip next to the extension's version (and the Store tab's button turns into **Update**). One click runs the same signature verification, dry-run preview, and apply as a fresh install. While an install or update runs, the button (or chip) shows a spinner and stays disabled until it finishes, and the progress panel appears on whichever tab you started from. Two safeguards apply:
 
 - Updating an extension you have deliberately **disabled** keeps it disabled — the new version lands on disk, but its content stays hidden and nothing runs until you enable it again.
 - Installing a bundle **older** than the installed version asks for an explicit confirmation first: a downgrade may not understand data written by the newer version. Nothing is deleted either way.

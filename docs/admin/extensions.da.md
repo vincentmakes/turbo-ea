@@ -34,7 +34,7 @@ ID'et følger med en workspace-overførsel, så flytning til en ny vært holder 
 Fanen **Butik** virker uden nogen konfiguration og viser leverandørens udgivne udvidelser som et gitter af kompakte felter — logo, navn, licensstatus og pris. Klik på et felt for at åbne et panel til højre med den fulde beskrivelse, skærmbilleder, kategorimærkater og kilde- og licensangivelser. Udvidelser uden grafik får et genereret felt med deres initialer.
 
 - **Køb** åbner betalingssiden i en ny browserfane. Så snart betalingen er bekræftet, anvendes din licens automatisk (en kopi ankommer også pr. e-mail).
-- **Installer** (eller **Opdater**, når en nyere version er udgivet) tjekker først din licens — hvis udvidelsen endnu ikke er licenseret, tilbyder en dialog at købe eller indsætte en licens og fortsætter derefter automatisk — og downloader pakken gennem præcis den samme signaturkontrol og prøvekørselsforhåndsvisning som en manuel upload. Udvidelser med demo viser et **Se det i praksis**-link, og en udgivet nyere version gør knappen til **Opdater**.
+- **Installer** (eller **Opdater**, når en nyere version er udgivet) tjekker først din licens — hvis udvidelsen endnu ikke er licenseret, tilbyder en dialog at købe eller indsætte en licens og fortsætter derefter automatisk — og downloader pakken gennem præcis den samme signaturkontrol og prøvekørselsforhåndsvisning som en manuel upload. Udvidelser med demo viser et **Se det i praksis**-link. Knappen hedder kun **Opdater** for en udvidelse, du allerede har installeret; ellers er det et almindeligt **Installer**, der henter den udgivne version.
 
 Kataloget er inddelt i tre sektioner — **Strategi, planlægning & transformation**, **Integrationer** og **Regulering** — hver med sin egen overskrift, så du med det samme kan se, hvilken slags udvidelse der er tale om; alt, hvad kataloget ikke har klassificeret, vises til sidst under **Andre**. Inden for sektionerne fungerer tag-piller (free eller commercial, plus emner som integration) som filter: en filterlinje vises over listen, klik på piller indsnævrer den (flere piller kombineres), sektioner uden match forsvinder, og **All** nulstiller visningen.
 
@@ -56,7 +56,7 @@ Nogle betalte udvidelser tilbyder en **gratis 30-dages prøveperiode** — kig e
 ## Installer en udvidelse
 
 1. Hvis du ikke allerede har gjort det, skal du først anvende din licens (se nedenfor).
-2. Åbn **Admin → Udvidelser**, vælg **Installer fra fil…** under fanen Butik, og upload den `.teax`-fil, du har modtaget.
+2. Åbn **Admin → Udvidelser**, tryk på **Installer fra fil…** øverst på siden (ved siden af instans-id'et — knappen findes på begge faner), og upload den `.teax`-fil, du har modtaget.
 3. Turbo EA verificerer signaturen og viser en **forhåndsvisning**: for indholdsbærende udvidelser er det en prøvekørsel af hver korttype, tag-gruppe, kort og relation, som udvidelsen ville oprette eller opdatere — intet skrives endnu.
 4. Gennemgå forhåndsvisningen, og tryk på **Installer udvidelse**.
 5. Hvis udvidelsen indeholder backend-kode, beder et banner dig om at genstarte backend-containeren (`docker compose restart backend`). Indholds- og UI-udvidelser er aktive med det samme — brugerne ser den nye brugerflade ved næste sideindlæsning.
@@ -65,7 +65,7 @@ Det er sikkert at uploade den samme pakke igen — forhåndsvisningen viser alt 
 
 ## Opdatering af en udvidelse
 
-Når butikken udgiver en nyere version af en installeret udvidelse, viser fanen Installerede en chip **Opdater til X** ved siden af versionen (og knappen på fanen Butik bliver til **Opdater**). Ét klik kører den samme signaturkontrol, forhåndsvisning og anvendelse som en ny installation. To sikkerhedsforanstaltninger gælder:
+Når butikken udgiver en nyere version af en installeret udvidelse, viser fanen Installerede en chip **Opdater til X** ved siden af versionen (og knappen på fanen Butik bliver til **Opdater**). Ét klik kører den samme signaturkontrol, forhåndsvisning og anvendelse som en ny installation. Mens en installation eller opdatering kører, viser knappen (eller chippen) en indikator og forbliver deaktiveret, indtil den er færdig, og statuspanelet vises på den fane, du startede fra. To sikkerhedsforanstaltninger gælder:
 
 - Opdatering af en udvidelse, du bevidst har **deaktiveret**, holder den deaktiveret — den nye version lander på disken, men dens indhold forbliver skjult, og intet kører, før du aktiverer den igen.
 - Installation af en pakke, der er **ældre** end den installerede version, kræver først en udtrykkelig bekræftelse: en nedgradering forstår muligvis ikke data skrevet af den nyere version. Intet slettes i nogen af tilfældene.

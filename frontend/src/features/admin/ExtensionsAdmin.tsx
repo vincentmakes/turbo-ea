@@ -157,6 +157,14 @@ export default function ExtensionsAdmin() {
   const [instanceId, setInstanceId] = useState("");
   const [instanceCopied, setInstanceCopied] = useState(false);
   const [storeBusyKey, setStoreBusyKey] = useState<string | null>(null);
+  // The store item whose install/update owns the current pipeline. Unlike
+  // `storeBusyKey` (which spans only the POST that starts it) this survives
+  // the whole download → verify → preview → apply run, so the button the
+  // admin pressed keeps its spinner until something actually happened.
+  const [activeStoreKey, setActiveStoreKey] = useState<string | null>(null);
+  // Per-row in-flight markers for the Installed tab's own actions.
+  const [toggleBusyKey, setToggleBusyKey] = useState<string | null>(null);
+  const [uninstallBusy, setUninstallBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -354,6 +362,7 @@ export default function ExtensionsAdmin() {
   const startStoreInstall = useCallback(
     async (itemKey: string) => {
       setStoreBusyKey(itemKey);
+      setActiveStoreKey(itemKey);
       setInstallError(null);
       setInstall(null);
       autoApplyRef.current = true; // one-click through to installed
@@ -365,6 +374,7 @@ export default function ExtensionsAdmin() {
         poll(created.id);
       } catch (err) {
         autoApplyRef.current = false;
+        setActiveStoreKey(null);
         setInstallError(err instanceof Error ? err.message : String(err));
       } finally {
         setStoreBusyKey(null);
@@ -533,6 +543,7 @@ export default function ExtensionsAdmin() {
     setInstallBusy(true);
     setInstallError(null);
     setInstall(null);
+    setActiveStoreKey(null); // a bespoke bundle is nobody's catalogue tile
     try {
       const created = await api.upload<ExtensionInstall>("/admin/extensions/install", file);
       setInstall(created);
@@ -564,20 +575,25 @@ export default function ExtensionsAdmin() {
     }
     setInstall(null);
     setInstallError(null);
+    setActiveStoreKey(null);
   };
 
   const handleToggle = async (ext: ExtensionInfo) => {
+    setToggleBusyKey(ext.key);
     try {
       await api.put(`/admin/extensions/${ext.key}/enabled`, { enabled: !ext.enabled });
       invalidateExtensionCapabilities();
       await loadAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setToggleBusyKey(null);
     }
   };
 
   const handleUninstall = async () => {
     if (!uninstallKey) return;
+    setUninstallBusy(true);
     try {
       await api.delete(`/admin/extensions/${uninstallKey}`);
       invalidateExtensionCapabilities();
@@ -585,6 +601,7 @@ export default function ExtensionsAdmin() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
+      setUninstallBusy(false);
       setUninstallKey(null);
     }
   };
@@ -666,14 +683,27 @@ export default function ExtensionsAdmin() {
     autoApplyRef.current && install?.status === "previewed" && !install.diff?.totals?.failed;
   const report = install?.result || install?.diff || null;
 
+  // One busy truth for every install affordance on the page.
+  //
+  // `isWorking` alone is not it: "previewed" is a TERMINAL status, so during
+  // a one-click store install the buttons re-enabled and dropped their
+  // spinner in the middle of the run, right before the auto-apply POST.
+  // `installBusy` covers that apply, `autoApplying` the gap around it.
+  const pipelineBusy = isWorking || autoApplying || installBusy;
+  // Which item's button carries the spinner: the one being POSTed, or —
+  // for the rest of the pipeline — whichever store item started it. A manual
+  // file upload sets no key, so it disables the buttons without pretending
+  // some tile is installing.
+  const busyKey = storeBusyKey ?? (pipelineBusy ? activeStoreKey : null);
+
   // One handler bundle for the tile and the drawer, so the two surfaces
   // cannot end up wiring the same button to different things.
   const storeHandlers: StoreActionHandlers = {
     onInstall: handleInstallClick,
     onBuy: handleBuy,
     onTrial: handleTrial,
-    busyKey: storeBusyKey,
-    isWorking,
+    busyKey,
+    isWorking: pipelineBusy,
     claimingKey: claiming?.itemKey ?? null,
   };
   // Derived, never stored: a refetch after a purchase or an install must be
@@ -792,6 +822,47 @@ export default function ExtensionsAdmin() {
         <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
           {t("extensions.title", "Extensions")}
         </Typography>
+        {/* Manual/bespoke bundles install from file — same pipeline as a
+            store install. It lives in the header, not at the foot of the
+            Store tab: it is the ONLY way in for an air-gapped instance, and
+            down there it sat below the whole catalogue on a tab whose own
+            "store unreachable" hint sent people looking elsewhere. In the
+            header it is on both tabs and in every store state. */}
+        <input
+          ref={bundleFileRef}
+          type="file"
+          accept=".teax,.zip"
+          hidden
+          onChange={handleBundleFile}
+        />
+        <Tooltip
+          title={t(
+            "extensions.store.installFromFileHint",
+            "For bespoke extensions and air-gapped installs: upload a signed .teax bundle you received from the vendor.",
+          )}
+        >
+          {/* A disabled button swallows the pointer events the Tooltip
+              listens for, so the span keeps the hint reachable mid-upload. */}
+          <span>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => bundleFileRef.current?.click()}
+              disabled={pipelineBusy}
+              startIcon={
+                installBusy ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <MaterialSymbol icon="upload" />
+                )
+              }
+            >
+              {installBusy
+                ? t("extensions.install.uploading", "Uploading…")
+                : t("extensions.store.installFromFile", "Install from file…")}
+            </Button>
+          </span>
+        </Tooltip>
         {instanceId && (
           <Tooltip
             title={t(
@@ -872,7 +943,7 @@ export default function ExtensionsAdmin() {
             <Alert severity="info">
               {t(
                 "extensions.store.notConfigured",
-                "No extension store is configured on this instance. Install extensions from files on the Installed tab — the file-based flow covers everything the store does.",
+                "No extension store is configured on this instance. Use «Install from file…» at the top of this page — the file-based flow covers everything the store does.",
               )}
             </Alert>
           ) : !catalog.reachable ? (
@@ -881,11 +952,11 @@ export default function ExtensionsAdmin() {
                 ? t("extensions.store.blocked", {
                     status: catalog.status_code ?? "",
                     defaultValue:
-                      "The extension store refused this instance's request (HTTP {{status}}). Something between this instance and the store — a proxy, a firewall or the store's own bot protection — is blocking it; outbound internet access is working. Install from files on the Installed tab meanwhile.",
+                      "The extension store refused this instance's request (HTTP {{status}}). Something between this instance and the store — a proxy, a firewall or the store's own bot protection — is blocking it; outbound internet access itself is working. Use «Install from file…» at the top of this page meanwhile.",
                   })
                 : t(
                     "extensions.store.unreachable",
-                    "The extension store could not be reached. Air-gapped or offline? Install from files on the Installed tab instead.",
+                    "The extension store could not be reached. Air-gapped or offline? Use «Install from file…» at the top of this page instead.",
                   )}
             </Alert>
           ) : catalog.items.length === 0 ? (
@@ -963,48 +1034,6 @@ export default function ExtensionsAdmin() {
                 )}
               </Typography>
             </>
-          )}
-
-          {/* Manual/bespoke bundles install from file — same pipeline. */}
-          <Box>
-            <input
-              ref={bundleFileRef}
-              type="file"
-              accept=".teax,.zip"
-              hidden
-              onChange={handleBundleFile}
-            />
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => bundleFileRef.current?.click()}
-              disabled={installBusy || isWorking}
-              startIcon={
-                installBusy ? (
-                  <CircularProgress size={16} color="inherit" />
-                ) : (
-                  <MaterialSymbol icon="upload" />
-                )
-              }
-            >
-              {installBusy
-                ? t("extensions.install.uploading", "Uploading…")
-                : t("extensions.store.installFromFile", "Install from file…")}
-            </Button>
-            <Typography variant="caption" color="text.secondary" sx={{ ml: 1.5 }}>
-              {t(
-                "extensions.store.installFromFileHint",
-                "For bespoke extensions and air-gapped installs: upload a signed .teax bundle you received from the vendor.",
-              )}
-            </Typography>
-          </Box>
-
-          {installError && <Alert severity="error">{installError}</Alert>}
-
-          {install && (
-            <Card variant="outlined">
-              <CardContent>{installPanel}</CardContent>
-            </Card>
           )}
         </>
       )}
@@ -1153,12 +1182,24 @@ export default function ExtensionsAdmin() {
                               size="small"
                               color="info"
                               variant="outlined"
-                              icon={<MaterialSymbol icon="upgrade" size={16} />}
-                              label={t("extensions.list.updateAvailable", "Update to {{version}}", {
-                                version: updateItem.version,
-                              })}
+                              icon={
+                                busyKey === ext.key ? (
+                                  <CircularProgress size={14} color="inherit" />
+                                ) : (
+                                  <MaterialSymbol icon="upgrade" size={16} />
+                                )
+                              }
+                              label={
+                                busyKey === ext.key
+                                  ? t("extensions.list.updating", "Updating…")
+                                  : t(
+                                      "extensions.list.updateAvailable",
+                                      "Update to {{version}}",
+                                      { version: updateItem.version },
+                                    )
+                              }
                               onClick={() => handleInstallClick(updateItem)}
-                              disabled={storeBusyKey !== null || installBusy}
+                              disabled={busyKey !== null || pipelineBusy}
                               sx={{ ml: 1 }}
                             />
                           )}
@@ -1177,6 +1218,7 @@ export default function ExtensionsAdmin() {
                           <Switch
                             size="small"
                             checked={ext.enabled}
+                            disabled={toggleBusyKey === ext.key}
                             onChange={() => void handleToggle(ext)}
                             inputProps={{
                               "aria-label": t("extensions.list.enabledToggle", "Toggle extension"),
@@ -1234,6 +1276,17 @@ export default function ExtensionsAdmin() {
             </Card>
           ))}
         </>
+      )}
+
+      {/* Install progress lives OUTSIDE both tabs: an update started from
+          the Installed tab's chip ran the same pipeline but rendered its
+          progress on a tab the admin was not looking at. */}
+      {installError && <Alert severity="error">{installError}</Alert>}
+
+      {install && (
+        <Card variant="outlined">
+          <CardContent>{installPanel}</CardContent>
+        </Card>
       )}
 
       {/* License dialog — install gate (with Buy) or plain license entry. */}
@@ -1458,7 +1511,15 @@ export default function ExtensionsAdmin() {
           <Button onClick={() => setUninstallKey(null)}>
             {t("extensions.uninstall.cancel", "Cancel")}
           </Button>
-          <Button color="error" variant="contained" onClick={() => void handleUninstall()}>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => void handleUninstall()}
+            disabled={uninstallBusy}
+            startIcon={
+              uninstallBusy ? <CircularProgress size={16} color="inherit" /> : undefined
+            }
+          >
             {t("extensions.uninstall.confirm", "Uninstall")}
           </Button>
         </DialogActions>

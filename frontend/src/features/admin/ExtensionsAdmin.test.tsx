@@ -672,6 +672,160 @@ describe("ExtensionsAdmin", () => {
     );
   });
 
+  it("labels the button Install — never Update — for an extension that is not installed", async () => {
+    // `update_available` without an `installed_version` is not an update:
+    // there is no older version on this instance to move away from, so
+    // "Update to 1.0.0" would name an act the admin never performed. The
+    // plain Install already fetches whatever the catalogue publishes.
+    primeInitialLoad({
+      license: LICENSE,
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [
+          {
+            ...STORE_ITEM,
+            installed_version: null,
+            update_available: true,
+            entitlement_state: "active",
+          },
+        ],
+      },
+    });
+    renderPage();
+    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    expect(screen.getByText("Install", { selector: "button" })).toBeInTheDocument();
+    expect(screen.queryByText(/Update to/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the store button spinning for the whole install, apply included", async () => {
+    // The regression: "previewed" is a TERMINAL status, so between the
+    // preview landing and the auto-apply finishing the button re-enabled and
+    // dropped its spinner — mid-install it read as though nothing happened.
+    primeInitialLoad({
+      license: LICENSE,
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [{ ...STORE_ITEM, entitlement_state: "active" }],
+      },
+    });
+    // Hold the apply POST open so the previewed → applied window — the one
+    // that used to look idle — can actually be asserted on.
+    let releaseApply: (value: unknown) => void = () => {};
+    mockPost.mockImplementation(async (path: string) => {
+      if (path === "/admin/extensions/store/install")
+        return { id: "s1", filename: "esg.teax", status: "verifying" };
+      if (path === "/admin/extensions/install/s1/apply")
+        return new Promise((resolve) => {
+          releaseApply = resolve;
+        });
+      throw new Error(`unexpected POST ${path}`);
+    });
+    let applied = false;
+    mockGet.mockImplementation(async (path: string) => {
+      if (path === "/admin/extensions") return [];
+      if (path === "/admin/extensions/license") return LICENSE;
+      if (path === "/admin/extensions/store/catalog")
+        return {
+          configured: true,
+          reachable: true,
+          store_url: "https://x",
+          items: [{ ...STORE_ITEM, entitlement_state: "active" }],
+        };
+      if (path.startsWith("/admin/extensions/install/"))
+        return applied
+          ? { id: "s1", filename: "esg.teax", status: "installed" }
+          : {
+              id: "s1",
+              filename: "esg.teax",
+              status: "previewed",
+              diff: { totals: { created: 1, updated: 0, skipped: 0, conflict: 0, failed: 0 } },
+            };
+      throw new Error(`unexpected GET ${path}`);
+    });
+
+    renderPage();
+    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    await userEvent.click(screen.getByText("Install", { selector: "button" }));
+
+    // Preview landed and the apply is in flight: still busy, still disabled.
+    const busy = await screen.findByText("Installing…", { selector: "button" }, { timeout: 5000 });
+    expect(busy).toBeDisabled();
+    expect(busy.querySelector(".MuiCircularProgress-root")).toBeTruthy();
+
+    applied = true;
+    releaseApply({ id: "s1", filename: "esg.teax", status: "applying" });
+
+    // …and it settles back to an actionable button once the install lands.
+    await waitFor(
+      () => expect(screen.getByText("Install", { selector: "button" })).toBeEnabled(),
+      { timeout: 5000 },
+    );
+  }, 15000);
+
+  it("shows update progress on the Installed tab, where the update was started", async () => {
+    // The progress card used to render on the Store tab only, so an update
+    // launched from this chip reported nothing at all on the tab in front of
+    // the admin.
+    const updateItem = {
+      ...STORE_ITEM,
+      key: "sample-ext",
+      name: "Sample Extension",
+      version: "2.0.0",
+      installed_version: "1.0.0",
+      update_available: true,
+      entitlement_state: "active",
+    };
+    const catalog = {
+      configured: true,
+      reachable: true,
+      store_url: "https://x",
+      items: [updateItem],
+    };
+    primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE, catalog });
+    mockPost.mockResolvedValue({ id: "s9", filename: "sample.teax", status: "verifying" });
+    mockGet.mockImplementation(async (path: string) => {
+      if (path === "/admin/extensions") return [SAMPLE_EXT];
+      if (path === "/admin/extensions/license") return LICENSE;
+      if (path === "/admin/extensions/store/catalog") return catalog;
+      if (path === "/admin/extensions/instance") return { instance_id: "" };
+      if (path.startsWith("/admin/extensions/install/"))
+        return { id: "s9", filename: "sample.teax", status: "verifying" };
+      throw new Error(`unexpected GET ${path}`);
+    });
+
+    renderPage();
+    await openInstalledTab();
+    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+    await userEvent.click(screen.getByText("Update to 2.0.0"));
+
+    // The chip reports its own progress…
+    await waitFor(() => expect(screen.getByText("Updating…")).toBeInTheDocument(), {
+      timeout: 5000,
+    });
+    // …and the shared progress card is on this tab, not the Store tab.
+    expect(screen.getByText("sample.teax")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Installed" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  }, 15000);
+
+  it("offers Install from file… on both tabs", async () => {
+    // It is the only way in for an air-gapped instance, so it must not be
+    // reachable only from the tab whose store is unreachable.
+    primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE });
+    renderPage();
+    await waitFor(() =>
+      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
+    );
+    await openInstalledTab();
+    expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument();
+  });
+
   it("shows no update chip when the catalog is unreachable (air-gapped)", async () => {
     primeInitialLoad({
       extensions: [SAMPLE_EXT],

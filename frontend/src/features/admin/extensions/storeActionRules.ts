@@ -34,6 +34,21 @@ export function canInstall(item: StoreItem): boolean {
 }
 
 /**
+ * Is this button an *update* rather than a first install?
+ *
+ * Only ever true for something already installed. A catalogue item that is
+ * not installed always offers a plain **Install**, which downloads whatever
+ * version the catalogue currently publishes — there is no older version to
+ * update from, so labelling it "Update to X" describes an act the admin has
+ * not performed. The backend agrees (`store_update_available` requires an
+ * installed version), but the label read `update_available` alone, so a
+ * catalogue that ever set the flag on an uninstalled item would say Update.
+ */
+export function isUpdate(item: StoreItem): boolean {
+  return Boolean(item.installed_version) && item.update_available;
+}
+
+/**
  * The actions a compact tile shows, in render order.
  *
  * At most two — a third does not fit at this width, and a tile with three

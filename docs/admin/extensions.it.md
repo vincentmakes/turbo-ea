@@ -34,7 +34,7 @@ L'ID viaggia con un trasferimento del workspace, quindi il passaggio a un nuovo 
 La scheda **Store** funziona senza alcuna configurazione ed elenca le estensioni pubblicate dal fornitore come una griglia di riquadri compatti: logo, nome, stato della licenza e prezzo. Fai clic su un riquadro per aprire a destra un pannello con la descrizione completa, le schermate, i tag di categoria e i crediti di origine e licenza. Le estensioni senza immagine mostrano un riquadro generato con le loro iniziali.
 
 - **Acquista** apre la pagina di pagamento in una nuova scheda del browser. Non appena il pagamento è confermato, la licenza viene applicata automaticamente (una copia arriva anche via e-mail).
-- **Installa** (o **Aggiorna** quando è pubblicata una versione più recente) verifica prima la licenza — se l'estensione non è ancora licenziata, una finestra propone di acquistarla o incollare una licenza, poi continua automaticamente — e scarica il pacchetto con esattamente la stessa verifica della firma e la stessa anteprima di simulazione di un caricamento manuale. Le estensioni con demo mostrano un link **Guardalo in azione**, e una versione più recente pubblicata trasforma il pulsante in **Aggiorna**.
+- **Installa** (o **Aggiorna** quando è pubblicata una versione più recente) verifica prima la licenza — se l'estensione non è ancora licenziata, una finestra propone di acquistarla o incollare una licenza, poi continua automaticamente — e scarica il pacchetto con esattamente la stessa verifica della firma e la stessa anteprima di simulazione di un caricamento manuale. Le estensioni con demo mostrano un link **Guardalo in azione**. Il pulsante riporta **Aggiorna** solo per un'estensione già installata; altrimenti è un semplice **Installa** che scarica la versione pubblicata.
 
 Il catalogo è organizzato in tre sezioni — **Strategia, pianificazione e trasformazione**, **Integrazioni** e **Normative** — ciascuna con la propria intestazione, così da vedere a colpo d'occhio di che tipo di estensione si tratta; tutto ciò che il catalogo non ha classificato compare in fondo sotto **Altre**. All'interno delle sezioni, le pillole dei tag (free o commercial, più temi come integration) fungono da filtro: sopra l'elenco compare una barra di filtri, fare clic sulle pillole lo restringe (più pillole si combinano), le sezioni senza corrispondenze scompaiono e **All** ripristina la vista.
 
@@ -56,7 +56,7 @@ Alcune estensioni a pagamento offrono una **prova gratuita di 30 giorni** — ce
 ## Installare un'estensione
 
 1. Se non lo hai già fatto, applica prima la licenza (vedi sotto).
-2. Apri **Admin → Estensioni**, scegli **Installa da file…** nella scheda Store e carica il file `.teax` ricevuto.
+2. Apri **Admin → Estensioni**, premi **Installa da file…** in cima alla pagina (accanto all'ID istanza: è presente su entrambe le schede) e carica il file `.teax` ricevuto.
 3. Turbo EA verifica la firma e mostra un'**anteprima**: per le estensioni con contenuti è una simulazione di ogni tipo di scheda, gruppo di tag, scheda e relazione che l'estensione creerebbe o aggiornerebbe — non viene ancora scritto nulla.
 4. Controlla l'anteprima e premi **Installa estensione**.
 5. Se l'estensione contiene codice backend, un avviso chiede di riavviare il container backend (`docker compose restart backend`). Le estensioni di contenuto e di interfaccia sono attive subito — gli utenti vedono la nuova interfaccia al prossimo caricamento della pagina.
@@ -65,7 +65,7 @@ Caricare due volte lo stesso pacchetto è sicuro — l'anteprima mostra tutto co
 
 ## Aggiornare un'estensione
 
-Quando lo store pubblica una versione più recente di un'estensione installata, la scheda Installate mostra un chip **Aggiorna a X** accanto alla versione (e il pulsante della scheda Store diventa **Aggiorna**). Un clic esegue la stessa verifica della firma, la stessa anteprima e la stessa applicazione di una nuova installazione. Valgono due protezioni:
+Quando lo store pubblica una versione più recente di un'estensione installata, la scheda Installate mostra un chip **Aggiorna a X** accanto alla versione (e il pulsante della scheda Store diventa **Aggiorna**). Un clic esegue la stessa verifica della firma, la stessa anteprima e la stessa applicazione di una nuova installazione. Durante un'installazione o un aggiornamento il pulsante (o il chip) mostra un indicatore di avanzamento e resta disabilitato fino al termine, e il pannello di avanzamento compare sulla scheda da cui hai avviato l'operazione. Valgono due protezioni:
 
 - Aggiornare un'estensione che hai deliberatamente **disattivato** la lascia disattivata: la nuova versione arriva su disco, ma i suoi contenuti restano nascosti e nulla viene eseguito finché non la riattivi.
 - Installare un pacchetto **più vecchio** della versione installata richiede prima una conferma esplicita: un downgrade potrebbe non comprendere i dati scritti dalla versione più recente. In nessun caso viene eliminato qualcosa.

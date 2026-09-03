@@ -38,7 +38,7 @@ import {
   TrialButton,
   type StoreActionHandlers,
 } from "./StoreActions";
-import { tileActions } from "./storeActionRules";
+import { isUpdate, tileActions } from "./storeActionRules";
 import { storeEntitlement, type StoreItem } from "./types";
 
 interface Props {
@@ -52,9 +52,12 @@ interface Props {
 /**
  * The one chip a tile has room for.
  *
- * A trial countdown or a lapsed licence outranks "Installed": those are the
- * states that need acting on, and knowing an extension is installed is the
- * least surprising thing on the page.
+ * Ordered by what needs acting on. A trial countdown or a lapsed licence
+ * outranks everything; an available update outranks plain "Installed",
+ * because it is the one thing on an installed tile the admin can still do —
+ * "Installed 1.0.0" on a tile whose button says "Update to 2.0.0" spends the
+ * only chip slot restating the version the button is offering to replace.
+ * Knowing an extension is installed is the least surprising thing here.
  */
 function StateChip({ item }: { item: StoreItem }) {
   const { t } = useTranslation("admin");
@@ -62,6 +65,15 @@ function StateChip({ item }: { item: StoreItem }) {
   const urgent =
     ent.trial === true || ent.state === "grace" || ent.state === "expired";
   if (urgent) return <EntitlementChip ent={ent} />;
+  if (isUpdate(item)) {
+    return (
+      <Chip
+        size="small"
+        color="info"
+        label={t("extensions.store.updateAvailableChip", "Update available")}
+      />
+    );
+  }
   if (item.installed_version) {
     return (
       <Chip
@@ -71,15 +83,6 @@ function StateChip({ item }: { item: StoreItem }) {
         label={t("extensions.store.installedChip", "Installed {{version}}", {
           version: item.installed_version,
         })}
-      />
-    );
-  }
-  if (item.update_available) {
-    return (
-      <Chip
-        size="small"
-        color="info"
-        label={t("extensions.store.updateAvailableChip", "Update available")}
       />
     );
   }

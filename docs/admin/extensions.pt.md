@@ -34,7 +34,7 @@ O ID viaja com uma transferência de workspace, pelo que mudar para um novo serv
 O separador **Loja** funciona sem qualquer configuração e lista as extensões publicadas pelo fornecedor como uma grelha de mosaicos compactos — logótipo, nome, estado da licença e preço. Clique num mosaico para abrir um painel à direita com a descrição completa, as capturas de ecrã, as etiquetas de categoria e os créditos de origem e licença. As extensões sem imagem apresentam um mosaico gerado com as suas iniciais.
 
 - **Comprar** abre a página de pagamento num novo separador do navegador. Assim que o pagamento é confirmado, a sua licença é aplicada automaticamente (uma cópia também chega por e-mail).
-- **Instalar** (ou **Atualizar** quando é publicada uma versão mais recente) verifica primeiro a sua licença — se a extensão ainda não tiver licença, um diálogo propõe comprá-la ou colar uma licença e depois continua automaticamente — e descarrega o pacote com exatamente a mesma verificação de assinatura e pré-visualização de simulação de um carregamento manual. As extensões com demonstração mostram uma ligação **Ver em ação**, e uma versão mais recente publicada transforma o botão em **Atualizar**.
+- **Instalar** (ou **Atualizar** quando é publicada uma versão mais recente) verifica primeiro a sua licença — se a extensão ainda não tiver licença, um diálogo propõe comprá-la ou colar uma licença e depois continua automaticamente — e descarrega o pacote com exatamente a mesma verificação de assinatura e pré-visualização de simulação de um carregamento manual. As extensões com demonstração mostram uma ligação **Ver em ação**. O botão indica **Atualizar** apenas numa extensão já instalada; nas restantes é um simples **Instalar** que descarrega a versão publicada.
 
 O catálogo está organizado em três secções — **Estratégia, planeamento e transformação**, **Integrações** e **Regulamentações** — cada uma com o seu próprio título, para ver de imediato de que tipo de extensão se trata; tudo o que o catálogo não classificou aparece no fim sob **Outras**. Dentro das secções, as pílulas de etiquetas (free ou commercial, além de temas como integration) funcionam como filtro: aparece uma barra de filtros acima da lista, clicar nas pílulas restringe-a (várias pílulas combinam-se), as secções sem correspondência desaparecem e **All** repõe a vista.
 
@@ -56,7 +56,7 @@ Algumas extensões pagas oferecem uma **avaliação gratuita de 30 dias** — pr
 ## Instalar uma extensão
 
 1. Se ainda não o fez, aplique primeiro a sua licença (ver abaixo).
-2. Abra **Admin → Extensões**, escolha **Instalar a partir de ficheiro…** no separador Loja e carregue o ficheiro `.teax` recebido.
+2. Abra **Admin → Extensões**, prima **Instalar a partir de ficheiro…** no topo da página (junto ao ID da instância — está nos dois separadores) e carregue o ficheiro `.teax` recebido.
 3. O Turbo EA verifica a assinatura e mostra uma **pré-visualização**: para extensões com conteúdo é uma simulação de cada tipo de cartão, grupo de etiquetas, cartão e relação que a extensão criaria ou atualizaria — nada é escrito ainda.
 4. Reveja a pré-visualização e prima **Instalar extensão**.
 5. Se a extensão incluir código de backend, um aviso pede o reinício do contentor do backend (`docker compose restart backend`). Extensões de conteúdo e de interface ficam ativas de imediato — os utilizadores veem a nova interface no próximo carregamento da página.
@@ -65,7 +65,7 @@ Carregar o mesmo pacote outra vez é seguro — a pré-visualização mostra tud
 
 ## Atualizar uma extensão
 
-Quando a loja publica uma versão mais recente de uma extensão instalada, o separador Instaladas mostra um selo **Atualizar para X** ao lado da versão (e o botão do separador Loja passa a **Atualizar**). Um clique executa a mesma verificação de assinatura, a mesma pré-visualização e a mesma aplicação de uma instalação nova. Aplicam-se duas salvaguardas:
+Quando a loja publica uma versão mais recente de uma extensão instalada, o separador Instaladas mostra um selo **Atualizar para X** ao lado da versão (e o botão do separador Loja passa a **Atualizar**). Um clique executa a mesma verificação de assinatura, a mesma pré-visualização e a mesma aplicação de uma instalação nova. Enquanto uma instalação ou atualização decorre, o botão (ou o selo) mostra um indicador de progresso e permanece desativado até terminar, e o painel de progresso aparece no separador a partir do qual a iniciou. Aplicam-se duas salvaguardas:
 
 - Atualizar uma extensão que você **desativou** deliberadamente mantém-na desativada: a nova versão chega ao disco, mas o seu conteúdo permanece oculto e nada é executado até que a reative.
 - Instalar um pacote **mais antigo** do que a versão instalada pede primeiro uma confirmação explícita: um downgrade pode não compreender os dados escritos pela versão mais recente. Em nenhum caso algo é eliminado.

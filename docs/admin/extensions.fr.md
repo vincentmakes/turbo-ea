@@ -34,7 +34,7 @@ L'ID voyage avec un transfert d'espace de travail : une migration vers un nouvel
 L'onglet **Boutique** fonctionne sans aucune configuration et liste les extensions publiées par le fournisseur sous forme de grille de tuiles compactes — logo, nom, état de licence et prix. Cliquez sur une tuile pour ouvrir un panneau à droite avec la description complète, les captures d'écran, les étiquettes de catégorie et les crédits de source et de licence. Les extensions sans visuel affichent une tuile générée portant leurs initiales.
 
 - **Acheter** ouvre la page de paiement dans un nouvel onglet du navigateur. Dès que le paiement est confirmé, votre licence s'applique automatiquement (une copie arrive aussi par e-mail).
-- **Installer** (ou **Mettre à jour** lorsqu'une version plus récente est publiée) vérifie d'abord votre licence — si l'extension n'est pas encore licenciée, une boîte de dialogue propose d'acheter ou de coller une licence, puis continue automatiquement — et télécharge le paquet via exactement la même vérification de signature et le même aperçu à blanc qu'un téléversement manuel. Les extensions avec démo affichent un lien **Voir en action**, et une nouvelle version publiée transforme le bouton en **Mettre à jour**.
+- **Installer** (ou **Mettre à jour** lorsqu'une version plus récente est publiée) vérifie d'abord votre licence — si l'extension n'est pas encore licenciée, une boîte de dialogue propose d'acheter ou de coller une licence, puis continue automatiquement — et télécharge le paquet via exactement la même vérification de signature et le même aperçu à blanc qu'un téléversement manuel. Les extensions avec démo affichent un lien **Voir en action**. Le bouton indique **Mettre à jour** uniquement pour une extension déjà installée ; sinon il s'agit d'un simple **Installer** qui récupère la version publiée.
 
 Le catalogue est organisé en trois sections — **Stratégie, planification & transformation**, **Intégrations** et **Réglementations** — chacune avec son propre titre, pour voir d'un coup d'œil de quel type d'extension il s'agit ; tout ce que le catalogue n'a pas classé apparaît sous **Autres** à la fin. À l'intérieur des sections, les pastilles d'étiquettes (free ou commercial, plus des thèmes comme integration) servent de filtre : une barre de filtres apparaît au-dessus de la liste, cliquer sur des pastilles la restreint (plusieurs pastilles se combinent), les sections sans résultat disparaissent, et **All** réinitialise l'affichage.
 
@@ -56,7 +56,7 @@ Certaines extensions payantes proposent un **essai gratuit de 30 jours** — rep
 ## Installer une extension
 
 1. Si ce n'est pas déjà fait, appliquez d'abord votre licence (voir ci-dessous).
-2. Ouvrez **Admin → Extensions**, choisissez **Installer depuis un fichier…** dans l'onglet Boutique et téléversez le fichier `.teax` reçu.
+2. Ouvrez **Admin → Extensions**, cliquez sur **Installer depuis un fichier…** en haut de la page (à côté de l'ID d'instance — présent sur les deux onglets) et téléversez le fichier `.teax` reçu.
 3. Turbo EA vérifie la signature et affiche un **aperçu** : pour les extensions de contenu, il s'agit d'une simulation de chaque type de carte, groupe d'étiquettes, carte et relation que l'extension créerait ou mettrait à jour — rien n'est encore écrit.
 4. Vérifiez l'aperçu puis cliquez sur **Installer l'extension**.
 5. Si l'extension contient du code backend, un bandeau demande de redémarrer le conteneur backend (`docker compose restart backend`). Les extensions de contenu et d'interface sont actives immédiatement — les utilisateurs voient la nouvelle interface au prochain chargement de page.
@@ -65,7 +65,7 @@ Téléverser deux fois le même paquet est sans risque — l'aperçu montre tout
 
 ## Mettre à jour une extension
 
-Lorsque la boutique publie une version plus récente d'une extension installée, l'onglet Installées affiche une puce **Mettre à jour vers X** à côté de la version (et le bouton de l'onglet Boutique devient **Mettre à jour**). Un clic déclenche la même vérification de signature, le même aperçu et la même application qu'une installation. Deux garde-fous s'appliquent :
+Lorsque la boutique publie une version plus récente d'une extension installée, l'onglet Installées affiche une puce **Mettre à jour vers X** à côté de la version (et le bouton de l'onglet Boutique devient **Mettre à jour**). Un clic déclenche la même vérification de signature, le même aperçu et la même application qu'une installation. Pendant une installation ou une mise à jour, le bouton (ou la puce) affiche un indicateur d'activité et reste désactivé jusqu'à la fin ; le panneau de progression s'affiche sur l'onglet depuis lequel vous avez lancé l'opération. Deux garde-fous s'appliquent :
 
 - Mettre à jour une extension que vous avez délibérément **désactivée** la laisse désactivée — la nouvelle version est installée sur le disque, mais son contenu reste masqué et rien ne s'exécute tant que vous ne la réactivez pas.
 - Installer un paquet **plus ancien** que la version installée demande d'abord une confirmation explicite : une rétrogradation peut ne pas comprendre les données écrites par la version plus récente. Rien n'est supprimé dans les deux cas.

@@ -34,7 +34,7 @@ El ID viaja con una transferencia de espacio de trabajo, por lo que mudarse a un
 La pestaña **Tienda** funciona sin configuración alguna y lista las extensiones publicadas por el proveedor como una cuadrícula de fichas compactas: logotipo, nombre, estado de licencia y precio. Haga clic en cualquier ficha para abrir un panel a la derecha con la descripción completa, las capturas de pantalla, las etiquetas de categoría y los créditos de origen y licencia. Las extensiones que no incluyen imagen muestran una ficha generada con sus iniciales.
 
 - **Comprar** abre la página de pago en una pestaña nueva del navegador. En cuanto se confirma el pago, tu licencia se aplica automáticamente (también llega una copia por correo).
-- **Instalar** (o **Actualizar** cuando se publica una versión más reciente) comprueba primero tu licencia — si la extensión aún no tiene licencia, un diálogo ofrece comprarla o pegar una licencia y luego continúa automáticamente — y descarga el paquete con exactamente la misma verificación de firma y vista previa de simulación que una carga manual. Las extensiones con demo muestran un enlace **Verlo en acción**, y una versión más reciente publicada convierte el botón en **Actualizar**.
+- **Instalar** (o **Actualizar** cuando se publica una versión más reciente) comprueba primero tu licencia — si la extensión aún no tiene licencia, un diálogo ofrece comprarla o pegar una licencia y luego continúa automáticamente — y descarga el paquete con exactamente la misma verificación de firma y vista previa de simulación que una carga manual. Las extensiones con demo muestran un enlace **Verlo en acción**. El botón dice **Actualizar** solo en una extensión que ya tienes instalada; en las demás es un simple **Instalar** que descarga la versión publicada.
 
 El catálogo se organiza en tres secciones — **Estrategia, planificación y transformación**, **Integraciones** y **Regulaciones** — cada una con su propio encabezado, para ver de un vistazo de qué tipo de extensión se trata; todo lo que el catálogo no haya clasificado aparece al final bajo **Otras**. Dentro de las secciones, las píldoras de etiquetas (free o commercial, más temas como integration) funcionan como filtro: aparece una barra de filtros sobre la lista, hacer clic en las píldoras la acota (varias píldoras se combinan), las secciones sin coincidencias desaparecen y **All** restablece la vista.
 
@@ -56,7 +56,7 @@ Algunas extensiones de pago ofrecen una **prueba gratuita de 30 días** — busq
 ## Instalar una extensión
 
 1. Si aún no lo ha hecho, aplique primero su licencia (véase más abajo).
-2. Abre **Admin → Extensiones**, elige **Instalar desde archivo…** en la pestaña Tienda y sube el archivo `.teax` recibido.
+2. Abre **Admin → Extensiones**, pulsa **Instalar desde archivo…** en la parte superior de la página (junto al ID de instancia; está en ambas pestañas) y sube el archivo `.teax` recibido.
 3. Turbo EA verifica la firma y muestra una **vista previa**: para extensiones con contenido es una simulación de cada tipo de tarjeta, grupo de etiquetas, tarjeta y relación que la extensión crearía o actualizaría — todavía no se escribe nada.
 4. Revise la vista previa y pulse **Instalar extensión**.
 5. Si la extensión incluye código de backend, un aviso pide reiniciar el contenedor del backend (`docker compose restart backend`). Las extensiones de contenido y de interfaz quedan activas de inmediato: los usuarios ven la nueva interfaz al recargar la página.
@@ -65,7 +65,7 @@ Subir el mismo paquete otra vez es seguro — la vista previa muestra todo como 
 
 ## Actualizar una extensión
 
-Cuando la tienda publica una versión más reciente de una extensión instalada, la pestaña Instaladas muestra un distintivo **Actualizar a X** junto a la versión (y el botón de la pestaña Tienda se convierte en **Actualizar**). Un clic ejecuta la misma verificación de firma, la misma vista previa y la misma aplicación que una instalación nueva. Se aplican dos salvaguardas:
+Cuando la tienda publica una versión más reciente de una extensión instalada, la pestaña Instaladas muestra un distintivo **Actualizar a X** junto a la versión (y el botón de la pestaña Tienda se convierte en **Actualizar**). Un clic ejecuta la misma verificación de firma, la misma vista previa y la misma aplicación que una instalación nueva. Mientras se ejecuta una instalación o una actualización, el botón (o el distintivo) muestra un indicador de progreso y permanece deshabilitado hasta que termina, y el panel de progreso aparece en la pestaña desde la que la iniciaste. Se aplican dos salvaguardas:
 
 - Actualizar una extensión que usted ha **desactivado** deliberadamente la mantiene desactivada: la nueva versión se instala en el disco, pero su contenido permanece oculto y nada se ejecuta hasta que la vuelva a activar.
 - Instalar un paquete **más antiguo** que la versión instalada pide primero una confirmación explícita: una versión anterior puede no entender los datos escritos por la más reciente. En ningún caso se elimina nada.
