@@ -57,15 +57,15 @@ Einige kostenpflichtige Erweiterungen bieten eine **kostenlose 30-Tage-Testphase
 
 1. Falls noch nicht geschehen, wenden Sie zuerst Ihre Lizenz an (siehe unten).
 2. Öffnen Sie **Admin → Erweiterungen**, klicken Sie oben auf der Seite auf **Aus Datei installieren…** (neben der Instanz-ID — auf beiden Tabs vorhanden) und laden Sie die erhaltene `.teax`-Datei hoch.
-3. Turbo EA prüft die Signatur und zeigt eine **Vorschau**: Bei Erweiterungen mit Inhalten ist das ein Probelauf aller Kartentypen, Tag-Gruppen, Karten und Beziehungen, die die Erweiterung anlegen oder aktualisieren würde — es wird noch nichts geschrieben.
-4. Prüfen Sie die Vorschau und klicken Sie auf **Erweiterung installieren**.
+3. Turbo EA prüft die Signatur und öffnet einen **Installationsdialog** mit einer **Vorschau**: Bei Erweiterungen mit Inhalten ist das ein Probelauf aller Kartentypen, Tag-Gruppen, Karten und Beziehungen, die die Erweiterung anlegen oder aktualisieren würde — es wird noch nichts geschrieben.
+4. Prüfen Sie die Vorschau — sie scrollt innerhalb des Dialogs — und klicken Sie unten im Dialog auf **Erweiterung installieren**; die Schaltfläche bleibt dort, egal wie lang die Vorschau ist.
 5. Enthält die Erweiterung Backend-Code, fordert ein Banner zum Neustart des Backend-Containers auf (`docker compose restart backend`). Inhalts- und UI-Erweiterungen sind sofort aktiv — Benutzer erhalten neue Oberflächen beim nächsten Laden der Seite.
 
 Das erneute Hochladen desselben Pakets ist unbedenklich — die Vorschau zeigt alles als „übersprungen“ und das Anwenden ändert nichts.
 
 ## Eine Erweiterung aktualisieren
 
-Veröffentlicht der Store eine neuere Version einer installierten Erweiterung, zeigt der Tab «Installiert» neben der Version einen Chip **Auf X aktualisieren** (und die Schaltfläche im Store-Tab wird zu **Aktualisieren**). Ein Klick durchläuft dieselbe Signaturprüfung, Vorschau und Anwendung wie eine Neuinstallation. Während Installation oder Aktualisierung zeigt die Schaltfläche (bzw. der Chip) einen Ladekreis und bleibt deaktiviert, bis der Vorgang abgeschlossen ist; die Fortschrittsanzeige erscheint auf dem Tab, von dem aus Sie gestartet haben. Zwei Schutzmechanismen greifen:
+Veröffentlicht der Store eine neuere Version einer installierten Erweiterung, zeigt der Tab «Installiert» neben der Version einen Chip **Auf X aktualisieren** (und die Schaltfläche im Store-Tab wird zu **Aktualisieren**). Ein Klick durchläuft dieselbe Signaturprüfung, Vorschau und Anwendung wie eine Neuinstallation. Während Installation oder Aktualisierung zeigt die Schaltfläche (bzw. der Chip) einen Ladekreis und bleibt deaktiviert, bis der Vorgang abgeschlossen ist; der Installationsdialog zeigt den Vorgang unabhängig davon, wo Sie ihn gestartet haben. Zwei Schutzmechanismen greifen:
 
 - Die Aktualisierung einer bewusst **deaktivierten** Erweiterung lässt sie deaktiviert — die neue Version landet auf der Festplatte, aber ihre Inhalte bleiben verborgen und nichts läuft, bis Sie sie wieder aktivieren.
 - Die Installation eines Bundles, das **älter** ist als die installierte Version, verlangt zuerst eine ausdrückliche Bestätigung: Ein Downgrade versteht möglicherweise Daten nicht, die die neuere Version geschrieben hat. Gelöscht wird in keinem Fall etwas.

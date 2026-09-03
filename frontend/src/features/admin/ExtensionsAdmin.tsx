@@ -565,6 +565,18 @@ export default function ExtensionsAdmin() {
     await applyInstall(install.id);
   };
 
+  // Dismiss the dialog without touching the server. NOT handleDiscard: the
+  // DELETE drops the extension_installs row, which is the audit record of
+  // what was installed and when — so a finished install is closed, never
+  // discarded. Only a preview or a rejection is worth deleting.
+  const closeInstall = () => {
+    clearPoll();
+    autoApplyRef.current = false;
+    setInstall(null);
+    setInstallError(null);
+    setActiveStoreKey(null);
+  };
+
   const handleDiscard = async () => {
     if (!install) return;
     clearPoll();
@@ -573,9 +585,7 @@ export default function ExtensionsAdmin() {
     } catch {
       /* best-effort cleanup */
     }
-    setInstall(null);
-    setInstallError(null);
-    setActiveStoreKey(null);
+    closeInstall();
   };
 
   const handleToggle = async (ext: ExtensionInfo) => {
@@ -695,6 +705,13 @@ export default function ExtensionsAdmin() {
   // file upload sets no key, so it disables the buttons without pretending
   // some tile is installing.
   const busyKey = storeBusyKey ?? (pipelineBusy ? activeStoreKey : null);
+  // The pipeline owns ONE surface: a bespoke upload from the header, a store
+  // one-click install and the Installed tab's update chip all land in the
+  // same modal. Derived, never stored — the pipeline's own state decides
+  // whether it is on screen, so no flag can drift out of sync with it, and
+  // closing the dialog means clearing that state (closeInstall/handleDiscard).
+  const installDialogOpen =
+    install !== null || installBusy || storeBusyKey !== null || installError !== null;
 
   // One handler bundle for the tile and the drawer, so the two surfaces
   // cannot end up wiring the same button to different things.
@@ -719,35 +736,32 @@ export default function ExtensionsAdmin() {
   );
 
 
-  // Shared install progress + preview + apply block. Rendered on the Store
-  // tab (both store installs and manual uploads start there now).
-  const installPanel = install && (
-    <Box sx={{ mt: 2 }}>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-        <Typography variant="subtitle2">{install.filename}</Typography>
-        {install.extension_key && (
-          <Chip
-            size="small"
-            variant="outlined"
-            label={`${install.extension_key} ${install.extension_version ?? ""}`}
-          />
-        )}
-        <Chip size="small" label={autoApplying ? "installing" : install.status} />
-        {!autoApplying && (
-          <Button
-            size="small"
-            color="inherit"
-            onClick={() => void handleDiscard()}
-            disabled={install.status === "applying"}
-          >
-            {t("extensions.install.discard", "Discard")}
-          </Button>
-        )}
-      </Stack>
+  // The body of the install dialog: progress, then whatever the pipeline has
+  // to show. The ACTIONS are deliberately not in here — they live in the
+  // dialog's pinned DialogActions, which is the whole point of the modal:
+  // the preview scrolls, "Install extension" does not scroll away with it.
+  const installBody = (
+    <>
+      {installBusy && !install && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t(
+            "extensions.install.help",
+            "Upload a signed .teax bundle. The signature is verified and a preview is shown before anything is applied — unsigned or tampered bundles are rejected.",
+          )}
+        </Typography>
+      )}
 
-      {(isWorking || autoApplying) && <LinearProgress sx={{ mb: 2 }} />}
+      {(isWorking || autoApplying || (installBusy && !install)) && (
+        <LinearProgress sx={{ mb: 2 }} />
+      )}
 
-      {install.error_message && (
+      {installError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {installError}
+        </Alert>
+      )}
+
+      {install?.error_message && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {install.error_message}
         </Alert>
@@ -794,25 +808,12 @@ export default function ExtensionsAdmin() {
         </Box>
       )}
 
-      {install.status === "previewed" && !autoApplying && (
-        <Button
-          variant="contained"
-          color="warning"
-          onClick={handleApply}
-          disabled={installBusy}
-          sx={{ mt: 1 }}
-          startIcon={<MaterialSymbol icon="extension" />}
-        >
-          {t("extensions.install.apply", "Install extension")}
-        </Button>
-      )}
-
-      {install.status === "installed" && (
+      {install?.status === "installed" && (
         <Alert severity="success" sx={{ mt: 1 }}>
           {t("extensions.install.done", "Extension installed.")}
         </Alert>
       )}
-    </Box>
+    </>
   );
 
   return (
@@ -1278,19 +1279,85 @@ export default function ExtensionsAdmin() {
         </>
       )}
 
-      {/* Install progress lives OUTSIDE both tabs: an update started from
-          the Installed tab's chip ran the same pipeline but rendered its
-          progress on a tab the admin was not looking at. */}
-      {installError && <Alert severity="error">{installError}</Alert>}
+      {/* The install pipeline is a MODAL, not a panel on the page.
+          #1063 moved the "Install from file…" trigger up into the header but
+          left what it produces at the foot of the page, below the whole
+          catalogue — so the admin pressed a button at the top and the
+          preview, plus the "Install extension" button they then had to
+          press, appeared off-screen at the bottom. In a dialog the preview
+          scrolls inside DialogContent while the actions stay pinned, so the
+          primary action can never scroll away however long the preview; and
+          being tab-agnostic it also settles where an update started from the
+          Installed tab reports its progress. */}
+      <Dialog
+        open={installDialogOpen}
+        // A backdrop click must not orphan a run that is mid-flight; Escape
+        // is disabled for the same window.
+        onClose={() => {
+          if (!pipelineBusy) closeInstall();
+        }}
+        disableEscapeKeyDown={pipelineBusy}
+        fullWidth
+        maxWidth="md"
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <Typography variant="h6" component="span">
+              {install?.filename ?? t("extensions.install.title", "Install extension")}
+            </Typography>
+            {install?.extension_key && (
+              <Chip
+                size="small"
+                variant="outlined"
+                label={`${install.extension_key} ${install.extension_version ?? ""}`}
+              />
+            )}
+            {install && (
+              <Chip size="small" label={autoApplying ? "installing" : install.status} />
+            )}
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>{installBody}</DialogContent>
+        <DialogActions>
+          {/* Cancel-then-confirm, matching this page's other dialogs. There
+              is always exactly one way out once the pipeline is not actively
+              writing — including the error-only case, where no upload exists
+              to discard. Discard DELETEs the staged upload; Close only
+              dismisses, which is what a finished install gets so its
+              extension_installs audit row survives. */}
+          {install && !autoApplying && !["applying", "installed"].includes(install.status) ? (
+            <Button color="inherit" onClick={() => void handleDiscard()}>
+              {t("extensions.install.discard", "Discard")}
+            </Button>
+          ) : (
+            !pipelineBusy && (
+              <Button onClick={closeInstall}>{t("extensions.install.close", "Close")}</Button>
+            )
+          )}
+          {install?.status === "previewed" && !autoApplying && (
+            <Button
+              variant="contained"
+              color="warning"
+              onClick={handleApply}
+              disabled={installBusy}
+              startIcon={<MaterialSymbol icon="extension" />}
+            >
+              {t("extensions.install.apply", "Install extension")}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
 
-      {install && (
-        <Card variant="outlined">
-          <CardContent>{installPanel}</CardContent>
-        </Card>
-      )}
-
-      {/* License dialog — install gate (with Buy) or plain license entry. */}
-      <Dialog open={licenseDialogOpen} onClose={closeLicenseDialog} fullWidth maxWidth="sm">
+      {/* License dialog — install gate (with Buy) or plain license entry.
+          It nests OVER the install dialog on the applyGate path (a 403 from
+          the apply), so it needs disableRestoreFocus. */}
+      <Dialog
+        open={licenseDialogOpen}
+        onClose={closeLicenseDialog}
+        fullWidth
+        maxWidth="sm"
+        disableRestoreFocus
+      >
         <DialogTitle>
           {gateItem || applyGate
             ? t("extensions.gate.title", "License required")
@@ -1525,7 +1592,13 @@ export default function ExtensionsAdmin() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={downgradeConfirm !== null} onClose={() => setDowngradeConfirm(null)}>
+      {/* Nests over the install dialog — reached from its Install button and
+          from the auto-apply branch of the poll. */}
+      <Dialog
+        open={downgradeConfirm !== null}
+        onClose={() => setDowngradeConfirm(null)}
+        disableRestoreFocus
+      >
         <DialogTitle>{t("extensions.downgrade.title", "Install an older version?")}</DialogTitle>
         <DialogContent>
           <DialogContentText>

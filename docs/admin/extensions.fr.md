@@ -57,15 +57,15 @@ Certaines extensions payantes proposent un **essai gratuit de 30 jours** — rep
 
 1. Si ce n'est pas déjà fait, appliquez d'abord votre licence (voir ci-dessous).
 2. Ouvrez **Admin → Extensions**, cliquez sur **Installer depuis un fichier…** en haut de la page (à côté de l'ID d'instance — présent sur les deux onglets) et téléversez le fichier `.teax` reçu.
-3. Turbo EA vérifie la signature et affiche un **aperçu** : pour les extensions de contenu, il s'agit d'une simulation de chaque type de carte, groupe d'étiquettes, carte et relation que l'extension créerait ou mettrait à jour — rien n'est encore écrit.
-4. Vérifiez l'aperçu puis cliquez sur **Installer l'extension**.
+3. Turbo EA vérifie la signature et ouvre une **boîte de dialogue d'installation** avec un **aperçu** : pour les extensions de contenu, il s'agit d'une simulation de chaque type de carte, groupe d'étiquettes, carte et relation que l'extension créerait ou mettrait à jour — rien n'est encore écrit.
+4. Vérifiez l'aperçu — il défile à l'intérieur de la boîte de dialogue — puis cliquez sur **Installer l'extension** en bas de celle-ci : le bouton y reste, quelle que soit la longueur de l'aperçu.
 5. Si l'extension contient du code backend, un bandeau demande de redémarrer le conteneur backend (`docker compose restart backend`). Les extensions de contenu et d'interface sont actives immédiatement — les utilisateurs voient la nouvelle interface au prochain chargement de page.
 
 Téléverser deux fois le même paquet est sans risque — l'aperçu montre tout comme « ignoré » et l'application ne change rien.
 
 ## Mettre à jour une extension
 
-Lorsque la boutique publie une version plus récente d'une extension installée, l'onglet Installées affiche une puce **Mettre à jour vers X** à côté de la version (et le bouton de l'onglet Boutique devient **Mettre à jour**). Un clic déclenche la même vérification de signature, le même aperçu et la même application qu'une installation. Pendant une installation ou une mise à jour, le bouton (ou la puce) affiche un indicateur d'activité et reste désactivé jusqu'à la fin ; le panneau de progression s'affiche sur l'onglet depuis lequel vous avez lancé l'opération. Deux garde-fous s'appliquent :
+Lorsque la boutique publie une version plus récente d'une extension installée, l'onglet Installées affiche une puce **Mettre à jour vers X** à côté de la version (et le bouton de l'onglet Boutique devient **Mettre à jour**). Un clic déclenche la même vérification de signature, le même aperçu et la même application qu'une installation. Pendant une installation ou une mise à jour, le bouton (ou la puce) affiche un indicateur d'activité et reste désactivé jusqu'à la fin ; la boîte de dialogue d'installation affiche l'opération quel que soit l'endroit d'où vous l'avez lancée. Deux garde-fous s'appliquent :
 
 - Mettre à jour une extension que vous avez délibérément **désactivée** la laisse désactivée — la nouvelle version est installée sur le disque, mais son contenu reste masqué et rien ne s'exécute tant que vous ne la réactivez pas.
 - Installer un paquet **plus ancien** que la version installée demande d'abord une confirmation explicite : une rétrogradation peut ne pas comprendre les données écrites par la version plus récente. Rien n'est supprimé dans les deux cas.

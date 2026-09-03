@@ -57,15 +57,15 @@ Algunas extensiones de pago ofrecen una **prueba gratuita de 30 días** — busq
 
 1. Si aún no lo ha hecho, aplique primero su licencia (véase más abajo).
 2. Abre **Admin → Extensiones**, pulsa **Instalar desde archivo…** en la parte superior de la página (junto al ID de instancia; está en ambas pestañas) y sube el archivo `.teax` recibido.
-3. Turbo EA verifica la firma y muestra una **vista previa**: para extensiones con contenido es una simulación de cada tipo de tarjeta, grupo de etiquetas, tarjeta y relación que la extensión crearía o actualizaría — todavía no se escribe nada.
-4. Revise la vista previa y pulse **Instalar extensión**.
+3. Turbo EA verifica la firma y abre un **diálogo de instalación** con una **vista previa**: para extensiones con contenido es una simulación de cada tipo de tarjeta, grupo de etiquetas, tarjeta y relación que la extensión crearía o actualizaría — todavía no se escribe nada.
+4. Revise la vista previa —se desplaza dentro del diálogo— y pulse **Instalar extensión** al pie del diálogo, donde el botón permanece por larga que sea la vista previa.
 5. Si la extensión incluye código de backend, un aviso pide reiniciar el contenedor del backend (`docker compose restart backend`). Las extensiones de contenido y de interfaz quedan activas de inmediato: los usuarios ven la nueva interfaz al recargar la página.
 
 Subir el mismo paquete otra vez es seguro — la vista previa muestra todo como «omitido» y aplicarlo no cambia nada.
 
 ## Actualizar una extensión
 
-Cuando la tienda publica una versión más reciente de una extensión instalada, la pestaña Instaladas muestra un distintivo **Actualizar a X** junto a la versión (y el botón de la pestaña Tienda se convierte en **Actualizar**). Un clic ejecuta la misma verificación de firma, la misma vista previa y la misma aplicación que una instalación nueva. Mientras se ejecuta una instalación o una actualización, el botón (o el distintivo) muestra un indicador de progreso y permanece deshabilitado hasta que termina, y el panel de progreso aparece en la pestaña desde la que la iniciaste. Se aplican dos salvaguardas:
+Cuando la tienda publica una versión más reciente de una extensión instalada, la pestaña Instaladas muestra un distintivo **Actualizar a X** junto a la versión (y el botón de la pestaña Tienda se convierte en **Actualizar**). Un clic ejecuta la misma verificación de firma, la misma vista previa y la misma aplicación que una instalación nueva. Mientras se ejecuta una instalación o una actualización, el botón (o el distintivo) muestra un indicador de progreso y permanece deshabilitado hasta que termina, y el diálogo de instalación muestra la ejecución desde donde sea que la hayas iniciado. Se aplican dos salvaguardas:
 
 - Actualizar una extensión que usted ha **desactivado** deliberadamente la mantiene desactivada: la nueva versión se instala en el disco, pero su contenido permanece oculto y nada se ejecuta hasta que la vuelva a activar.
 - Instalar un paquete **más antiguo** que la versión instalada pide primero una confirmación explícita: una versión anterior puede no entender los datos escritos por la más reciente. En ningún caso se elimina nada.

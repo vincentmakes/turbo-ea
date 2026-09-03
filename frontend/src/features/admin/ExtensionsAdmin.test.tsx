@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -36,6 +36,7 @@ const mockGet = api.get as ReturnType<typeof vi.fn>;
 const mockPost = api.post as ReturnType<typeof vi.fn>;
 const mockPut = api.put as ReturnType<typeof vi.fn>;
 const mockUpload = api.upload as ReturnType<typeof vi.fn>;
+const mockDelete = api.delete as ReturnType<typeof vi.fn>;
 
 const SAMPLE_EXT = {
   key: "sample-ext",
@@ -420,8 +421,222 @@ describe("ExtensionsAdmin", () => {
         expect(screen.getByText("Install extension", { selector: "button" })).toBeInTheDocument(),
       { timeout: 4000 },
     );
-    expect(screen.getByText("CardTypes")).toBeInTheDocument();
-    expect(screen.getByText("1 created")).toBeInTheDocument();
+    // Everything the pipeline produced — the preview AND the button that
+    // acts on it — is inside the dialog, not at the foot of the page.
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("sample.teax")).toBeInTheDocument();
+    expect(within(dialog).getByText("CardTypes")).toBeInTheDocument();
+    expect(within(dialog).getByText("1 created")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("Install extension", { selector: "button" }),
+    ).toBeInTheDocument();
+  });
+
+  it("pins the install action in the dialog footer, below the scrolling preview", async () => {
+    // The regression this replaces: the apply button sat at the foot of an
+    // inline panel below the whole catalogue, so pressing "Install from
+    // file…" in the header produced a button off-screen at the bottom of the
+    // page. In DialogActions it cannot scroll away however long the preview.
+    primeInitialLoad({ license: LICENSE });
+    mockUpload.mockResolvedValue({ id: "i1", filename: "big.teax", status: "verifying" });
+    mockGet.mockImplementation(async (path: string) => {
+      if (path === "/admin/extensions") return [];
+      if (path === "/admin/extensions/license") return LICENSE;
+      if (path === "/admin/extensions/store/catalog") return UNCONFIGURED_CATALOG;
+      if (path.startsWith("/admin/extensions/install/"))
+        return {
+          id: "i1",
+          filename: "big.teax",
+          status: "previewed",
+          diff: {
+            dry_run: true,
+            // A long preview is exactly the case the inline panel got wrong.
+            sections: Array.from({ length: 20 }, (_, i) => ({
+              sheet: `Sheet${i}`,
+              created: 1,
+              updated: 0,
+              skipped: 0,
+              conflict: 0,
+              failed: 0,
+            })),
+            totals: { created: 20, updated: 0, skipped: 0, conflict: 0, failed: 0 },
+          },
+        };
+      throw new Error(`unexpected GET ${path}`);
+    });
+
+    const { container } = renderPage();
+    await waitFor(() =>
+      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
+    );
+    await userEvent.upload(
+      container.querySelector('input[type="file"]') as HTMLInputElement,
+      new File(["zip"], "big.teax"),
+    );
+
+    const button = await screen.findByText(
+      "Install extension",
+      { selector: "button" },
+      { timeout: 4000 },
+    );
+    // The button is a child of DialogActions, and the preview lives in the
+    // separately-scrolling DialogContent — never one flow with it.
+    const actions = button.closest(".MuiDialogActions-root");
+    expect(actions).toBeTruthy();
+    const content = screen.getByRole("dialog").querySelector(".MuiDialogContent-root");
+    expect(content).toBeTruthy();
+    expect(content!.contains(button)).toBe(false);
+    expect(within(content as HTMLElement).getByText("Sheet19")).toBeInTheDocument();
+    // Nothing install-related is left behind on the page itself.
+    expect(container.querySelector(".MuiDialogActions-root")).toBeNull();
+  });
+
+  it("discards a previewed bundle and closes the dialog", async () => {
+    primeInitialLoad({ license: LICENSE });
+    mockUpload.mockResolvedValue({ id: "i7", filename: "sample.teax", status: "verifying" });
+    mockDelete.mockResolvedValue(undefined);
+    mockGet.mockImplementation(async (path: string) => {
+      if (path === "/admin/extensions") return [];
+      if (path === "/admin/extensions/license") return LICENSE;
+      if (path === "/admin/extensions/store/catalog") return UNCONFIGURED_CATALOG;
+      if (path.startsWith("/admin/extensions/install/"))
+        return {
+          id: "i7",
+          filename: "sample.teax",
+          status: "previewed",
+          diff: { totals: { created: 1, updated: 0, skipped: 0, conflict: 0, failed: 0 } },
+        };
+      throw new Error(`unexpected GET ${path}`);
+    });
+
+    const { container } = renderPage();
+    await waitFor(() =>
+      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
+    );
+    await userEvent.upload(
+      container.querySelector('input[type="file"]') as HTMLInputElement,
+      new File(["zip"], "sample.teax"),
+    );
+    await screen.findByText("Install extension", { selector: "button" }, { timeout: 4000 });
+
+    await userEvent.click(screen.getByText("Discard", { selector: "button" }));
+    expect(mockDelete).toHaveBeenCalledWith("/admin/extensions/install/i7");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("closes a finished install without deleting its audit row", async () => {
+    // DELETE /install/{id} drops the extension_installs record — the audit
+    // trail of what was installed and when. A completed install is closed,
+    // never discarded.
+    primeInitialLoad({ license: LICENSE });
+    mockUpload.mockResolvedValue({ id: "i8", filename: "sample.teax", status: "verifying" });
+    mockPost.mockResolvedValue({ id: "i8", filename: "sample.teax", status: "applying" });
+    let applied = false;
+    mockGet.mockImplementation(async (path: string) => {
+      if (path === "/admin/extensions") return [];
+      if (path === "/admin/extensions/license") return LICENSE;
+      if (path === "/admin/extensions/store/catalog") return UNCONFIGURED_CATALOG;
+      if (path === "/admin/extensions/instance") return { instance_id: "" };
+      if (path === "/settings/extension-store-status") throw new Error("Forbidden");
+      if (path.startsWith("/admin/extensions/install/"))
+        return applied
+          ? { id: "i8", filename: "sample.teax", status: "installed" }
+          : {
+              id: "i8",
+              filename: "sample.teax",
+              status: "previewed",
+              diff: { totals: { created: 1, updated: 0, skipped: 0, conflict: 0, failed: 0 } },
+            };
+      throw new Error(`unexpected GET ${path}`);
+    });
+
+    const { container } = renderPage();
+    await waitFor(() =>
+      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
+    );
+    await userEvent.upload(
+      container.querySelector('input[type="file"]') as HTMLInputElement,
+      new File(["zip"], "sample.teax"),
+    );
+    const apply = await screen.findByText(
+      "Install extension",
+      { selector: "button" },
+      { timeout: 4000 },
+    );
+
+    applied = true;
+    await userEvent.click(apply);
+    await waitFor(() => expect(screen.getByText("Extension installed.")).toBeInTheDocument(), {
+      timeout: 5000,
+    });
+
+    // Close, not Discard — and no DELETE.
+    expect(screen.queryByText("Discard", { selector: "button" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByText("Close", { selector: "button" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockDelete).not.toHaveBeenCalled();
+  }, 15000);
+
+  it("cannot be dismissed by accident mid-flight, but Discard stays reachable", async () => {
+    // A stray backdrop click or Escape mid-verify would orphan a run the
+    // admin can no longer see — but an EXPLICIT way out has to remain, or a
+    // verify that never terminates traps them in the modal for good.
+    primeInitialLoad({ license: LICENSE });
+    mockUpload.mockResolvedValue({ id: "i9", filename: "slow.teax", status: "verifying" });
+    mockGet.mockImplementation(async (path: string) => {
+      if (path === "/admin/extensions") return [];
+      if (path === "/admin/extensions/license") return LICENSE;
+      if (path === "/admin/extensions/store/catalog") return UNCONFIGURED_CATALOG;
+      if (path.startsWith("/admin/extensions/install/"))
+        return { id: "i9", filename: "slow.teax", status: "verifying" };
+      throw new Error(`unexpected GET ${path}`);
+    });
+
+    const { container } = renderPage();
+    await waitFor(() =>
+      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
+    );
+    await userEvent.upload(
+      container.querySelector('input[type="file"]') as HTMLInputElement,
+      new File(["zip"], "slow.teax"),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("slow.teax")).toBeInTheDocument();
+    // Nothing to apply yet, and no "Close" — the run has not finished.
+    expect(
+      within(dialog).queryByText("Install extension", { selector: "button" }),
+    ).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("Close", { selector: "button" })).not.toBeInTheDocument();
+    // Escape and the backdrop are inert…
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await userEvent.click(document.querySelector(".MuiBackdrop-root") as HTMLElement);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // …but Discard is right there.
+    expect(within(dialog).getByText("Discard", { selector: "button" })).toBeInTheDocument();
+  });
+
+  it("reports an upload failure inside the dialog", async () => {
+    primeInitialLoad({ license: LICENSE });
+    mockUpload.mockRejectedValue(new Error("Upload rejected: not a zip archive"));
+
+    const { container } = renderPage();
+    await waitFor(() =>
+      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
+    );
+    await userEvent.upload(
+      container.querySelector('input[type="file"]') as HTMLInputElement,
+      new File(["nope"], "broken.teax"),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/not a zip archive/)).toBeInTheDocument();
+    // No upload exists to discard, so the way out is Close — a dialog with
+    // no visible dismissal would be a dead end.
+    expect(within(dialog).queryByText("Discard", { selector: "button" })).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByText("Close", { selector: "button" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("shows a rejection when the bundle fails verification", async () => {
@@ -766,10 +981,12 @@ describe("ExtensionsAdmin", () => {
     );
   }, 15000);
 
-  it("shows update progress on the Installed tab, where the update was started", async () => {
-    // The progress card used to render on the Store tab only, so an update
+  it("shows update progress in the install dialog, whichever tab started it", async () => {
+    // The progress used to render on the Store tab only, so an update
     // launched from this chip reported nothing at all on the tab in front of
-    // the admin.
+    // the admin. #1063 moved it below both tabs — still off-screen at the
+    // foot of the page. It is a modal now, which is tab-agnostic by
+    // construction: the Installed tab stays selected behind it.
     const updateItem = {
       ...STORE_ITEM,
       key: "sample-ext",
@@ -806,9 +1023,11 @@ describe("ExtensionsAdmin", () => {
     await waitFor(() => expect(screen.getByText("Updating…")).toBeInTheDocument(), {
       timeout: 5000,
     });
-    // …and the shared progress card is on this tab, not the Store tab.
-    expect(screen.getByText("sample.teax")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Installed" })).toHaveAttribute(
+    // …and the pipeline is in the dialog, over the tab that started it.
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("sample.teax")).toBeInTheDocument();
+    // hidden: true — the open modal marks the page behind it aria-hidden.
+    expect(screen.getByRole("tab", { name: "Installed", hidden: true })).toHaveAttribute(
       "aria-selected",
       "true",
     );

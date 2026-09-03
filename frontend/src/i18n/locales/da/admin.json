@@ -1878,6 +1878,7 @@
   "extensions.install.uploading": "Uploader…",
   "extensions.install.choose": "Vælg pakke…",
   "extensions.install.discard": "Kassér",
+  "extensions.install.close": "Luk",
   "extensions.install.previewSummary": "Forhåndsvisning af indhold",
   "extensions.install.created": "Oprettet",
   "extensions.install.updated": "Opdateret",

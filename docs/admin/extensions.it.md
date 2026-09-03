@@ -57,15 +57,15 @@ Alcune estensioni a pagamento offrono una **prova gratuita di 30 giorni** — ce
 
 1. Se non lo hai già fatto, applica prima la licenza (vedi sotto).
 2. Apri **Admin → Estensioni**, premi **Installa da file…** in cima alla pagina (accanto all'ID istanza: è presente su entrambe le schede) e carica il file `.teax` ricevuto.
-3. Turbo EA verifica la firma e mostra un'**anteprima**: per le estensioni con contenuti è una simulazione di ogni tipo di scheda, gruppo di tag, scheda e relazione che l'estensione creerebbe o aggiornerebbe — non viene ancora scritto nulla.
-4. Controlla l'anteprima e premi **Installa estensione**.
+3. Turbo EA verifica la firma e apre una **finestra di installazione** con un'**anteprima**: per le estensioni con contenuti è una simulazione di ogni tipo di scheda, gruppo di tag, scheda e relazione che l'estensione creerebbe o aggiornerebbe — non viene ancora scritto nulla.
+4. Controlla l'anteprima — scorre all'interno della finestra — e premi **Installa estensione** in fondo alla finestra, dove il pulsante resta comunque, per quanto lunga sia l'anteprima.
 5. Se l'estensione contiene codice backend, un avviso chiede di riavviare il container backend (`docker compose restart backend`). Le estensioni di contenuto e di interfaccia sono attive subito — gli utenti vedono la nuova interfaccia al prossimo caricamento della pagina.
 
 Caricare due volte lo stesso pacchetto è sicuro — l'anteprima mostra tutto come «saltato» e l'applicazione non cambia nulla.
 
 ## Aggiornare un'estensione
 
-Quando lo store pubblica una versione più recente di un'estensione installata, la scheda Installate mostra un chip **Aggiorna a X** accanto alla versione (e il pulsante della scheda Store diventa **Aggiorna**). Un clic esegue la stessa verifica della firma, la stessa anteprima e la stessa applicazione di una nuova installazione. Durante un'installazione o un aggiornamento il pulsante (o il chip) mostra un indicatore di avanzamento e resta disabilitato fino al termine, e il pannello di avanzamento compare sulla scheda da cui hai avviato l'operazione. Valgono due protezioni:
+Quando lo store pubblica una versione più recente di un'estensione installata, la scheda Installate mostra un chip **Aggiorna a X** accanto alla versione (e il pulsante della scheda Store diventa **Aggiorna**). Un clic esegue la stessa verifica della firma, la stessa anteprima e la stessa applicazione di una nuova installazione. Durante un'installazione o un aggiornamento il pulsante (o il chip) mostra un indicatore di avanzamento e resta disabilitato fino al termine, e la finestra di installazione mostra l'operazione da qualunque punto tu l'abbia avviata. Valgono due protezioni:
 
 - Aggiornare un'estensione che hai deliberatamente **disattivato** la lascia disattivata: la nuova versione arriva su disco, ma i suoi contenuti restano nascosti e nulla viene eseguito finché non la riattivi.
 - Installare un pacchetto **più vecchio** della versione installata richiede prima una conferma esplicita: un downgrade potrebbe non comprendere i dati scritti dalla versione più recente. In nessun caso viene eliminato qualcosa.

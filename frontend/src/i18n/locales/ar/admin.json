@@ -1878,6 +1878,7 @@
   "extensions.install.uploading": "جارٍ الرفع…",
   "extensions.install.choose": "اختر حزمة…",
   "extensions.install.discard": "تجاهل",
+  "extensions.install.close": "إغلاق",
   "extensions.install.previewSummary": "معاينة المحتوى",
   "extensions.install.created": "أُنشئ",
   "extensions.install.updated": "حُدّث",

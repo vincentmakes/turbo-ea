@@ -1878,6 +1878,7 @@
   "extensions.install.uploading": "上传中…",
   "extensions.install.choose": "选择扩展包…",
   "extensions.install.discard": "放弃",
+  "extensions.install.close": "关闭",
   "extensions.install.previewSummary": "内容预览",
   "extensions.install.created": "已创建",
   "extensions.install.updated": "已更新",
