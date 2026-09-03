@@ -243,6 +243,30 @@ describe("error handling", () => {
 
     await expect(api.get("/fail")).rejects.toThrow("Internal Server Error");
   });
+
+  it("names the status when the body is not JSON and statusText is empty", async () => {
+    // HTTP/2 responses carry no reason phrase, and a proxy in front of the
+    // origin can replace an error body with its own HTML page: the message
+    // must still say which status came back, never an empty string.
+    mockFetch.mockReturnValueOnce(
+      Promise.resolve({
+        ok: false,
+        status: 502,
+        statusText: "",
+        json: () => Promise.reject(new Error("not json")),
+      }),
+    );
+
+    try {
+      await api.get("/fail");
+      expect.fail("should have thrown");
+    } catch (e) {
+      const err = e as ApiError;
+      expect(err.status).toBe(502);
+      expect(err.message).toBe("HTTP 502");
+      expect(err.detail).toBe("HTTP 502");
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

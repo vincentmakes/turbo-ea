@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.120.2] - 2026-09-03
+
+### Fixed
+
+- API errors whose response carries no JSON body — for example when a proxy in front of the instance replaces an error page — now report the HTTP status (`HTTP 502`) instead of an empty message, so a panel that shows the error text no longer displays a bare «ApiError».
+
 ## [2.120.1] - 2026-09-03
 
 ### Security

@@ -79,7 +79,11 @@ async function request<T>(
   });
   if (res.status === 204) return undefined as T;
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    // HTTP/2 carries no reason phrase, so `statusText` is "" there; an error
+    // body that is not JSON (a proxy's own error page) must still name the
+    // status rather than surface as an empty message.
+    const fallback = res.statusText || `HTTP ${res.status}`;
+    const err = await res.json().catch(() => ({ detail: fallback }));
     // FastAPI 422 returns detail as array of validation error objects
     const detail = err.detail;
     const msg = Array.isArray(detail)
@@ -88,7 +92,7 @@ async function request<T>(
         ? detail
         : typeof detail === "object" && detail?.message
           ? detail.message
-          : res.statusText;
+          : fallback;
     throw new ApiError(msg, res.status, detail);
   }
   return res.json();
@@ -105,10 +109,11 @@ async function requestRaw(path: string, options: RequestInit = {}): Promise<Resp
     credentials: "same-origin",
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    const fallback = res.statusText || `HTTP ${res.status}`;
+    const err = await res.json().catch(() => ({ detail: fallback }));
     const msg = Array.isArray(err.detail)
       ? err.detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join("; ")
-      : err.detail || res.statusText;
+      : err.detail || fallback;
     throw new Error(msg);
   }
   return res;
