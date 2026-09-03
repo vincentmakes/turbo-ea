@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **The Store tab is organised into sections.** Extensions in Admin → Extensions → Store are now grouped under **Strategy, Planning & Transformation**, **Integrations** and **Regulations**, each with its own heading, so you can see at a glance what kind of extension each one is. Anything the catalogue has not classified appears under **Other**; the tag pills keep filtering within the sections, and a section with no match disappears.
 
+## [2.119.1] - 2026-09-03
+
+### Security
+
+- Updated the rich-text editor library used by the Statement of Architecture Work and Decision Record editors to a patched release ([GHSA-cp6q-959q-f8rh](https://github.com/advisories/GHSA-cp6q-959q-f8rh)). The flaw let a crafted `__proto__` attribute in pasted or imported content turn into a real DOM attribute on the rendered document; no Turbo EA data or setting is affected, and no action is needed beyond upgrading.
+
 ## [2.119.0] - 2026-09-02
 
 ### Added
