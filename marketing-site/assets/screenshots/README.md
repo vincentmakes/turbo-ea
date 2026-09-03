@@ -34,3 +34,6 @@ Replace each `<div class="screenshot-placeholder">` in `index.html` with:
 ```html
 <img src="assets/screenshots/FILENAME.png" alt="Description" class="screenshot-img">
 ```
+
+## Extension screenshots (manual)
+- `ext-roadmap-studio-roadmap.png`, `ext-roadmap-studio-compare.png`, `ext-roadmap-studio-present.png` — Roadmap Studio extension, referenced by the root README. These are copied from the extension's store listing and are **not** captured by `scripts/screenshots/pages.ts`; refresh them by hand when the extension's UI changes.
