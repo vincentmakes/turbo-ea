@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.121.0] - 2026-09-03
+
+### Changed
+
+- **Install from file… now sits at the top of Admin → Extensions**, next to the instance ID, instead of below the whole catalogue at the foot of the Store tab. It is available on both tabs and in every store state, which matters most on an air-gapped instance where it is the only way in — and the hints shown when the store is unreachable now point at it rather than at the wrong tab.
+- A Store tile offers **Update** only for an extension already installed on this instance. Anything else offers a plain **Install**, which fetches whatever version the catalogue publishes, and an installed extension with a newer version available now says so on its tile instead of restating the version it is offering to replace.
+
+### Fixed
+
+- The Store's **Install** / **Update** button and the Installed tab's **Update to X** chip now show a spinner and stay disabled for the whole run — download, signature check, preview and apply — instead of going back to their resting state part-way through, which read as though the click had done nothing.
+- Install progress now appears on whichever tab you started from. An update launched from the Installed tab reported nothing at all, because the progress panel was rendered on the Store tab only.
+- Turning an extension on or off, and confirming an uninstall, now disable their control while the request is in flight, so a double click cannot fire the same change twice.
+
 ## [2.120.2] - 2026-09-03
 
 ### Fixed

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { tileActions } from "./storeActionRules";
+import { isUpdate, tileActions } from "./storeActionRules";
 import type { StoreItem } from "./types";
 
 const PAID: StoreItem = {
@@ -49,5 +49,19 @@ describe("tileActions", () => {
   it("drops the trial and buy while that item's purchase is being claimed", () => {
     const item = { ...PAID, trial_link: "https://buy.test/trial" };
     expect(tileActions(item, "a-ext")).toEqual(["install"]);
+  });
+});
+
+describe("isUpdate", () => {
+  it("is false for an extension that is not installed", () => {
+    // Nothing to update FROM: a plain Install downloads whatever the
+    // catalogue publishes. The backend never sets the flag without an
+    // installed version, and the label must not depend on it doing so.
+    expect(isUpdate({ ...PAID, installed_version: null, update_available: true })).toBe(false);
+  });
+
+  it("is true only when an installed extension has a newer catalogue version", () => {
+    expect(isUpdate({ ...PAID, installed_version: "1.0.0", update_available: true })).toBe(true);
+    expect(isUpdate({ ...PAID, installed_version: "1.0.0", update_available: false })).toBe(false);
   });
 });
