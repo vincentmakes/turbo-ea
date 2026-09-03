@@ -1878,6 +1878,7 @@
   "extensions.install.uploading": "Caricamento…",
   "extensions.install.choose": "Scegli pacchetto…",
   "extensions.install.discard": "Annulla",
+  "extensions.install.close": "Chiudi",
   "extensions.install.previewSummary": "Anteprima del contenuto",
   "extensions.install.created": "Creati",
   "extensions.install.updated": "Aggiornati",

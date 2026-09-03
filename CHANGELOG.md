@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.121.1] - 2026-09-03
+
+### Changed
+
+- **Installing an extension now happens in a dialog**, whether the bundle came from the store, from the Installed tab's update chip, or from **Install from file…** in the header. Verification progress, the dry-run preview and the **Install extension** button all live there, with the preview scrolling inside the dialog and the button pinned at its foot — so pressing a button at the top of the page no longer produces the button you have to press next at the very bottom, below the whole catalogue. A finished install is dismissed with **Close**, which keeps its record; only a preview or a rejected bundle is **Discard**ed.
+
 ## [2.121.0] - 2026-09-03
 
 ### Changed

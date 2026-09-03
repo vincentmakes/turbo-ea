@@ -57,15 +57,15 @@ Algumas extensões pagas oferecem uma **avaliação gratuita de 30 dias** — pr
 
 1. Se ainda não o fez, aplique primeiro a sua licença (ver abaixo).
 2. Abra **Admin → Extensões**, prima **Instalar a partir de ficheiro…** no topo da página (junto ao ID da instância — está nos dois separadores) e carregue o ficheiro `.teax` recebido.
-3. O Turbo EA verifica a assinatura e mostra uma **pré-visualização**: para extensões com conteúdo é uma simulação de cada tipo de cartão, grupo de etiquetas, cartão e relação que a extensão criaria ou atualizaria — nada é escrito ainda.
-4. Reveja a pré-visualização e prima **Instalar extensão**.
+3. O Turbo EA verifica a assinatura e abre uma **janela de instalação** com uma **pré-visualização**: para extensões com conteúdo é uma simulação de cada tipo de cartão, grupo de etiquetas, cartão e relação que a extensão criaria ou atualizaria — nada é escrito ainda.
+4. Reveja a pré-visualização — desloca-se dentro da janela — e prima **Instalar extensão** no fundo da janela, onde o botão permanece por mais longa que seja a pré-visualização.
 5. Se a extensão incluir código de backend, um aviso pede o reinício do contentor do backend (`docker compose restart backend`). Extensões de conteúdo e de interface ficam ativas de imediato — os utilizadores veem a nova interface no próximo carregamento da página.
 
 Carregar o mesmo pacote outra vez é seguro — a pré-visualização mostra tudo como «ignorado» e aplicar não altera nada.
 
 ## Atualizar uma extensão
 
-Quando a loja publica uma versão mais recente de uma extensão instalada, o separador Instaladas mostra um selo **Atualizar para X** ao lado da versão (e o botão do separador Loja passa a **Atualizar**). Um clique executa a mesma verificação de assinatura, a mesma pré-visualização e a mesma aplicação de uma instalação nova. Enquanto uma instalação ou atualização decorre, o botão (ou o selo) mostra um indicador de progresso e permanece desativado até terminar, e o painel de progresso aparece no separador a partir do qual a iniciou. Aplicam-se duas salvaguardas:
+Quando a loja publica uma versão mais recente de uma extensão instalada, o separador Instaladas mostra um selo **Atualizar para X** ao lado da versão (e o botão do separador Loja passa a **Atualizar**). Um clique executa a mesma verificação de assinatura, a mesma pré-visualização e a mesma aplicação de uma instalação nova. Enquanto uma instalação ou atualização decorre, o botão (ou o selo) mostra um indicador de progresso e permanece desativado até terminar, e a janela de instalação mostra a execução independentemente de onde a iniciou. Aplicam-se duas salvaguardas:
 
 - Atualizar uma extensão que você **desativou** deliberadamente mantém-na desativada: a nova versão chega ao disco, mas o seu conteúdo permanece oculto e nada é executado até que a reative.
 - Instalar um pacote **mais antigo** do que a versão instalada pede primeiro uma confirmação explícita: um downgrade pode não compreender os dados escritos pela versão mais recente. Em nenhum caso algo é eliminado.

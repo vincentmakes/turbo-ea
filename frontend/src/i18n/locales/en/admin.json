@@ -1878,6 +1878,7 @@
   "extensions.install.uploading": "Uploading…",
   "extensions.install.choose": "Choose bundle…",
   "extensions.install.discard": "Discard",
+  "extensions.install.close": "Close",
   "extensions.install.previewSummary": "Content preview",
   "extensions.install.created": "Created",
   "extensions.install.updated": "Updated",

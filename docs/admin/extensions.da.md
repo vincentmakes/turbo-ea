@@ -57,15 +57,15 @@ Nogle betalte udvidelser tilbyder en **gratis 30-dages prøveperiode** — kig e
 
 1. Hvis du ikke allerede har gjort det, skal du først anvende din licens (se nedenfor).
 2. Åbn **Admin → Udvidelser**, tryk på **Installer fra fil…** øverst på siden (ved siden af instans-id'et — knappen findes på begge faner), og upload den `.teax`-fil, du har modtaget.
-3. Turbo EA verificerer signaturen og viser en **forhåndsvisning**: for indholdsbærende udvidelser er det en prøvekørsel af hver korttype, tag-gruppe, kort og relation, som udvidelsen ville oprette eller opdatere — intet skrives endnu.
-4. Gennemgå forhåndsvisningen, og tryk på **Installer udvidelse**.
+3. Turbo EA verificerer signaturen og åbner en **installationsdialog** med en **forhåndsvisning**: for indholdsbærende udvidelser er det en prøvekørsel af hver korttype, tag-gruppe, kort og relation, som udvidelsen ville oprette eller opdatere — intet skrives endnu.
+4. Gennemgå forhåndsvisningen — den ruller inde i dialogen — og tryk på **Installer udvidelse** nederst i dialogen, hvor knappen bliver stående, uanset hvor lang forhåndsvisningen er.
 5. Hvis udvidelsen indeholder backend-kode, beder et banner dig om at genstarte backend-containeren (`docker compose restart backend`). Indholds- og UI-udvidelser er aktive med det samme — brugerne ser den nye brugerflade ved næste sideindlæsning.
 
 Det er sikkert at uploade den samme pakke igen — forhåndsvisningen viser alt som «sprunget over», og anvendelse ændrer intet.
 
 ## Opdatering af en udvidelse
 
-Når butikken udgiver en nyere version af en installeret udvidelse, viser fanen Installerede en chip **Opdater til X** ved siden af versionen (og knappen på fanen Butik bliver til **Opdater**). Ét klik kører den samme signaturkontrol, forhåndsvisning og anvendelse som en ny installation. Mens en installation eller opdatering kører, viser knappen (eller chippen) en indikator og forbliver deaktiveret, indtil den er færdig, og statuspanelet vises på den fane, du startede fra. To sikkerhedsforanstaltninger gælder:
+Når butikken udgiver en nyere version af en installeret udvidelse, viser fanen Installerede en chip **Opdater til X** ved siden af versionen (og knappen på fanen Butik bliver til **Opdater**). Ét klik kører den samme signaturkontrol, forhåndsvisning og anvendelse som en ny installation. Mens en installation eller opdatering kører, viser knappen (eller chippen) en indikator og forbliver deaktiveret, indtil den er færdig, og installationsdialogen viser forløbet, uanset hvor du startede det fra. To sikkerhedsforanstaltninger gælder:
 
 - Opdatering af en udvidelse, du bevidst har **deaktiveret**, holder den deaktiveret — den nye version lander på disken, men dens indhold forbliver skjult, og intet kører, før du aktiverer den igen.
 - Installation af en pakke, der er **ældre** end den installerede version, kræver først en udtrykkelig bekræftelse: en nedgradering forstår muligvis ikke data skrevet af den nyere version. Intet slettes i nogen af tilfældene.

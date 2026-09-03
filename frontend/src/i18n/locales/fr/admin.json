@@ -1878,6 +1878,7 @@
   "extensions.install.uploading": "Téléversement…",
   "extensions.install.choose": "Choisir un paquet…",
   "extensions.install.discard": "Abandonner",
+  "extensions.install.close": "Fermer",
   "extensions.install.previewSummary": "Aperçu du contenu",
   "extensions.install.created": "Créés",
   "extensions.install.updated": "Mis à jour",

@@ -1878,6 +1878,7 @@
   "extensions.install.uploading": "Subiendo…",
   "extensions.install.choose": "Elegir paquete…",
   "extensions.install.discard": "Descartar",
+  "extensions.install.close": "Cerrar",
   "extensions.install.previewSummary": "Vista previa del contenido",
   "extensions.install.created": "Creados",
   "extensions.install.updated": "Actualizados",

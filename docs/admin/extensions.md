@@ -57,15 +57,15 @@ Some paid extensions offer a **free 30-day trial** — look for the **Start 30-d
 
 1. If you have not done so yet, apply your license first (see below).
 2. Open **Admin → Extensions** and press **Install from file…** at the top of the page (next to the instance ID — it is there on both tabs), then upload the `.teax` file you received.
-3. Turbo EA verifies the signature and shows a **preview**: for content-carrying extensions this is a dry-run of every card type, tag group, card, and relation the extension would create or update — nothing is written yet.
-4. Review the preview and press **Install extension**.
+3. Turbo EA verifies the signature and opens an **install dialog** with a **preview**: for content-carrying extensions this is a dry-run of every card type, tag group, card, and relation the extension would create or update — nothing is written yet.
+4. Review the preview — it scrolls inside the dialog — and press **Install extension** at the foot of the dialog, where the action stays put however long the preview is.
 5. If the extension carries backend code, a banner asks you to restart the backend container (`docker compose restart backend`). Content and UI extensions are active immediately — users pick up new UI on their next page load.
 
 Uploading the same bundle again is safe — the preview shows everything as "skipped" and applying changes nothing.
 
 ## Updating an extension
 
-When the store publishes a newer version of an installed extension, the Installed tab shows an **Update to X** chip next to the extension's version (and the Store tab's button turns into **Update**). One click runs the same signature verification, dry-run preview, and apply as a fresh install. While an install or update runs, the button (or chip) shows a spinner and stays disabled until it finishes, and the progress panel appears on whichever tab you started from. Two safeguards apply:
+When the store publishes a newer version of an installed extension, the Installed tab shows an **Update to X** chip next to the extension's version (and the Store tab's button turns into **Update**). One click runs the same signature verification, dry-run preview, and apply as a fresh install. While an install or update runs, the button (or chip) shows a spinner and stays disabled until it finishes, and the install dialog shows the run wherever you started it from. Two safeguards apply:
 
 - Updating an extension you have deliberately **disabled** keeps it disabled — the new version lands on disk, but its content stays hidden and nothing runs until you enable it again.
 - Installing a bundle **older** than the installed version asks for an explicit confirmation first: a downgrade may not understand data written by the newer version. Nothing is deleted either way.

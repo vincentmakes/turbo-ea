@@ -1878,6 +1878,7 @@
   "extensions.install.uploading": "Загрузка…",
   "extensions.install.choose": "Выбрать пакет…",
   "extensions.install.discard": "Отменить",
+  "extensions.install.close": "Закрыть",
   "extensions.install.previewSummary": "Предпросмотр содержимого",
   "extensions.install.created": "Создано",
   "extensions.install.updated": "Обновлено",
