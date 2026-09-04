@@ -440,6 +440,7 @@ async def me(
         is_active=user.is_active,
         locale=user.locale or "en",
         permissions=role_data["permissions"] if role_data else {},
+        type_permissions=await PermissionService.type_permissions_for_role(db, effective_role_key),
         ui_preferences=user.ui_preferences or DEFAULT_UI_PREFERENCES,
         impersonated_role=impersonated_role_key,
         impersonated_role_label=impersonated_role_label,

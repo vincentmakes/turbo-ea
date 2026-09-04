@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.124.0] - 2026-09-04
+
+### Added
+
+- **Permissions per card type.** A new **Permissions** tab on each card type in Admin → Metamodel sets, per role, whether cards of that type may be created, edited, archived or deleted. Each cell is *inherit*, *allow* or *deny*, so one type can take a permission away from a role that holds it everywhere else — "anyone may create Applications, only the central team creates Organizations and Initiatives" — or grant one to a role that lacks it. Administrators are never restricted, and a stakeholder's authority over the individual cards they own is untouched. A type a user may not create disappears from the create dialog, the diagram editor, quick-create on relations and hierarchies, and the spreadsheet importer, which now names the sheets it would have to refuse before anything is uploaded.
+
 ## [2.123.0] - 2026-09-04
 
 ### Fixed

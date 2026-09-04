@@ -22,6 +22,11 @@ export interface User {
   created_at?: string;
   last_login?: string;
   permissions?: Record<string, boolean>;
+  /** Per-card-type overrides of the four type-scoped inventory permissions for
+   *  this user's effective role: `{typeKey: {permission: allowed}}`. Carries only
+   *  the cells an admin actually set — an absent cell inherits `permissions`.
+   *  Always empty for the admin (wildcard) role (discussion #1068). */
+  type_permissions?: Record<string, Record<string, boolean>>;
   ui_preferences?: UiPreferences | null;
   impersonated_role?: string | null;
   impersonated_role_label?: string | null;
@@ -276,6 +281,10 @@ export interface CardType {
   stakeholder_roles?: StakeholderRoleDefinition[];
   section_config?: Record<string, SectionConfig>;
   reference_config?: ReferenceConfig;
+  /** Per-role overrides of the type-scoped inventory permissions
+   *  (`{roleKey: {permission: allowed}}`) — admin-only, edited on the type
+   *  drawer's Permissions tab (discussion #1068). */
+  role_permissions?: Record<string, Record<string, boolean>>;
   built_in: boolean;
   is_hidden: boolean;
   sort_order: number;
@@ -283,6 +292,26 @@ export interface CardType {
   /** Seed default color for built-in types (null for custom types) — powers
    * the admin "reset to default color" affordance (discussion #740). */
   default_color?: string | null;
+}
+
+/** One row of the card-type permission matrix (`GET /metamodel/types/{key}/permissions`).
+ *  `inherited` is what the role grants landscape-wide; `overrides` is what this
+ *  type stores. A permission missing from `overrides` inherits. */
+export interface CardTypePermissionRole {
+  key: string;
+  label: string;
+  color: string;
+  is_system: boolean;
+  /** Admin (`{"*": true}`) — never overridable, rendered locked. */
+  is_wildcard: boolean;
+  inherited: Record<string, boolean>;
+  overrides: Record<string, boolean>;
+}
+
+export interface CardTypePermissionMatrix {
+  /** The four overridable actions, in display order, with their registry descriptions. */
+  actions: { key: string; description: string }[];
+  roles: CardTypePermissionRole[];
 }
 
 /** Per-type human-readable card ID config (discussion #811). When enabled

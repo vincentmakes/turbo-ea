@@ -419,6 +419,8 @@
   "catalogue.createSelected_one": "Создать {{count}} возможность",
   "catalogue.createSelected_other": "Создать {{count}} возможностей",
   "catalogue.noCreatePermission": "Требуется разрешение inventory.create.",
+  "create.noTypePermission": "Вам не разрешено создавать карточки этого типа.",
+  "import.noTypePermission": "Вам не разрешено создавать карточки этих типов: {{types}}",
   "catalogue.importConfirmTitle": "Создать выбранные возможности?",
   "catalogue.importConfirmBody_one": "Будет создана {{count}} карточка BusinessCapability.",
   "catalogue.importConfirmBody_other": "Будут созданы {{count}} карточек BusinessCapability.",

@@ -394,6 +394,82 @@ APP_TO_CARD_PERMISSION_MAP: dict[str, str] = {
 CARD_TO_APP_PERMISSION_MAP: dict[str, str] = {v: k for k, v in APP_TO_CARD_PERMISSION_MAP.items()}
 
 # ---------------------------------------------------------------------------
+# Per-card-type permission overrides
+# ---------------------------------------------------------------------------
+# A card type may override these four app-level permissions per role, so an
+# admin can say "members may not create Organizations" or "viewers may create
+# Initiatives" without minting a role per type. Deliberately a *subset* of
+# ``inventory.*`` and NOT new permission keys: the override map reuses the keys
+# below, so ``ALL_APP_PERMISSION_KEYS`` and every default role dict are
+# untouched. ``inventory.view`` is excluded on purpose — hiding a type from a
+# role would have to reach every list, report, relation and graph endpoint,
+# which is a different feature.
+TYPE_SCOPED_APP_PERMISSIONS: frozenset[str] = frozenset(
+    {
+        "inventory.create",
+        "inventory.edit",
+        "inventory.archive",
+        "inventory.delete",
+    }
+)
+
+
+def validate_type_role_permissions(
+    raw: object,
+    *,
+    known_role_keys: set[str],
+    wildcard_role_keys: set[str],
+) -> dict[str, dict[str, bool]]:
+    """Validate and normalise a ``card_types.role_permissions`` map.
+
+    Shape: ``{role_key: {app_permission: bool}}``. Only *explicitly overridden*
+    cells are stored — an absent key means "inherit the role's global grant",
+    which is why empty inner dicts are dropped rather than persisted.
+
+    Raises ``ValueError`` (route layer converts to 400) when the payload names
+    an unknown role, a wildcard role (admin can never be overridden — that is
+    the escape hatch that keeps an instance recoverable), a permission outside
+    ``TYPE_SCOPED_APP_PERMISSIONS``, or a non-boolean value.
+
+    Archived roles are accepted: their overrides are inert but a round-trip of
+    a stored map must never start failing because a role was archived.
+    """
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError("role_permissions must be an object")
+
+    out: dict[str, dict[str, bool]] = {}
+    for role_key, cells in raw.items():
+        if not isinstance(role_key, str):
+            raise ValueError("role_permissions keys must be role keys")
+        if role_key not in known_role_keys:
+            raise ValueError(f"Unknown role key: {role_key}")
+        if role_key in wildcard_role_keys:
+            raise ValueError(
+                f"Role '{role_key}' has full access and cannot be overridden per card type"
+            )
+        if not isinstance(cells, dict):
+            raise ValueError(f"role_permissions['{role_key}'] must be an object")
+
+        clean: dict[str, bool] = {}
+        for perm_key, value in cells.items():
+            if perm_key not in TYPE_SCOPED_APP_PERMISSIONS:
+                raise ValueError(
+                    f"Permission '{perm_key}' cannot be set per card type "
+                    f"(allowed: {', '.join(sorted(TYPE_SCOPED_APP_PERMISSIONS))})"
+                )
+            if not isinstance(value, bool):
+                raise ValueError(f"role_permissions['{role_key}']['{perm_key}'] must be a boolean")
+            clean[perm_key] = value
+
+        # An empty override map is the same as no entry at all.
+        if clean:
+            out[role_key] = clean
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Default permission sets for seeded roles
 # ---------------------------------------------------------------------------
 

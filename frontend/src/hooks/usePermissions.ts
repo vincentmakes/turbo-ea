@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { api } from "@/api/client";
+import { hasTypePermission } from "@/components/RequirePermission";
 import type { User, CardEffectivePermissions } from "@/types";
 
 /**
@@ -29,6 +30,17 @@ export function usePermissions(user: User | null) {
       return !!permissions[permission];
     },
     [user, permissions]
+  );
+
+  /**
+   * Check one of the four type-scoped inventory permissions for a specific
+   * card type, honouring that type's per-role overrides. Falls back to the
+   * role's landscape-wide grant when the type says nothing (discussion #1068).
+   */
+  const canForType = useCallback(
+    (permission: string, typeKey: string | null | undefined): boolean =>
+      hasTypePermission(user, permission, typeKey),
+    [user]
   );
 
   /**
@@ -97,6 +109,7 @@ export function usePermissions(user: User | null) {
   return {
     permissions,
     can,
+    canForType,
     isAdmin,
     canViewCostsGlobally,
     cardPermissions,

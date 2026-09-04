@@ -133,6 +133,27 @@ I ruoli possono essere rimossi in due modi:
 
 La chiave di un ruolo può essere corretta finché **nessuno ricopre il ruolo**: i sondaggi che lo utilizzano seguono automaticamente la rinomina, e rinominare l'unico ruolo di un tipo non è un problema perché il ruolo sopravvive. Appena qualcuno lo ricopre, la chiave viene bloccata e il campo ne spiega il motivo. I ruoli creati prima di questa convenzione mantengono la chiave che già avevano e continuano a funzionare; viene verificata solo una chiave nuova o modificata.
 
+#### Autorizzazioni
+
+I tipi di scheda possono limitare ciò che ogni ruolo applicativo può fare con le loro schede. Apri la scheda **Autorizzazioni** nel pannello del tipo per una matrice di ruoli e delle quattro azioni — **Crea**, **Modifica**, **Archivia** ed **Elimina**.
+
+![Autorizzazioni per tipo di scheda](../assets/img/it/85_admin_autorizzazioni_tipo_scheda.png)
+
+Ogni cella ha tre stati:
+
+- **Eredita** (predefinito) — decide l'autorizzazione globale del ruolo. L'icona mostra qual è attualmente.
+- **Consenti** — il ruolo può eseguire questa azione sulle schede di questo tipo, anche se non dispone dell'autorizzazione a livello globale.
+- **Nega** — il ruolo non può eseguire questa azione sulle schede di questo tipo, anche se dispone dell'autorizzazione a livello globale.
+
+Questo consente di dire «chiunque può creare Applicazioni, ma solo il team centrale crea Organizzazioni e Iniziative» senza inventare un ruolo per ogni tipo di scheda. Negare **Crea** su un tipo lo rimuove anche dalla finestra di creazione, dall'editor dei diagrammi e dall'importatore di fogli di calcolo.
+
+Alcune regole da conoscere:
+
+- **Gli amministratori non sono mai limitati.** La riga dell'amministratore è bloccata.
+- **I ruoli stakeholder continuano ad applicarsi.** Negare **Modifica** a un ruolo su un tipo rimuove la sua autorizzazione a livello di intero panorama, non l'autorità che detiene come proprietario assegnato di una singola scheda. Vedi [Utenti e ruoli](users.md).
+- **La modifica di massa segue un divieto, non un permesso.** Un tipo che nega **Modifica** blocca anche le modifiche di massa; un permesso non concede di per sé la distinta autorizzazione di modifica di massa.
+- Le modifiche hanno effetto per gli altri utenti al successivo ricaricamento dell'applicazione.
+
 #### Traduzioni
 
 Cliccate sul pulsante **Traduci** nella barra degli strumenti del drawer del tipo per aprire il **Dialogo delle traduzioni**. Qui potete fornire traduzioni per tutte le etichette del metamodello in ogni lingua supportata:

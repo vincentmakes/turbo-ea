@@ -19,6 +19,8 @@ import TableRow from "@mui/material/TableRow";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCalculatedFields } from "@/hooks/useCalculatedFields";
+import { hasTypePermission } from "@/components/RequirePermission";
+import { useAuthContext } from "@/hooks/AuthContext";
 import type { Card, CardType, Relation, RelationType, TagGroup } from "@/types";
 
 import {
@@ -54,7 +56,8 @@ export default function ImportDialog({
   preSelectedType,
   tagGroups = [],
 }: ImportDialogProps) {
-  const { t } = useTranslation(["inventory", "common"]);
+  const { t } = useTranslation(["inventory", "common", "cards"]);
+  const { user } = useAuthContext();
   const { calculatedFields } = useCalculatedFields();
   const fileRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<Step>("upload");
@@ -104,6 +107,20 @@ export default function ImportDialog({
         }
       }
       if (preSelectedType) typeKeysInFile.add(preSelectedType);
+
+      // An import creates cards, so every type in the workbook has to clear
+      // this role's per-type create permission (discussion #1068). Failing
+      // here means the user sees which sheet to drop instead of a 403 after
+      // uploading and mapping the whole file — the server refuses it too.
+      const deniedTypes = [...typeKeysInFile].filter(
+        (typeKey) => !hasTypePermission(user, "inventory.create", typeKey),
+      );
+      if (deniedTypes.length > 0) {
+        setParseError(
+          t("cards:import.noTypePermission", { types: deniedTypes.sort().join(", ") }),
+        );
+        return;
+      }
       // Fetch existing relations so we can compute relation diffs — scoped to
       // the relation types that can touch a card type present in the workbook.
       // That's a superset of what the diff needs, so the outcome is unchanged;

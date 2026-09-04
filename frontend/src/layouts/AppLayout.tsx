@@ -31,6 +31,8 @@ import { api, auth, setToken } from "@/api/client";
 import { useAuthContext } from "@/hooks/AuthContext";
 import ImpersonateRoleDialog from "@/features/admin/ImpersonateRoleDialog";
 import { useEventStream } from "@/hooks/useEventStream";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { canCreateAnyCardType } from "@/components/RequirePermission";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import { useGrcEnabled } from "@/hooks/useGrcEnabled";
 import { useSponsorButtonEnabled } from "@/hooks/useSponsorButtonEnabled";
@@ -145,6 +147,16 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       return !!perms[permission];
     },
     [user.permissions]
+  );
+
+  // "Create card" is offered when the user can create at least ONE card type.
+  // A per-card-type deny (discussion #1068) can take `inventory.create` away
+  // for every type, and a per-type allow can grant it to a role that lacks it
+  // globally — so the button follows the types, not the bare permission.
+  const { types: metamodelTypes } = useMetamodel();
+  const canCreateAnyType = useMemo(
+    () => canCreateAnyCardType(user, metamodelTypes),
+    [metamodelTypes, user]
   );
 
   // Resolve nav item labels via i18n and filter based on BPM/PPM/TurboLens/permissions
@@ -627,7 +639,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           </>
         )}
 
-        {can("inventory.create") && (
+        {canCreateAnyType && (
           <>
             <Divider sx={{ my: 1, borderColor: nav.divider }} />
 
@@ -830,7 +842,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           )}
 
           {/* Create button — icon-only on mobile */}
-          {can("inventory.create") && (
+          {canCreateAnyType && (
             isMobile ? (
               <Tooltip title={t("create")}>
                 <IconButton
@@ -1094,7 +1106,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       {/* Create card dialog — global so the top-nav Create button works from
           any route without first navigating to /inventory. CreateCardDialog
           handles routing to /cards/{newId} on success. */}
-      {can("inventory.create") && (
+      {canCreateAnyType && (
         <CreateCardDialog
           open={createOpen}
           onClose={() => setCreateOpen(false)}

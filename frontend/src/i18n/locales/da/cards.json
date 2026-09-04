@@ -456,6 +456,8 @@
   "catalogue.createSelected_one": "Opret {{count}} kompetence",
   "catalogue.createSelected_other": "Opret {{count}} kompetencer",
   "catalogue.noCreatePermission": "Du skal have tilladelsen inventory.create.",
+  "create.noTypePermission": "Du har ikke tilladelse til at oprette kort af denne type.",
+  "import.noTypePermission": "Du har ikke tilladelse til at oprette kort af disse typer: {{types}}",
   "catalogue.importConfirmTitle": "Opret valgte kompetencer?",
   "catalogue.importConfirmBody_one": "{{count}} forretningskompetencekort oprettes.",
   "catalogue.importConfirmBody_other": "{{count}} forretningskompetencekort oprettes.",

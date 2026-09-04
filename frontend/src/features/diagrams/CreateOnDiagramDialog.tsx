@@ -11,6 +11,8 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
+import { hasTypePermission } from "@/components/RequirePermission";
+import { useAuthContext } from "@/hooks/AuthContext";
 import type { CardType } from "@/types";
 
 interface Props {
@@ -36,6 +38,7 @@ export default function CreateOnDiagramDialog({
 }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
   const typeLabel = useTypeLabel();
+  const { user } = useAuthContext();
   const [selectedType, setSelectedType] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -45,7 +48,11 @@ export default function CreateOnDiagramDialog({
     if (open && prefillName) setName(prefillName);
   }, [open, prefillName]);
 
-  const visibleTypes = types.filter((t) => !t.is_hidden);
+  // Only the types this role may actually create — a per-card-type deny
+  // (discussion #1068) takes them out of the picker here too.
+  const visibleTypes = types.filter(
+    (t) => !t.is_hidden && hasTypePermission(user, "inventory.create", t.key)
+  );
   const typeInfo = visibleTypes.find((t) => t.key === selectedType);
   const valid = selectedType && name.trim().length > 0;
 

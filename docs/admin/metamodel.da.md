@@ -133,6 +133,27 @@ Roller kan fjernes på to måder:
 
 En rolles nøgle kan rettes, så længe **ingen har rollen** — undersøgelser der bruger den følger automatisk med omdøbningen, og det er også i orden at omdøbe en types eneste rolle, da rollen overlever det. Så snart nogen har rollen, låses nøglen, og feltet forklarer hvorfor. Roller oprettet før denne konvention beholder den nøgle de allerede har og fungerer fortsat; kun en ny eller ændret nøgle kontrolleres.
 
+#### Tilladelser
+
+Korttyper kan begrænse, hvad hver applikationsrolle må gøre med deres kort. Åbn fanen **Tilladelser** i typepanelet for at se en matrix af roller over for de fire korthandlinger — **Opret**, **Rediger**, **Arkivér** og **Slet**.
+
+![Tilladelser pr. korttype](../assets/img/da/85_admin_card_type_permissions.png)
+
+Hver celle har tre tilstande:
+
+- **Arv** (standard) — rollens landskabsdækkende tilladelse afgør det. Ikonet viser, hvad den aktuelt er.
+- **Tillad** — rollen må udføre denne handling på kort af denne type, også når den mangler tilladelsen globalt.
+- **Nægt** — rollen må ikke udføre denne handling på kort af denne type, heller ikke når den har tilladelsen globalt.
+
+Det gør det muligt at sige «alle må oprette applikationer, men kun det centrale team opretter organisationer og initiativer» uden at opfinde en rolle pr. korttype. At nægte **Opret** på en type fjerner den også fra oprettelsesdialogen, diagrameditoren og regnearksimporten.
+
+Nogle regler er værd at kende:
+
+- **Administratorer begrænses aldrig.** Administratorrækken er låst.
+- **Interessentroller gælder stadig.** At nægte en rolle **Rediger** på en type fjerner dens landskabsdækkende tilladelse, ikke den myndighed nogen har som tildelt ejer af ét bestemt kort. Se [Brugere og roller](users.md).
+- **Masseredigering følger et nej, ikke et ja.** En type, der nægter **Rediger**, blokerer også masseredigeringer; en tilladelse giver ikke i sig selv den separate masseredigeringstilladelse.
+- Ændringer træder i kraft for andre brugere, næste gang de genindlæser applikationen.
+
 #### Oversættelser
 
 Klik på knappen **Oversæt** i typepanelets værktøjslinje for at åbne **Oversættelsesdialogen**. Her kan du levere oversættelser for alle metamodel-etiketter i hvert understøttet sprog:

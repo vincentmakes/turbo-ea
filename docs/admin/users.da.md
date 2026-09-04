@@ -123,6 +123,7 @@ Fanebladet **Roller** giver mulighed for at administrere applikationsroller. Hve
 Brugerdefinerede roller kan oprettes med granulær tilladelseskontrol over lager, relationer, interessenter, kommentarer, dokumenter, diagrammer, BPM, rapporter og mere.
 
 Tilladelser gælder for adresselinjen såvel som for menuen. En side, som en rolle ikke må åbne, viser meddelelsen **Adgang nægtet** med et link tilbage til dashboardet — uanset om den nås fra navigationen, et bogmærke eller et delt link. At skjule et menupunkt og at blokere siden er dermed altid den samme beslutning.
+En rolles tilladelser gælder som standard for alle korttyper. En administrator kan indsnævre dem pr. korttype — tillade eller nægte **Opret**, **Rediger**, **Arkivér** og **Slet** — på fanen **Tilladelser** for korttypen i [Metamodellen](metamodel.md#permissions).
 
 #### Deaktivering af en bruger
 

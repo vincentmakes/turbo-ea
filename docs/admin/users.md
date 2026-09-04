@@ -123,6 +123,7 @@ The **Roles** tab allows managing application-level roles. Each role defines a s
 Custom roles can be created with granular permission control over inventory, relations, stakeholders, comments, documents, diagrams, BPM, reports, and more.
 
 Permissions apply to the address bar as well as the menu. A page a role cannot open shows an **Access denied** notice with a link back to the dashboard, whether it is reached from the navigation, a bookmark, or a link someone shared — so hiding a menu entry and blocking the page are always the same decision.
+A role's permissions apply to every card type by default. An administrator can narrow that per card type — allowing or denying **Create**, **Edit**, **Archive** and **Delete** for one type at a time — on the **Permissions** tab of the card type in [Metamodel](metamodel.md#permissions). That is how you let everyone create Applications while reserving Organizations and Initiatives for a central team.
 
 #### Deactivating a User
 

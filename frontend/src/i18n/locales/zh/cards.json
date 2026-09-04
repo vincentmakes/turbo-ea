@@ -419,6 +419,8 @@
   "catalogue.createSelected_one": "创建 {{count}} 项能力",
   "catalogue.createSelected_other": "创建 {{count}} 项能力",
   "catalogue.noCreatePermission": "您需要 inventory.create 权限。",
+  "create.noTypePermission": "您无权创建此类型的卡片。",
+  "import.noTypePermission": "您无权创建以下类型的卡片：{{types}}",
   "catalogue.importConfirmTitle": "创建选定的能力？",
   "catalogue.importConfirmBody_one": "将创建 {{count}} 张 BusinessCapability 卡片。",
   "catalogue.importConfirmBody_other": "将创建 {{count}} 张 BusinessCapability 卡片。",

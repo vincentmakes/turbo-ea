@@ -15599,6 +15599,17 @@
             ],
             "title": "Role Label"
           },
+          "type_permissions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "boolean"
+              },
+              "type": "object"
+            },
+            "default": {},
+            "title": "Type Permissions",
+            "type": "object"
+          },
           "ui_preferences": {
             "anyOf": [
               {
@@ -26821,6 +26832,47 @@
           }
         },
         "summary": "Get Option Usage",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/types/{key}/permissions": {
+      "get": {
+        "description": "The per-role permission matrix for one card type (admin Permissions tab).\n\nGated on ``admin.metamodel`` because it reveals part of the RBAC matrix.\nIt deliberately exposes only the four type-scoped inventory bits per role \u2014\nnever the full permission set, which stays behind ``admin.roles`` \u2014 so an\nadmin who may edit the metamodel can see what a role inherits without\nbeing handed the whole role configuration.\n\n``inherited`` is what the role grants landscape-wide; ``overrides`` is what\nthis type stores. A cell missing from ``overrides`` inherits. Archived\nroles are omitted, and a stored override naming a role that no longer\nexists is simply not listed (it is inert at check time too).",
+        "operationId": "get_type_permissions_api_v1_metamodel_types__key__permissions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Type Permissions",
         "tags": [
           "metamodel"
         ]

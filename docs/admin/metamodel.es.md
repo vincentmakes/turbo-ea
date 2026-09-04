@@ -133,6 +133,27 @@ Los roles pueden retirarse de dos formas:
 
 La clave de un rol puede corregirse mientras **nadie ostente el rol**: las encuestas que lo utilizan siguen el cambio de nombre automáticamente, y renombrar el único rol de un tipo no supone problema, ya que el rol sobrevive. En cuanto alguien lo ostenta, la clave queda bloqueada y el campo explica por qué. Los roles creados antes de esta convención conservan la clave que ya tenían y siguen funcionando; solo se comprueba una clave nueva o modificada.
 
+#### Permisos
+
+Los tipos de tarjeta pueden restringir lo que cada rol de aplicación puede hacer con sus tarjetas. Abra la pestaña **Permisos** en el panel del tipo para ver una matriz de roles frente a las cuatro acciones — **Crear**, **Editar**, **Archivar** y **Eliminar**.
+
+![Permisos por tipo de ficha](../assets/img/es/85_admin_permisos_tipo_ficha.png)
+
+Cada celda tiene tres estados:
+
+- **Heredar** (predeterminado) — decide el permiso global del rol. El icono muestra cuál es actualmente.
+- **Permitir** — el rol puede realizar esta acción en las tarjetas de este tipo, aunque no tenga el permiso globalmente.
+- **Denegar** — el rol no puede realizar esta acción en las tarjetas de este tipo, aunque tenga el permiso globalmente.
+
+Esto permite decir «cualquiera puede crear aplicaciones, pero solo el equipo central crea organizaciones e iniciativas» sin inventar un rol por tipo de tarjeta. Denegar **Crear** en un tipo también lo retira del diálogo de creación, del editor de diagramas y del importador de hojas de cálculo.
+
+Algunas reglas que conviene conocer:
+
+- **Los administradores nunca están restringidos.** La fila de administrador está bloqueada.
+- **Los roles de partes interesadas siguen aplicándose.** Denegar **Editar** a un rol en un tipo elimina su permiso a nivel de todo el panorama, no la autoridad que ostenta como propietario asignado de una tarjeta concreta. Consulte [Usuarios y roles](users.md).
+- **La edición masiva sigue una denegación, no una autorización.** Un tipo que deniega **Editar** también bloquea las ediciones masivas; una autorización no concede por sí sola el permiso independiente de edición masiva.
+- Los cambios surten efecto para otros usuarios la próxima vez que recarguen la aplicación.
+
 #### Traducciones
 
 Haga clic en el botón **Traducir** en la barra de herramientas del cajón de tipo para abrir el **Diálogo de Traducciones**. Aquí puede proporcionar traducciones para todas las etiquetas del metamodelo en cada idioma soportado:

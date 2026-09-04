@@ -3,7 +3,7 @@
 Mirrors the capability catalogue:
 
 - `GET /value-stream-catalogue` — `inventory.view`
-- `POST /value-stream-catalogue/import` — `inventory.create`
+- `POST /value-stream-catalogue/import` — `inventory.create` on `ValueStream`
 - `GET /value-stream-catalogue/update-status` — `admin.metamodel`
 - `POST /value-stream-catalogue/update-fetch` — `admin.metamodel`
 """
@@ -49,7 +49,7 @@ async def get_catalogue(
 async def import_value_streams(
     payload: ImportRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_permission("inventory.create")),
+    user: User = Depends(require_permission("inventory.create", card_type_key="ValueStream")),
 ):
     """Create BusinessContext / valueStream cards for selected streams or
     stages. Selecting a stage automatically pulls in its parent stream so

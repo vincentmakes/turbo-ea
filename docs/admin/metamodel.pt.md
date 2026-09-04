@@ -133,6 +133,27 @@ Os papéis podem ser removidos de duas formas:
 
 A chave de um papel pode ser corrigida enquanto **ninguém detiver o papel** — os inquéritos que o utilizam acompanham a mudança de nome automaticamente, e renomear o único papel de um tipo não é problema, pois o papel sobrevive. Assim que alguém o detém, a chave fica bloqueada e o campo explica porquê. Os papéis criados antes desta convenção mantêm a chave que já tinham e continuam a funcionar; só é verificada uma chave nova ou alterada.
 
+#### Permissões
+
+Os tipos de cartão podem restringir o que cada papel da aplicação pode fazer com os seus cartões. Abra o separador **Permissões** no painel do tipo para ver uma matriz de papéis e das quatro ações — **Criar**, **Editar**, **Arquivar** e **Eliminar**.
+
+![Permissões por tipo de cartão](../assets/img/pt/85_admin_permissoes_tipo_card.png)
+
+Cada célula tem três estados:
+
+- **Herdar** (predefinição) — decide a permissão global do papel. O ícone mostra qual é atualmente.
+- **Permitir** — o papel pode executar esta ação nos cartões deste tipo, mesmo que não tenha a permissão globalmente.
+- **Negar** — o papel não pode executar esta ação nos cartões deste tipo, mesmo que tenha a permissão globalmente.
+
+Isto permite dizer «qualquer pessoa pode criar Aplicações, mas apenas a equipa central cria Organizações e Iniciativas» sem inventar um papel por tipo de cartão. Negar **Criar** num tipo também o retira da caixa de diálogo de criação, do editor de diagramas e do importador de folhas de cálculo.
+
+Algumas regras a conhecer:
+
+- **Os administradores nunca são restringidos.** A linha do administrador está bloqueada.
+- **Os papéis de partes interessadas continuam a aplicar-se.** Negar **Editar** a um papel num tipo remove a sua permissão em todo o panorama, não a autoridade que detém como proprietário designado de um cartão específico. Consulte [Utilizadores e papéis](users.md).
+- **A edição em massa segue uma negação, não uma permissão.** Um tipo que nega **Editar** também bloqueia edições em massa; uma permissão não concede, por si só, a permissão distinta de edição em massa.
+- As alterações produzem efeito para os outros utilizadores no próximo carregamento da aplicação.
+
 #### Traduções
 
 Clique no botão **Traduzir** na barra de ferramentas do drawer do tipo para abrir o **Diálogo de Traduções**. Aqui você pode fornecer traduções para todos os rótulos do metamodelo em cada idioma suportado:

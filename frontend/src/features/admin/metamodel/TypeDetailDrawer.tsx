@@ -38,6 +38,7 @@ import { useRelationLabel, useSubtypeLabel, useTypeLabel } from "@/hooks/useReso
 import FieldEditorDialog from "./FieldEditorDialog";
 import DataQualityPanel from "./DataQualityPanel";
 import StakeholderRolePanel from "./StakeholderRolePanel";
+import CardTypePermissionsPanel from "./CardTypePermissionsPanel";
 import TranslationDialog from "./TranslationDialog";
 import { successorRelationKeys } from "@/lib/successorRelation";
 
@@ -57,7 +58,7 @@ function defaultPrefixForType(key: string): string {
   return base ? `${base}-` : "";
 }
 
-type TabKey = "main" | "relations" | "stakeholders" | "dataQuality";
+type TabKey = "main" | "relations" | "stakeholders" | "permissions" | "dataQuality";
 
 export interface TypeDrawerProps {
   open: boolean;
@@ -576,6 +577,7 @@ export default function TypeDetailDrawer({
           <Tab value="main" label={t("metamodel.typeDrawer.tabMain")} />
           <Tab value="relations" label={t("metamodel.typeDrawer.relations")} />
           <Tab value="stakeholders" label={t("metamodel.stakeholderPanel.title")} />
+          <Tab value="permissions" label={t("metamodel.permissionsPanel.title")} />
           <Tab value="dataQuality" label={t("metamodel.dataQuality.title")} />
         </Tabs>
       </Box>
@@ -974,6 +976,15 @@ export default function TypeDetailDrawer({
           typeKey={cardTypeKey.key}
           onError={(msg) => setError(msg)}
         />
+        )}
+
+        {/* -- Permissions tab (per-card-type RBAC, discussion #1068) -- */}
+        {tab === "permissions" && (
+          <CardTypePermissionsPanel
+            typeKey={cardTypeKey.key}
+            onError={(msg) => setError(msg)}
+            onSaved={onRefresh}
+          />
         )}
 
         {/* -- Data Quality tab -- */}

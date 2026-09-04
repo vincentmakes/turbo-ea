@@ -456,6 +456,8 @@
   "catalogue.createSelected_one": "إنشاء {{count}} قدرة",
   "catalogue.createSelected_other": "إنشاء {{count}} قدرات",
   "catalogue.noCreatePermission": "تحتاج إلى إذن inventory.create.",
+  "create.noTypePermission": "غير مسموح لك بإنشاء بطاقات من هذا النوع.",
+  "import.noTypePermission": "غير مسموح لك بإنشاء بطاقات من هذه الأنواع: {{types}}",
   "catalogue.importConfirmTitle": "إنشاء القدرات المحددة؟",
   "catalogue.importConfirmBody_one": "سيتم إنشاء {{count}} بطاقة BusinessCapability.",
   "catalogue.importConfirmBody_other": "سيتم إنشاء {{count}} بطاقات BusinessCapability.",

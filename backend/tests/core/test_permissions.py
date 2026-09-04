@@ -27,9 +27,11 @@ from app.core.permissions import (
     PROCESS_OWNER_CARD_PERMISSIONS,
     RESPONSIBLE_CARD_PERMISSIONS,
     TECH_APP_OWNER_CARD_PERMISSIONS,
+    TYPE_SCOPED_APP_PERMISSIONS,
     VIEWER_PERMISSIONS,
     migrate_legacy_app_permissions,
     strip_legacy_card_permissions,
+    validate_type_role_permissions,
 )
 
 # ---------------------------------------------------------------------------
@@ -455,3 +457,88 @@ class TestLegacyAppPermissionKeys:
         # The two normalisers must never both claim a key, or the tier a map
         # belongs to would change its meaning.
         assert not (set(LEGACY_APP_PERMISSION_RENAMES) & LEGACY_CARD_PERMISSION_KEYS)
+
+
+# ---------------------------------------------------------------------------
+# Per-card-type permission overrides (discussion #1068)
+# ---------------------------------------------------------------------------
+
+
+class TestTypeScopedPermissions:
+    """The overridable subset is a subset of the real inventory keys."""
+
+    def test_all_type_scoped_keys_are_real_app_keys(self):
+        assert TYPE_SCOPED_APP_PERMISSIONS <= ALL_APP_PERMISSION_KEYS
+
+    def test_type_scoped_keys_are_the_four_write_actions(self):
+        assert TYPE_SCOPED_APP_PERMISSIONS == {
+            "inventory.create",
+            "inventory.edit",
+            "inventory.archive",
+            "inventory.delete",
+        }
+
+    def test_view_is_not_type_scoped(self):
+        # Hiding a type from a role would have to reach every list, report and
+        # graph endpoint — deliberately out of scope for the override map.
+        assert "inventory.view" not in TYPE_SCOPED_APP_PERMISSIONS
+
+    def test_adds_no_new_permission_keys(self):
+        # The override map reuses existing keys, so every default role dict
+        # still covers the whole registry (see test_role_covers_all_app_keys).
+        for key in TYPE_SCOPED_APP_PERMISSIONS:
+            assert key in APP_PERMISSIONS["inventory"]["permissions"]
+
+
+class TestValidateTypeRolePermissions:
+    ROLES = {"admin", "member", "viewer"}
+    WILDCARD = {"admin"}
+
+    def _validate(self, raw):
+        return validate_type_role_permissions(
+            raw, known_role_keys=self.ROLES, wildcard_role_keys=self.WILDCARD
+        )
+
+    def test_none_is_empty(self):
+        assert self._validate(None) == {}
+
+    def test_empty_map_is_empty(self):
+        assert self._validate({}) == {}
+
+    def test_valid_map_round_trips(self):
+        raw = {"member": {"inventory.create": False}, "viewer": {"inventory.edit": True}}
+        assert self._validate(raw) == raw
+
+    def test_empty_inner_map_is_dropped(self):
+        # An override map with no cells means "inherit everything", which is
+        # the same statement as having no entry at all.
+        assert self._validate({"member": {}}) == {}
+
+    def test_unknown_role_rejected(self):
+        with pytest.raises(ValueError, match="Unknown role key"):
+            self._validate({"nope": {"inventory.create": False}})
+
+    def test_wildcard_role_rejected(self):
+        # Admin must stay un-overridable or an instance could be locked out.
+        with pytest.raises(ValueError, match="cannot be overridden"):
+            self._validate({"admin": {"inventory.create": False}})
+
+    def test_non_type_scoped_permission_rejected(self):
+        with pytest.raises(ValueError, match="cannot be set per card type"):
+            self._validate({"member": {"inventory.view": False}})
+
+    def test_unknown_permission_rejected(self):
+        with pytest.raises(ValueError, match="cannot be set per card type"):
+            self._validate({"member": {"made.up": True}})
+
+    def test_non_bool_value_rejected(self):
+        with pytest.raises(ValueError, match="must be a boolean"):
+            self._validate({"member": {"inventory.create": "yes"}})
+
+    def test_non_dict_payload_rejected(self):
+        with pytest.raises(ValueError, match="must be an object"):
+            self._validate([1, 2, 3])
+
+    def test_non_dict_cells_rejected(self):
+        with pytest.raises(ValueError, match="must be an object"):
+            self._validate({"member": True})

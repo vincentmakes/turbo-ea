@@ -58,8 +58,13 @@ def require_bpm_admin(user: User) -> None:
         raise HTTPException(status_code=403, detail="Admin or BPM Admin required")
 
 
-def require_permission(app_perm: str):
-    """Dependency factory that checks a single app-level permission via PermissionService."""
+def require_permission(app_perm: str, *, card_type_key: str | None = None):
+    """Dependency factory that checks a single app-level permission via PermissionService.
+
+    ``card_type_key`` narrows the check to one card type, so a route that only
+    ever creates cards of a fixed type (the reference-catalogue importers) is
+    subject to that type's per-role overrides — same rule as ``POST /cards``.
+    """
 
     async def _check(
         user: User = Depends(get_current_user),
@@ -67,7 +72,7 @@ def require_permission(app_perm: str):
     ) -> User:
         from app.services.permission_service import PermissionService
 
-        await PermissionService.require_permission(db, user, app_perm)
+        await PermissionService.require_permission(db, user, app_perm, card_type_key=card_type_key)
         return user
 
     return _check

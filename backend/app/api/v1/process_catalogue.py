@@ -3,7 +3,7 @@
 Mirrors the capability catalogue:
 
 - `GET /process-catalogue` — `inventory.view`
-- `POST /process-catalogue/import` — `inventory.create`
+- `POST /process-catalogue/import` — `inventory.create` on `BusinessProcess`
 - `GET /process-catalogue/update-status` — `admin.metamodel`
 - `POST /process-catalogue/update-fetch` — `admin.metamodel`
 
@@ -51,7 +51,7 @@ async def get_catalogue(
 async def import_processes(
     payload: ImportRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_permission("inventory.create")),
+    user: User = Depends(require_permission("inventory.create", card_type_key="BusinessProcess")),
 ):
     """Create BusinessProcess cards for the selected catalogue entries.
 

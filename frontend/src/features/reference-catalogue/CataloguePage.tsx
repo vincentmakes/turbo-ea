@@ -21,6 +21,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Snackbar from "@mui/material/Snackbar";
 import { api } from "@/api/client";
 import { useAuth } from "@/hooks/useAuth";
+import { hasTypePermission } from "@/components/RequirePermission";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CatalogueBrowser from "./CatalogueBrowser";
 import type {
@@ -52,7 +53,9 @@ export default function CataloguePage({ config }: Props) {
     if (p["*"]) return true;
     return !!p[key];
   };
-  const canCreate = can("inventory.create");
+  // The importer creates cards of exactly one type, so the per-card-type
+  // override for that type decides (discussion #1068).
+  const canCreate = hasTypePermission(user, "inventory.create", config.inventoryCardType);
   const canManageUpdates = can("admin.metamodel");
 
   const [payload, setPayload] = useState<CataloguePayload | null>(null);
