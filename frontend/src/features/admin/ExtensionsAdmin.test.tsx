@@ -375,6 +375,87 @@ describe("ExtensionsAdmin", () => {
     );
   });
 
+  // ── "Install from file…" placement ────────────────────────────────────
+  // One button, on the tab strip: it belongs with the content it acts on
+  // rather than with the page title, and from there it is reachable on both
+  // tabs and in every store state — including the ones where it is the only
+  // way in.
+  describe("install-from-file placement", () => {
+    /** True when `a` comes before `b` in document order. */
+    const precedes = (a: Element, b: Element) =>
+      !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+    const installButton = () =>
+      screen.getByText("Install from file…", { selector: "button" });
+
+    it("sits on the tab strip, not in the page header", async () => {
+      primeInitialLoad({
+        license: LICENSE,
+        catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+      });
+      renderPage();
+
+      await waitFor(() => expect(installButton()).toBeInTheDocument());
+      const button = installButton();
+      // Not in the header row — the one carrying the page title.
+      const header = screen.getByText("Extensions").closest("div") as HTMLElement;
+      expect(header).not.toContainElement(button);
+      // Beside the tabs: after them, and above the catalogue.
+      expect(precedes(screen.getByRole("tab", { name: "Store" }), button)).toBe(true);
+      expect(precedes(button, screen.getByText("ESG Content Pack"))).toBe(true);
+    });
+
+    it("stays available when the store cannot be reached", async () => {
+      primeInitialLoad({
+        license: LICENSE,
+        catalog: { configured: true, reachable: false, store_url: "https://x", items: [] },
+      });
+      renderPage();
+
+      await waitFor(() => expect(installButton()).toBeInTheDocument());
+      // The notice no longer sends the admin looking elsewhere for it — the
+      // button is directly above.
+      const alert = (await screen.findByText(/could not be reached/i)).closest(
+        ".MuiAlert-root",
+      ) as HTMLElement;
+      expect(alert.textContent).not.toMatch(/top of this page/i);
+      expect(precedes(installButton(), alert)).toBe(true);
+    });
+
+    it("is a single control, present on the Installed tab too", async () => {
+      primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE });
+      renderPage("/admin/extensions?tab=installed");
+
+      await waitFor(() =>
+        expect(screen.getAllByText("Install from file…", { selector: "button" })).toHaveLength(1),
+      );
+      expect(precedes(installButton(), screen.getByText("Installed extensions"))).toBe(true);
+    });
+
+    it("uploads from the Installed tab through the same pipeline", async () => {
+      primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE });
+      mockUpload.mockResolvedValue({ id: "i9", filename: "other.teax", status: "verifying" });
+      mockGet.mockImplementation(async (path: string) => {
+        if (path === "/admin/extensions") return [SAMPLE_EXT];
+        if (path === "/admin/extensions/license") return LICENSE;
+        if (path === "/admin/extensions/store/catalog") return UNCONFIGURED_CATALOG;
+        if (path === "/admin/extensions/instance") return { instance_id: "" };
+        if (path.startsWith("/admin/extensions/install/"))
+          return { id: "i9", filename: "other.teax", status: "verifying" };
+        throw new Error(`unexpected GET ${path}`);
+      });
+
+      const { container } = renderPage("/admin/extensions?tab=installed");
+      await waitFor(() => expect(installButton()).toBeInTheDocument());
+
+      const bundleInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+      await userEvent.upload(bundleInput, new File(["zip"], "other.teax"));
+
+      await waitFor(() => expect(mockUpload).toHaveBeenCalled());
+      expect(mockUpload.mock.calls[0][0]).toBe("/admin/extensions/install");
+    });
+  });
+
   it("uploads a bundle from the Store tab, shows the preview, and installs it", async () => {
     primeInitialLoad({ license: LICENSE });
     mockUpload.mockResolvedValue({ id: "i1", filename: "sample.teax", status: "verifying" });

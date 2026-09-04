@@ -261,5 +261,9 @@
   "export.currentViewHint": "Отражает таблицу на экране — не подходит для повторного импорта",
   "export.waitingForRelations": "Ожидание загрузки столбцов связей…",
   "export.viewSheetName": "Вид",
-  "columns.id": "ID"
+  "columns.id": "ID",
+  "columns.eol": "Окончание поддержки",
+  "columns.eolSupport": "Поддержка до",
+  "filter.eol": "Окончание поддержки",
+  "filter.eolManual": "Заполнено вручную"
 }

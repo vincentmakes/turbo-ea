@@ -18,6 +18,7 @@ Le panneau latéral gauche permet de **filtrer** les fiches selon différents cr
 - **Qualité des données** -- Filtrage par plage (sélection multiple) : Complet (≥80 %), Partiel (40-79 %), Minimal (moins de 40 %). Ce sont les plages du [rapport Qualité des données](reports.md#data-quality-report) : un clic sur un segment de barre y mène ici.
 - **Orphelines** -- Uniquement les fiches sans aucune relation, dans un sens comme dans l'autre. Évalué côté serveur, donc utilisable sans type de fiche sélectionné.
 - **Obsolètes** -- Uniquement les fiches non mises à jour depuis 90 jours. Les deux reflètent les tuiles du [rapport Qualité des données](reports.md#data-quality-report) : un clic sur une tuile y mène ici.
+- **Fin de vie** — Pour les applications et les composants informatiques, filtrez par le statut de support que Turbo EA résout à partir du [lien EOL](../admin/eol.md) de chaque fiche : Fin de vie, Proche, Pris en charge ou Inconnu. **(vide)** liste les fiches pour lesquelles rien n'a été renseigné. La colonne **Fin de vie** correspondante affiche la date à côté d'une pastille de statut, et se trie et s'exporte comme une date.
 - **Tags** -- Filtrer par tags de n'importe quel groupe de tags
 - **Relations** -- Filtrer par fiches liées à travers les types de relations
 - **Attributs personnalisés** -- Filtrer par valeurs dans les champs personnalisés (recherche textuelle, options de sélection)

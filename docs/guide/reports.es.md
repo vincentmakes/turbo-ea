@@ -257,6 +257,7 @@ Cada cifra del informe es una vía de entrada, no solo un dato:
 
 Desde el panel, haga clic en una ficha para abrir su panel de detalle, o pulse **Ver en el inventario** para continuar en el [Inventario](inventory.md), que llega agrupado por calidad de datos con la banda seleccionada desplegada y las demás plegadas al lado, de modo que pueda empezar a corregir registros de inmediato. Los paneles de Huérfanos y Desactualizados enlazan con el filtro de inventario correspondiente, en todos los tipos de ficha.
 
+El informe termina con el gráfico **Cobertura de fin de vida**: para aplicaciones y componentes de TI, cuántos tienen un fin de vida vinculado desde endoflife.date, introducido a mano o sin registrar. Haz clic en un segmento para listar las fichas que hay detrás; desde el panel **Sin registrar**, **Ver en el inventario** abre exactamente esos componentes en el [Inventario](inventory.es.md), donde el filtro **Fin de vida** te permite trabajarlos.
 
 ## Informe de Fin de Vida (EOL)
 
@@ -267,6 +268,7 @@ El **Informe de EOL** muestra el estado de soporte de los productos tecnológico
 - **Distribución de estados** — Cuántos productos tienen Soporte, se Acercan a EOL o están en Fin de Vida
 - **Línea temporal** — Cuándo los productos perderán soporte
 - **Priorización de riesgos** — Enfóquese en componentes de misión crítica que se acercan a EOL
+- **Sin datos de fin de vida** — Aplicaciones y componentes de TI sin enlace a endoflife.date ni fecha de fin de vida propia. Aparecen con el estado **Sin datos de fin de vida**; pulse el mosaico del mismo nombre para ver solo esos, y púlselo de nuevo para recuperar el resto. Una fecha mantenida a mano en el ciclo de vida cuenta como registrada, así que un componente ya evaluado no vuelve a aparecer aquí.
 
 ## Informes Guardados
 

@@ -257,6 +257,7 @@ Cada valor do relatório é uma porta de entrada, não apenas uma leitura:
 
 No painel, clique num card para abrir o seu painel de detalhe, ou carregue em **Ver no inventário** para continuar no [Inventário](inventory.md) — que chega agrupado por qualidade dos dados, com a faixa clicada expandida e as restantes recolhidas ao lado, para começar a corrigir registos de imediato. Os painéis Órfãos e Desatualizados ligam ao filtro correspondente do inventário, em todos os tipos de ficha.
 
+O relatório termina com o gráfico **Cobertura de fim de vida**: para aplicações e componentes de TI, quantos têm um fim de vida ligado a partir do endoflife.date, introduzido à mão, ou não registado de todo. Clique num segmento para listar os cartões correspondentes; a partir do painel **Não registado**, **Ver no inventário** abre exatamente esses componentes no [Inventário](inventory.md), onde o filtro **Fim de vida** permite tratá-los.
 
 ## Relatório de Fim de Vida (EOL)
 
@@ -267,6 +268,7 @@ O **Relatório de EOL** mostra o status de suporte de produtos tecnológicos vin
 - **Distribuição de status** — Quantos produtos estão Suportados, Aproximando-se do EOL ou em Fim de Vida
 - **Linha do tempo** — Quando os produtos perderão suporte
 - **Priorização de risco** — Foque em componentes de missão crítica que se aproximam do EOL
+- **Sem dados de fim de vida** — Aplicações e componentes de TI sem ligação ao endoflife.date nem data de fim de vida própria. São listados com o estado **Sem dados de fim de vida**; carregue no bloco com o mesmo nome para mostrar apenas esses e carregue novamente para trazer os restantes de volta. Uma data mantida à mão no ciclo de vida conta como registada, pelo que um componente já avaliado não reaparece aqui.
 
 ## Relatórios Salvos
 

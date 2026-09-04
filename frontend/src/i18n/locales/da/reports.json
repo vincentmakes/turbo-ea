@@ -345,7 +345,7 @@
   "eol.supportUntil": "Support indtil",
   "eol.latest": "Seneste",
   "eol.impact": "Påvirkning",
-  "eol.noEolData": "Ingen kort med udløbsdata fundet. Tilknyt en applikation eller IT-komponent til endoflife.date, eller angiv en udløbsdato i livscyklusafsnittet.",
+  "eol.noEolData": "Ingen applikationer eller it-komponenter fundet. End-of-life-oplysninger registreres på disse to korttyper.",
   "eol.noFilterMatch": "Ingen elementer matcher de aktuelle filtre.",
   "eol.eolReached_one": "<strong>{{count}}</strong> element har nået udløb",
   "eol.eolReached_other": "<strong>{{count}}</strong> elementer har nået udløb",
@@ -480,5 +480,12 @@
   "matrix.scopeTooltipRows": "Vis kun de valgte rækker og alt under dem",
   "matrix.scopeTooltipCols": "Vis kun de valgte kolonner og alt under dem",
   "matrix.scopeRows": "Rækkeomfang",
-  "matrix.scopeCols": "Kolonneomfang"
+  "matrix.scopeCols": "Kolonneomfang",
+  "dataQuality.eolMissing": "Ikke registreret",
+  "eol.statusMissing": "Ingen EOL-data",
+  "eol.noEolDataKpi": "Ingen EOL-data",
+  "dataQuality.eolCoverage": "End-of-life-dækning",
+  "dataQuality.eolCoverageHint": "Applikationer og it-komponenter, opdelt efter om der er registreret en end of life. Klik på et segment for at se kortene bag det.",
+  "dataQuality.eolLinked": "Knyttet til endoflife.date",
+  "dataQuality.eolManual": "Dato indtastet manuelt"
 }

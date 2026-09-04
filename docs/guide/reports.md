@@ -257,6 +257,7 @@ Every figure on the report is a way in, not just a readout:
 
 From the panel, click any card to open its detail side panel, or press **View in inventory** to continue in the [Inventory](inventory.md) — which arrives grouped by data quality with the band you clicked expanded and the others collapsed beside it, so you can start fixing records straight away. The Orphaned and Stale panels link into the inventory's matching filter, across every card type.
 
+The report closes with an **End-of-life coverage** chart: for applications and IT components, how many have an end of life linked from endoflife.date, entered by hand, or not recorded at all. Click any segment to list the cards behind it; from the **Not recorded** panel, **View in inventory** opens exactly those components in the [Inventory](inventory.md), where the **End of life** filter lets you work through them.
 
 ## End of Life (EOL) Report
 
@@ -267,6 +268,7 @@ The **EOL Report** shows the support status of technology products linked via th
 - **Status distribution** — How many products are Supported, Approaching EOL, or End of Life
 - **Timeline** — When products will lose support
 - **Risk prioritization** — Focus on mission-critical components approaching EOL
+- **No EOL data** — Applications and IT components with neither a link to endoflife.date nor an End of Life date of their own. They are listed with a **No EOL data** status; press the KPI tile of the same name to show only those, and press it again to bring the rest back. A date you maintain by hand in the Lifecycle section counts as coverage, so a component you have already assessed does not reappear here.
 
 ## Saved Reports
 

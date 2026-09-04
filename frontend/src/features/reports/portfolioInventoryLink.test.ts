@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   INVENTORY_EMPTY_VALUE,
   INVENTORY_NOT_SET_KEY,
+  buildInventoryEolUrl,
   buildInventorySliceUrl,
 } from "./portfolioInventoryLink";
 import { EMPTY_VALUE } from "@/features/inventory/InventoryFilterSidebar";
@@ -101,6 +102,14 @@ describe("buildInventorySliceUrl", () => {
       group: "ungrouped",
     });
     expect(paramsOf(url).get("rel_Organization")).toBe(INVENTORY_EMPTY_VALUE);
+  });
+
+  it("lands the End of life facet on one type and one status", () => {
+    // The inventory's EOL facet only engages once a single EOL-capable type
+    // is selected, so the type is not optional here.
+    expect(buildInventoryEolUrl("ITComponent", INVENTORY_EMPTY_VALUE)).toBe(
+      "/inventory?type=ITComponent&eol=__empty__",
+    );
   });
 
   it("keeps the local sentinels in sync with their sources of truth", () => {

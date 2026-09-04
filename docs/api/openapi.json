@@ -4931,6 +4931,99 @@
         "title": "EntitlementOut",
         "type": "object"
       },
+      "EolCardStatus": {
+        "description": "The resolved end-of-life picture for one card.",
+        "properties": {
+          "eol_cycle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol Cycle"
+          },
+          "eol_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol Date"
+          },
+          "eol_product": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol Product"
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest"
+          },
+          "source": {
+            "description": "api (endoflife.date link) | manual (lifecycle date)",
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "description": "eol | approaching | supported | unknown",
+            "title": "Status",
+            "type": "string"
+          },
+          "support_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Date"
+          }
+        },
+        "required": [
+          "status",
+          "source"
+        ],
+        "title": "EolCardStatus",
+        "type": "object"
+      },
+      "EolCardStatusResponse": {
+        "description": "Card id \u2192 status, for every card of the type that carries EOL data.",
+        "properties": {
+          "items": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/EolCardStatus"
+            },
+            "title": "Items",
+            "type": "object"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "EolCardStatusResponse",
+        "type": "object"
+      },
       "EolCycle": {
         "description": "A single release cycle for a product.",
         "properties": {
@@ -24793,6 +24886,51 @@
         ]
       }
     },
+    "/api/v1/eol/card-status": {
+      "get": {
+        "description": "Resolve the end-of-life status of every card of a type in one call.\n\nBacks the inventory's End of life column and filter. Cards with neither a\nproduct link nor a manual End of Life date are **absent** from the map\nrather than present with a null status \u2014 the client reads absence as \"not\nrecorded\", and it keeps the payload proportional to what is actually\nlinked rather than to the size of the landscape.",
+        "operationId": "eol_card_status_api_v1_eol_card_status_get",
+        "parameters": [
+          {
+            "description": "Application or ITComponent",
+            "in": "query",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "description": "Application or ITComponent",
+              "title": "Type",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EolCardStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Eol Card Status",
+        "tags": [
+          "End of Life"
+        ]
+      }
+    },
     "/api/v1/eol/mass-link": {
       "post": {
         "description": "Bulk-link cards to EOL products/cycles.\n\nExpects a list of: [{card_id, eol_product, eol_cycle}].\nOnly the EOL product/cycle association is recorded \u2014 lifecycle phase dates\n(including End of Life, the decommission date) are manually owned and are\nnever auto-filled from vendor EOL data.",
@@ -31161,7 +31299,7 @@
             }
           },
           {
-            "description": "orphaned | stale",
+            "description": "orphaned | stale | eol_linked | eol_manual | eol_missing. The three `eol_*` scopes are the EOL coverage chart's segments and pair with `type`.",
             "in": "query",
             "name": "scope",
             "required": false,
@@ -31174,7 +31312,7 @@
                   "type": "null"
                 }
               ],
-              "description": "orphaned | stale",
+              "description": "orphaned | stale | eol_linked | eol_manual | eol_missing. The three `eol_*` scopes are the EOL coverage chart's segments and pair with `type`.",
               "title": "Scope"
             }
           },
@@ -31295,7 +31433,7 @@
     },
     "/api/v1/reports/eol": {
       "get": {
-        "description": "End-of-Life risk & impact report.\n\nReturns all Applications and IT Components with linked EOL data\n(from endoflife.date API) *or* manually maintained lifecycle dates,\nenriched with live cycle information and impact mapping\n(IT Component \u2192 related Applications).\n\nEach item includes a ``source`` field: ``\"api\"`` for items linked\nto endoflife.date, ``\"manual\"`` for items with only a hand-entered\n``endOfLife`` lifecycle date.",
+        "description": "End-of-Life risk & impact report.\n\nReturns all Applications and IT Components with linked EOL data\n(from endoflife.date API) *or* manually maintained lifecycle dates,\nenriched with live cycle information and impact mapping\n(IT Component \u2192 related Applications).\n\nEach item includes a ``source`` field: ``\"api\"`` for items linked\nto endoflife.date, ``\"manual\"`` for items with only a hand-entered\n``endOfLife`` lifecycle date, and ``\"none\"`` for cards carrying neither.\n\nThose last ones (``status: \"missing\"``) are the answer to \"which of my\nhundreds of IT Components has nobody recorded an end of life for?\"\n([#1065](https://github.com/vincentmakes/turbo-ea/discussions/1065)). The\nreport used to drop them silently, which made the one question the report\nis best placed to answer the one it could not.",
         "operationId": "eol_report_api_v1_reports_eol_get",
         "responses": {
           "200": {

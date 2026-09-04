@@ -57,8 +57,9 @@ interface EolItem {
   subtype?: string;
   eol_product: string | null;
   eol_cycle: string | null;
-  status: "eol" | "approaching" | "supported" | "unknown";
-  source: "api" | "manual";
+  status: "eol" | "approaching" | "supported" | "unknown" | "missing";
+  /** `"none"` — nothing recorded at all, neither a link nor a manual date. */
+  source: "api" | "manual" | "none";
   cycle_data: CycleData | null;
   lifecycle?: Record<string, string>;
   affected_apps: AffectedApp[];
@@ -70,6 +71,8 @@ interface EolReportData {
     eol: number;
     approaching: number;
     supported: number;
+    /** Applications / IT Components with no EOL information recorded. */
+    missing: number;
     impacted_apps: number;
     approaching_impacted_apps: number;
     manual: number;
@@ -85,6 +88,10 @@ const STATUS_CONFIG = {
   approaching: { labelKey: "eol.statusApproaching", color: "#ed6c02", icon: "warning" },
   supported: { labelKey: "eol.statusSupported", color: "#2e7d32", icon: "check_circle" },
   unknown: { labelKey: "eol.statusUnknown", color: "#9e9e9e", icon: "help" },
+  // Not a classification but the absence of one: nobody has recorded an end
+  // of life for this card. Grey rather than red — it is a gap in the
+  // inventory, not a risk anyone has established.
+  missing: { labelKey: "eol.statusMissing", color: "#9e9e9e", icon: "event_busy" },
 };
 
 /* ------------------------------------------------------------------ */
@@ -122,10 +129,12 @@ function countdownLabel(days: number | null): string {
 }
 
 /** Source badge for manual vs API items */
-function SourceBadge({ source }: { source: "api" | "manual" }) {
+function SourceBadge({ source }: { source: "api" | "manual" | "none" }) {
   const { t } = useTranslation(["reports"]);
   const theme = useTheme();
-  if (source === "api") return null;
+  // A missing row's status chip already says everything there is to say
+  // about where its data came from: nowhere.
+  if (source !== "manual") return null;
   return (
     <Tooltip title={t("eol.manualTooltip")}>
       <Chip
@@ -154,21 +163,26 @@ function KpiCard({
   label,
   value,
   color,
+  onClick,
 }: {
   icon: string;
   label: string;
   value: number;
   color: string;
+  /** When given, the tile filters the table to what it counts. */
+  onClick?: () => void;
 }) {
   return (
     <Paper
       variant="outlined"
+      onClick={onClick}
       sx={{
         p: 2,
         flex: "1 1 0",
         minWidth: 140,
         display: "flex",
         flexDirection: "column",
+        ...(onClick ? { cursor: "pointer", "&:hover": { borderColor: color } } : {}),
         alignItems: "center",
         gap: 0.5,
         bgcolor: alpha(color, 0.08),
@@ -255,7 +269,16 @@ export default function EolReport() {
 
   // Sorted items for table
   const sortedItems = useMemo(() => {
-    const statusOrder = { eol: 0, approaching: 1, unknown: 2, supported: 3 };
+    // Same order the backend sorts by, so a table the user has not re-sorted
+    // arrives in the order it was served: "missing" last, a backlog rather
+    // than a risk.
+    const statusOrder: Record<string, number> = {
+      eol: 0,
+      approaching: 1,
+      unknown: 2,
+      supported: 3,
+      missing: 4,
+    };
     return [...filteredItems].sort((a, b) => {
       const d = sortD === "asc" ? 1 : -1;
       if (sortK === "name") return a.name.localeCompare(b.name) * d;
@@ -462,6 +485,18 @@ export default function EolReport() {
           label={t("eol.manuallyMaintained")}
           value={data.summary.manual}
           color="#3949ab"
+        />
+        {/* The backlog: components nobody has recorded an end of life for.
+            Clicking filters the table to exactly them — the question this
+            report could not answer before #1065. */}
+        <KpiCard
+          icon="event_busy"
+          label={t("eol.noEolDataKpi")}
+          value={data.summary.missing}
+          color="#9e9e9e"
+          onClick={() =>
+            setFilterStatus((current) => (current === "missing" ? "" : "missing"))
+          }
         />
       </Box>
 

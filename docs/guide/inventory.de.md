@@ -18,6 +18,7 @@ Das linke Seitenpanel ermöglicht es Ihnen, Karten nach verschiedenen Kriterien 
 - **Datenqualität** — Filtern nach Band (Mehrfachauswahl): Vollständig (≥80%), Teilweise (40–79%), Minimal (unter 40%). Dieselben Bänder wie im [Datenqualitätsbericht](reports.md#data-quality-report) — ein Klick auf ein Balkensegment dort führt hierher.
 - **Verwaist** — Nur Karten ohne Beziehung in beide Richtungen. Serverseitig ausgewertet und daher auch ohne ausgewählten Kartentyp nutzbar.
 - **Veraltet** — Nur Karten, die seit 90 Tagen nicht aktualisiert wurden. Beide entsprechen den KPI-Kacheln des [Datenqualitätsberichts](reports.md#data-quality-report) — ein Klick auf eine Kachel führt hierher.
+- **Lebensende** — Für Anwendungen und IT-Komponenten nach dem Support-Status filtern, den Turbo EA aus der [EOL-Verknüpfung](../admin/eol.md) der Karte ermittelt: Lebensende, Bevorstehend, Unterstützt oder Unbekannt. **(leer)** listet die Karten, für die überhaupt nichts erfasst ist. Die zugehörige Spalte **Lebensende** zeigt das Datum neben einem Statuspunkt und wird als Datum sortiert und exportiert.
 - **Tags** — Filtern nach Tags aus beliebigen Tag-Gruppen
 - **Beziehungen** — Filtern nach verwandten Karten über Beziehungstypen
 - **Benutzerdefinierte Attribute** — Filtern nach Werten in benutzerdefinierten Feldern (Textsuche, Auswahloptionen)

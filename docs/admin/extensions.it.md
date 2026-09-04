@@ -56,7 +56,7 @@ Alcune estensioni a pagamento offrono una **prova gratuita di 30 giorni** — ce
 ## Installare un'estensione
 
 1. Se non lo hai già fatto, applica prima la licenza (vedi sotto).
-2. Apri **Admin → Estensioni**, premi **Installa da file…** in cima alla pagina (accanto all'ID istanza: è presente su entrambe le schede) e carica il file `.teax` ricevuto.
+2. Apri **Admin → Estensioni**, premi **Installa da file…** sopra il catalogo nella scheda Store o sopra l'elenco nella scheda Installate (e dentro l'avviso mostrato quando lo store non è raggiungibile) e carica il file `.teax` ricevuto.
 3. Turbo EA verifica la firma e apre una **finestra di installazione** con un'**anteprima**: per le estensioni con contenuti è una simulazione di ogni tipo di scheda, gruppo di tag, scheda e relazione che l'estensione creerebbe o aggiornerebbe — non viene ancora scritto nulla.
 4. Controlla l'anteprima — scorre all'interno della finestra — e premi **Installa estensione** in fondo alla finestra, dove il pulsante resta comunque, per quanto lunga sia l'anteprima.
 5. Se l'estensione contiene codice backend, un avviso chiede di riavviare il container backend (`docker compose restart backend`). Le estensioni di contenuto e di interfaccia sono attive subito — gli utenti vedono la nuova interfaccia al prossimo caricamento della pagina.

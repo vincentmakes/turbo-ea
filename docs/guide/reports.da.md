@@ -257,6 +257,7 @@ Hvert tal i rapporten er en indgang, ikke bare en aflæsning:
 
 Fra panelet kan du klikke på et kort for at åbne dets detaljepanel, eller trykke **Vis i inventar** for at fortsætte i [Inventaret](inventory.md) — som åbner grupperet efter datakvalitet med det valgte bånd foldet ud og de øvrige foldet sammen ved siden af, så du kan gå i gang med at rette poster med det samme. Panelerne Forældreløse og Forældede linker til inventarets tilsvarende filter på tværs af alle korttyper.
 
+Rapporten slutter med diagrammet **End-of-life-dækning**: hvor mange applikationer og it-komponenter der har en end of life hentet fra endoflife.date, indtastet manuelt eller slet ikke registreret. Klik på et segment for at se kortene bag det; fra panelet **Ikke registreret** åbner **Vis i inventar** præcis de komponenter i [Inventaret](inventory.md), hvor filteret **End of life** lader dig arbejde dem igennem.
 
 ## End of Life (EOL)-rapport
 
@@ -267,6 +268,7 @@ Fra panelet kan du klikke på et kort for at åbne dets detaljepanel, eller tryk
 - **Status-fordeling** — Hvor mange produkter er Supported, Approaching EOL eller End of Life
 - **Tidslinje** — Hvornår produkter mister support
 - **Risiko­prioritering** — Fokuser på missionskritiske komponenter, der nærmer sig EOL
+- **Ingen EOL-data** — Applikationer og it-komponenter uden hverken et link til endoflife.date eller en selvangivet End of Life-dato. De vises med statussen **Ingen EOL-data**; tryk på feltet med samme navn for kun at vise dem, og tryk igen for at hente resten frem. En dato, du selv vedligeholder i livscyklussen, tæller som registreret, så en komponent, du allerede har vurderet, dukker ikke op igen her.
 
 ## Gemte rapporter
 

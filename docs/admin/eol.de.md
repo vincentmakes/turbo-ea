@@ -56,3 +56,10 @@ Einmal verknüpft, zeigt die Kartendetailseite einen **EOL-Abschnitt** mit:
 ## EOL-Bericht
 
 Verknüpfte EOL-Daten fließen in den [EOL-Bericht](../guide/reports.md) ein, der eine Dashboard-Ansicht des Supportstatus Ihrer Technologielandschaft über alle verknüpften Karten hinweg bietet.
+
+## Finden, was noch nicht verknüpft ist
+
+Zwei Stellen außerhalb dieser Seite listen die Karten ganz ohne End-of-Life-Informationen — weder eine Verknüpfung hier noch ein eigenes Lebensende-Datum:
+
+- Der Filter und die Spalte **Lebensende** im [Inventar](../guide/inventory.md) — Kartentyp wählen, dann die Option **(leer)**.
+- Die Kennzahl **Keine EOL-Daten** im [EOL-Bericht](../guide/reports.md) und das Diagramm **End-of-Life-Abdeckung** am Ende des Datenqualitätsberichts.

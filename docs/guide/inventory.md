@@ -18,6 +18,7 @@ The left sidebar panel allows you to **filter** cards by different criteria:
 - **Data Quality** — Band filtering (multi-select): Complete (≥80%), Partial (40–79%), Minimal (below 40%). Same bands the [Data Quality report](reports.md#data-quality-report) charts, so clicking a bar segment there lands here.
 - **Orphaned** — Only cards with no relation in either direction. Evaluated server-side, so it works with no card type selected.
 - **Stale** — Only cards not updated in the last 90 days. Both mirror the [Data Quality report](reports.md#data-quality-report)'s KPI tiles, so clicking a tile there lands here.
+- **End of life** — For Applications and IT Components, filter by the support status Turbo EA resolves from the [EOL link](../admin/eol.md) on each card: End of Life, Approaching, Supported or Unknown. **(empty)** lists the cards with nothing recorded at all. The matching **End of life** column shows the date beside a status dot, and sorts and exports as a date.
 - **Tags** — Filter by tags from any tag group
 - **Relations** — Filter by related cards across relation types
 - **Custom attributes** — Filter by values in custom fields (text search, select options)

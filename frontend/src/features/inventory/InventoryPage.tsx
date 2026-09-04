@@ -45,7 +45,9 @@ import InventoryFilterSidebar, {
   LIFECYCLE_PHASES,
   LOCKED_COLUMN_KEYS,
   LOGO_COLUMN_KEY,
+  EOL_COLUMN_KEY,
   EMPTY_VALUE,
+  eolColumnApplies,
   logoColumnApplies,
   normalizeRelationFilterKeys,
   normalizeSelectAttributeFilters,
@@ -82,6 +84,8 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { useCurrency } from "@/hooks/useCurrency";
 import { FieldEditor } from "@/features/cards/sections/cardDetailUtils";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
+import { useApiQuery } from "@/hooks/useApiQuery";
+import { EOL_STATUS_COLORS, EOL_STATUS_LABEL_KEYS, isEolType } from "@/lib/eol";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api, ApiError, isAbortError } from "@/api/client";
 import { sideKey } from "@/lib/relationSort";
@@ -112,7 +116,7 @@ import TagsCellEditor from "@/features/inventory/TagsCellEditor";
 import MultiSelectCellEditor from "@/features/inventory/MultiSelectCellEditor";
 import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
-import type { Card, CardListResponse, CardType, ColumnLayoutItem, FieldDef, FieldOption, RelatedCardRef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
+import type { Card, CardListResponse, EolCardStatus, EolCardStatusResponse, CardType, ColumnLayoutItem, FieldDef, FieldOption, RelatedCardRef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
 import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
@@ -287,6 +291,7 @@ function urlHasFilterParams(searchParams: URLSearchParams): boolean {
     searchParams.has("dq") ||
     searchParams.has("orphaned") ||
     searchParams.has("stale") ||
+    searchParams.has("eol") ||
     Array.from(searchParams.keys()).some((k) => k.startsWith("attr_") || k.startsWith("rel_"))
   );
 }
@@ -689,6 +694,9 @@ function savePrefs(prefs: InventoryPrefs) {
 
 export default function InventoryPage() {
   const { t, i18n } = useTranslation(["inventory", "common"]);
+  // EOL status labels belong to the EOL report; the grid borrows them rather
+  // than keeping a second copy that can drift.
+  const { t: tReports } = useTranslation("reports");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatDate, formatDateTime } = useDateFormat();
@@ -765,6 +773,7 @@ export default function InventoryPage() {
         mineScope: searchParams.get("mine") === "stakeholder" ? "stakeholder" : null,
         orphanedOnly: searchParams.get("orphaned") === "true",
         staleOnly: searchParams.get("stale") === "true",
+        eolStatuses: searchParams.getAll("eol"),
       };
     }
 
@@ -786,6 +795,7 @@ export default function InventoryPage() {
         mineScope: saved.filters.mineScope ?? null,
         orphanedOnly: saved.filters.orphanedOnly || false,
         staleOnly: saved.filters.staleOnly || false,
+        eolStatuses: saved.filters.eolStatuses || [],
       };
     }
 
@@ -803,6 +813,7 @@ export default function InventoryPage() {
       mineScope: null,
       orphanedOnly: false,
       staleOnly: false,
+      eolStatuses: [],
     };
   });
   // Current filters, readable from the facet bindings' stable callbacks
@@ -1132,6 +1143,29 @@ export default function InventoryPage() {
   useEffect(() => {
     gridRef.current?.api?.resetRowHeights();
   }, [logoColumnShown, gridReady]);
+
+  // --- End of life -----------------------------------------------------------
+  // The card stores only the endoflife.date link (or a manual date); the dates
+  // behind it are resolved server-side, so the column and facet need one call
+  // per selected type. Only for a SINGLE EOL-capable type: the endpoint is
+  // per-type, and a column of dates from two different populations answers
+  // nothing. Through `useApiQuery` rather than a bare `api.get` in an effect,
+  // so a slow response for the previous type cannot overwrite the current one
+  // (#882).
+  const eolTypeKey =
+    filters.types.length === 1 && isEolType(filters.types[0]) ? filters.types[0] : null;
+  const canViewEol = !!(user?.permissions?.["*"] || user?.permissions?.["eol.view"]);
+  const { data: eolStatusData, loading: eolLoading } = useApiQuery<EolCardStatusResponse>(
+    eolTypeKey && canViewEol ? `/eol/card-status?type=${encodeURIComponent(eolTypeKey)}` : null,
+  );
+  const eolStatusMap = eolStatusData?.items;
+  const eolOf = useCallback(
+    (card: Card): EolCardStatus | undefined => eolStatusMap?.[card.id],
+    [eolStatusMap],
+  );
+  // Same rule the column picker and the facet use, so all three appear and
+  // disappear together.
+  const eolColumnAvailable = canViewEol && eolColumnApplies(filters.types);
 
   // URL deep-links seed attribute filters as scalar strings (the URL block
   // above runs before the metamodel loads, so it can't know which fields are
@@ -1602,6 +1636,15 @@ export default function InventoryPage() {
       result = result.filter((card) => filters.lifecyclePhases.includes(getLifecyclePhase(card) || EMPTY_VALUE));
     }
 
+    // End-of-life filter. "(empty)" matches cards with nothing recorded —
+    // absent from the resolved map is exactly that state, which is why the
+    // endpoint omits them rather than returning a null status.
+    if (filters.eolStatuses.length > 0) {
+      result = result.filter((card) =>
+        filters.eolStatuses.includes(eolOf(card)?.status ?? EMPTY_VALUE),
+      );
+    }
+
     // Data quality filter — disjoint bands, OR'd (see dataQualityBands.ts)
     if (filters.dataQualityBands.length > 0) {
       const bands = filters.dataQualityBands;
@@ -1722,7 +1765,7 @@ export default function InventoryPage() {
     }
 
     return result;
-  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.dataQualityBands, filters.attributes, filters.relations, filters.tagIds, relationsMap, relTypeGroupMap, relatedRefsOf, tagGroups]);
+  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.eolStatuses, eolOf, filters.dataQualityBands, filters.attributes, filters.relations, filters.tagIds, relationsMap, relTypeGroupMap, relatedRefsOf, tagGroups]);
 
   // --- Grouped row data (shared hook — see components/grid/useRowGrouping) ---
   const grouping = useRowGrouping<Card>(gridRef, {
@@ -2920,6 +2963,58 @@ export default function InventoryPage() {
           return <LifecycleBadge lifecycle={lifecycle} />;
         },
       },
+      // End of life. The value is the resolved date, so sorting and the
+      // Excel export both work on a date rather than on a status word; the
+      // renderer adds the status colour, and the tooltip the provenance
+      // (product cycle, or a manually entered date).
+      ...(eolColumnAvailable
+        ? [
+            {
+              colId: EOL_COLUMN_KEY,
+              headerName: t("columns.eol"),
+              width: 160,
+              hide: !selectedColumns.has(EOL_COLUMN_KEY),
+              ...dateColumnFilterDef,
+              valueGetter: (p: { data?: Card }) =>
+                (p.data ? eolOf(p.data)?.eol_date : null) ?? "",
+              valueFormatter: (p: { value?: string }) => (p.value ? formatDate(p.value) : ""),
+              cellRenderer: (p: { data?: Card; value?: string }) => {
+                if (!p.data) return "";
+                const entry = eolOf(p.data);
+                // Absent while the statuses are still resolving means "not
+                // known yet", not "nothing recorded" — a dash either way, but
+                // the column must not claim a gap it has not confirmed.
+                if (!entry) return eolLoading ? "—" : "";
+                const color = EOL_STATUS_COLORS[entry.status];
+                const label = tReports(EOL_STATUS_LABEL_KEYS[entry.status]);
+                const title = [
+                  entry.source === "api"
+                    ? `${entry.eol_product} ${entry.eol_cycle}`
+                    : t("filter.eolManual"),
+                  entry.support_date ? `${t("columns.eolSupport")}: ${formatDate(entry.support_date)}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
+                return (
+                  <Tooltip title={title}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <Box
+                        sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          bgcolor: color,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span>{p.value ? formatDate(p.value) : label}</span>
+                    </Box>
+                  </Tooltip>
+                );
+              },
+            },
+          ]
+        : []),
       {
         colId: "core_approval_status",
         field: "approval_status",
@@ -3403,7 +3498,7 @@ export default function InventoryPage() {
       : cols.filter((c) => c.colId !== LOGO_COLUMN_KEY);
 
     return gridColumnOrder.applyOrder(columnFreeze.applyFrozen(applicable));
-  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel]);
+  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, eolColumnAvailable, eolOf, eolLoading, tReports]);
 
   // Feeds the Columns tab's "Column order" section: only the columns actually
   // on screen, built from the grid's own defs. On this page that matters twice
@@ -3715,6 +3810,7 @@ export default function InventoryPage() {
             relationsMap={relationsMap}
             tagGroups={tagGroups}
             canArchive={canArchive}
+            showEolFacet={eolColumnAvailable}
             canShareBookmarks={canShareBookmarks}
             canOdataBookmarks={canOdataBookmarks}
             currentUserId={user?.id}
@@ -3751,6 +3847,7 @@ export default function InventoryPage() {
           relationsMap={relationsMap}
           tagGroups={tagGroups}
           canArchive={canArchive}
+          showEolFacet={eolColumnAvailable}
           canShareBookmarks={canShareBookmarks}
           canOdataBookmarks={canOdataBookmarks}
           currentUserId={user?.id}

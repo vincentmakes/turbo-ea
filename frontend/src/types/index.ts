@@ -1152,6 +1152,26 @@ export interface EolCycle {
   link?: string | null;
 }
 
+/**
+ * The resolved end-of-life picture for one card, from
+ * `GET /eol/card-status`. Cards carrying no EOL data at all are absent from
+ * that response rather than present with a null status.
+ */
+export interface EolCardStatus {
+  status: "eol" | "approaching" | "supported" | "unknown";
+  source: "api" | "manual";
+  eol_product?: string | null;
+  eol_cycle?: string | null;
+  /** ISO date, or null when upstream reports only a boolean. */
+  eol_date?: string | null;
+  support_date?: string | null;
+  latest?: string | null;
+}
+
+export interface EolCardStatusResponse {
+  items: Record<string, EolCardStatus>;
+}
+
 export interface EolProductMatch {
   name: string;
   score: number;

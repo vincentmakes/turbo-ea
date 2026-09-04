@@ -19,6 +19,7 @@ const baseFilters: Filters = {
   dataQualityBands: ["partial"],
   orphanedOnly: false,
   staleOnly: false,
+  eolStatuses: [],
   approvalStatuses: ["APPROVED"],
   showArchived: false,
   attributes: { vendor: ["SAP"] },

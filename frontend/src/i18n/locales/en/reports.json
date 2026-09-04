@@ -345,7 +345,7 @@
   "eol.supportUntil": "Support Until",
   "eol.latest": "Latest",
   "eol.impact": "Impact",
-  "eol.noEolData": "No cards with EOL data found. Link an Application or IT Component to endoflife.date, or set an End of Life date in the Lifecycle section.",
+  "eol.noEolData": "No applications or IT components found. End-of-life information is tracked on those two card types.",
   "eol.noFilterMatch": "No items match the current filters.",
   "eol.eolReached_one": "<strong>{{count}}</strong> item has reached End of Life",
   "eol.eolReached_other": "<strong>{{count}}</strong> items have reached End of Life",
@@ -480,5 +480,12 @@
   "matrix.scopeTooltipRows": "Show only the selected rows and everything beneath them",
   "matrix.scopeTooltipCols": "Show only the selected columns and everything beneath them",
   "matrix.scopeRows": "Row scope",
-  "matrix.scopeCols": "Column scope"
+  "matrix.scopeCols": "Column scope",
+  "dataQuality.eolMissing": "Not recorded",
+  "eol.statusMissing": "No EOL data",
+  "eol.noEolDataKpi": "No EOL data",
+  "dataQuality.eolCoverage": "End-of-life coverage",
+  "dataQuality.eolCoverageHint": "Applications and IT components, by whether an end of life has been recorded for them. Click a segment to list the cards behind it.",
+  "dataQuality.eolLinked": "Linked to endoflife.date",
+  "dataQuality.eolManual": "Date entered by hand"
 }

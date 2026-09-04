@@ -345,7 +345,7 @@
   "eol.supportUntil": "Support jusqu’au",
   "eol.latest": "Dernière",
   "eol.impact": "Impact",
-  "eol.noEolData": "Aucune fiche avec des données EOL trouvée. Liez une application ou un composant IT à endoflife.date, ou définissez une date de fin de vie dans la section Cycle de vie.",
+  "eol.noEolData": "Aucune application ou composant informatique trouvé. Les informations de fin de vie sont suivies sur ces deux types de fiches.",
   "eol.noFilterMatch": "Aucun élément ne correspond aux filtres actuels.",
   "eol.eolReached_one": "<strong>{{count}}</strong> élément a atteint la fin de vie",
   "eol.eolReached_other": "<strong>{{count}}</strong> éléments ont atteint la fin de vie",
@@ -480,5 +480,12 @@
   "matrix.scopeTooltipRows": "Afficher uniquement les lignes sélectionnées et tout ce qui se trouve en dessous",
   "matrix.scopeTooltipCols": "Afficher uniquement les colonnes sélectionnées et tout ce qui se trouve en dessous",
   "matrix.scopeRows": "Périmètre des lignes",
-  "matrix.scopeCols": "Périmètre des colonnes"
+  "matrix.scopeCols": "Périmètre des colonnes",
+  "dataQuality.eolMissing": "Non renseignée",
+  "eol.statusMissing": "Aucune donnée de fin de vie",
+  "eol.noEolDataKpi": "Aucune donnée de fin de vie",
+  "dataQuality.eolCoverage": "Couverture de fin de vie",
+  "dataQuality.eolCoverageHint": "Applications et composants informatiques, selon qu'une fin de vie a été renseignée ou non. Cliquez sur un segment pour lister les fiches correspondantes.",
+  "dataQuality.eolLinked": "Lié à endoflife.date",
+  "dataQuality.eolManual": "Date saisie à la main"
 }

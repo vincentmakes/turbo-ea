@@ -69,6 +69,21 @@ export interface InventorySliceFilters {
  * Orphaned / Stale tiles). No card type and no grouping — the tiles count
  * across every type, so the landing must too.
  */
+/**
+ * The inventory, filtered to one card type and one End-of-life status.
+ *
+ * Deliberately not a member of `buildInventoryFlagUrl`'s union: that builder
+ * means "a whole-inventory flag, no type", whereas the EOL facet only engages
+ * once a single EOL-capable type is selected, so this link must always carry
+ * `type`. Pass `INVENTORY_EMPTY_VALUE` for the cards with nothing recorded.
+ */
+export function buildInventoryEolUrl(cardType: string, status: string): string {
+  const params = new URLSearchParams();
+  params.set("type", cardType);
+  params.set("eol", status);
+  return `/inventory?${params.toString()}`;
+}
+
 export function buildInventoryFlagUrl(flag: "orphaned" | "stale"): string {
   return `/inventory?${flag}=true`;
 }

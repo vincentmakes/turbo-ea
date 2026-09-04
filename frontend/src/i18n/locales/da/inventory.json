@@ -261,5 +261,9 @@
   "export.currentViewHint": "Afspejler tabellen på skærmen — ikke egnet til genimport",
   "export.waitingForRelations": "Venter på, at relationskolonnerne indlæses…",
   "export.viewSheetName": "Visning",
-  "columns.id": "ID"
+  "columns.id": "ID",
+  "columns.eol": "End of life",
+  "columns.eolSupport": "Support slutter",
+  "filter.eol": "End of life",
+  "filter.eolManual": "Vedligeholdt manuelt"
 }

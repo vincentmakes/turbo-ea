@@ -18,6 +18,7 @@ El panel lateral izquierdo permite **filtrar** las fichas por diferentes criteri
 - **Calidad de Datos** — Filtrado por banda (selección múltiple): Completo (≥80%), Parcial (40–79%), Mínimo (menos del 40%). Son las bandas del [informe de Calidad de datos](reports.md#data-quality-report): al hacer clic en un segmento de barra allí se llega aquí.
 - **Huérfanas** — Solo fichas sin ninguna relación, en ningún sentido. Se evalúa en el servidor, por lo que funciona sin seleccionar un tipo de ficha.
 - **Desactualizadas** — Solo fichas sin actualizar en los últimos 90 días. Ambas reflejan los mosaicos del [informe de Calidad de datos](reports.md#data-quality-report): al hacer clic en uno se llega aquí.
+- **Fin de vida** — Para aplicaciones y componentes de TI, filtra por el estado de soporte que Turbo EA resuelve a partir del [enlace EOL](../admin/eol.md) de cada tarjeta: Fin de vida, Próximo, Con soporte o Desconocido. **(vacío)** lista las tarjetas sin nada registrado. La columna **Fin de vida** correspondiente muestra la fecha junto a un punto de estado, y se ordena y exporta como fecha.
 - **Etiquetas** — Filtrar por etiquetas de cualquier grupo de etiquetas
 - **Relaciones** — Filtrar por fichas relacionadas a través de tipos de relación
 - **Atributos personalizados** — Filtrar por valores en campos personalizados (búsqueda de texto, opciones de selección)

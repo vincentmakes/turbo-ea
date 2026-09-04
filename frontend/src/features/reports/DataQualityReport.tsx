@@ -28,7 +28,12 @@ import { useIsRtl } from "@/hooks/useIsRtl";
 import { makeRtlAxisTick, rtlLegendItemStyle, mirrorChartMargin } from "@/lib/rechartsRtl";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
-import { buildInventoryFlagUrl, buildInventorySliceUrl } from "./portfolioInventoryLink";
+import {
+  buildInventoryEolUrl,
+  buildInventoryFlagUrl,
+  buildInventorySliceUrl,
+  INVENTORY_EMPTY_VALUE,
+} from "./portfolioInventoryLink";
 import {
   bandColor,
   bandOf,
@@ -37,6 +42,7 @@ import {
 } from "@/lib/dataQualityBands";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { api } from "@/api/client";
+import { STATUS_COLORS } from "@/theme";
 
 interface TypeStat {
   type: string;
@@ -55,12 +61,26 @@ interface WorstItem {
   updated_at: string | null;
 }
 
+/** One EOL-capable card type's coverage, split by where it came from. */
+interface EolCoverage {
+  type: string;
+  /** Linked to an endoflife.date product cycle. */
+  linked: number;
+  /** Only a hand-entered End of Life date. */
+  manual: number;
+  /** Neither — nobody has recorded an end of life for these. */
+  missing: number;
+  total: number;
+}
+
 interface DQData {
   overall_data_quality: number;
   total_items: number;
   with_lifecycle: number;
   orphaned: number;
   stale: number;
+  /** EOL coverage per EOL-capable card type, for the chart at the foot. */
+  eol_coverage: EolCoverage[];
   by_type: TypeStat[];
   worst_items: WorstItem[];
 }
@@ -80,16 +100,54 @@ interface DQCardsResponse {
 }
 
 /**
+ * Both charts on this report are clickable, and clicking an SVG node focuses
+ * it: Chrome then paints its focus ring, which lands around the whole plot
+ * area on one chart and around a single bar group on the other — a stray box
+ * that reads as a line drawn across the bar, and that nothing dismisses.
+ *
+ * Recharts gives these nodes no `tabindex`, so nothing inside the SVG is
+ * reachable by keyboard and the ring only ever comes from a mouse click —
+ * suppressing it costs no affordance. It has to be plain `:focus` rather
+ * than `:focus:not(:focus-visible)`: Chrome reports these SVG nodes as
+ * matching `:focus-visible` even when focus came from a click, so the
+ * narrower selector never fires.
+ */
+const CHART_PAPER_SX = {
+  p: 2,
+  "& .recharts-wrapper svg:focus, & .recharts-wrapper svg :focus": {
+    outline: "none",
+  },
+} as const;
+
+/** The three segments of the EOL coverage chart, by where the data came from. */
+type EolBucket = "linked" | "manual" | "missing";
+
+/**
  * The slice of the dashboard the side panel is showing. `band` is one segment
- * of a stacked bar, `type` a whole bar, `flag` an orphaned/stale KPI tile.
+ * of a stacked bar, `type` a whole bar, `flag` an orphaned/stale KPI tile, and
+ * `eol` one segment of the EOL coverage chart at the foot.
  */
 type DQScope =
   | { kind: "band"; typeKey: string; band: DataQualityBand }
   | { kind: "type"; typeKey: string }
-  | { kind: "flag"; flag: "orphaned" | "stale" };
+  | { kind: "flag"; flag: "orphaned" | "stale" }
+  | { kind: "eol"; typeKey: string; bucket: EolBucket };
 
 // Derived from the shared band definitions rather than restated, so the
 // report's segments cannot drift from the inventory's chips of the same name.
+/**
+ * EOL coverage segments. Deliberately not the EOL *status* palette from
+ * `@/lib/eol`: those colours mean "how urgent is this component's end of
+ * life", and this chart answers a different question — whether anything is
+ * recorded at all — so borrowing red/amber would read as risk where none has
+ * been established.
+ */
+const EOL_SOURCE_COLORS = {
+  linked: "#1976d2",
+  manual: "#3949ab",
+  missing: STATUS_COLORS.neutral,
+};
+
 const QUALITY_COLORS = Object.fromEntries(
   DATA_QUALITY_BANDS.map((b) => [b.key, b.color]),
 ) as Record<DataQualityBand, string>;
@@ -107,6 +165,11 @@ function scopePath(scope: DQScope): string {
     params.set("band", scope.band);
   } else if (scope.kind === "type") {
     params.set("type", scope.typeKey);
+  } else if (scope.kind === "eol") {
+    // The bucket rides the existing `scope` parameter alongside `type`, the
+    // same pairing the band scopes use — no new endpoint surface.
+    params.set("type", scope.typeKey);
+    params.set("scope", `eol_${scope.bucket}`);
   } else {
     params.set("scope", scope.flag);
   }
@@ -189,6 +252,10 @@ export default function DataQualityReport() {
     if (typeKey) setScope({ kind: "band", typeKey, band });
   }, []);
 
+  const openEol = useCallback((typeKey: string | undefined, bucket: EolBucket) => {
+    if (typeKey) setScope({ kind: "eol", typeKey, bucket });
+  }, []);
+
   if (data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
 
@@ -210,6 +277,26 @@ export default function DataQualityReport() {
     total: bt.total,
   }));
 
+  // EOL coverage chart. Same shape as the stacked bar above, so the two read
+  // as one report; the backend already counts per type, so this only resolves
+  // the labels.
+  const eolLinkedLabel = t("dataQuality.eolLinked");
+  const eolManualLabel = t("dataQuality.eolManual");
+  const eolMissingLabel = t("dataQuality.eolMissing");
+  const EOL_BUCKET_LABEL: Record<EolBucket, string> = {
+    linked: eolLinkedLabel,
+    manual: eolManualLabel,
+    missing: eolMissingLabel,
+  };
+  const eolChartData = (data.eol_coverage ?? []).map((row) => ({
+    name: (() => { const tp = types.find((tp) => tp.key === row.type); return typeLabel(tp) || row.type; })(),
+    type: row.type,
+    [eolLinkedLabel]: row.linked,
+    [eolManualLabel]: row.manual,
+    [eolMissingLabel]: row.missing,
+    total: row.total,
+  }));
+
   const labelForType = (key: string) => typeLabel(types.find((tp) => tp.key === key)) || key;
 
   // ---- Side panel ----------------------------------------------------
@@ -219,6 +306,10 @@ export default function DataQualityReport() {
       return `${labelForType(scope.typeKey)} · ${t(BAND_LABEL_KEY[scope.band])}`;
     }
     if (scope.kind === "type") return labelForType(scope.typeKey);
+    if (scope.kind === "eol") {
+      // The same segment labels the chart and its legend use.
+      return `${labelForType(scope.typeKey)} · ${EOL_BUCKET_LABEL[scope.bucket]}`;
+    }
     return scope.flag === "orphaned" ? t("dataQuality.orphaned") : t("dataQuality.stale");
   })();
 
@@ -234,10 +325,18 @@ export default function DataQualityReport() {
 
   // Band and type slices land grouped by quality with the clicked band
   // expanded; the flag tiles land on their own inventory filter.
+  // Only the "not recorded" bucket has an exact equivalent in the inventory:
+  // its End of life facet filters by STATUS, never by where the data came
+  // from, so "linked" and "entered by hand" have no landing that lists the
+  // same cards — and a button onto a different set is worse than none.
   const panelInventoryHref = !scope
     ? undefined
-    : scope.kind === "flag"
-      ? buildInventoryFlagUrl(scope.flag)
+    : scope.kind === "eol"
+      ? scope.bucket === "missing"
+        ? buildInventoryEolUrl(scope.typeKey, INVENTORY_EMPTY_VALUE)
+        : undefined
+      : scope.kind === "flag"
+        ? buildInventoryFlagUrl(scope.flag)
       : buildInventorySliceUrl({
           cardType: scope.typeKey,
           mode: { kind: "quality" },
@@ -340,7 +439,7 @@ export default function DataQualityReport() {
       {view === "chart" ? (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
           {/* Stacked bar chart by type */}
-          <Paper variant="outlined" sx={{ p: 2 }} data-export-row>
+          <Paper variant="outlined" sx={CHART_PAPER_SX} data-export-row>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
               {t("dataQuality.completenessByType")}
             </Typography>
@@ -436,6 +535,67 @@ export default function DataQualityReport() {
               })}
             </Box>
           </Paper>
+
+          {/* EOL coverage. Data quality above is about the fields a card
+              type defines; this is about a fact that lives outside the
+              metamodel entirely — whether anyone has recorded an end of life
+              for the components that can have one. Split by source because a
+              vendor link keeps itself current while a hand-entered date is
+              only as good as its last review, and rendered only when the
+              landscape actually holds such cards. */}
+          {eolChartData.length > 0 && (
+            <Paper variant="outlined" sx={CHART_PAPER_SX} data-export-row>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                {t("dataQuality.eolCoverage")}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                {t("dataQuality.eolCoverageHint")}
+              </Typography>
+              <ResponsiveContainer width="100%" height={Math.max(160, eolChartData.length * 70)}>
+                <BarChart
+                  data={eolChartData}
+                  layout="vertical"
+                  margin={mirrorChartMargin({ left: 0, right: 16, top: 5, bottom: 5 }, isRtl)}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.palette.divider} />
+                  <XAxis type="number" reversed={isRtl} tick={axisTick} />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={axisWidth}
+                    orientation={isRtl ? "right" : "left"}
+                    tick={isRtl ? rtlAxisTick : axisTick}
+                  />
+                  <RTooltip cursor={{ fill: theme.palette.action.hover }} content={<CustomTooltip />} />
+                  <Legend formatter={(value: string) => <span style={rtlLegendItemStyle(isRtl, theme.palette.text.primary)}>{value}</span>} />
+                  {/* Each segment opens the panel on the cards behind it, the
+                      same way a completeness segment does. */}
+                  <Bar
+                    dataKey={eolLinkedLabel}
+                    stackId="eol"
+                    fill={EOL_SOURCE_COLORS.linked}
+                    cursor="pointer"
+                    onClick={(entry: { type?: string }) => openEol(entry?.type, "linked")}
+                  />
+                  <Bar
+                    dataKey={eolManualLabel}
+                    stackId="eol"
+                    fill={EOL_SOURCE_COLORS.manual}
+                    cursor="pointer"
+                    onClick={(entry: { type?: string }) => openEol(entry?.type, "manual")}
+                  />
+                  <Bar
+                    dataKey={eolMissingLabel}
+                    stackId="eol"
+                    fill={EOL_SOURCE_COLORS.missing}
+                    radius={isRtl ? [4, 0, 0, 4] : [0, 4, 4, 0]}
+                    cursor="pointer"
+                    onClick={(entry: { type?: string }) => openEol(entry?.type, "missing")}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </Paper>
+          )}
         </Box>
       ) : (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>

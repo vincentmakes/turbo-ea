@@ -257,6 +257,7 @@ Chaque valeur du rapport est un point d'entrée, pas seulement un affichage :
 
 Depuis le panneau, cliquez sur une fiche pour ouvrir son panneau de détail, ou sur **Voir dans l'inventaire** pour poursuivre dans l'[Inventaire](inventory.md) — qui arrive groupé par qualité des données, la plage cliquée dépliée et les autres repliées à côté, afin de corriger les enregistrements immédiatement. Les panneaux Orphelins et Obsolètes mènent au filtre d'inventaire correspondant, tous types de fiches confondus.
 
+Le rapport se termine par le graphique **Couverture de fin de vie** : pour les applications et composants informatiques, combien ont une fin de vie liée depuis endoflife.date, saisie à la main, ou pas renseignée du tout. Cliquez sur un segment pour lister les fiches correspondantes ; depuis le panneau **Non renseignée**, **Voir dans l'inventaire** ouvre exactement ces composants dans l'[Inventaire](inventory.md), où le filtre **Fin de vie** permet de les traiter.
 
 ## Rapport Fin de vie (EOL)
 
@@ -267,6 +268,7 @@ Le **Rapport EOL** affiche le statut de support des produits technologiques lié
 - **Répartition des statuts** -- Combien de produits sont Supportés, Approchant la fin de vie, ou en Fin de vie
 - **Chronologie** -- Quand les produits perdront leur support
 - **Priorisation des risques** -- Se concentrer sur les composants critiques approchant la fin de vie
+- **Aucune donnée de fin de vie** — Applications et composants informatiques sans lien vers endoflife.date ni date de fin de vie propre. Ils sont listés avec le statut **Aucune donnée de fin de vie** ; cliquez sur la tuile du même nom pour n'afficher qu'eux, et de nouveau pour rétablir le reste. Une date saisie à la main dans le cycle de vie compte comme renseignée, donc un composant déjà évalué ne réapparaît pas ici.
 
 ## Rapports sauvegardés
 

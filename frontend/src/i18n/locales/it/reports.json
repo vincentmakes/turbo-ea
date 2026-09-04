@@ -345,7 +345,7 @@
   "eol.supportUntil": "Supporto fino a",
   "eol.latest": "Ultima",
   "eol.impact": "Impatto",
-  "eol.noEolData": "Nessuna scheda con dati EOL trovata. Colleghi un'applicazione o un componente IT a endoflife.date, oppure imposti una data di fine vita nella sezione Ciclo di vita.",
+  "eol.noEolData": "Nessuna applicazione o componente IT trovato. Le informazioni di fine vita sono tracciate su questi due tipi di scheda.",
   "eol.noFilterMatch": "Nessun elemento corrisponde ai filtri correnti.",
   "eol.eolReached_one": "<strong>{{count}}</strong> elemento ha raggiunto la fine vita",
   "eol.eolReached_other": "<strong>{{count}}</strong> elementi hanno raggiunto la fine vita",
@@ -480,5 +480,12 @@
   "matrix.scopeTooltipRows": "Mostra solo le righe selezionate e tutto ciò che si trova sotto di esse",
   "matrix.scopeTooltipCols": "Mostra solo le colonne selezionate e tutto ciò che si trova sotto di esse",
   "matrix.scopeRows": "Ambito righe",
-  "matrix.scopeCols": "Ambito colonne"
+  "matrix.scopeCols": "Ambito colonne",
+  "dataQuality.eolMissing": "Non registrata",
+  "eol.statusMissing": "Nessun dato di fine vita",
+  "eol.noEolDataKpi": "Nessun dato di fine vita",
+  "dataQuality.eolCoverage": "Copertura di fine vita",
+  "dataQuality.eolCoverageHint": "Applicazioni e componenti IT, in base al fatto che sia stata registrata una fine vita. Fai clic su un segmento per elencare le schede che lo compongono.",
+  "dataQuality.eolLinked": "Collegato a endoflife.date",
+  "dataQuality.eolManual": "Data inserita a mano"
 }

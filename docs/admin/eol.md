@@ -56,3 +56,10 @@ Once linked, the card's detail page shows an **EOL section** with:
 ## EOL Report
 
 Linked EOL data feeds into the [EOL Report](../guide/reports.md), which provides a dashboard view of your technology landscape's support status across all linked cards.
+
+## Finding what is not linked yet
+
+Two places outside this page list the cards with no end-of-life information at all — neither a link here nor an End of Life date of their own:
+
+- The **End of life** filter and column in the [Inventory](../guide/inventory.md) — pick a card type, then the **(empty)** pill.
+- The **No EOL data** figure on the [EOL Report](../guide/reports.md), and the **End-of-life coverage** chart at the foot of the Data Quality report.

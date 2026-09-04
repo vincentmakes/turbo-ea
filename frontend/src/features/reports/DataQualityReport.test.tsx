@@ -30,26 +30,53 @@ vi.mock("@/components/CardDetailSidePanel", () => ({
  * <Bar> gets a button per datum that fires its onClick with that datum, which
  * is exactly the contract the real component relies on.
  */
-let chartData: Record<string, unknown>[] = [];
-vi.mock("recharts", () => {
+/**
+ * The report renders more than one BarChart (completeness by type, then EOL
+ * coverage at the foot), and BOTH are now clickable. Each `Bar` therefore has
+ * to fire with its OWN chart's datum: a module-level `chartData` shared by
+ * every chart would hand the EOL bars the completeness chart's rows, and the
+ * `seg-*` testids would collide wherever a card type appears in both charts.
+ * A context carries each chart's data down to its own bars, and the testid is
+ * namespaced by the chart's index.
+ */
+let charts: Record<string, unknown>[][] = [];
+let nextChartIndex = 0;
+vi.mock("recharts", async () => {
   /* eslint-disable @typescript-eslint/no-explicit-any */
+  const { createContext, useContext, useState } =
+    await vi.importActual<typeof import("react")>("react");
+  const ChartCtx = createContext<{ data: Record<string, unknown>[]; index: number }>({
+    data: [],
+    index: 0,
+  });
   return {
     ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
     BarChart: ({ data, children }: any) => {
-      chartData = data ?? [];
-      return <div data-testid="bar-chart">{children}</div>;
+      // Claimed once per mounted chart, not per render: opening the panel
+      // re-renders the report, and an index derived from `charts.length`
+      // would renumber every chart on each pass and invalidate the testids.
+      const [index] = useState(() => nextChartIndex++);
+      charts[index] = data ?? [];
+      return (
+        <ChartCtx.Provider value={{ data: data ?? [], index }}>
+          <div data-testid={`bar-chart-${index}`}>{children}</div>
+        </ChartCtx.Provider>
+      );
     },
-    Bar: ({ dataKey, onClick }: any) => (
-      <>
-        {chartData.map((entry, i) => (
-          <button
-            key={i}
-            data-testid={`seg-${dataKey}-${entry.type}`}
-            onClick={() => onClick?.(entry, i)}
-          />
-        ))}
-      </>
-    ),
+    Bar: ({ dataKey, onClick }: any) => {
+      const { data, index } = useContext(ChartCtx);
+      return (
+        <>
+          {data.map((entry: any, i: number) => (
+            <button
+              key={i}
+              data-testid={`seg-${index}-${dataKey}-${entry.type}`}
+              onClick={() => onClick?.(entry, i)}
+            />
+          ))}
+        </>
+      );
+    },
     XAxis: () => null,
     YAxis: () => null,
     CartesianGrid: () => null,
@@ -85,6 +112,9 @@ const MOCK_DQ = {
   with_lifecycle: 6,
   orphaned: 3,
   stale: 2,
+  eol_coverage: [
+    { type: "Application", linked: 3, manual: 1, missing: 6, total: 10 },
+  ],
   by_type: [
     {
       type: "Application",
@@ -107,7 +137,8 @@ const MOCK_CARDS = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  chartData = [];
+  charts = [];
+  nextChartIndex = 0;
 
   vi.mocked(api.get).mockImplementation((path: string) => {
     if (path.startsWith("/reports/data-quality/cards")) return Promise.resolve(MOCK_CARDS);
@@ -156,11 +187,14 @@ function renderReport() {
 }
 
 /** The path the panel fetched, or undefined if it never fetched. */
-function panelFetchPath(): string | undefined {
-  return vi
+function panelFetchPath(match?: string): string | undefined {
+  const paths = vi
     .mocked(api.get)
     .mock.calls.map((c) => c[0] as string)
-    .find((p) => p.startsWith("/reports/data-quality/cards"));
+    .filter((p) => p.startsWith("/reports/data-quality/cards"));
+  // The panel refetches as the scope changes, so a test that clicks twice
+  // asks for the call it means by a fragment of the query.
+  return match ? paths.find((p) => p.includes(match)) : paths[0];
 }
 
 // ---------------------------------------------------------------------------
@@ -170,7 +204,7 @@ function panelFetchPath(): string | undefined {
 describe("DataQualityReport drill-down", () => {
   it("does not fetch panel cards until something is clicked", async () => {
     renderReport();
-    await screen.findByTestId("bar-chart");
+    await screen.findByTestId("bar-chart-0");
     expect(panelFetchPath()).toBeUndefined();
   });
 
@@ -178,7 +212,7 @@ describe("DataQualityReport drill-down", () => {
     const user = userEvent.setup();
     renderReport();
 
-    await user.click(await screen.findByTestId("seg-Partial-Application"));
+    await user.click(await screen.findByTestId("seg-0-Partial-Application"));
 
     await waitFor(() => {
       expect(panelFetchPath()).toBe("/reports/data-quality/cards?type=Application&band=partial");
@@ -190,7 +224,7 @@ describe("DataQualityReport drill-down", () => {
     const user = userEvent.setup();
     renderReport();
 
-    await user.click(await screen.findByTestId("seg-Minimal-Application"));
+    await user.click(await screen.findByTestId("seg-0-Minimal-Application"));
 
     await waitFor(() => {
       expect(panelFetchPath()).toContain("band=minimal");
@@ -201,7 +235,7 @@ describe("DataQualityReport drill-down", () => {
     const user = userEvent.setup();
     renderReport();
 
-    await user.click(await screen.findByTestId("seg-Complete-Application"));
+    await user.click(await screen.findByTestId("seg-0-Complete-Application"));
 
     const link = await screen.findByRole("link");
     expect(link).toHaveAttribute(
@@ -214,7 +248,7 @@ describe("DataQualityReport drill-down", () => {
     const user = userEvent.setup();
     renderReport();
 
-    await user.click(await screen.findByTestId("seg-Partial-Application"));
+    await user.click(await screen.findByTestId("seg-0-Partial-Application"));
     await user.click(await screen.findByText("Legacy CRM"));
 
     expect(await screen.findByTestId("card-side-panel")).toHaveTextContent("c1");
@@ -234,6 +268,74 @@ describe("DataQualityReport drill-down", () => {
     // No card type and no grouping: the tile counts across every type, so
     // the landing has to as well.
     expect(await screen.findByRole("link")).toHaveAttribute("href", "/inventory?orphaned=true");
+  });
+
+  it("charts EOL coverage at the foot rather than as another KPI tile", async () => {
+    renderReport();
+
+    expect(await screen.findByText("End-of-life coverage")).toBeInTheDocument();
+    // The segment labels live in the Recharts legend, which the double
+    // renders as null — assert on the data the chart was handed instead.
+    const eolChart = charts[charts.length - 1];
+    expect(eolChart).toEqual([
+      expect.objectContaining({
+        type: "Application",
+        "Linked to endoflife.date": 3,
+        "Date entered by hand": 1,
+        "Not recorded": 6,
+      }),
+    ]);
+  });
+
+  it.each([
+    ["Linked to endoflife.date", "eol_linked"],
+    ["Date entered by hand", "eol_manual"],
+    ["Not recorded", "eol_missing"],
+  ])("opens the cards behind the %s segment", async (label, scope) => {
+    const user = userEvent.setup();
+    renderReport();
+
+    // Chart 1 is the EOL coverage chart; chart 0 is completeness by type.
+    await user.click(await screen.findByTestId(`seg-1-${label}-Application`));
+
+    await waitFor(() => {
+      expect(panelFetchPath()).toBe(
+        `/reports/data-quality/cards?type=Application&scope=${scope}`,
+      );
+    });
+  });
+
+  it("titles the EOL panel with the segment's own label", async () => {
+    const user = userEvent.setup();
+    renderReport();
+
+    await user.click(await screen.findByTestId("seg-1-Not recorded-Application"));
+
+    // Header and legend read from the same label map, so the panel can never
+    // name a segment differently from the bar it was opened from.
+    expect(await screen.findByText("Application · Not recorded")).toBeInTheDocument();
+  });
+
+  it("continues into the inventory from Not recorded, and only from there", async () => {
+    const user = userEvent.setup();
+    renderReport();
+
+    await user.click(await screen.findByTestId("seg-1-Not recorded-Application"));
+    // The inventory's (empty) End of life pill lists exactly this set.
+    expect(await screen.findByRole("link")).toHaveAttribute(
+      "href",
+      "/inventory?type=Application&eol=__empty__",
+    );
+
+    // The inventory filters by STATUS, not by where the data came from, so
+    // the other two buckets have no landing that lists the same cards.
+    await user.click(screen.getByTestId("seg-1-Linked to endoflife.date-Application"));
+    await waitFor(() =>
+      expect(panelFetchPath("eol_linked")).toBe(
+        "/reports/data-quality/cards?type=Application&scope=eol_linked",
+      ),
+    );
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("links the stale tile to the matching inventory filter", async () => {

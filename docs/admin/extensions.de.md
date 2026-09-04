@@ -56,7 +56,7 @@ Einige kostenpflichtige Erweiterungen bieten eine **kostenlose 30-Tage-Testphase
 ## Eine Erweiterung installieren
 
 1. Falls noch nicht geschehen, wenden Sie zuerst Ihre Lizenz an (siehe unten).
-2. Öffnen Sie **Admin → Erweiterungen**, klicken Sie oben auf der Seite auf **Aus Datei installieren…** (neben der Instanz-ID — auf beiden Tabs vorhanden) und laden Sie die erhaltene `.teax`-Datei hoch.
+2. Öffnen Sie **Admin → Erweiterungen**, klicken Sie oben auf der Seite auf **Aus Datei installieren…** über dem Katalog im Tab Store bzw. über der Liste im Tab Installiert (und im Hinweis, der erscheint, wenn der Store nicht erreichbar ist) und laden Sie die erhaltene `.teax`-Datei hoch.
 3. Turbo EA prüft die Signatur und öffnet einen **Installationsdialog** mit einer **Vorschau**: Bei Erweiterungen mit Inhalten ist das ein Probelauf aller Kartentypen, Tag-Gruppen, Karten und Beziehungen, die die Erweiterung anlegen oder aktualisieren würde — es wird noch nichts geschrieben.
 4. Prüfen Sie die Vorschau — sie scrollt innerhalb des Dialogs — und klicken Sie unten im Dialog auf **Erweiterung installieren**; die Schaltfläche bleibt dort, egal wie lang die Vorschau ist.
 5. Enthält die Erweiterung Backend-Code, fordert ein Banner zum Neustart des Backend-Containers auf (`docker compose restart backend`). Inhalts- und UI-Erweiterungen sind sofort aktiv — Benutzer erhalten neue Oberflächen beim nächsten Laden der Seite.

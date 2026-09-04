@@ -261,5 +261,9 @@
   "export.currentViewHint": "Reflète la grille affichée — non réimportable",
   "export.waitingForRelations": "En attente du chargement des colonnes de relations…",
   "export.viewSheetName": "Vue",
-  "columns.id": "ID"
+  "columns.id": "ID",
+  "columns.eol": "Fin de vie",
+  "columns.eolSupport": "Fin du support",
+  "filter.eol": "Fin de vie",
+  "filter.eolManual": "Saisie manuelle"
 }

@@ -18,6 +18,7 @@ Il pannello laterale sinistro consente di **filtrare** le card secondo diversi c
 - **Qualità dei dati** — Filtro per fascia (selezione multipla): Completo (≥80%), Parziale (40-79%), Minimo (sotto il 40%). Sono le fasce del [report Qualità dei dati](reports.md#data-quality-report): un clic su un segmento di barra porta qui.
 - **Orfane** — Solo schede senza alcuna relazione, in entrambe le direzioni. Valutato lato server, quindi funziona anche senza un tipo selezionato.
 - **Obsolete** — Solo schede non aggiornate negli ultimi 90 giorni. Entrambe rispecchiano i riquadri del [report Qualità dei dati](reports.md#data-quality-report): un clic su un riquadro porta qui.
+- **Fine vita** — Per applicazioni e componenti IT, filtra in base allo stato di supporto che Turbo EA ricava dal [collegamento EOL](../admin/eol.md) di ogni scheda: Fine vita, In avvicinamento, Supportato o Sconosciuto. **(vuoto)** elenca le schede per cui non è stato registrato nulla. La colonna **Fine vita** corrispondente mostra la data accanto a un pallino di stato e viene ordinata ed esportata come data.
 - **Tag** — Filtra per tag di qualsiasi gruppo di tag
 - **Relazioni** — Filtra per card correlate attraverso i tipi di relazione
 - **Attributi personalizzati** — Filtra per valori nei campi personalizzati (ricerca testuale, opzioni di selezione)

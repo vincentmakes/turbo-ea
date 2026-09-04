@@ -57,6 +57,13 @@ import type {
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
+import {
+  EOL_STATUSES,
+  EOL_STATUS_COLORS,
+  EOL_STATUS_LABEL_KEYS,
+  isEolType,
+} from "@/lib/eol";
+
 /* ------------------------------------------------------------------ */
 
 export interface Filters {
@@ -83,6 +90,15 @@ export interface Filters {
   orphanedOnly: boolean;
   /** Cards untouched for 90+ days — same cutoff as the report's Stale tile. */
   staleOnly: boolean;
+  /**
+   * Resolved end-of-life statuses to keep (`eol` / `approaching` /
+   * `supported` / `unknown`, plus `EMPTY_VALUE` for cards with nothing
+   * recorded). Client-side over the statuses `GET /eol/card-status` resolved
+   * for the selected type, exactly like `lifecyclePhases`. The `EMPTY_VALUE`
+   * pill is what answers "which of these has nobody recorded an end of life
+   * for?" — there is no separate scope for it.
+   */
+  eolStatuses: string[];
 }
 
 interface Props {
@@ -107,6 +123,10 @@ interface Props {
   relationsMap?: Map<string, Map<string, RelatedCardRef[]>>;
   tagGroups?: TagGroup[];
   canArchive?: boolean;
+  /** Whether the End of life facet applies to what is on screen — i.e. a
+   * single EOL-capable type is selected and the user may read EOL data. Same
+   * "applies to what is in view" shape as `logoColumnApplies`. */
+  showEolFacet?: boolean;
   canShareBookmarks?: boolean;
   canOdataBookmarks?: boolean;
   currentUserId?: string;
@@ -269,17 +289,25 @@ export function valueIsEmpty(actual: unknown): boolean {
 /**
  * Compute the next filter state when a card type is toggled on/off.
  *
- * Subtypes, custom attributes, and relationship filters are all type-specific
- * — they only make sense for the currently selected type(s) and their UI is
- * hidden once the selection no longer applies. They must therefore be reset on
- * every type change, otherwise a stale (and now-invisible) filter keeps being
- * applied client-side and silently empties the result list. See issue #686.
+ * Subtypes, custom attributes, relationship filters and the end-of-life
+ * statuses are all type-specific — they only make sense for the currently
+ * selected type(s) and their UI is hidden once the selection no longer
+ * applies. They must therefore be reset on every type change, otherwise a
+ * stale (and now-invisible) filter keeps being applied client-side and
+ * silently empties the result list. See issue #686.
  */
 export function filtersAfterTypeToggle(filters: Filters, key: string): Filters {
   const next = filters.types.includes(key)
     ? filters.types.filter((t) => t !== key)
     : [...filters.types, key];
-  return { ...filters, types: next, subtypes: [], attributes: {}, relations: {} };
+  return {
+    ...filters,
+    types: next,
+    subtypes: [],
+    attributes: {},
+    relations: {},
+    eolStatuses: [],
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -332,6 +360,7 @@ export default function InventoryFilterSidebar({
   relationsMap,
   tagGroups = [],
   canArchive = false,
+  showEolFacet = false,
   canShareBookmarks = false,
   canOdataBookmarks = false,
   currentUserId,
@@ -353,6 +382,9 @@ export default function InventoryFilterSidebar({
   onGroupByChange,
 }: Props) {
   const { t } = useTranslation(["inventory", "common"]);
+  // EOL status labels live in the reports namespace — the EOL report owns
+  // them, and a second copy here is how the two drift apart.
+  const { t: tReports } = useTranslation("reports");
   const typeLabel = useTypeLabel();
   const relLabel = useRelationLabel();
   const stLabel = useSubtypeLabel();
@@ -375,6 +407,7 @@ export default function InventoryFilterSidebar({
     search: true,
     subtypes: false,
     lifecycle: false,
+    eol: false,
     dataQuality: false,
     approvalStatus: false,
     attributes: false,
@@ -453,6 +486,13 @@ export default function InventoryFilterSidebar({
     onFiltersChange({ ...filters, lifecyclePhases: next });
   };
 
+  const toggleEolStatus = (key: string) => {
+    const next = filters.eolStatuses.includes(key)
+      ? filters.eolStatuses.filter((p) => p !== key)
+      : [...filters.eolStatuses, key];
+    onFiltersChange({ ...filters, eolStatuses: next });
+  };
+
   const toggleApprovalStatus = (key: string) => {
     const next = filters.approvalStatuses.includes(key)
       ? filters.approvalStatuses.filter((s) => s !== key)
@@ -520,7 +560,7 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, filterSides]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, orphanedOnly: false, staleOnly: false });
+    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, orphanedOnly: false, staleOnly: false, eolStatuses: [] });
 
   const activeCount =
     filters.types.length +
@@ -535,7 +575,8 @@ export default function InventoryFilterSidebar({
     (filters.tagIds?.length ?? 0) +
     (filters.mineScope ? 1 : 0) +
     (filters.orphanedOnly ? 1 : 0) +
-    (filters.staleOnly ? 1 : 0);
+    (filters.staleOnly ? 1 : 0) +
+    filters.eolStatuses.length;
 
   // Check if columns differ from default
   const columnsChanged = useMemo(() => {
@@ -588,6 +629,7 @@ export default function InventoryFilterSidebar({
         showArchived: filters.showArchived,
         orphanedOnly: filters.orphanedOnly,
         staleOnly: filters.staleOnly,
+        eolStatuses: filters.eolStatuses,
         attributes: filters.attributes,
         relations: filters.relations,
         tagIds: filters.tagIds,
@@ -629,6 +671,7 @@ export default function InventoryFilterSidebar({
         showArchived: f.showArchived || false,
         orphanedOnly: f.orphanedOnly || false,
         staleOnly: f.staleOnly || false,
+        eolStatuses: f.eolStatuses || [],
         attributes: f.attributes || {},
         relations: f.relations || {},
         tagIds: f.tagIds || [],
@@ -1038,6 +1081,50 @@ export default function InventoryFilterSidebar({
                   />
                 </Box>
               </Collapse>
+
+              {/* End of life — only for the types that can carry it. The
+                  statuses come from the same backend classifier the EOL
+                  report uses, so a component reading "Approaching" here reads
+                  the same there. "(empty)" is how you list the cards nobody
+                  has recorded an end of life for. */}
+              {showEolFacet && (
+                <>
+                  <SectionHeader
+                    label={t("filter.eol")}
+                    icon="update"
+                    expanded={expandedSections.eol}
+                    onToggle={() => toggleSection("eol")}
+                    count={filters.eolStatuses.length}
+                  />
+                  <Collapse in={expandedSections.eol}>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+                      {EOL_STATUSES.map((key) => {
+                        const color = EOL_STATUS_COLORS[key];
+                        const selected = filters.eolStatuses.includes(key);
+                        return (
+                          <Chip
+                            key={key}
+                            label={tReports(EOL_STATUS_LABEL_KEYS[key])}
+                            size="small"
+                            onClick={() => toggleEolStatus(key)}
+                            variant={selected ? "filled" : "outlined"}
+                            sx={
+                              selected
+                                ? { bgcolor: color, color: "#fff", borderColor: color }
+                                : { borderColor: color, color }
+                            }
+                          />
+                        );
+                      })}
+                      <EmptyChip
+                        label={t("filter.emptyValue")}
+                        selected={filters.eolStatuses.includes(EMPTY_VALUE)}
+                        onClick={() => toggleEolStatus(EMPTY_VALUE)}
+                      />
+                    </Box>
+                  </Collapse>
+                </>
+              )}
 
               {/* Data Quality */}
               <SectionHeader
@@ -2089,6 +2176,9 @@ export const CORE_COLUMNS = [
   { key: "core_description", icon: "description", tKey: "common:labels.description" as const },
   { key: "core_subtype", icon: "subdirectory_arrow_right", tKey: "common:labels.subtype" as const },
   { key: "core_lifecycle", icon: "timeline", tKey: "columns.lifecycle" as const },
+  // Offered only for the types that can carry an end of life — see
+  // EOL_COLUMN_KEY below.
+  { key: "core_eol", icon: "update", tKey: "columns.eol" as const },
   { key: "core_approval_status", icon: "verified", tKey: "columns.approvalStatus" as const },
   { key: "core_data_quality", icon: "donut_small", tKey: "columns.dataQuality" as const },
   { key: "core_tags", icon: "sell", tKey: "columns.tags" as const },
@@ -2100,6 +2190,24 @@ export const CORE_COLUMNS = [
 export const CORE_COLUMN_KEYS = CORE_COLUMNS.filter((c) => !c.optIn).map((c) => c.key);
 
 export const LOGO_COLUMN_KEY = "core_logo";
+
+export const EOL_COLUMN_KEY = "core_eol";
+
+/**
+ * Whether the End of life column and facet apply to what is on screen.
+ *
+ * Unlike the logo column this is not a per-type flag in the metamodel: EOL is
+ * not a metamodel concept at all, so the eligible types are the fixed pair in
+ * `@/lib/eol`. It takes **exactly one** selected type rather than "any type in
+ * view can carry one", because the statuses come from a per-type endpoint:
+ * offering the column with no type filter would render a column that is
+ * always empty, which is the checkbox-that-does-nothing this function exists
+ * to prevent. The whole-inventory question ("what has no EOL at all?") is the
+ * Missing EOL scope instead, which is server-evaluated across both types.
+ */
+export function eolColumnApplies(selectedTypeKeys: string[]): boolean {
+  return selectedTypeKeys.length === 1 && isEolType(selectedTypeKeys[0]);
+}
 
 /**
  * Whether the Logo column applies to what is on screen — i.e. whether any of
@@ -2261,6 +2369,9 @@ function ColumnsTab({
   const filteredCore = CORE_COLUMNS.filter((c) => {
     if (c.key === "core_subtype" && !singleTypeWithSubtypes) return false;
     if (c.key === LOGO_COLUMN_KEY && !logoAvailable) return false;
+    // Same rule the grid uses to build it — offering a column the grid will
+    // not render is a checkbox that does nothing.
+    if (c.key === EOL_COLUMN_KEY && !eolColumnApplies(filters.types)) return false;
     if (searchQuery && !t(c.tKey).toLowerCase().includes(lowerSearch)) return false;
     return true;
   });

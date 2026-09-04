@@ -84,6 +84,72 @@ function makeClaimToken(): string {
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+/**
+ * The "Install from file…" trigger. Bespoke and air-gapped installs go through
+ * the same pipeline as a store install, and on an offline instance this is the
+ * only way in at all.
+ *
+ * #1063 lifted it out of the foot of the Store tab into the page header; that
+ * stopped it hiding below the whole catalogue, but left it reading as page
+ * chrome, wedged between the title and the instance ID with five blocks of
+ * prose between it and the tabs. It now rides the tab strip, which puts it
+ * with the content it acts on rather than with the page title, keeps it on
+ * both tabs and in every store state, and leaves it directly above the
+ * notices that used to have to describe where it was.
+ *
+ * Module-level, not a closure inside the page: a component declared during
+ * render is a new type on every render, so React would unmount and remount
+ * the button (losing focus) each time the pipeline ticks.
+ */
+function InstallFromFileButton({
+  onPick,
+  busy,
+  uploading,
+  color,
+  size,
+}: {
+  onPick: () => void;
+  /** Anything in the install pipeline is running — the button is inert. */
+  busy: boolean;
+  /** This upload specifically is in flight — the button says so. */
+  uploading: boolean;
+  color?: "inherit";
+  size?: "small";
+}) {
+  const { t } = useTranslation("admin");
+  return (
+    <Tooltip
+      title={t(
+        "extensions.store.installFromFileHint",
+        "For bespoke extensions and air-gapped installs: upload a signed .teax bundle you received from the vendor.",
+      )}
+    >
+      {/* A disabled button swallows the pointer events the Tooltip listens
+          for, so the span keeps the hint reachable mid-upload. */}
+      <span>
+        <Button
+          variant="outlined"
+          color={color}
+          size={size}
+          onClick={onPick}
+          disabled={busy}
+          startIcon={
+            uploading ? (
+              <CircularProgress size={16} color="inherit" />
+            ) : (
+              <MaterialSymbol icon="upload" />
+            )
+          }
+        >
+          {uploading
+            ? t("extensions.install.uploading", "Uploading…")
+            : t("extensions.store.installFromFile", "Install from file…")}
+        </Button>
+      </span>
+    </Tooltip>
+  );
+}
+
 export default function ExtensionsAdmin() {
   const { t } = useTranslation("admin");
 
@@ -700,6 +766,9 @@ export default function ExtensionsAdmin() {
   // spinner in the middle of the run, right before the auto-apply POST.
   // `installBusy` covers that apply, `autoApplying` the gap around it.
   const pipelineBusy = isWorking || autoApplying || installBusy;
+  // One hidden input serves every trigger, so opening the picker is one
+  // callback rather than a ref threaded through each of them.
+  const pickBundleFile = useCallback(() => bundleFileRef.current?.click(), []);
   // Which item's button carries the spinner: the one being POSTed, or —
   // for the rest of the pipeline — whichever store item started it. A manual
   // file upload sets no key, so it disables the buttons without pretending
@@ -818,52 +887,21 @@ export default function ExtensionsAdmin() {
 
   return (
     <Stack spacing={3}>
+      {/* One input for every trigger above — it is never inside a tab, so
+          switching tabs mid-upload cannot unmount the element the pending
+          change event belongs to. */}
+      <input
+        ref={bundleFileRef}
+        type="file"
+        accept=".teax,.zip"
+        hidden
+        onChange={handleBundleFile}
+      />
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
         <MaterialSymbol icon="extension" size={28} color="#1976d2" />
         <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
           {t("extensions.title", "Extensions")}
         </Typography>
-        {/* Manual/bespoke bundles install from file — same pipeline as a
-            store install. It lives in the header, not at the foot of the
-            Store tab: it is the ONLY way in for an air-gapped instance, and
-            down there it sat below the whole catalogue on a tab whose own
-            "store unreachable" hint sent people looking elsewhere. In the
-            header it is on both tabs and in every store state. */}
-        <input
-          ref={bundleFileRef}
-          type="file"
-          accept=".teax,.zip"
-          hidden
-          onChange={handleBundleFile}
-        />
-        <Tooltip
-          title={t(
-            "extensions.store.installFromFileHint",
-            "For bespoke extensions and air-gapped installs: upload a signed .teax bundle you received from the vendor.",
-          )}
-        >
-          {/* A disabled button swallows the pointer events the Tooltip
-              listens for, so the span keeps the hint reachable mid-upload. */}
-          <span>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => bundleFileRef.current?.click()}
-              disabled={pipelineBusy}
-              startIcon={
-                installBusy ? (
-                  <CircularProgress size={16} color="inherit" />
-                ) : (
-                  <MaterialSymbol icon="upload" />
-                )
-              }
-            >
-              {installBusy
-                ? t("extensions.install.uploading", "Uploading…")
-                : t("extensions.store.installFromFile", "Install from file…")}
-            </Button>
-          </span>
-        </Tooltip>
         {instanceId && (
           <Tooltip
             title={t(
@@ -927,24 +965,43 @@ export default function ExtensionsAdmin() {
         </Alert>
       )}
 
-      <Tabs
-        value={tab}
-        onChange={handleTabChange}
-        sx={{ borderBottom: 1, borderColor: "divider" }}
+      {/* The install trigger rides the tab strip: it belongs to the page's
+          content, not to its title, and from here it is on both tabs and in
+          every store state — including the one where it is the only way in.
+          The rule under the tabs moves to the wrapper so it still spans the
+          full width. */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          borderBottom: 1,
+          borderColor: "divider",
+        }}
       >
-        <Tab value="store" label={t("extensions.tabs.store", "Store")} />
-        <Tab value="installed" label={t("extensions.tabs.installed", "Installed")} />
-      </Tabs>
+        <Tabs value={tab} onChange={handleTabChange} sx={{ flex: 1 }}>
+          <Tab value="store" label={t("extensions.tabs.store", "Store")} />
+          <Tab value="installed" label={t("extensions.tabs.installed", "Installed")} />
+        </Tabs>
+        <InstallFromFileButton
+          onPick={pickBundleFile}
+          busy={pipelineBusy}
+          uploading={installBusy}
+          size="small"
+        />
+      </Box>
 
       {tab === "store" && (
         <>
           {loading ? (
             <LinearProgress />
           ) : !catalog?.configured ? (
+            // None of these notices names a location any more: the install
+            // trigger is on the tab strip directly above them.
             <Alert severity="info">
               {t(
                 "extensions.store.notConfigured",
-                "No extension store is configured on this instance. Use «Install from file…» at the top of this page — the file-based flow covers everything the store does.",
+                "No extension store is configured on this instance. Install a signed bundle from file instead — the file-based flow covers everything the store does.",
               )}
             </Alert>
           ) : !catalog.reachable ? (
@@ -953,40 +1010,42 @@ export default function ExtensionsAdmin() {
                 ? t("extensions.store.blocked", {
                     status: catalog.status_code ?? "",
                     defaultValue:
-                      "The extension store refused this instance's request (HTTP {{status}}). Something between this instance and the store — a proxy, a firewall or the store's own bot protection — is blocking it; outbound internet access itself is working. Use «Install from file…» at the top of this page meanwhile.",
+                      "The extension store refused this instance's request (HTTP {{status}}). Something between this instance and the store — a proxy, a firewall or the store's own bot protection — is blocking it; outbound internet access itself is working. Install a signed bundle from file meanwhile.",
                   })
                 : t(
                     "extensions.store.unreachable",
-                    "The extension store could not be reached. Air-gapped or offline? Use «Install from file…» at the top of this page instead.",
+                    "The extension store could not be reached. Air-gapped or offline? Install a signed bundle from file instead.",
                   )}
             </Alert>
           ) : catalog.items.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
+            <Alert severity="info">
               {t("extensions.store.empty", "No extensions published yet.")}
-            </Typography>
+            </Alert>
           ) : (
             <>
-              {allTags.length > 0 && (
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  <Chip
-                    size="small"
-                    label={t("extensions.store.allTags", "All")}
-                    color={activeTags.length === 0 ? "primary" : "default"}
-                    variant={activeTags.length === 0 ? "filled" : "outlined"}
-                    onClick={() => setActiveTags([])}
-                  />
-                  {allTags.map((tag) => (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                {allTags.length > 0 && (
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     <Chip
-                      key={tag}
                       size="small"
-                      label={tag}
-                      color={activeTags.includes(tag) ? "primary" : "default"}
-                      variant={activeTags.includes(tag) ? "filled" : "outlined"}
-                      onClick={() => toggleTag(tag)}
+                      label={t("extensions.store.allTags", "All")}
+                      color={activeTags.length === 0 ? "primary" : "default"}
+                      variant={activeTags.length === 0 ? "filled" : "outlined"}
+                      onClick={() => setActiveTags([])}
                     />
-                  ))}
-                </Stack>
-              )}
+                    {allTags.map((tag) => (
+                      <Chip
+                        key={tag}
+                        size="small"
+                        label={tag}
+                        color={activeTags.includes(tag) ? "primary" : "default"}
+                        variant={activeTags.includes(tag) ? "filled" : "outlined"}
+                        onClick={() => toggleTag(tag)}
+                      />
+                    ))}
+                  </Stack>
+                )}
+              </Box>
               <StoreCheckStatusLine />
               {filteredItems.length === 0 && (
                 <Typography variant="body2" color="text.secondary">
@@ -1280,15 +1339,16 @@ export default function ExtensionsAdmin() {
       )}
 
       {/* The install pipeline is a MODAL, not a panel on the page.
-          #1063 moved the "Install from file…" trigger up into the header but
-          left what it produces at the foot of the page, below the whole
-          catalogue — so the admin pressed a button at the top and the
-          preview, plus the "Install extension" button they then had to
-          press, appeared off-screen at the bottom. In a dialog the preview
-          scrolls inside DialogContent while the actions stay pinned, so the
-          primary action can never scroll away however long the preview; and
-          being tab-agnostic it also settles where an update started from the
-          Installed tab reports its progress. */}
+          #1063 moved the "Install from file…" trigger out of the Store tab
+          but left what it produces at the foot of the page, below the whole
+          catalogue — so the admin pressed a button and the preview, plus the
+          "Install extension" button they then had to press, appeared
+          off-screen at the bottom. In a dialog the preview scrolls inside
+          DialogContent while the actions stay pinned, so the primary action
+          can never scroll away however long the preview; and being
+          tab-agnostic it also settles where an update started from the
+          Installed tab reports its progress — which is what lets the trigger
+          itself live per-tab. */}
       <Dialog
         open={installDialogOpen}
         // A backdrop click must not orphan a run that is mid-flight; Escape

@@ -345,7 +345,7 @@
   "eol.supportUntil": "支持截止",
   "eol.latest": "最新",
   "eol.impact": "影响",
-  "eol.noEolData": "未找到包含 EOL 数据的卡片。请将应用或 IT 组件关联到 endoflife.date，或在生命周期部分设置生命终止日期。",
+  "eol.noEolData": "未找到应用或 IT 组件。生命周期终止信息仅记录在这两种卡片类型上。",
   "eol.noFilterMatch": "没有项目匹配当前筛选条件。",
   "eol.eolReached_one": "<strong>{{count}}</strong> 个项目已达到生命终止",
   "eol.eolReached_other": "<strong>{{count}}</strong> 个项目已达到生命终止",
@@ -480,5 +480,12 @@
   "matrix.scopeTooltipRows": "仅显示所选行及其下属内容",
   "matrix.scopeTooltipCols": "仅显示所选列及其下属内容",
   "matrix.scopeRows": "行范围",
-  "matrix.scopeCols": "列范围"
+  "matrix.scopeCols": "列范围",
+  "dataQuality.eolMissing": "未记录",
+  "eol.statusMissing": "无生命周期终止数据",
+  "eol.noEolDataKpi": "无生命周期终止数据",
+  "dataQuality.eolCoverage": "生命周期终止覆盖率",
+  "dataQuality.eolCoverageHint": "按是否已记录生命周期终止信息划分的应用与 IT 组件。点击任一分段可列出其背后的卡片。",
+  "dataQuality.eolLinked": "已关联 endoflife.date",
+  "dataQuality.eolManual": "手动填写日期"
 }

@@ -159,6 +159,24 @@ def test_manual_store_check_releases_the_request_session_first():
     assert fetch_at < write_at, "the writes must come after the fetch, on a fresh transaction"
 
 
+def test_eol_card_status_releases_the_request_session_first():
+    """``GET /eol/card-status`` resolves EOL data from endoflife.date.
+
+    Unlike the store probe this is hit on every inventory type change, so a
+    connection pinned for the whole outbound round-trip is one of thirty gone
+    for as long as an upstream that is not ours takes to answer.
+    """
+    body = _function_source("app/api/v1/eol.py", "eol_card_status")
+    fetch_at = body.find("await resolve_eol_statuses(")
+    assert fetch_at != -1, "the endpoint must be the one resolving the statuses"
+    commit_at = body.rfind("await db.commit()", 0, fetch_at)
+    assert commit_at != -1, (
+        "eol_card_status must `await db.commit()` before resolve_eol_statuses — "
+        "the commit hands the connection back, and get_db is a yield-dependency "
+        "that would otherwise pin it for the whole endoflife.date round-trip."
+    )
+
+
 # ---------------------------------------------------------------------------
 # AI batch loops must not keep the transaction open across the LLM calls
 # ---------------------------------------------------------------------------
