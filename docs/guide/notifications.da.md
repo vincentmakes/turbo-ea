@@ -26,6 +26,14 @@ Klik på en hvilken som helst notifikation for at navigere direkte til det relev
 | **SoAW underskrevet** | En SoAW, du sporer, modtager en underskrift |
 | **Undersøgelsesanmodning** | En undersøgelse sendes, der kræver dit svar |
 
+**Godkendelsesstatus ændret** dækker også det automatiske tilfælde. Et godkendt
+kort falder til **Brudt**, så snart nogen redigerer det, eller når arkivering af
+dets overordnede kort flytter det i hierarkiet — du får besked i begge tilfælde,
+og ændringen registreres på kortets fane **Historik**. Når én handling bryder
+flere af dine kort på én gang, for eksempel en masseredigering, modtager du én
+samlet besked i stedet for én pr. kort.
+
+
 ## Levering i realtid
 
 Notifikationer leveres i realtid ved hjælp af Server-Sent Events (SSE). Du behøver ikke at opdatere siden — nye notifikationer vises automatisk, og mærkeantallet opdateres øjeblikkeligt.

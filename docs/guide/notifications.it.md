@@ -26,6 +26,14 @@ Cliccate su qualsiasi notifica per navigare direttamente alla card o al document
 | **SoAW firmato** | Un SoAW che state seguendo riceve una firma |
 | **Richiesta sondaggio** | Un sondaggio che richiede la vostra risposta viene inviato |
 
+**Stato di approvazione modificato** copre anche il caso automatico. Una card
+approvata passa a **Interrotto** non appena qualcuno la modifica, oppure quando
+l'archiviazione della card padre la sposta nella gerarchia: venite avvisati in
+entrambi i casi e la modifica viene registrata nella scheda **Cronologia** della
+card. Quando una sola azione interrompe più card contemporaneamente, come una
+modifica di massa, ricevete un unico riepilogo anziché una notifica per card.
+
+
 ## Consegna in tempo reale
 
 Le notifiche vengono consegnate in tempo reale utilizzando Server-Sent Events (SSE). Non è necessario aggiornare la pagina — le nuove notifiche appaiono automaticamente e il conteggio del badge si aggiorna istantaneamente.

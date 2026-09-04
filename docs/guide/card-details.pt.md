@@ -63,7 +63,7 @@ Os cards podem passar por um ciclo de aprovação:
 | **Quebrado** | Estava aprovado, mas foi editado desde então — precisa de nova revisão |
 | **Rejeitado** | Revisado e rejeitado, precisa de correções |
 
-Quando um card aprovado é editado, seu status muda automaticamente para **Quebrado** para indicar que precisa de nova revisão.
+Quando um card aprovado é editado, seu status muda automaticamente para **Quebrado** para indicar que precisa de nova revisão. Arquivar o card pai tem o mesmo efeito sobre os cards filhos aprovados que são deslocados na hierarquia. Todas as pessoas com um papel de parte interessada no card são notificadas — exceto quem fez a alteração — e a mudança fica registada na aba **Histórico** do card. Uma ação que quebra vários cards, como uma edição em massa, envia a cada pessoa um único resumo em vez de uma notificação por card.
 
 ## Aba de Detalhe (Principal)
 

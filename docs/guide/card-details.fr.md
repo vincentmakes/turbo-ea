@@ -64,7 +64,7 @@ Les fiches peuvent passer par un cycle d'approbation :
 | **Cassé** | Était approuvé, mais a été modifié depuis -- nécessite un réexamen |
 | **Rejeté** | Examiné et rejeté, nécessite des corrections |
 
-Lorsqu'une fiche approuvée est modifiée, son statut passe automatiquement à **Cassé** pour indiquer qu'elle nécessite un réexamen.
+Lorsqu'une fiche approuvée est modifiée, son statut passe automatiquement à **Cassé** pour indiquer qu'elle nécessite un réexamen. L'archivage d'une fiche parente produit le même effet sur les fiches enfants approuvées qu'il déplace dans la hiérarchie. Toutes les personnes ayant un rôle de partie prenante sur la fiche sont averties — sauf celle qui a fait la modification — et le changement est consigné dans l'onglet **Historique** de la fiche. Une action qui casse plusieurs fiches, comme une modification en masse, envoie à chacun un récapitulatif unique plutôt qu'une notification par fiche.
 
 ## Onglet Détail (Principal)
 

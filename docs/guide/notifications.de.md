@@ -26,6 +26,15 @@ Klicken Sie auf eine beliebige Benachrichtigung, um direkt zur relevanten Karte 
 | **SoAW unterschrieben** | Ein SoAW, das Sie verfolgen, erhält eine Unterschrift |
 | **Umfrageanfrage** | Eine Umfrage wurde gesendet, die Ihre Antwort erfordert |
 
+**Genehmigungsstatus geändert** deckt auch den automatischen Fall ab. Eine
+genehmigte Karte wird auf **Ungültig** gesetzt, sobald sie jemand bearbeitet oder
+wenn das Archivieren ihrer übergeordneten Karte sie in der Hierarchie verschiebt
+— Sie werden in beiden Fällen benachrichtigt, und die Änderung wird auf dem Tab
+**Verlauf** der Karte festgehalten. Wenn eine Aktion mehrere Ihrer Karten
+gleichzeitig betrifft, etwa eine Massenbearbeitung, erhalten Sie eine einzige
+Zusammenfassung statt einer Benachrichtigung pro Karte.
+
+
 ## Echtzeit-Zustellung
 
 Benachrichtigungen werden in Echtzeit über Server-Sent Events (SSE) zugestellt. Sie müssen die Seite nicht aktualisieren — neue Benachrichtigungen erscheinen automatisch und die Badge-Anzahl wird sofort aktualisiert.

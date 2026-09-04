@@ -64,7 +64,7 @@ Le card possono attraversare un ciclo di approvazione:
 | **Broken** | Era approvato, ma è stato modificato da allora — necessita una nuova revisione |
 | **Rejected** | Revisionato e rifiutato, necessita correzioni |
 
-Quando una card approvata viene modificata, il suo stato cambia automaticamente in **Broken** per indicare che necessita una nuova revisione.
+Quando una card approvata viene modificata, il suo stato cambia automaticamente in **Broken** per indicare che necessita una nuova revisione. L'archiviazione della card padre ha lo stesso effetto sulle card figlie approvate che vengono spostate nella gerarchia. Tutte le persone con un ruolo di stakeholder sulla card vengono avvisate — tranne chi ha effettuato la modifica — e il cambiamento viene registrato nella scheda **Cronologia** della card. Un'azione che interrompe più card, come una modifica di massa, invia a ciascuno un unico riepilogo anziché una notifica per card.
 
 ## Scheda Dettaglio (Principale)
 

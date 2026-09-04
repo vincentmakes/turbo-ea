@@ -61,7 +61,7 @@ Kort kan gå gennem en godkendelses­cyklus:
 | **Broken** | Var godkendt, men er blevet redigeret siden — kræver gen-gennemgang |
 | **Rejected** | Gennemgået og afvist, kræver rettelser |
 
-Når et godkendt kort redigeres, ændres dets status automatisk til **Broken** for at angive, at det kræver gen-gennemgang.
+Når et godkendt kort redigeres, ændres dets status automatisk til **Broken** for at angive, at det kræver gen-gennemgang. Arkivering af et korts overordnede kort har samme virkning på de godkendte underordnede kort, det flytter i hierarkiet. Alle med en interessentrolle på kortet får besked — bortset fra den, der foretog ændringen — og skiftet registreres på kortets fane **Historik**. Én handling, der bryder flere kort, for eksempel en masseredigering, sender hver person én samlet besked i stedet for én pr. kort.
 
 ## Detalje-fane (hoved)
 

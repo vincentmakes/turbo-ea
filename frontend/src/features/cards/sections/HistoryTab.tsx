@@ -101,6 +101,18 @@ function getFieldLabels(t: (key: string) => string): Record<string, string> {
   };
 }
 
+// Approval status is stored as the raw enum, so a history row would otherwise
+// read "APPROVED → BROKEN". These are the same four labels the approval badge
+// and the Inventory render, so the tab agrees with the rest of the card.
+function getApprovalStatusLabels(t: (key: string) => string): Record<string, string> {
+  return {
+    DRAFT: t("common:status.draft"),
+    APPROVED: t("common:status.approved"),
+    REJECTED: t("common:status.rejected"),
+    BROKEN: t("common:status.broken"),
+  };
+}
+
 function fmtVal(val: unknown, phaseLabels: Record<string, string>): string {
   if (val == null || val === "") return "\u2014";
   if (typeof val === "string") return val;
@@ -300,6 +312,7 @@ function parseChanges(
   fieldLabels: Record<string, string>,
   phaseLabels: Record<string, string>,
   attrLabels: Record<string, string>,
+  statusLabels: Record<string, string>,
 ): ChangeRow[] {
   const rows: ChangeRow[] = [];
   for (const [field, change] of Object.entries(changes)) {
@@ -328,6 +341,14 @@ function parseChanges(
           rows.push({ field: phaseLabels[key] || key, oldVal: fmtVal(oldL[key], phaseLabels), newVal: fmtVal(newL[key], phaseLabels) });
         }
       }
+    } else if (field === "approval_status") {
+      // Fall back to the raw value so a status this build has not heard of
+      // still renders, rather than blanking the row.
+      rows.push({
+        field: resolveFieldLabel(field, fieldLabels, phaseLabels, attrLabels),
+        oldVal: statusLabels[String(c.old)] ?? fmtVal(c.old, phaseLabels),
+        newVal: statusLabels[String(c.new)] ?? fmtVal(c.new, phaseLabels),
+      });
     } else {
       rows.push({
         field: resolveFieldLabel(field, fieldLabels, phaseLabels, attrLabels),
@@ -346,6 +367,7 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
   const eventMeta = getEventMeta(t);
   const fieldLabels = getFieldLabels(t);
   const phaseLabels = getPhaseLabels(t);
+  const statusLabels = getApprovalStatusLabels(t);
   const { getType } = useMetamodel();
   const fieldLabel = useFieldLabel();
   // Build a `{attributeKey: localizedLabel}` map for the card's type so
@@ -381,7 +403,9 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
       {events.map((e) => {
         const meta = eventMeta[e.event_type] || { label: e.event_type, icon: "info", color: "#9e9e9e" };
         const changes = e.data?.changes as Record<string, unknown> | undefined;
-        const rows = changes ? parseChanges(changes, fieldLabels, phaseLabels, attrLabels) : [];
+        const rows = changes
+          ? parseChanges(changes, fieldLabels, phaseLabels, attrLabels, statusLabels)
+          : [];
         const summary = typeof e.data?.summary === "string" ? (e.data.summary as string) : null;
 
         return (
