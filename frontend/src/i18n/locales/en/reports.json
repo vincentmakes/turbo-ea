@@ -481,9 +481,11 @@
   "matrix.scopeTooltipCols": "Show only the selected columns and everything beneath them",
   "matrix.scopeRows": "Row scope",
   "matrix.scopeCols": "Column scope",
-  "dataQuality.eolMissing": "Missing EOL",
-  "dataQuality.eolMissingOf": "of {{n}} applications and IT components",
-  "dataQuality.eolMissingAlert": "{{count}} applications or IT components have no end-of-life information. Link them to endoflife.date, or set an End of Life date.",
+  "dataQuality.eolMissing": "Not recorded",
   "eol.statusMissing": "No EOL data",
-  "eol.noEolDataKpi": "No EOL data"
+  "eol.noEolDataKpi": "No EOL data",
+  "dataQuality.eolCoverage": "End-of-life coverage",
+  "dataQuality.eolCoverageHint": "Applications and IT components, by whether an end of life has been recorded for them.",
+  "dataQuality.eolLinked": "Linked to endoflife.date",
+  "dataQuality.eolManual": "Date entered by hand"
 }

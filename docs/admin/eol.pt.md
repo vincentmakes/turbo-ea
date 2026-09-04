@@ -61,5 +61,5 @@ Dados de EOL vinculados alimentam o [Relatório de EOL](../guide/reports.md), qu
 
 Dois locais fora desta página listam os cartões sem qualquer informação de fim de vida — nem uma ligação aqui nem uma data de fim de vida própria:
 
-- O filtro **Fim de vida em falta** no [Inventário](../guide/inventory.md), que abrange aplicações e componentes de TI ao mesmo tempo, e a sua coluna **Fim de vida**.
-- O valor **Sem dados de fim de vida** no [Relatório de EOL](../guide/reports.md) e o bloco **Fim de vida em falta** no relatório de Qualidade dos dados, que leva ao mesmo filtro do inventário.
+- O filtro e a coluna **Fim de vida** no [Inventário](../guide/inventory.md) — escolha um tipo de cartão e depois a opção **(vazio)**.
+- O valor **Sem dados de fim de vida** no [Relatório de EOL](../guide/reports.md) e o gráfico **Cobertura de fim de vida** no final do relatório de Qualidade dos dados.

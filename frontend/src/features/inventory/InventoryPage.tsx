@@ -292,7 +292,6 @@ function urlHasFilterParams(searchParams: URLSearchParams): boolean {
     searchParams.has("orphaned") ||
     searchParams.has("stale") ||
     searchParams.has("eol") ||
-    searchParams.has("eol_missing") ||
     Array.from(searchParams.keys()).some((k) => k.startsWith("attr_") || k.startsWith("rel_"))
   );
 }
@@ -775,7 +774,6 @@ export default function InventoryPage() {
         orphanedOnly: searchParams.get("orphaned") === "true",
         staleOnly: searchParams.get("stale") === "true",
         eolStatuses: searchParams.getAll("eol"),
-        eolMissingOnly: searchParams.get("eol_missing") === "true",
       };
     }
 
@@ -798,7 +796,6 @@ export default function InventoryPage() {
         orphanedOnly: saved.filters.orphanedOnly || false,
         staleOnly: saved.filters.staleOnly || false,
         eolStatuses: saved.filters.eolStatuses || [],
-        eolMissingOnly: saved.filters.eolMissingOnly || false,
       };
     }
 
@@ -817,7 +814,6 @@ export default function InventoryPage() {
       orphanedOnly: false,
       staleOnly: false,
       eolStatuses: [],
-      eolMissingOnly: false,
     };
   });
   // Current filters, readable from the facet bindings' stable callbacks
@@ -1465,12 +1461,6 @@ export default function InventoryPage() {
         if (filters.staleOnly) {
           params.set("stale", "true");
         }
-        // Server-evaluated too: "missing EOL" spans both EOL types at once,
-        // which is how the Data Quality tile can deep-link into it with no
-        // type selected.
-        if (filters.eolMissingOnly) {
-          params.set("eol_missing", "true");
-        }
         params.set("page_size", "10000");
         const res = await api.get<CardListResponse>(`/cards?${params}`, { signal });
         if (!isCurrent()) return; // superseded — the newer request owns the grid
@@ -1495,7 +1485,6 @@ export default function InventoryPage() {
     filters.mineScope,
     filters.orphanedOnly,
     filters.staleOnly,
-    filters.eolMissingOnly,
   ]);
 
   useEffect(() => {

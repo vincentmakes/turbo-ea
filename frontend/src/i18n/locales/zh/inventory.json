@@ -265,7 +265,5 @@
   "columns.eol": "生命周期终止",
   "columns.eolSupport": "支持截止",
   "filter.eol": "生命周期终止",
-  "filter.eolManual": "手动维护",
-  "filter.eolMissingOnly": "仅显示缺少 EOL 的卡片",
-  "filter.eolMissingOnlyHint": "只列出没有生命周期终止信息的应用与 IT 组件——既没有 endoflife.date 关联，也没有生命周期终止日期。"
+  "filter.eolManual": "手动维护"
 }

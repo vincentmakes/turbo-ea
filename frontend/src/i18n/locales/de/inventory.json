@@ -265,7 +265,5 @@
   "columns.eol": "End of Life",
   "columns.eolSupport": "Support endet",
   "filter.eol": "End of Life",
-  "filter.eolManual": "Manuell gepflegt",
-  "filter.eolMissingOnly": "Nur Karten ohne EOL",
-  "filter.eolMissingOnlyHint": "Beschränkt die Liste auf Anwendungen und IT-Komponenten ohne End-of-Life-Informationen — weder eine endoflife.date-Verknüpfung noch ein End-of-Life-Datum."
+  "filter.eolManual": "Manuell gepflegt"
 }

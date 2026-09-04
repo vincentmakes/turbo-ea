@@ -61,5 +61,5 @@ Les données EOL liées alimentent le [Rapport EOL](../guide/reports.md), qui fo
 
 Deux endroits hors de cette page listent les fiches sans aucune information de fin de vie — ni lien ici, ni date de fin de vie propre :
 
-- Le filtre **Fin de vie manquante** de l'[Inventaire](../guide/inventory.md), qui couvre applications et composants informatiques à la fois, ainsi que sa colonne **Fin de vie**.
-- L'indicateur **Aucune donnée de fin de vie** du [Rapport EOL](../guide/reports.md) et la tuile **Fin de vie manquante** du rapport Qualité des données, qui mène au même filtre d'inventaire.
+- Le filtre et la colonne **Fin de vie** de l'[Inventaire](../guide/inventory.md) — choisissez un type de fiche, puis la pastille **(vide)**.
+- L'indicateur **Aucune donnée de fin de vie** du [Rapport EOL](../guide/reports.md) et le graphique **Couverture de fin de vie** en fin de rapport Qualité des données.

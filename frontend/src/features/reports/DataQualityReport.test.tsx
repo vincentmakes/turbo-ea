@@ -30,14 +30,21 @@ vi.mock("@/components/CardDetailSidePanel", () => ({
  * <Bar> gets a button per datum that fires its onClick with that datum, which
  * is exactly the contract the real component relies on.
  */
+/**
+ * The report renders more than one BarChart (completeness by type, then EOL
+ * coverage at the foot), so the double records each one. `chartData` stays the
+ * FIRST chart's data — the one whose segments the drill-down tests click.
+ */
+let charts: Record<string, unknown>[][] = [];
 let chartData: Record<string, unknown>[] = [];
 vi.mock("recharts", () => {
   /* eslint-disable @typescript-eslint/no-explicit-any */
   return {
     ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
     BarChart: ({ data, children }: any) => {
-      chartData = data ?? [];
-      return <div data-testid="bar-chart">{children}</div>;
+      charts.push(data ?? []);
+      if (charts.length === 1) chartData = data ?? [];
+      return <div data-testid={`bar-chart${charts.length > 1 ? `-${charts.length}` : ""}`}>{children}</div>;
     },
     Bar: ({ dataKey, onClick }: any) => (
       <>
@@ -85,8 +92,9 @@ const MOCK_DQ = {
   with_lifecycle: 6,
   orphaned: 3,
   stale: 2,
-  eol_missing: 4,
-  eol_eligible: 7,
+  eol_coverage: [
+    { type: "Application", linked: 3, manual: 1, missing: 6, total: 10 },
+  ],
   by_type: [
     {
       type: "Application",
@@ -109,6 +117,7 @@ const MOCK_CARDS = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  charts = [];
   chartData = [];
 
   vi.mocked(api.get).mockImplementation((path: string) => {
@@ -238,26 +247,25 @@ describe("DataQualityReport drill-down", () => {
     expect(await screen.findByRole("link")).toHaveAttribute("href", "/inventory?orphaned=true");
   });
 
-  it("links the Missing EOL tile to the matching inventory filter", async () => {
-    const user = userEvent.setup();
+  it("charts EOL coverage instead of offering another KPI tile", async () => {
     renderReport();
 
-    await user.click(await screen.findByText("Missing EOL"));
-
-    await waitFor(() => {
-      expect(panelFetchPath()).toBe("/reports/data-quality/cards?scope=eol_missing");
-    });
-    expect(await screen.findByRole("link")).toHaveAttribute(
-      "href",
-      "/inventory?eol_missing=true",
-    );
-  });
-
-  it("counts Missing EOL against the EOL-capable population, not every card", async () => {
-    renderReport();
-    // 4 of 7 applications and IT components — not "of 10 cards", which would
-    // read as a rounding error.
-    expect(await screen.findByText("of 7 applications and IT components")).toBeInTheDocument();
+    // A chart at the foot of the report, not a tile with a drill-down: the
+    // question it answers ("has anyone recorded an end of life?") is about
+    // data outside the metamodel, and the Inventory's own End of life filter
+    // is where you act on it.
+    expect(await screen.findByText("End-of-life coverage")).toBeInTheDocument();
+    // The segment labels live in the Recharts legend, which the double
+    // renders as null — assert on the data the chart was handed instead.
+    const eolChart = charts[charts.length - 1];
+    expect(eolChart).toEqual([
+      expect.objectContaining({
+        type: "Application",
+        "Linked to endoflife.date": 3,
+        "Date entered by hand": 1,
+        "Not recorded": 6,
+      }),
+    ]);
   });
 
   it("links the stale tile to the matching inventory filter", async () => {

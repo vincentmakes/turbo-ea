@@ -265,7 +265,5 @@
   "columns.eol": "Окончание поддержки",
   "columns.eolSupport": "Поддержка до",
   "filter.eol": "Окончание поддержки",
-  "filter.eolManual": "Заполнено вручную",
-  "filter.eolMissingOnly": "Только карточки без данных",
-  "filter.eolMissingOnlyHint": "Оставить только приложения и ИТ-компоненты без данных об окончании поддержки — ни связи с endoflife.date, ни даты окончания поддержки."
+  "filter.eolManual": "Заполнено вручную"
 }

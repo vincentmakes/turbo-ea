@@ -376,58 +376,60 @@ describe("ExtensionsAdmin", () => {
   });
 
   // ── "Install from file…" placement ────────────────────────────────────
-  // The trigger is per-tab and per-state rather than page chrome in the
-  // header: it renders in the toolbar above whichever list is on screen, and
-  // inside the notice itself when the store is unusable — the state in which
-  // it is the only way in. Exactly one is in the DOM at a time.
+  // One button, on the tab strip: it belongs with the content it acts on
+  // rather than with the page title, and from there it is reachable on both
+  // tabs and in every store state — including the ones where it is the only
+  // way in.
   describe("install-from-file placement", () => {
     /** True when `a` comes before `b` in document order. */
     const precedes = (a: Element, b: Element) =>
       !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
-    it("puts the button in the toolbar above the catalogue, not in the header", async () => {
+    const installButton = () =>
+      screen.getByText("Install from file…", { selector: "button" });
+
+    it("sits on the tab strip, not in the page header", async () => {
       primeInitialLoad({
         license: LICENSE,
         catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
       });
       renderPage();
 
-      const button = await screen.findByText("Install from file…", { selector: "button" });
-      // The header row is the one carrying the page title.
+      await waitFor(() => expect(installButton()).toBeInTheDocument());
+      const button = installButton();
+      // Not in the header row — the one carrying the page title.
       const header = screen.getByText("Extensions").closest("div") as HTMLElement;
       expect(header).not.toContainElement(button);
-      // It sits above the catalogue, alongside the tag filters.
+      // Beside the tabs: after them, and above the catalogue.
+      expect(precedes(screen.getByRole("tab", { name: "Store" }), button)).toBe(true);
       expect(precedes(button, screen.getByText("ESG Content Pack"))).toBe(true);
     });
 
-    it("carries the button inside the notice when the store cannot be reached", async () => {
+    it("stays available when the store cannot be reached", async () => {
       primeInitialLoad({
         license: LICENSE,
         catalog: { configured: true, reachable: false, store_url: "https://x", items: [] },
       });
       renderPage();
 
-      // Not `findByRole("alert")` — the consulting notice above the tabs is
-      // an Alert too, and it is the first one on the page.
+      await waitFor(() => expect(installButton()).toBeInTheDocument());
+      // The notice no longer sends the admin looking elsewhere for it — the
+      // button is directly above.
       const alert = (await screen.findByText(/could not be reached/i)).closest(
         ".MuiAlert-root",
       ) as HTMLElement;
-      expect(
-        within(alert).getByText("Install from file…", { selector: "button" }),
-      ).toBeInTheDocument();
-      // The prose no longer sends the admin looking for it elsewhere.
       expect(alert.textContent).not.toMatch(/top of this page/i);
-      expect(screen.getAllByText("Install from file…", { selector: "button" })).toHaveLength(1);
+      expect(precedes(installButton(), alert)).toBe(true);
     });
 
-    it("offers the button on the Installed tab too", async () => {
+    it("is a single control, present on the Installed tab too", async () => {
       primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE });
       renderPage("/admin/extensions?tab=installed");
 
-      const button = await screen.findByText("Install from file…", { selector: "button" });
-      expect(screen.getAllByText("Install from file…", { selector: "button" })).toHaveLength(1);
-      // Above the list it adds to.
-      expect(precedes(button, screen.getByText("Installed extensions"))).toBe(true);
+      await waitFor(() =>
+        expect(screen.getAllByText("Install from file…", { selector: "button" })).toHaveLength(1),
+      );
+      expect(precedes(installButton(), screen.getByText("Installed extensions"))).toBe(true);
     });
 
     it("uploads from the Installed tab through the same pipeline", async () => {
@@ -444,7 +446,7 @@ describe("ExtensionsAdmin", () => {
       });
 
       const { container } = renderPage("/admin/extensions?tab=installed");
-      await screen.findByText("Install from file…", { selector: "button" });
+      await waitFor(() => expect(installButton()).toBeInTheDocument());
 
       const bundleInput = container.querySelector('input[type="file"]') as HTMLInputElement;
       await userEvent.upload(bundleInput, new File(["zip"], "other.teax"));

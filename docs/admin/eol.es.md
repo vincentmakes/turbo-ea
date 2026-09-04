@@ -61,5 +61,5 @@ Los datos EOL vinculados alimentan el [Informe EOL](../guide/reports.es.md), que
 
 Dos lugares fuera de esta página listan las fichas sin información alguna de fin de vida: ni un enlace aquí ni una fecha de fin de vida propia:
 
-- El filtro **Sin datos de fin de vida** del [Inventario](../guide/inventory.es.md), que abarca aplicaciones y componentes de TI a la vez, y su columna **Fin de vida**.
-- La cifra **Sin datos de fin de vida** del [Informe EOL](../guide/reports.es.md) y el mosaico **Sin datos de fin de vida** del informe de Calidad de datos, que lleva al mismo filtro del inventario.
+- El filtro y la columna **Fin de vida** del [Inventario](../guide/inventory.es.md): elige un tipo de ficha y luego la opción **(vacío)**.
+- La cifra **Sin datos de fin de vida** del [Informe EOL](../guide/reports.es.md) y el gráfico **Cobertura de fin de vida** al final del informe de Calidad de datos.

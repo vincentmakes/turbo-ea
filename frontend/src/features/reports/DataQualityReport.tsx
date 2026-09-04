@@ -37,6 +37,7 @@ import {
 } from "@/lib/dataQualityBands";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { api } from "@/api/client";
+import { STATUS_COLORS } from "@/theme";
 
 interface TypeStat {
   type: string;
@@ -55,15 +56,26 @@ interface WorstItem {
   updated_at: string | null;
 }
 
+/** One EOL-capable card type's coverage, split by where it came from. */
+interface EolCoverage {
+  type: string;
+  /** Linked to an endoflife.date product cycle. */
+  linked: number;
+  /** Only a hand-entered End of Life date. */
+  manual: number;
+  /** Neither — nobody has recorded an end of life for these. */
+  missing: number;
+  total: number;
+}
+
 interface DQData {
   overall_data_quality: number;
   total_items: number;
   with_lifecycle: number;
   orphaned: number;
   stale: number;
-  eol_missing: number;
-  /** Applications + IT Components — the population `eol_missing` is out of. */
-  eol_eligible: number;
+  /** EOL coverage per EOL-capable card type, for the chart at the foot. */
+  eol_coverage: EolCoverage[];
   by_type: TypeStat[];
   worst_items: WorstItem[];
 }
@@ -89,10 +101,23 @@ interface DQCardsResponse {
 type DQScope =
   | { kind: "band"; typeKey: string; band: DataQualityBand }
   | { kind: "type"; typeKey: string }
-  | { kind: "flag"; flag: "orphaned" | "stale" | "eol_missing" };
+  | { kind: "flag"; flag: "orphaned" | "stale" };
 
 // Derived from the shared band definitions rather than restated, so the
 // report's segments cannot drift from the inventory's chips of the same name.
+/**
+ * EOL coverage segments. Deliberately not the EOL *status* palette from
+ * `@/lib/eol`: those colours mean "how urgent is this component's end of
+ * life", and this chart answers a different question — whether anything is
+ * recorded at all — so borrowing red/amber would read as risk where none has
+ * been established.
+ */
+const EOL_SOURCE_COLORS = {
+  linked: "#1976d2",
+  manual: "#3949ab",
+  missing: STATUS_COLORS.neutral,
+};
+
 const QUALITY_COLORS = Object.fromEntries(
   DATA_QUALITY_BANDS.map((b) => [b.key, b.color]),
 ) as Record<DataQualityBand, string>;
@@ -213,6 +238,21 @@ export default function DataQualityReport() {
     total: bt.total,
   }));
 
+  // EOL coverage chart. Same shape as the stacked bar above, so the two read
+  // as one report; the backend already counts per type, so this only resolves
+  // the labels.
+  const eolLinkedLabel = t("dataQuality.eolLinked");
+  const eolManualLabel = t("dataQuality.eolManual");
+  const eolMissingLabel = t("dataQuality.eolMissing");
+  const eolChartData = (data.eol_coverage ?? []).map((row) => ({
+    name: (() => { const tp = types.find((tp) => tp.key === row.type); return typeLabel(tp) || row.type; })(),
+    type: row.type,
+    [eolLinkedLabel]: row.linked,
+    [eolManualLabel]: row.manual,
+    [eolMissingLabel]: row.missing,
+    total: row.total,
+  }));
+
   const labelForType = (key: string) => typeLabel(types.find((tp) => tp.key === key)) || key;
 
   // ---- Side panel ----------------------------------------------------
@@ -222,9 +262,7 @@ export default function DataQualityReport() {
       return `${labelForType(scope.typeKey)} · ${t(BAND_LABEL_KEY[scope.band])}`;
     }
     if (scope.kind === "type") return labelForType(scope.typeKey);
-    if (scope.flag === "orphaned") return t("dataQuality.orphaned");
-    if (scope.flag === "eol_missing") return t("dataQuality.eolMissing");
-    return t("dataQuality.stale");
+    return scope.flag === "orphaned" ? t("dataQuality.orphaned") : t("dataQuality.stale");
   })();
 
   const panelItems: ReportCardListItem[] = (panelData?.items ?? []).map((item) => ({
@@ -259,7 +297,6 @@ export default function DataQualityReport() {
   const alerts: { severity: "error" | "warning" | "info"; msg: string }[] = [];
   if (data.orphaned > 5) alerts.push({ severity: "warning", msg: t("dataQuality.orphanedAlert", { count: data.orphaned }) });
   if (data.stale > 5) alerts.push({ severity: "warning", msg: t("dataQuality.staleAlert", { count: data.stale }) });
-  if (data.eol_missing > 5) alerts.push({ severity: "warning", msg: t("dataQuality.eolMissingAlert", { count: data.eol_missing }) });
   if (data.overall_data_quality < 50) alerts.push({ severity: "error", msg: t("dataQuality.overallAlert", { pct: data.overall_data_quality }) });
 
   const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
@@ -341,20 +378,6 @@ export default function DataQualityReport() {
           iconColor={data.stale > 5 ? "#e65100" : theme.palette.text.secondary}
           onClick={() => setScope({ kind: "flag", flag: "stale" })}
         />
-        {/* Only Applications and IT Components can carry an end of life, so
-            the subtitle counts against that population rather than the whole
-            inventory — "12 of 340 cards" reads as a rounding error when it is
-            really 12 of 40 components. Hidden when there are none at all. */}
-        {data.eol_eligible > 0 && (
-          <MetricCard
-            label={t("dataQuality.eolMissing")}
-            value={data.eol_missing}
-            subtitle={t("dataQuality.eolMissingOf", { n: data.eol_eligible })}
-            icon="event_busy"
-            iconColor={data.eol_missing > 5 ? "#e65100" : theme.palette.text.secondary}
-            onClick={() => setScope({ kind: "flag", flag: "eol_missing" })}
-          />
-        )}
       </Box>
 
       {view === "chart" ? (
@@ -456,6 +479,51 @@ export default function DataQualityReport() {
               })}
             </Box>
           </Paper>
+
+          {/* EOL coverage. Data quality above is about the fields a card
+              type defines; this is about a fact that lives outside the
+              metamodel entirely — whether anyone has recorded an end of life
+              for the components that can have one. Split by source because a
+              vendor link keeps itself current while a hand-entered date is
+              only as good as its last review, and rendered only when the
+              landscape actually holds such cards. */}
+          {eolChartData.length > 0 && (
+            <Paper variant="outlined" sx={{ p: 2 }} data-export-row>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                {t("dataQuality.eolCoverage")}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                {t("dataQuality.eolCoverageHint")}
+              </Typography>
+              <ResponsiveContainer width="100%" height={Math.max(160, eolChartData.length * 70)}>
+                <BarChart
+                  data={eolChartData}
+                  layout="vertical"
+                  margin={mirrorChartMargin({ left: 0, right: 16, top: 5, bottom: 5 }, isRtl)}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.palette.divider} />
+                  <XAxis type="number" reversed={isRtl} tick={axisTick} />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={axisWidth}
+                    orientation={isRtl ? "right" : "left"}
+                    tick={isRtl ? rtlAxisTick : axisTick}
+                  />
+                  <RTooltip cursor={{ fill: theme.palette.action.hover }} content={<CustomTooltip />} />
+                  <Legend formatter={(value: string) => <span style={rtlLegendItemStyle(isRtl, theme.palette.text.primary)}>{value}</span>} />
+                  <Bar dataKey={eolLinkedLabel} stackId="eol" fill={EOL_SOURCE_COLORS.linked} />
+                  <Bar dataKey={eolManualLabel} stackId="eol" fill={EOL_SOURCE_COLORS.manual} />
+                  <Bar
+                    dataKey={eolMissingLabel}
+                    stackId="eol"
+                    fill={EOL_SOURCE_COLORS.missing}
+                    radius={isRtl ? [4, 0, 0, 4] : [0, 4, 4, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </Paper>
+          )}
         </Box>
       ) : (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>

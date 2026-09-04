@@ -61,5 +61,5 @@ Verknüpfte EOL-Daten fließen in den [EOL-Bericht](../guide/reports.md) ein, de
 
 Zwei Stellen außerhalb dieser Seite listen die Karten ganz ohne End-of-Life-Informationen — weder eine Verknüpfung hier noch ein eigenes Lebensende-Datum:
 
-- Der Filter **Fehlendes EOL** im [Inventar](../guide/inventory.md), der Anwendungen und IT-Komponenten gleichzeitig abdeckt, sowie dessen Spalte **Lebensende**.
-- Die Kennzahl **Keine EOL-Daten** im [EOL-Bericht](../guide/reports.md) und die Kachel **Fehlendes EOL** im Datenqualitätsbericht, die auf denselben Inventarfilter führt.
+- Der Filter und die Spalte **Lebensende** im [Inventar](../guide/inventory.md) — Kartentyp wählen, dann die Option **(leer)**.
+- Die Kennzahl **Keine EOL-Daten** im [EOL-Bericht](../guide/reports.md) und das Diagramm **End-of-Life-Abdeckung** am Ende des Datenqualitätsberichts.

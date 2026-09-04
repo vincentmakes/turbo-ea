@@ -92,11 +92,10 @@ function makeClaimToken(): string {
  * #1063 lifted it out of the foot of the Store tab into the page header; that
  * stopped it hiding below the whole catalogue, but left it reading as page
  * chrome, wedged between the title and the instance ID with five blocks of
- * prose between it and the tabs. It now renders where an extension is actually
- * added — a toolbar directly above whichever list the tab shows — and inside
- * the notice itself whenever the store is unusable, which is the state in
- * which it is the only route in and in which the notice used to merely
- * describe where the button was.
+ * prose between it and the tabs. It now rides the tab strip, which puts it
+ * with the content it acts on rather than with the page title, keeps it on
+ * both tabs and in every store state, and leaves it directly above the
+ * notices that used to have to describe where it was.
  *
  * Module-level, not a closure inside the page: a component declared during
  * render is a new type on every render, so React would unmount and remount
@@ -966,50 +965,47 @@ export default function ExtensionsAdmin() {
         </Alert>
       )}
 
-      <Tabs
-        value={tab}
-        onChange={handleTabChange}
-        sx={{ borderBottom: 1, borderColor: "divider" }}
+      {/* The install trigger rides the tab strip: it belongs to the page's
+          content, not to its title, and from here it is on both tabs and in
+          every store state — including the one where it is the only way in.
+          The rule under the tabs moves to the wrapper so it still spans the
+          full width. */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          borderBottom: 1,
+          borderColor: "divider",
+        }}
       >
-        <Tab value="store" label={t("extensions.tabs.store", "Store")} />
-        <Tab value="installed" label={t("extensions.tabs.installed", "Installed")} />
-      </Tabs>
+        <Tabs value={tab} onChange={handleTabChange} sx={{ flex: 1 }}>
+          <Tab value="store" label={t("extensions.tabs.store", "Store")} />
+          <Tab value="installed" label={t("extensions.tabs.installed", "Installed")} />
+        </Tabs>
+        <InstallFromFileButton
+          onPick={pickBundleFile}
+          busy={pipelineBusy}
+          uploading={installBusy}
+          size="small"
+        />
+      </Box>
 
       {tab === "store" && (
         <>
           {loading ? (
             <LinearProgress />
           ) : !catalog?.configured ? (
-            // Each unusable-store state carries the button rather than naming
-            // its location: here the file flow is not an alternative to the
-            // catalogue, it is the whole way in.
-            <Alert severity="info" action={
-                <InstallFromFileButton
-                  onPick={pickBundleFile}
-                  busy={pipelineBusy}
-                  uploading={installBusy}
-                  size="small"
-                  color="inherit"
-                />
-              }>
+            // None of these notices names a location any more: the install
+            // trigger is on the tab strip directly above them.
+            <Alert severity="info">
               {t(
                 "extensions.store.notConfigured",
                 "No extension store is configured on this instance. Install a signed bundle from file instead — the file-based flow covers everything the store does.",
               )}
             </Alert>
           ) : !catalog.reachable ? (
-            <Alert
-              severity="warning"
-              action={
-                <InstallFromFileButton
-                  onPick={pickBundleFile}
-                  busy={pipelineBusy}
-                  uploading={installBusy}
-                  size="small"
-                  color="inherit"
-                />
-              }
-            >
+            <Alert severity="warning">
               {catalog.reason === "blocked"
                 ? t("extensions.store.blocked", {
                     status: catalog.status_code ?? "",
@@ -1022,23 +1018,11 @@ export default function ExtensionsAdmin() {
                   )}
             </Alert>
           ) : catalog.items.length === 0 ? (
-            <Alert severity="info" action={
-                <InstallFromFileButton
-                  onPick={pickBundleFile}
-                  busy={pipelineBusy}
-                  uploading={installBusy}
-                  size="small"
-                  color="inherit"
-                />
-              }>
+            <Alert severity="info">
               {t("extensions.store.empty", "No extensions published yet.")}
             </Alert>
           ) : (
             <>
-              {/* Toolbar above the catalogue: the tag filters sit on the left,
-                  the file install on the right. Same shape as the Users page —
-                  the action belongs with the list it adds to, not in the page
-                  header a screenful above it. */}
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
                 {allTags.length > 0 && (
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -1061,12 +1045,6 @@ export default function ExtensionsAdmin() {
                     ))}
                   </Stack>
                 )}
-                <Box sx={{ flex: 1 }} />
-                <InstallFromFileButton
-                  onPick={pickBundleFile}
-                  busy={pipelineBusy}
-                  uploading={installBusy}
-                />
               </Box>
               <StoreCheckStatusLine />
               {filteredItems.length === 0 && (
@@ -1185,19 +1163,6 @@ export default function ExtensionsAdmin() {
               )}
             </Alert>
           )}
-
-          {/* The Installed tab's own toolbar. Adding an extension is the one
-              action this list offers that is not per-row, so it sits directly
-              above it — and an admin who never opens the Store tab still has
-              it in reach. */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Box sx={{ flex: 1 }} />
-            <InstallFromFileButton
-              onPick={pickBundleFile}
-              busy={pipelineBusy}
-              uploading={installBusy}
-            />
-          </Box>
 
           <Card variant="outlined">
             <CardContent>

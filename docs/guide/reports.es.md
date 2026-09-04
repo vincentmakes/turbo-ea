@@ -254,10 +254,10 @@ Cada cifra del informe es una vía de entrada, no solo un dato:
 - **Haga clic en un segmento de barra** en *Completitud por tipo*: se abre un panel a la derecha con las fichas de ese tipo en esa banda (Completo, Parcial o Mínimo).
 - **Haga clic en una barra** de *Completitud media por tipo*, o en una fila de la vista de tabla, para listar todas las fichas de ese tipo.
 - **Haga clic en el mosaico Huérfanos u Desactualizados** para listar las fichas tras ese recuento.
-- **Haga clic en el mosaico Sin datos de fin de vida** para listar las aplicaciones y componentes de TI cuyo fin de vida nadie ha registrado.
 
 Desde el panel, haga clic en una ficha para abrir su panel de detalle, o pulse **Ver en el inventario** para continuar en el [Inventario](inventory.md), que llega agrupado por calidad de datos con la banda seleccionada desplegada y las demás plegadas al lado, de modo que pueda empezar a corregir registros de inmediato. Los paneles de Huérfanos y Desactualizados enlazan con el filtro de inventario correspondiente, en todos los tipos de ficha.
 
+El informe termina con el gráfico **Cobertura de fin de vida**: para aplicaciones y componentes de TI, cuántos tienen un fin de vida vinculado desde endoflife.date, introducido a mano o sin registrar. Para actuar, usa el filtro **Fin de vida** del inventario.
 
 ## Informe de Fin de Vida (EOL)
 

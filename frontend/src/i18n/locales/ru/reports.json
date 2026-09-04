@@ -481,9 +481,11 @@
   "matrix.scopeTooltipCols": "Показывать только выбранные столбцы и всё, что находится под ними",
   "matrix.scopeRows": "Область строк",
   "matrix.scopeCols": "Область столбцов",
-  "dataQuality.eolMissing": "Нет данных об окончании поддержки",
-  "dataQuality.eolMissingOf": "из {{n}} приложений и ИТ-компонентов",
-  "dataQuality.eolMissingAlert": "У {{count}} приложений или ИТ-компонентов нет данных об окончании поддержки. Свяжите их с endoflife.date или укажите дату окончания поддержки.",
+  "dataQuality.eolMissing": "Не заполнено",
   "eol.statusMissing": "Нет данных",
-  "eol.noEolDataKpi": "Нет данных об окончании поддержки"
+  "eol.noEolDataKpi": "Нет данных об окончании поддержки",
+  "dataQuality.eolCoverage": "Покрытие данными об окончании поддержки",
+  "dataQuality.eolCoverageHint": "Приложения и ИТ-компоненты — с разбивкой по тому, заполнено ли окончание поддержки.",
+  "dataQuality.eolLinked": "Связано с endoflife.date",
+  "dataQuality.eolManual": "Дата заполнена вручную"
 }

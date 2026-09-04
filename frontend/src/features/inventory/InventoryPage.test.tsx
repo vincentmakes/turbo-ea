@@ -24,7 +24,6 @@ const EMPTY_FILTERS: Filters = {
   orphanedOnly: false,
   staleOnly: false,
   eolStatuses: [],
-  eolMissingOnly: false,
   approvalStatuses: [],
   showArchived: false,
   attributes: {},
@@ -2181,19 +2180,5 @@ describe("InventoryPage — end of life", () => {
     // endpoint omits those cards rather than returning a null status.
     await userEvent.click(screen.getByTestId("apply-eol-empty"));
     await waitFor(() => expect(rowCount()).toBe("1"));
-  });
-
-  it("sends eol_missing to the server for the Missing EOL deep link", async () => {
-    mockItcApi();
-    renderInventory("/inventory?eol_missing=true");
-    await screen.findByTestId("ag-grid");
-
-    await waitFor(() =>
-      expect(
-        vi.mocked(api.get).mock.calls.some(
-          (c) => typeof c[0] === "string" && (c[0] as string).includes("eol_missing=true"),
-        ),
-      ).toBe(true),
-    );
   });
 });

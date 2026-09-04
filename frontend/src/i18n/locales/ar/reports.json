@@ -481,9 +481,11 @@
   "matrix.scopeTooltipCols": "عرض الأعمدة المحددة وكل ما يندرج تحتها فقط",
   "matrix.scopeRows": "نطاق الصفوف",
   "matrix.scopeCols": "نطاق الأعمدة",
-  "dataQuality.eolMissing": "بيانات نهاية العمر مفقودة",
-  "dataQuality.eolMissingOf": "من أصل {{n}} تطبيقات ومكوّنات تقنية",
-  "dataQuality.eolMissingAlert": "‏{{count}} من التطبيقات أو المكوّنات التقنية بلا معلومات نهاية العمر. اربطها بـ endoflife.date أو حدّد تاريخ نهاية العمر.",
+  "dataQuality.eolMissing": "غير مسجَّلة",
   "eol.statusMissing": "لا توجد بيانات نهاية عمر",
-  "eol.noEolDataKpi": "لا توجد بيانات نهاية عمر"
+  "eol.noEolDataKpi": "لا توجد بيانات نهاية عمر",
+  "dataQuality.eolCoverage": "تغطية نهاية العمر",
+  "dataQuality.eolCoverageHint": "التطبيقات والمكوّنات التقنية، بحسب ما إذا كانت نهاية عمرها مسجَّلة.",
+  "dataQuality.eolLinked": "مرتبط بـ endoflife.date",
+  "dataQuality.eolManual": "تاريخ مُدخل يدويًا"
 }

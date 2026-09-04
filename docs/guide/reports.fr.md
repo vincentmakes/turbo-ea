@@ -254,10 +254,10 @@ Chaque valeur du rapport est un point d'entrée, pas seulement un affichage :
 - **Cliquez sur un segment de barre** dans *Complétude par type* — un panneau s'ouvre à droite avec les fiches de ce type dans cette plage (Complet, Partiel ou Minimal).
 - **Cliquez sur une barre** dans *Complétude moyenne par type*, ou sur une ligne de la vue tableau, pour lister toutes les fiches de ce type.
 - **Cliquez sur la tuile Orphelins ou Obsolètes** pour lister les fiches derrière ce compteur.
-- **Cliquez sur la tuile Fin de vie manquante** pour lister les applications et composants informatiques dont personne n'a renseigné la fin de vie.
 
 Depuis le panneau, cliquez sur une fiche pour ouvrir son panneau de détail, ou sur **Voir dans l'inventaire** pour poursuivre dans l'[Inventaire](inventory.md) — qui arrive groupé par qualité des données, la plage cliquée dépliée et les autres repliées à côté, afin de corriger les enregistrements immédiatement. Les panneaux Orphelins et Obsolètes mènent au filtre d'inventaire correspondant, tous types de fiches confondus.
 
+Le rapport se termine par le graphique **Couverture de fin de vie** : pour les applications et composants informatiques, combien ont une fin de vie liée depuis endoflife.date, saisie à la main, ou pas renseignée du tout. Le filtre **Fin de vie** de l'inventaire est l'endroit où agir.
 
 ## Rapport Fin de vie (EOL)
 

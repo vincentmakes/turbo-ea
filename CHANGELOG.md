@@ -9,13 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **The Inventory can now filter and show End of Life.** Applications and IT Components gain an **End of life** column — the date resolved from the card's endoflife.date link, beside a status dot, sorting and exporting as a date — and a matching filter for End of Life / Approaching / Supported / Unknown, with **(empty)** for cards where nothing has been recorded.
-- **Finding what has no end-of-life information at all.** A **Missing EOL** filter in the Inventory lists the applications and IT components with neither a link to endoflife.date nor an End of Life date of their own, across both card types at once. The same count appears as a **Missing EOL** tile on the Data Quality report, which opens the cards behind it and links straight into that filter.
-- **The EOL report now lists the cards it used to leave out.** Components nobody has recorded an end of life for appear with a **No EOL data** status and their own KPI tile, which filters the report to exactly them. A date maintained by hand in the Lifecycle section still counts as coverage.
+- **The Inventory can now filter and show End of Life.** Applications and IT Components gain an **End of life** column — the date resolved from the card's endoflife.date link, beside a status dot, sorting and exporting as a date — and a matching filter for End of Life / Approaching / Supported / Unknown. Its **(empty)** option is how you list the components nobody has recorded an end of life for.
+- **The EOL report now lists the cards it used to leave out.** Components with neither a link to endoflife.date nor an End of Life date of their own appear with a **No EOL data** status and their own KPI tile, which filters the report to exactly them. A date maintained by hand in the Lifecycle section still counts as coverage.
+- **An End-of-life coverage chart** at the foot of the Data Quality report: for applications and IT components, how many have an end of life linked from endoflife.date, entered by hand, or not recorded at all.
 
 ### Changed
 
-- **Install from file… now sits with the list it adds to**, in a toolbar above the Store catalogue and above the Installed list, instead of in the page header. When the store is not configured, unreachable or empty, the button is in the notice itself rather than described in it.
+- **Install from file… now sits on the tab strip** in Admin → Extensions, beside **Store** and **Installed**, instead of in the page header. It is one button, reachable on both tabs and in every store state — including the ones where it is the only way in, whose notices no longer have to describe where it is.
 
 ## [2.121.2] - 2026-09-04
 

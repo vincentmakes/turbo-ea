@@ -254,10 +254,10 @@ Every figure on the report is a way in, not just a readout:
 - **Click a bar segment** in *Completeness by Type* — a panel opens on the right listing the cards of that type in that band (Complete, Partial or Minimal).
 - **Click a bar** in *Average Completion by Type*, or a row in the table view, to list every card of that type.
 - **Click the Orphaned or Stale tile** to list the cards behind that count.
-- **Click the Missing EOL tile** to list the applications and IT components nobody has recorded an end of life for.
 
 From the panel, click any card to open its detail side panel, or press **View in inventory** to continue in the [Inventory](inventory.md) — which arrives grouped by data quality with the band you clicked expanded and the others collapsed beside it, so you can start fixing records straight away. The Orphaned and Stale panels link into the inventory's matching filter, across every card type.
 
+The report closes with an **End-of-life coverage** chart: for applications and IT components, how many have an end of life linked from endoflife.date, entered by hand, or not recorded at all. Act on it from the Inventory's own **End of life** filter.
 
 ## End of Life (EOL) Report
 

@@ -265,7 +265,5 @@
   "columns.eol": "Fin de vie",
   "columns.eolSupport": "Fin du support",
   "filter.eol": "Fin de vie",
-  "filter.eolManual": "Saisie manuelle",
-  "filter.eolMissingOnly": "Uniquement sans fin de vie",
-  "filter.eolMissingOnlyHint": "Restreint la liste aux applications et composants informatiques sans information de fin de vie — ni lien endoflife.date, ni date de fin de vie."
+  "filter.eolManual": "Saisie manuelle"
 }

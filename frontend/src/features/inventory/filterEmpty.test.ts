@@ -20,7 +20,6 @@ const baseFilters: Filters = {
   orphanedOnly: false,
   staleOnly: false,
   eolStatuses: [],
-  eolMissingOnly: false,
   approvalStatuses: ["APPROVED"],
   showArchived: false,
   attributes: { vendor: ["SAP"] },

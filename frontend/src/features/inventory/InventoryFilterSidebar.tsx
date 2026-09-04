@@ -94,13 +94,11 @@ export interface Filters {
    * Resolved end-of-life statuses to keep (`eol` / `approaching` /
    * `supported` / `unknown`, plus `EMPTY_VALUE` for cards with nothing
    * recorded). Client-side over the statuses `GET /eol/card-status` resolved
-   * for the selected type — like `lifecyclePhases`, and unlike `eolMissingOnly`
-   * below, which spans both EOL types at once and so must be server-evaluated.
+   * for the selected type, exactly like `lifecyclePhases`. The `EMPTY_VALUE`
+   * pill is what answers "which of these has nobody recorded an end of life
+   * for?" — there is no separate scope for it.
    */
   eolStatuses: string[];
-  /** Applications and IT Components with no EOL information at all — the
-   * inventory side of the Data Quality report's Missing EOL tile. */
-  eolMissingOnly: boolean;
 }
 
 interface Props {
@@ -297,9 +295,6 @@ export function valueIsEmpty(actual: unknown): boolean {
  * applies. They must therefore be reset on every type change, otherwise a
  * stale (and now-invisible) filter keeps being applied client-side and
  * silently empties the result list. See issue #686.
- *
- * `eolMissingOnly` is deliberately NOT reset: it is a whole-list scope that
- * spans both EOL types, not a per-type facet, and its switch stays on screen.
  */
 export function filtersAfterTypeToggle(filters: Filters, key: string): Filters {
   const next = filters.types.includes(key)
@@ -565,7 +560,7 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, filterSides]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, orphanedOnly: false, staleOnly: false, eolStatuses: [], eolMissingOnly: false });
+    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, orphanedOnly: false, staleOnly: false, eolStatuses: [] });
 
   const activeCount =
     filters.types.length +
@@ -581,8 +576,7 @@ export default function InventoryFilterSidebar({
     (filters.mineScope ? 1 : 0) +
     (filters.orphanedOnly ? 1 : 0) +
     (filters.staleOnly ? 1 : 0) +
-    filters.eolStatuses.length +
-    (filters.eolMissingOnly ? 1 : 0);
+    filters.eolStatuses.length;
 
   // Check if columns differ from default
   const columnsChanged = useMemo(() => {
@@ -636,7 +630,6 @@ export default function InventoryFilterSidebar({
         orphanedOnly: filters.orphanedOnly,
         staleOnly: filters.staleOnly,
         eolStatuses: filters.eolStatuses,
-        eolMissingOnly: filters.eolMissingOnly,
         attributes: filters.attributes,
         relations: filters.relations,
         tagIds: filters.tagIds,
@@ -679,7 +672,6 @@ export default function InventoryFilterSidebar({
         orphanedOnly: f.orphanedOnly || false,
         staleOnly: f.staleOnly || false,
         eolStatuses: f.eolStatuses || [],
-        eolMissingOnly: f.eolMissingOnly || false,
         attributes: f.attributes || {},
         relations: f.relations || {},
         tagIds: f.tagIds || [],
@@ -1093,8 +1085,8 @@ export default function InventoryFilterSidebar({
               {/* End of life — only for the types that can carry it. The
                   statuses come from the same backend classifier the EOL
                   report uses, so a component reading "Approaching" here reads
-                  the same there. "(empty)" is the per-type view of the
-                  Missing EOL scope below. */}
+                  the same there. "(empty)" is how you list the cards nobody
+                  has recorded an end of life for. */}
               {showEolFacet && (
                 <>
                   <SectionHeader
@@ -1602,16 +1594,6 @@ export default function InventoryFilterSidebar({
                     icon: "update_disabled",
                     label: "filter.staleOnly",
                     hint: "filter.staleOnlyHint",
-                  },
-                  // Spans both EOL types at once, so it belongs with the
-                  // whole-list scopes rather than with the per-type facet
-                  // above — and it works with no type selected, which is how
-                  // the Data Quality tile deep-links into it.
-                  {
-                    key: "eolMissingOnly",
-                    icon: "event_busy",
-                    label: "filter.eolMissingOnly",
-                    hint: "filter.eolMissingOnlyHint",
                   },
                 ] as const
               ).map((scope) => (

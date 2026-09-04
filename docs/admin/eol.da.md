@@ -61,5 +61,5 @@ Tilknyttede EOL-data fødes ind i [EOL-rapporten](../guide/reports.md), som leve
 
 To steder uden for denne side viser de kort, der slet ingen end-of-life-oplysninger har — hverken et link her eller en selvangivet End of Life-dato:
 
-- Filteret **Manglende EOL** i [Inventaret](../guide/inventory.md), som dækker applikationer og it-komponenter på én gang, og dets kolonne **End of life**.
-- Tallet **Ingen EOL-data** i [EOL-rapporten](../guide/reports.md) og feltet **Manglende EOL** i datakvalitetsrapporten, som lander på det samme inventarfilter.
+- Filteret og kolonnen **End of life** i [Inventaret](../guide/inventory.md) — vælg en korttype, og derefter **(tom)**.
+- Tallet **Ingen EOL-data** i [EOL-rapporten](../guide/reports.md) og diagrammet **End-of-life-dækning** nederst i datakvalitetsrapporten.

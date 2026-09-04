@@ -21146,18 +21146,6 @@
             }
           },
           {
-            "description": "Keep only Applications and IT Components with no End-of-Life information \u2014 neither an endoflife.date product/cycle link nor a manual End of Life date. Server-side because it spans both card types at once, with no type filter.",
-            "in": "query",
-            "name": "eol_missing",
-            "required": false,
-            "schema": {
-              "default": false,
-              "description": "Keep only Applications and IT Components with no End-of-Life information \u2014 neither an endoflife.date product/cycle link nor a manual End of Life date. Server-side because it spans both card types at once, with no type filter.",
-              "title": "Eol Missing",
-              "type": "boolean"
-            }
-          },
-          {
             "in": "query",
             "name": "page",
             "required": false,
@@ -31311,7 +31299,7 @@
             }
           },
           {
-            "description": "orphaned | stale | eol_missing",
+            "description": "orphaned | stale",
             "in": "query",
             "name": "scope",
             "required": false,
@@ -31324,7 +31312,7 @@
                   "type": "null"
                 }
               ],
-              "description": "orphaned | stale | eol_missing",
+              "description": "orphaned | stale",
               "title": "Scope"
             }
           },

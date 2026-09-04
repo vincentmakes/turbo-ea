@@ -481,9 +481,11 @@
   "matrix.scopeTooltipCols": "仅显示所选列及其下属内容",
   "matrix.scopeRows": "行范围",
   "matrix.scopeCols": "列范围",
-  "dataQuality.eolMissing": "缺少生命周期终止信息",
-  "dataQuality.eolMissingOf": "共 {{n}} 个应用与 IT 组件",
-  "dataQuality.eolMissingAlert": "有 {{count}} 个应用或 IT 组件没有生命周期终止信息。请将其关联到 endoflife.date，或设置生命周期终止日期。",
+  "dataQuality.eolMissing": "未记录",
   "eol.statusMissing": "无生命周期终止数据",
-  "eol.noEolDataKpi": "无生命周期终止数据"
+  "eol.noEolDataKpi": "无生命周期终止数据",
+  "dataQuality.eolCoverage": "生命周期终止覆盖率",
+  "dataQuality.eolCoverageHint": "按是否已记录生命周期终止信息划分的应用与 IT 组件。",
+  "dataQuality.eolLinked": "已关联 endoflife.date",
+  "dataQuality.eolManual": "手动填写日期"
 }

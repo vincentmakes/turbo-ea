@@ -28,7 +28,6 @@ from app.models.user import User
 from app.models.user_favorite import UserFavorite
 from app.services.card_flags import (
     EOL_TYPES,
-    eol_missing_condition,
     has_eol_coverage,
     has_eol_link,
     has_manual_eol,
@@ -2175,15 +2174,39 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
     cutoff = stale_cutoff()
     stale = sum(1 for card in sheets if card.updated_at and card.updated_at < cutoff)
 
-    # EOL coverage. Only Applications and IT Components can carry an end of
-    # life, so the denominator is that population rather than every card —
-    # "12 of 340 cards" would read as a rounding error when it is really 12
-    # of 40 components. Same predicate as the inventory filter and the EOL
-    # report (`card_flags`), so all three count the same cards.
-    eol_eligible_cards = [card for card in sheets if card.type in EOL_TYPES]
-    eol_missing = sum(
-        1 for card in eol_eligible_cards if not has_eol_coverage(card.attributes, card.lifecycle)
-    )
+    # EOL coverage, per card type. Only Applications and IT Components can
+    # carry an end of life, so this counts that population rather than every
+    # card — a share of the whole inventory would read as a rounding error.
+    # Split by where the information came from, because the two are not
+    # interchangeable: a vendor link keeps itself current, a hand-entered date
+    # is only as good as the last person to review it. Same predicates as the
+    # EOL report (`card_flags`), so the chart and the report agree.
+    eol_coverage = []
+    for type_key in EOL_TYPES:
+        of_type = [card for card in sheets if card.type == type_key]
+        if not of_type:
+            continue
+        linked = sum(1 for card in of_type if has_eol_link(card.attributes))
+        manual = sum(
+            1
+            for card in of_type
+            if not has_eol_link(card.attributes) and has_manual_eol(card.lifecycle)
+        )
+        eol_coverage.append(
+            {
+                "type": type_key,
+                "linked": linked,
+                "manual": manual,
+                # The negation of the shared predicate, not `total - linked
+                # - manual`: deriving it arithmetically would be a second
+                # definition of "missing" that could drift from the one the
+                # EOL report uses.
+                "missing": sum(
+                    1 for card in of_type if not has_eol_coverage(card.attributes, card.lifecycle)
+                ),
+                "total": len(of_type),
+            }
+        )
 
     # By-type breakdown
     by_type = []
@@ -2220,8 +2243,7 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
         "with_lifecycle": with_lifecycle,
         "orphaned": orphaned,
         "stale": stale,
-        "eol_missing": eol_missing,
-        "eol_eligible": len(eol_eligible_cards),
+        "eol_coverage": eol_coverage,
         "by_type": by_type,
         "worst_items": worst_items,
     }
@@ -2242,7 +2264,7 @@ _DQ_BAND_BOUNDS: dict[str, tuple[float | None, float | None]] = {
 async def data_quality_cards(
     type: str | None = Query(default=None, description="Card type key"),
     band: str | None = Query(default=None, description="complete | partial | minimal"),
-    scope: str | None = Query(default=None, description="orphaned | stale | eol_missing"),
+    scope: str | None = Query(default=None, description="orphaned | stale"),
     limit: int = Query(default=200, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -2258,7 +2280,7 @@ async def data_quality_cards(
 
     if band is not None and band not in _DQ_BAND_BOUNDS:
         raise HTTPException(status_code=400, detail=f"Unknown band: {band}")
-    if scope is not None and scope not in ("orphaned", "stale", "eol_missing"):
+    if scope is not None and scope not in ("orphaned", "stale"):
         raise HTTPException(status_code=400, detail=f"Unknown scope: {scope}")
 
     conditions = [Card.status == "ACTIVE"]
@@ -2274,8 +2296,6 @@ async def data_quality_cards(
         conditions.append(stale_condition())
     elif scope == "orphaned":
         conditions.append(orphaned_condition())
-    elif scope == "eol_missing":
-        conditions.append(eol_missing_condition())
 
     total_result = await db.execute(select(func.count()).select_from(Card).where(*conditions))
     total = total_result.scalar_one()

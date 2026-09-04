@@ -265,7 +265,5 @@
   "columns.eol": "Fin de vida",
   "columns.eolSupport": "Fin del soporte",
   "filter.eol": "Fin de vida",
-  "filter.eolManual": "Mantenido manualmente",
-  "filter.eolMissingOnly": "Solo tarjetas sin fin de vida",
-  "filter.eolMissingOnlyHint": "Restringe la lista a aplicaciones y componentes de TI sin información de fin de vida: ni enlace a endoflife.date ni fecha de fin de vida."
+  "filter.eolManual": "Mantenido manualmente"
 }

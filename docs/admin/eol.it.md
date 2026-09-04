@@ -61,5 +61,5 @@ I dati EOL collegati alimentano il [Report EOL](../guide/reports.md), che fornis
 
 Due punti fuori da questa pagina elencano le schede senza alcuna informazione di fine vita — né un collegamento qui né una data di fine vita propria:
 
-- Il filtro **Fine vita mancante** nell'[Inventario](../guide/inventory.md), che copre applicazioni e componenti IT insieme, e la sua colonna **Fine vita**.
-- Il valore **Nessun dato di fine vita** nel [Report EOL](../guide/reports.md) e il riquadro **Fine vita mancante** nel report Qualità dei dati, che porta allo stesso filtro dell'inventario.
+- Il filtro e la colonna **Fine vita** nell'[Inventario](../guide/inventory.md): scegli un tipo di scheda, poi l'opzione **(vuoto)**.
+- Il valore **Nessun dato di fine vita** nel [Report EOL](../guide/reports.md) e il grafico **Copertura di fine vita** in fondo al report Qualità dei dati.

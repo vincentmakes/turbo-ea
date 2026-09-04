@@ -481,9 +481,11 @@
   "matrix.scopeTooltipCols": "Vis kun de valgte kolonner og alt under dem",
   "matrix.scopeRows": "Rækkeomfang",
   "matrix.scopeCols": "Kolonneomfang",
-  "dataQuality.eolMissing": "Manglende EOL",
-  "dataQuality.eolMissingOf": "af {{n}} applikationer og it-komponenter",
-  "dataQuality.eolMissingAlert": "{{count}} applikationer eller it-komponenter har ingen end-of-life-oplysninger. Knyt dem til endoflife.date, eller angiv en End of Life-dato.",
+  "dataQuality.eolMissing": "Ikke registreret",
   "eol.statusMissing": "Ingen EOL-data",
-  "eol.noEolDataKpi": "Ingen EOL-data"
+  "eol.noEolDataKpi": "Ingen EOL-data",
+  "dataQuality.eolCoverage": "End-of-life-dækning",
+  "dataQuality.eolCoverageHint": "Applikationer og it-komponenter, opdelt efter om der er registreret en end of life.",
+  "dataQuality.eolLinked": "Knyttet til endoflife.date",
+  "dataQuality.eolManual": "Dato indtastet manuelt"
 }

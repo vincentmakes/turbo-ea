@@ -254,10 +254,10 @@ Ogni valore del report è un punto di accesso, non solo un dato da leggere:
 - **Fai clic su un segmento di barra** in *Completezza per tipo*: si apre un pannello a destra con le card di quel tipo in quella fascia (Completo, Parziale o Minimo).
 - **Fai clic su una barra** in *Completezza media per tipo*, o su una riga nella vista tabella, per elencare tutte le card di quel tipo.
 - **Fai clic sul riquadro Orfani od Obsoleti** per elencare le card dietro quel conteggio.
-- **Fai clic sul riquadro Fine vita mancante** per elencare le applicazioni e i componenti IT per cui nessuno ha registrato una fine vita.
 
 Dal pannello, fai clic su una card per aprirne il pannello di dettaglio, oppure premi **Vedi nell'inventario** per proseguire nell'[Inventario](inventory.md), che si apre raggruppato per qualità dei dati con la fascia selezionata espansa e le altre richiuse accanto, così puoi iniziare subito a correggere i record. I pannelli Orfani e Obsoleti rimandano al filtro corrispondente dell'inventario, su tutti i tipi di scheda.
 
+Il report si chiude con il grafico **Copertura di fine vita**: per applicazioni e componenti IT, quanti hanno una fine vita collegata da endoflife.date, inserita a mano o non registrata affatto. Per intervenire, usa il filtro **Fine vita** dell'inventario.
 
 ## Report End of Life (EOL)
 

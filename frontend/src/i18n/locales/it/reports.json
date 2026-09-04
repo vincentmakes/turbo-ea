@@ -481,9 +481,11 @@
   "matrix.scopeTooltipCols": "Mostra solo le colonne selezionate e tutto ciò che si trova sotto di esse",
   "matrix.scopeRows": "Ambito righe",
   "matrix.scopeCols": "Ambito colonne",
-  "dataQuality.eolMissing": "Fine vita mancante",
-  "dataQuality.eolMissingOf": "su {{n}} applicazioni e componenti IT",
-  "dataQuality.eolMissingAlert": "{{count}} applicazioni o componenti IT non hanno informazioni di fine vita. Collegali a endoflife.date oppure imposta una data di fine vita.",
+  "dataQuality.eolMissing": "Non registrata",
   "eol.statusMissing": "Nessun dato di fine vita",
-  "eol.noEolDataKpi": "Nessun dato di fine vita"
+  "eol.noEolDataKpi": "Nessun dato di fine vita",
+  "dataQuality.eolCoverage": "Copertura di fine vita",
+  "dataQuality.eolCoverageHint": "Applicazioni e componenti IT, in base al fatto che sia stata registrata una fine vita.",
+  "dataQuality.eolLinked": "Collegato a endoflife.date",
+  "dataQuality.eolManual": "Data inserita a mano"
 }

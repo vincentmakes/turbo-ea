@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import and_, not_, or_, select
+from sqlalchemy import select
 
 from app.models.card import Card
 from app.models.relation import Relation
@@ -147,31 +147,12 @@ def has_manual_eol(lifecycle: dict | None) -> bool:
 
 
 def has_eol_coverage(attributes: dict | None, lifecycle: dict | None) -> bool:
-    """Whether anything at all is known about a card's end of life."""
-    return has_eol_link(attributes) or has_manual_eol(lifecycle)
+    """Whether anything at all is known about a card's end of life.
 
-
-def eol_missing_condition():
-    """SQLAlchemy condition selecting EOL-eligible cards with no EOL data.
-
-    "Missing" is the negation of :func:`has_eol_coverage`: **neither** an
-    endoflife.date link **nor** a manual End-of-Life date. Keeping the two in
-    one module is the point — the inventory filter, the Data Quality tile and
-    the EOL report all count the same cards, so a user who clicks a count of
-    37 lands on a list of 37 (the lesson `orphaned`/`stale` above encode).
-
-    Cards of any other type are excluded rather than counted as missing: a
-    Business Capability has no end of life to record, so reporting one as
-    lacking it would be noise nobody can act on.
+    The negation is what the Data Quality report's EOL coverage chart counts,
+    and it is deliberately "neither source": a manual End of Life date is the
+    company's own decommission date, which the EOL report has always accepted
+    in its own right, so a component somebody has already assessed by hand
+    must not be reported as unrecorded.
     """
-    linked = and_(
-        Card.attributes[EOL_PRODUCT_KEY].astext.isnot(None),
-        Card.attributes[EOL_PRODUCT_KEY].astext != "",
-        Card.attributes[EOL_CYCLE_KEY].astext.isnot(None),
-        Card.attributes[EOL_CYCLE_KEY].astext != "",
-    )
-    manual = and_(
-        Card.lifecycle["endOfLife"].astext.isnot(None),
-        Card.lifecycle["endOfLife"].astext != "",
-    )
-    return and_(Card.type.in_(EOL_TYPES), not_(or_(linked, manual)))
+    return has_eol_link(attributes) or has_manual_eol(lifecycle)

@@ -254,10 +254,10 @@ Cada valor do relatório é uma porta de entrada, não apenas uma leitura:
 - **Clique num segmento de barra** em *Completude por tipo* — abre-se um painel à direita com os cards desse tipo naquela faixa (Completo, Parcial ou Mínimo).
 - **Clique numa barra** em *Completude média por tipo*, ou numa linha da vista de tabela, para listar todos os cards desse tipo.
 - **Clique no bloco Órfãos ou Desatualizados** para listar os cards por trás daquela contagem.
-- **Clique no bloco Fim de vida em falta** para listar as aplicações e componentes de TI cujo fim de vida ninguém registou.
 
 No painel, clique num card para abrir o seu painel de detalhe, ou carregue em **Ver no inventário** para continuar no [Inventário](inventory.md) — que chega agrupado por qualidade dos dados, com a faixa clicada expandida e as restantes recolhidas ao lado, para começar a corrigir registos de imediato. Os painéis Órfãos e Desatualizados ligam ao filtro correspondente do inventário, em todos os tipos de ficha.
 
+O relatório termina com o gráfico **Cobertura de fim de vida**: para aplicações e componentes de TI, quantos têm um fim de vida ligado a partir do endoflife.date, introduzido à mão, ou não registado de todo. Para agir, use o filtro **Fim de vida** do inventário.
 
 ## Relatório de Fim de Vida (EOL)
 

@@ -481,9 +481,11 @@
   "matrix.scopeTooltipCols": "Nur die ausgewählten Spalten und alles darunter anzeigen",
   "matrix.scopeRows": "Zeilenbereich",
   "matrix.scopeCols": "Spaltenbereich",
-  "dataQuality.eolMissing": "Fehlendes EOL",
-  "dataQuality.eolMissingOf": "von {{n}} Anwendungen und IT-Komponenten",
-  "dataQuality.eolMissingAlert": "{{count}} Anwendungen oder IT-Komponenten haben keine End-of-Life-Informationen. Verknüpfen Sie sie mit endoflife.date oder setzen Sie ein End-of-Life-Datum.",
+  "dataQuality.eolMissing": "Nicht erfasst",
   "eol.statusMissing": "Keine EOL-Daten",
-  "eol.noEolDataKpi": "Keine EOL-Daten"
+  "eol.noEolDataKpi": "Keine EOL-Daten",
+  "dataQuality.eolCoverage": "End-of-Life-Abdeckung",
+  "dataQuality.eolCoverageHint": "Anwendungen und IT-Komponenten, danach aufgeschlüsselt, ob ein Lebensende erfasst ist.",
+  "dataQuality.eolLinked": "Mit endoflife.date verknüpft",
+  "dataQuality.eolManual": "Datum von Hand erfasst"
 }

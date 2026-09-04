@@ -265,7 +265,5 @@
   "columns.eol": "End of life",
   "columns.eolSupport": "Support slutter",
   "filter.eol": "End of life",
-  "filter.eolManual": "Vedligeholdt manuelt",
-  "filter.eolMissingOnly": "Kun kort uden EOL",
-  "filter.eolMissingOnlyHint": "Begræns listen til applikationer og it-komponenter uden end-of-life-oplysninger — hverken et endoflife.date-link eller en End of Life-dato."
+  "filter.eolManual": "Vedligeholdt manuelt"
 }

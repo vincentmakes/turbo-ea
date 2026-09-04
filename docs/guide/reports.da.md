@@ -254,10 +254,10 @@ Hvert tal i rapporten er en indgang, ikke bare en aflæsning:
 - **Klik på et bjælkesegment** i *Fuldstændighed efter type* — et panel åbner til højre med kortene af den type i det bånd (Komplet, Delvis eller Minimal).
 - **Klik på en bjælke** i *Gennemsnitlig fuldstændighed efter type*, eller på en række i tabelvisningen, for at vise alle kort af den type.
 - **Klik på feltet Forældreløse eller Forældede** for at vise kortene bag det tal.
-- **Klik på feltet Manglende EOL** for at vise de applikationer og it-komponenter, ingen har registreret en end-of-life for.
 
 Fra panelet kan du klikke på et kort for at åbne dets detaljepanel, eller trykke **Vis i inventar** for at fortsætte i [Inventaret](inventory.md) — som åbner grupperet efter datakvalitet med det valgte bånd foldet ud og de øvrige foldet sammen ved siden af, så du kan gå i gang med at rette poster med det samme. Panelerne Forældreløse og Forældede linker til inventarets tilsvarende filter på tværs af alle korttyper.
 
+Rapporten slutter med diagrammet **End-of-life-dækning**: hvor mange applikationer og it-komponenter der har en end of life hentet fra endoflife.date, indtastet manuelt eller slet ikke registreret. Handl på det via inventarets eget **End of life**-filter.
 
 ## End of Life (EOL)-rapport
 

@@ -265,7 +265,5 @@
   "columns.eol": "نهاية العمر",
   "columns.eolSupport": "انتهاء الدعم",
   "filter.eol": "نهاية العمر",
-  "filter.eolManual": "مُدار يدويًا",
-  "filter.eolMissingOnly": "البطاقات بلا بيانات نهاية عمر فقط",
-  "filter.eolMissingOnlyHint": "قصر القائمة على التطبيقات والمكوّنات التقنية التي لا تحمل أي معلومات نهاية عمر — لا رابط endoflife.date ولا تاريخ نهاية عمر."
+  "filter.eolManual": "مُدار يدويًا"
 }

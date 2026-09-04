@@ -69,7 +69,7 @@ export interface InventorySliceFilters {
  * Orphaned / Stale tiles). No card type and no grouping — the tiles count
  * across every type, so the landing must too.
  */
-export function buildInventoryFlagUrl(flag: "orphaned" | "stale" | "eol_missing"): string {
+export function buildInventoryFlagUrl(flag: "orphaned" | "stale"): string {
   return `/inventory?${flag}=true`;
 }
 

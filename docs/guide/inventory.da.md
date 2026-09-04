@@ -19,7 +19,6 @@ Det venstre sidepanel lader dig **filtrere** kort efter forskellige kriterier:
 - **Forældreløse** — Kun kort uden relationer i nogen retning. Vurderes på serveren og virker derfor uden en valgt korttype.
 - **Forældede** — Kun kort, der ikke er opdateret de seneste 90 dage. Begge spejler felterne i [Datakvalitetsrapporten](reports.md#data-quality-report), så et klik på et felt lander her.
 - **End of life** — For applikationer og it-komponenter kan du filtrere efter den supportstatus, Turbo EA udleder af kortets [EOL-link](../admin/eol.md): End of life, På vej, Understøttet eller Ukendt. **(tom)** viser de kort, hvor intet er registreret. Den tilhørende kolonne **End of life** viser datoen ved siden af en statusprik og sorteres og eksporteres som en dato.
-- **Manglende EOL** — Kun applikationer og it-komponenter uden nogen end-of-life-oplysninger: hverken et link til endoflife.date eller en selvangivet End of Life-dato. Evalueres på serveren ligesom Forældreløse og Forældede og dækker derfor begge korttyper på én gang; feltet **Manglende EOL** i [datakvalitetsrapporten](reports.md#data-quality-report) lander her.
 - **Tags** — Filtrer efter tags fra en hvilken som helst tag-gruppe
 - **Relationer** — Filtrer efter relaterede kort på tværs af relations­typer
 - **Brugerdefinerede attributter** — Filtrer efter værdier i brugerdefinerede felter (tekstsøgning, select-muligheder)

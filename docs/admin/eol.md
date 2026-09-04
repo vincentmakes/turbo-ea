@@ -61,5 +61,5 @@ Linked EOL data feeds into the [EOL Report](../guide/reports.md), which provides
 
 Two places outside this page list the cards with no end-of-life information at all — neither a link here nor an End of Life date of their own:
 
-- The **Missing EOL** filter in the [Inventory](../guide/inventory.md), which works across Applications and IT Components at once, and its **End of life** column.
-- The **No EOL data** figure on the [EOL Report](../guide/reports.md), and the **Missing EOL** tile on the Data Quality report, which lands on the same inventory filter.
+- The **End of life** filter and column in the [Inventory](../guide/inventory.md) — pick a card type, then the **(empty)** pill.
+- The **No EOL data** figure on the [EOL Report](../guide/reports.md), and the **End-of-life coverage** chart at the foot of the Data Quality report.

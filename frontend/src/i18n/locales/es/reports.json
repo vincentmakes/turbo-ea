@@ -481,9 +481,11 @@
   "matrix.scopeTooltipCols": "Mostrar solo las columnas seleccionadas y todo lo que hay debajo",
   "matrix.scopeRows": "Alcance de filas",
   "matrix.scopeCols": "Alcance de columnas",
-  "dataQuality.eolMissing": "Sin datos de fin de vida",
-  "dataQuality.eolMissingOf": "de {{n}} aplicaciones y componentes de TI",
-  "dataQuality.eolMissingAlert": "{{count}} aplicaciones o componentes de TI no tienen información de fin de vida. Vincúlalos a endoflife.date o establece una fecha de fin de vida.",
+  "dataQuality.eolMissing": "Sin registrar",
   "eol.statusMissing": "Sin datos de fin de vida",
-  "eol.noEolDataKpi": "Sin datos de fin de vida"
+  "eol.noEolDataKpi": "Sin datos de fin de vida",
+  "dataQuality.eolCoverage": "Cobertura de fin de vida",
+  "dataQuality.eolCoverageHint": "Aplicaciones y componentes de TI, según si se ha registrado un fin de vida.",
+  "dataQuality.eolLinked": "Vinculado a endoflife.date",
+  "dataQuality.eolManual": "Fecha introducida a mano"
 }
