@@ -18,6 +18,7 @@ instans-id'er, installation, opdateringer og prøveperioder — er beskrevet und
 |-----------|--------------|--------|
 | [Digital Autonomy Assessment](digital-autonomy.md) | Vurderer hver applikation efter Utrecht Universitets Digital Autonomy Assessment Framework — 22 vægtede indikatorer, en automatisk autonomi-score fra 1 til 10 og en risiko/afbødnings-kvadrant | **Gratis** |
 | [EA Value Tracker](value-savings.md) | Gør arkitekturbeslutninger til et revisionsegnet økonomisk regnskab: kategoriserede besparelser, godkendelse af realiseringen efter fire-øjne-princippet og et værdi-dashboard | Kommerciel |
+| [Roadmap Studio](roadmap-studio.md) | Planlægger alternative fremtider for landskabet som scenarier, går gennem overgangsplateauer, sammenligner dem på omkostning og end-of-life-eksponering og fører dem gennem gennemgang til et udvalgs beslutning | Kommerciel |
 
 ### Integrationer
 

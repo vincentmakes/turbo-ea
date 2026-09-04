@@ -18,6 +18,7 @@ veda [Amministrazione → Store delle estensioni](../admin/extensions.md).
 |------------|-------------|---------|
 | [Digital Autonomy Assessment](digital-autonomy.md) | Valuta ogni applicazione secondo il Digital Autonomy Assessment Framework dell'Università di Utrecht — 22 indicatori ponderati, un punteggio di autonomia automatico da 1 a 10 e un quadrante rischio/mitigazione | **Gratuita** |
 | [EA Value Tracker](value-savings.md) | Trasforma le decisioni di architettura in un registro finanziario verificabile: risparmi dichiarati per categoria, approvazione della realizzazione a quattro occhi e un cruscotto del valore | Commerciale |
+| [Roadmap Studio](roadmap-studio.md) | Pianifica futuri alternativi del panorama come scenari, percorre i plateau di transizione, li confronta per costo ed esposizione al fine vita e li porta dalla revisione alla decisione di un comitato | Commerciale |
 
 ### Integrazioni
 

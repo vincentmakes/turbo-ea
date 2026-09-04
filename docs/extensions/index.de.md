@@ -19,6 +19,7 @@ beschreibt [Administration → Extension Store](../admin/extensions.md).
 |-------------|----------|--------|
 | [Digital Autonomy Assessment](digital-autonomy.md) | Bewertet jede Anwendung anhand des Digital Autonomy Assessment Framework der Universität Utrecht — 22 gewichtete Indikatoren, ein automatischer Autonomie-Wert von 1–10 und ein Risiko-/Mitigations-Quadrant | **Kostenlos** |
 | [EA Value Tracker](value-savings.md) | Macht aus Architekturentscheidungen ein prüfbares Wertregister: kategorisierte Einsparungsmeldungen, Vier-Augen-Genehmigung der Realisierung und ein Wert-Dashboard | Kommerziell |
+| [Roadmap Studio](roadmap-studio.md) | Plant alternative Zukünfte der Landschaft als Was-wäre-wenn-Szenarien, schreitet durch Übergangsplateaus, vergleicht sie nach Kosten und End-of-Life-Exposition und führt sie durch Prüfung und die Entscheidung eines Prüfgremiums | Kommerziell |
 
 ### Integrationen
 
