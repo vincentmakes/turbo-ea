@@ -254,6 +254,7 @@ Jede Kennzahl im Bericht ist ein Einstiegspunkt, nicht nur eine Anzeige:
 - **Klicken Sie auf ein Balkensegment** in *Vollständigkeit nach Typ* — rechts öffnet sich ein Panel mit den Karten dieses Typs in diesem Band (Vollständig, Teilweise oder Minimal).
 - **Klicken Sie auf einen Balken** in *Durchschnittliche Vollständigkeit nach Typ* oder auf eine Zeile in der Tabellenansicht, um alle Karten dieses Typs aufzulisten.
 - **Klicken Sie auf die Kachel Verwaist oder Veraltet**, um die Karten hinter dieser Zahl aufzulisten.
+- **Klicken Sie auf die Kachel Fehlendes EOL**, um die Anwendungen und IT-Komponenten aufzulisten, für die niemand ein Lebensende erfasst hat.
 
 Klicken Sie im Panel auf eine Karte, um deren Detailbereich zu öffnen, oder auf **In Inventar anzeigen**, um im [Inventar](inventory.md) weiterzuarbeiten — dieses erscheint nach Datenqualität gruppiert, mit dem angeklickten Band aufgeklappt und den übrigen daneben eingeklappt, sodass Sie sofort mit der Korrektur beginnen können. Die Panels Verwaist und Veraltet führen in den passenden Inventarfilter — über alle Kartentypen hinweg.
 
@@ -267,6 +268,7 @@ Der **EOL-Bericht** zeigt den Supportstatus von Technologieprodukten, die über 
 - **Statusverteilung** — Wie viele Produkte Unterstützt, EOL nähert sich oder Lebensende sind
 - **Zeitleiste** — Wann Produkte den Support verlieren werden
 - **Risikopriorisierung** — Fokus auf geschäftskritische Komponenten, die sich dem EOL nähern
+- **Keine EOL-Daten** — Anwendungen und IT-Komponenten, die weder mit endoflife.date verknüpft sind noch ein eigenes Lebensende-Datum haben. Sie erscheinen mit dem Status **Keine EOL-Daten**; ein Klick auf die gleichnamige Kachel zeigt nur diese, ein zweiter Klick blendet die übrigen wieder ein. Ein von Hand im Lebenszyklus gepflegtes Datum zählt als erfasst, sodass eine bereits bewertete Komponente hier nicht erneut auftaucht.
 
 ## Gespeicherte Berichte
 

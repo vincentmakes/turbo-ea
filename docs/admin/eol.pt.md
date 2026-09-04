@@ -56,3 +56,10 @@ Uma vez vinculado, a página de detalhe do card mostra uma **seção EOL** com:
 ## Relatório de EOL
 
 Dados de EOL vinculados alimentam o [Relatório de EOL](../guide/reports.md), que fornece uma visualização em painel do status de suporte do seu cenário tecnológico em todos os cards vinculados.
+
+## Encontrar o que ainda não está ligado
+
+Dois locais fora desta página listam os cartões sem qualquer informação de fim de vida — nem uma ligação aqui nem uma data de fim de vida própria:
+
+- O filtro **Fim de vida em falta** no [Inventário](../guide/inventory.md), que abrange aplicações e componentes de TI ao mesmo tempo, e a sua coluna **Fim de vida**.
+- O valor **Sem dados de fim de vida** no [Relatório de EOL](../guide/reports.md) e o bloco **Fim de vida em falta** no relatório de Qualidade dos dados, que leva ao mesmo filtro do inventário.

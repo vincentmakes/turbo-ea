@@ -20,6 +20,8 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
 from app.models.user import User
+from app.services.card_flags import EOL_TYPES
+from app.services.eol_service import resolve_eol_statuses
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -272,6 +274,60 @@ async def get_product_cycles(
     return resp.json()
 
 
+class EolCardStatus(BaseModel):
+    """The resolved end-of-life picture for one card."""
+
+    status: str = Field(description="eol | approaching | supported | unknown")
+    source: str = Field(description="api (endoflife.date link) | manual (lifecycle date)")
+    eol_product: str | None = None
+    eol_cycle: str | None = None
+    eol_date: str | None = None
+    support_date: str | None = None
+    latest: str | None = None
+
+
+class EolCardStatusResponse(BaseModel):
+    """Card id → status, for every card of the type that carries EOL data."""
+
+    items: dict[str, EolCardStatus]
+
+
+@router.get("/card-status", response_model=EolCardStatusResponse)
+async def eol_card_status(
+    type_key: str = Query(..., alias="type", description="Application or ITComponent"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Resolve the end-of-life status of every card of a type in one call.
+
+    Backs the inventory's End of life column and filter. Cards with neither a
+    product link nor a manual End of Life date are **absent** from the map
+    rather than present with a null status — the client reads absence as "not
+    recorded", and it keeps the payload proportional to what is actually
+    linked rather than to the size of the landscape.
+    """
+    await PermissionService.require_permission(db, user, "eol.view")
+
+    if type_key not in EOL_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Only Application and ITComponent types carry EOL information",
+        )
+
+    result = await db.execute(
+        select(Card).where(Card.type == type_key).where(Card.status == "ACTIVE")
+    )
+    cards = result.scalars().all()
+    # Hand the connection back BEFORE the outbound round-trip. `get_db` is a
+    # yield-dependency, so without this commit the read above would pin one of
+    # the pool's 30 connections for the whole endoflife.date fetch — and this
+    # endpoint is hit on every inventory type change, not once a day.
+    await db.commit()
+
+    statuses = await resolve_eol_statuses(cards)
+    return {"items": statuses}
+
+
 @router.post("/mass-search", response_model=list[MassEolResult])
 async def mass_eol_search(
     type_key: str = Query(..., description="Card type to search (Application or ITComponent)"),
@@ -285,7 +341,7 @@ async def mass_eol_search(
     """
     await PermissionService.require_permission(db, user, "eol.manage")
 
-    if type_key not in ("Application", "ITComponent"):
+    if type_key not in EOL_TYPES:
         raise HTTPException(
             status_code=400,
             detail="Only Application and ITComponent types support EOL linking",

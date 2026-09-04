@@ -1904,6 +1904,35 @@ class TestDataQuality:
         data = resp.json()
         assert data["overall_data_quality"] == 50.0
 
+    async def test_data_quality_counts_cards_with_no_eol_information(self, client, db, env):
+        """The Missing EOL tile counts the same cards as the inventory filter
+        and the EOL report's `missing` rows (#1065)."""
+        admin = env["admin"]
+        await create_card(
+            db,
+            card_type="ITComponent",
+            name="Linked",
+            attributes={"eol_product": "nginx", "eol_cycle": "1.25"},
+            user_id=admin.id,
+        )
+        await create_card(
+            db,
+            card_type="ITComponent",
+            name="ManualDate",
+            lifecycle={"endOfLife": "2027-01-01"},
+            user_id=admin.id,
+        )
+        await create_card(db, card_type="ITComponent", name="Bare", user_id=admin.id)
+        await create_card(db, card_type="BusinessCapability", name="Cap", user_id=admin.id)
+
+        resp = await client.get("/api/v1/reports/data-quality", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["eol_missing"] == 1
+        # The denominator is the EOL-eligible population, not every card —
+        # "1 of 4" would read as noise when it is really 1 of 3 components.
+        assert data["eol_eligible"] == 3
+
     async def test_data_quality_permission_denied(self, client, db, env):
         """User without reports.ea_dashboard gets 403."""
         resp = await client.get(
@@ -1999,6 +2028,21 @@ class TestDataQualityCards:
 
         _, names = await self._names(client, admin, scope="stale")
         assert names == ["Dusty"]
+
+    async def test_scope_eol_missing(self, client, db, env):
+        admin = env["admin"]
+        await create_card(
+            db,
+            card_type="ITComponent",
+            name="Linked",
+            attributes={"eol_product": "nginx", "eol_cycle": "1.25"},
+            user_id=admin.id,
+        )
+        await create_card(db, card_type="ITComponent", name="Bare", user_id=admin.id)
+        await create_card(db, card_type="BusinessCapability", name="Cap", user_id=admin.id)
+
+        _, names = await self._names(client, admin, scope="eol_missing")
+        assert names == ["Bare"]
 
     async def test_limit_truncates_items_but_not_total(self, client, db, env):
         """`total` drives the panel's "showing N of M" — it must not be capped."""

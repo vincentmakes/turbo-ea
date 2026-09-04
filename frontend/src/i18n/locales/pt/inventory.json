@@ -261,5 +261,11 @@
   "export.currentViewHint": "Espelha a grade exibida — não adequada para reimportação",
   "export.waitingForRelations": "A aguardar o carregamento das colunas de relações…",
   "export.viewSheetName": "Vista",
-  "columns.id": "ID"
+  "columns.id": "ID",
+  "columns.eol": "Fim de vida",
+  "columns.eolSupport": "Fim do suporte",
+  "filter.eol": "Fim de vida",
+  "filter.eolManual": "Mantido manualmente",
+  "filter.eolMissingOnly": "Apenas cartões sem fim de vida",
+  "filter.eolMissingOnlyHint": "Restringe a lista a aplicações e componentes de TI sem informação de fim de vida — nem ligação ao endoflife.date nem data de fim de vida."
 }

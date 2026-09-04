@@ -345,7 +345,7 @@
   "eol.supportUntil": "الدعم حتى",
   "eol.latest": "الأحدث",
   "eol.impact": "الأثر",
-  "eol.noEolData": "لم يتم العثور على بطاقات ببيانات نهاية العمر الافتراضي. اربط تطبيقًا أو مكوّن تقنية المعلومات بـ endoflife.date، أو عيّن تاريخ نهاية عمر افتراضي في قسم دورة الحياة.",
+  "eol.noEolData": "لم يتم العثور على تطبيقات أو مكوّنات تقنية. تُسجَّل معلومات نهاية العمر على هذين النوعين من البطاقات فقط.",
   "eol.noFilterMatch": "لا توجد عناصر مطابقة للمرشحات الحالية.",
   "eol.eolReached_one": "<strong>{{count}}</strong> عنصر بلغ نهاية العمر الافتراضي",
   "eol.eolReached_other": "<strong>{{count}}</strong> عنصر بلغت نهاية العمر الافتراضي",
@@ -480,5 +480,10 @@
   "matrix.scopeTooltipRows": "عرض الصفوف المحددة وكل ما يندرج تحتها فقط",
   "matrix.scopeTooltipCols": "عرض الأعمدة المحددة وكل ما يندرج تحتها فقط",
   "matrix.scopeRows": "نطاق الصفوف",
-  "matrix.scopeCols": "نطاق الأعمدة"
+  "matrix.scopeCols": "نطاق الأعمدة",
+  "dataQuality.eolMissing": "بيانات نهاية العمر مفقودة",
+  "dataQuality.eolMissingOf": "من أصل {{n}} تطبيقات ومكوّنات تقنية",
+  "dataQuality.eolMissingAlert": "‏{{count}} من التطبيقات أو المكوّنات التقنية بلا معلومات نهاية العمر. اربطها بـ endoflife.date أو حدّد تاريخ نهاية العمر.",
+  "eol.statusMissing": "لا توجد بيانات نهاية عمر",
+  "eol.noEolDataKpi": "لا توجد بيانات نهاية عمر"
 }

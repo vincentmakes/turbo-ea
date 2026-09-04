@@ -261,5 +261,11 @@
   "export.currentViewHint": "Rispecchia la griglia visualizzata — non adatta al reimport",
   "export.waitingForRelations": "In attesa del caricamento delle colonne delle relazioni…",
   "export.viewSheetName": "Vista",
-  "columns.id": "ID"
+  "columns.id": "ID",
+  "columns.eol": "Fine vita",
+  "columns.eolSupport": "Fine del supporto",
+  "filter.eol": "Fine vita",
+  "filter.eolManual": "Gestito manualmente",
+  "filter.eolMissingOnly": "Solo schede senza fine vita",
+  "filter.eolMissingOnlyHint": "Limita l'elenco alle applicazioni e ai componenti IT senza informazioni di fine vita: né un collegamento a endoflife.date né una data di fine vita."
 }

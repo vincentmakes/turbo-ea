@@ -345,7 +345,7 @@
   "eol.supportUntil": "Soporte hasta",
   "eol.latest": "Última",
   "eol.impact": "Impacto",
-  "eol.noEolData": "No se encontraron fichas con datos EOL. Vincule una aplicación o componente de TI a endoflife.date, o establezca una fecha de fin de vida en la sección Ciclo de vida.",
+  "eol.noEolData": "No se encontraron aplicaciones ni componentes de TI. La información de fin de vida se registra en esos dos tipos de tarjeta.",
   "eol.noFilterMatch": "Ningún elemento coincide con los filtros actuales.",
   "eol.eolReached_one": "<strong>{{count}}</strong> elemento ha alcanzado el fin de vida",
   "eol.eolReached_other": "<strong>{{count}}</strong> elementos han alcanzado el fin de vida",
@@ -480,5 +480,10 @@
   "matrix.scopeTooltipRows": "Mostrar solo las filas seleccionadas y todo lo que hay debajo",
   "matrix.scopeTooltipCols": "Mostrar solo las columnas seleccionadas y todo lo que hay debajo",
   "matrix.scopeRows": "Alcance de filas",
-  "matrix.scopeCols": "Alcance de columnas"
+  "matrix.scopeCols": "Alcance de columnas",
+  "dataQuality.eolMissing": "Sin datos de fin de vida",
+  "dataQuality.eolMissingOf": "de {{n}} aplicaciones y componentes de TI",
+  "dataQuality.eolMissingAlert": "{{count}} aplicaciones o componentes de TI no tienen información de fin de vida. Vincúlalos a endoflife.date o establece una fecha de fin de vida.",
+  "eol.statusMissing": "Sin datos de fin de vida",
+  "eol.noEolDataKpi": "Sin datos de fin de vida"
 }

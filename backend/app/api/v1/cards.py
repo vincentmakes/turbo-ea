@@ -72,7 +72,7 @@ from app.schemas.card import (
 from app.services import card_lifecycle, card_reference, card_write_service, notification_service
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_completeness import missing_mandatory
-from app.services.card_flags import orphaned_condition, stale_condition
+from app.services.card_flags import eol_missing_condition, orphaned_condition, stale_condition
 from app.services.card_logo_service import logo_updated_map
 from app.services.card_resolver import CardResolver
 from app.services.card_uniqueness import check_sibling_name_unique
@@ -272,6 +272,14 @@ async def list_cards(
             "Keep only cards not updated in the last 90 days (`card_flags.STALE_AFTER_DAYS`)."
         ),
     ),
+    eol_missing: bool = Query(
+        False,
+        description=(
+            "Keep only Applications and IT Components with no End-of-Life information — "
+            "neither an endoflife.date product/cycle link nor a manual End of Life date. "
+            "Server-side because it spans both card types at once, with no type filter."
+        ),
+    ),
     page: int = Query(1, ge=1),
     page_size: int = Query(10000, ge=1, le=10000),
     sort_by: str | None = Query(
@@ -353,6 +361,10 @@ async def list_cards(
     if stale:
         q = q.where(stale_condition())
         count_q = count_q.where(stale_condition())
+
+    if eol_missing:
+        q = q.where(eol_missing_condition())
+        count_q = count_q.where(eol_missing_condition())
 
     # Sorting — H9: whitelist sort columns
     effective_sort = sort_by if sort_by in _ALLOWED_SORT_COLUMNS else "name"

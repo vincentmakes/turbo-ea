@@ -254,6 +254,7 @@ Cada cifra del informe es una vía de entrada, no solo un dato:
 - **Haga clic en un segmento de barra** en *Completitud por tipo*: se abre un panel a la derecha con las fichas de ese tipo en esa banda (Completo, Parcial o Mínimo).
 - **Haga clic en una barra** de *Completitud media por tipo*, o en una fila de la vista de tabla, para listar todas las fichas de ese tipo.
 - **Haga clic en el mosaico Huérfanos u Desactualizados** para listar las fichas tras ese recuento.
+- **Haga clic en el mosaico Sin datos de fin de vida** para listar las aplicaciones y componentes de TI cuyo fin de vida nadie ha registrado.
 
 Desde el panel, haga clic en una ficha para abrir su panel de detalle, o pulse **Ver en el inventario** para continuar en el [Inventario](inventory.md), que llega agrupado por calidad de datos con la banda seleccionada desplegada y las demás plegadas al lado, de modo que pueda empezar a corregir registros de inmediato. Los paneles de Huérfanos y Desactualizados enlazan con el filtro de inventario correspondiente, en todos los tipos de ficha.
 
@@ -267,6 +268,7 @@ El **Informe de EOL** muestra el estado de soporte de los productos tecnológico
 - **Distribución de estados** — Cuántos productos tienen Soporte, se Acercan a EOL o están en Fin de Vida
 - **Línea temporal** — Cuándo los productos perderán soporte
 - **Priorización de riesgos** — Enfóquese en componentes de misión crítica que se acercan a EOL
+- **Sin datos de fin de vida** — Aplicaciones y componentes de TI sin enlace a endoflife.date ni fecha de fin de vida propia. Aparecen con el estado **Sin datos de fin de vida**; pulse el mosaico del mismo nombre para ver solo esos, y púlselo de nuevo para recuperar el resto. Una fecha mantenida a mano en el ciclo de vida cuenta como registrada, así que un componente ya evaluado no vuelve a aparecer aquí.
 
 ## Informes Guardados
 

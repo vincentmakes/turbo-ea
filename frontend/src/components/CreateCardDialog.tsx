@@ -42,6 +42,7 @@ import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api, ApiError } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
+import { isEolType } from "@/lib/eol";
 import type {
   FieldDef,
   EolProductMatch,
@@ -50,7 +51,6 @@ import type {
   SiblingNameConflictDetail,
 } from "@/types";
 
-const EOL_ELIGIBLE_TYPES = ["Application", "ITComponent"];
 const VENDOR_ELIGIBLE_TYPES = ["Application", "ITComponent"];
 
 interface Props {
@@ -162,7 +162,7 @@ export default function CreateCardDialog({
 
   const hasSubtypes = !!(typeConfig?.subtypes && typeConfig.subtypes.length > 0);
   const hasHierarchy = !!typeConfig?.has_hierarchy;
-  const isEolEligible = EOL_ELIGIBLE_TYPES.includes(selectedType);
+  const isEolEligible = isEolType(selectedType);
 
   // Determine hidden fields for the selected subtype
   const hiddenFieldKeys = useMemo(() => {

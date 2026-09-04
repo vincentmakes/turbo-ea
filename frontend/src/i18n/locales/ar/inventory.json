@@ -261,5 +261,11 @@
   "export.currentViewHint": "يطابق الجدول المعروض — غير مناسب لإعادة الاستيراد",
   "export.waitingForRelations": "في انتظار انتهاء تحميل أعمدة العلاقات…",
   "export.viewSheetName": "عرض",
-  "columns.id": "المعرّف"
+  "columns.id": "المعرّف",
+  "columns.eol": "نهاية العمر",
+  "columns.eolSupport": "انتهاء الدعم",
+  "filter.eol": "نهاية العمر",
+  "filter.eolManual": "مُدار يدويًا",
+  "filter.eolMissingOnly": "البطاقات بلا بيانات نهاية عمر فقط",
+  "filter.eolMissingOnlyHint": "قصر القائمة على التطبيقات والمكوّنات التقنية التي لا تحمل أي معلومات نهاية عمر — لا رابط endoflife.date ولا تاريخ نهاية عمر."
 }

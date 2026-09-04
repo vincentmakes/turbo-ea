@@ -18,6 +18,8 @@ O painel lateral esquerdo permite **filtrar** cards por diferentes critérios:
 - **Qualidade dos Dados** — Filtragem por faixa (seleção múltipla): Completo (≥80%), Parcial (40-79%), Mínimo (abaixo de 40%). São as faixas do [relatório Qualidade dos dados](reports.md#data-quality-report): clicar num segmento de barra leva até aqui.
 - **Órfãs** — Apenas fichas sem qualquer relação, em ambos os sentidos. Avaliado no servidor, pelo que funciona sem um tipo selecionado.
 - **Desatualizadas** — Apenas fichas não atualizadas nos últimos 90 dias. Ambas espelham os blocos do [relatório Qualidade dos dados](reports.md#data-quality-report): clicar num bloco leva até aqui.
+- **Fim de vida** — Para aplicações e componentes de TI, filtre pelo estado de suporte que o Turbo EA determina a partir da [ligação EOL](../admin/eol.md) de cada cartão: Fim de vida, A aproximar-se, Suportado ou Desconhecido. **(vazio)** lista os cartões sem nada registado. A coluna **Fim de vida** correspondente mostra a data ao lado de um ponto de estado, e é ordenada e exportada como data.
+- **Fim de vida em falta** — Apenas aplicações e componentes de TI sem qualquer informação de fim de vida: nem uma ligação ao endoflife.date nem uma data de fim de vida própria. Avaliado no servidor, tal como Órfãos e Desatualizados, cobrindo ambos os tipos de uma vez; o mosaico **Fim de vida em falta** do [relatório de Qualidade dos dados](reports.md#data-quality-report) leva até aqui.
 - **Tags** — Filtrar por tags de qualquer grupo de tags
 - **Relacionamentos** — Filtrar por cards relacionados através de tipos de relacionamento
 - **Atributos personalizados** — Filtrar por valores em campos personalizados (busca de texto, opções de seleção)

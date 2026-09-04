@@ -254,6 +254,7 @@ Ogni valore del report è un punto di accesso, non solo un dato da leggere:
 - **Fai clic su un segmento di barra** in *Completezza per tipo*: si apre un pannello a destra con le card di quel tipo in quella fascia (Completo, Parziale o Minimo).
 - **Fai clic su una barra** in *Completezza media per tipo*, o su una riga nella vista tabella, per elencare tutte le card di quel tipo.
 - **Fai clic sul riquadro Orfani od Obsoleti** per elencare le card dietro quel conteggio.
+- **Fai clic sul riquadro Fine vita mancante** per elencare le applicazioni e i componenti IT per cui nessuno ha registrato una fine vita.
 
 Dal pannello, fai clic su una card per aprirne il pannello di dettaglio, oppure premi **Vedi nell'inventario** per proseguire nell'[Inventario](inventory.md), che si apre raggruppato per qualità dei dati con la fascia selezionata espansa e le altre richiuse accanto, così puoi iniziare subito a correggere i record. I pannelli Orfani e Obsoleti rimandano al filtro corrispondente dell'inventario, su tutti i tipi di scheda.
 
@@ -267,6 +268,7 @@ Il **Report EOL** mostra lo stato di supporto dei prodotti tecnologici collegati
 - **Distribuzione degli stati** — Quanti prodotti sono Supportati, In avvicinamento a EOL o End of Life
 - **Timeline** — Quando i prodotti perderanno il supporto
 - **Prioritizzazione del rischio** — Concentratevi sui componenti mission-critical in avvicinamento a EOL
+- **Nessun dato di fine vita** — Applicazioni e componenti IT senza collegamento a endoflife.date né una data di fine vita propria. Sono elencati con lo stato **Nessun dato di fine vita**; premi il riquadro con lo stesso nome per mostrare solo quelli e premilo di nuovo per riportare gli altri. Una data mantenuta a mano nel ciclo di vita vale come registrata, così un componente già valutato non ricompare qui.
 
 ## Report salvati
 

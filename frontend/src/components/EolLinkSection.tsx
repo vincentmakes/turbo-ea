@@ -28,13 +28,10 @@ import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { STATUS_COLORS } from "@/theme/tokens";
 import { toLocalDate } from "@/lib/dates";
+import { isEolType } from "@/lib/eol";
 import type { Card, EolProduct, EolCycle, EolProductMatch } from "@/types";
 
-const EOL_TYPES = ["Application", "ITComponent"];
-
-function isEolEligible(cardTypeKey: string): boolean {
-  return EOL_TYPES.includes(cardTypeKey);
-}
+const isEolEligible = isEolType;
 
 /** Parse an EOL date-or-boolean field into a label key (or date string) + color. */
 function formatEolField(

@@ -978,3 +978,85 @@ class TestOrphanedAndStaleFilters:
     async def test_composes_with_the_type_filter(self, client, db, related):
         _, names = await self._names(client, related["admin"], "type=ITComponent&orphaned=true")
         assert names == []
+
+
+class TestEolMissingFilter:
+    """`?eol_missing=` — the inventory side of the Data Quality "Missing EOL"
+    tile and of the EOL report's `missing` rows. All three must count the same
+    cards (#1065)."""
+
+    async def _names(self, client, admin, query):
+        response = await client.get(f"/api/v1/cards?{query}", headers=auth_headers(admin))
+        assert response.status_code == 200
+        return response.json(), [item["name"] for item in response.json()["items"]]
+
+    @pytest.fixture
+    async def landscape(self, db, cards_env):
+        """One card per coverage state, plus a type that has no end of life."""
+        admin = cards_env["admin"]
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_card_type(db, key="BusinessCapability", label="Business Capability")
+        await create_card(
+            db,
+            card_type="ITComponent",
+            name="Linked",
+            attributes={"eol_product": "nginx", "eol_cycle": "1.25"},
+            user_id=admin.id,
+        )
+        await create_card(
+            db,
+            card_type="ITComponent",
+            name="ManualDate",
+            lifecycle={"endOfLife": "2027-01-01"},
+            user_id=admin.id,
+        )
+        await create_card(db, card_type="ITComponent", name="Bare", user_id=admin.id)
+        await create_card(db, card_type="Application", name="BareApp", user_id=admin.id)
+        await create_card(db, card_type="BusinessCapability", name="Payments", user_id=admin.id)
+        await db.flush()
+        return cards_env
+
+    async def test_keeps_only_cards_with_no_eol_information(self, client, db, landscape):
+        _, names = await self._names(client, landscape["admin"], "eol_missing=true")
+        assert sorted(names) == ["Bare", "BareApp"]
+
+    async def test_a_manual_end_of_life_date_counts_as_coverage(self, client, db, landscape):
+        """The manual date is the company's own decommission date — the EOL
+        report has always accepted it as a source, so it is not "missing"."""
+        _, names = await self._names(client, landscape["admin"], "eol_missing=true")
+        assert "ManualDate" not in names
+
+    async def test_ignores_types_that_carry_no_eol(self, client, db, landscape):
+        """A Business Capability has no end of life to record; reporting it as
+        missing one would be noise nobody can act on."""
+        _, names = await self._names(client, landscape["admin"], "eol_missing=true")
+        assert "Payments" not in names
+
+    async def test_half_a_link_is_not_coverage(self, client, db, landscape):
+        """A product with no cycle resolves to nothing upstream."""
+        admin = landscape["admin"]
+        await create_card(
+            db,
+            card_type="ITComponent",
+            name="HalfLinked",
+            attributes={"eol_product": "nginx"},
+            user_id=admin.id,
+        )
+        await db.flush()
+
+        _, names = await self._names(client, admin, "eol_missing=true")
+        assert "HalfLinked" in names
+
+    async def test_total_matches_the_returned_rows(self, client, db, landscape):
+        data, names = await self._names(client, landscape["admin"], "eol_missing=true")
+        assert data["total"] == len(names)
+
+    async def test_off_by_default(self, client, db, landscape):
+        _, names = await self._names(client, landscape["admin"], "type=ITComponent")
+        assert "Linked" in names
+
+    async def test_composes_with_the_type_filter(self, client, db, landscape):
+        _, names = await self._names(
+            client, landscape["admin"], "type=ITComponent&eol_missing=true"
+        )
+        assert names == ["Bare"]

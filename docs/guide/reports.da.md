@@ -254,6 +254,7 @@ Hvert tal i rapporten er en indgang, ikke bare en aflæsning:
 - **Klik på et bjælkesegment** i *Fuldstændighed efter type* — et panel åbner til højre med kortene af den type i det bånd (Komplet, Delvis eller Minimal).
 - **Klik på en bjælke** i *Gennemsnitlig fuldstændighed efter type*, eller på en række i tabelvisningen, for at vise alle kort af den type.
 - **Klik på feltet Forældreløse eller Forældede** for at vise kortene bag det tal.
+- **Klik på feltet Manglende EOL** for at vise de applikationer og it-komponenter, ingen har registreret en end-of-life for.
 
 Fra panelet kan du klikke på et kort for at åbne dets detaljepanel, eller trykke **Vis i inventar** for at fortsætte i [Inventaret](inventory.md) — som åbner grupperet efter datakvalitet med det valgte bånd foldet ud og de øvrige foldet sammen ved siden af, så du kan gå i gang med at rette poster med det samme. Panelerne Forældreløse og Forældede linker til inventarets tilsvarende filter på tværs af alle korttyper.
 
@@ -267,6 +268,7 @@ Fra panelet kan du klikke på et kort for at åbne dets detaljepanel, eller tryk
 - **Status-fordeling** — Hvor mange produkter er Supported, Approaching EOL eller End of Life
 - **Tidslinje** — Hvornår produkter mister support
 - **Risiko­prioritering** — Fokuser på missionskritiske komponenter, der nærmer sig EOL
+- **Ingen EOL-data** — Applikationer og it-komponenter uden hverken et link til endoflife.date eller en selvangivet End of Life-dato. De vises med statussen **Ingen EOL-data**; tryk på feltet med samme navn for kun at vise dem, og tryk igen for at hente resten frem. En dato, du selv vedligeholder i livscyklussen, tæller som registreret, så en komponent, du allerede har vurderet, dukker ikke op igen her.
 
 ## Gemte rapporter
 

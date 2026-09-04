@@ -261,5 +261,11 @@
   "export.currentViewHint": "Refleja la cuadrícula en pantalla: no apta para reimportar",
   "export.waitingForRelations": "Esperando a que terminen de cargarse las columnas de relaciones…",
   "export.viewSheetName": "Vista",
-  "columns.id": "ID"
+  "columns.id": "ID",
+  "columns.eol": "Fin de vida",
+  "columns.eolSupport": "Fin del soporte",
+  "filter.eol": "Fin de vida",
+  "filter.eolManual": "Mantenido manualmente",
+  "filter.eolMissingOnly": "Solo tarjetas sin fin de vida",
+  "filter.eolMissingOnlyHint": "Restringe la lista a aplicaciones y componentes de TI sin información de fin de vida: ni enlace a endoflife.date ni fecha de fin de vida."
 }

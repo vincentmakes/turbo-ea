@@ -260,6 +260,106 @@ class TestMassEolSearch:
 
 
 # ---------------------------------------------------------------
+# GET /eol/card-status  (resolved status per card, for the inventory)
+# ---------------------------------------------------------------
+
+
+def _cycles(product: str):
+    """One upstream cycle list per product, keyed like endoflife.date."""
+    return {
+        "nginx": [{"cycle": "1.25", "eol": "2020-01-01", "support": "2019-06-01"}],
+    }.get(product)
+
+
+class TestEolCardStatus:
+    async def test_resolves_linked_manual_and_omits_uncovered(self, client, db):
+        """Linked cards resolve upstream, manual dates classify locally, and a
+        card with neither is absent — never present with a null status."""
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        linked = await create_card(
+            db,
+            card_type="ITComponent",
+            name="Nginx LB",
+            attributes={"eol_product": "nginx", "eol_cycle": "1.25"},
+            user_id=admin.id,
+        )
+        manual = await create_card(
+            db,
+            card_type="ITComponent",
+            name="In-house Broker",
+            lifecycle={"endOfLife": "2020-03-01"},
+            user_id=admin.id,
+        )
+        bare = await create_card(db, card_type="ITComponent", name="Unknown Box", user_id=admin.id)
+
+        with patch(
+            "app.services.eol_service.fetch_product_cycles",
+            new=AsyncMock(side_effect=lambda _client, product: _cycles(product)),
+        ):
+            resp = await client.get(
+                "/api/v1/eol/card-status?type=ITComponent",
+                headers=auth_headers(admin),
+            )
+
+        assert resp.status_code == 200
+        items = resp.json()["items"]
+        assert items[str(linked.id)]["status"] == "eol"
+        assert items[str(linked.id)]["source"] == "api"
+        assert items[str(linked.id)]["eol_date"] == "2020-01-01"
+        assert items[str(manual.id)]["status"] == "eol"
+        assert items[str(manual.id)]["source"] == "manual"
+        assert items[str(manual.id)]["eol_date"] == "2020-03-01"
+        assert str(bare.id) not in items
+
+    async def test_upstream_failure_degrades_to_unknown(self, client, db):
+        """A dead endoflife.date must not 500 the grid — the row reads unknown."""
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        card = await create_card(
+            db,
+            card_type="ITComponent",
+            name="Nginx LB",
+            attributes={"eol_product": "nginx", "eol_cycle": "1.25"},
+            user_id=admin.id,
+        )
+
+        with patch(
+            "app.services.eol_service.fetch_product_cycles",
+            new=AsyncMock(return_value=None),
+        ):
+            resp = await client.get(
+                "/api/v1/eol/card-status?type=ITComponent",
+                headers=auth_headers(admin),
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["items"][str(card.id)]["status"] == "unknown"
+
+    async def test_rejects_a_type_that_carries_no_eol(self, client, db):
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+
+        resp = await client.get(
+            "/api/v1/eol/card-status?type=BusinessCapability",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+
+    async def test_requires_eol_view(self, client, db):
+        await create_role(db, key="nobody", label="Nobody", permissions={})
+        user = await create_user(db, email="nobody@test.com", role="nobody")
+
+        resp = await client.get(
+            "/api/v1/eol/card-status?type=ITComponent",
+            headers=auth_headers(user),
+        )
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------
 # POST /eol/mass-link  (bulk-link cards to EOL products/cycles)
 # ---------------------------------------------------------------
 

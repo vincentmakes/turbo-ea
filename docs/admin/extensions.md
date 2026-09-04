@@ -56,7 +56,7 @@ Some paid extensions offer a **free 30-day trial** — look for the **Start 30-d
 ## Installing an extension
 
 1. If you have not done so yet, apply your license first (see below).
-2. Open **Admin → Extensions** and press **Install from file…** at the top of the page (next to the instance ID — it is there on both tabs), then upload the `.teax` file you received.
+2. Open **Admin → Extensions** and press **Install from file…** above the catalogue on the Store tab or above the list on the Installed tab (and inside the notice shown when the store cannot be reached), then upload the `.teax` file you received.
 3. Turbo EA verifies the signature and opens an **install dialog** with a **preview**: for content-carrying extensions this is a dry-run of every card type, tag group, card, and relation the extension would create or update — nothing is written yet.
 4. Review the preview — it scrolls inside the dialog — and press **Install extension** at the foot of the dialog, where the action stays put however long the preview is.
 5. If the extension carries backend code, a banner asks you to restart the backend container (`docker compose restart backend`). Content and UI extensions are active immediately — users pick up new UI on their next page load.

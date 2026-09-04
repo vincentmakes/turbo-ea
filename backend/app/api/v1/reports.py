@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, case, func, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,9 +26,24 @@ from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
-from app.services.card_flags import orphaned_condition, stale_condition, stale_cutoff
+from app.services.card_flags import (
+    EOL_TYPES,
+    eol_missing_condition,
+    has_eol_coverage,
+    has_eol_link,
+    has_manual_eol,
+    orphaned_condition,
+    stale_condition,
+    stale_cutoff,
+)
 from app.services.card_logo_service import logo_updated_map
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
+from app.services.eol_service import (
+    eol_status,
+    fetch_cycles_for_products,
+    find_cycle,
+    manual_eol_status,
+)
 from app.services.kpi_snapshot_service import (
     compute_trend_block,
     get_comparison_snapshot,
@@ -2162,6 +2175,16 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
     cutoff = stale_cutoff()
     stale = sum(1 for card in sheets if card.updated_at and card.updated_at < cutoff)
 
+    # EOL coverage. Only Applications and IT Components can carry an end of
+    # life, so the denominator is that population rather than every card —
+    # "12 of 340 cards" would read as a rounding error when it is really 12
+    # of 40 components. Same predicate as the inventory filter and the EOL
+    # report (`card_flags`), so all three count the same cards.
+    eol_eligible_cards = [card for card in sheets if card.type in EOL_TYPES]
+    eol_missing = sum(
+        1 for card in eol_eligible_cards if not has_eol_coverage(card.attributes, card.lifecycle)
+    )
+
     # By-type breakdown
     by_type = []
     for t, ts in sorted(
@@ -2197,6 +2220,8 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
         "with_lifecycle": with_lifecycle,
         "orphaned": orphaned,
         "stale": stale,
+        "eol_missing": eol_missing,
+        "eol_eligible": len(eol_eligible_cards),
         "by_type": by_type,
         "worst_items": worst_items,
     }
@@ -2217,7 +2242,7 @@ _DQ_BAND_BOUNDS: dict[str, tuple[float | None, float | None]] = {
 async def data_quality_cards(
     type: str | None = Query(default=None, description="Card type key"),
     band: str | None = Query(default=None, description="complete | partial | minimal"),
-    scope: str | None = Query(default=None, description="orphaned | stale"),
+    scope: str | None = Query(default=None, description="orphaned | stale | eol_missing"),
     limit: int = Query(default=200, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -2233,7 +2258,7 @@ async def data_quality_cards(
 
     if band is not None and band not in _DQ_BAND_BOUNDS:
         raise HTTPException(status_code=400, detail=f"Unknown band: {band}")
-    if scope is not None and scope not in ("orphaned", "stale"):
+    if scope is not None and scope not in ("orphaned", "stale", "eol_missing"):
         raise HTTPException(status_code=400, detail=f"Unknown scope: {scope}")
 
     conditions = [Card.status == "ACTIVE"]
@@ -2249,6 +2274,8 @@ async def data_quality_cards(
         conditions.append(stale_condition())
     elif scope == "orphaned":
         conditions.append(orphaned_condition())
+    elif scope == "eol_missing":
+        conditions.append(eol_missing_condition())
 
     total_result = await db.execute(select(func.count()).select_from(Card).where(*conditions))
     total = total_result.scalar_one()
@@ -2281,87 +2308,10 @@ async def data_quality_cards(
 #  EOL Risk & Impact report
 # ---------------------------------------------------------------------------
 
-_EOL_BASE = "https://endoflife.date/api"
-
-
-def _eol_status(eol_val, support_val) -> str:
-    """Classify a cycle as 'eol', 'approaching', 'supported', or 'unknown'."""
-    now = datetime.now(timezone.utc).date()
-
-    # Check EOL first
-    if eol_val is True:
-        return "eol"
-    if isinstance(eol_val, str):
-        try:
-            eol_date = datetime.strptime(eol_val, "%Y-%m-%d").date()
-            if eol_date <= now:
-                return "eol"
-            six_months = now + timedelta(days=182)
-            if eol_date <= six_months:
-                return "approaching"
-        except ValueError:
-            pass
-
-    # If active support has ended
-    if isinstance(support_val, str):
-        try:
-            sup_date = datetime.strptime(support_val, "%Y-%m-%d").date()
-            if sup_date <= now:
-                return "approaching"
-        except ValueError:
-            pass
-
-    if eol_val is False:
-        return "supported"
-
-    return "supported" if eol_val is not None else "unknown"
-
-
-async def _fetch_product_cycles(
-    client: httpx.AsyncClient,
-    product: str,
-) -> list[dict] | None:
-    """Fetch cycles for a single product, returning None on failure."""
-    try:
-        resp = await client.get(f"{_EOL_BASE}/{product}.json", timeout=10.0)
-        if resp.status_code == 200:
-            return resp.json()
-    except httpx.HTTPError:
-        log.warning("Failed to fetch EOL data for %s", product)
-    return None
-
-
-def _manual_eol_status(lifecycle: dict | None) -> str:
-    """Classify a card with manually maintained lifecycle dates."""
-    if not lifecycle:
-        return "unknown"
-
-    now = datetime.now(timezone.utc).date()
-    eol_str = lifecycle.get("endOfLife")
-    phase_out_str = lifecycle.get("phaseOut")
-
-    # Check endOfLife date
-    if isinstance(eol_str, str) and eol_str:
-        try:
-            eol_date = datetime.strptime(eol_str, "%Y-%m-%d").date()
-            if eol_date <= now:
-                return "eol"
-            six_months = now + timedelta(days=182)
-            if eol_date <= six_months:
-                return "approaching"
-        except ValueError:
-            pass
-
-    # Check phaseOut date (analogous to support ending)
-    if isinstance(phase_out_str, str) and phase_out_str:
-        try:
-            po_date = datetime.strptime(phase_out_str, "%Y-%m-%d").date()
-            if po_date <= now:
-                return "approaching"
-        except ValueError:
-            pass
-
-    return "supported"
+# The classifiers and the upstream fetch live in `services/eol_service.py`:
+# the inventory grid asks the same question of the same cards, and two
+# implementations of "approaching" would be two different answers to the same
+# user looking at one component in two places.
 
 
 @router.get("/eol")
@@ -2378,62 +2328,62 @@ async def eol_report(
 
     Each item includes a ``source`` field: ``"api"`` for items linked
     to endoflife.date, ``"manual"`` for items with only a hand-entered
-    ``endOfLife`` lifecycle date.
+    ``endOfLife`` lifecycle date, and ``"none"`` for cards carrying neither.
+
+    Those last ones (``status: "missing"``) are the answer to "which of my
+    hundreds of IT Components has nobody recorded an end of life for?"
+    ([#1065](https://github.com/vincentmakes/turbo-ea/discussions/1065)). The
+    report used to drop them silently, which made the one question the report
+    is best placed to answer the one it could not.
     """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     # 1. Fetch all active Applications and ITComponents
     result = await db.execute(
         select(Card).where(
             Card.status == "ACTIVE",
-            Card.type.in_(["Application", "ITComponent"]),
+            Card.type.in_(EOL_TYPES),
         )
     )
     all_sheets = result.scalars().all()
 
-    # Split into API-linked and manually-maintained sets
+    # Split into API-linked, manually-maintained, and uncovered sets. The
+    # coverage predicates come from `card_flags` so the report, the Data
+    # Quality tile and the inventory filter cannot disagree about which cards
+    # count as "missing".
     api_sheets = []
     manual_sheets = []
-    seen_ids: set[str] = set()
+    missing_sheets = []
 
     for card in all_sheets:
-        attrs = card.attributes or {}
-        has_api_link = bool(attrs.get("eol_product") and attrs.get("eol_cycle"))
-        lifecycle = card.lifecycle or {}
-        has_manual_eol = bool(lifecycle.get("endOfLife"))
-
-        if has_api_link:
+        if has_eol_link(card.attributes):
             api_sheets.append(card)
-            seen_ids.add(str(card.id))
-        elif has_manual_eol:
+        elif has_manual_eol(card.lifecycle):
             manual_sheets.append(card)
-            seen_ids.add(str(card.id))
+        else:
+            missing_sheets.append(card)
 
-    if not api_sheets and not manual_sheets:
+    if not all_sheets:
         return {
             "items": [],
             "summary": {
                 "eol": 0,
                 "approaching": 0,
                 "supported": 0,
+                "missing": 0,
                 "impacted_apps": 0,
                 "manual": 0,
             },
         }
 
     # 2. Batch-fetch unique products from endoflife.date (for API-linked items)
-    unique_products = {(card.attributes or {})["eol_product"] for card in api_sheets}
-    product_cycles: dict[str, list[dict]] = {}
+    product_cycles = await fetch_cycles_for_products(
+        {(card.attributes or {})["eol_product"] for card in api_sheets}
+    )
 
-    if unique_products:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            tasks = {product: _fetch_product_cycles(client, product) for product in unique_products}
-            results = await asyncio.gather(*tasks.values())
-            for product, cycles in zip(tasks.keys(), results):
-                if cycles is not None:
-                    product_cycles[product] = cycles
-
-    # 3. Get relations between ITComponent and Application for impact mapping
-    all_eol_sheets = api_sheets + manual_sheets
+    # 3. Get relations between ITComponent and Application for impact mapping.
+    #    Uncovered components are included: "what would this hit if it went
+    #    end of life" is exactly the argument for going and finding out.
+    all_eol_sheets = api_sheets + manual_sheets + missing_sheets
     it_ids = [card.id for card in all_eol_sheets if card.type == "ITComponent"]
     app_map = {str(card.id): card for card in all_sheets if card.type == "Application"}
     it_to_apps: dict[str, list[dict]] = {}
@@ -2485,16 +2435,11 @@ async def eol_report(
         cycle_key = str(attrs["eol_cycle"])
 
         # Match cycle data
-        cycle_data = None
-        cycles = product_cycles.get(product, [])
-        for c in cycles:
-            if str(c.get("cycle")) == cycle_key:
-                cycle_data = c
-                break
+        cycle_data = find_cycle(product_cycles.get(product, []), cycle_key)
 
         status = "unknown"
         if cycle_data:
-            status = _eol_status(cycle_data.get("eol"), cycle_data.get("support"))
+            status = eol_status(cycle_data.get("eol"), cycle_data.get("support"))
 
         if status in counts:
             counts[status] += 1
@@ -2527,7 +2472,7 @@ async def eol_report(
     # 4b. Manually maintained items (lifecycle.endOfLife set, no API link)
     for card in manual_sheets:
         lifecycle = card.lifecycle or {}
-        status = _manual_eol_status(lifecycle)
+        status = manual_eol_status(lifecycle)
         manual_count += 1
 
         if status in counts:
@@ -2567,8 +2512,32 @@ async def eol_report(
             }
         )
 
-    # Sort: EOL first, then approaching, then supported
-    status_order = {"eol": 0, "approaching": 1, "unknown": 2, "supported": 3}
+    # 4c. Cards nobody has recorded any end-of-life information for. They
+    #     carry no dates, so they have no place on the timeline — but they are
+    #     the population an architect has to work through, and until #1065
+    #     nothing outside the admin mass-link screen listed them.
+    for card in missing_sheets:
+        items.append(
+            {
+                "id": str(card.id),
+                "name": card.name,
+                "type": card.type,
+                "subtype": card.subtype,
+                "eol_product": None,
+                "eol_cycle": None,
+                "status": "missing",
+                "source": "none",
+                "cycle_data": None,
+                "lifecycle": card.lifecycle,
+                "affected_apps": it_to_apps.get(str(card.id), []),
+            }
+        )
+
+    # Sort: EOL first, then approaching, then supported, then the unrecorded.
+    # "Missing" sorts last on purpose: it is a backlog to work through, not a
+    # risk to act on today, and putting it above `supported` would bury the
+    # cards whose dates someone has actually checked.
+    status_order = {"eol": 0, "approaching": 1, "unknown": 2, "supported": 3, "missing": 4}
     items.sort(key=lambda x: (status_order.get(x["status"], 9), x["name"]))
 
     return {
@@ -2577,6 +2546,7 @@ async def eol_report(
             "eol": counts["eol"],
             "approaching": counts["approaching"],
             "supported": counts["supported"],
+            "missing": len(missing_sheets),
             "impacted_apps": len(eol_impacted_app_ids),
             "approaching_impacted_apps": len(approaching_impacted_app_ids - eol_impacted_app_ids),
             "manual": manual_count,

@@ -56,7 +56,7 @@ Nogle betalte udvidelser tilbyder en **gratis 30-dages prøveperiode** — kig e
 ## Installer en udvidelse
 
 1. Hvis du ikke allerede har gjort det, skal du først anvende din licens (se nedenfor).
-2. Åbn **Admin → Udvidelser**, tryk på **Installer fra fil…** øverst på siden (ved siden af instans-id'et — knappen findes på begge faner), og upload den `.teax`-fil, du har modtaget.
+2. Åbn **Admin → Udvidelser**, tryk på **Installer fra fil…** over kataloget på fanen Butik eller over listen på fanen Installerede (og inde i den besked, der vises, når butikken ikke kan nås), og upload den `.teax`-fil, du har modtaget.
 3. Turbo EA verificerer signaturen og åbner en **installationsdialog** med en **forhåndsvisning**: for indholdsbærende udvidelser er det en prøvekørsel af hver korttype, tag-gruppe, kort og relation, som udvidelsen ville oprette eller opdatere — intet skrives endnu.
 4. Gennemgå forhåndsvisningen — den ruller inde i dialogen — og tryk på **Installer udvidelse** nederst i dialogen, hvor knappen bliver stående, uanset hvor lang forhåndsvisningen er.
 5. Hvis udvidelsen indeholder backend-kode, beder et banner dig om at genstarte backend-containeren (`docker compose restart backend`). Indholds- og UI-udvidelser er aktive med det samme — brugerne ser den nye brugerflade ved næste sideindlæsning.

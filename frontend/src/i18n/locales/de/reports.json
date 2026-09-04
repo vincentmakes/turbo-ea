@@ -345,7 +345,7 @@
   "eol.supportUntil": "Support bis",
   "eol.latest": "Aktuell",
   "eol.impact": "Auswirkung",
-  "eol.noEolData": "Keine Karten mit EOL-Daten gefunden. Verknüpfen Sie eine Anwendung oder IT-Komponente mit endoflife.date oder setzen Sie ein End-of-Life-Datum im Lebenszyklus-Bereich.",
+  "eol.noEolData": "Keine Anwendungen oder IT-Komponenten gefunden. End-of-Life-Informationen werden nur für diese beiden Kartentypen erfasst.",
   "eol.noFilterMatch": "Keine Elemente entsprechen den aktuellen Filtern.",
   "eol.eolReached_one": "<strong>{{count}}</strong> Element hat End of Life erreicht",
   "eol.eolReached_other": "<strong>{{count}}</strong> Elemente haben End of Life erreicht",
@@ -480,5 +480,10 @@
   "matrix.scopeTooltipRows": "Nur die ausgewählten Zeilen und alles darunter anzeigen",
   "matrix.scopeTooltipCols": "Nur die ausgewählten Spalten und alles darunter anzeigen",
   "matrix.scopeRows": "Zeilenbereich",
-  "matrix.scopeCols": "Spaltenbereich"
+  "matrix.scopeCols": "Spaltenbereich",
+  "dataQuality.eolMissing": "Fehlendes EOL",
+  "dataQuality.eolMissingOf": "von {{n}} Anwendungen und IT-Komponenten",
+  "dataQuality.eolMissingAlert": "{{count}} Anwendungen oder IT-Komponenten haben keine End-of-Life-Informationen. Verknüpfen Sie sie mit endoflife.date oder setzen Sie ein End-of-Life-Datum.",
+  "eol.statusMissing": "Keine EOL-Daten",
+  "eol.noEolDataKpi": "Keine EOL-Daten"
 }

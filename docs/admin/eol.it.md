@@ -56,3 +56,10 @@ Una volta collegata, la pagina di dettaglio della card mostra una **sezione EOL*
 ## Report EOL
 
 I dati EOL collegati alimentano il [Report EOL](../guide/reports.md), che fornisce una vista dashboard dello stato di supporto del vostro panorama tecnologico su tutte le card collegate.
+
+## Trovare ciò che non è ancora collegato
+
+Due punti fuori da questa pagina elencano le schede senza alcuna informazione di fine vita — né un collegamento qui né una data di fine vita propria:
+
+- Il filtro **Fine vita mancante** nell'[Inventario](../guide/inventory.md), che copre applicazioni e componenti IT insieme, e la sua colonna **Fine vita**.
+- Il valore **Nessun dato di fine vita** nel [Report EOL](../guide/reports.md) e il riquadro **Fine vita mancante** nel report Qualità dei dati, che porta allo stesso filtro dell'inventario.

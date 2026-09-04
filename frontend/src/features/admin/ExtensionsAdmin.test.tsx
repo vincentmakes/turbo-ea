@@ -375,6 +375,85 @@ describe("ExtensionsAdmin", () => {
     );
   });
 
+  // ── "Install from file…" placement ────────────────────────────────────
+  // The trigger is per-tab and per-state rather than page chrome in the
+  // header: it renders in the toolbar above whichever list is on screen, and
+  // inside the notice itself when the store is unusable — the state in which
+  // it is the only way in. Exactly one is in the DOM at a time.
+  describe("install-from-file placement", () => {
+    /** True when `a` comes before `b` in document order. */
+    const precedes = (a: Element, b: Element) =>
+      !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+    it("puts the button in the toolbar above the catalogue, not in the header", async () => {
+      primeInitialLoad({
+        license: LICENSE,
+        catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+      });
+      renderPage();
+
+      const button = await screen.findByText("Install from file…", { selector: "button" });
+      // The header row is the one carrying the page title.
+      const header = screen.getByText("Extensions").closest("div") as HTMLElement;
+      expect(header).not.toContainElement(button);
+      // It sits above the catalogue, alongside the tag filters.
+      expect(precedes(button, screen.getByText("ESG Content Pack"))).toBe(true);
+    });
+
+    it("carries the button inside the notice when the store cannot be reached", async () => {
+      primeInitialLoad({
+        license: LICENSE,
+        catalog: { configured: true, reachable: false, store_url: "https://x", items: [] },
+      });
+      renderPage();
+
+      // Not `findByRole("alert")` — the consulting notice above the tabs is
+      // an Alert too, and it is the first one on the page.
+      const alert = (await screen.findByText(/could not be reached/i)).closest(
+        ".MuiAlert-root",
+      ) as HTMLElement;
+      expect(
+        within(alert).getByText("Install from file…", { selector: "button" }),
+      ).toBeInTheDocument();
+      // The prose no longer sends the admin looking for it elsewhere.
+      expect(alert.textContent).not.toMatch(/top of this page/i);
+      expect(screen.getAllByText("Install from file…", { selector: "button" })).toHaveLength(1);
+    });
+
+    it("offers the button on the Installed tab too", async () => {
+      primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE });
+      renderPage("/admin/extensions?tab=installed");
+
+      const button = await screen.findByText("Install from file…", { selector: "button" });
+      expect(screen.getAllByText("Install from file…", { selector: "button" })).toHaveLength(1);
+      // Above the list it adds to.
+      expect(precedes(button, screen.getByText("Installed extensions"))).toBe(true);
+    });
+
+    it("uploads from the Installed tab through the same pipeline", async () => {
+      primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE });
+      mockUpload.mockResolvedValue({ id: "i9", filename: "other.teax", status: "verifying" });
+      mockGet.mockImplementation(async (path: string) => {
+        if (path === "/admin/extensions") return [SAMPLE_EXT];
+        if (path === "/admin/extensions/license") return LICENSE;
+        if (path === "/admin/extensions/store/catalog") return UNCONFIGURED_CATALOG;
+        if (path === "/admin/extensions/instance") return { instance_id: "" };
+        if (path.startsWith("/admin/extensions/install/"))
+          return { id: "i9", filename: "other.teax", status: "verifying" };
+        throw new Error(`unexpected GET ${path}`);
+      });
+
+      const { container } = renderPage("/admin/extensions?tab=installed");
+      await screen.findByText("Install from file…", { selector: "button" });
+
+      const bundleInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+      await userEvent.upload(bundleInput, new File(["zip"], "other.teax"));
+
+      await waitFor(() => expect(mockUpload).toHaveBeenCalled());
+      expect(mockUpload.mock.calls[0][0]).toBe("/admin/extensions/install");
+    });
+  });
+
   it("uploads a bundle from the Store tab, shows the preview, and installs it", async () => {
     primeInitialLoad({ license: LICENSE });
     mockUpload.mockResolvedValue({ id: "i1", filename: "sample.teax", status: "verifying" });

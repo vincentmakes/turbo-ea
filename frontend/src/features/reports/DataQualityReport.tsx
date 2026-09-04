@@ -61,6 +61,9 @@ interface DQData {
   with_lifecycle: number;
   orphaned: number;
   stale: number;
+  eol_missing: number;
+  /** Applications + IT Components — the population `eol_missing` is out of. */
+  eol_eligible: number;
   by_type: TypeStat[];
   worst_items: WorstItem[];
 }
@@ -86,7 +89,7 @@ interface DQCardsResponse {
 type DQScope =
   | { kind: "band"; typeKey: string; band: DataQualityBand }
   | { kind: "type"; typeKey: string }
-  | { kind: "flag"; flag: "orphaned" | "stale" };
+  | { kind: "flag"; flag: "orphaned" | "stale" | "eol_missing" };
 
 // Derived from the shared band definitions rather than restated, so the
 // report's segments cannot drift from the inventory's chips of the same name.
@@ -219,7 +222,9 @@ export default function DataQualityReport() {
       return `${labelForType(scope.typeKey)} · ${t(BAND_LABEL_KEY[scope.band])}`;
     }
     if (scope.kind === "type") return labelForType(scope.typeKey);
-    return scope.flag === "orphaned" ? t("dataQuality.orphaned") : t("dataQuality.stale");
+    if (scope.flag === "orphaned") return t("dataQuality.orphaned");
+    if (scope.flag === "eol_missing") return t("dataQuality.eolMissing");
+    return t("dataQuality.stale");
   })();
 
   const panelItems: ReportCardListItem[] = (panelData?.items ?? []).map((item) => ({
@@ -254,6 +259,7 @@ export default function DataQualityReport() {
   const alerts: { severity: "error" | "warning" | "info"; msg: string }[] = [];
   if (data.orphaned > 5) alerts.push({ severity: "warning", msg: t("dataQuality.orphanedAlert", { count: data.orphaned }) });
   if (data.stale > 5) alerts.push({ severity: "warning", msg: t("dataQuality.staleAlert", { count: data.stale }) });
+  if (data.eol_missing > 5) alerts.push({ severity: "warning", msg: t("dataQuality.eolMissingAlert", { count: data.eol_missing }) });
   if (data.overall_data_quality < 50) alerts.push({ severity: "error", msg: t("dataQuality.overallAlert", { pct: data.overall_data_quality }) });
 
   const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
@@ -335,6 +341,20 @@ export default function DataQualityReport() {
           iconColor={data.stale > 5 ? "#e65100" : theme.palette.text.secondary}
           onClick={() => setScope({ kind: "flag", flag: "stale" })}
         />
+        {/* Only Applications and IT Components can carry an end of life, so
+            the subtitle counts against that population rather than the whole
+            inventory — "12 of 340 cards" reads as a rounding error when it is
+            really 12 of 40 components. Hidden when there are none at all. */}
+        {data.eol_eligible > 0 && (
+          <MetricCard
+            label={t("dataQuality.eolMissing")}
+            value={data.eol_missing}
+            subtitle={t("dataQuality.eolMissingOf", { n: data.eol_eligible })}
+            icon="event_busy"
+            iconColor={data.eol_missing > 5 ? "#e65100" : theme.palette.text.secondary}
+            onClick={() => setScope({ kind: "flag", flag: "eol_missing" })}
+          />
+        )}
       </Box>
 
       {view === "chart" ? (

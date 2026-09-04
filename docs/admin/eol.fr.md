@@ -56,3 +56,10 @@ Une fois liée, la page de détail de la fiche affiche une **section EOL** avec 
 ## Rapport EOL
 
 Les données EOL liées alimentent le [Rapport EOL](../guide/reports.md), qui fournit une vue tableau de bord du statut de support de votre paysage technologique sur toutes les fiches liées.
+
+## Trouver ce qui n'est pas encore lié
+
+Deux endroits hors de cette page listent les fiches sans aucune information de fin de vie — ni lien ici, ni date de fin de vie propre :
+
+- Le filtre **Fin de vie manquante** de l'[Inventaire](../guide/inventory.md), qui couvre applications et composants informatiques à la fois, ainsi que sa colonne **Fin de vie**.
+- L'indicateur **Aucune donnée de fin de vie** du [Rapport EOL](../guide/reports.md) et la tuile **Fin de vie manquante** du rapport Qualité des données, qui mène au même filtre d'inventaire.

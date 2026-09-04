@@ -85,6 +85,8 @@ const MOCK_DQ = {
   with_lifecycle: 6,
   orphaned: 3,
   stale: 2,
+  eol_missing: 4,
+  eol_eligible: 7,
   by_type: [
     {
       type: "Application",
@@ -234,6 +236,28 @@ describe("DataQualityReport drill-down", () => {
     // No card type and no grouping: the tile counts across every type, so
     // the landing has to as well.
     expect(await screen.findByRole("link")).toHaveAttribute("href", "/inventory?orphaned=true");
+  });
+
+  it("links the Missing EOL tile to the matching inventory filter", async () => {
+    const user = userEvent.setup();
+    renderReport();
+
+    await user.click(await screen.findByText("Missing EOL"));
+
+    await waitFor(() => {
+      expect(panelFetchPath()).toBe("/reports/data-quality/cards?scope=eol_missing");
+    });
+    expect(await screen.findByRole("link")).toHaveAttribute(
+      "href",
+      "/inventory?eol_missing=true",
+    );
+  });
+
+  it("counts Missing EOL against the EOL-capable population, not every card", async () => {
+    renderReport();
+    // 4 of 7 applications and IT components — not "of 10 cards", which would
+    // read as a rounding error.
+    expect(await screen.findByText("of 7 applications and IT components")).toBeInTheDocument();
   });
 
   it("links the stale tile to the matching inventory filter", async () => {

@@ -56,7 +56,7 @@ Algunas extensiones de pago ofrecen una **prueba gratuita de 30 días** — busq
 ## Instalar una extensión
 
 1. Si aún no lo ha hecho, aplique primero su licencia (véase más abajo).
-2. Abre **Admin → Extensiones**, pulsa **Instalar desde archivo…** en la parte superior de la página (junto al ID de instancia; está en ambas pestañas) y sube el archivo `.teax` recibido.
+2. Abre **Admin → Extensiones**, pulsa **Instalar desde archivo…** encima del catálogo en la pestaña Tienda o encima de la lista en la pestaña Instaladas (y dentro del aviso que aparece cuando no se puede acceder a la tienda) y sube el archivo `.teax` recibido.
 3. Turbo EA verifica la firma y abre un **diálogo de instalación** con una **vista previa**: para extensiones con contenido es una simulación de cada tipo de tarjeta, grupo de etiquetas, tarjeta y relación que la extensión crearía o actualizaría — todavía no se escribe nada.
 4. Revise la vista previa —se desplaza dentro del diálogo— y pulse **Instalar extensión** al pie del diálogo, donde el botón permanece por larga que sea la vista previa.
 5. Si la extensión incluye código de backend, un aviso pide reiniciar el contenedor del backend (`docker compose restart backend`). Las extensiones de contenido y de interfaz quedan activas de inmediato: los usuarios ven la nueva interfaz al recargar la página.

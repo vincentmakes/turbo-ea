@@ -56,7 +56,7 @@ Certaines extensions payantes proposent un **essai gratuit de 30 jours** — rep
 ## Installer une extension
 
 1. Si ce n'est pas déjà fait, appliquez d'abord votre licence (voir ci-dessous).
-2. Ouvrez **Admin → Extensions**, cliquez sur **Installer depuis un fichier…** en haut de la page (à côté de l'ID d'instance — présent sur les deux onglets) et téléversez le fichier `.teax` reçu.
+2. Ouvrez **Admin → Extensions**, cliquez sur **Installer depuis un fichier…** au-dessus du catalogue dans l'onglet Boutique ou au-dessus de la liste dans l'onglet Installées (et dans le message affiché lorsque la boutique est injoignable) et téléversez le fichier `.teax` reçu.
 3. Turbo EA vérifie la signature et ouvre une **boîte de dialogue d'installation** avec un **aperçu** : pour les extensions de contenu, il s'agit d'une simulation de chaque type de carte, groupe d'étiquettes, carte et relation que l'extension créerait ou mettrait à jour — rien n'est encore écrit.
 4. Vérifiez l'aperçu — il défile à l'intérieur de la boîte de dialogue — puis cliquez sur **Installer l'extension** en bas de celle-ci : le bouton y reste, quelle que soit la longueur de l'aperçu.
 5. Si l'extension contient du code backend, un bandeau demande de redémarrer le conteneur backend (`docker compose restart backend`). Les extensions de contenu et d'interface sont actives immédiatement — les utilisateurs voient la nouvelle interface au prochain chargement de page.
