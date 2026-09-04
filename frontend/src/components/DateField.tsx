@@ -36,7 +36,6 @@ export function DateField({
   onChange,
   onFocus,
   onBlur,
-  InputLabelProps,
   ...rest
 }: DateFieldProps) {
   const [draft, setDraft] = useState(value ?? "");
@@ -52,7 +51,6 @@ export function DateField({
       {...rest}
       type="date"
       value={draft}
-      InputLabelProps={{ shrink: true, ...InputLabelProps }}
       onFocus={(e) => {
         focused.current = true;
         setDraft(value ?? "");

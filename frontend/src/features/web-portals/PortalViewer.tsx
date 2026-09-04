@@ -791,7 +791,6 @@ export default function PortalViewer() {
                 setSortDir(sd);
                 setPage(1);
               }}
-              InputLabelProps={{ shrink: true }}
               sx={{ width: 180 }}
             >
               <MenuItem value="name-asc">{t("portal.sortNameAsc")}</MenuItem>
@@ -826,7 +825,6 @@ export default function PortalViewer() {
                       setSubtype(e.target.value);
                       setPage(1);
                     }}
-                    InputLabelProps={{ shrink: true }}
                     sx={{ width: 180 }}
                   >
                     <MenuItem value="">{t("portal.allSubtypes")}</MenuItem>
@@ -852,7 +850,6 @@ export default function PortalViewer() {
                     }));
                     setPage(1);
                   }}
-                  InputLabelProps={{ shrink: true }}
                   sx={{ width: 180 }}
                 >
                   <MenuItem value="">{t("labels.all")}</MenuItem>
@@ -899,7 +896,6 @@ export default function PortalViewer() {
                       }));
                       setPage(1);
                     }}
-                    InputLabelProps={{ shrink: true }}
                     sx={{ width: 200 }}
                   >
                     <MenuItem value="">
@@ -925,7 +921,6 @@ export default function PortalViewer() {
                   size="small"
                   label={t("portal.tags")}
                   placeholder=""
-                  inputLabelShrink
                   sx={{ width: 200 }}
                 />
               )}

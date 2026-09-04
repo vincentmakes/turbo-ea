@@ -1311,7 +1311,7 @@ export default function InventoryFilterSidebar({
                             value={(filters.attributes[field.key] as string) || ""}
                             onChange={(e) => setAttr(field.key, e.target.value)}
                             sx={{ "& .MuiInputBase-input": { fontSize: 14 } }}
-                            InputLabelProps={{ shrink: field.type === "date" ? true : undefined, sx: { fontSize: 14 } }}
+                            InputLabelProps={{ sx: { fontSize: 14 } }}
                           />
                         );
                       })}
