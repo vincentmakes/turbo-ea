@@ -1657,6 +1657,7 @@ async def submit_ai_verdict(
     if card is None:
         raise HTTPException(404, "Impacted card not found")
 
+    from app.services import card_approval
     from app.services.calculation_engine import run_calculations_for_card
     from app.services.data_quality import calc_data_quality
     from app.services.event_bus import event_bus
@@ -1668,25 +1669,28 @@ async def submit_ai_verdict(
         old_attrs["hasAiFeatures"] = new_value
         card.attributes = old_attrs
         card.updated_by = user.id
-        if card.approval_status == "APPROVED":
-            card.approval_status = "BROKEN"
+        approval_broke = card_approval.break_approval(card, ("attributes",))
         card.data_quality = await calc_data_quality(db, card)
         await run_calculations_for_card(db, card)
+        changes: dict[str, dict] = {
+            "attributes": {
+                "old": {"hasAiFeatures": old_value},
+                "new": {"hasAiFeatures": new_value},
+            }
+        }
+        if approval_broke:
+            changes["approval_status"] = card_approval.approval_change_entry()
         await event_bus.publish(
             "card.updated",
-            {
-                "id": str(card.id),
-                "changes": {
-                    "attributes": {
-                        "old": {"hasAiFeatures": old_value},
-                        "new": {"hasAiFeatures": new_value},
-                    }
-                },
-            },
+            {"id": str(card.id), "changes": changes},
             db=db,
             card_id=card.id,
             user_id=user.id,
         )
+        if approval_broke:
+            await card_approval.notify_approval_broken(
+                db, card=card, actor_id=user.id, actor_display_name=user.display_name
+            )
 
     # Move the finding into in_review unless it's already in a state the
     # user has explicitly chosen (mitigated/verified/accepted/risk_tracked).

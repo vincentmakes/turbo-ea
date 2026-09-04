@@ -26,6 +26,14 @@ Clique em qualquer notificação para navegar diretamente até o card ou documen
 | **SoAW assinado** | Um SoAW que você acompanha recebe uma assinatura |
 | **Solicitação de pesquisa** | Uma pesquisa é enviada que requer sua resposta |
 
+**Status de aprovação alterado** também abrange o caso automático. Um card
+aprovado passa a **Quebrado** assim que alguém o edita, ou quando arquivar o card
+pai o desloca na hierarquia — você é notificado nos dois casos, e a alteração fica
+registada na aba **Histórico** do card. Quando uma única ação quebra vários dos
+seus cards de uma vez, como uma edição em massa, você recebe um único resumo em
+vez de uma notificação por card.
+
+
 ## Entrega em Tempo Real
 
 As notificações são entregues em tempo real usando Server-Sent Events (SSE). Você não precisa atualizar a página — novas notificações aparecem automaticamente e a contagem do badge é atualizada instantaneamente.

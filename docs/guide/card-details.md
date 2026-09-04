@@ -63,7 +63,7 @@ Cards can go through an approval cycle:
 | **Broken** | Was approved, but has been edited since — needs re-review |
 | **Rejected** | Reviewed and rejected, needs corrections |
 
-When an approved card is edited, its status automatically changes to **Broken** to indicate it needs re-review.
+When an approved card is edited, its status automatically changes to **Broken** to indicate it needs re-review. Archiving a card's parent has the same effect on any approved children it moves in the hierarchy. Everyone with a stakeholder role on the card is notified — except whoever made the change — and the flip is recorded on the card's **History** tab. One action that breaks several cards, such as a mass edit, sends each person a single summary rather than one notification per card.
 
 ## Detail Tab (Main)
 

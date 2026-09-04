@@ -26,6 +26,14 @@ Click any notification to navigate directly to the relevant card or document. No
 | **SoAW signed** | A SoAW you are tracking receives a signature |
 | **Survey request** | A survey is sent that requires your response |
 
+**Approval status changed** also covers the automatic case. An approved card
+drops to **Broken** whenever somebody edits it, or when archiving its parent
+moves it in the hierarchy — you are told either way, and the change is recorded
+on the card's **History** tab. Where one action breaks several of your cards at
+once, such as a mass edit, you receive a single summary rather than one
+notification per card.
+
+
 ## Real-Time Delivery
 
 Notifications are delivered in real time using Server-Sent Events (SSE). You do not need to refresh the page — new notifications appear automatically and the badge count updates instantly.

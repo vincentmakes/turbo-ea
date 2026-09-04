@@ -26,6 +26,14 @@ Haga clic en cualquier notificación para navegar directamente a la ficha o docu
 | **SoAW firmado** | Un SoAW que está siguiendo recibe una firma |
 | **Solicitud de encuesta** | Se envía una encuesta que requiere su respuesta |
 
+**Estado de aprobación cambiado** también cubre el caso automático. Una ficha
+aprobada pasa a **Rota** en cuanto alguien la edita, o cuando archivar su ficha
+principal la desplaza en la jerarquía: se le notifica en ambos casos y el cambio
+queda registrado en la pestaña **Historial** de la ficha. Cuando una sola acción
+rompe varias de sus fichas a la vez, como una edición masiva, recibe un único
+resumen en lugar de una notificación por ficha.
+
+
 ## Entrega en Tiempo Real
 
 Las notificaciones se entregan en tiempo real utilizando Server-Sent Events (SSE). No necesita actualizar la página — las nuevas notificaciones aparecen automáticamente y el contador de la insignia se actualiza al instante.

@@ -26,6 +26,15 @@ Cliquez sur n'importe quelle notification pour naviguer directement vers la fich
 | **SoAW signé** | Un SoAW que vous suivez reçoit une signature |
 | **Demande d'enquête** | Une enquête vous est envoyée et nécessite votre réponse |
 
+**Statut d'approbation modifié** couvre également le cas automatique. Une fiche
+approuvée passe à **Cassé** dès que quelqu'un la modifie, ou lorsque l'archivage
+de sa fiche parente la déplace dans la hiérarchie — vous êtes averti dans les deux
+cas, et le changement est consigné dans l'onglet **Historique** de la fiche.
+Lorsqu'une seule action casse plusieurs de vos fiches à la fois, comme une
+modification en masse, vous recevez un récapitulatif unique plutôt qu'une
+notification par fiche.
+
+
 ## Livraison en temps réel
 
 Les notifications sont délivrées en temps réel via Server-Sent Events (SSE). Vous n'avez pas besoin de rafraîchir la page -- les nouvelles notifications apparaissent automatiquement et le badge se met à jour instantanément.

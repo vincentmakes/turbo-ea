@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,7 +69,13 @@ from app.schemas.card import (
     StakeholderRef,
     TagRef,
 )
-from app.services import card_lifecycle, card_reference, card_write_service, notification_service
+from app.services import (
+    card_approval,
+    card_lifecycle,
+    card_reference,
+    card_write_service,
+    notification_service,
+)
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_completeness import missing_mandatory
 from app.services.card_flags import orphaned_condition, stale_condition
@@ -1438,6 +1444,7 @@ async def descendant_relations(
 @router.patch("/bulk")
 async def bulk_update(
     body: CardBulkUpdate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -1600,22 +1607,14 @@ async def bulk_update(
             (card, await _sync_hierarchy_levels(db, card, previous=previous_levels))
         )
 
-    # Mirror update_card: substantive edits break an approved card.
-    status_breaking = {
-        "name",
-        "description",
-        "lifecycle",
-        "attributes",
-        "subtype",
-        "alias",
-        "parent_id",
-    }
+    # Mirror update_card: substantive edits break an approved card. `diffs` was
+    # computed before the flip, so the broken ids are carried separately and
+    # folded into each card's event payload below.
+    broken_ids: set[str] = set()
     for diff in diffs:
-        if not (status_breaking & set(diff["after"].keys())):
-            continue
         card = next((c for c in sheets if str(c.id) == diff["id"]), None)
-        if card is not None and card.approval_status == "APPROVED":
-            card.approval_status = "BROKEN"
+        if card is not None and card_approval.break_approval(card, diff["after"].keys()):
+            broken_ids.add(diff["id"])
 
     # Recompute completeness score and calculated fields per card, mirroring
     # create_card / bulk_create_cards / update_card. Without this a bulk edit
@@ -1642,15 +1641,15 @@ async def bulk_update(
     # id / origin stamping in event_bus.publish is what lets an admin
     # reconstruct (or roll back) an MCP-driven bulk write.
     for diff in diffs:
+        changes: dict[str, dict] = {
+            field: {"old": diff["before"].get(field), "new": diff["after"].get(field)}
+            for field in diff["after"]
+        }
+        if diff["id"] in broken_ids:
+            changes["approval_status"] = card_approval.approval_change_entry()
         await event_bus.publish(
             "card.updated",
-            {
-                "id": diff["id"],
-                "changes": {
-                    field: {"old": diff["before"].get(field), "new": diff["after"].get(field)}
-                    for field in diff["after"]
-                },
-            },
+            {"id": diff["id"], "changes": changes},
             db=db,
             card_id=uuid.UUID(diff["id"]),
             user_id=user.id,
@@ -1661,7 +1660,21 @@ async def bulk_update(
     for card, changed_levels in changed_levels_by_card:
         await emit_hierarchy_cascade_events(db, changed_levels, previous_levels, card.id, user.id)
 
+    # One notification per person, however many of their cards this edit broke
+    # — a five-hundred-card mass edit must not put five hundred bell entries on
+    # every stakeholder. Built before the commit (the rows are in the session),
+    # delivered after the response.
+    broken_recipients = await card_approval.build_approval_broken_recipients(
+        db,
+        cards=[c for c in sheets if str(c.id) in broken_ids],
+        actor_id=user.id,
+        actor_display_name=user.display_name,
+    )
+
     await db.commit()
+    await card_approval.deliver_approval_broken(
+        db, broken_recipients, actor_id=user.id, background_tasks=background_tasks
+    )
     result = await db.execute(
         select(Card)
         .where(Card.id.in_(uuids))
@@ -1680,6 +1693,7 @@ async def bulk_update(
 @router.post("/bulk-archive", response_model=CardBulkArchiveResponse)
 async def bulk_archive_cards(
     body: CardBulkArchiveRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -1769,14 +1783,19 @@ async def bulk_archive_cards(
         db, user, full_affected, app_perm="inventory.archive", card_perm="card.archive"
     )
 
+    child_results: list[card_lifecycle.ChildStrategyResult] = []
     if body.child_strategy in ("disconnect", "reparent"):
         for p in primaries:
-            await card_lifecycle.apply_child_strategy(db, p, body.child_strategy, user.id)
+            child_results.append(
+                await card_lifecycle.apply_child_strategy(db, p, body.child_strategy, user.id)
+            )
     for rid in related_set:
         rel_res = await db.execute(select(Card).where(Card.id == rid))
         rcard = rel_res.scalar_one_or_none()
         if rcard is not None and rcard.status == "ACTIVE":
-            await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+            child_results.append(
+                await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+            )
 
     flip_res = await db.execute(
         select(Card)
@@ -1792,6 +1811,19 @@ async def bulk_archive_cards(
     flipped_ids = {c.id for c in flipped}
     archived_card_ids = [str(p.id) for p in primaries if p.id in flipped_ids]
     cascaded_card_ids = [str(cid) for cid in (descendants_set | related_set) if cid in flipped_ids]
+
+    # A child moved out of the way keeps its event, but one we archived in the
+    # same breath is excluded from the notification — telling somebody to
+    # re-approve a card that has just left the active landscape is how a bell
+    # gets muted.
+    await card_approval.record_child_strategy_effects(
+        db,
+        results=child_results,
+        actor_id=user.id,
+        actor_display_name=user.display_name,
+        archived_ids=frozenset(flipped_ids),
+        background_tasks=background_tasks,
+    )
 
     for fcard in flipped:
         event_data = {"id": str(fcard.id), "type": fcard.type, "name": fcard.name}
@@ -1830,6 +1862,7 @@ async def bulk_archive_cards(
 @router.post("/bulk-delete", response_model=CardBulkDeleteResponse)
 async def bulk_delete_cards(
     body: CardBulkDeleteRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -1911,14 +1944,19 @@ async def bulk_delete_cards(
         db, user, full_affected, app_perm="inventory.delete", card_perm="card.delete"
     )
 
+    child_results: list[card_lifecycle.ChildStrategyResult] = []
     if body.child_strategy in ("disconnect", "reparent"):
         for p in primaries:
-            await card_lifecycle.apply_child_strategy(db, p, body.child_strategy, user.id)
+            child_results.append(
+                await card_lifecycle.apply_child_strategy(db, p, body.child_strategy, user.id)
+            )
     for rid in related_set:
         rel_res = await db.execute(select(Card).where(Card.id == rid))
         rcard = rel_res.scalar_one_or_none()
         if rcard is not None:
-            await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+            child_results.append(
+                await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+            )
 
     # Order the DELETE leaves-first across the entire target set so the self-FK
     # on `parent_id` is satisfied at every step. The naive "primaries last,
@@ -1954,6 +1992,17 @@ async def bulk_delete_cards(
     deleted_payload: list[tuple[uuid.UUID, str, str]] = [
         (c.id, c.type, c.name) for c in target_objs
     ]
+
+    # Before the deletes, and before the `card.deleted` events: a child we are
+    # about to remove gets neither an event nor a nudge to re-approve it.
+    await card_approval.record_child_strategy_effects(
+        db,
+        results=child_results,
+        actor_id=user.id,
+        actor_display_name=user.display_name,
+        removed_ids=frozenset(target_by_id),
+        background_tasks=background_tasks,
+    )
 
     for did, dtype, dname in deleted_payload:
         await event_bus.publish(
@@ -2277,6 +2326,7 @@ async def _ensure_permission_on_each(
 @router.post("/{card_id}/archive", response_model=CardArchiveResponse)
 async def archive_card(
     card_id: str,
+    background_tasks: BackgroundTasks,
     body: CardArchiveRequest = Body(default_factory=CardArchiveRequest),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -2336,6 +2386,7 @@ async def archive_card(
         related_card_ids=related_card_ids,
         full_affected=full_affected,
         direct_children=direct_children,
+        background_tasks=background_tasks,
     )
 
     await db.commit()
@@ -2485,6 +2536,7 @@ async def restore_card(
 @router.delete("/{card_id}", response_model=CardDeleteResponse)
 async def delete_card(
     card_id: str,
+    background_tasks: BackgroundTasks,
     body: CardDeleteRequest = Body(default_factory=CardDeleteRequest),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -2532,15 +2584,20 @@ async def delete_card(
     )
 
     # For disconnect/reparent, mutate the primary's children before deletion.
+    child_results: list[card_lifecycle.ChildStrategyResult] = []
     if direct_children and body.child_strategy in ("disconnect", "reparent"):
-        await card_lifecycle.apply_child_strategy(db, primary, body.child_strategy, user.id)
+        child_results.append(
+            await card_lifecycle.apply_child_strategy(db, primary, body.child_strategy, user.id)
+        )
     # Single-hop: any ticked related card's children get disconnected before
     # the related card is deleted, so the FK on `cards.parent_id` doesn't trip.
     for rid in related_card_ids:
         rel_res = await db.execute(select(Card).where(Card.id == rid))
         rcard = rel_res.scalar_one_or_none()
         if rcard is not None:
-            await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+            child_results.append(
+                await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+            )
 
     # Capture what we'll be reporting before the rows are gone.
     affected_children_ids = list(descendants)
@@ -2561,6 +2618,17 @@ async def delete_card(
         deleted_payload.append((cobj.id, cobj.type, cobj.name))
     target_objs.append(primary)
     deleted_payload.append((primary.id, primary.type, primary.name))
+
+    # Before the deletes, and before the `card.deleted` events: a child we are
+    # about to remove gets neither an event nor a nudge to re-approve it.
+    await card_approval.record_child_strategy_effects(
+        db,
+        results=child_results,
+        actor_id=user.id,
+        actor_display_name=user.display_name,
+        removed_ids=frozenset(c.id for c in target_objs),
+        background_tasks=background_tasks,
+    )
 
     for did, dtype, dname in deleted_payload:
         await event_bus.publish(

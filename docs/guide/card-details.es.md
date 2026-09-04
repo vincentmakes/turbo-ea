@@ -66,7 +66,7 @@ Las fichas pueden pasar por un ciclo de aprobación:
 | **Roto** | Fue aprobado, pero ha sido editado desde entonces — necesita re-revisión |
 | **Rechazado** | Revisado y rechazado, necesita correcciones |
 
-Cuando una ficha aprobada es editada, su estado cambia automáticamente a **Roto** para indicar que necesita re-revisión.
+Cuando una ficha aprobada es editada, su estado cambia automáticamente a **Roto** para indicar que necesita re-revisión. Archivar la ficha principal produce el mismo efecto en las fichas hijas aprobadas que se desplazan en la jerarquía. Se notifica a todas las personas con un rol de parte interesada en la ficha — salvo a quien realizó el cambio — y el cambio queda registrado en la pestaña **Historial** de la ficha. Una acción que rompe varias fichas, como una edición masiva, envía a cada persona un único resumen en lugar de una notificación por ficha.
 
 ## Pestaña Detalle (Principal)
 

@@ -66,7 +66,7 @@ Karten können einen Genehmigungszyklus durchlaufen:
 | **Ungültig** | War genehmigt, wurde aber seitdem bearbeitet — erneute Überprüfung nötig |
 | **Abgelehnt** | Überprüft und abgelehnt, Korrekturen erforderlich |
 
-Wenn eine genehmigte Karte bearbeitet wird, ändert sich ihr Status automatisch auf **Ungültig**, um anzuzeigen, dass eine erneute Überprüfung erforderlich ist.
+Wenn eine genehmigte Karte bearbeitet wird, ändert sich ihr Status automatisch auf **Ungültig**, um anzuzeigen, dass eine erneute Überprüfung erforderlich ist. Das Archivieren einer übergeordneten Karte hat dieselbe Wirkung auf alle genehmigten untergeordneten Karten, die dabei in der Hierarchie verschoben werden. Alle Personen mit einer Stakeholder-Rolle auf der Karte werden benachrichtigt — mit Ausnahme derjenigen, die die Änderung vorgenommen hat — und der Wechsel wird auf dem Tab **Verlauf** der Karte festgehalten. Eine Aktion, die mehrere Karten betrifft, etwa eine Massenbearbeitung, sendet jeder Person eine einzige Zusammenfassung statt einer Benachrichtigung pro Karte.
 
 ## Detail-Tab (Hauptansicht)
 

@@ -19,15 +19,9 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
+from app.services.card_approval import break_approval
 
 ChildStrategy = Literal["cascade", "disconnect", "reparent"]
-
-# Mirrors the existing approval-break rule in update_card. Direct children whose
-# `parent_id` is mutated by `disconnect` / `reparent` get `approval_status` flipped
-# to BROKEN if they were previously APPROVED — same semantics as a manual edit.
-STATUS_BREAKING_FIELDS: frozenset[str] = frozenset(
-    {"name", "description", "lifecycle", "attributes", "subtype", "alias", "parent_id"}
-)
 
 # Defensive cap so a corrupted parent_id chain or a typo can't blow up the worker.
 _MAX_DESCENDANTS = 10_000
@@ -57,6 +51,11 @@ class ChildStrategyResult:
     disconnected_ids: list[uuid.UUID] = field(default_factory=list)
     reparent_target_id: uuid.UUID | None = None
     approval_broken_ids: list[uuid.UUID] = field(default_factory=list)
+    #: Each mutated child's parent *before* the move. The row already carries
+    #: the new value by the time the caller records the change, so without this
+    #: the `card.updated` event it owes could only say where the child ended up
+    #: — which is not something an audit trail can be rolled back from.
+    previous_parent_ids: dict[uuid.UUID, uuid.UUID | None] = field(default_factory=dict)
 
 
 async def collect_descendants(
@@ -106,8 +105,12 @@ async def apply_child_strategy(
     - `reparent`: each direct child's `parent_id` becomes `primary.parent_id`.
       Falls back to `disconnect` if the primary has no parent.
 
-    Mirrors the manual-edit approval-break rule: APPROVED direct children whose
-    `parent_id` is mutated become BROKEN.
+    Mirrors the manual-edit approval-break rule (`card_approval.break_approval`):
+    APPROVED direct children whose `parent_id` is mutated become BROKEN. The ids
+    land in `approval_broken_ids` and the **caller** owes each of them a
+    `card.updated` event and a re-approval notification — moving a card in the
+    tree is a change its stakeholders own, not a silent side effect of archiving
+    something else.
     """
     result = ChildStrategyResult(strategy=strategy)
     children = await direct_children(db, primary.id)
@@ -126,10 +129,10 @@ async def apply_child_strategy(
         if old == new_parent_id:
             continue
         child.parent_id = new_parent_id
+        result.previous_parent_ids[child.id] = old
         if user_id is not None:
             child.updated_by = user_id
-        if child.approval_status == "APPROVED":
-            child.approval_status = "BROKEN"
+        if break_approval(child, ("parent_id",)):
             result.approval_broken_ids.append(child.id)
         result.disconnected_ids.append(child.id)
 

@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.123.0] - 2026-09-04
+
+### Fixed
+
+- **You are now told when a card you follow loses its approval.** An approved card drops to **Broken** the moment somebody edits it — that is what the state is for — but nobody was ever informed. The **Approval status changed** notification only ever fired for the explicit Approve / Reject / Reset actions, so stakeholders learned that a card needed re-review by stumbling on it in the Inventory, and the user manual's promise that the notification covers "approved, rejected, broken" was not true. Every path that breaks an approval now notifies the card's stakeholders — a direct edit, a mass edit, and archiving or deleting a parent card in a way that moves an approved child in the hierarchy — with the person who made the change left out, as with every other card notification. Nothing to switch on: it uses the notification type you already have, with the setting you already chose.
+- **Breaking an approval is now visible on the card's History tab.** The flip to **Broken** was recorded nowhere, so the history of an edit that invalidated an approval showed the field that changed and nothing about the consequence. Approval status now appears as its own row, in your language rather than as an internal code. Because the change is finally on the record, undoing a batch of changes from the audit log restores the approval status too.
+- **Archiving or deleting a card no longer moves its children in silence.** Choosing to disconnect or re-parent the children left their Modified date freshly stamped and their History tab empty — the one thing a card's history exists to prevent. Each moved child now records the change, and says so in its history whether or not its approval was affected.
+
+### Added
+
+- **Mass edit sends notifications.** Editing cards in bulk from the Inventory notified nobody at all. It now tells each stakeholder that their cards need re-approval — **one** summary per person, however many of their cards the edit touched, linking to the Inventory filtered to their broken cards. A single card still links straight to itself.
+
 ## [2.122.0] - 2026-09-04
 
 ### Added

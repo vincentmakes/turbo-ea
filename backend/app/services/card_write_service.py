@@ -37,7 +37,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -46,7 +46,7 @@ from app.models.card_type import CardType
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
-from app.services import card_lifecycle, card_reference, notification_service
+from app.services import card_approval, card_lifecycle, card_reference, notification_service
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_uniqueness import check_sibling_name_unique
 from app.services.data_quality import calc_data_quality
@@ -747,19 +747,13 @@ async def update_card(
         return False
 
     card.updated_by = actor.user_id
-    # Break approval status on edit (attribute/lifecycle changes break it)
-    if card.approval_status == "APPROVED":
-        status_breaking = {
-            "name",
-            "description",
-            "lifecycle",
-            "attributes",
-            "subtype",
-            "alias",
-            "parent_id",
-        }
-        if status_breaking & changes.keys():
-            card.approval_status = "BROKEN"
+    # Break approval status on edit (attribute/lifecycle changes break it).
+    # Recorded in `changes` rather than left implicit: from there it reaches the
+    # `card.updated` payload (so the History tab shows it, and `rollback_service`
+    # can undo it) and the `card_updated` notification's field list.
+    approval_broke = card_approval.break_approval(card, changes.keys())
+    if approval_broke:
+        changes["approval_status"] = card_approval.approval_change_entry()
 
     # Auto-sync hierarchy levels when the parent changes or a level is
     # missing (lazy heal). Covers hierarchyLevel for any hierarchical type
@@ -827,6 +821,13 @@ async def update_card(
             link=f"/cards/{card.id}",
             data={"changes": list(changes.keys())},
         )
+        # …and separately that it now needs re-review. Two entries for one edit
+        # is deliberate: "what changed" and "your approval is void" are
+        # different facts, and the preferences dialog switches them apart.
+        if approval_broke:
+            await card_approval.notify_approval_broken(
+                db, card=card, actor_id=actor.user_id, actor_display_name=actor.display_name
+            )
 
     return True
 
@@ -893,21 +894,30 @@ async def archive_card_set(
     full_affected: list[uuid.UUID],
     direct_children: list[Card],
     dry_run: bool = False,
+    background_tasks: BackgroundTasks | None = None,
 ) -> tuple[list[Card], list[uuid.UUID], list[uuid.UUID]]:
     """Flip the primary plus the resolved affected set to ARCHIVED, applying
     the child strategy first. Returns ``(flipped, affected_children_ids,
     affected_related_card_ids)``. Caller has already run permission checks
     on every affected card and owns the commit."""
     # Apply parent-id mutation on the primary's direct children for disconnect/reparent.
+    # The results are kept: a child moved out of the way has its Modified date
+    # bumped and may lose its approval, and both facts are owed an event and a
+    # notification (`card_approval.record_child_strategy_effects`, below).
+    child_results: list[card_lifecycle.ChildStrategyResult] = []
     if direct_children and (child_strategy == "disconnect" or child_strategy == "reparent"):
-        await card_lifecycle.apply_child_strategy(db, primary, child_strategy, actor.user_id)
+        child_results.append(
+            await card_lifecycle.apply_child_strategy(db, primary, child_strategy, actor.user_id)
+        )
     # For ticked related cards, give their own children a `disconnect` so their
     # `parent_id` doesn't point at a soon-to-be-archived parent. Single-hop.
     for rid in related_card_ids:
         rel_res = await db.execute(select(Card).where(Card.id == rid))
         rcard = rel_res.scalar_one_or_none()
         if rcard is not None and rcard.status == "ACTIVE":
-            await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", actor.user_id)
+            child_results.append(
+                await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", actor.user_id)
+            )
 
     # Flip primary + cascade descendants + ticked related to ARCHIVED.
     from sqlalchemy.orm import selectinload
@@ -938,6 +948,17 @@ async def archive_card_set(
     affected_related_card_ids = [rid for rid in related_card_ids if rid in {c.id for c in flipped}]
 
     if not dry_run:
+        # `flipped` is the "we just archived this" set: those children keep
+        # their event but must not be told to re-approve a card that is gone
+        # from the active landscape.
+        await card_approval.record_child_strategy_effects(
+            db,
+            results=child_results,
+            actor_id=actor.user_id,
+            actor_display_name=actor.display_name,
+            archived_ids=frozenset(c.id for c in flipped),
+            background_tasks=background_tasks,
+        )
         for fcard in flipped:
             await event_bus.publish(
                 "card.archived",
