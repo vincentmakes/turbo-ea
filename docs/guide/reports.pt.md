@@ -257,7 +257,7 @@ Cada valor do relatório é uma porta de entrada, não apenas uma leitura:
 
 No painel, clique num card para abrir o seu painel de detalhe, ou carregue em **Ver no inventário** para continuar no [Inventário](inventory.md) — que chega agrupado por qualidade dos dados, com a faixa clicada expandida e as restantes recolhidas ao lado, para começar a corrigir registos de imediato. Os painéis Órfãos e Desatualizados ligam ao filtro correspondente do inventário, em todos os tipos de ficha.
 
-O relatório termina com o gráfico **Cobertura de fim de vida**: para aplicações e componentes de TI, quantos têm um fim de vida ligado a partir do endoflife.date, introduzido à mão, ou não registado de todo. Para agir, use o filtro **Fim de vida** do inventário.
+O relatório termina com o gráfico **Cobertura de fim de vida**: para aplicações e componentes de TI, quantos têm um fim de vida ligado a partir do endoflife.date, introduzido à mão, ou não registado de todo. Clique num segmento para listar os cartões correspondentes; a partir do painel **Não registado**, **Ver no inventário** abre exatamente esses componentes no [Inventário](inventory.md), onde o filtro **Fim de vida** permite tratá-los.
 
 ## Relatório de Fim de Vida (EOL)
 

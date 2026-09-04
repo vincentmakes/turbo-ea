@@ -485,7 +485,7 @@
   "eol.statusMissing": "لا توجد بيانات نهاية عمر",
   "eol.noEolDataKpi": "لا توجد بيانات نهاية عمر",
   "dataQuality.eolCoverage": "تغطية نهاية العمر",
-  "dataQuality.eolCoverageHint": "التطبيقات والمكوّنات التقنية، بحسب ما إذا كانت نهاية عمرها مسجَّلة.",
+  "dataQuality.eolCoverageHint": "التطبيقات والمكوّنات التقنية، بحسب ما إذا كانت نهاية عمرها مسجَّلة. انقر على أي جزء لسرد البطاقات التي يمثّلها.",
   "dataQuality.eolLinked": "مرتبط بـ endoflife.date",
   "dataQuality.eolManual": "تاريخ مُدخل يدويًا"
 }

@@ -485,7 +485,7 @@
   "eol.statusMissing": "No EOL data",
   "eol.noEolDataKpi": "No EOL data",
   "dataQuality.eolCoverage": "End-of-life coverage",
-  "dataQuality.eolCoverageHint": "Applications and IT components, by whether an end of life has been recorded for them.",
+  "dataQuality.eolCoverageHint": "Applications and IT components, by whether an end of life has been recorded for them. Click a segment to list the cards behind it.",
   "dataQuality.eolLinked": "Linked to endoflife.date",
   "dataQuality.eolManual": "Date entered by hand"
 }

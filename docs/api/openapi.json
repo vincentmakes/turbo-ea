@@ -31299,7 +31299,7 @@
             }
           },
           {
-            "description": "orphaned | stale",
+            "description": "orphaned | stale | eol_linked | eol_manual | eol_missing. The three `eol_*` scopes are the EOL coverage chart's segments and pair with `type`.",
             "in": "query",
             "name": "scope",
             "required": false,
@@ -31312,7 +31312,7 @@
                   "type": "null"
                 }
               ],
-              "description": "orphaned | stale",
+              "description": "orphaned | stale | eol_linked | eol_manual | eol_missing. The three `eol_*` scopes are the EOL coverage chart's segments and pair with `type`.",
               "title": "Scope"
             }
           },

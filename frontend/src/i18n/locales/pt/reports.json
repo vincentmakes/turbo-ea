@@ -485,7 +485,7 @@
   "eol.statusMissing": "Sem dados de fim de vida",
   "eol.noEolDataKpi": "Sem dados de fim de vida",
   "dataQuality.eolCoverage": "Cobertura de fim de vida",
-  "dataQuality.eolCoverageHint": "Aplicações e componentes de TI, consoante tenha sido registado um fim de vida.",
+  "dataQuality.eolCoverageHint": "Aplicações e componentes de TI, consoante tenha sido registado um fim de vida. Clique num segmento para listar os cartões correspondentes.",
   "dataQuality.eolLinked": "Ligado ao endoflife.date",
   "dataQuality.eolManual": "Data introduzida à mão"
 }

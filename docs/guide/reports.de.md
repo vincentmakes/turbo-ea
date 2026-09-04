@@ -257,7 +257,7 @@ Jede Kennzahl im Bericht ist ein Einstiegspunkt, nicht nur eine Anzeige:
 
 Klicken Sie im Panel auf eine Karte, um deren Detailbereich zu öffnen, oder auf **In Inventar anzeigen**, um im [Inventar](inventory.md) weiterzuarbeiten — dieses erscheint nach Datenqualität gruppiert, mit dem angeklickten Band aufgeklappt und den übrigen daneben eingeklappt, sodass Sie sofort mit der Korrektur beginnen können. Die Panels Verwaist und Veraltet führen in den passenden Inventarfilter — über alle Kartentypen hinweg.
 
-Den Abschluss bildet das Diagramm **End-of-Life-Abdeckung**: für Anwendungen und IT-Komponenten, wie viele ein von endoflife.date verknüpftes, ein von Hand erfasstes oder gar kein Lebensende haben. Bearbeiten lässt sich das über den Filter **Lebensende** im Inventar.
+Den Abschluss bildet das Diagramm **End-of-Life-Abdeckung**: für Anwendungen und IT-Komponenten, wie viele ein von endoflife.date verknüpftes, ein von Hand erfasstes oder gar kein Lebensende haben. Klicken Sie auf ein Segment, um die dahinterliegenden Karten aufzulisten; aus dem Panel **Nicht erfasst** öffnet **In Inventar anzeigen** genau diese Komponenten im [Inventar](inventory.md), wo Sie sie über den Filter **Lebensende** abarbeiten.
 
 ## End-of-Life-Bericht (EOL)
 

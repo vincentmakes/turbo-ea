@@ -485,7 +485,7 @@
   "eol.statusMissing": "无生命周期终止数据",
   "eol.noEolDataKpi": "无生命周期终止数据",
   "dataQuality.eolCoverage": "生命周期终止覆盖率",
-  "dataQuality.eolCoverageHint": "按是否已记录生命周期终止信息划分的应用与 IT 组件。",
+  "dataQuality.eolCoverageHint": "按是否已记录生命周期终止信息划分的应用与 IT 组件。点击任一分段可列出其背后的卡片。",
   "dataQuality.eolLinked": "已关联 endoflife.date",
   "dataQuality.eolManual": "手动填写日期"
 }

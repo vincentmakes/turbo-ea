@@ -485,7 +485,7 @@
   "eol.statusMissing": "Nessun dato di fine vita",
   "eol.noEolDataKpi": "Nessun dato di fine vita",
   "dataQuality.eolCoverage": "Copertura di fine vita",
-  "dataQuality.eolCoverageHint": "Applicazioni e componenti IT, in base al fatto che sia stata registrata una fine vita.",
+  "dataQuality.eolCoverageHint": "Applicazioni e componenti IT, in base al fatto che sia stata registrata una fine vita. Fai clic su un segmento per elencare le schede che lo compongono.",
   "dataQuality.eolLinked": "Collegato a endoflife.date",
   "dataQuality.eolManual": "Data inserita a mano"
 }

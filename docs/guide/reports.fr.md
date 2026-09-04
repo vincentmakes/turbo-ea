@@ -257,7 +257,7 @@ Chaque valeur du rapport est un point d'entrée, pas seulement un affichage :
 
 Depuis le panneau, cliquez sur une fiche pour ouvrir son panneau de détail, ou sur **Voir dans l'inventaire** pour poursuivre dans l'[Inventaire](inventory.md) — qui arrive groupé par qualité des données, la plage cliquée dépliée et les autres repliées à côté, afin de corriger les enregistrements immédiatement. Les panneaux Orphelins et Obsolètes mènent au filtre d'inventaire correspondant, tous types de fiches confondus.
 
-Le rapport se termine par le graphique **Couverture de fin de vie** : pour les applications et composants informatiques, combien ont une fin de vie liée depuis endoflife.date, saisie à la main, ou pas renseignée du tout. Le filtre **Fin de vie** de l'inventaire est l'endroit où agir.
+Le rapport se termine par le graphique **Couverture de fin de vie** : pour les applications et composants informatiques, combien ont une fin de vie liée depuis endoflife.date, saisie à la main, ou pas renseignée du tout. Cliquez sur un segment pour lister les fiches correspondantes ; depuis le panneau **Non renseignée**, **Voir dans l'inventaire** ouvre exactement ces composants dans l'[Inventaire](inventory.md), où le filtre **Fin de vie** permet de les traiter.
 
 ## Rapport Fin de vie (EOL)
 

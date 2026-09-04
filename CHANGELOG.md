@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **The Inventory can now filter and show End of Life.** Applications and IT Components gain an **End of life** column — the date resolved from the card's endoflife.date link, beside a status dot, sorting and exporting as a date — and a matching filter for End of Life / Approaching / Supported / Unknown. Its **(empty)** option is how you list the components nobody has recorded an end of life for.
 - **The EOL report now lists the cards it used to leave out.** Components with neither a link to endoflife.date nor an End of Life date of their own appear with a **No EOL data** status and their own KPI tile, which filters the report to exactly them. A date maintained by hand in the Lifecycle section still counts as coverage.
-- **An End-of-life coverage chart** at the foot of the Data Quality report: for applications and IT components, how many have an end of life linked from endoflife.date, entered by hand, or not recorded at all.
+- **An End-of-life coverage chart** at the foot of the Data Quality report: for applications and IT components, how many have an end of life linked from endoflife.date, entered by hand, or not recorded at all. Clicking a segment lists the cards behind it, and the **Not recorded** panel opens them straight into the Inventory.
 
 ### Changed
 

@@ -28,7 +28,12 @@ import { useIsRtl } from "@/hooks/useIsRtl";
 import { makeRtlAxisTick, rtlLegendItemStyle, mirrorChartMargin } from "@/lib/rechartsRtl";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
-import { buildInventoryFlagUrl, buildInventorySliceUrl } from "./portfolioInventoryLink";
+import {
+  buildInventoryEolUrl,
+  buildInventoryFlagUrl,
+  buildInventorySliceUrl,
+  INVENTORY_EMPTY_VALUE,
+} from "./portfolioInventoryLink";
 import {
   bandColor,
   bandOf,
@@ -94,14 +99,19 @@ interface DQCardsResponse {
   items: DQCard[];
 }
 
+/** The three segments of the EOL coverage chart, by where the data came from. */
+type EolBucket = "linked" | "manual" | "missing";
+
 /**
  * The slice of the dashboard the side panel is showing. `band` is one segment
- * of a stacked bar, `type` a whole bar, `flag` an orphaned/stale KPI tile.
+ * of a stacked bar, `type` a whole bar, `flag` an orphaned/stale KPI tile, and
+ * `eol` one segment of the EOL coverage chart at the foot.
  */
 type DQScope =
   | { kind: "band"; typeKey: string; band: DataQualityBand }
   | { kind: "type"; typeKey: string }
-  | { kind: "flag"; flag: "orphaned" | "stale" };
+  | { kind: "flag"; flag: "orphaned" | "stale" }
+  | { kind: "eol"; typeKey: string; bucket: EolBucket };
 
 // Derived from the shared band definitions rather than restated, so the
 // report's segments cannot drift from the inventory's chips of the same name.
@@ -135,6 +145,11 @@ function scopePath(scope: DQScope): string {
     params.set("band", scope.band);
   } else if (scope.kind === "type") {
     params.set("type", scope.typeKey);
+  } else if (scope.kind === "eol") {
+    // The bucket rides the existing `scope` parameter alongside `type`, the
+    // same pairing the band scopes use — no new endpoint surface.
+    params.set("type", scope.typeKey);
+    params.set("scope", `eol_${scope.bucket}`);
   } else {
     params.set("scope", scope.flag);
   }
@@ -217,6 +232,10 @@ export default function DataQualityReport() {
     if (typeKey) setScope({ kind: "band", typeKey, band });
   }, []);
 
+  const openEol = useCallback((typeKey: string | undefined, bucket: EolBucket) => {
+    if (typeKey) setScope({ kind: "eol", typeKey, bucket });
+  }, []);
+
   if (data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
 
@@ -244,6 +263,11 @@ export default function DataQualityReport() {
   const eolLinkedLabel = t("dataQuality.eolLinked");
   const eolManualLabel = t("dataQuality.eolManual");
   const eolMissingLabel = t("dataQuality.eolMissing");
+  const EOL_BUCKET_LABEL: Record<EolBucket, string> = {
+    linked: eolLinkedLabel,
+    manual: eolManualLabel,
+    missing: eolMissingLabel,
+  };
   const eolChartData = (data.eol_coverage ?? []).map((row) => ({
     name: (() => { const tp = types.find((tp) => tp.key === row.type); return typeLabel(tp) || row.type; })(),
     type: row.type,
@@ -262,6 +286,10 @@ export default function DataQualityReport() {
       return `${labelForType(scope.typeKey)} · ${t(BAND_LABEL_KEY[scope.band])}`;
     }
     if (scope.kind === "type") return labelForType(scope.typeKey);
+    if (scope.kind === "eol") {
+      // The same segment labels the chart and its legend use.
+      return `${labelForType(scope.typeKey)} · ${EOL_BUCKET_LABEL[scope.bucket]}`;
+    }
     return scope.flag === "orphaned" ? t("dataQuality.orphaned") : t("dataQuality.stale");
   })();
 
@@ -277,10 +305,18 @@ export default function DataQualityReport() {
 
   // Band and type slices land grouped by quality with the clicked band
   // expanded; the flag tiles land on their own inventory filter.
+  // Only the "not recorded" bucket has an exact equivalent in the inventory:
+  // its End of life facet filters by STATUS, never by where the data came
+  // from, so "linked" and "entered by hand" have no landing that lists the
+  // same cards — and a button onto a different set is worse than none.
   const panelInventoryHref = !scope
     ? undefined
-    : scope.kind === "flag"
-      ? buildInventoryFlagUrl(scope.flag)
+    : scope.kind === "eol"
+      ? scope.bucket === "missing"
+        ? buildInventoryEolUrl(scope.typeKey, INVENTORY_EMPTY_VALUE)
+        : undefined
+      : scope.kind === "flag"
+        ? buildInventoryFlagUrl(scope.flag)
       : buildInventorySliceUrl({
           cardType: scope.typeKey,
           mode: { kind: "quality" },
@@ -512,13 +548,29 @@ export default function DataQualityReport() {
                   />
                   <RTooltip cursor={{ fill: theme.palette.action.hover }} content={<CustomTooltip />} />
                   <Legend formatter={(value: string) => <span style={rtlLegendItemStyle(isRtl, theme.palette.text.primary)}>{value}</span>} />
-                  <Bar dataKey={eolLinkedLabel} stackId="eol" fill={EOL_SOURCE_COLORS.linked} />
-                  <Bar dataKey={eolManualLabel} stackId="eol" fill={EOL_SOURCE_COLORS.manual} />
+                  {/* Each segment opens the panel on the cards behind it, the
+                      same way a completeness segment does. */}
+                  <Bar
+                    dataKey={eolLinkedLabel}
+                    stackId="eol"
+                    fill={EOL_SOURCE_COLORS.linked}
+                    cursor="pointer"
+                    onClick={(entry: { type?: string }) => openEol(entry?.type, "linked")}
+                  />
+                  <Bar
+                    dataKey={eolManualLabel}
+                    stackId="eol"
+                    fill={EOL_SOURCE_COLORS.manual}
+                    cursor="pointer"
+                    onClick={(entry: { type?: string }) => openEol(entry?.type, "manual")}
+                  />
                   <Bar
                     dataKey={eolMissingLabel}
                     stackId="eol"
                     fill={EOL_SOURCE_COLORS.missing}
                     radius={isRtl ? [4, 0, 0, 4] : [0, 4, 4, 0]}
+                    cursor="pointer"
+                    onClick={(entry: { type?: string }) => openEol(entry?.type, "missing")}
                   />
                 </BarChart>
               </ResponsiveContainer>

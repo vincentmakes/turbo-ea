@@ -2036,6 +2036,98 @@ class TestDataQualityCards:
         _, names = await self._names(client, admin, scope="stale")
         assert names == ["Dusty"]
 
+    # ── EOL coverage segments ────────────────────────────────────────────
+    # The chart counts these three buckets in Python over loaded cards; the
+    # panel queries one of them in SQL. Both definitions live in `card_flags`,
+    # and `test_eol_buckets_match_the_dashboard_counts` below is what stops
+    # them drifting apart.
+
+    @pytest.fixture
+    async def eol_landscape(self, db, env):
+        """One IT Component per coverage state, plus a card type that has none."""
+        admin = env["admin"]
+        await create_card(
+            db,
+            card_type="ITComponent",
+            name="Linked",
+            attributes={"eol_product": "nginx", "eol_cycle": "1.25"},
+            user_id=admin.id,
+        )
+        await create_card(
+            db,
+            card_type="ITComponent",
+            name="ManualDate",
+            lifecycle={"endOfLife": "2027-01-01"},
+            user_id=admin.id,
+        )
+        await create_card(db, card_type="ITComponent", name="Bare", user_id=admin.id)
+        await create_card(db, card_type="BusinessCapability", name="Cap", user_id=admin.id)
+        await db.flush()
+        return env
+
+    async def test_scope_eol_linked(self, client, db, eol_landscape):
+        _, names = await self._names(
+            client, eol_landscape["admin"], type="ITComponent", scope="eol_linked"
+        )
+        assert names == ["Linked"]
+
+    async def test_scope_eol_manual(self, client, db, eol_landscape):
+        _, names = await self._names(
+            client, eol_landscape["admin"], type="ITComponent", scope="eol_manual"
+        )
+        assert names == ["ManualDate"]
+
+    async def test_scope_eol_missing(self, client, db, eol_landscape):
+        _, names = await self._names(
+            client, eol_landscape["admin"], type="ITComponent", scope="eol_missing"
+        )
+        assert names == ["Bare"]
+
+    async def test_half_a_link_reads_as_missing(self, client, db, eol_landscape):
+        """A product with no cycle resolves to nothing upstream, so it is not
+        linked. This is also the row a naive `NOT (product AND cycle)` would
+        drop: `attributes->'eol_cycle'` is SQL NULL, and NOT NULL is NULL."""
+        await create_card(
+            db,
+            card_type="ITComponent",
+            name="HalfLinked",
+            attributes={"eol_product": "nginx"},
+            user_id=eol_landscape["admin"].id,
+        )
+        await db.flush()
+
+        _, names = await self._names(
+            client, eol_landscape["admin"], type="ITComponent", scope="eol_missing"
+        )
+        assert sorted(names) == ["Bare", "HalfLinked"]
+
+    async def test_eol_scopes_ignore_types_that_carry_no_eol(self, client, db, eol_landscape):
+        """Without a `type`, the scopes still cover only the EOL-capable types."""
+        for bucket in ("linked", "manual", "missing"):
+            _, names = await self._names(client, eol_landscape["admin"], scope=f"eol_{bucket}")
+            assert "Cap" not in names
+
+    async def test_eol_buckets_match_the_dashboard_counts(self, client, db, eol_landscape):
+        """The panel's total must equal the bar the user clicked — the whole
+        premise of the drill-down, and the one thing two implementations of
+        "covered" could break."""
+        admin = eol_landscape["admin"]
+        resp = await client.get("/api/v1/reports/data-quality", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        row = next(r for r in resp.json()["eol_coverage"] if r["type"] == "ITComponent")
+
+        for bucket in ("linked", "manual", "missing"):
+            data, _ = await self._names(client, admin, type="ITComponent", scope=f"eol_{bucket}")
+            assert data["total"] == row[bucket], bucket
+
+    async def test_unknown_scope_rejected(self, client, db, env):
+        resp = await client.get(
+            "/api/v1/reports/data-quality/cards",
+            params={"scope": "eol_bogus"},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.status_code == 400
+
     async def test_limit_truncates_items_but_not_total(self, client, db, env):
         """`total` drives the panel's "showing N of M" — it must not be capped."""
         admin = env["admin"]

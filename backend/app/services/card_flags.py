@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 
 from app.models.card import Card
 from app.models.relation import Relation
@@ -156,3 +156,68 @@ def has_eol_coverage(attributes: dict | None, lifecycle: dict | None) -> bool:
     must not be reported as unrecorded.
     """
     return has_eol_link(attributes) or has_manual_eol(lifecycle)
+
+
+# --- EOL coverage as SQL -----------------------------------------------------
+# The dashboard counts the three buckets in Python over cards it has already
+# loaded; the drill-down panel has to fetch one bucket straight from the
+# database. Both live here, next to each other, because the report's promise is
+# that clicking a count of 37 lists 37 cards — and `test_reports_extended.py`
+# pins the two forms equal.
+
+
+def _jsonb_present(col):
+    """A JSONB member that is neither absent, nor JSON null, nor empty."""
+    return and_(col.astext.isnot(None), col.astext != "")
+
+
+def _jsonb_absent(col):
+    """The complement of :func:`_jsonb_present`, written as its own positive
+    test rather than as a negation.
+
+    ``col.astext`` is SQL NULL both when the key is absent and when it holds
+    JSON null, and ``NOT (NULL = 'x')`` is NULL, which a WHERE clause discards.
+    Negating a presence test would therefore drop exactly the rows a "missing"
+    filter exists to find. Same shape the survey target filters use
+    (``api/v1/surveys.py``).
+    """
+    return or_(col.astext.is_(None), col.astext == "")
+
+
+#: The buckets the Data Quality report's EOL coverage chart is split into.
+EOL_BUCKETS = ("linked", "manual", "missing")
+
+
+def eol_bucket_condition(bucket: str):
+    """SQLAlchemy condition selecting one EOL coverage bucket.
+
+    Mirrors :func:`has_eol_link` / :func:`has_manual_eol` /
+    :func:`has_eol_coverage` exactly, so a bucket's row count matches the bar
+    the user clicked. Always narrowed to :data:`EOL_TYPES`: a Business
+    Capability has no end of life to record and must not appear in any bucket.
+
+    One divergence is known and deliberate: Python reads ``0`` / ``False`` /
+    ``""`` as absent, while ``.astext`` renders JSON ``false`` as the non-empty
+    string ``"false"``. Both keys are only ever written as strings by our own
+    code (the card's EOL section and ``POST /eol/mass-link``), so modelling it
+    would be dead complexity.
+    """
+    if bucket not in EOL_BUCKETS:
+        raise ValueError(f"Unknown EOL bucket: {bucket}")
+
+    product = Card.attributes[EOL_PRODUCT_KEY]
+    cycle = Card.attributes[EOL_CYCLE_KEY]
+    end_of_life = Card.lifecycle["endOfLife"]
+
+    linked = and_(_jsonb_present(product), _jsonb_present(cycle))
+    # Half a link resolves to nothing upstream, so it is not a link at all.
+    not_linked = or_(_jsonb_absent(product), _jsonb_absent(cycle))
+
+    if bucket == "linked":
+        rule = linked
+    elif bucket == "manual":
+        rule = and_(not_linked, _jsonb_present(end_of_life))
+    else:
+        rule = and_(not_linked, _jsonb_absent(end_of_life))
+
+    return and_(Card.type.in_(EOL_TYPES), rule)

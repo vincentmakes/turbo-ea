@@ -27,7 +27,9 @@ from app.models.todo import Todo
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
 from app.services.card_flags import (
+    EOL_BUCKETS,
     EOL_TYPES,
+    eol_bucket_condition,
     has_eol_coverage,
     has_eol_link,
     has_manual_eol,
@@ -2264,7 +2266,13 @@ _DQ_BAND_BOUNDS: dict[str, tuple[float | None, float | None]] = {
 async def data_quality_cards(
     type: str | None = Query(default=None, description="Card type key"),
     band: str | None = Query(default=None, description="complete | partial | minimal"),
-    scope: str | None = Query(default=None, description="orphaned | stale"),
+    scope: str | None = Query(
+        default=None,
+        description=(
+            "orphaned | stale | eol_linked | eol_manual | eol_missing. The three "
+            "`eol_*` scopes are the EOL coverage chart's segments and pair with `type`."
+        ),
+    ),
     limit: int = Query(default=200, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -2280,7 +2288,8 @@ async def data_quality_cards(
 
     if band is not None and band not in _DQ_BAND_BOUNDS:
         raise HTTPException(status_code=400, detail=f"Unknown band: {band}")
-    if scope is not None and scope not in ("orphaned", "stale"):
+    eol_scopes = {f"eol_{bucket}": bucket for bucket in EOL_BUCKETS}
+    if scope is not None and scope not in ("orphaned", "stale", *eol_scopes):
         raise HTTPException(status_code=400, detail=f"Unknown scope: {scope}")
 
     conditions = [Card.status == "ACTIVE"]
@@ -2296,6 +2305,8 @@ async def data_quality_cards(
         conditions.append(stale_condition())
     elif scope == "orphaned":
         conditions.append(orphaned_condition())
+    elif scope in eol_scopes:
+        conditions.append(eol_bucket_condition(eol_scopes[scope]))
 
     total_result = await db.execute(select(func.count()).select_from(Card).where(*conditions))
     total = total_result.scalar_one()

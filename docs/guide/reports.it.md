@@ -257,7 +257,7 @@ Ogni valore del report è un punto di accesso, non solo un dato da leggere:
 
 Dal pannello, fai clic su una card per aprirne il pannello di dettaglio, oppure premi **Vedi nell'inventario** per proseguire nell'[Inventario](inventory.md), che si apre raggruppato per qualità dei dati con la fascia selezionata espansa e le altre richiuse accanto, così puoi iniziare subito a correggere i record. I pannelli Orfani e Obsoleti rimandano al filtro corrispondente dell'inventario, su tutti i tipi di scheda.
 
-Il report si chiude con il grafico **Copertura di fine vita**: per applicazioni e componenti IT, quanti hanno una fine vita collegata da endoflife.date, inserita a mano o non registrata affatto. Per intervenire, usa il filtro **Fine vita** dell'inventario.
+Il report si chiude con il grafico **Copertura di fine vita**: per applicazioni e componenti IT, quanti hanno una fine vita collegata da endoflife.date, inserita a mano o non registrata affatto. Fai clic su un segmento per elencare le schede che lo compongono; dal pannello **Non registrata**, **Vedi nell'inventario** apre esattamente quei componenti nell'[Inventario](inventory.md), dove il filtro **Fine vita** ti permette di lavorarli.
 
 ## Report End of Life (EOL)
 
