@@ -11,6 +11,11 @@ from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.permissions import (
+    APP_PERMISSIONS,
+    TYPE_SCOPED_APP_PERMISSIONS,
+    validate_type_role_permissions,
+)
 from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
@@ -19,6 +24,7 @@ from app.models.ea_principle import EAPrinciple
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
+from app.models.role import Role
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
 from app.services import card_reference
@@ -144,6 +150,37 @@ def _enforce_field_gating(
 
 # ── Helpers ────────────────────────────────────────────────────────────
 
+# The four inventory permissions a card type may override, in the order the
+# admin Permissions tab renders them.
+_TYPE_PERMISSION_ORDER: tuple[str, ...] = (
+    "inventory.create",
+    "inventory.edit",
+    "inventory.archive",
+    "inventory.delete",
+)
+
+
+async def _validated_role_permissions(db: AsyncSession, raw: object) -> dict:
+    """Validate a ``role_permissions`` payload against the live role list.
+
+    Role keys must exist (archived ones are fine — their overrides are inert
+    but a round-trip of a stored map must not start failing), and a wildcard
+    role can never be overridden.
+    """
+    rows = await db.execute(select(Role.key, Role.permissions))
+    known: set[str] = set()
+    wildcard: set[str] = set()
+    for role_key, perms in rows.all():
+        known.add(role_key)
+        if (perms or {}).get("*"):
+            wildcard.add(role_key)
+    try:
+        return validate_type_role_permissions(
+            raw, known_role_keys=known, wildcard_role_keys=wildcard
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
 
 def _serialize_type(t: CardType) -> dict:
     return {
@@ -161,6 +198,7 @@ def _serialize_type(t: CardType) -> dict:
         "stakeholder_roles": t.stakeholder_roles or [],
         "section_config": t.section_config or {},
         "reference_config": t.reference_config or {},
+        "role_permissions": t.role_permissions or {},
         "built_in": t.built_in,
         "is_hidden": t.is_hidden,
         "sort_order": t.sort_order,
@@ -457,6 +495,68 @@ async def get_type(
     return _serialize_type(t)
 
 
+@router.get("/types/{key}/permissions")
+async def get_type_permissions(
+    key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
+):
+    """The per-role permission matrix for one card type (admin Permissions tab).
+
+    Gated on ``admin.metamodel`` because it reveals part of the RBAC matrix.
+    It deliberately exposes only the four type-scoped inventory bits per role —
+    never the full permission set, which stays behind ``admin.roles`` — so an
+    admin who may edit the metamodel can see what a role inherits without
+    being handed the whole role configuration.
+
+    ``inherited`` is what the role grants landscape-wide; ``overrides`` is what
+    this type stores. A cell missing from ``overrides`` inherits. Archived
+    roles are omitted, and a stored override naming a role that no longer
+    exists is simply not listed (it is inert at check time too).
+    """
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(select(CardType).where(CardType.key == key))
+    t = result.scalar_one_or_none()
+    if not t:
+        raise HTTPException(404, "Card type not found")
+
+    stored = t.role_permissions or {}
+    inventory_descriptions = APP_PERMISSIONS["inventory"]["permissions"]
+    actions = [
+        {"key": perm_key, "description": inventory_descriptions.get(perm_key, "")}
+        for perm_key in _TYPE_PERMISSION_ORDER
+        if perm_key in TYPE_SCOPED_APP_PERMISSIONS
+    ]
+
+    roles_result = await db.execute(
+        select(Role)
+        .where(Role.is_archived == False)  # noqa: E712
+        .order_by(Role.sort_order, Role.key)
+    )
+    roles = []
+    for role in roles_result.scalars().all():
+        perms = role.permissions or {}
+        is_wildcard = bool(perms.get("*"))
+        roles.append(
+            {
+                "key": role.key,
+                "label": role.label,
+                "color": role.color,
+                "is_system": role.is_system,
+                "is_wildcard": is_wildcard,
+                "inherited": {
+                    a["key"]: True if is_wildcard else bool(perms.get(a["key"], False))
+                    for a in actions
+                },
+                "overrides": {
+                    k: v
+                    for k, v in (stored.get(role.key) or {}).items()
+                    if k in TYPE_SCOPED_APP_PERMISSIONS
+                },
+            }
+        )
+
+    return {"actions": actions, "roles": roles}
+
+
 @router.get("/types/{key}/field-usage")
 async def get_field_usage(
     key: str,
@@ -708,6 +808,7 @@ async def create_type(
         reference_config = card_reference.validate_reference_config(body.get("reference_config"))
     except card_reference.ReferenceConfigError as exc:
         raise HTTPException(400, str(exc)) from exc
+    role_permissions = await _validated_role_permissions(db, body.get("role_permissions"))
     t = CardType(
         key=body["key"],
         label=body["label"],
@@ -722,6 +823,7 @@ async def create_type(
         fields_schema=fields_schema,
         stakeholder_roles=body.get("stakeholder_roles", default_roles),
         reference_config=reference_config,
+        role_permissions=role_permissions,
         built_in=False,
         is_hidden=False,
         sort_order=body.get("sort_order", next_order),
@@ -873,8 +975,19 @@ async def update_type(
         # never mint thousands of IDs by surprise. New cards still auto-generate
         # on create; only the historical backlog is generated on demand.
 
+    # ── Per-card-type role permission overrides (discussion #1068) ──
+    # Deliberately outside the generic `updatable` loop: the payload is
+    # validated against the live role list, and a wildcard role is refused.
+    if "role_permissions" in body:
+        t.role_permissions = await _validated_role_permissions(db, body["role_permissions"])
+
     await db.commit()
     await db.refresh(t)
+
+    # The override map is cached per process for the permission checks, so a
+    # save has to drop this type's entry or the change would take up to the
+    # cache TTL to reach the routes.
+    PermissionService.invalidate_type_permission_cache(key)
 
     # Re-score existing cards when the scoring config actually changed, so
     # tuned data-quality weights take effect immediately instead of waiting
@@ -912,6 +1025,7 @@ async def delete_type(
         # Soft-delete built-in types
         t.is_hidden = True
         await db.commit()
+        PermissionService.invalidate_type_permission_cache(key)
         return {"status": "hidden", "key": key, "instance_count": instance_count}
 
     if instance_count > 0:
@@ -937,6 +1051,7 @@ async def delete_type(
 
     await db.delete(t)
     await db.commit()
+    PermissionService.invalidate_type_permission_cache(key)
     return {"status": "deleted", "key": key}
 
 

@@ -74,6 +74,7 @@ import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import RelationCellPopover from "./RelationCellPopover";
 import ExtFieldCell from "./ExtFieldCell";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { canCreateAnyCardType, hasTypePermission } from "@/components/RequirePermission";
 import { useCardSearch } from "@/hooks/useCardSearch";
 import { useTypeLabel, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { readableTextColor } from "@/lib/color";
@@ -1106,12 +1107,38 @@ export default function InventoryPage() {
   // related card type, and several relation types may share that pair.
   const [relEditRelTypes, setRelEditRelTypes] = useState<RelationType[]>([]);
 
-  // React to ?create=true search param
+  // Exactly one faceted type drives the per-type affordances below.
+  const facetedType = filters.types.length === 1 ? filters.types[0] : "";
+
+  // Per-card-type permission overrides (discussion #1068). With exactly one
+  // type faceted the affordances follow that type; with none or several, the
+  // Create button only needs *some* creatable type — the dialog's own picker
+  // then narrows it, and the server enforces the rest.
+  const canCreateAnyType = useMemo(() => canCreateAnyCardType(user, types), [types, user]);
+  const canCreateSelectedType = facetedType
+    ? hasTypePermission(user, "inventory.create", facetedType)
+    : canCreateAnyType;
+  // Grid edit mode writes to the faceted type, so it needs edit on that type.
+  // Without a single faceted type the rows span types and the server decides
+  // per card, which is the same posture as the archive/delete buttons below.
+  const canGridEditSelectedType = facetedType
+    ? hasTypePermission(user, "inventory.edit", facetedType)
+    : true;
+
+  // Leaving edit mode on when the user facets to a type they may not edit would
+  // offer editable cells whose every write 403s. The toggle is hidden in that
+  // state, so without this the mode would also be un-exitable.
   useEffect(() => {
-    if (searchParams.get("create") === "true") {
+    if (!canGridEditSelectedType) setGridEditMode(false);
+  }, [canGridEditSelectedType]);
+
+  // React to ?create=true search param. A deep link must not open a dialog for
+  // a type this role may not create — the button is hidden in that case too.
+  useEffect(() => {
+    if (searchParams.get("create") === "true" && canCreateSelectedType) {
       setCreateOpen(true);
     }
-  }, [searchParams]);
+  }, [searchParams, canCreateSelectedType]);
 
   // Sync ?search= URL param into filters when navigating to inventory from elsewhere (e.g. toolbar)
   useEffect(() => {
@@ -1123,7 +1150,7 @@ export default function InventoryPage() {
   }, [searchParams]);
 
   // Derive the single selected type for column rendering (only when exactly one type selected)
-  const selectedType = filters.types.length === 1 ? filters.types[0] : "";
+  const selectedType = facetedType;
   const typeConfig = types.find((t) => t.key === selectedType);
 
   // --- Logo column -----------------------------------------------------------
@@ -1137,7 +1164,7 @@ export default function InventoryPage() {
   const logoColumnShown = logoColumnAvailable && selectedColumns.has(LOGO_COLUMN_KEY);
   // The backend authorises each write against the card, but the affordance is
   // gated here so a viewer is not offered an edit that can only 403.
-  const canEditLogos = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.edit"]);
+  const canEditLogos = hasTypePermission(user, "inventory.edit", selectedType || null);
   // AG Grid measures each row once; toggling the column changes `rowHeight` but
   // leaves the rows already laid out at the old height until they are re-measured.
   useEffect(() => {
@@ -3926,11 +3953,13 @@ export default function InventoryPage() {
                   <MaterialSymbol icon="upload" size={20} />
                 </IconButton>
               </Tooltip>
-              <Tooltip title={t("common:actions.create")}>
-                <IconButton color="primary" onClick={() => setCreateOpen(true)} size="small">
-                  <MaterialSymbol icon="add" size={20} />
-                </IconButton>
-              </Tooltip>
+              {canCreateSelectedType && (
+                <Tooltip title={t("common:actions.create")}>
+                  <IconButton color="primary" onClick={() => setCreateOpen(true)} size="small">
+                    <MaterialSymbol icon="add" size={20} />
+                  </IconButton>
+                </Tooltip>
+              )}
             </>
           ) : (
             <>
@@ -3945,15 +3974,17 @@ export default function InventoryPage() {
                   {t("filter.clearColumnFilters")}
                 </Button>
               )}
-              <Button
-                variant={gridEditMode ? "contained" : "outlined"}
-                color={gridEditMode ? "primary" : "inherit"}
-                startIcon={<MaterialSymbol icon={gridEditMode ? "edit" : "edit_off"} size={18} />}
-                onClick={() => setGridEditMode((v) => !v)}
-                sx={{ textTransform: "none" }}
-              >
-                {gridEditMode ? t("toolbar.editing") : t("toolbar.gridEdit")}
-              </Button>
+              {canGridEditSelectedType && (
+                <Button
+                  variant={gridEditMode ? "contained" : "outlined"}
+                  color={gridEditMode ? "primary" : "inherit"}
+                  startIcon={<MaterialSymbol icon={gridEditMode ? "edit" : "edit_off"} size={18} />}
+                  onClick={() => setGridEditMode((v) => !v)}
+                  sx={{ textTransform: "none" }}
+                >
+                  {gridEditMode ? t("toolbar.editing") : t("toolbar.gridEdit")}
+                </Button>
+              )}
               <Button
                 variant="outlined"
                 color="inherit"
@@ -3974,14 +4005,16 @@ export default function InventoryPage() {
               >
                 {t("common:actions.import")}
               </Button>
-              <Button
-                variant="contained"
-                startIcon={<MaterialSymbol icon="add" size={18} />}
-                onClick={() => setCreateOpen(true)}
-                sx={{ textTransform: "none" }}
-              >
-                {t("common:actions.create")}
-              </Button>
+              {canCreateSelectedType && (
+                <Button
+                  variant="contained"
+                  startIcon={<MaterialSymbol icon="add" size={18} />}
+                  onClick={() => setCreateOpen(true)}
+                  sx={{ textTransform: "none" }}
+                >
+                  {t("common:actions.create")}
+                </Button>
+              )}
             </>
           )}
         </Box>

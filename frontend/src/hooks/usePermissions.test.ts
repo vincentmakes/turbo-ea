@@ -199,3 +199,55 @@ describe("usePermissions — card-level permissions", () => {
     expect(result.current.canOnCard("card-1", "can_view")).toBe(false);
   });
 });
+
+
+// ---------------------------------------------------------------------------
+// canForType() — per-card-type overrides (discussion #1068)
+// ---------------------------------------------------------------------------
+
+describe("usePermissions — canForType()", () => {
+  const makeUser = (
+    permissions: Record<string, boolean>,
+    type_permissions?: Record<string, Record<string, boolean>>,
+  ): User =>
+    ({
+      id: "u1",
+      email: "u@example.com",
+      display_name: "U",
+      role: "member",
+      is_active: true,
+      permissions,
+      type_permissions,
+    }) as User;
+
+  it("denies a type whose override takes the grant away", () => {
+    const user = makeUser(
+      { "inventory.edit": true },
+      { Organization: { "inventory.edit": false } },
+    );
+    const { result } = renderHook(() => usePermissions(user));
+    expect(result.current.canForType("inventory.edit", "Organization")).toBe(false);
+    expect(result.current.canForType("inventory.edit", "Application")).toBe(true);
+  });
+
+  it("grants a type whose override sits above the role", () => {
+    const user = makeUser(
+      { "inventory.create": false },
+      { Initiative: { "inventory.create": true } },
+    );
+    const { result } = renderHook(() => usePermissions(user));
+    expect(result.current.canForType("inventory.create", "Initiative")).toBe(true);
+    expect(result.current.can("inventory.create")).toBe(false);
+  });
+
+  it("keeps the admin wildcard immune", () => {
+    const user = makeUser({ "*": true }, { Organization: { "inventory.edit": false } });
+    const { result } = renderHook(() => usePermissions(user));
+    expect(result.current.canForType("inventory.edit", "Organization")).toBe(true);
+  });
+
+  it("is fail-closed with no user", () => {
+    const { result } = renderHook(() => usePermissions(null));
+    expect(result.current.canForType("inventory.create", "Application")).toBe(false);
+  });
+});

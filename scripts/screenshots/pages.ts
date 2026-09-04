@@ -207,6 +207,10 @@ function buttonSelector(...labels: string[]): string {
 
 const TAB_MM_CALCULATIONS = tabSelector(...i18nLabels("admin:metamodel.tabs.calculations"));
 const TAB_MM_TAGS = tabSelector(...i18nLabels("admin:metamodel.tabs.tags"));
+// The card-type drawer's Permissions tab (per-card-type RBAC, discussion #1068).
+const TAB_TYPE_PERMISSIONS = tabSelector(
+  ...i18nLabels("admin:metamodel.permissionsPanel.title"),
+);
 
 /** Top navbar "Reports" menu button, across locales. */
 const NAV_REPORTS = i18nLabels("nav:reports")
@@ -1784,6 +1788,34 @@ export const DOC_PAGES: PageDef[] = [
       pt: "84_admin_etiquetas",
       zh: "84_admin_tags",
       ru: "84_admin_tegi",
+    },
+  },
+
+  // ── Admin: per-card-type permissions ───────────────────────────────────
+  {
+    id: "85_admin_card_type_permissions",
+    route: "/admin/metamodel",
+    // Same reasoning as 83: wait for the tablist, not a Paper — the type cards
+    // render only after the async metamodel load.
+    waitFor: "[role='tablist']",
+    actions: [
+      { type: "wait", ms: 1200 },
+      // Open the first card type's drawer. Clicking by position rather than by
+      // name keeps the entry locale-independent.
+      { type: "click", selector: ".MuiCard-root", nth: 0 },
+      { type: "wait", ms: 700 },
+      { type: "click", selector: TAB_TYPE_PERMISSIONS },
+      { type: "wait", ms: 700 },
+    ],
+    filenames: {
+      en: "85_admin_card_type_permissions",
+      de: "85_admin_kartentyp_berechtigungen",
+      fr: "85_admin_autorisations_type_fiche",
+      es: "85_admin_permisos_tipo_ficha",
+      it: "85_admin_autorizzazioni_tipo_scheda",
+      pt: "85_admin_permissoes_tipo_card",
+      zh: "85_admin_card_type_permissions",
+      ru: "85_admin_razresheniya_tipa_kartochki",
     },
   },
 

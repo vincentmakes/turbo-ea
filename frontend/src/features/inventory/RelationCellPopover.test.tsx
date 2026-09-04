@@ -12,6 +12,17 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// These components read the signed-in user to apply per-card-type create
+// permissions (discussion #1068). They render deep in the tree, always inside
+// an AuthProvider in the app; the tests mount them directly, so the context is
+// stubbed with an admin (whose wildcard grants every type).
+vi.mock("@/hooks/AuthContext", () => ({
+  useAuthContext: () => ({
+    user: { id: "u1", email: "a@test.com", display_name: "Admin", permissions: { "*": true } },
+    refreshUser: vi.fn(),
+  }),
+}));
+
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
   ApiError: class extends Error {},

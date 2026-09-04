@@ -28,6 +28,8 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
 import { EolLinkDialog } from "@/components/EolLinkSection";
 import VendorField from "@/components/VendorField";
+import { hasTypePermission } from "@/components/RequirePermission";
+import { useAuthContext } from "@/hooks/AuthContext";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import TagPicker from "@/components/TagPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -87,12 +89,27 @@ export default function CreateCardDialog({
   const navigate = useNavigate();
   const { t } = useTranslation(["cards", "common"]);
   const { types, relationTypes } = useMetamodel();
+  const { user } = useAuthContext();
   const typeLabel = useTypeLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
   const stLabel = useSubtypeLabel();
 
+  // A card type may deny this role `inventory.create` (discussion #1068), so
+  // the picker offers only the types the user may actually create.
+  const creatableTypes = useMemo(
+    () =>
+      types.filter(
+        (ct) => !ct.is_hidden && hasTypePermission(user, "inventory.create", ct.key)
+      ),
+    [types, user]
+  );
+
   const [selectedType, setSelectedType] = useState(initialType || "");
+  /** `initialType` is supplied by the caller (the inventory's selected type,
+   *  a diagram, a deep link) and may be one this role cannot create — so the
+   *  submit button is gated on the *selected* type, not just on the list. */
+  const typeAllowed = hasTypePermission(user, "inventory.create", selectedType || null);
   const [subtype, setSubtype] = useState(initialType ? initialSubtype || "" : "");
   const [parentCard, setParentCard] = useState<CardOption | null>(null);
   const [name, setName] = useState("");
@@ -635,7 +652,7 @@ export default function CreateCardDialog({
             label={t("common:labels.type")}
             onChange={(e) => setSelectedType(e.target.value)}
           >
-            {types.filter((t) => !t.is_hidden).map((t) => (
+            {creatableTypes.map((t) => (
               <MenuItem key={t.key} value={t.key}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <Box
@@ -949,16 +966,20 @@ export default function CreateCardDialog({
         <Button onClick={onClose} color="inherit">
           {t("common:actions.cancel")}
         </Button>
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={!selectedType || !name.trim() || loading}
-          startIcon={
-            loading ? <CircularProgress size={18} color="inherit" /> : undefined
-          }
-        >
-          {t("common:actions.create")}
-        </Button>
+        <Tooltip title={typeAllowed ? "" : t("create.noTypePermission")}>
+          <span>
+            <Button
+              variant="contained"
+              onClick={handleSubmit}
+              disabled={!selectedType || !typeAllowed || !name.trim() || loading}
+              startIcon={
+                loading ? <CircularProgress size={18} color="inherit" /> : undefined
+              }
+            >
+              {t("common:actions.create")}
+            </Button>
+          </span>
+        </Tooltip>
       </DialogActions>
     </Dialog>
   );

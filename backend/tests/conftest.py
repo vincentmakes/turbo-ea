@@ -326,6 +326,8 @@ async def create_card_type(
         stakeholder_roles=kwargs.get("stakeholder_roles", []),
         has_hierarchy=kwargs.get("has_hierarchy", False),
         allow_card_logo=kwargs.get("allow_card_logo", False),
+        # Per-role overrides of the type-scoped inventory permissions.
+        role_permissions=kwargs.get("role_permissions", {}),
         built_in=kwargs.get("built_in", False),
         is_hidden=kwargs.get("is_hidden", False),
         translations=kwargs.get("translations", {}),

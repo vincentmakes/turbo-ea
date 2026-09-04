@@ -22,6 +22,8 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { hasTypePermission } from "@/components/RequirePermission";
+import { useAuthContext } from "@/hooks/AuthContext";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { api } from "@/api/client";
@@ -57,6 +59,9 @@ function SuccessorsSection({
 
   // Inline create state
   const [createMode, setCreateMode] = useState(false);
+  // A successor is a new card of this card's own type (discussion #1068).
+  const { user } = useAuthContext();
+  const canCreateOwnType = hasTypePermission(user, "inventory.create", card.type);
   const [createName, setCreateName] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
 
@@ -404,17 +409,19 @@ function SuccessorsSection({
                   sx={{ mt: 1 }}
                   label={t("successors.search", { type: typeLabel })}
                 />
-                <Button
-                  size="small"
-                  sx={{ mt: 1 }}
-                  startIcon={<MaterialSymbol icon="add" size={16} />}
-                  onClick={() => {
-                    setCreateMode(true);
-                    setCreateName(search);
-                  }}
-                >
-                  {t("successors.createNew", { type: typeLabel })}
-                </Button>
+                {canCreateOwnType && (
+                  <Button
+                    size="small"
+                    sx={{ mt: 1 }}
+                    startIcon={<MaterialSymbol icon="add" size={16} />}
+                    onClick={() => {
+                      setCreateMode(true);
+                      setCreateName(search);
+                    }}
+                  >
+                    {t("successors.createNew", { type: typeLabel })}
+                  </Button>
+                )}
               </>
             ) : (
               <Box

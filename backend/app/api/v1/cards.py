@@ -581,7 +581,11 @@ async def create_card(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "inventory.create")
+    # Per-card-type overrides apply here: the role's global `inventory.create`
+    # can be denied for this type, or granted where the role lacks it.
+    await PermissionService.require_permission(
+        db, user, "inventory.create", card_type_key=body.type
+    )
     card = await card_write_service.create_card(
         db,
         card_write_service.WriteActor.from_user(user),
@@ -641,9 +645,24 @@ async def bulk_create_cards(
     Single transaction per request — partial failures still roll back
     succeeded rows in the same batch. Permission: `inventory.create`.
     """
-    await PermissionService.require_permission(db, user, "inventory.create")
-
     rows = list(body.cards)
+
+    # A batch may span card types, and `inventory.create` is overridable per
+    # type — so the check runs once per *distinct* type rather than once for
+    # the request. Denied types are named so a spreadsheet importer can tell
+    # the user which sheet to drop, and this runs before anything is built so
+    # an unauthorised batch creates nothing.
+    denied_types: list[str] = []
+    for type_key in sorted({r.type for r in rows}):
+        if not await PermissionService.has_app_permission(
+            db, user, "inventory.create", card_type_key=type_key
+        ):
+            denied_types.append(type_key)
+    if denied_types:
+        raise HTTPException(
+            403,
+            "Not enough permissions to create cards of type: " + ", ".join(denied_types),
+        )
 
     # `row_index` is used as a dict key throughout this handler (parent
     # resolution, topo sort, per-row results) and by the caller to pair each
@@ -1452,6 +1471,25 @@ async def bulk_update(
     uuids = [uuid.UUID(i) for i in body.ids]
     result = await db.execute(select(Card).where(Card.id.in_(uuids)))
     sheets = list(result.scalars().all())
+
+    # Per-card-type overrides reach bulk edit asymmetrically, on purpose: a
+    # type that *denies* `inventory.edit` for this role blocks bulk edits of
+    # that type, while a type that *allows* it grants nothing extra here —
+    # `inventory.bulk_edit` above remains the authority to edit in bulk at
+    # all. Anything else would turn a per-type allow into a silent grant of a
+    # landscape-wide capability the role was never given.
+    denied_types = sorted(
+        {
+            card.type
+            for card in sheets
+            if await PermissionService.is_type_denied(db, user, "inventory.edit", card.type)
+        }
+    )
+    if denied_types:
+        raise HTTPException(
+            403,
+            "Not enough permissions to edit cards of type: " + ", ".join(denied_types),
+        )
     updates = body.updates.model_dump(exclude_unset=True)
     strict_attrs = updates.pop("strict_attributes", False)
     # The human-readable reference is per-card and uniqueness-gated; it is never
@@ -2309,9 +2347,15 @@ async def _ensure_permission_on_each(
 ) -> None:
     if not card_ids:
         return
+    # One query for every card's type, so the per-type override lookup inside
+    # `check_permission` does not re-read each row.
+    type_rows = await db.execute(select(Card.id, Card.type).where(Card.id.in_(card_ids)))
+    type_by_id = {row_id: row_type for row_id, row_type in type_rows.all()}
     denied: list[str] = []
     for cid in card_ids:
-        if not await PermissionService.check_permission(db, user, app_perm, cid, card_perm):
+        if not await PermissionService.check_permission(
+            db, user, app_perm, cid, card_perm, card_type_key=type_by_id.get(cid)
+        ):
             denied.append(str(cid))
             if len(denied) >= 5:
                 break

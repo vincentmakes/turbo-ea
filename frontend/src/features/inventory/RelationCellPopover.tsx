@@ -17,6 +17,8 @@ import CardPicker from "@/components/CardPicker";
 import { expandSides, onSide, otherEnd, sideKey, sortRelationsByName } from "@/lib/relationSort";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { hasTypePermission } from "@/components/RequirePermission";
+import { useAuthContext } from "@/hooks/AuthContext";
 import { useTypeLabel, useRelationLabel } from "@/hooks/useResolveLabel";
 import type { Relation, RelationType } from "@/types";
 
@@ -88,6 +90,9 @@ function RelationTypeSection({
 
   const targetTypeKey = isSource ? relationType.target_type_key : relationType.source_type_key;
   const targetTypeConfig = getType(targetTypeKey);
+  // Quick-create makes a card of the relation's other end (discussion #1068).
+  const { user } = useAuthContext();
+  const canCreateTargetType = hasTypePermission(user, "inventory.create", targetTypeKey);
   const verb = isSource ? relLabel(relationType) : relLabel(relationType, true);
 
   const [targetSearch, setTargetSearch] = useState("");
@@ -280,17 +285,19 @@ function RelationTypeSection({
               {adding ? <CircularProgress size={18} color="inherit" /> : t("common:actions.add")}
             </Button>
           </Box>
-          <Button
-            size="small"
-            sx={{ mt: 0.5, textTransform: "none" }}
-            startIcon={<MaterialSymbol icon="add" size={16} />}
-            onClick={() => {
-              setCreateMode(true);
-              setCreateName(targetSearch);
-            }}
-          >
-            {t("relation.createNew", { type: typeLabel(targetTypeConfig) || targetTypeKey })}
-          </Button>
+          {canCreateTargetType && (
+            <Button
+              size="small"
+              sx={{ mt: 0.5, textTransform: "none" }}
+              startIcon={<MaterialSymbol icon="add" size={16} />}
+              onClick={() => {
+                setCreateMode(true);
+                setCreateName(targetSearch);
+              }}
+            >
+              {t("relation.createNew", { type: typeLabel(targetTypeConfig) || targetTypeKey })}
+            </Button>
+          )}
         </>
       ) : (
         <Box

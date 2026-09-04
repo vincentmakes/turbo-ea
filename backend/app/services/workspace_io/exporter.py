@@ -65,6 +65,7 @@ CARD_TYPE_COLUMNS = (
     "stakeholder_roles",
     "section_config",
     "reference_config",
+    "role_permissions",
     "built_in",
     "is_hidden",
     "sort_order",
@@ -77,6 +78,7 @@ CARD_TYPE_JSON = frozenset(
         "stakeholder_roles",
         "section_config",
         "reference_config",
+        "role_permissions",
         "translations",
     }
 )

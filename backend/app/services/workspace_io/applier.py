@@ -298,7 +298,15 @@ async def _run(
             await root.rollback()
 
     if not dry_run:
+        from app.services.permission_service import PermissionService
+
         await db.commit()
+        # An import can rewrite roles and card types, both of which the
+        # permission checks read through a per-process cache. Drop them so the
+        # imported RBAC takes effect immediately rather than up to a TTL later.
+        PermissionService.invalidate_role_cache()
+        PermissionService.invalidate_srd_cache()
+        PermissionService.invalidate_type_permission_cache()
     return result
 
 
@@ -409,6 +417,13 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
     existing = {ct.key: ct for ct in (await db.execute(select(CardType))).scalars().all()}
     for row in bundle.rows(schema.SHEET_CARD_TYPES):
         data = _coerce(row, exp.CARD_TYPE_COLUMNS, exp.CARD_TYPE_JSON)
+        # NOT NULL JSONB columns: a hand-authored content pack may declare the
+        # column and leave the cell blank, which `from_cell` reads as None and
+        # the insert would reject. An absent column is still left alone (see
+        # `_coerce`) — this only normalises a declared-but-empty cell.
+        for not_null_json in ("reference_config", "role_permissions", "translations"):
+            if not_null_json in data and data[not_null_json] is None:
+                data[not_null_json] = {}
         key = data.get("key")
         if not key:
             sr.failed += 1

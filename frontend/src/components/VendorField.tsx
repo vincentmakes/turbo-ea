@@ -19,6 +19,8 @@ import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { hasTypePermission } from "@/components/RequirePermission";
+import { useAuthContext } from "@/hooks/AuthContext";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCardSearch } from "@/hooks/useCardSearch";
 import { VENDOR_ACCENT } from "@/theme/tokens";
@@ -73,6 +75,10 @@ export default function VendorField({
   const [inputValue, setInputValue] = useState(value || "");
   const [debouncedInput, setDebouncedInput] = useState(value || "");
   const [linkedProvider, setLinkedProvider] = useState<ProviderOption | null>(null);
+  // The freeSolo "create new Provider" affordance creates a Provider card, so
+  // it is offered only when this role may create that type (discussion #1068).
+  const { user } = useAuthContext();
+  const canCreateProvider = hasTypePermission(user, "inventory.create", "Provider");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingProvider, setPendingProvider] = useState<ProviderOption | null>(null);
   const [creating, setCreating] = useState(false);
@@ -269,7 +275,11 @@ export default function VendorField({
             const filtered = filter(opts, params);
             const { inputValue: iv } = params;
             // Add "Create new" option if no exact match
-            if (iv && !opts.some((o) => o.name.toLowerCase() === iv.toLowerCase())) {
+            if (
+              canCreateProvider &&
+              iv &&
+              !opts.some((o) => o.name.toLowerCase() === iv.toLowerCase())
+            ) {
               filtered.push({
                 id: "__new__",
                 name: t("vendor.createProvider", { name: iv }),

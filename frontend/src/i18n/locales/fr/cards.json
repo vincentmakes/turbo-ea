@@ -419,6 +419,8 @@
   "catalogue.createSelected_one": "Créer {{count}} capacité",
   "catalogue.createSelected_other": "Créer {{count}} capacités",
   "catalogue.noCreatePermission": "Vous avez besoin de la permission inventory.create.",
+  "create.noTypePermission": "Vous n'êtes pas autorisé à créer des cartes de ce type.",
+  "import.noTypePermission": "Vous n'êtes pas autorisé à créer des cartes de ces types : {{types}}",
   "catalogue.importConfirmTitle": "Créer les capacités sélectionnées ?",
   "catalogue.importConfirmBody_one": "{{count}} carte BusinessCapability sera créée.",
   "catalogue.importConfirmBody_other": "{{count}} cartes BusinessCapability seront créées.",

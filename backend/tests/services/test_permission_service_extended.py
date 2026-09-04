@@ -323,3 +323,333 @@ class TestGetEffectiveCardPermissions:
         )
         assert result["stakeholder_roles"] == []
         assert result["card_level"] == {}
+
+
+# ---------------------------------------------------------------------------
+# Per-card-type permission overrides (discussion #1068)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def type_override_env(db, perm_env):
+    """`perm_env` plus a second card type, so "denied here, allowed there" is testable."""
+    other = await create_card_type(db, key="ITComponent", label="IT Component")
+    other_card = await create_card(
+        db, card_type="ITComponent", name="Test Component", user_id=perm_env["admin"].id
+    )
+    PermissionService.invalidate_type_permission_cache()
+    return {**perm_env, "other_ct": other, "other_card": other_card}
+
+
+async def _set_overrides(db, type_key: str, overrides: dict) -> None:
+    """Write a type's override map and drop the per-process cache."""
+    from sqlalchemy import select
+
+    from app.models.card_type import CardType
+
+    ct = (await db.execute(select(CardType).where(CardType.key == type_key))).scalar_one()
+    ct.role_permissions = overrides
+    await db.flush()
+    PermissionService.invalidate_type_permission_cache(type_key)
+
+
+class TestTypeScopedOverrides:
+    """`has_app_permission` honours a card type's per-role overrides."""
+
+    async def test_deny_removes_a_global_grant(self, db, type_override_env):
+        member = type_override_env["member"]
+        assert await PermissionService.has_app_permission(db, member, "inventory.create") is True
+
+        await _set_overrides(db, "Application", {"member": {"inventory.create": False}})
+
+        assert (
+            await PermissionService.has_app_permission(
+                db, member, "inventory.create", card_type_key="Application"
+            )
+            is False
+        )
+
+    async def test_deny_is_scoped_to_the_one_type(self, db, type_override_env):
+        member = type_override_env["member"]
+        await _set_overrides(db, "Application", {"member": {"inventory.create": False}})
+
+        assert (
+            await PermissionService.has_app_permission(
+                db, member, "inventory.create", card_type_key="ITComponent"
+            )
+            is True
+        )
+
+    async def test_allow_grants_above_the_global_role(self, db, type_override_env):
+        viewer = type_override_env["viewer"]
+        assert await PermissionService.has_app_permission(db, viewer, "inventory.create") is False
+
+        await _set_overrides(db, "Application", {"viewer": {"inventory.create": True}})
+
+        assert (
+            await PermissionService.has_app_permission(
+                db, viewer, "inventory.create", card_type_key="Application"
+            )
+            is True
+        )
+
+    async def test_absent_cell_inherits(self, db, type_override_env):
+        member = type_override_env["member"]
+        # An override on *another* action must not touch this one.
+        await _set_overrides(db, "Application", {"member": {"inventory.delete": True}})
+
+        assert (
+            await PermissionService.has_app_permission(
+                db, member, "inventory.create", card_type_key="Application"
+            )
+            is True
+        )
+
+    async def test_admin_wildcard_is_immune(self, db, type_override_env):
+        admin = type_override_env["admin"]
+        # Even a hand-written map naming admin (only reachable by bypassing the
+        # API validator) must not lock the wildcard role out.
+        await _set_overrides(db, "Application", {"admin": {"inventory.create": False}})
+
+        assert (
+            await PermissionService.has_app_permission(
+                db, admin, "inventory.create", card_type_key="Application"
+            )
+            is True
+        )
+
+    async def test_non_type_scoped_permission_ignores_overrides(self, db, type_override_env):
+        member = type_override_env["member"]
+        await _set_overrides(db, "Application", {"member": {"inventory.create": False}})
+
+        # `inventory.view` is not overridable — a create deny must not leak.
+        assert (
+            await PermissionService.has_app_permission(
+                db, member, "inventory.view", card_type_key="Application"
+            )
+            is True
+        )
+
+    async def test_unknown_type_key_inherits(self, db, type_override_env):
+        member = type_override_env["member"]
+        assert (
+            await PermissionService.has_app_permission(
+                db, member, "inventory.create", card_type_key="DoesNotExist"
+            )
+            is True
+        )
+
+    async def test_cache_invalidation_picks_up_a_change(self, db, type_override_env):
+        member = type_override_env["member"]
+        # Warm the cache with the permissive state.
+        assert (
+            await PermissionService.has_app_permission(
+                db, member, "inventory.create", card_type_key="Application"
+            )
+            is True
+        )
+        await _set_overrides(db, "Application", {"member": {"inventory.create": False}})
+        assert (
+            await PermissionService.has_app_permission(
+                db, member, "inventory.create", card_type_key="Application"
+            )
+            is False
+        )
+
+
+class TestCheckPermissionWithOverrides:
+    """`check_permission` derives the type from the card, and stakeholders still win."""
+
+    async def test_type_deny_blocks_edit_on_that_card(self, db, type_override_env):
+        member = type_override_env["member"]
+        card = type_override_env["card"]
+        await _set_overrides(db, "Application", {"member": {"inventory.edit": False}})
+
+        assert (
+            await PermissionService.check_permission(
+                db, member, "inventory.edit", card.id, "card.edit"
+            )
+            is False
+        )
+
+    async def test_type_deny_leaves_other_types_alone(self, db, type_override_env):
+        member = type_override_env["member"]
+        other_card = type_override_env["other_card"]
+        await _set_overrides(db, "Application", {"member": {"inventory.edit": False}})
+
+        assert (
+            await PermissionService.check_permission(
+                db, member, "inventory.edit", other_card.id, "card.edit"
+            )
+            is True
+        )
+
+    async def test_stakeholder_grant_survives_a_type_deny(self, db, type_override_env):
+        """A type-level deny removes the landscape-wide grant, never the
+        authority someone holds as the owner of one specific card."""
+        member = type_override_env["member"]
+        card = type_override_env["card"]
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Application",
+            key="responsible",
+            permissions=RESPONSIBLE_CARD_PERMISSIONS,
+        )
+        await _assign_stakeholder(db, card.id, member.id, "responsible")
+        await _set_overrides(db, "Application", {"member": {"inventory.edit": False}})
+        PermissionService.invalidate_srd_cache()
+
+        assert (
+            await PermissionService.check_permission(
+                db, member, "inventory.edit", card.id, "card.edit"
+            )
+            is True
+        )
+
+    async def test_explicit_card_type_key_wins_over_lookup(self, db, type_override_env):
+        """Creation has no card yet, so the caller supplies the type directly."""
+        member = type_override_env["member"]
+        await _set_overrides(db, "Application", {"member": {"inventory.create": False}})
+
+        assert (
+            await PermissionService.check_permission(
+                db, member, "inventory.create", card_type_key="Application"
+            )
+            is False
+        )
+
+
+class TestIsTypeDenied:
+    """Only an explicit False counts — a missing global grant is not a deny."""
+
+    async def test_explicit_false_is_denied(self, db, type_override_env):
+        member = type_override_env["member"]
+        await _set_overrides(db, "Application", {"member": {"inventory.edit": False}})
+        assert (
+            await PermissionService.is_type_denied(db, member, "inventory.edit", "Application")
+            is True
+        )
+
+    async def test_missing_global_grant_is_not_a_deny(self, db, type_override_env):
+        viewer = type_override_env["viewer"]
+        assert await PermissionService.has_app_permission(db, viewer, "inventory.edit") is False
+        assert (
+            await PermissionService.is_type_denied(db, viewer, "inventory.edit", "Application")
+            is False
+        )
+
+    async def test_explicit_true_is_not_a_deny(self, db, type_override_env):
+        viewer = type_override_env["viewer"]
+        await _set_overrides(db, "Application", {"viewer": {"inventory.edit": True}})
+        assert (
+            await PermissionService.is_type_denied(db, viewer, "inventory.edit", "Application")
+            is False
+        )
+
+    async def test_admin_is_never_denied(self, db, type_override_env):
+        admin = type_override_env["admin"]
+        await _set_overrides(db, "Application", {"admin": {"inventory.edit": False}})
+        assert (
+            await PermissionService.is_type_denied(db, admin, "inventory.edit", "Application")
+            is False
+        )
+
+
+class TestEffectivePermissionsWithOverrides:
+    """`/cards/{id}/my-permissions` must agree with what the write routes allow."""
+
+    async def test_effective_can_edit_reflects_a_deny(self, db, type_override_env):
+        member = type_override_env["member"]
+        card = type_override_env["card"]
+        await _set_overrides(db, "Application", {"member": {"inventory.edit": False}})
+
+        result = await PermissionService.get_effective_card_permissions(db, member, card.id)
+        assert result["effective"]["can_edit"] is False
+        assert result["type_overrides"] == {"inventory.edit": False}
+
+    async def test_effective_can_archive_and_delete_reflect_overrides(self, db, type_override_env):
+        viewer = type_override_env["viewer"]
+        card = type_override_env["card"]
+        await _set_overrides(
+            db,
+            "Application",
+            {"viewer": {"inventory.archive": True, "inventory.delete": True}},
+        )
+
+        result = await PermissionService.get_effective_card_permissions(db, viewer, card.id)
+        assert result["effective"]["can_archive"] is True
+        assert result["effective"]["can_delete"] is True
+
+    async def test_can_view_is_untouched_by_overrides(self, db, type_override_env):
+        member = type_override_env["member"]
+        card = type_override_env["card"]
+        await _set_overrides(db, "Application", {"member": {"inventory.edit": False}})
+
+        result = await PermissionService.get_effective_card_permissions(db, member, card.id)
+        assert result["effective"]["can_view"] is True
+
+    async def test_admin_effective_permissions_unaffected(self, db, type_override_env):
+        admin = type_override_env["admin"]
+        card = type_override_env["card"]
+        await _set_overrides(db, "Application", {"member": {"inventory.edit": False}})
+
+        result = await PermissionService.get_effective_card_permissions(db, admin, card.id)
+        assert result["effective"]["can_edit"] is True
+
+
+class TestTypePermissionsForRole:
+    """The `/auth/me` payload carries only the cells an admin actually set."""
+
+    async def test_returns_only_this_role_cells(self, db, type_override_env):
+        await _set_overrides(
+            db,
+            "Application",
+            {"member": {"inventory.create": False}, "viewer": {"inventory.edit": True}},
+        )
+
+        assert await PermissionService.type_permissions_for_role(db, "member") == {
+            "Application": {"inventory.create": False}
+        }
+
+    async def test_empty_for_wildcard_role(self, db, type_override_env):
+        await _set_overrides(db, "Application", {"member": {"inventory.create": False}})
+        assert await PermissionService.type_permissions_for_role(db, "admin") == {}
+
+    async def test_empty_when_nothing_is_overridden(self, db, type_override_env):
+        assert await PermissionService.type_permissions_for_role(db, "member") == {}
+
+    async def test_spans_multiple_types(self, db, type_override_env):
+        await _set_overrides(db, "Application", {"member": {"inventory.create": False}})
+        await _set_overrides(db, "ITComponent", {"member": {"inventory.delete": True}})
+
+        assert await PermissionService.type_permissions_for_role(db, "member") == {
+            "Application": {"inventory.create": False},
+            "ITComponent": {"inventory.delete": True},
+        }
+
+
+class TestImpersonationWithOverrides:
+    """Overrides follow the *effective* role, so "View as" shows the real thing."""
+
+    async def test_impersonated_role_overrides_apply(self, db, type_override_env):
+        from app.services.event_bus import request_impersonation
+
+        admin = type_override_env["admin"]
+        await _set_overrides(db, "Application", {"member": {"inventory.create": False}})
+
+        token = request_impersonation.set((str(admin.id), "member"))
+        try:
+            assert (
+                await PermissionService.has_app_permission(
+                    db, admin, "inventory.create", card_type_key="Application"
+                )
+                is False
+            )
+            assert (
+                await PermissionService.has_app_permission(
+                    db, admin, "inventory.create", card_type_key="ITComponent"
+                )
+                is True
+            )
+        finally:
+            request_impersonation.reset(token)

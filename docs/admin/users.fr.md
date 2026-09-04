@@ -124,6 +124,8 @@ Des rôles personnalisés peuvent être créés avec un contrôle granulaire des
 
 Les autorisations s'appliquent à la barre d'adresse comme au menu. Une page qu'un rôle ne peut pas ouvrir affiche la mention **Accès refusé** avec un lien vers le tableau de bord, qu'elle soit atteinte depuis la navigation, un favori ou un lien partagé — masquer une entrée de menu et bloquer la page sont donc toujours la même décision.
 
+Les autorisations d'un rôle s'appliquent par défaut à tous les types de fiches. Un administrateur peut les restreindre par type de fiche — autoriser ou refuser **Créer**, **Modifier**, **Archiver** et **Supprimer** — dans l'onglet **Autorisations** du type de fiche dans le [Métamodèle](metamodel.md#permissions).
+
 #### Désactiver un utilisateur
 
 Cliquez sur l'**icône de bascule** dans la colonne Actions pour activer ou désactiver un utilisateur. Les utilisateurs désactivés :

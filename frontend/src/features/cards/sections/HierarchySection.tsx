@@ -22,6 +22,8 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { hasTypePermission } from "@/components/RequirePermission";
+import { useAuthContext } from "@/hooks/AuthContext";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { api } from "@/api/client";
@@ -61,6 +63,10 @@ function HierarchySection({
 
   // Inline create state
   const [createMode, setCreateMode] = useState<"parent" | "child" | null>(null);
+  // Quick-create makes a card of this card's own type, so it needs create
+  // permission on that type (discussion #1068).
+  const { user } = useAuthContext();
+  const canCreateOwnType = hasTypePermission(user, "inventory.create", card.type);
   const [createName, setCreateName] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
   const [hierarchyError, setHierarchyError] = useState("");
@@ -274,14 +280,16 @@ function HierarchySection({
                       sx={{ mt: 1 }}
                       label={t("hierarchy.search", { type: typeLabel(typeConfig) || card.type })}
                     />
-                    <Button
-                      size="small"
-                      sx={{ mt: 1 }}
-                      startIcon={<MaterialSymbol icon="add" size={16} />}
-                      onClick={() => { setCreateMode("parent"); setCreateName(parentSearch); }}
-                    >
-                      {t("hierarchy.createNew", { type: typeLabel(typeConfig) || card.type })}
-                    </Button>
+                    {canCreateOwnType && (
+                      <Button
+                        size="small"
+                        sx={{ mt: 1 }}
+                        startIcon={<MaterialSymbol icon="add" size={16} />}
+                        onClick={() => { setCreateMode("parent"); setCreateName(parentSearch); }}
+                      >
+                        {t("hierarchy.createNew", { type: typeLabel(typeConfig) || card.type })}
+                      </Button>
+                    )}
                   </>
                 ) : (
                   <Box sx={{ mt: 1, p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
@@ -384,14 +392,16 @@ function HierarchySection({
                       sx={{ mt: 1 }}
                       label={t("hierarchy.search", { type: typeLabel(typeConfig) || card.type })}
                     />
-                    <Button
-                      size="small"
-                      sx={{ mt: 1 }}
-                      startIcon={<MaterialSymbol icon="add" size={16} />}
-                      onClick={() => { setCreateMode("child"); setCreateName(childSearch); }}
-                    >
-                      {t("hierarchy.createNew", { type: typeLabel(typeConfig) || card.type })}
-                    </Button>
+                    {canCreateOwnType && (
+                      <Button
+                        size="small"
+                        sx={{ mt: 1 }}
+                        startIcon={<MaterialSymbol icon="add" size={16} />}
+                        onClick={() => { setCreateMode("child"); setCreateName(childSearch); }}
+                      >
+                        {t("hierarchy.createNew", { type: typeLabel(typeConfig) || card.type })}
+                      </Button>
+                    )}
                   </>
                 ) : (
                   <Box sx={{ mt: 1, p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>

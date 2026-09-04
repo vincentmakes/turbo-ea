@@ -133,6 +133,27 @@ Rollen lassen sich auf zwei Arten entfernen:
 
 Der Schlüssel einer Rolle lässt sich korrigieren, solange **niemand die Rolle innehat** — Umfragen, die sie verwenden, folgen der Umbenennung automatisch, und auch die einzige Rolle eines Typs lässt sich umbenennen, da die Rolle dabei erhalten bleibt. Sobald jemand die Rolle innehat, ist der Schlüssel gesperrt und das Feld erklärt warum. Rollen, die vor dieser Konvention angelegt wurden, behalten ihren bestehenden Schlüssel und funktionieren weiterhin; geprüft wird nur ein neuer oder geänderter Schlüssel.
 
+#### Berechtigungen
+
+Kartentypen können einschränken, was jede Anwendungsrolle mit ihren Karten tun darf. Öffnen Sie die Registerkarte **Berechtigungen** im Typ-Bereich, um eine Matrix aus Rollen und den vier Kartenaktionen zu erhalten — **Erstellen**, **Bearbeiten**, **Archivieren** und **Löschen**.
+
+![Kartentyp-Berechtigungen](../assets/img/de/85_admin_kartentyp_berechtigungen.png)
+
+Jede Zelle hat drei Zustände:
+
+- **Erben** (Standard) — die systemweite Berechtigung der Rolle entscheidet. Das Symbol zeigt an, welche das derzeit ist.
+- **Erlauben** — die Rolle darf diese Aktion für Karten dieses Typs ausführen, auch wenn ihr die Berechtigung global fehlt.
+- **Verweigern** — die Rolle darf diese Aktion für Karten dieses Typs nicht ausführen, auch wenn sie die Berechtigung global besitzt.
+
+So können Sie festlegen: «Jeder darf Anwendungen erstellen, aber nur das zentrale Team erstellt Organisationen und Initiativen» — ohne für jeden Kartentyp eine eigene Rolle zu erfinden. Wird **Erstellen** für einen Typ verweigert, verschwindet dieser auch aus dem Erstellungsdialog, dem Diagrammeditor und dem Tabellenimport.
+
+Einige Regeln sind wichtig:
+
+- **Administratoren werden nie eingeschränkt.** Die Administratorzeile ist gesperrt.
+- **Stakeholder-Rollen gelten weiterhin.** Wird einer Rolle **Bearbeiten** für einen Typ verweigert, entfällt nur ihre systemweite Berechtigung, nicht die Befugnis als zugewiesene:r Eigentümer:in einer einzelnen Karte. Siehe [Benutzer & Rollen](users.md).
+- **Massenbearbeitung folgt einer Verweigerung, nicht einer Erlaubnis.** Ein Typ, der **Bearbeiten** verweigert, blockiert auch Massenbearbeitungen; eine Erlaubnis erteilt nicht die separate Massenbearbeitungsberechtigung.
+- Änderungen wirken für andere Benutzer beim nächsten Neuladen der Anwendung.
+
 #### Übersetzungen
 
 Klicken Sie auf die Schaltfläche **Übersetzen** in der Symbolleiste des Typ-Drawers, um den **Übersetzungsdialog** zu öffnen. Hier können Sie Übersetzungen für alle Metamodell-Bezeichnungen in jeder unterstützten Sprache angeben:

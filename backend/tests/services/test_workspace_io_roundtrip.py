@@ -15,6 +15,7 @@ from sqlalchemy import delete, select
 from app.core.encryption import encrypt_value
 from app.models.app_settings import AppSettings
 from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.comment import Comment
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
@@ -31,6 +32,7 @@ from app.services.workspace_io import exporter as exp
 from tests.conftest import (
     create_card,
     create_card_type,
+    create_role,
     create_user,
 )
 
@@ -1135,3 +1137,73 @@ async def test_import_accepts_multiple_relation_types_per_pair(db):
         .all()
     )
     assert {"widget_uses", "widget_owns"} <= stored
+
+
+async def test_card_type_role_permissions_roundtrip(db):
+    """Per-card-type RBAC overrides must survive export → import.
+
+    They are part of the metamodel, so cloning an instance has to carry them —
+    otherwise the target comes up with the restriction silently lifted.
+    """
+    user = await create_user(db, email="rp@test.com", role="admin")
+    await create_role(db, key="member", label="Member", permissions={"inventory.create": True})
+    ct = await create_card_type(db, key="Application", label="Application")
+    ct.role_permissions = {"member": {"inventory.create": False}}
+    await db.flush()
+
+    raw = await build_bundle(db)
+
+    # Wipe the map, then re-import: the bundle must put it back.
+    ct.role_permissions = {}
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored = (
+        await db.execute(select(CardType).where(CardType.key == "Application"))
+    ).scalar_one()
+    assert restored.role_permissions == {"member": {"inventory.create": False}}
+
+
+async def test_card_type_bundle_without_the_column_keeps_the_default(db):
+    """A bundle written before the column existed must not blank it.
+
+    `role_permissions` is NOT NULL, so an older export (which carries no such
+    column) has to leave the target's value alone rather than write NULL.
+    """
+    user = await create_user(db, email="old@test.com", role="admin")
+    legacy_columns = tuple(c for c in exp.CARD_TYPE_COLUMNS if c != "role_permissions")
+    card_types = [
+        {c: None for c in legacy_columns}
+        | {
+            "key": "Widget",
+            "label": "Widget",
+            "icon": "widgets",
+            "color": "#123456",
+            "has_hierarchy": False,
+            "has_successors": False,
+            "subtypes": [],
+            "fields_schema": [],
+            "stakeholder_roles": [],
+            "section_config": {},
+            "built_in": False,
+            "is_hidden": False,
+            "sort_order": 0,
+            "translations": {},
+        }
+    ]
+    raw = _make_bundle(
+        {
+            schema.SHEET_CARD_TYPES: (
+                legacy_columns,
+                exp.CARD_TYPE_JSON,
+                card_types,
+            )
+        }
+    )
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    created = (await db.execute(select(CardType).where(CardType.key == "Widget"))).scalar_one()
+    assert created.role_permissions == {}

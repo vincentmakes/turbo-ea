@@ -135,6 +135,27 @@ Roles can be removed in two ways:
 
 A role's key can be corrected as long as **nobody holds the role** — surveys that target it follow the rename automatically, and renaming the type's only role is fine since the role survives it. Once someone holds the role, the key is locked and the field explains why. Roles created before this convention keep the key they already have and go on working; only a new or changed key is checked.
 
+#### Permissions
+
+Card types can restrict what each app-level role may do with their cards. Open the **Permissions** tab in the type drawer for a matrix of roles against the four card actions — **Create**, **Edit**, **Archive** and **Delete**.
+
+![Card type permissions](../assets/img/en/85_admin_card_type_permissions.png)
+
+Every cell has three states:
+
+- **Inherit** (the default) — the role's landscape-wide permission decides. The icon shows what that currently is, so you can see at a glance what the role would be allowed.
+- **Allow** — the role may perform this action on cards of this type, even when it lacks the permission globally.
+- **Deny** — the role may not perform this action on cards of this type, even when it holds the permission globally.
+
+This is what lets you say "anyone may create Applications, but only the central team creates Organizations and Initiatives" without inventing a role per card type. Denying **Create** on a type also removes it from the create dialog, the diagram editor and the spreadsheet importer, so users are not offered an action that would only fail.
+
+A few rules are worth knowing:
+
+- **Administrators are never restricted.** The admin row is locked, and an admin keeps full access to every card type.
+- **Stakeholder roles still apply.** Denying a role **Edit** on a type removes their landscape-wide ability to edit those cards; it does not remove the authority someone holds as the assigned owner of one particular card. See [Users & Roles](users.md) for how the two levels combine.
+- **Bulk edit follows a deny, not an allow.** A type that denies **Edit** also blocks bulk edits of its cards; a type that allows **Edit** does not by itself grant the separate bulk-edit permission.
+- Changes take effect for other users the next time they reload the app, the same as an edit to the role itself.
+
 #### Translations
 
 Click the **Translate** button in the type drawer toolbar to open the **Translation Dialog**. Here you can provide translations for all metamodel labels in each supported language:

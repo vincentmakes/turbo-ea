@@ -1379,3 +1379,198 @@ class TestScoringSignatureRequiredFlag:
         a = [{"section": "S", "fields": [{"key": "a", "weight": 1, "label": "Old"}]}]
         b = [{"section": "S", "fields": [{"key": "a", "weight": 1, "label": "New"}]}]
         assert _scoring_signature(a, None) == _scoring_signature(b, None)
+
+
+# ---------------------------------------------------------------------------
+# Per-card-type role permission overrides (discussion #1068)
+# ---------------------------------------------------------------------------
+
+
+class TestTypeRolePermissions:
+    """PATCH validation + the matrix endpoint that feeds the admin Permissions tab."""
+
+    async def test_serialized_type_carries_the_map(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+
+        response = await client.get(
+            "/api/v1/metamodel/types/Application", headers=auth_headers(admin)
+        )
+        assert response.status_code == 200
+        assert response.json()["role_permissions"] == {}
+
+    async def test_patch_round_trips(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+        await create_role(db, key="member", label="Member", permissions={"inventory.view": True})
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application",
+            json={"role_permissions": {"member": {"inventory.create": False}}},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        assert response.json()["role_permissions"] == {"member": {"inventory.create": False}}
+
+    async def test_patch_drops_an_empty_override_map(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+        await create_role(db, key="member", label="Member", permissions={"inventory.view": True})
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application",
+            json={"role_permissions": {"member": {}}},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        assert response.json()["role_permissions"] == {}
+
+    async def test_unknown_role_rejected(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application",
+            json={"role_permissions": {"ghost": {"inventory.create": False}}},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 400
+
+    async def test_wildcard_role_rejected(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application",
+            json={"role_permissions": {"admin": {"inventory.create": False}}},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 400
+
+    async def test_non_type_scoped_permission_rejected(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+        await create_role(db, key="member", label="Member", permissions={"inventory.view": True})
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application",
+            json={"role_permissions": {"member": {"inventory.view": False}}},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 400
+
+    async def test_create_type_accepts_the_map(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_role(db, key="member", label="Member", permissions={"inventory.view": True})
+
+        response = await client.post(
+            "/api/v1/metamodel/types",
+            json={
+                "key": "CustomThing",
+                "label": "Custom Thing",
+                "role_permissions": {"member": {"inventory.create": False}},
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code in (200, 201)
+        assert response.json()["role_permissions"] == {"member": {"inventory.create": False}}
+
+
+class TestTypePermissionsMatrix:
+    async def test_returns_actions_and_roles(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+        await create_role(
+            db,
+            key="member",
+            label="Member",
+            permissions={"inventory.create": True, "inventory.edit": True},
+            is_system=False,
+        )
+
+        response = await client.get(
+            "/api/v1/metamodel/types/Application/permissions", headers=auth_headers(admin)
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert [a["key"] for a in body["actions"]] == [
+            "inventory.create",
+            "inventory.edit",
+            "inventory.archive",
+            "inventory.delete",
+        ]
+        # Descriptions come from the permission registry, not a hardcoded list.
+        assert all(a["description"] for a in body["actions"])
+
+        by_key = {r["key"]: r for r in body["roles"]}
+        assert by_key["member"]["inherited"]["inventory.create"] is True
+        assert by_key["member"]["inherited"]["inventory.delete"] is False
+        assert by_key["member"]["overrides"] == {}
+
+    async def test_wildcard_role_inherits_everything(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+
+        response = await client.get(
+            "/api/v1/metamodel/types/Application/permissions", headers=auth_headers(admin)
+        )
+        by_key = {r["key"]: r for r in response.json()["roles"]}
+        assert by_key["admin"]["is_wildcard"] is True
+        assert all(by_key["admin"]["inherited"].values())
+
+    async def test_overrides_are_reported(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        ct = await create_card_type(db, key="Application", label="Application")
+        await create_role(db, key="member", label="Member", permissions={"inventory.create": True})
+        ct.role_permissions = {"member": {"inventory.create": False}}
+        await db.flush()
+
+        response = await client.get(
+            "/api/v1/metamodel/types/Application/permissions", headers=auth_headers(admin)
+        )
+        by_key = {r["key"]: r for r in response.json()["roles"]}
+        assert by_key["member"]["overrides"] == {"inventory.create": False}
+
+    async def test_archived_role_is_omitted(self, client, db, metamodel_env):
+        from app.models.role import Role
+
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+        role = await create_role(db, key="oldrole", label="Old", permissions={})
+        role.is_archived = True
+        await db.flush()
+
+        response = await client.get(
+            "/api/v1/metamodel/types/Application/permissions", headers=auth_headers(admin)
+        )
+        assert "oldrole" not in {r["key"] for r in response.json()["roles"]}
+        assert isinstance(role, Role)
+
+    async def test_stale_override_role_is_ignored(self, client, db, metamodel_env):
+        """A role key that no longer resolves is inert — never listed, never checked."""
+        admin = metamodel_env["admin"]
+        ct = await create_card_type(db, key="Application", label="Application")
+        ct.role_permissions = {"vanished": {"inventory.create": False}}
+        await db.flush()
+
+        response = await client.get(
+            "/api/v1/metamodel/types/Application/permissions", headers=auth_headers(admin)
+        )
+        assert response.status_code == 200
+        assert "vanished" not in {r["key"] for r in response.json()["roles"]}
+
+    async def test_requires_admin_metamodel(self, client, db, metamodel_env):
+        viewer = metamodel_env["viewer"]
+        await create_card_type(db, key="Application", label="Application")
+
+        response = await client.get(
+            "/api/v1/metamodel/types/Application/permissions", headers=auth_headers(viewer)
+        )
+        assert response.status_code == 403
+
+    async def test_unknown_type_404s(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        response = await client.get(
+            "/api/v1/metamodel/types/Nope/permissions", headers=auth_headers(admin)
+        )
+        assert response.status_code == 404

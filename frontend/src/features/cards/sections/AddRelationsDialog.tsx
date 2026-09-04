@@ -22,6 +22,8 @@ import { onSide } from "@/lib/relationSort";
 import { useCardSearch, useFillVisible } from "@/hooks/useCardSearch";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { hasTypePermission } from "@/components/RequirePermission";
+import { useAuthContext } from "@/hooks/AuthContext";
 import { useTypeLabel, useRelationLabel } from "@/hooks/useResolveLabel";
 import {
   bestRankBySubtree,
@@ -169,6 +171,10 @@ export default function AddRelationsDialog({
   const otherTypeKey = rt ? (isSource ? rt.target_type_key : rt.source_type_key) : "";
   const otherType = getType(otherTypeKey);
   const otherLabel = typeLabel(otherType) || otherTypeKey;
+  // "Create and add" makes a card of the relation's OTHER end, so the create
+  // permission that matters is the one for that type (discussion #1068).
+  const { user } = useAuthContext();
+  const canCreateOtherType = hasTypePermission(user, "inventory.create", otherTypeKey || null);
   // The tree budget belongs to the type being browsed, not to the batch of
   // chips, so it restarts on a new opening or a different relation's type.
   // `otherTypeKey` is a string, so unlike the `rt` object it cannot churn
@@ -637,24 +643,26 @@ export default function AddRelationsDialog({
           )}
         </Box>
 
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-          <TextField
-            size="small"
-            sx={{ flex: 1 }}
-            value={createName}
-            onChange={(e) => setCreateName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && createAndAdd()}
-            placeholder={t("relations.createNew", { type: otherLabel })}
-          />
-          <Button
-            size="small"
-            onClick={createAndAdd}
-            disabled={busy || !(createName.trim() || search.trim())}
-            startIcon={<MaterialSymbol icon="add" size={16} />}
-          >
-            {t("relations.createAndAdd")}
-          </Button>
-        </Box>
+        {canCreateOtherType && (
+          <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+            <TextField
+              size="small"
+              sx={{ flex: 1 }}
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && createAndAdd()}
+              placeholder={t("relations.createNew", { type: otherLabel })}
+            />
+            <Button
+              size="small"
+              onClick={createAndAdd}
+              disabled={busy || !(createName.trim() || search.trim())}
+              startIcon={<MaterialSymbol icon="add" size={16} />}
+            >
+              {t("relations.createAndAdd")}
+            </Button>
+          </Box>
+        )}
       </DialogContent>
       <DialogActions>
         <Button variant="contained" onClick={() => onClose(added.length)}>

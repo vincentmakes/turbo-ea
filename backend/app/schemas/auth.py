@@ -44,6 +44,11 @@ class UserResponse(BaseModel):
     is_active: bool
     locale: str = "en"
     permissions: dict[str, bool] | None = None
+    # Per-card-type overrides of the four type-scoped inventory permissions for
+    # the effective role: {type_key: {permission: bool}}. Carries only the cells
+    # an admin actually set, so the frontend can answer "may I create this
+    # type?" without a round-trip per type. Empty for the admin (wildcard) role.
+    type_permissions: dict[str, dict[str, bool]] = {}
     ui_preferences: dict | None = None
     # Set when the JWT carries an ``impersonated_role`` claim — the
     # frontend uses this to render the persistent "viewing as X" banner.

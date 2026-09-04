@@ -133,6 +133,27 @@ Les rôles peuvent être retirés de deux façons :
 
 La clé d'un rôle peut être corrigée tant que **personne ne détient le rôle** — les enquêtes qui le ciblent suivent le renommage automatiquement, et renommer l'unique rôle d'un type ne pose pas de problème puisque le rôle lui survit. Dès que quelqu'un détient le rôle, la clé est verrouillée et le champ en explique la raison. Les rôles créés avant cette convention conservent leur clé existante et continuent de fonctionner ; seule une clé nouvelle ou modifiée est vérifiée.
 
+#### Autorisations
+
+Les types de cartes peuvent restreindre ce que chaque rôle applicatif peut faire avec leurs cartes. Ouvrez l'onglet **Autorisations** dans le panneau du type pour afficher une matrice des rôles et des quatre actions — **Créer**, **Modifier**, **Archiver** et **Supprimer**.
+
+![Autorisations par type de fiche](../assets/img/fr/85_admin_autorisations_type_fiche.png)
+
+Chaque cellule a trois états :
+
+- **Hériter** (par défaut) — l'autorisation globale du rôle décide. L'icône indique laquelle c'est actuellement.
+- **Autoriser** — le rôle peut effectuer cette action sur les cartes de ce type, même s'il ne dispose pas de l'autorisation globale.
+- **Refuser** — le rôle ne peut pas effectuer cette action sur les cartes de ce type, même s'il dispose de l'autorisation globale.
+
+Cela permet de dire « tout le monde peut créer des applications, mais seule l'équipe centrale crée les organisations et les initiatives » sans inventer un rôle par type de carte. Refuser **Créer** sur un type le retire aussi de la boîte de dialogue de création, de l'éditeur de diagrammes et de l'importateur de feuilles de calcul.
+
+Quelques règles à connaître :
+
+- **Les administrateurs ne sont jamais restreints.** La ligne administrateur est verrouillée.
+- **Les rôles de parties prenantes s'appliquent toujours.** Refuser **Modifier** à un rôle sur un type supprime son autorisation à l'échelle du paysage, pas l'autorité détenue en tant que propriétaire désigné d'une carte précise. Voir [Utilisateurs et rôles](users.md).
+- **La modification en masse suit un refus, pas une autorisation.** Un type qui refuse **Modifier** bloque aussi les modifications en masse ; une autorisation n'accorde pas pour autant l'autorisation distincte de modification en masse.
+- Les changements prennent effet pour les autres utilisateurs au prochain rechargement de l'application.
+
 #### Traductions
 
 Cliquez sur le bouton **Traduire** dans la barre d'outils du tiroir de type pour ouvrir le **Dialogue de traductions**. Vous pouvez y fournir des traductions pour tous les libellés du métamodèle dans chaque langue supportée :
