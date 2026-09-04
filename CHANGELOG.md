@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.121.2] - 2026-09-04
+
+### Added
+
+- **User manual: a guide for the published landscape-planning extension.** A new page covers scenarios over the live inventory, transition plateaus, the cost comparison, present mode, and the full governance path — requesting review, the discussion thread, submitting a plan to a review board, how the board votes and decides, and applying an approved plan — in all 10 languages.
+
 ## [2.121.1] - 2026-09-03
 
 ### Changed

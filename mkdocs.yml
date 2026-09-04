@@ -748,6 +748,7 @@ nav:
       - Jira Todo Sync: extensions/jira-todos.md
       - Slack Notifications: extensions/slack-notify.md
       - DORA Register of Information: extensions/dora-roi.md
+      - Roadmap Studio: extensions/roadmap-studio.md
   - Reference:
       - Glossary: reference/glossary.md
       - Compatibility Policy: reference/compatibility.md
