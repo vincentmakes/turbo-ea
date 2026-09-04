@@ -22,7 +22,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from collections.abc import Sequence
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -49,7 +50,7 @@ _CYCLES_TTL = 1800
 _cycles_cache: dict[str, tuple[float, list[dict]]] = {}
 
 
-def _parse(value: Any) -> "datetime.date | None":
+def _parse(value: Any) -> date | None:
     if not isinstance(value, str) or not value:
         return None
     try:
@@ -122,7 +123,7 @@ async def fetch_product_cycles(
     try:
         resp = await client.get(f"{EOL_BASE}/{product}.json", timeout=10.0)
         if resp.status_code == 200:
-            cycles = resp.json()
+            cycles: list[dict] = resp.json()
             _cycles_cache[product] = (now, cycles)
             return cycles
     except httpx.HTTPError:
@@ -152,7 +153,7 @@ def find_cycle(cycles: list[dict], cycle_key: str) -> dict | None:
     return None
 
 
-async def resolve_eol_statuses(cards: list) -> dict[str, dict]:
+async def resolve_eol_statuses(cards: Sequence[Any]) -> dict[str, dict]:
     """Resolve the EOL status of every covered card in one pass.
 
     Takes anything with ``id`` / ``attributes`` / ``lifecycle`` and returns
