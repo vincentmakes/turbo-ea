@@ -99,6 +99,26 @@ interface DQCardsResponse {
   items: DQCard[];
 }
 
+/**
+ * Both charts on this report are clickable, and clicking an SVG node focuses
+ * it: Chrome then paints its focus ring, which lands around the whole plot
+ * area on one chart and around a single bar group on the other — a stray box
+ * that reads as a line drawn across the bar, and that nothing dismisses.
+ *
+ * Recharts gives these nodes no `tabindex`, so nothing inside the SVG is
+ * reachable by keyboard and the ring only ever comes from a mouse click —
+ * suppressing it costs no affordance. It has to be plain `:focus` rather
+ * than `:focus:not(:focus-visible)`: Chrome reports these SVG nodes as
+ * matching `:focus-visible` even when focus came from a click, so the
+ * narrower selector never fires.
+ */
+const CHART_PAPER_SX = {
+  p: 2,
+  "& .recharts-wrapper svg:focus, & .recharts-wrapper svg :focus": {
+    outline: "none",
+  },
+} as const;
+
 /** The three segments of the EOL coverage chart, by where the data came from. */
 type EolBucket = "linked" | "manual" | "missing";
 
@@ -419,7 +439,7 @@ export default function DataQualityReport() {
       {view === "chart" ? (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
           {/* Stacked bar chart by type */}
-          <Paper variant="outlined" sx={{ p: 2 }} data-export-row>
+          <Paper variant="outlined" sx={CHART_PAPER_SX} data-export-row>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
               {t("dataQuality.completenessByType")}
             </Typography>
@@ -524,7 +544,7 @@ export default function DataQualityReport() {
               only as good as its last review, and rendered only when the
               landscape actually holds such cards. */}
           {eolChartData.length > 0 && (
-            <Paper variant="outlined" sx={{ p: 2 }} data-export-row>
+            <Paper variant="outlined" sx={CHART_PAPER_SX} data-export-row>
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                 {t("dataQuality.eolCoverage")}
               </Typography>
