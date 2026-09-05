@@ -31,6 +31,7 @@ from __future__ import annotations
 import logging
 import re
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from urllib.parse import urljoin, urlsplit
@@ -1439,7 +1440,9 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
                 )
                 await db.commit()
                 await extension_registry.refresh_from_db(db)
-                return
+                # A partial install is not an update anyone should be told
+                # about; the administrator sees it as failed and retries.
+                return None
 
         if extension.enabled:
             # Reinstalling after an uninstall must bring the pack's
@@ -1499,7 +1502,12 @@ async def _mark_failed(db: AsyncSession, install_id: uuid.UUID, message: str) ->
         await db.commit()
 
 
-async def _run_job(install_id_str: str, user_id_str: str, runner) -> list[dict] | None:
+InstallRunner = Callable[[AsyncSession, ExtensionInstall, User], Awaitable[list[dict] | None]]
+
+
+async def _run_job(
+    install_id_str: str, user_id_str: str, runner: InstallRunner
+) -> list[dict] | None:
     async with async_session() as db:
         install = (
             await db.execute(
