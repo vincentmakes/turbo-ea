@@ -51,5 +51,6 @@
   "preferences.appUpdated": "تم تحديث التطبيق",
   "preferences.extensionAvailable": "تتوفر إضافة جديدة",
   "preferences.extensionUpdateAvailable": "يتوفر تحديث للإضافة",
+  "preferences.extensionUpdated": "تم تحديث الإضافة",
   "preferences.extensionNotice": "إشعار من إضافة"
 }

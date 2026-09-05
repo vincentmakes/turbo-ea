@@ -51,5 +51,6 @@
   "preferences.appUpdated": "Приложение обновлено",
   "preferences.extensionAvailable": "Доступно новое расширение",
   "preferences.extensionUpdateAvailable": "Доступно обновление расширения",
+  "preferences.extensionUpdated": "Расширение обновлено",
   "preferences.extensionNotice": "Уведомление расширения"
 }

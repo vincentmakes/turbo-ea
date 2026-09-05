@@ -609,7 +609,8 @@ async def test_an_unparseable_catalogue_version_is_seen_but_never_an_update(db):
     db.add(Extension(key="a", name="Acme", version="1.0.0", status="installed"))
     await db.flush()
 
-    assert await _record_and_deliver(db, items=_catalogue(("a", "Acme", "nightly")), error=None) == 0
+    nightly = _catalogue(("a", "Acme", "nightly"))
+    assert await _record_and_deliver(db, items=nightly, error=None) == 0
     assert (await _state(db))["knownKeys"] == ["a"]
 
 
@@ -633,14 +634,15 @@ async def test_the_known_key_cap_evicts_the_oldest_not_the_alphabetically_last(d
     await db.flush()
 
     # "zzz" arrives: announced once, and it must survive the cap.
-    assert await _record_and_deliver(db, items=_catalogue(("zzz", "Zulu", "1.0.0")), error=None) == 1
+    zulu = _catalogue(("zzz", "Zulu", "1.0.0"))
+    assert await _record_and_deliver(db, items=zulu, error=None) == 1
     known = (await _state(db))["knownKeys"]
     assert len(known) == MAX_TRACKED_KEYS
     assert "zzz" in known, "the newest key must never be the one evicted"
     assert known[0] == "k0001", "the oldest key is the one that falls off the front"
 
     # And the whole point: it is not announced a second time.
-    assert await _record_and_deliver(db, items=_catalogue(("zzz", "Zulu", "1.0.0")), error=None) == 0
+    assert await _record_and_deliver(db, items=zulu, error=None) == 0
 
 
 async def test_the_status_readout_reports_what_the_last_run_found(db):

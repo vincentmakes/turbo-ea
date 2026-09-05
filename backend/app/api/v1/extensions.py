@@ -53,6 +53,11 @@ from app.services.extensions.bundle import (
     extension_logo_path,
     read_bundle,
 )
+from app.services.extensions.changelog_source import (
+    bundle_changelog_from_zip,
+    notes_between,
+    resolve_extension_notes,
+)
 from app.services.extensions.content_pack import (
     ContentPackError,
     apply_content,
@@ -79,7 +84,13 @@ from app.services.extensions.store_catalog import (
     store_client,
     store_update_available,
 )
+from app.services.extensions.update_announce import (
+    NOTIFICATION_TYPE as EXTENSION_UPDATED_TYPE,
+)
+from app.services.extensions.update_announce import build_update_digest
+from app.services.notification_service import deliver_notification_batch
 from app.services.permission_service import PermissionService
+from app.services.release_notes import valid_version
 
 logger = logging.getLogger(__name__)
 
@@ -924,6 +935,41 @@ async def refresh_store_license(
     return StoreRefreshOut(refreshed=refreshed)
 
 
+class ExtensionNotesOut(BaseModel):
+    """Resolved release notes for one extension version."""
+
+    key: str
+    version: str
+    from_version: str | None = None
+    #: Keep-a-Changelog markdown, or "" when neither source had anything.
+    notes: str
+    #: "store" | "bundle" | "none" — which source answered.
+    source: str
+
+
+@router.get("/store/changelog/{key}", response_model=ExtensionNotesOut)
+async def store_changelog(
+    key: str,
+    version: str,
+    from_version: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ExtensionNotesOut:
+    """What changed between the installed version and the one being offered.
+
+    Read before applying an update, so the administrator decides on what the
+    release actually contains rather than on a version number. Prefers the
+    store's published feed — it covers every listed extension, including those
+    whose bundle predates per-extension changelogs — and falls back to the
+    installed bundle so an air-gapped instance still gets an answer.
+    """
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    if not valid_version(version) or (from_version and not valid_version(from_version)):
+        raise HTTPException(status_code=422, detail="Malformed version")
+    notes = await resolve_extension_notes(key=key, version=version, from_version=from_version)
+    return ExtensionNotesOut(**notes)
+
+
 @router.post("/store/install", response_model=ExtensionInstallOut, status_code=202)
 async def install_from_store(
     payload: StoreInstallIn,
@@ -1074,6 +1120,35 @@ class UiExtensionOut(BaseModel):
     entitlement_state: str
 
 
+@status_router.get("/{key}/release-notes", response_model=ExtensionNotesOut)
+async def extension_release_notes(
+    key: str,
+    version: str,
+    from_version: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ExtensionNotesOut:
+    """What changed in an extension release, for the person who was told about it.
+
+    Authenticated but **not** permission-gated, exactly as ``/settings/whats-new``
+    is: everyone who receives the "extension updated" notification has to be
+    able to read what changed, and a changelog is not privileged information —
+    the same text is on the vendor's public store page.
+
+    Prefers the installed bundle: this describes a release that has *landed on
+    this instance*, so the bytes on disk are the authority, not whatever the
+    catalogue has moved on to since.
+    """
+    del user  # authentication is the gate; a changelog is not privileged
+    if not valid_version(version) or (from_version and not valid_version(from_version)):
+        raise HTTPException(status_code=422, detail="Malformed version")
+    del db  # the resolver opens nothing — bundle on disk, or an outbound fetch
+    notes = await resolve_extension_notes(
+        key=key, version=version, from_version=from_version, prefer_store=False
+    )
+    return ExtensionNotesOut(**notes)
+
+
 @status_router.get("/ui-manifest", response_model=list[UiExtensionOut])
 async def ui_manifest(
     db: AsyncSession = Depends(get_db),
@@ -1221,6 +1296,40 @@ async def _load_install(db: AsyncSession, install_id: uuid.UUID) -> ExtensionIns
     return install
 
 
+async def _installed_version(db: AsyncSession, key: str | None) -> str | None:
+    """The version currently installed under ``key``, or ``None``."""
+    if not key:
+        return None
+    row = (
+        await db.execute(
+            select(Extension).where(Extension.key == key, Extension.status != "removed")
+        )
+    ).scalar_one_or_none()
+    return row.version if row is not None else None
+
+
+def _bundle_changelog_entry(storage: Path, key: str, version: str, installed: str | None) -> dict:
+    """``{version, from_version, notes, source}`` for the bundle being previewed.
+
+    Read from the bundle rather than the store: these bytes are already on
+    disk and already signature-verified, so the preview costs no network call
+    and works air-gapped. The Store tab additionally asks the published feed,
+    which covers bundles packaged before per-extension changelogs existed.
+
+    An update shows the span since the installed version; a first install
+    shows only the version being installed.
+    """
+    notes = notes_between(
+        bundle_changelog_from_zip(storage), version=version, from_version=installed
+    )
+    return {
+        "version": version,
+        "from_version": installed,
+        "notes": notes,
+        "source": "bundle" if notes else "none",
+    }
+
+
 async def _detect_downgrade(db: AsyncSession, key: str | None, version: str | None) -> dict | None:
     """``{"from": installed, "to": bundle}`` when the bundle's version is
     strictly OLDER than the installed one (same comparator as the store's
@@ -1264,6 +1373,14 @@ async def run_verify_and_preview(db: AsyncSession, install: ExtensionInstall, us
             install.diff = result.as_dict()
         else:
             install.diff = {}
+        installed = await _installed_version(db, bundle.key)
+        # What the administrator is about to accept. Stamped for every bundle,
+        # content pack or not: for a code-only extension the preview is
+        # otherwise empty, so this is the only thing the confirm step can show.
+        install.diff = {
+            **(install.diff or {}),
+            "changelog": _bundle_changelog_entry(storage, bundle.key, bundle.version, installed),
+        }
         downgrade = await _detect_downgrade(db, bundle.key, bundle.version)
         if downgrade is not None:
             install.diff = {**(install.diff or {}), "downgrade": downgrade}
@@ -1279,7 +1396,7 @@ async def run_verify_and_preview(db: AsyncSession, install: ExtensionInstall, us
         await _mark_failed(db, install_id, str(exc)[:1000])
 
 
-async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> None:
+async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> list[dict] | None:
     """Install a verified bundle: register the extension, then apply its content.
 
     The extension row + files are committed **before** the content pack, so any
@@ -1289,6 +1406,11 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
     if a later step failed. A content failure now leaves the extension installed
     with its partial content governed (visible in the admin UI as failed), which
     the admin can retry (idempotent) or uninstall.
+
+    Returns the "extension updated" digest for the caller to deliver once this
+    session is closed, or ``None``. Delivery is not done here: it ends in
+    notification rows for potentially every active user and must not run with
+    the install transaction open.
     """
     install_id = install.id  # captured before any rollback expires the instance
     try:
@@ -1297,6 +1419,9 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
         storage = Path(install.storage_path)
         # Re-verify from disk — the upload could predate a core upgrade.
         bundle = read_bundle(storage)
+        # Read before install_bundle overwrites the row: this is what separates
+        # an update worth announcing from a first install.
+        previous_version = await _installed_version(db, bundle.key)
 
         # Register the extension (extract files + upsert row) and commit it first
         # so the row exists to govern anything the content pack commits next.
@@ -1345,6 +1470,15 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
             install.id,
             extension.status,
         )
+        # Built after the registry refresh so the entitlement check sees the
+        # row this install just wrote.
+        return await build_update_digest(
+            db,
+            key=extension.key,
+            name=str(bundle.manifest.get("name") or extension.key),
+            from_version=previous_version,
+            to_version=extension.version,
+        )
     except (BundleError, ContentPackError) as exc:
         await db.rollback()
         await _mark_failed(db, install_id, str(exc))
@@ -1352,6 +1486,7 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
         logger.exception("extension apply failed")
         await db.rollback()
         await _mark_failed(db, install_id, str(exc)[:1000])
+    return None
 
 
 async def _mark_failed(db: AsyncSession, install_id: uuid.UUID, message: str) -> None:
@@ -1364,7 +1499,7 @@ async def _mark_failed(db: AsyncSession, install_id: uuid.UUID, message: str) ->
         await db.commit()
 
 
-async def _run_job(install_id_str: str, user_id_str: str, runner) -> None:
+async def _run_job(install_id_str: str, user_id_str: str, runner) -> list[dict] | None:
     async with async_session() as db:
         install = (
             await db.execute(
@@ -1372,7 +1507,7 @@ async def _run_job(install_id_str: str, user_id_str: str, runner) -> None:
             )
         ).scalar_one_or_none()
         if install is None:
-            return
+            return None
         user = (
             await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
         ).scalar_one_or_none()
@@ -1380,8 +1515,8 @@ async def _run_job(install_id_str: str, user_id_str: str, runner) -> None:
             install.status = "failed"
             install.error_message = "Upload user or bundle file no longer exists"
             await db.commit()
-            return
-        await runner(db, install, user)
+            return None
+        return await runner(db, install, user)
 
 
 async def _verify_and_preview_job(install_id_str: str, user_id_str: str) -> None:
@@ -1389,4 +1524,15 @@ async def _verify_and_preview_job(install_id_str: str, user_id_str: str) -> None
 
 
 async def _apply_job(install_id_str: str, user_id_str: str) -> None:
-    await _run_job(install_id_str, user_id_str, run_apply)
+    digest = await _run_job(install_id_str, user_id_str, run_apply)
+    # Outside the install session on purpose: this fans out to everyone who can
+    # use the extension, and holding the transaction across that is the rule
+    # test_db_session_holding.py exists to enforce.
+    if digest:
+        # The administrator who clicked Update is the actor, so they are not
+        # told about their own action — they are watching the install finish.
+        await deliver_notification_batch(
+            digest,
+            notif_type=EXTENSION_UPDATED_TYPE,
+            actor_id=uuid.UUID(user_id_str),
+        )
