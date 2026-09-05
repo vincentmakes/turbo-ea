@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.127.0] - 2026-09-05
+
+### Added
+
+- **Rollback now covers governance writes.** Rolling back a mutation batch from **Admin → Audit log** (or the `rollback_batch` MCP tool) reverts the risks it raised or edited, the stakeholder roles it assigned, the tags it set and the draft decisions it filed — on top of the card and relation writes it already reverted — so a bulk change, an AI-driven commit or an extension run that went wrong is undone with one click. Todos and notifications are deliberately left in place (a request to a person and a delivered message are not undone by deleting them), and the dry-run plan says so before anything is applied.
+- **Automations extension user guide.** The user manual's Extensions section now documents the Automations extension: rules built from dropdowns (when / if / then), the actions they can take, simulate and Run now, how runs land in the Audit log, grouped notifications, templates, settings and demo data.
+
+### Changed
+
+- A risk edit's history entry now records the old and new value of every changed field (it used to list only the field names), and creating a decision record now leaves an `adr.created` entry, which is what makes both reversible.
+
 ## [2.126.0] - 2026-09-05
 
 ### Added

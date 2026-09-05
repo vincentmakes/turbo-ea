@@ -1778,7 +1778,7 @@
   "settings.extensionNotices.enabledSuccess": "Notifications de la boutique activées",
   "settings.extensionNotices.disabledSuccess": "Notifications de la boutique désactivées",
   "auditLog.title": "Journal d'audit",
-  "auditLog.description": "Chaque écriture modifiant les données (agent MCP, interface Web, API directe) arrive ici sous forme de lot de mutations avec son acteur, son outil, son origine et le diff par événement. Utilisez-le pour auditer ce qui a changé et annuler les lots pilotés par l'IA qui se sont mal passés. (L'annulation est prise en charge aujourd'hui pour les écritures de cartes / relations ; les autres types d'événements apparaissent dans le plan de simulation sous la forme {{token}}.)",
+  "auditLog.description": "Chaque écriture modifiant les données (agent MCP, interface Web, API directe, extension) arrive ici sous forme de lot de mutations avec son acteur, son outil, son origine et le diff de chaque événement. Utilisez-le pour auditer ce qui a changé et annuler les lots erronés. L’annulation rétablit les écritures sur les fiches, relations, risques, rôles de parties prenantes, étiquettes et brouillons de décision ; les tâches et notifications restent en place et apparaissent dans le plan de simulation comme {{token}}.",
   "auditLog.unsupportedEventsToken": "unsupported_events",
   "auditLog.refresh": "Actualiser",
   "auditLog.mutationBatches": "Lots de mutations",

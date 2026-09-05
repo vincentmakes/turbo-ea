@@ -19,6 +19,7 @@ consulte [Administração → Loja de extensões](../admin/extensions.md).
 | [Digital Autonomy Assessment](digital-autonomy.md) | Avalia cada aplicação segundo o Digital Autonomy Assessment Framework da Universidade de Utreque — 22 indicadores ponderados, uma pontuação de autonomia automática de 1 a 10 e um quadrante risco/mitigação | **Gratuita** |
 | [EA Value Tracker](value-savings.md) | Transforma as decisões de arquitetura num registo financeiro auditável: poupanças declaradas por categoria, aprovação da realização com quatro olhos e um painel de valor | Comercial |
 | [Roadmap Studio](roadmap-studio.md) | Planeia futuros alternativos do panorama como cenários, percorre os patamares de transição, compara-os por custo e exposição ao fim de vida, e leva-os da revisão à decisão de um comité | Comercial |
+| [Automations](automations.md) | Executa regras de governação construídas a partir de listas pendentes — quando um cartão, uma relação ou uma tarefa muda ou um horário dispara, se as condições se verificam, então define campos, etiquetas e papéis, cria tarefas, levanta riscos, arquiva rascunhos de decisão, notifica pessoas ou chama um webhook — cada execução é um lote de auditoria com Reverter | Comercial |
 
 ### Integrações
 

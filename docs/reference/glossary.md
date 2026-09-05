@@ -26,6 +26,10 @@
 | **Entitlement** | One line of a signed extension license: the right to run a specific extension until an expiry date, followed by a grace window before soft-disable |
 | **Content Pack** | The data-only part of an extension: card types, tags, cards, and relations applied through the same idempotent engine as Workspace Transfer, with a dry-run preview |
 | **DAAF** | Digital Autonomy Assessment Framework — Utrecht University's method for scoring how exposed an application is to a supplier and how well that exposure can be mitigated. Reproduced by a free extension |
+| **Automation rule** | A rule the Automations extension runs for you: *when* a card, relation or todo changes or a schedule fires, *if* conditions built from dropdowns hold, *then* a list of actions runs. Every run is recorded as a mutation batch |
+| **Run (automation)** | One execution of an automation rule for one card — its trigger, its outcome and every action line, listed on the Runs tab and linked to its mutation batch |
+| **Fire key** | What an automation rule remembers after firing for a card: the card and the values its conditions read. While they are unchanged the rule does not fire again for that card, so a nightly rule cannot raise the same risk every night |
+| **Mutation batch** | One audited unit of change in Admin → Audit log — who wrote what, from where (web, API, AI tool or extension), with a per-event diff and a Rollback that reverts card, relation, risk, stakeholder-role, tag and draft-decision writes |
 | **Register of Information** | The record every EU financial entity must keep of its ICT third-party arrangements and file annually under DORA Art. 28, as 15 interlocking templates |
 | **LEI** | Legal Entity Identifier — a 20-character ISO 17442 code identifying a legal entity, with two check digits. Required throughout the DORA Register of Information |
 | **xBRL-CSV** | The machine-readable report package format supervisors accept for regulatory filings such as the DORA Register of Information |

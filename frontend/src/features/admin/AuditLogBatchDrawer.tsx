@@ -66,10 +66,21 @@ interface RollbackOp {
   op: string;
   card_id?: string;
   relation_id?: string;
+  risk_id?: string;
+  adr_id?: string;
+  tag_id?: string;
+  stakeholder_user_id?: string;
   fields?: Record<string, unknown>;
+  /** A short human hint the planner attaches — a risk reference, a role, a tag name. */
+  detail?: string;
   event_type?: string;
   reason?: string;
   status?: string;
+}
+
+/** The entity an inverse op acts on — the first id the planner set. */
+function rollbackTarget(op: RollbackOp): string | undefined {
+  return op.risk_id || op.adr_id || op.relation_id || op.card_id;
 }
 
 interface RollbackPlan {
@@ -298,7 +309,7 @@ function RollbackDialog({
                           </TableCell>
                           <TableCell>
                             <code>
-                              {(op.card_id || op.relation_id || "—").slice(0, 8)}
+                              {(rollbackTarget(op) || "—").slice(0, 8)}
                               …
                             </code>
                           </TableCell>
@@ -307,6 +318,8 @@ function RollbackDialog({
                               <code style={{ fontSize: 11 }}>
                                 {Object.keys(op.fields).join(", ")}
                               </code>
+                            ) : op.detail ? (
+                              op.detail
                             ) : (
                               t("auditLog.batch.emptyValue")
                             )}

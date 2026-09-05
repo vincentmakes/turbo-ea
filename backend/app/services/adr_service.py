@@ -9,8 +9,11 @@ already have in ``card_write_service``: callers own the transaction, helpers
 flush and NEVER commit, and HTTP-flavoured errors stay ``HTTPException`` so
 the REST route's status codes are byte-identical (non-HTTP callers translate).
 
-Deliberately no event is published on create — ``POST /adr`` never did, and
-a decision is not a card, so the ``updated_at`` invariant does not apply.
+Creation publishes one ``adr.created`` event (no ``card_id`` — a decision is
+not a card, so it never lands on a card's History tab), carrying the id,
+reference and linked cards: that is what lets a mutation batch that filed a
+draft be rolled back from the Audit Log. Nothing else about the event is
+load-bearing; the ``updated_at`` invariant does not apply to decisions.
 """
 
 from __future__ import annotations
@@ -26,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.card import Card
+from app.services.event_bus import event_bus
 
 
 async def next_reference_number(db: AsyncSession) -> str:
@@ -101,4 +105,16 @@ async def create_decision(
         seen.add(cid)
         db.add(ArchitectureDecisionCard(architecture_decision_id=adr.id, card_id=cid))
     await db.flush()
+    await event_bus.publish(
+        "adr.created",
+        {
+            "adr_id": str(adr.id),
+            "reference_number": adr.reference_number,
+            "title": adr.title,
+            "status": adr.status,
+            "linked_card_ids": [str(cid) for cid in seen],
+        },
+        db=db,
+        user_id=created_by,
+    )
     return adr

@@ -27,6 +27,13 @@ class Event(Base, UUIDMixin):
         nullable=True,
         index=True,
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # ``clock_timestamp()``, not ``now()``: ``now()`` is the transaction's start
+    # time, so every event one request writes would carry the same stamp and
+    # their order — what a rollback replays in reverse and what History shows —
+    # would be whatever the planner returned. The statement clock keeps them
+    # distinct and in write order (migration 145).
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.clock_timestamp()
+    )
 
     user = relationship("User", lazy="noload")

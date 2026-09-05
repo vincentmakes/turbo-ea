@@ -20,6 +20,7 @@ d'essai — voir [Administration → Boutique d'extensions](../admin/extensions.
 | [Digital Autonomy Assessment](digital-autonomy.md) | Évalue chaque application selon le Digital Autonomy Assessment Framework de l'université d'Utrecht — 22 indicateurs pondérés, un score d'autonomie automatique de 1 à 10 et un quadrant risque/atténuation | **Gratuite** |
 | [EA Value Tracker](value-savings.md) | Transforme les décisions d'architecture en registre financier auditable : économies déclarées par catégorie, approbation de la réalisation à quatre yeux et tableau de bord de la valeur | Commerciale |
 | [Roadmap Studio](roadmap-studio.md) | Planifie des futurs alternatifs du paysage sous forme de scénarios, parcourt les paliers de transition, les compare sur le coût et l'exposition à la fin de vie, et les mène de la revue à la décision d'un comité | Commerciale |
+| [Automations](automations.md) | Exécute des règles de gouvernance composées à partir de listes déroulantes — quand une fiche, une relation ou une tâche change ou qu'un planning se déclenche, si des conditions sont remplies, alors définir des champs, des étiquettes et des rôles, créer des tâches, signaler des risques, déposer des brouillons de décision, notifier des personnes ou appeler un webhook — chaque exécution étant un lot d'audit que l'on peut annuler | Commerciale |
 
 ### Intégrations
 
