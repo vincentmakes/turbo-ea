@@ -621,7 +621,6 @@ export default function CostReport() {
                   setCostSources(typeof v === "string" ? v.split(",").filter(Boolean) : (v as string[]));
                   setDrillStack([]);
                 }}
-                InputLabelProps={{ shrink: true }}
                 SelectProps={{
                   multiple: true,
                   displayEmpty: true,

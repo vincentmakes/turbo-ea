@@ -561,14 +561,12 @@ export function FieldEditor({
       const labelText = fieldLabel(field);
       return (
         <FormControl size="small" required={isRequired} error={!!error} sx={{ minWidth: 200 }}>
-          {/* `shrink` + `notched` keep the label on the outline while the
-              displayEmpty placeholder renders inside — without them the
-              un-shrunk label and the placeholder overlap when nothing is
-              selected (MUI never auto-shrinks for multiple + value=[]). */}
-          <InputLabel shrink>{labelText}</InputLabel>
+          {/* The theme floats every label and notches every outline
+              (UI_GUIDELINES §3.5), so the displayEmpty placeholder below
+              renders under a label that is already on the border. */}
+          <InputLabel>{labelText}</InputLabel>
           <Select
             multiple
-            notched
             value={arrVal}
             label={labelText}
             onChange={(e) => {

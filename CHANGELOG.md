@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.124.1] - 2026-09-04
+
+### Fixed
+
+- **Field border no longer strikes through the label on Safari.** On macOS and iOS Safari, an outlined field whose label floated *after* the form appeared — the Description of a role once the role had loaded, a tag description as you started typing, any multiline field on first focus — was drawn with its top border straight through the label. WebKit does not re-open the outline gap when the label moves later, so labels now sit on the border from the start and the gap is always open (a theme default, applied to every field in Turbo EA and in installed extensions).
+
+### Changed
+
+- **Field labels always sit on the field border**, empty or filled, instead of resting inside an empty field and floating up on focus. A field's placeholder (where one is set) is therefore visible while the field is empty.
+
 ## [2.124.0] - 2026-09-04
 
 ### Added

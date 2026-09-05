@@ -194,6 +194,30 @@ Always include `startIcon={<MaterialSymbol icon="…" size={iconSize.sm} />}` ra
 - `size="small"` is reserved for **dense toolbars** and inline cell editors — not for dialog forms.
 - Stack fields with `<Stack spacing={2}>` or `<Box display="flex" flexDirection="column" gap={2}>`.
 
+**Field labels are static.** The theme (`buildTheme`, `src/theme/index.ts`) floats every `InputLabel`
+(`shrink`) and keeps every outlined notch open (`OutlinedInput.notched`), so a label always sits on the
+field's border — empty or filled, focused or not — and the outline never has to re-open after mount.
+The rules that follow from that, each of which shipped as a bug before it was written down:
+
+- **Never pin `shrink` / `notched` per field**, and never derive a label position from field state
+  (`shrink={value !== ""}`). The theme is the single owner; `src/theme/staticLabels.test.tsx` fails the
+  build on any per-field pin. The one sanctioned opt-out is a literal `slotProps={{ inputLabel: { shrink: false } }}`
+  with a comment saying why.
+- **A hand-composed `<FormControl><InputLabel>…<Select>` / `<OutlinedInput>` still passes `label`** — the
+  outline's `<legend>` is sized by that text, so a missing `label` draws the border through the floated label.
+- **`placeholder` is the affordance for "what goes here"**, not the label: with static labels the placeholder
+  is visible on an empty field, so write it as a hint (`e.g. acme/platform`), never as a repeat of the label.
+- `displayEmpty` on a `Select` is fine on its own now — the "All / None" placeholder renders under a label
+  that is already on the border.
+
+Why: MUI opens the notch by switching the `<legend>` from `max-width: 0.01px` to `100%`, and WebKit
+(Safari, iOS) does not re-lay out a percentage `max-width` on a legend inside a fieldset in some flex
+layouts — the multiline input root and a `Stack` parent. Any label that floated *after* mount (a value
+arriving from the server, the first keystroke, a focus) therefore rendered with the border through it
+([mui/material-ui#44988](https://github.com/mui/material-ui/issues/44988),
+[#46891](https://github.com/mui/material-ui/issues/46891); fix PR #48566 unmerged). With nothing left to
+transition, the bug has nothing to act on. Extensions inherit this through core's `ThemeProvider`.
+
 **Mandatory (required) metamodel fields** follow one pattern everywhere (reference: card detail + Create Card dialog):
 
 - **Edit contexts** mark them with MUI's own asterisk via the `required` prop on the control (`TextField required`, `FormControl required`) — never a hand-rolled `*` string inside an input label.

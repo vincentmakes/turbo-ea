@@ -28,8 +28,6 @@ interface Props {
   disabled?: boolean;
   size?: "small" | "medium";
   sx?: SxProps<Theme>;
-  /** Force the label to stay shrunk (top-left) regardless of focus / value. */
-  inputLabelShrink?: boolean;
   /** Render the dropdown inline (no portal) — needed when mounted inside
    *  another popup (e.g. AG Grid cell editor) so that clicks on options
    *  don't escape the host popup and dismiss it prematurely. */
@@ -46,7 +44,6 @@ export default function TagPicker({
   disabled = false,
   size,
   sx,
-  inputLabelShrink,
   disablePortal = false,
 }: Props) {
   const { t } = useTranslation("cards");
@@ -176,7 +173,6 @@ export default function TagPicker({
           {...params}
           label={label ?? t("tags.pickerLabel")}
           placeholder={placeholder ?? t("tags.pickerPlaceholder")}
-          {...(inputLabelShrink ? { InputLabelProps: { shrink: true } } : {})}
         />
       )}
     />
