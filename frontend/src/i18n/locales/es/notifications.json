@@ -46,5 +46,6 @@
   "preferences.appUpdateAvailable": "Actualización disponible",
   "preferences.appUpdated": "Aplicación actualizada",
   "preferences.extensionAvailable": "Nueva extensión disponible",
-  "preferences.extensionUpdateAvailable": "Actualización de extensión disponible"
+  "preferences.extensionUpdateAvailable": "Actualización de extensión disponible",
+  "preferences.extensionNotice": "Aviso de extensión"
 }

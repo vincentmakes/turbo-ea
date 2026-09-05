@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.125.0] - 2026-09-05
+
+### Added
+
+- **Extension SDK 1.9 — risks, notifications, tags and stakeholders.** An installed extension can now, each behind its own grant shown before you install: raise a risk in the register and link it to cards (`core.risks.write` — its source reads **Extension**, it takes the next reference like any other risk, and the owner gets the usual todo and notification; an extension can never move a risk through its workflow, and can only edit the risks it raised itself), send people a notification (`core.notifications.send` — always the new **Extension notice** type, which every person can route to the bell, email or an extension channel, or switch off, in their notification preferences), set tags on cards (`core.cards.write`, honouring single-choice and type-restricted groups), and assign or remove stakeholder roles (`core.stakeholders.write`, using the roles the card type defines). Every one of these writes is recorded in Admin → Audit log as an extension batch and can be rolled back from there.
+- **Governance & Automation** is a fourth section of the extension Store.
+
+### Changed
+
+- The risk register's **Source** filter offers **Extension** next to Manual and Compliance scan.
+
 ## [2.124.1] - 2026-09-04
 
 ### Fixed

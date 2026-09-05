@@ -13,8 +13,8 @@ from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.schemas.common import TagCreate, TagGroupCreate, TagGroupUpdate, TagUpdate
 from app.services.data_quality import rescore_cards
-from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
+from app.services.tag_service import publish_tag_event as _publish_tag_event
 
 router = APIRouter(tags=["tags"])
 
@@ -207,40 +207,6 @@ async def _require_can_tag_card(db: AsyncSession, user: User, card_uuid: uuid.UU
     ):
         return
     raise HTTPException(status_code=403, detail="Insufficient permissions")
-
-
-async def _publish_tag_event(
-    db: AsyncSession,
-    event_type: str,
-    card_id: uuid.UUID,
-    tag_id: uuid.UUID,
-    user_id: uuid.UUID,
-) -> None:
-    """Record a tag change on the card's History timeline.
-
-    Assigning or clearing a tag rescores the card, which UPDATEs the row and so
-    moves `updated_at`. Without this the Inventory's Last-changed column moved
-    while the History tab stayed silent — the inconsistency reported in #995.
-    """
-    row = (
-        await db.execute(
-            select(Tag.name, TagGroup.name)
-            .join(TagGroup, Tag.tag_group_id == TagGroup.id)
-            .where(Tag.id == tag_id)
-        )
-    ).first()
-    tag_name, group_name = row if row else (None, None)
-    await event_bus.publish(
-        event_type,
-        {
-            "tag_id": str(tag_id),
-            "tag_name": tag_name,
-            "group_name": group_name,
-        },
-        db=db,
-        card_id=card_id,
-        user_id=user_id,
-    )
 
 
 @router.post("/cards/{card_id}/tags", status_code=201)

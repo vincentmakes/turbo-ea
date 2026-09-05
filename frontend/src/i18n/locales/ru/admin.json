@@ -1943,6 +1943,7 @@
   "extensions.store.category.strategy": "Стратегия, планирование и трансформация",
   "extensions.store.category.integrations": "Интеграции",
   "extensions.store.category.regulations": "Регулирование",
+  "extensions.store.category.governance": "Управление и автоматизация",
   "extensions.store.category.other": "Прочее",
   "extensions.store.installedChip": "Установлено {{version}}",
   "extensions.store.licensed": "Лицензировано",

@@ -10,7 +10,6 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
-from app.models.card_type import CardType
 from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.user import User
@@ -23,6 +22,8 @@ from app.schemas.common import (
 from app.services.data_quality import rescore_cards
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
+from app.services.stakeholder_service import role_labels as _role_labels
+from app.services.stakeholder_service import roles_for_type as _roles_for_type
 
 router = APIRouter(tags=["stakeholders"])
 
@@ -30,42 +31,6 @@ _DEFAULT_ROLES = [
     {"key": "responsible", "label": "Responsible"},
     {"key": "observer", "label": "Observer"},
 ]
-
-
-async def _roles_for_type(db: AsyncSession, type_key: str) -> list[dict]:
-    """Return active stakeholder roles from stakeholder_role_definitions table."""
-    result = await db.execute(
-        select(StakeholderRoleDefinition)
-        .where(
-            StakeholderRoleDefinition.card_type_key == type_key,
-            StakeholderRoleDefinition.is_archived == False,  # noqa: E712
-        )
-        .order_by(StakeholderRoleDefinition.sort_order)
-    )
-    srds = result.scalars().all()
-    if srds:
-        return [
-            {
-                "key": s.key,
-                "label": s.label,
-                "color": s.color,
-                "translations": s.translations or {},
-            }
-            for s in srds
-        ]
-    # Fallback to JSONB for backward compat during migration
-    result = await db.execute(select(CardType.stakeholder_roles).where(CardType.key == type_key))
-    roles = result.scalar_one_or_none()
-    if roles:
-        return roles
-    return [
-        {"key": "responsible", "label": "Responsible"},
-        {"key": "observer", "label": "Observer"},
-    ]
-
-
-def _role_labels(roles: list[dict]) -> dict[str, str]:
-    return {r["key"]: r["label"] for r in roles}
 
 
 @router.get("/stakeholder-roles")

@@ -170,7 +170,7 @@ export const MODEL_TAGS = ["free", "commercial"];
 
 // The store's sections, in display order. Labels are the i18n keys
 // `extensions.store.category.<slug>`; grouping lives in storeCategories.ts.
-export const STORE_CATEGORIES = ["strategy", "integrations", "regulations"] as const;
+export const STORE_CATEGORIES = ["strategy", "integrations", "regulations", "governance"] as const;
 export type StoreCategory = (typeof STORE_CATEGORIES)[number];
 // Where an item with no recognised category lands — always the last section.
 export const OTHER_CATEGORY = "other";

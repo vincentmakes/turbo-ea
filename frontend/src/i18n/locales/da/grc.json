@@ -128,6 +128,7 @@
   "risks.status.closed": "Lukket",
   "risks.source.manual": "Manuel",
   "risks.source.compliance": "Compliance-scanning",
+  "risks.source.extension": "Udvidelse",
   "risks.section.identification": "Identifikation",
   "risks.section.assessment": "Initial vurdering",
   "risks.section.residual": "Residual vurdering",

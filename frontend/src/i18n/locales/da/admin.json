@@ -1943,6 +1943,7 @@
   "extensions.store.category.strategy": "Strategi, planlægning & transformation",
   "extensions.store.category.integrations": "Integrationer",
   "extensions.store.category.regulations": "Regulering",
+  "extensions.store.category.governance": "Governance og automatisering",
   "extensions.store.category.other": "Andre",
   "extensions.store.installedChip": "Installeret {{version}}",
   "extensions.store.licensed": "Licenseret",

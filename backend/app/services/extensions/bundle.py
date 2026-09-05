@@ -67,6 +67,10 @@ VALID_GRANTS = frozenset(
         "core.notifications.channel",
         "core.adr.read",
         "core.adr.write",
+        "core.risks.read",
+        "core.risks.write",
+        "core.notifications.send",
+        "core.stakeholders.write",
     }
 )
 

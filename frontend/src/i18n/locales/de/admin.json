@@ -1943,6 +1943,7 @@
   "extensions.store.category.strategy": "Strategie, Planung & Transformation",
   "extensions.store.category.integrations": "Integrationen",
   "extensions.store.category.regulations": "Regulierung",
+  "extensions.store.category.governance": "Governance & Automatisierung",
   "extensions.store.category.other": "Sonstige",
   "extensions.store.installedChip": "Installiert {{version}}",
   "extensions.store.licensed": "Lizenziert",

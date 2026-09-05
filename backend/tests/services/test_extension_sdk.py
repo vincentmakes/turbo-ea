@@ -15,8 +15,8 @@ from app.database import get_db as core_get_db
 from app.services.extensions import sdk
 
 
-def test_sdk_version_is_1_8():
-    assert sdk.SDK_VERSION == "1.8"
+def test_sdk_version_is_1_9():
+    assert sdk.SDK_VERSION == "1.9"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -200,13 +200,15 @@ def test_sdk_compatibility_is_major_only():
     assert sdk.sdk_compatible("1.4")
     assert sdk.sdk_compatible("1.5")
     assert sdk.sdk_compatible("1.8")
+    assert sdk.sdk_compatible("1.9")
     assert not sdk.sdk_compatible("2.0")
 
 
 def test_sdk_minor_newer_truth_table():
     # Newer minor on the same major → warn (still loads).
-    assert sdk.sdk_minor_newer("1.9")
+    assert sdk.sdk_minor_newer("1.10")
     # Same or older minor → no warning.
+    assert not sdk.sdk_minor_newer("1.9")
     assert not sdk.sdk_minor_newer("1.8")
     assert not sdk.sdk_minor_newer("1.5")
     assert not sdk.sdk_minor_newer("1.4")
@@ -302,5 +304,53 @@ def test_ext_decision_is_frozen_and_wire_shaped():
     try:
         decision.status = "signed"  # type: ignore[misc]
         raise AssertionError("ExtDecision must be frozen")
+    except AttributeError:
+        pass
+
+
+def test_sdk_1_9_surface_exists():
+    # SDK 1.9 — the risks bridge, the notification bridge, and tag +
+    # stakeholder writes on the data bridge.
+    assert sdk.ExtRisk is not None
+    assert sdk.RisksBridge is not None
+    assert sdk.NotifyBridge is not None
+    for name in ("risks", "notify"):
+        assert name in sdk.ExtensionContext.__dataclass_fields__
+    for name in ("get", "list_for_card", "find_by_source_ref", "create", "update"):
+        assert hasattr(sdk.RisksBridge, name)
+    assert hasattr(sdk.NotifyBridge, "send")
+    for name in (
+        "get_tag_groups",
+        "get_card_tags",
+        "set_card_tags",
+        "assign_stakeholder",
+        "remove_stakeholder",
+    ):
+        assert hasattr(sdk.DataBridge, name)
+
+
+def test_ext_risk_is_frozen_and_wire_shaped():
+    risk = sdk.ExtRisk(
+        id="r1",
+        reference="R-000001",
+        title="Unowned cost centre",
+        description="",
+        category="financial",
+        status="identified",
+        source_type="extension",
+        source_ref="rule-1:card-1",
+        initial_probability="high",
+        initial_impact="high",
+        initial_level="high",
+        residual_level=None,
+        owner_id=None,
+        target_resolution_date=None,
+        linked_card_ids=("c1",),
+        created_at=None,
+    )
+    assert risk.linked_card_ids == ("c1",)
+    try:
+        risk.status = "closed"  # type: ignore[misc]
+        raise AssertionError("ExtRisk must be frozen")
     except AttributeError:
         pass

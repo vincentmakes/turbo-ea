@@ -144,7 +144,7 @@ export const CATEGORIES: RiskCategory[] = [
   "strategic",
 ];
 export const LEVELS: RiskLevel[] = ["critical", "high", "medium", "low"];
-const SOURCES: RiskSourceType[] = ["manual", "compliance"];
+const SOURCES: RiskSourceType[] = ["manual", "compliance", "extension"];
 
 const MIN_WIDTH = 220;
 const MAX_WIDTH = 500;

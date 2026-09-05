@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 from sqlalchemy import func, select
@@ -23,9 +23,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.risk import Risk, RiskCard
+from app.models.todo import Todo
 from app.models.turbolens import TurboLensComplianceFinding
+from app.services import notification_service
+from app.services.event_bus import event_bus
 
 logger = logging.getLogger("turboea.risk_service")
+
+#: ``risks.source_type`` values. ``manual`` is a person in the register,
+#: ``compliance`` a promoted scanner finding, ``extension`` a row filed by an
+#: installed extension through the SDK risks bridge (whose ``source_ref`` is
+#: prefixed with the extension key so two extensions can never collide).
+SOURCE_VALUES = ("manual", "compliance", "extension")
 
 PROBABILITY_VALUES = ("very_high", "high", "medium", "low")
 IMPACT_VALUES = ("critical", "high", "medium", "low")
@@ -127,6 +136,191 @@ def validate_status_transition(current: str, new: str) -> None:
 # ---------------------------------------------------------------------------
 # Card linking
 # ---------------------------------------------------------------------------
+
+
+def risk_link(risk: Risk) -> str:
+    """The in-app deep link of a risk — also the identity of its owner Todo."""
+    return f"/ea-delivery/risks/{risk.id}"
+
+
+def risk_summary(risk: Risk) -> str:
+    level = (risk.residual_level or risk.initial_level or "").lower()
+    parts = [risk.reference]
+    if level:
+        parts.append(level.capitalize())
+    parts.append(risk.title or "")
+    return " · ".join(p for p in parts if p)
+
+
+async def linked_card_ids(db: AsyncSession, risk_id: uuid.UUID) -> list[uuid.UUID]:
+    res = await db.execute(select(RiskCard.card_id).where(RiskCard.risk_id == risk_id))
+    return [cid for (cid,) in res.all()]
+
+
+async def publish_risk_event(
+    db: AsyncSession,
+    risk: Risk,
+    event_type: str,
+    card_ids: list[uuid.UUID],
+    *,
+    actor_id: uuid.UUID | None,
+    extra: dict | None = None,
+) -> None:
+    """Fan-out a risk-related event to every affected card so the
+    register changes show up in the per-card history timeline. ``actor_id``
+    is ``None`` for a write nobody performed in person (an extension)."""
+    if not card_ids:
+        return
+    payload: dict = {
+        "risk_id": str(risk.id),
+        "reference": risk.reference,
+        "title": risk.title,
+        "level": risk.residual_level or risk.initial_level,
+        "status": risk.status,
+        "category": risk.category,
+        "link": risk_link(risk),
+        "summary": risk_summary(risk),
+    }
+    if extra:
+        payload.update(extra)
+    for cid in card_ids:
+        await event_bus.publish(
+            event_type,
+            payload,
+            db=db,
+            card_id=cid,
+            user_id=actor_id,
+        )
+
+
+async def sync_owner_todo(
+    db: AsyncSession,
+    risk: Risk,
+    *,
+    actor_id: uuid.UUID | None,
+    previous_owner: uuid.UUID | None,
+) -> None:
+    """Mirror the PPM task pattern: keep a single ``is_system`` Todo on
+    the current owner and fire a notification when the owner changes.
+
+    * Owner assigned (new or changed) → create/update a Todo + notify.
+    * Owner cleared → delete the existing system Todo. No notification.
+    * Idempotent: the Todo's ``link`` doubles as its identity.
+
+    ``actor_id`` may be ``None`` (an extension assigned the owner): the Todo
+    then has no creator and the notification no actor, which is exactly the
+    truth — nobody did it in person.
+    """
+    link = risk_link(risk)
+    existing_res = await db.execute(select(Todo).where(Todo.link == link, Todo.is_system.is_(True)))
+    existing = existing_res.scalar_one_or_none()
+
+    if risk.owner_id is None:
+        if existing is not None:
+            await db.delete(existing)
+        return
+
+    description = f"[Risk {risk.reference}] {risk.title}"
+    if existing is not None:
+        existing.assigned_to = risk.owner_id
+        existing.description = description
+        existing.due_date = risk.target_resolution_date
+        # Keep status linked to risk lifecycle so closed risks don't
+        # leave zombie todos on the owner's list.
+        existing.status = (
+            "done" if risk.status in ("mitigated", "monitoring", "accepted", "closed") else "open"
+        )
+    else:
+        db.add(
+            Todo(
+                id=uuid.uuid4(),
+                card_id=None,
+                description=description,
+                status="open",
+                link=link,
+                is_system=True,
+                assigned_to=risk.owner_id,
+                created_by=actor_id,
+                due_date=risk.target_resolution_date,
+            )
+        )
+
+    # Notification — fires whenever the owner actually changes, including
+    # self-assignment, so the bell mirrors the expectation set by other
+    # assignment flows. notification_service whitelists "risk_assigned"
+    # for the self-notify case.
+    if risk.owner_id != previous_owner:
+        try:
+            await notification_service.create_notification(
+                db,
+                user_id=risk.owner_id,
+                notif_type="risk_assigned",
+                title=f"Risk {risk.reference} assigned to you",
+                message=risk.title[:200],
+                link=link,
+                data={
+                    "risk_id": str(risk.id),
+                    "reference": risk.reference,
+                    "level": risk.residual_level or risk.initial_level,
+                },
+                actor_id=actor_id,
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("Risk-assignment notification failed")
+
+
+async def create_risk(
+    db: AsyncSession,
+    *,
+    title: str,
+    description: str = "",
+    category: str = "operational",
+    initial_probability: str = "medium",
+    initial_impact: str = "medium",
+    owner_id: uuid.UUID | None = None,
+    target_resolution_date: date | None = None,
+    card_ids: list[uuid.UUID] | None = None,
+    source_type: str = "manual",
+    source_ref: str | None = None,
+    actor_id: uuid.UUID | None,
+    event_extra: dict | None = None,
+) -> Risk:
+    """The one writer behind ``POST /risks`` and the SDK risks bridge.
+
+    Allocates the reference, derives the initial level, links the cards,
+    keeps the owner's system Todo + ``risk_assigned`` notification in step,
+    and fans the ``risk.added`` event out to every linked card. Flushes,
+    never commits — the caller owns the transaction. ``actor_id`` is the
+    person performing the write, or ``None`` for an extension (then
+    ``created_by`` stays NULL and the events carry no user).
+    """
+    risk = Risk(
+        id=uuid.uuid4(),
+        reference=await next_reference(db),
+        title=title,
+        description=description or "",
+        category=category,
+        source_type=source_type,
+        source_ref=source_ref,
+        initial_probability=initial_probability,
+        initial_impact=initial_impact,
+        initial_level=derive_level(initial_probability, initial_impact) or "medium",
+        owner_id=owner_id,
+        target_resolution_date=target_resolution_date,
+        status="identified",
+        created_by=actor_id,
+    )
+    db.add(risk)
+    await db.flush()
+
+    if card_ids:
+        await link_cards(db, risk.id, list(card_ids))
+
+    await sync_owner_todo(db, risk, actor_id=actor_id, previous_owner=None)
+
+    linked = await linked_card_ids(db, risk.id)
+    await publish_risk_event(db, risk, "risk.added", linked, actor_id=actor_id, extra=event_extra)
+    return risk
 
 
 async def link_cards(

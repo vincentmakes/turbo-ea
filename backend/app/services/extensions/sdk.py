@@ -184,7 +184,7 @@ from app.database import get_db  # noqa: F401
 #   an extension can record which audit batch its writes landed in.
 #   ``async with ctx.data.batch(label):`` (ignoring the value) is unchanged.
 
-SDK_VERSION = "1.8"
+SDK_VERSION = "1.9"
 
 
 @dataclass(frozen=True)
@@ -464,6 +464,98 @@ class DecisionsBridge(Protocol):
     ) -> ExtDecision: ...
 
 
+@dataclass(frozen=True)
+class ExtRisk:
+    """Read model for a risk-register entry (SDK 1.9). Wire-shaped like
+    :class:`ExtCard`. ``source_ref`` is the extension's own reference as it
+    passed it — the ``{key}:`` prefix core stores is stripped on the way
+    out, so a caller can compare against what it wrote."""
+
+    id: str
+    reference: str
+    title: str
+    description: str
+    category: str
+    status: str
+    source_type: str
+    source_ref: str | None
+    initial_probability: str
+    initial_impact: str
+    initial_level: str
+    residual_level: str | None
+    owner_id: str | None
+    target_resolution_date: str | None
+    linked_card_ids: tuple[str, ...]
+    created_at: str | None
+
+
+class RisksBridge(Protocol):
+    """Typed access to the risk register (SDK 1.9), grant-gated per call:
+    ``core.risks.read`` for reads, ``core.risks.write`` for ``create`` /
+    ``update`` (write implies read). An extension can raise a risk and keep
+    its owner and target date current; it can never move a risk through its
+    status workflow, accept it or close it — those stay with people, the
+    same posture as the decisions bridge's drafts-only rule. Every risk it
+    files carries ``source_type="extension"`` and a ``source_ref`` prefixed
+    with the extension key, which is what ``find_by_source_ref`` looks up
+    so a rule that fires again finds the risk it already raised."""
+
+    async def get(self, risk_id: str) -> ExtRisk | None: ...
+
+    async def list_for_card(self, card_id: str) -> list[ExtRisk]: ...
+
+    async def find_by_source_ref(self, source_ref: str) -> ExtRisk | None: ...
+
+    async def create(
+        self,
+        *,
+        title: str,
+        description: str = "",
+        category: str = "operational",
+        probability: str = "medium",
+        impact: str = "medium",
+        owner_id: str | None = None,
+        target_resolution_date: str | None = None,
+        card_ids: Sequence[str] = (),
+        source_ref: str | None = None,
+    ) -> ExtRisk: ...
+
+    async def update(
+        self,
+        risk_id: str,
+        *,
+        title: str | None = None,
+        description: str | None = None,
+        owner_id: str | None = None,
+        clear_owner: bool = False,
+        target_resolution_date: str | None = None,
+        clear_target_resolution_date: bool = False,
+        add_card_ids: Sequence[str] = (),
+    ) -> ExtRisk: ...
+
+
+class NotifyBridge(Protocol):
+    """Send an in-app notification to named people (SDK 1.9), grant
+    ``core.notifications.send``. The message lands as the generic
+    ``extension_notice`` type, so each recipient's own preference matrix
+    decides where it reaches them — bell, email, or an extension channel —
+    and can switch it off; the extension never chooses a channel. ``link``
+    must be an in-app relative path (the same rule as a todo's link). At most
+    50 recipients per call; inactive users are skipped silently. Returns the
+    number of recipients the notification was created for."""
+
+    async def send(
+        self,
+        user_ids: Sequence[str],
+        *,
+        title: str,
+        message: str = "",
+        link: str | None = None,
+        card_id: str | None = None,
+        data: dict[str, Any] | None = None,
+    ) -> int: ...
+
+
 class DataBridge(Protocol):
     """Typed access to core cards, relations, and the metamodel (SDK 1.5).
 
@@ -512,6 +604,15 @@ class DataBridge(Protocol):
 
     async def get_stakeholders_for(self, card_ids: Sequence[str]) -> list[ExtStakeholder]: ...
 
+    async def get_tag_groups(self) -> list[dict]:
+        """Every tag group with its tags (SDK 1.9) — ``{id, name, mode,
+        mandatory, restrict_to_types, tags: [{id, name, color}]}``."""
+        ...
+
+    async def get_card_tags(self, card_id: str) -> list[str]:
+        """Tag ids on a card (SDK 1.9); ``[]`` for an unknown card."""
+        ...
+
     async def get_card_types(self) -> list[dict]: ...
 
     async def get_relation_types(self) -> list[dict]: ...
@@ -559,6 +660,33 @@ class DataBridge(Protocol):
         dry_run: bool = False,
     ) -> ExtRelation: ...
 
+    async def set_card_tags(
+        self,
+        card_id: str,
+        tag_ids: Sequence[str],
+        *,
+        mode: str = "replace",
+        dry_run: bool = False,
+    ) -> list[str]:
+        """Make the card's tags equal to (``replace``), include (``add``) or
+        exclude (``remove``) ``tag_ids`` (SDK 1.9, grant ``core.cards.write``).
+        Single-choice groups and type-restricted groups are enforced; an
+        unchanged set writes nothing. Returns the resulting tag ids."""
+        ...
+
+    async def assign_stakeholder(
+        self, card_id: str, user_id: str, role: str, *, dry_run: bool = False
+    ) -> ExtStakeholder:
+        """Give ``user_id`` the stakeholder ``role`` on a card (SDK 1.9,
+        grant ``core.stakeholders.write`` — its own grant because a role
+        confers permissions on the card). The role must be one the card's
+        type defines. Idempotent: an existing assignment is returned as-is."""
+        ...
+
+    async def remove_stakeholder(self, card_id: str, user_id: str, role: str) -> bool:
+        """Remove one assignment (SDK 1.9). ``False`` when there was none."""
+        ...
+
 
 @dataclass
 class ExtensionContext:
@@ -576,7 +704,11 @@ class ExtensionContext:
     bridge to cards, relations, and the metamodel (grants
     ``core.cards.read`` / ``core.cards.write``). SDK 1.8 adds ``decisions``
     — the decision-record bridge (grants ``core.adr.read`` /
-    ``core.adr.write``; drafts only).
+    ``core.adr.write``; drafts only). SDK 1.9 adds ``risks`` — the
+    risk-register bridge (grants ``core.risks.read`` / ``core.risks.write``;
+    no status transitions) — and ``notify`` — in-app notifications to named
+    people (grant ``core.notifications.send``); the data bridge gains tag
+    and stakeholder writes.
     """
 
     key: str
@@ -593,6 +725,8 @@ class ExtensionContext:
     set_settings: Callable[[dict[str, Any]], Awaitable[None]] | None = None
     data: DataBridge | None = None
     decisions: DecisionsBridge | None = None
+    risks: RisksBridge | None = None
+    notify: NotifyBridge | None = None
 
     def __post_init__(self) -> None:
         if not self.settings_namespace:

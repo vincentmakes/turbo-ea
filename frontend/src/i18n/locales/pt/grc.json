@@ -128,6 +128,7 @@
   "risks.status.closed": "Fechado",
   "risks.source.manual": "Manual",
   "risks.source.compliance": "Análise de conformidade",
+  "risks.source.extension": "Extensão",
   "risks.section.identification": "Identificação",
   "risks.section.assessment": "Avaliação inicial",
   "risks.section.cards": "Fichas afetadas",
