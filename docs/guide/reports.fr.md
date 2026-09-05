@@ -23,7 +23,7 @@ Lorsque l'IA est configurée et que les analyses de portefeuille sont activées 
 
 ### Du rapport à l'inventaire
 
-Cliquer sur un groupe ouvre un panneau listant les cartes de ce groupe. Son bouton **Voir dans l'inventaire** ouvre l'inventaire exactement sur cette tranche. Lorsque le rapport est regroupé par un champ propre au type de carte, l'inventaire arrive regroupé par le même champ : le groupe cliqué est déplié, tous les autres sont repliés (les compteurs restent visibles), et la recherche ainsi que les filtres d'attributs, de relations et d'étiquettes du rapport sont repris — prêt pour un « tout sélectionner » suivi de la [modification en masse](inventory.md#mass-edit). Lors d'un regroupement par un type de carte lié (par exemple Organisation), l'inventaire arrive filtré sur cette carte liée. Le bouton est masqué lorsque les *groupes imbriqués* sont actifs : un sous-arbre agrégé ne correspond à aucun filtre d'inventaire unique.
+Cliquer sur un groupe ouvre un panneau listant les fiches de ce groupe. Son bouton **Voir dans l'inventaire** ouvre l'inventaire exactement sur cette tranche. Lorsque le rapport est regroupé par un champ propre au type de fiche, l'inventaire arrive regroupé par le même champ : le groupe cliqué est déplié, tous les autres sont repliés (les compteurs restent visibles), et la recherche ainsi que les filtres d'attributs, de relations et d'étiquettes du rapport sont repris — prêt pour un « tout sélectionner » suivi de la [modification en masse](inventory.md#mass-edit). Lors d'un regroupement par un type de fiche lié (par exemple Organisation), l'inventaire arrive filtré sur cette fiche liée. Le bouton est masqué lorsque les *groupes imbriqués* sont actifs : un sous-arbre agrégé ne correspond à aucun filtre d'inventaire unique.
 
 ### Replier les filtres
 
@@ -37,23 +37,23 @@ Le curseur de la frise chronologique porte les mêmes instruments de transformat
 
 ![Portefeuille flexible — portefeuille d'Objets de données regroupé par Application et coloré par Sensibilité des données](../assets/img/fr/57_rapport_portefeuille_flexible.png)
 
-Le **Portefeuille flexible** utilise les mêmes contrôles que le Portefeuille applicatif mais ajoute un sélecteur **Type de carte** en haut de la barre d'outils. Il permet d'analyser un portefeuille de Capacités métier, d'Initiatives, de Composants IT ou de tout autre type de carte visible avec la même expérience de regroupement, de coloration et de filtrage.
+Le **Portefeuille flexible** utilise les mêmes contrôles que le Portefeuille applicatif mais ajoute un sélecteur **Type de fiche** en haut de la barre d'outils. Il permet d'analyser un portefeuille de Capacités métier, d'Initiatives, de Composants IT ou de tout autre type de fiche visible avec la même expérience de regroupement, de coloration et de filtrage.
 
-La capture ci-dessus illustre un cas d'usage typique : choisissez **Objet de données** comme type de carte, **Regrouper par → Application** pour voir quelle application détient quelles données, et **Colorier par → Sensibilité des données** pour repérer d'un coup d'œil où se trouvent les données confidentielles.
+La capture ci-dessus illustre un cas d'usage typique : choisissez **Objet de données** comme type de fiche, **Regrouper par → Application** pour voir quelle application détient quelles données, et **Colorier par → Sensibilité des données** pour repérer d'un coup d'œil où se trouvent les données confidentielles.
 
-Changer de type de carte réinitialise les sélections de regroupement, de coloration et de filtres (elles référencent des clés de champs qui n'existent pas sur le nouveau type) et le rapport est rechargé avec les champs, relations et tags applicables au type choisi. Le rapport partage la même permission que le Portefeuille applicatif (`reports.portfolio`) et est enregistré indépendamment.
+Changer de type de fiche réinitialise les sélections de regroupement, de coloration et de filtres (elles référencent des clés de champs qui n'existent pas sur le nouveau type) et le rapport est rechargé avec les champs, relations et tags applicables au type choisi. Le rapport partage la même permission que le Portefeuille applicatif (`reports.portfolio`) et est enregistré indépendamment.
 
 ### Sous-types de relation
 
-Lorsque les relations d'une carte portent une valeur de « type » — par exemple le **type d'utilisation** (Propriétaire / Utilisateur / Partie prenante) sur les relations Organisation→Application, ou le **type de support** sur les relations Application→Capacité métier — vous pouvez colorer les cartes selon cette valeur et filtrer dessus. **Groupez le rapport par le type de carte lié** pour les utiliser (par ex. *Grouper par → Organisation* pour débloquer le *type d'utilisation*) : le sous-type apparaît alors sous le groupe **Sous-types de relation** dans la liste *Colorer par* et dans sa propre ligne de filtres. Comme chaque carte est affichée sous une carte liée, elle est colorée selon *cette* relation — une application qui est *Utilisateur* d'une organisation s'affiche comme Utilisateur à cet endroit, même si elle appartient à une autre.
+Lorsque les relations d'une fiche portent une valeur de « type » — par exemple le **type d'utilisation** (Propriétaire / Utilisateur / Partie prenante) sur les relations Organisation→Application, ou le **type de support** sur les relations Application→Capacité métier — vous pouvez colorer les fiches selon cette valeur et filtrer dessus. **Groupez le rapport par le type de fiche lié** pour les utiliser (par ex. *Grouper par → Organisation* pour débloquer le *type d'utilisation*) : le sous-type apparaît alors sous le groupe **Sous-types de relation** dans la liste *Colorer par* et dans sa propre ligne de filtres. Comme chaque fiche est affichée sous une fiche liée, elle est colorée selon *cette* relation — une application qui est *Utilisateur* d'une organisation s'affiche comme Utilisateur à cet endroit, même si elle appartient à une autre.
 
 ### Groupes imbriqués
 
-Lorsque vous regroupez par un type de carte lié prenant en charge la hiérarchie (par exemple Capacité métier ou Organisation), un interrupteur **Groupes imbriqués** apparaît à côté du sélecteur *Regrouper par*. Activez-le pour afficher les groupes sous forme de boîtes imbriquées suivant la hiérarchie parent/enfant du type lié — comme dans la carte de capacités. Le sélecteur **Profondeur d’affichage** contrôle le nombre de niveaux développés : chaque carte apparaît sous son groupe visible le plus profond, et les groupes situés au-delà de la limite de profondeur remontent leurs cartes vers l’ancêtre visible le plus proche. Les branches sans cartes sont masquées.
+Lorsque vous regroupez par un type de fiche lié prenant en charge la hiérarchie (par exemple Capacité métier ou Organisation), un interrupteur **Groupes imbriqués** apparaît à côté du sélecteur *Regrouper par*. Activez-le pour afficher les groupes sous forme de boîtes imbriquées suivant la hiérarchie parent/enfant du type lié — comme dans la carte de capacités. Le sélecteur **Profondeur d’affichage** contrôle le nombre de niveaux développés : chaque fiche apparaît sous son groupe visible le plus profond, et les groupes situés au-delà de la limite de profondeur remontent leurs fiches vers l’ancêtre visible le plus proche. Les branches sans fiches sont masquées.
 
 ### Choisir le nombre de colonnes
 
-La grille de cartes des rapports **Portefeuille**, **Portefeuille flexible**, **Carte des capacités** et **Carte des processus** dispose d'un **sélecteur de colonnes** dans la barre d'outils — trois boutons pour une, deux ou trois colonnes. Choisissez moins de colonnes lorsque les cartes sont denses et doivent rester assez larges pour être lues ; choisissez trois pour voir davantage du paysage d'un seul coup d'œil. Le choix est mémorisé par rapport, accompagne un [rapport enregistré](saved-reports.md) et est utilisé à l'impression comme à l'export. Les écrans étroits repassent d'eux-mêmes à une ou deux colonnes. Le choix se propage vers le bas : chaque niveau sous le premier reçoit une colonne de moins. Avec une colonne, le niveau 2 s'affiche sur trois colonnes et le niveau 3 sur deux ; avec trois colonnes, tout ce qui suit reste empilé sur toute la largeur. Un niveau se réduit toujours de lui-même lorsqu'une carte est réellement trop étroite.
+La grille de fiches des rapports **Portefeuille**, **Portefeuille flexible**, **Carte des capacités** et **Carte des processus** dispose d'un **sélecteur de colonnes** dans la barre d'outils — trois boutons pour une, deux ou trois colonnes. Choisissez moins de colonnes lorsque les fiches sont denses et doivent rester assez larges pour être lues ; choisissez trois pour voir davantage du paysage d'un seul coup d'œil. Le choix est mémorisé par rapport, accompagne un [rapport enregistré](saved-reports.md) et est utilisé à l'impression comme à l'export. Les écrans étroits repassent d'eux-mêmes à une ou deux colonnes. Le choix se propage vers le bas : chaque niveau sous le premier reçoit une colonne de moins. Avec une colonne, le niveau 2 s'affiche sur trois colonnes et le niveau 3 sur deux ; avec trois colonnes, tout ce qui suit reste empilé sur toute la largeur. Un niveau se réduit toujours de lui-même lorsqu'une fiche est réellement trop étroite.
 
 ## Carte de capacités
 
@@ -68,7 +68,7 @@ La **Carte de capacités** affiche une **carte thermique hiérarchique** des cap
 - **Coloration thermique** -- Les blocs sont colorés en fonction d'une métrique sélectionnée (par ex. nombre d'applications de support, qualité moyenne des données, ou niveau de risque)
 - **Cliquer pour explorer** -- Cliquez sur n'importe quelle capacité pour approfondir ses détails et ses applications de support
 
-**Limiter à certaines capacités** — Par défaut, la carte affiche toutes les capacités. Utilisez la puce de capacité dans la barre d'outils pour ouvrir un sélecteur et choisir une ou plusieurs capacités ; la carte n'affiche alors que celles-ci et tout ce qui se trouve en dessous. Les sous-capacités sont incluses automatiquement : choisir une capacité de premier niveau vous donne donc toute sa branche. La **Profondeur d'affichage** se compte à partir des capacités sélectionnées, de sorte que *Niveau 2* signifie toujours deux niveaux sous ce que vous regardez. Le périmètre est enregistré avec le rapport, si bien qu'un rapport sauvegardé se rouvre sur la même branche.
+**Limiter à certaines capacités** — Par défaut, la fiche affiche toutes les capacités. Utilisez la puce de capacité dans la barre d'outils pour ouvrir un sélecteur et choisir une ou plusieurs capacités ; la fiche n'affiche alors que celles-ci et tout ce qui se trouve en dessous. Les sous-capacités sont incluses automatiquement : choisir une capacité de premier niveau vous donne donc toute sa branche. La **Profondeur d'affichage** se compte à partir des capacités sélectionnées, de sorte que *Niveau 2* signifie toujours deux niveaux sous ce que vous regardez. Le périmètre est enregistré avec le rapport, si bien qu'un rapport sauvegardé se rouvre sur la même branche.
 
 **Voyage dans le temps** — Le curseur de la frise chronologique porte les mêmes instruments de transformation que le [Rapport Dépendances](#rapport-dependances) : des repères à chaque date où une application entre en service (bleu) ou est retirée (rouge), des pastilles nommant les applications qui changent tant que le curseur se trouve sur un repère, des flèches qui passent de changement en changement, et des pastilles qui résument la transformation quand vous regardez vers l'avenir (reprises aussi dans les en-têtes d'impression et d'export). Cliquer sur un repère ou une pastille met le changement en lumière : avec **Afficher les applications** activé, les puces des applications qui changent pulsent pendant que le reste s'estompe, et une application déjà disparue à la date sélectionnée est révélée le temps de la pulsation ; avec l'option désactivée, la lumière tombe sur les blocs de capacité contenant les applications qui changent — bleu là où elles ne font qu'arriver, rouge là où elles ne font qu'être retirées, violet là où les deux se produisent.
 
@@ -86,7 +86,7 @@ Le **Rapport Cycle de vie** affiche une **visualisation chronologique** indiquan
 
 Les composants sont affichés sous forme de barres horizontales couvrant leurs phases de cycle de vie : Planification, Mise en service, Actif, Retrait progressif et Fin de vie.
 
-**Limiter à certaines cartes** — Une fois un type de carte choisi, la puce voisine ouvre un sélecteur : choisissez une ou plusieurs cartes et la chronologie n'affiche que celles-ci et tout ce qui se trouve en dessous. Les cartes filles sont incluses automatiquement. La puce reste désactivée tant que le sélecteur est sur *Tous les types*, car un périmètre a besoin d'une seule hiérarchie.
+**Limiter à certaines fiches** — Une fois un type de fiche choisi, la puce voisine ouvre un sélecteur : choisissez une ou plusieurs fiches et la chronologie n'affiche que celles-ci et tout ce qui se trouve en dessous. Les fiches filles sont incluses automatiquement. La puce reste désactivée tant que le sélecteur est sur *Tous les types*, car un périmètre a besoin d'une seule hiérarchie.
 
 ## Rapport Dépendances
 
@@ -119,7 +119,7 @@ Basculez vers la **Layered Dependency View** à l'aide des boutons de mode d'aff
 
 - **Déplacement, zoom, minimap** — Faites glisser le canevas pour vous déplacer, faites défiler pour zoomer et utilisez la minimap pour naviguer dans les grands diagrammes.
 - **Cliquer pour inspecter** — Cliquez sur n'importe quel nœud pour ouvrir le panneau latéral de détail de la fiche.
-- **Recentrer** — Maj+clic ou appui long sur une fiche pour centrer le diagramme dessus ; les boutons **Retour au sélecteur de cartes**, **Carte précédente** et **Carte suivante** de la barre d'outils parcourent votre historique de navigation.
+- **Recentrer** — Maj+clic ou appui long sur une fiche pour centrer le diagramme dessus ; les boutons **Retour au sélecteur de fiches**, **Carte précédente** et **Carte suivante** de la barre d'outils parcourent votre historique de navigation.
 - **Mode surbrillance** — Survolez une fiche pour mettre en surbrillance ses connexions ; sur les appareils tactiles, activez le **Mode surbrillance** dans le panneau de contrôle pour mettre en surbrillance par toucher.
 - **Mode expansion** — Activez le **Mode expansion** dans le panneau de contrôle, puis cliquez sur une fiche pour révéler toutes ses relations à la demande. La fiche sur laquelle le diagramme est centré porte un double contour dans la couleur de son type, et chaque fiche que vous développez en porte un plus fin : vos repères restent visibles à mesure que le diagramme s'étoffe.
 - **Afficher le parent / Afficher les enfants** — Deux alternatives ciblées au mode expansion. Activez **Afficher le parent** (flèche vers le haut) ou **Afficher les enfants** (flèche vers le bas) dans le panneau de contrôle, puis cliquez sur une fiche pour n'ajouter au diagramme que son parent hiérarchique ou ses enfants directs. Les fiches affichées restent sur le diagramme — vous pouvez ainsi superposer parents et enfants — et disparaissent lorsque vous recentrez ou réinitialisez la vue.
@@ -128,7 +128,7 @@ Basculez vers la **Layered Dependency View** à l'aide des boutons de mode d'aff
 **Personnaliser la vue** (depuis la barre d'outils)
 
 - **Afficher sur la fiche** — Un bouton dédié de la barre d'outils (l'icône en forme d'œil) répertorie sous forme de **cases à cocher** tout ce qu'une fiche peut afficher : le libellé de **type**, le **sous-type**, une **pastille de cycle de vie** et chaque **champ d'attribut** disponible, classé sous le type de fiche auquel il appartient. Les deux premières lignes s'affichent sur la fiche elle-même et l'ensemble complet apparaît dans l'infobulle. Un badge sur le bouton compte ce qui est actuellement affiché. Les choix sont mémorisés d'une visite à l'autre et suivent **Créer un diagramme** : un diagramme DrawIO généré depuis ce rapport s'ouvre avec les mêmes lignes, choisies depuis le même menu — toutes, car une forme de diagramme s'agrandit pour les contenir, contrairement à un nœud de rapport. Sur un téléphone, la liste s'ouvre en plein écran. **Tout effacer** décoche l'ensemble en une fois.
-- **Afficher les logos des cartes** — Une carte qui possède son propre logo l'affiche dans le coin supérieur gauche, l'icône du type de carte formant un petit badge par-dessus : on voit ainsi de quel produit il s'agit et de quel type de carte. Activé par défaut ; désactivez-le dans le menu **Options d'affichage** pour un diagramme sans ornement. Les cartes sans logo — et toutes les cartes d'un type pour lequel un administrateur a désactivé les logos — restent inchangées dans les deux cas. Les logos sont inclus dans les exports d'image.
+- **Afficher les logos des fiches** — Une fiche qui possède son propre logo l'affiche dans le coin supérieur gauche, l'icône du type de fiche formant un petit badge par-dessus : on voit ainsi de quel produit il s'agit et de quel type de fiche. Activé par défaut ; désactivez-le dans le menu **Options d'affichage** pour un diagramme sans ornement. Les fiches sans logo — et toutes les fiches d'un type pour lequel un administrateur a désactivé les logos — restent inchangées dans les deux cas. Les logos sont inclus dans les exports d'image.
 - **Afficher les fiches en fin de vie** — Les fiches liées ayant atteint la fin de vie **à la date choisie sur la frise chronologique** sont masquées par défaut pour garder le graphe lisible ; activez cette option (dans le menu **Options d'affichage**) pour les réafficher. La fiche sur laquelle vous êtes centré est toujours affichée, même si elle est elle-même en fin de vie.
 - **Afficher les libellés de relation** — Le verbe de chaque relation (*prend en charge*, *utilise*, …) est tracé sur son trait. Activé par défaut ; désactivez-le dans le menu **Options d'affichage** pour un canevas plus lisible sur un paysage dense. Les traits et leurs pointes de flèche montrent toujours ce qui est relié à quoi, et dans quel sens.
 - **Afficher les valeurs de relation** — De nombreuses relations peuvent être qualifiées par une valeur (par ex. une application *supporte* une capacité en tant que *Principal*, *Secondaire* ou *Aucun support*). Lorsque l'option est activée (par défaut), ces valeurs apparaissent entre crochets à côté de l'étiquette de la relation (*supporte [Principal]*) et sont incluses dans les exports d'image. Désactivez-la dans le menu **Options d'affichage** pour une vue plus épurée ; les relations sans valeur restent inchangées dans tous les cas.
@@ -136,7 +136,7 @@ Basculez vers la **Layered Dependency View** à l'aide des boutons de mode d'aff
 - **Réorganiser** — Faites glisser une fiche pour la déplacer au sein de sa couche, ou faites glisser un **bloc de couche** entier pour le déplacer avec toutes ses fiches. **Réinitialiser la vue** (dans la barre d'outils de gauche) restaure l'agencement automatique et efface toute exploration.
 - **Arrière-plan** — Faites défiler l'arrière-plan du canevas entre grille, points et aucun.
 - **Exporter et plein écran** — Exportez le diagramme en **PNG** ou **SVG**, ou ouvrez-le en **plein écran**.
-- **Créer un diagramme** — Transformez la vue actuelle en un nouveau diagramme modifiable dans le [module Diagrammes](diagrams.md). Les cartes, les relations et les quatre couches d'architecture sont recréées, et chaque forme reste liée à sa carte d'inventaire. Un nom vous est demandé, puis vous êtes dirigé directement vers le nouveau diagramme. Disponible pour les utilisateurs autorisés à créer des diagrammes.
+- **Créer un diagramme** — Transformez la vue actuelle en un nouveau diagramme modifiable dans le [module Diagrammes](diagrams.md). Les fiches, les relations et les quatre couches d'architecture sont recréées, et chaque forme reste liée à sa fiche d'inventaire. Un nom vous est demandé, puis vous êtes dirigé directement vers le nouveau diagramme. Disponible pour les utilisateurs autorisés à créer des diagrammes.
 
 ## Rapport Coûts
 
@@ -146,14 +146,14 @@ Le **Rapport Coûts** fournit une analyse financière de votre paysage technolog
 
 - **Vue treemap** -- Rectangles imbriqués dimensionnés par coût, avec regroupement optionnel (par ex. par organisation ou capacité)
 - **Vue graphique à barres** -- Comparaison des coûts entre composants
-- **Type de carte** -- Choisissez le type de carte autour duquel le rapport est construit (Application, Composant IT, Fournisseur, …).
+- **Type de fiche** -- Choisissez le type de fiche autour duquel le rapport est construit (Application, Composant IT, Fournisseur, …).
 
 ### Source des coûts
 
-Lorsque le type de carte sélectionné possède au moins un type de relation pointant vers un type qui détient un champ de coût, un sélecteur **Source des coûts** apparaît à côté du **Type de carte**. Il permet de choisir d'où viennent les chiffres :
+Lorsque le type de fiche sélectionné possède au moins un type de relation pointant vers un type qui détient un champ de coût, un sélecteur **Source des coûts** apparaît à côté du **Type de fiche**. Il permet de choisir d'où viennent les chiffres :
 
-- **Direct (ce type de carte)** -- valeur par défaut ; additionne le champ de coût sur les cartes affichées elles-mêmes. À utiliser pour examiner directement les *Applications* ou les *Composants IT*.
-- **Agréger depuis des cartes liées** -- cochez une ou plusieurs entrées `Type · Champ` (par exemple `Application · Coût annuel total`, `Composant IT · Coût annuel total`). La valeur de chaque carte primaire devient alors la somme de ce champ sur ses cartes liées.
+- **Direct (ce type de fiche)** -- valeur par défaut ; additionne le champ de coût sur les fiches affichées elles-mêmes. À utiliser pour examiner directement les *Applications* ou les *Composants IT*.
+- **Agréger depuis des fiches liées** -- cochez une ou plusieurs entrées `Type · Champ` (par exemple `Application · Coût annuel total`, `Composant IT · Coût annuel total`). La valeur de chaque fiche primaire devient alors la somme de ce champ sur ses fiches liées.
 
 Le sélecteur est **multi-sélection**, ce qui permet à une seule consolidation de combiner plusieurs types liés. Par exemple, en consultant le **Fournisseur** *Microsoft*, cocher à la fois `Application · Coût annuel total` et `Composant IT · Coût annuel total` montre l'empreinte complète de l'éditeur — Teams, M365, Azure et tout autre composant fourni par Microsoft — sous la forme d'un chiffre unique.
 
@@ -162,12 +162,12 @@ Le sélecteur est **multi-sélection**, ce qui permet à une seule consolidation
 Le sélecteur est conçu pour rendre toute double-comptabilisation impossible par construction :
 
 - Chaque entrée est une paire `(type cible, champ de coût)` unique -- la liste propose chaque paire exactement une fois, même lorsque plusieurs types de relation atteignent le même type cible.
-- Au sein d'une même paire, deux cartes reliées par plusieurs types de relation ne contribuent leur coût qu'une seule fois.
-- Entre entrées différentes, aucune carte ne peut contribuer deux fois : une carte n'a qu'un seul type, et différents champs de coût sur une même carte sont des valeurs indépendantes.
+- Au sein d'une même paire, deux fiches reliées par plusieurs types de relation ne contribuent leur coût qu'une seule fois.
+- Entre entrées différentes, aucune fiche ne peut contribuer deux fois : une fiche n'a qu'un seul type, et différents champs de coût sur une même fiche sont des valeurs indépendantes.
 
 Une petite **icône d'aide (?)** placée à côté du sélecteur rappelle cette garantie au survol.
 
-La liste des options est générée à partir de votre métamodèle -- les types de relation et les champs de coût sont découverts au moment du rendu, donc tout nouveau type de carte ou toute nouvelle relation devient automatiquement une source de coûts valide.
+La liste des options est générée à partir de votre métamodèle -- les types de relation et les champs de coût sont découverts au moment du rendu, donc tout nouveau type de fiche ou toute nouvelle relation devient automatiquement une source de coûts valide.
 
 ### Forer dans un rectangle
 
@@ -178,7 +178,7 @@ Dès qu'au moins une Source de coût est active, les rectangles du treemap devie
 
 Le curseur de chronologie, la sélection de Source de coût et les autres filtres sont préservés pendant le forage, et le niveau de forage fait partie de la configuration du rapport sauvegardé — sauvegarder un rapport en cours de forage le rouvre directement à ce niveau. Sans Source de coût active, un clic sur un rectangle ouvre plutôt le panneau latéral de la fiche (il n'y a rien à décomposer).
 
-**Limiter à certaines cartes** — La puce voisine du sélecteur de type ouvre un sélecteur : choisissez une ou plusieurs cartes et la treemap, les totaux et le tableau se limitent à celles-ci et à tout ce qui se trouve en dessous. La puce disparaît lorsque vous avez zoomé dans un rectangle, puisqu'un tel zoom vous a déjà déplacé vers un autre type de carte ; quittez-le et le périmètre est toujours là.
+**Limiter à certaines fiches** — La puce voisine du sélecteur de type ouvre un sélecteur : choisissez une ou plusieurs fiches et la treemap, les totaux et le tableau se limitent à celles-ci et à tout ce qui se trouve en dessous. La puce disparaît lorsque vous avez zoomé dans un rectangle, puisqu'un tel zoom vous a déjà déplacé vers un autre type de fiche ; quittez-le et le périmètre est toujours là.
 
 ## Rapport Matrice
 
@@ -192,7 +192,7 @@ Le **Rapport Matrice** crée une **grille de références croisées** entre deux
 
 Ceci est utile pour identifier les lacunes de couverture (capacités sans applications de support) ou les redondances (capacités supportées par trop d'applications).
 
-Utilisez l'option **Masquer les cartes sans relation** pour masquer les lignes et colonnes des fiches qui n'ont aucune relation, en ne conservant que les fiches participant à au moins une relation. La vue complète affichant toutes les fiches reste le comportement par défaut.
+Utilisez l'option **Masquer les fiches sans relation** pour masquer les lignes et colonnes des fiches qui n'ont aucune relation, en ne conservant que les fiches participant à au moins une relation. La vue complète affichant toutes les fiches reste le comportement par défaut.
 
 ### Ce qu'affiche chaque cellule
 
@@ -215,7 +215,7 @@ La barre de filtres au-dessus de la grille restreint la matrice aux relations qu
 - **Sens** — si la fiche de la ligne est la source ou la cible de la relation.
 - **Valeurs** — un filtre par attribut déclaré par les types de relation, y compris «(vide)» pour les relations dont la valeur n'a jamais été renseignée.
 
-Le filtrage vide les cellules des fiches qui ne correspondent plus ; l'option **Masquer les cartes non correspondantes** ne laisse alors que celles qui correspondent. Quelques exemples :
+Le filtrage vide les cellules des fiches qui ne correspondent plus ; l'option **Masquer les fiches non correspondantes** ne laisse alors que celles qui correspondent. Quelques exemples :
 
 - Application × Objet de données, filtré sur *Créer* — quelles applications font référence pour chaque objet de données.
 - Application × Interface, filtré par sens — qui publie une interface et qui la consomme.
@@ -287,6 +287,6 @@ Les filtres et options de regroupement actifs au moment de l'export sont consign
 
 ## Carte de processus
 
-La **Carte de processus** visualise le paysage des processus métier de l'organisation sous forme de carte structurée, montrant les catégories de processus (Management, Cœur de métier, Support) et leurs relations hiérarchiques.
+La **Carte de processus** visualise le paysage des processus métier de l'organisation sous forme de fiche structurée, montrant les catégories de processus (Management, Cœur de métier, Support) et leurs relations hiérarchiques.
 
-**Limiter à certains processus** — La puce voisine de *Profondeur d'affichage* ouvre un sélecteur : choisissez un ou plusieurs processus et la carte n'affiche que ceux-ci et tout ce qui se trouve en dessous. Les sous-processus sont inclus automatiquement, et la **Profondeur d'affichage** se compte à partir de votre sélection. Le zoom par clic fonctionne toujours, désormais à l'intérieur du périmètre. Il s'agit d'un contrôle distinct de la ligne **Périmètre** située en dessous, qui filtre par Organisation ou Contexte métier lié.
+**Limiter à certains processus** — La puce voisine de *Profondeur d'affichage* ouvre un sélecteur : choisissez un ou plusieurs processus et la fiche n'affiche que ceux-ci et tout ce qui se trouve en dessous. Les sous-processus sont inclus automatiquement, et la **Profondeur d'affichage** se compte à partir de votre sélection. Le zoom par clic fonctionne toujours, désormais à l'intérieur du périmètre. Il s'agit d'un contrôle distinct de la ligne **Périmètre** située en dessous, qui filtre par Organisation ou Contexte métier lié.

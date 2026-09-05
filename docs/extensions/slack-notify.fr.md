@@ -3,7 +3,7 @@
 Votre équipe vit déjà dans Slack. **Slack Notifications** envoie à chaque personne
 ses notifications Turbo EA sous forme de **message direct Slack** — un todo
 assigné, une décision en attente de sa signature, un risque qui atterrit sur son
-bureau — avec un bouton de retour direct vers la carte.
+bureau — avec un bouton de retour direct vers la fiche.
 
 Chacun garde la main : une colonne **Slack** apparaît dans ses propres préférences
 de notification, à côté de Dans l'application et E-mail, et chacun coche
@@ -66,7 +66,7 @@ confirme *Connected to …*.
 ### 3. Associer les personnes
 
 Les comptes sont associés **par adresse e-mail** la première fois qu'une personne
-doit recevoir un message, et le résultat est mis en cache. La carte **Personnes**
+doit recevoir un message, et le résultat est mis en cache. La fiche **Personnes**
 liste tout le monde, les cas problématiques d'abord, avec des pastilles indiquant
 qui est **connecté**, **absent de Slack** ou **pas encore vérifié**.
 
@@ -105,7 +105,7 @@ l'extension ne fait que transporter le message.
 
 Un message direct Slack contient le **titre** de la notification en gras, son
 texte, un bouton **Open in Turbo EA** (avec le nom que vous avez configuré) menant
-à la carte ou à la page concernée, et un petit pied de message rappelant le nom de
+à la fiche ou à la page concernée, et un petit pied de message rappelant le nom de
 l'application et le type de notification.
 
 La remise est strictement à sens unique — de Turbo EA vers Slack — et toujours
@@ -113,7 +113,7 @@ sous forme de message direct personnel. Rien n'est jamais publié dans un canal.
 
 ## Superviser la remise
 
-La carte **Journal de remise** indique combien de messages sont **en attente**,
+La fiche **Journal de remise** indique combien de messages sont **en attente**,
 **envoyés** et **en échec**, ainsi que les 50 lignes de journal les plus
 récentes.
 

@@ -16,7 +16,7 @@ assignées se synchronisent dans les deux sens.
 | **Permission** | `ext.jira-todos.admin` |
 | **Autorisations d'accès aux données** | `core.todos.read`, `core.todos.write`, `core.events.todo`, `core.users.read` |
 | **Redémarrage du backend requis** | oui — l'extension embarque du code backend |
-| **Où elle apparaît** | **Admin → Paramètres → Intégrations → Jira Todo Sync** · pastilles de clé de ticket sur la page Todos et dans l'onglet Todos des cartes |
+| **Où elle apparaît** | **Admin → Paramètres → Intégrations → Jira Todo Sync** · pastilles de clé de ticket sur la page Todos et dans l'onglet Todos des fiches |
 
 Seul **Jira Cloud** est pris en charge. La connexion est uniquement sortante :
 Turbo EA appelle l'API REST de Jira avec un e-mail de compte et un jeton API. Il
@@ -117,7 +117,7 @@ ligne et laisse intactes les lignes de détail suivantes.
 
 Un todo synchronisé porte sa clé de ticket Jira (par exemple `PROJ-123`) sous
 forme de petit lien, à la fois sur la [page Todos](../guide/tasks.md) et dans
-l'onglet Todos d'une carte. Un clic ouvre le ticket dans Jira. La pastille sert de
+l'onglet Todos d'une fiche. Un clic ouvre le ticket dans Jira. La pastille sert de
 repère — un todo se clôt toujours dans Turbo EA ou via la synchronisation.
 
 ### Les todos de signature

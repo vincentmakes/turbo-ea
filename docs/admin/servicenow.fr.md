@@ -245,7 +245,7 @@ L'autocompletion regroupe les champs par section. Voici la référence complète
 |--------|-------|-------------------|
 | `name` | Nom d'affichage de la fiche | `"SAP S/4HANA"` |
 | `description` | Description de la fiche | `"Système ERP principal pour les finances"` |
-| `subtype` | Sous-type de la carte (issu de la liste de sous-types du type de carte) | `"hardware"` |
+| `subtype` | Sous-type de la fiche (issu de la liste de sous-types du type de fiche) | `"hardware"` |
 | `lifecycle.plan` | Cycle de vie : Date de planification | `"2024-01-15"` |
 | `lifecycle.phaseIn` | Cycle de vie : Date de mise en service | `"2024-03-01"` |
 | `lifecycle.active` | Cycle de vie : Date d'activation | `"2024-06-01"` |
@@ -260,7 +260,7 @@ Par exemple, si votre type Application a un champ avec la clé `businessCritical
 La **valeur par défaut** d'un mappage de champ permet de renseigner des données que ServiceNow ne fournit pas. Elle s'applique **uniquement en entrée** (lors d'un pull) et se comporte de deux façons selon qu'un **champ SNOW** est défini :
 
 - **Repli** — Avec à la fois un champ SNOW et une valeur par défaut, celle-ci n'est utilisée que lorsque la valeur ServiceNow est vide ou absente. Une véritable valeur ServiceNow l'emporte toujours.
-- **Constante** — Laissez le champ SNOW vide et définissez seulement une valeur par défaut pour écrire une valeur fixe sur chaque carte synchronisée, indépendamment de ServiceNow. Par exemple, mappez `subtype` sans champ SNOW avec une valeur par défaut `hardware` pour que chaque CI récupéré devienne un composant informatique matériel.
+- **Constante** — Laissez le champ SNOW vide et définissez seulement une valeur par défaut pour écrire une valeur fixe sur chaque fiche synchronisée, indépendamment de ServiceNow. Par exemple, mappez `subtype` sans champ SNOW avec une valeur par défaut `hardware` pour que chaque CI récupéré devienne un composant informatique matériel.
 
 La valeur par défaut est convertie au type du champ cible : les champs `boolean`, `number` et `cost` analysent la valeur ; **les champs à choix multiples acceptent une liste séparée par des virgules** (par ex. `web, backend` devient deux valeurs). Pour combiner plusieurs champs ServiceNow en un seul champ Turbo EA, utilisez un [champ calculé](calculations.md) qui agrège des champs mappés intermédiaires — la couche de mappage mappe une colonne à la fois.
 
@@ -268,19 +268,19 @@ La valeur par défaut est convertie au type du champ cible : les champs `boolean
 
 Marquez un ou plusieurs champs comme **Identité** (icône de clé). Ceux-ci sont utilisés lors de la première synchronisation pour faire correspondre les enregistrements ServiceNow aux fiches Turbo EA existantes :
 
-1. **Recherche dans la carte d'identité** -- Si un lien sys_id <-> UUID de fiche existe déjà, l'utiliser
+1. **Recherche dans la fiche d'identité** -- Si un lien sys_id <-> UUID de fiche existe déjà, l'utiliser
 2. **Correspondance exacte du nom** -- Correspondance sur la valeur du champ d'identité (par ex. correspondance par nom d'application)
 3. **Correspondance approximative** -- Si aucune correspondance exacte, utilisation de SequenceMatcher avec un seuil de similarité de 85%
 
 **Bonne pratique** : Marquez toujours le champ `name` comme champ d'identité. Si les noms diffèrent entre les systèmes (par ex. SNOW inclut des numéros de version comme « SAP S/4HANA v2.1 » mais Turbo EA a « SAP S/4HANA »), nettoyez-les avant la première synchronisation pour une meilleure qualité de correspondance.
 
-Après la première synchronisation qui établit les liens de la carte d'identité, les synchronisations suivantes utilisent la carte d'identité persistante et ne reposent plus sur la correspondance par nom.
+Après la première synchronisation qui établit les liens de la fiche d'identité, les synchronisations suivantes utilisent la fiche d'identité persistante et ne reposent plus sur la correspondance par nom.
 
 ---
 
 ### Ouvrir l'enregistrement ServiceNow
 
-Une fois une carte synchronisée, son onglet **Ressources** affiche une section **ServiceNow** avec un lien direct qui ouvre l'enregistrement correspondant (`https://<votre-instance>/<table>.do?sys_id=<id>`) dans un nouvel onglet. Le lien est en lecture seule et maintenu automatiquement par la synchronisation — rien à configurer. Les cartes jamais synchronisées n'affichent pas la section ; vous pouvez toujours ajouter un lien manuel sous **Liens de documents** sur le même onglet.
+Une fois une fiche synchronisée, son onglet **Ressources** affiche une section **ServiceNow** avec un lien direct qui ouvre l'enregistrement correspondant (`https://<votre-instance>/<table>.do?sys_id=<id>`) dans un nouvel onglet. Le lien est en lecture seule et maintenu automatiquement par la synchronisation — rien à configurer. Les fiches jamais synchronisées n'affichent pas la section ; vous pouvez toujours ajouter un lien manuel sous **Liens de documents** sur le même onglet.
 
 
 ## Étape 5 : Exécuter votre première synchronisation
@@ -308,7 +308,7 @@ Pour chaque mapping actif, vous voyez des boutons Pull et/ou Push selon la direc
              - create : Nouveau, aucune fiche correspondante trouvee
              - update : Correspondance trouvee, champs differents
              - skip :   Correspondance trouvee, aucune difference
-             - delete : Dans la carte d'identite mais absent de SNOW
+             - delete : Dans la fiche d'identite mais absent de SNOW
 6. APPLY     Executer les actions du staging (creer/mettre a jour/archiver les fiches)
 ```
 
@@ -759,7 +759,7 @@ Convertit entre les booleens en chaînes ServiceNow (`"true"`, `"1"`, `"yes"`) e
 | Examiner les statistiques de sync | Après chaque exécution | Vérifier les compteurs d'erreurs/suppressions |
 | Tester les connexions | Mensuel | Cliquer sur le bouton de test de chaque connexion |
 | Changer les identifiants | Trimestriel | Mettre à jour dans SNOW et Turbo EA |
-| Examiner la carte d'identité | Trimestriel | Vérifier les entrées orphelines via les stats de sync |
+| Examiner la fiche d'identité | Trimestriel | Vérifier les entrées orphelines via les stats de sync |
 | Auditer l'historique des fiches | Selon les besoins | Filtrer les événements par source `servicenow_sync` |
 
 ### Configuration des synchronisations automatisées

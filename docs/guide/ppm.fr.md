@@ -1,6 +1,6 @@
 # Gestion de Portefeuille de Projets (PPM)
 
-Le module **PPM** fournit une solution complète de gestion de portefeuille de projets pour le suivi des initiatives, budgets, risques, tâches et calendriers. Il s'intègre directement avec le type de carte Initiative pour enrichir chaque projet avec des rapports de statut, un suivi des coûts et une visualisation Gantt.
+Le module **PPM** fournit une solution complète de gestion de portefeuille de projets pour le suivi des initiatives, budgets, risques, tâches et calendriers. Il s'intègre directement avec le type de fiche Initiative pour enrichir chaque projet avec des rapports de statut, un suivi des coûts et une visualisation Gantt.
 
 !!! note
     Le module PPM peut être activé ou désactivé par un administrateur dans les [Paramètres](../admin/settings.md). Lorsqu'il est désactivé, la navigation et les fonctionnalités PPM sont masquées.
@@ -20,7 +20,7 @@ Le **Tableau de Bord du Portefeuille** est le point d'entrée principal pour PPM
 
 Utilisez la barre d'outils pour :
 
-- **Regrouper par** tout type de carte lié (p. ex., Organisation, Plateforme)
+- **Regrouper par** tout type de fiche lié (p. ex., Organisation, Plateforme)
 - **Filtrer par sous-type** (Idée, Programme, Projet, Épique)
 - **Rechercher** par nom d'initiative
 
@@ -73,7 +73,7 @@ Suivi des données financières avec deux types de lignes :
 - **Lignes de budget** — Budget planifié par année fiscale et catégorie (CapEx / OpEx). Les lignes budgétaires sont regroupées selon le **mois de début de l'exercice fiscal** configuré dans les [Paramètres](../admin/settings.md#début-de-lexercice-fiscal). Par exemple, si l'exercice fiscal commence en avril, une ligne budgétaire de juin 2026 appartient à l'EF 2026–2027
 - **Lignes de coût** — Dépenses réelles avec date, description et catégorie
 
-Les totaux de budget et de coûts sont automatiquement agrégés dans les attributs `costBudget` et `costActual` de la carte Initiative.
+Les totaux de budget et de coûts sont automatiquement agrégés dans les attributs `costBudget` et `costActual` de la fiche Initiative.
 
 #### Dépenses dans le temps
 
@@ -141,7 +141,7 @@ Interagir avec le diagramme de Gantt :
 
 ### Onglet Détails de la Carte
 
-Le dernier onglet affiche la vue complète des détails de la carte, y compris toutes les sections standard.
+Le dernier onglet affiche la vue complète des détails de la fiche, y compris toutes les sections standard.
 
 ## Structure de Découpage du Travail (WBS)
 
@@ -162,6 +162,6 @@ Inversement, l'onglet **Détails de la fiche** dans la vue détaillée PPM de l'
 
 | Permission | Description |
 |-----------|-------------|
-| `ppm.view` | Voir le tableau de bord PPM, le diagramme de Gantt et les rapports d'initiatives, et lire les cartes d'initiative. Accordé à tous les rôles par défaut |
+| `ppm.view` | Voir le tableau de bord PPM, le diagramme de Gantt et les rapports d'initiatives, et lire les fiches d'initiative. Accordé à tous les rôles par défaut |
 | `ppm.manage` | Créer et gérer les rapports de statut, tâches, coûts, risques et éléments WBS. Accordé aux rôles Admin, Admin BPM et Membre |
 | `reports.ppm_dashboard` | Voir le tableau de bord du portefeuille PPM. Accordé à tous les rôles par défaut |

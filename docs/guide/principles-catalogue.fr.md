@@ -12,11 +12,11 @@ Cliquez sur l'icône utilisateur en haut à droite de l'application, dépliez **
 
 - **En-tête** — la pastille de version du catalogue actif et le titre de la page.
 - **Barre de filtres** — recherche plein texte sur le titre, la description, la justification et les implications. Le bouton **Sélectionner les visibles** ajoute en un clic toutes les correspondances encore importables ; **Effacer la sélection** la remet à zéro. Un compteur en direct indique combien d'entrées sont visibles, combien le catalogue en compte au total, et combien restent importables (c'est-à-dire absentes de votre inventaire).
-- **Liste des principes** — une carte par principe affichant le titre, une brève description, une **Justification** en puces et une série d'**Implications** en puces. Les cartes sont empilées verticalement pour que le texte long reste lisible.
+- **Liste des principes** — une fiche par principe affichant le titre, une brève description, une **Justification** en puces et une série d'**Implications** en puces. Les fiches sont empilées verticalement pour que le texte long reste lisible.
 
 ## Sélectionner des principes
 
-Cochez la case d'une carte de principe pour l'ajouter à la sélection. La sélection est plate — il n'y a pas de hiérarchie qui cascade, chaque principe est donc retenu ou écarté individuellement.
+Cochez la case d'une fiche de principe pour l'ajouter à la sélection. La sélection est plate — il n'y a pas de hiérarchie qui cascade, chaque principe est donc retenu ou écarté individuellement.
 
 Les principes qui **existent déjà** dans votre métamodèle apparaissent avec une **coche verte** au lieu d'une case et ne peuvent pas être sélectionnés — un même principe ne peut jamais être importé deux fois via le catalogue. La correspondance privilégie le tampon `catalogue_id` posé par un précédent import (la coche verte survit donc aux modifications de titre) et retombe sur une comparaison de titre insensible à la casse pour les principes saisis à la main.
 

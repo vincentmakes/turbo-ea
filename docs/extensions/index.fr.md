@@ -33,7 +33,7 @@ d'essai — voir [Administration → Boutique d'extensions](../admin/extensions.
 
 | Extension | Rôle | Licence |
 |-----------|------|---------|
-| [DORA Register of Information](dora-roi.md) | Tient le registre d'informations DORA (art. 28) sur vos cartes existantes et exporte le paquet de soumission officiel xBRL-CSV | Commerciale |
+| [DORA Register of Information](dora-roi.md) | Tient le registre d'informations DORA (art. 28) sur vos fiches existantes et exporte le paquet de soumission officiel xBRL-CSV | Commerciale |
 
 ## Ce que toutes les extensions ont en commun
 
