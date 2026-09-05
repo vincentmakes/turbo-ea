@@ -53,7 +53,7 @@ stream forwards any event whose ``data.user_id`` matches a subscriber
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import date, datetime, timezone
 from typing import Any
 
@@ -687,7 +687,7 @@ async def _apply_delete_adr(db: AsyncSession, op: dict[str, Any]) -> dict[str, A
     return _ok(op)
 
 
-_APPLIERS: dict[str, Callable[..., Any]] = {
+_APPLIERS: dict[str, Callable[[AsyncSession, dict[str, Any]], Awaitable[dict[str, Any]]]] = {
     "delete_card": _apply_delete_card,
     "restore_card": _apply_restore_card,
     "archive_card": _apply_archive_card,
