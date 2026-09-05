@@ -419,6 +419,66 @@ describe("AppLayout — extension nav placement", () => {
     );
   });
 
+  it("places an admin-group extension route in the user menu's Admin section, never the bar", async () => {
+    registerExtension("rules-ext", {
+      key: "rules-ext",
+      sdkVersion: UI_SDK_VERSION,
+      routes: [
+        {
+          id: "rules",
+          path: "/ext/rules-ext",
+          label: "Rules Console",
+          icon: "bolt",
+          navGroup: "admin",
+          permission: "ext.rules-ext.view",
+          component: () => null,
+        },
+      ],
+    });
+    const user = userEvent.setup();
+    renderLayout();
+
+    // Not a top-level nav item, and not injected into Reports.
+    expect(screen.queryByRole("link", { name: /Rules Console/i })).not.toBeInTheDocument();
+
+    const allButtons = screen.getAllByRole("button");
+    await user.click(allButtons[allButtons.length - 1]);
+    const item = await screen.findByRole("menuitem", { name: /Rules Console/i });
+    expect(item).toHaveAttribute("href", "/ext/rules-ext");
+    // Listed after the core admin entries, under the same heading.
+    const metamodel = screen.getByText("Metamodel");
+    expect(metamodel.compareDocumentPosition(item) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("hides an admin-group extension route from a user without its permission", async () => {
+    registerExtension("rules-ext", {
+      key: "rules-ext",
+      sdkVersion: UI_SDK_VERSION,
+      routes: [
+        {
+          id: "rules",
+          path: "/ext/rules-ext",
+          label: "Rules Console",
+          icon: "bolt",
+          navGroup: "admin",
+          permission: "ext.rules-ext.view",
+          component: () => null,
+        },
+      ],
+    });
+    const user = userEvent.setup();
+    renderLayout(viewerUser);
+
+    const allButtons = screen.getAllByRole("button");
+    await user.click(allButtons[allButtons.length - 1]);
+    await waitFor(() => expect(screen.getByText("Logout")).toBeInTheDocument());
+    // No Admin section at all: the route did not conjure one, and it did not
+    // fall back to the bar either.
+    expect(screen.queryByRole("menuitem", { name: /Rules Console/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Rules Console/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("Metamodel")).not.toBeInTheDocument();
+  });
+
   it("ignores a route whose navGroup is not whitelisted (no crash, no injection)", async () => {
     registerExtension("bad-ext", {
       key: "bad-ext",
