@@ -184,7 +184,21 @@ from app.database import get_db  # noqa: F401
 #   an extension can record which audit batch its writes landed in.
 #   ``async with ctx.data.batch(label):`` (ignoring the value) is unchanged.
 
-SDK_VERSION = "1.9"
+# SDK 1.10 adds one additive read (existing 1.x extensions load and run
+# unchanged):
+#
+# - ``ctx.data.get_eol_status(card_ids)`` — the resolved end-of-life status
+#   of up to 500 cards in one call, as ``{card_id: ExtEolStatus}``: the same
+#   ``eol`` / ``approaching`` / ``supported`` / ``unknown`` classification,
+#   dates and endoflife.date product/cycle the EOL report and the
+#   inventory's EOL column show, so an extension acting on a component's
+#   remaining support never re-implements (or diverges from) core's
+#   resolver. Cards with nothing recorded are absent rather than present
+#   with a null status. It is outbound HTTP behind core's 30-minute
+#   per-product cache; the database session is closed BEFORE the fetch.
+#   Gated by ``core.cards.read``.
+
+SDK_VERSION = "1.10"
 
 
 @dataclass(frozen=True)
@@ -423,6 +437,25 @@ class ExtStakeholder:
 
 
 @dataclass(frozen=True)
+class ExtEolStatus:
+    """A card's resolved end-of-life status (SDK 1.10), exactly what the
+    EOL report and the inventory's EOL column show. ``source`` is ``api``
+    when the card links an endoflife.date product + cycle and ``manual``
+    when only a hand-kept ``lifecycle.endOfLife`` date exists; ``status``
+    is ``eol`` / ``approaching`` / ``supported`` / ``unknown``. Dates are
+    ISO strings or ``None``."""
+
+    card_id: str
+    status: str
+    source: str
+    eol_product: str | None
+    eol_cycle: str | None
+    eol_date: str | None
+    support_date: str | None
+    latest: str | None
+
+
+@dataclass(frozen=True)
 class ExtDecision:
     """Read model returned by the decisions bridge (SDK 1.8). Wire-shaped:
     string ids, ISO timestamps, a plain ``attributes`` dict copy."""
@@ -603,6 +636,13 @@ class DataBridge(Protocol):
     async def get_relations_for(self, card_ids: Sequence[str]) -> list[ExtRelation]: ...
 
     async def get_stakeholders_for(self, card_ids: Sequence[str]) -> list[ExtStakeholder]: ...
+
+    async def get_eol_status(self, card_ids: Sequence[str]) -> dict[str, ExtEolStatus]:
+        """Resolved end-of-life status per card (SDK 1.10), keyed by card id.
+        A card with neither an endoflife.date link nor a manual End of Life
+        date is ABSENT from the map — "no entry" cannot be misread as a
+        status. Same id cap and exclusions as ``get_cards``."""
+        ...
 
     async def get_tag_groups(self) -> list[dict]:
         """Every tag group with its tags (SDK 1.9) — ``{id, name, mode,

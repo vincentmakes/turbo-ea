@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.126.0] - 2026-09-05
+
+### Added
+
+- **Extension SDK 1.10 — end-of-life status for extensions.** An installed extension holding the inventory read grant can ask for the resolved end-of-life status of cards — the same **EOL** / **Approaching** / **Supported** / **Unknown** classification, dates and endoflife.date product and cycle the EOL report and the inventory's EOL column show, from the same resolver and cache — so an extension acting on a component's remaining support reads exactly what you see.
+
 ## [2.125.0] - 2026-09-05
 
 ### Added

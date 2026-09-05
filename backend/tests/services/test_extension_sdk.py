@@ -16,7 +16,7 @@ from app.services.extensions import sdk
 
 
 def test_sdk_version_is_1_9():
-    assert sdk.SDK_VERSION == "1.9"
+    assert sdk.SDK_VERSION == "1.10"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -200,15 +200,15 @@ def test_sdk_compatibility_is_major_only():
     assert sdk.sdk_compatible("1.4")
     assert sdk.sdk_compatible("1.5")
     assert sdk.sdk_compatible("1.8")
-    assert sdk.sdk_compatible("1.9")
+    assert sdk.sdk_compatible("1.10")
     assert not sdk.sdk_compatible("2.0")
 
 
 def test_sdk_minor_newer_truth_table():
     # Newer minor on the same major → warn (still loads).
-    assert sdk.sdk_minor_newer("1.10")
+    assert sdk.sdk_minor_newer("1.11")
     # Same or older minor → no warning.
-    assert not sdk.sdk_minor_newer("1.9")
+    assert not sdk.sdk_minor_newer("1.10")
     assert not sdk.sdk_minor_newer("1.8")
     assert not sdk.sdk_minor_newer("1.5")
     assert not sdk.sdk_minor_newer("1.4")
@@ -327,6 +327,27 @@ def test_sdk_1_9_surface_exists():
         "remove_stakeholder",
     ):
         assert hasattr(sdk.DataBridge, name)
+
+
+def test_sdk_1_10_surface_exists():
+    # SDK 1.10 — the resolved end-of-life status read on the data bridge.
+    assert sdk.ExtEolStatus is not None
+    assert hasattr(sdk.DataBridge, "get_eol_status")
+    entry = sdk.ExtEolStatus(
+        card_id="c1",
+        status="approaching",
+        source="api",
+        eol_product="postgresql",
+        eol_cycle="13",
+        eol_date="2026-11-13",
+        support_date=None,
+        latest="13.22",
+    )
+    try:
+        entry.status = "eol"  # type: ignore[misc]
+        raise AssertionError("ExtEolStatus must be frozen")
+    except AttributeError:
+        pass
 
 
 def test_ext_risk_is_frozen_and_wire_shaped():
