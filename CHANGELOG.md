@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.128.1] - 2026-09-05
+
+### Security
+
+- **Published images now pick up base-image security fixes within a day instead of within a week.** The daily scan of the published `db` / `backend` / `frontend` / `nginx` / `mcp-server` images no longer just reports a vulnerability that upstream has already fixed — it republishes the images so the fix actually ships. Previously the `latest` images were only rebuilt on a release or once a week, so a fix published mid-week was reported every morning but not delivered until the following Monday.
+
+### Fixed
+
+- **Stale vulnerability alerts on two images could never be cleared.** The maintenance job that closes vulnerability alerts once an image is patched covered only three of the five published images, so alerts on the `backend` and `mcp-server` images stayed on the list even after the images were fixed. It now covers all five.
+
 ## [2.128.0] - 2026-09-05
 
 ### Added

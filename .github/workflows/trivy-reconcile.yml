@@ -47,9 +47,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The three images that carry the stale <=medium alerts. Extend if the
-        # backend / mcp-server images ever accumulate the same drift.
-        image: [db, frontend, nginx]
+        # Mirrors the publish and daily-scan matrices. It used to cover only
+        # db / frontend / nginx, which meant the two images it skipped could
+        # accumulate alerts this workflow was structurally unable to close --
+        # exactly what happened with the util-linux batch of 2026-09.
+        image: [backend, db, frontend, mcp-server, nginx]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

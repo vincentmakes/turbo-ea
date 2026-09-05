@@ -6,6 +6,11 @@ name: Code Scanning Report
 # viewers) can read Actions logs but cannot call the code-scanning alerts API,
 # so this workflow bridges that gap — run it, then read the result from the run.
 #
+# The `Category` column is load-bearing for triage: GitHub only closes an alert
+# when a *new* analysis in the SAME category omits it, so an alert filed by the
+# daily scan (`daily-trivy-<image>`) is not cleared by a publish-workflow scan
+# (`trivy-<image>`) or by trivy-reconcile, and vice versa.
+#
 # Uses the runner's preinstalled `gh` CLI with the built-in GITHUB_TOKEN and a
 # read-only `security-events` grant. No extra secrets.
 #
@@ -49,6 +54,7 @@ jobs:
           jq -r '.[] | [
             (.number | tostring),
             .tool.name,
+            (.most_recent_instance.category // "n/a"),
             .rule.id,
             (.rule.security_severity_level // .rule.severity // "n/a"),
             "\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)",
@@ -59,9 +65,9 @@ jobs:
           {
             echo "## Open code-scanning alerts ($count)"
             echo
-            echo "| # | Tool | Rule | Severity | Location | Title |"
-            echo "| - | ---- | ---- | -------- | -------- | ----- |"
-            jq -r '.[] | "| \(.number) | \(.tool.name) | `\(.rule.id)` | \(.rule.security_severity_level // .rule.severity // "n/a") | `\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)` | \(.rule.description // .most_recent_instance.message.text | gsub("\n"; " ")) |"' alerts.json
+            echo "| # | Tool | Category | Rule | Severity | Location | Title |"
+            echo "| - | ---- | -------- | ---- | -------- | -------- | ----- |"
+            jq -r '.[] | "| \(.number) | \(.tool.name) | `\(.most_recent_instance.category // "n/a")` | `\(.rule.id)` | \(.rule.security_severity_level // .rule.severity // "n/a") | `\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)` | \(.rule.description // .most_recent_instance.message.text | gsub("\n"; " ")) |"' alerts.json
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload alerts JSON

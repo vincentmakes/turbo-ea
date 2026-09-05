@@ -2,6 +2,11 @@
 # List the repository's open code-scanning alerts (CodeQL + Trivy + Scout) as a
 # table, so you can triage them without opening the GitHub Security tab.
 #
+# The `category` column is load-bearing for triage: GitHub only closes an alert
+# when a *new* analysis in the SAME category omits it. A Trivy alert created by
+# the daily scan (`daily-trivy-<image>`) is not cleared by a publish-workflow
+# scan (`trivy-<image>`) or by trivy-reconcile, and vice versa.
+#
 # Usage:
 #   ./scripts/security/code-scanning-report.sh             # table to stdout
 #   ./scripts/security/code-scanning-report.sh --json      # raw JSON to stdout
@@ -35,6 +40,7 @@ echo
 jq -r '.[] | [
   (.number | tostring),
   .tool.name,
+  (.most_recent_instance.category // "n/a"),
   .rule.id,
   (.rule.security_severity_level // .rule.severity // "n/a"),
   "\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)",
