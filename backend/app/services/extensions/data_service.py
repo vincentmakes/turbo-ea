@@ -67,6 +67,7 @@ from app.services import (
     tag_service,
 )
 from app.services.card_write_service import WriteActor
+from app.services.eol_service import resolve_eol_statuses
 from app.services.event_bus import request_batch_id, request_origin
 from app.services.extensions.registry import extension_registry
 from app.services.extensions.sdk import (
@@ -75,6 +76,7 @@ from app.services.extensions.sdk import (
     ExtCardPage,
     ExtensionDataError,
     ExtensionPermissionError,
+    ExtEolStatus,
     ExtRelation,
     ExtStakeholder,
 )
@@ -176,6 +178,16 @@ def _parse_id_list(values: Sequence[str], what: str) -> list[uuid.UUID]:
             seen.add(parsed)
             out.append(parsed)
     return out
+
+
+@dataclass(frozen=True)
+class _EolCardSnapshot:
+    """What ``resolve_eol_statuses`` reads off a card — copied out of the
+    session so the outbound fetch runs with no connection checked out."""
+
+    id: uuid.UUID
+    attributes: dict
+    lifecycle: dict
 
 
 def _to_ext_card(card: Card) -> ExtCard:
@@ -440,6 +452,47 @@ class ExtensionData:
         async with async_session() as db:
             rows = (await db.execute(q)).scalars().all()
             return [_to_ext_stakeholder(r) for r in rows]
+
+    async def get_eol_status(self, card_ids: Sequence[str]) -> dict[str, ExtEolStatus]:
+        """Resolved end-of-life status per card (SDK 1.10), keyed by card id.
+
+        Exactly what ``GET /eol/card-status`` computes for the EOL report:
+        the endoflife.date cycle when the card links a product, else the
+        manual ``lifecycle.endOfLife`` date. A card with neither is absent
+        from the map. Hidden-type and archived cards are excluded like
+        ``get_cards``; malformed ids and over-long lists are refused.
+
+        The lookup is one short session; it is closed before the outbound
+        endoflife.date call (30-minute per-product cache in core), so a slow
+        upstream never pins a pool connection.
+        """
+        self._require(write=False)
+        id_list = _parse_id_list(card_ids, "get_eol_status")
+        if not id_list:
+            return {}
+        hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+        q = (
+            select(Card.id, Card.attributes, Card.lifecycle)
+            .where(Card.id.in_(id_list), Card.type.not_in(hidden_types_sq))
+            .where(Card.status == "ACTIVE")
+        )
+        async with async_session() as db:
+            rows = (await db.execute(q)).all()
+        snapshots = [_EolCardSnapshot(r.id, r.attributes or {}, r.lifecycle or {}) for r in rows]
+        resolved = await resolve_eol_statuses(snapshots)
+        return {
+            cid: ExtEolStatus(
+                card_id=cid,
+                status=str(entry.get("status") or "unknown"),
+                source=str(entry.get("source") or "manual"),
+                eol_product=entry.get("eol_product"),
+                eol_cycle=entry.get("eol_cycle"),
+                eol_date=entry.get("eol_date"),
+                support_date=entry.get("support_date"),
+                latest=entry.get("latest"),
+            )
+            for cid, entry in resolved.items()
+        }
 
     async def get_tag_groups(self) -> list[dict]:
         """Every tag group with its tags (SDK 1.9)."""
