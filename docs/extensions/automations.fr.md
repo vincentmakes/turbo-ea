@@ -19,7 +19,7 @@ le Journal d'audit, si bien qu'une règle qui a mal tourné s'annule en un clic.
 | | |
 |---|---|
 | **Licence** | Commerciale — une habilitation signée est nécessaire |
-| **Version minimale de Turbo EA** | 2.126.0 |
+| **Version minimale de Turbo EA** | 2.128.0 |
 | **Permissions** | `ext.automations.view`, `ext.automations.manage` |
 | **Autorisations d'accès aux données** | Fiches (lecture + écriture), événements de fiche et de tâche, tâches (lecture + écriture), l'annuaire des utilisateurs, risques (lecture + écriture), décisions, notifications, rôles de parties prenantes |
 | **Redémarrage du backend nécessaire** | Oui — l'extension embarque du code backend |
@@ -140,6 +140,8 @@ première notification immédiatement et retiennent les suivantes pendant la
 s'est accumulé en un seul récapitulatif. Les préférences de notification propres
 à chaque personne décident toujours de la cloche, de l'e-mail ou d'un canal
 d'extension.
+
+Un clic sur une notification regroupée dans la cloche ouvre ses **détails** sur place — le résumé complet et une puce par fiche qui mène à cette fiche —, car l'onglet Exécutions derrière elle est une page d'administration ; seules les personnes disposant de `ext.automations.view` obtiennent en plus un bouton **Ouvrir** vers celui-ci. Une notification portant sur une seule fiche mène toujours directement à la fiche. Chaque notification des automatisations utilise sa propre ligne **Notifications des automatisations** dans vos préférences de notification (dans l'application activé, e-mail désactivé par défaut), distincte de l'avis d'extension générique.
 
 ## Modèles
 

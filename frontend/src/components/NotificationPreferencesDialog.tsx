@@ -182,7 +182,7 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
               <TableBody>
                 {types.map((nt) => (
                   <TableRow key={nt.key}>
-                    <TableCell>{t(labelKeyFor(nt.key), nt.key)}</TableCell>
+                    <TableCell>{nt.label ?? t(labelKeyFor(nt.key), nt.key)}</TableCell>
                     <TableCell align="center">
                       <Switch
                         size="small"

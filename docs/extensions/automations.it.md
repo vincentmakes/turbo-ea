@@ -19,7 +19,7 @@ audit, così una regola che ha sbagliato si annulla con un clic.
 | | |
 |---|---|
 | **Licenza** | Commerciale: serve un'abilitazione firmata |
-| **Versione minima di Turbo EA** | 2.126.0 |
+| **Versione minima di Turbo EA** | 2.128.0 |
 | **Permessi** | `ext.automations.view`, `ext.automations.manage` |
 | **Concessioni di accesso ai dati** | Schede (lettura + scrittura), eventi di scheda e di todo, todo (lettura + scrittura), la rubrica utenti, rischi (lettura + scrittura), verbali di decisione, notifiche, ruoli di stakeholder |
 | **Riavvio del backend necessario** | Sì: l'estensione porta codice backend |
@@ -133,6 +133,8 @@ e trattengono le altre per la **finestra di raggruppamento** delle
 Impostazioni; il minuto successivo invia come unico riepilogo quanto si è
 accumulato. Le preferenze di notifica di ciascuna persona continuano a decidere
 tra campanella, e-mail o un canale di estensione.
+
+Un clic su una notifica raggruppata nella campanella apre i suoi **dettagli** sul posto — il riepilogo completo e un chip per scheda che porta a quella scheda —, perché la scheda Esecuzioni dietro di essa è una pagina di amministrazione; solo chi ha `ext.automations.view` riceve anche un pulsante **Apri** verso di essa. Una notifica su una sola scheda porta ancora direttamente alla scheda. Ogni notifica delle automazioni usa la propria riga **Notifiche delle automazioni** nelle preferenze di notifica (in-app attivo, e-mail disattivata per impostazione predefinita), separata dall'avviso estensione generico.
 
 ## Modelli
 

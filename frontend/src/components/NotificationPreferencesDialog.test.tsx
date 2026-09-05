@@ -65,6 +65,28 @@ describe("NotificationPreferencesDialog", () => {
     await waitFor(() => expect(within(table).getAllByRole("row")).toHaveLength(4));
   });
 
+  it("renders the server label for a row an extension declared", async () => {
+    mockGet.mockResolvedValue(
+      prefs({
+        types: [
+          ...TYPES,
+          {
+            key: "ext.rules.notice",
+            in_app_default: true,
+            email_default: false,
+            in_app_only: false,
+            email_locked: false,
+            label: "Rule notices",
+            extension_key: "rules",
+          },
+        ],
+      }),
+    );
+    renderDialog();
+    expect(await screen.findByText("Rule notices")).toBeInTheDocument();
+    expect(screen.queryByText("ext.rules.notice")).toBeNull();
+  });
+
   it("shows only In-App and Email when no extension delivers a channel", async () => {
     mockGet.mockResolvedValue(prefs());
     renderDialog();

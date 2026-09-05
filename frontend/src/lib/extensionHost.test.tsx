@@ -11,6 +11,9 @@ import type { User } from "@/types";
 import {
   ExtensionBoundary,
   ExtensionSlot,
+  canOpenExtensionPath,
+  getExtensionDisplayName,
+  setExtensionDisplayName,
   EXTENSION_NAV_GROUPS,
   getExtensionAdrExportSections,
   getExtensionAdrGridColumns,
@@ -595,3 +598,88 @@ describe("extensionHost", () => {
     expect(screen.getByText(/kaboom/)).toBeInTheDocument();
   });
 });
+
+describe("notification details (SDK 1.11 host helpers)", () => {
+  it("canOpenExtensionPath fails closed without a matching route", () => {
+    resetExtensionHost();
+    expect(canOpenExtensionPath("/ext/rules?tab=runs", { "*": true })).toBe(false);
+    expect(canOpenExtensionPath("/cards/c1", { "*": true })).toBe(false);
+  });
+
+  it("canOpenExtensionPath honours the route's permission and ignores query/hash", () => {
+    resetExtensionHost();
+    registerExtension("rules", {
+      key: "rules",
+      sdkVersion: UI_SDK_VERSION,
+      routes: [
+        {
+          id: "r",
+          path: "/ext/rules",
+          label: "R",
+          permission: "ext.rules.view",
+          component: () => null,
+        },
+      ],
+    });
+    expect(canOpenExtensionPath("/ext/rules?tab=runs#x", { "ext.rules.view": true })).toBe(true);
+    expect(canOpenExtensionPath("/ext/rules/runs/1", { "ext.rules.view": true })).toBe(true);
+    expect(canOpenExtensionPath("/ext/rules", { "*": true })).toBe(true);
+    expect(canOpenExtensionPath("/ext/rules", {})).toBe(false);
+    expect(canOpenExtensionPath("/ext/rules", undefined)).toBe(false);
+    // A prefix match needs a "/" boundary: /ext/rulesX is not /ext/rules.
+    expect(canOpenExtensionPath("/ext/rulesX", { "*": true })).toBe(false);
+  });
+
+  it("canOpenExtensionPath allows an ungated route to anyone", () => {
+    resetExtensionHost();
+    registerExtension("rules", {
+      key: "rules",
+      sdkVersion: UI_SDK_VERSION,
+      routes: [{ id: "open", path: "/ext/rules/public", label: "P", component: () => null }],
+    });
+    expect(canOpenExtensionPath("/ext/rules/public", {})).toBe(true);
+  });
+
+  it("getExtensionDisplayName falls back to the key until the manifest names it", () => {
+    resetExtensionHost();
+    expect(getExtensionDisplayName("rules")).toBe("rules");
+    setExtensionDisplayName("rules", "Rules Engine");
+    expect(getExtensionDisplayName("rules")).toBe("Rules Engine");
+    resetExtensionHost();
+    expect(getExtensionDisplayName("rules")).toBe("rules");
+  });
+
+  it("loadUiExtensions records the display names the manifest carries", async () => {
+    resetExtensionHost();
+    mockGet.mockResolvedValueOnce([
+      { key: "rules", name: "Rules Engine", version: "1.0.0", entry: "/nope.js", entitlement_state: "active" },
+    ]);
+    await loadUiExtensions();
+    expect(getExtensionDisplayName("rules")).toBe("Rules Engine");
+  });
+
+  it("ExtensionSlot with ownerExtKey renders only that extension's contributions", () => {
+    resetExtensionHost();
+    const Mine = () => <div>mine</div>;
+    const Theirs = () => <div>theirs</div>;
+    registerExtension("a", {
+      key: "a",
+      sdkVersion: UI_SDK_VERSION,
+      slots: [{ slot: "notification.detail", id: "x", component: Mine }],
+    });
+    registerExtension("b", {
+      key: "b",
+      sdkVersion: UI_SDK_VERSION,
+      slots: [{ slot: "notification.detail", id: "y", component: Theirs }],
+    });
+    const user = { permissions: {} } as unknown as User;
+    render(
+      <AuthProvider user={user} refreshUser={async () => {}}>
+        <ExtensionSlot name="notification.detail" ownerExtKey="a" context={{}} />
+      </AuthProvider>,
+    );
+    expect(screen.getByText("mine")).toBeInTheDocument();
+    expect(screen.queryByText("theirs")).toBeNull();
+  });
+});
+

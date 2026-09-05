@@ -17,8 +17,21 @@ from app.services.extensions.bundle import (
 )
 from app.services.extensions.bundle import LOGO_EXTENSIONS as BACKEND_LOGO_EXTENSIONS
 from app.services.extensions.bundle import MAX_LOGO_BYTES as BACKEND_MAX_LOGO_BYTES
+from app.services.extensions.bundle import (
+    MAX_NOTIFICATION_TYPE_KEY_LENGTH as BACKEND_MAX_TYPE_KEY,
+)
+from app.services.extensions.bundle import (
+    MAX_NOTIFICATION_TYPE_LABEL_LENGTH as BACKEND_MAX_TYPE_LABEL,
+)
+from app.services.extensions.bundle import (
+    MAX_NOTIFICATION_TYPES_PER_EXTENSION as BACKEND_MAX_TYPES,
+)
+from app.services.extensions.bundle import NOTIFICATION_TYPE_GRANT as BACKEND_TYPE_GRANT
 from app.services.extensions.bundle import SECTION_ANCHORS as BACKEND_SECTION_ANCHORS
 from app.services.extensions.bundle import VALID_GRANTS as BACKEND_VALID_GRANTS
+from app.services.extensions.bundle import (
+    notification_types_error as backend_notification_types_error,
+)
 from app.services.extensions.bundle import placement_error as backend_placement_error
 
 TEAX_PATH = Path(__file__).resolve().parents[3] / "scripts" / "extension-tools" / "teax.py"
@@ -214,3 +227,81 @@ class TestTeaxGrantsLint:
         src = write_source(tmp_path, {**BASE_MANIFEST, "grants": "core.todos.write"})
         _, _, problems, _ = teax._lint_source(src)
         assert any("list of strings" in p for p in problems)
+
+
+# ---------------------------------------------------------------------------
+# SDK 1.11 — extension-declared notification types (manifest `notifications`)
+# ---------------------------------------------------------------------------
+
+SEND = "core.notifications.send"
+
+
+def _type(name: str = "notice", key: str = "sample-ext", **extra) -> dict:
+    return {"key": f"ext.{key}.{name}", "label": "Sample notices", **extra}
+
+
+NOTIFICATION_BLOCKS = [
+    ({"types": [_type()]}, [SEND]),
+    ({"types": [_type(translations={"de": "Hinweise"}, in_app_default=True)]}, [SEND]),
+    ({"types": [_type()]}, []),  # grant missing
+    ({"types": [_type(key="other")]}, [SEND]),  # foreign namespace
+    ({"types": [_type(name="Bad-Name")]}, [SEND]),  # name pattern
+    ({"types": [_type(name=f"t{i}") for i in range(6)]}, [SEND]),  # over the cap
+    ({"types": [_type(), _type()]}, [SEND]),  # duplicate key
+    ({"types": [{"key": "ext.sample-ext.x", "label": "x" * 81}]}, [SEND]),  # label too long
+    ({"types": [{"key": "ext.sample-ext." + "a" * 40, "label": "x"}]}, [SEND]),  # key too long
+    ({"types": [_type(translations="de")]}, [SEND]),  # translations not a map
+    ({"types": [_type(translations={"de": ""})]}, [SEND]),  # empty translation
+    ({"types": [_type(in_app_default="yes")]}, [SEND]),  # flag not a bool
+    ({"types": []}, [SEND]),
+    ({"types": "ext.sample-ext.x"}, [SEND]),
+    (["ext.sample-ext.x"], [SEND]),
+    ({"types": [_type(), {"key": "ext.sample-ext.y"}]}, [SEND]),  # missing label
+]
+
+
+class TestTeaxNotificationTypesLint:
+    def test_notification_type_constants_mirror_backend(self, teax):
+        assert teax.MAX_NOTIFICATION_TYPES_PER_EXTENSION == BACKEND_MAX_TYPES
+        assert teax.MAX_NOTIFICATION_TYPE_LABEL_LENGTH == BACKEND_MAX_TYPE_LABEL
+        assert teax.MAX_NOTIFICATION_TYPE_KEY_LENGTH == BACKEND_MAX_TYPE_KEY
+        assert teax.NOTIFICATION_TYPE_GRANT == BACKEND_TYPE_GRANT
+
+    @pytest.mark.parametrize("block,grants", NOTIFICATION_BLOCKS)
+    def test_notification_types_verdicts_mirror_backend(self, teax, block, grants):
+        ours = backend_notification_types_error(block, "sample-ext", grants)
+        theirs = teax.notification_types_error(block, "sample-ext", grants)
+        assert (ours is None) == (theirs is None), (block, ours, theirs)
+        assert ours == theirs
+
+    def test_only_the_first_two_blocks_are_valid(self):
+        verdicts = [
+            backend_notification_types_error(block, "sample-ext", grants)
+            for block, grants in NOTIFICATION_BLOCKS
+        ]
+        assert verdicts[0] is None and verdicts[1] is None
+        assert all(v is not None for v in verdicts[2:])
+
+    def test_lint_reports_a_bad_block(self, teax, tmp_path):
+        src = write_source(
+            tmp_path,
+            {**BASE_MANIFEST, "grants": [SEND], "notifications": {"types": [_type(key="other")]}},
+        )
+        _, _, problems, _ = teax._lint_source(src)
+        assert any("notifications.types[0]" in p for p in problems)
+
+    def test_lint_warns_when_the_sdk_is_older_than_1_11(self, teax, tmp_path):
+        base = {**BASE_MANIFEST, "grants": [SEND], "notifications": {"types": [_type()]}}
+        _, _, problems, warnings = teax._lint_source(
+            write_source(tmp_path, {**base, "sdk_version": "1.10"})
+        )
+        assert not [p for p in problems if "notifications" in p]
+        assert any("notifications.types requires SDK 1.11+" in w for w in warnings)
+
+    def test_lint_is_clean_on_sdk_1_11(self, teax, tmp_path):
+        base = {**BASE_MANIFEST, "grants": [SEND], "notifications": {"types": [_type()]}}
+        _, _, problems, warnings = teax._lint_source(
+            write_source(tmp_path, {**base, "sdk_version": "1.11"})
+        )
+        assert not [p for p in problems if "notifications" in p]
+        assert not any("notifications.types" in w for w in warnings)

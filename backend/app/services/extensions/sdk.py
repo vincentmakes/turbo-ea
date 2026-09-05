@@ -198,7 +198,7 @@ from app.database import get_db  # noqa: F401
 #   per-product cache; the database session is closed BEFORE the fetch.
 #   Gated by ``core.cards.read``.
 
-SDK_VERSION = "1.10"
+SDK_VERSION = "1.11"
 
 
 @dataclass(frozen=True)
@@ -575,7 +575,16 @@ class NotifyBridge(Protocol):
     and can switch it off; the extension never chooses a channel. ``link``
     must be an in-app relative path (the same rule as a todo's link). At most
     50 recipients per call; inactive users are skipped silently. Returns the
-    number of recipients the notification was created for."""
+    number of recipients the notification was created for.
+
+    Since SDK 1.11: ``type`` names one of the notification types this
+    extension declares under ``notifications.types`` in its manifest (each a
+    row of its own in the recipient's preferences; any other value is
+    refused), and ``detail=True`` asks the bell to open the notification's
+    details in the app — full text plus the extension's ``notification.detail``
+    slot — instead of following ``link``, which is then offered as a button
+    only to people who may open it. ``data`` is bounded to 16 KiB and the keys
+    ``ext`` / ``open`` are core's."""
 
     async def send(
         self,
@@ -586,6 +595,8 @@ class NotifyBridge(Protocol):
         link: str | None = None,
         card_id: str | None = None,
         data: dict[str, Any] | None = None,
+        type: str | None = None,  # noqa: A002
+        detail: bool = False,
     ) -> int: ...
 
 

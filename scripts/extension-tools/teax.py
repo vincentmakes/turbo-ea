@@ -116,15 +116,84 @@ def placement_error(value):
         return None
     prefix, _, anchor = spec.partition(":")
     if prefix not in ("before", "after") or not anchor:
-        return (
-            f"placement {spec!r} must be 'start', 'end', "
-            f"'before:<section>' or 'after:<section>'"
-        )
+        return f"placement {spec!r} must be 'start', 'end', 'before:<section>' or 'after:<section>'"
     if anchor not in SECTION_ANCHORS:
         return (
             f"placement {spec!r} anchors on unknown section {anchor!r} "
             f"(one of: {', '.join(sorted(SECTION_ANCHORS))})"
         )
+    return None
+
+
+# Notification types an extension may declare under ``notifications.types``
+# (SDK 1.11): rows of its own in every person's notification preferences,
+# labelled from the manifest so a backend-only extension still gets a proper
+# row. Gated by the grant that lets the extension send. Keys share the
+# ``ext.{key}.`` namespace with permissions and must fit ``notifications.type``
+# (String(50)). Deliberately duplicated in scripts/extension-tools/teax.py —
+# pinned together by tests/services/test_teax_grants_lint.py.
+NOTIFICATION_TYPE_GRANT = "core.notifications.send"
+MAX_NOTIFICATION_TYPES_PER_EXTENSION = 5
+MAX_NOTIFICATION_TYPE_LABEL_LENGTH = 80
+MAX_NOTIFICATION_TYPE_KEY_LENGTH = 50
+_NOTIFICATION_TYPE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+def notification_types_error(block, ext_key, grants):
+    """None when ``block`` is a usable ``notifications`` manifest block, else why not."""
+    if not isinstance(block, dict):
+        return "notifications must be an object with a types list"
+    types = block.get("types")
+    if not isinstance(types, list) or not types:
+        return "notifications.types must be a non-empty list"
+    if NOTIFICATION_TYPE_GRANT not in [str(g) for g in grants]:
+        return f"notifications.types requires the {NOTIFICATION_TYPE_GRANT} grant"
+    if len(types) > MAX_NOTIFICATION_TYPES_PER_EXTENSION:
+        return (
+            f"notifications.types allows at most {MAX_NOTIFICATION_TYPES_PER_EXTENSION} "
+            f"entries (got {len(types)})"
+        )
+    prefix = f"ext.{ext_key}."
+    seen = set()
+    for i, entry in enumerate(types):
+        where = f"notifications.types[{i}]"
+        if not isinstance(entry, dict):
+            return f"{where} must be an object"
+        key = entry.get("key")
+        if (
+            not isinstance(key, str)
+            or not key.startswith(prefix)
+            or not _NOTIFICATION_TYPE_NAME.match(key[len(prefix) :])
+        ):
+            return f"{where}: key must be {prefix}<name> with <name> matching [a-z][a-z0-9_]*"
+        if len(key) > MAX_NOTIFICATION_TYPE_KEY_LENGTH:
+            return f"{where}: key exceeds {MAX_NOTIFICATION_TYPE_KEY_LENGTH} characters"
+        if key in seen:
+            return f"{where}: duplicate key {key!r}"
+        seen.add(key)
+        label = entry.get("label")
+        if not isinstance(label, str) or not label.strip():
+            return f"{where}: label must be a non-empty string"
+        if len(label) > MAX_NOTIFICATION_TYPE_LABEL_LENGTH:
+            return f"{where}: label exceeds {MAX_NOTIFICATION_TYPE_LABEL_LENGTH} characters"
+        translations = entry.get("translations")
+        if translations is not None and (
+            not isinstance(translations, dict)
+            or not all(
+                isinstance(loc, str)
+                and isinstance(text, str)
+                and text.strip()
+                and len(text) <= MAX_NOTIFICATION_TYPE_LABEL_LENGTH
+                for loc, text in translations.items()
+            )
+        ):
+            return (
+                f"{where}: translations must map locale codes to non-empty strings of at "
+                f"most {MAX_NOTIFICATION_TYPE_LABEL_LENGTH} characters"
+            )
+        for flag in ("in_app_default", "email_default"):
+            if flag in entry and not isinstance(entry[flag], bool):
+                return f"{where}: {flag} must be a boolean"
     return None
 
 
@@ -140,6 +209,9 @@ SDK_1_5_GRANTS = {"core.cards.read", "core.cards.write", "core.events.card"}
 SDK_1_6_GRANTS = {"core.notifications.channel"}
 # Grants that require the SDK 1.8 decisions bridge specifically.
 SDK_1_8_GRANTS = {"core.adr.read", "core.adr.write"}
+# Manifest keys that require the SDK 1.11 surface (extension-declared
+# notification types + the `detail` flag on the notify bridge).
+SDK_1_11_MANIFEST_KEYS = {"notifications"}
 BUILTIN_FIELD_TYPES = {
     "text",
     "multiline_text",
@@ -415,6 +487,23 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str], list[str]
     for perm in permissions:
         if not str(perm).startswith(f"ext.{key}."):
             problems.append(f"permission {perm!r} must be namespaced ext.{key}.*")
+
+    if "notifications" in manifest:
+        problem = notification_types_error(
+            manifest["notifications"], key, list(manifest.get("grants") or [])
+        )
+        if problem:
+            problems.append(problem)
+        declared_sdk = str(manifest.get("sdk_version", ""))
+        if declared_sdk:
+            try:
+                major, minor = (int(x) for x in declared_sdk.split(".")[:2])
+                if (major, minor) < (1, 11):
+                    warnings.append(
+                        f"notifications.types requires SDK 1.11+ but sdk_version is {declared_sdk}"
+                    )
+            except ValueError:
+                pass  # reported below by the grants block
 
     if "free" in manifest and not isinstance(manifest["free"], bool):
         problems.append("free must be a boolean (true = no license required to run)")

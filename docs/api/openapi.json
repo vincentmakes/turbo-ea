@@ -15333,6 +15333,10 @@
             "title": "Key",
             "type": "string"
           },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
           "version": {
             "title": "Version",
             "type": "string"
@@ -15340,6 +15344,7 @@
         },
         "required": [
           "key",
+          "name",
           "version",
           "entry",
           "entitlement_state"

@@ -1068,6 +1068,7 @@ async def extensions_status(
 
 class UiExtensionOut(BaseModel):
     key: str
+    name: str
     version: str
     entry: str
     entitlement_state: str
@@ -1096,6 +1097,7 @@ async def ui_manifest(
         out.append(
             UiExtensionOut(
                 key=info.key,
+                name=info.name,
                 version=info.version,
                 entry=f"/api/v1/ext-assets/{info.key}/{info.version}/{rel}",
                 entitlement_state=ent.state,

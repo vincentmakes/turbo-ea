@@ -62,3 +62,5 @@ ao lado de «Na aplicação» e «E-mail», e escolhe tipo a tipo se a notifica�
 segue para lá. Essas colunas começam sempre **desativadas**. Desativar a extensão
 ou deixar caducar a licença oculta a coluna e coloca a entrega em pausa, mas
 conserva tudo o que escolheu: volta com a extensão. [Slack Notifications](../extensions/slack-notify.md) é uma dessas extensões.
+
+Uma extensão também pode declarar tipos de notificação próprios — por exemplo **Notificações de automações** —, que aparecem aqui como linhas próprias (na aplicação ligado, e-mail desligado por predefinição), para os ajustar separadamente da linha genérica **Aviso de extensão**. Se a extensão for desativada ou a licença expirar, as suas linhas desaparecem até ela voltar; as suas escolhas são mantidas. Algumas notificações de extensões abrem os seus **detalhes** na aplicação ao clicar em vez de o levarem a uma página: a mensagem completa, mais botões para abrir a ficha relacionada ou a página da extensão quando tiver permissão.

@@ -387,6 +387,13 @@ export interface ExtensionFieldVisibilityProps {
  *     PATCH the backend would ignore.
  *   - `notification.preferences.footer` (component) — below the preferences
  *     table, context `{userId}`; where a channel shows its per-user link state.
+ *   - `notification.detail` (component) — inside the bell's notification
+ *     details dialog (opened for a notification sent with `detail=True` on the
+ *     backend notify bridge), context `{id, type, title, message, link, data,
+ *     cardId, createdAt}`. Rendered with `ownerExtKey = data.ext`, so only the
+ *     extension that SENT the notification contributes; target your own
+ *     declared type with `appliesTo` and never gate it with `permission` — the
+ *     recipients are ordinary users.
  */
 export interface ExtensionSlotContribution {
   slot: string;
@@ -466,6 +473,7 @@ export interface RegisteredExtension {
 
 interface UiManifestEntry {
   key: string;
+  name: string;
   version: string;
   entry: string;
   entitlement_state: string;
@@ -477,6 +485,9 @@ interface UiManifestEntry {
 
 let _registered: RegisteredExtension[] = [];
 let _loadErrors: Record<string, string> = {};
+// Display names from the UI manifest, keyed by extension key — so the bell
+// can say who sent a notification without a second request.
+let _displayNames: Record<string, string> = {};
 const _listeners = new Set<() => void>();
 let _loadStarted = false;
 // Cached, stable snapshots — recomputed lazily and invalidated on every
@@ -903,9 +914,14 @@ export function useExtensionSlots(slot: string): RegisteredSlot[] {
 export function ExtensionSlot({
   name,
   context,
+  ownerExtKey,
 }: {
   name: string;
   context?: Record<string, unknown>;
+  /** When set, only this extension's contributions render — for a location
+   *  that belongs to one extension's own data (its notification's details),
+   *  where a second extension must not inject into the first's content. */
+  ownerExtKey?: string;
 }) {
   const slots = useExtensionSlots(name);
   const { user } = useAuthContext();
@@ -915,6 +931,7 @@ export function ExtensionSlot({
       {slots.map(({ extKey, contribution }) => {
         const Component = contribution.component;
         if (!Component) return null; // data slot — rendered by its own core consumer
+        if (ownerExtKey !== undefined && extKey !== ownerExtKey) return null;
         if (
           contribution.permission &&
           !hasPermission(user?.permissions, contribution.permission)
@@ -941,6 +958,7 @@ export function ExtensionSlot({
 export function resetExtensionHost(): void {
   _registered = [];
   _loadErrors = {};
+  _displayNames = {};
   _loadStarted = false;
   _fieldTypesCache = null;
   _slotsCache = null;
@@ -1149,6 +1167,9 @@ export async function loadUiExtensions(): Promise<void> {
     // Backend older than the extension store, or transient failure — no UI extensions.
     return;
   }
+  for (const entry of manifest) {
+    if (entry.name) _displayNames = { ..._displayNames, [entry.key]: entry.name };
+  }
   await Promise.all(
     manifest.map(async (entry) => {
       try {
@@ -1191,6 +1212,42 @@ export function getExtensionRoutesForGroup(
       .filter((r) => r.navGroup === group)
       .map((route) => ({ extKey: key, route })),
   );
+}
+
+/**
+ * The display name the UI manifest reported for an extension, or its key when
+ * the manifest carried none (a backend older than 2.128.0, or a bundle that
+ * never loaded). Test helper `setExtensionDisplayName` seeds it.
+ */
+export function getExtensionDisplayName(key: string): string {
+  return _displayNames[key] ?? key;
+}
+
+/** Test helper — what `loadUiExtensions` records from the manifest. */
+export function setExtensionDisplayName(key: string, name: string): void {
+  _displayNames = { ..._displayNames, [key]: name };
+}
+
+/**
+ * Whether the viewer may open an extension page at `path` (an `/ext/<key>/…`
+ * link a notification or a todo carries). Fails CLOSED: no registered route
+ * matches ⇒ false — the bundle is not loaded or not entitled, so the page
+ * would be "not found" — and a route that declares a `permission` needs the
+ * viewer to hold it. Query string and hash are ignored; a route matches its
+ * own path or a `/`-boundary prefix of it (`/ext/x` covers `/ext/x/runs`).
+ */
+export function canOpenExtensionPath(
+  path: string,
+  perms: Record<string, boolean> | undefined,
+): boolean {
+  const pathname = path.split(/[?#]/, 1)[0] ?? "";
+  if (!pathname.startsWith("/ext/")) return false;
+  for (const { route } of getExtensionRoutes()) {
+    const base = route.path.replace(/\/+$/, "");
+    if (pathname !== base && !pathname.startsWith(`${base}/`)) continue;
+    return route.permission ? hasPermission(perms, route.permission) : true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------

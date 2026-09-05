@@ -16,7 +16,7 @@ from app.services.extensions import sdk
 
 
 def test_sdk_version_is_1_9():
-    assert sdk.SDK_VERSION == "1.10"
+    assert sdk.SDK_VERSION == "1.11"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -201,13 +201,15 @@ def test_sdk_compatibility_is_major_only():
     assert sdk.sdk_compatible("1.5")
     assert sdk.sdk_compatible("1.8")
     assert sdk.sdk_compatible("1.10")
+    assert sdk.sdk_compatible("1.11")
     assert not sdk.sdk_compatible("2.0")
 
 
 def test_sdk_minor_newer_truth_table():
     # Newer minor on the same major → warn (still loads).
-    assert sdk.sdk_minor_newer("1.11")
+    assert sdk.sdk_minor_newer("1.12")
     # Same or older minor → no warning.
+    assert not sdk.sdk_minor_newer("1.11")
     assert not sdk.sdk_minor_newer("1.10")
     assert not sdk.sdk_minor_newer("1.8")
     assert not sdk.sdk_minor_newer("1.5")
@@ -375,3 +377,13 @@ def test_ext_risk_is_frozen_and_wire_shaped():
         raise AssertionError("ExtRisk must be frozen")
     except AttributeError:
         pass
+
+
+def test_sdk_1_11_surface_exists():
+    # SDK 1.11 — a notification sent under a type the extension declared in
+    # its manifest, and one whose details open in the bell instead of a link.
+    import inspect
+
+    params = inspect.signature(sdk.NotifyBridge.send).parameters
+    assert "type" in params and params["type"].default is None
+    assert "detail" in params and params["detail"].default is False

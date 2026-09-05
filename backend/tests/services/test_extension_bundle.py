@@ -331,3 +331,40 @@ class TestGrantsValidation:
         path = self._bundle(keypair, tmp_path, sdk_version="latest")
         with pytest.raises(BundleError, match="sdk_version"):
             read_bundle(path, core_version=CORE_VERSION)
+
+
+class TestNotificationTypesBlock:
+    """SDK 1.11: a manifest may declare notification types of its own."""
+
+    def _raw(self, keypair, **extra):
+        return build_teax(
+            keypair,
+            files={"content/pack.json": CONTENT},
+            manifest=build_manifest(files={"content/pack.json": CONTENT}, **extra),
+        )
+
+    def test_declared_types_verify(self, tmp_path, keypair):
+        raw = self._raw(
+            keypair,
+            grants=["core.notifications.send"],
+            notifications={"types": [{"key": "ext.sample-ext.notice", "label": "Notices"}]},
+        )
+        bundle = read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
+        assert bundle.manifest["notifications"]["types"][0]["key"] == "ext.sample-ext.notice"
+
+    def test_block_without_the_send_grant_is_rejected(self, tmp_path, keypair):
+        raw = self._raw(
+            keypair,
+            notifications={"types": [{"key": "ext.sample-ext.notice", "label": "Notices"}]},
+        )
+        with pytest.raises(BundleError, match="core.notifications.send"):
+            read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
+
+    def test_type_outside_the_namespace_is_rejected(self, tmp_path, keypair):
+        raw = self._raw(
+            keypair,
+            grants=["core.notifications.send"],
+            notifications={"types": [{"key": "ext.other.notice", "label": "Notices"}]},
+        )
+        with pytest.raises(BundleError, match="ext.sample-ext."):
+            read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)

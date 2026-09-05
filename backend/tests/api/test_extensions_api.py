@@ -485,6 +485,9 @@ class TestInstallLifecycle:
         entries = res.json()
         assert [e["key"] for e in entries] == ["sample-ext"]
         assert entries[0]["entry"].endswith("/ext-assets/sample-ext/1.0.0/entry.js")
+        # The display name rides along so the bell can say who sent a
+        # notification without a second request.
+        assert entries[0]["name"] == "Sample Extension"
 
     async def test_backend_install_still_needs_restart(self, client, db, vendor):
         """Backend code loads at import time — installing it must keep the

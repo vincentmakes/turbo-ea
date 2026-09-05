@@ -63,3 +63,5 @@ ci finisce. Quelle colonne partono sempre **disattivate**. Disattivare
 l'estensione o lasciar scadere la sua licenza nasconde la colonna e mette in
 pausa il recapito, ma conserva tutte le vostre scelte: tornano con
 l'estensione. [Slack Notifications](../extensions/slack-notify.md) è una di queste estensioni.
+
+Un'estensione può anche dichiarare tipi di notifica propri — ad esempio **Notifiche delle automazioni** —, che compaiono qui come righe a sé (in-app attivo, e-mail disattivata per impostazione predefinita), così da regolarle separatamente dalla riga generica **Avviso estensione**. Se l'estensione viene disattivata o la sua licenza scade, le sue righe scompaiono finché non torna; le scelte fatte restano. Alcune notifiche di estensioni aprono i loro **dettagli** nell'applicazione al clic invece di portarti a una pagina: il messaggio completo, più i pulsanti per aprire la scheda collegata o la pagina dell'estensione quando sei autorizzato.

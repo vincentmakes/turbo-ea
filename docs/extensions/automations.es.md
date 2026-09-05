@@ -19,7 +19,7 @@ clic.
 | | |
 |---|---|
 | **Licencia** | Comercial — se requiere un derecho firmado |
-| **Versión mínima de Turbo EA** | 2.126.0 |
+| **Versión mínima de Turbo EA** | 2.128.0 |
 | **Permisos** | `ext.automations.view`, `ext.automations.manage` |
 | **Concesiones de acceso a datos** | Tarjetas (lectura + escritura), eventos de tarjeta y de tarea, tareas (lectura + escritura), el directorio de usuarios, riesgos (lectura + escritura), registros de decisión, notificaciones, roles de parte interesada |
 | **Requiere reinicio del backend** | Sí: la extensión incluye código de backend |
@@ -133,6 +133,8 @@ resto durante la **ventana de agrupación** de Configuración; al minuto siguien
 se envía lo acumulado como un solo resumen. Las preferencias de notificación de
 cada persona siguen decidiendo entre la campana, el correo o un canal de
 extensión.
+
+Al hacer clic en una notificación agrupada en la campana se abren sus **detalles** en el sitio — el resumen completo y un chip por ficha que lleva a esa ficha —, porque la pestaña Ejecuciones que hay detrás es una página de administración; solo quienes tienen `ext.automations.view` reciben además un botón **Abrir** hacia ella. Una notificación de una sola ficha sigue llevándole directamente a la ficha. Cada notificación de automatizaciones usa su propia fila **Notificaciones de automatizaciones** en sus preferencias de notificación (en la aplicación activado, correo desactivado por defecto), separada del aviso de extensión genérico.
 
 ## Plantillas
 

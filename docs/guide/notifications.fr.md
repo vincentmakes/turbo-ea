@@ -64,3 +64,5 @@ notification y est envoyée. Ces colonnes démarrent toujours **désactivées**.
 Désactiver l'extension ou laisser sa licence expirer masque la colonne et met la
 remise en pause, mais conserve tous vos choix : ils reviennent avec
 l'extension. [Slack Notifications](../extensions/slack-notify.md) est l'une de ces extensions.
+
+Une extension peut aussi déclarer ses propres types de notification — par exemple **Notifications des automatisations** —, qui apparaissent ici comme des lignes à part entière (dans l'application activé, e-mail désactivé par défaut), afin de les régler indépendamment de la ligne générique **Avis d'extension**. Si l'extension est désactivée ou que sa licence expire, ses lignes disparaissent jusqu'à son retour ; vos choix sont conservés. Certaines notifications d'extension ouvrent leurs **détails** dans l'application quand vous cliquez dessus au lieu de vous envoyer vers une page : le message complet, plus des boutons pour ouvrir la fiche concernée ou la page de l'extension lorsque vous y êtes autorisé.

@@ -20,7 +20,7 @@ from app.models.user import (
     NOTIFICATION_TYPE_SPECS,
     User,
 )
-from app.services.extensions import notification_channels
+from app.services.extensions import notification_channels, notification_types
 from app.services.permission_service import PermissionService
 from app.services.sso_service import get_sso_config
 
@@ -303,7 +303,12 @@ async def get_notification_preferences(
             }
             for spec in NOTIFICATION_TYPE_SPECS
             if spec.user_configurable
-        ],
+        ]
+        # Types a live extension declared in its manifest (SDK 1.11), after
+        # core's own so the dialog keeps its familiar order. These carry a
+        # ``label`` resolved for the viewer's locale — core has no i18n key
+        # for a type it did not define — and the owning ``extension_key``.
+        + notification_types.type_descriptors(current_user.locale),
     }
 
 
@@ -325,6 +330,7 @@ async def update_notification_preferences(
     if body.channels is not None:
         live = set(notification_channels.registered_channel_keys())
         known_types = {spec.key for spec in NOTIFICATION_TYPE_SPECS if spec.user_configurable}
+        known_types |= set(notification_types.registered_type_keys())
         stored = dict(prefs.get("channels") or {})
         for channel_key, values in body.channels.items():
             if channel_key not in live:
