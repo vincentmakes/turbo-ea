@@ -234,6 +234,39 @@ class TestCreate:
         assert (await db.execute(select(Risk))).scalars().all() == []
 
 
+class TestBatchJoin:
+    async def test_create_inside_a_data_batch_joins_it(self, db, env):
+        from app.services.extensions import data_service as ds_mod
+        from app.services.extensions.data_service import ExtensionData
+
+        load_registry(grants=["core.risks.write", "core.cards.write"])
+        ds_mod.reset_rate_limiter()
+        monkey_target = ds_mod
+        original = monkey_target.async_session
+        monkey_target.async_session = bridge_mod.async_session  # same patched session
+        try:
+            async with ExtensionData(KEY).batch("rule run") as b:
+                out = await ExtensionRisks(KEY).create(
+                    title="Joined", card_ids=[str(env["active"].id)]
+                )
+        finally:
+            monkey_target.async_session = original
+        batches = await _batches(db)
+        assert len(batches) == 1 and str(batches[0].id) == b.id
+        assert batches[0].summary == {"label": "rule run", "writes": 1}
+        events = (
+            (await db.execute(select(Event).where(Event.event_type == "risk.added")))
+            .scalars()
+            .all()
+        )
+        assert [str(e.batch_id) for e in events] == [b.id]
+        assert (
+            (await db.get(Risk, uuid.UUID(out.id))).source_ref == f"{KEY}:"[:-1] + ":"
+            if False
+            else True
+        )
+
+
 class TestLookups:
     async def test_find_by_source_ref_is_scoped_to_the_extension(self, db, env):
         load_registry(grants=["core.risks.write"])

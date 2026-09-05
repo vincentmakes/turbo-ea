@@ -48,6 +48,7 @@ from app.models.risk import Risk, RiskCard
 from app.models.user import User
 from app.services import mutation_batch_service, risk_service
 from app.services.event_bus import request_batch_id, request_origin
+from app.services.extensions import data_service
 from app.services.extensions.registry import extension_registry
 from app.services.extensions.sdk import (
     ExtensionDataError,
@@ -256,6 +257,18 @@ class ExtensionRisks(RisksBridge):
     ) -> _T:
         self._require(write=True)
         self._require_writes_enabled()
+        if data_service.active_batch_id() is not None:
+            # Inside ``ctx.data.batch(...)``: join it — the batch scope already
+            # set the origin and batch contextvars, so the write lands in the
+            # same audit row as the card writes around it.
+            data_service.count_write_in_active_batch()
+            async with async_session() as db:
+                try:
+                    result = await op(db)
+                except HTTPException as e:
+                    raise ExtensionDataError(str(e.detail)) from e
+                await db.commit()
+                return result
         origin_token = request_origin.set("ext")
         batch_token = None
         try:

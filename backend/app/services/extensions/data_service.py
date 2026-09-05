@@ -128,6 +128,28 @@ def reset_rate_limiter() -> None:
     _batch_times.clear()
 
 
+def active_batch_id() -> uuid.UUID | None:
+    """The ``ctx.data.batch(label)`` scope the current task is inside, if
+    any. SDK 1.9: the other write bridges (todos, decisions, risks) join it
+    instead of opening a batch of their own, so one rule run — a card
+    update, a risk, a todo — is ONE row in the Audit Log with one Rollback."""
+    active = _active_batch.get()
+    return active.id if active is not None else None
+
+
+def count_write_in_active_batch() -> None:
+    """Charge one write against the open batch's per-batch cap."""
+    active = _active_batch.get()
+    if active is None:
+        return
+    active.writes += 1
+    if active.writes > settings.EXTENSION_MAX_WRITES_PER_BATCH:
+        raise ExtensionDataError(
+            f"Batch {active.label!r} exceeded the per-batch write cap "
+            f"({settings.EXTENSION_MAX_WRITES_PER_BATCH})"
+        )
+
+
 def _parse_uuid(value: str, what: str) -> uuid.UUID:
     try:
         return uuid.UUID(value)
@@ -533,15 +555,7 @@ class ExtensionData:
         window.append(now)
 
     def _count_write_in_batch(self) -> None:
-        active = _active_batch.get()
-        if active is None:
-            return
-        active.writes += 1
-        if active.writes > settings.EXTENSION_MAX_WRITES_PER_BATCH:
-            raise ExtensionDataError(
-                f"Batch {active.label!r} exceeded the per-batch write cap "
-                f"({settings.EXTENSION_MAX_WRITES_PER_BATCH})"
-            )
+        count_write_in_active_batch()
 
     def batch(self, label: str):
         """Group several writes into one audited ``ext:{key}`` mutation batch.
