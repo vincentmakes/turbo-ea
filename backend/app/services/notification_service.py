@@ -18,7 +18,7 @@ from app.models.user import (
     User,
 )
 from app.services.event_bus import event_bus
-from app.services.extensions import notification_channels
+from app.services.extensions import notification_channels, notification_types
 from app.services.extensions.sdk import NotificationDelivery
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,12 @@ def _user_wants_notification(user: User, notif_type: str, channel: str) -> bool:
     """
     if channel != "in_app" and notif_type in IN_APP_ONLY_TYPES:
         return False
-    spec = NOTIFICATION_TYPE_SPECS_BY_KEY.get(notif_type)
+    # Core's own registry first, then the types a live extension declared in
+    # its manifest (SDK 1.11). A lapsed extension's type falls through to the
+    # unknown-type defaults below — bell on, nothing else.
+    spec = NOTIFICATION_TYPE_SPECS_BY_KEY.get(notif_type) or notification_types.type_spec(
+        notif_type
+    )
     if spec is not None and not spec.user_configurable and channel != "in_app":
         # Not offered in the dialog, so there is no switch to turn it on with.
         # ``ops_rescue_access`` reaches an inbox through its own direct send in
@@ -163,7 +168,11 @@ async def create_notification(
 
         # Publish real-time event for this specific user. Deliberately inside
         # the in-app branch: the bell must not light up for a delivery that
-        # has no row behind it.
+        # has no row behind it. The notification's own JSONB rides NESTED
+        # under ``data`` and is never spread into the event: the SSE fan-out
+        # (``_event_visible_to``) forwards on the top-level ``user_id``, so a
+        # caller-supplied ``user_id`` inside the payload would otherwise hand
+        # the entry to another person's bell.
         await event_bus.publish(
             event_type="notification.created",
             data={
@@ -173,6 +182,8 @@ async def create_notification(
                 "title": title,
                 "message": message,
                 "link": link,
+                "data": dict(data or {}),
+                "card_id": str(card_id) if card_id else None,
             },
         )
 

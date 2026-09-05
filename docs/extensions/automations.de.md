@@ -19,7 +19,7 @@ sodass eine fehlgelaufene Regel mit einem Klick zurückgenommen ist.
 | | |
 |---|---|
 | **Lizenz** | Kommerziell — eine signierte Berechtigung ist erforderlich |
-| **Mindestversion von Turbo EA** | 2.126.0 |
+| **Mindestversion von Turbo EA** | 2.128.0 |
 | **Berechtigungen** | `ext.automations.view`, `ext.automations.manage` |
 | **Datenzugriffs-Grants** | Karten (lesen + schreiben), Karten- und Todo-Ereignisse, Todos (lesen + schreiben), das Benutzerverzeichnis, Risiken (lesen + schreiben), Entscheidungsdokumente, Benachrichtigungen, Stakeholder-Rollen |
 | **Backend-Neustart nötig** | Ja — die Erweiterung liefert Backend-Code |
@@ -137,6 +137,8 @@ halten den Rest für das **Gruppierungsfenster** aus den Einstellungen zurück; 
 der nächsten Minute geht das Angesammelte als ein Digest hinaus. Die eigenen
 Benachrichtigungseinstellungen jeder Person entscheiden weiterhin über Glocke,
 E-Mail oder einen Erweiterungskanal.
+
+Ein Klick auf eine gebündelte Benachrichtigung in der Glocke öffnet ihre **Details** an Ort und Stelle — die vollständige Zusammenfassung und je Karte einen Chip, der zu dieser Karte führt —, denn die dahinterliegende Registerkarte Ausführungen ist eine Admin-Seite; nur wer `ext.automations.view` besitzt, erhält zusätzlich eine Schaltfläche **Öffnen** dorthin. Eine Benachrichtigung zu einer einzelnen Karte führt weiterhin direkt zur Karte. Jede Automatisierungs-Benachrichtigung nutzt in Ihren Benachrichtigungseinstellungen eine eigene Zeile **Automatisierungs-Benachrichtigungen** (In-App an, E-Mail aus als Standard), getrennt vom allgemeinen Erweiterungshinweis.
 
 ## Vorlagen
 

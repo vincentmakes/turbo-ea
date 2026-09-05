@@ -24,6 +24,7 @@ import type { Notification, NotificationListResponse } from "@/types";
 import type { ReleaseNotesVariant } from "@/components/ReleaseNotesDialog";
 
 const ReleaseNotesDialog = lazy(() => import("@/components/ReleaseNotesDialog"));
+const NotificationDetailDialog = lazy(() => import("@/components/NotificationDetailDialog"));
 
 const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
   todo_assigned: { icon: "assignment_ind", color: NOTIFICATION_TYPE_COLORS.todo_assigned },
@@ -108,6 +109,15 @@ function opensInApp(notif: Notification): boolean {
   return notif.type in DIALOG_TYPES;
 }
 
+/** A notification that asked to be opened in-app rather than followed to its
+ *  link — the backend notify bridge stamps `data.open = "detail"` when an
+ *  extension sends with `detail=True` (a digest whose link only some
+ *  recipients may open). The bell shows its details dialog; the link is then
+ *  the dialog's business. */
+function opensDetailDialog(notif: Notification): boolean {
+  return notif.data?.open === "detail";
+}
+
 /** What the dialog needs to show *this* notification rather than the newest one. */
 type OpenReleaseNotes = {
   variant: ReleaseNotesVariant;
@@ -141,7 +151,20 @@ function releaseNotesTarget(notif: Notification): OpenReleaseNotes {
 /** Whether clicking this row leaves Turbo EA, which is what the trailing
  *  open-in-new glyph announces. */
 function leavesTheApp(notif: Notification): boolean {
-  return !!notif.link && isExternalLink(notif.link) && !opensInApp(notif);
+  return (
+    !!notif.link && isExternalLink(notif.link) && !opensInApp(notif) && !opensDetailDialog(notif)
+  );
+}
+
+/** Icon + colour for a row. Types an extension declared (`ext.<key>.<name>`)
+ *  share the extension-notice glyph rather than falling to the generic bell. */
+function iconFor(type: string): { icon: string; color: string } {
+  return (
+    NOTIFICATION_ICONS[type] ??
+    (type.startsWith("ext.")
+      ? NOTIFICATION_ICONS.extension_notice
+      : { icon: "notifications", color: "text.secondary" })
+  );
 }
 
 function timeAgo(dateStr: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
@@ -172,6 +195,7 @@ export default function NotificationBell({
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [releaseNotes, setReleaseNotes] = useState<OpenReleaseNotes | null>(null);
+  const [detail, setDetail] = useState<Notification | null>(null);
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
   // Read inside the reconnect callback, which must not be re-created (and so
@@ -215,6 +239,9 @@ export default function NotificationBell({
           if (data && data.user_id === userIdRef.current) {
             setUnreadCount((c: number) => c + 1);
             setNotifications((prev: Notification[]) => {
+              // The notification's own JSONB rides nested as `data.data`
+              // (never spread — the fan-out routes on the top-level user_id).
+              const payload = data.data;
               const newNotif: Notification = {
                 id: String(data.id ?? ""),
                 user_id: String(data.user_id ?? ""),
@@ -222,6 +249,11 @@ export default function NotificationBell({
                 title: String(data.title ?? ""),
                 message: String(data.message ?? ""),
                 link: data.link ? String(data.link) : undefined,
+                data:
+                  payload && typeof payload === "object"
+                    ? (payload as Record<string, unknown>)
+                    : undefined,
+                card_id: data.card_id ? String(data.card_id) : undefined,
                 is_read: false,
                 created_at: new Date().toISOString(),
               };
@@ -267,6 +299,10 @@ export default function NotificationBell({
     handleClose();
     if (opensInApp(notif)) {
       setReleaseNotes(releaseNotesTarget(notif));
+      return;
+    }
+    if (opensDetailDialog(notif)) {
+      setDetail(notif);
       return;
     }
     if (notif.link) {
@@ -360,10 +396,7 @@ export default function NotificationBell({
         ) : (
           <List dense sx={{ maxHeight: 420, overflow: "auto", py: 0 }}>
             {notifications.map((notif: Notification) => {
-              const iconDef = NOTIFICATION_ICONS[notif.type] ?? {
-                icon: "notifications",
-                color: "text.secondary",
-              };
+              const iconDef = iconFor(notif.type);
               // Trailing marker for rows that do more than mark themselves
               // read. `open_in_new` is reserved for rows that genuinely leave
               // the app; one that opens a dialog gets the expand glyph.
@@ -371,7 +404,9 @@ export default function NotificationBell({
                 ? { icon: "open_in_new", label: t("opensExternally") }
                 : opensInApp(notif)
                   ? { icon: "open_in_full", label: t("opensReleaseNotes") }
-                  : null;
+                  : opensDetailDialog(notif)
+                    ? { icon: "open_in_full", label: t("opensDetails") }
+                    : null;
               return (
                 <ListItemButton
                   key={notif.id}
@@ -449,6 +484,15 @@ export default function NotificationBell({
 
       {/* Lazy: the bell renders on every page, the dialog opens on a handful
           of clicks a year. */}
+      {detail && (
+        <Suspense fallback={null}>
+          <NotificationDetailDialog
+            notification={detail}
+            onClose={() => setDetail(null)}
+            onNavigate={navigate}
+          />
+        </Suspense>
+      )}
       {releaseNotes && (
         <Suspense fallback={null}>
           <ReleaseNotesDialog

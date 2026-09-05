@@ -18,7 +18,7 @@ som en mutationsbatch i Auditloggen, så en regel, der gik galt, fortrydes med
 | | |
 |---|---|
 | **Licens** | Kommerciel — en signeret rettighed er påkrævet |
-| **Mindste Turbo EA-version** | 2.126.0 |
+| **Mindste Turbo EA-version** | 2.128.0 |
 | **Tilladelser** | `ext.automations.view`, `ext.automations.manage` |
 | **Dataadgange** | Kort (læs + skriv), kort- og opgavehændelser, opgaver (læs + skriv), brugerkataloget, risici (læs + skriv), beslutningsdokumenter, notifikationer, interessentroller |
 | **Kræver genstart af backend** | Ja — udvidelsen indeholder backend-kode |
@@ -127,6 +127,8 @@ sender den første notifikation med det samme og holder resten tilbage i
 **grupperingsvinduet** i Indstillinger; det næste minut sendes det ophobede som
 ét sammendrag. Hver persons egne notifikationspræferencer afgør stadig klokke,
 e-mail eller en udvidelseskanal.
+
+Et klik på en grupperet notifikation i klokken åbner dens **detaljer** på stedet — den fulde oversigt og én chip pr. kort, der fører til det kort — fordi fanen Kørsler bag den er en administratorside; kun personer med `ext.automations.view` får desuden en **Åbn**-knap dertil. En notifikation om et enkelt kort fører stadig direkte til kortet. Hver automatiseringsnotifikation bruger sin egen række **Automatiseringsnotifikationer** i dine notifikationsindstillinger (i appen slået til, e-mail slået fra som standard), adskilt fra den generiske udvidelsesbesked.
 
 ## Skabeloner
 

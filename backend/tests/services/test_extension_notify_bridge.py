@@ -15,6 +15,7 @@ from app.config import settings
 from app.models.notification import Notification
 from app.models.user import NOTIFICATION_TYPE_SPECS_BY_KEY
 from app.services import notification_service
+from app.services.extensions import notification_types as nt
 from app.services.extensions import notify_bridge as bridge_mod
 from app.services.extensions.license import Entitlement, LicenseDocument
 from app.services.extensions.notify_bridge import ExtensionNotify
@@ -54,8 +55,26 @@ def load_registry(*, grants: list[str], enabled: bool = True) -> None:
 @pytest.fixture(autouse=True)
 def _registry_cleanup():
     extension_registry.clear()
+    nt.reset_types()
     yield
     extension_registry.clear()
+    nt.reset_types()
+
+
+TYPE_KEY = f"ext.{KEY}.notice"
+
+
+def declare_type(key: str = KEY, name: str = "notice", **spec) -> str:
+    """Register a manifest-declared type for ``key`` (SDK 1.11)."""
+    type_key = f"ext.{key}.{name}"
+    nt.register_manifest_types(
+        key,
+        {
+            "grants": ["core.notifications.send"],
+            "notifications": {"types": [{"key": type_key, "label": "Notices", **spec}]},
+        },
+    )
+    return type_key
 
 
 @pytest.fixture(autouse=True)
@@ -195,3 +214,97 @@ class TestSend:
         monkeypatch.setattr(bridge_mod.notification_service, "deliver_notification_batch", spy)
         await ExtensionNotify(KEY).send([str(env["a"].id)], title="x")
         assert calls == ["extension_notice"]
+
+
+class TestDeclaredTypes:
+    """SDK 1.11: ``type=`` names one of the extension's own manifest types."""
+
+    async def test_default_type_stays_extension_notice(self, db, env):
+        load_registry(grants=["core.notifications.send"])
+        declare_type()
+        await ExtensionNotify(KEY).send([str(env["a"].id)], title="Hi")
+        (row,) = await _rows(db)
+        assert row.type == "extension_notice"
+
+    async def test_declared_type_is_used(self, db, env):
+        load_registry(grants=["core.notifications.send"])
+        declare_type()
+        n = await ExtensionNotify(KEY).send([str(env["a"].id)], title="Hi", type=TYPE_KEY)
+        assert n == 1
+        (row,) = await _rows(db)
+        assert row.type == TYPE_KEY
+        assert row.data["ext"] == KEY
+
+    async def test_declared_type_honours_the_recipients_row(self, db, env):
+        load_registry(grants=["core.notifications.send"])
+        declare_type()
+        env["a"].notification_preferences = {"in_app": {TYPE_KEY: False}, "email": {}}
+        await db.flush()
+        n = await ExtensionNotify(KEY).send(
+            [str(env["a"].id), str(env["b"].id)], title="Hi", type=TYPE_KEY
+        )
+        assert n == 2  # addressed, but only b keeps a bell row
+        rows = await _rows(db)
+        assert [r.user_id for r in rows] == [env["b"].id]
+
+    async def test_undeclared_type_is_refused(self, db, env):
+        load_registry(grants=["core.notifications.send"])
+        with pytest.raises(ExtensionDataError, match="declare it under notifications.types"):
+            await ExtensionNotify(KEY).send([str(env["a"].id)], title="Hi", type=TYPE_KEY)
+        assert await _rows(db) == []
+
+    async def test_core_type_cannot_be_borrowed(self, db, env):
+        load_registry(grants=["core.notifications.send"])
+        declare_type()
+        with pytest.raises(ExtensionDataError):
+            await ExtensionNotify(KEY).send([str(env["a"].id)], title="Hi", type="card_assigned")
+
+    async def test_another_extensions_type_is_refused(self, db, env):
+        load_registry(grants=["core.notifications.send"])
+        declare_type()
+        other = declare_type(key="other-ext")
+        with pytest.raises(ExtensionDataError):
+            await ExtensionNotify(KEY).send([str(env["a"].id)], title="Hi", type=other)
+
+    async def test_lapsed_type_is_refused_with_the_send(self, db, env):
+        load_registry(grants=["core.notifications.send"], enabled=False)
+        declare_type()
+        with pytest.raises(ExtensionPermissionError):
+            await ExtensionNotify(KEY).send([str(env["a"].id)], title="Hi", type=TYPE_KEY)
+
+
+class TestDetailAndData:
+    async def test_detail_stamps_the_open_marker(self, db, env):
+        load_registry(grants=["core.notifications.send"])
+        await ExtensionNotify(KEY).send(
+            [str(env["a"].id)], title="Digest", data={"rule_id": "r1"}, detail=True
+        )
+        (row,) = await _rows(db)
+        assert row.data == {"rule_id": "r1", "ext": KEY, "open": "detail"}
+
+    async def test_without_detail_no_marker(self, db, env):
+        load_registry(grants=["core.notifications.send"])
+        await ExtensionNotify(KEY).send([str(env["a"].id)], title="One")
+        (row,) = await _rows(db)
+        assert "open" not in row.data
+
+    async def test_reserved_keys_are_cores_to_set(self, db, env):
+        load_registry(grants=["core.notifications.send"])
+        await ExtensionNotify(KEY).send(
+            [str(env["a"].id)], title="One", data={"ext": "impostor", "open": "detail"}
+        )
+        (row,) = await _rows(db)
+        assert row.data == {"ext": KEY}
+
+    async def test_oversized_data_is_refused(self, db, env):
+        load_registry(grants=["core.notifications.send"])
+        with pytest.raises(ExtensionDataError, match="bytes"):
+            await ExtensionNotify(KEY).send(
+                [str(env["a"].id)], title="Big", data={"blob": "x" * (16 * 1024)}
+            )
+        assert await _rows(db) == []
+
+    async def test_unserialisable_data_is_refused(self, db, env):
+        load_registry(grants=["core.notifications.send"])
+        with pytest.raises(ExtensionDataError, match="JSON"):
+            await ExtensionNotify(KEY).send([str(env["a"].id)], title="Odd", data={"when": {1, 2}})

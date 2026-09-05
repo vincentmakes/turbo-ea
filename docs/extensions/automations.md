@@ -18,7 +18,7 @@ click.
 | | |
 |---|---|
 | **Licence** | Commercial — a signed entitlement is required |
-| **Minimum Turbo EA version** | 2.126.0 |
+| **Minimum Turbo EA version** | 2.128.0 |
 | **Permissions** | `ext.automations.view`, `ext.automations.manage` |
 | **Data access grants** | Cards (read + write), card and todo events, todos (read + write), the user directory, risks (read + write), decision records, notifications, stakeholder roles |
 | **Backend restart needed** | Yes — it ships backend code |
@@ -123,6 +123,8 @@ one by one — an import touching three hundred cards — send the first
 notification at once and hold the rest for the **grouping window** in
 Settings; the next minute sends what accumulated as one digest. Each person's
 own notification preferences still decide bell, email or an extension channel.
+
+Clicking a grouped notification in the bell opens its **details** in place — the full digest and one chip per card that takes you to that card — because the Runs tab behind it is an admin page; only people with `ext.automations.view` also get an **Open** button to it. A single-card notification still takes you straight to the card. Every Automations notification uses its own **Automations notifications** row in your notification preferences (in-app on, email off by default), separate from the generic Extension notice.
 
 ## Templates
 

@@ -61,3 +61,5 @@ Email, and you choose per type whether it goes there. Those columns always start
 switched **off**. Disabling the extension or letting its licence lapse hides the
 column and pauses delivery, but keeps everything you chose — it all comes back if
 the extension does. [Slack Notifications](../extensions/slack-notify.md) is one such extension.
+
+An extension may also declare notification types of its own — **Automations notifications**, say — which appear here as their own rows with in-app on and email off by default, so you tune them separately from the generic **Extension notice** row. If the extension is disabled or its licence lapses, its rows disappear until it returns; what you chose is kept. Some extension notifications open their **details** in the app when you click them instead of taking you to a page: the full message, plus buttons to open the related card or the extension's own page when you are allowed to.

@@ -62,3 +62,5 @@ siden af «I appen» og «E-mail», og du vælger pr. type, om notifikationen se
 dertil. De kolonner starter altid **fra**. Deaktiveres udvidelsen, eller udløber
 dens licens, skjules kolonnen og leveringen sættes på pause, men alt hvad du
 valgte, bevares — det kommer tilbage sammen med udvidelsen. [Slack Notifications](../extensions/slack-notify.md) er en sådan udvidelse.
+
+En udvidelse kan også erklære sine egne notifikationstyper — f.eks. **Automatiseringsnotifikationer** — som vises her som egne rækker (i appen slået til, e-mail slået fra som standard), så du kan indstille dem adskilt fra den generiske række **Udvidelsesbesked**. Hvis udvidelsen deaktiveres eller dens licens udløber, forsvinder dens rækker, indtil den vender tilbage; dine valg bevares. Nogle udvidelsesnotifikationer åbner deres **detaljer** i appen, når du klikker på dem, i stedet for at føre dig til en side: den fulde besked plus knapper til at åbne det tilknyttede kort eller udvidelsens egen side, når du har adgang.

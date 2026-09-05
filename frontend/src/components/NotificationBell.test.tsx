@@ -22,8 +22,19 @@ vi.mock("@/api/client", () => ({
     patch: vi.fn().mockResolvedValue({}),
   },
 }));
+let streamHandler: ((event: Record<string, unknown>) => void) | null = null;
 vi.mock("@/hooks/useEventStream", () => ({
-  useEventStream: () => {},
+  useEventStream: (handler: (event: Record<string, unknown>) => void) => {
+    streamHandler = handler;
+  },
+}));
+vi.mock("@/components/NotificationDetailDialog", () => ({
+  default: ({ notification }: { notification: { title: string } }) => (
+    <div role="dialog">detail:{notification.title}</div>
+  ),
+}));
+vi.mock("@/hooks/AuthContext", () => ({
+  useAuthContext: () => ({ user: { id: "u1", permissions: {} }, refreshUser: async () => {} }),
 }));
 
 import { api } from "@/api/client";
@@ -304,3 +315,93 @@ describe("NotificationBell link handling", () => {
     );
   });
 });
+
+describe("NotificationBell detail dialog (SDK 1.11)", () => {
+  const detailNotif = (overrides: Record<string, unknown> = {}) => ({
+    id: "n1",
+    user_id: "u1",
+    type: "ext.rules.notice",
+    title: "notification n1",
+    message: "Billing, CRM",
+    link: "/ext/rules?tab=runs",
+    is_read: true,
+    data: { ext: "rules", open: "detail" },
+    created_at: new Date().toISOString(),
+    ...overrides,
+  });
+
+  beforeEach(() => {
+    navigate.mockClear();
+    vi.mocked(api.get).mockReset();
+    streamHandler = null;
+  });
+
+  async function openWith(item: Record<string, unknown>) {
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/notifications?")) {
+        return { items: [item], total: 1, page: 1, page_size: 20 };
+      }
+      return { count: 1 };
+    });
+    const user = userEvent.setup();
+    render(<NotificationBell userId="u1" />);
+    await user.click(bellButton());
+    return user;
+  }
+
+  it("opens the details dialog instead of following the link", async () => {
+    const user = await openWith(detailNotif());
+    await user.click(await screen.findByText("notification n1"));
+    expect(await screen.findByRole("dialog")).toHaveTextContent("detail:notification n1");
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("marks a detail row with the expand glyph and its own label", async () => {
+    await openWith(detailNotif());
+    expect(await screen.findByRole("img", { name: "opensDetails" })).toHaveTextContent(
+      "open_in_full",
+    );
+    expect(screen.queryByRole("img", { name: "opensExternally" })).toBeNull();
+  });
+
+  it("still navigates an extension notification that did not ask for details", async () => {
+    const user = await openWith(detailNotif({ data: { ext: "rules" }, link: "/cards/c1" }));
+    await user.click(await screen.findByText("notification n1"));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/cards/c1"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("keeps data and card_id on a row that arrives over the event stream", async () => {
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/notifications?")) {
+        return { items: [], total: 0, page: 1, page_size: 20 };
+      }
+      return { count: 0 };
+    });
+    const user = userEvent.setup();
+    render(<NotificationBell userId="u1" />);
+    // Open first: opening re-fetches the list, which would replace a row that
+    // arrived before it.
+    await user.click(bellButton());
+    await screen.findByText("noNotifications");
+    expect(streamHandler).not.toBeNull();
+    streamHandler?.({
+      event: "notification.created",
+      data: {
+        id: "live",
+        user_id: "u1",
+        type: "ext.rules.notice",
+        title: "notification live",
+        message: "",
+        link: "/ext/rules?tab=runs",
+        data: { ext: "rules", open: "detail" },
+        card_id: "c1",
+      },
+    });
+    await user.click(await screen.findByText("notification live"));
+    // The marker inside the nested payload is what opens the dialog.
+    expect(await screen.findByRole("dialog")).toHaveTextContent("detail:notification live");
+    expect(navigate).not.toHaveBeenCalled();
+  });
+});
+

@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.128.0] - 2026-09-05
+
+### Added
+
+- **Notification details in the bell.** An extension can now ask that a notification opens its **details** in the app instead of following its link — the full text, who sent it, and buttons to open the related card or the extension's own page that appear only for people allowed to go there. Useful for a grouped message whose link leads to an admin page most recipients cannot open. The real-time bell entry also carries the notification's full context the moment it arrives.
+- **Extension notification types with their own preferences rows** (extension SDK 1.11). An extension that may send notifications can declare up to five types of its own in its manifest, each labelled in your language and shown as its own row in **Notification preferences** (in-app on, email off by default), so you tune them separately from the generic *Extension notice*. If the extension is disabled or its licence lapses the rows disappear until it returns; what you chose is kept.
+
 ## [2.127.0] - 2026-09-05
 
 ### Added

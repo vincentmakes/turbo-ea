@@ -756,7 +756,10 @@ export type NotificationType =
   | "app_updated"
   | "extension_available"
   | "extension_update_available"
-  | "extension_notice";
+  | "extension_notice"
+  // An installed extension may declare types of its own (`ext.<key>.<name>`,
+  // backend SDK 1.11); keep the union open so the bell can carry them untouched.
+  | (string & {});
 
 export interface Notification {
   id: string;
@@ -823,6 +826,10 @@ export interface NotificationTypeSpec {
   in_app_only: boolean;
   /** Always mails: the email switch renders on and disabled. */
   email_locked: boolean;
+  /** Present on a row an extension declared: its label resolved server-side
+   *  for the viewer's locale (core has no i18n key for it), and the owner. */
+  label?: string;
+  extension_key?: string;
 }
 
 /** A notification channel an installed extension currently delivers on. */

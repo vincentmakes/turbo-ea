@@ -378,3 +378,151 @@ class TestDefaultsAreNotShared:
             headers=auth_headers(user),
         )
         assert DEFAULT_NOTIFICATION_PREFERENCES["in_app"]["card_updated"] is before
+
+
+# ---------------------------------------------------------------------------
+# SDK 1.11 — rows an extension declares in its manifest
+# ---------------------------------------------------------------------------
+
+EXT = "sample-rules"
+EXT_TYPE = "ext.sample-rules.notice"
+
+
+def _load_extension(*, licensed: bool = True) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from app.services.extensions import notification_types as nt
+    from app.services.extensions.license import Entitlement, LicenseDocument
+    from app.services.extensions.registry import ExtensionInfo, extension_registry
+
+    manifest = {
+        "grants": ["core.notifications.send"],
+        "notifications": {
+            "types": [
+                {
+                    "key": EXT_TYPE,
+                    "label": "Rule notices",
+                    "translations": {"de": "Regelhinweise"},
+                    "in_app_default": True,
+                    "email_default": False,
+                }
+            ]
+        },
+    }
+    extension_registry.clear()
+    nt.reset_types()
+    extension_registry.load_installed(
+        [
+            ExtensionInfo(
+                key=EXT,
+                name="Sample Rules",
+                version="1.0.0",
+                status="installed",
+                enabled=True,
+                manifest=manifest,
+            )
+        ]
+    )
+    if licensed:
+        extension_registry.set_license(
+            LicenseDocument(
+                licensee="ACME",
+                customer_id="cus_1",
+                issued_at=datetime.now(timezone.utc) - timedelta(days=1),
+                grace_days=30,
+                entitlements=[Entitlement(extension_key=EXT, expires_at=None)],
+            )
+        )
+    nt.register_manifest_types(EXT, manifest)
+
+
+def _unload_extension() -> None:
+    from app.services.extensions import notification_types as nt
+    from app.services.extensions.registry import extension_registry
+
+    extension_registry.clear()
+    nt.reset_types()
+
+
+class TestExtensionDeclaredTypes:
+    async def test_extension_types_are_appended_with_label_and_owner(self, client, db):
+        await create_role(db, key="member", permissions=MEMBER_PERMISSIONS)
+        user = await create_user(db, role="member")
+        _load_extension()
+        try:
+            resp = await client.get(
+                "/api/v1/users/me/notification-preferences", headers=auth_headers(user)
+            )
+        finally:
+            _unload_extension()
+        assert resp.status_code == 200
+        rows = resp.json()["types"]
+        assert rows[-1] == {
+            "key": EXT_TYPE,
+            "in_app_default": True,
+            "email_default": False,
+            "in_app_only": False,
+            "email_locked": False,
+            "label": "Rule notices",
+            "extension_key": EXT,
+        }
+        # Core's rows are untouched and still label-less (the frontend owns
+        # their i18n); only the extension row carries a label.
+        assert all("label" not in r for r in rows[:-1])
+        assert any(r["key"] == "extension_notice" for r in rows[:-1])
+
+    async def test_extension_type_label_follows_the_user_locale(self, client, db):
+        await create_role(db, key="member", permissions=MEMBER_PERMISSIONS)
+        user = await create_user(db, role="member")
+        user.locale = "de"
+        await db.flush()
+        _load_extension()
+        try:
+            resp = await client.get(
+                "/api/v1/users/me/notification-preferences", headers=auth_headers(user)
+            )
+        finally:
+            _unload_extension()
+        assert resp.json()["types"][-1]["label"] == "Regelhinweise"
+
+    async def test_lapsed_extension_drops_the_row_but_keeps_the_stored_choice(self, client, db):
+        await create_role(db, key="member", permissions=MEMBER_PERMISSIONS)
+        user = await create_user(db, role="member")
+        _load_extension()
+        try:
+            resp = await client.patch(
+                "/api/v1/users/me/notification-preferences",
+                json={"in_app": {EXT_TYPE: False}},
+                headers=auth_headers(user),
+            )
+            assert resp.json()["in_app"][EXT_TYPE] is False
+            _load_extension(licensed=False)
+            resp = await client.get(
+                "/api/v1/users/me/notification-preferences", headers=auth_headers(user)
+            )
+        finally:
+            _unload_extension()
+        data = resp.json()
+        assert EXT_TYPE not in [r["key"] for r in data["types"]]
+        assert data["in_app"][EXT_TYPE] is False
+
+    async def test_extension_type_inside_a_live_channel_is_kept(self, client, db, monkeypatch):
+        """Mirror of ``test_unknown_type_inside_a_live_channel_is_dropped``: a
+        declared, live type is a known type for the channel matrix too."""
+        await create_role(db, key="member", permissions=MEMBER_PERMISSIONS)
+        user = await create_user(db, role="member")
+        monkeypatch.setattr(
+            "app.services.extensions.notification_channels.registered_channel_keys",
+            lambda: ["chat"],
+        )
+        _load_extension()
+        try:
+            resp = await client.patch(
+                "/api/v1/users/me/notification-preferences",
+                json={"channels": {"chat": {EXT_TYPE: True, "ext.nobody.x": True}}},
+                headers=auth_headers(user),
+            )
+        finally:
+            _unload_extension()
+        assert resp.status_code == 200
+        assert resp.json()["channels"]["chat"] == {EXT_TYPE: True}

@@ -18,7 +18,7 @@ auditoria, pelo que uma regra que correu mal se desfaz com um clique.
 | | |
 |---|---|
 | **Licença** | Comercial — é necessária uma habilitação assinada |
-| **Versão mínima do Turbo EA** | 2.126.0 |
+| **Versão mínima do Turbo EA** | 2.128.0 |
 | **Permissões** | `ext.automations.view`, `ext.automations.manage` |
 | **Concessões de acesso a dados** | Cartões (leitura + escrita), eventos de cartão e de tarefa, tarefas (leitura + escrita), o diretório de utilizadores, riscos (leitura + escrita), registos de decisão, notificações, papéis de partes interessadas |
 | **Reinício do backend necessário** | Sim — a extensão traz código de backend |
@@ -130,6 +130,8 @@ enviam a primeira notificação de imediato e retêm as restantes durante a
 **janela de agrupamento** das Definições; no minuto seguinte, o que se acumulou
 é enviado como um único resumo. As preferências de notificação de cada pessoa
 continuam a decidir entre o sino, o e-mail ou um canal de extensão.
+
+Clicar numa notificação agrupada no sino abre os seus **detalhes** no próprio lugar — o resumo completo e um chip por ficha que leva a essa ficha —, porque o separador Execuções por trás dela é uma página de administração; só quem tem `ext.automations.view` recebe também um botão **Abrir** para lá. Uma notificação de uma só ficha continua a levá-lo diretamente à ficha. Cada notificação de automações usa a sua própria linha **Notificações de automações** nas suas preferências de notificação (na aplicação ligado, e-mail desligado por predefinição), separada do aviso de extensão genérico.
 
 ## Modelos
 

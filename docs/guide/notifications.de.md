@@ -63,3 +63,5 @@ eine eigene Spalte hinzu, und Sie wählen pro Typ, ob er dorthin geht. Diese
 Spalten sind immer zunächst **aus**. Wird die Erweiterung deaktiviert oder läuft
 ihre Lizenz ab, verschwindet die Spalte und die Zustellung pausiert — Ihre
 Einstellungen bleiben jedoch erhalten und kehren mit der Erweiterung zurück. [Slack Notifications](../extensions/slack-notify.md) ist eine solche Erweiterung.
+
+Eine Erweiterung kann außerdem eigene Benachrichtigungstypen deklarieren — etwa **Automatisierungs-Benachrichtigungen** —, die hier als eigene Zeilen erscheinen (In-App standardmäßig an, E-Mail aus), sodass Sie sie getrennt von der allgemeinen Zeile **Erweiterungshinweis** einstellen. Wird die Erweiterung deaktiviert oder läuft ihre Lizenz ab, verschwinden ihre Zeilen, bis sie zurückkehrt; Ihre Auswahl bleibt erhalten. Manche Erweiterungsbenachrichtigungen öffnen beim Klick ihre **Details** in der App statt zu einer Seite zu führen: die vollständige Nachricht sowie Schaltflächen, um die zugehörige Karte oder die Seite der Erweiterung zu öffnen, sofern Sie dazu berechtigt sind.
