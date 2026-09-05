@@ -839,8 +839,10 @@ async def run_extension_store_check_now(
     await PermissionService.require_permission(db, user, "admin.settings")
 
     from app.services.extension_store_check import (
+        deliver_digests,
         extension_notices_enabled,
         read_status,
+        record_notified,
         record_result,
     )
     from app.services.extensions.store_catalog import fetch_store_catalog_safe
@@ -862,8 +864,15 @@ async def run_extension_store_check_now(
     await db.commit()
     items, error = await fetch_store_catalog_safe(base_url)
 
-    created = await record_result(db, items=items, error=error)
+    digests = await record_result(db, items=items, error=error)
+    # Commit before delivering for the same reason as above: the send ends in
+    # an SMTP handshake per emailed administrator and must not sit on this
+    # request's pooled connection.
     await db.commit()
+    created = await deliver_digests(digests)
+    if created:
+        await record_notified(db, created)
+        await db.commit()
     status = await read_status(db)
 
     return {

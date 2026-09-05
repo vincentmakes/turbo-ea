@@ -25,6 +25,9 @@ import type { ReleaseNotesVariant } from "@/components/ReleaseNotesDialog";
 
 const ReleaseNotesDialog = lazy(() => import("@/components/ReleaseNotesDialog"));
 const NotificationDetailDialog = lazy(() => import("@/components/NotificationDetailDialog"));
+const ExtensionReleaseNotesDialog = lazy(
+  () => import("@/components/ExtensionReleaseNotesDialog"),
+);
 
 const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
   todo_assigned: { icon: "assignment_ind", color: NOTIFICATION_TYPE_COLORS.todo_assigned },
@@ -53,6 +56,9 @@ const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
     icon: "extension",
     color: NOTIFICATION_TYPE_COLORS.extension_update_available,
   },
+  // Opens its notes in a dialog rather than following its link — the link is
+  // the Store tab, which is only useful to an administrator.
+  extension_updated: { icon: "extension", color: NOTIFICATION_TYPE_COLORS.extension_updated },
   extension_notice: { icon: "smart_toy", color: NOTIFICATION_TYPE_COLORS.extension_notice },
   soaw_sign_recalled: { icon: "undo", color: NOTIFICATION_TYPE_COLORS.soaw_sign_recalled },
   soaw_rejected: { icon: "cancel", color: NOTIFICATION_TYPE_COLORS.soaw_rejected },
@@ -106,7 +112,7 @@ const DIALOG_TYPES: Record<string, ReleaseNotesVariant> = {
 };
 
 function opensInApp(notif: Notification): boolean {
-  return notif.type in DIALOG_TYPES;
+  return notif.type in DIALOG_TYPES || extensionNotesTarget(notif) !== null;
 }
 
 /** A notification that asked to be opened in-app rather than followed to its
@@ -117,6 +123,32 @@ function opensInApp(notif: Notification): boolean {
 function opensDetailDialog(notif: Notification): boolean {
   return notif.data?.open === "detail";
 }
+
+/** The extension release a row is about, when it is one.
+ *
+ *  Deliberately separate from `DIALOG_TYPES`: that map picks a flavour of the
+ *  *core* release-notes dialog, and an extension's notes come from a different
+ *  endpoint keyed on the extension. Older rows with no payload yield null and
+ *  fall through to the row's link. */
+function extensionNotesTarget(notif: Notification): OpenExtensionNotes | null {
+  if (notif.type !== "extension_updated") return null;
+  const key = readVersion(notif.data, "key");
+  const version = readVersion(notif.data, "to_version");
+  if (!key || !version) return null;
+  return {
+    extKey: key,
+    name: readVersion(notif.data, "name") ?? key,
+    version,
+    fromVersion: readVersion(notif.data, "from_version"),
+  };
+}
+
+type OpenExtensionNotes = {
+  extKey: string;
+  name: string;
+  version: string;
+  fromVersion?: string;
+};
 
 /** What the dialog needs to show *this* notification rather than the newest one. */
 type OpenReleaseNotes = {
@@ -195,6 +227,7 @@ export default function NotificationBell({
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [releaseNotes, setReleaseNotes] = useState<OpenReleaseNotes | null>(null);
+  const [extensionNotes, setExtensionNotes] = useState<OpenExtensionNotes | null>(null);
   const [detail, setDetail] = useState<Notification | null>(null);
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
@@ -297,6 +330,11 @@ export default function NotificationBell({
       }
     }
     handleClose();
+    const extTarget = extensionNotesTarget(notif);
+    if (extTarget) {
+      setExtensionNotes(extTarget);
+      return;
+    }
     if (opensInApp(notif)) {
       setReleaseNotes(releaseNotesTarget(notif));
       return;
@@ -490,6 +528,17 @@ export default function NotificationBell({
             notification={detail}
             onClose={() => setDetail(null)}
             onNavigate={navigate}
+          />
+        </Suspense>
+      )}
+      {extensionNotes && (
+        <Suspense fallback={null}>
+          <ExtensionReleaseNotesDialog
+            extKey={extensionNotes.extKey}
+            name={extensionNotes.name}
+            version={extensionNotes.version}
+            fromVersion={extensionNotes.fromVersion}
+            onClose={() => setExtensionNotes(null)}
           />
         </Suspense>
       )}

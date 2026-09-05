@@ -15,6 +15,7 @@
   "releaseNotes.empty": "Per questa versione non sono state pubblicate note di rilascio.",
   "releaseNotes.loadFailed": "Impossibile caricare le note di rilascio",
   "releaseNotes.installedTitle": "Novità di {{app}} {{version}}",
+  "releaseNotes.extensionTitle": "Novità di {{name}} {{version}}",
   "releaseNotes.updatedFrom": "Aggiornato dalla versione {{version}}",
   "releaseNotes.alreadyInstalled": "Già installata",
   "releaseNotes.unavailableForVersion": "Le note di rilascio per {{version}} non sono disponibili su questa istanza.",
@@ -51,5 +52,6 @@
   "preferences.appUpdated": "Applicazione aggiornata",
   "preferences.extensionAvailable": "Nuova estensione disponibile",
   "preferences.extensionUpdateAvailable": "Aggiornamento estensione disponibile",
+  "preferences.extensionUpdated": "Estensione aggiornata",
   "preferences.extensionNotice": "Avviso di un’estensione"
 }

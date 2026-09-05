@@ -5298,6 +5298,46 @@
         "title": "ExtensionInstallOut",
         "type": "object"
       },
+      "ExtensionNotesOut": {
+        "description": "Resolved release notes for one extension version.",
+        "properties": {
+          "from_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Version"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "notes": {
+            "title": "Notes",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "version",
+          "notes",
+          "source"
+        ],
+        "title": "ExtensionNotesOut",
+        "type": "object"
+      },
       "ExtensionNoticesEnabledPayload": {
         "properties": {
           "enabled": {
@@ -16901,6 +16941,74 @@
         ]
       }
     },
+    "/api/v1/admin/extensions/store/changelog/{key}": {
+      "get": {
+        "description": "What changed between the installed version and the one being offered.\n\nRead before applying an update, so the administrator decides on what the\nrelease actually contains rather than on a version number. Prefers the\nstore's published feed \u2014 it covers every listed extension, including those\nwhose bundle predates per-extension changelogs \u2014 and falls back to the\ninstalled bundle so an air-gapped instance still gets an answer.",
+        "operationId": "store_changelog_api_v1_admin_extensions_store_changelog__key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from_version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionNotesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Store Changelog",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
     "/api/v1/admin/extensions/store/claim": {
       "post": {
         "description": "Poll the store for the license of a just-completed purchase.\n\nThe Buy button generated ``token`` client-side and attached it to the\nStripe Payment Link as ``client_reference_id``; the store looks the\ncompleted checkout up by it and returns the issued license, which is\nverified against the trusted vendor keys before being applied \u2014 the\nexact same gate as a manual paste. ``pending`` means the checkout has\nnot completed yet (the frontend keeps polling).",
@@ -25465,6 +25573,74 @@
           }
         },
         "summary": "Ui Manifest",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
+    "/api/v1/extensions/{key}/release-notes": {
+      "get": {
+        "description": "What changed in an extension release, for the person who was told about it.\n\nAuthenticated but **not** permission-gated, exactly as ``/settings/whats-new``\nis: everyone who receives the \"extension updated\" notification has to be\nable to read what changed, and a changelog is not privileged information \u2014\nthe same text is on the vendor's public store page.\n\nPrefers the installed bundle: this describes a release that has *landed on\nthis instance*, so the bytes on disk are the authority, not whatever the\ncatalogue has moved on to since.",
+        "operationId": "extension_release_notes_api_v1_extensions__key__release_notes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from_version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionNotesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Extension Release Notes",
         "tags": [
           "Extensions"
         ]

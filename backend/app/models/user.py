@@ -93,6 +93,11 @@ NOTIFICATION_TYPE_SPECS: tuple[NotificationTypeSpec, ...] = (
     NotificationTypeSpec("app_updated", in_app_only=True),
     NotificationTypeSpec("extension_available"),
     NotificationTypeSpec("extension_update_available"),
+    # An installed extension was updated, announced to the people who can use
+    # it. ``in_app_only`` for the same reason as ``app_updated`` above: this
+    # fans out to a large share of active users, so any outbound channel would
+    # turn a routine extension update into a mass mailing.
+    NotificationTypeSpec("extension_updated", in_app_only=True),
     # A message an installed extension sends to named people through the
     # SDK notification bridge — "a rule you set up fired", "a sync needs
     # your attention". One generic type on purpose: core owns the registry

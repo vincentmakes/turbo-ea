@@ -15,6 +15,7 @@
   "releaseNotes.empty": "Для этой версии заметки о выпуске не публиковались.",
   "releaseNotes.loadFailed": "Не удалось загрузить заметки о выпуске",
   "releaseNotes.installedTitle": "Что нового в {{app}} {{version}}",
+  "releaseNotes.extensionTitle": "Что нового в {{name}} {{version}}",
   "releaseNotes.updatedFrom": "Обновлено с версии {{version}}",
   "releaseNotes.alreadyInstalled": "Уже установлена",
   "releaseNotes.unavailableForVersion": "Заметки о выпуске {{version}} недоступны в этом экземпляре.",
@@ -51,5 +52,6 @@
   "preferences.appUpdated": "Приложение обновлено",
   "preferences.extensionAvailable": "Доступно новое расширение",
   "preferences.extensionUpdateAvailable": "Доступно обновление расширения",
+  "preferences.extensionUpdated": "Расширение обновлено",
   "preferences.extensionNotice": "Уведомление расширения"
 }

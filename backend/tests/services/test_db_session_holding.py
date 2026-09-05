@@ -106,6 +106,15 @@ class TestCallAiTakesNoSession:
             "run_extension_store_check",
             "fetch_store_catalog_safe(",
         ),
+        # Delivering the digests ends in an SMTP connect/TLS/auth handshake per
+        # emailed administrator. It used to run inside ``record_result`` with
+        # the settings transaction open, which is a write transaction holding
+        # one of DB_POOL_SIZE + DB_MAX_OVERFLOW for the length of the send.
+        (
+            "app/services/extension_store_check.py",
+            "run_extension_store_check",
+            "deliver_digests(",
+        ),
     ],
 )
 def test_parse_happens_outside_any_session_block(module: str, func: str, slow_call: str):
@@ -157,6 +166,16 @@ def test_manual_store_check_releases_the_request_session_first():
     )
     write_at = body.find("await record_result(")
     assert fetch_at < write_at, "the writes must come after the fetch, on a fresh transaction"
+
+    # Same rule one step later: the digests are delivered over SMTP, so the
+    # request's connection must be handed back again before the send.
+    deliver_at = body.find("await deliver_digests(")
+    assert deliver_at != -1, "the endpoint must deliver the digests it recorded"
+    assert body.rfind("await db.commit()", 0, deliver_at) > write_at, (
+        "run_extension_store_check_now must `await db.commit()` between recording "
+        "and delivering — delivery is an SMTP round-trip per emailed admin and "
+        "must not sit on this request's pooled connection."
+    )
 
 
 def test_eol_card_status_releases_the_request_session_first():

@@ -15,6 +15,7 @@
   "releaseNotes.empty": "No release notes were published for this version.",
   "releaseNotes.loadFailed": "Could not load the release notes",
   "releaseNotes.installedTitle": "What's new in {{app}} {{version}}",
+  "releaseNotes.extensionTitle": "What's new in {{name}} {{version}}",
   "releaseNotes.updatedFrom": "Updated from {{version}}",
   "releaseNotes.alreadyInstalled": "Already installed",
   "releaseNotes.unavailableForVersion": "Release notes for {{version}} are not available on this instance.",
@@ -51,5 +52,6 @@
   "preferences.appUpdated": "App Updated",
   "preferences.extensionAvailable": "New Extension Available",
   "preferences.extensionUpdateAvailable": "Extension Update Available",
+  "preferences.extensionUpdated": "Extension Updated",
   "preferences.extensionNotice": "Extension Notice"
 }

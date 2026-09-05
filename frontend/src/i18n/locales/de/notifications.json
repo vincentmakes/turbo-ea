@@ -15,6 +15,7 @@
   "releaseNotes.empty": "Für diese Version wurden keine Release Notes veröffentlicht.",
   "releaseNotes.loadFailed": "Release Notes konnten nicht geladen werden",
   "releaseNotes.installedTitle": "Neu in {{app}} {{version}}",
+  "releaseNotes.extensionTitle": "Neues in {{name}} {{version}}",
   "releaseNotes.updatedFrom": "Aktualisiert von {{version}}",
   "releaseNotes.alreadyInstalled": "Bereits installiert",
   "releaseNotes.unavailableForVersion": "Für {{version}} sind auf dieser Instanz keine Release Notes verfügbar.",
@@ -51,5 +52,6 @@
   "preferences.appUpdated": "App aktualisiert",
   "preferences.extensionAvailable": "Neue Erweiterung verfügbar",
   "preferences.extensionUpdateAvailable": "Erweiterungs-Update verfügbar",
+  "preferences.extensionUpdated": "Erweiterung aktualisiert",
   "preferences.extensionNotice": "Erweiterungshinweis"
 }

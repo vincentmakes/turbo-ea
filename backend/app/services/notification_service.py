@@ -231,7 +231,7 @@ async def deliver_notification_batch(
     *,
     notif_type: str,
     actor_id: uuid.UUID | None = None,
-) -> None:
+) -> int:
     """Create and deliver a batch of notifications from a background task.
 
     ``create_notification`` holds the caller's session open across an SMTP
@@ -255,10 +255,16 @@ async def deliver_notification_batch(
     email_items?, email_items_title?}``. The ``email_items`` pair is emailed
     only — a bell entry stays a one-liner, while the email can afford to name
     what the notification covers.
+
+    Returns the number of in-app rows actually created — recipients who muted
+    the type in their bell yield no row and are not counted. Callers that only
+    schedule the batch ignore it; a caller that reports "notified N people"
+    needs it, and counting here is the only place the answer is known.
     """
     from app.database import async_session
     from app.services.email_service import send_notification_email
 
+    created = 0
     try:
         emails: list[tuple[uuid.UUID | None, str, dict[str, Any]]] = []
         async with async_session() as db:
@@ -278,6 +284,8 @@ async def deliver_notification_batch(
                     actor_id=actor_id,
                     send_email=False,
                 )
+                if notif is not None:
+                    created += 1
                 recipient = users.get(r["user_id"])
                 # Not gated on ``notif``: a recipient who muted this type in
                 # the bell but kept it in their inbox still gets the email,
@@ -316,6 +324,7 @@ async def deliver_notification_batch(
                 await db.commit()
     except Exception:
         logger.exception("Notification batch delivery failed (%s recipients)", len(recipients))
+    return created
 
 
 async def notify_all_users(

@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.129.0] - 2026-09-05
+
+### Added
+
+- **Updating an extension now shows you what is in the release first.** Clicking Update opens the extension's release notes with Install and Cancel, so the decision is made against what actually changed rather than a version number. Cancelling discards the download and leaves nothing behind. Installing an extension for the first time is unchanged — there is nothing to compare it against — and a manual bundle upload shows the same notes on its preview screen, which for an extension that ships no content was previously blank.
+- **People are told when an extension they use has been updated, and can read what changed.** A new *Extension Updated* notification goes to everyone whose role grants one of that extension's permissions, or to everyone when it defines none — a content pack's card types and fields are simply part of the inventory. Clicking it opens the release notes in the app. It is on by default in the notification bell and, like the notification for a Turbo EA upgrade, never sent by email: an extension update reaches enough people that emailing it would be a mass mailing. Mute it per person under notification preferences.
+
+### Changed
+
+- **The Governance & Automation section moved up the Extension Store**, directly below Strategy, Planning & Transformation. Nothing changed about which extensions are in it.
+
+### Fixed
+
+- **The daily extension-store check no longer holds a database connection while it sends email.** Each administrator who had opted into email for store notices cost one mail-server round trip with the connection still checked out, which on a busy instance could starve other requests. The notifications are identical; only the plumbing changed.
+
 ## [2.128.1] - 2026-09-05
 
 ### Security
