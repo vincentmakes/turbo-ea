@@ -37,7 +37,6 @@ from app.schemas.risk import (
     RiskUpdate,
 )
 from app.services import notification_service
-from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.risk_service import (
     _REFERENCE_RE,
@@ -48,10 +47,16 @@ from app.services.risk_service import (
     compute_metrics,
     derive_level,
     link_cards,
-    next_reference,
+    linked_card_ids,
     promote_compliance_finding,
+    publish_risk_event,
+    risk_link,
     risk_to_dict,
+    sync_owner_todo,
     validate_status_transition,
+)
+from app.services.risk_service import (
+    create_risk as create_risk_row,
 )
 from app.services.search_rank import rank_text, search_filter
 
@@ -89,131 +94,6 @@ def _parse_card_ids(raw: list[str]) -> list[uuid.UUID]:
             # Silently skip — the UI can send stale ids after a refresh.
             continue
     return out
-
-
-def _risk_link(risk: Risk) -> str:
-    return f"/ea-delivery/risks/{risk.id}"
-
-
-async def _linked_card_ids(db: AsyncSession, risk_id: uuid.UUID) -> list[uuid.UUID]:
-    res = await db.execute(select(RiskCard.card_id).where(RiskCard.risk_id == risk_id))
-    return [cid for (cid,) in res.all()]
-
-
-def _risk_summary(risk: Risk) -> str:
-    level = (risk.residual_level or risk.initial_level or "").lower()
-    parts = [risk.reference]
-    if level:
-        parts.append(level.capitalize())
-    parts.append(risk.title or "")
-    return " · ".join(p for p in parts if p)
-
-
-async def _publish_risk_event(
-    db: AsyncSession,
-    risk: Risk,
-    event_type: str,
-    card_ids: list[uuid.UUID],
-    *,
-    actor_id: uuid.UUID,
-    extra: dict | None = None,
-) -> None:
-    """Fan-out a risk-related event to every affected card so the
-    register changes show up in the per-card history timeline."""
-    if not card_ids:
-        return
-    payload: dict = {
-        "risk_id": str(risk.id),
-        "reference": risk.reference,
-        "title": risk.title,
-        "level": risk.residual_level or risk.initial_level,
-        "status": risk.status,
-        "category": risk.category,
-        "link": _risk_link(risk),
-        "summary": _risk_summary(risk),
-    }
-    if extra:
-        payload.update(extra)
-    for cid in card_ids:
-        await event_bus.publish(
-            event_type,
-            payload,
-            db=db,
-            card_id=cid,
-            user_id=actor_id,
-        )
-
-
-async def sync_owner_todo(
-    db: AsyncSession,
-    risk: Risk,
-    *,
-    actor_id: uuid.UUID,
-    previous_owner: uuid.UUID | None,
-) -> None:
-    """Mirror the PPM task pattern: keep a single ``is_system`` Todo on
-    the current owner and fire a notification when the owner changes.
-
-    * Owner assigned (new or changed) → create/update a Todo + notify.
-    * Owner cleared → delete the existing system Todo. No notification.
-    * Idempotent: the Todo's ``link`` doubles as its identity.
-    """
-    link = _risk_link(risk)
-    existing_res = await db.execute(select(Todo).where(Todo.link == link, Todo.is_system.is_(True)))
-    existing = existing_res.scalar_one_or_none()
-
-    if risk.owner_id is None:
-        if existing is not None:
-            await db.delete(existing)
-        return
-
-    description = f"[Risk {risk.reference}] {risk.title}"
-    if existing is not None:
-        existing.assigned_to = risk.owner_id
-        existing.description = description
-        existing.due_date = risk.target_resolution_date
-        # Keep status linked to risk lifecycle so closed risks don't
-        # leave zombie todos on the owner's list.
-        existing.status = (
-            "done" if risk.status in ("mitigated", "monitoring", "accepted", "closed") else "open"
-        )
-    else:
-        db.add(
-            Todo(
-                id=uuid.uuid4(),
-                card_id=None,
-                description=description,
-                status="open",
-                link=link,
-                is_system=True,
-                assigned_to=risk.owner_id,
-                created_by=actor_id,
-                due_date=risk.target_resolution_date,
-            )
-        )
-
-    # Notification — fires whenever the owner actually changes, including
-    # self-assignment, so the bell mirrors the expectation set by other
-    # assignment flows. notification_service whitelists "risk_assigned"
-    # for the self-notify case.
-    if risk.owner_id != previous_owner:
-        try:
-            await notification_service.create_notification(
-                db,
-                user_id=risk.owner_id,
-                notif_type="risk_assigned",
-                title=f"Risk {risk.reference} assigned to you",
-                message=risk.title[:200],
-                link=link,
-                data={
-                    "risk_id": str(risk.id),
-                    "reference": risk.reference,
-                    "level": risk.residual_level or risk.initial_level,
-                },
-                actor_id=actor_id,
-            )
-        except Exception:  # noqa: BLE001
-            logger.exception("Risk-assignment notification failed")
 
 
 # ---------------------------------------------------------------------------
@@ -435,32 +315,20 @@ async def create_risk(
         except ValueError as exc:
             raise HTTPException(400, "Invalid owner_id") from exc
 
-    risk = Risk(
-        id=uuid.uuid4(),
-        reference=await next_reference(db),
+    risk = await create_risk_row(
+        db,
         title=body.title,
         description=body.description or "",
         category=body.category,
-        source_type="manual",
-        source_ref=None,
         initial_probability=body.initial_probability,
         initial_impact=body.initial_impact,
-        initial_level=derive_level(body.initial_probability, body.initial_impact) or "medium",
         owner_id=owner_uid,
         target_resolution_date=body.target_resolution_date,
-        status="identified",
-        created_by=user.id,
+        card_ids=_parse_card_ids(body.card_ids) if body.card_ids else None,
+        source_type="manual",
+        source_ref=None,
+        actor_id=user.id,
     )
-    db.add(risk)
-    await db.flush()
-
-    if body.card_ids:
-        await link_cards(db, risk.id, _parse_card_ids(body.card_ids))
-
-    await sync_owner_todo(db, risk, actor_id=user.id, previous_owner=None)
-
-    linked = await _linked_card_ids(db, risk.id)
-    await _publish_risk_event(db, risk, "risk.added", linked, actor_id=user.id)
 
     await db.commit()
     await db.refresh(risk)
@@ -639,8 +507,8 @@ async def bulk_import_risks(
 
             if not body.dry_run:
                 await sync_owner_todo(db, risk, actor_id=user.id, previous_owner=None)
-                linked = await _linked_card_ids(db, risk.id)
-                await _publish_risk_event(db, risk, "risk.added", linked, actor_id=user.id)
+                linked = await linked_card_ids(db, risk.id)
+                await publish_risk_event(db, risk, "risk.added", linked, actor_id=user.id)
 
             await row_savepoint.commit()
             created_count += 1
@@ -791,8 +659,8 @@ async def update_risk(
         await propagate_risk_to_findings(db, risk, actor_user_id=user.id)
 
     if data:
-        linked = await _linked_card_ids(db, risk.id)
-        await _publish_risk_event(
+        linked = await linked_card_ids(db, risk.id)
+        await publish_risk_event(
             db,
             risk,
             "risk.updated",
@@ -842,10 +710,10 @@ async def delete_risk(
 ) -> dict[str, bool]:
     await PermissionService.require_permission(db, user, "risks.manage")
     risk = await _load_risk(db, risk_id)
-    link = _risk_link(risk)
+    link = risk_link(risk)
     # Capture linked cards before cascade-delete wipes the junction rows.
-    linked = await _linked_card_ids(db, risk.id)
-    await _publish_risk_event(db, risk, "risk.removed", linked, actor_id=user.id)
+    linked = await linked_card_ids(db, risk.id)
+    await publish_risk_event(db, risk, "risk.removed", linked, actor_id=user.id)
     # Re-open any Compliance findings linked to this Risk so the owner
     # re-decides what to do. Must run before the deletion (and the FK
     # SET NULL) so the propagator can still see the linkage.
@@ -881,11 +749,11 @@ async def link_risk_cards(
             "Risk is closed and read-only. Reopen it first to link cards.",
         )
     requested = _parse_card_ids(body.card_ids)
-    existing = set(await _linked_card_ids(db, risk.id))
+    existing = set(await linked_card_ids(db, risk.id))
     await link_cards(db, risk.id, requested, body.role)
     # Re-query to get the actually-inserted set (link_cards skips invalid ids).
-    new_links = [cid for cid in await _linked_card_ids(db, risk.id) if cid not in existing]
-    await _publish_risk_event(db, risk, "risk.added", new_links, actor_id=user.id)
+    new_links = [cid for cid in await linked_card_ids(db, risk.id) if cid not in existing]
+    await publish_risk_event(db, risk, "risk.added", new_links, actor_id=user.id)
     await db.commit()
     await db.refresh(risk)
     return RiskOut.model_validate(await risk_to_dict(db, risk))
@@ -917,7 +785,7 @@ async def unlink_risk_card(
     link_row = existing_res.scalar_one_or_none()
     if link_row is not None:
         await db.delete(link_row)
-        await _publish_risk_event(db, risk, "risk.removed", [cid], actor_id=user.id)
+        await publish_risk_event(db, risk, "risk.removed", [cid], actor_id=user.id)
     await db.commit()
     await db.refresh(risk)
     return RiskOut.model_validate(await risk_to_dict(db, risk))
@@ -960,8 +828,8 @@ async def promote_compliance(
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
     await sync_owner_todo(db, risk, actor_id=user.id, previous_owner=None)
-    linked = await _linked_card_ids(db, risk.id)
-    await _publish_risk_event(
+    linked = await linked_card_ids(db, risk.id)
+    await publish_risk_event(
         db, risk, "risk.added", linked, actor_id=user.id, extra={"promoted_from": "compliance"}
     )
     await db.commit()

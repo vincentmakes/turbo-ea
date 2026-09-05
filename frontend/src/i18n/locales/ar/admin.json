@@ -1943,6 +1943,7 @@
   "extensions.store.category.strategy": "الاستراتيجية والتخطيط والتحول",
   "extensions.store.category.integrations": "التكاملات",
   "extensions.store.category.regulations": "اللوائح التنظيمية",
+  "extensions.store.category.governance": "الحوكمة والأتمتة",
   "extensions.store.category.other": "أخرى",
   "extensions.store.installedChip": "مثبَّت {{version}}",
   "extensions.store.licensed": "مرخَّص",

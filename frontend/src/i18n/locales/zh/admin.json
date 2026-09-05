@@ -1943,6 +1943,7 @@
   "extensions.store.category.strategy": "战略、规划与转型",
   "extensions.store.category.integrations": "集成",
   "extensions.store.category.regulations": "法规",
+  "extensions.store.category.governance": "治理与自动化",
   "extensions.store.category.other": "其他",
   "extensions.store.installedChip": "已安装 {{version}}",
   "extensions.store.licensed": "已授权",

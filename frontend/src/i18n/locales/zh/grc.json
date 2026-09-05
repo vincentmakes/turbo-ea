@@ -128,6 +128,7 @@
   "risks.status.closed": "已关闭",
   "risks.source.manual": "手动",
   "risks.source.compliance": "合规扫描",
+  "risks.source.extension": "扩展",
   "risks.section.identification": "识别",
   "risks.section.assessment": "初始评估",
   "risks.section.cards": "受影响的卡片",

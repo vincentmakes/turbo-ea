@@ -24,7 +24,9 @@ from app.services.extensions.adr_bridge import ExtensionDecisions
 from app.services.extensions.cron import CronError, next_fire, validate_cron
 from app.services.extensions.data_service import ExtensionData
 from app.services.extensions.loader import LoadReport
+from app.services.extensions.notify_bridge import ExtensionNotify
 from app.services.extensions.registry import extension_registry
+from app.services.extensions.risks_bridge import ExtensionRisks
 from app.services.extensions.sdk import ExtensionContext, ExtensionJob
 from app.services.extensions.todos_bridge import ExtensionTodos
 from app.services.extensions.users_bridge import ExtensionUsers
@@ -47,7 +49,7 @@ def build_context(key: str) -> ExtensionContext:
     """Runtime services for one extension: sessions, logging, namespaced
     settings persisted under ``app_settings.general_settings["ext.{key}.*"]``,
     encrypted secrets under ``ext.{key}.secret.*``, and the core-data
-    bridges (todos, users). Memoized per key (see ``_contexts``)."""
+    bridges (todos, users, data, decisions, risks, notify). Memoized per key (see ``_contexts``)."""
 
     cached = _contexts.get(key)
     if cached is not None:
@@ -145,6 +147,8 @@ def build_context(key: str) -> ExtensionContext:
         set_settings=set_settings,
         data=ExtensionData(key),
         decisions=ExtensionDecisions(key),
+        risks=ExtensionRisks(key),
+        notify=ExtensionNotify(key),
     )
     _contexts[key] = ctx
     return ctx

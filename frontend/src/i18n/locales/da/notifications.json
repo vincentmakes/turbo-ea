@@ -46,5 +46,6 @@
   "preferences.appUpdateAvailable": "Opdatering tilgængelig",
   "preferences.appUpdated": "Appen er opdateret",
   "preferences.extensionAvailable": "Ny udvidelse tilgængelig",
-  "preferences.extensionUpdateAvailable": "Udvidelsesopdatering tilgængelig"
+  "preferences.extensionUpdateAvailable": "Udvidelsesopdatering tilgængelig",
+  "preferences.extensionNotice": "Udvidelsesbesked"
 }

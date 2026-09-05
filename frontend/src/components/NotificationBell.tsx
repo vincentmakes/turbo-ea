@@ -52,6 +52,7 @@ const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
     icon: "extension",
     color: NOTIFICATION_TYPE_COLORS.extension_update_available,
   },
+  extension_notice: { icon: "smart_toy", color: NOTIFICATION_TYPE_COLORS.extension_notice },
   soaw_sign_recalled: { icon: "undo", color: NOTIFICATION_TYPE_COLORS.soaw_sign_recalled },
   soaw_rejected: { icon: "cancel", color: NOTIFICATION_TYPE_COLORS.soaw_rejected },
   adr_sign_requested: { icon: "draw", color: NOTIFICATION_TYPE_COLORS.adr_sign_requested },

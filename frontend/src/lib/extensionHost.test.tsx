@@ -451,13 +451,14 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.27");
+    expect(UI_SDK_VERSION).toBe("1.28");
   });
 
   it("whitelists the nav groups an extension route may request", () => {
-    // A route can only land in a sanctioned core menu — never admin or an
-    // arbitrary one. Extend deliberately; this pins the current set.
-    expect([...EXTENSION_NAV_GROUPS]).toEqual(["reports", "grc"]);
+    // A route can only land in a sanctioned core menu — never an arbitrary
+    // one. Extend deliberately; this pins the current set. `admin` is the
+    // user menu's Admin section, not a top-bar dropdown.
+    expect([...EXTENSION_NAV_GROUPS]).toEqual(["reports", "grc", "admin"]);
   });
 
   it("returns routes for the grc nav group independently of reports", () => {

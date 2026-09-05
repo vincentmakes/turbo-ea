@@ -146,14 +146,21 @@ import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.27";
+export const UI_SDK_VERSION = "1.28";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
  * default top-level nav entry). Whitelisted on purpose so an extension can only
- * land in sanctioned menus (never admin/arbitrary ones); extend deliberately.
+ * land in sanctioned menus, never an arbitrary one; extend deliberately.
+ *
+ * `reports` and `grc` are top-bar dropdowns. `admin` (UI SDK 1.28) is the
+ * Admin section of the user menu and the mobile drawer — the home for an
+ * extension page that configures something rather than showing it, so it sits
+ * beside Metamodel and Settings instead of claiming a top-bar icon every user
+ * sees. It is gated by the route's own `permission` only: an extension decides
+ * who may open its page, core decides where the entry lives.
  */
-export const EXTENSION_NAV_GROUPS = ["reports", "grc"] as const;
+export const EXTENSION_NAV_GROUPS = ["reports", "grc", "admin"] as const;
 export type ExtensionNavGroup = (typeof EXTENSION_NAV_GROUPS)[number];
 
 export interface ExtensionRouteContribution {
@@ -164,9 +171,10 @@ export interface ExtensionRouteContribution {
   permission?: string;
   component: React.ComponentType;
   // Optional placement hint: render this route's nav entry inside a core menu
-  // group (e.g. "reports") rather than as a top-level item. The route path and
-  // rendering are unchanged — only where the menu entry appears. Omit for the
-  // current top-level behaviour. An unrecognised value shows nowhere in the nav.
+  // group (e.g. "reports", or "admin" for the user menu's Admin section) rather
+  // than as a top-level item. The route path and rendering are unchanged — only
+  // where the menu entry appears. Omit for the current top-level behaviour. An
+  // unrecognised value shows nowhere in the nav.
   navGroup?: ExtensionNavGroup;
   // Optional placement hint for a TOP-LEVEL entry: where in the bar it sits.
   // `start` / `end` / `before:<anchor>` / `after:<anchor>`, anchors being the

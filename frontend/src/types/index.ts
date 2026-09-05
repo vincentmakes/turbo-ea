@@ -755,7 +755,8 @@ export type NotificationType =
   | "app_update_available"
   | "app_updated"
   | "extension_available"
-  | "extension_update_available";
+  | "extension_update_available"
+  | "extension_notice";
 
 export interface Notification {
   id: string;
@@ -2107,7 +2108,7 @@ export type RiskCategory =
   | "reputational"
   | "strategic";
 
-export type RiskSourceType = "manual" | "compliance";
+export type RiskSourceType = "manual" | "compliance" | "extension";
 
 export type RiskLevel = "critical" | "high" | "medium" | "low";
 

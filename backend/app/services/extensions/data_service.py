@@ -57,7 +57,15 @@ from app.models.mutation_batch import MutationBatch
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
-from app.services import card_lifecycle, card_write_service, mutation_batch_service
+from app.models.tag import Tag, TagGroup
+from app.models.user import User
+from app.services import (
+    card_lifecycle,
+    card_write_service,
+    mutation_batch_service,
+    stakeholder_service,
+    tag_service,
+)
 from app.services.card_write_service import WriteActor
 from app.services.event_bus import request_batch_id, request_origin
 from app.services.extensions.registry import extension_registry
@@ -74,6 +82,10 @@ from app.services.search_rank import search_filter, search_rank
 
 READ_GRANTS = frozenset({"core.cards.read", "core.cards.write"})
 WRITE_GRANT = "core.cards.write"
+# SDK 1.9 — its own grant because a stakeholder role confers permissions on
+# the card: an extension that may enrich attributes should not thereby be
+# able to hand someone `card.edit` on every card it touches.
+STAKEHOLDER_WRITE_GRANT = "core.stakeholders.write"
 
 MAX_PAGE_SIZE = 500
 # Ids one batch read may carry (SDK 1.8) — the same figure as a search page
@@ -114,6 +126,28 @@ _RATE_WINDOW_SECONDS = 60.0
 def reset_rate_limiter() -> None:
     """Test helper — drop the sliding-window state."""
     _batch_times.clear()
+
+
+def active_batch_id() -> uuid.UUID | None:
+    """The ``ctx.data.batch(label)`` scope the current task is inside, if
+    any. SDK 1.9: the other write bridges (todos, decisions, risks) join it
+    instead of opening a batch of their own, so one rule run — a card
+    update, a risk, a todo — is ONE row in the Audit Log with one Rollback."""
+    active = _active_batch.get()
+    return active.id if active is not None else None
+
+
+def count_write_in_active_batch() -> None:
+    """Charge one write against the open batch's per-batch cap."""
+    active = _active_batch.get()
+    if active is None:
+        return
+    active.writes += 1
+    if active.writes > settings.EXTENSION_MAX_WRITES_PER_BATCH:
+        raise ExtensionDataError(
+            f"Batch {active.label!r} exceeded the per-batch write cap "
+            f"({settings.EXTENSION_MAX_WRITES_PER_BATCH})"
+        )
 
 
 def _parse_uuid(value: str, what: str) -> uuid.UUID:
@@ -227,6 +261,13 @@ class ExtensionData:
             needed = WRITE_GRANT if write else "core.cards.read"
             raise ExtensionPermissionError(
                 f"Extension {self._key} requires the {needed} grant "
+                "(and an enabled, licensed install) for this call"
+            )
+
+    def _require_grant(self, grant: str) -> None:
+        if grant not in set(extension_registry.grants_for(self._key)):
+            raise ExtensionPermissionError(
+                f"Extension {self._key} requires the {grant} grant "
                 "(and an enabled, licensed install) for this call"
             )
 
@@ -400,6 +441,49 @@ class ExtensionData:
             rows = (await db.execute(q)).scalars().all()
             return [_to_ext_stakeholder(r) for r in rows]
 
+    async def get_tag_groups(self) -> list[dict]:
+        """Every tag group with its tags (SDK 1.9)."""
+        self._require(write=False)
+        async with async_session() as db:
+            groups = (
+                (await db.execute(select(TagGroup).order_by(TagGroup.name.asc()))).scalars().all()
+            )
+            tags = (
+                (
+                    await db.execute(
+                        select(Tag).order_by(Tag.tag_group_id, Tag.sort_order.asc(), Tag.name)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            by_group: dict[uuid.UUID, list[dict]] = {}
+            for tag in tags:
+                by_group.setdefault(tag.tag_group_id, []).append(
+                    {"id": str(tag.id), "name": tag.name, "color": tag.color}
+                )
+            return [
+                {
+                    "id": str(g.id),
+                    "name": g.name,
+                    "mode": g.mode,
+                    "mandatory": bool(g.mandatory),
+                    "restrict_to_types": list(g.restrict_to_types or []),
+                    "tags": by_group.get(g.id, []),
+                }
+                for g in groups
+            ]
+
+    async def get_card_tags(self, card_id: str) -> list[str]:
+        """Tag ids on a card (SDK 1.9)."""
+        self._require(write=False)
+        try:
+            cid = uuid.UUID(card_id)
+        except ValueError:
+            return []
+        async with async_session() as db:
+            return [str(t) for t in await tag_service.card_tag_ids(db, cid)]
+
     async def get_card_types(self) -> list[dict]:
         self._require(write=False)
         async with async_session() as db:
@@ -414,7 +498,18 @@ class ExtensionData:
                 .scalars()
                 .all()
             )
-            return [_card_type_to_dict(ct) for ct in rows]
+            out = []
+            for ct in rows:
+                entry = _card_type_to_dict(ct)
+                # SDK 1.9 — the role definitions an ``assign_stakeholder``
+                # call is validated against, so an extension can offer the
+                # same picker the app does without a second lookup path.
+                entry["stakeholder_roles"] = [
+                    {"key": r["key"], "label": r["label"]}
+                    for r in await stakeholder_service.roles_for_type(db, ct.key)
+                ]
+                out.append(entry)
+            return out
 
     async def get_relation_types(self) -> list[dict]:
         self._require(write=False)
@@ -460,15 +555,7 @@ class ExtensionData:
         window.append(now)
 
     def _count_write_in_batch(self) -> None:
-        active = _active_batch.get()
-        if active is None:
-            return
-        active.writes += 1
-        if active.writes > settings.EXTENSION_MAX_WRITES_PER_BATCH:
-            raise ExtensionDataError(
-                f"Batch {active.label!r} exceeded the per-batch write cap "
-                f"({settings.EXTENSION_MAX_WRITES_PER_BATCH})"
-            )
+        count_write_in_active_batch()
 
     def batch(self, label: str):
         """Group several writes into one audited ``ext:{key}`` mutation batch.
@@ -518,16 +605,21 @@ class ExtensionData:
             _active_batch.reset(active_token)
 
     async def _write(
-        self, op: Callable[[AsyncSession], Awaitable[_T]], *, dry_run: bool = False
+        self,
+        op: Callable[[AsyncSession], Awaitable[_T]],
+        *,
+        dry_run: bool = False,
+        grant: str = WRITE_GRANT,
     ) -> _T:
         """Run ``op(db)`` in a fresh short session with ext provenance.
 
         Inside an open ``batch()`` scope the write joins that batch;
         otherwise it opens (and commits) its own single-op batch. A dry-run
         write validates and then discards the session without committing —
-        no rows, no events, no audit trail.
+        no rows, no events, no audit trail. ``grant`` is the manifest grant
+        the write needs — ``core.cards.write`` unless a surface has its own.
         """
-        self._require(write=True)
+        self._require_grant(grant)
         self._require_writes_enabled()
         if dry_run:
             # Validate + resolve, then roll the savepoint back: no rows, no
@@ -742,3 +834,123 @@ class ExtensionData:
             return _to_ext_relation(rel)
 
         return await self._write(op, dry_run=dry_run)
+
+    # -- tags + stakeholders (SDK 1.9) --------------------------------------
+
+    async def set_card_tags(
+        self,
+        card_id: str,
+        tag_ids: Sequence[str],
+        *,
+        mode: str = "replace",
+        dry_run: bool = False,
+    ) -> list[str]:
+        """Set the card's tags — ``replace`` / ``add`` / ``remove`` semantics
+        over the shared ``tag_service`` writer (group rules, rescore, History
+        events). An unchanged set writes nothing and joins no batch."""
+        cid = _parse_uuid(card_id, "card id")
+        if mode not in ("replace", "add", "remove"):
+            raise ExtensionDataError(
+                f"Invalid tag write mode {mode!r} (one of: replace, add, remove)"
+            )
+        wanted = [_parse_uuid(raw, "tag id") for raw in tag_ids]
+
+        async def op(db: AsyncSession) -> list[str]:
+            card = (await db.execute(select(Card).where(Card.id == cid))).scalar_one_or_none()
+            if card is None:
+                raise ExtensionDataError(f"Card {card_id} not found")
+            if card.status == "ARCHIVED":
+                raise ExtensionDataError(f"Card {card_id} is archived")
+            try:
+                await tag_service.set_card_tags(
+                    db,
+                    card,
+                    wanted,
+                    mode=mode,  # type: ignore[arg-type]
+                    actor_id=None,
+                    event_extra={"ext": self._key},
+                )
+            except tag_service.TagWriteError as e:
+                raise ExtensionDataError(str(e)) from e
+            return [str(t) for t in await tag_service.card_tag_ids(db, cid)]
+
+        return await self._write(op, dry_run=dry_run)
+
+    async def assign_stakeholder(
+        self, card_id: str, user_id: str, role: str, *, dry_run: bool = False
+    ) -> ExtStakeholder:
+        """Assign a stakeholder role (SDK 1.9, grant ``core.stakeholders.write``).
+        Validated against the card type's role definitions exactly as the
+        app's picker is; idempotent on ``(card, user, role)``."""
+        cid = _parse_uuid(card_id, "card id")
+        uid = _parse_uuid(user_id, "user id")
+        role_key = str(role or "").strip()
+        if not role_key:
+            raise ExtensionDataError("A stakeholder assignment needs a role")
+
+        async def op(db: AsyncSession) -> ExtStakeholder:
+            card = (await db.execute(select(Card).where(Card.id == cid))).scalar_one_or_none()
+            if card is None:
+                raise ExtensionDataError(f"Card {card_id} not found")
+            if card.status == "ARCHIVED":
+                raise ExtensionDataError(f"Card {card_id} is archived")
+            user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
+            if user is None:
+                raise ExtensionDataError(f"User {user_id} not found")
+            if not user.is_active:
+                raise ExtensionDataError(f"User {user_id} is deactivated")
+            roles = await stakeholder_service.roles_for_type(db, card.type)
+            labels = stakeholder_service.role_labels(roles)
+            if role_key not in labels:
+                raise ExtensionDataError(
+                    f"Invalid role {role_key!r} for {card.type} "
+                    f"(one of: {', '.join(sorted(labels))})"
+                )
+            existing = await stakeholder_service.find_assignment(db, cid, uid, role_key)
+            if existing is not None:
+                return _to_ext_stakeholder(existing)
+            row = Stakeholder(card_id=cid, user_id=uid, role=role_key)
+            db.add(row)
+            await db.flush()
+            await stakeholder_service.publish_stakeholder_event(
+                db,
+                "stakeholder.added",
+                row,
+                role_label=labels[role_key],
+                user_display_name=user.display_name,
+                actor_id=None,
+                extra={"ext": self._key},
+            )
+            await stakeholder_service.rescore_after_stakeholder_change(db, cid)
+            return _to_ext_stakeholder(row)
+
+        return await self._write(op, dry_run=dry_run, grant=STAKEHOLDER_WRITE_GRANT)
+
+    async def remove_stakeholder(self, card_id: str, user_id: str, role: str) -> bool:
+        cid = _parse_uuid(card_id, "card id")
+        uid = _parse_uuid(user_id, "user id")
+        role_key = str(role or "").strip()
+
+        async def op(db: AsyncSession) -> bool:
+            row = await stakeholder_service.find_assignment(db, cid, uid, role_key)
+            if row is None:
+                return False
+            card = (await db.execute(select(Card).where(Card.id == cid))).scalar_one_or_none()
+            user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
+            roles = await stakeholder_service.roles_for_type(db, card.type) if card else []
+            labels = stakeholder_service.role_labels(roles)
+            await stakeholder_service.publish_stakeholder_event(
+                db,
+                "stakeholder.removed",
+                row,
+                role_label=labels.get(role_key, role_key),
+                user_display_name=user.display_name if user else None,
+                actor_id=None,
+                extra={"ext": self._key},
+            )
+            await db.delete(row)
+            await db.flush()
+            await stakeholder_service.rescore_after_stakeholder_change(db, cid)
+            return True
+
+        return await self._write(op, grant=STAKEHOLDER_WRITE_GRANT)

@@ -118,6 +118,7 @@ export const NOTIFICATION_TYPE_COLORS = {
   app_updated: "#5e35b1", // deep purple 600
   extension_available: "#00838f", // cyan 800
   extension_update_available: "#ef6c00", // orange 800
+  extension_notice: "#00695c", // teal 800 — a message an installed extension sent
   // Documents and approvals reuse their family's hue so a glance at the bell
   // groups them: SoAW/ADR signature traffic red-to-green, process flow amber,
   // risk deep red, compliance teal.

@@ -45,6 +45,7 @@ from app.database import async_session
 from app.models.todo import Todo
 from app.services import mutation_batch_service, todo_service
 from app.services.event_bus import request_batch_id, request_origin
+from app.services.extensions import data_service
 from app.services.extensions.registry import extension_registry
 from app.services.extensions.sdk import (
     ExtensionDataError,
@@ -177,6 +178,18 @@ class ExtensionTodos(TodosBridge):
         """Run ``op(db)`` inside a fresh session with ext provenance: origin
         contextvar ``"ext"`` plus an explicit committed mutation batch."""
         self._require(write=True)
+        if data_service.active_batch_id() is not None:
+            # Inside ``ctx.data.batch(...)``: join it — the batch scope already
+            # set the origin and batch contextvars, so the write lands in the
+            # same audit row as the card writes around it.
+            data_service.count_write_in_active_batch()
+            async with async_session() as db:
+                try:
+                    result = await op(db)
+                except TodoError as e:
+                    raise ExtensionDataError(e.message) from e
+                await db.commit()
+                return result
         origin_token = request_origin.set("ext")
         batch_token = None
         try:

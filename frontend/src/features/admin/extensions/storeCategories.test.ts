@@ -25,6 +25,8 @@ describe("groupStoreItems", () => {
       item("s", "strategy"),
     ]);
     expect(groups.map((g) => g.category)).toEqual(["strategy", "integrations", "regulations"]);
+    // A fourth section exists for governance and automation listings.
+    expect(groupStoreItems([item("g", "governance"), item("s", "strategy")]).map((g) => g.category)).toEqual(["strategy", "governance"]);
   });
 
   it("keeps catalogue order inside a section and omits empty sections", () => {

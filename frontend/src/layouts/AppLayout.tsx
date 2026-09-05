@@ -223,6 +223,10 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     // reachable whatever a core module toggle says.
     const groupedFallbacks: NavItemDef[] = [];
     for (const group of EXTENSION_NAV_GROUPS) {
+      // The admin group has no top-bar host: its routes render in the Admin
+      // section of the user menu and the drawer (`adminItems` below), and
+      // deliberately never fall back to the bar.
+      if (group === "admin") continue;
       const groupRoutes = getExtensionRoutesForGroup(group).map(({ route }) => ({
         labelKey: route.label,
         icon: route.icon,
@@ -299,12 +303,28 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     return items.filter((item) => hasNavPerm(item)).map(resolve);
   }, [bpmEnabled, ppmEnabled, grcEnabled, turboLensReady, uiExtensions, can, user.permissions, t]);
 
-  // Resolve admin item labels via i18n and filter based on permissions
+  // Resolve admin item labels via i18n and filter based on permissions.
+  // Extension routes that requested the "admin" nav group follow the core
+  // entries, gated by the permission the extension declared on the route
+  // (an `/ext/*` path is ungated in ROUTE_PERMISSIONS, so that is the only
+  // gate); a user without it simply does not see the entry. Labels are plain
+  // strings from the bundle, so t() falls through to them.
   const adminItems = useMemo(() => {
-    return ADMIN_ITEM_DEFS.filter((item) =>
+    const core = ADMIN_ITEM_DEFS.filter((item) =>
       canAccessPath(user.permissions, item.path ?? "/"),
     ).map((def) => ({ ...def, label: t(def.labelKey) }));
-  }, [user.permissions, t]);
+    const contributed = uiExtensions
+      .flatMap(({ plugin }) => (plugin.routes ?? []).filter((r) => r.navGroup === "admin"))
+      .filter((route) => !route.permission || hasPermission(user.permissions, route.permission))
+      .map((route) => ({
+        labelKey: route.label,
+        icon: route.icon,
+        path: route.path,
+        permission: route.permission,
+        label: t(route.label),
+      }));
+    return [...core, ...contributed];
+  }, [user.permissions, t, uiExtensions]);
 
   // Should the admin section be shown at all?
   const showAdmin = adminItems.length > 0;
