@@ -868,6 +868,129 @@ describe("ExtensionsAdmin", () => {
     ).not.toBeInTheDocument();
   });
 
+  // ---------------------------------------------------------------------
+  // Updating is a decision, so it is shown before it is taken. A FIRST
+  // install has no "what changed" and stays one click — the auto-apply test
+  // above is the guard for that half.
+  // ---------------------------------------------------------------------
+
+  const UPDATE_ITEM = {
+    ...STORE_ITEM,
+    entitlement_state: "active",
+    installed_version: "1.0.0",
+    update_available: true,
+    version: "1.1.0",
+  };
+
+  const CHANGELOG_DIFF = {
+    changelog: {
+      version: "1.1.0",
+      from_version: "1.0.0",
+      notes: "## 1.1.0\n\n### Fixed\n- The outbox no longer drains into nothing.",
+      source: "bundle",
+    },
+  };
+
+  function primeUpdatePoll(diff: unknown) {
+    mockPost.mockImplementation(async (path: string) => {
+      if (path === "/admin/extensions/store/install")
+        return { id: "s1", filename: "esg.teax", status: "verifying" };
+      if (path === "/admin/extensions/install/s1/apply")
+        return { id: "s1", filename: "esg.teax", status: "applying" };
+      throw new Error(`unexpected POST ${path}`);
+    });
+    mockGet.mockImplementation(async (path: string) => {
+      if (path === "/admin/extensions") return [];
+      if (path === "/admin/extensions/license") return LICENSE;
+      if (path === "/admin/extensions/store/catalog")
+        return {
+          configured: true,
+          reachable: true,
+          store_url: "https://x",
+          items: [UPDATE_ITEM],
+        };
+      if (path.startsWith("/admin/extensions/install/"))
+        return { id: "s1", filename: "esg.teax", status: "previewed", extension_key: "esg-pack", diff };
+      throw new Error(`unexpected GET ${path}`);
+    });
+  }
+
+  // primeInitialLoad resets the mocks, so the poll implementation has to be
+  // installed after it, not before.
+  async function startUpdate(diff: unknown) {
+    primeInitialLoad({
+      license: LICENSE,
+      catalog: { configured: true, reachable: true, store_url: "https://x", items: [UPDATE_ITEM] },
+    });
+    primeUpdatePoll(diff);
+    mockDelete.mockResolvedValue(undefined);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    await userEvent.click(screen.getByText("Update to 1.1.0", { selector: "button" }));
+  }
+
+  it(
+    "an update stops on its release notes instead of auto-applying, then installs on confirm",
+    async () => {
+      await startUpdate(CHANGELOG_DIFF);
+
+      await waitFor(
+        () =>
+          expect(
+            screen.getByText("Update ESG Content Pack to 1.1.0?"),
+          ).toBeInTheDocument(),
+        { timeout: 5000 },
+      );
+      // The administrator is deciding on what the release contains, not on a
+      // version number.
+      expect(screen.getByText(/outbox no longer drains/)).toBeInTheDocument();
+      expect(mockPost).not.toHaveBeenCalledWith("/admin/extensions/install/s1/apply");
+
+      await userEvent.click(screen.getByText("Install", { selector: "button" }));
+      await waitFor(() =>
+        expect(mockPost).toHaveBeenCalledWith("/admin/extensions/install/s1/apply"),
+      );
+    },
+    10000,
+  );
+
+  it(
+    "declining an update discards the uploaded bundle rather than leaving it previewed",
+    async () => {
+      await startUpdate(CHANGELOG_DIFF);
+
+      await waitFor(
+        () => expect(screen.getByText("Update ESG Content Pack to 1.1.0?")).toBeInTheDocument(),
+        { timeout: 5000 },
+      );
+      await userEvent.click(screen.getByText("Cancel", { selector: "button" }));
+
+      await waitFor(() =>
+        expect(mockDelete).toHaveBeenCalledWith("/admin/extensions/install/s1"),
+      );
+      expect(mockPost).not.toHaveBeenCalledWith("/admin/extensions/install/s1/apply");
+    },
+    10000,
+  );
+
+  it(
+    "a release with no notes still offers the decision rather than silently applying",
+    async () => {
+      // Every bundle published before per-extension changelogs existed lands
+      // here, and the store had nothing either.
+      await startUpdate({
+        changelog: { version: "1.1.0", from_version: "1.0.0", notes: "", source: "none" },
+      });
+
+      await waitFor(
+        () => expect(screen.getByText("Update ESG Content Pack to 1.1.0?")).toBeInTheDocument(),
+        { timeout: 5000 },
+      );
+      expect(screen.getByText(/ships no notes/)).toBeInTheDocument();
+    },
+    10000,
+  );
+
   it(
     "one-click store install stops at the downgrade confirmation instead of auto-applying",
     async () => {

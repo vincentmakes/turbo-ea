@@ -140,6 +140,67 @@ describe("NotificationBell link handling", () => {
     expect(screen.queryByRole("img", { name: "opensReleaseNotes" })).toBeNull();
   });
 
+  it("opens an extension's release notes in a dialog instead of the store tab", async () => {
+    // The row's link is the Store tab, which only an administrator can use —
+    // but everyone who can use the extension is told about the update, so the
+    // click has to open the notes rather than follow the link.
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/notifications?")) {
+        return {
+          items: [
+            {
+              ...notif("n1", "/admin/extensions", "extension_updated"),
+              data: {
+                key: "esg-pack",
+                name: "ESG Content Pack",
+                from_version: "1.0.0",
+                to_version: "1.1.0",
+              },
+            },
+          ],
+          total: 1,
+          page: 1,
+          page_size: 20,
+        };
+      }
+      if (path.startsWith("/extensions/esg-pack/release-notes")) {
+        return {
+          version: "1.1.0",
+          from_version: "1.0.0",
+          notes: "## 1.1.0\n\n### Fixed\n- The outbox no longer drains into nothing.",
+          source: "bundle",
+        };
+      }
+      return { count: 1 };
+    });
+
+    const user = userEvent.setup();
+    render(<NotificationBell userId="u1" />);
+    await user.click(bellButton());
+    await user.click(await screen.findByText("notification n1"));
+
+    // The notes are FETCHED — the row carries versions only, never markdown.
+    await waitFor(() =>
+      expect(vi.mocked(api.get)).toHaveBeenCalledWith(
+        expect.stringContaining("/extensions/esg-pack/release-notes?version=1.1.0"),
+      ),
+    );
+    expect(await screen.findByText(/outbox no longer drains/)).toBeInTheDocument();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
+  it("falls back to the link when the payload predates the versions", async () => {
+    // A row written before `data` carried them cannot say which release it is
+    // about, so it must still go somewhere useful rather than opening an
+    // empty dialog.
+    await openAndClick("/admin/extensions", "extension_updated");
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/admin/extensions"));
+  });
+
   it("opens an absolute link in a new tab instead of routing to it", async () => {
     // Handing an absolute URL to react-router would resolve it as an in-app
     // path and land the user on a blank route.

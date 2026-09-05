@@ -15,6 +15,7 @@
   "releaseNotes.empty": "该版本没有发布发行说明。",
   "releaseNotes.loadFailed": "无法加载发行说明",
   "releaseNotes.installedTitle": "{{app}} {{version}} 新增内容",
+  "releaseNotes.extensionTitle": "{{name}} {{version}} 的新增内容",
   "releaseNotes.updatedFrom": "由 {{version}} 升级而来",
   "releaseNotes.alreadyInstalled": "已安装",
   "releaseNotes.unavailableForVersion": "本实例没有 {{version}} 的发行说明。",

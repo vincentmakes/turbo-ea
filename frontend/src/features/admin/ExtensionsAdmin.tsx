@@ -57,6 +57,7 @@ import StoreCheckStatusLine from "./extensions/StoreCheckStatusLine";
 import StoreDetailDrawer from "./extensions/StoreDetailDrawer";
 import StoreTile from "./extensions/StoreTile";
 import { groupStoreItems } from "./extensions/storeCategories";
+import ExtensionChangelog from "@/components/ExtensionChangelog";
 import type { StoreActionHandlers } from "./extensions/StoreActions";
 import {
   MODEL_TAGS,
@@ -64,6 +65,7 @@ import {
   type ClaimResult,
   type ExtensionInfo,
   type ExtensionInstall,
+  type ExtensionNotes,
   type LicenseInfo,
   type StoreCatalog,
   type StoreItem,
@@ -215,6 +217,15 @@ export default function ExtensionsAdmin() {
     for (const ext of extensions) map[ext.key] = ext.logo_url;
     return map;
   }, [extensions]);
+  // An update paused for confirmation: the administrator reads what the
+  // release contains before it is applied. Only ever set for an UPDATE — a
+  // first install has no "what changed" to show and stays one click.
+  const [updateConfirm, setUpdateConfirm] = useState<{
+    id: string;
+    name: string;
+    notes: ExtensionNotes;
+  } | null>(null);
+  const [updateNotesBusy, setUpdateNotesBusy] = useState(false);
   const [downgradeConfirm, setDowngradeConfirm] = useState<{
     id: string;
     from: string;
@@ -382,6 +393,47 @@ export default function ExtensionsAdmin() {
     [],
   );
 
+  /**
+   * Pause an update on its preview and show what the release contains.
+   *
+   * The bundle's own notes are already in the preview, so the dialog opens
+   * immediately with them. Only when the bundle carries none — every bundle
+   * published before per-extension changelogs existed — is the store's feed
+   * asked, which is the source that covers those. A failure there is not an
+   * error: the dialog just shows the honest empty state and still offers
+   * Install and Cancel.
+   */
+  const openUpdateConfirm = useCallback(
+    async (next: ExtensionInstall) => {
+      const stamped = next.diff?.changelog;
+      if (!stamped) return;
+      const key = next.extension_key ?? "";
+      const name =
+        catalog?.items.find((i) => i.key === key)?.name ??
+        extensions.find((e) => e.key === key)?.name ??
+        key;
+      setUpdateConfirm({ id: next.id, name, notes: stamped });
+      if (stamped.notes || !key) return;
+
+      setUpdateNotesBusy(true);
+      try {
+        const params = new URLSearchParams({ version: stamped.version });
+        if (stamped.from_version) params.set("from_version", stamped.from_version);
+        const fetched = await api.get<ExtensionNotes>(
+          `/admin/extensions/store/changelog/${encodeURIComponent(key)}?${params}`,
+        );
+        if (fetched.notes) {
+          setUpdateConfirm((prev) => (prev?.id === next.id ? { ...prev, notes: fetched } : prev));
+        }
+      } catch {
+        /* the store is optional — the empty state is a valid answer */
+      } finally {
+        setUpdateNotesBusy(false);
+      }
+    },
+    [catalog, extensions],
+  );
+
   const poll = useCallback(
     (id: string) => {
       clearPoll();
@@ -411,6 +463,12 @@ export default function ExtensionsAdmin() {
               setDowngradeConfirm({ id: next.id, ...next.diff.downgrade });
             } else if (next.diff?.totals?.failed) {
               autoApplyRef.current = false;
+            } else if (next.diff?.changelog?.from_version) {
+              // An UPDATE, not a first install: stop and show what changes.
+              // `from_version` comes from the backend, so this is the same
+              // answer for a store update and a manual upload.
+              autoApplyRef.current = false;
+              void openUpdateConfirm(next);
             } else {
               void applyInstall(next.id);
             }
@@ -422,7 +480,7 @@ export default function ExtensionsAdmin() {
         }
       }, POLL_MS);
     },
-    [clearPoll, loadAll, applyInstall],
+    [clearPoll, loadAll, applyInstall, openUpdateConfirm],
   );
 
   const startStoreInstall = useCallback(
@@ -654,6 +712,27 @@ export default function ExtensionsAdmin() {
     closeInstall();
   };
 
+  /**
+   * Declining an update leaves nothing behind: the uploaded bundle is
+   * discarded, so the Installed tab does not accumulate previewed rows for
+   * updates nobody took.
+   */
+  const cancelUpdateConfirm = useCallback(async () => {
+    const pending = updateConfirm;
+    setUpdateConfirm(null);
+    if (!pending) return;
+    clearPoll();
+    try {
+      await api.delete(`/admin/extensions/install/${pending.id}`);
+    } catch {
+      /* best-effort cleanup */
+    }
+    autoApplyRef.current = false;
+    setInstall(null);
+    setInstallError(null);
+    setActiveStoreKey(null);
+  }, [updateConfirm, clearPoll]);
+
   const handleToggle = async (ext: ExtensionInfo) => {
     setToggleBusyKey(ext.key);
     try {
@@ -834,6 +913,20 @@ export default function ExtensionsAdmin() {
         <Alert severity="error" sx={{ mb: 2 }}>
           {install.error_message}
         </Alert>
+      )}
+
+      {/* A manual upload stops here and reads the notes in place. A store
+          update is paused by the confirm dialog instead, which shows the same
+          component — so only one of the two ever renders them. */}
+      {report?.changelog && install?.status === "previewed" && !updateConfirm && (
+        <Box sx={{ mb: 2 }}>
+          <ExtensionChangelog
+            notes={report.changelog.notes}
+            version={report.changelog.version}
+            fromVersion={report.changelog.from_version}
+            name={install?.extension_key ?? undefined}
+          />
+        </Box>
       )}
 
       {report?.totals && (
@@ -1654,6 +1747,47 @@ export default function ExtensionsAdmin() {
 
       {/* Nests over the install dialog — reached from its Install button and
           from the auto-apply branch of the poll. */}
+      <Dialog
+        open={updateConfirm !== null}
+        onClose={() => void cancelUpdateConfirm()}
+        disableRestoreFocus
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {t("extensions.updateConfirm.title", "Update {{name}} to {{version}}?", {
+            name: updateConfirm?.name ?? "",
+            version: updateConfirm?.notes.version ?? "",
+          })}
+        </DialogTitle>
+        <DialogContent dividers>
+          {updateNotesBusy && <LinearProgress sx={{ mb: 2 }} />}
+          {updateConfirm && (
+            <ExtensionChangelog
+              notes={updateConfirm.notes.notes}
+              version={updateConfirm.notes.version}
+              fromVersion={updateConfirm.notes.from_version}
+              name={updateConfirm.name}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => void cancelUpdateConfirm()}>
+            {t("extensions.updateConfirm.cancel", "Cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              const pending = updateConfirm;
+              setUpdateConfirm(null);
+              if (pending) void applyInstall(pending.id);
+            }}
+          >
+            {t("extensions.updateConfirm.confirm", "Install")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog
         open={downgradeConfirm !== null}
         onClose={() => setDowngradeConfirm(null)}

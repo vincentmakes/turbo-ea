@@ -756,6 +756,7 @@ export type NotificationType =
   | "app_updated"
   | "extension_available"
   | "extension_update_available"
+  | "extension_updated"
   | "extension_notice"
   // An installed extension may declare types of its own (`ext.<key>.<name>`,
   // backend SDK 1.11); keep the union open so the bell can carry them untouched.

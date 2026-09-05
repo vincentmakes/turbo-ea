@@ -15,6 +15,7 @@
   "releaseNotes.empty": "No se publicaron notas para esta versión.",
   "releaseNotes.loadFailed": "No se pudieron cargar las notas de la versión",
   "releaseNotes.installedTitle": "Novedades de {{app}} {{version}}",
+  "releaseNotes.extensionTitle": "Novedades de {{name}} {{version}}",
   "releaseNotes.updatedFrom": "Actualizado desde la versión {{version}}",
   "releaseNotes.alreadyInstalled": "Ya instalada",
   "releaseNotes.unavailableForVersion": "Las notas de la versión {{version}} no están disponibles en esta instancia.",

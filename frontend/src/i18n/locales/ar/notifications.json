@@ -15,6 +15,7 @@
   "releaseNotes.empty": "لم تُنشر ملاحظات لهذا الإصدار.",
   "releaseNotes.loadFailed": "تعذّر تحميل ملاحظات الإصدار",
   "releaseNotes.installedTitle": "الجديد في {{app}} {{version}}",
+  "releaseNotes.extensionTitle": "الجديد في {{name}} {{version}}",
   "releaseNotes.updatedFrom": "تم التحديث من الإصدار {{version}}",
   "releaseNotes.alreadyInstalled": "مثبَّت بالفعل",
   "releaseNotes.unavailableForVersion": "ملاحظات الإصدار {{version}} غير متوفرة في هذا المثيل.",

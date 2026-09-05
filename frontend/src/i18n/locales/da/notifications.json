@@ -15,6 +15,7 @@
   "releaseNotes.empty": "Der blev ikke udgivet noter til denne version.",
   "releaseNotes.loadFailed": "Udgivelsesnoterne kunne ikke indlæses",
   "releaseNotes.installedTitle": "Nyheder i {{app}} {{version}}",
+  "releaseNotes.extensionTitle": "Nyheder i {{name}} {{version}}",
   "releaseNotes.updatedFrom": "Opdateret fra {{version}}",
   "releaseNotes.alreadyInstalled": "Allerede installeret",
   "releaseNotes.unavailableForVersion": "Noter til {{version}} er ikke tilgængelige på denne instans.",
