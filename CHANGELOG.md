@@ -13,8 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Automations extension user guide.** The user manual's Extensions section now documents the Automations extension: rules built from dropdowns (when / if / then), the actions they can take, simulate and Run now, how runs land in the Audit log, grouped notifications, templates, settings and demo data.
 
 ### Changed
-- French UI and user manual now call a card «fiche» throughout; «carte» is kept only for maps (capability map, heat map, process map).
 
+- French UI and user manual now call a card «fiche» throughout; «carte» is kept only for maps (capability map, heat map, process map).
 - A risk edit's history entry now records the old and new value of every changed field (it used to list only the field names), and creating a decision record now leaves an `adr.created` entry, which is what makes both reversible.
 
 ## [2.126.0] - 2026-09-05
