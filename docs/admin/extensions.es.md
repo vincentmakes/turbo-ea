@@ -65,10 +65,12 @@ Subir el mismo paquete otra vez es seguro — la vista previa muestra todo como 
 
 ## Actualizar una extensión
 
-Cuando la tienda publica una versión más reciente de una extensión instalada, la pestaña Instaladas muestra un distintivo **Actualizar a X** junto a la versión (y el botón de la pestaña Tienda se convierte en **Actualizar**). Un clic ejecuta la misma verificación de firma, la misma vista previa y la misma aplicación que una instalación nueva. Mientras se ejecuta una instalación o una actualización, el botón (o el distintivo) muestra un indicador de progreso y permanece deshabilitado hasta que termina, y el diálogo de instalación muestra la ejecución desde donde sea que la hayas iniciado. Se aplican dos salvaguardas:
+Cuando la tienda publica una versión más reciente de una extensión instalada, la pestaña Instaladas muestra un distintivo **Actualizar a X** junto a la versión (y el botón de la pestaña Tienda se convierte en **Actualizar**). Al pulsarlo se verifica la firma y se descarga el paquete, y a continuación se le muestra **qué incluye la versión** — las notas de la versión de la extensión — con **Instalar** y **Cancelar**. No se escribe nada hasta que pulse **Instalar**; **Cancelar** descarta la descarga. Una primera instalación no tiene una versión anterior con la que comparar, así que sigue aplicándose con un solo clic. Mientras se ejecuta una instalación o una actualización, el botón (o el distintivo) muestra un indicador de progreso y permanece deshabilitado hasta que termina, y el diálogo de instalación muestra la ejecución desde donde sea que la hayas iniciado. Se aplican dos salvaguardas:
 
 - Actualizar una extensión que usted ha **desactivado** deliberadamente la mantiene desactivada: la nueva versión se instala en el disco, pero su contenido permanece oculto y nada se ejecuta hasta que la vuelva a activar.
 - Instalar un paquete **más antiguo** que la versión instalada pide primero una confirmación explícita: una versión anterior puede no entender los datos escritos por la más reciente. En ningún caso se elimina nada.
+
+Cuando la actualización se aplica, todas las personas que pueden usar la extensión reciben una notificación **Extensión actualizada** en la campana y pueden abrir desde ella las mismas notas de la versión. Está activada de forma predeterminada y nunca se envía por correo electrónico; cada persona puede silenciarla en sus preferencias de notificación.
 
 ## Licencias y renovación
 

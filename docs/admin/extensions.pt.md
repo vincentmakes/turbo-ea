@@ -65,10 +65,12 @@ Carregar o mesmo pacote outra vez é seguro — a pré-visualização mostra tud
 
 ## Atualizar uma extensão
 
-Quando a loja publica uma versão mais recente de uma extensão instalada, o separador Instaladas mostra um selo **Atualizar para X** ao lado da versão (e o botão do separador Loja passa a **Atualizar**). Um clique executa a mesma verificação de assinatura, a mesma pré-visualização e a mesma aplicação de uma instalação nova. Enquanto uma instalação ou atualização decorre, o botão (ou o selo) mostra um indicador de progresso e permanece desativado até terminar, e a janela de instalação mostra a execução independentemente de onde a iniciou. Aplicam-se duas salvaguardas:
+Quando a loja publica uma versão mais recente de uma extensão instalada, o separador Instaladas mostra um selo **Atualizar para X** ao lado da versão (e o botão do separador Loja passa a **Atualizar**). Um clique verifica a assinatura e transfere o pacote e, em seguida, mostra-lhe **o que a versão contém** — as notas de versão da extensão — com **Instalar** e **Cancelar**. Nada é escrito até premir **Instalar**; **Cancelar** descarta a transferência. Uma primeira instalação não tem uma versão anterior para comparar, pelo que continua a ser aplicada com um só clique. Enquanto uma instalação ou atualização decorre, o botão (ou o selo) mostra um indicador de progresso e permanece desativado até terminar, e a janela de instalação mostra a execução independentemente de onde a iniciou. Aplicam-se duas salvaguardas:
 
 - Atualizar uma extensão que você **desativou** deliberadamente mantém-na desativada: a nova versão chega ao disco, mas o seu conteúdo permanece oculto e nada é executado até que a reative.
 - Instalar um pacote **mais antigo** do que a versão instalada pede primeiro uma confirmação explícita: um downgrade pode não compreender os dados escritos pela versão mais recente. Em nenhum caso algo é eliminado.
+
+Quando a atualização é aplicada, todas as pessoas que podem usar a extensão recebem uma notificação **Extensão atualizada** no sino e podem abrir a partir dela as mesmas notas de versão. Está ativa por predefinição e nunca é enviada por e-mail; cada pessoa pode silenciá-la nas suas preferências de notificação.
 
 ## Licenças e renovação
 

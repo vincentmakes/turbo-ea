@@ -65,10 +65,12 @@ Uploading the same bundle again is safe — the preview shows everything as "ski
 
 ## Updating an extension
 
-When the store publishes a newer version of an installed extension, the Installed tab shows an **Update to X** chip next to the extension's version (and the Store tab's button turns into **Update**). One click runs the same signature verification, dry-run preview, and apply as a fresh install. While an install or update runs, the button (or chip) shows a spinner and stays disabled until it finishes, and the install dialog shows the run wherever you started it from. Two safeguards apply:
+When the store publishes a newer version of an installed extension, the Installed tab shows an **Update to X** chip next to the extension's version (and the Store tab's button turns into **Update**). Clicking it verifies the signature and downloads the bundle, then shows you **what is in the release** — the extension's own release notes — with **Install** and **Cancel**. Nothing is written until you press **Install**, and **Cancel** discards the download. A first installation has no previous version to compare against, so it still applies in one click. While an install or update runs, the button (or chip) shows a spinner and stays disabled until it finishes, and the install dialog shows the run wherever you started it from. Two safeguards apply:
 
 - Updating an extension you have deliberately **disabled** keeps it disabled — the new version lands on disk, but its content stays hidden and nothing runs until you enable it again.
 - Installing a bundle **older** than the installed version asks for an explicit confirmation first: a downgrade may not understand data written by the newer version. Nothing is deleted either way.
+
+When the update lands, everyone who can use the extension gets an **Extension Updated** notification in the bell, and can open the same release notes from it. It is on by default and never sent by email; each person can mute it under their notification preferences.
 
 ## Licenses and renewal
 

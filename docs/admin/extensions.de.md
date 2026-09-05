@@ -65,10 +65,12 @@ Das erneute Hochladen desselben Pakets ist unbedenklich — die Vorschau zeigt a
 
 ## Eine Erweiterung aktualisieren
 
-Veröffentlicht der Store eine neuere Version einer installierten Erweiterung, zeigt der Tab «Installiert» neben der Version einen Chip **Auf X aktualisieren** (und die Schaltfläche im Store-Tab wird zu **Aktualisieren**). Ein Klick durchläuft dieselbe Signaturprüfung, Vorschau und Anwendung wie eine Neuinstallation. Während Installation oder Aktualisierung zeigt die Schaltfläche (bzw. der Chip) einen Ladekreis und bleibt deaktiviert, bis der Vorgang abgeschlossen ist; der Installationsdialog zeigt den Vorgang unabhängig davon, wo Sie ihn gestartet haben. Zwei Schutzmechanismen greifen:
+Veröffentlicht der Store eine neuere Version einer installierten Erweiterung, zeigt der Tab «Installiert» neben der Version einen Chip **Auf X aktualisieren** (und die Schaltfläche im Store-Tab wird zu **Aktualisieren**). Ein Klick prüft die Signatur und lädt das Bundle herunter und zeigt Ihnen dann **den Inhalt der Version** — die Versionshinweise der Erweiterung — mit **Installieren** und **Abbrechen**. Es wird nichts geschrieben, bevor Sie **Installieren** drücken; **Abbrechen** verwirft den Download. Eine Erstinstallation hat keine Vorgängerversion zum Vergleich und wird weiterhin mit einem Klick angewendet. Während Installation oder Aktualisierung zeigt die Schaltfläche (bzw. der Chip) einen Ladekreis und bleibt deaktiviert, bis der Vorgang abgeschlossen ist; der Installationsdialog zeigt den Vorgang unabhängig davon, wo Sie ihn gestartet haben. Zwei Schutzmechanismen greifen:
 
 - Die Aktualisierung einer bewusst **deaktivierten** Erweiterung lässt sie deaktiviert — die neue Version landet auf der Festplatte, aber ihre Inhalte bleiben verborgen und nichts läuft, bis Sie sie wieder aktivieren.
 - Die Installation eines Bundles, das **älter** ist als die installierte Version, verlangt zuerst eine ausdrückliche Bestätigung: Ein Downgrade versteht möglicherweise Daten nicht, die die neuere Version geschrieben hat. Gelöscht wird in keinem Fall etwas.
+
+Sobald die Aktualisierung abgeschlossen ist, erhalten alle, die die Erweiterung nutzen können, im Glockensymbol eine Benachrichtigung **Erweiterung aktualisiert** und können daraus dieselben Versionshinweise öffnen. Sie ist standardmäßig aktiviert und wird nie per E-Mail versendet; jede Person kann sie in ihren Benachrichtigungseinstellungen stummschalten.
 
 ## Lizenzen und Verlängerung
 

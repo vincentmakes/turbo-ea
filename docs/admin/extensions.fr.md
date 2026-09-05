@@ -65,10 +65,12 @@ Téléverser deux fois le même paquet est sans risque — l'aperçu montre tout
 
 ## Mettre à jour une extension
 
-Lorsque la boutique publie une version plus récente d'une extension installée, l'onglet Installées affiche une puce **Mettre à jour vers X** à côté de la version (et le bouton de l'onglet Boutique devient **Mettre à jour**). Un clic déclenche la même vérification de signature, le même aperçu et la même application qu'une installation. Pendant une installation ou une mise à jour, le bouton (ou la puce) affiche un indicateur d'activité et reste désactivé jusqu'à la fin ; la boîte de dialogue d'installation affiche l'opération quel que soit l'endroit d'où vous l'avez lancée. Deux garde-fous s'appliquent :
+Lorsque la boutique publie une version plus récente d'une extension installée, l'onglet Installées affiche une puce **Mettre à jour vers X** à côté de la version (et le bouton de l'onglet Boutique devient **Mettre à jour**). Un clic vérifie la signature et télécharge le bundle, puis vous montre **ce que contient la version** — les notes de version de l'extension — avec **Installer** et **Annuler**. Rien n'est écrit avant que vous n'appuyiez sur **Installer** ; **Annuler** supprime le téléchargement. Une première installation n'a aucune version antérieure à comparer et s'applique toujours en un clic. Pendant une installation ou une mise à jour, le bouton (ou la puce) affiche un indicateur d'activité et reste désactivé jusqu'à la fin ; la boîte de dialogue d'installation affiche l'opération quel que soit l'endroit d'où vous l'avez lancée. Deux garde-fous s'appliquent :
 
 - Mettre à jour une extension que vous avez délibérément **désactivée** la laisse désactivée — la nouvelle version est installée sur le disque, mais son contenu reste masqué et rien ne s'exécute tant que vous ne la réactivez pas.
 - Installer un paquet **plus ancien** que la version installée demande d'abord une confirmation explicite : une rétrogradation peut ne pas comprendre les données écrites par la version plus récente. Rien n'est supprimé dans les deux cas.
+
+Une fois la mise à jour appliquée, toutes les personnes qui peuvent utiliser l'extension reçoivent une notification **Extension mise à jour** dans la cloche et peuvent y ouvrir les mêmes notes de version. Elle est activée par défaut et n'est jamais envoyée par e-mail ; chacun peut la désactiver dans ses préférences de notification.
 
 ## Licences et renouvellement
 

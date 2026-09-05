@@ -65,10 +65,12 @@ Det er sikkert at uploade den samme pakke igen — forhåndsvisningen viser alt 
 
 ## Opdatering af en udvidelse
 
-Når butikken udgiver en nyere version af en installeret udvidelse, viser fanen Installerede en chip **Opdater til X** ved siden af versionen (og knappen på fanen Butik bliver til **Opdater**). Ét klik kører den samme signaturkontrol, forhåndsvisning og anvendelse som en ny installation. Mens en installation eller opdatering kører, viser knappen (eller chippen) en indikator og forbliver deaktiveret, indtil den er færdig, og installationsdialogen viser forløbet, uanset hvor du startede det fra. To sikkerhedsforanstaltninger gælder:
+Når butikken udgiver en nyere version af en installeret udvidelse, viser fanen Installerede en chip **Opdater til X** ved siden af versionen (og knappen på fanen Butik bliver til **Opdater**). Et klik kontrollerer signaturen og henter bundtet og viser dig derefter **hvad versionen indeholder** — udvidelsens egne udgivelsesnoter — med **Installér** og **Annullér**. Der skrives intet, før du trykker **Installér**; **Annullér** kasserer det hentede. En førstegangsinstallation har ingen tidligere version at sammenligne med og anvendes stadig med ét klik. Mens en installation eller opdatering kører, viser knappen (eller chippen) en indikator og forbliver deaktiveret, indtil den er færdig, og installationsdialogen viser forløbet, uanset hvor du startede det fra. To sikkerhedsforanstaltninger gælder:
 
 - Opdatering af en udvidelse, du bevidst har **deaktiveret**, holder den deaktiveret — den nye version lander på disken, men dens indhold forbliver skjult, og intet kører, før du aktiverer den igen.
 - Installation af en pakke, der er **ældre** end den installerede version, kræver først en udtrykkelig bekræftelse: en nedgradering forstår muligvis ikke data skrevet af den nyere version. Intet slettes i nogen af tilfældene.
+
+Når opdateringen er anvendt, får alle, der kan bruge udvidelsen, en **Udvidelsen er opdateret**-notifikation i klokken og kan åbne de samme udgivelsesnoter derfra. Den er slået til som standard og sendes aldrig på e-mail; hver enkelt kan slå den fra under sine notifikationsindstillinger.
 
 ## Licenser og fornyelse
 
