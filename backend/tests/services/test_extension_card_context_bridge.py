@@ -252,6 +252,17 @@ class TestStakeholders:
         batches = (await db.execute(select(MutationBatch))).scalars().all()
         assert all(b.tool_name == f"ext:{KEY}" for b in batches)
 
+    async def test_card_types_carry_role_definitions(self, db, env):
+        load_registry(grants=["core.cards.read"])
+        types = {ct["key"]: ct for ct in await ExtensionData(KEY).get_card_types()}
+        roles = {r["key"]: r["label"] for r in types["Application"]["stakeholder_roles"]}
+        assert roles == {"owner": "Owner", "architect": "Architect"}
+        # No definitions → the two built-in defaults, exactly as the picker.
+        assert [r["key"] for r in types["Provider"]["stakeholder_roles"]] == [
+            "responsible",
+            "observer",
+        ]
+
     async def test_role_must_exist_on_the_type(self, db, env):
         load_registry(grants=["core.stakeholders.write"])
         bridge = ExtensionData(KEY)

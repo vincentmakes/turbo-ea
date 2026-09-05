@@ -742,7 +742,8 @@ class EventSubscription:
     ``core.events.*`` grant in the extension's manifest or the subscription
     is skipped at registration with a warning. ``handler`` receives the
     extension's :class:`ExtensionContext` and the raw event message
-    (``{"event", "data", "card_id", "batch_id", "timestamp"}``); it runs
+    (``{"event", "data", "card_id", "user_id", "batch_id", "timestamp"}`` —
+    ``user_id`` since SDK 1.9, ``None`` when no person caused it); it runs
     with a 30s timeout and a crash is logged, never fatal. ``include_self``
     controls whether events caused by this extension's own bridge writes
     (``data["ext"] == key``) are delivered — the default ``False`` breaks

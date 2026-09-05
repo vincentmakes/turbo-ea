@@ -148,6 +148,11 @@ class EventBus:
             "event": event_type,
             "data": data,
             "card_id": str(card_id) if card_id else None,
+            # The person behind the change, when there was one (an extension
+            # or a system job leaves it None). SDK 1.9: an extension event
+            # handler may address "the actor", and the audit row already
+            # carries this id, so the message carries it too.
+            "user_id": str(user_id) if user_id else None,
             "batch_id": str(effective_batch_id) if effective_batch_id else None,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }

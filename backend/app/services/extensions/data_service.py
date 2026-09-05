@@ -476,7 +476,18 @@ class ExtensionData:
                 .scalars()
                 .all()
             )
-            return [_card_type_to_dict(ct) for ct in rows]
+            out = []
+            for ct in rows:
+                entry = _card_type_to_dict(ct)
+                # SDK 1.9 — the role definitions an ``assign_stakeholder``
+                # call is validated against, so an extension can offer the
+                # same picker the app does without a second lookup path.
+                entry["stakeholder_roles"] = [
+                    {"key": r["key"], "label": r["label"]}
+                    for r in await stakeholder_service.roles_for_type(db, ct.key)
+                ]
+                out.append(entry)
+            return out
 
     async def get_relation_types(self) -> list[dict]:
         self._require(write=False)
