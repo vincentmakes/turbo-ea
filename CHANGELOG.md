@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.130.0] - 2026-09-05
+
+### Added
+
+- **Extension SDK 1.12: an extension route can now ask whether the person calling it may see a particular card.** Until now the SDK could answer only landscape-wide permission questions — an extension endpoint returning information about one card could check that the caller may use the inventory, but not that they may see *that* card, which is a different question when access comes from a stakeholder role rather than from their role. Extensions that return per-card data can now gate it exactly as Turbo EA's own endpoints do, using the same permission engine, so the two can never disagree. Nothing changes for existing extensions, and no new permission or licence entitlement is involved: the check only ever answers a question about the caller's own access, and can only ever refuse.
+
 ## [2.129.0] - 2026-09-05
 
 ### Added

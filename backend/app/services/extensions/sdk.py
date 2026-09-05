@@ -60,6 +60,48 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 from app.api.deps import get_current_user, require_permission  # noqa: F401
 from app.database import get_db  # noqa: F401
 
+
+async def check_card_permission(
+    db: AsyncSession,
+    user: Any,
+    app_permission: str,
+    card_id: Any,
+    card_permission: str,
+) -> bool:
+    """May ``user`` do ``card_permission`` to this one card? (SDK 1.12)
+
+    True when the app-level permission grants it landscape-wide, OR when a
+    stakeholder role the user holds ON THAT CARD carries the card-level key.
+    The canonical pair for "may they see it" is
+    ``("inventory.view", "card.view")``.
+
+    A thin wrapper rather than a re-export of ``PermissionService``: that class
+    also carries the role cache, the impersonation resolution and the
+    stakeholder internals, none of which is a supported surface.
+
+    An unknown card id answers False, not 404 — check existence first if the
+    caller needs to tell the two apart.
+    """
+    from app.services.permission_service import PermissionService
+
+    return await PermissionService.check_permission(
+        db, user, app_permission, card_id, card_permission
+    )
+
+
+async def require_card_permission(
+    db: AsyncSession,
+    user: Any,
+    app_permission: str,
+    card_id: Any,
+    card_permission: str,
+) -> None:
+    """:func:`check_card_permission`, raising 403 instead of returning False."""
+    from app.services.permission_service import PermissionService
+
+    await PermissionService.require_permission(db, user, app_permission, card_id, card_permission)
+
+
 # --- SDK 1.2 — core-data bridge, events, secrets ----------------------------
 # 1.2 added three additive surfaces (existing 1.0/1.1 extensions load and run
 # unchanged):
@@ -198,7 +240,32 @@ from app.database import get_db  # noqa: F401
 #   per-product cache; the database session is closed BEFORE the fetch.
 #   Gated by ``core.cards.read``.
 
-SDK_VERSION = "1.11"
+# SDK 1.12 adds the per-card half of the permission question (existing 1.x
+# extensions load and run unchanged):
+#
+# - ``check_card_permission(db, user, app_permission, card_id, card_permission)``
+#   and ``require_card_permission(...)`` — "may THIS caller do this to THIS
+#   card?", answered by the same ``PermissionService`` core answers it with, so
+#   an extension route that returns per-card data gates it exactly as a core
+#   route does. The canonical pair is ``("inventory.view", "card.view")``,
+#   which is the literal core repeats at every card-scoped read of its own.
+#
+#   ``require_permission`` cannot express this: it is a dependency factory, and
+#   the card id is per-request path or body data that does not exist when the
+#   dependency is declared. There is no ambient current-user seam either — the
+#   contextvars carry origin, batch, endpoint and impersonation, never
+#   identity — so these take ``db`` and ``user`` explicitly, the same shape
+#   ``PermissionService`` uses.
+#
+#   UNGATED, deliberately, like the route dependencies above and unlike every
+#   bridge on ``ExtensionContext``. Grants mark *data* an extension would not
+#   otherwise hold; this returns one boolean about the caller, adds no content,
+#   and can only ever subtract — and core already lets any authenticated user
+#   ask strictly more of any card through ``GET /cards/{id}/my-permissions``.
+#   An unknown card id answers False rather than 404, so a caller that needs a
+#   404 checks existence first.
+
+SDK_VERSION = "1.12"
 
 
 @dataclass(frozen=True)

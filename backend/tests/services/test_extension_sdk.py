@@ -15,8 +15,8 @@ from app.database import get_db as core_get_db
 from app.services.extensions import sdk
 
 
-def test_sdk_version_is_1_9():
-    assert sdk.SDK_VERSION == "1.11"
+def test_sdk_version_is_current():
+    assert sdk.SDK_VERSION == "1.12"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -202,13 +202,15 @@ def test_sdk_compatibility_is_major_only():
     assert sdk.sdk_compatible("1.8")
     assert sdk.sdk_compatible("1.10")
     assert sdk.sdk_compatible("1.11")
+    assert sdk.sdk_compatible("1.12")
     assert not sdk.sdk_compatible("2.0")
 
 
 def test_sdk_minor_newer_truth_table():
     # Newer minor on the same major → warn (still loads).
-    assert sdk.sdk_minor_newer("1.12")
+    assert sdk.sdk_minor_newer("1.13")
     # Same or older minor → no warning.
+    assert not sdk.sdk_minor_newer("1.12")
     assert not sdk.sdk_minor_newer("1.11")
     assert not sdk.sdk_minor_newer("1.10")
     assert not sdk.sdk_minor_newer("1.8")
@@ -387,3 +389,32 @@ def test_sdk_1_11_surface_exists():
     params = inspect.signature(sdk.NotifyBridge.send).parameters
     assert "type" in params and params["type"].default is None
     assert "detail" in params and params["detail"].default is False
+
+
+def test_sdk_1_12_surface_exists():
+    # SDK 1.12 — the per-card half of the permission question. require_permission
+    # is a dependency factory and cannot carry a per-request card id, so these
+    # take (db, user, ...) explicitly, the shape PermissionService uses.
+    import inspect
+
+    for fn in (sdk.check_card_permission, sdk.require_card_permission):
+        params = list(inspect.signature(fn).parameters)
+        assert params == [
+            "db",
+            "user",
+            "app_permission",
+            "card_id",
+            "card_permission",
+        ], fn.__name__
+        assert inspect.iscoroutinefunction(fn)
+
+
+def test_per_card_permission_helpers_are_not_grant_gated():
+    # They are route dependencies in spirit, like require_permission above, not
+    # bridges: one boolean about the CALLER, no content, and core already lets
+    # any authenticated user ask more of any card via /cards/{id}/my-permissions.
+    # A grant here would mean an extension without one can only write a LESS
+    # safe route.
+    from app.services.extensions import bundle
+
+    assert not any("permission" in grant for grant in bundle.VALID_GRANTS)
