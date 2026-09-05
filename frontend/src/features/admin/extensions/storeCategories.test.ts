@@ -19,14 +19,23 @@ function item(key: string, category?: string): StoreItem {
 
 describe("groupStoreItems", () => {
   it("orders sections by the fixed vocabulary, not by first appearance", () => {
+    // Fed in reverse, so passing this cannot be an accident of input order.
     const groups = groupStoreItems([
       item("r", "regulations"),
       item("i", "integrations"),
+      item("g", "governance"),
       item("s", "strategy"),
     ]);
-    expect(groups.map((g) => g.category)).toEqual(["strategy", "integrations", "regulations"]);
-    // A fourth section exists for governance and automation listings.
-    expect(groupStoreItems([item("g", "governance"), item("s", "strategy")]).map((g) => g.category)).toEqual(["strategy", "governance"]);
+    expect(groups.map((g) => g.category)).toEqual([
+      "strategy",
+      "governance",
+      "integrations",
+      "regulations",
+    ]);
+    // Governance sits directly after strategy, ahead of integrations.
+    expect(
+      groupStoreItems([item("i", "integrations"), item("g", "governance")]).map((g) => g.category),
+    ).toEqual(["governance", "integrations"]);
   });
 
   it("keeps catalogue order inside a section and omits empty sections", () => {
