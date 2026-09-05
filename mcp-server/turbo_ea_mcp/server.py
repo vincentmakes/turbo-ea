@@ -745,10 +745,12 @@ async def rollback_batch(
     override (requires ``admin.events`` on the calling user — accepts
     the data loss of clobbering someone else's later edits).
 
-    Coverage today: ``card.created``, ``card.updated``,
-    ``card.archived``, ``card.restored``, ``relation.created``, and
-    ``relation.upserted``. Other event types (ADR / risk / SoAW /
-    comment / stakeholder writes) surface in the dry-run plan under
+    Coverage: card writes (``card.created`` / ``updated`` / ``archived``
+    / ``restored``), ``relation.created``, risks raised or edited in the
+    batch (``risk.added`` / ``risk.updated``), stakeholder role
+    assignments, card tags and draft decisions (``adr.created``). Todos
+    and notifications are deliberately never reversed, and a deleted
+    risk cannot be rebuilt; those surface in the dry-run plan under
     ``unsupported_events`` so the caller can decide whether to proceed
     on the partial coverage.
 

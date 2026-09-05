@@ -749,6 +749,7 @@ nav:
       - Slack Notifications: extensions/slack-notify.md
       - DORA Register of Information: extensions/dora-roi.md
       - Roadmap Studio: extensions/roadmap-studio.md
+      - Automations: extensions/automations.md
   - Reference:
       - Glossary: reference/glossary.md
       - Compatibility Policy: reference/compatibility.md

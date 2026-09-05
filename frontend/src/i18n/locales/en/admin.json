@@ -1778,7 +1778,7 @@
   "settings.extensionNotices.enabledSuccess": "Extension store notifications enabled",
   "settings.extensionNotices.disabledSuccess": "Extension store notifications disabled",
   "auditLog.title": "Audit log",
-  "auditLog.description": "Every mutating write (MCP agent, Web UI, direct API) lands here as a mutation batch with its actor, tool, origin and per-event diff. Use it to audit what changed and to roll back AI-driven batches that landed wrong. (Rollback is supported on card / relation writes today; other event types surface in the dry-run plan as {{token}}.)",
+  "auditLog.description": "Every mutating write (MCP agent, Web UI, direct API, extension) lands here as a mutation batch with its actor, tool, origin and per-event diff. Use it to audit what changed and to roll back batches that landed wrong. Rollback reverts card, relation, risk, stakeholder-role, tag and draft-decision writes; todos and notifications are left in place and surface in the dry-run plan as {{token}}.",
   "auditLog.unsupportedEventsToken": "unsupported_events",
   "auditLog.refresh": "Refresh",
   "auditLog.mutationBatches": "Mutation batches",

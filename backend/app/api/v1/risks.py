@@ -50,7 +50,9 @@ from app.services.risk_service import (
     linked_card_ids,
     promote_compliance_finding,
     publish_risk_event,
+    risk_changes,
     risk_link,
+    risk_snapshot,
     risk_to_dict,
     sync_owner_todo,
     validate_status_transition,
@@ -566,6 +568,7 @@ async def update_risk(
     risk = await _load_risk(db, risk_id)
     previous_owner = risk.owner_id
     previous_status = risk.status
+    before = risk_snapshot(risk)
 
     data = body.model_dump(exclude_unset=True)
 
@@ -666,7 +669,7 @@ async def update_risk(
             "risk.updated",
             linked,
             actor_id=user.id,
-            extra={"fields": sorted(data.keys())},
+            extra={"fields": sorted(data.keys()), "changes": risk_changes(before, risk)},
         )
 
     await db.commit()

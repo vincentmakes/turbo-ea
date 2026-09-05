@@ -319,8 +319,59 @@ async def create_risk(
     await sync_owner_todo(db, risk, actor_id=actor_id, previous_owner=None)
 
     linked = await linked_card_ids(db, risk.id)
-    await publish_risk_event(db, risk, "risk.added", linked, actor_id=actor_id, extra=event_extra)
+    # ``created`` tells the rollback engine this batch raised the risk (its
+    # inverse is deleting it), as opposed to a later ``risk.added`` that only
+    # linked an existing risk to one more card (its inverse is the unlink).
+    await publish_risk_event(
+        db,
+        risk,
+        "risk.added",
+        linked,
+        actor_id=actor_id,
+        extra={**(event_extra or {}), "created": True},
+    )
     return risk
+
+
+# Scalar columns whose edits are recorded as old/new pairs on ``risk.updated``
+# so a batch that changed them can be rolled back field by field.
+RISK_TRACKED_FIELDS: tuple[str, ...] = (
+    "title",
+    "description",
+    "category",
+    "initial_probability",
+    "initial_impact",
+    "residual_probability",
+    "residual_impact",
+    "owner_id",
+    "target_resolution_date",
+    "status",
+    "acceptance_rationale",
+    "accepted_by",
+    "accepted_at",
+)
+
+
+def _json_value(value: Any) -> Any:
+    if isinstance(value, (uuid.UUID, datetime, date)):
+        return value.isoformat() if not isinstance(value, uuid.UUID) else str(value)
+    return value
+
+
+def risk_snapshot(risk: Risk) -> dict[str, Any]:
+    """The tracked fields of a risk as JSON-ready values — take it before
+    an edit, hand it to :func:`risk_changes` after."""
+    return {k: _json_value(getattr(risk, k)) for k in RISK_TRACKED_FIELDS}
+
+
+def risk_changes(before: dict[str, Any], risk: Risk) -> dict[str, dict[str, Any]]:
+    """``{field: {"old", "new"}}`` for every tracked field that moved —
+    the same shape ``card.updated`` carries, which is what the rollback
+    engine and the History tab both read."""
+    after = risk_snapshot(risk)
+    return {
+        k: {"old": before[k], "new": after[k]} for k in RISK_TRACKED_FIELDS if before[k] != after[k]
+    }
 
 
 async def link_cards(

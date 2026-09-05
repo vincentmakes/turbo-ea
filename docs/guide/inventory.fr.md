@@ -25,7 +25,7 @@ Le panneau latéral gauche permet de **filtrer** les fiches selon différents cr
 - **Afficher uniquement les archives** -- Basculer pour voir les fiches archivées (supprimées de manière logique)
 - **Tout effacer** -- Réinitialiser tous les filtres actifs d'un coup
 
-> **Trouver les cartes sans valeur.** Les filtres Sous-type, Cycle de vie, Étiquettes, Relations et attributs personnalisés de type liste proposent chacun une option **(vide)**. Sélectionnez-la pour n'afficher que les cartes qui n'ont *aucune* valeur pour ce champ — par exemple toutes les cartes sans cycle de vie défini. Elle se combine avec des valeurs normales (correspond à l'une d'elles) et entre plusieurs filtres (correspond à tous).
+> **Trouver les fiches sans valeur.** Les filtres Sous-type, Cycle de vie, Étiquettes, Relations et attributs personnalisés de type liste proposent chacun une option **(vide)**. Sélectionnez-la pour n'afficher que les fiches qui n'ont *aucune* valeur pour ce champ — par exemple toutes les fiches sans cycle de vie défini. Elle se combine avec des valeurs normales (correspond à l'une d'elles) et entre plusieurs filtres (correspond à tous).
 
 Un **badge de nombre de filtres actifs** indique combien de filtres sont actuellement appliqués.
 
@@ -39,17 +39,17 @@ Faites un clic droit sur n'importe quelle cellule de la grille (appui long sur u
 - **Copier la valeur** — copier le texte de la cellule dans le presse-papiers
 - **Effacer le filtre de colonne** — supprimer le filtre de cette colonne (visible uniquement lorsqu'un filtre est actif)
 
-Sur une cellule à valeurs multiples (étiquettes, relations, parties prenantes, attributs à choix multiples), le menu liste d'abord les valeurs individuelles, afin de filtrer sur l'une d'elles ou sur la cellule entière. **Aperçu de la fiche** apparaît sur toute cellule qui nomme une fiche — la colonne **Nom** (la fiche de la ligne elle-même), la colonne **Parent** et les colonnes de relations — et lorsque la cellule en nomme plusieurs, le menu les liste de la même manière, pour que vous choisissiez celle à ouvrir. Ces filtres alimentent les filtres de colonnes de la grille : ils se combinent avec les filtres de la barre latérale, comptent dans le bouton **Effacer les filtres** de la barre d'outils et sont conservés avec votre vue. Le même menu est disponible sur toutes les grilles de Turbo EA — Décisions, Registre des risques, Conformité et les grilles d'administration. Lorsque la colonne possède un filtre correspondant dans le panneau de gauche — type de carte, sous-type, cycle de vie, statut d'approbation ou attribut à choix unique —, **Afficher les correspondances** sélectionne également cette valeur dans le panneau, et **Effacer** efface les deux : une vue enregistrée ne peut donc jamais contenir un filtre de panneau et un filtre de colonne contradictoires. Si le filtre est ensuite modifié dans le panneau, c'est lui qui prend le relais.
+Sur une cellule à valeurs multiples (étiquettes, relations, parties prenantes, attributs à choix multiples), le menu liste d'abord les valeurs individuelles, afin de filtrer sur l'une d'elles ou sur la cellule entière. **Aperçu de la fiche** apparaît sur toute cellule qui nomme une fiche — la colonne **Nom** (la fiche de la ligne elle-même), la colonne **Parent** et les colonnes de relations — et lorsque la cellule en nomme plusieurs, le menu les liste de la même manière, pour que vous choisissiez celle à ouvrir. Ces filtres alimentent les filtres de colonnes de la grille : ils se combinent avec les filtres de la barre latérale, comptent dans le bouton **Effacer les filtres** de la barre d'outils et sont conservés avec votre vue. Le même menu est disponible sur toutes les grilles de Turbo EA — Décisions, Registre des risques, Conformité et les grilles d'administration. Lorsque la colonne possède un filtre correspondant dans le panneau de gauche — type de fiche, sous-type, cycle de vie, statut d'approbation ou attribut à choix unique —, **Afficher les correspondances** sélectionne également cette valeur dans le panneau, et **Effacer** efface les deux : une vue enregistrée ne peut donc jamais contenir un filtre de panneau et un filtre de colonne contradictoires. Si le filtre est ensuite modifié dans le panneau, c'est lui qui prend le relais.
 
 ![Menu contextuel d'une cellule de l'inventaire](../assets/img/fr/62_inventaire_menu_contextuel.png)
 
 ### Onglet Colonnes
 
-L'onglet **Colonnes** dans le panneau latéral vous permet de choisir les colonnes supplémentaires à afficher dans la grille. Les colonnes disponibles changent dynamiquement en fonction des types de cartes sélectionnés :
+L'onglet **Colonnes** dans le panneau latéral vous permet de choisir les colonnes supplémentaires à afficher dans la grille. Les colonnes disponibles changent dynamiquement en fonction des types de fiches sélectionnés :
 
 - **Un seul type sélectionné** — Tous les champs d'attributs définis pour ce type sont disponibles, ainsi que les colonnes de relations et de métadonnées
 - **Plusieurs types sélectionnés** — Seuls les champs **communs à tous les types sélectionnés** sont disponibles
-- **Aucun type sélectionné** — Un message d'indication vous invite à sélectionner d'abord un type de carte
+- **Aucun type sélectionné** — Un message d'indication vous invite à sélectionner d'abord un type de fiche
 
 Les colonnes sont regroupées en cinq catégories :
 
@@ -58,10 +58,10 @@ Les colonnes sont regroupées en cinq catégories :
 | **Colonnes par défaut** | Colonnes toujours actives : Type, Nom, Chemin, Description, Sous-type, Cycle de vie, Statut d'approbation, Qualité des données. Décochez-les pour les masquer de la grille — utile pour resserrer une vue enregistrée aux seules colonnes que vous utilisez vraiment. |
 | **Métadonnées** | Créé, Modifié, Créé par, Modifié par. **Modifié** correspond à la dernière modification du contenu de la fiche — par une personne ou une intégration, jamais par un recalcul de score effectué par le système — vous pouvez donc filtrer sur cette date pour trouver les fiches à faire revoir par leur responsable. |
 | **Attributs** | Champs personnalisés définis dans le métamodèle (texte, nombre, coût, date, sélection, etc.) |
-| **Relations** | Types de cartes liés (par ex., Applications liées à une Capacité Métier) |
+| **Relations** | Types de fiches liés (par ex., Applications liées à une Capacité Métier) |
 | **Parties prenantes** | Une colonne par rôle de partie prenante défini pour le type sélectionné (par ex. *Parties prenantes : Responsible*), affichant les utilisateurs assignés sous forme de puces. En mode édition de grille, double-cliquez sur une cellule pour assigner ou retirer des utilisateurs pour ce rôle directement depuis la grille (nécessite la permission de gestion des parties prenantes). |
 
-La colonne **Parent** n'affiche que la carte située directement au-dessus, alors que **Chemin** affiche toute la chaîne. En mode d'édition de la grille, double-cliquez sur une cellule Parent pour déplacer la carte, ou videz le champ pour la remonter au niveau supérieur. La colonne n'est modifiable que si la grille est filtrée sur un seul type de carte prenant en charge la hiérarchie. Si un déplacement est refusé — parce qu'il créerait une boucle, entrerait en conflit avec une carte du même nom sous la cible, ou dépasserait la profondeur maximale —, le motif s'affiche en bas de l'écran et la cellule revient à son état précédent.
+La colonne **Parent** n'affiche que la fiche située directement au-dessus, alors que **Chemin** affiche toute la chaîne. En mode d'édition de la grille, double-cliquez sur une cellule Parent pour déplacer la fiche, ou videz le champ pour la remonter au niveau supérieur. La colonne n'est modifiable que si la grille est filtrée sur un seul type de fiche prenant en charge la hiérarchie. Si un déplacement est refusé — parce qu'il créerait une boucle, entrerait en conflit avec une fiche du même nom sous la cible, ou dépasserait la profondeur maximale —, le motif s'affiche en bas de l'écran et la cellule revient à son état précédent.
 
 La colonne **Chemin** affiche le fil d'Ariane hiérarchique (par ex. « Amérique du Nord / Ventes / Ventes internes ») sans le nom de la fiche elle-même, ce qui vous permet d'afficher Nom et Chemin en même temps.
 
@@ -69,7 +69,7 @@ La colonne **Logo** affiche le logo propre à la fiche, ou son icône de type lo
 
 Chaque catégorie dispose d'une case à cocher **Tout sélectionner** pour activer ou désactiver rapidement toutes les colonnes du groupe. Un champ de recherche en haut permet de trouver des colonnes spécifiques par nom. Le badge sur chaque en-tête de section indique combien de colonnes de ce groupe sont actuellement visibles.
 
-Lorsqu'un type de carte est sélectionné pour la première fois, **toutes les colonnes d'attributs et de relations sont activées par défaut**. Vous pouvez ensuite décocher les colonnes dont vous n'avez pas besoin. Un bouton **Réinitialiser** en bas de l'onglet « Colonnes » restaure la sélection de colonnes par défaut.
+Lorsqu'un type de fiche est sélectionné pour la première fois, **toutes les colonnes d'attributs et de relations sont activées par défaut**. Vous pouvez ensuite décocher les colonnes dont vous n'avez pas besoin. Un bouton **Réinitialiser** en bas de l'onglet « Colonnes » restaure la sélection de colonnes par défaut.
 
 Un **point indicateur de modification** apparaît sur l'en-tête de l'onglet « Colonnes » lorsque la sélection de colonnes diffère des valeurs par défaut. Le même indicateur apparaît sur l'onglet **Filtres** lorsque des filtres sont actifs, permettant de voir d'un coup d'œil quels paramètres ont été modifiés.
 
@@ -88,7 +88,7 @@ L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalité
 | **Cycle de vie** | État actuel du cycle de vie |
 | **Statut d'approbation** | Badge de statut de révision |
 | **Qualité des données** | Pourcentage de complétude avec anneau visuel |
-| **Relations** | Noms des cartes liées, classés par ordre alphabétique, avec un popover cliquable pour ajouter ou retirer des relations — les fiches déjà liées sont masquées dans son sélecteur, sauf pour un type hiérarchique, où le sélecteur affiche toute la hiérarchie sous forme d'arborescence indentée et laisse ces fiches en grisé à leur place |
+| **Relations** | Noms des fiches liées, classés par ordre alphabétique, avec un popover cliquable pour ajouter ou retirer des relations — les fiches déjà liées sont masquées dans son sélecteur, sauf pour un type hiérarchique, où le sélecteur affiche toute la hiérarchie sous forme d'arborescence indentée et laisse ces fiches en grisé à leur place |
 
 **Fonctionnalités du tableau :**
 
@@ -122,41 +122,41 @@ L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalité
 
 ## Édition en masse { #mass-edit }
 
-Cochez deux lignes ou plus à l'aide des cases de la colonne de gauche, puis cliquez sur **Édition en masse** dans la barre de sélection. La boîte de dialogue applique une seule modification à chaque carte sélectionnée.
+Cochez deux lignes ou plus à l'aide des cases de la colonne de gauche, puis cliquez sur **Édition en masse** dans la barre de sélection. La boîte de dialogue applique une seule modification à chaque fiche sélectionnée.
 
 La liste déroulante **Champ** regroupe les éléments modifiables :
 
 - **Général** — statut d'approbation, sous-type, étiquettes et parent
-- **Attributs** — tout champ modifiable défini pour le type de carte sélectionné
+- **Attributs** — tout champ modifiable défini pour le type de fiche sélectionné
 - **Relations** — une entrée par type de relation et par direction (par exemple *s'exécute sur → Composant informatique*)
 
 Les étiquettes, les relations et le parent proposent chacun un bouton **ajouter / retirer**, afin d'étendre ou de réduire les valeurs existantes plutôt que de les remplacer.
 
-Le champ de saisie s'adapte au type de champ : une liste à choix multiples affiche ses options avec des cases à cocher, un champ oui/non un interrupteur, un champ date un sélecteur de date. Laisser la valeur vide efface le champ sur toutes les cartes sélectionnées. Les champs calculés par une formule, ainsi que les champs de coût que vous n'êtes pas autorisé à voir, ne sont pas proposés.
+Le champ de saisie s'adapte au type de champ : une liste à choix multiples affiche ses options avec des cases à cocher, un champ oui/non un interrupteur, un champ date un sélecteur de date. Laisser la valeur vide efface le champ sur toutes les fiches sélectionnées. Les champs calculés par une formule, ainsi que les champs de coût que vous n'êtes pas autorisé à voir, ne sont pas proposés.
 
 ### Restructurer la hiérarchie { #mass-edit-parent }
 
-Le champ **Parent** apparaît dès que la grille est filtrée sur un seul type de carte prenant en charge la hiérarchie. Une carte n'a qu'un seul parent : ce champ unique couvre donc les deux sens d'une restructuration.
+Le champ **Parent** apparaît dès que la grille est filtrée sur un seul type de fiche prenant en charge la hiérarchie. Une fiche n'a qu'un seul parent : ce champ unique couvre donc les deux sens d'une restructuration.
 
-- **Définir le parent** — choisissez une carte du même type ; toutes les cartes sélectionnées sont placées en dessous. C'est ainsi que l'on rattache plusieurs cartes à un même parent.
-- **Supprimer le parent** — toutes les cartes sélectionnées remontent au niveau supérieur.
+- **Définir le parent** — choisissez une fiche du même type ; toutes les fiches sélectionnées sont placées en dessous. C'est ainsi que l'on rattache plusieurs fiches à un même parent.
+- **Supprimer le parent** — toutes les fiches sélectionnées remontent au niveau supérieur.
 
-Les cartes sont déplacées une par une : un déplacement refusé ne bloque donc que la carte concernée. La boîte de dialogue reste ouverte et indique quelles cartes ont été bloquées et pourquoi. Les motifs habituels sont :
+Les fiches sont déplacées une par une : un déplacement refusé ne bloque donc que la fiche concernée. La boîte de dialogue reste ouverte et indique quelles fiches ont été bloquées et pourquoi. Les motifs habituels sont :
 
-- Une carte du même nom se trouve déjà sous le parent cible.
-- Le parent choisi est un descendant de l'une des cartes déplacées, ce qui créerait une boucle.
+- Une fiche du même nom se trouve déjà sous le parent cible.
+- Le parent choisi est un descendant de l'une des fiches déplacées, ce qui créerait une boucle.
 - Le déplacement porterait une capacité métier au-delà du maximum de cinq niveaux.
 
-Une carte emporte ses propres enfants lors du déplacement, et les cartes approuvées repassent à **Rompu** afin que la modification soit réexaminée.
+Une fiche emporte ses propres enfants lors du déplacement, et les fiches approuvées repassent à **Rompu** afin que la modification soit réexaminée.
 
 ## Regrouper l'inventaire { #group-by }
 
-Cliquez sur **Grouper par** dans la barre d'outils (à côté du nombre d'éléments) pour organiser la grille en groupes repliables. La phase de cycle de vie et le statut d'approbation sont toujours disponibles ; lorsque la grille est filtrée sur un seul type de carte, son sous-type et tous ses attributs à choix unique s'y ajoutent.
+Cliquez sur **Grouper par** dans la barre d'outils (à côté du nombre d'éléments) pour organiser la grille en groupes repliables. La phase de cycle de vie et le statut d'approbation sont toujours disponibles ; lorsque la grille est filtrée sur un seul type de fiche, son sous-type et tous ses attributs à choix unique s'y ajoutent.
 
-- Les cartes sans valeur pour le champ choisi sont rassemblées dans un groupe **Non défini** en haut de la grille : le point de départ naturel pour trier les cartes non classées.
-- Cliquez sur l'en-tête d'un groupe pour le replier ou le déplier. L'en-tête affiche le nombre de cartes du groupe.
+- Les fiches sans valeur pour le champ choisi sont rassemblées dans un groupe **Non défini** en haut de la grille : le point de départ naturel pour trier les fiches non classées.
+- Cliquez sur l'en-tête d'un groupe pour le replier ou le déplier. L'en-tête affiche le nombre de fiches du groupe.
 - Lorsque vous faites défiler un groupe long, son en-tête reste épinglé juste sous les en-têtes de colonnes : vous savez toujours quel groupe vous lisez, et l'en-tête du groupe suivant le chasse à son arrivée. C'est l'en-tête complet, case à cocher comprise : vous pouvez donc sélectionner un groupe long sans remonter à son début.
-- La case à cocher de l'en-tête sélectionne toutes les cartes du groupe : pour reclasser un lot, dépliez **Non défini**, cochez l'en-tête, puis définissez la valeur via la [Modification en masse](#mass-edit). Il n'y a volontairement pas de glisser-déposer : sélectionner puis définir fonctionne de la même façon sur ordinateur, tablette et téléphone.
+- La case à cocher de l'en-tête sélectionne toutes les fiches du groupe : pour reclasser un lot, dépliez **Non défini**, cochez l'en-tête, puis définissez la valeur via la [Modification en masse](#mass-edit). Il n'y a volontairement pas de glisser-déposer : sélectionner puis définir fonctionne de la même façon sur ordinateur, tablette et téléphone.
 - Le tri s'applique à l'intérieur de chaque groupe ; le regroupement est conservé après rechargement, enregistré dans les vues sauvegardées et partageable via le paramètre d'URL `group_by`.
 
 ## Suggestions de description par IA { #ai-description-suggestions }
@@ -249,6 +249,6 @@ Quelques précisions sur l'import :
 
 ### Export
 
-Cliquez sur **Exporter**. Le filtre courant détermine le contenu : avec un filtre mono-type, une seule feuille de cartes ; sans filtre, une feuille par type présent. Dans tous les cas, le classeur inclut `Relations` et `_Meta` et peut être réimporté sans perdre les attributs spécifiques au type.
+Cliquez sur **Exporter**. Le filtre courant détermine le contenu : avec un filtre mono-type, une seule feuille de fiches ; sans filtre, une feuille par type présent. Dans tous les cas, le classeur inclut `Relations` et `_Meta` et peut être réimporté sans perdre les attributs spécifiques au type.
 
 Vous pouvez aussi choisir **Exporter la vue actuelle** dans le menu Exporter — un instantané plat sur une seule feuille qui reflète ce qui est affiché (uniquement les colonnes visibles, dans leur ordre actuel, pour les lignes filtrées). Il est destiné au partage et **ne convient pas à la réimportation**. Si les colonnes de relations sont encore en cours de chargement, l'export les attend : elles ne peuvent donc jamais être vides.

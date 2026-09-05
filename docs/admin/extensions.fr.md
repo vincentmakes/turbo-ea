@@ -46,7 +46,7 @@ L'onglet indique également quand la boutique a été lue pour la dernière fois
 
 ## Essais
 
-Certaines extensions payantes proposent un **essai gratuit de 30 jours** — repérez le bouton **Démarrer l'essai de 30 jours** dans l'onglet Boutique (ou l'option d'essai sur le site de la boutique). Démarrer un essai fonctionne comme un achat sans paiement : aucune carte bancaire n'est requise, votre licence se met à jour automatiquement (une copie arrive aussi par e-mail pour les installations isolées), et l'extension fonctionne avec toutes ses fonctionnalités pendant 30 jours.
+Certaines extensions payantes proposent un **essai gratuit de 30 jours** — repérez le bouton **Démarrer l'essai de 30 jours** dans l'onglet Boutique (ou l'option d'essai sur le site de la boutique). Démarrer un essai fonctionne comme un achat sans paiement : aucune fiche bancaire n'est requise, votre licence se met à jour automatiquement (une copie arrive aussi par e-mail pour les installations isolées), et l'extension fonctionne avec toutes ses fonctionnalités pendant 30 jours.
 
 - Chaque instance Turbo EA peut essayer une extension donnée **une seule fois**.
 - Un essai se termine exactement à sa date de fin — il n'y a pas de période de grâce. L'extension cesse alors de fonctionner jusqu'à ce que vous vous abonniez ; **vos données ne sont jamais supprimées**, et tout revient dès qu'une licence d'abonnement est appliquée.
@@ -57,7 +57,7 @@ Certaines extensions payantes proposent un **essai gratuit de 30 jours** — rep
 
 1. Si ce n'est pas déjà fait, appliquez d'abord votre licence (voir ci-dessous).
 2. Ouvrez **Admin → Extensions**, cliquez sur **Installer depuis un fichier…** au-dessus du catalogue dans l'onglet Boutique ou au-dessus de la liste dans l'onglet Installées (et dans le message affiché lorsque la boutique est injoignable) et téléversez le fichier `.teax` reçu.
-3. Turbo EA vérifie la signature et ouvre une **boîte de dialogue d'installation** avec un **aperçu** : pour les extensions de contenu, il s'agit d'une simulation de chaque type de carte, groupe d'étiquettes, carte et relation que l'extension créerait ou mettrait à jour — rien n'est encore écrit.
+3. Turbo EA vérifie la signature et ouvre une **boîte de dialogue d'installation** avec un **aperçu** : pour les extensions de contenu, il s'agit d'une simulation de chaque type de fiche, groupe d'étiquettes, fiche et relation que l'extension créerait ou mettrait à jour — rien n'est encore écrit.
 4. Vérifiez l'aperçu — il défile à l'intérieur de la boîte de dialogue — puis cliquez sur **Installer l'extension** en bas de celle-ci : le bouton y reste, quelle que soit la longueur de l'aperçu.
 5. Si l'extension contient du code backend, un bandeau demande de redémarrer le conteneur backend (`docker compose restart backend`). Les extensions de contenu et d'interface sont actives immédiatement — les utilisateurs voient la nouvelle interface au prochain chargement de page.
 
@@ -90,8 +90,8 @@ Résilier ne coupe jamais rien immédiatement : l'extension continue de fonction
 
 ## Activer, désactiver et désinstaller
 
-- L'interrupteur **Activée** désactive une extension immédiatement en douceur (sans redémarrage) et peut être rebasculé à tout moment. Pour les packs de contenu, cela masque leurs types de cartes du métamodèle — les cartes restent en place.
-- **Désinstaller** supprime les fichiers de l'extension et masque ses types de cartes du métamodèle. Les cartes et les tables propres à l'extension sont délibérément conservées, et tout — types compris — réapparaît en cas de réinstallation.
+- L'interrupteur **Activée** désactive une extension immédiatement en douceur (sans redémarrage) et peut être rebasculé à tout moment. Pour les packs de contenu, cela masque leurs types de fiches du métamodèle — les fiches restent en place.
+- **Désinstaller** supprime les fichiers de l'extension et masque ses types de fiches du métamodèle. Les fiches et les tables propres à l'extension sont délibérément conservées, et tout — types compris — réapparaît en cas de réinstallation.
 
 ## Permissions
 
@@ -113,9 +113,9 @@ La plupart des extensions ne travaillent qu'avec leurs propres données. Une ext
 - `core.todos.read` / `core.todos.write` — lire ou modifier les todos via le SDK d'extension. L'écriture inclut la lecture. Sur les todos système (comme les demandes de signature), une extension de synchronisation ne peut définir que la référence externe affichée en pastille — elle ne peut jamais les terminer, les modifier, les réassigner ni les supprimer, et les todos appartenant à une autre extension restent hors de portée.
 - `core.events.todo` — recevoir les événements de changement des todos, afin qu'un connecteur réagisse immédiatement au lieu d'attendre son prochain cycle d'interrogation.
 - `core.users.read` — consulter les utilisateurs (nom, e-mail et statut actif uniquement) afin qu'un connecteur puisse faire correspondre les responsables avec les comptes de l'outil externe. Aucune donnée de rôle, de connexion ou de préférence n'est exposée, et les extensions ne peuvent jamais modifier les utilisateurs.
-- `core.cards.read` — lire les cartes, les relations et le métamodèle, par exemple pour qu'un connecteur puisse faire correspondre vos applications avec les enregistrements d'un système externe. Les cartes archivées restent hors de vue.
-- `core.cards.write` — créer, modifier ou archiver des cartes et ajouter des relations, avec exactement la validation qu'applique l'éditeur de l'application. Les mises à jour fusionnent les valeurs de champs au lieu de les remplacer, si bien qu'une extension ne peut jamais effacer des données qu'elle ne gère pas, et il n'existe **aucune suppression définitive** — l'archivage, avec sa fenêtre de restauration, est la seule suppression possible pour une extension.
-- `core.events.card` — recevoir les événements de modification des cartes et des relations, afin qu'un connecteur réagisse immédiatement aux changements de l'inventaire au lieu d'attendre son prochain cycle d'interrogation.
+- `core.cards.read` — lire les fiches, les relations et le métamodèle, par exemple pour qu'un connecteur puisse faire correspondre vos applications avec les enregistrements d'un système externe. Les fiches archivées restent hors de vue.
+- `core.cards.write` — créer, modifier ou archiver des fiches et ajouter des relations, avec exactement la validation qu'applique l'éditeur de l'application. Les mises à jour fusionnent les valeurs de champs au lieu de les remplacer, si bien qu'une extension ne peut jamais effacer des données qu'elle ne gère pas, et il n'existe **aucune suppression définitive** — l'archivage, avec sa fenêtre de restauration, est la seule suppression possible pour une extension.
+- `core.events.card` — recevoir les événements de modification des fiches et des relations, afin qu'un connecteur réagisse immédiatement aux changements de l'inventaire au lieu d'attendre son prochain cycle d'interrogation.
 - `core.notifications.channel` — remettre les notifications que vous avez choisies sur un canal propre à l'extension, par exemple un message de chat. L'extension reçoit le titre, le message et le lien d'une notification ainsi que votre identifiant d'utilisateur ; elle ne reçoit pas votre adresse e-mail à moins de déclarer aussi `core.users.read`, et elle ne reçoit jamais un type que vous n'avez pas activé pour elle. Les notifications qui restent uniquement dans la cloche ne sont jamais envoyées à un canal d'extension.
 
 Les grants font partie du bundle signé par l'éditeur : ils sont figés à l'empaquetage et visibles avant l'installation. Ils ne s'appliquent que tant que l'extension est installée, activée et sous licence — la désactiver ou laisser la licence expirer révoque l'accès immédiatement, sans redémarrage. Chaque modification effectuée par une extension est consignée dans **Admin → Journal d'audit** sous l'origine **Extension**, et un todo miroité depuis un outil externe affiche une puce pointant vers l'élément externe.

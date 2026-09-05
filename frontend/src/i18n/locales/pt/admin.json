@@ -1778,7 +1778,7 @@
   "settings.extensionNotices.enabledSuccess": "Notificações da loja ativadas",
   "settings.extensionNotices.disabledSuccess": "Notificações da loja desativadas",
   "auditLog.title": "Registo de auditoria",
-  "auditLog.description": "Cada escrita que altera dados (agente MCP, interface Web, API direta) chega aqui como um lote de mutação com o respetivo ator, ferramenta, origem e diff por evento. Utilize-o para auditar o que mudou e para reverter lotes conduzidos por IA que correram mal. (A reversão é suportada atualmente para escritas de cartões / relações; outros tipos de evento surgem no plano de simulação como {{token}}.)",
+  "auditLog.description": "Cada escrita que altera dados (agente MCP, interface Web, API direta, extensão) chega aqui como um lote de mutações com o seu autor, ferramenta, origem e diff por evento. Use-o para auditar o que mudou e reverter lotes errados. A reversão desfaz escritas em fichas, relações, riscos, papéis de partes interessadas, etiquetas e rascunhos de decisão; tarefas e notificações permanecem e aparecem no plano de simulação como {{token}}.",
   "auditLog.unsupportedEventsToken": "unsupported_events",
   "auditLog.refresh": "Atualizar",
   "auditLog.mutationBatches": "Lotes de mutação",

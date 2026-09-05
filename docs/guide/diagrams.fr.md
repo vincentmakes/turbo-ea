@@ -6,18 +6,18 @@ Le module **Diagrammes** vous permet de créer des **diagrammes d'architecture v
 
 ## Galerie de diagrammes
 
-La galerie présente chaque diagramme sous forme de carte compacte avec une miniature, un nom, un auteur et le nombre de cartes référencées. **Créez**, **Ouvrez**, **Modifiez les détails**, organisez ou **Supprimez** n'importe quel diagramme.
+La galerie présente chaque diagramme sous forme de fiche compacte avec une miniature, un nom, un auteur et le nombre de fiches référencées. **Créez**, **Ouvrez**, **Modifiez les détails**, organisez ou **Supprimez** n'importe quel diagramme.
 
 ### Trouver des diagrammes
 
 - **Barre latérale de filtres** — le volet de gauche restreint la galerie à **Tous les diagrammes**, **Créés par moi** ou vos **Favoris**. Le chevron permet de la réduire en une fine barre ; sur petits écrans, le bouton **Filtres** l'ouvre en panneau coulissant.
-- **Recherche** — le champ de recherche correspond au nom d'un diagramme, à son auteur et aux noms des cartes qui y sont dessinées, afin de retrouver un diagramme par son contenu.
+- **Recherche** — le champ de recherche correspond au nom d'un diagramme, à son auteur et aux noms des fiches qui y sont dessinées, afin de retrouver un diagramme par son contenu.
 - **Tri** — par récemment mis à jour, récemment créé ou nom.
-- **Favoris** — cliquez sur l'étoile d'une carte pour l'ajouter à vos favoris personnels ; le filtre **Favoris** les affiche tous.
+- **Favoris** — cliquez sur l'étoile d'une fiche pour l'ajouter à vos favoris personnels ; le filtre **Favoris** les affiche tous.
 
 ### Groupes
 
-Regroupez les diagrammes associés dans des **groupes** — des étiquettes partagées à l'échelle de l'espace de travail. Un diagramme peut appartenir à plusieurs groupes à la fois. En vue carte, la galerie affiche chaque groupe sous forme d'en-tête repliable ; les diagrammes non affectés apparaissent sous **Non groupé**.
+Regroupez les diagrammes associés dans des **groupes** — des étiquettes partagées à l'échelle de l'espace de travail. Un diagramme peut appartenir à plusieurs groupes à la fois. En vue fiche, la galerie affiche chaque groupe sous forme d'en-tête repliable ; les diagrammes non affectés apparaissent sous **Non groupé**.
 
 - Utilisez **Gérer les groupes** dans la barre latérale pour créer, renommer, recolorer ou supprimer des groupes.
 - Utilisez **Ajouter à des groupes…** depuis le menu d'un diagramme pour le placer dans un ou plusieurs groupes (vous pouvez créer un nouveau groupe au passage).
@@ -39,7 +39,7 @@ Utilisez le dialogue **Insérer des fiches** (depuis la barre d'outils ou le men
 
 Le même dialogue s'ouvre en mode sélection unique pour **Changer la fiche liée** et **Lier à une fiche existante**.
 
-Chaque fiche sur le canevas affiche son **icône de type de fiche** sous la forme d'un petit glyphe blanc dans le coin supérieur gauche, à côté de la couleur du type — le type d'une fiche est ainsi indiqué à la fois par l'icône et par la couleur. Cela correspond aux icônes utilisées dans toute l'application et améliore la lisibilité pour les utilisateurs daltoniens. L'icône apparaît sur les fiches insérées à partir de maintenant. Pour ajouter des icônes aux fiches déjà présentes sur un diagramme plus ancien, cliquez sur **Appliquer les icônes de type de fiche** dans la barre d'outils de l'éditeur. Si une carte possède son propre **logo**, c'est lui qui s'affiche, l'icône du type de carte étant conservée comme petit badge dans un coin : la forme indique ainsi à la fois de quel produit et de quel type de carte il s'agit. Les logos apparaissent à l'ouverture du diagramme et se rafraîchissent lorsqu'un logo change ; une carte sans logo, comme toute carte d'un type pour lequel un administrateur a désactivé les logos, est dessinée exactement comme avant. Une case **Logos des cartes** dans le même menu les désactive si vous voulez un diagramme sans ornement ; elle est cochée par défaut.
+Chaque fiche sur le canevas affiche son **icône de type de fiche** sous la forme d'un petit glyphe blanc dans le coin supérieur gauche, à côté de la couleur du type — le type d'une fiche est ainsi indiqué à la fois par l'icône et par la couleur. Cela correspond aux icônes utilisées dans toute l'application et améliore la lisibilité pour les utilisateurs daltoniens. L'icône apparaît sur les fiches insérées à partir de maintenant. Pour ajouter des icônes aux fiches déjà présentes sur un diagramme plus ancien, cliquez sur **Appliquer les icônes de type de fiche** dans la barre d'outils de l'éditeur. Si une fiche possède son propre **logo**, c'est lui qui s'affiche, l'icône du type de fiche étant conservée comme petit badge dans un coin : la forme indique ainsi à la fois de quel produit et de quel type de fiche il s'agit. Les logos apparaissent à l'ouverture du diagramme et se rafraîchissent lorsqu'un logo change ; une fiche sans logo, comme toute fiche d'un type pour lequel un administrateur a désactivé les logos, est dessinée exactement comme avant. Une case **Logos des fiches** dans le même menu les désactive si vous voulez un diagramme sans ornement ; elle est cochée par défaut.
 
 ### Actions du clic droit
 

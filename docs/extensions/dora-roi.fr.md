@@ -12,31 +12,31 @@ Les données dont ce registre a besoin sont exactement celles que contient déj�
 votre référentiel EA. **DORA Register of Information** fait de Turbo EA votre
 registre.
 
-## Le registre vit sur vos cartes
+## Le registre vit sur vos fiches
 
 Cette extension ne tient **aucune table propre** pour le contenu du registre.
-Chaque objet du registre est une carte ou une relation :
+Chaque objet du registre est une fiche ou une relation :
 
 | Objet du registre | Dans Turbo EA |
 |---|---|
 | Entités juridiques dans le périmètre | Cartes **Organisation** avec *In DORA register scope* activé |
 | Succursales | Cartes **Organisation** de sous-type **Branch**, enfants de leur siège |
 | Prestataires TIC tiers | Cartes **Provider** |
-| Accords contractuels | Cartes **ICT Arrangement** (nouveau type de carte) |
-| Services TIC | Cartes **ICT Service** (nouveau type de carte) |
+| Accords contractuels | Cartes **ICT Arrangement** (nouveau type de fiche) |
+| Services TIC | Cartes **ICT Service** (nouveau type de fiche) |
 | Fonctions critiques ou importantes | Cartes **Capacité métier** / **Processus métier** marquées comme fonctions du registre |
-| Parties signataires, utilisatrices, prestataires, chaînes de sous-traitance | **Relations** entre ces cartes |
+| Parties signataires, utilisatrices, prestataires, chaînes de sous-traitance | **Relations** entre ces fiches |
 
-C'est là toute la conception : chaque champ se modifie dans la vue de carte de
+C'est là toute la conception : chaque champ se modifie dans la vue de fiche de
 Turbo EA, avec ses marqueurs d'obligation, sa validation, son aide contextuelle et
 son score de qualité des données, et le registre est assemblé en direct à partir
-des cartes à chaque validation ou export.
+des fiches à chaque validation ou export.
 
 ![Cartes ICT Service dans l'inventaire avec leur score DORA](../assets/img/en/73_ext_dora_cards.png)
 
-!!! note "Il n'y a volontairement pas d'onglet DORA sur la carte"
+!!! note "Il n'y a volontairement pas d'onglet DORA sur la fiche"
     Les champs ajoutés s'affichent comme des sections d'attributs ordinaires sur
-    une carte, et chaque lien du registre est une relation normale. Rien dans la
+    une fiche, et chaque lien du registre est une relation normale. Rien dans la
     tenue du registre n'est un mode particulier.
 
 ## En bref
@@ -48,11 +48,11 @@ des cartes à chaque validation ou export.
 | **Permissions** | `ext.dora-roi.view`, `ext.dora-roi.manage`, `ext.dora-roi.submit`, `ext.dora-roi.admin` |
 | **Autorisations d'accès aux données** | `core.cards.read`, `core.cards.write`, `metamodel.custom_field_types` |
 | **Redémarrage du backend requis** | oui — l'extension embarque du code backend |
-| **Où elle apparaît** | **Registre DORA** dans la navigation principale · **Rapports → Registre DORA** · sections **DORA Register** et **DORA Function** sur les cartes · six modèles d'enquête |
+| **Où elle apparaît** | **Registre DORA** dans la navigation principale · **Rapports → Registre DORA** · sections **DORA Register** et **DORA Function** sur les fiches · six modèles d'enquête |
 
 ## Ce qu'elle ajoute à votre métamodèle
 
-**Deux nouveaux types de carte**
+**Deux nouveaux types de fiche**
 
 - **ICT Arrangement** — un accord contractuel portant sur l'utilisation de
   services TIC. Il est **hiérarchique** : les accords généraux sont les parents,
@@ -65,16 +65,16 @@ des cartes à chaque validation ou export.
 
 **Un nouveau sous-type** — **Branch** sur Organisation.
 
-**De nouvelles sections sur des types de carte existants**
+**De nouvelles sections sur des types de fiche existants**
 
-| Type de carte | Section | Contenu |
+| Type de fiche | Section | Contenu |
 |---|---|---|
 | **Organisation** | DORA Register | Dans le périmètre du registre DORA, LEI, Pays, Type d'entité, Position dans le groupe, Autorité compétente, Total de bilan, Devise de déclaration, Code de succursale |
 | **Provider** | DORA Register | LEI, Type d'identifiant, EUID, Type de personne, Pays du siège, Prestataire intragroupe, dépense annuelle, société mère ultime |
 | **Capacité métier** / **Processus métier** | DORA Function | Fonction du registre DORA, Identifiant de fonction, Activité agréée, Évaluation de criticité, Motifs de criticité, RTO, RPO, Impact d'une interruption |
 
 Chaque section porte en outre un **score DORA (%)** en lecture seule — une barre
-de complétude indiquant la part de données de registre encore due par cette carte.
+de complétude indiquant la part de données de registre encore due par cette fiche.
 
 **Neuf types de relation**, dont deux portent des attributs que vous renseignez
 relation par relation :
@@ -98,20 +98,20 @@ contrôle **Getting started** qui suit ces sept étapes et affiche la progressio
 
 1. **Choisissez l'entité déclarante dans les Paramètres** — l'entité dont il
    s'agit du registre.
-2. **Marquez vos entités juridiques.** Sur chaque carte Organisation, remplissez
+2. **Marquez vos entités juridiques.** Sur chaque fiche Organisation, remplissez
    la section **DORA Register** : activez *In DORA register scope* et renseignez
    le LEI, le pays, le type d'entité et la position dans le groupe. Les
-   succursales sont des cartes Organisation de sous-type **Branch**, rattachées à
+   succursales sont des fiches Organisation de sous-type **Branch**, rattachées à
    leur siège.
-3. **Créez une carte ICT Arrangement par accord contractuel.** Faites des contrats
+3. **Créez une fiche ICT Arrangement par accord contractuel.** Faites des contrats
    ultérieurs des *enfants* du contrat maître — c'est ce qui dérive le type
    d'accord et la référence de l'accord général.
-4. **Reliez chaque accord** à sa carte Provider et aux entités qui signent,
+4. **Reliez chaque accord** à sa fiche Provider et aux entités qui signent,
    utilisent ou fournissent, en renseignant l'attribut **rôles DORA** sur chacune.
-5. **Créez une carte ICT Service par service**, puis reliez-la à son contrat, aux
+5. **Créez une fiche ICT Service par service**, puis reliez-la à son contrat, aux
    entités qui l'utilisent, aux fonctions qu'elle soutient et à ses prestataires
    **classés par rang**.
-6. **Marquez les fonctions.** Activez *DORA register function* sur les cartes
+6. **Marquez les fonctions.** Activez *DORA register function* sur les fiches
    Capacité métier ou Processus métier qui sont des fonctions critiques ou
    importantes et complétez leur section **DORA Function** — ou acceptez les
    propositions de [Suggestions](#suggestions).
@@ -119,7 +119,7 @@ contrôle **Getting started** qui suit ces sept étapes et affiche la progressio
 
 !!! tip "Collectez les données auprès de ceux qui les détiennent"
     Six modèles d'enquête sous **Admin → Enquêtes → Nouveau depuis un modèle**
-    recueillent les données obligatoires auprès des responsables de cartes :
+    recueillent les données obligatoires auprès des responsables de fiches :
     **DORA entity data**, **DORA provider data**, **DORA arrangement data**,
     **DORA ICT service data**, ainsi que **DORA function data** pour les capacités
     et pour les processus. Chacun s'ouvre en brouillon.
@@ -127,12 +127,12 @@ contrôle **Getting started** qui suit ces sept étapes et affiche la progressio
 ### Ce que vous n'avez jamais à saisir
 
 Le registre dérive les éléments suivants au lieu de les demander : le LEI de la
-société mère (depuis la hiérarchie des cartes), les dates d'intégration et de
-suppression (depuis le cycle de vie de la carte), le type d'accord et la référence
+société mère (depuis la hiérarchie des fiches), les dates d'intégration et de
+suppression (depuis le cycle de vie de la fiche), le type d'accord et la référence
 de l'accord général (depuis la hiérarchie des accords), la nature de la succursale
 (depuis le sous-type Branch), le destinataire d'un service sous-traité (depuis le
 classement des prestataires) et la date de dernière mise à jour. Le **périmètre
-des prestataires** est lui aussi dérivé : seules les cartes Provider réellement
+des prestataires** est lui aussi dérivé : seules les fiches Provider réellement
 référencées par un accord ou une chaîne d'approvisionnement entrent dans le
 registre, les fournisseurs non concernés restant automatiquement à l'écart. Les
 conventions de remplissage des ITS (`9999-12-31` pour les dates sans terme,
@@ -164,10 +164,10 @@ qui mène exactement au champ à corriger.
 
 Six vues — **Legal entities**, **Branches**, **Contractual arrangements**,
 **ICT third-party providers**, **ICT services** et **Functions** — chacune sous
-forme de tableau des cartes qui composent cette partie du registre, avec un champ
-de recherche, un bouton **New …** créant une carte au bon type et avec les
+forme de tableau des fiches qui composent cette partie du registre, avec un champ
+de recherche, un bouton **New …** créant une fiche au bon type et avec les
 indicateurs préréglés, et un lien **Open in inventory**. Un clic sur une ligne
-ouvre la carte dans un panneau latéral.
+ouvre la fiche dans un panneau latéral.
 
 ### Suggestions
 
@@ -214,7 +214,7 @@ de listes fermées employés par votre registre, déposées comme modèle B_99.0
 de groupe et une succursale, prestataires, accords généraux et intragroupe, une
 chaîne d'approvisionnement à trois niveaux, fonctions critiques, suggestions et un
 instantané en brouillon) pour explorer toutes les fonctionnalités avant de
-toucher à de vraies données. Toutes les cartes de démonstration sont nommées
+toucher à de vraies données. Toutes les fiches de démonstration sont nommées
 *Demo DORA — …* et étiquetées **Demo Dora** ; **Remove demo data** les retire.
 
 ## Les 15 modèles
@@ -263,13 +263,13 @@ avec les niveaux de gravité publiés.
 | `ext.dora-roi.admin` | Configurer les paramètres de dépôt et charger ou retirer les données de démonstration |
 
 La modification des données du registre s'appuie en outre sur vos droits normaux
-d'édition des cartes, puisque chaque champ du registre réside sur une carte.
+d'édition des fiches, puisque chaque champ du registre réside sur une fiche.
 
 ## Si la licence expire ou l'extension est désactivée
 
 L'espace de travail et ses rapports disparaissent et le pont d'accès aux données
-de cartes s'arrête, mais **rien n'est supprimé**. Votre registre vit sur des
-cartes et des relations ordinaires : chaque valeur reste exactement là où elle
+de fiches s'arrête, mais **rien n'est supprimé**. Votre registre vit sur des
+fiches et des relations ordinaires : chaque valeur reste exactement là où elle
 est, visible et modifiable dans l'inventaire. Les instantanés et les paramètres
 sont conservés. Une licence renouvelée rétablit immédiatement l'espace de travail.
 
@@ -282,12 +282,12 @@ installation.
 - **La version 2.0.0 a introduit une rupture.** Les registres construits sur des
   versions antérieures stockaient services et fonctions dans les tables propres à
   l'extension ; ces lignes ne sont pas migrées. Ressaisissez-les sous forme de
-  cartes ICT Service et de fonctions (ou rechargez les données de démonstration)
+  fiches ICT Service et de fonctions (ou rechargez les données de démonstration)
   et relancez **Find suggestions**.
 - Le contenu de la taxonomie est généré à partir du cadre ABE publié : adopter une
   nouvelle version revient donc à une mise à jour de données plus un changement de
   **Taxonomy version**.
-- Le **score DORA** d'une carte est un signal de tri, pas un verdict de
+- Le **score DORA** d'une fiche est un signal de tri, pas un verdict de
   conformité. Les constats du tableau de bord font foi pour les écarts.
 - Aucune variante Excel propre à une autorité n'est produite ; le paquet xBRL-CSV
   est l'artefact de dépôt.

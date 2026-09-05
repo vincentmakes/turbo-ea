@@ -240,8 +240,12 @@ class TestCreateDraft:
         assert batch.committed_at is not None
         assert batch.summary["reference_number"] == out.reference_number
         assert batch.summary["decision_id"] == out.id
-        # Parity with POST /adr: creating a decision publishes no event.
-        assert (await db.execute(select(Event))).scalars().all() == []
+        # Parity with POST /adr: creating a decision publishes exactly one
+        # ``adr.created`` event (no card_id) — what the Audit Log rolls back on.
+        events = (await db.execute(select(Event))).scalars().all()
+        assert [e.event_type for e in events] == ["adr.created"]
+        assert events[0].card_id is None
+        assert events[0].data["adr_id"] == out.id
 
     async def test_related_decisions_passthrough(self, db, env):
         load_registry(grants=["core.adr.write"])

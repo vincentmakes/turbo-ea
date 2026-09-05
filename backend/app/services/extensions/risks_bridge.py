@@ -386,6 +386,7 @@ class ExtensionRisks(RisksBridge):
                     "an extension may only update risks it created"
                 )
             previous_owner = risk.owner_id
+            before = risk_service.risk_snapshot(risk)
             if title is not None:
                 risk.title = title
             if description is not None:
@@ -413,13 +414,14 @@ class ExtensionRisks(RisksBridge):
                 await risk_service.publish_risk_event(
                     db, risk, "risk.added", new_links, actor_id=None, extra={"ext": self._key}
                 )
+            changes = risk_service.risk_changes(before, risk)
             await risk_service.publish_risk_event(
                 db,
                 risk,
                 "risk.updated",
                 [cid for cid in linked if cid not in new_links],
                 actor_id=None,
-                extra={"ext": self._key},
+                extra={"ext": self._key, "fields": sorted(changes), "changes": changes},
             )
             await db.refresh(risk)
             return _to_ext_risk(self._key, risk, linked)

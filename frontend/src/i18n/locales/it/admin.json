@@ -1778,7 +1778,7 @@
   "settings.extensionNotices.enabledSuccess": "Notifiche dello store attivate",
   "settings.extensionNotices.disabledSuccess": "Notifiche dello store disattivate",
   "auditLog.title": "Registro di controllo",
-  "auditLog.description": "Ogni scrittura che modifica i dati (agente MCP, interfaccia Web, API diretta) arriva qui come batch di mutazione con il relativo attore, strumento, origine e diff per evento. Usalo per verificare cosa è cambiato e per annullare i batch guidati dall'IA che sono andati storti. (L'annullamento è supportato oggi per le scritture di schede / relazioni; gli altri tipi di evento compaiono nel piano di simulazione come {{token}}.)",
+  "auditLog.description": "Ogni scrittura che modifica i dati (agente MCP, interfaccia Web, API diretta, estensione) arriva qui come batch di mutazioni con attore, strumento, origine e diff per evento. Usalo per verificare cosa è cambiato e annullare i batch errati. Il rollback ripristina le scritture su schede, relazioni, rischi, ruoli degli stakeholder, tag e bozze di decisione; attività e notifiche restano al loro posto e compaiono nel piano di prova come {{token}}.",
   "auditLog.unsupportedEventsToken": "unsupported_events",
   "auditLog.refresh": "Aggiorna",
   "auditLog.mutationBatches": "Batch di mutazione",

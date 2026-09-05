@@ -13,18 +13,18 @@ Le tableau de bord TurboLens offre une vue d'ensemble instantanée de l'analyse 
 
 | Indicateur | Description |
 |------------|-------------|
-| **Total des cartes** | Nombre de cartes actives dans votre portefeuille |
-| **Qualité moyenne** | Score moyen de qualité des données sur l'ensemble des cartes |
+| **Total des fiches** | Nombre de fiches actives dans votre portefeuille |
+| **Qualité moyenne** | Score moyen de qualité des données sur l'ensemble des fiches |
 | **Fournisseurs** | Nombre de fournisseurs technologiques analysés |
 | **Groupes de doublons** | Nombre de groupes de doublons identifiés |
 | **Modernisations** | Nombre d'opportunités de modernisation détectées |
-| **Coût annuel** | Coût annuel total sur l'ensemble des cartes |
+| **Coût annuel** | Coût annuel total sur l'ensemble des fiches |
 
 Le tableau de bord affiche également :
 
-- **Cartes par type** — Répartition du nombre de cartes par type de carte
+- **Cartes par type** — Répartition du nombre de fiches par type de fiche
 - **Distribution de la qualité des données** — Cartes regroupées en niveaux Bronze (<50 %), Argent (50–80 %) et Or (>80 %)
-- **Principaux problèmes de qualité** — Cartes ayant les scores de qualité des données les plus faibles, avec des liens directs vers chaque carte
+- **Principaux problèmes de qualité** — Cartes ayant les scores de qualité des données les plus faibles, avec des liens directs vers chaque fiche
 
 ## Analyse des fournisseurs
 
@@ -54,13 +54,13 @@ La hiérarchie organise les fournisseurs en quatre niveaux : fournisseur, produi
 
 ## Détection des doublons
 
-La détection des doublons identifie les chevauchements fonctionnels dans votre portefeuille — des cartes qui servent le même objectif métier ou un objectif similaire.
+La détection des doublons identifie les chevauchements fonctionnels dans votre portefeuille — des fiches qui servent le même objectif métier ou un objectif similaire.
 
 **Mode d'emploi :**
 
 1. Accédez à **TurboLens > Doublons**
 2. Cliquez sur **Détecter les doublons**
-3. L'IA analyse les cartes Application, Composant IT et Interface par lots
+3. L'IA analyse les fiches Application, Composant IT et Interface par lots
 4. Les résultats affichent des groupes de doublons potentiels avec des preuves et des recommandations
 
 Pour chaque groupe, vous pouvez :
@@ -71,14 +71,14 @@ Pour chaque groupe, vous pouvez :
 
 ## Évaluation de la modernisation
 
-L'évaluation de la modernisation analyse les cartes pour identifier des opportunités de mise à niveau basées sur les tendances technologiques actuelles.
+L'évaluation de la modernisation analyse les fiches pour identifier des opportunités de mise à niveau basées sur les tendances technologiques actuelles.
 
 **Mode d'emploi :**
 
 1. Accédez à **TurboLens > Doublons** (onglet Modernisation)
-2. Sélectionnez un type de carte cible (Application, Composant IT ou Interface)
+2. Sélectionnez un type de fiche cible (Application, Composant IT ou Interface)
 3. Cliquez sur **Évaluer la modernisation**
-4. Les résultats affichent chaque carte avec le type de modernisation, la recommandation, le niveau d'effort (faible/moyen/élevé) et la priorité (faible/moyenne/élevée/critique)
+4. Les résultats affichent chaque fiche avec le type de modernisation, la recommandation, le niveau d'effort (faible/moyen/élevé) et la priorité (faible/moyenne/élevée/critique)
 
 Les résultats sont regroupés par priorité afin que vous puissiez vous concentrer en premier sur les opportunités de modernisation les plus impactantes.
 
@@ -98,8 +98,8 @@ Un indicateur de progression en haut suit votre avancement à travers les cinq �
 
 Saisissez votre exigence métier en langage naturel (par exemple, «Nous avons besoin d'un portail libre-service pour les clients»). Ensuite :
 
-- **Sélectionner des objectifs métier** — Choisissez une ou plusieurs cartes Objectif existantes dans la liste déroulante de saisie semi-automatique. Cela ancre l'analyse de l'IA dans vos objectifs stratégiques. Au moins un objectif est requis.
-- **Sélectionner des Business Capabilities** (facultatif) — Choisissez des cartes Business Capability existantes ou saisissez de nouveaux noms de capacités. Les nouvelles capacités apparaissent sous forme de puces bleues étiquetées «NOUVEAU : nom». Cela aide l'IA à se concentrer sur des domaines de capacités spécifiques.
+- **Sélectionner des objectifs métier** — Choisissez une ou plusieurs fiches Objectif existantes dans la liste déroulante de saisie semi-automatique. Cela ancre l'analyse de l'IA dans vos objectifs stratégiques. Au moins un objectif est requis.
+- **Sélectionner des Business Capabilities** (facultatif) — Choisissez des fiches Business Capability existantes ou saisissez de nouveaux noms de capacités. Les nouvelles capacités apparaissent sous forme de puces bleues étiquetées «NOUVEAU : nom». Cela aide l'IA à se concentrer sur des domaines de capacités spécifiques.
 
 Cliquez sur **Générer des questions** pour continuer.
 
@@ -123,7 +123,7 @@ Cette étape comporte trois sous-phases :
 
 #### 3a : Options de solution
 
-L'IA génère plusieurs options de solution, chacune présentée sous forme de carte avec :
+L'IA génère plusieurs options de solution, chacune présentée sous forme de fiche avec :
 
 | Élément | Description |
 |---------|-------------|
@@ -143,7 +143,7 @@ Après avoir sélectionné une option, l'IA identifie les lacunes de capacités 
 - **Description de l'impact** expliquant pourquoi cette lacune est importante
 - **Recommandations du marché** — Recommandations de produits classées (or n°1, argent n°2, bronze n°3) avec fournisseur, justification, avantages/inconvénients, coût estimé et effort d'intégration
 
-Sélectionnez les produits que vous souhaitez inclure en cliquant sur les cartes de recommandation (des cases à cocher apparaissent). Cliquez sur **Analyser les dépendances** pour continuer.
+Sélectionnez les produits que vous souhaitez inclure en cliquant sur les fiches de recommandation (des cases à cocher apparaissent). Cliquez sur **Analyser les dépendances** pour continuer.
 
 #### 3c : Analyse des dépendances
 
@@ -163,8 +163,8 @@ La dernière étape génère une cartographie complète des capacités :
 |---------|-------------|
 | **Résumé** | Présentation générale de l'architecture proposée |
 | **Capacités** | Liste des Business Capabilities correspondantes — existantes (vert) et nouvellement proposées (bleu) |
-| **Cartes proposées** | Nouvelles cartes à créer dans votre paysage, affichées avec leurs icônes de type de carte et leurs sous-types |
-| **Relations proposées** | Connexions entre les cartes proposées et les éléments du paysage existant |
+| **Cartes proposées** | Nouvelles fiches à créer dans votre paysage, affichées avec leurs icônes de type de fiche et leurs sous-types |
+| **Relations proposées** | Connexions entre les fiches proposées et les éléments du paysage existant |
 | **Diagramme de dépendances** | [Layered Dependency View](reports.md#layered-dependency-view-vue-de-dependances-par-couches) interactive affichant les nœuds existants aux côtés des nœuds proposés (bordures en pointillés avec badge vert «NEW»). Déplacez, zoomez et explorez l'architecture visuellement |
 
 À partir de cette étape, vous pouvez cliquer sur **Choisir une autre option** pour revenir en arrière et sélectionner une option de solution différente, ou sur **Recommencer** pour démarrer une évaluation entièrement nouvelle.
@@ -189,14 +189,14 @@ Après avoir examiné l'architecture cible, vous pouvez sauvegarder ou valider v
 !!! tip "Instantané complet"
     Une évaluation sauvegardée est un instantané complet de votre session d'assistant. Tant qu'elle n'a pas été validée dans une initiative, vous pouvez la reprendre, choisir une approche de solution différente et la re-sauvegarder autant de fois que nécessaire.
 
-**Valider et créer une initiative** — Convertit la proposition d'architecture en cartes réelles dans votre paysage :
+**Valider et créer une initiative** — Convertit la proposition d'architecture en fiches réelles dans votre paysage :
 
 - **Nom de l'initiative** est prérempli avec le titre de l'option de solution sélectionnée (modifiable avant la création)
 - **Dates de début/fin** pour le calendrier de l'initiative
-- **Nouvelles cartes proposées** avec des commutateurs pour inclure ou exclure des cartes individuelles, et des icônes d'édition pour renommer les cartes avant leur création. Cette liste inclut les nouvelles Business Capabilities identifiées lors de l'évaluation.
+- **Nouvelles fiches proposées** avec des commutateurs pour inclure ou exclure des fiches individuelles, et des icônes d'édition pour renommer les fiches avant leur création. Cette liste inclut les nouvelles Business Capabilities identifiées lors de l'évaluation.
 - **Relations proposées** avec des commutateurs pour inclure ou exclure
-- Un indicateur de progression affiche l'état de création (initiative → cartes → relations → ADR)
-- En cas de succès, un lien ouvre la nouvelle carte Initiative
+- Un indicateur de progression affiche l'état de création (initiative → fiches → relations → ADR)
+- En cas de succès, un lien ouvre la nouvelle fiche Initiative
 
 ### Garde-fous architecturaux
 
@@ -204,7 +204,7 @@ Le système garantit automatiquement l'intégrité architecturale :
 
 - Chaque nouvelle application est liée à au moins une Business Capability
 - Chaque nouvelle Business Capability est liée aux objectifs métier sélectionnés
-- Les cartes sans relations (orphelines) sont automatiquement retirées de la proposition
+- Les fiches sans relations (orphelines) sont automatiquement retirées de la proposition
 
 ### Architecture Decision Record
 

@@ -22,9 +22,9 @@ réalité.
 | **Licence** | Commerciale — une habilitation signée est nécessaire |
 | **Version minimale de Turbo EA** | 2.119.0 |
 | **Permissions** | `ext.roadmap-studio.view`, `.manage`, `.apply`, `.admin` |
-| **Autorisations d'accès aux données** | Cartes (lecture + écriture), événements de carte, tâches (lecture + écriture), l'annuaire des utilisateurs, les décisions |
+| **Autorisations d'accès aux données** | Cartes (lecture + écriture), événements de fiche, tâches (lecture + écriture), l'annuaire des utilisateurs, les décisions |
 | **Redémarrage du backend nécessaire** | Oui — l'extension embarque du code backend |
-| **Où elle apparaît** | **Roadmap** dans la navigation principale · une puce sur le détail d'une carte · un panneau et une section d'export sur les décisions |
+| **Où elle apparaît** | **Roadmap** dans la navigation principale · une puce sur le détail d'une fiche · un panneau et une section d'export sur les décisions |
 
 ## Transformations et scénarios
 
@@ -50,11 +50,11 @@ chiffre qu'un dossier de migration a tendance à masquer.
 ![L'inventaire de planification](../assets/img/en/74_ext_roadmap_studio_inventory.png)
 
 L'**inventaire de planification** est le même plan sous forme de grille : vos
-cartes vivantes plus les cartes planifiées, avec chaque changement les
-concernant. Les cartes planifiées vivent dans le scénario et jamais dans votre
+fiches vivantes plus les fiches planifiées, avec chaque changement les
+concernant. Les fiches planifiées vivent dans le scénario et jamais dans votre
 inventaire principal.
 
-Un changement dont la carte cible a depuis été archivée, déplacée ou redatée
+Un changement dont la fiche cible a depuis été archivée, déplacée ou redatée
 ailleurs est **signalé obsolète**, avec la raison — ainsi un plan écrit il y a
 trois mois vous dit ce qui a bougé sous lui.
 
@@ -73,17 +73,17 @@ roadmap, la vue des dépendances et les chiffres avancent ensemble.
 
 **Comparer** place chaque scénario à côté de la référence « ne rien faire » sur
 le coût de fonctionnement à l'horizon, la dépense de transformation, le nombre de
-cartes et l'exposition à la fin de vie, avec les **pour et contre** de chaque
+fiches et l'exposition à la fin de vie, avec les **pour et contre** de chaque
 plan écrits à côté de ses chiffres. Un taux d'actualisation facultatif s'applique
 aux années futures.
 
-## Là où le plan rencontre la carte
+## Là où le plan rencontre la fiche
 
-![La place d'une carte dans les plans](../assets/img/en/77_ext_roadmap_studio_card_panel.png)
+![La place d'une fiche dans les plans](../assets/img/en/77_ext_roadmap_studio_card_panel.png)
 
-Ouvrez n'importe quelle carte de votre inventaire : une puce vous dit quels plans
+Ouvrez n'importe quelle fiche de votre inventaire : une puce vous dit quels plans
 la mentionnent et comment — comme quelque chose que l'on retire, comme le
-successeur d'un remplacement, ou comme une carte qu'un plan place sous un nouveau
+successeur d'un remplacement, ou comme une fiche qu'un plan place sous un nouveau
 parent.
 
 ## Revue, décision et application
@@ -209,11 +209,11 @@ L'onglet **Paramètres** de la page Roadmap (nécessite
 
 | Paramètre | Effet |
 |---|---|
-| **Modèle de coûts** | Quel attribut porte le coût annuel de fonctionnement d'une carte, quels types de cartes l'indicateur compte, jusqu'où regarde l'exposition à la fin de vie, et un taux d'actualisation facultatif |
+| **Modèle de coûts** | Quel attribut porte le coût annuel de fonctionnement d'une fiche, quels types de fiches l'indicateur compte, jusqu'où regarde l'exposition à la fin de vie, et un taux d'actualisation facultatif |
 | **Contrôle d'approbation** | Si les réponses des relecteurs retiennent un plan avant son comité : jamais, tant que des modifications sont demandées, ou jusqu'à ce que tous aient répondu |
 | **Comités de revue** | Ouvre la boîte de dialogue des comités |
 
-La carte **Historique** est un journal d'activité complet — chaque plan, carte,
+La fiche **Historique** est un journal d'activité complet — chaque plan, fiche,
 changement, palier, demande de revue, réponse, soumission, vote, commentaire et
 décision, avec l'auteur et ce qui a changé.
 
@@ -247,8 +247,8 @@ disposant de `.view` peut écrire dans la discussion.
 
 La page Roadmap et son API disparaissent, mais **rien n'est supprimé** — les
 scénarios, plans, votes et la discussion restent dans les tables propres à
-l'extension. Les cartes créées par l'extension dans votre inventaire sont des
-cartes ordinaires et ne sont pas affectées. Appliquer une licence renouvelée
+l'extension. Les fiches créées par l'extension dans votre inventaire sont des
+fiches ordinaires et ne sont pas affectées. Appliquer une licence renouvelée
 ramène tout.
 
 ## Notes et limites

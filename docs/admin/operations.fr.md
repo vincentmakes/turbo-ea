@@ -108,7 +108,7 @@ Sauvegardez également le volume **`backend_data`** — il contient les pièces 
 Deux points supplémentaires sur la posture de reprise :
 
 - **Testez vos restaurations périodiquement.** Une sauvegarde jamais restaurée est un espoir, pas un plan.
-- **Les cartes archivées sont supprimées de manière réversible** avec une fenêtre de 30 jours avant la purge définitive — c'est votre filet de sécurité pour les erreurs de données, distinct de la reprise d'infrastructure.
+- **Les fiches archivées sont supprimées de manière réversible** avec une fenêtre de 30 jours avant la purge définitive — c'est votre filet de sécurité pour les erreurs de données, distinct de la reprise d'infrastructure.
 
 ## Retour en arrière et reprise
 

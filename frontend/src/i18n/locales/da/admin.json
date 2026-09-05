@@ -1778,7 +1778,7 @@
   "settings.extensionNotices.enabledSuccess": "Butiksnotifikationer slået til",
   "settings.extensionNotices.disabledSuccess": "Butiksnotifikationer slået fra",
   "auditLog.title": "Revisionslog",
-  "auditLog.description": "Hver ændrende skrivning (MCP-agent, webgrænseflade, direkte API) lander her som en mutationsbatch med sin aktør, sit værktøj, sin oprindelse og en diff pr. hændelse. Brug det til at revidere, hvad der blev ændret, og til at rulle AI-drevne batches tilbage, der gik galt. (Tilbagerulning understøttes i dag for kort-/relationsskrivninger; andre hændelsestyper vises i prøvekørselsplanen som {{token}}.)",
+  "auditLog.description": "Hver ændrende skrivning (MCP-agent, webgrænseflade, direkte API, udvidelse) lander her som en mutationsbatch med aktør, værktøj, oprindelse og diff pr. hændelse. Brug den til at revidere, hvad der ændrede sig, og rulle fejlslagne batches tilbage. Tilbagerulning fortryder skrivninger på kort, relationer, risici, interessentroller, tags og beslutningsudkast; opgaver og notifikationer bliver stående og vises i prøvekørselsplanen som {{token}}.",
   "auditLog.unsupportedEventsToken": "unsupported_events",
   "auditLog.refresh": "Opdater",
   "auditLog.mutationBatches": "Mutationsbatches",

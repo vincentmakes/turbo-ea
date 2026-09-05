@@ -1778,7 +1778,7 @@
   "settings.extensionNotices.enabledSuccess": "已启用扩展商店通知",
   "settings.extensionNotices.disabledSuccess": "已停用扩展商店通知",
   "auditLog.title": "审计日志",
-  "auditLog.description": "每一次改变数据的写入（MCP 代理、Web 界面、直接 API）都会作为一个变更批次出现在这里，包含其操作者、工具、来源以及每个事件的差异。可用它来审核变更内容，并回滚由 AI 驱动、出错的批次。（目前支持对卡片/关系写入进行回滚；其他事件类型在模拟运行计划中显示为 {{token}}。）",
+  "auditLog.description": "每一次改变数据的写入（MCP 代理、Web 界面、直接 API、扩展）都会作为一个变更批次记录在这里，包含操作者、工具、来源和逐事件差异。用它来审计变更并回滚出错的批次。回滚会撤销卡片、关系、风险、干系人角色、标签和决策草稿的写入；待办和通知保持不变，并在试运行计划中显示为 {{token}}。",
   "auditLog.unsupportedEventsToken": "unsupported_events",
   "auditLog.refresh": "刷新",
   "auditLog.mutationBatches": "变更批次",
