@@ -79,6 +79,10 @@ Two scanners covering the same layer is deliberate — different vuln DBs have d
 
 Why this exists: CVEs disclosed *after* the last image build would otherwise go unnoticed until the next code-quiet stretch ended. Daily re-scan closes that window to 24 hours.
 
+The scan also **repairs** what it finds, not just reports it. A third Trivy step per image asks the narrower question "does `:latest` carry a HIGH/CRITICAL that upstream has **already** fixed?" (`ignore-unfixed: true`, allowlist applied). If any image says yes, a single `rebuild` job — `needs: scan`, so one dispatch for the whole matrix rather than one per image — dispatches `docker-publish.yml` on `main`, which is `no-cache: true` and retags `:latest`.
+
+That closes a week-long window. `:latest` is otherwise only retagged on a release, a manual dispatch, or the Monday cron, so an Alpine fix landing on a Tuesday was not shipped until the following Monday while the daily scan reported it every morning. Two details are load-bearing: the detection step writes its job output **only when it finds something** (matrix jobs share one output namespace, so a clean image emitting `false` would clobber a dirty image's `true`), and the rebuild job is `if: always() && …` so a red gate step — a CRITICAL *with* a fix, the case that most needs shipping — still triggers the rebuild. There is no loop risk: a `workflow_dispatch` run of `docker-publish.yml` cannot re-trigger this workflow, which fires only on `schedule` and `workflow_dispatch`.
+
 ### Weekly — Dependabot
 [`.github/dependabot.yml`](dependabot.yml) — four ecosystems, all security-focused:
 
@@ -130,11 +134,20 @@ you republish the image.
 
 1. **Confirm the live image is actually patched.** Run
    [`trivy-reconcile.yml`](workflows/trivy-reconcile.yml) with the default
-   `upload_sarif=false` and read the installed-vs-fixed table in the job log. If
+   `upload_sarif=false` and read the installed-vs-fixed table in the job log.
+   Note that Trivy refreshes its vulnerability DB on its own TTL, so a scan a
+   few hours older than yours can legitimately disagree: an alert filed this
+   morning against a correct image may simply be a DB that has since been
+   corrected, in which case the table shows a clean image and the fix is step 3
+   alone. If
    the **installed** version is still the old one, the image itself is stale —
    go to step 2. If it already shows the fixed version, the alert is just stale
    in the tab — skip to step 3.
-2. **Republish so `:latest` carries the fix.** Any publish rebuilds `apk
+2. **Republish so `:latest` carries the fix.** Since the daily scan gained its
+   `rebuild` job this is usually already done for you — a *fixable* HIGH or
+   CRITICAL on `:latest` dispatches `docker-publish.yml` automatically, so the
+   fix ships within a day. Do it by hand when you don't want to wait, or when
+   the finding is below HIGH. Any publish rebuilds `apk
    upgrade` against the live alpine repos, so `:latest` picks up the fix and
    stays patched across subsequent pushes — a cached push via the
    `no-cache-filters` on the runtime stages, a `workflow_dispatch` run of

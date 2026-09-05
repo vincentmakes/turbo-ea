@@ -21,6 +21,9 @@ permissions:
   contents: read
   packages: read
   security-events: write
+  # Lets the rebuild job below dispatch docker-publish.yml when a fixable
+  # HIGH/CRITICAL turns up on a published image.
+  actions: write
 
 concurrency:
   group: ${{ github.workflow }}
@@ -30,6 +33,14 @@ jobs:
   scan:
     name: Scan ${{ matrix.image }}:latest
     runs-on: ubuntu-latest
+    outputs:
+      # Matrix jobs all write into ONE output namespace and the last job to
+      # finish wins -- so a clean image writing `false` would silently clobber
+      # a dirty image's `true`. The step below therefore sets this output ONLY
+      # when it finds something; a clean image leaves it unset, which cannot
+      # overwrite. The result is a reliable "did ANY image report a fixable
+      # finding" for the `rebuild` job's guard.
+      needs_rebuild: ${{ steps.fixable.outputs.needs_rebuild }}
     strategy:
       fail-fast: false
       matrix:
@@ -96,3 +107,90 @@ jobs:
         with:
           sarif_file: scout-${{ matrix.image }}.sarif
           category: daily-scout-${{ matrix.image }}
+
+      # Does this image carry a HIGH/CRITICAL that Alpine has ALREADY fixed?
+      # `ignore-unfixed: true` is deliberate and differs from the observe step
+      # above: observe keeps `false` so zero-days stay visible, but rebuilding
+      # for something upstream has not patched yet only burns build minutes.
+      - name: Trivy scan (fixable HIGH + CRITICAL, JSON)
+        if: always()
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/${{ matrix.image }}:latest
+          format: json
+          output: trivy-fixable-${{ matrix.image }}.json
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+          ignore-unfixed: true
+          trivyignores: .github/trivy-allowlist
+
+      - name: Decide whether :latest needs a rebuild
+        id: fixable
+        if: always()
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+
+          file="trivy-fixable-${IMAGE}.json"
+          if [ ! -s "$file" ]; then
+            echo "No Trivy JSON for ${IMAGE} -- not requesting a rebuild."
+            exit 0
+          fi
+
+          count="$(jq '[.Results[]?.Vulnerabilities[]?] | length' "$file")"
+          echo "${IMAGE}: ${count} fixable HIGH/CRITICAL finding(s)"
+
+          if [ "$count" -eq 0 ]; then
+            # Deliberately writes NO output. See the `outputs:` comment above:
+            # emitting `false` here would clobber another image's `true`.
+            exit 0
+          fi
+
+          {
+            echo "### ${IMAGE}: ${count} fixable HIGH/CRITICAL finding(s)"
+            echo
+            jq -r '[.Results[]?.Vulnerabilities[]?]
+                   | unique_by(.VulnerabilityID)[]
+                   | "- `\(.VulnerabilityID)` \(.Severity) -- \(.PkgName) \(.InstalledVersion) -> \(.FixedVersion)"' "$file"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "needs_rebuild=true" >> "$GITHUB_OUTPUT"
+
+  # A fixable finding on a published image means `:latest` is simply stale --
+  # the tag is only retagged on a release, a manual dispatch, or the weekly
+  # cron, so without this an Alpine fix that lands on a Tuesday is not shipped
+  # until the following Monday. That week-long window is how the util-linux
+  # batch of 2026-09 came to sit in the Security tab.
+  #
+  # ONE dispatch for the whole matrix, not one per image: `needs: scan` waits
+  # for every matrix job, so five affected images still trigger a single
+  # rebuild of all five. No loop risk -- a workflow_dispatch run of
+  # docker-publish.yml cannot re-trigger this workflow, which only fires on
+  # `schedule` and `workflow_dispatch`.
+  rebuild:
+    name: Republish :latest with the fix
+    needs: scan
+    # `always()` so a red gate step (a CRITICAL with a fix) still rebuilds --
+    # that is precisely the case that most needs shipping.
+    if: always() && needs.scan.outputs.needs_rebuild == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch docker-publish.yml on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          gh workflow run docker-publish.yml --repo "$REPO" --ref main
+
+          {
+            echo "## Rebuild dispatched"
+            echo
+            echo "A published image carries a HIGH/CRITICAL that upstream has already fixed,"
+            echo "so \`docker-publish.yml\` was dispatched on \`main\`. That path is"
+            echo "\`no-cache: true\` and retags \`:latest\`, so every runtime stage re-runs"
+            echo "\`apk upgrade --no-cache\` against live Alpine repos."
+          } >> "$GITHUB_STEP_SUMMARY"

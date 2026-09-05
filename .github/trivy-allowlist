@@ -26,11 +26,11 @@
 # Alpine release. Anything still listed below is either build-stage-only
 # or shipped as an upstream binary that we cannot rebuild from this repo.
 #
-# The publish workflow currently runs Trivy with `exit-code: 0`
-# (non-blocking) — findings are uploaded as SARIF to the Security tab.
-# Flip `exit-code` to `1` in `docker-publish.yml` once the apk-upgrade
-# chain has drained the backlog and we're comfortable that this
-# allowlist captures everything we mean to accept.
+# The publish workflow runs Trivy twice: an *observe* pass (HIGH +
+# CRITICAL, `exit-code: 0`) that only uploads SARIF to the Security tab,
+# and a *gate* pass (CRITICAL only, `exit-code: 1`, `ignore-unfixed:
+# true`) that fails the publish. So a CRITICAL with a fix available
+# blocks a release unless it is listed below; HIGH never blocks.
 
 # -----------------------------------------------------------------------------
 # Build-stage-only — `alpine/git:v2.47.2` used in the `drawio` stage
