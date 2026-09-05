@@ -39,10 +39,10 @@ async def roles_for_type(db: AsyncSession, type_key: str) -> list[dict]:
             }
             for s in srds
         ]
-    result = await db.execute(select(CardType.stakeholder_roles).where(CardType.key == type_key))
-    roles = result.scalar_one_or_none()
+    legacy = await db.execute(select(CardType.stakeholder_roles).where(CardType.key == type_key))
+    roles = legacy.scalar_one_or_none()
     if roles:
-        return roles
+        return list(roles)
     return [
         {"key": "responsible", "label": "Responsible"},
         {"key": "observer", "label": "Observer"},
