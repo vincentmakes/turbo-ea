@@ -5,6 +5,27 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.132.0] - 2026-09-06
+
+### Added
+
+- **Extension SDK 1.14: an extension can send a data-maintenance survey.** A rule that matches many cards used to have one way to ask their owners for something — a todo per card, fifty todos on fifty lists. An extension allowed to (a new `core.surveys.write` grant) can now send one survey about the whole set instead: one notification per person, one response form per card with the fields the card type defines, results reviewed and applied in Admin → Surveys exactly like a survey a person sent. The survey shows no author; closing it and applying its answers stay with people.
+- **A card's History tab now records when it was included in a survey**, whether a person or an extension sent it.
+- **Rolling back an extension's batch closes the survey it sent** and withdraws the requests nobody had answered yet; answers already given are kept.
+
+## [2.131.0] - 2026-09-06
+
+### Added
+
+- **Extension SDK 1.13: an extension can group everything one sync writes into one Audit Log entry, whatever it writes.** Extensions that change cards could already record a whole run as one entry with one Rollback, but an extension that only creates and updates todos — a tracker connector, say — had no way to do the same, so a single poll that mirrored fifty issues left fifty entries to undo one by one. The batch scope is now open to any extension allowed to write, so one sync is one entry and one Rollback.
+- **Rolling back an extension's batch now removes the todos it created.** Todos were always left alone by a rollback, because reopening or deleting a person's request behind their back is not an undo. A todo an extension wrote is different: a rule that fired on fifty cards by mistake left fifty requests nobody asked for. Those are now deleted with the rest of the batch — as long as nobody has completed them; a completed one stays, and so does anyone's own todo.
+
+### Fixed
+
+- **An extension run that changed nothing no longer appears in the Audit Log.** A sync that found nothing to update, or a rule whose only action is a notification, still left an entry with an enabled Rollback that reversed nothing. Such a run now leaves no entry at all.
+- **The Audit Log's Events column now shows a count for extension entries** instead of a dash.
+- **Release notes shown before an extension update now read properly.** A note wrapped over several lines in the extension's changelog was cut into separate sentences, and bold text that ran across a line break showed its asterisks instead. Wrapped lines are now joined into the sentence they belong to.
+
 ## [2.130.0] - 2026-09-05
 
 ### Added

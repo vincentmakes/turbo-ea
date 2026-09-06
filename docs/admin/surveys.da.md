@@ -78,6 +78,8 @@ Når din undersøgelse er i **Aktiv**-status:
 
     Et kort indgår kun i undersøgelsen, hvis mindst én person har en af de **valgte interessentroller** på det. Kort, der matcher dine filtre, men ikke har en sådan interessent, springes over; trinnet **Forhåndsvis og send** oplyser hvor mange, så du kan tildele ansvarlige.
 
+En undersøgelse kan også oprettes og sendes af en installeret udvidelse — for eksempel en planlagt regel, der beder ejerne af hvert kort, som opfylder en betingelse, om at udfylde det. Sådan en undersøgelse viser ingen ophavsmand, dens felter er dem, korttypen definerer, og den opfører sig som enhver anden: du lukker den og anvender dens svar her. En tilbagerulning af udvidelsens kørsel i **Admin → Revisionslog** lukker undersøgelsen og trækker de anmodninger tilbage, som ingen endnu havde besvaret.
+
 ## Visning af resultater
 
 Naviger til **Admin > Undersøgelser > [Undersøgelsesnavn] > Resultater** for at se:

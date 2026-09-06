@@ -19,6 +19,7 @@ from app.models.event import Event
 from app.models.mutation_batch import MutationBatch
 from app.models.risk import Risk, RiskCard
 from app.models.stakeholder import Stakeholder
+from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
 from app.services import adr_service, risk_service, stakeholder_service, tag_service
@@ -373,6 +374,7 @@ class TestMixedBatch:
         card_id = card.id
 
         plan = await plan_rollback(db, batch)
+        # A todo a PERSON created stays: the event carries no ``ext``.
         assert [e["event_type"] for e in plan["unsupported_events"]] == ["todo.created"]
         assert "not reversed" in plan["unsupported_events"][0]["reason"]
         result = await execute_rollback(db, batch, actor.id)
@@ -383,6 +385,90 @@ class TestMixedBatch:
             await db.execute(select(Card).where(Card.id == card_id))
         ).scalar_one_or_none() is None
         assert (await db.execute(select(Risk))).scalars().all() == []
+
+
+class TestExtensionTodoRollback:
+    """A todo an extension created (``data["ext"]`` on the event) is the
+    batch's to take back — a rule that misfired on fifty cards left fifty
+    requests nobody asked for. Everything a person did on top stays."""
+
+    async def _ext_todo(self, db, actor, batch, *, description="Review", status="open"):
+        from app.services.event_bus import event_bus
+
+        person = await create_user(db, role="member")
+        todo = Todo(
+            description=description,
+            assigned_to=person.id,
+            status=status,
+            external_source="rules",
+        )
+        db.add(todo)
+        await db.flush()
+        with _InBatch(batch):
+            await event_bus.publish(
+                "todo.created",
+                {"todo_id": str(todo.id), "description": description, "ext": "rules"},
+                db=db,
+            )
+        return todo
+
+    async def test_open_extension_todo_is_deleted(self, db, actor):
+        batch = await _open_batch(db, actor)
+        todo = await self._ext_todo(db, actor, batch, description="Fill in the owner")
+        todo_id = todo.id
+
+        plan = await plan_rollback(db, batch)
+        assert plan["unsupported_events"] == []
+        (op,) = plan["operations"]
+        assert op["op"] == "delete_todo" and op["todo_id"] == str(todo_id)
+        assert op["detail"] == "Fill in the owner"
+        result = await execute_rollback(db, batch, actor.id)
+        assert _ops(result, "delete_todo")[0]["status"] == "ok"
+        assert (
+            await db.execute(select(Todo).where(Todo.id == todo_id))
+        ).scalar_one_or_none() is None
+
+    async def test_completed_extension_todo_stays(self, db, actor):
+        batch = await _open_batch(db, actor)
+        todo = await self._ext_todo(db, actor, batch, status="done")
+        todo_id = todo.id
+
+        result = await execute_rollback(db, batch, actor.id)
+        (op,) = _ops(result, "delete_todo")
+        assert op["status"] == "skipped" and op["reason"] == "already_completed"
+        assert (await db.execute(select(Todo).where(Todo.id == todo_id))).scalar_one()
+
+    async def test_rolled_forward_occurrence_is_declined(self, db, actor):
+        from app.services.event_bus import event_bus
+
+        batch = await _open_batch(db, actor)
+        todo = Todo(description="Quarterly check", external_source="rules")
+        db.add(todo)
+        await db.flush()
+        with _InBatch(batch):
+            await event_bus.publish(
+                "todo.created",
+                {"todo_id": str(todo.id), "ext": "rules", "rolled_forward": True},
+                db=db,
+            )
+        plan = await plan_rollback(db, batch)
+        assert plan["operations"] == []
+        assert "recurring" in plan["unsupported_events"][0]["reason"]
+
+    async def test_system_todo_is_never_deleted(self, db, actor):
+        from app.services.event_bus import event_bus
+
+        batch = await _open_batch(db, actor)
+        todo = Todo(description="Sign off", is_system=True)
+        db.add(todo)
+        await db.flush()
+        with _InBatch(batch):
+            await event_bus.publish(
+                "todo.created", {"todo_id": str(todo.id), "ext": "rules"}, db=db
+            )
+        result = await execute_rollback(db, batch, actor.id)
+        (op,) = _ops(result, "delete_todo")
+        assert op["status"] == "skipped" and op["reason"] == "todo_is_system"
 
 
 class TestConflicts:
@@ -413,3 +499,81 @@ class TestConflicts:
         assert touched == [str(risk.id)]
         forced = await execute_rollback(db, batch, actor.id, force=True)
         assert forced["forced"] is True
+
+
+class TestSurveyRollback:
+    """``survey.sent`` (one event per surveyed card) reverses as ONE close:
+    the survey is closed and the requests nobody has answered yet are
+    dropped; an answer already given is a person's work and stays."""
+
+    async def _sent_survey(self, db, actor, batch, *, answered: bool = False):
+        from app.services.event_bus import event_bus
+
+        a = await create_card(db, name="A")
+        b = await create_card(db, name="B")
+        person = await create_user(db, role="member")
+        survey = Survey(
+            name="Refresh",
+            status="active",
+            target_type_key="Application",
+            target_filters={"card_ids": [str(a.id), str(b.id)]},
+            target_roles=["responsible"],
+            fields=[{"key": "x", "action": "maintain"}],
+        )
+        db.add(survey)
+        await db.flush()
+        db.add(SurveyResponse(survey_id=survey.id, card_id=a.id, user_id=person.id))
+        db.add(
+            SurveyResponse(
+                survey_id=survey.id,
+                card_id=b.id,
+                user_id=person.id,
+                status="completed" if answered else "pending",
+            )
+        )
+        await db.flush()
+        with _InBatch(batch):
+            for card in (a, b):
+                await event_bus.publish(
+                    "survey.sent",
+                    {"survey_id": str(survey.id), "name": "Refresh", "ext": "rules"},
+                    db=db,
+                    card_id=card.id,
+                )
+        return survey
+
+    async def _responses(self, db, survey_id):
+        return (
+            (await db.execute(select(SurveyResponse).where(SurveyResponse.survey_id == survey_id)))
+            .scalars()
+            .all()
+        )
+
+    async def test_two_card_events_plan_one_close(self, db, actor):
+        batch = await _open_batch(db, actor)
+        survey = await self._sent_survey(db, actor, batch)
+        plan = await plan_rollback(db, batch)
+        assert plan["unsupported_events"] == []
+        (op,) = plan["operations"]
+        assert op["op"] == "close_survey" and op["survey_id"] == str(survey.id)
+        assert op["detail"] == "Refresh"
+
+    async def test_apply_closes_and_drops_pending_keeps_answered(self, db, actor):
+        batch = await _open_batch(db, actor)
+        survey = await self._sent_survey(db, actor, batch, answered=True)
+        result = await execute_rollback(db, batch, actor.id)
+        (op,) = _ops(result, "close_survey")
+        assert op["status"] == "ok"
+        assert survey.status == "closed" and survey.closed_at is not None
+        rows = await self._responses(db, survey.id)
+        assert [r.status for r in rows] == ["completed"]
+
+    async def test_second_apply_skips_an_already_closed_survey(self, db, actor):
+        batch = await _open_batch(db, actor)
+        survey = await self._sent_survey(db, actor, batch)
+        survey.status = "closed"
+        await db.flush()
+        result = await execute_rollback(db, batch, actor.id)
+        (op,) = _ops(result, "close_survey")
+        assert op["status"] == "skipped" and op["reason"] == "already_closed"
+        assert len(await self._responses(db, survey.id)) == 2

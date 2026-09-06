@@ -413,10 +413,11 @@ export default function AuditLogAdmin() {
         filter: "agNumberColumnFilter",
         valueGetter: (p) => {
           // Best-effort: `summary` carries per-row counts when the
-          // wrapper recorded them. Falls back to "—" otherwise; the
-          // exact event count is in the drawer.
+          // wrapper recorded them — `writes` is what an extension batch
+          // scope stamps. Falls back to "—" otherwise; the exact event
+          // count is in the drawer.
           const s = (p.data?.summary ?? {}) as Record<string, unknown>;
-          const candidates = [s.created, s.updated, s.would_update, s.rows];
+          const candidates = [s.created, s.updated, s.would_update, s.rows, s.writes];
           const n = candidates.find((v) => typeof v === "number") as
             | number
             | undefined;

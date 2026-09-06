@@ -23,11 +23,15 @@ Inverse operations (the ``_INVERSES`` table is the single list):
   → remove / re-assign / restore the role, then rescore the card.
 - ``tag.added`` / ``tag.removed`` → remove / re-add the tag, then rescore.
 - ``adr.created`` → delete the decision while it is still a draft.
+- ``todo.created`` **by an extension** (``data["ext"]`` set — a rule or a
+  sync wrote it) → delete the todo while it is still open. A person's own
+  todo is a request to a person and stays; so does one already completed,
+  and one core's recurrence rolled forward.
 
 Deliberately NOT reversed, and reported under ``unsupported_events`` so the
-caller sees the coverage before committing: **todos** (a todo is a request
-to a person, and reopening or deleting one behind their back is not an
-undo), **notifications** (already delivered), ``risk.removed`` (no snapshot
+caller sees the coverage before committing: **todos a person created** (a
+todo is a request to a person, and reopening or deleting one behind their
+back is not an undo), **notifications** (already delivered), ``risk.removed`` (no snapshot
 to rebuild from — deletion is a human act), and anything else whose
 handler publishes no structured ``before`` state (comments, documents,
 SoAW, ADR transitions).
@@ -70,6 +74,7 @@ from app.models.relation import Relation
 from app.models.risk import Risk, RiskCard
 from app.models.risk_mitigation_task import RiskMitigationTask
 from app.models.stakeholder import Stakeholder
+from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag, Tag
 from app.models.todo import Todo
 from app.services.event_bus import event_bus
@@ -213,6 +218,43 @@ def _plan_adr_created(event: Event, data: dict) -> dict[str, Any]:
     return {"op": "delete_adr", "adr_id": adr_id, "detail": data.get("reference_number") or ""}
 
 
+def _plan_survey_sent(event: Event, data: dict) -> dict[str, Any]:
+    """One ``survey.sent`` event per surveyed card, one reversal per survey
+    (deduped on ``survey_id``): close it and drop the requests nobody has
+    answered yet. Answers already given stay — they are people's work."""
+    survey_id = data.get("survey_id")
+    if not survey_id:
+        return _unsupported(event, "survey.sent carries no survey id")
+    return {
+        "op": "close_survey",
+        "survey_id": survey_id,
+        "detail": (data.get("name") or "")[:80],
+    }
+
+
+def _plan_todo_created(event: Event, data: dict) -> dict[str, Any]:
+    """Only a todo an extension wrote is the batch's to take back: a rule
+    that misfired on fifty cards left fifty requests nobody asked for. A
+    human's todo, and the next occurrence core's own recurrence opened, keep
+    the standing decline below."""
+    if not data.get("ext"):
+        return _unsupported(event, f"{event.event_type} is not reversed: {_DECLINED['todo.']}")
+    if data.get("rolled_forward"):
+        return _unsupported(
+            event,
+            f"{event.event_type} is not reversed: the next occurrence of a recurring "
+            "todo is opened by Turbo EA, not by the extension.",
+        )
+    todo_id = data.get("todo_id") or data.get("id")
+    if not todo_id:
+        return _unsupported(event, "todo.created carries no todo id")
+    return {
+        "op": "delete_todo",
+        "todo_id": todo_id,
+        "detail": (data.get("description") or "")[:80],
+    }
+
+
 _INVERSES: dict[str, Callable[[Event, dict], dict[str, Any]]] = {
     "card.created": _plan_card_created,
     "card.archived": _plan_card_archived,
@@ -228,6 +270,8 @@ _INVERSES: dict[str, Callable[[Event, dict], dict[str, Any]]] = {
     "tag.added": _plan_tag_added,
     "tag.removed": _plan_tag_removed,
     "adr.created": _plan_adr_created,
+    "todo.created": _plan_todo_created,
+    "survey.sent": _plan_survey_sent,
 }
 
 # Event families that are never reversed, with the reason the plan reports.
@@ -244,6 +288,8 @@ _DEDUPE_KEYS: dict[str, tuple[str, ...]] = {
     "delete_relation": ("relation_id",),
     "delete_adr": ("adr_id",),
     "delete_card": ("card_id",),
+    "delete_todo": ("todo_id",),
+    "close_survey": ("survey_id",),
 }
 
 
@@ -252,6 +298,14 @@ def _plan_inverse(event: Event) -> dict[str, Any]:
     marker when the event type is not reversed."""
     et = event.event_type
     data = event.data or {}
+    planner = _INVERSES.get(et)
+    if planner is not None and et.startswith("todo."):
+        # The one family with a planner AND a decline: the planner decides
+        # per event (extension-written or not), so it runs first.
+        op = planner(event, data)
+        if op.get("op") == "unsupported":
+            return op
+        return {"event_id": str(event.id), **op}
     for prefix, reason in _DECLINED.items():
         if et == prefix or (prefix.endswith(".") and et.startswith(prefix)):
             return _unsupported(event, f"{et} is not reversed: {reason}")
@@ -687,6 +741,52 @@ async def _apply_delete_adr(db: AsyncSession, op: dict[str, Any]) -> dict[str, A
     return _ok(op)
 
 
+async def _apply_delete_todo(db: AsyncSession, op: dict[str, Any]) -> dict[str, Any]:
+    """Take back a todo an extension created — while nobody has acted on it.
+    A completed one records that a person did something and stays; a system
+    todo is a workflow's, never an extension's (the bridge refuses to create
+    one, so this is belt and braces)."""
+    tid = _uuid(op.get("todo_id"))
+    if tid is None:
+        return _skip(op, "missing_todo_id")
+    todo = (await db.execute(select(Todo).where(Todo.id == tid))).scalar_one_or_none()
+    if todo is None:
+        return _skip(op, "already_deleted")
+    if todo.is_system:
+        return _skip(op, "todo_is_system")
+    if todo.status == "done":
+        return _skip(op, "already_completed")
+    await db.delete(todo)
+    return _ok(op)
+
+
+async def _apply_close_survey(db: AsyncSession, op: dict[str, Any]) -> dict[str, Any]:
+    """Take back a survey the batch sent: close it and delete the responses
+    still pending, so My Surveys stops asking. An answered response is a
+    person's work and stays; a survey already closed is left as it is."""
+    sid = _uuid(op.get("survey_id"))
+    if sid is None:
+        return _skip(op, "missing_survey_id")
+    survey = (await db.execute(select(Survey).where(Survey.id == sid))).scalar_one_or_none()
+    if survey is None:
+        return _skip(op, "not_found")
+    if survey.status == "closed":
+        return _skip(op, "already_closed")
+    pending = (
+        await db.execute(
+            select(SurveyResponse).where(
+                SurveyResponse.survey_id == sid, SurveyResponse.status == "pending"
+            )
+        )
+    ).scalars()
+    for row in pending:
+        await db.delete(row)
+    survey.status = "closed"
+    survey.closed_at = datetime.now(timezone.utc)
+    await db.flush()
+    return _ok(op)
+
+
 _APPLIERS: dict[str, Callable[[AsyncSession, dict[str, Any]], Awaitable[dict[str, Any]]]] = {
     "delete_card": _apply_delete_card,
     "restore_card": _apply_restore_card,
@@ -702,6 +802,8 @@ _APPLIERS: dict[str, Callable[[AsyncSession, dict[str, Any]], Awaitable[dict[str
     "remove_card_tag": _apply_remove_card_tag,
     "add_card_tag": _apply_add_card_tag,
     "delete_adr": _apply_delete_adr,
+    "delete_todo": _apply_delete_todo,
+    "close_survey": _apply_close_survey,
 }
 
 

@@ -78,6 +78,8 @@ Sobald Ihre Umfrage im Status **Aktiv** ist:
 
     Eine Karte wird nur befragt, wenn mindestens eine Person eine der **Ziel-Stakeholder-Rollen** auf ihr innehat. Karten, die Ihren Filtern entsprechen, aber keinen solchen Stakeholder haben, werden übersprungen. Der Schritt **Vorschau & Senden** nennt deren Anzahl, damit Sie Verantwortliche zuweisen können.
 
+Eine Umfrage kann auch von einer installierten Erweiterung erstellt und gesendet werden — etwa von einer geplanten Regel, die die Verantwortlichen aller Karten, die eine Bedingung erfüllen, um Vervollständigung bittet. Eine solche Umfrage nennt keinen Autor, ihre Felder sind die des Kartentyps, und sie verhält sich wie jede andere: Sie schließen sie und übernehmen ihre Antworten hier. Das Zurückrollen des Erweiterungslaufs in **Admin → Audit-Log** schließt die Umfrage und zieht die noch unbeantworteten Anfragen zurück.
+
 ## Ergebnisse anzeigen
 
 Navigieren Sie zu **Admin > Umfragen > [Umfragename] > Ergebnisse**, um zu sehen:

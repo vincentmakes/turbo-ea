@@ -265,7 +265,26 @@ async def require_card_permission(
 #   An unknown card id answers False rather than 404, so a caller that needs a
 #   404 checks existence first.
 
-SDK_VERSION = "1.12"
+#
+# 1.13 — ``ctx.batch(label)``: the audited batch scope, reachable without the
+#   inventory grant. ``ctx.data.batch`` groups an extension's writes into ONE
+#   Audit Log row with one Rollback, and every write bridge joins the open
+#   scope — but ``ctx.data`` exists only with ``core.cards.*``, so a connector
+#   whose writes all go through the todos bridge had no way to open one and
+#   left one row per todo per poll. ``ctx.batch`` is the same scope, gated on
+#   ANY write grant (``open_context_batch``). Also from 1.13: a scope that
+#   recorded no write leaves no row — "sync ran, nothing changed" is not an
+#   audit event, and an empty batch offered a Rollback that reversed nothing.
+
+# 1.14: ``ctx.surveys`` — send a data-maintenance survey to the stakeholders of
+#   a set of cards (grants ``core.surveys.read`` / ``core.surveys.write``). Send
+#   only: an extension creates and activates the survey in one audited step
+#   (the same writer as POST /surveys/{id}/send), while closing it and applying
+#   the answers stay with people. The ``survey.sent`` events it fans out to the
+#   matched cards are what a rollback of the batch reverses — by closing the
+#   survey and dropping the responses nobody had answered yet.
+
+SDK_VERSION = "1.14"
 
 
 @dataclass(frozen=True)
@@ -634,6 +653,70 @@ class RisksBridge(Protocol):
     ) -> ExtRisk: ...
 
 
+@dataclass(frozen=True)
+class ExtSurvey:
+    """Read model for a survey (SDK 1.14). ``card_count`` is the number of
+    cards the survey was sent about, ``response_count`` the (card, person)
+    requests it created and ``completed_count`` how many were answered."""
+
+    id: str
+    name: str
+    status: str
+    target_type: str
+    card_count: int
+    response_count: int
+    completed_count: int
+    sent_at: str | None
+    closed_at: str | None
+
+
+@dataclass(frozen=True)
+class ExtSurveyPreview:
+    """Who a survey would reach (SDK 1.14): ``cards_matched`` is every card
+    passed in, ``cards_with_targets`` those holding at least one person in
+    the chosen roles, ``users`` the distinct people, ``requests`` the (card,
+    person) pairs a send would create. ``targets`` lists the per-card user
+    ids so a caller can show who is asked about what."""
+
+    cards_matched: int
+    cards_with_targets: int
+    users: int
+    requests: int
+    targets: tuple[dict[str, Any], ...] = ()
+
+
+class SurveysBridge(Protocol):
+    """Send data-maintenance surveys (SDK 1.14), grant-gated per call:
+    ``core.surveys.read`` for ``get`` / ``preview``, ``core.surveys.write``
+    for ``send`` (write implies read). ``send`` creates the survey AND
+    activates it in one audited step: one response per (card, stakeholder in
+    ``roles``), one notification per person, the cards' History tabs record
+    it, and a rollback of the batch closes the survey. The extension names
+    the cards explicitly (at most 500, all active and of ``target_type``) and
+    the fields by key — labels, sections and options come from the card
+    type's metamodel, exactly as the survey builder fills them in. An
+    extension can never close a survey or apply its answers: those stay in
+    Admin → Surveys, with people."""
+
+    async def get(self, survey_id: str) -> ExtSurvey | None: ...
+
+    async def preview(
+        self, *, target_type: str, card_ids: Sequence[str], roles: Sequence[str]
+    ) -> ExtSurveyPreview: ...
+
+    async def send(
+        self,
+        *,
+        name: str,
+        target_type: str,
+        card_ids: Sequence[str],
+        roles: Sequence[str],
+        fields: Sequence[dict[str, Any]],
+        message: str = "",
+        description: str = "",
+    ) -> ExtSurvey: ...
+
+
 class NotifyBridge(Protocol):
     """Send an in-app notification to named people (SDK 1.9), grant
     ``core.notifications.send``. The message lands as the generic
@@ -826,7 +909,13 @@ class ExtensionContext:
     risk-register bridge (grants ``core.risks.read`` / ``core.risks.write``;
     no status transitions) — and ``notify`` — in-app notifications to named
     people (grant ``core.notifications.send``); the data bridge gains tag
-    and stakeholder writes.
+    and stakeholder writes. SDK 1.13 adds ``batch`` — ``async with
+    ctx.batch("nightly sync"):`` groups every bridge write made inside into
+    one audited mutation batch (one Audit Log row, one Rollback), open to
+    any extension holding a write grant; a scope that wrote nothing leaves
+    no row. SDK 1.14 adds ``surveys`` — send a data-maintenance survey to
+    the stakeholders of a set of cards (grants ``core.surveys.read`` /
+    ``core.surveys.write``; send only).
     """
 
     key: str
@@ -845,6 +934,8 @@ class ExtensionContext:
     decisions: DecisionsBridge | None = None
     risks: RisksBridge | None = None
     notify: NotifyBridge | None = None
+    batch: Callable[[str], AbstractAsyncContextManager[ExtBatch]] | None = None
+    surveys: SurveysBridge | None = None
 
     def __post_init__(self) -> None:
         if not self.settings_namespace:

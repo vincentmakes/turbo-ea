@@ -287,6 +287,36 @@ class TestBatching:
             events = (await db.execute(select(Event).where(Event.card_id == cid))).scalars().all()
             assert events and all(e.batch_id == batch.id for e in events)
 
+    async def test_empty_batch_leaves_no_row(self, db, env):
+        # SDK 1.13: "sync ran, nothing changed" is not an audit event. A scope
+        # that recorded no write must not appear in the Audit Log with a
+        # Rollback that would reverse nothing.
+        load_registry(grants=["core.cards.write"])
+        bridge = ExtensionData(KEY)
+        async with bridge.batch("nightly sync") as handle:
+            assert handle.id
+            await bridge.search_cards(type="Application")
+        assert await _batches(db) == []
+
+    async def test_empty_batch_on_exception_leaves_no_row(self, db, env):
+        load_registry(grants=["core.cards.write"])
+        bridge = ExtensionData(KEY)
+        with pytest.raises(RuntimeError, match="upstream down"):
+            async with bridge.batch("nightly sync"):
+                raise RuntimeError("upstream down")
+        assert await _batches(db) == []
+        assert bridge_mod.active_batch_id() is None
+
+    async def test_batch_with_one_write_is_committed(self, db, env):
+        load_registry(grants=["core.cards.write"])
+        bridge = ExtensionData(KEY)
+        async with bridge.batch("nightly sync"):
+            await bridge.create_card(type="Application", name="Only one")
+        batches = await _batches(db)
+        assert len(batches) == 1
+        assert batches[0].committed_at is not None
+        assert batches[0].summary == {"label": "nightly sync", "writes": 1}
+
     async def test_batch_yields_its_audit_id(self, db, env):
         # SDK 1.8: the handle names the batch the writes landed in.
         load_registry(grants=["core.cards.write"])

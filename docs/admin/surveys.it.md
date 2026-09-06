@@ -78,6 +78,8 @@ Una volta che il vostro sondaggio è in stato **Active**:
 
     Una scheda viene inclusa nell'indagine solo se almeno una persona vi ricopre uno dei **ruoli di stakeholder selezionati**. Le schede che corrispondono ai filtri ma non hanno tale stakeholder vengono saltate; il passaggio **Anteprima e invio** ne riporta il numero, così potete assegnare i responsabili.
 
+Un'indagine può anche essere creata e inviata da un'estensione installata — per esempio una regola pianificata che chiede ai responsabili di ogni scheda che soddisfa una condizione di completarla. Un'indagine del genere non mostra alcun autore, i suoi campi sono quelli definiti dal tipo di scheda e si comporta come tutte le altre: la chiudete e ne applicate le risposte qui. Annullare l'esecuzione dell'estensione in **Admin → Registro di audit** chiude l'indagine e ritira le richieste a cui nessuno aveva ancora risposto.
+
 ## Visualizzazione dei risultati
 
 Navigate su **Admin > Sondaggi > [Nome sondaggio] > Risultati** per vedere:

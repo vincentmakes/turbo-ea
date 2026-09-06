@@ -16,7 +16,7 @@ from app.services.extensions import sdk
 
 
 def test_sdk_version_is_current():
-    assert sdk.SDK_VERSION == "1.12"
+    assert sdk.SDK_VERSION == "1.14"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -203,13 +203,17 @@ def test_sdk_compatibility_is_major_only():
     assert sdk.sdk_compatible("1.10")
     assert sdk.sdk_compatible("1.11")
     assert sdk.sdk_compatible("1.12")
+    assert sdk.sdk_compatible("1.13")
+    assert sdk.sdk_compatible("1.14")
     assert not sdk.sdk_compatible("2.0")
 
 
 def test_sdk_minor_newer_truth_table():
     # Newer minor on the same major → warn (still loads).
-    assert sdk.sdk_minor_newer("1.13")
+    assert sdk.sdk_minor_newer("1.15")
     # Same or older minor → no warning.
+    assert not sdk.sdk_minor_newer("1.14")
+    assert not sdk.sdk_minor_newer("1.13")
     assert not sdk.sdk_minor_newer("1.12")
     assert not sdk.sdk_minor_newer("1.11")
     assert not sdk.sdk_minor_newer("1.10")
@@ -418,3 +422,60 @@ def test_per_card_permission_helpers_are_not_grant_gated():
     from app.services.extensions import bundle
 
     assert not any("permission" in grant for grant in bundle.VALID_GRANTS)
+
+
+def test_sdk_1_13_surface_exists():
+    # SDK 1.13 — the batch scope reachable without the inventory grant. Every
+    # write bridge already JOINS an open batch; ``ctx.batch`` is what lets an
+    # extension holding only ``core.todos.write`` open one, so a poll cycle is
+    # one Audit Log row instead of one per todo.
+    import dataclasses
+
+    fields = {f.name: f for f in dataclasses.fields(sdk.ExtensionContext)}
+    assert "batch" in fields
+    assert fields["batch"].default is None  # 1.12-era direct constructions keep working
+
+    from app.services.extensions import data_service
+
+    assert callable(data_service.open_context_batch)
+    assert "core.todos.write" in data_service.CONTEXT_BATCH_GRANTS
+    assert "core.cards.write" in data_service.CONTEXT_BATCH_GRANTS
+
+
+def test_sdk_1_14_surface_exists():
+    # SDK 1.14 — the surveys bridge: send a data-maintenance survey to the
+    # stakeholders of a set of cards. Send only; closing and applying stay
+    # human acts, and the send is what a rollback reverses (by closing).
+    import dataclasses
+
+    fields = {f.name: f for f in dataclasses.fields(sdk.ExtensionContext)}
+    assert "surveys" in fields
+    assert fields["surveys"].default is None  # 1.13-era direct constructions keep working
+    assert sdk.SurveysBridge is not None
+    assert {f.name for f in dataclasses.fields(sdk.ExtSurvey)} == {
+        "id",
+        "name",
+        "status",
+        "target_type",
+        "card_count",
+        "response_count",
+        "completed_count",
+        "sent_at",
+        "closed_at",
+    }
+    assert {f.name for f in dataclasses.fields(sdk.ExtSurveyPreview)} == {
+        "cards_matched",
+        "cards_with_targets",
+        "users",
+        "requests",
+        "targets",
+    }
+    for name in ("get", "preview", "send"):
+        assert callable(getattr(sdk.SurveysBridge, name))
+    for name in ("close", "update", "delete", "apply"):
+        assert not hasattr(sdk.SurveysBridge, name)
+
+    from app.services.extensions import bundle, data_service
+
+    assert {"core.surveys.read", "core.surveys.write"} <= bundle.VALID_GRANTS
+    assert "core.surveys.write" in data_service.CONTEXT_BATCH_GRANTS
