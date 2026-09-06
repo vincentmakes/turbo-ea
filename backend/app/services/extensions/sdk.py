@@ -656,14 +656,18 @@ class RisksBridge(Protocol):
 @dataclass(frozen=True)
 class ExtSurvey:
     """Read model for a survey (SDK 1.14). ``card_count`` is the number of
-    cards the survey was sent about, ``response_count`` the (card, person)
-    requests it created and ``completed_count`` how many were answered."""
+    cards the survey named, ``targeted_card_count`` how many of them had
+    someone to ask, ``user_count`` the distinct people asked,
+    ``response_count`` the (card, person) requests it created and
+    ``completed_count`` how many were answered."""
 
     id: str
     name: str
     status: str
     target_type: str
     card_count: int
+    targeted_card_count: int
+    user_count: int
     response_count: int
     completed_count: int
     sent_at: str | None

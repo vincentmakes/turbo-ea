@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.132.1] - 2026-09-06
+
+### Changed
+
+- **An extension that sent a survey is told how far it reached.** The survey record handed back to an extension now carries how many of the named cards had someone to ask and how many distinct people were asked, beside the request and answer counts it already had — so an extension can report «sent to 4 people about 12 of 15 cards» rather than only the number of requests.
+
 ## [2.132.0] - 2026-09-06
 
 ### Added

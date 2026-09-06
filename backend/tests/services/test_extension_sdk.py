@@ -458,6 +458,8 @@ def test_sdk_1_14_surface_exists():
         "status",
         "target_type",
         "card_count",
+        "targeted_card_count",
+        "user_count",
         "response_count",
         "completed_count",
         "sent_at",
