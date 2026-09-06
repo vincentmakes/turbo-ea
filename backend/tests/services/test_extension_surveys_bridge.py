@@ -185,6 +185,7 @@ class TestSend:
         out = await ExtensionSurveys(KEY).send(**_send_kwargs(env))
         assert isinstance(out, ExtSurvey)
         assert out.status == "active" and out.card_count == 3
+        assert out.targeted_card_count == 2 and out.user_count == 1
         assert out.response_count == 2 and out.completed_count == 0
         (survey,) = await _surveys(db)
         assert survey.created_by is None

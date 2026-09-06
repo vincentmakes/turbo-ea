@@ -95,6 +95,14 @@ async def _to_ext_survey(db: AsyncSession, survey: Survey) -> ExtSurvey:
             )
         )
     ).scalar() or 0
+    cards, users = (
+        await db.execute(
+            select(
+                func.count(func.distinct(SurveyResponse.card_id)),
+                func.count(func.distinct(SurveyResponse.user_id)),
+            ).where(SurveyResponse.survey_id == survey.id)
+        )
+    ).one()
     card_ids = (survey.target_filters or {}).get("card_ids") or []
     return ExtSurvey(
         id=str(survey.id),
@@ -102,6 +110,8 @@ async def _to_ext_survey(db: AsyncSession, survey: Survey) -> ExtSurvey:
         status=survey.status,
         target_type=survey.target_type_key,
         card_count=len(card_ids),
+        targeted_card_count=int(cards or 0),
+        user_count=int(users or 0),
         response_count=int(total),
         completed_count=int(completed),
         sent_at=survey.sent_at.isoformat() if survey.sent_at else None,
