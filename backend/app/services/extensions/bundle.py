@@ -71,6 +71,8 @@ VALID_GRANTS = frozenset(
         "core.risks.write",
         "core.notifications.send",
         "core.stakeholders.write",
+        "core.surveys.read",
+        "core.surveys.write",
     }
 )
 

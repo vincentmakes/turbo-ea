@@ -284,3 +284,32 @@ class TestNotificationChannelDispatch:
                 ]
                 assert not parents, "dispatch must not be awaited in create_notification"
         assert found, "create_notification no longer dispatches to extension channels"
+
+
+# ---------------------------------------------------------------------------
+# The surveys bridge must deliver after its session closed
+# ---------------------------------------------------------------------------
+
+
+def test_surveys_bridge_delivers_after_the_write_session_closed():
+    """``ExtensionSurveys.send`` fans notifications out through
+    ``deliver_notification_batch`` — each emailed one an SMTP round-trip —
+    so the call must sit AFTER the audited write returned, outside any
+    ``async with async_session()`` block (the notify bridge's posture)."""
+    source = _source("app/services/extensions/surveys_bridge.py")
+    tree = ast.parse(source)
+    send = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name == "ExtensionSurveys":
+            for item in node.body:
+                if isinstance(item, ast.AsyncFunctionDef) and item.name == "send":
+                    send = item
+    assert send is not None, "ExtensionSurveys.send not found"
+    body = ast.get_source_segment(source, send)
+    assert "async with async_session()" not in body, (
+        "send must not open a session of its own — the write goes through _write"
+    )
+    deliver_at = body.find("deliver_notification_batch(")
+    write_at = body.find("await self._write(")
+    assert deliver_at != -1 and write_at != -1
+    assert deliver_at > write_at, "delivery must follow the committed write, never precede it"

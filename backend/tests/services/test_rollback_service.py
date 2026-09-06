@@ -19,6 +19,7 @@ from app.models.event import Event
 from app.models.mutation_batch import MutationBatch
 from app.models.risk import Risk, RiskCard
 from app.models.stakeholder import Stakeholder
+from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
 from app.services import adr_service, risk_service, stakeholder_service, tag_service
@@ -498,3 +499,81 @@ class TestConflicts:
         assert touched == [str(risk.id)]
         forced = await execute_rollback(db, batch, actor.id, force=True)
         assert forced["forced"] is True
+
+
+class TestSurveyRollback:
+    """``survey.sent`` (one event per surveyed card) reverses as ONE close:
+    the survey is closed and the requests nobody has answered yet are
+    dropped; an answer already given is a person's work and stays."""
+
+    async def _sent_survey(self, db, actor, batch, *, answered: bool = False):
+        from app.services.event_bus import event_bus
+
+        a = await create_card(db, name="A")
+        b = await create_card(db, name="B")
+        person = await create_user(db, role="member")
+        survey = Survey(
+            name="Refresh",
+            status="active",
+            target_type_key="Application",
+            target_filters={"card_ids": [str(a.id), str(b.id)]},
+            target_roles=["responsible"],
+            fields=[{"key": "x", "action": "maintain"}],
+        )
+        db.add(survey)
+        await db.flush()
+        db.add(SurveyResponse(survey_id=survey.id, card_id=a.id, user_id=person.id))
+        db.add(
+            SurveyResponse(
+                survey_id=survey.id,
+                card_id=b.id,
+                user_id=person.id,
+                status="completed" if answered else "pending",
+            )
+        )
+        await db.flush()
+        with _InBatch(batch):
+            for card in (a, b):
+                await event_bus.publish(
+                    "survey.sent",
+                    {"survey_id": str(survey.id), "name": "Refresh", "ext": "rules"},
+                    db=db,
+                    card_id=card.id,
+                )
+        return survey
+
+    async def _responses(self, db, survey_id):
+        return (
+            (await db.execute(select(SurveyResponse).where(SurveyResponse.survey_id == survey_id)))
+            .scalars()
+            .all()
+        )
+
+    async def test_two_card_events_plan_one_close(self, db, actor):
+        batch = await _open_batch(db, actor)
+        survey = await self._sent_survey(db, actor, batch)
+        plan = await plan_rollback(db, batch)
+        assert plan["unsupported_events"] == []
+        (op,) = plan["operations"]
+        assert op["op"] == "close_survey" and op["survey_id"] == str(survey.id)
+        assert op["detail"] == "Refresh"
+
+    async def test_apply_closes_and_drops_pending_keeps_answered(self, db, actor):
+        batch = await _open_batch(db, actor)
+        survey = await self._sent_survey(db, actor, batch, answered=True)
+        result = await execute_rollback(db, batch, actor.id)
+        (op,) = _ops(result, "close_survey")
+        assert op["status"] == "ok"
+        assert survey.status == "closed" and survey.closed_at is not None
+        rows = await self._responses(db, survey.id)
+        assert [r.status for r in rows] == ["completed"]
+
+    async def test_second_apply_skips_an_already_closed_survey(self, db, actor):
+        batch = await _open_batch(db, actor)
+        survey = await self._sent_survey(db, actor, batch)
+        survey.status = "closed"
+        await db.flush()
+        result = await execute_rollback(db, batch, actor.id)
+        (op,) = _ops(result, "close_survey")
+        assert op["status"] == "skipped" and op["reason"] == "already_closed"
+        assert len(await self._responses(db, survey.id)) == 2

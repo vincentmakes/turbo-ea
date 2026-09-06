@@ -74,6 +74,7 @@ from app.models.relation import Relation
 from app.models.risk import Risk, RiskCard
 from app.models.risk_mitigation_task import RiskMitigationTask
 from app.models.stakeholder import Stakeholder
+from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag, Tag
 from app.models.todo import Todo
 from app.services.event_bus import event_bus
@@ -217,6 +218,20 @@ def _plan_adr_created(event: Event, data: dict) -> dict[str, Any]:
     return {"op": "delete_adr", "adr_id": adr_id, "detail": data.get("reference_number") or ""}
 
 
+def _plan_survey_sent(event: Event, data: dict) -> dict[str, Any]:
+    """One ``survey.sent`` event per surveyed card, one reversal per survey
+    (deduped on ``survey_id``): close it and drop the requests nobody has
+    answered yet. Answers already given stay — they are people's work."""
+    survey_id = data.get("survey_id")
+    if not survey_id:
+        return _unsupported(event, "survey.sent carries no survey id")
+    return {
+        "op": "close_survey",
+        "survey_id": survey_id,
+        "detail": (data.get("name") or "")[:80],
+    }
+
+
 def _plan_todo_created(event: Event, data: dict) -> dict[str, Any]:
     """Only a todo an extension wrote is the batch's to take back: a rule
     that misfired on fifty cards left fifty requests nobody asked for. A
@@ -256,6 +271,7 @@ _INVERSES: dict[str, Callable[[Event, dict], dict[str, Any]]] = {
     "tag.removed": _plan_tag_removed,
     "adr.created": _plan_adr_created,
     "todo.created": _plan_todo_created,
+    "survey.sent": _plan_survey_sent,
 }
 
 # Event families that are never reversed, with the reason the plan reports.
@@ -273,6 +289,7 @@ _DEDUPE_KEYS: dict[str, tuple[str, ...]] = {
     "delete_adr": ("adr_id",),
     "delete_card": ("card_id",),
     "delete_todo": ("todo_id",),
+    "close_survey": ("survey_id",),
 }
 
 
@@ -743,6 +760,33 @@ async def _apply_delete_todo(db: AsyncSession, op: dict[str, Any]) -> dict[str, 
     return _ok(op)
 
 
+async def _apply_close_survey(db: AsyncSession, op: dict[str, Any]) -> dict[str, Any]:
+    """Take back a survey the batch sent: close it and delete the responses
+    still pending, so My Surveys stops asking. An answered response is a
+    person's work and stays; a survey already closed is left as it is."""
+    sid = _uuid(op.get("survey_id"))
+    if sid is None:
+        return _skip(op, "missing_survey_id")
+    survey = (await db.execute(select(Survey).where(Survey.id == sid))).scalar_one_or_none()
+    if survey is None:
+        return _skip(op, "not_found")
+    if survey.status == "closed":
+        return _skip(op, "already_closed")
+    pending = (
+        await db.execute(
+            select(SurveyResponse).where(
+                SurveyResponse.survey_id == sid, SurveyResponse.status == "pending"
+            )
+        )
+    ).scalars()
+    for row in pending:
+        await db.delete(row)
+    survey.status = "closed"
+    survey.closed_at = datetime.now(timezone.utc)
+    await db.flush()
+    return _ok(op)
+
+
 _APPLIERS: dict[str, Callable[[AsyncSession, dict[str, Any]], Awaitable[dict[str, Any]]]] = {
     "delete_card": _apply_delete_card,
     "restore_card": _apply_restore_card,
@@ -759,6 +803,7 @@ _APPLIERS: dict[str, Callable[[AsyncSession, dict[str, Any]], Awaitable[dict[str
     "add_card_tag": _apply_add_card_tag,
     "delete_adr": _apply_delete_adr,
     "delete_todo": _apply_delete_todo,
+    "close_survey": _apply_close_survey,
 }
 
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-import sqlalchemy
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -15,12 +14,9 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
-from app.models.stakeholder import Stakeholder
 from app.models.survey import Survey, SurveyResponse
-from app.models.tag import CardTag
 from app.models.user import User
-from app.services import notification_service
-from app.services.card_flags import not_updated_condition
+from app.services import notification_service, survey_service
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -101,185 +97,6 @@ def _response_to_dict(r: SurveyResponse) -> dict:
         "applied_at": r.applied_at.isoformat() if r.applied_at else None,
         "created_at": r.created_at.isoformat() if r.created_at else None,
     }
-
-
-def _survey_notification_message(survey: Survey, card_count: int) -> str:
-    """Body for the one notification a recipient gets for a survey.
-
-    The author's own message leads, since that is what they wrote to explain
-    the ask; the card count follows, because one notification now stands for
-    however many cards that person was asked about.
-    """
-    noun = "card" if card_count == 1 else "cards"
-    ask = f"You have been asked to review {card_count} {noun}."
-    return f"{survey.message}\n\n{ask}" if survey.message else ask
-
-
-async def _resolve_targets(db: AsyncSession, survey: Survey) -> tuple[list[dict], list[Card]]:
-    """Resolve survey filters into ``(targets, matched_cards)``.
-
-    A survey can only reach a card through someone who holds one of its target
-    roles on it, so a card that matches every filter but has no such stakeholder
-    yields no target. Both halves are returned because the *difference* is what
-    the builder needs to show: "5 cards" with no further explanation reads as a
-    filter that is too narrow, when the real answer is usually that the other
-    207 have nobody to ask.
-    """
-    filters = survey.target_filters or {}
-    roles = survey.target_roles or []
-
-    # Start with all active cards of the target type
-    q = select(Card).where(
-        Card.type == survey.target_type_key,
-        Card.status == "ACTIVE",
-    )
-
-    # Specific cards filter — direct selection of target cards (intersected with type)
-    card_ids = filters.get("card_ids") or []
-    if card_ids:
-        card_uuids = [uuid.UUID(c) for c in card_ids]
-        q = q.where(Card.id.in_(card_uuids))
-
-    # Tag filter
-    tag_ids = filters.get("tag_ids") or []
-    if tag_ids:
-        tag_uuids = [uuid.UUID(t) for t in tag_ids]
-        tagged_fs = select(CardTag.card_id).where(CardTag.tag_id.in_(tag_uuids))
-        q = q.where(Card.id.in_(tagged_fs))
-
-    # Related card filter — cards that have a Relation to/from one of these IDs.
-    # ``relation_type_key`` narrows it to ONE relationship: several relation types
-    # may connect the same pair of card types, so "owned by Acme" is a different
-    # target set from "used by Acme". Absent = any relation, which is what every
-    # survey written before the field existed means.
-    related_ids = filters.get("related_ids") or []
-    if related_ids:
-        related_uuids = [uuid.UUID(r) for r in related_ids]
-        rel_type_key = filters.get("relation_type_key")
-        outgoing = select(Relation.source_id).where(Relation.target_id.in_(related_uuids))
-        incoming = select(Relation.target_id).where(Relation.source_id.in_(related_uuids))
-        if rel_type_key:
-            outgoing = outgoing.where(Relation.type == rel_type_key)
-            incoming = incoming.where(Relation.type == rel_type_key)
-        # Find cards related to any of these IDs (as source or target)
-        related_fs = outgoing.union(incoming)
-        q = q.where(Card.id.in_(related_fs))
-
-    # Attribute filters
-    attr_filters = filters.get("attribute_filters") or []
-    for af in attr_filters:
-        key = af.get("key")
-        op = af.get("op", "eq")
-        value = af.get("value")
-
-        if not key:
-            continue
-
-        col = Card.attributes[key].astext
-
-        if op == "is_empty":
-            # NULL or missing key in JSONB, or empty string
-            q = q.where(
-                (Card.attributes[key] == None)  # noqa: E711
-                | (col == "")
-            )
-        elif op == "is_not_empty":
-            q = q.where(
-                Card.attributes[key] != None,  # noqa: E711
-                col != "",
-            )
-        elif value is not None:
-            str_val = str(value)
-            if op == "eq":
-                q = q.where(col == str_val)
-            elif op == "ne":
-                q = q.where(col != str_val)
-            elif op in ("gt", "lt", "gte", "lte"):
-                # Cast to numeric for comparisons
-                num_col = Card.attributes[key].astext.cast(sqlalchemy.Numeric)
-                try:
-                    num_val = float(value)
-                except (ValueError, TypeError):
-                    continue
-                if op == "gt":
-                    q = q.where(num_col > num_val)
-                elif op == "lt":
-                    q = q.where(num_col < num_val)
-                elif op == "gte":
-                    q = q.where(num_col >= num_val)
-                elif op == "lte":
-                    q = q.where(num_col <= num_val)
-            elif op == "contains":
-                q = q.where(col.ilike(f"%{str_val}%"))
-
-    # Staleness window — "only cards nobody has changed in the last N
-    # days/months". Relative, resolved at send time rather than stored as a
-    # date, so re-sending a survey next quarter re-reads the landscape as it
-    # is then. A malformed window resolves to None and is skipped.
-    not_updated = not_updated_condition(filters)
-    if not_updated is not None:
-        q = q.where(not_updated)
-
-    result = await db.execute(q)
-    cards = list(result.scalars().all())
-
-    if not cards:
-        return [], []
-
-    # Find subscribers for these cards with matching roles
-    card_ids = [card.id for card in cards]
-    sub_q = (
-        select(Stakeholder)
-        .where(Stakeholder.card_id.in_(card_ids))
-        .options(selectinload(Stakeholder.user))
-    )
-    if roles:
-        sub_q = sub_q.where(Stakeholder.role.in_(roles))
-
-    sub_result = await db.execute(sub_q)
-    subs = sub_result.scalars().all()
-
-    # Group subscribers by card, one entry per user carrying every role they
-    # hold on that card. One entry per user is load-bearing, not cosmetic:
-    # SurveyResponse has no role column and is unique on
-    # (survey_id, card_id, user_id), so a second row for the same person would
-    # violate uq_survey_response the moment the survey is sent.
-    card_map = {card.id: card for card in cards}
-    targets: dict[uuid.UUID, dict] = {}
-    by_user: dict[tuple[uuid.UUID, str], dict] = {}
-    for sub in subs:
-        # Skip before creating the card's entry, or a card whose only
-        # stakeholder row has no user would surface with an empty user list.
-        if not sub.user:
-            continue
-        if sub.card_id not in targets:
-            card = card_map[sub.card_id]
-            targets[sub.card_id] = {
-                "card_id": str(card.id),
-                "card_name": card.name,
-                "card_type": card.type,
-                "users": [],
-            }
-        entry = by_user.get((sub.card_id, str(sub.user_id)))
-        if entry is None:
-            entry = {
-                "user_id": str(sub.user_id),
-                "display_name": sub.user.display_name,
-                "email": sub.user.email,
-                "roles": [],
-            }
-            by_user[(sub.card_id, str(sub.user_id))] = entry
-            targets[sub.card_id]["users"].append(entry)
-        if sub.role not in entry["roles"]:
-            entry["roles"].append(sub.role)
-
-    # The subscriber query has no ORDER BY, so sort rather than let the
-    # database decide which of a user's roles the preview shows first.
-    for target in targets.values():
-        for entry in target["users"]:
-            entry["roles"].sort()
-
-    return list(targets.values()), cards
 
 
 async def _get_response_stats(db: AsyncSession, survey_id: uuid.UUID) -> dict:
@@ -669,7 +486,7 @@ async def preview_survey(
     if not survey:
         raise HTTPException(404, "Survey not found")
 
-    targets, matched = await _resolve_targets(db, survey)
+    targets, matched = await survey_service.resolve_targets(db, survey)
     return {
         "total_cards": len(targets),
         # Everything the filters matched, recipient or not. `total_cards` is a
@@ -709,7 +526,7 @@ async def send_survey(
     if not survey.target_roles:
         raise HTTPException(400, "Survey must target at least one stakeholder role")
 
-    targets, _matched = await _resolve_targets(db, survey)
+    targets, _matched = await survey_service.resolve_targets(db, survey)
     if not targets:
         raise HTTPException(
             400,
@@ -723,54 +540,9 @@ async def send_survey(
     # inline — the Send button hung for the sum of the handshakes. The response
     # rows are what make the survey real (My Surveys reads them); the
     # notifications are delivery, and delivery can lag the click by seconds.
-    #
-    # One response row per (card, user) — that is the unit of work, and what
-    # My Surveys, the Todos tab and `targets_created` count. One *notification*
-    # per user, though: someone who owns forty applications needs one nudge
-    # saying so, not forty bell entries and forty emails.
-    created = 0
-    cards_by_user: dict[uuid.UUID, list[tuple[uuid.UUID, str]]] = {}
-    for target in targets:
-        card_id = uuid.UUID(target["card_id"])
-        card_name = target["card_name"]
-        for u in target["users"]:
-            u_id = uuid.UUID(u["user_id"])
-            resp = SurveyResponse(
-                survey_id=survey.id,
-                card_id=card_id,
-                user_id=u_id,
-            )
-            db.add(resp)
-            created += 1
-            cards_by_user.setdefault(u_id, []).append((card_id, card_name))
-
-    recipients: list[dict] = [
-        {
-            "user_id": u_id,
-            "title": f"Survey: {survey.name}",
-            "message": _survey_notification_message(survey, len(cards)),
-            # A person with a single card goes straight to it; anyone with
-            # several lands on My Surveys, which lists them all.
-            "link": (
-                f"/surveys/{survey.id}/respond/{cards[0][0]}"
-                if len(cards) == 1
-                else "/todos?tab=surveys"
-            ),
-            "data": {"survey_id": str(survey.id), "card_count": len(cards)},
-            # Emailed only: the mail names every card and links each one
-            # straight to its response form, so a recipient can start from
-            # their inbox. The bell entry stays a one-liner.
-            "email_items": [
-                {"label": name, "link": f"/surveys/{survey.id}/respond/{cid}"}
-                for cid, name in cards
-            ],
-            "email_items_title": "Cards to review",
-        }
-        for u_id, cards in cards_by_user.items()
-    ]
-
-    survey.status = "active"
-    survey.sent_at = datetime.now(timezone.utc)
+    activation = await survey_service.activate_survey(db, survey, targets, actor_id=user.id)
+    created = activation.created
+    recipients = activation.recipients
     await db.commit()
 
     background_tasks.add_task(

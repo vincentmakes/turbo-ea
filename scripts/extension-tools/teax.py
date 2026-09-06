@@ -85,6 +85,8 @@ VALID_GRANTS = {
     "core.risks.write",
     "core.notifications.send",
     "core.stakeholders.write",
+    "core.surveys.read",
+    "core.surveys.write",
 }
 # Artwork an extension may ship as its own logo (manifest `logo`), shown on the
 # Store and Installed tabs. Deliberately duplicated from

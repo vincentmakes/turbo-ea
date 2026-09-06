@@ -28,6 +28,7 @@ from app.services.extensions.notify_bridge import ExtensionNotify
 from app.services.extensions.registry import extension_registry
 from app.services.extensions.risks_bridge import ExtensionRisks
 from app.services.extensions.sdk import ExtensionContext, ExtensionJob
+from app.services.extensions.surveys_bridge import ExtensionSurveys
 from app.services.extensions.todos_bridge import ExtensionTodos
 from app.services.extensions.users_bridge import ExtensionUsers
 
@@ -49,7 +50,8 @@ def build_context(key: str) -> ExtensionContext:
     """Runtime services for one extension: sessions, logging, namespaced
     settings persisted under ``app_settings.general_settings["ext.{key}.*"]``,
     encrypted secrets under ``ext.{key}.secret.*``, and the core-data
-    bridges (todos, users, data, decisions, risks, notify). Memoized per key (see ``_contexts``)."""
+    bridges (todos, users, data, decisions, risks, notify, surveys). Memoized per
+    key (see ``_contexts``)."""
 
     cached = _contexts.get(key)
     if cached is not None:
@@ -154,6 +156,7 @@ def build_context(key: str) -> ExtensionContext:
         risks=ExtensionRisks(key),
         notify=ExtensionNotify(key),
         batch=batch,
+        surveys=ExtensionSurveys(key),
     )
     _contexts[key] = ctx
     return ctx

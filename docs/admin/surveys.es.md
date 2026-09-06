@@ -78,6 +78,8 @@ Una vez que su encuesta está en estado **Activa**:
 
     Una tarjeta solo se incluye en la encuesta si al menos una persona ostenta en ella uno de los **roles de parte interesada seleccionados**. Las tarjetas que coinciden con sus filtros pero carecen de esa parte interesada se omiten; el paso **Vista previa y envío** indica cuántas son, para que pueda asignar responsables.
 
+Una encuesta también puede ser creada y enviada por una extensión instalada — por ejemplo, una regla programada que pide a los responsables de cada tarjeta que cumple una condición que la completen. Esa encuesta no muestra autor, sus campos son los que define el tipo de tarjeta y se comporta como cualquier otra: aquí la cierra y aplica sus respuestas. Revertir la ejecución de la extensión en **Admin → Registro de auditoría** cierra la encuesta y retira las solicitudes que nadie había respondido todavía.
+
 ## Visualización de Resultados
 
 Navegue a **Administrador > Encuestas > [Nombre de la Encuesta] > Resultados** para ver:

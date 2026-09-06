@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.132.0] - 2026-09-06
+
+### Added
+
+- **Extension SDK 1.14: an extension can send a data-maintenance survey.** A rule that matches many cards used to have one way to ask their owners for something — a todo per card, fifty todos on fifty lists. An extension allowed to (a new `core.surveys.write` grant) can now send one survey about the whole set instead: one notification per person, one response form per card with the fields the card type defines, results reviewed and applied in Admin → Surveys exactly like a survey a person sent. The survey shows no author; closing it and applying its answers stay with people.
+- **A card's History tab now records when it was included in a survey**, whether a person or an extension sent it.
+- **Rolling back an extension's batch closes the survey it sent** and withdraws the requests nobody had answered yet; answers already given are kept.
+
 ## [2.131.0] - 2026-09-06
 
 ### Added

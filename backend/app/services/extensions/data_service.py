@@ -269,6 +269,7 @@ CONTEXT_BATCH_GRANTS = frozenset(
         "core.risks.write",
         "core.adr.write",
         "core.stakeholders.write",
+        "core.surveys.write",
     }
 )
 

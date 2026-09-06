@@ -69,6 +69,7 @@ interface RollbackOp {
   risk_id?: string;
   adr_id?: string;
   todo_id?: string;
+  survey_id?: string;
   tag_id?: string;
   stakeholder_user_id?: string;
   fields?: Record<string, unknown>;
@@ -81,7 +82,9 @@ interface RollbackOp {
 
 /** The entity an inverse op acts on — the first id the planner set. */
 function rollbackTarget(op: RollbackOp): string | undefined {
-  return op.risk_id || op.adr_id || op.relation_id || op.todo_id || op.card_id;
+  return (
+    op.risk_id || op.adr_id || op.relation_id || op.todo_id || op.survey_id || op.card_id
+  );
 }
 
 interface RollbackPlan {

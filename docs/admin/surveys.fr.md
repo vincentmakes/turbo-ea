@@ -78,6 +78,8 @@ Une fois votre enquête en statut **Active** :
 
     Une fiche n'est incluse dans l'enquête que si au moins une personne y détient l'un des **rôles de partie prenante ciblés**. Les fiches qui correspondent à vos filtres sans une telle partie prenante sont ignorées ; l'étape **Aperçu et envoi** en indique le nombre, afin que vous puissiez affecter des responsables.
 
+Une enquête peut aussi être créée et envoyée par une extension installée — par exemple une règle planifiée qui demande aux responsables de chaque fiche remplissant une condition de la compléter. Une telle enquête n'affiche aucun auteur, ses champs sont ceux que définit le type de fiche, et elle se comporte comme toute autre : c'est ici que vous la clôturez et appliquez ses réponses. Annuler l'exécution de l'extension dans **Admin → Journal d'audit** clôt l'enquête et retire les demandes auxquelles personne n'avait encore répondu.
+
 ## Consultation des résultats
 
 Naviguez vers **Admin > Enquêtes > [Nom de l'enquête] > Résultats** pour voir :
