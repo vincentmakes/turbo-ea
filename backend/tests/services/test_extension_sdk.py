@@ -16,7 +16,7 @@ from app.services.extensions import sdk
 
 
 def test_sdk_version_is_current():
-    assert sdk.SDK_VERSION == "1.12"
+    assert sdk.SDK_VERSION == "1.13"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -203,13 +203,15 @@ def test_sdk_compatibility_is_major_only():
     assert sdk.sdk_compatible("1.10")
     assert sdk.sdk_compatible("1.11")
     assert sdk.sdk_compatible("1.12")
+    assert sdk.sdk_compatible("1.13")
     assert not sdk.sdk_compatible("2.0")
 
 
 def test_sdk_minor_newer_truth_table():
     # Newer minor on the same major → warn (still loads).
-    assert sdk.sdk_minor_newer("1.13")
+    assert sdk.sdk_minor_newer("1.14")
     # Same or older minor → no warning.
+    assert not sdk.sdk_minor_newer("1.13")
     assert not sdk.sdk_minor_newer("1.12")
     assert not sdk.sdk_minor_newer("1.11")
     assert not sdk.sdk_minor_newer("1.10")
@@ -418,3 +420,21 @@ def test_per_card_permission_helpers_are_not_grant_gated():
     from app.services.extensions import bundle
 
     assert not any("permission" in grant for grant in bundle.VALID_GRANTS)
+
+
+def test_sdk_1_13_surface_exists():
+    # SDK 1.13 — the batch scope reachable without the inventory grant. Every
+    # write bridge already JOINS an open batch; ``ctx.batch`` is what lets an
+    # extension holding only ``core.todos.write`` open one, so a poll cycle is
+    # one Audit Log row instead of one per todo.
+    import dataclasses
+
+    fields = {f.name: f for f in dataclasses.fields(sdk.ExtensionContext)}
+    assert "batch" in fields
+    assert fields["batch"].default is None  # 1.12-era direct constructions keep working
+
+    from app.services.extensions import data_service
+
+    assert callable(data_service.open_context_batch)
+    assert "core.todos.write" in data_service.CONTEXT_BATCH_GRANTS
+    assert "core.cards.write" in data_service.CONTEXT_BATCH_GRANTS

@@ -64,6 +64,53 @@ describe("renderReleaseNotes", () => {
     expect(container.textContent).toContain("| a | b |");
   });
 
+  it("joins a hard-wrapped bullet into one item, bold applied across the wrap", () => {
+    // An extension changelog is wrapped at ~90 columns; the bullet must read
+    // as one sentence and the bold run that straddles the wrap must render.
+    const { container } = renderNotes(
+      [
+        "### Added",
+        "- **The Rules and Runs tables remember how",
+        "  you set them up.** Column widths, sort order and",
+        "  which columns are shown all come back after a reload.",
+        "- **Pause a rule** from the right-click menu.",
+      ].join("\n"),
+    );
+
+    const items = container.querySelectorAll("li");
+    expect(items).toHaveLength(2);
+    expect(container.querySelectorAll("p")).toHaveLength(0);
+    expect(items[0].querySelector("strong")).toHaveTextContent(
+      "The Rules and Runs tables remember how you set them up.",
+    );
+    expect(items[0]).toHaveTextContent(
+      "Column widths, sort order and which columns are shown all come back after a reload.",
+    );
+    expect(container.textContent).not.toContain("**");
+  });
+
+  it("gathers consecutive prose lines into one paragraph, blank line separates", () => {
+    const { container } = renderNotes(
+      ["First sentence that was", "wrapped by the editor.", "", "A second paragraph."].join("\n"),
+    );
+
+    const paragraphs = container.querySelectorAll("p");
+    expect(paragraphs).toHaveLength(2);
+    expect(paragraphs[0]).toHaveTextContent("First sentence that was wrapped by the editor.");
+    expect(paragraphs[1]).toHaveTextContent("A second paragraph.");
+  });
+
+  it("a heading or blank line closes a wrapped bullet", () => {
+    const { container } = renderNotes(
+      ["- one line", "  continued", "### Fixed", "- other", "", "trailing prose"].join("\n"),
+    );
+
+    expect(container.querySelectorAll("li")).toHaveLength(2);
+    expect(container.querySelectorAll("li")[0]).toHaveTextContent("one line continued");
+    expect(container.querySelectorAll("p")).toHaveLength(1);
+    expect(container.querySelector("p")).toHaveTextContent("trailing prose");
+  });
+
   it("renders nothing for an empty body", () => {
     const { container } = renderNotes("");
     expect(container.textContent).toBe("");

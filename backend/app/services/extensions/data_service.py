@@ -35,11 +35,12 @@ Design invariants (mirroring ``todos_bridge``):
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from collections import deque
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
-from contextlib import asynccontextmanager
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, TypeVar
@@ -100,6 +101,8 @@ MAX_IDS_PER_CALL = MAX_PAGE_SIZE
 UPDATABLE_CARD_FIELDS = frozenset(
     {"name", "description", "subtype", "parent_id", "lifecycle", "attributes", "alias"}
 )
+
+logger = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
 
@@ -253,6 +256,122 @@ def _relation_type_to_dict(rt: RelationType) -> dict:
         "built_in": rt.built_in,
         "is_hidden": rt.is_hidden,
     }
+
+
+#: Grants any one of which lets an extension open a ``ctx.batch(label)`` scope
+#: (SDK 1.13): a batch only groups writes, so an extension that can write
+#: through at least one bridge may group them, and one that cannot write has
+#: nothing to group.
+CONTEXT_BATCH_GRANTS = frozenset(
+    {
+        "core.cards.write",
+        "core.todos.write",
+        "core.risks.write",
+        "core.adr.write",
+        "core.stakeholders.write",
+    }
+)
+
+
+def _count_batch_against_rate(key: str) -> None:
+    """Sliding-window cap on batch openings (implicit ones included) so a
+    looping extension cannot flood the audit log or the inventory."""
+    now = time.monotonic()
+    window = _batch_times.setdefault(key, deque())
+    while window and now - window[0] > _RATE_WINDOW_SECONDS:
+        window.popleft()
+    if len(window) >= settings.EXTENSION_MAX_BATCHES_PER_MINUTE:
+        raise ExtensionDataError(
+            f"Extension {key} exceeded the write rate cap "
+            f"({settings.EXTENSION_MAX_BATCHES_PER_MINUTE} batches/minute)"
+        )
+    window.append(now)
+
+
+def _require_writes_enabled() -> None:
+    if not settings.EXTENSION_WRITES_ENABLED:
+        raise ExtensionPermissionError(
+            "Extension writes are disabled on this instance (EXTENSION_WRITES_ENABLED=false)"
+        )
+
+
+@asynccontextmanager
+async def open_batch(key: str, label: str) -> AsyncIterator[ExtBatch]:
+    """The one batch scope every write bridge joins.
+
+    Opens an ``ext:{key}`` mutation batch, sets it on the task-local
+    contextvars so the cards, todos, risks, decisions and stakeholder writes
+    made inside land in it, and on exit either commits it — with
+    ``summary={"label", "writes"}`` — or, when nothing was written, deletes
+    the row again. The delete is what keeps "sync ran, nothing changed" out
+    of the Audit Log: no bridge write happened, so no event can carry the id
+    and nothing can reference the row. It runs on the exception path too and
+    is best-effort, so a cleanup failure is logged and never masks the
+    extension's own error.
+
+    Callers gate access themselves: ``ExtensionData.batch`` on the inventory
+    write grant, :func:`open_context_batch` on any write grant.
+    """
+    if _active_batch.get() is not None:
+        raise ExtensionDataError("Extension write batches cannot nest")
+    _count_batch_against_rate(key)
+    async with async_session() as db:
+        batch = await mutation_batch_service.create_batch(
+            db,
+            tool_name=f"ext:{key}"[:100],
+            actor=None,
+            origin="ext",
+            dry_run=False,
+        )
+        await db.commit()
+        batch_id = batch.id
+    state = _ActiveBatch(id=batch_id, label=label)
+    active_token = _active_batch.set(state)
+    origin_token = request_origin.set("ext")
+    batch_token = request_batch_id.set(batch_id)
+    try:
+        yield ExtBatch(id=str(batch_id), label=label)
+        if state.writes > 0:
+            async with async_session() as db:
+                row = await db.get(MutationBatch, batch_id)
+                if row is not None:
+                    await mutation_batch_service.commit_batch(
+                        db, row, summary={"label": label, "writes": state.writes}
+                    )
+                    await db.commit()
+    finally:
+        request_batch_id.reset(batch_token)
+        request_origin.reset(origin_token)
+        _active_batch.reset(active_token)
+        if state.writes == 0:
+            await _drop_empty_batch(key, batch_id)
+
+
+async def _drop_empty_batch(key: str, batch_id: uuid.UUID) -> None:
+    try:
+        async with async_session() as db:
+            row = await db.get(MutationBatch, batch_id)
+            if row is not None:
+                await db.delete(row)
+                await db.commit()
+    except Exception:  # noqa: BLE001 - cleanup must never mask the caller's error
+        logger.exception("Extension %s: could not drop empty batch %s", key, batch_id)
+
+
+def open_context_batch(key: str, label: str) -> AbstractAsyncContextManager[ExtBatch]:
+    """``ctx.batch(label)`` (SDK 1.13): :func:`open_batch` for an extension
+    holding any write grant, so a connector whose writes all go through the
+    todos bridge can still make one sync one Audit Log row. Gated per call,
+    like every bridge, so disabling the extension or a lapsed licence closes
+    it immediately."""
+    grants = set(extension_registry.grants_for(key))
+    if not (CONTEXT_BATCH_GRANTS & grants):
+        raise ExtensionPermissionError(
+            f"Extension {key} requires a write grant "
+            "(and an enabled, licensed install) to open a batch"
+        )
+    _require_writes_enabled()
+    return open_batch(key, label)
 
 
 class ExtensionData:
@@ -588,24 +707,10 @@ class ExtensionData:
         return WriteActor(user_id=None, display_name=display, ext_key=self._key)
 
     def _require_writes_enabled(self) -> None:
-        if not settings.EXTENSION_WRITES_ENABLED:
-            raise ExtensionPermissionError(
-                "Extension writes are disabled on this instance (EXTENSION_WRITES_ENABLED=false)"
-            )
+        _require_writes_enabled()
 
     def _count_batch_against_rate(self) -> None:
-        """Sliding-window cap on batch openings (implicit ones included) so a
-        looping extension cannot flood the audit log or the inventory."""
-        now = time.monotonic()
-        window = _batch_times.setdefault(self._key, deque())
-        while window and now - window[0] > _RATE_WINDOW_SECONDS:
-            window.popleft()
-        if len(window) >= settings.EXTENSION_MAX_BATCHES_PER_MINUTE:
-            raise ExtensionDataError(
-                f"Extension {self._key} exceeded the write rate cap "
-                f"({settings.EXTENSION_MAX_BATCHES_PER_MINUTE} batches/minute)"
-            )
-        window.append(now)
+        _count_batch_against_rate(self._key)
 
     def _count_write_in_batch(self) -> None:
         count_write_in_active_batch()
@@ -619,43 +724,21 @@ class ExtensionData:
         preview leaves no audit trail). Yields an :class:`ExtBatch` (SDK
         1.8) carrying the audit batch id, so a caller that records where
         its writes landed can: ``async with ctx.data.batch(l) as b: b.id``.
-        """
-        return self._batch_cm(label)
 
-    @asynccontextmanager
-    async def _batch_cm(self, label: str) -> AsyncIterator[ExtBatch]:
+        A scope that recorded **no** write leaves no row behind: the
+        ``mutation_batches`` row is dropped on exit instead of committed, so
+        a sync that found nothing to change, or a rule whose only actions are
+        notifications, never appears in the Audit Log with a Rollback that
+        would reverse nothing. The id the handle carried is then gone —
+        record it only once something was written.
+
+        SDK 1.13: ``ctx.batch(label)`` opens the same scope without the
+        inventory grant, for extensions whose writes go through the todos,
+        risks or decisions bridges (see :func:`open_context_batch`).
+        """
         self._require(write=True)
         self._require_writes_enabled()
-        if _active_batch.get() is not None:
-            raise ExtensionDataError("Extension write batches cannot nest")
-        self._count_batch_against_rate()
-        async with async_session() as db:
-            batch = await mutation_batch_service.create_batch(
-                db,
-                tool_name=f"ext:{self._key}"[:100],
-                actor=None,
-                origin="ext",
-                dry_run=False,
-            )
-            await db.commit()
-            batch_id = batch.id
-        state = _ActiveBatch(id=batch_id, label=label)
-        active_token = _active_batch.set(state)
-        origin_token = request_origin.set("ext")
-        batch_token = request_batch_id.set(batch_id)
-        try:
-            yield ExtBatch(id=str(batch_id), label=label)
-            async with async_session() as db:
-                row = await db.get(MutationBatch, batch_id)
-                if row is not None:
-                    await mutation_batch_service.commit_batch(
-                        db, row, summary={"label": label, "writes": state.writes}
-                    )
-                    await db.commit()
-        finally:
-            request_batch_id.reset(batch_token)
-            request_origin.reset(origin_token)
-            _active_batch.reset(active_token)
+        return open_batch(self._key, label)
 
     async def _write(
         self,

@@ -14,6 +14,13 @@
  *   - Anything outside the supported subset (a table, an image) degrades to the
  *     literal text of the source line. Unusual, never broken — and the escape
  *     hatch is the "View on GitHub" button next to it.
+ *
+ * Lines are joined the way CommonMark's lazy continuation joins them: a line
+ * that is neither blank, a heading nor a bullet continues the open bullet or
+ * paragraph. Core's own CHANGELOG keeps each entry on one line, but an
+ * extension's is hard-wrapped at ~90 columns, and rendering line by line split
+ * every wrapped bullet into a bullet plus a stray paragraph and left a
+ * `**bold**` run that straddled the wrap as literal asterisks.
  */
 import type { ReactNode } from "react";
 import Box from "@mui/material/Box";
@@ -90,6 +97,7 @@ export function renderReleaseNotes(markdown: string): ReactNode {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
   let bullets: string[] = [];
+  let paragraph: string[] = [];
 
   const flushBullets = () => {
     if (bullets.length === 0) return;
@@ -110,12 +118,24 @@ export function renderReleaseNotes(markdown: string): ReactNode {
     );
   };
 
+  const flushParagraph = () => {
+    if (paragraph.length === 0) return;
+    const text = paragraph.join(" ");
+    paragraph = [];
+    blocks.push(
+      <Typography key={`p-${blocks.length}`} variant="body2" sx={{ lineHeight: 1.6, my: 1 }}>
+        {renderInline(text, `p-${blocks.length}`)}
+      </Typography>,
+    );
+  };
+
   lines.forEach((raw, index) => {
     const line = raw.trimEnd();
     const heading = /^(#{1,6})\s+(.*)$/.exec(line);
 
     if (heading) {
       flushBullets();
+      flushParagraph();
       blocks.push(
         <Typography
           key={`h-${index}`}
@@ -130,20 +150,27 @@ export function renderReleaseNotes(markdown: string): ReactNode {
 
     const bullet = /^\s*[-*+]\s+(.*)$/.exec(line);
     if (bullet) {
+      flushParagraph();
       bullets.push(bullet[1]);
       return;
     }
 
-    flushBullets();
-    if (line.trim() === "") return;
+    if (line.trim() === "") {
+      flushBullets();
+      flushParagraph();
+      return;
+    }
 
-    blocks.push(
-      <Typography key={`p-${index}`} variant="body2" sx={{ lineHeight: 1.6, my: 1 }}>
-        {renderInline(line, `p-${index}`)}
-      </Typography>,
-    );
+    // Lazy continuation: a wrapped bullet keeps going until a blank line, a
+    // heading or the next bullet; prose lines gather into one paragraph.
+    if (bullets.length > 0) {
+      bullets[bullets.length - 1] += ` ${line.trim()}`;
+      return;
+    }
+    paragraph.push(line.trim());
   });
 
   flushBullets();
+  flushParagraph();
   return blocks;
 }

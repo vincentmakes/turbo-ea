@@ -265,7 +265,18 @@ async def require_card_permission(
 #   An unknown card id answers False rather than 404, so a caller that needs a
 #   404 checks existence first.
 
-SDK_VERSION = "1.12"
+#
+# 1.13 — ``ctx.batch(label)``: the audited batch scope, reachable without the
+#   inventory grant. ``ctx.data.batch`` groups an extension's writes into ONE
+#   Audit Log row with one Rollback, and every write bridge joins the open
+#   scope — but ``ctx.data`` exists only with ``core.cards.*``, so a connector
+#   whose writes all go through the todos bridge had no way to open one and
+#   left one row per todo per poll. ``ctx.batch`` is the same scope, gated on
+#   ANY write grant (``open_context_batch``). Also from 1.13: a scope that
+#   recorded no write leaves no row — "sync ran, nothing changed" is not an
+#   audit event, and an empty batch offered a Rollback that reversed nothing.
+
+SDK_VERSION = "1.13"
 
 
 @dataclass(frozen=True)
@@ -826,7 +837,11 @@ class ExtensionContext:
     risk-register bridge (grants ``core.risks.read`` / ``core.risks.write``;
     no status transitions) — and ``notify`` — in-app notifications to named
     people (grant ``core.notifications.send``); the data bridge gains tag
-    and stakeholder writes.
+    and stakeholder writes. SDK 1.13 adds ``batch`` — ``async with
+    ctx.batch("nightly sync"):`` groups every bridge write made inside into
+    one audited mutation batch (one Audit Log row, one Rollback), open to
+    any extension holding a write grant; a scope that wrote nothing leaves
+    no row.
     """
 
     key: str
@@ -845,6 +860,7 @@ class ExtensionContext:
     decisions: DecisionsBridge | None = None
     risks: RisksBridge | None = None
     notify: NotifyBridge | None = None
+    batch: Callable[[str], AbstractAsyncContextManager[ExtBatch]] | None = None
 
     def __post_init__(self) -> None:
         if not self.settings_namespace:
