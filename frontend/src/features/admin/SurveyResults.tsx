@@ -30,6 +30,7 @@ import { useFieldLabel } from "@/hooks/useResolveLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
+import { usePageSubject } from "@/hooks/usePageTitle";
 import type { Survey, SurveyResponseDetail, SurveyField } from "@/types";
 
 /** True when a value is a list of related-card references ({id, name}). */
@@ -102,6 +103,7 @@ export default function SurveyResults() {
   const navigate = useNavigate();
 
   const [survey, setSurvey] = useState<Survey | null>(null);
+  usePageSubject(survey?.name);
   const [responses, setResponses] = useState<SurveyResponseDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

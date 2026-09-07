@@ -40,6 +40,7 @@ import {
 import { exportToDocx, exportToPdf } from "./soawExport";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { usePageSubject } from "@/hooks/usePageTitle";
 import type { Card, SoAW, SoAWSectionData, SoAWSignatory } from "@/types";
 
 // ─── constants ──────────────────────────────────────────────────────────────
@@ -64,6 +65,7 @@ export default function SoAWEditor() {
 
   // SoAW state
   const [name, setName] = useState("");
+  usePageSubject(name);
   const [initiativeId, setInitiativeId] = useState("");
   const [status, setStatus] = useState("draft");
   const [docInfo, setDocInfo] = useState({

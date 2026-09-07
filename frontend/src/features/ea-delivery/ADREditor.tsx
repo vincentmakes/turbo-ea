@@ -27,6 +27,7 @@ import RichTextEditor from "./RichTextEditor";
 import SignatureRequestDialog from "./SignatureRequestDialog";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { usePageSubject } from "@/hooks/usePageTitle";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPermission } from "@/components/RequirePermission";
 import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
@@ -50,6 +51,8 @@ export default function ADREditor() {
 
   // ADR state
   const [title, setTitle] = useState("");
+  // Follows the draft title as it is typed, the way a document editor does.
+  usePageSubject(title);
   const [status, setStatus] = useState("draft");
   const [context, setContext] = useState("");
   const [decision, setDecision] = useState("");

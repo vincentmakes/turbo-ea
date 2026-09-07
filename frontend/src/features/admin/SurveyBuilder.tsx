@@ -33,6 +33,7 @@ import CardPicker, { type CardOption } from "@/components/CardPicker";
 import TagPicker from "@/components/TagPicker";
 import { useExtensionFieldTypes } from "@/lib/extensionHost";
 import { api } from "@/api/client";
+import { usePageSubject } from "@/hooks/usePageTitle";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import {
   useTypeLabel,
@@ -105,6 +106,9 @@ export default function SurveyBuilder() {
 
   // Step 1 — Basics
   const [name, setName] = useState("");
+  // Follows the draft name as it is typed; «Surveys» from the route table
+  // covers a brand-new survey that has none yet.
+  usePageSubject(name);
   const [description, setDescription] = useState("");
   const [message, setMessage] = useState("");
 

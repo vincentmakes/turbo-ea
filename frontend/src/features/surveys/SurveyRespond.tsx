@@ -29,6 +29,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { usePageSubject } from "@/hooks/usePageTitle";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
@@ -234,6 +235,7 @@ export default function SurveyRespond() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState<SurveyRespondForm | null>(null);
+  usePageSubject(form?.card.name);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);

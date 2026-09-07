@@ -7,6 +7,7 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { usePageSection } from "@/hooks/usePageTitle";
 import { brand } from "@/theme/tokens";
 
 const GovernanceTab = lazy(() => import("./governance/GovernanceTab"));
@@ -90,6 +91,11 @@ export default function GrcPage() {
     }),
     [t],
   );
+
+  // «GRC · Risk» in the browser tab. The tab is React state restored from
+  // localStorage when the URL carries no `?tab=`, so only this page knows
+  // which one is showing.
+  usePageSection(labels[tab]);
 
   return (
     <Box>

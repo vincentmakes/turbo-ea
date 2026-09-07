@@ -10,6 +10,9 @@ let routeParams: Record<string, string> = {};
 vi.mock("react-router", () => ({
   useNavigate: () => navigate,
   useParams: () => routeParams,
+  // The builder publishes the survey's name as the browser tab title, and
+  // `usePageSubject` keys what it publishes by the path it came from.
+  useLocation: () => ({ pathname: "/admin/surveys/new", search: "", hash: "", state: null, key: "t" }),
 }));
 vi.mock("@/api/client", () => ({
   api: {

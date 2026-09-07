@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
+import { usePageSection, usePageSubject } from "@/hooks/usePageTitle";
 import PpmOverviewTab from "./PpmOverviewTab";
 import PpmReportsTab from "./PpmReportsTab";
 import PpmCostTab from "./PpmCostTab";
@@ -22,6 +23,16 @@ import CardDetailContent from "@/features/cards/CardDetailContent";
 import type { Card, CardEffectivePermissions, PpmStatusReport, PpmCostLine, PpmBudgetLine, PpmRisk } from "@/types";
 
 const TAB_KEYS = ["overview", "reports", "cost", "risks", "tasks", "gantt", "details"];
+// The `ppm`-namespace key each tab renders its label from, in TAB_KEYS order.
+const PPM_TAB_LABEL_KEYS = [
+  "overview",
+  "statusReports",
+  "budgetAndCosts",
+  "riskManagement",
+  "tasks",
+  "gantt",
+  "cardDetails",
+];
 
 export default function PpmProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -45,6 +56,10 @@ export default function PpmProjectDetail() {
     [setSearchParams],
   );
   const [card, setCard] = useState<Card | null>(null);
+  // «Apollo Migration · Budget & Costs | Turbo EA» — an initiative page is the
+  // one place both slots are live at once.
+  usePageSubject(card?.name);
+  usePageSection(t(PPM_TAB_LABEL_KEYS[tab]));
   const [reports, setReports] = useState<PpmStatusReport[]>([]);
   const [costLines, setCostLines] = useState<PpmCostLine[]>([]);
   const [budgetLines, setBudgetLines] = useState<PpmBudgetLine[]>([]);

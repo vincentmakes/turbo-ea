@@ -23,6 +23,7 @@ import Tab from "@mui/material/Tab";
 import LinearProgress from "@mui/material/LinearProgress";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { usePageSection } from "@/hooks/usePageTitle";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import {
@@ -289,12 +290,15 @@ function BpmDashboardContent() {
 
 /* ── Tabbed shell ── */
 const BPM_TAB_PARAM = "tab";
+// The `bpm`-namespace key each tab renders its label from, in tab-index order.
+const BPM_TAB_LABEL_KEYS = ["tabs.processNavigator", "tabs.dashboard", "tabs.reports"];
 
 export default function BpmDashboard() {
   const { t } = useTranslation(["bpm", "common"]);
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get(BPM_TAB_PARAM);
   const tabIndex = tabParam === "dashboard" ? 1 : tabParam === "reports" ? 2 : 0;
+  usePageSection(t(BPM_TAB_LABEL_KEYS[tabIndex]));
 
   const handleTabChange = (_: unknown, newValue: number) => {
     const params = new URLSearchParams(searchParams);

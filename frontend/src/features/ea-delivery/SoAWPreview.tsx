@@ -18,6 +18,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { buildPreviewBody, exportToPdf, PREVIEW_CSS } from "./soawExport";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { usePageSubject } from "@/hooks/usePageTitle";
 import type { SoAW, SoAWSectionData } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
@@ -43,6 +44,7 @@ export default function SoAWPreview() {
   const compact = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [soaw, setSoaw] = useState<SoAW | null>(null);
+  usePageSubject(soaw?.name);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [snack, setSnack] = useState("");

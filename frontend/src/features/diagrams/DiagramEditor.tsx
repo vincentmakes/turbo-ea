@@ -123,6 +123,7 @@ import type { LegendSection } from "./DiagramViewLegend";
 import DiagramViewLegend from "./DiagramViewLegend";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { usePageSubject } from "@/hooks/usePageTitle";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
 import {
   relationLabel,
@@ -617,6 +618,7 @@ export default function DiagramEditor() {
   }, [user?.permissions]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [diagram, setDiagram] = useState<DiagramData | null>(null);
+  usePageSubject(diagram?.name);
   // Effects that must run once per diagram open key on the id, never the
   // diagram object — `saveDiagram` calls `setDiagram`, so an object dep
   // re-fires after every save (discussion #905).

@@ -13,6 +13,7 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { usePageSubject } from "@/hooks/usePageTitle";
 import { cardLogoUrl } from "@/components/CardLogoAvatar";
 import {
   applyCardLogosToXml,
@@ -97,6 +98,7 @@ export default function DiagramViewer() {
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [diagram, setDiagram] = useState<DiagramData | null>(null);
+  usePageSubject(diagram?.name);
   const [loading, setLoading] = useState(true);
   const [snackMsg, setSnackMsg] = useState("");
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);

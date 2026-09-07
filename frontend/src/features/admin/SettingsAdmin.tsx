@@ -19,6 +19,7 @@ import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Checkbox from "@mui/material/Checkbox";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { usePageSection } from "@/hooks/usePageTitle";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
 import { currencySymbolOverride } from "@/lib/currency";
@@ -1948,6 +1949,9 @@ export default function SettingsAdmin() {
     t("settings.tabs.auditLog", "Audit log"),
     t("settings.tabs.resources"),
   ];
+
+  // «Settings · Integrations» — the route supplies «Settings».
+  usePageSection(TAB_LABELS[tabIndex]);
 
   const handleTabChange = (_: React.SyntheticEvent, newIndex: number) => {
     const newTab = TAB_KEYS[newIndex];

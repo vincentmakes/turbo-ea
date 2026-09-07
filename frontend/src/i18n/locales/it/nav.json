@@ -65,5 +65,12 @@
   "sponsorship.oneTime": "Una tantum",
   "sponsorship.monthly": "Mensile",
   "extensionLicense.banner": "La licenza dell'estensione richiede attenzione: {{keys}}. Richiedi un file di licenza rinnovato e applicalo in Admin → Estensioni.",
-  "extensionLicense.manage": "Gestisci"
+  "extensionLicense.manage": "Gestisci",
+  "pageTitles.card": "Scheda",
+  "pageTitles.risk": "Rischio",
+  "pageTitles.decision": "Decisione architetturale",
+  "pageTitles.soaw": "Dichiarazione del lavoro di architettura",
+  "pageTitles.survey": "Sondaggio",
+  "pageTitles.processFlow": "Flusso di processo",
+  "pageTitles.extension": "Estensione"
 }

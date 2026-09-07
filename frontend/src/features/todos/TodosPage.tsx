@@ -22,6 +22,7 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { usePageSection } from "@/hooks/usePageTitle";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { formatRecurrence } from "@/lib/recurrence/recurrenceLabel";
@@ -672,6 +673,7 @@ export default function TodosPage() {
   const { t } = useTranslation("common");
   const [searchParams, setSearchParams] = useSearchParams();
   const section = searchParams.get("tab") === "surveys" ? 1 : 0;
+  usePageSection(t(section === 1 ? "todos.tabs.surveys" : "todos.tabs.todos"));
 
   const [badgeCounts, setBadgeCounts] = useState({ open_todos: 0, pending_surveys: 0 });
 

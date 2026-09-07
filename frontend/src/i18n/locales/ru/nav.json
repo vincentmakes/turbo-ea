@@ -65,5 +65,12 @@
   "sponsorship.oneTime": "Разово",
   "sponsorship.monthly": "Ежемесячно",
   "extensionLicense.banner": "Лицензия расширения требует внимания: {{keys}}. Запросите обновлённый файл лицензии и примените его в разделе Администрирование → Расширения.",
-  "extensionLicense.manage": "Управлять"
+  "extensionLicense.manage": "Управлять",
+  "pageTitles.card": "Карточка",
+  "pageTitles.risk": "Риск",
+  "pageTitles.decision": "Архитектурное решение",
+  "pageTitles.soaw": "Техническое задание на архитектуру",
+  "pageTitles.survey": "Опрос",
+  "pageTitles.processFlow": "Поток процесса",
+  "pageTitles.extension": "Расширение"
 }

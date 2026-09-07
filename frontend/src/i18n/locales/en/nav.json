@@ -65,5 +65,12 @@
   "sponsorship.oneTime": "One-time",
   "sponsorship.monthly": "Monthly",
   "extensionLicense.banner": "Extension license attention needed: {{keys}}. Request a renewed license file and apply it under Admin → Extensions.",
-  "extensionLicense.manage": "Manage"
+  "extensionLicense.manage": "Manage",
+  "pageTitles.card": "Card",
+  "pageTitles.risk": "Risk",
+  "pageTitles.decision": "Architecture Decision",
+  "pageTitles.soaw": "Statement of Architecture Work",
+  "pageTitles.survey": "Survey",
+  "pageTitles.processFlow": "Process Flow",
+  "pageTitles.extension": "Extension"
 }

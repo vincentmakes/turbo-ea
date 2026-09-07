@@ -65,5 +65,12 @@
   "sponsorship.oneTime": "一次性",
   "sponsorship.monthly": "每月",
   "extensionLicense.banner": "扩展许可证需要处理：{{keys}}。请索取续期的许可证文件，并在「管理 → 扩展」中应用。",
-  "extensionLicense.manage": "管理"
+  "extensionLicense.manage": "管理",
+  "pageTitles.card": "卡片",
+  "pageTitles.risk": "风险",
+  "pageTitles.decision": "架构决策",
+  "pageTitles.soaw": "架构工作说明书",
+  "pageTitles.survey": "调查",
+  "pageTitles.processFlow": "流程图",
+  "pageTitles.extension": "扩展"
 }

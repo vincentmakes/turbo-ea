@@ -6,6 +6,7 @@ import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { usePageSubject } from "@/hooks/usePageTitle";
 
 /**
  * The published, read-only render of a diagram — the page that gets iframed
@@ -155,6 +156,10 @@ export default function PublicDiagramPage() {
     if (gate?.sso && slug) doSsoRedirect(gate.sso, slug, false);
   }, [gate, slug]);
 
+  // The browser tab names the diagram. Published pages carry no app chrome,
+  // so this is the only thing telling a reader what they are looking at.
+  usePageSubject(diagram?.name);
+
   const viewerSrc = useMemo(() => {
     if (!diagram?.xml) return null;
     // lightbox=1 → DrawIO's native viewer (pan / zoom / fit / page nav),
@@ -163,9 +168,6 @@ export default function PublicDiagramPage() {
     return `${DRAWIO_EMBED_BASE}?${params.toString()}#R${encodeURIComponent(diagram.xml)}`;
   }, [diagram]);
 
-  useEffect(() => {
-    if (diagram?.name) document.title = diagram.name;
-  }, [diagram]);
 
   if (loading) {
     return (

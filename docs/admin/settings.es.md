@@ -29,6 +29,12 @@ Cargue un logotipo personalizado que aparecerá en la barra de navegación super
 
 Elija los colores de fondo y de texto de la barra de navegación superior. El estilo elegido se aplica a **todos los usuarios** de la instancia, en escritorio y móvil (incluido el menú lateral móvil). Seleccione uno de los siete estilos predefinidos — Azul marino (predeterminado), Claro, Carbón, Pizarra, Azul, Verde bosque o Ciruela — o elija **Personalizado** para definir libremente los colores de fondo y de texto con los selectores de color. Una vista previa en vivo muestra cómo se verá la barra de navegación antes de guardar, y aparece una advertencia cuando el contraste entre el texto y el fondo es demasiado bajo (por debajo de WCAG AA). Haga clic en **Restablecer valores predeterminados** para volver al estilo predeterminado.
 
+### Título de la aplicación
+
+Defina el nombre con el que se conoce esta instancia. Sustituye a «Turbo EA» en la pestaña del navegador, en la página de inicio de sesión y en los correos que envía la instancia.
+
+La pestaña del navegador muestra delante la página en la que se encuentra — `Inventario | Turbo EA` en el inventario, `SAP S/4HANA | Turbo EA` en una ficha, `GRC · Riesgo | Turbo EA` en una página abierta en una pestaña concreta — de modo que una fila de pestañas abiertas sigue siendo legible. La página de inicio y la de acceso muestran solo el título.
+
 ### Favicon
 
 Cargue un icono de navegador personalizado (favicon). El cambio se aplicará en la siguiente carga de página. Haga clic en **Restablecer** para volver al icono predeterminado.

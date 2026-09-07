@@ -29,6 +29,12 @@ Upload et brugerdefineret logo, der vises i den øverste navigationslinje. Under
 
 Vælg baggrunds- og tekstfarve for den øverste navigationslinje. Den valgte stil gælder for **alle brugere** af instansen, på både desktop og mobil (inklusive den mobile sidemenu). Vælg en af de syv kuraterede forudindstillinger — Marineblå (standard), Lys, Koksgrå, Skifer, Blå, Skovgrøn eller Blomme — eller vælg **Brugerdefineret** for frit at angive baggrunds- og tekstfarve med farvevælgerne. En live-forhåndsvisning viser, hvordan navigationslinjen vil se ud, før du gemmer, og en advarsel vises, når kontrasten mellem tekst og baggrund er for lav (under WCAG AA). Klik på **Nulstil til standard** for at vende tilbage til standardstilen.
 
+### Applikationstitel
+
+Angiv det navn, denne instans er kendt under. Det erstatter «Turbo EA» i browserfanen, på login-siden og i de e-mails, instansen sender.
+
+Browserfanen viser den side, du er på, foran — `Inventar | Turbo EA` i inventaret, `SAP S/4HANA | Turbo EA` på et kort, `GRC · Risiko | Turbo EA` på en side åbnet på en bestemt fane — så en række åbne faner forbliver læsbar. Forsiden og login-siden viser kun titlen.
+
 ### Favicon
 
 Upload et brugerdefineret browserikon (favicon). Ændringen træder i kraft ved næste sideindlæsning. Klik på **Nulstil** for at vende tilbage til standardikonet.
