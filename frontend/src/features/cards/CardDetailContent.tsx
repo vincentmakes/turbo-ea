@@ -590,11 +590,27 @@ export default function CardDetailContent({
       ))}
 
       {/* Generic extension slot (SDK 1.12): any extension can render header
-          content on any card without a dedicated SDK extension point. */}
-      <ExtensionSlot
-        name="card.detail.header"
-        context={{ cardId: card.id, cardType: card.type }}
-      />
+          content on any card without a dedicated SDK extension point. Core owns
+          the layout — one wrapping row, so several extensions' chips line up
+          instead of each inventing its own full-width band. `&:empty` keeps the
+          margin off a card nobody decorates (a contribution that has nothing to
+          say renders null, and ExtensionBoundary adds no wrapper of its own). */}
+      <Box
+        data-testid="card-header-slot"
+        sx={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 1,
+          mb: 1.5,
+          "&:empty": { display: "none" },
+        }}
+      >
+        <ExtensionSlot
+          name="card.detail.header"
+          context={{ cardId: card.id, cardType: card.type }}
+        />
+      </Box>
 
       {beforeTabs}
 

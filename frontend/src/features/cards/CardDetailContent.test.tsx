@@ -171,3 +171,44 @@ describe("CardDetailContent extension field visibility", () => {
     expect(screen.queryByText("Indicator B")).not.toBeInTheDocument();
   });
 });
+
+describe("CardDetailContent extension header slot", () => {
+  const Chip = ({ label }: { label: string }) => <span>{label}</span>;
+
+  it("lays several contributions out in one row", async () => {
+    registerExtension("one", {
+      key: "one",
+      sdkVersion: UI_SDK_VERSION,
+      slots: [
+        { slot: "card.detail.header", id: "a", component: () => <Chip label="chip-a" /> },
+      ],
+    });
+    registerExtension("two", {
+      key: "two",
+      sdkVersion: UI_SDK_VERSION,
+      slots: [
+        { slot: "card.detail.header", id: "b", component: () => <Chip label="chip-b" /> },
+      ],
+    });
+    renderContent();
+    const chipA = await screen.findByText("chip-a");
+    const chipB = screen.getByText("chip-b");
+    const row = screen.getByTestId("card-header-slot");
+    // Both live in the SAME container, and that container is a flex row — the
+    // thing that stops two extensions' chips stacking on separate lines.
+    expect(row).toContainElement(chipA);
+    expect(row).toContainElement(chipB);
+    expect(row).toHaveStyle({ display: "flex" });
+  });
+
+  it("leaves the row empty when a contribution renders nothing", async () => {
+    registerExtension("one", {
+      key: "one",
+      sdkVersion: UI_SDK_VERSION,
+      slots: [{ slot: "card.detail.header", id: "a", component: () => null }],
+    });
+    renderContent();
+    // `&:empty` then hides the band, so an undecorated card keeps no stray margin.
+    await waitFor(() => expect(screen.getByTestId("card-header-slot")).toBeEmptyDOMElement());
+  });
+});

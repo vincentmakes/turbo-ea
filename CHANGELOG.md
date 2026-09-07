@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.132.2] - 2026-09-07
+
+### Fixed
+
+- **Extension content at the top of a card now lines up in one row.** Two extensions each adding a chip above the tabs used to claim a line apiece, pushing the card down; their contributions now sit side by side on a single wrapping row, and a card no extension decorates gains no blank band.
+
 ## [2.132.1] - 2026-09-06
 
 ### Changed
