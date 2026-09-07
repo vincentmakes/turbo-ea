@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.132.3] - 2026-09-07
+
+### Fixed
+
+- **Extension chips at the top of a card now sit on the same line as each other, whatever version each extension is.** 2.132.2 put those contributions in one row, but an extension that still spaces its own content — every extension published before that release does — was drawn a few pixels above its neighbours, so the pills looked ragged. The row now sets that spacing itself, so the chips line up without waiting for each extension to be rebuilt.
+
 ## [2.132.2] - 2026-09-07
 
 ### Fixed

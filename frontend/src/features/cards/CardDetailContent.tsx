@@ -604,6 +604,16 @@ export default function CardDetailContent({
           gap: 1,
           mb: 1.5,
           "&:empty": { display: "none" },
+          // `align-items: center` centres a flex item's MARGIN box, not its
+          // border box — so a contribution carrying its own bottom margin, as
+          // every extension built before this row does to space a band it no
+          // longer needs, renders visibly higher than a margin-less sibling.
+          // The row owns the spacing (its gap and its own bottom margin), so
+          // children contribute none, and core enforces that rather than
+          // waiting for every installed bundle to be rebuilt.
+          // Doubled parent selector for specificity: a single `& > *` ties with
+          // the child's own emotion class at (0,1,0) and loses on source order.
+          "&& > *": { margin: 0 },
         }}
       >
         <ExtensionSlot

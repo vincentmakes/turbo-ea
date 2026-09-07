@@ -381,7 +381,11 @@ export interface ExtensionFieldVisibilityProps {
  *     contributions as ONE wrapping flex row (8px gap, hidden when empty), so
  *     contribute an inline item (a Chip) with no outer margins of its own; a
  *     contribution that needs its own line sets `flexBasis: "100%"`, and
- *     `order` decides where it sits in the row.
+ *     `order` decides where it sits in the row. The row ZEROES a contribution's
+ *     own margins rather than trusting it not to set any: `align-items: center`
+ *     centres a flex item's margin box, so a bundle built before this row —
+ *     which spaces its own band — would otherwise render off the row's centre
+ *     line.
  *   - `risk.detail.panel`   (component) — RiskDetailPage
  *   - `adr.header`, `adr.signature.footer` (component) — ADREditor/ADRPreview
  *   - `notification.preferences.channels` (data) — one column per
