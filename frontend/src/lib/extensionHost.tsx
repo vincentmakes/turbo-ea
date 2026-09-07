@@ -377,7 +377,11 @@ export interface ExtensionFieldVisibilityProps {
  * (default 0, ties keep registration order).
  *
  * Slot locations core exposes today:
- *   - `card.detail.header`  (component) — CardDetailContent
+ *   - `card.detail.header`  (component) — CardDetailContent. Core renders the
+ *     contributions as ONE wrapping flex row (8px gap, hidden when empty), so
+ *     contribute an inline item (a Chip) with no outer margins of its own; a
+ *     contribution that needs its own line sets `flexBasis: "100%"`, and
+ *     `order` decides where it sits in the row.
  *   - `risk.detail.panel`   (component) — RiskDetailPage
  *   - `adr.header`, `adr.signature.footer` (component) — ADREditor/ADRPreview
  *   - `notification.preferences.channels` (data) — one column per
