@@ -16,7 +16,9 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import cast, func, literal, select, update
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.core.encryption import decrypt_value, encrypt_value
 from app.database import async_session
@@ -59,63 +61,73 @@ def build_context(key: str) -> ExtensionContext:
 
     namespace = f"ext.{key}."
 
-    async def get_setting(name: str) -> Any:
+    # 2.133.1: key-scoped in SQL, both ways. Until then every call SELECTed the
+    # whole ``general_settings`` blob and every write rewrote it from Python —
+    # every setting in the product shares that one row, so a large value
+    # stored under any key (a cached catalogue, once) made every extension
+    # save round-trip megabytes it never looked at. A read now selects only
+    # its keys (``general_settings -> 'ext.<key>.<name>'``); a write is one
+    # server-side ``||``, which also makes concurrent writers of different
+    # keys stop clobbering each other's read-modify-write.
+    def _ensure_row_stmt():
         from app.models.app_settings import AppSettings
 
-        async with async_session() as db:
-            row = (
-                await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-            ).scalar_one_or_none()
-            return ((row.general_settings if row else None) or {}).get(namespace + name)
+        return (
+            pg_insert(AppSettings)
+            .values(id="default", general_settings={}, email_settings={})
+            .on_conflict_do_nothing(index_elements=["id"])
+        )
 
-    async def set_setting(name: str, value: Any) -> None:
-        from app.models.app_settings import AppSettings
-
-        async with async_session() as db:
-            row = (
-                await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-            ).scalar_one_or_none()
-            if row is None:
-                row = AppSettings(id="default", general_settings={}, email_settings={})
-                db.add(row)
-            general = dict(row.general_settings or {})
-            general[namespace + name] = value
-            row.general_settings = general
-            await db.commit()
-
-    # SDK 1.4 — batch variants. The per-key pair above is one full
-    # transaction per call, which turns an N-key config into N sequential
-    # round-trips on the settings row; these do N keys in one.
     async def get_settings(names: Sequence[str]) -> dict[str, Any]:
         from app.models.app_settings import AppSettings
 
+        names = list(names)
+        if not names:
+            return {}
         async with async_session() as db:
             row = (
-                await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-            ).scalar_one_or_none()
-            general = (row.general_settings if row else None) or {}
-            return {name: general.get(namespace + name) for name in names}
+                await db.execute(
+                    select(*[AppSettings.general_settings[namespace + n] for n in names]).where(
+                        AppSettings.id == "default"
+                    )
+                )
+            ).first()
+        if row is None:
+            return {name: None for name in names}
+        return {name: row[i] for i, name in enumerate(names)}
 
-    async def set_settings(values: dict[str, Any]) -> None:
+    async def _write(values: dict[str, Any]) -> None:
         from app.models.app_settings import AppSettings
 
+        if not values:
+            return
+        patch = {namespace + name: value for name, value in values.items()}
+        async with async_session() as db:
+            await db.execute(_ensure_row_stmt())
+            await db.execute(
+                update(AppSettings)
+                .where(AppSettings.id == "default")
+                .values(
+                    general_settings=func.coalesce(
+                        AppSettings.general_settings, cast(literal({}, JSONB), JSONB)
+                    ).op("||")(literal(patch, JSONB))
+                )
+            )
+            await db.commit()
+
+    async def set_settings(values: dict[str, Any]) -> None:
         for name in values:
             if name.startswith("secret."):
                 # Secrets must go through set_secret (Fernet encryption +
                 # workspace-transfer scrub) — never a plaintext batch write.
                 raise ValueError("set_settings cannot write secret.* names; use set_secret")
-        async with async_session() as db:
-            row = (
-                await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-            ).scalar_one_or_none()
-            if row is None:
-                row = AppSettings(id="default", general_settings={}, email_settings={})
-                db.add(row)
-            general = dict(row.general_settings or {})
-            for name, value in values.items():
-                general[namespace + name] = value
-            row.general_settings = general
-            await db.commit()
+        await _write(values)
+
+    async def get_setting(name: str) -> Any:
+        return (await get_settings([name]))[name]
+
+    async def set_setting(name: str, value: Any) -> None:
+        await set_settings({name: value})
 
     # Secrets ride the same settings row under a ``secret.`` sub-namespace,
     # but Fernet-encrypted (``enc:``-prefixed). The prefix is what makes them
@@ -133,7 +145,9 @@ def build_context(key: str) -> ExtensionContext:
     async def set_secret(name: str, value: str) -> None:
         if not isinstance(value, str):
             raise TypeError("extension secrets must be str")
-        await set_setting(f"secret.{name}", encrypt_value(value))
+        # Straight to the write: the encrypted value is the one thing the
+        # ``secret.`` refusal on set_settings exists to let through.
+        await _write({f"secret.{name}": encrypt_value(value)})
 
     def batch(label: str):
         # SDK 1.13 — gated per call inside, like every bridge.

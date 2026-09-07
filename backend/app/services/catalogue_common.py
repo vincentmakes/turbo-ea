@@ -49,9 +49,10 @@ PYPI_INDEX_URL: str = os.environ.get(
 )
 CATALOGUE_FETCH_TIMEOUT_SECONDS: float = 30.0
 
-# Cache keys inside `app_settings.general_settings`. Each key holds the
-# wheel-extracted payload for one catalogue type so a single fetch action
-# updates all three atomically.
+# Cache keys — one `catalogue_cache` row each (2.133.1; they were keys inside
+# `app_settings.general_settings` until then, which made every settings save
+# in the product round-trip megabytes of catalogue JSON). A single fetch
+# action still updates all three in one transaction.
 CAPABILITY_CACHE_KEY: str = "capability_catalogue"
 PROCESS_CACHE_KEY: str = "process_catalogue"
 VALUE_STREAM_CACHE_KEY: str = "value_stream_catalogue"
@@ -167,28 +168,36 @@ async def get_app_settings(db: AsyncSession) -> AppSettings:
 
 
 async def get_cached_remote(db: AsyncSession, key: str) -> dict[str, Any] | None:
-    """Read a cached-remote payload from `app_settings.general_settings[key]`.
+    """Read a cached-remote payload from its `catalogue_cache` row.
 
     Returns the dict (or None) without copying — callers must not mutate.
     """
-    settings = await get_app_settings(db)
-    general = settings.general_settings or {}
-    cached = general.get(key)
+    from app.models.catalogue_cache import CatalogueCache
+
+    row = await db.get(CatalogueCache, key)
+    cached = row.payload if row is not None else None
     if not isinstance(cached, dict) or not cached.get("data"):
         return None
     return cached
 
 
 async def set_cached_remote(db: AsyncSession, updates: dict[str, dict[str, Any]]) -> None:
-    """Atomically write multiple cache keys into general_settings.
+    """Write multiple cache keys, one row each, in the caller's transaction.
 
     `updates` maps cache key → payload. Used by the unified PyPI fetch to
-    write all three catalogue caches from a single wheel download.
+    write all three catalogue caches from a single wheel download. Never the
+    settings row: a cache is not a setting, and the settings blob is what
+    every save in the product reads and rewrites whole.
     """
-    settings = await get_app_settings(db)
-    general = dict(settings.general_settings or {})
-    general.update(updates)
-    settings.general_settings = general
+    from app.models.catalogue_cache import CatalogueCache
+
+    for key, payload in updates.items():
+        row = await db.get(CatalogueCache, key)
+        if row is None:
+            db.add(CatalogueCache(key=key, payload=payload))
+        else:
+            row.payload = payload
+    await db.flush()
 
 
 # ---------------------------------------------------------------------------
