@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.133.1] - 2026-09-07
+
+### Fixed
+
+- **Saving any setting no longer takes seconds on an instance that has fetched a reference catalogue.** Every setting in the product — core's and every extension's — lives on one settings row, and the capability, process and value-stream catalogues fetched from PyPI were cached inside that same row. Once one was cached, every settings save anywhere (a general setting, an extension's switch) read and rewrote megabytes of catalogue JSON while reads never noticed: measured at 21 ms → 500 ms per save with the three catalogues cached, and reported at 3.5 s on an instance with every extension installed. The catalogues now have a table of their own; the upgrade moves what is cached today out of the settings row, so an affected instance is fast again on restart.
+- **Extension settings are read and written by key.** An extension's settings read now selects only the keys it asks for and a write is a single server-side merge, so no extension save ever depends on the size of what other settings hold — and two extensions writing at the same moment no longer overwrite each other's keys with a stale copy of the row.
+
 ## [2.133.0] - 2026-09-07
 
 ### Added

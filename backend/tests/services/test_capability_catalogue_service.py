@@ -1079,29 +1079,30 @@ async def test_cached_remote_payload_falls_back_to_bundled_translations(db, monk
 
     # Manually shape a cached payload that lacks the `i18n` key (simulates a
     # cache stored by a version of Turbo EA before i18n caching landed).
-    settings = await common.get_app_settings(db)
-    settings.general_settings = {
-        svc.SETTINGS_KEY: {
-            "data": [
-                {
-                    "id": "BC-1",
-                    "name": "Customer Management",
-                    "level": 1,
-                    "parent_id": None,
-                    "description": "Top-level customer capability",
-                    "industry": None,
-                },
-            ],
-            "catalogue_version": "9.9.9",  # > bundled 1.2.3
-            "schema_version": "1",
-            "generated_at": "2026-04-29T00:00:00Z",
-            "node_count": 1,
-            "fetched_at": "2026-04-29T00:00:00Z",
-            "source": "pypi",
-            # Crucially: no `i18n` key — this simulates the pre-fix caches.
-        }
-    }
-    await db.flush()
+    await common.set_cached_remote(
+        db,
+        {
+            svc.SETTINGS_KEY: {
+                "data": [
+                    {
+                        "id": "BC-1",
+                        "name": "Customer Management",
+                        "level": 1,
+                        "parent_id": None,
+                        "description": "Top-level customer capability",
+                        "industry": None,
+                    },
+                ],
+                "catalogue_version": "9.9.9",  # > bundled 1.2.3
+                "schema_version": "1",
+                "generated_at": "2026-04-29T00:00:00Z",
+                "node_count": 1,
+                "fetched_at": "2026-04-29T00:00:00Z",
+                "source": "pypi",
+                # Crucially: no `i18n` key — this simulates the pre-fix caches.
+            }
+        },
+    )
 
     payload = await svc.get_catalogue_payload(db, locale="fr")
     by_id = {c["id"]: c for c in payload["capabilities"]}
