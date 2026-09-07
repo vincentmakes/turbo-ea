@@ -37,6 +37,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
 import { DateField } from "@/components/DateField";
 import { api, ApiError } from "@/api/client";
+import { usePageSubject } from "@/hooks/usePageTitle";
 import type {
   Risk,
   RiskCategory,
@@ -178,6 +179,7 @@ export default function RiskDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [risk, setRisk] = useState<Risk | null>(null);
+  usePageSubject(risk ? `${risk.reference} ${risk.title}` : null);
 
   // Deep-link from the MCP `pending` workflow:
   // /grc/risks/:id?task={task_id}#occurrence-{occurrence_id} lands here.

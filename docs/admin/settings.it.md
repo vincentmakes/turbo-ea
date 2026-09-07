@@ -29,6 +29,12 @@ Caricate un logo personalizzato che appare nella barra di navigazione superiore.
 
 Scegli i colori di sfondo e del testo della barra di navigazione superiore. Lo stile scelto si applica a **tutti gli utenti** dell'istanza, su desktop e mobile (incluso il menu laterale mobile). Seleziona uno dei sette preset curati — Blu navy (predefinito), Chiaro, Antracite, Ardesia, Blu, Verde foresta o Prugna — oppure scegli **Personalizzato** per impostare liberamente i colori di sfondo e del testo con i selettori colore. Un'anteprima dal vivo mostra come apparirà la barra di navigazione prima del salvataggio, e un avviso appare quando il contrasto tra testo e sfondo è troppo basso (sotto WCAG AA). Fai clic su **Ripristina predefinito** per tornare allo stile predefinito.
 
+### Titolo dell'applicazione
+
+Impostate il nome con cui questa istanza è conosciuta. Sostituisce «Turbo EA» nella scheda del browser, nella pagina di accesso e nelle e-mail inviate dall'istanza.
+
+La scheda del browser antepone la pagina corrente — `Inventario | Turbo EA` nell'inventario, `SAP S/4HANA | Turbo EA` su una scheda, `GRC · Rischio | Turbo EA` su una pagina aperta su una specifica scheda — così una fila di schede aperte resta leggibile. La pagina iniziale e quella di accesso mostrano solo il titolo.
+
 ### Favicon
 
 Caricate un'icona personalizzata per il browser (favicon). La modifica ha effetto al prossimo caricamento della pagina. Cliccate su **Ripristina** per tornare all'icona predefinita.

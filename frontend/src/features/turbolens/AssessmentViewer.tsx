@@ -14,6 +14,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { api } from "@/api/client";
+import { usePageSubject } from "@/hooks/usePageTitle";
 import type {
   TurboLensAssessment,
   ArchSolutionOption,
@@ -120,6 +121,7 @@ export default function AssessmentViewer() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [assessment, setAssessment] = useState<TurboLensAssessment | null>(null);
+  usePageSubject(assessment?.title);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 

@@ -65,5 +65,12 @@
   "sponsorship.oneTime": "مرة واحدة",
   "sponsorship.monthly": "شهري",
   "extensionLicense.banner": "ترخيص الإضافة يحتاج إلى انتباه: {{keys}}. اطلب ملف ترخيص مجددًا وطبّقه من الإدارة ← الإضافات.",
-  "extensionLicense.manage": "إدارة"
+  "extensionLicense.manage": "إدارة",
+  "pageTitles.card": "بطاقة",
+  "pageTitles.risk": "خطر",
+  "pageTitles.decision": "قرار بنية",
+  "pageTitles.soaw": "بيان أعمال البنية",
+  "pageTitles.survey": "استبيان",
+  "pageTitles.processFlow": "تدفق العملية",
+  "pageTitles.extension": "إضافة"
 }

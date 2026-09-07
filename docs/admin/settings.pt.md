@@ -29,6 +29,12 @@ Faça upload de um logotipo personalizado que aparece na barra de navegação su
 
 Escolha as cores de fundo e do texto da barra de navegação superior. O estilo escolhido aplica-se a **todos os usuários** da instância, em desktop e mobile (incluindo o menu lateral móvel). Selecione uma das sete predefinições — Azul-marinho (padrão), Claro, Carvão, Ardósia, Azul, Verde floresta ou Ameixa — ou escolha **Personalizado** para definir livremente as cores de fundo e do texto com os seletores de cores. Uma pré-visualização ao vivo mostra como a barra de navegação ficará antes de salvar, e um aviso aparece quando o contraste entre o texto e o fundo é baixo demais (abaixo de WCAG AA). Clique em **Restaurar padrão** para voltar ao estilo padrão.
 
+### Título da aplicação
+
+Defina o nome pelo qual esta instância é conhecida. Substitui «Turbo EA» na aba do navegador, na página de login e nos e-mails enviados pela instância.
+
+A aba do navegador mostra à frente a página em que você está — `Inventário | Turbo EA` no inventário, `SAP S/4HANA | Turbo EA` numa ficha, `GRC · Risco | Turbo EA` numa página aberta numa aba específica — para que uma fila de abas abertas continue legível. A página inicial e a de login mostram apenas o título.
+
 ### Favicon
 
 Faça upload de um ícone de navegador personalizado (favicon). A alteração entra em vigor no próximo carregamento de página. Clique em **Redefinir** para reverter ao ícone padrão.

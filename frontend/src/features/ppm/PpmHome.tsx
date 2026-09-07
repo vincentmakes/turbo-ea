@@ -6,6 +6,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { usePageSection } from "@/hooks/usePageTitle";
 
 const PpmPortfolio = lazy(() => import("./PpmPortfolio"));
 const EaDeliveryReport = lazy(() => import("@/features/reports/EaDeliveryReport"));
@@ -68,6 +69,8 @@ export default function PpmHome() {
     }),
     [t],
   );
+
+  usePageSection(labels[tab]);
 
   return (
     <Box>

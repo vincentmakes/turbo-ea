@@ -28,6 +28,7 @@ import {
 } from "@mui/material";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { usePageSection } from "@/hooks/usePageTitle";
 import { useSearchParams } from "react-router";
 
 import { api, ApiError } from "@/api/client";
@@ -161,6 +162,9 @@ export default function ExtensionsAdmin() {
   // Priority: valid URL param > localStorage > default. localStorage is read
   // only once (lazy initializer) so it never fights a subsequent tab click.
   const [tab, setTab] = useState<TabKey>(() => validParam ?? readStoredTab() ?? "store");
+  usePageSection(
+    t(tab === "store" ? "extensions.tabs.store" : "extensions.tabs.installed"),
+  );
 
   useEffect(() => {
     if (validParam && validParam !== tab) setTab(validParam);

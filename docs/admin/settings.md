@@ -29,6 +29,12 @@ Upload a custom logo that appears in the top navigation bar. Supported formats: 
 
 Choose the background and text colors of the top navigation bar. The chosen style applies to **every user** of the instance, on desktop and mobile (including the mobile drawer menu). Pick one of the seven curated presets — Navy (default), Light, Charcoal, Slate, Blue, Forest, or Plum — or select **Custom** to set fully custom background and text colors with the color pickers. A live preview shows how the navigation bar will look before you save, and a warning appears when the contrast between text and background is too low to read comfortably (below WCAG AA). Click **Reset to default** to return to the navy default.
 
+### Application title
+
+Set the name this instance is known by. It replaces «Turbo EA» in the browser tab, on the sign-in page, and in the notification emails the instance sends.
+
+The browser tab shows the page you are on in front of it — `Inventory | Turbo EA` on the inventory, `SAP S/4HANA | Turbo EA` on a card, `GRC · Risk | Turbo EA` on a page opened at a particular tab — so a row of open tabs stays readable. The home page and the sign-in page show the title on its own.
+
 ### Favicon
 
 Upload a custom browser icon (favicon). The change takes effect on the next page load. Click **Reset** to revert to the default icon.

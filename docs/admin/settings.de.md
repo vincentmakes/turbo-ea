@@ -29,6 +29,12 @@ Laden Sie ein benutzerdefiniertes Logo hoch, das in der oberen Navigationsleiste
 
 Wählen Sie Hintergrund- und Textfarbe der oberen Navigationsleiste. Der gewählte Stil gilt für **alle Benutzer** der Instanz, auf Desktop und Mobilgeräten (einschließlich des mobilen Menüs). Wählen Sie eine der sieben kuratierten Voreinstellungen — Marineblau (Standard), Hell, Anthrazit, Schiefer, Blau, Waldgrün oder Pflaume — oder wählen Sie **Benutzerdefiniert**, um Hintergrund- und Textfarbe frei über die Farbwähler festzulegen. Eine Live-Vorschau zeigt vor dem Speichern, wie die Navigationsleiste aussehen wird, und eine Warnung erscheint, wenn der Kontrast zwischen Text und Hintergrund zu gering ist (unter WCAG AA). Klicken Sie auf **Auf Standard zurücksetzen**, um zum Standard zurückzukehren.
 
+### Anwendungstitel
+
+Legen Sie den Namen fest, unter dem diese Instanz bekannt ist. Er ersetzt «Turbo EA» im Browser-Tab, auf der Anmeldeseite und in den E-Mails, die die Instanz versendet.
+
+Der Browser-Tab stellt die aktuelle Seite davor — `Inventar | Turbo EA` im Inventar, `SAP S/4HANA | Turbo EA` auf einer Karte, `GRC · Risiko | Turbo EA` auf einer Seite, die mit einem bestimmten Tab geöffnet wurde — sodass eine Reihe offener Tabs lesbar bleibt. Die Startseite und die Anmeldeseite zeigen nur den Titel.
+
 ### Favicon
 
 Laden Sie ein benutzerdefiniertes Browser-Symbol (Favicon) hoch. Die Änderung wird beim nächsten Seitenaufruf wirksam. Klicken Sie auf **Zurücksetzen**, um zum Standardsymbol zurückzukehren.

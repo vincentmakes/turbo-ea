@@ -28,6 +28,7 @@ import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel
 import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
 import RestoreDialog from "@/features/cards/RestoreDialog";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { usePageSubject } from "@/hooks/usePageTitle";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useTypeLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAiStatus, aiSuggestEnabledFor } from "@/hooks/useAiStatus";
@@ -76,6 +77,9 @@ export default function CardDetail() {
   const stLabel = useSubtypeLabel();
   const resolveSubtypeLabel = useCardSubtypeLabel();
   const [card, setCard] = useState<Card | null>(null);
+  // Browser tab title; falls back to the route's «Card» label while loading,
+  // and follows an inline rename without a reload.
+  usePageSubject(card?.name);
   const [initialTab, setInitialTab] = useState(0);
   const [initialSubTab, setInitialSubTab] = useState<number | undefined>(undefined);
   const [error, setError] = useState("");

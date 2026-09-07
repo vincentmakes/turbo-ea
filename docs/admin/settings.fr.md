@@ -29,6 +29,12 @@ Téléchargez un logo personnalisé qui apparaît dans la barre de navigation su
 
 Choisissez les couleurs d'arrière-plan et de texte de la barre de navigation supérieure. Le style choisi s'applique à **tous les utilisateurs** de l'instance, sur ordinateur comme sur mobile (y compris le menu latéral mobile). Sélectionnez l'un des sept préréglages — Bleu marine (par défaut), Clair, Anthracite, Ardoise, Bleu, Vert forêt ou Prune — ou choisissez **Personnalisé** pour définir librement les couleurs d'arrière-plan et de texte avec les sélecteurs de couleurs. Un aperçu en direct montre l'apparence de la barre de navigation avant l'enregistrement, et un avertissement apparaît lorsque le contraste entre le texte et l'arrière-plan est trop faible (inférieur à WCAG AA). Cliquez sur **Réinitialiser par défaut** pour revenir au style par défaut.
 
+### Titre de l'application
+
+Définissez le nom sous lequel cette instance est connue. Il remplace « Turbo EA » dans l'onglet du navigateur, sur la page de connexion et dans les e-mails envoyés par l'instance.
+
+L'onglet du navigateur affiche la page en cours devant ce nom — `Inventaire | Turbo EA` dans l'inventaire, `SAP S/4HANA | Turbo EA` sur une fiche, `GRC · Risque | Turbo EA` sur une page ouverte sur un onglet particulier — afin qu'une série d'onglets ouverts reste lisible. La page d'accueil et la page de connexion affichent le titre seul.
+
 ### Favicon
 
 Téléchargez une icône de navigateur personnalisée (favicon). Le changement prend effet au prochain chargement de page. Cliquez sur **Réinitialiser** pour revenir à l'icône par défaut.

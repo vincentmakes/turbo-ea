@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.133.0] - 2026-09-07
+
+### Added
+
+- **The browser tab now says which page you are on.** Every tab used to read the same thing — the instance's Application Title — so a row of open Turbo EA tabs was impossible to tell apart. A tab now names its page in front of that title: «SAP S/4HANA | Turbo EA» on a card, «Inventory | Turbo EA» on the inventory, «GRC · Risk | Turbo EA» on a page opened at a particular tab. Diagrams, initiatives, risks, decisions, statements of architecture work, assessments and surveys each name themselves the same way, and renaming a card retitles its tab as you type. The Application Title stays whatever an administrator configured, the home page and the sign-in screen still show it on its own, and a published diagram still carries its own name.
+
 ## [2.132.2] - 2026-09-07
 
 ### Fixed

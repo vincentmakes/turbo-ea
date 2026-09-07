@@ -65,5 +65,12 @@
   "sponsorship.oneTime": "Única",
   "sponsorship.monthly": "Mensal",
   "extensionLicense.banner": "A licença da extensão requer atenção: {{keys}}. Solicite um ficheiro de licença renovado e aplique-o em Admin → Extensões.",
-  "extensionLicense.manage": "Gerir"
+  "extensionLicense.manage": "Gerir",
+  "pageTitles.card": "Ficha",
+  "pageTitles.risk": "Risco",
+  "pageTitles.decision": "Decisão de arquitetura",
+  "pageTitles.soaw": "Declaração de trabalho de arquitetura",
+  "pageTitles.survey": "Pesquisa",
+  "pageTitles.processFlow": "Fluxo de processo",
+  "pageTitles.extension": "Extensão"
 }

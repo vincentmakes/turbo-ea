@@ -9,7 +9,7 @@ import i18n, { dirForLocale } from "@/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthProvider } from "@/hooks/AuthContext";
 import { ThemeModeContext, useThemeModeState } from "@/hooks/useThemeMode";
-import { useAppTitle } from "@/hooks/useAppTitle";
+import DocumentTitle from "@/components/DocumentTitle";
 import { buildTheme } from "@/theme";
 import { ltrCache, rtlCache } from "@/theme/emotionCache";
 import AppLayout from "@/layouts/AppLayout";
@@ -108,15 +108,6 @@ function AppRoutes() {
     refreshUser,
     proxySession,
   } = useAuth();
-
-  // Sync `document.title` for every route — authenticated and public alike —
-  // so public pages (Web Portal, set-password, forgot/reset, SSO callback)
-  // inherit the admin-configured Application Title instead of the static
-  // «Turbo EA» default baked into index.html (#590).
-  const appTitle = useAppTitle();
-  useEffect(() => {
-    document.title = appTitle;
-  }, [appTitle]);
 
   if (loading) {
     return (
@@ -278,6 +269,13 @@ export default function App() {
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <BrowserRouter>
+            {/* Sole writer of `document.title`, for every route — authenticated
+                and public alike — so public pages (Web Portal, set-password,
+                forgot/reset, SSO callback) inherit the admin-configured
+                Application Title instead of the static «Turbo EA» default baked
+                into index.html (#590), and every other page names itself in
+                front of it (#1085). */}
+            <DocumentTitle />
             <AppRoutes />
           </BrowserRouter>
         </ThemeProvider>

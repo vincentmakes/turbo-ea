@@ -7,6 +7,7 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { usePageSection } from "@/hooks/usePageTitle";
 
 const TurboLensDashboard = lazy(() => import("./TurboLensDashboard"));
 const TurboLensVendors = lazy(() => import("./TurboLensVendors"));
@@ -80,6 +81,8 @@ export default function TurboLensPage() {
     }),
     [t],
   );
+
+  usePageSection(tabLabels[tab]);
 
   return (
     <Box>

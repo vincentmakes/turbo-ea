@@ -65,5 +65,12 @@
   "sponsorship.oneTime": "Ponctuel",
   "sponsorship.monthly": "Mensuel",
   "extensionLicense.banner": "Licence d'extension à renouveler : {{keys}}. Demandez un nouveau fichier de licence et appliquez-le dans Admin → Extensions.",
-  "extensionLicense.manage": "Gérer"
+  "extensionLicense.manage": "Gérer",
+  "pageTitles.card": "Fiche",
+  "pageTitles.risk": "Risque",
+  "pageTitles.decision": "Décision d'architecture",
+  "pageTitles.soaw": "Énoncé des travaux d'architecture",
+  "pageTitles.survey": "Enquête",
+  "pageTitles.processFlow": "Flux de processus",
+  "pageTitles.extension": "Extension"
 }
