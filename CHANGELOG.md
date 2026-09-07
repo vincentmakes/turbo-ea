@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **The browser tab now says which page you are on.** Every tab used to read the same thing — the instance's Application Title — so a row of open Turbo EA tabs was impossible to tell apart. A tab now names its page in front of that title: «SAP S/4HANA | Turbo EA» on a card, «Inventory | Turbo EA» on the inventory, «GRC · Risk | Turbo EA» on a page opened at a particular tab. Diagrams, initiatives, risks, decisions, statements of architecture work, assessments and surveys each name themselves the same way, and renaming a card retitles its tab as you type. The Application Title stays whatever an administrator configured, the home page and the sign-in screen still show it on its own, and a published diagram still carries its own name.
 
+### Fixed
+
+- **Extension chips at the top of a card now sit on the same line as each other, whatever version each extension is.** 2.132.2 put those contributions in one row, but an extension that still spaces its own content — every extension published before that release does — was drawn a few pixels above its neighbours, so the pills looked ragged. The row now sets that spacing itself, so the chips line up without waiting for each extension to be rebuilt.
+
 ## [2.132.2] - 2026-09-07
 
 ### Fixed
