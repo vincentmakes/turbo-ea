@@ -750,9 +750,7 @@ describe("buildExportWorkbook", () => {
     );
     const rows = rowsOf(wb, APP_TYPE.label);
     const erp = rows.find((r) => r.name === "ERP")!;
-    // App→App is self-referencing, so each side gets its own column
-    // (`sideKey`): the outgoing half lands on the source card's row.
-    expect(erp["rel:depends_on__out"]).toBe("CRM");
+    expect(erp["rel:depends_on"]).toBe("CRM");
   });
 
   it("separates multiple targets with semicolons, so comma-bearing names survive", async () => {
@@ -924,8 +922,7 @@ describe("buildExportWorkbook", () => {
       [APP_TYPE, ITC_TYPE],
       [APP_TO_APP],
     );
-    // Self-referencing App→App, so the outgoing side takes the `__out` suffix.
-    const cell = String(rowsOf(wb, APP_TYPE.label)[0]["rel:depends_on__out"]);
+    const cell = String(rowsOf(wb, APP_TYPE.label)[0]["rel:depends_on"]);
     // The exporter must emit the escape, not the raw `/`.
     expect(cell).toBe("SAP S\\/4HANA");
 
@@ -946,9 +943,6 @@ describe("buildExportWorkbook", () => {
     // escape, not the diff — assert there are no spurious "missing"
     // errors and no false-positive upserts.
     expect(report.relationOps).toHaveLength(0);
-    // …and that zero ops means "resolved and already linked", not "column
-    // skipped with a warning", which would make the assertion above vacuous.
-    expect(report.warnings.filter((w) => /relation/i.test(w.message))).toHaveLength(0);
   });
 
   it("emits an upsert only for genuinely new targets, not no-ops", async () => {
@@ -1246,20 +1240,17 @@ describe("buildExportWorkbook", () => {
 });
 
 /**
- * Issue #1089 — the workbook used to know only one side of a relation.
+ * Issue #1089 — a relation type's values had nowhere to live in the workbook.
  *
- * Three defects, one root cause (a relation column was derived from
- * `rt.source_type_key === type.key` and the fetch discarded every relation
- * whose source sat outside the export):
- *
- *   1. a relation type vanished from the card sheet the moment it gained an
- *      attribute, and the `Relations` sheet that replaced it was only written
- *      when it already had rows;
- *   2. a relation pointing AT the exported type appeared nowhere;
- *   3. a self-referencing type exported only its outgoing half, so "Site ABC
- *      belongs to Legal Entity XYZ" was unreachable from the Site's row.
+ * The `Relations` sheet is the only place a relation's own values can be read
+ * or filled in, and it used to list a relation ONLY if its type already
+ * carried attributes. A relation type carrying values also loses its inline
+ * `rel:` column (that cell is a list of names). So the moment an admin gave a
+ * relation type its first value, that value had no row anywhere — which is
+ * both halves of the report: "the new relation, like the relation to the
+ * application, is missing… because on both relations we have values on it".
  */
-describe("relation sides in the workbook (#1089)", () => {
+describe("Relations sheet lists every relation (#1089)", () => {
   const getMock = api.get as unknown as ReturnType<typeof vi.fn>;
   const postMock = api.post as unknown as ReturnType<typeof vi.fn>;
 
@@ -1275,47 +1266,42 @@ describe("relation sides in the workbook (#1089)", () => {
     is_hidden: false,
     sort_order: 0,
   };
-  const PROCESS_TYPE: CardType = { ...ORG_TYPE, key: "BusinessProcess", label: "Business Process" };
 
-  /** Organization --uses(usageType)--> Application. Carries an attribute. */
-  const ORG_TO_APP: RelationType = {
-    key: "relOrgToApp",
-    label: "uses",
-    reverse_label: "is used by",
-    source_type_key: "Organization",
-    target_type_key: "Application",
-    cardinality: "n:m",
-    attributes_schema: [
-      { key: "usageType", label: "Usage Type", type: "single_select" } as FieldDef,
-    ],
-    built_in: true,
-    is_hidden: false,
-    sort_order: 1,
-    source_visible: true,
-    source_mandatory: false,
-    target_visible: true,
-    target_mandatory: false,
-  };
-  /** BusinessProcess --serves--> Organization. Organization is the TARGET. */
-  const PROCESS_TO_ORG: RelationType = {
-    ...ORG_TO_APP,
-    key: "relProcessToOrg",
-    label: "serves",
-    reverse_label: "is served by",
-    source_type_key: "BusinessProcess",
-    target_type_key: "Organization",
-    attributes_schema: [],
-    sort_order: 2,
-  };
-  /** The reporter's own: Organization --has site--> Organization. */
+  /** Attribute-free, Organization → Organization — the reporter's own shape. */
   const ORG_TO_ORG: RelationType = {
-    ...PROCESS_TO_ORG,
     key: "OrganizationToOrganization",
     label: "has site",
     reverse_label: "is site of",
     source_type_key: "Organization",
     target_type_key: "Organization",
+    cardinality: "n:m",
+    attributes_schema: [],
+    built_in: false,
+    is_hidden: false,
     sort_order: 3,
+    source_visible: true,
+    source_mandatory: false,
+    target_visible: true,
+    target_mandatory: false,
+  };
+  /** The same type once an admin has given it a value. */
+  const ORG_TO_ORG_WITH_VALUE: RelationType = {
+    ...ORG_TO_ORG,
+    attributes_schema: [
+      { key: "siteRole", label: "Site Role", type: "single_select" } as FieldDef,
+    ],
+  };
+  /** Built-in Organization → Application, which carries `usageType`. */
+  const ORG_TO_APP: RelationType = {
+    ...ORG_TO_ORG,
+    key: "relOrgToApp",
+    label: "uses",
+    target_type_key: "Application",
+    attributes_schema: [
+      { key: "usageType", label: "Usage Type", type: "single_select" } as FieldDef,
+    ],
+    built_in: true,
+    sort_order: 1,
   };
 
   const legalEntity = makeCard({
@@ -1327,11 +1313,6 @@ describe("relation sides in the workbook (#1089)", () => {
     id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
     type: "Organization",
     name: "Site ABC",
-  });
-  const process = makeCard({
-    id: "cccccccc-cccc-cccc-cccc-cccccccccccc",
-    type: "BusinessProcess",
-    name: "Order to Cash",
   });
   const app = makeCard({
     id: "dddddddd-dddd-dddd-dddd-dddddddddddd",
@@ -1347,14 +1328,6 @@ describe("relation sides in the workbook (#1089)", () => {
     source: { id: legalEntity.id, type: "Organization", name: legalEntity.name },
     target: { id: site.id, type: "Organization", name: site.name },
   };
-  const processServes = {
-    id: "rel-proc",
-    type: "relProcessToOrg",
-    source_id: process.id,
-    target_id: legalEntity.id,
-    source: { id: process.id, type: "BusinessProcess", name: process.name },
-    target: { id: legalEntity.id, type: "Organization", name: legalEntity.name },
-  };
   const orgUsesApp = {
     id: "rel-app",
     type: "relOrgToApp",
@@ -1365,10 +1338,8 @@ describe("relation sides in the workbook (#1089)", () => {
     attributes: { usageType: "owner" },
   };
 
-  const ALL_TYPES = [ORG_TYPE, PROCESS_TYPE, APP_TYPE];
-  const ALL_REL_TYPES = [ORG_TO_APP, PROCESS_TO_ORG, ORG_TO_ORG];
+  const ALL_TYPES = [ORG_TYPE, APP_TYPE];
 
-  /** Serve `relations` from /relations and every non-exported card from /cards?ids=. */
   function mockBackend(relations: unknown[], offSheetCards: Card[]) {
     getMock.mockImplementation(async (url: string): Promise<unknown> => {
       if (url.startsWith("/relations?")) return relations;
@@ -1377,7 +1348,7 @@ describe("relation sides in the workbook (#1089)", () => {
     });
   }
 
-  function rowsOf(wb: XLSX.WorkBook, sheet: string): Record<string, unknown>[] {
+  function sheetRows(wb: XLSX.WorkBook, sheet: string): Record<string, unknown>[] {
     const ws = wb.Sheets[sheet];
     if (!ws) return [];
     return XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
@@ -1395,18 +1366,75 @@ describe("relation sides in the workbook (#1089)", () => {
     postMock.mockReset();
   });
 
-  it("gives an attribute-bearing relation type a card-sheet column (the reported bug)", async () => {
-    // `relOrgToApp` carries `usageType`, which used to banish it from the card
-    // sheet entirely. Membership belongs on the card sheet now; the attribute
-    // value still belongs on the Relations sheet.
+  it("lists a relation whose type carries no values (the missing rows)", async () => {
+    // Previously the sheet held only `relOrgToApp` rows, because it was built
+    // from attribute-bearing types alone. Every other Org→X relation — the
+    // ones you would want to give a value to — was absent.
+    mockBackend([hasSite, orgUsesApp], [app]);
+    const wb = await buildExportWorkbook([legalEntity, site], ORG_TYPE, ALL_TYPES, [
+      ORG_TO_ORG,
+      ORG_TO_APP,
+    ]);
+
+    const types = sheetRows(wb, "Relations").map((r) => r.relation_type);
+    expect(types).toContain("OrganizationToOrganization");
+    expect(types).toContain("relOrgToApp");
+  });
+
+  it("shows the value once the relation type carries one", async () => {
+    // The reporter's exact step: give the Org→Org type a value, set it on the
+    // relation, export. The value must land in its own column on that row.
+    const withValue = { ...hasSite, attributes: { siteRole: "headquarters" } };
+    mockBackend([withValue], []);
+    const wb = await buildExportWorkbook([legalEntity, site], ORG_TYPE, ALL_TYPES, [
+      ORG_TO_ORG_WITH_VALUE,
+    ]);
+
+    const rows = sheetRows(wb, "Relations");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      relation_type: "OrganizationToOrganization",
+      source_ref: "Legal Entity XYZ",
+      target_ref: "Site ABC",
+      attr_siteRole: "headquarters",
+    });
+  });
+
+  it("scopes attr_ columns to relation types in the workbook", async () => {
+    // The column set used to be the union over the whole metamodel, so an
+    // Organization export carried attribute columns belonging to App↔ITC and
+    // friends — eight columns, one of them meaningful.
+    const FOREIGN: RelationType = {
+      ...ORG_TO_APP,
+      key: "relAppToITC",
+      source_type_key: "Application",
+      target_type_key: "ITComponent",
+      attributes_schema: [
+        { key: "costTotalAnnual", label: "Annual cost", type: "number" } as FieldDef,
+      ],
+    };
     mockBackend([orgUsesApp], [app]);
-    const wb = await buildExportWorkbook([legalEntity], ORG_TYPE, ALL_TYPES, ALL_REL_TYPES);
+    const wb = await buildExportWorkbook([legalEntity], ORG_TYPE, ALL_TYPES, [
+      ORG_TO_ORG,
+      ORG_TO_APP,
+      FOREIGN,
+    ]);
 
-    const row = rowsOf(wb, ORG_TYPE.label)[0];
-    expect(row["rel:relOrgToApp"]).toBe("Salesforce");
+    const headers = headersOf(wb, "Relations");
+    expect(headers).toContain("attr_usageType");
+    expect(headers).not.toContain("attr_costTotalAnnual");
+  });
 
-    const relRow = rowsOf(wb, "Relations")[0];
-    expect(relRow).toMatchObject({
+  it("lists a relation that points AT an exported card", async () => {
+    // The fetch used to discard every relation whose source sat outside the
+    // export, so an Application export dropped `Organization uses Application`
+    // rows entirely — silent loss across a round trip.
+    mockBackend([orgUsesApp], [legalEntity]);
+    const wb = await buildExportWorkbook([app], APP_TYPE, ALL_TYPES, [ORG_TO_APP]);
+
+    const rows = sheetRows(wb, "Relations");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
       relation_type: "relOrgToApp",
       source_ref: "Legal Entity XYZ",
       target_ref: "Salesforce",
@@ -1414,163 +1442,41 @@ describe("relation sides in the workbook (#1089)", () => {
     });
   });
 
-  it("writes the Relations sheet with headers even when no such relation exists", async () => {
-    // A relation type created with an attribute but not yet used produced no
-    // sheet at all, so there was nothing to fill in and re-import.
-    mockBackend([], []);
-    const wb = await buildExportWorkbook([legalEntity], ORG_TYPE, ALL_TYPES, ALL_REL_TYPES);
-
-    expect(wb.SheetNames).toContain("Relations");
-    expect(rowsOf(wb, "Relations")).toHaveLength(0);
-    expect(headersOf(wb, "Relations")).toEqual([
-      "action",
-      "relation_type",
-      "source_type",
-      "source_ref",
-      "target_type",
-      "target_ref",
-      "description",
-      "attr_usageType",
+  it("keeps the card sheet's rel: columns exactly as they were", async () => {
+    // The card sheet gets a column for the attribute-free type and none for
+    // the value-bearing one — unchanged behaviour, asserted so a future change
+    // to the Relations sheet cannot quietly alter it.
+    mockBackend([hasSite, orgUsesApp], [app]);
+    const wb = await buildExportWorkbook([legalEntity, site], ORG_TYPE, ALL_TYPES, [
+      ORG_TO_ORG,
+      ORG_TO_APP,
     ]);
+
+    const headers = headersOf(wb, ORG_TYPE.label);
+    expect(headers).toContain("rel:OrganizationToOrganization");
+    expect(headers).not.toContain("rel:relOrgToApp");
+    expect(headers.filter((h) => h.includes("__out") || h.includes("__in"))).toHaveLength(0);
   });
 
-  it("scopes the Relations sheet's attr_ columns to relation types in the workbook", async () => {
-    // The unscoped union pulled every relation attribute defined anywhere in
-    // the metamodel into an Organization export.
-    const FOREIGN: RelationType = {
-      ...ORG_TO_APP,
-      key: "relAppToITC",
-      source_type_key: "Application",
-      target_type_key: "ITComponent",
-      attributes_schema: [
-        { key: "costTotalAnnual", label: "Annual cost", type: "cost" } as FieldDef,
-      ],
-    };
-    // Export a real relation so the sheet has rows — otherwise "no foreign
-    // column" would hold simply because there is no sheet.
-    mockBackend([orgUsesApp], [app]);
-    const wb = await buildExportWorkbook([legalEntity], ORG_TYPE, ALL_TYPES, [
-      ...ALL_REL_TYPES,
-      FOREIGN,
+  it("round-trips an untouched workbook to zero ops", async () => {
+    // A relation now appears twice — in its inline cell and as a Relations row
+    // — and an unedited workbook must still produce nothing. This is the
+    // property that makes listing every relation safe.
+    mockBackend([hasSite, orgUsesApp], [app]);
+    const wb = await buildExportWorkbook([legalEntity, site], ORG_TYPE, ALL_TYPES, [
+      ORG_TO_ORG,
+      ORG_TO_APP,
     ]);
-    const headers = headersOf(wb, "Relations");
-    expect(headers).toContain("attr_usageType");
-    expect(headers).not.toContain("attr_costTotalAnnual");
-  });
-
-  it("exports a relation that points AT the exported type", async () => {
-    // BusinessProcess --serves--> Organization. Organization is the target, so
-    // this relation had no column and no row anywhere in an Organization
-    // export — even though the inventory grid shows it on the row.
-    mockBackend([processServes], [process]);
-    const wb = await buildExportWorkbook([legalEntity], ORG_TYPE, ALL_TYPES, ALL_REL_TYPES);
-
-    const row = rowsOf(wb, ORG_TYPE.label)[0];
-    expect(row["rel:relProcessToOrg"]).toBe("Order to Cash");
-  });
-
-  it("exports both sides of a self-referencing type", async () => {
-    // "Site ABC belongs to Legal Entity XYZ" — the incoming half, which only
-    // the Site's own row can carry.
-    mockBackend([hasSite], []);
-    const wb = await buildExportWorkbook(
-      [legalEntity, site],
-      ORG_TYPE,
-      ALL_TYPES,
-      ALL_REL_TYPES,
-    );
-
-    const rows = rowsOf(wb, ORG_TYPE.label);
-    const parent = rows.find((r) => r.name === "Legal Entity XYZ")!;
-    const child = rows.find((r) => r.name === "Site ABC")!;
-    expect(parent["rel:OrganizationToOrganization__out"]).toBe("Site ABC");
-    expect(parent["rel:OrganizationToOrganization__in"]).toBe("");
-    expect(child["rel:OrganizationToOrganization__in"]).toBe("Legal Entity XYZ");
-    expect(child["rel:OrganizationToOrganization__out"]).toBe("");
-  });
-
-  it("creates a relation typed into an incoming column", async () => {
-    // The round trip the reporter wanted: fill the cell in, import it back.
-    postMock.mockImplementation(buildResolveRefsMock([legalEntity, site, process]));
-    const buf = buildWorkbook(
-      [
-        {
-          id: legalEntity.id,
-          type: "Organization",
-          name: "Legal Entity XYZ",
-          "rel:relProcessToOrg": "Order to Cash",
-        },
-      ],
-      "Organization",
-    );
-    const parsed = parseWorkbookSheets(buf, ALL_TYPES);
-    const report = await validateMultiSheet(
-      parsed,
-      [legalEntity],
-      ALL_TYPES,
-      ALL_REL_TYPES,
-      [],
-    );
-
-    expect(report.errors).toEqual([]);
-    expect(report.relationOps).toHaveLength(1);
-    // The sheet's card is the TARGET here — the process is the source.
-    expect(report.relationOps[0]).toMatchObject({
-      action: "upsert",
-      relationType: "relProcessToOrg",
-      sourceRef: { kind: "id", id: process.id },
-      targetRef: { kind: "id", id: legalEntity.id },
-    });
-  });
-
-  it("still reads a bare rel:<key> on a self-referencing type as the outgoing side", async () => {
-    // Workbooks exported before the side split spell it without a suffix and
-    // always meant outgoing. They must keep importing unchanged.
-    postMock.mockImplementation(buildResolveRefsMock([legalEntity, site]));
-    const buf = buildWorkbook(
-      [
-        {
-          id: legalEntity.id,
-          type: "Organization",
-          name: "Legal Entity XYZ",
-          "rel:OrganizationToOrganization": "Site ABC",
-        },
-      ],
-      "Organization",
-    );
-    const parsed = parseWorkbookSheets(buf, ALL_TYPES);
-    const report = await validateMultiSheet(parsed, [legalEntity], ALL_TYPES, ALL_REL_TYPES, []);
-
-    expect(report.errors).toEqual([]);
-    expect(report.relationOps).toHaveLength(1);
-    expect(report.relationOps[0]).toMatchObject({
-      action: "upsert",
-      sourceRef: { kind: "id", id: legalEntity.id },
-      targetRef: { kind: "id", id: site.id },
-    });
-  });
-
-  it("round-trips an untouched workbook to zero ops across both sides", async () => {
-    // The property the whole design rests on: a relation now appears in more
-    // than one place (both sides' columns, plus the Relations sheet), and an
-    // unedited workbook must still produce nothing.
-    mockBackend([hasSite, processServes, orgUsesApp], [process, app]);
-    const wb = await buildExportWorkbook(
-      [legalEntity, site],
-      ORG_TYPE,
-      ALL_TYPES,
-      ALL_REL_TYPES,
-    );
 
     const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
     const parsed = parseWorkbookSheets(buf, ALL_TYPES);
-    postMock.mockImplementation(buildResolveRefsMock([legalEntity, site, process, app]));
+    postMock.mockImplementation(buildResolveRefsMock([legalEntity, site, app]));
     const report = await validateMultiSheet(
       parsed,
       [legalEntity, site],
       ALL_TYPES,
-      ALL_REL_TYPES,
-      [hasSite, processServes, orgUsesApp] as never,
+      [ORG_TO_ORG, ORG_TO_APP],
+      [hasSite, orgUsesApp] as never,
     );
 
     expect(report.errors).toEqual([]);
@@ -1578,75 +1484,9 @@ describe("relation sides in the workbook (#1089)", () => {
     expect(report.warnings.filter((w) => /relation/i.test(w.message))).toHaveLength(0);
   });
 
-  it("deletes a relation dropped from the incoming side's cell", async () => {
-    // Removing "Legal Entity XYZ" from Site ABC's `__in` cell must delete the
-    // relation, with the ends the right way round.
-    postMock.mockImplementation(buildResolveRefsMock([legalEntity, site]));
-    const buf = buildWorkbook(
-      [
-        {
-          id: legalEntity.id,
-          type: "Organization",
-          name: "Legal Entity XYZ",
-          "rel:OrganizationToOrganization__out": "Site ABC",
-          "rel:OrganizationToOrganization__in": "",
-        },
-        {
-          id: site.id,
-          type: "Organization",
-          name: "Site ABC",
-          "rel:OrganizationToOrganization__out": "",
-          "rel:OrganizationToOrganization__in": "",
-        },
-      ],
-      "Organization",
-    );
-    const parsed = parseWorkbookSheets(buf, ALL_TYPES);
-    const report = await validateMultiSheet(
-      parsed,
-      [legalEntity, site],
-      ALL_TYPES,
-      ALL_REL_TYPES,
-      [hasSite] as never,
-    );
-
-    // The parent still lists the site, so the two sides disagree: the removal
-    // wins and exactly one delete is queued, not a delete plus an upsert.
-    const deletes = report.relationOps.filter((o) => o.action === "delete");
-    expect(deletes).toHaveLength(1);
-    expect(deletes[0]).toMatchObject({
-      relationType: "OrganizationToOrganization",
-      sourceRef: { kind: "id", id: legalEntity.id },
-      targetRef: { kind: "id", id: site.id },
-    });
-    expect(report.relationOps.filter((o) => o.action === "upsert")).toHaveLength(0);
-  });
-
-  it("leaves a side alone when its column is absent", async () => {
-    // An omitted column means "untouched" — the contract that lets the
-    // workbook gain columns without a re-import deleting anything.
-    postMock.mockImplementation(buildResolveRefsMock([legalEntity, site]));
-    const buf = buildWorkbook(
-      [{ id: legalEntity.id, type: "Organization", name: "Legal Entity XYZ" }],
-      "Organization",
-    );
-    const parsed = parseWorkbookSheets(buf, ALL_TYPES);
-    const report = await validateMultiSheet(
-      parsed,
-      [legalEntity, site],
-      ALL_TYPES,
-      ALL_REL_TYPES,
-      [hasSite] as never,
-    );
-    expect(report.relationOps).toHaveLength(0);
-  });
-
-  it("lets a Relations-sheet delete win over an inline add of the same relation", async () => {
-    // The one way the two representations can genuinely contradict each
-    // other: the relation does not exist, a card-sheet cell adds it, and a
-    // Relations row says to delete it. (When it DOES exist the two can't
-    // disagree — an upsert is only emitted for a far end that isn't linked
-    // yet, and a delete only for one that is.)
+  it("lets a removal win when the two sheets contradict each other", async () => {
+    // Inline cell drops the site while a Relations row re-asserts it. One
+    // delete, no upsert, and the reader is told.
     postMock.mockImplementation(buildResolveRefsMock([legalEntity, site]));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(
@@ -1656,7 +1496,7 @@ describe("relation sides in the workbook (#1089)", () => {
           id: legalEntity.id,
           type: "Organization",
           name: "Legal Entity XYZ",
-          "rel:OrganizationToOrganization__out": "Site ABC",
+          "rel:OrganizationToOrganization": "",
         },
       ]),
       "Organization",
@@ -1665,12 +1505,13 @@ describe("relation sides in the workbook (#1089)", () => {
       wb,
       XLSX.utils.json_to_sheet([
         {
-          action: "delete",
+          action: "upsert",
           relation_type: "OrganizationToOrganization",
           source_type: "Organization",
           source_ref: "Legal Entity XYZ",
           target_type: "Organization",
           target_ref: "Site ABC",
+          description: "changed",
         },
       ]),
       "Relations",
@@ -1681,8 +1522,8 @@ describe("relation sides in the workbook (#1089)", () => {
       parsed,
       [legalEntity, site],
       ALL_TYPES,
-      ALL_REL_TYPES,
-      [],
+      [ORG_TO_ORG],
+      [hasSite] as never,
     );
 
     expect(report.relationOps).toHaveLength(1);
@@ -1690,9 +1531,9 @@ describe("relation sides in the workbook (#1089)", () => {
     expect(report.warnings.some((w) => /removal wins/i.test(w.message))).toBe(true);
   });
 
-  it("names the real reason when a column's relation type doesn't touch the sheet", async () => {
-    // It used to say "unknown relation type", sending the reader hunting for
-    // a typo that isn't there.
+  it("says why a hand-added column for a value-bearing type is ignored", async () => {
+    // It used to report "Unknown relation type" for a type that plainly
+    // exists — the confusion this issue is made of.
     postMock.mockImplementation(buildResolveRefsMock([legalEntity]));
     const buf = buildWorkbook(
       [
@@ -1700,19 +1541,16 @@ describe("relation sides in the workbook (#1089)", () => {
           id: legalEntity.id,
           type: "Organization",
           name: "Legal Entity XYZ",
-          "rel:depends_on": "DB",
+          "rel:relOrgToApp": "Salesforce",
         },
       ],
       "Organization",
     );
     const parsed = parseWorkbookSheets(buf, ALL_TYPES);
-    const report = await validateMultiSheet(parsed, [legalEntity], ALL_TYPES, [
-      ...ALL_REL_TYPES,
-      DEPENDS_ON_TYPE,
-    ], []);
+    const report = await validateMultiSheet(parsed, [legalEntity], ALL_TYPES, [ORG_TO_APP], []);
 
-    const warning = report.warnings.find((w) => w.column === "rel:depends_on");
-    expect(warning?.message).toMatch(/does not connect/i);
+    const warning = report.warnings.find((w) => w.column === "rel:relOrgToApp");
+    expect(warning?.message).toMatch(/carries values/i);
     expect(warning?.message).not.toMatch(/unknown/i);
   });
 });

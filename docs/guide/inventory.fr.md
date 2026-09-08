@@ -211,7 +211,7 @@ Les exports et imports d'inventaire utilisent un **classeur Excel multi-feuilles
 ### Structure du classeur
 
 - **Une feuille par type de fiche** (Application, Business Capability, IT Component, …) avec ses colonnes principales, ses `attr_<champ>`, ses colonnes de cycle de vie, ses colonnes `rel:<type_de_relation>`, et ses colonnes de parties prenantes `stakeholder:<clé_de_rôle>`.
-- **Une feuille `Relations`** portant ce que la relation contient elle-même — ses attributs et sa description. La répartition est nette : **la feuille de fiches dit quelles fiches sont liées ; la feuille `Relations` dit ce que ces liens contiennent.** Ce ne sont pas des alternatives : un type de relation a toujours une colonne sur la feuille de fiches, qu'il porte des attributs ou non.
+- **Une feuille `Relations`** listant **toutes les relations** des fiches exportées, une ligne par relation. C'est là que se lisent et se saisissent les valeurs propres à une relation (`attr_<champ>`) et sa description.
 - **Une feuille `_Meta`** contenant la version du format du classeur.
 
 ### Identification sans GUID
@@ -224,7 +224,7 @@ Parce que les fiches sont identifiées par nom + chemin, **deux fiches du même 
 
 ### Cellules de relation en ligne
 
-Chaque colonne `rel:<type_de_relation>` exprime les relations sous forme de fiches **séparées par des points-virgules** (par exemple `NexaCore ERP; BillingApp`). Point-virgule plutôt que virgule, car les noms de fiches contiennent souvent des virgules (`Acme, Inc.`). À l'intérieur d'un nom, `/` et `\` sont échappés en `\/` et `\\` — l'exporteur s'en charge automatiquement (par ex. `SAP S/4HANA` → `SAP S\/4HANA`). Les cellules sont **déclaratives** : leur contenu remplace l'ensemble des relations de ce type de ce côté. Retirer une cible supprime la relation correspondante ; vider la cellule les supprime toutes. Pour rétrocompatibilité, les cellules séparées par des virgules (ancien format) restent acceptées. Il y a **une colonne par côté de chaque type de relation** auquel le type de fiche participe — y compris les types de relation porteurs d'attributs et les relations qui pointent *vers* ce type. Un type de relation **auto-référent** (les deux extrémités du même type de fiche, par exemple une organisation qui *a pour site* une autre) n'est pas la même chose selon l'extrémité où l'on se place : il reçoit donc deux colonnes, `rel:<clé>__out` et `rel:<clé>__in`. Tous les autres types conservent l'en-tête `rel:<type_de_relation>` sans suffixe, le côté étant déjà déterminé par la feuille. Omettre une colonne laisse les relations correspondantes intactes.
+Chaque colonne `rel:<type_de_relation>` exprime les relations sortantes sous forme de cibles **séparées par des points-virgules** (par exemple `NexaCore ERP; BillingApp`). Point-virgule plutôt que virgule, car les noms de fiches contiennent souvent des virgules (`Acme, Inc.`). À l'intérieur d'un nom, `/` et `\` sont échappés en `\/` et `\\` — l'exporteur s'en charge automatiquement (par ex. `SAP S/4HANA` → `SAP S\/4HANA`). Les cellules sont **déclaratives** : leur contenu remplace l'ensemble des relations sortantes de ce type depuis la source. Retirer une cible supprime la relation correspondante ; vider la cellule les supprime toutes. Pour rétrocompatibilité, les cellules séparées par des virgules (ancien format) restent acceptées.
 
 ### Cellules de parties prenantes
 
@@ -236,9 +236,11 @@ Sur chaque feuille de fiches, les colonnes `stakeholder:<clé_de_rôle>` portent
 
 ### Feuille `Relations`
 
-Certaines relations portent des données propres — un *type d'usage* sur un lien `Organization` → `Application`, un coût annuel sur un lien `Application` → `IT Component`, ou une description libre. Une cellule de la feuille de fiches est déjà une liste de noms et n'a pas de place pour cela : ces données vivent sur la feuille `Relations`, une ligne par relation, avec les colonnes `relation_type`, `source_ref`, `target_ref`, `action` (par défaut `upsert`, sinon `delete`), `attr_<champ>` et `description`.
+Une relation peut porter ses propres valeurs — un *type d'usage* sur un lien `Organization` → `Application`, un coût annuel, ou une description libre. Une cellule `rel:` de la feuille de fiches est déjà une liste de noms et n'a pas de place pour cela : ces valeurs vivent sur la feuille `Relations`, avec les colonnes `relation_type`, `source_ref`, `target_ref`, `action` (par défaut `upsert`, sinon `delete`), `attr_<champ>` et `description`.
 
-Supprimer une *ligne* ne fait rien — l'appartenance relève de la feuille de fiches ; pour retirer une relation, mettez `action` à `delete`. La feuille liste les attributs des types de relation présents dans **ce** classeur et elle est toujours là dès que les types exportés en ont un, même si aucune relation de ce genre n'existe encore : un type de relation que vous venez de créer vous y attend. Si la feuille de fiches et la feuille `Relations` se contredisent, **le retrait l'emporte**, et l'aperçu le signale.
+La feuille liste **toutes les relations des fiches exportées**, que leur type porte ou non des valeurs aujourd'hui — un type de relation auquel vous venez de donner une valeur y a donc déjà sa ligne. Les relations pointant *vers* une fiche exportée y figurent aussi ; `source_ref` et `target_ref` indiquent le sens. Les colonnes `attr_<champ>` sont celles des types de relation présents dans ce classeur, pas de tous ceux définis dans l'instance.
+
+Un type de relation qui porte des valeurs n'a **pas de colonne `rel:`** — une liste de noms ne peut pas les accueillir ; il se modifie sur cette feuille. Si la feuille de fiches et la feuille `Relations` se contredisent, **le retrait l'emporte**, et l'aperçu le signale.
 
 ### Import
 

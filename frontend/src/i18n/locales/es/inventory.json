@@ -255,7 +255,7 @@
   "import.errors.unknownRelationType": "Tipo de relación desconocido: {{type}}",
   "import.warnings.formatVersionMismatch": "La versión del formato del libro {{version}} difiere de la actual. Algunos campos pueden no recuperarse correctamente.",
   "import.warnings.unknownRelationType": "Tipo de relación desconocido «{{type}}» — columna ignorada",
-  "import.warnings.relationTypeWrongSide": "El tipo de relación «{{type}}» no conecta con {{cardType}} — columna ignorada",
+  "import.warnings.relationTypeHasValues": "El tipo de relación «{{type}}» lleva valores — edítelos en la hoja «Relations»; esta columna se ignora",
   "import.warnings.relationOpConflict": "La misma relación se añade en una hoja y se elimina en otra — prevalece la eliminación",
   "export.allFields": "Exportar todos los campos",
   "export.allFieldsHint": "Conjunto de datos completo, reimportable",

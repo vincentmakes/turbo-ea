@@ -255,7 +255,7 @@
   "import.errors.unknownRelationType": "未知关系类型：{{type}}",
   "import.warnings.formatVersionMismatch": "工作簿格式版本 {{version}} 与当前版本不一致。某些字段可能无法完整往返。",
   "import.warnings.unknownRelationType": "未知关系类型「{{type}}」— 已忽略该列",
-  "import.warnings.relationTypeWrongSide": "关系类型「{{type}}」与 {{cardType}} 无关 — 已忽略该列",
+  "import.warnings.relationTypeHasValues": "关系类型「{{type}}」携带值 —— 请在「Relations」工作表中编辑；已忽略该列",
   "import.warnings.relationOpConflict": "同一关系在一个工作表中被添加、在另一个中被移除 — 以移除为准",
   "export.allFields": "导出所有字段",
   "export.allFieldsHint": "完整数据集，可重新导入",

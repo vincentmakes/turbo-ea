@@ -211,7 +211,7 @@ As importações e exportações do inventário usam uma **pasta de trabalho Exc
 ### Estrutura da pasta de trabalho
 
 - **Uma planilha por tipo de card** (Application, Business Capability, IT Component, …) com as colunas principais, as colunas `attr_<campo>`, as colunas de ciclo de vida as colunas de relação `rel:<tipo_de_relação>` e as colunas de partes interessadas `stakeholder:<chave_do_papel>`.
-- **Uma planilha `Relations`** com o que a própria relação carrega — os seus atributos e a sua descrição. A divisão é clara: **a planilha de cards diz quais cards estão ligados; a planilha `Relations` diz o que essas ligações contêm.** Não são alternativas: todo tipo de relação tem coluna na planilha de cards, carregue atributos ou não.
+- **Uma planilha `Relations`** que lista **todas as relações** dos cards exportados, uma linha por relação. É aí que se leem e preenchem os valores próprios de uma relação (`attr_<campo>`) e a sua descrição.
 - **Uma planilha `_Meta`** com a versão do formato da pasta de trabalho.
 
 ### Identificação sem GUIDs
@@ -224,7 +224,7 @@ Como os cards são identificados por nome + caminho, **dois cards do mesmo tipo 
 
 ### Células de relação em linha
 
-Cada coluna `rel:<tipo_de_relação>` expressa as relações como uma lista **separada por ponto e vírgula** (por exemplo `NexaCore ERP; BillingApp`). Ponto e vírgula em vez de vírgula, porque os nomes de cards frequentemente contêm vírgulas (`Acme, Inc.`). Dentro de um nome, `/` e `\` são escapados como `\/` e `\\` — o exportador faz isso automaticamente (ex.: `SAP S/4HANA` → `SAP S\/4HANA`). As células são **declarativas**: o seu conteúdo substitui o conjunto de relações desse tipo desse lado. Remover um destino elimina a relação correspondente; esvaziar a célula elimina todas. Por compatibilidade, células separadas por vírgulas (formato antigo) continuam a ser aceites. Há **uma coluna por lado de cada tipo de relação** de que o tipo de card participa — incluindo tipos de relação com atributos e relações que apontam *para* este tipo. Um tipo de relação **auto-referente** (ambas as extremidades do mesmo tipo de card, por exemplo uma organização que *tem sede* noutra) não é a mesma coisa consoante a extremidade em que nos colocamos, por isso recebe duas colunas: `rel:<chave>__out` e `rel:<chave>__in`. Os restantes tipos mantêm o cabeçalho `rel:<tipo_de_relação>` sem sufixo, porque o lado já é determinado pela planilha. Omitir uma coluna deixa essas relações intactas.
+Cada coluna `rel:<tipo_de_relação>` expressa as relações de saída como uma lista **separada por ponto e vírgula** (por exemplo `NexaCore ERP; BillingApp`). Ponto e vírgula em vez de vírgula, porque os nomes de cards frequentemente contêm vírgulas (`Acme, Inc.`). Dentro de um nome, `/` e `\` são escapados como `\/` e `\\` — o exportador faz isso automaticamente (ex.: `SAP S/4HANA` → `SAP S\/4HANA`). As células são **declarativas**: o seu conteúdo substitui o conjunto de relações de saída desse tipo a partir da origem. Remover um destino elimina a relação correspondente; esvaziar a célula elimina todas. Por compatibilidade, células separadas por vírgulas (formato antigo) continuam a ser aceites.
 
 ### Células de partes interessadas
 
@@ -236,9 +236,11 @@ Em cada planilha de fichas, as colunas `stakeholder:<chave_do_papel>` carregam o
 
 ### Planilha `Relations`
 
-Algumas relações carregam dados próprios — um *tipo de utilização* numa ligação `Organization` → `Application`, um custo anual numa ligação `Application` → `IT Component`, ou uma descrição livre. Uma célula da planilha de cards já é uma lista de nomes e não tem lugar para isso, por isso esses dados vivem na planilha `Relations`, uma linha por relação, com as colunas `relation_type`, `source_ref`, `target_ref`, `action` (por defeito `upsert`, alternativamente `delete`), `attr_<campo>` e `description`.
+Uma relação pode ter valores próprios — um *tipo de utilização* numa ligação `Organization` → `Application`, um custo anual, ou uma descrição livre. Uma célula `rel:` da planilha de cards já é uma lista de nomes e não tem lugar para eles, por isso vivem na planilha `Relations`, com as colunas `relation_type`, `source_ref`, `target_ref`, `action` (por defeito `upsert`, alternativamente `delete`), `attr_<campo>` e `description`.
 
-Apagar uma *linha* não faz nada — a pertença é da planilha de cards; para remover uma relação defina `action` como `delete`. A planilha lista os atributos dos tipos de relação presentes **nesta** pasta de trabalho e está sempre presente quando os tipos exportados têm algum, mesmo que ainda não exista nenhuma relação dessas: um tipo de relação acabado de criar já ali o espera. Se a planilha de cards e a planilha `Relations` se contradisserem, **a remoção prevalece**, e a pré-visualização assinala-o.
+A planilha lista **todas as relações dos cards exportados**, tenha ou não o seu tipo valores neste momento — por isso um tipo de relação a que acabou de dar um valor já tem ali a sua linha. As relações que apontam *para* um card exportado também aparecem; `source_ref` e `target_ref` indicam o sentido. As colunas `attr_<campo>` são as dos tipos de relação presentes nesta pasta de trabalho, não as de todos os definidos na instância.
+
+Um tipo de relação que tem valores **não tem coluna `rel:`** — uma lista de nomes não os pode acolher; edita-se nesta planilha. Se a planilha de cards e a planilha `Relations` se contradisserem, **a remoção prevalece**, e a pré-visualização assinala-o.
 
 ### Importar
 

@@ -3,48 +3,22 @@ import * as XLSX from "xlsx";
 import { api } from "@/api/client";
 import i18n from "@/i18n";
 import { typeLabel } from "@/hooks/useResolveLabel";
-import {
-  expandSides,
-  orderRelationTypesByOtherEnd,
-  sideKey,
-  type RelationSide,
-} from "@/lib/relationSort";
 import type { Card, CardType, Relation, RelationType, StakeholderRoleOption } from "@/types";
 
 /**
  * Excel export — LeanIX-style multi-sheet workbook.
  *
  * For a single-type selection, only that type's card sheet is produced
- * (plus a `Relations` sheet when a relation type touching it carries
- * attributes). For mixed selections, every card type present produces its
- * own sheet, and the workbook can be edited and re-imported in one shot.
- *
- * The division of labour between the two representations:
- *
- *   **A card sheet says which cards are linked, on every side. The
- *   `Relations` sheet says what a relation itself holds** — its attributes
- *   and its description.
- *
- * They are not alternatives. Before #1089 a relation type was *either* a
- * card-sheet column *or* a `Relations` row, decided by whether it carried
- * attributes — so adding an attribute to a relation type silently removed
- * its column from the card sheet, and a relation type that carried
- * attributes but had no relations yet was absent from the workbook
- * altogether, leaving nothing to fill in.
+ * (plus the `Relations` sheet). For mixed selections, every card type present
+ * produces its own sheet, and the workbook can be edited and re-imported in
+ * one shot.
  *
  * Card sheets carry:
  *   - core columns (id, type, name, parent_path, …)
  *   - `attr_<key>` columns derived from `fields_schema`
- *   - `rel:<side key>` columns — **one per SIDE of every relation type this
- *     card type takes part in**, attribute-bearing types included. The side
- *     key comes from `sideKey()` in `lib/relationSort`, the one vocabulary
- *     card detail, the grid, the filter sidebar and mass edit all share: a
- *     cross-type relation type keeps its bare key (which side it names is
- *     implied by the sheet the column sits on), a self-referencing one takes
- *     the `__out` / `__in` suffix — because a self-referencing type is two
- *     sides everywhere else in the product and has to be two here too.
- *     "Site ABC belongs to Legal Entity XYZ" is unreachable from the Site's
- *     row otherwise.
+ *   - `rel:<relation_type_key>` columns for relation types whose source is
+ *     this card type and whose `attributes_schema` is empty (the simple
+ *     case that fits in a comma-separated cell)
  *   - `stakeholder:<role_key>` columns — one per stakeholder role of the
  *     sheet's type, cells of semicolon-separated email addresses
  *     (`ada@corp.com; bob@corp.com`), mirroring LeanIX's
@@ -53,15 +27,17 @@ import type { Card, CardType, Relation, RelationType, StakeholderRoleOption } fr
  *     `parseStakeholderEntry` in excelImport.ts are the two halves of the
  *     round-trip.
  *
- * The `Relations` sheet captures one row per relation that has data of its
- * own — its type carries an `attributes_schema`, or the relation itself
- * carries a `description`. Those need a column each, so they cannot live
- * inside a card-sheet cell that is already a list of names.
+ * The `Relations` sheet carries **one row per relation** of the exported
+ * cards — every relation type, not only those with attributes — because it is
+ * the only place a relation's own values (`attr_<key>`) and `description` can
+ * be read or filled in. A relation type that carries values has no inline
+ * card-sheet column, since that cell is a list of names with nowhere to put
+ * them; so when this sheet listed only types that ALREADY had attributes,
+ * giving a relation type its first value left that value with no row anywhere
+ * in the workbook (#1089).
  *
- * An omitted `rel:` column means "leave this side untouched"; an empty cell
- * means "nothing is linked on this side". That is the contract the
- * `stakeholder:<role>` columns already carry, and it is what lets the
- * workbook gain columns without a re-import deleting anything.
+ * Its `attr_*` columns are the union over the relation types touching the
+ * exported card types only — not the whole metamodel.
  *
  * Reference encoding for relation cells and the Relations sheet: the
  * target card's `name` when unique within `(target_type, name)` across
@@ -159,18 +135,6 @@ function autoSizeColumns(rows: Record<string, unknown>[]): XLSX.ColInfo[] | unde
   });
 }
 
-/**
- * `json_to_sheet` needs at least one object to derive a header row from, so a
- * sheet with columns but no data is built from a single placeholder row whose
- * end row is then trimmed away. The header survives, the placeholder does not
- * — which is what lets the workbook ship an empty-but-fillable sheet.
- */
-function stripPlaceholderRow(ws: XLSX.WorkSheet): void {
-  const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
-  range.e.r = 0;
-  ws["!ref"] = XLSX.utils.encode_range(range);
-}
-
 interface ExportOptions {
   canViewCosts?: boolean;
   /** Public-facing tenant URL written to `_Meta` for debugging cross-tenant imports. */
@@ -200,11 +164,10 @@ function sheetNameForType(type: CardType, taken: Set<string>): string {
 }
 
 /**
- * Fetch the relations touching the export's source set and filter to the
- * outgoing edges.
+ * Fetch every relation touching the exported cards, in both directions.
  *
  * Scoped server-side via `GET /relations?card_ids=`, chunked like
- * `enrichMissingTargets` below — this used to pull *every* relation in the
+ * `enrichMissingCards` below — this used to pull *every* relation in the
  * instance and filter client-side, which grew linearly with the landscape no
  * matter how small the export. (An earlier version before that did one request
  * per card, which was O(N) HTTP calls and silently swallowed any single
@@ -213,10 +176,11 @@ function sheetNameForType(type: CardType, taken: Set<string>): string {
  * `card_ids` matches source **or** target, so a relation whose two endpoints
  * land in different chunks comes back twice — dedup by relation id.
  *
- * BOTH directions are kept. The old `.filter(r => sourceIds.has(r.source_id))`
- * here is what made an incoming relation unexportable: `relProcessToOrg` never
- * reached an Organization export at all, and a self-referencing type only ever
- * produced its outgoing half (#1089).
+ * BOTH directions are kept. The `Relations` sheet lists a relation once,
+ * naming both of its ends, so a relation pointing *at* an exported card
+ * belongs there just as much as one leaving it; the old
+ * `.filter(r => sourceIds.has(r.source_id))` dropped those outright. The
+ * card sheets still take only the outgoing half — see `outgoingBySource`.
  *
  * A failing chunk is deliberately NOT swallowed: half the relations is worse
  * than none, because the workbook would look complete while quietly missing
@@ -243,9 +207,9 @@ async function fetchRelationsForCards(cardIds: Set<string>): Promise<Relation[]>
  * reasonable) so single-type exports still resolve cross-type endpoints to
  * proper `parent_path/name` refs.
  *
- * Fed BOTH endpoints of every relation, not just targets: an incoming
- * relation's far end is its *source*, and the `Relations` sheet writes a
- * `source_ref` for it.
+ * Fed BOTH endpoints of every relation, not just targets: a `Relations` row
+ * writes a `source_ref` as well, and for a relation pointing *at* an exported
+ * card that source is the one outside the slice.
  *
  * Walks ancestors too: the immediate card's parent chain is needed to
  * reconstruct the path. Bounded by MAX_PATH_DEPTH levels so a corrupt
@@ -316,15 +280,15 @@ function buildTargetRef(
 
 /**
  * Build a row representation for a single card sheet. Pulls in core
- * columns, `attr_*`, `lifecycle_*`, and one `rel:<side key>` column per side
- * of every relation type the card type takes part in.
+ * columns, `attr_*`, `lifecycle_*`, and `rel:<key>` columns for each
+ * applicable simple relation type.
  */
 function buildCardRowForType(
   card: Card,
   type: CardType,
   byId: Map<string, Card>,
-  farEndsBySide: Map<string, TargetHandle[]>,
-  sides: RelationSide<RelationType>[],
+  outgoingByRelType: Map<string, TargetHandle[]>,
+  inlineRelTypes: RelationType[],
   nameAmbiguity: Set<string>,
   attrFieldKeys: string[],
   attrIsCost: Map<string, boolean>,
@@ -357,15 +321,14 @@ function buildCardRowForType(
     row[`attr_${fieldKey}`] = Array.isArray(val) ? val.join(", ") : (val ?? "");
   }
 
-  for (const { rt, isSource } of sides) {
-    const key = sideKey(rt, isSource);
-    const farEnds = farEndsBySide.get(key) || [];
+  for (const rt of inlineRelTypes) {
+    const targets = outgoingByRelType.get(rt.key) || [];
     // Semicolons (not commas) separate targets within a cell — card names
     // are free-form and commonly contain `,` (e.g. "Acme, Inc."). Read by
     // `splitRelationCell()` in `excelImport.ts`, which also accepts the
     // old comma format for backwards compatibility with workbooks
     // exported before this convention.
-    row[`rel:${key}`] = farEnds
+    row[`rel:${rt.key}`] = targets
       .map((t) => buildTargetRef(t, byId, nameAmbiguity))
       .join("; ");
   }
@@ -402,9 +365,9 @@ export async function buildExportWorkbook(
   const byId = new Map<string, Card>();
   for (const card of cards) byId.set(card.id, card);
 
-  // Single round-trip: every active relation touching the export set, in
-  // both directions. (See fetchRelationsForCards for why the incoming half
-  // is kept, and why this replaced the previous per-card loop.)
+  // Single round-trip: every active relation touching the export set, in both
+  // directions. (See fetchRelationsForCards for why this replaced the previous
+  // per-card loop, and why the incoming half is kept.)
   const exportedIdSet = new Set(cards.map((c) => c.id));
   const allRelations = await fetchRelationsForCards(exportedIdSet);
 
@@ -429,7 +392,7 @@ export async function buildExportWorkbook(
   // Also account for endpoints whose card we couldn't fetch — use the
   // embedded ref's `type` + `name` from the relation payload. If the same
   // (type, name) appears more than once across these, treat it as ambiguous.
-  // Both ends: the `Relations` sheet writes a `source_ref` as well, and an
+  // Both ends: a `Relations` row writes a `source_ref` as well, and an
   // incoming relation's source is exactly the card we may have missed.
   for (const rel of allRelations) {
     for (const ref of [rel.source, rel.target]) {
@@ -443,47 +406,38 @@ export async function buildExportWorkbook(
     if (count > 1) nameAmbiguity.add(key);
   }
 
-  const relTypeByKey = new Map(relationTypes.map((rt) => [rt.key, rt]));
-
-  /** The far end of a relation as a handle — full card when we have it, the
-   * embedded ref otherwise. Returns null when the payload carries neither,
-   * which the backend's `_rel_to_response` should make impossible. */
-  const handleFor = (id: string, ref: Relation["source"]): TargetHandle | null => {
-    const card = byId.get(id);
-    if (card) return { kind: "card", card };
-    if (ref) return { kind: "ref", type: ref.type, name: ref.name };
-    return null;
-  };
-
-  // Index every exported card's relations by SIDE key, so a row can fill one
-  // cell per `rel:<side key>` column. Which side a row sits on is read per
-  // row (`rel.source_id === card.id`), never off the relation type's static
-  // side flags — for a self-referencing type those are true at both ends,
-  // which is exactly how the incoming half used to disappear.
+  // Group relations by source_id then by relation_type_key for fast lookup
+  // during row building. Use TargetHandle so a missing-from-byId target
+  // still gets emitted via the embedded `rel.target` ref.
   //
-  // A degenerate self-loop lands on the outgoing side once, matching
-  // `onSide()` in lib/relationSort.
-  const farEndsByCardSide = new Map<string, Map<string, TargetHandle[]>>();
-  const addFarEnd = (cardId: string, key: string, handle: TargetHandle | null) => {
-    if (!handle) return;
-    let perSide = farEndsByCardSide.get(cardId);
-    if (!perSide) {
-      perSide = new Map();
-      farEndsByCardSide.set(cardId, perSide);
-    }
-    const list = perSide.get(key) || [];
-    list.push(handle);
-    perSide.set(key, list);
-  };
+  // Outgoing only. `allRelations` now carries both directions for the
+  // `Relations` sheet's benefit, but a card sheet's `rel:` cell means "the
+  // targets of this row's card", and the importer reads it back that way.
+  // Without this guard an incoming relation would file itself under a source
+  // card that isn't even in the export.
+  const outgoingBySource = new Map<string, Map<string, TargetHandle[]>>();
   for (const rel of allRelations) {
-    const rt = relTypeByKey.get(rel.type);
-    if (!rt) continue;
-    if (exportedIdSet.has(rel.source_id)) {
-      addFarEnd(rel.source_id, sideKey(rt, true), handleFor(rel.target_id, rel.target));
+    if (!exportedIdSet.has(rel.source_id)) continue;
+    const targetCard = byId.get(rel.target_id);
+    let handle: TargetHandle;
+    if (targetCard) {
+      handle = { kind: "card", card: targetCard };
+    } else if (rel.target) {
+      handle = { kind: "ref", type: rel.target.type, name: rel.target.name };
+    } else {
+      // No card, no embedded ref — nothing we can render. Skip silently;
+      // this should be impossible given backend's _rel_to_response always
+      // populates `target`.
+      continue;
     }
-    if (rel.target_id !== rel.source_id && exportedIdSet.has(rel.target_id)) {
-      addFarEnd(rel.target_id, sideKey(rt, false), handleFor(rel.source_id, rel.source));
+    let perType = outgoingBySource.get(rel.source_id);
+    if (!perType) {
+      perType = new Map();
+      outgoingBySource.set(rel.source_id, perType);
     }
+    const list = perType.get(rel.type) || [];
+    list.push(handle);
+    perType.set(rel.type, list);
   }
 
   const wb = XLSX.utils.book_new();
@@ -511,20 +465,24 @@ export async function buildExportWorkbook(
     costKeysByType.set(t.key, set);
   }
 
-  // Every relation type a card sheet may hold a column for. Hidden types are
-  // excluded; attribute-bearing ones are NOT — the card sheet carries
-  // membership for every relation type, and the `Relations` sheet carries the
-  // attribute values on top of it.
-  const visibleRelTypes = relationTypes.filter((rt) => !rt.is_hidden);
+  // Card sheets carry an inline `rel:<key>` column per attribute-free relation
+  // type that starts at the sheet's card type — a cell that is just a list of
+  // names, which is why a type carrying values cannot use one.
+  const inlineRelTypes = relationTypes.filter(
+    (rt) =>
+      !rt.is_hidden && (!rt.attributes_schema || rt.attributes_schema.length === 0),
+  );
+  const relTypeByKey = new Map(relationTypes.map((rt) => [rt.key, rt]));
 
-  // Relation types that own data of their own, scoped to the workbook: only
-  // those with an end among the exported types. Unscoped, an Organization
-  // export carried `attr_supportType`, `attr_flowDirection`, `attr_crud*` and
+  // Attribute columns for the `Relations` sheet, scoped to relation types with
+  // an end among the exported types. Unscoped, an Organization export carried
+  // `attr_supportType`, `attr_flowDirection`, `attr_crud*` and
   // `attr_costTotalAnnual` from App↔ITC / App↔Interface / App↔DataObject —
   // eight columns of which one was meaningful.
   const exportedTypeKeys = new Set(typesInExport.map((t) => t.key));
-  const attributeRelTypes = visibleRelTypes.filter(
+  const attributeRelTypes = relationTypes.filter(
     (rt) =>
+      !rt.is_hidden &&
       rt.attributes_schema &&
       rt.attributes_schema.length > 0 &&
       (exportedTypeKeys.has(rt.source_type_key) || exportedTypeKeys.has(rt.target_type_key)),
@@ -539,14 +497,9 @@ export async function buildExportWorkbook(
     const costSet = costKeysByType.get(type.key) ?? new Set();
     for (const k of attrFieldKeys) attrIsCost.set(k, costSet.has(k));
 
-    // One column per SIDE this card type takes part in. `expandSides` gives a
-    // cross-type relation type one side and a self-referencing one two,
-    // emitted adjacently; ordering the types first keeps every side pointing
-    // at the same other type contiguous, the way card detail groups them.
-    const sidesForType = expandSides(
-      orderRelationTypesByOtherEnd(visibleRelTypes, type.key),
-      type.key,
-    );
+    // Relation types whose forward direction starts from this type. Hidden
+    // types and attribute-bearing types are excluded.
+    const inlineForType = inlineRelTypes.filter((rt) => rt.source_type_key === type.key);
 
     // Stakeholder roles for this type — one `stakeholder:<role>` column each.
     // Fetched from /stakeholder-roles (the authoritative source; the JSONB
@@ -564,15 +517,15 @@ export async function buildExportWorkbook(
 
     const rows: Record<string, unknown>[] = [];
     for (const card of cardsOfType) {
-      const farEnds =
-        farEndsByCardSide.get(card.id) ?? new Map<string, TargetHandle[]>();
+      const outgoing =
+        outgoingBySource.get(card.id) ?? new Map<string, TargetHandle[]>();
       rows.push(
         buildCardRowForType(
           card,
           type,
           byId,
-          farEnds,
-          sidesForType,
+          outgoing,
+          inlineForType,
           nameAmbiguity,
           attrFieldKeys.filter((k) => !attrIsCost.get(k) || canViewCosts),
           attrIsCost,
@@ -604,7 +557,7 @@ export async function buildExportWorkbook(
             type,
             byId,
             new Map<string, TargetHandle[]>(),
-            sidesForType,
+            inlineForType,
             nameAmbiguity,
             attrFieldKeys,
             attrIsCost,
@@ -613,21 +566,31 @@ export async function buildExportWorkbook(
           ),
         ];
     const ws = XLSX.utils.json_to_sheet(headerSeed);
-    if (rows.length === 0) stripPlaceholderRow(ws);
+    if (rows.length === 0) {
+      // Strip the placeholder row but keep the header.
+      const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+      range.e.r = 0;
+      ws["!ref"] = XLSX.utils.encode_range(range);
+    }
     ws["!cols"] = autoSizeColumns(headerSeed);
     XLSX.utils.book_append_sheet(wb, ws, sheetNameForType(type, takenSheetNames));
   }
 
-  // Relations sheet — a relation's own data, not its membership. One row per
-  // relation whose type carries attributes, plus any relation carrying a
-  // description (which the card-sheet cell has nowhere to put, and which used
-  // to be dropped from the workbook outright for an attribute-free type).
+  // Relations sheet — EVERY relation of the exported cards, one row each.
   //
-  // Emitted whenever a relevant attribute-bearing type exists, **even with no
-  // rows**: withholding the sheet for want of rows is what left a
-  // newly-created relation type absent from the workbook with nothing to fill
-  // in (#1089). A header-only sheet is a no-op on import.
-  if (attributeRelTypes.length > 0) {
+  // This sheet is the only place a relation's values can be read or filled in,
+  // and it used to list a relation only if its type ALREADY carried
+  // attributes. So the moment an admin gave a relation type its first value,
+  // there was no row anywhere to put that value on: the type had also just
+  // lost its inline card-sheet column (that column is a list of names, so a
+  // type with values cannot have one). Both halves of #1089 — "the new
+  // relation, like the relation to the application, is missing… because on
+  // both relations we have values on it".
+  //
+  // Listing every relation costs nothing structurally: direction is already
+  // explicit in `source_ref` / `target_ref`, and a type with no attributes
+  // simply has no `attr_*` cells to fill.
+  {
     const relRows: Record<string, unknown>[] = [];
     const attrColumnSet = new Set<string>();
     for (const rt of attributeRelTypes) {
@@ -636,13 +599,9 @@ export async function buildExportWorkbook(
         attrColumnSet.add(`attr_${f.key}`);
       }
     }
-    const attributeRelTypeKeys = new Set(attributeRelTypes.map((r) => r.key));
     for (const rel of allRelations) {
       const rt = relTypeByKey.get(rel.type);
       if (!rt || rt.is_hidden) continue;
-      const carriesData =
-        attributeRelTypeKeys.has(rt.key) || (rel.description ?? "").trim() !== "";
-      if (!carriesData) continue;
       // Build endpoint handles in the same TargetHandle shape used for inline
       // relations — full card when available, otherwise the embedded ref.
       const sourceCard = byId.get(rel.source_id);
@@ -682,27 +641,11 @@ export async function buildExportWorkbook(
       }
       relRows.push(row);
     }
-    // Same header-seed trick the card sheets use: one blank row so
-    // `json_to_sheet` can derive the columns, trimmed away afterwards.
-    const headerSeed: Record<string, unknown>[] =
-      relRows.length > 0
-        ? relRows
-        : [
-            {
-              action: "",
-              relation_type: "",
-              source_type: "",
-              source_ref: "",
-              target_type: "",
-              target_ref: "",
-              description: "",
-              ...Object.fromEntries([...attrColumnSet].map((c) => [c, ""])),
-            },
-          ];
-    const ws = XLSX.utils.json_to_sheet(headerSeed);
-    if (relRows.length === 0) stripPlaceholderRow(ws);
-    ws["!cols"] = autoSizeColumns(headerSeed);
-    XLSX.utils.book_append_sheet(wb, ws, RELATIONS_SHEET_NAME);
+    if (relRows.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(relRows);
+      ws["!cols"] = autoSizeColumns(relRows);
+      XLSX.utils.book_append_sheet(wb, ws, RELATIONS_SHEET_NAME);
+    }
   }
 
   // _Meta sheet — a small key/value table that helps the importer detect

@@ -211,7 +211,7 @@ Las importaciones y exportaciones del inventario usan un **libro Excel multi-hoj
 ### Estructura del libro
 
 - **Una hoja por tipo de ficha** (Application, Business Capability, IT Component, …) con sus columnas principales, sus columnas `attr_<campo>`, las columnas de ciclo de vida las columnas de relaciones `rel:<tipo_de_relación>` y las columnas de partes interesadas `stakeholder:<clave_de_rol>`.
-- **Una hoja `Relations`** con lo que la propia relación contiene — sus atributos y su descripción. El reparto es claro: **la hoja de fichas dice qué fichas están enlazadas; la hoja `Relations` dice qué contienen esos enlaces.** No son alternativas: todo tipo de relación tiene columna en la hoja de fichas, lleve atributos o no.
+- **Una hoja `Relations`** que lista **todas las relaciones** de las fichas exportadas, una fila por relación. Ahí se leen y se rellenan los valores propios de una relación (`attr_<campo>`) y su descripción.
 - **Una hoja `_Meta`** con la versión del formato del libro.
 
 ### Identificación sin GUIDs
@@ -224,7 +224,7 @@ Como las fichas se identifican por nombre + ruta, **dos fichas del mismo tipo no
 
 ### Celdas de relación en línea
 
-Cada columna `rel:<tipo_de_relación>` expresa las relaciones como una lista **separada por punto y coma** (por ejemplo `NexaCore ERP; BillingApp`). Punto y coma en lugar de coma, porque los nombres de las fichas suelen contener comas (`Acme, Inc.`). Dentro de un nombre, `/` y `\` se escapan como `\/` y `\\` — el exportador lo hace automáticamente (p. ej. `SAP S/4HANA` → `SAP S\/4HANA`). Las celdas son **declarativas**: su contenido reemplaza el conjunto de relaciones de ese tipo en ese lado. Eliminar un destino elimina la relación correspondiente; vaciar la celda elimina todas. Por compatibilidad, las celdas separadas por comas (formato antiguo) también se aceptan. Hay **una columna por cada lado de cada tipo de relación** en el que participa el tipo de ficha — incluidos los tipos de relación con atributos y las relaciones que apuntan *hacia* este tipo. Un tipo de relación **autorreferente** (ambos extremos del mismo tipo de ficha, por ejemplo una organización que *tiene sede* en otra) no es lo mismo según el extremo en el que uno se sitúe, así que recibe dos columnas: `rel:<clave>__out` y `rel:<clave>__in`. Los demás tipos conservan el encabezado `rel:<tipo_de_relación>` sin sufijo, porque el lado ya lo determina la hoja. Omitir una columna deja intactas esas relaciones.
+Cada columna `rel:<tipo_de_relación>` expresa las relaciones salientes como una lista **separada por punto y coma** (por ejemplo `NexaCore ERP; BillingApp`). Punto y coma en lugar de coma, porque los nombres de las fichas suelen contener comas (`Acme, Inc.`). Dentro de un nombre, `/` y `\` se escapan como `\/` y `\\` — el exportador lo hace automáticamente (p. ej. `SAP S/4HANA` → `SAP S\/4HANA`). Las celdas son **declarativas**: su contenido reemplaza el conjunto de relaciones salientes de ese tipo desde el origen. Eliminar un destino elimina la relación correspondiente; vaciar la celda elimina todas. Por compatibilidad, las celdas separadas por comas (formato antiguo) también se aceptan.
 
 ### Celdas de partes interesadas
 
@@ -236,9 +236,11 @@ En cada hoja de fichas, las columnas `stakeholder:<clave_de_rol>` llevan los usu
 
 ### Hoja `Relations`
 
-Algunas relaciones llevan datos propios — un *tipo de uso* en un enlace `Organization` → `Application`, un coste anual en un enlace `Application` → `IT Component`, o una descripción libre. Una celda de la hoja de fichas ya es una lista de nombres y no tiene sitio para ellos, así que viven en la hoja `Relations`, una fila por relación, con las columnas `relation_type`, `source_ref`, `target_ref`, `action` (por defecto `upsert`, alternativamente `delete`), `attr_<campo>` y `description`.
+Una relación puede llevar valores propios — un *tipo de uso* en un enlace `Organization` → `Application`, un coste anual, o una descripción libre. Una celda `rel:` de la hoja de fichas ya es una lista de nombres y no tiene sitio para ellos, así que viven en la hoja `Relations`, con las columnas `relation_type`, `source_ref`, `target_ref`, `action` (por defecto `upsert`, alternativamente `delete`), `attr_<campo>` y `description`.
 
-Borrar una *fila* no hace nada — la pertenencia es cosa de la hoja de fichas; para eliminar una relación ponga `action` en `delete`. La hoja lista los atributos de los tipos de relación de **este** libro y está siempre presente cuando los tipos exportados tienen alguno, aunque todavía no exista ninguna relación así: un tipo de relación recién creado ya le espera ahí. Si la hoja de fichas y la hoja `Relations` se contradicen, **prevalece la eliminación**, y la vista previa lo indica.
+La hoja lista **todas las relaciones de las fichas exportadas**, lleve o no valores su tipo actualmente — así que un tipo de relación al que acaba de dar un valor ya tiene ahí su fila. También aparecen las relaciones que apuntan *hacia* una ficha exportada; `source_ref` y `target_ref` indican el sentido. Las columnas `attr_<campo>` son las de los tipos de relación de este libro, no las de todos los definidos en la instancia.
+
+Un tipo de relación que lleva valores **no tiene columna `rel:`** — una lista de nombres no puede albergarlos; se edita en esta hoja. Si la hoja de fichas y la hoja `Relations` se contradicen, **prevalece la eliminación**, y la vista previa lo indica.
 
 ### Importar
 
