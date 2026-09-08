@@ -255,6 +255,8 @@
   "import.errors.unknownRelationType": "Unbekannter Beziehungstyp: {{type}}",
   "import.warnings.formatVersionMismatch": "Arbeitsmappen-Formatversion {{version}} weicht von der aktuellen Version ab. Einige Felder werden möglicherweise nicht korrekt zurückgeschrieben.",
   "import.warnings.unknownRelationType": "Unbekannter Beziehungstyp „{{type}}“ — Spalte ignoriert",
+  "import.warnings.relationTypeWrongSide": "Beziehungstyp „{{type}}“ ist nicht mit {{cardType}} verbunden — Spalte ignoriert",
+  "import.warnings.relationOpConflict": "Dieselbe Beziehung wird auf einem Blatt hinzugefügt und auf einem anderen entfernt — das Entfernen hat Vorrang",
   "export.allFields": "Alle Felder exportieren",
   "export.allFieldsHint": "Vollständiger Datensatz, reimportierbar",
   "export.currentView": "Aktuelle Ansicht exportieren",

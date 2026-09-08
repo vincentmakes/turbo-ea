@@ -215,7 +215,7 @@ Lager-eksporter og -importer bruger en **Excel-projektmappe med flere ark**, der
 En enkelt eksport producerer:
 
 - **Ét ark pr. korttype** til stede i eksporten (Application, Business Capability, IT Component, …). Hvert ark bærer typens kerne-kolonner, dets brugerdefinerede `attr_<field_key>`-kolonner, dets livscyklus-kolonner dets `rel:<relation_type_key>`-relations-kolonner og dets `stakeholder:<role_key>`-interessent-kolonner.
-- **Et `Relations`-ark** for relations­typer, der bærer egenskaber (f.eks. omkostning, beskrivelse). Simple relationer lever inline på kort-arket; egenskabs-bærende relationer lever her.
+- **Et `Relations`-ark** med det, relationen selv bærer — dens attributter og dens beskrivelse. Arbejdsdelingen: **kortarket siger, hvilke kort der er forbundet; `Relations`-arket siger, hvad de forbindelser indeholder.** De er ikke alternativer: enhver relationstype har en kolonne på kortarket, uanset om den bærer attributter.
 - **Et `_Meta`-ark**, der bærer projektmappens format-version. Importøren læser det for at detektere ældre formater og udskrive et banner.
 
 ### Identifikation af kort (ingen GUID'er nødvendige)
@@ -230,7 +230,7 @@ Fordi kort identificeres efter navn + sti, **kan to kort af samme type ikke dele
 
 ### Inline relations-celler
 
-På hvert kort-ark lader `rel:<relation_type_key>`-kolonner dig udtrykke udgående relationer som **semikolon-separerede** mål-referencer:
+På hvert kort-ark lader `rel:<relation_type_key>`-kolonner dig udtrykke relationer som **semikolon-separerede** mål-referencer:
 
 ```text
 rel:supports     →  NexaCore ERP; BillingApp; Salesforce
@@ -239,7 +239,9 @@ rel:depends_on   →  Sales / Customer Mgmt / CRM
 
 Semikoloner (ikke kommaer) separerer mål, fordi kortnavne almindeligvis indeholder `,` (f.eks. `Acme, Inc.`). Inde i et navn skal `/` og `\` undgås som `\/` og `\\` — importøren læser cellen med de samme regler som `parent_path`, så et navn som `SAP S/4HANA` skrives som `SAP S\/4HANA`. Eksportøren gør dette automatisk for dig; kun hånd-skrevne celler har brug for escapes.
 
-Celler er **deklarative**: sættet af mål i cellen bliver det komplette sæt af udgående relationer af den type fra den kilde efter import. **At fjerne et mål fra listen dropper den relation**; at tømme cellen dropper dem alle. At udelade kolonnen helt (ingen `rel:supports`-kolonne overhovedet) efterlader eksisterende relationer urørt.
+Celler er **deklarative**: sættet af mål i cellen bliver det komplette sæt af relationer af den type på den side efter import. **At fjerne et mål fra listen dropper den relation**; at tømme cellen dropper dem alle. At udelade kolonnen helt (ingen `rel:supports`-kolonne overhovedet) efterlader eksisterende relationer urørt.
+
+Der er **én kolonne pr. side af hver relationstype**, som korttypen indgår i — også relationstyper med attributter og relationer, der peger *på* denne type. En **selvrefererende** relationstype (begge ender af samme korttype, f.eks. en organisation der *har lokation* i en anden) betyder ikke det samme i de to ender og får derfor to kolonner: `rel:<nøgle>__out` og `rel:<nøgle>__in`. Alle andre typer beholder overskriften `rel:<relationstype>` uden suffiks, fordi arket allerede afgør siden. Udelades en kolonne, står de relationer urørt.
 
 For bagudkompatibilitet accepterer importøren også komma-separerede celler (projektmapper eksporteret før denne konvention). En celle, der indeholder et `;`, behandles altid som semikolon-separeret.
 
@@ -253,7 +255,9 @@ På hvert kort-ark bærer `stakeholder:<role_key>`-kolonner de brugere, der er t
 
 ### Relations-ark
 
-For relationer, der bærer egenskaber (f.eks. årlig omkostning på en `Application` → `IT Component`-link), brug det dedikerede `Relations`-ark:
+Nogle relationer bærer deres egne data — en *brugstype* på en `Organization` → `Application`-forbindelse, en årlig omkostning på en `Application` → `IT Component`-forbindelse eller en fritekstbeskrivelse. En celle på kortarket er allerede en navneliste og har ikke plads til det, så de bor på `Relations`-arket — én række pr. relation, med kolonnerne `relation_type`, `source_ref`, `target_ref`, `action` (standard `upsert`, alternativt `delete`), `attr_<felt>` og `description`.
+
+At slette en *række* gør ingenting — tilhørsforholdet hører til kortarket; sæt `action` til `delete` for at fjerne en relation. Arket viser attributterne for relationstyperne i **denne** projektmappe og er altid til stede, når de eksporterede typer har en, også selv om der endnu ikke findes en sådan relation — en nyoprettet relationstype venter der allerede. Er kortarket og `Relations`-arket uenige, **vinder fjernelsen**, og forhåndsvisningen siger det.
 
 | relation_type | source_ref | target_ref | action | attr_costTotalAnnual | description |
 |---------------|------------|------------|--------|----------------------|-------------|

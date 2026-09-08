@@ -255,6 +255,8 @@
   "import.errors.unknownRelationType": "Неизвестный тип связи: {{type}}",
   "import.warnings.formatVersionMismatch": "Версия формата книги {{version}} отличается от текущей. Некоторые поля могут не восстановиться корректно.",
   "import.warnings.unknownRelationType": "Неизвестный тип связи «{{type}}» — столбец проигнорирован",
+  "import.warnings.relationTypeWrongSide": "Тип связи «{{type}}» не связан с {{cardType}} — столбец проигнорирован",
+  "import.warnings.relationOpConflict": "Одна и та же связь добавлена на одном листе и удалена на другом — приоритет у удаления",
   "export.allFields": "Экспортировать все поля",
   "export.allFieldsHint": "Полный набор данных, пригоден для повторного импорта",
   "export.currentView": "Экспортировать текущий вид",

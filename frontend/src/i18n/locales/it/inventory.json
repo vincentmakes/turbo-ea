@@ -255,6 +255,8 @@
   "import.errors.unknownRelationType": "Tipo di relazione sconosciuto: {{type}}",
   "import.warnings.formatVersionMismatch": "La versione del formato della cartella di lavoro {{version}} è diversa da quella corrente. Alcuni campi potrebbero non essere ripristinati correttamente.",
   "import.warnings.unknownRelationType": "Tipo di relazione sconosciuto «{{type}}» — colonna ignorata",
+  "import.warnings.relationTypeWrongSide": "Il tipo di relazione «{{type}}» non si collega a {{cardType}} — colonna ignorata",
+  "import.warnings.relationOpConflict": "La stessa relazione viene aggiunta in un foglio e rimossa in un altro — prevale la rimozione",
   "export.allFields": "Esporta tutti i campi",
   "export.allFieldsHint": "Set di dati completo, reimportabile",
   "export.currentView": "Esporta vista corrente",

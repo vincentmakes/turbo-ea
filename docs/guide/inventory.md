@@ -214,8 +214,10 @@ Inventory exports and imports use a **multi-sheet Excel workbook** that round-tr
 
 A single export produces:
 
-- **One sheet per card type** present in the export (Application, Business Capability, IT Component, …). Each sheet carries the type's core columns, its custom `attr_<field_key>` columns, its lifecycle columns, its `rel:<relation_type_key>` relation columns, and its `stakeholder:<role_key>` stakeholder columns.
-- **A `Relations` sheet** for relation types that carry attributes (e.g. cost, description). Simple relations live inline on the card sheet; attribute-bearing relations live here.
+- **One sheet per card type** present in the export (Application, Business Capability, IT Component, …). Each sheet carries the type's core columns, its custom `attr_<field_key>` columns, its lifecycle columns, its `rel:<…>` relation columns, and its `stakeholder:<role_key>` stakeholder columns.
+- **A `Relations` sheet** carrying what a relation itself holds — its attributes and its description.
+
+The two divide the work cleanly: **a card sheet says which cards are linked; the `Relations` sheet says what those links hold.** They are not alternatives, so a relation type always has a column on the card sheet, whether or not it carries attributes.
 - **A `_Meta` sheet** carrying the workbook format version. The importer reads it to detect older formats and prints a banner.
 
 ### Identifying cards (no GUIDs needed)
@@ -230,16 +232,27 @@ Because cards are identified by name + path, **two cards of the same type cannot
 
 ### Inline relation cells
 
-On every card sheet, `rel:<relation_type_key>` columns let you express outgoing relations as **semicolon-separated** target references:
+On every card sheet, `rel:<…>` columns let you express relations as **semicolon-separated** references to the cards at the other end:
 
 ```text
 rel:supports     →  NexaCore ERP; BillingApp; Salesforce
 rel:depends_on   →  Sales / Customer Mgmt / CRM
 ```
 
-Semicolons (not commas) separate targets because card names commonly contain `,` (e.g. `Acme, Inc.`). Inside a name, `/` and `\` must be escaped as `\/` and `\\` — the importer reads the cell with the same rules as `parent_path`, so a name like `SAP S/4HANA` is written as `SAP S\/4HANA`. The exporter does this for you automatically; only hand-typed cells need the escapes.
+There is **one column per side of every relation type the card type takes part in** — including relation types that carry attributes, and including relations that point *at* this type. A Business Process that *serves* an Organization shows up on the Organization sheet too, in the column for that relation type, listing the processes.
 
-Cells are **declarative**: the set of targets in the cell becomes the complete set of outgoing relations of that type from that source after import. **Removing a target from the list drops that relation**; emptying the cell drops them all. Omitting the column entirely (no `rel:supports` column at all) leaves existing relations untouched.
+A **self-referencing** relation type — one whose two ends are the same card type, such as an Organization that *has site* another Organization — is two different things depending on which end you are standing at, so it gets two columns distinguished by a suffix:
+
+```text
+rel:OrganizationToOrganization__out  →  the sites this legal entity has
+rel:OrganizationToOrganization__in   →  the legal entity this site belongs to
+```
+
+Every other relation type keeps its bare `rel:<relation_type_key>` header: which side it names is already settled by the sheet the column sits on.
+
+Semicolons (not commas) separate references because card names commonly contain `,` (e.g. `Acme, Inc.`). Inside a name, `/` and `\` must be escaped as `\/` and `\\` — the importer reads the cell with the same rules as `parent_path`, so a name like `SAP S/4HANA` is written as `SAP S\/4HANA`. The exporter does this for you automatically; only hand-typed cells need the escapes.
+
+Cells are **declarative**: the cards listed in the cell become the complete set of relations of that type on that side after import. **Removing a card from the list drops that relation**; emptying the cell drops them all. Omitting the column entirely (no `rel:supports` column at all) leaves those relations untouched — which is what lets you delete columns you don't care about before re-importing.
 
 For backwards compatibility, the importer also accepts comma-separated cells (workbooks exported before this convention). A cell containing any `;` is always treated as semicolon-separated.
 
@@ -262,14 +275,18 @@ Like relation cells, stakeholder cells are **declarative per role**: the users l
 
 ### Relations sheet
 
-For relations that carry attributes (e.g. annual cost on an `Application` → `IT Component` link), use the dedicated `Relations` sheet:
+Some relations carry data of their own — a *Usage Type* on an `Organization` → `Application` link, an annual cost on an `Application` → `IT Component` link, or a free-text description on any relation. A card-sheet cell is already a list of names and has nowhere to put them, so they live on the `Relations` sheet, one row per relation:
 
-| relation_type | source_ref | target_ref | action | attr_costTotalAnnual | description |
-|---------------|------------|------------|--------|----------------------|-------------|
-| app_to_itc    | NexaCore ERP | Oracle Database | upsert | 25000 | Production tier |
-| app_to_itc    | OldApp | DB | delete |  |  |
+| relation_type | source_ref | target_ref | action | attr_usageType | description |
+|---------------|------------|------------|--------|----------------|-------------|
+| relOrgToApp   | Sales & Marketing | Salesforce | upsert | owner | Primary tenant |
+| relOrgToApp   | EMEA Sales | Salesforce | delete |  |  |
 
-`action` defaults to `upsert`. A row with `action = delete` removes that specific relation.
+`action` defaults to `upsert`. A row with `action = delete` removes that specific relation — deleting the *row* does nothing, because membership is the card sheet's job.
+
+The sheet lists the attributes of the relation types in **this** workbook, and it is always present when the exported types have one, even if no such relation exists yet — so a relation type you have just created is there waiting to be filled in.
+
+If a card sheet and the `Relations` sheet disagree — one adds a relation the other deletes — the **removal wins**, and the preview says so.
 
 ### Importing
 
@@ -286,8 +303,10 @@ Errors block the apply. Warnings (e.g. unknown tag, format version mismatch) don
 Click **Export** in the toolbar and choose one of two options:
 
 - **Export all fields** — the full, re-importable workbook described below. The current grid filter determines the contents:
-    - **Single-type filter active** → one card sheet for that type, plus the Relations sheet for any attribute-bearing relations, plus `_Meta`.
-    - **No filter or multi-type filter** → one sheet per type present, plus the Relations sheet, plus `_Meta`. The workbook is fully editable and can be re-imported without losing per-type attributes.
+    - **Single-type filter active** → one card sheet for that type, plus the `Relations` sheet when any relation type touching it carries attributes, plus `_Meta`.
+    - **No filter or multi-type filter** → one sheet per type present, plus the `Relations` sheet, plus `_Meta`. The workbook is fully editable and can be re-imported without losing per-type attributes.
+
+    Either way the card sheet carries every relation of every card on it, in both directions — a relation whose other end is filtered out of the export is still listed, by name.
 - **Export current view** — a flat, single-sheet snapshot that mirrors exactly what's on screen: only the **visible columns**, in their current **left-to-right order**, with the displayed column headers, for the **filtered rows**. Use this to share an organized view with stakeholders. This format carries no card IDs and only the columns you chose, so it is **not suitable for re-import** — use *Export all fields* when you intend to edit and re-import. If relation columns are still loading, the export waits for them, so they can never come out blank.
 
 ### Round-trip tips
@@ -297,3 +316,4 @@ Click **Export** in the toolbar and choose one of two options:
 - New cards that reference each other (parent-child or relation source-target) work in either order — the server topologically sorts before applying.
 - **Only `name` and `type` are required to create a card.** Fields marked *required* in the metamodel (including on Provider or any other type) don't block the import — the card is still created, and any gaps are reflected in its data-quality score rather than causing a silent skip.
 - **A `/` in a card's own `name` column needs no escaping.** Escaping (`\/` for a slash, `\\` for a backslash) is only needed when you *reference* that card from a `parent_path`, `rel:<key>`, `source_ref`, or `target_ref` cell, where `/` is the path separator.
+- **The same relation can appear twice** — once on each end's sheet in a multi-type export, and again on the `Relations` sheet when it carries attributes. Editing one copy and leaving the other alone is fine and does what you would expect; only a genuine contradiction (added on one, removed on the other) is flagged, and there the removal wins.

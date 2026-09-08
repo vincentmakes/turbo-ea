@@ -3,6 +3,12 @@ import * as XLSX from "xlsx";
 import { api } from "@/api/client";
 import { fieldLabel, typeLabel } from "@/hooks/useResolveLabel";
 import i18n from "@/i18n";
+import {
+  expandSides,
+  parseSideKey,
+  sideKey,
+  type RelationSide,
+} from "@/lib/relationSort";
 import type {
   CalculatedFieldsMap,
   Card,
@@ -1276,6 +1282,33 @@ export async function validateMultiSheet(
   // correlation / dedup key once the sheets are flattened into one batch.
   let wireCounter = 0;
 
+  /**
+   * Column side key → the relation type and which end a sheet's card sits at,
+   * for one card type. `expandSides` gives a cross-type relation type one
+   * side and a self-referencing one two, and `sideKey` names them the way the
+   * exporter heads the columns.
+   *
+   * Both the ref-staging pass and the diff pass need this, and it is the same
+   * for every row of a sheet, so it is memoised per card type.
+   */
+  const sidesCache = new Map<string, Map<string, RelationSide<RelationType>>>();
+  const sidesBySheetType = (typeKey: string): Map<string, RelationSide<RelationType>> => {
+    const cached = sidesCache.get(typeKey);
+    if (cached) return cached;
+    const map = new Map<string, RelationSide<RelationType>>();
+    const sides = expandSides(relationTypes, typeKey);
+    for (const side of sides) map.set(sideKey(side.rt, side.isSource), side);
+    // Back-compat: a workbook exported before the side split writes a bare
+    // `rel:<key>` for a self-referencing type, and that always meant the
+    // outgoing half. Register that spelling too, unless a suffixed key has
+    // already claimed it.
+    for (const side of sides) {
+      if (side.isSource && !map.has(side.rt.key)) map.set(side.rt.key, side);
+    }
+    sidesCache.set(typeKey, map);
+    return map;
+  };
+
   const meta = parsed.meta;
   // Banner-trigger: a format mismatch is non-fatal — surface as a warning.
   if (meta?.formatVersion && meta.formatVersion !== "2") {
@@ -1429,13 +1462,19 @@ export async function validateMultiSheet(
         stageRef(sheetType, ownPath.map(encodePathSegment).join(" / "));
       }
       for (const col of relCols) {
-        const relTypeKey = col.slice(4);
-        const rt = relationTypes.find((r) => r.key === relTypeKey);
-        if (!rt) continue;
+        const colKey = col.slice(4);
+        // Side-aware: on an incoming column the cell names cards of the
+        // relation's SOURCE type, so staging them as targets would resolve
+        // them against the wrong type and report every one as missing.
+        const side = sidesBySheetType(sheetType).get(colKey);
+        if (!side) continue;
+        const farTypeKey = side.isSource
+          ? side.rt.target_type_key
+          : side.rt.source_type_key;
         const cellRaw = str(raw[col]);
         if (!cellRaw) continue;
         for (const part of splitRelationCell(cellRaw)) {
-          stageRef(rt.target_type_key, part);
+          stageRef(farTypeKey, part);
         }
       }
     }
@@ -1562,28 +1601,43 @@ export async function validateMultiSheet(
     return undefined;
   }
 
-  // ----- Inline `rel:<key>` columns on card sheets -------------------------
-  // Build a lookup: source card identity → set of existing relations of each type.
-  // We use this to compute deletes (cell empty → drop everything) and noops.
-  // cardId → type → target ids. Keys are normalised so a stray uppercase
+  // ----- Inline `rel:<side key>` columns on card sheets --------------------
+  // Build a lookup: card identity → the far ends it already has on each SIDE
+  // of each relation type. Used to compute deletes (a name dropped from a
+  // cell) and no-ops (a name that is already linked).
+  //
+  // Keyed per (card, side), not per (card, type): a self-referencing type has
+  // the same card type at both ends, so a per-type bucket merged the two
+  // directions and made the incoming half unrepresentable. `sideKey` /
+  // `onSide` from lib/relationSort are the same vocabulary card detail, the
+  // grid and the filter sidebar use. Ids are normalised so a stray uppercase
   // hex character in the source spreadsheet can't silently miss the diff.
-  const outgoingByCard = new Map<string, Map<string, string[]>>();
+  const farEndsByCardSide = new Map<string, Map<string, string[]>>();
   // Triple-key (type|source|target) → existing relation so the Relations
   // sheet's diff can decide whether a row is a no-op (relation already
   // exists with identical attributes/description) or a real upsert.
   const relationByTriple = new Map<string, Relation>();
+  const relTypeByKey = new Map(relationTypes.map((rt) => [rt.key, rt]));
+  const addFarEnd = (cardId: string, key: string, farId: string) => {
+    let perSide = farEndsByCardSide.get(cardId);
+    if (!perSide) {
+      perSide = new Map();
+      farEndsByCardSide.set(cardId, perSide);
+    }
+    const list = perSide.get(key) || [];
+    list.push(farId);
+    perSide.set(key, list);
+  };
   for (const rel of existingRelations) {
     const sid = normalizeId(rel.source_id);
     const tid = normalizeId(rel.target_id);
-    let perType = outgoingByCard.get(sid);
-    if (!perType) {
-      perType = new Map();
-      outgoingByCard.set(sid, perType);
-    }
-    const list = perType.get(rel.type) || [];
-    list.push(tid);
-    perType.set(rel.type, list);
     relationByTriple.set(`${rel.type}|${sid}|${tid}`, rel);
+    const rt = relTypeByKey.get(rel.type);
+    if (!rt) continue;
+    addFarEnd(sid, sideKey(rt, true), tid);
+    // A degenerate self-loop belongs to the outgoing side once, matching
+    // `onSide()`.
+    if (sid !== tid) addFarEnd(tid, sideKey(rt, false), sid);
   }
 
   for (const sheet of parsed.sheets) {
@@ -1595,16 +1649,10 @@ export async function validateMultiSheet(
     const relColumns = headers.filter((h) => h.startsWith("rel:"));
     if (relColumns.length === 0) continue;
 
-    // Map relation type key → RelationType, filtered to those with this
-    // sheet's type as source. Reject columns referring to relation types
-    // that don't match or that carry attributes (those belong on the
-    // Relations sheet).
-    const validRelTypes = new Map<string, RelationType>();
-    for (const rt of relationTypes) {
-      if (rt.source_type_key !== sheetType) continue;
-      if (rt.attributes_schema && rt.attributes_schema.length > 0) continue;
-      validRelTypes.set(rt.key, rt);
-    }
+    // Every side this card type takes part in is a valid column, in either
+    // direction, attribute-bearing types included — the card sheet owns
+    // membership for all of them now, the Relations sheet only their values.
+    const validSides = sidesBySheetType(sheetType);
 
     for (let i = 0; i < sheet.rows.length; i++) {
       const raw = sheet.rows[i];
@@ -1614,25 +1662,26 @@ export async function validateMultiSheet(
       const parentPathRaw = str(raw["parent_path"]);
       if (!name) continue;
 
-      // Locate the source. A row that this same workbook is *creating*
-      // (`fileByOwnPathKey`, which holds only creates) must source its
-      // relations from the pathKey, so the apply step resolves them to the
-      // NEW server id. Trusting the `id` column here instead would carry a
-      // stale, cross-instance UUID — the card's id from the *source* instance
-      // an export came from — which is absent in a fresh target and fails
-      // the relation insert with a foreign-key violation. The `id` column is
-      // only authoritative for cards that already exist in the target (an
-      // update / same-instance re-import), where it also enables the
-      // relation delete-diff below.
-      let sourceRef: CardRefHandle | undefined;
+      // Locate this row's own card — the relation's source on an outgoing
+      // column and its target on an incoming one. A row that this same
+      // workbook is *creating* (`fileByOwnPathKey`, which holds only creates)
+      // must reference itself by pathKey, so the apply step resolves it to
+      // the NEW server id. Trusting the `id` column here instead would carry
+      // a stale, cross-instance UUID — the card's id from the *source*
+      // instance an export came from — which is absent in a fresh target and
+      // fails the relation insert with a foreign-key violation. The `id`
+      // column is only authoritative for cards that already exist in the
+      // target (an update / same-instance re-import), where it also enables
+      // the relation delete-diff below.
+      let myRef: CardRefHandle | undefined;
       const ownPath = parentPathRaw
         ? [...decodePath(parentPathRaw), name]
         : [name];
       const ownKey = pathKey(sheetType, ownPath);
       if (fileByOwnPathKey.has(ownKey)) {
-        sourceRef = { kind: "pathKey", pathKey: ownKey, type: sheetType };
+        myRef = { kind: "pathKey", pathKey: ownKey, type: sheetType };
       } else if (idCell && UUID_RE.test(idCell)) {
-        sourceRef = { kind: "id", id: normalizeId(idCell) };
+        myRef = { kind: "id", id: normalizeId(idCell) };
       } else {
         // Fallback for rows whose `id` cell is missing / non-UUID — try
         // to resolve against existing cards via the staged name+path ref.
@@ -1644,84 +1693,99 @@ export async function validateMultiSheet(
           "row",
         );
         if (!handle) continue; // resolveRef already pushed an error
-        sourceRef = handle;
+        myRef = handle;
       }
 
       for (const col of relColumns) {
-        const relTypeKey = col.slice(4);
-        const rt = validRelTypes.get(relTypeKey);
-        if (!rt) {
+        const colKey = col.slice(4);
+        const side = validSides.get(colKey);
+        if (!side) {
+          const bare = parseSideKey(colKey);
+          const known = relTypeByKey.get(bare.key);
           warnings.push({
             row: rowNum,
             column: col,
-            message: t("import.warnings.unknownRelationType", { type: relTypeKey }),
+            // A column naming a real relation type that simply doesn't touch
+            // this sheet's card type used to report "unknown relation type",
+            // sending the reader hunting for a typo that isn't there.
+            message: known
+              ? t("import.warnings.relationTypeWrongSide", {
+                  type: bare.key,
+                  cardType: sheetType,
+                })
+              : t("import.warnings.unknownRelationType", { type: colKey }),
           });
           continue;
         }
+        const { rt, isSource } = side;
+        // The end this sheet's card is NOT at — what the cell names.
+        const farTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
         const cellRaw = str(raw[col]);
-        const targetRefs = cellRaw ? splitRelationCell(cellRaw) : [];
-        const targetHandles: CardRefHandle[] = [];
+        const farRefs = cellRaw ? splitRelationCell(cellRaw) : [];
+        const farHandles: CardRefHandle[] = [];
         let resolvedAll = true;
-        for (const tr of targetRefs) {
-          const handle = resolveRef(rt.target_type_key, tr, rowNum, sheet.sheet, col);
+        for (const fr of farRefs) {
+          const handle = resolveRef(farTypeKey, fr, rowNum, sheet.sheet, col);
           if (!handle) {
             resolvedAll = false;
             continue;
           }
-          targetHandles.push(handle);
+          farHandles.push(handle);
         }
         if (!resolvedAll) continue;
 
-        // For existing sources, compute the diff against `existingRelations`
-        // so we can emit upsert + delete ops. For new sources (pathKey),
-        // every target is an upsert.
-        if (sourceRef.kind === "id") {
-          const existingTargets = outgoingByCard.get(sourceRef.id)?.get(rt.key) || [];
-          const existingSet = new Set(existingTargets);
+        // Orient the op: on an incoming column the sheet's card is the
+        // relation's TARGET and the cell names its sources.
+        const opEnds = (far: CardRefHandle) =>
+          isSource
+            ? { sourceRef: myRef, targetRef: far }
+            : { sourceRef: far, targetRef: myRef };
+
+        // For rows that already exist, diff against `existingRelations` so we
+        // emit upserts + deletes. For rows this workbook is creating
+        // (pathKey), every far end is an upsert.
+        if (myRef.kind === "id") {
+          const existingFar = farEndsByCardSide.get(myRef.id)?.get(sideKey(rt, isSource)) || [];
+          const existingSet = new Set(existingFar);
           const newIds = new Set<string>();
-          for (const h of targetHandles) {
+          for (const h of farHandles) {
             if (h.kind === "id") newIds.add(h.id);
           }
-          // Only queue an upsert when the target isn't already in the live
-          // graph for this (source, type) — otherwise the preview's
-          // "relations to add" count would balloon to include every
-          // already-present edge, even on a no-op round-trip. Same-batch
-          // pathKey targets are never existing by definition, so they
-          // always count as a new upsert.
-          for (const h of targetHandles) {
-            const alreadyExists = h.kind === "id" && existingSet.has(h.id);
-            if (alreadyExists) continue;
+          // Only queue an upsert when the far end isn't already linked on
+          // this side — otherwise the preview's "relations to add" count
+          // would balloon to include every already-present edge, even on a
+          // no-op round-trip. Same-batch pathKey ends are never existing by
+          // definition, so they always count as a new upsert.
+          for (const h of farHandles) {
+            if (h.kind === "id" && existingSet.has(h.id)) continue;
             relationOps.push({
               rowIndex: rowNum,
               sheet: sheet.sheet,
               action: "upsert",
               relationType: rt.key,
-              sourceRef,
-              targetRef: h,
+              ...opEnds(h),
             });
           }
           // Delete relations that disappeared from the cell.
-          for (const tid of existingTargets) {
-            if (!newIds.has(tid)) {
+          for (const fid of existingFar) {
+            if (!newIds.has(fid)) {
               relationOps.push({
                 rowIndex: rowNum,
                 sheet: sheet.sheet,
                 action: "delete",
                 relationType: rt.key,
-                sourceRef,
-                targetRef: { kind: "id", id: tid },
+                ...opEnds({ kind: "id", id: fid }),
               });
             }
           }
         } else {
-          for (const h of targetHandles) {
+          for (const h of farHandles) {
             relationOps.push({
               rowIndex: rowNum,
               sheet: sheet.sheet,
               action: "upsert",
               relationType: rt.key,
-              sourceRef,
-              targetRef: h,
+              ...opEnds(h),
             });
           }
         }
@@ -1730,10 +1794,10 @@ export async function validateMultiSheet(
           rowIndex: rowNum,
           sheet: sheet.sheet,
           column: col,
-          sourceRef,
-          targetRefs,
+          sourceRef: myRef,
+          targetRefs: farRefs,
           relationType: rt.key,
-          targetTypeKey: rt.target_type_key,
+          targetTypeKey: farTypeKey,
         });
       }
     }
@@ -1869,6 +1933,69 @@ export async function validateMultiSheet(
   }
   relationOps.length = 0;
   relationOps.push(...dedupedOps);
+
+  // ----- Reconcile ops that name the same relation -------------------------
+  // A relation can now legitimately appear in more than one place: on both
+  // sides' `rel:` columns when both card types have a sheet, and again on the
+  // Relations sheet when its type carries attributes. That is only a problem
+  // when the copies disagree.
+  //
+  // In practice they rarely can: an upsert is emitted only for a far end that
+  // is NOT already linked, and a delete only for one that IS, so an untouched
+  // workbook still yields zero ops however many times it lists a relation.
+  // What is left is a genuinely contradictory hand edit — added on one side,
+  // removed on the other. Removal wins, because a delete can only come from a
+  // name someone took out, and the user is told which sheets disagreed.
+  const opTriple = (op: RelationOp): string | null => {
+    if (op.sourceRef.kind !== "id" || op.targetRef.kind !== "id") return null;
+    return `${op.relationType}|${op.sourceRef.id}|${op.targetRef.id}`;
+  };
+  const deletedTriples = new Set<string>();
+  for (const op of relationOps) {
+    if (op.action !== "delete") continue;
+    const key = opTriple(op);
+    if (key) deletedTriples.add(key);
+  }
+  const seenTriples = new Map<string, RelationOp>();
+  const reconciled: RelationOp[] = [];
+  for (const op of relationOps) {
+    const key = opTriple(op);
+    // Ops naming a card this workbook is still creating can't collide — the
+    // relation cannot already exist — so they pass through untouched.
+    if (!key) {
+      reconciled.push(op);
+      continue;
+    }
+    if (op.action === "upsert" && deletedTriples.has(key)) {
+      warnings.push({
+        row: op.rowIndex,
+        column: op.sheet,
+        message: t("import.warnings.relationOpConflict"),
+      });
+      continue;
+    }
+    const prior = seenTriples.get(key);
+    if (prior) {
+      // Same relation listed twice with the same intent. Keep one, but let a
+      // Relations-sheet upsert win over a bare inline one so its attributes
+      // and description survive the merge.
+      if (
+        op.action === "upsert" &&
+        prior.action === "upsert" &&
+        (op.attributes !== undefined || op.description !== undefined) &&
+        prior.attributes === undefined &&
+        prior.description === undefined
+      ) {
+        reconciled[reconciled.indexOf(prior)] = op;
+        seenTriples.set(key, op);
+      }
+      continue;
+    }
+    seenTriples.set(key, op);
+    reconciled.push(op);
+  }
+  relationOps.length = 0;
+  relationOps.push(...reconciled);
 
   // Hand every relation op a workbook-wide unique `wireRow` so a
   // `/relations/bulk` response can be tied back to the exact op for

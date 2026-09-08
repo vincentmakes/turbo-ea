@@ -211,7 +211,7 @@ Inventar-Exporte und -Importe nutzen eine **mehrblättrige Excel-Arbeitsmappe**,
 ### Aufbau der Arbeitsmappe
 
 - **Ein Blatt pro Kartentyp** (Application, Business Capability, IT Component, …) mit Kernspalten, `attr_<feld>`-Spalten, Lebenszyklusspalten und `rel:<beziehungstyp>`-Beziehungsspalten sowie `stakeholder:<rollen_key>`-Stakeholder-Spalten.
-- **Ein `Relations`-Blatt** für Beziehungstypen, die Attribute tragen (z. B. Kosten, Beschreibung). Einfache Beziehungen werden inline auf dem Kartenblatt abgebildet.
+- **Ein `Relations`-Blatt** mit dem, was eine Beziehung selbst trägt — ihre Attribute und ihre Beschreibung. Die Aufgabenteilung: **Das Kartenblatt sagt, welche Karten verknüpft sind; das `Relations`-Blatt sagt, was diese Verknüpfungen enthalten.** Es sind keine Alternativen — jeder Beziehungstyp hat eine Spalte auf dem Kartenblatt, ob er Attribute trägt oder nicht.
 - **Ein `_Meta`-Blatt** mit der Formatversion der Arbeitsmappe.
 
 ### Karten ohne GUIDs identifizieren
@@ -224,7 +224,7 @@ Da Karten über Name + Pfad identifiziert werden, **dürfen zwei Karten desselbe
 
 ### Inline-Beziehungszellen
 
-Auf jedem Kartenblatt drücken `rel:<beziehungstyp>`-Spalten ausgehende Beziehungen als **semikolongetrennte** Zielreferenzen aus (z. B. `NexaCore ERP; BillingApp`). Semikolons statt Kommas, weil Kartennamen häufig Kommas enthalten (etwa `Acme, Inc.`). `/` und `\` innerhalb eines Namens werden als `\/` bzw. `\\` maskiert — der Exporter erledigt das automatisch (z. B. `SAP S/4HANA` → `SAP S\/4HANA`). Zellen sind **deklarativ**: Der Inhalt ersetzt die vollständige Menge ausgehender Beziehungen dieses Typs vom Quellobjekt. Wird ein Ziel aus der Liste entfernt, wird die Beziehung gelöscht; eine leere Zelle löscht alle. Aus Kompatibilitätsgründen werden auch kommagetrennte Zellen (älteres Format) akzeptiert.
+Auf jedem Kartenblatt drücken `rel:<beziehungstyp>`-Spalten Beziehungen als **semikolongetrennte** Zielreferenzen aus (z. B. `NexaCore ERP; BillingApp`). Semikolons statt Kommas, weil Kartennamen häufig Kommas enthalten (etwa `Acme, Inc.`). `/` und `\` innerhalb eines Namens werden als `\/` bzw. `\\` maskiert — der Exporter erledigt das automatisch (z. B. `SAP S/4HANA` → `SAP S\/4HANA`). Zellen sind **deklarativ**: Der Inhalt ersetzt die vollständige Menge der Beziehungen dieses Typs auf dieser Seite. Wird ein Ziel aus der Liste entfernt, wird die Beziehung gelöscht; eine leere Zelle löscht alle. Aus Kompatibilitätsgründen werden auch kommagetrennte Zellen (älteres Format) akzeptiert. Es gibt **eine Spalte je Seite jedes Beziehungstyps**, an dem der Kartentyp beteiligt ist — auch für Beziehungstypen mit Attributen und für Beziehungen, die *auf* diesen Typ zeigen. Ein **selbstbezüglicher** Beziehungstyp (beide Enden derselbe Kartentyp, etwa eine Organisation, die *Standort hat*) ist je nach Ende etwas anderes und erhält daher zwei Spalten: `rel:<schlüssel>__out` und `rel:<schlüssel>__in`. Alle anderen Beziehungstypen behalten den bloßen Spaltenkopf `rel:<beziehungstyp>`, denn welche Seite gemeint ist, ergibt sich bereits aus dem Blatt. Das Weglassen einer Spalte lässt die betreffenden Beziehungen unberührt.
 
 ### Stakeholder-Zellen
 
@@ -236,7 +236,9 @@ Auf jedem Kartenblatt enthalten `stakeholder:<rollen_key>`-Spalten die den Stake
 
 ### `Relations`-Blatt
 
-Für Beziehungen mit Attributen (z. B. jährliche Kosten) verwenden Sie das dedizierte `Relations`-Blatt mit den Spalten `relation_type`, `source_ref`, `target_ref`, `action` (Standard `upsert`, alternativ `delete`), `attr_<feld>` und `description`.
+Manche Beziehungen tragen eigene Daten — einen *Nutzungstyp* an einer `Organization` → `Application`-Verknüpfung, jährliche Kosten an einer `Application` → `IT Component`-Verknüpfung oder eine freie Beschreibung. Eine Zelle auf dem Kartenblatt ist bereits eine Namensliste und hat dafür keinen Platz, also stehen sie auf dem `Relations`-Blatt — eine Zeile je Beziehung, mit den Spalten `relation_type`, `source_ref`, `target_ref`, `action` (Standard `upsert`, alternativ `delete`), `attr_<feld>` und `description`.
+
+Das Löschen einer *Zeile* bewirkt nichts — die Zugehörigkeit verwaltet das Kartenblatt; zum Entfernen setzen Sie `action` auf `delete`. Das Blatt führt die Attribute der Beziehungstypen **dieser** Arbeitsmappe und ist immer vorhanden, auch wenn es noch keine solche Beziehung gibt — ein gerade angelegter Beziehungstyp wartet dort also bereits zum Ausfüllen. Widersprechen sich Kartenblatt und `Relations`-Blatt, **gewinnt das Entfernen**, und die Vorschau weist darauf hin.
 
 ### Importieren
 

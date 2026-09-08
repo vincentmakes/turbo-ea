@@ -255,6 +255,8 @@
   "import.errors.unknownRelationType": "Ukendt relationstype: {{type}}",
   "import.warnings.formatVersionMismatch": "Workbook-formatversion {{version}} adskiller sig fra den aktuelle version. Nogle felter rundtursserialiserer muligvis ikke rent.",
   "import.warnings.unknownRelationType": "Ukendt relationstype «{{type}}» — kolonne ignoreret",
+  "import.warnings.relationTypeWrongSide": "Relationstypen »{{type}}« er ikke forbundet med {{cardType}} — kolonnen ignoreres",
+  "import.warnings.relationOpConflict": "Den samme relation tilføjes på ét ark og fjernes på et andet — fjernelsen vinder",
   "export.allFields": "Eksportér alle felter",
   "export.allFieldsHint": "Komplet datasæt, kan genimporteres",
   "export.currentView": "Eksportér aktuel visning",

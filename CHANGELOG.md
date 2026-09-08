@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.134.0] - 2026-09-08
+
+### Fixed
+
+- **The inventory's Excel export now knows both sides of a relation.** A relation type disappeared from the card sheet the moment you gave it a value: types carrying attributes were diverted to the separate `Relations` sheet, and that sheet was only written when relations of such a type already existed — so a relation type you had just created was absent from the workbook entirely, with nothing to fill in and re-import ([#1089](https://github.com/vincentmakes/turbo-ea/issues/1089)). Two more gaps surfaced with it: the export only ever wrote the side of a relation where the exported card type is the *source*, so a relation pointing **at** the exported type — a Business Process that serves an Organization — appeared nowhere, even though the inventory grid shows it; and a self-referencing relation type exported only its outgoing half, leaving "Site ABC belongs to Legal Entity XYZ" unreachable from the site's own row. Card sheets now carry one column per relation-type **side**, attribute-bearing types included, with the two halves of a self-referencing type distinguished by the `__out` / `__in` suffix the inventory filters already use. The `Relations` sheet becomes the place a relation's own attributes and description are edited rather than a substitute for the column, it is always present when the exported types have such a relation type, and its attribute columns are limited to the relation types actually in the workbook instead of every one defined in the instance. A relation's free-text description now survives the round trip whatever its type. Workbooks exported before this change import exactly as they did, and a relation column you delete from a sheet still means "leave these alone".
+
 ## [2.133.1] - 2026-09-07
 
 ### Fixed
