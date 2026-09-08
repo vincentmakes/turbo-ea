@@ -1446,12 +1446,16 @@ describe("relation sides in the workbook (#1089)", () => {
         { key: "costTotalAnnual", label: "Annual cost", type: "cost" } as FieldDef,
       ],
     };
-    mockBackend([], []);
+    // Export a real relation so the sheet has rows — otherwise "no foreign
+    // column" would hold simply because there is no sheet.
+    mockBackend([orgUsesApp], [app]);
     const wb = await buildExportWorkbook([legalEntity], ORG_TYPE, ALL_TYPES, [
       ...ALL_REL_TYPES,
       FOREIGN,
     ]);
-    expect(headersOf(wb, "Relations")).not.toContain("attr_costTotalAnnual");
+    const headers = headersOf(wb, "Relations");
+    expect(headers).toContain("attr_usageType");
+    expect(headers).not.toContain("attr_costTotalAnnual");
   });
 
   it("exports a relation that points AT the exported type", async () => {
