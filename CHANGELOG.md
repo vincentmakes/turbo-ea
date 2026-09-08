@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.134.0] - 2026-09-08
+
+### Fixed
+
+- **Every relation type now has a column in the inventory's Excel export, and the `Relations` sheet holds the values.** The workbook used to split relation types on whether they carried a value: a type with one lost its column on the card sheet, and the `Relations` sheet — the only place a value can be read or filled in — listed a relation only if its type *already* had values. So giving a relation type its first value made it disappear from the card sheet and gave its value nowhere to live ([#1089](https://github.com/vincentmakes/turbo-ea/issues/1089)). The rule is now the same for every relation type, cross-type or same-type, valued or not: **the card sheet says which cards are linked, the `Relations` sheet says what those links hold.**
+
+### Changed
+
+- **The `Relations` sheet only sets values — it no longer creates or removes relations, and its `action` column is gone.** Deleting a row deletes nothing, so you can trim the sheet to the rows you care about and re-import it safely; membership is edited in the `rel:` columns on the card sheets. A row naming two cards that aren't linked is reported in the preview and skipped, and you can create a relation on the card sheet and set its values on the same import in one go. Workbooks exported before this keep importing; a row carrying `action = delete` is reported rather than appearing to work.
+- **The export is now stably sorted**, so re-exporting an unchanged landscape produces an identical file and a real edit is the only thing that shows in a diff. `Relations` rows are ordered by source card, then relation type, then target; the card names inside a `rel:` cell are alphabetical. Relations pointing *at* an exported card are included on the `Relations` sheet, so an Application export can edit the Usage Type on the organizations using it — previously those rows were dropped entirely. Attribute columns are limited to the relation types actually in the workbook instead of every one defined in the instance.
+
 ## [2.133.1] - 2026-09-07
 
 ### Fixed

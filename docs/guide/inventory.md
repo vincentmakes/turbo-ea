@@ -215,7 +215,9 @@ Inventory exports and imports use a **multi-sheet Excel workbook** that round-tr
 A single export produces:
 
 - **One sheet per card type** present in the export (Application, Business Capability, IT Component, …). Each sheet carries the type's core columns, its custom `attr_<field_key>` columns, its lifecycle columns, its `rel:<relation_type_key>` relation columns, and its `stakeholder:<role_key>` stakeholder columns.
-- **A `Relations` sheet** for relation types that carry attributes (e.g. cost, description). Simple relations live inline on the card sheet; attribute-bearing relations live here.
+- **A `Relations` sheet** carrying the **values** relations hold — one row per relation whose type has values to set.
+
+The division is simple, and it has no exceptions: **a card sheet says which cards are linked; the `Relations` sheet says what those links hold.** Every relation type gets a `rel:` column on the card sheet of the type it starts from, whether or not it carries values.
 - **A `_Meta` sheet** carrying the workbook format version. The importer reads it to detect older formats and prints a banner.
 
 ### Identifying cards (no GUIDs needed)
@@ -239,7 +241,9 @@ rel:depends_on   →  Sales / Customer Mgmt / CRM
 
 Semicolons (not commas) separate targets because card names commonly contain `,` (e.g. `Acme, Inc.`). Inside a name, `/` and `\` must be escaped as `\/` and `\\` — the importer reads the cell with the same rules as `parent_path`, so a name like `SAP S/4HANA` is written as `SAP S\/4HANA`. The exporter does this for you automatically; only hand-typed cells need the escapes.
 
-Cells are **declarative**: the set of targets in the cell becomes the complete set of outgoing relations of that type from that source after import. **Removing a target from the list drops that relation**; emptying the cell drops them all. Omitting the column entirely (no `rel:supports` column at all) leaves existing relations untouched.
+There is one column per relation type that starts from the sheet's card type — **all of them**, including types that carry values. Targets are listed alphabetically, so re-exporting an unchanged landscape gives you a byte-identical file and a real edit is the only thing that shows up in a diff.
+
+Cells are **declarative**: the set of targets in the cell becomes the complete set of outgoing relations of that type from that source after import. **Removing a target from the list drops that relation**; emptying the cell drops them all. Omitting the column entirely (no `rel:supports` column at all) leaves existing relations untouched — so deleting columns you don't care about before re-importing is safe.
 
 For backwards compatibility, the importer also accepts comma-separated cells (workbooks exported before this convention). A cell containing any `;` is always treated as semicolon-separated.
 
@@ -262,14 +266,25 @@ Like relation cells, stakeholder cells are **declarative per role**: the users l
 
 ### Relations sheet
 
-For relations that carry attributes (e.g. annual cost on an `Application` → `IT Component` link), use the dedicated `Relations` sheet:
+A relation can carry values of its own — a *Usage Type* on an `Organization` → `Application` link, an annual cost on an `Application` → `IT Component` link, or a free-text description. A `rel:` cell on a card sheet is a list of card names with nowhere to put them, so those values live on the `Relations` sheet, one row per relation:
 
-| relation_type | source_ref | target_ref | action | attr_costTotalAnnual | description |
-|---------------|------------|------------|--------|----------------------|-------------|
-| app_to_itc    | NexaCore ERP | Oracle Database | upsert | 25000 | Production tier |
-| app_to_itc    | OldApp | DB | delete |  |  |
+| relation_type | source_type | source_ref | target_type | target_ref | attr_usageType | description |
+|---------------|-------------|------------|-------------|------------|----------------|-------------|
+| relOrgToApp   | Organization | EMEA Sales | Application | Salesforce | user  | |
+| relOrgToApp   | Organization | Sales & Marketing | Application | Salesforce | owner | Primary tenant |
 
-`action` defaults to `upsert`. A row with `action = delete` removes that specific relation.
+The sheet holds the relations whose type actually has values to set — the others have nothing to fill in and live entirely on the card sheets. Relations pointing *at* an exported card are included, so an Application export can still edit the *Usage Type* on the organizations using it; `source_ref` and `target_ref` say which way round each row goes. The `attr_<field>` columns are those of the relation types in this workbook, not every one defined in the instance. Rows are sorted by source card, then relation type, then target.
+
+**This sheet only sets values. It never creates or removes a relation** — that is the card sheet's job:
+
+- **Deleting a row deletes nothing.** Trim the sheet down to the rows you care about and import it; the relations you removed from the file are untouched.
+- Editing a row's values replaces what that relation holds.
+- A row naming two cards that aren't linked has no values to set, so it's reported in the preview and skipped. Link them in the `rel:` column on the card sheet — you can do both in the same import, and the relation is created with its values in one go.
+
+!!! note "Workbooks exported before this change"
+    Older workbooks carry an `action` column. It is no longer needed and is ignored; a row with `action = delete` is reported and skipped rather than appearing to work. The import banner tells you when a file predates the current format.
+
+If a card sheet and the `Relations` sheet contradict each other — a card removed from a `rel:` cell while its values row is left in place — the **removal wins**, and the import preview says so.
 
 ### Importing
 
@@ -286,8 +301,8 @@ Errors block the apply. Warnings (e.g. unknown tag, format version mismatch) don
 Click **Export** in the toolbar and choose one of two options:
 
 - **Export all fields** — the full, re-importable workbook described below. The current grid filter determines the contents:
-    - **Single-type filter active** → one card sheet for that type, plus the Relations sheet for any attribute-bearing relations, plus `_Meta`.
-    - **No filter or multi-type filter** → one sheet per type present, plus the Relations sheet, plus `_Meta`. The workbook is fully editable and can be re-imported without losing per-type attributes.
+    - **Single-type filter active** → one card sheet for that type, plus the `Relations` sheet, plus `_Meta`.
+    - **No filter or multi-type filter** → one sheet per type present, plus the `Relations` sheet, plus `_Meta`. The workbook is fully editable and can be re-imported without losing per-type attributes.
 - **Export current view** — a flat, single-sheet snapshot that mirrors exactly what's on screen: only the **visible columns**, in their current **left-to-right order**, with the displayed column headers, for the **filtered rows**. Use this to share an organized view with stakeholders. This format carries no card IDs and only the columns you chose, so it is **not suitable for re-import** — use *Export all fields* when you intend to edit and re-import. If relation columns are still loading, the export waits for them, so they can never come out blank.
 
 ### Round-trip tips
