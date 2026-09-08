@@ -215,7 +215,9 @@ Lager-eksporter og -importer bruger en **Excel-projektmappe med flere ark**, der
 En enkelt eksport producerer:
 
 - **Ét ark pr. korttype** til stede i eksporten (Application, Business Capability, IT Component, …). Hvert ark bærer typens kerne-kolonner, dets brugerdefinerede `attr_<field_key>`-kolonner, dets livscyklus-kolonner dets `rel:<relation_type_key>`-relations-kolonner og dets `stakeholder:<role_key>`-interessent-kolonner.
-- **Et `Relations`-ark**, der viser **hver relation** for de eksporterede kort, én række pr. relation. Her læses og udfyldes en relations egne værdier (`attr_<felt>`) og dens beskrivelse.
+- **Et `Relations`-ark** med de **værdier**, relationer bærer — én række pr. relation, hvis type har værdier at udfylde.
+
+Delingen er enkel og uden undtagelser: **kortarket siger, hvilke kort der er forbundet; `Relations`-arket siger, hvad de forbindelser indeholder.** Hver relationstype får en `rel:`-kolonne på kortarket for den type, den udgår fra — uanset om den bærer værdier.
 - **Et `_Meta`-ark**, der bærer projektmappens format-version. Importøren læser det for at detektere ældre formater og udskrive et banner.
 
 ### Identifikation af kort (ingen GUID'er nødvendige)
@@ -230,7 +232,7 @@ Fordi kort identificeres efter navn + sti, **kan to kort af samme type ikke dele
 
 ### Inline relations-celler
 
-På hvert kort-ark lader `rel:<relation_type_key>`-kolonner dig udtrykke udgående relationer som **semikolon-separerede** mål-referencer:
+På hvert kort-ark lader `rel:<relation_type_key>`-kolonner dig udtrykke udgående relationer som **semikolon-separerede** mål-referencer: Der er én kolonne pr. relationstype, der udgår fra arkets korttype — **alle**, også dem der bærer værdier. Mål sorteres alfabetisk, så en ny eksport af et uændret landskab giver en identisk fil.
 
 ```text
 rel:supports     →  NexaCore ERP; BillingApp; Salesforce
@@ -253,7 +255,13 @@ På hvert kort-ark bærer `stakeholder:<role_key>`-kolonner de brugere, der er t
 
 ### Relations-ark
 
-En relation kan bære sine egne værdier — en *brugstype* på en `Organization` → `Application`-forbindelse, en årlig omkostning eller en fritekstbeskrivelse. En `rel:`-celle på kortarket er allerede en navneliste og har ikke plads til dem, så de bor på `Relations`-arket med kolonnerne `relation_type`, `source_ref`, `target_ref`, `action` (standard `upsert`, alternativt `delete`), `attr_<felt>` og `description`.
+En relation kan bære sine egne værdier — en *brugstype* på en `Organization` → `Application`-forbindelse, en årlig omkostning eller en fritekstbeskrivelse. En `rel:`-celle er en navneliste uden plads til dem, så værdierne bor på `Relations`-arket, én række pr. relation, med kolonnerne `relation_type`, `source_type`, `source_ref`, `target_type`, `target_ref`, `attr_<felt>` og `description`.
+
+Arket indeholder de relationer, hvis type rent faktisk har værdier — de øvrige har intet at udfylde og bor udelukkende på kortarkene. Relationer, der peger *på* et eksporteret kort, er også med; `source_ref` og `target_ref` viser retningen. `attr_<felt>`-kolonnerne er dem fra relationstyperne i denne projektmappe. Der sorteres efter kildekort, så relationstype, så mål.
+
+**Dette ark sætter kun værdier. Det opretter og fjerner aldrig en relation** — det er kortarkets opgave: **at slette en række sletter ingenting**; at redigere dens værdier erstatter det, relationen indeholder; og en række, der nævner to kort, som ikke er forbundet, rapporteres i forhåndsvisningen og springes over — forbind dem i `rel:`-kolonnen, gerne i samme import.
+
+Ældre projektmapper har en `action`-kolonne. Den ignoreres; en række med `action = delete` rapporteres og springes over. Er kortarket og `Relations`-arket uenige, **vinder fjernelsen**.
 
 Arket viser **hver relation for de eksporterede kort**, uanset om typen bærer værdier lige nu — så en relationstype, du netop har givet en værdi, har allerede sin række der. Relationer, der peger *på* et eksporteret kort, er også med; `source_ref` og `target_ref` viser retningen. `attr_<felt>`-kolonnerne er dem fra relationstyperne i denne projektmappe, ikke alle dem, der er defineret i systemet.
 

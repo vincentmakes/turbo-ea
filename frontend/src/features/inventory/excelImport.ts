@@ -1278,7 +1278,7 @@ export async function validateMultiSheet(
 
   const meta = parsed.meta;
   // Banner-trigger: a format mismatch is non-fatal — surface as a warning.
-  if (meta?.formatVersion && meta.formatVersion !== "2") {
+  if (meta?.formatVersion && meta.formatVersion !== "3") {
     warnings.push({
       message: t("import.warnings.formatVersionMismatch", {
         version: meta.formatVersion,
@@ -1599,17 +1599,12 @@ export async function validateMultiSheet(
     // sheet's type as source. Reject columns referring to relation types
     // that don't match or that carry attributes (those belong on the
     // Relations sheet).
+    // Every relation type starting at this sheet's card type is a valid column,
+    // whether or not it carries values — membership is this sheet's job for all
+    // of them. The values themselves live on the Relations sheet.
     const validRelTypes = new Map<string, RelationType>();
-    // Relation types this sheet's card type starts, that carry values and so
-    // are edited on the Relations sheet instead. Tracked separately only so a
-    // hand-added column for one can say why it is ignored.
-    const valueBearingRelTypes = new Set<string>();
     for (const rt of relationTypes) {
       if (rt.source_type_key !== sheetType) continue;
-      if (rt.attributes_schema && rt.attributes_schema.length > 0) {
-        valueBearingRelTypes.add(rt.key);
-        continue;
-      }
       validRelTypes.set(rt.key, rt);
     }
 
@@ -1661,12 +1656,7 @@ export async function validateMultiSheet(
           warnings.push({
             row: rowNum,
             column: col,
-            // "Unknown relation type" for a type that plainly exists is what
-            // sends a reader hunting for a typo that isn't there — and a
-            // relation type carrying values is exactly the case behind #1089.
-            message: valueBearingRelTypes.has(relTypeKey)
-              ? t("import.warnings.relationTypeHasValues", { type: relTypeKey })
-              : t("import.warnings.unknownRelationType", { type: relTypeKey }),
+            message: t("import.warnings.unknownRelationType", { type: relTypeKey }),
           });
           continue;
         }
@@ -1751,7 +1741,16 @@ export async function validateMultiSheet(
     }
   }
 
-  // ----- Relations sheet --------------------------------------------------
+  // ----- Relations sheet (values only) -------------------------------------
+  // Triples the card sheets are creating in this same import, so a row setting
+  // values on a brand-new relation is accepted rather than reported missing.
+  const inlineUpsertTriples = new Set<string>();
+  for (const op of relationOps) {
+    if (op.action !== "upsert") continue;
+    if (op.sourceRef.kind !== "id" || op.targetRef.kind !== "id") continue;
+    inlineUpsertTriples.add(`${op.relationType}|${op.sourceRef.id}|${op.targetRef.id}`);
+  }
+
   if (parsed.relationRows.length > 0) {
     for (let i = 0; i < parsed.relationRows.length; i++) {
       const raw = parsed.relationRows[i];
@@ -1774,12 +1773,17 @@ export async function validateMultiSheet(
         });
         continue;
       }
-      const action = (str(raw["action"]) || "upsert").toLowerCase();
-      if (action !== "upsert" && action !== "delete") {
-        errors.push({
+      // The sheet is values-only: it sets what a relation holds and never
+      // creates or removes one. A workbook exported before that (format 2)
+      // carries an `action` column; `upsert` reads the same either way, but a
+      // `delete` row is no longer honoured and says so rather than looking
+      // like it worked.
+      const legacyAction = str(raw["action"]).toLowerCase();
+      if (legacyAction === "delete") {
+        warnings.push({
           row: rowNum,
           column: "action",
-          message: t("import.errors.invalidRelationAction", { action }),
+          message: t("import.warnings.relationActionIgnored"),
         });
         continue;
       }
@@ -1820,10 +1824,30 @@ export async function validateMultiSheet(
           attributes[f.key] = cell;
         }
       }
+      // Values-only: this row annotates a relation, it does not bring one into
+      // existence. When both ends resolve to real cards we can tell whether the
+      // relation is there — if it is not, and no card sheet is creating it in
+      // this import, say so and point at the card sheet. When an end is a card
+      // this workbook is still creating, existence is unknowable here and the
+      // row is trusted.
+      if (sourceHandle.kind === "id" && targetHandle.kind === "id") {
+        const triple = `${relType}|${sourceHandle.id}|${targetHandle.id}`;
+        if (!relationByTriple.has(triple) && !inlineUpsertTriples.has(triple)) {
+          warnings.push({
+            row: rowNum,
+            column: "relation_type",
+            message: t("import.warnings.relationRowNotLinked", {
+              source: sourceRefStr,
+              target: targetRefStr,
+            }),
+          });
+          continue;
+        }
+      }
       relationOps.push({
         rowIndex: rowNum,
         sheet: RELATIONS_SHEET_NAME,
-        action: action as "upsert" | "delete",
+        action: "upsert",
         relationType: relType,
         sourceRef: sourceHandle,
         targetRef: targetHandle,
@@ -1883,17 +1907,14 @@ export async function validateMultiSheet(
   relationOps.push(...dedupedOps);
 
   // ----- Reconcile ops naming the same relation ----------------------------
-  // The `Relations` sheet now lists every relation, so one whose type also has
-  // an inline `rel:` column appears twice in the workbook. That is almost
-  // always harmless — an inline cell emits an upsert only for a target that
-  // is NOT already linked, and a delete only for one that IS, so an untouched
-  // workbook still produces zero ops however many times it lists a relation.
+  // A relation can be created by a card sheet's `rel:` cell and given its
+  // values by a `Relations` row in the same import — two ops for one relation,
+  // which must MERGE into a single upsert carrying the values rather than race.
   //
-  // What is left is a contradictory hand edit: the card removed from the
-  // inline cell while its `Relations` row is edited rather than deleted. That
-  // would queue a `delete` and an `upsert` for the same triple and leave the
-  // outcome to apply order. Removal wins — a delete can only come from a name
-  // somebody took out — and the reader is told the two disagreed.
+  // The other case is a contradictory hand edit: the card taken out of the
+  // inline cell while its `Relations` row is left in place. Removal wins — a
+  // delete can only come from a name somebody deliberately removed — and the
+  // reader is told the two disagreed.
   const opTriple = (op: RelationOp): string | null => {
     if (op.sourceRef.kind !== "id" || op.targetRef.kind !== "id") return null;
     return `${op.relationType}|${op.sourceRef.id}|${op.targetRef.id}`;

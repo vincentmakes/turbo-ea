@@ -211,7 +211,9 @@ Le importazioni ed esportazioni dell'inventario usano una **cartella di lavoro E
 ### Struttura della cartella di lavoro
 
 - **Un foglio per ogni tipo di scheda** (Application, Business Capability, IT Component, …) con le colonne principali, le colonne `attr_<campo>`, le colonne di ciclo di vita le colonne di relazione `rel:<tipo_di_relazione>` e le colonne stakeholder `stakeholder:<chiave_ruolo>`.
-- **Un foglio `Relations`** che elenca **tutte le relazioni** delle schede esportate, una riga per relazione. È lì che si leggono e si inseriscono i valori propri di una relazione (`attr_<campo>`) e la sua descrizione.
+- **Un foglio `Relations`** con i **valori** che le relazioni portano — una riga per relazione il cui tipo ha valori da impostare.
+
+La divisione è semplice e senza eccezioni: **il foglio delle schede dice quali schede sono collegate; il foglio `Relations` dice cosa contengono quei collegamenti.** Ogni tipo di relazione ha una colonna `rel:` sul foglio del tipo da cui parte, che porti valori o meno.
 - **Un foglio `_Meta`** con la versione del formato della cartella di lavoro.
 
 ### Identificazione senza GUID
@@ -224,7 +226,7 @@ Poiché le schede sono identificate per nome + percorso, **due schede dello stes
 
 ### Celle di relazione in linea
 
-Ogni colonna `rel:<tipo_di_relazione>` esprime le relazioni in uscita come elenco **separato da punti e virgola** (per esempio `NexaCore ERP; BillingApp`). Punto e virgola invece di virgola perché i nomi delle schede contengono spesso virgole (`Acme, Inc.`). All'interno di un nome, `/` e `\` vengono fatti precedere dall'escape `\/` e `\\` — l'esportatore lo gestisce automaticamente (es. `SAP S/4HANA` → `SAP S\/4HANA`). Le celle sono **dichiarative**: il loro contenuto sostituisce l'insieme delle relazioni in uscita di quel tipo dalla sorgente. Rimuovere un target elimina la relazione corrispondente; svuotare la cella le elimina tutte. Per retrocompatibilità, anche le celle separate da virgole (formato precedente) vengono accettate.
+Ogni colonna `rel:<tipo_di_relazione>` esprime le relazioni in uscita come elenco **separato da punti e virgola** (per esempio `NexaCore ERP; BillingApp`). Punto e virgola invece di virgola perché i nomi delle schede contengono spesso virgole (`Acme, Inc.`). All'interno di un nome, `/` e `\` vengono fatti precedere dall'escape `\/` e `\\` — l'esportatore lo gestisce automaticamente (es. `SAP S/4HANA` → `SAP S\/4HANA`). Le celle sono **dichiarative**: il loro contenuto sostituisce l'insieme delle relazioni in uscita di quel tipo dalla sorgente. Rimuovere un target elimina la relazione corrispondente; svuotare la cella le elimina tutte. Per retrocompatibilità, anche le celle separate da virgole (formato precedente) vengono accettate. C'è una colonna per ogni tipo di relazione che parte dal tipo di scheda del foglio — **tutti**, compresi quelli che portano valori. Le destinazioni sono in ordine alfabetico, così riesportare un panorama invariato produce un file identico.
 
 ### Celle stakeholder
 
@@ -236,7 +238,13 @@ Su ogni foglio di schede, le colonne `stakeholder:<chiave_ruolo>` contengono gli
 
 ### Foglio `Relations`
 
-Una relazione può portare valori propri — un *tipo di utilizzo* su un collegamento `Organization` → `Application`, un costo annuo, o una descrizione libera. Una cella `rel:` del foglio delle schede è già un elenco di nomi e non ha spazio per questi valori, che vivono quindi sul foglio `Relations`, con le colonne `relation_type`, `source_ref`, `target_ref`, `action` (predefinito `upsert`, in alternativa `delete`), `attr_<campo>` e `description`.
+Una relazione può portare valori propri — un *tipo di utilizzo* su un collegamento `Organization` → `Application`, un costo annuo, o una descrizione libera. Una cella `rel:` è un elenco di nomi senza spazio per questi valori, che vivono quindi sul foglio `Relations`, una riga per relazione, con le colonne `relation_type`, `source_type`, `source_ref`, `target_type`, `target_ref`, `attr_<campo>` e `description`.
+
+Il foglio contiene le relazioni il cui tipo ha effettivamente valori — le altre non hanno nulla da compilare e vivono interamente sui fogli delle schede. Sono incluse anche le relazioni che puntano *verso* una scheda esportata; `source_ref` e `target_ref` indicano il verso. Le colonne `attr_<campo>` sono quelle dei tipi di relazione presenti in questa cartella di lavoro. L'ordinamento è per scheda di origine, poi tipo di relazione, poi destinazione.
+
+**Questo foglio imposta solo valori. Non crea né rimuove mai una relazione** — è compito del foglio delle schede: **eliminare una riga non elimina nulla**; modificarne i valori sostituisce ciò che la relazione contiene; e una riga che nomina due schede non collegate viene segnalata nell'anteprima e saltata — collegatele nella colonna `rel:`, anche nello stesso import.
+
+Le cartelle di lavoro più vecchie hanno una colonna `action`. Viene ignorata; una riga con `action = delete` viene segnalata e saltata. Se il foglio delle schede e il foglio `Relations` si contraddicono, **prevale la rimozione**.
 
 Il foglio elenca **tutte le relazioni delle schede esportate**, che il loro tipo porti o meno valori al momento — quindi un tipo di relazione a cui avete appena dato un valore ha già la sua riga. Sono incluse anche le relazioni che puntano *verso* una scheda esportata; `source_ref` e `target_ref` indicano il verso. Le colonne `attr_<campo>` sono quelle dei tipi di relazione presenti in questa cartella di lavoro, non di tutti quelli definiti nell'istanza.
 

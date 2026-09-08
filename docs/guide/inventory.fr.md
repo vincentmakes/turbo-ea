@@ -211,7 +211,9 @@ Les exports et imports d'inventaire utilisent un **classeur Excel multi-feuilles
 ### Structure du classeur
 
 - **Une feuille par type de fiche** (Application, Business Capability, IT Component, …) avec ses colonnes principales, ses `attr_<champ>`, ses colonnes de cycle de vie, ses colonnes `rel:<type_de_relation>`, et ses colonnes de parties prenantes `stakeholder:<clé_de_rôle>`.
-- **Une feuille `Relations`** listant **toutes les relations** des fiches exportées, une ligne par relation. C'est là que se lisent et se saisissent les valeurs propres à une relation (`attr_<champ>`) et sa description.
+- **Une feuille `Relations`** portant les **valeurs** que contiennent les relations — une ligne par relation dont le type a des valeurs à renseigner.
+
+La répartition est simple et sans exception : **la feuille de fiches dit quelles fiches sont liées ; la feuille `Relations` dit ce que ces liens contiennent.** Chaque type de relation a une colonne `rel:` sur la feuille de fiches du type dont il part, qu'il porte des valeurs ou non.
 - **Une feuille `_Meta`** contenant la version du format du classeur.
 
 ### Identification sans GUID
@@ -224,7 +226,7 @@ Parce que les fiches sont identifiées par nom + chemin, **deux fiches du même 
 
 ### Cellules de relation en ligne
 
-Chaque colonne `rel:<type_de_relation>` exprime les relations sortantes sous forme de cibles **séparées par des points-virgules** (par exemple `NexaCore ERP; BillingApp`). Point-virgule plutôt que virgule, car les noms de fiches contiennent souvent des virgules (`Acme, Inc.`). À l'intérieur d'un nom, `/` et `\` sont échappés en `\/` et `\\` — l'exporteur s'en charge automatiquement (par ex. `SAP S/4HANA` → `SAP S\/4HANA`). Les cellules sont **déclaratives** : leur contenu remplace l'ensemble des relations sortantes de ce type depuis la source. Retirer une cible supprime la relation correspondante ; vider la cellule les supprime toutes. Pour rétrocompatibilité, les cellules séparées par des virgules (ancien format) restent acceptées.
+Chaque colonne `rel:<type_de_relation>` exprime les relations sortantes sous forme de cibles **séparées par des points-virgules** (par exemple `NexaCore ERP; BillingApp`). Point-virgule plutôt que virgule, car les noms de fiches contiennent souvent des virgules (`Acme, Inc.`). À l'intérieur d'un nom, `/` et `\` sont échappés en `\/` et `\\` — l'exporteur s'en charge automatiquement (par ex. `SAP S/4HANA` → `SAP S\/4HANA`). Les cellules sont **déclaratives** : leur contenu remplace l'ensemble des relations sortantes de ce type depuis la source. Retirer une cible supprime la relation correspondante ; vider la cellule les supprime toutes. Pour rétrocompatibilité, les cellules séparées par des virgules (ancien format) restent acceptées. Il y a une colonne par type de relation partant du type de fiche de la feuille — **tous**, y compris ceux qui portent des valeurs. Les cibles sont triées alphabétiquement, si bien qu'un nouvel export d'une cartographie inchangée donne un fichier identique.
 
 ### Cellules de parties prenantes
 
@@ -236,7 +238,13 @@ Sur chaque feuille de fiches, les colonnes `stakeholder:<clé_de_rôle>` portent
 
 ### Feuille `Relations`
 
-Une relation peut porter ses propres valeurs — un *type d'usage* sur un lien `Organization` → `Application`, un coût annuel, ou une description libre. Une cellule `rel:` de la feuille de fiches est déjà une liste de noms et n'a pas de place pour cela : ces valeurs vivent sur la feuille `Relations`, avec les colonnes `relation_type`, `source_ref`, `target_ref`, `action` (par défaut `upsert`, sinon `delete`), `attr_<champ>` et `description`.
+Une relation peut porter ses propres valeurs — un *type d'usage* sur un lien `Organization` → `Application`, un coût annuel, ou une description libre. Une cellule `rel:` est une liste de noms sans place pour cela : ces valeurs vivent sur la feuille `Relations`, une ligne par relation, avec les colonnes `relation_type`, `source_type`, `source_ref`, `target_type`, `target_ref`, `attr_<champ>` et `description`.
+
+La feuille contient les relations dont le type a effectivement des valeurs — les autres n'ont rien à renseigner et vivent entièrement sur les feuilles de fiches. Les relations pointant *vers* une fiche exportée y figurent aussi ; `source_ref` et `target_ref` indiquent le sens. Les colonnes `attr_<champ>` sont celles des types de relation présents dans ce classeur. Le tri se fait par fiche source, puis type de relation, puis cible.
+
+**Cette feuille ne fait que renseigner des valeurs. Elle ne crée ni ne supprime jamais de relation** — c'est le rôle de la feuille de fiches : **supprimer une ligne ne supprime rien** ; modifier ses valeurs remplace ce que la relation contient ; et une ligne nommant deux fiches non liées est signalée dans l'aperçu puis ignorée — liez-les dans la colonne `rel:`, au besoin dans le même import.
+
+Les classeurs plus anciens comportent une colonne `action`. Elle est ignorée ; une ligne `action = delete` est signalée et ignorée. Si la feuille de fiches et la feuille `Relations` se contredisent, **le retrait l'emporte**.
 
 La feuille liste **toutes les relations des fiches exportées**, que leur type porte ou non des valeurs aujourd'hui — un type de relation auquel vous venez de donner une valeur y a donc déjà sa ligne. Les relations pointant *vers* une fiche exportée y figurent aussi ; `source_ref` et `target_ref` indiquent le sens. Les colonnes `attr_<champ>` sont celles des types de relation présents dans ce classeur, pas de tous ceux définis dans l'instance.
 

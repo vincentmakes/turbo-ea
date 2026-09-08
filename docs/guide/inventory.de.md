@@ -211,7 +211,9 @@ Inventar-Exporte und -Importe nutzen eine **mehrblättrige Excel-Arbeitsmappe**,
 ### Aufbau der Arbeitsmappe
 
 - **Ein Blatt pro Kartentyp** (Application, Business Capability, IT Component, …) mit Kernspalten, `attr_<feld>`-Spalten, Lebenszyklusspalten und `rel:<beziehungstyp>`-Beziehungsspalten sowie `stakeholder:<rollen_key>`-Stakeholder-Spalten.
-- **Ein `Relations`-Blatt** mit **jeder Beziehung** der exportierten Karten, eine Zeile je Beziehung. Hier werden die Werte einer Beziehung (`attr_<feld>`) und ihre Beschreibung gelesen und eingetragen.
+- **Ein `Relations`-Blatt** mit den **Werten**, die Beziehungen tragen — eine Zeile je Beziehung, deren Typ Werte besitzt.
+
+Die Aufteilung ist einfach und kennt keine Ausnahme: **Das Kartenblatt sagt, welche Karten verknüpft sind; das `Relations`-Blatt sagt, was diese Verknüpfungen enthalten.** Jeder Beziehungstyp erhält eine `rel:`-Spalte auf dem Kartenblatt seines Ausgangstyps — ob er Werte trägt oder nicht.
 - **Ein `_Meta`-Blatt** mit der Formatversion der Arbeitsmappe.
 
 ### Karten ohne GUIDs identifizieren
@@ -224,7 +226,7 @@ Da Karten über Name + Pfad identifiziert werden, **dürfen zwei Karten desselbe
 
 ### Inline-Beziehungszellen
 
-Auf jedem Kartenblatt drücken `rel:<beziehungstyp>`-Spalten ausgehende Beziehungen als **semikolongetrennte** Zielreferenzen aus (z. B. `NexaCore ERP; BillingApp`). Semikolons statt Kommas, weil Kartennamen häufig Kommas enthalten (etwa `Acme, Inc.`). `/` und `\` innerhalb eines Namens werden als `\/` bzw. `\\` maskiert — der Exporter erledigt das automatisch (z. B. `SAP S/4HANA` → `SAP S\/4HANA`). Zellen sind **deklarativ**: Der Inhalt ersetzt die vollständige Menge ausgehender Beziehungen dieses Typs vom Quellobjekt. Wird ein Ziel aus der Liste entfernt, wird die Beziehung gelöscht; eine leere Zelle löscht alle. Aus Kompatibilitätsgründen werden auch kommagetrennte Zellen (älteres Format) akzeptiert.
+Auf jedem Kartenblatt drücken `rel:<beziehungstyp>`-Spalten ausgehende Beziehungen als **semikolongetrennte** Zielreferenzen aus (z. B. `NexaCore ERP; BillingApp`). Semikolons statt Kommas, weil Kartennamen häufig Kommas enthalten (etwa `Acme, Inc.`). `/` und `\` innerhalb eines Namens werden als `\/` bzw. `\\` maskiert — der Exporter erledigt das automatisch (z. B. `SAP S/4HANA` → `SAP S\/4HANA`). Zellen sind **deklarativ**: Der Inhalt ersetzt die vollständige Menge ausgehender Beziehungen dieses Typs vom Quellobjekt. Wird ein Ziel aus der Liste entfernt, wird die Beziehung gelöscht; eine leere Zelle löscht alle. Aus Kompatibilitätsgründen werden auch kommagetrennte Zellen (älteres Format) akzeptiert. Es gibt eine Spalte je Beziehungstyp, der vom Kartentyp des Blattes ausgeht — **alle**, auch solche mit Werten. Die Ziele sind alphabetisch sortiert, sodass ein erneuter Export einer unveränderten Landschaft eine identische Datei ergibt.
 
 ### Stakeholder-Zellen
 
@@ -236,7 +238,13 @@ Auf jedem Kartenblatt enthalten `stakeholder:<rollen_key>`-Spalten die den Stake
 
 ### `Relations`-Blatt
 
-Eine Beziehung kann eigene Werte tragen — einen *Nutzungstyp* an einer `Organization` → `Application`-Verknüpfung, jährliche Kosten oder eine freie Beschreibung. Eine `rel:`-Zelle auf dem Kartenblatt ist bereits eine Namensliste und hat dafür keinen Platz, also stehen sie auf dem `Relations`-Blatt mit den Spalten `relation_type`, `source_ref`, `target_ref`, `action` (Standard `upsert`, alternativ `delete`), `attr_<feld>` und `description`.
+Eine Beziehung kann eigene Werte tragen — einen *Nutzungstyp* an einer `Organization` → `Application`-Verknüpfung, jährliche Kosten oder eine freie Beschreibung. Eine `rel:`-Zelle ist eine Namensliste ohne Platz dafür, also stehen diese Werte auf dem `Relations`-Blatt, eine Zeile je Beziehung, mit den Spalten `relation_type`, `source_type`, `source_ref`, `target_type`, `target_ref`, `attr_<feld>` und `description`.
+
+Das Blatt enthält die Beziehungen, deren Typ tatsächlich Werte besitzt — bei allen anderen gibt es nichts einzutragen, sie leben ausschließlich auf den Kartenblättern. Auch Beziehungen, die *auf* eine exportierte Karte zeigen, sind enthalten; `source_ref` und `target_ref` geben die Richtung an. Die `attr_<feld>`-Spalten sind die der Beziehungstypen dieser Arbeitsmappe. Sortiert wird nach Quellkarte, dann Beziehungstyp, dann Ziel.
+
+**Dieses Blatt setzt nur Werte. Es erzeugt und entfernt niemals eine Beziehung** — das ist Sache des Kartenblatts: Das **Löschen einer Zeile löscht nichts**; das Bearbeiten der Werte ersetzt, was die Beziehung enthält; und eine Zeile für zwei nicht verknüpfte Karten wird in der Vorschau gemeldet und übersprungen — verknüpfen Sie sie in der `rel:`-Spalte, gern im selben Import.
+
+Ältere Arbeitsmappen enthalten eine `action`-Spalte. Sie wird ignoriert; eine Zeile mit `action = delete` wird gemeldet und übersprungen. Widersprechen sich Kartenblatt und `Relations`-Blatt, **gewinnt das Entfernen**.
 
 Das Blatt listet **jede Beziehung der exportierten Karten**, unabhängig davon, ob ihr Typ derzeit Werte trägt — ein gerade mit einem Wert versehener Beziehungstyp hat dort also bereits seine Zeile. Auch Beziehungen, die *auf* eine exportierte Karte zeigen, sind enthalten; `source_ref` und `target_ref` geben die Richtung an. Die `attr_<feld>`-Spalten sind die der Beziehungstypen dieser Arbeitsmappe, nicht aller im System definierten.
 

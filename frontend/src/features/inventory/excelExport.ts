@@ -45,7 +45,11 @@ import type { Card, CardType, Relation, RelationType, StakeholderRoleOption } fr
  * escapes mirroring `parent_path`). This matches the backend's
  * `CardResolver.resolve()` matching rules.
  */
-const FORMAT_VERSION = "2";
+// 3: the `Relations` sheet became values-only — it lost its `action` column and
+// no longer creates or deletes relations. A version-2 workbook still imports;
+// the mismatch banner is what tells its author that an `action = delete` row is
+// no longer honoured.
+const FORMAT_VERSION = "3";
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
 const MAX_PATH_DEPTH = 8;
 // Card ids per `GET /relations?card_ids=` / `GET /cards?ids=` request. Keeps
@@ -323,6 +327,9 @@ function buildCardRowForType(
 
   for (const rt of inlineRelTypes) {
     const targets = outgoingByRelType.get(rt.key) || [];
+    // Alphabetical, not the backend's UUID order — so re-exporting an
+    // unchanged landscape produces an identical cell and a real edit is the
+    // only thing that shows up in a diff.
     // Semicolons (not commas) separate targets within a cell — card names
     // are free-form and commonly contain `,` (e.g. "Acme, Inc."). Read by
     // `splitRelationCell()` in `excelImport.ts`, which also accepts the
@@ -330,6 +337,7 @@ function buildCardRowForType(
     // exported before this convention.
     row[`rel:${rt.key}`] = targets
       .map((t) => buildTargetRef(t, byId, nameAmbiguity))
+      .sort((a, b) => a.localeCompare(b, i18n.language, { sensitivity: "base" }))
       .join("; ");
   }
 
@@ -465,13 +473,12 @@ export async function buildExportWorkbook(
     costKeysByType.set(t.key, set);
   }
 
-  // Card sheets carry an inline `rel:<key>` column per attribute-free relation
-  // type that starts at the sheet's card type — a cell that is just a list of
-  // names, which is why a type carrying values cannot use one.
-  const inlineRelTypes = relationTypes.filter(
-    (rt) =>
-      !rt.is_hidden && (!rt.attributes_schema || rt.attributes_schema.length === 0),
-  );
+  // One `rel:<key>` column per relation type that STARTS at the sheet's card
+  // type. That is the whole rule — no exception for types that carry values.
+  // Splitting on `attributes_schema` is what produced a sheet showing four of
+  // an Organization's five outgoing relation types and silently omitting
+  // `relOrgToApp` because it happens to carry a Usage Type.
+  const inlineRelTypes = relationTypes.filter((rt) => !rt.is_hidden);
   const relTypeByKey = new Map(relationTypes.map((rt) => [rt.key, rt]));
 
   // Attribute columns for the `Relations` sheet, scoped to relation types with
@@ -576,20 +583,20 @@ export async function buildExportWorkbook(
     XLSX.utils.book_append_sheet(wb, ws, sheetNameForType(type, takenSheetNames));
   }
 
-  // Relations sheet — EVERY relation of the exported cards, one row each.
+  // Relations sheet — what a relation HOLDS, never who is linked.
   //
-  // This sheet is the only place a relation's values can be read or filled in,
-  // and it used to list a relation only if its type ALREADY carried
-  // attributes. So the moment an admin gave a relation type its first value,
-  // there was no row anywhere to put that value on: the type had also just
-  // lost its inline card-sheet column (that column is a list of names, so a
-  // type with values cannot have one). Both halves of #1089 — "the new
-  // relation, like the relation to the application, is missing… because on
-  // both relations we have values on it".
+  // Membership is the card sheets' job, for every relation type without
+  // exception. This sheet is the annex for the values a `rel:` cell has no room
+  // for: one row per relation whose type carries an `attributes_schema`, in
+  // both directions so an Application export can still edit the Usage Type on
+  // the `Organization uses Application` relations pointing at it.
   //
-  // Listing every relation costs nothing structurally: direction is already
-  // explicit in `source_ref` / `target_ref`, and a type with no attributes
-  // simply has no `attr_*` cells to fill.
+  // It therefore has no `action` column: it cannot create a relation and it
+  // never deletes one. A row removed from the file removes nothing — a person
+  // trimming a workbook down to the rows they care about must not lose data,
+  // and the sheet has no trustworthy scope to delete within anyway (the
+  // importer's baseline is fetched per relation TYPE, instance-wide, and this
+  // sheet legitimately omits hidden types and unresolvable endpoints).
   {
     const relRows: Record<string, unknown>[] = [];
     const attrColumnSet = new Set<string>();
@@ -599,9 +606,15 @@ export async function buildExportWorkbook(
         attrColumnSet.add(`attr_${f.key}`);
       }
     }
+    const attributeRelTypeKeys = new Set(attributeRelTypes.map((r) => r.key));
+    // Sort so two exports of the same landscape are byte-identical and an edit
+    // shows up as one changed row. The backend returns relations in UUID order,
+    // concatenated per fetch chunk, which diffs against itself for nothing.
+    const sortable: { row: Record<string, unknown>; sortKey: [string, string, string] }[] = [];
     for (const rel of allRelations) {
       const rt = relTypeByKey.get(rel.type);
       if (!rt || rt.is_hidden) continue;
+      if (!attributeRelTypeKeys.has(rt.key)) continue;
       // Build endpoint handles in the same TargetHandle shape used for inline
       // relations — full card when available, otherwise the embedded ref.
       const sourceCard = byId.get(rel.source_id);
@@ -619,8 +632,11 @@ export async function buildExportWorkbook(
         targetHandle = { kind: "ref", type: rel.target.type, name: rel.target.name };
       }
       if (!sourceHandle || !targetHandle) continue;
+      const sourceName =
+        sourceHandle.kind === "card" ? sourceHandle.card.name : sourceHandle.name;
+      const targetName =
+        targetHandle.kind === "card" ? targetHandle.card.name : targetHandle.name;
       const row: Record<string, unknown> = {
-        action: "upsert",
         relation_type: rel.type,
         source_type: sourceHandle.kind === "card" ? sourceHandle.card.type : sourceHandle.type,
         source_ref: buildTargetRef(sourceHandle, byId, nameAmbiguity),
@@ -639,8 +655,17 @@ export async function buildExportWorkbook(
         const val = (rel.attributes || {})[fieldKey];
         row[colKey] = Array.isArray(val) ? val.join(", ") : (val ?? "");
       }
-      relRows.push(row);
+      sortable.push({ row, sortKey: [sourceName, rel.type, targetName] });
     }
+    const locale = i18n.language;
+    sortable.sort((a, b) => {
+      for (let i = 0; i < 3; i++) {
+        const cmp = a.sortKey[i].localeCompare(b.sortKey[i], locale, { sensitivity: "base" });
+        if (cmp !== 0) return cmp;
+      }
+      return 0;
+    });
+    for (const { row } of sortable) relRows.push(row);
     if (relRows.length > 0) {
       const ws = XLSX.utils.json_to_sheet(relRows);
       ws["!cols"] = autoSizeColumns(relRows);
