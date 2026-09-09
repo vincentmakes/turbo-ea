@@ -598,7 +598,10 @@ function relType(over: Record<string, unknown> & { key: string }) {
   };
 }
 
-const LINEAGE = relType({ key: "relAppSuccessor", built_in: true });
+// `target_mandatory` puts the required marker on the incoming ("Successors")
+// row, so `relationRowLabels` is exercised against a cell that holds more
+// than the label — the case the helper has to read past.
+const LINEAGE = relType({ key: "relAppSuccessor", built_in: true, target_mandatory: true });
 const CROSS_TYPE = relType({
   key: "relAppToItc",
   label: "uses",
@@ -627,7 +630,10 @@ function relationRowLabels() {
   // fields table above it is a different grid on the same step.
   const table = screen.getByRole("columnheader", { name: "Relationship" }).closest("table")!;
   return [...table.querySelectorAll("tbody tr")].map((tr) =>
-    tr.querySelectorAll("td")[1].textContent!.replace("*", "").trim(),
+    // The label is the cell's own text node; the mandatory marker is a sibling
+    // element (which is how the tests above query it), so read the node rather
+    // than stripping characters back out of `textContent`.
+    tr.querySelectorAll("td")[1].firstChild!.textContent!.trim(),
   );
 }
 
@@ -653,9 +659,20 @@ describe("SurveyBuilder — relations table", () => {
 
     const labels = relationRowLabels();
     expect(labels).toContain("Predecessors");
+    // Exact, not a substring: the Successors row carries the required marker as
+    // a sibling element, and the label must read back without it.
     expect(labels).toContain("Successors");
     expect(labels).not.toContain("succeeds");
     expect(labels).not.toContain("is succeeded by");
+  });
+
+  it("marks a mandatory side as required without disturbing its label", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    const row = screen.getByText("Successors").closest("tr")!;
+    expect(within(row).getByText("*")).toBeInTheDocument();
+    expect(relationRowLabels()).toContain("Successors");
   });
 
   it("keeps the verbs on an ordinary relation type, in both directions", async () => {
