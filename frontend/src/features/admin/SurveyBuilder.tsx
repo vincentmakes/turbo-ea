@@ -42,6 +42,9 @@ import {
   useOptionLabel,
   useResolveLabel,
 } from "@/hooks/useResolveLabel";
+import { useRelationDirectionLabel } from "@/hooks/useRelationDirectionLabel";
+import { useSurveyRelationFieldLabel } from "@/lib/surveyFieldLabel";
+import { sideFlags } from "@/lib/relationSort";
 import { FIELD_TYPE_OPTIONS } from "@/features/admin/metamodel/constants";
 import { isEnforcedRequiredField } from "@/features/cards/sections/cardDetailUtils";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -79,6 +82,8 @@ export default function SurveyBuilder() {
   const isInactiveExtType = (fieldType: string) =>
     fieldType.startsWith("ext.") && !extFieldTypes[fieldType];
   const relLabel = useRelationLabel();
+  const relDirLabel = useRelationDirectionLabel();
+  const surveyRelationLabel = useSurveyRelationFieldLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
   // Section names are loose strings on the schema, not entities — the low-level
@@ -139,6 +144,10 @@ export default function SurveyBuilder() {
 
   // Step 3 — Fields
   const [selectedFields, setSelectedFields] = useState<SurveyField[]>([]);
+  const selectedKeys = useMemo(
+    () => new Set(selectedFields.map((f) => f.key)),
+    [selectedFields],
+  );
   // Per-section maintain/confirm default. Only what the author explicitly chose
   // lives here; the control's displayed value is derived below.
   const [sectionActions, setSectionActions] = useState<
@@ -295,6 +304,11 @@ export default function SurveyBuilder() {
   // Relation types the surveyed card type can participate in, expanded into one
   // entry per direction (a self-referential relation yields both). Each becomes
   // a selectable survey "field" with kind === "relation".
+  //
+  // Labels come from `useRelationDirectionLabel`, so a card type's lineage
+  // relation is named the way the card page names it — Predecessors /
+  // Successors — instead of "succeeds" / "is succeeded by", whose plain reading
+  // is the inverse of the side each row actually collects (#1091).
   const allRelations = useMemo(() => {
     if (!targetTypeKey) return [];
     const relatedTypeLabel = (key: string) => {
@@ -312,33 +326,43 @@ export default function SurveyBuilder() {
     }[] = [];
     for (const rt of relationTypes) {
       if (rt.is_hidden) continue;
-      if (rt.source_type_key === targetTypeKey) {
+      // A side an admin hid on card detail is not offered here either — same
+      // `visible || mandatory` rule as `RelationsSection`. A side already
+      // carried by this survey stays listed whatever the flags now say, or
+      // reopening the draft would silently drop a field it is still collecting.
+      const offered = (key: string, isSource: boolean) => {
+        const { visible, mandatory } = sideFlags(rt, isSource);
+        return visible || mandatory || selectedKeys.has(key);
+      };
+      const outgoingKey = `rel:${rt.key}:outgoing`;
+      const incomingKey = `rel:${rt.key}:incoming`;
+      if (rt.source_type_key === targetTypeKey && offered(outgoingKey, true)) {
         entries.push({
-          key: `rel:${rt.key}:outgoing`,
+          key: outgoingKey,
           relation_type_key: rt.key,
           direction: "outgoing",
           related_type_key: rt.target_type_key,
-          label: relLabel(rt),
+          label: relDirLabel(rt, "outgoing"),
           relatedTypeLabel: relatedTypeLabel(rt.target_type_key),
           // Keyed off the generated direction, not `source_type_key === targetTypeKey`:
           // on a self-referential relation both ends match and that test is ambiguous.
           mandatory: rt.source_mandatory,
         });
       }
-      if (rt.target_type_key === targetTypeKey) {
+      if (rt.target_type_key === targetTypeKey && offered(incomingKey, false)) {
         entries.push({
-          key: `rel:${rt.key}:incoming`,
+          key: incomingKey,
           relation_type_key: rt.key,
           direction: "incoming",
           related_type_key: rt.source_type_key,
-          label: relLabel(rt, true),
+          label: relDirLabel(rt, "incoming"),
           relatedTypeLabel: relatedTypeLabel(rt.source_type_key),
           mandatory: rt.target_mandatory,
         });
       }
     }
     return entries;
-  }, [relationTypes, targetTypeKey, types, typeLabel, relLabel]);
+  }, [relationTypes, targetTypeKey, types, typeLabel, relDirLabel, selectedKeys]);
 
   // The date the window resolves to, shown to the admin before anything is
   // saved. Computed client-side by the mirror of the backend helper — no
@@ -1401,7 +1425,7 @@ export default function SurveyBuilder() {
                 {selectedFields.map((f) => (
                   <Chip
                     key={f.key}
-                    label={`${f.label} (${f.action})`}
+                    label={`${f.kind === "relation" ? surveyRelationLabel(f) : f.label} (${f.action})`}
                     size="small"
                     color={f.action === "maintain" ? "primary" : "default"}
                     variant="outlined"

@@ -1,12 +1,15 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toIsoDate } from "@/lib/dates";
 
 const navigate = vi.fn();
 // Mutable so a single test can mount the builder in edit mode (hydrating a
 // saved draft); reset it in that test's finally.
 let routeParams: Record<string, string> = {};
+// Mutable so the relations-table tests can hand the builder a metamodel; the
+// other suites want it empty, which is the default.
+let relationTypesMock: unknown[] = [];
 vi.mock("react-router", () => ({
   useNavigate: () => navigate,
   useParams: () => routeParams,
@@ -54,7 +57,7 @@ vi.mock("@/hooks/useMetamodel", () => ({
         translations: {},
       },
     ],
-    relationTypes: [],
+    relationTypes: relationTypesMock,
   }),
 }));
 
@@ -567,5 +570,190 @@ describe("SurveyBuilder — fields step layout", () => {
     // Mechanical, not visual: the last attempt put the indent on a
     // padding="checkbox" cell, which silently swallowed it.
     expect(padLeft(cellOf("TIME Model"))).toBeGreaterThan(padLeft(cellOf("Assessment")));
+  });
+});
+
+/* ── Relations table ──────────────────────────────────────────────
+ * A card type's ONE lineage relation is named the way card detail names it —
+ * Predecessors / Successors — because the verbs read the inverse of the side
+ * each row collects: the OUTGOING side (this card succeeds the others) holds
+ * the card's predecessors (#1091). Every other relation type keeps its verb.
+ */
+
+function relType(over: Record<string, unknown> & { key: string }) {
+  return {
+    label: "succeeds",
+    reverse_label: "is succeeded by",
+    source_type_key: "Application",
+    target_type_key: "Application",
+    is_hidden: false,
+    sort_order: 0,
+    built_in: false,
+    source_visible: true,
+    target_visible: true,
+    source_mandatory: false,
+    target_mandatory: false,
+    translations: {},
+    ...over,
+  };
+}
+
+const LINEAGE = relType({ key: "relAppSuccessor", built_in: true });
+const CROSS_TYPE = relType({
+  key: "relAppToItc",
+  label: "uses",
+  reverse_label: "is used by",
+  target_type_key: "ITComponent",
+});
+// Points AT Application, so it contributes only an incoming side there — which
+// is what makes it the fixture for the target-side visibility flag.
+const INCOMING = relType({
+  key: "relItcToApp",
+  label: "runs",
+  reverse_label: "runs on",
+  source_type_key: "ITComponent",
+  target_type_key: "Application",
+});
+// A second self-pair type whose key merely ends in "Successor": an ordinary
+// relation that must keep its own verbs.
+const DECOY = relType({
+  key: "relAppLegacySuccessor",
+  label: "replaces",
+  reverse_label: "is replaced by",
+});
+
+function relationRowLabels() {
+  // The relations table is the one whose header row says "Relationship" — the
+  // fields table above it is a different grid on the same step.
+  const table = screen.getByRole("columnheader", { name: "Relationship" }).closest("table")!;
+  return [...table.querySelectorAll("tbody tr")].map((tr) =>
+    tr.querySelectorAll("td")[1].textContent!.replace("*", "").trim(),
+  );
+}
+
+describe("SurveyBuilder — relations table", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    relationTypesMock = [LINEAGE, CROSS_TYPE, DECOY];
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve({ items: [] });
+      if (path.startsWith("/stakeholder-roles")) return Promise.resolve(ROLE_DEFS);
+      return Promise.resolve([]);
+    });
+    mockPost.mockResolvedValue({ id: "survey-1" });
+  });
+
+  afterEach(() => {
+    relationTypesMock = [];
+  });
+
+  it("names the lineage relation's two sides Predecessors and Successors", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    const labels = relationRowLabels();
+    expect(labels).toContain("Predecessors");
+    expect(labels).toContain("Successors");
+    expect(labels).not.toContain("succeeds");
+    expect(labels).not.toContain("is succeeded by");
+  });
+
+  it("keeps the verbs on an ordinary relation type, in both directions", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    expect(relationRowLabels()).toContain("uses");
+  });
+
+  it("keeps the verbs on a second self-pair type whose key ends in Successor", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    const labels = relationRowLabels();
+    expect(labels).toContain("replaces");
+    expect(labels).toContain("is replaced by");
+  });
+
+  it("saves the outgoing side under the Predecessors label", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    await user.click(screen.getByText("Predecessors"));
+    await user.click(screen.getByRole("button", { name: /save draft/i }));
+
+    // Stepping to Fields already wrote a draft, so this second save is a PATCH.
+    const patch = api.patch as ReturnType<typeof vi.fn>;
+    await waitFor(() => expect(patch).toHaveBeenCalled());
+    const [, body] = patch.mock.calls.at(-1)!;
+    const fields = (body as { fields: Record<string, unknown>[] }).fields;
+    expect(fields).toContainEqual(
+      expect.objectContaining({
+        key: "rel:relAppSuccessor:outgoing",
+        relation_type_key: "relAppSuccessor",
+        direction: "outgoing",
+        kind: "relation",
+        label: "Predecessors",
+      }),
+    );
+  });
+
+  it("omits a side an admin hid on the metamodel", async () => {
+    // Application sits at this type's TARGET end, so it is `target_visible`
+    // that decides whether the survey may ask about it — the same
+    // `visible || mandatory` rule card detail applies.
+    relationTypesMock = [CROSS_TYPE, relType({ ...INCOMING, target_visible: false })];
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    const labels = relationRowLabels();
+    expect(labels).toContain("uses");
+    expect(labels).not.toContain("runs on");
+  });
+
+  it("still lists a hidden side that the survey already collects", async () => {
+    // Reopening a draft must not silently drop a field it is still asking for.
+    relationTypesMock = [relType({ ...INCOMING, target_visible: false })];
+    routeParams = { id: "survey-1" };
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve({ items: [] });
+      if (path.startsWith("/stakeholder-roles")) return Promise.resolve(ROLE_DEFS);
+      if (path === "/surveys/survey-1")
+        return Promise.resolve({
+          id: "survey-1",
+          name: "Annual refresh",
+          target_type_key: "Application",
+          target_roles: ["responsible"],
+          target_filters: {},
+          status: "draft",
+          fields: [
+            {
+              key: "rel:relItcToApp:incoming",
+              section: "",
+              label: "runs on",
+              type: "relation",
+              kind: "relation",
+              relation_type_key: "relItcToApp",
+              direction: "incoming",
+              related_type_key: "ITComponent",
+              action: "maintain",
+            },
+          ],
+        });
+      return Promise.resolve([]);
+    });
+    try {
+      render(<SurveyBuilder />);
+      await waitFor(() =>
+        expect(screen.getByDisplayValue("Annual refresh")).toBeInTheDocument(),
+      );
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /next/i }));
+      await user.click(screen.getByRole("button", { name: /next/i }));
+      await waitFor(() => expect(screen.getByText("Select Relations")).toBeInTheDocument());
+
+      expect(relationRowLabels()).toContain("runs on");
+    } finally {
+      routeParams = {};
+    }
   });
 });

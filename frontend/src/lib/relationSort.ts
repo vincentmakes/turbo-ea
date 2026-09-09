@@ -96,6 +96,29 @@ export function expandSides<T extends { source_type_key: string; target_type_key
 }
 
 /**
+ * Visibility / mandatory flags for ONE side of a relation type.
+ *
+ * The side is passed in, never derived from the type: for a self-referencing
+ * type the "am I the source" test is true at both ends, which is how both
+ * directions used to collapse into one group under the forward verb and the
+ * target-side flags became unreachable.
+ */
+export function sideFlags(
+  rt: {
+    source_visible: boolean;
+    target_visible: boolean;
+    source_mandatory: boolean;
+    target_mandatory: boolean;
+  },
+  isSource: boolean,
+): { visible: boolean; mandatory: boolean } {
+  return {
+    visible: isSource ? rt.source_visible : rt.target_visible,
+    mandatory: isSource ? rt.source_mandatory : rt.target_mandatory,
+  };
+}
+
+/**
  * The key one side is filed under. A cross-type rt keeps its bare key, so
  * persisted filters, bookmarks and `rel_<key>` deep links keep resolving; a
  * self-referencing rt takes the `__out` / `__in` suffix the inventory's mass

@@ -54,7 +54,7 @@ Diseñe sus preguntas. Cada pregunta puede ser:
 
 ### Relaciones
 
-Más allá de los atributos, una encuesta también puede pedir a los encuestados que mantengan actualizadas las **relaciones** de una tarjeta. En el paso **Campos**, la sección **Relaciones** enumera todas las relaciones que puede tener el tipo de tarjeta objetivo, en ambas direcciones (por ejemplo, para una Aplicación: *admite → Componente de TI* y *usada por ← Organización*). Para cada una que elija, seleccione una acción:
+Más allá de los atributos, una encuesta también puede pedir a los encuestados que mantengan actualizadas las **relaciones** de una tarjeta. En el paso **Campos**, la sección **Relaciones** enumera todas las relaciones que puede tener el tipo de tarjeta objetivo, en ambas direcciones (por ejemplo, para una Aplicación: *admite → Componente de TI* y *usada por ← Organización*). Un tipo de tarjeta que admite linaje aporta dos filas llamadas **Predecesores** y **Sucesores**, los mismos nombres que usa la sección **Linaje** de la tarjeta, de modo que elegir *Sucesores* recopila lo que reemplazó a la tarjeta. Los lados que un administrador haya ocultado en el tipo de tarjeta no se ofrecen. Para cada una que elija, seleccione una acción:
 
 - **Mantener** — El encuestado ve las tarjetas vinculadas actualmente y puede agregar o quitar vínculos mediante un selector de búsqueda.
 - **Confirmar** — El encuestado simplemente reconoce que los vínculos actuales son correctos, o desactiva el interruptor para proponer cambios.

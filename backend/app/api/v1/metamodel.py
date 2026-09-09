@@ -35,7 +35,13 @@ from app.services.hierarchy import (
     hierarchy_level_field_def,
 )
 from app.services.permission_service import PermissionService
-from app.services.seed import DEFAULT_TYPE_COLORS
+from app.services.seed import (
+    DEFAULT_TYPE_COLORS,
+    SUCCESSOR_LABEL,
+    SUCCESSOR_REVERSE_LABEL,
+    SUCCESSOR_TRANSLATIONS,
+    _inject_english_translations_relation,
+)
 
 logger = logging.getLogger("turboea.metamodel")
 
@@ -1065,39 +1071,24 @@ async def delete_type(
 # an ordered (source, target) pair.
 SUCCESSOR_KEY_SUFFIX = "Successor"
 
-# Canonical label + i18n for an auto-provisioned successor (lineage) relation type.
-# Mirrors the seeded built-in successors (e.g. ``relAppSuccessor`` in seed.py) so a
-# relation type created when an admin enables "Supports Lineage" carries the same
-# wording/translations as the built-ins. The English label is also injected into the
-# translations dict to match the seed (see ``_inject_english_translations_relation``).
-_SUCCESSOR_LABEL = "succeeds"
-_SUCCESSOR_REVERSE_LABEL = "is preceded by"
-_SUCCESSOR_TRANSLATIONS: dict = {
-    "label": {
-        "en": _SUCCESSOR_LABEL,
-        "de": "folgt auf",
-        "fr": "succède à",
-        "es": "sucede a",
-        "it": "succede a",
-        "pt": "sucede a",
-        "zh": "继承",
-        "ru": "предшествует",
-        "da": "efterfølger",
-        "ar": "يخلف",
-    },
-    "reverse_label": {
-        "en": _SUCCESSOR_REVERSE_LABEL,
-        "de": "wird abgelöst durch",
-        "fr": "est précédé par",
-        "es": "es precedido por",
-        "it": "è preceduto da",
-        "pt": "é precedido por",
-        "zh": "被继承",
-        "ru": "следует за",
-        "da": "efterfølges af",
-        "ar": "مسبوق بـ",
-    },
-}
+# Canonical label + i18n for an auto-provisioned successor (lineage) relation
+# type, imported from the seed so the relation type created when an admin
+# enables "Supports Lineage" is byte-identical to the seeded built-ins. The
+# wording lived here as a hand-copied literal until #1091, where the reverse
+# verb ("is preceded by") turned out to mean the same as the forward one and
+# had to be corrected in seven seed entries, this module and a migration.
+# The English label is injected into the translations dict here exactly as the
+# seed does it, so `translations["label"]["en"]` shadows the raw column the
+# same way for both paths.
+_SUCCESSOR_LABEL = SUCCESSOR_LABEL
+_SUCCESSOR_REVERSE_LABEL = SUCCESSOR_REVERSE_LABEL
+_SUCCESSOR_TRANSLATIONS: dict = _inject_english_translations_relation(
+    {
+        "label": SUCCESSOR_LABEL,
+        "reverse_label": SUCCESSOR_REVERSE_LABEL,
+        "translations": copy.deepcopy(SUCCESSOR_TRANSLATIONS),
+    }
+)["translations"]
 
 
 def _sync_english_verb_translations(r: RelationType, body: dict) -> None:

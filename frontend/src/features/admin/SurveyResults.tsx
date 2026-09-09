@@ -28,6 +28,7 @@ import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useFieldLabel } from "@/hooks/useResolveLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useSurveyRelationFieldLabel } from "@/lib/surveyFieldLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import { usePageSubject } from "@/hooks/usePageTitle";
@@ -70,6 +71,7 @@ export default function SurveyResults() {
   const fieldLabel = useFieldLabel();
   const theme = useTheme();
   const { types } = useMetamodel();
+  const surveyRelationLabel = useSurveyRelationFieldLabel();
   const boolLabels = { yes: t("surveyResults.boolTrue"), no: t("surveyResults.boolFalse") };
 
   // Relation values render as colour-coded pills (by the related card type's
@@ -445,7 +447,7 @@ export default function SurveyResults() {
                       <TableRow key={field.key}>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {field.kind === "relation" ? field.label : fieldLabel(field)}
+                            {field.kind === "relation" ? surveyRelationLabel(field) : fieldLabel(field)}
                           </Typography>
                         </TableCell>
                         <TableCell>{renderCellValue(resp.current_value, field, false)}</TableCell>

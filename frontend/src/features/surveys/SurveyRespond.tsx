@@ -25,6 +25,7 @@ import {
   useFieldLabel,
 } from "@/hooks/useResolveLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useSurveyRelationFieldLabel } from "@/lib/surveyFieldLabel";
 import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -218,6 +219,7 @@ export default function SurveyRespond() {
   const fieldLabel = useFieldLabel();
   const theme = useTheme();
   const { types } = useMetamodel();
+  const surveyRelationLabel = useSurveyRelationFieldLabel();
   const { surveyId, cardId } = useParams<{ surveyId: string; cardId: string }>();
 
   // A relation field is scoped to ONE relation type, so its related cards are
@@ -545,7 +547,7 @@ export default function SurveyRespond() {
           <Card key={field.key} sx={{ mb: 2, p: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: field.kind === "relation" ? 0.5 : 1 }}>
               <Typography sx={{ fontWeight: 600, flex: 1 }}>
-                {field.kind === "relation" ? field.label : fieldLabel(field)}
+                {field.kind === "relation" ? surveyRelationLabel(field) : fieldLabel(field)}
               </Typography>
               <Chip
                 label={isMaintain ? t("surveys.respond.maintain") : t("surveys.respond.confirmLabel")}

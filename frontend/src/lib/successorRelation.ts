@@ -67,3 +67,19 @@ export function successorRelationKeys(relationTypes: RelationType[]): Set<string
   }
   return keys;
 }
+
+/**
+ * Is `rt` its own card type's ONE lineage relation?
+ *
+ * Delegates to `findSuccessorRelationType` rather than testing the key suffix,
+ * so a second self-pair type whose key happens to end in "Successor" is
+ * correctly read as an ordinary relation — the same distinction
+ * `successorRelationKeys` exists to make.
+ */
+export function isSuccessorRelationType(
+  relationTypes: RelationType[],
+  rt: RelationType,
+): boolean {
+  if (rt.source_type_key !== rt.target_type_key) return false;
+  return findSuccessorRelationType(relationTypes, rt.source_type_key)?.key === rt.key;
+}

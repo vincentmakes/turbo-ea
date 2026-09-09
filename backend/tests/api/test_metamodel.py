@@ -1244,8 +1244,15 @@ class TestSuccessorRelationType:
         assert rt["is_hidden"] is False
         assert rt["built_in"] is False
         assert rt["label"] == "succeeds"
+        # The reverse verb has to mean the opposite of the forward one — it read
+        # "is preceded by" until #1091, i.e. the same thing as "succeeds".
+        assert rt["reverse_label"] == "is succeeded by"
         assert rt["translations"]  # non-empty i18n
         assert rt["translations"]["label"].get("en") == "succeeds"
+        assert rt["translations"]["reverse_label"].get("en") == "is succeeded by"
+        # Spot-check two locales that were wrong, pinning this path to the seed.
+        assert rt["translations"]["reverse_label"].get("fr") == "a pour successeur"
+        assert rt["translations"]["label"].get("ru") == "следует за"
 
     async def test_idempotent(self, client, db, metamodel_env):
         admin = metamodel_env["admin"]

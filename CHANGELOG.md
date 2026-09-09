@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.134.1] - 2026-09-09
+
+### Fixed
+
+- **The lineage relationship now reads the right way round in both directions.** It shipped with *succeeds* one way and *is preceded by* the other — two phrases that both mean "comes after", so the relationship read the same whichever end you looked from, everywhere a relationship verb appears: the inventory's relationship columns and filters, portals, the calculation builder and the Excel export. The reverse verb is now *is succeeded by*, the Russian pair (which had the two verbs the wrong way round) is corrected, and so is the French, Spanish, Italian, Portuguese and Arabic wording. Verbs you have edited yourself are left exactly as you set them ([#1091](https://github.com/vincentmakes/turbo-ea/issues/1091)).
+- **The Survey Builder names lineage the way the card does.** Choosing a lineage relationship to survey offered two rows, *succeeds* and *is preceded by*, and the one reading *succeeds* actually collected the card's **predecessors**. They are now **Predecessors** and **Successors**, the names the card's Lineage section already uses. Surveys you have already built and sent pick up the corrected naming as well, and each respondent now sees a relationship field titled in their own language rather than the survey author's.
+- **A relationship side you hid on a card type is no longer offered in the Survey Builder** — it follows the same visibility settings as the card page. A side an existing survey already collects stays editable, so reopening a draft never silently drops a field.
+
 ## [2.134.0] - 2026-09-08
 
 ### Fixed
