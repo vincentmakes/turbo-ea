@@ -54,7 +54,7 @@ Design dine spørgsmål. Hvert spørgsmål kan være:
 
 ### Relationer
 
-Ud over attributter kan en undersøgelse også bede respondenter om at holde et korts **relationer** opdaterede. I trinnet **Felter** viser afsnittet **Relationer** alle de relationer, måltypen for kortet kan have, i begge retninger (for eksempel for en Applikation: *understøtter → IT-komponent* og *bruges af ← Organisation*). En korttype, der understøtter slægtskab, bidrager med to rækker ved navn **Forgængere** og **Efterfølgere** — de samme navne, som kortets afsnit **Slægtskab** bruger, så *Efterfølgere* opsamler det, der afløste kortet. Sider, som en administrator har skjult på korttypen, tilbydes ikke. For hver enkelt, du vælger, skal du vælge en handling:
+Ud over attributter kan en undersøgelse også bede respondenter om at holde et korts **relationer** opdaterede. I trinnet **Felter** viser afsnittet **Relationer** alle de relationer, måltypen for kortet kan have, i begge retninger (for eksempel for en Applikation: *understøtter → IT-komponent* og *bruges af ← Organisation*). En korttype, der understøtter slægtskab, vises her som enhver anden relation, i begge retninger og med sine egne udsagnsord: for en Applikation opsamler *efterfølger* de kort, den afløste, og *efterfølges af* dem, der afløser den. Sider, som en administrator har skjult på korttypen, tilbydes ikke. For hver enkelt, du vælger, skal du vælge en handling:
 
 - **Vedligehold** — Respondenten ser de aktuelt tilknyttede kort og kan tilføje eller fjerne tilknytninger via en søgevælger.
 - **Bekræft** — Respondenten bekræfter blot, at de aktuelle tilknytninger er korrekte, eller slår kontakten fra for at foreslå ændringer.

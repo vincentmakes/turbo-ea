@@ -54,7 +54,7 @@ Desenhe suas perguntas. Cada pergunta pode ser:
 
 ### Relações
 
-Além dos atributos, uma pesquisa também pode pedir aos respondentes que mantenham as **relações** de um cartão atualizadas. Na etapa **Campos**, a seção **Relações** lista todas as relações que o tipo de cartão de destino pode ter, em ambas as direções (por exemplo, para uma Aplicação: *suporta → Componente de TI* e *usada por ← Organização*). Um tipo de cartão que suporta linhagem contribui com duas linhas chamadas **Predecessores** e **Sucessores** — os mesmos nomes usados pela seção **Linhagem** do cartão, de modo que escolher *Sucessores* recolhe o que substituiu o cartão. Os lados que um administrador ocultou no tipo de cartão não são oferecidos. Para cada uma que você escolher, selecione uma ação:
+Além dos atributos, uma pesquisa também pode pedir aos respondentes que mantenham as **relações** de um cartão atualizadas. Na etapa **Campos**, a seção **Relações** lista todas as relações que o tipo de cartão de destino pode ter, em ambas as direções (por exemplo, para uma Aplicação: *suporta → Componente de TI* e *usada por ← Organização*). Um tipo de cartão que suporta linhagem aparece aqui como qualquer outra relação, em ambas as direções e sob os seus próprios verbos: para uma Aplicação, *sucede a* recolhe os cartões que substituiu e *é sucedido por* os que a substituem. Os lados que um administrador ocultou no tipo de cartão não são oferecidos. Para cada uma que você escolher, selecione uma ação:
 
 - **Manter** — O respondente vê os cartões atualmente vinculados e pode adicionar ou remover vínculos usando um seletor de busca.
 - **Confirmar** — O respondente apenas reconhece que os vínculos atuais estão corretos, ou desliga a alternância para propor alterações.

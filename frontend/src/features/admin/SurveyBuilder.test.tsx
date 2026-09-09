@@ -574,10 +574,10 @@ describe("SurveyBuilder — fields step layout", () => {
 });
 
 /* ── Relations table ──────────────────────────────────────────────
- * A card type's ONE lineage relation is named the way card detail names it —
- * Predecessors / Successors — because the verbs read the inverse of the side
- * each row collects: the OUTGOING side (this card succeeds the others) holds
- * the card's predecessors (#1091). Every other relation type keeps its verb.
+ * Every row is the relation type's verb read from the surveyed card's side —
+ * lineage included. It sits here beside ordinary relation types, so it has to
+ * read in parallel with them; the Predecessors / Successors nouns belong only
+ * to card detail's dedicated Lineage section (UI_GUIDELINES §3.13).
  */
 
 function relType(over: Record<string, unknown> & { key: string }) {
@@ -598,8 +598,8 @@ function relType(over: Record<string, unknown> & { key: string }) {
   };
 }
 
-// `target_mandatory` puts the required marker on the incoming ("Successors")
-// row, so `relationRowLabels` is exercised against a cell that holds more
+// `target_mandatory` puts the required marker on the incoming ("is succeeded
+// by") row, so `relationRowLabels` is exercised against a cell that holds more
 // than the label — the case the helper has to read past.
 const LINEAGE = relType({ key: "relAppSuccessor", built_in: true, target_mandatory: true });
 const CROSS_TYPE = relType({
@@ -653,26 +653,26 @@ describe("SurveyBuilder — relations table", () => {
     relationTypesMock = [];
   });
 
-  it("names the lineage relation's two sides Predecessors and Successors", async () => {
+  it("labels the lineage relation's two sides with its verbs, not nouns", async () => {
     const user = userEvent.setup();
     await gotoFieldsStep(user);
 
     const labels = relationRowLabels();
-    expect(labels).toContain("Predecessors");
-    // Exact, not a substring: the Successors row carries the required marker as
-    // a sibling element, and the label must read back without it.
-    expect(labels).toContain("Successors");
-    expect(labels).not.toContain("succeeds");
-    expect(labels).not.toContain("is succeeded by");
+    expect(labels).toContain("succeeds");
+    // Exact, not a substring: the incoming row carries the required marker as a
+    // sibling element, and the label must read back without it.
+    expect(labels).toContain("is succeeded by");
+    expect(labels).not.toContain("Predecessors");
+    expect(labels).not.toContain("Successors");
   });
 
   it("marks a mandatory side as required without disturbing its label", async () => {
     const user = userEvent.setup();
     await gotoFieldsStep(user);
 
-    const row = screen.getByText("Successors").closest("tr")!;
+    const row = screen.getByText("is succeeded by").closest("tr")!;
     expect(within(row).getByText("*")).toBeInTheDocument();
-    expect(relationRowLabels()).toContain("Successors");
+    expect(relationRowLabels()).toContain("is succeeded by");
   });
 
   it("keeps the verbs on an ordinary relation type, in both directions", async () => {
@@ -691,11 +691,11 @@ describe("SurveyBuilder — relations table", () => {
     expect(labels).toContain("is replaced by");
   });
 
-  it("saves the outgoing side under the Predecessors label", async () => {
+  it("saves the outgoing side under the forward verb", async () => {
     const user = userEvent.setup();
     await gotoFieldsStep(user);
 
-    await user.click(screen.getByText("Predecessors"));
+    await user.click(screen.getByText("succeeds"));
     await user.click(screen.getByRole("button", { name: /save draft/i }));
 
     // Stepping to Fields already wrote a draft, so this second save is a PATCH.
@@ -709,7 +709,7 @@ describe("SurveyBuilder — relations table", () => {
         relation_type_key: "relAppSuccessor",
         direction: "outgoing",
         kind: "relation",
-        label: "Predecessors",
+        label: "succeeds",
       }),
     );
   });

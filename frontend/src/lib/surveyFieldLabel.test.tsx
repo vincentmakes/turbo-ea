@@ -1,8 +1,9 @@
 /**
  * A relation field's label is a snapshot taken when the survey was built, in
- * the author's language — and, before #1091, with a lineage verb that read the
- * inverse of the side it collects. Resolving against the live metamodel is what
- * retro-fixes both.
+ * the author's language — and, before #1091, with a lineage verb that meant the
+ * same thing in both directions. Resolving against the live metamodel is what
+ * retro-fixes both: each reader gets their own language, and a survey saved
+ * before the verb was corrected picks the correction up.
  */
 
 import { renderHook } from "@testing-library/react";
@@ -55,16 +56,28 @@ function resolve(f: SurveyField) {
 }
 
 describe("useSurveyRelationFieldLabel", () => {
-  it("renames a lineage field's outgoing side to Predecessors", () => {
+  it("labels a lineage field with its verb, like any other relation type", () => {
+    // Not "Predecessors" / "Successors": those nouns belong to card detail's
+    // dedicated Lineage section, not to a list of relation types.
     expect(
       resolve(field({ relation_type_key: "relAppSuccessor", direction: "outgoing" })),
-    ).toBe("Predecessors");
-  });
-
-  it("renames a lineage field's incoming side to Successors", () => {
+    ).toBe("succeeds");
     expect(
       resolve(field({ relation_type_key: "relAppSuccessor", direction: "incoming" })),
-    ).toBe("Successors");
+    ).toBe("is succeeded by");
+  });
+
+  it("re-resolves a stale noun snapshot to the live verb", () => {
+    // Surveys saved while the builder wrote nouns must not keep rendering them.
+    expect(
+      resolve(
+        field({
+          relation_type_key: "relAppSuccessor",
+          direction: "outgoing",
+          label: "Predecessors",
+        }),
+      ),
+    ).toBe("succeeds");
   });
 
   it("re-resolves an ordinary relation's verb instead of the snapshot", () => {

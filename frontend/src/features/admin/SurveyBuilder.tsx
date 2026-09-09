@@ -42,7 +42,6 @@ import {
   useOptionLabel,
   useResolveLabel,
 } from "@/hooks/useResolveLabel";
-import { useRelationDirectionLabel } from "@/hooks/useRelationDirectionLabel";
 import { useSurveyRelationFieldLabel } from "@/lib/surveyFieldLabel";
 import { sideFlags } from "@/lib/relationSort";
 import { FIELD_TYPE_OPTIONS } from "@/features/admin/metamodel/constants";
@@ -82,7 +81,6 @@ export default function SurveyBuilder() {
   const isInactiveExtType = (fieldType: string) =>
     fieldType.startsWith("ext.") && !extFieldTypes[fieldType];
   const relLabel = useRelationLabel();
-  const relDirLabel = useRelationDirectionLabel();
   const surveyRelationLabel = useSurveyRelationFieldLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
@@ -305,10 +303,11 @@ export default function SurveyBuilder() {
   // entry per direction (a self-referential relation yields both). Each becomes
   // a selectable survey "field" with kind === "relation".
   //
-  // Labels come from `useRelationDirectionLabel`, so a card type's lineage
-  // relation is named the way the card page names it — Predecessors /
-  // Successors — instead of "succeeds" / "is succeeded by", whose plain reading
-  // is the inverse of the side each row actually collects (#1091).
+  // Every row is labelled with the relation type's verb, read from the surveyed
+  // card's side — including a card type's lineage relation, which sits in this
+  // list beside ordinary types and must read in parallel with them. Card
+  // detail's dedicated Lineage section is the one place the Predecessors /
+  // Successors nouns belong; see `frontend/UI_GUIDELINES.md` §3.13.
   const allRelations = useMemo(() => {
     if (!targetTypeKey) return [];
     const relatedTypeLabel = (key: string) => {
@@ -342,7 +341,7 @@ export default function SurveyBuilder() {
           relation_type_key: rt.key,
           direction: "outgoing",
           related_type_key: rt.target_type_key,
-          label: relDirLabel(rt, "outgoing"),
+          label: relLabel(rt),
           relatedTypeLabel: relatedTypeLabel(rt.target_type_key),
           // Keyed off the generated direction, not `source_type_key === targetTypeKey`:
           // on a self-referential relation both ends match and that test is ambiguous.
@@ -355,14 +354,14 @@ export default function SurveyBuilder() {
           relation_type_key: rt.key,
           direction: "incoming",
           related_type_key: rt.source_type_key,
-          label: relDirLabel(rt, "incoming"),
+          label: relLabel(rt, true),
           relatedTypeLabel: relatedTypeLabel(rt.source_type_key),
           mandatory: rt.target_mandatory,
         });
       }
     }
     return entries;
-  }, [relationTypes, targetTypeKey, types, typeLabel, relDirLabel, selectedKeys]);
+  }, [relationTypes, targetTypeKey, types, typeLabel, relLabel, selectedKeys]);
 
   // The date the window resolves to, shown to the admin before anything is
   // saved. Computed client-side by the mirror of the backend helper — no

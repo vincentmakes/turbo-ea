@@ -54,7 +54,7 @@ Design your questions. Each question can be:
 
 ### Relationships
 
-Beyond attributes, a survey can also ask respondents to keep a card's **relationships** current. In the **Fields** step, the **Relations** section lists every relationship the target card type can have, in both directions (for example, for an Application: *supports → IT Component* and *used by ← Organization*). A card type that supports lineage contributes two rows named **Predecessors** and **Successors** — the same names its **Lineage** section uses on the card, so picking *Successors* collects what replaced the card. Sides an administrator has hidden on the card type are not offered. For each one you pick, choose an action:
+Beyond attributes, a survey can also ask respondents to keep a card's **relationships** current. In the **Fields** step, the **Relations** section lists every relationship the target card type can have, in both directions (for example, for an Application: *supports → IT Component* and *used by ← Organization*). A card type that supports lineage appears here like any other relationship, in both directions and under its own verbs — for an Application, *succeeds* collects the cards it replaced and *is succeeded by* collects the ones replacing it. Sides an administrator has hidden on the card type are not offered. For each one you pick, choose an action:
 
 - **Maintain** — The respondent sees the currently linked cards and can add or remove links using a search picker.
 - **Confirm** — The respondent simply acknowledges that the current links are correct, or turns the toggle off to propose changes.

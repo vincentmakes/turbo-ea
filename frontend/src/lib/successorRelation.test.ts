@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  findSuccessorRelationType,
-  isSuccessorRelationType,
-  successorRelationKeys,
-} from "./successorRelation";
+import { findSuccessorRelationType, successorRelationKeys } from "./successorRelation";
 import type { RelationType } from "@/types";
 
 function rt(over: Partial<RelationType> & { key: string }): RelationType {
@@ -99,28 +95,5 @@ describe("successorRelationKeys", () => {
 
   it("is empty when nothing is a lineage relation", () => {
     expect(successorRelationKeys([rt({ key: "relAppDependsOn" })]).size).toBe(0);
-  });
-});
-
-describe("isSuccessorRelationType", () => {
-  it("is true for the card type's chosen lineage relation", () => {
-    const types = [rt({ key: "relAppSuccessor", built_in: true }), rt({ key: "relAppDependsOn" })];
-    expect(isSuccessorRelationType(types, types[0])).toBe(true);
-  });
-
-  it("is false for another self-pair type whose key merely ends in Successor", () => {
-    // The whole point of the module: a second self-pair type is an ordinary
-    // relation and must keep its own verbs, not be renamed to Predecessors /
-    // Successors by a key-suffix shortcut.
-    const types = [
-      rt({ key: "relAppSuccessor", built_in: true }),
-      rt({ key: "relAppLegacySuccessor" }),
-    ];
-    expect(isSuccessorRelationType(types, types[1])).toBe(false);
-  });
-
-  it("is false for a cross-type relation", () => {
-    const types = [rt({ key: "relAppToItc", target_type_key: "ITComponent" })];
-    expect(isSuccessorRelationType(types, types[0])).toBe(false);
   });
 });
