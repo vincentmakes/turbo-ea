@@ -54,6 +54,7 @@ import {
   onSide,
   orderRelationTypesByOtherEnd,
   otherEnd,
+  sideFlags,
   sideKey,
   type RelationSide,
 } from "@/lib/relationSort";
@@ -68,20 +69,6 @@ import { successorRelationKeys } from "@/lib/successorRelation";
  * identity: "A has site B" and "B has site A" are two links of one type.
  */
 type MultiLinkedMap = Map<string, { key: string; isSource: boolean; verb: string }[]>;
-
-/**
- * Visibility / mandatory flags for ONE side of a relation type. The side is
- * passed in, never derived from the type: for a self-referencing type the
- * "am I the source" test is true at both ends, which is how both directions
- * used to collapse into one group under the forward verb and the target-side
- * flags became unreachable.
- */
-function sideFlags(rt: RelationType, isSource: boolean) {
-  return {
-    visible: isSource ? rt.source_visible : rt.target_visible,
-    mandatory: isSource ? rt.source_mandatory : rt.target_mandatory,
-  };
-}
 
 /* ── Relation Attributes Popover ────────────────────────────── */
 function RelationAttrsPopover({

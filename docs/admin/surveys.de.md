@@ -54,7 +54,7 @@ Gestalten Sie Ihre Fragen. Jede Frage kann sein:
 
 ### Beziehungen
 
-Über Attribute hinaus kann eine Umfrage die Befragten auch bitten, die **Beziehungen** einer Karte aktuell zu halten. Im Schritt **Felder** listet der Abschnitt **Beziehungen** jede Beziehung auf, die der Ziel-Kartentyp haben kann, in beiden Richtungen (zum Beispiel für eine Anwendung: *unterstützt → IT-Komponente* und *genutzt von ← Organisation*). Für jede ausgewählte Beziehung wählen Sie eine Aktion:
+Über Attribute hinaus kann eine Umfrage die Befragten auch bitten, die **Beziehungen** einer Karte aktuell zu halten. Im Schritt **Felder** listet der Abschnitt **Beziehungen** jede Beziehung auf, die der Ziel-Kartentyp haben kann, in beiden Richtungen (zum Beispiel für eine Anwendung: *unterstützt → IT-Komponente* und *genutzt von ← Organisation*). Ein Kartentyp, der Abstammung unterstützt, erscheint hier wie jede andere Beziehung, in beiden Richtungen und mit seinen eigenen Verben — bei einer Anwendung erfasst *folgt auf* die abgelösten Karten und *wird abgelöst durch* die ablösenden. Seiten, die eine Administratorin oder ein Administrator am Kartentyp ausgeblendet hat, werden nicht angeboten. Für jede ausgewählte Beziehung wählen Sie eine Aktion:
 
 - **Pflegen** — Der Befragte sieht die aktuell verknüpften Karten und kann über eine Suchauswahl Verknüpfungen hinzufügen oder entfernen.
 - **Bestätigen** — Der Befragte bestätigt lediglich, dass die aktuellen Verknüpfungen korrekt sind, oder schaltet den Schalter aus, um Änderungen vorzuschlagen.

@@ -465,7 +465,7 @@ These are presentation/interaction concerns layered in the component — they do
 ✅ Do
 - Use the same view component everywhere a dependency graph is shown — consistency across Card Detail, Reports, and TurboLens is the whole point.
 - Mark proposed/uncommitted cards with the dashed border + **NEW** badge so users can distinguish them at a glance.
-- Use the relation type's `forward_label` for edges. If the relation has no label, fall back to the type key.
+- Use the relation type's `forward_label` for edges. If the relation has no label, fall back to the type key. This is §3.13's rule applied to an edge — the verb, always.
 
 ❌ Don't
 - Don't introduce a fifth layer or reorder the four. Layer identity is part of the standard.
@@ -605,6 +605,47 @@ Every user-visible string must use a translation key. See `CLAUDE.md` for the fu
 3. Add a row to the table in this doc (sec. 2).
 4. If it's a status hue, also wire it into the MUI palette in `src/theme/index.ts`.
 5. Confirm WCAG AA contrast against `#ffffff` and the dark `#1e1e1e` paper.
+
+### 3.13 Naming a Relation Type in the UI
+
+A relation type is named by its **verb**, read from the side under view —
+`useRelationLabel()` / `relationLabel(rt, locale, reverse)` (`hooks/useResolveLabel.ts`),
+with `reverse=true` when the card under view sits at the target end. That holds anywhere the
+type appears **alongside other relation types**: the inventory's filter facets and mass-edit
+picker, `RelationCellPopover` sections, card detail's Relations groups, the Survey Builder's
+relation list and the survey forms downstream of it, portals (admin and viewer), the
+calculation token catalogue, the Portfolio / Capability Map / Matrix report facets and
+legends, the diagram relation picker, and §3.10's edge labels.
+
+The reason is **parallel structure**, not taste: those lists are heterogeneous, and a verb is
+the only part of speech every relation type has. Swap one row to a noun and it reads as a
+different kind of thing than its neighbours — you cannot turn *uses* into a noun to match it.
+The model is Jira's inward/outward link labels, which our `label` / `reverse_label` pair
+mirrors exactly.
+
+**The one sanctioned exception is card detail's Lineage section**
+(`features/cards/sections/SuccessorsSection.tsx`), which heads its two sub-lists
+**Predecessors** and **Successors** (`cards:successors.*`). It earns the nouns because it is
+a *dedicated* section holding one relation type: there is nothing to be non-parallel with, the
+headings name two collections of cards rather than enumerating types, and the nouns are the
+domain vocabulary EA practitioners bring from LeanIX. Lineage is excluded from six lists so it
+cannot appear twice — card-detail Relations, Add Relations dialog, Descendant relations
+drawer, Metamodel admin Relations tab, Metamodel graph, Type detail drawer
+(`lib/successorRelation.ts`). It is **not** excluded anywhere else, which is exactly why the
+verb has to work in a mixed list.
+
+✅ Do
+- Resolve the verb per **row/side**, never from the type's static `source_type_key ===
+  cardTypeKey` test — that is true at both ends of a self-referencing type.
+- Lead with the related **card type** and use the verb as a disambiguator where the surface
+  already does (inventory facets: `Application · succeeds`).
+
+❌ Don't
+- Don't map a relation type to a noun in a list of relation types, however well the noun reads
+  on its own. A survey row labelled *Successors* beside one labelled *uses* was #1091's
+  second-guess fix and was reverted for this reason.
+- Don't invent a second name for a relation type in one surface. If a verb reads badly, fix it
+  in the metamodel — the verb is admin-editable and there is one definition.
 
 ---
 

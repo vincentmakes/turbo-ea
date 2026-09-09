@@ -4038,6 +4038,71 @@ def _mark_builtin_attributes_schema(schema: list[dict]) -> list[dict]:
     return out
 
 
+# ── Lineage (successor) relation types ─────────────────────────────────
+# One self-referencing relation type per card type that supports lineage. The
+# direction convention is **source succeeds target**: in a row (A, X), A comes
+# AFTER X — which is why card detail lists X's *Successors* as the rows where X
+# is the target (`SuccessorsSection.tsx`).
+#
+# The reverse verb therefore has to read "is succeeded by". It used to read
+# "is preceded by", which means the same thing as "succeeds" — so both
+# directions read identically wherever a relation verb is shown, and the survey
+# builder offered two rows nobody could tell apart (#1091).
+#
+# These constants are the ONE definition: the seven entries in `RELATIONS`
+# below are built from them, and `app/api/v1/metamodel.py` imports them for the
+# relation type it auto-provisions when an admin enables "Supports Lineage".
+# Seven hand-copied literals is how the wrong verb survived in seven places.
+SUCCESSOR_LABEL = "succeeds"
+SUCCESSOR_REVERSE_LABEL = "is succeeded by"
+# No "en" entry here on purpose — `_inject_english_translations_relation` is the
+# single place English is stamped into a relation type's translations.
+SUCCESSOR_TRANSLATIONS: dict = {
+    "label": {
+        "de": "folgt auf",
+        "fr": "succède à",
+        "es": "sucede a",
+        "it": "succede a",
+        "pt": "sucede a",
+        "zh": "继承",
+        "ru": "следует за",
+        "da": "efterfølger",
+        "ar": "يخلف",
+    },
+    "reverse_label": {
+        "de": "wird abgelöst durch",
+        "fr": "a pour successeur",
+        "es": "es sucedido por",
+        "it": "ha come successore",
+        "pt": "é sucedido por",
+        "zh": "被继承",
+        "ru": "предшествует",
+        "da": "efterfølges af",
+        "ar": "يُخلَف بواسطة",
+    },
+}
+
+
+def _successor_relation(key: str, type_key: str, sort_order: int) -> dict:
+    """One card type's lineage relation type.
+
+    ``translations`` is deep-copied per entry because
+    ``_inject_english_translations_relation`` mutates it IN PLACE at seed time
+    and ``seed_metamodel`` assigns the very same dict onto the row — a shared
+    object would be corrupted process-wide.
+    """
+    return {
+        "key": key,
+        "label": SUCCESSOR_LABEL,
+        "reverse_label": SUCCESSOR_REVERSE_LABEL,
+        "source_type_key": type_key,
+        "target_type_key": type_key,
+        "cardinality": "n:m",
+        "sort_order": sort_order,
+        "translations": copy.deepcopy(SUCCESSOR_TRANSLATIONS),
+    }
+
+
 RELATIONS = [
     # Strategy & Transformation connections
     {
@@ -5356,237 +5421,14 @@ RELATIONS = [
         },
     },
     # ── Successor / Predecessor (self-referencing, per card type) ───
-    {
-        "key": "relAppSuccessor",
-        "label": "succeeds",
-        "reverse_label": "is preceded by",
-        "source_type_key": "Application",
-        "target_type_key": "Application",
-        "cardinality": "n:m",
-        "sort_order": 40,
-        "translations": {
-            "label": {
-                "de": "folgt auf",
-                "fr": "succède à",
-                "es": "sucede a",
-                "it": "succede a",
-                "pt": "sucede a",
-                "zh": "继承",
-                "ru": "предшествует",
-                "da": "efterfølger",
-                "ar": "يخلف",
-            },
-            "reverse_label": {
-                "de": "wird abgelöst durch",
-                "fr": "est précédé par",
-                "es": "es precedido por",
-                "it": "è preceduto da",
-                "pt": "é precedido por",
-                "zh": "被继承",
-                "ru": "следует за",
-                "da": "efterfølges af",
-                "ar": "مسبوق بـ",
-            },
-        },
-    },
-    {
-        "key": "relITCSuccessor",
-        "label": "succeeds",
-        "reverse_label": "is preceded by",
-        "source_type_key": "ITComponent",
-        "target_type_key": "ITComponent",
-        "cardinality": "n:m",
-        "sort_order": 41,
-        "translations": {
-            "label": {
-                "de": "folgt auf",
-                "fr": "succède à",
-                "es": "sucede a",
-                "it": "succede a",
-                "pt": "sucede a",
-                "zh": "继承",
-                "ru": "предшествует",
-                "da": "efterfølger",
-                "ar": "يخلف",
-            },
-            "reverse_label": {
-                "de": "wird abgelöst durch",
-                "fr": "est précédé par",
-                "es": "es precedido por",
-                "it": "è preceduto da",
-                "pt": "é precedido por",
-                "zh": "被继承",
-                "ru": "следует за",
-                "da": "efterfølges af",
-                "ar": "مسبوق بـ",
-            },
-        },
-    },
-    {
-        "key": "relInitiativeSuccessor",
-        "label": "succeeds",
-        "reverse_label": "is preceded by",
-        "source_type_key": "Initiative",
-        "target_type_key": "Initiative",
-        "cardinality": "n:m",
-        "sort_order": 42,
-        "translations": {
-            "label": {
-                "de": "folgt auf",
-                "fr": "succède à",
-                "es": "sucede a",
-                "it": "succede a",
-                "pt": "sucede a",
-                "zh": "继承",
-                "ru": "предшествует",
-                "da": "efterfølger",
-                "ar": "يخلف",
-            },
-            "reverse_label": {
-                "de": "wird abgelöst durch",
-                "fr": "est précédé par",
-                "es": "es precedido por",
-                "it": "è preceduto da",
-                "pt": "é precedido por",
-                "zh": "被继承",
-                "ru": "следует за",
-                "da": "efterfølges af",
-                "ar": "مسبوق بـ",
-            },
-        },
-    },
-    {
-        "key": "relPlatformSuccessor",
-        "label": "succeeds",
-        "reverse_label": "is preceded by",
-        "source_type_key": "Platform",
-        "target_type_key": "Platform",
-        "cardinality": "n:m",
-        "sort_order": 43,
-        "translations": {
-            "label": {
-                "de": "folgt auf",
-                "fr": "succède à",
-                "es": "sucede a",
-                "it": "succede a",
-                "pt": "sucede a",
-                "zh": "继承",
-                "ru": "предшествует",
-                "da": "efterfølger",
-                "ar": "يخلف",
-            },
-            "reverse_label": {
-                "de": "wird abgelöst durch",
-                "fr": "est précédé par",
-                "es": "es precedido por",
-                "it": "è preceduto da",
-                "pt": "é precedido por",
-                "zh": "被继承",
-                "ru": "следует за",
-                "da": "efterfølges af",
-                "ar": "مسبوق بـ",
-            },
-        },
-    },
-    {
-        "key": "relProcessSuccessor",
-        "label": "succeeds",
-        "reverse_label": "is preceded by",
-        "source_type_key": "BusinessProcess",
-        "target_type_key": "BusinessProcess",
-        "cardinality": "n:m",
-        "sort_order": 44,
-        "translations": {
-            "label": {
-                "de": "folgt auf",
-                "fr": "succède à",
-                "es": "sucede a",
-                "it": "succede a",
-                "pt": "sucede a",
-                "zh": "继承",
-                "ru": "предшествует",
-                "da": "efterfølger",
-                "ar": "يخلف",
-            },
-            "reverse_label": {
-                "de": "wird abgelöst durch",
-                "fr": "est précédé par",
-                "es": "es precedido por",
-                "it": "è preceduto da",
-                "pt": "é precedido por",
-                "zh": "被继承",
-                "ru": "следует за",
-                "da": "efterfølges af",
-                "ar": "مسبوق بـ",
-            },
-        },
-    },
-    {
-        "key": "relInterfaceSuccessor",
-        "label": "succeeds",
-        "reverse_label": "is preceded by",
-        "source_type_key": "Interface",
-        "target_type_key": "Interface",
-        "cardinality": "n:m",
-        "sort_order": 45,
-        "translations": {
-            "label": {
-                "de": "folgt auf",
-                "fr": "succède à",
-                "es": "sucede a",
-                "it": "succede a",
-                "pt": "sucede a",
-                "zh": "继承",
-                "ru": "предшествует",
-                "da": "efterfølger",
-                "ar": "يخلف",
-            },
-            "reverse_label": {
-                "de": "wird abgelöst durch",
-                "fr": "est précédé par",
-                "es": "es precedido por",
-                "it": "è preceduto da",
-                "pt": "é precedido por",
-                "zh": "被继承",
-                "ru": "следует за",
-                "da": "efterfølges af",
-                "ar": "مسبوق بـ",
-            },
-        },
-    },
-    {
-        "key": "relDataObjectSuccessor",
-        "label": "succeeds",
-        "reverse_label": "is preceded by",
-        "source_type_key": "DataObject",
-        "target_type_key": "DataObject",
-        "cardinality": "n:m",
-        "sort_order": 46,
-        "translations": {
-            "label": {
-                "de": "folgt auf",
-                "fr": "succède à",
-                "es": "sucede a",
-                "it": "succede a",
-                "pt": "sucede a",
-                "zh": "继承",
-                "ru": "предшествует",
-                "da": "efterfølger",
-                "ar": "يخلف",
-            },
-            "reverse_label": {
-                "de": "wird abgelöst durch",
-                "fr": "est précédé par",
-                "es": "es precedido por",
-                "it": "è preceduto da",
-                "pt": "é precedido por",
-                "zh": "被继承",
-                "ru": "следует за",
-                "da": "efterfølges af",
-                "ar": "مسبوق بـ",
-            },
-        },
-    },
+    # Built by ``_successor_relation`` — see the constants above ``RELATIONS``.
+    _successor_relation("relAppSuccessor", "Application", 40),
+    _successor_relation("relITCSuccessor", "ITComponent", 41),
+    _successor_relation("relInitiativeSuccessor", "Initiative", 42),
+    _successor_relation("relPlatformSuccessor", "Platform", 43),
+    _successor_relation("relProcessSuccessor", "BusinessProcess", 44),
+    _successor_relation("relInterfaceSuccessor", "Interface", 45),
+    _successor_relation("relDataObjectSuccessor", "DataObject", 46),
 ]
 
 

@@ -54,7 +54,7 @@ Progettate le vostre domande. Ogni domanda può essere:
 
 ### Relazioni
 
-Oltre agli attributi, un'indagine può anche chiedere ai rispondenti di mantenere aggiornate le **relazioni** di una scheda. Nel passaggio **Campi**, la sezione **Relazioni** elenca ogni relazione che il tipo di scheda di destinazione può avere, in entrambe le direzioni (ad esempio, per un'Applicazione: *supporta → Componente IT* e *utilizzata da ← Organizzazione*). Per ciascuna selezionata, scegli un'azione:
+Oltre agli attributi, un'indagine può anche chiedere ai rispondenti di mantenere aggiornate le **relazioni** di una scheda. Nel passaggio **Campi**, la sezione **Relazioni** elenca ogni relazione che il tipo di scheda di destinazione può avere, in entrambe le direzioni (ad esempio, per un'Applicazione: *supporta → Componente IT* e *utilizzata da ← Organizzazione*). Un tipo di scheda che supporta il lignaggio compare qui come qualsiasi altra relazione, in entrambe le direzioni e con i propri verbi: per un'Applicazione, *succede a* raccoglie le schede che ha sostituito e *ha come successore* quelle che la sostituiscono. I lati che un amministratore ha nascosto sul tipo di scheda non vengono proposti. Per ciascuna selezionata, scegli un'azione:
 
 - **Mantieni** — Il rispondente vede le schede attualmente collegate e può aggiungere o rimuovere collegamenti tramite un selettore di ricerca.
 - **Conferma** — Il rispondente si limita a confermare che i collegamenti attuali sono corretti, oppure disattiva l'interruttore per proporre modifiche.
