@@ -20,6 +20,7 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { fetchCardsByIds } from "@/api/cardsByIds";
 import InsertCardsDialog from "./InsertCardsDialog";
 import type { PickedCard } from "@/components/CardMultiPicker";
 import CreateOnDiagramDialog from "./CreateOnDiagramDialog";
@@ -3319,15 +3320,9 @@ export default function DiagramEditor() {
 
   const refreshCardDisplay = useCallback(
     async (frame: HTMLIFrameElement, ids: string[], wantLabels: boolean) => {
-      const params = new URLSearchParams({ ids: ids.join(",") });
-      const resp = await api.get<{ items: Card[] }>(
-        `/cards?${params.toString()}`,
-      );
-      applyCardLabels(
-        frame,
-        wantLabels ? buildLinesByCardId(resp.items) : new Map(),
-      );
-      applyLogosFromCards(frame, resp.items);
+      const items = await fetchCardsByIds(ids);
+      applyCardLabels(frame, wantLabels ? buildLinesByCardId(items) : new Map());
+      applyLogosFromCards(frame, items);
     },
     [buildLinesByCardId, applyLogosFromCards],
   );
@@ -3346,10 +3341,11 @@ export default function DiagramEditor() {
     setActiveTypeKeys(Array.from(snapshot.types));
   }, [collectCanvasCards]);
 
-  /** Recompute and apply the active view to the canvas. Pulls a batch
-   *  card payload via /cards?ids=... so a single round-trip recolors
-   *  every cell AND re-renders its detail lines — deliberately one fetch,
-   *  not two, since both need the same full card records. */
+  /** Recompute and apply the active view to the canvas. Pulls one batched
+   *  card payload (`fetchCardsByIds`, chunked so a big canvas cannot exceed
+   *  the proxy's request-line limit — #1093) that both recolors every cell
+   *  AND re-renders its detail lines — deliberately one fetch, not two,
+   *  since both need the same full card records. */
   const applyView = useCallback(async () => {
     const frame = iframeRef.current;
     if (!frame) return;
@@ -3398,17 +3394,13 @@ export default function DiagramEditor() {
 
     try {
       await viewReq.run(async ({ signal, isCurrent }) => {
-        const params = new URLSearchParams({ ids: snapshot.ids.join(",") });
-        const resp = await api.get<{ items: Card[] }>(
-          `/cards?${params.toString()}`,
-          { signal },
-        );
+        const items = await fetchCardsByIds(snapshot.ids, { signal });
         // Nothing above this line touched the graph. A rejected fetch must not
         // leave the canvas half-reset while the toolbar advertises new rules —
         // and the 5s autosave would snapshot exactly that.
         if (!isCurrent()) return;
 
-        const cardById = new Map(resp.items.map((c) => [c.id, c] as const));
+        const cardById = new Map(items.map((c) => [c.id, c] as const));
         const colorByCardId = new Map<string, string>();
         const seenKeys = new Set<string>();
         let coloured = 0;
@@ -3426,8 +3418,8 @@ export default function DiagramEditor() {
 
         if (!isCurrent()) return;
         const { painted } = applyViewToGraph(frame, colorByCardId, restore);
-        applyCardLabels(frame, buildLinesByCardId(resp.items));
-        applyLogosFromCards(frame, resp.items);
+        applyCardLabels(frame, buildLinesByCardId(items));
+        applyLogosFromCards(frame, items);
 
         // One legend section per rule. The "no value" swatch only appears where
         // a card on this canvas actually has no value — a permanent grey swatch

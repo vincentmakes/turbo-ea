@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.134.2] - 2026-09-10
+
+### Fixed
+
+- **A diagram with more than about two hundred cards opens again in the read-only viewer instead of saying "Diagram not found".** The viewer asked for every card on the canvas in a single request whose address grew with the diagram, and the bundled reverse proxy refuses an address over 8 KB — which the viewer then reported as a missing diagram, even though the diagram itself had loaded fine and the editor showed it. The lookup (which only decorates the canvas with card logos) is now made in batches, and if it still fails the diagram is shown exactly as stored, without its logos, rather than not at all. The editor made the same single request when applying a view; on a large diagram that silently dropped logos, detail rows and perspective colours and reported that the view could not be applied — it is batched the same way ([#1093](https://github.com/vincentmakes/turbo-ea/issues/1093)).
+
 ## [2.134.1] - 2026-09-09
 
 ### Fixed
