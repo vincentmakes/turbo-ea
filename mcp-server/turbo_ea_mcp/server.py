@@ -24,7 +24,7 @@ from starlette.applications import Starlette
 from starlette.routing import Route
 
 from turbo_ea_mcp import oauth
-from turbo_ea_mcp.api_client import TurboEAClient
+from turbo_ea_mcp.api_client import CARD_IDS_CHUNK, TurboEAClient, chunked
 from turbo_ea_mcp.batches import mutation_batch
 from turbo_ea_mcp.config import (
     APP_VERSION,
@@ -1899,7 +1899,9 @@ def _logo_validation_problem(index: int, item: object, exc: ValidationError) -> 
 async def _check_logo_types(token: str, prepared: list[dict]) -> tuple[dict, list[dict], list[dict]]:
     """Settle the per-type 'custom logos' switch during the preview.
 
-    Two batched requests for the whole call, never one per row. Degrades
+    Batched requests for the whole call, never one per row — the card lookup
+    goes through ``get_cards_by_ids`` so a raised ``MCP_MAX_LOGOS_PER_CALL``
+    cannot push one URL past the proxy's request-line limit (#1093). Degrades
     rather than fails: if either read is unavailable — a caller without
     `inventory.view`, a transient error — every row stays previewable and the
     caller is told the check did not run. A preview exists to be informative,
@@ -1910,14 +1912,11 @@ async def _check_logo_types(token: str, prepared: list[dict]) -> tuple[dict, lis
     ids = [p["card_id"] for p in prepared]
     try:
         client = TurboEAClient(token)
-        cards = await client.get(
-            "/cards", params={"ids": ",".join(ids), "page_size": len(ids)}
-        )
+        items = await client.get_cards_by_ids(ids)
         types = await client.get("/metamodel/types")
     except Exception as exc:  # noqa: BLE001 — informative, never fatal
         return {"status": "unavailable", "reason": str(exc)}, prepared, []
 
-    items = cards.get("items", []) if isinstance(cards, dict) else []
     type_of = {str(c.get("id")): c.get("type") for c in items}
     allows = {
         t.get("key"): bool(t.get("allow_card_logo"))
@@ -1968,26 +1967,31 @@ async def _check_logo_icon_slugs(
     half written. Answering it up front turns a miss into the ordinary next
     step — go and fetch that mark — while there is still nothing to undo.
 
-    One request for the whole call. Degrades exactly like the type check: an
-    unavailable answer leaves every row previewable rather than inventing a
-    failure. Membership is read off ``known`` rather than ``unknown`` so a
-    value that is not a well-formed ref at all (a comma, say, which the
-    request joins on) still lands on the unknown side.
+    Batched requests for the whole call (chunked like the card lookup, so a
+    raised per-call cap cannot overrun the proxy's request line — #1093).
+    Degrades exactly like the type check: an unavailable answer leaves every
+    row previewable rather than inventing a failure. Membership is read off
+    ``known`` rather than ``unknown`` so a value that is not a well-formed ref
+    at all (a comma, say, which the request joins on) still lands on the
+    unknown side.
 
     Returns ``(icon_check, kept_rows, unknown_rows)``.
     """
     slugs = sorted({p["icon_slug"] for p in prepared if p["icon_slug"]})
     if not slugs:
         return {"status": "skipped"}, prepared, []
+    known: dict = {}
     try:
         client = TurboEAClient(token)
-        resp = await client.get(
-            "/card-logos/brand-icons/resolve", params={"refs": ",".join(slugs)}
-        )
+        for chunk in chunked(slugs, CARD_IDS_CHUNK):
+            resp = await client.get(
+                "/card-logos/brand-icons/resolve", params={"refs": ",".join(chunk)}
+            )
+            if isinstance(resp, dict):
+                known.update(resp.get("known", {}))
     except Exception as exc:  # noqa: BLE001 — informative, never fatal
         return {"status": "unavailable", "reason": str(exc)}, prepared, []
 
-    known = resp.get("known", {}) if isinstance(resp, dict) else {}
     missing = [s for s in slugs if s not in known]
 
     kept: list[dict] = []
@@ -2665,10 +2669,7 @@ async def clear_card_logos(
         would = 0
         try:
             client = TurboEAClient(token)
-            cards = await client.get(
-                "/cards", params={"ids": ",".join(card_ids), "page_size": len(card_ids)}
-            )
-            items = cards.get("items", []) if isinstance(cards, dict) else []
+            items = await client.get_cards_by_ids(card_ids)
             has_logo = {str(c.get("id")): bool(c.get("logo_updated_at")) for c in items}
         except Exception as exc:  # noqa: BLE001 — informative, never fatal
             return _fmt(

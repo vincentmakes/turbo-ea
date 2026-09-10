@@ -1,5 +1,6 @@
 import { api } from "@/api/client";
-import type { Card, CardListResponse, Relation } from "@/types";
+import { CARD_IDS_CHUNK, fetchCardsByIds } from "@/api/cardsByIds";
+import type { Card, Relation } from "@/types";
 import type {
   RelationFlowDirection,
   ScannedSyncedEdge,
@@ -66,13 +67,11 @@ export interface InventoryState {
 /*  Fetch                                                              */
 /* ------------------------------------------------------------------ */
 
-/** Keep ids-per-request comfortably below URL-length limits; the
- *  relations endpoint caps card_ids at 500 server-side. */
-const CHUNK_SIZE = 200;
-
 /**
  * Fetch the current inventory state for the given canvas card ids in
- * batched calls. `GET /cards?ids=` deliberately returns archived cards
+ * batched calls. Cards go through `fetchCardsByIds` (chunked at
+ * `CARD_IDS_CHUNK`, which also keeps the relations request under its 500-id
+ * server-side cap). `GET /cards?ids=` deliberately returns archived cards
  * (so they can be flagged) and simply omits hard-deleted ones;
  * `GET /relations?card_ids=` returns every live relation touching any of
  * the ids — but excludes relations whose source or target is archived,
@@ -86,18 +85,25 @@ export async function fetchInventoryState(
   const relationById = new Map<string, Relation>();
 
   const unique = Array.from(new Set(cardIds.filter(Boolean)));
-  for (let i = 0; i < unique.length; i += CHUNK_SIZE) {
-    const chunk = unique.slice(i, i + CHUNK_SIZE);
-    const idsParam = encodeURIComponent(chunk.join(","));
-    const [cardsRes, relations] = await Promise.all([
-      api.get<CardListResponse>(`/cards?ids=${idsParam}`, { signal }),
-      api.get<Relation[]>(`/relations?card_ids=${idsParam}`, { signal }),
-    ]);
-    for (const card of cardsRes.items) cardById.set(card.id, card);
-    // A relation between two on-canvas cards comes back from the chunk of
-    // each endpoint — the Map dedupes.
-    for (const rel of relations) relationById.set(rel.id, rel);
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += CARD_IDS_CHUNK) {
+    chunks.push(unique.slice(i, i + CARD_IDS_CHUNK));
   }
+  const [cards, relationLists] = await Promise.all([
+    fetchCardsByIds(unique, { signal }),
+    Promise.all(
+      chunks.map((chunk) =>
+        api.get<Relation[]>(
+          `/relations?card_ids=${encodeURIComponent(chunk.join(","))}`,
+          { signal },
+        ),
+      ),
+    ),
+  ]);
+  for (const card of cards) cardById.set(card.id, card);
+  // A relation between two on-canvas cards comes back from the chunk of
+  // each endpoint — the Map dedupes.
+  for (const rel of relationLists.flat()) relationById.set(rel.id, rel);
 
   return { cardById, relationById };
 }

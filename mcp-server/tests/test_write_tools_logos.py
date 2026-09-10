@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from turbo_ea_mcp import server
+from turbo_ea_mcp import api_client, server
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 32
@@ -761,3 +761,114 @@ class TestDryRunIconSlugCheck:
             )
         assert out["would_set"] == 0
         assert out["results"][0]["status"] == "unknown_icon_slug"
+
+
+class TestChunkedCardLookups:
+    """The preview's card lookups go through ``get_cards_by_ids`` in batches.
+
+    One ``GET /cards?ids=`` for the whole call overran the edge proxy's 8 KB
+    request line at ~200 encoded ids (#1093); here that meant a raised
+    ``MCP_MAX_LOGOS_PER_CALL`` silently switched the type check off and made
+    ``clear_card_logos`` call every card ``unknown``. The chunk size is shrunk
+    to 2 so the split is observable with a handful of ids.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _tiny_chunks(self, monkeypatch):
+        # `get_cards_by_ids` reads the module global at call time; the slug
+        # loop uses the name re-exported on `server` (same as the caps).
+        monkeypatch.setattr(api_client, "CARD_IDS_CHUNK", 2)
+        monkeypatch.setattr(server, "CARD_IDS_CHUNK", 2)
+
+    @staticmethod
+    def _ids_of(params: dict | None) -> list[str]:
+        return (params or {}).get("ids", "").split(",")
+
+    def _recording_get(self, *, fail_chunk_starting: str | None = None):
+        calls: list[tuple[str, dict | None]] = []
+
+        async def get_router(path, params=None):
+            calls.append((path, params))
+            if path == "/cards":
+                ids = self._ids_of(params)
+                if fail_chunk_starting is not None and ids[0] == fail_chunk_starting:
+                    raise RuntimeError("414 Request-URI Too Large")
+                return {
+                    "items": [
+                        {"id": i, "type": "Application", "logo_updated_at": "2026-01-01"}
+                        for i in ids
+                    ]
+                }
+            if path == "/metamodel/types":
+                return [{"key": "Application", "allow_card_logo": True}]
+            if path == "/card-logos/brand-icons/resolve":
+                asked = (params or {}).get("refs", "").split(",")
+                return {"known": {a: f"logos:{a}" for a in asked}, "unknown": []}
+            return {}
+
+        return calls, get_router
+
+    @pytest.mark.asyncio
+    async def test_get_cards_by_ids_dedupes_and_splits(self):
+        calls, router = self._recording_get()
+        with patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=router)):
+            items = await api_client.TurboEAClient("t").get_cards_by_ids(
+                ["a", "b", "a", "", "c", "d", "e"]
+            )
+        assert [self._ids_of(p) for _, p in calls] == [["a", "b"], ["c", "d"], ["e"]]
+        assert [p["page_size"] for _, p in calls] == [2, 2, 1]
+        assert [c["id"] for c in items] == ["a", "b", "c", "d", "e"]
+
+    @pytest.mark.asyncio
+    async def test_get_cards_by_ids_makes_no_request_for_nothing(self):
+        calls, router = self._recording_get()
+        with patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=router)):
+            assert await api_client.TurboEAClient("t").get_cards_by_ids(["", ""]) == []
+        assert calls == []
+
+    @pytest.mark.asyncio
+    async def test_get_cards_by_ids_is_all_or_nothing(self):
+        _, router = self._recording_get(fail_chunk_starting="c")
+        with patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=router)):
+            with pytest.raises(RuntimeError, match="414"):
+                await api_client.TurboEAClient("t").get_cards_by_ids(["a", "b", "c", "d"])
+
+    @pytest.mark.asyncio
+    async def test_clear_preview_batches_the_lookup(self, fake_token):
+        calls, router = self._recording_get()
+        ids = ["c1", "c2", "c3", "c4", "c5"]
+        with patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=router)):
+            out = _parse(await server.clear_card_logos(card_ids=ids))
+        card_calls = [p for path, p in calls if path == "/cards"]
+        assert [self._ids_of(p) for p in card_calls] == [["c1", "c2"], ["c3", "c4"], ["c5"]]
+        assert out["would_clear"] == 5
+        assert [r["status"] for r in out["results"]] == ["would_clear"] * 5
+
+    @pytest.mark.asyncio
+    async def test_set_preview_batches_the_type_check(self, fake_token):
+        calls, router = self._recording_get()
+        rows = [_row(f"c{i}") for i in range(1, 6)]
+        with patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=router)):
+            out = _parse(await server.set_card_logos(items=rows))
+        card_calls = [p for path, p in calls if path == "/cards"]
+        assert [self._ids_of(p) for p in card_calls] == [["c1", "c2"], ["c3", "c4"], ["c5"]]
+        assert out["type_check"]["status"] == "ok"
+        assert out["would_set"] == 5
+
+    @pytest.mark.asyncio
+    async def test_set_preview_batches_the_slug_check_and_merges_the_answers(
+        self, fake_token
+    ):
+        calls, router = self._recording_get()
+        rows = [{"card_id": f"c{i}", "icon_slug": f"s{i}"} for i in range(1, 4)]
+        with patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=router)):
+            out = _parse(await server.set_card_logos(items=rows))
+        asked = [
+            (p or {}).get("refs", "").split(",")
+            for path, p in calls
+            if path == "/card-logos/brand-icons/resolve"
+        ]
+        assert asked == [["s1", "s2"], ["s3"]]
+        assert out["icon_check"]["status"] == "ok"
+        assert out["icon_check"]["unknown"] == []
+        assert set(out["icon_check"]["resolved"]) == {"s1", "s2", "s3"}
