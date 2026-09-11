@@ -230,12 +230,15 @@ export default function StoreDetailDialog({
             sx={{
               flex: 1,
               minHeight: 0,
-              display: "grid",
+              // One scroller on a phone, one per column beside each other. A
+              // plain block on phones, not a one-column grid: auto grid rows
+              // inside a fixed-height container share the height equally
+              // instead of sizing to their content, and the text then
+              // overlapped the gallery.
+              display: { xs: "block", md: "grid" },
               gridTemplateColumns: {
-                xs: "1fr",
                 md: total > 0 ? "minmax(0, 3fr) minmax(0, 2fr)" : "1fr",
               },
-              // One scroller on a phone, one per column beside each other.
               overflow: { xs: "auto", md: "hidden" },
             }}
           >
@@ -247,6 +250,7 @@ export default function StoreDetailDialog({
                   flexDirection: "column",
                   gap: 1.5,
                   minHeight: 0,
+                  overflowY: { md: "auto" },
                   p: 2.5,
                   borderRight: { md: 1 },
                   borderBottom: { xs: 1, md: 0 },
@@ -256,8 +260,9 @@ export default function StoreDetailDialog({
                 <Box
                   sx={{
                     position: "relative",
-                    flex: 1,
-                    minHeight: { xs: 240, md: 0 },
+                    flex: { xs: "none", md: 1 },
+                    minHeight: { xs: 0, md: 240 },
+                    minWidth: 0,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
