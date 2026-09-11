@@ -484,11 +484,15 @@ describe("ExtensionsAdmin", () => {
         .getByText("Extensions")
         .closest("div") as HTMLElement;
       expect(header).not.toContainElement(button);
-      // Beside the tabs: after them, and above the catalogue.
+      // Beside the tabs: after them, and above the catalogue. The button is
+      // on the tab strip before the catalogue has loaded, so wait for the
+      // tile rather than asserting against a page still showing its
+      // progress bar (a slow CI runner made exactly that race).
       expect(precedes(screen.getByRole("tab", { name: "Store" }), button)).toBe(
         true,
       );
-      expect(precedes(button, screen.getByText("ESG Content Pack"))).toBe(true);
+      const tile = await screen.findByText("ESG Content Pack");
+      expect(precedes(button, tile)).toBe(true);
     });
 
     it("stays available when the store cannot be reached", async () => {
