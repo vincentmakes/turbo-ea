@@ -24,9 +24,21 @@ interface Props {
   fromVersion?: string | null;
   /** Extension display name, for the "from → to" line. */
   name?: string;
+  /**
+   * Scroll cap on the notes. The default suits a confirmation dialog; a
+   * caller that already scrolls (the store details column) passes `"none"`
+   * so the notes do not become a scroller inside a scroller.
+   */
+  maxHeight?: number | string;
 }
 
-export default function ExtensionChangelog({ notes, version, fromVersion, name }: Props) {
+export default function ExtensionChangelog({
+  notes,
+  version,
+  fromVersion,
+  name,
+  maxHeight = 360,
+}: Props) {
   const { t } = useTranslation(["admin", "notifications"]);
 
   return (
@@ -45,7 +57,9 @@ export default function ExtensionChangelog({ notes, version, fromVersion, name }
       </Typography>
 
       {notes ? (
-        <Box sx={{ maxHeight: 360, overflowY: "auto", pr: 1 }}>{renderReleaseNotes(notes)}</Box>
+        <Box sx={{ maxHeight, overflowY: "auto", pr: 1 }}>
+          {renderReleaseNotes(notes)}
+        </Box>
       ) : (
         // An honest empty state rather than an invented one: a bundle
         // published before per-extension changelogs existed simply has none,
