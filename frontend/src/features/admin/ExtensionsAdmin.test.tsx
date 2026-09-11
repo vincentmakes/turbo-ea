@@ -13,6 +13,10 @@ vi.mock("@/api/client", () => ({
     delete: vi.fn(),
     upload: vi.fn(),
   },
+  // The details dialog reads the store's release notes through `useApiQuery`,
+  // whose catch asks `isAbortError` — a rejected changelog GET (the default
+  // below) must reach the "store is optional" branch, not throw here.
+  isAbortError: () => false,
   // The component branches on `instanceof ApiError` (status + structured
   // detail), so the mock must ship a compatible class, not just `api`.
   ApiError: class ApiError extends Error {
@@ -45,18 +49,30 @@ const SAMPLE_EXT = {
   status: "installed",
   enabled: true,
   capabilities: ["content"],
-  entitlement: { state: "active", plan: "enterprise", expires_at: null, grace_until: null },
+  entitlement: {
+    state: "active",
+    plan: "enterprise",
+    expires_at: null,
+    grace_until: null,
+  },
 };
 
 const LICENSE = {
   licensee: "ACME Corp",
   customer_id: "cus_1",
   grace_days: 30,
-  entitlements: [{ extension_key: "sample-ext", plan: "enterprise", expires_at: null }],
+  entitlements: [
+    { extension_key: "sample-ext", plan: "enterprise", expires_at: null },
+  ],
   uploaded_at: "2026-07-01T00:00:00Z",
 };
 
-const UNCONFIGURED_CATALOG = { configured: false, reachable: false, store_url: "", items: [] };
+const UNCONFIGURED_CATALOG = {
+  configured: false,
+  reachable: false,
+  store_url: "",
+  items: [],
+};
 
 const STORE_ITEM = {
   key: "esg-pack",
@@ -79,15 +95,23 @@ function primeInitialLoad({
   // lacks admin.settings (the endpoint's gate) — the status line then simply
   // does not render, which is what every pre-existing case here expects.
   storeCheck = null as unknown,
+  // The store's release notes for whatever listing the details dialog opens.
+  // Null models an unreachable store: the dialog then has no What's new.
+  changelog = null as unknown,
 } = {}) {
   mockGet.mockImplementation(async (path: string) => {
     if (path === "/admin/extensions") return extensions;
+    if (path.startsWith("/admin/extensions/store/changelog/")) {
+      if (changelog) return changelog;
+      throw new Error("store offline");
+    }
     if (path === "/admin/extensions/license") {
       if (license) return license;
       throw new Error("No license installed");
     }
     if (path === "/admin/extensions/store/catalog") return catalog;
-    if (path === "/admin/extensions/instance") return { instance_id: instanceId };
+    if (path === "/admin/extensions/instance")
+      return { instance_id: instanceId };
     if (path === "/settings/extension-store-status") {
       if (storeCheck) return storeCheck;
       throw new Error("Forbidden");
@@ -134,7 +158,9 @@ describe("ExtensionsAdmin", () => {
     renderPage();
     await openInstalledTab();
     await waitFor(() =>
-      expect(screen.getByText("No extensions installed yet.")).toBeInTheDocument(),
+      expect(
+        screen.getByText("No extensions installed yet."),
+      ).toBeInTheDocument(),
     );
     expect(screen.getByText(/No license installed/)).toBeInTheDocument();
   });
@@ -143,7 +169,9 @@ describe("ExtensionsAdmin", () => {
     primeInitialLoad();
     renderPage("/admin/extensions?tab=installed");
     await waitFor(() =>
-      expect(screen.getByText("No extensions installed yet.")).toBeInTheDocument(),
+      expect(
+        screen.getByText("No extensions installed yet."),
+      ).toBeInTheDocument(),
     );
     expect(screen.getByRole("tab", { name: "Installed" })).toHaveAttribute(
       "aria-selected",
@@ -155,7 +183,10 @@ describe("ExtensionsAdmin", () => {
     primeInitialLoad();
     renderPage("/admin/extensions?tab=bogus");
     await waitFor(() =>
-      expect(screen.getByRole("tab", { name: "Store" })).toHaveAttribute("aria-selected", "true"),
+      expect(screen.getByRole("tab", { name: "Store" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      ),
     );
   });
 
@@ -163,11 +194,15 @@ describe("ExtensionsAdmin", () => {
     primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE });
     renderPage();
     await openInstalledTab();
-    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Sample Extension")).toBeInTheDocument(),
+    );
     expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument();
     expect(screen.getByText("Active")).toBeInTheDocument();
     // Active entitlement → no Renew button on the row.
-    expect(screen.queryByText("Renew", { selector: "button" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Renew", { selector: "button" }),
+    ).not.toBeInTheDocument();
   });
 
   it("says whether an active entitlement renews or runs out when the flag is known", async () => {
@@ -209,7 +244,9 @@ describe("ExtensionsAdmin", () => {
     });
     renderPage();
     await openInstalledTab();
-    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Sample Extension")).toBeInTheDocument(),
+    );
     expect(screen.getByText(/Renews on/)).toBeInTheDocument();
     expect(screen.getByText(/will not renew/)).toBeInTheDocument();
     expect(screen.getByText(/Active until/)).toBeInTheDocument();
@@ -220,15 +257,23 @@ describe("ExtensionsAdmin", () => {
       extensions: [SAMPLE_EXT],
       license: { ...LICENSE, store_managed: true },
     });
-    mockPost.mockResolvedValue({ url: "https://billing.stripe.test/p/session_1" });
+    mockPost.mockResolvedValue({
+      url: "https://billing.stripe.test/p/session_1",
+    });
     const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
     renderPage();
     await openInstalledTab();
-    await waitFor(() => expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument());
-
-    await userEvent.click(screen.getByRole("button", { name: /Manage subscription/ }));
     await waitFor(() =>
-      expect(mockPost).toHaveBeenCalledWith("/admin/extensions/store/billing-portal"),
+      expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument(),
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Manage subscription/ }),
+    );
+    await waitFor(() =>
+      expect(mockPost).toHaveBeenCalledWith(
+        "/admin/extensions/store/billing-portal",
+      ),
     );
     await waitFor(() =>
       expect(openSpy).toHaveBeenCalledWith(
@@ -244,7 +289,9 @@ describe("ExtensionsAdmin", () => {
     primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE }); // no store_managed
     renderPage();
     await openInstalledTab();
-    await waitFor(() => expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument(),
+    );
     expect(
       screen.queryByRole("button", { name: /Manage subscription/ }),
     ).not.toBeInTheDocument();
@@ -258,9 +305,13 @@ describe("ExtensionsAdmin", () => {
     mockPost.mockRejectedValue(new Error("boom"));
     renderPage();
     await openInstalledTab();
-    await waitFor(() => expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument(),
+    );
 
-    await userEvent.click(screen.getByRole("button", { name: /Manage subscription/ }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /Manage subscription/ }),
+    );
     await waitFor(() =>
       expect(
         screen.getByText(/extension store could not be reached/i),
@@ -273,7 +324,12 @@ describe("ExtensionsAdmin", () => {
       extensions: [
         {
           ...SAMPLE_EXT,
-          entitlement: { state: "grace", plan: "", expires_at: null, grace_until: null },
+          entitlement: {
+            state: "grace",
+            plan: "",
+            expires_at: null,
+            grace_until: null,
+          },
         },
       ],
       license: LICENSE,
@@ -281,14 +337,20 @@ describe("ExtensionsAdmin", () => {
     mockPost.mockResolvedValue({ refreshed: true });
     renderPage();
     await openInstalledTab();
-    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Sample Extension")).toBeInTheDocument(),
+    );
 
     await userEvent.click(screen.getByText("Renew", { selector: "button" }));
     await waitFor(() =>
-      expect(mockPost).toHaveBeenCalledWith("/admin/extensions/store/refresh-license"),
+      expect(mockPost).toHaveBeenCalledWith(
+        "/admin/extensions/store/refresh-license",
+      ),
     );
     await waitFor(() =>
-      expect(screen.getByText(/License refreshed from the store/)).toBeInTheDocument(),
+      expect(
+        screen.getByText(/License refreshed from the store/),
+      ).toBeInTheDocument(),
     );
   });
 
@@ -297,7 +359,12 @@ describe("ExtensionsAdmin", () => {
       extensions: [
         {
           ...SAMPLE_EXT,
-          entitlement: { state: "expired", plan: "", expires_at: null, grace_until: null },
+          entitlement: {
+            state: "expired",
+            plan: "",
+            expires_at: null,
+            grace_until: null,
+          },
         },
       ],
       license: LICENSE,
@@ -305,10 +372,14 @@ describe("ExtensionsAdmin", () => {
     mockPost.mockResolvedValue({ refreshed: false });
     renderPage();
     await openInstalledTab();
-    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Sample Extension")).toBeInTheDocument(),
+    );
 
     await userEvent.click(screen.getByText("Renew", { selector: "button" }));
-    await waitFor(() => expect(screen.getByText("Apply a license")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Apply a license")).toBeInTheDocument(),
+    );
   });
 
   it("applies a pasted license through the dialog", async () => {
@@ -320,7 +391,9 @@ describe("ExtensionsAdmin", () => {
       expect(screen.getByText(/No license installed/)).toBeInTheDocument(),
     );
 
-    await userEvent.click(screen.getByText("Enter license…", { selector: "button" }));
+    await userEvent.click(
+      screen.getByText("Enter license…", { selector: "button" }),
+    );
     await userEvent.type(
       screen.getByPlaceholderText("Paste license text here…"),
       "signed-license-text",
@@ -334,7 +407,9 @@ describe("ExtensionsAdmin", () => {
         confirm: false,
       }),
     );
-    await waitFor(() => expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument(),
+    );
   });
 
   it("asks for confirmation before applying a license that drops active entitlements", async () => {
@@ -348,7 +423,9 @@ describe("ExtensionsAdmin", () => {
     );
     renderPage();
     await openInstalledTab();
-    await userEvent.click(screen.getByText("Enter license…", { selector: "button" }));
+    await userEvent.click(
+      screen.getByText("Enter license…", { selector: "button" }),
+    );
     await userEvent.type(
       screen.getByPlaceholderText("Paste license text here…"),
       "narrow-license",
@@ -391,24 +468,38 @@ describe("ExtensionsAdmin", () => {
     it("sits on the tab strip, not in the page header", async () => {
       primeInitialLoad({
         license: LICENSE,
-        catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+        catalog: {
+          configured: true,
+          reachable: true,
+          store_url: "https://x",
+          items: [STORE_ITEM],
+        },
       });
       renderPage();
 
       await waitFor(() => expect(installButton()).toBeInTheDocument());
       const button = installButton();
       // Not in the header row — the one carrying the page title.
-      const header = screen.getByText("Extensions").closest("div") as HTMLElement;
+      const header = screen
+        .getByText("Extensions")
+        .closest("div") as HTMLElement;
       expect(header).not.toContainElement(button);
       // Beside the tabs: after them, and above the catalogue.
-      expect(precedes(screen.getByRole("tab", { name: "Store" }), button)).toBe(true);
+      expect(precedes(screen.getByRole("tab", { name: "Store" }), button)).toBe(
+        true,
+      );
       expect(precedes(button, screen.getByText("ESG Content Pack"))).toBe(true);
     });
 
     it("stays available when the store cannot be reached", async () => {
       primeInitialLoad({
         license: LICENSE,
-        catalog: { configured: true, reachable: false, store_url: "https://x", items: [] },
+        catalog: {
+          configured: true,
+          reachable: false,
+          store_url: "https://x",
+          items: [],
+        },
       });
       renderPage();
 
@@ -427,18 +518,27 @@ describe("ExtensionsAdmin", () => {
       renderPage("/admin/extensions?tab=installed");
 
       await waitFor(() =>
-        expect(screen.getAllByText("Install from file…", { selector: "button" })).toHaveLength(1),
+        expect(
+          screen.getAllByText("Install from file…", { selector: "button" }),
+        ).toHaveLength(1),
       );
-      expect(precedes(installButton(), screen.getByText("Installed extensions"))).toBe(true);
+      expect(
+        precedes(installButton(), screen.getByText("Installed extensions")),
+      ).toBe(true);
     });
 
     it("uploads from the Installed tab through the same pipeline", async () => {
       primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE });
-      mockUpload.mockResolvedValue({ id: "i9", filename: "other.teax", status: "verifying" });
+      mockUpload.mockResolvedValue({
+        id: "i9",
+        filename: "other.teax",
+        status: "verifying",
+      });
       mockGet.mockImplementation(async (path: string) => {
         if (path === "/admin/extensions") return [SAMPLE_EXT];
         if (path === "/admin/extensions/license") return LICENSE;
-        if (path === "/admin/extensions/store/catalog") return UNCONFIGURED_CATALOG;
+        if (path === "/admin/extensions/store/catalog")
+          return UNCONFIGURED_CATALOG;
         if (path === "/admin/extensions/instance") return { instance_id: "" };
         if (path.startsWith("/admin/extensions/install/"))
           return { id: "i9", filename: "other.teax", status: "verifying" };
@@ -448,7 +548,9 @@ describe("ExtensionsAdmin", () => {
       const { container } = renderPage("/admin/extensions?tab=installed");
       await waitFor(() => expect(installButton()).toBeInTheDocument());
 
-      const bundleInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+      const bundleInput = container.querySelector(
+        'input[type="file"]',
+      ) as HTMLInputElement;
       await userEvent.upload(bundleInput, new File(["zip"], "other.teax"));
 
       await waitFor(() => expect(mockUpload).toHaveBeenCalled());
@@ -458,7 +560,11 @@ describe("ExtensionsAdmin", () => {
 
   it("uploads a bundle from the Store tab, shows the preview, and installs it", async () => {
     primeInitialLoad({ license: LICENSE });
-    mockUpload.mockResolvedValue({ id: "i1", filename: "sample.teax", status: "verifying" });
+    mockUpload.mockResolvedValue({
+      id: "i1",
+      filename: "sample.teax",
+      status: "verifying",
+    });
     const previewed = {
       id: "i1",
       filename: "sample.teax",
@@ -484,22 +590,29 @@ describe("ExtensionsAdmin", () => {
     mockGet.mockImplementation(async (path: string) => {
       if (path === "/admin/extensions") return [];
       if (path === "/admin/extensions/license") return LICENSE;
-      if (path === "/admin/extensions/store/catalog") return UNCONFIGURED_CATALOG;
+      if (path === "/admin/extensions/store/catalog")
+        return UNCONFIGURED_CATALOG;
       if (path.startsWith("/admin/extensions/install/")) return previewed;
       throw new Error(`unexpected GET ${path}`);
     });
 
     const { container } = renderPage();
     await waitFor(() =>
-      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
+      expect(
+        screen.getByText("Install from file…", { selector: "button" }),
+      ).toBeInTheDocument(),
     );
 
-    const bundleInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const bundleInput = container.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
     await userEvent.upload(bundleInput, new File(["zip"], "sample.teax"));
 
     await waitFor(
       () =>
-        expect(screen.getByText("Install extension", { selector: "button" })).toBeInTheDocument(),
+        expect(
+          screen.getByText("Install extension", { selector: "button" }),
+        ).toBeInTheDocument(),
       { timeout: 4000 },
     );
     // Everything the pipeline produced — the preview AND the button that
@@ -519,11 +632,16 @@ describe("ExtensionsAdmin", () => {
     // file…" in the header produced a button off-screen at the bottom of the
     // page. In DialogActions it cannot scroll away however long the preview.
     primeInitialLoad({ license: LICENSE });
-    mockUpload.mockResolvedValue({ id: "i1", filename: "big.teax", status: "verifying" });
+    mockUpload.mockResolvedValue({
+      id: "i1",
+      filename: "big.teax",
+      status: "verifying",
+    });
     mockGet.mockImplementation(async (path: string) => {
       if (path === "/admin/extensions") return [];
       if (path === "/admin/extensions/license") return LICENSE;
-      if (path === "/admin/extensions/store/catalog") return UNCONFIGURED_CATALOG;
+      if (path === "/admin/extensions/store/catalog")
+        return UNCONFIGURED_CATALOG;
       if (path.startsWith("/admin/extensions/install/"))
         return {
           id: "i1",
@@ -540,7 +658,13 @@ describe("ExtensionsAdmin", () => {
               conflict: 0,
               failed: 0,
             })),
-            totals: { created: 20, updated: 0, skipped: 0, conflict: 0, failed: 0 },
+            totals: {
+              created: 20,
+              updated: 0,
+              skipped: 0,
+              conflict: 0,
+              failed: 0,
+            },
           },
         };
       throw new Error(`unexpected GET ${path}`);
@@ -548,7 +672,9 @@ describe("ExtensionsAdmin", () => {
 
     const { container } = renderPage();
     await waitFor(() =>
-      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
+      expect(
+        screen.getByText("Install from file…", { selector: "button" }),
+      ).toBeInTheDocument(),
     );
     await userEvent.upload(
       container.querySelector('input[type="file"]') as HTMLInputElement,
@@ -564,45 +690,70 @@ describe("ExtensionsAdmin", () => {
     // separately-scrolling DialogContent — never one flow with it.
     const actions = button.closest(".MuiDialogActions-root");
     expect(actions).toBeTruthy();
-    const content = screen.getByRole("dialog").querySelector(".MuiDialogContent-root");
+    const content = screen
+      .getByRole("dialog")
+      .querySelector(".MuiDialogContent-root");
     expect(content).toBeTruthy();
     expect(content!.contains(button)).toBe(false);
-    expect(within(content as HTMLElement).getByText("Sheet19")).toBeInTheDocument();
+    expect(
+      within(content as HTMLElement).getByText("Sheet19"),
+    ).toBeInTheDocument();
     // Nothing install-related is left behind on the page itself.
     expect(container.querySelector(".MuiDialogActions-root")).toBeNull();
   });
 
   it("discards a previewed bundle and closes the dialog", async () => {
     primeInitialLoad({ license: LICENSE });
-    mockUpload.mockResolvedValue({ id: "i7", filename: "sample.teax", status: "verifying" });
+    mockUpload.mockResolvedValue({
+      id: "i7",
+      filename: "sample.teax",
+      status: "verifying",
+    });
     mockDelete.mockResolvedValue(undefined);
     mockGet.mockImplementation(async (path: string) => {
       if (path === "/admin/extensions") return [];
       if (path === "/admin/extensions/license") return LICENSE;
-      if (path === "/admin/extensions/store/catalog") return UNCONFIGURED_CATALOG;
+      if (path === "/admin/extensions/store/catalog")
+        return UNCONFIGURED_CATALOG;
       if (path.startsWith("/admin/extensions/install/"))
         return {
           id: "i7",
           filename: "sample.teax",
           status: "previewed",
-          diff: { totals: { created: 1, updated: 0, skipped: 0, conflict: 0, failed: 0 } },
+          diff: {
+            totals: {
+              created: 1,
+              updated: 0,
+              skipped: 0,
+              conflict: 0,
+              failed: 0,
+            },
+          },
         };
       throw new Error(`unexpected GET ${path}`);
     });
 
     const { container } = renderPage();
     await waitFor(() =>
-      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
+      expect(
+        screen.getByText("Install from file…", { selector: "button" }),
+      ).toBeInTheDocument(),
     );
     await userEvent.upload(
       container.querySelector('input[type="file"]') as HTMLInputElement,
       new File(["zip"], "sample.teax"),
     );
-    await screen.findByText("Install extension", { selector: "button" }, { timeout: 4000 });
+    await screen.findByText(
+      "Install extension",
+      { selector: "button" },
+      { timeout: 4000 },
+    );
 
     await userEvent.click(screen.getByText("Discard", { selector: "button" }));
     expect(mockDelete).toHaveBeenCalledWith("/admin/extensions/install/i7");
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
   });
 
   it("closes a finished install without deleting its audit row", async () => {
@@ -610,15 +761,25 @@ describe("ExtensionsAdmin", () => {
     // trail of what was installed and when. A completed install is closed,
     // never discarded.
     primeInitialLoad({ license: LICENSE });
-    mockUpload.mockResolvedValue({ id: "i8", filename: "sample.teax", status: "verifying" });
-    mockPost.mockResolvedValue({ id: "i8", filename: "sample.teax", status: "applying" });
+    mockUpload.mockResolvedValue({
+      id: "i8",
+      filename: "sample.teax",
+      status: "verifying",
+    });
+    mockPost.mockResolvedValue({
+      id: "i8",
+      filename: "sample.teax",
+      status: "applying",
+    });
     let applied = false;
     mockGet.mockImplementation(async (path: string) => {
       if (path === "/admin/extensions") return [];
       if (path === "/admin/extensions/license") return LICENSE;
-      if (path === "/admin/extensions/store/catalog") return UNCONFIGURED_CATALOG;
+      if (path === "/admin/extensions/store/catalog")
+        return UNCONFIGURED_CATALOG;
       if (path === "/admin/extensions/instance") return { instance_id: "" };
-      if (path === "/settings/extension-store-status") throw new Error("Forbidden");
+      if (path === "/settings/extension-store-status")
+        throw new Error("Forbidden");
       if (path.startsWith("/admin/extensions/install/"))
         return applied
           ? { id: "i8", filename: "sample.teax", status: "installed" }
@@ -626,14 +787,24 @@ describe("ExtensionsAdmin", () => {
               id: "i8",
               filename: "sample.teax",
               status: "previewed",
-              diff: { totals: { created: 1, updated: 0, skipped: 0, conflict: 0, failed: 0 } },
+              diff: {
+                totals: {
+                  created: 1,
+                  updated: 0,
+                  skipped: 0,
+                  conflict: 0,
+                  failed: 0,
+                },
+              },
             };
       throw new Error(`unexpected GET ${path}`);
     });
 
     const { container } = renderPage();
     await waitFor(() =>
-      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
+      expect(
+        screen.getByText("Install from file…", { selector: "button" }),
+      ).toBeInTheDocument(),
     );
     await userEvent.upload(
       container.querySelector('input[type="file"]') as HTMLInputElement,
@@ -647,14 +818,22 @@ describe("ExtensionsAdmin", () => {
 
     applied = true;
     await userEvent.click(apply);
-    await waitFor(() => expect(screen.getByText("Extension installed.")).toBeInTheDocument(), {
-      timeout: 5000,
-    });
+    await waitFor(
+      () =>
+        expect(screen.getByText("Extension installed.")).toBeInTheDocument(),
+      {
+        timeout: 5000,
+      },
+    );
 
     // Close, not Discard — and no DELETE.
-    expect(screen.queryByText("Discard", { selector: "button" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Discard", { selector: "button" }),
+    ).not.toBeInTheDocument();
     await userEvent.click(screen.getByText("Close", { selector: "button" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
     expect(mockDelete).not.toHaveBeenCalled();
   }, 15000);
 
@@ -663,11 +842,16 @@ describe("ExtensionsAdmin", () => {
     // admin can no longer see — but an EXPLICIT way out has to remain, or a
     // verify that never terminates traps them in the modal for good.
     primeInitialLoad({ license: LICENSE });
-    mockUpload.mockResolvedValue({ id: "i9", filename: "slow.teax", status: "verifying" });
+    mockUpload.mockResolvedValue({
+      id: "i9",
+      filename: "slow.teax",
+      status: "verifying",
+    });
     mockGet.mockImplementation(async (path: string) => {
       if (path === "/admin/extensions") return [];
       if (path === "/admin/extensions/license") return LICENSE;
-      if (path === "/admin/extensions/store/catalog") return UNCONFIGURED_CATALOG;
+      if (path === "/admin/extensions/store/catalog")
+        return UNCONFIGURED_CATALOG;
       if (path.startsWith("/admin/extensions/install/"))
         return { id: "i9", filename: "slow.teax", status: "verifying" };
       throw new Error(`unexpected GET ${path}`);
@@ -675,7 +859,9 @@ describe("ExtensionsAdmin", () => {
 
     const { container } = renderPage();
     await waitFor(() =>
-      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
+      expect(
+        screen.getByText("Install from file…", { selector: "button" }),
+      ).toBeInTheDocument(),
     );
     await userEvent.upload(
       container.querySelector('input[type="file"]') as HTMLInputElement,
@@ -688,23 +874,33 @@ describe("ExtensionsAdmin", () => {
     expect(
       within(dialog).queryByText("Install extension", { selector: "button" }),
     ).not.toBeInTheDocument();
-    expect(within(dialog).queryByText("Close", { selector: "button" })).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByText("Close", { selector: "button" }),
+    ).not.toBeInTheDocument();
     // Escape and the backdrop are inert…
     await userEvent.keyboard("{Escape}");
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    await userEvent.click(document.querySelector(".MuiBackdrop-root") as HTMLElement);
+    await userEvent.click(
+      document.querySelector(".MuiBackdrop-root") as HTMLElement,
+    );
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     // …but Discard is right there.
-    expect(within(dialog).getByText("Discard", { selector: "button" })).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("Discard", { selector: "button" }),
+    ).toBeInTheDocument();
   });
 
   it("reports an upload failure inside the dialog", async () => {
     primeInitialLoad({ license: LICENSE });
-    mockUpload.mockRejectedValue(new Error("Upload rejected: not a zip archive"));
+    mockUpload.mockRejectedValue(
+      new Error("Upload rejected: not a zip archive"),
+    );
 
     const { container } = renderPage();
     await waitFor(() =>
-      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
+      expect(
+        screen.getByText("Install from file…", { selector: "button" }),
+      ).toBeInTheDocument(),
     );
     await userEvent.upload(
       container.querySelector('input[type="file"]') as HTMLInputElement,
@@ -715,18 +911,29 @@ describe("ExtensionsAdmin", () => {
     expect(within(dialog).getByText(/not a zip archive/)).toBeInTheDocument();
     // No upload exists to discard, so the way out is Close — a dialog with
     // no visible dismissal would be a dead end.
-    expect(within(dialog).queryByText("Discard", { selector: "button" })).not.toBeInTheDocument();
-    await userEvent.click(within(dialog).getByText("Close", { selector: "button" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(
+      within(dialog).queryByText("Discard", { selector: "button" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      within(dialog).getByText("Close", { selector: "button" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
   });
 
   it("shows a rejection when the bundle fails verification", async () => {
     primeInitialLoad();
-    mockUpload.mockResolvedValue({ id: "i2", filename: "evil.teax", status: "verifying" });
+    mockUpload.mockResolvedValue({
+      id: "i2",
+      filename: "evil.teax",
+      status: "verifying",
+    });
     mockGet.mockImplementation(async (path: string) => {
       if (path === "/admin/extensions") return [];
       if (path === "/admin/extensions/license") throw new Error("nope");
-      if (path === "/admin/extensions/store/catalog") return UNCONFIGURED_CATALOG;
+      if (path === "/admin/extensions/store/catalog")
+        return UNCONFIGURED_CATALOG;
       if (path.startsWith("/admin/extensions/install/")) {
         return {
           id: "i2",
@@ -741,14 +948,20 @@ describe("ExtensionsAdmin", () => {
 
     const { container } = renderPage();
     await waitFor(() =>
-      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
+      expect(
+        screen.getByText("Install from file…", { selector: "button" }),
+      ).toBeInTheDocument(),
     );
-    const bundleInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const bundleInput = container.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
     await userEvent.upload(bundleInput, new File(["zip"], "evil.teax"));
 
     await waitFor(
       () =>
-        expect(screen.getByText(/was not signed by the trusted vendor key/)).toBeInTheDocument(),
+        expect(
+          screen.getByText(/was not signed by the trusted vendor key/),
+        ).toBeInTheDocument(),
       { timeout: 4000 },
     );
   });
@@ -757,24 +970,40 @@ describe("ExtensionsAdmin", () => {
     primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE });
     renderPage();
     await openInstalledTab();
-    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
-    await userEvent.click(screen.getByText("Uninstall", { selector: "button" }));
+    await waitFor(() =>
+      expect(screen.getByText("Sample Extension")).toBeInTheDocument(),
+    );
+    await userEvent.click(
+      screen.getByText("Uninstall", { selector: "button" }),
+    );
     expect(screen.getByText("Uninstall extension?")).toBeInTheDocument();
-    expect(screen.getByText(/card types are hidden from the metamodel/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/card types are hidden from the metamodel/),
+    ).toBeInTheDocument();
   });
 
   it("gates Install behind the license dialog for unlicensed items", async () => {
     primeInitialLoad({
-      catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [STORE_ITEM],
+      },
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("ESG Content Pack")).toBeInTheDocument(),
+    );
 
     await userEvent.click(screen.getByText("Install", { selector: "button" }));
     // No install call yet — the gate dialog opens instead.
-    expect(mockPost).not.toHaveBeenCalledWith("/admin/extensions/store/install", {
-      key: "esg-pack",
-    });
+    expect(mockPost).not.toHaveBeenCalledWith(
+      "/admin/extensions/store/install",
+      {
+        key: "esg-pack",
+      },
+    );
     expect(screen.getByText("License required")).toBeInTheDocument();
     expect(screen.getByText(/needs a license entitlement/)).toBeInTheDocument();
     expect(screen.getByText(/Buy — 990 EUR \/ year/)).toBeInTheDocument();
@@ -782,15 +1011,29 @@ describe("ExtensionsAdmin", () => {
 
   it("pasting a license in the gate continues the install automatically", async () => {
     primeInitialLoad({
-      catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [STORE_ITEM],
+      },
     });
     mockPut.mockResolvedValue(LICENSE);
-    mockPost.mockResolvedValue({ id: "s1", filename: "esg.teax", status: "verifying" });
+    mockPost.mockResolvedValue({
+      id: "s1",
+      filename: "esg.teax",
+      status: "verifying",
+    });
     renderPage();
-    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("ESG Content Pack")).toBeInTheDocument(),
+    );
 
     await userEvent.click(screen.getByText("Install", { selector: "button" }));
-    await userEvent.type(screen.getByPlaceholderText("Paste license text here…"), "lic-text");
+    await userEvent.type(
+      screen.getByPlaceholderText("Paste license text here…"),
+      "lic-text",
+    );
     primeInitialLoad({
       license: LICENSE,
       catalog: {
@@ -844,7 +1087,15 @@ describe("ExtensionsAdmin", () => {
         const status = statuses[Math.min(call++, statuses.length - 1)];
         const diff =
           status === "previewed"
-            ? { totals: { created: 1, updated: 0, skipped: 0, conflict: 0, failed: 0 } }
+            ? {
+                totals: {
+                  created: 1,
+                  updated: 0,
+                  skipped: 0,
+                  conflict: 0,
+                  failed: 0,
+                },
+              }
             : null;
         return { id: "s1", filename: "esg.teax", status, diff };
       }
@@ -852,14 +1103,21 @@ describe("ExtensionsAdmin", () => {
     });
 
     renderPage();
-    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
-    expect(screen.queryByText("Buy", { selector: "button" })).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText("ESG Content Pack")).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText("Buy", { selector: "button" }),
+    ).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByText("Install", { selector: "button" }));
 
     // Auto-apply fires without a second click: the apply endpoint is hit…
     await waitFor(
-      () => expect(mockPost).toHaveBeenCalledWith("/admin/extensions/install/s1/apply"),
+      () =>
+        expect(mockPost).toHaveBeenCalledWith(
+          "/admin/extensions/install/s1/apply",
+        ),
       { timeout: 5000 },
     );
     // …and no manual "Install extension" apply button is ever shown.
@@ -886,7 +1144,8 @@ describe("ExtensionsAdmin", () => {
     changelog: {
       version: "1.1.0",
       from_version: "1.0.0",
-      notes: "## 1.1.0\n\n### Fixed\n- The outbox no longer drains into nothing.",
+      notes:
+        "## 1.1.0\n\n### Fixed\n- The outbox no longer drains into nothing.",
       source: "bundle",
     },
   };
@@ -910,7 +1169,13 @@ describe("ExtensionsAdmin", () => {
           items: [UPDATE_ITEM],
         };
       if (path.startsWith("/admin/extensions/install/"))
-        return { id: "s1", filename: "esg.teax", status: "previewed", extension_key: "esg-pack", diff };
+        return {
+          id: "s1",
+          filename: "esg.teax",
+          status: "previewed",
+          extension_key: "esg-pack",
+          diff,
+        };
       throw new Error(`unexpected GET ${path}`);
     });
   }
@@ -920,146 +1185,172 @@ describe("ExtensionsAdmin", () => {
   async function startUpdate(diff: unknown) {
     primeInitialLoad({
       license: LICENSE,
-      catalog: { configured: true, reachable: true, store_url: "https://x", items: [UPDATE_ITEM] },
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [UPDATE_ITEM],
+      },
     });
     primeUpdatePoll(diff);
     mockDelete.mockResolvedValue(undefined);
     renderPage();
-    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
-    await userEvent.click(screen.getByText("Update to 1.1.0", { selector: "button" }));
+    await waitFor(() =>
+      expect(screen.getByText("ESG Content Pack")).toBeInTheDocument(),
+    );
+    await userEvent.click(
+      screen.getByText("Update to 1.1.0", { selector: "button" }),
+    );
   }
 
-  it(
-    "an update stops on its release notes instead of auto-applying, then installs on confirm",
-    async () => {
-      await startUpdate(CHANGELOG_DIFF);
+  it("an update stops on its release notes instead of auto-applying, then installs on confirm", async () => {
+    await startUpdate(CHANGELOG_DIFF);
 
-      await waitFor(
-        () =>
-          expect(
-            screen.getByText("Update ESG Content Pack to 1.1.0?"),
-          ).toBeInTheDocument(),
-        { timeout: 5000 },
-      );
-      // The administrator is deciding on what the release contains, not on a
-      // version number.
-      expect(screen.getByText(/outbox no longer drains/)).toBeInTheDocument();
-      expect(mockPost).not.toHaveBeenCalledWith("/admin/extensions/install/s1/apply");
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText("Update ESG Content Pack to 1.1.0?"),
+        ).toBeInTheDocument(),
+      { timeout: 5000 },
+    );
+    // The administrator is deciding on what the release contains, not on a
+    // version number.
+    expect(screen.getByText(/outbox no longer drains/)).toBeInTheDocument();
+    expect(mockPost).not.toHaveBeenCalledWith(
+      "/admin/extensions/install/s1/apply",
+    );
 
-      await userEvent.click(screen.getByText("Install", { selector: "button" }));
-      await waitFor(() =>
-        expect(mockPost).toHaveBeenCalledWith("/admin/extensions/install/s1/apply"),
-      );
-    },
-    10000,
-  );
+    await userEvent.click(screen.getByText("Install", { selector: "button" }));
+    await waitFor(() =>
+      expect(mockPost).toHaveBeenCalledWith(
+        "/admin/extensions/install/s1/apply",
+      ),
+    );
+  }, 10000);
 
-  it(
-    "declining an update discards the uploaded bundle rather than leaving it previewed",
-    async () => {
-      await startUpdate(CHANGELOG_DIFF);
+  it("declining an update discards the uploaded bundle rather than leaving it previewed", async () => {
+    await startUpdate(CHANGELOG_DIFF);
 
-      await waitFor(
-        () => expect(screen.getByText("Update ESG Content Pack to 1.1.0?")).toBeInTheDocument(),
-        { timeout: 5000 },
-      );
-      await userEvent.click(screen.getByText("Cancel", { selector: "button" }));
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText("Update ESG Content Pack to 1.1.0?"),
+        ).toBeInTheDocument(),
+      { timeout: 5000 },
+    );
+    await userEvent.click(screen.getByText("Cancel", { selector: "button" }));
 
-      await waitFor(() =>
-        expect(mockDelete).toHaveBeenCalledWith("/admin/extensions/install/s1"),
-      );
-      expect(mockPost).not.toHaveBeenCalledWith("/admin/extensions/install/s1/apply");
-    },
-    10000,
-  );
+    await waitFor(() =>
+      expect(mockDelete).toHaveBeenCalledWith("/admin/extensions/install/s1"),
+    );
+    expect(mockPost).not.toHaveBeenCalledWith(
+      "/admin/extensions/install/s1/apply",
+    );
+  }, 10000);
 
-  it(
-    "a release with no notes still offers the decision rather than silently applying",
-    async () => {
-      // Every bundle published before per-extension changelogs existed lands
-      // here, and the store had nothing either.
-      await startUpdate({
-        changelog: { version: "1.1.0", from_version: "1.0.0", notes: "", source: "none" },
-      });
+  it("a release with no notes still offers the decision rather than silently applying", async () => {
+    // Every bundle published before per-extension changelogs existed lands
+    // here, and the store had nothing either.
+    await startUpdate({
+      changelog: {
+        version: "1.1.0",
+        from_version: "1.0.0",
+        notes: "",
+        source: "none",
+      },
+    });
 
-      await waitFor(
-        () => expect(screen.getByText("Update ESG Content Pack to 1.1.0?")).toBeInTheDocument(),
-        { timeout: 5000 },
-      );
-      expect(screen.getByText(/ships no notes/)).toBeInTheDocument();
-    },
-    10000,
-  );
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText("Update ESG Content Pack to 1.1.0?"),
+        ).toBeInTheDocument(),
+      { timeout: 5000 },
+    );
+    expect(screen.getByText(/ships no notes/)).toBeInTheDocument();
+  }, 10000);
 
-  it(
-    "one-click store install stops at the downgrade confirmation instead of auto-applying",
-    async () => {
-      primeInitialLoad({
-        license: LICENSE,
-        catalog: {
+  it("one-click store install stops at the downgrade confirmation instead of auto-applying", async () => {
+    primeInitialLoad({
+      license: LICENSE,
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [{ ...STORE_ITEM, entitlement_state: "active" }],
+      },
+    });
+    mockPost.mockImplementation(async (path: string) => {
+      if (path === "/admin/extensions/store/install")
+        return { id: "s1", filename: "esg.teax", status: "verifying" };
+      if (path === "/admin/extensions/install/s1/apply")
+        return { id: "s1", filename: "esg.teax", status: "applying" };
+      throw new Error(`unexpected POST ${path}`);
+    });
+    mockGet.mockImplementation(async (path: string) => {
+      if (path === "/admin/extensions") return [];
+      if (path === "/admin/extensions/license") return LICENSE;
+      if (path === "/admin/extensions/store/catalog")
+        return {
           configured: true,
           reachable: true,
           store_url: "https://x",
           items: [{ ...STORE_ITEM, entitlement_state: "active" }],
-        },
-      });
-      mockPost.mockImplementation(async (path: string) => {
-        if (path === "/admin/extensions/store/install")
-          return { id: "s1", filename: "esg.teax", status: "verifying" };
-        if (path === "/admin/extensions/install/s1/apply")
-          return { id: "s1", filename: "esg.teax", status: "applying" };
-        throw new Error(`unexpected POST ${path}`);
-      });
-      mockGet.mockImplementation(async (path: string) => {
-        if (path === "/admin/extensions") return [];
-        if (path === "/admin/extensions/license") return LICENSE;
-        if (path === "/admin/extensions/store/catalog")
-          return {
-            configured: true,
-            reachable: true,
-            store_url: "https://x",
-            items: [{ ...STORE_ITEM, entitlement_state: "active" }],
-          };
-        if (path.startsWith("/admin/extensions/install/")) {
-          // The dry-run flagged this bundle as OLDER than what is installed.
-          return {
-            id: "s1",
-            filename: "esg.teax",
-            status: "previewed",
-            diff: {
-              downgrade: { from: "2.0.0", to: "1.0.0" },
-              totals: { created: 0, updated: 1, skipped: 0, conflict: 0, failed: 0 },
+        };
+      if (path.startsWith("/admin/extensions/install/")) {
+        // The dry-run flagged this bundle as OLDER than what is installed.
+        return {
+          id: "s1",
+          filename: "esg.teax",
+          status: "previewed",
+          diff: {
+            downgrade: { from: "2.0.0", to: "1.0.0" },
+            totals: {
+              created: 0,
+              updated: 1,
+              skipped: 0,
+              conflict: 0,
+              failed: 0,
             },
-          };
-        }
-        throw new Error(`unexpected GET ${path}`);
-      });
+          },
+        };
+      }
+      throw new Error(`unexpected GET ${path}`);
+    });
 
-      renderPage();
-      await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
-      await userEvent.click(screen.getByText("Install", { selector: "button" }));
+    renderPage();
+    await waitFor(() =>
+      expect(screen.getByText("ESG Content Pack")).toBeInTheDocument(),
+    );
+    await userEvent.click(screen.getByText("Install", { selector: "button" }));
 
-      // The confirmation dialog opens instead of the silent auto-apply…
-      await waitFor(
-        () => expect(screen.getByText("Install an older version?")).toBeInTheDocument(),
-        { timeout: 5000 },
-      );
-      expect(screen.getByText(/a downgrade/)).toBeInTheDocument();
-      expect(mockPost).not.toHaveBeenCalledWith(
+    // The confirmation dialog opens instead of the silent auto-apply…
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText("Install an older version?"),
+        ).toBeInTheDocument(),
+      { timeout: 5000 },
+    );
+    expect(screen.getByText(/a downgrade/)).toBeInTheDocument();
+    expect(mockPost).not.toHaveBeenCalledWith(
+      "/admin/extensions/install/s1/apply",
+      expect.anything(),
+    );
+
+    // …and confirming re-applies WITH the explicit confirm flag.
+    await userEvent.click(
+      screen.getByText("Install older version", { selector: "button" }),
+    );
+    await waitFor(() =>
+      expect(mockPost).toHaveBeenCalledWith(
         "/admin/extensions/install/s1/apply",
-        expect.anything(),
-      );
-
-      // …and confirming re-applies WITH the explicit confirm flag.
-      await userEvent.click(screen.getByText("Install older version", { selector: "button" }));
-      await waitFor(() =>
-        expect(mockPost).toHaveBeenCalledWith("/admin/extensions/install/s1/apply", {
+        {
           confirm_downgrade: true,
-        }),
-      );
-    },
-    10000,
-  );
+        },
+      ),
+    );
+  }, 10000);
 
   it("shows an update chip on the Installed tab and clicking it starts the store install", async () => {
     const updateItem = {
@@ -1074,12 +1365,23 @@ describe("ExtensionsAdmin", () => {
     primeInitialLoad({
       extensions: [SAMPLE_EXT],
       license: LICENSE,
-      catalog: { configured: true, reachable: true, store_url: "https://x", items: [updateItem] },
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [updateItem],
+      },
     });
-    mockPost.mockResolvedValue({ id: "s9", filename: "sample.teax", status: "verifying" });
+    mockPost.mockResolvedValue({
+      id: "s9",
+      filename: "sample.teax",
+      status: "verifying",
+    });
     renderPage();
     await openInstalledTab();
-    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Sample Extension")).toBeInTheDocument(),
+    );
 
     // The Version cell carries the chip because the catalog says a newer
     // version exists — no separate request is made for it.
@@ -1113,8 +1415,12 @@ describe("ExtensionsAdmin", () => {
       },
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
-    expect(screen.getByText("Install", { selector: "button" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText("ESG Content Pack")).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText("Install", { selector: "button" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/Update to/)).not.toBeInTheDocument();
   });
 
@@ -1161,17 +1467,31 @@ describe("ExtensionsAdmin", () => {
               id: "s1",
               filename: "esg.teax",
               status: "previewed",
-              diff: { totals: { created: 1, updated: 0, skipped: 0, conflict: 0, failed: 0 } },
+              diff: {
+                totals: {
+                  created: 1,
+                  updated: 0,
+                  skipped: 0,
+                  conflict: 0,
+                  failed: 0,
+                },
+              },
             };
       throw new Error(`unexpected GET ${path}`);
     });
 
     renderPage();
-    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("ESG Content Pack")).toBeInTheDocument(),
+    );
     await userEvent.click(screen.getByText("Install", { selector: "button" }));
 
     // Preview landed and the apply is in flight: still busy, still disabled.
-    const busy = await screen.findByText("Installing…", { selector: "button" }, { timeout: 5000 });
+    const busy = await screen.findByText(
+      "Installing…",
+      { selector: "button" },
+      { timeout: 5000 },
+    );
     expect(busy).toBeDisabled();
     expect(busy.querySelector(".MuiCircularProgress-root")).toBeTruthy();
 
@@ -1180,7 +1500,10 @@ describe("ExtensionsAdmin", () => {
 
     // …and it settles back to an actionable button once the install lands.
     await waitFor(
-      () => expect(screen.getByText("Install", { selector: "button" })).toBeEnabled(),
+      () =>
+        expect(
+          screen.getByText("Install", { selector: "button" }),
+        ).toBeEnabled(),
       { timeout: 5000 },
     );
   }, 15000);
@@ -1207,7 +1530,11 @@ describe("ExtensionsAdmin", () => {
       items: [updateItem],
     };
     primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE, catalog });
-    mockPost.mockResolvedValue({ id: "s9", filename: "sample.teax", status: "verifying" });
+    mockPost.mockResolvedValue({
+      id: "s9",
+      filename: "sample.teax",
+      status: "verifying",
+    });
     mockGet.mockImplementation(async (path: string) => {
       if (path === "/admin/extensions") return [SAMPLE_EXT];
       if (path === "/admin/extensions/license") return LICENSE;
@@ -1220,21 +1547,25 @@ describe("ExtensionsAdmin", () => {
 
     renderPage();
     await openInstalledTab();
-    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Sample Extension")).toBeInTheDocument(),
+    );
     await userEvent.click(screen.getByText("Update to 2.0.0"));
 
     // The chip reports its own progress…
-    await waitFor(() => expect(screen.getByText("Updating…")).toBeInTheDocument(), {
-      timeout: 5000,
-    });
+    await waitFor(
+      () => expect(screen.getByText("Updating…")).toBeInTheDocument(),
+      {
+        timeout: 5000,
+      },
+    );
     // …and the pipeline is in the dialog, over the tab that started it.
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("sample.teax")).toBeInTheDocument();
     // hidden: true — the open modal marks the page behind it aria-hidden.
-    expect(screen.getByRole("tab", { name: "Installed", hidden: true })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(
+      screen.getByRole("tab", { name: "Installed", hidden: true }),
+    ).toHaveAttribute("aria-selected", "true");
   }, 15000);
 
   it("offers Install from file… on both tabs", async () => {
@@ -1243,21 +1574,32 @@ describe("ExtensionsAdmin", () => {
     primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE });
     renderPage();
     await waitFor(() =>
-      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
+      expect(
+        screen.getByText("Install from file…", { selector: "button" }),
+      ).toBeInTheDocument(),
     );
     await openInstalledTab();
-    expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Install from file…", { selector: "button" }),
+    ).toBeInTheDocument();
   });
 
   it("shows no update chip when the catalog is unreachable (air-gapped)", async () => {
     primeInitialLoad({
       extensions: [SAMPLE_EXT],
       license: LICENSE,
-      catalog: { configured: true, reachable: false, store_url: "https://x", items: [] },
+      catalog: {
+        configured: true,
+        reachable: false,
+        store_url: "https://x",
+        items: [],
+      },
     });
     renderPage();
     await openInstalledTab();
-    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Sample Extension")).toBeInTheDocument(),
+    );
     expect(screen.queryByText(/Update to/)).not.toBeInTheDocument();
   });
 
@@ -1274,9 +1616,11 @@ describe("ExtensionsAdmin", () => {
       },
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("No Demo Pack")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("No Demo Pack")).toBeInTheDocument(),
+    );
 
-    // The demo link lives in the detail drawer now — a compact tile carries
+    // The demo link lives in the details dialog now — a compact tile carries
     // only the actions that move an extension towards being installed.
     expect(screen.queryByText("See it in action")).not.toBeInTheDocument();
 
@@ -1284,14 +1628,23 @@ describe("ExtensionsAdmin", () => {
       screen.getByRole("button", { name: /Open details for ESG Content Pack/ }),
     );
     const demoLink = await screen.findByText("See it in action");
-    expect(demoLink.closest("a")).toHaveAttribute("href", "https://youtu.be/demo");
+    expect(demoLink.closest("a")).toHaveAttribute(
+      "href",
+      "https://youtu.be/demo",
+    );
     expect(demoLink.closest("a")).toHaveAttribute("target", "_blank");
 
     await userEvent.keyboard("{Escape}");
     await waitFor(() =>
       expect(screen.queryByText("See it in action")).not.toBeInTheDocument(),
     );
-    await userEvent.click(screen.getByRole("button", { name: /Open details for No Demo Pack/ }));
+    // findByRole, not getByRole: the closed dialog is still fading out and
+    // keeps the page aria-hidden until its transition ends.
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /Open details for No Demo Pack/,
+      }),
+    );
     expect(screen.queryByText("See it in action")).not.toBeInTheDocument();
   });
 
@@ -1320,7 +1673,9 @@ describe("ExtensionsAdmin", () => {
       },
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("Alpha Ext")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Alpha Ext")).toBeInTheDocument(),
+    );
     expect(screen.getByText("Beta Ext")).toBeInTheDocument();
 
     // Every tag pill renders in the filter bar and nowhere else: a compact
@@ -1355,19 +1710,42 @@ describe("ExtensionsAdmin", () => {
         store_url: "https://x",
         items: [
           // catalogue order deliberately differs from section order
-          { ...STORE_ITEM, key: "reg", name: "Reg Ext", category: "regulations" },
-          { ...STORE_ITEM, key: "odd", name: "Odd Ext", category: "not-a-section" },
-          { ...STORE_ITEM, key: "str", name: "Strat Ext", category: "strategy" },
+          {
+            ...STORE_ITEM,
+            key: "reg",
+            name: "Reg Ext",
+            category: "regulations",
+          },
+          {
+            ...STORE_ITEM,
+            key: "odd",
+            name: "Odd Ext",
+            category: "not-a-section",
+          },
+          {
+            ...STORE_ITEM,
+            key: "str",
+            name: "Strat Ext",
+            category: "strategy",
+          },
         ],
       },
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("Reg Ext")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Reg Ext")).toBeInTheDocument(),
+    );
 
-    const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    const headings = screen
+      .getAllByRole("heading", { level: 3 })
+      .map((h) => h.textContent);
     // Integrations is empty and therefore omitted; the unknown slug lands
     // under Other, which always trails.
-    expect(headings).toEqual(["Strategy, Planning & Transformation", "Regulations", "Other"]);
+    expect(headings).toEqual([
+      "Strategy, Planning & Transformation",
+      "Regulations",
+      "Other",
+    ]);
     const strat = screen.getByText("Strategy, Planning & Transformation");
     const reg = screen.getByText("Regulations");
     expect(strat.compareDocumentPosition(screen.getByText("Strat Ext"))).toBe(
@@ -1385,13 +1763,27 @@ describe("ExtensionsAdmin", () => {
         reachable: true,
         store_url: "https://x",
         items: [
-          { ...STORE_ITEM, key: "a", name: "Alpha Ext", category: "integrations", tags: ["commercial", "jira"] },
-          { ...STORE_ITEM, key: "b", name: "Beta Ext", category: "regulations", tags: ["commercial", "dora"] },
+          {
+            ...STORE_ITEM,
+            key: "a",
+            name: "Alpha Ext",
+            category: "integrations",
+            tags: ["commercial", "jira"],
+          },
+          {
+            ...STORE_ITEM,
+            key: "b",
+            name: "Beta Ext",
+            category: "regulations",
+            tags: ["commercial", "dora"],
+          },
         ],
       },
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("Alpha Ext")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Alpha Ext")).toBeInTheDocument(),
+    );
     expect(screen.getByText("Integrations")).toBeInTheDocument();
     expect(screen.getByText("Regulations")).toBeInTheDocument();
 
@@ -1411,83 +1803,101 @@ describe("ExtensionsAdmin", () => {
       },
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("Beta Ext")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Beta Ext")).toBeInTheDocument(),
+    );
     expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
     expect(screen.queryByText("Other")).not.toBeInTheDocument();
   });
 
   it("shows no tag filter bar when the catalogue carries no tags", async () => {
     primeInitialLoad({
-      catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [STORE_ITEM],
+      },
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("ESG Content Pack")).toBeInTheDocument(),
+    );
     expect(screen.queryByText("All")).not.toBeInTheDocument();
   });
 
   it("Buy opens the payment link with a claim token and starts polling", async () => {
     primeInitialLoad({
-      catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [STORE_ITEM],
+      },
     });
     const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
 
     renderPage();
-    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("ESG Content Pack")).toBeInTheDocument(),
+    );
 
     await userEvent.click(screen.getByText("Buy", { selector: "button" }));
     expect(openSpy).toHaveBeenCalledTimes(1);
     const url = openSpy.mock.calls[0][0] as string;
-    expect(url).toMatch(/^https:\/\/buy\.stripe\.test\/pl_1\?client_reference_id=[\w-]{16,}$/);
+    expect(url).toMatch(
+      /^https:\/\/buy\.stripe\.test\/pl_1\?client_reference_id=[\w-]{16,}$/,
+    );
     // Waiting state shows on the card while the claim poll runs.
-    expect(screen.getByText(/Waiting for payment confirmation/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Waiting for payment confirmation/),
+    ).toBeInTheDocument();
     openSpy.mockRestore();
   });
 
-  it(
-    "claim poll sends the FULL client_reference_id incl. the instance suffix",
-    async () => {
-      // The store resolves the checkout by an EXACT client_reference_id
-      // match: polling with the bare token while the session carries
-      // token-instance never resolves — the "waiting for payment
-      // confirmation forever" bug.
-      primeInitialLoad({
-        catalog: {
-          configured: true,
-          reachable: true,
-          store_url: "https://x",
-          items: [STORE_ITEM],
-        },
-        instanceId: "TEA-AAAA-AAAA-AAAM",
-      });
-      const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
-      mockPost.mockResolvedValue({ status: "pending" });
+  it("claim poll sends the FULL client_reference_id incl. the instance suffix", async () => {
+    // The store resolves the checkout by an EXACT client_reference_id
+    // match: polling with the bare token while the session carries
+    // token-instance never resolves — the "waiting for payment
+    // confirmation forever" bug.
+    primeInitialLoad({
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [STORE_ITEM],
+      },
+      instanceId: "TEA-AAAA-AAAA-AAAM",
+    });
+    const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+    mockPost.mockResolvedValue({ status: "pending" });
 
-      renderPage();
-      await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
-      await userEvent.click(screen.getByText("Buy", { selector: "button" }));
+    renderPage();
+    await waitFor(() =>
+      expect(screen.getByText("ESG Content Pack")).toBeInTheDocument(),
+    );
+    await userEvent.click(screen.getByText("Buy", { selector: "button" }));
 
-      // With a known instance id the checkout goes through the store's
-      // server-created session endpoint (no typed instance field) …
-      const url = new URL(openSpy.mock.calls[0][0] as string);
-      expect(url.pathname).toBe("/checkout");
-      expect(url.searchParams.get("kind")).toBe("buy");
-      expect(url.searchParams.get("instance")).toBe("TEA-AAAA-AAAA-AAAM");
-      // … and the session's client_reference_id is <ref>-<instance>, which
-      // is exactly what the claim poll must send.
-      const ref = `${url.searchParams.get("ref")}-TEA-AAAA-AAAA-AAAM`;
+    // With a known instance id the checkout goes through the store's
+    // server-created session endpoint (no typed instance field) …
+    const url = new URL(openSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe("/checkout");
+    expect(url.searchParams.get("kind")).toBe("buy");
+    expect(url.searchParams.get("instance")).toBe("TEA-AAAA-AAAA-AAAM");
+    // … and the session's client_reference_id is <ref>-<instance>, which
+    // is exactly what the claim poll must send.
+    const ref = `${url.searchParams.get("ref")}-TEA-AAAA-AAAA-AAAM`;
 
-      // the first poll fires after CLAIM_POLL_MS (5s) of real time
-      await waitFor(
-        () =>
-          expect(mockPost).toHaveBeenCalledWith("/admin/extensions/store/claim", {
-            token: ref,
-          }),
-        { timeout: 7000 },
-      );
-      openSpy.mockRestore();
-    },
-    12000,
-  );
+    // the first poll fires after CLAIM_POLL_MS (5s) of real time
+    await waitFor(
+      () =>
+        expect(mockPost).toHaveBeenCalledWith("/admin/extensions/store/claim", {
+          token: ref,
+        }),
+      { timeout: 7000 },
+    );
+    openSpy.mockRestore();
+  }, 12000);
 
   it("store card shows the live entitlement chip with the trial expiry date", async () => {
     const trialItem = {
@@ -1499,10 +1909,17 @@ describe("ExtensionsAdmin", () => {
       entitlement_auto_renew: false,
     };
     primeInitialLoad({
-      catalog: { configured: true, reachable: true, store_url: "https://x", items: [trialItem] },
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [trialItem],
+      },
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("ESG Content Pack")).toBeInTheDocument(),
+    );
     // dates follow the app-wide configured format, not the browser locale
     expect(
       screen.getByText(
@@ -1519,10 +1936,17 @@ describe("ExtensionsAdmin", () => {
       entitlement_auto_renew: true,
     };
     primeInitialLoad({
-      catalog: { configured: true, reachable: true, store_url: "https://x", items: [paidItem] },
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [paidItem],
+      },
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("ESG Content Pack")).toBeInTheDocument(),
+    );
     expect(screen.getByText(/Renews on/)).toBeInTheDocument();
   });
 
@@ -1530,33 +1954,50 @@ describe("ExtensionsAdmin", () => {
     primeInitialLoad();
     renderPage();
     await waitFor(() =>
-      expect(screen.getByText(/No extension store is configured/)).toBeInTheDocument(),
+      expect(
+        screen.getByText(/No extension store is configured/),
+      ).toBeInTheDocument(),
     );
   });
 
   it("shows the unreachable hint when the store is configured but offline", async () => {
     primeInitialLoad({
-      catalog: { configured: true, reachable: false, store_url: "https://x", items: [] },
+      catalog: {
+        configured: true,
+        reachable: false,
+        store_url: "https://x",
+        items: [],
+      },
     });
     renderPage();
     await waitFor(() =>
-      expect(screen.getByText(/store could not be reached/)).toBeInTheDocument(),
+      expect(
+        screen.getByText(/store could not be reached/),
+      ).toBeInTheDocument(),
     );
   });
 
-  // ---- compact tiles + the detail drawer --------------------------------
+  // ---- compact tiles + the details dialog -------------------------------
 
-  it("opens the detail drawer from a tile and shows what the tile omits", async () => {
+  it("opens the details dialog from a tile and shows what the tile omits", async () => {
     primeInitialLoad({
       catalog: {
         configured: true,
         reachable: true,
         store_url: "https://x",
-        items: [{ ...STORE_ITEM, long_description: "The long story.", homepage: "https://h" }],
+        items: [
+          {
+            ...STORE_ITEM,
+            long_description: "The long story.",
+            homepage: "https://h",
+          },
+        ],
       },
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("ESG Content Pack")).toBeInTheDocument(),
+    );
 
     // The tile carries the short description only.
     expect(screen.queryByText("The long story.")).not.toBeInTheDocument();
@@ -1565,10 +2006,13 @@ describe("ExtensionsAdmin", () => {
       screen.getByRole("button", { name: /Open details for ESG Content Pack/ }),
     );
     expect(await screen.findByText("The long story.")).toBeInTheDocument();
-    expect(screen.getByText("Source").closest("a")).toHaveAttribute("href", "https://h");
+    expect(screen.getByText("Source").closest("a")).toHaveAttribute(
+      "href",
+      "https://h",
+    );
   });
 
-  it("swaps the drawer's content when a different tile is opened", async () => {
+  it("swaps the dialog's content when a different tile is opened", async () => {
     primeInitialLoad({
       catalog: {
         configured: true,
@@ -1586,7 +2030,9 @@ describe("ExtensionsAdmin", () => {
       },
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("Beta Ext")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Beta Ext")).toBeInTheDocument(),
+    );
 
     await userEvent.click(
       screen.getByRole("button", { name: /Open details for ESG Content Pack/ }),
@@ -1594,22 +2040,68 @@ describe("ExtensionsAdmin", () => {
     expect(await screen.findByText("Alpha story.")).toBeInTheDocument();
 
     await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByText("Alpha story.")).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByText("Alpha story.")).not.toBeInTheDocument(),
+    );
 
-    await userEvent.click(screen.getByRole("button", { name: /Open details for Beta Ext/ }));
+    // findByRole, not getByRole: the closed dialog is still fading out and
+    // keeps the page aria-hidden until its transition ends.
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Open details for Beta Ext/ }),
+    );
     expect(await screen.findByText("Beta story.")).toBeInTheDocument();
     expect(screen.queryByText("Alpha story.")).not.toBeInTheDocument();
   });
 
+  it("shows the store's release notes as What's new in the details dialog", async () => {
+    primeInitialLoad({
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [{ ...STORE_ITEM, version: "1.3.0" }],
+      },
+      changelog: {
+        key: "esg-pack",
+        version: "1.3.0",
+        from_version: null,
+        notes: "### Fixed\n- The thing that was broken",
+        source: "store",
+      },
+    });
+    renderPage();
+    await waitFor(() =>
+      expect(screen.getByText("ESG Content Pack")).toBeInTheDocument(),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /Open details for ESG Content Pack/ }),
+    );
+    expect(await screen.findByText("What's new")).toBeInTheDocument();
+    expect(screen.getByText("The thing that was broken")).toBeInTheDocument();
+    expect(mockGet).toHaveBeenCalledWith(
+      "/admin/extensions/store/changelog/esg-pack?version=1.3.0",
+      expect.anything(),
+    );
+  });
+
   it("renders an installed extension's own logo on the Installed tab", async () => {
     primeInitialLoad({
-      extensions: [{ ...SAMPLE_EXT, logo_url: "/api/v1/ext-assets/sample-ext/1.0.0/logo.png" }],
+      extensions: [
+        {
+          ...SAMPLE_EXT,
+          logo_url: "/api/v1/ext-assets/sample-ext/1.0.0/logo.png",
+        },
+      ],
     });
     renderPage();
     await openInstalledTab();
-    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Sample Extension")).toBeInTheDocument(),
+    );
     expect(
-      document.querySelector('img[src="/api/v1/ext-assets/sample-ext/1.0.0/logo.png"]'),
+      document.querySelector(
+        'img[src="/api/v1/ext-assets/sample-ext/1.0.0/logo.png"]',
+      ),
     ).toBeInTheDocument();
   });
 
@@ -1617,7 +2109,12 @@ describe("ExtensionsAdmin", () => {
 
   it("reports when the store was last checked", async () => {
     primeInitialLoad({
-      catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [STORE_ITEM],
+      },
       storeCheck: STORE_CHECK,
     });
     renderPage();
@@ -1628,8 +2125,16 @@ describe("ExtensionsAdmin", () => {
     // The whole point: without this, "I never get notified" cannot be told
     // apart from "the fetch has been refused for a fortnight".
     primeInitialLoad({
-      catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
-      storeCheck: { ...STORE_CHECK, error: "Store refused the request (HTTP 403)" },
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [STORE_ITEM],
+      },
+      storeCheck: {
+        ...STORE_CHECK,
+        error: "Store refused the request (HTTP 403)",
+      },
     });
     renderPage();
     expect(
@@ -1639,29 +2144,55 @@ describe("ExtensionsAdmin", () => {
 
   it("runs the check on demand and reports what it found", async () => {
     primeInitialLoad({
-      catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [STORE_ITEM],
+      },
       storeCheck: STORE_CHECK,
     });
     mockPost.mockImplementation(async (path: string) => {
       if (path === "/settings/extension-store-check")
-        return { configured: true, disabled: false, new: 2, updates: 1, error: null };
+        return {
+          configured: true,
+          disabled: false,
+          new: 2,
+          updates: 1,
+          error: null,
+        };
       throw new Error(`unexpected POST ${path}`);
     });
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: /Check now/ }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Check now/ }),
+    );
 
-    expect(mockPost).toHaveBeenCalledWith("/settings/extension-store-check", {});
+    expect(mockPost).toHaveBeenCalledWith(
+      "/settings/extension-store-check",
+      {},
+    );
     expect(await screen.findByText("2 new, 1 updated")).toBeInTheDocument();
   });
 
   it("says so when store notices are switched off", async () => {
     primeInitialLoad({
-      catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [STORE_ITEM],
+      },
       storeCheck: { ...STORE_CHECK, enabled: false },
     });
-    mockPost.mockImplementation(async () => ({ configured: true, disabled: true }));
+    mockPost.mockImplementation(async () => ({
+      configured: true,
+      disabled: true,
+    }));
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: /Check now/ }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Check now/ }),
+    );
     expect(await screen.findByText(/switched off/)).toBeInTheDocument();
   });
 });

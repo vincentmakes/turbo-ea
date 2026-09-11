@@ -1,8 +1,8 @@
 /**
- * Full-size screenshot view, opened from the store detail drawer.
+ * Full-size screenshot view, opened from the store details dialog.
  *
- * Nested inside the drawer, so it keeps `disableRestoreFocus` — without it
- * MUI fights the drawer over where focus goes on close and warns about
+ * Nested inside that dialog, so it keeps `disableRestoreFocus` — without it
+ * MUI fights the outer dialog over where focus goes on close and warns about
  * `aria-hidden` on a focused element.
  */
 import Box from "@mui/material/Box";

@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.135.0] - 2026-09-11
+
+### Changed
+
+- **The extension store's details view is now a large window built around the screenshots.** Clicking a tile in Admin → Extensions → Store opens a centred dialog with a gallery on one side — one screenshot at a time, arrows, thumbnails, click to view it full size — and the description, tags, licence credits and actions beside it, instead of the narrow panel on the right that stacked the screenshots as a strip. On a phone it fills the screen.
+
+### Added
+
+- **What's new in the store details.** The details dialog shows the extension's published release notes when the store provides them — for the listed version, or everything between your installed version and it when an update is offered — so you can read what a version contains before installing it. An instance that cannot reach the store simply has no such section.
+
 ## [2.134.2] - 2026-09-10
 
 ### Fixed

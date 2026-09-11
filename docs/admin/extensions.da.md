@@ -31,7 +31,7 @@ ID'et følger med en workspace-overførsel, så flytning til en ny vært holder 
 
 ## Fanen Butik
 
-Fanen **Butik** virker uden nogen konfiguration og viser leverandørens udgivne udvidelser som et gitter af kompakte felter — logo, navn, licensstatus og pris. Klik på et felt for at åbne et panel til højre med den fulde beskrivelse, skærmbilleder, kategorimærkater og kilde- og licensangivelser. Udvidelser uden grafik får et genereret felt med deres initialer.
+Fanen **Butik** virker uden nogen konfiguration og viser leverandørens udgivne udvidelser som et gitter af kompakte felter — logo, navn, licensstatus og pris. Klik på et felt for at åbne et stort detaljevindue: på den ene side et galleri af skærmbilleder — bladr med pilene eller miniaturerne, og klik på et skærmbillede for at se det i fuld størrelse — og ved siden af den fulde beskrivelse, kategorimærkater, kilde- og licensangivelser og handlingerne. Når butikken udgiver udgivelsesnoter til udvidelsen, vises de under **Nyheder**. Udvidelser uden grafik får et genereret felt med deres initialer.
 
 - **Køb** åbner betalingssiden i en ny browserfane. Så snart betalingen er bekræftet, anvendes din licens automatisk (en kopi ankommer også pr. e-mail).
 - **Installer** (eller **Opdater**, når en nyere version er udgivet) tjekker først din licens — hvis udvidelsen endnu ikke er licenseret, tilbyder en dialog at købe eller indsætte en licens og fortsætter derefter automatisk — og downloader pakken gennem præcis den samme signaturkontrol og prøvekørselsforhåndsvisning som en manuel upload. Udvidelser med demo viser et **Se det i praksis**-link. Knappen hedder kun **Opdater** for en udvidelse, du allerede har installeret; ellers er det et almindeligt **Installer**, der henter den udgivne version.

@@ -55,7 +55,7 @@ import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionHost";
 import EntitlementChip from "./extensions/EntitlementChip";
 import ExtensionLogo from "./extensions/ExtensionLogo";
 import StoreCheckStatusLine from "./extensions/StoreCheckStatusLine";
-import StoreDetailDrawer from "./extensions/StoreDetailDrawer";
+import StoreDetailDialog from "./extensions/StoreDetailDialog";
 import StoreTile from "./extensions/StoreTile";
 import { groupStoreItems } from "./extensions/storeCategories";
 import ExtensionChangelog from "@/components/ExtensionChangelog";
@@ -161,7 +161,9 @@ export default function ExtensionsAdmin() {
   const validParam = paramTab && TAB_KEYS.includes(paramTab) ? paramTab : null;
   // Priority: valid URL param > localStorage > default. localStorage is read
   // only once (lazy initializer) so it never fights a subsequent tab click.
-  const [tab, setTab] = useState<TabKey>(() => validParam ?? readStoredTab() ?? "store");
+  const [tab, setTab] = useState<TabKey>(
+    () => validParam ?? readStoredTab() ?? "store",
+  );
   usePageSection(
     t(tab === "store" ? "extensions.tabs.store" : "extensions.tabs.installed"),
   );
@@ -195,7 +197,9 @@ export default function ExtensionsAdmin() {
   // Multi-select AND filter over the catalogue's category tags. Empty = All.
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const allTags = useMemo(() => {
-    const union = new Set((catalog?.items ?? []).flatMap((item) => item.tags ?? []));
+    const union = new Set(
+      (catalog?.items ?? []).flatMap((item) => item.tags ?? []),
+    );
     return [
       ...MODEL_TAGS.filter((tag) => union.has(tag)),
       ...[...union].filter((tag) => !MODEL_TAGS.includes(tag)).sort(),
@@ -204,15 +208,22 @@ export default function ExtensionsAdmin() {
   const filteredItems = useMemo(() => {
     const items = catalog?.items ?? [];
     if (activeTags.length === 0) return items;
-    return items.filter((item) => activeTags.every((tag) => (item.tags ?? []).includes(tag)));
+    return items.filter((item) =>
+      activeTags.every((tag) => (item.tags ?? []).includes(tag)),
+    );
   }, [catalog, activeTags]);
   const toggleTag = (tag: string) =>
     setActiveTags((current) =>
-      current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag],
+      current.includes(tag)
+        ? current.filter((t) => t !== tag)
+        : [...current, tag],
     );
   // Sections are cut AFTER the tag filter so a filtered-out section simply
   // disappears with its heading.
-  const storeGroups = useMemo(() => groupStoreItems(filteredItems), [filteredItems]);
+  const storeGroups = useMemo(
+    () => groupStoreItems(filteredItems),
+    [filteredItems],
+  );
   // key -> the installed bundle's own logo, for catalogue items already
   // installed here. The bundle artwork wins over the catalogue's: it is what
   // this instance actually runs, and it resolves with the store unreachable.
@@ -255,10 +266,10 @@ export default function ExtensionsAdmin() {
   const [licenseDialogOpen, setLicenseDialogOpen] = useState(false);
   const [gateItem, setGateItem] = useState<StoreItem | null>(null);
 
-  // Store detail drawer. The KEY, not the item: the catalogue is refetched
+  // Store details dialog. The KEY, not the item: the catalogue is refetched
   // after a purchase or an install, and holding the object would leave the
-  // open panel showing the entitlement and buttons from before it landed.
-  const [drawerKey, setDrawerKey] = useState<string | null>(null);
+  // open dialog showing the entitlement and buttons from before it landed.
+  const [detailKey, setDetailKey] = useState<string | null>(null);
   const [licenseText, setLicenseText] = useState("");
   const [licenseBusy, setLicenseBusy] = useState(false);
   const [licenseError, setLicenseError] = useState<string | null>(null);
@@ -266,10 +277,16 @@ export default function ExtensionsAdmin() {
   // Set when a paste was refused with 409 entitlement_downgrade: the new
   // license drops entitlements the current one still covers, so the admin
   // must confirm before the replace lapses them.
-  const [downgrade, setDowngrade] = useState<{ text: string; dropped: string[] } | null>(null);
+  const [downgrade, setDowngrade] = useState<{
+    text: string;
+    dropped: string[];
+  } | null>(null);
 
   // Purchase claim polling (Buy → Stripe tab → poll until license lands).
-  const [claiming, setClaiming] = useState<{ token: string; itemKey: string } | null>(null);
+  const [claiming, setClaiming] = useState<{
+    token: string;
+    itemKey: string;
+  } | null>(null);
   const claimPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const claimCountRef = useRef(0);
 
@@ -328,8 +345,12 @@ export default function ExtensionsAdmin() {
       const [exts, lic, cat, inst] = await Promise.all([
         api.get<ExtensionInfo[]>("/admin/extensions"),
         api.get<LicenseInfo>("/admin/extensions/license").catch(() => null),
-        api.get<StoreCatalog>("/admin/extensions/store/catalog").catch(() => null),
-        api.get<{ instance_id: string }>("/admin/extensions/instance").catch(() => null),
+        api
+          .get<StoreCatalog>("/admin/extensions/store/catalog")
+          .catch(() => null),
+        api
+          .get<{ instance_id: string }>("/admin/extensions/instance")
+          .catch(() => null),
       ]);
       setExtensions(exts);
       setLicense(lic);
@@ -353,10 +374,15 @@ export default function ExtensionsAdmin() {
       setInstallError(null);
       try {
         const updated = opts?.confirmDowngrade
-          ? await api.post<ExtensionInstall>(`/admin/extensions/install/${id}/apply`, {
-              confirm_downgrade: true,
-            })
-          : await api.post<ExtensionInstall>(`/admin/extensions/install/${id}/apply`);
+          ? await api.post<ExtensionInstall>(
+              `/admin/extensions/install/${id}/apply`,
+              {
+                confirm_downgrade: true,
+              },
+            )
+          : await api.post<ExtensionInstall>(
+              `/admin/extensions/install/${id}/apply`,
+            );
         setInstall(updated);
         poll(updated.id);
       } catch (err) {
@@ -422,12 +448,15 @@ export default function ExtensionsAdmin() {
       setUpdateNotesBusy(true);
       try {
         const params = new URLSearchParams({ version: stamped.version });
-        if (stamped.from_version) params.set("from_version", stamped.from_version);
+        if (stamped.from_version)
+          params.set("from_version", stamped.from_version);
         const fetched = await api.get<ExtensionNotes>(
           `/admin/extensions/store/changelog/${encodeURIComponent(key)}?${params}`,
         );
         if (fetched.notes) {
-          setUpdateConfirm((prev) => (prev?.id === next.id ? { ...prev, notes: fetched } : prev));
+          setUpdateConfirm((prev) =>
+            prev?.id === next.id ? { ...prev, notes: fetched } : prev,
+          );
         }
       } catch {
         /* the store is optional — the empty state is a valid answer */
@@ -443,7 +472,9 @@ export default function ExtensionsAdmin() {
       clearPoll();
       pollRef.current = setTimeout(async () => {
         try {
-          const next = await api.get<ExtensionInstall>(`/admin/extensions/install/${id}`);
+          const next = await api.get<ExtensionInstall>(
+            `/admin/extensions/install/${id}`,
+          );
           setInstall(next);
           if (!TERMINAL.has(next.status)) {
             poll(id);
@@ -495,9 +526,12 @@ export default function ExtensionsAdmin() {
       setInstall(null);
       autoApplyRef.current = true; // one-click through to installed
       try {
-        const created = await api.post<ExtensionInstall>("/admin/extensions/store/install", {
-          key: itemKey,
-        });
+        const created = await api.post<ExtensionInstall>(
+          "/admin/extensions/store/install",
+          {
+            key: itemKey,
+          },
+        );
         setInstall(created);
         poll(created.id);
       } catch (err) {
@@ -544,8 +578,14 @@ export default function ExtensionsAdmin() {
       else if (continueKey) void startStoreInstall(continueKey);
     } catch (e) {
       const detail =
-        e instanceof ApiError ? (e.detail as { code?: string; dropped?: string[] } | null) : null;
-      if (e instanceof ApiError && e.status === 409 && detail?.code === "entitlement_downgrade") {
+        e instanceof ApiError
+          ? (e.detail as { code?: string; dropped?: string[] } | null)
+          : null;
+      if (
+        e instanceof ApiError &&
+        e.status === 409 &&
+        detail?.code === "entitlement_downgrade"
+      ) {
         setDowngrade({ text, dropped: detail.dropped ?? [] });
       } else {
         setLicenseError(e instanceof Error ? e.message : String(e));
@@ -568,11 +608,17 @@ export default function ExtensionsAdmin() {
       clearClaimPoll();
       claimPollRef.current = setTimeout(async () => {
         try {
-          const res = await api.post<ClaimResult>("/admin/extensions/store/claim", { token });
+          const res = await api.post<ClaimResult>(
+            "/admin/extensions/store/claim",
+            { token },
+          );
           if (res.status === "applied") {
             setClaiming(null);
             setNotice(
-              t("extensions.store.purchaseApplied", "Purchase confirmed — license applied."),
+              t(
+                "extensions.store.purchaseApplied",
+                "Purchase confirmed — license applied.",
+              ),
             );
             await loadAll();
             const continueKey = pendingInstallRef.current;
@@ -606,7 +652,11 @@ export default function ExtensionsAdmin() {
   // start polling the store's claim endpoint. The claim flow is mechanism-
   // agnostic: a completed trial checkout resolves to a license exactly like
   // a paid one.
-  const openCheckout = (link: string, itemKey: string, kind: "buy" | "trial") => {
+  const openCheckout = (
+    link: string,
+    itemKey: string,
+    kind: "buy" | "trial",
+  ) => {
     const token = makeClaimToken();
     // The instance ID rides along so the store can key the purchase to this
     // instance (composite licensing) — parsed off the end by the webhook
@@ -673,7 +723,10 @@ export default function ExtensionsAdmin() {
     setInstall(null);
     setActiveStoreKey(null); // a bespoke bundle is nobody's catalogue tile
     try {
-      const created = await api.upload<ExtensionInstall>("/admin/extensions/install", file);
+      const created = await api.upload<ExtensionInstall>(
+        "/admin/extensions/install",
+        file,
+      );
       setInstall(created);
       poll(created.id);
     } catch (err) {
@@ -740,7 +793,9 @@ export default function ExtensionsAdmin() {
   const handleToggle = async (ext: ExtensionInfo) => {
     setToggleBusyKey(ext.key);
     try {
-      await api.put(`/admin/extensions/${ext.key}/enabled`, { enabled: !ext.enabled });
+      await api.put(`/admin/extensions/${ext.key}/enabled`, {
+        enabled: !ext.enabled,
+      });
       invalidateExtensionCapabilities();
       await loadAll();
     } catch (e) {
@@ -792,7 +847,9 @@ export default function ExtensionsAdmin() {
         "/admin/extensions/store/refresh-license",
       );
       if (res.refreshed) {
-        setNotice(t("extensions.rows.renewed", "License refreshed from the store."));
+        setNotice(
+          t("extensions.rows.renewed", "License refreshed from the store."),
+        );
         await loadAll();
       } else {
         // Manual license or nothing newer — fall back to the paste dialog.
@@ -820,7 +877,9 @@ export default function ExtensionsAdmin() {
   const handleManageSubscription = async () => {
     setManageBusy(true);
     try {
-      const res = await api.post<{ url: string }>("/admin/extensions/store/billing-portal");
+      const res = await api.post<{ url: string }>(
+        "/admin/extensions/store/billing-portal",
+      );
       window.open(res.url, "_blank", "noopener");
     } catch {
       setError(
@@ -839,7 +898,9 @@ export default function ExtensionsAdmin() {
   // During a one-click store install the "previewed" state is transient
   // (auto-apply kicks in), so treat it as still-working for the UI.
   const autoApplying =
-    autoApplyRef.current && install?.status === "previewed" && !install.diff?.totals?.failed;
+    autoApplyRef.current &&
+    install?.status === "previewed" &&
+    !install.diff?.totals?.failed;
   const report = install?.result || install?.diff || null;
 
   // One busy truth for every install affordance on the page.
@@ -863,7 +924,10 @@ export default function ExtensionsAdmin() {
   // whether it is on screen, so no flag can drift out of sync with it, and
   // closing the dialog means clearing that state (closeInstall/handleDiscard).
   const installDialogOpen =
-    install !== null || installBusy || storeBusyKey !== null || installError !== null;
+    install !== null ||
+    installBusy ||
+    storeBusyKey !== null ||
+    installError !== null;
 
   // One handler bundle for the tile and the drawer, so the two surfaces
   // cannot end up wiring the same button to different things.
@@ -876,17 +940,19 @@ export default function ExtensionsAdmin() {
     claimingKey: claiming?.itemKey ?? null,
   };
   // Derived, never stored: a refetch after a purchase or an install must be
-  // reflected in an open drawer rather than leaving it on a stale snapshot.
-  const drawerItem = useMemo(
-    () => (drawerKey ? ((catalog?.items ?? []).find((i) => i.key === drawerKey) ?? null) : null),
-    [catalog, drawerKey],
+  // reflected in an open dialog rather than leaving it on a stale snapshot.
+  const detailItem = useMemo(
+    () =>
+      detailKey
+        ? ((catalog?.items ?? []).find((i) => i.key === detailKey) ?? null)
+        : null,
+    [catalog, detailKey],
   );
 
   const uiExtensions = useExtensionUI();
   const adminPanels = uiExtensions.flatMap(({ key, plugin }) =>
     (plugin.adminPanels ?? []).map((panel) => ({ extKey: key, panel })),
   );
-
 
   // The body of the install dialog: progress, then whatever the pipeline has
   // to show. The ACTIONS are deliberately not in here — they live in the
@@ -922,25 +988,30 @@ export default function ExtensionsAdmin() {
       {/* A manual upload stops here and reads the notes in place. A store
           update is paused by the confirm dialog instead, which shows the same
           component — so only one of the two ever renders them. */}
-      {report?.changelog && install?.status === "previewed" && !updateConfirm && (
-        <Box sx={{ mb: 2 }}>
-          <ExtensionChangelog
-            notes={report.changelog.notes}
-            version={report.changelog.version}
-            fromVersion={report.changelog.from_version}
-            name={install?.extension_key ?? undefined}
-          />
-        </Box>
-      )}
+      {report?.changelog &&
+        install?.status === "previewed" &&
+        !updateConfirm && (
+          <Box sx={{ mb: 2 }}>
+            <ExtensionChangelog
+              notes={report.changelog.notes}
+              version={report.changelog.version}
+              fromVersion={report.changelog.from_version}
+              name={install?.extension_key ?? undefined}
+            />
+          </Box>
+        )}
 
       {report?.totals && (
         <Box sx={{ mb: 1 }}>
           <Typography variant="body2" sx={{ mb: 0.5 }}>
             {t("extensions.install.previewSummary", "Content preview")} —{" "}
-            {t("extensions.install.created", "Created")}: {report.totals.created},{" "}
-            {t("extensions.install.updated", "Updated")}: {report.totals.updated},{" "}
-            {t("extensions.install.skipped", "Skipped")}: {report.totals.skipped},{" "}
-            {t("extensions.install.failed", "Failed")}: {report.totals.failed}
+            {t("extensions.install.created", "Created")}:{" "}
+            {report.totals.created},{" "}
+            {t("extensions.install.updated", "Updated")}:{" "}
+            {report.totals.updated},{" "}
+            {t("extensions.install.skipped", "Skipped")}:{" "}
+            {report.totals.skipped}, {t("extensions.install.failed", "Failed")}:{" "}
+            {report.totals.failed}
           </Typography>
           <Table size="small">
             <TableBody>
@@ -951,21 +1022,31 @@ export default function ExtensionsAdmin() {
                     <TableCell>{s.sheet}</TableCell>
                     <TableCell align="right">
                       {s.created
-                        ? t("extensions.install.nCreated", "{{n}} created", { n: s.created })
+                        ? t("extensions.install.nCreated", "{{n}} created", {
+                            n: s.created,
+                          })
                         : ""}
                     </TableCell>
                     <TableCell align="right">
                       {s.updated
-                        ? t("extensions.install.nUpdated", "{{n}} updated", { n: s.updated })
+                        ? t("extensions.install.nUpdated", "{{n}} updated", {
+                            n: s.updated,
+                          })
                         : ""}
                     </TableCell>
                     <TableCell align="right">
                       {s.skipped
-                        ? t("extensions.install.nSkipped", "{{n}} skipped", { n: s.skipped })
+                        ? t("extensions.install.nSkipped", "{{n}} skipped", {
+                            n: s.skipped,
+                          })
                         : ""}
                     </TableCell>
                     <TableCell align="right">
-                      {s.failed ? <Chip size="small" color="error" label={s.failed} /> : ""}
+                      {s.failed ? (
+                        <Chip size="small" color="error" label={s.failed} />
+                      ) : (
+                        ""
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -994,7 +1075,9 @@ export default function ExtensionsAdmin() {
         hidden
         onChange={handleBundleFile}
       />
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+      <Box
+        sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}
+      >
         <MaterialSymbol icon="extension" size={28} color="#1976d2" />
         <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
           {t("extensions.title", "Extensions")}
@@ -1009,7 +1092,12 @@ export default function ExtensionsAdmin() {
             <Chip
               variant="outlined"
               size="small"
-              icon={<MaterialSymbol icon={instanceCopied ? "check" : "content_copy"} size={16} />}
+              icon={
+                <MaterialSymbol
+                  icon={instanceCopied ? "check" : "content_copy"}
+                  size={16}
+                />
+              }
               label={`${t("extensions.instanceId", "Instance ID")}: ${instanceId}`}
               sx={{ fontFamily: "monospace" }}
               onClick={() => {
@@ -1040,7 +1128,11 @@ export default function ExtensionsAdmin() {
           "extensions.consulting",
           "Extensions are built and signed by Turbo EA — they aren't self-built or open to third parties. We can build and tailor one to address your specific business needs.",
         )}{" "}
-        <Link href="https://www.turbo-ea.org/consulting" target="_blank" rel="noopener noreferrer">
+        <Link
+          href="https://www.turbo-ea.org/consulting"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           {t("extensions.consultingLink", "More info here")}
         </Link>
         .
@@ -1078,7 +1170,10 @@ export default function ExtensionsAdmin() {
       >
         <Tabs value={tab} onChange={handleTabChange} sx={{ flex: 1 }}>
           <Tab value="store" label={t("extensions.tabs.store", "Store")} />
-          <Tab value="installed" label={t("extensions.tabs.installed", "Installed")} />
+          <Tab
+            value="installed"
+            label={t("extensions.tabs.installed", "Installed")}
+          />
         </Tabs>
         <InstallFromFileButton
           onPick={pickBundleFile}
@@ -1120,7 +1215,14 @@ export default function ExtensionsAdmin() {
             </Alert>
           ) : (
             <>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  flexWrap: "wrap",
+                }}
+              >
                 {allTags.length > 0 && (
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     <Chip
@@ -1136,7 +1238,9 @@ export default function ExtensionsAdmin() {
                         size="small"
                         label={tag}
                         color={activeTags.includes(tag) ? "primary" : "default"}
-                        variant={activeTags.includes(tag) ? "filled" : "outlined"}
+                        variant={
+                          activeTags.includes(tag) ? "filled" : "outlined"
+                        }
                         onClick={() => toggleTag(tag)}
                       />
                     ))}
@@ -1146,7 +1250,10 @@ export default function ExtensionsAdmin() {
               <StoreCheckStatusLine />
               {filteredItems.length === 0 && (
                 <Typography variant="body2" color="text.secondary">
-                  {t("extensions.store.noTagMatch", "No extensions match the selected tags.")}
+                  {t(
+                    "extensions.store.noTagMatch",
+                    "No extensions match the selected tags.",
+                  )}
                 </Typography>
               )}
               {storeGroups.map((group, index) => (
@@ -1157,7 +1264,10 @@ export default function ExtensionsAdmin() {
                       component="h3"
                       sx={{ fontWeight: 600, mb: 1.5, mt: index === 0 ? 0 : 1 }}
                     >
-                      {t(`extensions.store.category.${group.category}`, group.category)}
+                      {t(
+                        `extensions.store.category.${group.category}`,
+                        group.category,
+                      )}
                     </Typography>
                   )}
                   <Box
@@ -1169,7 +1279,8 @@ export default function ExtensionsAdmin() {
                       // and never squeezing a tile below a readable width.
                       // auto-FIT would stretch a three-item catalogue into three
                       // enormous cards, which is exactly this store's shape.
-                      gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                      gridTemplateColumns:
+                        "repeat(auto-fill, minmax(280px, 1fr))",
                     }}
                   >
                     {group.items.map((item) => (
@@ -1178,7 +1289,7 @@ export default function ExtensionsAdmin() {
                         item={item}
                         bundleLogoUrl={installedLogos[item.key]}
                         handlers={storeHandlers}
-                        onOpen={setDrawerKey}
+                        onOpen={setDetailKey}
                       />
                     ))}
                   </Box>
@@ -1213,7 +1324,9 @@ export default function ExtensionsAdmin() {
               {license.store_managed && (
                 <Button
                   size="small"
-                  startIcon={<MaterialSymbol icon="manage_accounts" size={18} />}
+                  startIcon={
+                    <MaterialSymbol icon="manage_accounts" size={18} />
+                  }
                   disabled={manageBusy}
                   onClick={() => void handleManageSubscription()}
                 >
@@ -1277,9 +1390,15 @@ export default function ExtensionsAdmin() {
                   <TableHead>
                     <TableRow>
                       <TableCell>{t("extensions.list.name", "Name")}</TableCell>
-                      <TableCell>{t("extensions.list.version", "Version")}</TableCell>
-                      <TableCell>{t("extensions.list.status", "Status")}</TableCell>
-                      <TableCell>{t("extensions.list.license", "License")}</TableCell>
+                      <TableCell>
+                        {t("extensions.list.version", "Version")}
+                      </TableCell>
+                      <TableCell>
+                        {t("extensions.list.status", "Status")}
+                      </TableCell>
+                      <TableCell>
+                        {t("extensions.list.license", "License")}
+                      </TableCell>
                       <TableCell align="center">
                         {t("extensions.list.enabled", "Enabled")}
                       </TableCell>
@@ -1294,123 +1413,163 @@ export default function ExtensionsAdmin() {
                       // no catalog, so the chip simply never renders.
                       const updateItem = catalog?.reachable
                         ? catalog.items.find(
-                            (item) => item.key === ext.key && item.update_available,
+                            (item) =>
+                              item.key === ext.key && item.update_available,
                           )
                         : undefined;
                       return (
-                      <TableRow key={ext.key}>
-                        <TableCell>
-                          {/* Inside the existing cell rather than a column of
+                        <TableRow key={ext.key}>
+                          <TableCell>
+                            {/* Inside the existing cell rather than a column of
                               its own: 24px is what keeps a `size="small"` row
                               at its current height. */}
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <ExtensionLogo
-                              extKey={ext.key}
-                              name={ext.name}
-                              bundleLogoUrl={ext.logo_url}
-                              catalogLogoUrl={
-                                catalog?.items.find((item) => item.key === ext.key)?.logo
-                              }
-                              size={24}
-                              radius={1}
-                            />
-                            <Typography variant="body2">{ext.name}</Typography>
-                          </Stack>
-                          <Typography variant="caption" color="text.secondary">
-                            {ext.key}
-                            {ext.capabilities.length > 0 && ` · ${ext.capabilities.join(", ")}`}
-                          </Typography>
-                          {ext.last_error && (
-                            <Tooltip title={ext.last_error}>
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              alignItems="center"
+                            >
+                              <ExtensionLogo
+                                extKey={ext.key}
+                                name={ext.name}
+                                bundleLogoUrl={ext.logo_url}
+                                catalogLogoUrl={
+                                  catalog?.items.find(
+                                    (item) => item.key === ext.key,
+                                  )?.logo
+                                }
+                                size={24}
+                                radius={1}
+                              />
+                              <Typography variant="body2">
+                                {ext.name}
+                              </Typography>
+                            </Stack>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {ext.key}
+                              {ext.capabilities.length > 0 &&
+                                ` · ${ext.capabilities.join(", ")}`}
+                            </Typography>
+                            {ext.last_error && (
+                              <Tooltip title={ext.last_error}>
+                                <Chip
+                                  size="small"
+                                  color="error"
+                                  variant="outlined"
+                                  label={t(
+                                    "extensions.list.loadError",
+                                    "Load error",
+                                  )}
+                                  sx={{ ml: 1 }}
+                                />
+                              </Tooltip>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {ext.version}
+                            {updateItem && (
                               <Chip
                                 size="small"
-                                color="error"
+                                color="info"
                                 variant="outlined"
-                                label={t("extensions.list.loadError", "Load error")}
+                                icon={
+                                  busyKey === ext.key ? (
+                                    <CircularProgress
+                                      size={14}
+                                      color="inherit"
+                                    />
+                                  ) : (
+                                    <MaterialSymbol icon="upgrade" size={16} />
+                                  )
+                                }
+                                label={
+                                  busyKey === ext.key
+                                    ? t("extensions.list.updating", "Updating…")
+                                    : t(
+                                        "extensions.list.updateAvailable",
+                                        "Update to {{version}}",
+                                        { version: updateItem.version },
+                                      )
+                                }
+                                onClick={() => handleInstallClick(updateItem)}
+                                disabled={busyKey !== null || pipelineBusy}
                                 sx={{ ml: 1 }}
                               />
-                            </Tooltip>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {ext.version}
-                          {updateItem && (
+                            )}
+                          </TableCell>
+                          <TableCell>
                             <Chip
                               size="small"
-                              color="info"
-                              variant="outlined"
-                              icon={
-                                busyKey === ext.key ? (
-                                  <CircularProgress size={14} color="inherit" />
-                                ) : (
-                                  <MaterialSymbol icon="upgrade" size={16} />
-                                )
-                              }
-                              label={
-                                busyKey === ext.key
-                                  ? t("extensions.list.updating", "Updating…")
-                                  : t(
-                                      "extensions.list.updateAvailable",
-                                      "Update to {{version}}",
-                                      { version: updateItem.version },
-                                    )
-                              }
-                              onClick={() => handleInstallClick(updateItem)}
-                              disabled={busyKey !== null || pipelineBusy}
-                              sx={{ ml: 1 }}
+                              color={STATUS_COLOR[ext.status] ?? "default"}
+                              label={t(
+                                `extensions.status.${ext.status}`,
+                                ext.status,
+                              )}
                             />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            color={STATUS_COLOR[ext.status] ?? "default"}
-                            label={t(`extensions.status.${ext.status}`, ext.status)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <EntitlementChip ent={ext.entitlement} />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Switch
-                            size="small"
-                            checked={ext.enabled}
-                            disabled={toggleBusyKey === ext.key}
-                            onChange={() => void handleToggle(ext)}
-                            inputProps={{
-                              "aria-label": t("extensions.list.enabledToggle", "Toggle extension"),
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          {!["active", "free"].includes(ext.entitlement.state) && (
-                            <Button
+                          </TableCell>
+                          <TableCell>
+                            <EntitlementChip ent={ext.entitlement} />
+                          </TableCell>
+                          <TableCell align="center">
+                            <Switch
                               size="small"
-                              onClick={() => void handleRenew()}
-                              disabled={renewBusy}
-                              startIcon={
-                                renewBusy ? (
-                                  <CircularProgress size={14} color="inherit" />
-                                ) : (
-                                  <MaterialSymbol icon="autorenew" size={18} />
-                                )
-                              }
+                              checked={ext.enabled}
+                              disabled={toggleBusyKey === ext.key}
+                              onChange={() => void handleToggle(ext)}
+                              inputProps={{
+                                "aria-label": t(
+                                  "extensions.list.enabledToggle",
+                                  "Toggle extension",
+                                ),
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            {!["active", "free"].includes(
+                              ext.entitlement.state,
+                            ) && (
+                              <Button
+                                size="small"
+                                onClick={() => void handleRenew()}
+                                disabled={renewBusy}
+                                startIcon={
+                                  renewBusy ? (
+                                    <CircularProgress
+                                      size={14}
+                                      color="inherit"
+                                    />
+                                  ) : (
+                                    <MaterialSymbol
+                                      icon="autorenew"
+                                      size={18}
+                                    />
+                                  )
+                                }
+                              >
+                                {t("extensions.rows.renew", "Renew")}
+                              </Button>
+                            )}
+                            <Tooltip
+                              title={t(
+                                "extensions.list.uninstall",
+                                "Uninstall",
+                              )}
                             >
-                              {t("extensions.rows.renew", "Renew")}
-                            </Button>
-                          )}
-                          <Tooltip title={t("extensions.list.uninstall", "Uninstall")}>
-                            <Button
-                              size="small"
-                              color="error"
-                              onClick={() => setUninstallKey(ext.key)}
-                              startIcon={<MaterialSymbol icon="delete" size={18} />}
-                            >
-                              {t("extensions.list.uninstall", "Uninstall")}
-                            </Button>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
+                              <Button
+                                size="small"
+                                color="error"
+                                onClick={() => setUninstallKey(ext.key)}
+                                startIcon={
+                                  <MaterialSymbol icon="delete" size={18} />
+                                }
+                              >
+                                {t("extensions.list.uninstall", "Uninstall")}
+                              </Button>
+                            </Tooltip>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
                   </TableBody>
@@ -1458,9 +1617,16 @@ export default function ExtensionsAdmin() {
         maxWidth="md"
       >
         <DialogTitle sx={{ pb: 1 }}>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            flexWrap="wrap"
+            useFlexGap
+          >
             <Typography variant="h6" component="span">
-              {install?.filename ?? t("extensions.install.title", "Install extension")}
+              {install?.filename ??
+                t("extensions.install.title", "Install extension")}
             </Typography>
             {install?.extension_key && (
               <Chip
@@ -1470,7 +1636,10 @@ export default function ExtensionsAdmin() {
               />
             )}
             {install && (
-              <Chip size="small" label={autoApplying ? "installing" : install.status} />
+              <Chip
+                size="small"
+                label={autoApplying ? "installing" : install.status}
+              />
             )}
           </Stack>
         </DialogTitle>
@@ -1482,13 +1651,17 @@ export default function ExtensionsAdmin() {
               to discard. Discard DELETEs the staged upload; Close only
               dismisses, which is what a finished install gets so its
               extension_installs audit row survives. */}
-          {install && !autoApplying && !["applying", "installed"].includes(install.status) ? (
+          {install &&
+          !autoApplying &&
+          !["applying", "installed"].includes(install.status) ? (
             <Button color="inherit" onClick={() => void handleDiscard()}>
               {t("extensions.install.discard", "Discard")}
             </Button>
           ) : (
             !pipelineBusy && (
-              <Button onClick={closeInstall}>{t("extensions.install.close", "Close")}</Button>
+              <Button onClick={closeInstall}>
+                {t("extensions.install.close", "Close")}
+              </Button>
             )
           )}
           {install?.status === "previewed" && !autoApplying && (
@@ -1555,21 +1728,28 @@ export default function ExtensionsAdmin() {
                   <Button
                     variant="contained"
                     onClick={() => handleBuy(gateItem)}
-                    startIcon={<MaterialSymbol icon="shopping_cart" size={18} />}
+                    startIcon={
+                      <MaterialSymbol icon="shopping_cart" size={18} />
+                    }
                   >
                     {gateItem.price
-                      ? t("extensions.gate.buyFor", "Buy — {{price}}", { price: gateItem.price })
+                      ? t("extensions.gate.buyFor", "Buy — {{price}}", {
+                          price: gateItem.price,
+                        })
                       : t("extensions.store.buy", "Buy")}
                   </Button>
-                  {gateItem.trial_link && gateItem.entitlement_state === "unlicensed" && (
-                    <Button
-                      variant="outlined"
-                      onClick={() => handleTrial(gateItem)}
-                      startIcon={<MaterialSymbol icon="hourglass_top" size={18} />}
-                    >
-                      {t("extensions.store.startTrial", "Start 30-day trial")}
-                    </Button>
-                  )}
+                  {gateItem.trial_link &&
+                    gateItem.entitlement_state === "unlicensed" && (
+                      <Button
+                        variant="outlined"
+                        onClick={() => handleTrial(gateItem)}
+                        startIcon={
+                          <MaterialSymbol icon="hourglass_top" size={18} />
+                        }
+                      >
+                        {t("extensions.store.startTrial", "Start 30-day trial")}
+                      </Button>
+                    )}
                 </Stack>
               )}
             </Box>
@@ -1577,7 +1757,10 @@ export default function ExtensionsAdmin() {
           <TextField
             value={licenseText}
             onChange={(e) => setLicenseText(e.target.value)}
-            placeholder={t("extensions.license.placeholder", "Paste license text here…")}
+            placeholder={t(
+              "extensions.license.placeholder",
+              "Paste license text here…",
+            )}
             multiline
             minRows={3}
             fullWidth
@@ -1606,7 +1789,9 @@ export default function ExtensionsAdmin() {
             {t("extensions.license.uploadFile", "Upload license file…")}
           </Button>
           <Box sx={{ flex: 1 }} />
-          <Button onClick={closeLicenseDialog}>{t("extensions.uninstall.cancel", "Cancel")}</Button>
+          <Button onClick={closeLicenseDialog}>
+            {t("extensions.uninstall.cancel", "Cancel")}
+          </Button>
           <Button
             variant="contained"
             disabled={licenseBusy || !licenseText.trim()}
@@ -1635,7 +1820,10 @@ export default function ExtensionsAdmin() {
         disableRestoreFocus
       >
         <DialogTitle>
-          {t("extensions.license.downgradeTitle", "This license drops active entitlements")}
+          {t(
+            "extensions.license.downgradeTitle",
+            "This license drops active entitlements",
+          )}
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 1.5 }}>
@@ -1681,16 +1869,21 @@ export default function ExtensionsAdmin() {
         </DialogActions>
       </Dialog>
 
-      <StoreDetailDrawer
-        item={drawerItem}
-        bundleLogoUrl={drawerItem ? installedLogos[drawerItem.key] : null}
+      <StoreDetailDialog
+        item={detailItem}
+        bundleLogoUrl={detailItem ? installedLogos[detailItem.key] : null}
         handlers={storeHandlers}
-        onClose={() => setDrawerKey(null)}
+        onClose={() => setDetailKey(null)}
         onToggleTag={toggleTag}
       />
 
-      <Dialog open={removeLicenseOpen} onClose={() => setRemoveLicenseOpen(false)}>
-        <DialogTitle>{t("extensions.license.removeTitle", "Remove license?")}</DialogTitle>
+      <Dialog
+        open={removeLicenseOpen}
+        onClose={() => setRemoveLicenseOpen(false)}
+      >
+        <DialogTitle>
+          {t("extensions.license.removeTitle", "Remove license?")}
+        </DialogTitle>
         <DialogContent>
           <DialogContentText>
             {t(
@@ -1721,8 +1914,13 @@ export default function ExtensionsAdmin() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={uninstallKey !== null} onClose={() => setUninstallKey(null)}>
-        <DialogTitle>{t("extensions.uninstall.title", "Uninstall extension?")}</DialogTitle>
+      <Dialog
+        open={uninstallKey !== null}
+        onClose={() => setUninstallKey(null)}
+      >
+        <DialogTitle>
+          {t("extensions.uninstall.title", "Uninstall extension?")}
+        </DialogTitle>
         <DialogContent>
           <DialogContentText>
             {t(
@@ -1741,7 +1939,9 @@ export default function ExtensionsAdmin() {
             onClick={() => void handleUninstall()}
             disabled={uninstallBusy}
             startIcon={
-              uninstallBusy ? <CircularProgress size={16} color="inherit" /> : undefined
+              uninstallBusy ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : undefined
             }
           >
             {t("extensions.uninstall.confirm", "Uninstall")}
@@ -1759,10 +1959,14 @@ export default function ExtensionsAdmin() {
         fullWidth
       >
         <DialogTitle>
-          {t("extensions.updateConfirm.title", "Update {{name}} to {{version}}?", {
-            name: updateConfirm?.name ?? "",
-            version: updateConfirm?.notes.version ?? "",
-          })}
+          {t(
+            "extensions.updateConfirm.title",
+            "Update {{name}} to {{version}}?",
+            {
+              name: updateConfirm?.name ?? "",
+              version: updateConfirm?.notes.version ?? "",
+            },
+          )}
         </DialogTitle>
         <DialogContent dividers>
           {updateNotesBusy && <LinearProgress sx={{ mb: 2 }} />}
@@ -1797,7 +2001,9 @@ export default function ExtensionsAdmin() {
         onClose={() => setDowngradeConfirm(null)}
         disableRestoreFocus
       >
-        <DialogTitle>{t("extensions.downgrade.title", "Install an older version?")}</DialogTitle>
+        <DialogTitle>
+          {t("extensions.downgrade.title", "Install an older version?")}
+        </DialogTitle>
         <DialogContent>
           <DialogContentText>
             {t(
@@ -1820,7 +2026,8 @@ export default function ExtensionsAdmin() {
             onClick={() => {
               const pending = downgradeConfirm;
               setDowngradeConfirm(null);
-              if (pending) void applyInstall(pending.id, { confirmDowngrade: true });
+              if (pending)
+                void applyInstall(pending.id, { confirmDowngrade: true });
             }}
           >
             {t("extensions.downgrade.confirm", "Install older version")}

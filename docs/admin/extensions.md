@@ -31,7 +31,7 @@ The ID travels with a workspace transfer, so moving to a new host keeps your lic
 
 ## The Store tab
 
-The **Store** tab works out of the box and lists the vendor's published extensions as a grid of compact tiles — logo, name, licence state and price. Click any tile to open a panel on the right with the full description, screenshots, category tags and source/licence credits. Extensions that ship no artwork show a generated tile carrying their initials.
+The **Store** tab works out of the box and lists the vendor's published extensions as a grid of compact tiles — logo, name, licence state and price. Click any tile to open a large details window: a screenshot gallery on one side — step through it with the arrows or the thumbnails, click a screenshot to view it full size — and, beside it, the full description, category tags, source/licence credits and the actions. When the store publishes release notes for the extension, they appear under **What's new**. Extensions that ship no artwork show a generated tile carrying their initials.
 
 - **Buy** opens the payment page in a new browser tab. Once the payment is confirmed, your license applies automatically (a copy also arrives by email).
 - **Install** (or **Update** when a newer version is published) checks your license first — if the extension isn't licensed yet, a dialog offers to buy it or paste a license, then continues automatically — and downloads the bundle through the exact same signature verification and dry-run preview as a manual upload. Extensions with a demo show a **See it in action** link. The button reads **Update** only for an extension you already have installed; on anything else it is a plain **Install** that fetches the published version.
