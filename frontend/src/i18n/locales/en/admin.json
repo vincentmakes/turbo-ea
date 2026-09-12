@@ -1926,6 +1926,7 @@
   "extensions.changelog.span": "{{name}} {{from}} → {{to}}",
   "extensions.changelog.single": "{{name}} {{version}}",
   "extensions.changelog.empty": "This release ships no notes. The vendor's store page may say more.",
+  "extensions.changelog.full": "Full changelog",
   "extensions.updateConfirm.title": "Update {{name}} to {{version}}?",
   "extensions.updateConfirm.cancel": "Cancel",
   "extensions.updateConfirm.confirm": "Install",

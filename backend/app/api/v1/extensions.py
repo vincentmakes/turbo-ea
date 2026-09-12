@@ -946,6 +946,9 @@ class ExtensionNotesOut(BaseModel):
     notes: str
     #: "store" | "bundle" | "none" — which source answered.
     source: str
+    #: The store listing's own page — the complete customer-facing changelog —
+    #: when the store answered, so the dialog can offer "Full changelog".
+    changelog_url: str | None = None
 
 
 @router.get("/store/changelog/{key}", response_model=ExtensionNotesOut)
@@ -1328,6 +1331,7 @@ def _bundle_changelog_entry(storage: Path, key: str, version: str, installed: st
         "from_version": installed,
         "notes": notes,
         "source": "bundle" if notes else "none",
+        "changelog_url": None,
     }
 
 

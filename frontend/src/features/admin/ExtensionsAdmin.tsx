@@ -997,6 +997,7 @@ export default function ExtensionsAdmin() {
               version={report.changelog.version}
               fromVersion={report.changelog.from_version}
               name={install?.extension_key ?? undefined}
+              changelogUrl={report.changelog.changelog_url}
             />
           </Box>
         )}
@@ -1976,6 +1977,7 @@ export default function ExtensionsAdmin() {
               version={updateConfirm.notes.version}
               fromVersion={updateConfirm.notes.from_version}
               name={updateConfirm.name}
+              changelogUrl={updateConfirm.notes.changelog_url}
             />
           )}
         </DialogContent>

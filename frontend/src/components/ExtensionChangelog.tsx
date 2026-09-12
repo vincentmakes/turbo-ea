@@ -10,9 +10,10 @@
  * markdown subset the app-update dialog already uses: no markdown engine, no
  * `dangerouslySetInnerHTML`, unsupported syntax degrading to literal text.
  */
-import { Alert, Box, Stack, Typography } from "@mui/material";
+import { Alert, Box, Link, Stack, Typography } from "@mui/material";
 import { useTranslation } from "react-i18next";
 
+import MaterialSymbol from "@/components/MaterialSymbol";
 import { renderReleaseNotes } from "@/components/releaseNotesMarkdown";
 
 interface Props {
@@ -30,6 +31,13 @@ interface Props {
    * so the notes do not become a scroller inside a scroller.
    */
   maxHeight?: number | string;
+  /**
+   * The store listing's own page, carrying the complete changelog. The notes
+   * here are deliberately the two most recent releases — this link is where
+   * the rest lives, so it is offered under the notes and under the empty
+   * state alike (the page may say what the bundle did not).
+   */
+  changelogUrl?: string | null;
 }
 
 export default function ExtensionChangelog({
@@ -38,6 +46,7 @@ export default function ExtensionChangelog({
   fromVersion,
   name,
   maxHeight = 360,
+  changelogUrl,
 }: Props) {
   const { t } = useTranslation(["admin", "notifications"]);
 
@@ -70,6 +79,19 @@ export default function ExtensionChangelog({
             "This release ships no notes. The vendor's store page may say more.",
           )}
         </Alert>
+      )}
+
+      {changelogUrl && (
+        <Link
+          href={changelogUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          variant="body2"
+          sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, alignSelf: "flex-start" }}
+        >
+          {t("extensions.changelog.full", "Full changelog")}
+          <MaterialSymbol icon="open_in_new" size={16} />
+        </Link>
       )}
     </Stack>
   );

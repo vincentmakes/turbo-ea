@@ -1926,6 +1926,7 @@
   "extensions.changelog.span": "{{name}} {{from}} ← {{to}}",
   "extensions.changelog.single": "{{name}} {{version}}",
   "extensions.changelog.empty": "لا تتضمن هذه الإصدارة أي ملاحظات. قد تحتوي صفحة المتجر الخاصة بالمورّد على مزيد من التفاصيل.",
+  "extensions.changelog.full": "سجل التغييرات الكامل",
   "extensions.updateConfirm.title": "تحديث {{name}} إلى {{version}}؟",
   "extensions.updateConfirm.cancel": "إلغاء",
   "extensions.updateConfirm.confirm": "تثبيت",

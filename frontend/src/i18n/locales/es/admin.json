@@ -1926,6 +1926,7 @@
   "extensions.changelog.span": "{{name}} {{from}} → {{to}}",
   "extensions.changelog.single": "{{name}} {{version}}",
   "extensions.changelog.empty": "Esta versión no incluye notas. La página de la tienda del proveedor puede decir más.",
+  "extensions.changelog.full": "Registro de cambios completo",
   "extensions.updateConfirm.title": "¿Actualizar {{name}} a {{version}}?",
   "extensions.updateConfirm.cancel": "Cancelar",
   "extensions.updateConfirm.confirm": "Instalar",

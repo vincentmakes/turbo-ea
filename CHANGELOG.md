@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.136.0] - 2026-09-12
+
+### Changed
+
+- **An extension's release notes show the two most recent releases and link to the full changelog.** The store details dialog, the update confirmation and the bell's "what changed" dialog used to list every release between the installed version and the new one, and a first install showed one. They now show the two most recent releases that have something to say, and — when the store answered — a **Full changelog** link to the extension's page on the store, which carries the complete history. Entries a vendor files under an *Internal* category (build, packaging and test notes) are never shown, whether the notes came from the store or from the installed bundle.
+
 ## [2.135.0] - 2026-09-11
 
 ### Changed

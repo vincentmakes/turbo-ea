@@ -1926,6 +1926,7 @@
   "extensions.changelog.span": "{{name}} {{from}} → {{to}}",
   "extensions.changelog.single": "{{name}} {{version}}",
   "extensions.changelog.empty": "В этой версии нет примечаний к выпуску. На странице поставщика в магазине может быть больше сведений.",
+  "extensions.changelog.full": "Полный список изменений",
   "extensions.updateConfirm.title": "Обновить {{name}} до версии {{version}}?",
   "extensions.updateConfirm.cancel": "Отмена",
   "extensions.updateConfirm.confirm": "Установить",

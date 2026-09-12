@@ -1926,6 +1926,7 @@
   "extensions.changelog.span": "{{name}} {{from}} → {{to}}",
   "extensions.changelog.single": "{{name}} {{version}}",
   "extensions.changelog.empty": "Diese Version enthält keine Versionshinweise. Die Store-Seite des Anbieters weiß möglicherweise mehr.",
+  "extensions.changelog.full": "Vollständiges Änderungsprotokoll",
   "extensions.updateConfirm.title": "{{name}} auf {{version}} aktualisieren?",
   "extensions.updateConfirm.cancel": "Abbrechen",
   "extensions.updateConfirm.confirm": "Installieren",

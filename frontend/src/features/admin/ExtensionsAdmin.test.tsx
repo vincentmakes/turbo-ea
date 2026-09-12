@@ -2071,6 +2071,7 @@ describe("ExtensionsAdmin", () => {
         from_version: null,
         notes: "### Fixed\n- The thing that was broken",
         source: "store",
+        changelog_url: "https://x/ext/esg-pack/#whats-new",
       },
     });
     renderPage();
@@ -2082,6 +2083,11 @@ describe("ExtensionsAdmin", () => {
     );
     expect(await screen.findByText("What's new")).toBeInTheDocument();
     expect(screen.getByText("The thing that was broken")).toBeInTheDocument();
+    // The dialog shows the two most recent releases; the rest is one click away.
+    expect(screen.getByRole("link", { name: /Full changelog/ })).toHaveAttribute(
+      "href",
+      "https://x/ext/esg-pack/#whats-new",
+    );
     expect(mockGet).toHaveBeenCalledWith(
       "/admin/extensions/store/changelog/esg-pack?version=1.3.0",
       expect.anything(),

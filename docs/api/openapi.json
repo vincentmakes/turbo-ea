@@ -5301,6 +5301,17 @@
       "ExtensionNotesOut": {
         "description": "Resolved release notes for one extension version.",
         "properties": {
+          "changelog_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changelog Url"
+          },
           "from_version": {
             "anyOf": [
               {

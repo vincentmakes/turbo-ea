@@ -25,6 +25,7 @@ interface ExtensionNotes {
   from_version?: string | null;
   notes: string;
   source: string;
+  changelog_url?: string | null;
 }
 
 interface Props {
@@ -91,6 +92,7 @@ export default function ExtensionReleaseNotesDialog({
             version={loaded.version}
             fromVersion={loaded.from_version}
             name={name}
+            changelogUrl={loaded.changelog_url}
           />
         )}
       </DialogContent>

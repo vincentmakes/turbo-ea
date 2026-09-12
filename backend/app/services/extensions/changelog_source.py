@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import zipfile
 from pathlib import Path
 
@@ -159,6 +160,70 @@ async def store_changelog_safe(base_url: str, key: str) -> list[dict] | None:
         return None
 
 
+#: The one category a customer never sees. The vendor's changelog is a complete
+#: record, and part of it is about building the extension — a build check that
+#: failed for no reason, a wheel carrying the wrong version, packaging
+#: maintenance. The vendor files those under ``### Internal``; the store's
+#: published payload already omits the category, and this strips the same name
+#: from the bundle's copy so both sources agree on what an administrator reads.
+INTERNAL_CATEGORIES = frozenset({"internal"})
+
+#: Sections an extension's notes show at most. The rest is one click away on
+#: the store's listing page (``changelog_url``) — a dialog that grows a
+#: scroller of its own is what that link replaced.
+EXTENSION_MAX_SECTIONS = 2
+
+_CATEGORY_HEADING = re.compile(r"^###\s+(?P<name>.+?)\s*$")
+_VERSION_HEADING = re.compile(r"^##\s")
+
+
+def customer_facing_markdown(text: str) -> str:
+    """``text`` with every ``### Internal`` block removed and empty sections dropped.
+
+    A block runs from its heading to the next ``###`` or ``##`` heading. A
+    version section left without a single ``-``/``*`` bullet afterwards had
+    nothing to say to a customer and is dropped whole — its heading alone
+    would read as a release with no content, which is exactly what the
+    reader must not have to puzzle over.
+    """
+    if not text.strip():
+        return ""
+    kept: list[str] = []
+    skipping = False
+    for line in text.replace("\r\n", "\n").split("\n"):
+        category = _CATEGORY_HEADING.match(line)
+        if category:
+            skipping = category.group("name").strip().lower() in INTERNAL_CATEGORIES
+            if skipping:
+                continue
+        elif _VERSION_HEADING.match(line):
+            skipping = False
+        if not skipping:
+            kept.append(line)
+
+    # Drop version sections with no bullet left. Sections are delimited by
+    # `## ` headings; the preamble (before the first) is kept as is.
+    out: list[str] = []
+    section: list[str] | None = None
+
+    def flush() -> None:
+        if section is None:
+            return
+        if any(ln.lstrip().startswith(("- ", "* ")) for ln in section):
+            out.extend(section)
+
+    for line in kept:
+        if _VERSION_HEADING.match(line):
+            flush()
+            section = [line]
+        elif section is None:
+            out.append(line)
+        else:
+            section.append(line)
+    flush()
+    return "\n".join(out).strip()
+
+
 def store_json_to_markdown(payload: list[dict]) -> str:
     """The published feed rendered as Keep-a-Changelog markdown.
 
@@ -181,7 +246,7 @@ def store_json_to_markdown(payload: list[dict]) -> str:
         if not version:
             continue
         date = str(section.get("date") or "").strip()
-        out.append(f"## [{version}]{f' - {date}' if date else ''}")
+        lines = [f"## [{version}]{f' - {date}' if date else ''}"]
 
         categories = section.get("categories")
         for category in categories if isinstance(categories, list) else []:
@@ -189,12 +254,19 @@ def store_json_to_markdown(payload: list[dict]) -> str:
                 continue
             items = category.get("items")
             items = [str(i) for i in items if isinstance(i, str)] if isinstance(items, list) else []
-            if not items:
-                continue
             name = str(category.get("name") or "").strip()
+            # Defence in depth: the published payload omits the category, but an
+            # older publisher would not have.
+            if not items or name.lower() in INTERNAL_CATEGORIES:
+                continue
             if name:
-                out.append(f"### {name}")
-            out.extend(f"- {item}" for item in items)
+                lines.append(f"### {name}")
+            lines.extend(f"- {item}" for item in items)
+        # A release with nothing to show — every entry was internal — keeps its
+        # version in the feed but has no place in what the reader sees.
+        if len(lines) == 1:
+            continue
+        out.extend(lines)
         out.append("")
     return "\n".join(out).strip()
 
@@ -204,22 +276,39 @@ def store_json_to_markdown(payload: list[dict]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def notes_between(text: str, *, version: str, from_version: str | None) -> str:
-    """Markdown for ``(from_version, version]`` in ``text``, or ``""``.
+def notes_between(
+    text: str,
+    *,
+    version: str,
+    from_version: str | None,
+    limit: int = EXTENSION_MAX_SECTIONS,
+) -> str:
+    """Customer-facing markdown for the newest ``limit`` releases in ``(from_version, version]``.
 
-    ``section_for`` runs first as the existence test, and this is not a
-    micro-optimisation: ``sections_between`` treats ``upto`` as a *bound*, so a
-    version the changelog has never heard of matches everything below it and
-    would dump the entire file. Core's ``release_notes`` module makes the same
-    move for the same reason.
+    ``section_for`` runs first, on the RAW text, as the existence test — and
+    this is not a micro-optimisation: ``sections_between`` treats ``upto`` as a
+    *bound*, so a version the changelog has never heard of matches everything
+    below it. Core's ``release_notes`` module makes the same move for the same
+    reason. The existence test is on the raw text because a version whose every
+    entry is internal still exists; it simply contributes nothing.
+
+    With no ``from_version`` (a first install, the store dialog for something
+    not yet installed) the bound is open below, so the reader gets the newest
+    ``limit`` releases up to ``version`` rather than one — the second release
+    is what tells them whether the extension is alive. An update shows the
+    newest ``limit`` of the span since what is installed. ``### Internal``
+    blocks are stripped from either.
     """
     if not text.strip() or not section_for(text, version):
         return ""
-    if from_version and from_version != version:
-        span = sections_between(text, after=from_version, upto=version)
-        if span:
-            return span
-    return section_for(text, version)
+    after = from_version if from_version and from_version != version else None
+    return sections_between(
+        customer_facing_markdown(text),
+        after=after,
+        upto=version,
+        limit=limit,
+        truncation_note=False,
+    )
 
 
 async def resolve_extension_notes(
@@ -231,8 +320,11 @@ async def resolve_extension_notes(
 ) -> dict:
     """Release notes for one extension version, from whichever source has them.
 
-    Returns ``{key, version, from_version, notes, source}`` where ``source`` is
-    ``"store"``, ``"bundle"`` or ``"none"``.
+    Returns ``{key, version, from_version, notes, source, changelog_url}`` where
+    ``source`` is ``"store"``, ``"bundle"`` or ``"none"``, and ``changelog_url``
+    is the store listing's own page (``/ext/{key}/#whats-new``, the complete
+    customer-facing history) when the store answered — the one case in which
+    that page is known to exist — else ``None``.
 
     The store is tried first by default because it is the complete half — it
     carries every listed extension, including those whose published bundle
@@ -269,6 +361,11 @@ async def resolve_extension_notes(
                 "from_version": from_version,
                 "notes": notes,
                 "source": source,
+                "changelog_url": (
+                    store_listing_url(settings.EXTENSION_STORE_URL, key)
+                    if source == "store"
+                    else None
+                ),
             }
 
     return {
@@ -277,4 +374,17 @@ async def resolve_extension_notes(
         "from_version": from_version,
         "notes": "",
         "source": "none",
+        "changelog_url": None,
     }
+
+
+def store_listing_url(base_url: str, key: str) -> str | None:
+    """``https://store…/ext/<key>/#whats-new`` — the store's page for one listing.
+
+    ``None`` for a key that is not a key (the same shape check the fetch
+    applies), so a malformed value never becomes a link.
+    """
+    base = base_url.strip().rstrip("/")
+    if not base or not KEY_PATTERN.match(key):
+        return None
+    return f"{base}/ext/{key}/#whats-new"
