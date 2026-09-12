@@ -488,6 +488,7 @@ export default function StoreDetailDialog({
                     fromVersion={notes.from_version}
                     name={item.name}
                     maxHeight="none"
+                    changelogUrl={notes.changelog_url}
                   />
                 </Box>
               )}

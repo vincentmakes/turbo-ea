@@ -79,6 +79,16 @@ class TestSectionsBetween:
         assert "entry 1" not in out  # oldest dropped
         assert f"Showing the {changelog.MAX_SECTIONS} most recent releases" in out
 
+    def test_a_caller_may_cap_the_span_lower_and_drop_the_note(self):
+        """An extension's notes show two releases and link to the rest themselves."""
+        text = "".join(f"## [1.0.{i}] - x\n\n- entry {i}\n\n" for i in range(5, 0, -1))
+
+        out = sections_between(text, after=None, upto="1.0.5", limit=2, truncation_note=False)
+
+        headings = [line for line in out.split("\n") if line.startswith("## ")]
+        assert headings == ["## 1.0.5 — x", "## 1.0.4 — x"]
+        assert "most recent releases" not in out
+
     def test_empty_or_unparseable_input_yields_nothing(self):
         assert sections_between("", after=None, upto="2.60.0") == ""
         assert sections_between("   \n  ", after=None, upto="2.60.0") == ""

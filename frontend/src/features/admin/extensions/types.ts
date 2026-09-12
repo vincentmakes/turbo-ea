@@ -89,6 +89,8 @@ export interface ExtensionNotes {
   notes: string;
   /** Which source answered: "store", "bundle", or "none". */
   source: string;
+  /** The store listing's page with the complete changelog, when the store answered. */
+  changelog_url?: string | null;
 }
 
 export interface ExtensionInstall {

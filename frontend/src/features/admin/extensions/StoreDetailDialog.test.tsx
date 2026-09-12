@@ -152,6 +152,35 @@ describe("StoreDetailDialog", () => {
     );
   });
 
+  it("offers the store's Full changelog link under the notes when the store answered", async () => {
+    mockGet.mockResolvedValue({
+      key: "esg-pack",
+      version: "1.2.0",
+      from_version: null,
+      notes: "### Added\n- A shiny new thing",
+      source: "store",
+      changelog_url: "https://store.test/ext/esg-pack/#whats-new",
+    });
+    renderDialog();
+    const link = await screen.findByRole("link", { name: /Full changelog/ });
+    expect(link).toHaveAttribute("href", "https://store.test/ext/esg-pack/#whats-new");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("has no Full changelog link when the notes came from the bundle alone", async () => {
+    mockGet.mockResolvedValue({
+      key: "esg-pack",
+      version: "1.2.0",
+      from_version: null,
+      notes: "### Added\n- A shiny new thing",
+      source: "bundle",
+      changelog_url: null,
+    });
+    renderDialog();
+    expect(await screen.findByText("A shiny new thing")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Full changelog/ })).not.toBeInTheDocument();
+  });
+
   it("asks for the notes since the installed version when an update is offered", () => {
     expect(
       changelogPath({

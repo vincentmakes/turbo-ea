@@ -1926,6 +1926,7 @@
   "extensions.changelog.span": "{{name}} {{from}} → {{to}}",
   "extensions.changelog.single": "{{name}} {{version}}",
   "extensions.changelog.empty": "此版本未附带发布说明。供应商的商店页面可能有更多信息。",
+  "extensions.changelog.full": "完整更新日志",
   "extensions.updateConfirm.title": "将 {{name}} 更新到 {{version}}？",
   "extensions.updateConfirm.cancel": "取消",
   "extensions.updateConfirm.confirm": "安装",

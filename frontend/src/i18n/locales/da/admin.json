@@ -1926,6 +1926,7 @@
   "extensions.changelog.span": "{{name}} {{from}} → {{to}}",
   "extensions.changelog.single": "{{name}} {{version}}",
   "extensions.changelog.empty": "Denne version indeholder ingen noter. Leverandørens butiksside ved måske mere.",
+  "extensions.changelog.full": "Fuld ændringslog",
   "extensions.updateConfirm.title": "Opdatér {{name}} til {{version}}?",
   "extensions.updateConfirm.cancel": "Annullér",
   "extensions.updateConfirm.confirm": "Installér",

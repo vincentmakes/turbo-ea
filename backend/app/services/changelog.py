@@ -95,12 +95,22 @@ def _iter_sections(text: str) -> Iterator[tuple[str, list[str]]]:
 MAX_SECTIONS = 10
 
 
-def sections_between(text: str, *, after: str | None, upto: str) -> str:
+def sections_between(
+    text: str,
+    *,
+    after: str | None,
+    upto: str,
+    limit: int = MAX_SECTIONS,
+    truncation_note: bool = True,
+) -> str:
     """Markdown for the version sections in ``(after, upto]``, newest first.
 
     An upgrade usually skips releases — 2.57.0 straight to 2.60.0 — and showing
     only the newest section would hide most of what changed for the reader, so
-    the whole span is returned as one document, capped at ``MAX_SECTIONS``.
+    the whole span is returned as one document, capped at ``limit`` sections
+    (``MAX_SECTIONS`` by default). A caller that offers the rest through a link
+    of its own — an extension's notes link to the store's listing page — passes
+    ``truncation_note=False`` and says so in its own words.
 
     ``after=None`` means "no lower bound": everything up to and including
     ``upto``. Versions are compared numerically via ``version_tuple``, so
@@ -120,15 +130,15 @@ def sections_between(text: str, *, after: str | None, upto: str) -> str:
         parsed = version_tuple(version)
         if not (parsed <= upper and (lower is None or parsed > lower)):
             continue
-        if taken == MAX_SECTIONS:
+        if taken == limit:
             truncated = True
             break
         kept.extend(lines)
         taken += 1
 
     body = "\n".join(kept).strip()
-    if truncated:
-        body += f"\n\n_Showing the {MAX_SECTIONS} most recent releases._"
+    if truncated and truncation_note:
+        body += f"\n\n_Showing the {limit} most recent releases._"
     return body
 
 
