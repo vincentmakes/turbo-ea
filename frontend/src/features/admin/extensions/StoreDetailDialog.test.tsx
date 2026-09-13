@@ -243,4 +243,22 @@ describe("StoreDetailDialog", () => {
     // the derived commercial-model pill is not a topical tag
     expect(within(dialog).queryByText("commercial")).not.toBeInTheDocument();
   });
+
+  it("offers Buy only for a service listing and says there is nothing to install", async () => {
+    renderDialog({
+      ...ITEM,
+      key: "support",
+      name: "Support Plan",
+      service: true,
+      version: "",
+      screenshots: [],
+    });
+    expect(await screen.findByText("The long story.")).toBeInTheDocument();
+    expect(screen.getByText(/Nothing to install/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Buy$/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Install$/ })).not.toBeInTheDocument();
+    // No version caption and no release-notes request for something with no releases.
+    expect(screen.queryByText(/support · /)).not.toBeInTheDocument();
+    expect(mockGet).not.toHaveBeenCalled();
+  });
 });

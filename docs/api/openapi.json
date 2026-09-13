@@ -14086,6 +14086,11 @@
             "title": "Screenshots",
             "type": "array"
           },
+          "service": {
+            "default": false,
+            "title": "Service",
+            "type": "boolean"
+          },
           "tags": {
             "default": [],
             "items": {

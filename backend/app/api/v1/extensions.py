@@ -655,6 +655,11 @@ class StoreItemOut(BaseModel):
     update_available: bool = False
     entitlement_state: str = "unlicensed"
     free: bool = False
+    # A service listing: sold and licensed exactly like an extension (its key
+    # rides in the licence as an entitlement, so the entitlement fields above
+    # are meaningful), but there is nothing to download or install — the
+    # catalogue carries no bundle for it, and the Store tab offers Buy only.
+    service: bool = False
 
 
 class StoreCatalogOut(BaseModel):
@@ -808,6 +813,7 @@ async def store_catalog(
                 entitlement_grace_until=entitlement.grace_until,
                 entitlement_auto_renew=entitlement.auto_renew,
                 free=item.get("free") is True,
+                service=item.get("service") is True,
             )
         )
     return StoreCatalogOut(configured=True, reachable=True, store_url=base_url, items=items)
@@ -1000,6 +1006,12 @@ async def install_from_store(
         raise HTTPException(status_code=502, detail=f"Extension store unreachable: {exc}") from exc
 
     item = next((i for i in raw_items if str(i.get("key")) == payload.key), None)
+    if item is not None and item.get("service") is True:
+        # A service listing has nothing to install: the purchase is confirmed
+        # by the licence that reaches the instance, never by a bundle.
+        raise HTTPException(
+            status_code=404, detail="This listing is a service — there is nothing to install"
+        )
     if item is None or not str(item.get("bundle_url") or "").strip():
         raise HTTPException(
             status_code=404, detail="This extension is not available from the store"

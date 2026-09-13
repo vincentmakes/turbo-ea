@@ -90,6 +90,17 @@ function StateChip({ item }: { item: StoreItem }) {
     return <Chip size="small" color="info" label={t("extensions.store.free", "Free")} />;
   }
   if (item.entitlement_state !== "unlicensed") return <EntitlementChip ent={ent} />;
+  if (item.service) {
+    // Nothing to install, so no "Installed" chip can ever appear here; the
+    // one thing worth saying about an unlicensed service is what it is.
+    return (
+      <Chip
+        size="small"
+        variant="outlined"
+        label={t("extensions.store.serviceChip", "Service")}
+      />
+    );
+  }
   return null;
 }
 

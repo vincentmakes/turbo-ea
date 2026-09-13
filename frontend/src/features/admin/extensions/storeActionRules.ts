@@ -29,7 +29,13 @@ export function canBuy(item: StoreItem, claimingKey: string | null): boolean {
   );
 }
 
+/**
+ * A service listing has nothing to install — the purchase is confirmed by the
+ * licence that reaches the instance, so neither Install nor Update ever
+ * applies to it, whatever the catalogue says about versions.
+ */
 export function canInstall(item: StoreItem): boolean {
+  if (item.service) return false;
   return !item.installed_version || item.update_available;
 }
 
@@ -45,6 +51,7 @@ export function canInstall(item: StoreItem): boolean {
  * catalogue that ever set the flag on an uninstalled item would say Update.
  */
 export function isUpdate(item: StoreItem): boolean {
+  if (item.service) return false;
   return Boolean(item.installed_version) && item.update_available;
 }
 

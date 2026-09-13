@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.137.0] - 2026-09-13
+
+### Added
+
+- **The Store tab can list services — offerings with nothing to install.** A catalogue item flagged as a service is sold and licensed exactly like an extension (its entitlement rides in the licence, so the tile shows the same *Renews on …* chip once bought), but it carries no bundle: the tile and the details window offer **Buy** only, never Install or Update, show no version, and say plainly that there is nothing to install. Such listings appear under a new **Services** section of the catalogue.
+
 ## [2.136.1] - 2026-09-13
 
 ### Security

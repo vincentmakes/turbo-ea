@@ -143,6 +143,11 @@ export interface StoreItem {
   entitlement_grace_until?: string | null;
   entitlement_auto_renew?: boolean | null;
   free?: boolean;
+  // A service listing — sold and licensed like an extension (its key rides in
+  // the licence, so the entitlement fields above apply) but with nothing to
+  // download or install. The tile and the drawer offer Buy only, never
+  // Install, and there is no version to show.
+  service?: boolean;
 }
 
 export interface StoreCatalog {
@@ -190,7 +195,13 @@ export const MODEL_TAGS = ["free", "commercial"];
 
 // The store's sections, in display order. Labels are the i18n keys
 // `extensions.store.category.<slug>`; grouping lives in storeCategories.ts.
-export const STORE_CATEGORIES = ["strategy", "governance", "integrations", "regulations"] as const;
+export const STORE_CATEGORIES = [
+  "strategy",
+  "governance",
+  "integrations",
+  "regulations",
+  "services",
+] as const;
 export type StoreCategory = (typeof STORE_CATEGORIES)[number];
 // Where an item with no recognised category lands — always the last section.
 export const OTHER_CATEGORY = "other";

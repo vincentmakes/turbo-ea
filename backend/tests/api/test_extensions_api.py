@@ -1381,6 +1381,51 @@ class TestStoreCatalog:
 
 
 class TestStoreInstall:
+    async def test_service_catalog_item_flag_surfaced(self, client, db, vendor, monkeypatch):
+        # A service listing has nothing to install: no version, no bundle. It
+        # still annotates like any item, and is never "update available".
+        admin = await make_admin(db)
+        mock_store(
+            monkeypatch,
+            catalog=catalog_payload(
+                key="support", name="Support", service=True, version="", bundle_url=""
+            ),
+        )
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        (item,) = res.json()["items"]
+        assert item["service"] is True
+        assert item["version"] == ""
+        assert item["installed_version"] is None
+        assert item["update_available"] is False
+        assert item["entitlement_state"] == "unlicensed"
+
+    async def test_service_flag_defaults_false(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload())
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        (item,) = res.json()["items"]
+        assert item["service"] is False
+
+    async def test_install_from_store_refuses_a_service_listing(
+        self, client, db, vendor, monkeypatch
+    ):
+        admin = await make_admin(db)
+        mock_store(
+            monkeypatch,
+            catalog=catalog_payload(key="support", service=True, version="", bundle_url=""),
+        )
+        res = await client.post(
+            "/api/v1/admin/extensions/store/install",
+            json={"key": "support"},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 404
+        assert "service" in res.json()["detail"]
+
     async def test_install_from_store_lands_in_upload_pipeline(
         self, client, db, vendor, monkeypatch
     ):

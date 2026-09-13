@@ -21,6 +21,7 @@ describe("groupStoreItems", () => {
   it("orders sections by the fixed vocabulary, not by first appearance", () => {
     // Fed in reverse, so passing this cannot be an accident of input order.
     const groups = groupStoreItems([
+      item("v", "services"),
       item("r", "regulations"),
       item("i", "integrations"),
       item("g", "governance"),
@@ -31,6 +32,7 @@ describe("groupStoreItems", () => {
       "governance",
       "integrations",
       "regulations",
+      "services",
     ]);
     // Governance sits directly after strategy, ahead of integrations.
     expect(
@@ -58,6 +60,13 @@ describe("groupStoreItems", () => {
     ]);
     expect(groups.map((g) => g.category)).toEqual(["strategy", "other"]);
     expect(groups[1].items.map((i) => i.key)).toEqual(["new", "none"]);
+  });
+
+  it("files services in their own section ahead of Other", () => {
+    // A service listing (nothing to install) is a known section, not a
+    // stray slug — it must never land under Other.
+    const groups = groupStoreItems([item("x", "whatever"), item("sup", "services")]);
+    expect(groups.map((g) => g.category)).toEqual(["services", "other"]);
   });
 
   it("returns one unlabeled group when nothing carries a known category", () => {

@@ -59,7 +59,8 @@ interface Props {
 
 /** The release-notes query for an item: the listed version, from the installed one when updating. */
 export function changelogPath(item: StoreItem | null): string | null {
-  if (!item || !item.version) return null;
+  // A service listing has no releases: nothing to install, nothing to note.
+  if (!item || !item.version || item.service) return null;
   const params = new URLSearchParams({ version: item.version });
   if (item.installed_version && item.update_available) {
     params.set("from_version", item.installed_version);
@@ -169,7 +170,7 @@ export default function StoreDetailDialog({
                 {item.name}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {item.key} · {item.version}
+                {item.service ? item.key : `${item.key} · ${item.version}`}
               </Typography>
             </Box>
             <IconButton
@@ -208,6 +209,13 @@ export default function StoreDetailDialog({
                 size="small"
                 color="info"
                 label={t("extensions.store.free", "Free")}
+              />
+            )}
+            {item.service && item.entitlement_state === "unlicensed" && (
+              <Chip
+                size="small"
+                variant="outlined"
+                label={t("extensions.store.serviceChip", "Service")}
               />
             )}
             {category && (
@@ -410,6 +418,18 @@ export default function StoreDetailDialog({
               ref={bodyRef}
               sx={{ minHeight: 0, overflowY: { md: "auto" }, p: 2.5 }}
             >
+              {item.service && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2, fontStyle: "italic" }}
+                >
+                  {t(
+                    "extensions.store.serviceNote",
+                    "Nothing to install — this is a service. Once your subscription is confirmed it appears on this instance's licence, and your confirmation email says how to reach it.",
+                  )}
+                </Typography>
+              )}
               <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
                 {item.long_description || item.description}
               </Typography>
