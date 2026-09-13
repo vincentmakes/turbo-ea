@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.136.1] - 2026-09-13
+
+### Security
+
+- Updated the frontend test runner (`vitest` and its `@vitest/mocker` module) past a newly published advisory ([GHSA-82fw-gwwq-j7x9](https://github.com/advisories/GHSA-82fw-gwwq-j7x9)): a redirected mock could be pointed at a path outside the project and read arbitrary files from the machine running the tests. This is development-only tooling — it runs the test suite and never ships in the application a browser downloads — so no running Turbo EA instance was exposed and no action is needed beyond taking the next release.
+
 ## [2.136.0] - 2026-09-12
 
 ### Changed
