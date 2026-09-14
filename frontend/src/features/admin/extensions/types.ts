@@ -195,12 +195,17 @@ export const MODEL_TAGS = ["free", "commercial"];
 
 // The store's sections, in display order. Labels are the i18n keys
 // `extensions.store.category.<slug>`; grouping lives in storeCategories.ts.
+// Services lead: an offering with nothing to install is sold directly by the
+// people who make the platform, so it is the first thing the catalogue shows
+// rather than a footnote after four sections of extensions. This array's
+// order is the only thing that decides that — the storefront website mirrors
+// it in its own list.
 export const STORE_CATEGORIES = [
+  "services",
   "strategy",
   "governance",
   "integrations",
   "regulations",
-  "services",
 ] as const;
 export type StoreCategory = (typeof STORE_CATEGORIES)[number];
 // Where an item with no recognised category lands — always the last section.

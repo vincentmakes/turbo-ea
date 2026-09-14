@@ -21,23 +21,27 @@ describe("groupStoreItems", () => {
   it("orders sections by the fixed vocabulary, not by first appearance", () => {
     // Fed in reverse, so passing this cannot be an accident of input order.
     const groups = groupStoreItems([
-      item("v", "services"),
       item("r", "regulations"),
       item("i", "integrations"),
       item("g", "governance"),
       item("s", "strategy"),
+      item("v", "services"),
     ]);
     expect(groups.map((g) => g.category)).toEqual([
+      "services",
       "strategy",
       "governance",
       "integrations",
       "regulations",
-      "services",
     ]);
     // Governance sits directly after strategy, ahead of integrations.
     expect(
       groupStoreItems([item("i", "integrations"), item("g", "governance")]).map((g) => g.category),
     ).toEqual(["governance", "integrations"]);
+    // Services lead, even when the catalogue lists them last.
+    expect(
+      groupStoreItems([item("s", "strategy"), item("v", "services")]).map((g) => g.category),
+    ).toEqual(["services", "strategy"]);
   });
 
   it("keeps catalogue order inside a section and omits empty sections", () => {

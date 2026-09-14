@@ -15,7 +15,12 @@ Two things are announced, as two separate notification types so an
 administrator can mute store announcements without also muting update alerts:
 
 * ``extension_available`` — an extension we have never seen in the catalogue
-  before, and which is not installed.
+  before, and which is not installed. A **service** listing (a catalogue item
+  with nothing to install) is announced through the same type: it is new in the
+  same store, an administrator acts on it in the same place, and a separate
+  type would be one more switch to find in the preferences for something that
+  arrives a few times a year. Only the wording differs — a service is never
+  called an extension.
 * ``extension_update_available`` — an installed extension whose catalogue
   version is strictly newer than the installed one.
 
@@ -87,6 +92,9 @@ class NewExtension:
     key: str
     name: str
     version: str
+    #: A catalogue item with nothing to install (a support subscription).
+    #: Carried so the digest can name it correctly; it changes no branch.
+    service: bool = False
 
 
 @dataclass(frozen=True)
@@ -195,7 +203,14 @@ def classify(
         # Not installed: news only the first time we ever see the key, and only
         # once this instance has seen a catalogue at all.
         if seeded and key not in known_keys:
-            new.append(NewExtension(key=key, name=name, version=version))
+            new.append(
+                NewExtension(
+                    key=key,
+                    name=name,
+                    version=version,
+                    service=item.get("service") is True,
+                )
+            )
 
     return StoreChanges(new=new, updates=updates)
 
@@ -210,15 +225,32 @@ def _names(entries: Sequence[NewExtension] | Sequence[ExtensionUpdate]) -> str:
     return f"{names[0]}, {names[1]} and {len(names) - 2} more"
 
 
+def _new_nouns(new: list[NewExtension]) -> tuple[str, str]:
+    """``(singular, plural)`` for what was published.
+
+    A service is not an extension, and a digest that calls it one is wrong on
+    the one line an administrator reads. All services, all extensions, or a
+    mix of both — the mixed case needs a word that covers both, and "listing"
+    is what the store itself calls a catalogue entry.
+    """
+    kinds = {entry.service for entry in new}
+    if kinds == {True}:
+        return "service", "services"
+    if kinds == {False}:
+        return "extension", "extensions"
+    return "listing", "listings"
+
+
 def _new_summary(new: list[NewExtension]) -> tuple[str, str]:
+    singular, plural = _new_nouns(new)
     if len(new) == 1:
         item = new[0]
         return (
             f"{item.name} is available in the extension store",
-            "A new extension was published. Open the store to take a look.",
+            f"A new {singular} was published. Open the store to take a look.",
         )
     return (
-        f"{len(new)} new extensions in the extension store",
+        f"{len(new)} new {plural} in the extension store",
         f"{_names(new)}. Open the store to take a look.",
     )
 

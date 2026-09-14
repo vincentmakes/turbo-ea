@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **The Store tab can list services — offerings with nothing to install.** A catalogue item flagged as a service is sold and licensed exactly like an extension (its entitlement rides in the licence, so the tile shows the same *Renews on …* chip once bought), but it carries no bundle: the tile and the details window offer **Buy** only, never Install or Update, show no version, and say plainly that there is nothing to install. Such listings appear under a new **Services** section of the catalogue.
+- **The Store tab can list services — offerings with nothing to install.** A catalogue item flagged as a service is sold and licensed exactly like an extension (its entitlement rides in the licence, so the tile shows the same *Renews on …* chip once bought), but it carries no bundle: the tile and the details window offer **Buy** only, never Install or Update, show no version, and say plainly that there is nothing to install. Such listings appear under a new **Services** section, which the catalogue shows first, ahead of every extension section, and a service published to the store reaches administrators through the same *new in the store* notification an extension does — worded as a service, never as an extension.
 
 ## [2.136.1] - 2026-09-13
 

@@ -730,3 +730,83 @@ async def test_safe_fetch_stays_quiet_when_there_is_no_route(fake_http):
 
     assert items is None
     assert error == "Could not reach the extension store"
+
+
+# ── service listings ride the same announcement ─────────────────────────
+
+
+def _new_item(key: str, name: str, **over) -> dict:
+    item = {"key": key, "name": name, "version": "1.0.0"}
+    item.update(over)
+    return item
+
+
+def test_a_new_service_is_announced_and_called_a_service():
+    """A catalogue item with nothing to install is new in the same store and
+    acted on in the same place, so it rides `extension_available` — but the
+    digest must never call it an extension."""
+    changes = classify(
+        [_new_item("support", "Turbo EA Enterprise Support", service=True, version="")],
+        installed={},
+        known_keys=set(),
+        notified_versions={},
+        seeded=True,
+    )
+    assert [(e.key, e.service) for e in changes.new] == [("support", True)]
+    title, body = check._new_summary(changes.new)
+    assert title == "Turbo EA Enterprise Support is available in the extension store"
+    assert "A new service was published" in body
+    assert "extension was published" not in body
+
+
+def test_several_new_services_read_as_services():
+    new = [
+        check.NewExtension(key="support", name="Support", version="", service=True),
+        check.NewExtension(key="onboarding", name="Onboarding", version="", service=True),
+    ]
+    title, _body = check._new_summary(new)
+    assert title == "2 new services in the extension store"
+
+
+def test_a_mixed_batch_uses_a_word_that_covers_both():
+    new = [
+        check.NewExtension(key="support", name="Support", version="", service=True),
+        check.NewExtension(key="pack", name="Pack", version="1.0.0"),
+    ]
+    title, _body = check._new_summary(new)
+    assert title == "2 new listings in the extension store"
+
+
+def test_an_extension_only_batch_is_unchanged():
+    new = [check.NewExtension(key="pack", name="Pack", version="1.0.0")]
+    title, body = check._new_summary(new)
+    assert title == "Pack is available in the extension store"
+    assert "A new extension was published" in body
+    assert check._new_summary(new + [check.NewExtension("b", "B", "1.0.0")])[0] == (
+        "2 new extensions in the extension store"
+    )
+
+
+def test_a_service_is_announced_once_like_anything_else():
+    """Seen keys are what stop a repeat, and a service has no version to fall
+    back on — so the second run must be silent on the strength of the key."""
+    item = _new_item("support", "Support", service=True, version="")
+    first = classify([item], installed={}, known_keys=set(), notified_versions={}, seeded=True)
+    assert len(first.new) == 1
+    second = classify(
+        [item], installed={}, known_keys={"support"}, notified_versions={}, seeded=True
+    )
+    assert second.new == []
+
+
+def test_a_versionless_service_never_looks_like_an_update():
+    """`store_update_available` must not read a service's empty version as an
+    upgrade for an installed extension that happens to share its key."""
+    changes = classify(
+        [_new_item("support", "Support", service=True, version="")],
+        installed={"support": "1.0.0"},
+        known_keys={"support"},
+        notified_versions={},
+        seeded=True,
+    )
+    assert changes.new == [] and changes.updates == []
