@@ -106,6 +106,8 @@
   "hierarchy.errors.addChild": "Error al agregar subordinado",
   "hierarchy.errors.create": "Error al crear",
   "hierarchy.noLinkLabel": "Sin tipo de vínculo",
+  "hierarchy.linkType": "Tipo de vínculo",
+  "hierarchy.editLinkType": "Establecer el tipo de vínculo",
   "hierarchy.errors.setLinkLabel": "No se pudo establecer el tipo de vínculo",
   "successors.title": "Linaje",
   "successors.predecessors": "Predecesores",

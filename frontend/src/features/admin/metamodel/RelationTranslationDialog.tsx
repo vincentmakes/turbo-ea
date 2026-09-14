@@ -20,8 +20,16 @@ import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/i18n";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { TranslationGroup, TranslationRow } from "./translationParts";
-import { cleanTranslations } from "./helpers";
-import type { CardType, MetamodelTranslations, RelationType } from "@/types";
+import { cleanTranslationMap, cleanTranslations } from "./helpers";
+import type { CardType, FieldOption, MetamodelTranslations, RelationType } from "@/types";
+
+/**
+ * Stable identity for the optional `hierarchyTypes` prop. It is a dependency of
+ * the draft-reset effect, so an inline `= []` default would be a NEW array on
+ * every render — the effect would re-run and overwrite the drafts on every
+ * keystroke for any caller that omits the prop.
+ */
+const NO_HIERARCHY_TYPES: CardType[] = [];
 
 /** The two translatable verbs on a relation type. */
 const VERB_PROPERTIES = ["label", "reverse_label"] as const;
@@ -41,6 +49,9 @@ export interface RelationTranslationDialogProps {
   open: boolean;
   relationTypes: RelationType[];
   types: CardType[];
+  /** Hierarchical card types whose link-type vocabularies translate here too.
+   *  Empty (the default) renders no such section. */
+  hierarchyTypes?: CardType[];
   onClose: () => void;
   onSaved: () => void;
 }
@@ -58,6 +69,7 @@ export default function RelationTranslationDialog({
   open,
   relationTypes,
   types,
+  hierarchyTypes = NO_HIERARCHY_TYPES,
   onClose,
   onSaved,
 }: RelationTranslationDialogProps) {
@@ -72,6 +84,10 @@ export default function RelationTranslationDialog({
 
   const [activeLocale, setActiveLocale] = useState<string>(visibleLocales[0] || "de");
   const [drafts, setDrafts] = useState<Record<string, MetamodelTranslations>>({});
+  // Hierarchy link-type vocabularies, per card type. Kept in their own map
+  // because they are an array of options on `card_types`, not a
+  // `MetamodelTranslations` blob on a relation type.
+  const [labelDrafts, setLabelDrafts] = useState<Record<string, FieldOption[]>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,8 +99,13 @@ export default function RelationTranslationDialog({
       next[rt.key] = JSON.parse(JSON.stringify(rt.translations || {}));
     }
     setDrafts(next);
+    const nextLabels: Record<string, FieldOption[]> = {};
+    for (const ct of hierarchyTypes) {
+      nextLabels[ct.key] = JSON.parse(JSON.stringify(ct.hierarchy_labels || []));
+    }
+    setLabelDrafts(nextLabels);
     setError(null);
-  }, [open, relationTypes]);
+  }, [open, relationTypes, hierarchyTypes]);
 
   const updateVerb = useCallback(
     (key: string, property: VerbProperty, locale: string, value: string) => {
@@ -94,6 +115,18 @@ export default function RelationTranslationDialog({
           ...prev[key],
           [property]: { ...prev[key]?.[property], [locale]: value },
         },
+      }));
+    },
+    [],
+  );
+
+  const updateLinkType = useCallback(
+    (typeKey: string, index: number, locale: string, value: string) => {
+      setLabelDrafts((prev) => ({
+        ...prev,
+        [typeKey]: (prev[typeKey] || []).map((o, i) =>
+          i === index ? { ...o, translations: { ...o.translations, [locale]: value } } : o,
+        ),
       }));
     },
     [],
@@ -119,10 +152,16 @@ export default function RelationTranslationDialog({
           if (drafts[rt.key]?.[property]?.[locale]?.trim()) filled++;
         }
       }
+      for (const ct of hierarchyTypes) {
+        for (const option of labelDrafts[ct.key] || []) {
+          total++;
+          if (option.translations?.[locale]?.trim()) filled++;
+        }
+      }
       counts[locale] = { filled, total };
     }
     return counts;
-  }, [drafts, relationTypes, visibleLocales, verbsFor]);
+  }, [drafts, labelDrafts, relationTypes, hierarchyTypes, visibleLocales, verbsFor]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -134,14 +173,29 @@ export default function RelationTranslationDialog({
         (rt) =>
           JSON.stringify(drafts[rt.key] || {}) !== JSON.stringify(rt.translations || {}),
       );
-      await Promise.all(
-        changed.map((rt) =>
+      // Link-type vocabularies live on the card type, so they are a separate
+      // PATCH — same diff-only rule, since a pass usually touches a few rows.
+      const changedTypes = hierarchyTypes.filter(
+        (ct) =>
+          JSON.stringify(labelDrafts[ct.key] || []) !==
+          JSON.stringify(ct.hierarchy_labels || []),
+      );
+      await Promise.all([
+        ...changed.map((rt) =>
           api.patch(`/metamodel/relation-types/${rt.key}`, {
             // NOT NULL column — send an empty map, never null.
             translations: cleanTranslations(drafts[rt.key]) || {},
           }),
         ),
-      );
+        ...changedTypes.map((ct) =>
+          api.patch(`/metamodel/types/${ct.key}`, {
+            hierarchy_labels: (labelDrafts[ct.key] || []).map((o) => ({
+              ...o,
+              translations: cleanTranslationMap(o.translations),
+            })),
+          }),
+        ),
+      ]);
       onSaved();
       onClose();
     } catch (e) {
@@ -260,6 +314,48 @@ export default function RelationTranslationDialog({
               </TranslationGroup>
             );
           })}
+
+        {/* Hierarchy link types, below the verbs and clearly set apart: they
+            are a different kind of label (a vocabulary on the card type, not a
+            verb on a relation type) that happens to be translated in the same
+            pass. */}
+        {visibleLocales.length > 0 && hierarchyTypes.length > 0 && (
+          <>
+            <Divider sx={{ my: 3 }} />
+            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
+              {t("metamodel.hierarchyLabels.title")}
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", mb: 2 }}
+            >
+              {t("metamodel.translationDialog.hierarchyLabelsHint")}
+            </Typography>
+            {hierarchyTypes.map((ct) => {
+              const options = labelDrafts[ct.key] || [];
+              if (options.length === 0) return null;
+              return (
+                <TranslationGroup
+                  key={ct.key}
+                  title={typeLabel(ct) || ct.key}
+                  count={options.length}
+                >
+                  {options.map((option, index) => (
+                    <TranslationRow
+                      key={option.key}
+                      // English is the option's own `label`, edited where the
+                      // vocabulary is defined — the same rule the verbs follow.
+                      reference={option.translations?.en || option.label || option.key}
+                      value={option.translations?.[tabLocale] || ""}
+                      onChange={(v) => updateLinkType(ct.key, index, tabLocale, v)}
+                    />
+                  ))}
+                </TranslationGroup>
+              );
+            })}
+          </>
+        )}
       </DialogContent>
 
       <Divider />

@@ -21,9 +21,13 @@ import DialogActions from "@mui/material/DialogActions";
 import { useTranslation } from "react-i18next";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Popover from "@mui/material/Popover";
+import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
-import OptionChip, { chipWidthForField } from "@/components/OptionChip";
+import OptionChip from "@/components/OptionChip";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { hasTypePermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
@@ -48,59 +52,137 @@ const LEVEL_COLORS = ["#1565c0", "#42a5f5", "#90caf9", "#bbdefb", "#e3f2fd"];
  * and stays selectable in the dropdown, so a label whose option an admin has
  * deleted is visible and clearable rather than silently gone.
  */
+/**
+ * The link type on one parent→child edge (discussion #1100).
+ *
+ * Deliberately built as a copy of how card detail's **Relations** section edits
+ * a relation's attributes (`RelationAttrsPopover` + the `single_select` branch
+ * of `RelationAttributesEditor`): a dense `OptionChip` for the value, a `label`
+ * IconButton that is outlined-dashed while nothing is set, and a popover
+ * holding a draft that commits on Save. The two are the same kind of thing — a
+ * per-link value drawn from a metamodel vocabulary — and sit a few centimetres
+ * apart on the same page, so they read as one treatment rather than two.
+ *
+ * `onChange` absent means read-only: the chip still renders (a viewer can see
+ * the value), only the affordance goes — same as a relation row.
+ */
 function HierarchyLinkLabel({
   value,
   options,
   onChange,
-  emptyLabel,
+  idPrefix,
 }: {
   value: string | null | undefined;
   options: FieldOption[];
-  onChange?: (next: string | null) => void;
-  emptyLabel: string;
+  onChange?: (next: string | null) => Promise<void>;
+  /** Makes the select's `labelId` unique per row, so each has its own name. */
+  idPrefix: string;
 }) {
+  const { t } = useTranslation(["cards", "common"]);
   const optLabel = useOptionLabel();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [draft, setDraft] = useState<string>(value ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
   const option = options.find((o) => o.key === value);
+  const resolved = option ? optLabel(option) : value || "";
+  const open = Boolean(anchor);
+
+  // Reopening must show what is stored, not what a cancelled edit left behind.
+  useEffect(() => {
+    if (open) {
+      setDraft(value ?? "");
+      setError("");
+    }
+  }, [open, value]);
+
+  const handleSave = async () => {
+    if (!onChange) return;
+    setSaving(true);
+    setError("");
+    try {
+      await onChange(draft || null);
+      setAnchor(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("hierarchy.errors.setLinkLabel"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // A value already set stays offered even if the option is now hidden, so
   // editing a card never silently rewrites its label.
-  const selectable = options.filter((o) => !o.hidden || o.key === value);
-
-  if (!onChange) {
-    if (!value) return null;
-    return <OptionChip option={option} value={value} label={option ? optLabel(option) : undefined} />;
-  }
+  const selectable = options.filter((o) => !o.hidden || o.key === draft);
+  const labelId = `hierarchy-link-type-${idPrefix}`;
 
   return (
-    <Select
-      size="small"
-      value={option || !value ? (value ?? "") : value}
-      displayEmpty
-      onChange={(e) => onChange((e.target.value as string) || null)}
-      renderValue={(v) =>
-        v ? (
-          <OptionChip option={option} value={v as string} label={option ? optLabel(option) : undefined} />
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            {emptyLabel}
-          </Typography>
-        )
-      }
-      sx={{
-        minWidth: chipWidthForField(options),
-        "& .MuiSelect-select": { py: 0.25 },
-      }}
-    >
-      <MenuItem value="">
-        <Typography variant="body2" color="text.secondary">
-          {emptyLabel}
+    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+      {value && (
+        <OptionChip dense option={option} value={value} label={option ? resolved : undefined} />
+      )}
+      {onChange && (
+        <Tooltip title={value ? resolved : t("hierarchy.editLinkType")}>
+          <IconButton
+            size="small"
+            onClick={(e) => setAnchor(e.currentTarget)}
+            sx={{
+              color: value ? "primary.main" : "text.disabled",
+              border: value ? "none" : "1px dashed",
+              borderColor: "divider",
+              borderRadius: 1,
+              px: 0.5,
+            }}
+          >
+            <MaterialSymbol icon="label" size={20} />
+          </IconButton>
+        </Tooltip>
+      )}
+      <Popover
+        open={open}
+        anchorEl={anchor}
+        onClose={() => setAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        slotProps={{ paper: { sx: { p: 2, minWidth: 280 } } }}
+      >
+        <Typography variant="caption" fontWeight={600} sx={{ display: "block", mb: 1 }}>
+          {t("hierarchy.linkType")}
         </Typography>
-      </MenuItem>
-      {selectable.map((o) => (
-        <MenuItem key={o.key} value={o.key}>
-          <OptionChip option={o} label={optLabel(o)} />
-        </MenuItem>
-      ))}
-    </Select>
+        {error && (
+          <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError("")}>
+            {error}
+          </Alert>
+        )}
+        <FormControl size="small" fullWidth disabled={saving}>
+          <InputLabel id={labelId}>{t("hierarchy.linkType")}</InputLabel>
+          <Select
+            labelId={labelId}
+            value={draft}
+            label={t("hierarchy.linkType")}
+            onChange={(e) => setDraft(e.target.value as string)}
+          >
+            <MenuItem value="">
+              <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                {t("hierarchy.noLinkLabel")}
+              </Typography>
+            </MenuItem>
+            {selectable.map((o) => (
+              <MenuItem key={o.key} value={o.key}>
+                {optLabel(o)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1.5 }}>
+          <Button size="small" onClick={() => setAnchor(null)} disabled={saving}>
+            {t("common:actions.cancel")}
+          </Button>
+          <Button size="small" variant="contained" onClick={handleSave} disabled={saving}>
+            {t("common:actions.save")}
+          </Button>
+        </Box>
+      </Popover>
+    </Box>
   );
 }
 
@@ -205,14 +287,11 @@ function HierarchySection({
   // called only for this card's own label, because only then does the `card`
   // prop the rest of the page renders from go stale.
   const setLinkLabel = async (cardId: string, next: string | null) => {
-    try {
-      setHierarchyError("");
-      await api.patch(`/cards/${cardId}`, { parent_label: next });
-      loadHierarchy();
-      if (cardId === card.id) onUpdate();
-    } catch (err: unknown) {
-      setHierarchyError(err instanceof Error ? err.message : t("hierarchy.errors.setLinkLabel"));
-    }
+    // Errors propagate to the popover, which shows them next to the control
+    // the user is holding open — the section-level alert would be off-screen.
+    await api.patch(`/cards/${cardId}`, { parent_label: next });
+    loadHierarchy();
+    if (cardId === card.id) onUpdate();
   };
 
   const handleQuickCreate = async () => {
@@ -341,7 +420,7 @@ function HierarchySection({
                       value={hierarchy.parent_label}
                       options={linkLabels}
                       onChange={canEdit ? (next) => setLinkLabel(card.id, next) : undefined}
-                      emptyLabel={t("hierarchy.noLinkLabel")}
+                      idPrefix="parent"
                     />
                   )}
                 </Box>
@@ -462,7 +541,7 @@ function HierarchySection({
                             value={child.parent_label}
                             options={linkLabels}
                             onChange={canEdit ? (next) => setLinkLabel(child.id, next) : undefined}
-                            emptyLabel={t("hierarchy.noLinkLabel")}
+                            idPrefix={child.id}
                           />
                         )}
                       </Box>

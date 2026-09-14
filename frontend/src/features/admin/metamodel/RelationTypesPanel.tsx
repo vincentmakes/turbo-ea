@@ -32,7 +32,6 @@ import type {
   MetamodelTranslations,
 } from "@/types";
 import RelationTypeValuesDialog from "./RelationTypeValuesDialog";
-import RelationTranslationDialog from "./RelationTranslationDialog";
 import { cleanTranslations, deriveRelationKey } from "./helpers";
 import { CARDINALITY_OPTIONS } from "./constants";
 import { successorRelationKeys } from "@/lib/successorRelation";
@@ -143,7 +142,6 @@ export default function RelationTypesPanel({
   // must not silently wipe it.
   const [relKeyTouched, setRelKeyTouched] = useState(false);
   const [valuesRel, setValuesRel] = useState<RType | null>(null);
-  const [translateRelsOpen, setTranslateRelsOpen] = useState(false);
   const [deleteRelConfirm, setDeleteRelConfirm] = useState<{
     key: string;
     label: string;
@@ -435,22 +433,13 @@ export default function RelationTypesPanel({
           }
           label={t("metamodel.showHiddenRelations")}
         />
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-          <Button
-            variant="outlined"
-            startIcon={<MaterialSymbol icon="translate" size={18} />}
-            onClick={() => setTranslateRelsOpen(true)}
-          >
-            {t("metamodel.translationDialog.manage")}
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<MaterialSymbol icon="add" size={18} />}
-            onClick={openCreateRelation}
-          >
-            {t("metamodel.newRelation")}
-          </Button>
-        </Box>
+        <Button
+          variant="contained"
+          startIcon={<MaterialSymbol icon="add" size={18} />}
+          onClick={openCreateRelation}
+        >
+          {t("metamodel.newRelation")}
+        </Button>
       </Box>
 
       {flagError && (
@@ -596,14 +585,6 @@ export default function RelationTypesPanel({
         open={!!valuesRel}
         relationType={valuesRel}
         onClose={() => setValuesRel(null)}
-        onSaved={onRefresh}
-      />
-
-      <RelationTranslationDialog
-        open={translateRelsOpen}
-        relationTypes={displayRelationTypes}
-        types={types}
-        onClose={() => setTranslateRelsOpen(false)}
         onSaved={onRefresh}
       />
 

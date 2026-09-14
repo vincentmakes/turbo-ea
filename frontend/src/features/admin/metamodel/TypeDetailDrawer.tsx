@@ -40,8 +40,7 @@ import DataQualityPanel from "./DataQualityPanel";
 import StakeholderRolePanel from "./StakeholderRolePanel";
 import CardTypePermissionsPanel from "./CardTypePermissionsPanel";
 import TranslationDialog from "./TranslationDialog";
-import HierarchyLinkTypesSection from "./HierarchyLinkTypesSection";
-import RelationTypesPanel from "./RelationTypesPanel";
+import RelationsTabContent from "./RelationsTabContent";
 
 /* ------------------------------------------------------------------ */
 /*  Type Detail Dialog (full-width, 2-panel layout)                    */
@@ -875,23 +874,16 @@ export default function TypeDetailDrawer({
         {/* -- Relations tab -- */}
         {tab === "relations" && (
           <Box>
-            {/* A parent→child link is a relationship, so its vocabulary sits
-                here beside the relation types rather than on the main tab
-                next to Subtypes, where it first landed (#1100). */}
-            <HierarchyLinkTypesSection
-              types={types}
-              scopeTypeKey={cardTypeKey.key}
-              onRefresh={onRefresh}
-              onSaved={() => setSnack(t("metamodel.hierarchyLabels.saved"))}
-            />
-            {/* The same panel the general Relation Types tab renders, scoped to
-                this card type — so editing verbs, cardinality, relation values,
-                deletion and the hidden badge are all reachable from here too. */}
-            <RelationTypesPanel
+            {/* The same content the general Relation Types tab renders,
+                scoped to this card type — so the link-type vocabulary, the
+                bulk translations and the full relation editor are all reachable
+                from here too (#1100). */}
+            <RelationsTabContent
               types={types}
               relationTypes={relationTypes}
               onRefresh={onRefresh}
               scopeTypeKey={cardTypeKey.key}
+              onSaved={() => setSnack(t("metamodel.hierarchyLabels.saved"))}
             />
           </Box>
         )}

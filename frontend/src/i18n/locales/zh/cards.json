@@ -106,6 +106,8 @@
   "hierarchy.errors.addChild": "添加子级失败",
   "hierarchy.errors.create": "创建失败",
   "hierarchy.noLinkLabel": "无关联类型",
+  "hierarchy.linkType": "关联类型",
+  "hierarchy.editLinkType": "设置关联类型",
   "hierarchy.errors.setLinkLabel": "无法设置关联类型",
   "successors.title": "谱系",
   "successors.predecessors": "前任",

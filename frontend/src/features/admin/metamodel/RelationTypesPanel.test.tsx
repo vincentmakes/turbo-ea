@@ -26,11 +26,6 @@ vi.mock("./RelationTypeValuesDialog", () => ({
     open ? <div data-testid="values-dialog" /> : null,
 }));
 
-vi.mock("./RelationTranslationDialog", () => ({
-  default: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="translations-dialog" /> : null,
-}));
-
 import { api } from "@/api/client";
 
 const ORG = {

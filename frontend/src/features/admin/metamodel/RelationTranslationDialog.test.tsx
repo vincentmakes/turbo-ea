@@ -158,3 +158,61 @@ describe("RelationTranslationDialog", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Hierarchy link types are translated in the same pass as the relation verbs
+ * (they are the other metamodel label the Relations tab owns), but they live on
+ * the CARD TYPE, so they are their own section and their own PATCH.
+ */
+describe("RelationTranslationDialog hierarchy link types", () => {
+  const ORG = {
+    key: "Organization",
+    label: "Organization",
+    has_hierarchy: true,
+    hierarchy_labels: [
+      { key: "commercial", label: "Commercial", translations: { en: "Commercial" } },
+      { key: "sales", label: "Sales", translations: { en: "Sales", fr: "Ventes" } },
+    ],
+  } as unknown as CardType;
+
+  it("lists each vocabulary under its own card type and counts it", async () => {
+    renderDialog({ hierarchyTypes: [ORG] });
+
+    expect(await screen.findByText("Commercial")).toBeInTheDocument();
+    expect(screen.getByText("Sales")).toBeInTheDocument();
+    // 3 verbs + 2 link types; French has "propose", "est proposé par", "Ventes".
+    expect(screen.getByRole("tab", { name: /Français.*3\/5/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Deutsch.*0\/5/ })).toBeInTheDocument();
+  });
+
+  it("patches the card type, leaving the relation types alone", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.patch).mockResolvedValue({});
+    renderDialog({ hierarchyTypes: [ORG] });
+
+    // The link-type rows come after the three verb rows.
+    const inputs = await screen.findAllByRole("textbox");
+    await user.type(inputs[3], "Kommerziell");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    // Only the card type changed, so only one request goes out.
+    await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(1));
+    const [path, body] = vi.mocked(api.patch).mock.calls[0] as [
+      string,
+      { hierarchy_labels: { key: string; translations: Record<string, string> }[] },
+    ];
+    expect(path).toBe("/metamodel/types/Organization");
+    expect(body.hierarchy_labels[0].translations).toEqual({
+      en: "Commercial",
+      de: "Kommerziell",
+    });
+    // The untouched option keeps every locale it already had.
+    expect(body.hierarchy_labels[1].translations).toEqual({ en: "Sales", fr: "Ventes" });
+  });
+
+  it("renders no such section when no type has a vocabulary", async () => {
+    renderDialog();
+    await screen.findByText("offers");
+    expect(screen.queryByText("Commercial")).not.toBeInTheDocument();
+  });
+});

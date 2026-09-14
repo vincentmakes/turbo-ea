@@ -1224,6 +1224,7 @@
   "metamodel.translationDialog.noOtherLocales": "Aucune autre langue n'est activée. Activez-en une dans Paramètres → Langues.",
   "metamodel.translationDialog.saveFailed": "Impossible d'enregistrer les traductions. Veuillez réessayer.",
   "metamodel.translationDialog.hierarchyLabels": "Types de lien hiérarchique",
+  "metamodel.translationDialog.hierarchyLabelsHint": "Les noms des types de lien se traduisent également ici. L'anglais est le nom porté par le vocabulaire lui-même — modifiez-le là où les types de lien sont définis.",
   "metamodel.principles.description": "Définissez les principes d'architecture qui régissent votre paysage IT. Les principes actifs sont utilisés par les Insights IA du portefeuille pour évaluer votre portefeuille applicatif.",
   "metamodel.principles.add": "Nouveau principe",
   "metamodel.principles.empty": "Aucun principe EA défini. Ajoutez des principes pour guider vos décisions d'architecture.",

@@ -452,3 +452,71 @@ describe("RelationsSection with a self-referencing relation type", () => {
     ]);
   });
 });
+
+/**
+ * The per-relation attribute row — the pattern card detail's Hierarchy link
+ * type was rebuilt to copy, so it is now the shared reference and worth
+ * pinning: a dense value pill, a `label` button that is outlined-dashed while
+ * nothing is set, and no affordance at all for a read-only user.
+ */
+describe("RelationsSection attribute row", () => {
+  /** `appToOrg` with a non-directional single-select, like `usageType`. */
+  const withUsage = {
+    ...appToOrg,
+    attributes_schema: [
+      {
+        key: "usageType",
+        label: "Usage Type",
+        type: "single_select",
+        options: [
+          { key: "owner", label: "Owner", color: "#1976d2" },
+          { key: "user", label: "User", color: "#66bb6a" },
+        ],
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+    vi.mocked(api.patch).mockReset();
+    mm.relationTypes = [withUsage];
+  });
+
+  it("renders the value as a pill and tooltips the button with it", async () => {
+    const set = relation("1", "Finance");
+    set.attributes = { usageType: "owner" };
+    mockApi([set, relation("2", "Legal")], []);
+
+    await openSection();
+
+    await waitFor(() => expect(screen.getByText("Finance")).toBeInTheDocument());
+    // The value reads as its own pill, not folded into the row's text.
+    expect(screen.getByText("Owner")).toBeInTheDocument();
+    // The tooltip names the field as well, since the pill alone says only the
+    // value — and that name is what tells the two rows' buttons apart.
+    expect(screen.getByRole("button", { name: "Usage Type: Owner" })).toBeInTheDocument();
+    // The unset row advertises itself as an empty slot instead.
+    const unset = screen.getByRole("button", { name: "Edit details" });
+    expect(unset).toHaveStyle({ borderStyle: "dashed" });
+  });
+
+  it("offers no attribute editing to a read-only user", async () => {
+    const set = relation("1", "Finance");
+    set.attributes = { usageType: "owner" };
+    mockApi([set], []);
+
+    render(
+      <RelationsSection
+        fsId={FS}
+        cardTypeKey="Application"
+        initialExpanded
+        canManageRelations={false}
+      />,
+    );
+
+    // The pill still renders — a viewer can read the value, same as the
+    // Hierarchy section's link type; only the affordance goes.
+    await waitFor(() => expect(screen.getByText("Owner")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /Usage Type/ })).not.toBeInTheDocument();
+  });
+});

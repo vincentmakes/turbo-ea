@@ -1224,6 +1224,7 @@
   "metamodel.translationDialog.noOtherLocales": "Ingen andre sprog er aktiveret. Aktivér et under Indstillinger → Sprog.",
   "metamodel.translationDialog.saveFailed": "Oversættelserne kunne ikke gemmes. Prøv igen.",
   "metamodel.translationDialog.hierarchyLabels": "Hierarkiske forbindelsestyper",
+  "metamodel.translationDialog.hierarchyLabelsHint": "Navnene på forbindelsestyper oversættes også her. Engelsk er navnet på selve ordforrådet — rediger det, hvor forbindelsestyperne defineres.",
   "metamodel.principles.description": "Definér arkitekturprincipperne, der styrer dit IT-landskab. Aktive principper bruges af AI-porteføljeindsigt til at evaluere din applikationsportefølje.",
   "metamodel.principles.add": "Nyt princip",
   "metamodel.principles.empty": "Ingen EA-principper defineret endnu. Tilføj principper for at guide dine arkitekturbeslutninger.",

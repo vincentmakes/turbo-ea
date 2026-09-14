@@ -1224,6 +1224,7 @@
   "metamodel.translationDialog.noOtherLocales": "Другие языки не включены. Включите язык в разделе «Настройки → Языки».",
   "metamodel.translationDialog.saveFailed": "Не удалось сохранить переводы. Попробуйте ещё раз.",
   "metamodel.translationDialog.hierarchyLabels": "Типы иерархических связей",
+  "metamodel.translationDialog.hierarchyLabelsHint": "Здесь также переводятся названия типов связей. Английский — это название в самом словаре; измените его там, где типы связей определяются.",
   "metamodel.principles.description": "Определите архитектурные принципы, управляющие вашим ИТ-ландшафтом. Активные принципы используются ИИ-аналитикой портфеля для оценки портфеля приложений.",
   "metamodel.principles.add": "Новый принцип",
   "metamodel.principles.empty": "Принципы EA ещё не определены. Добавьте принципы для руководства архитектурными решениями.",

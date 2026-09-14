@@ -106,6 +106,8 @@
   "hierarchy.errors.addChild": "Échec de l’ajout de l’enfant",
   "hierarchy.errors.create": "Échec de la création",
   "hierarchy.noLinkLabel": "Aucun type de lien",
+  "hierarchy.linkType": "Type de lien",
+  "hierarchy.editLinkType": "Définir le type de lien",
   "hierarchy.errors.setLinkLabel": "Impossible de définir le type de lien",
   "successors.title": "Lignée",
   "successors.predecessors": "Prédécesseurs",

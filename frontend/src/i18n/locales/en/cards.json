@@ -106,6 +106,8 @@
   "hierarchy.errors.addChild": "Failed to add child",
   "hierarchy.errors.create": "Failed to create",
   "hierarchy.noLinkLabel": "No link type",
+  "hierarchy.linkType": "Link type",
+  "hierarchy.editLinkType": "Set link type",
   "hierarchy.errors.setLinkLabel": "Failed to set the link type",
   "successors.title": "Lineage",
   "successors.predecessors": "Predecessors",

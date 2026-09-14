@@ -1224,6 +1224,7 @@
   "metamodel.translationDialog.noOtherLocales": "Es sind keine weiteren Sprachen aktiviert. Aktivieren Sie eine unter Einstellungen → Sprachen.",
   "metamodel.translationDialog.saveFailed": "Übersetzungen konnten nicht gespeichert werden. Bitte versuchen Sie es erneut.",
   "metamodel.translationDialog.hierarchyLabels": "Hierarchie-Verbindungstypen",
+  "metamodel.translationDialog.hierarchyLabelsHint": "Auch die Namen der Verbindungstypen werden hier übersetzt. Englisch ist der Name im Vokabular selbst — bearbeiten Sie ihn dort, wo die Verbindungstypen definiert sind.",
   "metamodel.principles.description": "Definieren Sie die Architekturprinzipien, die Ihre IT-Landschaft steuern. Aktive Prinzipien werden von den KI-Portfolio-Insights zur Bewertung Ihres Anwendungsportfolios herangezogen.",
   "metamodel.principles.add": "Neues Prinzip",
   "metamodel.principles.empty": "Noch keine EA-Prinzipien definiert. Fügen Sie Prinzipien hinzu, um Ihre Architekturentscheidungen zu leiten.",

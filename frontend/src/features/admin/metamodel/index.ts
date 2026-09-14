@@ -6,6 +6,7 @@ export { default as RelationTypeValuesDialog } from "./RelationTypeValuesDialog"
 export { default as RelationTranslationDialog } from "./RelationTranslationDialog";
 export { default as MetamodelGraph } from "./MetamodelGraph";
 export { default as RelationTypesPanel } from "./RelationTypesPanel";
+export { default as RelationsTabContent } from "./RelationsTabContent";
 export { default as HierarchyLinkTypesSection } from "./HierarchyLinkTypesSection";
 export { default as HierarchyLabelsDialog } from "./HierarchyLabelsDialog";
 export * from "./constants";

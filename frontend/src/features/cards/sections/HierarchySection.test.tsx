@@ -1,8 +1,11 @@
 /**
  * Hierarchy link labels on card detail (discussion #1100).
  *
- * Three things are worth guarding, and each is a distinct way to get this
- * wrong:
+ * The control is deliberately a copy of how the Relations section edits a
+ * relation's attributes — a dense chip for the value, a `label` button that is
+ * outlined-dashed while nothing is set, and a popover holding a draft that
+ * commits on Save. Four things are worth guarding, and each is a distinct way
+ * to get this wrong:
  *
  *  - **The two label slots are different edges.** The Parent chip shows THIS
  *    card's link upwards (`hierarchy.parent_label`); each child row shows that
@@ -10,10 +13,11 @@
  *    instead would silently show the grandparent's link.
  *  - **Editing a child row patches the child**, not the card under view — the
  *    same "the edge lives on the child" asymmetry `handleAddChild` already has.
+ *  - **The draft is a draft.** Cancel must write nothing; only Save PATCHes.
  *  - **An unconfigured type renders nothing**, so every install that has not
  *    opted in sees the section exactly as it was before the feature existed.
  */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -72,7 +76,7 @@ const CARD = {
   data_quality: 0,
 } as never;
 
-/** Company B, child of A ("commercial"), with its own child B1 ("sales"). */
+/** Company B, child of A ("commercial"), with children B1 ("sales") and B2 (none). */
 const HIERARCHY = {
   ancestors: [{ id: "a", name: "Company A", type: "Organization", parent_label: null }],
   children: [
@@ -94,6 +98,22 @@ function renderSection(onUpdate = vi.fn()) {
   return onUpdate;
 }
 
+/**
+ * The edit buttons are told apart by their accessible name, which MUI's
+ * `Tooltip` mirrors from its title: the resolved value when one is set, and
+ * the "set it" prompt when none is. In this fixture that is unique per row.
+ */
+function editButton(name: string) {
+  return screen.getByRole("button", { name });
+}
+
+/** Opens a row's popover and picks `option` from the select, without saving. */
+async function pick(user: ReturnType<typeof userEvent.setup>, button: HTMLElement, option: string) {
+  await user.click(button);
+  await user.click(await screen.findByRole("combobox", { name: /link type/i }));
+  await user.click(await screen.findByRole("option", { name: option }));
+}
+
 describe("HierarchySection link labels", () => {
   it("shows this card's own label on the parent line", async () => {
     renderSection();
@@ -105,8 +125,9 @@ describe("HierarchySection link labels", () => {
   it("shows each child's own label on its row", async () => {
     renderSection();
     expect(await screen.findByText("Sales")).toBeInTheDocument();
-    // B2 has no label, so nothing extra is rendered for it.
-    expect(screen.queryByText("Company B2")).toBeInTheDocument();
+    // B2 has no label, so it gets the unset affordance and no chip.
+    expect(screen.getByText("Company B2")).toBeInTheDocument();
+    expect(editButton("Set link type")).toBeInTheDocument();
   });
 
   it("renders nothing when the type has no configured vocabulary", async () => {
@@ -115,19 +136,25 @@ describe("HierarchySection link labels", () => {
     await screen.findByText("Company B1");
     expect(screen.queryByText("Commercial")).not.toBeInTheDocument();
     expect(screen.queryByText("Sales")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set link type" })).not.toBeInTheDocument();
   });
 
-  it("patches THIS card when the parent line's label is changed", async () => {
+  it("outlines the button while nothing is set and tints it once one is", async () => {
+    renderSection();
+    await screen.findByText("Commercial");
+    // The unset row advertises itself as an empty slot; a set one does not.
+    expect(editButton("Set link type")).toHaveStyle({ borderStyle: "dashed" });
+    expect(editButton("Commercial")).not.toHaveStyle({ borderStyle: "dashed" });
+  });
+
+  it("patches THIS card when the parent line's label is saved", async () => {
     const user = userEvent.setup();
     const onUpdate = renderSection();
     vi.mocked(api.patch).mockResolvedValue({} as never);
 
-    // The parent line's control is the one showing the card's own label.
-    const control = (await screen.findByText("Commercial")).closest(
-      ".MuiInputBase-root",
-    ) as HTMLElement;
-    await user.click(within(control).getByRole("combobox"));
-    await user.click(await screen.findByRole("option", { name: "Sales" }));
+    await screen.findByText("Commercial");
+    await pick(user, editButton("Commercial"), "Sales");
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(api.patch).toHaveBeenCalledWith("/cards/b", { parent_label: "sales" });
@@ -136,22 +163,62 @@ describe("HierarchySection link labels", () => {
     expect(onUpdate).toHaveBeenCalled();
   });
 
-  it("patches the CHILD when a child row's label is changed", async () => {
+  it("patches the CHILD when a child row's label is saved", async () => {
     const user = userEvent.setup();
     const onUpdate = renderSection();
     vi.mocked(api.patch).mockResolvedValue({} as never);
 
-    const control = (await screen.findByText("Sales")).closest(
-      ".MuiInputBase-root",
-    ) as HTMLElement;
-    await user.click(within(control).getByRole("combobox"));
-    await user.click(await screen.findByRole("option", { name: "Commercial" }));
+    await screen.findByText("Sales");
+    await pick(user, editButton("Sales"), "Commercial");
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(api.patch).toHaveBeenCalledWith("/cards/b1", { parent_label: "commercial" });
     });
     // This card did not change, so the page does not need refreshing.
     expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing when the popover is cancelled", async () => {
+    const user = userEvent.setup();
+    renderSection();
+    vi.mocked(api.patch).mockResolvedValue({} as never);
+
+    await screen.findByText("Commercial");
+    await pick(user, editButton("Commercial"), "Sales");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(api.patch).not.toHaveBeenCalled();
+    // And the stored value is still what the chip shows.
+    expect(screen.getByText("Commercial")).toBeInTheDocument();
+  });
+
+  it("clears the label through the empty option", async () => {
+    const user = userEvent.setup();
+    renderSection();
+    vi.mocked(api.patch).mockResolvedValue({} as never);
+
+    await screen.findByText("Sales");
+    await pick(user, editButton("Sales"), "No link type");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/cards/b1", { parent_label: null });
+    });
+  });
+
+  it("surfaces a failed save inside the popover", async () => {
+    const user = userEvent.setup();
+    renderSection();
+    vi.mocked(api.patch).mockRejectedValue(new Error("Boom"));
+
+    await screen.findByText("Commercial");
+    await pick(user, editButton("Commercial"), "Sales");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    // Next to the control the user is holding open — a section-level alert
+    // would be scrolled off behind the popover.
+    expect(await screen.findByText("Boom")).toBeInTheDocument();
   });
 
   it("keeps an unknown stored key visible instead of blanking the cell", async () => {
@@ -166,7 +233,10 @@ describe("HierarchySection link labels", () => {
 
   it("offers no editing control when the user cannot edit", async () => {
     render(<HierarchySection card={CARD} onUpdate={vi.fn()} canEdit={false} />);
+    // The chip still renders — a viewer can read the value, same as on a
+    // relation row; only the affordance goes.
     expect(await screen.findByText("Commercial")).toBeInTheDocument();
-    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Commercial" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set link type" })).not.toBeInTheDocument();
   });
 });

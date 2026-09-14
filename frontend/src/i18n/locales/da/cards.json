@@ -106,6 +106,8 @@
   "hierarchy.errors.addChild": "Kunne ikke tilføje barn",
   "hierarchy.errors.create": "Kunne ikke oprette",
   "hierarchy.noLinkLabel": "Ingen forbindelsestype",
+  "hierarchy.linkType": "Forbindelsestype",
+  "hierarchy.editLinkType": "Angiv forbindelsestype",
   "hierarchy.errors.setLinkLabel": "Forbindelsestypen kunne ikke angives",
   "successors.title": "Slægtskab",
   "successors.predecessors": "Forgængere",

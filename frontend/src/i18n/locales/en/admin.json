@@ -1224,6 +1224,7 @@
   "metamodel.translationDialog.noOtherLocales": "No other languages are enabled. Enable one in Settings → Languages.",
   "metamodel.translationDialog.saveFailed": "Could not save translations. Please try again.",
   "metamodel.translationDialog.hierarchyLabels": "Hierarchy link types",
+  "metamodel.translationDialog.hierarchyLabelsHint": "Link-type names are translated here too. English is the name on the vocabulary itself — edit it where the link types are defined.",
   "metamodel.principles.description": "Define the architecture principles that govern your IT landscape. Active principles are used by AI Portfolio Insights to evaluate your application portfolio.",
   "metamodel.principles.add": "New Principle",
   "metamodel.principles.empty": "No EA principles defined yet. Add principles to guide your architecture decisions.",

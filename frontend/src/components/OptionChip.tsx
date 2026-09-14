@@ -48,11 +48,34 @@ export interface OptionChipProps {
   /** Fixed width for column alignment; omit for content width (grids). */
   width?: number;
   size?: "small" | "medium";
+  /**
+   * The compact pill used on a card-detail row, where the chip rides alongside
+   * icon buttons in a list item's secondary action rather than sitting in a
+   * field. Card detail's Relations and Hierarchy sections both use it, so the
+   * two read as one treatment.
+   */
+  dense?: boolean;
 }
 
-export function OptionChip({ option, value, label, width, size = "small" }: OptionChipProps) {
+/** Row-scale overrides — small enough to sit inline with a 20px icon button. */
+const DENSE_CHIP = { height: 20, fontSize: "0.7rem" } as const;
+
+export function OptionChip({
+  option,
+  value,
+  label,
+  width,
+  size = "small",
+  dense = false,
+}: OptionChipProps) {
   const { t } = useTranslation(["cards", "common"]);
-  const sx = { ...SELECT_CHIP_BASE, ...(width ? { width } : {}) };
+  const sx = {
+    ...SELECT_CHIP_BASE,
+    ...(width ? { width } : {}),
+    // Applied to the warning variant too: a stale value must not tower over
+    // the row just because its option was deleted.
+    ...(dense ? DENSE_CHIP : {}),
+  };
   if (!option) {
     const raw = value ?? "";
     if (!raw) return null;

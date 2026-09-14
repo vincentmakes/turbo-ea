@@ -34,8 +34,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import type { CardType as FSType, RelationType as RType } from "@/types";
 import { TypeDetailDrawer, MetamodelGraph } from "./metamodel";
-import RelationTypesPanel from "./metamodel/RelationTypesPanel";
-import HierarchyLinkTypesSection from "./metamodel/HierarchyLinkTypesSection";
+import RelationsTabContent from "./metamodel/RelationsTabContent";
 import { CATEGORIES } from "./metamodel/constants";
 import { successorRelationKeys } from "@/lib/successorRelation";
 
@@ -355,10 +354,7 @@ export default function MetamodelAdmin() {
       {/* ============================================================ */}
       {tab === 1 && (
         <Box>
-          {/* A parent→child link is a relationship, so its vocabulary lives
-              beside the relation types (#1100). */}
-          <HierarchyLinkTypesSection types={types} onRefresh={refresh} />
-          <RelationTypesPanel
+          <RelationsTabContent
             types={types}
             relationTypes={relationTypes}
             onRefresh={refresh}

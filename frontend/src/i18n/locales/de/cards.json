@@ -106,6 +106,8 @@
   "hierarchy.errors.addChild": "Untergeordnetes Element konnte nicht hinzugefügt werden",
   "hierarchy.errors.create": "Erstellen fehlgeschlagen",
   "hierarchy.noLinkLabel": "Kein Verbindungstyp",
+  "hierarchy.linkType": "Verbindungstyp",
+  "hierarchy.editLinkType": "Verbindungstyp festlegen",
   "hierarchy.errors.setLinkLabel": "Verbindungstyp konnte nicht gesetzt werden",
   "successors.title": "Abstammung",
   "successors.predecessors": "Vorgänger",

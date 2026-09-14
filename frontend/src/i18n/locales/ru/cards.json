@@ -106,6 +106,8 @@
   "hierarchy.errors.addChild": "Не удалось добавить дочерний элемент",
   "hierarchy.errors.create": "Не удалось создать",
   "hierarchy.noLinkLabel": "Тип связи не задан",
+  "hierarchy.linkType": "Тип иерархической связи",
+  "hierarchy.editLinkType": "Задать тип связи",
   "hierarchy.errors.setLinkLabel": "Не удалось задать тип связи",
   "successors.title": "Происхождение",
   "successors.predecessors": "Предшественники",

@@ -1224,6 +1224,7 @@
   "metamodel.translationDialog.noOtherLocales": "No hay otros idiomas habilitados. Habilite uno en Configuración → Idiomas.",
   "metamodel.translationDialog.saveFailed": "No se pudieron guardar las traducciones. Inténtelo de nuevo.",
   "metamodel.translationDialog.hierarchyLabels": "Tipos de vínculo jerárquico",
+  "metamodel.translationDialog.hierarchyLabelsHint": "Los nombres de los tipos de vínculo también se traducen aquí. El inglés es el nombre del propio vocabulario: edítelo donde se definen los tipos de vínculo.",
   "metamodel.principles.description": "Defina los principios de arquitectura que gobiernan su paisaje de TI. Los principios activos son utilizados por los Insights IA del portafolio para evaluar su portafolio de aplicaciones.",
   "metamodel.principles.add": "Nuevo principio",
   "metamodel.principles.empty": "No hay principios EA definidos. Añada principios para guiar sus decisiones de arquitectura.",

@@ -42,7 +42,7 @@ import RelationAttributesEditor, {
   hasEditableRelationAttributes,
   type RelationAttributes,
 } from "./RelationAttributesEditor";
-import { readableTextColor } from "@/lib/color";
+import OptionChip from "@/components/OptionChip";
 import {
   bucketRelationsBySubtype,
   shouldGroupBySubtype,
@@ -318,15 +318,13 @@ function RelationGroup({
         secondaryAction={
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             {attrBadges.map((b) => (
-              <Chip
+              // The shared pill, so this row and the Hierarchy section's link
+              // type render identically — they are the same kind of value.
+              <OptionChip
                 key={b.fieldKey}
-                size="small"
+                dense
+                option={{ key: b.optionKey, label: b.optionLabel, color: b.color }}
                 label={rl(b.optionLabel, b.optionTranslations)}
-                sx={{
-                  height: 20,
-                  fontSize: "0.7rem",
-                  ...(b.color ? { bgcolor: b.color, color: readableTextColor(b.color) } : {}),
-                }}
               />
             ))}
             {rtHasAttributes && canManageRelations && (

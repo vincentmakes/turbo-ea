@@ -106,6 +106,8 @@
   "hierarchy.errors.addChild": "فشل إضافة العنصر الفرعي",
   "hierarchy.errors.create": "فشل الإنشاء",
   "hierarchy.noLinkLabel": "لا يوجد نوع ارتباط",
+  "hierarchy.linkType": "نوع الارتباط",
+  "hierarchy.editLinkType": "تعيين نوع الارتباط",
   "hierarchy.errors.setLinkLabel": "تعذّر تعيين نوع الارتباط",
   "successors.title": "النسب",
   "successors.predecessors": "العناصر السابقة",

@@ -1224,6 +1224,7 @@
   "metamodel.translationDialog.noOtherLocales": "未启用其他语言。请在「设置 → 语言」中启用。",
   "metamodel.translationDialog.saveFailed": "无法保存翻译，请重试。",
   "metamodel.translationDialog.hierarchyLabels": "层级关联类型",
+  "metamodel.translationDialog.hierarchyLabelsHint": "关联类型的名称也在此翻译。英文是词汇本身的名称 —— 请在定义关联类型的位置修改。",
   "metamodel.principles.description": "定义管理您IT环境的架构原则。活跃的原则将被AI投资组合洞察用于评估您的应用组合。",
   "metamodel.principles.add": "新建原则",
   "metamodel.principles.empty": "尚未定义EA原则。添加原则以指导您的架构决策。",

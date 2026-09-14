@@ -1224,6 +1224,7 @@
   "metamodel.translationDialog.noOtherLocales": "Nessun'altra lingua è abilitata. Abilitatene una in Impostazioni → Lingue.",
   "metamodel.translationDialog.saveFailed": "Impossibile salvare le traduzioni. Riprovate.",
   "metamodel.translationDialog.hierarchyLabels": "Tipi di collegamento gerarchico",
+  "metamodel.translationDialog.hierarchyLabelsHint": "Anche i nomi dei tipi di collegamento si traducono qui. L'inglese è il nome sul vocabolario stesso — modificatelo dove i tipi di collegamento sono definiti.",
   "metamodel.principles.description": "Definisci i principi architetturali che governano il tuo panorama IT. I principi attivi vengono utilizzati dagli Insight IA del portafoglio per valutare il tuo portafoglio applicativo.",
   "metamodel.principles.add": "Nuovo principio",
   "metamodel.principles.empty": "Nessun principio EA definito. Aggiungi principi per guidare le tue decisioni architetturali.",
