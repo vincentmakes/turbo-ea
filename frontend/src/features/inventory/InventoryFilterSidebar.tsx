@@ -99,6 +99,14 @@ export interface Filters {
    * for?" — there is no separate scope for it.
    */
   eolStatuses: string[];
+  /**
+   * Hierarchy link types to keep — `cards.parent_label` keys, plus
+   * `EMPTY_VALUE` for children whose link carries no type. Client-side over the
+   * loaded page like `subtypes`, since `GET /cards` has no `parent_label`
+   * param. Only meaningful for a single hierarchical type, which is exactly
+   * what `hierarchyLabelColumnApplies` already gates the column on.
+   */
+  linkTypes: string[];
 }
 
 interface Props {
@@ -127,6 +135,10 @@ interface Props {
    * single EOL-capable type is selected and the user may read EOL data. Same
    * "applies to what is in view" shape as `logoColumnApplies`. */
   showEolFacet?: boolean;
+  /** Whether the Link type facet applies to what is on screen — gated on the
+   * same `hierarchyLabelColumnApplies` as its column, so the two appear and
+   * disappear together. */
+  showLinkTypeFacet?: boolean;
   canShareBookmarks?: boolean;
   canOdataBookmarks?: boolean;
   currentUserId?: string;
@@ -307,6 +319,7 @@ export function filtersAfterTypeToggle(filters: Filters, key: string): Filters {
     attributes: {},
     relations: {},
     eolStatuses: [],
+    linkTypes: [],
   };
 }
 
@@ -361,6 +374,7 @@ export default function InventoryFilterSidebar({
   tagGroups = [],
   canArchive = false,
   showEolFacet = false,
+  showLinkTypeFacet = false,
   canShareBookmarks = false,
   canOdataBookmarks = false,
   currentUserId,
@@ -408,6 +422,7 @@ export default function InventoryFilterSidebar({
     subtypes: false,
     lifecycle: false,
     eol: false,
+    linkType: false,
     dataQuality: false,
     approvalStatus: false,
     attributes: false,
@@ -449,6 +464,14 @@ export default function InventoryFilterSidebar({
     return t?.subtypes ?? [];
   }, [types, filters.types]);
 
+  // The link-type vocabulary of the one selected type — same single-type rule
+  // as `subtypeOptions`, and the same one `hierarchyLabelColumnApplies` uses.
+  const linkTypeOptions = useMemo(() => {
+    if (filters.types.length !== 1) return [];
+    const t = types.find((t) => t.key === filters.types[0]);
+    return t?.hierarchy_labels ?? [];
+  }, [types, filters.types]);
+
   // Derive attribute filter fields from selected types (all field types)
   const attributeFields = useMemo(() => {
     const selectedTypes = filters.types.length > 0
@@ -477,6 +500,14 @@ export default function InventoryFilterSidebar({
       ? filters.subtypes.filter((s) => s !== key)
       : [...filters.subtypes, key];
     onFiltersChange({ ...filters, subtypes: next });
+  };
+
+  const toggleLinkType = (key: string) => {
+    const current = filters.linkTypes ?? [];
+    const next = current.includes(key)
+      ? current.filter((k) => k !== key)
+      : [...current, key];
+    onFiltersChange({ ...filters, linkTypes: next });
   };
 
   const toggleLifecyclePhase = (key: string) => {
@@ -560,7 +591,7 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, filterSides]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, orphanedOnly: false, staleOnly: false, eolStatuses: [] });
+    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, orphanedOnly: false, staleOnly: false, eolStatuses: [], linkTypes: [] });
 
   const activeCount =
     filters.types.length +
@@ -576,7 +607,8 @@ export default function InventoryFilterSidebar({
     (filters.mineScope ? 1 : 0) +
     (filters.orphanedOnly ? 1 : 0) +
     (filters.staleOnly ? 1 : 0) +
-    filters.eolStatuses.length;
+    filters.eolStatuses.length +
+    (filters.linkTypes?.length ?? 0);
 
   // Check if columns differ from default
   const columnsChanged = useMemo(() => {
@@ -630,6 +662,7 @@ export default function InventoryFilterSidebar({
         orphanedOnly: filters.orphanedOnly,
         staleOnly: filters.staleOnly,
         eolStatuses: filters.eolStatuses,
+        linkTypes: filters.linkTypes,
         attributes: filters.attributes,
         relations: filters.relations,
         tagIds: filters.tagIds,
@@ -672,6 +705,7 @@ export default function InventoryFilterSidebar({
         orphanedOnly: f.orphanedOnly || false,
         staleOnly: f.staleOnly || false,
         eolStatuses: f.eolStatuses || [],
+        linkTypes: f.linkTypes || [],
         attributes: f.attributes || {},
         relations: f.relations || {},
         tagIds: f.tagIds || [],
@@ -1120,6 +1154,51 @@ export default function InventoryFilterSidebar({
                         label={t("filter.emptyValue")}
                         selected={filters.eolStatuses.includes(EMPTY_VALUE)}
                         onClick={() => toggleEolStatus(EMPTY_VALUE)}
+                      />
+                    </Box>
+                  </Collapse>
+                </>
+              )}
+
+              {/* Link type — the parent→child link's qualifier (#1100). Sits
+                  beside End of life because both are single-type facets over a
+                  value the grid also shows as a column, and both offer
+                  "(empty)" to find the rows nobody has filled in. */}
+              {showLinkTypeFacet && linkTypeOptions.length > 0 && (
+                <>
+                  <SectionHeader
+                    label={t("filter.linkType")}
+                    icon="link"
+                    expanded={expandedSections.linkType}
+                    onToggle={() => toggleSection("linkType")}
+                    count={filters.linkTypes?.length ?? 0}
+                  />
+                  <Collapse in={expandedSections.linkType}>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+                      {linkTypeOptions.map((o) => {
+                        const color = o.color || undefined;
+                        const selected = (filters.linkTypes ?? []).includes(o.key);
+                        return (
+                          <Chip
+                            key={o.key}
+                            label={optLabel(o)}
+                            size="small"
+                            onClick={() => toggleLinkType(o.key)}
+                            variant={selected ? "filled" : "outlined"}
+                            sx={
+                              color
+                                ? selected
+                                  ? { bgcolor: color, color: "#fff", borderColor: color }
+                                  : { borderColor: color, color }
+                                : undefined
+                            }
+                          />
+                        );
+                      })}
+                      <EmptyChip
+                        label={t("filter.emptyValue")}
+                        selected={(filters.linkTypes ?? []).includes(EMPTY_VALUE)}
+                        onClick={() => toggleLinkType(EMPTY_VALUE)}
                       />
                     </Box>
                   </Collapse>

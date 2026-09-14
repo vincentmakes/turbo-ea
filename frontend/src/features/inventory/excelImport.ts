@@ -1158,10 +1158,12 @@ export function validateImport(
     if (description) data.description = description;
     if (subtype) data.subtype = subtype;
     if (parentId) data.parent_id = parentId;
-    // Sent whenever the column is present, empty included, so clearing the cell
-    // clears the label. An unknown key is refused by the server with the valid
-    // list, which surfaces as this row's error — never pre-validated here,
-    // since the vocabulary is per type and the server owns it.
+    // Only a non-empty cell is sent, exactly like `parent_id` above: an empty
+    // cell in a bulk sheet means "leave it alone", not "clear it" — clearing is
+    // the grid editor's and the card's job, where the intent is unambiguous.
+    // An unknown key is refused by the server with the valid list, which
+    // surfaces as this row's error — never pre-validated here, since the
+    // vocabulary is per type and the server owns it.
     if (parentLabel) data.parent_label = parentLabel;
     if (externalId) data.external_id = externalId;
     if (alias) data.alias = alias;

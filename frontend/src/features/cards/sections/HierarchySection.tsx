@@ -40,19 +40,6 @@ import type { Card, FieldOption, HierarchyData } from "@/types";
 const LEVEL_COLORS = ["#1565c0", "#42a5f5", "#90caf9", "#bbdefb", "#e3f2fd"];
 
 /**
- * The label on one parent→child link (discussion #1100), rendered read-only as
- * an `OptionChip` and edited — when `onChange` is supplied — through a `Select`
- * over the card type's `hierarchy_labels`.
- *
- * One component used at both ends on purpose: the parent line edits the card
- * under view, each child row edits that child, and the two affordances must not
- * drift. Which card is patched is the caller's business, not this component's.
- *
- * An unknown stored key still renders (as `OptionChip`'s outlined warning chip)
- * and stays selectable in the dropdown, so a label whose option an admin has
- * deleted is visible and clearable rather than silently gone.
- */
-/**
  * The link type on one parent→child edge (discussion #1100).
  *
  * Deliberately built as a copy of how card detail's **Relations** section edits
@@ -62,6 +49,10 @@ const LEVEL_COLORS = ["#1565c0", "#42a5f5", "#90caf9", "#bbdefb", "#e3f2fd"];
  * holding a draft that commits on Save. The two are the same kind of thing — a
  * per-link value drawn from a metamodel vocabulary — and sit a few centimetres
  * apart on the same page, so they read as one treatment rather than two.
+ *
+ * One component at both ends on purpose: the parent line edits the card under
+ * view, each child row edits that child, and the two affordances must not
+ * drift. Which card is patched is the caller's business, not this component's.
  *
  * `onChange` absent means read-only: the chip still renders (a viewer can see
  * the value), only the affordance goes — same as a relation row.
@@ -114,6 +105,12 @@ function HierarchyLinkLabel({
   // A value already set stays offered even if the option is now hidden, so
   // editing a card never silently rewrites its label.
   const selectable = options.filter((o) => !o.hidden || o.key === draft);
+  // …and a value whose option an admin has DELETED is offered too, as its raw
+  // key. Without it the Select has no item matching `draft`, so MUI renders an
+  // empty control and warns out-of-range — the popover would say "nothing set"
+  // while the chip beside it shows the stored value. `OptionChip` keeps such a
+  // value visible; the editor has to agree.
+  const unknown = draft && !options.some((o) => o.key === draft) ? draft : null;
   const labelId = `hierarchy-link-type-${idPrefix}`;
 
   return (
@@ -171,6 +168,11 @@ function HierarchyLinkLabel({
                 {optLabel(o)}
               </MenuItem>
             ))}
+            {unknown && (
+              <MenuItem value={unknown}>
+                {t("utils.unknownOption", { key: unknown })}
+              </MenuItem>
+            )}
           </Select>
         </FormControl>
         <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1.5 }}>

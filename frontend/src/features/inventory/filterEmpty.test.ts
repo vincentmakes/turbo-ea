@@ -3,13 +3,14 @@ import type { Filters } from "./InventoryFilterSidebar";
 import {
   EMPTY_VALUE,
   filtersAfterTypeToggle,
+  hierarchyLabelColumnApplies,
   normalizeRelationFilterKeys,
   normalizeSelectAttributeFilters,
   tagEmptyToken,
   tagsToFilterText,
   valueIsEmpty,
 } from "./InventoryFilterSidebar";
-import type { FieldDef } from "@/types";
+import type { CardType, FieldDef } from "@/types";
 
 const baseFilters: Filters = {
   types: ["Application"],
@@ -20,6 +21,7 @@ const baseFilters: Filters = {
   orphanedOnly: false,
   staleOnly: false,
   eolStatuses: [],
+  linkTypes: ["commercial"],
   approvalStatuses: ["APPROVED"],
   showArchived: false,
   attributes: { vendor: ["SAP"] },
@@ -190,6 +192,9 @@ describe("filtersAfterTypeToggle", () => {
     expect(next.relations).toEqual({});
     expect(next.subtypes).toEqual([]);
     expect(next.attributes).toEqual({});
+    // A link type is a key in the OLD type's vocabulary, so it is as
+    // type-specific as a subtype and must not survive either (#1100).
+    expect(next.linkTypes).toEqual([]);
   });
 
   it("preserves non-type-specific filters across a type change", () => {
@@ -206,5 +211,40 @@ describe("filtersAfterTypeToggle", () => {
     filtersAfterTypeToggle(baseFilters, "Application");
     expect(baseFilters.types).toEqual(["Application"]);
     expect(baseFilters.relations).toEqual({ relAppToItComponent: ["PostgreSQL"] });
+  });
+});
+
+/**
+ * The gate behind BOTH the Link type column and its sidebar facet (#1100), so
+ * the two can never appear apart — the divergence that shipped was the facet
+ * missing entirely while the column was there.
+ */
+describe("hierarchyLabelColumnApplies", () => {
+  const ORG = {
+    key: "Organization",
+    has_hierarchy: true,
+    hierarchy_labels: [{ key: "commercial", label: "Commercial" }],
+  } as unknown as CardType;
+  const FLAT = { key: "Objective", has_hierarchy: false, hierarchy_labels: [] } as unknown as CardType;
+  const EMPTY_VOCAB = { key: "Application", has_hierarchy: true, hierarchy_labels: [] } as unknown as CardType;
+  const types = [ORG, FLAT, EMPTY_VOCAB];
+
+  it("applies to a single hierarchical type with a vocabulary", () => {
+    expect(hierarchyLabelColumnApplies(types, ["Organization"])).toBe(true);
+  });
+
+  it("does not apply across several types", () => {
+    // The vocabulary is per card type, so a mixed grid has no single list to
+    // colour by or to offer in the editor.
+    expect(hierarchyLabelColumnApplies(types, ["Organization", "Application"])).toBe(false);
+  });
+
+  it("does not apply with no type selected", () => {
+    expect(hierarchyLabelColumnApplies(types, [])).toBe(false);
+  });
+
+  it("does not apply to a type with no hierarchy or an empty vocabulary", () => {
+    expect(hierarchyLabelColumnApplies(types, ["Objective"])).toBe(false);
+    expect(hierarchyLabelColumnApplies(types, ["Application"])).toBe(false);
   });
 });

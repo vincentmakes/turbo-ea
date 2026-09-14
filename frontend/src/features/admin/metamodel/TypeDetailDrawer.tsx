@@ -883,7 +883,6 @@ export default function TypeDetailDrawer({
               relationTypes={relationTypes}
               onRefresh={onRefresh}
               scopeTypeKey={cardTypeKey.key}
-              onSaved={() => setSnack(t("metamodel.hierarchyLabels.saved"))}
             />
           </Box>
         )}

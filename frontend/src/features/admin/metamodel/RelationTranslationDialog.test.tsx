@@ -175,6 +175,17 @@ describe("RelationTranslationDialog hierarchy link types", () => {
     ],
   } as unknown as CardType;
 
+  it("leads with the link types, matching the tab that opens it", async () => {
+    renderDialog({ hierarchyTypes: [ORG] });
+
+    // The tab lists Hierarchy link types above the relation list, so the
+    // dialog must too — two orderings of the same two groups is what made the
+    // dialog read as a different page from the tab it belongs to.
+    const hierarchy = await screen.findByText("Commercial");
+    const verb = screen.getByText("offers");
+    expect(hierarchy.compareDocumentPosition(verb)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   it("lists each vocabulary under its own card type and counts it", async () => {
     renderDialog({ hierarchyTypes: [ORG] });
 
@@ -190,9 +201,9 @@ describe("RelationTranslationDialog hierarchy link types", () => {
     vi.mocked(api.patch).mockResolvedValue({});
     renderDialog({ hierarchyTypes: [ORG] });
 
-    // The link-type rows come after the three verb rows.
+    // The link-type rows lead, so the first input is "Commercial".
     const inputs = await screen.findAllByRole("textbox");
-    await user.type(inputs[3], "Kommerziell");
+    await user.type(inputs[0], "Kommerziell");
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     // Only the card type changed, so only one request goes out.

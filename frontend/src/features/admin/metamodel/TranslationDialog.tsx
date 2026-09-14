@@ -456,7 +456,11 @@ export default function TranslationDialog({
               {hierarchyLabels.map((o, idx) => (
                 <TranslationRow
                   key={o.key}
-                  reference={o.key}
+                  // The English NAME, not the slug: `reference` doubles as the
+                  // input's placeholder, so it has to preview what an
+                  // untranslated row falls back to. Matches the same rows in
+                  // `RelationTranslationDialog`.
+                  reference={o.translations?.en || o.label || o.key}
                   value={o.translations?.[activeLocale] || ""}
                   onChange={(v) => updateHierarchyLabelTranslation(idx, activeLocale, v)}
                 />

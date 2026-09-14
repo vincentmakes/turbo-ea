@@ -7,8 +7,10 @@
  *    relation verbs *and* the hierarchy link types, so it must not read as a
  *    control belonging to the relation list alone — which is where it lived
  *    before the link types existed.
- *  - **Card-type mode scopes what the dialog will edit.** Translating from a
- *    card type's own tab must not silently open the whole landscape.
+ *  - **Card-type mode has no translations button at all.** The drawer header
+ *    already carries one, reachable from every tab, and the dialog behind it
+ *    covers this type's link types plus its label, subtypes, fields and roles.
+ *    Two same-named buttons writing the same column is what shipped once.
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -106,17 +108,18 @@ describe("RelationsTabContent", () => {
     expect(screen.getByTestId("ct-keys")).toHaveTextContent("Organization");
   });
 
-  it("narrows both lists to the card type in scope", async () => {
+  it("offers no translations button in card-type mode", () => {
     renderTab("Organization");
-    await userEvent.click(screen.getByRole("button", { name: /translations/i }));
-    // `appToIface` touches neither end of Organization.
-    expect(screen.getByTestId("rel-keys")).toHaveTextContent("orgToApp");
-    expect(screen.getByTestId("rel-keys")).not.toHaveTextContent("appToIface");
-    expect(screen.getByTestId("ct-keys")).toHaveTextContent("Organization");
+    // The drawer header's Translate button is the single route there, and it
+    // covers strictly more than this one did.
+    expect(screen.queryByRole("button", { name: /translations/i })).not.toBeInTheDocument();
+    // The vocabulary editor and the relation editor still render.
+    expect(screen.getByTestId("hierarchy-section")).toBeInTheDocument();
+    expect(screen.getByTestId("relation-panel")).toBeInTheDocument();
   });
 
   it("offers no translations button when there is nothing to translate", () => {
-    renderTab("Application", [APP], []);
+    renderTab(undefined, [APP], []);
     expect(screen.queryByRole("button", { name: /translations/i })).not.toBeInTheDocument();
   });
 });

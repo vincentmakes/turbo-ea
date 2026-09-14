@@ -270,5 +270,6 @@
   "columns.eol": "نهاية العمر",
   "columns.eolSupport": "انتهاء الدعم",
   "filter.eol": "نهاية العمر",
+  "filter.linkType": "نوع الارتباط",
   "filter.eolManual": "مُدار يدويًا"
 }

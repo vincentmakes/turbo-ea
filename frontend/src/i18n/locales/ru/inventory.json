@@ -270,5 +270,6 @@
   "columns.eol": "Окончание поддержки",
   "columns.eolSupport": "Поддержка до",
   "filter.eol": "Окончание поддержки",
+  "filter.linkType": "Тип иерархической связи",
   "filter.eolManual": "Заполнено вручную"
 }

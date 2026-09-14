@@ -231,6 +231,25 @@ describe("HierarchySection link labels", () => {
     expect(await screen.findByText("retired")).toBeInTheDocument();
   });
 
+  it("offers a stored key whose option was deleted, so the popover agrees with the chip", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockResolvedValue({
+      ...HIERARCHY,
+      parent_label: "retired",
+    } as never);
+    renderSection();
+
+    await screen.findByText("retired");
+    await user.click(editButton("retired"));
+    // Without a row for it the Select has nothing matching its value: MUI
+    // renders an empty control and warns out-of-range, so the popover would
+    // read "nothing set" while the chip beside it shows the stored value.
+    const combo = await screen.findByRole("combobox", { name: /link type/i });
+    expect(combo).toHaveTextContent(/retired/);
+    await user.click(combo);
+    expect(await screen.findByRole("option", { name: /retired/ })).toBeInTheDocument();
+  });
+
   it("offers no editing control when the user cannot edit", async () => {
     render(<HierarchySection card={CARD} onUpdate={vi.fn()} canEdit={false} />);
     // The chip still renders — a viewer can read the value, same as on a

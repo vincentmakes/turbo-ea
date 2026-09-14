@@ -1219,7 +1219,7 @@
   "metamodel.translationDialog.descriptionFields": "Beskrivelse",
   "metamodel.translationDialog.saving": "Gemmer…",
   "metamodel.translationDialog.saved": "Oversættelser gemt",
-  "metamodel.translationDialog.relationsTitle": "Administrér oversættelser — relationsudsagnsord",
+  "metamodel.translationDialog.relationsTitle": "Administrér oversættelser — relationer",
   "metamodel.translationDialog.englishHint": "Den engelske formulering ligger på selve relationen — redigér den dér. Uoversatte udsagnsord falder tilbage til engelsk.",
   "metamodel.translationDialog.noOtherLocales": "Ingen andre sprog er aktiveret. Aktivér et under Indstillinger → Sprog.",
   "metamodel.translationDialog.saveFailed": "Oversættelserne kunne ikke gemmes. Prøv igen.",

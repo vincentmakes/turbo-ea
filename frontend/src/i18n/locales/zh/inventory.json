@@ -270,5 +270,6 @@
   "columns.eol": "生命周期终止",
   "columns.eolSupport": "支持截止",
   "filter.eol": "生命周期终止",
+  "filter.linkType": "关联类型",
   "filter.eolManual": "手动维护"
 }

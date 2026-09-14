@@ -1219,7 +1219,7 @@
   "metamodel.translationDialog.descriptionFields": "描述",
   "metamodel.translationDialog.saving": "正在保存…",
   "metamodel.translationDialog.saved": "翻译已保存",
-  "metamodel.translationDialog.relationsTitle": "管理翻译 — 关系动词",
+  "metamodel.translationDialog.relationsTitle": "管理翻译 — 关系",
   "metamodel.translationDialog.englishHint": "英文措辞保存在关系本身上，请在那里编辑。未翻译的动词会回退为英文。",
   "metamodel.translationDialog.noOtherLocales": "未启用其他语言。请在「设置 → 语言」中启用。",
   "metamodel.translationDialog.saveFailed": "无法保存翻译，请重试。",

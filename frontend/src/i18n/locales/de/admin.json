@@ -1219,7 +1219,7 @@
   "metamodel.translationDialog.descriptionFields": "Beschreibung",
   "metamodel.translationDialog.saving": "Wird gespeichert…",
   "metamodel.translationDialog.saved": "Übersetzungen gespeichert",
-  "metamodel.translationDialog.relationsTitle": "Übersetzungen verwalten — Beziehungsverben",
+  "metamodel.translationDialog.relationsTitle": "Übersetzungen verwalten — Beziehungen",
   "metamodel.translationDialog.englishHint": "Der englische Wortlaut steht an der Beziehung selbst — bearbeiten Sie ihn dort. Nicht übersetzte Verben fallen auf Englisch zurück.",
   "metamodel.translationDialog.noOtherLocales": "Es sind keine weiteren Sprachen aktiviert. Aktivieren Sie eine unter Einstellungen → Sprachen.",
   "metamodel.translationDialog.saveFailed": "Übersetzungen konnten nicht gespeichert werden. Bitte versuchen Sie es erneut.",

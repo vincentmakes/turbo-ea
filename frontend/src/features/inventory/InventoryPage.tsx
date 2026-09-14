@@ -295,6 +295,7 @@ function urlHasFilterParams(searchParams: URLSearchParams): boolean {
     searchParams.has("orphaned") ||
     searchParams.has("stale") ||
     searchParams.has("eol") ||
+    searchParams.has("link") ||
     Array.from(searchParams.keys()).some((k) => k.startsWith("attr_") || k.startsWith("rel_"))
   );
 }
@@ -778,6 +779,7 @@ export default function InventoryPage() {
         orphanedOnly: searchParams.get("orphaned") === "true",
         staleOnly: searchParams.get("stale") === "true",
         eolStatuses: searchParams.getAll("eol"),
+        linkTypes: searchParams.getAll("link"),
       };
     }
 
@@ -800,6 +802,7 @@ export default function InventoryPage() {
         orphanedOnly: saved.filters.orphanedOnly || false,
         staleOnly: saved.filters.staleOnly || false,
         eolStatuses: saved.filters.eolStatuses || [],
+        linkTypes: saved.filters.linkTypes || [],
       };
     }
 
@@ -818,6 +821,7 @@ export default function InventoryPage() {
       orphanedOnly: false,
       staleOnly: false,
       eolStatuses: [],
+      linkTypes: [],
     };
   });
   // Current filters, readable from the facet bindings' stable callbacks
@@ -1696,6 +1700,15 @@ export default function InventoryPage() {
       );
     }
 
+    // Link type — the qualifier on this card's link to its parent (#1100).
+    // "(empty)" matches a child whose link carries no type, and a root, since
+    // neither has one recorded.
+    if ((filters.linkTypes?.length ?? 0) > 0) {
+      result = result.filter((card) =>
+        filters.linkTypes.includes(card.parent_label || EMPTY_VALUE),
+      );
+    }
+
     // Data quality filter — disjoint bands, OR'd (see dataQualityBands.ts)
     if (filters.dataQualityBands.length > 0) {
       const bands = filters.dataQualityBands;
@@ -1816,7 +1829,7 @@ export default function InventoryPage() {
     }
 
     return result;
-  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.eolStatuses, eolOf, filters.dataQualityBands, filters.attributes, filters.relations, filters.tagIds, relationsMap, relTypeGroupMap, relatedRefsOf, tagGroups]);
+  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.eolStatuses, eolOf, filters.linkTypes, filters.dataQualityBands, filters.attributes, filters.relations, filters.tagIds, relationsMap, relTypeGroupMap, relatedRefsOf, tagGroups]);
 
   // --- Grouped row data (shared hook — see components/grid/useRowGrouping) ---
   const grouping = useRowGrouping<Card>(gridRef, {
@@ -1958,6 +1971,7 @@ export default function InventoryPage() {
   const cellEditFallback = useCallback(
     (field: string): string => {
       if (field === "parent_id") return t("gridEdit.parentFailed");
+      if (field === "parent_label") return t("gridEdit.parentLabelFailed");
       if (field.startsWith("attr_")) return t("gridEdit.attrFailed");
       return t("gridEdit.saveFailed");
     },
@@ -2969,7 +2983,9 @@ export default function InventoryPage() {
               editable: gridEditMode && !!selectedType,
               cellEditor: "agSelectCellEditor",
               cellEditorParams: {
-                values: ["", ...hierarchyLabelOptions.map((o) => o.key)],
+                // The same filter the card-detail popover applies, so one
+                // vocabulary never offers two different choice sets.
+                values: ["", ...hierarchyLabelOptions.filter((o) => !o.hidden).map((o) => o.key)],
                 // The dropdown stores the key but must read as the label.
                 formatValue: (v: string) =>
                   v ? optLabel(hierarchyLabelOptions.find((o) => o.key === v)) || v : "",
@@ -3913,6 +3929,7 @@ export default function InventoryPage() {
             tagGroups={tagGroups}
             canArchive={canArchive}
             showEolFacet={eolColumnAvailable}
+            showLinkTypeFacet={hierarchyLabelColumnAvailable}
             canShareBookmarks={canShareBookmarks}
             canOdataBookmarks={canOdataBookmarks}
             currentUserId={user?.id}
@@ -3950,6 +3967,7 @@ export default function InventoryPage() {
           tagGroups={tagGroups}
           canArchive={canArchive}
           showEolFacet={eolColumnAvailable}
+          showLinkTypeFacet={hierarchyLabelColumnAvailable}
           canShareBookmarks={canShareBookmarks}
           canOdataBookmarks={canOdataBookmarks}
           currentUserId={user?.id}

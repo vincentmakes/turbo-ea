@@ -270,5 +270,6 @@
   "columns.eol": "End of life",
   "columns.eolSupport": "Support slutter",
   "filter.eol": "End of life",
+  "filter.linkType": "Forbindelsestype",
   "filter.eolManual": "Vedligeholdt manuelt"
 }

@@ -274,13 +274,60 @@ export default function RelationTranslationDialog({
           </Alert>
         )}
 
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
-          {t("metamodel.translationDialog.englishHint")}
-        </Typography>
-
         {visibleLocales.length === 0 && (
           <Typography variant="body2" color="text.secondary">
             {t("metamodel.translationDialog.noOtherLocales")}
+          </Typography>
+        )}
+
+        {/* Hierarchy link types lead, because the tab that opens this dialog
+            lists them above the relation list. Two orderings of the same two
+            groups is what made the dialog feel like a different page from the
+            tab it belongs to. */}
+        {visibleLocales.length > 0 && hierarchyTypes.length > 0 && (
+          <>
+            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
+              {t("metamodel.hierarchyLabels.title")}
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", mb: 2 }}
+            >
+              {t("metamodel.translationDialog.hierarchyLabelsHint")}
+            </Typography>
+            {hierarchyTypes.map((ct) => {
+              const options = labelDrafts[ct.key] || [];
+              if (options.length === 0) return null;
+              return (
+                <TranslationGroup
+                  key={ct.key}
+                  title={typeLabel(ct) || ct.key}
+                  count={options.length}
+                >
+                  {options.map((option, index) => (
+                    <TranslationRow
+                      key={option.key}
+                      // English is the option's own `label`, edited where the
+                      // vocabulary is defined — the same rule the verbs follow.
+                      reference={option.translations?.en || option.label || option.key}
+                      value={option.translations?.[tabLocale] || ""}
+                      onChange={(v) => updateLinkType(ct.key, index, tabLocale, v)}
+                    />
+                  ))}
+                </TranslationGroup>
+              );
+            })}
+            <Divider sx={{ my: 3 }} />
+          </>
+        )}
+
+        {/* Relation verbs. The hint is theirs alone — it points at the relation
+            row as the home of the English wording — so it sits here rather than
+            at the top of the dialog, where it would caption the link types too. */}
+        {visibleLocales.length > 0 && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+            {t("metamodel.translationDialog.englishHint")}
           </Typography>
         )}
 
@@ -315,47 +362,6 @@ export default function RelationTranslationDialog({
             );
           })}
 
-        {/* Hierarchy link types, below the verbs and clearly set apart: they
-            are a different kind of label (a vocabulary on the card type, not a
-            verb on a relation type) that happens to be translated in the same
-            pass. */}
-        {visibleLocales.length > 0 && hierarchyTypes.length > 0 && (
-          <>
-            <Divider sx={{ my: 3 }} />
-            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
-              {t("metamodel.hierarchyLabels.title")}
-            </Typography>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: "block", mb: 2 }}
-            >
-              {t("metamodel.translationDialog.hierarchyLabelsHint")}
-            </Typography>
-            {hierarchyTypes.map((ct) => {
-              const options = labelDrafts[ct.key] || [];
-              if (options.length === 0) return null;
-              return (
-                <TranslationGroup
-                  key={ct.key}
-                  title={typeLabel(ct) || ct.key}
-                  count={options.length}
-                >
-                  {options.map((option, index) => (
-                    <TranslationRow
-                      key={option.key}
-                      // English is the option's own `label`, edited where the
-                      // vocabulary is defined — the same rule the verbs follow.
-                      reference={option.translations?.en || option.label || option.key}
-                      value={option.translations?.[tabLocale] || ""}
-                      onChange={(v) => updateLinkType(ct.key, index, tabLocale, v)}
-                    />
-                  ))}
-                </TranslationGroup>
-              );
-            })}
-          </>
-        )}
       </DialogContent>
 
       <Divider />

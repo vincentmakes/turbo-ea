@@ -19,6 +19,7 @@ The left sidebar panel allows you to **filter** cards by different criteria:
 - **Orphaned** — Only cards with no relation in either direction. Evaluated server-side, so it works with no card type selected.
 - **Stale** — Only cards not updated in the last 90 days. Both mirror the [Data Quality report](reports.md#data-quality-report)'s KPI tiles, so clicking a tile there lands here.
 - **End of life** — For Applications and IT Components, filter by the support status Turbo EA resolves from the [EOL link](../admin/eol.md) on each card: End of Life, Approaching, Supported or Unknown. **(empty)** lists the cards with nothing recorded at all. The matching **End of life** column shows the date beside a status dot, and sorts and exports as a date.
+- **Link type** — When a single hierarchical card type is selected and an administrator has defined [link types](../admin/metamodel.md) for it, filter by the type of link each card has to its parent — for example the subsidiaries that are *commercial* rather than *sales*. **(empty)** lists the cards whose link carries no type, and the top-level cards, since neither has one recorded. The matching **Link type** column shows the value as a coloured chip and is editable in grid edit mode.
 - **Tags** — Filter by tags from any tag group
 - **Relations** — Filter by related cards across relation types
 - **Custom attributes** — Filter by values in custom fields (text search, select options)

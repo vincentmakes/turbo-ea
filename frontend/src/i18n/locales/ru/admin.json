@@ -1219,7 +1219,7 @@
   "metamodel.translationDialog.descriptionFields": "Описание",
   "metamodel.translationDialog.saving": "Сохранение…",
   "metamodel.translationDialog.saved": "Переводы сохранены",
-  "metamodel.translationDialog.relationsTitle": "Управление переводами — глаголы связей",
+  "metamodel.translationDialog.relationsTitle": "Управление переводами — связи",
   "metamodel.translationDialog.englishHint": "Английская формулировка хранится в самой связи — измените её там. Непереведённые глаголы отображаются по-английски.",
   "metamodel.translationDialog.noOtherLocales": "Другие языки не включены. Включите язык в разделе «Настройки → Языки».",
   "metamodel.translationDialog.saveFailed": "Не удалось сохранить переводы. Попробуйте ещё раз.",

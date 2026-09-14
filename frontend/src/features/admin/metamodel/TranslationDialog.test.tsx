@@ -29,11 +29,16 @@ const CARD_TYPE = {
   translations: { label: { en: "Application", de: "Anwendung" } },
 } as unknown as CardType;
 
-function renderDialog() {
+function renderDialog(overrides: { cardType?: CardType } = {}) {
   const onSave = vi.fn();
   const onClose = vi.fn();
   render(
-    <TranslationDialog open cardType={CARD_TYPE} onClose={onClose} onSave={onSave} />,
+    <TranslationDialog
+      open
+      cardType={overrides.cardType ?? CARD_TYPE}
+      onClose={onClose}
+      onSave={onSave}
+    />,
   );
   return { onSave, onClose };
 }
@@ -98,5 +103,55 @@ describe("TranslationDialog", () => {
     expect(await screen.findByText(/Card type not found/)).toBeInTheDocument();
     expect(onSave).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Hierarchy link types belong to the card type, so they are translated here —
+ * alongside its subtypes, sections, fields and roles — and NOT from a second
+ * button on the Relations tab. This dialog having no coverage of them is why
+ * that duplicate shipped.
+ */
+describe("TranslationDialog hierarchy link types", () => {
+  const withLinkTypes = {
+    ...CARD_TYPE,
+    has_hierarchy: true,
+    hierarchy_labels: [
+      { key: "commercial", label: "Commercial", translations: { en: "Commercial" } },
+      { key: "sales", label: "Sales" },
+    ],
+  } as unknown as CardType;
+
+  it("shows the English name as the reference, never the slug", async () => {
+    renderDialog({ cardType: withLinkTypes });
+
+    // `reference` doubles as the input placeholder, so it has to preview the
+    // fallback — which is the name, not the key.
+    expect(await screen.findByText("Commercial")).toBeInTheDocument();
+    expect(screen.queryByText("commercial")).not.toBeInTheDocument();
+    // An option with no `en` entry falls back to its `label` column.
+    expect(screen.getByText("Sales")).toBeInTheDocument();
+  });
+
+  it("carries the vocabulary into the card type's own PATCH", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.patch).mockResolvedValue({});
+    renderDialog({ cardType: withLinkTypes });
+
+    await user.click(await screen.findByRole("tab", { name: /Deutsch/ }));
+    const inputs = await screen.findAllByRole("textbox");
+    // The link-type rows sit after the type label (and description, if shown).
+    const row = inputs[inputs.length - 2];
+    await user.type(row, "Kommerziell");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    const [path, body] = vi.mocked(api.patch).mock.calls[0] as [
+      string,
+      { hierarchy_labels?: { key: string; translations?: Record<string, string> }[] },
+    ];
+    expect(path).toBe(`/metamodel/types/${withLinkTypes.key}`);
+    // One PATCH carries the link types along with everything else on the type.
+    expect(body.hierarchy_labels?.map((o) => o.key)).toEqual(["commercial", "sales"]);
   });
 });

@@ -270,5 +270,6 @@
   "columns.eol": "End of Life",
   "columns.eolSupport": "Support endet",
   "filter.eol": "End of Life",
+  "filter.linkType": "Verbindungstyp",
   "filter.eolManual": "Manuell gepflegt"
 }

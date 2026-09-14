@@ -1219,7 +1219,7 @@
   "metamodel.translationDialog.descriptionFields": "Descrição",
   "metamodel.translationDialog.saving": "Salvando…",
   "metamodel.translationDialog.saved": "Traduções salvas",
-  "metamodel.translationDialog.relationsTitle": "Gerir traduções — Verbos de relação",
+  "metamodel.translationDialog.relationsTitle": "Gerir traduções — Relações",
   "metamodel.translationDialog.englishHint": "O texto em inglês está na própria relação — edite-o aí. Os verbos não traduzidos revertem para inglês.",
   "metamodel.translationDialog.noOtherLocales": "Não há outros idiomas ativados. Ative um em Definições → Idiomas.",
   "metamodel.translationDialog.saveFailed": "Não foi possível guardar as traduções. Tente novamente.",

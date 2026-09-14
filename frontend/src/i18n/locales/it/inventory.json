@@ -270,5 +270,6 @@
   "columns.eol": "Fine vita",
   "columns.eolSupport": "Fine del supporto",
   "filter.eol": "Fine vita",
+  "filter.linkType": "Tipo di collegamento",
   "filter.eolManual": "Gestito manualmente"
 }

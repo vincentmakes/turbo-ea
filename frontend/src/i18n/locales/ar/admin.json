@@ -1219,7 +1219,7 @@
   "metamodel.translationDialog.descriptionFields": "الوصف",
   "metamodel.translationDialog.saving": "جارٍ الحفظ…",
   "metamodel.translationDialog.saved": "تم حفظ الترجمات",
-  "metamodel.translationDialog.relationsTitle": "إدارة الترجمات — أفعال العلاقات",
+  "metamodel.translationDialog.relationsTitle": "إدارة الترجمات — العلاقات",
   "metamodel.translationDialog.englishHint": "الصياغة الإنجليزية محفوظة على العلاقة نفسها — حرّرها هناك. الأفعال غير المترجمة تعود إلى الإنجليزية.",
   "metamodel.translationDialog.noOtherLocales": "لا توجد لغات أخرى مفعّلة. فعّل لغة من الإعدادات ← اللغات.",
   "metamodel.translationDialog.saveFailed": "تعذّر حفظ الترجمات. يرجى المحاولة مرة أخرى.",

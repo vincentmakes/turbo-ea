@@ -24,6 +24,7 @@ const EMPTY_FILTERS: Filters = {
   orphanedOnly: false,
   staleOnly: false,
   eolStatuses: [],
+  linkTypes: [],
   approvalStatuses: [],
   showArchived: false,
   attributes: {},
@@ -2180,5 +2181,77 @@ describe("InventoryPage — end of life", () => {
     // endpoint omits those cards rather than returning a null status.
     await userEvent.click(screen.getByTestId("apply-eol-empty"));
     await waitFor(() => expect(rowCount()).toBe("1"));
+  });
+});
+
+/**
+ * The Link type facet (#1100). The column was modelled on End of life, which
+ * ships a column *and* a sidebar facet; this one shipped with only the column,
+ * so the two single-type value facets behaved differently.
+ */
+describe("InventoryPage link type facet", () => {
+  const ORG = {
+    key: "Organization",
+    label: "Organization",
+    icon: "corporate_fare",
+    color: "#2889ff",
+    category: "Business Architecture",
+    has_hierarchy: true,
+    subtypes: [],
+    fields_schema: [],
+    is_hidden: false,
+    hierarchy_labels: [
+      { key: "commercial", label: "Commercial", color: "#2889ff" },
+      { key: "sales", label: "Sales", color: "#33cc58" },
+    ],
+  };
+
+  const ORG_CARDS = {
+    items: [
+      { id: "o1", name: "Alpha", type: "Organization", status: "ACTIVE", approval_status: "APPROVED", data_quality: 50, lifecycle: {}, attributes: {}, parent_label: "commercial" },
+      { id: "o2", name: "Beta", type: "Organization", status: "ACTIVE", approval_status: "APPROVED", data_quality: 50, lifecycle: {}, attributes: {}, parent_label: "sales" },
+      { id: "o3", name: "Gamma", type: "Organization", status: "ACTIVE", approval_status: "APPROVED", data_quality: 50, lifecycle: {}, attributes: {}, parent_label: null },
+    ],
+    total: 3,
+    page: 1,
+    page_size: 500,
+  };
+
+  beforeEach(() => {
+    const types = [...MOCK_TYPES, ORG];
+    vi.mocked(useMetamodel).mockReturnValue({
+      types,
+      relationTypes: [],
+      loading: false,
+      getType: (key: string) => types.find((t) => t.key === key),
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+    });
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve(ORG_CARDS);
+      if (path.startsWith("/relations")) return Promise.resolve([]);
+      if (path.startsWith("/bookmarks")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+  });
+
+  const rowCount = () => screen.getByTestId("ag-grid").getAttribute("data-row-count");
+
+  // Whether the facet is *shown* is `hierarchyLabelColumnApplies`, covered
+  // directly in `filterEmpty.test.ts` — the sidebar is stubbed in this file.
+
+  it("filters rows down to the chosen link type", async () => {
+    renderInventory("/inventory?type=Organization&link=commercial");
+    await waitFor(() => expect(rowCount()).toBe("1"));
+  });
+
+  it("treats (empty) as the cards with no link type recorded", async () => {
+    renderInventory(`/inventory?type=Organization&link=${encodeURIComponent(EMPTY_VALUE)}`);
+    await waitFor(() => expect(rowCount()).toBe("1"));
+  });
+
+  it("ORs several link types together", async () => {
+    renderInventory("/inventory?type=Organization&link=commercial&link=sales");
+    await waitFor(() => expect(rowCount()).toBe("2"));
   });
 });

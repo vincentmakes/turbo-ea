@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
+import Snackbar from "@mui/material/Snackbar";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
@@ -16,8 +17,6 @@ interface Props {
   /** Restrict to one card type (the drawer). Omit for the landscape-wide list. */
   scopeTypeKey?: string;
   onRefresh: () => void;
-  /** Raised after a successful save so the host can show its own confirmation. */
-  onSaved?: () => void;
 }
 
 /**
@@ -32,17 +31,18 @@ interface Props {
  *
  * Types with an empty vocabulary are listed too — hiding them would make the
  * feature reachable only by someone who already knew it existed.
+ *
+ * The save confirmation lives HERE rather than on an `onSaved` the host raises:
+ * the drawer had one and the landscape tab did not, because that tab owns no
+ * snackbar of its own. Owning it here makes the two hosts behave alike by
+ * construction instead of by each remembering to.
  */
-export default function HierarchyLinkTypesSection({
-  types,
-  scopeTypeKey,
-  onRefresh,
-  onSaved,
-}: Props) {
+export default function HierarchyLinkTypesSection({ types, scopeTypeKey, onRefresh }: Props) {
   const { t } = useTranslation(["admin", "common"]);
   const optLabel = useOptionLabel();
   const typeLabel = useTypeLabel();
   const [editing, setEditing] = useState<CardType | null>(null);
+  const [saved, setSaved] = useState(false);
 
   const hierarchical = types.filter(
     (ct) => ct.has_hierarchy && (!scopeTypeKey || ct.key === scopeTypeKey),
@@ -124,8 +124,15 @@ export default function HierarchyLinkTypesSection({
         onClose={() => setEditing(null)}
         onSaved={() => {
           onRefresh();
-          onSaved?.();
+          setSaved(true);
         }}
+      />
+
+      <Snackbar
+        open={saved}
+        autoHideDuration={3000}
+        onClose={() => setSaved(false)}
+        message={t("metamodel.hierarchyLabels.saved")}
       />
     </Box>
   );

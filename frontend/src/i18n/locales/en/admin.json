@@ -1219,7 +1219,7 @@
   "metamodel.translationDialog.descriptionFields": "Description",
   "metamodel.translationDialog.saving": "Saving…",
   "metamodel.translationDialog.saved": "Translations saved",
-  "metamodel.translationDialog.relationsTitle": "Manage Translations — Relation Verbs",
+  "metamodel.translationDialog.relationsTitle": "Manage Translations — Relations",
   "metamodel.translationDialog.englishHint": "English wording lives on the relation itself — edit it there. Untranslated verbs fall back to English.",
   "metamodel.translationDialog.noOtherLocales": "No other languages are enabled. Enable one in Settings → Languages.",
   "metamodel.translationDialog.saveFailed": "Could not save translations. Please try again.",
