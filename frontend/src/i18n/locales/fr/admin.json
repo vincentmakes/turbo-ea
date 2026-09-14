@@ -1956,6 +1956,8 @@
   "extensions.store.installedChip": "Installée {{version}}",
   "extensions.store.licensed": "Sous licence",
   "extensions.store.buy": "Acheter",
+  "extensions.store.buyMonthly": "Achat mensuel",
+  "extensions.store.buyYearly": "Achat annuel",
   "extensions.store.startTrial": "Démarrer l'essai de 30 jours",
   "extensions.store.moreDetails": "Plus de détails",
   "extensions.store.tryFree": "Essai gratuit",

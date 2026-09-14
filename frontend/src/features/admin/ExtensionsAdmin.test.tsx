@@ -1859,6 +1859,38 @@ describe("ExtensionsAdmin", () => {
     openSpy.mockRestore();
   });
 
+  it("a monthly Buy opens the monthly plan; the yearly URL is unchanged", async () => {
+    // The plan rides the query string AND picks the fallback link, because
+    // each plan is its own Payment Link on the store side. Both buttons live
+    // in the details drawer — the tile deliberately stays at two actions.
+    primeInitialLoad({
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [
+          { ...STORE_ITEM, monthly_payment_link: "https://buy.stripe.test/pl_month" },
+        ],
+      },
+      instanceId: "TEA-AAAA-AAAA-AAAM",
+    });
+    const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+
+    renderPage();
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Open details for ESG Content Pack/ }),
+    );
+
+    // both plans on offer, each naming its interval
+    expect(await screen.findByRole("button", { name: /Buy yearly/ })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: /Buy monthly/ }));
+    const monthly = new URL(openSpy.mock.calls[0][0] as string);
+    expect(monthly.pathname).toBe("/checkout");
+    expect(monthly.searchParams.get("kind")).toBe("buy");
+    expect(monthly.searchParams.get("plan")).toBe("month");
+    openSpy.mockRestore();
+  }, 15000);
+
   it("claim poll sends the FULL client_reference_id incl. the instance suffix", async () => {
     // The store resolves the checkout by an EXACT client_reference_id
     // match: polling with the bare token while the session carries
@@ -1888,6 +1920,9 @@ describe("ExtensionsAdmin", () => {
     expect(url.pathname).toBe("/checkout");
     expect(url.searchParams.get("kind")).toBe("buy");
     expect(url.searchParams.get("instance")).toBe("TEA-AAAA-AAAA-AAAM");
+    // The yearly plan is the default: no `plan` param at all, so a store
+    // that knows nothing about plans sees exactly the URL it always saw.
+    expect(url.searchParams.get("plan")).toBeNull();
     // … and the session's client_reference_id is <ref>-<instance>, which
     // is exactly what the claim poll must send.
     const ref = `${url.searchParams.get("ref")}-TEA-AAAA-AAAA-AAAM`;

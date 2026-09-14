@@ -1956,6 +1956,8 @@
   "extensions.store.installedChip": "Installeret {{version}}",
   "extensions.store.licensed": "Licenseret",
   "extensions.store.buy": "Køb",
+  "extensions.store.buyMonthly": "Køb månedligt",
+  "extensions.store.buyYearly": "Køb årligt",
   "extensions.store.startTrial": "Start 30-dages prøveperiode",
   "extensions.store.moreDetails": "Flere detaljer",
   "extensions.store.tryFree": "Prøv gratis",

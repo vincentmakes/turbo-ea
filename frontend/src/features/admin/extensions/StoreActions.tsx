@@ -12,9 +12,12 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { isUpdate } from "./storeActionRules";
 import type { StoreItem } from "./types";
 
+/** Which billing plan a Buy button opens. Yearly is the default everywhere. */
+export type BuyPlan = "year" | "month";
+
 export interface StoreActionHandlers {
   onInstall: (item: StoreItem) => void;
-  onBuy: (item: StoreItem) => void;
+  onBuy: (item: StoreItem, plan?: BuyPlan) => void;
   onTrial: (item: StoreItem) => void;
   /**
    * Key of the item whose install/update is in flight — for the whole
@@ -76,21 +79,36 @@ export function BuyButton({
   item,
   handlers,
   fullWidth = false,
+  plan = "year",
+  /**
+   * Name the interval. Off by default — a listing sold one way needs no plan
+   * in the label, and that is every listing until a second one is published.
+   */
+  namePlan = false,
 }: {
   item: StoreItem;
   handlers: StoreActionHandlers;
   fullWidth?: boolean;
+  plan?: BuyPlan;
+  namePlan?: boolean;
 }) {
   const { t } = useTranslation("admin");
+  const label = !namePlan
+    ? t("extensions.store.buy", "Buy")
+    : plan === "month"
+      ? t("extensions.store.buyMonthly", "Buy monthly")
+      : t("extensions.store.buyYearly", "Buy yearly");
   return (
     <Button
       size="small"
       fullWidth={fullWidth}
-      variant="contained"
-      onClick={() => handlers.onBuy(item)}
+      // The monthly plan is the alternative to the discounted default, so it
+      // reads as the secondary of the pair.
+      variant={plan === "month" ? "outlined" : "contained"}
+      onClick={() => handlers.onBuy(item, plan)}
       startIcon={<MaterialSymbol icon="shopping_cart" size={18} />}
     >
-      {t("extensions.store.buy", "Buy")}
+      {label}
     </Button>
   );
 }

@@ -30,6 +30,21 @@ export function canBuy(item: StoreItem, claimingKey: string | null): boolean {
 }
 
 /**
+ * Is a second, monthly billing plan on offer?
+ *
+ * The yearly plan is `payment_link` and stays the default everywhere — it is
+ * the discounted one, and the only one every listing has. A listing that also
+ * sells monthly carries `monthly_payment_link`, and then the buyer picks.
+ *
+ * Deliberately NOT a tile action: the tile shows at most two buttons (see
+ * `tileActions`), and a plan choice is not worth evicting Install or Try
+ * free. The drawer, which shows everything, is where the two plans sit.
+ */
+export function canBuyMonthly(item: StoreItem, claimingKey: string | null): boolean {
+  return canBuy(item, claimingKey) && Boolean(item.monthly_payment_link);
+}
+
+/**
  * A service listing has nothing to install — the purchase is confirmed by the
  * licence that reaches the instance, so neither Install nor Update ever
  * applies to it, whatever the catalogue says about versions.

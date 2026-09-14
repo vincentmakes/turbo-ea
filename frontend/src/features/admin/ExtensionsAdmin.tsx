@@ -59,7 +59,7 @@ import StoreDetailDialog from "./extensions/StoreDetailDialog";
 import StoreTile from "./extensions/StoreTile";
 import { groupStoreItems } from "./extensions/storeCategories";
 import ExtensionChangelog from "@/components/ExtensionChangelog";
-import type { StoreActionHandlers } from "./extensions/StoreActions";
+import type { BuyPlan, StoreActionHandlers } from "./extensions/StoreActions";
 import {
   MODEL_TAGS,
   STATUS_COLOR,
@@ -656,6 +656,10 @@ export default function ExtensionsAdmin() {
     link: string,
     itemKey: string,
     kind: "buy" | "trial",
+    // Which billing plan, when the listing sells two. The store defaults to
+    // the yearly one, so it is sent only for the monthly alternative — an
+    // older store that knows nothing about plans then behaves as before.
+    plan?: "month",
   ) => {
     const token = makeClaimToken();
     // The instance ID rides along so the store can key the purchase to this
@@ -672,7 +676,8 @@ export default function ExtensionsAdmin() {
     if (instanceId && storeBase) {
       target =
         `${storeBase}/checkout?item=${encodeURIComponent(itemKey)}` +
-        `&kind=${kind}&ref=${token}&instance=${instanceId}`;
+        `&kind=${kind}&ref=${token}&instance=${instanceId}` +
+        (plan ? `&plan=${plan}` : "");
     } else {
       const sep = link.includes("?") ? "&" : "?";
       target = `${link}${sep}client_reference_id=${ref}`;
@@ -687,9 +692,14 @@ export default function ExtensionsAdmin() {
     pollClaim(ref, itemKey);
   };
 
-  const handleBuy = (item: StoreItem) => {
-    if (!item.payment_link) return;
-    openCheckout(item.payment_link, item.key, "buy");
+  const handleBuy = (item: StoreItem, plan: BuyPlan = "year") => {
+    // Each plan has its OWN Payment Link, which is the fallback when the
+    // store cannot create a session — so pick the right one here, not just
+    // the query parameter.
+    const monthly = plan === "month";
+    const link = monthly ? item.monthly_payment_link : item.payment_link;
+    if (!link) return;
+    openCheckout(link, item.key, "buy", monthly ? "month" : undefined);
   };
 
   const handleTrial = (item: StoreItem) => {

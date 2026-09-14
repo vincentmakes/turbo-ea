@@ -40,7 +40,7 @@ import {
   TrialButton,
   type StoreActionHandlers,
 } from "./StoreActions";
-import { canBuy, canInstall, canTrial } from "./storeActionRules";
+import { canBuy, canBuyMonthly, canInstall, canTrial } from "./storeActionRules";
 import {
   MODEL_TAGS,
   STORE_CATEGORIES,
@@ -528,8 +528,19 @@ export default function StoreDetailDialog({
             {canTrial(item, handlers.claimingKey) && (
               <TrialButton item={item} handlers={handlers} compact />
             )}
+            {/* Two plans on offer ⇒ both buttons, each naming its interval;
+                one plan ⇒ the plain Buy every listing has always shown. The
+                tile stays at two actions, so this drawer is where the choice
+                lives. */}
+            {canBuyMonthly(item, handlers.claimingKey) && (
+              <BuyButton item={item} handlers={handlers} namePlan plan="month" />
+            )}
             {canBuy(item, handlers.claimingKey) && (
-              <BuyButton item={item} handlers={handlers} />
+              <BuyButton
+                item={item}
+                handlers={handlers}
+                namePlan={canBuyMonthly(item, handlers.claimingKey)}
+              />
             )}
             {canInstall(item) && (
               <InstallButton item={item} handlers={handlers} />

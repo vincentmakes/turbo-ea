@@ -1956,6 +1956,8 @@
   "extensions.store.installedChip": "مثبَّت {{version}}",
   "extensions.store.licensed": "مرخَّص",
   "extensions.store.buy": "شراء",
+  "extensions.store.buyMonthly": "اشتراك شهري",
+  "extensions.store.buyYearly": "اشتراك سنوي",
   "extensions.store.startTrial": "بدء تجربة 30 يومًا",
   "extensions.store.moreDetails": "مزيد من التفاصيل",
   "extensions.store.tryFree": "جرّب مجانًا",

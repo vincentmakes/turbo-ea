@@ -1111,6 +1111,7 @@ class TestStoreCatalog:
             catalog=catalog_payload(
                 demo_url="https://youtu.be/demo",
                 trial_link="https://buy.stripe.test/pl_trial_1",
+                monthly_payment_link="https://buy.stripe.test/pl_month_1",
             ),
         )
 
@@ -1126,6 +1127,8 @@ class TestStoreCatalog:
         assert item["payment_link"] == "https://buy.stripe.test/pl_1"
         # Trial checkout link passes through; absent from the catalogue → "".
         assert item["trial_link"] == "https://buy.stripe.test/pl_trial_1"
+        # A second billing plan is its own link, beside the yearly one.
+        assert item["monthly_payment_link"] == "https://buy.stripe.test/pl_month_1"
         # A paid (non-trial) entitlement is not flagged as a trial.
         assert item["entitlement_trial"] is False
         assert item["demo_url"] == "https://youtu.be/demo"

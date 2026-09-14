@@ -14064,6 +14064,11 @@
             "title": "Long Description",
             "type": "string"
           },
+          "monthly_payment_link": {
+            "default": "",
+            "title": "Monthly Payment Link",
+            "type": "string"
+          },
           "name": {
             "title": "Name",
             "type": "string"

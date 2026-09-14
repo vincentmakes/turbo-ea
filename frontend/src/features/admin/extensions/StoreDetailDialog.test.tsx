@@ -261,4 +261,20 @@ describe("StoreDetailDialog", () => {
     expect(screen.queryByText(/support · /)).not.toBeInTheDocument();
     expect(mockGet).not.toHaveBeenCalled();
   });
+
+  it("offers both plans, each naming its interval, when the listing sells two", async () => {
+    renderDialog({
+      ...ITEM,
+      key: "support",
+      service: true,
+      version: "",
+      screenshots: [],
+      monthly_payment_link: "https://buy.test/pl_month",
+    });
+    expect(await screen.findByText("The long story.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Buy monthly/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Buy yearly/ })).toBeInTheDocument();
+    // ...and never the bare label that would leave the interval unsaid
+    expect(screen.queryByRole("button", { name: /^Buy$/ })).not.toBeInTheDocument();
+  });
 });

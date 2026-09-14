@@ -626,6 +626,10 @@ class StoreItemOut(BaseModel):
     # treatment as payment_link: opened in a new tab, license claimed through
     # the ordinary claim-token flow.
     trial_link: str = ""
+    # Optional SECOND billing plan: the same listing sold on a monthly
+    # interval beside the yearly `payment_link`. Present only when the
+    # catalogue offers both; the Store tab then lets the buyer pick.
+    monthly_payment_link: str = ""
     demo_url: str = ""
     homepage: str = ""
     license: str = ""
@@ -796,6 +800,7 @@ async def store_catalog(
                 price=str(item.get("price") or ""),
                 payment_link=str(item.get("payment_link") or ""),
                 trial_link=str(item.get("trial_link") or ""),
+                monthly_payment_link=str(item.get("monthly_payment_link") or ""),
                 demo_url=str(item.get("demo_url") or ""),
                 homepage=str(item.get("homepage") or ""),
                 license=str(item.get("license") or ""),

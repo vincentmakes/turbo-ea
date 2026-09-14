@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isUpdate, tileActions } from "./storeActionRules";
+import { canBuyMonthly, isUpdate, tileActions } from "./storeActionRules";
 import type { StoreItem } from "./types";
 
 const PAID: StoreItem = {
@@ -82,5 +82,28 @@ describe("isUpdate", () => {
     expect(
       isUpdate({ ...PAID, service: true, installed_version: "1.0.0", update_available: true }),
     ).toBe(false);
+  });
+});
+
+describe("a second billing plan", () => {
+  const MONTHLY = { ...PAID, monthly_payment_link: "https://buy.test/pl_month" };
+
+  it("is offered only when the catalogue carries the second link", () => {
+    expect(canBuyMonthly(MONTHLY, null)).toBe(true);
+    expect(canBuyMonthly(PAID, null)).toBe(false);
+  });
+
+  it("never applies where a plain Buy would not", () => {
+    // licensed, free, or mid-claim — the monthly plan is Buy plus a link,
+    // never a way around the rules Buy already answers
+    expect(canBuyMonthly({ ...MONTHLY, entitlement_state: "active" }, null)).toBe(false);
+    expect(canBuyMonthly({ ...MONTHLY, free: true }, null)).toBe(false);
+    expect(canBuyMonthly(MONTHLY, MONTHLY.key)).toBe(false);
+  });
+
+  it("does NOT become a third tile action", () => {
+    // The tile shows at most two buttons; a plan choice is not worth
+    // evicting Try free or Install, so it lives in the drawer.
+    expect(tileActions(MONTHLY, null)).toEqual(tileActions(PAID, null));
   });
 });

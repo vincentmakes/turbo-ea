@@ -114,6 +114,9 @@ export interface StoreItem {
   // Optional no-card trial checkout link; opened through the same
   // claim-token flow as payment_link.
   trial_link?: string;
+  // A SECOND billing plan: the same listing sold monthly beside the
+  // yearly payment_link. Present only when the catalogue offers both.
+  monthly_payment_link?: string;
   demo_url?: string;
   homepage?: string;
   license?: string;

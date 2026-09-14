@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.138.0] - 2026-09-14
+
+### Added
+
+- **A store listing can be sold on two plans, and the Store tab lets you pick.** Where the
+  catalogue offers a monthly subscription beside the yearly one, an extension's details
+  window shows **Buy monthly** and **Buy yearly** instead of a single Buy, and each opens
+  the checkout for that plan. The tile is unchanged — it deliberately shows at most two
+  actions, so the choice belongs in the details window — and a listing sold one way keeps
+  the plain **Buy** it has always had. The yearly plan stays the default everywhere, so
+  nothing changes for a store that offers only one.
+
 ## [2.137.0] - 2026-09-13
 
 ### Added
