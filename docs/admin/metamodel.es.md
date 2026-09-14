@@ -118,6 +118,18 @@ Por ejemplo, el tipo Aplicación tiene subtipos: Aplicación de Negocio, Microse
 
 Cuando no se selecciona ningún subtipo en una ficha (o el tipo no tiene subtipos), todos los campos son visibles. Los campos ocultos conservan sus datos — si el subtipo de una ficha cambia, los valores previamente ocultos se mantienen.
 
+#### Tipos de vínculo jerárquico
+
+Para un tipo de ficha con la jerarquía activada, puede definir **tipos de vínculo**: un vocabulario breve que etiqueta cada vínculo padre-hijo. En un árbol de organizaciones, por ejemplo, permite marcar una filial como *comercial* y otra como de *ventas*, sin inventar un segundo tipo de relación.
+
+1. Abra el panel del tipo y busque **Tipos de vínculo jerárquico** (solo aparece en tipos jerárquicos).
+2. Haga clic en **Editar tipos de vínculo** y añada una entrada por etiqueta, con clave, nombre y color.
+3. Traduzca los nombres con el botón **Traducir**, como cualquier otra etiqueta del metamodelo.
+
+Los editores eligen después un tipo de vínculo en la sección **Jerarquía** de la ficha, o en la columna **Tipo de vínculo** del inventario. La etiqueta pertenece a la ficha hija, por lo que se borra automáticamente cuando esa ficha pasa al nivel superior.
+
+Eliminar un tipo de vínculo **no** reescribe las fichas que ya lo usan: conservan el valor almacenado y lo muestran como tipo de vínculo desconocido hasta que alguien lo cambie, de modo que un borrado accidental no pierde nada. El diálogo indica cuántas fichas se ven afectadas antes de confirmar.
+
 #### Roles de Partes Interesadas
 
 Defina roles personalizados para este tipo (ej., «Propietario de Aplicación», «Propietario Técnico»). Cada rol tiene **permisos a nivel de ficha** que se combinan con el rol a nivel de aplicación del usuario al acceder a una ficha. Ver [Usuarios y Roles](users.es.md) para más información sobre el modelo de permisos.
@@ -160,6 +172,7 @@ Haga clic en el botón **Traducir** en la barra de herramientas del cajón de ti
 
 - **Etiqueta del tipo** — El nombre de visualización del tipo de ficha
 - **Subtipos** — Etiquetas para cada subtipo
+- **Tipos de vínculo jerárquico** — Etiquetas para cada tipo de vínculo jerárquico
 - **Secciones** — Encabezados de sección en la página de detalle de la ficha
 - **Campos** — Etiquetas de campos y etiquetas de opciones de selección
 - **Roles de Parte Interesada** — Nombres de roles mostrados en la interfaz de asignación de stakeholders

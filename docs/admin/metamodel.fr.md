@@ -118,6 +118,18 @@ Par exemple, le type Application a pour sous-types : Application Métier, Micros
 
 Lorsqu'aucun sous-type n'est sélectionné sur une fiche (ou que le type n'a pas de sous-types), tous les champs sont visibles. Les champs masqués conservent leurs données — si le sous-type d'une fiche change, les valeurs précédemment masquées sont préservées.
 
+#### Types de lien hiérarchique
+
+Pour un type de fiche dont la hiérarchie est activée, vous pouvez définir des **types de lien** — un court vocabulaire qui qualifie chaque lien parent-enfant. Dans un arbre d'organisations, cela permet de marquer une filiale comme *commerciale* et une autre comme *vente*, sans créer un second type de relation.
+
+1. Ouvrez le panneau du type et repérez **Types de lien hiérarchique** (visible uniquement pour les types hiérarchiques).
+2. Cliquez sur **Modifier les types de lien**, puis ajoutez une entrée par libellé avec une clé, un nom et une couleur.
+3. Traduisez les noms avec le bouton **Traduire**, comme n'importe quel libellé du métamodèle.
+
+Les éditeurs choisissent ensuite un type de lien dans la section **Hiérarchie** de la fiche, ou dans la colonne **Type de lien** de l'inventaire. Le libellé appartient à la fiche enfant : il est donc effacé automatiquement lorsque celle-ci est remontée au niveau supérieur.
+
+Supprimer un type de lien ne réécrit **pas** les fiches qui l'utilisent déjà : elles conservent la valeur enregistrée et l'affichent comme type de lien inconnu jusqu'à ce que quelqu'un la modifie, de sorte qu'une suppression accidentelle ne perd rien. La boîte de dialogue indique le nombre de fiches concernées avant confirmation.
+
 #### Rôles de parties prenantes
 
 Définissez des rôles personnalisés pour ce type (par ex. « Responsable Applicatif », « Responsable Technique »). Chaque rôle porte des **permissions au niveau de la fiche** qui sont combinées avec le rôle au niveau de l'application de l'utilisateur lors de l'accès à une fiche. Voir [Utilisateurs et rôles](users.md) pour plus de détails sur le modèle de permissions.
@@ -160,6 +172,7 @@ Cliquez sur le bouton **Traduire** dans la barre d'outils du tiroir de type pour
 
 - **Libellé du type** — Le nom d'affichage du type de fiche
 - **Sous-types** — Libellés pour chaque sous-type
+- **Types de lien hiérarchique** — Libellés pour chaque type de lien hiérarchique
 - **Sections** — En-têtes de section sur la page de détail de la fiche
 - **Champs** — Libellés des champs et des options de sélection
 - **Rôles des parties prenantes** — Noms de rôles affichés dans l'interface d'attribution des parties prenantes

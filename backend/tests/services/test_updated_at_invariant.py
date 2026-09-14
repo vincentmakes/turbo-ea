@@ -42,7 +42,15 @@ async def _events_for(db, card_id) -> list[Event]:
 async def env(db):
     await create_role(db, key="admin")
     user = await create_user(db, role="admin")
-    ct = await create_card_type(db, key="Application", label="Application")
+    ct = await create_card_type(
+        db,
+        key="Application",
+        label="Application",
+        # Hierarchical with a link-label vocabulary, so the #1100 guards below
+        # have an edge to label. Additive — no other test in this file reads it.
+        has_hierarchy=True,
+        hierarchy_labels=[{"key": "commercial", "label": "Commercial"}],
+    )
     card = await create_card(db, card_type="Application", name="NexaCore ERP", user_id=user.id)
     await db.commit()
     return {"user": user, "type": ct, "card": card}
@@ -77,6 +85,55 @@ class TestBumpImpliesEvent:
         assert events[0].data["tag_name"] == "Critical"
         assert events[0].data["group_name"] == "Lifecycle"
         assert events[0].user_id == env["user"].id
+
+    async def test_changing_a_hierarchy_link_label_records_it(
+        self, db, client, env, card_update_sql
+    ):
+        """A link label is content, so it owes both a bump and an event (#1100)."""
+        parent = await create_card(db, card_type="Application", name="Parent")
+        await db.flush()
+        child = await create_card(db, card_type="Application", name="Child", parent_id=parent.id)
+        await db.commit()
+
+        card_update_sql.clear()
+        resp = await client.patch(
+            f"/api/v1/cards/{child.id}",
+            json={"parent_label": "commercial"},
+            headers=auth_headers(env["user"]),
+        )
+        assert resp.status_code == 200
+
+        assert card_update_sql.bumped(), "a label change is content, so Modified must move"
+        events = await _events_for(db, child.id)
+        changes = [e.data["changes"] for e in events if e.event_type == "card.updated"]
+        assert any("parent_label" in c for c in changes), (
+            "a card whose Modified date moved must not have an empty History tab"
+        )
+
+    async def test_archiving_a_parent_records_the_labels_it_cleared(self, db, client, env):
+        """`disconnect` drops each child's label — silently, before #1100's fix."""
+        parent = await create_card(db, card_type="Application", name="Parent")
+        await db.flush()
+        child = await create_card(
+            db,
+            card_type="Application",
+            name="Child",
+            parent_id=parent.id,
+            parent_label="commercial",
+        )
+        await db.commit()
+
+        resp = await client.post(
+            f"/api/v1/cards/{parent.id}/archive",
+            json={"child_strategy": "disconnect"},
+            headers=auth_headers(env["user"]),
+        )
+        assert resp.status_code == 200
+
+        events = await _events_for(db, child.id)
+        changes = [e.data["changes"] for e in events if e.event_type == "card.updated"]
+        entry = next((c["parent_label"] for c in changes if "parent_label" in c), None)
+        assert entry == {"old": "commercial", "new": None}
 
     async def test_reassigning_the_same_tag_says_nothing(self, db, client, env):
         from app.models.tag import Tag, TagGroup

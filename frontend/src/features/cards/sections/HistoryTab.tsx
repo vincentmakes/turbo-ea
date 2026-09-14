@@ -95,6 +95,7 @@ function getFieldLabels(t: (key: string) => string): Record<string, string> {
     subtype: t("common:labels.subtype"),
     lifecycle: t("history.fields.lifecycle"),
     parent_id: t("common:labels.parent"),
+    parent_label: t("history.fields.parentLabel"),
     alias: t("history.fields.alias"),
     external_id: t("history.fields.externalId"),
     approval_status: t("history.fields.approvalStatus"),

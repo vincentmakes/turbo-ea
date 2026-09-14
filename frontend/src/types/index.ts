@@ -277,6 +277,11 @@ export interface CardType {
    *  (discussion #1024). Governs upload and display, never the stored image. */
   allow_card_logo: boolean;
   subtypes?: SubtypeDef[];
+  /** Vocabulary for labelling a parent→child link on a hierarchical type
+   *  (discussion #1100). Same shape as a `single_select`'s options, so it gets
+   *  colours, translations and the `OptionChip` renderer for free. Empty (or
+   *  absent) means the feature renders nowhere for this type. */
+  hierarchy_labels?: FieldOption[];
   fields_schema: SectionDef[];
   stakeholder_roles?: StakeholderRoleDefinition[];
   section_config?: Record<string, SectionConfig>;
@@ -366,6 +371,10 @@ export interface Card {
   name: string;
   description?: string;
   parent_id?: string;
+  /** Label on this card's link to its parent, from the type's
+   *  `hierarchy_labels` vocabulary. Cleared by the server whenever the card
+   *  loses its parent. */
+  parent_label?: string | null;
   lifecycle?: Record<string, string>;
   attributes?: Record<string, unknown>;
   status: string;
@@ -495,12 +504,20 @@ export interface HierarchyNode {
   id: string;
   name: string;
   type: string;
+  /** This node's OWN link label — the label on the edge from its parent down
+   *  to it. On a `children` node that is the edge from the card under view; on
+   *  an `ancestor` node it is the edge one level above that ancestor. */
+  parent_label?: string | null;
 }
 
 export interface HierarchyData {
   ancestors: HierarchyNode[];
   children: HierarchyNode[];
   level: number;
+  /** The label on THIS card's link to its own parent — what the Parent chip
+   *  renders. Deliberately top-level rather than read off the last ancestor,
+   *  whose own `parent_label` describes its link one level further up. */
+  parent_label?: string | null;
 }
 
 export interface CardListResponse {

@@ -21,6 +21,7 @@ import { TranslationGroup, TranslationRow } from "./translationParts";
 import { cleanTranslationMap, cleanTranslations } from "./helpers";
 import type {
   CardType,
+  FieldOption,
   MetamodelTranslations,
   SectionDef,
   SubtypeDef,
@@ -52,6 +53,7 @@ export default function TranslationDialog({
   );
   const [translations, setTranslations] = useState<MetamodelTranslations>({});
   const [subtypes, setSubtypes] = useState<SubtypeDef[]>([]);
+  const [hierarchyLabels, setHierarchyLabels] = useState<FieldOption[]>([]);
   const [fieldsSchema, setFieldsSchema] = useState<SectionDef[]>([]);
   const [stakeholderRoles, setStakeholderRoles] = useState<
     { key: string; label: string; translations: MetamodelTranslations }[]
@@ -64,6 +66,7 @@ export default function TranslationDialog({
     if (open && cardType) {
       setTranslations(JSON.parse(JSON.stringify(cardType.translations || {})));
       setSubtypes(JSON.parse(JSON.stringify(cardType.subtypes || [])));
+      setHierarchyLabels(JSON.parse(JSON.stringify(cardType.hierarchy_labels || [])));
       setFieldsSchema(JSON.parse(JSON.stringify(cardType.fields_schema || [])));
       // Fetch stakeholder roles for this type
       api
@@ -102,6 +105,17 @@ export default function TranslationDialog({
       setSubtypes((prev) =>
         prev.map((s, i) =>
           i === idx ? { ...s, translations: { ...s.translations, [locale]: value } } : s,
+        ),
+      );
+    },
+    [],
+  );
+
+  const updateHierarchyLabelTranslation = useCallback(
+    (idx: number, locale: string, value: string) => {
+      setHierarchyLabels((prev) =>
+        prev.map((o, i) =>
+          i === idx ? { ...o, translations: { ...o.translations, [locale]: value } } : o,
         ),
       );
     },
@@ -211,6 +225,12 @@ export default function TranslationDialog({
         if (s.translations?.[locale]?.trim()) filled++;
       });
 
+      // Hierarchy link labels
+      hierarchyLabels.forEach((o) => {
+        total++;
+        if (o.translations?.[locale]?.trim()) filled++;
+      });
+
       // Sections & fields & options
       fieldsSchema.forEach((sec) => {
         if (sec.section !== "__description") {
@@ -236,7 +256,15 @@ export default function TranslationDialog({
       counts[locale] = { filled, total };
     });
     return counts;
-  }, [translations, subtypes, fieldsSchema, stakeholderRoles, cardType, visibleLocales]);
+  }, [
+    translations,
+    subtypes,
+    hierarchyLabels,
+    fieldsSchema,
+    stakeholderRoles,
+    cardType,
+    visibleLocales,
+  ]);
 
   // --- Save ---
 
@@ -262,6 +290,10 @@ export default function TranslationDialog({
         subtypes: subtypes.map((s) => ({
           ...s,
           translations: cleanTranslationMap(s.translations),
+        })),
+        hierarchy_labels: hierarchyLabels.map((o) => ({
+          ...o,
+          translations: cleanTranslationMap(o.translations),
         })),
         fields_schema: fieldsSchema.map((sec) => ({
           ...sec,
@@ -407,6 +439,26 @@ export default function TranslationDialog({
                   reference={s.key}
                   value={s.translations?.[activeLocale] || ""}
                   onChange={(v) => updateSubtypeTranslation(idx, activeLocale, v)}
+                />
+              ))}
+            </TranslationGroup>
+          </>
+        )}
+
+        {/* Hierarchy link labels (#1100) */}
+        {hierarchyLabels.length > 0 && (
+          <>
+            <Divider sx={{ mb: 2 }} />
+            <TranslationGroup
+              title={t("metamodel.translationDialog.hierarchyLabels")}
+              count={hierarchyLabels.length}
+            >
+              {hierarchyLabels.map((o, idx) => (
+                <TranslationRow
+                  key={o.key}
+                  reference={o.key}
+                  value={o.translations?.[activeLocale] || ""}
+                  onChange={(v) => updateHierarchyLabelTranslation(idx, activeLocale, v)}
                 />
               ))}
             </TranslationGroup>

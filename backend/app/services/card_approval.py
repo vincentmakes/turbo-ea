@@ -66,7 +66,19 @@ if TYPE_CHECKING:  # pragma: no cover - typing only, would be an import cycle
 #: ``card_lifecycle``), which is exactly how ``turbolens.submit_ai_verdict``
 #: came to carry a fourth, implicit one.
 STATUS_BREAKING_FIELDS: frozenset[str] = frozenset(
-    {"name", "description", "lifecycle", "attributes", "subtype", "alias", "parent_id"}
+    {
+        "name",
+        "description",
+        "lifecycle",
+        "attributes",
+        "subtype",
+        "alias",
+        "parent_id",
+        # The kind of a hierarchy link is the same fact as the link at finer
+        # grain: an approver who signed off "B is A's commercial subsidiary"
+        # has not signed off "B is A's sales subsidiary" (#1100).
+        "parent_label",
+    }
 )
 
 #: Where an aggregated notification sends the reader: the Inventory, filtered to
@@ -308,10 +320,12 @@ async def record_child_strategy_effects(
     touched: set[uuid.UUID] = set()
     broken: set[uuid.UUID] = set()
     previous_parents: dict[uuid.UUID, uuid.UUID | None] = {}
+    previous_labels: dict[uuid.UUID, str | None] = {}
     for result in results:
         touched.update(result.disconnected_ids)
         broken.update(result.approval_broken_ids)
         previous_parents.update(result.previous_parent_ids)
+        previous_labels.update(result.previous_parent_labels)
     touched -= removed_ids
     if not touched:
         return
@@ -330,6 +344,11 @@ async def record_child_strategy_effects(
                 "new": str(child.parent_id) if child.parent_id else None,
             }
         }
+        # Only the children that actually carried a hierarchy link label get a
+        # `parent_label` row: the dict is populated solely where the clear
+        # happened, so a card that never had one records no phantom change.
+        if child_id in previous_labels:
+            changes["parent_label"] = {"old": previous_labels[child_id], "new": None}
         if child_id in broken:
             changes["approval_status"] = approval_change_entry()
         await event_bus.publish(

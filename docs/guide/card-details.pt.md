@@ -111,6 +111,7 @@ Para tipos de card que suportam hierarquia (ex.: Organização, Capacidade de Ne
 - **Pai** — O card pai na hierarquia (clique para navegar)
 - **Filhos** — Lista de cards filhos (clique em qualquer um para navegar)
 - **Breadcrumb de hierarquia** — Mostra o caminho completo da raiz até o card atual
+- **Tipo de ligação** — Quando um administrador configurou tipos de ligação para este tipo de card, cada ligação pai-filho pode ser rotulada — por exemplo, uma subsidiária *comercial* e outra de *vendas*. O rótulo pertence ao card filho: o card pai mostra-o ao lado de cada filho, e o card filho ao lado do seu pai. Remover um card ou movê-lo para o nível superior limpa o seu rótulo, e a alteração fica registada na aba **Histórico**.
 
 ### Seção de Relacionamentos
 

@@ -120,6 +120,30 @@ For example, the Application type has subtypes: Business Application, Microservi
 
 When no subtype is selected on a card (or the type has no subtypes), all fields are visible. Hidden fields preserve their data — if a card's subtype changes, previously hidden values are retained.
 
+#### Hierarchy Link Types
+
+For a card type with hierarchy switched on, you can define **link types** — a short vocabulary that labels each parent-child link. An Organization tree, for example, can mark one subsidiary as *commercial* and another as *sales*, without inventing a second relation type.
+
+1. Open the type drawer and find **Hierarchy link types** (it appears only for hierarchical types).
+2. Click **Edit link types**, then add one entry per label with a key, a name and a colour.
+3. Translate the names with the **Translate** button, like any other metamodel label.
+
+Editors then pick a link type on the card's **Hierarchy** section, or in the Inventory's **Link type** column. The label belongs to the child card, so it is cleared automatically when that card is moved to the top level.
+
+Removing a link type does **not** rewrite the cards already using it: they keep the stored value and show it as an unknown link type until someone changes it, so nothing is lost if you remove an entry by mistake. The dialog tells you how many cards are affected before you confirm.
+
+#### Hierarchy Link Types
+
+For a card type with hierarchy switched on, you can define **link types** — a short vocabulary that labels each parent-child link. An Organization tree, for example, can mark one subsidiary as *commercial* and another as *sales*, without inventing a second relation type.
+
+1. Open the type drawer and find **Hierarchy link types** (it appears only for hierarchical types).
+2. Click **Edit link types**, then add one entry per label with a key, a name and a colour.
+3. Translate the names with the **Translate** button, like any other metamodel label.
+
+Editors then pick a link type on the card's **Hierarchy** section, or in the Inventory's **Link type** column. The label belongs to the child card, so it is cleared automatically when that card is moved to the top level.
+
+Removing a link type does **not** rewrite the cards already using it: they keep the stored value and show it as an unknown link type until someone changes it, so nothing is lost if you remove an entry by mistake. The dialog tells you how many cards are affected before you confirm.
+
 #### Stakeholder Roles
 
 Define custom roles for this type (e.g., "Application Owner", "Technical Owner"). Each role carries **card-level permissions** that are combined with the user's app-level role when accessing a card. See [Users & Roles](users.md) for more on the permission model.
@@ -162,6 +186,8 @@ Click the **Translate** button in the type drawer toolbar to open the **Translat
 
 - **Type label** — The display name of the card type
 - **Subtypes** — Labels for each subtype
+- **Hierarchy link types** — Labels for each hierarchy link type
+- **Hierarchy link types** — Labels for each hierarchy link type
 - **Sections** — Section headings on the card detail page
 - **Fields** — Field labels and select option labels
 - **Stakeholder Roles** — Role names displayed in the stakeholder assignment UI

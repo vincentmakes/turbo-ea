@@ -284,7 +284,14 @@ async def require_card_permission(
 #   matched cards are what a rollback of the batch reverses — by closing the
 #   survey and dropping the responses nobody had answered yet.
 
-SDK_VERSION = "1.14"
+# 1.15: hierarchy link labels (#1100). ``ExtCard.parent_label`` carries the
+#   label on a card's link to its parent, and ``update_card`` accepts it — the
+#   vocabulary is the card type's ``hierarchy_labels``, and the shared
+#   ``card_write_service`` validator applies to the bridge exactly as it does to
+#   a human PATCH, so an unknown key or a label on a rootless card is refused
+#   rather than stored. Clearing ``parent_id`` clears the label with it.
+
+SDK_VERSION = "1.15"
 
 
 @dataclass(frozen=True)
@@ -465,6 +472,9 @@ class ExtCard:
     name: str
     description: str | None
     parent_id: str | None
+    #: Label on this card's link to its parent, from the card type's
+    #: ``hierarchy_labels`` vocabulary — ``None`` when unset or unrooted.
+    parent_label: str | None
     status: str
     approval_status: str
     reference: str | None

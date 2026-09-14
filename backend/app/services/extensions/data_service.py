@@ -99,7 +99,16 @@ MAX_IDS_PER_CALL = MAX_PAGE_SIZE
 # external_id (import identity), status / approval_status (workflow-owned),
 # audit columns — is refused with an explicit error rather than ignored.
 UPDATABLE_CARD_FIELDS = frozenset(
-    {"name", "description", "subtype", "parent_id", "lifecycle", "attributes", "alias"}
+    {
+        "name",
+        "description",
+        "subtype",
+        "parent_id",
+        "parent_label",
+        "lifecycle",
+        "attributes",
+        "alias",
+    }
 )
 
 logger = logging.getLogger(__name__)
@@ -201,6 +210,7 @@ def _to_ext_card(card: Card) -> ExtCard:
         name=card.name,
         description=card.description,
         parent_id=str(card.parent_id) if card.parent_id else None,
+        parent_label=card.parent_label,
         status=card.status,
         approval_status=card.approval_status,
         reference=card.reference,

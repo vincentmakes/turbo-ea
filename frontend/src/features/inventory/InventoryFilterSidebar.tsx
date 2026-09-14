@@ -2172,6 +2172,9 @@ export const CORE_COLUMNS = [
   { key: "core_logo", icon: "image", tKey: "columns.logo" as const, optIn: true },
   { key: "core_reference", icon: "tag", tKey: "columns.id" as const },
   { key: "core_parent", icon: "account_tree", tKey: "columns.parent" as const },
+  // Offered only for a single hierarchical type that has a link-label
+  // vocabulary — see HIERARCHY_LABEL_COLUMN_KEY below.
+  { key: "core_parent_label", icon: "link", tKey: "columns.parentLabel" as const },
   { key: "core_path", icon: "account_tree", tKey: "columns.path" as const },
   { key: "core_description", icon: "description", tKey: "common:labels.description" as const },
   { key: "core_subtype", icon: "subdirectory_arrow_right", tKey: "common:labels.subtype" as const },
@@ -2192,6 +2195,25 @@ export const CORE_COLUMN_KEYS = CORE_COLUMNS.filter((c) => !c.optIn).map((c) => 
 export const LOGO_COLUMN_KEY = "core_logo";
 
 export const EOL_COLUMN_KEY = "core_eol";
+
+export const HIERARCHY_LABEL_COLUMN_KEY = "core_parent_label";
+
+/**
+ * Whether the hierarchy link-label column applies to what is on screen (#1100).
+ *
+ * Requires **exactly one** selected type, unlike the logo column: the
+ * vocabulary is per card type, so a mixed grid would render two unrelated
+ * colour schemes under one header and the cell editor would have no single list
+ * to offer. A type with an empty vocabulary has nothing to show either.
+ */
+export function hierarchyLabelColumnApplies(
+  types: CardType[],
+  selectedTypeKeys: string[],
+): boolean {
+  if (selectedTypeKeys.length !== 1) return false;
+  const ct = types.find((t) => t.key === selectedTypeKeys[0]);
+  return !!ct?.has_hierarchy && (ct.hierarchy_labels?.length ?? 0) > 0;
+}
 
 /**
  * Whether the End of life column and facet apply to what is on screen.
@@ -2372,6 +2394,12 @@ function ColumnsTab({
     // Same rule the grid uses to build it — offering a column the grid will
     // not render is a checkbox that does nothing.
     if (c.key === EOL_COLUMN_KEY && !eolColumnApplies(filters.types)) return false;
+    if (
+      c.key === HIERARCHY_LABEL_COLUMN_KEY &&
+      !hierarchyLabelColumnApplies(types, filters.types)
+    ) {
+      return false;
+    }
     if (searchQuery && !t(c.tKey).toLowerCase().includes(lowerSearch)) return false;
     return true;
   });

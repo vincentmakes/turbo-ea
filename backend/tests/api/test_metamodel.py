@@ -1581,3 +1581,139 @@ class TestTypePermissionsMatrix:
             "/api/v1/metamodel/types/Nope/permissions", headers=auth_headers(admin)
         )
         assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Hierarchy link labels (#1100)
+# ---------------------------------------------------------------------------
+
+
+class TestHierarchyLinkLabels:
+    """The per-type vocabulary a parent/child link is labelled from.
+
+    Stored like `subtypes` and shaped like a `single_select`'s options, so it is
+    translatable and colourable. The two things worth pinning are that a PATCH
+    can actually write it (an absent entry in `update_type`'s `updatable` list
+    fails silently, with a 200 and no change) and that removing an entry leaves
+    the cards already carrying it alone.
+    """
+
+    async def test_patch_writes_the_vocabulary(self, client, db, metamodel_env):
+        await create_card_type(db, key="Organization", label="Organization", has_hierarchy=True)
+        vocab = [
+            {"key": "commercial", "label": "Commercial", "color": "#2889ff"},
+            {"key": "sales", "label": "Sales", "color": "#33cc58"},
+        ]
+        response = await client.patch(
+            "/api/v1/metamodel/types/Organization",
+            json={"hierarchy_labels": vocab},
+            headers=auth_headers(metamodel_env["admin"]),
+        )
+        assert response.status_code == 200
+        assert response.json()["hierarchy_labels"] == vocab
+
+    async def test_types_listing_reports_it(self, client, db, metamodel_env):
+        await create_card_type(
+            db,
+            key="Organization",
+            label="Organization",
+            has_hierarchy=True,
+            hierarchy_labels=[{"key": "commercial", "label": "Commercial"}],
+        )
+        response = await client.get(
+            "/api/v1/metamodel/types", headers=auth_headers(metamodel_env["admin"])
+        )
+        assert response.status_code == 200
+        org = next(t for t in response.json() if t["key"] == "Organization")
+        assert org["hierarchy_labels"] == [{"key": "commercial", "label": "Commercial"}]
+
+    async def test_a_type_without_a_vocabulary_reports_an_empty_list(
+        self, client, db, metamodel_env
+    ):
+        """Never null: the frontend gates the whole feature on `.length`."""
+        await create_card_type(db, key="Application", label="Application")
+        response = await client.get(
+            "/api/v1/metamodel/types", headers=auth_headers(metamodel_env["admin"])
+        )
+        app = next(t for t in response.json() if t["key"] == "Application")
+        assert app["hierarchy_labels"] == []
+
+    async def test_usage_endpoint_counts_cards(self, client, db, metamodel_env):
+        await create_card_type(
+            db,
+            key="Organization",
+            label="Organization",
+            has_hierarchy=True,
+            hierarchy_labels=[{"key": "commercial", "label": "Commercial"}],
+        )
+        parent = await create_card(db, card_type="Organization", name="Company A")
+        await db.flush()
+        await create_card(
+            db,
+            card_type="Organization",
+            name="Company B",
+            parent_id=parent.id,
+            parent_label="commercial",
+        )
+        await create_card(
+            db,
+            card_type="Organization",
+            name="Company C",
+            parent_id=parent.id,
+            parent_label="commercial",
+        )
+        await create_card(db, card_type="Organization", name="Company D", parent_id=parent.id)
+        await db.commit()
+
+        response = await client.get(
+            "/api/v1/metamodel/types/Organization/hierarchy-label-usage?label_key=commercial",
+            headers=auth_headers(metamodel_env["admin"]),
+        )
+        assert response.status_code == 200
+        assert response.json() == {"label_key": "commercial", "card_count": 2}
+
+    async def test_usage_endpoint_requires_admin(self, client, db, metamodel_env):
+        await create_card_type(db, key="Organization", label="Organization", has_hierarchy=True)
+        response = await client.get(
+            "/api/v1/metamodel/types/Organization/hierarchy-label-usage?label_key=commercial",
+            headers=auth_headers(metamodel_env["viewer"]),
+        )
+        assert response.status_code == 403
+
+    async def test_usage_endpoint_404s_for_an_unknown_type(self, client, db, metamodel_env):
+        response = await client.get(
+            "/api/v1/metamodel/types/Nope/hierarchy-label-usage?label_key=commercial",
+            headers=auth_headers(metamodel_env["admin"]),
+        )
+        assert response.status_code == 404
+
+    async def test_removing_an_entry_leaves_stored_values_alone(self, client, db, metamodel_env):
+        """Cards keep the value and render it as an unknown chip — they are not
+        rewritten, so nothing is lost if an admin removes an entry by mistake."""
+        await create_card_type(
+            db,
+            key="Organization",
+            label="Organization",
+            has_hierarchy=True,
+            hierarchy_labels=[{"key": "commercial", "label": "Commercial"}],
+        )
+        parent = await create_card(db, card_type="Organization", name="Company A")
+        await db.flush()
+        child = await create_card(
+            db,
+            card_type="Organization",
+            name="Company B",
+            parent_id=parent.id,
+            parent_label="commercial",
+        )
+        await db.commit()
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Organization",
+            json={"hierarchy_labels": []},
+            headers=auth_headers(metamodel_env["admin"]),
+        )
+        assert response.status_code == 200
+
+        await db.refresh(child)
+        assert child.parent_label == "commercial"

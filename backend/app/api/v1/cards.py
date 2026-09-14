@@ -86,6 +86,7 @@ from app.services.card_write_service import (
     MACRO_CAPABILITY_LEVEL_KEY,  # noqa: F401 - re-exported for legacy importers
     _assign_reference_on_create,  # noqa: F401
     _check_hierarchy_depth,
+    _check_hierarchy_label,
     _check_parent_not_descendant,
     _check_required_not_cleared,
     _check_select_options,
@@ -94,6 +95,7 @@ from app.services.card_write_service import (
     _max_descendant_depth,  # noqa: F401
     _recalc_changed_descendants,
     _sync_hierarchy_levels,
+    _validate_hierarchy_label,
     _validate_strict_attributes,
     _validate_url_attributes,
     _walk_ancestor_chain,  # noqa: F401
@@ -146,6 +148,7 @@ def _card_to_response(
         name=card.name,
         description=card.description,
         parent_id=str(card.parent_id) if card.parent_id else None,
+        parent_label=card.parent_label,
         lifecycle=card.lifecycle,
         attributes=attributes,
         status=card.status,
@@ -594,6 +597,7 @@ async def create_card(
         subtype=body.subtype,
         description=body.description,
         parent_id=uuid.UUID(body.parent_id) if body.parent_id else None,
+        parent_label=body.parent_label,
         lifecycle=body.lifecycle,
         attributes=body.attributes,
         external_id=body.external_id,
@@ -865,12 +869,19 @@ async def bulk_create_cards(
                 name=r.name,
             )
 
+            # Same vocabulary check the single-card path runs, so a spreadsheet
+            # cannot land a hierarchy label the metamodel never declared.
+            await _validate_hierarchy_label(
+                db, r.type, r.parent_label, None, has_parent=resolved_parent is not None
+            )
+
             card = Card(
                 type=r.type,
                 subtype=r.subtype,
                 name=r.name,
                 description=r.description,
                 parent_id=resolved_parent,
+                parent_label=r.parent_label if resolved_parent is not None else None,
                 lifecycle=r.lifecycle or {},
                 attributes=r.attributes or {},
                 external_id=r.external_id,
@@ -1053,7 +1064,17 @@ async def get_card(
 async def get_hierarchy(
     card_id: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
 ):
-    """Return ancestors (root→parent), children, and computed level."""
+    """Return ancestors (root→parent), children, and computed level.
+
+    Two link labels are in play and they are NOT the same field (#1100):
+
+    * each ``children`` node carries **its own** ``parent_label`` — the label on
+      that child's edge to this card;
+    * the top-level ``parent_label`` is **this card's** label for its edge to
+      its own parent, i.e. what the Parent chip renders. It is deliberately not
+      hung off the last ancestor node, whose ``parent_label`` would be that
+      ancestor's link to *its* parent one level further up.
+    """
     uid = uuid.UUID(card_id)
     await _require_card_read(db, user, uid)
     result = await db.execute(select(Card).where(Card.id == uid))
@@ -1071,7 +1092,14 @@ async def get_hierarchy(
         parent = res.scalar_one_or_none()
         if not parent:
             break
-        ancestors.append({"id": str(parent.id), "name": parent.name, "type": parent.type})
+        ancestors.append(
+            {
+                "id": str(parent.id),
+                "name": parent.name,
+                "type": parent.type,
+                "parent_label": parent.parent_label,
+            }
+        )
         current = parent
     ancestors.reverse()  # root first
 
@@ -1080,13 +1108,20 @@ async def get_hierarchy(
         select(Card).where(Card.parent_id == uid, Card.status == "ACTIVE").order_by(Card.name)
     )
     children = [
-        {"id": str(c.id), "name": c.name, "type": c.type} for c in children_result.scalars().all()
+        {
+            "id": str(c.id),
+            "name": c.name,
+            "type": c.type,
+            "parent_label": c.parent_label,
+        }
+        for c in children_result.scalars().all()
     ]
 
     return {
         "ancestors": ancestors,
         "children": children,
         "level": len(ancestors) + 1,
+        "parent_label": card.parent_label,
     }
 
 
@@ -1200,6 +1235,10 @@ async def relation_summary(
         parent_id=parent_id_str,
         parent_name=parent_name,
         parent_type=parent_type,
+        # Tied to `parent_id_str`, not read straight off the card: an archived
+        # parent is reported as no parent here, and a label for a parent this
+        # response does not name would be unattributable.
+        parent_label=card.parent_label if parent_id_str else None,
     )
     return CardRelationSummaryResponse(by_type=entries, hierarchy=hierarchy)
 
@@ -1529,6 +1568,25 @@ async def bulk_update(
             )
             req_schemas = {key: schema for key, schema in rows.all()}
 
+    # Same prefetch for the hierarchy-label vocabulary — the check is per card
+    # (each compares against its own stored label and its own final parent), so
+    # only the type lookup can be deduplicated.
+    hierarchy_vocab: dict[str, list | None] = {}
+    if "parent_label" in updates and updates["parent_label"]:
+        type_keys = {c.type for c in sheets}
+        if type_keys:
+            rows = await db.execute(
+                select(CardType.key, CardType.hierarchy_labels).where(CardType.key.in_(type_keys))
+            )
+            hierarchy_vocab = {key: vocab for key, vocab in rows.all()}
+
+    # A bulk edit that clears the parent takes every card's link label with it,
+    # whether or not the caller sent one — the label describes an edge that no
+    # longer exists (#1100). Applies to the whole batch, so it belongs here
+    # rather than in the per-card loop.
+    if "parent_id" in updates and not updates["parent_id"]:
+        updates["parent_label"] = None
+
     # Guard: a bulk re-parent has to clear the same bar as the per-card PATCH.
     # Without this the endpoint happily builds cycles, blows past the capability
     # depth limit and leaves hierarchyLevel/capabilityLevel stale — and it is
@@ -1606,6 +1664,21 @@ async def bulk_update(
                 # same per-card comparison, so it rides along here).
                 _check_select_options(
                     card.type, req_schemas.get(card.type), value or {}, dict(card.attributes or {})
+                )
+            elif field == "parent_label" and value:
+                # Per card: the vocabulary is per type, and whether an edge
+                # exists at all depends on this card's own final parent.
+                final_pid = (
+                    (uuid.UUID(updates["parent_id"]) if updates["parent_id"] else None)
+                    if "parent_id" in updates
+                    else card.parent_id
+                )
+                _check_hierarchy_label(
+                    card.type,
+                    hierarchy_vocab.get(card.type),
+                    value,
+                    card.parent_label,
+                    has_parent=final_pid is not None,
                 )
             old_val = getattr(card, field)
             if old_val != value:

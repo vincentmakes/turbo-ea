@@ -281,6 +281,78 @@ async def _validate_select_attributes(
     _check_select_options(card_type, schema, new_attrs, old_attrs)
 
 
+def _check_hierarchy_label(
+    card_type: str,
+    vocabulary: list | None,
+    new_label: str | None,
+    old_label: str | None,
+    has_parent: bool,
+) -> None:
+    """Reject a parent-link label that is not a declared option (#1100).
+
+    The label qualifies this card's edge to its parent — "commercial" vs
+    "sales" between two Organizations that are already parent and child. Its
+    vocabulary is ``card_types.hierarchy_labels``, so the same reasoning as
+    ``_check_select_options`` applies: free text typed into a grid cell or a
+    spreadsheet import would render as an unknown chip and mean nothing.
+
+    Deliberately narrow, so it can never block legitimate work:
+
+    * Clearing the label passes — that is not a validation failure.
+    * A value **unchanged from what is stored** passes, so a card whose label
+      option an admin has since deleted stays editable. The stale value keeps
+      rendering as the outlined warning chip until someone changes it.
+
+    A label on a card with **no parent** is refused rather than dropped: there
+    is no edge for it to describe, and silently discarding it would lose the
+    user's input with no feedback anywhere.
+    """
+    if not new_label or new_label == old_label:
+        return
+    if not has_parent:
+        raise HTTPException(
+            422,
+            {
+                "code": "hierarchy_label_without_parent",
+                "message": (
+                    "A hierarchy link label describes the link to a parent card, "
+                    "so it cannot be set on a card that has no parent."
+                ),
+                "card_type": card_type,
+            },
+        )
+    valid = [str(o.get("key")) for o in (vocabulary or []) if o.get("key") is not None]
+    if new_label in valid:
+        return
+    raise HTTPException(
+        422,
+        {
+            "code": "invalid_hierarchy_label",
+            "message": (
+                f"Card type '{card_type}' does not define hierarchy link label "
+                f"{new_label!r}" + (f"; valid labels: {', '.join(valid)}." if valid else ".")
+            ),
+            "valid_labels": valid,
+            "card_type": card_type,
+        },
+    )
+
+
+async def _validate_hierarchy_label(
+    db: AsyncSession,
+    card_type: str,
+    new_label: str | None,
+    old_label: str | None,
+    has_parent: bool,
+) -> None:
+    """Fetch the type's vocabulary and run the hierarchy-label check against it."""
+    if not new_label or new_label == old_label:
+        return
+    result = await db.execute(select(CardType.hierarchy_labels).where(CardType.key == card_type))
+    vocabulary = result.scalar_one_or_none()
+    _check_hierarchy_label(card_type, vocabulary, new_label, old_label, has_parent)
+
+
 async def _validate_strict_attributes(db: AsyncSession, card_type: str, attributes: dict) -> None:
     """Reject ``attributes`` keys that are not declared in the type's
     ``fields_schema`` (S5).
@@ -590,6 +662,7 @@ async def create_card(
     subtype: str | None = None,
     description: str | None = None,
     parent_id: uuid.UUID | None = None,
+    parent_label: str | None = None,
     lifecycle: dict | None = None,
     attributes: dict | None = None,
     external_id: str | None = None,
@@ -601,6 +674,9 @@ async def create_card(
     flushed (uncommitted) row. Caller owns permission checks + the commit."""
     await _validate_url_attributes(db, type_key, attributes or {})
     await _validate_select_attributes(db, type_key, attributes or {}, {})
+    await _validate_hierarchy_label(
+        db, type_key, parent_label, None, has_parent=parent_id is not None
+    )
     if strict_attributes:
         await _validate_strict_attributes(db, type_key, attributes or {})
     await check_sibling_name_unique(db, type_key=type_key, parent_id=parent_id, name=name)
@@ -610,6 +686,7 @@ async def create_card(
         name=name,
         description=description,
         parent_id=parent_id,
+        parent_label=parent_label if parent_id is not None else None,
         lifecycle=lifecycle or {},
         attributes=attributes or {},
         external_id=external_id,
@@ -710,6 +787,25 @@ async def update_card(
         if new_pid != card.parent_id:
             await _check_parent_not_descendant(db, {card.id}, new_pid)
             await _check_hierarchy_depth(db, card, new_pid)
+
+    # Guard: the parent-link label must be a declared option, and cannot outlive
+    # the edge it describes. Resolved against the FINAL parent so setting a
+    # parent and naming the link in one PATCH is a single valid write, and so a
+    # cleared parent takes its label with it rather than leaving a label
+    # describing a link that no longer exists (#1100).
+    final_parent_id = (
+        (uuid.UUID(updates["parent_id"]) if updates["parent_id"] else None)
+        if "parent_id" in updates
+        else card.parent_id
+    )
+    if final_parent_id is None:
+        # Not conditional on `parent_label` being in `updates`: dropping the
+        # parent must clear the label whether or not the caller thought to.
+        updates["parent_label"] = None
+    elif "parent_label" in updates:
+        await _validate_hierarchy_label(
+            db, card.type, updates["parent_label"], card.parent_label, has_parent=True
+        )
 
     # Guard: sibling-name uniqueness when name or parent changes. Only
     # fires when the requested final state would introduce a new

@@ -1166,6 +1166,50 @@ async def test_card_type_role_permissions_roundtrip(db):
     assert restored.role_permissions == {"member": {"inventory.create": False}}
 
 
+async def test_hierarchy_link_labels_roundtrip(db):
+    """The vocabulary AND each card's chosen label must survive a clone (#1100).
+
+    Both live in **bespoke** sections, which the generic introspection engine
+    does not cover — the column lists in `exporter.py` are the whole
+    obligation, and nothing in CI catches an omission but this test.
+    """
+    user = await create_user(db, email="hl@test.com", role="admin")
+    vocab = [{"key": "commercial", "label": "Commercial", "color": "#2889ff"}]
+    ct = await create_card_type(db, key="Organization", label="Organization", has_hierarchy=True)
+    ct.hierarchy_labels = vocab
+    parent = await create_card(db, card_type="Organization", name="Company A")
+    await db.flush()
+    child = await create_card(
+        db,
+        card_type="Organization",
+        name="Company B",
+        parent_id=parent.id,
+        parent_label="commercial",
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+
+    # Wipe both, then re-import: the bundle must put them back. The card is
+    # DELETED rather than blanked — the cards section is create-only (it skips
+    # a row it can already resolve), so a surviving row would be skipped and
+    # the assertion would prove nothing about what the bundle carried.
+    ct.hierarchy_labels = []
+    await db.execute(delete(Card).where(Card.id == child.id))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored_type = (
+        await db.execute(select(CardType).where(CardType.key == "Organization"))
+    ).scalar_one()
+    assert restored_type.hierarchy_labels == vocab
+
+    restored_child = (await db.execute(select(Card).where(Card.name == "Company B"))).scalar_one()
+    assert restored_child.parent_label == "commercial"
+
+
 async def test_card_type_bundle_without_the_column_keeps_the_default(db):
     """A bundle written before the column existed must not blank it.
 

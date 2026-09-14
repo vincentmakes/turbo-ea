@@ -48,6 +48,7 @@ import InventoryFilterSidebar, {
   EOL_COLUMN_KEY,
   EMPTY_VALUE,
   eolColumnApplies,
+  hierarchyLabelColumnApplies,
   logoColumnApplies,
   normalizeRelationFilterKeys,
   normalizeSelectAttributeFilters,
@@ -77,6 +78,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { canCreateAnyCardType, hasTypePermission } from "@/components/RequirePermission";
 import { useCardSearch } from "@/hooks/useCardSearch";
 import { useTypeLabel, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
+import OptionChip from "@/components/OptionChip";
 import { readableTextColor } from "@/lib/color";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -491,6 +493,7 @@ export function currentFieldValue(card: Card, field: string): unknown {
   }
   if (field.startsWith("attr_")) return (card.attributes ?? {})[field.slice("attr_".length)];
   if (field === "parent_id") return card.parent_id ?? null;
+  if (field === "parent_label") return card.parent_label ?? null;
   return (card as unknown as Record<string, unknown>)[field];
 }
 
@@ -1194,6 +1197,27 @@ export default function InventoryPage() {
   // disappear together.
   const eolColumnAvailable = canViewEol && eolColumnApplies(filters.types);
 
+  // --- Hierarchy link labels (#1100) -----------------------------------------
+  // The vocabulary a parent link is labelled from, and whether the column is
+  // offered at all. Same helper the column picker uses, so the checkbox and the
+  // column can never disagree.
+  const hierarchyLabelOptions = useMemo(
+    () => (filters.types.length === 1 ? typeConfig?.hierarchy_labels ?? [] : []),
+    [filters.types, typeConfig],
+  );
+  const hierarchyLabelColumnAvailable = hierarchyLabelColumnApplies(types, filters.types);
+  // Resolve a stored key to its localized label for filtering, sorting and
+  // export. An unknown key falls back to the raw value so a stale one stays
+  // visible and searchable rather than becoming an empty cell.
+  const hierarchyLabelText = useCallback(
+    (key: string | null | undefined): string => {
+      if (!key) return "";
+      const option = hierarchyLabelOptions.find((o) => o.key === key);
+      return option ? optLabel(option) : key;
+    },
+    [hierarchyLabelOptions, optLabel],
+  );
+
   // URL deep-links seed attribute filters as scalar strings (the URL block
   // above runs before the metamodel loads, so it can't know which fields are
   // selects). Once the type's schema is known, promote scalars on select
@@ -1885,6 +1909,12 @@ export default function InventoryPage() {
       } else if (field === "parent_id") {
         await api.patch(`/cards/${card.id}`, { parent_id: (newValue as string | null) ?? null });
         return { needsReload: true };
+      } else if (field === "parent_label") {
+        // Per card, never PATCH /cards/bulk — and unlike parent_id this moves
+        // no subtree, so nothing downstream needs reloading.
+        await api.patch(`/cards/${card.id}`, {
+          parent_label: (newValue as string | null) || null,
+        });
       } else if (field === "tags") {
         const oldIds = new Set<string>(((oldValue as TagRef[] | undefined) ?? []).map((v) => v.id));
         const newIds = new Set<string>(((newValue as TagRef[] | undefined) ?? []).map((v) => v.id));
@@ -2922,6 +2952,51 @@ export default function InventoryPage() {
         valueFormatter: (p: { value?: string | null }) => parentNameOf(p.value),
         cellRenderer: (p: { value: string | null }) => parentNameOf(p.value),
       },
+      ...(hierarchyLabelColumnAvailable
+        ? [
+            {
+              // The label on each row's link to ITS parent (#1100) — its own
+              // column rather than a widening of core_parent, whose cell value
+              // is documented as the raw parent id and whose editor is a card
+              // picker. Keeping them apart also lets a user show one without
+              // the other.
+              colId: "core_parent_label",
+              field: "parent_label",
+              headerName: t("columns.parentLabel"),
+              width: 170,
+              sortable: true,
+              hide: !selectedColumns.has("core_parent_label"),
+              editable: gridEditMode && !!selectedType,
+              cellEditor: "agSelectCellEditor",
+              cellEditorParams: {
+                values: ["", ...hierarchyLabelOptions.map((o) => o.key)],
+                // The dropdown stores the key but must read as the label.
+                formatValue: (v: string) =>
+                  v ? optLabel(hierarchyLabelOptions.find((o) => o.key === v)) || v : "",
+              },
+              // The stored value is an option key, so the header text filter,
+              // the sort and the export all resolve it to the localized label
+              // first — otherwise each writes a raw slug (#887).
+              filterValueGetter: (p: { data?: Card }) =>
+                hierarchyLabelText(p.data?.parent_label),
+              comparator: (a: string | null, b: string | null) =>
+                hierarchyLabelText(a).localeCompare(hierarchyLabelText(b)),
+              valueFormatter: (p: { value?: string | null }) =>
+                hierarchyLabelText(p.value),
+              cellRenderer: (p: { value?: string | null }) => {
+                if (!p.value) return null;
+                const option = hierarchyLabelOptions.find((o) => o.key === p.value);
+                return (
+                  <OptionChip
+                    option={option}
+                    value={p.value}
+                    label={option ? optLabel(option) : undefined}
+                  />
+                );
+              },
+            },
+          ]
+        : []),
       {
         colId: "core_description",
         field: "description",

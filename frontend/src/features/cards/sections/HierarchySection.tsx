@@ -19,18 +19,90 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import { useTranslation } from "react-i18next";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
+import OptionChip, { chipWidthForField } from "@/components/OptionChip";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { hasTypePermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
-import { useTypeLabel } from "@/hooks/useResolveLabel";
+import { useOptionLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { api } from "@/api/client";
-import type { Card, HierarchyData } from "@/types";
+import type { Card, FieldOption, HierarchyData } from "@/types";
 
 // ── Section: Hierarchy ───────────────────────────────────────────
 const LEVEL_COLORS = ["#1565c0", "#42a5f5", "#90caf9", "#bbdefb", "#e3f2fd"];
+
+/**
+ * The label on one parent→child link (discussion #1100), rendered read-only as
+ * an `OptionChip` and edited — when `onChange` is supplied — through a `Select`
+ * over the card type's `hierarchy_labels`.
+ *
+ * One component used at both ends on purpose: the parent line edits the card
+ * under view, each child row edits that child, and the two affordances must not
+ * drift. Which card is patched is the caller's business, not this component's.
+ *
+ * An unknown stored key still renders (as `OptionChip`'s outlined warning chip)
+ * and stays selectable in the dropdown, so a label whose option an admin has
+ * deleted is visible and clearable rather than silently gone.
+ */
+function HierarchyLinkLabel({
+  value,
+  options,
+  onChange,
+  emptyLabel,
+}: {
+  value: string | null | undefined;
+  options: FieldOption[];
+  onChange?: (next: string | null) => void;
+  emptyLabel: string;
+}) {
+  const optLabel = useOptionLabel();
+  const option = options.find((o) => o.key === value);
+  // A value already set stays offered even if the option is now hidden, so
+  // editing a card never silently rewrites its label.
+  const selectable = options.filter((o) => !o.hidden || o.key === value);
+
+  if (!onChange) {
+    if (!value) return null;
+    return <OptionChip option={option} value={value} label={option ? optLabel(option) : undefined} />;
+  }
+
+  return (
+    <Select
+      size="small"
+      value={option || !value ? (value ?? "") : value}
+      displayEmpty
+      onChange={(e) => onChange((e.target.value as string) || null)}
+      renderValue={(v) =>
+        v ? (
+          <OptionChip option={option} value={v as string} label={option ? optLabel(option) : undefined} />
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            {emptyLabel}
+          </Typography>
+        )
+      }
+      sx={{
+        minWidth: chipWidthForField(options),
+        "& .MuiSelect-select": { py: 0.25 },
+      }}
+    >
+      <MenuItem value="">
+        <Typography variant="body2" color="text.secondary">
+          {emptyLabel}
+        </Typography>
+      </MenuItem>
+      {selectable.map((o) => (
+        <MenuItem key={o.key} value={o.key}>
+          <OptionChip option={o} label={optLabel(o)} />
+        </MenuItem>
+      ))}
+    </Select>
+  );
+}
 
 function HierarchySection({
   card,
@@ -127,6 +199,22 @@ function HierarchySection({
     loadHierarchy();
   };
 
+  // The link label is set on the CHILD of each edge, so the parent line patches
+  // this card and a child row patches that child — the same asymmetry
+  // `handleSetParent` and `handleAddChild` already encode. `onUpdate()` is
+  // called only for this card's own label, because only then does the `card`
+  // prop the rest of the page renders from go stale.
+  const setLinkLabel = async (cardId: string, next: string | null) => {
+    try {
+      setHierarchyError("");
+      await api.patch(`/cards/${cardId}`, { parent_label: next });
+      loadHierarchy();
+      if (cardId === card.id) onUpdate();
+    } catch (err: unknown) {
+      setHierarchyError(err instanceof Error ? err.message : t("hierarchy.errors.setLinkLabel"));
+    }
+  };
+
   const handleQuickCreate = async () => {
     if (!createName.trim()) return;
     setCreateLoading(true);
@@ -153,6 +241,11 @@ function HierarchySection({
   };
 
   if (!typeConfig?.has_hierarchy) return null;
+
+  // No configured vocabulary ⇒ the whole affordance is absent and the section
+  // renders exactly as it did before the feature existed.
+  const linkLabels = typeConfig.hierarchy_labels ?? [];
+  const showLinkLabels = linkLabels.length > 0;
 
   const level = hierarchy?.level ?? 1;
   const levelColor = LEVEL_COLORS[Math.min(level - 1, LEVEL_COLORS.length - 1)];
@@ -239,6 +332,17 @@ function HierarchySection({
                     <IconButton size="small" onClick={handleRemoveParent} title={t("hierarchy.removeParent")}>
                       <MaterialSymbol icon="link_off" size={16} color="#f44336" />
                     </IconButton>
+                  )}
+                  {/* This card's OWN label for the link above it — read from
+                      `hierarchy.parent_label`, never from the last ancestor
+                      node, whose label describes the edge one level higher. */}
+                  {showLinkLabels && (
+                    <HierarchyLinkLabel
+                      value={hierarchy.parent_label}
+                      options={linkLabels}
+                      onChange={canEdit ? (next) => setLinkLabel(card.id, next) : undefined}
+                      emptyLabel={t("hierarchy.noLinkLabel")}
+                    />
                   )}
                 </Box>
               ) : (
@@ -342,13 +446,25 @@ function HierarchySection({
                         ) : undefined
                       }
                     >
-                      <Box
-                        component="div"
-                        onClick={() => navigate(`/cards/${child.id}`)}
-                        sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 1, "&:hover": { textDecoration: "underline" } }}
-                      >
-                        <MaterialSymbol icon={typeConfig?.icon || "category"} size={16} color={typeConfig?.color} />
-                        <ListItemText primary={child.name} />
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Box
+                          component="div"
+                          onClick={() => navigate(`/cards/${child.id}`)}
+                          sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 1, "&:hover": { textDecoration: "underline" } }}
+                        >
+                          <MaterialSymbol icon={typeConfig?.icon || "category"} size={16} color={typeConfig?.color} />
+                          <ListItemText primary={child.name} />
+                        </Box>
+                        {/* The child's own label — the edge from this card down
+                            to it. Editing patches the CHILD, not this card. */}
+                        {showLinkLabels && (
+                          <HierarchyLinkLabel
+                            value={child.parent_label}
+                            options={linkLabels}
+                            onChange={canEdit ? (next) => setLinkLabel(child.id, next) : undefined}
+                            emptyLabel={t("hierarchy.noLinkLabel")}
+                          />
+                        )}
                       </Box>
                     </ListItem>
                   ))}

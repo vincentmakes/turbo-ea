@@ -118,6 +118,18 @@ Ad esempio, il tipo Application ha i sottotipi: Business Application, Microservi
 
 Quando nessun sottotipo è selezionato su una card (o il tipo non ha sottotipi), tutti i campi sono visibili. I campi nascosti conservano i propri dati — se il sottotipo di una card cambia, i valori precedentemente nascosti vengono mantenuti.
 
+#### Tipi di collegamento gerarchico
+
+Per un tipo di card con la gerarchia attiva potete definire i **tipi di collegamento**: un breve vocabolario che etichetta ogni collegamento padre-figlio. In un albero di organizzazioni, per esempio, consente di segnare una controllata come *commerciale* e un'altra come di *vendita*, senza inventare un secondo tipo di relazione.
+
+1. Aprite il pannello del tipo e individuate **Tipi di collegamento gerarchico** (compare solo per i tipi gerarchici).
+2. Cliccate su **Modifica tipi di collegamento** e aggiungete una voce per etichetta, con chiave, nome e colore.
+3. Traducete i nomi con il pulsante **Traduci**, come qualsiasi altra etichetta del metamodello.
+
+Gli editor scelgono poi un tipo di collegamento nella sezione **Gerarchia** della card, o nella colonna **Tipo di collegamento** dell'inventario. L'etichetta appartiene alla card figlia, quindi viene cancellata automaticamente quando quella card viene spostata al livello superiore.
+
+Rimuovere un tipo di collegamento **non** riscrive le card che già lo usano: mantengono il valore memorizzato e lo mostrano come tipo di collegamento sconosciuto finché qualcuno non lo cambia, così una rimozione accidentale non perde nulla. La finestra indica quante card sono interessate prima della conferma.
+
 #### Ruoli stakeholder
 
 Definite ruoli personalizzati per questo tipo (es. "Application Owner", "Technical Owner"). Ogni ruolo porta **permessi a livello di card** che vengono combinati con il ruolo a livello di applicazione dell'utente quando accede a una card. Vedi [Utenti e ruoli](users.md) per maggiori informazioni sul modello dei permessi.
@@ -160,6 +172,7 @@ Cliccate sul pulsante **Traduci** nella barra degli strumenti del drawer del tip
 
 - **Etichetta del tipo** — Il nome visualizzato del tipo di card
 - **Sottotipi** — Etichette per ogni sottotipo
+- **Tipi di collegamento gerarchico** — Etichette per ogni tipo di collegamento gerarchico
 - **Sezioni** — Intestazioni delle sezioni nella pagina di dettaglio della card
 - **Campi** — Etichette dei campi e delle opzioni di selezione
 - **Ruoli degli stakeholder** — Nomi dei ruoli visualizzati nell'interfaccia di assegnazione degli stakeholder

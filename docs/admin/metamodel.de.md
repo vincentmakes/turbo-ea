@@ -118,6 +118,18 @@ Zum Beispiel hat der Typ Anwendung die Subtypen: Geschäftsanwendung, Microservi
 
 Wenn bei einer Karte kein Subtyp ausgewählt ist (oder der Typ keine Subtypen hat), sind alle Felder sichtbar. Ausgeblendete Felder behalten ihre Daten — wenn sich der Subtyp einer Karte ändert, bleiben zuvor ausgeblendete Werte erhalten.
 
+#### Hierarchie-Verbindungstypen
+
+Für einen Kartentyp mit aktivierter Hierarchie können Sie **Verbindungstypen** definieren — ein kurzes Vokabular, das jede Eltern-Kind-Verbindung benennt. In einem Organisationsbaum lässt sich so eine Tochtergesellschaft als *Vertrieb* und eine andere als *Verkauf* kennzeichnen, ohne einen zweiten Beziehungstyp anzulegen.
+
+1. Öffnen Sie die Typ-Schublade und suchen Sie **Hierarchie-Verbindungstypen** (nur bei hierarchischen Typen sichtbar).
+2. Klicken Sie auf **Verbindungstypen bearbeiten** und fügen Sie pro Bezeichnung einen Eintrag mit Schlüssel, Namen und Farbe hinzu.
+3. Übersetzen Sie die Namen über die Schaltfläche **Übersetzen**, wie jede andere Metamodell-Bezeichnung.
+
+Bearbeiter wählen den Verbindungstyp anschließend im Abschnitt **Hierarchie** der Karte oder in der Spalte **Verbindungstyp** des Inventars. Die Bezeichnung gehört zur untergeordneten Karte und entfällt automatisch, sobald diese auf die oberste Ebene verschoben wird.
+
+Das Entfernen eines Verbindungstyps überschreibt **nicht** die Karten, die ihn bereits verwenden: Sie behalten den gespeicherten Wert und zeigen ihn als unbekannten Verbindungstyp an, bis ihn jemand ändert — ein versehentliches Entfernen geht also nicht mit Datenverlust einher. Der Dialog nennt vor dem Bestätigen die Anzahl der betroffenen Karten.
+
 #### Stakeholder-Rollen
 
 Definieren Sie benutzerdefinierte Rollen für diesen Typ (z.B. «Anwendungseigner», «Technischer Eigner»). Jede Rolle hat **kartenebene Berechtigungen**, die beim Zugriff auf eine Karte mit der anwendungsweiten Rolle des Benutzers kombiniert werden. Siehe [Benutzer & Rollen](users.md) für mehr zum Berechtigungsmodell.
@@ -160,6 +172,7 @@ Klicken Sie auf die Schaltfläche **Übersetzen** in der Symbolleiste des Typ-Dr
 
 - **Typbezeichnung** — Der Anzeigename des Kartentyps
 - **Untertypen** — Bezeichnungen für jeden Untertyp
+- **Hierarchie-Verbindungstypen** — Bezeichnungen für jeden Hierarchie-Verbindungstyp
 - **Sektionen** — Abschnittsüberschriften auf der Kartendetailseite
 - **Felder** — Feldbezeichnungen und Auswahloptionsbezeichnungen
 - **Stakeholder-Rollen** — Rollennamen, die in der Stakeholder-Zuweisungs-UI angezeigt werden

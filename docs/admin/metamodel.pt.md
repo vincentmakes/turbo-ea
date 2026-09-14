@@ -118,6 +118,18 @@ Por exemplo, o tipo Aplicação possui subtipos: Aplicação de Negócio, Micros
 
 Quando nenhum subtipo é selecionado num card (ou o tipo não possui subtipos), todos os campos são visíveis. Campos ocultos preservam os seus dados — se o subtipo de um card mudar, os valores anteriormente ocultos são mantidos.
 
+#### Tipos de ligação hierárquica
+
+Para um tipo de card com hierarquia ativada, pode definir **tipos de ligação** — um vocabulário curto que rotula cada ligação pai-filho. Numa árvore de organizações, por exemplo, permite marcar uma subsidiária como *comercial* e outra como de *vendas*, sem inventar um segundo tipo de relacionamento.
+
+1. Abra o painel do tipo e localize **Tipos de ligação hierárquica** (só aparece em tipos hierárquicos).
+2. Clique em **Editar tipos de ligação** e adicione uma entrada por rótulo, com chave, nome e cor.
+3. Traduza os nomes com o botão **Traduzir**, como qualquer outro rótulo do metamodelo.
+
+Os editores escolhem depois um tipo de ligação na seção **Hierarquia** do card, ou na coluna **Tipo de ligação** do inventário. O rótulo pertence ao card filho, pelo que é limpo automaticamente quando esse card passa para o nível superior.
+
+Remover um tipo de ligação **não** reescreve os cards que já o usam: mantêm o valor armazenado e mostram-no como tipo de ligação desconhecido até alguém o alterar, de modo que uma remoção acidental não perde nada. A caixa de diálogo indica quantos cards são afetados antes de confirmar.
+
 #### Papéis de Partes Interessadas
 
 Defina papéis personalizados para este tipo (ex.: "Proprietário da Aplicação", "Proprietário Técnico"). Cada papel carrega **permissões em nível de card** que são combinadas com o papel em nível de aplicação do usuário ao acessar um card. Veja [Usuários e Papéis](users.md) para mais informações sobre o modelo de permissões.
@@ -160,6 +172,7 @@ Clique no botão **Traduzir** na barra de ferramentas do drawer do tipo para abr
 
 - **Rótulo do tipo** — O nome de exibição do tipo de card
 - **Subtipos** — Rótulos para cada subtipo
+- **Tipos de ligação hierárquica** — Rótulos para cada tipo de ligação hierárquica
 - **Seções** — Cabeçalhos de seção na página de detalhe do card
 - **Campos** — Rótulos de campos e rótulos de opções de seleção
 - **Papéis de stakeholder** — Nomes de papéis exibidos na interface de atribuição de stakeholders

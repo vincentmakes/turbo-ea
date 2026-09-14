@@ -833,6 +833,9 @@ def _make_cards_applier(user: User):
                     name=name,
                     description=data.get("description"),
                     parent_id=resolved_parent,
+                    parent_label=(
+                        data.get("parent_label") if resolved_parent is not None else None
+                    ),
                     lifecycle=data.get("lifecycle") or {},
                     attributes=data.get("attributes") or {},
                     external_id=external_id,

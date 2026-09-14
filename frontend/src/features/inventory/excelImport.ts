@@ -413,7 +413,14 @@ function buildPatch(
     changes.name = { old: ex.name, new: d.name };
   }
 
-  for (const key of ["description", "subtype", "parent_id", "external_id", "alias"] as const) {
+  for (const key of [
+    "description",
+    "subtype",
+    "parent_id",
+    "parent_label",
+    "external_id",
+    "alias",
+  ] as const) {
     const exVal = (ex as unknown as Record<string, unknown>)[key] ?? "";
     if (d[key] !== undefined && norm(d[key]) !== norm(exVal)) {
       patch[key] = d[key] || null;
@@ -612,6 +619,7 @@ export function validateImport(
   // Warn about unrecognised columns
   const knownCoreCols = new Set([
     "id", "type", "name", "description", "subtype", "parent_id", "parent_path",
+    "parent_label",
     "external_id", "reference", "alias", "approval_status", "tags",
     ...LIFECYCLE_PHASES.map((p) => `lifecycle_${p}`),
   ]);
@@ -728,6 +736,7 @@ export function validateImport(
     const subtype = str(raw["subtype"] ?? raw["Subtype"]);
     let parentId = str(raw["parent_id"]);
     const parentPathRaw = str(raw["parent_path"]);
+    const parentLabel = str(raw["parent_label"]);
     const externalId = str(raw["external_id"]);
     const alias = str(raw["alias"] ?? raw["Alias"]);
     const approvalStatus = str(raw["approval_status"]).toUpperCase();
@@ -1149,6 +1158,11 @@ export function validateImport(
     if (description) data.description = description;
     if (subtype) data.subtype = subtype;
     if (parentId) data.parent_id = parentId;
+    // Sent whenever the column is present, empty included, so clearing the cell
+    // clears the label. An unknown key is refused by the server with the valid
+    // list, which surfaces as this row's error — never pre-validated here,
+    // since the vocabulary is per type and the server owns it.
+    if (parentLabel) data.parent_label = parentLabel;
     if (externalId) data.external_id = externalId;
     if (alias) data.alias = alias;
     if (Object.keys(lifecycle).length > 0) data.lifecycle = lifecycle;

@@ -56,6 +56,10 @@ class ChildStrategyResult:
     #: the `card.updated` event it owes could only say where the child ended up
     #: — which is not something an audit trail can be rolled back from.
     previous_parent_ids: dict[uuid.UUID, uuid.UUID | None] = field(default_factory=dict)
+    #: Same, for the hierarchy link label of each child that lost its parent
+    #: outright. Only populated where the label was actually cleared, so the
+    #: caller emits a `parent_label` change only for children that had one.
+    previous_parent_labels: dict[uuid.UUID, str | None] = field(default_factory=dict)
 
 
 async def collect_descendants(
@@ -130,6 +134,14 @@ async def apply_child_strategy(
             continue
         child.parent_id = new_parent_id
         result.previous_parent_ids[child.id] = old
+        # A link label describes an edge. `reparent` hands the child to the
+        # grandparent — still a parent, so the label (the child's role, e.g.
+        # "commercial") survives the move. Landing at the top level leaves no
+        # edge for it to describe, so it goes (#1100). Same rule as
+        # `update_card`: cleared exactly when the final parent is NULL.
+        if new_parent_id is None and child.parent_label is not None:
+            result.previous_parent_labels[child.id] = child.parent_label
+            child.parent_label = None
         if user_id is not None:
             child.updated_by = user_id
         if break_approval(child, ("parent_id",)):

@@ -48,6 +48,9 @@ class CardCreate(BaseModel):
     name: str
     description: str | None = None
     parent_id: str | None = None
+    # Label for this card's link to its parent, from the type's
+    # ``hierarchy_labels`` vocabulary (#1100). Refused when no parent is set.
+    parent_label: str | None = None
     lifecycle: dict | None = None
     attributes: dict | None = None
     external_id: str | None = None
@@ -76,6 +79,9 @@ class CardUpdate(BaseModel):
     subtype: str | None = None
     description: str | None = None
     parent_id: str | None = None
+    # Omitted leaves the stored label alone (``exclude_unset``); an explicit
+    # ``null`` clears it. Clearing ``parent_id`` clears it either way.
+    parent_label: str | None = None
     lifecycle: dict | None = None
     attributes: dict | None = None
     status: str | None = None
@@ -131,6 +137,7 @@ class CardResponse(BaseModel):
     name: str
     description: str | None = None
     parent_id: str | None = None
+    parent_label: str | None = None
     lifecycle: dict | None = None
     attributes: dict | None = None
     status: str
@@ -183,6 +190,8 @@ class CardRelationSummaryHierarchy(BaseModel):
     parent_id: str | None = None
     parent_name: str | None = None
     parent_type: str | None = None
+    # This card's own label for its link to that parent (#1100).
+    parent_label: str | None = None
 
 
 class CardRelationSummaryResponse(BaseModel):
@@ -408,6 +417,7 @@ class CardBulkCreateItem(BaseModel):
     parent_id: str | None = None
     parent_path: list[str] | None = None
     parent_name: str | None = None
+    parent_label: str | None = None
     lifecycle: dict | None = None
     attributes: dict | None = None
     external_id: str | None = None

@@ -118,6 +118,18 @@ For eksempel har Application-typen undertyperne: Business Application, Microserv
 
 Når der ikke er valgt nogen undertype på et kort (eller typen ikke har nogen undertyper), er alle felter synlige. Skjulte felter bevarer deres data — hvis et korts undertype ændres, bevares tidligere skjulte værdier.
 
+#### Hierarkiske forbindelsestyper
+
+For en korttype med hierarki slået til kan du definere **forbindelsestyper** — et kort ordforråd, der sætter etiket på hver forælder-barn-forbindelse. I et organisationstræ kan man for eksempel markere ét datterselskab som *kommercielt* og et andet som *salg*, uden at opfinde en relationstype mere.
+
+1. Åbn typepanelet og find **Hierarkiske forbindelsestyper** (vises kun for hierarkiske typer).
+2. Klik på **Rediger forbindelsestyper**, og tilføj én post pr. etiket med nøgle, navn og farve.
+3. Oversæt navnene med knappen **Oversæt**, som enhver anden metamodel-etiket.
+
+Redaktører vælger derefter en forbindelsestype i kortets **Hierarki**-sektion eller i inventarets kolonne **Forbindelsestype**. Etiketten hører til barnekortet og ryddes derfor automatisk, når det kort flyttes til øverste niveau.
+
+At fjerne en forbindelsestype omskriver **ikke** de kort, der allerede bruger den: de beholder den gemte værdi og viser den som en ukendt forbindelsestype, indtil nogen ændrer den — så en utilsigtet fjernelse mister intet. Dialogen fortæller, hvor mange kort det berører, før du bekræfter.
+
 #### Interessentroller
 
 Definer brugerdefinerede roller for denne type (f.eks. "Application Owner", "Technical Owner"). Hver rolle bærer **tilladelser på kortniveau**, der kombineres med brugerens applikationsrolle, når der tilgås et kort. Se [Brugere og roller](users.md) for mere om tilladelsesmodellen.
@@ -160,6 +172,7 @@ Klik på knappen **Oversæt** i typepanelets værktøjslinje for at åbne **Over
 
 - **Type-etiket** — Visningsnavnet for korttypen
 - **Undertyper** — Etiketter for hver undertype
+- **Hierarkiske forbindelsestyper** — Etiketter for hver hierarkisk forbindelsestype
 - **Sektioner** — Sektionsoverskrifter på kortdetaljesiden
 - **Felter** — Feltetiketter og udvælgelsesindstillingsetiketter
 - **Interessentroller** — Rollenavne vist i interessenttildelings-UI'et

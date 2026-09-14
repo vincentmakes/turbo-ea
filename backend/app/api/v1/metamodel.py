@@ -200,6 +200,7 @@ def _serialize_type(t: CardType) -> dict:
         "has_successors": t.has_successors,
         "allow_card_logo": t.allow_card_logo,
         "subtypes": t.subtypes or [],
+        "hierarchy_labels": t.hierarchy_labels or [],
         "fields_schema": t.fields_schema or [],
         "stakeholder_roles": t.stakeholder_roles or [],
         "section_config": t.section_config or {},
@@ -735,6 +736,40 @@ async def get_option_usage(
     }
 
 
+@router.get("/types/{key}/hierarchy-label-usage")
+async def get_hierarchy_label_usage(
+    key: str,
+    label_key: str = Query(..., description="The hierarchy link label key to check"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return how many active cards carry a given hierarchy link label (#1100).
+
+    Its own endpoint rather than a branch of ``option-usage``: that one
+    dispatches on a ``fields_schema`` field type and reads ``attributes``,
+    whereas a link label is the ``cards.parent_label`` column.
+
+    Deleting the option does **not** rewrite the stored values — they keep
+    rendering as the unknown-option chip, and the card stays editable because
+    the write validator exempts an unchanged value. This count is what lets the
+    admin dialog say how many cards that will affect before they confirm.
+    """
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    exists = await db.scalar(select(CardType.id).where(CardType.key == key))
+    if not exists:
+        raise HTTPException(404, "Card type not found")
+    count = await db.scalar(
+        select(func.count())
+        .select_from(Card)
+        .where(
+            Card.type == key,
+            Card.status == "ACTIVE",
+            Card.parent_label == label_key,
+        )
+    )
+    return {"label_key": label_key, "card_count": count or 0}
+
+
 def _has_hierarchy_level_field(schema: list) -> bool:
     return any(
         isinstance(s, dict) and f.get("key") == HIERARCHY_LEVEL_KEY
@@ -826,6 +861,7 @@ async def create_type(
         has_successors=body.get("has_successors", False),
         allow_card_logo=body.get("allow_card_logo", False),
         subtypes=body.get("subtypes", []),
+        hierarchy_labels=body.get("hierarchy_labels", []),
         fields_schema=fields_schema,
         stakeholder_roles=body.get("stakeholder_roles", default_roles),
         reference_config=reference_config,
@@ -913,6 +949,7 @@ async def update_type(
         "has_successors",
         "allow_card_logo",
         "subtypes",
+        "hierarchy_labels",
         "fields_schema",
         "stakeholder_roles",
         "section_config",

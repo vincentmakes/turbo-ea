@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.139.0] - 2026-09-14
+
+### Added
+
+- **A parent-child link can carry a link type.** Two cards already in a hierarchy could not say what *kind* of link they had, so an Organization tree had no way to record that one subsidiary is commercial and another is sales ([#1100](https://github.com/vincentmakes/turbo-ea/discussions/1100)). An administrator now defines a short vocabulary of link types per hierarchical card type — key, name, colour, translated like any other metamodel label — under **Hierarchy link types** in the type drawer. Editors then label each link on the card's Hierarchy section, where the parent shows a label beside every child and the child shows its own beside its parent, or in the Inventory's new **Link type** column, which supports inline editing and drag-fill. The label belongs to the child, so moving a card to the top level clears it; every change is recorded on the card's History tab and can be rolled back. Labels are carried by Excel export/import and by workspace transfer. A card type with no configured vocabulary is unchanged — the feature appears nowhere until someone opts in.
+
 ## [2.138.1] - 2026-09-15
 
 ### Fixed

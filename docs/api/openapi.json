@@ -2000,6 +2000,17 @@
             ],
             "title": "Parent Id"
           },
+          "parent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Label"
+          },
           "parent_name": {
             "anyOf": [
               {
@@ -2458,6 +2469,17 @@
             ],
             "title": "Parent Id"
           },
+          "parent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Label"
+          },
           "strict_attributes": {
             "default": false,
             "title": "Strict Attributes",
@@ -2809,6 +2831,17 @@
             ],
             "title": "Parent Id"
           },
+          "parent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Label"
+          },
           "parent_name": {
             "anyOf": [
               {
@@ -2990,6 +3023,17 @@
               }
             ],
             "title": "Parent Id"
+          },
+          "parent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Label"
           },
           "reference": {
             "anyOf": [
@@ -3204,6 +3248,17 @@
               }
             ],
             "title": "Parent Id"
+          },
+          "parent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Label"
           },
           "status": {
             "anyOf": [
@@ -22692,7 +22747,7 @@
     },
     "/api/v1/cards/{card_id}/hierarchy": {
       "get": {
-        "description": "Return ancestors (root\u2192parent), children, and computed level.",
+        "description": "Return ancestors (root\u2192parent), children, and computed level.\n\nTwo link labels are in play and they are NOT the same field (#1100):\n\n* each ``children`` node carries **its own** ``parent_label`` \u2014 the label on\n  that child's edge to this card;\n* the top-level ``parent_label`` is **this card's** label for its edge to\n  its own parent, i.e. what the Parent chip renders. It is deliberately not\n  hung off the last ancestor node, whose ``parent_label`` would be that\n  ancestor's link to *its* parent one level further up.",
         "operationId": "get_hierarchy_api_v1_cards__card_id__hierarchy_get",
         "parameters": [
           {
@@ -26972,6 +27027,58 @@
           }
         },
         "summary": "Generate References",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/types/{key}/hierarchy-label-usage": {
+      "get": {
+        "description": "Return how many active cards carry a given hierarchy link label (#1100).\n\nIts own endpoint rather than a branch of ``option-usage``: that one\ndispatches on a ``fields_schema`` field type and reads ``attributes``,\nwhereas a link label is the ``cards.parent_label`` column.\n\nDeleting the option does **not** rewrite the stored values \u2014 they keep\nrendering as the unknown-option chip, and the card stays editable because\nthe write validator exempts an unchanged value. This count is what lets the\nadmin dialog say how many cards that will affect before they confirm.",
+        "operationId": "get_hierarchy_label_usage_api_v1_metamodel_types__key__hierarchy_label_usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The hierarchy link label key to check",
+            "in": "query",
+            "name": "label_key",
+            "required": true,
+            "schema": {
+              "description": "The hierarchy link label key to check",
+              "title": "Label Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Hierarchy Label Usage",
         "tags": [
           "metamodel"
         ]

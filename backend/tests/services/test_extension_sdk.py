@@ -16,7 +16,7 @@ from app.services.extensions import sdk
 
 
 def test_sdk_version_is_current():
-    assert sdk.SDK_VERSION == "1.14"
+    assert sdk.SDK_VERSION == "1.15"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -72,6 +72,7 @@ def test_ext_card_is_frozen_and_wire_shaped():
         name="App",
         description=None,
         parent_id=None,
+        parent_label=None,
         status="ACTIVE",
         approval_status="DRAFT",
         reference=None,
@@ -205,13 +206,15 @@ def test_sdk_compatibility_is_major_only():
     assert sdk.sdk_compatible("1.12")
     assert sdk.sdk_compatible("1.13")
     assert sdk.sdk_compatible("1.14")
+    assert sdk.sdk_compatible("1.15")
     assert not sdk.sdk_compatible("2.0")
 
 
 def test_sdk_minor_newer_truth_table():
     # Newer minor on the same major → warn (still loads).
-    assert sdk.sdk_minor_newer("1.15")
+    assert sdk.sdk_minor_newer("1.16")
     # Same or older minor → no warning.
+    assert not sdk.sdk_minor_newer("1.15")
     assert not sdk.sdk_minor_newer("1.14")
     assert not sdk.sdk_minor_newer("1.13")
     assert not sdk.sdk_minor_newer("1.12")

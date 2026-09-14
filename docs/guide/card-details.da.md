@@ -109,6 +109,7 @@ For korttyper der understøtter hierarki (f.eks. Organization, Business Capabili
 - **Parent** — Kortets forælder i hierarkiet (klik for at navigere)
 - **Children** — Liste over barnekort (klik på et for at navigere)
 - **Hierarki-brødkrumme** — Viser den fulde sti fra rod til aktuelt kort
+- **Forbindelsestype** — Når en administrator har konfigureret forbindelsestyper for denne korttype, kan hver forælder-barn-forbindelse få en etiket — for eksempel ét datterselskab, der er *kommercielt*, og et andet, der står for *salg*. Etiketten hører til barnekortet: forælderkortet viser den ud for hvert barn, og barnekortet ud for sin forælder. Fjernes et kort, eller flyttes det til øverste niveau, ryddes etiketten, og ændringen registreres under fanen **Historik**.
 
 ### Relations-sektion
 

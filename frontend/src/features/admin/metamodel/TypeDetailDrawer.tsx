@@ -34,12 +34,19 @@ import type {
 } from "@/types";
 import { emptyField } from "./helpers";
 import TypeColorPreview from "./TypeColorPreview";
-import { useRelationLabel, useSubtypeLabel, useTypeLabel } from "@/hooks/useResolveLabel";
+import {
+  useOptionLabel,
+  useRelationLabel,
+  useSubtypeLabel,
+  useTypeLabel,
+} from "@/hooks/useResolveLabel";
 import FieldEditorDialog from "./FieldEditorDialog";
 import DataQualityPanel from "./DataQualityPanel";
 import StakeholderRolePanel from "./StakeholderRolePanel";
 import CardTypePermissionsPanel from "./CardTypePermissionsPanel";
 import TranslationDialog from "./TranslationDialog";
+import HierarchyLabelsDialog from "./HierarchyLabelsDialog";
+import OptionChip from "@/components/OptionChip";
 import { successorRelationKeys } from "@/lib/successorRelation";
 
 /* ------------------------------------------------------------------ */
@@ -82,6 +89,7 @@ export default function TypeDetailDrawer({
   const { t, i18n } = useTranslation(["admin", "common"]);
   const locale = i18n.language;
   const stLabel = useSubtypeLabel();
+  const optLabel = useOptionLabel();
   const relationLabel = useRelationLabel();
   const typeLabel = useTypeLabel();
   const cardTypeKey = types.find((ct) => ct.key === typeKey) || null;
@@ -118,6 +126,7 @@ export default function TypeDetailDrawer({
 
   /* --- Subtype template editor --- */
   const [editingSubtypeKey, setEditingSubtypeKey] = useState<string | null>(null);
+  const [hierarchyLabelsOpen, setHierarchyLabelsOpen] = useState(false);
   const [draftHiddenFields, setDraftHiddenFields] = useState<Set<string>>(new Set());
 
   /* --- Translation dialog --- */
@@ -869,6 +878,39 @@ export default function TypeDetailDrawer({
             )}
         </Box>
 
+        {/* -- Hierarchy link labels (#1100) -- */}
+        {/* Only for hierarchical types: without a parent/child edge there is
+            nothing to label. Rendered whether or not a vocabulary exists yet,
+            so the feature is discoverable; an empty one renders nowhere else. */}
+        {cardTypeKey.has_hierarchy && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
+              {t("metamodel.hierarchyLabels.title")}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              {t("metamodel.hierarchyLabels.help")}
+            </Typography>
+            {(cardTypeKey.hierarchy_labels || []).length > 0 ? (
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 1.5 }}>
+                {(cardTypeKey.hierarchy_labels || []).map((o) => (
+                  <OptionChip key={o.key} option={o} label={optLabel(o)} />
+                ))}
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                {t("metamodel.hierarchyLabels.none")}
+              </Typography>
+            )}
+            <Button
+              size="small"
+              startIcon={<MaterialSymbol icon="edit" size={16} />}
+              onClick={() => setHierarchyLabelsOpen(true)}
+            >
+              {t("metamodel.hierarchyLabels.edit")}
+            </Button>
+          </Box>
+        )}
+
         {/* -- Card Layout -- */}
         {cardTypeKey && (
           <CardLayoutEditor
@@ -1103,6 +1145,17 @@ export default function TypeDetailDrawer({
         onSave={() => {
           onRefresh();
           setSnack(t("metamodel.translationDialog.saved"));
+        }}
+      />
+
+      {/* --- Hierarchy link labels dialog (#1100) --- */}
+      <HierarchyLabelsDialog
+        open={hierarchyLabelsOpen}
+        cardType={cardTypeKey}
+        onClose={() => setHierarchyLabelsOpen(false)}
+        onSaved={() => {
+          onRefresh();
+          setSnack(t("metamodel.hierarchyLabels.saved"));
         }}
       />
 

@@ -306,6 +306,9 @@ function buildCardRowForType(
     description: card.description ?? "",
     subtype: card.subtype ?? "",
     parent_path: buildParentPath(card, byId),
+    // The raw option key, not its label: the importer resolves keys, so an
+    // export has to round-trip. Every other option-valued column does the same.
+    parent_label: card.parent_label ?? "",
     external_id: card.external_id ?? "",
     reference: card.reference ?? "",
     alias: card.alias ?? "",

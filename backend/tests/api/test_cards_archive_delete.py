@@ -189,6 +189,25 @@ class TestDisconnect:
             assert row.parent_id is None
             assert row.status == "ACTIVE"
 
+    async def test_archive_disconnect_clears_the_hierarchy_link_label(self, client, db, env):
+        """A link label describes an edge — landing at the top level ends it."""
+        admin = env["admin"]
+        p = await create_card(db, name="P", user_id=admin.id)
+        c = await create_card(
+            db, name="C", parent_id=p.id, parent_label="commercial", user_id=admin.id
+        )
+
+        resp = await client.post(
+            f"/api/v1/cards/{p.id}/archive",
+            json={"child_strategy": "disconnect"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+
+        row = (await db.execute(select(Card).where(Card.id == c.id))).scalar_one()
+        assert row.parent_id is None
+        assert row.parent_label is None
+
     async def test_archive_disconnect_breaks_approved_children(self, client, db, env):
         admin = env["admin"]
         p = await create_card(db, name="P", user_id=admin.id)
@@ -234,6 +253,64 @@ class TestReparent:
         c_row = (await db.execute(select(Card).where(Card.id == c.id))).scalar_one()
         assert c_row.parent_id == gp.id
         assert c_row.status == "ACTIVE"
+
+    async def test_archive_reparent_keeps_the_hierarchy_link_label(self, client, db, env):
+        """Handed to the grandparent is still a parent, so the label survives."""
+        admin = env["admin"]
+        gp = await create_card(db, name="GP", user_id=admin.id)
+        p = await create_card(db, name="P", parent_id=gp.id, user_id=admin.id)
+        c = await create_card(
+            db, name="C", parent_id=p.id, parent_label="commercial", user_id=admin.id
+        )
+
+        resp = await client.post(
+            f"/api/v1/cards/{p.id}/archive",
+            json={"child_strategy": "reparent"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+
+        row = (await db.execute(select(Card).where(Card.id == c.id))).scalar_one()
+        assert row.parent_id == gp.id
+        assert row.parent_label == "commercial"
+
+    async def test_archive_reparent_without_a_grandparent_clears_the_label(self, client, db, env):
+        """No grandparent means this reparent IS a disconnect — label included."""
+        admin = env["admin"]
+        p = await create_card(db, name="P", user_id=admin.id)
+        c = await create_card(
+            db, name="C", parent_id=p.id, parent_label="commercial", user_id=admin.id
+        )
+
+        resp = await client.post(
+            f"/api/v1/cards/{p.id}/archive",
+            json={"child_strategy": "reparent"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+
+        row = (await db.execute(select(Card).where(Card.id == c.id))).scalar_one()
+        assert row.parent_id is None
+        assert row.parent_label is None
+
+    async def test_archive_cascade_leaves_the_link_label_alone(self, client, db, env):
+        """Cascade leaves `parent_id` intact by design, so the label stands too."""
+        admin = env["admin"]
+        p = await create_card(db, name="P", user_id=admin.id)
+        c = await create_card(
+            db, name="C", parent_id=p.id, parent_label="commercial", user_id=admin.id
+        )
+
+        resp = await client.post(
+            f"/api/v1/cards/{p.id}/archive",
+            json={"child_strategy": "cascade"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+
+        row = (await db.execute(select(Card).where(Card.id == c.id))).scalar_one()
+        assert row.parent_id == p.id
+        assert row.parent_label == "commercial"
 
     async def test_archive_reparent_no_grandparent_falls_back_to_disconnect(self, client, db, env):
         admin = env["admin"]

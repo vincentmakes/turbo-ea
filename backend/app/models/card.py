@@ -20,6 +20,11 @@ class Card(Base, UUIDMixin, TimestampMixin):
     parent_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("cards.id"), index=True
     )
+    # Label on this card's edge to its parent, drawn from the card type's
+    # ``hierarchy_labels`` vocabulary (discussion #1100). The hierarchy edge is
+    # one column on the child row, so its label is too — there is no join table
+    # and no `relations` row behind a parent/child link.
+    parent_label: Mapped[str | None] = mapped_column(String(100))
     lifecycle: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     attributes: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
