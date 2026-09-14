@@ -161,7 +161,7 @@
   "metamodel.typeDrawer.sectionUsedByCards": "<strong>{{count}} Karte(n)</strong> haben Daten für Felder in diesem Abschnitt. Beim Löschen werden diese Daten dauerhaft aus allen entfernt.",
   "metamodel.typeDrawer.sectionSafeToDelete": "Keine Karten haben Daten für Felder in diesem Abschnitt. Er kann sicher gelöscht werden.",
   "metamodel.hierarchyLabels.title": "Hierarchie-Verbindungstypen",
-  "metamodel.hierarchyLabels.help": "Benennen Sie jede Eltern-Kind-Verbindung in der Hierarchie dieses Typs — zum Beispiel eine Tochtergesellschaft, die für den Vertrieb und nicht für den Verkauf zuständig ist. Bearbeiter wählen pro Verbindung auf der Karte einen Typ aus.",
+  "metamodel.hierarchyLabels.help": "Benennen Sie jede Eltern-Kind-Verbindung in der Hierarchie eines Kartentyps — zum Beispiel eine Tochtergesellschaft, die für den Vertrieb und nicht für den Verkauf zuständig ist. Bearbeiter wählen pro Verbindung auf der Karte einen Typ aus.",
   "metamodel.hierarchyLabels.none": "Keine Verbindungstypen definiert",
   "metamodel.hierarchyLabels.edit": "Verbindungstypen bearbeiten",
   "metamodel.hierarchyLabels.add": "Verbindungstyp hinzufügen",

@@ -161,7 +161,7 @@
   "metamodel.typeDrawer.sectionUsedByCards": "<strong>{{count}} fiche(s)</strong> ont des données pour les champs de cette section. La supprimer supprimera définitivement ces données de toutes ces fiches.",
   "metamodel.typeDrawer.sectionSafeToDelete": "Aucune fiche n’a de données pour les champs de cette section. Elle peut être supprimée sans risque.",
   "metamodel.hierarchyLabels.title": "Types de lien hiérarchique",
-  "metamodel.hierarchyLabels.help": "Qualifiez chaque lien parent-enfant dans la hiérarchie de ce type — par exemple une filiale commerciale plutôt que vente. Les éditeurs en choisissent un par lien sur la fiche.",
+  "metamodel.hierarchyLabels.help": "Qualifiez chaque lien parent-enfant dans la hiérarchie d'un type de fiche — par exemple une filiale commerciale plutôt que vente. Les éditeurs en choisissent un par lien sur la fiche.",
   "metamodel.hierarchyLabels.none": "Aucun type de lien défini",
   "metamodel.hierarchyLabels.edit": "Modifier les types de lien",
   "metamodel.hierarchyLabels.add": "Ajouter un type de lien",

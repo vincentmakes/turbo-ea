@@ -161,7 +161,7 @@
   "metamodel.typeDrawer.sectionUsedByCards": "<strong>{{count}} 张卡片</strong>包含此分区中字段的数据。删除它将从所有卡片中永久移除该数据。",
   "metamodel.typeDrawer.sectionSafeToDelete": "没有卡片包含此分区中字段的数据。可以安全删除。",
   "metamodel.hierarchyLabels.title": "层级关联类型",
-  "metamodel.hierarchyLabels.help": "为该类型层级中的每条父子关联加上标签 — 例如某子公司负责商务而非销售。编辑者在卡片上为每条关联选择一个类型。",
+  "metamodel.hierarchyLabels.help": "为某个卡片类型层级中的每条父子关联加上标签 — 例如某子公司负责商务而非销售。编辑者在卡片上为每条关联选择一个类型。",
   "metamodel.hierarchyLabels.none": "尚未定义关联类型",
   "metamodel.hierarchyLabels.edit": "编辑关联类型",
   "metamodel.hierarchyLabels.add": "添加关联类型",

@@ -34,20 +34,14 @@ import type {
 } from "@/types";
 import { emptyField } from "./helpers";
 import TypeColorPreview from "./TypeColorPreview";
-import {
-  useOptionLabel,
-  useRelationLabel,
-  useSubtypeLabel,
-  useTypeLabel,
-} from "@/hooks/useResolveLabel";
+import { useSubtypeLabel } from "@/hooks/useResolveLabel";
 import FieldEditorDialog from "./FieldEditorDialog";
 import DataQualityPanel from "./DataQualityPanel";
 import StakeholderRolePanel from "./StakeholderRolePanel";
 import CardTypePermissionsPanel from "./CardTypePermissionsPanel";
 import TranslationDialog from "./TranslationDialog";
-import HierarchyLabelsDialog from "./HierarchyLabelsDialog";
-import OptionChip from "@/components/OptionChip";
-import { successorRelationKeys } from "@/lib/successorRelation";
+import HierarchyLinkTypesSection from "./HierarchyLinkTypesSection";
+import RelationTypesPanel from "./RelationTypesPanel";
 
 /* ------------------------------------------------------------------ */
 /*  Type Detail Dialog (full-width, 2-panel layout)                    */
@@ -74,7 +68,6 @@ export interface TypeDrawerProps {
   relationTypes: RType[];
   onClose: () => void;
   onRefresh: () => void;
-  onCreateRelation: (preselectedTypeKey: string) => void;
 }
 
 export default function TypeDetailDrawer({
@@ -84,14 +77,10 @@ export default function TypeDetailDrawer({
   relationTypes,
   onClose,
   onRefresh,
-  onCreateRelation,
 }: TypeDrawerProps) {
   const { t, i18n } = useTranslation(["admin", "common"]);
   const locale = i18n.language;
   const stLabel = useSubtypeLabel();
-  const optLabel = useOptionLabel();
-  const relationLabel = useRelationLabel();
-  const typeLabel = useTypeLabel();
   const cardTypeKey = types.find((ct) => ct.key === typeKey) || null;
 
   /* --- Editable header state --- */
@@ -126,7 +115,6 @@ export default function TypeDetailDrawer({
 
   /* --- Subtype template editor --- */
   const [editingSubtypeKey, setEditingSubtypeKey] = useState<string | null>(null);
-  const [hierarchyLabelsOpen, setHierarchyLabelsOpen] = useState(false);
   const [draftHiddenFields, setDraftHiddenFields] = useState<Set<string>>(new Set());
 
   /* --- Translation dialog --- */
@@ -217,15 +205,6 @@ export default function TypeDetailDrawer({
   }, [cardTypeKey, locale]);
 
   if (!cardTypeKey) return null;
-
-  // Only the card type's ONE lineage relation is hidden here (it is managed by the
-  // "Supports Lineage" toggle); any other self-pair type is an ordinary relation.
-  const successorKeys = successorRelationKeys(relationTypes);
-  const connectedRelations = relationTypes.filter(
-    (r) =>
-      (r.source_type_key === cardTypeKey.key || r.target_type_key === cardTypeKey.key) &&
-      !successorKeys.has(r.key),
-  );
 
   /* --- Save header --- */
   const handleSaveHeader = async () => {
@@ -878,39 +857,6 @@ export default function TypeDetailDrawer({
             )}
         </Box>
 
-        {/* -- Hierarchy link labels (#1100) -- */}
-        {/* Only for hierarchical types: without a parent/child edge there is
-            nothing to label. Rendered whether or not a vocabulary exists yet,
-            so the feature is discoverable; an empty one renders nowhere else. */}
-        {cardTypeKey.has_hierarchy && (
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
-              {t("metamodel.hierarchyLabels.title")}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              {t("metamodel.hierarchyLabels.help")}
-            </Typography>
-            {(cardTypeKey.hierarchy_labels || []).length > 0 ? (
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 1.5 }}>
-                {(cardTypeKey.hierarchy_labels || []).map((o) => (
-                  <OptionChip key={o.key} option={o} label={optLabel(o)} />
-                ))}
-              </Box>
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                {t("metamodel.hierarchyLabels.none")}
-              </Typography>
-            )}
-            <Button
-              size="small"
-              startIcon={<MaterialSymbol icon="edit" size={16} />}
-              onClick={() => setHierarchyLabelsOpen(true)}
-            >
-              {t("metamodel.hierarchyLabels.edit")}
-            </Button>
-          </Box>
-        )}
-
         {/* -- Card Layout -- */}
         {cardTypeKey && (
           <CardLayoutEditor
@@ -929,86 +875,24 @@ export default function TypeDetailDrawer({
         {/* -- Relations tab -- */}
         {tab === "relations" && (
           <Box>
-            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
-              {t("metamodel.typeDrawer.relations")}
-            </Typography>
-            {connectedRelations.length > 0 ? (
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 1 }}>
-                {connectedRelations.map((r) => {
-                  const isSource = r.source_type_key === cardTypeKey.key;
-                  const otherKey = isSource ? r.target_type_key : r.source_type_key;
-                  const otherType = types.find((ct) => ct.key === otherKey);
-                  const isVisible = isSource ? r.source_visible : r.target_visible;
-                  const isMandatory = isSource ? r.source_mandatory : r.target_mandatory;
-                  const handleToggle = async (field: string, value: boolean) => {
-                    try {
-                      await api.patch(`/metamodel/relation-types/${r.key}`, { [field]: value });
-                      onRefresh();
-                    } catch {
-                      setError(t("common:errors.generic"));
-                    }
-                  };
-                  return (
-                    <Box
-                      key={r.key}
-                      sx={{
-                        p: 1.5,
-                        border: "1px solid",
-                        borderColor: "divider",
-                        borderRadius: 1,
-                      }}
-                    >
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", mb: 1 }}>
-                        <Typography variant="body2" fontWeight={500}>
-                          {isSource ? relationLabel(r) : relationLabel(r, true)}
-                        </Typography>
-                        <MaterialSymbol icon={isSource ? "arrow_forward" : "arrow_back"} size={14} color="#999" />
-                        {otherType && (
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                            <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: otherType.color, flexShrink: 0 }} />
-                            <Typography variant="body2">{typeLabel(otherType)}</Typography>
-                          </Box>
-                        )}
-                        <Chip size="small" label={r.cardinality} variant="outlined" sx={{ height: 20, fontSize: 11 }} />
-                      </Box>
-                      <Box sx={{ display: "flex", gap: 2 }}>
-                        <Tooltip title={t("metamodel.typeDrawer.visibleTooltip")}>
-                          <FormControlLabel
-                            control={
-                              <Switch
-                                size="small"
-                                checked={isVisible}
-                                onChange={(_, v) => handleToggle(isSource ? "source_visible" : "target_visible", v)}
-                              />
-                            }
-                            label={<Typography variant="caption">{t("metamodel.typeDrawer.visible")}</Typography>}
-                          />
-                        </Tooltip>
-                        <Tooltip title={t("metamodel.typeDrawer.mandatoryTooltip")}>
-                          <FormControlLabel
-                            control={
-                              <Switch
-                                size="small"
-                                checked={isMandatory}
-                                onChange={(_, v) => handleToggle(isSource ? "source_mandatory" : "target_mandatory", v)}
-                              />
-                            }
-                            label={<Typography variant="caption">{t("metamodel.typeDrawer.mandatory")}</Typography>}
-                          />
-                        </Tooltip>
-                      </Box>
-                    </Box>
-                  );
-                })}
-              </Box>
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                {t("metamodel.typeDrawer.noRelations")}
-              </Typography>
-            )}
-            <Button size="small" startIcon={<MaterialSymbol icon="add" size={16} />} onClick={() => onCreateRelation(cardTypeKey.key)}>
-              {t("metamodel.typeDrawer.addRelation")}
-            </Button>
+            {/* A parent→child link is a relationship, so its vocabulary sits
+                here beside the relation types rather than on the main tab
+                next to Subtypes, where it first landed (#1100). */}
+            <HierarchyLinkTypesSection
+              types={types}
+              scopeTypeKey={cardTypeKey.key}
+              onRefresh={onRefresh}
+              onSaved={() => setSnack(t("metamodel.hierarchyLabels.saved"))}
+            />
+            {/* The same panel the general Relation Types tab renders, scoped to
+                this card type — so editing verbs, cardinality, relation values,
+                deletion and the hidden badge are all reachable from here too. */}
+            <RelationTypesPanel
+              types={types}
+              relationTypes={relationTypes}
+              onRefresh={onRefresh}
+              scopeTypeKey={cardTypeKey.key}
+            />
           </Box>
         )}
 
@@ -1145,17 +1029,6 @@ export default function TypeDetailDrawer({
         onSave={() => {
           onRefresh();
           setSnack(t("metamodel.translationDialog.saved"));
-        }}
-      />
-
-      {/* --- Hierarchy link labels dialog (#1100) --- */}
-      <HierarchyLabelsDialog
-        open={hierarchyLabelsOpen}
-        cardType={cardTypeKey}
-        onClose={() => setHierarchyLabelsOpen(false)}
-        onSaved={() => {
-          onRefresh();
-          setSnack(t("metamodel.hierarchyLabels.saved"));
         }}
       />
 

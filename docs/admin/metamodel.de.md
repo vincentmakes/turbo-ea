@@ -118,18 +118,6 @@ Zum Beispiel hat der Typ Anwendung die Subtypen: Geschäftsanwendung, Microservi
 
 Wenn bei einer Karte kein Subtyp ausgewählt ist (oder der Typ keine Subtypen hat), sind alle Felder sichtbar. Ausgeblendete Felder behalten ihre Daten — wenn sich der Subtyp einer Karte ändert, bleiben zuvor ausgeblendete Werte erhalten.
 
-#### Hierarchie-Verbindungstypen
-
-Für einen Kartentyp mit aktivierter Hierarchie können Sie **Verbindungstypen** definieren — ein kurzes Vokabular, das jede Eltern-Kind-Verbindung benennt. In einem Organisationsbaum lässt sich so eine Tochtergesellschaft als *Vertrieb* und eine andere als *Verkauf* kennzeichnen, ohne einen zweiten Beziehungstyp anzulegen.
-
-1. Öffnen Sie die Typ-Schublade und suchen Sie **Hierarchie-Verbindungstypen** (nur bei hierarchischen Typen sichtbar).
-2. Klicken Sie auf **Verbindungstypen bearbeiten** und fügen Sie pro Bezeichnung einen Eintrag mit Schlüssel, Namen und Farbe hinzu.
-3. Übersetzen Sie die Namen über die Schaltfläche **Übersetzen**, wie jede andere Metamodell-Bezeichnung.
-
-Bearbeiter wählen den Verbindungstyp anschließend im Abschnitt **Hierarchie** der Karte oder in der Spalte **Verbindungstyp** des Inventars. Die Bezeichnung gehört zur untergeordneten Karte und entfällt automatisch, sobald diese auf die oberste Ebene verschoben wird.
-
-Das Entfernen eines Verbindungstyps überschreibt **nicht** die Karten, die ihn bereits verwenden: Sie behalten den gespeicherten Wert und zeigen ihn als unbekannten Verbindungstyp an, bis ihn jemand ändert — ein versehentliches Entfernen geht also nicht mit Datenverlust einher. Der Dialog nennt vor dem Bestätigen die Anzahl der betroffenen Karten.
-
 #### Stakeholder-Rollen
 
 Definieren Sie benutzerdefinierte Rollen für diesen Typ (z.B. «Anwendungseigner», «Technischer Eigner»). Jede Rolle hat **kartenebene Berechtigungen**, die beim Zugriff auf eine Karte mit der anwendungsweiten Rolle des Benutzers kombiniert werden. Siehe [Benutzer & Rollen](users.md) für mehr zum Berechtigungsmodell.
@@ -199,9 +187,23 @@ Beziehungstypen definieren die zulässigen Verbindungen zwischen Kartentypen. Je
 
 Klicken Sie auf **+ Neuer Beziehungstyp**, um eine Beziehung zu erstellen, oder klicken Sie auf einen bestehenden, um dessen Bezeichnungen und Attribute zu bearbeiten.
 
+Jede Beziehungszeile trägt außerdem die Schalter **Sichtbar** und **Pflichtfeld** für *jedes* ihrer beiden Enden, benannt nach dem Kartentyp, für den sie gelten: Sichtbar entscheidet, ob die Beziehung auf der Kartendetailseite dieses Typs erscheint, Pflichtfeld, ob sie ausgefüllt werden muss. Ein Beziehungstyp, dessen beide Enden derselbe Kartentyp sind, erhält je Richtung ein eigenes Schalterpaar, sodass die eingehende Seite getrennt von der ausgehenden konfiguriert werden kann.
+
 Die Felder **Bezeichnung** und **Umgekehrte Bezeichnung** werden in der Sprache erfasst, die Sie gerade verwenden — die Feldbeschriftung zeigt an, welche (zum Beispiel *Bezeichnung (Deutsch)*). Beim Umbenennen einer Beziehung wird diese Sprache überall aktualisiert, wo das Verb erscheint: im Abschnitt **Beziehungen** einer Karte, in den Beziehungsspalten des Inventars, in Berichten, Portalen und Diagrammen. Andere Sprachen behalten ihre eigene Formulierung, bis Sie sie übersetzen.
 
 Mit **Übersetzungen verwalten** oben im Reiter Beziehungstypen übersetzen Sie die Verben aller Beziehungen in einem Durchgang in jede aktivierte Sprache. Wählen Sie einen Sprachreiter, tragen Sie die Formulierung neben dem englischen Original ein und speichern Sie — der Zähler auf jedem Reiter zeigt, wie viele Verben in dieser Sprache noch fehlen. Englisch erscheint hier nicht, denn es ist die Formulierung an der Beziehung selbst; ein nicht übersetztes Verb fällt darauf zurück.
+
+### Hierarchie-Verbindungstypen
+
+Für einen Kartentyp mit aktivierter Hierarchie können Sie **Verbindungstypen** definieren — ein kurzes Vokabular, das jede Eltern-Kind-Verbindung benennt. In einem Organisationsbaum lässt sich so eine Tochtergesellschaft als *Vertrieb* und eine andere als *Verkauf* kennzeichnen, ohne einen zweiten Beziehungstyp anzulegen.
+
+1. Suchen Sie auf dem Tab **Beziehungstypen** über der Beziehungsliste **Hierarchie-Verbindungstypen** — dort ist jeder Kartentyp mit aktivierter Hierarchie aufgeführt. Der Tab **Beziehungen** eines Kartentyps zeigt denselben Abschnitt, auf diesen Typ beschränkt.
+2. Klicken Sie auf **Verbindungstypen bearbeiten** und fügen Sie pro Bezeichnung einen Eintrag mit Schlüssel, Namen und Farbe hinzu.
+3. Übersetzen Sie die Namen über die Schaltfläche **Übersetzen**, wie jede andere Metamodell-Bezeichnung.
+
+Bearbeiter wählen den Verbindungstyp anschließend im Abschnitt **Hierarchie** der Karte oder in der Spalte **Verbindungstyp** des Inventars. Die Bezeichnung gehört zur untergeordneten Karte und entfällt automatisch, sobald diese auf die oberste Ebene verschoben wird.
+
+Das Entfernen eines Verbindungstyps überschreibt **nicht** die Karten, die ihn bereits verwenden: Sie behalten den gespeicherten Wert und zeigen ihn als unbekannten Verbindungstyp an, bis ihn jemand ändert — ein versehentliches Entfernen geht also nicht mit Datenverlust einher. Der Dialog nennt vor dem Bestätigen die Anzahl der betroffenen Karten.
 
 ### Beziehungsattribute
 

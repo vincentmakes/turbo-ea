@@ -161,7 +161,7 @@
   "metamodel.typeDrawer.sectionUsedByCards": "لدى <strong>{{count}} بطاقة</strong> بيانات لحقول في هذا القسم. سيؤدي حذفه إلى إزالة تلك البيانات نهائيًا منها جميعًا.",
   "metamodel.typeDrawer.sectionSafeToDelete": "لا توجد بطاقات لديها بيانات لحقول في هذا القسم. يمكن حذفه بأمان.",
   "metamodel.hierarchyLabels.title": "أنواع الروابط الهرمية",
-  "metamodel.hierarchyLabels.help": "سمِّ كل رابط بين الأصل والفرع في هرمية هذا النوع — مثل شركة تابعة تتولى الشؤون التجارية بدل المبيعات. يختار المحررون نوعًا لكل رابط على البطاقة.",
+  "metamodel.hierarchyLabels.help": "سمِّ كل رابط بين الأصل والفرع في هرمية نوع من البطاقات — مثل شركة تابعة تتولى الشؤون التجارية بدل المبيعات. يختار المحررون نوعًا لكل رابط على البطاقة.",
   "metamodel.hierarchyLabels.none": "لم تُحدَّد أنواع روابط",
   "metamodel.hierarchyLabels.edit": "تعديل أنواع الروابط",
   "metamodel.hierarchyLabels.add": "إضافة نوع رابط",

@@ -21,8 +21,6 @@ import Switch from "@mui/material/Switch";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
-import Alert from "@mui/material/Alert";
-import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import IconPicker from "@/components/IconPicker";
@@ -33,73 +31,27 @@ import RegulationsAdmin from "@/features/admin/RegulationsAdmin";
 import ResourceTypesAdmin from "@/features/admin/ResourceTypesAdmin";
 import TagsAdmin from "@/features/admin/TagsAdmin";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useFieldLabel, useRelationLabel, useTypeLabel } from "@/hooks/useResolveLabel";
-import { LOCALE_LABELS } from "@/i18n";
 import { api } from "@/api/client";
-import type {
-  CardType as FSType,
-  RelationType as RType,
-  MetamodelTranslations,
-} from "@/types";
-import {
-  TypeDetailDrawer,
-  MetamodelGraph,
-  RelationTypeValuesDialog,
-  RelationTranslationDialog,
-} from "./metamodel";
-import { cleanTranslations, deriveRelationKey } from "./metamodel/helpers";
-import { CATEGORIES, CARDINALITY_OPTIONS } from "./metamodel/constants";
+import type { CardType as FSType, RelationType as RType } from "@/types";
+import { TypeDetailDrawer, MetamodelGraph } from "./metamodel";
+import RelationTypesPanel from "./metamodel/RelationTypesPanel";
+import HierarchyLinkTypesSection from "./metamodel/HierarchyLinkTypesSection";
+import { CATEGORIES } from "./metamodel/constants";
 import { successorRelationKeys } from "@/lib/successorRelation";
-
-/**
- * English is the base language: it lives in the `label` / `reverse_label`
- * columns and is the fallback every locale without its own translation falls
- * back to. Accepts region variants ("en-US") so a browser-provided locale
- * still counts as English.
- */
-function isBaseLocale(locale: string): boolean {
-  return locale.split("-")[0] === "en";
-}
-
-/**
- * Merge a relation-type verb edit into the per-locale `translations` map.
- *
- * `translations[property][locale]` SHADOWS the raw column everywhere labels are
- * resolved (`relationLabel` in `useResolveLabel.ts`), and every seeded relation
- * type carries an `en` entry. Writing only the column therefore renamed nothing
- * a user could see (#912) — the translation has to move with it.
- */
-function mergeVerbTranslation(
-  trans: MetamodelTranslations | undefined,
-  property: "label" | "reverse_label",
-  locale: string,
-  value: string,
-): MetamodelTranslations {
-  return {
-    ...trans,
-    [property]: { ...trans?.[property], [locale]: value },
-  };
-}
 
 /* ================================================================== */
 /*  Main Component                                                     */
 /* ================================================================== */
 
 export default function MetamodelAdmin() {
-  const { t, i18n } = useTranslation(["admin", "common"]);
+  const { t } = useTranslation(["admin", "common"]);
   const { invalidateCache } = useMetamodel();
-  const fieldLabel = useFieldLabel();
-  const relationLabel = useRelationLabel();
-  const typeLabel = useTypeLabel();
-  const locale = i18n.language;
-  const localeSuffix = ` (${LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] || locale})`;
 
   const [tab, setTab] = useState(0);
   const [types, setTypes] = useState<FSType[]>([]);
   const [relationTypes, setRelationTypes] = useState<RType[]>([]);
   const [loading, setLoading] = useState(true);
   const [showHidden, setShowHidden] = useState(false);
-  const [showHiddenRels, setShowHiddenRels] = useState(false);
 
   /* --- Drawer state --- */
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -117,41 +69,6 @@ export default function MetamodelAdmin() {
     has_successors: false,
     description: "",
   });
-
-  /* --- Create relation dialog --- */
-  const [createRelOpen, setCreateRelOpen] = useState(false);
-  const [newRel, setNewRel] = useState({
-    key: "",
-    label: "",
-    reverse_label: "",
-    source_type_key: "",
-    target_type_key: "",
-    cardinality: "1:n" as "1:1" | "1:n" | "n:m",
-    translations: {} as MetamodelTranslations,
-  });
-
-  /* --- Edit relation dialog --- */
-  const [editRelOpen, setEditRelOpen] = useState(false);
-  const [editRel, setEditRel] = useState<(RType & { translations?: MetamodelTranslations }) | null>(null);
-  const [relError, setRelError] = useState<string | null>(null);
-  // True once the admin edits the key by hand. The suggestion tracks the types
-  // and verb until then; after that the key is theirs and a later type change
-  // must not silently wipe it.
-  const [relKeyTouched, setRelKeyTouched] = useState(false);
-
-  /* --- Manage relation "type" values dialog --- */
-  const [valuesRel, setValuesRel] = useState<RType | null>(null);
-
-  /* --- Relation verb translations dialog --- */
-  const [translateRelsOpen, setTranslateRelsOpen] = useState(false);
-
-  /* --- Delete relation confirmation --- */
-  const [deleteRelConfirm, setDeleteRelConfirm] = useState<{
-    key: string;
-    label: string;
-    builtIn: boolean;
-    instanceCount: number | null; // null = not yet fetched
-  } | null>(null);
 
   /* ---- Data fetching ---- */
   const fetchData = useCallback(async () => {
@@ -182,43 +99,6 @@ export default function MetamodelAdmin() {
     ? types
     : types.filter((ct) => !ct.is_hidden);
 
-  const successorRelKeys = useMemo(() => successorRelationKeys(relationTypes), [relationTypes]);
-
-  const displayRelationTypes = (showHiddenRels
-    ? relationTypes
-    : relationTypes.filter((r) => !r.is_hidden)
-    // Hide each card type's ONE lineage relation (managed by the type's "Supports
-    // Lineage" toggle) — but never every `*Successor`-suffixed key: any other
-    // self-pair relation type is an ordinary relation and must stay editable here.
-  ).filter((r) => !successorRelKeys.has(r.key));
-
-  // Suggested key for a new relation type. The rule lives in
-  // `metamodel/helpers.deriveRelationKey` so the unit test exercises the real
-  // implementation rather than a copy that could silently drift from it.
-  const autoRelKey = useMemo(
-    () =>
-      deriveRelationKey(
-        newRel.source_type_key,
-        newRel.target_type_key,
-        newRel.label,
-        relationTypes,
-      ),
-    [newRel.source_type_key, newRel.target_type_key, newRel.label, relationTypes],
-  );
-
-  // Relation types already connecting the chosen pair. Not an error — the
-  // metamodel allows any number — but worth surfacing, since a variant of one
-  // relationship is usually better modelled as an attribute on the existing type.
-  const relPairConflicts = useMemo(() => {
-    if (!newRel.source_type_key || !newRel.target_type_key) return [];
-    return relationTypes.filter(
-      (r) =>
-        !r.is_hidden &&
-        r.source_type_key === newRel.source_type_key &&
-        r.target_type_key === newRel.target_type_key
-    );
-  }, [newRel.source_type_key, newRel.target_type_key, relationTypes]);
-
   /* ---- Handlers ---- */
   const handleCreateType = async () => {
     await api.post("/metamodel/types", {
@@ -240,130 +120,15 @@ export default function MetamodelAdmin() {
     });
   };
 
-  const handleCreateRelation = async () => {
-    const finalKey = newRel.key || autoRelKey;
-    const { translations: rawTrans, ...rest } = newRel;
-    // The typed verbs always seed the base (English) columns — they are the
-    // fallback for every locale without its own entry. When the admin is
-    // working in another language, mirror them into that locale too so the
-    // create path matches what the edit dialog writes.
-    let trans = rawTrans;
-    if (!isBaseLocale(locale)) {
-      trans = mergeVerbTranslation(trans, "label", locale, rest.label);
-      if (rest.reverse_label) {
-        trans = mergeVerbTranslation(trans, "reverse_label", locale, rest.reverse_label);
-      }
-    }
-    try {
-      await api.post("/metamodel/relation-types", {
-        ...rest,
-        key: finalKey,
-        attributes_schema: [],
-        built_in: false,
-        translations: cleanTranslations(trans) || undefined,
-      });
-    } catch (e) {
-      setRelError(e instanceof Error ? e.message : t("metamodel.relationSaveFailed"));
-      return;
-    }
-    refresh();
-    setCreateRelOpen(false);
-    setRelError(null);
-    setNewRel({
-      key: "",
-      label: "",
-      reverse_label: "",
-      source_type_key: "",
-      target_type_key: "",
-      cardinality: "1:n",
-      translations: {},
-    });
-  };
+  // Still needed by the card-types tab's per-type relation count: each type's
+  // ONE lineage relation is managed by its "Supports Lineage" toggle, not
+  // counted as an ordinary relation.
+  const successorRelKeys = useMemo(() => successorRelationKeys(relationTypes), [relationTypes]);
 
-  const handleUpdateRelation = async () => {
-    if (!editRel) return;
-    try {
-      await api.patch(`/metamodel/relation-types/${editRel.key}`, {
-        label: editRel.label,
-        reverse_label: editRel.reverse_label,
-        cardinality: editRel.cardinality,
-        // `translations` is NOT NULL in the DB — send an empty map, never null.
-        translations: cleanTranslations(editRel.translations) || {},
-      });
-    } catch (e) {
-      setRelError(e instanceof Error ? e.message : t("metamodel.relationSaveFailed"));
-      return;
-    }
-    refresh();
-    setEditRelOpen(false);
-    setEditRel(null);
-    setRelError(null);
-  };
-
-  const promptDeleteRelation = (rt: RType) => {
-    setDeleteRelConfirm({
-      key: rt.key,
-      label: `${typeLabel(resolveType(rt.source_type_key)) || rt.source_type_key} → ${typeLabel(resolveType(rt.target_type_key)) || rt.target_type_key}`,
-      builtIn: rt.built_in,
-      instanceCount: null,
-    });
-    // Fetch instance count for the warning message
-    api
-      .get<{ instance_count: number }>(`/metamodel/relation-types/${rt.key}/instance-count`)
-      .then((resp) => {
-        setDeleteRelConfirm((prev) =>
-          prev ? { ...prev, instanceCount: resp.instance_count } : null
-        );
-      })
-      .catch(() => {
-        setDeleteRelConfirm((prev) =>
-          prev ? { ...prev, instanceCount: 0 } : null
-        );
-      });
-  };
-
-  const confirmDeleteRelation = async () => {
-    if (!deleteRelConfirm) return;
-    try {
-      const resp = await api.delete<{ status?: string }>(
-        `/metamodel/relation-types/${deleteRelConfirm.key}?force=true`
-      );
-      if (resp?.status === "hidden") {
-        setShowHiddenRels(true);
-      }
-      refresh();
-      setDeleteRelConfirm(null);
-    } catch {
-      // Shouldn't fail with force=true, but just in case
-    }
-  };
-
-  const handleRestoreRelation = async (key: string) => {
-    await api.post(`/metamodel/relation-types/${key}/restore`);
-    refresh();
-  };
-
-  const openCreateRelation = (preselectedTypeKey?: string) => {
-    setNewRel({
-      key: "",
-      label: "",
-      reverse_label: "",
-      source_type_key: preselectedTypeKey || "",
-      target_type_key: "",
-      cardinality: "1:n",
-      translations: {},
-    });
-    setRelError(null);
-    setRelKeyTouched(false);
-    setCreateRelOpen(true);
-  };
-
-  const handleNodeClick = useCallback((key: string) => {
-    setSelectedTypeKey(key);
+  const handleNodeClick = (typeKey: string) => {
+    setSelectedTypeKey(typeKey);
     setDrawerOpen(true);
-  }, []);
-
-  const resolveType = (key: string) => types.find((ct) => ct.key === key);
+  };
 
   /* ================================================================ */
   /*  Render                                                           */
@@ -590,237 +355,15 @@ export default function MetamodelAdmin() {
       {/* ============================================================ */}
       {tab === 1 && (
         <Box>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              mb: 2,
-            }}
-          >
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={showHiddenRels}
-                  onChange={(e) => setShowHiddenRels(e.target.checked)}
-                />
-              }
-              label={t("metamodel.showHiddenRelations")}
-            />
-            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-              <Button
-                variant="outlined"
-                startIcon={<MaterialSymbol icon="translate" size={18} />}
-                onClick={() => setTranslateRelsOpen(true)}
-              >
-                {t("metamodel.translationDialog.manage")}
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<MaterialSymbol icon="add" size={18} />}
-                onClick={() => openCreateRelation()}
-              >
-                {t("metamodel.newRelation")}
-              </Button>
-            </Box>
-          </Box>
-
-          {displayRelationTypes.map((rt) => {
-            const srcType = resolveType(rt.source_type_key);
-            const tgtType = resolveType(rt.target_type_key);
-            // "Type" dimensions = the single_select pickers managed via the
-            // Manage relation values dialog. Surface their count as a badge.
-            const typeDims = (rt.attributes_schema ?? []).filter(
-              (f) => f.type === "single_select",
-            );
-            return (
-              <Card key={rt.key} sx={{ mb: 1, opacity: rt.is_hidden ? 0.5 : 1 }}>
-                <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1.5,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    {/* Source type */}
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 0.5,
-                      }}
-                    >
-                      {srcType && (
-                        <>
-                          <Box
-                            sx={{
-                              width: 12,
-                              height: 12,
-                              borderRadius: "50%",
-                              bgcolor: srcType.color,
-                              flexShrink: 0,
-                            }}
-                          />
-                          <MaterialSymbol
-                            icon={srcType.icon}
-                            size={16}
-                            color={srcType.color}
-                          />
-                        </>
-                      )}
-                      <Typography variant="body2" fontWeight={500}>
-                        {typeLabel(srcType) || rt.source_type_key}
-                      </Typography>
-                    </Box>
-
-                    <MaterialSymbol
-                      icon="arrow_forward"
-                      size={16}
-                      color="#bbb"
-                    />
-
-                    {/* Verb */}
-                    <Typography
-                      variant="body2"
-                      fontWeight={600}
-                      color="primary.main"
-                    >
-                      {relationLabel(rt)}
-                    </Typography>
-
-                    <MaterialSymbol
-                      icon="arrow_forward"
-                      size={16}
-                      color="#bbb"
-                    />
-
-                    {/* Target type */}
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 0.5,
-                      }}
-                    >
-                      {tgtType && (
-                        <>
-                          <Box
-                            sx={{
-                              width: 12,
-                              height: 12,
-                              borderRadius: "50%",
-                              bgcolor: tgtType.color,
-                              flexShrink: 0,
-                            }}
-                          />
-                          <MaterialSymbol
-                            icon={tgtType.icon}
-                            size={16}
-                            color={tgtType.color}
-                          />
-                        </>
-                      )}
-                      <Typography variant="body2" fontWeight={500}>
-                        {typeLabel(tgtType) || rt.target_type_key}
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ flex: 1 }} />
-
-                    <Chip
-                      size="small"
-                      label={rt.cardinality}
-                      variant="outlined"
-                      sx={{ height: 22, fontSize: 11 }}
-                    />
-                    {rt.built_in && (
-                      <Chip
-                        size="small"
-                        label={t("metamodel.builtIn")}
-                        color="info"
-                        sx={{ height: 22, fontSize: 11 }}
-                      />
-                    )}
-                    {rt.is_hidden && (
-                      <Chip
-                        size="small"
-                        label={t("metamodel.hidden")}
-                        color="warning"
-                        sx={{ height: 22, fontSize: 11 }}
-                      />
-                    )}
-
-                    {typeDims.length > 0 && (
-                      <Tooltip
-                        title={typeDims
-                          .map((f) => fieldLabel(f))
-                          .join(", ")}
-                      >
-                        <Chip
-                          size="small"
-                          color="secondary"
-                          icon={<MaterialSymbol icon="sell" size={13} color="inherit" />}
-                          label={typeDims.length}
-                          sx={{ height: 22, fontSize: 11 }}
-                        />
-                      </Tooltip>
-                    )}
-
-                    {rt.is_hidden ? (
-                      <Tooltip title={t("common:actions.restore")}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRestoreRelation(rt.key)}
-                        >
-                          <MaterialSymbol icon="restore" size={18} />
-                        </IconButton>
-                      </Tooltip>
-                    ) : (
-                      <>
-                        <Tooltip title={t("metamodel.manageRelationValues")}>
-                          <IconButton size="small" onClick={() => setValuesRel(rt)}>
-                            <MaterialSymbol icon="label" size={18} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t("common:actions.edit")}>
-                          <IconButton
-                            size="small"
-                            onClick={() => {
-                              setEditRel({ ...rt });
-                              setRelError(null);
-                              setEditRelOpen(true);
-                            }}
-                          >
-                            <MaterialSymbol icon="edit" size={18} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t("common:actions.delete")}>
-                          <IconButton
-                            size="small"
-                            onClick={() => promptDeleteRelation(rt)}
-                          >
-                            <MaterialSymbol icon="delete" size={18} />
-                          </IconButton>
-                        </Tooltip>
-                      </>
-                    )}
-                  </Box>
-                </CardContent>
-              </Card>
-            );
-          })}
-
-          {relationTypes.length === 0 && !loading && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ textAlign: "center", mt: 2 }}
-            >
-              {t("metamodel.noRelationTypes")}
-            </Typography>
-          )}
+          {/* A parent→child link is a relationship, so its vocabulary lives
+              beside the relation types (#1100). */}
+          <HierarchyLinkTypesSection types={types} onRefresh={refresh} />
+          <RelationTypesPanel
+            types={types}
+            relationTypes={relationTypes}
+            onRefresh={refresh}
+            loading={loading}
+          />
         </Box>
       )}
 
@@ -870,25 +413,6 @@ export default function MetamodelAdmin() {
         relationTypes={relationTypes}
         onClose={() => setDrawerOpen(false)}
         onRefresh={refresh}
-        onCreateRelation={(preKey) => openCreateRelation(preKey)}
-      />
-
-      {/* ============================================================ */}
-      {/*  Manage Relation Values Dialog                               */}
-      {/* ============================================================ */}
-      <RelationTypeValuesDialog
-        open={!!valuesRel}
-        relationType={valuesRel}
-        onClose={() => setValuesRel(null)}
-        onSaved={refresh}
-      />
-
-      <RelationTranslationDialog
-        open={translateRelsOpen}
-        relationTypes={displayRelationTypes}
-        types={types}
-        onClose={() => setTranslateRelsOpen(false)}
-        onSaved={refresh}
       />
 
       {/* ============================================================ */}
@@ -996,344 +520,6 @@ export default function MetamodelAdmin() {
         </DialogActions>
       </Dialog>
 
-      {/* ============================================================ */}
-      {/*  Create Relation Dialog                                      */}
-      {/* ============================================================ */}
-      <Dialog
-        open={createRelOpen}
-        onClose={() => {
-          setCreateRelOpen(false);
-          setRelError(null);
-        }}
-        maxWidth="sm"
-        fullWidth
-        disableRestoreFocus
-      >
-        <DialogTitle>{t("metamodel.createRelationType")}</DialogTitle>
-        <DialogContent>
-          {relError && (
-            <Alert severity="error" sx={{ mt: 1, mb: 2 }} onClose={() => setRelError(null)}>
-              {relError}
-            </Alert>
-          )}
-          <FormControl fullWidth sx={{ mt: 1, mb: 2 }}>
-            <InputLabel>{t("metamodel.sourceType")}</InputLabel>
-            <Select
-              value={newRel.source_type_key}
-              label={t("metamodel.sourceType")}
-              onChange={(e) => {
-                const src = e.target.value;
-                setNewRel({
-                  ...newRel,
-                  source_type_key: src,
-                  // Clear so the derived key refills — unless the admin typed
-                  // their own, which theirs to keep.
-                  key: relKeyTouched ? newRel.key : "",
-                });
-              }}
-            >
-              {types.map((ct) => (
-                <MenuItem key={ct.key} value={ct.key}>
-                  <Box
-                    sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                  >
-                    <Box
-                      sx={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: "50%",
-                        bgcolor: ct.color,
-                      }}
-                    />
-                    <MaterialSymbol icon={ct.icon} size={16} color={ct.color} />
-                    {ct.label}
-                  </Box>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>{t("metamodel.targetType")}</InputLabel>
-            <Select
-              value={newRel.target_type_key}
-              label={t("metamodel.targetType")}
-              onChange={(e) => {
-                const tgt = e.target.value;
-                setNewRel({
-                  ...newRel,
-                  target_type_key: tgt,
-                  // Clear so the derived key refills — unless the admin typed
-                  // their own, which is theirs to keep.
-                  key: relKeyTouched ? newRel.key : "",
-                });
-              }}
-            >
-              {types.map((ct) => (
-                <MenuItem key={ct.key} value={ct.key}>
-                  <Box
-                    sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                  >
-                    <Box
-                      sx={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: "50%",
-                        bgcolor: ct.color,
-                      }}
-                    />
-                    <MaterialSymbol icon={ct.icon} size={16} color={ct.color} />
-                    {ct.label}
-                  </Box>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          {relPairConflicts.length > 0 && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              {t("metamodel.relPairExistsWarning", {
-                relations: relPairConflicts.map((r) => relationLabel(r)).join(", "),
-              })}
-            </Alert>
-          )}
-
-          <TextField
-            fullWidth
-            label={`${t("metamodel.labelVerb")}${localeSuffix}`}
-            value={newRel.label}
-            onChange={(e) => setNewRel({ ...newRel, label: e.target.value })}
-            sx={{ mb: 2 }}
-            error={!newRel.label.trim()}
-          />
-          <TextField
-            fullWidth
-            label={`${t("metamodel.reverseLabel")}${localeSuffix}`}
-            value={newRel.reverse_label}
-            onChange={(e) =>
-              setNewRel({ ...newRel, reverse_label: e.target.value })
-            }
-            sx={{ mb: 2 }}
-          />
-          <KeyInput
-            fullWidth
-            label={t("metamodel.keyLabel")}
-            value={newRel.key || autoRelKey}
-            onChange={(v) => {
-              setRelKeyTouched(true);
-              setNewRel({ ...newRel, key: v });
-            }}
-            sx={{ mb: 2 }}
-            size="small"
-            required={!!newRel.label.trim()}
-            hint={t("metamodel.relKeyGeneratedHint")}
-          />
-          <FormControl fullWidth>
-            <InputLabel>{t("metamodel.cardinality")}</InputLabel>
-            <Select
-              value={newRel.cardinality}
-              label={t("metamodel.cardinality")}
-              onChange={(e) =>
-                setNewRel({
-                  ...newRel,
-                  cardinality: e.target.value as "1:1" | "1:n" | "n:m",
-                })
-              }
-            >
-              {CARDINALITY_OPTIONS.map((c) => (
-                <MenuItem key={c} value={c}>
-                  {c}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateRelOpen(false)}>{t("common:actions.cancel")}</Button>
-          <Button
-            variant="contained"
-            onClick={handleCreateRelation}
-            disabled={
-              !newRel.source_type_key ||
-              !newRel.target_type_key ||
-              !(newRel.key || autoRelKey) ||
-              !newRel.label ||
-              !isValidKey(newRel.key || autoRelKey)
-            }
-          >
-            {t("common:actions.create")}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* ============================================================ */}
-      {/*  Edit Relation Dialog                                        */}
-      {/* ============================================================ */}
-      <Dialog
-        open={editRelOpen}
-        onClose={() => {
-          setEditRelOpen(false);
-          setRelError(null);
-        }}
-        maxWidth="sm"
-        fullWidth
-        disableRestoreFocus
-      >
-        <DialogTitle>{t("metamodel.editRelationType")}</DialogTitle>
-        {editRel && (
-          <>
-            <DialogContent>
-              {relError && (
-                <Alert severity="error" sx={{ mt: 1, mb: 2 }} onClose={() => setRelError(null)}>
-                  {relError}
-                </Alert>
-              )}
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  mb: 2,
-                  mt: 1,
-                }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  {typeLabel(resolveType(editRel.source_type_key)) ||
-                    editRel.source_type_key}
-                </Typography>
-                <MaterialSymbol
-                  icon="arrow_forward"
-                  size={16}
-                  color="#bbb"
-                />
-                <Typography variant="body2" color="text.secondary">
-                  {typeLabel(resolveType(editRel.target_type_key)) ||
-                    editRel.target_type_key}
-                </Typography>
-              </Box>
-              <TextField
-                fullWidth
-                label={`${t("common:labels.name")}${localeSuffix}`}
-                value={editRel.translations?.label?.[locale] ?? editRel.label}
-                onChange={(e) =>
-                  setEditRel({
-                    ...editRel,
-                    // English is the base column; other locales live only in
-                    // `translations` so the English fallback stays intact.
-                    ...(isBaseLocale(locale) ? { label: e.target.value } : {}),
-                    translations: mergeVerbTranslation(
-                      editRel.translations,
-                      "label",
-                      locale,
-                      e.target.value,
-                    ),
-                  })
-                }
-                sx={{ mb: 2 }}
-              />
-              <TextField
-                fullWidth
-                label={`${t("metamodel.reverseLabel")}${localeSuffix}`}
-                value={
-                  editRel.translations?.reverse_label?.[locale] ??
-                  editRel.reverse_label ??
-                  ""
-                }
-                onChange={(e) =>
-                  setEditRel({
-                    ...editRel,
-                    ...(isBaseLocale(locale) ? { reverse_label: e.target.value } : {}),
-                    translations: mergeVerbTranslation(
-                      editRel.translations,
-                      "reverse_label",
-                      locale,
-                      e.target.value,
-                    ),
-                  })
-                }
-                sx={{ mb: 2 }}
-              />
-              <FormControl fullWidth>
-                <InputLabel>{t("metamodel.cardinality")}</InputLabel>
-                <Select
-                  value={editRel.cardinality}
-                  label={t("metamodel.cardinality")}
-                  onChange={(e) =>
-                    setEditRel({
-                      ...editRel,
-                      cardinality: e.target.value as "1:1" | "1:n" | "n:m",
-                    })
-                  }
-                >
-                  {CARDINALITY_OPTIONS.map((c) => (
-                    <MenuItem key={c} value={c}>
-                      {c}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setEditRelOpen(false)}>{t("common:actions.cancel")}</Button>
-              <Button variant="contained" onClick={handleUpdateRelation}>
-                {t("common:actions.save")}
-              </Button>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
-
-      {/* ============================================================ */}
-      {/*  Delete Relation Confirmation Dialog                          */}
-      {/* ============================================================ */}
-      <Dialog
-        open={!!deleteRelConfirm}
-        onClose={() => setDeleteRelConfirm(null)}
-        maxWidth="xs"
-        fullWidth
-        disableRestoreFocus
-      >
-        <DialogTitle>{t("metamodel.deleteRelationType")}</DialogTitle>
-        <DialogContent>
-          {deleteRelConfirm && (
-            <>
-              <Typography variant="body2" sx={{ mt: 1, mb: 1 }}>
-                <strong>{deleteRelConfirm.label}</strong>
-              </Typography>
-              {deleteRelConfirm.instanceCount === null ? (
-                <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
-                  <CircularProgress size={24} />
-                </Box>
-              ) : deleteRelConfirm.instanceCount > 0 ? (
-                <Alert severity="warning">
-                  <span dangerouslySetInnerHTML={{ __html: t("metamodel.deleteRelHasInstances", { count: deleteRelConfirm.instanceCount }) }} />
-                </Alert>
-              ) : deleteRelConfirm.builtIn ? (
-                <Alert severity="info">
-                  {t("metamodel.deleteRelBuiltInHidden")}
-                </Alert>
-              ) : (
-                <Alert severity="info">
-                  {t("metamodel.deleteRelNoInstances")}
-                </Alert>
-              )}
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteRelConfirm(null)}>{t("common:actions.cancel")}</Button>
-          <Button
-            variant="contained"
-            color="error"
-            disabled={deleteRelConfirm?.instanceCount === null}
-            onClick={confirmDeleteRelation}
-          >
-            {deleteRelConfirm?.builtIn && deleteRelConfirm.instanceCount === 0
-              ? t("metamodel.hidden")
-              : t("common:actions.delete")}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

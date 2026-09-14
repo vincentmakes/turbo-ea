@@ -161,7 +161,7 @@
   "metamodel.typeDrawer.sectionUsedByCards": "<strong>{{count}} scheda/e</strong> contiene/contengono dati per i campi in questa sezione. L'eliminazione rimuoverà definitivamente quei dati da tutte.",
   "metamodel.typeDrawer.sectionSafeToDelete": "Nessuna scheda contiene dati per i campi in questa sezione. Può essere eliminata in sicurezza.",
   "metamodel.hierarchyLabels.title": "Tipi di collegamento gerarchico",
-  "metamodel.hierarchyLabels.help": "Etichetta ogni collegamento padre-figlio nella gerarchia di questo tipo — ad esempio una controllata commerciale anziché di vendita. Gli editor ne scelgono uno per collegamento sulla scheda.",
+  "metamodel.hierarchyLabels.help": "Etichetta ogni collegamento padre-figlio nella gerarchia di un tipo di card — ad esempio una controllata commerciale anziché di vendita. Gli editor ne scelgono uno per collegamento sulla scheda.",
   "metamodel.hierarchyLabels.none": "Nessun tipo di collegamento definito",
   "metamodel.hierarchyLabels.edit": "Modifica tipi di collegamento",
   "metamodel.hierarchyLabels.add": "Aggiungi tipo di collegamento",

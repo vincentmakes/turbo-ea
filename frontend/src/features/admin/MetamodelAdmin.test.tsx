@@ -15,12 +15,24 @@ vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: vi.fn(),
 }));
 
-// Stub complex sub-components
+// Stub complex sub-components. `RelationTypesPanel` is deliberately NOT stubbed
+// — the relation-type assertions below are its behaviour now, and running them
+// through the real panel is what proves the page still wires it up.
 vi.mock("./metamodel", () => ({
   TypeDetailDrawer: () => <div data-testid="type-detail-drawer" />,
   MetamodelGraph: () => <div data-testid="metamodel-graph" />,
-  RelationTypeValuesDialog: () => <div data-testid="relation-type-values-dialog" />,
-  RelationTranslationDialog: () => <div data-testid="relation-translation-dialog" />,
+}));
+
+vi.mock("./metamodel/RelationTypeValuesDialog", () => ({
+  default: () => <div data-testid="relation-type-values-dialog" />,
+}));
+
+vi.mock("./metamodel/RelationTranslationDialog", () => ({
+  default: () => <div data-testid="relation-translation-dialog" />,
+}));
+
+vi.mock("./metamodel/HierarchyLabelsDialog", () => ({
+  default: () => <div data-testid="hierarchy-labels-dialog" />,
 }));
 
 vi.mock("./metamodel/constants", () => ({

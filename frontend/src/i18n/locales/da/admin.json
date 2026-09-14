@@ -161,7 +161,7 @@
   "metamodel.typeDrawer.sectionUsedByCards": "<strong>{{count}} kort</strong> har data for felter i dette afsnit. Sletning fjerner disse data permanent fra dem alle.",
   "metamodel.typeDrawer.sectionSafeToDelete": "Ingen kort har data for felter i dette afsnit. Det kan sikkert slettes.",
   "metamodel.hierarchyLabels.title": "Hierarkiske forbindelsestyper",
-  "metamodel.hierarchyLabels.help": "Sæt en etiket på hver forælder-barn-forbindelse i denne types hierarki — for eksempel et datterselskab, der er kommercielt frem for salg. Redaktører vælger én pr. forbindelse på kortet.",
+  "metamodel.hierarchyLabels.help": "Sæt en etiket på hver forælder-barn-forbindelse i en korttypes hierarki — for eksempel et datterselskab, der er kommercielt frem for salg. Redaktører vælger én pr. forbindelse på kortet.",
   "metamodel.hierarchyLabels.none": "Ingen forbindelsestyper defineret",
   "metamodel.hierarchyLabels.edit": "Rediger forbindelsestyper",
   "metamodel.hierarchyLabels.add": "Tilføj forbindelsestype",

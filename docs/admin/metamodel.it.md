@@ -118,18 +118,6 @@ Ad esempio, il tipo Application ha i sottotipi: Business Application, Microservi
 
 Quando nessun sottotipo è selezionato su una card (o il tipo non ha sottotipi), tutti i campi sono visibili. I campi nascosti conservano i propri dati — se il sottotipo di una card cambia, i valori precedentemente nascosti vengono mantenuti.
 
-#### Tipi di collegamento gerarchico
-
-Per un tipo di card con la gerarchia attiva potete definire i **tipi di collegamento**: un breve vocabolario che etichetta ogni collegamento padre-figlio. In un albero di organizzazioni, per esempio, consente di segnare una controllata come *commerciale* e un'altra come di *vendita*, senza inventare un secondo tipo di relazione.
-
-1. Aprite il pannello del tipo e individuate **Tipi di collegamento gerarchico** (compare solo per i tipi gerarchici).
-2. Cliccate su **Modifica tipi di collegamento** e aggiungete una voce per etichetta, con chiave, nome e colore.
-3. Traducete i nomi con il pulsante **Traduci**, come qualsiasi altra etichetta del metamodello.
-
-Gli editor scelgono poi un tipo di collegamento nella sezione **Gerarchia** della card, o nella colonna **Tipo di collegamento** dell'inventario. L'etichetta appartiene alla card figlia, quindi viene cancellata automaticamente quando quella card viene spostata al livello superiore.
-
-Rimuovere un tipo di collegamento **non** riscrive le card che già lo usano: mantengono il valore memorizzato e lo mostrano come tipo di collegamento sconosciuto finché qualcuno non lo cambia, così una rimozione accidentale non perde nulla. La finestra indica quante card sono interessate prima della conferma.
-
 #### Ruoli stakeholder
 
 Definite ruoli personalizzati per questo tipo (es. "Application Owner", "Technical Owner"). Ogni ruolo porta **permessi a livello di card** che vengono combinati con il ruolo a livello di applicazione dell'utente quando accede a una card. Vedi [Utenti e ruoli](users.md) per maggiori informazioni sul modello dei permessi.
@@ -199,9 +187,23 @@ I tipi di relazione definiscono le connessioni consentite tra i tipi di card. Og
 
 Cliccate su **+ Nuovo tipo di relazione** per creare una relazione, o cliccate su una esistente per modificare le etichette e gli attributi.
 
+Ogni riga di relazione porta inoltre gli interruttori **Visibile** e **Obbligatorio** per *ciascuna* delle due estremità, con il nome del tipo di card a cui si applicano: Visibile decide se la relazione compare nella pagina di dettaglio di quel tipo, Obbligatorio se deve essere compilata. Un tipo di relazione le cui due estremità sono la stessa card riceve una coppia di interruttori per direzione, così il lato entrante si configura separatamente da quello uscente.
+
 I campi **Etichetta** ed **Etichetta inversa** vengono scritti nella lingua che state usando in quel momento — la didascalia del campo indica quale (ad esempio *Etichetta (Italiano)*). Rinominare una relazione aggiorna quella lingua ovunque compaia il verbo: la sezione **Relazioni** di una card, le colonne di relazione dell'inventario, i report, i portali e i diagrammi. Le altre lingue mantengono la propria formulazione finché non le traducete.
 
 Usate **Gestisci traduzioni** in cima alla scheda Tipi di relazione per tradurre i verbi di tutte le relazioni in ogni lingua abilitata in un'unica passata. Scegliete una scheda lingua, inserite la formulazione accanto all'originale inglese e salvate: il contatore su ogni scheda mostra quanti verbi mancano ancora in quella lingua. L'inglese non compare qui perché è la formulazione sulla relazione stessa; un verbo non tradotto vi ricade.
+
+### Tipi di collegamento gerarchico
+
+Per un tipo di card con la gerarchia attiva potete definire i **tipi di collegamento**: un breve vocabolario che etichetta ogni collegamento padre-figlio. In un albero di organizzazioni, per esempio, consente di segnare una controllata come *commerciale* e un'altra come di *vendita*, senza inventare un secondo tipo di relazione.
+
+1. Nella scheda **Tipi di relazione**, individuate **Tipi di collegamento gerarchico** sopra l'elenco delle relazioni: vi compare ogni tipo di card con la gerarchia attiva. La scheda **Relazioni** di un tipo di card mostra la stessa sezione, limitata a quel tipo.
+2. Cliccate su **Modifica tipi di collegamento** e aggiungete una voce per etichetta, con chiave, nome e colore.
+3. Traducete i nomi con il pulsante **Traduci**, come qualsiasi altra etichetta del metamodello.
+
+Gli editor scelgono poi un tipo di collegamento nella sezione **Gerarchia** della card, o nella colonna **Tipo di collegamento** dell'inventario. L'etichetta appartiene alla card figlia, quindi viene cancellata automaticamente quando quella card viene spostata al livello superiore.
+
+Rimuovere un tipo di collegamento **non** riscrive le card che già lo usano: mantengono il valore memorizzato e lo mostrano come tipo di collegamento sconosciuto finché qualcuno non lo cambia, così una rimozione accidentale non perde nulla. La finestra indica quante card sono interessate prima della conferma.
 
 ### Attributi della relazione
 

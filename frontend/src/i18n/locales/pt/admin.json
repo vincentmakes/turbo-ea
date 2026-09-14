@@ -161,7 +161,7 @@
   "metamodel.typeDrawer.sectionUsedByCards": "<strong>{{count}} ficha(s)</strong> possuem dados para campos nesta seção. Excluí-la removerá permanentemente esses dados de todas elas.",
   "metamodel.typeDrawer.sectionSafeToDelete": "Nenhuma ficha possui dados para campos nesta seção. Pode ser excluída com segurança.",
   "metamodel.hierarchyLabels.title": "Tipos de ligação hierárquica",
-  "metamodel.hierarchyLabels.help": "Rotule cada ligação pai-filho na hierarquia deste tipo — por exemplo, uma subsidiária comercial em vez de vendas. Os editores escolhem um por ligação no cartão.",
+  "metamodel.hierarchyLabels.help": "Rotule cada ligação pai-filho na hierarquia de um tipo de card — por exemplo, uma subsidiária comercial em vez de vendas. Os editores escolhem um por ligação no cartão.",
   "metamodel.hierarchyLabels.none": "Nenhum tipo de ligação definido",
   "metamodel.hierarchyLabels.edit": "Editar tipos de ligação",
   "metamodel.hierarchyLabels.add": "Adicionar tipo de ligação",

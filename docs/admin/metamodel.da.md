@@ -118,18 +118,6 @@ For eksempel har Application-typen undertyperne: Business Application, Microserv
 
 Når der ikke er valgt nogen undertype på et kort (eller typen ikke har nogen undertyper), er alle felter synlige. Skjulte felter bevarer deres data — hvis et korts undertype ændres, bevares tidligere skjulte værdier.
 
-#### Hierarkiske forbindelsestyper
-
-For en korttype med hierarki slået til kan du definere **forbindelsestyper** — et kort ordforråd, der sætter etiket på hver forælder-barn-forbindelse. I et organisationstræ kan man for eksempel markere ét datterselskab som *kommercielt* og et andet som *salg*, uden at opfinde en relationstype mere.
-
-1. Åbn typepanelet og find **Hierarkiske forbindelsestyper** (vises kun for hierarkiske typer).
-2. Klik på **Rediger forbindelsestyper**, og tilføj én post pr. etiket med nøgle, navn og farve.
-3. Oversæt navnene med knappen **Oversæt**, som enhver anden metamodel-etiket.
-
-Redaktører vælger derefter en forbindelsestype i kortets **Hierarki**-sektion eller i inventarets kolonne **Forbindelsestype**. Etiketten hører til barnekortet og ryddes derfor automatisk, når det kort flyttes til øverste niveau.
-
-At fjerne en forbindelsestype omskriver **ikke** de kort, der allerede bruger den: de beholder den gemte værdi og viser den som en ukendt forbindelsestype, indtil nogen ændrer den — så en utilsigtet fjernelse mister intet. Dialogen fortæller, hvor mange kort det berører, før du bekræfter.
-
 #### Interessentroller
 
 Definer brugerdefinerede roller for denne type (f.eks. "Application Owner", "Technical Owner"). Hver rolle bærer **tilladelser på kortniveau**, der kombineres med brugerens applikationsrolle, når der tilgås et kort. Se [Brugere og roller](users.md) for mere om tilladelsesmodellen.
@@ -199,9 +187,23 @@ Relationstyper definerer de tilladte forbindelser mellem korttyper. Hver relatio
 
 Klik på **+ Ny relationstype** for at oprette en relation, eller klik på en eksisterende for at redigere dens etiketter og egenskaber.
 
+Hver relationsrække har desuden kontakterne **Synlig** og **Obligatorisk** for *hver* af sine to ender, navngivet efter den korttype de gælder: Synlig afgør, om relationen vises på den types kortdetaljeside, Obligatorisk om den skal udfyldes. En relationstype, hvis to ender er samme korttype, får ét sæt kontakter pr. retning, så den indgående side kan konfigureres separat fra den udgående.
+
 Felterne **Etiket** og **Omvendt etiket** skrives på det sprog, du bruger lige nu — feltets betegnelse viser hvilket (for eksempel *Etiket (Dansk)*). Når du omdøber en relation, opdateres det sprog alle steder, hvor udsagnsordet optræder: afsnittet **Relationer** på et kort, inventarets relationskolonner, rapporter, portaler og diagrammer. Andre sprog beholder deres egen ordlyd, indtil du oversætter dem.
 
 Brug **Administrér oversættelser** øverst på fanen Relationstyper til at oversætte alle relationers udsagnsord til hvert aktiveret sprog på én gang. Vælg en sprogfane, udfyld ordlyden ved siden af den engelske kilde, og gem — tælleren på hver fane viser, hvor mange udsagnsord det sprog stadig mangler. Engelsk står ikke her, fordi det er ordlyden på selve relationen; et uoversat udsagnsord falder tilbage til den.
+
+### Hierarkiske forbindelsestyper
+
+For en korttype med hierarki slået til kan du definere **forbindelsestyper** — et kort ordforråd, der sætter etiket på hver forælder-barn-forbindelse. I et organisationstræ kan man for eksempel markere ét datterselskab som *kommercielt* og et andet som *salg*, uden at opfinde en relationstype mere.
+
+1. Find **Hierarkiske forbindelsestyper** over relationslisten på fanen **Relationstyper** — hver korttype med hierarki slået til er anført der. En korttypes egen fane **Relationer** viser samme sektion, afgrænset til den type.
+2. Klik på **Rediger forbindelsestyper**, og tilføj én post pr. etiket med nøgle, navn og farve.
+3. Oversæt navnene med knappen **Oversæt**, som enhver anden metamodel-etiket.
+
+Redaktører vælger derefter en forbindelsestype i kortets **Hierarki**-sektion eller i inventarets kolonne **Forbindelsestype**. Etiketten hører til barnekortet og ryddes derfor automatisk, når det kort flyttes til øverste niveau.
+
+At fjerne en forbindelsestype omskriver **ikke** de kort, der allerede bruger den: de beholder den gemte værdi og viser den som en ukendt forbindelsestype, indtil nogen ændrer den — så en utilsigtet fjernelse mister intet. Dialogen fortæller, hvor mange kort det berører, før du bekræfter.
 
 ### Relationsegenskaber
 

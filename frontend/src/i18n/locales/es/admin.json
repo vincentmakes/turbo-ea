@@ -161,7 +161,7 @@
   "metamodel.typeDrawer.sectionUsedByCards": "<strong>{{count}} ficha(s)</strong> tienen datos para campos en esta sección. Eliminarla eliminará permanentemente esos datos de todas ellas.",
   "metamodel.typeDrawer.sectionSafeToDelete": "Ninguna ficha tiene datos para campos en esta sección. Se puede eliminar de forma segura.",
   "metamodel.hierarchyLabels.title": "Tipos de vínculo jerárquico",
-  "metamodel.hierarchyLabels.help": "Etiquete cada vínculo padre-hijo en la jerarquía de este tipo — por ejemplo, una filial comercial en lugar de ventas. Los editores eligen uno por vínculo en la tarjeta.",
+  "metamodel.hierarchyLabels.help": "Etiquete cada vínculo padre-hijo en la jerarquía de un tipo de ficha — por ejemplo, una filial comercial en lugar de ventas. Los editores eligen uno por vínculo en la tarjeta.",
   "metamodel.hierarchyLabels.none": "No hay tipos de vínculo definidos",
   "metamodel.hierarchyLabels.edit": "Editar tipos de vínculo",
   "metamodel.hierarchyLabels.add": "Añadir tipo de vínculo",

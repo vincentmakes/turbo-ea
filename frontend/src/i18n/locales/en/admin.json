@@ -161,7 +161,7 @@
   "metamodel.typeDrawer.sectionUsedByCards": "<strong>{{count}} card(s)</strong> have data for fields in this section. Deleting it will permanently remove that data from all of them.",
   "metamodel.typeDrawer.sectionSafeToDelete": "No cards have data for fields in this section. It can be safely deleted.",
   "metamodel.hierarchyLabels.title": "Hierarchy link types",
-  "metamodel.hierarchyLabels.help": "Label each parent-child link on this type's hierarchy — for example a subsidiary that is commercial rather than sales. Editors pick one per link on the card.",
+  "metamodel.hierarchyLabels.help": "Label each parent-child link in a card type's hierarchy — for example a subsidiary that is commercial rather than sales. Editors pick one per link on the card.",
   "metamodel.hierarchyLabels.none": "No link types defined",
   "metamodel.hierarchyLabels.edit": "Edit link types",
   "metamodel.hierarchyLabels.add": "Add link type",

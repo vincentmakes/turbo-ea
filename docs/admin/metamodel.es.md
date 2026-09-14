@@ -118,18 +118,6 @@ Por ejemplo, el tipo Aplicación tiene subtipos: Aplicación de Negocio, Microse
 
 Cuando no se selecciona ningún subtipo en una ficha (o el tipo no tiene subtipos), todos los campos son visibles. Los campos ocultos conservan sus datos — si el subtipo de una ficha cambia, los valores previamente ocultos se mantienen.
 
-#### Tipos de vínculo jerárquico
-
-Para un tipo de ficha con la jerarquía activada, puede definir **tipos de vínculo**: un vocabulario breve que etiqueta cada vínculo padre-hijo. En un árbol de organizaciones, por ejemplo, permite marcar una filial como *comercial* y otra como de *ventas*, sin inventar un segundo tipo de relación.
-
-1. Abra el panel del tipo y busque **Tipos de vínculo jerárquico** (solo aparece en tipos jerárquicos).
-2. Haga clic en **Editar tipos de vínculo** y añada una entrada por etiqueta, con clave, nombre y color.
-3. Traduzca los nombres con el botón **Traducir**, como cualquier otra etiqueta del metamodelo.
-
-Los editores eligen después un tipo de vínculo en la sección **Jerarquía** de la ficha, o en la columna **Tipo de vínculo** del inventario. La etiqueta pertenece a la ficha hija, por lo que se borra automáticamente cuando esa ficha pasa al nivel superior.
-
-Eliminar un tipo de vínculo **no** reescribe las fichas que ya lo usan: conservan el valor almacenado y lo muestran como tipo de vínculo desconocido hasta que alguien lo cambie, de modo que un borrado accidental no pierde nada. El diálogo indica cuántas fichas se ven afectadas antes de confirmar.
-
 #### Roles de Partes Interesadas
 
 Defina roles personalizados para este tipo (ej., «Propietario de Aplicación», «Propietario Técnico»). Cada rol tiene **permisos a nivel de ficha** que se combinan con el rol a nivel de aplicación del usuario al acceder a una ficha. Ver [Usuarios y Roles](users.es.md) para más información sobre el modelo de permisos.
@@ -199,9 +187,23 @@ Los tipos de relación definen las conexiones permitidas entre tipos de fichas. 
 
 Haga clic en **+ Nuevo Tipo de Relación** para crear una relación, o haga clic en una existente para editar sus etiquetas y atributos.
 
+Cada fila de relación lleva además los interruptores **Visible** y **Obligatorio** para *cada uno* de sus dos extremos, indicando el tipo de ficha al que se aplican: Visible decide si la relación aparece en la página de detalle de ese tipo, Obligatorio si debe rellenarse. Un tipo de relación cuyos dos extremos son la misma ficha recibe un par de interruptores por dirección, de modo que el lado entrante se configura por separado del saliente.
+
 Los campos **Etiqueta** y **Etiqueta Inversa** se escriben en el idioma que está utilizando en ese momento: el rótulo del campo indica cuál (por ejemplo, *Etiqueta (Español)*). Cambiar el nombre de una relación actualiza ese idioma en todos los lugares donde aparece el verbo: la sección **Relaciones** de una ficha, las columnas de relación del inventario, los informes, los portales y los diagramas. Los demás idiomas conservan su propia redacción hasta que los traduzca.
 
 Use **Gestionar traducciones** en la parte superior de la pestaña Tipos de relación para traducir los verbos de todas las relaciones a cada idioma habilitado de una sola vez. Elija una pestaña de idioma, escriba la redacción junto al original en inglés y guarde: el contador de cada pestaña muestra cuántos verbos faltan todavía en ese idioma. El inglés no aparece aquí porque es la redacción de la propia relación; un verbo sin traducir vuelve a ella.
+
+### Tipos de vínculo jerárquico
+
+Para un tipo de ficha con la jerarquía activada, puede definir **tipos de vínculo**: un vocabulario breve que etiqueta cada vínculo padre-hijo. En un árbol de organizaciones, por ejemplo, permite marcar una filial como *comercial* y otra como de *ventas*, sin inventar un segundo tipo de relación.
+
+1. En la pestaña **Tipos de relación**, busque **Tipos de vínculo jerárquico** encima de la lista de relaciones: allí figura cada tipo de ficha con la jerarquía activada. La pestaña **Relaciones** de un tipo de ficha muestra la misma sección, limitada a ese tipo.
+2. Haga clic en **Editar tipos de vínculo** y añada una entrada por etiqueta, con clave, nombre y color.
+3. Traduzca los nombres con el botón **Traducir**, como cualquier otra etiqueta del metamodelo.
+
+Los editores eligen después un tipo de vínculo en la sección **Jerarquía** de la ficha, o en la columna **Tipo de vínculo** del inventario. La etiqueta pertenece a la ficha hija, por lo que se borra automáticamente cuando esa ficha pasa al nivel superior.
+
+Eliminar un tipo de vínculo **no** reescribe las fichas que ya lo usan: conservan el valor almacenado y lo muestran como tipo de vínculo desconocido hasta que alguien lo cambie, de modo que un borrado accidental no pierde nada. El diálogo indica cuántas fichas se ven afectadas antes de confirmar.
 
 ### Atributos de relación
 

@@ -118,18 +118,6 @@ Par exemple, le type Application a pour sous-types : Application Métier, Micros
 
 Lorsqu'aucun sous-type n'est sélectionné sur une fiche (ou que le type n'a pas de sous-types), tous les champs sont visibles. Les champs masqués conservent leurs données — si le sous-type d'une fiche change, les valeurs précédemment masquées sont préservées.
 
-#### Types de lien hiérarchique
-
-Pour un type de fiche dont la hiérarchie est activée, vous pouvez définir des **types de lien** — un court vocabulaire qui qualifie chaque lien parent-enfant. Dans un arbre d'organisations, cela permet de marquer une filiale comme *commerciale* et une autre comme *vente*, sans créer un second type de relation.
-
-1. Ouvrez le panneau du type et repérez **Types de lien hiérarchique** (visible uniquement pour les types hiérarchiques).
-2. Cliquez sur **Modifier les types de lien**, puis ajoutez une entrée par libellé avec une clé, un nom et une couleur.
-3. Traduisez les noms avec le bouton **Traduire**, comme n'importe quel libellé du métamodèle.
-
-Les éditeurs choisissent ensuite un type de lien dans la section **Hiérarchie** de la fiche, ou dans la colonne **Type de lien** de l'inventaire. Le libellé appartient à la fiche enfant : il est donc effacé automatiquement lorsque celle-ci est remontée au niveau supérieur.
-
-Supprimer un type de lien ne réécrit **pas** les fiches qui l'utilisent déjà : elles conservent la valeur enregistrée et l'affichent comme type de lien inconnu jusqu'à ce que quelqu'un la modifie, de sorte qu'une suppression accidentelle ne perd rien. La boîte de dialogue indique le nombre de fiches concernées avant confirmation.
-
 #### Rôles de parties prenantes
 
 Définissez des rôles personnalisés pour ce type (par ex. « Responsable Applicatif », « Responsable Technique »). Chaque rôle porte des **permissions au niveau de la fiche** qui sont combinées avec le rôle au niveau de l'application de l'utilisateur lors de l'accès à une fiche. Voir [Utilisateurs et rôles](users.md) pour plus de détails sur le modèle de permissions.
@@ -199,9 +187,23 @@ Les types de relations définissent les connexions autorisées entre les types d
 
 Cliquez sur **+ Nouveau type de relation** pour créer une relation, ou cliquez sur un type existant pour modifier ses libellés et attributs.
 
+Chaque ligne de relation porte également les interrupteurs **Visible** et **Obligatoire** pour *chacune* de ses deux extrémités, avec le nom du type de fiche auquel ils s'appliquent : Visible détermine si la relation apparaît sur la page de détail de ce type, Obligatoire si elle doit être renseignée. Un type de relation dont les deux extrémités sont le même type de fiche reçoit une paire d'interrupteurs par direction, de sorte que le côté entrant se configure séparément du côté sortant.
+
 Les champs **Libellé** et **Libellé inverse** sont saisis dans la langue que vous utilisez actuellement — l'intitulé du champ indique laquelle (par exemple *Libellé (Français)*). Renommer une relation met à jour cette langue partout où le verbe apparaît : la section **Relations** d'une fiche, les colonnes de relation de l'inventaire, les rapports, les portails et les diagrammes. Les autres langues conservent leur propre formulation jusqu'à ce que vous les traduisiez.
 
 Utilisez **Gérer les traductions** en haut de l'onglet Types de relation pour traduire les verbes de toutes les relations dans chaque langue activée en une seule fois. Choisissez un onglet de langue, saisissez la formulation à côté de la source anglaise et enregistrez — le compteur de chaque onglet indique combien de verbes manquent encore dans cette langue. L'anglais n'y figure pas : c'est la formulation portée par la relation elle-même, et un verbe non traduit y revient.
+
+### Types de lien hiérarchique
+
+Pour un type de fiche dont la hiérarchie est activée, vous pouvez définir des **types de lien** — un court vocabulaire qui qualifie chaque lien parent-enfant. Dans un arbre d'organisations, cela permet de marquer une filiale comme *commerciale* et une autre comme *vente*, sans créer un second type de relation.
+
+1. Dans l'onglet **Types de relation**, repérez **Types de lien hiérarchique** au-dessus de la liste des relations — chaque type de fiche dont la hiérarchie est activée y figure. L'onglet **Relations** d'un type de fiche affiche la même section, limitée à ce type.
+2. Cliquez sur **Modifier les types de lien**, puis ajoutez une entrée par libellé avec une clé, un nom et une couleur.
+3. Traduisez les noms avec le bouton **Traduire**, comme n'importe quel libellé du métamodèle.
+
+Les éditeurs choisissent ensuite un type de lien dans la section **Hiérarchie** de la fiche, ou dans la colonne **Type de lien** de l'inventaire. Le libellé appartient à la fiche enfant : il est donc effacé automatiquement lorsque celle-ci est remontée au niveau supérieur.
+
+Supprimer un type de lien ne réécrit **pas** les fiches qui l'utilisent déjà : elles conservent la valeur enregistrée et l'affichent comme type de lien inconnu jusqu'à ce que quelqu'un la modifie, de sorte qu'une suppression accidentelle ne perd rien. La boîte de dialogue indique le nombre de fiches concernées avant confirmation.
 
 ### Attributs de relation
 
