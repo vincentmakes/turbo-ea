@@ -163,7 +163,7 @@ describe("MetamodelAdmin", () => {
   it("renders 5 tabs", async () => {
     renderMetamodel();
     expect(screen.getByRole("tab", { name: /card types/i })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /relation types/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /^relations$/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /calculations/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /tags/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /metamodel graph/i })).toBeInTheDocument();
@@ -232,7 +232,7 @@ describe("MetamodelAdmin", () => {
     const user = userEvent.setup();
     renderMetamodel();
 
-    await user.click(screen.getByRole("tab", { name: /relation types/i }));
+    await user.click(screen.getByRole("tab", { name: /^relations$/i }));
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /new relation/i })).toBeInTheDocument();
@@ -243,7 +243,7 @@ describe("MetamodelAdmin", () => {
     const user = userEvent.setup();
     renderMetamodel();
 
-    await user.click(screen.getByRole("tab", { name: /relation types/i }));
+    await user.click(screen.getByRole("tab", { name: /^relations$/i }));
 
     await waitFor(() => {
       expect(screen.getByText("supports")).toBeInTheDocument();
@@ -301,7 +301,7 @@ describe("MetamodelAdmin", () => {
     renderMetamodel();
 
     // Open the create-relation dialog.
-    await user.click(screen.getByRole("tab", { name: /relation types/i }));
+    await user.click(screen.getByRole("tab", { name: /^relations$/i }));
     await user.click(await screen.findByRole("button", { name: /new relation/i }));
     expect(await screen.findByText("Create Relation Type")).toBeInTheDocument();
 
@@ -371,7 +371,7 @@ describe("MetamodelAdmin — locale-aware relation verbs (#912)", () => {
   }
 
   async function openEditDialog(user: ReturnType<typeof userEvent.setup>) {
-    await user.click(screen.getByRole("tab", { name: /relation types/i }));
+    await user.click(screen.getByRole("tab", { name: /^relations$/i }));
     await user.click(await screen.findByRole("button", { name: "Edit" }));
     expect(await screen.findByText("Edit Relation Type")).toBeInTheDocument();
   }
@@ -380,7 +380,7 @@ describe("MetamodelAdmin — locale-aware relation verbs (#912)", () => {
     const user = userEvent.setup();
     renderDrifted();
 
-    await user.click(screen.getByRole("tab", { name: /relation types/i }));
+    await user.click(screen.getByRole("tab", { name: /^relations$/i }));
 
     expect(await screen.findByText("supports")).toBeInTheDocument();
     expect(screen.queryByText("enables")).not.toBeInTheDocument();
@@ -428,7 +428,7 @@ describe("MetamodelAdmin — locale-aware relation verbs (#912)", () => {
     vi.mocked(api.patch).mockResolvedValueOnce({});
     render(<MetamodelAdmin />); // stock mock — no translations at all
 
-    await user.click(screen.getByRole("tab", { name: /relation types/i }));
+    await user.click(screen.getByRole("tab", { name: /^relations$/i }));
     await user.click(await screen.findByRole("button", { name: "Edit" }));
     await screen.findByText("Edit Relation Type");
     await user.click(screen.getByRole("button", { name: /^save$/i }));

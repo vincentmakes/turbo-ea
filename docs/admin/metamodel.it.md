@@ -191,13 +191,13 @@ Ogni riga di relazione porta inoltre gli interruttori **Visibile** e **Obbligato
 
 I campi **Etichetta** ed **Etichetta inversa** vengono scritti nella lingua che state usando in quel momento — la didascalia del campo indica quale (ad esempio *Etichetta (Italiano)*). Rinominare una relazione aggiorna quella lingua ovunque compaia il verbo: la sezione **Relazioni** di una card, le colonne di relazione dell'inventario, i report, i portali e i diagrammi. Le altre lingue mantengono la propria formulazione finché non le traducete.
 
-Usate **Gestisci traduzioni** in cima alla scheda Tipi di relazione per tradurre i verbi di tutte le relazioni in ogni lingua abilitata in un'unica passata. Scegliete una scheda lingua, inserite la formulazione accanto all'originale inglese e salvate: il contatore su ogni scheda mostra quanti verbi mancano ancora in quella lingua. L'inglese non compare qui perché è la formulazione sulla relazione stessa; un verbo non tradotto vi ricade. La stessa finestra contiene una sezione separata **Tipi di collegamento gerarchico** con il vocabolario di ogni tipo di scheda gerarchico, così i verbi e i tipi di collegamento si traducono in un'unica passata.
+Usate **Gestisci traduzioni** in cima alla scheda Relazioni, sopra le sue sotto-schede, per tradurre i verbi di tutte le relazioni in ogni lingua abilitata in un'unica passata. Scegliete una scheda lingua, inserite la formulazione accanto all'originale inglese e salvate: il contatore su ogni scheda mostra quanti verbi mancano ancora in quella lingua. L'inglese non compare qui perché è la formulazione sulla relazione stessa; un verbo non tradotto vi ricade. La stessa finestra contiene una sezione separata **Tipi di collegamento gerarchico** con il vocabolario di ogni tipo di scheda gerarchico, così i verbi e i tipi di collegamento si traducono in un'unica passata.
 
 ### Tipi di collegamento gerarchico
 
 Per un tipo di card con la gerarchia attiva potete definire i **tipi di collegamento**: un breve vocabolario che etichetta ogni collegamento padre-figlio. In un albero di organizzazioni, per esempio, consente di segnare una controllata come *commerciale* e un'altra come di *vendita*, senza inventare un secondo tipo di relazione.
 
-1. Nella scheda **Tipi di relazione**, individuate **Tipi di collegamento gerarchico** sopra l'elenco delle relazioni: vi compare ogni tipo di card con la gerarchia attiva. La scheda **Relazioni** di un tipo di card mostra la stessa sezione, limitata a quel tipo.
+1. Nella scheda **Relazioni**, aprite la sotto-scheda **Tipi di collegamento gerarchico**: vi compare ogni tipo di card con la gerarchia attiva. (La prima sotto-scheda, **Tipi di relazione**, è il consueto elenco delle relazioni.) La scheda **Relazioni** di un tipo di card mostra la stessa cosa su una sola riga in alto, limitata a quel tipo.
 2. Cliccate su **Modifica tipi di collegamento** e aggiungete una voce per etichetta, con chiave, nome e colore.
 3. Traducete i nomi con il pulsante **Traduci**, come qualsiasi altra etichetta del metamodello.
 

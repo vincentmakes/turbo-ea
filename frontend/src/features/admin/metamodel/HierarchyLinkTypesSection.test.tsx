@@ -95,15 +95,36 @@ describe("HierarchyLinkTypesSection", () => {
     expect(screen.queryByText("Link 0")).not.toBeInTheDocument();
   });
 
-  it("heads the block without repeating the dialog's explanation", () => {
+  it("carries no heading on the landscape tab — the sub-tab is the heading", () => {
     render(<HierarchyLinkTypesSection types={TYPES} onRefresh={vi.fn()} />);
-    // The heading stays — the tab stacks two lists and the rows would
-    // otherwise be unidentifiable.
-    expect(screen.getByText("Hierarchy link types")).toBeInTheDocument();
-    // The prose does not: it is rendered by `HierarchyLabelsDialog`, the way
-    // `RelationTypeValuesDialog` carries the relation-values one, and printing
-    // it on the tab as well said the same thing twice.
+    // Repeating the sub-tab's own label inside it is the duplication
+    // `RelationTypesPanel` avoids by carrying no title of its own.
+    expect(screen.queryByText("Hierarchy link types")).not.toBeInTheDocument();
+    // The prose is not here either: `HierarchyLabelsDialog` renders it, the way
+    // `RelationTypeValuesDialog` carries the relation-values one.
     expect(screen.queryByText(/Label each parent-child link/i)).not.toBeInTheDocument();
+  });
+
+  it("collapses to a single heading row in the drawer", () => {
+    const { container } = render(
+      <HierarchyLinkTypesSection types={TYPES} scopeTypeKey="Organization" onRefresh={vi.fn()} />,
+    );
+    // The drawer IS the card type, so a per-type card has an empty left half
+    // and leaves its count and button floating at the right of a blank box.
+    // Title, count and action go on one line instead.
+    expect(container.querySelector(".MuiCard-root")).toBeNull();
+    expect(screen.getByText("Hierarchy link types")).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit link types" })).toBeInTheDocument();
+  });
+
+  it("still uses cards on the landscape tab", () => {
+    const { container } = render(
+      <HierarchyLinkTypesSection types={TYPES} onRefresh={vi.fn()} />,
+    );
+    // There each row needs its type identity on the left, so the card earns
+    // its place — two hierarchical types, two cards.
+    expect(container.querySelectorAll(".MuiCard-root")).toHaveLength(2);
   });
 
   it("never lists a non-hierarchical type", () => {

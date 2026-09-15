@@ -3,10 +3,12 @@
  * tab and a card type's own Relations tab.
  *
  * Two things are worth guarding:
- *  - **Manage translations sits above everything it covers.** It governs the
- *    relation verbs *and* the hierarchy link types, so it must not read as a
- *    control belonging to the relation list alone — which is where it lived
- *    before the link types existed.
+ *  - **Manage translations sits above everything it covers.** It governs both
+ *    sub-tabs, so it stays above the sub-tab row rather than inside either
+ *    panel — which is where it lived before the link types existed.
+ *  - **Landscape leads with the relation types.** Hierarchy link types are a
+ *    niche most installs never configure, so they are the second sub-tab and
+ *    are not on screen until asked for.
  *  - **Card-type mode has no translations button at all.** The drawer header
  *    already carries one, reachable from every tab, and the dialog behind it
  *    covers this type's link types plus its label, subtypes, fields and roles.
@@ -89,15 +91,32 @@ function renderTab(scopeTypeKey?: string, types = [ORG, APP], relationTypes = RE
 }
 
 describe("RelationsTabContent", () => {
-  it("puts Manage translations above both sections it governs", () => {
+  it("opens on the relation types, with the hierarchy list behind its own tab", async () => {
+    renderTab();
+    // First sub-tab, and the default: the list everyone uses.
+    expect(screen.getByTestId("relation-panel")).toBeInTheDocument();
+    expect(screen.queryByTestId("hierarchy-section")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: /hierarchy link types/i }));
+    expect(screen.getByTestId("hierarchy-section")).toBeInTheDocument();
+    expect(screen.queryByTestId("relation-panel")).not.toBeInTheDocument();
+  });
+
+  it("keeps Manage translations above the sub-tabs it governs", () => {
     renderTab();
     const button = screen.getByRole("button", { name: /translations/i });
-    const hierarchy = screen.getByTestId("hierarchy-section");
-    // It covers the link types too, so it cannot sit inside the relation list.
-    expect(button.compareDocumentPosition(hierarchy)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(
-      hierarchy.compareDocumentPosition(screen.getByTestId("relation-panel")),
-    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    // It covers both sub-tabs, so it belongs above the row, not in a panel.
+    const tab = screen.getByRole("tab", { name: /hierarchy link types/i });
+    expect(button.compareDocumentPosition(tab)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("stacks both, with no sub-tabs, in card-type mode", () => {
+    renderTab("Organization");
+    // One hierarchy row is lighter than a tab to reach it, so the drawer keeps
+    // the two stacked.
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    expect(screen.getByTestId("hierarchy-section")).toBeInTheDocument();
+    expect(screen.getByTestId("relation-panel")).toBeInTheDocument();
   });
 
   it("hands the dialog every relation and every configured vocabulary", async () => {

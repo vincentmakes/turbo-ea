@@ -55,64 +55,105 @@ export default function HierarchyLinkTypesSection({ types, scopeTypeKey, onRefre
   // hierarchy is switched off everywhere.
   if (hierarchical.length === 0) return null;
 
-  return (
-    <Box sx={{ mb: 2 }}>
-      {/* Heading but no help paragraph: the explanation belongs to the dialog
-          that does the editing (`HierarchyLabelsDialog`), exactly where
-          `RelationTypeValuesDialog` keeps the relation-values one, and printing
-          it here as well simply said the same thing twice. The heading stays
-          because this tab stacks two lists and the rows below would otherwise
-          be unidentifiable. */}
-      <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
-        {t("metamodel.hierarchyLabels.title")}
-      </Typography>
+  /**
+   * The vocabulary as a COUNT, not as its values — the relation cards collapse
+   * theirs the same way, and only the editor shows them. A chip per value is
+   * unbounded: fifty link types made a fifty-chip row. Note this counts one
+   * level deeper than the relation row's chip, which counts `single_select`
+   * *fields*; a link-type vocabulary is a flat option list, so this is its
+   * length.
+   *
+   * The tooltip is deliberately uncapped: no tooltip in this app truncates,
+   * and capping one would invent a convention.
+   */
+  const valueSummary = (ct: CardType) => {
+    const labels = ct.hierarchy_labels || [];
+    if (labels.length === 0) {
+      // A card type's vocabulary can be empty while the list is not — unlike a
+      // relation type, which always has content. Italic secondary, §3.11.
+      return (
+        <Typography variant="body2" color="text.secondary" fontStyle="italic">
+          {t("metamodel.hierarchyLabels.none")}
+        </Typography>
+      );
+    }
+    return (
+      <Tooltip title={labels.map((o) => optLabel(o)).join(", ")}>
+        <Chip
+          size="small"
+          color="secondary"
+          icon={<MaterialSymbol icon="sell" size={13} color="inherit" />}
+          label={labels.length}
+          sx={{ height: 22, fontSize: 11 }}
+        />
+      </Tooltip>
+    );
+  };
 
+  const editButton = (ct: CardType) => (
+    <Tooltip title={t("metamodel.hierarchyLabels.edit")}>
+      <IconButton size="small" onClick={() => setEditing(ct)}>
+        <MaterialSymbol icon="label" size={18} />
+      </IconButton>
+    </Tooltip>
+  );
+
+  /**
+   * In the drawer the whole block is ONE card type, so a per-type card has an
+   * empty left half — the type identity is the drawer itself — and its count
+   * and button end up floating at the right edge of a full-width empty box.
+   * Everything goes on the heading line instead, tight and left-aligned, the
+   * shape `AttributeSection` uses for heading + count + action. Deliberately no
+   * `ml: "auto"`: pushing the button to the far right of a wide drawer is the
+   * floating-in-space problem again.
+   *
+   * No leading glyph either — §3.11's "every section header carries a glyph"
+   * is scoped to the grid filter sidebar, and the drawer's own headings (Type
+   * Properties, Subtypes) are bare text.
+   */
+  if (scopeTypeKey) {
+    const ct = hierarchical[0];
+    return (
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+        <Typography variant="subtitle1" fontWeight={700}>
+          {t("metamodel.hierarchyLabels.title")}
+        </Typography>
+        {valueSummary(ct)}
+        {editButton(ct)}
+        <HierarchyLabelsDialog
+          open={!!editing}
+          cardType={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            onRefresh();
+            setSaved(true);
+          }}
+        />
+        <Snackbar
+          open={saved}
+          autoHideDuration={3000}
+          onClose={() => setSaved(false)}
+          message={t("metamodel.hierarchyLabels.saved")}
+        />
+      </Box>
+    );
+  }
+
+  /* Landscape: one card per hierarchical type, and NO heading — the sub-tab
+     that holds this panel is the heading, so repeating it inside is the
+     duplication `RelationTypesPanel` avoids by carrying no title of its own. */
+  return (
+    <Box>
       {hierarchical.map((ct) => (
         <Card key={ct.key} sx={{ mb: 1 }}>
           <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-              {/* On the general tab each row has to say which type it belongs
-                  to; in the drawer that is already the context. */}
-              {!scopeTypeKey && <CardTypeEndpoint type={ct} typeKey={ct.key} />}
-
+              <CardTypeEndpoint type={ct} typeKey={ct.key} />
               {/* The panel's own right-alignment mechanism — an explicit
-                  spacer, so the chips and the action land on the same edge as
-                  the relation cards below. */}
+                  spacer, matching the relation cards. */}
               <Box sx={{ flex: 1 }} />
-
-              {/* A COUNT, not the values — the relation cards below collapse
-                  their values the same way, and only the editor shows them. A
-                  chip per value is unbounded: fifty link types made a fifty-chip
-                  row. Note the chip counts one level deeper than the relation
-                  row's, which counts `single_select` *fields*; here the
-                  vocabulary is a flat option list, so this is its length.
-
-                  The tooltip is deliberately uncapped: no tooltip in this app
-                  truncates, and capping one would invent a convention. */}
-              {(ct.hierarchy_labels || []).length > 0 ? (
-                <Tooltip title={(ct.hierarchy_labels || []).map((o) => optLabel(o)).join(", ")}>
-                  <Chip
-                    size="small"
-                    color="secondary"
-                    icon={<MaterialSymbol icon="sell" size={13} color="inherit" />}
-                    label={(ct.hierarchy_labels || []).length}
-                    sx={{ height: 22, fontSize: 11 }}
-                  />
-                </Tooltip>
-              ) : (
-                /* A row IS a card type, and its vocabulary can be empty while
-                   the list is not — unlike a relation type, which always has
-                   content. Italic secondary, per UI_GUIDELINES §3.11. */
-                <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                  {t("metamodel.hierarchyLabels.none")}
-                </Typography>
-              )}
-
-              <Tooltip title={t("metamodel.hierarchyLabels.edit")}>
-                <IconButton size="small" onClick={() => setEditing(ct)}>
-                  <MaterialSymbol icon="label" size={18} />
-                </IconButton>
-              </Tooltip>
+              {valueSummary(ct)}
+              {editButton(ct)}
             </Box>
           </CardContent>
         </Card>
