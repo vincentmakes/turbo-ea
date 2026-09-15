@@ -59,10 +59,40 @@ describe("HierarchyLinkTypesSection", () => {
     render(<HierarchyLinkTypesSection types={TYPES} onRefresh={vi.fn()} />);
     expect(screen.getByText("Organization")).toBeInTheDocument();
     expect(screen.getByText("Business Capability")).toBeInTheDocument();
-    expect(screen.getByText("Commercial")).toBeInTheDocument();
     // An empty vocabulary still gets a row — hiding it would leave the feature
     // reachable only by someone who already knew it existed.
     expect(screen.getByText("No link types defined")).toBeInTheDocument();
+  });
+
+  it("summarises a vocabulary as a count, never as one chip per value", () => {
+    render(<HierarchyLinkTypesSection types={TYPES} onRefresh={vi.fn()} />);
+    // The relation cards below collapse their values the same way; only the
+    // editor shows them. Listing them here was also unbounded.
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.queryByText("Commercial")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sales")).not.toBeInTheDocument();
+  });
+
+  it("carries the names in the chip's tooltip", async () => {
+    const user = userEvent.setup();
+    render(<HierarchyLinkTypesSection types={TYPES} onRefresh={vi.fn()} />);
+    await user.hover(screen.getByText("2"));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Commercial, Sales");
+  });
+
+  it("stays one chip at fifty link types", () => {
+    // The case that prompted this: a per-value chip made the row grow without
+    // bound. Fails loudly if anyone re-inlines the list.
+    const many = {
+      ...(ORG as unknown as Record<string, unknown>),
+      hierarchy_labels: Array.from({ length: 50 }, (_, i) => ({
+        key: `k${i}`,
+        label: `Link ${i}`,
+      })),
+    } as never;
+    render(<HierarchyLinkTypesSection types={[many]} onRefresh={vi.fn()} />);
+    expect(screen.getByText("50")).toBeInTheDocument();
+    expect(screen.queryByText("Link 0")).not.toBeInTheDocument();
   });
 
   it("heads the block without repeating the dialog's explanation", () => {
@@ -85,8 +115,11 @@ describe("HierarchyLinkTypesSection", () => {
     render(
       <HierarchyLinkTypesSection types={TYPES} scopeTypeKey="Organization" onRefresh={vi.fn()} />,
     );
-    expect(screen.getByText("Commercial")).toBeInTheDocument();
+    // One row, and in the drawer it carries no type-name prefix — the count
+    // chip is the row's content.
+    expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.queryByText("Business Capability")).not.toBeInTheDocument();
+    expect(screen.queryByText("No link types defined")).not.toBeInTheDocument();
   });
 
   it("renders nothing for a non-hierarchical scoped type", () => {

@@ -3,12 +3,12 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import Snackbar from "@mui/material/Snackbar";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import OptionChip from "@/components/OptionChip";
 import { useOptionLabel } from "@/hooks/useResolveLabel";
 import type { CardType } from "@/types";
 import CardTypeEndpoint from "./CardTypeEndpoint";
@@ -80,17 +80,29 @@ export default function HierarchyLinkTypesSection({ types, scopeTypeKey, onRefre
                   the relation cards below. */}
               <Box sx={{ flex: 1 }} />
 
-              {/* Per row, not panel-level: a row IS a card type, and its
-                  vocabulary can be empty while the list is not — unlike a
-                  relation type, which always has content. Italic secondary,
-                  matching the dialog's own empty state. */}
+              {/* A COUNT, not the values — the relation cards below collapse
+                  their values the same way, and only the editor shows them. A
+                  chip per value is unbounded: fifty link types made a fifty-chip
+                  row. Note the chip counts one level deeper than the relation
+                  row's, which counts `single_select` *fields*; here the
+                  vocabulary is a flat option list, so this is its length.
+
+                  The tooltip is deliberately uncapped: no tooltip in this app
+                  truncates, and capping one would invent a convention. */}
               {(ct.hierarchy_labels || []).length > 0 ? (
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                  {(ct.hierarchy_labels || []).map((o) => (
-                    <OptionChip key={o.key} option={o} label={optLabel(o)} />
-                  ))}
-                </Box>
+                <Tooltip title={(ct.hierarchy_labels || []).map((o) => optLabel(o)).join(", ")}>
+                  <Chip
+                    size="small"
+                    color="secondary"
+                    icon={<MaterialSymbol icon="sell" size={13} color="inherit" />}
+                    label={(ct.hierarchy_labels || []).length}
+                    sx={{ height: 22, fontSize: 11 }}
+                  />
+                </Tooltip>
               ) : (
+                /* A row IS a card type, and its vocabulary can be empty while
+                   the list is not — unlike a relation type, which always has
+                   content. Italic secondary, per UI_GUIDELINES §3.11. */
                 <Typography variant="body2" color="text.secondary" fontStyle="italic">
                   {t("metamodel.hierarchyLabels.none")}
                 </Typography>
