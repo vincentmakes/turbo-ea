@@ -2,8 +2,8 @@
 
 The Codespace pulls the published Turbo EA images from GHCR and starts
 the full stack with the NexaTech demo dataset (including BPM and PPM
-data). First-run setup is a couple of minutes — mostly the image pull
-and the demo seed.
+data). First-run setup takes ~5–10 minutes — mostly the image pull and
+the demo seed.
 
 Once the build finishes, **open the forwarded port `8920`** in your
 browser (the *Ports* panel pops it open automatically the first time).
@@ -48,5 +48,5 @@ docker compose ps
 docker compose logs --tail=200
 ```
 
-The first-run database migrations + demo seed take a couple of minutes
-even after containers are *Up* — give it a moment and refresh.
+The first-run database migrations + demo seed take several minutes even
+after containers are *Up* — give it a moment and refresh.

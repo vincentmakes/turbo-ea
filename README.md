@@ -33,7 +33,7 @@ No install needed — run a fully loaded demo in your browser using GitHub Codes
 
    [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/vincentmakes/turbo-ea?quickstart=1)
 
-2. Wait for the build to complete (~5–10 minutes on first launch). The setup script will automatically start PostgreSQL, the backend, and the frontend with demo data pre-loaded.
+2. Wait for the build to complete (~5–10 minutes on first launch — mostly the image pull and the demo seed). The setup script starts PostgreSQL, the backend, the frontend, and the edge nginx that serves port 8920, with demo data pre-loaded.
 
 3. When the build finishes, Codespaces will open port **8920** in your browser. Go to the Port tab and click on the globe to access it :
 <img width="840" height="217" alt="Screenshot 2026-03-26 at 12 13 16" src="https://github.com/user-attachments/assets/532c1c1d-a9fb-496e-9c8c-d0786af49d8b" />  

@@ -31,6 +31,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend == 'true' || steps.filter.outputs.ci == 'true' }}
       mcp: ${{ steps.filter.outputs.mcp == 'true' || steps.filter.outputs.ci == 'true' }}
       docs: ${{ steps.filter.outputs.docs == 'true' || steps.filter.outputs.ci == 'true' }}
+      devcontainer: ${{ steps.filter.outputs.devcontainer == 'true' || steps.filter.outputs.ci == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -64,6 +65,8 @@ jobs:
               - 'docs/**'
               - 'mkdocs.yml'
               - 'requirements-docs.txt'
+            devcontainer:
+              - '.devcontainer/**'
             ci:
               - '.github/workflows/**'
 
@@ -437,3 +440,77 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements-docs.txt
       - run: mkdocs build
+
+  # ── Devcontainer (Codespaces demo) ───────────────────────────────────
+  # Guards the one-click demo behind the README's "Try the Demo" button.
+  #
+  # Issue #1104: nothing in this repository changed. `devcontainer.json`
+  # asked for `mcr.microsoft.com/devcontainers/base:ubuntu`, a floating
+  # alias that MCR rolled onto Ubuntu 26.04 (`resolute`). The
+  # docker-in-docker feature's install.sh carries a hard-coded list of the
+  # codenames it can install moby packages for; `resolute` is not on it and
+  # `moby` is the default, so install.sh exits 1, the container build
+  # fails, and every new codespace lands in recovery mode. Bumping the
+  # feature does not help -- v4.1.0 carries the identical codename list.
+  #
+  # Pinning alone is NOT the invariant: `base:ubuntu26.04` is fully pinned
+  # and just as broken. So this asserts the tag names a release the feature
+  # actually supports, which also rejects, for free, every floating alias
+  # and the dashed `ubuntu-24.04` form (a stale alias MCR stopped
+  # rebuilding in Oct 2025).
+  #
+  # `devcontainer.json` is kept as strict JSON rather than JSONC: the
+  # repo-wide `check-json` pre-commit hook covers it, and a `//` rationale
+  # comment would have to be bought with an exclude that switches that
+  # validation off for the one file whose corruption takes the demo down.
+  # The rationale lives here and in the error message below instead -- a
+  # comment is deleted by the same edit that unpins the tag; a red job is not.
+  devcontainer-check:
+    name: Devcontainer Check
+    needs: changes
+    if: needs.changes.outputs.devcontainer == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Assert the base image names a supported OS release
+        run: |
+          set -euo pipefail
+          # devcontainers/base tags whose codename appears in the
+          # docker-in-docker feature's DOCKER_MOBY_ARCHIVE_VERSION_CODENAMES
+          # and is not caught by its explicit trixie/resolute rejection.
+          # Add a release here only once the feature actually ships support
+          # for it -- not when MCR publishes the image.
+          allowed="noble ubuntu24.04 jammy ubuntu22.04 bookworm debian12"
+          file=.devcontainer/devcontainer.json
+          image=$(jq -r '.image // empty' "$file")
+          if [ -z "$image" ]; then
+            echo "::error file=${file}::No 'image' key. If this container is now built from a Dockerfile, update this guard to check the base image there -- do not delete it."
+            exit 1
+          fi
+          repo="${image%:*}"
+          tag="${image##*:}"
+          if [ "$repo" = "$image" ]; then
+            echo "::error file=${file}::Base image '${image}' carries no tag, so it resolves to ':latest' and will roll onto an unsupported OS release with no commit to blame. Pin one of: ${allowed}"
+            exit 1
+          fi
+          if [ "$repo" != "mcr.microsoft.com/devcontainers/base" ]; then
+            echo "::error file=${file}::Base image is '${repo}'. This guard only knows the release tags of mcr.microsoft.com/devcontainers/base; update it in the same commit that changes the image."
+            exit 1
+          fi
+          case " ${allowed} " in
+            *" ${tag} "*)
+              echo "OK: ${image} names a release the docker-in-docker feature supports." ;;
+            *)
+              echo "::error file=${file}::Base image tag ':${tag}' is not a pinned, docker-in-docker-supported release. Use one of: ${allowed}"
+              echo "Floating aliases (':ubuntu', ':debian', ':latest') roll onto the newest release without a commit -- that is issue #1104, where ':ubuntu' became Ubuntu 26.04 (resolute), the docker-in-docker feature refused to install on it, and every codespace came up in recovery mode. Dashed forms like ':ubuntu-24.04' are stale aliases MCR no longer rebuilds."
+              exit 1 ;;
+          esac
+
+      - name: Syntax-check the demo scripts
+        # A syntax error here breaks the codespace as completely as a bad
+        # base image, and nothing else in the repo lints these files.
+        # Parse-only (`-n`) deliberately: a correctness gate, not a style policy.
+        run: |
+          bash -n .devcontainer/setup-demo.sh
+          bash -n .devcontainer/start-demo.sh

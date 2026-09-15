@@ -5,6 +5,23 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.138.1] - 2026-09-15
+
+### Fixed
+
+- **The one-click Codespaces demo starts again instead of opening in recovery mode.** Nothing in
+  the repository had changed: the devcontainer asked for the floating image tag
+  `mcr.microsoft.com/devcontainers/base:ubuntu`, which rolled upstream onto Ubuntu 26.04, and the
+  `docker-in-docker` feature refuses to install Docker on that release — so the container build
+  failed before the setup script ever ran, and every new codespace came up in recovery mode with
+  no demo in it. The base image is now pinned to the current Ubuntu LTS, which that feature
+  supports, and CI fails any change that puts a floating or unsupported tag back
+  ([#1104](https://github.com/vincentmakes/turbo-ea/issues/1104)).
+- **The demo codespace no longer offers a second, dead port.** The stack publishes the optional
+  HTTPS port `9443` whether or not TLS is configured, so Codespaces listed it in the Ports panel
+  beside `8920` and clicking it led nowhere. Only `8920`, the port the demo actually serves, is
+  offered now.
+
 ## [2.138.0] - 2026-09-14
 
 ### Added

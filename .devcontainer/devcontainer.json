@@ -1,6 +1,6 @@
 {
   "name": "Turbo EA Demo",
-  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "image": "mcr.microsoft.com/devcontainers/base:noble",
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
@@ -12,6 +12,10 @@
     "8920": {
       "label": "Turbo EA",
       "onAutoForward": "openBrowserOnce"
+    },
+    "9443": {
+      "label": "Turbo EA (TLS, not configured)",
+      "onAutoForward": "ignore"
     }
   },
   "postCreateCommand": "bash .devcontainer/setup-demo.sh",

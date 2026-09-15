@@ -81,7 +81,8 @@ fi
 # to respond. Hitting the forwarded port from the host validates exactly
 # what the user's browser hits, so a healthy result here means port 8920
 # will not 502 when opened. 8-minute budget for first-run SEED_DEMO=true
-# on 2-core Codespaces.
+# on the 4-core machine `hostRequirements` asks for -- the pull and the
+# demo seed together are what consume it, not the container start.
 log "Waiting for Turbo EA on http://localhost:8920 ..."
 ready=0
 for i in $(seq 1 240); do
@@ -109,27 +110,6 @@ if [ "$ready" -ne 1 ]; then
   warn "  $COMPOSE ps"
   warn "  $COMPOSE logs --tail=200"
   exit 0
-fi
-
-# Enable the PPM module. The seed populates demo PPM data when SEED_PPM=true,
-# but the UI tabs are gated by the `ppmEnabled` flag in app_settings, which
-# only flips through the admin API.
-log "Enabling the PPM module..."
-TOKEN=$(curl -sf -m 10 -X POST "http://localhost:8920/api/v1/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@turboea.demo","password":"TurboEA!2025"}' \
-  | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
-if [ -n "${TOKEN:-}" ]; then
-  if curl -sf -m 10 -X PATCH "http://localhost:8920/api/v1/settings/ppm-enabled" \
-       -H "Authorization: Bearer ${TOKEN}" \
-       -H "Content-Type: application/json" \
-       -d '{"enabled":true}' > /dev/null; then
-    log "PPM module enabled."
-  else
-    warn "Could not enable PPM via API — toggle it from Admin → Settings."
-  fi
-else
-  warn "Could not obtain admin token — enable PPM manually from Admin → Settings."
 fi
 
 log ""
