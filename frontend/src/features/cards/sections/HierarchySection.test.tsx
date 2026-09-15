@@ -17,7 +17,7 @@
  *  - **An unconfigured type renders nothing**, so every install that has not
  *    opted in sees the section exactly as it was before the feature existed.
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -248,6 +248,23 @@ describe("HierarchySection link labels", () => {
     expect(combo).toHaveTextContent(/retired/);
     await user.click(combo);
     expect(await screen.findByRole("option", { name: /retired/ })).toBeInTheDocument();
+  });
+
+  it("right-pins the control in the row's secondary action, like a relation row", async () => {
+    renderSection();
+
+    // Structure, not just presence: a relation row puts its chip and edit
+    // button in `secondaryAction`, which MUI absolutely-positions at the row's
+    // right edge. Inside the primary content instead — where this started —
+    // the chip floats wherever the child's name happens to end, so no two rows
+    // line up. Only the slot keeps them aligned.
+    const row = (await screen.findByText("Company B1")).closest("li") as HTMLElement;
+    const slot = row.querySelector(".MuiListItemSecondaryAction-root") as HTMLElement;
+    expect(slot).not.toBeNull();
+    expect(within(slot).getByText("Sales")).toBeInTheDocument();
+    expect(within(slot).getByRole("button", { name: "Sales" })).toBeInTheDocument();
+    // …and the unlink button shares that slot, after it.
+    expect(within(slot).getAllByRole("button")).toHaveLength(2);
   });
 
   it("offers no editing control when the user cannot edit", async () => {

@@ -65,6 +65,17 @@ describe("HierarchyLinkTypesSection", () => {
     expect(screen.getByText("No link types defined")).toBeInTheDocument();
   });
 
+  it("heads the block without repeating the dialog's explanation", () => {
+    render(<HierarchyLinkTypesSection types={TYPES} onRefresh={vi.fn()} />);
+    // The heading stays — the tab stacks two lists and the rows would
+    // otherwise be unidentifiable.
+    expect(screen.getByText("Hierarchy link types")).toBeInTheDocument();
+    // The prose does not: it is rendered by `HierarchyLabelsDialog`, the way
+    // `RelationTypeValuesDialog` carries the relation-values one, and printing
+    // it on the tab as well said the same thing twice.
+    expect(screen.queryByText(/Label each parent-child link/i)).not.toBeInTheDocument();
+  });
+
   it("never lists a non-hierarchical type", () => {
     render(<HierarchyLinkTypesSection types={TYPES} onRefresh={vi.fn()} />);
     expect(screen.queryByText("Interface")).not.toBeInTheDocument();

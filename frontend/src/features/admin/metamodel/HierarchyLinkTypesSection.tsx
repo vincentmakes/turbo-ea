@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import IconButton from "@mui/material/IconButton";
 import Snackbar from "@mui/material/Snackbar";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
-import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import OptionChip from "@/components/OptionChip";
-import { useOptionLabel, useTypeLabel } from "@/hooks/useResolveLabel";
+import { useOptionLabel } from "@/hooks/useResolveLabel";
 import type { CardType } from "@/types";
+import CardTypeEndpoint from "./CardTypeEndpoint";
 import HierarchyLabelsDialog from "./HierarchyLabelsDialog";
 
 interface Props {
@@ -40,7 +43,6 @@ interface Props {
 export default function HierarchyLinkTypesSection({ types, scopeTypeKey, onRefresh }: Props) {
   const { t } = useTranslation(["admin", "common"]);
   const optLabel = useOptionLabel();
-  const typeLabel = useTypeLabel();
   const [editing, setEditing] = useState<CardType | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -54,69 +56,55 @@ export default function HierarchyLinkTypesSection({ types, scopeTypeKey, onRefre
   if (hierarchical.length === 0) return null;
 
   return (
-    <Box sx={{ mb: 3 }}>
-      <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
+    <Box sx={{ mb: 2 }}>
+      {/* Heading but no help paragraph: the explanation belongs to the dialog
+          that does the editing (`HierarchyLabelsDialog`), exactly where
+          `RelationTypeValuesDialog` keeps the relation-values one, and printing
+          it here as well simply said the same thing twice. The heading stays
+          because this tab stacks two lists and the rows below would otherwise
+          be unidentifiable. */}
+      <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
         {t("metamodel.hierarchyLabels.title")}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        {t("metamodel.hierarchyLabels.help")}
       </Typography>
 
       {hierarchical.map((ct) => (
-        <Box
-          key={ct.key}
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            flexWrap: "wrap",
-            py: 1,
-            ...(scopeTypeKey ? {} : { borderTop: "1px solid", borderColor: "divider" }),
-          }}
-        >
-          {/* On the general tab each row has to say which type it belongs to;
-              in the drawer that is already the context. */}
-          {!scopeTypeKey && (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 180 }}>
-              <Box
-                sx={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: "50%",
-                  bgcolor: ct.color,
-                  flexShrink: 0,
-                }}
-              />
-              <MaterialSymbol icon={ct.icon} size={16} color={ct.color} />
-              <Typography variant="body2" fontWeight={500}>
-                {typeLabel(ct) || ct.key}
-              </Typography>
-            </Box>
-          )}
+        <Card key={ct.key} sx={{ mb: 1 }}>
+          <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+              {/* On the general tab each row has to say which type it belongs
+                  to; in the drawer that is already the context. */}
+              {!scopeTypeKey && <CardTypeEndpoint type={ct} typeKey={ct.key} />}
 
-          {(ct.hierarchy_labels || []).length > 0 ? (
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, flex: 1 }}>
-              {(ct.hierarchy_labels || []).map((o) => (
-                <OptionChip key={o.key} option={o} label={optLabel(o)} />
-              ))}
-            </Box>
-          ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-              {t("metamodel.hierarchyLabels.none")}
-            </Typography>
-          )}
+              {/* The panel's own right-alignment mechanism — an explicit
+                  spacer, so the chips and the action land on the same edge as
+                  the relation cards below. */}
+              <Box sx={{ flex: 1 }} />
 
-          <Button
-            size="small"
-            startIcon={<MaterialSymbol icon="edit" size={16} />}
-            onClick={() => setEditing(ct)}
-          >
-            {t("metamodel.hierarchyLabels.edit")}
-          </Button>
-        </Box>
+              {/* Per row, not panel-level: a row IS a card type, and its
+                  vocabulary can be empty while the list is not — unlike a
+                  relation type, which always has content. Italic secondary,
+                  matching the dialog's own empty state. */}
+              {(ct.hierarchy_labels || []).length > 0 ? (
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                  {(ct.hierarchy_labels || []).map((o) => (
+                    <OptionChip key={o.key} option={o} label={optLabel(o)} />
+                  ))}
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                  {t("metamodel.hierarchyLabels.none")}
+                </Typography>
+              )}
+
+              <Tooltip title={t("metamodel.hierarchyLabels.edit")}>
+                <IconButton size="small" onClick={() => setEditing(ct)}>
+                  <MaterialSymbol icon="label" size={18} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </CardContent>
+        </Card>
       ))}
-
-      <Divider sx={{ mt: 2 }} />
 
       <HierarchyLabelsDialog
         open={!!editing}

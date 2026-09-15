@@ -31,6 +31,7 @@ import type {
   RelationType as RType,
   MetamodelTranslations,
 } from "@/types";
+import CardTypeEndpoint from "./CardTypeEndpoint";
 import RelationTypeValuesDialog from "./RelationTypeValuesDialog";
 import { cleanTranslations, deriveRelationKey } from "./helpers";
 import { CARDINALITY_OPTIONS } from "./constants";
@@ -386,31 +387,11 @@ export default function RelationTypesPanel({
     );
   };
 
-  /** Colour dot + icon + label for one endpoint. */
-  const renderEndpoint = (typeKey: string) => {
-    const ct = resolveType(typeKey);
-    return (
-      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-        {ct && (
-          <>
-            <Box
-              sx={{
-                width: 12,
-                height: 12,
-                borderRadius: "50%",
-                bgcolor: ct.color,
-                flexShrink: 0,
-              }}
-            />
-            <MaterialSymbol icon={ct.icon} size={16} color={ct.color} />
-          </>
-        )}
-        <Typography variant="body2" fontWeight={500}>
-          {typeLabel(ct) || typeKey}
-        </Typography>
-      </Box>
-    );
-  };
+  /** Colour dot + icon + label for one endpoint — shared with the hierarchy
+   *  link-type rows above, so two lists of card types on one tab line up. */
+  const renderEndpoint = (typeKey: string) => (
+    <CardTypeEndpoint type={resolveType(typeKey)} typeKey={typeKey} />
+  );
 
   return (
     <Box>

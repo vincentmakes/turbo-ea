@@ -396,7 +396,7 @@ function HierarchySection({
                 </Typography>
               </Box>
               {hierarchy.ancestors.length > 0 ? (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, pr: 2 }}>
                   <Chip
                     size="small"
                     label={hierarchy.ancestors[hierarchy.ancestors.length - 1].name}
@@ -411,19 +411,21 @@ function HierarchySection({
                   )}
                   {canEdit && (
                     <IconButton size="small" onClick={handleRemoveParent} title={t("hierarchy.removeParent")}>
-                      <MaterialSymbol icon="link_off" size={16} color="#f44336" />
+                      <MaterialSymbol icon="link_off" size={16} />
                     </IconButton>
                   )}
                   {/* This card's OWN label for the link above it — read from
                       `hierarchy.parent_label`, never from the last ancestor
                       node, whose label describes the edge one level higher. */}
                   {showLinkLabels && (
-                    <HierarchyLinkLabel
-                      value={hierarchy.parent_label}
-                      options={linkLabels}
-                      onChange={canEdit ? (next) => setLinkLabel(card.id, next) : undefined}
-                      idPrefix="parent"
-                    />
+                    <Box sx={{ ml: "auto" }}>
+                      <HierarchyLinkLabel
+                        value={hierarchy.parent_label}
+                        options={linkLabels}
+                        onChange={canEdit ? (next) => setLinkLabel(card.id, next) : undefined}
+                        idPrefix="parent"
+                      />
+                    </Box>
                   )}
                 </Box>
               ) : (
@@ -515,37 +517,45 @@ function HierarchySection({
                 <Chip size="small" label={hierarchy.children.length} sx={{ height: 18, fontSize: "0.65rem" }} />
               </Box>
               {hierarchy.children.length > 0 ? (
-                <List dense disablePadding>
+                <List dense disablePadding sx={{ px: 0.5 }}>
                   {hierarchy.children.map((child) => (
                     <ListItem
                       key={child.id}
+                      // The link type and the unlink button share the
+                      // `secondaryAction` slot, which MUI pins to the row's
+                      // right edge — the same slot, in the same order, that a
+                      // relation row uses for its attribute chip and its
+                      // close button. Inside the primary content instead, the
+                      // chip floated wherever the child's name happened to
+                      // end, so no two rows lined up.
                       secondaryAction={
-                        canEdit ? (
-                          <IconButton size="small" onClick={() => handleRemoveChild(child.id)} title={t("hierarchy.removeChild")}>
-                            <MaterialSymbol icon="link_off" size={16} />
-                          </IconButton>
-                        ) : undefined
-                      }
-                    >
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Box
-                          component="div"
-                          onClick={() => navigate(`/cards/${child.id}`)}
-                          sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 1, "&:hover": { textDecoration: "underline" } }}
-                        >
-                          <MaterialSymbol icon={typeConfig?.icon || "category"} size={16} color={typeConfig?.color} />
-                          <ListItemText primary={child.name} />
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          {/* The child's own label — the edge from this card
+                              down to it. Editing patches the CHILD. */}
+                          {showLinkLabels && (
+                            <HierarchyLinkLabel
+                              value={child.parent_label}
+                              options={linkLabels}
+                              onChange={canEdit ? (next) => setLinkLabel(child.id, next) : undefined}
+                              idPrefix={child.id}
+                            />
+                          )}
+                          {canEdit && (
+                            <IconButton size="small" onClick={() => handleRemoveChild(child.id)} title={t("hierarchy.removeChild")}>
+                              <MaterialSymbol icon="link_off" size={16} />
+                            </IconButton>
+                          )}
                         </Box>
-                        {/* The child's own label — the edge from this card down
-                            to it. Editing patches the CHILD, not this card. */}
-                        {showLinkLabels && (
-                          <HierarchyLinkLabel
-                            value={child.parent_label}
-                            options={linkLabels}
-                            onChange={canEdit ? (next) => setLinkLabel(child.id, next) : undefined}
-                            idPrefix={child.id}
-                          />
-                        )}
+                      }
+                      sx={{ py: 0.25 }}
+                    >
+                      <Box
+                        component="div"
+                        onClick={() => navigate(`/cards/${child.id}`)}
+                        sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 1, "&:hover": { textDecoration: "underline" } }}
+                      >
+                        <MaterialSymbol icon={typeConfig?.icon || "category"} size={16} color={typeConfig?.color} />
+                        <ListItemText primary={child.name} />
                       </Box>
                     </ListItem>
                   ))}
