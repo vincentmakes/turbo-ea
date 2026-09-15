@@ -250,21 +250,36 @@ describe("HierarchySection link labels", () => {
     expect(await screen.findByRole("option", { name: /retired/ })).toBeInTheDocument();
   });
 
-  it("right-pins the control in the row's secondary action, like a relation row", async () => {
+  it("right-pins the link type, and only the link type", async () => {
     renderSection();
 
-    // Structure, not just presence: a relation row puts its chip and edit
-    // button in `secondaryAction`, which MUI absolutely-positions at the row's
-    // right edge. Inside the primary content instead — where this started —
-    // the chip floats wherever the child's name happens to end, so no two rows
-    // line up. Only the slot keeps them aligned.
+    // Structure, not just presence. `secondaryAction` is what MUI
+    // absolutely-positions at the row's right edge, so the link type stays
+    // aligned down the list instead of floating wherever each name ends — but
+    // it is the ONLY thing out there. Unlink is the frequent action and lives
+    // beside the name, as it does on the Parent row.
     const row = (await screen.findByText("Company B1")).closest("li") as HTMLElement;
     const slot = row.querySelector(".MuiListItemSecondaryAction-root") as HTMLElement;
     expect(slot).not.toBeNull();
     expect(within(slot).getByText("Sales")).toBeInTheDocument();
-    expect(within(slot).getByRole("button", { name: "Sales" })).toBeInTheDocument();
-    // …and the unlink button shares that slot, after it.
-    expect(within(slot).getAllByRole("button")).toHaveLength(2);
+    expect(within(slot).getAllByRole("button")).toHaveLength(1);
+
+    // The unlink button is on the row, but not in that slot.
+    const unlink = row.querySelector('button[title="Remove from hierarchy"]') as HTMLElement;
+    expect(unlink).not.toBeNull();
+    expect(slot.contains(unlink)).toBe(false);
+  });
+
+  it("reserves no right-hand space when the type has no link types", async () => {
+    mm.hierarchyLabels = [];
+    renderSection();
+
+    // MUI adds its right-padding reserve whenever `secondaryAction` is set, so
+    // an empty node there would indent every row on every install that never
+    // opted into link types.
+    const row = (await screen.findByText("Company B1")).closest("li") as HTMLElement;
+    expect(row.querySelector(".MuiListItemSecondaryAction-root")).toBeNull();
+    expect(row.querySelector('button[title="Remove from hierarchy"]')).not.toBeNull();
   });
 
   it("offers no editing control when the user cannot edit", async () => {

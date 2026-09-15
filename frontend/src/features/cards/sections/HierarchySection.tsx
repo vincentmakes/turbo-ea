@@ -521,41 +521,46 @@ function HierarchySection({
                   {hierarchy.children.map((child) => (
                     <ListItem
                       key={child.id}
-                      // The link type and the unlink button share the
-                      // `secondaryAction` slot, which MUI pins to the row's
-                      // right edge — the same slot, in the same order, that a
-                      // relation row uses for its attribute chip and its
-                      // close button. Inside the primary content instead, the
-                      // chip floated wherever the child's name happened to
-                      // end, so no two rows lined up.
+                      // Only the link type is pinned to the row's right edge.
+                      // Unlink sits beside the name instead, as it does on the
+                      // Parent row above: removing a child is the frequent
+                      // action and belongs next to the thing it acts on, while
+                      // a link type is rare — most installs configure none.
+                      //
+                      // `undefined`, not an empty Box, when there is no
+                      // vocabulary: MUI adds its right-padding reserve whenever
+                      // `secondaryAction` is set, which would indent every row
+                      // on every install that never opted in.
                       secondaryAction={
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                          {/* The child's own label — the edge from this card
-                              down to it. Editing patches the CHILD. */}
-                          {showLinkLabels && (
-                            <HierarchyLinkLabel
-                              value={child.parent_label}
-                              options={linkLabels}
-                              onChange={canEdit ? (next) => setLinkLabel(child.id, next) : undefined}
-                              idPrefix={child.id}
-                            />
-                          )}
-                          {canEdit && (
-                            <IconButton size="small" onClick={() => handleRemoveChild(child.id)} title={t("hierarchy.removeChild")}>
-                              <MaterialSymbol icon="link_off" size={16} />
-                            </IconButton>
-                          )}
-                        </Box>
+                        showLinkLabels ? (
+                          /* The child's own label — the edge from this card
+                             down to it. Editing patches the CHILD. */
+                          <HierarchyLinkLabel
+                            value={child.parent_label}
+                            options={linkLabels}
+                            onChange={canEdit ? (next) => setLinkLabel(child.id, next) : undefined}
+                            idPrefix={child.id}
+                          />
+                        ) : undefined
                       }
                       sx={{ py: 0.25 }}
                     >
-                      <Box
-                        component="div"
-                        onClick={() => navigate(`/cards/${child.id}`)}
-                        sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 1, "&:hover": { textDecoration: "underline" } }}
-                      >
-                        <MaterialSymbol icon={typeConfig?.icon || "category"} size={16} color={typeConfig?.color} />
-                        <ListItemText primary={child.name} />
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Box
+                          component="div"
+                          onClick={() => navigate(`/cards/${child.id}`)}
+                          sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 1, "&:hover": { textDecoration: "underline" } }}
+                        >
+                          <MaterialSymbol icon={typeConfig?.icon || "category"} size={16} color={typeConfig?.color} />
+                          <ListItemText primary={child.name} />
+                        </Box>
+                        {/* A sibling of the clickable name, never a child of
+                            it — inside, unlinking would also navigate. */}
+                        {canEdit && (
+                          <IconButton size="small" onClick={() => handleRemoveChild(child.id)} title={t("hierarchy.removeChild")}>
+                            <MaterialSymbol icon="link_off" size={16} />
+                          </IconButton>
+                        )}
                       </Box>
                     </ListItem>
                   ))}
