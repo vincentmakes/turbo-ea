@@ -113,7 +113,7 @@ Estas opciones aparecen en el editor de campos del metamodelo **solo mientras la
 
 ## Permisos de acceso a datos
 
-La mayoría de las extensiones solo trabajan con sus propios datos. Una extensión que se integra con los datos del núcleo — por ejemplo, un conector que sincroniza los todos con un gestor de tareas externo como Jira o MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — debe declarar **grants** en su manifiesto firmado:
+La mayoría de las extensiones solo trabajan con sus propios datos. Una extensión que se integra con los datos del núcleo — por ejemplo, un conector que sincroniza los todos con un gestor de tareas externo como Jira o MS Planner ([#921](https://github.com/TurboEA/turbo-ea/discussions/921)) — debe declarar **grants** en su manifiesto firmado:
 
 - `core.todos.read` / `core.todos.write` — leer o modificar todos a través del SDK de extensiones. La escritura incluye la lectura. En los todos del sistema (como las solicitudes de firma), una extensión de sincronización solo puede establecer la referencia externa mostrada como chip — nunca puede completarlos, editarlos, reasignarlos ni eliminarlos, y los todos de otra extensión siguen fuera de su alcance.
 - `core.events.todo` — recibir los eventos de cambio de los todos, para que un conector reaccione de inmediato en lugar de esperar al siguiente ciclo de sondeo.

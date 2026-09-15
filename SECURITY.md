@@ -17,7 +17,7 @@ This is the pre-LTS posture. If a longer support window matters for your deploym
 
 **Do not open a public issue for security vulnerabilities.** Use GitHub's private vulnerability advisories:
 
-> **[Open a private security advisory →](https://github.com/vincentmakes/turbo-ea/security/advisories/new)**
+> **[Open a private security advisory →](https://github.com/TurboEA/turbo-ea/security/advisories/new)**
 
 Include:
 

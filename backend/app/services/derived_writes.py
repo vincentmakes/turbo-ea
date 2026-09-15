@@ -7,7 +7,7 @@ user intent behind it. The Inventory's **Modified** column and a card's
 ``CLAUDE.md``), so rather than inventing a per-card event nobody asked for —
 one metamodel weight change would write an event for every card of the type —
 these paths pin ``updated_at`` to its stored value
-(`#995 <https://github.com/vincentmakes/turbo-ea/discussions/995>`_).
+(`#995 <https://github.com/TurboEA/turbo-ea/discussions/995>`_).
 
 Mechanism: ``TimestampMixin.updated_at`` carries ``onupdate=func.now()``, which
 SQLAlchemy applies only to columns *absent* from the UPDATE's SET clause. A

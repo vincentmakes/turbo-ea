@@ -23,7 +23,7 @@ If you want to help, the best ways are:
   feedback, and see whether something fits the project direction before anyone writes
   code.
 - **Security vulnerability?** Please do not open a public issue. Use a [private
-  security advisory](https://github.com/vincentmakes/turbo-ea/security/advisories/new)
+  security advisory](https://github.com/TurboEA/turbo-ea/security/advisories/new)
   instead — see [SECURITY.md](SECURITY.md) for the full policy, supported versions,
   and what's in scope.
 - **Want to support the project financially?** Donations are genuinely appreciated and

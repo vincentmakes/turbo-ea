@@ -1,6 +1,6 @@
 # Wertstrom-Katalog
 
-Turbo EA wird mit dem **Wertstrom-Referenzkatalog** ausgeliefert — einer kuratierten Sammlung durchgängiger Wertströme (Acquire-to-Retire, Order-to-Cash, Hire-to-Retire, …), die zusammen mit den Capability- und Prozess-Katalogen unter [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities) gepflegt wird. Jeder Strom ist in Stages aufgeteilt, die auf die von ihnen genutzten Capabilities und die sie realisierenden Prozesse verweisen — eine fertige Brücke zwischen Business-Architektur (Capabilities) und Prozessarchitektur (Prozesse).
+Turbo EA wird mit dem **Wertstrom-Referenzkatalog** ausgeliefert — einer kuratierten Sammlung durchgängiger Wertströme (Acquire-to-Retire, Order-to-Cash, Hire-to-Retire, …), die zusammen mit den Capability- und Prozess-Katalogen unter [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities) gepflegt wird. Jeder Strom ist in Stages aufgeteilt, die auf die von ihnen genutzten Capabilities und die sie realisierenden Prozesse verweisen — eine fertige Brücke zwischen Business-Architektur (Capabilities) und Prozessarchitektur (Prozesse).
 
 Die Seite Wertstrom-Katalog erlaubt es, diese Referenz zu durchstöbern und passende `BusinessContext`-Karten (Subtyp **Value Stream**) gebündelt anzulegen.
 

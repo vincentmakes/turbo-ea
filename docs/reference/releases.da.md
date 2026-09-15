@@ -12,7 +12,7 @@ Turbo EA følger [Semantic Versioning](https://semver.org/). Den eneste kilde ti
 - **Minor** (f.eks. `1.0.0` → `1.1.0`): nye funktioner. Bagudkompatibel ifølge [kompatibilitetspolitikken](compatibility.md).
 - **Major** (f.eks. `1.x` → `2.0.0`): brydende ændringer. Migrationsnoter leveres med udgivelsen.
 
-Versionen bumpes én gang pr. PR, ikke pr. commit. PR'ens CHANGELOG-post bruger den nye version som overskrift; CI'ens [`version-check.yml`](https://github.com/vincentmakes/turbo-ea/blob/main/.github/workflows/version-check.yml) fejler enhver PR, der bumper `VERSION` uden en matchende `## [<version>]`-overskrift i `CHANGELOG.md`.
+Versionen bumpes én gang pr. PR, ikke pr. commit. PR'ens CHANGELOG-post bruger den nye version som overskrift; CI'ens [`version-check.yml`](https://github.com/TurboEA/turbo-ea/blob/main/.github/workflows/version-check.yml) fejler enhver PR, der bumper `VERSION` uden en matchende `## [<version>]`-overskrift i `CHANGELOG.md`.
 
 ---
 
@@ -72,9 +72,9 @@ For en normal patch eller minor — ingen RC-kanal nødvendig:
 8. Verificér med cosign:
    ```bash
    cosign verify \
-     --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+     --certificate-identity-regexp 'https://github.com/TurboEA/turbo-ea/.+' \
      --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-     ghcr.io/vincentmakes/turbo-ea/backend:<version>
+     ghcr.io/TurboEA/turbo-ea/backend:<version>
    ```
 
 For en minor, der berettiger en RC:
@@ -88,4 +88,4 @@ For en minor, der berettiger en RC:
 
 ## End-of-life
 
-Kun den seneste minor-linje modtager sikkerhedsrettelser. Se [`SECURITY.md`](https://github.com/vincentmakes/turbo-ea/blob/main/SECURITY.md) for den fulde politik. Ældre minor-linjer er end-of-life og vil ikke modtage backports — operatører på ældre versioner bør planlægge opgraderinger gennem kompatibilitetspolitikken.
+Kun den seneste minor-linje modtager sikkerhedsrettelser. Se [`SECURITY.md`](https://github.com/TurboEA/turbo-ea/blob/main/SECURITY.md) for den fulde politik. Ældre minor-linjer er end-of-life og vil ikke modtage backports — operatører på ældre versioner bør planlægge opgraderinger gennem kompatibilitetspolitikken.

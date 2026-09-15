@@ -14,7 +14,7 @@
 您需要在工作目录中拥有 `docker-compose.yml` 和已配置的 `.env` 文件。最简单的方式是克隆仓库：
 
 ```bash
-git clone https://github.com/vincentmakes/turbo-ea.git
+git clone https://github.com/TurboEA/turbo-ea.git
 cd turbo-ea
 cp .env.example .env
 ```
@@ -261,7 +261,7 @@ docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml up -d --build
 make up-dev
 ```
 
-完整的开发者指南 — 分支命名、lint 和测试命令、pre-commit 检查 — 在 [CONTRIBUTING.md](https://github.com/vincentmakes/turbo-ea/blob/main/CONTRIBUTING.md) 中。
+完整的开发者指南 — 分支命名、lint 和测试命令、pre-commit 检查 — 在 [CONTRIBUTING.md](https://github.com/TurboEA/turbo-ea/blob/main/CONTRIBUTING.md) 中。
 
 ## 快速参考
 

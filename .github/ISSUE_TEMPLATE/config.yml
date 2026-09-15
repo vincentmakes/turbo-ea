@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: Idea or feature discussion
-    url: https://github.com/vincentmakes/turbo-ea/discussions/new?category=ideas
+    url: https://github.com/TurboEA/turbo-ea/discussions/new?category=ideas
     about: Float a suggestion or get early feedback before anyone writes code. Per CONTRIBUTING.md, this is the right place for ideas before opening a feature issue.
   - name: Question or troubleshooting
-    url: https://github.com/vincentmakes/turbo-ea/discussions/new?category=q-a
+    url: https://github.com/TurboEA/turbo-ea/discussions/new?category=q-a
     about: Ask the community a question about deploying, configuring, or using Turbo EA.
   - name: Security vulnerability
-    url: https://github.com/vincentmakes/turbo-ea/security/advisories/new
+    url: https://github.com/TurboEA/turbo-ea/security/advisories/new
     about: Report a security issue privately via GitHub Advisories. Do not open a public issue for vulnerabilities — see SECURITY.md.

@@ -4,7 +4,7 @@ The Inventory's **Modified** column and a card's **History** tab are two views
 of the same fact, and users filter the column by date to find cards nobody has
 reviewed — so a card that says "changed yesterday" and shows nothing in its
 history is a card nobody can triage
-(`#995 <https://github.com/vincentmakes/turbo-ea/discussions/995>`_).
+(`#995 <https://github.com/TurboEA/turbo-ea/discussions/995>`_).
 
 Two halves, one invariant:
 

@@ -90,6 +90,6 @@ These are explicitly out of scope and may change at any time:
 
 ## What "1.0.0" actually changes
 
-Compared to the `0.x` series, `1.0.0` itself is not a feature release — it's the point at which the commitments above start applying. Code shipping in `1.0.0` is the same code that shipped in `0.71.0`, plus the supply-chain hardening and contributor-flow changes documented in the [`1.0.0` CHANGELOG entry](https://github.com/vincentmakes/turbo-ea/blob/main/CHANGELOG.md#100---2026-05-05).
+Compared to the `0.x` series, `1.0.0` itself is not a feature release — it's the point at which the commitments above start applying. Code shipping in `1.0.0` is the same code that shipped in `0.71.0`, plus the supply-chain hardening and contributor-flow changes documented in the [`1.0.0` CHANGELOG entry](https://github.com/TurboEA/turbo-ea/blob/main/CHANGELOG.md#100---2026-05-05).
 
 Pre-`1.0` releases were not covered by this policy. Migrations between `0.x` versions could and did include schema drops, renames, and breaking metamodel changes. From `1.0.0` onwards, those go through the deprecation cycle.

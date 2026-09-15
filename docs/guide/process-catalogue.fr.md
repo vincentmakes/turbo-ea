@@ -1,6 +1,6 @@
 # Catalogue de processus
 
-Turbo EA est livré avec le **Catalogue de référence des processus métier** — une arborescence de processus calée sur APQC-PCF, maintenue aux côtés du catalogue de capacités sur [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). La page Catalogue de processus permet de parcourir cette référence et de créer en masse les fiches `BusinessProcess` correspondantes.
+Turbo EA est livré avec le **Catalogue de référence des processus métier** — une arborescence de processus calée sur APQC-PCF, maintenue aux côtés du catalogue de capacités sur [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities). La page Catalogue de processus permet de parcourir cette référence et de créer en masse les fiches `BusinessProcess` correspondantes.
 
 ![Catalogue de processus](../assets/img/fr/48_catalogue_processus.png)
 

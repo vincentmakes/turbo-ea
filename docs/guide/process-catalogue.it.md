@@ -1,6 +1,6 @@
 # Catalogo dei processi
 
-Turbo EA include il **Catalogo di riferimento dei processi di business** — un albero di processi ancorato ad APQC-PCF, mantenuto insieme al catalogo delle capacità su [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). La pagina Catalogo dei processi permette di sfogliare questa raccolta e di creare in massa le carte `BusinessProcess` corrispondenti.
+Turbo EA include il **Catalogo di riferimento dei processi di business** — un albero di processi ancorato ad APQC-PCF, mantenuto insieme al catalogo delle capacità su [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities). La pagina Catalogo dei processi permette di sfogliare questa raccolta e di creare in massa le carte `BusinessProcess` corrispondenti.
 
 ![Catalogo dei processi](../assets/img/it/48_catalogo_processi.png)
 

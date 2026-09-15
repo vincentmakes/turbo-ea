@@ -1,6 +1,6 @@
 # 流程目录
 
-Turbo EA 内置「**业务流程参考目录**」——一棵以 APQC-PCF 为基准的流程树,与能力目录一同维护在 [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities)。流程目录页面让您浏览这份参考,并据此批量创建 `BusinessProcess` 卡片。
+Turbo EA 内置「**业务流程参考目录**」——一棵以 APQC-PCF 为基准的流程树,与能力目录一同维护在 [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities)。流程目录页面让您浏览这份参考,并据此批量创建 `BusinessProcess` 卡片。
 
 ![流程目录](../assets/img/zh/48_process_catalogue.png)
 

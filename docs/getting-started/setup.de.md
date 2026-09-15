@@ -14,7 +14,7 @@ Etwa 2 GB freier Speicherplatz, ein paar Minuten Bandbreite für den ersten Imag
 Sie benötigen eine `docker-compose.yml` und eine konfigurierte `.env`-Datei in einem Arbeitsverzeichnis. Am einfachsten klonen Sie das Repository:
 
 ```bash
-git clone https://github.com/vincentmakes/turbo-ea.git
+git clone https://github.com/TurboEA/turbo-ea.git
 cd turbo-ea
 cp .env.example .env
 ```
@@ -263,7 +263,7 @@ Oder das Convenience-Ziel:
 make up-dev
 ```
 
-Der vollständige Entwicklerleitfaden — Branch-Benennung, Lint- und Test-Befehle, Pre-Commit-Prüfungen — ist in [CONTRIBUTING.md](https://github.com/vincentmakes/turbo-ea/blob/main/CONTRIBUTING.md).
+Der vollständige Entwicklerleitfaden — Branch-Benennung, Lint- und Test-Befehle, Pre-Commit-Prüfungen — ist in [CONTRIBUTING.md](https://github.com/TurboEA/turbo-ea/blob/main/CONTRIBUTING.md).
 
 ## Schnellreferenz
 

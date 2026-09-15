@@ -3,7 +3,7 @@
 The report used to list only cards that carry EOL data, which made the one
 question it is best placed to answer — "which of my hundreds of IT Components
 has nobody recorded an end of life for?" — the one it could not
-([#1065](https://github.com/vincentmakes/turbo-ea/discussions/1065)).
+([#1065](https://github.com/TurboEA/turbo-ea/discussions/1065)).
 
 Integration tests requiring a PostgreSQL test database. The upstream
 endoflife.date fetch is mocked; no real network requests are made.

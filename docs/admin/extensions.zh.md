@@ -113,7 +113,7 @@
 
 ## 数据访问授权
 
-大多数扩展只处理自己的数据。与核心数据集成的扩展 — 例如把待办事项与 Jira 或 MS Planner 等外部任务跟踪工具同步的连接器（[#921](https://github.com/vincentmakes/turbo-ea/discussions/921)）— 必须在其签名清单中声明 **grants**：
+大多数扩展只处理自己的数据。与核心数据集成的扩展 — 例如把待办事项与 Jira 或 MS Planner 等外部任务跟踪工具同步的连接器（[#921](https://github.com/TurboEA/turbo-ea/discussions/921)）— 必须在其签名清单中声明 **grants**：
 
 - `core.todos.read` / `core.todos.write` — 通过扩展 SDK 读取或修改待办事项。写权限包含读权限。对于系统待办（例如签署请求），同步扩展只能设置以标签形式显示的外部引用——永远无法完成、编辑、重新分配或删除它们；属于其他扩展的待办同样不可触碰。
 - `core.events.todo` — 接收待办变更事件，让连接器立即响应，而不是等到下一个轮询周期。

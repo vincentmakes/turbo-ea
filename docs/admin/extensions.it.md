@@ -113,7 +113,7 @@ Queste opzioni compaiono nell'editor dei campi del metamodello **solo finché l'
 
 ## Grant di accesso ai dati
 
-La maggior parte delle estensioni lavora solo con i propri dati. Un'estensione che si integra con i dati del core — ad esempio un connettore che sincronizza i todo con un task tracker esterno come Jira o MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — deve dichiarare dei **grant** nel proprio manifest firmato:
+La maggior parte delle estensioni lavora solo con i propri dati. Un'estensione che si integra con i dati del core — ad esempio un connettore che sincronizza i todo con un task tracker esterno come Jira o MS Planner ([#921](https://github.com/TurboEA/turbo-ea/discussions/921)) — deve dichiarare dei **grant** nel proprio manifest firmato:
 
 - `core.todos.read` / `core.todos.write` — leggere o modificare i todo tramite l'SDK delle estensioni. La scrittura include la lettura. Sui todo di sistema (come le richieste di firma) un'estensione di sincronizzazione può solo impostare il riferimento esterno mostrato come chip — non può mai completarli, modificarli, riassegnarli o eliminarli, e i todo di un'altra estensione restano intoccabili.
 - `core.events.todo` — ricevere gli eventi di modifica dei todo, così un connettore reagisce subito invece di attendere il prossimo ciclo di polling.

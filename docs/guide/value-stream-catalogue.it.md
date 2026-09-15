@@ -1,6 +1,6 @@
 # Catalogo dei flussi di valore
 
-Turbo EA include il **Catalogo di riferimento dei flussi di valore** — un insieme curato di flussi di valore end-to-end (Acquire-to-Retire, Order-to-Cash, Hire-to-Retire, …), mantenuto insieme ai cataloghi di capacità e processi su [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). Ogni flusso si scompone in fasi che puntano alle capacità che mette in opera e ai processi che lo realizzano, fornendo un ponte già pronto tra architettura di business (capacità) e architettura dei processi (processi).
+Turbo EA include il **Catalogo di riferimento dei flussi di valore** — un insieme curato di flussi di valore end-to-end (Acquire-to-Retire, Order-to-Cash, Hire-to-Retire, …), mantenuto insieme ai cataloghi di capacità e processi su [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities). Ogni flusso si scompone in fasi che puntano alle capacità che mette in opera e ai processi che lo realizzano, fornendo un ponte già pronto tra architettura di business (capacità) e architettura dei processi (processi).
 
 La pagina Catalogo dei flussi di valore permette di sfogliare questa raccolta e di creare in massa le carte `BusinessContext` (sottotipo **Value Stream**) corrispondenti.
 

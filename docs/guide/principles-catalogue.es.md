@@ -1,6 +1,6 @@
 # Catálogo de principios
 
-Turbo EA incluye el **Catálogo de referencia de principios EA** — un conjunto curado de principios de arquitectura inspirados en TOGAF y en referencias sectoriales afines, mantenido junto a los catálogos de capacidades, procesos y cadenas de valor en [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). La página Catálogo de principios permite recorrer esta referencia e importar de forma masiva los principios deseados al metamodelo propio, en lugar de teclear a mano cada enunciado, justificación e implicaciones.
+Turbo EA incluye el **Catálogo de referencia de principios EA** — un conjunto curado de principios de arquitectura inspirados en TOGAF y en referencias sectoriales afines, mantenido junto a los catálogos de capacidades, procesos y cadenas de valor en [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities). La página Catálogo de principios permite recorrer esta referencia e importar de forma masiva los principios deseados al metamodelo propio, en lugar de teclear a mano cada enunciado, justificación e implicaciones.
 
 ![Catálogo de principios](../assets/img/es/50_catalogo_principios.png)
 

@@ -2363,7 +2363,7 @@ async def eol_report(
 
     Those last ones (``status: "missing"``) are the answer to "which of my
     hundreds of IT Components has nobody recorded an end of life for?"
-    ([#1065](https://github.com/vincentmakes/turbo-ea/discussions/1065)). The
+    ([#1065](https://github.com/TurboEA/turbo-ea/discussions/1065)). The
     report used to drop them silently, which made the one question the report
     is best placed to answer the one it could not.
     """

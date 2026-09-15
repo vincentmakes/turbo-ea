@@ -1,6 +1,6 @@
 # Каталог процессов
 
-Turbo EA поставляется со **Справочным каталогом бизнес-процессов** — деревом процессов на базе APQC-PCF, которое поддерживается вместе с каталогом способностей на [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). Страница «Каталог процессов» позволяет просматривать этот справочник и массово создавать соответствующие карточки `BusinessProcess`.
+Turbo EA поставляется со **Справочным каталогом бизнес-процессов** — деревом процессов на базе APQC-PCF, которое поддерживается вместе с каталогом способностей на [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities). Страница «Каталог процессов» позволяет просматривать этот справочник и массово создавать соответствующие карточки `BusinessProcess`.
 
 ![Каталог процессов](../assets/img/ru/48_katalog_protsessov.png)
 

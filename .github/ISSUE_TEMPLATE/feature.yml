@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Before filing, please consider whether [Discussions → Ideas](https://github.com/vincentmakes/turbo-ea/discussions/new?category=ideas) is a better fit. The maintainer is not actively reviewing PRs, so feature work is more likely to land via your own fork.
+        Before filing, please consider whether [Discussions → Ideas](https://github.com/TurboEA/turbo-ea/discussions/new?category=ideas) is a better fit. The maintainer is not actively reviewing PRs, so feature work is more likely to land via your own fork.
 
   - type: textarea
     id: problem

@@ -37,8 +37,8 @@ jobs:
         # Republish manually when upstream changes meaningfully:
         #   docker buildx build --platform linux/amd64,linux/arm64 \
         #     --target ollama \
-        #     -t ghcr.io/vincentmakes/turbo-ea/ollama:latest \
-        #     -t ghcr.io/vincentmakes/turbo-ea/ollama:0.70.0 \
+        #     -t ghcr.io/TurboEA/turbo-ea/ollama:latest \
+        #     -t ghcr.io/TurboEA/turbo-ea/ollama:0.70.0 \
         #     --push .
         image: [db, backend, frontend, nginx, mcp-server]
     steps:

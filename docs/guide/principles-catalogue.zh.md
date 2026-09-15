@@ -1,6 +1,6 @@
 # 原则目录
 
-Turbo EA 内置了「**EA 原则参考目录**」——一套精选的架构原则,源自 TOGAF 及其相关行业参考,与能力目录、流程目录和价值流目录一同维护在 [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities)。原则目录页面可让您浏览这份参考,并将所需的原则批量导入到您自己的元模型中,免去逐条录入声明、依据和影响的繁琐工作。
+Turbo EA 内置了「**EA 原则参考目录**」——一套精选的架构原则,源自 TOGAF 及其相关行业参考,与能力目录、流程目录和价值流目录一同维护在 [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities)。原则目录页面可让您浏览这份参考,并将所需的原则批量导入到您自己的元模型中,免去逐条录入声明、依据和影响的繁琐工作。
 
 ![原则目录](../assets/img/zh/50_principles_catalogue.png)
 

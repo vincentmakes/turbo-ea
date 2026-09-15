@@ -1,6 +1,6 @@
 # Catálogo de cadenas de valor
 
-Turbo EA incluye el **Catálogo de referencia de cadenas de valor** — un conjunto curado de cadenas de valor extremo a extremo (Acquire-to-Retire, Order-to-Cash, Hire-to-Retire, …), mantenido junto a los catálogos de capacidades y procesos en [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). Cada cadena se descompone en etapas que apuntan a las capacidades que ejercitan y a los procesos que las realizan, ofreciendo un puente listo entre arquitectura de negocio (capacidades) y arquitectura de procesos (procesos).
+Turbo EA incluye el **Catálogo de referencia de cadenas de valor** — un conjunto curado de cadenas de valor extremo a extremo (Acquire-to-Retire, Order-to-Cash, Hire-to-Retire, …), mantenido junto a los catálogos de capacidades y procesos en [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities). Cada cadena se descompone en etapas que apuntan a las capacidades que ejercitan y a los procesos que las realizan, ofreciendo un puente listo entre arquitectura de negocio (capacidades) y arquitectura de procesos (procesos).
 
 La página Catálogo de cadenas de valor permite recorrer esta referencia y crear de forma masiva las tarjetas `BusinessContext` (subtipo **Value Stream**) correspondientes.
 

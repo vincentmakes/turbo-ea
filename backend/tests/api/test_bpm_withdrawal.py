@@ -1,7 +1,7 @@
 """Integration tests for process-flow approval authority and withdrawal.
 
 Two related things, both from `discussion #916
-<https://github.com/vincentmakes/turbo-ea/discussions/916>`_:
+<https://github.com/TurboEA/turbo-ea/discussions/916>`_:
 
 **Approval authority.** ``approve`` / ``reject`` are gated on
 ``bpm.approve_flows`` / ``card.bpm_approve``, not on ``bpm.edit``. Before the

@@ -14,7 +14,7 @@
 تحتاج إلى ملف `docker-compose.yml` وملف `.env` مُهيّأ في دليل عمل. أبسط طريقة هي استنساخ المستودع:
 
 ```bash
-git clone https://github.com/vincentmakes/turbo-ea.git
+git clone https://github.com/TurboEA/turbo-ea.git
 cd turbo-ea
 cp .env.example .env
 ```
@@ -262,7 +262,7 @@ docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml up -d --build
 make up-dev
 ```
 
-يوجد دليل المطوّر الكامل — تسمية الفروع، وأوامر الفحص والاختبار، وفحوص ما قبل الالتزام — في [CONTRIBUTING.md](https://github.com/vincentmakes/turbo-ea/blob/main/CONTRIBUTING.md).
+يوجد دليل المطوّر الكامل — تسمية الفروع، وأوامر الفحص والاختبار، وفحوص ما قبل الالتزام — في [CONTRIBUTING.md](https://github.com/TurboEA/turbo-ea/blob/main/CONTRIBUTING.md).
 
 ## مرجع سريع
 

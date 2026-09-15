@@ -1,6 +1,6 @@
 # Prozesskatalog
 
-Turbo EA wird mit dem **Geschäftsprozess-Referenzkatalog** ausgeliefert — einem APQC-PCF-verankerten Prozessbaum, der zusammen mit dem Capability-Katalog unter [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities) gepflegt wird. Die Seite Prozesskatalog erlaubt es, diese Referenz zu durchstöbern und passende `BusinessProcess`-Karten gebündelt anzulegen.
+Turbo EA wird mit dem **Geschäftsprozess-Referenzkatalog** ausgeliefert — einem APQC-PCF-verankerten Prozessbaum, der zusammen mit dem Capability-Katalog unter [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities) gepflegt wird. Die Seite Prozesskatalog erlaubt es, diese Referenz zu durchstöbern und passende `BusinessProcess`-Karten gebündelt anzulegen.
 
 ![Prozesskatalog](../assets/img/de/48_prozesskatalog.png)
 

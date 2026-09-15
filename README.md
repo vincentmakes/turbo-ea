@@ -1,14 +1,14 @@
 # Turbo EA
 
 
-[![CI](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml/badge.svg)](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml)
+[![CI](https://github.com/TurboEA/turbo-ea/actions/workflows/ci.yml/badge.svg)](https://github.com/TurboEA/turbo-ea/actions/workflows/ci.yml)
 [![License: FSL-1.1-MIT](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB.svg)](https://www.python.org/)
 [![React 19](https://img.shields.io/badge/react-19-61DAFB.svg)](https://react.dev/)
 [![GitHub Sponsors Badge](https://img.shields.io/badge/GitHub%20Sponsors-FF009D?logo=githubsponsors&logoColor=fff&style=flat-square)](https://github.com/sponsors/vincentmakes)
 
 
-[Website](https://www.turbo-ea.org) | [User Guide](https://docs.turbo-ea.org) | [Blog](https://www.turbo-ea.org/blog) | [Business Case / Pitch](https://github.com/vincentmakes/turbo-ea/blob/main/business%20case/turbo%20ea%20pitch%20business%20case.pdf)  
+[Website](https://www.turbo-ea.org) | [User Guide](https://docs.turbo-ea.org) | [Blog](https://www.turbo-ea.org/blog) | [Business Case / Pitch](https://github.com/TurboEA/turbo-ea/blob/main/business%20case/turbo%20ea%20pitch%20business%20case.pdf)  
 
 <img width="3508" height="731" alt="banner_turboea" src="https://github.com/user-attachments/assets/0d87314b-4e46-4011-b39b-1e5765700f13" />
 
@@ -31,7 +31,7 @@ No install needed — run a fully loaded demo in your browser using GitHub Codes
 
 1. Click the button below (requires a free GitHub account):
 
-   [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/vincentmakes/turbo-ea?quickstart=1)
+   [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/TurboEA/turbo-ea?quickstart=1)
 
 2. Wait for the build to complete (~5–10 minutes on first launch — mostly the image pull and the demo seed). The setup script starts PostgreSQL, the backend, the frontend, and the edge nginx that serves port 8920, with demo data pre-loaded.
 
@@ -158,7 +158,7 @@ AI-powered EA analysis module that runs natively in Turbo EA using the same AI p
 ### Integrations
 
 > [!IMPORTANT]
-> SSO (Entra / Google / Okta / Generic OIDC) and the ServiceNow CMDB integration are implemented and shipping, but the maintainer has limited access to real-world identity providers and ServiceNow instances. Volunteer testers welcome — file an [integration-tester issue](https://github.com/vincentmakes/turbo-ea/issues/new?template=integration-tester.yml) or start a discussion.
+> SSO (Entra / Google / Okta / Generic OIDC) and the ServiceNow CMDB integration are implemented and shipping, but the maintainer has limited access to real-world identity providers and ServiceNow instances. Volunteer testers welcome — file an [integration-tester issue](https://github.com/TurboEA/turbo-ea/issues/new?template=integration-tester.yml) or start a discussion.
 
 - **SSO / Single Sign-On** — Support for multiple identity providers: **Microsoft Entra ID**, **Google Workspace**, **Okta**, and any **Generic OIDC** provider with automatic discovery document support. Provider-specific branded login buttons, Google hosted domain restriction, Okta domain configuration, manual OIDC endpoint configuration as fallback, and admin ability to link existing local accounts to SSO. Reverse-proxy header authentication (Azure App Service, oauth2-proxy, Authelia, Cloudflare Access) with directory-group-to-role mapping. SSO deep links survive the round trip.
 - **MCP Server (AI Tool Access)** — Built-in [Model Context Protocol](https://modelcontextprotocol.io/) server that lets AI tools (Claude, GitHub Copilot, Cursor, VS Code) work with your EA data under per-user RBAC. Users authenticate via SSO — no shared service accounts. 51 tools: 32 read tools (search, relations, hierarchy, dashboards, reports, GRC, decisions, diagrams) and 19 write tools that create cards, relations, diagrams, risks, decisions, and logos, import BPMN, or archive cards. Every write defaults to a dry-run preview, lands in an auditable mutation batch, needs a confirmation token above a size threshold, and can be switched off with one environment variable. Activate with `docker compose --profile mcp up -d`; a local stdio mode works without SSO.
@@ -242,8 +242,8 @@ The recommended way to deploy Turbo EA. The bundled `docker-compose.yml` stack s
 
 ```bash
 mkdir turbo-ea && cd turbo-ea
-curl -O https://raw.githubusercontent.com/vincentmakes/turbo-ea/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/vincentmakes/turbo-ea/main/.env.example
+curl -O https://raw.githubusercontent.com/TurboEA/turbo-ea/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/TurboEA/turbo-ea/main/.env.example
 ```
 
 ### 2. Create your environment file
@@ -314,12 +314,12 @@ docker compose --profile ai --profile mcp up -d
 
 Every push to `main` and every `v*.*.*` tag automatically publishes multi-arch (`amd64` + `arm64`) images to the [GitHub Container Registry](https://ghcr.io):
 
-- `ghcr.io/vincentmakes/turbo-ea/db`
-- `ghcr.io/vincentmakes/turbo-ea/backend`
-- `ghcr.io/vincentmakes/turbo-ea/frontend`
-- `ghcr.io/vincentmakes/turbo-ea/nginx`
-- `ghcr.io/vincentmakes/turbo-ea/mcp-server`
-- `ghcr.io/vincentmakes/turbo-ea/ollama` *(rebuilt manually when upstream Ollama changes; not part of the regular CI matrix)*
+- `ghcr.io/TurboEA/turbo-ea/db`
+- `ghcr.io/TurboEA/turbo-ea/backend`
+- `ghcr.io/TurboEA/turbo-ea/frontend`
+- `ghcr.io/TurboEA/turbo-ea/nginx`
+- `ghcr.io/TurboEA/turbo-ea/mcp-server`
+- `ghcr.io/TurboEA/turbo-ea/ollama` *(rebuilt manually when upstream Ollama changes; not part of the regular CI matrix)*
 
 The root compose file is production-only and pulls published images from GHCR:
 
@@ -342,9 +342,9 @@ From `1.0.0` onwards, every published image is signed with [cosign](https://gith
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-identity-regexp 'https://github.com/TurboEA/turbo-ea/.+' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-  ghcr.io/vincentmakes/turbo-ea/backend:1.0.0
+  ghcr.io/TurboEA/turbo-ea/backend:1.0.0
 ```
 
 The same command works for `db`, `frontend`, `nginx`, and `mcp-server`. A buildkit-generated SPDX SBOM is attached to each image as an OCI referrer; pull it with `docker buildx imagetools inspect --format '{{ json .SBOM }}' <image>:<tag>`. See [`docs/admin/supply-chain.md`](docs/admin/supply-chain.md) for details.

@@ -8,15 +8,15 @@
 
 ## ما الذي يُوقَّع
 
-كل صورة يبنيها `.github/workflows/docker-publish.yml` وتُدفَع إلى `ghcr.io/vincentmakes/turbo-ea/<image>` تُوقَّع باستخدام [cosign](https://github.com/sigstore/cosign) عبر **keyless OIDC**: لا يوجد مفتاح توقيع طويل الأمد. تُصدَر الشهادة من Fulcio التابع لـ Sigstore لهوية سير العمل (`https://github.com/vincentmakes/turbo-ea/.github/workflows/docker-publish.yml@<ref>`)، وتُسجَّل في سجل الشفافية العام Rekor، ثم تُتلَف بمجرد إنشاء التوقيع.
+كل صورة يبنيها `.github/workflows/docker-publish.yml` وتُدفَع إلى `ghcr.io/TurboEA/turbo-ea/<image>` تُوقَّع باستخدام [cosign](https://github.com/sigstore/cosign) عبر **keyless OIDC**: لا يوجد مفتاح توقيع طويل الأمد. تُصدَر الشهادة من Fulcio التابع لـ Sigstore لهوية سير العمل (`https://github.com/TurboEA/turbo-ea/.github/workflows/docker-publish.yml@<ref>`)، وتُسجَّل في سجل الشفافية العام Rekor، ثم تُتلَف بمجرد إنشاء التوقيع.
 
 الصور الموقَّعة:
 
-- `ghcr.io/vincentmakes/turbo-ea/db`
-- `ghcr.io/vincentmakes/turbo-ea/backend`
-- `ghcr.io/vincentmakes/turbo-ea/frontend`
-- `ghcr.io/vincentmakes/turbo-ea/nginx`
-- `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+- `ghcr.io/TurboEA/turbo-ea/db`
+- `ghcr.io/TurboEA/turbo-ea/backend`
+- `ghcr.io/TurboEA/turbo-ea/frontend`
+- `ghcr.io/TurboEA/turbo-ea/nginx`
+- `ghcr.io/TurboEA/turbo-ea/mcp-server`
 
 تُعاد بناء صورة `ollama` يدويًا خارج المصفوفة وهي غير موقَّعة حاليًا؛ إذا كنت تعتمد على ملف Ollama المُجمَّع وتحتاج إلى التحقّق، فابنِها من المصدر.
 
@@ -30,14 +30,14 @@
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-identity-regexp 'https://github.com/(vincentmakes|TurboEA)/turbo-ea/.+' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-  ghcr.io/vincentmakes/turbo-ea/backend:1.0.0
+  ghcr.io/TurboEA/turbo-ea/backend:1.0.0
 ```
 
 ما الذي تفعله الرايات:
 
-- `--certificate-identity-regexp` — يقبل أي مسار لسير العمل داخل هذا المستودع، فيعمل الأمر نفسه سواء نُشِرت الصورة من `docker-publish.yml` على `main` أو على وسم. إذا أردت تشديدًا أكبر، استبدله بـ `--certificate-identity 'https://github.com/vincentmakes/turbo-ea/.github/workflows/docker-publish.yml@refs/tags/v1.0.0'`.
+- `--certificate-identity-regexp` — يقبل أي مسار لسير العمل داخل هذا المستودع، فيعمل الأمر نفسه سواء نُشِرت الصورة من `docker-publish.yml` على `main` أو على وسم. وهو يطابق **كلا** المالكَين لأن المستودع انتقل من حساب `vincentmakes` إلى منظمة `TurboEA`: الصور المنشورة قبل الانتقال مرتبطة بشكل دائم بالهوية القديمة في Rekor، والصور المنشورة بعده بالهوية الجديدة، وكلاهما أصيل. إذا أردت تشديدًا أكبر، استبدله بـ `--certificate-identity 'https://github.com/TurboEA/turbo-ea/.github/workflows/docker-publish.yml@refs/tags/v1.0.0'` — لكن ذلك سيرفض كل ما نُشِر قبل الانتقال.
 - `--certificate-oidc-issuer` — يثبّت مُصدِر OIDC على نقطة طرف الرمز الخاصة بـ GitHub. أي توقيع صادر من مُصدِر آخر (مثل CI الخاص بنسخة منشقّة) سيفشل في التحقّق.
 
 يطبع التحقّق الناجح الحمولة الموقَّعة وعنوان URL لإدخال في سجل شفافية Rekor. أما الفشل فيخرج بقيمة غير صفرية مع تشخيص — اجعل عملية النشر تفشل عند حدوثه.
@@ -45,11 +45,11 @@ cosign verify \
 يمكنك أيضًا التحقّق عبر الهضم (digest)، وهو أصرم صيغة (محصّن ضد إعادة تخطيط الوسوم):
 
 ```bash
-DIGEST=$(docker buildx imagetools inspect ghcr.io/vincentmakes/turbo-ea/backend:1.0.0 --format '{{ .Manifest.Digest }}')
+DIGEST=$(docker buildx imagetools inspect ghcr.io/TurboEA/turbo-ea/backend:1.0.0 --format '{{ .Manifest.Digest }}')
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-identity-regexp 'https://github.com/(vincentmakes|TurboEA)/turbo-ea/.+' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-  ghcr.io/vincentmakes/turbo-ea/backend@${DIGEST}
+  ghcr.io/TurboEA/turbo-ea/backend@${DIGEST}
 ```
 
 ---
@@ -62,7 +62,7 @@ cosign verify \
 
 ```bash
 docker buildx imagetools inspect --format '{{ json .SBOM }}' \
-  ghcr.io/vincentmakes/turbo-ea/backend:1.0.0 | jq .
+  ghcr.io/TurboEA/turbo-ea/backend:1.0.0 | jq .
 ```
 
 يسرد ملف SBOM كل حزمة رصدها buildkit في الصورة النهائية (حزم apk، وعجلات Python، ووحدات Node، وغيرها) مع الإصدارات وعناوين URL للمصادر. وهو مدخل مفيد لأداة فحص الثغرات الخاصة بك، أو أدوات الامتثال للتراخيص، أو جرد المكوّنات.
@@ -80,7 +80,7 @@ docker buildx imagetools inspect --format '{{ json .SBOM }}' \
 
 **للمشغّلين:** إذا كانت نتائج Trivy مهمّة لعملية النشر لديك، فشغّل أداة الفحص الخاصة بك على الصورة المسحوبة. ملف SBOM المنشور مدخل نظيف. لا تعتمد على أن تكون البوابة الأصلية إلزامية بعد.
 
-**للمساهمين:** إذا اكتشفت نتيجة قابلة للاستغلال فعليًا في أحد مسارات استخدام Turbo EA، فالرجاء الإبلاغ عنها عبر [استشارة أمنية خاصة](https://github.com/vincentmakes/turbo-ea/security/advisories/new) بدلًا من التعليق في مشكلة عامة. راجع [`SECURITY.md`](https://github.com/vincentmakes/turbo-ea/blob/main/SECURITY.md).
+**للمساهمين:** إذا اكتشفت نتيجة قابلة للاستغلال فعليًا في أحد مسارات استخدام Turbo EA، فالرجاء الإبلاغ عنها عبر [استشارة أمنية خاصة](https://github.com/TurboEA/turbo-ea/security/advisories/new) بدلًا من التعليق في مشكلة عامة. راجع [`SECURITY.md`](https://github.com/TurboEA/turbo-ea/blob/main/SECURITY.md).
 
 ---
 

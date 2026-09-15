@@ -12,7 +12,7 @@
 - **الفرعي** (مثل `1.0.0` ← `1.1.0`): ميزات جديدة. متوافق رجعيًا وفق [سياسة التوافق](compatibility.md).
 - **الرئيسي** (مثل `1.x` ← `2.0.0`): تغييرات كاسرة. تأتي ملاحظات الترحيل مع الإصدار.
 
-يُرفع الإصدار مرة واحدة لكل PR، لا لكل commit. يستخدم إدخال CHANGELOG في الـ PR الإصدار الجديد كعنوان؛ ويُفشل [`version-check.yml`](https://github.com/vincentmakes/turbo-ea/blob/main/.github/workflows/version-check.yml) في CI أي PR يرفع `VERSION` دون عنوان `## [<version>]` مطابق في `CHANGELOG.md`.
+يُرفع الإصدار مرة واحدة لكل PR، لا لكل commit. يستخدم إدخال CHANGELOG في الـ PR الإصدار الجديد كعنوان؛ ويُفشل [`version-check.yml`](https://github.com/TurboEA/turbo-ea/blob/main/.github/workflows/version-check.yml) في CI أي PR يرفع `VERSION` دون عنوان `## [<version>]` مطابق في `CHANGELOG.md`.
 
 ---
 
@@ -72,9 +72,9 @@
 8. تحقّق باستخدام cosign:
    ```bash
    cosign verify \
-     --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+     --certificate-identity-regexp 'https://github.com/TurboEA/turbo-ea/.+' \
      --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-     ghcr.io/vincentmakes/turbo-ea/backend:<version>
+     ghcr.io/TurboEA/turbo-ea/backend:<version>
    ```
 
 لإصدار فرعي يستدعي RC:
@@ -88,4 +88,4 @@
 
 ## نهاية العمر
 
-يتلقى أحدث خط فرعي فقط إصلاحات الأمان. راجع [`SECURITY.md`](https://github.com/vincentmakes/turbo-ea/blob/main/SECURITY.md) للسياسة الكاملة. الخطوط الفرعية الأقدم في نهاية العمر ولن تتلقى نقلًا عكسيًا للإصلاحات — ينبغي للمشغّلين على الإصدارات الأقدم التخطيط للترقيات عبر سياسة التوافق.
+يتلقى أحدث خط فرعي فقط إصلاحات الأمان. راجع [`SECURITY.md`](https://github.com/TurboEA/turbo-ea/blob/main/SECURITY.md) للسياسة الكاملة. الخطوط الفرعية الأقدم في نهاية العمر ولن تتلقى نقلًا عكسيًا للإصلاحات — ينبغي للمشغّلين على الإصدارات الأقدم التخطيط للترقيات عبر سياسة التوافق.

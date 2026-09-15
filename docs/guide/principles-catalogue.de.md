@@ -1,6 +1,6 @@
 # Prinzipienkatalog
 
-Turbo EA wird mit dem **EA-Prinzipien-Referenzkatalog** ausgeliefert — eine kuratierte Sammlung von Architekturprinzipien aus TOGAF und verwandten Branchenreferenzen, die zusammen mit den Capability-, Prozess- und Wertstrom-Katalogen unter [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities) gepflegt wird. Die Seite Prinzipienkatalog erlaubt es, diese Referenz zu durchstöbern und passende Prinzipien gebündelt in das eigene Metamodell zu importieren, anstatt jede Aussage, Begründung und Auswirkung von Hand einzutippen.
+Turbo EA wird mit dem **EA-Prinzipien-Referenzkatalog** ausgeliefert — eine kuratierte Sammlung von Architekturprinzipien aus TOGAF und verwandten Branchenreferenzen, die zusammen mit den Capability-, Prozess- und Wertstrom-Katalogen unter [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities) gepflegt wird. Die Seite Prinzipienkatalog erlaubt es, diese Referenz zu durchstöbern und passende Prinzipien gebündelt in das eigene Metamodell zu importieren, anstatt jede Aussage, Begründung und Auswirkung von Hand einzutippen.
 
 ![Prinzipienkatalog](../assets/img/de/50_prinzipienkatalog.png)
 

@@ -1,6 +1,6 @@
 # Kompetencekatalog
 
-Turbo EA leveres med **[Reference­katalog for forretningskompetencer](https://catalog.turbo-ea.org)** — et kurateret, åbent katalog over forretningskompetencer vedligeholdt på [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). Siden Kompetencekatalog lader dig gennemse denne reference og oprette tilsvarende `BusinessCapability`-kort i bulk i stedet for at indtaste dem ét ad gangen.
+Turbo EA leveres med **[Reference­katalog for forretningskompetencer](https://catalog.turbo-ea.org)** — et kurateret, åbent katalog over forretningskompetencer vedligeholdt på [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities). Siden Kompetencekatalog lader dig gennemse denne reference og oprette tilsvarende `BusinessCapability`-kort i bulk i stedet for at indtaste dem ét ad gangen.
 
 ![Kompetencekatalog](../assets/img/da/51_capability_catalogue.png)
 

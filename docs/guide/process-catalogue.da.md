@@ -1,6 +1,6 @@
 # Proceskatalog
 
-Turbo EA leveres med **Business Process Reference Catalogue** — et APQC-PCF-forankret procestræ vedligeholdt sammen med kompetencekataloget på [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). Proceskatalog-siden lader dig gennemse denne reference og oprette matchende `BusinessProcess`-kort i bulk.
+Turbo EA leveres med **Business Process Reference Catalogue** — et APQC-PCF-forankret procestræ vedligeholdt sammen med kompetencekataloget på [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities). Proceskatalog-siden lader dig gennemse denne reference og oprette matchende `BusinessProcess`-kort i bulk.
 
 ![Proceskatalog](../assets/img/da/48_process_catalogue.png)
 

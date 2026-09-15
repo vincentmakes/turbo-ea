@@ -8,15 +8,15 @@ Denne side dækker, hvad der er signeret, hvordan det verificeres, hvor SBOM'en 
 
 ## Hvad er signeret
 
-Hvert image bygget af `.github/workflows/docker-publish.yml` og pushet til `ghcr.io/vincentmakes/turbo-ea/<image>` er signeret med [cosign](https://github.com/sigstore/cosign) ved hjælp af **nøgleløs OIDC**: der er ingen langtidsholdbar signeringsnøgle. Certifikatet udstedes af Sigstores Fulcio for workflow-identiteten (`https://github.com/vincentmakes/turbo-ea/.github/workflows/docker-publish.yml@<ref>`), registreres i den offentlige Rekor-transparenslog og kasseres, så snart signaturen er oprettet.
+Hvert image bygget af `.github/workflows/docker-publish.yml` og pushet til `ghcr.io/TurboEA/turbo-ea/<image>` er signeret med [cosign](https://github.com/sigstore/cosign) ved hjælp af **nøgleløs OIDC**: der er ingen langtidsholdbar signeringsnøgle. Certifikatet udstedes af Sigstores Fulcio for workflow-identiteten (`https://github.com/TurboEA/turbo-ea/.github/workflows/docker-publish.yml@<ref>`), registreres i den offentlige Rekor-transparenslog og kasseres, så snart signaturen er oprettet.
 
 Signerede images:
 
-- `ghcr.io/vincentmakes/turbo-ea/db`
-- `ghcr.io/vincentmakes/turbo-ea/backend`
-- `ghcr.io/vincentmakes/turbo-ea/frontend`
-- `ghcr.io/vincentmakes/turbo-ea/nginx`
-- `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+- `ghcr.io/TurboEA/turbo-ea/db`
+- `ghcr.io/TurboEA/turbo-ea/backend`
+- `ghcr.io/TurboEA/turbo-ea/frontend`
+- `ghcr.io/TurboEA/turbo-ea/nginx`
+- `ghcr.io/TurboEA/turbo-ea/mcp-server`
 
 `ollama`-imaget genopbygges manuelt uden for matrixen og er i øjeblikket ikke signeret; hvis du er afhængig af den medfølgende Ollama-profil og har brug for verifikation, så byg det fra kildekoden.
 
@@ -30,14 +30,14 @@ Installer [cosign](https://docs.sigstore.dev/cosign/installation/), derefter:
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-identity-regexp 'https://github.com/(vincentmakes|TurboEA)/turbo-ea/.+' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-  ghcr.io/vincentmakes/turbo-ea/backend:1.0.0
+  ghcr.io/TurboEA/turbo-ea/backend:1.0.0
 ```
 
 Hvad flagene gør:
 
-- `--certificate-identity-regexp` — accepterer enhver workflow-sti inde i dette repo, så den samme kommando virker, uanset om imaget blev publiceret fra `docker-publish.yml` på `main` eller på et tag. Hvis du vil være strengere, så erstat med `--certificate-identity 'https://github.com/vincentmakes/turbo-ea/.github/workflows/docker-publish.yml@refs/tags/v1.0.0'`.
+- `--certificate-identity-regexp` — accepterer enhver workflow-sti inde i dette repo, så den samme kommando virker, uanset om imaget blev publiceret fra `docker-publish.yml` på `main` eller på et tag. Den matcher **begge** ejere, fordi repositoriet er flyttet fra kontoen `vincentmakes` til organisationen `TurboEA`: images publiceret før flytningen er permanent bundet til den gamle identitet i Rekor, images publiceret efter til den nye, og begge er ægte. Hvis du vil være strengere, så erstat med `--certificate-identity 'https://github.com/TurboEA/turbo-ea/.github/workflows/docker-publish.yml@refs/tags/v1.0.0'` — men det vil afvise alt, der er publiceret før flytningen.
 - `--certificate-oidc-issuer` — pinner OIDC-issueren til GitHubs token-endpoint. En signatur præget af en hvilken som helst anden issuer (f.eks. en forks CI) vil fejle verifikation.
 
 En vellykket verifikation udskriver den signerede payload og en Rekor transparenslog-post-URL. En fejl forlader ikke-nul med en diagnostik — fejl dit deploy på det.
@@ -45,11 +45,11 @@ En vellykket verifikation udskriver den signerede payload og en Rekor transparen
 Du kan også verificere efter digest, hvilket er den strengeste form (immun over for tag-remapping):
 
 ```bash
-DIGEST=$(docker buildx imagetools inspect ghcr.io/vincentmakes/turbo-ea/backend:1.0.0 --format '{{ .Manifest.Digest }}')
+DIGEST=$(docker buildx imagetools inspect ghcr.io/TurboEA/turbo-ea/backend:1.0.0 --format '{{ .Manifest.Digest }}')
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-identity-regexp 'https://github.com/(vincentmakes|TurboEA)/turbo-ea/.+' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-  ghcr.io/vincentmakes/turbo-ea/backend@${DIGEST}
+  ghcr.io/TurboEA/turbo-ea/backend@${DIGEST}
 ```
 
 ---
@@ -62,7 +62,7 @@ Træk den med:
 
 ```bash
 docker buildx imagetools inspect --format '{{ json .SBOM }}' \
-  ghcr.io/vincentmakes/turbo-ea/backend:1.0.0 | jq .
+  ghcr.io/TurboEA/turbo-ea/backend:1.0.0 | jq .
 ```
 
 SBOM'en lister hver pakke, buildkit observerede i det endelige image (apk-pakker, Python-wheels, Node-moduler osv.) med versioner og kilde-URL'er. Nyttige input til din egen sårbarhedsscanner, licens-compliance-værktøj eller komponentlager.
@@ -80,7 +80,7 @@ Scanningen er i øjeblikket **ikke-blokerende** (`exit-code: 0`). Årsager:
 
 **Til operatører:** Hvis Trivy-resultater betyder noget for dit deploy, så kør din egen scanner mod det trukne image. Den publicerede SBOM er et rent input. Stol ikke på, at upstream-porten er håndhævende endnu.
 
-**Til bidragydere:** Hvis du opdager et fund, der faktisk er udnytteligt i en Turbo EA-anvendelsessti, så rapportér det venligst via [privat sikkerhedsråd](https://github.com/vincentmakes/turbo-ea/security/advisories/new) i stedet for at kommentere i et offentligt issue. Se [`SECURITY.md`](https://github.com/vincentmakes/turbo-ea/blob/main/SECURITY.md).
+**Til bidragydere:** Hvis du opdager et fund, der faktisk er udnytteligt i en Turbo EA-anvendelsessti, så rapportér det venligst via [privat sikkerhedsråd](https://github.com/TurboEA/turbo-ea/security/advisories/new) i stedet for at kommentere i et offentligt issue. Se [`SECURITY.md`](https://github.com/TurboEA/turbo-ea/blob/main/SECURITY.md).
 
 ---
 

@@ -1,6 +1,6 @@
 # Value Stream Catalogue
 
-Turbo EA ships with the **Value Stream Reference Catalogue** — a curated set of end-to-end value streams (Acquire-to-Retire, Order-to-Cash, Hire-to-Retire, …) maintained alongside the capability and process catalogues at [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). Each stream is broken down into stages that link to the capabilities they exercise and the processes that realise them, providing a ready-made bridge between business architecture (capabilities) and process architecture (processes).
+Turbo EA ships with the **Value Stream Reference Catalogue** — a curated set of end-to-end value streams (Acquire-to-Retire, Order-to-Cash, Hire-to-Retire, …) maintained alongside the capability and process catalogues at [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities). Each stream is broken down into stages that link to the capabilities they exercise and the processes that realise them, providing a ready-made bridge between business architecture (capabilities) and process architecture (processes).
 
 The Value Stream Catalogue page lets you browse this reference and create matching `BusinessContext` cards (subtype **Value Stream**) in bulk.
 

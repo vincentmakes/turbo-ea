@@ -113,7 +113,7 @@ Ces options n'apparaissent dans l'éditeur de champ du métamodèle **que tant q
 
 ## Autorisations d'accès aux données
 
-La plupart des extensions ne travaillent qu'avec leurs propres données. Une extension qui s'intègre aux données du cœur — par exemple un connecteur qui synchronise les todos avec un outil de suivi externe comme Jira ou MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — doit déclarer des **grants** dans son manifeste signé :
+La plupart des extensions ne travaillent qu'avec leurs propres données. Une extension qui s'intègre aux données du cœur — par exemple un connecteur qui synchronise les todos avec un outil de suivi externe comme Jira ou MS Planner ([#921](https://github.com/TurboEA/turbo-ea/discussions/921)) — doit déclarer des **grants** dans son manifeste signé :
 
 - `core.todos.read` / `core.todos.write` — lire ou modifier les todos via le SDK d'extension. L'écriture inclut la lecture. Sur les todos système (comme les demandes de signature), une extension de synchronisation ne peut définir que la référence externe affichée en pastille — elle ne peut jamais les terminer, les modifier, les réassigner ni les supprimer, et les todos appartenant à une autre extension restent hors de portée.
 - `core.events.todo` — recevoir les événements de changement des todos, afin qu'un connecteur réagisse immédiatement au lieu d'attendre son prochain cycle d'interrogation.

@@ -2,7 +2,7 @@
 
 Lets an accidentally-approved process flow be *withdrawn* instead of leaving a
 deletion of the whole Business Process card as the only escape
-(`discussion #916 <https://github.com/vincentmakes/turbo-ea/discussions/916>`_).
+(`discussion #916 <https://github.com/TurboEA/turbo-ea/discussions/916>`_).
 
 Withdrawal is forward-only, which is what keeps it defensible under GxP
 (21 CFR 11.10(e) — record changes "shall not obscure previously recorded

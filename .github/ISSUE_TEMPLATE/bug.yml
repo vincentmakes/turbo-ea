@@ -8,7 +8,7 @@ body:
       value: |
         Thanks for taking the time to file a bug. Clear, minimal reproductions get looked at first.
 
-        **Security issue?** Please don't file a public bug — open a [private security advisory](https://github.com/vincentmakes/turbo-ea/security/advisories/new) instead. See [SECURITY.md](https://github.com/vincentmakes/turbo-ea/blob/main/SECURITY.md).
+        **Security issue?** Please don't file a public bug — open a [private security advisory](https://github.com/TurboEA/turbo-ea/security/advisories/new) instead. See [SECURITY.md](https://github.com/TurboEA/turbo-ea/blob/main/SECURITY.md).
 
   - type: input
     id: version

@@ -14,7 +14,7 @@ Cerca de 2 GB de espaço livre em disco, alguns minutos de largura de banda para
 Você precisa de `docker-compose.yml` e de um arquivo `.env` configurado em um diretório de trabalho. A maneira mais simples é clonar o repositório:
 
 ```bash
-git clone https://github.com/vincentmakes/turbo-ea.git
+git clone https://github.com/TurboEA/turbo-ea.git
 cd turbo-ea
 cp .env.example .env
 ```
@@ -263,7 +263,7 @@ Ou o alvo de conveniência:
 make up-dev
 ```
 
-O guia completo do desenvolvedor — nomenclatura de branches, comandos de lint e teste, verificações pre-commit — está em [CONTRIBUTING.md](https://github.com/vincentmakes/turbo-ea/blob/main/CONTRIBUTING.md).
+O guia completo do desenvolvedor — nomenclatura de branches, comandos de lint e teste, verificações pre-commit — está em [CONTRIBUTING.md](https://github.com/TurboEA/turbo-ea/blob/main/CONTRIBUTING.md).
 
 ## Referência rápida
 

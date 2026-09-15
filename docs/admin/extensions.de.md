@@ -113,7 +113,7 @@ Diese Optionen erscheinen im Feldeditor des Metamodells **nur, solange die berei
 
 ## Datenzugriffs-Grants
 
-Die meisten Erweiterungen arbeiten nur mit ihren eigenen Daten. Eine Erweiterung, die Kerndaten integriert — zum Beispiel ein Konnektor, der Todos mit einem externen Task-Tracker wie Jira oder MS Planner synchronisiert ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — muss in ihrem signierten Manifest **Grants** deklarieren:
+Die meisten Erweiterungen arbeiten nur mit ihren eigenen Daten. Eine Erweiterung, die Kerndaten integriert — zum Beispiel ein Konnektor, der Todos mit einem externen Task-Tracker wie Jira oder MS Planner synchronisiert ([#921](https://github.com/TurboEA/turbo-ea/discussions/921)) — muss in ihrem signierten Manifest **Grants** deklarieren:
 
 - `core.todos.read` / `core.todos.write` — Todos über das Erweiterungs-SDK lesen oder ändern. Schreiben schließt Lesen ein. Bei System-Todos (etwa Signaturanfragen) kann eine Sync-Erweiterung nur die als Chip angezeigte externe Referenz setzen — sie kann sie niemals erledigen, bearbeiten, neu zuweisen oder löschen, und Todos einer anderen Erweiterung bleiben ebenfalls tabu.
 - `core.events.todo` — Todo-Änderungsereignisse empfangen, damit ein Konnektor sofort reagiert statt erst beim nächsten Abfragezyklus.

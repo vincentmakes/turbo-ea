@@ -1,6 +1,6 @@
 # Каталог возможностей
 
-Turbo EA поставляется с **[Business Capability Reference Catalogue](https://catalog.turbo-ea.org)** — открытым кураторским каталогом бизнес-возможностей, поддерживаемым в [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). Страница «Каталог возможностей» позволяет просматривать этот справочник и массово создавать соответствующие карты `BusinessCapability` вместо ввода их по одной.
+Turbo EA поставляется с **[Business Capability Reference Catalogue](https://catalog.turbo-ea.org)** — открытым кураторским каталогом бизнес-возможностей, поддерживаемым в [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities). Страница «Каталог возможностей» позволяет просматривать этот справочник и массово создавать соответствующие карты `BusinessCapability` вместо ввода их по одной.
 
 ![Каталог возможностей](../assets/img/ru/51_katalog_vozmozhnostey.png)
 

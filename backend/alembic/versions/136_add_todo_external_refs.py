@@ -2,7 +2,7 @@
 
 Gives extension-driven task-tracker sync (Jira, MS Planner, GitHub
 Projects — `discussion #921
-<https://github.com/vincentmakes/turbo-ea/discussions/921>`_) a place to
+<https://github.com/TurboEA/turbo-ea/discussions/921>`_) a place to
 store the external item's identity on the todo itself:
 
 * ``external_ref`` — the tracker-side id, e.g. ``PROJ-123``.

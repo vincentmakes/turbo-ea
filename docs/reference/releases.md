@@ -12,7 +12,7 @@ Turbo EA follows [Semantic Versioning](https://semver.org/). The single source o
 - **Minor** (e.g. `1.0.0` → `1.1.0`): new features. Backwards-compatible per the [compatibility policy](compatibility.md).
 - **Major** (e.g. `1.x` → `2.0.0`): breaking changes. Migration notes ship with the release.
 
-The version is bumped once per PR, not per commit. The PR's CHANGELOG entry uses the new version as the heading; CI's [`version-check.yml`](https://github.com/vincentmakes/turbo-ea/blob/main/.github/workflows/version-check.yml) fails any PR that bumps `VERSION` without a matching `## [<version>]` heading in `CHANGELOG.md`.
+The version is bumped once per PR, not per commit. The PR's CHANGELOG entry uses the new version as the heading; CI's [`version-check.yml`](https://github.com/TurboEA/turbo-ea/blob/main/.github/workflows/version-check.yml) fails any PR that bumps `VERSION` without a matching `## [<version>]` heading in `CHANGELOG.md`.
 
 ---
 
@@ -72,9 +72,9 @@ For a normal patch or minor — no RC channel needed:
 8. Verify with cosign:
    ```bash
    cosign verify \
-     --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+     --certificate-identity-regexp 'https://github.com/TurboEA/turbo-ea/.+' \
      --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-     ghcr.io/vincentmakes/turbo-ea/backend:<version>
+     ghcr.io/TurboEA/turbo-ea/backend:<version>
    ```
 
 For a minor that warrants an RC:
@@ -88,4 +88,4 @@ For a minor that warrants an RC:
 
 ## End-of-life
 
-Only the latest minor line receives security fixes. See [`SECURITY.md`](https://github.com/vincentmakes/turbo-ea/blob/main/SECURITY.md) for the full policy. Older minor lines are end-of-life and will not receive backports — operators on older versions should plan upgrades through the compatibility policy.
+Only the latest minor line receives security fixes. See [`SECURITY.md`](https://github.com/TurboEA/turbo-ea/blob/main/SECURITY.md) for the full policy. Older minor lines are end-of-life and will not receive backports — operators on older versions should plan upgrades through the compatibility policy.

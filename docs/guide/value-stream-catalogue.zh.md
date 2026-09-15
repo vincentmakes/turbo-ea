@@ -1,6 +1,6 @@
 # 价值流目录
 
-Turbo EA 内置「**价值流参考目录**」——一份精选的端到端价值流集合(Acquire-to-Retire、Order-to-Cash、Hire-to-Retire 等),与能力目录和流程目录一同维护在 [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities)。每条价值流被拆解为若干阶段,各阶段链接到它所运用的能力以及实现它的流程,在业务架构(能力)与流程架构(流程)之间提供了一座现成的桥梁。
+Turbo EA 内置「**价值流参考目录**」——一份精选的端到端价值流集合(Acquire-to-Retire、Order-to-Cash、Hire-to-Retire 等),与能力目录和流程目录一同维护在 [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities)。每条价值流被拆解为若干阶段,各阶段链接到它所运用的能力以及实现它的流程,在业务架构(能力)与流程架构(流程)之间提供了一座现成的桥梁。
 
 价值流目录页面让您浏览这份参考,并据此批量创建对应的 `BusinessContext` 卡片(子类型 **Value Stream**)。
 

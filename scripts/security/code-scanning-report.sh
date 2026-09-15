@@ -16,7 +16,7 @@
 # (.github/workflows/code-scanning-report.yml).
 set -euo pipefail
 
-REPO="${REPO:-vincentmakes/turbo-ea}"
+REPO="${REPO:-TurboEA/turbo-ea}"
 
 for bin in gh jq; do
   if ! command -v "$bin" >/dev/null 2>&1; then

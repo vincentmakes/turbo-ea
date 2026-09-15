@@ -1,6 +1,6 @@
 # Catalogue de capacités
 
-Turbo EA est livré avec le **[Business Capability Reference Catalogue](https://catalog.turbo-ea.org)** — un catalogue ouvert et organisé de capacités métier maintenu sur [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). La page Catalogue de capacités vous permet de parcourir ce référentiel et de créer en masse les fiches `BusinessCapability` correspondantes, plutôt que de les saisir une par une.
+Turbo EA est livré avec le **[Business Capability Reference Catalogue](https://catalog.turbo-ea.org)** — un catalogue ouvert et organisé de capacités métier maintenu sur [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities). La page Catalogue de capacités vous permet de parcourir ce référentiel et de créer en masse les fiches `BusinessCapability` correspondantes, plutôt que de les saisir une par une.
 
 ![Catalogue de capacités](../assets/img/fr/51_catalogue_capacites.png)
 

@@ -1,6 +1,6 @@
 # Principles Catalogue
 
-Turbo EA ships with the **EA Principles Reference Catalogue** — a curated set of architecture principles drawn from TOGAF and adjacent industry references, maintained alongside the capability, process and value-stream catalogues at [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). The Principles Catalogue page lets you browse this reference and import matching principles into your own metamodel in bulk, instead of typing each statement, rationale and set of implications by hand.
+Turbo EA ships with the **EA Principles Reference Catalogue** — a curated set of architecture principles drawn from TOGAF and adjacent industry references, maintained alongside the capability, process and value-stream catalogues at [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities). The Principles Catalogue page lets you browse this reference and import matching principles into your own metamodel in bulk, instead of typing each statement, rationale and set of implications by hand.
 
 ![Principles Catalogue](../assets/img/en/50_principles_catalogue.png)
 

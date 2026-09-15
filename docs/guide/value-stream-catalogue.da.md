@@ -1,6 +1,6 @@
 # Værdistrømskatalog
 
-Turbo EA leveres med **Reference­katalog for værdistrømme** — et kurateret sæt af end-to-end-værdistrømme (Acquire-to-Retire, Order-to-Cash, Hire-to-Retire, …) vedligeholdt sammen med kompetence- og proceskatalogerne på [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). Hver strøm er nedbrudt i trin, der linker til de kompetencer, de udnytter, og de processer, der realiserer dem, og udgør dermed en færdig bro mellem forretningsarkitekturen (kompetencer) og procesarkitekturen (processer).
+Turbo EA leveres med **Reference­katalog for værdistrømme** — et kurateret sæt af end-to-end-værdistrømme (Acquire-to-Retire, Order-to-Cash, Hire-to-Retire, …) vedligeholdt sammen med kompetence- og proceskatalogerne på [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities). Hver strøm er nedbrudt i trin, der linker til de kompetencer, de udnytter, og de processer, der realiserer dem, og udgør dermed en færdig bro mellem forretningsarkitekturen (kompetencer) og procesarkitekturen (processer).
 
 Siden Værdistrømskatalog lader dig gennemse denne reference og oprette tilsvarende `BusinessContext`-kort (undertype **Value Stream**) i bulk.
 

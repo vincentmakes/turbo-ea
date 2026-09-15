@@ -14,7 +14,7 @@ Cirka 2 GB ledig diskplads, et par minutters båndbredde til det første billede
 Du har brug for `docker-compose.yml` og en konfigureret `.env`-fil i en arbejdsmappe. Den nemmeste måde er at klone repositoriet:
 
 ```bash
-git clone https://github.com/vincentmakes/turbo-ea.git
+git clone https://github.com/TurboEA/turbo-ea.git
 cd turbo-ea
 cp .env.example .env
 ```
@@ -263,7 +263,7 @@ Eller bekvemmelighedstarget:
 make up-dev
 ```
 
-Den fulde udviklerguide — branch-navngivning, lint- og testkommandoer, pre-commit-tjek — findes i [CONTRIBUTING.md](https://github.com/vincentmakes/turbo-ea/blob/main/CONTRIBUTING.md).
+Den fulde udviklerguide — branch-navngivning, lint- og testkommandoer, pre-commit-tjek — findes i [CONTRIBUTING.md](https://github.com/TurboEA/turbo-ea/blob/main/CONTRIBUTING.md).
 
 ## Hurtig reference
 

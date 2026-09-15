@@ -34,7 +34,7 @@ Two scanners covering the same layer is deliberate — different vuln DBs have d
 ### On every push to `main` and on `v*.*.*` tags
 [`docker-publish.yml`](workflows/docker-publish.yml) — for each of the 5 image targets (`db`, `backend`, `frontend`, `nginx`, `mcp-server`):
 1. Build multi-arch (`linux/amd64,linux/arm64`) with `provenance: true` + `sbom: true` (SLSA attestations).
-2. Push to `ghcr.io/vincentmakes/turbo-ea/<image>` with `latest` + `sha-<short>` + semver tags.
+2. Push to `ghcr.io/TurboEA/turbo-ea/<image>` with `latest` + `sha-<short>` + semver tags.
 3. **cosign** — keyless OIDC signing of the manifest list digest. No key to rotate; verification uses the workflow identity certificate.
 4. **Trivy observe** (HIGH + CRITICAL, `ignore-unfixed: true`) — SARIF → Security tab under `trivy-<image>`. Never fails the job.
 5. **Trivy gate** (CRITICAL only, `exit-code: 1`, `ignore-unfixed: true`) — fails the publish on any CRITICAL not in [`.github/trivy-allowlist`](trivy-allowlist). Introduced after CVE-2026-42945 ("NGINX Rift") slipped through the observe-only setup.
@@ -226,9 +226,9 @@ Every published image's manifest list digest is signed with `cosign` using keyle
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp '^https://github.com/vincentmakes/turbo-ea/' \
+  --certificate-identity-regexp '^https://github.com/TurboEA/turbo-ea/' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  ghcr.io/vincentmakes/turbo-ea/backend:latest
+  ghcr.io/TurboEA/turbo-ea/backend:latest
 ```
 
 The certificate identity binds the signature to the GHA workflow + repo + ref that produced it, so a leaked GHCR write token can't backdate-sign a malicious image.

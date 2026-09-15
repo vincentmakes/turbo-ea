@@ -1,6 +1,6 @@
 # 能力目录
 
-Turbo EA 自带 **[Business Capability Reference Catalogue](https://catalog.turbo-ea.org)** —— 一个由 [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities) 维护的、经过整理的开放式业务能力目录。能力目录页面让您浏览此参考资料并批量创建对应的 `BusinessCapability` 卡片，而不必逐条录入。
+Turbo EA 自带 **[Business Capability Reference Catalogue](https://catalog.turbo-ea.org)** —— 一个由 [github.com/TurboEA/turbo-ea-capabilities](https://github.com/TurboEA/turbo-ea-capabilities) 维护的、经过整理的开放式业务能力目录。能力目录页面让您浏览此参考资料并批量创建对应的 `BusinessCapability` 卡片，而不必逐条录入。
 
 ![能力目录](../assets/img/zh/51_capability_catalogue.png)
 

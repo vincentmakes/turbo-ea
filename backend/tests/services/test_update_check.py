@@ -104,7 +104,7 @@ async def test_fetch_strips_the_v_prefix_and_keeps_the_release_url(fake_http):
     fake_http.response = _FakeResponse(
         {
             "tag_name": "v2.60.0",
-            "html_url": "https://github.com/vincentmakes/turbo-ea/releases/tag/v2.60.0",
+            "html_url": "https://github.com/TurboEA/turbo-ea/releases/tag/v2.60.0",
         }
     )
 
@@ -113,7 +113,7 @@ async def test_fetch_strips_the_v_prefix_and_keeps_the_release_url(fake_http):
     assert error is None
     assert release == ReleaseInfo(
         version="2.60.0",
-        url="https://github.com/vincentmakes/turbo-ea/releases/tag/v2.60.0",
+        url="https://github.com/TurboEA/turbo-ea/releases/tag/v2.60.0",
     )
     assert fake_http.calls == [update_check.GITHUB_LATEST_RELEASE_URL]
 
@@ -125,7 +125,7 @@ async def test_fetch_falls_back_to_the_releases_page_when_the_url_is_unusable(fa
 
     assert error is None
     assert release.version == "2.60.0"
-    assert release.url == "https://github.com/vincentmakes/turbo-ea/releases"
+    assert release.url == "https://github.com/TurboEA/turbo-ea/releases"
 
 
 async def test_fetch_keeps_the_release_body_as_notes(fake_http):

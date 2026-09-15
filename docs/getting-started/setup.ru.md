@@ -14,7 +14,7 @@
 Вам нужны `docker-compose.yml` и настроенный файл `.env` в рабочем каталоге. Самый простой способ — клонировать репозиторий:
 
 ```bash
-git clone https://github.com/vincentmakes/turbo-ea.git
+git clone https://github.com/TurboEA/turbo-ea.git
 cd turbo-ea
 cp .env.example .env
 ```
@@ -263,7 +263,7 @@ docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml up -d --build
 make up-dev
 ```
 
-Полное руководство для разработчика — именование веток, команды lint и тестов, проверки pre-commit — находится в [CONTRIBUTING.md](https://github.com/vincentmakes/turbo-ea/blob/main/CONTRIBUTING.md).
+Полное руководство для разработчика — именование веток, команды lint и тестов, проверки pre-commit — находится в [CONTRIBUTING.md](https://github.com/TurboEA/turbo-ea/blob/main/CONTRIBUTING.md).
 
 ## Краткая справка
 

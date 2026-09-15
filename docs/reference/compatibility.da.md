@@ -90,6 +90,6 @@ Disse er eksplicit uden for omfanget og kan ændres når som helst:
 
 ## Hvad "1.0.0" faktisk ændrer
 
-Sammenlignet med `0.x`-serien er `1.0.0` i sig selv ikke en feature-release — det er det punkt, hvorpå forpligtelserne ovenfor begynder at gælde. Kode, der leveres i `1.0.0`, er den samme kode, der blev leveret i `0.71.0`, plus supply-chain-hærdningen og bidragyder-flow-ændringerne dokumenteret i [`1.0.0` CHANGELOG-posten](https://github.com/vincentmakes/turbo-ea/blob/main/CHANGELOG.md#100---2026-05-05).
+Sammenlignet med `0.x`-serien er `1.0.0` i sig selv ikke en feature-release — det er det punkt, hvorpå forpligtelserne ovenfor begynder at gælde. Kode, der leveres i `1.0.0`, er den samme kode, der blev leveret i `0.71.0`, plus supply-chain-hærdningen og bidragyder-flow-ændringerne dokumenteret i [`1.0.0` CHANGELOG-posten](https://github.com/TurboEA/turbo-ea/blob/main/CHANGELOG.md#100---2026-05-05).
 
 Pre-`1.0`-udgivelser var ikke dækket af denne politik. Migreringer mellem `0.x`-versioner kunne og gjorde inkludere skema-drops, omdøbninger og brydende metamodel-ændringer. Fra `1.0.0` og fremefter går disse gennem deprecation-cyklussen.

@@ -113,7 +113,7 @@ These options appear in the metamodel field editor **only while the extension th
 
 ## Data access grants
 
-Most extensions only work with their own data. An extension that integrates with core data — for example a connector that syncs todos with an external task tracker such as Jira or MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — must declare **grants** in its signed manifest:
+Most extensions only work with their own data. An extension that integrates with core data — for example a connector that syncs todos with an external task tracker such as Jira or MS Planner ([#921](https://github.com/TurboEA/turbo-ea/discussions/921)) — must declare **grants** in its signed manifest:
 
 - `core.todos.read` / `core.todos.write` — read or change todos through the extension SDK. Write implies read. On system todos (such as sign-off requests) a sync extension can only set the external reference shown as a chip — it can never complete, edit, reassign or delete them, and it can never touch todos owned by another extension.
 - `core.events.todo` — receive todo change events, so a connector reacts to a completed todo immediately instead of on its next polling cycle.

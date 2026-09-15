@@ -371,7 +371,7 @@ class TestUpdateCheckEnabledSettings:
             db,
             release=ReleaseInfo(
                 version="99.0.0",
-                url="https://github.com/vincentmakes/turbo-ea/releases/tag/v99.0.0",
+                url="https://github.com/TurboEA/turbo-ea/releases/tag/v99.0.0",
                 notes="### Added\n- Something new",
             ),
             error=None,
@@ -626,7 +626,7 @@ class TestReleaseNotesSettings:
             db,
             release=ReleaseInfo(
                 version="99.0.0",
-                url="https://github.com/vincentmakes/turbo-ea/releases/tag/v99.0.0",
+                url="https://github.com/TurboEA/turbo-ea/releases/tag/v99.0.0",
                 notes="### Added\n- Something unreleased",
             ),
             error=None,

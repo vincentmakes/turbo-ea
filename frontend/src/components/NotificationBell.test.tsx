@@ -103,7 +103,7 @@ describe("NotificationBell link handling", () => {
   });
 
   it("marks an external notification with an open-in-new glyph", async () => {
-    await openList("https://github.com/vincentmakes/turbo-ea/releases/tag/v2.60.0");
+    await openList("https://github.com/TurboEA/turbo-ea/releases/tag/v2.60.0");
     // The row leaves the app, so it must say so before it is clicked.
     expect(await screen.findByRole("img", { name: "opensExternally" })).toHaveTextContent(
       "open_in_new",
@@ -227,7 +227,7 @@ describe("NotificationBell link handling", () => {
           items: [
             notif(
               "n1",
-              "https://github.com/vincentmakes/turbo-ea/releases/tag/v2.61.0",
+              "https://github.com/TurboEA/turbo-ea/releases/tag/v2.61.0",
               "app_update_available",
             ),
           ],
@@ -240,7 +240,7 @@ describe("NotificationBell link handling", () => {
         return {
           current_version: "2.60.0",
           latest_version: "2.61.0",
-          release_url: "https://github.com/vincentmakes/turbo-ea/releases/tag/v2.61.0",
+          release_url: "https://github.com/TurboEA/turbo-ea/releases/tag/v2.61.0",
           release_notes: "### Added\n- **A new thing** that matters",
           checked_at: new Date().toISOString(),
           error: null,
@@ -365,7 +365,7 @@ describe("NotificationBell link handling", () => {
     // It opens a dialog, so open_in_new would be a lie — but the row still
     // needs to say that clicking it shows something.
     await openList(
-      "https://github.com/vincentmakes/turbo-ea/releases/tag/v2.61.0",
+      "https://github.com/TurboEA/turbo-ea/releases/tag/v2.61.0",
       "app_update_available",
     );
     await screen.findByText("notification n1");

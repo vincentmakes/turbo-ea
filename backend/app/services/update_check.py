@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 # Baked-in on purpose: the release feed of the product itself, not a per-install
 # choice. Operators who want the probe gone turn it off with the setting below
 # rather than repointing it somewhere else.
-GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/vincentmakes/turbo-ea/releases/latest"
+GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/TurboEA/turbo-ea/releases/latest"
 
 RELEASE_FETCH_TIMEOUT_SECONDS = 10.0
 
@@ -133,7 +133,7 @@ async def fetch_latest_release() -> tuple[ReleaseInfo | None, str | None]:
     if not isinstance(url, str) or not url.startswith("https://"):
         # Fall back to the repository's releases page rather than dropping a
         # notification with no changelog to point at.
-        url = "https://github.com/vincentmakes/turbo-ea/releases"
+        url = "https://github.com/TurboEA/turbo-ea/releases"
 
     notes = payload.get("body")
     notes = notes.strip() if isinstance(notes, str) else ""

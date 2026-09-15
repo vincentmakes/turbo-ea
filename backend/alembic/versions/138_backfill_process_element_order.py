@@ -4,7 +4,7 @@ Until this release the BPMN parser numbered extracted elements by iterating
 its element-type table, so the Process Flow element tables listed every user
 task, then every send task, then the gateways, and finally the start and end
 events — with the step that begins the process near the bottom
-(`#978 <https://github.com/vincentmakes/turbo-ea/issues/978>`_). The parser now
+(`#978 <https://github.com/TurboEA/turbo-ea/issues/978>`_). The parser now
 ranks elements causally instead.
 
 ``sequence_order`` is persisted, and the only writers are "save diagram" and
