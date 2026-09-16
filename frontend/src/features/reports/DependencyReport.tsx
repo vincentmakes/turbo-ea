@@ -1206,6 +1206,16 @@ export default function DependencyReport() {
             // above "Workday". The list is already in memory, so it filters on
             // the raw input with no debounce, exactly like `CardPicker`.
             filterOptions={(opts, state) => filterAndRank(opts, state.inputValue)}
+            // MUI pins the popper to the input's width, and each row spends
+            // ~120px of it on the dot, the gaps and the type caption — so a
+            // card name was left about 95px and most of them were clipped. The
+            // list sizes to its content instead, while the input keeps the
+            // width a toolbar control should take. `90vw` is the same phone
+            // guard the other wide popups in the app use.
+            slotProps={{
+              popper: { style: { width: "fit-content" } },
+              paper: { sx: { minWidth: 280, maxWidth: "min(560px, 90vw)" } },
+            }}
             getOptionLabel={(o) => o.name}
             value={nodes.find((n) => n.id === center) || null}
             onChange={(_, v) => setCenter(v?.id || "")}
@@ -1221,7 +1231,11 @@ export default function DependencyReport() {
                     flexShrink: 0,
                   }}
                 />
-                <Typography variant="body2" noWrap sx={{ flex: 1 }}>
+                {/* Not `noWrap`: a name longer than the popper's max wraps
+                    onto a second line rather than being clipped, matching
+                    `CardPicker`. Stays `body2` (a `<p>`) — the #1107 tests
+                    read option names with `querySelector("p")`. */}
+                <Typography variant="body2" sx={{ flex: 1 }}>
                   {option.name}
                 </Typography>
                 <Typography
@@ -1234,9 +1248,15 @@ export default function DependencyReport() {
               </li>
             )}
             renderInput={(params) => (
-              <TextField {...params} label={t("dependency.centerOn")} sx={{ minWidth: 220 }} />
+              <TextField
+                {...params}
+                label={t("dependency.centerOn")}
+                // Hovering the collapsed field names the card in full, which a
+                // 280px input cannot always show.
+                inputProps={{ ...params.inputProps, title: centerNode?.name ?? "" }}
+              />
             )}
-            sx={{ minWidth: 220 }}
+            sx={{ minWidth: 280 }}
           />
 
           {hasLifecycleData && diagramShown && (
