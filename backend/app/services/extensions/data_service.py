@@ -67,6 +67,7 @@ from app.services import (
     stakeholder_service,
     tag_service,
 )
+from app.services.card_search import card_search_filter, card_search_rank
 from app.services.card_write_service import WriteActor
 from app.services.eol_service import resolve_eol_statuses
 from app.services.event_bus import request_batch_id, request_origin
@@ -81,7 +82,6 @@ from app.services.extensions.sdk import (
     ExtRelation,
     ExtStakeholder,
 )
-from app.services.search_rank import search_filter, search_rank
 
 READ_GRANTS = frozenset({"core.cards.read", "core.cards.write"})
 WRITE_GRANT = "core.cards.write"
@@ -462,7 +462,7 @@ class ExtensionData:
             q = q.where(Card.status == "ACTIVE")
             count_q = count_q.where(Card.status == "ACTIVE")
         if search:
-            match = or_(search_filter(Card.name, search), search_filter(Card.description, search))
+            match = card_search_filter(search)
             q = q.where(match)
             count_q = count_q.where(match)
         if parent_id:
@@ -471,7 +471,7 @@ class ExtensionData:
             count_q = count_q.where(Card.parent_id == pid)
 
         if search:
-            q = q.order_by(search_rank(Card.name, search).asc(), Card.name.asc(), Card.id.asc())
+            q = q.order_by(card_search_rank(search).asc(), Card.name.asc(), Card.id.asc())
         else:
             q = q.order_by(Card.name.asc(), Card.id.asc())
         q = q.offset((page - 1) * page_size).limit(page_size)

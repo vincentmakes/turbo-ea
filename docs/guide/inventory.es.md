@@ -10,7 +10,7 @@ El **Inventario** es el corazón de Turbo EA. Aquí se listan todas las **fichas
 
 El panel lateral izquierdo permite **filtrar** las fichas por diferentes criterios:
 
-- **Buscar** — Búsqueda de texto libre en los nombres de las tarjetas, desde la primera letra. Las mejores coincidencias aparecen primero: nombres exactos, luego los que empiezan por lo que escribió, luego aquellos donde inicia una palabra y después el resto. Todos los campos de búsqueda de Turbo EA ordenan así — la búsqueda global (**Ctrl+K** / **⌘K**), cada selector de tarjetas, el registro de riesgos, las decisiones y los portales publicados — salvo que haya elegido un orden propio, que siempre prevalece
+- **Buscar** — Búsqueda de texto libre en los nombres de las tarjetas, desde la primera letra. Las mejores coincidencias aparecen primero: nombres exactos, luego los que empiezan por lo que escribió, luego aquellos donde inicia una palabra y después el resto. Todos los campos de búsqueda de Turbo EA ordenan así — la búsqueda global (**Ctrl+K** / **⌘K**), cada selector de tarjetas, el registro de riesgos, las decisiones y los portales publicados — salvo que haya elegido un orden propio, que siempre prevalece. También se buscan el **alias** de la ficha y su descripción, de modo que una ficha se encuentra por el nombre que su organización usa realmente — y un alias que coincide exactamente puntúa igual que un nombre que coincide exactamente
 - **Tipos** — Filtrar por uno o más tipos de ficha: Objetivo, Plataforma, Iniciativa, Organización, Capacidad de Negocio, Contexto de Negocio, Proceso de Negocio, Aplicación, Interfaz, Objeto de Datos, Componente TI, Categoría Tecnológica, Proveedor, Sistema
 - **Subtipos** — Cuando se selecciona un tipo, permite filtrar por subtipo (por ejemplo, Aplicación → Aplicación de Negocio, Microservicio, Agente IA, Despliegue)
 - **Estado de Aprobación** — Borrador, Aprobado, Roto o Rechazado
@@ -68,6 +68,8 @@ La columna **Ruta** muestra la jerarquía de la ficha (p. ej. «América del Nor
 
 La columna **Logotipo** muestra el logotipo propio de la ficha, o su icono de tipo cuando no se ha definido ninguno, de modo que un paisaje puede recorrerse por la marca del producto en lugar de por el nombre. Solo se ofrece para los tipos de ficha que permiten logotipos (de fábrica, Aplicación y Componente de TI), está desactivada de forma predeterminada y hace las filas más altas mientras está visible, para que las marcas se distingan. Si puede editar la ficha, pase el ratón sobre su celda de logotipo y haga clic para subir, sustituir, elegir un icono de marca o eliminar el logotipo sin salir de la cuadrícula — el mismo menú que en la página de la ficha. Los logotipos quedan deliberadamente fuera del rellenado hacia abajo y de la edición masiva: una marca por ficha, definida a propósito.
 
+La columna **Alias** muestra el otro nombre de la ficha — el interno con el que su organización la designa. Está desactivada de forma predeterminada, porque la mayoría de los paisajes no tienen ninguno: actívela en la pestaña **Columnas**. Se edita en la propia celda en modo de edición de la cuadrícula y se rellena hacia abajo como cualquier otra columna de texto, y viaja con la exportación e importación de Excel, de modo que una lista de alias puede cargarse de una pasada.
+
 Cada categoría tiene una casilla **Seleccionar todo** para activar o desactivar rápidamente todas las columnas de ese grupo. Un campo de búsqueda en la parte superior permite encontrar columnas específicas por nombre. La insignia en cada encabezado de sección muestra cuántas columnas de ese grupo están actualmente visibles.
 
 Cuando se selecciona un tipo de tarjeta por primera vez, **todas las columnas de atributos y relaciones se activan por defecto**. Luego puede desmarcar las columnas que no necesite. Un botón **Restablecer** en la parte inferior de la pestaña «Columnas» restaura la selección de columnas predeterminada.
@@ -85,6 +87,7 @@ El inventario utiliza una tabla de datos **AG Grid** con funciones avanzadas:
 | **Tipo** | Tipo de ficha con icono de color |
 | **Nombre** | Nombre del componente (haga clic para abrir el detalle de la ficha) |
 | **Logotipo** | El logotipo propio de la ficha, o su icono de tipo cuando no tiene ninguno. Desactivada de forma predeterminada — actívela en la pestaña Columnas; haga clic en una celda para cambiarlo |
+| **Alias** | El otro nombre de la ficha. Desactivada de forma predeterminada — actívela en la pestaña Columnas; se tiene en cuenta en todos los cuadros de búsqueda |
 | **Descripción** | Descripción breve |
 | **Ciclo de Vida** | Estado actual del ciclo de vida |
 | **Estado de Aprobación** | Insignia de estado de revisión |

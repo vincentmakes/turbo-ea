@@ -10,7 +10,7 @@ L'**Inventaire** est le cœur de Turbo EA. Toutes les **fiches** (composants) de
 
 Le panneau latéral gauche permet de **filtrer** les fiches selon différents critères :
 
-- **Recherche** -- Recherche en texte libre sur les noms de fiches, dès la première lettre. Les meilleures correspondances apparaissent en premier : noms exacts, puis noms commençant par votre saisie, puis ceux où elle commence un mot, puis le reste. Tous les champs de recherche de Turbo EA trient ainsi -- la recherche globale (**Ctrl+K** / **⌘K**), chaque sélecteur de fiche, le registre des risques, les décisions et les portails publiés -- sauf si vous avez choisi un tri, qui l'emporte toujours
+- **Recherche** -- Recherche en texte libre sur les noms de fiches, dès la première lettre. Les meilleures correspondances apparaissent en premier : noms exacts, puis noms commençant par votre saisie, puis ceux où elle commence un mot, puis le reste. Tous les champs de recherche de Turbo EA trient ainsi -- la recherche globale (**Ctrl+K** / **⌘K**), chaque sélecteur de fiche, le registre des risques, les décisions et les portails publiés -- sauf si vous avez choisi un tri, qui l'emporte toujours. L'**alias** d'une fiche et sa description sont également pris en compte : une fiche se retrouve donc par le nom réellement employé dans votre organisation -- et un alias correspondant exactement pèse autant qu'un nom qui correspond exactement
 - **Types** -- Filtrer par un ou plusieurs types de fiches : Objectif, Plateforme, Initiative, Organisation, Capacité Métier, Contexte Métier, Processus Métier, Application, Interface, Objet de Données, Composant IT, Catégorie Technique, Fournisseur, Système
 - **Sous-types** -- Lorsqu'un type est sélectionné, filtrer davantage par sous-type (par ex. Application -> Application Métier, Microservice, Agent IA, Déploiement)
 - **Statut d'approbation** -- Brouillon, Approuvé, Cassé ou Rejeté
@@ -68,6 +68,8 @@ La colonne **Chemin** affiche le fil d'Ariane hiérarchique (par ex. « Amériqu
 
 La colonne **Logo** affiche le logo propre à la fiche, ou son icône de type lorsqu'aucun logo n'a été défini, ce qui permet de parcourir un paysage par marque de produit plutôt que par nom. Elle n'est proposée que pour les types de fiches autorisant les logos (par défaut, Application et Composant informatique), elle est masquée par défaut et rend les lignes plus hautes tant qu'elle est affichée, afin que les marques restent lisibles. Si vous pouvez modifier la fiche, survolez sa cellule Logo et cliquez pour téléverser, remplacer, choisir une icône de marque ou supprimer le logo sans quitter la grille — le même menu que sur la page de la fiche. Les logos sont volontairement exclus du remplissage vers le bas et de l'édition en masse : une marque par fiche, définie intentionnellement.
 
+La colonne **Alias** affiche l'autre nom d'une fiche -- celui, interne, sous lequel votre organisation la désigne. Elle est masquée par défaut, la plupart des paysages n'en comportant aucun : activez-la dans l'onglet **Colonnes**. Elle se modifie sur place en mode édition de la grille et se remplit vers le bas comme toute autre colonne de texte ; elle voyage avec l'export et l'import Excel, ce qui permet de charger une liste d'alias en une seule passe.
+
 Chaque catégorie dispose d'une case à cocher **Tout sélectionner** pour activer ou désactiver rapidement toutes les colonnes du groupe. Un champ de recherche en haut permet de trouver des colonnes spécifiques par nom. Le badge sur chaque en-tête de section indique combien de colonnes de ce groupe sont actuellement visibles.
 
 Lorsqu'un type de fiche est sélectionné pour la première fois, **toutes les colonnes d'attributs et de relations sont activées par défaut**. Vous pouvez ensuite décocher les colonnes dont vous n'avez pas besoin. Un bouton **Réinitialiser** en bas de l'onglet « Colonnes » restaure la sélection de colonnes par défaut.
@@ -85,6 +87,7 @@ L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalité
 | **Type** | Type de fiche avec icône colorée |
 | **Nom** | Nom du composant (cliquer pour ouvrir le détail de la fiche) |
 | **Logo** | Le logo propre à la fiche, ou son icône de type à défaut. Masquée par défaut — activez-la dans l'onglet Colonnes ; cliquez sur une cellule pour changer le logo |
+| **Alias** | L'autre nom de la fiche. Masquée par défaut -- activez-la dans l'onglet Colonnes ; prise en compte par tous les champs de recherche |
 | **Description** | Description brève |
 | **Cycle de vie** | État actuel du cycle de vie |
 | **Statut d'approbation** | Badge de statut de révision |

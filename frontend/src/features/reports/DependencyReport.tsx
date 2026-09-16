@@ -57,6 +57,7 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import type { CardType } from "@/types";
+import { compareByRank, searchRank } from "@/lib/searchRank";
 
 // GNode / GEdge are the Layered Dependency View's own input types, re-used here
 // rather than mirrored: this report is where they are fetched, and a local copy
@@ -145,6 +146,20 @@ const FALLBACK_COLORS: Record<string, string> = {
 
 function tc(key: string, types: CardType[]): string {
   return types.find((t) => t.key === key)?.color || FALLBACK_COLORS[key] || "#999";
+}
+
+/**
+ * Filter + rank the "Center on" options against what has been typed.
+ *
+ * The same shape as `CardPicker.filterAndRank`: the list is already in memory,
+ * so it narrows from the first character with no debounce, and the tiers match
+ * the server's so the order never jumps. Matched on the name — the dependency
+ * graph payload carries no other text to match against.
+ */
+function filterAndRank(options: GNode[], query: string): GNode[] {
+  const q = query.trim();
+  if (!q) return options;
+  return options.filter((o) => searchRank(o.name, q) >= 0).sort(compareByRank(q));
 }
 
 /** Tolerance for matching the debounced date to the mark's span — the same
@@ -1096,8 +1111,19 @@ export default function DependencyReport() {
   // "Center on" chooses a starting point, and centring is always honoured (the
   // `nodes` memo keeps `n.id === center` at every date), so filtering the list
   // by the slider only made a retired card impossible to reach.
+  //
+  // Sorted, though: `/reports/dependencies` builds its node list by iterating a
+  // set, so the order it arrives in is arbitrary and the drop-down read as
+  // random (#1107). `compareByRank("")` ranks every row equally and falls
+  // through to its locale-aware name compare, which is the ordering every
+  // other browse-on-open list in the app uses. `rawNodes` itself is left
+  // alone — the full-page picker below deliberately ranks by connection count,
+  // and the table has its own sort.
   const acOptions = useMemo(
-    () => (cardTypeKey ? rawNodes.filter((n) => n.type === cardTypeKey) : rawNodes),
+    () =>
+      (cardTypeKey ? rawNodes.filter((n) => n.type === cardTypeKey) : rawNodes)
+        .slice()
+        .sort(compareByRank("")),
     [rawNodes, cardTypeKey],
   );
 
@@ -1175,6 +1201,11 @@ export default function DependencyReport() {
           <Autocomplete
             size="small"
             options={acOptions}
+            // MUI's default filter is an unranked "contains", which buries the
+            // obvious answers — typing `work` would list "Cloud Work Hub"
+            // above "Workday". The list is already in memory, so it filters on
+            // the raw input with no debounce, exactly like `CardPicker`.
+            filterOptions={(opts, state) => filterAndRank(opts, state.inputValue)}
             getOptionLabel={(o) => o.name}
             value={nodes.find((n) => n.id === center) || null}
             onChange={(_, v) => setCenter(v?.id || "")}

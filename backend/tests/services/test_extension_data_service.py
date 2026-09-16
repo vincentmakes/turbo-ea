@@ -209,6 +209,14 @@ class TestSearchCards:
         assert len(page1.items) == 1 and len(page2.items) == 1
         assert page1.items[0].id != page2.items[0].id
 
+    async def test_search_matches_the_alias(self, db, env):
+        """The bridge shares core's card-search definition (#1108)."""
+        load_registry(grants=["core.cards.read"])
+        env["app"].alias = "BILL-v2"
+        await db.flush()
+        hits = await ExtensionData(KEY).search_cards(search="BILL-v2")
+        assert [c.name for c in hits.items] == ["Billing Service"]
+
     async def test_page_size_is_capped(self, db, env):
         load_registry(grants=["core.cards.read"])
         page = await ExtensionData(KEY).search_cards(page_size=999999)

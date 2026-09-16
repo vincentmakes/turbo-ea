@@ -10,6 +10,7 @@ A parte superior do card mostra:
 
 - **Ícone e rótulo do tipo** — Indicador colorido do tipo de card
 - **Nome do card** — Editável inline
+- **Alias** — O outro nome do card, exibido sob o título quando definido. O lápis de edição do título permite alterar o nome e o alias em conjunto. Os aliases são considerados por todas as caixas de pesquisa, de modo que um card é encontrado pelo nome que a sua organização realmente usa.
 - **Subtipo** — Classificação secundária (se aplicável)
 - **Badge de status de aprovação** — Rascunho, Aprovado, Quebrado ou Rejeitado
 - **Botão de sugestão IA** — Clique para gerar uma descrição com IA (visível quando a IA está habilitada para este tipo de card e o usuário tem permissão de edição)
@@ -72,7 +73,7 @@ A aba de detalhe é organizada em **seções** que podem ser reordenadas e confi
 ### Seção de Descrição
 
 - **Descrição** — Descrição em texto rico do componente. Suporta o recurso de sugestão de IA para geração automática
-- **Campos adicionais de descrição** — Alguns tipos de card incluem campos extras na seção de descrição (ex.: alias, ID externo)
+- **Campos adicionais de descrição** — Um administrador pode atribuir qualquer campo próprio de um tipo de card à seção de descrição, que pode assim conter campos além da própria descrição
 
 ### Seção de Ciclo de Vida
 

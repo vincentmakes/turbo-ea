@@ -10,7 +10,7 @@
 
 Det venstre sidepanel lader dig **filtrere** kort efter forskellige kriterier:
 
-- **Søg** — Friform tekstsøgning på tværs af kortnavne, allerede fra første bogstav. De bedste match står øverst: eksakte navne, derefter navne der begynder med det, du skrev, så dem hvor det begynder et ord, og til sidst resten. Alle søgefelter i Turbo EA sorterer sådan — den globale søgning (**Ctrl+K** / **⌘K**), enhver kortvælger, risikoregistret, beslutninger og publicerede portaler — medmindre du selv har valgt en sortering, som altid vinder
+- **Søg** — Friform tekstsøgning på tværs af kortnavne, allerede fra første bogstav. De bedste match står øverst: eksakte navne, derefter navne der begynder med det, du skrev, så dem hvor det begynder et ord, og til sidst resten. Alle søgefelter i Turbo EA sorterer sådan — den globale søgning (**Ctrl+K** / **⌘K**), enhver kortvælger, risikoregistret, beslutninger og publicerede portaler — medmindre du selv har valgt en sortering, som altid vinder. Et korts **alias** og dets beskrivelse matches også, så et kort kan findes med det navn, din organisation faktisk bruger — og et alias, der matcher eksakt, rangerer lige så højt som et navn, der gør
 - **Typer** — Filtrer efter en eller flere korttyper: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
 - **Undertyper** — Når en type er valgt, kan du filtrere yderligere efter undertype (f.eks. Application → Business Application, Microservice, AI Agent, Deployment)
 - **Godkendelsesstatus** — Draft, Approved, Broken eller Rejected
@@ -68,6 +68,8 @@ Kolonnen **Path** viser kortets hierarki-brødkrumme (f.eks. `North America / Sa
 
 Kolonnen **Logo** viser kortets eget logo, eller dets typeikon når der ikke er sat et, så et landskab kan skimmes efter produktmærker frem for navne. Den tilbydes kun for korttyper, der tillader logoer (som standard Application og IT Component), er slået fra som standard og gør rækkerne højere, mens den vises, så mærkerne forbliver læsbare. Hvis du må redigere kortet, kan du holde musen over dets logo-celle og klikke for at uploade, erstatte, vælge et brand-ikon eller fjerne logoet uden at forlade gitteret — samme menu som på kortsiden. Logoer er bevidst udeladt fra udfyld-nedad og Mass Edit: ét mærke pr. kort, sat med vilje.
 
+Kolonnen **Alias** viser kortets andet navn — det interne, din organisation omtaler det med. Den er slået fra som standard, da de fleste landskaber ikke har nogen: slå den til i fanen **Kolonner**. Den redigeres i cellen i gitterets redigeringstilstand og fyldes nedad som enhver anden tekstkolonne, og den følger med Excel-eksport og -import, så en liste af alias kan indlæses i én omgang.
+
 Hver kategori har et **Vælg alle**-afkrydsningsfelt til hurtigt at skifte alle kolonner i den gruppe. Et søgefelt øverst lader dig finde specifikke kolonner efter navn. Badget på hver sektionsoverskrift viser, hvor mange kolonner fra den gruppe der aktuelt er synlige.
 
 Når en korttype vælges første gang, er **alle egenskabs- og relations­kolonner aktiveret som standard**. Du kan derefter afmarkere kolonner, du ikke har brug for. En **Nulstil**-knap nederst på Kolonner-fanen gendanner standard-kolonnevalget.
@@ -85,6 +87,7 @@ Lageret bruger en **AG Grid**-datatabel med kraftfulde funktioner:
 | **Type** | Korttype med farvekodet ikon |
 | **Name** | Komponent-navn (klik for at åbne kortdetalje). Hver navne-celle har et 👁 øje-ikon — klik på det for at åbne kortdetaljen i et sidepanel uden at forlade gitteret. Ctrl/Cmd-klik på navnet for at åbne kortet i en ny browser-fane. |
 | **Logo** | Kortets eget logo, eller dets typeikon når det ikke har et. Slået fra som standard — slå den til under fanen Kolonner; klik på en celle for at ændre logoet |
+| **Alias** | Kortets andet navn. Slået fra som standard — slå den til under fanen Kolonner; matches af alle søgefelter |
 | **Path** | Hierarki-brødkrumme op til kortets forælder — tom for rod-kort |
 | **Description** | Kort beskrivelse |
 | **Lifecycle** | Aktuel livscyklus-tilstand |

@@ -361,6 +361,73 @@ class TestListCards:
         )
         assert response.json()["total"] == 0
 
+    async def test_search_matches_the_alias(self, client, db, cards_env):
+        """An alias IS a name — searching for one has to find the card (#1108)."""
+        admin = cards_env["admin"]
+        await create_card(
+            db,
+            card_type="Application",
+            name="Customer Relationship Suite",
+            alias="CRM-v2",
+            user_id=admin.id,
+        )
+        await create_card(db, card_type="Application", name="Unrelated", user_id=admin.id)
+
+        response = await client.get(
+            "/api/v1/cards?search=CRM-v2",
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert [item["name"] for item in data["items"]] == ["Customer Relationship Suite"]
+        assert data["items"][0]["alias"] == "CRM-v2"
+
+    async def test_search_ranks_an_exact_alias_above_a_name_substring(self, client, db, cards_env):
+        """Relevance takes the better of name and alias, so the alias can win."""
+        admin = cards_env["admin"]
+        await create_card(
+            db, card_type="Application", name="Legacy Workday Bridge", user_id=admin.id
+        )
+        await create_card(
+            db,
+            card_type="Application",
+            name="Human Capital Suite",
+            alias="Workday",
+            user_id=admin.id,
+        )
+
+        response = await client.get(
+            "/api/v1/cards?search=Workday",
+            headers=auth_headers(admin),
+        )
+        names = [item["name"] for item in response.json()["items"]]
+        assert names == ["Human Capital Suite", "Legacy Workday Bridge"]
+
+    async def test_a_card_without_an_alias_ranks_as_before(self, client, db, cards_env):
+        """`least()` over a NULL alias must not disturb the name tiers (#918)."""
+        admin = cards_env["admin"]
+        for name in ("Network Monitor", "Cloud Work Hub", "Workday Adaptive", "Workday"):
+            await create_card(db, card_type="Application", name=name, user_id=admin.id)
+
+        response = await client.get(
+            "/api/v1/cards?search=work",
+            headers=auth_headers(admin),
+        )
+        names = [item["name"] for item in response.json()["items"]]
+        assert names == ["Workday", "Workday Adaptive", "Cloud Work Hub", "Network Monitor"]
+
+    async def test_explicit_sort_still_overrides_alias_relevance(self, client, db, cards_env):
+        admin = cards_env["admin"]
+        await create_card(db, card_type="Application", name="Alpha", alias="Zeta", user_id=admin.id)
+        await create_card(db, card_type="Application", name="Zeta Bridge", user_id=admin.id)
+
+        response = await client.get(
+            "/api/v1/cards?search=zeta&sort_by=name&sort_dir=desc",
+            headers=auth_headers(admin),
+        )
+        names = [item["name"] for item in response.json()["items"]]
+        assert names == ["Zeta Bridge", "Alpha"]
+
     async def test_pagination_has_a_stable_tiebreaker(self, client, db, cards_env):
         """Same-named cards must not duplicate or vanish across pages."""
         admin = cards_env["admin"]

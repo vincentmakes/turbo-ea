@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { compareByRank, searchRank } from "./searchRank";
+import { cardSearchRank, compareByRank, searchRank } from "./searchRank";
 
 /**
  * This file pins the client half of a two-sided contract: the tiers here must
- * match `_search_rank` in `backend/app/api/v1/cards.py`, or the picker will
- * reorder itself when the debounced server response lands.
+ * match `search_rank` in `backend/app/services/search_rank.py` — and, for
+ * cards, `card_search_rank` in `card_search.py` — or the picker will reorder
+ * itself when the debounced server response lands.
  */
 describe("searchRank", () => {
   it("ranks an exact match first", () => {
@@ -81,5 +82,52 @@ describe("compareByRank", () => {
   it("keeps non-matches in alphabetical order among themselves", () => {
     const names = [{ name: "Zebra" }, { name: "Apple" }];
     expect([...names].sort(compareByRank("work")).map((o) => o.name)).toEqual(["Apple", "Zebra"]);
+  });
+});
+
+describe("cardSearchRank", () => {
+  it("falls back to the name when there is no alias", () => {
+    expect(cardSearchRank({ name: "Workday" }, "work")).toBe(1);
+    expect(cardSearchRank({ name: "Workday", alias: null }, "work")).toBe(1);
+  });
+
+  it("takes the better of the two texts", () => {
+    // Exact on the alias beats starts-a-word on the name.
+    expect(cardSearchRank({ name: "Legacy Workday Bridge", alias: "work" }, "work")).toBe(0);
+    // …and the other way round.
+    expect(cardSearchRank({ name: "work", alias: "Legacy Bridge" }, "work")).toBe(0);
+  });
+
+  it("matches on the alias alone", () => {
+    expect(cardSearchRank({ name: "Human Capital Suite", alias: "CRM-v2" }, "crm-v2")).toBe(0);
+  });
+
+  it("reports no match only when neither text matches", () => {
+    expect(cardSearchRank({ name: "Payroll", alias: "PAY" }, "work")).toBe(-1);
+  });
+});
+
+describe("compareByRank with aliases", () => {
+  it("floats an exact alias match above a name substring", () => {
+    // The whole point of #1108: the server returns both rows, and the client
+    // must not re-order them so the alias hit reads as the worse match.
+    const cards = [
+      { name: "Legacy Workday Bridge" },
+      { name: "Human Capital Suite", alias: "Workday" },
+    ];
+    expect([...cards].sort(compareByRank("workday")).map((c) => c.name)).toEqual([
+      "Human Capital Suite",
+      "Legacy Workday Bridge",
+    ]);
+  });
+
+  it("is a plain alphabetical sort for an empty query", () => {
+    // `compareByRank("")` is how a browse-on-open list is ordered (#1107).
+    const cards = [{ name: "Zebra" }, { name: "apple", alias: "ZZZ" }, { name: "Mango" }];
+    expect([...cards].sort(compareByRank("")).map((c) => c.name)).toEqual([
+      "apple",
+      "Mango",
+      "Zebra",
+    ]);
   });
 });

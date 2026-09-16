@@ -10,7 +10,7 @@ The **Inventory** is the heart of Turbo EA. Here all **cards** (components) of t
 
 The left sidebar panel allows you to **filter** cards by different criteria:
 
-- **Search** — Free text search across card names, from the very first letter. Best matches come first: exact names, then names starting with what you typed, then names where it starts a word, then the rest. Every search box in Turbo EA orders results this way — the global search (**Ctrl+K** / **⌘K**), each card picker, the Risk Register, Decisions and published portals — unless you have chosen a sort of your own, which always wins
+- **Search** — Free text search across card names, from the very first letter. Best matches come first: exact names, then names starting with what you typed, then names where it starts a word, then the rest. Every search box in Turbo EA orders results this way — the global search (**Ctrl+K** / **⌘K**), each card picker, the Risk Register, Decisions and published portals — unless you have chosen a sort of your own, which always wins. A card's **alias** and its description are matched too, so a card is found by the name your organisation actually uses for it — and an alias that matches exactly ranks as highly as a name that does
 - **Types** — Filter by one or more card types: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
 - **Subtypes** — When a type is selected, filter further by subtype (e.g., Application → Business Application, Microservice, AI Agent, Deployment)
 - **Approval Status** — Draft, Approved, Broken, or Rejected
@@ -68,6 +68,8 @@ The **Path** column shows the card's hierarchy breadcrumb (e.g. `North America /
 
 The **Logo** column shows each card's own logo, or its type icon where none has been set, so a landscape can be scanned by product mark rather than by name. It is offered only for card types that allow logos (out of the box, Application and IT Component), is switched off by default, and makes the rows taller while it is shown so the marks stay legible. If you may edit the card, hover its logo cell and click to upload, replace, choose a brand icon or remove the logo without leaving the grid — the same menu as on the card page. Logos are deliberately excluded from fill-down and Mass Edit: one mark per card, set on purpose.
 
+The **Alias** column shows a card's other name — the internal one your organisation calls it by. It is switched off by default, since most landscapes carry none: turn it on in the **Columns** tab. It edits inline in grid edit mode and fills down like any other text column, and it travels with Excel export and import, so a list of aliases can be loaded in one pass.
+
 Each category has a **Select all** checkbox to quickly toggle all columns in that group. A search field at the top lets you find specific columns by name. The badge on each section header shows how many columns from that group are currently visible.
 
 When a card type is first selected, **all attribute and relation columns are enabled by default**. You can then uncheck columns you don't need. A **Reset** button at the bottom of the Columns tab restores the default column selection.
@@ -85,6 +87,7 @@ The inventory uses an **AG Grid** data table with powerful features:
 | **Type** | Card type with color-coded icon |
 | **Name** | Component name (click to open card detail). Each name cell has a 👁 eye icon — click it to open the card detail in a side panel without leaving the grid. Ctrl/Cmd-click the name to open the card in a new browser tab. |
 | **Logo** | The card's own logo, or its type icon when it has none. Off by default — switch it on in the Columns tab; click a cell to change the logo |
+| **Alias** | The card's other name. Off by default — switch it on in the Columns tab; matched by every search box |
 | **Path** | Hierarchy breadcrumb up to the card's parent — empty for root cards |
 | **Description** | Brief description |
 | **Lifecycle** | Current lifecycle state |

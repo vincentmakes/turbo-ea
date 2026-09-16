@@ -10,7 +10,7 @@ O **Inventário** é o coração do Turbo EA. Aqui todos os **cards** (component
 
 O painel lateral esquerdo permite **filtrar** cards por diferentes critérios:
 
-- **Pesquisa** — Busca de texto livre nos nomes dos cards, desde a primeira letra. As melhores correspondências aparecem primeiro: nomes exatos, depois os que começam pelo que você digitou, depois aqueles em que inicia uma palavra e então os restantes. Todos os campos de busca do Turbo EA ordenam assim — a busca global (**Ctrl+K** / **⌘K**), cada seletor de cards, o registo de riscos, as decisões e os portais publicados — a não ser que você tenha escolhido uma ordenação própria, que prevalece sempre
+- **Pesquisa** — Busca de texto livre nos nomes dos cards, desde a primeira letra. As melhores correspondências aparecem primeiro: nomes exatos, depois os que começam pelo que você digitou, depois aqueles em que inicia uma palavra e então os restantes. Todos os campos de busca do Turbo EA ordenam assim — a busca global (**Ctrl+K** / **⌘K**), cada seletor de cards, o registo de riscos, as decisões e os portais publicados — a não ser que você tenha escolhido uma ordenação própria, que prevalece sempre. O **alias** do card e a sua descrição também são pesquisados, de modo que um card é encontrado pelo nome que a sua organização realmente usa — e um alias que corresponde exatamente vale tanto quanto um nome que corresponde exatamente
 - **Tipos** — Filtrar por um ou mais tipos de card: Objetivo, Plataforma, Iniciativa, Organização, Capacidade de Negócio, Contexto de Negócio, Processo de Negócio, Aplicação, Interface, Objeto de Dados, Componente de TI, Categoria Tecnológica, Fornecedor, Sistema
 - **Subtipos** — Quando um tipo é selecionado, filtre ainda mais por subtipo (ex.: Aplicação -> Aplicação de Negócio, Microsserviço, Agente de IA, Implantação)
 - **Status de Aprovação** — Rascunho, Aprovado, Quebrado ou Rejeitado
@@ -68,6 +68,8 @@ A coluna **Caminho** mostra a hierarquia da ficha (por ex. «América do Norte /
 
 A coluna **Logótipo** mostra o logótipo próprio da ficha, ou o ícone do seu tipo quando nenhum foi definido, permitindo percorrer um panorama pela marca do produto em vez do nome. Só é oferecida para os tipos de ficha que permitem logótipos (de origem, Aplicação e Componente de TI), está desativada por predefinição e torna as linhas mais altas enquanto está visível, para que as marcas continuem legíveis. Se puder editar a ficha, passe o rato sobre a célula do logótipo e clique para carregar, substituir, escolher um ícone de marca ou remover o logótipo sem sair da grelha — o mesmo menu da página da ficha. Os logótipos ficam deliberadamente de fora do preenchimento para baixo e da edição em massa: uma marca por ficha, definida de propósito.
 
+A coluna **Alias** mostra o outro nome do card — o interno pelo qual a sua organização o trata. Está desativada por predefinição, pois a maioria dos panoramas não tem nenhum: ative-a no separador **Colunas**. Edita-se na própria célula em modo de edição da grelha e preenche-se para baixo como qualquer outra coluna de texto, e viaja com a exportação e importação Excel, pelo que uma lista de aliases pode ser carregada de uma só vez.
+
 Cada categoria tem uma caixa de seleção **Selecionar tudo** para ativar ou desativar rapidamente todas as colunas desse grupo. Um campo de pesquisa no topo permite encontrar colunas específicas por nome. O indicador em cada cabeçalho de seção mostra quantas colunas desse grupo estão atualmente visíveis.
 
 Quando um tipo de cartão é selecionado pela primeira vez, **todas as colunas de atributos e relações são ativadas por padrão**. Você pode então desmarcar as colunas que não precisa. Um botão **Redefinir** na parte inferior da aba «Colunas» restaura a seleção de colunas padrão.
@@ -85,6 +87,7 @@ O inventário usa uma tabela de dados **AG Grid** com recursos poderosos:
 | **Tipo** | Tipo do card com ícone colorido |
 | **Nome** | Nome do componente (clique para abrir o detalhe do card) |
 | **Logótipo** | O logótipo próprio da ficha, ou o ícone do seu tipo quando não tem nenhum. Desativada por predefinição — ative-a no separador Colunas; clique numa célula para o alterar |
+| **Alias** | O outro nome do card. Desativada por predefinição — ative-a no separador Colunas; é considerada por todas as caixas de pesquisa |
 | **Descrição** | Breve descrição |
 | **Ciclo de Vida** | Estado atual do ciclo de vida |
 | **Status de Aprovação** | Badge de status de revisão |

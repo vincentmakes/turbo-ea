@@ -12,6 +12,8 @@ import pytest
 from app.core.permissions import VIEWER_PERMISSIONS
 from tests.conftest import (
     auth_headers,
+    create_card,
+    create_card_type,
     create_role,
     create_user,
 )
@@ -302,3 +304,40 @@ class TestDeleteBookmark:
             headers=auth_headers(admin),
         )
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------
+# GET /bookmarks/{id}/odata  (feed)
+# ---------------------------------------------------------------
+
+
+class TestBookmarkOdataFeed:
+    async def test_search_matches_the_alias(self, client, db, bm_env):
+        """The feed's saved search matches the same three texts as the UI (#1108)."""
+        admin = bm_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+        await create_card(
+            db, card_type="Application", name="Salesforce", alias="CRM-v2", user_id=admin.id
+        )
+        await create_card(db, card_type="Application", name="SAP ERP", user_id=admin.id)
+
+        created = await client.post(
+            "/api/v1/bookmarks",
+            json={
+                "name": "Aliased",
+                "card_type": "Application",
+                "filters": {"search": "CRM-v2"},
+                "odata_enabled": True,
+            },
+            headers=auth_headers(admin),
+        )
+        assert created.status_code == 201
+        bm_id = created.json()["id"]
+
+        resp = await client.get(
+            f"/api/v1/bookmarks/{bm_id}/odata",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        names = [row["name"] for row in resp.json()["value"]]
+        assert names == ["Salesforce"]

@@ -2250,6 +2250,10 @@ export const CORE_COLUMNS = [
   // see LOGO_COLUMN_KEY below.
   { key: "core_logo", icon: "image", tKey: "columns.logo" as const, optIn: true },
   { key: "core_reference", icon: "tag", tKey: "columns.id" as const },
+  // The card's other name. Off by default (`optIn`) because most landscapes
+  // carry none: a column of empty cells for everybody is a worse default than
+  // one the people who use aliases switch on (#1108).
+  { key: "core_alias", icon: "badge", tKey: "common:labels.alias" as const, optIn: true },
   { key: "core_parent", icon: "account_tree", tKey: "columns.parent" as const },
   // Offered only for a single hierarchical type that has a link-label
   // vocabulary — see HIERARCHY_LABEL_COLUMN_KEY below.

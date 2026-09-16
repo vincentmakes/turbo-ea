@@ -63,6 +63,7 @@
   "labels.subtype": "النوع الفرعي",
   "labels.status": "الحالة",
   "labels.description": "الوصف",
+  "labels.alias": "الاسم المستعار",
   "labels.date": "التاريخ",
   "labels.createdAt": "تاريخ الإنشاء",
   "labels.updatedAt": "تاريخ التحديث",

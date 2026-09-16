@@ -14,9 +14,9 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.user import User
 from app.schemas.common import BookmarkCreate, BookmarkUpdate
+from app.services.card_search import card_search_filter
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.permission_service import PermissionService
-from app.services.search_rank import search_filter
 
 router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
 
@@ -428,7 +428,7 @@ async def bookmark_odata_feed(
         # for BI tools, where a stable, predictable order beats "best match
         # first". The escaping matters either way — unescaped, a saved view
         # searching for `100%` matched every row.
-        q = q.where(or_(search_filter(Card.name, search), search_filter(Card.description, search)))
+        q = q.where(card_search_filter(search))
 
     # Approval statuses
     approval_statuses = filters.get("approvalStatuses", [])

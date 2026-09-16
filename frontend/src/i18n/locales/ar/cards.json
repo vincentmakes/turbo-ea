@@ -249,6 +249,7 @@
   "history.processFlowRevision": "المراجعة {{revision}}",
   "history.withdrawalReason": "السبب",
   "history.fields.lifecycle": "دورة الحياة",
+  "detail.aliasPlaceholder": "مثال: CRM-v2",
   "history.fields.alias": "الاسم المستعار",
   "history.fields.externalId": "المعرّف الخارجي",
   "history.fields.approvalStatus": "حالة الموافقة",

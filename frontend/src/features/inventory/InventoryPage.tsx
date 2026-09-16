@@ -1906,8 +1906,11 @@ export default function InventoryPage() {
     ): Promise<{ needsReload: boolean }> => {
       if (field === "name" || field === "description") {
         await api.patch(`/cards/${card.id}`, { [field]: newValue });
-      } else if (field === "subtype") {
-        await api.patch(`/cards/${card.id}`, { subtype: (newValue as string) || null });
+      } else if (field === "subtype" || field === "alias") {
+        // An emptied cell clears the column. The grid and the card are the two
+        // places where that intent is unambiguous, which is exactly why the
+        // Excel importer treats an empty cell as "leave it alone" instead.
+        await api.patch(`/cards/${card.id}`, { [field]: (newValue as string) || null });
       } else if (field.startsWith("attr_")) {
         const key = field.replace("attr_", "");
         const fieldDef = typeConfig?.fields_schema
@@ -2915,6 +2918,18 @@ export default function InventoryPage() {
         sortable: true,
         hide: !selectedColumns.has("core_reference"),
         cellStyle: { fontFamily: "monospace", color: "var(--mui-palette-text-secondary)" },
+      },
+      {
+        // The card's other name (#1108). Editable and fill-downable like the
+        // Description column — `isInventoryFillable` needs no special case,
+        // since the column has a `field` to persist through.
+        colId: "core_alias",
+        field: "alias",
+        headerName: t("common:labels.alias"),
+        width: 160,
+        sortable: true,
+        editable: gridEditMode,
+        hide: !selectedColumns.has("core_alias"),
       },
       {
         colId: "core_path",

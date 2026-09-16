@@ -63,6 +63,7 @@
   "labels.subtype": "子类型",
   "labels.status": "状态",
   "labels.description": "描述",
+  "labels.alias": "别名",
   "labels.date": "日期",
   "labels.createdAt": "创建时间",
   "labels.updatedAt": "更新时间",

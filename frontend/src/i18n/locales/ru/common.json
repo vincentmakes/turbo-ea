@@ -63,6 +63,7 @@
   "labels.subtype": "Подтип",
   "labels.status": "Статус",
   "labels.description": "Описание",
+  "labels.alias": "Псевдоним",
   "labels.date": "Дата",
   "labels.createdAt": "Создано",
   "labels.updatedAt": "Обновлено",

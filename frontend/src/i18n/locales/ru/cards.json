@@ -249,6 +249,7 @@
   "history.processFlowRevision": "Редакция {{revision}}",
   "history.withdrawalReason": "Причина",
   "history.fields.lifecycle": "Жизненный цикл",
+  "detail.aliasPlaceholder": "например, CRM-v2",
   "history.fields.alias": "Псевдоним",
   "history.fields.externalId": "Внешний ID",
   "history.fields.approvalStatus": "Статус утверждения",

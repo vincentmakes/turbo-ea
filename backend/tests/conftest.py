@@ -352,6 +352,7 @@ async def create_card(db, *, card_type="Application", name="Test Card", user_id=
         attributes=kwargs.get("attributes", {}),
         lifecycle=kwargs.get("lifecycle", {}),
         description=kwargs.get("description"),
+        alias=kwargs.get("alias"),
         parent_id=kwargs.get("parent_id"),
         parent_label=kwargs.get("parent_label"),
         created_by=user_id,

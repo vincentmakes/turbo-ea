@@ -12,7 +12,7 @@ import InventoryPage, {
 import { MAX_SPLIT_VALUES } from "@/components/grid/useCellContextMenu";
 import type { RelatedCardRef } from "@/types";
 import MultiSelectCellEditor from "./MultiSelectCellEditor";
-import { EMPTY_VALUE, type Filters } from "./InventoryFilterSidebar";
+import { CORE_COLUMN_KEYS, EMPTY_VALUE, type Filters } from "./InventoryFilterSidebar";
 
 /** Baseline sidebar filter state for the facet-binding tests. */
 const EMPTY_FILTERS: Filters = {
@@ -232,6 +232,7 @@ interface ColDefLike {
   /** Attribute and relation columns are declared with `field`, not `colId`. */
   field?: string;
   headerName?: string;
+  hide?: boolean;
   editable?: boolean;
   cellEditor?: unknown;
   cellEditorPopup?: boolean;
@@ -1082,6 +1083,17 @@ describe("InventoryPage exported cell values", () => {
     // than to an empty cell — the key is still more use than nothing.
     expect(fmt({ value: "Retired" })).toBe("Retired");
     expect(fmt({ value: undefined })).toBe("");
+  });
+
+  it("offers the Alias column, hidden until it is switched on", async () => {
+    // Opt-in (#1108): most landscapes carry no aliases, so a column of empty
+    // cells for everybody is a worse default than one people switch on.
+    await renderTyped();
+    const alias = col("core_alias")!;
+    expect(alias).toBeDefined();
+    expect(alias.field).toBe("alias");
+    expect(alias.hide).toBe(true);
+    expect(CORE_COLUMN_KEYS).not.toContain("core_alias");
   });
 
   it("exports the subtype's label, not its key", async () => {

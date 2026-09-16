@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import type { KeyboardEvent } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -103,9 +104,13 @@ export default function CardDetail() {
   const [observerRoleAvailable, setObserverRoleAvailable] = useState(false);
   const [observeSaving, setObserveSaving] = useState(false);
 
-  // Inline title editing
+  // Inline title editing. The alias rides along with the name: it IS a name —
+  // the internal one a company calls the thing by — so the two are edited
+  // together and saved in one PATCH, which is also one history entry and one
+  // approval break rather than two (#1108).
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  const [aliasDraft, setAliasDraft] = useState("");
   const [nameSaving, setNameSaving] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
 
@@ -113,7 +118,9 @@ export default function CardDetail() {
   // their dirty state up through CardDetailContent; combine that with the
   // inline title edit for the page-level unsaved-changes flag.
   const [sectionsDirty, setSectionsDirty] = useState(false);
-  const titleDirty = editingName && nameDraft !== (card?.name ?? "");
+  const titleDirty =
+    editingName &&
+    (nameDraft !== (card?.name ?? "") || aliasDraft !== (card?.alias ?? ""));
   useUnsavedChangesGuard(
     sectionsDirty || titleDirty,
     t("cards:detail.unsavedLeaveConfirm"),
@@ -313,6 +320,7 @@ export default function CardDetail() {
   // ── Inline title editing ─────────────────────────────────────
   const beginEditName = () => {
     setNameDraft(card.name);
+    setAliasDraft(card.alias ?? "");
     setNameError(null);
     setEditingName(true);
   };
@@ -322,20 +330,38 @@ export default function CardDetail() {
     setNameError(null);
   };
 
+  /** Enter saves, Escape cancels — from either field of the title editor. */
+  const titleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveName();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancelEditName();
+    }
+  };
+
   const saveName = async () => {
     const trimmed = nameDraft.trim();
     if (!trimmed) {
       setNameError(t("validation:required"));
       return;
     }
-    if (trimmed === card.name) {
+    // An emptied box clears the column — the card and the grid are where
+    // clearing an alias is unambiguous, which is why the Excel importer
+    // deliberately treats an empty cell as "leave it alone" instead.
+    const alias = aliasDraft.trim() || null;
+    if (trimmed === card.name && alias === (card.alias ?? null)) {
       setEditingName(false);
       return;
     }
     setNameSaving(true);
     setNameError(null);
     try {
-      const updated = await api.patch<Card>(`/cards/${card.id}`, { name: trimmed });
+      const updated = await api.patch<Card>(`/cards/${card.id}`, {
+        name: trimmed,
+        alias,
+      });
       setCard(updated);
       setEditingName(false);
     } catch (err) {
@@ -480,48 +506,56 @@ export default function CardDetail() {
         )}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {editingName ? (
-            <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
+                <TextField
+                  autoFocus
+                  fullWidth
+                  size="small"
+                  label={t("common:labels.name")}
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  onKeyDown={titleKeyDown}
+                  disabled={nameSaving}
+                  error={!!nameError}
+                  helperText={nameError ?? undefined}
+                  InputProps={{
+                    sx: {
+                      fontSize: isMobile ? "1.25rem" : "1.5rem",
+                      fontWeight: 700,
+                    },
+                  }}
+                />
+                <IconButton
+                  size="small"
+                  onClick={saveName}
+                  disabled={nameSaving}
+                  aria-label={t("common:actions.save")}
+                >
+                  <MaterialSymbol icon="check" size={20} />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  onClick={cancelEditName}
+                  disabled={nameSaving}
+                  aria-label={t("common:actions.cancel")}
+                >
+                  <MaterialSymbol icon="close" size={20} />
+                </IconButton>
+              </Box>
               <TextField
-                autoFocus
                 fullWidth
                 size="small"
-                value={nameDraft}
-                onChange={(e) => setNameDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    saveName();
-                  } else if (e.key === "Escape") {
-                    e.preventDefault();
-                    cancelEditName();
-                  }
-                }}
+                label={t("common:labels.alias")}
+                placeholder={t("cards:detail.aliasPlaceholder")}
+                value={aliasDraft}
+                onChange={(e) => setAliasDraft(e.target.value)}
+                onKeyDown={titleKeyDown}
                 disabled={nameSaving}
-                error={!!nameError}
-                helperText={nameError ?? undefined}
-                InputProps={{
-                  sx: {
-                    fontSize: isMobile ? "1.25rem" : "1.5rem",
-                    fontWeight: 700,
-                  },
-                }}
+                // The buttons above act on both fields, so the alias row keeps
+                // their width free rather than growing under them.
+                sx={{ pr: { sm: 9 } }}
               />
-              <IconButton
-                size="small"
-                onClick={saveName}
-                disabled={nameSaving}
-                aria-label={t("common:actions.save")}
-              >
-                <MaterialSymbol icon="check" size={20} />
-              </IconButton>
-              <IconButton
-                size="small"
-                onClick={cancelEditName}
-                disabled={nameSaving}
-                aria-label={t("common:actions.cancel")}
-              >
-                <MaterialSymbol icon="close" size={20} />
-              </IconButton>
             </Box>
           ) : (
             <Box
@@ -553,6 +587,21 @@ export default function CardDetail() {
                 </Tooltip>
               )}
             </Box>
+          )}
+          {/* The card's other name, under the one it is filed under. Rendered
+              only when set, so a card without an alias looks exactly as it
+              always did (#1108). */}
+          {!editingName && card.alias && (
+            <Tooltip title={t("common:labels.alias")}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                noWrap
+                data-testid="card-alias"
+              >
+                {card.alias}
+              </Typography>
+            </Tooltip>
           )}
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", rowGap: 0.5 }}>
             <Typography

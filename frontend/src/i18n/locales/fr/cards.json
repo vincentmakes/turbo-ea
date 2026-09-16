@@ -249,6 +249,7 @@
   "history.processFlowRevision": "Révision {{revision}}",
   "history.withdrawalReason": "Motif",
   "history.fields.lifecycle": "Cycle de vie",
+  "detail.aliasPlaceholder": "p. ex. CRM-v2",
   "history.fields.alias": "Alias",
   "history.fields.externalId": "Identifiant externe",
   "history.fields.approvalStatus": "Statut d’approbation",

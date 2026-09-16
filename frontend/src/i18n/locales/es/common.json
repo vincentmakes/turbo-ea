@@ -63,6 +63,7 @@
   "labels.subtype": "Subtipo",
   "labels.status": "Estado",
   "labels.description": "Descripción",
+  "labels.alias": "Alias",
   "labels.date": "Fecha",
   "labels.createdAt": "Creado",
   "labels.updatedAt": "Actualizado",

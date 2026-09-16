@@ -786,3 +786,61 @@ describe("DependencyReport time travel — both toggles off (chart)", () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// The toolbar "Center on" drop-down (#1107)
+// ---------------------------------------------------------------------------
+
+describe('DependencyReport "Center on" drop-down', () => {
+  /**
+   * Card names currently rendered in the open listbox. Each option also
+   * carries a colour dot and a muted type label, so read the name element
+   * rather than the row's whole text.
+   */
+  function optionNames() {
+    return Array.from(document.querySelectorAll('[role="option"]')).map(
+      (el) => el.querySelector("p")?.textContent ?? "",
+    );
+  }
+
+  async function openCenterOn() {
+    const user = userEvent.setup();
+    renderReport();
+    // Wait for the graph, so the options are loaded before the list opens.
+    expect(await screen.findByText("Legacy ERP")).toBeInTheDocument();
+    const input = screen.getByRole("combobox", { name: /Center on/i });
+    await user.click(input);
+    return { user, input };
+  }
+
+  it("lists the cards alphabetically", async () => {
+    // `/reports/dependencies` builds its node list by iterating a set, so the
+    // fixture arrives in an order that is neither alphabetical nor stable.
+    await openCenterOn();
+    const names = optionNames();
+    expect(names).toEqual([
+      "CRM Cloud",
+      "Legacy ERP",
+      "Legacy Mainframe",
+      "NextGen Suite",
+      "Web Portal",
+    ]);
+  });
+
+  it("ranks what is typed, best match first", async () => {
+    const { user, input } = await openCenterOn();
+    await user.type(input, "legacy");
+    const names = optionNames();
+    // "Legacy ERP"/"Legacy Mainframe" start with the term; "NextGen Suite"
+    // and the rest do not match at all and are filtered out.
+    expect(names).toEqual(["Legacy ERP", "Legacy Mainframe"]);
+  });
+
+  it("puts a starts-with match above a mid-name one", async () => {
+    const { user, input } = await openCenterOn();
+    await user.type(input, "erp");
+    // Only "Legacy ERP" contains it — the point is that the ranked filter is
+    // wired at all, so MUI's unranked "contains" cannot resurface.
+    expect(optionNames()).toEqual(["Legacy ERP"]);
+  });
+});

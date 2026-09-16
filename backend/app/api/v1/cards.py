@@ -81,6 +81,7 @@ from app.services.card_completeness import missing_mandatory
 from app.services.card_flags import orphaned_condition, stale_condition
 from app.services.card_logo_service import logo_updated_map
 from app.services.card_resolver import CardResolver
+from app.services.card_search import card_search_filter, card_search_rank
 from app.services.card_uniqueness import check_sibling_name_unique
 from app.services.card_write_service import (
     MACRO_CAPABILITY_LEVEL_KEY,  # noqa: F401 - re-exported for legacy importers
@@ -106,7 +107,6 @@ from app.services.data_quality import calc_data_quality
 from app.services.event_bus import event_bus
 from app.services.lifecycle import lifecycle_rank
 from app.services.permission_service import PermissionService
-from app.services.search_rank import search_filter, search_rank
 
 router = APIRouter(prefix="/cards", tags=["cards"])
 
@@ -342,7 +342,7 @@ async def list_cards(
         q = q.where(Card.status == "ACTIVE")
         count_q = count_q.where(Card.status == "ACTIVE")
     if search:
-        match = or_(search_filter(Card.name, search), search_filter(Card.description, search))
+        match = card_search_filter(search)
         q = q.where(match)
         count_q = count_q.where(match)
     if parent_id:
@@ -370,7 +370,7 @@ async def list_cards(
     # Relevance first, but only when the caller expressed no sort preference of
     # their own — an explicit `sort_by`/`sort_dir` always wins (#918).
     if search and sort_by is None and sort_dir is None:
-        order.insert(0, search_rank(Card.name, search).asc())
+        order.insert(0, card_search_rank(search).asc())
     # Stable tiebreaker: without it two same-named cards can be duplicated or
     # skipped across pages, which corrupts any paged consumer's append.
     order.append(Card.id.asc())

@@ -10,7 +10,7 @@ Das **Inventar** ist das Herzstück von Turbo EA. Hier werden alle **Karten** (K
 
 Das linke Seitenpanel ermöglicht es Ihnen, Karten nach verschiedenen Kriterien zu **filtern**:
 
-- **Suche** — Freitextsuche über Kartennamen, schon ab dem ersten Buchstaben. Die besten Treffer stehen oben: exakte Namen, dann Namen, die mit Ihrer Eingabe beginnen, dann Namen, in denen sie ein Wort beginnt, dann der Rest. Jedes Suchfeld in Turbo EA sortiert so — die globale Suche (**Strg+K** / **⌘K**), jede Kartenauswahl, das Risikoregister, Entscheidungen und veröffentlichte Portale — sofern Sie keine eigene Sortierung gewählt haben, die immer Vorrang hat
+- **Suche** — Freitextsuche über Kartennamen, schon ab dem ersten Buchstaben. Die besten Treffer stehen oben: exakte Namen, dann Namen, die mit Ihrer Eingabe beginnen, dann Namen, in denen sie ein Wort beginnt, dann der Rest. Jedes Suchfeld in Turbo EA sortiert so — die globale Suche (**Strg+K** / **⌘K**), jede Kartenauswahl, das Risikoregister, Entscheidungen und veröffentlichte Portale — sofern Sie keine eigene Sortierung gewählt haben, die immer Vorrang hat. Auch der **Alias** einer Karte und ihre Beschreibung werden durchsucht, sodass eine Karte über den in Ihrer Organisation tatsächlich verwendeten Namen gefunden wird — ein exakt passender Alias zählt dabei so hoch wie ein exakt passender Name
 - **Typen** — Filtern nach einem oder mehreren Kartentypen: Ziel, Plattform, Initiative, Organisation, Geschäftsfähigkeit, Geschäftskontext, Geschäftsprozess, Anwendung, Schnittstelle, Datenobjekt, IT-Komponente, Technologiekategorie, Anbieter, System
 - **Subtypen** — Wenn ein Typ ausgewählt ist, können Sie weiter nach Subtyp filtern (z.B. Anwendung -> Geschäftsanwendung, Microservice, AI Agent, Deployment)
 - **Genehmigungsstatus** — Entwurf, Genehmigt, Ungültig oder Abgelehnt
@@ -68,6 +68,8 @@ Die Spalte **Pfad** zeigt den Hierarchie-Pfad der Karte (z. B. `Nordamerika / Ve
 
 Die Spalte **Logo** zeigt das eigene Logo der Karte oder – wenn keines gesetzt ist – ihr Typsymbol, sodass sich eine Landschaft anhand der Produktmarken statt anhand der Namen überfliegen lässt. Sie wird nur für Kartentypen angeboten, die Logos erlauben (standardmäßig Anwendung und IT-Komponente), ist standardmäßig ausgeblendet und macht die Zeilen höher, solange sie eingeblendet ist, damit die Marken erkennbar bleiben. Wenn Sie die Karte bearbeiten dürfen, fahren Sie mit der Maus über die Logo-Zelle und klicken Sie darauf, um das Logo hochzuladen, zu ersetzen, ein Markensymbol auszuwählen oder es zu entfernen — ohne das Raster zu verlassen und mit demselben Menü wie auf der Kartenseite. Logos sind bewusst vom Ausfüllen nach unten und von der Massenbearbeitung ausgenommen: eine Marke pro Karte, bewusst gesetzt.
 
+Die Spalte **Alias** zeigt den zweiten Namen einer Karte — den internen, unter dem Ihre Organisation sie führt. Sie ist standardmäßig ausgeblendet, da die meisten Landschaften keine Aliasse enthalten: einschalten lässt sie sich in der Registerkarte **Spalten**. Sie ist im Raster-Bearbeitungsmodus direkt bearbeitbar, lässt sich wie jede andere Textspalte nach unten ausfüllen und wird von Excel-Export und -Import mitgeführt, sodass eine Liste von Aliassen in einem Durchgang geladen werden kann.
+
 Jede Kategorie hat ein Kontrollkästchen **Alle auswählen**, um alle Spalten in dieser Gruppe schnell umzuschalten. Ein Suchfeld oben ermöglicht es, bestimmte Spalten nach Namen zu finden. Das Badge in jeder Abschnittsüberschrift zeigt an, wie viele Spalten aus dieser Gruppe derzeit sichtbar sind.
 
 Wenn ein Kartentyp zum ersten Mal ausgewählt wird, werden **alle Attribut- und Beziehungsspalten standardmäßig aktiviert**. Sie können dann nicht benötigte Spalten abwählen. Eine Schaltfläche **Zurücksetzen** am unteren Rand der Registerkarte «Spalten» stellt die Standard-Spaltenauswahl wieder her.
@@ -85,6 +87,7 @@ Das Inventar verwendet eine **AG Grid**-Datentabelle mit leistungsstarken Funkti
 | **Typ** | Kartentyp mit farbcodiertem Symbol |
 | **Name** | Komponentenname (klicken zum Öffnen der Kartendetails) |
 | **Logo** | Das eigene Logo der Karte oder ihr Typsymbol, wenn keines vorhanden ist. Standardmäßig ausgeblendet — in der Registerkarte «Spalten» aktivieren; zum Ändern auf die Zelle klicken |
+| **Alias** | Der zweite Name der Karte. Standardmäßig ausgeblendet — in der Registerkarte «Spalten» aktivieren; wird von jedem Suchfeld berücksichtigt |
 | **Beschreibung** | Kurzbeschreibung |
 | **Lebenszyklus** | Aktueller Lebenszyklusstatus |
 | **Genehmigungsstatus** | Badge des Prüfstatus |

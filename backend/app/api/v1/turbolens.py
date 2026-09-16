@@ -58,8 +58,8 @@ from app.schemas.turbolens import (
     VendorAnalysisOut,
     VendorHierarchyOut,
 )
+from app.services.card_search import card_search_filter, card_search_rank
 from app.services.permission_service import PermissionService
-from app.services.search_rank import search_filter, search_rank
 from app.services.turbolens_ai import get_ai_config, is_ai_configured
 
 logger = logging.getLogger(__name__)
@@ -472,7 +472,7 @@ def _ordered_by_relevance(q, search: str | None):
     order is "what I typed, at the top" (#918).
     """
     if search:
-        return q.order_by(search_rank(Card.name, search).asc(), Card.name.asc())
+        return q.order_by(card_search_rank(search).asc(), Card.name.asc())
     return q.order_by(Card.name.asc())
 
 
@@ -483,18 +483,11 @@ async def architect_objectives(
     search: str | None = None,
 ):
     """Search Objective cards for architect objective selection."""
-    from sqlalchemy import or_
-
     await PermissionService.require_permission(db, user, "turbolens.manage")
 
     q = select(Card).where(Card.type == "Objective", Card.status != "ARCHIVED")
     if search:
-        q = q.where(
-            or_(
-                search_filter(Card.name, search),
-                search_filter(Card.description, search),
-            )
-        )
+        q = q.where(card_search_filter(search))
     q = _ordered_by_relevance(q, search).limit(50)
     result = await db.execute(q)
     cards = result.scalars().all()
@@ -516,18 +509,11 @@ async def architect_capabilities(
     search: str | None = None,
 ):
     """Search BusinessCapability cards for architect capability selection."""
-    from sqlalchemy import or_
-
     await PermissionService.require_permission(db, user, "turbolens.manage")
 
     q = select(Card).where(Card.type == "BusinessCapability", Card.status != "ARCHIVED")
     if search:
-        q = q.where(
-            or_(
-                search_filter(Card.name, search),
-                search_filter(Card.description, search),
-            )
-        )
+        q = q.where(card_search_filter(search))
     q = _ordered_by_relevance(q, search).limit(50)
     result = await db.execute(q)
     cards = result.scalars().all()

@@ -152,7 +152,7 @@ async def search_cards(
     """Search and list cards (EA items) with optional filtering.
 
     Args:
-        query: Free-text search across card name and description.
+        query: Free-text search across card name, description and alias.
         type: Filter by card type key (e.g. 'Application', 'ITComponent').
         status: Filter by status ('ACTIVE', 'PHASING_IN', 'PHASING_OUT', 'END_OF_LIFE', 'ARCHIVED').
         page: Page number (default 1).

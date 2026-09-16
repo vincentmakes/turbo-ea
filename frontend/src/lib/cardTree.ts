@@ -12,7 +12,7 @@
  * No React, no MUI, no `@/api` — everything here is a function of its
  * arguments so it can be unit-tested without a DOM.
  */
-import { searchRank } from "@/lib/searchRank";
+import { cardSearchRank } from "@/lib/searchRank";
 
 /** Minimal card shape the hierarchy helpers need. */
 export interface TreeCard {
@@ -20,6 +20,8 @@ export interface TreeCard {
   name: string;
   type: string;
   parent_id?: string | null;
+  /** Ranked alongside the name, so an alias match keeps its branch (#1108). */
+  alias?: string | null;
 }
 
 /**
@@ -91,7 +93,7 @@ export function visibleForQuery<T extends TreeCard>(
   if (!query) return null;
   const ids = new Set<string>();
   for (const c of byId.values()) {
-    if (searchRank(c.name, query) >= 0) ids.add(c.id);
+    if (cardSearchRank(c, query) >= 0) ids.add(c.id);
   }
   for (const id of Array.from(ids)) {
     let cursor = byId.get(id)?.parent_id ?? null;
@@ -130,7 +132,7 @@ export function bestRankBySubtree<T extends TreeCard>(
     if (seen.has(id)) return NO_MATCH;
     seen.add(id);
     const card = byId.get(id);
-    const own = card ? searchRank(card.name, query) : -1;
+    const own = card ? cardSearchRank(card, query) : -1;
     let best = own < 0 ? NO_MATCH : own;
     for (const child of byParent.get(id) ?? []) {
       best = Math.min(best, visit(child.id, seen));

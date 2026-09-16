@@ -10,6 +10,7 @@ The top of the card shows:
 
 - **Type icon and label** — Color-coded card type indicator
 - **Card name** — Editable inline
+- **Alias** — The card's other name, shown under the title when set. Click the title's edit pencil to change the name and the alias together. Aliases are matched by every search box, so a card can be found by the name your organisation actually uses for it.
 - **Subtype** — Secondary classification (if applicable)
 - **Approval status badge** — Draft, Approved, Broken, or Rejected
 - **AI suggest button** — Click to generate a description with AI (visible when AI is enabled for this card type and the user has edit permission)
@@ -72,7 +73,7 @@ The detail tab is organized into **sections** that can be reordered and configur
 ### Description Section
 
 - **Description** — Rich text description of the component. Supports the AI suggestion feature for automatic generation
-- **Additional description fields** — Some card types include extra fields in the description section (e.g., alias, external ID)
+- **Additional description fields** — An administrator can file any of a card type's own fields under Description, so this section may carry extra fields beyond the description itself
 
 ### Lifecycle Section
 

@@ -31,7 +31,7 @@ import {
   flattenTree,
   visibleForQuery,
 } from "@/lib/cardTree";
-import { compareByRank, searchRank } from "@/lib/searchRank";
+import { cardSearchRank, compareByRank } from "@/lib/searchRank";
 import type { Card, Relation, RelationType } from "@/types";
 import RelationAttributesEditor, {
   hasEditableRelationAttributes,
@@ -296,7 +296,7 @@ export default function AddRelationsDialog({
     if (!treeMode) {
       // Flat: exclusions are hidden, exactly as this list has always behaved.
       const base = query
-        ? offered.filter((c) => searchRank(c.name, query) >= 0).sort(compareByRank(query))
+        ? offered.filter((c) => cardSearchRank(c, query) >= 0).sort(compareByRank(query))
         : offered;
       return base.map((card) => ({ card, depth: 0, disabled: false, added: false }));
     }

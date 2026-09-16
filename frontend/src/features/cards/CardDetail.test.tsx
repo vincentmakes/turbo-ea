@@ -625,7 +625,10 @@ describe("CardDetail", () => {
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => {
-      expect(api.patch).toHaveBeenCalledWith("/cards/card-1", { name: "Renamed App" });
+      expect(api.patch).toHaveBeenCalledWith("/cards/card-1", {
+        name: "Renamed App",
+        alias: null,
+      });
     });
     await waitFor(() => {
       expect(screen.getByText("Renamed App")).toBeInTheDocument();
@@ -682,6 +685,104 @@ describe("CardDetail", () => {
     const heading = screen.getByText("My Application");
     const editBtn = heading.parentElement!.querySelector("button[aria-label='Edit']");
     expect(editBtn).toBeNull();
+  });
+
+  it("shows the alias under the name, and nothing when there is none", async () => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve({ ...mockCard, alias: "CRM-v2" });
+    });
+
+    const { unmount } = renderCardDetail();
+    await waitFor(() => {
+      expect(screen.getByTestId("card-alias")).toHaveTextContent("CRM-v2");
+    });
+    unmount();
+
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve(mockCard);
+    });
+    renderCardDetail();
+    await waitFor(() => {
+      expect(screen.getByText("My Application")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("card-alias")).not.toBeInTheDocument();
+  });
+
+  it("saves the name and the alias in one patch", async () => {
+    // One PATCH means one history entry and one approval break — an editor
+    // renaming a card and correcting its alias did not do two things (#1108).
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve({ ...mockCard, alias: "CRM-v1" });
+    });
+    vi.mocked(api.patch).mockResolvedValueOnce({
+      ...mockCard,
+      name: "Renamed App",
+      alias: "CRM-v2",
+    });
+
+    renderCardDetail();
+    await waitFor(() => {
+      expect(screen.getByText("My Application")).toBeInTheDocument();
+    });
+
+    const heading = screen.getByText("My Application");
+    await user.click(
+      heading.parentElement!.querySelector("button[aria-label='Edit']") as HTMLElement,
+    );
+
+    const nameInput = screen.getByDisplayValue("My Application");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Renamed App");
+    const aliasInput = screen.getByDisplayValue("CRM-v1");
+    await user.clear(aliasInput);
+    await user.type(aliasInput, "CRM-v2");
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledTimes(1);
+    });
+    expect(api.patch).toHaveBeenCalledWith("/cards/card-1", {
+      name: "Renamed App",
+      alias: "CRM-v2",
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("card-alias")).toHaveTextContent("CRM-v2");
+    });
+  });
+
+  it("clears the alias when the box is emptied", async () => {
+    // The card is where clearing is unambiguous, which is why the Excel
+    // importer treats an empty cell as "leave it alone" instead.
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve({ ...mockCard, alias: "CRM-v1" });
+    });
+    vi.mocked(api.patch).mockResolvedValueOnce({ ...mockCard, alias: null });
+
+    renderCardDetail();
+    await waitFor(() => {
+      expect(screen.getByText("My Application")).toBeInTheDocument();
+    });
+
+    const heading = screen.getByText("My Application");
+    await user.click(
+      heading.parentElement!.querySelector("button[aria-label='Edit']") as HTMLElement,
+    );
+    await user.clear(screen.getByDisplayValue("CRM-v1"));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/cards/card-1", {
+        name: "My Application",
+        alias: null,
+      });
+    });
   });
 
   it("switches to Comments tab", async () => {

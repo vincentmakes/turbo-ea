@@ -249,6 +249,7 @@
   "history.processFlowRevision": "修订 {{revision}}",
   "history.withdrawalReason": "理由",
   "history.fields.lifecycle": "生命周期",
+  "detail.aliasPlaceholder": "例如 CRM-v2",
   "history.fields.alias": "别名",
   "history.fields.externalId": "外部 ID",
   "history.fields.approvalStatus": "审批状态",

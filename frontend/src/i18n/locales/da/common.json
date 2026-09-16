@@ -63,6 +63,7 @@
   "labels.subtype": "Undertype",
   "labels.status": "Status",
   "labels.description": "Beskrivelse",
+  "labels.alias": "Alias",
   "labels.date": "Dato",
   "labels.createdAt": "Oprettet",
   "labels.updatedAt": "Opdateret",

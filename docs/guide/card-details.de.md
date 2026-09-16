@@ -10,6 +10,7 @@ Der obere Bereich der Karte zeigt:
 
 - **Typsymbol und -bezeichnung** — Farbcodierter Kartentyp-Indikator
 - **Kartenname** — Inline bearbeitbar
+- **Alias** — Der zweite Name der Karte, unter dem Titel angezeigt, wenn gesetzt. Über das Bearbeiten-Symbol am Titel lassen sich Name und Alias gemeinsam ändern. Aliasse werden von jedem Suchfeld berücksichtigt, sodass eine Karte über den in Ihrer Organisation tatsächlich verwendeten Namen gefunden wird.
 - **Subtyp** — Sekundäre Klassifizierung (falls zutreffend)
 - **Genehmigungsstatus-Badge** — Entwurf, Genehmigt, Ungültig oder Abgelehnt
 - **KI-Vorschlags-Schaltfläche** — Klicken, um eine Beschreibung mit KI zu generieren (sichtbar, wenn KI für diesen Kartentyp aktiviert ist und der Benutzer Bearbeitungsrechte hat)
@@ -75,7 +76,7 @@ Der Detail-Tab ist in **Abschnitte** gegliedert, die pro Kartentyp von einem Adm
 ### Beschreibungsabschnitt
 
 - **Beschreibung** — Rich-Text-Beschreibung der Komponente. Unterstützt die KI-Vorschlagsfunktion zur automatischen Generierung
-- **Zusätzliche Beschreibungsfelder** — Einige Kartentypen enthalten zusätzliche Felder im Beschreibungsabschnitt (z.B. Alias, externe ID)
+- **Zusätzliche Beschreibungsfelder** — Eine Administratorin kann beliebige eigene Felder eines Kartentyps dem Abschnitt Beschreibung zuordnen; dieser Abschnitt kann daher weitere Felder neben der Beschreibung selbst enthalten
 
 ### Lebenszyklusabschnitt
 

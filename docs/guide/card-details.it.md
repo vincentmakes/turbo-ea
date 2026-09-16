@@ -10,6 +10,7 @@ La parte superiore della card mostra:
 
 - **Icona e etichetta del tipo** — Indicatore del tipo di card con codice colore
 - **Nome della card** — Modificabile in linea
+- **Alias** — L'altro nome della card, mostrato sotto il titolo quando è impostato. La matita di modifica del titolo consente di cambiare nome e alias insieme. Gli alias sono considerati da ogni casella di ricerca, così una card si ritrova con il nome realmente usato nella vostra organizzazione.
 - **Sottotipo** — Classificazione secondaria (se applicabile)
 - **Badge dello stato di approvazione** — Draft, Approved, Broken o Rejected
 - **Pulsante suggerimento AI** — Cliccate per generare una descrizione con AI (visibile quando l'AI è abilitata per questo tipo di card e l'utente ha il permesso di modifica)
@@ -73,7 +74,7 @@ La scheda dettaglio è organizzata in **sezioni** che possono essere riordinate 
 ### Sezione Descrizione
 
 - **Descrizione** — Descrizione in testo ricco del componente. Supporta la funzionalità di suggerimento AI per la generazione automatica
-- **Campi descrizione aggiuntivi** — Alcuni tipi di card includono campi extra nella sezione descrizione (es. alias, ID esterno)
+- **Campi descrizione aggiuntivi** — Un amministratore può assegnare qualsiasi campo proprio di un tipo di card alla sezione descrizione, che può quindi contenere campi ulteriori oltre alla descrizione stessa
 
 ### Sezione Ciclo di vita
 

@@ -10,6 +10,7 @@ La parte superior de la ficha muestra:
 
 - **Icono y etiqueta del tipo** — Indicador del tipo de ficha con código de color
 - **Nombre de la ficha** — Editable en línea
+- **Alias** — El otro nombre de la ficha, mostrado bajo el título cuando está definido. El lápiz de edición del título permite cambiar el nombre y el alias a la vez. Los alias se tienen en cuenta en todos los cuadros de búsqueda, de modo que una ficha se encuentra por el nombre que su organización usa realmente.
 - **Subtipo** — Clasificación secundaria (si aplica)
 - **Insignia de estado de aprobación** — Borrador, Aprobado, Roto o Rechazado
 - **Botón de sugerencia IA** — Haga clic para generar una descripción con IA (visible cuando la IA está habilitada para este tipo de ficha y el usuario tiene permiso de edición)
@@ -75,7 +76,7 @@ La pestaña de detalle está organizada en **secciones** que pueden ser reordena
 ### Sección de Descripción
 
 - **Descripción** — Descripción en texto enriquecido del componente. Soporta la función de sugerencia con IA para generación automática
-- **Campos de descripción adicionales** — Algunos tipos de ficha incluyen campos extra en la sección de descripción (por ejemplo, alias, ID externo)
+- **Campos de descripción adicionales** — Un administrador puede asignar cualquier campo propio de un tipo de ficha a la sección de descripción, por lo que esta puede llevar campos adicionales además de la descripción misma
 
 ### Sección de Ciclo de Vida
 

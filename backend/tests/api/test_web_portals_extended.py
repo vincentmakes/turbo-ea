@@ -142,6 +142,19 @@ class TestPublicPortalCards:
         assert data["total"] == 1
         assert data["items"][0]["name"] == "Salesforce"
 
+    async def test_search_matches_the_alias(self, client, db, portal_env):
+        """Every card search box matches the same three texts (#1108)."""
+        admin = portal_env["admin"]
+        await create_card(
+            db, card_type="Application", name="Salesforce", alias="CRM-v2", user_id=admin.id
+        )
+        await create_card(db, card_type="Application", name="SAP ERP", user_id=admin.id)
+
+        resp = await client.get("/api/v1/web-portals/public/app-portal/cards?search=CRM-v2")
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["name"] == "Salesforce"
+
     async def test_subtype_filter(self, client, db, portal_env):
         admin = portal_env["admin"]
         from sqlalchemy import update

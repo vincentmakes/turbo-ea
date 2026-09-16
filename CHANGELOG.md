@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.140.0] - 2026-09-16
+
+### Added
+
+- **A card's alias is now a field you can see, edit and search for.** `Alias` has always been a real column — the Excel export wrote it for every card type, the importer read it back, workspace transfer carried it between instances, and changing it broke a card's approval and appeared on its History tab. What it never had was a place in the product: nothing displayed it, nothing could set it, and no search box matched it, so an alias you imported was visible only in the next export ([#1108](https://github.com/vincentmakes/turbo-ea/issues/1108)). It now sits on the **card header**, under the name, and the pencil that renames a card edits the name and the alias together — one save, one history entry, one approval break, because renaming a card and correcting the name it is known by are not two separate decisions. An emptied box clears it. Every free-text card search matches it too: the global search (**Ctrl+K**), the Inventory search box, every card picker, published portals, a saved view's OData feed, the TurboLens Architect pickers and the extension data bridge — one definition, so none of them can drift again — and an alias that matches exactly ranks as highly as a name that does, rather than being buried under every card whose name merely contains the term. The search palette shows the alias on the row, so it is clear why a card matched. The Inventory gains an **Alias** column, switched off by default since most landscapes carry none: turn it on in the Columns tab, where it filters, edits inline in grid edit mode and fills down like any other text column.
+
+### Fixed
+
+- **The Dependencies report's *Center on* list is alphabetical.** It listed cards in the order the server happened to return them, which is no order at all — the endpoint builds its node list from a set — so finding an application meant typing its name and hoping ([#1107](https://github.com/vincentmakes/turbo-ea/issues/1107)). The drop-down now lists cards A–Z for every card type, and what you type is ranked the way every other search box in Turbo EA ranks it: exact names first, then names starting with what you typed, then names where it starts a word. The full-page picker you see before choosing a centre still leads with each type's best-connected cards — there, you are asking which card is worth centring on, not looking for one you can already name.
+
 ## [2.139.0] - 2026-09-15
 
 ### Added

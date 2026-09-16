@@ -10,6 +10,7 @@ Toppen af kortet viser:
 
 - **Type-ikon og etikette** — Farvekodet korttype-indikator
 - **Kortnavn** — Redigerbar inline
+- **Alias** — Kortets andet navn, vist under titlen når det er sat. Blyanten ved titlen ændrer navn og alias samtidig. Alias matches af alle søgefelter, så et kort kan findes med det navn, din organisation faktisk bruger.
 - **Undertype** — Sekundær klassifikation (hvis relevant)
 - **Godkendelsesstatus-badge** — Draft, Approved, Broken eller Rejected
 - **AI suggest-knap** — Klik for at generere en beskrivelse med AI (synlig når AI er aktiveret for denne korttype, og brugeren har redigeringstilladelse)
@@ -70,7 +71,7 @@ Detalje-fanen er organiseret i **sektioner**, der kan omarrangeres og konfigurer
 ### Beskrivelses-sektion
 
 - **Description** — Rich text-beskrivelse af komponenten. Understøtter AI-forslagsfunktionen til automatisk generering
-- **Yderligere beskrivelsesfelter** — Nogle korttyper inkluderer ekstra felter i beskrivelses-sektionen (f.eks. alias, ekstern ID)
+- **Yderligere beskrivelsesfelter** — En administrator kan placere et vilkårligt af korttypens egne felter i beskrivelses-sektionen, så den kan bære flere felter end selve beskrivelsen
 
 ### Livscyklus-sektion
 

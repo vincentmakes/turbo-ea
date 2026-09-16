@@ -20,6 +20,12 @@ interface SearchResult {
   name: string;
   type: string;
   subtype?: string;
+  /**
+   * The card's other name. Shown under the name because the search matches it
+   * too (#1108) — without it a row found by its alias looks like it matched
+   * nothing the reader can see.
+   */
+  alias?: string;
 }
 
 interface Props {
@@ -231,6 +237,15 @@ export default function SearchDialog({ open, onClose }: Props) {
                       <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: "break-word" }}>
                         {item.name}
                       </Typography>
+                      {item.alias && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: "block", wordBreak: "break-word" }}
+                        >
+                          {item.alias}
+                        </Typography>
+                      )}
                     </Box>
                     <Chip
                       label={typeConfig ? typeLabel(typeConfig) : item.type}

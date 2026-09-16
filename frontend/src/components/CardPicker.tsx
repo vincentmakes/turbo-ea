@@ -15,7 +15,7 @@ import {
   flattenTree,
   visibleForQuery,
 } from "@/lib/cardTree";
-import { compareByRank, searchRank } from "@/lib/searchRank";
+import { cardSearchRank, compareByRank } from "@/lib/searchRank";
 
 /** Minimal card shape a picker needs. The full card from the API is a superset. */
 export interface CardOption {
@@ -24,6 +24,12 @@ export interface CardOption {
   type: string;
   /** Only carried in `hierarchy` mode, where the tree is built from it. */
   parent_id?: string | null;
+  /**
+   * The card's alternative name. Matched and ranked alongside `name`, because
+   * the server searches it too — without it a card found by its alias would be
+   * fetched and then filtered back out here (#1108).
+   */
+  alias?: string | null;
 }
 
 /**
@@ -41,23 +47,26 @@ const TREE_PAGE_SIZE = 1000;
  */
 const EMPTY_IDS = new Set<string>();
 
-// Client-side filter + rank over the loaded options, matched on name. This
-// makes the list narrow instantly from the first character typed, while the
-// debounced server query broadens the loaded set across the full catalog in
-// the background. Without it, the browse-on-open list would linger unfiltered
-// for the debounce window after each keystroke.
+// Client-side filter + rank over the loaded options, matched on name and
+// alias. This makes the list narrow instantly from the first character typed,
+// while the debounced server query broadens the loaded set across the full
+// catalog in the background. Without it, the browse-on-open list would linger
+// unfiltered for the debounce window after each keystroke.
 //
-// The ranking mirrors the server's (`searchRank.ts` ↔ `_search_rank` in
-// `cards.py`), so the order doesn't jump when the debounced response lands.
+// The ranking mirrors the server's (`searchRank.ts` ↔ `card_search_rank` in
+// `card_search.py`), so the order doesn't jump when the debounced response
+// lands.
 //
-// Known, pre-existing: the server matches name OR description while this
-// filter matches name only, so a card that matched purely on its description
-// is fetched and then hidden here. `CardOption` carries no description to
-// match against; widening it is a separate change.
+// Known, pre-existing: the server matches name OR description OR alias while
+// this filter matches name and alias, so a card that matched purely on its
+// description is fetched and then hidden here. `CardOption` carries no
+// description to match against; widening it is a separate change. The alias
+// used to fall in that gap too, which is what made an imported alias
+// unfindable (#1108) — do not narrow this back to the name alone.
 function filterAndRank(options: CardOption[], query: string): CardOption[] {
   const q = query.trim();
   if (!q) return options;
-  return options.filter((o) => searchRank(o.name, q) >= 0).sort(compareByRank(q));
+  return options.filter((o) => cardSearchRank(o, q) >= 0).sort(compareByRank(q));
 }
 
 interface CardPickerBaseProps {

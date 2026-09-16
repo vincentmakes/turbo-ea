@@ -32,6 +32,7 @@ from app.schemas.ppm_public import PpmPublicPortfolio
 from app.services import ppm_portfolio_service as ppm_portfolio
 from app.services import process_map_service as process_map
 from app.services import sso_service
+from app.services.card_search import card_search_filter, card_search_rank
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.permission_service import PermissionService
 from app.services.public_access import (
@@ -40,7 +41,6 @@ from app.services.public_access import (
     resolve_sso_visitor_email,
     set_access_cookie,
 )
-from app.services.search_rank import search_filter, search_rank
 
 router = APIRouter(prefix="/web-portals", tags=["web-portals"])
 logger = logging.getLogger(__name__)
@@ -646,7 +646,7 @@ async def get_public_portal_cards(
 
     # Apply user-supplied search
     if search:
-        match = or_(search_filter(Card.name, search), search_filter(Card.description, search))
+        match = card_search_filter(search)
         q = q.where(match)
         count_q = count_q.where(match)
 
@@ -744,7 +744,7 @@ async def get_public_portal_cards(
     # still name-ascending) rather than contradicts. A visitor who picked a
     # different column or direction keeps exactly what they asked for (#918).
     if search and sort_by == "name" and sort_dir != "desc":
-        order.insert(0, search_rank(Card.name, search).asc())
+        order.insert(0, card_search_rank(search).asc())
     q = q.order_by(*order)
     q = q.offset((page - 1) * page_size).limit(page_size)
 

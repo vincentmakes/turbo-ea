@@ -10,6 +10,7 @@ Le haut de la fiche affiche :
 
 - **Icône et libellé du type** -- Indicateur du type de fiche codé par couleur
 - **Nom de la fiche** -- Modifiable en ligne
+- **Alias** -- L'autre nom de la fiche, affiché sous le titre lorsqu'il est renseigné. Le crayon d'édition du titre permet de modifier le nom et l'alias ensemble. Les alias sont pris en compte par tous les champs de recherche : une fiche se retrouve donc par le nom réellement employé dans votre organisation.
 - **Sous-type** -- Classification secondaire (le cas échéant)
 - **Badge de statut d'approbation** -- Brouillon, Approuvé, Cassé ou Rejeté
 - **Bouton de suggestion IA** -- Cliquez pour générer une description avec l'IA (visible lorsque l'IA est activée pour ce type de fiche et que l'utilisateur a la permission de modification)
@@ -73,7 +74,7 @@ L'onglet détail est organisé en **sections** qui peuvent être réorganisées 
 ### Section Description
 
 - **Description** -- Description en texte riche du composant. Prend en charge la fonctionnalité de suggestion IA pour la génération automatique
-- **Champs de description supplémentaires** -- Certains types de fiches incluent des champs supplémentaires dans la section description (par ex. alias, identifiant externe)
+- **Champs de description supplémentaires** -- Un administrateur peut rattacher n'importe quel champ propre à un type de fiche à la section description ; celle-ci peut donc porter d'autres champs que la description elle-même
 
 ### Section Cycle de vie
 

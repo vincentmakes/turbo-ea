@@ -10,7 +10,7 @@ L'**Inventario** è il cuore di Turbo EA. Qui sono elencate tutte le **card** (c
 
 Il pannello laterale sinistro consente di **filtrare** le card secondo diversi criteri:
 
-- **Ricerca** — Ricerca libera per testo nel nome delle card, già dalla prima lettera. Le corrispondenze migliori compaiono per prime: nomi esatti, poi quelli che iniziano con quanto digitato, poi quelli in cui inizia una parola, poi il resto. Ogni campo di ricerca in Turbo EA ordina così — la ricerca globale (**Ctrl+K** / **⌘K**), ogni selettore di card, il registro dei rischi, le decisioni e i portali pubblicati — a meno che non abbiate scelto un ordinamento vostro, che ha sempre la precedenza
+- **Ricerca** — Ricerca libera per testo nel nome delle card, già dalla prima lettera. Le corrispondenze migliori compaiono per prime: nomi esatti, poi quelli che iniziano con quanto digitato, poi quelli in cui inizia una parola, poi il resto. Ogni campo di ricerca in Turbo EA ordina così — la ricerca globale (**Ctrl+K** / **⌘K**), ogni selettore di card, il registro dei rischi, le decisioni e i portali pubblicati — a meno che non abbiate scelto un ordinamento vostro, che ha sempre la precedenza. Vengono cercati anche l'**alias** della card e la sua descrizione, così una card si ritrova con il nome realmente usato nella vostra organizzazione — e un alias che corrisponde esattamente conta quanto un nome che corrisponde esattamente
 - **Tipi** — Filtra per uno o più tipi di card: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
 - **Sottotipi** — Quando un tipo è selezionato, filtra ulteriormente per sottotipo (es. Application -> Business Application, Microservice, AI Agent, Deployment)
 - **Stato di approvazione** — Draft, Approved, Broken o Rejected
@@ -68,6 +68,8 @@ La colonna **Percorso** mostra la gerarchia della scheda (per es. «Nord America
 
 La colonna **Logo** mostra il logo proprio della scheda, oppure la sua icona di tipo quando non ne è stato impostato alcuno, così da poter scorrere un panorama per marchio di prodotto anziché per nome. È offerta solo per i tipi di scheda che consentono i loghi (di serie, Applicazione e Componente IT), è disattivata per impostazione predefinita e rende le righe più alte finché è visibile, affinché i marchi restino leggibili. Se potete modificare la scheda, passate il mouse sulla cella del logo e fate clic per caricare, sostituire, scegliere un'icona di marchio o rimuovere il logo senza lasciare la griglia — lo stesso menu della pagina della scheda. I loghi sono deliberatamente esclusi dal riempimento verso il basso e dalla modifica di massa: un marchio per scheda, impostato con intenzione.
 
+La colonna **Alias** mostra l'altro nome della card — quello interno con cui la vostra organizzazione la chiama. È disattivata per impostazione predefinita, perché la maggior parte dei panorami non ne contiene alcuno: attivatela nella scheda **Colonne**. Si modifica in cella in modalità di modifica della griglia e si riempie verso il basso come ogni altra colonna di testo, e viaggia con l'esportazione e l'importazione Excel, così un elenco di alias può essere caricato in un solo passaggio.
+
 Ogni categoria ha una casella di controllo **Seleziona tutto** per attivare o disattivare rapidamente tutte le colonne di quel gruppo. Un campo di ricerca in alto consente di trovare colonne specifiche per nome. Il badge su ogni intestazione di sezione mostra quante colonne di quel gruppo sono attualmente visibili.
 
 Quando un tipo di scheda viene selezionato per la prima volta, **tutte le colonne di attributi e relazioni sono abilitate per impostazione predefinita**. È possibile deselezionare le colonne non necessarie. Un pulsante **Ripristina** in fondo alla scheda «Colonne» ripristina la selezione predefinita delle colonne.
@@ -85,6 +87,7 @@ L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:
 | **Tipo** | Tipo di card con icona colorata |
 | **Nome** | Nome del componente (cliccate per aprire il dettaglio della card) |
 | **Logo** | Il logo proprio della scheda, o la sua icona di tipo quando non ne ha. Disattivata per impostazione predefinita — attivatela nella scheda Colonne; fate clic su una cella per cambiarlo |
+| **Alias** | L'altro nome della scheda. Disattivata per impostazione predefinita — attivatela nella scheda Colonne; considerata da ogni casella di ricerca |
 | **Descrizione** | Breve descrizione |
 | **Ciclo di vita** | Stato attuale del ciclo di vita |
 | **Stato di approvazione** | Badge dello stato di revisione |

@@ -33,7 +33,7 @@ import {
   type FlatTreeRow,
 } from "@/lib/cardTree";
 import { readableTextColor } from "@/lib/color";
-import { compareByRank, searchRank } from "@/lib/searchRank";
+import { cardSearchRank, compareByRank } from "@/lib/searchRank";
 import type { Card, CardListResponse } from "@/types";
 
 /**
@@ -339,7 +339,7 @@ export default function CardMultiPicker({
   const rows = useMemo<FlatTreeRow<PickedCard>[]>(() => {
     if (!treeMode) {
       const base = query
-        ? Array.from(byId.values()).filter((c) => searchRank(c.name, query) >= 0)
+        ? Array.from(byId.values()).filter((c) => cardSearchRank(c, query) >= 0)
         : Array.from(byId.values());
       return base
         .sort(compareByRank(query))
