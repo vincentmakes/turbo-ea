@@ -225,7 +225,7 @@ The **Extension Store** (Admin → Extensions) installs vendor-signed, licensed 
 - Shared hooks in `src/hooks/`, shared components in `src/components/`.
 - Feature-specific components go in `src/features/{feature}/`.
 - Use `api.get()`, `api.post()`, `api.patch()`, `api.delete()` from `src/api/client.ts` for all API calls.
-- JWT token is in `sessionStorage` (not localStorage). Use `setToken()`/`clearToken()` from `client.ts`.
+- **The browser never holds the JWT — auth is an httpOnly cookie, and the frontend only tracks *whether* it is signed in.** Every endpoint that mints a session (`/auth/login`, `/register`, `/refresh`, `/sso/callback`, `/proxy/session`, `/impersonate`, `/stop-impersonating`) sets an `access_token` cookie via `_set_auth_cookie` (`backend/app/api/v1/auth.py`): `httponly`, `samesite="lax"`, `path="/api"`, `secure` auto-detected from `X-Forwarded-Proto`, expiring with `ACCESS_TOKEN_EXPIRE_MINUTES`. The browser then sends it on its own. So `api.*` attaches **no** `Authorization` header and passes `credentials: "same-origin"`; there is nothing in `sessionStorage` to read, and `setAuthenticated(value)` / `isAuthenticated()` in `client.ts` are an in-memory UI flag, not a token store. `setToken()` / `clearToken()` / `hasToken()` survive as legacy aliases over that flag — `setToken` ignores its argument entirely — so do not reach for them expecting a token to land anywhere. Two things depend on this and are why it is a cookie rather than a header: `httponly` keeps the token out of reach of any XSS, and the SSE stream is an `EventSource` (`useEventStream.ts`), which **cannot** set request headers and authenticates purely by the cookie riding along. `samesite="lax"` is the app's CSRF control, so a future cross-site POST surface needs its own token rather than a relaxed cookie. A caller outside the browser — the MCP server, a script, `curl` — still sends `Authorization: Bearer <token>`; `get_current_user` (`backend/app/api/deps.py`) reads the header first and falls back to the cookie.
 - **Filter-driven GETs must go through the request hooks — never a bare `api.get` in a `useEffect`.** Any fetch keyed on user-controlled state (a type picker, a search box, a tab, a metric toggle) races: the request for the *previous* value can land after the one for the current value and overwrite it, leaving the grid or chart showing data the controls say you are not looking at (#882). Use `useApiQuery(path | null)` (`frontend/src/hooks/useApiQuery.ts`) when one payload feeds one state; `useAbortableEffect(fn, deps)` (`frontend/src/hooks/useLatestRequest.ts`) when the effect writes several states or fans out over `Promise.all`; and the `useLatestRequest()` primitive when the fetch must also be callable imperatively — `InventoryPage`'s `loadData`, which 13 mutation handlers refresh through. All three abort the predecessor **and** bump a generation token. The token is not redundant: an already-resolved response cannot be aborted, and test doubles ignore `AbortSignal` entirely. Two rules are routinely missed and are exactly what re-breaks this: **(1)** guard *every* `setState` with `isCurrent()`, and **(2)** clear the loading flag **only** when `isCurrent()` — an unconditional `finally { setLoading(false) }` lets the aborted predecessor clear the spinner while the winner is still in flight, flashing "done" over stale rows. Debounce free-text search with `useDebouncedValue(value, 300)` and OR its `pending` flag into the loading prop, so a grid never looks settled while it is still showing the previous query's rows; keep discrete toggles instant. `api.get(path, { signal })` rejects with an `AbortError` — if you call it outside these hooks you own that rejection, so check `isAbortError(err)` from `src/api/client.ts`. `signal` is deliberately **not** offered on `post`/`patch`/`put`/`delete`: aborting a mutation does not undo it server-side.
 
 - **Boot-time singleton hooks must use the inflight-promise pattern.** Hooks that fetch a process-wide value once (`useMetamodel`, `useDateFormat`, `useCurrency`, `useBpmEnabled`, `usePpmEnabled`, `useTurboLensReady`, …) keep a module-level `_cache` plus an `_inflight: Promise | null`. The fetch helper checks **both** — if `_cache` has the value, return it; if `_inflight` is non-null, return that promise; only otherwise start a new fetch and store it in `_inflight`, clearing it on settle. The naive `if (_cache === null) _fetch()` pattern races: when several components mount in the same tick they each see an empty cache and each fire their own request. Add an inflight guard to any new singleton hook of this shape.
@@ -420,7 +420,7 @@ a `WARNING` — the run still captures a screenshot, just of the wrong tab.
 #### How It Works
 
 1. Launches headless Chromium via Playwright at 2x device scale (Retina quality).
-2. Authenticates via `POST /api/v1/auth/login` and injects the JWT into `sessionStorage`.
+2. Authenticates via `POST /api/v1/auth/login`, which sets the httpOnly `access_token` cookie on the browser context Playwright shares with the page (the script's extra `sessionStorage` write is vestigial — the SPA no longer reads one).
 3. Resolves card UUIDs from demo data (e.g., `{{cardId:sampleApp}}` → the SAP S/4HANA UUID).
 4. Switches locale per capture run (EN, ES, etc.) via API + localStorage.
 5. Navigates to each configured route, executes pre-capture actions (scroll, click, hover, wait), and saves screenshots to `docs/assets/img/{locale}/`.
@@ -618,12 +618,12 @@ turbo-ea/
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── api/client.ts              # Fetch wrapper with JWT (sessionStorage) + error handling
+│   │   ├── api/client.ts              # Fetch wrapper (httpOnly cookie auth) + error handling
 │   │   ├── types/index.ts             # All TypeScript interfaces
 │   │   ├── globals.d.ts               # __APP_VERSION__ type declaration
 │   │   ├── print.css                  # Print stylesheet
 │   │   ├── hooks/
-│   │   │   ├── useAuth.ts             # Login/register/logout + token in sessionStorage
+│   │   │   ├── useAuth.ts             # Login/register/logout + in-memory signed-in flag
 │   │   │   ├── useMetamodel.ts        # Cached metamodel types + relation types
 │   │   │   ├── useEventStream.ts      # SSE subscription hook
 │   │   │   ├── useCurrency.ts         # Global currency format + symbol cache (singleton)
@@ -1012,7 +1012,7 @@ Located in `backend/alembic/versions/` (116 migration files, sequentially number
 
 ## API Reference
 
-Base path: `/api/v1`. All endpoints except auth and public portals require `Authorization: Bearer <token>`.
+Base path: `/api/v1`. All endpoints except auth and public portals are authenticated: the web UI sends the httpOnly `access_token` cookie automatically, while API clients send `Authorization: Bearer <token>` (the header is tried first, the cookie is the fallback).
 
 **API docs**: Available at `/api/docs` (Swagger UI) and `/api/openapi.json` in **development mode only** (`ENVIRONMENT=development`). Disabled in production.
 
@@ -1318,9 +1318,9 @@ All route-level pages use `lazy()` imports for code splitting. Auth pages (Login
 
 ### Key Patterns
 
-**API Client** (`src/api/client.ts`): Thin fetch wrapper that auto-injects the JWT from `sessionStorage`. Methods: `api.get()`, `api.post()`, `api.patch()`, `api.put()`, `api.delete()`, `api.upload()`, `api.getRaw()`. Handles 204 empty responses and formats validation errors. Custom `ApiError` class with `status` and `detail` fields.
+**API Client** (`src/api/client.ts`): Thin fetch wrapper that sends `credentials: "same-origin"` so the httpOnly auth cookie rides along, and stamps `X-Turbo-EA-Origin: web` for the audit log. Methods: `api.get()`, `api.post()`, `api.patch()`, `api.put()`, `api.delete()`, `api.upload()`, `api.getRaw()`. Handles 204 empty responses and formats validation errors. Custom `ApiError` class with `status` and `detail` fields.
 
-**Authentication** (`hooks/useAuth.ts`): Token stored in `sessionStorage.token` (cleared on tab close). On load, validates via `GET /auth/me`. SSO callback support via `/auth/callback`. Password setup for invited users via `/auth/set-password`.
+**Authentication** (`hooks/useAuth.ts`): The JWT lives only in the backend-set httpOnly cookie; the hook keeps an in-memory signed-in flag (`setAuthenticated`) and, on load, validates via `GET /auth/me`. SSO callback support via `/auth/callback`. Password setup for invited users via `/auth/set-password`.
 
 **Metamodel Cache** (`hooks/useMetamodel.ts`): Module-level singleton cache. Fetches types + relation types once, shared across all components. `invalidateCache()` forces re-fetch.
 
@@ -1882,8 +1882,8 @@ This section covers the **runtime** security model of a deployed Turbo EA instan
 - Payload: `{sub: user_id, role: role_key, iat, exp, iss: "turbo-ea", aud: "turbo-ea"}`
 - Issuer and audience validation on decode
 - Passwords hashed with bcrypt
-- Token sent as `Authorization: Bearer <token>`
-- Frontend stores token in `sessionStorage` (not localStorage — cleared on tab close)
+- Read from `Authorization: Bearer <token>` when present, else from the httpOnly `access_token` cookie (`get_current_user`, `api/deps.py`)
+- **The browser is never given the token.** `/auth/login` sets it as an `httponly` + `samesite=lax` cookie scoped to `path=/api`, `secure` when the original request was HTTPS, expiring with `ACCESS_TOKEN_EXPIRE_MINUTES`. It is unreachable from JavaScript, so an XSS cannot exfiltrate it, and the `EventSource` SSE stream — which cannot set headers — authenticates by it. `samesite=lax` is the current CSRF control
 
 ### Background Processes
 - **Archived card auto-purge**: Background task runs hourly, permanently deletes cards archived for 30+ days (including their relations)
