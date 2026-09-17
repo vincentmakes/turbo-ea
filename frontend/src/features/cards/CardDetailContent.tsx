@@ -380,6 +380,7 @@ export default function CardDetailContent({
             onAiSuggest={onAiSuggest}
             aiBusy={aiBusy}
             onDirtyChange={dirtyCb("description")}
+            calculatedFieldKeys={calcFieldKeys}
           />
         </ErrorBoundary>
       );

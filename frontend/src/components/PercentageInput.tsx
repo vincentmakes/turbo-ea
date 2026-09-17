@@ -36,7 +36,7 @@ export interface PercentageInputProps {
   error?: string;
   disabled?: boolean;
   size?: "small" | "medium";
-  /** Stretch to the container, still capped at `MAX_WIDTH`. */
+  /** Accepted for callers that pass it; the control always fills its row up to `MAX_WIDTH`. */
   fullWidth?: boolean;
   /** Extra styles on the outer flex box. */
   sx?: Record<string, unknown>;
@@ -45,8 +45,13 @@ export interface PercentageInputProps {
   name?: string;
 }
 
-/** The control's widest layout: a 120px box plus a ~260px track. */
-export const PERCENTAGE_INPUT_MAX_WIDTH = 400;
+/**
+ * The control's widest layout: a 120px box plus a ~400px track. The box
+ * always asks for the row's full width up to this cap — content-sizing it
+ * left the slider at its minimum in card detail, where nothing passes
+ * `fullWidth`.
+ */
+export const PERCENTAGE_INPUT_MAX_WIDTH = 560;
 
 const MARKS = [0, 25, 50, 75, 100].map((value) => ({
   value,
@@ -72,7 +77,6 @@ export function PercentageInput({
   error,
   disabled,
   size = "small",
-  fullWidth,
   sx,
   id,
   name,
@@ -110,9 +114,9 @@ export function PercentageInput({
         alignItems: "center",
         gap: 3,
         alignSelf: "flex-start",
-        width: fullWidth ? "100%" : undefined,
+        width: "100%",
         maxWidth: PERCENTAGE_INPUT_MAX_WIDTH,
-        minWidth: 280,
+        minWidth: 320,
         // Room for the mark labels hanging under the track.
         pb: 1.5,
         ...sx,
@@ -150,8 +154,14 @@ export function PercentageInput({
         valueLabelFormat={(v) => `${v}%`}
         sx={{
           flex: 1,
-          minWidth: 120,
+          minWidth: 240,
           mx: 1,
+          // Same chrome as the metamodel importance slider: a 6px track and
+          // an 18px thumb read as a control, not a hairline. The rail and
+          // track inherit the root height, so it is set once here.
+          height: 6,
+          "& .MuiSlider-track": { border: "none" },
+          "& .MuiSlider-thumb": { width: 18, height: 18 },
           "& .MuiSlider-markLabel": { fontSize: 11 },
         }}
       />

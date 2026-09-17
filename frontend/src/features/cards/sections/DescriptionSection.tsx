@@ -37,6 +37,7 @@ function DescriptionSection({
   onAiSuggest,
   aiBusy = false,
   onDirtyChange,
+  calculatedFieldKeys = [],
 }: {
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
@@ -47,6 +48,13 @@ function DescriptionSection({
   onAiSuggest?: () => void;
   aiBusy?: boolean;
   onDirtyChange?: (dirty: boolean) => void;
+  /**
+   * Keys a calculation writes. Locked exactly as `AttributeSection` locks
+   * them: value + "calculated" chip, never an editor, and never counted as a
+   * missing mandatory field — the `__description` section is the second
+   * editor path for a card's attributes and must not diverge from the first.
+   */
+  calculatedFieldKeys?: string[];
 }) {
   const { t } = useTranslation(["cards", "common", "validation"]);
   const fieldLabel = useFieldLabel();
@@ -87,7 +95,22 @@ function DescriptionSection({
           fieldErrors[f.key] = getUrlErrorMsg(t);
         }
       }
-      if (isEnforcedRequiredField(f) && isEmptyAttrValue(attrs[f.key])) {
+      if (f.type === "percentage") {
+        // Mirrors the server's 0–100 check so the section cannot be saved
+        // into a 422; blanks are fine (clearing is not a range violation).
+        const val = attrs[f.key];
+        if (val !== null && val !== undefined && val !== "") {
+          const n = Number(val);
+          if (!Number.isFinite(n) || n < 0 || n > 100) {
+            fieldErrors[f.key] = t("cards:attributes.percentageRange");
+          }
+        }
+      }
+      if (
+        isEnforcedRequiredField(f) &&
+        !calculatedFieldKeys.includes(f.key) &&
+        isEmptyAttrValue(attrs[f.key])
+      ) {
         fieldErrors[f.key] = t("validation:requiredEmpty");
       }
     }
@@ -160,11 +183,19 @@ function DescriptionSection({
               size="small"
               sx={{ mb: 2 }}
             />
-            {extraFields && extraFields.map((field) => (
-              <Box key={field.key} sx={{ mb: 2 }}>
-                <FieldEditor field={field} value={attrs[field.key]} onChange={(v) => setAttrs((prev) => ({ ...prev, [field.key]: v }))} error={fieldErrors[field.key]} />
-              </Box>
-            ))}
+            {extraFields && extraFields.map((field) =>
+              field.readonly || calculatedFieldKeys.includes(field.key) ? (
+                <Box key={field.key} sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>{fieldLabel(field)}</Typography>
+                  <FieldValue field={field} value={attrs[field.key]} currencyFmt={currencyFmt} />
+                  <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? t("attributes.calculated") : t("attributes.auto")} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
+                </Box>
+              ) : (
+                <Box key={field.key} sx={{ mb: 2 }}>
+                  <FieldEditor field={field} value={attrs[field.key]} onChange={(v) => setAttrs((prev) => ({ ...prev, [field.key]: v }))} error={fieldErrors[field.key]} />
+                </Box>
+              ),
+            )}
             {saveError && (
               <Alert severity="error" sx={{ mb: 1 }} onClose={() => setSaveError(null)}>
                 {saveError}
@@ -202,6 +233,11 @@ function DescriptionSection({
                       </Box>
                     </Tooltip>
                   );
+                  const lockChip = calculatedFieldKeys.includes(field.key) ? (
+                    <Chip component="span" size="small" label={t("attributes.calculated")} sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
+                  ) : field.readonly ? (
+                    <Chip component="span" size="small" label={t("attributes.auto")} sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
+                  ) : null;
                   const valueCell =
                     isEnforcedRequiredField(field) &&
                     isEmptyAttrValue((card.attributes || {})[field.key]) ? (
@@ -224,6 +260,7 @@ function DescriptionSection({
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                           {fieldLabel(field)}
                           {requiredMark}
+                          {lockChip}
                         </Typography>
                         {valueCell}
                       </Box>
@@ -234,6 +271,7 @@ function DescriptionSection({
                       <Typography variant="body2" color="text.secondary">
                         {fieldLabel(field)}
                         {requiredMark}
+                        {lockChip}
                       </Typography>
                       {valueCell}
                     </Box>

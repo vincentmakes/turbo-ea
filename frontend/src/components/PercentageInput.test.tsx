@@ -72,6 +72,15 @@ describe("PercentageInput — one source of truth", () => {
     expect(onChange).toHaveBeenCalledWith(15);
   });
 
+  it("fills its row up to the cap with a thick track, even without fullWidth", () => {
+    // Card detail passes nothing; the slider used to collapse to its minimum
+    // there while the rail stayed MUI's 4px hairline.
+    const { container } = render(<PercentageInput label="Progress" value={0} onChange={() => {}} />);
+    const root = container.firstElementChild as HTMLElement;
+    expect(root).toHaveStyle({ width: "100%", maxWidth: "560px" });
+    expect(container.querySelector(".MuiSlider-root")).toHaveStyle({ height: "6px", minWidth: "240px" });
+  });
+
   it("marks the track at 0, 25, 50, 75 and 100", () => {
     const { container } = render(<PercentageInput label="Progress" value={0} onChange={() => {}} />);
     expect(container.querySelectorAll(".MuiSlider-mark")).toHaveLength(5);
