@@ -120,6 +120,7 @@ plugins:
             Operations & Upgrades: Operaciones y actualizaciones
             Kubernetes & Cloud: Kubernetes y nube
             Managed Container Services: Servicios de contenedores gestionados
+            Terraform: Terraform
             Supply Chain: Cadena de suministro
             Reference: Referencia
             Glossary: Glosario
@@ -188,6 +189,7 @@ plugins:
             Operations & Upgrades: Betrieb & Upgrades
             Kubernetes & Cloud: Kubernetes & Cloud
             Managed Container Services: Verwaltete Container-Dienste
+            Terraform: Terraform
             Supply Chain: Lieferkette
             Reference: Referenz
             Glossary: Glossar
@@ -256,6 +258,7 @@ plugins:
             Operations & Upgrades: Exploitation et mises à niveau
             Kubernetes & Cloud: Kubernetes et cloud
             Managed Container Services: Services de conteneurs managés
+            Terraform: Terraform
             Supply Chain: Chaîne d'approvisionnement
             Reference: Référence
             Glossary: Glossaire
@@ -324,6 +327,7 @@ plugins:
             Operations & Upgrades: Operazioni e aggiornamenti
             Kubernetes & Cloud: Kubernetes e cloud
             Managed Container Services: Servizi di container gestiti
+            Terraform: Terraform
             Supply Chain: Catena di approvvigionamento
             Reference: Riferimenti
             Glossary: Glossario
@@ -392,6 +396,7 @@ plugins:
             Operations & Upgrades: Operações e atualizações
             Kubernetes & Cloud: Kubernetes e nuvem
             Managed Container Services: Serviços de contêineres gerenciados
+            Terraform: Terraform
             Supply Chain: Cadeia de suprimentos
             Reference: Referência
             Glossary: Glossário
@@ -460,6 +465,7 @@ plugins:
             Operations & Upgrades: 运维与升级
             Kubernetes & Cloud: Kubernetes 与云
             Managed Container Services: 托管容器服务
+            Terraform: Terraform
             Supply Chain: 供应链
             Reference: 参考
             Glossary: 术语表
@@ -528,6 +534,7 @@ plugins:
             Operations & Upgrades: Эксплуатация и обновления
             Kubernetes & Cloud: Kubernetes и облако
             Managed Container Services: Управляемые контейнерные сервисы
+            Terraform: Terraform
             Supply Chain: Цепочка поставок
             Reference: Справочник
             Glossary: Глоссарий
@@ -596,6 +603,7 @@ plugins:
             Operations & Upgrades: Drift og opgraderinger
             Kubernetes & Cloud: Kubernetes og cloud
             Managed Container Services: Administrerede containertjenester
+            Terraform: Terraform
             Supply Chain: Forsyningskæde
             Reference: Reference
             Glossary: Ordliste
@@ -664,6 +672,7 @@ plugins:
             Operations & Upgrades: العمليات والترقيات
             Kubernetes & Cloud: Kubernetes والسحابة
             Managed Container Services: خدمات الحاويات المُدارة
+            Terraform: Terraform
             Supply Chain: سلسلة التوريد
             Reference: المرجع
             Glossary: المسرد
@@ -760,6 +769,7 @@ nav:
       - Operations & Upgrades: admin/operations.md
       - Kubernetes & Cloud: admin/kubernetes.md
       - Managed Container Services: admin/managed-containers.md
+      - Terraform: admin/terraform.md
       - Supply Chain: admin/supply-chain.md
   - Extensions:
       - Overview: extensions/index.md

@@ -1,6 +1,6 @@
 # Kubernetes والسحابة
 
-يأتي Turbo EA مع مخطط Helm، لذا فإن تشغيله على Kubernetes — Amazon EKS أو Azure AKS أو Google GKE أو أي عنقود متوافق — هو أمر واحد فقط مع خادم PostgreSQL توفّره أنت. تشرح هذه الصفحة المخطط نفسه أولًا ثم تستعرض كلًا من السحابات الثلاث الكبرى. إذا كنت تشغّل مضيفًا واحدًا، يبقى [إعداد Docker Compose](../getting-started/setup.md) هو المسار الأبسط؛ وكل ما تذكره صفحة [العمليات والترقيات](operations.md) عن الترقيات والنسخ الاحتياطي وحفظ `SECRET_KEY` ينطبق هنا دون تغيير.
+يأتي Turbo EA مع مخطط Helm، لذا فإن تشغيله على Kubernetes — Amazon EKS أو Azure AKS أو Google GKE أو أي عنقود متوافق — هو أمر واحد فقط مع خادم PostgreSQL توفّره أنت. تشرح هذه الصفحة المخطط نفسه أولًا ثم تستعرض كلًا من السحابات الثلاث الكبرى. إذا كنت تشغّل مضيفًا واحدًا، يبقى [إعداد Docker Compose](../getting-started/setup.md) هو المسار الأبسط؛ وكل ما تذكره صفحة [العمليات والترقيات](operations.md) عن الترقيات والنسخ الاحتياطي وحفظ `SECRET_KEY` ينطبق هنا دون تغيير. تفضّل Terraform؟ صفحة [Terraform](terraform.md) تغلّف الـ chart في وحدة `helm_release`.
 
 ## ما الذي ينشره المخطط
 

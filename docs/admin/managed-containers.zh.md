@@ -1,6 +1,6 @@
 # 托管容器服务
 
-并非每个团队都运行 Kubernetes，也并非每个团队都愿意维护一台虚拟机。**Azure Container Apps**、**Google Cloud Run** 和 **AWS ECS Fargate** 无需运维集群即可运行同样的 Turbo EA 镜像，并连接同一家云的托管 PostgreSQL。本页为每个平台提供位于 [`deploy/`](https://github.com/vincentmakes/turbo-ea/tree/main/deploy) 的可直接修改的模板，并明确说明每个平台能做什么、不能做什么。如果您已有集群，[Kubernetes 与云](kubernetes.md)页面和 Helm chart 更合适；在单台主机上，[Docker Compose](../getting-started/setup.md) 仍是最简单的路径。[运维与升级](operations.md)中关于备份、升级和 `SECRET_KEY` 保管的所有内容在此同样适用。
+并非每个团队都运行 Kubernetes，也并非每个团队都愿意维护一台虚拟机。**Azure Container Apps**、**Google Cloud Run** 和 **AWS ECS Fargate** 无需运维集群即可运行同样的 Turbo EA 镜像，并连接同一家云的托管 PostgreSQL。本页为每个平台提供位于 [`deploy/`](https://github.com/vincentmakes/turbo-ea/tree/main/deploy) 的可直接修改的模板，并明确说明每个平台能做什么、不能做什么。如果您已有集群，[Kubernetes 与云](kubernetes.md)页面和 Helm chart 更合适；在单台主机上，[Docker Compose](../getting-started/setup.md) 仍是最简单的路径。[运维与升级](operations.md)中关于备份、升级和 `SECRET_KEY` 保管的所有内容在此同样适用。 这三个平台各自还提供一个 Terraform 模块，用于创建相同的容器组以及托管数据库——参见 [Terraform](terraform.md)。
 
 本页刻意不涉及 AWS App Runner：它自 2026 年 4 月起不再接受新客户，而且从未支持 Sidecar 或持久卷。
 

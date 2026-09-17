@@ -1,6 +1,6 @@
 # Kubernetes e nuvem
 
-O Turbo EA inclui um chart Helm, portanto executá-lo no Kubernetes — Amazon EKS, Azure AKS, Google GKE ou qualquer cluster conforme — é um único comando contra um servidor PostgreSQL fornecido por você. Esta página descreve primeiro o chart e depois percorre cada uma das três grandes nuvens. Em um único host, a [configuração com Docker Compose](../getting-started/setup.md) continua sendo o caminho mais simples; tudo o que a página [Operações e atualizações](operations.md) diz sobre atualizações, backups e a guarda de `SECRET_KEY` vale aqui sem alterações.
+O Turbo EA inclui um chart Helm, portanto executá-lo no Kubernetes — Amazon EKS, Azure AKS, Google GKE ou qualquer cluster conforme — é um único comando contra um servidor PostgreSQL fornecido por você. Esta página descreve primeiro o chart e depois percorre cada uma das três grandes nuvens. Em um único host, a [configuração com Docker Compose](../getting-started/setup.md) continua sendo o caminho mais simples; tudo o que a página [Operações e atualizações](operations.md) diz sobre atualizações, backups e a guarda de `SECRET_KEY` vale aqui sem alterações. Prefere Terraform? A página [Terraform](terraform.md) encapsula o chart em um módulo `helm_release`.
 
 ## O que o chart implanta
 

@@ -93,3 +93,14 @@ archive/
 
 #Local Claude
 .claude/
+
+# Terraform (deploy/terraform): provider binaries, state and personal tfvars.
+# The .terraform.lock.hcl files ARE committed.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+crash.log
+deploy/terraform/**/*.tfvars
+!deploy/terraform/**/*.tfvars.example
+*.auto.tfvars

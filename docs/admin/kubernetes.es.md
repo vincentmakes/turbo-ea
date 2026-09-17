@@ -1,6 +1,6 @@
 # Kubernetes y nube
 
-Turbo EA incluye un chart de Helm, así que ejecutarlo en Kubernetes —Amazon EKS, Azure AKS, Google GKE o cualquier clúster conforme— es un solo comando contra un servidor PostgreSQL que usted proporciona. Esta página describe primero el chart y después recorre cada una de las tres grandes nubes. Si utiliza un único host, la [configuración con Docker Compose](../getting-started/setup.md) sigue siendo la vía más sencilla; todo lo que dice la página [Operaciones y actualizaciones](operations.md) sobre actualizaciones, copias de seguridad y la custodia de `SECRET_KEY` se aplica aquí sin cambios.
+Turbo EA incluye un chart de Helm, así que ejecutarlo en Kubernetes —Amazon EKS, Azure AKS, Google GKE o cualquier clúster conforme— es un solo comando contra un servidor PostgreSQL que usted proporciona. Esta página describe primero el chart y después recorre cada una de las tres grandes nubes. Si utiliza un único host, la [configuración con Docker Compose](../getting-started/setup.md) sigue siendo la vía más sencilla; todo lo que dice la página [Operaciones y actualizaciones](operations.md) sobre actualizaciones, copias de seguridad y la custodia de `SECRET_KEY` se aplica aquí sin cambios. ¿Prefiere Terraform? La página [Terraform](terraform.md) envuelve el chart en un módulo `helm_release`.
 
 ## Qué despliega el chart
 

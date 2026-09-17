@@ -34,6 +34,7 @@ jobs:
       devcontainer: ${{ steps.filter.outputs.devcontainer == 'true' || steps.filter.outputs.ci == 'true' }}
       helm: ${{ steps.filter.outputs.helm == 'true' || steps.filter.outputs.ci == 'true' }}
       deploy: ${{ steps.filter.outputs.deploy == 'true' || steps.filter.outputs.ci == 'true' }}
+      terraform: ${{ steps.filter.outputs.terraform == 'true' || steps.filter.outputs.ci == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -77,9 +78,15 @@ jobs:
               - 'nginx/**'
             deploy:
               - 'deploy/**'
+              # The Terraform modules have their own job below.
+              - '!deploy/terraform/**'
               - 'scripts/check_cloud_run_manifest.py'
+              - 'scripts/check_deploy_versions.py'
               # Every template sets NGINX_HTTP_PORT, which the edge entrypoint reads.
               - 'Dockerfile'
+            terraform:
+              - 'deploy/terraform/**'
+              - 'scripts/check_deploy_versions.py'
             ci:
               - '.github/workflows/**'
 
@@ -712,6 +719,9 @@ jobs:
       - name: Cloud Run manifest
         run: python3 scripts/check_cloud_run_manifest.py
 
+      - name: Release pins under deploy/ agree and exist in the changelog
+        run: python3 scripts/check_deploy_versions.py
+
       # The kind job covers the default port; this covers the override the
       # templates rely on, in the real image.
       - name: Edge nginx honours NGINX_HTTP_PORT
@@ -735,3 +745,62 @@ jobs:
             echo "::error::an invalid NGINX_HTTP_PORT must fail the container start"
             exit 1
           fi
+
+  # ── Terraform (deploy/terraform) ─────────────────────────────────────
+  # No cloud credentials in CI: `terraform test` runs against mock providers
+  # (real schemas, invented values), so it checks the wiring the guide depends
+  # on — NGINX_HTTP_PORT=8920, one backend, secrets by reference, the data
+  # volume — not whether a cloud would accept the plan. tflint's cloud rulesets
+  # cover the literal values (instance classes, SKUs) that mocks never see.
+  terraform-lint:
+    name: Terraform (${{ matrix.module }})
+    needs: changes
+    if: needs.changes.outputs.terraform == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [ecs-fargate, azure-container-apps, cloud-run, kubernetes]
+    defaults:
+      run:
+        working-directory: deploy/terraform/${{ matrix.module }}
+    env:
+      TF_IN_AUTOMATION: "1"
+      TF_INPUT: "0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.16.3"
+          terraform_wrapper: false
+
+      - name: Format
+        run: terraform fmt -check -diff -recursive
+
+      # -lockfile=readonly: the committed lock file must already carry the
+      # linux_amd64 hashes (terraform providers lock -platform=…).
+      - name: Init
+        run: terraform init -backend=false -lockfile=readonly
+
+      - name: Validate
+        run: terraform validate
+
+      - name: Tests (mock providers)
+        run: terraform test
+
+      - uses: terraform-linters/setup-tflint@1cf010d3c7aef302051ccdb68c14c5dc2efa34ef # v6.3.1
+        with:
+          tflint_version: v0.64.0
+
+      - name: tflint
+        env:
+          # Ruleset plugins are fetched from GitHub releases.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          tflint --init
+          tflint --format compact
+
+      - name: Release pins under deploy/ agree and exist in the changelog
+        if: matrix.module == 'ecs-fargate'
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/check_deploy_versions.py

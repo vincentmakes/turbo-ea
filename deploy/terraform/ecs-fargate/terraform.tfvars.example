@@ -1,0 +1,23 @@
+# Copy to terraform.tfvars and edit. Keep secrets out of the file:
+#   export TF_VAR_secret_key="$(openssl rand -base64 48)"
+# Guide: https://docs.turbo-ea.org/admin/terraform/
+
+region     = "eu-west-1"
+name       = "turbo-ea"
+public_url = "https://ea.example.com"
+image_tag  = "2.141.0"
+
+vpc_id             = "vpc-0123456789abcdef0"
+public_subnet_ids  = ["subnet-0aaaaaaaaaaaaaaa1", "subnet-0aaaaaaaaaaaaaaa2"]
+private_subnet_ids = ["subnet-0bbbbbbbbbbbbbbb1", "subnet-0bbbbbbbbbbbbbbb2"]
+certificate_arn    = "arn:aws:acm:eu-west-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+# route53_zone_id  = "Z0123456789ABCDEFGHIJ"
+
+# Created RDS instance (default). To bring your own instead:
+# create_database      = false
+# db_host              = "turbo-ea.abcdefghij.eu-west-1.rds.amazonaws.com"
+# db_security_group_id = "sg-0123456789abcdef0"
+# export TF_VAR_db_password='…'
+db_instance_class = "db.t4g.micro"
+
+deploy_mcp = false

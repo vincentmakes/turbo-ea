@@ -1,0 +1,28 @@
+# Copy to terraform.tfvars and edit. Keep secrets out of the file:
+#   export TF_VAR_secret_key="$(openssl rand -base64 48)"
+# Guide: https://docs.turbo-ea.org/admin/terraform/
+
+subscription_id     = "00000000-0000-0000-0000-000000000000"
+resource_group_name = "rg-turbo-ea"
+location            = "westeurope"
+name                = "turbo-ea"
+public_url          = "https://ea.example.com"
+image_tag           = "2.141.0"
+
+# Globally unique names.
+storage_account_name   = "turboeadata"
+postgresql_server_name = "turbo-ea-pg"
+
+# VNet integration and private database access (recommended). Both subnets
+# must be different; the private DNS zone must be linked to the VNet.
+# infrastructure_subnet_id       = "/subscriptions/…/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet/subnets/aca"
+# postgresql_delegated_subnet_id = "/subscriptions/…/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet/subnets/postgres"
+# postgresql_private_dns_zone_id = "/subscriptions/…/resourceGroups/rg-net/providers/Microsoft.Network/privateDnsZones/turbo-ea.postgres.database.azure.com"
+
+# Created Flexible Server (default). To bring your own instead:
+# create_database = false
+# db_host         = "turbo-ea.postgres.database.azure.com"
+# export TF_VAR_db_password='…'
+postgresql_sku_name = "B_Standard_B1ms"
+
+deploy_mcp = false

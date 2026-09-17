@@ -1,0 +1,26 @@
+# Copy to terraform.tfvars and edit. Keep secrets out of the file:
+#   export TF_VAR_secret_key="$(openssl rand -base64 48)"
+# Guide: https://docs.turbo-ea.org/admin/terraform/
+
+project_id = "my-project"
+region     = "europe-west1"
+name       = "turbo-ea"
+public_url = "https://ea.example.com"
+image_tag  = "2.141.0"
+
+# Existing VPC and a subnet in `region` for Direct VPC egress.
+network    = "default"
+subnetwork = "default"
+# Set once per VPC when Cloud SQL private services access does not exist yet.
+# create_private_service_connection = true
+
+# Created Cloud SQL instance (default). To bring your own instead:
+# create_database = false
+# db_host         = "10.20.0.3"
+# export TF_VAR_db_password='…'
+cloudsql_tier = "db-custom-1-3840"
+
+# Filestore BASIC_HDD starts at 1 TiB; it is the dominant cost of this layout.
+filestore_capacity_gb = 1024
+
+deploy_mcp = false

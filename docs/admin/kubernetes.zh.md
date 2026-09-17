@@ -1,6 +1,6 @@
 # Kubernetes 与云
 
-Turbo EA 附带 Helm chart，因此在 Kubernetes 上运行它——Amazon EKS、Azure AKS、Google GKE 或任何符合规范的集群——只需一条命令，并连接到您自行提供的 PostgreSQL 服务器。本页先介绍 chart 本身，再逐一说明三大云平台。若只运行单台主机，[Docker Compose 安装](../getting-started/setup.md)仍是最简单的方式；[运维与升级](operations.md)页面中关于升级、备份和 `SECRET_KEY` 保管的所有内容在此同样适用。
+Turbo EA 附带 Helm chart，因此在 Kubernetes 上运行它——Amazon EKS、Azure AKS、Google GKE 或任何符合规范的集群——只需一条命令，并连接到您自行提供的 PostgreSQL 服务器。本页先介绍 chart 本身，再逐一说明三大云平台。若只运行单台主机，[Docker Compose 安装](../getting-started/setup.md)仍是最简单的方式；[运维与升级](operations.md)页面中关于升级、备份和 `SECRET_KEY` 保管的所有内容在此同样适用。 更喜欢 Terraform？[Terraform](terraform.md) 页面将 chart 封装为一个 `helm_release` 模块。
 
 ## chart 部署的内容
 

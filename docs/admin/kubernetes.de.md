@@ -1,6 +1,6 @@
 # Kubernetes & Cloud
 
-Turbo EA liefert ein Helm-Chart mit. Der Betrieb auf Kubernetes — Amazon EKS, Azure AKS, Google GKE oder jedem anderen konformen Cluster — ist damit ein einziger Befehl gegen einen PostgreSQL-Server, den Sie bereitstellen. Diese Seite beschreibt zuerst das Chart und führt dann durch jede der drei großen Clouds. Für einen einzelnen Host bleibt das [Docker-Compose-Setup](../getting-started/setup.md) der einfachste Weg; alles auf der Seite [Betrieb & Upgrades](operations.md) zu Upgrades, Backups und der Verwahrung von `SECRET_KEY` gilt hier unverändert.
+Turbo EA liefert ein Helm-Chart mit. Der Betrieb auf Kubernetes — Amazon EKS, Azure AKS, Google GKE oder jedem anderen konformen Cluster — ist damit ein einziger Befehl gegen einen PostgreSQL-Server, den Sie bereitstellen. Diese Seite beschreibt zuerst das Chart und führt dann durch jede der drei großen Clouds. Für einen einzelnen Host bleibt das [Docker-Compose-Setup](../getting-started/setup.md) der einfachste Weg; alles auf der Seite [Betrieb & Upgrades](operations.md) zu Upgrades, Backups und der Verwahrung von `SECRET_KEY` gilt hier unverändert. Lieber Terraform? Die Seite [Terraform](terraform.md) kapselt das Chart in einem `helm_release`-Modul.
 
 ## Was das Chart bereitstellt
 

@@ -356,6 +356,10 @@ The chart version is the Turbo EA version. Cloud-specific starting points (ALB, 
 
 Azure Container Apps, Google Cloud Run and AWS ECS Fargate can run the same images as one container group — the edge nginx, frontend, backend and optional MCP server as sidecars sharing `localhost` — against a managed PostgreSQL. Ready-to-edit templates live under [`deploy/`](deploy/) (Bicep, a Cloud Run service manifest, CloudFormation) and the walkthroughs, including what each platform can and cannot do, are at [docs.turbo-ea.org/admin/managed-containers](https://docs.turbo-ea.org/admin/managed-containers/).
 
+### Terraform
+
+Every deployment above also exists as a Terraform root module under [`deploy/terraform/`](deploy/terraform/): `ecs-fargate`, `azure-container-apps` and `cloud-run` build the same container group as the templates and create the managed PostgreSQL by default (with a bring-your-own switch), and `kubernetes` installs the Helm chart through `helm_release`. Networks are inputs, never created; the release is an explicit `image_tag`. Mock-provider tests, `terraform validate` and `tflint` run in CI. Guide: [Terraform](https://docs.turbo-ea.org/admin/terraform/).
+
 ### Verifying images
 
 From `1.0.0` onwards, every published image is signed with [cosign](https://github.com/sigstore/cosign) using GitHub's keyless OIDC flow — no shared signing key, the certificate is bound to the publish workflow identity. Verification before pulling into production is one command:

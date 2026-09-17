@@ -1,0 +1,27 @@
+# Copy to terraform.tfvars and edit. Keep secrets out of the file:
+#   export TF_VAR_secret_key="$(openssl rand -base64 48)"
+#   export TF_VAR_db_password='…'
+# Guide: https://docs.turbo-ea.org/admin/terraform/
+
+chart_version = "2.141.0"
+namespace     = "turbo-ea"
+public_url    = "https://ea.example.com"
+
+db_host = "turbo-ea.postgres.internal"
+
+# Or point at a Secret created by External Secrets / Sealed Secrets:
+# existing_secret = "turbo-ea-credentials"
+
+ingress = {
+  enabled    = true
+  class_name = "nginx"
+  annotations = {
+    "nginx.ingress.kubernetes.io/proxy-body-size"    = "512m"
+    "nginx.ingress.kubernetes.io/proxy-read-timeout" = "86400"
+    "nginx.ingress.kubernetes.io/proxy-send-timeout" = "86400"
+    "nginx.ingress.kubernetes.io/proxy-buffering"    = "off"
+  }
+  tls = [{ secret_name = "turbo-ea-tls", hosts = ["ea.example.com"] }]
+}
+
+deploy_mcp = false
