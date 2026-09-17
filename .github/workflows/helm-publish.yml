@@ -59,8 +59,17 @@ jobs:
             --destination dist
           helm show chart "dist/turbo-ea-${{ steps.version.outputs.version }}.tgz"
 
-      - name: Log in to GHCR
+      - name: Log in to GHCR (Helm)
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      # cosign reads Docker's credential store, not Helm's; without this the
+      # signature upload is refused with UNAUTHORIZED after a successful push.
+      - name: Log in to GHCR (Docker credential store)
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push
         id: push
