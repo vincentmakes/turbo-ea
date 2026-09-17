@@ -81,6 +81,12 @@ export function layoutGroup(
    * is a card, exactly as before.
    */
   sizeOf: SizeLookup = cardSizes,
+  /**
+   * Dagre spacing. The defaults are tuned for cards; the aggregate layout asks
+   * for more, because a corridor between two boxes has to carry several
+   * connectors with clearance on each side, and 50 px will not.
+   */
+  spacing: { ranksep: number; nodesep: number } = { ranksep: 90, nodesep: 50 },
 ): { positioned: PositionedNode[]; width: number; height: number; hGap: number } {
   if (catNodes.length === 0) return { positioned: [], width: 0, height: 0, hGap: 40 };
 
@@ -94,8 +100,8 @@ export function layoutGroup(
     const g = new dagre.graphlib.Graph();
     g.setGraph({
       rankdir: "TB",
-      ranksep: 90,
-      nodesep: 50,
+      ranksep: spacing.ranksep,
+      nodesep: spacing.nodesep,
       marginx: 0,
       marginy: 0,
     });
@@ -140,7 +146,7 @@ export function layoutGroup(
       positioned,
       width: maxX - minX,
       height: maxY - minY,
-      hGap: 50, // dagre nodesep
+      hGap: spacing.nodesep, // dagre nodesep
     };
   }
 

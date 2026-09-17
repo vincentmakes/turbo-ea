@@ -25,7 +25,13 @@ import {
   LDV_NODE_H,
   type SizeLookup,
 } from "./ldvHandles";
-import { buildRowBands, buildChannel, type ChannelXY, type ChannelCard } from "./ldvChannels";
+import {
+  buildRowBands,
+  buildChannel,
+  type ChannelXY,
+  type ChannelCard,
+  type ChannelSpacing,
+} from "./ldvChannels";
 import type { Node } from "@xyflow/react";
 
 export interface XY {
@@ -292,6 +298,12 @@ export function routeLdvEdges(
    * card and the geometry is exactly what it always was.
    */
   sizeOf: SizeLookup = cardSizes,
+  /**
+   * How far a corridor keeps from the nodes it passes and from its neighbour
+   * corridor. Omitted, the card defaults apply; aggregate mode widens both so
+   * connectors beside a box are seen as separate lines, not a bundle.
+   */
+  spacing: ChannelSpacing = {},
 ): { routes: LdvRoute[]; usedHandles: Map<string, Set<string>> } {
   const n = oriented.length;
   const srcHandles = new Array<string>(n);
@@ -462,7 +474,7 @@ export function routeLdvEdges(
   const waypointsArr = new Array<ChannelXY[] | undefined>(n);
   const jogRunsMeta: { edge: number; wpIndex: number; lo: number; hi: number }[] = [];
   {
-    const bands = buildRowBands(nodeBounds);
+    const bands = buildRowBands(nodeBounds, spacing);
     const boundsById = new Map(nodeBounds.map((b) => [b.id, b]));
     const rowIdxOf = (id: string): number => {
       const b = boundsById.get(id);

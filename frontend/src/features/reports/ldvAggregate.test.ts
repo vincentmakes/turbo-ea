@@ -9,7 +9,8 @@
  * number of relations behind it — whatever their types or directions.
  */
 import { describe, it, expect } from "vitest";
-import { buildLdvAggregateFlow, type LdvClusterData } from "./ldvAggregate";
+import { buildLdvAggregateFlow, type LdvAggregateBy, type LdvClusterData } from "./ldvAggregate";
+import demo from "./__fixtures__/demoDependencies.json";
 import type { GNode, GEdge, LdvEdgeData } from "./layeredDependencyLayout";
 import type { CardType } from "@/types";
 
@@ -115,7 +116,8 @@ describe("buildLdvAggregateFlow", () => {
     expect(flow.memberOf.has("center")).toBe(false);
     const centreNode = flow.nodes.find((n) => n.id === "center")!;
     expect(centreNode.type).toBe("ldvNode");
-    expect(centreNode.parentId).toBe("group:Application & Data");
+    // A node in its own right, not a child of anything.
+    expect(centreNode.parentId).toBeUndefined();
     expect(flow.memberOf.get("a2")).toBe("cluster:type:Application");
   });
 
@@ -326,7 +328,7 @@ describe("buildLdvAggregateFlow", () => {
     expect((boxes[0].data as LdvClusterData).label).toBe("Application · Business Application");
   });
 
-  it("groups by layer into one box per lane", () => {
+  it("groups by layer into one box per layer", () => {
     const nodes = [
       card("a1", "Application"),
       card("a2", "Application"),
@@ -341,99 +343,22 @@ describe("buildLdvAggregateFlow", () => {
     expect((boxes[0].data as LdvClusterData).count).toBe(2);
   });
 
-  it("drops the lane's title when its one box would repeat it", () => {
-    // Grouping by layer names the box after the lane it fills, and two
-    // identical titles one inside the other read as a rendering fault.
+  it("places the boxes freely, with no layer lanes to pin them into rows", () => {
+    // Pinning a box to the lane of its cards' layer fixes its row before
+    // anything is known about what it connects to, so boxes that talk to each
+    // other land at opposite ends and their connectors run the height of the
+    // diagram and back. Freed, dagre puts connected boxes next to each other.
     const flow = buildLdvAggregateFlow(
-      [card("a1", "Application"), card("a2", "Application")],
-      [],
+      [card("a1", "Application"), card("i1", "ITComponent"), card("o1", "Organization")],
+      [
+        { source: "a1", target: "i1", type: "relAppToITC", label: "runs on" },
+        { source: "o1", target: "a1", type: "relOrgToApp", label: "uses" },
+      ],
       TYPES,
-      "layer",
+      "type",
     );
-    const lane = flow.nodes.find((n) => n.type === "ldvGroup")!;
-    expect((lane.data as { label: string }).label).toBe("");
-    expect((clusters(flow.nodes)[0].data as LdvClusterData).label).toBe("Application & Data");
-  });
-
-  it("keeps the lane's title when the box is only part of the lane", () => {
-    // The centred card sits beside the box, so the lane holds more than the
-    // box and its own name is still telling the reader something.
-    const flow = buildLdvAggregateFlow(
-      [card("center", "Application"), card("a2", "Application")],
-      [],
-      TYPES,
-      "layer",
-      "center",
-    );
-    const lane = flow.nodes.find((n) => n.type === "ldvGroup")!;
-    expect((lane.data as { label: string }).label).toBe("Application & Data");
-  });
-
-  it("keeps the lane's title when grouping by type, where the names differ", () => {
-    const flow = buildLdvAggregateFlow([card("a1", "Application")], [], TYPES, "type");
-    const lane = flow.nodes.find((n) => n.type === "ldvGroup")!;
-    expect((lane.data as { label: string }).label).toBe("Application & Data");
-  });
-
-  it("never lets two boxes overlap, whatever their sizes", () => {
-    // Both size traps the card case hid land here: `transposeRow` swapping two
-    // x positions of unequal width, and `alignLanesX` bucketing rows by
-    // top-edge y so two boxes of different heights on one rank never got kept
-    // apart. Each shipped as boxes drawn on top of each other.
-    const nodes: GNode[] = [card("center", "Organization", "ACME")];
-    const edges: GEdge[] = [];
-    // A fat box and a thin one in the same lane, both tied to the centre.
-    for (let i = 0; i < 9; i++) {
-      nodes.push(card(`app${i}`, "Application", `App ${i}`));
-      edges.push({ source: "center", target: `app${i}`, type: "relOrgToApp", label: "uses" });
-    }
-    nodes.push(card("itc", "ITComponent", "One Component"));
-    edges.push({ source: "center", target: "itc", type: "relOrgToITC", label: "runs on" });
-    nodes.push(card("org2", "Organization", "Sub Unit"));
-    edges.push({ source: "center", target: "org2", type: "relOrgToOrg", label: "owns" });
-
-    const flow = buildLdvAggregateFlow(nodes, edges, TYPES, "type", "center");
-    const laneOf = new Map(flow.nodes.map((n) => [n.id, n.parentId]));
-    const lanePos = new Map(
-      flow.nodes.filter((n) => n.type === "ldvGroup").map((n) => [n.id, n.position]),
-    );
-    const boxes = flow.nodes
-      .filter((n) => n.type === "ldvCluster" || (n.type === "ldvNode" && n.id === "center"))
-      .map((n) => {
-        const lane = lanePos.get(laneOf.get(n.id) as string)!;
-        const w = (n.style?.width as number) ?? 200;
-        const h = (n.style?.height as number) ?? 80;
-        return {
-          id: n.id,
-          x1: lane.x + n.position.x,
-          y1: lane.y + n.position.y,
-          x2: lane.x + n.position.x + w,
-          y2: lane.y + n.position.y + h,
-        };
-      });
-    for (let i = 0; i < boxes.length; i++) {
-      for (let j = i + 1; j < boxes.length; j++) {
-        const a = boxes[i];
-        const b2 = boxes[j];
-        const overlaps = a.x1 < b2.x2 && a.x2 > b2.x1 && a.y1 < b2.y2 && a.y2 > b2.y1;
-        expect(`${a.id} vs ${b2.id}: ${overlaps}`).toBe(`${a.id} vs ${b2.id}: false`);
-      }
-    }
-  });
-
-  it("routes every line through the standard engine, bends and label anchor included", () => {
-    // A box is a virtual card: the same router, so a connector carries the same
-    // routing payload a card's line does rather than a bare pair of handles.
-    const nodes = [card("center", "Organization"), card("a1", "Application")];
-    const edges: GEdge[] = [
-      { source: "center", target: "a1", type: "relOrgToApp", label: "uses" },
-    ];
-    const flow = buildLdvAggregateFlow(nodes, edges, TYPES, "type", "center");
-    const d = edgeData(flow.edges[0]);
-    expect(d.labelT).toBeTypeOf("number");
-    expect(d.pathOffset).toBeTypeOf("number");
-    expect(flow.edges[0].sourceHandle).toBeTruthy();
-    expect(flow.edges[0].targetHandle).toBeTruthy();
+    expect(flow.nodes.some((n) => n.type === "ldvGroup")).toBe(false);
+    for (const box of clusters(flow.nodes)) expect(box.parentId).toBeUndefined();
   });
 
   it("renders only the handles its connectors actually use", () => {
@@ -481,5 +406,123 @@ describe("buildLdvAggregateFlow", () => {
     const flow = buildLdvAggregateFlow(nodes, edges, TYPES, "type", "center");
     expect(flow.edges).toHaveLength(1);
     expect(edgeData(flow.edges[0]).count).toBe(1);
+  });
+});
+
+/**
+ * The invariant, on the real demo landscape rather than a three-card fixture:
+ * the depth-1 neighbourhood of SAP S/4HANA as the Dependencies report shows
+ * it — 37 cards, 70 relations, every card type in play. Run at every level,
+ * with and without a centred card, because each is a different partition of
+ * the same relations and each has to satisfy the same rule.
+ */
+describe("one line per pair, on the demo landscape", () => {
+  const nodes = demo.nodes as GNode[];
+  const edges = demo.edges as GEdge[];
+  const types = demo.types as unknown as CardType[];
+  const centre = demo.centerId as string;
+  const pairKey = (a: string, b: string) => (a < b ? `${a}||${b}` : `${b}||${a}`);
+
+  // What the builder dedupes to before merging: one row per (pair, type).
+  const dedupedRelations = new Set(
+    edges.map((e) => `${pairKey(e.source, e.target)}||${e.type}`),
+  ).size;
+
+  const levels: Exclude<LdvAggregateBy, "none">[] = ["layer", "type", "subtype"];
+  for (const level of levels) {
+    for (const withCentre of [true, false]) {
+      const label = `${level}${withCentre ? ", centred on SAP S/4HANA" : ", no centre"}`;
+
+      it(`joins any two groups by at most ONE line (${label})`, () => {
+        const flow = buildLdvAggregateFlow(nodes, edges, types, level, withCentre ? centre : undefined);
+        const seen = new Map<string, string>();
+        for (const e of flow.edges) {
+          if (edgeData(e).count === undefined) continue;
+          const key = pairKey(e.source, e.target);
+          expect(
+            seen.has(key) ? `${e.id} duplicates ${seen.get(key)} on ${key}` : "unique",
+          ).toBe("unique");
+          seen.set(key, e.id);
+        }
+        expect(seen.size).toBeGreaterThan(0);
+      });
+
+      it(`draws a line without a count only INSIDE one box (${label})`, () => {
+        const flow = buildLdvAggregateFlow(nodes, edges, types, level, withCentre ? centre : undefined);
+        for (const e of flow.edges) {
+          if (edgeData(e).count !== undefined) continue;
+          expect(flow.memberOf.get(e.source)).toBeDefined();
+          expect(flow.memberOf.get(e.source)).toBe(flow.memberOf.get(e.target));
+        }
+      });
+
+      it(`accounts for every relation exactly once (${label})`, () => {
+        // Nothing drawn twice, nothing dropped: the counts on the connectors
+        // plus the individual lines inside boxes add up to the relations.
+        const flow = buildLdvAggregateFlow(nodes, edges, types, level, withCentre ? centre : undefined);
+        let counted = 0;
+        let inside = 0;
+        for (const e of flow.edges) {
+          const c = edgeData(e).count;
+          if (c === undefined) inside++;
+          else counted += c;
+        }
+        expect(counted + inside).toBe(dedupedRelations);
+      });
+
+      it(`never lets two connectors leave one node from the same point (${label})`, () => {
+        // A handle is a point on the node's border; two connectors on the same
+        // handle with the same stagger would coincide for their first stretch,
+        // which is exactly what a duplicate line looks like.
+        const flow = buildLdvAggregateFlow(nodes, edges, types, level, withCentre ? centre : undefined);
+        const seen = new Set<string>();
+        for (const e of flow.edges) {
+          const d = edgeData(e);
+          if (d.count === undefined) continue;
+          for (const [node, handle] of [
+            [e.source, e.sourceHandle],
+            [e.target, e.targetHandle],
+          ] as const) {
+            const key = `${node}|${handle}|${d.pathOffset ?? 0}`;
+            expect(seen.has(key) ? `two connectors share ${key}` : "distinct").toBe("distinct");
+            seen.add(key);
+          }
+        }
+      });
+    }
+  }
+
+  it("gives the centred card one line per group it relates to, and no more", () => {
+    const flow = buildLdvAggregateFlow(nodes, edges, types, "type", centre);
+    const groups = new Map<string, number>();
+    for (const e of flow.edges) {
+      if (edgeData(e).count === undefined) continue;
+      if (e.source !== centre && e.target !== centre) continue;
+      const other = e.source === centre ? e.target : e.source;
+      groups.set(other, (groups.get(other) ?? 0) + 1);
+    }
+    expect(groups.size).toBeGreaterThan(0);
+    for (const [group, lines] of groups) {
+      expect(`${group}: ${lines} line(s)`).toBe(`${group}: 1 line(s)`);
+    }
+  });
+
+  it("splits the centred card's connectors over its top and bottom sides", () => {
+    // Five handle slots per side. Ranking the groups that point INTO the
+    // centre above it and the ones it points TO below it is what keeps its
+    // ten connectors from all leaving one side and sharing slots.
+    const flow = buildLdvAggregateFlow(nodes, edges, types, "type", centre);
+    let top = 0;
+    let bottom = 0;
+    for (const e of flow.edges) {
+      if (edgeData(e).count === undefined) continue;
+      const h = e.source === centre ? e.sourceHandle : e.target === centre ? e.targetHandle : null;
+      if (!h) continue;
+      if (/^(t|ts)-/.test(h)) top++;
+      else if (/^(b|bt)-/.test(h)) bottom++;
+    }
+    expect(top).toBeGreaterThan(0);
+    expect(bottom).toBeGreaterThan(0);
+    expect(Math.max(top, bottom)).toBeLessThanOrEqual(5);
   });
 });

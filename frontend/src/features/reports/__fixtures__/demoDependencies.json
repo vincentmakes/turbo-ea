@@ -1,0 +1,1183 @@
+{
+ "centerId": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+ "nodes": [
+  {
+   "id": "273a383d-daa0-4736-92a5-46dba2162f94",
+   "name": "Production Planning",
+   "type": "BusinessCapability",
+   "lifecycle": {
+    "active": "2019-11-01"
+   }
+  },
+  {
+   "id": "5efd4515-4ff5-478c-8bc6-fcbd05ded4c1",
+   "name": "Accounting & Reporting",
+   "type": "BusinessCapability",
+   "lifecycle": {
+    "active": "2016-06-01"
+   }
+  },
+  {
+   "id": "1c566a65-3282-46a6-9ea9-c304232e4bb0",
+   "name": "SAP",
+   "type": "Provider",
+   "lifecycle": {}
+  },
+  {
+   "id": "848c0ef4-b44b-4c7e-91b4-f98a154d16db",
+   "name": "Procurement",
+   "type": "BusinessCapability",
+   "lifecycle": {}
+  },
+  {
+   "id": "ef3b7865-d4ed-4e9e-998b-60e653f00d29",
+   "name": "Financial Transaction",
+   "type": "DataObject",
+   "lifecycle": {}
+  },
+  {
+   "id": "fe1338f0-ca68-4e9e-a397-484ab72a5e97",
+   "name": "Order to Cash",
+   "type": "BusinessContext",
+   "subtype": "valueStream",
+   "lifecycle": {}
+  },
+  {
+   "id": "245bbc30-8b87-4d60-a6ee-6a32dd7a8df5",
+   "name": "Invoicing & Payment Collection",
+   "type": "BusinessProcess",
+   "subtype": "process",
+   "lifecycle": {
+    "active": "2010-01-01"
+   }
+  },
+  {
+   "id": "e5122e08-e5b5-4393-8a1d-921f6d58291b",
+   "name": "Order Fulfillment & Shipping",
+   "type": "BusinessProcess",
+   "subtype": "process",
+   "lifecycle": {
+    "active": "2008-01-01"
+   }
+  },
+  {
+   "id": "57d379d4-20b9-4190-8a9a-667c7ccf5a71",
+   "name": "Sales Order",
+   "type": "DataObject",
+   "lifecycle": {}
+  },
+  {
+   "id": "5627de9f-2fdd-47c7-98fe-0f7de16ff64b",
+   "name": "SAP \u2192 Opcenter Production Orders",
+   "type": "Interface",
+   "subtype": "logicalInterface",
+   "lifecycle": {
+    "active": "2024-06-01"
+   }
+  },
+  {
+   "id": "1524b58c-f5a3-4f3c-b1ab-fd59daa7566a",
+   "name": "Order Entry & Validation",
+   "type": "BusinessProcess",
+   "subtype": "process",
+   "lifecycle": {
+    "active": "2010-01-01"
+   }
+  },
+  {
+   "id": "096d76b5-d084-458b-b745-99d49b19088f",
+   "name": "Goods Receipt & Inspection",
+   "type": "BusinessProcess",
+   "subtype": "process",
+   "lifecycle": {
+    "active": "2010-01-01"
+   }
+  },
+  {
+   "id": "79e0f9a2-04a1-4c17-9bda-575d616383d0",
+   "name": "Order Management",
+   "type": "BusinessCapability",
+   "lifecycle": {
+    "active": "2018-10-01"
+   }
+  },
+  {
+   "id": "ea46753c-fe8f-4f98-ac53-db753188329d",
+   "name": "Invoice Verification & Payment",
+   "type": "BusinessProcess",
+   "subtype": "process",
+   "lifecycle": {
+    "active": "2012-01-01"
+   }
+  },
+  {
+   "id": "f8fca46f-c8fc-4907-b20e-fbaa46a97ac5",
+   "name": "Inventory Management",
+   "type": "BusinessCapability",
+   "lifecycle": {}
+  },
+  {
+   "id": "5a80506f-bd79-4be2-9f57-204af5b53ed7",
+   "name": "Financial Planning & Analysis",
+   "type": "BusinessCapability",
+   "lifecycle": {}
+  },
+  {
+   "id": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "name": "SAP S/4HANA",
+   "type": "Application",
+   "subtype": "businessApplication",
+   "lifecycle": {
+    "active": "2024-06-01",
+    "phaseIn": "2023-01-15"
+   }
+  },
+  {
+   "id": "44a06fd6-02d4-457f-b3b1-8bb68a684242",
+   "name": "Procure to Pay",
+   "type": "BusinessContext",
+   "subtype": "process",
+   "lifecycle": {}
+  },
+  {
+   "id": "8c9e74fe-9c7f-4576-b812-13f643c4e059",
+   "name": "Warranty Claim Processing",
+   "type": "BusinessProcess",
+   "subtype": "process",
+   "lifecycle": {
+    "active": "2014-01-01"
+   }
+  },
+  {
+   "id": "713fd921-fb23-4425-b81b-6cc0f1ab6253",
+   "name": "Teamcenter \u2192 SAP Engineering BOM",
+   "type": "Interface",
+   "subtype": "logicalInterface",
+   "lifecycle": {
+    "active": "2024-06-01"
+   }
+  },
+  {
+   "id": "7e2bd378-3c9e-4381-86f0-e76cf45a8f41",
+   "name": "Salesforce \u2192 SAP Order Sync",
+   "type": "Interface",
+   "subtype": "api",
+   "lifecycle": {
+    "active": "2025-01-01"
+   }
+  },
+  {
+   "id": "3d259e4e-29c9-4d37-a331-8aa4d7ba07a7",
+   "name": "Credit Check",
+   "type": "BusinessProcess",
+   "subtype": "process",
+   "lifecycle": {
+    "active": "2012-01-01"
+   }
+  },
+  {
+   "id": "842b292f-ee53-44d8-bb86-a426398dd1fd",
+   "name": "SAP \u2192 Snowflake Data Feed",
+   "type": "Interface",
+   "subtype": "logicalInterface",
+   "lifecycle": {
+    "active": "2024-06-01"
+   }
+  },
+  {
+   "id": "a3930719-5e5d-4bb9-82ed-d9de5c4a1627",
+   "name": "Engineering Change Management",
+   "type": "BusinessProcess",
+   "subtype": "process",
+   "lifecycle": {
+    "active": "2010-01-01"
+   }
+  },
+  {
+   "id": "c6049d8a-6499-44d6-b113-3cf6127b8bd2",
+   "name": "SAP \u2194 Teamcenter BOM Sync",
+   "type": "Interface",
+   "subtype": "logicalInterface",
+   "lifecycle": {
+    "active": "2024-06-01"
+   }
+  },
+  {
+   "id": "88d1f755-c0c0-4201-9e4a-95eb0fcf4e78",
+   "name": "Azure SQL Database",
+   "type": "ITComponent",
+   "subtype": "paas",
+   "lifecycle": {
+    "active": "2021-08-01",
+    "phaseIn": "2020-08-01",
+    "phaseOut": "2030-08-01",
+    "endOfLife": "2031-08-28"
+   }
+  },
+  {
+   "id": "b400e6da-9c50-41a8-8af7-9559a080a98e",
+   "name": "Production Order",
+   "type": "DataObject",
+   "lifecycle": {}
+  },
+  {
+   "id": "25df27ac-415d-46ae-8710-7f73dd00baae",
+   "name": "SAP S/4HANA Migration",
+   "type": "Initiative",
+   "subtype": "project",
+   "lifecycle": {
+    "active": "2023-01-15",
+    "endOfLife": "2026-06-30"
+   }
+  },
+  {
+   "id": "296360d8-df07-4031-bf10-8df3778129ae",
+   "name": "Corporate",
+   "type": "Organization",
+   "subtype": "businessUnit",
+   "lifecycle": {
+    "active": "2005-03-15"
+   }
+  },
+  {
+   "id": "dd19e148-3c77-4356-ac9f-94ac1748fae9",
+   "name": "Purchase Requisition",
+   "type": "BusinessProcess",
+   "subtype": "process",
+   "lifecycle": {
+    "active": "2010-01-01"
+   }
+  },
+  {
+   "id": "38d6b61e-d980-4e8b-917b-2380655f334f",
+   "name": "Purchase Order",
+   "type": "DataObject",
+   "lifecycle": {}
+  },
+  {
+   "id": "d8eac81b-e95f-4b1f-ace7-10d9e77819be",
+   "name": "Inventory Record",
+   "type": "DataObject",
+   "lifecycle": {}
+  },
+  {
+   "id": "8c30ac3b-094a-4f1a-8d9a-7d7916ff3289",
+   "name": "SAP \u2192 Power BI Financial Data",
+   "type": "Interface",
+   "subtype": "logicalInterface",
+   "lifecycle": {
+    "active": "2024-06-01"
+   }
+  },
+  {
+   "id": "5bad2d03-0644-411a-a4a3-fa1d29d61180",
+   "name": "Enterprise Integration Platform",
+   "type": "Platform",
+   "subtype": "technical",
+   "lifecycle": {
+    "active": "2022-06-01"
+   }
+  },
+  {
+   "id": "8ef146e2-2c28-4f54-ae0a-f52e772f8868",
+   "name": "Product Master Data",
+   "type": "DataObject",
+   "lifecycle": {}
+  },
+  {
+   "id": "04fddc5d-f974-44f8-bbc7-2bd707f84be8",
+   "name": "Coupa \u2192 SAP Expense Sync",
+   "type": "Interface",
+   "subtype": "logicalInterface",
+   "lifecycle": {
+    "active": "2024-06-01",
+    "endOfLife": "2032-09-28"
+   }
+  },
+  {
+   "id": "fb67e60e-f7bd-4c31-8fe2-d327d3a0363f",
+   "name": "Commerce Portal \u2192 SAP Order API",
+   "type": "Interface",
+   "subtype": "api",
+   "lifecycle": {
+    "active": "2026-11-16",
+    "phaseIn": "2026-05-20"
+   }
+  }
+ ],
+ "edges": [
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "79e0f9a2-04a1-4c17-9bda-575d616383d0",
+   "type": "relAppToBC",
+   "label": "supports",
+   "attributes": {
+    "supportType": "leading"
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "273a383d-daa0-4736-92a5-46dba2162f94",
+   "type": "relAppToBC",
+   "label": "supports",
+   "attributes": {
+    "supportType": "leading"
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "848c0ef4-b44b-4c7e-91b4-f98a154d16db",
+   "type": "relAppToBC",
+   "label": "supports",
+   "attributes": {
+    "supportType": "leading"
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "f8fca46f-c8fc-4907-b20e-fbaa46a97ac5",
+   "type": "relAppToBC",
+   "label": "supports",
+   "attributes": {
+    "supportType": "leading"
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "5efd4515-4ff5-478c-8bc6-fcbd05ded4c1",
+   "type": "relAppToBC",
+   "label": "supports",
+   "attributes": {
+    "supportType": "leading"
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "5a80506f-bd79-4be2-9f57-204af5b53ed7",
+   "type": "relAppToBC",
+   "label": "supports",
+   "attributes": {
+    "supportType": "supporting"
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "88d1f755-c0c0-4201-9e4a-95eb0fcf4e78",
+   "type": "relAppToITC",
+   "label": "uses",
+   "attributes": {}
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "8ef146e2-2c28-4f54-ae0a-f52e772f8868",
+   "type": "relAppToDataObj",
+   "label": "CRUD",
+   "attributes": {
+    "crudRead": true,
+    "crudCreate": true,
+    "crudDelete": false,
+    "crudUpdate": true
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "57d379d4-20b9-4190-8a9a-667c7ccf5a71",
+   "type": "relAppToDataObj",
+   "label": "CRUD",
+   "attributes": {
+    "crudRead": true,
+    "crudCreate": true,
+    "crudDelete": false,
+    "crudUpdate": true
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "38d6b61e-d980-4e8b-917b-2380655f334f",
+   "type": "relAppToDataObj",
+   "label": "CRUD",
+   "attributes": {
+    "crudRead": true,
+    "crudCreate": true,
+    "crudDelete": false,
+    "crudUpdate": true
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "b400e6da-9c50-41a8-8af7-9559a080a98e",
+   "type": "relAppToDataObj",
+   "label": "CRUD",
+   "attributes": {
+    "crudRead": true,
+    "crudCreate": true,
+    "crudDelete": false,
+    "crudUpdate": true
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "d8eac81b-e95f-4b1f-ace7-10d9e77819be",
+   "type": "relAppToDataObj",
+   "label": "CRUD",
+   "attributes": {
+    "crudRead": true,
+    "crudCreate": true,
+    "crudDelete": false,
+    "crudUpdate": true
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "ef3b7865-d4ed-4e9e-998b-60e653f00d29",
+   "type": "relAppToDataObj",
+   "label": "CRUD",
+   "attributes": {
+    "crudRead": true,
+    "crudCreate": true,
+    "crudDelete": false,
+    "crudUpdate": false
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "c6049d8a-6499-44d6-b113-3cf6127b8bd2",
+   "type": "relAppToInterface",
+   "label": "provides / consumes",
+   "attributes": {
+    "flowDirection": "forward"
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "5627de9f-2fdd-47c7-98fe-0f7de16ff64b",
+   "type": "relAppToInterface",
+   "label": "provides / consumes",
+   "attributes": {
+    "flowDirection": "forward"
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "7e2bd378-3c9e-4381-86f0-e76cf45a8f41",
+   "type": "relAppToInterface",
+   "label": "provides / consumes",
+   "attributes": {
+    "flowDirection": "reverse"
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "8c30ac3b-094a-4f1a-8d9a-7d7916ff3289",
+   "type": "relAppToInterface",
+   "label": "provides / consumes",
+   "attributes": {
+    "flowDirection": "forward"
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "713fd921-fb23-4425-b81b-6cc0f1ab6253",
+   "type": "relAppToInterface",
+   "label": "provides / consumes",
+   "attributes": {
+    "flowDirection": "reverse"
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "842b292f-ee53-44d8-bb86-a426398dd1fd",
+   "type": "relAppToInterface",
+   "label": "provides / consumes",
+   "attributes": {
+    "flowDirection": "forward"
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "04fddc5d-f974-44f8-bbc7-2bd707f84be8",
+   "type": "relAppToInterface",
+   "label": "provides / consumes",
+   "attributes": {
+    "flowDirection": "reverse"
+   }
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "fe1338f0-ca68-4e9e-a397-484ab72a5e97",
+   "type": "relAppToBizCtx",
+   "label": "supports",
+   "attributes": {}
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "44a06fd6-02d4-457f-b3b1-8bb68a684242",
+   "type": "relAppToBizCtx",
+   "label": "supports",
+   "attributes": {}
+  },
+  {
+   "source": "25df27ac-415d-46ae-8710-7f73dd00baae",
+   "target": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "type": "relInitiativeToApp",
+   "label": "affects",
+   "attributes": {}
+  },
+  {
+   "source": "25df27ac-415d-46ae-8710-7f73dd00baae",
+   "target": "79e0f9a2-04a1-4c17-9bda-575d616383d0",
+   "type": "relInitiativeToBC",
+   "label": "improves",
+   "attributes": {}
+  },
+  {
+   "source": "25df27ac-415d-46ae-8710-7f73dd00baae",
+   "target": "848c0ef4-b44b-4c7e-91b4-f98a154d16db",
+   "type": "relInitiativeToBC",
+   "label": "improves",
+   "attributes": {}
+  },
+  {
+   "source": "25df27ac-415d-46ae-8710-7f73dd00baae",
+   "target": "5efd4515-4ff5-478c-8bc6-fcbd05ded4c1",
+   "type": "relInitiativeToBC",
+   "label": "improves",
+   "attributes": {}
+  },
+  {
+   "source": "25df27ac-415d-46ae-8710-7f73dd00baae",
+   "target": "c6049d8a-6499-44d6-b113-3cf6127b8bd2",
+   "type": "relInitiativeToInterface",
+   "label": "affects",
+   "attributes": {}
+  },
+  {
+   "source": "25df27ac-415d-46ae-8710-7f73dd00baae",
+   "target": "713fd921-fb23-4425-b81b-6cc0f1ab6253",
+   "type": "relInitiativeToInterface",
+   "label": "affects",
+   "attributes": {}
+  },
+  {
+   "source": "296360d8-df07-4031-bf10-8df3778129ae",
+   "target": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "type": "relOrgToApp",
+   "label": "uses",
+   "attributes": {
+    "usageType": "owner"
+   }
+  },
+  {
+   "source": "5bad2d03-0644-411a-a4a3-fa1d29d61180",
+   "target": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "type": "relPlatformToApp",
+   "label": "runs",
+   "attributes": {}
+  },
+  {
+   "source": "5627de9f-2fdd-47c7-98fe-0f7de16ff64b",
+   "target": "b400e6da-9c50-41a8-8af7-9559a080a98e",
+   "type": "relInterfaceToDataObj",
+   "label": "transfers",
+   "attributes": {}
+  },
+  {
+   "source": "7e2bd378-3c9e-4381-86f0-e76cf45a8f41",
+   "target": "57d379d4-20b9-4190-8a9a-667c7ccf5a71",
+   "type": "relInterfaceToDataObj",
+   "label": "transfers",
+   "attributes": {}
+  },
+  {
+   "source": "8c30ac3b-094a-4f1a-8d9a-7d7916ff3289",
+   "target": "ef3b7865-d4ed-4e9e-998b-60e653f00d29",
+   "type": "relInterfaceToDataObj",
+   "label": "transfers",
+   "attributes": {}
+  },
+  {
+   "source": "713fd921-fb23-4425-b81b-6cc0f1ab6253",
+   "target": "8ef146e2-2c28-4f54-ae0a-f52e772f8868",
+   "type": "relInterfaceToDataObj",
+   "label": "transfers",
+   "attributes": {}
+  },
+  {
+   "source": "842b292f-ee53-44d8-bb86-a426398dd1fd",
+   "target": "ef3b7865-d4ed-4e9e-998b-60e653f00d29",
+   "type": "relInterfaceToDataObj",
+   "label": "transfers",
+   "attributes": {}
+  },
+  {
+   "source": "842b292f-ee53-44d8-bb86-a426398dd1fd",
+   "target": "57d379d4-20b9-4190-8a9a-667c7ccf5a71",
+   "type": "relInterfaceToDataObj",
+   "label": "transfers",
+   "attributes": {}
+  },
+  {
+   "source": "04fddc5d-f974-44f8-bbc7-2bd707f84be8",
+   "target": "38d6b61e-d980-4e8b-917b-2380655f334f",
+   "type": "relInterfaceToDataObj",
+   "label": "transfers",
+   "attributes": {}
+  },
+  {
+   "source": "1c566a65-3282-46a6-9ea9-c304232e4bb0",
+   "target": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "type": "relProviderToApp",
+   "label": "offers",
+   "attributes": {}
+  },
+  {
+   "source": "1c566a65-3282-46a6-9ea9-c304232e4bb0",
+   "target": "25df27ac-415d-46ae-8710-7f73dd00baae",
+   "type": "relProviderToInitiative",
+   "label": "supports",
+   "attributes": {}
+  },
+  {
+   "source": "fe1338f0-ca68-4e9e-a397-484ab72a5e97",
+   "target": "79e0f9a2-04a1-4c17-9bda-575d616383d0",
+   "type": "relBizCtxToBC",
+   "label": "is associated with",
+   "attributes": {}
+  },
+  {
+   "source": "44a06fd6-02d4-457f-b3b1-8bb68a684242",
+   "target": "848c0ef4-b44b-4c7e-91b4-f98a154d16db",
+   "type": "relBizCtxToBC",
+   "label": "is associated with",
+   "attributes": {}
+  },
+  {
+   "source": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "target": "fb67e60e-f7bd-4c31-8fe2-d327d3a0363f",
+   "type": "relAppToInterface",
+   "label": "provides / consumes",
+   "attributes": {
+    "flowDirection": "reverse"
+   }
+  },
+  {
+   "source": "fb67e60e-f7bd-4c31-8fe2-d327d3a0363f",
+   "target": "57d379d4-20b9-4190-8a9a-667c7ccf5a71",
+   "type": "relInterfaceToDataObj",
+   "label": "transfers",
+   "attributes": {}
+  },
+  {
+   "source": "25df27ac-415d-46ae-8710-7f73dd00baae",
+   "target": "f8fca46f-c8fc-4907-b20e-fbaa46a97ac5",
+   "type": "relInitiativeToBC",
+   "label": "improves",
+   "attributes": {}
+  },
+  {
+   "source": "25df27ac-415d-46ae-8710-7f73dd00baae",
+   "target": "5a80506f-bd79-4be2-9f57-204af5b53ed7",
+   "type": "relInitiativeToBC",
+   "label": "improves",
+   "attributes": {}
+  },
+  {
+   "source": "1524b58c-f5a3-4f3c-b1ab-fd59daa7566a",
+   "target": "79e0f9a2-04a1-4c17-9bda-575d616383d0",
+   "type": "relProcessToBC",
+   "label": "supports",
+   "attributes": {
+    "supportType": "leading"
+   }
+  },
+  {
+   "source": "3d259e4e-29c9-4d37-a331-8aa4d7ba07a7",
+   "target": "5a80506f-bd79-4be2-9f57-204af5b53ed7",
+   "type": "relProcessToBC",
+   "label": "supports",
+   "attributes": {
+    "supportType": "supporting"
+   }
+  },
+  {
+   "source": "245bbc30-8b87-4d60-a6ee-6a32dd7a8df5",
+   "target": "5efd4515-4ff5-478c-8bc6-fcbd05ded4c1",
+   "type": "relProcessToBC",
+   "label": "supports",
+   "attributes": {
+    "supportType": "leading"
+   }
+  },
+  {
+   "source": "dd19e148-3c77-4356-ac9f-94ac1748fae9",
+   "target": "848c0ef4-b44b-4c7e-91b4-f98a154d16db",
+   "type": "relProcessToBC",
+   "label": "supports",
+   "attributes": {
+    "supportType": "leading"
+   }
+  },
+  {
+   "source": "096d76b5-d084-458b-b745-99d49b19088f",
+   "target": "f8fca46f-c8fc-4907-b20e-fbaa46a97ac5",
+   "type": "relProcessToBC",
+   "label": "supports",
+   "attributes": {
+    "supportType": "leading"
+   }
+  },
+  {
+   "source": "ea46753c-fe8f-4f98-ac53-db753188329d",
+   "target": "5efd4515-4ff5-478c-8bc6-fcbd05ded4c1",
+   "type": "relProcessToBC",
+   "label": "supports",
+   "attributes": {
+    "supportType": "supporting"
+   }
+  },
+  {
+   "source": "1524b58c-f5a3-4f3c-b1ab-fd59daa7566a",
+   "target": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "type": "relProcessToApp",
+   "label": "is supported by",
+   "attributes": {
+    "usageType": "orchestrates"
+   }
+  },
+  {
+   "source": "3d259e4e-29c9-4d37-a331-8aa4d7ba07a7",
+   "target": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "type": "relProcessToApp",
+   "label": "is supported by",
+   "attributes": {
+    "usageType": "reads"
+   }
+  },
+  {
+   "source": "e5122e08-e5b5-4393-8a1d-921f6d58291b",
+   "target": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "type": "relProcessToApp",
+   "label": "is supported by",
+   "attributes": {
+    "usageType": "updates"
+   }
+  },
+  {
+   "source": "245bbc30-8b87-4d60-a6ee-6a32dd7a8df5",
+   "target": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "type": "relProcessToApp",
+   "label": "is supported by",
+   "attributes": {
+    "usageType": "creates"
+   }
+  },
+  {
+   "source": "8c9e74fe-9c7f-4576-b812-13f643c4e059",
+   "target": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "type": "relProcessToApp",
+   "label": "is supported by",
+   "attributes": {
+    "usageType": "updates"
+   }
+  },
+  {
+   "source": "dd19e148-3c77-4356-ac9f-94ac1748fae9",
+   "target": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "type": "relProcessToApp",
+   "label": "is supported by",
+   "attributes": {
+    "usageType": "creates"
+   }
+  },
+  {
+   "source": "096d76b5-d084-458b-b745-99d49b19088f",
+   "target": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "type": "relProcessToApp",
+   "label": "is supported by",
+   "attributes": {
+    "usageType": "updates"
+   }
+  },
+  {
+   "source": "ea46753c-fe8f-4f98-ac53-db753188329d",
+   "target": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "type": "relProcessToApp",
+   "label": "is supported by",
+   "attributes": {
+    "usageType": "orchestrates"
+   }
+  },
+  {
+   "source": "a3930719-5e5d-4bb9-82ed-d9de5c4a1627",
+   "target": "b4d4bca5-0515-4cf7-aaba-1d201dd77770",
+   "type": "relProcessToApp",
+   "label": "is supported by",
+   "attributes": {
+    "usageType": "updates"
+   }
+  },
+  {
+   "source": "1524b58c-f5a3-4f3c-b1ab-fd59daa7566a",
+   "target": "57d379d4-20b9-4190-8a9a-667c7ccf5a71",
+   "type": "relProcessToDataObj",
+   "label": "uses",
+   "attributes": {
+    "crudRead": true,
+    "crudCreate": true,
+    "crudDelete": false,
+    "crudUpdate": false
+   }
+  },
+  {
+   "source": "e5122e08-e5b5-4393-8a1d-921f6d58291b",
+   "target": "d8eac81b-e95f-4b1f-ace7-10d9e77819be",
+   "type": "relProcessToDataObj",
+   "label": "uses",
+   "attributes": {
+    "crudRead": true,
+    "crudCreate": false,
+    "crudDelete": false,
+    "crudUpdate": true
+   }
+  },
+  {
+   "source": "245bbc30-8b87-4d60-a6ee-6a32dd7a8df5",
+   "target": "ef3b7865-d4ed-4e9e-998b-60e653f00d29",
+   "type": "relProcessToDataObj",
+   "label": "uses",
+   "attributes": {
+    "crudRead": true,
+    "crudCreate": true,
+    "crudDelete": false,
+    "crudUpdate": false
+   }
+  },
+  {
+   "source": "dd19e148-3c77-4356-ac9f-94ac1748fae9",
+   "target": "38d6b61e-d980-4e8b-917b-2380655f334f",
+   "type": "relProcessToDataObj",
+   "label": "uses",
+   "attributes": {
+    "crudRead": true,
+    "crudCreate": true,
+    "crudDelete": false,
+    "crudUpdate": false
+   }
+  },
+  {
+   "source": "096d76b5-d084-458b-b745-99d49b19088f",
+   "target": "d8eac81b-e95f-4b1f-ace7-10d9e77819be",
+   "type": "relProcessToDataObj",
+   "label": "uses",
+   "attributes": {
+    "crudRead": true,
+    "crudCreate": true,
+    "crudDelete": false,
+    "crudUpdate": true
+   }
+  },
+  {
+   "source": "a3930719-5e5d-4bb9-82ed-d9de5c4a1627",
+   "target": "8ef146e2-2c28-4f54-ae0a-f52e772f8868",
+   "type": "relProcessToDataObj",
+   "label": "uses",
+   "attributes": {
+    "crudRead": true,
+    "crudCreate": false,
+    "crudDelete": false,
+    "crudUpdate": true
+   }
+  },
+  {
+   "source": "e5122e08-e5b5-4393-8a1d-921f6d58291b",
+   "target": "1524b58c-f5a3-4f3c-b1ab-fd59daa7566a",
+   "type": "relProcessDependency",
+   "label": "depends on",
+   "attributes": {}
+  },
+  {
+   "source": "3d259e4e-29c9-4d37-a331-8aa4d7ba07a7",
+   "target": "1524b58c-f5a3-4f3c-b1ab-fd59daa7566a",
+   "type": "relProcessDependency",
+   "label": "depends on",
+   "attributes": {}
+  },
+  {
+   "source": "245bbc30-8b87-4d60-a6ee-6a32dd7a8df5",
+   "target": "e5122e08-e5b5-4393-8a1d-921f6d58291b",
+   "type": "relProcessDependency",
+   "label": "depends on",
+   "attributes": {}
+  },
+  {
+   "source": "ea46753c-fe8f-4f98-ac53-db753188329d",
+   "target": "096d76b5-d084-458b-b745-99d49b19088f",
+   "type": "relProcessDependency",
+   "label": "depends on",
+   "attributes": {}
+  }
+ ],
+ "types": [
+  {
+   "key": "Objective",
+   "label": "Objective",
+   "icon": "flag",
+   "color": "#c7527d",
+   "category": "Strategy & Transformation",
+   "sort_order": 0,
+   "subtypes": []
+  },
+  {
+   "key": "Platform",
+   "label": "Platform",
+   "icon": "layers",
+   "color": "#027446",
+   "category": "Strategy & Transformation",
+   "sort_order": 1,
+   "subtypes": [
+    {
+     "key": "digital",
+     "label": "Digital"
+    },
+    {
+     "key": "technical",
+     "label": "Technical"
+    }
+   ]
+  },
+  {
+   "key": "Initiative",
+   "label": "Initiative",
+   "icon": "rocket_launch",
+   "color": "#33cc58",
+   "category": "Strategy & Transformation",
+   "sort_order": 2,
+   "subtypes": [
+    {
+     "key": "idea",
+     "label": "Idea"
+    },
+    {
+     "key": "program",
+     "label": "Program"
+    },
+    {
+     "key": "project",
+     "label": "Project"
+    },
+    {
+     "key": "epic",
+     "label": "Epic"
+    }
+   ]
+  },
+  {
+   "key": "Organization",
+   "label": "Organization",
+   "icon": "corporate_fare",
+   "color": "#2889ff",
+   "category": "Business Architecture",
+   "sort_order": 3,
+   "subtypes": [
+    {
+     "key": "businessUnit",
+     "label": "Business Unit"
+    },
+    {
+     "key": "region",
+     "label": "Region"
+    },
+    {
+     "key": "legalEntity",
+     "label": "Legal Entity"
+    },
+    {
+     "key": "team",
+     "label": "Team"
+    },
+    {
+     "key": "customer",
+     "label": "Customer"
+    }
+   ]
+  },
+  {
+   "key": "BusinessCapability",
+   "label": "Business Capability",
+   "icon": "account_tree",
+   "color": "#003399",
+   "category": "Business Architecture",
+   "sort_order": 4,
+   "subtypes": []
+  },
+  {
+   "key": "BusinessContext",
+   "label": "Business Context",
+   "icon": "swap_horiz",
+   "color": "#fe6690",
+   "category": "Business Architecture",
+   "sort_order": 5,
+   "subtypes": [
+    {
+     "key": "process",
+     "label": "Process"
+    },
+    {
+     "key": "valueStream",
+     "label": "Value Stream"
+    },
+    {
+     "key": "customerJourney",
+     "label": "Customer Journey"
+    },
+    {
+     "key": "businessProduct",
+     "label": "Business Product"
+    },
+    {
+     "key": "esgCapability",
+     "label": "ESG Capability"
+    }
+   ]
+  },
+  {
+   "key": "BusinessProcess",
+   "label": "Business Process",
+   "icon": "route",
+   "color": "#028f00",
+   "category": "Business Architecture",
+   "sort_order": 6,
+   "subtypes": [
+    {
+     "key": "category",
+     "label": "Process Category"
+    },
+    {
+     "key": "group",
+     "label": "Process Group"
+    },
+    {
+     "key": "process",
+     "label": "Process"
+    },
+    {
+     "key": "variant",
+     "label": "Process Variant"
+    }
+   ]
+  },
+  {
+   "key": "Application",
+   "label": "Application",
+   "icon": "apps",
+   "color": "#0f7eb5",
+   "category": "Application & Data",
+   "sort_order": 7,
+   "subtypes": [
+    {
+     "key": "businessApplication",
+     "label": "Business Application"
+    },
+    {
+     "key": "microservice",
+     "label": "Microservice"
+    },
+    {
+     "key": "aiAgent",
+     "label": "AI Agent"
+    },
+    {
+     "key": "deployment",
+     "label": "Deployment"
+    }
+   ]
+  },
+  {
+   "key": "Interface",
+   "label": "Interface",
+   "icon": "sync_alt",
+   "color": "#02afa4",
+   "category": "Application & Data",
+   "sort_order": 8,
+   "subtypes": [
+    {
+     "key": "logicalInterface",
+     "label": "Logical Interface"
+    },
+    {
+     "key": "api",
+     "label": "API"
+    },
+    {
+     "key": "mcpServer",
+     "label": "MCP Server"
+    }
+   ]
+  },
+  {
+   "key": "DataObject",
+   "label": "Data Object",
+   "icon": "database",
+   "color": "#774fcc",
+   "category": "Application & Data",
+   "sort_order": 9,
+   "subtypes": []
+  },
+  {
+   "key": "ITComponent",
+   "label": "IT Component",
+   "icon": "memory",
+   "color": "#d29270",
+   "category": "Technical Architecture",
+   "sort_order": 10,
+   "subtypes": [
+    {
+     "key": "software",
+     "label": "Software"
+    },
+    {
+     "key": "hardware",
+     "label": "Hardware"
+    },
+    {
+     "key": "saas",
+     "label": "SaaS"
+    },
+    {
+     "key": "paas",
+     "label": "PaaS"
+    },
+    {
+     "key": "iaas",
+     "label": "IaaS"
+    },
+    {
+     "key": "service",
+     "label": "Service"
+    },
+    {
+     "key": "aiModel",
+     "label": "AI Model"
+    }
+   ]
+  },
+  {
+   "key": "TechCategory",
+   "label": "Tech Category",
+   "icon": "category",
+   "color": "#a6566d",
+   "category": "Technical Architecture",
+   "sort_order": 11,
+   "subtypes": []
+  },
+  {
+   "key": "Provider",
+   "label": "Provider",
+   "icon": "storefront",
+   "color": "#ffa31f",
+   "category": "Technical Architecture",
+   "sort_order": 12,
+   "subtypes": []
+  }
+ ]
+}

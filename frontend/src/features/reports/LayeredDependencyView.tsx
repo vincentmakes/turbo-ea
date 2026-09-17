@@ -90,7 +90,6 @@ import {
   filterEndOfLifeNodes,
   filterHiddenTypes,
   buildLdvAggregateFlow,
-  CL_HEADER_H,
   stripEdgeLabels,
   LDV_NODE_W,
   LDV_NODE_H,
@@ -146,10 +145,14 @@ function computeObstacles(nodeList: Node[]): ObstacleBounds[] {
       const { x: ax, y: ay } = absolutePosition(n, byId);
       bounds.push({ x1: ax, y1: ay, x2: ax + w, y2: ay + h });
     } else if (n.type === "ldvCluster") {
-      // A type box's title strip, like a lane's label strip below.
+      // The WHOLE box, not just its title strip: an aggregate connector may
+      // cross a box it does not belong to, and its count must not come to rest
+      // inside one — a number floating among a box's cards reads as belonging
+      // to them.
       const w = (n.style?.width as number) ?? 0;
+      const h = (n.style?.height as number) ?? 0;
       const { x: ax, y: ay } = absolutePosition(n, byId);
-      bounds.push({ x1: ax, y1: ay, x2: ax + w, y2: ay + CL_HEADER_H });
+      bounds.push({ x1: ax, y1: ay, x2: ax + w, y2: ay + h });
     } else if (n.type === "ldvGroup") {
       // Group label strip across the top of the box.
       const gx = n.position.x;
@@ -1004,13 +1007,24 @@ const LdvEdgeComponent = memo(
     // span, never part of `relLabel` — the cap below would eat it on a long
     // verb, and with the verbs hidden the count is all the line has left to say.
     const mergedCount = edgeData?.count;
-    const countText = mergedCount !== undefined ? `(${mergedCount})` : "";
+    const countText = mergedCount !== undefined ? String(mergedCount) : "";
     const maxChars = 24;
     const displayLabel = label.length > maxChars
       ? label.slice(0, maxChars - 1) + "\u2026"
       : label;
+    // A connector's count is a filled pill beside the verb, wider than the
+    // bracketed text it replaces.
     const labelW =
-      (displayLabel.length + countText.length) * 6.5 + 16 + (flowDir ? 17 : 0);
+      displayLabel.length * 6.5 + 16 + (flowDir ? 17 : 0) + (countText ? countText.length * 7 + 14 : 0);
+    // A connector standing for N relations is ONE heavy solid line, never the
+    // dotted idle style — a 1.2 px dotted line is what the eye reads as several
+    // thin lines running together, which is the picture aggregating exists to
+    // replace. Width grows with the count so "one heavy line = many relations"
+    // reads at fit-to-screen, as in the #1117 sketch.
+    const isConnector = mergedCount !== undefined;
+    const connectorWidth = isConnector
+      ? 1.6 + Math.min(2.8, Math.log2(Math.max(1, mergedCount)))
+      : 0;
     const labelH = 20;
     const margin = 6;
 
@@ -1092,8 +1106,16 @@ const LdvEdgeComponent = memo(
           markerStart={markerStart}
           style={{
             stroke: color,
-            strokeWidth: active ? 2 : 1.2,
-            ...ldvEdgeStroke(edgeData?.lineStyle, { active, severed }),
+            strokeWidth: isConnector
+              ? active
+                ? connectorWidth + 0.8
+                : connectorWidth
+              : active
+                ? 2
+                : 1.2,
+            ...(isConnector
+              ? ldvEdgeStroke("solid", { active, severed })
+              : ldvEdgeStroke(edgeData?.lineStyle, { active, severed })),
             transition: "stroke 0.15s, stroke-width 0.15s",
           }}
         />
@@ -1122,7 +1144,27 @@ const LdvEdgeComponent = memo(
             >
               {flowDir && <LdvDirectionArrow dir={flowDir} />}
               {displayLabel && <span>{displayLabel}</span>}
-              {countText && <span style={{ fontWeight: 700 }}>{countText}</span>}
+              {isConnector && (
+                // The count as a filled pill in the line's own colour: the one
+                // number a merged connector exists to carry, readable at
+                // fit-to-screen instead of 10 px text in brackets.
+                <span
+                  style={{
+                    display: "inline-block",
+                    minWidth: 18,
+                    padding: "1px 6px",
+                    borderRadius: 9,
+                    background: color,
+                    color: "#fff",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    lineHeight: "16px",
+                    textAlign: "center",
+                  }}
+                >
+                  {mergedCount}
+                </span>
+              )}
             </div>
           </EdgeLabelRenderer>
         )}

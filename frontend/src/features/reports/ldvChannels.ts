@@ -25,6 +25,20 @@ export interface RowBand {
   y1: number;
   y2: number;
   intervals: { x1: number; x2: number }[];
+  /** Per-band overrides of CARD_CLEARANCE / CORRIDOR_SEP, set by
+   *  `buildRowBands` when the caller asks for wider spacing. */
+  clearance?: number;
+  corridorSep?: number;
+}
+
+/** Spacing a caller may widen: how far a corridor stays from a node and
+ *  from the next corridor. The defaults suit cards; the aggregate view
+ *  passes larger values because its nodes are boxes and its lines stand for
+ *  many relations — two connectors 12 px apart beside a 400 px box read as
+ *  one bundle, which is exactly what aggregating exists to remove. */
+export interface ChannelSpacing {
+  clearance?: number;
+  corridorSep?: number;
 }
 
 /** Cards must be cleared by this much when a corridor passes beside them —
@@ -57,6 +71,7 @@ function mergeIntervals(intervals: { x1: number; x2: number }[]): { x1: number; 
  */
 export function buildRowBands(
   cardBounds: { x1: number; y1: number; x2: number; y2: number }[],
+  spacing: ChannelSpacing = {},
 ): RowBand[] {
   const byRow = new Map<number, { y1: number; y2: number; intervals: { x1: number; x2: number }[] }>();
   for (const b of cardBounds) {
@@ -71,7 +86,13 @@ export function buildRowBands(
     row.intervals.push({ x1: b.x1, x2: b.x2 });
   }
   return [...byRow.values()]
-    .map((r) => ({ y1: r.y1, y2: r.y2, intervals: mergeIntervals(r.intervals) }))
+    .map((r) => ({
+      y1: r.y1,
+      y2: r.y2,
+      intervals: mergeIntervals(r.intervals),
+      ...(spacing.clearance !== undefined ? { clearance: spacing.clearance } : {}),
+      ...(spacing.corridorSep !== undefined ? { corridorSep: spacing.corridorSep } : {}),
+    }))
     .sort((a, b) => a.y1 - b.y1);
 }
 
@@ -82,12 +103,15 @@ export function blockedIntervals(
   bandIdx: number,
   reservations: Map<number, number[]>,
 ): { x1: number; x2: number }[] {
-  const blocked = bands[bandIdx].intervals.map((iv) => ({
-    x1: iv.x1 - CARD_CLEARANCE,
-    x2: iv.x2 + CARD_CLEARANCE,
+  const band = bands[bandIdx];
+  const clearance = band.clearance ?? CARD_CLEARANCE;
+  const corridorSep = band.corridorSep ?? CORRIDOR_SEP;
+  const blocked = band.intervals.map((iv) => ({
+    x1: iv.x1 - clearance,
+    x2: iv.x2 + clearance,
   }));
   for (const r of reservations.get(bandIdx) ?? []) {
-    blocked.push({ x1: r - CORRIDOR_SEP, x2: r + CORRIDOR_SEP });
+    blocked.push({ x1: r - corridorSep, x2: r + corridorSep });
   }
   return mergeIntervals(blocked);
 }

@@ -39,17 +39,10 @@ import type {
   GNode,
   GEdge,
   LdvNodeData,
-  LdvGroupData,
   LdvEdgeData,
 } from "./layeredDependencyLayout";
 import {
-  alignLanesX,
   CATEGORY_COLORS,
-  CATEGORY_ORDER,
-  DRAG_ROOM,
-  GROUP_GAP,
-  LABEL_H,
-  PAD,
   layoutGroup,
   type PositionedNode,
   readFlowDir,
@@ -81,6 +74,13 @@ export const CL_HEADER_H = 30;
 const CL_MIN_W = LDV_NODE_W + 2 * CL_PAD;
 /** How many merged relations a connector's tooltip lists before summarising. */
 const MAX_TOOLTIP_LINES = 12;
+
+/** How far a connector keeps from a box it passes beside, and from the next
+ *  connector. The card router's 12 / 12 is right for 1 px lines between
+ *  cards; a connector is a heavy line standing for many relations, and two
+ *  of them 12 px apart along a 400 px box read as one bundle. */
+export const CONNECTOR_CLEARANCE = 28;
+export const CONNECTOR_SEP = 22;
 
 export interface LdvClusterData {
   /** Stable id of the group — also the React Flow node id. */
@@ -195,14 +195,6 @@ interface MergeAcc {
   allSevered: boolean;
 }
 
-/** The box a virtual node id stands for, or undefined for the centred card. */
-function clusterOf(
-  lane: { clusters: Map<string, ClusterBuild> },
-  id: string,
-): ClusterBuild | undefined {
-  return lane.clusters.get(id);
-}
-
 export function buildLdvAggregateFlow(
   gNodes: GNode[],
   gEdges: GEdge[],
@@ -268,10 +260,6 @@ export function buildLdvAggregateFlow(
     cl.members.push(n);
   }
 
-  const orderedCats = [
-    ...CATEGORY_ORDER.filter((c) => lanes.has(c)),
-    ...[...lanes.keys()].filter((c) => !CATEGORY_ORDER.includes(c)),
-  ];
 
   /* ---- Split the relations: inside one box, or between boxes ----
      Done before layout because the connectors between boxes ARE the edges the
@@ -335,8 +323,10 @@ export function buildLdvAggregateFlow(
 
   /* ---- Lay each box out internally, which is what fixes its size ---- */
   const clusterInner = new Map<string, { positioned: PositionedNode[]; w: number; h: number }>();
+  const clusterByKey = new Map<string, ClusterBuild>();
   for (const lane of lanes.values()) {
     for (const cl of lane.clusters.values()) {
+      clusterByKey.set(cl.ref.key, cl);
       const ids = new Set(cl.members.map((m) => m.id));
       const inside = dedupedEdges.filter((e) => ids.has(e.source) && ids.has(e.target));
       const { positioned, width, height } = layoutGroup(cl.members, inside);
@@ -358,171 +348,125 @@ export function buildLdvAggregateFlow(
     return box ? { w: box.w, h: box.h } : CARD_SIZE;
   };
 
-  /* ---- Lay the lanes out over the VIRTUAL graph, as buildLdvFlow does ---- */
-  const virtualEdges: GEdge[] = mergedList.map((m) => ({
-    source: m.lo,
-    target: m.hi,
-    type: "agg",
-  }));
-
-  interface LaneLayout {
-    cat: string;
-    ids: string[];
-    positioned: PositionedNode[];
-    hGap: number;
-    groupW: number;
-    groupH: number;
-  }
-  const laneLayouts: LaneLayout[] = [];
-  const laneCatOf = new Map<string, string>();
-
-  for (const cat of orderedCats) {
-    const lane = lanes.get(cat)!;
-    // Virtual nodes: the boxes, plus the centred card standing on its own.
-    const virtualNodes: GNode[] = [];
-    if (lane.center) virtualNodes.push(lane.center);
-    const ordered = [...lane.clusters.values()].sort(
-      (a, b) =>
-        a.ref.order - b.ref.order ||
-        a.ref.subOrder - b.ref.subOrder ||
-        a.ref.key.localeCompare(b.ref.key),
-    );
-    for (const cl of ordered) {
-      virtualNodes.push({ id: cl.ref.key, name: cl.ref.label, type: cl.ref.typeKey ?? cat });
-    }
-    if (virtualNodes.length === 0) continue;
-    for (const v of virtualNodes) laneCatOf.set(v.id, cat);
-
-    const ids = new Set(virtualNodes.map((v) => v.id));
-    const within = virtualEdges.filter((e) => ids.has(e.source) && ids.has(e.target));
-    const { positioned, width, height, hGap } = layoutGroup(virtualNodes, within, sizeOf);
-    laneLayouts.push({
-      cat,
-      ids: virtualNodes.map((v) => v.id),
-      positioned,
-      hGap,
-      groupW: width + 2 * PAD + DRAG_ROOM,
-      groupH: height + LABEL_H + 2 * PAD + DRAG_ROOM,
-    });
-  }
-
-  if (laneLayouts.length === 0) return { nodes: [], edges: [], memberOf };
-
-  // Cross-lane alignment, the same pass the card view runs: boxes joined by a
-  // connector line up vertically instead of drifting into long diagonals.
-  const crossVirtual = virtualEdges.filter(
-    (e) => laneCatOf.get(e.source) !== laneCatOf.get(e.target),
+  /* ---- One free layout over the VIRTUAL graph — no layer lanes ----
+     The lanes are deliberately dropped while aggregating. Pinning each box to
+     the lane of its cards' layer fixes its row before anything is known about
+     what it connects to, so boxes that talk to each other end up at opposite
+     ends of the canvas and their connectors run the height of the diagram and
+     back. Freed, the very same dagre pass the card view uses puts connected
+     boxes next to each other and the lines get short. Layer identity is not
+     lost: it is what "By layer" groups on, and every box carries its card
+     type's own colour and glyph. */
+  const virtualNodes: GNode[] = [];
+  if (centerId && nodeById.has(centerId)) virtualNodes.push(nodeById.get(centerId)!);
+  const orderedClusters = [...clusterByKey.values()].sort(
+    (a, b) =>
+      a.ref.order - b.ref.order ||
+      a.ref.subOrder - b.ref.subOrder ||
+      a.ref.key.localeCompare(b.ref.key),
   );
-  let laneGx: number[];
-  if (crossVirtual.length > 0) {
-    const withinAll = virtualEdges.filter(
-      (e) => laneCatOf.get(e.source) === laneCatOf.get(e.target),
-    );
-    const aligned = alignLanesX(
-      laneLayouts.map((l) => ({ positioned: l.positioned, hGap: l.hGap })),
-      crossVirtual,
-      withinAll,
-      sizeOf,
-    );
-    laneGx = aligned.map((a) => a.offsetX);
-    laneLayouts.forEach((l, i) => {
-      l.positioned = aligned[i].positioned;
-      l.groupW = aligned[i].innerW + 2 * PAD + DRAG_ROOM;
+  for (const cl of orderedClusters) {
+    virtualNodes.push({
+      id: cl.ref.key,
+      name: cl.ref.label,
+      type: cl.ref.typeKey ?? cl.ref.key,
     });
-  } else {
-    const maxGroupW = Math.max(...laneLayouts.map((l) => l.groupW));
-    laneGx = laneLayouts.map((l) => Math.round((maxGroupW - l.groupW) / 2));
   }
+  if (virtualNodes.length === 0) return { nodes: [], edges: [], memberOf };
 
-  /* ---- Emit nodes: lane → box → card (parents before children) ---- */
+  // Dagre ranks by edge direction, so the layout must see each connector the
+  // way it is DRAWN — not the alphabetical `lo→hi` the merge keys on. With the
+  // drawn orientation, the groups that point INTO the centred card rank above
+  // it and the ones it points TO rank below, which splits its connectors over
+  // its top and bottom sides. A card has five handle slots per side; feeding
+  // dagre the alphabetical order put nine connectors on one side of the
+  // centre, two of them sharing a slot and leaving the card from the same
+  // point — which is exactly what a duplicate line looks like.
+  const virtualEdges: GEdge[] = mergedList.map((m) => {
+    const forward = m.loToHi || !m.hiToLo;
+    return { source: forward ? m.lo : m.hi, target: forward ? m.hi : m.lo, type: "agg" };
+  });
+  // Room between boxes for the connectors to run: a corridor keeps
+  // CONNECTOR_CLEARANCE from each box and CONNECTOR_SEP from its neighbour,
+  // so a gap must hold two clearances plus a few separations — the card
+  // defaults (90 / 50) leave nothing for a gap with three lines in it.
+  const { positioned } = layoutGroup(virtualNodes, virtualEdges, sizeOf, {
+    ranksep: 2 * CONNECTOR_CLEARANCE + 4 * CONNECTOR_SEP,
+    nodesep: 2 * CONNECTOR_CLEARANCE + 3 * CONNECTOR_SEP,
+  });
+  const posById = new Map(positioned.map((p) => [p.id, p]));
+
+  /* ---- Emit nodes: box → its cards (parents before children) ---- */
   const rfNodes: Node[] = [];
   const absCard = new Map<string, { x: number; y: number }>();
   const absVirtual = new Map<string, { x: number; y: number }>();
   const clusterBox = new Map<string, { x: number; y: number; w: number; h: number }>();
-  let yOffset = 0;
 
-  laneLayouts.forEach((lane, laneIdx) => {
-    const gx = laneGx[laneIdx];
-    const gy = yOffset;
-    const laneId = `group:${lane.cat}`;
-    const laneData = lanes.get(lane.cat)!;
+  for (const v of virtualNodes) {
+    const p = posById.get(v.id);
+    if (!p) continue;
+    const cl = clusterByKey.get(v.id);
 
-    // Grouping by layer makes a lane's one box carry the lane's own name, and
-    // the two titles then read as a rendering fault rather than as a box inside
-    // a lane. The inner one wins: it says the same thing and adds the count.
-    const only = lane.ids.length === 1 ? clusterOf(laneData, lane.ids[0]) : undefined;
-    const duplicateLabel = !!only && only.ref.label === lane.cat;
-
-    rfNodes.push({
-      id: laneId,
-      type: "ldvGroup",
-      position: { x: gx, y: gy },
-      data: {
-        label: duplicateLabel ? "" : lane.cat,
-        color: CATEGORY_COLORS[lane.cat] || "#999",
-      } satisfies LdvGroupData,
-      style: { width: lane.groupW, height: lane.groupH },
-      selectable: false,
-      draggable: false,
-    });
-
-    for (const p of lane.positioned) {
-      const relX = PAD + p.x;
-      const relY = LABEL_H + PAD + p.y;
-      const cl = clusterOf(laneData, p.id);
-
-      if (!cl) {
-        // The centred card, standing on its own inside the lane.
-        const nd = nodeById.get(p.id)!;
-        rfNodes.push(cardNode(nd, laneId, relX, relY, lane.cat, types));
-        const centre = { x: gx + relX + LDV_NODE_W / 2, y: gy + relY + LDV_NODE_H / 2 };
-        absCard.set(nd.id, centre);
-        absVirtual.set(nd.id, centre);
-        continue;
-      }
-
-      const inner = clusterInner.get(cl.ref.key)!;
-      rfNodes.push({
-        id: cl.ref.key,
-        type: "ldvCluster",
-        position: { x: relX, y: relY },
-        parentId: laneId,
-        extent: "parent" as const,
-        style: { width: inner.w, height: inner.h },
-        selectable: false,
-        draggable: false,
-        data: {
-          groupKey: cl.ref.key,
-          label: cl.ref.label,
-          color: cl.ref.color,
-          icon: cl.ref.icon,
-          category: lane.cat,
-          count: cl.members.length,
-          memberIds: cl.members.map((m) => m.id),
-          typeKey: cl.ref.typeKey,
-          subtypeKey: cl.ref.subtypeKey,
-        } satisfies LdvClusterData,
-      });
-      clusterBox.set(cl.ref.key, { x: gx + relX, y: gy + relY, w: inner.w, h: inner.h });
-      absVirtual.set(cl.ref.key, {
-        x: gx + relX + inner.w / 2,
-        y: gy + relY + inner.h / 2,
-      });
-
-      for (const mp of inner.positioned) {
-        const nd = nodeById.get(mp.id)!;
-        const mx = CL_PAD + mp.x;
-        const my = CL_HEADER_H + mp.y;
-        rfNodes.push(cardNode(nd, cl.ref.key, mx, my, lane.cat, types));
-        absCard.set(nd.id, {
-          x: gx + relX + mx + LDV_NODE_W / 2,
-          y: gy + relY + my + LDV_NODE_H / 2,
-        });
-      }
+    if (!cl) {
+      // The centred card, standing on its own.
+      const nd = nodeById.get(v.id)!;
+      const centre = { x: p.x + LDV_NODE_W / 2, y: p.y + LDV_NODE_H / 2 };
+      rfNodes.push(cardNode(nd, undefined, p.x, p.y, typeCategory(nd.type, types), types));
+      absCard.set(nd.id, centre);
+      absVirtual.set(nd.id, centre);
+      continue;
     }
 
-    yOffset += lane.groupH + GROUP_GAP;
-  });
+    const inner = clusterInner.get(cl.ref.key)!;
+    rfNodes.push({
+      id: cl.ref.key,
+      type: "ldvCluster",
+      position: { x: p.x, y: p.y },
+      style: { width: inner.w, height: inner.h },
+      selectable: false,
+      draggable: false,
+      data: {
+        groupKey: cl.ref.key,
+        label: cl.ref.label,
+        color: cl.ref.color,
+        icon: cl.ref.icon,
+        category: typeCategory(cl.members[0].type, types),
+        count: cl.members.length,
+        memberIds: cl.members.map((m) => m.id),
+        typeKey: cl.ref.typeKey,
+        subtypeKey: cl.ref.subtypeKey,
+      } satisfies LdvClusterData,
+    });
+    clusterBox.set(cl.ref.key, { x: p.x, y: p.y, w: inner.w, h: inner.h });
+    absVirtual.set(cl.ref.key, { x: p.x + inner.w / 2, y: p.y + inner.h / 2 });
+
+    for (const mp of inner.positioned) {
+      const nd = nodeById.get(mp.id)!;
+      const mx = CL_PAD + mp.x;
+      const my = CL_HEADER_H + mp.y;
+      rfNodes.push(cardNode(nd, cl.ref.key, mx, my, typeCategory(nd.type, types), types));
+      absCard.set(nd.id, {
+        x: p.x + mx + LDV_NODE_W / 2,
+        y: p.y + my + LDV_NODE_H / 2,
+      });
+    }
+  }
+
+  /** Boxes whose vertical spans overlap are one row, which is what tells the
+   *  router two nodes sit side by side and may use their facing sides. */
+  const rowKeyOf = new Map<string, string>();
+  {
+    const byY = [...absVirtual.entries()]
+      .map(([id, pos]) => ({ id, y: pos.y - sizeOf(id).h / 2, h: sizeOf(id).h }))
+      .sort((a, b) => a.y - b.y);
+    let row = 0;
+    let bottom = -Infinity;
+    for (const v of byY) {
+      if (bottom !== -Infinity && v.y >= bottom) row++, (bottom = -Infinity);
+      rowKeyOf.set(v.id, `row:${row}`);
+      bottom = Math.max(bottom, v.y + v.h);
+    }
+  }
 
   const rfEdges: Edge[] = [];
   /** Which handles each node ends up using — both routing passes contribute. */
@@ -558,6 +502,13 @@ export function buildLdvAggregateFlow(
       };
     });
 
+    // Every box, and the centred card, is an obstacle a connector must route
+    // AROUND — through the gaps between them, never across one. A line drawn
+    // straight through a box it does not belong to, or through the centred
+    // card, is read as a second line between the centre and that box, which is
+    // the very thing aggregating exists to remove. The gaps are sized for it
+    // above; with the boxes pinned into layer lanes there were no gaps and the
+    // router had to detour around everything, which is why the lanes went.
     const boxBounds: NodeBounds[] = [];
     for (const [id, pos] of absVirtual) {
       const { w, h } = sizeOf(id);
@@ -569,30 +520,27 @@ export function buildLdvAggregateFlow(
         y2: pos.y + h / 2,
       });
     }
-    const laneLabelBounds: Bounds[] = [];
-    for (const n of rfNodes) {
-      if (n.type === "ldvGroup") {
-        const w = (n.style?.width as number) ?? 0;
-        laneLabelBounds.push({
-          x1: n.position.x,
-          y1: n.position.y,
-          x2: n.position.x + w,
-          y2: n.position.y + LABEL_H + 8,
-        });
-      }
-    }
-    const laneOf = new Map<string, string>();
-    for (const id of absVirtual.keys()) laneOf.set(id, `group:${laneCatOf.get(id) ?? ""}`);
-
-    const { routes, usedHandles } = routeLdvEdges(
+    const { routes } = routeLdvEdges(
       oriented,
       absVirtual,
       boxBounds,
-      laneLabelBounds,
-      laneOf,
+      boxBounds,
+      rowKeyOf,
       sizeOf,
+      { clearance: CONNECTOR_CLEARANCE, corridorSep: CONNECTOR_SEP },
     );
-    collect(usedHandles);
+    spreadOverflow(routes, oriented, absVirtual);
+    // Recomputed from the final routes rather than taken from the router: the
+    // spread above moves handles, and a dot drawn for a handle nothing uses is
+    // a stray mark on the box.
+    const used = new Map<string, Set<string>>();
+    oriented.forEach((e, i) => {
+      if (!used.has(e.source)) used.set(e.source, new Set());
+      if (!used.has(e.target)) used.set(e.target, new Set());
+      used.get(e.source)!.add(routes[i].sourceHandle);
+      used.get(e.target)!.add(routes[i].targetHandle);
+    });
+    collect(used);
 
     mergedList.forEach((m, i) => {
       const o = oriented[i];
@@ -739,10 +687,90 @@ export function buildLdvAggregateFlow(
   return { nodes: rfNodes, edges: rfEdges, memberOf };
 }
 
+/** Handle slots per side — the five top/bottom positions of `LDV_HANDLE_SPECS`. */
+const SLOTS_PER_SIDE = 5;
+/** Stagger between connectors that still have to share a handle (last resort). */
+const SHARED_HANDLE_STEP = 14;
+
+/**
+ * No two connectors may leave one node from the same point.
+ *
+ * A node has five handle slots on its top and five on its bottom; the router
+ * lets a sixth line on a side share a slot, which is exactly what a duplicate
+ * line looks like — two strokes leaving the same point and only later parting.
+ * A hub with many groups around it (the centred card by subtype: seven below)
+ * hits this at once. So a side's overflow moves to the node's free LEFT and
+ * RIGHT handles, leftmost partner to the left and rightmost to the right, and
+ * only what still cannot be placed shares a slot — with a distinct stub length
+ * each, so the strokes part immediately rather than running together.
+ *
+ * Mutates `routes` in place. Pure otherwise, and pinned by the demo-landscape
+ * guard test (`never lets two connectors leave one node from the same point`).
+ */
+function spreadOverflow(
+  routes: { sourceHandle: string; targetHandle: string; pathOffset: number }[],
+  oriented: OrientedEdge[],
+  absPos: Map<string, { x: number; y: number }>,
+): void {
+  type Att = { idx: number; role: "source" | "target"; otherX: number };
+  const bySide = new Map<string, Att[]>();
+  const sideOf = (h: string) => h.replace(/-\d+$/, "");
+  const key = (node: string, side: string) => `${node}||${side}`;
+  oriented.forEach((e, i) => {
+    const push = (node: string, h: string, role: Att["role"], other: string) => {
+      const k = key(node, sideOf(h));
+      if (!bySide.has(k)) bySide.set(k, []);
+      bySide.get(k)!.push({ idx: i, role, otherX: absPos.get(other)?.x ?? 0 });
+    };
+    push(e.source, routes[i].sourceHandle, "source", e.target);
+    push(e.target, routes[i].targetHandle, "target", e.source);
+  });
+
+  const setHandle = (a: Att, h: string) => {
+    if (a.role === "source") routes[a.idx].sourceHandle = h;
+    else routes[a.idx].targetHandle = h;
+  };
+  const sideHandle = (role: Att["role"], side: "left" | "right") =>
+    side === "left" ? (role === "source" ? "left-src" : "left") : role === "source" ? "right" : "right-tgt";
+
+  for (const [k, atts] of bySide) {
+    const [node, side] = k.split("||");
+    if (side !== "t" && side !== "ts" && side !== "b" && side !== "bt") continue;
+    if (atts.length <= SLOTS_PER_SIDE) continue;
+    const sorted = [...atts].sort((a, b) => a.otherX - b.otherX || a.idx - b.idx);
+    const extras = sorted.length - SLOTS_PER_SIDE;
+    // Take the overflow from the two ends, where a side handle is the natural
+    // exit anyway; what is left in the middle keeps its slot.
+    const moved: Att[] = [];
+    const leftFree = !(bySide.get(key(node, "left")) ?? bySide.get(key(node, "left-src")))?.length;
+    const rightFree = !(bySide.get(key(node, "right")) ?? bySide.get(key(node, "right-tgt")))?.length;
+    if (extras >= 1 && leftFree) {
+      const a = sorted[0];
+      setHandle(a, sideHandle(a.role, "left"));
+      moved.push(a);
+    }
+    if (extras >= 2 && rightFree) {
+      const a = sorted[sorted.length - 1];
+      setHandle(a, sideHandle(a.role, "right"));
+      moved.push(a);
+    }
+    // Whatever still shares a slot gets its own stub length.
+    const remaining = sorted.filter((a) => !moved.includes(a));
+    const handleOf = (a: Att) => (a.role === "source" ? routes[a.idx].sourceHandle : routes[a.idx].targetHandle);
+    const seen = new Map<string, number>();
+    for (const a of remaining) {
+      const h = handleOf(a);
+      const n = seen.get(h) ?? 0;
+      if (n > 0) routes[a.idx].pathOffset = routes[a.idx].pathOffset + n * SHARED_HANDLE_STEP;
+      seen.set(h, n + 1);
+    }
+  }
+}
+
 /** A member (or the centred) card, in the same shape `buildLdvFlow` emits. */
 function cardNode(
   nd: GNode,
-  parentId: string,
+  parentId: string | undefined,
   x: number,
   y: number,
   category: string,
@@ -752,8 +780,7 @@ function cardNode(
     id: nd.id,
     type: "ldvNode",
     position: { x, y },
-    parentId,
-    extent: "parent" as const,
+    ...(parentId ? { parentId, extent: "parent" as const } : {}),
     data: {
       name: nd.name,
       typeKey: nd.type,
