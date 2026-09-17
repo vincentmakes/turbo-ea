@@ -33,6 +33,8 @@ export interface PercentBarProps {
   trackColor?: string;
   /** Show the rounded percentage next to the bar. Defaults to true. */
   showLabel?: boolean;
+  /** Caption text replacing the default `N%` — e.g. "71% data quality". */
+  label?: string;
   /** Optional tooltip over the whole bar + label. */
   tooltip?: string;
   /** Caption size / weight / colour for the label. */
@@ -53,11 +55,12 @@ export function PercentBar({
   height = 4,
   trackColor = "action.selected",
   showLabel = true,
+  label: labelOverride,
   tooltip,
   labelSx,
 }: PercentBarProps) {
   const v = percentValue(value);
-  const label = `${v}%`;
+  const label = labelOverride ?? `${v}%`;
   const bar = (
     <Box
       component="span"
@@ -81,7 +84,13 @@ export function PercentBar({
         <Typography
           component="span"
           variant="caption"
-          sx={{ minWidth: 32, textAlign: "right", fontVariantNumeric: "tabular-nums", ...labelSx }}
+          sx={{
+            minWidth: 32,
+            textAlign: "right",
+            whiteSpace: "nowrap",
+            fontVariantNumeric: "tabular-nums",
+            ...labelSx,
+          }}
         >
           {label}
         </Typography>

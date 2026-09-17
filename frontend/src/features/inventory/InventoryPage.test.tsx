@@ -9,6 +9,7 @@ import InventoryPage, {
   buildInventoryFacetBindings,
   normalizeAttrValue,
 } from "./InventoryPage";
+import { invalidateCalculatedFields } from "@/hooks/useCalculatedFields";
 import { MAX_SPLIT_VALUES } from "@/components/grid/useCellContextMenu";
 import type { RelatedCardRef } from "@/types";
 import MultiSelectCellEditor from "./MultiSelectCellEditor";
@@ -2265,5 +2266,62 @@ describe("InventoryPage link type facet", () => {
   it("ORs several link types together", async () => {
     renderInventory("/inventory?type=Organization&link=commercial&link=sales");
     await waitFor(() => expect(rowCount()).toBe("2"));
+  });
+});
+
+describe("InventoryPage — calculated columns", () => {
+  const CALC_TYPES = [
+    {
+      key: "Application",
+      label: "Application",
+      icon: "apps",
+      color: "#0f7eb5",
+      category: "Application & Data",
+      has_hierarchy: false,
+      subtypes: [],
+      fields_schema: [
+        {
+          section: "Delivery",
+          fields: [
+            { key: "progress", label: "Progress", type: "percentage" },
+            { key: "notes", label: "Notes", type: "text" },
+          ],
+        },
+      ],
+      is_hidden: false,
+    },
+  ];
+
+  beforeEach(() => {
+    // An earlier test leaves a never-settling request in the hook's inflight
+    // slot (its "loading" double); a real page never sees that, so reset it.
+    invalidateCalculatedFields();
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: CALC_TYPES,
+      relationTypes: [],
+      loading: false,
+      getType: (key: string) => CALC_TYPES.find((t) => t.key === key),
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+    });
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/calculations/calculated-fields"))
+        return Promise.resolve({ Application: ["progress"] });
+      if (path.startsWith("/cards")) return Promise.resolve(MOCK_CARDS);
+      if (path.startsWith("/relations")) return Promise.resolve([]);
+      if (path.startsWith("/bookmarks")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+  });
+
+  it("never lets grid edit mode open an editor on a calculated field", async () => {
+    // The same lock card detail applies: a value typed here would be
+    // overwritten by the calculation on save.
+    renderInventory();
+    await userEvent.click(screen.getByTestId("select-application"));
+    await waitFor(() => expect(col("attr_progress")).toBeDefined());
+    await userEvent.click(await screen.findByRole("button", { name: /grid edit/i }));
+    await waitFor(() => expect(col("attr_notes")!.editable).toBe(true));
+    await waitFor(() => expect(col("attr_progress")!.editable).toBe(false));
   });
 });

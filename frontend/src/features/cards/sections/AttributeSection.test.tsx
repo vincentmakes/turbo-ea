@@ -225,3 +225,33 @@ describe("AttributeSection group header translation", () => {
     expect(screen.getByText("Dimension One")).toBeInTheDocument();
   });
 });
+
+describe("AttributeSection — calculated fields in edit mode", () => {
+  it("renders a calculated percentage read-only with the chip, never the editor", () => {
+    const progressSection: SectionDef & { columns?: 1 | 2 } = {
+      section: "Delivery",
+      columns: 1,
+      fields: [{ key: "progress", label: "Progress", type: "percentage" }],
+    };
+    const initiative = {
+      id: "card-2",
+      type: "Initiative",
+      name: "Rollout",
+      attributes: { progress: 40 },
+    } as unknown as Card;
+    render(
+      <AttributeSection
+        section={progressSection}
+        card={initiative}
+        canEdit
+        calculatedFieldKeys={["progress"]}
+        onSave={async () => {}}
+      />,
+    );
+    fireEvent.click(screen.getByText("edit"));
+    expect(screen.getByText("40%")).toBeInTheDocument();
+    expect(screen.getByText("calculated")).toBeInTheDocument();
+    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+  });
+});

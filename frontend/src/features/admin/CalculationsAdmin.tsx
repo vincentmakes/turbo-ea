@@ -38,6 +38,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import CodeEditor from "react-simple-code-editor";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { invalidateCalculatedFields } from "@/hooks/useCalculatedFields";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -1380,6 +1381,9 @@ export default function CalculationsAdmin() {
     } else {
       await api.post("/calculations", payload);
     }
+    // The card-detail / inventory lock reads a cached map of calculated
+    // fields; drop it so the next card opened in this session locks the target.
+    invalidateCalculatedFields();
     await fetchCalculations();
   };
 
@@ -1390,6 +1394,7 @@ export default function CalculationsAdmin() {
       } else {
         await api.post(`/calculations/${calc.id}/activate`, {});
       }
+      invalidateCalculatedFields();
       await fetchCalculations();
     } catch (e: unknown) {
       setError(String(e));
@@ -1400,6 +1405,7 @@ export default function CalculationsAdmin() {
     try {
       await api.delete(`/calculations/${calc.id}`);
       setDeleteConfirm(null);
+      invalidateCalculatedFields();
       await fetchCalculations();
     } catch (e: unknown) {
       setError(String(e));

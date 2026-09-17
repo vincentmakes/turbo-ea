@@ -28,6 +28,12 @@ describe("PercentBar", () => {
     expect(screen.getByRole("img", { name: "30%" })).toBeInTheDocument();
   });
 
+  it("lets a caller replace the caption with its own wording", () => {
+    render(<PercentBar value={82} label="82% data quality" />);
+    expect(screen.getByText("82% data quality")).toBeInTheDocument();
+    expect(screen.queryByText("82%")).not.toBeInTheDocument();
+  });
+
   it("uses the tooltip text as the accessible name", () => {
     render(<PercentBar value={71} tooltip="71% data quality" />);
     expect(screen.getByRole("img", { name: "71% data quality" })).toBeInTheDocument();

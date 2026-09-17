@@ -17,6 +17,10 @@ vi.mock("@/api/client", () => ({
   },
 }));
 
+vi.mock("@/hooks/useCalculatedFields", () => ({
+  invalidateCalculatedFields: vi.fn(),
+}));
+
 vi.mock("@/hooks/useDateFormat", () => ({
   useDateFormat: () => ({ formatDateTime: (v: string | null) => v ?? "" }),
 }));
@@ -36,6 +40,7 @@ vi.mock("@/hooks/useMetamodel", () => ({
 }));
 
 import { api } from "@/api/client";
+import { invalidateCalculatedFields } from "@/hooks/useCalculatedFields";
 import CalculationsAdmin from "./CalculationsAdmin";
 import { formatRunReport } from "./calculationRunReport";
 
@@ -157,5 +162,29 @@ describe("CalculationsAdmin recalculation results", () => {
 
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     expect(screen.queryByRole("button", { name: /view details/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("CalculationsAdmin — calculated-field lock", () => {
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+    vi.mocked(api.post).mockReset();
+    vi.mocked(invalidateCalculatedFields).mockReset();
+    vi.mocked(api.get).mockResolvedValue([CALC]);
+    vi.mocked(api.post).mockResolvedValue({});
+  });
+
+  it("drops the cached calculated-fields map after toggling a calculation", async () => {
+    // Card detail and the grid lock a field from that cache; without this a
+    // calculation activated here left its target editable until a reload.
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Total cost")).toBeInTheDocument());
+
+    await user.click(screen.getByRole("checkbox"));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith("/calculations/calc-1/deactivate", {}),
+    );
+    expect(invalidateCalculatedFields).toHaveBeenCalled();
   });
 });

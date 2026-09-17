@@ -96,3 +96,58 @@ describe("useCalculatedFields", () => {
     expect(result.current.isCalculated("Application", "cost")).toBe(false);
   });
 });
+
+describe("useCalculatedFields — stale-while-revalidate", () => {
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+    vi.resetModules();
+  });
+
+  it("serves the cache at once and refetches on every mount", async () => {
+    // A calculation added elsewhere in the session (or by another admin)
+    // must lock its target on the next card opened, not after a hard reload.
+    vi.mocked(api.get)
+      .mockResolvedValueOnce({ Initiative: [] })
+      .mockResolvedValueOnce({ Initiative: ["progress"] });
+    const { useCalculatedFields } = await import("./useCalculatedFields");
+
+    const first = renderHook(() => useCalculatedFields());
+    await waitFor(() => expect(first.result.current.loading).toBe(false));
+    expect(first.result.current.isCalculated("Initiative", "progress")).toBe(false);
+    first.unmount();
+
+    const second = renderHook(() => useCalculatedFields());
+    // The cached answer shows immediately (no loading flash)…
+    expect(second.result.current.loading).toBe(false);
+    // …and the background refetch replaces it.
+    await waitFor(() =>
+      expect(second.result.current.isCalculated("Initiative", "progress")).toBe(true),
+    );
+    expect(api.get).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares one request between mounts in the same tick", async () => {
+    vi.mocked(api.get).mockResolvedValue({ Application: ["score"] });
+    const { useCalculatedFields } = await import("./useCalculatedFields");
+    const a = renderHook(() => useCalculatedFields());
+    const b = renderHook(() => useCalculatedFields());
+    await waitFor(() => expect(a.result.current.loading).toBe(false));
+    await waitFor(() => expect(b.result.current.loading).toBe(false));
+    expect(api.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("invalidateCalculatedFields drops the cache so the next mount loads fresh", async () => {
+    vi.mocked(api.get).mockResolvedValue({ Application: ["score"] });
+    const { useCalculatedFields, invalidateCalculatedFields } = await import(
+      "./useCalculatedFields"
+    );
+    const a = renderHook(() => useCalculatedFields());
+    await waitFor(() => expect(a.result.current.loading).toBe(false));
+    a.unmount();
+    invalidateCalculatedFields();
+    const b = renderHook(() => useCalculatedFields());
+    expect(b.result.current.loading).toBe(true);
+    await waitFor(() => expect(b.result.current.loading).toBe(false));
+    expect(api.get).toHaveBeenCalledTimes(2);
+  });
+});

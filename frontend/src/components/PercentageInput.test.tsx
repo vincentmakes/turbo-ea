@@ -53,3 +53,28 @@ describe("PercentageInput", () => {
     expect(screen.getByRole("slider")).toHaveAttribute("aria-valuenow", "35");
   });
 });
+
+describe("PercentageInput — one source of truth", () => {
+  it("follows a new stored value on both the slider and the box", () => {
+    // The re-edit case: the section draft resyncs from the card, and the
+    // control must show that, not what it last displayed.
+    const { rerender } = render(<PercentageInput label="Progress" value={10} onChange={() => {}} />);
+    rerender(<PercentageInput label="Progress" value={40} onChange={() => {}} />);
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuenow", "40");
+    expect(screen.getByRole("spinbutton")).toHaveValue(40);
+  });
+
+  it("writes a slider change straight through, no commit event needed", () => {
+    const onChange = vi.fn();
+    render(<PercentageInput label="Progress" value={10} onChange={onChange} />);
+    const slider = screen.getByRole("slider");
+    fireEvent.keyDown(slider, { key: "ArrowRight" });
+    expect(onChange).toHaveBeenCalledWith(15);
+  });
+
+  it("marks the track at 0, 25, 50, 75 and 100", () => {
+    const { container } = render(<PercentageInput label="Progress" value={0} onChange={() => {}} />);
+    expect(container.querySelectorAll(".MuiSlider-mark")).toHaveLength(5);
+    expect(screen.getByText("50%")).toBeInTheDocument();
+  });
+});
