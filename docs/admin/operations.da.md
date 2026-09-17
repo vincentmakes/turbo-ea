@@ -18,6 +18,8 @@ Se [Fastlåsning af en version](../getting-started/setup.md) for det grundlægge
 
 I virksomhedsmiljøer med adgang til en administreret PostgreSQL-tjeneste — Azure Database for PostgreSQL, Amazon RDS / Aurora, Google Cloud SQL eller lignende — er det den anbefalede opsætning at køre Turbo EA mod den. Den medfølgende `db`-container er en afhængighedsfri standard, ikke et krav: peg backenden på jeres instans med `POSTGRES_*`-variablerne, og spring den medfølgende tjeneste over (se [Brug en eksisterende PostgreSQL](../getting-started/setup.md)).
 
+På Kubernetes bruger [Helm-chartet](kubernetes.md) den samme administrerede database som eneste understøttede database — det kører aldrig PostgreSQL i klyngen.
+
 Hvad den administrerede tjeneste tager fra jer:
 
 - **Backup og punkt-i-tid-gendannelse (PITR)** — automatiseret, med styret opbevaring og gendannelse til ethvert tidspunkt; præcis hvad rollback-strategien nedenfor har brug for.

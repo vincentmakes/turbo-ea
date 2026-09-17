@@ -1,0 +1,23 @@
+# Used by the CI kind smoke test together with ci/postgres.yaml.
+publicUrl: http://localhost:8080
+secretKey: kind-only-secret-key-not-for-production
+postgresql:
+  host: turbo-ea-ci-postgres
+  password: kind-only-password
+seed:
+  demo: false
+mcp:
+  enabled: true
+frontend:
+  replicaCount: 1
+nginx:
+  replicaCount: 1
+backend:
+  persistence:
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi

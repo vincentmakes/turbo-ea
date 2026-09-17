@@ -1,0 +1,89 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $root := . }}
+{{- $ic := .Values.networkPolicy.ingressController }}
+{{- $components := list "backend" "frontend" "nginx" }}
+{{- if .Values.mcp.enabled }}{{ $components = append $components "mcp" }}{{ end }}
+{{- range $component := $components }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "turbo-ea.fullname" $root }}-{{ $component }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    {{- include "turbo-ea.componentLabels" (dict "root" $root "component" $component) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "turbo-ea.selectorLabels" (dict "root" $root "component" $component) | nindent 6 }}
+  policyTypes:
+    - Ingress
+    {{- if $root.Values.networkPolicy.egress.enabled }}
+    - Egress
+    {{- end }}
+  ingress:
+    {{- if eq $component "nginx" }}
+    - ports:
+        - port: 8080
+      {{- if or $ic.namespaceSelector $ic.podSelector }}
+      from:
+        - {{- with $ic.namespaceSelector }}
+          namespaceSelector:
+            matchLabels:
+              {{- toYaml . | nindent 14 }}
+          {{- end }}
+          {{- with $ic.podSelector }}
+          podSelector:
+            matchLabels:
+              {{- toYaml . | nindent 14 }}
+          {{- end }}
+      {{- end }}
+    {{- else }}
+    - ports:
+        - port: {{ if eq $component "backend" }}8000{{ else if eq $component "frontend" }}8080{{ else }}8001{{ end }}
+      from:
+        - podSelector:
+            matchLabels:
+              {{- include "turbo-ea.selectorLabels" (dict "root" $root "component" "nginx") | nindent 14 }}
+        {{- if and (eq $component "backend") $root.Values.mcp.enabled }}
+        - podSelector:
+            matchLabels:
+              {{- include "turbo-ea.selectorLabels" (dict "root" $root "component" "mcp") | nindent 14 }}
+        {{- end }}
+    {{- end }}
+  {{- if $root.Values.networkPolicy.egress.enabled }}
+  egress:
+    # Cluster DNS.
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- if eq $component "nginx" }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "turbo-ea.name" $root }}
+              app.kubernetes.io/instance: {{ $root.Release.Name }}
+    {{- else if eq $component "mcp" }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "turbo-ea.selectorLabels" (dict "root" $root "component" "backend") | nindent 14 }}
+    {{- else if eq $component "backend" }}
+    {{- with $root.Values.networkPolicy.egress.postgresCidrs }}
+    - ports:
+        - port: {{ $root.Values.postgresql.port }}
+      to:
+        {{- range . }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- with $root.Values.networkPolicy.egress.extraRules }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

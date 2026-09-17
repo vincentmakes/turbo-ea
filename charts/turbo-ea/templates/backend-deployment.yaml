@@ -1,0 +1,179 @@
+{{- $component := "backend" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "turbo-ea.fullname" . }}-backend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "turbo-ea.componentLabels" (dict "root" . "component" $component) | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  # Exactly one replica, by design: the SSE event bus, rate limiter and
+  # permission cache are in-process, migrations run unlocked at boot and
+  # /app/data is ReadWriteOnce. Recreate stops the old pod before the new one
+  # starts, so two backends never run migrations or bind the volume at once.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "turbo-ea.selectorLabels" (dict "root" . "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "turbo-ea.selectorLabels" (dict "root" . "component" $component) | nindent 8 }}
+        {{- with .Values.backend.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- if not .Values.existingSecret }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.backend.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "turbo-ea.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "turbo-ea.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: {{ .Values.backend.terminationGracePeriodSeconds }}
+      {{- with .Values.backend.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      containers:
+        - name: backend
+          image: {{ include "turbo-ea.image" (dict "root" . "image" .Values.backend.image) | quote }}
+          imagePullPolicy: {{ include "turbo-ea.imagePullPolicy" (dict "root" . "image" .Values.backend.image) }}
+          securityContext:
+            {{- include "turbo-ea.containerSecurityContext" (dict "root" . "override" .Values.backend.containerSecurityContext) | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: POSTGRES_HOST
+              value: {{ .Values.postgresql.host | quote }}
+            - name: POSTGRES_PORT
+              value: {{ .Values.postgresql.port | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.postgresql.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgresql.username | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "turbo-ea.secretName" . }}
+                  key: {{ .Values.existingSecretKeys.postgresPassword }}
+            - name: DB_POOL_SIZE
+              value: {{ .Values.postgresql.pool.size | quote }}
+            - name: DB_MAX_OVERFLOW
+              value: {{ .Values.postgresql.pool.maxOverflow | quote }}
+            - name: DB_POOL_TIMEOUT
+              value: {{ .Values.postgresql.pool.timeout | quote }}
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "turbo-ea.secretName" . }}
+                  key: {{ .Values.existingSecretKeys.secretKey }}
+            - name: ENVIRONMENT
+              value: {{ .Values.environment | quote }}
+            - name: ALLOWED_ORIGINS
+              value: {{ include "turbo-ea.allowedOrigins" . | quote }}
+            - name: SEED_DEMO
+              value: {{ .Values.seed.demo | quote }}
+            - name: SEED_BPM
+              value: {{ .Values.seed.bpm | quote }}
+            - name: SEED_PPM
+              value: {{ .Values.seed.ppm | quote }}
+            {{- with .Values.ai }}
+            - name: AI_PROVIDER_URL
+              value: {{ .providerUrl | quote }}
+            - name: AI_MODEL
+              value: {{ .model | quote }}
+            - name: AI_SEARCH_PROVIDER
+              value: {{ .searchProvider | quote }}
+            - name: AI_SEARCH_URL
+              value: {{ .searchUrl | quote }}
+            - name: AI_AUTO_CONFIGURE
+              value: {{ .autoConfigure | quote }}
+            {{- end }}
+            # The root filesystem is read-only; Python's per-user caches go to /tmp.
+            - name: HOME
+              value: /tmp
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            {{- with .Values.backend.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.backend.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: {{ .Values.backend.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.backend.startupProbe.failureThreshold }}
+            timeoutSeconds: {{ .Values.backend.startupProbe.timeoutSeconds }}
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: {{ .Values.backend.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.backend.livenessProbe.failureThreshold }}
+            timeoutSeconds: {{ .Values.backend.livenessProbe.timeoutSeconds }}
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: {{ .Values.backend.readinessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.backend.readinessProbe.failureThreshold }}
+            timeoutSeconds: {{ .Values.backend.readinessProbe.timeoutSeconds }}
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: tmp
+              mountPath: /tmp
+            {{- with .Values.backend.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- with .Values.backend.extraContainers }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: data
+          {{- if .Values.backend.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.backend.persistence.existingClaim | default (printf "%s-backend-data" (include "turbo-ea.fullname" .)) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: tmp
+          emptyDir: {}
+        {{- with .Values.backend.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.backend.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

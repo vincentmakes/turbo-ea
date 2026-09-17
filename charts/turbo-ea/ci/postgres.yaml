@@ -1,0 +1,49 @@
+# Throwaway PostgreSQL for the CI kind smoke test ONLY. Not part of the chart
+# (see .helmignore) and not a supported way to run Turbo EA.
+apiVersion: v1
+kind: Service
+metadata:
+  name: turbo-ea-ci-postgres
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+  selector:
+    app: turbo-ea-ci-postgres
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: turbo-ea-ci-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: turbo-ea-ci-postgres
+  template:
+    metadata:
+      labels:
+        app: turbo-ea-ci-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:18-alpine
+          env:
+            - name: POSTGRES_DB
+              value: turboea
+            - name: POSTGRES_USER
+              value: turboea
+            - name: POSTGRES_PASSWORD
+              value: kind-only-password
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "turboea"]
+            periodSeconds: 2
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql
+      volumes:
+        - name: data
+          emptyDir: {}

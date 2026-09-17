@@ -1,0 +1,107 @@
+{{- if .Values.mcp.enabled }}
+{{- $component := "mcp" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "turbo-ea.fullname" . }}-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "turbo-ea.componentLabels" (dict "root" . "component" $component) | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.mcp.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "turbo-ea.selectorLabels" (dict "root" . "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "turbo-ea.selectorLabels" (dict "root" . "component" $component) | nindent 8 }}
+        {{- with .Values.mcp.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.mcp.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- include "turbo-ea.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "turbo-ea.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.mcp.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      containers:
+        - name: mcp-server
+          image: {{ include "turbo-ea.image" (dict "root" . "image" .Values.mcp.image) | quote }}
+          imagePullPolicy: {{ include "turbo-ea.imagePullPolicy" (dict "root" . "image" .Values.mcp.image) }}
+          securityContext:
+            {{- include "turbo-ea.containerSecurityContext" (dict "root" . "override" .Values.mcp.containerSecurityContext) | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8001
+              protocol: TCP
+          env:
+            - name: TURBO_EA_URL
+              value: {{ printf "http://%s-backend:8000" (include "turbo-ea.fullname" .) | quote }}
+            - name: TURBO_EA_PUBLIC_URL
+              value: {{ include "turbo-ea.publicOrigin" . | quote }}
+            - name: MCP_PUBLIC_URL
+              value: {{ printf "%s/mcp" (include "turbo-ea.publicOrigin" .) | quote }}
+            - name: MCP_PORT
+              value: "8001"
+            - name: MCP_WRITES_ENABLED
+              value: {{ .Values.mcp.writesEnabled | quote }}
+            - name: MCP_LOGO_FETCH_ENABLED
+              value: {{ .Values.mcp.logoFetch.enabled | quote }}
+            {{- with .Values.mcp.logoFetch.hosts }}
+            - name: MCP_LOGO_FETCH_HOSTS
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.mcp.oauthAllowedRedirectUris }}
+            - name: MCP_OAUTH_ALLOWED_REDIRECT_URIS
+              value: {{ . | quote }}
+            {{- end }}
+            - name: HOME
+              value: /tmp
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            {{- with .Values.mcp.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.mcp.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.mcp.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mcp.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mcp.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

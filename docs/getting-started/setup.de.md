@@ -200,6 +200,9 @@ Veröffentlichte Versionen sind als `:<full-version>`, `:<major>.<minor>`, `:<ma
 
 Wenn Sie bereits eine verwaltete oder gemeinsam genutzte PostgreSQL-Instanz betreiben, richten Sie das Backend dort aus und verzichten Sie auf den gebundelten `db`-Dienst.
 
+!!! tip "Betrieb auf Kubernetes?"
+    Das [Helm-Chart](../admin/kubernetes.md) installiert Turbo EA auf EKS, AKS, GKE oder jedem anderen Cluster gegen genau so ein externes PostgreSQL; dieselbe Seite führt durch jede Cloud.
+
 Datenbank und Benutzer auf Ihrem bestehenden Server anlegen:
 
 ```sql

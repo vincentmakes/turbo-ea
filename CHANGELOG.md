@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.141.0] - 2026-09-17
+
+### Added
+
+- **A published Helm chart, so a Kubernetes install is one command.** Every release now ships `oci://ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea` — chart version and image tag are the same number as the release — signed with cosign like the images. The chart deploys the backend, frontend and edge nginx (plus the optional MCP server) against a PostgreSQL server you provide, with `existingSecret` support for External Secrets or Sealed Secrets, a persistent volume for installed extensions and uploads, a hardened pod security context (read-only root filesystem, no capabilities), optional NetworkPolicies, HPAs and PodDisruptionBudgets, and a JSON schema that fails early on a missing `publicUrl` or database. The backend is pinned to one replica by design (in-process event stream, boot-time migrations, ReadWriteOnce data); the chart refuses a `backend.replicaCount`. CI lints the chart, renders every fixture through kubeconform and installs it on a kind cluster on every change under `charts/`.
+- **Kubernetes & Cloud guide** (Admin → Kubernetes & Cloud) with walkthroughs for **AWS** (EKS + RDS + AWS Load Balancer Controller), **Azure** (AKS + Azure Database for PostgreSQL + application routing) and **Google Cloud** (GKE + Cloud SQL + GCE Ingress), each with a ready-to-edit values file under `charts/turbo-ea/examples/`, plus what to expect from the managed-container services (Container Apps, ECS, Cloud Run).
+- **`NGINX_BACKEND_UPSTREAM` / `NGINX_FRONTEND_UPSTREAM` / `NGINX_MCP_UPSTREAM`** on the edge nginx image override the addresses it proxies to. Defaults are the compose service names, so existing installs are unchanged; the chart passes fully-qualified Service names because nginx's own resolver ignores the pod's DNS search list.
+
+### Fixed
+
+- **A database password containing `@`, `/`, `:`, `#`, `?` or `%` no longer breaks the backend's connection string.** Managed-database consoles generate such passwords routinely; the credentials are now percent-encoded when the DSN is built.
+
 ## [2.140.0] - 2026-09-16
 
 ### Added

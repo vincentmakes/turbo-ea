@@ -1960,6 +1960,14 @@ Set `RESET_DB=true` to drop all tables and re-seed on next startup.
 
 ---
 
+### Helm Chart Conventions
+- The chart lives in `charts/turbo-ea/` and is published on `v*.*.*` tags only, as an OCI artifact at `oci://ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea`, by `.github/workflows/helm-publish.yml`. `Chart.yaml` keeps `version: 0.0.0` / `appVersion: "0.0.0"` — the same placeholder convention as `pyproject.toml` / `package.json` — and the workflow stamps both from `/VERSION`, so chart X.Y.Z always installs images X.Y.Z (`image.tag` defaults to `.Chart.AppVersion`). Never bump them by hand.
+- **External PostgreSQL only.** The chart does not run a database, Ollama or in-cluster TLS. `publicUrl`, `postgresql.host` and either `existingSecret` or `secretKey` + `postgresql.password` are required — `turbo-ea.validate` in `_helpers.tpl` fails the render with a readable message, so every `helm lint` / `helm template` in CI passes a fixture from `charts/turbo-ea/ci/`.
+- **The backend is one replica, hard-coded.** In-process SSE bus, rate limiter and permission cache, unlocked Alembic-on-boot, and a ReadWriteOnce `/app/data` volume — the Deployment uses `Recreate`, and `values.schema.json` rejects `backend.replicaCount`. Scale `frontend` and `nginx` instead.
+- **The edge nginx is the only Service an Ingress targets**, routing the whole host (`/`, no rewrite) so `/.well-known/oauth-*`, `/mcp` and `/embed/` reach it intact. Every path the image writes at runtime is an emptyDir so `readOnlyRootFilesystem` holds; the kind test asserts it.
+- CI: `helm-lint` (lint + kubeconform over `ci/*-values.yaml` and `examples/values-*.yaml`, plus guard rails) and `helm-kind-test` (installs on kind against `ci/postgres.yaml` — a throwaway PostgreSQL excluded by `.helmignore` — then `helm test`, probes and an upgrade) run on changes to `charts/**`, `Dockerfile` or `nginx/**`. The kind job builds the nginx stage from the checkout because the chart depends on its entrypoint.
+- User docs: `docs/admin/kubernetes.md` (+ 9 locale siblings) and the per-cloud example values in `charts/turbo-ea/examples/`.
+
 ## Docker Architecture
 
 ### docker-compose.yml
@@ -2006,7 +2014,7 @@ All container images are built from one `/Dockerfile` at the repo root using mul
 | `mcp-server` | `python:3.12-alpine` | MCP server image — copies `VERSION` + `mcp-server/`, runs as non-root |
 
 ### Nginx Configuration
-- `/api/*` → proxy to `backend:8000` (with SSE support headers)
+- `/api/*` → proxy to `backend:8000` (with SSE support headers). The upstream addresses are `NGINX_BACKEND_UPSTREAM` / `NGINX_FRONTEND_UPSTREAM` / `NGINX_MCP_UPSTREAM`, defaulting to the compose service names; the Helm chart passes fully-qualified Service names because nginx's `resolver` never consults the pod's DNS search list, so a bare `backend` does not resolve on Kubernetes.
 - `/drawio/*` → static DrawIO assets (`no-cache` + ETag revalidation — DrawIO files are not content-hashed, so a long TTL serves a stale editor for weeks after an upgrade)
 - `/*` → SPA fallback to `index.html`
 - Security headers on all responses

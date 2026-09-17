@@ -32,6 +32,7 @@ jobs:
       mcp: ${{ steps.filter.outputs.mcp == 'true' || steps.filter.outputs.ci == 'true' }}
       docs: ${{ steps.filter.outputs.docs == 'true' || steps.filter.outputs.ci == 'true' }}
       devcontainer: ${{ steps.filter.outputs.devcontainer == 'true' || steps.filter.outputs.ci == 'true' }}
+      helm: ${{ steps.filter.outputs.helm == 'true' || steps.filter.outputs.ci == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -67,6 +68,12 @@ jobs:
               - 'requirements-docs.txt'
             devcontainer:
               - '.devcontainer/**'
+            helm:
+              - 'charts/**'
+              # The edge nginx entrypoint reads the NGINX_*_UPSTREAM overrides
+              # the chart depends on, so a Dockerfile change re-runs the kind test.
+              - 'Dockerfile'
+              - 'nginx/**'
             ci:
               - '.github/workflows/**'
 
@@ -514,3 +521,154 @@ jobs:
         run: |
           bash -n .devcontainer/setup-demo.sh
           bash -n .devcontainer/start-demo.sh
+
+  # ── Helm chart ───────────────────────────────────────────────────────
+  # Two layers. `helm-lint` is static: lint + render every fixture and every
+  # cloud example through kubeconform. `helm-kind-test` installs the chart on
+  # a kind cluster against a throwaway PostgreSQL and runs `helm test` — an
+  # untested chart is exactly the failure mode a one-command install must not
+  # have. The kind job builds the edge nginx from THIS checkout (the stage is
+  # cheap: no npm, no pip) because the chart depends on the NGINX_*_UPSTREAM
+  # overrides its entrypoint reads; the other images come from GHCR `:latest`
+  # — the chart is under test here, not the application build.
+  helm-lint:
+    name: Helm Lint
+    needs: changes
+    if: needs.changes.outputs.helm == 'true'
+    runs-on: ubuntu-latest
+    env:
+      CHART: charts/turbo-ea
+      KUBECONFORM_VERSION: v0.7.0
+      KUBECONFORM_SHA256: c31518ddd122663b3f3aa874cfe8178cb0988de944f29c74a0b9260920d115d3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+
+      - name: Install kubeconform
+        run: |
+          set -euo pipefail
+          curl -fsSLo kubeconform.tgz "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          echo "${KUBECONFORM_SHA256}  kubeconform.tgz" | sha256sum -c -
+          tar -xzf kubeconform.tgz kubeconform
+          sudo install -m 0755 kubeconform /usr/local/bin/kubeconform
+
+      - name: Lint every fixture
+        run: |
+          set -euo pipefail
+          for f in "$CHART"/ci/*-values.yaml; do
+            echo "::group::helm lint -f $f"
+            helm lint --strict "$CHART" -f "$f"
+            echo "::endgroup::"
+          done
+
+      - name: Render fixtures and examples through kubeconform
+        run: |
+          set -euo pipefail
+          for f in "$CHART"/ci/*-values.yaml "$CHART"/examples/*.yaml; do
+            echo "::group::helm template -f $f"
+            helm template turbo-ea "$CHART" --namespace turbo-ea -f "$f" \
+              | kubeconform -strict -summary -kubernetes-version 1.30.0 -ignore-missing-schemas
+            echo "::endgroup::"
+          done
+
+      # The chart must refuse to render without its required values, and the
+      # backend must never scale past one replica (in-process SSE bus, unlocked
+      # boot-time migrations, ReadWriteOnce data volume).
+      - name: Guard rails
+        run: |
+          set -euo pipefail
+          if helm template turbo-ea "$CHART" >/dev/null 2>err.log; then
+            echo "::error::bare 'helm template' rendered; required-value validation is gone"
+            exit 1
+          fi
+          grep -q 'publicUrl' err.log
+          rendered="$(helm template turbo-ea "$CHART" --namespace turbo-ea -f "$CHART/ci/minimal-values.yaml")"
+          backend="$(printf '%s\n' "$rendered" | awk '/^kind: Deployment/{d=1} d && /name: turbo-ea-backend$/{b=1} b && /^---/{exit} b')"
+          printf '%s\n' "$backend" | grep -q '^  replicas: 1$'
+          printf '%s\n' "$backend" | grep -q 'type: Recreate'
+          if helm template turbo-ea "$CHART" --namespace turbo-ea -f "$CHART/ci/minimal-values.yaml" --set backend.replicaCount=3 >/dev/null 2>&1; then
+            echo "::error::backend.replicaCount was accepted; values.schema.json must reject it"
+            exit 1
+          fi
+
+  helm-kind-test:
+    name: Helm Kind Smoke Test
+    needs: [changes, helm-lint]
+    if: needs.changes.outputs.helm == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CHART: charts/turbo-ea
+      NS: turbo-ea
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+      - uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        with:
+          cluster_name: turbo-ea
+
+      - name: Build the edge nginx from this checkout
+        run: |
+          docker build --target nginx -t turbo-ea-ci/nginx:ci .
+          kind load docker-image --name turbo-ea turbo-ea-ci/nginx:ci
+
+      - name: Start a throwaway PostgreSQL
+        run: |
+          kubectl create namespace "$NS"
+          kubectl apply -n "$NS" -f "$CHART/ci/postgres.yaml"
+          kubectl rollout status -n "$NS" deployment/turbo-ea-ci-postgres --timeout=180s
+
+      - name: Install the chart
+        run: |
+          helm install turbo-ea "$CHART" --namespace "$NS" \
+            -f "$CHART/ci/kind-values.yaml" \
+            --set image.tag=latest \
+            --set nginx.image.registry=docker.io \
+            --set nginx.image.repository=turbo-ea-ci \
+            --set nginx.image.tag=ci \
+            --set nginx.image.pullPolicy=Never \
+            --wait --timeout 12m
+
+      - name: helm test
+        run: helm test turbo-ea --namespace "$NS" --logs
+
+      - name: Probe through the edge nginx
+        run: |
+          set -euo pipefail
+          kubectl port-forward -n "$NS" svc/turbo-ea-nginx 8080:80 >/dev/null 2>&1 &
+          sleep 3
+          curl -fsS http://localhost:8080/api/health
+          curl -fsS http://localhost:8080/ | grep -q '<div id="root"'
+          # MCP routing: the OAuth discovery document is served by the MCP pod.
+          curl -fsS http://localhost:8080/.well-known/oauth-protected-resource | grep -q resource
+          # The backend root filesystem is read-only; only the data volume is writable.
+          pod="$(kubectl get pod -n "$NS" -l app.kubernetes.io/component=backend -o jsonpath='{.items[0].metadata.name}')"
+          if kubectl exec -n "$NS" "$pod" -- touch /app/ro-probe 2>/dev/null; then
+            echo "::error::backend root filesystem is writable"
+            exit 1
+          fi
+          kubectl exec -n "$NS" "$pod" -- sh -c 'touch /app/data/rw-probe && rm /app/data/rw-probe'
+
+      - name: Upgrade keeps working
+        run: |
+          helm upgrade turbo-ea "$CHART" --namespace "$NS" \
+            -f "$CHART/ci/kind-values.yaml" \
+            --set image.tag=latest \
+            --set nginx.image.registry=docker.io \
+            --set nginx.image.repository=turbo-ea-ci \
+            --set nginx.image.tag=ci \
+            --set nginx.image.pullPolicy=Never \
+            --set backend.podAnnotations.ci-upgrade=\"1\" \
+            --wait --timeout 12m
+          helm test turbo-ea --namespace "$NS"
+
+      - name: Diagnostics
+        if: always()
+        run: |
+          kubectl get pods,svc,pvc,ingress -n "$NS" -o wide || true
+          kubectl describe pods -n "$NS" || true
+          for c in backend frontend nginx mcp; do
+            echo "::group::logs $c"
+            kubectl logs -n "$NS" -l app.kubernetes.io/component=$c --tail=200 || true
+            echo "::endgroup::"
+          done

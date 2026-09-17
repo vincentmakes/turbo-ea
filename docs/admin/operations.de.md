@@ -18,6 +18,8 @@ Siehe [Eine Version pinnen](../getting-started/setup.md) für die Grundlagen und
 
 In Unternehmensumgebungen mit Zugang zu einem verwalteten PostgreSQL-Dienst — Azure Database for PostgreSQL, Amazon RDS / Aurora, Google Cloud SQL oder Vergleichbares — ist der Betrieb von Turbo EA gegen diesen Dienst die empfohlene Konfiguration. Der mitgelieferte `db`-Container ist ein abhängigkeitsfreier Standard, keine Voraussetzung: Verweisen Sie das Backend über die `POSTGRES_*`-Variablen auf Ihre Instanz und lassen Sie den mitgelieferten Dienst weg (siehe [Ein bestehendes PostgreSQL verwenden](../getting-started/setup.md)).
 
+Auf Kubernetes nutzt das [Helm-Chart](kubernetes.md) dieselbe verwaltete Datenbank als einzige unterstützte Datenbank — es betreibt PostgreSQL nie im Cluster.
+
 Was der verwaltete Dienst Ihnen abnimmt:
 
 - **Backups und Point-in-Time-Recovery** — automatisiert, mit verwalteter Aufbewahrung und auf jeden Zeitpunkt wiederherstellbar; genau das, was die Rollback-Strategie weiter unten braucht.

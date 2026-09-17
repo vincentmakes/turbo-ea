@@ -18,6 +18,8 @@ See [Pinning a version](../getting-started/setup.md#pinning-a-version) for the b
 
 In corporate environments with access to a managed PostgreSQL service — Azure Database for PostgreSQL, Amazon RDS / Aurora, Google Cloud SQL, or similar — running Turbo EA against it is the recommended setup. The bundled `db` container is a zero-dependency default, not a requirement: point the backend at your instance with the `POSTGRES_*` variables and skip the bundled service (see [Use an existing PostgreSQL](../getting-started/setup.md)).
 
+On Kubernetes, the [Helm chart](kubernetes.md) takes the same managed database as its only supported database — it never runs PostgreSQL in the cluster.
+
 What the managed service takes off your plate:
 
 - **Backups and point-in-time recovery** — automated, retention-managed, and restorable to any moment, which is exactly what the rollback strategy below needs.

@@ -1,0 +1,10 @@
+# CI fixtures and the throwaway PostgreSQL used by the kind smoke test never ship.
+ci/
+.git/
+.gitignore
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+.DS_Store

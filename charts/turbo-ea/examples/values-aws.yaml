@@ -1,0 +1,51 @@
+# Turbo EA on Amazon EKS with Amazon RDS for PostgreSQL (or Aurora PostgreSQL).
+#
+# Assumes: the AWS Load Balancer Controller and the EBS CSI driver are installed
+# (both are EKS add-ons), an ACM certificate exists for the hostname, and the RDS
+# security group allows 5432 from the node / pod security group.
+# Guide: https://docs.turbo-ea.org/admin/kubernetes/#aws-eks
+
+publicUrl: https://ea.example.com
+
+# Create it first, e.g. from AWS Secrets Manager via External Secrets Operator,
+# or:  kubectl create secret generic turbo-ea-credentials \
+#        --from-literal=SECRET_KEY="$(openssl rand -base64 48)" \
+#        --from-literal=POSTGRES_PASSWORD='...'
+existingSecret: turbo-ea-credentials
+
+postgresql:
+  host: turbo-ea.cluster-abc123.eu-central-1.rds.amazonaws.com
+  database: turboea
+  username: turboea
+  # RDS enforces TLS by default (`rds.force_ssl=1`); the backend negotiates it.
+
+backend:
+  persistence:
+    # gp3 with WaitForFirstConsumer, so the volume is created in the AZ the pod
+    # lands in. The Recreate strategy keeps the pod on that volume.
+    storageClass: gp3
+    size: 20Gi
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:123456789012:certificate/00000000-0000-0000-0000-000000000000
+    # The default health-check path (/) is served by the frontend; /api/health
+    # goes through nginx to the backend, which is what "healthy" means here.
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health
+    # The event stream is a long-lived SSE response. 4000 s is the ALB maximum;
+    # the browser reconnects transparently when the ALB closes it.
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=4000
+  # TLS terminates on the ALB (ACM certificate above); no `tls:` block needed.
+
+frontend:
+  pdb:
+    enabled: true
+nginx:
+  pdb:
+    enabled: true

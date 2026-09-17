@@ -1,0 +1,6 @@
+# Smallest install that renders: public URL, database host, and the two secrets.
+publicUrl: https://ea.example.com
+secretKey: ci-only-secret-key-not-for-production
+postgresql:
+  host: postgres.example.internal
+  password: ci-only-password

@@ -1,0 +1,89 @@
+name: Publish Helm Chart
+
+# Packages charts/turbo-ea with the version stamped from /VERSION and pushes it
+# to GHCR as an OCI artifact:
+#   oci://ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea
+# Only release tags publish — a chart version must be unique, and `main` moves
+# without a version bump. Pre-release tags (v2.141.0-rc.1) publish as semver
+# pre-releases, which `helm install --version 2.141.0` never resolves to.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Package, push and sign chart
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # keyless cosign signing
+    env:
+      CHART_DIR: charts/turbo-ea
+      OCI_REPO: oci://ghcr.io/${{ github.repository }}/charts
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      # /VERSION is the single source of truth; the tag must agree with it so a
+      # chart never claims a version its images do not carry.
+      - name: Resolve version
+        id: version
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          if [ "${{ github.event_name }}" = "push" ] && [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match VERSION (${version})"
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Lint
+        run: helm lint --strict "$CHART_DIR" -f "$CHART_DIR/ci/minimal-values.yaml"
+
+      - name: Package
+        run: |
+          helm package "$CHART_DIR" \
+            --version "${{ steps.version.outputs.version }}" \
+            --app-version "${{ steps.version.outputs.version }}" \
+            --destination dist
+          helm show chart "dist/turbo-ea-${{ steps.version.outputs.version }}.tgz"
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Push
+        id: push
+        run: |
+          helm push "dist/turbo-ea-${{ steps.version.outputs.version }}.tgz" "$OCI_REPO" 2>&1 | tee push.log
+          digest="$(sed -n 's/^Digest: //p' push.log | tr -d '[:space:]')"
+          if [ -z "$digest" ]; then
+            echo "::error::helm push printed no digest"
+            exit 1
+          fi
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
+      # Same keyless OIDC signing as the container images (docker-publish.yml);
+      # verification recipe in .github/SECURITY_PIPELINE.md.
+      - name: Sign chart
+        env:
+          CHART_REF: ghcr.io/${{ github.repository }}/charts/turbo-ea
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: cosign sign --yes "${CHART_REF}@${DIGEST}"
+
+      - name: Upload packaged chart
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: turbo-ea-chart-${{ steps.version.outputs.version }}
+          path: dist/*.tgz
+          if-no-files-found: error

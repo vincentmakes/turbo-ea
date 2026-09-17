@@ -1,0 +1,50 @@
+Turbo EA {{ .Chart.AppVersion }} is being deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+{{- if .Values.ingress.enabled }}
+
+Open {{ .Values.publicUrl }} once the Ingress has an address:
+
+  kubectl get ingress -n {{ .Release.Namespace }} {{ include "turbo-ea.fullname" . }}
+{{- else }}
+
+No Ingress was created. To reach the app from your machine:
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "turbo-ea.fullname" . }}-nginx 8920:{{ .Values.nginx.service.port }}
+
+then open http://localhost:8920 (the browser URL must match publicUrl for
+cookies and CORS; set publicUrl=http://localhost:8920 for a port-forward
+evaluation).
+{{- end }}
+
+The FIRST user to register becomes the administrator — register right away.
+
+Check the rollout:
+
+  kubectl rollout status -n {{ .Release.Namespace }} deployment/{{ include "turbo-ea.fullname" . }}-backend
+  helm test -n {{ .Release.Namespace }} {{ .Release.Name }}
+
+{{- if not .Values.backend.persistence.enabled }}
+
+WARNING: backend.persistence.enabled is false. Installed extensions and
+uploaded bundles live in an emptyDir and are lost whenever the backend pod
+restarts.
+{{- end }}
+{{- if ne .Values.environment "production" }}
+
+WARNING: environment is "{{ .Values.environment }}". Production installs must
+use "production" (the default).
+{{- end }}
+{{- if .Values.seed.demo }}
+
+NOTE: seed.demo is true — the NexaTech Industries demo landscape is loaded on
+first boot. Never enable it on an instance holding real data.
+{{- end }}
+{{- if not .Values.existingSecret }}
+
+NOTE: SECRET_KEY and the database password are stored in Secret
+"{{ include "turbo-ea.secretName" . }}" managed by this release. Back up
+SECRET_KEY together with the database: losing it invalidates every session and
+every encrypted setting.
+{{- end }}
+
+Documentation: https://docs.turbo-ea.org/admin/kubernetes/

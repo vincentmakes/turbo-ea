@@ -1,0 +1,141 @@
+{{- $component := "nginx" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "turbo-ea.fullname" . }}-nginx
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "turbo-ea.componentLabels" (dict "root" . "component" $component) | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.nginx.autoscaling.enabled }}
+  replicas: {{ .Values.nginx.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "turbo-ea.selectorLabels" (dict "root" . "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "turbo-ea.selectorLabels" (dict "root" . "component" $component) | nindent 8 }}
+        {{- with .Values.nginx.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nginx.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- include "turbo-ea.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "turbo-ea.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.nginx.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      containers:
+        - name: nginx
+          image: {{ include "turbo-ea.image" (dict "root" . "image" .Values.nginx.image) | quote }}
+          imagePullPolicy: {{ include "turbo-ea.imagePullPolicy" (dict "root" . "image" .Values.nginx.image) }}
+          securityContext:
+            {{- include "turbo-ea.containerSecurityContext" (dict "root" . "override" .Values.nginx.containerSecurityContext) | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: TURBO_EA_PUBLIC_URL
+              value: {{ include "turbo-ea.publicOrigin" . | quote }}
+            # TLS terminates at the Ingress / load balancer; nginx derives
+            # X-Forwarded-Proto from the public URL's scheme.
+            - name: TURBO_EA_TLS_ENABLED
+              value: "false"
+            - name: TURBO_EA_EMBED_ALLOWED_ORIGINS
+              value: {{ join "," .Values.embedAllowedOrigins | quote }}
+            - name: NGINX_ENABLE_IPV6
+              value: {{ .Values.nginx.enableIPv6 | quote }}
+            {{- with .Values.nginx.resolver }}
+            - name: NGINX_RESOLVER
+              value: {{ . | quote }}
+            {{- end }}
+            # Fully-qualified Service names: nginx's resolver ignores the pod's
+            # DNS search list, so the compose defaults (http://backend:8000)
+            # would not resolve here.
+            - name: NGINX_BACKEND_UPSTREAM
+              value: {{ printf "http://%s:8000" (include "turbo-ea.serviceFQDN" (dict "root" . "component" "backend")) | quote }}
+            - name: NGINX_FRONTEND_UPSTREAM
+              value: {{ printf "http://%s:8080" (include "turbo-ea.serviceFQDN" (dict "root" . "component" "frontend")) | quote }}
+            - name: NGINX_MCP_UPSTREAM
+              value: {{ printf "http://%s:8001" (include "turbo-ea.serviceFQDN" (dict "root" . "component" "mcp")) | quote }}
+            {{- with .Values.nginx.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          # Readiness goes through the proxy to the backend, so `helm --wait`
+          # and any load-balancer health check on /api/health mean "the app
+          # answers". Liveness must NOT depend on the backend, or a slow
+          # migration would restart every nginx pod.
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.nginx.resources | nindent 12 }}
+          # Every path the entrypoint or the stock nginx image writes at
+          # runtime, so the root filesystem can stay read-only.
+          volumeMounts:
+            - name: templates
+              mountPath: /etc/nginx/templates
+            - name: conf
+              mountPath: /etc/nginx/conf.d
+            - name: cache
+              mountPath: /var/cache/nginx
+            - name: run
+              mountPath: /run
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: templates
+          emptyDir: {}
+        - name: conf
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.nginx.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      affinity:
+        {{- if .Values.nginx.affinity }}
+        {{- toYaml .Values.nginx.affinity | nindent 8 }}
+        {{- else }}
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    {{- include "turbo-ea.selectorLabels" (dict "root" . "component" $component) | nindent 20 }}
+        {{- end }}
+      {{- with .Values.nginx.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nginx.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,14 @@
+{{- if .Values.nginx.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "turbo-ea.fullname" . }}-nginx
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "turbo-ea.componentLabels" (dict "root" . "component" "nginx") | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.nginx.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "turbo-ea.selectorLabels" (dict "root" . "component" "nginx") | nindent 6 }}
+{{- end }}

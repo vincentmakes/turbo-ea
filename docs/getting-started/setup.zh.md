@@ -198,6 +198,9 @@ TURBO_EA_TAG=1.0.0 docker compose up -d
 
 如果您已经运行托管或共享的 PostgreSQL 实例，请将后端指向它并跳过捆绑的 `db` 服务。
 
+!!! tip "在 Kubernetes 上运行？"
+    [Helm chart](../admin/kubernetes.md) 可在 EKS、AKS、GKE 或任何集群上安装 Turbo EA，并连接到正是这种外部 PostgreSQL；同一页面逐一介绍各家云平台。
+
 在现有服务器上创建数据库和用户：
 
 ```sql

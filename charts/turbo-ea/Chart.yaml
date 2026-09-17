@@ -1,0 +1,32 @@
+apiVersion: v2
+name: turbo-ea
+description: >-
+  Turbo EA — self-hosted Enterprise Architecture Management platform.
+  Installs the backend, frontend and edge nginx (plus the optional MCP server)
+  against an external PostgreSQL database.
+type: application
+# `version` and `appVersion` are placeholders, like the "0.0.0" in
+# backend/pyproject.toml and frontend/package.json: the single source of truth
+# is /VERSION, and .github/workflows/helm-publish.yml stamps both from it when
+# it packages a release (`helm package --version X --app-version X`). Never
+# bump these by hand.
+version: 0.0.0
+appVersion: "0.0.0"
+kubeVersion: ">=1.27.0-0"
+home: https://turbo-ea.org
+icon: https://raw.githubusercontent.com/vincentmakes/turbo-ea/main/frontend/public/favicon.png
+sources:
+  - https://github.com/vincentmakes/turbo-ea
+keywords:
+  - enterprise-architecture
+  - eam
+  - architecture
+  - togaf
+maintainers:
+  - name: Vincent Verdet
+    url: https://github.com/vincentmakes
+annotations:
+  artifacthub.io/license: FSL-1.1-MIT
+  artifacthub.io/signKey: |
+    fingerprint: sigstore keyless (GitHub Actions OIDC)
+    url: https://github.com/vincentmakes/turbo-ea/blob/main/.github/SECURITY_PIPELINE.md

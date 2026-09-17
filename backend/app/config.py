@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from urllib.parse import quote
 
 _DEFAULT_SECRET_KEYS = ("change-me-in-production", "dev-secret-key-change-in-production")
 
@@ -273,8 +274,13 @@ class Settings:
 
     @property
     def database_url(self) -> str:
+        # Percent-encode the credentials: managed-database consoles generate
+        # passwords with URL-reserved characters (@ / : # ? %), and an unencoded
+        # value splits the DSN at the wrong place.
+        user = quote(self.POSTGRES_USER, safe="")
+        password = quote(self.POSTGRES_PASSWORD, safe="")
         return (
-            f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"postgresql+asyncpg://{user}:{password}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 

@@ -1,0 +1,25 @@
+publicUrl: https://ea.example.com
+secretKey: ci-only-secret-key-not-for-production
+postgresql:
+  host: postgres.example.internal
+  password: ci-only-password
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+  tls:
+    - secretName: turbo-ea-tls
+      hosts:
+        - ea.example.com
+extraObjects:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: '{{ include "turbo-ea.fullname" . }}-extra'
+    data:
+      release: '{{ .Release.Name }}'

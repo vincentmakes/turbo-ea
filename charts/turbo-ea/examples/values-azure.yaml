@@ -1,0 +1,60 @@
+# Turbo EA on Azure Kubernetes Service with Azure Database for PostgreSQL
+# Flexible Server.
+#
+# Assumes: the "application routing" add-on is enabled on the cluster
+# (`az aks approuting enable`), a cert-manager ClusterIssuer or an Azure Key
+# Vault certificate is available, and the Flexible Server allows the cluster's
+# VNet (private access) or its outbound IP (public access + firewall rule).
+# Guide: https://docs.turbo-ea.org/admin/kubernetes/#azure-aks
+
+publicUrl: https://ea.example.com
+
+# Create it first, e.g. from Azure Key Vault via the Secrets Store CSI driver or
+# External Secrets Operator.
+existingSecret: turbo-ea-credentials
+
+postgresql:
+  host: turbo-ea.postgres.database.azure.com
+  database: turboea
+  username: turboea
+  # Flexible Server requires TLS (`require_secure_transport=ON`); the backend
+  # negotiates it. The username is the plain role name — no "@server" suffix
+  # (that was Single Server).
+
+backend:
+  persistence:
+    storageClass: managed-csi
+    size: 20Gi
+
+ingress:
+  enabled: true
+  # The application routing add-on installs a managed ingress-nginx with this
+  # class name. For a self-installed ingress-nginx use `nginx`.
+  className: webapprouting.kubernetes.azure.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    # Workspace-transfer bundles are uploaded in one request of up to 512 MB.
+    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    # The event stream is a long-lived SSE response.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+  tls:
+    - secretName: turbo-ea-tls
+      hosts:
+        - ea.example.com
+  # Alternative — Application Gateway Ingress Controller (AGIC):
+  #   className: azure-application-gateway
+  #   annotations:
+  #     appgw.ingress.kubernetes.io/ssl-redirect: "true"
+  #     appgw.ingress.kubernetes.io/request-timeout: "86400"
+  #     appgw.ingress.kubernetes.io/appgw-ssl-certificate: turbo-ea
+  #   A WAF policy in prevention mode caps request bodies (128 KB by default);
+  #   raise the file-upload limit to 500 MB or exclude /api/v1/admin/workspace/import.
+
+frontend:
+  pdb:
+    enabled: true
+nginx:
+  pdb:
+    enabled: true

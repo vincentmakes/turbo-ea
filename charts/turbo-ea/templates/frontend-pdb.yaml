@@ -1,0 +1,14 @@
+{{- if .Values.frontend.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "turbo-ea.fullname" . }}-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "turbo-ea.componentLabels" (dict "root" . "component" "frontend") | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.frontend.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "turbo-ea.selectorLabels" (dict "root" . "component" "frontend") | nindent 6 }}
+{{- end }}

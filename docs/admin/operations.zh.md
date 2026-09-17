@@ -18,6 +18,8 @@ TURBO_EA_TAG=2.23.1
 
 在能够使用托管 PostgreSQL 服务的企业环境中——Azure Database for PostgreSQL、Amazon RDS / Aurora、Google Cloud SQL 或同类产品——让 Turbo EA 直接使用该服务是推荐的配置。自带的 `db` 容器只是一个零依赖的默认选项，并非必需：通过 `POSTGRES_*` 变量把后端指向你的实例，并跳过自带服务即可（见[使用现有 PostgreSQL](../getting-started/setup.md)）。
 
+在 Kubernetes 上，[Helm chart](kubernetes.md) 将同样的托管数据库作为唯一受支持的数据库——它从不在集群内运行 PostgreSQL。
+
 托管服务替你承担的事情：
 
 - **备份与时间点恢复（PITR）**——自动化、保留期受管、可恢复到任意时刻，正是下文回滚策略所需要的。

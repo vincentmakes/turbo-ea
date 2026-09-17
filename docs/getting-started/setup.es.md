@@ -201,6 +201,9 @@ Las versiones publicadas se etiquetan como `:<full-version>`, `:<major>.<minor>`
 
 Si ya ejecuta una instancia de PostgreSQL gestionada o compartida, apunte el backend a ella y prescinda del servicio `db` integrado.
 
+!!! tip "¿Despliegue en Kubernetes?"
+    El [chart de Helm](../admin/kubernetes.md) instala Turbo EA en EKS, AKS, GKE o cualquier clúster contra exactamente este tipo de PostgreSQL externo; la misma página recorre cada nube.
+
 Cree la base de datos y el usuario en su servidor existente:
 
 ```sql

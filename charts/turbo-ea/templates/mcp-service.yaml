@@ -1,0 +1,22 @@
+{{- if .Values.mcp.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "turbo-ea.fullname" . }}-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "turbo-ea.componentLabels" (dict "root" . "component" "mcp") | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8001
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "turbo-ea.selectorLabels" (dict "root" . "component" "mcp") | nindent 4 }}
+{{- end }}

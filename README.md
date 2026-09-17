@@ -320,6 +320,7 @@ Every push to `main` and every `v*.*.*` tag automatically publishes multi-arch (
 - `ghcr.io/vincentmakes/turbo-ea/nginx`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
 - `ghcr.io/vincentmakes/turbo-ea/ollama` *(rebuilt manually when upstream Ollama changes; not part of the regular CI matrix)*
+- `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea` *(the Helm chart, as an OCI artifact — published on release tags only)*
 
 The root compose file is production-only and pulls published images from GHCR:
 
@@ -335,6 +336,21 @@ TURBO_EA_TAG=0.70.0 docker compose up -d
 ```
 
 > **Breaking change:** The non-root Docker release uses new persistent volume names for PostgreSQL and Ollama so the stack does not try to reuse older root-owned volumes automatically. If you are upgrading from a pre-`0.70.0` release and need to keep your existing database, dump it before upgrading and restore it into the new stack after startup.
+
+### Kubernetes (Helm)
+
+For EKS, AKS, GKE or any conformant cluster, the published Helm chart installs the same images in one command against a PostgreSQL server you provide (a managed database is the recommended setup):
+
+```bash
+helm install turbo-ea oci://ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea \
+  --version <X.Y.Z> --namespace turbo-ea --create-namespace \
+  --set publicUrl=https://ea.example.com \
+  --set postgresql.host=postgres.example.internal \
+  --set postgresql.password='…' \
+  --set secretKey="$(openssl rand -base64 48)"
+```
+
+The chart version is the Turbo EA version. Cloud-specific starting points (ALB, App Routing, GCE Ingress, storage classes, managed-database notes) live in [`charts/turbo-ea/examples/`](charts/turbo-ea/examples/), and the full guide — including the AWS, Azure and GCP walkthroughs — is at [docs.turbo-ea.org/admin/kubernetes](https://docs.turbo-ea.org/admin/kubernetes/).
 
 ### Verifying images
 
@@ -587,6 +603,9 @@ npm run build         # TypeScript check + production build
 | `OLLAMA_MEMORY_LIMIT` | `4G` | Memory limit for bundled Ollama container |
 | `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose; code default `http://localhost:8001`) | (MCP server) Public URL for OAuth metadata |
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | Public-facing Turbo EA URL (also drives bundled nginx hostname/proto) |
+| `NGINX_BACKEND_UPSTREAM` | `http://backend:8000` | Edge nginx: address of the backend. Override with a fully-qualified Service name on Kubernetes, where nginx's resolver ignores DNS search domains (the Helm chart sets all three) |
+| `NGINX_FRONTEND_UPSTREAM` | `http://frontend:8080` | Edge nginx: address of the frontend |
+| `NGINX_MCP_UPSTREAM` | `http://mcp-server:8001` | Edge nginx: address of the MCP server |
 
 > **API Documentation**: Swagger UI is available at `/api/docs` when running in development mode (`ENVIRONMENT=development`).
 
@@ -622,7 +641,7 @@ docker compose exec -T db \
 
 ### TLS / HTTPS
 
-Turbo EA does not terminate TLS itself. Deploy behind a TLS-terminating reverse proxy such as:
+The bundled edge nginx can terminate TLS directly (`TURBO_EA_TLS_ENABLED=true` plus certificate files — see Quick Start). On Kubernetes, TLS terminates at the Ingress or cloud load balancer. Otherwise deploy behind a TLS-terminating reverse proxy such as:
 
 - [Caddy](https://caddyserver.com/) (automatic HTTPS)
 - [Traefik](https://traefik.io/)
@@ -638,9 +657,11 @@ ALLOWED_ORIGINS=https://ea.yourdomain.com
 ### Updating
 
 ```bash
-git pull
-docker compose up --build -d
+docker compose pull
+docker compose up -d
 ```
+
+On Kubernetes: `helm upgrade turbo-ea oci://ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea --version <new>`.
 
 Migrations run automatically on startup, so the database schema is updated as needed.
 

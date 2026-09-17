@@ -200,6 +200,9 @@ Udgivne versioner tagges `:<full-version>`, `:<major>.<minor>`, `:<major>` og `:
 
 Hvis du allerede kører en administreret eller delt PostgreSQL-instans, så peg backenden på den og spring den medfølgende `db`-tjeneste over.
 
+!!! tip "Kører du på Kubernetes?"
+    [Helm-chartet](../admin/kubernetes.md) installerer Turbo EA på EKS, AKS, GKE eller enhver anden klynge mod netop sådan en ekstern PostgreSQL; samme side gennemgår hver cloud.
+
 Opret databasen og brugeren på din eksisterende server:
 
 ```sql

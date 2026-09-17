@@ -1,0 +1,27 @@
+publicUrl: https://ea.example.com
+secretKey: ci-only-secret-key-not-for-production
+postgresql:
+  host: postgres.example.internal
+  password: ci-only-password
+mcp:
+  enabled: true
+  oauthAllowedRedirectUris: "https://claude.ai/api/mcp/auth_callback"
+networkPolicy:
+  enabled: true
+  ingressController:
+    namespaceSelector:
+      kubernetes.io/metadata.name: ingress-nginx
+  egress:
+    enabled: true
+    postgresCidrs:
+      - 10.20.0.0/24
+frontend:
+  autoscaling:
+    enabled: true
+  pdb:
+    enabled: true
+nginx:
+  autoscaling:
+    enabled: true
+  pdb:
+    enabled: true

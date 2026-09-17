@@ -1,0 +1,369 @@
+# Default values for the Turbo EA chart.
+#
+# Three values are REQUIRED for an install to render:
+#   publicUrl                       the URL users type in the browser
+#   postgresql.host                 an existing PostgreSQL 14+ server
+#   existingSecret  — or —  secretKey + postgresql.password
+#
+# The chart deploys the backend (one replica, see `backend` below), the
+# frontend, the edge nginx that is the ONLY Service an Ingress should target,
+# and optionally the MCP server. It never runs PostgreSQL itself: point it at
+# a managed database (RDS, Azure Database for PostgreSQL, Cloud SQL, …) or at
+# an operator-managed cluster (CloudNativePG, Zalando, …).
+#
+# Cloud-specific starting points live next to this file in examples/:
+#   examples/values-aws.yaml   EKS + RDS + AWS Load Balancer Controller
+#   examples/values-azure.yaml AKS + Azure Database for PostgreSQL + App Routing
+#   examples/values-gcp.yaml   GKE + Cloud SQL + GCE Ingress
+
+global:
+  # Mirror registry for air-gapped clusters. Overrides `image.registry` for every
+  # component; a component's own `image.registry` overrides both.
+  imageRegistry: ""
+  # Names of existing docker-registry Secrets in the release namespace.
+  imagePullSecrets: []
+
+image:
+  registry: ghcr.io
+  repository: vincentmakes/turbo-ea
+  # Empty ⇒ the chart's appVersion, so chart X.Y.Z always installs images X.Y.Z.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# Cluster DNS suffix, used to build the fully-qualified Service names the edge
+# nginx proxies to (its resolver ignores search domains).
+clusterDomain: cluster.local
+
+# REQUIRED. The public origin of the installation, e.g. https://ea.example.com.
+# It feeds the edge nginx (server_name, X-Forwarded-Proto — which is what makes
+# the auth cookie `secure`), the backend's CORS allow-list, and the MCP OAuth
+# redirect URIs. Origin only: no path, no trailing slash.
+publicUrl: ""
+
+# `production` refuses the default SECRET_KEY and hides the Swagger UI.
+# Set to `development` only on a throwaway evaluation.
+environment: production
+
+# CORS allow-list for the backend. Defaults to the origin of `publicUrl`; set the
+# list explicitly when the app is reachable under several hostnames.
+allowedOrigins: []
+
+# Sites allowed to frame a PUBLISHED diagram in an <iframe> (Confluence, a wiki).
+# Empty keeps `frame-ancestors 'self'`, i.e. embedding off.
+embedAllowedOrigins: []
+
+# HMAC key for session tokens and the Fernet key for stored secrets. Losing it
+# invalidates every session and every encrypted setting (SSO / SMTP secrets) —
+# back it up with the database. Ignored when `existingSecret` is set.
+secretKey: ""
+
+# Name of an existing Secret carrying SECRET_KEY and POSTGRES_PASSWORD. Preferred
+# over `secretKey` / `postgresql.password`, and the shape External Secrets
+# Operator or Sealed Secrets produce. Key names are configurable below.
+existingSecret: ""
+existingSecretKeys:
+  secretKey: SECRET_KEY
+  postgresPassword: POSTGRES_PASSWORD
+
+postgresql:
+  # REQUIRED. Hostname of the PostgreSQL server (private endpoint of a managed
+  # instance, or 127.0.0.1 when a Cloud SQL Auth Proxy sidecar is used).
+  host: ""
+  port: 5432
+  database: turboea
+  username: turboea
+  # Ignored when `existingSecret` is set.
+  password: ""
+  # The backend is a single process, so its whole connection budget is
+  # size + maxOverflow (30 by default). Shrink it when the managed plan caps
+  # connections — see docs/admin/operations.md "Connection budget".
+  pool:
+    size: 20
+    maxOverflow: 10
+    timeout: 30
+
+# Demo content on first boot. `demo` populates the NexaTech Industries landscape;
+# never enable on an instance that holds real data.
+seed:
+  demo: false
+  bpm: false
+  ppm: false
+
+# AI description suggestions through an external OpenAI/Ollama-compatible
+# endpoint. The chart does not bundle Ollama.
+ai:
+  providerUrl: ""
+  model: ""
+  searchProvider: duckduckgo
+  searchUrl: ""
+  autoConfigure: false
+
+backend:
+  image:
+    name: backend
+    registry: ""
+    repository: ""
+    tag: ""
+    pullPolicy: ""
+  # There is deliberately no `replicaCount`: the backend runs as ONE replica.
+  # Real-time events (SSE) fan out from an in-process bus, the rate limiter and
+  # permission cache are in-process, database migrations run unlocked at boot,
+  # and /app/data is a ReadWriteOnce volume — so the Deployment uses the
+  # Recreate strategy and a fixed replica count of 1. Scale the frontend and
+  # nginx instead; the backend is not the bottleneck for typical landscapes.
+  #
+  # Extra environment for SMTP_*, TURBO_EA_PROXY_AUTH_*, NVD_API_KEY,
+  # EXTENSION_*, … — the same names as docker-compose.yml.
+  extraEnv: []
+  #  - name: SMTP_HOST
+  #    value: smtp.example.com
+  extraEnvFrom: []
+  #  - secretRef:
+  #      name: turbo-ea-smtp
+  extraVolumes: []
+  extraVolumeMounts: []
+  # Sidecars, e.g. the Cloud SQL Auth Proxy (see examples/values-gcp.yaml).
+  extraContainers: []
+  persistence:
+    # /app/data holds installed extensions, extension and migration uploads and
+    # workspace-transfer bundles. Disabling persistence loses them on restart.
+    enabled: true
+    existingClaim: ""
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
+    annotations:
+      # Keep the volume on `helm uninstall`; delete the PVC by hand.
+      helm.sh/resource-policy: keep
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      memory: 2Gi
+  # Migrations, metamodel seeding and (optionally) demo seeding run before
+  # /api/health answers. 60 × 5 s = 5 minutes; raise failureThreshold for a
+  # large database on a slow disk.
+  startupProbe:
+    periodSeconds: 5
+    failureThreshold: 60
+    timeoutSeconds: 5
+  livenessProbe:
+    periodSeconds: 30
+    failureThreshold: 3
+    timeoutSeconds: 5
+  readinessProbe:
+    periodSeconds: 10
+    failureThreshold: 3
+    timeoutSeconds: 5
+  terminationGracePeriodSeconds: 60
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  # Merged over the chart-wide `containerSecurityContext`.
+  containerSecurityContext: {}
+
+frontend:
+  image:
+    name: frontend
+    registry: ""
+    repository: ""
+    tag: ""
+    pullPolicy: ""
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  pdb:
+    enabled: false
+    minAvailable: 1
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  containerSecurityContext: {}
+
+# The edge reverse proxy: security headers, CSP, upload limits, SSE settings
+# and MCP routing all live here, so the Ingress must target THIS Service only
+# and route the whole host (`/`) to it.
+nginx:
+  image:
+    name: nginx
+    registry: ""
+    repository: ""
+    tag: ""
+    pullPolicy: ""
+  replicaCount: 2
+  service:
+    type: ClusterIP
+    port: 80
+    # e.g. GKE: cloud.google.com/neg: '{"ingress": true}'
+    annotations: {}
+  enableIPv6: false
+  # Override the DNS resolver nginx uses for upstream lookups; empty reads the
+  # cluster resolver from /etc/resolv.conf.
+  resolver: ""
+  extraEnv: []
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  pdb:
+    enabled: false
+    minAvailable: 1
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  containerSecurityContext: {}
+
+# Optional MCP server (AI-assistant access to the landscape). Exposed at
+# <publicUrl>/mcp through the edge nginx; users authenticate via the Turbo EA
+# SSO provider (OAuth 2.1).
+mcp:
+  enabled: false
+  image:
+    name: mcp-server
+    registry: ""
+    repository: ""
+    tag: ""
+    pullPolicy: ""
+  replicaCount: 1
+  writesEnabled: true
+  logoFetch:
+    enabled: true
+    # Comma-separated exact-match host allow-list; empty keeps the built-in
+    # list of public icon CDNs.
+    hosts: ""
+  # Comma-separated static redirect URIs for non-registering OAuth clients.
+  oauthAllowedRedirectUris: ""
+  extraEnv: []
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  priorityClassName: ""
+  containerSecurityContext: {}
+
+ingress:
+  enabled: false
+  className: ""
+  # Per-controller notes — the workspace import accepts uploads up to 512 MB
+  # and the event stream is a long-lived SSE response, so raise the
+  # controller's body-size and read-timeout limits:
+  #
+  #   ingress-nginx / AKS App Routing
+  #     nginx.ingress.kubernetes.io/proxy-body-size: 512m
+  #     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+  #     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
+  #     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+  #   AWS Load Balancer Controller (ALB)
+  #     alb.ingress.kubernetes.io/healthcheck-path: /api/health
+  #     alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=4000
+  #   Azure Application Gateway (AGIC)
+  #     appgw.ingress.kubernetes.io/request-timeout: "86400"
+  #   GKE (GCE)
+  #     timeouts live on a BackendConfig, see examples/values-gcp.yaml
+  #
+  # Never add a rewrite-target: /.well-known/oauth-*, /mcp and /embed/ must
+  # reach nginx with their paths intact.
+  annotations: {}
+  # Empty ⇒ one rule for the host of `publicUrl`, path `/`, pathType Prefix.
+  hosts: []
+  #  - host: ea.example.com
+  #    paths:
+  #      - path: /
+  #        pathType: Prefix
+  tls: []
+  #  - secretName: turbo-ea-tls
+  #    hosts:
+  #      - ea.example.com
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  automountServiceAccountToken: false
+
+# Every image runs as uid/gid 1000; fsGroup makes the data volume writable.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+# Applied to every container; the paths each image writes at runtime are
+# mounted as emptyDirs so the root filesystem can stay read-only. A component's
+# own `containerSecurityContext` is merged over this one.
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+networkPolicy:
+  enabled: false
+  # Where the ingress controller runs; both empty ⇒ nginx accepts from anywhere.
+  ingressController:
+    namespaceSelector: {}
+    #  kubernetes.io/metadata.name: ingress-nginx
+    podSelector: {}
+    #  app.kubernetes.io/name: ingress-nginx
+  # Egress rules are OFF by default: the backend also talks to the extension
+  # store, endoflife.date, the NVD, your SMTP server and your LLM endpoint, and
+  # a policy that forgets one of them fails silently.
+  egress:
+    enabled: false
+    # CIDRs of the PostgreSQL endpoint(s), e.g. ["10.20.0.0/24"].
+    postgresCidrs: []
+    extraRules: []
+
+tests:
+  image:
+    registry: docker.io
+    repository: curlimages/curl
+    tag: "8.14.1"
+
+commonLabels: {}
+commonAnnotations: {}
+
+# Arbitrary extra manifests rendered through `tpl` (BackendConfig,
+# ManagedCertificate, ExternalSecret, …).
+extraObjects: []

@@ -1,0 +1,82 @@
+# Turbo EA on Google Kubernetes Engine with Cloud SQL for PostgreSQL.
+#
+# Assumes: a VPC-native (GKE Standard or Autopilot) cluster, a Cloud SQL
+# instance with a PRIVATE IP in the same VPC (private services access), and a
+# reserved global static IP for the load balancer.
+# Guide: https://docs.turbo-ea.org/admin/kubernetes/#google-cloud-gke
+
+publicUrl: https://ea.example.com
+
+# Create it first, e.g. from Secret Manager via External Secrets Operator.
+existingSecret: turbo-ea-credentials
+
+postgresql:
+  # Private IP of the Cloud SQL instance. Reachable directly from a VPC-native
+  # cluster, so no proxy sidecar is required.
+  host: 10.20.0.3
+  database: turboea
+  username: turboea
+  # Alternative — Cloud SQL Auth Proxy sidecar (public-IP instance, IAM auth,
+  # or a mandated TLS client certificate): set host to 127.0.0.1 and add
+  #   backend:
+  #     extraContainers:
+  #       - name: cloud-sql-proxy
+  #         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.15.2
+  #         args: ["--private-ip", "--port=5432", "my-project:europe-west1:turbo-ea"]
+  #         securityContext:
+  #           runAsNonRoot: true
+  #           allowPrivilegeEscalation: false
+  #         resources:
+  #           requests: {cpu: 50m, memory: 64Mi}
+  # with Workload Identity on the release ServiceAccount
+  # (serviceAccount.annotations: iam.gke.io/gcp-service-account: ...).
+
+backend:
+  persistence:
+    # Balanced persistent disk, WaitForFirstConsumer.
+    storageClass: standard-rwo
+    size: 20Gi
+
+nginx:
+  service:
+    annotations:
+      # Container-native load balancing straight to the nginx pods.
+      cloud.google.com/neg: '{"ingress": true}'
+      # Timeouts and the health-check path live on a BackendConfig (below).
+      cloud.google.com/backend-config: '{"default": "turbo-ea"}'
+
+ingress:
+  enabled: true
+  className: gce
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: turbo-ea-ip
+    networking.gke.io/managed-certificates: turbo-ea
+    kubernetes.io/ingress.allow-http: "false"
+
+extraObjects:
+  - apiVersion: cloud.google.com/v1
+    kind: BackendConfig
+    metadata:
+      name: turbo-ea
+    spec:
+      # The event stream is a long-lived SSE response; the GCE default of 30 s
+      # would cut it every half minute.
+      timeoutSec: 86400
+      healthCheck:
+        type: HTTP
+        requestPath: /api/health
+        port: 8080
+  - apiVersion: networking.gke.io/v1
+    kind: ManagedCertificate
+    metadata:
+      name: turbo-ea
+    spec:
+      domains:
+        - ea.example.com
+
+frontend:
+  pdb:
+    enabled: true
+nginx:
+  pdb:
+    enabled: true

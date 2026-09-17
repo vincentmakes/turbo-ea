@@ -16,7 +16,7 @@ Four scanners cover four overlapping layers. Trivy and CodeQL gate merges/publis
 | **Trivy**         |                                |                                 | ✓ (publish + daily)             | ✓ (daily)                         |                         |
 | **Scout**         |                                |                                 | ✓ (publish + daily, observe)    | ✓ (daily, observe)                |                         |
 | **Dependabot**    |                                | ✓ (security PRs)                | ✓ (security PRs, base images)   |                                   | ✓ (monthly, grouped)    |
-| **cosign**        |                                |                                 | (signs every publish)           |                                   |                         |
+| **cosign**        |                                |                                 | (signs every publish, images + Helm chart) |                        |                         |
 | **SLSA provenance + SBOM** |                       |                                 | (attests every publish)         |                                   |                         |
 
 Two scanners covering the same layer is deliberate — different vuln DBs have different blind spots. Trivy is the primary; Scout is second-opinion until we've characterised the overlap.
@@ -39,6 +39,8 @@ Two scanners covering the same layer is deliberate — different vuln DBs have d
 4. **Trivy observe** (HIGH + CRITICAL, `ignore-unfixed: true`) — SARIF → Security tab under `trivy-<image>`. Never fails the job.
 5. **Trivy gate** (CRITICAL only, `exit-code: 1`, `ignore-unfixed: true`) — fails the publish on any CRITICAL not in [`.github/trivy-allowlist`](trivy-allowlist). Introduced after CVE-2026-42945 ("NGINX Rift") slipped through the observe-only setup.
 6. **Scout observe** (`only-severities: critical,high`, `exit-code: false`) — SARIF → Security tab under `scout-<image>`. Gated on `DOCKERHUB_PAT` secret presence so the workflow stays green if credentials are removed.
+
+[`helm-publish.yml`](workflows/helm-publish.yml) — on `v*.*.*` tags only: packages `charts/turbo-ea` with `version` and `appVersion` stamped from `/VERSION` (the job fails if the tag disagrees), pushes it to `oci://ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea`, and **cosign**-signs the chart digest with the same keyless OIDC identity as the images. `main` never publishes a chart — a chart version must be unique semver.
 
 > **`:latest` publishing + apk freshness — the two things to know.**
 > 1. **What publishes `:latest`.** `latest=auto` + the two explicit `type=raw`
@@ -232,6 +234,15 @@ cosign verify \
 ```
 
 The certificate identity binds the signature to the GHA workflow + repo + ref that produced it, so a leaked GHCR write token can't backdate-sign a malicious image.
+
+The Helm chart is an OCI artifact in the same registry and is verified the same way:
+
+```bash
+cosign verify \
+  --certificate-identity-regexp '^https://github.com/vincentmakes/turbo-ea/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea:2.141.0
+```
 
 ## What's deliberately *not* covered
 

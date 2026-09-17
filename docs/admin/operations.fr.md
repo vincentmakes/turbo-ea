@@ -18,6 +18,8 @@ Voir [Épingler une version](../getting-started/setup.md) pour les bases et [Ver
 
 Dans les environnements d'entreprise disposant d'un service PostgreSQL managé — Azure Database for PostgreSQL, Amazon RDS / Aurora, Google Cloud SQL ou équivalent — exécuter Turbo EA sur ce service est la configuration recommandée. Le conteneur `db` fourni est un choix par défaut sans dépendance, pas une exigence : pointez le backend vers votre instance avec les variables `POSTGRES_*` et laissez de côté le service fourni (voir [Utiliser un PostgreSQL existant](../getting-started/setup.md)).
 
+Sur Kubernetes, le [chart Helm](kubernetes.md) utilise cette même base managée comme seule base prise en charge — il n'exécute jamais PostgreSQL dans le cluster.
+
 Ce que le service managé prend en charge à votre place :
 
 - **Sauvegardes et restauration à un instant donné (PITR)** — automatisées, avec rétention gérée et restaurables à tout moment ; exactement ce dont la stratégie de retour en arrière ci-dessous a besoin.

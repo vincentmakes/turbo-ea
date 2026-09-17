@@ -118,6 +118,7 @@ plugins:
             Extensions: Extensiones
             Extension Store: Tienda de extensiones
             Operations & Upgrades: Operaciones y actualizaciones
+            Kubernetes & Cloud: Kubernetes y nube
             Supply Chain: Cadena de suministro
             Reference: Referencia
             Glossary: Glosario
@@ -184,6 +185,7 @@ plugins:
             Extensions: Erweiterungen
             Extension Store: Erweiterungs-Store
             Operations & Upgrades: Betrieb & Upgrades
+            Kubernetes & Cloud: Kubernetes & Cloud
             Supply Chain: Lieferkette
             Reference: Referenz
             Glossary: Glossar
@@ -250,6 +252,7 @@ plugins:
             Extensions: Extensions
             Extension Store: Boutique d'extensions
             Operations & Upgrades: Exploitation et mises à niveau
+            Kubernetes & Cloud: Kubernetes et cloud
             Supply Chain: Chaîne d'approvisionnement
             Reference: Référence
             Glossary: Glossaire
@@ -316,6 +319,7 @@ plugins:
             Extensions: Estensioni
             Extension Store: Store delle estensioni
             Operations & Upgrades: Operazioni e aggiornamenti
+            Kubernetes & Cloud: Kubernetes e cloud
             Supply Chain: Catena di approvvigionamento
             Reference: Riferimenti
             Glossary: Glossario
@@ -382,6 +386,7 @@ plugins:
             Extensions: Extensões
             Extension Store: Loja de extensões
             Operations & Upgrades: Operações e atualizações
+            Kubernetes & Cloud: Kubernetes e nuvem
             Supply Chain: Cadeia de suprimentos
             Reference: Referência
             Glossary: Glossário
@@ -448,6 +453,7 @@ plugins:
             Extensions: 扩展
             Extension Store: 扩展商店
             Operations & Upgrades: 运维与升级
+            Kubernetes & Cloud: Kubernetes 与云
             Supply Chain: 供应链
             Reference: 参考
             Glossary: 术语表
@@ -514,6 +520,7 @@ plugins:
             Extensions: Расширения
             Extension Store: Магазин расширений
             Operations & Upgrades: Эксплуатация и обновления
+            Kubernetes & Cloud: Kubernetes и облако
             Supply Chain: Цепочка поставок
             Reference: Справочник
             Glossary: Глоссарий
@@ -580,6 +587,7 @@ plugins:
             Extensions: Udvidelser
             Extension Store: Udvidelsesbutik
             Operations & Upgrades: Drift og opgraderinger
+            Kubernetes & Cloud: Kubernetes og cloud
             Supply Chain: Forsyningskæde
             Reference: Reference
             Glossary: Ordliste
@@ -646,6 +654,7 @@ plugins:
             Extensions: الإضافات
             Extension Store: متجر الإضافات
             Operations & Upgrades: العمليات والترقيات
+            Kubernetes & Cloud: Kubernetes والسحابة
             Supply Chain: سلسلة التوريد
             Reference: المرجع
             Glossary: المسرد
@@ -740,6 +749,7 @@ nav:
       - Workspace Transfer: admin/workspace-transfer.md
       - Extension Store: admin/extensions.md
       - Operations & Upgrades: admin/operations.md
+      - Kubernetes & Cloud: admin/kubernetes.md
       - Supply Chain: admin/supply-chain.md
   - Extensions:
       - Overview: extensions/index.md
