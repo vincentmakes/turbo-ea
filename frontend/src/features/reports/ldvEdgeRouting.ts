@@ -17,11 +17,13 @@
  */
 
 import {
+  cardSizes,
   handleAnchor,
   handleOffset,
   LDV_HANDLE_FRACTIONS,
   LDV_NODE_W,
   LDV_NODE_H,
+  type SizeLookup,
 } from "./ldvHandles";
 import { buildRowBands, buildChannel, type ChannelXY, type ChannelCard } from "./ldvChannels";
 import type { Node } from "@xyflow/react";
@@ -86,21 +88,41 @@ export interface LdvRoute {
 }
 
 /**
+ * Absolute top-left of a node, walking the whole parent chain.
+ *
+ * A card's position is relative to its parent, and in aggregate mode that
+ * parent is a type box which is itself inside a layer lane — two levels, not
+ * one. Every caller that flattened a single level (export bounds, the
+ * edge-label obstacles, the diagram export) silently produced lane-relative
+ * coordinates for a clustered card, which reads as a cropped image or labels
+ * dodging the wrong boxes. The hop cap is a guard against a malformed cycle,
+ * never reached by a real graph.
+ */
+export function absolutePosition(node: Node, byId: Map<string, Node>): XY {
+  let x = node.position.x;
+  let y = node.position.y;
+  let parentId = node.parentId;
+  for (let hops = 0; parentId && hops < 8; hops++) {
+    const parent = byId.get(parentId);
+    if (!parent) break;
+    x += parent.position.x;
+    y += parent.position.y;
+    parentId = parent.parentId;
+  }
+  return { x, y };
+}
+
+/**
  * Absolute center of every card node (child positions are relative to their
- * lane group). Works on layout output and on live nodes after a drag alike.
+ * parent). Works on layout output and on live nodes after a drag alike.
  */
 export function computeAbsPos(nodes: Node[]): Map<string, XY> {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const abs = new Map<string, XY>();
   for (const n of nodes) {
     if (n.type === "ldvNode" && n.parentId) {
-      const parent = byId.get(n.parentId);
-      if (parent) {
-        abs.set(n.id, {
-          x: parent.position.x + n.position.x + LDV_NODE_W / 2,
-          y: parent.position.y + n.position.y + LDV_NODE_H / 2,
-        });
-      }
+      const { x, y } = absolutePosition(n, byId);
+      abs.set(n.id, { x: x + LDV_NODE_W / 2, y: y + LDV_NODE_H / 2 });
     }
   }
   return abs;
@@ -152,7 +174,13 @@ export function countEdgeCrossings(segments: Segment[]): number {
 const SIDE_RATIO = 2.5;
 
 /** Slot x-offsets from the node center, one per handle fraction. */
-const SLOT_OFFSETS = LDV_HANDLE_FRACTIONS.map((f) => (f - 0.5) * LDV_NODE_W);
+const SLOT_FRACTIONS = LDV_HANDLE_FRACTIONS.map((f) => f - 0.5);
+const SLOT_OFFSETS = SLOT_FRACTIONS.map((f) => f * LDV_NODE_W);
+
+/** Where this node's slots sit, in pixels from its centre. */
+function slotOffsetsFor(width: number): number[] {
+  return SLOT_FRACTIONS.map((f) => f * width);
+}
 
 /**
  * Straightness-seeking, order-preserving slot assignment: attachments keep
@@ -163,15 +191,15 @@ const SLOT_OFFSETS = LDV_HANDLE_FRACTIONS.map((f) => (f - 0.5) * LDV_NODE_W);
  * share the side. Ties resolve to the smaller slots (deterministic). With
  * more attachments than slots, they spread in order, sharing slots.
  */
-function assignSlotsByIdeal(ideals: number[]): number[] {
+function assignSlotsByIdeal(ideals: number[], offsets: number[] = SLOT_OFFSETS): number[] {
   const k = ideals.length;
-  const m = SLOT_OFFSETS.length;
+  const m = offsets.length;
   if (k > m) {
     return ideals.map((_, i) => 1 + Math.round((i * (m - 1)) / (k - 1)));
   }
   const dp: number[][] = Array.from({ length: k }, () => new Array<number>(m).fill(Infinity));
   const choice: number[][] = Array.from({ length: k }, () => new Array<number>(m).fill(-1));
-  for (let s = 0; s < m; s++) dp[0][s] = Math.abs(SLOT_OFFSETS[s] - ideals[0]);
+  for (let s = 0; s < m; s++) dp[0][s] = Math.abs(offsets[s] - ideals[0]);
   for (let i = 1; i < k; i++) {
     for (let s = i; s < m; s++) {
       let best = Infinity;
@@ -182,7 +210,7 @@ function assignSlotsByIdeal(ideals: number[]): number[] {
           bi = p;
         }
       }
-      dp[i][s] = best + Math.abs(SLOT_OFFSETS[s] - ideals[i]);
+      dp[i][s] = best + Math.abs(offsets[s] - ideals[i]);
       choice[i][s] = bi;
     }
   }
@@ -257,6 +285,13 @@ export function routeLdvEdges(
   nodeBounds: NodeBounds[],
   groupLabelBounds: Bounds[],
   laneOf: Map<string, string>,
+  /**
+   * How big each endpoint is. Aggregate mode routes between boxes of cards with
+   * this very engine — the boxes are just bigger nodes — so slot spacing and
+   * handle positions have to ask rather than assume. Omitted, every node is a
+   * card and the geometry is exactly what it always was.
+   */
+  sizeOf: SizeLookup = cardSizes,
 ): { routes: LdvRoute[]; usedHandles: Map<string, Set<string>> } {
   const n = oriented.length;
   const srcHandles = new Array<string>(n);
@@ -366,12 +401,19 @@ export function routeLdvEdges(
       return a.edgeIdx - b.edgeIdx;
     });
     const k = sorted.length;
+    // Slots belong to the node they leave from, so they span ITS width — a wide
+    // aggregate box spreads its lines across the box, not across a card.
+    const ownWidth = sizeOf(sorted[0].selfId).w;
+    const slotOffsets = slotOffsetsFor(ownWidth);
     const ideals = sorted.map((a) => {
       const self = absPos.get(a.selfId)!;
       const other = absPos.get(a.otherId)!;
-      return Math.max(SLOT_OFFSETS[0], Math.min(SLOT_OFFSETS[SLOT_OFFSETS.length - 1], other.x - self.x));
+      return Math.max(
+        slotOffsets[0],
+        Math.min(slotOffsets[slotOffsets.length - 1], other.x - self.x),
+      );
     });
-    const slots = assignSlotsByIdeal(ideals);
+    const slots = assignSlotsByIdeal(ideals, slotOffsets);
     const entries: SlotEntry[] = [];
     for (let i = 0; i < k; i++) {
       const slot = slots[i];
@@ -393,8 +435,8 @@ export function routeLdvEdges(
     const e = oriented[i];
     const sP = absPos.get(e.source);
     const tP = absPos.get(e.target);
-    const sOff = handleOffset(srcHandles[i]);
-    const tOff = handleOffset(tgtHandles[i]);
+    const sOff = handleOffset(srcHandles[i], sizeOf(e.source));
+    const tOff = handleOffset(tgtHandles[i], sizeOf(e.target));
     return {
       sx: (sP?.x ?? 0) + sOff.dx,
       sy: (sP?.y ?? 0) + sOff.dy,

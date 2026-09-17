@@ -9,13 +9,27 @@
  * then groups are stacked vertically in EA layer order so they never overlap.
  */
 
-import dagre from "@dagrejs/dagre";
 import type { Node, Edge } from "@xyflow/react";
 import { getCurrentPhase } from "@/components/LifecycleBadge";
-import { LAYER_COLORS } from "@/theme/tokens";
 import type { CardType, RelationType, FieldOption } from "@/types";
 import type { TimelineChange } from "./timelineRange";
 import { LDV_NODE_W, LDV_NODE_H } from "./ldvHandles";
+import {
+  alignLanesX,
+  CATEGORY_COLORS,
+  CATEGORY_ORDER,
+  DRAG_ROOM,
+  GROUP_GAP,
+  LABEL_H,
+  PAD,
+  layoutGroup,
+  type PositionedNode,
+  readFlowDir,
+  typeCategory,
+  typeColor,
+  typeIcon,
+  typeLabel,
+} from "./ldvLayoutShared";
 import type { LdvEdgeLineStyle } from "./ldvLineStyle";
 import {
   routeLdvEdges,
@@ -124,6 +138,35 @@ export function filterEndOfLifeNodes(
   };
 }
 
+/**
+ * Drop every card whose type the reader unticked in the Card types menu, then
+ * drop any edge that lost an endpoint.
+ *
+ * The centred card is kept whatever its type: it is the subject of the diagram
+ * rather than one of its neighbours, and hiding it would leave the view with
+ * nothing to be centred on. Same carve-out `filterEndOfLifeNodes` makes, for
+ * the same reason.
+ *
+ * With nothing hidden this returns the very arrays it was given — the view
+ * feeds the result straight into layout memos, and a fresh array every render
+ * would rebuild the whole graph.
+ */
+export function filterHiddenTypes(
+  nodes: GNode[],
+  edges: GEdge[],
+  hidden: Set<string>,
+  centerId?: string,
+): { nodes: GNode[]; edges: GEdge[] } {
+  if (hidden.size === 0) return { nodes, edges };
+  const visible = nodes.filter((n) => n.id === centerId || !hidden.has(n.type));
+  if (visible.length === nodes.length) return { nodes, edges };
+  const ids = new Set(visible.map((n) => n.id));
+  return {
+    nodes: visible,
+    edges: edges.filter((e) => ids.has(e.source) && ids.has(e.target)),
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Custom node data                                                   */
 /* ------------------------------------------------------------------ */
@@ -178,6 +221,19 @@ export interface LdvEdgeData {
    *  severed by the transformation. Rendered in the error colour. */
   severed?: boolean;
   description?: string;
+  /**
+   * Aggregate mode: how many relations this one connector stands for. Unset on
+   * an ordinary line. Rendered as its own span beside the verb rather than
+   * baked into `relLabel`, so the label's length cap can never swallow it and
+   * hiding the verbs still leaves the count.
+   */
+  count?: number;
+  /**
+   * The card-level endpoints behind this line — one pair on an ordinary line,
+   * every merged relation on an aggregate connector. What hover reads to light
+   * up exactly the cards a connector stands for, and what its tooltip lists.
+   */
+  members?: { source: string; target: string }[];
   connectedToHovered?: boolean;
   isHovered?: boolean;
   highlightMode?: boolean;
@@ -222,412 +278,6 @@ export function stripEdgeLabels(edges: Edge[]): Edge[] {
   });
 }
 
-
-/* ------------------------------------------------------------------ */
-/*  Constants                                                          */
-/* ------------------------------------------------------------------ */
-
-const CATEGORY_ORDER = [
-  "Strategy & Transformation",
-  "Business Architecture",
-  "Application & Data",
-  "Technical Architecture",
-];
-
-const CATEGORY_COLORS: Record<string, string> = LAYER_COLORS;
-
-/** Padding inside each group boundary */
-const PAD = 30;
-/** Extra empty space inside each layer box so cards can be dragged/rearranged
- *  within their layer (they are clamped to the box via extent: "parent"). */
-const DRAG_ROOM = 56;
-/** Height reserved for the category label at top of group */
-const LABEL_H = 32;
-/** Vertical gap between stacked category groups */
-const GROUP_GAP = 72;
-/** Max nodes per row when a category has many nodes with no intra-group edges */
-const MAX_COLS = 3;
-
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
-
-function typeColor(key: string, types: CardType[]): string {
-  return types.find((t) => t.key === key)?.color || "#999";
-}
-
-function typeLabel(key: string, types: CardType[]): string {
-  return types.find((t) => t.key === key)?.label || key;
-}
-
-function typeIcon(key: string, types: CardType[]): string {
-  return types.find((t) => t.key === key)?.icon || "category";
-}
-
-function typeCategory(key: string, types: CardType[]): string {
-  return types.find((t) => t.key === key)?.category || "Other";
-}
-
-/* ------------------------------------------------------------------ */
-/*  Layout one category group using dagre                              */
-/* ------------------------------------------------------------------ */
-
-interface PositionedNode {
-  id: string;
-  x: number;
-  y: number;
-}
-
-function layoutGroup(
-  catNodes: GNode[],
-  intraEdges: GEdge[],
-): { positioned: PositionedNode[]; width: number; height: number; hGap: number } {
-  if (catNodes.length === 0) return { positioned: [], width: 0, height: 0, hGap: 40 };
-
-  const nodeIds = new Set(catNodes.map((n) => n.id));
-
-  // Filter edges to only intra-group ones
-  const edges = intraEdges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
-
-  if (edges.length > 0) {
-    // Use dagre for connected nodes
-    const g = new dagre.graphlib.Graph();
-    g.setGraph({
-      rankdir: "TB",
-      ranksep: 90,
-      nodesep: 50,
-      marginx: 0,
-      marginy: 0,
-    });
-    g.setDefaultEdgeLabel(() => ({}));
-
-    for (const n of catNodes) {
-      g.setNode(n.id, { width: LDV_NODE_W, height: LDV_NODE_H });
-    }
-    for (const e of edges) {
-      g.setEdge(e.source, e.target);
-    }
-
-    dagre.layout(g);
-
-    const positioned: PositionedNode[] = [];
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-
-    for (const n of catNodes) {
-      const pos = g.node(n.id);
-      if (!pos) continue;
-      const x = pos.x - LDV_NODE_W / 2;
-      const y = pos.y - LDV_NODE_H / 2;
-      positioned.push({ id: n.id, x, y });
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x + LDV_NODE_W);
-      maxY = Math.max(maxY, y + LDV_NODE_H);
-    }
-
-    // Normalize to origin
-    for (const p of positioned) {
-      p.x -= minX;
-      p.y -= minY;
-    }
-
-    return {
-      positioned,
-      width: maxX - minX,
-      height: maxY - minY,
-      hGap: 50, // dagre nodesep
-    };
-  }
-
-  // No intra-group edges: grid layout
-  const cols = Math.min(catNodes.length, MAX_COLS);
-  const hGap = 40;
-  const vGap = 30;
-  const positioned: PositionedNode[] = catNodes.map((n, i) => ({
-    id: n.id,
-    x: (i % cols) * (LDV_NODE_W + hGap),
-    y: Math.floor(i / cols) * (LDV_NODE_H + vGap),
-  }));
-
-  const rows = Math.ceil(catNodes.length / cols);
-  return {
-    positioned,
-    width: cols * LDV_NODE_W + (cols - 1) * hGap,
-    height: rows * LDV_NODE_H + (rows - 1) * vGap,
-    hGap,
-  };
-}
-
-/* ------------------------------------------------------------------ */
-/*  Cross-lane horizontal alignment                                    */
-/* ------------------------------------------------------------------ */
-
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
-
-/**
- * Place one row's nodes by the Sugiyama priority method (the coordinate
- * refinement DrawIO's hierarchical layout uses): the left-to-right sequence
- * is fixed by desired x, but nodes are POSITIONED in descending degree order,
- * so a well-connected hub claims its exact column and sparsely connected
- * nodes yield around it. Already-placed (higher-priority) nodes act as walls
- * at minSep × sequence distance.
- */
-function placeRowByPriority(
-  row: string[],
-  desired: Map<string, number>,
-  centerX: Map<string, number>,
-  minSep: number,
-  degree: Map<string, number>,
-): void {
-  const entries = row
-    .map((id) => ({ id, d: desired.get(id)! }))
-    .sort((a, b) => a.d - b.d || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  const nRow = entries.length;
-  const xs = new Array<number>(nRow).fill(NaN);
-  const order = entries
-    .map((e, seq) => ({ seq, deg: degree.get(e.id) ?? 0, d: e.d, id: e.id }))
-    .sort((a, b) => b.deg - a.deg || a.d - b.d || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  for (const o of order) {
-    let leftWall = -Infinity;
-    let rightWall = Infinity;
-    for (let s = o.seq - 1; s >= 0; s--) {
-      if (!Number.isNaN(xs[s])) {
-        leftWall = xs[s] + minSep * (o.seq - s);
-        break;
-      }
-    }
-    for (let s = o.seq + 1; s < nRow; s++) {
-      if (!Number.isNaN(xs[s])) {
-        rightWall = xs[s] - minSep * (s - o.seq);
-        break;
-      }
-    }
-    xs[o.seq] = leftWall > rightWall ? leftWall : Math.min(Math.max(o.d, leftWall), rightWall);
-  }
-  // The walls already guarantee separation except when they conflicted;
-  // one left-to-right sweep restores feasibility deterministically.
-  for (let i = 1; i < nRow; i++) {
-    if (xs[i] < xs[i - 1] + minSep) xs[i] = xs[i - 1] + minSep;
-  }
-  for (let i = 0; i < nRow; i++) centerX.set(entries[i].id, xs[i]);
-}
-
-/**
- * DrawIO-style transpose refinement: adjacent nodes in a row swap positions
- * whenever exchanging them strictly reduces the number of straight-line
- * crossings among the edges incident to the pair. Median placement provably
- * misses swaps a direct crossing count catches. Above-side and below-side
- * edges are counted independently — edges leaving opposite sides of a row
- * cannot cross each other — and swapping exchanges the two x positions, so
- * the row's position multiset (and its minimum separation) is untouched.
- * Crossings with third nodes' edges depend only on left-right order, which a
- * pairwise swap preserves, so each accepted swap strictly reduces the global
- * crossing count and the pass terminates.
- *
- * Exported for unit tests.
- */
-export function transposeRow(
-  row: string[],
-  centerX: Map<string, number>,
-  neighborXs: (id: string) => { above: number[]; below: number[] },
-): void {
-  if (row.length < 2) return;
-  const inversions = (leftId: string, rightId: string): number => {
-    const l = neighborXs(leftId);
-    const r = neighborXs(rightId);
-    let c = 0;
-    for (const side of ["above", "below"] as const) {
-      for (const xa of l[side]) for (const xb of r[side]) if (xa > xb) c++;
-    }
-    return c;
-  };
-  const ordered = [...row].sort(
-    (a, b) => centerX.get(a)! - centerX.get(b)! || (a < b ? -1 : 1),
-  );
-  for (let pass = 0; pass < ordered.length; pass++) {
-    let improved = false;
-    for (let k = 0; k + 1 < ordered.length; k++) {
-      const u = ordered[k];
-      const v = ordered[k + 1];
-      if (inversions(v, u) < inversions(u, v)) {
-        const xu = centerX.get(u)!;
-        centerX.set(u, centerX.get(v)!);
-        centerX.set(v, xu);
-        ordered[k] = v;
-        ordered[k + 1] = u;
-        improved = true;
-      }
-    }
-    if (!improved) break;
-  }
-}
-
-export interface LaneForAlign {
-  /** Lane-local node positions (top-left corners, origin-normalised). */
-  positioned: PositionedNode[];
-  /** Minimum horizontal gap this lane's layout used (dagre nodesep or grid gap). */
-  hGap: number;
-}
-
-export interface AlignedLane {
-  /** Updated lane-local positions (origin-normalised again). */
-  positioned: PositionedNode[];
-  /** New content width of the lane. */
-  innerW: number;
-  /** Global x of the lane's group box (min across lanes normalised to 0). */
-  offsetX: number;
-}
-
-/**
- * Median/barycenter x-alignment across lanes. The per-lane layouts are blind
- * to cross-lane edges, so two connected cards in adjacent lanes routinely end
- * up horizontally far apart and their edge runs as a long diagonal. This
- * post-pass sweeps the lane stack (down, up, down) nudging every card's x
- * toward the median x of its neighbours — cross-lane neighbours in the lanes
- * already visited by the sweep plus intra-lane neighbours — then resolves
- * overlaps within each row deterministically. Rows and lane heights are
- * frozen: only x moves.
- *
- * Exported for unit tests; buildLdvFlow calls it whenever cross-lane edges
- * exist (and keeps the historical centred placement otherwise).
- */
-export function alignLanesX(
-  lanes: LaneForAlign[],
-  crossEdges: { source: string; target: string }[],
-  intraEdges: { source: string; target: string }[],
-): AlignedLane[] {
-  const laneIdxOf = new Map<string, number>();
-  lanes.forEach((lane, li) => {
-    for (const p of lane.positioned) laneIdxOf.set(p.id, li);
-  });
-
-  // Initial global center x: replicate the historical centred placement so a
-  // node with no neighbours keeps exactly the position it had before.
-  const innerWs = lanes.map((lane) =>
-    lane.positioned.length ? Math.max(...lane.positioned.map((p) => p.x)) + LDV_NODE_W : 0,
-  );
-  const groupWs = innerWs.map((w) => w + 2 * PAD + DRAG_ROOM);
-  const maxGroupW = Math.max(...groupWs, 0);
-  const centerX = new Map<string, number>();
-  lanes.forEach((lane, li) => {
-    const gx = Math.round((maxGroupW - groupWs[li]) / 2);
-    for (const p of lane.positioned) centerX.set(p.id, gx + p.x + LDV_NODE_W / 2);
-  });
-
-  // Adjacency (multi-edges weight the median naturally by appearing twice)
-  const crossNb = new Map<string, string[]>();
-  const intraNb = new Map<string, string[]>();
-  const addNb = (map: Map<string, string[]>, a: string, b: string) => {
-    if (!map.has(a)) map.set(a, []);
-    map.get(a)!.push(b);
-  };
-  for (const e of crossEdges) {
-    if (!laneIdxOf.has(e.source) || !laneIdxOf.has(e.target)) continue;
-    addNb(crossNb, e.source, e.target);
-    addNb(crossNb, e.target, e.source);
-  }
-  for (const e of intraEdges) {
-    if (!laneIdxOf.has(e.source) || !laneIdxOf.has(e.target)) continue;
-    addNb(intraNb, e.source, e.target);
-    addNb(intraNb, e.target, e.source);
-  }
-
-  // Rows per lane, bucketed by (rounded) y — row membership is frozen.
-  const rowsPerLane = lanes.map((lane) => {
-    const byY = new Map<number, string[]>();
-    for (const p of lane.positioned) {
-      const y = Math.round(p.y);
-      if (!byY.has(y)) byY.set(y, []);
-      byY.get(y)!.push(p.id);
-    }
-    return [...byY.entries()].sort((a, b) => a[0] - b[0]).map(([, ids]) => ids);
-  });
-
-  // Degree (total pull count) drives priority placement; the level index
-  // (lane, row) splits each node's neighbours into above/below sets for the
-  // transpose crossing counts.
-  const degree = new Map<string, number>();
-  for (const [id, list] of crossNb) degree.set(id, (degree.get(id) ?? 0) + list.length);
-  for (const [id, list] of intraNb) degree.set(id, (degree.get(id) ?? 0) + list.length);
-
-  const levelOf = new Map<string, number>();
-  lanes.forEach((lane, li) => {
-    for (const p of lane.positioned) levelOf.set(p.id, li * 1e7 + Math.round(p.y));
-  });
-  const neighborXs = (id: string): { above: number[]; below: number[] } => {
-    const above: number[] = [];
-    const below: number[] = [];
-    const own = levelOf.get(id)!;
-    for (const map of [crossNb, intraNb]) {
-      for (const o of map.get(id) ?? []) {
-        const lv = levelOf.get(o);
-        // Same-level neighbours (side-handle edges) are crossing-neutral.
-        if (lv === undefined || lv === own) continue;
-        (lv < own ? above : below).push(centerX.get(o)!);
-      }
-    }
-    return { above, below };
-  };
-
-  const sweeps: ("down" | "up")[] = ["down", "up", "down"];
-  for (const dir of sweeps) {
-    const order = lanes.map((_, li) => li);
-    if (dir === "up") order.reverse();
-    for (const li of order) {
-      // Desired x per node, from a snapshot so intra-lane order of evaluation
-      // cannot influence the result.
-      const desired = new Map<string, number>();
-      for (const p of lanes[li].positioned) {
-        const nb: number[] = [];
-        for (const o of crossNb.get(p.id) ?? []) {
-          const oi = laneIdxOf.get(o)!;
-          // Only lanes the sweep has already visited pull on this one —
-          // sweeping both directions covers the rest without oscillation.
-          if (dir === "down" ? oi < li : oi > li) nb.push(centerX.get(o)!);
-        }
-        for (const o of intraNb.get(p.id) ?? []) nb.push(centerX.get(o)!);
-        desired.set(p.id, nb.length > 0 ? median(nb) : centerX.get(p.id)!);
-      }
-
-      // Resolve each row by the priority method (sequence fixed by desired
-      // x, hubs claim their exact column, leaves yield), then run the
-      // transpose crossing-reduction pass on it.
-      const minSep = LDV_NODE_W + lanes[li].hGap;
-      for (const row of rowsPerLane[li]) {
-        placeRowByPriority(row, desired, centerX, minSep, degree);
-        transposeRow(row, centerX, neighborXs);
-      }
-    }
-  }
-
-  // Re-express as lane-local positions + a global lane offset, with the
-  // leftmost lane box normalised to x = 0.
-  const laneLefts = lanes.map((lane) =>
-    lane.positioned.length
-      ? Math.min(...lane.positioned.map((p) => centerX.get(p.id)! - LDV_NODE_W / 2))
-      : 0,
-  );
-  const minBoxX = Math.min(...laneLefts.map((left) => left - PAD));
-  return lanes.map((lane, li) => {
-    const left = laneLefts[li];
-    const positioned = lane.positioned.map((p) => ({
-      id: p.id,
-      x: centerX.get(p.id)! - LDV_NODE_W / 2 - left,
-      y: p.y,
-    }));
-    const innerW = lane.positioned.length
-      ? Math.max(...positioned.map((p) => p.x)) + LDV_NODE_W
-      : 0;
-    return { positioned, innerW, offsetX: left - PAD - minBoxX };
-  });
-}
 
 /* ------------------------------------------------------------------ */
 /*  Build React Flow nodes + edges with per-group layout               */
@@ -857,12 +507,6 @@ export function buildLdvFlow(
   // Note the dependency TREE deliberately does the opposite (see
   // `dependencyAdjacency.ts`): it renders one child per neighbouring *card*, so
   // joining the verbs there is structural, not a stylistic choice.
-  type FlowDir = "bidirectional" | "forward" | "reverse";
-  const readFlowDir = (attrs: Record<string, unknown> | undefined): FlowDir | undefined => {
-    const v = attrs?.flowDirection;
-    return v === "bidirectional" || v === "forward" || v === "reverse" ? v : undefined;
-  };
-
   const seen = new Set<string>();
   const dedupedEdges: typeof validEdges = [];
   for (const e of validEdges) {
@@ -999,3 +643,30 @@ export function buildLdvFlow(
 
   return { nodes: rfNodes, edges: rfEdges };
 }
+
+/* ------------------------------------------------------------------ */
+/*  Aggregate mode                                                     */
+/* ------------------------------------------------------------------ */
+
+// Re-exported so every consumer — the view, its tests and the `loadDependencyView`
+// module namespace extensions receive — reaches the aggregate layout through the
+// same module as the plain one.
+export {
+  buildLdvAggregateFlow,
+  LDV_AGGREGATE_LEVELS,
+  CL_PAD,
+  CL_HEADER_H,
+  type LdvAggregateBy,
+  type LdvAggregateFlow,
+  type LdvClusterData,
+} from "./ldvAggregate";
+
+// Moved into `ldvLayoutShared.ts` so the aggregate builder can align its boxes
+// with the very same pass; re-exported here because this module is the public
+// face of the layout engine, and what `loadDependencyView` hands extensions.
+export {
+  alignLanesX,
+  transposeRow,
+  type LaneForAlign,
+  type AlignedLane,
+} from "./ldvLayoutShared";

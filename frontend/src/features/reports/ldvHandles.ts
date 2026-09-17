@@ -70,21 +70,40 @@ export const LDV_HANDLE_SPECS: LdvHandleSpec[] = [
 
 const SPEC_BY_ID = new Map(LDV_HANDLE_SPECS.map((s) => [s.id, s]));
 
-/** Offset of a handle from the node's center, in canvas pixels. */
-export function handleOffset(id: string): { dx: number; dy: number } {
+/** How big a node is. A card is `CARD_SIZE`; an aggregate box is its own. */
+export interface NodeSize {
+  w: number;
+  h: number;
+}
+
+export const CARD_SIZE: NodeSize = { w: LDV_NODE_W, h: LDV_NODE_H };
+
+/**
+ * Where a node's handles are, given its size.
+ *
+ * Aggregate mode draws boxes of related cards and routes between them with the
+ * very same engine, so everything downstream of "which handle" has to be able
+ * to ask how big *this* node is instead of assuming a card. Every existing
+ * caller omits the argument and gets the card geometry unchanged.
+ */
+export function handleOffset(id: string, size: NodeSize = CARD_SIZE): { dx: number; dy: number } {
   const spec = SPEC_BY_ID.get(id);
   if (!spec) return { dx: 0, dy: 0 };
   switch (spec.side) {
     case "top":
-      return { dx: (spec.frac - 0.5) * LDV_NODE_W, dy: -LDV_NODE_H / 2 };
+      return { dx: (spec.frac - 0.5) * size.w, dy: -size.h / 2 };
     case "bottom":
-      return { dx: (spec.frac - 0.5) * LDV_NODE_W, dy: LDV_NODE_H / 2 };
+      return { dx: (spec.frac - 0.5) * size.w, dy: size.h / 2 };
     case "left":
-      return { dx: -LDV_NODE_W / 2, dy: (spec.frac - 0.5) * LDV_NODE_H };
+      return { dx: -size.w / 2, dy: (spec.frac - 0.5) * size.h };
     case "right":
-      return { dx: LDV_NODE_W / 2, dy: (spec.frac - 0.5) * LDV_NODE_H };
+      return { dx: size.w / 2, dy: (spec.frac - 0.5) * size.h };
   }
 }
+
+/** Size lookup used by the layout and routing engines. Defaults to a card. */
+export type SizeLookup = (id: string) => NodeSize;
+export const cardSizes: SizeLookup = () => CARD_SIZE;
 
 /**
  * A handle's position on the card as {x, y} fractions of the card's box —

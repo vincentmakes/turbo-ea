@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
 import MenuItem from "@mui/material/MenuItem";
@@ -76,22 +77,53 @@ export function ChoiceRow({
   );
 }
 
-/** Pick-many row. */
+/**
+ * Pick-many row.
+ *
+ * `icon` / `iconColor` and `trailing` are optional and unused by the field
+ * rows, which are filed under a `TypeHeading` that already carries the type's
+ * glyph. They exist for a flat list whose rows ARE card types — the Layered
+ * Dependency View's Card types menu — where UI_GUIDELINES §3.11 applies
+ * directly: a card type is never a bare label, and a count belongs beside it.
+ */
 export function CheckRow({
   checked,
   label,
   onToggle,
+  icon,
+  iconColor,
+  trailing,
 }: {
   checked: boolean;
   label: string;
   onToggle: () => void;
+  icon?: string;
+  iconColor?: string;
+  trailing?: ReactNode;
 }) {
   return (
     <MenuItem onClick={onToggle} sx={ROW_SX}>
       <Checkbox size="small" checked={checked} sx={{ p: 0.5, mr: 1 }} />
-      <Typography variant="body2" noWrap>
+      {icon && (
+        <MaterialSymbol
+          icon={icon}
+          size={16}
+          color={iconColor}
+          style={{ marginRight: 6, flexShrink: 0 }}
+        />
+      )}
+      <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>
         {label}
       </Typography>
+      {trailing != null && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ ml: 1.5, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}
+        >
+          {trailing}
+        </Typography>
+      )}
     </MenuItem>
   );
 }

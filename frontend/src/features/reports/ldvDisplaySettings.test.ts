@@ -71,6 +71,48 @@ describe("LDV display settings", () => {
     expect(getLdvSettings().edgeLineStyle).toBe("dashed");
   });
 
+  it("shows every card type by default", async () => {
+    // The filter exists to narrow a view on purpose; an install that never
+    // opens the menu must show the whole landscape.
+    const { LDV_DEFAULT_SETTINGS, getLdvSettings } = await freshStore();
+    expect(LDV_DEFAULT_SETTINGS.hiddenTypeKeys).toEqual([]);
+    expect(getLdvSettings().hiddenTypeKeys).toEqual([]);
+  });
+
+  it("back-fills the hidden card types for a browser that predates them", async () => {
+    localStorage.setItem(KEY, JSON.stringify({ showType: false }));
+    const { getLdvSettings } = await freshStore();
+    expect(getLdvSettings().hiddenTypeKeys).toEqual([]);
+  });
+
+  it("round-trips hidden card types through storage", async () => {
+    const { getLdvSettings, setLdvSettings } = await freshStore();
+    setLdvSettings({ hiddenTypeKeys: ["BusinessCapability"] });
+    expect(getLdvSettings().hiddenTypeKeys).toEqual(["BusinessCapability"]);
+    expect(JSON.parse(localStorage.getItem(KEY)!).hiddenTypeKeys).toEqual(["BusinessCapability"]);
+  });
+
+  it("draws every relation individually by default", async () => {
+    // Aggregating is a deliberate way of reading a dense landscape, not the
+    // starting point: an install that never opens the picker looks as before.
+    const { LDV_DEFAULT_SETTINGS, getLdvSettings } = await freshStore();
+    expect(LDV_DEFAULT_SETTINGS.aggregateBy).toBe("none");
+    expect(getLdvSettings().aggregateBy).toBe("none");
+  });
+
+  it("back-fills the aggregate level for a browser that predates it", async () => {
+    localStorage.setItem(KEY, JSON.stringify({ showType: false }));
+    const { getLdvSettings } = await freshStore();
+    expect(getLdvSettings().aggregateBy).toBe("none");
+  });
+
+  it("round-trips the aggregate level through storage", async () => {
+    const { getLdvSettings, setLdvSettings } = await freshStore();
+    setLdvSettings({ aggregateBy: "subtype" });
+    expect(getLdvSettings().aggregateBy).toBe("subtype");
+    expect(JSON.parse(localStorage.getItem(KEY)!).aggregateBy).toBe("subtype");
+  });
+
   it("round-trips the line style through storage", async () => {
     const { getLdvSettings, setLdvSettings } = await freshStore();
     setLdvSettings({ edgeLineStyle: "solid" });

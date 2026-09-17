@@ -205,6 +205,18 @@ function buttonSelector(...labels: string[]): string {
   return labels.map((l) => `button:has-text("${hasTextArg(l)}")`).join(", ");
 }
 
+/**
+ * Build an aria-label selector chain across locales.
+ *
+ * An icon-only button has no text to match on — MUI stamps its Tooltip's
+ * string title as the child's `aria-label` — and so does a toggle button whose
+ * label is a glyph. Same reason `tabSelector` exists: the label still comes
+ * from the locale files, never hardcoded.
+ */
+function ariaSelector(tag: string, ...labels: string[]): string {
+  return labels.map((l) => `${tag}[aria-label="${hasTextArg(l)}"]`).join(", ");
+}
+
 const TAB_MM_CALCULATIONS = tabSelector(...i18nLabels("admin:metamodel.tabs.calculations"));
 const TAB_MM_TAGS = tabSelector(...i18nLabels("admin:metamodel.tabs.tags"));
 // The card-type drawer's Permissions tab (per-card-type RBAC, discussion #1068).
@@ -513,6 +525,51 @@ export const DOC_PAGES: PageDef[] = [
       pt: "13b_dependencias_c4",
       zh: "13b_dependencies_c4",
       ru: "13b_zavisimosti_c4",
+    },
+  },
+
+  {
+    id: "13c_dependencies_aggregate",
+    route: "/reports/dependencies",
+    waitFor: "[value='c4']",
+    // Same path into the Layered Dependency View as 13b, then aggregate the
+    // relations so the shot shows the boxes-and-counts reading of the same
+    // landscape (discussion #1117).
+    actions: [
+      { type: "click", selector: "[value='c4']" },
+      { type: "wait", ms: 800 },
+      { type: "type", selector: "input[role='combobox']", text: "SAP S/4HANA" },
+      { type: "wait", ms: 700 },
+      { type: "click", selector: "[role='option']" },
+      { type: "wait", ms: 2500 },
+      // View options → Aggregate relations → By card type. Both controls are
+      // reached by aria-label: the first is an icon button, the second a
+      // toggle button inside the popover.
+      {
+        type: "click",
+        selector: ariaSelector("button", ...i18nLabels("reports:dependency.viewSettings")),
+      },
+      { type: "wait", ms: 400 },
+      {
+        type: "click",
+        selector: ariaSelector("button", ...i18nLabels("reports:dependency.aggregateBy_type")),
+      },
+      { type: "wait", ms: 400 },
+      // Close the popover so it does not sit over the diagram. There is no
+      // key-press action, so click its backdrop.
+      { type: "click", selector: ".MuiPopover-root .MuiBackdrop-root" },
+      // React Flow re-lays out and re-fits after the switch; let it settle.
+      { type: "wait", ms: 2500 },
+    ],
+    filenames: {
+      en: "13c_dependencies_aggregate",
+      de: "13c_abhaengigkeiten_aggregiert",
+      fr: "13c_dependances_agregees",
+      es: "13c_dependencias_agregadas",
+      it: "13c_dipendenze_aggregate",
+      pt: "13c_dependencias_agregadas",
+      zh: "13c_dependencies_aggregate",
+      ru: "13c_zavisimosti_agregirovannye",
     },
   },
 

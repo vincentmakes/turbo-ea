@@ -3,6 +3,7 @@ import {
   buildLdvFlow,
   relationValueSuffix,
   filterEndOfLifeNodes,
+  filterHiddenTypes,
   resolveRevealIds,
   stripEdgeLabels,
   transposeRow,
@@ -909,5 +910,69 @@ describe("several relation types between the same pair", () => {
     );
     expect(lines).toHaveLength(1);
     expect((lines[0].data as { relLabel: string }).relLabel).toBe("uses");
+  });
+});
+
+describe("filterHiddenTypes", () => {
+  const nodes: GNode[] = [
+    { id: "app", name: "App", type: "Application" },
+    { id: "cap", name: "Capability", type: "BusinessCapability" },
+    { id: "itc", name: "Component", type: "ITComponent" },
+  ];
+  const edges: GEdge[] = [
+    { source: "app", target: "cap", type: "relAppToBC" },
+    { source: "app", target: "itc", type: "relAppToITC" },
+  ];
+
+  it("drops a hidden type's cards and every relation touching them", () => {
+    const result = filterHiddenTypes(nodes, edges, new Set(["BusinessCapability"]));
+    expect(result.nodes.map((n) => n.id)).toEqual(["app", "itc"]);
+    expect(result.edges.map((e) => e.type)).toEqual(["relAppToITC"]);
+  });
+
+  it("keeps the centred card even when its own type is hidden", () => {
+    // The centre is the subject of the diagram, not one of its neighbours —
+    // hiding it would leave the view with nothing to be centred on.
+    const result = filterHiddenTypes(nodes, edges, new Set(["Application"]), "app");
+    expect(result.nodes.map((n) => n.id).sort()).toEqual(["app", "cap", "itc"]);
+    expect(result.edges).toHaveLength(2);
+  });
+
+  it("hides several types at once", () => {
+    const result = filterHiddenTypes(
+      nodes,
+      edges,
+      new Set(["BusinessCapability", "ITComponent"]),
+    );
+    expect(result.nodes.map((n) => n.id)).toEqual(["app"]);
+    expect(result.edges).toHaveLength(0);
+  });
+
+  it("returns the very same arrays when nothing is hidden", () => {
+    // The view feeds this straight into its layout memos: a fresh array every
+    // render would rebuild the whole graph for nothing.
+    const result = filterHiddenTypes(nodes, edges, new Set());
+    expect(result.nodes).toBe(nodes);
+    expect(result.edges).toBe(edges);
+  });
+
+  it("returns the very same arrays when the hidden types are not on the view", () => {
+    const result = filterHiddenTypes(nodes, edges, new Set(["Provider"]));
+    expect(result.nodes).toBe(nodes);
+    expect(result.edges).toBe(edges);
+  });
+});
+
+describe("stripEdgeLabels with aggregate connectors", () => {
+  it("clears the verb but keeps the count a merged connector stands for", () => {
+    // With the verbs hidden, the count is all an aggregate line has left to
+    // say — and it rides on `count`, not inside `relLabel`, precisely so that
+    // hiding the labels cannot take it away.
+    const edges = [
+      { id: "e1", source: "a", target: "b", data: { relLabel: "uses", count: 4 } },
+    ] as unknown as Parameters<typeof stripEdgeLabels>[0];
+    const [stripped] = stripEdgeLabels(edges);
+    expect((stripped.data as { relLabel: string; count: number }).relLabel).toBe("");
+    expect((stripped.data as { relLabel: string; count: number }).count).toBe(4);
   });
 });

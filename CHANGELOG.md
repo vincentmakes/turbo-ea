@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.144.0] - 2026-09-17
+
+### Added
+
+- **Aggregate relations on the Layered Dependency View — see the shape of the landscape, not every line.** On a busy diagram each relation drawn separately hides the very thing the reader is looking for ([#1117](https://github.com/vincentmakes/turbo-ea/discussions/1117)). **View options → Aggregate relations** now groups the related cards into boxes and draws a single connector between any two boxes, labelled with how many relations it stands for. You choose what the boxes are: **by layer**, **by card type** — one box per type, headed *Applications (8)* — or **by subtype**. The card you are centered on stays on its own, so a single card's place in the landscape reads at a glance; relations between two cards of the same box stay drawn inside it; and hovering a connector lists every relation it merged, with its verb, while hovering a card lights up only its own. Available everywhere the view is — the Dependencies report, a card's Dependencies section and the TurboLens architect — and remembered between visits.
+- **Choose which card types a dependency diagram shows.** A new **Card types** button in the view's toolbar lists every card type on the diagram with its own icon and how many cards of it are there; untick one to take its cards, and every relation touching them, off the view. Reading how applications depend on IT components no longer means reading past the capabilities that come with them. A badge counts what is hidden, a hidden type stays in the list so it can be brought back, **Show all** restores everything at once, and the card you are centered on is always shown whatever its type.
+
+### Fixed
+
+- **A relation's description now shows when you hover its line** on the Layered Dependency View. It was stored and never displayed.
+
 ## [2.143.0] - 2026-09-17
 
 ### Added

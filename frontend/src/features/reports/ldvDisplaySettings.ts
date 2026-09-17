@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import type { CardLabelSettings } from "@/lib/cardDisplayFields";
 import type { LdvEdgeLineStyle } from "./ldvLineStyle";
+import type { LdvAggregateBy } from "./ldvAggregate";
 
 /**
  * Shared, persisted display settings for the Layered Dependency View.
@@ -34,11 +35,24 @@ export interface LdvDisplaySettings {
   showCardLogos: boolean;
   /** Show related cards whose current lifecycle phase is End of Life. The centered card is always shown. */
   showEndOfLife: boolean;
+  /**
+   * Card-type keys the reader has unticked in the Card types menu. Their cards
+   * — and every relation touching them — are taken off the view. The card the
+   * view is centred on is always kept, whatever its type: it is the subject of
+   * the diagram, not one of its neighbours.
+   */
+  hiddenTypeKeys: string[];
   /** Show the verb on each relation edge ("supports", "uses", …). Off leaves
    *  the line and its arrowhead, which still carry the direction. */
   showRelationLabels: boolean;
   /** Append a relation's single-select attribute value to its label (e.g. "supports [Leading]"). */
   showRelationValues: boolean;
+  /**
+   * What the related cards are grouped into, and whether the lines between
+   * those groups are merged into one connector per relation type carrying its
+   * count. `"none"` is the plain card-per-node view.
+   */
+  aggregateBy: LdvAggregateBy;
   /** Idle look of a relation line. Hover and severed keep their own styles. */
   edgeLineStyle: LdvEdgeLineStyle;
   extraFields: string[];
@@ -56,8 +70,10 @@ export const LDV_DEFAULT_SETTINGS: LdvDisplaySettings = {
   showHierarchyMarkers: true,
   showCardLogos: true,
   showEndOfLife: false,
+  hiddenTypeKeys: [],
   showRelationLabels: true,
   showRelationValues: true,
+  aggregateBy: "none",
   edgeLineStyle: "dashed",
   extraFields: [],
   background: "dots",
