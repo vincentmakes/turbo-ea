@@ -150,7 +150,7 @@ async def _refresh_initiative_derived(
 
     Tasks, work packages, risks and status reports all feed the ``ppm`` formula
     root (``ppm.completion``, ``ppm.tasksOverdue``, ``ppm.scheduleHealth`` …),
-    yet until 2.141.0 only budget and cost lines re-ran the card's
+    yet until 2.142.0 only budget and cost lines re-ran the card's
     calculations — a calculated progress field went stale the moment a task
     was marked done. Called after the mutation's own commit, like the cost
     sync, and commits its own writes.

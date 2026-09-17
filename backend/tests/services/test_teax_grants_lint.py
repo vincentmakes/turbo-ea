@@ -93,7 +93,7 @@ class TestTeaxGrantsLint:
     def test_field_type_constants_mirror_backend(self, teax):
         # A contributed field's type must be built-in or ext.{key}.*; teax and
         # bundle.py each hold the built-in list, so a type added to one (the
-        # 2.141.0 `percentage`) and not the other would lint clean and fail
+        # 2.142.0 `percentage`) and not the other would lint clean and fail
         # verify on the customer's instance.
         assert set(teax.BUILTIN_FIELD_TYPES) == set(BACKEND_FIELD_TYPES)
 

@@ -4,7 +4,7 @@
  *
  * The card-list portal, the inventory grid and the Data Quality report each
  * drew their own `LinearProgress` + caption for the data-quality score, and
- * the `percentage` field type (2.141.0, #1111) needed the same picture again
+ * the `percentage` field type (2.142.0, #1111) needed the same picture again
  * on card detail, in the grid and in portals. One leaf component keeps the
  * geometry identical everywhere; the *colour* stays the caller's — data
  * quality passes its band colour, a plain percentage field passes nothing and

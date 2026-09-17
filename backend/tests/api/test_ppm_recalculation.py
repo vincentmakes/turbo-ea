@@ -1,6 +1,6 @@
 """A PPM edit re-runs the Initiative's calculations (#1111).
 
-Until 2.141.0 only budget and cost lines did; a calculated ``progress`` field
+Until 2.142.0 only budget and cost lines did; a calculated ``progress`` field
 over ``ppm.completion`` went stale the moment a task was marked done, a work
 package edited, a risk raised or a status report filed. Each mutation now
 refreshes the card the way the cost sync always has — and, because the card
