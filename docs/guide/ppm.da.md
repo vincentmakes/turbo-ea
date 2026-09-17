@@ -117,7 +117,7 @@ Opgavestyringen understøtter både **Kanban-tavle**- og **liste**-visninger med
 - **Done** — Fuldførte opgaver
 - **Blocked** — Opgaver der ikke kan fortsætte
 
-Opgaver kan filtreres og grupperes efter Work Breakdown Structure (WBS)-element. Træk og slip kort mellem kolonner for at opdatere status. Hver opgave understøtter:
+Opgaver kan filtreres og grupperes efter Work Breakdown Structure (WBS)-element. Ved gruppering vises hver arbejdspakke som en gruppe — også en, der endnu ikke indeholder opgaver; den viser et hint og en **Tilføj opgave**-knap, som åbner opgavedialogen med den pakke forvalgt. Milepæle vises først, når de indeholder en opgave. Træk og slip kort mellem kolonner for at opdatere status. Hver opgave understøtter:
 
 - Prioritetsniveauer (Critical, High, Medium, Low)
 - Tildelt (med notifikation ved tildeling)
@@ -136,7 +136,7 @@ Gantt-diagrammet visualiserer projekttidslinjen med:
 - **Arbejdspakker (WBS)** — Hierarkiske arbejdsbrydningsstruktur-elementer med start-/slutdatoer
 - **Opgaver** — Individuelle opgavebjælker linket til arbejdspakker
 - **Milepæle** — Nøgledatoer markeret med diamant-indikatorer
-- **Fremgangsbjælker** — Visuel fuldførelsesprocent. Klik på procent-chippen på en opgave eller blad-arbejdspakke for at åbne en skyder, der snapper til **0%, 50% eller 100%** — matchende de tre opgavetilstande (To Do, In Progress, Done). Forældre-arbejdspakker med børn viser en skrivebeskyttet chip, hvis værdi rulles automatisk op fra undertræet.
+- **Fremgangsbjælker** — Visuel fuldførelsesprocent. En opgave har ingen procent i sig selv: dens fyld følger dens status — **To Do (0%)**, **In Progress (50%)**, **Done (100%)**. Klik på procent-chippen på en opgave for at åbne en skyder, hvis tre stop er mærket med disse tilstande; vælger du et stop, ændres status, og det samme sker, når du trækker i fyldet på opgavens bjælke. En blad-arbejdspakke har en fri skyder i trin af 5%. Arbejdspakker med underordnede arbejdspakker **eller opgaver** viser en skrivebeskyttet chip, hvis værdi rulles automatisk op fra undertræet.
 - **Kvartals-mærker** — Tidslinjegitter til orientering
 
 Interager med Gantt-diagrammet ved hjælp af:
@@ -148,6 +148,7 @@ Interager med Gantt-diagrammet ved hjælp af:
 - **View scale-vælger** — vælg mellem Day, Week, Month, Quarter og Year-skalaer; valget huskes i din browser
 - **Zoom ind / Zoom ud-knapper** — gå gennem de samme fem skalaer ét hak ad gangen
 - **Træk prikken på højre kant af én bjælke over på prikken på venstre kant af en anden** for at oprette en finish-to-start-afhængighedspil. Afhængigheder virker mellem enhver kombination af arbejdspakker og opgaver. Cyklusser afvises automatisk. **Dobbeltklik på en pil** for at fjerne den.
+- **+-rækken** nederst på listen spørger, hvad der skal oprettes — en arbejdspakke, en milepæl eller en opgave — så en opgave, der indtastes dér, havner på Tasks-fanen.
 
 ### Card Details-fane
 
@@ -160,7 +161,7 @@ WBS'en tilbyder en hierarkisk nedbrydning af projektets scope:
 - **Arbejdspakker** — Logiske grupperinger af opgaver med start-/slutdatoer og fuldførelses­sporing
 - **Milepæle** — Betydelige hændelser eller fuldførelsespunkter
 - **Hierarki** — Forældre-barn-relationer mellem WBS-elementer
-- **Auto-fuldførelse** — Fuldførelsesprocent beregnes automatisk fra barn-opgavers udført/total-forhold, hvorefter den rulles rekursivt op gennem WBS-hierarkiet til forældre-elementer. Topniveau-fuldførelse repræsenterer det samlede initiativ-fremskridt
+- **Auto-fuldførelse** — Fuldførelse beregnes automatisk ud fra opgaverne i en arbejdspakkes undertræ: hver opgave tæller som 0% (To Do, Blocked), 50% (In Progress) eller 100% (Done), vægtet efter dens varighed i dage (én dag, når en dato mangler), hvorefter den rulles rekursivt op til forældre-elementer. En arbejdspakke uden opgaver noget sted under sig beholder den værdi, der er indtastet manuelt. Gennemsnittet af arbejdspakkerne på øverste niveau er initiativets samlede fremdrift — tallet på Overview-fanen og variablen `ppm.completion`, som et [beregnet felt](../admin/calculations.md#ppm-data-on-initiative-cards) kan vise på kortet og i en portal
 
 ## Kortdetalje-integration
 

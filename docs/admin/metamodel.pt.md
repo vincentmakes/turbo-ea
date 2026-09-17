@@ -52,7 +52,7 @@ Campos definem os atributos personalizados disponíveis nos cards deste tipo. Ca
 |--------------|-----------|
 | **Chave** | Identificador único do campo |
 | **Rótulo** | Nome de exibição |
-| **Tipo** | text, multiline_text, number, cost, boolean, date, url, single_select ou multiple_select |
+| **Tipo** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select ou multiple_select. Uma porcentagem é um número de 0 a 100, exibida como uma barra de progresso e editada com um controle deslizante ou digitada com exatidão |
 | **Opções** | Para campos de seleção: as escolhas disponíveis com rótulos e cores opcionais |
 | **Obrigatório** | Se o campo é obrigatório — veja as regras de aplicação abaixo |
 | **Qualidade dos dados** | A contribuição de cada campo para a pontuação é gerida no painel **Qualidade dos dados** (ver abaixo) |

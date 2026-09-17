@@ -158,6 +158,8 @@ Quali colonne/proprietà appaiono nell'elenco delle card:
 - **Proprietà predefinite**: descrizione, ciclo di vita, tag, qualità dei dati, stato di approvazione
 - **Campi personalizzati**: Ogni campo dallo schema del tipo di card può essere attivato/disattivato individualmente
 
+La barra della **qualità dei dati** è il punteggio di completezza della card — quanti dei suoi campi sono compilati — non l'avanzamento del progetto. Per pubblicare l'avanzamento reale di un'Iniziativa, aggiungete al tipo Iniziativa un campo **Percentuale**, alimentatelo con un calcolo su `ppm.completion` e spuntate quel campo qui; la ricetta è in [Calcoli](calculations.md#show-initiative-progress-on-a-card-or-a-portal).
+
 ### Proprietà della vista dettaglio
 
 Quali informazioni appaiono quando un visitatore clicca su una card:

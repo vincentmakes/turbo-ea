@@ -155,6 +155,8 @@ Hvilke kolonner/egenskaber der vises i kortlisten:
 - **Indbyggede egenskaber**: beskrivelse, livscyklus, tags, datakvalitet, godkendelsesstatus
 - **Brugerdefinerede felter**: Hvert felt fra korttypens skema kan slås individuelt til/fra
 
+**Datakvalitets**-bjælken er kortets fuldstændighedsscore — hvor mange af dets felter der er udfyldt — ikke projektets fremdrift. For at udgive et initiativs reelle fremdrift skal du tilføje et **Procent**-felt til Initiative-typen, udfylde det med en beregning over `ppm.completion` og markere feltet her; opskriften står under [Beregninger](calculations.md#show-initiative-progress-on-a-card-or-a-portal).
+
 ### Detaljevisnings-egenskaber
 
 Hvilken information der vises, når en besøgende klikker på et kort:

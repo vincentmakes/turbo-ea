@@ -158,6 +158,8 @@ Welche Spalten/Eigenschaften in der Kartenliste erscheinen:
 - **Eingebaute Eigenschaften**: Beschreibung, Lebenszyklus, Tags, Datenqualität, Genehmigungsstatus
 - **Benutzerdefinierte Felder**: Jedes Feld aus dem Kartentypschema kann einzeln umgeschaltet werden
 
+Der Balken **Datenqualität** ist der Vollständigkeitsgrad der Karte — wie viele ihrer Felder ausgefüllt sind — und nicht der Projektfortschritt. Um den tatsächlichen Fortschritt einer Initiative zu veröffentlichen, fügen Sie dem Typ Initiative ein Feld **Prozentsatz** hinzu, füllen es mit einer Berechnung über `ppm.completion` und haken dieses Feld hier an; die Anleitung steht unter [Berechnungen](calculations.md#show-initiative-progress-on-a-card-or-a-portal).
+
 ### Detailansicht-Eigenschaften
 
 Welche Informationen angezeigt werden, wenn ein Besucher auf eine Karte klickt:

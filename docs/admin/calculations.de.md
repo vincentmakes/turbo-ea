@@ -107,9 +107,9 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 `SUM`, `AVG`, `MIN` und `MAX` überspringen nicht-numerische Einträge bereits von sich aus und
 brauchen keine Absicherung.
 
-### PPM-Daten auf Initiative-Karten
+### PPM-Daten auf Initiative-Karten { #ppm-data-on-initiative-cards }
 
-Die Wurzel `ppm` macht die Budget- und Kostenzeilen des PPM-Moduls für Formeln zugänglich, getrennt nach Capex und Opex und aufgeschlüsselt nach Geschäftsjahr — Detail, das die auf der Karte zusammengefassten Attribute `data.costBudget` / `data.costActual` nicht liefern können.
+Die Wurzel `ppm` macht die Daten des PPM-Moduls für Formeln zugänglich: die Budget- und Kostenzeilen, getrennt nach Capex und Opex und aufgeschlüsselt nach Geschäftsjahr — Detail, das die auf der Karte zusammengefassten Attribute `data.costBudget` / `data.costActual` nicht liefern können — sowie die Umsetzungskennzahlen der Initiative: ihren Gesamtfortschritt, ihre Arbeitspakete, Aufgaben und Risiken und den letzten Statusbericht.
 
 | Variable | Beschreibung |
 |----------|-------------|
@@ -119,6 +119,13 @@ Die Wurzel `ppm` macht die Budget- und Kostenzeilen des PPM-Moduls für Formeln 
 | `ppm.byYear` | Dieselben neun Kennzahlen je Geschäftsjahr, als Liste `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | Das Geschäftsjahr, in das der heutige Tag fällt |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Kostenzeilen ohne Datum: zählen zu den Summen, gehören aber zu keinem Jahr |
+| `ppm.completion` | Gesamtfortschritt in % — der Mittelwert der Arbeitspakete oberster Ebene, genau die Zahl, die der Übersicht-Tab der Initiative anzeigt |
+| `ppm.wbsCount`, `ppm.milestoneCount` | Anzahl der Arbeitspakete und der Meilensteine |
+| `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Anzahl der Aufgaben, insgesamt und je Status |
+| `ppm.tasksOverdue` | Aufgaben, deren Fälligkeitsdatum überschritten ist und die nicht erledigt sind |
+| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | PPM-Risiken: alle, noch offene und der höchste Risikoscore |
+| `ppm.reportCount`, `ppm.reportDate` | Wie viele Statusberichte es gibt, und das Datum des letzten (`None`, solange keiner vorliegt) |
+| `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | Die Gesundheitsindikatoren des letzten Statusberichts: `onTrack`, `atRisk` oder `offTrack` (`None`, solange keiner vorliegt) |
 
 `byYear` ist eine Liste statt eines nach Jahr indizierten Objekts, damit die gewohnten Funktionen `FILTER` und `PLUCK` darauf arbeiten:
 
@@ -131,14 +138,28 @@ SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
 
 # Capex-Budget jeder mit dieser Karte verknüpften Initiative
 SUM(PLUCK(relations.relInitiativeToApp, "ppm.capexBudget"))
+
+# Gesamtfortschritt und ein Umsetzungs-Flag aus dem letzten Statusbericht
+ppm.completion
+IF(ppm.tasksOverdue > 0, "Gefährdet", COALESCE(ppm.scheduleHealth, "Kein Bericht"))
 ```
 
 * **Ein Geschäftsjahr trägt den Namen des Kalenderjahres, in dem es endet.** Bei einem Beginn im Oktober fällt der 15.10.2025 in GJ2026 und der 30.09.2025 in GJ2025. Beim voreingestellten Januar-Beginn entspricht das Geschäftsjahr schlicht dem Kalenderjahr.
 * **Budget- und Kostenzeilen beziehen ihr Jahr aus unterschiedlichen Quellen.** Eine Budgetzeile trägt das Geschäftsjahr, das Sie eingetragen haben; das einer Kostenzeile wird aus ihrem Datum abgeleitet. Benennt Ihre Organisation Geschäftsjahre nach dem *Startjahr*, weichen beide voneinander ab.
 * `total*` ist die Summe aller Zeilen, nicht `capex + opex`. Eine Zeile mit einer anderen Kategorie (etwa aus einem Import) zählt trotzdem zur Summe.
-* Eine Karte, die keine Initiative ist, liest alle `ppm`-Kennzahlen als `0` mit leerem `byYear` — eine Formel auf dem falschen Kartentyp liefert also Null statt zu scheitern.
+* Eine Karte, die keine Initiative ist, liest alle `ppm`-Kennzahlen als `0` mit leerem `byYear` — eine Formel auf dem falschen Kartentyp liefert also Null statt zu scheitern. Die Felder des letzten Berichts liefern `None` statt `0` — «noch kein Bericht» und «auf Kurs» sind zwei verschiedene Sachverhalte —, sichern Sie sie daher mit `COALESCE` ab.
 
-Das Bearbeiten einer PPM-Budget- oder Kostenzeile führt die Berechnungen der Initiative erneut aus, sodass alles daraus Abgeleitete sofort aktuell ist. Karten, die die PPM-Daten einer *anderen* Karte über eine Beziehung lesen, werden nicht aktualisiert.
+Das Bearbeiten einer PPM-Budget- oder Kostenzeile, eines Arbeitspakets, einer Aufgabe, eines Risikos oder eines Statusberichts führt die Berechnungen der Initiative erneut aus, sodass alles daraus Abgeleitete sofort aktuell ist und die Änderung im Historie-Tab der Karte erscheint. Karten, die die PPM-Daten einer *anderen* Karte über eine Beziehung lesen, werden nicht aktualisiert — siehe [Wann Berechnungen ausgeführt werden](#when-calculations-run).
+
+#### Initiativfortschritt auf einer Karte oder in einem Portal anzeigen { #show-initiative-progress-on-a-card-or-a-portal }
+
+Der Fortschritt einer Initiative lebt auf ihrem Übersicht-Tab; Karten und veröffentlichte Portale zeigen immer nur Attribute. So bringen Sie dieselbe Zahl auf die Karte und in ein [Web-Portal](web-portals.md):
+
+1. Fügen Sie unter **Admin → Metamodell** dem Typ Initiative ein Feld vom Typ **Prozentsatz** hinzu — etwa `progress` mit der Bezeichnung *Fortschritt*. Es wird als Fortschrittsbalken dargestellt.
+2. Legen Sie unter **Admin → Berechnungen** eine Berechnung auf Initiative mit der Formel `ppm.completion` an, wählen Sie dieses Feld als Ziel und aktivieren Sie sie.
+3. Haken Sie in den Eigenschaften des Portals das Feld für die Kartenliste und die Detailansicht an.
+
+Von da an bewegt jedes Erledigen einer Aufgabe, jedes Bearbeiten des Fertigstellungsgrads eines Arbeitspakets und jedes Löschen eines Arbeitspakets den Balken überall dort, wo die Karte angezeigt wird.
 
 ### Eingebaute Funktionen
 
@@ -266,7 +287,7 @@ im Ergebnisbanner öffnet die Aufschlüsselung:
 Der Status-Chip in der Berechnungsliste spiegelt dieselbe Ausführung wider: rot, sobald eine
 Karte fehlgeschlagen ist, grün nur, wenn alle berechnet wurden.
 
-## Wann Berechnungen ausgeführt werden
+## Wann Berechnungen ausgeführt werden { #when-calculations-run }
 
 Die Berechnungen einer Karte werden neu ausgewertet, wenn:
 
@@ -276,7 +297,9 @@ Die Berechnungen einer Karte werden neu ausgewertet, wenn:
 * die Karte einem neuen Elternteil zugeordnet wird, wodurch ihr gesamter Teilbaum neu
   berechnet wird;
 * Sie die Berechnung manuell aus der Liste ausführen, wodurch sie für jede Karte des Zieltyps
-  ausgewertet und die Ergebnisse gespeichert werden.
+  ausgewertet und die Ergebnisse gespeichert werden;
+* eine PPM-Budgetzeile, Kostenzeile, ein Arbeitspaket, eine Aufgabe, ein Risiko oder ein
+  Statusbericht auf der Karte geändert wird, bei einer Initiative.
 
 Sie werden **nicht** neu ausgewertet, wenn eine andere Karte bearbeitet wird, aus der diese
 Formel liest. Wenn Sie Kosten an einer IT-Komponente ändern, bewegt sich eine Anwendung, die

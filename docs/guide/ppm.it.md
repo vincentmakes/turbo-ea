@@ -117,7 +117,7 @@ Il gestore delle attività supporta le viste **board Kanban** e **lista** con qu
 - **Completato** — Attività completate
 - **Bloccato** — Attività che non possono procedere
 
-Le attività possono essere filtrate e raggruppate per elemento della Struttura di Scomposizione del Lavoro (WBS).
+Le attività possono essere filtrate e raggruppate per elemento della Struttura di Scomposizione del Lavoro (WBS). Quando sono raggruppate, ogni pacchetto di lavoro compare come gruppo — compreso uno che non contiene ancora attività, che mostra un suggerimento e un pulsante **Aggiungi attività** che apre la finestra di dialogo dell'attività con quel pacchetto preselezionato. Le milestone compaiono solo quando contengono un'attività. Trascina le card tra le colonne per aggiornare lo stato.
 
 I filtri di visualizzazione (modalità vista, filtro WBS, interruttore raggruppamento) vengono mantenuti nell'URL tra gli aggiornamenti della pagina.
 
@@ -130,7 +130,7 @@ Il diagramma di Gantt visualizza la tempistica del progetto con:
 - **Pacchetti di lavoro (WBS)** — Elementi gerarchici della struttura di scomposizione del lavoro con date di inizio/fine
 - **Attività** — Barre di attività individuali collegate ai pacchetti di lavoro
 - **Milestone** — Date chiave contrassegnate con indicatori a diamante
-- **Barre di avanzamento** — Percentuale di completamento visiva. Fai clic sul chip percentuale di un'attività o di un pacchetto di lavoro foglia per aprire un cursore che si aggancia a **0%, 50% o 100%** — corrispondente ai tre stati delle attività (Da fare, In corso, Completato). I pacchetti di lavoro padre con figli mostrano un chip in sola lettura il cui valore viene calcolato automaticamente dal sottoalbero.
+- **Barre di avanzamento** — Percentuale di completamento visiva. Un'attività non ha una percentuale propria: il suo riempimento segue lo stato — **Da fare (0%)**, **In corso (50%)**, **Completato (100%)**. Fai clic sul chip percentuale di un'attività per aprire un cursore i cui tre scatti riportano quegli stati; scegliere uno scatto cambia lo stato, e trascinare il riempimento sulla barra dell'attività fa lo stesso. Un pacchetto di lavoro foglia ha un cursore libero a passi del 5%. I pacchetti di lavoro che hanno pacchetti di lavoro figli **o attività** mostrano un chip in sola lettura il cui valore viene calcolato automaticamente dal sottoalbero.
 - **Segni trimestrali** — Griglia temporale per orientamento
 
 Interagisci con il diagramma di Gantt:
@@ -138,6 +138,7 @@ Interagisci con il diagramma di Gantt:
 - **Selettore della scala** — Scegli tra Giorno, Settimana, Mese, Trimestre e Anno; la scelta viene memorizzata nel browser
 - **Pulsanti di zoom +/−** — Naviga di un livello alla volta lungo le stesse cinque scale
 - **Punti alle estremità delle barre** — Trascina dal punto destro di una barra al punto sinistro di un'altra per creare una dipendenza finish-to-start. Funziona tra pacchetti di lavoro e attività in qualsiasi combinazione. I cicli vengono rifiutati automaticamente. **Fai doppio clic su una freccia** per rimuoverla.
+- **La riga +** in fondo all'elenco chiede cosa creare — un pacchetto di lavoro, una milestone o un'attività — così un'attività digitata lì finisce nella scheda Attività.
 
 ### Scheda Dettagli della Card
 
@@ -150,7 +151,7 @@ La WBS fornisce una scomposizione gerarchica dell'ambito del progetto:
 - **Pacchetti di lavoro** — Raggruppamenti logici di attività con date di inizio/fine e monitoraggio del completamento
 - **Milestone** — Eventi significativi o punti di completamento
 - **Gerarchia** — Relazioni genitore-figlio tra elementi WBS
-- **Auto-completamento** — La percentuale di completamento viene calcolata automaticamente dai rapporti attività completate/totali, cumulato ricorsivamente attraverso la gerarchia WBS fino agli elementi padre. Il completamento al livello superiore rappresenta il progresso complessivo dell'iniziativa
+- **Auto-completamento** — Il completamento viene calcolato automaticamente dalle attività nel sottoalbero di un pacchetto di lavoro: ogni attività conta come 0% (Da fare, Bloccato), 50% (In corso) o 100% (Completato), ponderata per la sua durata in giorni (un giorno quando manca una data), e poi cumulato ricorsivamente fino agli elementi padre. Un pacchetto di lavoro senza alcuna attività al di sotto conserva il valore inserito a mano. La media dei pacchetti di lavoro di primo livello è il progresso complessivo dell'iniziativa — il numero nella scheda Panoramica e la variabile `ppm.completion` che un [campo calcolato](../admin/calculations.md#ppm-data-on-initiative-cards) può mostrare sulla card e in un portale
 
 ## Integrazione con i dettagli della card
 

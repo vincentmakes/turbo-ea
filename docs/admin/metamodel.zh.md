@@ -52,7 +52,7 @@
 |------|------|
 | **键** | 唯一的字段标识符 |
 | **标签** | 显示名称 |
-| **类型** | text、multiline_text、number、cost、boolean、date、url、single_select 或 multiple_select |
+| **类型** | text、multiline_text、number、cost、percentage、boolean、date、url、single_select 或 multiple_select。百分比是 0 到 100 之间的数字，显示为进度条，可用滑块编辑或直接输入精确值 |
 | **选项** | 对于选择字段：可用的选项及其标签和可选颜色 |
 | **必填** | 字段是否为必填项——参见下方的强制规则 |
 | **数据质量** | 每个字段对评分的贡献在**数据质量**面板中管理（见下文） |

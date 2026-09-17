@@ -52,7 +52,7 @@ I campi definiscono gli attributi personalizzati disponibili sulle card di quest
 |--------------|-------------|
 | **Key** | Identificatore univoco del campo |
 | **Etichetta** | Nome visualizzato |
-| **Tipo** | text, multiline_text, number, cost, boolean, date, url, single_select o multiple_select |
+| **Tipo** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select o multiple_select. Una percentuale è un numero da 0 a 100, mostrato come barra di avanzamento e modificato con un cursore o digitato con precisione |
 | **Opzioni** | Per i campi di selezione: le scelte disponibili con etichette e colori opzionali |
 | **Obbligatorio** | Se il campo è obbligatorio — vedi le regole di applicazione qui sotto |
 | **Qualità dei dati** | Il contributo di ciascun campo al punteggio è gestito nel pannello **Qualità dei dati** (vedi sotto) |

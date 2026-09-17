@@ -106,9 +106,9 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 `SUM`, `AVG`, `MIN` e `MAX` ignorano già le voci non numeriche, quindi non richiedono
 protezione.
 
-### Dati PPM sulle card Initiative
+### Dati PPM sulle card Initiative { #ppm-data-on-initiative-cards }
 
-La radice `ppm` espone alle formule le righe di budget e di costo del modulo PPM, divise tra capex e opex e ripartite per esercizio — un dettaglio che gli attributi consolidati `data.costBudget` / `data.costActual` sulla card non possono fornire.
+La radice `ppm` espone alle formule i dati del modulo PPM: le righe di budget e di costo, divise tra capex e opex e ripartite per esercizio — un dettaglio che gli attributi consolidati `data.costBudget` / `data.costActual` sulla card non possono fornire — e le cifre di realizzazione dell'iniziativa: il suo completamento complessivo, i suoi pacchetti di lavoro, attività e rischi, e l'ultimo report di stato.
 
 | Variabile | Descrizione |
 |----------|-------------|
@@ -118,6 +118,13 @@ La radice `ppm` espone alle formule le righe di budget e di costo del modulo PPM
 | `ppm.byYear` | Le stesse nove misure per esercizio, come elenco `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | L'esercizio in cui cade la data odierna |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Righe di costo senza data: contano nei totali, ma non appartengono ad alcun esercizio |
+| `ppm.completion` | Completamento complessivo in % — la media dei pacchetti di lavoro di primo livello, esattamente il numero mostrato dalla scheda Panoramica dell'iniziativa |
+| `ppm.wbsCount`, `ppm.milestoneCount` | Numero di pacchetti di lavoro e di milestone |
+| `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Conteggio delle attività, in totale e per stato |
+| `ppm.tasksOverdue` | Attività oltre la data di scadenza e non completate |
+| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | Rischi PPM: tutti, ancora aperti e il punteggio di rischio più alto |
+| `ppm.reportCount`, `ppm.reportDate` | Quanti report di stato esistono e la data del più recente (`None` finché non ce n'è uno) |
+| `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | Gli indicatori di salute dell'ultimo report di stato: `onTrack`, `atRisk` o `offTrack` (`None` finché non ce n'è uno) |
 
 `byYear` è un elenco e non un oggetto indicizzato per anno, così le consuete funzioni `FILTER` e `PLUCK` vi funzionano sopra:
 
@@ -130,14 +137,28 @@ SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
 
 # Budget capex di ogni Iniziativa collegata a questa card
 SUM(PLUCK(relations.relInitiativeToApp, "ppm.capexBudget"))
+
+# Avanzamento complessivo e un indicatore di realizzazione dall'ultimo report di stato
+ppm.completion
+IF(ppm.tasksOverdue > 0, "A rischio", COALESCE(ppm.scheduleHealth, "Nessun report"))
 ```
 
 * **Un esercizio prende il nome dall'anno solare in cui termina.** Con inizio a ottobre, il 15 ott 2025 ricade nell'esercizio 2026 e il 30 set 2025 nel 2025. Con l'inizio a gennaio predefinito l'esercizio coincide con l'anno solare.
 * **Righe di budget e righe di costo ricavano l'esercizio da fonti diverse.** Una riga di budget porta l'esercizio che avete inserito; quello di una riga di costo è dedotto dalla sua data. Se la vostra organizzazione denomina gli esercizi dall'anno di *inizio*, i due divergeranno.
 * `total*` è la somma di tutte le righe, non `capex + opex`. Una riga la cui categoria non è né l'una né l'altra (da un'importazione, per esempio) conta comunque nel totale.
-* Una card che non è un'Iniziativa legge tutte le misure `ppm` come `0` con `byYear` vuoto: una formula sul tipo sbagliato restituisce zero anziché fallire.
+* Una card che non è un'Iniziativa legge tutte le misure `ppm` come `0` con `byYear` vuoto: una formula sul tipo sbagliato restituisce zero anziché fallire. I campi dell'ultimo report si leggono `None` e non `0` — «nessun report ancora» e «in corso» sono fatti diversi — quindi proteggeteli con `COALESCE`.
 
-Modificare una riga di budget o di costo PPM riesegue i calcoli dell'iniziativa, quindi tutto ciò che ne deriva si aggiorna subito. Le card che leggono i dati PPM di *un'altra* card tramite una relazione non vengono aggiornate.
+Modificare una riga di budget o di costo PPM, un pacchetto di lavoro, un'attività, un rischio o un report di stato riesegue i calcoli dell'iniziativa, quindi tutto ciò che ne deriva si aggiorna subito e la modifica compare nella scheda Cronologia della card. Le card che leggono i dati PPM di *un'altra* card tramite una relazione non vengono aggiornate — vedere [Quando vengono eseguiti i calcoli](#when-calculations-run).
+
+#### Mostrare l'avanzamento di un'iniziativa su una card o in un portale { #show-initiative-progress-on-a-card-or-a-portal }
+
+L'avanzamento di un'iniziativa vive nella sua scheda Panoramica; le card e i portali pubblicati mostrano soltanto attributi. Per portare lo stesso numero sulla card e in un [portale web](web-portals.md):
+
+1. In **Admin → Metamodello**, aggiungete al tipo Iniziativa un campo di tipo **Percentuale** — ad esempio `progress`, con etichetta *Avanzamento*. Viene visualizzato come barra di avanzamento.
+2. In **Admin → Calcoli**, aggiungete un calcolo su Iniziativa con la formula `ppm.completion`, indicate quel campo come destinazione e attivatelo.
+3. Nelle proprietà del portale, spuntate il campo per l'elenco delle card e per la vista di dettaglio.
+
+Da quel momento, completare un'attività, modificare il completamento di un pacchetto di lavoro o eliminarne uno sposta la barra ovunque la card sia mostrata.
 
 ### Funzioni predefinite
 
@@ -263,7 +284,7 @@ del risultato apre il dettaglio:
 Il chip di stato nell'elenco dei calcoli riflette la stessa esecuzione: rosso se una scheda non
 è riuscita, verde solo quando tutte sono state calcolate.
 
-## Quando vengono eseguiti i calcoli
+## Quando vengono eseguiti i calcoli { #when-calculations-run }
 
 I calcoli di una card vengono rivalutati quando:
 
@@ -272,7 +293,9 @@ I calcoli di una card vengono rivalutati quando:
   della relazione vengono ricalcolate);
 * la card viene riassegnata a un nuovo padre, il che ricalcola l'intero sottoalbero;
 * eseguite il calcolo manualmente dall'elenco, il che lo valuta per ogni card del tipo target
-  e ne salva i risultati.
+  e ne salva i risultati;
+* cambia una riga di budget, una riga di costo, un pacchetto di lavoro, un'attività, un rischio
+  o un report di stato PPM sulla card, per un'Iniziativa.
 
 **Non** vengono rivalutati quando viene modificata un'altra card da cui la formula legge. Se
 cambiate un costo su un componente IT, l'applicazione che lo aggrega non si muoverà finché

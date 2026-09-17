@@ -117,7 +117,7 @@ O gerenciador de tarefas suporta as visualizações **quadro Kanban** e **lista*
 - **Concluído** — Tarefas concluídas
 - **Bloqueado** — Tarefas que não podem prosseguir
 
-As tarefas podem ser filtradas e agrupadas por item da Estrutura Analítica do Projeto (EAP/WBS).
+As tarefas podem ser filtradas e agrupadas por item da Estrutura Analítica do Projeto (EAP/WBS). Quando agrupadas, cada pacote de trabalho aparece como um grupo — inclusive um que ainda não contém tarefas, que mostra uma dica e um botão **Adicionar tarefa** que abre o diálogo de tarefa com esse pacote pré-selecionado. Os marcos aparecem apenas quando contêm uma tarefa. Arraste e solte cards entre as colunas para atualizar o status.
 
 Os filtros de exibição (modo de visualização, filtro WBS, alternância de agrupamento) são mantidos na URL entre atualizações de página.
 
@@ -130,7 +130,7 @@ O diagrama de Gantt visualiza o cronograma do projeto com:
 - **Pacotes de trabalho (WBS)** — Itens hierárquicos da estrutura analítica do projeto com datas de início/fim
 - **Tarefas** — Barras de tarefas individuais vinculadas a pacotes de trabalho
 - **Marcos** — Datas-chave marcadas com indicadores de diamante
-- **Barras de progresso** — Porcentagem de conclusão visual. Clique no chip de porcentagem de uma tarefa ou pacote de trabalho folha para abrir um controle deslizante que se ajusta a **0%, 50% ou 100%** — correspondendo aos três estados de tarefa (A fazer, Em progresso, Concluído). Os pacotes de trabalho pai com filhos exibem um chip somente leitura cujo valor é calculado automaticamente a partir da subárvore.
+- **Barras de progresso** — Porcentagem de conclusão visual. Uma tarefa não tem porcentagem própria: seu preenchimento segue o status — **A fazer (0%)**, **Em progresso (50%)**, **Concluído (100%)**. Clique no chip de porcentagem de uma tarefa para abrir um controle deslizante cujas três posições levam o nome desses status; escolher uma posição muda o status, e arrastar o preenchimento na barra da tarefa faz o mesmo. Um pacote de trabalho folha tem um controle deslizante livre em passos de 5%. Os pacotes de trabalho que têm pacotes de trabalho filhos **ou tarefas** exibem um chip somente leitura cujo valor é calculado automaticamente a partir da subárvore.
 - **Marcas trimestrais** — Grade de cronograma para orientação
 
 Interaja com o diagrama de Gantt:
@@ -138,6 +138,7 @@ Interaja com o diagrama de Gantt:
 - **Seletor de escala** — Escolha entre Dia, Semana, Mês, Trimestre e Ano; a escolha é lembrada no seu navegador
 - **Botões de zoom +/−** — Avance um nível por vez nas mesmas cinco escalas
 - **Pontos nas extremidades das barras** — Arraste do ponto direito de uma barra até o ponto esquerdo de outra para criar uma dependência «finish-to-start». Funciona entre pacotes de trabalho e tarefas em qualquer combinação. Os ciclos são rejeitados automaticamente. **Dê um clique duplo em uma seta** para removê-la.
+- **A linha +** no fim da lista pergunta o que criar — um pacote de trabalho, um marco ou uma tarefa — de modo que uma tarefa digitada ali vai parar na aba Tarefas.
 
 ### Aba Detalhes do Card
 
@@ -150,7 +151,7 @@ A EAP fornece uma decomposição hierárquica do escopo do projeto:
 - **Pacotes de trabalho** — Agrupamentos lógicos de tarefas com datas de início/fim e acompanhamento de conclusão
 - **Marcos** — Eventos significativos ou pontos de conclusão
 - **Hierarquia** — Relações pai-filho entre itens da EAP
-- **Auto-conclusão** — A porcentagem de conclusão é calculada automaticamente a partir das proporções de tarefas concluídas/totais, acumulada recursivamente pela hierarquia WBS até os itens pai. A conclusão do nível superior representa o progresso geral da iniciativa
+- **Auto-conclusão** — A conclusão é calculada automaticamente a partir das tarefas na subárvore de um pacote de trabalho: cada tarefa conta como 0% (A fazer, Bloqueado), 50% (Em progresso) ou 100% (Concluído), ponderada pela sua duração em dias (um dia quando falta uma data), e depois acumulada recursivamente até os itens pai. Um pacote de trabalho sem nenhuma tarefa abaixo dele mantém o valor digitado à mão. A média dos pacotes de trabalho de nível superior é o progresso geral da iniciativa — o número da aba Visão Geral e a variável `ppm.completion` que um [campo calculado](../admin/calculations.md#ppm-data-on-initiative-cards) pode mostrar no card e em um portal
 
 ## Integração com os detalhes do card
 

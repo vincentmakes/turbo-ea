@@ -52,7 +52,7 @@ Felder definieren die benutzerdefinierten Attribute, die auf Karten dieses Typs 
 |-------------|-------------|
 | **Schlüssel** | Eindeutiger Feldbezeichner |
 | **Bezeichnung** | Anzeigename |
-| **Typ** | text, multiline_text, number, cost, boolean, date, url, single_select oder multiple_select |
+| **Typ** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select oder multiple_select. Ein Prozentsatz ist eine Zahl von 0 bis 100, die als Fortschrittsbalken dargestellt und mit einem Schieberegler oder durch exakte Eingabe bearbeitet wird |
 | **Optionen** | Für Auswahlfelder: die verfügbaren Auswahlmöglichkeiten mit Bezeichnungen und optionalen Farben |
 | **Pflichtfeld** | Ob das Feld verpflichtend ist — siehe die Durchsetzungsregeln unten |
 | **Datenqualität** | Der Beitrag jedes Felds zum Wert wird im Bereich **Datenqualität** verwaltet (siehe unten) |

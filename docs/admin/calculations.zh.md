@@ -99,9 +99,9 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 
 `SUM`、`AVG`、`MIN` 和 `MAX` 本身就会跳过非数值项，因此无需额外保护。
 
-### Initiative 卡片上的 PPM 数据
+### Initiative 卡片上的 PPM 数据 { #ppm-data-on-initiative-cards }
 
-`ppm` 根将 PPM 模块的预算行与成本行开放给公式，按 capex 与 opex 拆分并按财年细分 —— 这是卡片上汇总后的 `data.costBudget` / `data.costActual` 属性无法提供的细节。
+`ppm` 根将 PPM 模块的数据开放给公式：预算行与成本行，按 capex 与 opex 拆分并按财年细分 —— 这是卡片上汇总后的 `data.costBudget` / `data.costActual` 属性无法提供的细节 —— 以及举措的交付数据：整体完成率、工作包、任务与风险，以及最新的状态报告。
 
 | 变量 | 描述 |
 |----------|-------------|
@@ -111,6 +111,13 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 | `ppm.byYear` | 按财年划分的同样九项指标，形式为列表 `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | 今天所属的财年 |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | 没有日期的成本行：计入合计，但不属于任何财年 |
+| `ppm.completion` | 整体完成率（%）—— 顶层工作包的平均值，与举措「概览」选项卡上显示的数字完全一致 |
+| `ppm.wbsCount`, `ppm.milestoneCount` | 工作包数量与里程碑数量 |
+| `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | 任务数量：总数及按状态统计 |
+| `ppm.tasksOverdue` | 已过截止日期但尚未完成的任务 |
+| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | PPM 风险：全部、仍未关闭的，以及最高风险评分 |
+| `ppm.reportCount`, `ppm.reportDate` | 状态报告的数量，以及最新一份的日期（尚无报告时为 `None`） |
+| `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | 最新状态报告的健康标记：`onTrack`、`atRisk` 或 `offTrack`（尚无报告时为 `None`） |
 
 `byYear` 是列表而非以年份为键的对象，因此常规的 `FILTER` 和 `PLUCK` 函数可直接作用于它：
 
@@ -123,14 +130,28 @@ SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
 
 # 与此卡片关联的每个举措的 capex 预算
 SUM(PLUCK(relations.relInitiativeToApp, "ppm.capexBudget"))
+
+# 整体进度，以及来自最新状态报告的交付标记
+ppm.completion
+IF(ppm.tasksOverdue > 0, "At risk", COALESCE(ppm.scheduleHealth, "No report"))
 ```
 
 * **财年以其结束所在的日历年命名。** 若财年起始月为 10 月，则 2025 年 10 月 15 日属于 FY2026，2025 年 9 月 30 日属于 FY2025。使用默认的 1 月起始时，财年就等于日历年。
 * **预算行与成本行的年份来源不同。** 预算行携带的是您填写的财年；成本行的年份由其日期推导。若贵组织按期间*开始*的年份为财年命名，两者就会不一致。
 * `total*` 是所有行的合计，而非 `capex + opex`。类别不属于两者之一的行（例如来自导入）仍计入合计。
-* 非举措类型的卡片读取所有 `ppm` 指标均为 `0`，且 `byYear` 为空，因此在错误类型上的公式返回零而不是报错。
+* 非举措类型的卡片读取所有 `ppm` 指标均为 `0`，且 `byYear` 为空，因此在错误类型上的公式返回零而不是报错。最新报告的字段读取为 `None` 而非 `0` ——「尚无报告」与「进度正常」是两回事 —— 因此请用 `COALESCE` 加以保护。
 
-编辑 PPM 预算行或成本行会重新运行该举措的计算，因此由此派生的一切会立即更新。通过关系读取*另一张*卡片 PPM 数据的卡片则不会刷新。
+编辑 PPM 预算行或成本行、工作包、任务、风险或状态报告都会重新运行该举措的计算，因此由此派生的一切会立即更新，且该变更会出现在卡片的**历史**选项卡中。通过关系读取*另一张*卡片 PPM 数据的卡片则不会刷新 —— 参见[计算何时运行](#when-calculations-run)。
+
+#### 在卡片或门户上显示举措进度 { #show-initiative-progress-on-a-card-or-a-portal }
+
+举措的进度显示在其「概览」选项卡上；而卡片和已发布的门户只会显示属性。要把同一个数字放到卡片和[门户网站](web-portals.md)中：
+
+1. 在**管理 → 元模型**中，为 Initiative 类型添加一个**百分比**类型的字段 —— 例如 `progress`，标签为*进度*。它会渲染为进度条。
+2. 在**管理 → 计算**中，为 Initiative 添加一项计算，公式为 `ppm.completion`，目标为该字段，并启用它。
+3. 在门户的属性中，为卡片列表和详情视图勾选该字段。
+
+此后，将任务标记为已完成、编辑工作包的完成率或删除其中一项，都会在卡片显示的任何位置移动这条进度条。
 
 ### 内置函数
 
@@ -248,7 +269,7 @@ IF(data.businessCriticality == "missionCritical", data.riskScore * 2, data.riskS
 
 计算列表中的状态标记反映同一次运行：只要有卡片失败即为红色，全部计算成功时才是绿色。
 
-## 计算何时运行
+## 计算何时运行 { #when-calculations-run }
 
 在以下情况下，卡片的计算会被重新求值：
 
@@ -256,6 +277,8 @@ IF(data.businessCriticality == "missionCritical", data.riskScore * 2, data.riskS
 * 涉及该卡片的关系被创建、修改或删除（关系两端都会重新计算）；
 * 卡片被重新指定父级，此时其整个子树都会重新计算；
 * 您从列表中手动运行该计算，此时它会对目标类型的每张卡片求值并保存结果。
+
+* 对于举措，卡片上的 PPM 预算行、成本行、工作包、任务、风险或状态报告发生变化。
 
 当公式所读取的**另一张**卡片被编辑时，计算**不会**重新求值。如果您修改了某个 IT 组件上的成
 本，聚合该成本的应用不会随之变化，直到该应用被保存、它的某个关系发生变化，或您为该类型运行

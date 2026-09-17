@@ -159,6 +159,8 @@ Qué columnas/propiedades aparecen en la lista de fichas:
 - **Propiedades incorporadas**: descripción, ciclo de vida, etiquetas, calidad de datos, estado de aprobación
 - **Campos personalizados**: Cada campo del esquema del tipo de ficha puede activarse o desactivarse individualmente
 
+La barra de **calidad de datos** es la puntuación de completitud de la ficha —cuántos de sus campos están rellenados—, no el avance del proyecto. Para publicar el avance real de una Iniciativa, añada un campo **Porcentaje** al tipo Iniciativa, rellénelo con un cálculo sobre `ppm.completion` y marque ese campo aquí; la receta está en [Cálculos](calculations.md#show-initiative-progress-on-a-card-or-a-portal).
+
 ### Propiedades de la Vista de Detalle
 
 Qué información aparece cuando un visitante hace clic en una ficha:

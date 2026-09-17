@@ -106,9 +106,9 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 `SUM`, `AVG`, `MIN` e `MAX` já ignoram entradas não numéricas, portanto não precisam de
 proteção.
 
-### Dados de PPM em cards de Iniciativa
+### Dados de PPM em cards de Iniciativa { #ppm-data-on-initiative-cards }
 
-A raiz `ppm` expõe às fórmulas as linhas de orçamento e de custo do módulo PPM, separadas entre capex e opex e detalhadas por exercício fiscal — um detalhe que os atributos consolidados `data.costBudget` / `data.costActual` do card não conseguem dar.
+A raiz `ppm` expõe às fórmulas os dados do módulo PPM: as linhas de orçamento e de custo, separadas entre capex e opex e detalhadas por exercício fiscal — um detalhe que os atributos consolidados `data.costBudget` / `data.costActual` do card não conseguem dar — e os números de execução da iniciativa: sua conclusão geral, seus pacotes de trabalho, tarefas e riscos, e o último relatório de status.
 
 | Variável | Descrição |
 |----------|-------------|
@@ -118,6 +118,13 @@ A raiz `ppm` expõe às fórmulas as linhas de orçamento e de custo do módulo 
 | `ppm.byYear` | As mesmas nove medidas por exercício fiscal, como lista `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | O exercício fiscal em que a data de hoje cai |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Linhas de custo sem data: contam nos totais, mas não pertencem a nenhum exercício |
+| `ppm.completion` | Conclusão geral em % — a média dos pacotes de trabalho de nível superior, exatamente o número que a aba Visão Geral da iniciativa mostra |
+| `ppm.wbsCount`, `ppm.milestoneCount` | Número de pacotes de trabalho e de marcos |
+| `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Contagem de tarefas, no total e por status |
+| `ppm.tasksOverdue` | Tarefas com a data de vencimento ultrapassada que não estão concluídas |
+| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | Riscos de PPM: todos, ainda abertos e a pontuação de risco mais alta |
+| `ppm.reportCount`, `ppm.reportDate` | Quantos relatórios de status existem e a data do mais recente (`None` até que exista um) |
+| `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | Os indicadores de saúde do último relatório de status: `onTrack`, `atRisk` ou `offTrack` (`None` até que exista um) |
 
 `byYear` é uma lista e não um objeto indexado por ano, de modo que as funções habituais `FILTER` e `PLUCK` funcionam sobre ela:
 
@@ -130,14 +137,28 @@ SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
 
 # Orçamento capex de cada Iniciativa ligada a este card
 SUM(PLUCK(relations.relInitiativeToApp, "ppm.capexBudget"))
+
+# Progresso geral e um indicador de execução do último relatório de status
+ppm.completion
+IF(ppm.tasksOverdue > 0, "Em risco", COALESCE(ppm.scheduleHealth, "Sem relatório"))
 ```
 
 * **Um exercício fiscal recebe o nome do ano civil em que termina.** Com início em outubro, 15 out 2025 cai no EF2026 e 30 set 2025 no EF2025. Com o início em janeiro padrão, o exercício é simplesmente o ano civil.
 * **Linhas de orçamento e de custo obtêm o exercício de fontes diferentes.** Uma linha de orçamento carrega o exercício que você digitou; o de uma linha de custo é derivado da sua data. Se a sua organização nomeia os exercícios pelo ano de *início*, os dois vão divergir.
 * `total*` é a soma de todas as linhas, não `capex + opex`. Uma linha cuja categoria não seja nenhuma das duas (de uma importação, por exemplo) ainda conta no total.
-* Um card que não é uma Iniciativa lê todas as medidas `ppm` como `0` com `byYear` vazio, então uma fórmula no tipo errado devolve zero em vez de falhar.
+* Um card que não é uma Iniciativa lê todas as medidas `ppm` como `0` com `byYear` vazio, então uma fórmula no tipo errado devolve zero em vez de falhar. Os campos do último relatório são lidos como `None` e não como `0` — «ainda sem relatório» e «no caminho» são fatos diferentes — então proteja-os com `COALESCE`.
 
-Editar uma linha de orçamento ou de custo do PPM reexecuta os cálculos da iniciativa, então tudo o que deriva daí é atualizado de imediato. Cards que leem os dados de PPM de *outro* card através de uma relação não são atualizados.
+Editar uma linha de orçamento ou de custo do PPM, um pacote de trabalho, uma tarefa, um risco ou um relatório de status reexecuta os cálculos da iniciativa, então tudo o que deriva daí é atualizado de imediato e a alteração aparece na aba Histórico do card. Cards que leem os dados de PPM de *outro* card através de uma relação não são atualizados — veja [Quando os cálculos são executados](#when-calculations-run).
+
+#### Mostrar o progresso de uma iniciativa em um card ou em um portal { #show-initiative-progress-on-a-card-or-a-portal }
+
+O progresso de uma iniciativa vive na sua aba Visão Geral; cards e portais publicados só mostram atributos. Para colocar o mesmo número no card e em um [portal web](web-portals.md):
+
+1. Em **Admin → Metamodelo**, adicione um campo do tipo **Porcentagem** ao tipo Iniciativa — por exemplo `progress`, com o rótulo *Progresso*. Ele é exibido como uma barra de progresso.
+2. Em **Admin → Cálculos**, adicione um cálculo em Iniciativa com a fórmula `ppm.completion`, aponte para esse campo e ative-o.
+3. Nas propriedades do portal, marque o campo para a lista de cards e para a visualização de detalhe.
+
+A partir daí, marcar uma tarefa como concluída, editar a conclusão de um pacote de trabalho ou excluir um deles move a barra onde quer que o card seja exibido.
 
 ### Funções Incorporadas
 
@@ -264,7 +285,7 @@ resultado abre o detalhamento:
 O indicador de estado na lista de cálculos reflete a mesma execução: vermelho se alguma ficha
 falhou, verde apenas quando todas foram calculadas.
 
-## Quando os cálculos são executados
+## Quando os cálculos são executados { #when-calculations-run }
 
 Os cálculos de um card são reavaliados quando:
 
@@ -273,7 +294,9 @@ Os cálculos de um card são reavaliados quando:
   recalculadas);
 * o card é reatribuído a outro pai, o que recalcula toda a sua subárvore;
 * você executa o cálculo manualmente a partir da lista, o que o avalia para cada card do tipo
-  alvo e salva os resultados.
+  alvo e salva os resultados;
+* uma linha de orçamento, uma linha de custo, um pacote de trabalho, uma tarefa, um risco ou um
+  relatório de status do PPM no card muda, para uma Iniciativa.
 
 Eles **não** são reavaliados quando outro card do qual a fórmula lê é editado. Se você mudar
 um custo em um componente de TI, a aplicação que o agrega não vai se mover até que essa

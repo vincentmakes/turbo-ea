@@ -52,7 +52,7 @@
 |---------|-------------|
 | **Key** | معرّف الحقل الفريد |
 | **Label** | الاسم المعروض |
-| **Type** | text أو multiline_text أو number أو cost أو boolean أو date أو url أو single_select أو multiple_select |
+| **Type** | text أو multiline_text أو number أو cost أو percentage أو boolean أو date أو url أو single_select أو multiple_select. النسبة المئوية رقم من 0 إلى 100، تُعرض كشريط تقدم وتُحرَّر بمنزلقة أو تُكتب بقيمة دقيقة |
 | **Options** | لحقول الاختيار: الخيارات المتاحة مع التسميات والألوان الاختيارية |
 | **Required** | ما إذا كان الحقل إلزاميًا — انظر قواعد التطبيق أدناه |
 | **Data quality** | تُدار مساهمة كل حقل في الدرجة من لوحة **Data quality** — انظر [تسجيل جودة البيانات](#data-quality-scoring) أدناه |

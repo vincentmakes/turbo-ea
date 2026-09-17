@@ -160,6 +160,12 @@ Quelles colonnes/propriétés apparaissent dans la liste des fiches :
 - **Propriétés intégrées** : description, cycle de vie, tags, qualité des données, statut d'approbation
 - **Champs personnalisés** : Chaque champ du schema du type de fiche peut être activé/désactivé individuellement
 
+La barre de **qualité des données** est le score de complétude de la fiche — combien de ses
+champs sont renseignés — et non l'avancement du projet. Pour publier l'avancement réel d'une
+Initiative, ajoutez un champ **Pourcentage** au type Initiative, alimentez-le par un calcul sur
+`ppm.completion` et cochez ce champ ici ; la recette se trouve dans
+[Calculs](calculations.md#show-initiative-progress-on-a-card-or-a-portal).
+
 ### Propriétés de la vue détail
 
 Quelles informations apparaissent lorsqu'un visiteur clique sur une fiche :

@@ -107,11 +107,13 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 `SUM`, `AVG`, `MIN` et `MAX` ignorent déjà les entrées non numériques : elles n'ont pas
 besoin de protection.
 
-### Données PPM sur les fiches Initiative
+### Données PPM sur les fiches Initiative { #ppm-data-on-initiative-cards }
 
-La racine `ppm` expose au moteur de formules les lignes de budget et de coût du module PPM,
-ventilées entre capex et opex et réparties par exercice — un détail que les attributs
-`data.costBudget` / `data.costActual` consolidés sur la fiche ne peuvent pas donner.
+La racine `ppm` expose au moteur de formules les données du module PPM : les lignes de budget
+et de coût, ventilées entre capex et opex et réparties par exercice — un détail que les
+attributs `data.costBudget` / `data.costActual` consolidés sur la fiche ne peuvent pas donner —
+et les chiffres de réalisation de l'initiative : son avancement global, ses lots de travaux,
+ses tâches et ses risques, et le dernier rapport de statut.
 
 | Variable | Description |
 |----------|-------------|
@@ -121,6 +123,13 @@ ventilées entre capex et opex et réparties par exercice — un détail que les
 | `ppm.byYear` | Les mêmes neuf mesures par exercice, sous forme de liste `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | L'exercice dans lequel tombe la date du jour |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Lignes de coût sans date : comptées dans les totaux, rattachées à aucun exercice |
+| `ppm.completion` | Avancement global en % — la moyenne des lots de travaux de premier niveau, exactement le chiffre qu'affiche l'onglet Vue d'ensemble de l'initiative |
+| `ppm.wbsCount`, `ppm.milestoneCount` | Nombre de lots de travaux et de jalons |
+| `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Nombre de tâches, au total et par statut |
+| `ppm.tasksOverdue` | Tâches dont l'échéance est dépassée et qui ne sont pas terminées |
+| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | Risques PPM : tous, encore ouverts, et le score de risque le plus élevé |
+| `ppm.reportCount`, `ppm.reportDate` | Nombre de rapports de statut, et date du plus récent (`None` tant qu'il n'y en a aucun) |
+| `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | Les indicateurs de santé du dernier rapport de statut : `onTrack`, `atRisk` ou `offTrack` (`None` tant qu'il n'y en a aucun) |
 
 `byYear` est une liste et non un objet indexé par année, afin que les fonctions `FILTER` et
 `PLUCK` habituelles fonctionnent dessus :
@@ -134,6 +143,10 @@ SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
 
 # Budget capex de chaque initiative liée à cette fiche
 SUM(PLUCK(relations.relInitiativeToApp, "ppm.capexBudget"))
+
+# Avancement global, et un indicateur de réalisation tiré du dernier rapport de statut
+ppm.completion
+IF(ppm.tasksOverdue > 0, "À risque", COALESCE(ppm.scheduleHealth, "Aucun rapport"))
 ```
 
 Quelques règles à connaître :
@@ -148,11 +161,30 @@ Quelques règles à connaître :
 * `total*` est la somme de toutes les lignes, pas `capex + opex`. Une ligne dont la catégorie
   n'est ni l'une ni l'autre (issue d'un import, par exemple) compte quand même dans le total.
 * Une fiche qui n'est pas une Initiative lit toutes les mesures `ppm` à `0` avec un `byYear`
-  vide : une formule sur le mauvais type de fiche renvoie zéro au lieu d'échouer.
+  vide : une formule sur le mauvais type de fiche renvoie zéro au lieu d'échouer. Les champs
+  du dernier rapport se lisent `None` et non `0` — « pas encore de rapport » et « en cours »
+  sont deux faits différents — protégez-les donc avec `COALESCE`.
 
-Modifier une ligne de budget ou de coût PPM relance les calculs de l'initiative, si bien que
-tout ce qui en dérive est mis à jour immédiatement. Les fiches qui lisent les données PPM d'une
-*autre* fiche via une relation ne sont pas rafraîchies.
+Modifier une ligne de budget ou de coût PPM, un lot de travaux, une tâche, un risque ou un
+rapport de statut relance les calculs de l'initiative, si bien que tout ce qui en dérive est mis
+à jour immédiatement et que la modification apparaît dans l'onglet Historique de la fiche. Les
+fiches qui lisent les données PPM d'une *autre* fiche via une relation ne sont pas rafraîchies —
+voir [Quand les calculs s'exécutent](#when-calculations-run).
+
+#### Afficher l'avancement d'une initiative sur une fiche ou un portail { #show-initiative-progress-on-a-card-or-a-portal }
+
+L'avancement d'une initiative vit dans son onglet Vue d'ensemble ; les fiches et les portails
+publiés n'affichent jamais que des attributs. Pour mettre le même chiffre sur la fiche et dans
+un [portail web](web-portals.md) :
+
+1. Dans **Admin → Métamodèle**, ajoutez un champ de type **Pourcentage** au type Initiative —
+   par exemple `progress`, libellé *Avancement*. Il s'affiche sous forme de barre de progression.
+2. Dans **Admin → Calculs**, ajoutez un calcul sur Initiative avec la formule `ppm.completion`,
+   ciblez ce champ et activez-le.
+3. Dans les propriétés du portail, cochez le champ pour la liste des fiches et la vue détail.
+
+Dès lors, marquer une tâche comme terminée, modifier l'achèvement d'un lot de travaux ou en
+supprimer un fait bouger la barre partout où la fiche est affichée.
 
 ### Fonctions intégrées
 
@@ -278,7 +310,7 @@ bandeau de résultat ouvre la ventilation :
 La pastille de statut dans la liste des calculs reflète la même exécution : rouge dès qu'une
 fiche a échoué, verte seulement si toutes ont été calculées.
 
-## Quand les calculs s'exécutent
+## Quand les calculs s'exécutent { #when-calculations-run }
 
 Les calculs d'une fiche sont réévalués lorsque :
 
@@ -287,7 +319,9 @@ Les calculs d'une fiche sont réévalués lorsque :
   relation sont recalculées) ;
 * la fiche change de parent, ce qui recalcule tout son sous-arbre ;
 * vous exécutez le calcul manuellement depuis la liste, ce qui l'évalue pour toutes les
-  fiches du type cible et sauvegarde les résultats.
+  fiches du type cible et sauvegarde les résultats ;
+* une ligne de budget, une ligne de coût, un lot de travaux, une tâche, un risque ou un
+  rapport de statut PPM de la fiche change, pour une Initiative.
 
 Ils ne sont **pas** réévalués lorsqu'une autre fiche lue par la formule est modifiée. Si vous
 changez un coût sur un composant IT, une application qui l'agrège ne bougera pas tant que

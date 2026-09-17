@@ -157,6 +157,8 @@ Quais colunas/propriedades aparecem na lista de cards:
 - **Propriedades incorporadas**: descrição, ciclo de vida, tags, qualidade dos dados, status de aprovação
 - **Campos personalizados**: Cada campo do esquema do tipo de card pode ser alternado individualmente
 
+A barra de **qualidade dos dados** é a pontuação de completude do card — quantos dos seus campos estão preenchidos — e não o progresso do projeto. Para publicar o progresso real de uma Iniciativa, adicione um campo **Porcentagem** ao tipo Iniciativa, preencha-o com um cálculo sobre `ppm.completion` e marque esse campo aqui; a receita está em [Cálculos](calculations.md#show-initiative-progress-on-a-card-or-a-portal).
+
 ### Propriedades da Visualização de Detalhe
 
 Quais informações aparecem quando um visitante clica em um card:

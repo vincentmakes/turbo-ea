@@ -105,9 +105,9 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 `SUM`, `AVG`, `MIN` og `MAX` springer allerede ikke-numeriske poster over og behøver derfor
 ingen beskyttelse.
 
-### PPM-data på Initiative-kort
+### PPM-data på Initiative-kort { #ppm-data-on-initiative-cards }
 
-Roden `ppm` gør PPM-modulets budget- og omkostningslinjer tilgængelige for formler, opdelt i capex og opex og fordelt på regnskabsår — detaljer, som de sammenlagte attributter `data.costBudget` / `data.costActual` på kortet ikke kan give.
+Roden `ppm` gør PPM-modulets data tilgængelige for formler: budget- og omkostningslinjerne, opdelt i capex og opex og fordelt på regnskabsår — detaljer, som de sammenlagte attributter `data.costBudget` / `data.costActual` på kortet ikke kan give — samt initiativets leverancetal: dets samlede fuldførelse, dets arbejdspakker, opgaver og risici og den seneste statusrapport.
 
 | Variabel | Beskrivelse |
 |----------|-------------|
@@ -117,6 +117,13 @@ Roden `ppm` gør PPM-modulets budget- og omkostningslinjer tilgængelige for for
 | `ppm.byYear` | De samme ni mål pr. regnskabsår, som en liste `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | Det regnskabsår, dagens dato falder i |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Omkostningslinjer uden dato: tæller med i totalerne, men hører til intet år |
+| `ppm.completion` | Samlet fuldførelse i % — gennemsnittet af arbejdspakkerne på øverste niveau, præcis det tal, initiativets Overview-fane viser |
+| `ppm.wbsCount`, `ppm.milestoneCount` | Antal arbejdspakker og antal milepæle |
+| `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Antal opgaver, i alt og pr. status |
+| `ppm.tasksOverdue` | Opgaver, hvis forfaldsdato er overskredet, og som ikke er udført |
+| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | PPM-risici: alle, stadig åbne og den højeste risikoscore |
+| `ppm.reportCount`, `ppm.reportDate` | Hvor mange statusrapporter der findes, og datoen for den seneste (`None`, indtil der findes én) |
+| `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | Den seneste statusrapports sundhedsflag: `onTrack`, `atRisk` eller `offTrack` (`None`, indtil der findes én) |
 
 `byYear` er en liste og ikke et objekt indekseret efter år, så de sædvanlige funktioner `FILTER` og `PLUCK` virker på den:
 
@@ -129,14 +136,28 @@ SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
 
 # Capex-budget for hvert initiativ, der er knyttet til dette kort
 SUM(PLUCK(relations.relInitiativeToApp, "ppm.capexBudget"))
+
+# Samlet fremdrift og et leveranceflag fra den seneste statusrapport
+ppm.completion
+IF(ppm.tasksOverdue > 0, "At risk", COALESCE(ppm.scheduleHealth, "No report"))
 ```
 
 * **Et regnskabsår har navn efter det kalenderår, det slutter i.** Med start i oktober falder 15. okt. 2025 i RÅ2026 og 30. sep. 2025 i RÅ2025. Med standardstarten i januar er regnskabsåret blot kalenderåret.
 * **Budgetlinjer og omkostningslinjer henter deres år fra hver sin kilde.** En budgetlinje bærer det regnskabsår, du har indtastet; en omkostningslinjes år udledes af dens dato. Navngiver din organisation regnskabsår efter *startåret*, vil de to være uenige.
 * `total*` er summen af alle linjer, ikke `capex + opex`. En linje med en anden kategori (fra en import, for eksempel) tæller stadig med i totalen.
-* Et kort, der ikke er et initiativ, læser alle `ppm`-mål som `0` med et tomt `byYear`, så en formel på den forkerte korttype returnerer nul i stedet for at fejle.
+* Et kort, der ikke er et initiativ, læser alle `ppm`-mål som `0` med et tomt `byYear`, så en formel på den forkerte korttype returnerer nul i stedet for at fejle. Felterne fra den seneste rapport læses som `None` og ikke `0` — "ingen rapport endnu" og "på sporet" er to forskellige ting — så beskyt dem med `COALESCE`.
 
-Redigering af en PPM-budget- eller omkostningslinje kører initiativets beregninger igen, så alt afledt heraf opdateres med det samme. Kort, der læser et *andet* korts PPM-data via en relation, opdateres ikke.
+Redigering af en PPM-budget- eller omkostningslinje, en arbejdspakke, en opgave, en risiko eller en statusrapport kører initiativets beregninger igen, så alt afledt af disse data opdateres med det samme, og ændringen vises på kortets **History**-fane. Kort, der læser et *andet* korts PPM-data via en relation, opdateres ikke — se [Hvornår beregninger kører](#when-calculations-run).
+
+#### Vis initiativets fremdrift på et kort eller en portal { #show-initiative-progress-on-a-card-or-a-portal }
+
+Et initiativs fremdrift bor på dets Overview-fane; kort og udgivne portaler viser kun attributter. Sådan får du det samme tal frem på kortet og i en [webportal](web-portals.md):
+
+1. Tilføj under **Admin → Metamodel** et felt af typen **Procent** til Initiative-typen — fx `progress` med etiketten *Fremdrift*. Det vises som en fremgangsbjælke.
+2. Tilføj under **Admin → Beregninger** en beregning på Initiative med formlen `ppm.completion`, vælg feltet som mål, og aktivér den.
+3. Markér feltet i portalens egenskaber for både kortlisten og detaljevisningen.
+
+Fra da af flytter bjælken sig, overalt hvor kortet vises, når en opgave markeres som udført, en arbejdspakkes fuldførelse redigeres, eller en af dem slettes.
 
 ### Indbyggede funktioner
 
@@ -261,7 +282,7 @@ opdelingen:
 Statusmarkeringen på beregningslisten afspejler samme kørsel: rød hvis blot ét kort mislykkedes,
 grøn kun når alle blev beregnet.
 
-## Hvornår beregninger kører
+## Hvornår beregninger kører { #when-calculations-run }
 
 Et korts beregninger evalueres igen, når:
 
@@ -271,6 +292,9 @@ Et korts beregninger evalueres igen, når:
 * kortet får en ny forælder, hvilket genberegner hele dets undertræ;
 * du kører beregningen manuelt fra listen, hvilket evaluerer den for hvert kort af måltypen og
   gemmer resultaterne.
+
+* en PPM-budgetlinje, omkostningslinje, arbejdspakke, opgave, risiko eller statusrapport på
+  kortet ændres, for et Initiative.
 
 De evalueres **ikke** igen, når et andet kort, som formlen læser fra, redigeres. Ændrer du en
 omkostning på en IT-komponent, flytter en applikation, der aggregerer den, sig ikke, før den

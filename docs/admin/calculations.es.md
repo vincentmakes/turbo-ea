@@ -107,9 +107,9 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 `SUM`, `AVG`, `MIN` y `MAX` ya omiten las entradas no numéricas, así que no necesitan
 protección.
 
-### Datos de PPM en fichas de Iniciativa
+### Datos de PPM en fichas de Iniciativa { #ppm-data-on-initiative-cards }
 
-La raíz `ppm` expone a las fórmulas las líneas de presupuesto y de costo del módulo PPM, separadas entre capex y opex y desglosadas por ejercicio fiscal: un detalle que los atributos consolidados `data.costBudget` / `data.costActual` de la ficha no pueden dar.
+La raíz `ppm` expone a las fórmulas los datos del módulo PPM: las líneas de presupuesto y de costo, separadas entre capex y opex y desglosadas por ejercicio fiscal —un detalle que los atributos consolidados `data.costBudget` / `data.costActual` de la ficha no pueden dar—, y las cifras de ejecución de la iniciativa: su avance global, sus paquetes de trabajo, tareas y riesgos, y el último informe de estado.
 
 | Variable | Descripción |
 |----------|-------------|
@@ -119,6 +119,13 @@ La raíz `ppm` expone a las fórmulas las líneas de presupuesto y de costo del 
 | `ppm.byYear` | Las mismas nueve medidas por ejercicio fiscal, como lista `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | El ejercicio fiscal en el que cae la fecha de hoy |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Líneas de costo sin fecha: cuentan en los totales, pero no pertenecen a ningún ejercicio |
+| `ppm.completion` | Avance global en % — la media de los paquetes de trabajo de nivel superior, exactamente el número que muestra la pestaña de visión general de la iniciativa |
+| `ppm.wbsCount`, `ppm.milestoneCount` | Número de paquetes de trabajo y de hitos |
+| `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Recuento de tareas, en total y por estado |
+| `ppm.tasksOverdue` | Tareas con la fecha de vencimiento pasada que no están hechas |
+| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | Riesgos de PPM: todos, aún abiertos y la puntuación de riesgo más alta |
+| `ppm.reportCount`, `ppm.reportDate` | Cuántos informes de estado existen y la fecha del más reciente (`None` hasta que haya uno) |
+| `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | Los indicadores de salud del último informe de estado: `onTrack`, `atRisk` u `offTrack` (`None` hasta que haya uno) |
 
 `byYear` es una lista y no un objeto indexado por año, de modo que las funciones habituales `FILTER` y `PLUCK` funcionan sobre ella:
 
@@ -131,14 +138,28 @@ SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
 
 # Presupuesto capex de cada Iniciativa vinculada a esta ficha
 SUM(PLUCK(relations.relInitiativeToApp, "ppm.capexBudget"))
+
+# Avance global y un indicador de ejecución del último informe de estado
+ppm.completion
+IF(ppm.tasksOverdue > 0, "En riesgo", COALESCE(ppm.scheduleHealth, "Sin informe"))
 ```
 
 * **Un ejercicio fiscal lleva el nombre del año natural en el que termina.** Con inicio en octubre, el 15 oct 2025 cae en el EF2026 y el 30 sep 2025 en el EF2025. Con el inicio en enero por defecto, el ejercicio es simplemente el año natural.
 * **Las líneas de presupuesto y de costo obtienen su ejercicio de fuentes distintas.** Una línea de presupuesto lleva el ejercicio que usted escribió; el de una línea de costo se deduce de su fecha. Si su organización nombra los ejercicios por el año de *inicio*, ambos discreparán.
 * `total*` es la suma de todas las líneas, no `capex + opex`. Una línea cuya categoría no sea ninguna de las dos (de una importación, por ejemplo) sigue contando en el total.
-* Una ficha que no es una Iniciativa lee todas las medidas `ppm` como `0` con `byYear` vacío, así que una fórmula en el tipo equivocado devuelve cero en lugar de fallar.
+* Una ficha que no es una Iniciativa lee todas las medidas `ppm` como `0` con `byYear` vacío, así que una fórmula en el tipo equivocado devuelve cero en lugar de fallar. Los campos del último informe se leen como `None` y no como `0` —«todavía no hay informe» y «en curso» son hechos distintos—, así que protéjalos con `COALESCE`.
 
-Editar una línea de presupuesto o de costo de PPM vuelve a ejecutar los cálculos de la iniciativa, así que todo lo derivado se actualiza de inmediato. Las fichas que leen los datos de PPM de *otra* ficha a través de una relación no se refrescan.
+Editar una línea de presupuesto o de costo de PPM, un paquete de trabajo, una tarea, un riesgo o un informe de estado vuelve a ejecutar los cálculos de la iniciativa, así que todo lo derivado se actualiza de inmediato y el cambio aparece en la pestaña Historial de la ficha. Las fichas que leen los datos de PPM de *otra* ficha a través de una relación no se refrescan; vea [Cuándo se ejecutan los cálculos](#when-calculations-run).
+
+#### Mostrar el avance de una iniciativa en una ficha o en un portal { #show-initiative-progress-on-a-card-or-a-portal }
+
+El avance de una iniciativa vive en su pestaña de visión general; las fichas y los portales publicados solo muestran atributos. Para poner el mismo número en la ficha y en un [portal web](web-portals.md):
+
+1. En **Admin → Metamodelo**, añada un campo de tipo **Porcentaje** al tipo Iniciativa —por ejemplo `progress`, con la etiqueta *Avance*—. Se muestra como una barra de progreso.
+2. En **Admin → Cálculos**, añada un cálculo sobre Iniciativa con la fórmula `ppm.completion`, apunte a ese campo y actívelo.
+3. En las propiedades del portal, marque el campo para la lista de fichas y la vista de detalle.
+
+A partir de entonces, marcar una tarea como hecha, editar el porcentaje de finalización de un paquete de trabajo o eliminar uno mueve la barra dondequiera que se muestre la ficha.
 
 ### Funciones Incorporadas
 
@@ -265,7 +286,7 @@ resultado abre el desglose:
 El indicador de estado en la lista de cálculos refleja la misma ejecución: rojo si alguna ficha
 falló, verde solo cuando todas se calcularon.
 
-## Cuándo se ejecutan los cálculos
+## Cuándo se ejecutan los cálculos { #when-calculations-run }
 
 Los cálculos de una ficha se reevalúan cuando:
 
@@ -274,7 +295,9 @@ Los cálculos de una ficha se reevalúan cuando:
   la relación);
 * la ficha se reasigna a otro padre, lo que recalcula todo su subárbol;
 * usted ejecuta el cálculo manualmente desde la lista, lo que lo evalúa para todas las fichas
-  del tipo objetivo y guarda los resultados.
+  del tipo objetivo y guarda los resultados;
+* cambia una línea de presupuesto, una línea de costo, un paquete de trabajo, una tarea, un
+  riesgo o un informe de estado de PPM en la ficha, para una Iniciativa.
 
 **No** se reevalúan cuando se edita otra ficha de la que la fórmula lee datos. Si cambia un
 costo en un componente de TI, la aplicación que lo agrega no se moverá hasta que esa
