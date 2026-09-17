@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -414,7 +415,7 @@ export default function PpmOverviewTab({
             variant="body2"
             sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
           >
-            {card.description}
+            <LinkifiedText text={card.description} />
           </Typography>
         </Paper>
       )}

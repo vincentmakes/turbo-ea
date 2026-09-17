@@ -88,7 +88,7 @@ L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:
 | **Nome** | Nome del componente (cliccate per aprire il dettaglio della card) |
 | **Logo** | Il logo proprio della scheda, o la sua icona di tipo quando non ne ha. Disattivata per impostazione predefinita — attivatela nella scheda Colonne; fate clic su una cella per cambiarlo |
 | **Alias** | L'altro nome della scheda. Disattivata per impostazione predefinita — attivatela nella scheda Colonne; considerata da ogni casella di ricerca |
-| **Descrizione** | Breve descrizione |
+| **Descrizione** | Breve descrizione — un indirizzo web al suo interno è un link cliccabile |
 | **Ciclo di vita** | Stato attuale del ciclo di vita |
 | **Stato di approvazione** | Badge dello stato di revisione |
 | **Qualità dei dati** | Percentuale di completezza con anello visivo |

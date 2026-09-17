@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
@@ -221,7 +222,7 @@ function DescriptionSection({
         ) : (
           <Box sx={{ containerType: "inline-size" }}>
             <Typography variant="body2" color="text.secondary" whiteSpace="pre-wrap" sx={{ mb: extraFields?.length ? 1 : 0 }}>
-              {card.description || t("description.noDescription")}
+              {card.description ? <LinkifiedText text={card.description} /> : t("description.noDescription")}
             </Typography>
             {extraFields && extraFields.length > 0 && (
               <Box sx={{ display: "flex", flexDirection: "column", rowGap: 1 }}>

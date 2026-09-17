@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Button from "@mui/material/Button";
@@ -544,7 +545,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
               {/* Description */}
               {role.description && !isEditing && (
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                  {role.description}
+                  <LinkifiedText text={role.description} />
                 </Typography>
               )}
 

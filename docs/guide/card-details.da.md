@@ -72,6 +72,7 @@ Detalje-fanen er organiseret i **sektioner**, der kan omarrangeres og konfigurer
 
 - **Description** — Rich text-beskrivelse af komponenten. Understøtter AI-forslagsfunktionen til automatisk generering
 - **Yderligere beskrivelsesfelter** — En administrator kan placere et vilkårligt af korttypens egne felter i beskrivelses-sektionen, så den kan bære flere felter end selve beskrivelsen
+- **Links** — En webadresse (`http://` eller `https://`) skrevet i beskrivelsen, i et vilkårligt tekstfelt, en kommentar eller en opgave bliver til et link, der åbner i en ny fane
 
 ### Livscyklus-sektion
 
@@ -161,6 +162,7 @@ Hvis kortet er linket til et [endoflife.date](https://endoflife.date/)-produkt (
 - **Tilføj kommentarer** — Efterlad noter, spørgsmål eller beslutninger om komponenten
 - **Trådede svar** — Svar på specifikke kommentarer for at oprette samtaletråde
 - **Tidsstempler** — Se hvornår hver kommentar blev sendt og af hvem
+- **Links** — En webadresse i en kommentar kan klikkes på og åbner i en ny fane
 
 ## Todos-fane
 

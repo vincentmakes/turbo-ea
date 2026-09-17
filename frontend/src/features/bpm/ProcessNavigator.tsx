@@ -17,6 +17,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import Chip from "@mui/material/Chip";
@@ -939,7 +940,7 @@ function DrawerOverview({
           <Divider sx={{ my: 1.5 }} />
           <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t("common:labels.description")}</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap", mb: 1 }}>
-            {String(description)}
+            <LinkifiedText text={String(description)} />
           </Typography>
         </>
       )}
@@ -1220,7 +1221,7 @@ function DrawerSteps({
                           color="text.secondary"
                           sx={{ mt: 0.25, fontSize: "0.78rem", lineHeight: 1.4 }}
                         >
-                          {el.documentation}
+                          <LinkifiedText text={el.documentation} />
                         </Typography>
                       )}
                       {/* Linked entities */}

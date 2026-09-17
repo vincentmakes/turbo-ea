@@ -7,6 +7,7 @@ import { useRef, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Popover from "@mui/material/Popover";
 import Chip from "@mui/material/Chip";
 
@@ -169,8 +170,8 @@ export default function BpmnViewer({ bpmnXml, elements, onElementClick, height =
               {popover.element.lane_name && ` | ${popover.element.lane_name}`}
             </Typography>
             {popover.element.documentation && (
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                {popover.element.documentation}
+              <Typography variant="body2" sx={{ mt: 1, whiteSpace: "pre-wrap" }}>
+                <LinkifiedText text={popover.element.documentation} />
               </Typography>
             )}
             <Box sx={{ mt: 1, display: "flex", gap: 0.5, flexWrap: "wrap" }}>

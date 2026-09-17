@@ -30,6 +30,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
 import { useComplianceRegulations } from "@/hooks/useComplianceRegulations";
@@ -59,7 +60,7 @@ function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
         {label.toUpperCase()}
       </Typography>
       <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: "pre-wrap" }}>
-        {value}
+        {typeof value === "string" ? <LinkifiedText text={value} /> : value}
       </Typography>
     </Box>
   );

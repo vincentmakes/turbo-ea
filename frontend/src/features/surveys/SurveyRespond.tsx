@@ -5,6 +5,7 @@ import { PercentageInput } from "@/components/PercentageInput";
 import { useNavigate, useParams } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import Chip from "@mui/material/Chip";
@@ -538,7 +539,7 @@ export default function SurveyRespond() {
       {form.survey.message && (
         <Card variant="outlined" sx={{ p: 2, mb: 3, bgcolor: "action.hover" }}>
           <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-            {form.survey.message}
+            <LinkifiedText text={form.survey.message} />
           </Typography>
         </Card>
       )}

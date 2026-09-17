@@ -88,7 +88,7 @@ El inventario utiliza una tabla de datos **AG Grid** con funciones avanzadas:
 | **Nombre** | Nombre del componente (haga clic para abrir el detalle de la ficha) |
 | **Logotipo** | El logotipo propio de la ficha, o su icono de tipo cuando no tiene ninguno. Desactivada de forma predeterminada — actívela en la pestaña Columnas; haga clic en una celda para cambiarlo |
 | **Alias** | El otro nombre de la ficha. Desactivada de forma predeterminada — actívela en la pestaña Columnas; se tiene en cuenta en todos los cuadros de búsqueda |
-| **Descripción** | Descripción breve |
+| **Descripción** | Descripción breve — una dirección web incluida es un enlace clicable |
 | **Ciclo de Vida** | Estado actual del ciclo de vida |
 | **Estado de Aprobación** | Insignia de estado de revisión |
 | **Calidad de Datos** | Porcentaje de completitud con anillo visual |

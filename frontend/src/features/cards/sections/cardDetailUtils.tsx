@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Chip from "@mui/material/Chip";
 import Collapse from "@mui/material/Collapse";
 import Select from "@mui/material/Select";
@@ -146,7 +147,7 @@ export function FieldHelp({ text }: { text: string }) {
           color="text.secondary"
           sx={{ display: "block", mt: 0.25, whiteSpace: "pre-wrap" }}
         >
-          {text}
+          <LinkifiedText text={text} />
         </Typography>
       </Collapse>
     </Box>
@@ -468,7 +469,7 @@ export function FieldValue({
   if (field.type === "multiline_text") {
     return (
       <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-        {safeString(value) || "—"}
+        {safeString(value) ? <LinkifiedText text={safeString(value)} /> : "—"}
       </Typography>
     );
   }
@@ -481,7 +482,9 @@ export function FieldValue({
     return <PercentBar value={Number(value)} width={120} height={6} />;
   }
   return (
-    <Typography variant="body2">{safeString(value) || "—"}</Typography>
+    <Typography variant="body2">
+      {safeString(value) ? <LinkifiedText text={safeString(value)} /> : "—"}
+    </Typography>
   );
 }
 

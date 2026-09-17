@@ -10,6 +10,7 @@ import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
@@ -263,7 +264,7 @@ export default function AssessmentViewer() {
         <SectionHeader icon="description" label={t("turbolens_assessment_phase_requirements")} />
         <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
           <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-            {requirement}
+            <LinkifiedText text={requirement} />
           </Typography>
           {objectives.length > 0 && (
             <Box sx={{ mt: 1 }}>
@@ -721,7 +722,7 @@ function QAList({
               )}
             </Stack>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, whiteSpace: "pre-wrap" }}>
-              {q.answer || "—"}
+              {q.answer ? <LinkifiedText text={q.answer} /> : "—"}
             </Typography>
           </Box>
         ))}

@@ -88,7 +88,7 @@ O inventário usa uma tabela de dados **AG Grid** com recursos poderosos:
 | **Nome** | Nome do componente (clique para abrir o detalhe do card) |
 | **Logótipo** | O logótipo próprio da ficha, ou o ícone do seu tipo quando não tem nenhum. Desativada por predefinição — ative-a no separador Colunas; clique numa célula para o alterar |
 | **Alias** | O outro nome do card. Desativada por predefinição — ative-a no separador Colunas; é considerada por todas as caixas de pesquisa |
-| **Descrição** | Breve descrição |
+| **Descrição** | Breve descrição — um endereço web nela é um link clicável |
 | **Ciclo de Vida** | Estado atual do ciclo de vida |
 | **Status de Aprovação** | Badge de status de revisão |
 | **Qualidade dos Dados** | Porcentagem de completude com anel visual |

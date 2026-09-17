@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -490,7 +491,7 @@ export default function WebPortalsAdmin() {
                   color="text.secondary"
                   sx={{ mt: 0.5 }}
                 >
-                  {portal.description}
+                  <LinkifiedText text={portal.description} />
                 </Typography>
               )}
             </Box>

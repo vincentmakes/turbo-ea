@@ -649,12 +649,52 @@ verb has to work in a mixed list.
 - Don't invent a second name for a relation type in one surface. If a verb reads badly, fix it
   in the metamodel — the verb is admin-editable and there is one definition.
 
+### 3.14 Free Text and Links
+
+A description, a comment, a note, a status report, a survey message — anything a person
+typed — is rendered read-only through **`LinkifiedText`** (`components/LinkifiedText.tsx`),
+which turns every `http://` / `https://` address into an MUI `Link` that opens in a new tab
+(`target="_blank" rel="noopener noreferrer"`, `underline="hover"`, `wordBreak: "break-all"`).
+It renders a **fragment** — text nodes and links, never a wrapper — so the call site keeps
+its own `Typography` / `<li>` / `Alert` (variant, colour, `pre-wrap`, `noWrap`) and the swap
+is one line: `{text}` → `<LinkifiedText text={text} />`. The tokenizer is the pure
+`splitLinks` in `lib/linkify.ts`; it never produces HTML, so there is no injection surface.
+
+Stored **rich text** (ADR and SoAW sections, a portal's card description) goes through
+**`sanitizeRichHtml`** (`lib/richHtml.ts`) — never a bare `DOMPurify.sanitize`, which drops
+`target` and leaves every anchor same-tab. The wrapper autolinks bare URLs in text nodes,
+sanitises last so stored and generated anchors share one policy, stamps `target`/`rel` on
+every anchor whose href is `http`, `https` or `mailto`, and strips any other href. It runs on
+a private DOMPurify instance so the SVG-thumbnail sanitisers never inherit the hook.
+
+Detection in prose is **`http(s)://` only** — no bare `www.`, no bare e-mails — the same
+allowlist the `url` field type enforces, chosen for zero false positives. `mailto:` is
+accepted as an *href* (a `url`-typed value, a stored anchor) but never detected in text.
+
+✅ Do
+- Route every read-only rendering of user text through `LinkifiedText`, including AG Grid
+  cells (`InventoryPage`'s `linkifiedCell`) and `ListItemText` primaries.
+- Render a `url`-typed value as ONE whole link (its scheme may be `mailto:`), not through the
+  tokenizer.
+- Guard a native row-click handler with `closest("a")`: AG Grid's `onRowClicked` fires before
+  React's `stopPropagation` can run, and `preventDefault` would cancel the link itself.
+
+❌ Don't
+- Don't linkify a truncated or line-clamped preview (a 100-character notification teaser, a
+  nowrap grid summary): a cut URL is a broken link. The full text is one click away.
+- Don't linkify model-generated text (TurboLens summaries): a URL the model emitted is not one
+  the user chose to share.
+- Don't pin `underline` or `color` on a `MuiLink` theme default to get this look — the
+  component carries its own; ~30 unrelated bare `<Link>`s would change.
+
 ---
 
 ## 8. Related Files
 
 - [`src/theme/tokens.ts`](./src/theme/tokens.ts) — design tokens
 - [`src/theme/index.ts`](./src/theme/index.ts) — `buildTheme()` and re-exports
+- [`src/components/LinkifiedText.tsx`](./src/components/LinkifiedText.tsx) — free text with clickable addresses (§3.14)
+- [`src/lib/richHtml.ts`](./src/lib/richHtml.ts) — the one sanitiser for stored rich text (§3.14)
 - [`src/components/MaterialSymbol.tsx`](./src/components/MaterialSymbol.tsx)
 - [`src/features/reports/MetricCard.tsx`](./src/features/reports/MetricCard.tsx)
 - [`src/features/reports/ReportShell.tsx`](./src/features/reports/ReportShell.tsx)

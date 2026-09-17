@@ -5,7 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.142.0] - 2026-09-17
+## [2.143.0] - 2026-09-17
+
+### Added
+
+- **Web addresses in free text are now links.** People paste a Confluence page, a Jira ticket or a vendor's documentation into a card's description, a comment, a to-do, a text or multi-line attribute, a principle's rationale, a risk's notes or a finding's remediation, a PPM status report, a BPM element's documentation, a survey message, a portal's description — and until now every one of them rendered as inert text that had to be copied out by hand. Any `http://` or `https://` address in those fields is now a link that opens in a new tab, on card detail, in the Inventory grid (where `url`-typed attributes are links too, as they already were on the card), in published portals and in the notification detail dialog. Links in an ADR or a Statement of Architecture Work open in a new tab as well, a URL typed or pasted into their editor becomes a link as you type, and a bare address in a document written before this change is linked when it is displayed. Detection is deliberately limited to `http` and `https`, so `e.g.`, file names and the like are never mistaken for a link, and a `javascript:` address can never become one.
+
 
 ### Added
 

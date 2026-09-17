@@ -88,7 +88,7 @@ Das Inventar verwendet eine **AG Grid**-Datentabelle mit leistungsstarken Funkti
 | **Name** | Komponentenname (klicken zum Öffnen der Kartendetails) |
 | **Logo** | Das eigene Logo der Karte oder ihr Typsymbol, wenn keines vorhanden ist. Standardmäßig ausgeblendet — in der Registerkarte «Spalten» aktivieren; zum Ändern auf die Zelle klicken |
 | **Alias** | Der zweite Name der Karte. Standardmäßig ausgeblendet — in der Registerkarte «Spalten» aktivieren; wird von jedem Suchfeld berücksichtigt |
-| **Beschreibung** | Kurzbeschreibung |
+| **Beschreibung** | Kurzbeschreibung — eine darin enthaltene Webadresse ist ein anklickbarer Link |
 | **Lebenszyklus** | Aktueller Lebenszyklusstatus |
 | **Genehmigungsstatus** | Badge des Prüfstatus |
 | **Datenqualität** | Vollständigkeitsprozentsatz mit visuellem Ring |

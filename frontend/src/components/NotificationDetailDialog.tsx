@@ -7,6 +7,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { formatDateTimeWith, getCachedDateFormat } from "@/hooks/useDateFormat";
@@ -83,7 +84,7 @@ export default function NotificationDetailDialog({
         </Typography>
         {notification.message ? (
           <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-            {notification.message}
+            <LinkifiedText text={notification.message} />
           </Typography>
         ) : null}
         {ext ? (

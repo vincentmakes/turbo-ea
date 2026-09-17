@@ -74,6 +74,7 @@ A aba de detalhe é organizada em **seções** que podem ser reordenadas e confi
 
 - **Descrição** — Descrição em texto rico do componente. Suporta o recurso de sugestão de IA para geração automática
 - **Campos adicionais de descrição** — Um administrador pode atribuir qualquer campo próprio de um tipo de card à seção de descrição, que pode assim conter campos além da própria descrição
+- **Links** — Um endereço web (`http://` ou `https://`) digitado na descrição, em qualquer campo de texto, em um comentário ou em uma tarefa torna-se um link que abre em uma nova aba
 
 ### Seção de Ciclo de Vida
 
@@ -163,6 +164,7 @@ Se o card estiver vinculado a um produto do [endoflife.date](https://endoflife.d
 - **Adicionar comentários** — Deixe notas, perguntas ou decisões sobre o componente
 - **Respostas em thread** — Responda a comentários específicos para criar conversações encadeadas
 - **Timestamps** — Veja quando cada comentário foi postado e por quem
+- **Links** — Um endereço web em um comentário é clicável e abre em uma nova aba
 
 ## Aba de Tarefas
 

@@ -12,6 +12,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Avatar from "@mui/material/Avatar";
 import IconButton from "@mui/material/IconButton";
 import Alert from "@mui/material/Alert";
@@ -362,7 +363,7 @@ export default function PpmTaskDialog({
                       variant="body2"
                       sx={{ whiteSpace: "pre-wrap" }}
                     >
-                      {c.content}
+                      <LinkifiedText text={c.content} />
                     </Typography>
                   </Box>
                   <IconButton

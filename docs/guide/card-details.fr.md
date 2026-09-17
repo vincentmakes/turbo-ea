@@ -75,6 +75,7 @@ L'onglet détail est organisé en **sections** qui peuvent être réorganisées 
 
 - **Description** -- Description en texte riche du composant. Prend en charge la fonctionnalité de suggestion IA pour la génération automatique
 - **Champs de description supplémentaires** -- Un administrateur peut rattacher n'importe quel champ propre à un type de fiche à la section description ; celle-ci peut donc porter d'autres champs que la description elle-même
+- **Liens** -- Une adresse web (`http://` ou `https://`) saisie dans la description, dans n'importe quel champ texte, un commentaire ou une tâche devient un lien qui s'ouvre dans un nouvel onglet
 
 ### Section Cycle de vie
 
@@ -164,6 +165,7 @@ Si la fiche est liée à un produit [endoflife.date]( (via [Administration EOL](
 - **Ajouter des commentaires** -- Laissez des notes, questions ou décisions concernant le composant
 - **Réponses en fil** -- Répondez à des commentaires spécifiques pour créer des fils de conversation
 - **Horodatages** -- Voyez quand chaque commentaire a été publié et par qui
+- **Liens** -- Une adresse web dans un commentaire est cliquable et s'ouvre dans un nouvel onglet
 
 ## Onglet Tâches
 

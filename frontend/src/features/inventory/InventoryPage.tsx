@@ -73,6 +73,9 @@ import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import RelationCellPopover from "./RelationCellPopover";
 import ExtFieldCell from "./ExtFieldCell";
+import LinkifiedText from "@/components/LinkifiedText";
+import MuiLink from "@mui/material/Link";
+import { isLinkableHref } from "@/lib/linkify";
 import { PercentBar, percentValue } from "@/components/PercentBar";
 
 /**
@@ -90,6 +93,45 @@ const percentageColumnDef = {
       <PercentBar value={Number(p.value)} width={72} height={6} />
     ),
 } as const;
+
+/**
+ * A free-text column (`description`, a `text` / `multiline_text` attribute)
+ * renders through the same linkifier card detail uses, so an address pasted
+ * into a description is a link in the grid too. The value stays a plain
+ * string — no `valueFormatter` needed, the export reads the raw text. A
+ * `url`-typed value is one whole link when it passes the scheme allowlist
+ * (mailto included), else plain text.
+ */
+const linkifiedCell = {
+  cellRenderer: (p: { value?: unknown }) =>
+    p.value === null || p.value === undefined || p.value === "" ? null : (
+      <LinkifiedText text={String(p.value)} />
+    ),
+} as const;
+const urlCell = {
+  cellRenderer: (p: { value?: unknown }) => {
+    if (p.value === null || p.value === undefined || p.value === "") return null;
+    const href = String(p.value);
+    if (!isLinkableHref(href)) return href;
+    return (
+      <MuiLink
+        href={href.trim()}
+        target="_blank"
+        rel="noopener noreferrer"
+        underline="hover"
+        onClick={(e) => {
+          e.stopPropagation();
+          // Second click of a double-click: edit the cell, don't open a
+          // second tab (same rule as LinkifiedText).
+          if (e.detail > 1) e.preventDefault();
+        }}
+      >
+        {href}
+      </MuiLink>
+    );
+  },
+} as const;
+const isFreeTextField = (type: string) => type === "text" || type === "multiline_text";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { canCreateAnyCardType, hasTypePermission } from "@/components/RequirePermission";
 import { useCardSearch } from "@/hooks/useCardSearch";
@@ -2278,6 +2320,12 @@ export default function InventoryPage() {
     // Collapse/expand is handled by the header renderer's own click handler.
     if ((e.data as InventoryRow | undefined)?.__group) return;
     if (gridEditMode || !e.data || e.event?.defaultPrevented) return;
+    // A click that landed on a link inside a cell (a URL in the description)
+    // is the link's. This is AG Grid's own row listener, native and fired
+    // before React's, so a `stopPropagation` in the cell renderer never
+    // reaches it — and `preventDefault` is not an option, it would cancel the
+    // navigation the link exists for.
+    if ((e.event?.target as Element | null)?.closest?.("a")) return;
     // Let the browser handle Ctrl/Cmd/Shift+Click and middle-click — they're
     // intended for "open in new tab/window" via the real anchor in the Name
     // cell. Re-firing programmatic navigation here would also navigate the
@@ -3060,6 +3108,7 @@ export default function InventoryPage() {
         minWidth: 200,
         editable: gridEditMode,
         hide: !selectedColumns.has("core_description"),
+        ...linkifiedCell,
       },
     ];
 
@@ -3329,6 +3378,8 @@ export default function InventoryPage() {
                   ),
                 }
               : {}),
+            ...(isFreeTextField(field.type) ? linkifiedCell : {}),
+            ...(field.type === "url" ? urlCell : {}),
             ...(field.type === "multiline_text"
               ? {
                   cellEditor: "agLargeTextCellEditor",
@@ -3398,6 +3449,8 @@ export default function InventoryPage() {
                 ),
               }
             : {}),
+          ...(isFreeTextField(field.type) ? linkifiedCell : {}),
+          ...(field.type === "url" ? urlCell : {}),
           ...(field.type === "percentage" ? percentageColumnDef : {}),
           ...(field.type === "date" ? dateColumnFilterDef : {}),
           ...(field.type.startsWith("ext.")

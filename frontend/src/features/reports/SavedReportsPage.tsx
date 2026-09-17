@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { Trans, useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardActionArea from "@mui/material/CardActionArea";
@@ -200,7 +201,7 @@ export default function SavedReportsPage() {
                     </Box>
                     {report.description && (
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                        {report.description}
+                        <LinkifiedText text={report.description} />
                       </Typography>
                     )}
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>

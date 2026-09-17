@@ -26,6 +26,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -224,7 +225,7 @@ export default function ComplianceTab({ cardId }: Props) {
                 />
               </Stack>
               <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
-                {f.requirement}
+                <LinkifiedText text={f.requirement} />
               </Typography>
             </Box>
           ))}

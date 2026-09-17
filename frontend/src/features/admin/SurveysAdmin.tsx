@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Card from "@mui/material/Card";
@@ -191,7 +192,7 @@ export default function SurveysAdmin() {
 
               {s.description && (
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  {s.description}
+                  <LinkifiedText text={s.description} />
                 </Typography>
               )}
 

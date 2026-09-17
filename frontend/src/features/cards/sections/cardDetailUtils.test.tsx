@@ -296,3 +296,32 @@ describe("percentage field type", () => {
     expect(onChange).toHaveBeenLastCalledWith(65);
   });
 });
+
+describe("links in free text (FieldValue)", () => {
+  const notes: FieldDef = { key: "notes", label: "Notes", type: "multiline_text" };
+  const plain: FieldDef = { key: "plain", label: "Plain", type: "text" };
+  const site: FieldDef = { key: "site", label: "Site", type: "url" };
+
+  it("turns an address in a multi-line field into a new-tab link and keeps pre-wrap", () => {
+    render(<FieldValue field={notes} value={"see https://a.io/doc.\nnext line"} />);
+    const link = screen.getByRole("link", { name: "https://a.io/doc" });
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
+    expect(screen.getByText(/next line/)).toHaveStyle({ whiteSpace: "pre-wrap" });
+  });
+
+  it("links a plain text field too, and never a javascript: scheme", () => {
+    render(<FieldValue field={plain} value="go https://b.io now" />);
+    expect(screen.getByRole("link")).toHaveAttribute("href", "https://b.io");
+    const { container } = render(<FieldValue field={plain} value="javascript:alert(1)" />);
+    expect(container.querySelector("a")).toBeNull();
+  });
+
+  it("renders a url-typed value as one link, mailto included", () => {
+    render(<FieldValue field={site} value="mailto:ops@a.io" />);
+    expect(screen.getByRole("link", { name: "mailto:ops@a.io" })).toHaveAttribute(
+      "href",
+      "mailto:ops@a.io",
+    );
+  });
+});

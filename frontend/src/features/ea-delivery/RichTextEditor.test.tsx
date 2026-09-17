@@ -81,6 +81,38 @@ describe("RichTextEditor", () => {
     expect(onChange.mock.calls.at(-1)?.[0]).toContain("<hr>");
   });
 
+  it("renders a stored link as a new-tab anchor", async () => {
+    const { container } = render(
+      <RichTextEditor content='<p>see <a href="https://x.io">x</a></p>' onChange={() => {}} />,
+    );
+    await screen.findByText("x");
+    const a = container.querySelector(".tiptap a");
+    expect(a).toHaveAttribute("href", "https://x.io");
+    expect(a).toHaveAttribute("target", "_blank");
+    expect(a).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("refuses a javascript: link", async () => {
+    const { container } = render(
+      <RichTextEditor content='<p><a href="javascript:alert(1)">x</a></p>' onChange={() => {}} />,
+    );
+    await screen.findByText("x");
+    expect(container.querySelector('.tiptap a[href^="javascript"]')).toBeNull();
+  });
+
+  it("turns a pasted address into a link", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const { container } = render(<RichTextEditor content="<p></p>" onChange={onChange} />);
+    const editable = container.querySelector(".tiptap") as HTMLElement;
+    // Focus rather than click: ProseMirror's mousedown handler calls
+    // `document.elementFromPoint`, which jsdom does not implement.
+    editable.focus();
+    await user.paste("https://x.io/doc");
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(onChange.mock.calls.at(-1)?.[0]).toContain('<a target="_blank" rel="noopener noreferrer" href="https://x.io/doc"');
+  });
+
   it("drops the toolbar when read-only", async () => {
     const { unmount } = render(
       <RichTextEditor content="<p>Existing prose</p>" onChange={() => {}} />,

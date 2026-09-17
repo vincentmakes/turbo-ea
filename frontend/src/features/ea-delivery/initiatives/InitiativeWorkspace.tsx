@@ -5,6 +5,7 @@ import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
@@ -322,7 +323,7 @@ function InitiativeView({
                   overflow: "hidden",
                 }}
               >
-                {initiative.description}
+                <LinkifiedText text={initiative.description} />
               </Typography>
             </Box>
           )}

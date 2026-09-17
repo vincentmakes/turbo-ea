@@ -17,6 +17,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import type { MitigationTask, MitigationTaskOccurrence } from "@/types";
@@ -175,7 +176,7 @@ export default function OccurrenceHistoryList({
                   variant="body2"
                   sx={{ mt: 0.5, whiteSpace: "pre-wrap", color: "text.primary" }}
                 >
-                  {occ.completion_notes}
+                  <LinkifiedText text={occ.completion_notes} />
                 </Typography>
               )}
             </Stack>

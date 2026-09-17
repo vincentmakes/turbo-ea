@@ -89,7 +89,7 @@ The inventory uses an **AG Grid** data table with powerful features:
 | **Logo** | The card's own logo, or its type icon when it has none. Off by default — switch it on in the Columns tab; click a cell to change the logo |
 | **Alias** | The card's other name. Off by default — switch it on in the Columns tab; matched by every search box |
 | **Path** | Hierarchy breadcrumb up to the card's parent — empty for root cards |
-| **Description** | Brief description |
+| **Description** | Brief description — a web address in it is a clickable link |
 | **Lifecycle** | Current lifecycle state |
 | **Approval Status** | Review status badge |
 | **Data Quality** | Completeness percentage with visual ring |

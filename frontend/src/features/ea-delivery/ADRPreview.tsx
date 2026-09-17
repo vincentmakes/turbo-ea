@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router";
-import DOMPurify from "dompurify";
+import { sanitizeRichHtml } from "@/lib/richHtml";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -198,7 +198,7 @@ export default function ADRPreview() {
             </Typography>
             {content ? (
               <Box
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content) }}
+                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(content) }}
                 sx={{
                   "& p": { mt: 0, mb: 1 },
                   "& ul, & ol": { pl: 3 },

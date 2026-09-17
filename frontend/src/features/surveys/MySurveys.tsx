@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import Chip from "@mui/material/Chip";
@@ -78,7 +79,7 @@ export default function MySurveys() {
             {s.survey_message && (
               <Card variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: "action.hover" }}>
                 <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                  {s.survey_message}
+                  <LinkifiedText text={s.survey_message} />
                 </Typography>
               </Card>
             )}

@@ -7,6 +7,7 @@ import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Chip from "@mui/material/Chip";
@@ -596,7 +597,7 @@ function DetailDialog({ node, byId, byParent, onOpen, onClose, config }: DetailD
 
         {node.description && (
           <Typography variant="body1" sx={{ mb: 2 }}>
-            {node.description}
+            <LinkifiedText text={node.description} />
           </Typography>
         )}
 
@@ -687,7 +688,11 @@ function DetailTreeNode({
           </Tooltip>
         )}
         <span className="tcc-tree-name">{node.name}</span>
-        {node.description && <span className="tcc-tree-desc">{node.description}</span>}
+        {node.description && (
+          <span className="tcc-tree-desc">
+            <LinkifiedText text={node.description} />
+          </span>
+        )}
       </div>
       {kids.length > 0 && (
         <div className="tcc-detail-tree-children">

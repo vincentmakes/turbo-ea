@@ -6,6 +6,7 @@ import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Paper from "@mui/material/Paper";
 import Chip from "@mui/material/Chip";
 import Table from "@mui/material/Table";
@@ -1559,7 +1560,7 @@ export default function DependencyReport() {
                     )}
                     {hoveredConn.conn.relDescription && (
                       <Typography variant="caption" color="text.disabled" sx={{ display: "block", mt: 0.5, lineHeight: 1.3, fontStyle: "italic" }}>
-                        {hoveredConn.conn.relDescription}
+                        <LinkifiedText text={hoveredConn.conn.relDescription} />
                       </Typography>
                     )}
                   </Paper>

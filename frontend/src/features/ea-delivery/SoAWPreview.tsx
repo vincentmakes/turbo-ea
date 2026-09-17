@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router";
-import DOMPurify from "dompurify";
+import { sanitizeRichHtml } from "@/lib/richHtml";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -191,7 +191,7 @@ export default function SoAWPreview() {
       <Box
         className="soaw-preview"
         sx={{ maxWidth: 800, mx: "auto", px: { xs: 1, sm: 0 } }}
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(bodyHtml) }}
+        dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(bodyHtml) }}
       />
 
       {/* Signature Block */}

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Table from "@mui/material/Table";
@@ -361,7 +362,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
               <TableRow key={cl.id} hover>
                 <TableCell sx={{ maxWidth: 240 }}>
                   <Typography variant="body2" noWrap title={cl.description}>
-                    {cl.description}
+                    <LinkifiedText text={cl.description} />
                   </Typography>
                 </TableCell>
                 <TableCell>

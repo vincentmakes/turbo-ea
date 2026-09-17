@@ -1,4 +1,5 @@
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
 import type { FieldDef } from "@/types";
 
@@ -15,7 +16,11 @@ export default function ExtFieldCell({ field, value }: { field: FieldDef; value:
   const registered = extFieldTypes[field.type];
   if (!registered?.contribution.display) {
     if (value === null || value === undefined || value === "") return null;
-    return <Typography variant="body2">{String(value)}</Typography>;
+    return (
+      <Typography variant="body2">
+        <LinkifiedText text={String(value)} />
+      </Typography>
+    );
   }
   const Display = registered.contribution.display;
   return (

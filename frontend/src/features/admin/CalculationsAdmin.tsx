@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Button from "@mui/material/Button";
@@ -1567,7 +1568,7 @@ export default function CalculationsAdmin() {
                     </Typography>
                     {calc.description && (
                       <Typography variant="caption" color="text.secondary">
-                        {calc.description}
+                        <LinkifiedText text={calc.description} />
                       </Typography>
                     )}
                   </TableCell>

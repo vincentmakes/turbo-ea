@@ -89,7 +89,7 @@ Lageret bruger en **AG Grid**-datatabel med kraftfulde funktioner:
 | **Logo** | Kortets eget logo, eller dets typeikon når det ikke har et. Slået fra som standard — slå den til under fanen Kolonner; klik på en celle for at ændre logoet |
 | **Alias** | Kortets andet navn. Slået fra som standard — slå den til under fanen Kolonner; matches af alle søgefelter |
 | **Path** | Hierarki-brødkrumme op til kortets forælder — tom for rod-kort |
-| **Description** | Kort beskrivelse |
+| **Description** | Kort beskrivelse — en webadresse i den er et klikbart link |
 | **Lifecycle** | Aktuel livscyklus-tilstand |
 | **Approval Status** | Gennemgangs-status-badge |
 | **Data Quality** | Fuldstændigheds-procent med visuel ring |

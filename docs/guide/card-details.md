@@ -74,6 +74,7 @@ The detail tab is organized into **sections** that can be reordered and configur
 
 - **Description** — Rich text description of the component. Supports the AI suggestion feature for automatic generation
 - **Additional description fields** — An administrator can file any of a card type's own fields under Description, so this section may carry extra fields beyond the description itself
+- **Links** — A web address (`http://` or `https://`) typed into the description, any text field, a comment or a to-do becomes a link that opens in a new tab
 
 ### Lifecycle Section
 
@@ -163,6 +164,7 @@ If the card is linked to an [endoflife.date](https://endoflife.date/) product (v
 - **Add comments** — Leave notes, questions, or decisions about the component
 - **Threaded replies** — Reply to specific comments to create conversation threads
 - **Timestamps** — See when each comment was posted and by whom
+- **Links** — A web address in a comment is clickable and opens in a new tab
 
 ## Todos Tab
 

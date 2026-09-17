@@ -9,6 +9,7 @@ import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -160,7 +161,7 @@ export default function RelationPickerDialog({
                         {rt.description && (
                           <>
                             {" · "}
-                            {rt.description}
+                            <LinkifiedText text={rt.description} />
                           </>
                         )}
                       </>

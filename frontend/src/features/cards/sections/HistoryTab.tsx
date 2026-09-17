@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import { alpha, useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router";
@@ -265,7 +266,7 @@ function EventDetail({ data, eventType, fallbackSummary, typeIconFor, t }: Event
         )}
         {reason && (
           <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
-            {t("history.withdrawalReason")}: {reason}
+            {t("history.withdrawalReason")}: <LinkifiedText text={reason} />
           </Typography>
         )}
       </Box>
@@ -278,7 +279,7 @@ function EventDetail({ data, eventType, fallbackSummary, typeIconFor, t }: Event
 function PlainSummary({ text }: { text: string }) {
   return (
     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-      {text}
+      <LinkifiedText text={text} />
     </Typography>
   );
 }

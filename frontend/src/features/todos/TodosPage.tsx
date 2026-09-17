@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import Link from "@mui/material/Link";
@@ -357,7 +358,7 @@ function TodosPanel() {
                 else if (todo.card_id) navigate(`/cards/${todo.card_id}`);
               }}
             >
-              {todo.description}
+              <LinkifiedText text={todo.description} />
             </Typography>
             {metaItems.length > 0 && (
               <Typography
@@ -641,7 +642,7 @@ function SurveysPanel() {
             {s.survey_message && (
               <Card variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: "action.hover" }}>
                 <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                  {s.survey_message}
+                  <LinkifiedText text={s.survey_message} />
                 </Typography>
               </Card>
             )}

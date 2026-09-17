@@ -75,6 +75,7 @@ La scheda dettaglio è organizzata in **sezioni** che possono essere riordinate 
 
 - **Descrizione** — Descrizione in testo ricco del componente. Supporta la funzionalità di suggerimento AI per la generazione automatica
 - **Campi descrizione aggiuntivi** — Un amministratore può assegnare qualsiasi campo proprio di un tipo di card alla sezione descrizione, che può quindi contenere campi ulteriori oltre alla descrizione stessa
+- **Link** — Un indirizzo web (`http://` o `https://`) inserito nella descrizione, in qualsiasi campo di testo, in un commento o in un'attività diventa un link che si apre in una nuova scheda
 
 ### Sezione Ciclo di vita
 
@@ -164,6 +165,7 @@ Se la card è collegata a un prodotto [endoflife.date]( (tramite [Amministrazion
 - **Aggiungi commenti** — Lasciate note, domande o decisioni sul componente
 - **Risposte con thread** — Rispondete a commenti specifici per creare conversazioni con thread
 - **Timestamp** — Visualizzate quando ogni commento è stato pubblicato e da chi
+- **Link** — Un indirizzo web in un commento è cliccabile e si apre in una nuova scheda
 
 ## Scheda Todo
 

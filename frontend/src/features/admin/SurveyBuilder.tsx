@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Button from "@mui/material/Button";
 import Stepper from "@mui/material/Stepper";
 import Step from "@mui/material/Step";
@@ -1413,7 +1414,7 @@ export default function SurveyBuilder() {
               </Typography>
               <MuiCard variant="outlined" sx={{ p: 2, mb: 2, bgcolor: "action.hover" }}>
                 <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                  {message || t("surveyBuilder.preview.noMessage")}
+                  {message ? <LinkifiedText text={message} /> : t("surveyBuilder.preview.noMessage")}
                 </Typography>
               </MuiCard>
 

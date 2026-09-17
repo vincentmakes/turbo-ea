@@ -8,6 +8,7 @@ import { DateField } from "@/components/DateField";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import TextField from "@mui/material/TextField";
 import Slider from "@mui/material/Slider";
 import Dialog from "@mui/material/Dialog";
@@ -216,7 +217,7 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
                   <TableCell align="center"><ScoreChip score={a.compliance} /></TableCell>
                   <TableCell align="center"><ScoreChip score={a.automation} /></TableCell>
                   <TableCell sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {a.notes || "—"}
+                    {a.notes ? <LinkifiedText text={a.notes} /> : "—"}
                   </TableCell>
                   <TableCell>
                     <IconButton size="small" onClick={() => handleDelete(a.id)}>

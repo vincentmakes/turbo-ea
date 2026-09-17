@@ -77,6 +77,7 @@ Der Detail-Tab ist in **Abschnitte** gegliedert, die pro Kartentyp von einem Adm
 
 - **Beschreibung** — Rich-Text-Beschreibung der Komponente. Unterstützt die KI-Vorschlagsfunktion zur automatischen Generierung
 - **Zusätzliche Beschreibungsfelder** — Eine Administratorin kann beliebige eigene Felder eines Kartentyps dem Abschnitt Beschreibung zuordnen; dieser Abschnitt kann daher weitere Felder neben der Beschreibung selbst enthalten
+- **Links** — Eine Webadresse (`http://` oder `https://`) in der Beschreibung, in einem beliebigen Textfeld, einem Kommentar oder einer Aufgabe wird zu einem Link, der sich in einem neuen Tab öffnet
 
 ### Lebenszyklusabschnitt
 
@@ -166,6 +167,7 @@ Wenn die Karte mit einem [endoflife.date](https://endoflife.date/)-Produkt verkn
 - **Kommentare hinzufügen** — Notizen, Fragen oder Entscheidungen über die Komponente hinterlassen
 - **Verschachtelte Antworten** — Auf bestimmte Kommentare antworten, um Gesprächsfäden zu erstellen
 - **Zeitstempel** — Sehen, wann jeder Kommentar gepostet wurde und von wem
+- **Links** — Eine Webadresse in einem Kommentar ist anklickbar und öffnet sich in einem neuen Tab
 
 ## Aufgaben-Tab
 

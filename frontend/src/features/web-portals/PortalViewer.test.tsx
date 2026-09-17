@@ -139,4 +139,26 @@ describe("PortalViewer detail dialog", () => {
     // The ordinary section keeps its own heading.
     expect(within(dialog).getByText("Initiative Information")).toBeInTheDocument();
   });
+
+  it("links a bare address in the description and opens it in a new tab", async () => {
+    publicGet.mockImplementation((path: string) => {
+      if (path.endsWith("/gate")) return Promise.resolve({ access_mode: "public", name: "Initiatives" });
+      if (path.includes("/cards"))
+        return Promise.resolve({
+          items: [{ ...CARD, description: "<p>Plan: https://wiki.example.com/erp.</p>" }],
+          total: 1,
+          page: 1,
+          page_size: 24,
+        });
+      return Promise.resolve(portal());
+    });
+    const user = userEvent.setup();
+    renderPortal();
+    await waitFor(() => expect(screen.getByText("SAP S/4HANA Migration")).toBeInTheDocument());
+    await user.click(screen.getByText("SAP S/4HANA Migration"));
+    const dialog = await screen.findByRole("dialog");
+    const link = within(dialog).getByRole("link", { name: "https://wiki.example.com/erp" });
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
 });

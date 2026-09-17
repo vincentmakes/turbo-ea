@@ -5,6 +5,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import MuiCard from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { surface } from "@/theme/tokens";
@@ -92,7 +93,7 @@ export default function PrinciplesPanel() {
                 </Typography>
                 {p.description && (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                    {p.description}
+                    <LinkifiedText text={p.description} />
                   </Typography>
                 )}
                 {(p.rationale || p.implications) && (
@@ -114,7 +115,7 @@ export default function PrinciplesPanel() {
                                 color="text.secondary"
                                 sx={{ py: 0.1 }}
                               >
-                                {line}
+                                <LinkifiedText text={line} />
                               </Typography>
                             ))}
                         </Box>
@@ -137,7 +138,7 @@ export default function PrinciplesPanel() {
                                 color="text.secondary"
                                 sx={{ py: 0.1 }}
                               >
-                                {line}
+                                <LinkifiedText text={line} />
                               </Typography>
                             ))}
                         </Box>

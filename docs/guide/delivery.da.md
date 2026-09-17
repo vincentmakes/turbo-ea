@@ -46,6 +46,7 @@ Turbo EA tilbyder en indbygget SoAW-editor med TOGAF-tilpassede sektions­skabel
 Editoren tilbyder:
 
 - **Rich text-redigering** — Komplet formateringsværktøjslinje (overskrifter, fed, kursiv, lister, links) drevet af TipTap-editoren
+- **Links** — En URL, du skriver eller indsætter, bliver til et link, mens du skriver, og hvert link i et dokument åbner i en ny fane. Adresser i dokumenter skrevet før links blev understøttet, linkes når dokumentet vises
 - **Sektions­skabeloner** — Foruddefinerede sektioner, der følger TOGAF-standarder (f.eks. Problembeskrivelse, Mål, Tilgang, Interessenter, Begrænsninger, Arbejdsplan)
 - **Indlejret redigerbare tabeller** — Tilføj og rediger tabeller inden for en sektion
 - **Status­arbejdsproces** — Dokumenter bevæger sig gennem definerede stadier:

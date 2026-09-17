@@ -18,6 +18,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type {
@@ -38,7 +39,7 @@ function BulletList({ text }: { text: string }) {
           color="text.secondary"
           sx={{ py: 0.1 }}
         >
-          {line.replace(/^[-*•]\s*/, "")}
+          <LinkifiedText text={line.replace(/^[-*•]\s*/, "")} />
         </Typography>
       ))}
     </Box>
@@ -287,7 +288,7 @@ export default function PrinciplesCataloguePage() {
                     </Stack>
                     {p.description && (
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        {p.description}
+                        <LinkifiedText text={p.description} />
                       </Typography>
                     )}
                     <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>

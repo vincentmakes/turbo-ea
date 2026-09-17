@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Table from "@mui/material/Table";
@@ -211,9 +212,11 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
                   </Typography>
                   {risk.description && (
                     <Typography variant="caption" color="text.secondary">
-                      {risk.description.length > 80
-                        ? `${risk.description.slice(0, 80)}...`
-                        : risk.description}
+                      {risk.description.length > 80 ? (
+                        `${risk.description.slice(0, 80)}...`
+                      ) : (
+                        <LinkifiedText text={risk.description} />
+                      )}
                     </Typography>
                   )}
                 </TableCell>
@@ -246,7 +249,7 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
                 </TableCell>
                 <TableCell>
                   <Typography variant="caption" noWrap sx={{ maxWidth: 200, display: "block" }}>
-                    {risk.mitigation || "\u2014"}
+                    {risk.mitigation ? <LinkifiedText text={risk.mitigation} /> : "\u2014"}
                   </Typography>
                 </TableCell>
                 <TableCell>

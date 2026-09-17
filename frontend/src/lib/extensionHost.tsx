@@ -93,6 +93,8 @@ import { api } from "@/api/client";
 import FilterSelect from "@/components/FilterSelect";
 import CardMultiPicker from "@/components/CardMultiPicker";
 import CardPicker from "@/components/CardPicker";
+import LinkifiedText from "@/components/LinkifiedText";
+import { sanitizeRichHtml } from "@/lib/richHtml";
 import CardScopeDialog, { dedupeScopeRoots } from "@/components/CardScopeDialog";
 import CardScopeFilter from "@/components/CardScopeFilter";
 import { applyScope, useCardScope } from "@/hooks/useCardScope";
@@ -146,7 +148,7 @@ import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.28";
+export const UI_SDK_VERSION = "1.29";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -1060,6 +1062,15 @@ export function initExtensionHost(): void {
       // CardPicker*). Same engine as the multi picker, for the dialog that
       // links ONE card. MUI-only leaf, so a static import.
       CardPicker,
+      // SDK 1.29 — free text and stored HTML. `LinkifiedText` renders a
+      // user-typed string with its http(s) addresses as new-tab links (a
+      // fragment, so it sits inside the caller's own Typography);
+      // `sanitizeRichHtml` is the one sanitiser for stored rich text — it
+      // autolinks bare URLs and stamps every anchor target/rel. An extension
+      // that renders a description or a rich-text field must not rebuild
+      // either, or its links will behave differently from core's.
+      LinkifiedText,
+      sanitizeRichHtml,
       // SDK 1.15 — the whole report-scoping kit, so an extension report gets
       // "narrow this to a few cards and everything under them" with the same
       // saved-report round-trip and stale-id handling core reports have.

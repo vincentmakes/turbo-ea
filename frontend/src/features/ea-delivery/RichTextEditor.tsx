@@ -22,6 +22,20 @@ export default function RichTextEditor({ content, onChange, placeholder, readOnl
     extensions: [
       StarterKit.configure({
         heading: { levels: [3, 4] },
+        // StarterKit bundles the Link extension. A URL typed or pasted becomes
+        // a link as you type, stored with the attributes every outbound link
+        // in the app carries; `whenNotEditable` keeps a click in edit mode as
+        // a caret placement and makes it follow the link once read-only.
+        // `sanitizeRichHtml` re-stamps target/rel at render time for content
+        // written before this, so the stored attributes are a convenience,
+        // not the safety net.
+        link: {
+          openOnClick: "whenNotEditable",
+          autolink: true,
+          linkOnPaste: true,
+          defaultProtocol: "https",
+          HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" },
+        },
       }),
       Placeholder.configure({ placeholder: placeholder ?? t("richText.startTyping") }),
     ],
@@ -175,6 +189,7 @@ export default function RichTextEditor({ content, onChange, placeholder, readOnl
             "& h3": { fontSize: "1.1rem", fontWeight: 600, mt: 2, mb: 1 },
             "& h4": { fontSize: "1rem", fontWeight: 600, mt: 1.5, mb: 0.5 },
             "& ul, & ol": { pl: 3 },
+            "& a": { color: "primary.main", wordBreak: "break-all" },
             "& blockquote": {
               borderLeft: "3px solid",
               borderColor: "divider",

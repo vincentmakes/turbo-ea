@@ -22,6 +22,7 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -369,8 +370,8 @@ export default function MitigationTasksPanel({
                       )}
                     </Stack>
                     {task.description && (
-                      <Typography variant="body2" color="text.secondary">
-                        {task.description}
+                      <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
+                        <LinkifiedText text={task.description} />
                       </Typography>
                     )}
                     <Stack

@@ -4,6 +4,7 @@ import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
@@ -237,7 +238,7 @@ export default function PrinciplesAdmin() {
                   </Box>
                   {p.description && (
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                      {p.description}
+                      <LinkifiedText text={p.description} />
                     </Typography>
                   )}
                   {(p.rationale || p.implications) && (
@@ -259,7 +260,7 @@ export default function PrinciplesAdmin() {
                                 color="text.secondary"
                                 sx={{ py: 0.1 }}
                               >
-                                {line}
+                                <LinkifiedText text={line} />
                               </Typography>
                             ))}
                           </Box>
@@ -282,7 +283,7 @@ export default function PrinciplesAdmin() {
                                 color="text.secondary"
                                 sx={{ py: 0.1 }}
                               >
-                                {line}
+                                <LinkifiedText text={line} />
                               </Typography>
                             ))}
                           </Box>

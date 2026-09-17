@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import MuiCard from "@mui/material/Card";
@@ -71,7 +72,9 @@ function CommentsTab({ fsId, canCreateComments = true, canManageComments: _canMa
                 {c.created_at ? formatDateTime(c.created_at) : ""}
               </Typography>
             </Box>
-            <Typography variant="body2">{c.content}</Typography>
+            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+              <LinkifiedText text={c.content} />
+            </Typography>
           </CardContent>
         </MuiCard>
       ))}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Divider from "@mui/material/Divider";
@@ -151,7 +152,7 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
                   {t("summary")}
                 </Typography>
                 <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-                  {report.summary}
+                  <LinkifiedText text={report.summary} />
                 </Typography>
               </Box>
             )}
@@ -171,7 +172,7 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
                   {t("accomplishments")}
                 </Typography>
                 <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-                  {report.accomplishments}
+                  <LinkifiedText text={report.accomplishments} />
                 </Typography>
               </Box>
             )}
@@ -188,7 +189,7 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
                   {t("nextSteps")}
                 </Typography>
                 <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-                  {report.next_steps}
+                  <LinkifiedText text={report.next_steps} />
                 </Typography>
               </Box>
             )}

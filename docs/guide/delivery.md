@@ -46,6 +46,7 @@ Turbo EA provides a built-in SoAW editor with TOGAF-aligned section templates, r
 The editor provides:
 
 - **Rich text editing** — Full formatting toolbar (headings, bold, italic, lists, links) powered by the TipTap editor
+- **Links** — A URL you type or paste becomes a link as you type, and every link in a document opens in a new tab. Addresses in documents written before links were supported are linked when the document is displayed
 - **Section templates** — Pre-defined sections following TOGAF standards (e.g., Problem Description, Objectives, Approach, Stakeholders, Constraints, Work Plan)
 - **Inline editable tables** — Add and edit tables within any section
 - **Status workflow** — Documents progress through defined stages:

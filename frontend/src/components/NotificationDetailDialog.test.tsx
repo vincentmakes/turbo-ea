@@ -65,6 +65,13 @@ describe("NotificationDetailDialog", () => {
     expect(screen.getByText(/detail.sentBy:Rules Engine/)).toBeInTheDocument();
   });
 
+  it("turns an address in the message into a new-tab link", () => {
+    renderDialog(digest({ message: "Details: https://wiki.example.com/rules" }));
+    const link = screen.getByRole("link", { name: "https://wiki.example.com/rules" });
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
+  });
+
   it("falls back to the extension key when the manifest carried no name", () => {
     renderDialog(digest());
     expect(screen.getByText(/detail.sentBy:rules/)).toBeInTheDocument();

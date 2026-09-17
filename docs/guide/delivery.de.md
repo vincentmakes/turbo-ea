@@ -46,6 +46,7 @@ Turbo EA bietet einen integrierten SoAW-Editor mit TOGAF-konformen Abschnittsvor
 Der Editor bietet:
 
 - **Rich-Text-Bearbeitung** — Vollständige Formatierungswerkzeugleiste (Überschriften, Fett, Kursiv, Listen, Links) unterstützt durch den TipTap-Editor
+- **Links** — Eine eingegebene oder eingefügte URL wird beim Tippen zu einem Link, und jeder Link in einem Dokument öffnet sich in einem neuen Tab. Adressen in Dokumenten, die vor der Link-Unterstützung geschrieben wurden, werden bei der Anzeige verlinkt
 - **Abschnittsvorlagen** — Vordefinierte Abschnitte gemäß TOGAF-Standards (z.B. Problembeschreibung, Ziele, Ansatz, Stakeholder, Einschränkungen, Arbeitsplan)
 - **Inline bearbeitbare Tabellen** — Tabellen in jedem Abschnitt hinzufügen und bearbeiten
 - **Status-Workflow** — Dokumente durchlaufen definierte Phasen:

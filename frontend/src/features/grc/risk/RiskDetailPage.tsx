@@ -32,6 +32,7 @@ import StepButton from "@mui/material/StepButton";
 import Stepper from "@mui/material/Stepper";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import CardPicker from "@/components/CardPicker";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
@@ -855,8 +856,8 @@ export default function RiskDetailPage() {
           )}
 
           {risk.status === "accepted" && risk.acceptance_rationale && (
-            <Alert severity="warning" sx={{ mt: 1 }}>
-              {risk.acceptance_rationale}
+            <Alert severity="warning" sx={{ mt: 1, whiteSpace: "pre-wrap" }}>
+              <LinkifiedText text={risk.acceptance_rationale} linkProps={{ color: "inherit" }} />
             </Alert>
           )}
         </Paper>

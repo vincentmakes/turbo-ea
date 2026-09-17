@@ -77,6 +77,7 @@ La pestaña de detalle está organizada en **secciones** que pueden ser reordena
 
 - **Descripción** — Descripción en texto enriquecido del componente. Soporta la función de sugerencia con IA para generación automática
 - **Campos de descripción adicionales** — Un administrador puede asignar cualquier campo propio de un tipo de ficha a la sección de descripción, por lo que esta puede llevar campos adicionales además de la descripción misma
+- **Enlaces** — Una dirección web (`http://` o `https://`) escrita en la descripción, en cualquier campo de texto, un comentario o una tarea se convierte en un enlace que se abre en una pestaña nueva
 
 ### Sección de Ciclo de Vida
 
@@ -166,6 +167,7 @@ Si la ficha está vinculada a un producto de [endoflife.date](https://endoflife.
 - **Agregar comentarios** — Deje notas, preguntas o decisiones sobre el componente
 - **Respuestas en hilo** — Responda a comentarios específicos para crear hilos de conversación
 - **Marcas de tiempo** — Vea cuándo se publicó cada comentario y por quién
+- **Enlaces** — Una dirección web en un comentario es clicable y se abre en una pestaña nueva
 
 ## Pestaña de Tareas
 

@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
-import DOMPurify from "dompurify";
+import { sanitizeRichHtml } from "@/lib/richHtml";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
+import MuiLink from "@mui/material/Link";
+import { isLinkableHref } from "@/lib/linkify";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import Button from "@mui/material/Button";
@@ -307,7 +310,29 @@ function FieldValue({
       </Box>
     );
   }
-  return <Typography variant="body2">{String(value)}</Typography>;
+  if (field?.type === "url" && typeof value === "string" && isLinkableHref(value)) {
+    // A url-typed value is one whole link, whatever its scheme in the
+    // allowlist (mailto included) — the same rendering the card page gives it.
+    return (
+      <Typography variant="body2" sx={{ wordBreak: "break-all" }}>
+        <MuiLink href={value.trim()} target="_blank" rel="noopener noreferrer" underline="hover">
+          {value}
+        </MuiLink>
+      </Typography>
+    );
+  }
+  if (field?.type === "multiline_text") {
+    return (
+      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+        <LinkifiedText text={String(value)} />
+      </Typography>
+    );
+  }
+  return (
+    <Typography variant="body2">
+      <LinkifiedText text={String(value)} />
+    </Typography>
+  );
 }
 
 export default function PortalViewer() {
@@ -699,7 +724,7 @@ export default function PortalViewer() {
                   variant="body1"
                   sx={{ opacity: 0.8, maxWidth: 700, mt: 0.5, lineHeight: 1.6 }}
                 >
-                  {portal.description}
+                  <LinkifiedText text={portal.description} />
                 </Typography>
               )}
               {!isBoard && (
@@ -1513,7 +1538,7 @@ export default function PortalViewer() {
                             color: "text.primary",
                           }}
                           dangerouslySetInnerHTML={{
-                            __html: DOMPurify.sanitize(selectedFs.description || ""),
+                            __html: sanitizeRichHtml(selectedFs.description),
                           }}
                         />
                       )}

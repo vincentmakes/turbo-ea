@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import CataloguePage from "@/features/reference-catalogue/CataloguePage";
 import type {
   CatalogueKindConfig,
@@ -51,7 +52,9 @@ function ValueStreamDetailExtras({ node }: { node: CatalogueNode }) {
           <Typography variant="overline" color="text.secondary">
             {t("cards:valueStreamCatalogue.notesLabel")}
           </Typography>
-          <Typography variant="body2">{node.notes}</Typography>
+          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+            <LinkifiedText text={node.notes} />
+          </Typography>
         </Box>
       )}
 

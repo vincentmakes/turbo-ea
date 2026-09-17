@@ -46,6 +46,7 @@ Turbo EA fornisce un editor SoAW integrato con template di sezioni allineati a T
 L'editor fornisce:
 
 - **Editing di testo ricco** — Barra degli strumenti di formattazione completa (intestazioni, grassetto, corsivo, elenchi, link) alimentata dall'editor TipTap
+- **Link** — Un URL digitato o incollato diventa un link mentre scrivi, e ogni link di un documento si apre in una nuova scheda. Gli indirizzi nei documenti scritti prima del supporto ai link vengono collegati al momento della visualizzazione
 - **Template di sezioni** — Sezioni predefinite seguendo gli standard TOGAF (es. Descrizione del problema, Obiettivi, Approccio, Stakeholder, Vincoli, Piano di lavoro)
 - **Tabelle modificabili in linea** — Aggiungete e modificate tabelle all'interno di qualsiasi sezione
 - **Workflow degli stati** — I documenti progrediscono attraverso fasi definite:

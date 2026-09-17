@@ -88,7 +88,7 @@ L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalité
 | **Nom** | Nom du composant (cliquer pour ouvrir le détail de la fiche) |
 | **Logo** | Le logo propre à la fiche, ou son icône de type à défaut. Masquée par défaut — activez-la dans l'onglet Colonnes ; cliquez sur une cellule pour changer le logo |
 | **Alias** | L'autre nom de la fiche. Masquée par défaut -- activez-la dans l'onglet Colonnes ; prise en compte par tous les champs de recherche |
-| **Description** | Description brève |
+| **Description** | Description brève -- une adresse web qu'elle contient est un lien cliquable |
 | **Cycle de vie** | État actuel du cycle de vie |
 | **Statut d'approbation** | Badge de statut de révision |
 | **Qualité des données** | Pourcentage de complétude avec anneau visuel |

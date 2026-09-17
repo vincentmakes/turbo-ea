@@ -46,6 +46,7 @@ Turbo EA fournit un éditeur SoAW intégré avec des modèles de sections align�
 L'éditeur offre :
 
 - **Édition de texte riche** -- Barre d'outils de mise en forme complète (titres, gras, italique, listes, liens) propulsée par l'éditeur TipTap
+- **Liens** -- Une URL saisie ou collée devient un lien au fil de la frappe, et chaque lien d'un document s'ouvre dans un nouvel onglet. Les adresses des documents rédigés avant la prise en charge des liens sont converties en liens à l'affichage
 - **Modèles de sections** -- Sections prédéfinies suivant les standards TOGAF (par ex. Description du problème, Objectifs, Approche, Parties prenantes, Contraintes, Plan de travail)
 - **Tableaux éditables en ligne** -- Ajoutez et éditez des tableaux dans n'importe quelle section
 - **Workflow de statut** -- Les documents progressent à travers des étapes définies :

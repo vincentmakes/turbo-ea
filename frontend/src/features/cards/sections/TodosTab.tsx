@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -164,7 +165,7 @@ function TodosTab({ fsId }: { fsId: string }) {
                 />
               </IconButton>
               <ListItemText
-                primary={td.description}
+                primary={<LinkifiedText text={td.description} />}
                 secondary={
                   <Box component="span" sx={{ display: "flex", gap: 1, mt: 0.25, flexWrap: "wrap" }}>
                     {td.assignee_name && (

@@ -84,3 +84,20 @@ describe("DescriptionSection — calculated fields in the __description section"
     expect(onSave).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("DescriptionSection — links in the description", () => {
+  it("renders a pasted address as a link that opens in a new tab", () => {
+    render(
+      <DescriptionSection
+        card={{ ...card, description: "Runbook: https://wiki.example.com/erp." } as Card}
+        onSave={async () => {}}
+        extraFields={[]}
+      />,
+    );
+    const link = screen.getByRole("link", { name: "https://wiki.example.com/erp" });
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", expect.stringContaining("noreferrer"));
+    // The full stop after the address stays text.
+    expect(screen.getByText(/Runbook:/)).toHaveTextContent("Runbook: https://wiki.example.com/erp.");
+  });
+});
