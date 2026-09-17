@@ -200,7 +200,7 @@ TURBO_EA_TAG=1.0.0 docker compose up -d
 إذا كنت تشغّل بالفعل نسخة PostgreSQL مُدارة أو مشتركة، فوجّه الواجهة الخلفية إليها وتخطَّ خدمة `db` المُجمَّعة.
 
 !!! tip "هل تعمل على Kubernetes؟"
-    يقوم [مخطط Helm](../admin/kubernetes.md) بتثبيت Turbo EA على EKS أو AKS أو GKE أو أي عنقود آخر مع قاعدة PostgreSQL خارجية من هذا النوع تمامًا؛ وتشرح الصفحة نفسها كل سحابة.
+    يقوم [مخطط Helm](../admin/kubernetes.md) بتثبيت Turbo EA على EKS أو AKS أو GKE أو أي عنقود آخر مع قاعدة PostgreSQL خارجية من هذا النوع تمامًا؛ وتشرح الصفحة نفسها كل سحابة. ومن دون عنقود، تغطي صفحة [خدمات الحاويات المُدارة](../admin/managed-containers.md) كلًا من Azure Container Apps وCloud Run وECS Fargate.
 
 أنشئ قاعدة البيانات والمستخدم على خادمك الحالي:
 

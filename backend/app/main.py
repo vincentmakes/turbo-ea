@@ -15,6 +15,7 @@ from app.core.logging_config import configure_logging
 from app.core.rate_limit import limiter
 from app.database import engine
 from app.models import Base
+from app.services.startup_lock import startup_lock
 
 configure_logging(environment=settings.ENVIRONMENT)
 logger = logging.getLogger(__name__)
@@ -622,22 +623,17 @@ async def _ensure_ollama_model() -> None:
         logger.exception("[ai] Unexpected error pulling model '%s'", model)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # ── C2: Refuse startup with default secret key in non-development envs ──
-    if settings.SECRET_KEY in _DEFAULT_SECRET_KEYS:
-        env = settings.ENVIRONMENT
-        if env != "development":
-            raise RuntimeError(
-                "SECRET_KEY must be set to a strong random value in production. "
-                'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(64))"'
-            )
-        else:
-            logger.warning(
-                "Using default SECRET_KEY — acceptable for development only. "
-                "Set a strong SECRET_KEY before deploying to production."
-            )
+async def _migrate_and_seed(extension_load_report) -> list[asyncio.Task]:
+    """Bring the database to the current schema and seed it.
 
+    Runs the Alembic upgrade (or ``create_all`` on a fresh database), loads
+    the persisted settings, seeds the metamodel and the optional demo data,
+    mints the instance ID and initialises the extensions — everything that
+    writes to the database before the app serves its first request. Called
+    under :func:`startup_lock` so two overlapping instances never do this at
+    once; returns the extension job tasks so the caller can cancel them on
+    shutdown.
+    """
     from alembic.config import Config
     from sqlalchemy import inspect as sa_inspect
     from sqlalchemy import text
@@ -898,7 +894,27 @@ async def lifespan(app: FastAPI):
 
     async with async_session() as db:
         await ensure_instance_id(db)
-    extension_job_tasks = await initialize_extensions(extension_load_report)
+    return await initialize_extensions(extension_load_report)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ── C2: Refuse startup with default secret key in non-development envs ──
+    if settings.SECRET_KEY in _DEFAULT_SECRET_KEYS:
+        env = settings.ENVIRONMENT
+        if env != "development":
+            raise RuntimeError(
+                "SECRET_KEY must be set to a strong random value in production. "
+                'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(64))"'
+            )
+        else:
+            logger.warning(
+                "Using default SECRET_KEY — acceptable for development only. "
+                "Set a strong SECRET_KEY before deploying to production."
+            )
+
+    async with startup_lock(engine):
+        extension_job_tasks = await _migrate_and_seed(extension_load_report)
 
     # Auto-configure bundled Ollama AI when AI_AUTO_CONFIGURE=true
     ollama_task = None

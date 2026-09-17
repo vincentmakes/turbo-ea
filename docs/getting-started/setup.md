@@ -200,7 +200,7 @@ Released versions are tagged `:<full-version>`, `:<major>.<minor>`, `:<major>`, 
 If you already run a managed or shared PostgreSQL instance, point the backend at it and skip the bundled `db` service.
 
 !!! tip "Running on Kubernetes?"
-    The [Helm chart](../admin/kubernetes.md) installs Turbo EA on EKS, AKS, GKE or any cluster against exactly this kind of external PostgreSQL, and the same page walks through each cloud.
+    The [Helm chart](../admin/kubernetes.md) installs Turbo EA on EKS, AKS, GKE or any cluster against exactly this kind of external PostgreSQL, and the same page walks through each cloud. Without a cluster, the [managed container services](../admin/managed-containers.md) page covers Azure Container Apps, Cloud Run and ECS Fargate.
 
 Create the database and user on your existing server:
 

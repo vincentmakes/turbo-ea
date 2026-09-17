@@ -33,6 +33,7 @@ jobs:
       docs: ${{ steps.filter.outputs.docs == 'true' || steps.filter.outputs.ci == 'true' }}
       devcontainer: ${{ steps.filter.outputs.devcontainer == 'true' || steps.filter.outputs.ci == 'true' }}
       helm: ${{ steps.filter.outputs.helm == 'true' || steps.filter.outputs.ci == 'true' }}
+      deploy: ${{ steps.filter.outputs.deploy == 'true' || steps.filter.outputs.ci == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -74,6 +75,11 @@ jobs:
               # the chart depends on, so a Dockerfile change re-runs the kind test.
               - 'Dockerfile'
               - 'nginx/**'
+            deploy:
+              - 'deploy/**'
+              - 'scripts/check_cloud_run_manifest.py'
+              # Every template sets NGINX_HTTP_PORT, which the edge entrypoint reads.
+              - 'Dockerfile'
             ci:
               - '.github/workflows/**'
 
@@ -672,3 +678,60 @@ jobs:
             kubectl logs -n "$NS" -l app.kubernetes.io/component=$c --tail=200 || true
             echo "::endgroup::"
           done
+
+  # ── Managed-container templates (deploy/) ───────────────────────────
+  # Bicep, CloudFormation and the Cloud Run manifest have no unit tests, so
+  # this is the whole safety net: each must at least compile / lint, the
+  # Cloud Run manifest must keep the properties the guide depends on, and the
+  # edge nginx must honour NGINX_HTTP_PORT — every template moves it to 8920
+  # because the frontend sidecar owns 8080 on the same localhost.
+  deploy-templates-lint:
+    name: Deploy Templates Lint
+    needs: changes
+    if: needs.changes.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Bicep (Azure Container Apps)
+        run: |
+          set -euo pipefail
+          az bicep install --version v0.47.16
+          az bicep build --file deploy/azure-container-apps/main.bicep --stdout > /dev/null
+          az bicep build-params --file deploy/azure-container-apps/main.bicepparam --stdout > /dev/null
+
+      - name: CloudFormation (ECS Fargate)
+        run: |
+          set -euo pipefail
+          pip install cfn-lint==1.41.0 pyyaml
+          cfn-lint deploy/ecs-fargate/template.yaml
+
+      - name: Cloud Run manifest
+        run: python3 scripts/check_cloud_run_manifest.py
+
+      # The kind job covers the default port; this covers the override the
+      # templates rely on, in the real image.
+      - name: Edge nginx honours NGINX_HTTP_PORT
+        run: |
+          set -euo pipefail
+          docker build --target nginx -t turbo-ea-ci/nginx:ci .
+          docker run -d --name edge -p 18920:8920 \
+            -e NGINX_HTTP_PORT=8920 -e NGINX_ENABLE_IPV6=true \
+            -e NGINX_BACKEND_UPSTREAM=http://127.0.0.1:8000 \
+            turbo-ea-ci/nginx:ci
+          for i in $(seq 1 20); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://localhost:18920/api/health || true)"
+            [ "$code" = "502" ] && break
+            sleep 1
+          done
+          echo "GET /api/health on 8920 -> $code (502 = listening, no backend behind it)"
+          test "$code" = "502"
+          docker exec edge nginx -T 2>/dev/null | grep -q 'listen \[::\]:8920;'
+          docker rm -f edge
+          if docker run --rm -e NGINX_HTTP_PORT=abc turbo-ea-ci/nginx:ci; then
+            echo "::error::an invalid NGINX_HTTP_PORT must fail the container start"
+            exit 1
+          fi

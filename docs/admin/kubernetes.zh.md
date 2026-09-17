@@ -263,14 +263,7 @@ extraObjects:
 
 ## 托管容器服务
 
-Azure Container Apps、AWS ECS / App Runner 和 Google Cloud Run 可以运行同样的镜像，但它们不是受支持的安装方式，也没有相应模板。这类部署必须满足的条件，以及各服务的不足之处：
-
-- **恰好一个后端实例**，不能缩容到零，也不能滚动替换（两个后端绝不能重叠）。
-- **持久且可写的 `/app/data`**——Cloud Run 没有持久磁盘；Container Apps 需要挂载 Azure Files；ECS 需要 EFS。
-- 事件流所需的**长连接响应**以及**高达 512 MB 的上传**；多个服务会限制请求时长或请求体大小。
-- **前置的边缘 nginx**，通过 `NGINX_BACKEND_UPSTREAM`、`NGINX_FRONTEND_UPSTREAM` 和 `NGINX_MCP_UPSTREAM` 指向其他服务，因为 Compose 的服务名在那里并不存在。
-
-若无法使用 Kubernetes，在[虚拟机上运行 Docker Compose](../getting-started/setup.md) 并搭配托管 PostgreSQL 是更简单且受支持的方式。
+Azure Container Apps、Google Cloud Run 和 AWS ECS Fargate 无需 Kubernetes 即可运行同样的镜像：一个容器组，边缘 nginx、前端和后端作为 Sidecar 运行。可直接修改的模板以及各平台的操作指南（包括每个平台做不到的事）见[托管容器服务](managed-containers.md)页面。
 
 ## 故障排查
 

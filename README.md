@@ -352,6 +352,10 @@ helm install turbo-ea oci://ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea \
 
 The chart version is the Turbo EA version. Cloud-specific starting points (ALB, App Routing, GCE Ingress, storage classes, managed-database notes) live in [`charts/turbo-ea/examples/`](charts/turbo-ea/examples/), and the full guide — including the AWS, Azure and GCP walkthroughs — is at [docs.turbo-ea.org/admin/kubernetes](https://docs.turbo-ea.org/admin/kubernetes/).
 
+### Managed container services (no Kubernetes)
+
+Azure Container Apps, Google Cloud Run and AWS ECS Fargate can run the same images as one container group — the edge nginx, frontend, backend and optional MCP server as sidecars sharing `localhost` — against a managed PostgreSQL. Ready-to-edit templates live under [`deploy/`](deploy/) (Bicep, a Cloud Run service manifest, CloudFormation) and the walkthroughs, including what each platform can and cannot do, are at [docs.turbo-ea.org/admin/managed-containers](https://docs.turbo-ea.org/admin/managed-containers/).
+
 ### Verifying images
 
 From `1.0.0` onwards, every published image is signed with [cosign](https://github.com/sigstore/cosign) using GitHub's keyless OIDC flow — no shared signing key, the certificate is bound to the publish workflow identity. Verification before pulling into production is one command:
@@ -606,6 +610,7 @@ npm run build         # TypeScript check + production build
 | `NGINX_BACKEND_UPSTREAM` | `http://backend:8000` | Edge nginx: address of the backend. Override with a fully-qualified Service name on Kubernetes, where nginx's resolver ignores DNS search domains (the Helm chart sets all three) |
 | `NGINX_FRONTEND_UPSTREAM` | `http://frontend:8080` | Edge nginx: address of the frontend |
 | `NGINX_MCP_UPSTREAM` | `http://mcp-server:8001` | Edge nginx: address of the MCP server |
+| `NGINX_HTTP_PORT` | `8080` | Edge nginx: port its HTTP server listens on. Only a sidecar layout where the frontend image already owns 8080 changes it (the managed-container templates use 8920) |
 
 > **API Documentation**: Swagger UI is available at `/api/docs` when running in development mode (`ENVIRONMENT=development`).
 

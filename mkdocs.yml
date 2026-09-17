@@ -119,6 +119,7 @@ plugins:
             Extension Store: Tienda de extensiones
             Operations & Upgrades: Operaciones y actualizaciones
             Kubernetes & Cloud: Kubernetes y nube
+            Managed Container Services: Servicios de contenedores gestionados
             Supply Chain: Cadena de suministro
             Reference: Referencia
             Glossary: Glosario
@@ -186,6 +187,7 @@ plugins:
             Extension Store: Erweiterungs-Store
             Operations & Upgrades: Betrieb & Upgrades
             Kubernetes & Cloud: Kubernetes & Cloud
+            Managed Container Services: Verwaltete Container-Dienste
             Supply Chain: Lieferkette
             Reference: Referenz
             Glossary: Glossar
@@ -253,6 +255,7 @@ plugins:
             Extension Store: Boutique d'extensions
             Operations & Upgrades: Exploitation et mises à niveau
             Kubernetes & Cloud: Kubernetes et cloud
+            Managed Container Services: Services de conteneurs managés
             Supply Chain: Chaîne d'approvisionnement
             Reference: Référence
             Glossary: Glossaire
@@ -320,6 +323,7 @@ plugins:
             Extension Store: Store delle estensioni
             Operations & Upgrades: Operazioni e aggiornamenti
             Kubernetes & Cloud: Kubernetes e cloud
+            Managed Container Services: Servizi di container gestiti
             Supply Chain: Catena di approvvigionamento
             Reference: Riferimenti
             Glossary: Glossario
@@ -387,6 +391,7 @@ plugins:
             Extension Store: Loja de extensões
             Operations & Upgrades: Operações e atualizações
             Kubernetes & Cloud: Kubernetes e nuvem
+            Managed Container Services: Serviços de contêineres gerenciados
             Supply Chain: Cadeia de suprimentos
             Reference: Referência
             Glossary: Glossário
@@ -454,6 +459,7 @@ plugins:
             Extension Store: 扩展商店
             Operations & Upgrades: 运维与升级
             Kubernetes & Cloud: Kubernetes 与云
+            Managed Container Services: 托管容器服务
             Supply Chain: 供应链
             Reference: 参考
             Glossary: 术语表
@@ -521,6 +527,7 @@ plugins:
             Extension Store: Магазин расширений
             Operations & Upgrades: Эксплуатация и обновления
             Kubernetes & Cloud: Kubernetes и облако
+            Managed Container Services: Управляемые контейнерные сервисы
             Supply Chain: Цепочка поставок
             Reference: Справочник
             Glossary: Глоссарий
@@ -588,6 +595,7 @@ plugins:
             Extension Store: Udvidelsesbutik
             Operations & Upgrades: Drift og opgraderinger
             Kubernetes & Cloud: Kubernetes og cloud
+            Managed Container Services: Administrerede containertjenester
             Supply Chain: Forsyningskæde
             Reference: Reference
             Glossary: Ordliste
@@ -655,6 +663,7 @@ plugins:
             Extension Store: متجر الإضافات
             Operations & Upgrades: العمليات والترقيات
             Kubernetes & Cloud: Kubernetes والسحابة
+            Managed Container Services: خدمات الحاويات المُدارة
             Supply Chain: سلسلة التوريد
             Reference: المرجع
             Glossary: المسرد
@@ -750,6 +759,7 @@ nav:
       - Extension Store: admin/extensions.md
       - Operations & Upgrades: admin/operations.md
       - Kubernetes & Cloud: admin/kubernetes.md
+      - Managed Container Services: admin/managed-containers.md
       - Supply Chain: admin/supply-chain.md
   - Extensions:
       - Overview: extensions/index.md

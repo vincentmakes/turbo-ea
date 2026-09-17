@@ -263,14 +263,7 @@ extraObjects:
 
 ## Managed container services
 
-Azure Container Apps, AWS ECS / App Runner and Google Cloud Run can run the same images, but they are not a supported install path and there is no template for them. What such a deployment must provide, and where each service falls short:
-
-- **Exactly one backend instance**, with no scale-to-zero and no rolling replacement (two backends must never overlap).
-- **A persistent, writable `/app/data`** — Cloud Run has no persistent disk; Container Apps needs an Azure Files mount; ECS needs EFS.
-- **Long-lived responses** for the event stream and **uploads up to 512 MB**; several services cap request duration or body size.
-- **The edge nginx in front**, configured with `NGINX_BACKEND_UPSTREAM`, `NGINX_FRONTEND_UPSTREAM` and `NGINX_MCP_UPSTREAM` pointing at the other services, since the Compose service names do not exist there.
-
-If Kubernetes is not an option, [Docker Compose on a virtual machine](../getting-started/setup.md) with a managed PostgreSQL is the simpler, supported path.
+Azure Container Apps, Google Cloud Run and AWS ECS Fargate run the same images without Kubernetes, as one container group with the edge nginx, frontend and backend as sidecars. Ready-to-edit templates and the per-platform walkthroughs — including what each platform cannot do — are on the [Managed container services](managed-containers.md) page.
 
 ## Troubleshooting
 

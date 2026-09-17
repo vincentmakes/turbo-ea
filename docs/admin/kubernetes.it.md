@@ -263,14 +263,7 @@ extraObjects:
 
 ## Servizi di container gestiti
 
-Azure Container Apps, AWS ECS / App Runner e Google Cloud Run possono eseguire le stesse immagini, ma non sono un percorso di installazione supportato e non esiste un modello per essi. Cosa deve garantire una simile distribuzione, e dove ogni servizio è carente:
-
-- **Esattamente un'istanza di backend**, senza scale-to-zero né sostituzione progressiva (due backend non devono mai sovrapporsi).
-- **Un `/app/data` persistente e scrivibile**: Cloud Run non ha un disco persistente; Container Apps richiede un mount Azure Files; ECS richiede EFS.
-- **Risposte a lunga durata** per il flusso di eventi e **upload fino a 512 MB**; diversi servizi limitano la durata delle richieste o la dimensione del body.
-- **L'nginx di bordo davanti**, configurato con `NGINX_BACKEND_UPSTREAM`, `NGINX_FRONTEND_UPSTREAM` e `NGINX_MCP_UPSTREAM` che puntano agli altri servizi, poiché i nomi dei servizi Compose lì non esistono.
-
-Se Kubernetes non è un'opzione, [Docker Compose su una macchina virtuale](../getting-started/setup.md) con un PostgreSQL gestito è la via più semplice e supportata.
+Azure Container Apps, Google Cloud Run e AWS ECS Fargate eseguono le stesse immagini senza Kubernetes, come un unico gruppo di container con l'nginx di bordo, il frontend e il backend come sidecar. I modelli pronti da modificare e le guide per piattaforma — compreso ciò che ogni piattaforma non può fare — sono nella pagina [Servizi di container gestiti](managed-containers.md).
 
 ## Risoluzione dei problemi
 

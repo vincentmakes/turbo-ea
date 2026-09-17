@@ -1,0 +1,198 @@
+# Turbo EA on Google Cloud Run + Cloud SQL for PostgreSQL + Filestore.
+# Guide: https://docs.turbo-ea.org/admin/managed-containers/#google-cloud-run
+#
+# One Cloud Run service runs the whole stack as sidecars sharing localhost: the
+# edge nginx (ingress container, port 8920) in front of the frontend (8080),
+# the backend (8000) and the optional MCP server (8001). The backend is ONE
+# instance, never scaled and never scaled to zero (minScale = maxScale = 1,
+# CPU always allocated): it holds in-process state and runs migrations at boot.
+# A new revision briefly overlaps the old one; the backend's PostgreSQL
+# advisory lock keeps the two from migrating at once.
+#
+# Replace every UPPER_CASE placeholder, then:
+#   gcloud run services replace service.yaml --region REGION
+#
+# Cloud Run cannot pull from ghcr.io directly: create an Artifact Registry
+# remote repository once and reference the images through it (see the guide).
+# If `replace` rejects the manifest, add the annotation
+# `run.googleapis.com/launch-stage: BETA` under metadata.annotations.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: turbo-ea
+  annotations:
+    # Switch to internal-and-cloud-load-balancing once the load balancer is up.
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "1"
+        # Instance-based billing: CPU stays allocated between requests, which
+        # the backend's background loops need.
+        run.googleapis.com/cpu-throttling: "false"
+        run.googleapis.com/startup-cpu-boost: "true"
+        run.googleapis.com/execution-environment: gen2
+        # nginx starts only once the backend and frontend pass their startup probes.
+        run.googleapis.com/container-dependencies: '{"nginx":["backend","frontend"],"mcp-server":["backend"]}'
+        # Direct VPC egress: reach Cloud SQL (private IP) and Filestore.
+        run.googleapis.com/network-interfaces: '[{"network":"NETWORK","subnetwork":"SUBNET"}]'
+        run.googleapis.com/vpc-access-egress: private-ranges-only
+    spec:
+      containerConcurrency: 200
+      # Maximum Cloud Run allows; the event stream reconnects when it expires.
+      timeoutSeconds: 3600
+      serviceAccountName: turbo-ea@PROJECT_ID.iam.gserviceaccount.com
+      containers:
+        - name: nginx
+          image: REGION-docker.pkg.dev/PROJECT_ID/ghcr/vincentmakes/turbo-ea/nginx:2.141.0
+          # The only container with a port: Cloud Run routes ingress to it.
+          ports:
+            - name: http1
+              containerPort: 8920
+          env:
+            - name: TURBO_EA_PUBLIC_URL
+              value: https://ea.example.com
+            # TLS terminates on the load balancer; the https:// public URL is
+            # what marks the session cookie secure.
+            - name: TURBO_EA_TLS_ENABLED
+              value: "false"
+            # The frontend sidecar owns 8080, so the edge listens on 8920.
+            - name: NGINX_HTTP_PORT
+              value: "8920"
+            - name: NGINX_BACKEND_UPSTREAM
+              value: http://127.0.0.1:8000
+            - name: NGINX_FRONTEND_UPSTREAM
+              value: http://127.0.0.1:8080
+            - name: NGINX_MCP_UPSTREAM
+              value: http://127.0.0.1:8001
+          resources:
+            limits:
+              cpu: "0.5"
+              memory: 512Mi
+          startupProbe:
+            # Through the proxy to the backend, so "started" means the app answers.
+            httpGet:
+              path: /api/health
+              port: 8920
+            periodSeconds: 5
+            failureThreshold: 30
+            timeoutSeconds: 5
+        - name: backend
+          image: REGION-docker.pkg.dev/PROJECT_ID/ghcr/vincentmakes/turbo-ea/backend:2.141.0
+          env:
+            - name: POSTGRES_HOST
+              value: CLOUD_SQL_PRIVATE_IP
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: turboea
+            - name: POSTGRES_USER
+              value: turboea
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: turbo-ea-postgres-password
+                  key: latest
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: turbo-ea-secret-key
+                  key: latest
+            - name: ENVIRONMENT
+              value: production
+            - name: ALLOWED_ORIGINS
+              value: https://ea.example.com
+            - name: DB_POOL_SIZE
+              value: "10"
+            - name: DB_MAX_OVERFLOW
+              value: "5"
+            - name: SEED_DEMO
+              value: "false"
+            - name: HOME
+              value: /tmp
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+          resources:
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          startupProbe:
+            # Migrations and seeding run before /api/health answers: 5 minutes.
+            httpGet:
+              path: /api/health
+              port: 8000
+            periodSeconds: 5
+            failureThreshold: 48
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+            periodSeconds: 30
+            failureThreshold: 3
+        - name: frontend
+          image: REGION-docker.pkg.dev/PROJECT_ID/ghcr/vincentmakes/turbo-ea/frontend:2.141.0
+          resources:
+            limits:
+              cpu: "0.5"
+              memory: 512Mi
+          startupProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 12
+        # Optional MCP server at <publicUrl>/mcp. Remove this container AND its
+        # entry in the container-dependencies annotation if you do not use it.
+        - name: mcp-server
+          image: REGION-docker.pkg.dev/PROJECT_ID/ghcr/vincentmakes/turbo-ea/mcp-server:2.141.0
+          env:
+            - name: TURBO_EA_URL
+              value: http://127.0.0.1:8000
+            - name: TURBO_EA_PUBLIC_URL
+              value: https://ea.example.com
+            - name: MCP_PUBLIC_URL
+              value: https://ea.example.com/mcp
+            - name: MCP_PORT
+              value: "8001"
+            - name: HOME
+              value: /tmp
+          resources:
+            limits:
+              cpu: "0.5"
+              memory: 1Gi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            periodSeconds: 5
+            failureThreshold: 12
+      volumes:
+        # Persistent /app/data: Filestore over NFS is the only fully POSIX,
+        # persistent option on Cloud Run. The share must be owned by
+        # 1000:1000 (one-off chown job, see the guide). Mounted in no-lock mode.
+        - name: data
+          nfs:
+            server: FILESTORE_IP
+            path: /share
+            readOnly: false
+        # Evaluation-only alternatives — pick ONE volume named "data":
+        #
+        # Cloud Storage FUSE: cheap, but not POSIX (no locking, last write wins,
+        # limited renames). Fine for a trial, not for extensions in production.
+        # - name: data
+        #   csi:
+        #     driver: gcsfuse.run.googleapis.com
+        #     volumeAttributes:
+        #       bucketName: BUCKET
+        #       mountOptions: uid=1000,gid=1000
+        #
+        # In-memory: everything under /app/data is lost on every new revision.
+        # - name: data
+        #   emptyDir:
+        #     medium: Memory
+        #     sizeLimit: 1Gi

@@ -1,0 +1,491 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Turbo EA on Amazon ECS Fargate + Amazon RDS for PostgreSQL + Amazon EFS.
+  Guide: https://docs.turbo-ea.org/admin/managed-containers/#aws-ecs-fargate
+  One task runs the whole stack as sidecars sharing localhost: the edge nginx
+  (port 8920, behind an Application Load Balancer) in front of the frontend
+  (8080), the backend (8000) and the optional MCP server (8001). The service
+  runs ONE task and replaces it stop-then-start (minimumHealthyPercent 0,
+  maximumPercent 100), so two backends never run at once.
+  Prerequisites: a VPC with two public and two private subnets (the private
+  ones need a NAT gateway for image pulls), an RDS PostgreSQL instance in the
+  private subnets, an ACM certificate for the public hostname, and two Secrets
+  Manager secrets (the database password and SECRET_KEY as plain strings).
+  Deploy with:
+  aws cloudformation deploy --template-file template.yaml --stack-name turbo-ea
+  --capabilities CAPABILITY_IAM --parameter-overrides ...
+
+Metadata:
+  cfn-lint:
+    config:
+      ignore_checks: []
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Two public subnets for the load balancer.
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Exactly two private subnets for the task and the EFS mount targets.
+  PublicUrl:
+    Type: String
+    Description: Public origin users open, e.g. https://ea.example.com (no path, no trailing slash).
+  ImageTag:
+    Type: String
+    Default: "2.141.0"
+    Description: Turbo EA release to run.
+  ImageRepository:
+    Type: String
+    Default: ghcr.io/vincentmakes/turbo-ea
+  DbHost:
+    Type: String
+    Description: RDS endpoint hostname.
+  DbPort:
+    Type: Number
+    Default: 5432
+  DbName:
+    Type: String
+    Default: turboea
+  DbUser:
+    Type: String
+    Default: turboea
+  DbPasswordSecretArn:
+    Type: String
+    Description: Secrets Manager ARN holding the database password as a plain string (for an RDS-managed JSON secret append ":password::").
+  SecretKeySecretArn:
+    Type: String
+    Description: Secrets Manager ARN holding SECRET_KEY as a plain string (openssl rand -base64 48).
+  DbSecurityGroupId:
+    Type: String
+    Default: ""
+    Description: Security group of the RDS instance; when set, port 5432 is opened from the task. Empty = manage the rule yourself with the TaskSecurityGroupId output.
+  CertificateArn:
+    Type: String
+    Description: ACM certificate for the public hostname (same Region as the load balancer).
+  DeployMcp:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Also run the MCP server at <PublicUrl>/mcp.
+  AllowedOrigins:
+    Type: String
+    Default: ""
+    Description: Comma-separated CORS allow-list; empty = the origin of PublicUrl.
+  EmbedAllowedOrigins:
+    Type: String
+    Default: ""
+    Description: Sites allowed to embed published diagrams, comma-separated.
+
+Conditions:
+  DeployMcpCond: !Equals [!Ref DeployMcp, "true"]
+  HasDbSg: !Not [!Equals [!Ref DbSecurityGroupId, ""]]
+  HasAllowedOrigins: !Not [!Equals [!Ref AllowedOrigins, ""]]
+
+Resources:
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref AWS::StackName
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/${AWS::StackName}
+      RetentionInDays: 30
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ecs-tasks.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: read-secrets
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref DbPasswordSecretArn
+                  - !Ref SecretKeySecretArn
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ecs-tasks.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: efs-and-exec
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - elasticfilesystem:ClientMount
+                  - elasticfilesystem:ClientWrite
+                Resource: !GetAtt FileSystem.Arn
+                Condition:
+                  StringEquals:
+                    elasticfilesystem:AccessPointArn: !GetAtt AccessPoint.Arn
+              # ECS Exec (aws ecs execute-command).
+              - Effect: Allow
+                Action:
+                  - ssmmessages:CreateControlChannel
+                  - ssmmessages:CreateDataChannel
+                  - ssmmessages:OpenControlChannel
+                  - ssmmessages:OpenDataChannel
+                Resource: "*"
+
+  # Persistent /app/data: installed extensions, uploads, transfer bundles.
+  FileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      Encrypted: true
+      ThroughputMode: elastic
+      BackupPolicy:
+        Status: ENABLED
+      FileSystemTags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-data
+
+  MountTargetA:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystem
+      SubnetId: !Select [0, !Ref PrivateSubnetIds]
+      SecurityGroups: [!Ref EfsSecurityGroup]
+
+  MountTargetB:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystem
+      SubnetId: !Select [1, !Ref PrivateSubnetIds]
+      SecurityGroups: [!Ref EfsSecurityGroup]
+
+  # Every Turbo EA image runs as uid/gid 1000; the access point enforces it.
+  AccessPoint:
+    Type: AWS::EFS::AccessPoint
+    Properties:
+      FileSystemId: !Ref FileSystem
+      PosixUser:
+        Uid: "1000"
+        Gid: "1000"
+      RootDirectory:
+        Path: /turbo-ea
+        CreationInfo:
+          OwnerUid: "1000"
+          OwnerGid: "1000"
+          Permissions: "0755"
+
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Turbo EA load balancer
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  TaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Turbo EA task
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8920
+          ToPort: 8920
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+
+  EfsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Turbo EA EFS mount targets
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          SourceSecurityGroupId: !Ref TaskSecurityGroup
+
+  DbIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: HasDbSg
+    Properties:
+      GroupId: !Ref DbSecurityGroupId
+      IpProtocol: tcp
+      FromPort: !Ref DbPort
+      ToPort: !Ref DbPort
+      SourceSecurityGroupId: !Ref TaskSecurityGroup
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      Type: application
+      Subnets: !Ref PublicSubnetIds
+      SecurityGroups: [!Ref AlbSecurityGroup]
+      LoadBalancerAttributes:
+        # The event stream is a long-lived response; 4000 s is the ALB maximum.
+        - Key: idle_timeout.timeout_seconds
+          Value: "4000"
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VpcId
+      TargetType: ip
+      Protocol: HTTP
+      Port: 8920
+      HealthCheckPath: /api/health
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: "30"
+
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: "443"
+            StatusCode: HTTP_301
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref AWS::StackName
+      Cpu: "2048"
+      Memory: "4096"
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      RuntimePlatform:
+        CpuArchitecture: X86_64
+        OperatingSystemFamily: LINUX
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      Volumes:
+        - Name: data
+          EFSVolumeConfiguration:
+            FilesystemId: !Ref FileSystem
+            TransitEncryption: ENABLED
+            AuthorizationConfig:
+              AccessPointId: !Ref AccessPoint
+              IAM: ENABLED
+      ContainerDefinitions:
+        - Name: backend
+          Image: !Sub ${ImageRepository}/backend:${ImageTag}
+          Essential: true
+          Cpu: 1024
+          Memory: 2048
+          Environment:
+            - { Name: POSTGRES_HOST, Value: !Ref DbHost }
+            - { Name: POSTGRES_PORT, Value: !Ref DbPort }
+            - { Name: POSTGRES_DB, Value: !Ref DbName }
+            - { Name: POSTGRES_USER, Value: !Ref DbUser }
+            - { Name: ENVIRONMENT, Value: production }
+            - { Name: ALLOWED_ORIGINS, Value: !If [HasAllowedOrigins, !Ref AllowedOrigins, !Ref PublicUrl] }
+            - { Name: DB_POOL_SIZE, Value: "10" }
+            - { Name: DB_MAX_OVERFLOW, Value: "5" }
+            - { Name: SEED_DEMO, Value: "false" }
+            - { Name: HOME, Value: /tmp }
+            - { Name: PYTHONDONTWRITEBYTECODE, Value: "1" }
+          Secrets:
+            - Name: POSTGRES_PASSWORD
+              ValueFrom: !Ref DbPasswordSecretArn
+            - Name: SECRET_KEY
+              ValueFrom: !Ref SecretKeySecretArn
+          MountPoints:
+            - SourceVolume: data
+              ContainerPath: /app/data
+          HealthCheck:
+            # Migrations and seeding run before /api/health answers (StartPeriod).
+            Command:
+              - CMD-SHELL
+              - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 300
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: backend
+
+        - Name: frontend
+          Image: !Sub ${ImageRepository}/frontend:${ImageTag}
+          Essential: true
+          Cpu: 256
+          Memory: 512
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - wget -qO- http://127.0.0.1:8080/ >/dev/null
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: frontend
+
+        - Name: nginx
+          Image: !Sub ${ImageRepository}/nginx:${ImageTag}
+          Essential: true
+          Cpu: 256
+          Memory: 512
+          PortMappings:
+            - ContainerPort: 8920
+              Protocol: tcp
+          DependsOn: !If
+            - DeployMcpCond
+            - - { ContainerName: backend, Condition: HEALTHY }
+              - { ContainerName: frontend, Condition: HEALTHY }
+              - { ContainerName: mcp-server, Condition: HEALTHY }
+            - - { ContainerName: backend, Condition: HEALTHY }
+              - { ContainerName: frontend, Condition: HEALTHY }
+          Environment:
+            - { Name: TURBO_EA_PUBLIC_URL, Value: !Ref PublicUrl }
+            # TLS terminates on the load balancer; the https:// public URL is
+            # what marks the session cookie secure.
+            - { Name: TURBO_EA_TLS_ENABLED, Value: "false" }
+            - { Name: TURBO_EA_EMBED_ALLOWED_ORIGINS, Value: !Ref EmbedAllowedOrigins }
+            # The frontend sidecar owns 8080 in this task, so the edge listens on 8920.
+            - { Name: NGINX_HTTP_PORT, Value: "8920" }
+            - { Name: NGINX_BACKEND_UPSTREAM, Value: http://127.0.0.1:8000 }
+            - { Name: NGINX_FRONTEND_UPSTREAM, Value: http://127.0.0.1:8080 }
+            - { Name: NGINX_MCP_UPSTREAM, Value: http://127.0.0.1:8001 }
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - wget -qO- http://127.0.0.1:8920/api/health >/dev/null
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: nginx
+
+        - !If
+          - DeployMcpCond
+          - Name: mcp-server
+            Image: !Sub ${ImageRepository}/mcp-server:${ImageTag}
+            Essential: false
+            Cpu: 512
+            Memory: 1024
+            DependsOn:
+              - { ContainerName: backend, Condition: HEALTHY }
+            Environment:
+              - { Name: TURBO_EA_URL, Value: http://127.0.0.1:8000 }
+              - { Name: TURBO_EA_PUBLIC_URL, Value: !Ref PublicUrl }
+              - { Name: MCP_PUBLIC_URL, Value: !Sub "${PublicUrl}/mcp" }
+              - { Name: MCP_PORT, Value: "8001" }
+              - { Name: HOME, Value: /tmp }
+            HealthCheck:
+              Command:
+                - CMD-SHELL
+                - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')"
+              Interval: 30
+              Timeout: 5
+              Retries: 3
+              StartPeriod: 60
+            LogConfiguration:
+              LogDriver: awslogs
+              Options:
+                awslogs-group: !Ref LogGroup
+                awslogs-region: !Ref AWS::Region
+                awslogs-stream-prefix: mcp-server
+          - !Ref AWS::NoValue
+
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn: [HttpsListener, HttpListener, MountTargetA, MountTargetB]
+    Properties:
+      ServiceName: !Ref AWS::StackName
+      Cluster: !Ref Cluster
+      LaunchType: FARGATE
+      PlatformVersion: "1.4.0"
+      TaskDefinition: !Ref TaskDefinition
+      DesiredCount: 1
+      # Stop the running task before starting its replacement: never two
+      # backends, never two tasks on the volume. Costs one to two minutes
+      # of downtime per deploy.
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 100
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
+      EnableExecuteCommand: true
+      HealthCheckGracePeriodSeconds: 600
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets: !Ref PrivateSubnetIds
+          SecurityGroups: [!Ref TaskSecurityGroup]
+      LoadBalancers:
+        - ContainerName: nginx
+          ContainerPort: 8920
+          TargetGroupArn: !Ref TargetGroup
+
+Outputs:
+  AlbDnsName:
+    Description: Point the public hostname at this (CNAME or Route 53 alias).
+    Value: !GetAtt LoadBalancer.DNSName
+  TaskSecurityGroupId:
+    Description: Allow port 5432 from this group on the RDS security group when DbSecurityGroupId was not given.
+    Value: !Ref TaskSecurityGroup
+  ClusterName:
+    Value: !Ref Cluster
+  ServiceName:
+    Value: !GetAtt Service.Name
+  FileSystemId:
+    Value: !Ref FileSystem

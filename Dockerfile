@@ -189,12 +189,24 @@ fi
 tls_enabled=$(printf '%s' "${TURBO_EA_TLS_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')
 ipv6_enabled=$(printf '%s' "${NGINX_ENABLE_IPV6:-false}" | tr '[:upper:]' '[:lower:]')
 
+# Port the HTTP server block listens on. 8080 is what compose (HOST_PORT:8080)
+# and the Helm chart (containerPort 8080) expect. A sidecar layout that runs the
+# frontend image in the same network namespace (Container Apps, Cloud Run, ECS)
+# has the frontend on 8080 already, so the edge moves to e.g. 8920 there.
+http_port="${NGINX_HTTP_PORT:-8080}"
+case "$http_port" in
+    ''|*[!0-9]*)
+        echo "Turbo EA nginx: NGINX_HTTP_PORT must be a port number, got: $http_port" >&2
+        exit 1
+        ;;
+esac
+
 nginx_http_ipv6_line=''
 nginx_https_ipv6_line=''
 
 case "$ipv6_enabled" in
     true|1|yes|on)
-        nginx_http_ipv6_line='    listen [::]:8080;'
+        nginx_http_ipv6_line="    listen [::]:${http_port};"
         nginx_https_ipv6_line='    listen [::]:8443 ssl;'
         ;;
     false|0|no|off|'')
@@ -277,7 +289,7 @@ case "$tls_enabled" in
             exit 1
         fi
         export NGINX_HTTP_SERVER_BLOCK="server {
-    listen 8080;
+    listen ${http_port};
 ${nginx_http_ipv6_line}
     server_name ${NGINX_SERVER_NAME};
     return 301 https://\$host:${NGINX_TLS_HOST_PORT}\$request_uri;
@@ -497,7 +509,7 @@ ${nginx_https_ipv6_line}
         ;;
     false|0|no|off|'')
         export NGINX_HTTP_SERVER_BLOCK="server {
-    listen 8080;
+    listen ${http_port};
 ${nginx_http_ipv6_line}
     server_name ${NGINX_SERVER_NAME};
     client_max_body_size 5m;

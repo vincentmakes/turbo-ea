@@ -263,14 +263,7 @@ extraObjects:
 
 ## Verwaltete Container-Dienste
 
-Azure Container Apps, AWS ECS / App Runner und Google Cloud Run können dieselben Images ausführen, sind aber kein unterstützter Installationsweg, und es gibt keine Vorlage dafür. Was eine solche Bereitstellung liefern muss und wo jeder Dienst an Grenzen stößt:
-
-- **Genau eine Backend-Instanz**, ohne Scale-to-Zero und ohne rollierenden Austausch (zwei Backends dürfen sich nie überlappen).
-- **Ein persistentes, beschreibbares `/app/data`** — Cloud Run hat keine persistente Festplatte; Container Apps braucht ein Azure-Files-Mount; ECS braucht EFS.
-- **Langlebige Antworten** für den Event-Stream und **Uploads bis 512 MB**; mehrere Dienste begrenzen Anfragedauer oder Body-Größe.
-- **Der Edge-nginx davor**, konfiguriert mit `NGINX_BACKEND_UPSTREAM`, `NGINX_FRONTEND_UPSTREAM` und `NGINX_MCP_UPSTREAM` auf die anderen Dienste, da die Compose-Servicenamen dort nicht existieren.
-
-Ist Kubernetes keine Option, ist [Docker Compose auf einer virtuellen Maschine](../getting-started/setup.md) mit verwaltetem PostgreSQL der einfachere, unterstützte Weg.
+Azure Container Apps, Google Cloud Run und AWS ECS Fargate führen dieselben Images ohne Kubernetes aus, als eine Container-Gruppe mit Edge-nginx, Frontend und Backend als Sidecars. Fertige Vorlagen und die Anleitungen je Plattform — einschließlich dessen, was jede Plattform nicht kann — stehen auf der Seite [Verwaltete Container-Dienste](managed-containers.md).
 
 ## Fehlerbehebung
 
