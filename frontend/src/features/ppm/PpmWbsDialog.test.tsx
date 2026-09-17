@@ -104,3 +104,18 @@ describe("PpmWbsDialog labels", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("PpmWbsDialog completion slider", () => {
+  it("is read-only for a package that already holds tasks", () => {
+    // Its completion is rolled up from the tasks; a slider value would be
+    // overwritten on the next task save (#1111).
+    renderDialog({ wbs: wbs(), hasTasks: true });
+    expect(screen.getByRole("slider")).toBeDisabled();
+    expect(screen.getByText("Completion is auto-calculated from child items")).toBeInTheDocument();
+  });
+
+  it("stays editable for a leaf package without tasks", () => {
+    renderDialog({ wbs: wbs() });
+    expect(screen.getByRole("slider")).not.toBeDisabled();
+  });
+});

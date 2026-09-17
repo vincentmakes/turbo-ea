@@ -17,6 +17,8 @@ import InputAdornment from "@mui/material/InputAdornment";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
+import { PercentBar } from "@/components/PercentBar";
+import { PercentageInput } from "@/components/PercentageInput";
 import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import { readableTextColor, readableTypeColor } from "@/lib/color";
 import { OptionChip, SELECT_CHIP_BASE, chipWidthForField } from "@/components/OptionChip";
@@ -470,6 +472,14 @@ export function FieldValue({
       </Typography>
     );
   }
+  if (field.type === "percentage") {
+    // A percentage is drawn, not just printed: the same bar the portal and
+    // the inventory use, in the neutral primary — a quantity, not a verdict.
+    if (value === null || value === undefined || value === "") {
+      return <Typography variant="body2">—</Typography>;
+    }
+    return <PercentBar value={Number(value)} width={120} height={6} />;
+  }
   return (
     <Typography variant="body2">{safeString(value) || "—"}</Typography>
   );
@@ -681,6 +691,16 @@ export function FieldEditor({
             onChange(e.target.value ? Number(e.target.value) : undefined)
           }
           sx={{ minWidth: 200 }}
+        />
+      );
+    case "percentage":
+      return (
+        <PercentageInput
+          label={fieldLabel(field)}
+          required={isRequired}
+          error={error}
+          value={value}
+          onChange={onChange}
         />
       );
     case "boolean":

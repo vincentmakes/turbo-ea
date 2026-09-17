@@ -140,6 +140,11 @@ What columns/properties appear in the card list:
 - **Built-in properties**: description, lifecycle, tags, data quality, approval status
 - **Custom fields**: Each field from the card type's schema can be individually toggled
 
+The **data quality** bar is the card's completeness score — how many of its fields are filled
+in — not project progress. To publish an Initiative's real progress, add a **Percentage** field
+to the Initiative type, fill it with a calculation over `ppm.completion`, and tick that field
+here; the recipe is in [Calculations](calculations.md#show-initiative-progress-on-a-card-or-a-portal).
+
 ### Detail View Properties
 
 What information appears when a visitor clicks on a card:

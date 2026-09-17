@@ -259,6 +259,20 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
     items.push({ insert: "currentFiscalYear", label: "currentFiscalYear", detail: t("calculations.ppmCurrentFy"), category: "PPM" });
     items.push({ insert: "unscheduledPlanned", label: "unscheduledPlanned", detail: t("calculations.ppmUnscheduled"), category: "PPM" });
     items.push({ insert: "unscheduledActual", label: "unscheduledActual", detail: t("calculations.ppmUnscheduled"), category: "PPM" });
+    // Delivery figures (#1111): progress, tasks, risks, the latest status report.
+    items.push({ insert: "completion", label: "completion", detail: t("calculations.ppmCompletion"), category: "PPM" });
+    items.push({ insert: "wbsCount", label: "wbsCount", detail: t("calculations.ppmWbsCount"), category: "PPM" });
+    items.push({ insert: "milestoneCount", label: "milestoneCount", detail: t("calculations.ppmMilestoneCount"), category: "PPM" });
+    for (const key of ["taskCount", "tasksTodo", "tasksInProgress", "tasksDone", "tasksBlocked"]) {
+      items.push({ insert: key, label: key, detail: t("calculations.ppmTaskCounts"), category: "PPM" });
+    }
+    items.push({ insert: "tasksOverdue", label: "tasksOverdue", detail: t("calculations.ppmTasksOverdue"), category: "PPM" });
+    for (const key of ["riskCount", "risksOpen", "riskScoreMax"]) {
+      items.push({ insert: key, label: key, detail: t("calculations.ppmRisks"), category: "PPM" });
+    }
+    for (const key of ["reportCount", "reportDate", "scheduleHealth", "costHealth", "scopeHealth"]) {
+      items.push({ insert: key, label: key, detail: t("calculations.ppmReport"), category: "PPM" });
+    }
     return items;
   }, [t]);
 
@@ -577,6 +591,10 @@ SUM(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))
 ppm.capexBudget
 SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
 
+# PPM progress on an Initiative (into a percentage field), and a delivery flag
+ppm.completion
+IF(ppm.tasksOverdue > 0, "At risk", COALESCE(ppm.scheduleHealth, "No report"))
+
 # Inherit a value from the parent card (fall back to own value at the root)
 IF(parent, parent.attributes.businessCriticality, data.businessCriticality)
 
@@ -694,6 +712,8 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
     { name: "children_count", desc: t("calculations.ctxChildrenCount") },
     { name: "ppm.capexBudget", desc: t("calculations.ctxPpm") },
     { name: "ppm.byYear", desc: t("calculations.ctxPpmByYear") },
+    { name: "ppm.completion", desc: t("calculations.ctxPpmProgress") },
+    { name: "ppm.scheduleHealth", desc: t("calculations.ctxPpmReport") },
   ];
 
   return (
@@ -836,7 +856,9 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
   if (selectedType) {
     for (const section of selectedType.fields_schema || []) {
       for (const field of section.fields) {
-        if (["number", "cost", "text", "single_select", "boolean"].includes(field.type)) {
+        if (
+          ["number", "cost", "percentage", "text", "single_select", "boolean"].includes(field.type)
+        ) {
           eligibleFields.push(field);
         }
       }

@@ -14,6 +14,7 @@ export const FIELD_TYPE_OPTIONS: { value: FieldDef["type"]; tKey: string }[] = [
   { value: "url", tKey: "common:fieldTypes.url" },
   { value: "single_select", tKey: "common:fieldTypes.singleSelect" },
   { value: "multiple_select", tKey: "common:fieldTypes.multipleSelect" },
+  { value: "percentage", tKey: "common:fieldTypes.percentage" },
 ];
 
 export const CATEGORIES = [

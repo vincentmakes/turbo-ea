@@ -227,6 +227,7 @@
   "import.errors.invalidDate": "第 {{row}} 行：{{field}} 需要日期格式 (YYYY-MM-DD)，得到 \"{{value}}\"",
   "import.errors.requiredFieldEmpty": "第 {{row}} 行：必填字段 \"{{field}}\" 为空",
   "import.errors.expectsNumber": "第 {{row}} 行：\"{{field}}\" 需要数字，得到 \"{{value}}\"",
+  "import.errors.expectsPercentage": "第 {{row}} 行：\"{{field}}\" 需要 0 到 100 之间的数字，得到 \"{{value}}\"",
   "import.errors.expectsBoolean": "第 {{row}} 行：\"{{field}}\" 需要 true/false，得到 \"{{value}}\"",
   "import.errors.invalidSelectValue": "第 {{row}} 行：字段 \"{{field}}\" 的值 \"{{value}}\" 无效（有效值：{{valid}}）",
   "import.errors.unknown": "未知错误",

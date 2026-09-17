@@ -121,6 +121,17 @@ function AttributeSection({
         fieldErrors[f.key] = getUrlErrorMsg(t);
       }
     }
+    if (f.type === "percentage") {
+      // Mirrors the server's 0–100 check so the section cannot be saved into
+      // a 422; blanks are fine (clearing is not a range violation).
+      const val = attrs[f.key];
+      if (val !== null && val !== undefined && val !== "") {
+        const n = Number(val);
+        if (!Number.isFinite(n) || n < 0 || n > 100) {
+          fieldErrors[f.key] = t("cards:attributes.percentageRange");
+        }
+      }
+    }
     if (
       isEnforcedRequiredField(f) &&
       !calculatedFieldKeys.includes(f.key) &&

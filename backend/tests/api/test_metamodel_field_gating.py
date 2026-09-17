@@ -73,6 +73,25 @@ class TestUngatedStripsGatedAttributes:
         assert "helpTranslations" not in f
 
 
+class TestBuiltInTypesAreNeverGated:
+    async def test_percentage_survives_without_any_grant(self, client, db, admin):
+        # #1111: `percentage` is a free built-in like `number`, so the strip
+        # that coerces ungranted `ext.*` types to text must leave it alone.
+        schema = [
+            {
+                "section": "Delivery",
+                "fields": [{"key": "progress", "label": "Progress", "type": "percentage"}],
+            }
+        ]
+        resp = await client.post(
+            "/api/v1/metamodel/types",
+            headers=auth_headers(admin),
+            json={"key": "Gadget", "label": "Gadget", "fields_schema": schema},
+        )
+        assert resp.status_code == 201
+        assert _field(resp.json())["type"] == "percentage"
+
+
 class TestGrantedKeepsGatedAttributes:
     async def test_create_keeps_help_and_custom_type(self, client, db, admin, monkeypatch):
         monkeypatch.setattr(

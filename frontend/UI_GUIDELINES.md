@@ -361,6 +361,8 @@ Always render status through one of these:
 | --- | --- |
 | Page-level load | `<CircularProgress/>` centered in a `min-height` Box |
 | Inline / top-of-section progress | `<LinearProgress/>` |
+| A value out of 100 (a `percentage` field, the data-quality score) | `<PercentBar/>` (`components/PercentBar.tsx`) — the bar + `NN%` pair; pass `color` only when the number is a verdict (data quality's band colour), never for a plain quantity |
+| Editing a value out of 100 | `<PercentageInput/>` (`components/PercentageInput.tsx`) — 5 % slider beside a free number box, 0–100 |
 | Empty list | Centered `<Typography variant="body2" color="text.secondary">` |
 | Recoverable error | `<Alert severity="error">` |
 

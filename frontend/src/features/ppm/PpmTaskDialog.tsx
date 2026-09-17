@@ -19,7 +19,9 @@ import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
+import FormHelperText from "@mui/material/FormHelperText";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { percentFromStatus } from "./taskProgress";
 import { api } from "@/api/client";
 import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -231,6 +233,9 @@ export default function PpmTaskDialog({
                   {t("statusBlocked")}
                 </MenuItem>
               </Select>
+              <FormHelperText>
+                {t("completionFromStatus", { percent: percentFromStatus(status) })}
+              </FormHelperText>
             </FormControl>
             <FormControl fullWidth size="small">
               <InputLabel>{t("taskPriority")}</InputLabel>

@@ -52,7 +52,7 @@ Fields define the custom attributes available on cards of this type. Each field 
 |---------|-------------|
 | **Key** | Unique field identifier |
 | **Label** | Display name |
-| **Type** | text, multiline_text, number, cost, boolean, date, url, single_select, or multiple_select |
+| **Type** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select, or multiple_select. A percentage is a number from 0 to 100, shown as a progress bar and edited with a slider or typed exactly |
 | **Options** | For select fields: the available choices with labels and optional colors |
 | **Required** | Whether the field is mandatory — see the enforcement rules below |
 | **Data quality** | Each field's contribution to the score is managed in the **Data quality** panel — see [Data quality scoring](#data-quality-scoring) below |

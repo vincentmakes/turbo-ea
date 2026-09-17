@@ -112,9 +112,11 @@ before turning it on: the result is *stored*, so a field that used to stay empty
 
 ### PPM Data on Initiative Cards
 
-The `ppm` root exposes the PPM module's budget and cost lines to formulas, split by capex and
-opex and broken down by fiscal year — detail the rolled-up `data.costBudget` /
-`data.costActual` attributes on the card cannot give you.
+The `ppm` root exposes the PPM module's data to formulas: the budget and cost lines, split by
+capex and opex and broken down by fiscal year — detail the rolled-up `data.costBudget` /
+`data.costActual` attributes on the card cannot give you — and the initiative's delivery
+figures: its overall completion, its work packages, tasks and risks, and the latest status
+report.
 
 | Variable | Description |
 |----------|-------------|
@@ -124,6 +126,13 @@ opex and broken down by fiscal year — detail the rolled-up `data.costBudget` /
 | `ppm.byYear` | The same nine measures per fiscal year, as a list of `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | The fiscal year today falls in |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Cost lines with no date, which count towards the totals but belong to no year |
+| `ppm.completion` | Overall completion in % — the mean of the top-level work packages, exactly the number the initiative's Overview tab shows |
+| `ppm.wbsCount`, `ppm.milestoneCount` | Number of work packages and of milestones |
+| `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Task counts, in total and by status |
+| `ppm.tasksOverdue` | Tasks past their due date that are not done |
+| `ppm.riskCount`, `ppm.risksOpen`, `ppm.riskScoreMax` | PPM risks: all, still open, and the highest risk score |
+| `ppm.reportCount`, `ppm.reportDate` | How many status reports exist, and the date of the latest one (`None` until there is one) |
+| `ppm.scheduleHealth`, `ppm.costHealth`, `ppm.scopeHealth` | The latest status report's health flags: `onTrack`, `atRisk` or `offTrack` (`None` until there is one) |
 
 `byYear` is a list rather than a year-keyed object so the ordinary `FILTER` and `PLUCK`
 functions work on it:
@@ -137,6 +146,10 @@ SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
 
 # Capex budget of every Initiative linked to this card
 SUM(PLUCK(relations.relInitiativeToApp, "ppm.capexBudget"))
+
+# Overall progress, and a delivery flag from the latest status report
+ppm.completion
+IF(ppm.tasksOverdue > 0, "At risk", COALESCE(ppm.scheduleHealth, "No report"))
 ```
 
 A few rules worth knowing:
@@ -150,11 +163,28 @@ A few rules worth knowing:
 * `total*` is the sum of every line, not `capex + opex`. A line whose category is neither
   (from an import, say) still counts towards the total.
 * A card that is not an Initiative reads every `ppm` measure as `0` with an empty `byYear`, so
-  a formula on the wrong card type returns zero rather than failing.
+  a formula on the wrong card type returns zero rather than failing. The latest-report fields
+  read `None` rather than `0` — "no report yet" and "on track" are different facts — so guard
+  them with `COALESCE`.
 
-Editing a PPM budget or cost line re-runs the initiative's calculations, so anything derived
-from this data updates straight away. Cards that read *another* card's PPM data through a
-relation are not refreshed — see [When Calculations Run](#when-calculations-run).
+Editing a PPM budget or cost line, a work package, a task, a risk or a status report re-runs
+the initiative's calculations, so anything derived from this data updates straight away and
+the change appears on the card's History tab. Cards that read *another* card's PPM data
+through a relation are not refreshed — see [When Calculations Run](#when-calculations-run).
+
+#### Show initiative progress on a card or a portal
+
+An initiative's progress lives on its Overview tab; cards and published portals only ever show
+attributes. To put the same number on the card and in a [web portal](web-portals.md):
+
+1. In **Admin → Metamodel**, add a field of type **Percentage** to the Initiative type — say
+   `progress`, labelled *Progress*. It renders as a progress bar.
+2. In **Admin → Calculations**, add a calculation on Initiative with the formula
+   `ppm.completion`, target that field, and activate it.
+3. In the portal's properties, tick the field for the card list and the detail view.
+
+From then on marking a task done, editing a work package's completion, or deleting one moves
+the bar wherever the card is shown.
 
 ### Built-in Functions
 
@@ -302,7 +332,8 @@ Calculations for a card are re-evaluated when:
 * you run the calculation manually from the list, which evaluates it for every card of the
   target type and saves the results.
 
-* a PPM budget or cost line on the card changes, for an Initiative.
+* a PPM budget line, cost line, work package, task, risk or status report on the card
+  changes, for an Initiative.
 
 They are **not** re-evaluated when a different card that this formula reads from is edited.
 If you change a cost on an IT Component, an application that aggregates it will not move

@@ -270,7 +270,7 @@ def _coerce_default_value(value: object, field_type: str) -> object | None:
         if isinstance(value, bool):
             return value
         return str(value).strip().lower() in ("true", "1", "yes")
-    if field_type in ("number", "cost"):
+    if field_type in ("number", "cost", "percentage"):
         if isinstance(value, (int, float)):
             return value
         s = str(value).strip()

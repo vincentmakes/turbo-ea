@@ -271,3 +271,28 @@ describe("mandatory-field helpers", () => {
     expect(missingRequiredFields(undefined, null, {})).toEqual([]);
   });
 });
+
+
+describe("percentage field type", () => {
+  const progress: FieldDef = { key: "progress", label: "Progress", type: "percentage" };
+
+  it("FieldValue draws a bar and the rounded number", () => {
+    render(<FieldValue field={progress} value={42.4} />);
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "42");
+    expect(screen.getByText("42%")).toBeInTheDocument();
+  });
+
+  it("FieldValue shows a dash for a blank", () => {
+    render(<FieldValue field={progress} value={null} />);
+    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("FieldEditor offers a slider and a number box that write the same value", () => {
+    const onChange = vi.fn();
+    render(<FieldEditor field={progress} value={20} onChange={onChange} />);
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuenow", "20");
+    fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "65" } });
+    expect(onChange).toHaveBeenLastCalledWith(65);
+  });
+});

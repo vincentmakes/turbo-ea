@@ -37,6 +37,7 @@ import {
 } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { bandColor, bandOf, type DataQualityBand } from "@/lib/dataQualityBands";
+import { PercentBar } from "@/components/PercentBar";
 import { todayIsoDate } from "@/lib/dates";
 import TagPicker from "@/components/TagPicker";
 import { publicGet, type ApiError } from "./publicApi";
@@ -247,6 +248,9 @@ function FieldValue({
         —
       </Typography>
     );
+  }
+  if (field?.type === "percentage") {
+    return <PercentBar value={Number(value)} width={80} height={6} />;
   }
   if (field?.type === "boolean") {
     return (
@@ -1286,36 +1290,21 @@ export default function PortalViewer() {
 
                       <Box sx={{ flex: 1 }} />
 
-                      {/* Completion */}
+                      {/* Data quality — the card's completeness score, never
+                          project progress: a bare "71%" here read as the
+                          latter to an Initiative's readers (#1111). */}
                       {show("data_quality", "card") && (
-                      <>
-                      <LinearProgress
-                        variant="determinate"
-                        value={card.data_quality}
-                        sx={{
-                          width: 60,
-                          height: 4,
-                          borderRadius: 2,
-                          bgcolor: "action.hover",
-                          "& .MuiLinearProgress-bar": {
-                            bgcolor: bandColor(card.data_quality),
-                            borderRadius: 2,
-                          },
-                        }}
-                      />
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontSize: "0.73rem",
-                          color: "text.secondary",
-                          fontWeight: 600,
-                          minWidth: 32,
-                          textAlign: "right",
-                        }}
-                      >
-                        {Math.round(card.data_quality)}%
-                      </Typography>
-                      </>
+                        <PercentBar
+                          value={card.data_quality}
+                          color={bandColor(card.data_quality)}
+                          width={60}
+                          height={4}
+                          trackColor="action.hover"
+                          tooltip={t("portal.dataQuality", {
+                            percent: Math.round(card.data_quality),
+                          })}
+                          labelSx={{ fontSize: "0.73rem", color: "text.secondary", fontWeight: 600 }}
+                        />
                       )}
                     </Box>
                     )}
@@ -1438,7 +1427,7 @@ export default function PortalViewer() {
                     )}
                     {show("data_quality", "detail") && (
                     <Chip
-                      label={t("portal.complete", { percent: Math.round(selectedFs.data_quality) })}
+                      label={t("portal.dataQuality", { percent: Math.round(selectedFs.data_quality) })}
                       size="small"
                       sx={{
                         height: 28,

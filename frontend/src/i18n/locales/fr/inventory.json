@@ -227,6 +227,7 @@
   "import.errors.invalidDate": "Ligne {{row}} : {{field}} attend une date (AAAA-MM-JJ), reçu « {{value}} »",
   "import.errors.requiredFieldEmpty": "Ligne {{row}} : le champ obligatoire « {{field}} » est vide",
   "import.errors.expectsNumber": "Ligne {{row}} : « {{field}} » attend un nombre, reçu « {{value}} »",
+  "import.errors.expectsPercentage": "Ligne {{row}} : « {{field}} » attend un nombre entre 0 et 100, reçu « {{value}} »",
   "import.errors.expectsBoolean": "Ligne {{row}} : « {{field}} » attend true/false, reçu « {{value}} »",
   "import.errors.invalidSelectValue": "Ligne {{row}} : valeur invalide « {{value}} » pour le champ « {{field}} » (valides : {{valid}})",
   "import.errors.unknown": "Erreur inconnue",

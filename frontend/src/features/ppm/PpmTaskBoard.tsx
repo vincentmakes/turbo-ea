@@ -122,6 +122,7 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
     open: boolean;
     task?: PpmTask;
     defaultStatus?: PpmTaskStatus;
+    defaultWbsId?: string;
   }>({ open: false });
   const [quickAdd, setQuickAdd] = useState<{
     status: PpmTaskStatus;
@@ -203,7 +204,12 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
     [scopedTasks, onlyMine, user],
   );
 
-  // Group tasks by WBS for grouped views
+  // Group tasks by WBS for grouped views. Every work package appears —
+  // including one with no tasks yet, which used to be invisible here, so a
+  // package created on the Gantt tab never showed up on this one (#1111).
+  // Empty packages are hidden under "My tasks" (noise in a personal view) and
+  // when the WBS filter points elsewhere; a milestone is a date, not a
+  // container, so it only appears once it actually holds a task.
   const wbsGroups = useMemo(() => {
     if (!groupByWbs) return null;
     const groups: { wbs: PpmWbs | null; tasks: PpmTask[] }[] = [];
@@ -216,12 +222,42 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
         unassigned.push(task);
       }
     }
+    const showEmpty = !onlyMine && filterWbs !== "__none__";
     for (const w of wbsList) {
-      if (byWbs[w.id]) groups.push({ wbs: w, tasks: byWbs[w.id] });
+      const own = byWbs[w.id] ?? [];
+      if (own.length === 0) {
+        if (!showEmpty || w.is_milestone) continue;
+        if (filterWbs && filterWbs !== w.id) continue;
+      }
+      groups.push({ wbs: w, tasks: own });
     }
     if (unassigned.length) groups.push({ wbs: null, tasks: unassigned });
     return groups;
-  }, [filteredTasks, wbsList, groupByWbs]);
+  }, [filteredTasks, wbsList, groupByWbs, onlyMine, filterWbs]);
+
+  /** Group header: work-package name, count, and — for a real package — an
+   *  Add Task button that opens the dialog with that package preselected. */
+  const renderGroupHeader = (g: { wbs: PpmWbs | null; tasks: PpmTask[] }) => (
+    <Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
+      <MaterialSymbol icon="account_tree" size={16} />
+      <Typography variant="subtitle2" fontWeight={700}>
+        {g.wbs?.title ?? t("unassigned")}
+      </Typography>
+      <Chip label={g.tasks.length} size="small" sx={{ height: 18, fontSize: "0.65rem", ml: 0.5 }} />
+      {g.wbs && (
+        <Button
+          size="small"
+          variant="text"
+          startIcon={<MaterialSymbol icon="add_task" size={16} />}
+          onClick={() => setTaskDialog({ open: true, defaultWbsId: g.wbs?.id })}
+          sx={{ ml: 0.5, textTransform: "none" }}
+          aria-label={`${t("addTaskUnderWbs")}: ${g.wbs.title}`}
+        >
+          {t("addTaskUnderWbs")}
+        </Button>
+      )}
+    </Box>
+  );
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id);
@@ -431,20 +467,14 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
         <Box display="flex" flexDirection="column" gap={3}>
           {wbsGroups.map((g) => (
             <Box key={g.wbs?.id ?? "__unassigned"}>
-              <Typography
-                variant="subtitle2"
-                fontWeight={700}
-                sx={{ mb: 1, display: "flex", alignItems: "center", gap: 0.5 }}
-              >
-                <MaterialSymbol icon="account_tree" size={16} />
-                {g.wbs?.title ?? t("unassigned")}
-                <Chip
-                  label={g.tasks.length}
-                  size="small"
-                  sx={{ height: 18, fontSize: "0.65rem", ml: 0.5 }}
-                />
-              </Typography>
-              {renderKanbanColumns(g.tasks)}
+              <Box sx={{ mb: 1 }}>{renderGroupHeader(g)}</Box>
+              {g.tasks.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ pl: 3, pb: 1 }}>
+                  {t("emptyWbsGroupHint")}
+                </Typography>
+              ) : (
+                renderKanbanColumns(g.tasks)
+              )}
             </Box>
           ))}
         </Box>
@@ -600,20 +630,20 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
                       colSpan={7}
                       sx={{ bgcolor: "action.hover", py: 0.75 }}
                     >
-                      <Box display="flex" alignItems="center" gap={0.5}>
-                        <MaterialSymbol icon="account_tree" size={16} />
-                        <Typography variant="subtitle2" fontWeight={700}>
-                          {g.wbs?.title ?? t("unassigned")}
-                        </Typography>
-                        <Chip
-                          label={g.tasks.length}
-                          size="small"
-                          sx={{ height: 18, fontSize: "0.65rem", ml: 0.5 }}
-                        />
-                      </Box>
+                      {renderGroupHeader(g)}
                     </TableCell>
                   </TableRow>
-                  {renderListRows(g.tasks)}
+                  {g.tasks.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} sx={{ py: 1.5 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          {t("emptyWbsGroupHint")}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    renderListRows(g.tasks)
+                  )}
                 </React.Fragment>
               ))
             : renderListRows(filteredTasks)}
@@ -737,6 +767,7 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
           initiativeId={initiativeId}
           task={taskDialog.task}
           wbsList={wbsList}
+          defaultWbsId={taskDialog.defaultWbsId}
           onClose={() => setTaskDialog({ open: false })}
           onSaved={handleTaskSaved}
         />

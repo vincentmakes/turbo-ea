@@ -1362,7 +1362,11 @@ export default function InventoryFilterSidebar({
                             </FormControl>
                           );
                         }
-                        if (field.type === "number" || field.type === "cost") {
+                        if (
+                          field.type === "number" ||
+                          field.type === "cost" ||
+                          field.type === "percentage"
+                        ) {
                           return (
                             <TextField
                               key={field.key}

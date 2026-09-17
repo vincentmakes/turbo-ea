@@ -107,6 +107,7 @@ _BUILTIN_FIELD_TYPES = frozenset(
         "url",
         "single_select",
         "multiple_select",
+        "percentage",
     }
 )
 

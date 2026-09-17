@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.142.0] - 2026-09-17
+
+### Added
+
+- **A `percentage` field type, and PPM progress that reaches cards and portals.** A card and a published portal only ever show a card's *attributes*, so an initiative's real progress — the number on its PPM Overview tab — had nowhere to appear on either ([#1111](https://github.com/vincentmakes/turbo-ea/discussions/1111)). Two pieces close that gap. The metamodel gains a **Percentage** field type: a number from 0 to 100, drawn as a small progress bar on card detail, in the Inventory grid and in portals, edited with a slider in 5 % steps beside a box that takes an exact value, validated on every write path, importable from Excel, and eligible as a calculation target. And the calculation engine's `ppm` root, which carried only money, now carries the initiative's delivery figures too: `ppm.completion` (exactly the Overview tab's number), work-package and milestone counts, task counts by status and `ppm.tasksOverdue`, PPM risk counts and the highest score, and the latest status report's date and schedule / cost / scope health. Add a Percentage field to Initiative, give it the formula `ppm.completion`, tick it in a portal, and progress shows up everywhere the card does. Any change to a task, work package, risk or status report now re-runs the initiative's calculations the way a budget or cost line always has, and records the change on the card's History tab.
+- **The Tasks tab, grouped by work package, lists every work package.** A package with no tasks yet used to be skipped entirely, so anything created on the Gantt tab was invisible here. It now appears as a group with a hint and an **Add Task** button that opens the task dialog with that package preselected. Milestones appear once they hold a task.
+- **The Gantt's `+` row asks what to create.** It opened the work-package dialog outright, so a task typed there became a work package. It now offers a work package, a milestone or a task — the same three the toolbar does.
+
+### Fixed
+
+- **A portal said "71% complete" when it meant data quality.** A card-list portal renders each card's data-quality score — how many of its fields are filled in — and labelled it as a bare percentage on the card and *"N% complete"* on the detail chip, which an Initiative's readers took for project completion ([#1111](https://github.com/vincentmakes/turbo-ea/discussions/1111)). The bar and the chip now say *data quality*, as the admin toggle always has, and the card-detail score's tooltip says the same.
+- **A task's completion is legible.** A task's fill has always followed its status (To Do 0 %, In Progress 50 %, Done 100 %), but nothing said so: the Gantt's percentage slider offered three unlabelled stops, dragging a task bar's fill was silently ignored, and the task dialog gave no hint. The slider's stops now carry the status names with a note that the percentage follows the status, dragging a task's fill sets the status, the task dialog shows the derived percentage beside the Status field, and a work package that holds tasks shows the same read-only completion its parents do — its slider used to accept a value the next task edit overwrote. Closing the slider on a *Blocked* task no longer flips it to *To Do*. The guide now describes the duration-weighted roll-up as it has worked since 0.65.0.
+- **Deleting a work package recomputes its parents' completion.** Its tasks fall back to no package, and every ancestor's roll-up (and the initiative's overall progress) is recalculated without them instead of keeping stale work in the tree.
+
 ## [2.141.0] - 2026-09-17
 
 ### Added

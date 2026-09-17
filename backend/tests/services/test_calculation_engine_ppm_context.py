@@ -11,13 +11,18 @@ from datetime import date
 
 from app.models.app_settings import AppSettings
 from app.services.calculation_engine import _build_context, _evaluate_formula
+from app.services.calculation_ppm import build_ppm_map
 from tests.conftest import (
     create_budget_line,
     create_card,
     create_card_type,
     create_cost_line,
+    create_ppm_risk,
     create_relation,
     create_relation_type,
+    create_status_report,
+    create_task,
+    create_wbs,
 )
 
 
@@ -155,4 +160,109 @@ class TestPpmOnRelatedCards:
         context = await _build_context(db, app, needs_ppm_data=True)
         assert (
             _evaluate_formula('SUM(PLUCK(relations.relAppToITC, "ppm.capexBudget"))', context) == 0
+        )
+
+
+class TestDeliveryFigures:
+    """The non-money half of the ``ppm`` root (#1111)."""
+
+    async def test_completion_is_the_mean_of_root_work_packages(self, db):
+        await create_card_type(db, key="Initiative", label="Initiative")
+        card = await create_card(db, card_type="Initiative", name="Rollout")
+        root_a = await create_wbs(db, initiative_id=card.id, title="Phase 1", completion=80)
+        await create_wbs(db, initiative_id=card.id, title="Phase 2", completion=40)
+        # A child at 100 % must not skew the mean — its root already carries it.
+        await create_wbs(
+            db, initiative_id=card.id, title="Child", parent_id=root_a.id, completion=100
+        )
+        await create_wbs(db, initiative_id=card.id, title="Go-live", is_milestone=True)
+
+        context = await _build_context(db, card, needs_ppm_data=True)
+        ppm = context["ppm"]
+        # (80 + 40 + 0) / 3 — the milestone is a root too, at 0 %.
+        assert ppm["completion"] == 40.0
+        assert ppm["wbsCount"] == 3
+        assert ppm["milestoneCount"] == 1
+        assert _evaluate_formula("ppm.completion", context) == 40.0
+
+    async def test_no_work_packages_reads_zero(self, db):
+        await create_card_type(db, key="Initiative", label="Initiative")
+        card = await create_card(db, card_type="Initiative", name="Empty")
+        context = await _build_context(db, card, needs_ppm_data=True)
+        assert context["ppm"]["completion"] == 0.0
+        assert context["ppm"]["taskCount"] == 0
+
+    async def test_task_counts_and_overdue(self, db):
+        await create_card_type(db, key="Initiative", label="Initiative")
+        card = await create_card(db, card_type="Initiative", name="Rollout")
+        await create_task(db, initiative_id=card.id, status="todo", due_date=date(2026, 1, 1))
+        await create_task(
+            db, initiative_id=card.id, status="in_progress", due_date=date(2026, 1, 1)
+        )
+        await create_task(db, initiative_id=card.id, status="blocked")
+        # Done and past due is not overdue; due today is not overdue either.
+        await create_task(db, initiative_id=card.id, status="done", due_date=date(2026, 1, 1))
+        await create_task(db, initiative_id=card.id, status="todo", due_date=date(2026, 6, 1))
+
+        payload = (await build_ppm_map(db, [card.id], start_month=1, today=date(2026, 6, 1)))[
+            str(card.id)
+        ]
+        assert payload["taskCount"] == 5
+        assert payload["tasksTodo"] == 2
+        assert payload["tasksInProgress"] == 1
+        assert payload["tasksBlocked"] == 1
+        assert payload["tasksDone"] == 1
+        assert payload["tasksOverdue"] == 2
+
+    async def test_risks_and_latest_report(self, db):
+        await create_card_type(db, key="Initiative", label="Initiative")
+        card = await create_card(db, card_type="Initiative", name="Rollout")
+        await create_ppm_risk(db, initiative_id=card.id, probability=2, impact=5, status="open")
+        await create_ppm_risk(db, initiative_id=card.id, probability=4, impact=4, status="closed")
+        await create_status_report(
+            db, initiative_id=card.id, report_date=date(2026, 3, 1), schedule_health="atRisk"
+        )
+        await create_status_report(
+            db,
+            initiative_id=card.id,
+            report_date=date(2026, 5, 1),
+            schedule_health="offTrack",
+            cost_health="atRisk",
+        )
+
+        context = await _build_context(db, card, needs_ppm_data=True)
+        ppm = context["ppm"]
+        assert ppm["riskCount"] == 2
+        assert ppm["risksOpen"] == 1
+        assert ppm["riskScoreMax"] == 16
+        assert ppm["reportCount"] == 2
+        assert ppm["reportDate"] == "2026-05-01"
+        assert ppm["scheduleHealth"] == "offTrack"
+        assert ppm["costHealth"] == "atRisk"
+        assert ppm["scopeHealth"] == "onTrack"
+        assert (
+            _evaluate_formula('IF(ppm.scheduleHealth == "offTrack", "Late", "Fine")', context)
+            == "Late"
+        )
+
+    async def test_reachable_through_a_relation(self, db):
+        await create_card_type(db, key="Initiative", label="Initiative")
+        await create_card_type(db, key="Application", label="Application")
+        await create_relation_type(
+            db,
+            key="relInitiativeToApp",
+            source_type_key="Initiative",
+            target_type_key="Application",
+        )
+        initiative = await create_card(db, card_type="Initiative", name="Rollout")
+        app = await create_card(db, card_type="Application", name="ERP")
+        await create_relation(
+            db, type_key="relInitiativeToApp", source_id=initiative.id, target_id=app.id
+        )
+        await create_wbs(db, initiative_id=initiative.id, completion=70)
+
+        context = await _build_context(db, app, needs_ppm_data=True)
+        assert (
+            _evaluate_formula('MAX(PLUCK(relations.relInitiativeToApp, "ppm.completion"))', context)
+            == 70.0
         )

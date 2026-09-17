@@ -405,6 +405,86 @@ async def create_cost_line(
     return line
 
 
+async def create_wbs(
+    db, *, initiative_id, title="Work package", parent_id=None, completion=0.0, is_milestone=False
+):
+    """Insert a PPM work package (or milestone) row."""
+    from app.models.ppm_wbs import PpmWbs
+
+    wbs = PpmWbs(
+        initiative_id=initiative_id,
+        parent_id=parent_id,
+        title=title,
+        completion=completion,
+        is_milestone=is_milestone,
+    )
+    db.add(wbs)
+    await db.flush()
+    return wbs
+
+
+async def create_task(
+    db, *, initiative_id, title="Task", status="todo", wbs_id=None, start_date=None, due_date=None
+):
+    """Insert a PPM task row."""
+    from app.models.ppm_task import PpmTask
+
+    task = PpmTask(
+        initiative_id=initiative_id,
+        title=title,
+        status=status,
+        wbs_id=wbs_id,
+        start_date=start_date,
+        due_date=due_date,
+    )
+    db.add(task)
+    await db.flush()
+    return task
+
+
+async def create_ppm_risk(
+    db, *, initiative_id, title="Risk", probability=3, impact=3, status="open"
+):
+    """Insert a PPM (initiative-scoped) risk row."""
+    from app.models.ppm_risk import PpmRisk
+
+    risk = PpmRisk(
+        initiative_id=initiative_id,
+        title=title,
+        probability=probability,
+        impact=impact,
+        risk_score=probability * impact,
+        status=status,
+    )
+    db.add(risk)
+    await db.flush()
+    return risk
+
+
+async def create_status_report(
+    db,
+    *,
+    initiative_id,
+    report_date,
+    schedule_health="onTrack",
+    cost_health="onTrack",
+    scope_health="onTrack",
+):
+    """Insert a PPM status report row."""
+    from app.models.ppm_status_report import PpmStatusReport
+
+    report = PpmStatusReport(
+        initiative_id=initiative_id,
+        report_date=report_date,
+        schedule_health=schedule_health,
+        cost_health=cost_health,
+        scope_health=scope_health,
+    )
+    db.add(report)
+    await db.flush()
+    return report
+
+
 async def create_relation_type(
     db,
     *,

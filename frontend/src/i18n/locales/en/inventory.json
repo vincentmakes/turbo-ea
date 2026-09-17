@@ -227,6 +227,7 @@
   "import.errors.invalidDate": "Row {{row}}: {{field}} expects a date (YYYY-MM-DD), got \"{{value}}\"",
   "import.errors.requiredFieldEmpty": "Row {{row}}: required field \"{{field}}\" is empty",
   "import.errors.expectsNumber": "Row {{row}}: \"{{field}}\" expects a number, got \"{{value}}\"",
+  "import.errors.expectsPercentage": "Row {{row}}: \"{{field}}\" expects a number between 0 and 100, got \"{{value}}\"",
   "import.errors.expectsBoolean": "Row {{row}}: \"{{field}}\" expects true/false, got \"{{value}}\"",
   "import.errors.invalidSelectValue": "Row {{row}}: invalid value \"{{value}}\" for field \"{{field}}\" (valid: {{valid}})",
   "import.errors.unknown": "Unknown error",

@@ -176,7 +176,8 @@ export type BuiltInFieldType =
   | "date"
   | "single_select"
   | "multiple_select"
-  | "url";
+  | "url"
+  | "percentage";
 
 export interface FieldDef {
   key: string;

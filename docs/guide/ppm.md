@@ -117,7 +117,7 @@ The task manager supports both **Kanban board** and **list** views with four sta
 - **Done** — Completed tasks
 - **Blocked** — Tasks that cannot proceed
 
-Tasks can be filtered and grouped by Work Breakdown Structure (WBS) item. Drag and drop cards between columns to update status. Each task supports:
+Tasks can be filtered and grouped by Work Breakdown Structure (WBS) item. When grouped, every work package appears as a group — including one that holds no tasks yet, which shows a hint and an **Add Task** button that opens the task dialog with that package preselected. Milestones appear only once they hold a task. Drag and drop cards between columns to update status. Each task supports:
 
 - Priority levels (Critical, High, Medium, Low)
 - Assignee (with notification on assignment)
@@ -136,7 +136,7 @@ The Gantt chart visualizes the project timeline with:
 - **Work Packages (WBS)** — Hierarchical work breakdown structure items with start/end dates
 - **Tasks** — Individual task bars linked to work packages
 - **Milestones** — Key dates marked with diamond indicators
-- **Progress Bars** — Visual completion percentage. Click the percentage chip on a task or leaf work package to open a slider that snaps to **0%, 50% or 100%** — matching the three task states (To Do, In Progress, Done). Parent work packages with children show a read-only chip whose value is rolled up automatically from the subtree.
+- **Progress Bars** — Visual completion percentage. A task has no percentage of its own: its fill follows its status — **To Do (0%)**, **In Progress (50%)**, **Done (100%)**. Click the percentage chip on a task to open a slider whose three stops are labelled with those statuses; choosing a stop changes the status, and dragging the fill on the task's bar does the same. A leaf work package has a free slider in 5% steps. Work packages that have child work packages **or tasks** show a read-only chip whose value is rolled up automatically from the subtree.
 - **Quarterly Ticks** — Timeline grid for orientation
 
 Interact with the Gantt chart using:
@@ -148,6 +148,7 @@ Interact with the Gantt chart using:
 - **View scale picker** — choose between Day, Week, Month, Quarter, and Year scales; the choice is remembered in your browser
 - **Zoom in / Zoom out buttons** — step through the same five scales one notch at a time
 - **Drag the dot on the right edge of one bar onto the dot on the left edge of another** to create a finish-to-start dependency arrow. Dependencies work between any combination of work packages and tasks. Cycles are rejected automatically. **Double-click an arrow** to remove it.
+- **The + row** at the bottom of the list asks what to create — a work package, a milestone or a task — so a task typed there lands on the Tasks tab.
 
 ### Card Details Tab
 
@@ -160,7 +161,7 @@ The WBS provides a hierarchical decomposition of project scope:
 - **Work Packages** — Logical groupings of tasks with start/end dates and completion tracking
 - **Milestones** — Significant events or completion points
 - **Hierarchy** — Parent-child relationships between WBS items
-- **Auto-completion** — Completion percentage is automatically calculated from child task done/total ratios, then rolled up recursively through the WBS hierarchy to parent items. Top-level completion represents overall initiative progress
+- **Auto-completion** — Completion is calculated automatically from the tasks in a work package's subtree: each task counts as 0% (To Do, Blocked), 50% (In Progress) or 100% (Done), weighted by its duration in days (one day when a date is missing), then rolled up recursively to parent items. A work package with no tasks anywhere below it keeps the value typed by hand. The average of the top-level work packages is the initiative's overall progress — the number on the Overview tab, and the `ppm.completion` variable a [calculated field](../admin/calculations.md#ppm-data-on-initiative-cards) can show on the card and in a portal
 
 ## Card Detail Integration
 

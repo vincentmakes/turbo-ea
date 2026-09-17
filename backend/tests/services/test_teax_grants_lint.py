@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from app.services.extensions.bundle import _BUILTIN_FIELD_TYPES as BACKEND_FIELD_TYPES
 from app.services.extensions.bundle import (
     DEFAULT_SECTION_PLACEMENT as BACKEND_DEFAULT_PLACEMENT,
 )
@@ -88,6 +89,13 @@ class TestTeaxGrantsLint:
             assert (teax.placement_error(value) is None) == (
                 backend_placement_error(value) is None
             ), value
+
+    def test_field_type_constants_mirror_backend(self, teax):
+        # A contributed field's type must be built-in or ext.{key}.*; teax and
+        # bundle.py each hold the built-in list, so a type added to one (the
+        # 2.141.0 `percentage`) and not the other would lint clean and fail
+        # verify on the customer's instance.
+        assert set(teax.BUILTIN_FIELD_TYPES) == set(BACKEND_FIELD_TYPES)
 
     def test_logo_constants_mirror_backend(self, teax):
         # Same reasoning: teax lints what the backend will accept, so the two

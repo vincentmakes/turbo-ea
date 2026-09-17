@@ -1408,8 +1408,10 @@ Each type has an optional `section_config` (JSONB) controlling layout:
 | Type | Description | Rendering |
 |------|-------------|-----------|
 | `text` | Plain text | TextField |
+| `multiline_text` | Multi-line text | Multiline TextField |
 | `number` | Numeric | NumberField |
 | `cost` | Numeric with currency formatting | NumberField + currency symbol |
+| `percentage` | Number 0–100, validated server-side (`_validate_percentage_attributes`) | `PercentBar` (progress bar + `NN%`); edited with `PercentageInput` (5%-step slider + free number box) |
 | `boolean` | Toggle | Switch |
 | `date` | ISO date | DatePicker |
 | `url` | Validated URL (http/https/mailto) | Clickable link input |

@@ -224,6 +224,7 @@ BUILTIN_FIELD_TYPES = {
     "url",
     "single_select",
     "multiple_select",
+    "percentage",
 }
 KEY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{1,63}$")
 CONTENT_SHEETS = {

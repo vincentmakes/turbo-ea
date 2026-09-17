@@ -227,6 +227,7 @@
   "import.errors.invalidDate": "Række {{row}}: {{field}} forventer en dato (ÅÅÅÅ-MM-DD), modtog «{{value}}»",
   "import.errors.requiredFieldEmpty": "Række {{row}}: påkrævet felt «{{field}}» er tomt",
   "import.errors.expectsNumber": "Række {{row}}: «{{field}}» forventer et tal, modtog «{{value}}»",
+  "import.errors.expectsPercentage": "Række {{row}}: «{{field}}» forventer et tal mellem 0 og 100, modtog «{{value}}»",
   "import.errors.expectsBoolean": "Række {{row}}: «{{field}}» forventer true/false, modtog «{{value}}»",
   "import.errors.invalidSelectValue": "Række {{row}}: ugyldig værdi «{{value}}» for feltet «{{field}}» (gyldige: {{valid}})",
   "import.errors.unknown": "Ukendt fejl",

@@ -949,6 +949,10 @@ async def validate_formula(formula: str, target_type_key: str, db: AsyncSession)
                 elif ftype in ("single_select", "multiple_select"):
                     opts = field.get("options", [])
                     dummy_data[key] = opts[0]["key"] if opts else None
+                elif ftype == "percentage":
+                    # Mid-range so a formula that divides by (100 - x) or
+                    # compares against a threshold sees a plausible value.
+                    dummy_data[key] = 50
                 else:
                     # Everything else — number/cost, text-ish, ext.* custom
                     # types, unknowns — is seeded as a NON-ZERO number. The old

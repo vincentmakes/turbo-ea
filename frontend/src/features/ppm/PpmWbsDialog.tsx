@@ -32,6 +32,9 @@ interface Props {
   initiativeId: string;
   wbs?: PpmWbs;
   wbsList: PpmWbs[];
+  /** The package already holds tasks, so its completion is rolled up from
+   *  them and the slider would be overwritten on the next task save. */
+  hasTasks?: boolean;
   defaultMilestone?: boolean;
   defaultStartDate?: string;
   onClose: () => void;
@@ -58,6 +61,7 @@ export default function PpmWbsDialog({
   initiativeId,
   wbs,
   wbsList,
+  hasTasks,
   defaultMilestone,
   defaultStartDate,
   onClose,
@@ -109,8 +113,9 @@ export default function PpmWbsDialog({
       .catch(() => {});
   }, []);
 
-  // Check if this WBS has children (completion will be auto-rolled up)
-  const hasChildren = wbsList.some((w) => w.parent_id === wbs?.id);
+  // Completion is auto-rolled up when the package has child packages OR
+  // tasks — either way the slider is read-only.
+  const hasChildren = wbsList.some((w) => w.parent_id === wbs?.id) || !!hasTasks;
 
   // Filter parent options: exclude self and descendants
   const excludeIds = wbs ? getDescendantIds(wbs.id, wbsList) : new Set<string>();

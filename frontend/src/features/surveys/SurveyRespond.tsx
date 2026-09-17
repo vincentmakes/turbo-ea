@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
+import { PercentageInput } from "@/components/PercentageInput";
 import { useNavigate, useParams } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -408,6 +409,16 @@ export default function SurveyRespond() {
             </MenuItem>
           ))}
         </TextField>
+      );
+    }
+
+    if (field.type === "percentage") {
+      return (
+        <PercentageInput
+          fullWidth
+          value={value}
+          onChange={(v) => setNewValue(field.key, v ?? null)}
+        />
       );
     }
 

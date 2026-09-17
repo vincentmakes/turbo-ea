@@ -1242,7 +1242,7 @@ def _matrix_attr_clause(field_key: str, field_type: str, value: str):
         )
     if field_type == "boolean":
         return Relation.attributes.contains({field_key: value == "true"})
-    if field_type == "number":
+    if field_type in ("number", "percentage"):
         try:
             return Relation.attributes.contains({field_key: float(value)})
         except ValueError:

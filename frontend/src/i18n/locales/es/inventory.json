@@ -227,6 +227,7 @@
   "import.errors.invalidDate": "Fila {{row}}: {{field}} espera una fecha (AAAA-MM-DD), se recibió \"{{value}}\"",
   "import.errors.requiredFieldEmpty": "Fila {{row}}: el campo obligatorio \"{{field}}\" está vacío",
   "import.errors.expectsNumber": "Fila {{row}}: \"{{field}}\" espera un número, se recibió \"{{value}}\"",
+  "import.errors.expectsPercentage": "Fila {{row}}: \"{{field}}\" espera un número entre 0 y 100, se recibió \"{{value}}\"",
   "import.errors.expectsBoolean": "Fila {{row}}: \"{{field}}\" espera verdadero/falso, se recibió \"{{value}}\"",
   "import.errors.invalidSelectValue": "Fila {{row}}: valor inválido \"{{value}}\" para el campo \"{{field}}\" (válidos: {{valid}})",
   "import.errors.unknown": "Error desconocido",

@@ -227,6 +227,7 @@
   "import.errors.invalidDate": "Riga {{row}}: {{field}} richiede una data (AAAA-MM-GG), ricevuto \"{{value}}\"",
   "import.errors.requiredFieldEmpty": "Riga {{row}}: il campo obbligatorio \"{{field}}\" è vuoto",
   "import.errors.expectsNumber": "Riga {{row}}: \"{{field}}\" richiede un numero, ricevuto \"{{value}}\"",
+  "import.errors.expectsPercentage": "Riga {{row}}: \"{{field}}\" richiede un numero tra 0 e 100, ricevuto \"{{value}}\"",
   "import.errors.expectsBoolean": "Riga {{row}}: \"{{field}}\" richiede true/false, ricevuto \"{{value}}\"",
   "import.errors.invalidSelectValue": "Riga {{row}}: valore non valido \"{{value}}\" per il campo \"{{field}}\" (validi: {{valid}})",
   "import.errors.unknown": "Errore sconosciuto",

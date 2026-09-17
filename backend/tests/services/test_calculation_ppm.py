@@ -74,12 +74,38 @@ class TestEmptyPpm:
         assert payload["byYear"] == []
         assert payload["currentFiscalYear"] == 2026
 
+    def test_delivery_figures_read_zero_or_none(self):
+        # #1111: the delivery half. Counts are 0 so arithmetic never trips on a
+        # blank; the latest-report fields are None because "no report" and
+        # "on track" are different facts.
+        payload = empty_ppm()
+        for key in (
+            "completion",
+            "wbsCount",
+            "milestoneCount",
+            "taskCount",
+            "tasksTodo",
+            "tasksInProgress",
+            "tasksDone",
+            "tasksBlocked",
+            "tasksOverdue",
+            "riskCount",
+            "risksOpen",
+            "riskScoreMax",
+            "reportCount",
+        ):
+            assert payload[key] == 0, key
+        for key in ("reportDate", "scheduleHealth", "costHealth", "scopeHealth"):
+            assert payload[key] is None, key
+
     def test_a_formula_over_an_empty_payload_evaluates_cleanly(self):
         # A card with no PPM data must read as zero, not crash — the same
         # reasoning as seeding `relations` with empty lists.
         context = base_context_roots(data=_DotDict())
         assert _evaluate_formula("ppm.capexBudget", context) == 0.0
         assert _evaluate_formula('SUM(PLUCK(ppm.byYear, "capexBudget"))', context) == 0
+        assert _evaluate_formula("ppm.completion", context) == 0.0
+        assert _evaluate_formula('COALESCE(ppm.scheduleHealth, "none")', context) == "none"
 
 
 class TestBaseContextRoots:

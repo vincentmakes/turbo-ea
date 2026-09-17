@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
+import { PercentageInput } from "@/components/PercentageInput";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -547,6 +548,20 @@ export default function CreateCardDialog({
           </FormControl>
         );
       }
+
+      case "percentage":
+        return (
+          <PercentageInput
+            key={field.key}
+            fullWidth
+            size="medium"
+            required={field.required}
+            label={fieldLabel(field)}
+            value={attributes[field.key]}
+            onChange={(v) => setAttr(field.key, v)}
+            sx={{ mb: 2 }}
+          />
+        );
 
       case "cost":
       case "number":

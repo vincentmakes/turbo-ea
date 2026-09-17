@@ -227,6 +227,7 @@
   "import.errors.invalidDate": "Строка {{row}}: {{field}} ожидает дату (YYYY-MM-DD), получено «{{value}}»",
   "import.errors.requiredFieldEmpty": "Строка {{row}}: обязательное поле «{{field}}» пусто",
   "import.errors.expectsNumber": "Строка {{row}}: «{{field}}» ожидает число, получено «{{value}}»",
+  "import.errors.expectsPercentage": "Строка {{row}}: «{{field}}» ожидает число от 0 до 100, получено «{{value}}»",
   "import.errors.expectsBoolean": "Строка {{row}}: «{{field}}» ожидает true/false, получено «{{value}}»",
   "import.errors.invalidSelectValue": "Строка {{row}}: некорректное значение «{{value}}» для поля «{{field}}» (допустимые: {{valid}})",
   "import.errors.unknown": "Неизвестная ошибка",

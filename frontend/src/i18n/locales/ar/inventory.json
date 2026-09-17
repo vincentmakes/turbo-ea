@@ -227,6 +227,7 @@
   "import.errors.invalidDate": "الصف {{row}}: {{field}} يتوقّع تاريخًا (YYYY-MM-DD)، وتم إدخال «{{value}}»",
   "import.errors.requiredFieldEmpty": "الصف {{row}}: الحقل المطلوب «{{field}}» فارغ",
   "import.errors.expectsNumber": "الصف {{row}}: «{{field}}» يتوقّع رقمًا، وتم إدخال «{{value}}»",
+  "import.errors.expectsPercentage": "الصف {{row}}: «{{field}}» يتوقّع رقمًا بين 0 و100، وتم إدخال «{{value}}»",
   "import.errors.expectsBoolean": "الصف {{row}}: «{{field}}» يتوقّع true/false، وتم إدخال «{{value}}»",
   "import.errors.invalidSelectValue": "الصف {{row}}: قيمة غير صالحة «{{value}}» للحقل «{{field}}» (الصالح: {{valid}})",
   "import.errors.unknown": "خطأ غير معروف",

@@ -46,6 +46,8 @@ import { api, ApiError } from "@/api/client";
 import { brand } from "@/theme/tokens";
 import PpmWbsDialog from "./PpmWbsDialog";
 import PpmTaskDialog from "./PpmTaskDialog";
+import GanttAddItemMenu from "./GanttAddItemMenu";
+import { TASK_PROGRESS_MARKS, percentFromStatus, statusFromPercent } from "./taskProgress";
 import type { PpmDependency, PpmWbs, PpmTask, PpmTaskStatus } from "@/types";
 import { startOfLocalDay, toIsoDate, toLocalDate } from "@/lib/dates";
 import { buildGanttArrowPath } from "./ganttArrowPath";
@@ -693,8 +695,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         end = endOfDay(new Date(start));
         end.setDate(end.getDate() + 1);
       }
-      const progress =
-        tk.status === "done" ? 100 : tk.status === "in_progress" ? 50 : 0;
+      const progress = percentFromStatus(tk.status);
       const barColors = TASK_STATUS_BAR_COLORS[tk.status] ?? TASK_STATUS_BAR_COLORS.todo;
       items.push({
         id: taskId,
@@ -731,10 +732,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       });
     }
     for (const tk of tasks) {
-      const pct =
-        tk.status === "done" ? 100 : tk.status === "in_progress" ? 50 : 0;
       map.set(`task-${tk.id}`, {
-        completion: pct,
+        completion: percentFromStatus(tk.status),
         assigneeName: tk.assignee_name,
         hasChildren: false,
       });
@@ -783,9 +782,20 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           completion: Math.round(task.progress),
         });
         await loadData();
+      } else if (id.startsWith("task-")) {
+        // A task's fill follows its status, so a drag picks the status the
+        // dragged value means. Reload either way: the library has already
+        // painted the dragged fill, and the bar must snap back to its stop.
+        const tk = tasks.find((x) => x.id === id.slice(5));
+        if (!tk) return;
+        const status = statusFromPercent(task.progress, tk.status);
+        if (status !== tk.status) {
+          await api.patch(`/ppm/tasks/${tk.id}`, { status });
+        }
+        await loadData();
       }
     },
-    [loadData, parentIds],
+    [loadData, parentIds, tasks],
   );
 
   /** Lookup helpers — read end-/start-dates from our state, accounting
@@ -952,6 +962,19 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     }
   }, []);
 
+  /** The "+" row asks what to create instead of assuming a work package. */
+  const [emptyRowMenuAnchor, setEmptyRowMenuAnchor] = useState<HTMLElement | null>(null);
+  const openNewWbs = useCallback((milestone: boolean) => {
+    setEditingWbs(undefined);
+    setMilestoneDefault(milestone);
+    setWbsDialogOpen(true);
+  }, []);
+  const openNewTask = useCallback((wbsId: string) => {
+    setEditingTask(undefined);
+    setPreselectedWbsId(wbsId);
+    setTaskDialogOpen(true);
+  }, []);
+
   const contextMenuOptions: ContextMenuOptionType[] = useMemo(
     () => [
       {
@@ -964,30 +987,19 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         icon: <MaterialSymbol icon="add_task" size={16} />,
         action: (meta) => {
           if (!meta.task.id.startsWith("wbs-")) return;
-          const wbsRealId = meta.task.id.slice(4);
-          setEditingTask(undefined);
-          setPreselectedWbsId(wbsRealId);
-          setTaskDialogOpen(true);
+          openNewTask(meta.task.id.slice(4));
         },
         checkIsAvailable: (meta) => meta.task.id.startsWith("wbs-"),
       },
       {
         label: t("addWbs"),
         icon: <MaterialSymbol icon="add" size={16} />,
-        action: () => {
-          setEditingWbs(undefined);
-          setMilestoneDefault(false);
-          setWbsDialogOpen(true);
-        },
+        action: () => openNewWbs(false),
       },
       {
         label: t("addMilestone"),
         icon: <MaterialSymbol icon="flag" size={16} />,
-        action: () => {
-          setEditingWbs(undefined);
-          setMilestoneDefault(true);
-          setWbsDialogOpen(true);
-        },
+        action: () => openNewWbs(true),
       },
       {
         label: t("markDone"),
@@ -1018,7 +1030,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         },
       },
     ],
-    [t, openDialogForId, loadData],
+    [t, openDialogForId, loadData, openNewTask, openNewWbs],
   );
 
   /** State for inline completion slider popover. */
@@ -1031,15 +1043,22 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     async (val: number) => {
       const id = completionEditId;
       if (id.startsWith("wbs-")) {
+        if (val === rowMeta.get(id)?.completion) return;
         await api.patch(`/ppm/wbs/${id.slice(4)}`, { completion: val });
       } else if (id.startsWith("task-")) {
-        const status = val >= 100 ? "done" : val > 0 ? "in_progress" : "todo";
-        await api.patch(`/ppm/tasks/${id.slice(5)}`, { status });
+        const tk = tasks.find((x) => x.id === id.slice(5));
+        if (!tk) return;
+        const status = statusFromPercent(val, tk.status);
+        // Closing the popover untouched (or on a Blocked task, whose 0 % is
+        // shared with To Do) must not PATCH anything.
+        if (status === tk.status) return;
+        await api.patch(`/ppm/tasks/${tk.id}`, { status });
       }
       await loadData();
     },
-    [completionEditId, loadData],
+    [completionEditId, loadData, rowMeta, tasks],
   );
+
 
   /** Custom title column: name is clickable (opens edit dialog), plus
    *  expander arrow for WBS parents. Avoids the library's broken onClick. */
@@ -1056,12 +1075,12 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       const handleExpand = () => {
         if (task.type !== "empty") onExpanderClick(task as Task);
       };
-      const handleNameClick = (e: { stopPropagation: () => void }) => {
+      const handleNameClick = (e: React.MouseEvent<HTMLDivElement>) => {
         e.stopPropagation();
         if (task.id === "__empty__") {
-          setEditingWbs(undefined);
-          setMilestoneDefault(false);
-          setWbsDialogOpen(true);
+          // useState setters are referentially stable, so the memo below
+          // keeps `openDialogForId` as its only dependency.
+          setEmptyRowMenuAnchor(e.currentTarget);
           return;
         }
         openDialogForId(task.id);
@@ -1763,11 +1782,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           variant="contained"
           size="small"
           startIcon={<MaterialSymbol icon="add" size={18} />}
-          onClick={() => {
-            setEditingWbs(undefined);
-            setMilestoneDefault(false);
-            setWbsDialogOpen(true);
-          }}
+          onClick={() => openNewWbs(false)}
         >
           {t("addWbs")}
         </Button>
@@ -1775,11 +1790,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           variant="outlined"
           size="small"
           startIcon={<MaterialSymbol icon="flag" size={18} />}
-          onClick={() => {
-            setEditingWbs(undefined);
-            setMilestoneDefault(true);
-            setWbsDialogOpen(true);
-          }}
+          onClick={() => openNewWbs(true)}
         >
           {t("addMilestone")}
         </Button>
@@ -1787,11 +1798,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           variant="outlined"
           size="small"
           startIcon={<MaterialSymbol icon="add_task" size={18} />}
-          onClick={() => {
-            setEditingTask(undefined);
-            setPreselectedWbsId("");
-            setTaskDialogOpen(true);
-          }}
+          onClick={() => openNewTask("")}
         >
           {t("createTask")}
         </Button>
@@ -2067,7 +2074,9 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           )}
       </Box>
 
-      {/* Inline completion slider popover */}
+      {/* Inline completion slider popover. A task's stops are its three
+          statuses, labelled as such; a leaf work package gets a free 5 % slider
+          — the same one its dialog offers. */}
       <Popover
         open={Boolean(completionAnchor)}
         anchorEl={completionAnchor}
@@ -2079,25 +2088,56 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         transformOrigin={{ vertical: "top", horizontal: "center" }}
         disableRestoreFocus
       >
-        <Box sx={{ px: 2, py: 1.5, width: 180 }}>
+        <Box sx={{ px: 2, py: 1.5, width: completionEditId.startsWith("task-") ? 260 : 200 }}>
           <Typography variant="caption" fontWeight={600}>
             {t("completion")}: {Math.round(completionEditValue)}%
           </Typography>
-          <Slider
-            value={completionEditValue}
-            onChange={(_, v) => setCompletionEditValue(v as number)}
-            onChangeCommitted={(_, v) => {
-              handleCompletionSave(v as number);
-              setCompletionAnchor(null);
-            }}
-            min={0}
-            max={100}
-            step={50}
-            marks
-            size="small"
-          />
+          {completionEditId.startsWith("task-") ? (
+            <>
+              <Slider
+                value={completionEditValue}
+                onChange={(_, v) => setCompletionEditValue(v as number)}
+                onChangeCommitted={(_, v) => {
+                  handleCompletionSave(v as number);
+                  setCompletionAnchor(null);
+                }}
+                min={0}
+                max={100}
+                step={null}
+                marks={TASK_PROGRESS_MARKS.map((m) => ({ value: m.value, label: t(m.labelKey) }))}
+                size="small"
+                sx={{ mx: 1, width: "calc(100% - 16px)", "& .MuiSlider-markLabel": { fontSize: 11 } }}
+              />
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1.5 }}>
+                {t("completionFollowsStatus")}
+              </Typography>
+            </>
+          ) : (
+            <Slider
+              value={completionEditValue}
+              onChange={(_, v) => setCompletionEditValue(v as number)}
+              onChangeCommitted={(_, v) => {
+                handleCompletionSave(v as number);
+                setCompletionAnchor(null);
+              }}
+              min={0}
+              max={100}
+              step={5}
+              valueLabelDisplay="auto"
+              valueLabelFormat={(v) => `${v}%`}
+              size="small"
+            />
+          )}
         </Box>
       </Popover>
+
+      <GanttAddItemMenu
+        anchorEl={emptyRowMenuAnchor}
+        onClose={() => setEmptyRowMenuAnchor(null)}
+        onAddWbs={() => openNewWbs(false)}
+        onAddMilestone={() => openNewWbs(true)}
+        onAddTask={() => openNewTask("")}
+      />
 
       {/* WBS Dialog */}
       {wbsDialogOpen && (
@@ -2105,6 +2145,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           initiativeId={initiativeId}
           wbs={editingWbs}
           wbsList={wbsList}
+          hasTasks={!!editingWbs && tasks.some((x) => x.wbs_id === editingWbs.id)}
           defaultMilestone={milestoneDefault}
           defaultStartDate={editingWbs ? undefined : defaultNewDate}
           onClose={() => {

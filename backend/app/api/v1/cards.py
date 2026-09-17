@@ -97,6 +97,7 @@ from app.services.card_write_service import (
     _recalc_changed_descendants,
     _sync_hierarchy_levels,
     _validate_hierarchy_label,
+    _validate_percentage_attributes,
     _validate_strict_attributes,
     _validate_url_attributes,
     _walk_ancestor_chain,  # noqa: F401
@@ -819,6 +820,7 @@ async def bulk_create_cards(
         row_sp = await db.begin_nested()
         try:
             await _validate_url_attributes(db, r.type, r.attributes or {})
+            await _validate_percentage_attributes(db, r.type, r.attributes or {})
             _check_select_options(r.type, schemas_by_type.get(r.type), r.attributes or {}, {})
 
             # Resolve parent_id.
@@ -1543,6 +1545,7 @@ async def bulk_update(
                 continue
             seen_types.add(card.type)
             await _validate_url_attributes(db, card.type, updates["attributes"])
+            await _validate_percentage_attributes(db, card.type, updates["attributes"])
             if strict_attrs:
                 await _validate_strict_attributes(db, card.type, updates["attributes"])
     # Preserve cost-typed keys for any card the user may not see costs on —

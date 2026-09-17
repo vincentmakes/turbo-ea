@@ -106,6 +106,22 @@ async def _get_ppm_exclusions(db: AsyncSession, card: Card) -> set[str]:
     return excluded
 
 
+async def recalculate_and_rescore(db: AsyncSession, card: Card) -> None:
+    """Re-run a card's calculations, then re-score its data quality.
+
+    The pair every write path owes after it changed something a formula can
+    read — the card itself, a relation, or (for an Initiative) any PPM row:
+    tasks, work packages, risks, status reports, budget and cost lines all feed
+    the ``ppm`` context root. The order matters: scoring before the
+    calculations would leave the score one edit stale, since a calculated
+    field counts towards completeness like any other.
+
+    Flushes nothing and commits nothing — the caller owns the transaction.
+    """
+    await run_calculations_for_card(db, card, exclude_fields=await _get_ppm_exclusions(db, card))
+    card.data_quality = await calc_data_quality(db, card)
+
+
 # ---------------------------------------------------------------------------
 # Attribute validation
 # ---------------------------------------------------------------------------
@@ -144,6 +160,36 @@ async def _validate_url_attributes(db: AsyncSession, card_type: str, attributes:
                     422,
                     f"Field '{key}' must use http://, https://, or mailto: scheme",
                 )
+
+
+async def _validate_percentage_attributes(
+    db: AsyncSession, card_type: str, attributes: dict
+) -> None:
+    """Validate that any attribute whose field type is 'percentage' is a number in 0-100.
+
+    The only numeric range check in the metamodel: a ``percentage`` renders as
+    a progress bar, so a value outside the bar is meaningless rather than
+    merely odd. Booleans are rejected explicitly because ``True`` would pass an
+    ``isinstance(..., int)`` check. A calculated result is written by the
+    engine directly and never passes through here — the bar clamps visually.
+    """
+    if not attributes:
+        return
+    result = await db.execute(select(CardType.fields_schema).where(CardType.key == card_type))
+    schema = result.scalar_one_or_none()
+    if not schema:
+        return
+    percentage_keys: set[str] = set()
+    for section in schema:
+        for field in section.get("fields", []):
+            if field.get("type") == "percentage":
+                percentage_keys.add(field["key"])
+    for key in percentage_keys:
+        val = attributes.get(key)
+        if val is None or val == "":
+            continue
+        if isinstance(val, bool) or not isinstance(val, (int, float)) or not 0 <= val <= 100:
+            raise HTTPException(422, f"Field '{key}' must be a number between 0 and 100")
 
 
 def _is_empty_attr(val: object) -> bool:
@@ -673,6 +719,7 @@ async def create_card(
     """Create one card with full validation and side effects; returns the
     flushed (uncommitted) row. Caller owns permission checks + the commit."""
     await _validate_url_attributes(db, type_key, attributes or {})
+    await _validate_percentage_attributes(db, type_key, attributes or {})
     await _validate_select_attributes(db, type_key, attributes or {}, {})
     await _validate_hierarchy_label(
         db, type_key, parent_label, None, has_parent=parent_id is not None
@@ -752,9 +799,10 @@ async def update_card(
     updates = dict(updates)
     updates.pop("reference", None)
 
-    # Validate URL-typed attributes
+    # Validate URL- and percentage-typed attributes
     if "attributes" in updates and updates["attributes"]:
         await _validate_url_attributes(db, card.type, updates["attributes"])
+        await _validate_percentage_attributes(db, card.type, updates["attributes"])
         if strict_attributes:
             await _validate_strict_attributes(db, card.type, updates["attributes"])
 

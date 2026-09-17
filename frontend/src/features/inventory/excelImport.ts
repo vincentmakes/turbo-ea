@@ -976,6 +976,20 @@ export function validateImport(
 
       // Validate by field type
       switch (field.type) {
+        case "percentage": {
+          const num = Number(val);
+          if (isNaN(num) || num < 0 || num > 100) {
+            errors.push({
+              row: rowNum,
+              column: colKey,
+              message: t("import.errors.expectsPercentage", { row: rowNum, field: fieldLabel(field, i18n.language), value: val }),
+            });
+            rowHasAttrError = true;
+          } else {
+            attributes[field.key] = num;
+          }
+          break;
+        }
         case "cost":
         case "number": {
           // Rule 11
@@ -1832,6 +1846,9 @@ export async function validateMultiSheet(
         if (f.type === "number" || f.type === "cost") {
           const n = Number(cell);
           if (!isNaN(n)) attributes[f.key] = n;
+        } else if (f.type === "percentage") {
+          const n = Number(cell);
+          if (!isNaN(n) && n >= 0 && n <= 100) attributes[f.key] = n;
         } else if (f.type === "boolean") {
           const lower = cell.toLowerCase();
           if (TRUTHY.has(lower)) attributes[f.key] = true;
