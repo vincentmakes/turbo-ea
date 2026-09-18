@@ -272,26 +272,40 @@ class TestDraftPreLink:
         assert elems["call_credit"]["business_process_id"] == str(credit_id)
         assert await _calls_relations(db, pid) == {credit_id}
 
-    async def test_the_xml_wins_over_a_prelink(self, client, db, env):
-        credit_id, other, pid = env["credit"].id, env["other"], env["process"].id
+    async def test_a_draft_link_wins_over_the_xml_reference(self, client, db, env):
+        """The draft is where the user works, so what it says wins.
+
+        The XML reference is the fallback for a step the draft says nothing
+        about — it is not an override of a deliberate pick.
+        """
+        # Ids captured before `db.expire_all()` below: touching an ORM object
+        # after that re-loads it and needs a greenlet context the test lacks.
+        credit_id, other_id, pid = env["credit"].id, env["other"].id, env["process"].id
         headers = auth_headers(env["admin"])
         draft_id = await self._draft(client, env, _bpmn(str(credit_id)))
         base = f"/api/v1/bpm/processes/{pid}/flow/versions/{draft_id}"
 
-        # The draft table already shows what the XML says.
+        # With no pre-link, the draft table shows what the XML says.
         draft_elems = {
             e["bpmn_element_id"]: e
             for e in (await client.get(f"{base}/draft-elements", headers=headers)).json()
         }
         assert draft_elems["call_credit"]["business_process_name"] == "Credit Check"
 
-        # A stale pre-link to another process is overruled at publish.
+        # Picking another process in the draft overrides it, in the read …
         resp = await client.put(
             f"{base}/draft-elements/call_credit",
-            json={"business_process_id": str(other.id)},
+            json={"business_process_id": str(other_id)},
             headers=headers,
         )
         assert resp.status_code == 200
+        draft_elems = {
+            e["bpmn_element_id"]: e
+            for e in (await client.get(f"{base}/draft-elements", headers=headers)).json()
+        }
+        assert draft_elems["call_credit"]["business_process_name"] == "Invoicing"
+
+        # … and at publish.
         assert (await client.post(f"{base}/submit", headers=headers)).status_code == 200
         assert (await client.post(f"{base}/approve", headers=headers)).status_code == 200
 
@@ -304,4 +318,102 @@ class TestDraftPreLink:
                 )
             )
         ).scalar_one()
-        assert row.business_process_id == credit_id
+        assert row.business_process_id == other_id
+
+    async def test_clearing_in_a_draft_beats_the_xml_reference(self, client, db, env):
+        """An explicit clear is a decision, not an absence.
+
+        Without it the XML reference would come back at publish and the user
+        would be unable to unlink a step the diagram still references.
+        """
+        credit_id, pid = env["credit"].id, env["process"].id
+        headers = auth_headers(env["admin"])
+        draft_id = await self._draft(client, env, _bpmn(str(credit_id)))
+        base = f"/api/v1/bpm/processes/{pid}/flow/versions/{draft_id}"
+
+        resp = await client.put(
+            f"{base}/draft-elements/call_credit",
+            json={"business_process_id": ""},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        draft_elems = {
+            e["bpmn_element_id"]: e
+            for e in (await client.get(f"{base}/draft-elements", headers=headers)).json()
+        }
+        assert draft_elems["call_credit"]["business_process_id"] is None
+
+        assert (await client.post(f"{base}/submit", headers=headers)).status_code == 200
+        assert (await client.post(f"{base}/approve", headers=headers)).status_code == 200
+
+        db.expire_all()
+        row = (
+            await db.execute(
+                select(ProcessElement).where(
+                    ProcessElement.process_id == pid,
+                    ProcessElement.bpmn_element_id == "call_credit",
+                )
+            )
+        ).scalar_one()
+        assert row.business_process_id is None
+
+    async def test_a_published_link_reaches_a_draft_made_afterwards(self, client, db, env):
+        """The sync point: a new draft starts from the published rows.
+
+        A link made in the published elements table is metadata on top of an
+        approved flow; the draft created next picks it up, which is what makes
+        it visible in the modeler.
+        """
+        credit, pid = env["credit"], env["process"].id
+        headers = auth_headers(env["admin"])
+
+        # Publish a flow whose XML references nothing …
+        first = await self._draft(client, env, _bpmn())
+        first_base = f"/api/v1/bpm/processes/{pid}/flow/versions/{first}"
+        assert (await client.post(f"{first_base}/submit", headers=headers)).status_code == 200
+        assert (await client.post(f"{first_base}/approve", headers=headers)).status_code == 200
+
+        # … then link a process in the published elements table.
+        elems = await _elements(client, env, pid, headers)
+        resp = await client.put(
+            f"/api/v1/bpm/processes/{pid}/elements/{elems['task_quote']['id']}",
+            json={"business_process_id": str(credit.id)},
+            headers=headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+        # A draft based on the published version starts from that link.
+        resp = await client.post(
+            f"/api/v1/bpm/processes/{pid}/flow/drafts",
+            json={"bpmn_xml": "", "based_on_id": first},
+            headers=headers,
+        )
+        assert resp.status_code in (200, 201), resp.text
+        second = resp.json()["id"]
+        draft_elems = {
+            e["bpmn_element_id"]: e
+            for e in (
+                await client.get(
+                    f"/api/v1/bpm/processes/{pid}/flow/versions/{second}/draft-elements",
+                    headers=headers,
+                )
+            ).json()
+        }
+        assert draft_elems["task_quote"]["business_process_name"] == "Credit Check"
+
+    async def test_a_process_can_be_linked_before_the_shape_is_saved(self, client, db, env):
+        """The modeler links a shape the moment it is placed.
+
+        Its 5s autosave has not run yet, so the element is not in the draft's
+        stored XML — the link still has to be accepted, or the pick is lost.
+        """
+        credit_id, pid = env["credit"].id, env["process"].id
+        headers = auth_headers(env["admin"])
+        draft_id = await self._draft(client, env, _bpmn())
+        resp = await client.put(
+            f"/api/v1/bpm/processes/{pid}/flow/versions/{draft_id}"
+            "/draft-elements/task_not_yet_in_the_xml",
+            json={"business_process_id": str(credit_id)},
+            headers=headers,
+        )
+        assert resp.status_code == 200, resp.text

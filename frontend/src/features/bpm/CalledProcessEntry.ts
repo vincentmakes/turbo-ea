@@ -1,7 +1,15 @@
 /**
- * The "Linked process" entry rendered inside the bpmn.io properties panel for
- * any flow node — the process the step hands over to, or, on a call activity,
- * the process it invokes.
+ * The Business Process row of the "Linked cards" group — the process a step
+ * hands over to, or, on a call activity, the one it invokes.
+ *
+ * This link is the odd one of the five: it lives in the diagram itself (a call
+ * activity's `calledElement`, any other step's `turboea:processRef`) *and* in
+ * the draft's element links, because BPMN has a construct for it and other
+ * tools read it. So it is written to both, and **read from the server** —
+ * `bridge.links[id].business_process` is what `GET …/draft-elements` resolved
+ * after applying the precedence rule, which is how a process linked in a table
+ * shows up here at all. The diagram's own reference is the fallback for a
+ * shape the server has not seen yet, i.e. one placed since the last autosave.
  *
  * The panel is a Preact tree (a Preact vendored under
  * `@bpmn-io/properties-panel/preact`), so this component is authored with
@@ -9,100 +17,78 @@
  * `@vitejs/plugin-react` wraps every `*x` module in the React Fast Refresh
  * runtime, and a JSX pragma pointing at Preact would still leave the file
  * unable to hold any MUI markup. Plain `h()` calls sidestep both.
- *
- * It renders one of three states — a linked card (name, **Open**, **Clear**),
- * nothing linked (**Choose process…**), or a foreign reference left by another
- * tool (the reference as a hint, and the same **Choose process…**) — and
- * writes through `modeling.updateProperties`, so a pick is undoable and trips
- * the modeler's autosave like any other edit. The dialog that does the picking
- * lives on the React side and is reached through the `bridge` the didi module
- * injects (see `calledProcessModule.ts`).
  */
 import { h } from "@bpmn-io/properties-panel/preact";
-import type { VNode } from "@bpmn-io/properties-panel/preact";
 
-// Preact's `VNode<P>` is invariant in its props, so a `div` node and a `button`
-// node share no common `VNode<P>` — the widest honest type is `any`.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyNode = VNode<any>;
-import { useService } from "bpmn-js-properties-panel";
+import { ENTRY_CLASS, button, entryRow } from "./linkEntryDom";
+import type { AnyNode } from "./linkEntryDom";
+import { elementIdOf, isCardUuid, processRefOf, singleLinkOf } from "./calledProcess";
+import type { LinkBridge } from "./calledProcessModule";
 
-import { isCardUuid, processRefOf, processRefProperties } from "./calledProcess";
-import type { CalledProcessBridge } from "./calledProcessModule";
+export { ENTRY_CLASS };
 
 export interface CalledProcessEntryProps {
   id: string;
   element: unknown;
-  bridge: CalledProcessBridge;
+  bridge: LinkBridge;
 }
-
-/** Test id / class hooks shared with the render test. */
-export const ENTRY_CLASS = "turboea-called-process";
 
 export default function CalledProcessEntry(props: CalledProcessEntryProps) {
   const { id, element, bridge } = props;
-  const modeling = useService("modeling") as {
-    updateProperties: (element: unknown, properties: Record<string, unknown>) => void;
-  };
-  const { labels } = bridge;
+  const labels = bridge.labels.kinds.process;
 
-  const ref = processRefOf(element as Parameters<typeof processRefOf>[0]);
-  const linked = isCardUuid(ref);
-  const name = linked ? bridge.names[ref] : undefined;
+  const bpmnId = elementIdOf(element as never);
+  const known = Object.prototype.hasOwnProperty.call(bridge.links, bpmnId);
+  const serverCard = known ? singleLinkOf(bridge.links[bpmnId], "process") : undefined;
 
-  const button = (
-    text: string,
-    onClick: () => void,
-    extraClass = "",
-  ) =>
-    h(
-      "button",
-      {
-        type: "button",
-        class: `${ENTRY_CLASS}-button ${extraClass}`.trim(),
-        onClick,
-      },
-      text,
-    );
+  // The live diagram reference: the fallback for a shape the server has not
+  // seen yet, and the source of the "References X" hint for a foreign id an
+  // import brought in.
+  const liveRef = processRefOf(element as never);
 
-  const choose = button(labels.choose, () => bridge.open(element), `${ENTRY_CLASS}-choose`);
+  const linkedId = serverCard?.id ?? (known ? undefined : isCardUuid(liveRef) ? liveRef : undefined);
+  const linkedName = serverCard?.name ?? (linkedId ? bridge.names[linkedId] : undefined);
+
+  const choose = button(
+    labels.choose,
+    () => bridge.openPicker(element, "process"),
+    `${ENTRY_CLASS}-choose`,
+  );
 
   let value: AnyNode;
   let actions: AnyNode[];
-  if (linked) {
+  if (linkedId) {
     // A card uuid that did not resolve (archived, deleted, from another
     // instance) is still shown as the id so the modeller sees *something* is
     // set and can replace it.
-    value = h("div", { class: `${ENTRY_CLASS}-value` }, name ?? ref);
+    value = h("div", { class: `${ENTRY_CLASS}-value` }, linkedName ?? linkedId);
     actions = [
-      button(labels.open, () => bridge.openProcess(ref), `${ENTRY_CLASS}-open`),
+      button(
+        bridge.labels.open,
+        () => bridge.openCard(linkedId, "process"),
+        `${ENTRY_CLASS}-open`,
+      ),
       choose,
       button(
-        labels.clear,
-        () =>
-          modeling.updateProperties(
-            element,
-            processRefProperties(element as Parameters<typeof processRefOf>[0], null),
-          ),
+        bridge.labels.clear,
+        () => bridge.clearLink(element, "process"),
         `${ENTRY_CLASS}-clear`,
       ),
     ];
-  } else if (ref) {
+  } else if (liveRef && !isCardUuid(liveRef)) {
+    // Only a *foreign* reference earns the hint. A card uuid that got this far
+    // was cleared in this draft, and saying "References <uuid>" would offer
+    // the user's own decision back as a curiosity.
     value = h(
       "div",
       { class: `${ENTRY_CLASS}-value ${ENTRY_CLASS}-foreign` },
-      labels.references(ref),
+      bridge.labels.references(liveRef),
     );
     actions = [choose];
   } else {
-    value = h("div", { class: `${ENTRY_CLASS}-value ${ENTRY_CLASS}-empty` }, labels.noProcess);
+    value = h("div", { class: `${ENTRY_CLASS}-value ${ENTRY_CLASS}-empty` }, labels.none);
     actions = [choose];
   }
 
-  return h(
-    "div",
-    { class: `bio-properties-panel-entry ${ENTRY_CLASS}`, "data-entry-id": id },
-    // No entry label: the group header already reads "Linked process".
-    [value, h("div", { class: `${ENTRY_CLASS}-actions` }, actions)],
-  );
+  return entryRow(id, labels.label, value, actions);
 }

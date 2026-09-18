@@ -66,23 +66,32 @@ Un proceso que abarca varias partes —un cliente y la empresa, dos departamento
 Los elementos BPMN pueden ser **vinculados a fichas de EA**. Por ejemplo, vincule una tarea en su diagrama de proceso a la Aplicación que la soporta. Esto crea una conexión trazable entre su modelo de proceso y su panorama de arquitectura:
 
 - Cada tarea, evento y compuerta con nombre del flujo publicado es una fila de la tabla **Pasos y elementos del proceso** bajo el diagrama (un borrador tiene la misma tabla bajo **Previncular elementos**, aplicada al aprobar el borrador)
-- Haga clic en la celda **Aplicación**, **Objeto de datos** o **Componente TI** de un paso y elija la ficha — el selector recorre el inventario, nada se escribe a mano
+- Haga clic en la celda **Aplicación**, **Objeto de datos** o **Componente IT** de una etapa y elija la ficha — el selector recorre el inventario, no se escribe nada a mano
 - El vínculo se guarda en el paso y crea una relación entre el proceso y la ficha, visible tanto en el flujo de proceso como en la pestaña Relaciones de la ficha
 - La columna **Proceso de negocio** vincula una etapa con el proceso al que da paso — véase más abajo
+- Los mismos cinco vínculos se ofrecen **en el editor** mientras hay un borrador abierto: un grupo **Fichas vinculadas** en el panel de propiedades y una entrada **Vincular fichas** en el menú contextual que abre la lista
 
 ### Vincular una etapa con un proceso
 
 Una etapa suele dar paso a un proceso que existe por sí mismo — con su propio diagrama, su propio responsable y su propio ciclo de vida, y normalmente reutilizado desde varios lugares. Cualquier etapa puede indicarlo: una tarea, un subproceso, un evento o una compuerta apunta a una ficha de **Proceso de negocio**, y nunca se introduce un identificador de proceso a mano:
 
-- **El panel de propiedades** muestra un grupo **Proceso vinculado** en cada etapa, con **Elegir proceso…**, **Abrir** (que baja al flujo del proceso vinculado) y **Quitar**
-- **El menú contextual** de una etapa seleccionada incluye una entrada **Vincular proceso**, para cuando el panel está plegado
+- **El panel de propiedades** muestra un grupo **Fichas vinculadas** en cada etapa, una fila por vínculo — Proceso de negocio, Aplicación, Objeto de datos, Componente IT, Organizaciones — cada una con **Elegir**, **Abrir** (que baja a la ficha vinculada) y **Quitar**
+- **El menú contextual** de una etapa seleccionada incluye una entrada **Vincular fichas** con los cinco, para cuando el panel está plegado. Un objeto o almacén de datos ofrece solo el vínculo de Objeto de datos, como en la tabla
 - **La tabla de pasos** del flujo publicado (y la tabla de previnculación de un borrador) tiene el mismo vínculo en su columna **Proceso de negocio**, y el chip que hay allí baja a la pestaña Flujo de proceso del proceso vinculado. Los objetos y almacenes de datos no son etapas, así que sus filas muestran un guion
 
-![Proceso vinculado](../assets/img/es/92_bpm_proceso_invocado.png)
+![Fichas vinculadas](../assets/img/es/92_bpm_proceso_invocado.png)
 
 BPMN tiene un constructo que *es* otro proceso: la **actividad de llamada** (call activity), una tarea con borde grueso que invoca un proceso definido de forma independiente. Un **subproceso** embebido también agrupa pasos, pero pertenece al diagrama en el que se dibuja; la regla de Method & Style es sencilla: si el proceso existe de forma independiente, use una actividad de llamada. Turbo EA la trata como el caso nativo: **al colocar una actividad de llamada se pregunta qué proceso invoca**, y el vínculo se guarda en el *elemento invocado* propio de BPMN, que otras herramientas saben leer. Cualquier otra etapa guarda el vínculo como un atributo de Turbo EA en el diagrama.
 
 Publicar un flujo que contiene una etapa vinculada crea una relación **invoca** entre los dos procesos — la pestaña Relaciones del proceso vinculado indica *es invocado por*, y la vista de dependencias dibuja el grafo de llamadas. Un diagrama importado desde otra herramienta conserva la referencia de proceso propia de esa herramienta; la tabla de pasos la muestra como pista (*referencia Process_X*) hasta que elija el proceso correspondiente en Turbo EA.
+
+### Un único juego de vínculos
+
+El editor y las tablas muestran los mismos vínculos, así que una etapa se lee igual en cualquier sitio:
+
+- Dentro de un **borrador** manda lo que usted defina allí — en el editor o en la tabla **Previncular elementos**, ambos son el mismo almacén — y la referencia de proceso del diagrama es el respaldo para una etapa sobre la que no ha dicho nada. Quitar un vínculo lo quita, también al publicar.
+- Un flujo **publicado** sigue aprobado mientras sus vínculos se editan en su tabla de elementos: son metadatos sobre un diagrama ya firmado, no un motivo para volver a aprobarlo.
+- Un borrador **creado a partir de la versión publicada** parte de los vínculos que el proceso tiene en ese momento. Un borrador ya abierto conserva los suyos, de modo que la edición de otra persona no cambia el diagrama en el que usted trabaja.
 
 ### Flujos de mensajes
 

@@ -70,23 +70,32 @@ I flussi di messaggi del diagramma pubblicato sono elencati sotto la tabella deg
 Gli elementi BPMN possono essere **collegati alle card EA**. Ad esempio, collegate un'attività nel vostro diagramma di processo all'Application che la supporta. Questo crea una connessione tracciabile tra il vostro modello di processo e il panorama architetturale:
 
 - Ogni attività, evento e gateway con nome del flusso pubblicato è una riga della tabella **Passi ed elementi del processo** sotto il diagramma (una bozza ha la stessa tabella sotto **Pre-collega elementi**, applicata all'approvazione della bozza)
-- Fate clic sulla cella **Application**, **Data Object** o **IT Component** di un passo e scegliete la card — il selettore scorre l'inventario, nulla viene digitato a mano
+- Clicca sulla cella **Applicazione**, **Oggetto dati** o **Componente IT** di un passo e scegli la card — il selettore sfoglia l'inventario, non si digita nulla a mano
 - Il collegamento è memorizzato sul passo e crea una relazione tra il processo e la card, visibile sia nel flusso di processo sia nella scheda Relazioni della card
 - La colonna **Processo aziendale** collega un passo al processo a cui passa il testimone — vedi sotto
+- Gli stessi cinque collegamenti sono disponibili **nell'editor** finché una bozza è aperta: un gruppo **Card collegate** nel pannello delle proprietà e una voce **Collega card** nel menu contestuale che ne apre l'elenco
 
 ### Collegare un passo a un processo
 
 Un passo spesso passa il testimone a un processo che esiste di per sé — con il proprio diagramma, il proprio responsabile e il proprio ciclo di vita, di norma riutilizzato da più punti. Ogni passo può dirlo: un'attività, un sottoprocesso, un evento o un gateway punta a una card **Processo aziendale**, e non si inserisce mai un identificativo di processo a mano:
 
-- **Il pannello delle proprietà** mostra un gruppo **Processo collegato** su ogni passo, con **Scegli processo…**, **Apri** (che scende nel flusso del processo collegato) e **Rimuovi**
-- **Il menu contestuale** di un passo selezionato porta una voce **Collega processo**, per quando il pannello è chiuso
+- **Il pannello delle proprietà** mostra un gruppo **Card collegate** su ogni passo, una riga per collegamento — Processo aziendale, Applicazione, Oggetto dati, Componente IT, Organizzazioni — ciascuna con **Scegli**, **Apri** (che scende nella card collegata) e **Rimuovi**
+- **Il menu contestuale** di un passo selezionato porta una voce **Collega card** con gli stessi cinque, per quando il pannello è chiuso. Un oggetto o archivio dati offre solo il collegamento Oggetto dati, come nella tabella
 - **La tabella dei passi** del flusso pubblicato (e la tabella di pre-collegamento di una bozza) ha lo stesso collegamento nella colonna **Processo aziendale**, e il chip che vi si trova scende nella scheda Flusso di processo del processo collegato. Gli oggetti e gli archivi dati non sono passi, quindi le loro righe mostrano un trattino
 
-![Processo collegato](../assets/img/it/92_bpm_processo_richiamato.png)
+![Schede collegate](../assets/img/it/92_bpm_processo_richiamato.png)
 
 BPMN ha un costrutto che *è* un altro processo: l'**attività di chiamata** (call activity), un'attività con bordo spesso che richiama un processo definito in modo autonomo. Un **sottoprocesso** incorporato raggruppa anch'esso dei passi, ma appartiene al diagramma in cui è disegnato; la regola di Method & Style è semplice: se il processo esiste in modo indipendente, usate un'attività di chiamata. Turbo EA la tratta come il caso nativo: **posizionare un'attività di chiamata chiede quale processo richiama**, e il collegamento viene memorizzato nell'*elemento richiamato* proprio di BPMN, che gli altri strumenti sanno leggere. Ogni altro passo memorizza invece il collegamento come attributo Turbo EA nel diagramma.
 
 Pubblicare un flusso che contiene un passo collegato crea una relazione **richiama** tra i due processi — la scheda Relazioni del processo collegato riporta *è richiamato da*, e la vista delle dipendenze disegna il grafo delle chiamate. Un diagramma importato da un altro strumento conserva il riferimento di processo proprio di quello strumento; la tabella dei passi lo mostra come suggerimento (*riferimento a Process_X*) finché non scegliete il processo corrispondente in Turbo EA.
+
+### Un solo insieme di collegamenti
+
+L'editor e le tabelle mostrano gli stessi collegamenti, quindi un passo si legge allo stesso modo ovunque:
+
+- Dentro una **bozza** vale ciò che imposti lì — nell'editor o nella tabella **Pre-collega elementi**, sono lo stesso archivio — e il riferimento di processo del diagramma è il ripiego per un passo su cui non hai detto nulla. Rimuovere un collegamento lo rimuove, anche alla pubblicazione.
+- Un flusso **pubblicato** resta approvato mentre i suoi collegamenti vengono modificati nella sua tabella degli elementi: sono metadati sopra un diagramma già approvato, non un motivo per approvarlo di nuovo.
+- Una bozza **creata dalla versione pubblicata** parte dai collegamenti che il processo ha in quel momento. Una bozza già aperta mantiene i propri, così la modifica di un altro non cambia il diagramma su cui stai lavorando.
 
 ### Collegare le organizzazioni
 

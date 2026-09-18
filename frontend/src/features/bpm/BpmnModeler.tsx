@@ -45,11 +45,27 @@ import CardPicker from "@/components/CardPicker";
 import type { CardOption } from "@/components/CardPicker";
 import { api } from "@/api/client";
 import { fetchCardsByIds } from "@/api/cardsByIds";
-import type { ProcessFlowVersion, BpmnTemplate } from "@/types";
+import type { ProcessFlowVersion, BpmnTemplate, ProcessElement } from "@/types";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
+import CardMultiPicker from "@/components/CardMultiPicker";
+import type { PickedCard } from "@/components/CardMultiPicker";
 import { bpmnCanvasSx, bpmnPropertiesPanelSx } from "./bpmnStyles";
-import { calledProcessPath, collectProcessRefIds, processRefProperties } from "./calledProcess";
+import {
+  LINK_BODY_KEY,
+  LINK_KIND_ORDER,
+  LINK_KIND_TYPE,
+  calledProcessPath,
+  collectProcessRefIds,
+  elementIdOf,
+  emptyLinks,
+  linksFromDraftElements,
+  processRefProperties,
+  withLink,
+} from "./calledProcess";
+import type { LinkKind, LinkedCard } from "./calledProcess";
 import { createCalledProcessModule } from "./calledProcessModule";
-import type { CalledProcessBridge } from "./calledProcessModule";
+import type { LinkBridge, LinkLabels } from "./calledProcessModule";
 import { TURBOEA_MODDLE } from "./turboeaModdle";
 
 // bpmn-js CSS
@@ -106,36 +122,78 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
   const [snack, setSnack] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
   const [panelOpen, setPanelOpen] = useState<boolean>(readPanelPreference);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // The step whose process is being picked — the picker dialog is open
-  // exactly while this is set.
-  const [pickerTarget, setPickerTarget] = useState<unknown>(null);
+  // The step whose link is being picked, and which link — the picker dialog
+  // is open exactly while this is set.
+  const [pickerTarget, setPickerTarget] = useState<{ element: unknown; kind: LinkKind } | null>(
+    null,
+  );
 
   // The bridge the bpmn-js module reads at render time. One object for the
   // modeler's whole life: the didi module captures it at construction, so the
-  // React side mutates it in place (names, labels) rather than replacing it.
-  const bridgeRef = useRef<CalledProcessBridge>({
-    open: (element) => setPickerTarget(element),
-    openProcess: (cardId) => navigate(calledProcessPath(cardId)),
+  // React side mutates it in place (links, names, labels) rather than
+  // replacing it.
+  const bridgeRef = useRef<LinkBridge>({
+    openPicker: (element, kind) => setPickerTarget({ element, kind }),
+    clearLink: () => undefined,
+    openCard: () => undefined,
     names: {},
+    links: {},
+    canLinkCards: false,
     labels: {
       group: "",
-      choose: "",
       open: "",
       clear: "",
-      noProcess: "",
       references: (ref) => ref,
-      linkProcess: "",
+      linkCards: "",
+      kinds: {} as LinkLabels["kinds"],
     },
   });
-  bridgeRef.current.openProcess = (cardId) => navigate(calledProcessPath(cardId));
+
+  // The four card links are draft element links, so they need a draft to live
+  // in. Without one the panel offers the process link alone, which lives in
+  // the diagram itself.
+  bridgeRef.current.canLinkCards = Boolean(versionId);
+  bridgeRef.current.openCard = (cardId, kind) =>
+    navigate(kind === "process" ? calledProcessPath(cardId) : `/cards/${cardId}`);
+
+  // Row labels are the card types' own display names, so a renamed type
+  // renames the row — the i18n bundle knows nothing about the metamodel. Only
+  // the plural Organizations heading is a translated string of ours.
+  const { getType } = useMetamodel();
+  const typeLabelOf = useTypeLabel();
+  const kindLabel = useCallback(
+    (kind: LinkKind) => {
+      const key = LINK_KIND_TYPE[kind];
+      const name = typeLabelOf(getType(key)) || key;
+      return kind === "organization" ? t("modeler.organizations") : name;
+    },
+    [getType, typeLabelOf, t],
+  );
   bridgeRef.current.labels = {
-    group: t("modeler.linkedProcess"),
-    choose: t("modeler.chooseProcess"),
+    group: t("modeler.linkedCards"),
     open: t("modeler.openProcess"),
     clear: t("modeler.clearProcess"),
-    noProcess: t("modeler.noProcessLinked"),
     references: (ref) => t("modeler.referencesProcess", { ref }),
-    linkProcess: t("modeler.linkProcess"),
+    linkCards: t("modeler.linkCards"),
+    kinds: LINK_KIND_ORDER.reduce(
+      (acc, kind) => {
+        const type = kindLabel(kind);
+        acc[kind] =
+          kind === "process"
+            ? {
+                label: type,
+                choose: t("modeler.chooseProcess"),
+                none: t("modeler.noProcessLinked"),
+              }
+            : {
+                label: type,
+                choose: t("modeler.chooseCard", { type }),
+                none: t("modeler.noCardLinked", { type }),
+              };
+        return acc;
+      },
+      {} as LinkLabels["kinds"],
+    ),
   };
 
   /**
@@ -144,6 +202,9 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
    * is the one public hook that re-runs every provider's `getGroups` on the
    * current selection. Runs after every import; a pick updates the map
    * itself and the command stack re-renders the panel on its own.
+   *
+   * Only needed for a shape the server has not seen yet — for everything in
+   * the saved XML the names come resolved from `loadDraftLinks`.
    */
   const resolveCalledNames = useCallback(async (modeler: any) => {
     let ids: string[] = [];
@@ -164,16 +225,127 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
     }
   }, []);
 
-  const handlePickProcess = (card: CardOption | null) => {
-    const target = pickerTarget;
-    const m = modelerRef.current;
-    setPickerTarget(null);
-    if (!card || !target || !m) return;
-    bridgeRef.current.names[card.id] = card.name;
-    // Through the command stack: undoable, and `commandStack.changed` trips
-    // the autosave like any other edit.
-    m.get("modeling").updateProperties(target, processRefProperties(target as never, card.id));
+  /**
+   * Load the links the server holds for this draft's steps.
+   *
+   * This is what makes the editor and the tables agree: the payload is the
+   * same one the pre-link table renders, with the precedence rule already
+   * applied server-side, so a link made in a table shows here — including a
+   * process link the diagram itself says nothing about.
+   */
+  const loadDraftLinks = useCallback(async (modeler: any) => {
+    const vid = versionIdRef.current;
+    if (!vid) return;
+    try {
+      const rows = await api.get<ProcessElement[]>(
+        `/bpm/processes/${processId}/flow/versions/${vid}/draft-elements`,
+      );
+      if (modelerRef.current !== modeler) return; // re-initialised meanwhile
+      bridgeRef.current.links = linksFromDraftElements(rows);
+      (modeler.get("eventBus") as any).fire("propertiesPanel.providersChanged");
+    } catch {
+      // The rows stay empty; every row then reads as unlinked and a pick
+      // still writes through, so the panel degrades rather than breaking.
+    }
+  }, [processId]);
+
+  /**
+   * Persist one link and show it at once.
+   *
+   * Optimistic: the map is updated before the request so the row does not lag
+   * a round trip behind the click, and restored if the write fails.
+   */
+  const writeLink = useCallback(
+    async (element: unknown, kind: LinkKind, picked: LinkedCard | LinkedCard[] | null) => {
+      const vid = versionIdRef.current;
+      const bpmnId = elementIdOf(element as never);
+      if (!vid || !bpmnId) return;
+      const before = bridgeRef.current.links[bpmnId] ?? emptyLinks();
+      const refresh = () => {
+        const m = modelerRef.current;
+        if (m) (m.get("eventBus") as any).fire("propertiesPanel.providersChanged");
+      };
+      bridgeRef.current.links[bpmnId] = withLink(before, kind, picked);
+      refresh();
+      try {
+        const body =
+          kind === "organization"
+            ? { organization_ids: ((picked as LinkedCard[] | null) ?? []).map((c) => c.id) }
+            : { [LINK_BODY_KEY[kind]]: (picked as LinkedCard | null)?.id ?? "" };
+        await api.put(
+          `/bpm/processes/${processId}/flow/versions/${vid}/draft-elements/${encodeURIComponent(bpmnId)}`,
+          body,
+        );
+      } catch {
+        bridgeRef.current.links[bpmnId] = before;
+        refresh();
+        setSnack({ msg: t("modeler.linkFailed"), severity: "error" });
+      }
+    },
+    [processId, t],
+  );
+
+  /**
+   * The process link is written **twice**: to the diagram, because BPMN has a
+   * construct for it that other tools read and Undo should cover, and to the
+   * draft, because that is where every other link lives and what the tables
+   * show. The four card links have no diagram half.
+   */
+  const writeProcessLink = useCallback(
+    (element: unknown, card: LinkedCard | null) => {
+      const m = modelerRef.current;
+      if (m) {
+        m.get("modeling").updateProperties(
+          element,
+          processRefProperties(element as never, card?.id ?? null),
+        );
+      }
+      void writeLink(element, "process", card);
+    },
+    [writeLink],
+  );
+
+  bridgeRef.current.clearLink = (element, kind) => {
+    if (kind === "process") writeProcessLink(element, null);
+    else void writeLink(element, kind, null);
   };
+
+  const handlePick = (card: CardOption | null) => {
+    const target = pickerTarget;
+    setPickerTarget(null);
+    if (!card || !target) return;
+    const picked = { id: card.id, name: card.name };
+    if (target.kind === "process") {
+      bridgeRef.current.names[card.id] = card.name;
+      writeProcessLink(target.element, picked);
+    } else {
+      void writeLink(target.element, target.kind, picked);
+    }
+  };
+
+  // The dialog's wording, and the organizations already picked — read from
+  // the same map the panel rows render, so the basket opens on what is there.
+  const pickerKind = pickerTarget?.kind ?? null;
+  const pickerTitle =
+    pickerKind === "process"
+      ? t("modeler.chooseProcessTitle")
+      : pickerKind
+        ? t("modeler.chooseCardTitle", { type: kindLabel(pickerKind) })
+        : "";
+  const pickerHint =
+    pickerKind === "process"
+      ? t("modeler.chooseProcessHint")
+      : pickerKind === "application"
+        ? t("modeler.chooseApplicationHint")
+        : pickerKind === "data_object"
+          ? t("modeler.chooseDataObjectHint")
+          : pickerKind === "it_component"
+            ? t("modeler.chooseItComponentHint")
+            : "";
+  const pickedOrganizations =
+    pickerTarget != null
+      ? (bridgeRef.current.links[elementIdOf(pickerTarget.element as never)]?.organizations ?? [])
+      : [];
 
   // Track which version we're editing (stable ref for save callback)
   const versionIdRef = useRef(versionId);
@@ -281,6 +453,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
 
       if (destroyed) return;
       void resolveCalledNames(modeler);
+      void loadDraftLinks(modeler);
 
       // The panel attaches itself to `propertiesPanel.parent` on import; honour
       // a "closed" preference by detaching right after.
@@ -316,6 +489,24 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [processId, versionId]);
+
+  // The same draft's pre-link table may be open in another tab, and it edits
+  // the very links this panel shows — so re-read them when the window comes
+  // back rather than leaving two views of one store disagreeing.
+  useEffect(() => {
+    if (!versionId) return;
+    const refresh = () => {
+      if (document.visibilityState === "visible" && modelerRef.current) {
+        void loadDraftLinks(modelerRef.current);
+      }
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [versionId, loadDraftLinks]);
 
   // Attach / detach the properties panel when the rail is toggled. Detaching
   // (rather than hiding the rail with the panel still mounted) is what the
@@ -557,29 +748,32 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
         </Box>
       </Box>
 
-      {/* Which process does this step link to? Opened by the create prompt
-          (call activities), the properties panel group and the context-pad
-          entry (every flow node). */}
+      {/* Which card does this step link to? Opened by the create prompt (a
+          call activity's process), the properties-panel rows and the
+          context-pad menu. Organizations are M:N, so they get the basket
+          picker; every other kind picks one card. */}
       <Dialog
-        open={pickerTarget != null}
+        open={pickerTarget != null && pickerTarget.kind !== "organization"}
         onClose={() => setPickerTarget(null)}
         maxWidth="sm"
         fullWidth
         disableRestoreFocus
       >
-        <DialogTitle>{t("modeler.chooseProcessTitle")}</DialogTitle>
+        <DialogTitle>{pickerTitle}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {t("modeler.chooseProcessHint")}
+            {pickerHint}
           </Typography>
-          {pickerTarget != null && (
+          {pickerTarget != null && pickerTarget.kind !== "organization" && (
             <CardPicker
-              types="BusinessProcess"
-              hierarchy
-              excludeIds={[processId]}
+              types={LINK_KIND_TYPE[pickerTarget.kind]}
+              hierarchy={pickerTarget.kind === "process"}
+              // A process cannot call itself; the other kinds are other types
+              // entirely, so nothing to exclude.
+              excludeIds={pickerTarget.kind === "process" ? [processId] : undefined}
               value={null}
-              onChange={handlePickProcess}
-              label={t("modeler.linkedProcess")}
+              onChange={handlePick}
+              label={bridgeRef.current.labels.kinds[pickerTarget.kind].label}
               autoFocus
               fullWidth
             />
@@ -589,6 +783,31 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
           <Button onClick={() => setPickerTarget(null)}>{t("common:actions.cancel")}</Button>
         </DialogActions>
       </Dialog>
+
+      {pickerTarget != null && pickerTarget.kind === "organization" && (
+        <CardMultiPicker
+          open
+          onClose={() => setPickerTarget(null)}
+          types="Organization"
+          value={pickedOrganizations.map((o) => o.id)}
+          initialOptions={pickedOrganizations.map(
+            (o) => ({ id: o.id, name: o.name, type: "Organization" }) as PickedCard,
+          )}
+          title={t("modeler.chooseOrganizationsTitle")}
+          helperText={t("modeler.chooseOrganizationsHint")}
+          onChange={(_ids, picked) => {
+            const target = pickerTarget;
+            setPickerTarget(null);
+            if (target) {
+              void writeLink(
+                target.element,
+                "organization",
+                picked.map((c) => ({ id: c.id, name: c.name })),
+              );
+            }
+          }}
+        />
+      )}
 
       {/* Snackbar */}
       <Snackbar

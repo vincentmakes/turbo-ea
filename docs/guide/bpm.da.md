@@ -66,23 +66,32 @@ En proces, der spænder over flere parter — en kunde og virksomheden, to afdel
 BPMN-elementer kan **linkes til EA-kort**. For eksempel kan du linke en opgave i dit procesdiagram til den applikation, der understøtter den. Det skaber en sporbar forbindelse mellem din procesmodel og dit arkitekturlandskab:
 
 - Hver navngiven opgave, hændelse og gateway i det udgivne flow er en række i tabellen **Procestrin og elementer** under diagrammet (et udkast har samme tabel under **Forhåndslink elementer**, som anvendes, når udkastet godkendes)
-- Klik på cellen **Application**, **Data Object** eller **IT Component** for et trin og vælg kortet — vælgeren gennemser inventaret, så intet indtastes i hånden
+- Klik på cellen **Applikation**, **Dataobjekt** eller **IT-komponent** på et trin og vælg kortet — vælgeren gennemser inventaret, så intet indtastes i hånden
 - Linket gemmes på trinnet og opretter en relation mellem processen og kortet, så det er synligt i både procesflowet og kortets fane Relationer
 - Kolonnen **Forretningsproces** forbinder et trin med den proces, det giver videre til — se nedenfor
+- De samme fem tilknytninger tilbydes **i editoren**, så længe et udkast er åbent: en gruppe **Tilknyttede kort** i egenskabspanelet og et punkt **Tilknyt kort** i kontekstmenuen, der åbner listen over dem
 
 ### Tilknyt et trin til en proces
 
 Et trin giver ofte videre til en proces, der findes i sin egen ret — en med eget diagram, egen ejer og egen livscyklus, som typisk genbruges flere steder. Ethvert trin kan sige det: en opgave, en underproces, en hændelse eller en gateway peger på et **Forretningsproces**-kort, og du indtaster aldrig et proces-id i hånden:
 
-- **Egenskabspanelet** viser en gruppe **Tilknyttet proces** på hvert trin med **Vælg proces…**, **Åbn** (som borer ned i den tilknyttede proces' flow) og **Fjern**
-- **Kontekstmenuen** for et valgt trin har punktet **Tilknyt proces**, til når panelet er foldet sammen
+- **Egenskabspanelet** viser en gruppe **Tilknyttede kort** på hvert trin med én række pr. tilknytning — Forretningsproces, Applikation, Dataobjekt, IT-komponent, Organisationer — hver med **Vælg**, **Åbn** (som borer ned i det tilknyttede kort) og **Fjern**
+- **Kontekstmenuen** for et valgt trin har punktet **Tilknyt kort** med de samme fem, til når panelet er foldet sammen. Et dataobjekt eller datalager tilbyder kun Dataobjekt-tilknytningen, som i tabellen
 - **Trintabellen** for det udgivne flow (og forhåndslink-tabellen for et udkast) har samme link i kolonnen **Forretningsproces**, og chippen dér borer ned i den tilknyttede proces' fane Procesflow. Dataobjekter og datalagre er ikke trin, så deres rækker viser en tankestreg
 
-![Tilknyttet proces](../assets/img/da/92_bpm_called_process.png)
+![Tilknyttede kort](../assets/img/da/92_bpm_called_process.png)
 
 BPMN har én konstruktion, der *er* en anden proces: **kaldeaktiviteten** (call activity), en opgave med tyk kant, der kalder en selvstændigt defineret proces. En indlejret **underproces** grupperer også trin, men hører til det diagram, den er tegnet i; reglen fra Method & Style er enkel: findes processen selvstændigt, så brug en kaldeaktivitet. Turbo EA behandler den som det oprindelige tilfælde — **når du placerer en kaldeaktivitet, bliver du spurgt, hvilken proces den kalder**, og tilknytningen gemmes i BPMN's eget *kaldte element*, som andre værktøjer kan læse. Ethvert andet trin gemmer i stedet tilknytningen som en Turbo EA-attribut i diagrammet.
 
 Udgivelse af et flow med et tilknyttet trin opretter en **kalder**-relation mellem de to processer — den tilknyttede proces' fane Relationer viser *kaldes af*, og afhængighedsvisningen tegner kaldgrafen. Et diagram importeret fra et andet værktøj beholder værktøjets egen procesreference; trintabellen viser den som et hint (*refererer til Process_X*), indtil du vælger den tilsvarende proces i Turbo EA.
+
+### Ét sæt tilknytninger
+
+Editoren og tabellerne viser de samme tilknytninger, så et trin læses ens, uanset hvor du ser det:
+
+- Inde i et **udkast** gælder det, du sætter der — i editoren eller i tabellen **Forhåndstilknyt elementer**; de er samme lager — og diagrammets egen procesreference er reserven for et trin, du intet har sagt om. At fjerne en tilknytning fjerner den, også ved udgivelse.
+- Et **udgivet** flow forbliver godkendt, mens dets tilknytninger redigeres i dets elementtabel: det er metadata oven på et godkendt diagram, ikke en grund til at godkende det igen.
+- Et udkast, der **oprettes fra den udgivne version**, starter med de tilknytninger, processen har på det tidspunkt. Et allerede åbent udkast beholder sine egne, så en andens redigering ikke ændrer det diagram, du arbejder i.
 
 ### Beskedflows
 

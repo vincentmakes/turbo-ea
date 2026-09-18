@@ -69,20 +69,29 @@ BPMN elements can be **linked to EA cards**. For example, link a task in your pr
 - Click the **Application**, **Data Object** or **IT Component** cell of a step and pick the card — the picker browses the inventory, so nothing is typed by hand
 - The link is stored on the step and creates a relation between the process and the card, so it is visible in both the process flow and the card's Relations tab
 - The **Business Process** column links a step to the process it hands over to — see below
+- The same five links are offered **in the editor** while a draft is open: a **Linked cards** group in the properties panel, and a **Link cards** entry on the context pad that opens a menu of them
 
 ### Linking a step to a process
 
 A step often hands over to a process that exists in its own right — one with its own diagram, owner and lifecycle, typically reused from several places. Any step can say so: a task, a sub-process, an event or a gateway links to a **Business Process** card, and you never enter a process id by hand:
 
-- **The properties panel** shows a **Linked process** group on every step, with **Choose process…**, **Open** (which drills down into the linked process's flow) and **Clear**
-- **The context pad** of a selected step carries a **Link process** entry, for when the panel is collapsed
+- **The properties panel** shows a **Linked cards** group on every step, one row per link — Business Process, Application, Data Object, IT Component, Organizations — each with **Choose**, **Open** (which drills down into the linked card) and **Clear**
+- **The context pad** of a selected step carries a **Link cards** entry listing the same five, for when the panel is collapsed. A data object or data store offers the Data Object link alone, as in the table
 - **The steps table** of the published flow (and the pre-link table of a draft) has the same link in its **Business Process** column, and the chip there drills down into the linked process's Process Flow tab. Data objects and data stores are not steps, so their rows show a dash
 
-![Linked process](../assets/img/en/92_bpm_called_process.png)
+![Linked cards](../assets/img/en/92_bpm_called_process.png)
 
 BPMN has one construct that *is* another process: the **call activity**, a task drawn with a thick border that invokes a process defined on its own. An embedded **sub-process** is the other way to group steps, but it belongs to the diagram it is drawn in; the Method & Style rule is simple: if the process exists independently, use a call activity. Turbo EA treats it as the native case — **placing a call activity asks which process it calls**, and the link is stored in BPMN's own *called element*, so other tools read it. Every other step stores the link as a Turbo EA attribute in the diagram instead.
 
 Publishing a flow that contains a linked step creates a **calls** relation between the two processes — the linked process's Relations tab reads *is called by*, and the Dependencies view draws the call graph. A diagram imported from another tool keeps that tool's own process reference; the steps table shows it as a hint (*references Process_X*) until you pick the matching process in Turbo EA.
+
+### One set of links
+
+The editor and the tables show the same links, so a step reads the same wherever you look at it:
+
+- Inside a **draft**, what you set wins — in the editor or in the **Pre-link Elements** table, they are one store — and the diagram's own process reference is the fallback for a step you have said nothing about. Clearing a link clears it, including at publish.
+- A **published** flow stays approved while its links are edited in its elements table: that is metadata on top of a signed-off diagram, not a reason to approve it again.
+- A draft **created from the published version** starts from the links the process has at that moment. A draft already open keeps its own, so somebody else's edit cannot change a diagram you are working on.
 
 ### Message flows
 

@@ -69,20 +69,29 @@ Elementos BPMN podem ser **vinculados a cards de EA**. Por exemplo, vincule uma 
 - Clique na célula **Aplicação**, **Objeto de dados** ou **Componente de TI** de um passo e escolha o card — o seletor percorre o inventário, nada é digitado à mão
 - O vínculo é guardado no passo e cria uma relação entre o processo e o card, visível tanto no fluxo de processo quanto na aba Relações do card
 - A coluna **Processo de negócio** vincula um passo ao processo para o qual ele transita — veja abaixo
+- Os mesmos cinco vínculos estão disponíveis **no editor** enquanto um rascunho está aberto: um grupo **Cards associados** no painel de propriedades e uma entrada **Associar cards** no menu de contexto que abre a lista
 
 ### Vincular um passo a um processo
 
 Um passo muitas vezes transita para um processo que existe por si só — com seu próprio diagrama, seu próprio responsável e seu próprio ciclo de vida, normalmente reutilizado a partir de vários lugares. Qualquer passo pode indicá-lo: uma tarefa, um subprocesso, um evento ou um gateway aponta para um card de **Processo de negócio**, e nunca se digita um identificador de processo à mão:
 
-- **O painel de propriedades** mostra um grupo **Processo associado** em cada passo, com **Escolher processo…**, **Abrir** (que desce ao fluxo do processo associado) e **Remover**
-- **O menu de contexto** de um passo selecionado traz uma entrada **Vincular processo**, para quando o painel está recolhido
+- **O painel de propriedades** mostra um grupo **Cards associados** em cada passo, uma linha por vínculo — Processo de negócio, Aplicação, Objeto de dados, Componente de TI, Organizações — cada uma com **Escolher**, **Abrir** (que desce ao card associado) e **Remover**
+- **O menu de contexto** de um passo selecionado traz uma entrada **Associar cards** com os mesmos cinco, para quando o painel está recolhido. Um objeto ou repositório de dados oferece apenas o vínculo de Objeto de dados, como na tabela
 - **A tabela de passos** do fluxo publicado (e a tabela de pré-vinculação de um rascunho) tem o mesmo vínculo na coluna **Processo de negócio**, e o chip ali desce à aba Fluxo de processo do processo associado. Objetos e repositórios de dados não são passos, portanto suas linhas mostram um traço
 
-![Processo associado](../assets/img/pt/92_bpm_processo_invocado.png)
+![Fichas associadas](../assets/img/pt/92_bpm_processo_invocado.png)
 
 O BPMN tem um construto que *é* outro processo: a **atividade de chamada** (call activity), uma tarefa com borda grossa que invoca um processo definido de forma independente. Um **subprocesso** embutido também agrupa passos, mas pertence ao diagrama em que é desenhado; a regra do Method & Style é simples: se o processo existe de forma independente, use uma atividade de chamada. O Turbo EA a trata como o caso nativo: **colocar uma atividade de chamada pergunta qual processo ela invoca**, e o vínculo é guardado no *elemento invocado* próprio do BPMN, que outras ferramentas sabem ler. Qualquer outro passo guarda o vínculo como um atributo do Turbo EA no diagrama.
 
 Publicar um fluxo que contém um passo vinculado cria uma relação **invoca** entre os dois processos — a aba Relações do processo associado mostra *é invocado por*, e a visão de dependências desenha o grafo de chamadas. Um diagrama importado de outra ferramenta mantém a referência de processo própria daquela ferramenta; a tabela de passos a mostra como dica (*referencia Process_X*) até que você escolha o processo correspondente no Turbo EA.
+
+### Um único conjunto de vínculos
+
+O editor e as tabelas mostram os mesmos vínculos, por isso um passo lê-se da mesma forma em qualquer lado:
+
+- Dentro de um **rascunho** vale o que definir lá — no editor ou na tabela **Pré-vincular elementos**, são o mesmo armazenamento — e a referência de processo do diagrama é o recurso para um passo sobre o qual nada disse. Remover um vínculo remove-o, também na publicação.
+- Um fluxo **publicado** continua aprovado enquanto os seus vínculos são editados na sua tabela de elementos: são metadados sobre um diagrama já assinado, não um motivo para o aprovar de novo.
+- Um rascunho **criado a partir da versão publicada** parte dos vínculos que o processo tem nesse momento. Um rascunho já aberto mantém os seus, para que a edição de outra pessoa não altere o diagrama em que está a trabalhar.
 
 ### Fluxos de mensagens
 

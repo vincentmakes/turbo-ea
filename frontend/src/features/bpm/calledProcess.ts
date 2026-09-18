@@ -33,14 +33,98 @@ export function isCardUuid(value: string | null | undefined): value is string {
 /** The bpmn-js element shape these helpers read — kept structural so the pure
  *  helpers need no bpmn-js import and stay unit-testable. */
 export interface FlowNodeLike {
+  /** The shape id — for a step, the `bpmn_element_id` a link is keyed on. */
+  id?: string;
   /** Set on an external label; its `businessObject` is the labelled element's. */
-  labelTarget?: unknown;
+  labelTarget?: { id?: string } | unknown;
   businessObject?: {
     $type?: string;
     $instanceOf?: (type: string) => boolean;
     calledElement?: string;
     get?: (name: string) => unknown;
   };
+}
+
+/** The four links that live on the step row, beside the process link. */
+export type CardLinkKind = "application" | "data_object" | "it_component" | "organization";
+/** Every link a step can carry. */
+export type LinkKind = "process" | CardLinkKind;
+
+/** Panel row order — the order the steps table shows the columns in. */
+export const LINK_KIND_ORDER: readonly LinkKind[] = [
+  "process",
+  "application",
+  "data_object",
+  "it_component",
+  "organization",
+];
+
+/** The card type each kind picks from. */
+export const LINK_KIND_TYPE: Record<LinkKind, string> = {
+  process: "BusinessProcess",
+  application: "Application",
+  data_object: "DataObject",
+  it_component: "ITComponent",
+  organization: "Organization",
+};
+
+/** The `PUT …/draft-elements/{id}` body key each kind writes. */
+export const LINK_BODY_KEY: Record<LinkKind, string> = {
+  process: "business_process_id",
+  application: "application_id",
+  data_object: "data_object_id",
+  it_component: "it_component_id",
+  organization: "organization_ids",
+};
+
+/** A linked card, as much of it as a panel row renders. */
+export interface LinkedCard {
+  id: string;
+  name: string;
+}
+
+/** Every link a step carries, as the draft-elements payload reports them. */
+export interface ElementLinks {
+  business_process?: LinkedCard;
+  application?: LinkedCard;
+  data_object?: LinkedCard;
+  it_component?: LinkedCard;
+  organizations: LinkedCard[];
+}
+
+export function emptyLinks(): ElementLinks {
+  return { organizations: [] };
+}
+
+/** The `ElementLinks` key each single-card kind reads. */
+const SINGLE_LINK_FIELD: Record<
+  Exclude<LinkKind, "organization">,
+  "business_process" | "application" | "data_object" | "it_component"
+> = {
+  process: "business_process",
+  application: "application",
+  data_object: "data_object",
+  it_component: "it_component",
+};
+
+/** The card linked for a single-card kind (never call it for organizations). */
+export function singleLinkOf(
+  links: ElementLinks,
+  kind: Exclude<LinkKind, "organization">,
+): LinkedCard | undefined {
+  return links[SINGLE_LINK_FIELD[kind]];
+}
+
+/** `links` with `kind` set to `card` (or cleared with `null`). */
+export function withLink(
+  links: ElementLinks,
+  kind: LinkKind,
+  card: LinkedCard | LinkedCard[] | null,
+): ElementLinks {
+  if (kind === "organization") {
+    return { ...links, organizations: Array.isArray(card) ? card : [] };
+  }
+  return { ...links, [SINGLE_LINK_FIELD[kind]]: (card as LinkedCard | null) ?? undefined };
 }
 
 /** @deprecated alias kept for the call-activity-only helpers below. */
@@ -60,6 +144,99 @@ export function isProcessStep(element: FlowNodeLike | null | undefined): boolean
   if (!element || element.labelTarget) return false;
   const bo = element.businessObject;
   return typeof bo?.$instanceOf === "function" && bo.$instanceOf("bpmn:FlowNode");
+}
+
+/**
+ * True for a data object / data store shape. Not a `bpmn:FlowNode`, so
+ * `isProcessStep` excludes it — it has no lane, no automation and no
+ * supporting application, and the steps table offers it the Data Object link
+ * alone. The panel follows the table.
+ */
+export function isDataArtefact(element: FlowNodeLike | null | undefined): boolean {
+  if (!element || element.labelTarget) return false;
+  const bo = element.businessObject;
+  if (typeof bo?.$instanceOf !== "function") return false;
+  return bo.$instanceOf("bpmn:DataObjectReference") || bo.$instanceOf("bpmn:DataStoreReference");
+}
+
+/**
+ * The link kinds a shape offers, in panel order.
+ *
+ * `canLinkCards` is "this modeler is editing a draft": the four card links are
+ * stored as draft links through the API, so without a draft there is nowhere
+ * to put them and only the process link — which lives in the diagram itself —
+ * is offered.
+ */
+export function linkKindsFor(
+  element: FlowNodeLike | null | undefined,
+  canLinkCards: boolean,
+): LinkKind[] {
+  if (isDataArtefact(element)) return canLinkCards ? ["data_object"] : [];
+  if (!isProcessStep(element)) return [];
+  return canLinkCards ? [...LINK_KIND_ORDER] : ["process"];
+}
+
+/**
+ * The `bpmn_element_id` a link is keyed on. An external label defers to the
+ * shape it labels, so dragging a label never writes a link of its own.
+ */
+export function elementIdOf(element: FlowNodeLike | null | undefined): string {
+  if (!element) return "";
+  const target = element.labelTarget as { id?: string } | undefined;
+  return (target?.id ?? element.id ?? "") || "";
+}
+
+/** The shape `GET …/draft-elements` returns, as far as the links go. */
+interface DraftElementRow {
+  bpmn_element_id: string;
+  application_id?: string | null;
+  application_name?: string | null;
+  data_object_id?: string | null;
+  data_object_name?: string | null;
+  it_component_id?: string | null;
+  it_component_name?: string | null;
+  business_process_id?: string | null;
+  business_process_name?: string | null;
+  organizations?: { id: string; name: string }[];
+}
+
+/**
+ * `GET …/draft-elements` rows → the links map the panel reads.
+ *
+ * The server has already applied the precedence rule (the draft's own link
+ * wins, the diagram's reference is the fallback), so the panel renders what
+ * this returns and never re-derives it.
+ */
+export function linksFromDraftElements(
+  rows: readonly DraftElementRow[],
+): Record<string, ElementLinks> {
+  const map: Record<string, ElementLinks> = {};
+  for (const row of rows) {
+    const links = emptyLinks();
+    let any = false;
+    for (const [kind, idKey, nameKey] of [
+      ["business_process", "business_process_id", "business_process_name"],
+      ["application", "application_id", "application_name"],
+      ["data_object", "data_object_id", "data_object_name"],
+      ["it_component", "it_component_id", "it_component_name"],
+    ] as const) {
+      const id = row[idKey];
+      if (id) {
+        links[kind] = { id, name: row[nameKey] || id };
+        any = true;
+      }
+    }
+    if (row.organizations?.length) {
+      links.organizations = row.organizations.map((o) => ({ id: o.id, name: o.name || o.id }));
+      any = true;
+    }
+    // An element with nothing linked is still listed: the panel must be able
+    // to tell "the server knows this shape and it has no links" from "the
+    // shape is not saved yet", which is what its fallback to the live
+    // diagram reference turns on.
+    map[row.bpmn_element_id] = any ? links : emptyLinks();
+  }
+  return map;
 }
 
 function readAttr(element: FlowNodeLike | null | undefined, name: string): string {

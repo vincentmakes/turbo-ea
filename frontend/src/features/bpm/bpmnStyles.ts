@@ -64,9 +64,10 @@ export const PROPERTIES_PANEL_DARK_TOKENS = {
 } as const;
 
 /**
- * The "Called process" entry (`CalledProcessEntry.ts`) is Turbo EA's own, so
- * its buttons have no stock class to borrow. Built on the panel's `--bio-*`
- * tokens, so they follow the light / dark overrides above for free.
+ * The "Linked cards" rows (`CalledProcessEntry.ts`, `CardLinkEntry.ts`) are
+ * Turbo EA's own, so their buttons and organization chips have no stock class
+ * to borrow — only the row label does. Built on the panel's `--bio-*` tokens,
+ * so they follow the light / dark overrides above for free.
  */
 const CALLED_PROCESS_ENTRY_SX = {
   "& .turboea-called-process-value": {
@@ -79,6 +80,21 @@ const CALLED_PROCESS_ENTRY_SX = {
   "& .turboea-called-process-empty, & .turboea-called-process-foreign": {
     color: "var(--bio-text-subtle)",
     fontStyle: "italic",
+  },
+  "& .turboea-called-process-list": {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "4px",
+    margin: "2px 0 6px",
+  },
+  "& .turboea-called-process-chip": {
+    fontSize: "12px",
+    lineHeight: 1.5,
+    padding: "1px 7px",
+    borderRadius: "10px",
+    background: "var(--bio-surface-subtle)",
+    border: "1px solid var(--bio-border-subtle)",
+    color: "var(--bio-text)",
   },
   "& .turboea-called-process-actions": { display: "flex", gap: "6px", flexWrap: "wrap" },
   "& .turboea-called-process-button": {

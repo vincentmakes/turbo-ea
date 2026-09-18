@@ -277,18 +277,88 @@ async function resolveCardIds(
 }
 
 // ---------------------------------------------------------------------------
+// Draft flow resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve `{{draftId:<cardKey>}}` — the id of a *draft* flow version.
+ *
+ * A published flow is read-only in the modeller, and the card-link rows only
+ * appear when there is a draft to store the links in (the editor takes the
+ * version from `?versionId=`). So a shot of those rows needs a draft: reuse
+ * one the demo data already carries, otherwise branch one off the published
+ * version the way the Edit button does.
+ */
+async function resolveDraftIds(
+  page: Page,
+  config: Config,
+  token: string,
+  cardIds: Record<string, string>,
+  pageDefs: PageDef[]
+): Promise<Record<string, string>> {
+  const headers = { Authorization: `Bearer ${token}` };
+
+  const wanted = new Set<string>();
+  for (const def of pageDefs) {
+    for (const match of def.route.matchAll(/\{\{draftId:(\w+)\}\}/g)) {
+      wanted.add(match[1]);
+    }
+  }
+
+  const resolved: Record<string, string> = {};
+  for (const key of wanted) {
+    const processId = cardIds[key];
+    // The card lookup already warned; the route will skip on __MISSING__.
+    if (!processId) continue;
+
+    const base = `${config.baseUrl}/api/v1/bpm/processes/${processId}/flow`;
+
+    const drafts = await page.request.get(`${base}/drafts`, { headers });
+    if (drafts.ok()) {
+      const rows = await drafts.json();
+      if (Array.isArray(rows) && rows.length > 0) {
+        resolved[key] = rows[0].id;
+        console.log(`  Reusing draft ${rows[0].id} for "${key}"`);
+        continue;
+      }
+    }
+
+    const published = await page.request.get(`${base}/published`, { headers });
+    const publishedVersion = published.ok() ? await published.json() : null;
+    if (!publishedVersion) {
+      console.warn(`  WARNING: no published flow for "${key}" — draft shots will be skipped.`);
+      continue;
+    }
+
+    // An empty `bpmn_xml` tells the backend to clone the base version's.
+    const created = await page.request.post(`${base}/drafts`, {
+      headers,
+      data: { bpmn_xml: "", based_on_id: publishedVersion.id },
+    });
+    if (!created.ok()) {
+      console.warn(`  WARNING: could not create a draft for "${key}": ${created.status()}`);
+      continue;
+    }
+    const draft = await created.json();
+    resolved[key] = draft.id;
+    console.log(`  Created draft ${draft.id} for "${key}"`);
+  }
+
+  return resolved;
+}
+
+// ---------------------------------------------------------------------------
 // Route interpolation
 // ---------------------------------------------------------------------------
 
 function interpolateRoute(
   route: string,
-  cardIds: Record<string, string>
+  cardIds: Record<string, string>,
+  draftIds: Record<string, string> = {}
 ): string | null {
-  return route.replace(/\{\{cardId:(\w+)\}\}/g, (_match, key) => {
-    const id = cardIds[key];
-    if (!id) return "__MISSING__";
-    return id;
-  });
+  return route
+    .replace(/\{\{cardId:(\w+)\}\}/g, (_match, key) => cardIds[key] || "__MISSING__")
+    .replace(/\{\{draftId:(\w+)\}\}/g, (_match, key) => draftIds[key] || "__MISSING__");
 }
 
 // ---------------------------------------------------------------------------
@@ -389,11 +459,12 @@ async function capturePage(
   pageDef: PageDef,
   outputPath: string,
   cardIds: Record<string, string>,
+  draftIds: Record<string, string>,
   config: Config,
   locale: string
 ): Promise<boolean> {
   // Resolve route
-  const route = interpolateRoute(pageDef.route, cardIds);
+  const route = interpolateRoute(pageDef.route, cardIds, draftIds);
   if (!route || route.includes("__MISSING__")) {
     console.warn(`  SKIP ${pageDef.id}: unresolved card ID in route`);
     return false;
@@ -570,6 +641,12 @@ async function main(): Promise<void> {
     // Resolve card IDs from demo data
     const cardIds = await resolveCardIds(page, config, token);
 
+    // Draft flows for the editor shots (only touched when a route asks).
+    const draftIds = await resolveDraftIds(page, config, token, cardIds, [
+      ...docPages,
+      ...mktPages,
+    ]);
+
     let captured = 0;
     let skipped = 0;
 
@@ -593,7 +670,7 @@ async function main(): Promise<void> {
         process.stdout.write(`  Capturing ${filename}...`);
 
         const ok = await capturePage(
-          page, pageDef, outDir, cardIds, config, locale
+          page, pageDef, outDir, cardIds, draftIds, config, locale
         );
 
         if (ok) {
@@ -624,7 +701,7 @@ async function main(): Promise<void> {
         process.stdout.write(`  Capturing ${filename}...`);
 
         const ok = await capturePage(
-          page, pageDef, outDir, cardIds, config, "en"
+          page, pageDef, outDir, cardIds, draftIds, config, "en"
         );
 
         if (ok) {

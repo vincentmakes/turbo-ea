@@ -9,6 +9,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -166,10 +167,18 @@ def _version_summary(v: ProcessFlowVersion) -> dict:
 async def _links_from_live_elements(db: AsyncSession, process_id: uuid.UUID) -> dict | None:
     """Rebuild a ``draft_element_links`` map from the live ``ProcessElement`` rows.
 
-    A published or archived version's own ``draft_element_links`` is typically
-    empty because the links were consumed when it was published, so cloning it
-    would silently drop every EA reference. Pulling from the element table
-    instead gives the new draft the links the process actually has today.
+    **This is where a draft syncs with the published flow.** A published flow
+    is approved and stays approved while its links are edited in the elements
+    table — that is metadata on top of a signed-off diagram, deliberately not a
+    reason to re-approve it. A draft is a *snapshot*: it starts from whatever
+    the rows say at the moment it is created and then goes its own way, so an
+    edit made in the published table afterwards does not leak into a draft
+    somebody is already working on.
+
+    A published or archived version's own ``draft_element_links`` is cleared
+    when it is approved (the links were consumed into the rows), so cloning it
+    would give a new draft nothing. Pulling from the element table instead is
+    what makes the new draft start from the links the process has today.
     """
     result = await db.execute(
         select(ProcessElement)
@@ -210,6 +219,14 @@ async def _next_revision(db: AsyncSession, process_id: uuid.UUID) -> int:
 def _apply_draft_link(elem: ProcessElement, link: dict, valid_card_ids: set[str]) -> None:
     """Apply draft element link data to a ProcessElement, skipping stale references.
 
+    **A key the draft carries wins; a key it does not carry leaves the element
+    alone** — that is the one precedence rule, shared with `get_draft_elements`
+    so the pre-link table, the modeler and publishing agree. A key present with
+    an empty value is an explicit *clear* the user made in the draft, so it
+    overrides both the link the published row carried and the XML's own
+    reference; a key that is simply absent lets those stand. Without that
+    distinction a clear silently reverted at publish.
+
     The M:N ``organization_ids`` list is applied separately after flush (the
     junction rows need the element's PK) — see the publish path.
     """
@@ -219,24 +236,19 @@ def _apply_draft_link(elem: ProcessElement, link: dict, valid_card_ids: set[str]
         ("it_component_id", "it_component_id"),
         ("business_process_id", "business_process_id"),
     ):
+        if key not in link:
+            continue
         val = link.get(key)
         if key == "business_process_id" and (
-            elem.element_type in ARTEFACT_TYPES
-            or val == str(elem.process_id)
-            or (
-                elem.business_process_id is not None
-                and as_card_uuid(elem.called_element) == elem.business_process_id
-            )
+            elem.element_type in ARTEFACT_TYPES or val == str(elem.process_id)
         ):
-            # A data artefact never links a process, a process never links
-            # itself. And when the XML's reference resolved (the sync helper
-            # has already set the link to it), the XML wins over a stale
-            # pre-link.
+            # A data artefact never links a process, and a process never
+            # links itself.
             continue
         if val and val in valid_card_ids:
             setattr(elem, attr, uuid.UUID(val))
-        elif val:
-            # Card no longer valid — leave empty
+        else:
+            # Cleared in the draft, or the card is no longer valid.
             setattr(elem, attr, None)
     if "custom_fields" in link:
         elem.custom_fields = {**(elem.custom_fields or {}), **link["custom_fields"]}
@@ -737,6 +749,15 @@ async def approve_version(
 
         await sync_element_relations(db, pid, element_link_ids(elements_list))
 
+        # The pre-links have been consumed into the element rows, which are now
+        # the truth. Dropping them is what lets a *later* draft based on this
+        # version re-seed from those rows (`_links_from_live_elements`) and so
+        # pick up links an admin made in the published elements table after the
+        # approval — the sanctioned way to add metadata on top of an approved
+        # flow. Keeping them would clone a snapshot frozen at approval time.
+        version.draft_element_links = None
+        flag_modified(version, "draft_element_links")
+
     # Auto-complete system approval todos for this process
     approval_todos = await db.execute(
         select(Todo).where(
@@ -1131,14 +1152,18 @@ async def get_draft_elements(
         app_id = link.get("application_id")
         do_id = link.get("data_object_id")
         itc_id = link.get("it_component_id")
-        # The XML wins over a pre-link, mirroring the publish-time precedence;
-        # a foreign reference leaves the pre-link in force.
+        # The draft's own link wins, mirroring the publish-time precedence in
+        # `_apply_draft_link`: a key the draft carries is what the user set
+        # here (a card, or an explicit clear), and the XML's own reference is
+        # the fallback for a step the draft says nothing about.
         bp_id: str | None = None
-        xml_target = xml_called.get(ext.bpmn_element_id)
-        if xml_target and str(xml_target) in name_map:
-            bp_id = str(xml_target)
-        elif ext.element_type not in ARTEFACT_TYPES:
-            bp_id = link.get("business_process_id")
+        if ext.element_type not in ARTEFACT_TYPES:
+            if "business_process_id" in link:
+                bp_id = link.get("business_process_id")
+            else:
+                xml_target = xml_called.get(ext.bpmn_element_id)
+                if xml_target and str(xml_target) in name_map:
+                    bp_id = str(xml_target)
         org_ids = link.get("organization_ids") or []
         elements.append(
             {
@@ -1198,37 +1223,46 @@ async def update_draft_element_link(
     links = dict(version.draft_element_links or {})
     existing = links.get(bpmn_element_id, {})
 
-    from sqlalchemy.orm.attributes import flag_modified
-
     # The process link is validated at write time — the picker is the only
     # sanctioned source, so a bad id here is a client bug, not stale data.
+    # An element the *saved* XML does not carry is accepted: the modeler links
+    # a shape the moment it is placed, before its 5s autosave lands.
     if body.get("business_process_id"):
         types = {
             e.bpmn_element_id: e.element_type for e in parse_bpmn(version.bpmn_xml or "").elements
         }
-        elem_type = types.get(bpmn_element_id)
-        if elem_type is None or elem_type in ARTEFACT_TYPES:
-            # Not a step of this draft: either it is not in the XML at all, or
-            # it is a data artefact, which never links a process.
+        if types.get(bpmn_element_id) in ARTEFACT_TYPES:
             raise HTTPException(400, "A data artefact cannot link a process")
         await validate_process_link(db, pid, body["business_process_id"])
 
-    # Merge updates into existing link. `organization_ids` is a list (M:N);
-    # an empty list clears the step's organizations, like "" for the FKs.
+    # Merge updates into the existing link. **A key the caller sent is stored,
+    # even when it is empty** — an explicit clear has to be distinguishable
+    # from "not set here", because that is exactly what `_apply_draft_link`
+    # and `get_draft_elements` read to decide whether the draft overrides the
+    # XML reference. Only `None` on `organization_ids` unsets the key; `""`
+    # on an FK stores `None` (a clear), and `[]` on the M:N stores the empty
+    # list (also a clear). The element's entry therefore survives with nothing
+    # but clears in it, which is what makes a clear stick at publish.
     for key in (
         "application_id",
         "data_object_id",
         "it_component_id",
         "business_process_id",
-        "organization_ids",
-        "custom_fields",
     ):
         if key in body:
-            val = body[key]
-            if val == "" or val is None or val == []:
-                existing.pop(key, None)
-            else:
-                existing[key] = val
+            existing[key] = body[key] or None
+    if "organization_ids" in body:
+        val = body["organization_ids"]
+        if val is None:
+            existing.pop("organization_ids", None)
+        else:
+            existing["organization_ids"] = list(val)
+    if "custom_fields" in body:
+        val = body["custom_fields"]
+        if val:
+            existing["custom_fields"] = val
+        else:
+            existing.pop("custom_fields", None)
 
     if existing:
         links[bpmn_element_id] = existing

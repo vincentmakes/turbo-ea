@@ -69,20 +69,29 @@ BPMN-Elemente können mit **EA-Karten verknüpft** werden. Verknüpfen Sie beisp
 - Klicken Sie auf die Zelle **Anwendung**, **Datenobjekt** oder **IT-Komponente** eines Schritts und wählen Sie die Karte — die Auswahl durchsucht das Inventar, es wird nichts von Hand eingetippt
 - Die Verknüpfung wird am Schritt gespeichert und erzeugt eine Beziehung zwischen Prozess und Karte, sichtbar sowohl im Prozessfluss als auch auf der Registerkarte Beziehungen der Karte
 - Die Spalte **Geschäftsprozess** verknüpft einen Schritt mit dem Prozess, an den er übergibt — siehe unten
+- Dieselben fünf Verknüpfungen stehen **im Editor** zur Verfügung, solange ein Entwurf geöffnet ist: eine Gruppe **Verknüpfte Karten** im Eigenschaftenpanel und ein Eintrag **Karten verknüpfen** im Kontextmenü, der ein Menü davon öffnet
 
 ### Einen Schritt mit einem Prozess verknüpfen
 
 Ein Schritt übergibt oft an einen Prozess, der eigenständig existiert — einen mit eigenem Diagramm, eigenem Verantwortlichen und eigenem Lebenszyklus, der meist an mehreren Stellen wiederverwendet wird. Jeder Schritt kann das ausdrücken: eine Aufgabe, ein Teilprozess, ein Ereignis oder ein Gateway verweist auf eine **Geschäftsprozess**-Karte, und Sie geben nie eine Prozess-ID von Hand ein:
 
-- **Das Eigenschaftenpanel** zeigt bei jedem Schritt eine Gruppe **Verknüpfter Prozess** mit **Prozess wählen…**, **Öffnen** (springt in den Ablauf des verknüpften Prozesses) und **Entfernen**
-- **Das Kontextmenü** eines ausgewählten Schritts enthält den Eintrag **Prozess verknüpfen**, falls das Panel eingeklappt ist
+- **Das Eigenschaftenpanel** zeigt bei jedem Schritt eine Gruppe **Verknüpfte Karten** mit je einer Zeile pro Verknüpfung — Geschäftsprozess, Anwendung, Datenobjekt, IT-Komponente, Organisationen — jeweils mit **Wählen**, **Öffnen** (springt zur verknüpften Karte) und **Entfernen**
+- **Das Kontextmenü** eines ausgewählten Schritts enthält den Eintrag **Karten verknüpfen** mit denselben fünf, falls das Panel eingeklappt ist. Ein Datenobjekt oder Datenspeicher bietet wie in der Tabelle nur die Datenobjekt-Verknüpfung
 - **Die Schritttabelle** des veröffentlichten Ablaufs (und die Vorverknüpfungstabelle eines Entwurfs) hat dieselbe Verknüpfung in der Spalte **Geschäftsprozess**; der Chip dort springt in die Registerkarte Prozessfluss des verknüpften Prozesses. Datenobjekte und Datenspeicher sind keine Schritte, ihre Zeilen zeigen daher einen Strich
 
-![Verknüpfter Prozess](../assets/img/de/92_bpm_aufgerufener_prozess.png)
+![Verknüpfte Karten](../assets/img/de/92_bpm_aufgerufener_prozess.png)
 
 BPMN kennt ein Konstrukt, das *selbst* ein anderer Prozess ist: die **Aufrufaktivität** (call activity), eine Aufgabe mit dickem Rand, die einen eigenständig definierten Prozess aufruft. Ein eingebetteter **Teilprozess** gruppiert ebenfalls Schritte, gehört aber zu dem Diagramm, in dem er gezeichnet ist; die Regel aus Method & Style ist einfach: Existiert der Prozess eigenständig, verwenden Sie eine Aufrufaktivität. Turbo EA behandelt sie als den nativen Fall — **beim Platzieren einer Aufrufaktivität wird gefragt, welchen Prozess sie aufruft**, und die Verknüpfung wird im BPMN-eigenen *aufgerufenen Element* gespeichert, sodass andere Werkzeuge sie lesen. Jeder andere Schritt speichert die Verknüpfung stattdessen als Turbo-EA-Attribut im Diagramm.
 
 Beim Veröffentlichen eines Ablaufs mit einem verknüpften Schritt entsteht eine **ruft auf**-Beziehung zwischen den beiden Prozessen — auf der Registerkarte Beziehungen des verknüpften Prozesses steht *wird aufgerufen von*, und die Abhängigkeitsansicht zeichnet den Aufrufgraphen. Ein aus einem anderen Werkzeug importiertes Diagramm behält dessen eigene Prozessreferenz; die Schritttabelle zeigt sie als Hinweis (*verweist auf Process_X*), bis Sie den passenden Prozess in Turbo EA wählen.
+
+### Ein Satz von Verknüpfungen
+
+Editor und Tabellen zeigen dieselben Verknüpfungen, ein Schritt liest sich also überall gleich:
+
+- Innerhalb eines **Entwurfs** gilt, was Sie dort setzen — im Editor oder in der Tabelle **Elemente vorverknüpfen**, beide sind derselbe Speicher — und die Prozessreferenz des Diagramms ist der Rückfall für einen Schritt, zu dem Sie nichts gesagt haben. Das Entfernen einer Verknüpfung entfernt sie, auch beim Veröffentlichen.
+- Ein **veröffentlichter** Ablauf bleibt genehmigt, während seine Verknüpfungen in seiner Elementtabelle bearbeitet werden: Das sind Metadaten auf einem freigegebenen Diagramm und kein Grund für eine erneute Genehmigung.
+- Ein Entwurf, der **aus der veröffentlichten Version erstellt** wird, startet mit den Verknüpfungen, die der Prozess in diesem Moment hat. Ein bereits offener Entwurf behält seine eigenen, damit die Bearbeitung anderer nicht das Diagramm ändert, an dem Sie arbeiten.
 
 ### Nachrichtenflüsse
 

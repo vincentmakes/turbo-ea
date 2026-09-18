@@ -262,3 +262,105 @@ class TestDraftOrganizationPreLinking:
             )
         )
         assert rels.scalars().all() == []
+
+    async def test_clearing_orgs_in_a_draft_clears_them_at_publish(self, client, db, org_env):
+        """An explicit clear in a draft has to survive to the elements table.
+
+        The draft link is what publishing reads, so a cleared list that was
+        simply dropped from the payload looked like «said nothing», and the
+        organizations the step already carried came straight back.
+        """
+        process_id = org_env["process"].id
+        sales_id, finance_id = org_env["org_sales"].id, org_env["org_finance"].id
+        elem_id = org_env["elem"].id
+        headers = auth_headers(org_env["admin"])
+
+        # The step starts out linked in the published elements table.
+        resp = await client.put(
+            f"/api/v1/bpm/processes/{process_id}/elements/{elem_id}",
+            json={"organization_ids": [str(sales_id), str(finance_id)]},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert await _junction_org_ids(db, elem_id) == {sales_id, finance_id}
+
+        draft_id = (
+            await client.post(
+                f"/api/v1/bpm/processes/{process_id}/flow/drafts",
+                json={"bpmn_xml": SIMPLE_BPMN},
+                headers=headers,
+            )
+        ).json()["id"]
+        base = f"/api/v1/bpm/processes/{process_id}/flow/versions/{draft_id}"
+
+        resp = await client.put(
+            f"{base}/draft-elements/task_quote",
+            json={"organization_ids": []},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        draft_elems = (await client.get(f"{base}/draft-elements", headers=headers)).json()
+        quote = next(e for e in draft_elems if e["bpmn_element_id"] == "task_quote")
+        assert quote["organizations"] == []
+
+        assert (await client.post(f"{base}/submit", headers=headers)).status_code == 200
+        assert (await client.post(f"{base}/approve", headers=headers)).status_code == 200
+
+        db.expire_all()
+        assert await _junction_org_ids(db, elem_id) == set()
+
+    async def test_a_published_org_link_seeds_a_draft_made_afterwards(self, client, db, org_env):
+        """A draft created from the published version starts from its links.
+
+        Editing the published elements table is metadata on top of an approved
+        flow; the next draft picks it up, which is what keeps the editor and
+        the tables showing one set of links.
+        """
+        process_id = org_env["process"].id
+        sales_id = org_env["org_sales"].id
+        headers = auth_headers(org_env["admin"])
+
+        first = (
+            await client.post(
+                f"/api/v1/bpm/processes/{process_id}/flow/drafts",
+                json={"bpmn_xml": SIMPLE_BPMN},
+                headers=headers,
+            )
+        ).json()["id"]
+        first_base = f"/api/v1/bpm/processes/{process_id}/flow/versions/{first}"
+        assert (await client.post(f"{first_base}/submit", headers=headers)).status_code == 200
+        assert (await client.post(f"{first_base}/approve", headers=headers)).status_code == 200
+
+        db.expire_all()
+        elems = (
+            await client.get(f"/api/v1/bpm/processes/{process_id}/elements", headers=headers)
+        ).json()
+        quote_row = next(e for e in elems if e["bpmn_element_id"] == "task_quote")
+        resp = await client.put(
+            f"/api/v1/bpm/processes/{process_id}/elements/{quote_row['id']}",
+            json={"organization_ids": [str(sales_id)]},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        # Every request gets its own session in production; the test shares
+        # one, so drop the identity map before the seeding query reads the
+        # junction rows the PUT above inserted.
+        db.expire_all()
+
+        second = (
+            await client.post(
+                f"/api/v1/bpm/processes/{process_id}/flow/drafts",
+                json={"bpmn_xml": "", "based_on_id": first},
+                headers=headers,
+            )
+        ).json()["id"]
+        draft_elems = (
+            await client.get(
+                f"/api/v1/bpm/processes/{process_id}/flow/versions/{second}/draft-elements",
+                headers=headers,
+            )
+        ).json()
+        quote = next(e for e in draft_elems if e["bpmn_element_id"] == "task_quote")
+        assert {o["name"] for o in quote["organizations"]} == {"Sales"}
