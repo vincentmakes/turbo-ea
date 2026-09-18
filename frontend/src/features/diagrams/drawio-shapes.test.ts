@@ -41,6 +41,8 @@ import {
   type DiagramCardInput,
   type DiagramRelInput,
   type DiagramLayerInput,
+  type DiagramGroupInput,
+  type DiagramConnectorInput,
   fanWaypoints,
 } from "./drawio-shapes";
 import { LOGO_BOX_PX } from "./cardLogoImage";
@@ -297,6 +299,90 @@ describe("buildLdvDiagramXml", () => {
     ];
     const xml = buildLdvDiagramXml(cards, orphanRel, layers);
     expect(xml).not.toContain('edge="1"');
+  });
+
+  /* ---- Aggregated view: group boxes as containers, connectors as decoration ---- */
+  const groups: DiagramGroupInput[] = [
+    { key: "cluster:type:Application", label: "Application (1)", color: "#0f7eb5", x: 40, y: 20, w: 300, h: 160 },
+  ];
+  const nested: DiagramCardInput[] = [
+    { ...cards[0], x: 16, y: 30, groupKey: "cluster:type:Application" },
+    cards[1],
+  ];
+
+  it("exports a group box as a swimlane container with its card nested inside", () => {
+    const xml = buildLdvDiagramXml(nested, [], [], groups);
+    expect(xml).toContain('id="group-0"');
+    expect(xml).toContain("shape=swimlane");
+    expect(xml).toContain("startSize=28");
+    expect(xml).toContain('value="Application (1)"');
+    // the box's geometry is where the view had it
+    expect(xml).toContain('x="40" y="20" width="300" height="160"');
+    // the member is the box's mxGraph child, at its RELATIVE position, and
+    // carries the container-child marker the editor keys its rules on
+    const member = /<object[^>]*cardId="11111111-1111-1111-1111-111111111111"[^>]*>\s*<mxCell[^>]*>/.exec(xml)?.[0] ?? "";
+    expect(member).toContain('groupChild="1"');
+    expect(member).toContain('parent="group-0"');
+    expect(xml).toContain('x="16" y="30" width="200"');
+    // a card outside any box still sits on the root
+    const loose = /<object[^>]*cardId="22222222-2222-2222-2222-222222222222"[^>]*>\s*<mxCell[^>]*>/.exec(xml)?.[0] ?? "";
+    expect(loose).toContain('parent="1"');
+    expect(loose).not.toContain("groupChild");
+    // the box itself is not a card: still exactly two cardId occurrences
+    expect(xml.match(/cardId=/g)?.length).toBe(2);
+  });
+
+  it("falls a card back to the root when its group key names no exported box", () => {
+    const xml = buildLdvDiagramXml(nested, [], [], []);
+    const member = /<object[^>]*cardId="11111111-1111-1111-1111-111111111111"[^>]*>\s*<mxCell[^>]*>/.exec(xml)?.[0] ?? "";
+    expect(member).toContain('parent="1"');
+    expect(member).not.toContain("groupChild");
+  });
+
+  it("draws a merged connector as a bare edge with a count and no relation identity", () => {
+    const connectors: DiagramConnectorInput[] = [
+      {
+        sourceKey: "cluster:type:Application",
+        targetKey: "22222222-2222-2222-2222-222222222222",
+        label: "reads",
+        count: 3,
+        exit: { x: 0.5, y: 1 },
+        entry: { x: 0.5, y: 0 },
+        waypoints: [{ x: 190, y: 200 }, { x: 500, y: 200 }],
+      },
+    ];
+    const xml = buildLdvDiagramXml(nested, [], [], groups, connectors);
+    const cell = /<mxCell id="connector-0"[^>]*>/.exec(xml)?.[0] ?? "";
+    expect(cell).not.toBe("");
+    expect(cell).toContain('value="reads · 3"');
+    expect(cell).toContain('source="group-0"');
+    expect(cell).toContain('target="card-1-22222222"');
+    // 1.5 + log2(3) → heavier than a one-relation line, boxed label
+    expect(cell).toContain("strokeWidth=3.1");
+    expect(cell).toContain("labelBackgroundColor=#ffffff");
+    expect(cell).toContain("edgeStyle=orthogonalEdgeStyle");
+    expect(cell).toContain("exitX=0.5;exitY=1");
+    expect(xml).toContain('<mxPoint x="190" y="200"/>');
+    // decoration: nothing the sync, the stale check or the delete flow reads
+    expect(cell).not.toContain("relationType");
+    expect(cell).not.toContain("relationId");
+    expect(cell).not.toContain("pending");
+    expect(xml).not.toContain('<object id="connector');
+  });
+
+  it("labels a connector with the count alone when it stands for several relation types", () => {
+    const xml = buildLdvDiagramXml(nested, [], [], groups, [
+      { sourceKey: "cluster:type:Application", targetKey: "22222222-2222-2222-2222-222222222222", label: "", count: 7 },
+    ]);
+    expect(xml).toContain('value="7"');
+    expect(xml).toContain("strokeWidth=4.3");
+  });
+
+  it("drops a connector whose endpoint is not on the diagram", () => {
+    const xml = buildLdvDiagramXml(nested, [], [], groups, [
+      { sourceKey: "cluster:type:Application", targetKey: "cluster:type:Ghost", label: "", count: 2 },
+    ]);
+    expect(xml).not.toContain('id="connector-');
   });
 
   it("carries a computed route as waypoints and fixed anchors", () => {
@@ -1131,6 +1217,20 @@ describe("edge builders all delegate to relationEdgeStyle", () => {
 /*  flowDirection arrowheads — provider vs consumer on an edge (#905)      */
 /* ---------------------------------------------------------------------- */
 
+describe("relationEdgeStyle weight", () => {
+  it("thickens the stroke and boxes the label for a merged connector", () => {
+    const one = relationEdgeStyle({ weight: 1 });
+    expect(one).toContain("strokeWidth=1.5");
+    expect(one).toContain("labelBackgroundColor=#ffffff");
+    const eight = relationEdgeStyle({ weight: 8 });
+    expect(eight).toContain("strokeWidth=4.3");
+    // an ordinary relation line is untouched
+    const plain = relationEdgeStyle();
+    expect(plain).toContain("strokeWidth=1.5");
+    expect(plain).not.toContain("labelBackgroundColor");
+  });
+});
+
 describe("relationEdgeStyle honours a relation's flowDirection", () => {
   const arrows = (style: string) => {
     const parts = style.split(";");
@@ -1555,6 +1655,35 @@ describe("scanDiagramItems — synced children", () => {
       { cellId: "child", cardId: "id-child", name: "Child", type: "Application" },
     ]);
     expect(scan.pendingCards).toHaveLength(1);
+  });
+
+  it("counts a card exported inside a group box as a top-level synced card", () => {
+    // `groupChild` marks a container child for the editor's sizing and
+    // paste rules; it is not an expansion child, so the sync and the stale
+    // check see it like any other card on the canvas.
+    const frame = scanFrame({
+      member: scanVertex("member", {
+        cardId: "id-member",
+        cardType: "Application",
+        label: "Member",
+        groupChild: "1",
+      }),
+    });
+    const scan = scanDiagramItems(frame);
+    expect(scan.syncedFS).toEqual([
+      { cellId: "member", cardId: "id-member", name: "Member", type: "Application" },
+    ]);
+    expect(scan.syncedChildren).toEqual([]);
+  });
+
+  it("ignores a merged connector: a bare edge is neither a pending nor a synced relation", () => {
+    const frame = scanFrame({
+      a: scanVertex("a", { cardId: "id-a", cardType: "Application", label: "A" }),
+      connector: { id: "connector-0", edge: true, value: "reads · 3", source: { id: "a" }, target: { id: "a" } },
+    });
+    const scan = scanDiagramItems(frame);
+    expect(scan.pendingRels).toEqual([]);
+    expect(scan.syncedFS).toHaveLength(1);
   });
 });
 

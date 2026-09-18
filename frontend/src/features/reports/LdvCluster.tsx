@@ -91,7 +91,11 @@ const LdvCluster = memo(({ data }: NodeProps<Node<LdvClusterData>>) => {
           isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)"
         }, ${isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)"})`,
         position: "relative",
-        cursor: "default",
+        // A box drags like a layer lane: the whole group moves and its cards
+        // ride along (they are its React Flow children, clamped by `extent`).
+        cursor: "grab",
+        "&:active": { cursor: "grabbing" },
+        touchAction: "none",
       }}
     >
       <Box

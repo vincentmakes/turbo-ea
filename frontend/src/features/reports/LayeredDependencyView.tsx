@@ -78,12 +78,9 @@ import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useLdvSettings, toCardLabels, type LdvBackgroundStyle } from "./ldvDisplaySettings";
 import type { CardType } from "@/types";
-import {
-  buildLdvDiagramXml,
-  type DiagramCardInput,
-  type DiagramRelInput,
-  type DiagramLayerInput,
-} from "@/features/diagrams/drawio-shapes";
+import { buildLdvDiagramXml } from "@/features/diagrams/drawio-shapes";
+import { collectDiagramInputs } from "./ldvDiagramExport";
+import LdvExportAggregatedDialog from "./LdvExportAggregatedDialog";
 import {
   buildLdvFlow,
   relationValueSuffix,
@@ -102,7 +99,7 @@ import {
 } from "./layeredDependencyLayout";
 import { LDV_HANDLE_SPECS } from "./ldvHandles";
 import { ldvEdgeStroke } from "./ldvLineStyle";
-import { absolutePosition, computeAbsPos, exportRoute } from "./ldvEdgeRouting";
+import { absolutePosition } from "./ldvEdgeRouting";
 import { buildRoundedOrthPath } from "./ldvChannels";
 import { ldvFocusRing } from "./ldvFocusRing";
 import LinkChangeIcon from "./LinkChangeIcon";
@@ -1561,13 +1558,19 @@ function LayeredDependencyInner({
      Turns the on-screen LDV into a real diagram in the Diagram module. Card
      shapes carry cardId/cardType so they stay connected to the inventory;
      relation edges are display-only (never marked pending → no duplicate
-     relations created). Layer swim-lanes render as background boxes. */
+     relations created). Layer swim-lanes render as background boxes. An
+     AGGREGATED view exports its boxes as containers with the cards nested
+     inside, and its merged connectors as decoration — said to the reader in
+     a confirmation step first, since a line standing for N relations cannot
+     be synced or flagged the way a relation line is. */
+  const [createConfirmOpen, setCreateConfirmOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(false);
 
-  const openCreateDialog = useCallback(() => {
+  const openCreateNameDialog = useCallback(() => {
+    setCreateConfirmOpen(false);
     setCreateError(false);
     setCreateName(
       t("dependency.createDiagramDefaultName", { name: centerName || t("dependency.title") }),
@@ -1575,89 +1578,30 @@ function LayeredDependencyInner({
     setCreateOpen(true);
   }, [centerName, t]);
 
+  const openCreateDialog = useCallback(() => {
+    if (settings.aggregateBy !== "none") setCreateConfirmOpen(true);
+    else openCreateNameDialog();
+  }, [settings.aggregateBy, openCreateNameDialog]);
+
   const submitCreateDiagram = useCallback(async () => {
     const name = createName.trim();
     if (!name || creating) return;
     setCreating(true);
     setCreateError(false);
     try {
-      // Flatten child (card) coordinates to absolute — child nodes are
-      // positioned relative to their layer group (mirrors exportImage).
-      const live = getNodes();
-      const byId = new Map(live.map((n) => [n.id, n]));
-      const absOf = (n: Node) => absolutePosition(n, byId);
-
-      const cards: DiagramCardInput[] = [];
-      const layers: DiagramLayerInput[] = [];
-      const included = new Set<string>();
-      for (const n of live) {
-        if (n.type === "ldvNode") {
-          const d = n.data as LdvNodeData;
-          if (d.proposed) continue; // proposed cards have no inventory id
-          const p = absOf(n);
-          cards.push({
-            cardId: n.id,
-            cardType: d.typeKey,
-            name: d.name,
-            color: d.typeColor,
-            icon: d.typeIcon,
-            // Carry across exactly what the reader is looking at. `extraLines`
-            // already holds the subtype row and the picked attribute rows,
-            // resolved and formatted; the type row is rendered separately on an
-            // LDV node (as "[Application]"), so it is prepended here.
-            detailLines: [
-              ...(settings.showType
-                ? [{ label: t("dependency.typeLabel"), value: d.typeLabel || d.typeKey }]
-                : []),
-              ...((d.extraLines as DisplayLine[] | undefined) ?? []),
-            ],
-            x: p.x,
-            y: p.y,
-            w: (n.style?.width as number) ?? LDV_NODE_W,
-            h: (n.style?.height as number) ?? LDV_NODE_H,
-          });
-          included.add(n.id);
-        } else if (n.type === "ldvGroup") {
-          const d = n.data as LdvGroupData;
-          layers.push({
-            label: d.label,
-            color: d.color,
-            x: n.position.x,
-            y: n.position.y,
-            w: (n.style?.width as number) ?? 0,
-            h: (n.style?.height as number) ?? 0,
-          });
-        }
-      }
-
-      // Card centres in the same space the shapes are written in, so the
-      // view's own route can travel onto the diagram unchanged.
-      const centres = computeAbsPos(live);
-      const rels: DiagramRelInput[] = [];
-      for (const e of rfEdges) {
-        if (!included.has(e.source) || !included.has(e.target)) continue;
-        const d = e.data as LdvEdgeData | undefined;
-        const route = exportRoute({
-          sourceHandle: e.sourceHandle,
-          targetHandle: e.targetHandle,
-          sourceCentre: centres.get(e.source),
-          targetCentre: centres.get(e.target),
-          waypoints: d?.waypoints,
-          centerY: d?.centerY,
-          anchors: d?.anchors,
-        });
-        rels.push({
-          sourceCardId: e.source,
-          targetCardId: e.target,
-          // Each line IS one relation type (several may connect a card pair), so
-          // take it off the edge rather than guessing one per pair. Synthetic
-          // hierarchy lines are not relations and carry no type.
-          relationType: d?.relType && d.relType !== "hierarchy" ? d.relType : "",
-          label: d?.relLabel ?? "",
-          flow: d?.flowDirection,
-          ...route,
-        });
-      }
+      // Live nodes, so a dragged box or card exports where the reader put it.
+      const { cards, rels, layers, groups, connectors } = collectDiagramInputs(
+        getNodes(),
+        rfEdges,
+        settings.showType
+          ? {
+              typeRow: (d) => ({
+                label: t("dependency.typeLabel"),
+                value: d.typeLabel || d.typeKey,
+              }),
+            }
+          : {},
+      );
 
       if (cards.length === 0) {
         setCreateError(true);
@@ -1665,7 +1609,7 @@ function LayeredDependencyInner({
         return;
       }
 
-      const xml = buildLdvDiagramXml(cards, rels, layers);
+      const xml = buildLdvDiagramXml(cards, rels, layers, groups, connectors);
       const created = await api.post<{ id: string }>("/diagrams", {
         name,
         // Seed the diagram's own display settings from the report's, so the
@@ -1830,13 +1774,14 @@ function LayeredDependencyInner({
   );
 
   // Build the full node list from the layout: structure + position, plus click /
-  // long-press callbacks and display data. Layer (group) boxes are draggable so
-  // a whole layer can be moved; cards stay clamped to their layer via extent.
+  // long-press callbacks and display data. Layer (group) boxes and aggregate
+  // boxes are draggable so a whole layer or group can be moved; cards stay
+  // clamped to their box via extent and ride along with it.
   const buildDisplayNodes = useCallback(
     (): Node[] =>
       builtNodes.map((n) => {
         if (n.type !== "ldvNode") {
-          if (n.type === "ldvGroup") return { ...n, draggable: true };
+          if (n.type === "ldvGroup" || n.type === "ldvCluster") return { ...n, draggable: true };
           return n;
         }
         return {
@@ -2217,27 +2162,10 @@ function LayeredDependencyInner({
             </IconButton>
           </Tooltip>
           {canCreateDiagram && (
-            // A diagram is made of cards and relations; aggregate mode draws
-            // boxes and merged connectors, which have no inventory counterpart
-            // to link a shape to. Off is one click away, so the button says so
-            // rather than silently exporting something else.
-            <Tooltip
-              title={
-                settings.aggregateBy !== "none"
-                  ? t("dependency.createDiagramAggregated")
-                  : t("dependency.createDiagram")
-              }
-              arrow
-            >
-              <span>
-                <IconButton
-                  size="small"
-                  onClick={openCreateDialog}
-                  disabled={settings.aggregateBy !== "none"}
-                >
-                  <MaterialSymbol icon="note_add" size={19} />
-                </IconButton>
-              </span>
+            <Tooltip title={t("dependency.createDiagram")} arrow>
+              <IconButton size="small" onClick={openCreateDialog}>
+                <MaterialSymbol icon="note_add" size={19} />
+              </IconButton>
             </Tooltip>
           )}
           {openInReportHref && (
@@ -2455,7 +2383,13 @@ function LayeredDependencyInner({
         </MenuItem>
       </Menu>
 
-      {/* Create-diagram name dialog */}
+      {/* Create-diagram: the aggregated-view caveat, then the name */}
+      <LdvExportAggregatedDialog
+        open={createConfirmOpen}
+        onClose={() => setCreateConfirmOpen(false)}
+        onContinue={openCreateNameDialog}
+        container={isFullscreen ? containerRef.current : undefined}
+      />
       <Dialog
         open={createOpen}
         onClose={() => !creating && setCreateOpen(false)}
