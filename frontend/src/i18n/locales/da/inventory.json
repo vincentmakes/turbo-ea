@@ -52,6 +52,7 @@
   "filter.searchEllipsis": "Søg…",
   "filter.types": "Typer",
   "filter.subtypes": "Undertyper",
+  "filter.typesUncategorized": "Ukategoriseret",
   "filter.approvalStatus": "Godkendelsesstatus",
   "filter.lifecycle": "Livscyklus",
   "filter.dataQuality": "Datakvalitet",

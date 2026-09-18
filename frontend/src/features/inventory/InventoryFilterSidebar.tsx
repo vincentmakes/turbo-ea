@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -31,6 +31,7 @@ import Switch from "@mui/material/Switch";
 import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { expandSides, sideKey } from "@/lib/relationSort";
+import { groupCardTypesByCategory } from "@/lib/cardTypeOrder";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import ColumnOrderSection, {
   type ColumnOrderItem,
@@ -395,7 +396,7 @@ export default function InventoryFilterSidebar({
   groupBy = null,
   onGroupByChange,
 }: Props) {
-  const { t } = useTranslation(["inventory", "common"]);
+  const { t, i18n } = useTranslation(["inventory", "common"]);
   // EOL status labels live in the reports namespace — the EOL report owns
   // them, and a second copy here is how the two drift apart.
   const { t: tReports } = useTranslation("reports");
@@ -456,6 +457,19 @@ export default function InventoryFilterSidebar({
   useEffect(() => {
     loadBookmarks();
   }, [loadBookmarks]);
+
+  // Card types bucketed by EA layer — see `lib/cardTypeOrder.ts`. The API
+  // orders by `sort_order` alone, which only looks layered because the seed
+  // numbers the built-in types that way; a type added later would otherwise
+  // sit at the bottom of the list whatever layer it belongs to.
+  const typeGroups = useMemo(
+    () => groupCardTypesByCategory(types, { locale: i18n.language }),
+    [types, i18n.language],
+  );
+  // A lone layer heading names nothing the section header does not — and on an
+  // instance where no type has a layer it would read as "Uncategorized" over
+  // the whole list, implying a categorised part that does not exist.
+  const showTypeGroupHeaders = typeGroups.length > 1;
 
   // Derive subtype options from selected type
   const subtypeOptions = useMemo(() => {
@@ -994,34 +1008,59 @@ export default function InventoryFilterSidebar({
               />
               <Collapse in={expandedSections.types}>
                 <List dense disablePadding sx={{ mb: 1 }}>
-                  {types
-                    .filter((t) => !t.is_hidden)
-                    .map((t) => (
-                      <ListItemButton
-                        key={t.key}
-                        dense
-                        onClick={() => toggleType(t.key)}
-                        sx={{ py: 0.25, px: 1, borderRadius: 1 }}
-                      >
-                        <ListItemIcon sx={{ minWidth: 32 }}>
-                          <Checkbox
-                            size="small"
-                            checked={filters.types.includes(t.key)}
-                            disableRipple
-                            sx={{ p: 0 }}
-                          />
-                        </ListItemIcon>
-                        <MaterialSymbol icon={t.icon} size={16} color={t.color} />
-                        <ListItemText
-                          primary={typeLabel(t)}
-                          primaryTypographyProps={{
-                            fontSize: 14,
-                            ml: 0.75,
-                            noWrap: true,
+                  {typeGroups.map((group) => (
+                    <Fragment key={group.key}>
+                      {showTypeGroupHeaders && (
+                        // A layer name is database free text and is translated
+                        // nowhere in the app, so it renders raw — only the
+                        // no-layer bucket needs a key of our own.
+                        <ListSubheader
+                          disableSticky
+                          disableGutters
+                          sx={{
+                            px: 1,
+                            pt: 1,
+                            pb: 0.25,
+                            lineHeight: 1.4,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            letterSpacing: 0.4,
+                            textTransform: "uppercase",
+                            color: "text.secondary",
+                            bgcolor: "transparent",
                           }}
-                        />
-                      </ListItemButton>
-                    ))}
+                        >
+                          {group.category ?? t("filter.typesUncategorized")}
+                        </ListSubheader>
+                      )}
+                      {group.types.map((t) => (
+                        <ListItemButton
+                          key={t.key}
+                          dense
+                          onClick={() => toggleType(t.key)}
+                          sx={{ py: 0.25, px: 1, borderRadius: 1 }}
+                        >
+                          <ListItemIcon sx={{ minWidth: 32 }}>
+                            <Checkbox
+                              size="small"
+                              checked={filters.types.includes(t.key)}
+                              disableRipple
+                              sx={{ p: 0 }}
+                            />
+                          </ListItemIcon>
+                          <MaterialSymbol icon={t.icon} size={16} color={t.color} />
+                          <ListItemText
+                            primary={typeLabel(t)}
+                            primaryTypographyProps={{
+                              fontSize: 14,
+                              ml: 0.75,
+                              noWrap: true,
+                            }}
+                          />
+                        </ListItemButton>
+                      ))}
+                    </Fragment>
+                  ))}
                 </List>
               </Collapse>
 

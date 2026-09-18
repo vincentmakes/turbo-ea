@@ -52,6 +52,7 @@
   "filter.searchEllipsis": "搜索…",
   "filter.types": "类型",
   "filter.subtypes": "子类型",
+  "filter.typesUncategorized": "未分类",
   "filter.approvalStatus": "审批状态",
   "filter.lifecycle": "生命周期",
   "filter.dataQuality": "数据质量",

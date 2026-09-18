@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.147.1] - 2026-09-19
+
+### Fixed
+
+- **The Inventory's card type filter is now grouped by architecture layer.** The list only looked layered: it came back in the order the types were created, which matches the layers for the types Turbo EA ships and not at all for one you add yourself — a custom Business Architecture type sat at the very bottom of the list, under Technical Architecture, with no way to move it. The filter now draws the types under a small heading per layer — Strategy & Transformation, Business Architecture, Application & Data, Technical Architecture — with each type in its own layer wherever it was created and the shipped order kept inside each one. A layer of your own naming keeps its name and follows the four, types with no layer set are listed last under **Uncategorized**, and on an instance whose types all sit in one layer the headings stay out of the way.
+
 ## [2.147.0] - 2026-09-18
 
 ### Added

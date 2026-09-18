@@ -52,6 +52,7 @@
   "filter.searchEllipsis": "Поиск…",
   "filter.types": "Типы",
   "filter.subtypes": "Подтипы",
+  "filter.typesUncategorized": "Без категории",
   "filter.approvalStatus": "Статус утверждения",
   "filter.lifecycle": "Жизненный цикл",
   "filter.dataQuality": "Качество данных",

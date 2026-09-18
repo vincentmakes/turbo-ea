@@ -52,6 +52,7 @@
   "filter.searchEllipsis": "Pesquisar…",
   "filter.types": "Tipos",
   "filter.subtypes": "Subtipos",
+  "filter.typesUncategorized": "Sem categoria",
   "filter.approvalStatus": "Status de aprovação",
   "filter.lifecycle": "Ciclo de vida",
   "filter.dataQuality": "Qualidade dos dados",

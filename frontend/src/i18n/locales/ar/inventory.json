@@ -52,6 +52,7 @@
   "filter.searchEllipsis": "بحث…",
   "filter.types": "الأنواع",
   "filter.subtypes": "الأنواع الفرعية",
+  "filter.typesUncategorized": "غير مصنّف",
   "filter.approvalStatus": "حالة الاعتماد",
   "filter.lifecycle": "دورة الحياة",
   "filter.dataQuality": "جودة البيانات",
