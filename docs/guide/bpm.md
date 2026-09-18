@@ -70,6 +70,7 @@ BPMN elements can be **linked to EA cards**. For example, link a task in your pr
 - The link is stored on the step and creates a relation between the process and the card, so it is visible in both the process flow and the card's Relations tab
 - The **Business Process** column links a step to the process it hands over to — see below
 - The same five links are offered **in the editor** while a draft is open: a **Linked cards** group in the properties panel, and a **Link cards** entry on the context pad that opens a menu of them
+- On the diagram itself a linked step wears **one small dot per linked card type** under its name, in that card type's colour, in the editor and the read-only viewer alike — names are kept off the canvas; click the step to see them, or hover a dot
 
 ### Linking a step to a process
 

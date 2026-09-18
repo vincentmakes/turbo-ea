@@ -415,6 +415,33 @@ describe("ProcessFlowTab", () => {
       });
     });
 
+    it("orders the link columns Organization, Application, Data Object, IT Component, Business Process", async () => {
+      // Organization sits ahead of the card links a step supports, and the
+      // process a step hands over to reads last — the order the user asked for.
+      mockWithOrgs();
+      renderTab();
+      await waitFor(() => {
+        expect(screen.getByText("Organization")).toBeInTheDocument();
+      });
+      // The info glyph is text in the DOM (a Material Symbols ligature), so
+      // strip it before reading the header label.
+      const headers = screen.getAllByRole("columnheader").map((h) => {
+        const clone = h.cloneNode(true) as HTMLElement;
+        clone.querySelectorAll(".material-symbols-outlined").forEach((n) => n.remove());
+        return clone.textContent?.trim();
+      });
+      const from = headers.indexOf("Organization");
+      expect(from).toBeGreaterThan(0);
+      expect(headers.slice(from)).toEqual([
+        "Organization",
+        "Application",
+        "Data Object",
+        "IT Component",
+        "Business Process",
+      ]);
+      expect(headers[headers.length - 1]).toBe("Business Process");
+    });
+
     it("shows the highlighted informative-only note above the table", async () => {
       mockWithOrgs();
       renderTab();

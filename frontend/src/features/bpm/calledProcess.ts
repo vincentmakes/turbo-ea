@@ -127,6 +127,31 @@ export function withLink(
   return { ...links, [SINGLE_LINK_FIELD[kind]]: (card as LinkedCard | null) ?? undefined };
 }
 
+/**
+ * The kinds a step actually has a card for, in `LINK_KIND_ORDER` — what the
+ * canvas draws one dot per.
+ */
+export function linkKindsPresent(links: ElementLinks): LinkKind[] {
+  return LINK_KIND_ORDER.filter((kind) =>
+    kind === "organization" ? links.organizations.length > 0 : Boolean(singleLinkOf(links, kind)),
+  );
+}
+
+/**
+ * The name(s) behind each present kind — the dot's hover text. Organizations
+ * are one dot however many, so their names are joined.
+ */
+export function linkDotTitles(links: ElementLinks): Partial<Record<LinkKind, string>> {
+  const titles: Partial<Record<LinkKind, string>> = {};
+  for (const kind of linkKindsPresent(links)) {
+    titles[kind] =
+      kind === "organization"
+        ? links.organizations.map((o) => o.name).join(", ")
+        : singleLinkOf(links, kind)!.name;
+  }
+  return titles;
+}
+
 /** @deprecated alias kept for the call-activity-only helpers below. */
 export type CallActivityLike = FlowNodeLike;
 

@@ -70,6 +70,7 @@ BPMN-Elemente können mit **EA-Karten verknüpft** werden. Verknüpfen Sie beisp
 - Die Verknüpfung wird am Schritt gespeichert und erzeugt eine Beziehung zwischen Prozess und Karte, sichtbar sowohl im Prozessfluss als auch auf der Registerkarte Beziehungen der Karte
 - Die Spalte **Geschäftsprozess** verknüpft einen Schritt mit dem Prozess, an den er übergibt — siehe unten
 - Dieselben fünf Verknüpfungen stehen **im Editor** zur Verfügung, solange ein Entwurf geöffnet ist: eine Gruppe **Verknüpfte Karten** im Eigenschaftenpanel und ein Eintrag **Karten verknüpfen** im Kontextmenü, der ein Menü davon öffnet
+- Im Diagramm selbst trägt ein verknüpfter Schritt **je einen kleinen Punkt pro verknüpftem Kartentyp** unter seinem Namen, in der Farbe des Kartentyps — im Editor wie im schreibgeschützten Viewer. Namen bleiben vom Zeichenblatt fern; klicken Sie auf den Schritt, um sie zu sehen, oder fahren Sie mit der Maus über einen Punkt
 
 ### Einen Schritt mit einem Prozess verknüpfen
 

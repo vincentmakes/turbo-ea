@@ -59,13 +59,19 @@ import {
   collectProcessRefIds,
   elementIdOf,
   emptyLinks,
+  isCardUuid,
+  isProcessStep,
+  linkDotTitles,
   linksFromDraftElements,
+  processRefOf,
   processRefProperties,
   withLink,
 } from "./calledProcess";
 import type { LinkKind, LinkedCard } from "./calledProcess";
 import { createCalledProcessModule } from "./calledProcessModule";
 import type { LinkBridge, LinkLabels } from "./calledProcessModule";
+import { LINK_DOTS_OVERLAY_TYPE, linkDotPlacement, linkDotsFor, linkDotsHtml } from "./linkDots";
+import { useLinkTypeColors } from "./useLinkTypeColors";
 import { TURBOEA_MODDLE } from "./turboeaModdle";
 
 // bpmn-js CSS
@@ -149,6 +155,12 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
     },
   });
 
+  // Card-type colours for the link dots on the canvas, read through a ref so
+  // the redraw callbacks stay stable across metamodel refreshes.
+  const linkTypeColors = useLinkTypeColors();
+  const linkColorsRef = useRef(linkTypeColors);
+  linkColorsRef.current = linkTypeColors;
+
   // The four card links are draft element links, so they need a draft to live
   // in. Without one the panel offers the process link alone, which lives in
   // the diagram itself.
@@ -206,6 +218,58 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
    * Only needed for a shape the server has not seen yet — for everything in
    * the saved XML the names come resolved from `loadDraftLinks`.
    */
+  /**
+   * Redraw the link dots: one coloured dot per linked card type under each
+   * step's name, the same renderer the read-only viewer uses (`linkDots.ts`),
+   * so a draft looks on the canvas the way it will once published. Drawn from
+   * `bridge.links` — the server's resolved view — plus, for a shape the server
+   * has not seen yet, the diagram's own card-uuid reference (the
+   * `CalledProcessEntry` read rule). Cheap enough to run on every
+   * `commandStack.changed`: overlays of a deleted shape are dropped by
+   * bpmn-js itself, but a label that appears when a step is first named is
+   * a new element the dots must move onto.
+   */
+  const refreshLinkDots = useCallback((modeler: any) => {
+    let overlays: any;
+    let registry: any;
+    try {
+      overlays = modeler.get("overlays");
+      registry = modeler.get("elementRegistry");
+      overlays.remove({ type: LINK_DOTS_OVERLAY_TYPE });
+    } catch {
+      return;
+    }
+    const colors = linkColorsRef.current;
+    const draw = (shape: any, titles: Partial<Record<LinkKind, string>>) => {
+      const placement = linkDotPlacement(shape);
+      const html = linkDotsHtml(linkDotsFor(titles, colors), placement.width);
+      if (!html) return;
+      try {
+        overlays.add(placement.elementId, LINK_DOTS_OVERLAY_TYPE, {
+          position: placement.position,
+          html,
+        });
+      } catch {
+        // The element may not be drawn yet; the next refresh catches it.
+      }
+    };
+    const seen = new Set<string>();
+    for (const [bpmnId, links] of Object.entries(bridgeRef.current.links)) {
+      const shape = registry.get(bpmnId);
+      if (!shape) continue;
+      seen.add(bpmnId);
+      draw(shape, linkDotTitles(links));
+    }
+    // Shapes placed since the last autosave: the diagram reference is all
+    // there is, resolved through `names` when `resolveCalledNames` got to it.
+    for (const shape of registry.getAll() as any[]) {
+      if (seen.has(shape.id) || !isProcessStep(shape)) continue;
+      const ref = processRefOf(shape);
+      if (!isCardUuid(ref)) continue;
+      draw(shape, { process: bridgeRef.current.names[ref] ?? ref });
+    }
+  }, []);
+
   const resolveCalledNames = useCallback(async (modeler: any) => {
     let ids: string[] = [];
     try {
@@ -219,11 +283,12 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
       const cards = await fetchCardsByIds(ids);
       for (const c of cards) bridgeRef.current.names[c.id] = c.name;
       (modeler.get("eventBus") as any).fire("propertiesPanel.providersChanged");
+      refreshLinkDots(modeler);
     } catch {
       // Names stay unresolved; the entry then shows the raw id, which is
       // still a link the modeller can replace.
     }
-  }, []);
+  }, [refreshLinkDots]);
 
   /**
    * Load the links the server holds for this draft's steps.
@@ -243,11 +308,12 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
       if (modelerRef.current !== modeler) return; // re-initialised meanwhile
       bridgeRef.current.links = linksFromDraftElements(rows);
       (modeler.get("eventBus") as any).fire("propertiesPanel.providersChanged");
+      refreshLinkDots(modeler);
     } catch {
       // The rows stay empty; every row then reads as unlinked and a pick
       // still writes through, so the panel degrades rather than breaking.
     }
-  }, [processId]);
+  }, [processId, refreshLinkDots]);
 
   /**
    * Persist one link and show it at once.
@@ -263,7 +329,9 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
       const before = bridgeRef.current.links[bpmnId] ?? emptyLinks();
       const refresh = () => {
         const m = modelerRef.current;
-        if (m) (m.get("eventBus") as any).fire("propertiesPanel.providersChanged");
+        if (!m) return;
+        (m.get("eventBus") as any).fire("propertiesPanel.providersChanged");
+        refreshLinkDots(m);
       };
       bridgeRef.current.links[bpmnId] = withLink(before, kind, picked);
       refresh();
@@ -282,7 +350,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
         setSnack({ msg: t("modeler.linkFailed"), severity: "error" });
       }
     },
-    [processId, t],
+    [processId, t, refreshLinkDots],
   );
 
   /**
@@ -454,6 +522,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
       if (destroyed) return;
       void resolveCalledNames(modeler);
       void loadDraftLinks(modeler);
+      (modeler.get("eventBus") as any).on("commandStack.changed", () => refreshLinkDots(modeler));
 
       // The panel attaches itself to `propertiesPanel.parent` on import; honour
       // a "closed" preference by detaching right after.

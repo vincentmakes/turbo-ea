@@ -23,6 +23,7 @@
  */
 
 import { createContext, useContext } from "react";
+import type { LinkKind } from "./calledProcess";
 import type { ProcessTypeOptionsResult } from "./useProcessTypeOptions";
 import type { SubtypeDef } from "@/types";
 
@@ -86,6 +87,12 @@ export interface ProcessNavigatorSource {
   loadCard?(processId: string): Promise<Record<string, unknown>>;
   reorderCards?(updates: { id: string; sortOrder: number }[]): Promise<void>;
   saveRowOrder?(order: string[]): Promise<void>;
+  /**
+   * Card-type colours for the link dots on the flow viewer, from the
+   * metamodel — the app supplies them; a portal has no metamodel session and
+   * leaves them unset, so the viewer falls back to the seeded set.
+   */
+  typeColors?: Partial<Record<LinkKind, string>>;
 }
 
 export type NavigatorViewMode = "house" | "matrix" | "dependencies";

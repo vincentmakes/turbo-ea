@@ -70,6 +70,7 @@ Los elementos BPMN pueden ser **vinculados a fichas de EA**. Por ejemplo, vincul
 - El vínculo se guarda en el paso y crea una relación entre el proceso y la ficha, visible tanto en el flujo de proceso como en la pestaña Relaciones de la ficha
 - La columna **Proceso de negocio** vincula una etapa con el proceso al que da paso — véase más abajo
 - Los mismos cinco vínculos se ofrecen **en el editor** mientras hay un borrador abierto: un grupo **Fichas vinculadas** en el panel de propiedades y una entrada **Vincular fichas** en el menú contextual que abre la lista
+- En el propio diagrama, un paso vinculado lleva **un pequeño punto por cada tipo de ficha vinculada** bajo su nombre, en el color de ese tipo de ficha, tanto en el editor como en el visor de solo lectura. Los nombres no se dibujan en el lienzo: haga clic en el paso para verlos, o pase el cursor sobre un punto
 
 ### Vincular una etapa con un proceso
 

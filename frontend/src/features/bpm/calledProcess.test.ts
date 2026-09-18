@@ -14,6 +14,8 @@ import {
   isProcessStep,
   linkKindsFor,
   linksFromDraftElements,
+  linkKindsPresent,
+  linkDotTitles,
   processRefOf,
   processRefProperties,
   singleLinkOf,
@@ -290,5 +292,36 @@ describe("linksFromDraftElements", () => {
       { bpmn_element_id: "t", application_id: "a1", application_name: null },
     ]);
     expect(map.t.application).toEqual({ id: "a1", name: "a1" });
+  });
+});
+
+describe("linkKindsPresent / linkDotTitles", () => {
+  it("lists the kinds a step has a card for, in LINK_KIND_ORDER", () => {
+    const links = {
+      ...emptyLinks(),
+      organizations: [{ id: "o1", name: "Sales" }],
+      application: { id: "a1", name: "SAP" },
+    };
+    expect(linkKindsPresent(links)).toEqual(["application", "organization"]);
+  });
+
+  it("is empty for an unlinked step", () => {
+    expect(linkKindsPresent(emptyLinks())).toEqual([]);
+    expect(linkDotTitles(emptyLinks())).toEqual({});
+  });
+
+  it("titles each dot with its card, organizations joined into one", () => {
+    const links = {
+      ...emptyLinks(),
+      business_process: { id: "p1", name: "Credit Check" },
+      organizations: [
+        { id: "o1", name: "Sales" },
+        { id: "o2", name: "Finance" },
+      ],
+    };
+    expect(linkDotTitles(links)).toEqual({
+      process: "Credit Check",
+      organization: "Sales, Finance",
+    });
   });
 });

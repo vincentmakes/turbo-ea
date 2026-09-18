@@ -74,6 +74,7 @@ Les éléments BPMN peuvent être **liés à des fiches EA**. Par exemple, lier 
 - Le lien est enregistré sur l'étape et crée une relation entre le processus et la fiche, visible à la fois dans le flux de processus et dans l'onglet Relations de la fiche
 - La colonne **Processus métier** lie une étape au processus auquel elle passe la main -- voir ci-dessous
 - Les cinq mêmes liens sont proposés **dans l'éditeur** tant qu'un brouillon est ouvert : un groupe **Fiches liées** dans le panneau des propriétés, et une entrée **Lier des fiches** dans le menu contextuel qui en ouvre la liste
+- Sur le diagramme lui-même, une étape liée porte **un petit point par type de fiche liée** sous son nom, dans la couleur de ce type de fiche — dans l'éditeur comme dans la visionneuse en lecture seule. Les noms restent hors du canevas : cliquez sur l'étape pour les voir, ou survolez un point
 
 ### Lier une étape à un processus
 

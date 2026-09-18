@@ -70,6 +70,7 @@ BPMN-elementer kan **linkes til EA-kort**. For eksempel kan du linke en opgave i
 - Linket gemmes på trinnet og opretter en relation mellem processen og kortet, så det er synligt i både procesflowet og kortets fane Relationer
 - Kolonnen **Forretningsproces** forbinder et trin med den proces, det giver videre til — se nedenfor
 - De samme fem tilknytninger tilbydes **i editoren**, så længe et udkast er åbent: en gruppe **Tilknyttede kort** i egenskabspanelet og et punkt **Tilknyt kort** i kontekstmenuen, der åbner listen over dem
+- På selve diagrammet bærer et tilknyttet trin **én lille prik pr. tilknyttet korttype** under sit navn, i korttypens farve — både i editoren og i den skrivebeskyttede fremviser. Navne holdes væk fra lærredet: klik på trinnet for at se dem, eller hold musen over en prik
 
 ### Tilknyt et trin til en proces
 

@@ -21,6 +21,7 @@ import LinkifiedText from "@/components/LinkifiedText";
 import ElementTypeChip from "./ElementTypeChip";
 import { elementTypeInfo } from "./elementTypes";
 import { calledProcessPath } from "./calledProcess";
+import { useLinkTypeColors } from "./useLinkTypeColors";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import Chip from "@mui/material/Chip";
@@ -1572,6 +1573,7 @@ function FlowPreviewDialog({
                 elements={elements}
                 onElementClick={() => {}}
                 height="calc(100vh - 116px)"
+                typeColors={source.typeColors}
               />
             </Suspense>
           </Box>
@@ -2901,9 +2903,11 @@ export default function ProcessNavigator() {
   const processTypes = useProcessTypeOptions();
   const { user } = useAuth();
   const bpType = getType("BusinessProcess");
+  const linkTypeColors = useLinkTypeColors();
 
   const source = useMemo<ProcessNavigatorSource>(
     () => ({
+      typeColors: linkTypeColors,
       loadMap: async () => {
         const [r, rowOrderRes] = await Promise.all([
           api.get<{ items: ProcItem[]; organizations: RefItem[] }>("/reports/bpm/process-map"),
@@ -2966,7 +2970,7 @@ export default function ProcessNavigator() {
       subtypes: bpType?.subtypes ?? [],
       processTypes,
     }),
-    [bpType, processTypes],
+    [bpType, processTypes, linkTypeColors],
   );
 
   return (

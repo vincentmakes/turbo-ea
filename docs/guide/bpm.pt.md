@@ -70,6 +70,7 @@ Elementos BPMN podem ser **vinculados a cards de EA**. Por exemplo, vincule uma 
 - O vínculo é guardado no passo e cria uma relação entre o processo e o card, visível tanto no fluxo de processo quanto na aba Relações do card
 - A coluna **Processo de negócio** vincula um passo ao processo para o qual ele transita — veja abaixo
 - Os mesmos cinco vínculos estão disponíveis **no editor** enquanto um rascunho está aberto: um grupo **Cards associados** no painel de propriedades e uma entrada **Associar cards** no menu de contexto que abre a lista
+- No próprio diagrama, um passo associado exibe **um pequeno ponto por tipo de ficha associada** sob o seu nome, na cor desse tipo de ficha, tanto no editor como no visualizador só de leitura. Os nomes ficam fora da tela: clique no passo para os ver, ou passe o rato sobre um ponto
 
 ### Vincular um passo a um processo
 

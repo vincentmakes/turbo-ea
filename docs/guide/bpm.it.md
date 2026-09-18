@@ -74,6 +74,7 @@ Gli elementi BPMN possono essere **collegati alle card EA**. Ad esempio, collega
 - Il collegamento è memorizzato sul passo e crea una relazione tra il processo e la card, visibile sia nel flusso di processo sia nella scheda Relazioni della card
 - La colonna **Processo aziendale** collega un passo al processo a cui passa il testimone — vedi sotto
 - Gli stessi cinque collegamenti sono disponibili **nell'editor** finché una bozza è aperta: un gruppo **Card collegate** nel pannello delle proprietà e una voce **Collega card** nel menu contestuale che ne apre l'elenco
+- Nel diagramma stesso, un passo collegato porta **un piccolo punto per ogni tipo di scheda collegata** sotto il suo nome, nel colore di quel tipo di scheda, sia nell'editor sia nel visualizzatore in sola lettura. I nomi non compaiono sulla tela: fate clic sul passo per vederli, oppure passate il mouse su un punto
 
 ### Collegare un passo a un processo
 

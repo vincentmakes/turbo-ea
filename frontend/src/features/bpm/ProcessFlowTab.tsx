@@ -43,6 +43,7 @@ import Snackbar from "@mui/material/Snackbar";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker from "@/components/CardPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useLinkTypeColors } from "./useLinkTypeColors";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { calledProcessPath } from "./calledProcess";
 import BpmnViewer from "./BpmnViewer";
@@ -79,6 +80,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   const { formatDate, formatDateTime } = useDateFormat();
   const navigate = useNavigate();
   const { getType } = useMetamodel();
+  const linkTypeColors = useLinkTypeColors();
   const typeLabelOf = useTypeLabel();
   const [subTab, setSubTab] = useState(initialSubTab ?? 0);
 
@@ -719,26 +721,26 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 <TableCell sx={{ fontWeight: 600 }}>{t("common:labels.type")}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.lane")}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>
-                  <Tooltip title={t("flowTab.businessProcessTooltip")}>
-                    <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
-                      {t("flowTab.businessProcess")}
-                      <MaterialSymbol icon="info" size={14} color="#999" />
-                    </Box>
-                  </Tooltip>
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>
                   <Tooltip title={t("flowTab.automatedTooltip")}>
                     <span>{t("flowTab.automated")}</span>
                   </Tooltip>
                 </TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.tCode")}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.application")}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.dataObject")}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.itComponent")}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>
                   <Tooltip title={t("flowTab.organizationTooltip")}>
                     <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
                       {t("flowTab.organization")}
+                      <MaterialSymbol icon="info" size={14} color="#999" />
+                    </Box>
+                  </Tooltip>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.application")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.dataObject")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.itComponent")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>
+                  <Tooltip title={t("flowTab.businessProcessTooltip")}>
+                    <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+                      {t("flowTab.businessProcess")}
                       <MaterialSymbol icon="info" size={14} color="#999" />
                     </Box>
                   </Tooltip>
@@ -765,9 +767,6 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                     </TableCell>
                     <TableCell>{e.lane_name || "\u2014"}</TableCell>
                     <TableCell>
-                      {artefact ? dash : renderEditableCell(e, "business_process", "BusinessProcess", onUpdate, elemKey)}
-                    </TableCell>
-                    <TableCell>
                       {artefact ? (
                         dash
                       ) : e.is_automated ? (
@@ -777,10 +776,13 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                       )}
                     </TableCell>
                     <TableCell>{artefact ? dash : renderTCodeCell(e, onUpdate, elemKey)}</TableCell>
+                    <TableCell>{artefact ? dash : renderOrgCell(e, onUpdate, elemKey)}</TableCell>
                     <TableCell>{artefact ? dash : renderEditableCell(e, "application", "Application", onUpdate, elemKey)}</TableCell>
                     <TableCell>{renderEditableCell(e, "data_object", "DataObject", onUpdate, elemKey)}</TableCell>
                     <TableCell>{artefact ? dash : renderEditableCell(e, "it_component", "ITComponent", onUpdate, elemKey)}</TableCell>
-                    <TableCell>{artefact ? dash : renderOrgCell(e, onUpdate, elemKey)}</TableCell>
+                    <TableCell>
+                      {artefact ? dash : renderEditableCell(e, "business_process", "BusinessProcess", onUpdate, elemKey)}
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -917,6 +919,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
             elements={elements}
             onElementClick={() => {}}
             height={400}
+            typeColors={linkTypeColors}
           />
         )}
 
