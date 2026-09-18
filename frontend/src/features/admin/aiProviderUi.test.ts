@@ -20,7 +20,8 @@ describe("providerUi", () => {
         ui.modelHelperKey,
         ...(ui.urlLabelKey ? [ui.urlLabelKey] : []),
       ]) {
-        expect(keys[key.replace(/^settings\.ai\./, "settings.ai.")], key).toBeTruthy();
+        // admin.json uses flat dotted keys, so this is a direct lookup.
+        expect(keys[key], key).toBeTruthy();
       }
     }
   });
