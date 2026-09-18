@@ -52,6 +52,16 @@ L'**inventario di pianificazione** è lo stesso piano in forma di griglia: le
 vostre schede vive più quelle pianificate, con ogni modifica a loro carico. Le
 schede pianificate vivono dentro lo scenario e mai nell'inventario principale.
 
+Da Roadmap Studio 1.33.0 la griglia si modifica sul posto, come
+l'Inventario. Spunta le righe e **Modifica massiva** pianifica una modifica per
+ciascuna: un ritiro a una data, fasi ridatate, un valore di attributo o un
+costo una tantum. Attiva **Modifica celle** per digitare una data o un costo
+direttamente in una cella, o trascina la maniglia di riempimento lungo una
+colonna. **Esporta in Excel** scrive la griglia come mostrata più un foglio
+`Plan` con una chiave per riga; modificalo e **Importa da Excel** mostra ogni
+modifica in anteprima prima di scriverla. Riempimento ed Excel richiedono
+Turbo EA 2.147.0.
+
 Una modifica la cui scheda bersaglio sia stata nel frattempo archiviata, spostata
 o ridatata altrove viene **segnalata come obsoleta**, con il motivo: così un
 piano scritto tre mesi fa vi dice cosa si è mosso sotto di esso.

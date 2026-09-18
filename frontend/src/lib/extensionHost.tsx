@@ -148,7 +148,7 @@ import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.29";
+export const UI_SDK_VERSION = "1.30";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -1093,6 +1093,13 @@ export function initExtensionHost(): void {
       // extension grid offers the same right-click / long-press cell menu
       // core grids have (Show matching · Filter out · Copy, plus
       // page-specific row actions via `extraItems` — the AdrGrid pattern).
+      // Since SDK 1.30 it also resolves `useDragFill`, so an extension grid
+      // with editable cells offers the Inventory's Excel-style fill-down
+      // under the same five invariants (write-then-reload through the page's
+      // own per-cell primitive, one wrapper ref borrowed from
+      // `useColumnFreeze`, never a bulk endpoint). It rides the same chunk —
+      // MUI plus `import type` from ag-grid — so nothing joins the eager
+      // bundle.
       loadAgGrid: () =>
         Promise.all([
           import("ag-grid-react"),
@@ -1100,13 +1107,15 @@ export function initExtensionHost(): void {
           import("@/components/grid/useColumnFreeze"),
           import("@/components/grid/useColumnOrder"),
           import("@/components/grid/useCellContextMenu"),
-        ]).then(([agReact, setup, freeze, order, cellMenu]) => ({
+          import("@/components/grid/useDragFill"),
+        ]).then(([agReact, setup, freeze, order, cellMenu, dragFill]) => ({
           AgGridReact: agReact.AgGridReact,
           gridThemeLight: setup.gridThemeLight,
           gridThemeDark: setup.gridThemeDark,
           useColumnFreeze: freeze.useColumnFreeze,
           useColumnOrder: order.useColumnOrder,
           useCellContextMenu: cellMenu.useCellContextMenu,
+          useDragFill: dragFill.useDragFill,
         })),
       CreateCardDialog: ExtensionCreateCardDialog,
       // SDK 1.21 — timeline + dependency-view + filter-sidebar reuse.
@@ -1164,6 +1173,27 @@ export function initExtensionHost(): void {
           exportReportToPptx: module.exportReportToPptx,
           exportReportToXlsx: module.exportReportToXlsx,
           extractSheetsFromDOM: module.extractSheetsFromDOM,
+        })),
+      // SDK 1.30 — the spreadsheet engine an extension GRID needs, as
+      // distinct from the report exporters above: `exportCurrentViewToExcel`
+      // / `buildCurrentViewWorkbook` are the Inventory's own WYSIWYG "export
+      // what is on screen" (rows and displayed columns read off the grid
+      // API), the two readers are the leaf `lib/spreadsheet.ts` lifted out
+      // of the card importer, and `xlsx` is the vendored library itself (the
+      // `loadRecharts` posture for a bare heavy dependency) so a caller can
+      // append its own machine-readable sheet to the workbook core built.
+      // An extension must never bundle a spreadsheet library of its own.
+      loadSpreadsheet: () =>
+        Promise.all([
+          import("xlsx"),
+          import("@/features/inventory/excelExport"),
+          import("@/lib/spreadsheet"),
+        ]).then(([xlsx, exp, sheet]) => ({
+          xlsx,
+          exportCurrentViewToExcel: exp.exportCurrentViewToExcel,
+          buildCurrentViewWorkbook: exp.buildCurrentViewWorkbook,
+          parseWorkbook: sheet.parseWorkbook,
+          readWorkbookSheets: sheet.readWorkbookSheets,
         })),
     },
     register: registerExtension,

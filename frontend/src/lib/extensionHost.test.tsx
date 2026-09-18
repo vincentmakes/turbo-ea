@@ -164,6 +164,24 @@ describe("extensionHost", () => {
     expect(typeof loaded.useColumnOrder).toBe("function");
     // SDK 1.22 — the shared cell context-menu hook rides it too.
     expect(typeof loaded.useCellContextMenu).toBe("function");
+    // SDK 1.30 — the drag-fill hook, so an extension grid with editable
+    // cells offers the Inventory's fill-down instead of a lookalike.
+    expect(typeof loaded.useDragFill).toBe("function");
+  });
+
+  it("loadSpreadsheet resolves core's current-view Excel export and workbook readers", async () => {
+    initExtensionHost();
+    const sdk = window.TurboEA?.sdk as Record<string, unknown>;
+    const loaded =
+      (await (sdk.loadSpreadsheet as () => Promise<Record<string, unknown>>)()) ?? {};
+    expect(typeof loaded.exportCurrentViewToExcel).toBe("function");
+    expect(typeof loaded.buildCurrentViewWorkbook).toBe("function");
+    expect(typeof loaded.parseWorkbook).toBe("function");
+    expect(typeof loaded.readWorkbookSheets).toBe("function");
+    // The vendored library itself, for appending a machine sheet.
+    const xlsx = loaded.xlsx as Record<string, unknown>;
+    expect(xlsx).toBeDefined();
+    expect(typeof (xlsx.utils as Record<string, unknown>).json_to_sheet).toBe("function");
   });
 
   it("registers a plugin and lists its routes", () => {
@@ -458,7 +476,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.29");
+    expect(UI_SDK_VERSION).toBe("1.30");
   });
 
   it("whitelists the nav groups an extension route may request", () => {

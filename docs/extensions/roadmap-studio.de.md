@@ -52,6 +52,16 @@ Das **Planungsinventar** ist derselbe Plan als Tabelle: Ihre lebenden Karten
 plus die geplanten, mit jeder Änderung dazu. Geplante Karten leben im Szenario
 und nie in Ihrem Hauptinventar.
 
+Seit Roadmap Studio 1.33.0 bearbeitet das Raster direkt, wie das Inventar.
+Markieren Sie Zeilen, und **Massenbearbeitung** plant für jede eine Änderung —
+eine Außerbetriebnahme zu einem Datum, neu datierte Phasen, einen Attributwert
+oder Einmalkosten. Mit **Zellen bearbeiten** tippen Sie ein Datum oder Kosten
+direkt in eine Zelle oder ziehen den Ausfüllgriff eine Spalte hinunter. **Nach
+Excel exportieren** schreibt das Raster wie angezeigt plus ein Blatt `Plan` mit
+einem Schlüssel je Zeile; bearbeiten Sie es, und **Aus Excel importieren** zeigt
+jede Änderung in der Vorschau, bevor sie geschrieben wird. Ausfüllen und Excel
+benötigen Turbo EA 2.147.0.
+
 Eine Änderung, deren Zielkarte inzwischen archiviert, verschoben oder anderswo
 umdatiert wurde, wird als **veraltet markiert** — mit Begründung. So sagt Ihnen
 ein vor drei Monaten geschriebener Plan, was sich unter ihm bewegt hat.

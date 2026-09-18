@@ -54,6 +54,16 @@ fiches vivantes plus les fiches planifiées, avec chaque changement les
 concernant. Les fiches planifiées vivent dans le scénario et jamais dans votre
 inventaire principal.
 
+Depuis Roadmap Studio 1.33.0, la grille se modifie sur place, comme
+l'Inventaire. Cochez des lignes et **Modification en masse** planifie un
+changement pour chacune — un retrait à une date, des phases redatées, une valeur
+d'attribut ou un coût unique. Activez **Modifier les cellules** pour saisir une
+date ou un coût directement dans une cellule, ou tirez la poignée de remplissage
+le long d'une colonne. **Exporter vers Excel** écrit la grille telle qu'affichée
+plus une feuille `Plan` avec une clé par ligne ; modifiez-la et **Importer depuis
+Excel** montre chaque changement en aperçu avant de l'écrire. Le remplissage et
+Excel nécessitent Turbo EA 2.147.0.
+
 Un changement dont la fiche cible a depuis été archivée, déplacée ou redatée
 ailleurs est **signalé obsolète**, avec la raison — ainsi un plan écrit il y a
 trois mois vous dit ce qui a bougé sous lui.

@@ -50,6 +50,15 @@ case har for vane at skjule.
 plus de planlagte, med hver ændring imod dem. Planlagte kort lever inde i
 scenariet og aldrig i dit hovedinventar.
 
+Fra Roadmap Studio 1.33.0 redigeres gitteret på stedet, som Inventaret gør.
+Markér rækker, og **Masseredigering** planlægger én ændring for hver — en
+udfasning på en dato, ændrede fasedatoer, en attributværdi eller en
+engangsomkostning. Slå **Rediger celler** til for at skrive en dato eller en
+omkostning direkte i en celle, eller træk fyldhåndtaget ned ad en kolonne.
+**Eksportér til Excel** skriver gitteret som vist plus et `Plan`-ark med en nøgle
+pr. række; redigér det, og **Importér fra Excel** viser hver ændring i en
+forhåndsvisning, før den skrives. Udfyldning og Excel kræver Turbo EA 2.147.0.
+
 En ændring, hvis målkort siden er arkiveret, flyttet eller omdateret et andet
 sted, bliver **markeret som forældet** med begrundelsen — så en plan, der blev
 skrevet for tre måneder siden, fortæller dig, hvad der har flyttet sig under den.

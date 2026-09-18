@@ -478,15 +478,12 @@ const RELATIONS_SHEET_NAME = "Relations";
  * Legacy single-sheet parser. Kept for backwards compatibility with callers
  * that only care about the first sheet. New code should use
  * `parseWorkbookSheets()` to get a structured view of every sheet.
+ *
+ * The reader itself lives in the leaf `@/lib/spreadsheet` (it is what the
+ * extension SDK's `loadSpreadsheet` resolves — an extension needs "read this
+ * file into rows" without this module's card-import validators riding along).
  */
-export function parseWorkbook(file: ArrayBuffer): Record<string, unknown>[] {
-  // cellDates: true so that Excel-reformatted date cells come back as JS Date
-  // objects (handled by str()) instead of opaque serial numbers.
-  const wb = XLSX.read(file, { type: "array", cellDates: true });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  if (!ws) return [];
-  return XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
-}
+export { parseWorkbook } from "@/lib/spreadsheet";
 
 /**
  * Multi-sheet parser: returns one entry per non-meta, non-relations sheet,

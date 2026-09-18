@@ -51,6 +51,16 @@ El **inventario de planificación** es el mismo plan como cuadrícula: sus tarje
 vivas más las planificadas, con cada cambio sobre ellas. Las tarjetas
 planificadas viven dentro del escenario y nunca en su inventario principal.
 
+Desde Roadmap Studio 1.33.0 la cuadrícula se edita en el sitio, como el
+Inventario. Marque filas y **Edición masiva** planifica un cambio para cada una:
+una retirada en una fecha, fases con nuevas fechas, un valor de atributo o un
+coste único. Active **Editar celdas** para escribir una fecha o un coste
+directamente en una celda, o arrastre el tirador de relleno por una columna.
+**Exportar a Excel** escribe la cuadrícula tal como se muestra más una hoja
+`Plan` con una clave por fila; edítela e **Importar desde Excel** muestra cada
+cambio en una vista previa antes de escribirlo. El relleno y Excel requieren
+Turbo EA 2.147.0.
+
 Un cambio cuya tarjeta destino se haya archivado, movido o refechado en otro
 sitio se **marca como obsoleto**, con el motivo: así un plan escrito hace tres
 meses le dice qué se ha movido bajo él.

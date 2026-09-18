@@ -49,6 +49,14 @@ The **planning inventory** is the same plan as a grid: your live cards plus the
 planned ones, with every change against them. Planned cards live inside the
 scenario and never in your main inventory.
 
+Since Roadmap Studio 1.33.0 the grid edits in place, the way the Inventory
+does. Tick rows and **Mass edit** plans one change for each of them — a
+retirement on a date, re-dated phases, an attribute value or a one-time cost.
+Switch on **Edit cells** to type a date or a cost straight into a cell, or drag
+the fill handle down a column. **Export to Excel** writes the grid as shown plus
+a `Plan` sheet keyed per row; edit it and **Import from Excel** previews every
+change before it is written. Fill-down and Excel need Turbo EA 2.147.0.
+
 A change whose target card has since been archived, moved or had its dates
 edited elsewhere is **flagged stale**, with the reason — so a plan written three
 months ago tells you what has moved under it.

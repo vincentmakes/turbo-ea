@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.147.0] - 2026-09-18
+
+### Added
+
+- **Extension UI SDK 1.30: an extension grid can offer the Inventory's fill-down.** `loadAgGrid` now also resolves the shared drag-fill hook, so an extension page with editable cells gets the same Excel-style fill handle, range outline and confirmation dialog the Inventory has, instead of a lookalike.
+- **Extension UI SDK 1.30: an extension grid can export what is on screen and read a workbook back.** A new `loadSpreadsheet` loader resolves core's current-view Excel export and its workbook readers (plus the vendored spreadsheet library itself), so an extension can offer an export / edit-in-Excel / import round-trip without bundling a spreadsheet library of its own.
+
 ## [2.146.1] - 2026-09-18
 
 ### Fixed

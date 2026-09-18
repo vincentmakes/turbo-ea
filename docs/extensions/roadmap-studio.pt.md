@@ -52,6 +52,16 @@ O **inventário de planeamento** é o mesmo plano em grelha: os seus cartões vi
 mais os planeados, com cada alteração sobre eles. Os cartões planeados vivem
 dentro do cenário e nunca no seu inventário principal.
 
+Desde o Roadmap Studio 1.33.0 a grelha edita-se no local, como o
+Inventário. Marque linhas e **Edição em massa** planeia uma alteração para cada
+uma: uma retirada numa data, fases redatadas, um valor de atributo ou um custo
+único. Ative **Editar células** para escrever uma data ou um custo diretamente
+numa célula, ou arraste a alça de preenchimento ao longo de uma coluna.
+**Exportar para Excel** escreve a grelha tal como mostrada mais uma folha `Plan`
+com uma chave por linha; edite-a e **Importar do Excel** mostra cada alteração
+numa pré-visualização antes de a escrever. O preenchimento e o Excel requerem
+Turbo EA 2.147.0.
+
 Uma alteração cujo cartão-alvo tenha entretanto sido arquivado, movido ou
 redatado noutro sítio é **assinalada como obsoleta**, com o motivo — assim um
 plano escrito há três meses diz-lhe o que se mexeu por baixo dele.
