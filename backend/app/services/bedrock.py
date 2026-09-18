@@ -233,7 +233,8 @@ def _converse_sync(
     request = build_converse_request(
         model, messages, max_tokens=max_tokens, temperature=temperature
     )
-    return client.converse(**request)
+    response: dict[str, Any] = client.converse(**request)
+    return response
 
 
 async def converse(
