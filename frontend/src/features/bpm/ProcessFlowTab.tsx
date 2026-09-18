@@ -42,6 +42,9 @@ import Collapse from "@mui/material/Collapse";
 import Snackbar from "@mui/material/Snackbar";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker from "@/components/CardPicker";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
+import { calledProcessPath } from "./calledProcess";
 import BpmnViewer from "./BpmnViewer";
 import BpmnTemplateChooser from "./BpmnTemplateChooser";
 import ElementTypeChip from "./ElementTypeChip";
@@ -75,6 +78,8 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   const { t } = useTranslation(["bpm", "common"]);
   const { formatDate, formatDateTime } = useDateFormat();
   const navigate = useNavigate();
+  const { getType } = useMetamodel();
+  const typeLabelOf = useTypeLabel();
   const [subTab, setSubTab] = useState(initialSubTab ?? 0);
 
   // Permissions
@@ -488,14 +493,24 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
   const renderEditableCell = (
     element: ProcessElement,
-    field: "application" | "data_object" | "it_component",
+    field: "application" | "data_object" | "it_component" | "business_process",
     cardTypeKey: string,
     onUpdate: (id: string, updates: Record<string, unknown>) => void,
     elementId: string,
   ) => {
     const nameField = `${field}_name` as keyof ProcessElement;
+    const idField = `${field}_id` as keyof ProcessElement;
     const currentName = element[nameField] as string | undefined;
+    const currentId = element[idField] as string | undefined;
     const isEditing = editingCell?.elementId === elementId && editingCell?.field === field;
+    // The display name of the card type, never its key ("Business Process",
+    // not "BusinessProcess").
+    const typeName = typeLabelOf(getType(cardTypeKey)) || cardTypeKey;
+    // A call activity whose calledElement is another tool's process id: shown
+    // as a hint under the link affordance until the process is picked.
+    const isCall = field === "business_process";
+    const foreignRef =
+      isCall && !currentId && element.called_element ? element.called_element : null;
 
     if (isEditing) {
       return (
@@ -505,9 +520,10 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
           onChange={(val) => onUpdate(elementId, { [`${field}_id`]: val?.id || "" })}
           onBlur={() => setEditingCell(null)}
           enabled={isEditing}
+          excludeIds={isCall ? [processId] : undefined}
           autoFocus
           sx={{ minWidth: 160 }}
-          placeholder={t("flowTab.searchCardType", { type: cardTypeKey })}
+          placeholder={t("flowTab.searchCardType", { type: typeName })}
         />
       );
     }
@@ -515,21 +531,40 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     return (
       <Box
         onClick={() => setEditingCell({ elementId, field })}
-        sx={linkCellSx}
+        sx={{ ...linkCellSx, ...(foreignRef ? { height: "auto", flexDirection: "column", alignItems: "flex-start" } : {}) }}
       >
         {currentName ? (
           <Chip
             label={currentName}
             size="small"
-            color={field === "application" ? "primary" : field === "data_object" ? "secondary" : "default"}
+            color={field === "application" ? "primary" : field === "data_object" ? "secondary" : field === "business_process" ? "success" : "default"}
+            variant={isCall ? "outlined" : "filled"}
+            icon={isCall ? <MaterialSymbol icon="route" size={14} /> : undefined}
+            // The Calls chip drills down into the callee's flow; the cell
+            // behind it still opens the picker.
+            onClick={
+              isCall && currentId
+                ? (ev) => {
+                    ev.stopPropagation();
+                    navigate(calledProcessPath(currentId));
+                  }
+                : undefined
+            }
             onDelete={() => onUpdate(elementId, { [`${field}_id`]: "" })}
             sx={{ maxWidth: 160 }}
           />
         ) : (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-            <MaterialSymbol icon="add_link" size={14} color="#bbb" />
-            <Typography variant="caption" color="text.disabled">{t("flowTab.linkCardType", { type: cardTypeKey })}</Typography>
-          </Box>
+          <>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <MaterialSymbol icon="add_link" size={14} color="#bbb" />
+              <Typography variant="caption" color="text.disabled">{t("flowTab.linkCardType", { type: typeName })}</Typography>
+            </Box>
+            {foreignRef && (
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                {t("flowTab.importedReference", { ref: foreignRef })}
+              </Typography>
+            )}
+          </>
         )}
       </Box>
     );
@@ -684,6 +719,14 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 <TableCell sx={{ fontWeight: 600 }}>{t("common:labels.type")}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.lane")}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>
+                  <Tooltip title={t("flowTab.callsProcessTooltip")}>
+                    <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+                      {t("flowTab.callsProcess")}
+                      <MaterialSymbol icon="info" size={14} color="#999" />
+                    </Box>
+                  </Tooltip>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>
                   <Tooltip title={t("flowTab.automatedTooltip")}>
                     <span>{t("flowTab.automated")}</span>
                   </Tooltip>
@@ -721,6 +764,11 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                       />
                     </TableCell>
                     <TableCell>{e.lane_name || "\u2014"}</TableCell>
+                    <TableCell>
+                      {e.element_type === "callActivity"
+                        ? renderEditableCell(e, "business_process", "BusinessProcess", onUpdate, elemKey)
+                        : dash}
+                    </TableCell>
                     <TableCell>
                       {artefact ? (
                         dash

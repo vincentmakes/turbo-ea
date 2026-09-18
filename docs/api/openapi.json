@@ -1384,7 +1384,7 @@
         "type": "object"
       },
       "BpmPublicStep": {
-        "description": "One step of a published BPMN flow.\n\n``bpmn_element_id`` is an id local to the BPMN XML, not a card id, and it is\nthe correlation key the viewer needs to place overlays \u2014 it is already\ninside the XML the visitor is holding.\n\nThe four link fields are populated only when the portal enables\n``show_element_links``; they carry **names, never ids**. The viewer's and the\nSteps tab's existing truthiness guards then render the reduced row with no\nextra branching.",
+        "description": "One step of a published BPMN flow.\n\n``bpmn_element_id`` is an id local to the BPMN XML, not a card id, and it is\nthe correlation key the viewer needs to place overlays \u2014 it is already\ninside the XML the visitor is holding.\n\nThe five link fields are populated only when the portal enables\n``show_element_links``; they carry **names, never ids**. The viewer's and the\nSteps tab's existing truthiness guards then render the reduced row with no\nextra branching.",
         "properties": {
           "application_name": {
             "anyOf": [
@@ -1400,6 +1400,17 @@
           "bpmn_element_id": {
             "title": "Bpmn Element Id",
             "type": "string"
+          },
+          "called_process_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Called Process Name"
           },
           "data_object_name": {
             "anyOf": [
@@ -4781,6 +4792,17 @@
               }
             ],
             "title": "Application Id"
+          },
+          "business_process_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Process Id"
           },
           "custom_fields": {
             "anyOf": [

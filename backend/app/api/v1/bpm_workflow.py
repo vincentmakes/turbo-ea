@@ -26,12 +26,18 @@ from app.schemas.bpm import (
 )
 from app.services import notification_service
 from app.services.bpmn_parser import parse_bpmn
-from app.services.element_relation_sync import sync_element_relations
+from app.services.element_relation_sync import (
+    ELEMENT_LINK_KEYS,
+    element_link_ids,
+    sync_element_relations,
+)
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.process_element_sync import (
+    as_card_uuid,
     sync_process_elements,
     sync_process_message_flows,
+    validate_called_process,
 )
 
 router = APIRouter(prefix="/bpm", tags=["bpm-workflow"])
@@ -179,6 +185,8 @@ async def _links_from_live_elements(db: AsyncSession, process_id: uuid.UUID) -> 
             link["data_object_id"] = str(elem.data_object_id)
         if elem.it_component_id:
             link["it_component_id"] = str(elem.it_component_id)
+        if elem.business_process_id:
+            link["business_process_id"] = str(elem.business_process_id)
         if elem.organizations:
             link["organization_ids"] = [str(o.id) for o in elem.organizations]
         if elem.custom_fields:
@@ -209,8 +217,21 @@ def _apply_draft_link(elem: ProcessElement, link: dict, valid_card_ids: set[str]
         ("application_id", "application_id"),
         ("data_object_id", "data_object_id"),
         ("it_component_id", "it_component_id"),
+        ("business_process_id", "business_process_id"),
     ):
         val = link.get(key)
+        if key == "business_process_id" and (
+            elem.element_type != "callActivity"
+            or val == str(elem.process_id)
+            or (
+                elem.business_process_id is not None
+                and as_card_uuid(elem.called_element) == elem.business_process_id
+            )
+        ):
+            # Only a call activity calls a process, and never itself. And when
+            # the XML's calledElement resolved (the sync helper has already set
+            # the link to it), the XML wins over a stale pre-link.
+            continue
         if val and val in valid_card_ids:
             setattr(elem, attr, uuid.UUID(val))
         elif val:
@@ -651,7 +672,7 @@ async def approve_version(
         # Validate draft-linked cards still exist
         linked_card_ids: set[str] = set()
         for link_data in draft_links.values():
-            for key in ("application_id", "data_object_id", "it_component_id"):
+            for key in ELEMENT_LINK_KEYS:
                 val = link_data.get(key)
                 if val:
                     linked_card_ids.add(val)
@@ -713,19 +734,7 @@ async def approve_version(
             for oid in valid_orgs:
                 db.add(ProcessElementOrganization(element_id=el.id, organization_id=uuid.UUID(oid)))
 
-        link_ids: dict[str, set[uuid.UUID]] = {
-            "application_id": set(),
-            "data_object_id": set(),
-            "it_component_id": set(),
-        }
-        for el in elements_list:
-            if el.application_id:
-                link_ids["application_id"].add(el.application_id)
-            if el.data_object_id:
-                link_ids["data_object_id"].add(el.data_object_id)
-            if el.it_component_id:
-                link_ids["it_component_id"].add(el.it_component_id)
-        await sync_element_relations(db, pid, link_ids)
+        await sync_element_relations(db, pid, element_link_ids(elements_list))
 
     # Auto-complete system approval todos for this process
     approval_todos = await db.execute(
@@ -1092,11 +1101,19 @@ async def get_draft_elements(
     # Collect all linked card IDs to resolve names in one query
     card_ids: set[str] = set()
     for link_data in links.values():
-        for key in ("application_id", "data_object_id", "it_component_id"):
+        for key in ELEMENT_LINK_KEYS:
             val = link_data.get(key)
             if val:
                 card_ids.add(val)
         card_ids.update(link_data.get("organization_ids") or [])
+    # A call activity whose calledElement already holds a card UUID is linked
+    # by the XML itself — resolve those names too so the draft table shows them.
+    xml_called: dict[str, uuid.UUID] = {}
+    for ext in extracted:
+        target = as_card_uuid(ext.called_element)
+        if ext.element_type == "callActivity" and target and target != pid:
+            xml_called[ext.bpmn_element_id] = target
+            card_ids.add(str(target))
 
     # Resolve names
     name_map: dict[str, str] = {}
@@ -1113,6 +1130,14 @@ async def get_draft_elements(
         app_id = link.get("application_id")
         do_id = link.get("data_object_id")
         itc_id = link.get("it_component_id")
+        # The XML wins over a pre-link, mirroring the publish-time precedence;
+        # a foreign reference leaves the pre-link in force.
+        bp_id: str | None = None
+        xml_target = xml_called.get(ext.bpmn_element_id)
+        if xml_target and str(xml_target) in name_map:
+            bp_id = str(xml_target)
+        elif ext.element_type == "callActivity":
+            bp_id = link.get("business_process_id")
         org_ids = link.get("organization_ids") or []
         elements.append(
             {
@@ -1131,6 +1156,9 @@ async def get_draft_elements(
                 "data_object_name": name_map.get(do_id, "") if do_id else None,
                 "it_component_id": itc_id,
                 "it_component_name": name_map.get(itc_id, "") if itc_id else None,
+                "called_element": ext.called_element,
+                "business_process_id": bp_id,
+                "business_process_name": name_map.get(bp_id, "") if bp_id else None,
                 "organizations": [{"id": oid, "name": name_map.get(oid, "")} for oid in org_ids],
                 "custom_fields": link.get("custom_fields"),
             }
@@ -1171,12 +1199,23 @@ async def update_draft_element_link(
 
     from sqlalchemy.orm.attributes import flag_modified
 
+    # The process link is validated at write time — the picker is the only
+    # sanctioned source, so a bad id here is a client bug, not stale data.
+    if body.get("business_process_id"):
+        called = {
+            e.bpmn_element_id: e.element_type for e in parse_bpmn(version.bpmn_xml or "").elements
+        }
+        if called.get(bpmn_element_id) != "callActivity":
+            raise HTTPException(400, "Only a call activity can call a process")
+        await validate_called_process(db, pid, body["business_process_id"])
+
     # Merge updates into existing link. `organization_ids` is a list (M:N);
     # an empty list clears the step's organizations, like "" for the FKs.
     for key in (
         "application_id",
         "data_object_id",
         "it_component_id",
+        "business_process_id",
         "organization_ids",
         "custom_fields",
     ):

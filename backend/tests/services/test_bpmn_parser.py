@@ -773,6 +773,26 @@ class TestArtefacts:
         assert elements[4].element_type == "complexGateway"
 
 
+class TestCallActivities:
+    def test_called_element_is_kept_on_call_activities_only(self):
+        xml = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" id="d1">
+  <process id="Process_1" isExecutable="false">
+    <callActivity id="ca" name="Credit check" calledElement="  Process_Credit  " />
+    <callActivity id="ca_empty" name="Unlinked" calledElement="" />
+    <callActivity id="ca_none" name="Also unlinked" />
+    <task id="t" name="Not a call" />
+  </process>
+</definitions>
+"""
+        by_id = {e.bpmn_element_id: e for e in parse_bpmn_xml(xml)}
+        assert by_id["ca"].called_element == "Process_Credit"
+        assert by_id["ca_empty"].called_element is None
+        assert by_id["ca_none"].called_element is None
+        assert by_id["t"].called_element is None
+
+
 class TestMessageFlows:
     def test_collaboration_template_message_flows(self):
         parsed = parse_bpmn(COLLABORATION_BPMN)

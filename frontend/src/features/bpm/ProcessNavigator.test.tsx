@@ -438,6 +438,46 @@ function makeProcessTree() {
   };
 }
 
+describe("ProcessNavigator — call activity drill-down", () => {
+  const CALLEE = "3f2c9a1e-7b4d-4c6e-9a1f-0d2e5b7c8a90";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders the callee as a chip on the step and drills down into its flow", async () => {
+    const processMap = makeProcessMap(true, 1);
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url.startsWith("/reports/bpm/process-map")) return Promise.resolve(processMap);
+      if (url.startsWith("/settings/bpm-row-order"))
+        return Promise.resolve({ row_order: ["management", "core", "support"] });
+      if (url.includes("/flow/published")) return Promise.resolve({ bpmn_xml: "<xml/>" });
+      if (url.includes("/elements"))
+        return Promise.resolve([
+          {
+            id: "el1",
+            bpmn_element_id: "call_1",
+            element_type: "callActivity",
+            name: "Run Credit Check",
+            lane_name: "Finance",
+            is_automated: false,
+            sequence_order: 0,
+            business_process_id: CALLEE,
+            business_process_name: "Credit Check",
+          },
+        ]);
+      return Promise.resolve(null);
+    });
+    renderNavigator();
+    await userEvent.click(await screen.findByText("Order to Cash"));
+    await userEvent.click(await screen.findByRole("tab", { name: /Steps/ }));
+
+    const chip = await screen.findByText("Credit Check");
+    await userEvent.click(chip);
+    expect(mockNavigate).toHaveBeenCalledWith(`/cards/${CALLEE}?tab=1`);
+  });
+});
+
 describe("ProcessNavigator nested column taper", () => {
   /** The count on the nested grid holding `name`. */
   const colsAround = (name: string) =>

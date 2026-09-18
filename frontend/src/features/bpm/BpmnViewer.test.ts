@@ -35,3 +35,17 @@ describe("hasExplicitFill", () => {
     expect(hasExplicitFill(undefined)).toBe(false);
   });
 });
+
+describe("escapeHtml", () => {
+  it("neutralises markup in a card name before it lands in an overlay", async () => {
+    const { escapeHtml } = await import("./BpmnViewer");
+    expect(escapeHtml(`<b>R&D</b> "Credit" 'Check'`)).toBe(
+      "&lt;b&gt;R&amp;D&lt;/b&gt; &quot;Credit&quot; &#39;Check&#39;",
+    );
+  });
+
+  it("leaves a plain name untouched", async () => {
+    const { escapeHtml } = await import("./BpmnViewer");
+    expect(escapeHtml("Order to Cash")).toBe("Order to Cash");
+  });
+});

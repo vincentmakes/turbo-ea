@@ -39,6 +39,10 @@ class ProcessElement(Base, UUIDMixin, TimestampMixin):
     # Name of the Message / Signal / Error / Escalation the element refers to,
     # resolved from the BPMN root definitions (also set on send/receive tasks).
     definition_name: Mapped[str | None] = mapped_column(String(500))
+    # A call activity's raw `calledElement` reference (parser-derived). Shown as
+    # a hint when it does not resolve to a card — an imported diagram's own
+    # process id — so the user can pick the process it means.
+    called_element: Mapped[str | None] = mapped_column(String(200))
 
     # EA cross-references (optional, set by user via UI)
     application_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -53,6 +57,13 @@ class ProcessElement(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True),
         ForeignKey("cards.id", ondelete="SET NULL"),
     )
+    # The BusinessProcess a call activity invokes. Derived from `calledElement`
+    # when that holds a card UUID (the XML wins), else set by the user and kept
+    # across re-publishes like the other links. Only ever set on call activities.
+    business_process_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("cards.id", ondelete="SET NULL"),
+    )
 
     custom_fields: Mapped[dict | None] = mapped_column(JSONB, default=dict)
 
@@ -60,6 +71,7 @@ class ProcessElement(Base, UUIDMixin, TimestampMixin):
     application = relationship("Card", foreign_keys=[application_id], lazy="noload")
     data_object = relationship("Card", foreign_keys=[data_object_id], lazy="noload")
     it_component = relationship("Card", foreign_keys=[it_component_id], lazy="noload")
+    business_process = relationship("Card", foreign_keys=[business_process_id], lazy="noload")
     organizations = relationship("Card", secondary="process_element_organizations", lazy="noload")
 
 

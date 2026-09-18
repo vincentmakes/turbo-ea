@@ -323,14 +323,17 @@ async def test_process_element_organizations_roundtrip(db):
     process = await create_card(db, card_type="BusinessProcess", name="O2C", user_id=user.id)
     org_a = await create_card(db, card_type="Organization", name="Sales", user_id=user.id)
     org_b = await create_card(db, card_type="Organization", name="Finance", user_id=user.id)
+    callee = await create_card(db, card_type="BusinessProcess", name="Quote", user_id=user.id)
 
     elem = ProcessElement(
         process_id=process.id,
         bpmn_element_id="task_1",
-        element_type="task",
+        element_type="callActivity",
         name="Create Quote",
         lane_name="Sales",
         sequence_order=0,
+        called_element=str(callee.id),
+        business_process_id=callee.id,
     )
     db.add(elem)
     await db.flush()
@@ -359,6 +362,12 @@ async def test_process_element_organizations_roundtrip(db):
         )
     ).all()
     assert {row[0] for row in restored} == {org_a.id, org_b.id}
+    # The call activity's process link is a card FK, remapped by reference.
+    restored_elem = (
+        await db.execute(select(ProcessElement).where(ProcessElement.id == elem_id))
+    ).scalar_one()
+    assert restored_elem.business_process_id == callee.id
+    assert restored_elem.called_element == str(callee.id)
 
 
 async def test_large_json_blob_survives_export_import(db):

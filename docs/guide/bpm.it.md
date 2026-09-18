@@ -69,9 +69,25 @@ I flussi di messaggi del diagramma pubblicato sono elencati sotto la tabella deg
 
 Gli elementi BPMN possono essere **collegati alle card EA**. Ad esempio, collegate un'attività nel vostro diagramma di processo all'Application che la supporta. Questo crea una connessione tracciabile tra il vostro modello di processo e il panorama architetturale:
 
-- Selezionate qualsiasi attività, evento o gateway nel diagramma BPMN
-- Il pannello **Element Linker** mostra le card corrispondenti (Application, Data Object, IT Component, Organization)
-- Collegate l'elemento a una card — la connessione è memorizzata e visibile sia nel flusso di processo che nelle relazioni della card
+- Ogni attività, evento e gateway con nome del flusso pubblicato è una riga della tabella **Passi ed elementi del processo** sotto il diagramma (una bozza ha la stessa tabella sotto **Pre-collega elementi**, applicata all'approvazione della bozza)
+- Fate clic sulla cella **Application**, **Data Object** o **IT Component** di un passo e scegliete la card — il selettore scorre l'inventario, nulla viene digitato a mano
+- Il collegamento è memorizzato sul passo e crea una relazione tra il processo e la card, visibile sia nel flusso di processo sia nella scheda Relazioni della card
+- La colonna **Richiama** collega un'**attività di chiamata** al processo che richiama — vedi sotto
+
+### Richiamare un altro processo
+
+BPMN ha esattamente un costrutto per «questo passo è un altro processo»: l'**attività di chiamata** (call activity), un'attività con bordo spesso che richiama un processo definito in modo autonomo — con il proprio diagramma, il proprio responsabile e il proprio ciclo di vita, di norma riutilizzato da più punti. Un **sottoprocesso** incorporato raggruppa anch'esso dei passi, ma appartiene al diagramma in cui è disegnato; la regola di Method & Style è semplice: se il processo esiste in modo indipendente, usate un'attività di chiamata.
+
+In Turbo EA un'attività di chiamata punta a una card **Business Process**, e non si inserisce mai un identificativo di processo a mano:
+
+- **Posizionare un'attività di chiamata chiede quale processo richiama.** Aggiungetene una dal menu Crea elemento e si apre un selettore sui processi di business dell'inventario — scegliete il processo richiamato, oppure annullate per collegarlo in seguito
+- **Il pannello delle proprietà** mostra un gruppo **Processo richiamato** su ogni attività di chiamata, con **Scegli processo…**, **Apri** (che scende nel flusso del processo richiamato) e **Rimuovi**
+- **Il menu contestuale** di un'attività di chiamata selezionata porta una voce **Collega processo**, per quando il pannello è chiuso
+- **La tabella dei passi** del flusso pubblicato (e la tabella di pre-collegamento di una bozza) ha lo stesso collegamento nella colonna **Richiama**, e il chip che vi si trova scende nella scheda Flusso di processo del processo richiamato
+
+![Processo richiamato](../assets/img/it/92_bpm_processo_richiamato.png)
+
+Pubblicare un flusso che contiene un'attività di chiamata collegata crea una relazione **richiama** tra i due processi — la scheda Relazioni del processo richiamato riporta *è richiamato da*, e la vista delle dipendenze disegna il grafo delle chiamate. Un diagramma importato da un altro strumento conserva il riferimento di processo proprio di quello strumento; la tabella dei passi lo mostra come suggerimento (*riferimento a Process_X*) finché non scegliete il processo corrispondente in Turbo EA.
 
 ### Collegare le organizzazioni
 

@@ -63,6 +63,41 @@ export const PROPERTIES_PANEL_DARK_TOKENS = {
   "--bio-shadow-subtle": "hsla(0, 0%, 0%, 35%)",
 } as const;
 
+/**
+ * The "Called process" entry (`CalledProcessEntry.ts`) is Turbo EA's own, so
+ * its buttons have no stock class to borrow. Built on the panel's `--bio-*`
+ * tokens, so they follow the light / dark overrides above for free.
+ */
+const CALLED_PROCESS_ENTRY_SX = {
+  "& .turboea-called-process-value": {
+    fontSize: "13px",
+    lineHeight: 1.4,
+    color: "var(--bio-text)",
+    margin: "2px 0 6px",
+    wordBreak: "break-word",
+  },
+  "& .turboea-called-process-empty, & .turboea-called-process-foreign": {
+    color: "var(--bio-text-subtle)",
+    fontStyle: "italic",
+  },
+  "& .turboea-called-process-actions": { display: "flex", gap: "6px", flexWrap: "wrap" },
+  "& .turboea-called-process-button": {
+    font: "inherit",
+    fontSize: "12px",
+    padding: "3px 8px",
+    borderRadius: "3px",
+    border: "1px solid var(--bio-border-input)",
+    background: "var(--bio-surface)",
+    color: "var(--bio-text)",
+    cursor: "pointer",
+    "&:hover": { background: "var(--bio-surface-subtle)" },
+  },
+  "& .turboea-called-process-choose": {
+    borderColor: "var(--bio-primary, #1976d2)",
+    color: "var(--bio-primary, #1976d2)",
+  },
+} as const;
+
 /** `sx` for the box the properties panel is attached to. */
 export function bpmnPropertiesPanelSx(mode: "light" | "dark") {
   return {
@@ -71,5 +106,6 @@ export function bpmnPropertiesPanelSx(mode: "light" | "dark") {
     // The panel's own root class carries the token defaults; the overrides
     // are set one level up so they win by specificity and inheritance both.
     "& .bio-theme-parent, & .bio-properties-panel": mode === "dark" ? PROPERTIES_PANEL_DARK_TOKENS : {},
+    ...CALLED_PROCESS_ENTRY_SX,
   } as const;
 }

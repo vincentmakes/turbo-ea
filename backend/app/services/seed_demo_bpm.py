@@ -1488,9 +1488,16 @@ _ASSESSMENT_SPECS = [
 # ===================================================================
 # BPMN DIAGRAM DATA  (embedded XML for key processes)
 # ===================================================================
-def _make_otc_bpmn() -> str:
-    """Return a NexaTech-specific Order-to-Cash BPMN 2.0 XML."""
-    return """<?xml version="1.0" encoding="UTF-8"?>
+def _make_otc_bpmn(credit_check_id: uuid.UUID | None = None) -> str:
+    """Return a NexaTech-specific Order-to-Cash BPMN 2.0 XML.
+
+    ``Task_CreditCheck`` is a **call activity** invoking the Credit Check
+    process — an independently defined process of its own in the demo — so
+    ``calledElement`` carries that card's UUID, the way the modeler writes it.
+    The id exists only after the cards are inserted, hence the argument.
+    """
+    called = f' calledElement="{credit_check_id}"' if credit_check_id else ""
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
                   xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
                   xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
@@ -1526,7 +1533,7 @@ def _make_otc_bpmn() -> str:
     <bpmn:startEvent id="Start_1" name="Customer Order Received"><bpmn:outgoing>F1</bpmn:outgoing><bpmn:messageEventDefinition id="MsgDef_Start_1" messageRef="Msg_CustomerOrder" /></bpmn:startEvent>
     <bpmn:userTask id="Task_ReceiveOrder" name="Receive &amp; Log Order"><bpmn:documentation>Log order in Salesforce, create SO in SAP.</bpmn:documentation><bpmn:incoming>F1</bpmn:incoming><bpmn:outgoing>F2</bpmn:outgoing></bpmn:userTask>
     <bpmn:serviceTask id="Task_ValidateOrder" name="Validate Order Data"><bpmn:documentation>Check pricing, product availability, and customer data.</bpmn:documentation><bpmn:incoming>F2</bpmn:incoming><bpmn:outgoing>F3</bpmn:outgoing></bpmn:serviceTask>
-    <bpmn:serviceTask id="Task_CreditCheck" name="Run Credit Check"><bpmn:documentation>Automated credit scoring via SAP Credit Management.</bpmn:documentation><bpmn:incoming>F3</bpmn:incoming><bpmn:outgoing>F4</bpmn:outgoing></bpmn:serviceTask>
+    <bpmn:callActivity id="Task_CreditCheck" name="Run Credit Check"{called}><bpmn:documentation>Automated credit scoring via SAP Credit Management.</bpmn:documentation><bpmn:incoming>F3</bpmn:incoming><bpmn:outgoing>F4</bpmn:outgoing></bpmn:callActivity>
     <bpmn:exclusiveGateway id="GW_Credit" name="Credit Approved?"><bpmn:incoming>F4</bpmn:incoming><bpmn:outgoing>F_OK</bpmn:outgoing><bpmn:outgoing>F_Fail</bpmn:outgoing></bpmn:exclusiveGateway>
     <bpmn:userTask id="Task_RejectOrder" name="Notify &amp; Reject Order"><bpmn:incoming>F_Fail</bpmn:incoming><bpmn:outgoing>F_EndR</bpmn:outgoing></bpmn:userTask>
     <bpmn:endEvent id="End_Rejected" name="Order Rejected"><bpmn:incoming>F_EndR</bpmn:incoming></bpmn:endEvent>
@@ -1587,7 +1594,7 @@ def _make_otc_bpmn() -> str:
 _OTC_ELEMENTS = [
     ("Task_ReceiveOrder", "userTask", "Receive & Log Order", "Sales", False, 0),
     ("Task_ValidateOrder", "serviceTask", "Validate Order Data", "Sales", True, 1),
-    ("Task_CreditCheck", "serviceTask", "Run Credit Check", "Finance", True, 2),
+    ("Task_CreditCheck", "callActivity", "Run Credit Check", "Finance", True, 2),
     ("GW_Credit", "exclusiveGateway", "Credit Approved?", "Finance", False, 3),
     ("Task_RejectOrder", "userTask", "Notify & Reject Order", "Finance", False, 4),
     ("Task_PickPack", "userTask", "Pick & Pack", "Warehouse & Logistics", False, 5),
@@ -1714,7 +1721,8 @@ async def seed_bpm_demo_data(db: AsyncSession) -> dict:
     diagram_count = 0
     element_count = 0
     if otc_id:
-        otc_xml = _make_otc_bpmn()
+        credit_check_id = _refs.get("bp_credit_check")
+        otc_xml = _make_otc_bpmn(credit_check_id)
         diagram = ProcessDiagram(
             process_id=otc_id,
             bpmn_xml=otc_xml,
@@ -1753,6 +1761,9 @@ async def seed_bpm_demo_data(db: AsyncSession) -> dict:
                 elem.application_id = name_to_id.get("SAP S/4HANA")
             elif name == "Run Credit Check":
                 elem.application_id = name_to_id.get("SAP S/4HANA")
+                # The call activity's callee — what the XML's calledElement says.
+                elem.called_element = str(credit_check_id) if credit_check_id else None
+                elem.business_process_id = credit_check_id
             elif name == "Pick & Pack":
                 elem.application_id = name_to_id.get("Siemens Opcenter")
             elif name == "Ship & Track":

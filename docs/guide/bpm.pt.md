@@ -65,9 +65,25 @@ Um processo que envolve várias partes — um cliente e a empresa, dois departam
 
 Elementos BPMN podem ser **vinculados a cards de EA**. Por exemplo, vincule uma tarefa no seu diagrama de processo à Aplicação que a suporta. Isso cria uma conexão rastreável entre seu modelo de processo e seu cenário de arquitetura:
 
-- Selecione qualquer tarefa, evento ou gateway no diagrama BPMN
-- O painel **Vinculador de Elementos** mostra cards correspondentes (Aplicação, Objeto de Dados, Componente de TI, Organização)
-- Vincule o elemento a um card — a conexão é armazenada e visível tanto no fluxo de processo quanto nos relacionamentos do card
+- Cada tarefa, evento e gateway com nome do fluxo publicado é uma linha da tabela **Passos e elementos do processo** abaixo do diagrama (um rascunho tem a mesma tabela em **Pré-vincular elementos**, aplicada quando o rascunho é aprovado)
+- Clique na célula **Aplicação**, **Objeto de dados** ou **Componente de TI** de um passo e escolha o card — o seletor percorre o inventário, nada é digitado à mão
+- O vínculo é guardado no passo e cria uma relação entre o processo e o card, visível tanto no fluxo de processo quanto na aba Relações do card
+- A coluna **Invoca** vincula uma **atividade de chamada** ao processo que ela invoca — veja abaixo
+
+### Invocar outro processo
+
+O BPMN tem exatamente um construto para «este passo é outro processo»: a **atividade de chamada** (call activity), uma tarefa com borda grossa que invoca um processo definido de forma independente — com seu próprio diagrama, seu próprio responsável e seu próprio ciclo de vida, normalmente reutilizado a partir de vários lugares. Um **subprocesso** embutido também agrupa passos, mas pertence ao diagrama em que é desenhado; a regra do Method & Style é simples: se o processo existe de forma independente, use uma atividade de chamada.
+
+No Turbo EA uma atividade de chamada aponta para um card de **Processo de negócio**, e nunca se digita um identificador de processo à mão:
+
+- **Colocar uma atividade de chamada pergunta qual processo ela invoca.** Adicione uma pelo menu Criar elemento e um seletor se abre sobre os processos de negócio do inventário — escolha o processo invocado, ou cancele para vincular depois
+- **O painel de propriedades** mostra um grupo **Processo invocado** em cada atividade de chamada, com **Escolher processo…**, **Abrir** (que desce ao fluxo do processo invocado) e **Remover**
+- **O menu de contexto** de uma atividade de chamada selecionada traz uma entrada **Vincular processo**, para quando o painel está recolhido
+- **A tabela de passos** do fluxo publicado (e a tabela de pré-vinculação de um rascunho) tem o mesmo vínculo na coluna **Invoca**, e o chip ali desce à aba Fluxo de processo do processo invocado
+
+![Processo invocado](../assets/img/pt/92_bpm_processo_invocado.png)
+
+Publicar um fluxo que contém uma atividade de chamada vinculada cria uma relação **invoca** entre os dois processos — a aba Relações do processo invocado mostra *é invocado por*, e a visão de dependências desenha o grafo de chamadas. Um diagrama importado de outra ferramenta mantém a referência de processo própria daquela ferramenta; a tabela de passos a mostra como dica (*referencia Process_X*) até que você escolha o processo correspondente no Turbo EA.
 
 ### Fluxos de mensagens
 

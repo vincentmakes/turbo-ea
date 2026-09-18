@@ -11,14 +11,27 @@
  * Features: auto-save (5s debounce), undo/redo, zoom, fit, keyboard shortcuts,
  * export (SVG, PNG, BPMN XML), import BPMN, template chooser.
  *
+ * A call activity is linked to the Business Process it invokes by *picking a
+ * card*, never by typing an id: placing one opens the picker, and the
+ * properties panel's "Called process" group and a context-pad entry reopen it
+ * (`calledProcessModule.ts`). The pick is written to the shape's
+ * `calledElement` through the command stack — undoable, autosaved — and the
+ * backend resolves the card id on publish.
+ *
  * When `versionId` is provided, loads from and saves to the draft version endpoint.
  * Otherwise falls back to the legacy ProcessDiagram endpoint.
  */
 import { useRef, useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 import { useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Typography from "@mui/material/Typography";
 
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
@@ -27,9 +40,15 @@ import Divider from "@mui/material/Divider";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardPicker from "@/components/CardPicker";
+import type { CardOption } from "@/components/CardPicker";
 import { api } from "@/api/client";
+import { fetchCardsByIds } from "@/api/cardsByIds";
 import type { ProcessFlowVersion, BpmnTemplate } from "@/types";
 import { bpmnCanvasSx, bpmnPropertiesPanelSx } from "./bpmnStyles";
+import { calledProcessPath, collectCalledElementIds } from "./calledProcess";
+import { createCalledProcessModule } from "./calledProcessModule";
+import type { CalledProcessBridge } from "./calledProcessModule";
 
 // bpmn-js CSS
 import "bpmn-js/dist/assets/diagram-js.css";
@@ -75,6 +94,7 @@ const PROPERTIES_PANEL_WIDTH = 320;
 export default function BpmnModeler({ processId, versionId, initialXml, onSaved, onBack }: Props) {
   const { t } = useTranslation(["bpm", "common"]);
   const theme = useTheme();
+  const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const propertiesRef = useRef<HTMLDivElement>(null);
   const modelerRef = useRef<any>(null);
@@ -84,6 +104,74 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
   const [snack, setSnack] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
   const [panelOpen, setPanelOpen] = useState<boolean>(readPanelPreference);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The call activity whose callee is being picked — the picker dialog is
+  // open exactly while this is set.
+  const [pickerTarget, setPickerTarget] = useState<unknown>(null);
+
+  // The bridge the bpmn-js module reads at render time. One object for the
+  // modeler's whole life: the didi module captures it at construction, so the
+  // React side mutates it in place (names, labels) rather than replacing it.
+  const bridgeRef = useRef<CalledProcessBridge>({
+    open: (element) => setPickerTarget(element),
+    openProcess: (cardId) => navigate(calledProcessPath(cardId)),
+    names: {},
+    labels: {
+      group: "",
+      choose: "",
+      open: "",
+      clear: "",
+      noProcess: "",
+      references: (ref) => ref,
+      linkProcess: "",
+    },
+  });
+  bridgeRef.current.openProcess = (cardId) => navigate(calledProcessPath(cardId));
+  bridgeRef.current.labels = {
+    group: t("modeler.calledProcess"),
+    choose: t("modeler.chooseProcess"),
+    open: t("modeler.openProcess"),
+    clear: t("modeler.clearProcess"),
+    noProcess: t("modeler.noProcessLinked"),
+    references: (ref) => t("modeler.referencesProcess", { ref }),
+    linkProcess: t("modeler.linkProcess"),
+  };
+
+  /**
+   * Resolve the names of every process the diagram's call activities
+   * reference, then re-render the panel: `propertiesPanel.providersChanged`
+   * is the one public hook that re-runs every provider's `getGroups` on the
+   * current selection. Runs after every import; a pick updates the map
+   * itself and the command stack re-renders the panel on its own.
+   */
+  const resolveCalledNames = useCallback(async (modeler: any) => {
+    let ids: string[] = [];
+    try {
+      const registry = modeler.get("elementRegistry") as { getAll: () => unknown[] };
+      ids = collectCalledElementIds(registry.getAll() as never);
+    } catch {
+      return;
+    }
+    if (ids.length === 0) return;
+    try {
+      const cards = await fetchCardsByIds(ids);
+      for (const c of cards) bridgeRef.current.names[c.id] = c.name;
+      (modeler.get("eventBus") as any).fire("propertiesPanel.providersChanged");
+    } catch {
+      // Names stay unresolved; the entry then shows the raw id, which is
+      // still a link the modeller can replace.
+    }
+  }, []);
+
+  const handlePickProcess = (card: CardOption | null) => {
+    const target = pickerTarget;
+    const m = modelerRef.current;
+    setPickerTarget(null);
+    if (!card || !target || !m) return;
+    bridgeRef.current.names[card.id] = card.name;
+    // Through the command stack: undoable, and `commandStack.changed` trips
+    // the autosave like any other edit.
+    m.get("modeling").updateProperties(target, { calledElement: card.id });
+  };
 
   // Track which version we're editing (stable ref for save callback)
   const versionIdRef = useRef(versionId);
@@ -127,6 +215,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
           CreateAppendAnythingModule,
           propertiesPanel.BpmnPropertiesPanelModule,
           propertiesPanel.BpmnPropertiesProviderModule,
+          createCalledProcessModule(bridgeRef.current),
         ],
       });
 
@@ -185,6 +274,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
       }
 
       if (destroyed) return;
+      void resolveCalledNames(modeler);
 
       // The panel attaches itself to `propertiesPanel.parent` on import; honour
       // a "closed" preference by detaching right after.
@@ -339,6 +429,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
         await modelerRef.current.importXML(text);
         modelerRef.current.get("canvas").zoom("fit-viewport");
         setDirty(true);
+        void resolveCalledNames(modelerRef.current);
         setSnack({ msg: t("modeler.importSuccess"), severity: "success" });
       } catch {
         setSnack({ msg: t("modeler.importInvalid"), severity: "error" });
@@ -459,6 +550,38 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
           />
         </Box>
       </Box>
+
+      {/* Which process does this call activity call? Opened by the create
+          prompt, the properties panel group and the context-pad entry. */}
+      <Dialog
+        open={pickerTarget != null}
+        onClose={() => setPickerTarget(null)}
+        maxWidth="sm"
+        fullWidth
+        disableRestoreFocus
+      >
+        <DialogTitle>{t("modeler.chooseProcessTitle")}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t("modeler.chooseProcessHint")}
+          </Typography>
+          {pickerTarget != null && (
+            <CardPicker
+              types="BusinessProcess"
+              hierarchy
+              excludeIds={[processId]}
+              value={null}
+              onChange={handlePickProcess}
+              label={t("modeler.calledProcess")}
+              autoFocus
+              fullWidth
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPickerTarget(null)}>{t("common:actions.cancel")}</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar */}
       <Snackbar

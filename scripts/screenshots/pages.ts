@@ -1354,6 +1354,37 @@ export const DOC_PAGES: PageDef[] = [
     },
   },
 
+  // ── BPMN modeler — Called process group on a call activity ───────────────
+  {
+    id: "92_bpm_called_process",
+    route: "/bpm/processes/{{cardId:sampleProcess}}/flow",
+    waitFor: '[data-testid="bpmn-properties-panel"]',
+    actions: [
+      { type: "wait", ms: 2500 },
+      // The demo Order-to-Cash flow's credit check is a call activity whose
+      // calledElement is the Credit Check process — the "Called process"
+      // group shows the resolved name with Open / Choose / Clear.
+      { type: "click", selector: '[data-element-id="Task_CreditCheck"]' },
+      { type: "wait", ms: 800 },
+      // Expand the group — keyed on its id, since its label is localised.
+      {
+        type: "click",
+        selector: '[data-group-id="group-turboea__calledProcess"] .bio-properties-panel-group-header',
+      },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "92_bpm_called_process",
+      de: "92_bpm_aufgerufener_prozess",
+      fr: "92_bpm_processus_appele",
+      es: "92_bpm_proceso_invocado",
+      it: "92_bpm_processo_richiamato",
+      pt: "92_bpm_processo_invocado",
+      zh: "92_bpm_called_process",
+      ru: "92_bpm_vyzyvaemyy_protsess",
+    },
+  },
+
   // ── BPMN starter templates, incl. the two-pool Collaboration template ────
   {
     id: "91_bpm_collaboration_template",

@@ -65,9 +65,25 @@ Ein Prozess, der mehrere Parteien umfasst — ein Kunde und das Unternehmen, zwe
 
 BPMN-Elemente können mit **EA-Karten verknüpft** werden. Verknüpfen Sie beispielsweise eine Aufgabe in Ihrem Prozessdiagramm mit der Anwendung, die sie unterstützt. Dies schafft eine nachvollziehbare Verbindung zwischen Ihrem Prozessmodell und Ihrer Architekturlandschaft:
 
-- Wählen Sie eine beliebige Aufgabe, ein Ereignis oder ein Gateway im BPMN-Diagramm
-- Das **Elementverknüpfungs**-Panel zeigt passende Karten (Anwendung, Datenobjekt, IT-Komponente, Organisation)
-- Verknüpfen Sie das Element mit einer Karte — die Verbindung wird gespeichert und ist sowohl im Prozessfluss als auch in den Beziehungen der Karte sichtbar
+- Jede benannte Aufgabe, jedes Ereignis und jedes Gateway des veröffentlichten Ablaufs ist eine Zeile der Tabelle **Prozessschritte & Elemente** unter dem Diagramm (ein Entwurf hat dieselbe Tabelle unter **Elemente vorverknüpfen**, angewendet bei der Genehmigung)
+- Klicken Sie auf die Zelle **Anwendung**, **Datenobjekt** oder **IT-Komponente** eines Schritts und wählen Sie die Karte — die Auswahl durchsucht das Inventar, es wird nichts von Hand eingetippt
+- Die Verknüpfung wird am Schritt gespeichert und erzeugt eine Beziehung zwischen Prozess und Karte, sichtbar sowohl im Prozessfluss als auch auf der Registerkarte Beziehungen der Karte
+- Die Spalte **Ruft auf** verknüpft eine **Aufrufaktivität** mit dem Prozess, den sie aufruft — siehe unten
+
+### Einen anderen Prozess aufrufen
+
+BPMN kennt genau ein Konstrukt für „dieser Schritt ist ein anderer Prozess“: die **Aufrufaktivität** (call activity), eine Aufgabe mit dickem Rand, die einen eigenständig definierten Prozess aufruft — einen mit eigenem Diagramm, eigenem Verantwortlichen und eigenem Lebenszyklus, der meist an mehreren Stellen wiederverwendet wird. Ein eingebetteter **Teilprozess** gruppiert ebenfalls Schritte, gehört aber zu dem Diagramm, in dem er gezeichnet ist; die Regel aus Method & Style ist einfach: Existiert der Prozess eigenständig, verwenden Sie eine Aufrufaktivität.
+
+In Turbo EA zeigt eine Aufrufaktivität auf eine **Geschäftsprozess**-Karte, und Sie geben nie eine Prozess-ID von Hand ein:
+
+- **Beim Platzieren einer Aufrufaktivität wird gefragt, welchen Prozess sie aufruft.** Fügen Sie eine aus dem Menü „Element erstellen“ hinzu, und eine Auswahl über die Geschäftsprozesse des Inventars öffnet sich — wählen Sie den aufgerufenen Prozess oder brechen Sie ab, um später zu verknüpfen
+- **Das Eigenschaftenpanel** zeigt bei jeder Aufrufaktivität eine Gruppe **Aufgerufener Prozess** mit **Prozess wählen…**, **Öffnen** (springt in den Ablauf des aufgerufenen Prozesses) und **Entfernen**
+- **Das Kontextmenü** einer ausgewählten Aufrufaktivität enthält den Eintrag **Prozess verknüpfen**, falls das Panel eingeklappt ist
+- **Die Schritttabelle** des veröffentlichten Ablaufs (und die Vorverknüpfungstabelle eines Entwurfs) hat dieselbe Verknüpfung in der Spalte **Ruft auf**; der Chip dort springt in die Registerkarte Prozessfluss des aufgerufenen Prozesses
+
+![Aufgerufener Prozess](../assets/img/de/92_bpm_aufgerufener_prozess.png)
+
+Beim Veröffentlichen eines Ablaufs mit einer verknüpften Aufrufaktivität entsteht eine **ruft auf**-Beziehung zwischen den beiden Prozessen — auf der Registerkarte Beziehungen des aufgerufenen Prozesses steht *wird aufgerufen von*, und die Abhängigkeitsansicht zeichnet den Aufrufgraphen. Ein aus einem anderen Werkzeug importiertes Diagramm behält dessen eigene Prozessreferenz; die Schritttabelle zeigt sie als Hinweis (*verweist auf Process_X*), bis Sie den passenden Prozess in Turbo EA wählen.
 
 ### Nachrichtenflüsse
 

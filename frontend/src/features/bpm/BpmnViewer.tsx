@@ -5,12 +5,15 @@
  */
 import { useRef, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
 import ElementTypeChip from "./ElementTypeChip";
 import Popover from "@mui/material/Popover";
 import Chip from "@mui/material/Chip";
+import MaterialSymbol from "@/components/MaterialSymbol";
+import { CALLED_PROCESS_COLOR, calledProcessPath } from "./calledProcess";
 
 import "bpmn-js/dist/assets/diagram-js.css";
 import "bpmn-js/dist/assets/bpmn-js.css";
@@ -36,7 +39,25 @@ export interface BpmnViewerElement {
   definition_name?: string | null;
   application_name?: string | null;
   data_object_name?: string | null;
+  /** The process a call activity invokes. The id is absent on a portal
+   *  payload, where the chip is inert. */
+  business_process_id?: string | null;
+  business_process_name?: string | null;
   organizations?: { id: string; name: string }[];
+}
+
+/**
+ * Escape a card name for the badge overlays, which are built as HTML strings
+ * for bpmn-js's `overlays.add`. A name is user text; `<b>` in it is a name,
+ * not markup.
+ */
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 /**
@@ -61,6 +82,7 @@ interface Props {
 
 export default function BpmnViewer({ bpmnXml, elements, onElementClick, height = 400 }: Props) {
   const { t } = useTranslation(["bpm", "common"]);
+  const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);
   const [popover, setPopover] = useState<{
@@ -112,7 +134,19 @@ export default function BpmnViewer({ bpmnXml, elements, onElementClick, height =
               try {
                 overlays.add(el.bpmn_element_id, {
                   position: { bottom: -4, right: 4 },
-                  html: `<div style="background:#1976d2;color:#fff;font-size:10px;padding:1px 4px;border-radius:2px;white-space:nowrap">${el.application_name}</div>`,
+                  html: `<div style="background:#1976d2;color:#fff;font-size:10px;padding:1px 4px;border-radius:2px;white-space:nowrap">${escapeHtml(el.application_name)}</div>`,
+                });
+              } catch {
+                // Overlay may fail if element not visible
+              }
+            }
+
+            // A call activity wears the process it calls, in the process colour.
+            if (el.business_process_name) {
+              try {
+                overlays.add(el.bpmn_element_id, {
+                  position: { top: -4, right: 4 },
+                  html: `<div style="background:${CALLED_PROCESS_COLOR};color:#fff;font-size:10px;padding:1px 4px;border-radius:2px;white-space:nowrap">${escapeHtml(el.business_process_name)}</div>`,
                 });
               } catch {
                 // Overlay may fail if element not visible
@@ -189,6 +223,20 @@ export default function BpmnViewer({ bpmnXml, elements, onElementClick, height =
               )}
               {popover.element.data_object_name && (
                 <Chip label={popover.element.data_object_name} size="small" color="secondary" />
+              )}
+              {popover.element.business_process_name && (
+                <Chip
+                  icon={<MaterialSymbol icon="route" size={14} />}
+                  label={`${t("viewer.calls")}: ${popover.element.business_process_name}`}
+                  size="small"
+                  variant="outlined"
+                  sx={{ borderColor: CALLED_PROCESS_COLOR, color: CALLED_PROCESS_COLOR }}
+                  onClick={
+                    popover.element.business_process_id
+                      ? () => navigate(calledProcessPath(popover.element.business_process_id!))
+                      : undefined
+                  }
+                />
               )}
               {(popover.element.organizations || []).map((org) => (
                 <Chip key={org.id} label={org.name} size="small" color="info" />

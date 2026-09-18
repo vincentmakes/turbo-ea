@@ -370,6 +370,7 @@ async def load_elements(db: AsyncSession, process_id: uuid.UUID) -> list[Process
             selectinload(ProcessElement.application),
             selectinload(ProcessElement.data_object),
             selectinload(ProcessElement.it_component),
+            selectinload(ProcessElement.business_process),
             selectinload(ProcessElement.organizations),
         )
         .where(ProcessElement.process_id == process_id)
@@ -508,6 +509,7 @@ def to_public_flow(
             step.application_name = e.application.name if e.application else None
             step.data_object_name = e.data_object.name if e.data_object else None
             step.it_component_name = e.it_component.name if e.it_component else None
+            step.called_process_name = e.business_process.name if e.business_process else None
             step.organizations = [
                 BpmPublicRef(token=f"eo{i}", name=o.name)
                 for i, o in enumerate(e.organizations or [])

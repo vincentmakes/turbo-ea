@@ -65,9 +65,25 @@ En proces, der spænder over flere parter — en kunde og virksomheden, to afdel
 
 BPMN-elementer kan **linkes til EA-kort**. For eksempel kan du linke en opgave i dit procesdiagram til den applikation, der understøtter den. Det skaber en sporbar forbindelse mellem din procesmodel og dit arkitekturlandskab:
 
-- Vælg en opgave, hændelse eller gateway i BPMN-diagrammet
-- Panelet **Element Linker** viser matchende kort (Application, Data Object, IT Component, Organization)
-- Link elementet til et kort — forbindelsen gemmes og er synlig i både procesflowet og kortets relationer
+- Hver navngiven opgave, hændelse og gateway i det udgivne flow er en række i tabellen **Procestrin og elementer** under diagrammet (et udkast har samme tabel under **Forhåndslink elementer**, som anvendes, når udkastet godkendes)
+- Klik på cellen **Application**, **Data Object** eller **IT Component** for et trin og vælg kortet — vælgeren gennemser inventaret, så intet indtastes i hånden
+- Linket gemmes på trinnet og opretter en relation mellem processen og kortet, så det er synligt i både procesflowet og kortets fane Relationer
+- Kolonnen **Kalder** knytter en **kaldeaktivitet** til den proces, den kalder — se nedenfor
+
+### Kald af en anden proces
+
+BPMN har præcis én konstruktion for »dette trin er en anden proces«: **kaldeaktiviteten** (call activity), en opgave med tyk kant, der kalder en selvstændigt defineret proces — en med eget diagram, egen ejer og egen livscyklus, som typisk genbruges flere steder. En indlejret **underproces** grupperer også trin, men hører til det diagram, den er tegnet i; reglen fra Method & Style er enkel: findes processen selvstændigt, så brug en kaldeaktivitet.
+
+I Turbo EA peger en kaldeaktivitet på et **Business Process**-kort, og du indtaster aldrig et proces-id i hånden:
+
+- **Når du placerer en kaldeaktivitet, bliver du spurgt, hvilken proces den kalder.** Tilføj en fra menuen Opret element, og en vælger åbner over inventarets forretningsprocesser — vælg den kaldte proces, eller annullér for at linke senere
+- **Egenskabspanelet** viser en gruppe **Kaldt proces** på hver kaldeaktivitet med **Vælg proces…**, **Åbn** (som borer ned i den kaldte proces' flow) og **Fjern**
+- **Kontekstmenuen** for en valgt kaldeaktivitet har punktet **Tilknyt proces**, til når panelet er foldet sammen
+- **Trintabellen** for det udgivne flow (og forhåndslink-tabellen for et udkast) har samme link i kolonnen **Kalder**, og chippen dér borer ned i den kaldte proces' fane Procesflow
+
+![Kaldt proces](../assets/img/da/92_bpm_called_process.png)
+
+Udgivelse af et flow med en linket kaldeaktivitet opretter en **kalder**-relation mellem de to processer — den kaldte proces' fane Relationer viser *kaldes af*, og afhængighedsvisningen tegner kaldgrafen. Et diagram importeret fra et andet værktøj beholder værktøjets egen procesreference; trintabellen viser den som et hint (*refererer til Process_X*), indtil du vælger den tilsvarende proces i Turbo EA.
 
 ### Beskedflows
 

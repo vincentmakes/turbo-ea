@@ -20,6 +20,7 @@ import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
 import ElementTypeChip from "./ElementTypeChip";
 import { elementTypeInfo } from "./elementTypes";
+import { calledProcessPath } from "./calledProcess";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import Chip from "@mui/material/Chip";
@@ -1263,6 +1264,27 @@ function DrawerSteps({
                               "&:hover": { bgcolor: "action.selected" },
                             }}
                           />
+                        )}
+                        {el.business_process_name && (
+                          <Tooltip title={t("navigator.callsProcess")}>
+                            <Chip
+                              size="small"
+                              icon={<MaterialSymbol icon="route" size={12} />}
+                              label={el.business_process_name}
+                              onClick={
+                                caps.canOpenCard && el.business_process_id
+                                  ? () => onNavigate(calledProcessPath(el.business_process_id!))
+                                  : undefined
+                              }
+                              sx={{
+                                height: 20,
+                                fontSize: "0.65rem",
+                                cursor: "pointer",
+                                bgcolor: "action.hover",
+                                "&:hover": { bgcolor: "action.selected" },
+                              }}
+                            />
+                          </Tooltip>
                         )}
                         {(el.organizations || []).map((org) => (
                           <Chip

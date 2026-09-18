@@ -96,6 +96,11 @@ class ExtractedElement:
     # The name of the Message / Signal / Error / Escalation the element refers
     # to, resolved from the root definitions. Also set on send/receive tasks.
     definition_name: str | None = None
+    # A call activity's `calledElement` — the raw reference string. Turbo EA
+    # writes the called BusinessProcess card's UUID there; a diagram imported
+    # from another tool carries whatever process id that tool used. Resolving
+    # it to a card needs the database, so it happens in `process_element_sync`.
+    called_element: str | None = None
 
 
 @dataclass
@@ -295,6 +300,9 @@ def parse_bpmn(bpmn_xml: str) -> ParsedBpmn:
         event_definition_type, definition_name = _resolve_definition_name(
             element_type, elem, definition_names
         )
+        called_element = (elem.get("calledElement") or "").strip() or None
+        if element_type != "callActivity":
+            called_element = None
 
         by_id[elem_id] = ExtractedElement(
             bpmn_element_id=elem_id,
@@ -306,6 +314,7 @@ def parse_bpmn(bpmn_xml: str) -> ParsedBpmn:
             sequence_order=0,
             event_definition_type=event_definition_type,
             definition_name=definition_name,
+            called_element=called_element,
         )
 
     ordered_ids = order_flow_nodes(flow_node_ids, edges, parent_of) + artefact_ids

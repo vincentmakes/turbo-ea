@@ -30,4 +30,15 @@ declare module "bpmn-js-create-append-anything" {
 declare module "bpmn-js-properties-panel" {
   export const BpmnPropertiesPanelModule: import("didi").ModuleDeclaration;
   export const BpmnPropertiesProviderModule: import("didi").ModuleDeclaration;
+  /** Resolve a bpmn-js service from inside a panel entry (Preact hook). */
+  export function useService(type: string, strict?: boolean): unknown;
+}
+
+/**
+ * `@bpmn-io/properties-panel` ships no `.d.ts` for its `dist/` entry either.
+ * Only the stock `Group` container is used — the "Called process" group of
+ * `calledProcessModule.ts` hands it the entries to render.
+ */
+declare module "@bpmn-io/properties-panel" {
+  export function Group(props: unknown): unknown;
 }

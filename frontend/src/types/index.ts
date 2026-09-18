@@ -1410,6 +1410,8 @@ export interface PortalProcessStep {
   application_name?: string | null;
   data_object_name?: string | null;
   it_component_name?: string | null;
+  /** The process a call activity invokes — a name only, like the others. */
+  called_process_name?: string | null;
   organizations?: PortalRef[];
 }
 
@@ -1491,6 +1493,13 @@ export interface ProcessElement {
   data_object_name?: string;
   it_component_id?: string;
   it_component_name?: string;
+  /** The raw `calledElement` of a call activity (parser-derived). A card uuid
+   *  resolves into `business_process_id`; anything else is a foreign reference
+   *  from another tool, shown as a hint until the process is picked. */
+  called_element?: string | null;
+  /** The Business Process a call activity invokes — call activities only. */
+  business_process_id?: string | null;
+  business_process_name?: string | null;
   /** M:N — a step can be linked to several Organization cards. */
   organizations?: { id: string; name: string }[];
   custom_fields?: Record<string, unknown>;
@@ -1579,6 +1588,7 @@ export interface ProcessFlowVersion {
     application_id?: string;
     data_object_id?: string;
     it_component_id?: string;
+    business_process_id?: string;
     organization_ids?: string[];
     custom_fields?: Record<string, unknown>;
   }>;

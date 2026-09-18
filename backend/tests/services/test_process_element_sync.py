@@ -14,6 +14,7 @@ from app.models.process_element import ProcessElement
 from app.models.process_message_flow import ProcessMessageFlow
 from app.services.bpmn_parser import ExtractedElement, ExtractedMessageFlow, ParsedBpmn
 from app.services.process_element_sync import (
+    resolve_called_processes,
     sync_process_elements,
     sync_process_message_flows,
 )
@@ -55,9 +56,10 @@ async def env(db):
     await create_card_type(db, key="Application", label="Application")
     await create_card_type(db, key="Interface", label="Interface")
     process = await create_card(db, card_type="BusinessProcess", name="P", user_id=user.id)
+    callee = await create_card(db, card_type="BusinessProcess", name="Callee", user_id=user.id)
     app = await create_card(db, card_type="Application", name="ERP", user_id=user.id)
     iface = await create_card(db, card_type="Interface", name="API", user_id=user.id)
-    return {"process": process, "app": app, "iface": iface}
+    return {"process": process, "callee": callee, "app": app, "iface": iface}
 
 
 async def _elements(db, pid):
@@ -151,6 +153,92 @@ class TestSyncElements:
         rows = {r.bpmn_element_id: r for r in await _elements(db, pid)}
         assert rows["t1"].application_id == env["app"].id
         assert rows["t2"].application_id is None
+
+
+class TestCalledProcess:
+    """``calledElement`` → ``business_process_id`` precedence."""
+
+    async def test_a_card_uuid_in_the_xml_wins(self, db, env):
+        pid, callee = env["process"].id, env["callee"]
+        await sync_process_elements(
+            db,
+            pid,
+            ParsedBpmn(
+                elements=[
+                    _element("ca", element_type="callActivity", called_element=str(callee.id))
+                ]
+            ),
+        )
+        await db.flush()
+        (row,) = await _elements(db, pid)
+        assert row.called_element == str(callee.id)
+        assert row.business_process_id == callee.id
+
+    async def test_a_foreign_reference_keeps_a_manual_link(self, db, env):
+        pid, callee = env["process"].id, env["callee"]
+        parsed = ParsedBpmn(
+            elements=[_element("ca", element_type="callActivity", called_element="Process_X")]
+        )
+        await sync_process_elements(db, pid, parsed)
+        await db.flush()
+        (row,) = await _elements(db, pid)
+        assert row.called_element == "Process_X"
+        assert row.business_process_id is None
+
+        row.business_process_id = callee.id  # linked through the table
+        await db.flush()
+        await sync_process_elements(db, pid, parsed)  # re-save, same XML
+        await db.flush()
+        (row,) = await _elements(db, pid)
+        assert row.business_process_id == callee.id
+
+    async def test_the_process_itself_never_resolves(self, db, env):
+        pid = env["process"].id
+        parsed = ParsedBpmn(
+            elements=[_element("ca", element_type="callActivity", called_element=str(pid))]
+        )
+        assert await resolve_called_processes(db, pid, parsed) == {}
+        await sync_process_elements(db, pid, parsed)
+        await db.flush()
+        (row,) = await _elements(db, pid)
+        assert row.called_element == str(pid)
+        assert row.business_process_id is None
+
+    async def test_a_card_that_is_not_an_active_process_does_not_resolve(self, db, env):
+        pid = env["process"].id
+        archived = await create_card(db, card_type="BusinessProcess", name="Old", status="ARCHIVED")
+        parsed = ParsedBpmn(
+            elements=[
+                _element("app", element_type="callActivity", called_element=str(env["app"].id)),
+                _element(
+                    "old",
+                    element_type="callActivity",
+                    called_element=str(archived.id),
+                    sequence_order=1,
+                ),
+                _element("junk", element_type="callActivity", called_element="not-a-uuid"),
+            ]
+        )
+        assert await resolve_called_processes(db, pid, parsed) == {}
+
+    async def test_morphing_to_a_task_clears_the_link(self, db, env):
+        pid, callee = env["process"].id, env["callee"]
+        await sync_process_elements(
+            db,
+            pid,
+            ParsedBpmn(
+                elements=[
+                    _element("ca", element_type="callActivity", called_element=str(callee.id))
+                ]
+            ),
+        )
+        await db.flush()
+        await sync_process_elements(db, pid, ParsedBpmn(elements=[_element("ca")]))
+        await db.flush()
+        (row,) = await _elements(db, pid)
+        assert row.element_type == "task"
+        assert row.called_element is None
+        assert row.business_process_id is None
 
 
 class TestSyncMessageFlows:

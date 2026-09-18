@@ -55,6 +55,13 @@ async def _setup_types(db):
         source_type_key="BusinessProcess",
         target_type_key="ITComponent",
     )
+    await create_relation_type(
+        db,
+        key="relProcessCalls",
+        label="calls",
+        source_type_key="BusinessProcess",
+        target_type_key="BusinessProcess",
+    )
     return user
 
 
@@ -221,7 +228,40 @@ class TestSyncElementRelations:
             "application_id": "relProcessToApp",
             "data_object_id": "relProcessToDataObj",
             "it_component_id": "relProcessToITC",
+            "business_process_id": "relProcessCalls",
         }
+
+    async def test_called_process_mints_the_calls_relation(self, db):
+        user = await _setup_types(db)
+        process = await create_card(db, card_type="BusinessProcess", name="O2C", user_id=user.id)
+        callee = await create_card(db, card_type="BusinessProcess", name="Credit", user_id=user.id)
+
+        count = await sync_element_relations(
+            db, process_id=process.id, linked_ids={"business_process_id": {callee.id}}
+        )
+
+        assert count == 1
+        rel = (
+            await db.execute(
+                select(Relation).where(
+                    Relation.type == "relProcessCalls", Relation.source_id == process.id
+                )
+            )
+        ).scalar_one()
+        assert rel.target_id == callee.id
+
+    async def test_a_process_never_calls_itself(self, db):
+        """A self-pair type needs the self guard the cross-type ones never did."""
+        user = await _setup_types(db)
+        process = await create_card(db, card_type="BusinessProcess", name="O2C", user_id=user.id)
+
+        count = await sync_element_relations(
+            db, process_id=process.id, linked_ids={"business_process_id": {process.id}}
+        )
+
+        assert count == 0
+        rels = await db.execute(select(Relation).where(Relation.source_id == process.id))
+        assert rels.scalars().all() == []
 
     async def test_additive_only_does_not_delete(self, db):
         """Sync is additive — removing a card from linked_ids does not delete."""

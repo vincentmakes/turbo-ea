@@ -18,13 +18,14 @@ from app.models.process_message_flow import ProcessMessageFlow
 from app.models.user import User
 from app.schemas.bpm import DiagramSave, ElementUpdate, MessageFlowUpdate
 from app.services.bpmn_parser import parse_bpmn, parse_bpmn_xml
-from app.services.element_relation_sync import sync_element_relations
+from app.services.element_relation_sync import element_link_ids, sync_element_relations
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.process_element_sync import (
     message_flow_to_dict,
     sync_process_elements,
     sync_process_message_flows,
+    validate_called_process,
 )
 
 router = APIRouter(prefix="/bpm", tags=["bpm"])
@@ -159,8 +160,15 @@ async def save_diagram(
     # Parse XML and upsert the derived rows (EA links on surviving rows are kept)
     parsed = parse_bpmn(body.bpmn_xml)
     extracted = parsed.elements
-    await sync_process_elements(db, pid, parsed)
+    rows = await sync_process_elements(db, pid, parsed)
     await sync_process_message_flows(db, pid, parsed)
+    # A call activity whose calledElement resolved to a card is a link the XML
+    # itself made — mint its `calls` relation now, as the element table would.
+    await sync_element_relations(
+        db,
+        pid,
+        {"business_process_id": {r.business_process_id for r in rows if r.business_process_id}},
+    )
 
     # Publish event — skipped in dry-run mode since nothing is persisted.
     if not body.dry_run:
@@ -360,6 +368,7 @@ async def list_elements(
             selectinload(ProcessElement.application),
             selectinload(ProcessElement.data_object),
             selectinload(ProcessElement.it_component),
+            selectinload(ProcessElement.business_process),
             selectinload(ProcessElement.organizations),
         )
         .where(ProcessElement.process_id == pid)
@@ -385,6 +394,9 @@ async def list_elements(
             "data_object_name": e.data_object.name if e.data_object else None,
             "it_component_id": str(e.it_component_id) if e.it_component_id else None,
             "it_component_name": e.it_component.name if e.it_component else None,
+            "called_element": e.called_element,
+            "business_process_id": str(e.business_process_id) if e.business_process_id else None,
+            "business_process_name": e.business_process.name if e.business_process else None,
             "organizations": [{"id": str(o.id), "name": o.name} for o in e.organizations],
             "custom_fields": e.custom_fields,
         }
@@ -419,6 +431,15 @@ async def update_element(
         elem.data_object_id = uuid.UUID(body.data_object_id) if body.data_object_id else None
     if body.it_component_id is not None:
         elem.it_component_id = uuid.UUID(body.it_component_id) if body.it_component_id else None
+    if body.business_process_id is not None:
+        if body.business_process_id:
+            if elem.element_type != "callActivity":
+                raise HTTPException(400, "Only a call activity can call a process")
+            elem.business_process_id = await validate_called_process(
+                db, pid, body.business_process_id
+            )
+        else:
+            elem.business_process_id = None
     if body.organization_ids is not None:
         # Full replacement of the step's M:N Organization links. Informative
         # only — unlike the FK links below, this never creates a card-to-card
@@ -445,18 +466,7 @@ async def update_element(
         elem.custom_fields = body.custom_fields
 
     # Sync newly linked cards → relations table (additive only)
-    link_ids: dict[str, set[uuid.UUID]] = {
-        "application_id": set(),
-        "data_object_id": set(),
-        "it_component_id": set(),
-    }
-    if elem.application_id:
-        link_ids["application_id"].add(elem.application_id)
-    if elem.data_object_id:
-        link_ids["data_object_id"].add(elem.data_object_id)
-    if elem.it_component_id:
-        link_ids["it_component_id"].add(elem.it_component_id)
-    await sync_element_relations(db, pid, link_ids)
+    await sync_element_relations(db, pid, element_link_ids([elem]))
 
     await db.commit()
     await db.refresh(elem)

@@ -113,6 +113,7 @@ export default function PortalProcessNavigator({ slug, portal }: Props) {
             application_name: s.application_name ?? undefined,
             data_object_name: s.data_object_name ?? undefined,
             it_component_name: s.it_component_name ?? undefined,
+            business_process_name: s.called_process_name ?? undefined,
             organizations: (s.organizations ?? []).map((o) => ({ id: o.token, name: o.name })),
           })),
           // Drafts are never published, so there is nothing to point a visitor at.

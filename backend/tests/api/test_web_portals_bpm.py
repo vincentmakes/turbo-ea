@@ -89,6 +89,8 @@ async def _add_element(db, process, *, bpmn_id="Task_1", name="Approve order", *
         application_id=kwargs.get("application_id"),
         data_object_id=kwargs.get("data_object_id"),
         it_component_id=kwargs.get("it_component_id"),
+        business_process_id=kwargs.get("business_process_id"),
+        called_element=kwargs.get("called_element"),
         custom_fields=kwargs.get("custom_fields", {"tcode": "SE16"}),
     )
     db.add(el)
@@ -156,6 +158,17 @@ async def bpm_portal_env(db, client):
         application_id=app.id,
         data_object_id=data_obj.id,
         organizations=[org],
+    )
+    # A call activity invoking the child — published as a name, never an id.
+    await _add_element(
+        db,
+        parent,
+        bpmn_id="Call_1",
+        name="Invoice the customer",
+        element_type="callActivity",
+        sequence_order=1,
+        business_process_id=child.id,
+        called_element=str(child.id),
     )
 
     resp = await client.post(
@@ -281,7 +294,7 @@ class TestPublicProcessMap:
         assert parent["description"] == "How money reaches the company"
         assert parent["lifecycle"] == {"active": "2026-01-01"}
         assert parent["has_flow"] is True
-        assert parent["step_count"] == 1
+        assert parent["step_count"] == 2
         assert child["has_flow"] is False
         assert body["row_order"]
 
@@ -352,7 +365,7 @@ class TestPublicFlow:
         body = resp.json()
         assert body["bpmn_xml"] == PUBLISHED_XML
         assert body["revision"] == 1
-        assert len(body["steps"]) == 1
+        assert len(body["steps"]) == 2
 
     async def test_step_shape_is_whitelisted(self, client, bpm_portal_env):
         step = (await client.get(FLOW.format(pid=bpm_portal_env["parent"].id))).json()["steps"][0]
@@ -389,6 +402,7 @@ class TestPublicFlow:
         assert step["data_object_name"] is None
         assert step["it_component_name"] is None
         assert step["organizations"] == []
+        assert body["steps"][1]["called_process_name"] is None
         assert SECRET_APP not in json.dumps(body)
 
     async def test_element_links_published_when_enabled(self, client, bpm_portal_env):
@@ -403,7 +417,11 @@ class TestPublicFlow:
         assert step["application_name"] == SECRET_APP
         assert step["data_object_name"] == "Purchase Order"
         assert [o["name"] for o in step["organizations"]] == ["Finance Dept"]
-        # Names only — still no identifiers, and still no cost.
+        assert body["steps"][1]["called_process_name"] == "Invoice Customer"
+        # Names only — still no identifiers, and still no cost. The callee's
+        # id is the one identifier the raw XML would carry, so the step must
+        # not echo `called_element` either.
+        assert "called_element" not in body["steps"][1]
         assert str(bpm_portal_env["app"].id) not in json.dumps(body)
         assert str(SECRET_COST) not in json.dumps(body)
 
