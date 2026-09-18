@@ -7,6 +7,10 @@
 | **Lesezeichen / Gespeicherte Ansicht** | Eine gespeicherte Filter-, Spalten- und Sortierkonfiguration im Inventar, die mit einem Klick geladen werden kann |
 | **BPM** | Business Process Management — die Disziplin der Modellierung, Analyse und Verbesserung von Geschäftsprozessen |
 | **BPMN** | Business Process Model and Notation — die Standardnotation zur Modellierung von Geschäftsprozessen (Version 2.0) |
+| **Ereignisdefinition** | Die Art eines BPMN-Ereignisses — Nachricht, Timer, Signal, Fehler, Eskalation, Bedingung, Link, Kompensation, Abbruch oder Terminierung. Wird in der Schritttabelle neben dem Elementtyp angezeigt, zusammen mit dem Namen der Nachricht, des Signals oder des Fehlers, auf den sich das Ereignis bezieht |
+| **Bahn** | Ein waagerechter Streifen innerhalb eines Pools, der die von einer Rolle, einem Team oder einer Abteilung ausgeführten Schritte zusammenfasst |
+| **Nachrichtenfluss** | Eine zwischen zwei Pools einer BPMN-Kollaboration ausgetauschte Nachricht. Wird unter der Elementtabelle eines veröffentlichten Prozessflusses aufgelistet und kann dort mit der Schnittstellen-Karte verknüpft werden, die sie überträgt |
+| **Pool** | Ein Teilnehmer einer BPMN-Kollaboration — ein Kunde, eine Abteilung, ein Partnersystem — dargestellt als Container mit dem eigenen Prozess dieser Partei |
 | **BPM-Zeilenreihenfolge** | Die Anzeigereihenfolge der Prozesstypzeilen (Kern, Unterstützung, Management) im BPM-Prozessnavigator, konfigurierbar durch Ziehen von Zeilen |
 | **Geschäftsjahr** | Der 12-monatige Zeitraum für Budgetierung und Finanzberichterstattung. Konfigurierbar über Admin > Einstellungen — der Startmonat (Januar bis Dezember) bestimmt, wie PPM-Budgetzeilen gruppiert werden |
 | **Geschäftsfähigkeit** | Was eine Organisation tun kann, unabhängig davon, wie sie es tut |

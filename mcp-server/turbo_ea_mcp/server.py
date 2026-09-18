@@ -3527,27 +3527,32 @@ async def import_bpmn(
     # we don't want to fake one. The card-create step above already
     # validated the card path; for the flow side, we surface the parsed
     # element count via a parser-free regex count of *Task / *Event /
-    # *Gateway so the agent can show the user something useful. The
-    # namespace prefix is optional: plenty of exports declare BPMN as the
-    # default namespace (`<definitions xmlns="...">`), which the real
-    # parser handles and a prefix-only pattern would count as zero.
+    # *Gateway / data artefacts (mirroring the backend's EXTRACTABLE_TYPES)
+    # plus the message flows, so the agent can show the user something
+    # useful. The namespace prefix is optional: plenty of exports declare
+    # BPMN as the default namespace (`<definitions xmlns="...">`), which the
+    # real parser handles and a prefix-only pattern would count as zero.
     if dry_run:
         preview_node_count = len(
             re.findall(
                 r"<(?:\w+:)?(?:task|userTask|serviceTask|scriptTask|businessRuleTask|"
                 r"sendTask|receiveTask|manualTask|callActivity|subProcess|"
+                r"transaction|adHocSubProcess|"
                 r"exclusiveGateway|parallelGateway|inclusiveGateway|"
-                r"eventBasedGateway|startEvent|endEvent|"
-                r"intermediateCatchEvent|intermediateThrowEvent|boundaryEvent)\b",
+                r"eventBasedGateway|complexGateway|startEvent|endEvent|"
+                r"intermediateCatchEvent|intermediateThrowEvent|boundaryEvent|"
+                r"dataObjectReference|dataStoreReference)\b",
                 bpmn_xml,
             )
         )
+        preview_message_flow_count = len(re.findall(r"<(?:\w+:)?messageFlow\b", bpmn_xml))
         response: dict = {
             "dry_run": True,
             "committed": False,
             "business_process_id": process_id,
             "diagram_preview": {
                 "flow_nodes_estimated": preview_node_count,
+                "message_flows_estimated": preview_message_flow_count,
                 "bpmn_xml_bytes": len(bpmn_xml),
             },
             "next_action": (

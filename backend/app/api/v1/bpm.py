@@ -14,12 +14,18 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement, ProcessElementOrganization
+from app.models.process_message_flow import ProcessMessageFlow
 from app.models.user import User
-from app.schemas.bpm import DiagramSave, ElementUpdate
-from app.services.bpmn_parser import parse_bpmn_xml
+from app.schemas.bpm import DiagramSave, ElementUpdate, MessageFlowUpdate
+from app.services.bpmn_parser import parse_bpmn, parse_bpmn_xml
 from app.services.element_relation_sync import sync_element_relations
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
+from app.services.process_element_sync import (
+    message_flow_to_dict,
+    sync_process_elements,
+    sync_process_message_flows,
+)
 
 router = APIRouter(prefix="/bpm", tags=["bpm"])
 
@@ -30,6 +36,12 @@ TEMPLATES = [
         "key": "blank",
         "name": "Blank Diagram",
         "description": "Empty diagram with a start and end event.",
+        "category": "General",
+    },
+    {
+        "key": "collaboration",
+        "name": "Collaboration",
+        "description": "Two pools exchanging messages: request → handle → confirmation.",
         "category": "General",
     },
     {
@@ -144,43 +156,11 @@ async def save_diagram(
     )
     db.add(diagram)
 
-    # Parse XML and extract elements
-    extracted = parse_bpmn_xml(body.bpmn_xml)
-
-    # Load existing elements to preserve EA links
-    existing_elements = await db.execute(
-        select(ProcessElement).where(ProcessElement.process_id == pid)
-    )
-    old_by_bpmn_id = {e.bpmn_element_id: e for e in existing_elements.scalars().all()}
-
-    # Upsert: keep EA links for elements that still exist, remove deleted ones
-    new_bpmn_ids = {e.bpmn_element_id for e in extracted}
-    for old_id, old_elem in old_by_bpmn_id.items():
-        if old_id not in new_bpmn_ids:
-            await db.delete(old_elem)
-
-    for ext in extracted:
-        if ext.bpmn_element_id in old_by_bpmn_id:
-            old = old_by_bpmn_id[ext.bpmn_element_id]
-            old.element_type = ext.element_type
-            old.name = ext.name
-            old.documentation = ext.documentation
-            old.lane_name = ext.lane_name
-            old.is_automated = ext.is_automated
-            old.sequence_order = ext.sequence_order
-        else:
-            db.add(
-                ProcessElement(
-                    process_id=pid,
-                    bpmn_element_id=ext.bpmn_element_id,
-                    element_type=ext.element_type,
-                    name=ext.name,
-                    documentation=ext.documentation,
-                    lane_name=ext.lane_name,
-                    is_automated=ext.is_automated,
-                    sequence_order=ext.sequence_order,
-                )
-            )
+    # Parse XML and upsert the derived rows (EA links on surviving rows are kept)
+    parsed = parse_bpmn(body.bpmn_xml)
+    extracted = parsed.elements
+    await sync_process_elements(db, pid, parsed)
+    await sync_process_message_flows(db, pid, parsed)
 
     # Publish event — skipped in dry-run mode since nothing is persisted.
     if not body.dry_run:
@@ -238,10 +218,11 @@ async def delete_diagram(
     pid = uuid.UUID(process_id)
     process = await _get_process_or_404(db, pid)
 
-    # Delete all extracted elements
+    # Delete all extracted elements and message flows
     elements = await db.execute(select(ProcessElement).where(ProcessElement.process_id == pid))
     for elem in elements.scalars().all():
         await db.delete(elem)
+    await db.execute(delete(ProcessMessageFlow).where(ProcessMessageFlow.process_id == pid))
 
     # Delete all diagram versions
     diagrams = await db.execute(select(ProcessDiagram).where(ProcessDiagram.process_id == pid))
@@ -396,6 +377,8 @@ async def list_elements(
             "lane_name": e.lane_name,
             "is_automated": e.is_automated,
             "sequence_order": e.sequence_order,
+            "event_definition_type": e.event_definition_type,
+            "definition_name": e.definition_name,
             "application_id": str(e.application_id) if e.application_id else None,
             "application_name": e.application.name if e.application else None,
             "data_object_id": str(e.data_object_id) if e.data_object_id else None,
@@ -478,6 +461,79 @@ async def update_element(
     await db.commit()
     await db.refresh(elem)
     return {"id": str(elem.id), "status": "updated"}
+
+
+# ── Message flow endpoints ───────────────────────────────────────────────
+
+
+@router.get("/processes/{process_id}/message-flows")
+async def list_message_flows(
+    process_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The messages exchanged between the pools of the process's diagram."""
+    await PermissionService.require_permission(db, user, "bpm.view")
+    pid = uuid.UUID(process_id)
+    await _get_process_or_404(db, pid)
+    result = await db.execute(
+        select(ProcessMessageFlow)
+        .options(selectinload(ProcessMessageFlow.interface))
+        .where(ProcessMessageFlow.process_id == pid)
+        .order_by(ProcessMessageFlow.sequence_order)
+    )
+    return [message_flow_to_dict(f) for f in result.scalars().all()]
+
+
+@router.patch("/processes/{process_id}/message-flows/{flow_id}")
+async def update_message_flow(
+    process_id: str,
+    flow_id: str,
+    body: MessageFlowUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Link a message flow to the Interface card it realises (``null`` clears).
+
+    Informative only — like a step's Organization links, no card-to-card
+    relation is derived from it.
+    """
+    await PermissionService.require_permission(db, current_user, "bpm.edit")
+    pid = uuid.UUID(process_id)
+    await _get_process_or_404(db, pid)
+    result = await db.execute(
+        select(ProcessMessageFlow)
+        .options(selectinload(ProcessMessageFlow.interface))
+        .where(
+            ProcessMessageFlow.id == uuid.UUID(flow_id),
+            ProcessMessageFlow.process_id == pid,
+        )
+    )
+    flow = result.scalar_one_or_none()
+    if not flow:
+        raise HTTPException(404, "Message flow not found")
+
+    iface: Card | None = None
+    if body.interface_id:
+        iface_id = uuid.UUID(body.interface_id)
+        found = await db.execute(
+            select(Card).where(
+                Card.id == iface_id,
+                Card.type == "Interface",
+                Card.status == "ACTIVE",
+            )
+        )
+        iface = found.scalar_one_or_none()
+        if not iface:
+            raise HTTPException(404, "Interface card not found")
+        flow.interface_id = iface_id
+    else:
+        flow.interface_id = None
+
+    await db.commit()
+    # The `interface` relationship is `noload`, so the identity-mapped row
+    # still carries the pre-PATCH value — answer from the card just validated.
+    return {**message_flow_to_dict(flow), "interface_name": iface.name if iface else None}
 
 
 # ── Template endpoints ───────────────────────────────────────────────────

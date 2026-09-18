@@ -32,6 +32,7 @@ const TEMPLATE_ICONS: Record<string, string> = {
   "procure-to-pay": "receipt_long",
   "hire-to-retire": "person_add",
   "incident-management": "warning",
+  collaboration: "forum",
 };
 
 export default function BpmnTemplateChooser({ open, onClose, onSelect }: Props) {

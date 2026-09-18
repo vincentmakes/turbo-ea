@@ -44,6 +44,9 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker from "@/components/CardPicker";
 import BpmnViewer from "./BpmnViewer";
 import BpmnTemplateChooser from "./BpmnTemplateChooser";
+import ElementTypeChip from "./ElementTypeChip";
+import MessageFlowsTable from "./MessageFlowsTable";
+import { isArtefactType } from "./elementTypes";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 // Aliased: this file already has a local STATUS_COLORS holding MUI palette
@@ -702,26 +705,36 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
             <TableBody>
               {namedElements.map((e, idx) => {
                 const elemKey = e[idField] as string;
+                // A data object / data store is not a step: it has no lane,
+                // no automation and links only to a Data Object card.
+                const artefact = isArtefactType(e.element_type);
+                const dash = <Typography variant="body2" color="text.secondary">{"\u2014"}</Typography>;
                 return (
-                  <TableRow key={elemKey} hover>
+                  <TableRow key={elemKey} hover data-artefact={artefact ? "true" : undefined}>
                     <TableCell>{idx + 1}</TableCell>
                     <TableCell>{e.name}</TableCell>
                     <TableCell>
-                      <Chip label={e.element_type} size="small" variant="outlined" />
+                      <ElementTypeChip
+                        elementType={e.element_type}
+                        eventDefinitionType={e.event_definition_type}
+                        definitionName={e.definition_name}
+                      />
                     </TableCell>
                     <TableCell>{e.lane_name || "\u2014"}</TableCell>
                     <TableCell>
-                      {e.is_automated ? (
+                      {artefact ? (
+                        dash
+                      ) : e.is_automated ? (
                         <Chip label={t("common:labels.yes")} size="small" color="success" />
                       ) : (
                         <Typography variant="body2" color="text.secondary">{t("common:labels.no")}</Typography>
                       )}
                     </TableCell>
-                    <TableCell>{renderTCodeCell(e, onUpdate, elemKey)}</TableCell>
-                    <TableCell>{renderEditableCell(e, "application", "Application", onUpdate, elemKey)}</TableCell>
+                    <TableCell>{artefact ? dash : renderTCodeCell(e, onUpdate, elemKey)}</TableCell>
+                    <TableCell>{artefact ? dash : renderEditableCell(e, "application", "Application", onUpdate, elemKey)}</TableCell>
                     <TableCell>{renderEditableCell(e, "data_object", "DataObject", onUpdate, elemKey)}</TableCell>
-                    <TableCell>{renderEditableCell(e, "it_component", "ITComponent", onUpdate, elemKey)}</TableCell>
-                    <TableCell>{renderOrgCell(e, onUpdate, elemKey)}</TableCell>
+                    <TableCell>{artefact ? dash : renderEditableCell(e, "it_component", "ITComponent", onUpdate, elemKey)}</TableCell>
+                    <TableCell>{artefact ? dash : renderOrgCell(e, onUpdate, elemKey)}</TableCell>
                   </TableRow>
                 );
               })}
@@ -863,6 +876,13 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
         {/* Editable process elements table */}
         {renderElementsTable(elements, handleElementUpdate)}
+
+        {/* Messages exchanged between pools, each linkable to an Interface card */}
+        <MessageFlowsTable
+          processId={processId}
+          canEdit={perms.can_edit_draft}
+          onNotify={setSnack}
+        />
       </Box>
     );
   };

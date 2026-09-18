@@ -398,6 +398,43 @@ class TestImportBpmn:
         post_mock.assert_not_called()
         data = _parse(out)
         assert data["diagram_preview"]["flow_nodes_estimated"] == 3
+        assert data["diagram_preview"]["message_flows_estimated"] == 0
+
+    @pytest.mark.asyncio
+    async def test_dry_run_counts_artefacts_and_message_flows(self, fake_token):
+        """The backend extracts data objects / data stores as elements and the
+        message flows into their own table; the preview mirrors both so a
+        two-pool diagram is not under-reported."""
+        get_mock = AsyncMock(
+            return_value={
+                "items": [{"id": "bp-1", "name": "Order to Cash", "parent_id": None}],
+                "total": 1,
+            }
+        )
+        post_mock = AsyncMock()
+        with (
+            patch.object(server.TurboEAClient, "get", get_mock),
+            patch.object(server.TurboEAClient, "post", post_mock),
+        ):
+            bpmn = (
+                "<bpmn:definitions>"
+                '<bpmn:collaboration id="c">'
+                '<bpmn:messageFlow id="mf1" sourceRef="t" targetRef="p2"/>'
+                '<bpmn:messageFlow id="mf2" sourceRef="p2" targetRef="e"/>'
+                "</bpmn:collaboration>"
+                '<bpmn:process id="P"><bpmn:startEvent id="s"/>'
+                '<bpmn:task id="t"/><bpmn:dataObjectReference id="d"/>'
+                '<bpmn:dataStoreReference id="ds"/>'
+                '<bpmn:endEvent id="e"/></bpmn:process>'
+                "</bpmn:definitions>"
+            )
+            out = await server.import_bpmn(
+                business_process_name="Order to Cash", bpmn_xml=bpmn
+            )
+        post_mock.assert_not_called()
+        data = _parse(out)
+        assert data["diagram_preview"]["flow_nodes_estimated"] == 5
+        assert data["diagram_preview"]["message_flows_estimated"] == 2
 
     @pytest.mark.asyncio
     async def test_missing_card_returns_card_not_found_with_next_action(

@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.146.0] - 2026-09-18
+
+### Added
+
+- **Every BPMN element is now one click away in the process flow editor.** The palette showed seven element types and nothing else: a message start event, a timer, an error boundary event or a transaction could only be reached by placing a plain shape first and knowing to hit the wrench icon to morph it. The **…** entry at the bottom of the palette now opens a searchable **Create element** menu covering the whole BPMN 2.0 notation — message, timer, signal, error and escalation events, transactions, event sub-processes, call activities, send and receive tasks, data objects and data stores — and the **+** entry on a selected shape opens the matching **Append element** menu. Both are keyboard-reachable (`N` and `A`).
+- **A properties panel, so the things a shape cannot show are finally editable.** The new panel on the right of the editor (toggle it with the sliders button) edits an element's name and **documentation**, the **Message**, **Signal**, **Error** or **Escalation** an event refers to, a sequence flow's condition, and multi-instance markers. Documentation typed here shows up in the process navigator and the read-only viewer — until now the system read that field but nothing in the app could write it. The panel follows light and dark mode.
+- **Pools, message flows and a Collaboration template.** A process that spans a customer and the company, two departments or a partner system is modelled as a collaboration: one pool per party, connected by message flows. A seventh starter template, **Collaboration**, ships that shape ready to edit. The message flows of a published diagram are listed under the process steps, showing what each connects at either end, and each one can be linked to the **Interface** card that carries it — informative, like organization links on a step, so no relation is created between cards.
+- **Process steps now say what kind of event they are.** The steps table, the process navigator, the diagram viewer and the Element × Application report used to print the raw BPMN type (`startEvent`, `userTask`). They now show a translated label with the element's own icon, and an event carries its kind and the message it refers to — "Start event · Message: Customer Order". Send and receive tasks carry their message too. Data objects and data stores drawn on a diagram are extracted as well: they appear at the end of the steps table with only the Data Object link offered, since a data artefact has no lane, no automation and no supporting application.
+
+### Changed
+
+- **The Simple / Full BPMN toggle has been removed.** It hid six palette entries with a stylesheet, which stopped meaning anything once the Create element menu could reach every element regardless. The palette is the same for everyone, with everything else one click away behind the menu.
+
 ## [2.145.0] - 2026-09-18
 
 ### Added

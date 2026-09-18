@@ -108,6 +108,8 @@ export default function PortalProcessNavigator({ slug, portal }: Props) {
             lane_name: s.lane_name,
             is_automated: s.is_automated,
             sequence_order: s.sequence_order,
+            event_definition_type: s.event_definition_type ?? null,
+            definition_name: s.definition_name ?? null,
             application_name: s.application_name ?? undefined,
             data_object_name: s.data_object_name ?? undefined,
             it_component_name: s.it_component_name ?? undefined,

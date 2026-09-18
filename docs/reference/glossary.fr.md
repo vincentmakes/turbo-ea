@@ -8,6 +8,10 @@
 | **Signet / Vue sauvegardée** | Une configuration sauvegardée de filtres, colonnes et tri dans l'Inventaire qui peut être rechargée en un clic |
 | **BPM** | Gestion des processus métier -- la discipline de modélisation, d'analyse et d'amélioration des processus métier |
 | **BPMN** | Business Process Model and Notation -- la notation standard pour la modélisation des processus métier (version 2.0) |
+| **Définition d'événement** | La nature d'un événement BPMN -- message, minuterie, signal, erreur, escalade, condition, lien, compensation, annulation ou terminaison. Affichée à côté du type d'élément dans le tableau des étapes, avec le nom du message, du signal ou de l'erreur auquel l'événement fait référence |
+| **Couloir** | Une bande horizontale à l'intérieur d'un pool qui regroupe les étapes réalisées par un rôle, une équipe ou un service |
+| **Flux de message** | Un message échangé entre deux pools d'une collaboration BPMN. Listé sous le tableau des éléments d'un flux de processus publié, où il peut être lié à la fiche Interface qui le transporte |
+| **Pool** | Un participant d'une collaboration BPMN -- un client, un service, un système partenaire -- dessiné comme un conteneur abritant le processus propre à cette partie |
 | **Capacité métier** | Ce qu'une organisation peut faire, indépendamment de la manière dont elle le fait |
 | **Calcul** | Une formule définie par l'administrateur qui calcule automatiquement une valeur de champ lorsqu'une fiche est sauvegardée |
 | **Fiche** | L'unité d'information de base dans Turbo EA représentant tout composant d'architecture |

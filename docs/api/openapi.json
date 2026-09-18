@@ -1412,6 +1412,17 @@
             ],
             "title": "Data Object Name"
           },
+          "definition_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Definition Name"
+          },
           "documentation": {
             "anyOf": [
               {
@@ -1426,6 +1437,17 @@
           "element_type": {
             "title": "Element Type",
             "type": "string"
+          },
+          "event_definition_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Definition Type"
           },
           "is_automated": {
             "default": false,
@@ -6470,6 +6492,24 @@
           }
         },
         "title": "McpSettingsPayload",
+        "type": "object"
+      },
+      "MessageFlowUpdate": {
+        "description": "Set (or clear, with ``null``) the Interface card a message flow realises.",
+        "properties": {
+          "interface_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interface Id"
+          }
+        },
+        "title": "MessageFlowUpdate",
         "type": "object"
       },
       "MigrationOut": {
@@ -20417,6 +20457,107 @@
         "summary": "Withdraw Version",
         "tags": [
           "bpm-workflow"
+        ]
+      }
+    },
+    "/api/v1/bpm/processes/{process_id}/message-flows": {
+      "get": {
+        "description": "The messages exchanged between the pools of the process's diagram.",
+        "operationId": "list_message_flows_api_v1_bpm_processes__process_id__message_flows_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "process_id",
+            "required": true,
+            "schema": {
+              "title": "Process Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Message Flows",
+        "tags": [
+          "bpm"
+        ]
+      }
+    },
+    "/api/v1/bpm/processes/{process_id}/message-flows/{flow_id}": {
+      "patch": {
+        "description": "Link a message flow to the Interface card it realises (``null`` clears).\n\nInformative only \u2014 like a step's Organization links, no card-to-card\nrelation is derived from it.",
+        "operationId": "update_message_flow_api_v1_bpm_processes__process_id__message_flows__flow_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "process_id",
+            "required": true,
+            "schema": {
+              "title": "Process Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "flow_id",
+            "required": true,
+            "schema": {
+              "title": "Flow Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageFlowUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Message Flow",
+        "tags": [
+          "bpm"
         ]
       }
     },

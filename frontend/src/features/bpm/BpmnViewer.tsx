@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
+import ElementTypeChip from "./ElementTypeChip";
 import Popover from "@mui/material/Popover";
 import Chip from "@mui/material/Chip";
 
@@ -31,6 +32,8 @@ export interface BpmnViewerElement {
   documentation?: string;
   lane_name?: string;
   is_automated: boolean;
+  event_definition_type?: string | null;
+  definition_name?: string | null;
   application_name?: string | null;
   data_object_name?: string | null;
   organizations?: { id: string; name: string }[];
@@ -166,7 +169,12 @@ export default function BpmnViewer({ bpmnXml, elements, onElementClick, height =
           <Box sx={{ p: 2, maxWidth: 300 }}>
             <Typography variant="subtitle2">{popover.element.name || t("viewer.unnamed")}</Typography>
             <Typography variant="body2" color="text.secondary">
-              {popover.element.element_type}
+              <ElementTypeChip
+                variant="text"
+                elementType={popover.element.element_type}
+                eventDefinitionType={popover.element.event_definition_type}
+                definitionName={popover.element.definition_name}
+              />
               {popover.element.lane_name && ` | ${popover.element.lane_name}`}
             </Typography>
             {popover.element.documentation && (

@@ -1251,3 +1251,45 @@ async def test_card_type_bundle_without_the_column_keeps_the_default(db):
 
     created = (await db.execute(select(CardType).where(CardType.key == "Widget"))).scalar_one()
     assert created.role_permissions == {}
+
+
+async def test_process_message_flows_roundtrip(db):
+    """A message flow keeps its own id on import; the process and Interface
+    card FKs are re-resolved by card ref."""
+    from app.models.process_message_flow import ProcessMessageFlow
+
+    user = await create_user(db, email="bpm-flows@test.com", role="admin")
+    await create_card_type(db, key="BusinessProcess", label="Business Process")
+    await create_card_type(db, key="Interface", label="Interface")
+    process = await create_card(db, card_type="BusinessProcess", name="O2C", user_id=user.id)
+    iface = await create_card(db, card_type="Interface", name="Order API", user_id=user.id)
+
+    flow = ProcessMessageFlow(
+        process_id=process.id,
+        bpmn_element_id="MessageFlow_1",
+        name="Order",
+        source_ref="Task_Send",
+        target_ref="Participant_Supplier",
+        source_name="Send order",
+        target_name="Supplier",
+        sequence_order=0,
+        interface_id=iface.id,
+    )
+    db.add(flow)
+    await db.flush()
+    flow_id = flow.id
+
+    raw = await build_bundle(db)
+
+    await db.execute(delete(ProcessMessageFlow).where(ProcessMessageFlow.id == flow_id))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored = (
+        await db.execute(select(ProcessMessageFlow).where(ProcessMessageFlow.id == flow_id))
+    ).scalar_one()
+    assert restored.process_id == process.id
+    assert restored.interface_id == iface.id
+    assert restored.target_name == "Supplier"

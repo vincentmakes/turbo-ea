@@ -25,10 +25,14 @@ from app.schemas.bpm import (
     ProcessFlowVersionWithdraw,
 )
 from app.services import notification_service
-from app.services.bpmn_parser import parse_bpmn_xml
+from app.services.bpmn_parser import parse_bpmn
 from app.services.element_relation_sync import sync_element_relations
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
+from app.services.process_element_sync import (
+    sync_process_elements,
+    sync_process_message_flows,
+)
 
 router = APIRouter(prefix="/bpm", tags=["bpm-workflow"])
 
@@ -641,7 +645,7 @@ async def approve_version(
     # Extract process elements from BPMN XML for the elements table
     stale_link_warnings: list[str] = []
     if version.bpmn_xml:
-        extracted = parse_bpmn_xml(version.bpmn_xml)
+        parsed = parse_bpmn(version.bpmn_xml)
         draft_links = version.draft_element_links or {}
 
         # Validate draft-linked cards still exist
@@ -673,44 +677,16 @@ async def approve_version(
                 if cid not in card_name_map:
                     stale_link_warnings.append(f"Linked card {cid[:8]}... no longer exists")
 
-        # Load existing elements to preserve EA links (application, data_object, it_component)
-        existing_elements = await db.execute(
-            select(ProcessElement).where(ProcessElement.process_id == pid)
+        # Upsert the derived rows, keeping EA links on elements that survive
+        # and applying the draft's pre-links (only to cards still valid).
+        await sync_process_elements(
+            db,
+            pid,
+            parsed,
+            draft_links=draft_links,
+            apply_draft_link=lambda elem, link: _apply_draft_link(elem, link, valid_card_ids),
         )
-        old_by_bpmn_id = {e.bpmn_element_id: e for e in existing_elements.scalars().all()}
-        # Upsert: keep EA links for elements that still exist, remove deleted ones
-        new_bpmn_ids = {e.bpmn_element_id for e in extracted}
-        for old_id, old_elem in old_by_bpmn_id.items():
-            if old_id not in new_bpmn_ids:
-                await db.delete(old_elem)
-        for ext in extracted:
-            draft_link = draft_links.get(ext.bpmn_element_id, {})
-            if ext.bpmn_element_id in old_by_bpmn_id:
-                old = old_by_bpmn_id[ext.bpmn_element_id]
-                old.element_type = ext.element_type
-                old.name = ext.name
-                old.documentation = ext.documentation
-                old.lane_name = ext.lane_name
-                old.is_automated = ext.is_automated
-                old.sequence_order = ext.sequence_order
-                # Apply draft links (only if the linked card is still valid)
-                if draft_link:
-                    _apply_draft_link(old, draft_link, valid_card_ids)
-            else:
-                elem = ProcessElement(
-                    process_id=pid,
-                    bpmn_element_id=ext.bpmn_element_id,
-                    element_type=ext.element_type,
-                    name=ext.name,
-                    documentation=ext.documentation,
-                    lane_name=ext.lane_name,
-                    is_automated=ext.is_automated,
-                    sequence_order=ext.sequence_order,
-                )
-                # Apply draft links for new elements
-                if draft_link:
-                    _apply_draft_link(elem, draft_link, valid_card_ids)
-                db.add(elem)
+        await sync_process_message_flows(db, pid, parsed)
 
         # Sync element EA links → relations table (additive only)
         await db.flush()  # ensure new ProcessElements get their FK values
@@ -1110,7 +1086,7 @@ async def get_draft_elements(
     if not version.bpmn_xml:
         return []
 
-    extracted = parse_bpmn_xml(version.bpmn_xml)
+    extracted = parse_bpmn(version.bpmn_xml).elements
     links = version.draft_element_links or {}
 
     # Collect all linked card IDs to resolve names in one query
@@ -1147,6 +1123,8 @@ async def get_draft_elements(
                 "lane_name": ext.lane_name,
                 "is_automated": ext.is_automated,
                 "sequence_order": ext.sequence_order,
+                "event_definition_type": ext.event_definition_type,
+                "definition_name": ext.definition_name,
                 "application_id": app_id,
                 "application_name": name_map.get(app_id, "") if app_id else None,
                 "data_object_id": do_id,

@@ -84,6 +84,8 @@ async def _add_element(db, process, *, bpmn_id="Task_1", name="Approve order", *
         lane_name=kwargs.get("lane_name", "Finance"),
         is_automated=kwargs.get("is_automated", False),
         sequence_order=kwargs.get("sequence_order", 0),
+        event_definition_type=kwargs.get("event_definition_type"),
+        definition_name=kwargs.get("definition_name"),
         application_id=kwargs.get("application_id"),
         data_object_id=kwargs.get("data_object_id"),
         it_component_id=kwargs.get("it_component_id"),
@@ -360,6 +362,24 @@ class TestPublicFlow:
         assert step["documentation"] == "How the step works"
         for banned in ("id", "process_id", "application_id", "custom_fields"):
             assert banned not in step, banned
+
+    async def test_event_definition_is_published(self, client, db, bpm_portal_env):
+        """The event sub-type and the Message it names are parser-derived facts
+        about the diagram the visitor already holds — never ids, never links."""
+        proc = await create_card(db, card_type="BusinessProcess", name="Messaged")
+        await _add_flow_version(db, proc, status="published", revision=1)
+        await _add_element(
+            db,
+            proc,
+            bpmn_id="Start_M",
+            name="Order received",
+            element_type="startEvent",
+            event_definition_type="message",
+            definition_name="Customer Order",
+        )
+        step = (await client.get(FLOW.format(pid=proc.id))).json()["steps"][0]
+        assert step["event_definition_type"] == "message"
+        assert step["definition_name"] == "Customer Order"
 
     async def test_element_links_withheld_by_default(self, client, bpm_portal_env):
         """`show_element_links` is off unless an administrator turns it on."""

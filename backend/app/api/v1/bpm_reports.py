@@ -177,6 +177,8 @@ async def process_application_matrix(
                 "source": "element",
                 "element_name": e.name,
                 "element_type": e.element_type,
+                "event_definition_type": e.event_definition_type,
+                "definition_name": e.definition_name,
             }
         )
 
@@ -327,6 +329,8 @@ async def process_organization_matrix(
                 "element_id": str(elem.id),
                 "element_name": elem.name,
                 "element_type": elem.element_type,
+                "event_definition_type": elem.event_definition_type,
+                "definition_name": elem.definition_name,
                 "lane_name": elem.lane_name,
             }
         )
@@ -388,6 +392,8 @@ async def element_application_map(
                 "element_id": str(e.id),
                 "element_name": e.name,
                 "element_type": e.element_type,
+                "event_definition_type": e.event_definition_type,
+                "definition_name": e.definition_name,
                 "lane_name": e.lane_name,
                 "process_id": str(e.process_id),
             }

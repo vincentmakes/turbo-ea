@@ -45,10 +45,21 @@ Charts show distribution by process type, maturity level, and automation level. 
 
 Each Business Process card can have a **BPMN 2.0 process flow diagram**. The editor uses [bpmn-js](https://bpmn.io/) and provides:
 
-- **Visual modeling** — Drag and drop BPMN elements: tasks, events, gateways, lanes, and sub-processes
-- **Starter templates** — Choose from 6 pre-built BPMN templates for common process patterns (or start from a blank canvas)
-- **Element extraction** — When you save a diagram, the system automatically extracts all tasks, events, gateways, and lanes for analysis. Extracted elements are listed in **process-flow order** — following the sequence and message flows of the diagram, starting from the start event — rather than grouped by element type. Steps inside a loop are kept together, and a sub-process's contents are listed directly beneath it
+- **Visual modeling** — Drag and drop BPMN elements from the palette: tasks, events, gateways, lanes, pools and sub-processes. The **…** entry at the bottom of the palette opens a searchable **Create element** menu that reaches every BPMN element type — message, timer, signal, error and escalation events, transactions, event sub-processes, call activities, send/receive tasks, data objects and data stores (shortcut `N`). The **+** entry on a selected shape's context pad opens the matching **Append element** menu (shortcut `A`)
+- **Starter templates** — Choose from 7 pre-built BPMN templates for common process patterns, including a two-pool **Collaboration** template with message flows (or start from a blank canvas)
+- **Element extraction** — When you save a diagram, the system automatically extracts all tasks, events, gateways, lanes, data objects and message flows for analysis. Events keep their kind — a *message* start event is listed as one, with the name of the message it receives — and send/receive tasks carry the message they exchange. Extracted elements are listed in **process-flow order** — following the sequence and message flows of the diagram, starting from the start event — rather than grouped by element type. Steps inside a loop are kept together, a sub-process's contents are listed directly beneath it, and data objects and data stores come last
 - **Element colors** — Select one or more elements and use the paint bucket button on the context pad to apply a color. Colors are stored in the BPMN file itself, so they also appear in the read-only viewer, exports, and printouts
+- **Properties panel** — The panel on the right (toggle it with the sliders button in the toolbar) edits what a shape cannot show: the element's name and documentation, the **Message**, **Signal**, **Error** or **Escalation** an event refers to, a sequence flow's condition, and multi-instance markers. Documentation entered here is shown in the process navigator and the read-only viewer
+
+![Create element menu](../assets/img/en/89_bpm_create_element_menu.png)
+
+![Properties panel](../assets/img/en/90_bpm_properties_panel.png)
+
+### Pools and message flows
+
+A process that spans several parties — a customer and the company, two departments, a partner system — is modelled as a **collaboration**: one pool per party, connected by **message flows**. Add a second pool from the palette (or start from the **Collaboration** template), then draw a message flow between the two pools with the global connect tool, or from a send task, a message end event or a message throw event in one pool to a receive task or message event in the other. Name the message in the properties panel so it reads the same wherever it appears.
+
+![Collaboration template](../assets/img/en/91_bpm_collaboration_template.png)
 
 ### Element Linking
 
@@ -57,6 +68,10 @@ BPMN elements can be **linked to EA cards**. For example, link a task in your pr
 - Select any task, event, or gateway in the BPMN diagram
 - The **Element Linker** panel shows matching cards (Application, Data Object, IT Component, Organization)
 - Link the element to a card — the connection is stored and visible in both the process flow and the card's relations
+
+### Message flows
+
+The message flows of the published diagram are listed under the elements table, each showing what it connects — a task, an event or a whole pool on either end. Link a message flow to the **Interface** card that carries it. Like organization links on steps, this is informative only: no relation is created between cards.
 
 ### Linking Organizations
 

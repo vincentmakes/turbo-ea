@@ -32,6 +32,13 @@ class ProcessElement(Base, UUIDMixin, TimestampMixin):
     lane_name: Mapped[str | None] = mapped_column(String(200))
     is_automated: Mapped[bool] = mapped_column(Boolean, default=False)
     sequence_order: Mapped[int] = mapped_column(Integer, default=0)
+    # Event sub-type (`message`, `timer`, `signal`, `error`, ...) — NULL on a
+    # plain event and on every non-event element. Parser-derived, like
+    # `element_type`; never edited by hand.
+    event_definition_type: Mapped[str | None] = mapped_column(String(50))
+    # Name of the Message / Signal / Error / Escalation the element refers to,
+    # resolved from the BPMN root definitions (also set on send/receive tasks).
+    definition_name: Mapped[str | None] = mapped_column(String(500))
 
     # EA cross-references (optional, set by user via UI)
     application_id: Mapped[uuid.UUID | None] = mapped_column(

@@ -1295,6 +1295,90 @@ export const DOC_PAGES: PageDef[] = [
     },
   },
 
+  // ── BPMN modeler — Create element menu ───────────────────────────────────
+  {
+    id: "89_bpm_create_element_menu",
+    route: "/bpm/processes/{{cardId:sampleProcess}}/flow",
+    waitFor: ".djs-palette",
+    actions: [
+      { type: "wait", ms: 2000 },
+      // The `…` palette entry from bpmn-js-create-append-anything. Its action
+      // name is `create`, which is what the module's own positioning code
+      // queries for — see BpmnModeler.tsx.
+      { type: "click", selector: '.djs-palette [data-action="create"]' },
+      { type: "wait", ms: 800 },
+    ],
+    filenames: {
+      en: "89_bpm_create_element_menu",
+      de: "89_bpm_menue_element_erstellen",
+      fr: "89_bpm_menu_creer_element",
+      es: "89_bpm_menu_crear_elemento",
+      it: "89_bpm_menu_crea_elemento",
+      pt: "89_bpm_menu_criar_elemento",
+      zh: "89_bpm_create_element_menu",
+      ru: "89_bpm_menyu_sozdat_element",
+    },
+  },
+
+  // ── BPMN modeler — Properties panel on a message start event ─────────────
+  {
+    id: "90_bpm_properties_panel",
+    route: "/bpm/processes/{{cardId:sampleProcess}}/flow",
+    waitFor: '[data-testid="bpmn-properties-panel"]',
+    actions: [
+      { type: "wait", ms: 2000 },
+      // A step in the middle of the canvas: the leftmost shapes of the demo
+      // flow sit behind the palette, which swallows the click that selects
+      // them. This one carries real documentation in the demo data, which is
+      // the panel's headline capability — nothing else in the app can author
+      // an element's documentation.
+      { type: "click", selector: '[data-element-id="Task_CreditCheck"]' },
+      { type: "wait", ms: 500 },
+      // bpmn-js's own panel is English-only (localising it is a follow-up),
+      // so the group header matches in every locale.
+      {
+        type: "click",
+        selector: '.bio-properties-panel-group-header:has-text("Documentation")',
+      },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "90_bpm_properties_panel",
+      de: "90_bpm_eigenschaftenpanel",
+      fr: "90_bpm_panneau_proprietes",
+      es: "90_bpm_panel_propiedades",
+      it: "90_bpm_pannello_proprieta",
+      pt: "90_bpm_painel_propriedades",
+      zh: "90_bpm_properties_panel",
+      ru: "90_bpm_panel_svoystv",
+    },
+  },
+
+  // ── BPMN starter templates, incl. the two-pool Collaboration template ────
+  {
+    id: "91_bpm_collaboration_template",
+    route: "/cards/{{cardId:sampleProcess}}?tab=1&subtab=1",
+    waitFor: ".MuiPaper-root",
+    actions: [
+      { type: "wait", ms: 1500 },
+      {
+        type: "click",
+        selector: buttonSelector(...i18nLabels("bpm:flowTab.newDraftFromTemplate")),
+      },
+      { type: "wait", ms: 800 },
+    ],
+    filenames: {
+      en: "91_bpm_collaboration_template",
+      de: "91_bpm_kollaborationsvorlage",
+      fr: "91_bpm_modele_collaboration",
+      es: "91_bpm_plantilla_colaboracion",
+      it: "91_bpm_template_collaborazione",
+      pt: "91_bpm_template_colaboracao",
+      zh: "91_bpm_collaboration_template",
+      ru: "91_bpm_shablon_kollaboratsiya",
+    },
+  },
+
   // ── Reference Catalogues — Process Catalogue ────────────────────────────
   {
     id: "48_process_catalogue",

@@ -24,6 +24,12 @@ class ElementUpdate(BaseModel):
     custom_fields: dict | None = None
 
 
+class MessageFlowUpdate(BaseModel):
+    """Set (or clear, with ``null``) the Interface card a message flow realises."""
+
+    interface_id: str | None = None
+
+
 class ProcessAssessmentCreate(BaseModel):
     assessment_date: date
     overall_score: int  # 1-5

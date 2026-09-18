@@ -13,6 +13,8 @@ import Typography from "@mui/material/Typography";
 import CardPicker from "@/components/CardPicker";
 import { api } from "@/api/client";
 import type { ProcessElement } from "@/types";
+import ElementTypeChip from "./ElementTypeChip";
+import { isArtefactType } from "./elementTypes";
 
 interface Props {
   open: boolean;
@@ -35,6 +37,7 @@ export default function ElementLinker({ open, onClose, element, processId, onSav
   const [selectedData, setSelectedData] = useState<CardOption | null>(null);
   const [selectedItc, setSelectedItc] = useState<CardOption | null>(null);
   const [saving, setSaving] = useState(false);
+  const artefact = element ? isArtefactType(element.element_type) : false;
 
   useEffect(() => {
     if (!element) return;
@@ -68,19 +71,30 @@ export default function ElementLinker({ open, onClose, element, processId, onSav
       </DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {element?.element_type} {element?.lane_name ? `| ${t("flowTab.lane")}: ${element.lane_name}` : ""}
+          {element && (
+            <ElementTypeChip
+              variant="text"
+              elementType={element.element_type}
+              eventDefinitionType={element.event_definition_type}
+              definitionName={element.definition_name}
+            />
+          )}
+          {element?.lane_name ? ` | ${t("flowTab.lane")}: ${element.lane_name}` : ""}
         </Typography>
 
-        <CardPicker
-          types="Application"
-          value={selectedApp}
-          onChange={setSelectedApp}
-          enabled={open}
-          size="medium"
-          fullWidth
-          sx={{ my: 1 }}
-          label={t("linker.application")}
-        />
+        {/* A data object / data store is only ever a Data Object card. */}
+        {!artefact && (
+          <CardPicker
+            types="Application"
+            value={selectedApp}
+            onChange={setSelectedApp}
+            enabled={open}
+            size="medium"
+            fullWidth
+            sx={{ my: 1 }}
+            label={t("linker.application")}
+          />
+        )}
 
         <CardPicker
           types="DataObject"
@@ -93,16 +107,18 @@ export default function ElementLinker({ open, onClose, element, processId, onSav
           label={t("linker.dataObject")}
         />
 
-        <CardPicker
-          types="ITComponent"
-          value={selectedItc}
-          onChange={setSelectedItc}
-          enabled={open}
-          size="medium"
-          fullWidth
-          sx={{ my: 1 }}
-          label={t("linker.itComponent")}
-        />
+        {!artefact && (
+          <CardPicker
+            types="ITComponent"
+            value={selectedItc}
+            onChange={setSelectedItc}
+            enabled={open}
+            size="medium"
+            fullWidth
+            sx={{ my: 1 }}
+            label={t("linker.itComponent")}
+          />
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{t("common:actions.cancel")}</Button>

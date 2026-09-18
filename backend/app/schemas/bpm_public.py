@@ -135,6 +135,10 @@ class BpmPublicStep(BaseModel):
     lane_name: str | None = None
     is_automated: bool = False
     sequence_order: int = 0
+    # Event sub-type and the Message / Signal / Error name it refers to —
+    # parser-derived, so a portal shows a message start event as one.
+    event_definition_type: str | None = None
+    definition_name: str | None = None
     application_name: str | None = None
     data_object_name: str | None = None
     it_component_name: str | None = None

@@ -45,10 +45,21 @@ Diagrammer viser fordeling efter procestype, modenhedsniveau og automatiseringsn
 
 Hvert forretningsproceskort kan have et **BPMN 2.0-procesflowdiagram**. Editoren bruger [bpmn-js](https://bpmn.io/) og tilbyder:
 
-- **Visuel modellering** — Træk og slip BPMN-elementer: opgaver, hændelser, gateways, baner og underprocesser
-- **Skabeloner** — Vælg blandt 6 forudbyggede BPMN-skabeloner til almindelige procesmønstre (eller start fra et blankt lærred)
-- **Element­udtrækning** — Når du gemmer et diagram, udtrækker systemet automatisk alle opgaver, hændelser, gateways og baner til analyse. De udtrukne elementer vises i **procesforløbets rækkefølge** — langs diagrammets sekvens- og beskedforløb med start i starthændelsen — og ikke grupperet efter elementtype. Trin i en løkke holdes samlet, og indholdet af en underproces vises lige under den
+- **Visuel modellering** — Træk og slip BPMN-elementer fra paletten: opgaver, hændelser, gateways, baner, pools og underprocesser. Punktet **…** nederst i paletten åbner en søgbar **Create element**-menu, der når alle BPMN-elementtyper — besked-, timer-, signal-, fejl- og eskaleringshændelser, transaktioner, hændelsesunderprocesser, kaldeaktiviteter, sende-/modtageopgaver, dataobjekter og datalagre (genvej `N`). Punktet **+** i kontekstpanelet for en markeret figur åbner den tilsvarende **Append element**-menu (genvej `A`)
+- **Skabeloner** — Vælg blandt 7 forudbyggede BPMN-skabeloner til almindelige procesmønstre, herunder en **Samarbejds**-skabelon med to pools og beskedflows (eller start fra et blankt lærred)
+- **Element­udtrækning** — Når du gemmer et diagram, udtrækker systemet automatisk alle opgaver, hændelser, gateways, baner, dataobjekter og beskedflows til analyse. Hændelser beholder deres art — en *besked*-starthændelse vises som en sådan med navnet på den besked, den modtager — og sende-/modtageopgaver bærer den besked, de udveksler. De udtrukne elementer vises i **procesforløbets rækkefølge** — langs diagrammets sekvens- og beskedforløb med start i starthændelsen — og ikke grupperet efter elementtype. Trin i en løkke holdes samlet, indholdet af en underproces vises lige under den, og dataobjekter og datalagre kommer til sidst
 - **Elementfarver** — Markér et eller flere elementer, og brug malerbøtte-knappen i kontekstpanelet for at give dem en farve. Farverne gemmes i selve BPMN-filen, så de vises også i den skrivebeskyttede fremviser, i eksporter og på udskrifter
+- **Egenskabspanel** — Panelet til højre (vis eller skjul det med skyderknappen i værktøjslinjen) redigerer det, en figur ikke kan vise: elementets navn og dokumentation, den **besked**, det **signal**, den **fejl** eller den **eskalering**, en hændelse henviser til, betingelsen på et sekvensflow og multi-instans-markører. Dokumentation indtastet her vises i procesnavigatoren og i den skrivebeskyttede fremviser
+
+![Create element-menu](../assets/img/da/89_bpm_create_element_menu.png)
+
+![Egenskabspanel](../assets/img/da/90_bpm_properties_panel.png)
+
+### Pools og beskedflows
+
+En proces, der spænder over flere parter — en kunde og virksomheden, to afdelinger, et partnersystem — modelleres som et **samarbejde**: én pool pr. part, forbundet med **beskedflows**. Tilføj en anden pool fra paletten (eller start fra **Samarbejds**-skabelonen), og tegn så et beskedflow mellem de to pools med det globale forbindelsesværktøj, eller fra en sendeopgave, en beskedsluthændelse eller en beskedkasthændelse i den ene pool til en modtageopgave eller beskedhændelse i den anden. Navngiv beskeden i egenskabspanelet, så den læses ens overalt.
+
+![Samarbejdsskabelon](../assets/img/da/91_bpm_collaboration_template.png)
 
 ### Element-linking
 
@@ -57,6 +68,10 @@ BPMN-elementer kan **linkes til EA-kort**. For eksempel kan du linke en opgave i
 - Vælg en opgave, hændelse eller gateway i BPMN-diagrammet
 - Panelet **Element Linker** viser matchende kort (Application, Data Object, IT Component, Organization)
 - Link elementet til et kort — forbindelsen gemmes og er synlig i både procesflowet og kortets relationer
+
+### Beskedflows
+
+Det udgivne diagrams beskedflows vises under elementtabellen; hvert viser, hvad det forbinder — en opgave, en hændelse eller en hel pool i hver ende. Knyt et beskedflow til det **Interface**-kort, der bærer det. Ligesom organisationslinks på trin er dette kun til orientering: der oprettes ingen relation mellem kort.
 
 ### Link organisationer
 

@@ -45,10 +45,21 @@ Diagramme zeigen die Verteilung nach Prozesstyp, Reifegrad und Automatisierungsg
 
 Jede Geschäftsprozess-Karte kann ein **BPMN 2.0 Prozessflussdiagramm** haben. Der Editor verwendet [bpmn-js](https://bpmn.io/) und bietet:
 
-- **Visuelle Modellierung** — BPMN-Elemente per Drag & Drop: Aufgaben, Ereignisse, Gateways, Bahnen und Teilprozesse
-- **Startervorlagen** — Wählen Sie aus 6 vorgefertigten BPMN-Vorlagen für gängige Prozessmuster (oder beginnen Sie mit einer leeren Zeichenfläche)
-- **Elementextraktion** — Wenn Sie ein Diagramm speichern, extrahiert das System automatisch alle Aufgaben, Ereignisse, Gateways und Bahnen zur Analyse. Die extrahierten Elemente werden in der **Reihenfolge des Prozessablaufs** aufgelistet — entlang der Sequenz- und Nachrichtenflüsse des Diagramms, beginnend beim Startereignis — und nicht nach Elementtyp gruppiert. Schritte innerhalb einer Schleife bleiben zusammen, und der Inhalt eines Teilprozesses wird direkt darunter aufgeführt
+- **Visuelle Modellierung** — BPMN-Elemente per Drag & Drop aus der Palette: Aufgaben, Ereignisse, Gateways, Bahnen, Pools und Teilprozesse. Der Eintrag **…** am unteren Ende der Palette öffnet ein durchsuchbares Menü **Create element**, das jeden BPMN-Elementtyp erreicht — Nachrichten-, Timer-, Signal-, Fehler- und Eskalationsereignisse, Transaktionen, Ereignis-Teilprozesse, Aufrufaktivitäten, Sende-/Empfangsaufgaben, Datenobjekte und Datenspeicher (Tastenkürzel `N`). Der Eintrag **+** im Kontextmenü einer ausgewählten Form öffnet das passende Menü **Append element** (Tastenkürzel `A`)
+- **Startervorlagen** — Wählen Sie aus 7 vorgefertigten BPMN-Vorlagen für gängige Prozessmuster, darunter eine **Kollaborations**-Vorlage mit zwei Pools und Nachrichtenflüssen (oder beginnen Sie mit einer leeren Zeichenfläche)
+- **Elementextraktion** — Wenn Sie ein Diagramm speichern, extrahiert das System automatisch alle Aufgaben, Ereignisse, Gateways, Bahnen, Datenobjekte und Nachrichtenflüsse zur Analyse. Ereignisse behalten ihre Art — ein *Nachrichten*-Startereignis wird als solches aufgeführt, mit dem Namen der empfangenen Nachricht — und Sende-/Empfangsaufgaben tragen die ausgetauschte Nachricht. Die extrahierten Elemente werden in der **Reihenfolge des Prozessablaufs** aufgelistet — entlang der Sequenz- und Nachrichtenflüsse des Diagramms, beginnend beim Startereignis — und nicht nach Elementtyp gruppiert. Schritte innerhalb einer Schleife bleiben zusammen, der Inhalt eines Teilprozesses wird direkt darunter aufgeführt, und Datenobjekte sowie Datenspeicher stehen am Ende
 - **Elementfarben** — Wählen Sie ein oder mehrere Elemente aus und verwenden Sie die Farbeimer-Schaltfläche im Kontextmenü, um eine Farbe zuzuweisen. Farben werden in der BPMN-Datei selbst gespeichert und erscheinen daher auch im schreibgeschützten Viewer, in Exporten und Ausdrucken
+- **Eigenschaftenpanel** — Das Panel rechts (ein-/ausblenden über die Schieberegler-Schaltfläche in der Werkzeugleiste) bearbeitet, was eine Form nicht zeigen kann: Name und Dokumentation des Elements, die **Nachricht**, das **Signal**, den **Fehler** oder die **Eskalation**, auf die sich ein Ereignis bezieht, die Bedingung eines Sequenzflusses und Mehrfachinstanz-Markierungen. Hier eingegebene Dokumentation erscheint im Prozessnavigator und im schreibgeschützten Viewer
+
+![Menü „Create element“](../assets/img/de/89_bpm_menue_element_erstellen.png)
+
+![Eigenschaftenpanel](../assets/img/de/90_bpm_eigenschaftenpanel.png)
+
+### Pools und Nachrichtenflüsse
+
+Ein Prozess, der mehrere Parteien umfasst — ein Kunde und das Unternehmen, zwei Abteilungen, ein Partnersystem — wird als **Kollaboration** modelliert: ein Pool pro Partei, verbunden durch **Nachrichtenflüsse**. Fügen Sie einen zweiten Pool aus der Palette hinzu (oder starten Sie mit der **Kollaborations**-Vorlage) und zeichnen Sie dann mit dem globalen Verbindungswerkzeug einen Nachrichtenfluss zwischen den beiden Pools — oder von einer Sendeaufgabe, einem Nachrichten-Endereignis oder einem sendenden Nachrichtenereignis im einen Pool zu einer Empfangsaufgabe oder einem Nachrichtenereignis im anderen. Benennen Sie die Nachricht im Eigenschaftenpanel, damit sie überall gleich heißt.
+
+![Kollaborations-Vorlage](../assets/img/de/91_bpm_kollaborationsvorlage.png)
 
 ### Elementverknüpfung
 
@@ -57,6 +68,10 @@ BPMN-Elemente können mit **EA-Karten verknüpft** werden. Verknüpfen Sie beisp
 - Wählen Sie eine beliebige Aufgabe, ein Ereignis oder ein Gateway im BPMN-Diagramm
 - Das **Elementverknüpfungs**-Panel zeigt passende Karten (Anwendung, Datenobjekt, IT-Komponente, Organisation)
 - Verknüpfen Sie das Element mit einer Karte — die Verbindung wird gespeichert und ist sowohl im Prozessfluss als auch in den Beziehungen der Karte sichtbar
+
+### Nachrichtenflüsse
+
+Die Nachrichtenflüsse des veröffentlichten Diagramms werden unter der Elementtabelle aufgelistet; jeder zeigt, was er verbindet — eine Aufgabe, ein Ereignis oder einen ganzen Pool an beiden Enden. Verknüpfen Sie einen Nachrichtenfluss mit der **Schnittstellen**-Karte, die ihn überträgt. Wie die Organisationsverknüpfungen an Schritten ist dies nur informativ: Es wird keine Beziehung zwischen Karten angelegt.
 
 ### Organisationen verknüpfen
 

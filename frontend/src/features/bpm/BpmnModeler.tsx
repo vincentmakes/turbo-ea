@@ -1,8 +1,12 @@
 /**
  * BpmnModeler — Wraps bpmn-js in a React component.
  *
- * Simple Mode (default): curated palette with plain-English tooltips
- * Full BPMN Mode: complete BPMN palette
+ * The full bpmn.io modeling experience: the stock palette, the searchable
+ * "Create element" / "Append element" menus (`bpmn-js-create-append-anything`,
+ * `N` / `A`) that reach every BPMN element type, the colour picker, and the
+ * properties panel (`bpmn-js-properties-panel`, plain BPMN provider) for the
+ * things a shape cannot show — documentation, the Message / Signal / Error a
+ * event refers to, conditions, multi-instance markers.
  *
  * Features: auto-save (5s debounce), undo/redo, zoom, fit, keyboard shortcuts,
  * export (SVG, PNG, BPMN XML), import BPMN, template chooser.
@@ -12,6 +16,7 @@
  */
 import { useRef, useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 
@@ -21,12 +26,10 @@ import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
-import ToggleButton from "@mui/material/ToggleButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { ProcessFlowVersion, BpmnTemplate } from "@/types";
-import { bpmnCanvasSx } from "./bpmnStyles";
+import { bpmnCanvasSx, bpmnPropertiesPanelSx } from "./bpmnStyles";
 
 // bpmn-js CSS
 import "bpmn-js/dist/assets/diagram-js.css";
@@ -35,6 +38,9 @@ import "bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css";
 // Lays the colour swatches out in a 3-wide grid — without it they stack in a
 // single column. Required, not cosmetic.
 import "bpmn-js-color-picker/colors/color-picker.css";
+// The properties panel's own stylesheet (light tokens; dark mode is handled by
+// `bpmnPropertiesPanelSx`).
+import "@bpmn-io/properties-panel/dist/assets/properties-panel.css";
 
 interface Props {
   processId: string;
@@ -44,20 +50,47 @@ interface Props {
   onBack?: () => void;
 }
 
+/** Per-viewer convenience: whether the properties panel was left open. */
+const PANEL_PREF_KEY = "turboea.bpmn.propertiesPanel";
+
+function readPanelPreference(): boolean {
+  try {
+    return localStorage.getItem(PANEL_PREF_KEY) !== "closed";
+  } catch {
+    return true;
+  }
+}
+
+function writePanelPreference(open: boolean): void {
+  try {
+    localStorage.setItem(PANEL_PREF_KEY, open ? "open" : "closed");
+  } catch {
+    // Storage unavailable (private window, blocked site data) — the toggle
+    // still works for the session.
+  }
+}
+
+const PROPERTIES_PANEL_WIDTH = 320;
+
 export default function BpmnModeler({ processId, versionId, initialXml, onSaved, onBack }: Props) {
   const { t } = useTranslation(["bpm", "common"]);
+  const theme = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
+  const propertiesRef = useRef<HTMLDivElement>(null);
   const modelerRef = useRef<any>(null);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [version, setVersion] = useState<number | null>(null);
   const [snack, setSnack] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
-  const [mode, setMode] = useState<"simple" | "full">("full");
+  const [panelOpen, setPanelOpen] = useState<boolean>(readPanelPreference);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track which version we're editing (stable ref for save callback)
   const versionIdRef = useRef(versionId);
   versionIdRef.current = versionId;
+  // The panel state the init effect should honour once the modeler exists.
+  const panelOpenRef = useRef(panelOpen);
+  panelOpenRef.current = panelOpen;
 
   // Load bpmn-js dynamically (it's a CommonJS module)
   useEffect(() => {
@@ -65,21 +98,36 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
     let destroyed = false;
 
     async function init() {
-      // The colour picker rides along in the same lazy chunk as bpmn-js. It
-      // contributes the "Set color" context-pad entry, which is not part of
-      // bpmn-js core (#910). Colours are written to the BPMN DI by core
-      // `modeling.setColor()`, so no moddle extensions are needed — bpmn-moddle
-      // already ships the `bioc` and BPMN-in-Color packages.
-      const [BpmnJS, ColorPickerModule] = await Promise.all([
-        import("bpmn-js/lib/Modeler").then((m) => m.default),
-        import("bpmn-js-color-picker").then((m) => m.default),
-      ]);
+      // Every bpmn.io extension rides along in the same lazy chunk as bpmn-js:
+      //  - the colour picker contributes the "Set color" context-pad entry,
+      //    which is not part of bpmn-js core (#910); colours are written to
+      //    the BPMN DI by core `modeling.setColor()`, so no moddle extensions
+      //    are needed — bpmn-moddle already ships `bioc` and BPMN-in-Color;
+      //  - create-append-anything adds the searchable "Create element" palette
+      //    entry and the "Append element" context-pad entry, which is how
+      //    message/signal/error events, transactions, call activities and the
+      //    rest are reached without a wrench detour through a plain shape;
+      //  - the properties panel with the *plain BPMN* provider (never the
+      //    Camunda / Zeebe ones — this is an EA tool, not an execution engine).
+      const [BpmnJS, ColorPickerModule, { CreateAppendAnythingModule }, propertiesPanel] =
+        await Promise.all([
+          import("bpmn-js/lib/Modeler").then((m) => m.default),
+          import("bpmn-js-color-picker").then((m) => m.default),
+          import("bpmn-js-create-append-anything"),
+          import("bpmn-js-properties-panel"),
+        ]);
 
-      if (destroyed || !containerRef.current) return;
+      if (destroyed || !containerRef.current || !propertiesRef.current) return;
 
       const modeler = new BpmnJS({
         container: containerRef.current,
-        additionalModules: [ColorPickerModule],
+        propertiesPanel: { parent: propertiesRef.current },
+        additionalModules: [
+          ColorPickerModule,
+          CreateAppendAnythingModule,
+          propertiesPanel.BpmnPropertiesPanelModule,
+          propertiesPanel.BpmnPropertiesProviderModule,
+        ],
       });
 
       modelerRef.current = modeler;
@@ -136,6 +184,18 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
         console.error("Failed to load BPMN diagram:", err);
       }
 
+      if (destroyed) return;
+
+      // The panel attaches itself to `propertiesPanel.parent` on import; honour
+      // a "closed" preference by detaching right after.
+      if (!panelOpenRef.current) {
+        try {
+          (modeler.get("propertiesPanel") as any).detach();
+        } catch {
+          // Panel not registered — nothing to detach.
+        }
+      }
+
       // Track changes for auto-save
       const eventBus = modeler.get("eventBus") as any;
       eventBus.on("commandStack.changed", () => {
@@ -160,6 +220,25 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [processId, versionId]);
+
+  // Attach / detach the properties panel when the rail is toggled. Detaching
+  // (rather than hiding the rail with the panel still mounted) is what the
+  // panel's own API offers, and it keeps the panel from laying out into a
+  // zero-width box.
+  const togglePanel = () => {
+    const next = !panelOpen;
+    setPanelOpen(next);
+    writePanelPreference(next);
+    const m = modelerRef.current;
+    if (!m) return;
+    try {
+      const panel = m.get("propertiesPanel");
+      if (next && propertiesRef.current) panel.attachTo(propertiesRef.current);
+      else panel.detach();
+    } catch {
+      // Modeler still loading — the init effect reads the preference.
+    }
+  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -339,37 +418,47 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
 
         <Box sx={{ flex: 1 }} />
 
-        <ToggleButtonGroup
-          value={mode}
-          exclusive
-          onChange={(_, v) => v && setMode(v)}
-          size="small"
-        >
-          <ToggleButton value="simple">{t("modeler.modeSimple")}</ToggleButton>
-          <ToggleButton value="full">{t("modeler.modeFull")}</ToggleButton>
-        </ToggleButtonGroup>
+        <Tooltip title={panelOpen ? t("modeler.hideProperties") : t("modeler.showProperties")}>
+          <IconButton
+            onClick={togglePanel}
+            size="small"
+            color={panelOpen ? "primary" : "default"}
+            data-testid="bpmn-toggle-properties"
+            aria-pressed={panelOpen}
+          >
+            <MaterialSymbol icon="tune" />
+          </IconButton>
+        </Tooltip>
       </Box>
 
-      {/* Canvas */}
-      <Box
-        ref={containerRef}
-        sx={{
-          flex: 1,
-          bgcolor: "action.hover",
-          ...bpmnCanvasSx,
-          // Simple mode: hide advanced palette entries
-          ...(mode === "simple" && {
-            // Hide sub-process, data store, data object, group, participant/pool
-            '& .djs-palette [data-action="create.subprocess-expanded"]': { display: "none" },
-            '& .djs-palette [data-action="create.data-object"]': { display: "none" },
-            '& .djs-palette [data-action="create.data-store"]': { display: "none" },
-            '& .djs-palette [data-action="create.group"]': { display: "none" },
-            '& .djs-palette [data-action="create.participant-expanded"]': { display: "none" },
-            // Hide intermediate events (keep start/end only)
-            '& .djs-palette [data-action="create.intermediate-event"]': { display: "none" },
-          }),
-        }}
-      />
+      {/* Canvas + properties rail */}
+      <Box sx={{ flex: 1, display: "flex", minHeight: 0 }}>
+        <Box
+          ref={containerRef}
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            bgcolor: "action.hover",
+            ...bpmnCanvasSx,
+          }}
+        />
+        <Box
+          sx={{
+            width: panelOpen ? PROPERTIES_PANEL_WIDTH : 0,
+            flexShrink: 0,
+            display: panelOpen ? "block" : "none",
+            borderLeft: 1,
+            borderColor: "divider",
+            bgcolor: "background.paper",
+          }}
+        >
+          <Box
+            ref={propertiesRef}
+            data-testid="bpmn-properties-panel"
+            sx={bpmnPropertiesPanelSx(theme.palette.mode)}
+          />
+        </Box>
+      </Box>
 
       {/* Snackbar */}
       <Snackbar

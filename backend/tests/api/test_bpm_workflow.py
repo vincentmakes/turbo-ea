@@ -16,6 +16,7 @@ Covers the draft / pending / published / archived lifecycle:
 
 from __future__ import annotations
 
+import pathlib
 import uuid
 
 import pytest
@@ -762,3 +763,92 @@ class TestElementOrdering:
         )
         assert resp.status_code == 200, resp.text
         assert [e["name"] for e in resp.json()] == ORDERED_EXPECTED
+
+
+# ---------------------------------------------------------------------------
+# Event definitions + message flows on the publish path
+# ---------------------------------------------------------------------------
+
+_COLLABORATION_BPMN = (
+    pathlib.Path(__file__).resolve().parents[2] / "bpmn_templates" / "collaboration.bpmn"
+).read_text()
+
+
+class TestEventDefinitionsOnPublish:
+    """`approve` is the second writer of the derived rows — the event sub-type
+    columns and the message-flow table have to be written on this path too."""
+
+    async def _publish(self, client, process, admin, xml=_COLLABORATION_BPMN):
+        resp = await _create_draft(client, process.id, admin, bpmn_xml=xml)
+        vid = resp.json()["id"]
+        await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/submit",
+            headers=auth_headers(admin),
+        )
+        resp = await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/approve",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        return vid
+
+    async def test_draft_elements_carry_the_definition(self, client, db, wf_env):
+        admin = wf_env["admin"]
+        process = wf_env["process"]
+        resp = await _create_draft(client, process.id, admin, bpmn_xml=_COLLABORATION_BPMN)
+        vid = resp.json()["id"]
+        resp = await client.get(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/draft-elements",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        by_id = {e["bpmn_element_id"]: e for e in resp.json()}
+        assert by_id["EndEvent_Confirmed"]["event_definition_type"] == "message"
+        assert by_id["EndEvent_Confirmed"]["definition_name"] == "Confirmation"
+        assert by_id["DataObjectReference_Request"]["element_type"] == "dataObjectReference"
+
+    async def test_publish_persists_definitions_and_message_flows(self, client, db, wf_env):
+        admin = wf_env["admin"]
+        process = wf_env["process"]
+        await self._publish(client, process, admin)
+
+        resp = await client.get(
+            f"/api/v1/bpm/processes/{process.id}/elements", headers=auth_headers(admin)
+        )
+        by_id = {e["bpmn_element_id"]: e for e in resp.json()}
+        assert by_id["StartEvent_RequestReceived"]["event_definition_type"] == "message"
+        assert by_id["StartEvent_RequestReceived"]["definition_name"] == "Request"
+        assert by_id["Task_ReceiveConfirmation"]["definition_name"] == "Confirmation"
+
+        resp = await client.get(
+            f"/api/v1/bpm/processes/{process.id}/message-flows", headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200, resp.text
+        assert [f["name"] for f in resp.json()] == ["Request", "Confirmation"]
+
+    async def test_republish_keeps_the_interface_link(self, client, db, wf_env):
+        admin = wf_env["admin"]
+        process = wf_env["process"]
+        await create_card_type(db, key="Interface", label="Interface")
+        iface = await create_card(db, card_type="Interface", name="Order API", user_id=admin.id)
+        await self._publish(client, process, admin)
+        flow_id = (
+            await client.get(
+                f"/api/v1/bpm/processes/{process.id}/message-flows", headers=auth_headers(admin)
+            )
+        ).json()[0]["id"]
+        resp = await client.patch(
+            f"/api/v1/bpm/processes/{process.id}/message-flows/{flow_id}",
+            json={"interface_id": str(iface.id)},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+
+        await self._publish(client, process, admin)
+        flows = (
+            await client.get(
+                f"/api/v1/bpm/processes/{process.id}/message-flows", headers=auth_headers(admin)
+            )
+        ).json()
+        assert flows[0]["id"] == flow_id
+        assert flows[0]["interface_id"] == str(iface.id)

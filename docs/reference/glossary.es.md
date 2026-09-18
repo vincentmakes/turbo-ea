@@ -8,6 +8,10 @@
 | **Marcador / Vista Guardada** | Una configuración guardada de filtros, columnas y ordenamiento en el Inventario que se puede recargar con un clic |
 | **BPM** | Gestión de Procesos de Negocio — la disciplina de modelar, analizar y mejorar procesos de negocio |
 | **BPMN** | Notación de Modelado de Procesos de Negocio — la notación estándar para modelar procesos de negocio (versión 2.0) |
+| **Definición de evento** | El tipo de un evento BPMN: mensaje, temporizador, señal, error, escalado, condicional, enlace, compensación, cancelación o terminación. Se muestra junto al tipo de elemento en la tabla de pasos, con el nombre del mensaje, la señal o el error al que el evento hace referencia |
+| **Carril** | Una banda horizontal dentro de un pool que agrupa los pasos realizados por un rol, equipo o departamento |
+| **Flujo de mensaje** | Un mensaje intercambiado entre dos pools de una colaboración BPMN. Se lista bajo la tabla de elementos de un flujo de proceso publicado, donde puede vincularse a la ficha de Interfaz que lo transporta |
+| **Pool** | Un participante de una colaboración BPMN —un cliente, un departamento, un sistema asociado— dibujado como un contenedor que alberga el proceso propio de esa parte |
 | **Capacidad de Negocio** | Lo que una organización puede hacer, independientemente de cómo lo hace |
 | **Cálculo** | Una fórmula definida por el administrador que calcula automáticamente el valor de un campo cuando se guarda una ficha |
 | **Feed OData** | Un feed de datos JSON disponible en las vistas guardadas del inventario (marcadores) para el consumo por herramientas externas como Power BI o Excel |

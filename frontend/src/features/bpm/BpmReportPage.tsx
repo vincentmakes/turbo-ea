@@ -26,6 +26,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import InputAdornment from "@mui/material/InputAdornment";
 import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import ElementTypeChip from "./ElementTypeChip";
 import { api } from "@/api/client";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ProcessMapReport from "@/features/reports/ProcessMapReport";
@@ -554,7 +555,13 @@ function ElementAppMap({ onOpenCard }: { onOpenCard: (id: string) => void }) {
                   {group.elements.map((el: any) => (
                     <TableRow key={el.element_id} hover>
                       <TableCell>{el.element_name || t("viewer.unnamed")}</TableCell>
-                      <TableCell>{el.element_type}</TableCell>
+                      <TableCell>
+                        <ElementTypeChip
+                          elementType={el.element_type}
+                          eventDefinitionType={el.event_definition_type}
+                          definitionName={el.definition_name}
+                        />
+                      </TableCell>
                       <TableCell
                         sx={{ cursor: "pointer", color: "primary.main" }}
                         onClick={() => onOpenCard(el.process_id)}

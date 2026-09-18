@@ -43,12 +43,27 @@ I grafici mostrano la distribuzione per tipo di processo, livello di maturità e
 
 ![Editor del flusso di processo](../assets/img/it/47_bpm_flusso_processo.png)
 
-Ogni card Business Process può avere un **diagramma del flusso di processo BPMN 2.0**. L'editor utilizza [bpmn-js]( e fornisce:)
+Ogni card Business Process può avere un **diagramma del flusso di processo BPMN 2.0**. L'editor utilizza [bpmn-js](https://bpmn.io/) e fornisce:
 
-- **Modellazione visiva** — Trascinate elementi BPMN: attività, eventi, gateway, corsie e sotto-processi
-- **Template iniziali** — Scegliete tra 6 template BPMN predefiniti per i pattern di processo comuni (o iniziate da una tela bianca)
-- **Estrazione degli elementi** — Quando salvate un diagramma, il sistema estrae automaticamente tutte le attività, gli eventi, i gateway e le corsie per l'analisi. Gli elementi estratti sono elencati nell'**ordine del flusso di processo** — seguendo i flussi di sequenza e di messaggio del diagramma, a partire dall'evento di inizio — e non raggruppati per tipo di elemento. I passaggi di un ciclo restano uniti e il contenuto di un sotto-processo è elencato subito sotto di esso
+- **Modellazione visiva** — Trascinate elementi BPMN dalla palette: attività, eventi, gateway, corsie, pool e sotto-processi. La voce **…** in fondo alla palette apre un menu **Create element** con ricerca che raggiunge ogni tipo di elemento BPMN — eventi di messaggio, timer, segnale, errore ed escalation, transazioni, sotto-processi di evento, attività di chiamata, attività di invio/ricezione, oggetti e archivi dati (scorciatoia `N`). La voce **+** nel pannello contestuale di una forma selezionata apre il corrispondente menu **Append element** (scorciatoia `A`)
+- **Template iniziali** — Scegliete tra 7 template BPMN predefiniti per i pattern di processo comuni, compreso un template **Collaborazione** a due pool con flussi di messaggi (o iniziate da una tela bianca)
+- **Estrazione degli elementi** — Quando salvate un diagramma, il sistema estrae automaticamente tutte le attività, gli eventi, i gateway, le corsie, gli oggetti dati e i flussi di messaggi per l'analisi. Gli eventi conservano il proprio tipo — un evento di inizio di tipo *messaggio* è elencato come tale, con il nome del messaggio ricevuto — e le attività di invio/ricezione riportano il messaggio scambiato. Gli elementi estratti sono elencati nell'**ordine del flusso di processo** — seguendo i flussi di sequenza e di messaggio del diagramma, a partire dall'evento di inizio — e non raggruppati per tipo di elemento. I passaggi di un ciclo restano uniti, il contenuto di un sotto-processo è elencato subito sotto di esso, e oggetti e archivi dati vengono per ultimi
 - **Colori degli elementi** — Selezionate uno o più elementi e usate il pulsante con il secchiello di vernice nel pannello contestuale per applicare un colore. I colori vengono salvati nel file BPMN stesso, quindi compaiono anche nel visualizzatore di sola lettura, nelle esportazioni e nelle stampe
+- **Pannello proprietà** — Il pannello a destra (mostratelo o nascondetelo con il pulsante a cursori della barra degli strumenti) modifica ciò che una forma non può mostrare: nome e documentazione dell'elemento, il **messaggio**, il **segnale**, l'**errore** o l'**escalation** a cui un evento fa riferimento, la condizione di un flusso di sequenza e i marcatori multi-istanza. La documentazione inserita qui compare nel navigatore dei processi e nel visualizzatore di sola lettura
+
+![Menu «Create element»](../assets/img/it/89_bpm_menu_crea_elemento.png)
+
+![Pannello proprietà](../assets/img/it/90_bpm_pannello_proprieta.png)
+
+### Pool e flussi di messaggi
+
+Un processo che coinvolge più parti — un cliente e l'azienda, due reparti, un sistema partner — si modella come **collaborazione**: un pool per parte, collegati da **flussi di messaggi**. Aggiungete un secondo pool dalla palette (o partite dal template **Collaborazione**), quindi tracciate un flusso di messaggio tra i due pool con lo strumento di connessione globale, oppure da un'attività di invio, un evento di fine messaggio o un evento di invio messaggio in un pool verso un'attività di ricezione o un evento di messaggio nell'altro. Date un nome al messaggio nel pannello proprietà, così si legge allo stesso modo ovunque.
+
+![Template Collaborazione](../assets/img/it/91_bpm_template_collaborazione.png)
+
+### Flussi di messaggi
+
+I flussi di messaggi del diagramma pubblicato sono elencati sotto la tabella degli elementi; ciascuno mostra cosa collega — un'attività, un evento o un intero pool a ciascuna estremità. Collegate un flusso di messaggio alla card **Interfaccia** che lo trasporta. Come i collegamenti alle organizzazioni sui passaggi, è solo informativo: non viene creata alcuna relazione tra card.
 
 ### Collegamento degli elementi
 

@@ -45,10 +45,21 @@ Gráficos mostram a distribuição por tipo de processo, nível de maturidade e 
 
 Cada card de Processo de Negócio pode ter um **diagrama de fluxo de processo BPMN 2.0**. O editor usa [bpmn-js](https://bpmn.io/) e oferece:
 
-- **Modelagem visual** — Arraste e solte elementos BPMN: tarefas, eventos, gateways, raias e sub-processos
-- **Templates iniciais** — Escolha entre 6 templates BPMN pré-construídos para padrões comuns de processo (ou comece de uma tela em branco)
-- **Extração de elementos** — Quando você salva um diagrama, o sistema extrai automaticamente todas as tarefas, eventos, gateways e raias para análise. Os elementos extraídos são listados na **ordem do fluxo do processo** — seguindo os fluxos de sequência e de mensagem do diagrama, a partir do evento de início — e não agrupados por tipo de elemento. As etapas de um laço permanecem juntas e o conteúdo de um subprocesso é listado logo abaixo dele
+- **Modelagem visual** — Arraste e solte elementos BPMN da paleta: tarefas, eventos, gateways, raias, pools e subprocessos. A entrada **…** no fim da paleta abre um menu **Create element** pesquisável que alcança todos os tipos de elementos BPMN — eventos de mensagem, temporizador, sinal, erro e escalonamento, transações, subprocessos de evento, atividades de chamada, tarefas de envio/recebimento, objetos e armazéns de dados (atalho `N`). A entrada **+** no painel de contexto de uma forma selecionada abre o menu **Append element** correspondente (atalho `A`)
+- **Templates iniciais** — Escolha entre 7 templates BPMN pré-construídos para padrões comuns de processo, incluindo um template de **Colaboração** com dois pools e fluxos de mensagens (ou comece de uma tela em branco)
+- **Extração de elementos** — Quando você salva um diagrama, o sistema extrai automaticamente todas as tarefas, eventos, gateways, raias, objetos de dados e fluxos de mensagens para análise. Os eventos mantêm seu tipo — um evento de início de *mensagem* é listado como tal, com o nome da mensagem recebida — e as tarefas de envio/recebimento carregam a mensagem trocada. Os elementos extraídos são listados na **ordem do fluxo do processo** — seguindo os fluxos de sequência e de mensagem do diagrama, a partir do evento de início — e não agrupados por tipo de elemento. As etapas de um laço permanecem juntas, o conteúdo de um subprocesso é listado logo abaixo dele, e objetos e armazéns de dados vêm por último
 - **Cores dos elementos** — Selecione um ou mais elementos e use o botão de balde de tinta no painel de contexto para aplicar uma cor. As cores são gravadas no próprio arquivo BPMN, portanto também aparecem no visualizador somente leitura, nas exportações e nas impressões
+- **Painel de propriedades** — O painel à direita (mostre ou oculte com o botão de controles deslizantes da barra de ferramentas) edita o que uma forma não consegue mostrar: o nome e a documentação do elemento, a **mensagem**, o **sinal**, o **erro** ou o **escalonamento** ao qual um evento se refere, a condição de um fluxo de sequência e os marcadores de múltiplas instâncias. A documentação inserida aqui aparece no navegador de processos e no visualizador somente leitura
+
+![Menu «Create element»](../assets/img/pt/89_bpm_menu_criar_elemento.png)
+
+![Painel de propriedades](../assets/img/pt/90_bpm_painel_propriedades.png)
+
+### Pools e fluxos de mensagens
+
+Um processo que envolve várias partes — um cliente e a empresa, dois departamentos, um sistema parceiro — é modelado como uma **colaboração**: um pool por parte, ligados por **fluxos de mensagens**. Adicione um segundo pool a partir da paleta (ou comece pelo template **Colaboração**) e depois trace um fluxo de mensagem entre os dois pools com a ferramenta de conexão global, ou de uma tarefa de envio, um evento de fim de mensagem ou um evento de lançamento de mensagem em um pool até uma tarefa de recebimento ou um evento de mensagem no outro. Nomeie a mensagem no painel de propriedades para que ela se leia da mesma forma em todo lugar.
+
+![Template de colaboração](../assets/img/pt/91_bpm_template_colaboracao.png)
 
 ### Vinculação de Elementos
 
@@ -57,6 +68,10 @@ Elementos BPMN podem ser **vinculados a cards de EA**. Por exemplo, vincule uma 
 - Selecione qualquer tarefa, evento ou gateway no diagrama BPMN
 - O painel **Vinculador de Elementos** mostra cards correspondentes (Aplicação, Objeto de Dados, Componente de TI, Organização)
 - Vincule o elemento a um card — a conexão é armazenada e visível tanto no fluxo de processo quanto nos relacionamentos do card
+
+### Fluxos de mensagens
+
+Os fluxos de mensagens do diagrama publicado são listados abaixo da tabela de elementos; cada um mostra o que conecta — uma tarefa, um evento ou um pool inteiro em cada ponta. Vincule um fluxo de mensagem ao card de **Interface** que o transporta. Assim como os vínculos de organização nas etapas, isso é apenas informativo: nenhuma relação é criada entre cards.
 
 ### Vincular Organizações
 

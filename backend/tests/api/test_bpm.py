@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pathlib
 import uuid
 
 import pytest
@@ -9,6 +10,7 @@ from sqlalchemy import select
 
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
+from app.models.process_message_flow import ProcessMessageFlow
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -493,3 +495,170 @@ class TestElementOrderingEndToEnd:
             .all()
         )
         assert [r.name for r in rows] == _FLOW_ORDER_EXPECTED
+
+
+# ---------------------------------------------------------------------------
+# Event definitions + message flows (the bundled Collaboration template)
+# ---------------------------------------------------------------------------
+
+_COLLABORATION_BPMN = (
+    pathlib.Path(__file__).resolve().parents[2] / "bpmn_templates" / "collaboration.bpmn"
+).read_text()
+
+
+class TestMessageFlows:
+    async def _save(self, client, admin, process, xml=_COLLABORATION_BPMN):
+        resp = await client.put(
+            f"/api/v1/bpm/processes/{process.id}/diagram",
+            json={"bpmn_xml": xml, "dry_run": False},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    async def test_save_persists_event_definitions_and_artefacts(self, client, db, bpm_env):
+        admin = bpm_env["admin"]
+        process = bpm_env["process"]
+        await self._save(client, admin, process)
+
+        resp = await client.get(
+            f"/api/v1/bpm/processes/{process.id}/elements", headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200, resp.text
+        by_id = {e["bpmn_element_id"]: e for e in resp.json()}
+        start = by_id["StartEvent_RequestReceived"]
+        assert start["event_definition_type"] == "message"
+        assert start["definition_name"] == "Request"
+        assert by_id["Task_SendRequest"]["definition_name"] == "Request"
+        assert by_id["Task_HandleRequest"]["event_definition_type"] is None
+        # The data object is an element too, listed after every flow node.
+        artefact = by_id["DataObjectReference_Request"]
+        assert artefact["element_type"] == "dataObjectReference"
+        assert artefact["sequence_order"] == max(e["sequence_order"] for e in by_id.values())
+
+    async def test_list_message_flows(self, client, db, bpm_env):
+        admin = bpm_env["admin"]
+        process = bpm_env["process"]
+        await self._save(client, admin, process)
+
+        resp = await client.get(
+            f"/api/v1/bpm/processes/{process.id}/message-flows", headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200, resp.text
+        flows = resp.json()
+        assert [f["bpmn_element_id"] for f in flows] == [
+            "MessageFlow_Request",
+            "MessageFlow_Confirmation",
+        ]
+        assert flows[0]["name"] == "Request"
+        assert flows[0]["source_name"] == "Send request"
+        assert flows[0]["target_name"] == "Request received"
+        assert flows[0]["interface_id"] is None
+        assert flows[0]["interface_name"] is None
+
+    async def test_viewer_can_list_but_not_link(self, client, db, bpm_env):
+        admin = bpm_env["admin"]
+        viewer = bpm_env["viewer"]
+        process = bpm_env["process"]
+        await self._save(client, admin, process)
+        resp = await client.get(
+            f"/api/v1/bpm/processes/{process.id}/message-flows", headers=auth_headers(viewer)
+        )
+        assert resp.status_code == 200
+        flow_id = resp.json()[0]["id"]
+        resp = await client.patch(
+            f"/api/v1/bpm/processes/{process.id}/message-flows/{flow_id}",
+            json={"interface_id": None},
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403
+
+    async def test_link_interface_survives_a_resave(self, client, db, bpm_env):
+        admin = bpm_env["admin"]
+        process = bpm_env["process"]
+        await create_card_type(db, key="Interface", label="Interface")
+        iface = await create_card(db, card_type="Interface", name="Order API", user_id=admin.id)
+        await self._save(client, admin, process)
+        flows = (
+            await client.get(
+                f"/api/v1/bpm/processes/{process.id}/message-flows", headers=auth_headers(admin)
+            )
+        ).json()
+        flow_id = flows[0]["id"]
+
+        resp = await client.patch(
+            f"/api/v1/bpm/processes/{process.id}/message-flows/{flow_id}",
+            json={"interface_id": str(iface.id)},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["interface_id"] == str(iface.id)
+        assert resp.json()["interface_name"] == "Order API"
+
+        # A re-save re-parses the same XML: the row is updated in place and
+        # keeps its link, exactly like an element keeps its Application link.
+        await self._save(client, admin, process)
+        flows = (
+            await client.get(
+                f"/api/v1/bpm/processes/{process.id}/message-flows", headers=auth_headers(admin)
+            )
+        ).json()
+        assert [f["id"] for f in flows][0] == flow_id
+        assert flows[0]["interface_id"] == str(iface.id)
+
+        # Clearing works with null.
+        resp = await client.patch(
+            f"/api/v1/bpm/processes/{process.id}/message-flows/{flow_id}",
+            json={"interface_id": None},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["interface_id"] is None
+
+    async def test_link_rejects_a_card_that_is_not_an_interface(self, client, db, bpm_env):
+        admin = bpm_env["admin"]
+        process = bpm_env["process"]
+        await create_card_type(db, key="Application", label="Application")
+        app = await create_card(db, card_type="Application", name="ERP", user_id=admin.id)
+        await self._save(client, admin, process)
+        flow_id = (
+            await client.get(
+                f"/api/v1/bpm/processes/{process.id}/message-flows", headers=auth_headers(admin)
+            )
+        ).json()[0]["id"]
+        resp = await client.patch(
+            f"/api/v1/bpm/processes/{process.id}/message-flows/{flow_id}",
+            json={"interface_id": str(app.id)},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 404
+
+    async def test_flows_removed_from_the_diagram_are_deleted(self, client, db, bpm_env):
+        admin = bpm_env["admin"]
+        process = bpm_env["process"]
+        await self._save(client, admin, process)
+        # A single-pool diagram has no message flows.
+        await self._save(client, admin, process, xml=_MINIMAL_BPMN)
+        resp = await client.get(
+            f"/api/v1/bpm/processes/{process.id}/message-flows", headers=auth_headers(admin)
+        )
+        assert resp.json() == []
+
+    async def test_delete_diagram_clears_message_flows(self, client, db, bpm_env):
+        admin = bpm_env["admin"]
+        process = bpm_env["process"]
+        await self._save(client, admin, process)
+        resp = await client.delete(
+            f"/api/v1/bpm/processes/{process.id}/diagram", headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200, resp.text
+        rows = (
+            (
+                await db.execute(
+                    select(ProcessMessageFlow).where(ProcessMessageFlow.process_id == process.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert rows == []

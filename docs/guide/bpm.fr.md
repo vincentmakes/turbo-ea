@@ -43,12 +43,27 @@ Les graphiques montrent la répartition par type de processus, niveau de maturit
 
 ![Éditeur de flux de processus BPM](../assets/img/fr/47_bpm_flux_processus.png)
 
-Chaque fiche Processus Métier peut avoir un **diagramme de flux de processus BPMN 2.0**. L'éditeur utilise [bpmn-js]( et offre :)
+Chaque fiche Processus Métier peut avoir un **diagramme de flux de processus BPMN 2.0**. L'éditeur utilise [bpmn-js](https://bpmn.io/) et offre :
 
-- **Modélisation visuelle** -- Glisser-déposer des éléments BPMN : tâches, événements, passerelles, couloirs et sous-processus
-- **Modèles de démarrage** -- Choisir parmi 6 modèles BPMN préconstruits pour des schémas de processus courants (ou commencer à partir d'un canevas vierge)
-- **Extraction d'éléments** -- Lorsque vous sauvegardez un diagramme, le système extrait automatiquement toutes les tâches, événements, passerelles et couloirs pour analyse. Les éléments extraits sont listés dans l'**ordre du déroulement du processus** -- en suivant les flux de séquence et de message du diagramme, à partir de l'événement de début -- et non regroupés par type d'élément. Les étapes d'une boucle restent groupées, et le contenu d'un sous-processus est listé juste en dessous de celui-ci
+- **Modélisation visuelle** -- Glisser-déposer des éléments BPMN depuis la palette : tâches, événements, passerelles, couloirs, pools et sous-processus. L'entrée **…** en bas de la palette ouvre un menu **Create element** avec recherche qui donne accès à tous les types d'éléments BPMN -- événements de message, minuterie, signal, erreur et escalade, transactions, sous-processus événementiels, activités d'appel, tâches d'envoi/réception, objets et magasins de données (raccourci `N`). L'entrée **+** de la palette contextuelle d'une forme sélectionnée ouvre le menu **Append element** correspondant (raccourci `A`)
+- **Modèles de démarrage** -- Choisir parmi 7 modèles BPMN préconstruits pour des schémas de processus courants, dont un modèle **Collaboration** à deux pools avec flux de messages (ou commencer à partir d'un canevas vierge)
+- **Extraction d'éléments** -- Lorsque vous sauvegardez un diagramme, le système extrait automatiquement toutes les tâches, événements, passerelles, couloirs, objets de données et flux de messages pour analyse. Les événements conservent leur nature -- un événement de début de type *message* est listé comme tel, avec le nom du message reçu -- et les tâches d'envoi/réception portent le message échangé. Les éléments extraits sont listés dans l'**ordre du déroulement du processus** -- en suivant les flux de séquence et de message du diagramme, à partir de l'événement de début -- et non regroupés par type d'élément. Les étapes d'une boucle restent groupées, le contenu d'un sous-processus est listé juste en dessous de celui-ci, et les objets et magasins de données viennent en dernier
 - **Couleurs des éléments** -- Sélectionnez un ou plusieurs éléments et utilisez le bouton pot de peinture de la palette contextuelle pour appliquer une couleur. Les couleurs sont enregistrées dans le fichier BPMN lui-même : elles apparaissent donc aussi dans la visionneuse en lecture seule, les exports et les impressions
+- **Panneau des propriétés** -- Le panneau de droite (afficher/masquer avec le bouton curseurs de la barre d'outils) édite ce qu'une forme ne peut pas montrer : le nom et la documentation de l'élément, le **message**, le **signal**, l'**erreur** ou l'**escalade** auquel un événement fait référence, la condition d'un flux de séquence et les marqueurs multi-instance. La documentation saisie ici est affichée dans le navigateur de processus et dans la visionneuse en lecture seule
+
+![Menu « Create element »](../assets/img/fr/89_bpm_menu_creer_element.png)
+
+![Panneau des propriétés](../assets/img/fr/90_bpm_panneau_proprietes.png)
+
+### Pools et flux de messages
+
+Un processus qui implique plusieurs parties -- un client et l'entreprise, deux services, un système partenaire -- se modélise comme une **collaboration** : un pool par partie, reliés par des **flux de messages**. Ajoutez un second pool depuis la palette (ou partez du modèle **Collaboration**), puis tracez un flux de message entre les deux pools avec l'outil de connexion global, ou depuis une tâche d'envoi, un événement de fin de message ou un événement de message émetteur d'un pool vers une tâche de réception ou un événement de message de l'autre. Nommez le message dans le panneau des propriétés pour qu'il se lise de la même façon partout.
+
+![Modèle Collaboration](../assets/img/fr/91_bpm_modele_collaboration.png)
+
+### Flux de messages
+
+Les flux de messages du diagramme publié sont listés sous le tableau des éléments ; chacun indique ce qu'il relie -- une tâche, un événement ou un pool entier à chaque extrémité. Liez un flux de message à la fiche **Interface** qui le transporte. Comme les liens d'organisation sur les étapes, c'est informatif uniquement : aucune relation n'est créée entre les fiches.
 
 ### Liaison d'éléments
 

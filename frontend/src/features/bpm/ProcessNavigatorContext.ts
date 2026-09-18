@@ -37,6 +37,8 @@ export interface NavigatorStep {
   lane_name?: string;
   is_automated: boolean;
   sequence_order: number;
+  event_definition_type?: string | null;
+  definition_name?: string | null;
   application_name?: string;
   data_object_name?: string;
   it_component_name?: string;

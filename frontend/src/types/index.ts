@@ -1403,6 +1403,9 @@ export interface PortalProcessStep {
   lane_name?: string;
   is_automated: boolean;
   sequence_order: number;
+  /** Event sub-type (`message`, `timer`, …) and the Message / Signal / Error name it refers to. */
+  event_definition_type?: string | null;
+  definition_name?: string | null;
   /** Populated only when the portal enables `show_element_links`. Names, never ids. */
   application_name?: string | null;
   data_object_name?: string | null;
@@ -1478,6 +1481,10 @@ export interface ProcessElement {
   lane_name?: string;
   is_automated: boolean;
   sequence_order: number;
+  /** Event sub-type (`message`, `timer`, `signal`, `error`, …); null on plain events and non-events. */
+  event_definition_type?: string | null;
+  /** Name of the Message / Signal / Error the element refers to (also on send/receive tasks). */
+  definition_name?: string | null;
   application_id?: string;
   application_name?: string;
   data_object_id?: string;
@@ -1487,6 +1494,22 @@ export interface ProcessElement {
   /** M:N — a step can be linked to several Organization cards. */
   organizations?: { id: string; name: string }[];
   custom_fields?: Record<string, unknown>;
+}
+
+/** A message flow between two pools of a process's BPMN diagram. */
+export interface ProcessMessageFlow {
+  id: string;
+  process_id: string;
+  bpmn_element_id: string;
+  name?: string | null;
+  source_ref: string;
+  target_ref: string;
+  source_name?: string | null;
+  target_name?: string | null;
+  sequence_order: number;
+  /** The Interface card the exchange realises — informative, no relation is derived. */
+  interface_id?: string | null;
+  interface_name?: string | null;
 }
 
 export interface ProcessAssessment {

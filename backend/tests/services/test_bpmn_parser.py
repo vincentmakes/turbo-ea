@@ -5,9 +5,11 @@ These tests do NOT require a database — they test pure XML parsing only.
 
 from __future__ import annotations
 
+import pathlib
+
 import pytest
 
-from app.services.bpmn_parser import parse_bpmn_xml
+from app.services.bpmn_parser import parse_bpmn, parse_bpmn_xml
 
 # ---------------------------------------------------------------------------
 # Sample BPMN XML fixtures
@@ -545,7 +547,10 @@ class TestFlowOrderRobustness:
   </process>
 </definitions>
 """
-        assert [e.bpmn_element_id for e in parse_bpmn_xml(xml)] == ["a", "b"]
+        # The data object is extracted (it can be linked to a DataObject card)
+        # but it is an artefact, not a step: it lands after the flow nodes and
+        # the sequence flow pointing at it is not an ordering constraint.
+        assert [e.bpmn_element_id for e in parse_bpmn_xml(xml)] == ["a", "b", "dor"]
 
     def test_self_loop_does_not_raise(self):
         xml = """\
@@ -624,3 +629,196 @@ class TestFlowOrderRobustness:
         assert len(elements) == size
         assert elements[0].bpmn_element_id == "t0"
         assert elements[-1].bpmn_element_id == f"t{size - 1}"
+
+
+# ---------------------------------------------------------------------------
+# Event definitions, data artefacts and message flows
+# ---------------------------------------------------------------------------
+
+COLLABORATION_BPMN = (
+    pathlib.Path(__file__).resolve().parents[2] / "bpmn_templates" / "collaboration.bpmn"
+).read_text()
+
+
+class TestEventDefinitions:
+    def test_plain_events_have_no_definition(self):
+        elements = {e.bpmn_element_id: e for e in parse_bpmn_xml(MINIMAL_BPMN)}
+        assert elements["start_1"].event_definition_type is None
+        assert elements["start_1"].definition_name is None
+
+    def test_message_event_resolves_the_root_message_name(self):
+        elements = {e.bpmn_element_id: e for e in parse_bpmn_xml(COLLABORATION_BPMN)}
+        start = elements["StartEvent_RequestReceived"]
+        assert start.element_type == "startEvent"
+        assert start.event_definition_type == "message"
+        assert start.definition_name == "Request"
+        end = elements["EndEvent_Confirmed"]
+        assert end.event_definition_type == "message"
+        assert end.definition_name == "Confirmation"
+
+    def test_send_and_receive_tasks_resolve_their_message(self):
+        elements = {e.bpmn_element_id: e for e in parse_bpmn_xml(COLLABORATION_BPMN)}
+        assert elements["Task_SendRequest"].definition_name == "Request"
+        assert elements["Task_SendRequest"].event_definition_type is None
+        assert elements["Task_ReceiveConfirmation"].definition_name == "Confirmation"
+
+    def test_every_definition_kind(self):
+        xml = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" id="d1">
+  <signal id="sig_1" name="Shutdown" />
+  <error id="err_1" errorCode="E42" />
+  <escalation id="esc_1" name="Manager" />
+  <process id="Process_1" isExecutable="false">
+    <startEvent id="s_timer"><timerEventDefinition id="td" /></startEvent>
+    <intermediateCatchEvent id="ice_signal">
+      <signalEventDefinition id="sd" signalRef="sig_1" />
+    </intermediateCatchEvent>
+    <intermediateThrowEvent id="ite_link">
+      <linkEventDefinition id="ld" name="To page 2" />
+    </intermediateThrowEvent>
+    <intermediateThrowEvent id="ite_esc">
+      <escalationEventDefinition id="ed" escalationRef="esc_1" />
+    </intermediateThrowEvent>
+    <intermediateCatchEvent id="ice_cond">
+      <conditionalEventDefinition id="cd"><condition>x</condition></conditionalEventDefinition>
+    </intermediateCatchEvent>
+    <task id="t1" />
+    <boundaryEvent id="be_error" attachedToRef="t1">
+      <errorEventDefinition id="eed" errorRef="err_1" />
+    </boundaryEvent>
+    <boundaryEvent id="be_comp" attachedToRef="t1">
+      <compensateEventDefinition id="ced" />
+    </boundaryEvent>
+    <endEvent id="e_term"><terminateEventDefinition id="tmd" /></endEvent>
+    <endEvent id="e_cancel"><cancelEventDefinition id="cnd" /></endEvent>
+    <endEvent id="e_msg_unresolved">
+      <messageEventDefinition id="md" messageRef="ghost" />
+    </endEvent>
+  </process>
+</definitions>
+"""
+        elements = {e.bpmn_element_id: e for e in parse_bpmn_xml(xml)}
+        assert (elements["s_timer"].event_definition_type, elements["s_timer"].definition_name) == (
+            "timer",
+            None,
+        )
+        assert elements["ice_signal"].event_definition_type == "signal"
+        assert elements["ice_signal"].definition_name == "Shutdown"
+        assert elements["ite_link"].event_definition_type == "link"
+        assert elements["ite_link"].definition_name == "To page 2"
+        assert elements["ite_esc"].event_definition_type == "escalation"
+        assert elements["ite_esc"].definition_name == "Manager"
+        assert elements["ice_cond"].event_definition_type == "conditional"
+        # An error without a name is known by its code.
+        assert elements["be_error"].event_definition_type == "error"
+        assert elements["be_error"].definition_name == "E42"
+        assert elements["be_comp"].event_definition_type == "compensate"
+        assert elements["e_term"].event_definition_type == "terminate"
+        assert elements["e_cancel"].event_definition_type == "cancel"
+        # A dangling ref keeps the type but yields no name — never raises.
+        assert elements["e_msg_unresolved"].event_definition_type == "message"
+        assert elements["e_msg_unresolved"].definition_name is None
+
+    def test_non_event_elements_never_carry_a_definition(self):
+        for e in parse_bpmn_xml(TASKS_BPMN) + parse_bpmn_xml(GATEWAYS_BPMN):
+            assert e.event_definition_type is None
+
+
+class TestArtefacts:
+    def test_data_objects_and_stores_are_extracted_after_the_flow(self):
+        xml = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" id="d1">
+  <process id="Process_1" isExecutable="false">
+    <dataStoreReference id="ds" name="CRM" />
+    <startEvent id="s" />
+    <dataObjectReference id="do" name="Order" dataObjectRef="do_1">
+      <documentation>The order record</documentation>
+    </dataObjectReference>
+    <dataObject id="do_1" />
+    <task id="t" />
+    <endEvent id="e" />
+    <sequenceFlow id="f1" sourceRef="s" targetRef="t" />
+    <sequenceFlow id="f2" sourceRef="t" targetRef="e" />
+  </process>
+</definitions>
+"""
+        elements = parse_bpmn_xml(xml)
+        assert [e.bpmn_element_id for e in elements] == ["s", "t", "e", "ds", "do"]
+        assert [e.sequence_order for e in elements] == [0, 1, 2, 3, 4]
+        by_id = {e.bpmn_element_id: e for e in elements}
+        assert by_id["ds"].element_type == "dataStoreReference"
+        assert by_id["do"].element_type == "dataObjectReference"
+        assert by_id["do"].documentation == "The order record"
+        assert by_id["do"].is_automated is False
+
+    def test_transaction_and_ad_hoc_sub_process_are_containers(self):
+        xml = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" id="d1">
+  <process id="Process_1" isExecutable="false">
+    <transaction id="tx" name="Book trip">
+      <task id="inner" name="Reserve" />
+    </transaction>
+    <adHocSubProcess id="adhoc"><task id="inner2" /></adHocSubProcess>
+    <complexGateway id="cg" />
+  </process>
+</definitions>
+"""
+        elements = parse_bpmn_xml(xml)
+        assert [e.bpmn_element_id for e in elements] == ["tx", "inner", "adhoc", "inner2", "cg"]
+        assert elements[0].element_type == "transaction"
+        assert elements[2].element_type == "adHocSubProcess"
+        assert elements[4].element_type == "complexGateway"
+
+
+class TestMessageFlows:
+    def test_collaboration_template_message_flows(self):
+        parsed = parse_bpmn(COLLABORATION_BPMN)
+        assert [f.bpmn_element_id for f in parsed.message_flows] == [
+            "MessageFlow_Request",
+            "MessageFlow_Confirmation",
+        ]
+        request = parsed.message_flows[0]
+        assert request.name == "Request"
+        assert request.source_ref == "Task_SendRequest"
+        assert request.target_ref == "StartEvent_RequestReceived"
+        assert request.source_name == "Send request"
+        assert request.target_name == "Request received"
+        assert request.sequence_order == 0
+        assert parsed.message_flows[1].sequence_order == 1
+        # The artefact in the template lands last.
+        assert parsed.elements[-1].element_type == "dataObjectReference"
+        assert parsed.elements[-1].name == "Request record"
+
+    def test_pool_level_flow_resolves_the_participant_name(self):
+        xml = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" id="d1">
+  <collaboration id="c1">
+    <participant id="P_Supplier" name="Supplier" />
+    <participant id="P_Us" name="Us" processRef="Process_1" />
+    <messageFlow id="mf1" name="Order" sourceRef="a" targetRef="P_Supplier" />
+    <messageFlow id="mf2" sourceRef="P_Supplier" targetRef="P_Us" />
+    <messageFlow id="mf_dangling" sourceRef="a" />
+  </collaboration>
+  <process id="Process_1" isExecutable="false">
+    <task id="a" name="Place order" /><task id="b" />
+    <sequenceFlow id="f1" sourceRef="a" targetRef="b" />
+  </process>
+</definitions>
+"""
+        parsed = parse_bpmn(xml)
+        # Ordering is untouched by the black-box flow (existing contract).
+        assert [e.bpmn_element_id for e in parsed.elements] == ["a", "b"]
+        assert [
+            (f.bpmn_element_id, f.source_name, f.target_name) for f in parsed.message_flows
+        ] == [
+            ("mf1", "Place order", "Supplier"),
+            ("mf2", "Supplier", "Us"),
+        ]
+        assert parsed.message_flows[1].name is None
+
+    def test_no_collaboration_means_no_flows(self):
+        assert parse_bpmn(MINIMAL_BPMN).message_flows == []

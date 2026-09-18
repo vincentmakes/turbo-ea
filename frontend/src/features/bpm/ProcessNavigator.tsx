@@ -18,6 +18,8 @@ import { useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
+import ElementTypeChip from "./ElementTypeChip";
+import { elementTypeInfo } from "./elementTypes";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import Chip from "@mui/material/Chip";
@@ -178,29 +180,6 @@ export const ATTR_COLORS: Record<string, Record<string, { label: string; color: 
   },
 };
 
-const ELEMENT_TYPE_ICONS: Record<string, { icon: string; color: string }> = {
-  task: { icon: "check_box", color: "#1976d2" },
-  userTask: { icon: "person", color: "#1976d2" },
-  serviceTask: { icon: "settings", color: "#7b1fa2" },
-  scriptTask: { icon: "code", color: "#00695c" },
-  businessRuleTask: { icon: "rule", color: "#e65100" },
-  sendTask: { icon: "send", color: "#0097a7" },
-  receiveTask: { icon: "call_received", color: "#0097a7" },
-  manualTask: { icon: "back_hand", color: "#795548" },
-  callActivity: { icon: "call_split", color: "#512da8" },
-  subProcess: { icon: "account_tree", color: "#512da8" },
-  exclusiveGateway: { icon: "call_split", color: "#f57c00" },
-  parallelGateway: { icon: "add", color: "#f57c00" },
-  inclusiveGateway: { icon: "radio_button_checked", color: "#f57c00" },
-  eventBasedGateway: { icon: "bolt", color: "#f57c00" },
-  startEvent: { icon: "play_circle", color: "#2e7d32" },
-  endEvent: { icon: "stop_circle", color: "#c62828" },
-  intermediateThrowEvent: { icon: "send", color: "#f57c00" },
-  intermediateCatchEvent: { icon: "call_received", color: "#f57c00" },
-  boundaryEvent: { icon: "adjust", color: "#e65100" },
-  dataObjectReference: { icon: "description", color: "#774fcc" },
-  dataStoreReference: { icon: "database", color: "#774fcc" },
-};
 
 /* ================================================================== */
 /*  Tree builder                                                       */
@@ -1158,10 +1137,7 @@ function DrawerSteps({
           )}
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0 }}>
             {laneElements.map((el, idx) => {
-              const typeInfo = ELEMENT_TYPE_ICONS[el.element_type] || {
-                icon: "radio_button_unchecked",
-                color: "#999",
-              };
+              const typeInfo = elementTypeInfo(el.element_type);
               const isLast = idx === laneElements.length - 1;
               return (
                 <Box key={el.bpmn_element_id}>
@@ -1213,7 +1189,12 @@ function DrawerSteps({
                         )}
                       </Box>
                       <Typography variant="caption" color="text.secondary">
-                        {el.element_type}
+                        <ElementTypeChip
+                          variant="text"
+                          elementType={el.element_type}
+                          eventDefinitionType={el.event_definition_type}
+                          definitionName={el.definition_name}
+                        />
                       </Typography>
                       {el.documentation && (
                         <Typography

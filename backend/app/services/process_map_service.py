@@ -501,6 +501,8 @@ def to_public_flow(
             lane_name=e.lane_name,
             is_automated=bool(e.is_automated),
             sequence_order=e.sequence_order or 0,
+            event_definition_type=e.event_definition_type,
+            definition_name=e.definition_name,
         )
         if cfg.show_element_links:
             step.application_name = e.application.name if e.application else None

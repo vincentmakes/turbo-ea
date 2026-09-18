@@ -1497,6 +1497,7 @@ def _make_otc_bpmn() -> str:
                   xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
                   id="Definitions_NexaOTC"
                   targetNamespace="http://turbo-ea.io/bpmn">
+  <bpmn:message id="Msg_CustomerOrder" name="Customer Order" />
   <bpmn:collaboration id="Collab_1">
     <bpmn:participant id="Part_1" name="NexaTech Order to Cash" processRef="Proc_1" />
   </bpmn:collaboration>
@@ -1522,7 +1523,7 @@ def _make_otc_bpmn() -> str:
         <bpmn:flowNodeRef>Task_ConfirmDelivery</bpmn:flowNodeRef>
       </bpmn:lane>
     </bpmn:laneSet>
-    <bpmn:startEvent id="Start_1" name="Customer Order Received"><bpmn:outgoing>F1</bpmn:outgoing></bpmn:startEvent>
+    <bpmn:startEvent id="Start_1" name="Customer Order Received"><bpmn:outgoing>F1</bpmn:outgoing><bpmn:messageEventDefinition id="MsgDef_Start_1" messageRef="Msg_CustomerOrder" /></bpmn:startEvent>
     <bpmn:userTask id="Task_ReceiveOrder" name="Receive &amp; Log Order"><bpmn:documentation>Log order in Salesforce, create SO in SAP.</bpmn:documentation><bpmn:incoming>F1</bpmn:incoming><bpmn:outgoing>F2</bpmn:outgoing></bpmn:userTask>
     <bpmn:serviceTask id="Task_ValidateOrder" name="Validate Order Data"><bpmn:documentation>Check pricing, product availability, and customer data.</bpmn:documentation><bpmn:incoming>F2</bpmn:incoming><bpmn:outgoing>F3</bpmn:outgoing></bpmn:serviceTask>
     <bpmn:serviceTask id="Task_CreditCheck" name="Run Credit Check"><bpmn:documentation>Automated credit scoring via SAP Credit Management.</bpmn:documentation><bpmn:incoming>F3</bpmn:incoming><bpmn:outgoing>F4</bpmn:outgoing></bpmn:serviceTask>
