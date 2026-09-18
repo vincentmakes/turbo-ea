@@ -42,7 +42,7 @@ Richten Sie DNS auf die vom Modul benannte Ausgabe — `alb_dns_name` auf AWS, `
 
 Zu setzende Eingaben: `region`, `vpc_id`, `public_subnet_ids`, `private_subnet_ids`, `certificate_arn`, `public_url`, `image_tag`. Optional `route53_zone_id` — das Modul legt den Alias-Eintrag dann selbst an. Die erstellte RDS-Instanz ist privat, verschlüsselt, hat Löschschutz aktiviert und behält sieben Tage Backups; eine eigene bringen Sie mit `create_database = false`, `db_host` und `db_security_group_id` mit (das Modul öffnet den Port vom Task aus).
 
-Deployments laufen als Stop-then-Start (`deployment_minimum_healthy_percent = 0`), ein Release-Upgrade kostet also ein bis zwei Minuten Ausfall und lässt nie zwei Backends laufen. Für eine Shell: `aws ecs execute-command … --container backend --interactive --command sh`.
+Deployments laufen als Stop-then-Start (`deployment_minimum_healthy_percent = 0`), ein Release-Upgrade kostet also ein bis zwei Minuten Ausfall und lässt nie zwei Backends laufen. Für eine Shell: `aws ecs execute-command … --container backend --interactive --command sh`. Um Amazon Bedrock als KI-Anbieter zu nutzen, fügen Sie die IAM-Richtlinie aus [KI-Funktionen](ai.md) zur Task-Rolle des Moduls hinzu.
 
 ## Azure Container Apps
 

@@ -3,7 +3,7 @@
 The **TurboLens** module provides AI-powered analysis of your enterprise architecture landscape. It uses your configured AI provider to perform vendor analysis, duplicate detection, modernization assessment, and architecture recommendations.
 
 !!! note
-    TurboLens requires a commercial AI provider (Anthropic Claude, OpenAI, DeepSeek, or Google Gemini) configured in [AI Settings](../admin/ai.md). The module is automatically available when AI is configured.
+    TurboLens requires a commercial AI provider (Anthropic Claude, OpenAI, DeepSeek, Google Gemini, or Amazon Bedrock) configured in [AI Settings](../admin/ai.md). The module is automatically available when AI is configured.
 
 ## Dashboard
 

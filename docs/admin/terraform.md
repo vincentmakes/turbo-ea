@@ -42,7 +42,7 @@ Point DNS at the output the module names — `alb_dns_name` on AWS, `fqdn` on Az
 
 Inputs to set: `region`, `vpc_id`, `public_subnet_ids`, `private_subnet_ids`, `certificate_arn`, `public_url`, `image_tag`. Optionally `route53_zone_id` — the module then creates the alias record itself. The created RDS instance is private, encrypted, has deletion protection on and keeps seven days of backups; bring your own with `create_database = false`, `db_host` and `db_security_group_id` (the module opens the port from the task).
 
-Deploys are stop-then-start (`deployment_minimum_healthy_percent = 0`), so a release upgrade costs one to two minutes of downtime and never runs two backends. To open a shell: `aws ecs execute-command … --container backend --interactive --command sh`.
+Deploys are stop-then-start (`deployment_minimum_healthy_percent = 0`), so a release upgrade costs one to two minutes of downtime and never runs two backends. To open a shell: `aws ecs execute-command … --container backend --interactive --command sh`. To use Amazon Bedrock as the AI provider, add the IAM policy from [AI Features](ai.md) to the module's task role.
 
 ## Azure Container Apps
 

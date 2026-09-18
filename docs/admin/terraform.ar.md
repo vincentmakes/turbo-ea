@@ -42,7 +42,7 @@ terraform apply
 
 المُدخلات المطلوبة: `region` و`vpc_id` و`public_subnet_ids` و`private_subnet_ids` و`certificate_arn` و`public_url` و`image_tag`. واختياريًا `route53_zone_id` — فتُنشئ الوحدة حينها سجل الاسم البديل بنفسها. نسخة RDS المُنشأة خاصة ومشفّرة ومحمية من الحذف وتحتفظ بسبعة أيام من النسخ الاحتياطية؛ ولاستخدام قاعدتك استعمل `create_database = false` و`db_host` و`db_security_group_id` (تفتح الوحدة المنفذ من المهمّة).
 
-عمليات النشر بأسلوب الإيقاف ثم التشغيل (`deployment_minimum_healthy_percent = 0`)، لذا تكلّف ترقية الإصدار دقيقة أو دقيقتين من التوقف ولا تشغّل خلفيتين أبدًا. لفتح صدفة: `aws ecs execute-command … --container backend --interactive --command sh`.
+عمليات النشر بأسلوب الإيقاف ثم التشغيل (`deployment_minimum_healthy_percent = 0`)، لذا تكلّف ترقية الإصدار دقيقة أو دقيقتين من التوقف ولا تشغّل خلفيتين أبدًا. لفتح صدفة: `aws ecs execute-command … --container backend --interactive --command sh`. ولاستخدام Amazon Bedrock كمزوّد للذكاء الاصطناعي، أضف سياسة IAM الواردة في [ميزات الذكاء الاصطناعي](ai.md) إلى دور المهمة الخاص بالوحدة.
 
 ## Azure Container Apps
 

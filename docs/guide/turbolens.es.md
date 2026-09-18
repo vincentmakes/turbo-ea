@@ -3,7 +3,7 @@
 El módulo **TurboLens** proporciona análisis impulsado por IA de su paisaje de arquitectura empresarial. Utiliza el proveedor de IA configurado para realizar análisis de proveedores, detección de duplicados, evaluación de modernización y recomendaciones de arquitectura.
 
 !!! note
-    TurboLens requiere un proveedor de IA comercial (Anthropic Claude, OpenAI, DeepSeek o Google Gemini) configurado en [Configuración de IA](../admin/ai.md). El módulo está disponible automáticamente cuando la IA está configurada.
+    TurboLens requiere un proveedor de IA comercial (Anthropic Claude, OpenAI, DeepSeek, Google Gemini o Amazon Bedrock) configurado en [Configuración de IA](../admin/ai.md). El módulo está disponible automáticamente cuando la IA está configurada.
 
 ## Panel de Control
 

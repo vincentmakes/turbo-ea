@@ -39,8 +39,9 @@ O resultado é exibido ao usuário com:
 | **Azure Hosted OpenAI** | Comercial | Chave API + endpoint do recurso Azure + nome do deployment + versão da API (padrão `2025-01-01`) |
 | **OpenRouter** | Comercial | Chave API + nome do modelo |
 | **Anthropic Claude** | Comercial | Chave API + nome do modelo |
+| **Amazon Bedrock** | A sua conta AWS | Região AWS + ID de modelo ou de perfil de inferência; papel IAM, ou uma chave de acesso opcional |
 
-Provedores comerciais requerem uma chave API, que é armazenada criptografada no banco de dados usando criptografia simétrica Fernet.
+Provedores comerciais requerem uma chave API, que é armazenada criptografada no banco de dados usando criptografia simétrica Fernet. O Amazon Bedrock é a exceção: autentica-se por padrão com o papel IAM do contentor, portanto não há chave a armazenar nem a rodar.
 
 ---
 
@@ -95,12 +96,50 @@ Se você já executa Ollama em um servidor separado:
 ### Opção C: Provedor Comercial de LLM
 
 1. Vá para **Configurações > Sugestões de IA** na interface de admin.
-2. Selecione seu provedor (OpenAI, Google Gemini, Azure OpenAI, OpenRouter ou Anthropic Claude).
+2. Selecione seu provedor (OpenAI, Google Gemini, Azure OpenAI, OpenRouter ou Anthropic Claude). Para o Amazon Bedrock, veja a opção D abaixo.
 3. Insira sua **chave API** — ela será criptografada antes do armazenamento.
 4. Insira o **nome do modelo** (ex.: `gpt-4o`, `gemini-pro`, `claude-sonnet-4-20250514`).
 5. Clique em **Testar Conexão** para verificar.
 6. Clique em **Salvar**.
 
+
+### Opção D: Amazon Bedrock
+
+Os modelos são executados dentro da sua própria conta AWS, portanto os prompts nunca saem do limite da conta e não há chave API de terceiros a gerir.
+
+**1. Ative o acesso aos modelos** na consola do AWS Bedrock, em **Model access**, para a região que pretende usar. O acesso é concedido por modelo; alguns fornecedores pedem uma descrição única do caso de uso.
+
+**2. Conceda as permissões.** O Turbo EA usa o papel IAM do contentor (um papel de tarefa ECS, uma conta de serviço EKS ou um perfil de instância EC2). Anexe-lhe esta política:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream",
+        "bedrock:ListFoundationModels",
+        "bedrock:ListInferenceProfiles"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+**3. Configure o Turbo EA:**
+
+1. Vá para **Configurações > IA** na interface de admin.
+2. Selecione **Amazon Bedrock** como provedor.
+3. Insira a **Região AWS** — por exemplo `eu-central-1`. Este campo espera uma região, não um URL.
+4. Deixe o campo **Chave API** vazio para usar o papel IAM. Fora da AWS, insira `ACCESS_KEY_ID:SECRET_ACCESS_KEY`; é criptografada antes do armazenamento como qualquer outra chave de provedor.
+5. Clique em **Testar Conexão**. São listados todos os modelos e perfis de inferência que a região oferece.
+6. Escolha o **modelo** na lista e clique em **Salvar**.
+
+!!! warning "Os modelos mais recentes precisam de um ID de perfil de inferência"
+    Os modelos recentes — incluindo o Claude Sonnet 4 — não podem ser invocados pelo seu ID de modelo simples. O Bedrock responde com uma `ValidationException` a dizer que o throughput on-demand não é suportado. Use o **ID de perfil de inferência** regional, que leva um prefixo geográfico como `eu.`, `us.` ou `apac.`: `eu.anthropic.claude-sonnet-4-20250514-v1:0`. É por isso que o teste de ligação lista primeiro os ID de perfil.
 ---
 
 ## Opções de Configuração
@@ -197,6 +236,7 @@ As chaves de permissão são `ai.suggest` e `ai.portfolio_insights`. Papéis per
 - **Chaves API criptografadas**: Chaves API de provedores comerciais são criptografadas com criptografia simétrica Fernet antes de serem armazenadas no banco de dados.
 - **Contexto apenas de busca**: O LLM recebe resultados de busca web e o nome/tipo do card — não seus dados internos de cards, relacionamentos ou outros metadados sensíveis.
 - **Controle do usuário**: Toda sugestão deve ser revisada e explicitamente aplicada por um usuário. A IA nunca modifica cards automaticamente.
+- **A sua própria conta AWS**: Com o Amazon Bedrock, a inferência é executada dentro da sua conta AWS. Os prompts permanecem dentro do limite da conta e são regidos pelas suas próprias service control policies.
 
 ---
 
@@ -210,6 +250,8 @@ As chaves de permissão são `ai.suggest` e `ai.portfolio_insights`. Papéis per
 | Sugestões lentas | A velocidade de inferência do LLM depende do hardware (para Ollama) ou da latência de rede (para provedores comerciais). Modelos menores como `gemma3:4b` são mais rápidos que modelos maiores. |
 | Pontuações de confiança baixas | O LLM pode não encontrar informações relevantes suficientes via busca web. Tente um nome de card mais específico, ou considere usar Google Custom Search para melhores resultados. |
 | Teste de conexão falha | Verifique se a URL do provedor é acessível a partir do contêiner do backend. Para configurações Docker, certifique-se de que ambos os contêineres estão na mesma rede. |
+| O Bedrock devolve «AccessDeniedException» | Duas causas possíveis: falta ao papel IAM a permissão `bedrock:InvokeModel`, ou o acesso àquele modelo não foi ativado na consola do Bedrock. Verifique ambas. |
+| O Bedrock diz que o throughput on-demand não é suportado | O modelo só é acessível através de um perfil de inferência regional. Execute o teste de ligação e escolha um ID com prefixo `eu.`, `us.` ou `apac.`. |
 
 ---
 

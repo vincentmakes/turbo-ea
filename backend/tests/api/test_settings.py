@@ -1174,6 +1174,157 @@ class TestAISettingsAzure:
         assert resp.status_code == 403
 
 
+# -------------------------------------------------------------------
+# PATCH /settings/ai + POST /settings/ai/test — Amazon Bedrock (#1120)
+# -------------------------------------------------------------------
+
+
+class TestAISettingsBedrock:
+    """Bedrock keeps the AWS region in providerUrl and needs no API key."""
+
+    @staticmethod
+    def _payload(**overrides):
+        body = {
+            "enabled": True,
+            "provider_type": "bedrock",
+            "provider_url": "eu-central-1",
+            "api_key": "",
+            "model": "eu.anthropic.claude-sonnet-4-20250514-v1:0",
+            "enabled_types": ["Application"],
+            "portfolio_insights_enabled": False,
+        }
+        body.update(overrides)
+        return body
+
+    async def test_saves_without_an_api_key(self, client, db, settings_env):
+        """The IAM role of the container is the default credential source."""
+        admin = settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/ai", json=self._payload(), headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200
+
+        got = await client.get("/api/v1/settings/ai", headers=auth_headers(admin))
+        data = got.json()
+        assert data["provider_type"] == "bedrock"
+        assert data["provider_url"] == "eu-central-1"
+        assert data["api_key"] == ""
+        assert data["model"] == "eu.anthropic.claude-sonnet-4-20250514-v1:0"
+        # api_version belongs to Azure only
+        assert data["api_version"] == ""
+
+    async def test_region_is_required(self, client, db, settings_env):
+        admin = settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/ai",
+            json=self._payload(provider_url=""),
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+        assert "region" in resp.json()["detail"].lower()
+
+    async def test_a_url_is_not_a_region(self, client, db, settings_env):
+        admin = settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/ai",
+            json=self._payload(provider_url="https://bedrock.eu-central-1.amazonaws.com"),
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+
+    async def test_malformed_credentials_are_refused(self, client, db, settings_env):
+        admin = settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/ai",
+            json=self._payload(api_key="sk-not-an-aws-key-pair"),
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+        assert "ACCESS_KEY_ID" in resp.json()["detail"]
+
+    async def test_explicit_credentials_are_stored_encrypted(self, client, db, settings_env):
+        admin = settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/ai",
+            json=self._payload(api_key="AKIAEXAMPLE:secret"),
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+
+        got = await client.get("/api/v1/settings/ai", headers=auth_headers(admin))
+        assert got.json()["api_key"] == "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+
+    async def test_bedrock_is_a_valid_provider_type(self, client, db, settings_env):
+        admin = settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/ai", json=self._payload(), headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200
+
+    async def test_member_cannot_save_bedrock_settings(self, client, db, settings_env):
+        member = settings_env["member"]
+        resp = await client.patch(
+            "/api/v1/settings/ai", json=self._payload(), headers=auth_headers(member)
+        )
+        assert resp.status_code == 403
+
+    async def test_connection_test_does_not_demand_an_api_key(
+        self, client, db, settings_env, monkeypatch
+    ):
+        """Unlike the other commercial providers, Bedrock may have no key at all."""
+        from app.services import ai_service
+
+        admin = settings_env["admin"]
+        await client.patch("/api/v1/settings/ai", json=self._payload(), headers=auth_headers(admin))
+
+        seen = {}
+
+        async def fake_check(**kwargs):
+            seen.update(kwargs)
+            return {
+                "ok": True,
+                "available_models": ["eu.anthropic.claude-sonnet-4"],
+                "model_found": True,
+            }
+
+        monkeypatch.setattr(ai_service, "check_provider_connection", fake_check)
+
+        resp = await client.post("/api/v1/settings/ai/test", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        assert resp.json()["model_found"] is True
+        assert seen["provider_type"] == "bedrock"
+        assert seen["api_key"] == ""
+        assert seen["provider_url"] == "eu-central-1"
+
+    async def test_connection_test_without_a_region_is_rejected(
+        self, client, db, settings_env, monkeypatch
+    ):
+        from app.services import ai_service
+
+        admin = settings_env["admin"]
+        # Save a valid config first, then blank the region directly — the PATCH
+        # guard would refuse it, so this covers a row written before the guard.
+        await client.patch("/api/v1/settings/ai", json=self._payload(), headers=auth_headers(admin))
+        from sqlalchemy import select
+
+        from app.models.app_settings import AppSettings
+
+        row = (await db.execute(select(AppSettings))).scalar_one()
+        general = dict(row.general_settings or {})
+        general["ai"] = {**general["ai"], "providerUrl": ""}
+        row.general_settings = general
+        await db.commit()
+
+        async def fail(**kwargs):
+            raise AssertionError("must not reach the provider without a region")
+
+        monkeypatch.setattr(ai_service, "check_provider_connection", fail)
+
+        resp = await client.post("/api/v1/settings/ai/test", headers=auth_headers(admin))
+        assert resp.status_code == 400
+        assert "region" in resp.json()["detail"].lower()
+
+
 # ---------------------------------------------------------------
 # Branding blobs must not ride along on every settings read
 # ---------------------------------------------------------------

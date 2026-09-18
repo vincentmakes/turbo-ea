@@ -3,7 +3,7 @@
 **TurboLens**-modulet tilbyder AI-drevet analyse af dit virksomheds­arkitekturlandskab. Det bruger din konfigurerede AI-udbyder til at udføre leverandøranalyse, dubletdetektion, modernisations­vurdering og arkitekturanbefalinger.
 
 !!! note
-    TurboLens kræver en kommerciel AI-udbyder (Anthropic Claude, OpenAI, DeepSeek eller Google Gemini) konfigureret i [AI-indstillinger](../admin/ai.md). Modulet er automatisk tilgængeligt, når AI er konfigureret.
+    TurboLens kræver en kommerciel AI-udbyder (Anthropic Claude, OpenAI, DeepSeek, Google Gemini eller Amazon Bedrock) konfigureret i [AI-indstillinger](../admin/ai.md). Modulet er automatisk tilgængeligt, når AI er konfigureret.
 
 ## Dashboard
 

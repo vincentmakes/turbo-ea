@@ -139,6 +139,8 @@ Richten Sie den Hostnamen auf die Ausgabe `AlbDnsName` (CNAME oder Route-53-Alia
 
 **Betrieb.** EFS wird von AWS Backup gesichert (die Vorlage aktiviert die Standardrichtlinie); kombinieren Sie die Wiederherstellungspunkte mit Ihren RDS-Snapshots. `aws ecs execute-command --cluster turbo-ea --task <id> --container backend --interactive --command sh` öffnet eine Shell in jedem Container. Das Idle-Timeout des Load Balancers ist für den Event-Stream auf 4000 Sekunden erhöht, ein Limit für die Anfragegröße gibt es nicht.
 
+**Amazon Bedrock.** Um Bedrock als KI-Anbieter zu nutzen, hängen Sie die IAM-Richtlinie aus [KI-Funktionen](ai.md) an die Task-Rolle des Stacks an; Turbo EA authentifiziert sich dann über diese Rolle und benötigt keinen API-Schlüssel.
+
 ## Fehlerbehebung
 
 | Symptom | Ursache und Abhilfe |

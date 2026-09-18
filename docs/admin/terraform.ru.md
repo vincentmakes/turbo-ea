@@ -42,7 +42,7 @@ terraform apply
 
 Задаваемые параметры: `region`, `vpc_id`, `public_subnet_ids`, `private_subnet_ids`, `certificate_arn`, `public_url`, `image_tag`. При желании `route53_zone_id` — тогда модуль сам создаст alias-запись. Создаваемый экземпляр RDS приватный, зашифрованный, с включённой защитой от удаления и семью днями резервных копий; свою базу подключайте через `create_database = false`, `db_host` и `db_security_group_id` (модуль откроет порт со стороны задачи).
 
-Развёртывание идёт по схеме «остановить, затем запустить» (`deployment_minimum_healthy_percent = 0`): обновление версии стоит одну-две минуты простоя и никогда не запускает два бэкенда. Для оболочки: `aws ecs execute-command … --container backend --interactive --command sh`.
+Развёртывание идёт по схеме «остановить, затем запустить» (`deployment_minimum_healthy_percent = 0`): обновление версии стоит одну-две минуты простоя и никогда не запускает два бэкенда. Для оболочки: `aws ecs execute-command … --container backend --interactive --command sh`. Чтобы использовать Amazon Bedrock в качестве провайдера ИИ, добавьте IAM-политику из раздела [Возможности ИИ](ai.md) к роли задачи модуля.
 
 ## Azure Container Apps
 

@@ -42,7 +42,7 @@ Peg DNS på det output, modulet nævner — `alb_dns_name` på AWS, `fqdn` på A
 
 Input, der skal sættes: `region`, `vpc_id`, `public_subnet_ids`, `private_subnet_ids`, `certificate_arn`, `public_url`, `image_tag`. Valgfrit `route53_zone_id` — så opretter modulet selv alias-posten. Den oprettede RDS-instans er privat, krypteret, har sletningsbeskyttelse slået til og gemmer syv dages backups; medbring din egen med `create_database = false`, `db_host` og `db_security_group_id` (modulet åbner porten fra tasken).
 
-Udrulninger er stop-så-start (`deployment_minimum_healthy_percent = 0`), så en opgradering koster et til to minutters nedetid og kører aldrig to backends. Til en shell: `aws ecs execute-command … --container backend --interactive --command sh`.
+Udrulninger er stop-så-start (`deployment_minimum_healthy_percent = 0`), så en opgradering koster et til to minutters nedetid og kører aldrig to backends. Til en shell: `aws ecs execute-command … --container backend --interactive --command sh`. For at bruge Amazon Bedrock som AI-udbyder skal du tilføje IAM-politikken fra [AI-funktioner](ai.md) til modulets task-rolle.
 
 ## Azure Container Apps
 

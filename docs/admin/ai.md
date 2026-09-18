@@ -39,8 +39,9 @@ The result is displayed to the user with:
 | **Azure Hosted OpenAI** | Commercial | API key + Azure resource endpoint + deployment name + API version (default `2025-01-01`) |
 | **OpenRouter** | Commercial | API key + model name |
 | **Anthropic Claude** | Commercial | API key + model name |
+| **Amazon Bedrock** | Your AWS account | AWS region + model or inference profile ID; IAM role, or an optional access key |
 
-Commercial providers require an API key, which is stored encrypted in the database using Fernet symmetric encryption.
+Commercial providers require an API key, which is stored encrypted in the database using Fernet symmetric encryption. Amazon Bedrock is the exception: it authenticates with the IAM role of the container by default, so there is no key to store or rotate.
 
 ---
 
@@ -95,12 +96,50 @@ If you already run Ollama on a separate server:
 ### Option C: Commercial LLM Provider
 
 1. Go to **Settings > AI Suggestions** in the admin UI.
-2. Select your provider (OpenAI, Google Gemini, Azure OpenAI, OpenRouter, or Anthropic Claude).
+2. Select your provider (OpenAI, Google Gemini, Azure OpenAI, OpenRouter, or Anthropic Claude). For Amazon Bedrock, see Option D below.
 3. Enter your **API key** — it will be encrypted before storage.
 4. Enter the **model name** (e.g., `gpt-4o`, `gemini-pro`, `claude-sonnet-4-20250514`).
 5. Click **Test Connection** to verify.
 6. Click **Save**.
 
+
+### Option D: Amazon Bedrock
+
+Models run inside your own AWS account, so prompts never leave the account boundary and there is no third-party API key to manage.
+
+**1. Enable model access** in the AWS Bedrock console, under **Model access**, for the region you intend to use. Access is granted per model; some vendors ask for a one-time use-case description.
+
+**2. Grant the permissions.** Turbo EA uses the IAM role of the container (an ECS task role, an EKS service account, or an EC2 instance profile). Attach this policy to it:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream",
+        "bedrock:ListFoundationModels",
+        "bedrock:ListInferenceProfiles"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+**3. Configure Turbo EA:**
+
+1. Go to **Settings > AI** in the admin UI.
+2. Select **Amazon Bedrock** as the provider.
+3. Enter the **AWS Region** — for example `eu-central-1`. This field takes a region, not a URL.
+4. Leave the **API Key** field empty to use the IAM role. Outside AWS, enter `ACCESS_KEY_ID:SECRET_ACCESS_KEY` instead; it is encrypted before storage like any other provider key.
+5. Click **Test Connection**. It lists every model and inference profile the region offers.
+6. Pick the **model** from the list and click **Save**.
+
+!!! warning "Newer models need an inference profile ID"
+    Recent models — Claude Sonnet 4 among them — cannot be called by their plain model ID. Bedrock answers with a `ValidationException` saying on-demand throughput is not supported. Use the regional **inference profile ID** instead, which carries a geography prefix such as `eu.`, `us.` or `apac.`: `eu.anthropic.claude-sonnet-4-20250514-v1:0`. Test Connection lists the profile IDs first for this reason.
 ---
 
 ## Configuration Options
@@ -211,6 +250,7 @@ Custom roles can be granted these permissions through the Roles administration p
 - **Encrypted API keys**: Commercial provider API keys are encrypted with Fernet symmetric encryption before being stored in the database.
 - **Search-only context**: The LLM receives web search results and the card's name/type — not your internal card data, relationships, or other sensitive metadata.
 - **User control**: Every suggestion must be reviewed and explicitly applied by a user. AI never modifies cards automatically.
+- **Your own AWS account**: With Amazon Bedrock, inference runs inside your AWS account. Prompts stay within the account boundary and are governed by your own service control policies.
 
 ---
 
@@ -224,6 +264,8 @@ Custom roles can be granted these permissions through the Roles administration p
 | Slow suggestions | LLM inference speed depends on hardware (for Ollama) or network latency (for commercial providers). Smaller models like `gemma3:4b` are faster than larger ones. |
 | Low confidence scores | The LLM may not find enough relevant information via web search. Try a more specific card name, or consider using Google Custom Search for better results. |
 | Connection test fails | Verify the provider URL is reachable from the backend container. For Docker setups, ensure both containers are on the same network. |
+| Bedrock returns "AccessDeniedException" | Two different causes: the IAM role is missing the `bedrock:InvokeModel` permission, or model access has not been enabled for that model in the Bedrock console. Check both. |
+| Bedrock says on-demand throughput is not supported | The model is only reachable through a regional inference profile. Run Test Connection and pick an ID prefixed `eu.`, `us.` or `apac.`. |
 
 ---
 

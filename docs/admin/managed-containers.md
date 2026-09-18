@@ -139,6 +139,8 @@ Point the hostname at the `AlbDnsName` output (CNAME or Route 53 alias) and open
 
 **Operations.** EFS is backed up by AWS Backup (the template enables the default policy); pair its restore points with your RDS snapshots. `aws ecs execute-command --cluster turbo-ea --task <id> --container backend --interactive --command sh` opens a shell in any container. The load balancer's idle timeout is raised to 4000 seconds for the event stream, and it imposes no body-size limit.
 
+**Amazon Bedrock.** To use Bedrock as the AI provider, attach the IAM policy from [AI Features](ai.md) to the stack's task role; Turbo EA then authenticates with that role and needs no API key.
+
 ## Troubleshooting
 
 | Symptom | Cause and fix |

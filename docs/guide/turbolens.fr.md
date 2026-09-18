@@ -3,7 +3,7 @@
 Le module **TurboLens** fournit une analyse assistée par IA de votre paysage d'architecture d'entreprise. Il utilise votre fournisseur d'IA configuré pour effectuer une analyse des fournisseurs, une détection des doublons, une évaluation de la modernisation et des recommandations d'architecture.
 
 !!! note
-    TurboLens nécessite un fournisseur d'IA commercial (Anthropic Claude, OpenAI, DeepSeek ou Google Gemini) configuré dans les [Paramètres IA](../admin/ai.md). Le module est automatiquement disponible lorsque l'IA est configurée.
+    TurboLens nécessite un fournisseur d'IA commercial (Anthropic Claude, OpenAI, DeepSeek, Google Gemini ou Amazon Bedrock) configuré dans les [Paramètres IA](../admin/ai.md). Le module est automatiquement disponible lorsque l'IA est configurée.
 
 ## Tableau de bord
 

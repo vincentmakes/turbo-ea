@@ -1,7 +1,7 @@
 """TurboLens shared AI caller — reuses Turbo EA's AI configuration.
 
 Reads provider settings from app_settings.general_settings.ai and calls
-the appropriate LLM API (Claude, OpenAI, DeepSeek, Gemini).
+the appropriate LLM API (Claude, OpenAI, DeepSeek, Gemini, Amazon Bedrock).
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.encryption import decrypt_value
 from app.database import async_session
 from app.models.app_settings import AppSettings
+from app.services import bedrock
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
 
 logger = logging.getLogger("turboea.turbolens.ai")
@@ -57,6 +58,7 @@ async def get_ai_config(db: AsyncSession) -> dict[str, str]:
         "openai_compatible": "openai",
         "azure_openai": "azure",
         "ollama": "ollama",
+        "bedrock": "bedrock",
     }
     provider = provider_map.get(provider_type, provider_type)
 
@@ -84,12 +86,64 @@ def is_ai_configured(ai_config: dict[str, str]) -> bool:
         return True
     if provider == "ollama" and (provider_url or model):
         return True
+    if provider == "bedrock" and provider_url and model:
+        # provider_url is the AWS region. No API key requirement: Bedrock
+        # authenticates through the container's IAM role by default, so a key
+        # is the exception rather than the rule.
+        return True
     return False
 
 
 # ---------------------------------------------------------------------------
 # Call AI — unified multi-provider caller
 # ---------------------------------------------------------------------------
+
+
+async def _call_bedrock(
+    config: dict[str, str],
+    prompt: str,
+    max_tokens: int,
+    system_prompt: str,
+) -> dict[str, Any]:
+    """Bedrock branch of ``call_ai`` — same ``{text, truncated}`` contract.
+
+    Bedrock speaks the AWS SDK rather than a plain HTTP POST, so it cannot ride
+    the shared url/headers/body path below. The Converse call itself lives in
+    ``services/bedrock.py`` so ``ai_service`` and this module share one
+    implementation. Errors are translated into the tokens TurboLens callers
+    already understand.
+    """
+    model = config["model"]
+    if not model:
+        raise ValueError("bedrock model is not configured")
+
+    messages = [{"role": "user", "content": prompt}]
+    if system_prompt:
+        messages.insert(0, {"role": "system", "content": system_prompt})
+
+    try:
+        result = await bedrock.converse(
+            config["provider_url"],
+            model,
+            messages,
+            api_key=config["api_key"],
+            max_tokens=max_tokens,
+        )
+    except bedrock.BedrockError as exc:
+        if exc.kind == "credentials_missing":
+            raise ValueError("AI_KEY_MISSING") from exc
+        if exc.kind == "credentials_invalid":
+            raise ValueError("AI_KEY_INVALID:bedrock") from exc
+        if exc.kind == "quota":
+            raise ValueError("AI_QUOTA_EXCEEDED:bedrock") from exc
+        raise ValueError(f"bedrock API error {exc.code}: {exc}") from exc
+
+    if result["truncated"]:
+        logger.warning(
+            "AI response truncated (max_tokens=%d) — output may be incomplete",
+            max_tokens,
+        )
+    return result
 
 
 async def call_ai(
@@ -99,7 +153,8 @@ async def call_ai(
 ) -> dict[str, Any]:
     """Call the configured LLM and return {text, truncated}.
 
-    Supports Claude, OpenAI, DeepSeek, Gemini via direct HTTP.
+    Supports Claude, OpenAI, DeepSeek, Gemini via direct HTTP, and Amazon
+    Bedrock via the AWS SDK.
 
     Deliberately takes **no** session. It used to read the AI config on the
     caller's session, which left that session's pooled connection checked out —
@@ -118,8 +173,14 @@ async def call_ai(
     model = config["model"]
     provider_url = config["provider_url"]
 
-    if not api_key and provider != "ollama":
+    if not api_key and provider not in ("ollama", "bedrock"):
         raise ValueError("AI_KEY_MISSING")
+
+    # Bedrock goes through the AWS SDK, not the shared HTTP path below. The
+    # config session above has already closed, so this early return holds the
+    # no-session-across-the-call-out rule the docstring describes.
+    if provider == "bedrock":
+        return await _call_bedrock(config, prompt, max_tokens, system_prompt)
 
     messages = [{"role": "user", "content": prompt}]
     url: str

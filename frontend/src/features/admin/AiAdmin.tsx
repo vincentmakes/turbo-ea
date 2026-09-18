@@ -17,6 +17,7 @@ import Chip from "@mui/material/Chip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { AI_PROVIDER_TYPES, providerUi } from "./aiProviderUi";
 
 interface AiSettings {
   enabled: boolean;
@@ -144,10 +145,13 @@ export default function AiAdmin() {
   };
 
   const handleProviderTypeChange = (newType: string) => {
+    const previousType = aiProviderType;
     setAiProviderType(newType);
     setAiAvailableModels([]);
-    // Reset URL when switching to a provider that doesn't need it
-    if (newType === "anthropic") {
+    // Reset URL when switching to a provider that doesn't need it, and whenever
+    // Bedrock is on either side of the switch — there the field holds an AWS
+    // region, so carrying the value over would leave a URL in a region box.
+    if (newType === "anthropic" || newType === "bedrock" || previousType === "bedrock") {
       setAiProviderUrl("");
     }
     // Reset api_version when switching away from Azure
@@ -169,35 +173,18 @@ export default function AiAdmin() {
     }
   };
 
-  const showProviderUrl = aiProviderType !== "anthropic";
-  const showApiKey = aiProviderType !== "ollama";
-  const showApiVersion = aiProviderType === "azure_openai";
+  // Per-provider presentation lives in ./aiProviderUi so a new provider is one
+  // row there rather than a fifth branch in five separate ternaries.
+  const ui = providerUi(aiProviderType);
+  const showProviderUrl = ui.showProviderUrl;
+  const showApiKey = ui.showApiKey;
+  const showApiVersion = ui.showApiVersion;
   const hasApiKeySet = aiApiKey === AI_KEY_MASK;
 
-  const providerUrlPlaceholder =
-    aiProviderType === "openai"
-      ? "https://api.openai.com"
-      : aiProviderType === "azure_openai"
-        ? "https://your-resource.openai.azure.com"
-        : "http://localhost:11434";
-
-  const modelPlaceholder =
-    aiProviderType === "openai"
-      ? "gpt-4o-mini"
-      : aiProviderType === "azure_openai"
-        ? "my-gpt4o-deployment"
-        : aiProviderType === "anthropic"
-          ? "claude-sonnet-4-20250514"
-          : "gemma3:4b";
-
-  const modelHelper =
-    aiProviderType === "openai"
-      ? t("settings.ai.modelHelperOpenai")
-      : aiProviderType === "azure_openai"
-        ? t("settings.ai.modelHelperAzureOpenai")
-        : aiProviderType === "anthropic"
-          ? t("settings.ai.modelHelperAnthropic")
-          : t("settings.ai.modelHelper");
+  const providerUrlPlaceholder = ui.urlPlaceholder;
+  const modelPlaceholder = ui.modelPlaceholder;
+  const modelHelper = t(ui.modelHelperKey);
+  const showModelPicker = ui.supportsModelList && aiAvailableModels.length > 0;
 
   if (loading) {
     return (
@@ -256,36 +243,25 @@ export default function AiAdmin() {
           onChange={(e) => handleProviderTypeChange(e.target.value)}
           sx={{ mb: 1 }}
         >
-          <MenuItem value="ollama">{t("settings.ai.providerOllama")}</MenuItem>
-          <MenuItem value="openai">{t("settings.ai.providerOpenai")}</MenuItem>
-          <MenuItem value="azure_openai">{t("settings.ai.providerAzureOpenai")}</MenuItem>
-          <MenuItem value="anthropic">{t("settings.ai.providerAnthropic")}</MenuItem>
+          {AI_PROVIDER_TYPES.map((key) => (
+            <MenuItem key={key} value={key}>
+              {t(providerUi(key).labelKey)}
+            </MenuItem>
+          ))}
         </TextField>
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
-          {aiProviderType === "ollama"
-            ? t("settings.ai.providerOllamaDesc")
-            : aiProviderType === "openai"
-              ? t("settings.ai.providerOpenaiDesc")
-              : aiProviderType === "azure_openai"
-                ? t("settings.ai.providerAzureOpenaiDesc")
-                : t("settings.ai.providerAnthropicDesc")}
+          {t(ui.descKey)}
         </Typography>
 
-        {/* Provider URL (hidden for Anthropic) */}
+        {/* Provider URL (hidden for Anthropic; the AWS region for Bedrock) */}
         {showProviderUrl && (
           <TextField
-            label={t("settings.ai.providerUrl")}
+            label={t(ui.urlLabelKey ?? "settings.ai.providerUrl")}
             fullWidth
             value={aiProviderUrl}
             onChange={(e) => setAiProviderUrl(e.target.value)}
             placeholder={providerUrlPlaceholder}
-            helperText={
-              aiProviderType === "openai"
-                ? t("settings.ai.providerUrlHelperOpenai")
-                : aiProviderType === "azure_openai"
-                  ? t("settings.ai.providerUrlHelperAzureOpenai")
-                  : t("settings.ai.providerUrlHelper")
-            }
+            helperText={t(ui.urlHelperKey)}
             sx={{ mb: 2 }}
           />
         )}
@@ -311,17 +287,14 @@ export default function AiAdmin() {
             type="password"
             value={aiApiKey}
             onChange={(e) => setAiApiKey(e.target.value)}
-            placeholder={hasApiKeySet ? "" : "sk-..."}
-            helperText={
-              hasApiKeySet ? t("settings.ai.apiKeySet") : t("settings.ai.apiKeyHelper")
-            }
+            placeholder={hasApiKeySet ? "" : ui.apiKeyPlaceholder}
+            helperText={hasApiKeySet ? t("settings.ai.apiKeySet") : t(ui.apiKeyHelperKey)}
             sx={{ mb: 2 }}
           />
         )}
 
         {/* Model */}
-        {(aiProviderType === "ollama" || aiProviderType === "openai" || aiProviderType === "azure_openai") &&
-        aiAvailableModels.length > 0 ? (
+        {showModelPicker ? (
           <TextField
             select
             label={t("settings.ai.model")}
@@ -357,7 +330,7 @@ export default function AiAdmin() {
         )}
 
         <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
-          {(aiProviderUrl || aiProviderType === "anthropic") && (
+          {(aiProviderUrl || !showProviderUrl) && (
             <Button
               variant="outlined"
               size="small"

@@ -42,7 +42,7 @@ terraform apply
 
 需要设置的输入：`region`、`vpc_id`、`public_subnet_ids`、`private_subnet_ids`、`certificate_arn`、`public_url`、`image_tag`。可选 `route53_zone_id`——设置后模块会自行创建别名记录。创建的 RDS 实例为私有、加密、启用删除保护并保留七天备份；要自带数据库，请使用 `create_database = false`、`db_host` 和 `db_security_group_id`（模块会从任务开放该端口）。
 
-部署方式为先停后起（`deployment_minimum_healthy_percent = 0`），因此版本升级会有一到两分钟的停机，但绝不会同时运行两个后端。进入 shell：`aws ecs execute-command … --container backend --interactive --command sh`。
+部署方式为先停后起（`deployment_minimum_healthy_percent = 0`），因此版本升级会有一到两分钟的停机，但绝不会同时运行两个后端。进入 shell：`aws ecs execute-command … --container backend --interactive --command sh`。 若要使用 Amazon Bedrock 作为 AI 提供商，请把 [AI 功能](ai.md) 中的 IAM 策略添加到该模块的任务角色。
 
 ## Azure Container Apps
 

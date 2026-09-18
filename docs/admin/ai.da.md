@@ -39,8 +39,9 @@ Resultatet vises til brugeren med:
 | **Azure OpenAI** | Kommerciel | API-nøgle + deployment-URL |
 | **OpenRouter** | Kommerciel | API-nøgle + modelnavn |
 | **Anthropic Claude** | Kommerciel | API-nøgle + modelnavn |
+| **Amazon Bedrock** | Din AWS-konto | AWS-region + model- eller inferensprofil-ID; IAM-rolle, eller en valgfri adgangsnøgle |
 
-Kommercielle udbydere kræver en API-nøgle, som gemmes krypteret i databasen ved hjælp af Fernet symmetrisk kryptering.
+Kommercielle udbydere kræver en API-nøgle, som gemmes krypteret i databasen ved hjælp af Fernet symmetrisk kryptering. Amazon Bedrock er undtagelsen: den godkendes som standard med containerens IAM-rolle, så der er ingen nøgle at gemme eller rotere.
 
 ---
 
@@ -95,12 +96,50 @@ Hvis du allerede kører Ollama på en separat server:
 ### Mulighed C: Kommerciel LLM-udbyder
 
 1. Gå til **Indstillinger > AI Suggestions** i admin-UI'et.
-2. Vælg din udbyder (OpenAI, Google Gemini, Azure OpenAI, OpenRouter eller Anthropic Claude).
+2. Vælg din udbyder (OpenAI, Google Gemini, Azure OpenAI, OpenRouter eller Anthropic Claude). For Amazon Bedrock, se mulighed D nedenfor.
 3. Indtast din **API-nøgle** — den vil blive krypteret før lagring.
 4. Indtast **modelnavnet** (f.eks. `gpt-4o`, `gemini-pro`, `claude-sonnet-4-20250514`).
 5. Klik på **Test forbindelse** for at verificere.
 6. Klik på **Gem**.
 
+
+### Mulighed D: Amazon Bedrock
+
+Modellerne kører inde i din egen AWS-konto, så prompts forlader aldrig kontoens grænse, og der er ingen tredjeparts-API-nøgle at håndtere.
+
+**1. Aktivér modeladgang** i AWS Bedrock-konsollen under **Model access** for den region, du vil bruge. Adgang gives pr. model; nogle leverandører beder om en engangsbeskrivelse af anvendelsen.
+
+**2. Giv rettighederne.** Turbo EA bruger containerens IAM-rolle (en ECS-task-rolle, en EKS-servicekonto eller en EC2-instansprofil). Tilknyt denne politik:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream",
+        "bedrock:ListFoundationModels",
+        "bedrock:ListInferenceProfiles"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+**3. Konfigurér Turbo EA:**
+
+1. Gå til **Indstillinger > AI** i admin-UI'et.
+2. Vælg **Amazon Bedrock** som udbyder.
+3. Indtast **AWS-regionen** — for eksempel `eu-central-1`. Feltet forventer en region, ikke en URL.
+4. Lad feltet **API-nøgle** stå tomt for at bruge IAM-rollen. Uden for AWS indtastes i stedet `ACCESS_KEY_ID:SECRET_ACCESS_KEY`; den krypteres før lagring som enhver anden udbydernøgle.
+5. Klik på **Test forbindelse**. Den viser alle modeller og inferensprofiler, regionen tilbyder.
+6. Vælg **modellen** på listen, og klik på **Gem**.
+
+!!! warning "Nyere modeller kræver et inferensprofil-ID"
+    Nyere modeller — heriblandt Claude Sonnet 4 — kan ikke kaldes med deres almindelige model-ID. Bedrock svarer med en `ValidationException` om, at on-demand-gennemløb ikke understøttes. Brug i stedet det regionale **inferensprofil-ID**, som har et geografisk præfiks såsom `eu.`, `us.` eller `apac.`: `eu.anthropic.claude-sonnet-4-20250514-v1:0`. Derfor viser forbindelsestesten profil-ID'erne først.
 ---
 
 ## Konfigurationsmuligheder
@@ -211,6 +250,7 @@ Brugerdefinerede roller kan tildeles disse tilladelser gennem Roller-administrat
 - **Krypterede API-nøgler**: API-nøgler fra kommercielle udbydere krypteres med Fernet symmetrisk kryptering, før de gemmes i databasen.
 - **Kun søgekontekst**: LLM'en modtager websøgeresultater og kortets navn/type — ikke dine interne kortdata, relationer eller andre følsomme metadata.
 - **Brugerkontrol**: Hvert forslag skal gennemgås og eksplicit anvendes af en bruger. AI'en ændrer aldrig kort automatisk.
+- **Din egen AWS-konto**: Med Amazon Bedrock kører inferensen inde i din AWS-konto. Prompts forbliver inden for kontoens grænse og er underlagt dine egne service control policies.
 
 ---
 
@@ -224,6 +264,8 @@ Brugerdefinerede roller kan tildeles disse tilladelser gennem Roller-administrat
 | Langsomme forslag | LLM-inferenshastighed afhænger af hardware (for Ollama) eller netværkslatens (for kommercielle udbydere). Mindre modeller som `gemma3:4b` er hurtigere end større. |
 | Lave confidence-scores | LLM'en kan muligvis ikke finde nok relevant information via websøgning. Prøv et mere specifikt kortnavn, eller overvej at bruge Google Custom Search for bedre resultater. |
 | Forbindelsestest mislykkes | Bekræft, at udbyder-URL'en er tilgængelig fra backend-containeren. For Docker-opsætninger skal du sikre dig, at begge containere er på samme netværk. |
+| Bedrock returnerer «AccessDeniedException» | To mulige årsager: IAM-rollen mangler rettigheden `bedrock:InvokeModel`, eller modeladgang er ikke aktiveret for den model i Bedrock-konsollen. Tjek begge. |
+| Bedrock siger, at on-demand-gennemløb ikke understøttes | Modellen kan kun nås via en regional inferensprofil. Kør forbindelsestesten, og vælg et ID med præfikset `eu.`, `us.` eller `apac.`. |
 
 ---
 

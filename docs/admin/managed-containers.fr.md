@@ -139,6 +139,8 @@ Pointez le nom d'hôte sur la sortie `AlbDnsName` (CNAME ou alias Route 53) et o
 
 **Exploitation.** EFS est sauvegardé par AWS Backup (le modèle active la politique par défaut) ; associez ses points de restauration à vos instantanés RDS. `aws ecs execute-command --cluster turbo-ea --task <id> --container backend --interactive --command sh` ouvre un shell dans n'importe quel conteneur. Le délai d'inactivité de l'équilibreur est porté à 4000 secondes pour le flux d'événements, et il n'impose aucune limite de taille de corps.
 
+**Amazon Bedrock.** Pour utiliser Bedrock comme fournisseur d'IA, attachez la politique IAM décrite dans [Fonctionnalités IA](ai.md) au rôle de tâche de la stack ; Turbo EA s'authentifie alors avec ce rôle et n'a besoin d'aucune clé API.
+
 ## Dépannage
 
 | Symptôme | Cause et remède |

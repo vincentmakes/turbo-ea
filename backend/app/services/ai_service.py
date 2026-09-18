@@ -9,6 +9,7 @@ Supports multiple LLM providers:
   - OpenAI-compatible (OpenAI, Gemini, OpenRouter, LM Studio, vLLM)
   - Azure Hosted OpenAI (/openai/deployments/{deployment}/chat/completions)
   - Anthropic Claude (/v1/messages)
+  - Amazon Bedrock (Converse API via boto3 — see services/bedrock.py)
 """
 
 from __future__ import annotations
@@ -20,6 +21,8 @@ from html import unescape
 from typing import Any
 
 import httpx
+
+from app.services import bedrock
 
 logger = logging.getLogger("turboea.ai")
 
@@ -616,6 +619,41 @@ async def _call_anthropic(
     return _parse_llm_content(text)
 
 
+async def _call_bedrock(
+    provider_url: str,
+    api_key: str,
+    model: str,
+    messages: list[dict[str, str]],
+) -> dict[str, Any]:
+    """Call Amazon Bedrock through the shared Converse helper.
+
+    ``provider_url`` carries the AWS region for this provider (the UI labels the
+    field "AWS Region"), which is what lets every existing "is AI configured?"
+    check work unchanged.
+
+    Converse has no JSON response mode, so this relies on the same thing the
+    Anthropic path does: the system prompt asks for JSON and
+    ``_parse_llm_content`` strips a markdown fence if the model adds one.
+
+    Failures are re-raised as ``httpx.HTTPError`` because that is how every
+    other provider here fails, and it is what the routes translate into a
+    "could not reach the AI provider" 502 rather than a generic one.
+    """
+    try:
+        result = await bedrock.converse(
+            provider_url,
+            model,
+            messages,
+            api_key=api_key,
+            max_tokens=4096,
+            temperature=0.1,
+        )
+    except bedrock.BedrockError as exc:
+        logger.warning("Bedrock API call failed: %s", exc)
+        raise httpx.HTTPError(f"Bedrock: {exc}") from exc
+    return _parse_llm_content(result["text"] or "{}")
+
+
 async def call_llm(
     provider_url: str,
     model: str,
@@ -627,7 +665,8 @@ async def call_llm(
 ) -> dict[str, Any]:
     """Dispatch an LLM call to the configured provider.
 
-    Supported provider_type values: "ollama", "openai", "azure_openai", "anthropic".
+    Supported provider_type values: "ollama", "openai", "azure_openai",
+    "anthropic", "bedrock".
     """
     if provider_type == "openai":
         return await _call_openai_compatible(provider_url, api_key, model, messages)
@@ -635,6 +674,8 @@ async def call_llm(
         return await _call_azure_openai(provider_url, api_key, model, messages, api_version)
     if provider_type == "anthropic":
         return await _call_anthropic(provider_url, api_key, model, messages)
+    if provider_type == "bedrock":
+        return await _call_bedrock(provider_url, api_key, model, messages)
     return await _call_ollama(provider_url, model, messages)
 
 
@@ -652,6 +693,20 @@ async def check_provider_connection(
 ) -> dict[str, Any]:
     """Test connectivity to an LLM provider. Returns available models and status."""
     client = await _get_llm_client()
+
+    if provider_type == "bedrock":
+        # provider_url carries the AWS region for Bedrock.
+        if not provider_url.strip():
+            raise httpx.HTTPError("AWS region is required for Amazon Bedrock")
+        try:
+            available = await bedrock.list_model_ids(provider_url, api_key=api_key)
+        except bedrock.BedrockError as exc:
+            raise httpx.HTTPError(f"Cannot reach Bedrock: {exc}") from exc
+        # Matched as a substring like the other providers, so a configured
+        # "anthropic.claude-…" still resolves against the "eu.anthropic.claude-…"
+        # inference profile that is the id actually callable in the region.
+        model_found = any(model in m for m in available) if model else False
+        return {"ok": True, "available_models": available[:30], "model_found": model_found}
 
     if provider_type == "azure_openai":
         # Azure has no model-list endpoint; test with a minimal chat completion

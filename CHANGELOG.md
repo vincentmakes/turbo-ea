@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.145.0] - 2026-09-18
+
+### Added
+
+- **Amazon Bedrock is now an AI provider in its own right.** Running Turbo EA on AWS meant putting a translation proxy such as LiteLLM in front of Bedrock, because the AI settings only spoke to HTTP endpoints — an extra container to run, patch and watch, purely to reshape a request ([#1120](https://github.com/vincentmakes/turbo-ea/issues/1120), reported with a working implementation by a customer running on ECS Fargate). **Settings → AI** now offers **Amazon Bedrock** directly. It asks for an AWS region rather than a URL, and for nothing else: authentication uses the IAM role the container already runs under, so there is no API key to store, rotate or leak, and inference happens inside your own AWS account where your service control policies govern it. Outside AWS, an access key pair can be entered instead and is encrypted like any other provider key. **Test Connection** lists every text model the region offers **and** its inference profiles, which matters because newer models — Claude Sonnet 4 among them — can only be called through a regional profile ID and would otherwise be reported as missing; profile IDs are listed first for that reason. Both halves of the AI surface are covered: card description suggestions, portfolio insights, and every TurboLens analysis, so the module appears as configured rather than staying dark.
+
 ## [2.144.0] - 2026-09-17
 
 ### Added

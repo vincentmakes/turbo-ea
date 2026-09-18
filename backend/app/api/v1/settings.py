@@ -20,6 +20,7 @@ from app.models.resource_type import ResourceType
 from app.models.user import User
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
 from app.services.app_identity import DEFAULT_APP_TITLE
+from app.services.bedrock import is_valid_region
 from app.services.email_backends.base import (
     ALLOWED_METHODS as ALLOWED_EMAIL_METHODS,
 )
@@ -1540,7 +1541,7 @@ async def update_registration_settings(
 
 
 _AI_KEY_MASK = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
-_VALID_PROVIDER_TYPES = {"ollama", "openai", "azure_openai", "anthropic"}
+_VALID_PROVIDER_TYPES = {"ollama", "openai", "azure_openai", "anthropic", "bedrock"}
 
 
 class AiSettingsPayload(BaseModel):
@@ -1609,6 +1610,30 @@ async def update_ai_settings(
             f"Must be one of: {', '.join(sorted(_VALID_PROVIDER_TYPES))}",
         )
 
+    # Bedrock stores the AWS region in the shared providerUrl slot (the UI
+    # labels that field "AWS Region"), so validate it here rather than letting
+    # the AWS SDK reject it on the first call. Checked before the key is
+    # encrypted below so an unusable configuration is never stored.
+    if provider_type == "bedrock":
+        region = body.provider_url.strip()
+        if not region:
+            raise HTTPException(
+                400,
+                "AWS region is required for Amazon Bedrock (e.g. eu-central-1).",
+            )
+        if not is_valid_region(region):
+            raise HTTPException(
+                400,
+                f"'{region}' is not a valid AWS region (e.g. eu-central-1).",
+            )
+        supplied_key = body.api_key
+        if supplied_key and supplied_key != _AI_KEY_MASK and ":" not in supplied_key:
+            raise HTTPException(
+                400,
+                "Bedrock credentials must be ACCESS_KEY_ID:SECRET_ACCESS_KEY, or leave "
+                "the field empty to use the IAM role of the container.",
+            )
+
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
     prev_ai = general.get("ai", {})
@@ -1626,6 +1651,10 @@ async def update_ai_settings(
     provider_url = body.provider_url
     if provider_type == "anthropic" and not provider_url:
         provider_url = "https://api.anthropic.com"
+
+    # For bedrock, providerUrl holds the AWS region (validated above).
+    if provider_type == "bedrock":
+        provider_url = provider_url.strip()
 
     # Azure requires a provider URL
     if provider_type == "azure_openai" and not provider_url:
@@ -1673,6 +1702,9 @@ async def test_ai_connection(
     provider_url = ai.get("providerUrl", "")
     model = ai.get("model", "")
     encrypted_key = ai.get("apiKey", "")
+
+    if provider_type == "bedrock" and not provider_url:
+        raise HTTPException(400, "AWS region is required for Amazon Bedrock.")
 
     if not provider_url and provider_type not in ("anthropic", "azure_openai"):
         raise HTTPException(400, "AI provider URL is not configured.")

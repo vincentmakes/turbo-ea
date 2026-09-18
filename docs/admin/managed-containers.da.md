@@ -139,6 +139,8 @@ Peg værtsnavnet på outputtet `AlbDnsName` (CNAME eller Route 53-alias), og åb
 
 **Drift.** EFS sikkerhedskopieres af AWS Backup (skabelonen slår standardpolitikken til); parrér dens gendannelsespunkter med dine RDS-snapshots. `aws ecs execute-command --cluster turbo-ea --task <id> --container backend --interactive --command sh` åbner en shell i enhver container. Load balancerens idle-timeout er hævet til 4000 sekunder af hensyn til hændelsesstrømmen, og den sætter ingen grænse for kropsstørrelse.
 
+**Amazon Bedrock.** For at bruge Bedrock som AI-udbyder skal du tilknytte IAM-politikken fra [AI-funktioner](ai.md) til stackens task-rolle; Turbo EA godkendes derefter med den rolle og har ikke brug for nogen API-nøgle.
+
 ## Fejlfinding
 
 | Symptom | Årsag og løsning |

@@ -42,7 +42,7 @@ Punta il DNS all'output indicato dal modulo — `alb_dns_name` su AWS, `fqdn` su
 
 Input da impostare: `region`, `vpc_id`, `public_subnet_ids`, `private_subnet_ids`, `certificate_arn`, `public_url`, `image_tag`. Facoltativo `route53_zone_id`: il modulo crea allora da sé il record alias. L'istanza RDS creata è privata, cifrata, con protezione dall'eliminazione attiva e conserva sette giorni di backup; porta la tua con `create_database = false`, `db_host` e `db_security_group_id` (il modulo apre la porta dal task).
 
-I deploy sono stop-then-start (`deployment_minimum_healthy_percent = 0`): un aggiornamento di versione costa uno o due minuti di inattività e non esegue mai due backend. Per una shell: `aws ecs execute-command … --container backend --interactive --command sh`.
+I deploy sono stop-then-start (`deployment_minimum_healthy_percent = 0`): un aggiornamento di versione costa uno o due minuti di inattività e non esegue mai due backend. Per una shell: `aws ecs execute-command … --container backend --interactive --command sh`. Per usare Amazon Bedrock come provider AI, aggiungete la policy IAM descritta in [Funzionalità AI](ai.md) al ruolo attività del modulo.
 
 ## Azure Container Apps
 

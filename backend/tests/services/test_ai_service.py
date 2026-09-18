@@ -10,9 +10,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+from app.services import bedrock
 from app.services.ai_service import (
     _call_anthropic,
     _call_azure_openai,
+    _call_bedrock,
     _call_openai_compatible,
     _get_llm_item_description,
     _get_search_suffix,
@@ -1522,3 +1524,153 @@ class TestSuggestMetadataAzure:
             )
 
             assert mock_llm.call_args[1]["api_version"] == "2024-05-01-preview"
+
+
+# ---------------------------------------------------------------------------
+# Amazon Bedrock
+# ---------------------------------------------------------------------------
+
+
+class TestCallBedrock:
+    @pytest.mark.asyncio
+    async def test_parses_json_from_converse_text(self):
+        with patch("app.services.bedrock.converse", new=AsyncMock()) as mock_converse:
+            mock_converse.return_value = {
+                "text": '{"description": {"value": "An ERP suite"}}',
+                "truncated": False,
+            }
+            result = await _call_bedrock(
+                "eu-central-1",
+                "",
+                "eu.anthropic.claude-sonnet-4",
+                [
+                    {"role": "system", "content": "reply in json"},
+                    {"role": "user", "content": "SAP"},
+                ],
+            )
+
+        assert result == {"description": {"value": "An ERP suite"}}
+        kwargs = mock_converse.call_args.kwargs
+        assert kwargs["api_key"] == ""
+        assert kwargs["max_tokens"] == 4096
+        args = mock_converse.call_args.args
+        assert args[0] == "eu-central-1"
+        assert args[1] == "eu.anthropic.claude-sonnet-4"
+
+    @pytest.mark.asyncio
+    async def test_strips_a_markdown_fence(self):
+        with patch("app.services.bedrock.converse", new=AsyncMock()) as mock_converse:
+            mock_converse.return_value = {
+                "text": '```json\n{"description": {"value": "x"}}\n```',
+                "truncated": False,
+            }
+            result = await _call_bedrock(
+                "eu-central-1", "", "m", [{"role": "user", "content": "q"}]
+            )
+        assert result == {"description": {"value": "x"}}
+
+    @pytest.mark.asyncio
+    async def test_bedrock_error_becomes_an_httpx_error(self):
+        """Callers already map httpx.HTTPError to a 'cannot reach the provider' 502."""
+        with patch("app.services.bedrock.converse", new=AsyncMock()) as mock_converse:
+            mock_converse.side_effect = bedrock.BedrockError(
+                "AccessDeniedException: nope", kind="credentials_invalid", code="AccessDenied"
+            )
+            with pytest.raises(httpx.HTTPError) as exc:
+                await _call_bedrock("eu-central-1", "", "m", [{"role": "user", "content": "q"}])
+        assert "Bedrock" in str(exc.value)
+
+
+class TestCallLLMDispatcherBedrock:
+    @pytest.mark.asyncio
+    async def test_routes_to_bedrock(self):
+        with patch("app.services.ai_service._call_bedrock") as mock_bedrock:
+            mock_bedrock.return_value = {"description": "test"}
+            result = await call_llm(
+                "eu-central-1",
+                "eu.anthropic.claude-sonnet-4",
+                [{"role": "user", "content": "test"}],
+                provider_type="bedrock",
+                api_key="",
+            )
+            mock_bedrock.assert_called_once_with(
+                "eu-central-1",
+                "",
+                "eu.anthropic.claude-sonnet-4",
+                [{"role": "user", "content": "test"}],
+            )
+            assert result == {"description": "test"}
+
+
+class TestProviderConnectionBedrock:
+    @pytest.mark.asyncio
+    async def test_lists_models_and_inference_profiles(self):
+        with patch("app.services.bedrock.list_model_ids", new=AsyncMock()) as mock_list:
+            mock_list.return_value = ["eu.anthropic.claude-sonnet-4", "amazon.nova-lite"]
+            result = await check_provider_connection(
+                "eu-central-1",
+                provider_type="bedrock",
+                model="eu.anthropic.claude-sonnet-4",
+            )
+
+        assert result["ok"] is True
+        assert result["model_found"] is True
+        assert "amazon.nova-lite" in result["available_models"]
+        mock_list.assert_called_once_with("eu-central-1", api_key="")
+
+    @pytest.mark.asyncio
+    async def test_foundation_model_id_matches_its_inference_profile(self):
+        """A model only callable through a profile must not read as 'not found'."""
+        with patch("app.services.bedrock.list_model_ids", new=AsyncMock()) as mock_list:
+            mock_list.return_value = ["eu.anthropic.claude-sonnet-4-20250514-v1:0"]
+            result = await check_provider_connection(
+                "eu-central-1",
+                provider_type="bedrock",
+                model="anthropic.claude-sonnet-4-20250514-v1:0",
+            )
+        assert result["model_found"] is True
+
+    @pytest.mark.asyncio
+    async def test_unknown_model_is_not_found(self):
+        with patch("app.services.bedrock.list_model_ids", new=AsyncMock()) as mock_list:
+            mock_list.return_value = ["amazon.nova-lite"]
+            result = await check_provider_connection(
+                "eu-central-1", provider_type="bedrock", model="mistral.large"
+            )
+        assert result["model_found"] is False
+
+    @pytest.mark.asyncio
+    async def test_caps_the_returned_list(self):
+        with patch("app.services.bedrock.list_model_ids", new=AsyncMock()) as mock_list:
+            mock_list.return_value = [f"model-{i}" for i in range(50)]
+            result = await check_provider_connection(
+                "eu-central-1", provider_type="bedrock", model="model-49"
+            )
+        assert len(result["available_models"]) == 30
+        # Matched against the full list, not the truncated one.
+        assert result["model_found"] is True
+
+    @pytest.mark.asyncio
+    async def test_missing_region_raises(self):
+        with pytest.raises(httpx.HTTPError) as exc:
+            await check_provider_connection("", provider_type="bedrock", model="m")
+        assert "region" in str(exc.value).lower()
+
+    @pytest.mark.asyncio
+    async def test_bedrock_error_becomes_an_httpx_error(self):
+        with patch("app.services.bedrock.list_model_ids", new=AsyncMock()) as mock_list:
+            mock_list.side_effect = bedrock.BedrockError(
+                "NoCredentials", kind="credentials_missing", code="NoCredentialsError"
+            )
+            with pytest.raises(httpx.HTTPError) as exc:
+                await check_provider_connection("eu-central-1", provider_type="bedrock", model="m")
+        assert "Cannot reach Bedrock" in str(exc.value)
+
+    @pytest.mark.asyncio
+    async def test_passes_explicit_credentials_through(self):
+        with patch("app.services.bedrock.list_model_ids", new=AsyncMock()) as mock_list:
+            mock_list.return_value = []
+            await check_provider_connection(
+                "eu-central-1", provider_type="bedrock", api_key="AKIA:secret", model=""
+            )
+        mock_list.assert_called_once_with("eu-central-1", api_key="AKIA:secret")

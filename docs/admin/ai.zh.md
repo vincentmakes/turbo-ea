@@ -39,8 +39,9 @@ AI 建议流程有两个步骤：
 | **Azure 托管的 OpenAI** | 商业 | API 密钥 + Azure 资源端点 + 部署名称 + API 版本（默认 `2025-01-01`） |
 | **OpenRouter** | 商业 | API 密钥 + 模型名称 |
 | **Anthropic Claude** | 商业 | API 密钥 + 模型名称 |
+| **Amazon Bedrock** | 您的 AWS 账户 | AWS 区域 + 模型 ID 或推理配置文件 ID；IAM 角色，或可选的访问密钥 |
 
-商业提供商需要 API 密钥，该密钥使用 Fernet 对称加密存储在数据库中。
+商业提供商需要 API 密钥，该密钥使用 Fernet 对称加密存储在数据库中。Amazon Bedrock 是例外：默认使用容器的 IAM 角色进行身份验证，因此无需存储或轮换密钥。
 
 ---
 
@@ -95,12 +96,50 @@ AI_MODEL=gemma3:4b          # 或 mistral、llama3:8b 等
 ### 选项 C：商业 LLM 提供商
 
 1. 在管理 UI 中前往**设置 > AI 建议**。
-2. 选择您的提供商（OpenAI、Google Gemini、Azure OpenAI、OpenRouter 或 Anthropic Claude）。
+2. 选择您的提供商（OpenAI、Google Gemini、Azure OpenAI、OpenRouter 或 Anthropic Claude）。关于 Amazon Bedrock，请参见下面的选项 D。
 3. 输入您的 **API 密钥** —— 存储前将被加密。
 4. 输入**模型名称**（例如 `gpt-4o`、`gemini-pro`、`claude-sonnet-4-20250514`）。
 5. 点击**测试连接**进行验证。
 6. 点击**保存**。
 
+
+### 选项 D：Amazon Bedrock
+
+模型在您自己的 AWS 账户中运行，因此提示词绝不会离开账户边界，也无需管理第三方 API 密钥。
+
+**1. 启用模型访问权限**：在 AWS Bedrock 控制台的 **Model access** 中，为您打算使用的区域启用。访问权限按模型授予；部分供应商会要求一次性填写用例说明。
+
+**2. 授予权限。** Turbo EA 使用容器的 IAM 角色（ECS 任务角色、EKS 服务账户或 EC2 实例配置文件）。为其附加以下策略：
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream",
+        "bedrock:ListFoundationModels",
+        "bedrock:ListInferenceProfiles"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+**3. 配置 Turbo EA：**
+
+1. 在管理 UI 中前往**设置 > AI**。
+2. 选择 **Amazon Bedrock** 作为提供商。
+3. 输入 **AWS 区域** —— 例如 `eu-central-1`。此字段填写区域，而非 URL。
+4. 将 **API 密钥**字段留空以使用 IAM 角色。在 AWS 之外，请改为输入 `ACCESS_KEY_ID:SECRET_ACCESS_KEY`；它会像其他提供商密钥一样在存储前加密。
+5. 点击**测试连接**。将列出该区域提供的所有模型和推理配置文件。
+6. 从列表中选择**模型**并点击**保存**。
+
+!!! warning "较新的模型需要推理配置文件 ID"
+    较新的模型（包括 Claude Sonnet 4）无法通过其普通模型 ID 调用。Bedrock 会返回 `ValidationException`，提示不支持按需吞吐量。请改用区域**推理配置文件 ID**，它带有 `eu.`、`us.` 或 `apac.` 等地理前缀：`eu.anthropic.claude-sonnet-4-20250514-v1:0`。因此测试连接会优先列出配置文件 ID。
 ---
 
 ## 配置选项
@@ -197,6 +236,7 @@ AI_MODEL=gemma3:4b          # 或 mistral、llama3:8b 等
 - **加密 API 密钥**：商业提供商的 API 密钥在存储到数据库之前使用 Fernet 对称加密进行加密。
 - **仅搜索上下文**：LLM 接收网络搜索结果和卡片的名称/类型 —— 不包括您的内部卡片数据、关系或其他敏感元数据。
 - **用户控制**：每个建议都必须由用户审查并明确应用。AI 永远不会自动修改卡片。
+- **您自己的 AWS 账户**：使用 Amazon Bedrock 时，推理在您的 AWS 账户内运行。提示词保留在账户边界内，并受您自己的服务控制策略管辖。
 
 ---
 
@@ -210,6 +250,8 @@ AI_MODEL=gemma3:4b          # 或 mistral、llama3:8b 等
 | 建议缓慢 | LLM 推理速度取决于硬件（Ollama）或网络延迟（商业提供商）。较小的模型如 `gemma3:4b` 比较大的模型更快。 |
 | 置信度评分低 | LLM 可能无法通过网络搜索找到足够的相关信息。尝试使用更具体的卡片名称，或考虑使用 Google Custom Search 获取更好的结果。 |
 | 连接测试失败 | 验证提供商 URL 是否可从后端容器访问。对于 Docker 设置，确保两个容器在同一网络上。 |
+| Bedrock 返回「AccessDeniedException」 | 有两种可能原因：IAM 角色缺少 `bedrock:InvokeModel` 权限，或未在 Bedrock 控制台中为该模型启用访问权限。请检查这两项。 |
+| Bedrock 提示不支持按需吞吐量 | 该模型只能通过区域推理配置文件访问。运行测试连接，并选择前缀为 `eu.`、`us.` 或 `apac.` 的 ID。 |
 
 ---
 

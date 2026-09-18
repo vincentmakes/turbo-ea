@@ -33,6 +33,10 @@ dependencies = [
     "simpleeval>=1.0.0",
     "defusedxml>=0.7.1",
     "openpyxl>=3.1.0",
+    # Amazon Bedrock provider (Converse API). Pure Python, so it installs on
+    # the alpine image with no build deps; the weight is botocore's service
+    # data. Only imported when an admin selects the Bedrock provider.
+    "boto3>=1.35.0,<2",
     "turbo-ea-capabilities>=2026.5.11.505",
 ]
 

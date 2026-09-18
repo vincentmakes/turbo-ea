@@ -42,7 +42,7 @@ Faites pointer le DNS vers la sortie nommée par le module — `alb_dns_name` su
 
 Entrées à renseigner : `region`, `vpc_id`, `public_subnet_ids`, `private_subnet_ids`, `certificate_arn`, `public_url`, `image_tag`. En option `route53_zone_id` — le module crée alors lui-même l'enregistrement alias. L'instance RDS créée est privée, chiffrée, protégée contre la suppression et conserve sept jours de sauvegardes ; apportez la vôtre avec `create_database = false`, `db_host` et `db_security_group_id` (le module ouvre le port depuis la tâche).
 
-Les déploiements sont de type arrêt-puis-démarrage (`deployment_minimum_healthy_percent = 0`) : une montée de version coûte une à deux minutes d'indisponibilité et ne fait jamais tourner deux backends. Pour un shell : `aws ecs execute-command … --container backend --interactive --command sh`.
+Les déploiements sont de type arrêt-puis-démarrage (`deployment_minimum_healthy_percent = 0`) : une montée de version coûte une à deux minutes d'indisponibilité et ne fait jamais tourner deux backends. Pour un shell : `aws ecs execute-command … --container backend --interactive --command sh`. Pour utiliser Amazon Bedrock comme fournisseur d'IA, ajoutez la politique IAM décrite dans [Fonctionnalités IA](ai.md) au rôle de tâche du module.
 
 ## Azure Container Apps
 

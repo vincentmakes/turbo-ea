@@ -3,7 +3,7 @@
 **TurboLens** 模块提供由 AI 驱动的企业架构全景分析。它使用您配置的 AI 提供商执行供应商分析、重复项检测、现代化评估及架构建议。
 
 !!! note
-    TurboLens 需要在 [AI 设置](../admin/ai.md) 中配置商业 AI 提供商（Anthropic Claude、OpenAI、DeepSeek 或 Google Gemini）。配置 AI 后，该模块将自动可用。
+    TurboLens 需要在 [AI 设置](../admin/ai.md) 中配置商业 AI 提供商（Anthropic Claude、OpenAI、DeepSeek、Google Gemini 或 Amazon Bedrock）。配置 AI 后，该模块将自动可用。
 
 ## 仪表板
 

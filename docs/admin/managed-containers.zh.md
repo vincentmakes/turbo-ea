@@ -139,6 +139,8 @@ aws cloudformation deploy --template-file deploy/ecs-fargate/template.yaml \
 
 **运维。** EFS 由 AWS Backup 备份（模板启用了默认策略）；请把它的恢复点与 RDS 快照配对使用。`aws ecs execute-command --cluster turbo-ea --task <id> --container backend --interactive --command sh` 可在任意容器中打开 Shell。负载均衡器的空闲超时已为事件流提高到 4000 秒，且不限制请求体大小。
 
+**Amazon Bedrock。** 若要使用 Bedrock 作为 AI 提供商，请将 [AI 功能](ai.md) 中的 IAM 策略附加到该堆栈的任务角色；Turbo EA 随后会使用该角色进行身份验证，无需 API 密钥。
+
 ## 故障排查
 
 | 现象 | 原因与处理 |

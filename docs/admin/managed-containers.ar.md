@@ -139,6 +139,8 @@ aws cloudformation deploy --template-file deploy/ecs-fargate/template.yaml \
 
 **التشغيل.** يُنسخ EFS احتياطيًا بواسطة AWS Backup (يفعّل القالب السياسة الافتراضية)؛ اقرن نقاط استعادته بلقطات RDS لديك. يفتح الأمر `aws ecs execute-command --cluster turbo-ea --task <id> --container backend --interactive --command sh` صدفة في أي حاوية. ورُفعت مهلة خمول موازن الحمل إلى 4000 ثانية من أجل تدفق الأحداث، ولا يفرض أي حد لحجم الجسم.
 
+**Amazon Bedrock.** لاستخدام Bedrock كمزوّد للذكاء الاصطناعي، أرفق سياسة IAM الواردة في [ميزات الذكاء الاصطناعي](ai.md) بدور المهمة الخاص بالحزمة؛ عندئذٍ يصادق Turbo EA باستخدام ذلك الدور ولا يحتاج إلى أي مفتاح API.
+
 ## استكشاف الأخطاء وإصلاحها
 
 | العرض | السبب والحل |
