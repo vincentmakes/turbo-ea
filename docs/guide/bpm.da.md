@@ -68,22 +68,21 @@ BPMN-elementer kan **linkes til EA-kort**. For eksempel kan du linke en opgave i
 - Hver navngiven opgave, hændelse og gateway i det udgivne flow er en række i tabellen **Procestrin og elementer** under diagrammet (et udkast har samme tabel under **Forhåndslink elementer**, som anvendes, når udkastet godkendes)
 - Klik på cellen **Application**, **Data Object** eller **IT Component** for et trin og vælg kortet — vælgeren gennemser inventaret, så intet indtastes i hånden
 - Linket gemmes på trinnet og opretter en relation mellem processen og kortet, så det er synligt i både procesflowet og kortets fane Relationer
-- Kolonnen **Kalder** knytter en **kaldeaktivitet** til den proces, den kalder — se nedenfor
+- Kolonnen **Forretningsproces** forbinder et trin med den proces, det giver videre til — se nedenfor
 
-### Kald af en anden proces
+### Tilknyt et trin til en proces
 
-BPMN har præcis én konstruktion for »dette trin er en anden proces«: **kaldeaktiviteten** (call activity), en opgave med tyk kant, der kalder en selvstændigt defineret proces — en med eget diagram, egen ejer og egen livscyklus, som typisk genbruges flere steder. En indlejret **underproces** grupperer også trin, men hører til det diagram, den er tegnet i; reglen fra Method & Style er enkel: findes processen selvstændigt, så brug en kaldeaktivitet.
+Et trin giver ofte videre til en proces, der findes i sin egen ret — en med eget diagram, egen ejer og egen livscyklus, som typisk genbruges flere steder. Ethvert trin kan sige det: en opgave, en underproces, en hændelse eller en gateway peger på et **Forretningsproces**-kort, og du indtaster aldrig et proces-id i hånden:
 
-I Turbo EA peger en kaldeaktivitet på et **Business Process**-kort, og du indtaster aldrig et proces-id i hånden:
+- **Egenskabspanelet** viser en gruppe **Tilknyttet proces** på hvert trin med **Vælg proces…**, **Åbn** (som borer ned i den tilknyttede proces' flow) og **Fjern**
+- **Kontekstmenuen** for et valgt trin har punktet **Tilknyt proces**, til når panelet er foldet sammen
+- **Trintabellen** for det udgivne flow (og forhåndslink-tabellen for et udkast) har samme link i kolonnen **Forretningsproces**, og chippen dér borer ned i den tilknyttede proces' fane Procesflow. Dataobjekter og datalagre er ikke trin, så deres rækker viser en tankestreg
 
-- **Når du placerer en kaldeaktivitet, bliver du spurgt, hvilken proces den kalder.** Tilføj en fra menuen Opret element, og en vælger åbner over inventarets forretningsprocesser — vælg den kaldte proces, eller annullér for at linke senere
-- **Egenskabspanelet** viser en gruppe **Kaldt proces** på hver kaldeaktivitet med **Vælg proces…**, **Åbn** (som borer ned i den kaldte proces' flow) og **Fjern**
-- **Kontekstmenuen** for en valgt kaldeaktivitet har punktet **Tilknyt proces**, til når panelet er foldet sammen
-- **Trintabellen** for det udgivne flow (og forhåndslink-tabellen for et udkast) har samme link i kolonnen **Kalder**, og chippen dér borer ned i den kaldte proces' fane Procesflow
+![Tilknyttet proces](../assets/img/da/92_bpm_called_process.png)
 
-![Kaldt proces](../assets/img/da/92_bpm_called_process.png)
+BPMN har én konstruktion, der *er* en anden proces: **kaldeaktiviteten** (call activity), en opgave med tyk kant, der kalder en selvstændigt defineret proces. En indlejret **underproces** grupperer også trin, men hører til det diagram, den er tegnet i; reglen fra Method & Style er enkel: findes processen selvstændigt, så brug en kaldeaktivitet. Turbo EA behandler den som det oprindelige tilfælde — **når du placerer en kaldeaktivitet, bliver du spurgt, hvilken proces den kalder**, og tilknytningen gemmes i BPMN's eget *kaldte element*, som andre værktøjer kan læse. Ethvert andet trin gemmer i stedet tilknytningen som en Turbo EA-attribut i diagrammet.
 
-Udgivelse af et flow med en linket kaldeaktivitet opretter en **kalder**-relation mellem de to processer — den kaldte proces' fane Relationer viser *kaldes af*, og afhængighedsvisningen tegner kaldgrafen. Et diagram importeret fra et andet værktøj beholder værktøjets egen procesreference; trintabellen viser den som et hint (*refererer til Process_X*), indtil du vælger den tilsvarende proces i Turbo EA.
+Udgivelse af et flow med et tilknyttet trin opretter en **kalder**-relation mellem de to processer — den tilknyttede proces' fane Relationer viser *kaldes af*, og afhængighedsvisningen tegner kaldgrafen. Et diagram importeret fra et andet værktøj beholder værktøjets egen procesreference; trintabellen viser den som et hint (*refererer til Process_X*), indtil du vælger den tilsvarende proces i Turbo EA.
 
 ### Beskedflows
 

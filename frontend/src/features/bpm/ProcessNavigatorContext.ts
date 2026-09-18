@@ -47,8 +47,8 @@ export interface NavigatorStep {
   application_id?: string;
   data_object_id?: string;
   it_component_id?: string;
-  /** The process a call activity invokes — the id is authenticated-only, so
-   *  the chip drills down in the app and is inert in a portal. */
+  /** The process the step links to — the id is authenticated-only, so the
+   *  chip drills down in the app and is inert in a portal. */
   business_process_id?: string;
   business_process_name?: string;
   organizations?: { id: string; name: string }[];

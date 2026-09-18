@@ -68,22 +68,21 @@ BPMN elements can be **linked to EA cards**. For example, link a task in your pr
 - Every named task, event and gateway of the published flow is a row of the **Process Steps & Elements** table below the diagram (a draft has the same table under **Pre-link Elements**, applied when the draft is approved)
 - Click the **Application**, **Data Object** or **IT Component** cell of a step and pick the card — the picker browses the inventory, so nothing is typed by hand
 - The link is stored on the step and creates a relation between the process and the card, so it is visible in both the process flow and the card's Relations tab
-- The **Calls** column links a **call activity** to the process it invokes — see below
+- The **Business Process** column links a step to the process it hands over to — see below
 
-### Calling another process
+### Linking a step to a process
 
-BPMN has exactly one construct for "this step is another process": the **call activity**, a task drawn with a thick border that invokes a process defined on its own — one that has its own diagram, owner and lifecycle, and is typically reused from several places. An embedded **sub-process** is the other way to group steps, but it belongs to the diagram it is drawn in; the Method & Style rule is simple: if the process exists independently, use a call activity.
+A step often hands over to a process that exists in its own right — one with its own diagram, owner and lifecycle, typically reused from several places. Any step can say so: a task, a sub-process, an event or a gateway links to a **Business Process** card, and you never enter a process id by hand:
 
-In Turbo EA a call activity points at a **Business Process** card, and you never enter a process id by hand:
+- **The properties panel** shows a **Linked process** group on every step, with **Choose process…**, **Open** (which drills down into the linked process's flow) and **Clear**
+- **The context pad** of a selected step carries a **Link process** entry, for when the panel is collapsed
+- **The steps table** of the published flow (and the pre-link table of a draft) has the same link in its **Business Process** column, and the chip there drills down into the linked process's Process Flow tab. Data objects and data stores are not steps, so their rows show a dash
 
-- **Placing a call activity asks which process it calls.** Add one from the Create element menu and a picker opens over the inventory's Business Processes — pick the callee, or cancel to link it later
-- **The properties panel** shows a **Called process** group on every call activity, with **Choose process…**, **Open** (which drills down into the callee's flow) and **Clear**
-- **The context pad** of a selected call activity carries a **Link process** entry, for when the panel is collapsed
-- **The steps table** of the published flow (and the pre-link table of a draft) has the same link in its **Calls** column, and the chip there drills down into the callee's Process Flow tab
+![Linked process](../assets/img/en/92_bpm_called_process.png)
 
-![Called process](../assets/img/en/92_bpm_called_process.png)
+BPMN has one construct that *is* another process: the **call activity**, a task drawn with a thick border that invokes a process defined on its own. An embedded **sub-process** is the other way to group steps, but it belongs to the diagram it is drawn in; the Method & Style rule is simple: if the process exists independently, use a call activity. Turbo EA treats it as the native case — **placing a call activity asks which process it calls**, and the link is stored in BPMN's own *called element*, so other tools read it. Every other step stores the link as a Turbo EA attribute in the diagram instead.
 
-Publishing a flow that contains a linked call activity creates a **calls** relation between the two processes — the callee's Relations tab reads *is called by*, and the Dependencies view draws the call graph. A diagram imported from another tool keeps that tool's own process reference; the steps table shows it as a hint (*references Process_X*) until you pick the matching process in Turbo EA.
+Publishing a flow that contains a linked step creates a **calls** relation between the two processes — the linked process's Relations tab reads *is called by*, and the Dependencies view draws the call graph. A diagram imported from another tool keeps that tool's own process reference; the steps table shows it as a hint (*references Process_X*) until you pick the matching process in Turbo EA.
 
 ### Message flows
 

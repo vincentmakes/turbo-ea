@@ -10,6 +10,11 @@ import defusedxml.ElementTree as ET  # noqa: N817
 from app.services.bpmn_flow_order import order_flow_nodes
 
 BPMN_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL"
+# Turbo EA's own BPMN extension namespace. `turboea:processRef` on any flow
+# node carries the BusinessProcess card the step links to; the modeler writes
+# it through a moddle extension whose `uri` must be this exact string
+# (`frontend/src/features/bpm/turboeaModdle.ts`, pinned by a test).
+TURBO_NS = "http://turbo-ea.io/schema/bpmn/1.0"
 
 # BPMN element types we extract for EA linking
 EXTRACTABLE_TYPES = {
@@ -101,6 +106,17 @@ class ExtractedElement:
     # from another tool carries whatever process id that tool used. Resolving
     # it to a card needs the database, so it happens in `process_element_sync`.
     called_element: str | None = None
+    # `turboea:processRef` — the BusinessProcess card any step links to, on
+    # every flow node but never on a data artefact. BPMN has no native slot for
+    # "this task belongs to that process", so it is a Turbo EA attribute.
+    process_ref: str | None = None
+
+    @property
+    def process_reference(self) -> str | None:
+        """The step's effective process reference: a call activity's
+        ``calledElement`` when set (BPMN's own construct, what other tools
+        read), else ``turboea:processRef``. The one place the rule lives."""
+        return self.called_element or self.process_ref
 
 
 @dataclass
@@ -303,6 +319,9 @@ def parse_bpmn(bpmn_xml: str) -> ParsedBpmn:
         called_element = (elem.get("calledElement") or "").strip() or None
         if element_type != "callActivity":
             called_element = None
+        process_ref = (elem.get(f"{{{TURBO_NS}}}processRef") or "").strip() or None
+        if element_type in ARTEFACT_TYPES:
+            process_ref = None
 
         by_id[elem_id] = ExtractedElement(
             bpmn_element_id=elem_id,
@@ -315,6 +334,7 @@ def parse_bpmn(bpmn_xml: str) -> ParsedBpmn:
             event_definition_type=event_definition_type,
             definition_name=definition_name,
             called_element=called_element,
+            process_ref=process_ref,
         )
 
     ordered_ids = order_flow_nodes(flow_node_ids, edges, parent_of) + artefact_ids

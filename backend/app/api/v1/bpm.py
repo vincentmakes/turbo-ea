@@ -17,7 +17,7 @@ from app.models.process_element import ProcessElement, ProcessElementOrganizatio
 from app.models.process_message_flow import ProcessMessageFlow
 from app.models.user import User
 from app.schemas.bpm import DiagramSave, ElementUpdate, MessageFlowUpdate
-from app.services.bpmn_parser import parse_bpmn, parse_bpmn_xml
+from app.services.bpmn_parser import ARTEFACT_TYPES, parse_bpmn, parse_bpmn_xml
 from app.services.element_relation_sync import element_link_ids, sync_element_relations
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
@@ -25,7 +25,7 @@ from app.services.process_element_sync import (
     message_flow_to_dict,
     sync_process_elements,
     sync_process_message_flows,
-    validate_called_process,
+    validate_process_link,
 )
 
 router = APIRouter(prefix="/bpm", tags=["bpm"])
@@ -162,7 +162,7 @@ async def save_diagram(
     extracted = parsed.elements
     rows = await sync_process_elements(db, pid, parsed)
     await sync_process_message_flows(db, pid, parsed)
-    # A call activity whose calledElement resolved to a card is a link the XML
+    # A step whose XML process reference resolved to a card is a link the XML
     # itself made — mint its `calls` relation now, as the element table would.
     await sync_element_relations(
         db,
@@ -433,9 +433,9 @@ async def update_element(
         elem.it_component_id = uuid.UUID(body.it_component_id) if body.it_component_id else None
     if body.business_process_id is not None:
         if body.business_process_id:
-            if elem.element_type != "callActivity":
-                raise HTTPException(400, "Only a call activity can call a process")
-            elem.business_process_id = await validate_called_process(
+            if elem.element_type in ARTEFACT_TYPES:
+                raise HTTPException(400, "A data artefact cannot link a process")
+            elem.business_process_id = await validate_process_link(
                 db, pid, body.business_process_id
             )
         else:

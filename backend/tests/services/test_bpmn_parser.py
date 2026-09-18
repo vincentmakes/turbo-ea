@@ -9,7 +9,7 @@ import pathlib
 
 import pytest
 
-from app.services.bpmn_parser import parse_bpmn, parse_bpmn_xml
+from app.services.bpmn_parser import TURBO_NS, parse_bpmn, parse_bpmn_xml
 
 # ---------------------------------------------------------------------------
 # Sample BPMN XML fixtures
@@ -791,6 +791,54 @@ class TestCallActivities:
         assert by_id["ca_empty"].called_element is None
         assert by_id["ca_none"].called_element is None
         assert by_id["t"].called_element is None
+
+
+class TestProcessRef:
+    """`turboea:processRef` — the process link any step may carry."""
+
+    XML = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:turboea="http://turbo-ea.io/schema/bpmn/1.0" id="d1">
+  <process id="Process_1" isExecutable="false">
+    <startEvent id="s" turboea:processRef=" ev-ref " />
+    <userTask id="t" name="Task" turboea:processRef="task-ref" />
+    <exclusiveGateway id="g" turboea:processRef="gw-ref" />
+    <callActivity id="both" calledElement="Process_X" turboea:processRef="pr-ref" />
+    <callActivity id="only_ref" turboea:processRef="pr-only" />
+    <dataObjectReference id="do" dataObjectRef="do_1" turboea:processRef="ignored" />
+    <dataObject id="do_1" />
+    <task id="plain" />
+  </process>
+</definitions>
+"""
+
+    def test_is_read_on_every_flow_node_but_never_on_an_artefact(self):
+        by_id = {e.bpmn_element_id: e for e in parse_bpmn_xml(self.XML)}
+        assert by_id["s"].process_ref == "ev-ref"
+        assert by_id["t"].process_ref == "task-ref"
+        assert by_id["g"].process_ref == "gw-ref"
+        assert by_id["do"].process_ref is None
+        assert by_id["plain"].process_ref is None
+        # calledElement stays call-activity-only.
+        assert by_id["t"].called_element is None
+
+    def test_effective_reference_prefers_a_call_activity_called_element(self):
+        by_id = {e.bpmn_element_id: e for e in parse_bpmn_xml(self.XML)}
+        assert by_id["both"].process_reference == "Process_X"
+        assert by_id["only_ref"].process_reference == "pr-only"
+        assert by_id["t"].process_reference == "task-ref"
+        assert by_id["plain"].process_reference is None
+        assert by_id["do"].process_reference is None
+
+    def test_namespace_matches_the_modeler_extension(self):
+        """The frontend moddle descriptor's `uri` must be this exact string,
+        or the attribute the modeler writes is invisible to the parser."""
+        descriptor = (
+            pathlib.Path(__file__).resolve().parents[3]
+            / "frontend/src/features/bpm/turboeaModdle.ts"
+        )
+        assert f'"{TURBO_NS}"' in descriptor.read_text(encoding="utf-8")
 
 
 class TestMessageFlows:

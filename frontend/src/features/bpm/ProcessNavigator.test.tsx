@@ -438,14 +438,14 @@ function makeProcessTree() {
   };
 }
 
-describe("ProcessNavigator — call activity drill-down", () => {
+describe("ProcessNavigator — linked-process drill-down", () => {
   const CALLEE = "3f2c9a1e-7b4d-4c6e-9a1f-0d2e5b7c8a90";
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("renders the callee as a chip on the step and drills down into its flow", async () => {
+  it("renders the linked process as a chip on the step and drills into its flow", async () => {
     const processMap = makeProcessMap(true, 1);
     vi.mocked(api.get).mockImplementation((url: string) => {
       if (url.startsWith("/reports/bpm/process-map")) return Promise.resolve(processMap);
@@ -457,7 +457,8 @@ describe("ProcessNavigator — call activity drill-down", () => {
           {
             id: "el1",
             bpmn_element_id: "call_1",
-            element_type: "callActivity",
+            // A plain step, not a call activity: the chip is not shape-specific.
+            element_type: "serviceTask",
             name: "Run Credit Check",
             lane_name: "Finance",
             is_automated: false,

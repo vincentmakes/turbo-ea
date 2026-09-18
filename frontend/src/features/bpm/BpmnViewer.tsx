@@ -141,7 +141,7 @@ export default function BpmnViewer({ bpmnXml, elements, onElementClick, height =
               }
             }
 
-            // A call activity wears the process it calls, in the process colour.
+            // A step wears the process it links to, in the process colour.
             if (el.business_process_name) {
               try {
                 overlays.add(el.bpmn_element_id, {
@@ -227,7 +227,7 @@ export default function BpmnViewer({ bpmnXml, elements, onElementClick, height =
               {popover.element.business_process_name && (
                 <Chip
                   icon={<MaterialSymbol icon="route" size={14} />}
-                  label={`${t("viewer.calls")}: ${popover.element.business_process_name}`}
+                  label={`${t("viewer.process")}: ${popover.element.business_process_name}`}
                   size="small"
                   variant="outlined"
                   sx={{ borderColor: CALLED_PROCESS_COLOR, color: CALLED_PROCESS_COLOR }}

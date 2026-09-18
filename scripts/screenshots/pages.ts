@@ -1354,7 +1354,7 @@ export const DOC_PAGES: PageDef[] = [
     },
   },
 
-  // ── BPMN modeler — Called process group on a call activity ───────────────
+  // ── BPMN modeler — Linked process group on a step ───────────────────────
   {
     id: "92_bpm_called_process",
     route: "/bpm/processes/{{cardId:sampleProcess}}/flow",
@@ -1362,8 +1362,9 @@ export const DOC_PAGES: PageDef[] = [
     actions: [
       { type: "wait", ms: 2500 },
       // The demo Order-to-Cash flow's credit check is a call activity whose
-      // calledElement is the Credit Check process — the "Called process"
-      // group shows the resolved name with Open / Choose / Clear.
+      // calledElement is the Credit Check process — the "Linked process"
+      // group shows the resolved name with Open / Choose / Clear. The same
+      // group is on every step; a call activity is the clearest example.
       { type: "click", selector: '[data-element-id="Task_CreditCheck"]' },
       { type: "wait", ms: 800 },
       // Expand the group — keyed on its id, since its label is localised.

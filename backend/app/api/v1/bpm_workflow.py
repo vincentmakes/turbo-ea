@@ -25,7 +25,7 @@ from app.schemas.bpm import (
     ProcessFlowVersionWithdraw,
 )
 from app.services import notification_service
-from app.services.bpmn_parser import parse_bpmn
+from app.services.bpmn_parser import ARTEFACT_TYPES, parse_bpmn
 from app.services.element_relation_sync import (
     ELEMENT_LINK_KEYS,
     element_link_ids,
@@ -37,7 +37,7 @@ from app.services.process_element_sync import (
     as_card_uuid,
     sync_process_elements,
     sync_process_message_flows,
-    validate_called_process,
+    validate_process_link,
 )
 
 router = APIRouter(prefix="/bpm", tags=["bpm-workflow"])
@@ -221,16 +221,17 @@ def _apply_draft_link(elem: ProcessElement, link: dict, valid_card_ids: set[str]
     ):
         val = link.get(key)
         if key == "business_process_id" and (
-            elem.element_type != "callActivity"
+            elem.element_type in ARTEFACT_TYPES
             or val == str(elem.process_id)
             or (
                 elem.business_process_id is not None
                 and as_card_uuid(elem.called_element) == elem.business_process_id
             )
         ):
-            # Only a call activity calls a process, and never itself. And when
-            # the XML's calledElement resolved (the sync helper has already set
-            # the link to it), the XML wins over a stale pre-link.
+            # A data artefact never links a process, a process never links
+            # itself. And when the XML's reference resolved (the sync helper
+            # has already set the link to it), the XML wins over a stale
+            # pre-link.
             continue
         if val and val in valid_card_ids:
             setattr(elem, attr, uuid.UUID(val))
@@ -1106,12 +1107,12 @@ async def get_draft_elements(
             if val:
                 card_ids.add(val)
         card_ids.update(link_data.get("organization_ids") or [])
-    # A call activity whose calledElement already holds a card UUID is linked
+    # A step whose XML process reference already holds a card UUID is linked
     # by the XML itself — resolve those names too so the draft table shows them.
     xml_called: dict[str, uuid.UUID] = {}
     for ext in extracted:
-        target = as_card_uuid(ext.called_element)
-        if ext.element_type == "callActivity" and target and target != pid:
+        target = as_card_uuid(ext.process_reference)
+        if ext.element_type not in ARTEFACT_TYPES and target and target != pid:
             xml_called[ext.bpmn_element_id] = target
             card_ids.add(str(target))
 
@@ -1136,7 +1137,7 @@ async def get_draft_elements(
         xml_target = xml_called.get(ext.bpmn_element_id)
         if xml_target and str(xml_target) in name_map:
             bp_id = str(xml_target)
-        elif ext.element_type == "callActivity":
+        elif ext.element_type not in ARTEFACT_TYPES:
             bp_id = link.get("business_process_id")
         org_ids = link.get("organization_ids") or []
         elements.append(
@@ -1156,7 +1157,7 @@ async def get_draft_elements(
                 "data_object_name": name_map.get(do_id, "") if do_id else None,
                 "it_component_id": itc_id,
                 "it_component_name": name_map.get(itc_id, "") if itc_id else None,
-                "called_element": ext.called_element,
+                "called_element": ext.process_reference,
                 "business_process_id": bp_id,
                 "business_process_name": name_map.get(bp_id, "") if bp_id else None,
                 "organizations": [{"id": oid, "name": name_map.get(oid, "")} for oid in org_ids],
@@ -1202,12 +1203,15 @@ async def update_draft_element_link(
     # The process link is validated at write time — the picker is the only
     # sanctioned source, so a bad id here is a client bug, not stale data.
     if body.get("business_process_id"):
-        called = {
+        types = {
             e.bpmn_element_id: e.element_type for e in parse_bpmn(version.bpmn_xml or "").elements
         }
-        if called.get(bpmn_element_id) != "callActivity":
-            raise HTTPException(400, "Only a call activity can call a process")
-        await validate_called_process(db, pid, body["business_process_id"])
+        elem_type = types.get(bpmn_element_id)
+        if elem_type is None or elem_type in ARTEFACT_TYPES:
+            # Not a step of this draft: either it is not in the XML at all, or
+            # it is a data artefact, which never links a process.
+            raise HTTPException(400, "A data artefact cannot link a process")
+        await validate_process_link(db, pid, body["business_process_id"])
 
     # Merge updates into existing link. `organization_ids` is a list (M:N);
     # an empty list clears the step's organizations, like "" for the FKs.

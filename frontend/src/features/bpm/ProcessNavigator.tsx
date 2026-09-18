@@ -1266,7 +1266,7 @@ function DrawerSteps({
                           />
                         )}
                         {el.business_process_name && (
-                          <Tooltip title={t("navigator.callsProcess")}>
+                          <Tooltip title={t("navigator.linkedProcess")}>
                             <Chip
                               size="small"
                               icon={<MaterialSymbol icon="route" size={12} />}

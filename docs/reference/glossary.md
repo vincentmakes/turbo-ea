@@ -10,7 +10,7 @@
 | **BPMN** | Business Process Model and Notation — the standard notation for modeling business processes (version 2.0) |
 | **Event definition** | The kind of a BPMN event — message, timer, signal, error, escalation, conditional, link, compensation, cancel or terminate. Shown beside the element type in the process steps table, together with the name of the Message, Signal or Error the event refers to |
 | **Lane** | A horizontal band inside a pool that groups the steps performed by one role, team or department |
-| **Call activity** | A BPMN task with a thick border that invokes a process defined on its own. In Turbo EA it is linked to the Business Process card it calls — picked in the modeler, the properties panel or the steps table — and publishing the flow creates a *calls* relation between the two processes |
+| **Call activity** | A BPMN task with a thick border that invokes a process defined on its own — BPMN's native way to say "this step is another process", and the one step type Turbo EA prompts for its Business Process when you place it. Any other step links a process the same way, from the properties panel, the context pad or the steps table; publishing the flow creates a *calls* relation between the two processes |
 | **Message flow** | A message exchanged between two pools of a BPMN collaboration. Listed under the elements table of a published process flow, where it can be linked to the Interface card that carries it |
 | **Pool** | One participant of a BPMN collaboration — a customer, a department, a partner system — drawn as a container holding that party's own process |
 | **Business Capability** | What an organization can do, regardless of how it does it |

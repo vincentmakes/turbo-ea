@@ -1,6 +1,7 @@
 /**
- * The "Called process" entry rendered inside the bpmn.io properties panel for
- * a `bpmn:CallActivity`.
+ * The "Linked process" entry rendered inside the bpmn.io properties panel for
+ * any flow node — the process the step hands over to, or, on a call activity,
+ * the process it invokes.
  *
  * The panel is a Preact tree (a Preact vendored under
  * `@bpmn-io/properties-panel/preact`), so this component is authored with
@@ -26,7 +27,7 @@ import type { VNode } from "@bpmn-io/properties-panel/preact";
 type AnyNode = VNode<any>;
 import { useService } from "bpmn-js-properties-panel";
 
-import { calledElementOf, isCardUuid } from "./calledProcess";
+import { isCardUuid, processRefOf, processRefProperties } from "./calledProcess";
 import type { CalledProcessBridge } from "./calledProcessModule";
 
 export interface CalledProcessEntryProps {
@@ -45,7 +46,7 @@ export default function CalledProcessEntry(props: CalledProcessEntryProps) {
   };
   const { labels } = bridge;
 
-  const ref = calledElementOf(element as Parameters<typeof calledElementOf>[0]);
+  const ref = processRefOf(element as Parameters<typeof processRefOf>[0]);
   const linked = isCardUuid(ref);
   const name = linked ? bridge.names[ref] : undefined;
 
@@ -78,7 +79,11 @@ export default function CalledProcessEntry(props: CalledProcessEntryProps) {
       choose,
       button(
         labels.clear,
-        () => modeling.updateProperties(element, { calledElement: undefined }),
+        () =>
+          modeling.updateProperties(
+            element,
+            processRefProperties(element as Parameters<typeof processRefOf>[0], null),
+          ),
         `${ENTRY_CLASS}-clear`,
       ),
     ];
@@ -97,7 +102,7 @@ export default function CalledProcessEntry(props: CalledProcessEntryProps) {
   return h(
     "div",
     { class: `bio-properties-panel-entry ${ENTRY_CLASS}`, "data-entry-id": id },
-    // No entry label: the group header already reads "Called process".
+    // No entry label: the group header already reads "Linked process".
     [value, h("div", { class: `${ENTRY_CLASS}-actions` }, actions)],
   );
 }

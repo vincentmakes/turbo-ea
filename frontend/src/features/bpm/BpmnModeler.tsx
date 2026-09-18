@@ -11,12 +11,13 @@
  * Features: auto-save (5s debounce), undo/redo, zoom, fit, keyboard shortcuts,
  * export (SVG, PNG, BPMN XML), import BPMN, template chooser.
  *
- * A call activity is linked to the Business Process it invokes by *picking a
- * card*, never by typing an id: placing one opens the picker, and the
- * properties panel's "Called process" group and a context-pad entry reopen it
- * (`calledProcessModule.ts`). The pick is written to the shape's
- * `calledElement` through the command stack — undoable, autosaved — and the
- * backend resolves the card id on publish.
+ * Any step is linked to a Business Process by *picking a card*, never by
+ * typing an id: placing a call activity opens the picker, and the properties
+ * panel's "Linked process" group and a context-pad entry on every flow node
+ * reopen it (`calledProcessModule.ts`). The pick is written to the shape
+ * through the command stack — a call activity's `calledElement`, any other
+ * node's `turboea:processRef` (`turboeaModdle.ts`) — undoable, autosaved —
+ * and the backend resolves the card id on publish.
  *
  * When `versionId` is provided, loads from and saves to the draft version endpoint.
  * Otherwise falls back to the legacy ProcessDiagram endpoint.
@@ -46,9 +47,10 @@ import { api } from "@/api/client";
 import { fetchCardsByIds } from "@/api/cardsByIds";
 import type { ProcessFlowVersion, BpmnTemplate } from "@/types";
 import { bpmnCanvasSx, bpmnPropertiesPanelSx } from "./bpmnStyles";
-import { calledProcessPath, collectCalledElementIds } from "./calledProcess";
+import { calledProcessPath, collectProcessRefIds, processRefProperties } from "./calledProcess";
 import { createCalledProcessModule } from "./calledProcessModule";
 import type { CalledProcessBridge } from "./calledProcessModule";
+import { TURBOEA_MODDLE } from "./turboeaModdle";
 
 // bpmn-js CSS
 import "bpmn-js/dist/assets/diagram-js.css";
@@ -104,8 +106,8 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
   const [snack, setSnack] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
   const [panelOpen, setPanelOpen] = useState<boolean>(readPanelPreference);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // The call activity whose callee is being picked — the picker dialog is
-  // open exactly while this is set.
+  // The step whose process is being picked — the picker dialog is open
+  // exactly while this is set.
   const [pickerTarget, setPickerTarget] = useState<unknown>(null);
 
   // The bridge the bpmn-js module reads at render time. One object for the
@@ -127,7 +129,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
   });
   bridgeRef.current.openProcess = (cardId) => navigate(calledProcessPath(cardId));
   bridgeRef.current.labels = {
-    group: t("modeler.calledProcess"),
+    group: t("modeler.linkedProcess"),
     choose: t("modeler.chooseProcess"),
     open: t("modeler.openProcess"),
     clear: t("modeler.clearProcess"),
@@ -137,8 +139,8 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
   };
 
   /**
-   * Resolve the names of every process the diagram's call activities
-   * reference, then re-render the panel: `propertiesPanel.providersChanged`
+   * Resolve the names of every process the diagram's steps reference, then
+   * re-render the panel: `propertiesPanel.providersChanged`
    * is the one public hook that re-runs every provider's `getGroups` on the
    * current selection. Runs after every import; a pick updates the map
    * itself and the command stack re-renders the panel on its own.
@@ -147,7 +149,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
     let ids: string[] = [];
     try {
       const registry = modeler.get("elementRegistry") as { getAll: () => unknown[] };
-      ids = collectCalledElementIds(registry.getAll() as never);
+      ids = collectProcessRefIds(registry.getAll() as never);
     } catch {
       return;
     }
@@ -170,7 +172,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
     bridgeRef.current.names[card.id] = card.name;
     // Through the command stack: undoable, and `commandStack.changed` trips
     // the autosave like any other edit.
-    m.get("modeling").updateProperties(target, { calledElement: card.id });
+    m.get("modeling").updateProperties(target, processRefProperties(target as never, card.id));
   };
 
   // Track which version we're editing (stable ref for save callback)
@@ -189,8 +191,11 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
       // Every bpmn.io extension rides along in the same lazy chunk as bpmn-js:
       //  - the colour picker contributes the "Set color" context-pad entry,
       //    which is not part of bpmn-js core (#910); colours are written to
-      //    the BPMN DI by core `modeling.setColor()`, so no moddle extensions
-      //    are needed — bpmn-moddle already ships `bioc` and BPMN-in-Color;
+      //    the BPMN DI by core `modeling.setColor()` — bpmn-moddle already
+      //    ships `bioc` and BPMN-in-Color, so it needs no moddle extension;
+      //  - `turboeaModdle` is the ONE moddle extension: it declares
+      //    `turboea:processRef`, the step → Business Process link, so the
+      //    attribute round-trips through saveXML / importXML;
       //  - create-append-anything adds the searchable "Create element" palette
       //    entry and the "Append element" context-pad entry, which is how
       //    message/signal/error events, transactions, call activities and the
@@ -210,6 +215,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
       const modeler = new BpmnJS({
         container: containerRef.current,
         propertiesPanel: { parent: propertiesRef.current },
+        moddleExtensions: { turboea: TURBOEA_MODDLE },
         additionalModules: [
           ColorPickerModule,
           CreateAppendAnythingModule,
@@ -551,8 +557,9 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
         </Box>
       </Box>
 
-      {/* Which process does this call activity call? Opened by the create
-          prompt, the properties panel group and the context-pad entry. */}
+      {/* Which process does this step link to? Opened by the create prompt
+          (call activities), the properties panel group and the context-pad
+          entry (every flow node). */}
       <Dialog
         open={pickerTarget != null}
         onClose={() => setPickerTarget(null)}
@@ -572,7 +579,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
               excludeIds={[processId]}
               value={null}
               onChange={handlePickProcess}
-              label={t("modeler.calledProcess")}
+              label={t("modeler.linkedProcess")}
               autoFocus
               fullWidth
             />

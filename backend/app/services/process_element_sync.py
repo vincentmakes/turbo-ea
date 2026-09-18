@@ -13,14 +13,15 @@ The rules the helper encodes:
   is still in the diagram. Rows for elements no longer in the XML are deleted.
 * **Parser-derived columns are always overwritten** — they are a function of
   the XML, never edited by hand.
-* **A call activity's process link is both.** ``calledElement`` is parser
-  data; when it holds the UUID of an ACTIVE BusinessProcess card (the modeler
-  writes one when a process is picked) **the XML wins** and
-  ``business_process_id`` is set from it. When it does not resolve — a
-  diagram imported from another tool carries that tool's own process id, or
-  nothing at all — a link the user made in the element table is **kept**,
-  like every other link. An element that is no longer a call activity loses
-  the link: a task cannot call a process.
+* **A step's process link is both.** The XML's process reference — a call
+  activity's ``calledElement``, else ``turboea:processRef`` on any flow node
+  (``ExtractedElement.process_reference``) — is parser data; when it holds
+  the UUID of an ACTIVE BusinessProcess card (the modeler writes one when a
+  process is picked) **the XML wins** and ``business_process_id`` is set from
+  it. When it does not resolve — a diagram imported from another tool carries
+  that tool's own process id, or nothing at all — a link the user made in the
+  element table is **kept**, like every other link. A data artefact is not a
+  step and never carries the link.
 * Flush, never commit: the caller owns the transaction.
 """
 
@@ -36,7 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.card import Card
 from app.models.process_element import ProcessElement
 from app.models.process_message_flow import ProcessMessageFlow
-from app.services.bpmn_parser import ParsedBpmn
+from app.services.bpmn_parser import ARTEFACT_TYPES, ParsedBpmn
 
 DraftLinkApplier = Callable[[ProcessElement, dict], None]
 
@@ -51,17 +52,17 @@ def as_card_uuid(value: str | None) -> uuid.UUID | None:
         return None
 
 
-async def resolve_called_processes(
+async def resolve_process_references(
     db: AsyncSession, process_id: uuid.UUID, parsed: ParsedBpmn
 ) -> dict[str, uuid.UUID]:
-    """``bpmn_element_id`` → BusinessProcess card id for every call activity
-    whose ``calledElement`` is the UUID of an ACTIVE BusinessProcess card other
-    than the process itself. One query for the whole diagram."""
+    """``bpmn_element_id`` → BusinessProcess card id for every step whose
+    process reference is the UUID of an ACTIVE BusinessProcess card other than
+    the process itself. One query for the whole diagram."""
     candidates: dict[str, uuid.UUID] = {}
     for ext in parsed.elements:
-        if ext.element_type != "callActivity":
+        if ext.element_type in ARTEFACT_TYPES:
             continue
-        target = as_card_uuid(ext.called_element)
+        target = as_card_uuid(ext.process_reference)
         if target and target != process_id:
             candidates[ext.bpmn_element_id] = target
     if not candidates:
@@ -77,7 +78,7 @@ async def resolve_called_processes(
     return {bid: cid for bid, cid in candidates.items() if cid in active}
 
 
-async def validate_called_process(db: AsyncSession, process_id: uuid.UUID, value: str) -> uuid.UUID:
+async def validate_process_link(db: AsyncSession, process_id: uuid.UUID, value: str) -> uuid.UUID:
     """The card id a manual process link may point at, or an HTTP error.
 
     Shared by the published element table and the draft pre-link route so the
@@ -121,7 +122,7 @@ async def sync_process_elements(
         select(ProcessElement).where(ProcessElement.process_id == process_id)
     )
     old_by_bpmn_id = {e.bpmn_element_id: e for e in existing.scalars().all()}
-    called = await resolve_called_processes(db, process_id, parsed)
+    called = await resolve_process_references(db, process_id, parsed)
 
     new_bpmn_ids = {e.bpmn_element_id for e in parsed.elements}
     for old_id, old_elem in old_by_bpmn_id.items():
@@ -144,14 +145,17 @@ async def sync_process_elements(
         elem.event_definition_type = ext.event_definition_type
         elem.definition_name = ext.definition_name
 
-        if ext.element_type == "callActivity":
-            elem.called_element = ext.called_element
+        if ext.element_type in ARTEFACT_TYPES:
+            elem.called_element = None
+            elem.business_process_id = None
+        else:
+            # `called_element` stores the *effective* reference (see the
+            # module docstring) — a call activity's calledElement, else the
+            # turboea:processRef any step may carry.
+            elem.called_element = ext.process_reference
             resolved = called.get(ext.bpmn_element_id)
             if resolved is not None:
                 elem.business_process_id = resolved
-        else:
-            elem.called_element = None
-            elem.business_process_id = None
 
         if draft_links and apply_draft_link is not None:
             link = draft_links.get(ext.bpmn_element_id)

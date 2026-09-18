@@ -1,5 +1,5 @@
 /**
- * The "Called process" panel entry, rendered with the panel's own Preact.
+ * The "Linked process" panel entry, rendered with the panel's own Preact.
  * `useService` is stubbed: the entry only ever asks it for `modeling`.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -11,13 +11,24 @@ vi.mock("bpmn-js-properties-panel", () => ({
 }));
 
 import CalledProcessEntry, { ENTRY_CLASS } from "./CalledProcessEntry";
+import { PROCESS_REF_ATTR } from "./calledProcess";
 import type { CalledProcessBridge } from "./calledProcessModule";
 
 const UUID = "3f2c9a1e-7b4d-4c6e-9a1f-0d2e5b7c8a90";
 
+/** A call activity, whose reference lives in BPMN's own `calledElement`. */
 function element(calledElement?: string) {
   const props: Record<string, unknown> = { $type: "bpmn:CallActivity", calledElement };
   return { id: "Activity_1", businessObject: { ...props, get: (n: string) => props[n] } };
+}
+
+/** A plain step, whose reference lives in the Turbo EA extension attribute. */
+function task(processRef?: string) {
+  const props: Record<string, unknown> = {
+    $type: "bpmn:ServiceTask",
+    [PROCESS_REF_ATTR]: processRef,
+  };
+  return { id: "Activity_2", businessObject: { ...props, get: (n: string) => props[n] } };
 }
 
 function bridge(names: Record<string, string> = {}): CalledProcessBridge {
@@ -26,7 +37,7 @@ function bridge(names: Record<string, string> = {}): CalledProcessBridge {
     openProcess: vi.fn(),
     names,
     labels: {
-      group: "Called process",
+      group: "Linked process",
       choose: "Choose process…",
       open: "Open",
       clear: "Clear",
@@ -65,7 +76,10 @@ describe("CalledProcessEntry", () => {
 
     (c.querySelector(`.${ENTRY_CLASS}-clear`) as HTMLButtonElement).click();
     // `undefined` drops the attribute; "" would serialise calledElement="".
-    expect(updateProperties).toHaveBeenCalledWith(el, { calledElement: undefined });
+    expect(updateProperties).toHaveBeenCalledWith(el, {
+      calledElement: undefined,
+      [PROCESS_REF_ATTR]: undefined,
+    });
 
     (c.querySelector(`.${ENTRY_CLASS}-choose`) as HTMLButtonElement).click();
     expect(b.open).toHaveBeenCalledWith(el);
@@ -89,6 +103,23 @@ describe("CalledProcessEntry", () => {
       "References Process_CreditCheck",
     );
     expect(buttons(c)).toEqual(["Choose process…"]);
+  });
+
+  it("reads and clears a plain step's link through the extension attribute", () => {
+    const b = bridge({ [UUID]: "Invoicing" });
+    const el = task(UUID);
+    const c = mount(el, b);
+    expect(c.querySelector(`.${ENTRY_CLASS}-value`)?.textContent).toBe("Invoicing");
+
+    (c.querySelector(`.${ENTRY_CLASS}-clear`) as HTMLButtonElement).click();
+    expect(updateProperties).toHaveBeenCalledWith(el, {
+      calledElement: undefined,
+      [PROCESS_REF_ATTR]: undefined,
+    });
+
+    expect(mount(task(), bridge()).querySelector(`.${ENTRY_CLASS}-empty`)?.textContent).toBe(
+      "No process linked",
+    );
   });
 
   it("is a stock panel entry, keyed so the panel can find it", () => {

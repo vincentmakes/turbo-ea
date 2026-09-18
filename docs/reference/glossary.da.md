@@ -10,7 +10,7 @@
 | **BPMN** | Business Process Model and Notation — standardnotationen for modellering af forretningsprocesser (version 2.0) |
 | **Hændelsesdefinition** | Arten af en BPMN-hændelse: besked, timer, signal, fejl, eskalering, betinget, link, kompensation, annullering eller afslutning. Vises ved siden af elementtypen i trintabellen sammen med navnet på den besked, det signal eller den fejl, hændelsen henviser til |
 | **Bane** | Et vandret bånd inde i en pool, der samler de trin, som udføres af én rolle, ét team eller én afdeling |
-| **Kaldeaktivitet** | En BPMN-opgave med tyk kant, der kalder en selvstændigt defineret proces. I Turbo EA knyttes den til det Business Process-kort, den kalder — valgt i modelleringsværktøjet, egenskabspanelet eller trintabellen — og udgivelse af flowet opretter en *kalder*-relation mellem de to processer |
+| **Kaldeaktivitet** | En BPMN-opgave med tyk kant, der kalder en selvstændigt defineret proces — BPMN's egen måde at sige »dette trin er en anden proces«, og den eneste trintype, Turbo EA spørger om forretningsprocessen for, når du placerer den. Ethvert andet trin tilknytter en proces på samme måde, fra egenskabspanelet, kontekstmenuen eller trintabellen; udgivelse af flowet opretter en *kalder*-relation mellem de to processer |
 | **Beskedflow** | En besked, der udveksles mellem to pools i et BPMN-samarbejde. Vises under elementtabellen for et udgivet procesflow, hvor den kan knyttes til det Interface-kort, der bærer den |
 | **Pool** | En deltager i et BPMN-samarbejde — en kunde, en afdeling, et partnersystem — tegnet som en beholder med den parts egen proces |
 | **Forretningskompetence** | Hvad en organisation kan, uanset hvordan den gør det |

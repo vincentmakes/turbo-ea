@@ -14,7 +14,7 @@ from app.models.process_element import ProcessElement
 from app.models.process_message_flow import ProcessMessageFlow
 from app.services.bpmn_parser import ExtractedElement, ExtractedMessageFlow, ParsedBpmn
 from app.services.process_element_sync import (
-    resolve_called_processes,
+    resolve_process_references,
     sync_process_elements,
     sync_process_message_flows,
 )
@@ -197,7 +197,7 @@ class TestCalledProcess:
         parsed = ParsedBpmn(
             elements=[_element("ca", element_type="callActivity", called_element=str(pid))]
         )
-        assert await resolve_called_processes(db, pid, parsed) == {}
+        assert await resolve_process_references(db, pid, parsed) == {}
         await sync_process_elements(db, pid, parsed)
         await db.flush()
         (row,) = await _elements(db, pid)
@@ -219,24 +219,72 @@ class TestCalledProcess:
                 _element("junk", element_type="callActivity", called_element="not-a-uuid"),
             ]
         )
-        assert await resolve_called_processes(db, pid, parsed) == {}
+        assert await resolve_process_references(db, pid, parsed) == {}
 
-    async def test_morphing_to_a_task_clears_the_link(self, db, env):
+    async def test_a_plain_step_links_through_process_ref(self, db, env):
         pid, callee = env["process"].id, env["callee"]
         await sync_process_elements(
             db,
             pid,
             ParsedBpmn(
                 elements=[
-                    _element("ca", element_type="callActivity", called_element=str(callee.id))
+                    _element("t", element_type="userTask", process_ref=str(callee.id)),
+                    _element("g", element_type="exclusiveGateway", sequence_order=1),
                 ]
             ),
         )
         await db.flush()
-        await sync_process_elements(db, pid, ParsedBpmn(elements=[_element("ca")]))
+        rows = {r.bpmn_element_id: r for r in await _elements(db, pid)}
+        assert rows["t"].called_element == str(callee.id)
+        assert rows["t"].business_process_id == callee.id
+        assert rows["g"].business_process_id is None
+
+    async def test_a_call_activity_prefers_its_called_element(self, db, env):
+        pid, callee = env["process"].id, env["callee"]
+        other = await create_card(db, card_type="BusinessProcess", name="Other")
+        await sync_process_elements(
+            db,
+            pid,
+            ParsedBpmn(
+                elements=[
+                    _element(
+                        "ca",
+                        element_type="callActivity",
+                        called_element=str(callee.id),
+                        process_ref=str(other.id),
+                    )
+                ]
+            ),
+        )
+        await db.flush()
+        (row,) = await _elements(db, pid)
+        assert row.business_process_id == callee.id
+
+    async def test_a_task_keeps_its_link_when_morphed_and_an_artefact_loses_it(self, db, env):
+        """Morphing a call activity into a task keeps the link (the modeler
+        copies `turboea:processRef` across); only an artefact drops it."""
+        pid, callee = env["process"].id, env["callee"]
+        await sync_process_elements(
+            db,
+            pid,
+            ParsedBpmn(
+                elements=[_element("x", element_type="callActivity", called_element=str(callee.id))]
+            ),
+        )
+        await db.flush()
+        await sync_process_elements(
+            db, pid, ParsedBpmn(elements=[_element("x", process_ref=str(callee.id))])
+        )
         await db.flush()
         (row,) = await _elements(db, pid)
         assert row.element_type == "task"
+        assert row.business_process_id == callee.id
+
+        await sync_process_elements(
+            db, pid, ParsedBpmn(elements=[_element("x", element_type="dataObjectReference")])
+        )
+        await db.flush()
+        (row,) = await _elements(db, pid)
         assert row.called_element is None
         assert row.business_process_id is None
 

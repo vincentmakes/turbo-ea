@@ -506,11 +506,11 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     // The display name of the card type, never its key ("Business Process",
     // not "BusinessProcess").
     const typeName = typeLabelOf(getType(cardTypeKey)) || cardTypeKey;
-    // A call activity whose calledElement is another tool's process id: shown
-    // as a hint under the link affordance until the process is picked.
-    const isCall = field === "business_process";
+    // A step whose XML reference is another tool's process id: shown as a
+    // hint under the link affordance until the process is picked.
+    const isProcessLink = field === "business_process";
     const foreignRef =
-      isCall && !currentId && element.called_element ? element.called_element : null;
+      isProcessLink && !currentId && element.called_element ? element.called_element : null;
 
     if (isEditing) {
       return (
@@ -520,7 +520,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
           onChange={(val) => onUpdate(elementId, { [`${field}_id`]: val?.id || "" })}
           onBlur={() => setEditingCell(null)}
           enabled={isEditing}
-          excludeIds={isCall ? [processId] : undefined}
+          excludeIds={isProcessLink ? [processId] : undefined}
           autoFocus
           sx={{ minWidth: 160 }}
           placeholder={t("flowTab.searchCardType", { type: typeName })}
@@ -538,12 +538,12 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
             label={currentName}
             size="small"
             color={field === "application" ? "primary" : field === "data_object" ? "secondary" : field === "business_process" ? "success" : "default"}
-            variant={isCall ? "outlined" : "filled"}
-            icon={isCall ? <MaterialSymbol icon="route" size={14} /> : undefined}
+            variant={isProcessLink ? "outlined" : "filled"}
+            icon={isProcessLink ? <MaterialSymbol icon="route" size={14} /> : undefined}
             // The Calls chip drills down into the callee's flow; the cell
             // behind it still opens the picker.
             onClick={
-              isCall && currentId
+              isProcessLink && currentId
                 ? (ev) => {
                     ev.stopPropagation();
                     navigate(calledProcessPath(currentId));
@@ -719,9 +719,9 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 <TableCell sx={{ fontWeight: 600 }}>{t("common:labels.type")}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.lane")}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>
-                  <Tooltip title={t("flowTab.callsProcessTooltip")}>
+                  <Tooltip title={t("flowTab.businessProcessTooltip")}>
                     <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
-                      {t("flowTab.callsProcess")}
+                      {t("flowTab.businessProcess")}
                       <MaterialSymbol icon="info" size={14} color="#999" />
                     </Box>
                   </Tooltip>
@@ -765,9 +765,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                     </TableCell>
                     <TableCell>{e.lane_name || "\u2014"}</TableCell>
                     <TableCell>
-                      {e.element_type === "callActivity"
-                        ? renderEditableCell(e, "business_process", "BusinessProcess", onUpdate, elemKey)
-                        : dash}
+                      {artefact ? dash : renderEditableCell(e, "business_process", "BusinessProcess", onUpdate, elemKey)}
                     </TableCell>
                     <TableCell>
                       {artefact ? (

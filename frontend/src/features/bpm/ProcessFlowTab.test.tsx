@@ -454,10 +454,10 @@ describe("ProcessFlowTab", () => {
     });
   });
 
-  describe("Calls column (call activity → Business Process)", () => {
+  describe("Business Process column (a step → the process it hands over to)", () => {
     const CALLEE = "3f2c9a1e-7b4d-4c6e-9a1f-0d2e5b7c8a90";
     const callActivity = {
-      id: "el3",
+      id: "el4",
       name: "Run Credit Check",
       element_type: "callActivity",
       lane_name: "Finance",
@@ -481,18 +481,32 @@ describe("ProcessFlowTab", () => {
       });
     }
 
-    it("shows the Calls column, with the callee on the call activity and a dash on a task", async () => {
-      mockWith([mockElements[0], callActivity]);
+    it("offers the link on every step — a task included — and a dash on an artefact", async () => {
+      // el1 is a task, el3 a data object reference.
+      mockWith([mockElements[0], mockElements[2], callActivity]);
       renderTab();
       await waitFor(() => {
-        expect(screen.getByText("Calls")).toBeInTheDocument();
+        expect(screen.getByText("Business Process")).toBeInTheDocument();
         expect(screen.getByText("Credit Check")).toBeInTheDocument();
       });
-      // The task row offers no process link at all — not even the affordance.
-      expect(screen.queryByText("Link Business Process")).not.toBeInTheDocument();
+      // The placeholder carries the type's display name, not its key. The
+      // task row offers it; the data object row is not a step at all.
+      expect(screen.getAllByText("Link Business Process")).toHaveLength(1);
+      const artefactRow = document.querySelector('tr[data-artefact="true"]')!;
+      expect(within(artefactRow as HTMLElement).queryByText("Link Business Process")).toBeNull();
     });
 
-    it("drills down into the callee's flow when the chip is clicked", async () => {
+    it("links a plain task the same way as a call activity", async () => {
+      mockWith([mockElements[0]]);
+      vi.mocked(api.put).mockResolvedValue({ id: "el1", status: "updated" });
+      renderTab();
+      await waitFor(() => expect(screen.getByText("Link Business Process")).toBeInTheDocument());
+      // The cell opens the same CardPicker every other link column opens.
+      await userEvent.click(screen.getByText("Link Business Process"));
+      expect(screen.getByRole("combobox")).toBeInTheDocument();
+    });
+
+    it("drills down into the linked process's flow when the chip is clicked", async () => {
       mockWith([callActivity]);
       renderTab();
       await waitFor(() => expect(screen.getByText("Credit Check")).toBeInTheDocument());
@@ -502,13 +516,13 @@ describe("ProcessFlowTab", () => {
 
     it("removing the chip clears the link", async () => {
       mockWith([callActivity]);
-      vi.mocked(api.put).mockResolvedValue({ id: "el3", status: "updated" });
+      vi.mocked(api.put).mockResolvedValue({ id: "el4", status: "updated" });
       renderTab();
       await waitFor(() => expect(screen.getByText("Credit Check")).toBeInTheDocument());
       const chip = screen.getByText("Credit Check").closest(".MuiChip-root")!;
       await userEvent.click(chip.querySelector(".MuiChip-deleteIcon") as Element);
       await waitFor(() => {
-        expect(api.put).toHaveBeenCalledWith("/bpm/processes/proc-1/elements/el3", {
+        expect(api.put).toHaveBeenCalledWith("/bpm/processes/proc-1/elements/el4", {
           business_process_id: "",
         });
       });
@@ -525,7 +539,6 @@ describe("ProcessFlowTab", () => {
       ]);
       renderTab();
       await waitFor(() => {
-        // The placeholder carries the type's display name, not its key.
         expect(screen.getByText("Link Business Process")).toBeInTheDocument();
         expect(screen.getByText("references Process_CreditCheck")).toBeInTheDocument();
       });

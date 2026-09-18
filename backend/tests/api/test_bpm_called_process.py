@@ -1,4 +1,5 @@
-"""A call activity's link to the Business Process it invokes.
+"""A step's link to a Business Process — a call activity's callee, or the
+process any other step links to through ``turboea:processRef``.
 
 Covers the two write paths (the published element table and the draft
 pre-link), the read shape, the XML-over-pre-link precedence at publish, and
@@ -22,14 +23,18 @@ from tests.conftest import (
 )
 
 
-def _bpmn(called: str | None = None) -> str:
+def _bpmn(called: str | None = None, task_ref: str | None = None) -> str:
     attr = f' calledElement="{called}"' if called else ""
+    ref = f' turboea:processRef="{task_ref}"' if task_ref else ""
     return f"""\
 <?xml version="1.0" encoding="UTF-8"?>
-<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" id="definitions_1">
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:turboea="http://turbo-ea.io/schema/bpmn/1.0" id="definitions_1">
   <process id="Process_1" isExecutable="false">
-    <task id="task_quote" name="Create Quote" />
+    <task id="task_quote" name="Create Quote"{ref} />
     <callActivity id="call_credit" name="Run credit check"{attr} />
+    <dataObjectReference id="data_order" name="Order" dataObjectRef="do_1" />
+    <dataObject id="do_1" />
   </process>
 </definitions>
 """
@@ -147,12 +152,33 @@ class TestElementTable:
         # Not a UUID at all.
         resp = await client.put(call_url, json={"business_process_id": "nope"}, headers=headers)
         assert resp.status_code == 400
-        # Only a call activity calls a process.
+        # A data artefact is not a step and never links a process.
+        data_url = f"/api/v1/bpm/processes/{pid}/elements/{elems['data_order']['id']}"
         resp = await client.put(
-            task_url, json={"business_process_id": str(env["credit"].id)}, headers=headers
+            data_url, json={"business_process_id": str(env["credit"].id)}, headers=headers
         )
         assert resp.status_code == 400
         assert await _calls_relations(db, pid) == set()
+
+        # A plain task links like any other step, and mints the relation.
+        resp = await client.put(
+            task_url, json={"business_process_id": str(env["credit"].id)}, headers=headers
+        )
+        assert resp.status_code == 200, resp.text
+        elems = await _elements(client, env)
+        assert elems["task_quote"]["business_process_name"] == "Credit Check"
+        assert await _calls_relations(db, pid) == {env["credit"].id}
+
+    async def test_a_process_ref_in_the_xml_links_a_plain_task_on_save(self, client, db, env):
+        credit, pid = env["credit"], env["process"].id
+        await _save(client, env, _bpmn(task_ref=str(credit.id)))
+        elems = await _elements(client, env)
+        assert elems["task_quote"]["called_element"] == str(credit.id)
+        assert elems["task_quote"]["business_process_id"] == str(credit.id)
+        assert elems["task_quote"]["business_process_name"] == "Credit Check"
+        assert elems["call_credit"]["business_process_id"] is None
+        assert elems["data_order"]["business_process_id"] is None
+        assert await _calls_relations(db, pid) == {credit.id}
 
     async def test_the_xml_wins_over_a_manual_link(self, client, db, env):
         credit, other, pid = env["credit"], env["other"], env["process"].id
@@ -187,10 +213,10 @@ class TestDraftPreLink:
         draft_id = await self._draft(client, env, _bpmn("Process_Credit"))
         base = f"/api/v1/bpm/processes/{pid}/flow/versions/{draft_id}"
 
-        # A task cannot call a process; the process cannot call itself; a
+        # An artefact cannot link a process; the process cannot call itself; a
         # non-process card is refused — all at write time.
         resp = await client.put(
-            f"{base}/draft-elements/task_quote",
+            f"{base}/draft-elements/data_order",
             json={"business_process_id": str(credit_id)},
             headers=headers,
         )
@@ -223,6 +249,20 @@ class TestDraftPreLink:
         assert draft_elems["call_credit"]["business_process_name"] == "Credit Check"
         assert draft_elems["call_credit"]["called_element"] == "Process_Credit"
         assert draft_elems["task_quote"]["business_process_id"] is None
+
+        # A plain task pre-links like any other step.
+        resp = await client.put(
+            f"{base}/draft-elements/task_quote",
+            json={"business_process_id": str(credit_id)},
+            headers=headers,
+        )
+        assert resp.status_code == 200, resp.text
+        draft_elems = {
+            e["bpmn_element_id"]: e
+            for e in (await client.get(f"{base}/draft-elements", headers=headers)).json()
+        }
+        assert draft_elems["task_quote"]["business_process_name"] == "Credit Check"
+        assert draft_elems["data_order"]["business_process_id"] is None
 
         assert (await client.post(f"{base}/submit", headers=headers)).status_code == 200
         assert (await client.post(f"{base}/approve", headers=headers)).status_code == 200

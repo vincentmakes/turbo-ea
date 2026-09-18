@@ -39,9 +39,11 @@ class ProcessElement(Base, UUIDMixin, TimestampMixin):
     # Name of the Message / Signal / Error / Escalation the element refers to,
     # resolved from the BPMN root definitions (also set on send/receive tasks).
     definition_name: Mapped[str | None] = mapped_column(String(500))
-    # A call activity's raw `calledElement` reference (parser-derived). Shown as
-    # a hint when it does not resolve to a card — an imported diagram's own
-    # process id — so the user can pick the process it means.
+    # The step's raw process reference from the XML (parser-derived): a call
+    # activity's `calledElement`, else the `turboea:processRef` any flow node
+    # may carry. Shown as a hint when it does not resolve to a card — an
+    # imported diagram's own process id — so the user can pick the process it
+    # means. Never set on a data artefact.
     called_element: Mapped[str | None] = mapped_column(String(200))
 
     # EA cross-references (optional, set by user via UI)
@@ -57,9 +59,10 @@ class ProcessElement(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True),
         ForeignKey("cards.id", ondelete="SET NULL"),
     )
-    # The BusinessProcess a call activity invokes. Derived from `calledElement`
-    # when that holds a card UUID (the XML wins), else set by the user and kept
-    # across re-publishes like the other links. Only ever set on call activities.
+    # The BusinessProcess a step links to (a call activity's callee, or the
+    # process a plain step hands over to). Derived from the XML reference when
+    # that holds a card UUID (the XML wins), else set by the user and kept
+    # across re-publishes like the other links. Never set on a data artefact.
     business_process_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("cards.id", ondelete="SET NULL"),

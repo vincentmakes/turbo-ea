@@ -72,22 +72,21 @@ Les éléments BPMN peuvent être **liés à des fiches EA**. Par exemple, lier 
 - Chaque tâche, événement et passerelle nommés du flux publié est une ligne du tableau **Étapes et éléments du processus** sous le diagramme (un brouillon a le même tableau sous **Pré-lier les éléments**, appliqué à l'approbation du brouillon)
 - Cliquez sur la cellule **Application**, **Objet de données** ou **Composant IT** d'une étape et choisissez la fiche -- le sélecteur parcourt l'inventaire, rien n'est saisi à la main
 - Le lien est enregistré sur l'étape et crée une relation entre le processus et la fiche, visible à la fois dans le flux de processus et dans l'onglet Relations de la fiche
-- La colonne **Appelle** lie une **activité d'appel** au processus qu'elle invoque -- voir ci-dessous
+- La colonne **Processus métier** lie une étape au processus auquel elle passe la main -- voir ci-dessous
 
-### Appeler un autre processus
+### Lier une étape à un processus
 
-BPMN n'a qu'un seul construct pour « cette étape est un autre processus » : l'**activité d'appel** (call activity), une tâche au bord épais qui invoque un processus défini de façon autonome -- avec son propre diagramme, son propre responsable et son propre cycle de vie, généralement réutilisé à plusieurs endroits. Un **sous-processus** intégré regroupe aussi des étapes, mais il appartient au diagramme où il est dessiné ; la règle de Method & Style est simple : si le processus existe indépendamment, utilisez une activité d'appel.
+Une étape passe souvent la main à un processus qui existe en propre -- avec son propre diagramme, son propre responsable et son propre cycle de vie, généralement réutilisé à plusieurs endroits. Toute étape peut le dire : une tâche, un sous-processus, un événement ou une passerelle pointe vers une fiche **Processus métier**, et vous ne saisissez jamais un identifiant de processus à la main :
 
-Dans Turbo EA, une activité d'appel pointe vers une fiche **Processus métier**, et vous ne saisissez jamais un identifiant de processus à la main :
+- **Le panneau des propriétés** affiche un groupe **Processus lié** sur chaque étape, avec **Choisir un processus…**, **Ouvrir** (qui descend dans le flux du processus lié) et **Retirer**
+- **Le menu contextuel** d'une étape sélectionnée porte une entrée **Lier un processus**, pour quand le panneau est replié
+- **Le tableau des étapes** du flux publié (et le tableau de pré-liaison d'un brouillon) porte le même lien dans sa colonne **Processus métier**, et la puce qui s'y trouve descend dans l'onglet Flux de processus du processus lié. Les objets et magasins de données ne sont pas des étapes : leurs lignes affichent un tiret
 
-- **Placer une activité d'appel demande quel processus elle appelle.** Ajoutez-en une depuis le menu Créer un élément et un sélecteur s'ouvre sur les processus métier de l'inventaire -- choisissez le processus appelé, ou annulez pour le lier plus tard
-- **Le panneau des propriétés** affiche un groupe **Processus appelé** sur chaque activité d'appel, avec **Choisir un processus…**, **Ouvrir** (qui descend dans le flux du processus appelé) et **Retirer**
-- **Le menu contextuel** d'une activité d'appel sélectionnée porte une entrée **Lier un processus**, pour quand le panneau est replié
-- **Le tableau des étapes** du flux publié (et le tableau de pré-liaison d'un brouillon) porte le même lien dans sa colonne **Appelle**, et la puce qui s'y trouve descend dans l'onglet Flux de processus du processus appelé
+![Processus lié](../assets/img/fr/92_bpm_processus_appele.png)
 
-![Processus appelé](../assets/img/fr/92_bpm_processus_appele.png)
+BPMN dispose d'un construct qui *est* un autre processus : l'**activité d'appel** (call activity), une tâche au bord épais qui invoque un processus défini de façon autonome. Un **sous-processus** intégré regroupe aussi des étapes, mais il appartient au diagramme où il est dessiné ; la règle de Method & Style est simple : si le processus existe indépendamment, utilisez une activité d'appel. Turbo EA en fait le cas natif -- **placer une activité d'appel demande quel processus elle appelle**, et le lien est enregistré dans l'*élément appelé* propre à BPMN, que les autres outils savent lire. Toute autre étape enregistre le lien comme un attribut Turbo EA dans le diagramme.
 
-Publier un flux contenant une activité d'appel liée crée une relation **appelle** entre les deux processus -- l'onglet Relations du processus appelé indique *est appelé par*, et la vue des dépendances dessine le graphe d'appels. Un diagramme importé d'un autre outil conserve la référence de processus propre à cet outil ; le tableau des étapes l'affiche comme indice (*référence Process_X*) jusqu'à ce que vous choisissiez le processus correspondant dans Turbo EA.
+Publier un flux contenant une étape liée crée une relation **appelle** entre les deux processus -- l'onglet Relations du processus lié indique *est appelé par*, et la vue des dépendances dessine le graphe d'appels. Un diagramme importé d'un autre outil conserve la référence de processus propre à cet outil ; le tableau des étapes l'affiche comme indice (*référence Process_X*) jusqu'à ce que vous choisissiez le processus correspondant dans Turbo EA.
 
 ### Lier des organisations
 

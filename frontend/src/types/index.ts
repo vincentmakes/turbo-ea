@@ -1493,11 +1493,12 @@ export interface ProcessElement {
   data_object_name?: string;
   it_component_id?: string;
   it_component_name?: string;
-  /** The raw `calledElement` of a call activity (parser-derived). A card uuid
+  /** The step's raw process reference from the XML (parser-derived): a call
+   *  activity's `calledElement`, else `turboea:processRef`. A card uuid
    *  resolves into `business_process_id`; anything else is a foreign reference
    *  from another tool, shown as a hint until the process is picked. */
   called_element?: string | null;
-  /** The Business Process a call activity invokes — call activities only. */
+  /** The Business Process the step links to — every step but a data artefact. */
   business_process_id?: string | null;
   business_process_name?: string | null;
   /** M:N — a step can be linked to several Organization cards. */

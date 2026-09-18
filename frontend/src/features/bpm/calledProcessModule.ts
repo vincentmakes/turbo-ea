@@ -1,7 +1,7 @@
 /**
- * The bpmn-js side of the call activity → Business Process link: one didi
- * module contributing three things, all reached through a single `bridge`
- * object the React side owns.
+ * The bpmn-js side of the step → Business Process link: one didi module
+ * contributing three things, all reached through a single `bridge` object
+ * the React side owns.
  *
  * Nobody types a process id by hand. The link is made by *picking a card*,
  * and there are three doors to the same picker dialog:
@@ -10,35 +10,41 @@
  *    the command stack opens the dialog the moment a `bpmn:CallActivity` is
  *    created — from the palette, the Create / Append element menus or a
  *    replace — unless it already carries a link (a paste). Cancelling leaves
- *    the shape unlinked; the two doors below remain.
- * 2. **A "Called process" group in the properties panel**, shown for call
- *    activities only. The plain BPMN provider renders nothing for a call
- *    activity (only the Camunda / Zeebe providers own a called-element UI, and
- *    those are never loaded), so the group cannot collide. Registered at
- *    priority 500: the built-in provider sits at 1000 and providers run in
- *    priority order, so the group lands after the standard ones — the slot
- *    the engine providers use.
- * 3. **A context-pad entry** on call activities, the on-canvas affordance
+ *    the shape unlinked; the two doors below remain. Deliberately call
+ *    activities only: that is the one BPMN shape whose meaning *is* another
+ *    process, and a prompt on every task drop would be noise.
+ * 2. **A "Linked process" group in the properties panel**, shown on every
+ *    flow node — tasks, sub-processes, events, gateways, call activities.
+ *    The plain BPMN provider owns no such group (only the Camunda / Zeebe
+ *    providers own a called-element UI, and those are never loaded), so it
+ *    cannot collide. Registered at priority 500: the built-in provider sits
+ *    at 1000 and providers run in priority order, so the group lands after
+ *    the standard ones — the slot the engine providers use.
+ * 3. **A context-pad entry** on every flow node, the on-canvas affordance
  *    that works with the panel collapsed — the `bpmn-js-color-picker`
  *    `ColorContextPadProvider` shape, verbatim.
  *
+ * Where the link is stored is `calledProcess.ts`'s business
+ * (`processRefOf` / `processRefProperties`): a call activity's
+ * `calledElement`, any other node's `turboea:processRef`.
+ *
  * The bridge is a plain object: `open(element)` opens the React dialog,
- * `openProcess(id)` navigates to the callee, `names` is the id → name map the
- * React side fills after import (`fetchCardsByIds`) and after a pick, and
+ * `openProcess(id)` navigates to the process, `names` is the id → name map
+ * the React side fills after import (`fetchCardsByIds`) and after a pick, and
  * `labels` carries the i18next strings so this group is localised even though
  * the rest of the panel is not (deferred, see BpmnModeler). Every provider
  * reads the bridge at render time, so a mutated map or label shows on the next
  * render — which `eventBus.fire("propertiesPanel.providersChanged")` forces.
  */
 import { Group } from "@bpmn-io/properties-panel";
-import { getBusinessObject, is } from "bpmn-js/lib/util/ModelUtil";
+import { is } from "bpmn-js/lib/util/ModelUtil";
 import type { ModuleDeclaration } from "didi";
 
 import CalledProcessEntry from "./CalledProcessEntry";
-import { CALLED_PROCESS_COLOR } from "./calledProcess";
+import { CALLED_PROCESS_COLOR, isProcessStep, processRefOf } from "./calledProcess";
 
 export interface CalledProcessLabels {
-  /** Group heading — "Called process". */
+  /** Group heading — "Linked process". */
   group: string;
   /** "Choose process…" */
   choose: string;
@@ -57,9 +63,9 @@ export interface CalledProcessLabels {
 export interface CalledProcessBridge {
   /** Open the picker dialog for `element` (a `bpmn:CallActivity` shape). */
   open: (element: unknown) => void;
-  /** Navigate to the callee's Process Flow tab. */
+  /** Navigate to the linked process's Process Flow tab. */
   openProcess: (cardId: string) => void;
-  /** Card id → card name, for every uuid the diagram's call activities reference. */
+  /** Card id → card name, for every uuid the diagram's steps reference. */
   names: Record<string, string>;
   labels: CalledProcessLabels;
 }
@@ -100,7 +106,7 @@ class CalledProcessPropertiesProvider {
 
   getGroups(element: unknown) {
     return (groups: PanelGroup[]): PanelGroup[] => {
-      if (!is(element as never, "bpmn:CallActivity")) return groups;
+      if (!isProcessStep(element as never)) return groups;
       return [
         ...groups,
         {
@@ -133,7 +139,7 @@ class CalledProcessContextPadProvider {
   }
 
   getContextPadEntries(element: unknown) {
-    if (!is(element as never, "bpmn:CallActivity")) return {};
+    if (!isProcessStep(element as never)) return {};
     const bridge = this.bridge;
     return {
       [CALLED_PROCESS_PAD_ENTRY]: {
@@ -163,7 +169,7 @@ class CalledProcessCreatePrompt {
     eventBus.on("commandStack.shape.create.postExecuted", (event) => {
       const shape = event.context?.shape;
       if (!shape || !is(shape as never, "bpmn:CallActivity")) return;
-      if (getBusinessObject(shape as never).get("calledElement")) return;
+      if (processRefOf(shape as never)) return;
       bridge.open(shape);
     });
   }
