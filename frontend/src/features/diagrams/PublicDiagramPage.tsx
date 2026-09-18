@@ -1,12 +1,22 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
+import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { usePageSubject } from "@/hooks/usePageTitle";
+import { publicGet, publicPost, type ApiError } from "@/features/web-portals/publicApi";
+import {
+  buildAuthorizeUrl,
+  isFramed,
+  newNonce,
+  parsePublicSsoMessage,
+  PUBLIC_SSO_CALLBACK_PATH,
+  type PublicSsoConfig,
+} from "@/lib/publicSso";
 
 /**
  * The published, read-only render of a diagram — the page that gets iframed
@@ -23,12 +33,31 @@ import { usePageSubject } from "@/hooks/usePageTitle";
  * that lets it render inside a third-party page — CSP checks *every* ancestor,
  * so the app's own `/drawio/` staying locked to 'self' is what keeps the
  * authenticated editor un-framable while this page is embeddable.
+ *
+ * SSO-gated diagrams sign in two different ways depending on where the page
+ * is rendered (#1126):
+ *
+ * - **Top-level** (the link opened in a tab): a plain navigation to the IdP,
+ *   with one silent `prompt=none` attempt first, like a web portal.
+ * - **Inside another site's frame**: the frame must never navigate itself to
+ *   the IdP — every provider serves its authorize endpoint with
+ *   `X-Frame-Options: DENY`, so the visitor would see the browser's "refused
+ *   to display" page and nothing else, ever. The sign-in runs in a popup the
+ *   visitor opens by clicking; `/auth/callback` relays the outcome here with
+ *   `postMessage`; and *this page* exchanges the code, because the session
+ *   cookie is partitioned by the embedding site and a cookie set in the
+ *   popup would never reach the frame. See `lib/publicSso.ts`.
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const _meta = import.meta as any;
 const DRAWIO_EMBED_BASE: string =
   _meta.env?.VITE_DRAWIO_EMBED_URL || "/drawio-embed/index.html";
+
+const POPUP_NAME = "turboea_sso";
+const POPUP_FEATURES = "popup,width=520,height=680";
+/** How often to notice a sign-in popup the visitor closed without finishing. */
+const POPUP_CLOSED_POLL_MS = 500;
 
 interface PublicDiagram {
   name: string;
@@ -38,59 +67,7 @@ interface PublicDiagram {
 interface DiagramGate {
   access_mode: "public" | "sso";
   name: string;
-  sso?: {
-    provider: string;
-    provider_name: string;
-    client_id: string;
-    authorization_endpoint: string;
-    scopes: string;
-    extra_auth_params?: Record<string, string>;
-  };
-}
-
-type ApiError = Error & { status?: number };
-
-async function publicGet<T>(path: string): Promise<T> {
-  // credentials: "same-origin" so the httpOnly session cookie reaches the
-  // path-scoped public endpoints of an SSO-gated diagram.
-  const res = await fetch(`/api/v1${path}`, { credentials: "same-origin" });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    const e = new Error(err.detail || res.statusText) as ApiError;
-    e.status = res.status;
-    throw e;
-  }
-  return res.json();
-}
-
-/** Send the visitor to the IdP. `silent` (prompt=none) completes without any
- *  UI when they already have a session, which matters for an embed: an iframe
- *  that suddenly renders a sign-in form inside a wiki page is jarring. */
-function doSsoRedirect(
-  sso: NonNullable<DiagramGate["sso"]>,
-  slug: string,
-  silent: boolean,
-): void {
-  if (!sso.authorization_endpoint || !sso.client_id) return;
-  const nonce =
-    typeof crypto !== "undefined" && crypto.randomUUID
-      ? crypto.randomUUID()
-      : String(Date.now());
-  sessionStorage.setItem("portal_sso_nonce", nonce);
-  const state = btoa(JSON.stringify({ t: "diagram", slug, nonce, silent }));
-  const params = new URLSearchParams({
-    client_id: sso.client_id,
-    response_type: "code",
-    redirect_uri: `${window.location.origin}/auth/callback`,
-    scope: sso.scopes || "openid email profile",
-    response_mode: "query",
-    state,
-  });
-  if (silent) params.set("prompt", "none");
-  if (sso.extra_auth_params) {
-    Object.entries(sso.extra_auth_params).forEach(([k, v]) => params.set(k, v));
-  }
-  window.location.href = `${sso.authorization_endpoint}?${params.toString()}`;
+  sso?: PublicSsoConfig;
 }
 
 export default function PublicDiagramPage() {
@@ -101,6 +78,20 @@ export default function PublicDiagramPage() {
   const [locked, setLocked] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Sign-in in progress: a popup is open (framed), or the page is about to
+  // leave for the IdP (top-level) — either way, no button to click twice.
+  const [signingIn, setSigningIn] = useState(false);
+  const [popupBlocked, setPopupBlocked] = useState(false);
+  // A real refusal from the code exchange (email domain not allowed, email
+  // unverified): shown in the gate rather than looping through sign-in.
+  const [denied, setDenied] = useState<string | null>(null);
+  // The popup flow's state lives in refs, not sessionStorage: the popup opens
+  // directly on the IdP so it inherits no storage, two diagrams embedded on
+  // one wiki page would share a key, and the message comes back to the very
+  // document that started the flow.
+  const popupRef = useRef<Window | null>(null);
+  const nonceRef = useRef<string | null>(null);
+  const framed = useMemo(isFramed, []);
 
   const silentKey = `portal_silent_diagram_${slug}`;
 
@@ -125,17 +116,30 @@ export default function PublicDiagramPage() {
           if (cancelled) return;
           const status = (e as ApiError).status;
           if (g.access_mode === "sso" && status === 401) {
-            const canSso = Boolean(g.sso?.authorization_endpoint && g.sso?.client_id);
-            const alreadyTried = sessionStorage.getItem(silentKey) === "failed";
-            if (canSso && !alreadyTried) {
-              // One no-UI attempt first — succeeds outright for a visitor
-              // already signed in to the org IdP.
-              doSsoRedirect(g.sso!, slug, true);
+            // In a frame there is no silent attempt: it cannot be a popup
+            // (no click to open one) and it cannot be a navigation (the IdP
+            // refuses to be framed). Straight to the gate.
+            if (framed) {
+              setLocked(true);
+              return;
+            }
+            // Top-level: one no-UI attempt first, which succeeds outright for
+            // a visitor already signed in to the org IdP. The flag is written
+            // *before* leaving so an attempt that never comes back — blocked,
+            // abandoned — still lands on the sign-in button next time instead
+            // of looping.
+            const nonce = newNonce();
+            const url = g.sso
+              ? buildAuthorizeUrl(g.sso, { t: "diagram", slug, nonce, silent: true })
+              : null;
+            if (url && !sessionStorage.getItem(silentKey)) {
+              sessionStorage.setItem(silentKey, "pending");
+              sessionStorage.setItem("portal_sso_nonce", nonce);
+              setSigningIn(true);
+              window.location.href = url;
               return;
             }
             setLocked(true);
-          } else if (status === 404) {
-            setNotFound(true);
           } else {
             setNotFound(true);
           }
@@ -150,11 +154,90 @@ export default function PublicDiagramPage() {
     return () => {
       cancelled = true;
     };
-  }, [slug, silentKey]);
+  }, [slug, silentKey, framed]);
 
   const handleSignIn = useCallback(() => {
-    if (gate?.sso && slug) doSsoRedirect(gate.sso, slug, false);
-  }, [gate, slug]);
+    if (!gate?.sso || !slug) return;
+    const nonce = newNonce();
+    setDenied(null);
+
+    if (!framed) {
+      const url = buildAuthorizeUrl(gate.sso, { t: "diagram", slug, nonce });
+      if (!url) return;
+      sessionStorage.setItem("portal_sso_nonce", nonce);
+      setSigningIn(true);
+      window.location.href = url;
+      return;
+    }
+
+    // Framed: a popup, opened from the click so the browser allows it. The
+    // callback page will post the outcome back to us (see `lib/publicSso.ts`).
+    const url = buildAuthorizeUrl(gate.sso, { t: "diagram", slug, nonce, popup: true });
+    if (!url) return;
+    const popup = window.open(url, POPUP_NAME, POPUP_FEATURES);
+    if (!popup) {
+      setPopupBlocked(true);
+      return;
+    }
+    nonceRef.current = nonce;
+    popupRef.current = popup;
+    setPopupBlocked(false);
+    setSigningIn(true);
+  }, [gate, slug, framed]);
+
+  // The popup relays `{code | error, nonce}`; verify it is *our* popup on
+  // *our* origin answering *this* flow, then do the exchange from here.
+  useEffect(() => {
+    if (!framed || !slug) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (!popupRef.current || event.source !== popupRef.current) return;
+      const msg = parsePublicSsoMessage(event.data);
+      if (!msg || msg.t !== "diagram" || msg.slug !== slug) return;
+      if (!nonceRef.current || msg.nonce !== nonceRef.current) return;
+      // One shot: a replay of the same message must not run a second exchange.
+      nonceRef.current = null;
+      popupRef.current = null;
+
+      if (msg.error || !msg.code) {
+        // The visitor cancelled at the IdP — back to the button.
+        setSigningIn(false);
+        return;
+      }
+      (async () => {
+        try {
+          await publicPost(`/diagrams/public/${slug}/sso/callback`, {
+            code: msg.code,
+            redirect_uri: `${window.location.origin}${PUBLIC_SSO_CALLBACK_PATH}`,
+          });
+          const d = await publicGet<PublicDiagram>(`/diagrams/public/${slug}`);
+          setDiagram(d);
+          setLocked(false);
+        } catch (e) {
+          setDenied((e as Error).message || t("common:portal.signInError"));
+        } finally {
+          setSigningIn(false);
+        }
+      })();
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [framed, slug, t]);
+
+  // A popup closed without ever reporting back (the visitor dismissed it)
+  // re-enables the button; the relay clears `popupRef` first, so a popup that
+  // closed itself after reporting never trips this.
+  useEffect(() => {
+    if (!framed || !signingIn) return;
+    const id = window.setInterval(() => {
+      if (popupRef.current && popupRef.current.closed) {
+        popupRef.current = null;
+        nonceRef.current = null;
+        setSigningIn(false);
+      }
+    }, POPUP_CLOSED_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [framed, signingIn]);
 
   // The browser tab names the diagram. Published pages carry no app chrome,
   // so this is the only thing telling a reader what they are looking at.
@@ -168,8 +251,7 @@ export default function PublicDiagramPage() {
     return `${DRAWIO_EMBED_BASE}?${params.toString()}#R${encodeURIComponent(diagram.xml)}`;
   }, [diagram]);
 
-
-  if (loading) {
+  if (loading || (signingIn && !framed)) {
     return (
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
         <CircularProgress />
@@ -188,13 +270,56 @@ export default function PublicDiagramPage() {
   }
 
   if (locked && gate) {
+    const canSso = Boolean(gate.sso?.authorization_endpoint && gate.sso?.client_id);
     return (
-      <CenteredMessage icon="lock" title={gate.name} body={t("public.locked.body")}>
-        <Button variant="contained" onClick={handleSignIn} sx={{ mt: 2 }}>
-          {t("public.locked.signIn", {
-            provider: gate.sso?.provider_name || "SSO",
-          })}
-        </Button>
+      <CenteredMessage
+        icon="lock"
+        title={gate.name}
+        body={framed ? t("public.locked.bodyFramed") : t("public.locked.body")}
+      >
+        {denied && (
+          <Alert severity="error" sx={{ mt: 1, maxWidth: 480 }}>
+            {denied}
+          </Alert>
+        )}
+        {!canSso ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            {t("public.locked.unavailable")}
+          </Typography>
+        ) : signingIn ? (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 2 }}>
+            <CircularProgress size={18} />
+            <Typography variant="body2" color="text.secondary">
+              {t("public.locked.waiting")}
+            </Typography>
+          </Box>
+        ) : (
+          <Button variant="contained" onClick={handleSignIn} sx={{ mt: 2 }}>
+            {t("public.locked.signIn", {
+              provider: gate.sso?.provider_name || "SSO",
+            })}
+          </Button>
+        )}
+        {popupBlocked && (
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {t("public.locked.popupBlocked")}
+            </Typography>
+            {/* A new tab is a top-level page: it signs in by navigation and
+                shows the diagram there. Its cookie lands in that tab's own
+                partition, so this frame stays locked — the copy says so. */}
+            <Button
+              component="a"
+              href={`/embed/diagram/${slug}`}
+              target="_blank"
+              rel="noopener"
+              variant="outlined"
+              size="small"
+            >
+              {t("public.locked.openInNewTab")}
+            </Button>
+          </>
+        )}
       </CenteredMessage>
     );
   }

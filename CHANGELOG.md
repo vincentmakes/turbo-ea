@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.146.1] - 2026-09-18
+
+### Fixed
+
+- **An SSO-gated published diagram can now be signed into from inside an embed.** Embedding a diagram published as *Only people who sign in* in Confluence (or any other site) failed at the sign-in step: the frame sent itself to the identity provider, which refuses to be displayed inside another site — Firefox showed *"login.microsoftonline.com will not allow Firefox to display the page if another site has embedded it"* and every reload did it again, so the **Sign in** button never appeared. The frame now shows the sign-in gate straight away, the sign-in runs in a small pop-up window, and the session it creates is one the embedded frame can actually use (a cross-site, partitioned cookie — which is why this needs Turbo EA served over HTTPS; over plain HTTP the link keeps working in its own tab). If the browser blocks the pop-up, the gate offers to open the diagram in a new tab instead. The Share dialog says so when that mode is chosen. ([#1126](https://github.com/vincentmakes/turbo-ea/issues/1126))
+
 ## [2.146.0] - 2026-09-18
 
 ### Added

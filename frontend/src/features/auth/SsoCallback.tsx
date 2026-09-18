@@ -9,6 +9,13 @@ import { useTranslation } from "react-i18next";
 
 import { canAccessPath } from "@/lib/routePermissions";
 import { consumeReturnPath } from "@/lib/returnPath";
+import {
+  parseState,
+  PUBLIC_SSO_MESSAGE_TYPE,
+  type PublicResourceKind,
+  type PublicResourceState,
+  type PublicSsoMessage,
+} from "@/lib/publicSso";
 import type { User } from "@/types";
 
 interface Props {
@@ -17,40 +24,15 @@ interface Props {
   onSsoCallback: (code: string, redirectUri: string) => Promise<User | null | void>;
 }
 
-/** Which published, account-less resource an SSO round-trip belongs to. Both
- *  reuse this one redirect URI (already registered with the IdP for login), so
- *  neither needs any IdP reconfiguration — `t` is what tells them apart. */
-type PublicResource = "portal" | "diagram";
-
-interface PortalState {
-  t: PublicResource;
-  slug: string;
-  nonce: string;
-  silent?: boolean;
-}
-
-/** API path + in-app return route for each published resource kind. */
-const RESOURCE_ROUTES: Record<PublicResource, { api: string; view: (s: string) => string }> = {
-  portal: { api: "web-portals", view: (slug) => `/portal/${slug}` },
-  diagram: { api: "diagrams", view: (slug) => `/embed/diagram/${slug}` },
-};
-
-function parsePortalState(raw: string | null): PortalState | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(atob(raw));
-    if (
-      parsed &&
-      (parsed.t === "portal" || parsed.t === "diagram") &&
-      typeof parsed.slug === "string"
-    ) {
-      return parsed as PortalState;
-    }
-  } catch {
-    // Not a published-resource state — a normal login callback.
-  }
-  return null;
-}
+/** API path + in-app return route for each published, account-less resource.
+ *  Both reuse this one redirect URI (already registered with the IdP for
+ *  login), so neither needs any IdP reconfiguration — the state's `t` is what
+ *  tells them apart (see `lib/publicSso.ts`). */
+const RESOURCE_ROUTES: Record<PublicResourceKind, { api: string; view: (s: string) => string }> =
+  {
+    portal: { api: "web-portals", view: (slug) => `/portal/${slug}` },
+    diagram: { api: "diagrams", view: (slug) => `/embed/diagram/${slug}` },
+  };
 
 /**
  * Shared OAuth redirect target (/auth/callback). Handles both normal user login
@@ -66,13 +48,20 @@ export default function SsoCallback({ onSsoCallback }: Props) {
   // Set when a portal sign-in is denied for a real reason (e.g. email domain
   // not allowed) — distinct from the silent-auth fallback, which bounces the
   // visitor back to the portal's sign-in button without an error.
-  const [portalDenied, setPortalDenied] = useState<{ slug: string; message: string } | null>(null);
+  const [portalDenied, setPortalDenied] = useState<{
+    t: PublicResourceKind;
+    slug: string;
+    message: string;
+  } | null>(null);
+  // A popup round trip has handed its outcome to the page that opened it; if
+  // `window.close()` was refused, this is all the visitor needs to see.
+  const [relayed, setRelayed] = useState(false);
 
   useEffect(() => {
     const code = searchParams.get("code");
     const errorParam = searchParams.get("error");
     const errorDesc = searchParams.get("error_description");
-    const portalState = parsePortalState(searchParams.get("state"));
+    const portalState = parseState(searchParams.get("state"));
 
     if (portalState) {
       handlePortalReturn(portalState, code, errorParam);
@@ -117,11 +106,38 @@ export default function SsoCallback({ onSsoCallback }: Props) {
       .catch((err) => setError(err instanceof Error ? err.message : t("sso.failed")));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function handlePortalReturn(state: PortalState, code: string | null, errorParam: string | null) {
+  function handlePortalReturn(
+    state: PublicResourceState,
+    code: string | null,
+    errorParam: string | null,
+  ) {
     const { slug, nonce } = state;
     const routes = RESOURCE_ROUTES[state.t];
     const flagKey = `portal_silent_${state.t}_${slug}`;
     const back = () => navigate(routes.view(slug), { replace: true });
+
+    // A popup opened by an embedded diagram: hand the outcome back to the page
+    // that opened us and stop. That page verifies the nonce (it holds it — a
+    // popup opened on the IdP inherits no sessionStorage) and does the code
+    // exchange itself, because the session cookie is partitioned by the site
+    // embedding it and a cookie set here would never reach the frame (#1126).
+    // Only the opener on this origin can receive it. No opener (blocked popup
+    // turned into a tab, an IdP that severed the link) ⇒ fall through and
+    // sign the visitor in right here, which at least shows them the diagram.
+    if (state.popup && window.opener) {
+      const message: PublicSsoMessage = {
+        type: PUBLIC_SSO_MESSAGE_TYPE,
+        t: state.t,
+        slug,
+        nonce,
+        code,
+        error: errorParam,
+      };
+      window.opener.postMessage(message, window.location.origin);
+      setRelayed(true);
+      window.close();
+      return;
+    }
 
     // CSRF: the nonce must match the one stored just before we redirected.
     const storedNonce = sessionStorage.getItem("portal_sso_nonce");
@@ -161,6 +177,7 @@ export default function SsoCallback({ onSsoCallback }: Props) {
         // rather than looping the visitor back through sign-in.
         sessionStorage.setItem(flagKey, "failed");
         setPortalDenied({
+          t: state.t,
           slug,
           message: e instanceof Error ? e.message : t("common:portal.signInError"),
         });
@@ -186,7 +203,9 @@ export default function SsoCallback({ onSsoCallback }: Props) {
         </Alert>
         <Button
           variant="contained"
-          onClick={() => navigate(`/portal/${portalDenied.slug}`, { replace: true })}
+          onClick={() =>
+            navigate(RESOURCE_ROUTES[portalDenied.t].view(portalDenied.slug), { replace: true })
+          }
           sx={{ mt: 2 }}
         >
           {t("common:actions.retry")}
@@ -207,7 +226,9 @@ export default function SsoCallback({ onSsoCallback }: Props) {
         gap: 2,
       }}
     >
-      {error ? (
+      {relayed ? (
+        <Typography color="#fff">{t("sso.popupDone")}</Typography>
+      ) : error ? (
         <>
           <Alert severity="error" sx={{ maxWidth: 500 }}>
             {error}

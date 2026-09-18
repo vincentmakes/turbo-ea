@@ -30,3 +30,27 @@ export async function publicGet<T>(path: string, init?: RequestInit): Promise<T>
   }
   return res.json();
 }
+
+/**
+ * POST to a public endpoint — the SSO code exchange of an SSO-gated resource.
+ *
+ * Same cookie semantics as `publicGet`. For a published diagram this call is
+ * deliberately made **by the embed page itself**, never by the sign-in popup:
+ * the session cookie it receives is partitioned by the embedding site, so only
+ * a request issued from inside the frame lands it where the frame can read it.
+ */
+export async function publicPost<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    const e = new Error(err.detail || res.statusText) as ApiError;
+    e.status = res.status;
+    throw e;
+  }
+  return res.json();
+}

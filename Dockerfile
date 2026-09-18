@@ -431,6 +431,10 @@ ${nginx_https_ipv6_line}
     # `add_header` in a location replaces the inherited set, so each re-declares
     # the full header block minus X-Frame-Options (which has no allowlist form)
     # and carries frame-ancestors instead.
+    # Never add Cross-Origin-Opener-Policy to `location /`: an SSO-gated
+    # embedded diagram signs in through a popup whose /auth/callback page
+    # relays the result to `window.opener`, and COOP would sever that link
+    # (#1126).
 
     # The public embed page itself.
     location ^~ /embed/ {
@@ -639,6 +643,10 @@ ${nginx_http_ipv6_line}
     # `add_header` in a location replaces the inherited set, so each re-declares
     # the full header block minus X-Frame-Options (which has no allowlist form)
     # and carries frame-ancestors instead.
+    # Never add Cross-Origin-Opener-Policy to `location /`: an SSO-gated
+    # embedded diagram signs in through a popup whose /auth/callback page
+    # relays the result to `window.opener`, and COOP would sever that link
+    # (#1126).
 
     # The public embed page itself.
     location ^~ /embed/ {

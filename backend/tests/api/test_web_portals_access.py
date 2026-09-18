@@ -254,6 +254,27 @@ class TestSsoCallback:
         assert unlocked.status_code == 200
         assert unlocked.json()["name"] == "Catalog"
 
+    async def test_callback_cookie_stays_lax_over_https(self, client, db, portals_env, monkeypatch):
+        """A portal is never framed by another site, so it keeps the Lax
+        cookie; only the diagram embed opts into the cross-site shape."""
+        import app.services.sso_service as svc
+
+        await _set_sso_config(db, enabled=True)
+        await _create_portal(client, portals_env["admin"], access_mode="sso")
+        monkeypatch.setattr(svc, "exchange_code_for_claims", _fake_exchange())
+
+        resp = await client.post(
+            "/api/v1/web-portals/public/catalog/sso/callback",
+            json={"code": "authz-code", "redirect_uri": "https://test/auth/callback"},
+            headers={"X-Forwarded-Proto": "https"},
+        )
+        assert resp.status_code == 200
+        cookies = [h.lower() for h in resp.headers.get_list("set-cookie")]
+        assert len(cookies) == 1
+        assert "samesite=lax" in cookies[0]
+        assert "partitioned" not in cookies[0]
+        client.cookies.clear()
+
     async def test_callback_domain_allowlist_denies_outsider(
         self, client, db, portals_env, monkeypatch
     ):

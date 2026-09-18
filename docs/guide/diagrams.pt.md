@@ -156,7 +156,7 @@ Abra o menu **⋮** do diagrama na galeria e escolha **Partilhar / incorporar…
 A caixa de diálogo oferece duas escolhas e duas cadeias para copiar:
 
 - **Qualquer pessoa com a ligação** — sem início de sessão. Trate a ligação como uma palavra-passe: qualquer pessoa a quem seja reencaminhada pode ver o diagrama.
-- **Apenas quem iniciar sessão** — os visitantes autenticam-se no seu fornecedor de identidade, opcionalmente limitado a domínios de e-mail indicados. Não é criada nenhuma conta Turbo EA para eles.
+- **Apenas quem iniciar sessão** — os visitantes autenticam-se no seu fornecedor de identidade, opcionalmente limitado a domínios de e-mail indicados. Não é criada nenhuma conta Turbo EA para eles. Dentro de uma incorporação, o início de sessão abre numa pequena janela pop-up, e o Turbo EA tem de ser servido por HTTPS para que a sessão se mantenha dentro da moldura; os visitantes iniciam sessão uma vez por cada site em que o diagrama está incorporado.
 
 A página publicada mostra apenas a imagem. É possível deslocar e ampliar, mas não há acesso aos detalhes dos cartões, e os identificadores dos cartões por trás das formas são removidos antes de o diagrama sair do servidor. Cancelar a publicação tem efeito imediato, incluindo para quem já está a ver. Voltar a publicar mais tarde restaura a mesma ligação, pelo que os URL já colados continuam a funcionar.
 
@@ -176,3 +176,6 @@ A página publicada mostra apenas a imagem. É possível deslocar e ampliar, mas
 3. No Confluence, insira uma macro **HTML** (ou *Iframe* / *HTML include*, conforme o que a sua instância permitir) e cole o código.
 
 Se o seu Confluence não permitir macros HTML, cole antes a **ligação** simples — abre a mesma vista num novo separador.
+
+!!! note "Início de sessão dentro de uma incorporação"
+    Um diagrama publicado para *Apenas quem iniciar sessão* mostra um botão **Iniciar sessão** dentro da incorporação. Abre o seu fornecedor de identidade numa pequena janela pop-up, e o diagrama aparece assim que essa janela fecha. Três coisas podem impedi-lo: o Turbo EA tem de ser servido por **HTTPS** (os navegadores só mantêm a sessão entre sites de que uma incorporação precisa numa origem segura); a página que o incorpora tem de permitir pop-ups a partir das suas molduras (uma moldura em sandbox sem `allow-popups` bloqueia tanto o pop-up como a ligação alternativa); e no Safari, use a ligação **Abrir o diagrama num novo separador** que o ecrã de acesso oferece. À parte disso, o Chrome recusa carregar uma incorporação a partir de um endereço de rede privada (um IP ou nome de anfitrião interno) numa página pública como o Confluence Cloud — publique a instância num nome de anfitrião HTTPS público, ou incorpore-a a partir de um wiki na mesma rede.

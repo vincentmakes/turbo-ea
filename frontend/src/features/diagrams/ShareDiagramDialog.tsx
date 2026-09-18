@@ -195,6 +195,11 @@ export default function ShareDiagramDialog({
             <Alert severity="info" icon={<MaterialSymbol icon="info" size={18} />}>
               {t("share.embedNote")}
             </Alert>
+            {mode === "sso" && (
+              <Alert severity="info" icon={<MaterialSymbol icon="info" size={18} />}>
+                {t("share.ssoEmbedNote")}
+              </Alert>
+            )}
           </Box>
         )}
       </DialogContent>

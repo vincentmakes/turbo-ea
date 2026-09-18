@@ -50,6 +50,23 @@ async def publish_env(db):
     return {"admin": admin, "member": member, "viewer": viewer}
 
 
+def _fake_exchange(email="user@company.com"):
+    """Stand in for the IdP code exchange (same shape as the portal tests)."""
+
+    async def _exchange(db, code, redirect_uri):
+        claims = {"email": email, "sub": "subject-123", "name": "Visitor"}
+        return claims, {"enabled": True, "provider": "microsoft"}, "microsoft"
+
+    return _exchange
+
+
+def _set_cookie_header(resp) -> str:
+    """The raw Set-Cookie line for the access cookie, lower-cased for matching."""
+    lines = [h for h in resp.headers.get_list("set-cookie") if h.startswith(PUBLIC_ACCESS_COOKIE)]
+    assert len(lines) == 1, lines
+    return lines[0].lower()
+
+
 async def _make_diagram(client, user, *, name="Landscape", xml=CARD_XML) -> str:
     resp = await client.post(
         "/api/v1/diagrams",
@@ -344,6 +361,63 @@ class TestSsoGate:
             client, admin, did, domains=["  Corp.COM ", "@other.com", "", "corp.com"]
         )
         assert body["allowed_email_domains"] == ["corp.com", "other.com"]
+
+    async def test_callback_cookie_is_partitioned_over_https(
+        self, client, db, publish_env, monkeypatch
+    ):
+        """The embed page is a cross-site iframe (Confluence). A Lax cookie is
+        never sent from inside one, so a visitor who signed in would still get
+        401 from the frame forever (#1126). Over HTTPS the diagram cookie must
+        be SameSite=None; Secure; Partitioned."""
+        import app.services.sso_service as svc
+
+        admin = publish_env["admin"]
+        did = await _make_diagram(client, admin)
+        slug = (await self._publish_sso(client, admin, did))["public_slug"]
+        monkeypatch.setattr(svc, "exchange_code_for_claims", _fake_exchange())
+
+        resp = await client.post(
+            f"/api/v1/diagrams/public/{slug}/sso/callback",
+            json={"code": "authz", "redirect_uri": "https://test/auth/callback"},
+            headers={"X-Forwarded-Proto": "https"},
+        )
+        assert resp.status_code == 200, resp.text
+        cookie = _set_cookie_header(resp)
+        assert "samesite=none" in cookie
+        assert "secure" in cookie
+        assert "partitioned" in cookie
+        assert "httponly" in cookie
+        assert f"path=/api/v1/diagrams/public/{slug.lower()}" in cookie
+        # The test client is http://test, so it will not replay a Secure cookie;
+        # the unlock itself is covered by the plain-HTTP case below.
+        client.cookies.clear()
+
+    async def test_callback_cookie_degrades_to_lax_over_http(
+        self, client, db, publish_env, monkeypatch
+    ):
+        """SameSite=None is only valid with Secure, so plain HTTP keeps the Lax
+        cookie: the standalone page still unlocks, the embed cannot."""
+        import app.services.sso_service as svc
+
+        admin = publish_env["admin"]
+        did = await _make_diagram(client, admin)
+        slug = (await self._publish_sso(client, admin, did))["public_slug"]
+        monkeypatch.setattr(svc, "exchange_code_for_claims", _fake_exchange())
+
+        resp = await client.post(
+            f"/api/v1/diagrams/public/{slug}/sso/callback",
+            json={"code": "authz", "redirect_uri": "http://test/auth/callback"},
+        )
+        assert resp.status_code == 200, resp.text
+        cookie = _set_cookie_header(resp)
+        assert "samesite=lax" in cookie
+        assert "partitioned" not in cookie
+        try:
+            unlocked = await client.get(f"/api/v1/diagrams/public/{slug}")
+            assert unlocked.status_code == 200
+            assert unlocked.json()["name"] == "Landscape"
+        finally:
+            client.cookies.clear()
 
     async def test_sso_callback_rejected_on_a_public_diagram(self, client, db, publish_env):
         admin = publish_env["admin"]

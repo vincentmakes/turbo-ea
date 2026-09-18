@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import SsoCallback from "./SsoCallback";
 import { SSO_RETURN_PATH_KEY } from "@/lib/returnPath";
@@ -181,5 +182,97 @@ describe("SsoCallback — where the user lands", () => {
       expect(sessionStorage.getItem("portal_silent_portal_myportal")).toBe("failed");
     });
     expect(sessionStorage.getItem(SSO_RETURN_PATH_KEY)).toBe("/ppm");
+  });
+});
+
+describe("SsoCallback — diagram popup relay (#1126)", () => {
+  const diagramState = (extra: Record<string, unknown> = {}) =>
+    encodeURIComponent(
+      btoa(JSON.stringify({ t: "diagram", slug: "abc", nonce: "n-1", popup: true, ...extra })),
+    );
+
+  let originalOpener: unknown;
+  let originalClose: typeof window.close;
+
+  beforeEach(() => {
+    originalOpener = window.opener;
+    originalClose = window.close;
+    window.close = vi.fn();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    );
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, "opener", { value: originalOpener, configurable: true });
+    window.close = originalClose;
+    vi.restoreAllMocks();
+  });
+
+  it("relays the code to the opener and closes, without exchanging or navigating", async () => {
+    const postMessage = vi.fn();
+    Object.defineProperty(window, "opener", { value: { postMessage }, configurable: true });
+
+    renderCallback(`?code=authz-code&state=${diagramState()}`);
+
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(1));
+    expect(postMessage).toHaveBeenCalledWith(
+      {
+        type: "turboea:public-sso",
+        t: "diagram",
+        slug: "abc",
+        nonce: "n-1",
+        code: "authz-code",
+        error: null,
+      },
+      window.location.origin,
+    );
+    expect(window.close).toHaveBeenCalled();
+    // The opener verifies the nonce and does the exchange; this window must
+    // not — its cookie would land in the wrong partition.
+    expect(fetch).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(onSsoCallback).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem("portal_silent_diagram_abc")).toBeNull();
+    expect(await screen.findByText(/you can close this window/i)).toBeInTheDocument();
+  });
+
+  it("relays an IdP error the same way", async () => {
+    const postMessage = vi.fn();
+    Object.defineProperty(window, "opener", { value: { postMessage }, configurable: true });
+
+    renderCallback(`?error=access_denied&state=${diagramState()}`);
+
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(1));
+    expect(postMessage.mock.calls[0][0]).toMatchObject({ code: null, error: "access_denied" });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("falls back to signing in right here when there is no opener", async () => {
+    Object.defineProperty(window, "opener", { value: null, configurable: true });
+    sessionStorage.setItem("portal_sso_nonce", "n-1");
+
+    renderCallback(`?code=authz-code&state=${diagramState()}`);
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe("/api/v1/diagrams/public/abc/sso/callback");
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith("/embed/diagram/abc", { replace: true }),
+    );
+    expect(window.close).not.toHaveBeenCalled();
+  });
+
+  it("sends a denied diagram visitor back to the diagram, not to a portal", async () => {
+    Object.defineProperty(window, "opener", { value: null, configurable: true });
+    sessionStorage.setItem("portal_sso_nonce", "n-1");
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ detail: "Your account is not allowed." }), { status: 403 }),
+    );
+
+    renderCallback(`?code=authz-code&state=${diagramState({ popup: false })}`);
+
+    expect(await screen.findByText("Your account is not allowed.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /retry/i }));
+    expect(navigate).toHaveBeenCalledWith("/embed/diagram/abc", { replace: true });
   });
 });

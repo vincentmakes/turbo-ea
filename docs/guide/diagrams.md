@@ -157,7 +157,7 @@ Open the diagram's **⋮** menu in the gallery and choose **Share / embed…**. 
 The dialog gives you two choices and two strings to copy:
 
 - **Anyone with the link** — no sign-in. Treat the link like a password: anyone it is forwarded to can view the diagram.
-- **Only people who sign in** — visitors authenticate with your identity provider, optionally restricted to named email domains. No Turbo EA account is created for them.
+- **Only people who sign in** — visitors authenticate with your identity provider, optionally restricted to named email domains. No Turbo EA account is created for them. Inside an embed, the sign-in opens in a small pop-up window, and Turbo EA must be served over HTTPS for the session to hold inside the frame; visitors sign in once per site the diagram is embedded in.
 
 The published page shows the picture only. It is pannable and zoomable, but there is no click-through to card details, and the card identifiers behind the shapes are stripped before the diagram leaves the server. Turning publishing off takes effect immediately, including for anyone already viewing. Re-publishing later restores the same link, so URLs already pasted into a wiki keep working.
 
@@ -177,3 +177,6 @@ The published page shows the picture only. It is pannable and zoomable, but ther
 3. In Confluence, insert an **HTML** macro (or *Iframe* / *HTML include*, depending on what your instance allows) and paste the embed code.
 
 If your Confluence does not allow HTML macros, paste the plain **Link** instead — it opens the same view in a new tab.
+
+!!! note "Sign-in inside an embed"
+    A diagram published for *Only people who sign in* shows a **Sign in** button inside the embed. It opens your identity provider in a small pop-up window, and the diagram appears once that window closes. Three things can get in the way: Turbo EA must be served over **HTTPS** (browsers only keep the cross-site session an embed needs on a secure origin); the embedding page must allow pop-ups from its frames (a sandboxed frame without `allow-popups` blocks both the pop-up and the fallback link); and in Safari, use the **Open the diagram in a new tab** link the gate offers. Separately, Chrome refuses to load an embed from a private-network address (an internal IP or hostname) into a public page such as Confluence Cloud — publish the instance on a public HTTPS hostname, or embed it from a wiki on the same network.

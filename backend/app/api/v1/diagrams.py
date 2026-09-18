@@ -453,11 +453,14 @@ async def diagram_sso_callback(
     )
 
     token = create_portal_token(d.id, slug, email, resource="diagram")
+    # The embed page lives inside another site's iframe, so this cookie must be
+    # readable cross-site (see `set_access_cookie`). Portals stay Lax.
     set_access_cookie(
         response,
         token,
         path=_public_cookie_path(slug),
         secure=_is_secure_request(request),
+        cross_site=True,
     )
     return {"ok": True}
 

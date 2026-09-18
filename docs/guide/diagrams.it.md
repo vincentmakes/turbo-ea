@@ -156,7 +156,7 @@ Apri il menu **⋮** del diagramma nella galleria e scegli **Condividi / incorpo
 La finestra offre due scelte e due stringhe da copiare:
 
 - **Chiunque abbia il collegamento** — nessun accesso richiesto. Tratta il collegamento come una password: chiunque lo riceva può vedere il diagramma.
-- **Solo chi effettua l'accesso** — i visitatori si autenticano con il tuo provider di identità, eventualmente limitato a domini email specifici. Non viene creato alcun account Turbo EA per loro.
+- **Solo chi effettua l'accesso** — i visitatori si autenticano con il tuo provider di identità, eventualmente limitato a domini email specifici. Non viene creato alcun account Turbo EA per loro. All'interno di un'incorporazione, l'accesso si apre in una piccola finestra pop-up e Turbo EA deve essere servito tramite HTTPS perché la sessione venga mantenuta nel frame; i visitatori accedono una volta per ogni sito in cui il diagramma è incorporato.
 
 La pagina pubblicata mostra solo l'immagine. È possibile spostarla e ingrandirla, ma non si accede ai dettagli delle schede, e gli identificatori delle schede dietro le forme vengono rimossi prima che il diagramma lasci il server. Annullare la pubblicazione ha effetto immediato, anche per chi lo sta guardando. Ripubblicandolo in seguito si ottiene lo stesso collegamento, quindi gli URL già incollati continuano a funzionare.
 
@@ -176,3 +176,6 @@ La pagina pubblicata mostra solo l'immagine. È possibile spostarla e ingrandirl
 3. In Confluence inserisci una macro **HTML** (oppure *Iframe* / *HTML include*, a seconda di ciò che la tua istanza consente) e incolla il codice.
 
 Se il tuo Confluence non consente le macro HTML, incolla invece il **collegamento** semplice: apre la stessa vista in una nuova scheda.
+
+!!! note "Accesso all'interno di un'incorporazione"
+    Un diagramma pubblicato per *Solo chi effettua l'accesso* mostra un pulsante **Accedi** all'interno dell'incorporazione. Apre il tuo provider di identità in una piccola finestra pop-up e il diagramma compare appena quella finestra si chiude. Tre cose possono ostacolarlo: Turbo EA deve essere servito tramite **HTTPS** (i browser conservano la sessione tra siti di cui un'incorporazione ha bisogno solo su un'origine sicura); la pagina ospitante deve consentire i pop-up dai suoi frame (un frame in sandbox senza `allow-popups` blocca sia il pop-up sia il link di riserva); e in Safari usa il link **Apri il diagramma in una nuova scheda** offerto dalla schermata di accesso. A parte questo, Chrome rifiuta di caricare un'incorporazione da un indirizzo di rete privata (un IP o un nome host interno) in una pagina pubblica come Confluence Cloud: pubblica l'istanza su un nome host HTTPS pubblico, oppure incorporala da un wiki della stessa rete.

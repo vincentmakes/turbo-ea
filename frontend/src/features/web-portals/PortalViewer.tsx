@@ -44,6 +44,7 @@ import { PercentBar } from "@/components/PercentBar";
 import { todayIsoDate } from "@/lib/dates";
 import TagPicker from "@/components/TagPicker";
 import { publicGet, type ApiError } from "./publicApi";
+import { buildAuthorizeUrl, newNonce } from "@/lib/publicSso";
 import PortalPpmPortfolio from "./PortalPpmPortfolio";
 import { BOARD_MAX_WIDTH, BOARD_GUTTER } from "@/features/ppm/ppmPortfolioFormat";
 import type {
@@ -109,48 +110,30 @@ function isVisible(
   return defaults[key] ?? fallback;
 }
 
-// Portal SSO reuses the app's existing /auth/callback redirect URI (already
-// registered with the IdP for login), so an SSO-gated portal needs no IdP
-// reconfiguration. The OAuth `state` carries the portal slug so the shared
-// callback can tell a portal sign-in apart from a normal login.
-const PORTAL_SSO_REDIRECT_PATH = "/auth/callback";
-
 function portalSilentKey(slug: string): string {
   // Keyed by resource kind as well as slug — SsoCallback now serves both
   // portals and published diagrams and writes the same key on failure.
   return `portal_silent_portal_${slug}`;
 }
 
-// Send the browser to the IdP to authenticate a portal visitor. `silent` adds
-// prompt=none for a no-UI attempt that only completes if the visitor already
-// has an active IdP session; on any interaction requirement the IdP bounces
-// straight back with an error and we fall back to an explicit sign-in button.
+// Send the browser to the IdP to authenticate a portal visitor. A portal is
+// always a top-level page on this origin (it is never framed by another site),
+// so a plain navigation is right here — the shared `/auth/callback` brings the
+// visitor back. `silent` adds prompt=none for a no-UI attempt that only
+// completes if the visitor already has an active IdP session; on any
+// interaction requirement the IdP bounces straight back with an error and we
+// fall back to an explicit sign-in button. The URL itself is built by the
+// shared helper so the portal and the published diagram cannot drift.
 function doSsoRedirect(
   sso: NonNullable<PortalGate["sso"]>,
   slug: string,
   silent: boolean,
 ): void {
-  if (!sso.authorization_endpoint || !sso.client_id) return;
-  const nonce =
-    typeof crypto !== "undefined" && crypto.randomUUID
-      ? crypto.randomUUID()
-      : String(Date.now());
+  const nonce = newNonce();
+  const url = buildAuthorizeUrl(sso, { t: "portal", slug, nonce, silent });
+  if (!url) return;
   sessionStorage.setItem("portal_sso_nonce", nonce);
-  const state = btoa(JSON.stringify({ t: "portal", slug, nonce, silent }));
-  const redirectUri = `${window.location.origin}${PORTAL_SSO_REDIRECT_PATH}`;
-  const params = new URLSearchParams({
-    client_id: sso.client_id,
-    response_type: "code",
-    redirect_uri: redirectUri,
-    scope: sso.scopes || "openid email profile",
-    response_mode: "query",
-    state,
-  });
-  if (silent) params.set("prompt", "none");
-  if (sso.extra_auth_params) {
-    Object.entries(sso.extra_auth_params).forEach(([k, v]) => params.set(k, v));
-  }
-  window.location.href = `${sso.authorization_endpoint}?${params.toString()}`;
+  window.location.href = url;
 }
 
 function Icon({

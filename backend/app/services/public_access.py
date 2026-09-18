@@ -38,24 +38,77 @@ logger = logging.getLogger(__name__)
 PUBLIC_ACCESS_COOKIE = "portal_access"
 
 
-def set_access_cookie(response: Response, token: str, *, path: str, secure: bool) -> None:
+def set_access_cookie(
+    response: Response,
+    token: str,
+    *,
+    path: str,
+    secure: bool,
+    cross_site: bool = False,
+) -> None:
     """Set the httpOnly session cookie for one published resource.
 
     - httponly: not readable from JS
-    - samesite "lax": set on the same-origin SPA POST to the callback
     - secure: HTTPS only (auto-detected from the request)
     - path: scoped to this one resource's public endpoints, so the browser
-      never sends a diagram's grant to a portal (or to the rest of the API)
+      never sends a diagram's grant to a portal (or to the rest of the API).
+      Isolation between resources comes from the path, never from the name.
+
+    The SameSite shape depends on where the resource is read from:
+
+    - A portal is only ever a top-level page on this origin, so ``Lax`` is
+      right: the same-origin POST to the callback sets it and every later
+      same-site request carries it.
+    - A published diagram is meant to be **framed by another site**
+      (Confluence). A ``Lax`` cookie is never sent on a request issued from
+      inside a cross-site iframe, so a visitor who signed in successfully
+      would still get 401 from the frame forever (#1126). ``cross_site=True``
+      therefore emits ``SameSite=None; Secure; Partitioned`` — CHIPS. The
+      partition key is the *top-level* site, which has two consequences the
+      frontend is built around: the code exchange has to be a request issued
+      **by the iframe** (a cookie set in the sign-in popup lands in the
+      popup's own partition and is invisible to the frame), and a visitor
+      signs in once per embedding site, which is expected.
+
+    ``SameSite=None`` is only valid with ``Secure``, so over plain HTTP the
+    cookie degrades to ``Lax`` — the standalone page keeps working, but the
+    embed cannot. That is logged, since nothing else would say why.
     """
+    if cross_site and not secure:
+        logger.warning(
+            "Cross-site session cookie requested over plain HTTP for %s; falling back to "
+            "SameSite=Lax. An SSO-gated diagram embedded in another site needs HTTPS.",
+            path,
+        )
+    partitioned = cross_site and secure
     response.set_cookie(
         key=PUBLIC_ACCESS_COOKIE,
         value=token,
         httponly=True,
-        samesite="lax",
+        samesite="none" if partitioned else "lax",
         secure=secure,
         path=path,
         max_age=settings.PORTAL_TOKEN_EXPIRE_MINUTES * 60,
     )
+    if partitioned:
+        _mark_partitioned(response)
+
+
+def _mark_partitioned(response: Response) -> None:
+    """Append ``Partitioned`` to the access cookie's ``Set-Cookie`` header.
+
+    Not ``set_cookie(partitioned=True)``: Starlette delegates the attribute to
+    the standard library's cookie Morsel, which only learned it in Python 3.14,
+    and refuses on anything older — the backend image runs 3.12. The attribute
+    is a bare flag with no value, so appending it to the serialised header is
+    exactly what the standard library would do.
+    """
+    prefix = f"{PUBLIC_ACCESS_COOKIE}=".encode()
+    for i, (name, value) in enumerate(response.raw_headers):
+        if name == b"set-cookie" and value.startswith(prefix):
+            if b"partitioned" not in value.lower():
+                response.raw_headers[i] = (name, value + b"; Partitioned")
+            return
 
 
 def clear_access_cookie(response: Response, *, path: str) -> None:

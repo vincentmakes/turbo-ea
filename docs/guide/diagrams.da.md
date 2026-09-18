@@ -156,7 +156,7 @@ Et diagram kan udgives som et **skrivebeskyttet link, der åbnes uden login**, s
 Dialogen giver dig to valg og to strenge at kopiere:
 
 - **Alle med linket** — intet login. Behandl linket som en adgangskode: alle, det videresendes til, kan se diagrammet.
-- **Kun personer, der logger ind** — besøgende godkendes hos din identitetsudbyder, eventuelt begrænset til bestemte e-maildomæner. Der oprettes ingen Turbo EA-konto til dem.
+- **Kun personer, der logger ind** — besøgende godkendes hos din identitetsudbyder, eventuelt begrænset til bestemte e-maildomæner. Der oprettes ingen Turbo EA-konto til dem. I en indlejring åbner login i et lille pop op-vindue, og Turbo EA skal leveres over HTTPS, for at sessionen holder inde i rammen; besøgende logger ind én gang pr. websted, som diagrammet er indlejret på.
 
 Den udgivne side viser kun billedet. Du kan panorere og zoome, men der er ingen adgang til kortdetaljer, og kort-id'erne bag figurerne fjernes, før diagrammet forlader serveren. At slå udgivelsen fra virker med det samme, også for dem der er i gang med at se. Udgiver du igen senere, gendannes det samme link, så URL'er, der allerede er indsat, bliver ved med at virke.
 
@@ -176,3 +176,6 @@ Den udgivne side viser kun billedet. Du kan panorere og zoome, men der er ingen 
 3. Indsæt en **HTML**-makro i Confluence (eller *Iframe* / *HTML include*, afhængigt af hvad din instans tillader), og indsæt koden.
 
 Hvis dit Confluence ikke tillader HTML-makroer, kan du i stedet indsætte det almindelige **link** — det åbner den samme visning i en ny fane.
+
+!!! note "Login i en indlejring"
+    Et diagram, der er udgivet til *Kun personer, der logger ind*, viser en **Log ind**-knap inde i indlejringen. Den åbner din identitetsudbyder i et lille pop op-vindue, og diagrammet vises, så snart det vindue lukker. Tre ting kan komme i vejen: Turbo EA skal leveres over **HTTPS** (browsere beholder kun den sessionen på tværs af websteder, som en indlejring har brug for, på en sikker oprindelse); den indlejrende side skal tillade pop op-vinduer fra sine rammer (en sandboxed ramme uden `allow-popups` blokerer både pop op-vinduet og reservelinket); og i Safari skal du bruge linket **Åbn diagrammet i en ny fane**, som loginskærmen tilbyder. Derudover nægter Chrome at indlæse en indlejring fra en adresse på et privat netværk (en intern IP eller et internt værtsnavn) på en offentlig side som Confluence Cloud — udgiv instansen på et offentligt HTTPS-værtsnavn, eller indlejr den fra en wiki på samme netværk.

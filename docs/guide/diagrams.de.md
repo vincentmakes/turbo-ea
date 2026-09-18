@@ -156,7 +156,7 @@ Ein Diagramm kann als **schreibgeschützter Link veröffentlicht werden, der sic
 Der Dialog bietet zwei Optionen und zwei Zeichenfolgen zum Kopieren:
 
 - **Jeder mit dem Link** — keine Anmeldung. Behandeln Sie den Link wie ein Passwort: Wer ihn weitergeleitet bekommt, kann das Diagramm sehen.
-- **Nur angemeldete Personen** — Besucher authentifizieren sich über Ihren Identitätsanbieter, optional beschränkt auf bestimmte E-Mail-Domains. Es wird kein Turbo-EA-Konto für sie angelegt.
+- **Nur angemeldete Personen** — Besucher authentifizieren sich über Ihren Identitätsanbieter, optional beschränkt auf bestimmte E-Mail-Domains. Es wird kein Turbo-EA-Konto für sie angelegt. In einer Einbettung öffnet sich die Anmeldung in einem kleinen Pop-up-Fenster, und Turbo EA muss über HTTPS bereitgestellt werden, damit die Sitzung im Frame erhalten bleibt; Besucher melden sich einmal pro Website an, in die das Diagramm eingebettet ist.
 
 Die veröffentlichte Seite zeigt nur das Bild. Sie lässt sich verschieben und zoomen, es gibt jedoch keinen Absprung zu Kartendetails, und die Kartenkennungen hinter den Formen werden entfernt, bevor das Diagramm den Server verlässt. Das Deaktivieren der Veröffentlichung wirkt sofort, auch für Personen, die gerade zusehen. Ein späteres erneutes Veröffentlichen stellt denselben Link wieder her, sodass bereits eingefügte URLs weiter funktionieren.
 
@@ -176,3 +176,6 @@ Die veröffentlichte Seite zeigt nur das Bild. Sie lässt sich verschieben und z
 3. Fügen Sie in Confluence ein **HTML**-Makro ein (oder *Iframe* / *HTML include*, je nachdem, was Ihre Instanz zulässt) und setzen Sie den Einbettungscode ein.
 
 Erlaubt Ihr Confluence keine HTML-Makros, fügen Sie stattdessen den einfachen **Link** ein — er öffnet dieselbe Ansicht in einem neuen Tab.
+
+!!! note "Anmeldung in einer Einbettung"
+    Ein für *Nur angemeldete Personen* veröffentlichtes Diagramm zeigt in der Einbettung eine Schaltfläche **Anmelden**. Sie öffnet Ihren Identitätsanbieter in einem kleinen Pop-up-Fenster; sobald sich dieses Fenster schließt, erscheint das Diagramm. Drei Dinge können im Weg stehen: Turbo EA muss über **HTTPS** bereitgestellt werden (Browser behalten die websiteübergreifende Sitzung, die eine Einbettung braucht, nur auf einem sicheren Ursprung); die einbettende Seite muss Pop-ups aus ihren Frames zulassen (ein Sandbox-Frame ohne `allow-popups` blockiert sowohl das Pop-up als auch den Ersatzlink); und in Safari verwenden Sie den Link **Diagramm in einem neuen Tab öffnen**, den die Anmeldeseite anbietet. Unabhängig davon weigert sich Chrome, eine Einbettung von einer Adresse im privaten Netz (eine interne IP oder ein interner Hostname) in eine öffentliche Seite wie Confluence Cloud zu laden — veröffentlichen Sie die Instanz unter einem öffentlichen HTTPS-Hostnamen oder betten Sie sie aus einem Wiki im selben Netz ein.

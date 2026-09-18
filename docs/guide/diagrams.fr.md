@@ -156,7 +156,7 @@ Dans la galerie, ouvrez le menu **⋮** du diagramme et choisissez **Partager / 
 La boîte de dialogue propose deux choix et deux chaînes à copier :
 
 - **Toute personne disposant du lien** — aucune connexion. Traitez le lien comme un mot de passe : toute personne à qui il est transféré peut voir le diagramme.
-- **Uniquement les personnes connectées** — les visiteurs s'authentifient auprès de votre fournisseur d'identité, éventuellement restreint à certains domaines de messagerie. Aucun compte Turbo EA n'est créé pour eux.
+- **Uniquement les personnes connectées** — les visiteurs s'authentifient auprès de votre fournisseur d'identité, éventuellement restreint à certains domaines de messagerie. Aucun compte Turbo EA n'est créé pour eux. Dans une intégration, la connexion s'ouvre dans une petite fenêtre contextuelle, et Turbo EA doit être servi en HTTPS pour que la session soit conservée dans le cadre ; les visiteurs se connectent une fois par site dans lequel le diagramme est intégré.
 
 La page publiée n'affiche que l'image. Elle permet le déplacement et le zoom, mais aucun accès aux détails des fiches, et les identifiants des fiches derrière les formes sont retirés avant que le diagramme ne quitte le serveur. Dépublier prend effet immédiatement, y compris pour les personnes en train de consulter. Republier ultérieurement restaure le même lien, de sorte que les URL déjà collées continuent de fonctionner.
 
@@ -176,3 +176,6 @@ La page publiée n'affiche que l'image. Elle permet le déplacement et le zoom, 
 3. Dans Confluence, insérez une macro **HTML** (ou *Iframe* / *HTML include*, selon ce que votre instance autorise) et collez le code d'intégration.
 
 Si votre Confluence n'autorise pas les macros HTML, collez plutôt le **lien** simple : il ouvre la même vue dans un nouvel onglet.
+
+!!! note "Connexion dans une intégration"
+    Un diagramme publié pour *Uniquement les personnes connectées* affiche un bouton **Se connecter** dans l'intégration. Il ouvre votre fournisseur d'identité dans une petite fenêtre contextuelle, et le diagramme apparaît dès que cette fenêtre se ferme. Trois choses peuvent faire obstacle : Turbo EA doit être servi en **HTTPS** (les navigateurs ne conservent la session intersite dont une intégration a besoin que sur une origine sécurisée) ; la page hôte doit autoriser les fenêtres contextuelles depuis ses cadres (un cadre en bac à sable sans `allow-popups` bloque à la fois la fenêtre contextuelle et le lien de secours) ; et dans Safari, utilisez le lien **Ouvrir le diagramme dans un nouvel onglet** proposé par l'écran de connexion. Par ailleurs, Chrome refuse de charger une intégration depuis une adresse de réseau privé (une IP ou un nom d'hôte interne) dans une page publique telle que Confluence Cloud — publiez l'instance sous un nom d'hôte HTTPS public, ou intégrez-la depuis un wiki du même réseau.
