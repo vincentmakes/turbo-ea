@@ -68,8 +68,21 @@ def upgrade() -> None:
         op.create_table(
             "process_message_flows",
             sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+            # The model reads both stamps from TimestampMixin's server default
+            # and leaves them out of the INSERT, so the default is load-bearing:
+            # without it every ORM insert into this table fails (#1133).
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
             sa.Column("process_id", postgresql.UUID(as_uuid=True), nullable=False),
             sa.Column("bpmn_element_id", sa.String(length=200), nullable=False),
             sa.Column("name", sa.String(length=500), nullable=True),

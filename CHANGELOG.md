@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.147.2] - 2026-09-21
+
+### Fixed
+
+- **Publishing a process whose diagram has message flows no longer fails with *Internal Server Error*.** On an instance upgraded to 2.146.0 or later, approving a draft — or saving the diagram through the older save route — crashed as soon as the diagram carried a message flow between two pools, with the database refusing the row for lack of a creation timestamp. The table the upgrade created was missing the default the application relies on; a fresh install was never affected. The default is added automatically at the next start, and every migration is now checked for the same omission. ([#1133](https://github.com/vincentmakes/turbo-ea/issues/1133))
+
 ## [2.147.1] - 2026-09-19
 
 ### Fixed
