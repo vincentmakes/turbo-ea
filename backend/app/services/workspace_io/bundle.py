@@ -58,7 +58,9 @@ class AssetStore(Protocol):
     bundles in memory while a real import reads from the zip on demand.
     """
 
-    def get(self, name: str, default: bytes | None = None) -> bytes | None: ...
+    # Positional-only and default-free, so a plain dict satisfies it: dict.get
+    # spreads its `default` across overloads that no single signature matches.
+    def get(self, name: str, /) -> bytes | None: ...
 
     def __contains__(self, name: object) -> bool: ...
 
@@ -104,6 +106,10 @@ class ZipAssetStore:
             self._zf = None
 
 
+def _empty_assets() -> dict[str, bytes]:
+    return {}
+
+
 @dataclass
 class WorkspaceBundle:
     """Parsed view of an uploaded bundle.
@@ -115,7 +121,7 @@ class WorkspaceBundle:
 
     manifest: dict[str, Any]
     sheets: dict[str, list[dict[str, Any]]]
-    assets: AssetStore = field(default_factory=dict)
+    assets: AssetStore = field(default_factory=_empty_assets)
     parse_errors: list[str] = field(default_factory=list)
 
     def close(self) -> None:
