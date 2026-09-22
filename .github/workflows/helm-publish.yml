@@ -12,6 +12,15 @@ on:
     tags:
       - "v*.*.*"
   workflow_dispatch:
+    inputs:
+      sign_only_version:
+        description: >-
+          Sign an ALREADY PUBLISHED chart version instead of packaging a new
+          one (e.g. 2.141.0, whose first run pushed the chart and then failed
+          at Sign chart before #1113). Leave empty for a normal publish.
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -40,6 +49,7 @@ jobs:
       # chart never claims a version its images do not carry.
       - name: Resolve version
         id: version
+        if: ${{ !inputs.sign_only_version }}
         run: |
           version="$(tr -d '[:space:]' < VERSION)"
           if [ "${{ github.event_name }}" = "push" ] && [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
@@ -49,9 +59,11 @@ jobs:
           echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Lint
+        if: ${{ !inputs.sign_only_version }}
         run: helm lint --strict "$CHART_DIR" -f "$CHART_DIR/ci/minimal-values.yaml"
 
       - name: Package
+        if: ${{ !inputs.sign_only_version }}
         run: |
           helm package "$CHART_DIR" \
             --version "${{ steps.version.outputs.version }}" \
@@ -73,6 +85,7 @@ jobs:
 
       - name: Push
         id: push
+        if: ${{ !inputs.sign_only_version }}
         run: |
           helm push "dist/turbo-ea-${{ steps.version.outputs.version }}.tgz" "$OCI_REPO" 2>&1 | tee push.log
           digest="$(sed -n 's/^Digest: //p' push.log | tr -d '[:space:]')"
@@ -82,15 +95,53 @@ jobs:
           fi
           echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
-      # Same keyless OIDC signing as the container images (docker-publish.yml);
-      # verification recipe in .github/SECURITY_PIPELINE.md.
-      - name: Sign chart
+      # A normal run signs the digest `helm push` just printed. A
+      # `sign_only_version` dispatch signs an already-published tag instead —
+      # cosign resolves and prints the digest itself, and `--yes` skips the
+      # tag-not-digest prompt (imagetools cannot inspect a Helm artifact's
+      # media type, and `crane` would be one more action to pin for a one-off).
+      - name: Resolve signing target
+        id: target
         env:
           CHART_REF: ghcr.io/${{ github.repository }}/charts/turbo-ea
+          SIGN_ONLY_VERSION: ${{ inputs.sign_only_version }}
           DIGEST: ${{ steps.push.outputs.digest }}
-        run: cosign sign --yes "${CHART_REF}@${DIGEST}"
+        run: |
+          if [ -n "$SIGN_ONLY_VERSION" ]; then
+            echo "ref=${CHART_REF}:${SIGN_ONLY_VERSION}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${CHART_REF}@${DIGEST}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Same keyless OIDC signing as the container images (docker-publish.yml);
+      # verification recipe in .github/SECURITY_PIPELINE.md. The signature is a
+      # Sigstore bundle (cosign 3), readable by cosign ≥ 2.6 — see the note
+      # above the sign step in docker-publish.yml, and keep the floor below in
+      # step with it and with docs/admin/supply-chain.md.
+      - name: Sign chart
+        env:
+          TARGET: ${{ steps.target.outputs.ref }}
+        run: cosign sign --yes "${TARGET}"
+
+      - name: Install cosign at the documented minimum client version
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v2.6.3
+          install-dir: ${{ runner.temp }}/cosign-floor
+
+      - name: Verify signature with the documented minimum client
+        env:
+          TARGET: ${{ steps.target.outputs.ref }}
+          IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/helm-publish.yml@${{ github.ref }}
+        run: |
+          "${RUNNER_TEMP}/cosign-floor/cosign" version
+          "${RUNNER_TEMP}/cosign-floor/cosign" verify \
+            --certificate-identity "${IDENTITY}" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "${TARGET}"
 
       - name: Upload packaged chart
+        if: ${{ !inputs.sign_only_version }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: turbo-ea-chart-${{ steps.version.outputs.version }}

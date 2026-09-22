@@ -76,7 +76,7 @@ kubectl get ingress -n turbo-ea           # auf eine Adresse warten, dann public
 
 **Der erste registrierte Benutzer wird Administrator** — registrieren Sie sich sofort. Ohne Ingress: `kubectl port-forward -n turbo-ea svc/turbo-ea-nginx 8920:80` und `publicUrl: http://localhost:8920` setzen, denn die Browser-URL muss für Cookies und CORS mit `publicUrl` übereinstimmen.
 
-Jedes veröffentlichte Chart ist wie die Images mit cosign signiert: `cosign verify ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea:2.141.0 --certificate-identity-regexp '^https://github.com/vincentmakes/turbo-ea/' --certificate-oidc-issuer https://token.actions.githubusercontent.com` (siehe [Lieferkette](supply-chain.md)).
+Jedes veröffentlichte Chart ist wie die Images mit cosign signiert: `cosign verify ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea:<version> --certificate-identity-regexp '^https://github.com/vincentmakes/turbo-ea/' --certificate-oidc-issuer https://token.actions.githubusercontent.com` (siehe [Lieferkette](supply-chain.md)).
 
 ## Wichtige Werte
 

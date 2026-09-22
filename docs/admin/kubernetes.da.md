@@ -76,7 +76,7 @@ kubectl get ingress -n turbo-ea           # vent på en adresse, og åbn så pub
 
 **Den første bruger, der registrerer sig, bliver administrator** — registrér dig med det samme. Uden Ingress: `kubectl port-forward -n turbo-ea svc/turbo-ea-nginx 8920:80` og sæt `publicUrl: http://localhost:8920`, da browserens URL skal matche `publicUrl` for cookies og CORS.
 
-Hvert udgivet chart er signeret med cosign ligesom images: `cosign verify ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea:2.141.0 --certificate-identity-regexp '^https://github.com/vincentmakes/turbo-ea/' --certificate-oidc-issuer https://token.actions.githubusercontent.com` (se [Forsyningskæde](supply-chain.md)).
+Hvert udgivet chart er signeret med cosign ligesom images: `cosign verify ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea:<version> --certificate-identity-regexp '^https://github.com/vincentmakes/turbo-ea/' --certificate-oidc-issuer https://token.actions.githubusercontent.com` (se [Forsyningskæde](supply-chain.md)).
 
 ## Værdier, der betyder noget
 

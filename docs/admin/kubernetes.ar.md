@@ -76,7 +76,7 @@ kubectl get ingress -n turbo-ea           # انتظر ظهور عنوان ثم 
 
 **أول مستخدم يسجّل يصبح المسؤول** — سجّل فورًا. من دون Ingress، نفّذ `kubectl port-forward -n turbo-ea svc/turbo-ea-nginx 8920:80` واضبط `publicUrl: http://localhost:8920`، لأن عنوان المتصفح يجب أن يطابق `publicUrl` من أجل ملفات تعريف الارتباط وCORS.
 
-كل مخطط منشور موقّع بـ cosign مثل الصور: `cosign verify ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea:2.141.0 --certificate-identity-regexp '^https://github.com/vincentmakes/turbo-ea/' --certificate-oidc-issuer https://token.actions.githubusercontent.com` (انظر [سلسلة التوريد](supply-chain.md)).
+كل مخطط منشور موقّع بـ cosign مثل الصور: `cosign verify ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea:<version> --certificate-identity-regexp '^https://github.com/vincentmakes/turbo-ea/' --certificate-oidc-issuer https://token.actions.githubusercontent.com` (انظر [سلسلة التوريد](supply-chain.md)).
 
 ## القيم المهمة
 

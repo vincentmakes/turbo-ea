@@ -76,6 +76,7 @@
      --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
      ghcr.io/vincentmakes/turbo-ea/backend:<version>
    ```
+   يتطلّب cosign 2.6 أو أحدث (أو 3.x) — التوقيع عبارة عن حزمة Sigstore؛ راجع [سلسلة التوريد](../admin/supply-chain.md).
 
 لإصدار فرعي يستدعي RC:
 

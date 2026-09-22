@@ -76,7 +76,7 @@ kubectl get ingress -n turbo-ea           # 等待出现地址，然后打开 pu
 
 **第一个注册的用户即为管理员**——请立即注册。没有 Ingress 时，执行 `kubectl port-forward -n turbo-ea svc/turbo-ea-nginx 8920:80` 并设置 `publicUrl: http://localhost:8920`，因为浏览器地址必须与 `publicUrl` 一致，Cookie 和 CORS 才能正常工作。
 
-每个发布的 chart 都像镜像一样用 cosign 签名：`cosign verify ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea:2.141.0 --certificate-identity-regexp '^https://github.com/vincentmakes/turbo-ea/' --certificate-oidc-issuer https://token.actions.githubusercontent.com`（参见[供应链](supply-chain.md)）。
+每个发布的 chart 都像镜像一样用 cosign 签名：`cosign verify ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea:<version> --certificate-identity-regexp '^https://github.com/vincentmakes/turbo-ea/' --certificate-oidc-issuer https://token.actions.githubusercontent.com`（参见[供应链](supply-chain.md)）。
 
 ## 重要的取值
 

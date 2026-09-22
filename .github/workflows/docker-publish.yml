@@ -130,6 +130,19 @@ jobs:
       # both linux/amd64 and linux/arm64, so one cosign call covers all
       # platforms transparently. Keyless OIDC signing — no cosign key to
       # rotate; verification uses the workflow identity certificate.
+      #
+      # ⚠️ THE SIGNATURE FORMAT IS DECIDED BY THE COSIGN VERSION THE INSTALLER
+      # SHIPS, NOT BY ANYTHING IN THIS FILE. cosign 3 (cosign-installer v4,
+      # Dependabot #631, 2026-06-02) stores the signature as a Sigstore
+      # *bundle*: an OCI 1.1 referrer that GHCR — which has no referrers API —
+      # keeps under the bare `sha256-<digest>` index tag. cosign 2.5 and older
+      # only look for the legacy `sha256-<digest>.sig` tag and report
+      # "no signatures found" on every image since 1.37.0 (#1136). The client
+      # floor documented in docs/admin/supply-chain.md is therefore cosign
+      # ≥ 2.6, and the verify step below runs with EXACTLY that client, so a
+      # future format change turns this job red instead of the next
+      # operator's deploy. Move the floor here and in the docs together —
+      # tests/services/test_publish_workflow_signing.py pins the two.
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
@@ -138,6 +151,27 @@ jobs:
           IMAGE: ghcr.io/${{ github.repository }}/${{ matrix.image }}
           DIGEST: ${{ steps.build.outputs.digest }}
         run: cosign sign --yes "${IMAGE}@${DIGEST}"
+
+      # Installed AFTER signing: the installer prepends its install-dir to
+      # PATH and would otherwise shadow the signing binary. The verify step
+      # calls it by absolute path for the same reason.
+      - name: Install cosign at the documented minimum client version
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v2.6.3
+          install-dir: ${{ runner.temp }}/cosign-floor
+
+      - name: Verify signature with the documented minimum client
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}/${{ matrix.image }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/docker-publish.yml@${{ github.ref }}
+        run: |
+          "${RUNNER_TEMP}/cosign-floor/cosign" version
+          "${RUNNER_TEMP}/cosign-floor/cosign" verify \
+            --certificate-identity "${IDENTITY}" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "${IMAGE}@${DIGEST}"
 
       # Two-step Trivy strategy:
       #   1. Observe step (`severity: HIGH,CRITICAL`, `exit-code: 0`) — captures

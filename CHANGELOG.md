@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.147.3] - 2026-09-22
+
+### Fixed
+
+- **`cosign verify` on a published image or chart no longer fails with *no signatures found* on an up-to-date client — and the documentation now says which client that is.** Every image since 1.37.0 and every Helm chart is signed, but in the Sigstore *bundle* format that cosign 3 writes (the publish workflow moved to cosign 3 with a routine installer update in June); cosign 2.5 and older cannot see that format and reported the images as unsigned, while nothing in the manual mentioned a minimum version. The Supply Chain page, the README and the release checklist now state the floor — **cosign 2.6 or newer, or any 3.x** — explain the format and show how to inspect what is attached to an image, and the Supply Chain page is available in all ten languages. Every publish additionally verifies its own signature with cosign 2.6 before it is reported green, so a future change of format fails the build rather than an operator's deployment. ([#1136](https://github.com/vincentmakes/turbo-ea/issues/1136))
+- **Helm chart 2.141.0 is signed.** The first chart release was pushed and then failed at the signing step, and was the very example the Kubernetes guide used for `cosign verify`. The chart workflow can now sign an already-published version on request, the guide's example names no particular version, and 2.141.0 is signed from `main` (its certificate identity is the branch, not the tag; the documented `--certificate-identity-regexp` accepts both).
+
 ## [2.147.2] - 2026-09-21
 
 ### Fixed

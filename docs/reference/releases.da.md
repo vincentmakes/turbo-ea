@@ -76,6 +76,7 @@ For en normal patch eller minor — ingen RC-kanal nødvendig:
      --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
      ghcr.io/vincentmakes/turbo-ea/backend:<version>
    ```
+   Kræver cosign 2.6 eller nyere (eller 3.x) — signaturen er et Sigstore-bundle; se [Supply Chain](../admin/supply-chain.md).
 
 For en minor, der berettiger en RC:
 

@@ -362,16 +362,16 @@ Every deployment above also exists as a Terraform root module under [`deploy/ter
 
 ### Verifying images
 
-From `1.0.0` onwards, every published image is signed with [cosign](https://github.com/sigstore/cosign) using GitHub's keyless OIDC flow — no shared signing key, the certificate is bound to the publish workflow identity. Verification before pulling into production is one command:
+From `1.0.0` onwards, every published image is signed with [cosign](https://github.com/sigstore/cosign) using GitHub's keyless OIDC flow — no shared signing key, the certificate is bound to the publish workflow identity. Verification before pulling into production is one command, with **cosign 2.6 or newer (or any 3.x)**:
 
 ```bash
 cosign verify \
   --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-  ghcr.io/vincentmakes/turbo-ea/backend:1.0.0
+  ghcr.io/vincentmakes/turbo-ea/backend:<version>
 ```
 
-The same command works for `db`, `frontend`, `nginx`, and `mcp-server`. A buildkit-generated SPDX SBOM is attached to each image as an OCI referrer; pull it with `docker buildx imagetools inspect --format '{{ json .SBOM }}' <image>:<tag>`. See [`docs/admin/supply-chain.md`](docs/admin/supply-chain.md) for details.
+The same command works for `db`, `frontend`, `nginx`, `mcp-server` and the Helm chart (`ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea:<version>`). Releases since 1.37.0 store the signature as a Sigstore bundle, which cosign 2.5 and older cannot see (they report `no signatures found`); every publish verifies its own signature with cosign 2.6 before it goes green. A buildkit-generated SPDX SBOM is attached to each image as an OCI referrer; pull it with `docker buildx imagetools inspect --format '{{ json .SBOM }}' <image>:<tag>`. See [`docs/admin/supply-chain.md`](docs/admin/supply-chain.md) for details.
 
 ### Development from source
 
