@@ -16,7 +16,7 @@ flowchart LR
     B --> V[(PersistentVolume /app/data<br/>udvidelser · uploads · overførselspakker)]
 ```
 
-- **Edge-nginx er den eneste Service, en Ingress peger på.** Den ejer alle sikkerhedsheadere, Content Security Policy, grænsen på 512 MB for uploads af arbejdsområdeoverførsler, indstillingerne for den langlivede hændelsesstrøm og routingen af `/mcp` og `/.well-known/oauth-*`. Send **hele værten** (`/`) til den, og tilføj aldrig en sti-omskrivning.
+- **Edge-nginx er den eneste Service, en Ingress peger på.** Den ejer alle sikkerhedsheadere, Content Security Policy, grænsen på 2 GB for uploads af arbejdsområdeoverførsler, indstillingerne for den langlivede hændelsesstrøm og routingen af `/mcp` og `/.well-known/oauth-*`. Send **hele værten** (`/`) til den, og tilføj aldrig en sti-omskrivning.
 - **Backend kører med præcis én replika**, og chartet afviser enhver `backend.replicaCount`. Realtidshændelser udsendes fra en bus inde i processen, rate limiter og rettighedscache er i processen, databasemigreringer kører ved opstart, og `/app/data` er et ReadWriteOnce-volumen. Deploymentet bruger strategien *Recreate*, så to backends aldrig migrerer skemaet eller binder volumenet samtidig. Skalér i stedet Deploymentene `frontend` og `nginx` — backend er ikke flaskehalsen i et typisk landskab.
 - **PostgreSQL er ikke inkluderet.** Peg chartet på en administreret database (den [anbefalede opsætning](operations.md#managed-postgresql)) eller på en operatorstyret klynge som CloudNativePG. Ollama er heller ikke inkluderet: sæt `ai.providerUrl` til et eksternt endpoint, hvis du bruger AI-forslag.
 - **TLS termineres ved Ingress eller load balancer.** nginx udleder `X-Forwarded-Proto` fra `publicUrl`, og det er det, der markerer sessionscookien som `secure`.
@@ -49,10 +49,11 @@ ingress:
   className: nginx
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
-    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    nginx.ingress.kubernetes.io/proxy-body-size: 2g
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
   tls:
     - secretName: turbo-ea-tls
       hosts: [ea.example.com]
@@ -129,12 +130,14 @@ Chartet genererer én Ingress-regel — værten fra `publicUrl`, sti `/`, `pathT
 
 To grænser er sat på edge-nginx, men skal **også** hæves på controlleren foran den:
 
-| Controller | Upload-størrelse (512 MB arbejdsområdeimport) | Hændelsesstrøm (langlivet SSE) |
+| Controller | Upload-størrelse (2 GB arbejdsområdeimport) | Hændelsesstrøm (langlivet SSE) |
 |---|---|---|
-| ingress-nginx, AKS application routing | `nginx.ingress.kubernetes.io/proxy-body-size: 512m` | `proxy-read-timeout: "86400"`, `proxy-send-timeout: "86400"`, `proxy-buffering: "off"` |
+| ingress-nginx, AKS application routing | `nginx.ingress.kubernetes.io/proxy-body-size: 2g` | `proxy-read-timeout: "86400"`, `proxy-send-timeout: "86400"`, `proxy-buffering: "off"`, `proxy-request-buffering: "off"` |
 | AWS Load Balancer Controller (ALB) | ingen grænse | `alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=4000` (ALB-maksimum; browseren genforbinder) |
 | Azure Application Gateway (AGIC) | WAF-forebyggelsestilstand begrænser bodies — hæv filupload-grænsen eller undtag importstien | `appgw.ingress.kubernetes.io/request-timeout: "86400"` |
 | GKE (GCE) | ingen grænse | `BackendConfig` med `timeoutSec: 86400` (se GCP-afsnittet) |
+
+2 GB er, hvad edge-nginx accepterer; en load balancer eller WAF foran kan begrænse en forespørgsel lavere, og backend'en har brug for omkring det dobbelte af bundtets størrelse i midlertidig plads (uploadet skrives til `/tmp` og derefter til `data/workspace_transfers/`). Test et import med din reelle bundtstørrelse, før du forlader dig på det.
 
 Til TLS enten en cert-manager-`tls:`-blok på Ingress eller cloudens administrerede certifikat (ACM, GKE ManagedCertificate) med TLS på load balanceren. Inde i klyngen er trafikken til nginx almindelig HTTP; det er en `publicUrl`, der begynder med `https://`, som gør cookien `secure`.
 
@@ -209,10 +212,11 @@ ingress:
   className: webapprouting.kubernetes.azure.com
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
-    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    nginx.ingress.kubernetes.io/proxy-body-size: 2g
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
   tls:
     - secretName: turbo-ea-tls
       hosts: [ea.example.com]

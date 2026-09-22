@@ -106,7 +106,7 @@ run "ingress_and_extra_values" {
       enabled    = true
       class_name = "nginx"
       annotations = {
-        "nginx.ingress.kubernetes.io/proxy-body-size" = "512m"
+        "nginx.ingress.kubernetes.io/proxy-body-size" = "2g"
       }
       hosts = [{ host = "ea.example.com" }]
       tls   = [{ secret_name = "turbo-ea-tls", hosts = ["ea.example.com"] }]

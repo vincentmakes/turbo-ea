@@ -38,6 +38,7 @@ import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import ColumnOrderSection, {
   type ColumnOrderItem,
 } from "@/components/grid/ColumnOrderSection";
+import { ATTACHMENT_MIME_TYPES } from "@/lib/attachmentFormats";
 import { LAYER_COLORS, STATUS_COLORS } from "@/theme";
 import type { ResourceKind } from "@/types";
 
@@ -85,32 +86,10 @@ const KINDS: { id: ResourceKind; labelKey: string }[] = [
 ];
 
 /**
- * Mirrors `ALLOWED_MIME_TYPES` in `backend/app/api/v1/file_attachments.py`
- * — the only MIME types an attachment can ever carry. Icons match the ones
- * the per-card Resources tab uses for the same types.
+ * The MIME types an attachment can carry, from the shared format table — the
+ * same list the per-card Resources tab's picker and its icons come from.
  */
-export const RESOURCE_MIME_TYPES: { id: string; labelKey: string; icon: string }[] = [
-  { id: "application/pdf", labelKey: "resources.mime.pdf", icon: "picture_as_pdf" },
-  {
-    id: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    labelKey: "resources.mime.docx",
-    icon: "description",
-  },
-  {
-    id: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    labelKey: "resources.mime.xlsx",
-    icon: "table_chart",
-  },
-  {
-    id: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    labelKey: "resources.mime.pptx",
-    icon: "slideshow",
-  },
-  { id: "image/png", labelKey: "resources.mime.png", icon: "image" },
-  { id: "image/jpeg", labelKey: "resources.mime.jpeg", icon: "image" },
-  { id: "image/svg+xml", labelKey: "resources.mime.svg", icon: "image" },
-  { id: "text/plain", labelKey: "resources.mime.txt", icon: "description" },
-];
+export const RESOURCE_MIME_TYPES = ATTACHMENT_MIME_TYPES;
 
 /** Tri-state archived filter, rendered as coloured chips like approval status. */
 const ARCHIVED_OPTIONS: { id: ArchivedFilter; labelKey: string; color: string }[] = [

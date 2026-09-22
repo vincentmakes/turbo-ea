@@ -21,7 +21,7 @@
 | **Ligne de coût** | Une entrée de budget ou de coût réel (CapEx/OpEx) dans une initiative PPM, utilisée pour suivre les dépenses financières |
 | **Qualité des données** | Un score de complétude de 0 à 100% basé sur les champs remplis et leurs poids configurés |
 | **Diagramme** | Un diagramme d'architecture visuel créé avec l'éditeur DrawIO intégré |
-| **Fichier joint** | Un fichier binaire (PDF, DOCX, XLSX, images, jusqu'à 10 Mo) téléversé directement sur une fiche via l'onglet Ressources |
+| **Fichier joint** | Un fichier binaire (documents, feuilles de calcul, présentations, fichiers OpenDocument et Office hérités, images, archives, messages Outlook et e-mails, CSV, Markdown, JSON et XML — jusqu'à 20 Mo) téléversé directement sur une fiche via l'onglet Ressources |
 | **Flux OData** | Un flux de données JSON disponible sur les vues d'inventaire enregistrées (favoris) pour la consommation par des outils externes tels que Power BI ou Excel |
 | **DrawIO** | L'outil de création de diagrammes open source intégré utilisé pour les diagrammes d'architecture visuels |
 | **Architecture d'entreprise (EA)** | La discipline qui organise et documente la structure métier et technologique d'une organisation |

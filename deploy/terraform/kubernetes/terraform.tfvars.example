@@ -16,10 +16,11 @@ ingress = {
   enabled    = true
   class_name = "nginx"
   annotations = {
-    "nginx.ingress.kubernetes.io/proxy-body-size"    = "512m"
-    "nginx.ingress.kubernetes.io/proxy-read-timeout" = "86400"
-    "nginx.ingress.kubernetes.io/proxy-send-timeout" = "86400"
-    "nginx.ingress.kubernetes.io/proxy-buffering"    = "off"
+    "nginx.ingress.kubernetes.io/proxy-body-size"         = "2g"
+    "nginx.ingress.kubernetes.io/proxy-read-timeout"      = "86400"
+    "nginx.ingress.kubernetes.io/proxy-send-timeout"      = "86400"
+    "nginx.ingress.kubernetes.io/proxy-buffering"         = "off"
+    "nginx.ingress.kubernetes.io/proxy-request-buffering" = "off"
   }
   tls = [{ secret_name = "turbo-ea-tls", hosts = ["ea.example.com"] }]
 }

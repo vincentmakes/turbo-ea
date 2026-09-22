@@ -1302,3 +1302,49 @@ async def test_process_message_flows_roundtrip(db):
     assert restored.process_id == process.id
     assert restored.interface_id == iface.id
     assert restored.target_name == "Supplier"
+
+
+async def test_a_file_attachment_transfers_when_the_bundle_is_read_from_disk(db, tmp_path):
+    """The lazy asset store has to work through the real entity engine.
+
+    An import parses the bundle from its path and reads each asset only when
+    the applier reaches its row, so this is the path a real import takes —
+    ``parse_bundle(bytes)`` would not prove it.
+    """
+    from app.models.file_attachment import FileAttachment
+
+    user = await create_user(db, email="lazy@test.com", role="admin")
+    await create_card_type(db, key="Application", label="Application")
+    card = await create_card(db, card_type="Application", name="Payroll", user_id=user.id)
+
+    blob = b"%PDF-1.7\n" + b"contract bytes" * 500
+    db.add(
+        FileAttachment(
+            card_id=card.id,
+            name="contract.pdf",
+            mime_type="application/pdf",
+            size=len(blob),
+            data=blob,
+            created_by=user.id,
+        )
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+
+    # Wipe the attachment so the import has something to create.
+    await db.execute(delete(FileAttachment))
+    await db.flush()
+    assert (await db.execute(select(FileAttachment))).scalars().all() == []
+
+    path = tmp_path / "workspace.zip"
+    path.write_bytes(raw)
+    with parse_bundle(path) as bundle:
+        assert isinstance(bundle.assets, bundle_io.ZipAssetStore)
+        result = await apply_bundle(db, bundle, user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored = (await db.execute(select(FileAttachment))).scalars().all()
+    assert len(restored) == 1
+    assert restored[0].name == "contract.pdf"
+    assert restored[0].data == blob  # byte-identical through the lazy store

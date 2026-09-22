@@ -12,7 +12,7 @@ Dois tipos de recurso, exibidos lado a lado e distinguidos pela coluna **Tipo**:
 
 | Tipo | De onde vem | Contém |
 |------|--------------------|---------|
-| **Arquivo** | Um arquivo enviado a um cartão (PDF, DOCX, XLSX, PPTX, PNG, JPG, SVG, TXT) | Tipo de arquivo, tamanho, categoria do arquivo |
+| **Arquivo** | Um arquivo enviado a um cartão (PDF, DOCX, XLSX, PPTX, DOC, XLS, PPT, ODT, ODS, ODP, ODG, ZIP, GZ, TAR, 7Z, MSG, EML, PNG, JPG, GIF, WEBP, SVG, TXT, CSV, MD, JSON, XML) | Tipo de arquivo, tamanho, categoria do arquivo |
 | **Link** | Uma URL adicionada a um cartão | URL, tipo de link |
 
 Decisões de arquitetura, diagramas e links do ServiceNow também aparecem na aba Recursos de um cartão, mas **não** são listados aqui — cada um já possui a sua própria página abrangendo todo o repositório (**Entrega EA → Decisões de arquitetura**, **Diagramas** e **Admin → Configurações → ServiceNow**).

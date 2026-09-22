@@ -92,8 +92,8 @@ class TestCallAiTakesNoSession:
     ("module", "func", "slow_call"),
     [
         ("app/api/v1/migration.py", "_parse_and_stage_job", "source.parse("),
-        ("app/api/v1/workspace.py", "_preview_job", "parse_bundle("),
-        ("app/api/v1/workspace.py", "_apply_job", "parse_bundle("),
+        ("app/api/v1/workspace.py", "_preview_job", "_parse_bundle_file("),
+        ("app/api/v1/workspace.py", "_apply_job", "_parse_bundle_file("),
         # The update check's network round-trip is bounded by a 10s timeout, but
         # a connection held for 10s of every daily run is still a connection
         # held for no reason.
@@ -175,6 +175,25 @@ def test_manual_store_check_releases_the_request_session_first():
         "run_extension_store_check_now must `await db.commit()` between recording "
         "and delivering — delivery is an SMTP round-trip per emailed admin and "
         "must not sit on this request's pooled connection."
+    )
+
+
+def test_workspace_upload_releases_the_request_session_before_spooling():
+    """``POST /admin/workspace/import`` writes up to 2 GB to disk.
+
+    The permission check has already used the request's session, so without an
+    explicit commit FastAPI's yield-dependency keeps that connection checked
+    out for however long the copy takes — which for a bundle this size is not
+    a moment.
+    """
+    body = _function_source("app/api/v1/workspace.py", "upload_workspace")
+    spool_at = body.find("_spool_upload_to_disk")
+    assert spool_at != -1, "the endpoint must be the one spooling the upload"
+    commit_at = body.rfind("await db.commit()", 0, spool_at)
+    assert commit_at != -1, (
+        "upload_workspace must `await db.commit()` before _spool_upload_to_disk — "
+        "the commit hands the connection back, and get_db would otherwise pin it "
+        "for the whole write."
     )
 
 

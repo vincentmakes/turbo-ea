@@ -27,6 +27,13 @@ import { useFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
 import { useResourceTypes } from "@/hooks/useResourceTypes";
 import { fieldLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
+import {
+  ATTACHMENT_ACCEPT,
+  ATTACHMENT_MIME_ICONS,
+  MAX_ATTACHMENT_BYTES,
+  MAX_ATTACHMENT_MB,
+  hasAcceptedExtension,
+} from "@/lib/attachmentFormats";
 import type { DiagramSummary, FileAttachment } from "@/types";
 
 interface DocumentLink {
@@ -45,14 +52,6 @@ interface SnowLink {
   url: string;
   last_synced_at: string | null;
 }
-
-const MIME_ICONS: Record<string, string> = {
-  "application/pdf": "picture_as_pdf",
-  "image/png": "image",
-  "image/jpeg": "image",
-  "image/svg+xml": "image",
-  "text/plain": "description",
-};
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -173,8 +172,15 @@ function ResourcesTab({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      setError(t("resources.fileTooLarge", { size: 10 }));
+    // The backend proves the bytes match the extension; these two only save a
+    // round-trip on a file it is certain to refuse. `accept=` is not enforced
+    // on a drag-drop or an "All files" pick, so the name is checked here too.
+    if (!hasAcceptedExtension(file.name)) {
+      setError(t("resources.invalidType"));
+      return;
+    }
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      setError(t("resources.fileTooLarge", { size: MAX_ATTACHMENT_MB }));
       return;
     }
 
@@ -192,9 +198,14 @@ function ResourcesTab({
       const extraFields: Record<string, string> = {};
       if (uploadCategory) extraFields.category = uploadCategory;
       await api.upload(`/cards/${fsId}/file-attachments`, file, "file", extraFields);
+      setError("");
       loadFiles();
-    } catch {
-      setError(t("resources.error.uploadFailed"));
+    } catch (err) {
+      // api.upload throws Error(detail); the detail names the real reason
+      // ("File content does not match its '.pdf' extension.") rather than a
+      // generic failure the user cannot act on.
+      const detail = err instanceof Error ? err.message : "";
+      setError(detail || t("resources.error.uploadFailed"));
     }
     pendingFileRef.current = null;
     setUploadDialogOpen(false);
@@ -314,9 +325,12 @@ function ResourcesTab({
                 ref={fileInputRef}
                 type="file"
                 hidden
-                accept=".pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,.svg,.txt"
+                accept={ATTACHMENT_ACCEPT}
                 onChange={handleFileSelect}
               />
+              <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                {t("resources.maxSize", { size: MAX_ATTACHMENT_MB })}
+              </Typography>
               <Button
                 size="small"
                 startIcon={<MaterialSymbol icon="upload" size={18} />}
@@ -356,7 +370,7 @@ function ResourcesTab({
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
                   <MaterialSymbol
-                    icon={MIME_ICONS[f.mime_type] || "description"}
+                    icon={ATTACHMENT_MIME_ICONS[f.mime_type] || "description"}
                     size={20}
                   />
                 </ListItemIcon>

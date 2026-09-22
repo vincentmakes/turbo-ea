@@ -16,7 +16,7 @@ flowchart LR
     B --> V[(PersistentVolume /app/data<br/>Erweiterungen · Uploads · Transfer-Bundles)]
 ```
 
-- **Der Edge-nginx ist der einzige Service, auf den ein Ingress zeigt.** Er besitzt jeden Security-Header, die Content Security Policy, das 512-MB-Limit für Workspace-Transfer-Uploads, die Einstellungen für den langlebigen Event-Stream und das Routing von `/mcp` und `/.well-known/oauth-*`. Leiten Sie den **gesamten Host** (`/`) dorthin und fügen Sie nie ein Pfad-Rewrite hinzu.
+- **Der Edge-nginx ist der einzige Service, auf den ein Ingress zeigt.** Er besitzt jeden Security-Header, die Content Security Policy, das 2-GB-Limit für Workspace-Transfer-Uploads, die Einstellungen für den langlebigen Event-Stream und das Routing von `/mcp` und `/.well-known/oauth-*`. Leiten Sie den **gesamten Host** (`/`) dorthin und fügen Sie nie ein Pfad-Rewrite hinzu.
 - **Das Backend läuft mit genau einem Replikat**, und das Chart lehnt ein `backend.replicaCount` ab. Echtzeit-Ereignisse werden über einen prozessinternen Bus verteilt, Rate-Limiter und Berechtigungs-Cache sind prozessintern, Datenbankmigrationen laufen beim Start, und `/app/data` ist ein ReadWriteOnce-Volume. Das Deployment nutzt die Strategie *Recreate*, damit nie zwei Backends gleichzeitig das Schema migrieren oder das Volume binden. Skalieren Sie stattdessen die Deployments `frontend` und `nginx` — das Backend ist für eine typische Landschaft nicht der Engpass.
 - **PostgreSQL ist nicht enthalten.** Richten Sie das Chart auf eine verwaltete Datenbank (das [empfohlene Setup](operations.md#managed-postgresql)) oder auf einen operatorverwalteten Cluster wie CloudNativePG. Ollama ist ebenfalls nicht enthalten: Setzen Sie `ai.providerUrl` auf einen externen Endpunkt, wenn Sie KI-Vorschläge nutzen.
 - **TLS endet am Ingress oder Load Balancer.** nginx leitet `X-Forwarded-Proto` aus `publicUrl` ab — das ist es, was das Sitzungs-Cookie als `secure` markiert.
@@ -49,10 +49,11 @@ ingress:
   className: nginx
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
-    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    nginx.ingress.kubernetes.io/proxy-body-size: 2g
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
   tls:
     - secretName: turbo-ea-tls
       hosts: [ea.example.com]
@@ -129,12 +130,14 @@ Das Chart rendert eine Ingress-Regel — der Host von `publicUrl`, Pfad `/`, `pa
 
 Zwei Limits sind am Edge-nginx gesetzt, müssen aber **zusätzlich** am davorliegenden Controller erhöht werden:
 
-| Controller | Upload-Größe (512 MB Workspace-Import) | Event-Stream (langlebiges SSE) |
+| Controller | Upload-Größe (2 GB Workspace-Import) | Event-Stream (langlebiges SSE) |
 |---|---|---|
-| ingress-nginx, AKS Application Routing | `nginx.ingress.kubernetes.io/proxy-body-size: 512m` | `proxy-read-timeout: "86400"`, `proxy-send-timeout: "86400"`, `proxy-buffering: "off"` |
+| ingress-nginx, AKS Application Routing | `nginx.ingress.kubernetes.io/proxy-body-size: 2g` | `proxy-read-timeout: "86400"`, `proxy-send-timeout: "86400"`, `proxy-buffering: "off"`, `proxy-request-buffering: "off"` |
 | AWS Load Balancer Controller (ALB) | kein Limit | `alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=4000` (ALB-Maximum; der Browser verbindet sich neu) |
 | Azure Application Gateway (AGIC) | WAF-Präventionsmodus begrenzt Bodies — Datei-Upload-Limit erhöhen oder Import-Pfad ausnehmen | `appgw.ingress.kubernetes.io/request-timeout: "86400"` |
 | GKE (GCE) | kein Limit | `BackendConfig` mit `timeoutSec: 86400` (siehe GCP-Abschnitt) |
+
+2 GB ist, was der Edge-nginx akzeptiert; ein Load Balancer oder eine WAF davor kann eine Anfrage niedriger begrenzen, und das Backend benötigt etwa das Doppelte der Bundle-Größe an Zwischenspeicher (der Upload wird nach `/tmp` geschrieben, dann nach `data/workspace_transfers/`). Testen Sie einen Import mit Ihrer tatsächlichen Bundle-Größe, bevor Sie sich darauf verlassen.
 
 Für TLS entweder ein cert-manager-`tls:`-Block am Ingress oder das verwaltete Zertifikat der Cloud (ACM, GKE ManagedCertificate) mit TLS am Load Balancer. Im Cluster ist der Verkehr zu nginx reines HTTP; ein `publicUrl` mit `https://` macht das Cookie `secure`.
 
@@ -209,10 +212,11 @@ ingress:
   className: webapprouting.kubernetes.azure.com
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
-    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    nginx.ingress.kubernetes.io/proxy-body-size: 2g
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
   tls:
     - secretName: turbo-ea-tls
       hosts: [ea.example.com]

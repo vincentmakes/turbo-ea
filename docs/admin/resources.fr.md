@@ -12,7 +12,7 @@ Deux natures de ressource, affichées côte à côte et distinguées par la colo
 
 | Type | D'où elle provient | Contient |
 |------|--------------------|----------|
-| **Fichier** | Un fichier téléversé sur une fiche (PDF, DOCX, XLSX, PPTX, PNG, JPG, SVG, TXT) | Type de fichier, taille, catégorie de fichier |
+| **Fichier** | Un fichier téléversé sur une fiche (PDF, DOCX, XLSX, PPTX, DOC, XLS, PPT, ODT, ODS, ODP, ODG, ZIP, GZ, TAR, 7Z, MSG, EML, PNG, JPG, GIF, WEBP, SVG, TXT, CSV, MD, JSON, XML) | Type de fichier, taille, catégorie de fichier |
 | **Lien** | Une URL ajoutée à une fiche | URL, type de lien |
 
 Les décisions d'architecture, les diagrammes et les liens ServiceNow apparaissent également dans l'onglet Ressources d'une fiche, mais ils ne sont **pas** listés ici — chacun dispose déjà de sa propre page à l'échelle du référentiel (**Livraison EA → Décisions d'architecture**, **Diagrammes** et **Admin → Paramètres → ServiceNow**).

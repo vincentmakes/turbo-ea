@@ -12,7 +12,7 @@ To slags ressourcer, vist side om side og adskilt af kolonnen **Type**:
 
 | Type | Hvor den kommer fra | Bærer |
 |------|---------------------|-------|
-| **Fil** | En fil uploadet til et kort (PDF, DOCX, XLSX, PPTX, PNG, JPG, SVG, TXT) | Filtype, størrelse, filkategori |
+| **Fil** | En fil uploadet til et kort (PDF, DOCX, XLSX, PPTX, DOC, XLS, PPT, ODT, ODS, ODP, ODG, ZIP, GZ, TAR, 7Z, MSG, EML, PNG, JPG, GIF, WEBP, SVG, TXT, CSV, MD, JSON, XML) | Filtype, størrelse, filkategori |
 | **Link** | En URL tilføjet til et kort | URL, linktype |
 
 Arkitekturbeslutninger, diagrammer og ServiceNow-links optræder også på et korts Ressourcer-faneblad, men de er **ikke** vist her — hver af dem har allerede sin egen repositorie-brede side (**EA-levering → Arkitekturbeslutninger**, **Diagrammer** og **Admin → Indstillinger → ServiceNow**).

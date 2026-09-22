@@ -299,13 +299,23 @@ ${nginx_http_ipv6_line}
 ${nginx_https_ipv6_line}
     http2 on;
     server_name ${NGINX_SERVER_NAME};
-    client_max_body_size 5m;
+    # Attachments are capped at 20 MB by the backend
+    # (services/attachment_validation.py); the extra megabyte lets a slightly
+    # oversized upload reach it, so the user gets its readable 400 instead of
+    # a bare 413 from here.
+    client_max_body_size 21m;
 
     # Workspace-transfer import bundles (admin-gated) can be large — a whole
     # workspace's cards, diagrams, and file attachments. Relax the body limit
-    # for just this endpoint; everything else keeps the 5m default.
+    # for just this endpoint; everything else keeps the 21m default.
+    #
+    # proxy_request_buffering off streams the body straight to the backend,
+    # which writes it to disk in chunks. Buffered, nginx would first spool the
+    # whole 2 GB into client_body_temp (an unbounded emptyDir on Kubernetes).
+    # The trade-off is that nginx can no longer retry another upstream — fine
+    # for a one-shot admin upload, and it needs HTTP/1.1, which is set below.
     location /api/v1/admin/workspace/import {
-        client_max_body_size 512m;
+        client_max_body_size 2g;
         proxy_pass \$backend_upstream\$request_uri;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
@@ -314,6 +324,7 @@ ${nginx_https_ipv6_line}
         proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
         proxy_set_header Connection '';
         proxy_buffering off;
+        proxy_request_buffering off;
         proxy_cache off;
         chunked_transfer_encoding off;
         proxy_read_timeout 86400s;
@@ -516,13 +527,23 @@ ${nginx_https_ipv6_line}
     listen ${http_port};
 ${nginx_http_ipv6_line}
     server_name ${NGINX_SERVER_NAME};
-    client_max_body_size 5m;
+    # Attachments are capped at 20 MB by the backend
+    # (services/attachment_validation.py); the extra megabyte lets a slightly
+    # oversized upload reach it, so the user gets its readable 400 instead of
+    # a bare 413 from here.
+    client_max_body_size 21m;
 
     # Workspace-transfer import bundles (admin-gated) can be large — a whole
     # workspace's cards, diagrams, and file attachments. Relax the body limit
-    # for just this endpoint; everything else keeps the 5m default.
+    # for just this endpoint; everything else keeps the 21m default.
+    #
+    # proxy_request_buffering off streams the body straight to the backend,
+    # which writes it to disk in chunks. Buffered, nginx would first spool the
+    # whole 2 GB into client_body_temp (an unbounded emptyDir on Kubernetes).
+    # The trade-off is that nginx can no longer retry another upstream — fine
+    # for a one-shot admin upload, and it needs HTTP/1.1, which is set below.
     location /api/v1/admin/workspace/import {
-        client_max_body_size 512m;
+        client_max_body_size 2g;
         proxy_pass \$backend_upstream\$request_uri;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
@@ -531,6 +552,7 @@ ${nginx_http_ipv6_line}
         proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
         proxy_set_header Connection '';
         proxy_buffering off;
+        proxy_request_buffering off;
         proxy_cache off;
         chunked_transfer_encoding off;
         proxy_read_timeout 86400s;

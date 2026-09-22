@@ -21,7 +21,7 @@
 | **Puntuación de Confianza** | Una calificación de 0–100% que indica la fiabilidad de una descripción generada por IA |
 | **Línea de costo** | Una entrada de presupuesto o costo real (CapEx/OpEx) en una iniciativa PPM, utilizada para rastrear el gasto financiero |
 | **Calidad de Datos** | Una puntuación de completitud de 0–100% basada en campos completados y sus pesos configurados |
-| **Archivo adjunto** | Un archivo binario (PDF, DOCX, XLSX, imágenes, hasta 10 MB) cargado directamente a una ficha mediante la pestaña Recursos |
+| **Archivo adjunto** | Un archivo binario (documentos, hojas de cálculo, presentaciones, archivos OpenDocument y de Office heredados, imágenes, archivos comprimidos, mensajes de Outlook y correo electrónico, CSV, Markdown, JSON y XML: hasta 20 MB) cargado directamente a una ficha mediante la pestaña Recursos |
 | **Diagrama** | Un diagrama visual de arquitectura creado con el editor DrawIO integrado |
 | **DrawIO** | La herramienta de diagramación de código abierto integrada utilizada para diagramas visuales de arquitectura |
 | **Arquitectura Empresarial (EA)** | La disciplina que organiza y documenta la estructura de negocio y tecnología de una organización |

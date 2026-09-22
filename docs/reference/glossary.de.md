@@ -21,7 +21,7 @@
 | **Konfidenzwert** | Eine Bewertung von 0–100%, die angibt, wie zuverlässig eine KI-generierte Beschreibung ist |
 | **Kostenposition** | Ein Budget- oder Ist-Kosteneintrag (CapEx/OpEx) in einer PPM-Initiative zur Verfolgung finanzieller Ausgaben |
 | **Datenqualität** | Ein Vollständigkeitswert von 0–100%, basierend auf ausgefüllten Feldern und deren konfigurierten Gewichtungen |
-| **Dateianhang** | Eine binäre Datei (PDF, DOCX, XLSX, Bilder, bis 10 MB), die direkt über den Ressourcen-Tab auf eine Karte hochgeladen wird |
+| **Dateianhang** | Eine binäre Datei (Dokumente, Tabellen, Präsentationen, OpenDocument- und ältere Office-Dateien, Bilder, Archive, Outlook- und E-Mail-Nachrichten, CSV, Markdown, JSON und XML – bis zu 20 MB), die direkt über den Ressourcen-Tab auf eine Karte hochgeladen wird |
 | **Diagramm** | Ein visuelles Architekturdiagramm, erstellt mit dem eingebetteten DrawIO-Editor |
 | **DrawIO** | Das eingebettete Open-Source-Diagrammwerkzeug für visuelle Architekturdiagramme |
 | **Enterprise Architecture (EA)** | Die Disziplin, die die Geschäfts- und Technologiestruktur einer Organisation organisiert und dokumentiert |

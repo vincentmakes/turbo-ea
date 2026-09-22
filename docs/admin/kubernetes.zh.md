@@ -16,7 +16,7 @@ flowchart LR
     B --> V[(PersistentVolume /app/data<br/>扩展 · 上传 · 传输包)]
 ```
 
-- **边缘 nginx 是 Ingress 唯一指向的 Service。** 它掌管所有安全头、内容安全策略（CSP）、工作区传输上传的 512 MB 限制、长连接事件流的设置以及 `/mcp` 和 `/.well-known/oauth-*` 的路由。请把**整个主机**（`/`）路由到它，并且永远不要添加路径重写。
+- **边缘 nginx 是 Ingress 唯一指向的 Service。** 它掌管所有安全头、内容安全策略（CSP）、工作区传输上传的 2 GB 限制、长连接事件流的设置以及 `/mcp` 和 `/.well-known/oauth-*` 的路由。请把**整个主机**（`/`）路由到它，并且永远不要添加路径重写。
 - **后端恰好运行一个副本**，chart 会拒绝任何 `backend.replicaCount`。实时事件由进程内总线分发，限流器和权限缓存都在进程内，数据库迁移在启动时运行，`/app/data` 是 ReadWriteOnce 卷。Deployment 使用 *Recreate* 策略，确保两个后端永远不会同时迁移模式或挂载卷。请改为扩展 `frontend` 和 `nginx` Deployment——对于典型的 IT 全景，后端并不是瓶颈。
 - **不包含 PostgreSQL。** 请将 chart 指向托管数据库（[推荐方案](operations.md#managed-postgresql)）或由 CloudNativePG 之类的 Operator 管理的集群。同样不包含 Ollama：若使用 AI 建议，请把 `ai.providerUrl` 设为外部端点。
 - **TLS 在 Ingress 或负载均衡器处终止。** nginx 依据 `publicUrl` 推导 `X-Forwarded-Proto`，正是它把会话 Cookie 标记为 `secure`。
@@ -49,10 +49,11 @@ ingress:
   className: nginx
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
-    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    nginx.ingress.kubernetes.io/proxy-body-size: 2g
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
   tls:
     - secretName: turbo-ea-tls
       hosts: [ea.example.com]
@@ -129,12 +130,14 @@ chart 生成一条 Ingress 规则——`publicUrl` 的主机、路径 `/`、`pat
 
 有两个限制已在边缘 nginx 上设置，但**还必须**在其前方的控制器上放宽：
 
-| 控制器 | 上传大小（512 MB 工作区导入） | 事件流（长连接 SSE） |
+| 控制器 | 上传大小（2 GB 工作区导入） | 事件流（长连接 SSE） |
 |---|---|---|
-| ingress-nginx、AKS 应用路由 | `nginx.ingress.kubernetes.io/proxy-body-size: 512m` | `proxy-read-timeout: "86400"`、`proxy-send-timeout: "86400"`、`proxy-buffering: "off"` |
+| ingress-nginx、AKS 应用路由 | `nginx.ingress.kubernetes.io/proxy-body-size: 2g` | `proxy-read-timeout: "86400"`、`proxy-send-timeout: "86400"`、`proxy-buffering: "off"`、`proxy-request-buffering: "off"` |
 | AWS Load Balancer Controller（ALB） | 无限制 | `alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=4000`（ALB 上限；浏览器会自动重连） |
 | Azure Application Gateway（AGIC） | WAF 防护模式会限制请求体——提高文件上传限制或排除导入路径 | `appgw.ingress.kubernetes.io/request-timeout: "86400"` |
 | GKE（GCE） | 无限制 | 使用 `timeoutSec: 86400` 的 `BackendConfig`（见 GCP 一节） |
+
+2 GB 是边缘 nginx 接受的上限；前置的负载均衡器或 WAF 可能设置更低的请求限制，后端还需要约两倍于包大小的临时空间（上传先写入 `/tmp`，再写入 `data/workspace_transfers/`）。在依赖此功能前，请按实际包大小测试一次导入。
 
 TLS 方面，要么在 Ingress 上使用 cert-manager 的 `tls:` 块，要么使用云平台的托管证书（ACM、GKE ManagedCertificate）并在负载均衡器上终止 TLS。集群内到 nginx 的流量是明文 HTTP；以 `https://` 开头的 `publicUrl` 才是让 Cookie 变为 `secure` 的关键。
 
@@ -209,10 +212,11 @@ ingress:
   className: webapprouting.kubernetes.azure.com
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
-    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    nginx.ingress.kubernetes.io/proxy-body-size: 2g
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
   tls:
     - secretName: turbo-ea-tls
       hosts: [ea.example.com]

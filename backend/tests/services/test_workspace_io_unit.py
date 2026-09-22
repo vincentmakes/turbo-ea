@@ -175,3 +175,121 @@ def test_merge_settings_never_writes_incoming_secrets():
     assert merged["smtp_password"] == "enc:KEEP"  # target's own value preserved
     assert "oauth_client_secret" not in merged  # never created from a bundle
     assert "service_account_json" not in merged
+
+
+# ---------------------------------------------------------------------------
+# Importing from a path: the assets tree stays on disk until it is asked for
+# ---------------------------------------------------------------------------
+
+
+def _demo_bundle_bytes(assets: dict[str, bytes] | None = None) -> bytes:
+    import io
+
+    wb = openpyxl.Workbook(write_only=True)
+    bundle_io.write_sheet(wb, "Demo", ["a"], [{"a": 1}])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return bundle_io.pack(
+        {"format_version": "1"}, buf.getvalue(), assets or {"branding/logo.png": b"PNG"}
+    )
+
+
+def test_parse_bundle_from_a_path_reads_assets_lazily(tmp_path):
+    """An import parses from disk, so the applier can pull one asset at a time.
+
+    A workspace's assets are its attachments, diagrams and branding — most of a
+    large bundle. Inflating them all at parse time is what made a big import a
+    memory problem.
+    """
+    path = tmp_path / "bundle.zip"
+    path.write_bytes(_demo_bundle_bytes({"branding/logo.png": b"PNG", "files/a.bin": b"DATA"}))
+
+    with bundle_io.parse_bundle(path) as parsed:
+        assert isinstance(parsed.assets, bundle_io.ZipAssetStore)
+        assert parsed.rows("Demo") == [{"a": 1}]
+        assert "files/a.bin" in parsed.assets
+        assert "files/missing.bin" not in parsed.assets
+        assert parsed.assets.get("files/a.bin") == b"DATA"
+        assert parsed.assets.get("files/missing.bin") is None
+        assert parsed.assets.keys() == ["branding/logo.png", "files/a.bin"]
+
+    # Past the context manager the zip is closed; asking for more is a bug in
+    # the caller, and says so rather than returning a silent None.
+    import pytest
+
+    with pytest.raises(RuntimeError, match="closed"):
+        parsed.assets.get("files/a.bin")
+
+
+def test_parse_bundle_still_accepts_bytes(tmp_path):
+    """Content packs and the tests build bundles in memory; that must keep working."""
+    parsed = bundle_io.parse_bundle(_demo_bundle_bytes())
+    assert parsed.rows("Demo") == [{"a": 1}]
+    assert parsed.assets.get("branding/logo.png") == b"PNG"
+    parsed.close()  # closes the in-memory zip; nothing on disk
+
+
+def test_a_plain_dict_satisfies_the_asset_store_contract():
+    # This is what lets build_content_bundle keep passing a dict.
+    bundle = bundle_io.WorkspaceBundle(manifest={}, sheets={}, assets={"x": b"y"})
+    assert bundle.assets.get("x") == b"y"
+    assert "x" in bundle.assets
+    assert list(bundle.assets.keys()) == ["x"]
+    bundle.close()
+
+
+def test_an_overflow_cell_is_restored_when_parsing_from_a_path(tmp_path):
+    import io
+    import json
+
+    big = json.dumps({"blob": "z" * 50000})
+    wb = openpyxl.Workbook(write_only=True)
+    assets: dict[str, bytes] = {}
+    bundle_io.write_sheet(wb, "Big", ["v"], [{"v": big}], assets)
+    buf = io.BytesIO()
+    wb.save(buf)
+    path = tmp_path / "overflow.zip"
+    path.write_bytes(bundle_io.pack({"format_version": "1"}, buf.getvalue(), assets))
+
+    with bundle_io.parse_bundle(path) as parsed:
+        assert parsed.rows("Big")[0]["v"] == big
+
+
+def test_a_member_declaring_an_implausible_size_is_refused(tmp_path, monkeypatch):
+    """The central directory is checked before a single member is read."""
+    import pytest
+
+    from app.services.workspace_io.bundle import BundleFormatError
+
+    # Above the manifest and workbook, below the asset — so it is the asset
+    # that trips, which is what the cap is for.
+    monkeypatch.setattr(bundle_io, "MAX_ASSET_BYTES", 100_000)
+    path = tmp_path / "big-member.zip"
+    path.write_bytes(_demo_bundle_bytes({"files/big.bin": b"x" * 200_000}))
+
+    with pytest.raises(BundleFormatError, match="files/big.bin"):
+        bundle_io.parse_bundle(path)
+
+
+def test_a_bundle_whose_members_sum_too_high_is_refused(tmp_path, monkeypatch):
+    import pytest
+
+    from app.services.workspace_io.bundle import BundleFormatError
+
+    monkeypatch.setattr(bundle_io, "MAX_BUNDLE_UNCOMPRESSED_BYTES", 500_000)
+    path = tmp_path / "bomb.zip"
+    path.write_bytes(_demo_bundle_bytes({f"files/{i}.bin": b"x" * 100_000 for i in range(8)}))
+
+    with pytest.raises(BundleFormatError, match="refused"):
+        bundle_io.parse_bundle(path)
+
+
+def test_a_corrupt_file_on_disk_is_reported_as_a_bad_bundle(tmp_path):
+    import pytest
+
+    from app.services.workspace_io.bundle import BundleFormatError
+
+    path = tmp_path / "junk.zip"
+    path.write_bytes(b"not a zip at all")
+    with pytest.raises(BundleFormatError, match="not a valid .zip"):
+        bundle_io.parse_bundle(path)

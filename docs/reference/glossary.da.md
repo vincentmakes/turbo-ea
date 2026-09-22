@@ -20,7 +20,7 @@
 | **Konfidensscore** | En 0–100 % vurdering, der angiver, hvor pålidelig en AI-genereret beskrivelse er |
 | **Datakvalitet** | En 0–100 % fuldstændighedsscore baseret på udfyldte felter og deres konfigurerede vægte |
 | **Diagram** | Et visuelt arkitekturdiagram oprettet med den indlejrede DrawIO-editor |
-| **Filvedhæftning** | En binær fil (PDF, DOCX, XLSX, billeder, op til 10 MB) uploadet direkte til et kort via fanen Ressourcer |
+| **Filvedhæftning** | En binær fil (dokumenter, regneark, præsentationer, OpenDocument- og ældre Office-filer, billeder, arkiver, Outlook- og e-mailbeskeder, CSV, Markdown, JSON og XML — op til 20 MB) uploadet direkte til et kort via fanen Ressourcer |
 | **Regnskabsår** | 12-månedersperioden, der bruges til budgettering og økonomisk rapportering. Kan konfigureres via Admin > Indstillinger — startmåneden (januar til december) bestemmer, hvordan PPM-budgetlinjer grupperes |
 | **DrawIO** | Det indlejrede open source-diagramværktøj, der bruges til visuelle arkitekturdiagrammer |
 | **Omkostningslinje** | En budget- eller faktisk omkostningspost (CapEx/OpEx) i et PPM-initiativ, brugt til at spore økonomiske udgifter |

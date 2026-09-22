@@ -22,7 +22,7 @@
 | **Qualità dei dati** | Un punteggio di completezza 0-100% basato sui campi compilati e sui loro pesi configurati |
 | **Diagramma** | Un diagramma architetturale visivo creato con l'editor DrawIO integrato |
 | **Feed OData** | Un feed di dati JSON disponibile sulle viste dell'inventario salvate (segnalibri) per il consumo da parte di strumenti esterni come Power BI o Excel |
-| **File allegato** | Un file binario (PDF, DOCX, XLSX, immagini, fino a 10 MB) caricato direttamente su una card tramite la scheda Risorse |
+| **File allegato** | Un file binario (documenti, fogli di calcolo, presentazioni, file OpenDocument e Office legacy, immagini, archivi, messaggi Outlook ed e-mail, CSV, Markdown, JSON e XML — fino a 20 MB) caricato direttamente su una card tramite la scheda Risorse |
 | **DrawIO** | Lo strumento di disegno open-source integrato utilizzato per i diagrammi architetturali visivi |
 | **Enterprise Architecture (EA)** | La disciplina che organizza e documenta la struttura aziendale e tecnologica di un'organizzazione |
 | **EOL (End of Life)** | La data in cui un prodotto tecnologico perde il supporto del fornitore. Tracciato tramite l'integrazione con endoflife.date |

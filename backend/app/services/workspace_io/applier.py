@@ -674,10 +674,14 @@ async def _apply_settings(db, bundle: WorkspaceBundle, sr: SectionResult, dry_ru
 
 
 def _find_asset(bundle: WorkspaceBundle, prefix: str) -> bytes | None:
-    """Return the first asset whose path matches ``prefix`` (any extension)."""
-    for path, data in bundle.assets.items():
+    """Return the first asset whose path matches ``prefix`` (any extension).
+
+    Iterates names and reads the one match — the store may be lazy, so asking
+    for every value here would inflate the whole assets tree.
+    """
+    for path in bundle.assets.keys():
         if path == prefix or path.startswith(prefix + "."):
-            return data
+            return bundle.assets.get(path)
     return None
 
 

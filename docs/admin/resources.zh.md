@@ -12,7 +12,7 @@
 
 | 种类 | 来源 | 携带信息 |
 |------|--------------------|---------|
-| **文件** | 上传到卡片的文件（PDF、DOCX、XLSX、PPTX、PNG、JPG、SVG、TXT） | 文件类型、大小、文件类别 |
+| **文件** | 上传到卡片的文件（PDF、DOCX、XLSX、PPTX、DOC、XLS、PPT、ODT、ODS、ODP、ODG、ZIP、GZ、TAR、7Z、MSG、EML、PNG、JPG、GIF、WEBP、SVG、TXT、CSV、MD、JSON、XML） | 文件类型、大小、文件类别 |
 | **链接** | 添加到卡片的网址 | 网址、链接类型 |
 
 架构决策、图表和 ServiceNow 链接同样会出现在卡片的资源标签页中，但**不会**列在这里 —— 它们各自已经拥有覆盖整个存储库的专属页面（**EA 交付 → 架构决策**、**图表**以及**管理 → 设置 → ServiceNow**）。

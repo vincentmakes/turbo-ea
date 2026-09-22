@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 
 /* ── mocks ─────────────────────────────────────────────────────── */
@@ -19,6 +19,7 @@ vi.mock("@/api/client", () => ({
 }));
 
 import { api } from "@/api/client";
+import { ATTACHMENT_ACCEPT, MAX_ATTACHMENT_BYTES } from "@/lib/attachmentFormats";
 import ResourcesTab from "./ResourcesTab";
 
 const CARD_ID = "card-123";
@@ -131,6 +132,69 @@ describe("ResourcesTab", () => {
       expect(api.get).toHaveBeenCalledWith(`/cards/${CARD_ID}/documents`);
       expect(api.get).toHaveBeenCalledWith(`/diagrams?card_id=${CARD_ID}`);
     });
+  });
+
+  /* ── upload gates ─────────────────────────────────────────────
+   * The backend is the authority (it checks the bytes); these only spare the
+   * user a round-trip on a file it is certain to refuse.
+   */
+
+  function fileOfSize(name: string, size: number): File {
+    const file = new File(["x"], name);
+    Object.defineProperty(file, "size", { value: size });
+    return file;
+  }
+
+  async function selectFile(file: File) {
+    const { container } = renderTab();
+    await waitFor(() => expect(screen.getByText(/File Attachments/)).toBeInTheDocument());
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+    return input;
+  }
+
+  it("offers every accepted extension in the file picker", async () => {
+    const { container } = renderTab();
+    await waitFor(() => expect(screen.getByText(/File Attachments/)).toBeInTheDocument());
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(input.getAttribute("accept")).toBe(ATTACHMENT_ACCEPT);
+    // The formats this change added must really be offered.
+    expect(input.getAttribute("accept")).toContain(".zip");
+    expect(input.getAttribute("accept")).toContain(".msg");
+    expect(input.getAttribute("accept")).toContain(".odt");
+  });
+
+  it("refuses a file over the size cap without calling the API", async () => {
+    await selectFile(fileOfSize("huge.pdf", MAX_ATTACHMENT_BYTES + 1));
+    await waitFor(() => expect(screen.getByText(/exceeds maximum size/i)).toBeInTheDocument());
+    expect(api.upload).not.toHaveBeenCalled();
+  });
+
+  it("accepts a file of exactly the cap", async () => {
+    await selectFile(fileOfSize("big.pdf", MAX_ATTACHMENT_BYTES));
+    // No complaint — the upload dialog opens instead.
+    await waitFor(() => expect(screen.queryByText(/exceeds maximum size/i)).toBeNull());
+  });
+
+  it("refuses an extension that is not accepted, before uploading", async () => {
+    // `accept=` is advisory: a drag-drop or an "All files" pick bypasses it.
+    await selectFile(fileOfSize("setup.exe", 1024));
+    await waitFor(() => expect(screen.getByText(/not allowed/i)).toBeInTheDocument());
+    expect(api.upload).not.toHaveBeenCalled();
+  });
+
+  it("shows the reason the backend gave when an upload is rejected", async () => {
+    // A generic "upload failed" hides the one thing the user can act on.
+    vi.mocked(api.upload).mockRejectedValueOnce(
+      new Error("File content does not match its '.pdf' extension."),
+    );
+    await selectFile(fileOfSize("invoice.pdf", 2048));
+    const confirm = await screen.findByRole("button", { name: /upload/i });
+    fireEvent.click(confirm);
+    await waitFor(() =>
+      expect(screen.getByText(/does not match its '.pdf' extension/i)).toBeInTheDocument(),
+    );
   });
 
   it("shows empty state when no data", async () => {

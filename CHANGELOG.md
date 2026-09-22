@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.148.0] - 2026-09-22
+
+### Added
+
+- **Card attachments accept far more kinds of file, and up to 20 MB.** Archives (ZIP, GZ, TAR, 7Z), OpenDocument files (ODT, ODS, ODP, ODG), older Office formats (DOC, XLS, PPT), Outlook and e-mail messages (MSG, EML), CSV, Markdown, JSON, XML, GIF and WebP can now be attached to a card, alongside everything that was already allowed. Every upload is checked against its own contents rather than the type the browser claims, so a file renamed to get past the old list is refused with a message that says exactly that — and an Outlook message, which browsers describe as an anonymous binary, is finally recognised for what it is.
+
+### Changed
+
+- **Workspace transfer imports bundles up to 2 GB, without loading them into memory.** The upload is written to disk as it arrives and the bundle is read piece by piece during the import, so the size of a workspace no longer has to fit in the backend's memory. The Kubernetes chart, its examples and the Terraform module raise their ingress limits to match; on hosts that cap requests below that — Cloud Run's 32 MiB limit, an Azure WAF policy — the platform's limit still applies, and the deployment pages say so.
+
+### Fixed
+
+- **An attachment between 5 and 10 MB no longer fails with an unreadable error.** The bundled nginx capped request bodies at 5 MB while the rest of the product promised 10 MB, so files in between were rejected at the edge with a raw *413 / client intended to send too large body* before the application ever saw them. The limits are now declared once and checked against each other automatically, and a file that really is too large is refused by the application with a message naming the limit.
+
 ## [2.147.3] - 2026-09-22
 
 ### Fixed

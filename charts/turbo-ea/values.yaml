@@ -281,15 +281,18 @@ mcp:
 ingress:
   enabled: false
   className: ""
-  # Per-controller notes — the workspace import accepts uploads up to 512 MB
+  # Per-controller notes — the workspace import accepts uploads up to 2 GB
   # and the event stream is a long-lived SSE response, so raise the
-  # controller's body-size and read-timeout limits:
+  # controller's body-size and read-timeout limits. Turn request buffering
+  # off as well, or the controller spools the whole bundle to its own disk
+  # before forwarding a byte:
   #
   #   ingress-nginx / AKS App Routing
-  #     nginx.ingress.kubernetes.io/proxy-body-size: 512m
+  #     nginx.ingress.kubernetes.io/proxy-body-size: 2g
   #     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
   #     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
   #     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+  #     nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
   #   AWS Load Balancer Controller (ALB)
   #     alb.ingress.kubernetes.io/healthcheck-path: /api/health
   #     alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=4000

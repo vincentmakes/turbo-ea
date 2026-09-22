@@ -12,7 +12,7 @@ Due tipi di risorsa, mostrati fianco a fianco e distinti dalla colonna **Tipo**:
 
 | Tipo | Da dove proviene | Contiene |
 |------|--------------------|---------|
-| **File** | Un file caricato su una scheda (PDF, DOCX, XLSX, PPTX, PNG, JPG, SVG, TXT) | Tipo di file, dimensione, categoria del file |
+| **File** | Un file caricato su una scheda (PDF, DOCX, XLSX, PPTX, DOC, XLS, PPT, ODT, ODS, ODP, ODG, ZIP, GZ, TAR, 7Z, MSG, EML, PNG, JPG, GIF, WEBP, SVG, TXT, CSV, MD, JSON, XML) | Tipo di file, dimensione, categoria del file |
 | **Collegamento** | Un URL aggiunto a una scheda | URL, tipo di collegamento |
 
 Anche le decisioni architetturali, i diagrammi e i collegamenti ServiceNow compaiono nel tab Risorse di una scheda, ma **non** sono elencati qui — ognuno dispone già di una propria pagina estesa a tutto il repository (**Consegna EA → Decisioni architetturali**, **Diagrammi** e **Admin → Impostazioni → ServiceNow**).

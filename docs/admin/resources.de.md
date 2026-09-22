@@ -12,7 +12,7 @@ Zwei Arten von Ressourcen, nebeneinander dargestellt und durch die Spalte **Art*
 
 | Art | Woher sie stammt | Enthält |
 |-----|------------------|---------|
-| **Datei** | Eine an eine Karte hochgeladene Datei (PDF, DOCX, XLSX, PPTX, PNG, JPG, SVG, TXT) | Dateityp, Größe, Dateikategorie |
+| **Datei** | Eine an eine Karte hochgeladene Datei (PDF, DOCX, XLSX, PPTX, DOC, XLS, PPT, ODT, ODS, ODP, ODG, ZIP, GZ, TAR, 7Z, MSG, EML, PNG, JPG, GIF, WEBP, SVG, TXT, CSV, MD, JSON, XML) | Dateityp, Größe, Dateikategorie |
 | **Link** | Eine an eine Karte hinzugefügte URL | URL, Linktyp |
 
 Architekturentscheidungen, Diagramme und ServiceNow-Links erscheinen ebenfalls auf dem Ressourcen-Reiter einer Karte, werden hier aber **nicht** gelistet — jedes davon hat bereits eine eigene repository-weite Seite (**EA-Lieferung → Architekturentscheidungen**, **Diagramme** und **Admin → Einstellungen → ServiceNow**).

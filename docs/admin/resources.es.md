@@ -12,7 +12,7 @@ Dos clases de recurso, mostradas una junto a otra y diferenciadas por la columna
 
 | Tipo | De dónde procede | Incluye |
 |------|------------------|---------|
-| **Archivo** | Un archivo subido a una tarjeta (PDF, DOCX, XLSX, PPTX, PNG, JPG, SVG, TXT) | Tipo de archivo, tamaño, categoría de archivo |
+| **Archivo** | Un archivo subido a una tarjeta (PDF, DOCX, XLSX, PPTX, DOC, XLS, PPT, ODT, ODS, ODP, ODG, ZIP, GZ, TAR, 7Z, MSG, EML, PNG, JPG, GIF, WEBP, SVG, TXT, CSV, MD, JSON, XML) | Tipo de archivo, tamaño, categoría de archivo |
 | **Enlace** | Una URL añadida a una tarjeta | URL, tipo de enlace |
 
 Las decisiones de arquitectura, los diagramas y los enlaces de ServiceNow también aparecen en la pestaña Recursos de una tarjeta, pero **no** se listan aquí — cada uno dispone ya de su propia página a nivel de repositorio (**Entrega EA → Decisiones de arquitectura**, **Diagramas** y **Administración → Configuración → ServiceNow**).

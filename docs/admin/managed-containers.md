@@ -23,7 +23,7 @@ flowchart LR
 All three templates build the same thing:
 
 - **One container group, sidecars on `localhost`.** The edge nginx, the frontend, the backend and the optional MCP server run as sidecars sharing one network namespace, so the edge proxies to `http://127.0.0.1:8000`, `:8080` and `:8001`. One public URL, one lifecycle, one deploy.
-- **The edge listens on 8920.** Its default port is 8080, which the frontend image already owns inside the same namespace, so every template sets `NGINX_HTTP_PORT=8920` and points the platform ingress at it. The edge still owns every security header, the 512 MB upload limit for workspace transfers, the event-stream settings and the `/mcp` routing — nothing on the platform side replaces it.
+- **The edge listens on 8920.** Its default port is 8080, which the frontend image already owns inside the same namespace, so every template sets `NGINX_HTTP_PORT=8920` and points the platform ingress at it. The edge still owns every security header, the 2 GB upload limit for workspace transfers, the event-stream settings and the `/mcp` routing — nothing on the platform side replaces it.
 - **One backend, never scaled, never zero.** The backend holds in-process state (the real-time event bus, the rate limiter, the permission cache) and runs background loops, so it runs as exactly one instance with CPU allocated at all times: minimum and maximum instance count of one on every platform.
 - **Deploys overlap on two of the three platforms.** Container Apps and Cloud Run keep the old instance serving until the new one is ready, so for a few seconds to a few minutes two backends run side by side on every deploy. The backend therefore takes a PostgreSQL advisory lock around its boot-time migrations and seeding: the second instance waits, finds the schema already at head and continues. Background loops still double for that window; they are idempotent. ECS stops the old task before starting the new one (one to two minutes of downtime per deploy) and needs no such care.
 - **Persistent `/app/data`**, owned by uid 1000, holds installed extensions, uploads and workspace-transfer bundles. Cards and diagrams live in PostgreSQL.
@@ -38,7 +38,7 @@ All three templates build the same thing:
 | Persistent `/app/data` | Azure Files (SMB) mounted with `uid=1000` | **Filestore over NFS only** — 100 GiB regional (two regions) or 1 TiB elsewhere; Cloud Storage FUSE is not POSIX, evaluation only | EFS through an access point (uid/gid 1000) |
 | Stop the old instance before the new one | Not in single-revision mode; yes with multiple revisions and a manual deactivate | **No** — revisions always overlap | **Yes** (`minimumHealthyPercent 0`, `maximumPercent 100`) |
 | Event stream (long-lived SSE) | Cut every 240 s by the ingress; the browser reconnects | Up to 3600 s per request, then reconnects | Load-balancer idle timeout up to 4000 s |
-| Largest upload (workspace import is up to 512 MB) | Not documented by Microsoft — test a 512 MB import before relying on it | **32 MiB per request over HTTP/1** | No platform limit |
+| Largest upload (workspace import is up to 2 GB) | Not documented by Microsoft — test a 2 GB import before relying on it | **32 MiB per request over HTTP/1** | No platform limit |
 | TLS and custom domain | Managed certificate on the app | Global external load balancer + serverless NEG + Google-managed certificate | ACM certificate on the ALB |
 | Secrets | App secrets or Key Vault references | Secret Manager | Secrets Manager |
 | Shell into a container | `az containerapp exec` | none | ECS Exec |

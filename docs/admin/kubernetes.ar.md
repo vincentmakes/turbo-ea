@@ -16,7 +16,7 @@ flowchart LR
     B --> V[(PersistentVolume /app/data<br/>الامتدادات · الملفات المرفوعة · حزم النقل)]
 ```
 
-- **nginx الطرفي هو الـ Service الوحيد الذي يستهدفه الـ Ingress.** فهو يملك كل ترويسات الأمان، وسياسة أمان المحتوى (CSP)، وحد 512 ميغابايت لرفع حزم نقل مساحة العمل، وإعدادات تدفق الأحداث طويل الأمد، وتوجيه `/mcp` و`/.well-known/oauth-*`. وجّه **المضيف بأكمله** (`/`) إليه ولا تضف أبدًا إعادة كتابة للمسارات.
+- **nginx الطرفي هو الـ Service الوحيد الذي يستهدفه الـ Ingress.** فهو يملك كل ترويسات الأمان، وسياسة أمان المحتوى (CSP)، وحد 2 غيغابايت لرفع حزم نقل مساحة العمل، وإعدادات تدفق الأحداث طويل الأمد، وتوجيه `/mcp` و`/.well-known/oauth-*`. وجّه **المضيف بأكمله** (`/`) إليه ولا تضف أبدًا إعادة كتابة للمسارات.
 - **تعمل الخلفية بنسخة واحدة بالضبط**، ويرفض المخطط أي قيمة لـ `backend.replicaCount`. فأحداث الوقت الفعلي تُوزَّع من ناقل داخل العملية، ومحدّد المعدل وذاكرة الصلاحيات المؤقتة داخل العملية أيضًا، وترحيلات قاعدة البيانات تعمل عند الإقلاع، و`/app/data` وحدة تخزين ReadWriteOnce. يستخدم الـ Deployment استراتيجية *Recreate* حتى لا تقوم خلفيتان أبدًا بترحيل المخطط أو ربط وحدة التخزين في الوقت نفسه. وسّع بدلًا من ذلك الـ Deployment الخاصين بـ `frontend` و`nginx` — فالخلفية ليست عنق الزجاجة في المشهد المعتاد.
 - **PostgreSQL غير مضمّنة.** وجّه المخطط إلى قاعدة بيانات مُدارة ([الإعداد الموصى به](operations.md#managed-postgresql)) أو إلى عنقود يديره مشغّل مثل CloudNativePG. كما أن Ollama غير مضمّن: اضبط `ai.providerUrl` على نقطة نهاية خارجية إذا كنت تستخدم اقتراحات الذكاء الاصطناعي.
 - **ينتهي TLS عند الـ Ingress أو موازن الحمل.** يستنتج nginx قيمة `X-Forwarded-Proto` من `publicUrl`، وهذا ما يجعل ملف تعريف ارتباط الجلسة `secure`.
@@ -49,10 +49,11 @@ ingress:
   className: nginx
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
-    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    nginx.ingress.kubernetes.io/proxy-body-size: 2g
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
   tls:
     - secretName: turbo-ea-tls
       hosts: [ea.example.com]
@@ -129,12 +130,14 @@ kubectl create secret generic turbo-ea-credentials -n turbo-ea \
 
 هناك حدّان مضبوطان على nginx الطرفي لكن يجب رفعهما **أيضًا** على المتحكم الذي يسبقه:
 
-| المتحكم | حجم الرفع (استيراد مساحة عمل بحجم 512 ميغابايت) | تدفق الأحداث (SSE طويل الأمد) |
+| المتحكم | حجم الرفع (استيراد مساحة عمل بحجم 2 غيغابايت) | تدفق الأحداث (SSE طويل الأمد) |
 |---|---|---|
-| ingress-nginx، توجيه تطبيقات AKS | `nginx.ingress.kubernetes.io/proxy-body-size: 512m` | `proxy-read-timeout: "86400"` و`proxy-send-timeout: "86400"` و`proxy-buffering: "off"` |
+| ingress-nginx، توجيه تطبيقات AKS | `nginx.ingress.kubernetes.io/proxy-body-size: 2g` | `proxy-read-timeout: "86400"` و`proxy-send-timeout: "86400"` و`proxy-buffering: "off"`, `proxy-request-buffering: "off"` |
 | AWS Load Balancer Controller (ALB) | بلا حد | `alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=4000` (الحد الأقصى لـ ALB؛ يعيد المتصفح الاتصال) |
 | Azure Application Gateway (AGIC) | وضع المنع في WAF يحدّ من حجم الجسم — ارفع حد رفع الملفات أو استثنِ مسار الاستيراد | `appgw.ingress.kubernetes.io/request-timeout: "86400"` |
 | GKE (GCE) | بلا حد | `BackendConfig` مع `timeoutSec: 86400` (انظر قسم GCP) |
+
+2 غيغابايت هو ما يقبله nginx الطرفي؛ وقد يفرض موازن تحميل أو جدار حماية تطبيقات أمامه حدًا أقل للطلب، كما يحتاج الخلفية إلى نحو ضعف حجم الحزمة من المساحة المؤقتة (يُكتب الرفع إلى `/tmp` ثم إلى `data/workspace_transfers/`). اختبر عملية استيراد بحجم حزمتك الفعلي قبل الاعتماد على ذلك.
 
 من أجل TLS، إما كتلة `tls:` من cert-manager على الـ Ingress، أو الشهادة المُدارة للسحابة (ACM، أو ManagedCertificate في GKE) مع إنهاء TLS على موازن الحمل. داخل العنقود، حركة المرور نحو nginx هي HTTP عادي؛ وما يجعل ملف تعريف الارتباط `secure` هو أن يبدأ `publicUrl` بـ `https://`.
 
@@ -209,10 +212,11 @@ ingress:
   className: webapprouting.kubernetes.azure.com
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
-    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    nginx.ingress.kubernetes.io/proxy-body-size: 2g
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
   tls:
     - secretName: turbo-ea-tls
       hosts: [ea.example.com]

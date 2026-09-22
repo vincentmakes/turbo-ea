@@ -145,7 +145,7 @@ Apply tags from the configured [tag groups](../admin/tags.md). Depending on the 
 
 The **Resources** tab consolidates all supporting materials for a card:
 
-- **File Attachments** — Upload and manage files (PDF, DOCX, XLSX, images, up to 10 MB). When uploading, select a **document category** from: Architecture, Security, Compliance, Operations, Meeting Notes, Design, or Other. The category appears as a chip next to each file.
+- **File Attachments** — Upload and manage files (documents, spreadsheets, presentations, OpenDocument and legacy Office files, images, archives, Outlook and e-mail messages, CSV, Markdown, JSON and XML — up to 20 MB). When uploading, select a **document category** from: Architecture, Security, Compliance, Operations, Meeting Notes, Design, or Other. The category appears as a chip next to each file.
 - **Document Links** — URL-based document references. When adding a link, select a **link type** from: Documentation, Security, Compliance, Architecture, Operations, Support, or Other. The link type appears as a chip next to each link, and the icon changes based on the selected type.
 - **Diagrams** — Link existing [diagrams](diagrams.md) to this card. Linked diagrams appear as thumbnail previews that you can click to open in the diagram editor. Use the **Link Diagram** button to search for and attach an existing diagram, or click the unlink icon to remove the association.
 

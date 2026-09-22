@@ -17,8 +17,10 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import BinaryIO
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -30,6 +32,7 @@ from app.models.user import User
 from app.models.workspace_transfer import WorkspaceTransfer
 from app.services.permission_service import PermissionService
 from app.services.workspace_io import (
+    WorkspaceBundle,
     apply_bundle,
     build_bundle,
     diff_bundle,
@@ -43,6 +46,51 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin/workspace", tags=["Workspace Transfer"])
 
 _BUNDLE_DIR = Path("data/workspace_transfers")
+
+# Matches `client_max_body_size 2g` on the import location in the edge nginx
+# (see /Dockerfile); the guard test in tests/services/test_upload_limits.py
+# fails if the two drift. nginx streams the body through unbuffered, so this
+# is the only place the size is enforced for a client that bypasses it.
+MAX_BUNDLE_BYTES = 2 * 1024**3
+_COPY_CHUNK = 4 * 1024 * 1024
+
+
+class _BundleTooLargeError(Exception):
+    """The upload ran past MAX_BUNDLE_BYTES while being written to disk."""
+
+
+def _spool_upload_to_disk(src: BinaryIO, dest: Path, limit: int) -> int:
+    """Copy ``src`` to ``dest`` in chunks; return the bytes written.
+
+    Starlette has already spooled the multipart body to a temporary file, so
+    this is a disk-to-disk copy — never ``await file.read()``, which would put
+    the whole bundle (up to 2 GB) on the heap twice over.
+    """
+    written = 0
+    try:
+        with dest.open("wb") as out:
+            while True:
+                chunk = src.read(_COPY_CHUNK)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > limit:
+                    raise _BundleTooLargeError
+                out.write(chunk)
+    except BaseException:
+        dest.unlink(missing_ok=True)
+        raise
+    return written
+
+
+async def _parse_bundle_file(storage_path: str) -> WorkspaceBundle:
+    """Parse an uploaded bundle off disk, in a worker thread.
+
+    ``parse_bundle`` unzips and walks the whole workbook, which on a large
+    workspace is minutes of pure CPU — on the event loop of a single-worker
+    uvicorn that stalls every other request for the duration.
+    """
+    return await run_in_threadpool(parse_bundle, Path(storage_path))
 
 
 class WorkspaceTransferOut(BaseModel):
@@ -112,20 +160,33 @@ async def upload_workspace(
     user: User = Depends(get_current_user),
 ) -> WorkspaceTransferOut:
     await PermissionService.require_permission(db, user, "admin.import_workspace")
-
-    raw = await file.read()
-    if not raw:
-        raise HTTPException(status_code=400, detail="Empty bundle file")
+    # Hand the pooled connection back before the copy: get_db is a
+    # yield-dependency, so it would otherwise stay checked out for however
+    # long writing up to 2 GB to disk takes.
+    await db.commit()
 
     _BUNDLE_DIR.mkdir(parents=True, exist_ok=True)
     transfer_id = uuid.uuid4()
     storage_path = _BUNDLE_DIR / f"{transfer_id}.bin"
-    storage_path.write_bytes(raw)
+
+    await file.seek(0)
+    try:
+        size = await run_in_threadpool(
+            _spool_upload_to_disk, file.file, storage_path, MAX_BUNDLE_BYTES
+        )
+    except _BundleTooLargeError:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Bundle exceeds the {MAX_BUNDLE_BYTES // 1024**3} GB import limit",
+        ) from None
+    if not size:
+        storage_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="Empty bundle file")
 
     transfer = WorkspaceTransfer(
         id=transfer_id,
         filename=file.filename or "workspace.zip",
-        file_size=len(raw),
+        file_size=size,
         storage_path=str(storage_path),
         status="parsing",
         created_by=user.id,
@@ -204,8 +265,9 @@ async def _claim_bundle_path(transfer_id_str: str, user_id_str: str, label: str)
     """Validate the transfer + user and return the uploaded bundle's path.
 
     Its session closes before the caller parses the bundle: ``parse_bundle``
-    unzips and reads the whole workbook, which on a large workspace is a long
-    stretch of pure CPU work. Holding the job's session across it kept a pooled
+    opens the zip and reads the whole workbook, which on a large workspace is a
+    long stretch of pure CPU work (the assets it leaves for the applier to read
+    one at a time). Holding the job's session across it kept a pooled
     connection checked out — in an open transaction — for the entire parse.
 
     Returns ``None`` when the job cannot run (the transfer is gone, or it has
@@ -237,7 +299,7 @@ async def _preview_job(transfer_id_str: str, user_id_str: str) -> None:
 
     # Parsed with no database connection held.
     try:
-        bundle = parse_bundle(Path(storage_path).read_bytes())
+        bundle = await _parse_bundle_file(storage_path)
     except BundleFormatError as exc:
         await _fail(transfer_id_str, str(exc))
         return
@@ -246,40 +308,45 @@ async def _preview_job(transfer_id_str: str, user_id_str: str) -> None:
         await _fail(transfer_id_str, str(exc)[:1000])
         return
 
-    async with async_session() as db:
-        try:
-            transfer = (
-                await db.execute(
-                    select(WorkspaceTransfer).where(
-                        WorkspaceTransfer.id == uuid.UUID(transfer_id_str)
+    # The bundle holds the zip open so its assets stay readable; the finally
+    # closes it however this returns.
+    try:
+        async with async_session() as db:
+            try:
+                transfer = (
+                    await db.execute(
+                        select(WorkspaceTransfer).where(
+                            WorkspaceTransfer.id == uuid.UUID(transfer_id_str)
+                        )
                     )
-                )
-            ).scalar_one_or_none()
-            user = (
-                await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
-            ).scalar_one_or_none()
-            if transfer is None or user is None:
-                return
-            transfer.format_version = bundle.format_version
-            transfer.source_app_version = bundle.manifest.get("app_version")
-            transfer.source_url = bundle.manifest.get("source_url")
-            if bundle.format_version != FORMAT_VERSION:
-                transfer.status = "failed"
-                transfer.error_message = (
-                    f"Unsupported bundle format {bundle.format_version!r} "
-                    f"(expected {FORMAT_VERSION!r})"
-                )
+                ).scalar_one_or_none()
+                user = (
+                    await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
+                ).scalar_one_or_none()
+                if transfer is None or user is None:
+                    return
+                transfer.format_version = bundle.format_version
+                transfer.source_app_version = bundle.manifest.get("app_version")
+                transfer.source_url = bundle.manifest.get("source_url")
+                if bundle.format_version != FORMAT_VERSION:
+                    transfer.status = "failed"
+                    transfer.error_message = (
+                        f"Unsupported bundle format {bundle.format_version!r} "
+                        f"(expected {FORMAT_VERSION!r})"
+                    )
+                    await db.commit()
+                    return
+                result = await diff_bundle(db, bundle, user)
+                transfer.diff = result.as_dict()
+                transfer.status = "previewed"
+                transfer.previewed_at = datetime.now(timezone.utc)
                 await db.commit()
-                return
-            result = await diff_bundle(db, bundle, user)
-            transfer.diff = result.as_dict()
-            transfer.status = "previewed"
-            transfer.previewed_at = datetime.now(timezone.utc)
-            await db.commit()
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("workspace preview job failed")
-            await db.rollback()
-            await _fail(transfer_id_str, str(exc)[:1000])
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("workspace preview job failed")
+                await db.rollback()
+                await _fail(transfer_id_str, str(exc)[:1000])
+    finally:
+        bundle.close()
 
 
 async def _apply_job(transfer_id_str: str, user_id_str: str) -> None:
@@ -289,39 +356,43 @@ async def _apply_job(transfer_id_str: str, user_id_str: str) -> None:
 
     # Parsed with no database connection held.
     try:
-        bundle = parse_bundle(Path(storage_path).read_bytes())
+        bundle = await _parse_bundle_file(storage_path)
     except Exception as exc:  # noqa: BLE001
         logger.exception("workspace apply job failed")
         await _fail(transfer_id_str, str(exc)[:1000])
         return
 
     # ``apply_bundle`` stays one atomic transaction — it must remain
-    # all-or-nothing, so nothing inside it is committed early.
-    async with async_session() as db:
-        try:
-            transfer = (
-                await db.execute(
-                    select(WorkspaceTransfer).where(
-                        WorkspaceTransfer.id == uuid.UUID(transfer_id_str)
+    # all-or-nothing, so nothing inside it is committed early. The bundle stays
+    # open around it: the applier reads each asset as it reaches its row.
+    try:
+        async with async_session() as db:
+            try:
+                transfer = (
+                    await db.execute(
+                        select(WorkspaceTransfer).where(
+                            WorkspaceTransfer.id == uuid.UUID(transfer_id_str)
+                        )
                     )
-                )
-            ).scalar_one_or_none()
-            user = (
-                await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
-            ).scalar_one_or_none()
-            if transfer is None or user is None:
-                return
-            result = await apply_bundle(db, bundle, user)
-            transfer.result = result.as_dict()
-            transfer.status = "applied" if result.total_failed == 0 else "failed"
-            transfer.applied_at = datetime.now(timezone.utc)
-            if result.total_failed:
-                transfer.error_message = f"{result.total_failed} section error(s) — see result"
-            await db.commit()
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("workspace apply job failed")
-            await db.rollback()
-            await _fail(transfer_id_str, str(exc)[:1000])
+                ).scalar_one_or_none()
+                user = (
+                    await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
+                ).scalar_one_or_none()
+                if transfer is None or user is None:
+                    return
+                result = await apply_bundle(db, bundle, user)
+                transfer.result = result.as_dict()
+                transfer.status = "applied" if result.total_failed == 0 else "failed"
+                transfer.applied_at = datetime.now(timezone.utc)
+                if result.total_failed:
+                    transfer.error_message = f"{result.total_failed} section error(s) — see result"
+                await db.commit()
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("workspace apply job failed")
+                await db.rollback()
+                await _fail(transfer_id_str, str(exc)[:1000])
+    finally:
+        bundle.close()
 
 
 async def _fail(transfer_id_str: str, message: str) -> None:

@@ -12,7 +12,7 @@ Two kinds of resource, shown side by side and distinguished by the **Kind** colu
 
 | Kind | Where it comes from | Carries |
 |------|--------------------|---------|
-| **File** | A file uploaded to a card (PDF, DOCX, XLSX, PPTX, PNG, JPG, SVG, TXT) | File type, size, file category |
+| **File** | A file uploaded to a card (PDF, DOCX, XLSX, PPTX, DOC, XLS, PPT, ODT, ODS, ODP, ODG, ZIP, GZ, TAR, 7Z, MSG, EML, PNG, JPG, GIF, WEBP, SVG, TXT, CSV, MD, JSON, XML) | File type, size, file category |
 | **Link** | A URL added to a card | URL, link type |
 
 Architecture Decisions, diagrams, and ServiceNow links also appear on a card's Resources tab, but they are **not** listed here — each already has its own repository-wide page (**EA Delivery → Decisions**, **Diagrams**, and **Admin → Settings → ServiceNow**).

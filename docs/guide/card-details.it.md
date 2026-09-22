@@ -146,7 +146,7 @@ Applicate tag dai [gruppi di tag](../admin/tags.md) configurati. A seconda della
 
 La scheda **Risorse** consolida tutti i materiali di supporto per una card:
 
-- **Allegati file** — Caricate e gestite file (PDF, DOCX, XLSX, immagini, fino a 10 MB). Durante il caricamento, selezionate una **categoria documento** tra: Architettura, Sicurezza, Conformità, Operazioni, Note di riunione, Design o Altro. La categoria viene visualizzata come chip accanto a ogni file.
+- **Allegati file** — Caricate e gestite file (documenti, fogli di calcolo, presentazioni, file OpenDocument e Office legacy, immagini, archivi, messaggi Outlook ed e-mail, CSV, Markdown, JSON e XML — fino a 20 MB). Durante il caricamento, selezionate una **categoria documento** tra: Architettura, Sicurezza, Conformità, Operazioni, Note di riunione, Design o Altro. La categoria viene visualizzata come chip accanto a ogni file.
 - **Link ai documenti** — Riferimenti a documenti basati su URL. Quando aggiungete un link, selezionate un **tipo di link** tra: Documentazione, Sicurezza, Conformità, Architettura, Operazioni, Supporto o Altro. Il tipo di link viene visualizzato come chip accanto a ogni link e l'icona cambia in base al tipo selezionato.
 - **Diagrammi** — Collegate [diagrammi](diagrams.it.md) esistenti a questa card. I diagrammi collegati vengono visualizzati come anteprime in miniatura che potete cliccare per aprire nell'editor di diagrammi. Usate il pulsante **Collega diagramma** per cercare e allegare un diagramma esistente, oppure cliccate sull'icona di scollegamento per rimuovere l'associazione.
 

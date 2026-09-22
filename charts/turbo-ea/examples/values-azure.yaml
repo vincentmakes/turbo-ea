@@ -33,12 +33,13 @@ ingress:
   className: webapprouting.kubernetes.azure.com
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
-    # Workspace-transfer bundles are uploaded in one request of up to 512 MB.
-    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    # Workspace-transfer bundles are uploaded in one request of up to 2 GB.
+    nginx.ingress.kubernetes.io/proxy-body-size: 2g
     # The event stream is a long-lived SSE response.
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
   tls:
     - secretName: turbo-ea-tls
       hosts:

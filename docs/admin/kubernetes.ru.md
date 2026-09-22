@@ -16,7 +16,7 @@ flowchart LR
     B --> V[(PersistentVolume /app/data<br/>расширения · загрузки · пакеты переноса)]
 ```
 
-- **Пограничный nginx — единственный Service, на который указывает Ingress.** Ему принадлежат все заголовки безопасности, Content Security Policy, лимит 512 МБ на загрузку пакетов переноса рабочего пространства, настройки долгоживущего потока событий и маршрутизация `/mcp` и `/.well-known/oauth-*`. Направляйте на него **весь хост** (`/`) и никогда не добавляйте переписывание путей.
+- **Пограничный nginx — единственный Service, на который указывает Ingress.** Ему принадлежат все заголовки безопасности, Content Security Policy, лимит 2 ГБ на загрузку пакетов переноса рабочего пространства, настройки долгоживущего потока событий и маршрутизация `/mcp` и `/.well-known/oauth-*`. Направляйте на него **весь хост** (`/`) и никогда не добавляйте переписывание путей.
 - **Бэкенд работает ровно в одной реплике**, и чарт отвергает любое значение `backend.replicaCount`. События реального времени рассылаются через шину внутри процесса, ограничитель запросов и кэш прав — тоже внутри процесса, миграции базы выполняются при старте, а `/app/data` — том ReadWriteOnce. Deployment использует стратегию *Recreate*, чтобы два бэкенда никогда не мигрировали схему и не монтировали том одновременно. Масштабируйте вместо этого Deployment'ы `frontend` и `nginx` — для типичного ландшафта бэкенд не является узким местом.
 - **PostgreSQL не входит в поставку.** Направьте чарт на управляемую базу ([рекомендуемая схема](operations.md#managed-postgresql)) или на кластер под управлением оператора, например CloudNativePG. Ollama тоже не входит: если вы пользуетесь ИИ-подсказками, укажите в `ai.providerUrl` внешнюю конечную точку.
 - **TLS завершается на Ingress или балансировщике.** nginx выводит `X-Forwarded-Proto` из `publicUrl`, и именно это помечает сессионную cookie как `secure`.
@@ -49,10 +49,11 @@ ingress:
   className: nginx
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
-    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    nginx.ingress.kubernetes.io/proxy-body-size: 2g
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
   tls:
     - secretName: turbo-ea-tls
       hosts: [ea.example.com]
@@ -129,12 +130,14 @@ kubectl create secret generic turbo-ea-credentials -n turbo-ea \
 
 Два лимита заданы на пограничном nginx, но их нужно **также** поднять на контроллере перед ним:
 
-| Контроллер | Размер загрузки (импорт рабочего пространства 512 МБ) | Поток событий (долгоживущий SSE) |
+| Контроллер | Размер загрузки (импорт рабочего пространства 2 ГБ) | Поток событий (долгоживущий SSE) |
 |---|---|---|
-| ingress-nginx, маршрутизация приложений AKS | `nginx.ingress.kubernetes.io/proxy-body-size: 512m` | `proxy-read-timeout: "86400"`, `proxy-send-timeout: "86400"`, `proxy-buffering: "off"` |
+| ingress-nginx, маршрутизация приложений AKS | `nginx.ingress.kubernetes.io/proxy-body-size: 2g` | `proxy-read-timeout: "86400"`, `proxy-send-timeout: "86400"`, `proxy-buffering: "off"`, `proxy-request-buffering: "off"` |
 | AWS Load Balancer Controller (ALB) | без ограничения | `alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=4000` (максимум ALB; браузер переподключается) |
 | Azure Application Gateway (AGIC) | режим предотвращения WAF ограничивает тело запроса — поднимите лимит загрузки файлов или исключите путь импорта | `appgw.ingress.kubernetes.io/request-timeout: "86400"` |
 | GKE (GCE) | без ограничения | `BackendConfig` с `timeoutSec: 86400` (см. раздел GCP) |
+
+2 ГБ — это то, что принимает пограничный nginx; балансировщик нагрузки или WAF перед ним может ограничить запрос сильнее, а бэкенду требуется примерно вдвое больше размера пакета во временном пространстве (загрузка пишется в `/tmp`, затем в `data/workspace_transfers/`). Проверьте импорт на своём реальном размере пакета, прежде чем полагаться на это.
 
 Для TLS — либо блок `tls:` cert-manager на Ingress, либо управляемый сертификат облака (ACM, ManagedCertificate в GKE) с завершением TLS на балансировщике. Внутри кластера трафик к nginx идёт по обычному HTTP; cookie становится `secure` именно благодаря `publicUrl`, начинающемуся с `https://`.
 
@@ -209,10 +212,11 @@ ingress:
   className: webapprouting.kubernetes.azure.com
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
-    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    nginx.ingress.kubernetes.io/proxy-body-size: 2g
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
   tls:
     - secretName: turbo-ea-tls
       hosts: [ea.example.com]

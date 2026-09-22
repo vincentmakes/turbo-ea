@@ -20,7 +20,7 @@
 | **Confidence Score** | A 0–100% rating indicating how reliable an AI-generated description is |
 | **Data Quality** | A 0–100% completeness score based on filled fields and their configured weights |
 | **Diagram** | A visual architecture diagram created with the embedded DrawIO editor |
-| **File Attachment** | A binary file (PDF, DOCX, XLSX, images, up to 10 MB) uploaded directly to a card via the Resources tab |
+| **File Attachment** | A binary file (documents, spreadsheets, presentations, OpenDocument and legacy Office files, images, archives, Outlook and e-mail messages, CSV, Markdown, JSON and XML — up to 20 MB) uploaded directly to a card via the Resources tab |
 | **Fiscal Year** | The 12-month period used for budgeting and financial reporting. Configurable via Admin > Settings — the start month (January through December) determines how PPM budget lines are grouped |
 | **DrawIO** | The embedded open-source diagramming tool used for visual architecture diagrams |
 | **Cost Line** | A budget or actual cost entry (CapEx/OpEx) in a PPM initiative, used to track financial spending |

@@ -20,7 +20,7 @@
 | **Pontuação de Confiança** | Uma classificação de 0–100% indicando o quão confiável é uma descrição gerada por IA |
 | **Linha de custo** | Uma entrada de orçamento ou custo real (CapEx/OpEx) em uma iniciativa PPM, usada para rastrear gastos financeiros |
 | **Qualidade de Dados** | Uma pontuação de completude de 0–100% baseada nos campos preenchidos e seus pesos configurados |
-| **Anexo de arquivo** | Um arquivo binário (PDF, DOCX, XLSX, imagens, até 10 MB) carregado diretamente em um card pela aba Recursos |
+| **Anexo de arquivo** | Um arquivo binário (documentos, folhas de cálculo, apresentações, ficheiros OpenDocument e Office antigos, imagens, arquivos, mensagens do Outlook e e-mail, CSV, Markdown, JSON e XML — até 20 MB) carregado diretamente em um card pela aba Recursos |
 | **Feed OData** | Um feed de dados JSON disponível em visualizações salvas do inventário (marcadores) para consumo por ferramentas externas como Power BI ou Excel |
 | **Diagrama** | Um diagrama visual de arquitetura criado com o editor DrawIO integrado |
 | **DrawIO** | A ferramenta de diagramação de código aberto integrada, utilizada para diagramas visuais de arquitetura |

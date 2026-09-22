@@ -16,7 +16,7 @@ flowchart LR
     B --> V[(PersistentVolume /app/data<br/>extensions · uploads · transfer bundles)]
 ```
 
-- **The edge nginx is the only Service an Ingress targets.** It owns every security header, the Content Security Policy, the 512 MB limit on workspace-transfer uploads, the long-lived event-stream settings and the routing of `/mcp` and `/.well-known/oauth-*`. Route the **whole host** (`/`) to it and never add a path rewrite.
+- **The edge nginx is the only Service an Ingress targets.** It owns every security header, the Content Security Policy, the 2 GB limit on workspace-transfer uploads, the long-lived event-stream settings and the routing of `/mcp` and `/.well-known/oauth-*`. Route the **whole host** (`/`) to it and never add a path rewrite.
 - **The backend runs as exactly one replica**, and the chart refuses a `backend.replicaCount`. Real-time events fan out from an in-process bus, the rate limiter and permission cache are in-process, database migrations run at boot, and `/app/data` is a ReadWriteOnce volume. The Deployment uses the *Recreate* strategy so two backends never migrate the schema or bind the volume at once. Scale the `frontend` and `nginx` Deployments instead — the backend is not the bottleneck for a typical landscape.
 - **PostgreSQL is not included.** Point the chart at a managed database (the [recommended setup](operations.md#managed-postgresql)) or at an operator-managed cluster such as CloudNativePG. Ollama is not included either: set `ai.providerUrl` to an external endpoint if you use AI suggestions.
 - **TLS terminates at the Ingress or load balancer.** nginx derives `X-Forwarded-Proto` from `publicUrl`, which is what marks the session cookie `secure`.
@@ -49,10 +49,11 @@ ingress:
   className: nginx
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
-    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    nginx.ingress.kubernetes.io/proxy-body-size: 2g
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
   tls:
     - secretName: turbo-ea-tls
       hosts: [ea.example.com]
@@ -129,12 +130,14 @@ The chart renders one Ingress rule — the host of `publicUrl`, path `/`, `pathT
 
 Two limits are set on the edge nginx but must **also** be raised on the controller in front of it:
 
-| Controller | Upload size (512 MB workspace import) | Event stream (long-lived SSE) |
+| Controller | Upload size (2 GB workspace import) | Event stream (long-lived SSE) |
 |---|---|---|
-| ingress-nginx, AKS application routing | `nginx.ingress.kubernetes.io/proxy-body-size: 512m` | `proxy-read-timeout: "86400"`, `proxy-send-timeout: "86400"`, `proxy-buffering: "off"` |
+| ingress-nginx, AKS application routing | `nginx.ingress.kubernetes.io/proxy-body-size: 2g` | `proxy-read-timeout: "86400"`, `proxy-send-timeout: "86400"`, `proxy-buffering: "off"`, `proxy-request-buffering: "off"` |
 | AWS Load Balancer Controller (ALB) | no limit | `alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=4000` (the ALB maximum; the browser reconnects) |
 | Azure Application Gateway (AGIC) | WAF prevention mode caps bodies — raise the file-upload limit or exclude the import path | `appgw.ingress.kubernetes.io/request-timeout: "86400"` |
 | GKE (GCE) | no limit | `BackendConfig` with `timeoutSec: 86400` (see the GCP section) |
+
+2 GB is what the edge nginx accepts; a load balancer or WAF in front of the controller may cap a request lower, and the backend needs roughly twice the bundle size in scratch space (the upload is spooled to `/tmp`, then written to `data/workspace_transfers/`). Test an import at your real bundle size before relying on it.
 
 For TLS, either a cert-manager `tls:` block on the Ingress, or the cloud's managed certificate (ACM, GKE ManagedCertificate) with TLS on the load balancer. Inside the cluster, traffic to nginx is plain HTTP; `publicUrl` starting with `https://` is what makes the cookie `secure`.
 
@@ -209,10 +212,11 @@ ingress:
   className: webapprouting.kubernetes.azure.com
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
-    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+    nginx.ingress.kubernetes.io/proxy-body-size: 2g
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
   tls:
     - secretName: turbo-ea-tls
       hosts: [ea.example.com]
