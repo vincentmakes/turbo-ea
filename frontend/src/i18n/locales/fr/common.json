@@ -490,5 +490,6 @@
   "cardDisplay.subtypeLine": "Sous-type",
   "cardDisplay.linesHint": "Les {{count}} premiers apparaissent sur la fiche.",
   "cardDisplay.linesHintAll": "Chaque choix apparaît sur la fiche, qui s'agrandit en conséquence.",
-  "cardDisplay.noFields": "Aucun champ disponible"
+  "cardDisplay.noFields": "Aucun champ disponible",
+  "dateField.incomplete": "Date incomplète — renseignez le jour, le mois et l’année, ou videz le champ."
 }

@@ -490,5 +490,6 @@
   "cardDisplay.subtypeLine": "Subtipo",
   "cardDisplay.linesHint": "Los primeros {{count}} aparecen en la tarjeta.",
   "cardDisplay.linesHintAll": "Cada selección aparece en la tarjeta, que crece para ajustarse.",
-  "cardDisplay.noFields": "No hay campos disponibles"
+  "cardDisplay.noFields": "No hay campos disponibles",
+  "dateField.incomplete": "Fecha incompleta: indique el día, el mes y el año, o vacíe el campo."
 }

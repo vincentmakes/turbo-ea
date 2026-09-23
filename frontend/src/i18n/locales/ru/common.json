@@ -490,5 +490,6 @@
   "cardDisplay.subtypeLine": "Подтип",
   "cardDisplay.linesHint": "Первые {{count}} отображаются на карточке.",
   "cardDisplay.linesHintAll": "Каждый выбранный пункт отображается на карточке, размер которой увеличивается.",
-  "cardDisplay.noFields": "Нет доступных полей"
+  "cardDisplay.noFields": "Нет доступных полей",
+  "dateField.incomplete": "Неполная дата — укажите день, месяц и год или очистите поле."
 }

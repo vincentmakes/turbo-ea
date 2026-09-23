@@ -490,5 +490,6 @@
   "cardDisplay.subtypeLine": "النوع الفرعي",
   "cardDisplay.linesHint": "تظهر أول {{count}} على البطاقة.",
   "cardDisplay.linesHintAll": "يظهر كل اختيار على البطاقة، التي تكبر لتتسع له.",
-  "cardDisplay.noFields": "لا توجد حقول متاحة"
+  "cardDisplay.noFields": "لا توجد حقول متاحة",
+  "dateField.incomplete": "تاريخ غير مكتمل — أدخل اليوم والشهر والسنة أو امسح الحقل."
 }

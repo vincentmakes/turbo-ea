@@ -490,5 +490,6 @@
   "cardDisplay.subtypeLine": "Subtype",
   "cardDisplay.linesHint": "The first {{count}} appear on the card.",
   "cardDisplay.linesHintAll": "Every pick appears on the card, which grows to fit.",
-  "cardDisplay.noFields": "No fields available"
+  "cardDisplay.noFields": "No fields available",
+  "dateField.incomplete": "Incomplete date — fill in the day, month and year, or clear the field."
 }
