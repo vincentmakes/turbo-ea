@@ -45,7 +45,8 @@ import {
   type DiagramConnectorInput,
   fanWaypoints,
   resolveMenuCardCell,
-  capMenuToViewport,
+  fitMenuToBand,
+  visibleBand,
 } from "./drawio-shapes";
 import { LOGO_BOX_PX } from "./cardLogoImage";
 import { ICON_PATHS } from "./iconPaths";
@@ -2889,22 +2890,85 @@ describe("resolveMenuCardCell", () => {
   });
 });
 
-describe("capMenuToViewport", () => {
-  it("caps the menu to the visual viewport and lets it scroll", () => {
-    const div = document.createElement("div");
-    capMenuToViewport(div, { innerHeight: 1000, visualViewport: { height: 700 } });
-    // The visible area, not the layout viewport, minus a margin on each side.
-    expect(div.style.maxHeight).toBe("684px");
-    expect(div.style.overflowY).toBe("auto");
-    expect(div.style.overflowX).toBe("hidden");
+describe("visibleBand", () => {
+  it("is the whole frame when the frame is fully on screen", () => {
+    expect(
+      visibleBand({
+        innerHeight: 500,
+        frameElement: { getBoundingClientRect: () => ({ top: 100 }) },
+        parent: { innerHeight: 800 },
+      }),
+    ).toEqual({ top: 0, bottom: 500 });
   });
 
-  it("falls back to innerHeight and never goes negative", () => {
+  it("cuts off the part of the frame below what the browser shows", () => {
+    // iPad: a 900px frame starting at 100px inside a 680px visible area.
+    expect(
+      visibleBand({
+        innerHeight: 900,
+        frameElement: { getBoundingClientRect: () => ({ top: 100 }) },
+        parent: { innerHeight: 1000, visualViewport: { offsetTop: 0, height: 680 } },
+      }),
+    ).toEqual({ top: 0, bottom: 580 });
+  });
+
+  it("follows a parent visual viewport that has scrolled", () => {
+    expect(
+      visibleBand({
+        innerHeight: 900,
+        frameElement: { getBoundingClientRect: () => ({ top: 100 }) },
+        parent: { innerHeight: 1000, visualViewport: { offsetTop: 200, height: 500 } },
+      }),
+    ).toEqual({ top: 100, bottom: 600 });
+  });
+
+  it("falls back to the frame when the parent cannot be read", () => {
+    const win = {
+      innerHeight: 700,
+      visualViewport: { offsetTop: 0, height: 650 },
+      get frameElement(): never {
+        throw new Error("cross-origin");
+      },
+    };
+    expect(visibleBand(win)).toEqual({ top: 0, bottom: 650 });
+  });
+});
+
+describe("fitMenuToBand", () => {
+  function menu(top: number, height: number): HTMLElement {
     const div = document.createElement("div");
-    capMenuToViewport(div, { innerHeight: 500 });
+    Object.defineProperty(div, "offsetTop", { get: () => top });
+    Object.defineProperty(div, "offsetHeight", { get: () => height });
+    return div;
+  }
+
+  it("caps the height to the band and lets it scroll", () => {
+    const div = menu(10, 100);
+    fitMenuToBand(div, { top: 0, bottom: 500 });
     expect(div.style.maxHeight).toBe("484px");
-    capMenuToViewport(div, { innerHeight: 4, visualViewport: null });
+    expect(div.style.overflowY).toBe("auto");
+    expect(div.style.boxSizing).toBe("border-box");
+    expect(div.style.top).toBe(""); // already inside: left where it was
+  });
+
+  it("lifts a menu hanging below the band", () => {
+    const div = menu(400, 300);
+    fitMenuToBand(div, { top: 0, bottom: 580 });
+    expect(div.style.top).toBe("272px");
+  });
+
+  it("only caps the height when asked not to reposition", () => {
+    const div = menu(0, 300);
+    fitMenuToBand(div, { top: 20, bottom: 580 }, 8, false);
+    expect(div.style.maxHeight).toBe("544px");
+    expect(div.style.top).toBe("");
+  });
+
+  it("never lifts it above the band's top, and never sets a negative height", () => {
+    const div = menu(400, 900);
+    fitMenuToBand(div, { top: 50, bottom: 60 });
+    expect(div.style.top).toBe("58px");
     expect(div.style.maxHeight).toBe("0px");
-    expect(() => capMenuToViewport(null, { innerHeight: 500 })).not.toThrow();
+    expect(() => fitMenuToBand(null, { top: 0, bottom: 1 })).not.toThrow();
   });
 });

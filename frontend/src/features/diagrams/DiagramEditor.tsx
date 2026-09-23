@@ -77,7 +77,8 @@ import {
   convertShapeToContainer,
   drillDownInto,
   resolveMenuCardCell,
-  capMenuToViewport,
+  fitMenuToBand,
+  visibleBand,
   rollUpInto,
   isInsideContainer,
   findExistingCardCellId,
@@ -406,16 +407,20 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
       /* ---------- Right-click context menu ---------- */
       // Fit the menu to the visible screen before DrawIO positions it, so a
       // menu taller than a tablet in landscape scrolls instead of being
-      // cropped (see capMenuToViewport). The host is told when it opens and
+      // cropped (see visibleBand / fitMenuToBand). The host is told when it opens and
       // closes: the colour legend floats over the canvas in the parent page
       // and would otherwise cover the menu's last rows.
       const popupHandler = graph.popupMenuHandler;
       if (popupHandler && typeof popupHandler.showMenu === "function") {
         const origShowMenu = popupHandler.showMenu;
         popupHandler.showMenu = function (...args: unknown[]) {
-          capMenuToViewport(this.div, win);
+          fitMenuToBand(this.div, visibleBand(win), 8, false);
           win.parent.postMessage(JSON.stringify({ event: "popupMenu", open: true }), "*");
-          return origShowMenu.apply(this, args);
+          const result = origShowMenu.apply(this, args);
+          // DrawIO fits the menu to the frame in a deferred callback; this one
+          // is queued after it, so the on-screen band gets the last word.
+          win.setTimeout(() => fitMenuToBand(this.div, visibleBand(win)), 0);
+          return result;
         };
       }
       if (popupHandler && typeof popupHandler.hideMenu === "function") {

@@ -412,31 +412,92 @@ export function isSwimlaneStyle(style: unknown): boolean {
   return String(style ?? "").includes("shape=swimlane");
 }
 
+/** A vertical span in a frame's own client coordinates. */
+export interface VisibleBand {
+  top: number;
+  bottom: number;
+}
+
+interface ViewportLike {
+  offsetTop?: number;
+  height: number;
+}
+
+interface FrameWindowLike {
+  innerHeight: number;
+  visualViewport?: ViewportLike | null;
+  frameElement?: { getBoundingClientRect(): { top: number } } | null;
+  parent?: { innerHeight: number; visualViewport?: ViewportLike | null } | null;
+}
+
 /**
- * Keep a DrawIO popup menu inside the visible screen, scrolling when it is
- * taller than that.
+ * The part of a frame's height that is actually on screen.
  *
- * `mxPopupMenu.showMenu` only *moves* the menu into view (`mxUtils.fit`); it
- * never shrinks it, so the editor's right-click menu — some 25 rows once the
- * card actions are added — ran off the bottom of an iPad in landscape and
- * cropped exactly those actions. DrawIO caps its own submenus the same way.
- * Measured on the visual viewport because iPad Safari's toolbars and the
- * on-screen keyboard shrink what is visible without changing `innerHeight`;
- * read on every open, so a rotation between opens is picked up.
+ * DrawIO's right-click menu lives inside the editor iframe, so the iframe's own
+ * `innerHeight` / `visualViewport` only say how tall the *frame* is. On an iPad
+ * the frame's bottom sits below what Safari shows (its toolbars and the app bar
+ * take the difference), so a menu fitted to the frame still ran off the screen.
+ * Intersect with the parent's visual viewport, mapped through the frame's
+ * position; a parent that cannot be read degrades to the frame alone.
  */
-export function capMenuToViewport(
+export function visibleBand(win: FrameWindowLike): VisibleBand {
+  let top = 0;
+  let bottom = win.innerHeight;
+  const own = win.visualViewport;
+  if (own) {
+    top = Math.max(top, own.offsetTop ?? 0);
+    bottom = Math.min(bottom, (own.offsetTop ?? 0) + own.height);
+  }
+  try {
+    const frame = win.frameElement;
+    const parent = win.parent;
+    if (frame && parent && parent !== (win as unknown)) {
+      const frameTop = frame.getBoundingClientRect().top;
+      const pv = parent.visualViewport ?? { offsetTop: 0, height: parent.innerHeight };
+      const pvTop = pv.offsetTop ?? 0;
+      top = Math.max(top, pvTop - frameTop);
+      bottom = Math.min(bottom, pvTop + pv.height - frameTop);
+    }
+  } catch {
+    // Cross-origin or detached: the frame's own band is all we know.
+  }
+  return { top, bottom: Math.max(top, bottom) };
+}
+
+/**
+ * Keep a DrawIO popup menu inside `band`, scrolling when it is taller.
+ *
+ * `mxPopupMenu.showMenu` only *moves* the menu into the frame (`mxUtils.fit`),
+ * never shrinks it, and fits it to the frame rather than the screen, so the
+ * editor's ~25-row right-click menu ran off the bottom of an iPad and cropped
+ * the card actions. Called once before DrawIO shows the menu with
+ * `reposition = false` (height cap only) and again after its deferred fit
+ * (position), so it has the last word.
+ */
+export function fitMenuToBand(
   div: HTMLElement | null | undefined,
-  win: { innerHeight: number; visualViewport?: { height: number } | null },
+  band: VisibleBand,
   margin = 8,
+  reposition = true,
 ): void {
   if (!div) return;
-  const visible = win.visualViewport?.height ?? win.innerHeight;
+  const s = div.style;
   // Border-box so the cap includes the menu's own padding and border.
-  div.style.boxSizing = "border-box";
-  div.style.maxHeight = `${Math.max(0, Math.floor(visible - 2 * margin))}px`;
-  div.style.overflowY = "auto";
-  div.style.overflowX = "hidden";
-  div.style.setProperty("-webkit-overflow-scrolling", "touch");
+  s.boxSizing = "border-box";
+  s.maxHeight = `${Math.max(0, Math.floor(band.bottom - band.top - 2 * margin))}px`;
+  s.overflowY = "auto";
+  s.overflowX = "hidden";
+  s.setProperty("-webkit-overflow-scrolling", "touch");
+  // Before DrawIO shows the menu it is not in the document yet, so its
+  // offsets read 0 — position only once it has been placed.
+  if (!reposition) return;
+  const top = div.offsetTop;
+  const height = div.offsetHeight;
+  if (top + height > band.bottom - margin) {
+    s.top = `${Math.max(band.top + margin, band.bottom - margin - height)}px`;
+  } else if (top < band.top + margin) {
+    s.top = `${band.top + margin}px`;
+  }
 }
 
 /** The part of an mxCell the context-menu resolver reads. */
