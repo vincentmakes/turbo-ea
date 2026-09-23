@@ -491,5 +491,9 @@
   "cardDisplay.linesHint": "Die ersten {{count}} erscheinen auf der Karte.",
   "cardDisplay.linesHintAll": "Jede Auswahl erscheint auf der Karte, die entsprechend wächst.",
   "cardDisplay.noFields": "Keine Felder verfügbar",
-  "dateField.incomplete": "Unvollständiges Datum — Tag, Monat und Jahr ausfüllen oder das Feld leeren."
+  "dateField.incomplete": "Unvollständiges Datum — Tag, Monat und Jahr ausfüllen oder das Feld leeren.",
+  "dateField.placeholder.day": "tt",
+  "dateField.placeholder.month": "mm",
+  "dateField.placeholder.year": "jjjj",
+  "dateField.openPicker": "Kalender öffnen"
 }

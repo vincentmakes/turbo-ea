@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-- **Date fields work properly in Safari.** An empty date field no longer shows today's date as if it were set — Safari draws today as a placeholder in every empty date field, and it now appears greyed out like any other placeholder, so a half-typed date is visibly incomplete. A day picked from the calendar is kept instead of snapping back, and a date left with only some of the day, month or year filled in is flagged in red with a hint instead of being silently discarded on save. This applies to every date field in the app — card lifecycle phases, risk and mitigation dates, PPM dialogs and custom date attributes — and behaves the same whatever language or date format is in use ([#1142](https://github.com/vincentmakes/turbo-ea/issues/1142)).
+- **Date fields in Safari now look and behave like they do in Chrome.** An empty date field used to show today's date as if it were set; it now shows a grey day/month/year placeholder (for example `dd.mm.yyyy`, in the order and with the separators of your browser's region, and in the app's language) and a calendar button that opens the date picker. A day picked from the calendar is kept instead of snapping back, and a date left with only some of the day, month or year filled in is flagged in red with a hint instead of being silently discarded on save. This applies to every date field in the app — card lifecycle phases, risk and mitigation dates, PPM dialogs and custom date attributes ([#1142](https://github.com/vincentmakes/turbo-ea/issues/1142)).
 
 ## [2.149.0] - 2026-09-23
 

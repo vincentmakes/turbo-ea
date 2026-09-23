@@ -491,5 +491,9 @@
   "cardDisplay.linesHint": "Les {{count}} premiers apparaissent sur la fiche.",
   "cardDisplay.linesHintAll": "Chaque choix apparaît sur la fiche, qui s'agrandit en conséquence.",
   "cardDisplay.noFields": "Aucun champ disponible",
-  "dateField.incomplete": "Date incomplète — renseignez le jour, le mois et l’année, ou videz le champ."
+  "dateField.incomplete": "Date incomplète — renseignez le jour, le mois et l’année, ou videz le champ.",
+  "dateField.placeholder.day": "jj",
+  "dateField.placeholder.month": "mm",
+  "dateField.placeholder.year": "aaaa",
+  "dateField.openPicker": "Ouvrir le calendrier"
 }

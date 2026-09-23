@@ -491,5 +491,9 @@
   "cardDisplay.linesHint": "Первые {{count}} отображаются на карточке.",
   "cardDisplay.linesHintAll": "Каждый выбранный пункт отображается на карточке, размер которой увеличивается.",
   "cardDisplay.noFields": "Нет доступных полей",
-  "dateField.incomplete": "Неполная дата — укажите день, месяц и год или очистите поле."
+  "dateField.incomplete": "Неполная дата — укажите день, месяц и год или очистите поле.",
+  "dateField.placeholder.day": "дд",
+  "dateField.placeholder.month": "мм",
+  "dateField.placeholder.year": "гггг",
+  "dateField.openPicker": "Открыть календарь"
 }

@@ -491,5 +491,9 @@
   "cardDisplay.linesHint": "I primi {{count}} appaiono sulla scheda.",
   "cardDisplay.linesHintAll": "Ogni scelta appare sulla scheda, che si ingrandisce di conseguenza.",
   "cardDisplay.noFields": "Nessun campo disponibile",
-  "dateField.incomplete": "Data incompleta: inserisci giorno, mese e anno oppure svuota il campo."
+  "dateField.incomplete": "Data incompleta: inserisci giorno, mese e anno oppure svuota il campo.",
+  "dateField.placeholder.day": "gg",
+  "dateField.placeholder.month": "mm",
+  "dateField.placeholder.year": "aaaa",
+  "dateField.openPicker": "Apri calendario"
 }
