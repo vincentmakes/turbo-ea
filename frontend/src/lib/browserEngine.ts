@@ -11,7 +11,8 @@
  * - `"webkit-desktop"` — Safari on macOS.
  * - `"webkit-touch"` — any browser on iPhone / iPad (all of them are WebKit;
  *   iPadOS in desktop mode reports a `Macintosh` UA, which only
- *   `maxTouchPoints` tells apart). Tapping the field opens the picker there.
+ *   `maxTouchPoints` tells apart). There the picker is the only way to enter
+ *   a date — no segment typing — which DateField relies on to commit at once.
  * - `"other"` — Blink (Chrome, Edge, Opera, Android browsers), Gecko, and
  *   test environments such as jsdom.
  */

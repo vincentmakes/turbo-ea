@@ -13,6 +13,9 @@ import { DateField } from "./DateField";
 const SAFARI_MAC =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15";
 
+const SAFARI_IPHONE =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+
 function useUserAgent(ua: string, maxTouchPoints = 0) {
   vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(ua);
   // jsdom does not implement maxTouchPoints.
@@ -411,14 +414,92 @@ describe("DateField on WebKit", () => {
     expect(document.activeElement).toBe(input);
   });
 
-  it("adds no button on iPad, where tapping opens the picker, but keeps the placeholder", () => {
-    // iPadOS in desktop mode sends the macOS Safari UA.
-    useUserAgent(SAFARI_MAC, 5);
+  it.each([
+    ["iPad (desktop-mode UA)", SAFARI_MAC, 5],
+    ["iPhone", SAFARI_IPHONE, 5],
+  ])("shows the calendar button and placeholder on %s", (_name, ua, touch) => {
+    useUserAgent(ua as string, touch as number);
     const { container } = render(
       <DateField label="Target date" value="" onChange={vi.fn()} />,
     );
-    expect(screen.queryByRole("button")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: i18n.t("common:dateField.openPicker") }),
+    );
+    expect(showPicker).toHaveBeenCalledTimes(1);
     expect(placeholderEl(container)).not.toBeNull();
+  });
+
+  it("offers no clear button while the field is empty", () => {
+    useUserAgent(SAFARI_MAC);
+    render(<DateField label="Target date" value="" onChange={vi.fn()} />);
+    expect(
+      screen.queryByRole("button", { name: i18n.t("common:dateField.clear") }),
+    ).toBeNull();
+  });
+
+  it("clears a set date at once with its own button, bypassing the native picker", () => {
+    useUserAgent(SAFARI_IPHONE, 5);
+    const onChange = vi.fn();
+    const { container } = render(
+      <DateField label="Target date" value="2026-07-24" onChange={onChange} />,
+    );
+    const input = screen.getByLabelText("Target date") as HTMLInputElement;
+    fireEvent.click(screen.getByRole("button", { name: i18n.t("common:dateField.clear") }));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith("");
+    expect(input.value).toBe("");
+    expect(placeholderEl(container)).not.toBeNull();
+    expect(
+      screen.queryByRole("button", { name: i18n.t("common:dateField.clear") }),
+    ).toBeNull();
+
+    // Leaving the field afterwards does not commit a second time.
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no clear button on a disabled field", () => {
+    useUserAgent(SAFARI_MAC);
+    render(
+      <DateField label="Target date" value="2026-07-24" onChange={vi.fn()} disabled />,
+    );
+    expect(
+      screen.queryByRole("button", { name: i18n.t("common:dateField.clear") }),
+    ).toBeNull();
+  });
+
+  it("commits iOS picker Reset at once, without waiting for a blur", () => {
+    // Reset sets the value to "" through input/change while the field is focused.
+    useUserAgent(SAFARI_IPHONE, 5);
+    const onChange = vi.fn();
+    render(<DateField label="Target date" value="2026-07-24" onChange={onChange} />);
+    const input = screen.getByLabelText("Target date") as HTMLInputElement;
+
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "" } });
+    expect(onChange).toHaveBeenCalledWith("");
+
+    fireEvent.change(input, { target: { value: "2026-09-23" } });
+    expect(onChange).toHaveBeenLastCalledWith("2026-09-23");
+
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps commit-on-blur on desktop Safari, where segments are typed (#865)", () => {
+    useUserAgent(SAFARI_MAC);
+    const onChange = vi.fn();
+    render(<DateField label="Target date" value="" onChange={onChange} />);
+    const input = screen.getByLabelText("Target date") as HTMLInputElement;
+
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "0002-07-24" } });
+    fireEvent.change(input, { target: { value: "2026-07-24" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith("2026-07-24");
   });
 
   it("leaves Chrome and Firefox to their own native placeholder and button", () => {

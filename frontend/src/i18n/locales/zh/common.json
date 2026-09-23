@@ -495,5 +495,6 @@
   "dateField.placeholder.day": "日",
   "dateField.placeholder.month": "月",
   "dateField.placeholder.year": "年",
-  "dateField.openPicker": "打开日历"
+  "dateField.openPicker": "打开日历",
+  "dateField.clear": "清除日期"
 }

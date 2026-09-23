@@ -495,5 +495,6 @@
   "dateField.placeholder.day": "يوم",
   "dateField.placeholder.month": "شهر",
   "dateField.placeholder.year": "سنة",
-  "dateField.openPicker": "فتح التقويم"
+  "dateField.openPicker": "فتح التقويم",
+  "dateField.clear": "مسح التاريخ"
 }

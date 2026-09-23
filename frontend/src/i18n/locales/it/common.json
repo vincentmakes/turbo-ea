@@ -495,5 +495,6 @@
   "dateField.placeholder.day": "gg",
   "dateField.placeholder.month": "mm",
   "dateField.placeholder.year": "aaaa",
-  "dateField.openPicker": "Apri calendario"
+  "dateField.openPicker": "Apri calendario",
+  "dateField.clear": "Cancella data"
 }

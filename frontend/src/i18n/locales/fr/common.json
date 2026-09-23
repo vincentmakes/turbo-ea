@@ -495,5 +495,6 @@
   "dateField.placeholder.day": "jj",
   "dateField.placeholder.month": "mm",
   "dateField.placeholder.year": "aaaa",
-  "dateField.openPicker": "Ouvrir le calendrier"
+  "dateField.openPicker": "Ouvrir le calendrier",
+  "dateField.clear": "Effacer la date"
 }

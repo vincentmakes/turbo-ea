@@ -495,5 +495,6 @@
   "dateField.placeholder.day": "dd",
   "dateField.placeholder.month": "mm",
   "dateField.placeholder.year": "åååå",
-  "dateField.openPicker": "Åbn kalender"
+  "dateField.openPicker": "Åbn kalender",
+  "dateField.clear": "Ryd dato"
 }

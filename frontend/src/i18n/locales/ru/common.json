@@ -495,5 +495,6 @@
   "dateField.placeholder.day": "дд",
   "dateField.placeholder.month": "мм",
   "dateField.placeholder.year": "гггг",
-  "dateField.openPicker": "Открыть календарь"
+  "dateField.openPicker": "Открыть календарь",
+  "dateField.clear": "Очистить дату"
 }

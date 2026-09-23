@@ -60,9 +60,13 @@ export type DateFieldProps = Omit<
  *    segments that appear on focus are then always in the same order. Once
  *    focused, WebKit's own greyed segments show (see
  *    {@link webkitPlaceholderBackdrop}).
- *  - **A calendar button on Safari for macOS**, which has none of its own
- *    (Chrome's is part of its native widget). It opens the native picker via
- *    `showPicker()`. iPhone and iPad need none: tapping opens the picker.
+ *  - **A calendar button on every WebKit engine** (Safari on Mac, iPhone and
+ *    iPad), which has none of its own — Chrome's is part of its native widget.
+ *    It opens the native picker via `showPicker()`.
+ *  - **A clear button on WebKit while a date is set.** iOS's picker Reset
+ *    re-selects the old date on its wheel and can leave it in the field, so the
+ *    field offers its own clear, which commits `""` at once. Touch WebKit also
+ *    commits every picker change immediately rather than on blur.
  *
  * Every native date input in the app should use this component so the bug
  * cannot be reintroduced by copy-paste.
@@ -127,6 +131,17 @@ export function DateField({
     }
   };
 
+  // iOS's own picker Reset re-selects the old date on its wheel and cannot be
+  // relied on to leave the field empty, so WebKit gets a clear of its own that
+  // bypasses the native picker entirely.
+  const clearDate = () => {
+    const input = ownInputRef.current;
+    if (input) input.value = "";
+    setDraft("");
+    setIncomplete(false);
+    commit("");
+  };
+
   const inputExtras: Record<string, ReactNode> = {};
   if (showPlaceholder) {
     inputExtras.startAdornment = (
@@ -154,17 +169,33 @@ export function DateField({
       </Box>
     );
   }
-  if (engine === "webkit-desktop") {
+  if (webkit) {
+    const blocked = disabled || readOnly;
     inputExtras.endAdornment = (
-      <IconButton
-        size="small"
-        edge="end"
-        aria-label={t("dateField.openPicker")}
-        disabled={disabled || readOnly}
-        onClick={openPicker}
-      >
-        <MaterialSymbol icon="calendar_today" size={18} />
-      </IconButton>
+      <Box sx={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>
+        {draft !== "" && !blocked && (
+          <IconButton
+            size="small"
+            sx={ADORNMENT_BUTTON_SX}
+            aria-label={t("dateField.clear")}
+            // Keep focus where it is: the clear must not first blur the field.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={clearDate}
+          >
+            <MaterialSymbol icon="close" size={18} />
+          </IconButton>
+        )}
+        <IconButton
+          size="small"
+          edge="end"
+          sx={ADORNMENT_BUTTON_SX}
+          aria-label={t("dateField.openPicker")}
+          disabled={blocked}
+          onClick={openPicker}
+        >
+          <MaterialSymbol icon="calendar_today" size={18} />
+        </IconButton>
+      </Box>
     );
   }
 
@@ -199,7 +230,7 @@ export function DateField({
           "& .Mui-focused [data-date-placeholder]": { visibility: "hidden" },
         },
         // Our button replaces any native indicator, so a field never shows two.
-        engine === "webkit-desktop" && {
+        webkit && {
           "& input::-webkit-calendar-picker-indicator": { display: "none" },
         },
         ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
@@ -214,8 +245,11 @@ export function DateField({
         const partial = input.validity?.badInput ?? false;
         setDraft(next);
         if (!partial) setIncomplete(false);
-        // Already blurred (the picker took focus): nothing else will commit.
-        if (!focused.current && !partial) commit(next);
+        // Commit now when the field is already blurred (the picker took focus,
+        // so nothing else will), and always on touch WebKit: its only input
+        // is the picker — whole dates or Reset's "" — never segment typing,
+        // so the per-keystroke partial dates #865 guards against cannot occur.
+        if (!partial && (!focused.current || engine === "webkit-touch")) commit(next);
       }}
       onBlur={(e) => {
         focused.current = false;
@@ -231,6 +265,10 @@ export function DateField({
     />
   );
 }
+
+// Compact enough that a set date, the clear button and the calendar button
+// all fit a 170px field (the lifecycle row) without clipping the year.
+const ADORNMENT_BUTTON_SX = { p: 0.25, "&.MuiIconButton-edgeEnd": { mr: -0.5 } } as const;
 
 type SlotValue = object | ((ownerState: unknown) => object) | undefined;
 
