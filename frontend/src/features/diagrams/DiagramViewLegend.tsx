@@ -4,21 +4,18 @@ import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import type { ColorEntry } from "./viewSource";
+import type { LegendSectionData } from "./viewSource";
 
 /** One colour scale — a card type's field rule, or the approval status scale. */
-export interface LegendSection {
-  key: string;
-  title: string;
-  entries: ColorEntry[];
-}
+export type LegendSection = LegendSectionData;
 
 interface Props {
   /** One per active rule. Several types can be coloured at once. */
   sections: LegendSection[];
   /** Number of cells a rule actually coloured. */
   appliedCount: number;
-  onReset: () => void;
+  /** Omitted in the read-only viewer, which cannot change the view. */
+  onReset?: () => void;
 }
 
 /**
@@ -78,11 +75,13 @@ export default function DiagramViewLegend({ sections, appliedCount, onReset }: P
             </Box>
           ))}
       </Box>
-      <Tooltip title={t("legend.reset")}>
-        <IconButton size="small" onClick={onReset} sx={{ ml: 1 }}>
-          <MaterialSymbol icon="restart_alt" size={16} />
-        </IconButton>
-      </Tooltip>
+      {onReset && (
+        <Tooltip title={t("legend.reset")}>
+          <IconButton size="small" onClick={onReset} sx={{ ml: 1 }}>
+            <MaterialSymbol icon="restart_alt" size={16} />
+          </IconButton>
+        </Tooltip>
+      )}
     </Box>
   );
 }

@@ -75,4 +75,10 @@ describe("DiagramViewLegend", () => {
     render(<DiagramViewLegend sections={[APP_SECTION]} appliedCount={7} onReset={vi.fn()} />);
     expect(screen.getByText(/7/)).toBeInTheDocument();
   });
+
+  it("offers no reset button when read-only", () => {
+    render(<DiagramViewLegend sections={[APP_SECTION]} appliedCount={1} />);
+    expect(screen.getByText("Application · Criticality")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
 });

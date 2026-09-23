@@ -86,7 +86,7 @@ The **Color by** dropdown in the toolbar recolors the cards on the canvas:
 - **Approval status** — recolors by `approved` / `pending` / `broken`.
 - **Field values** — tick a single-select field under any card type on the canvas. **Several card types can each carry one rule at the same time** — Applications by criticality *and* IT Components by hosting model. A card type you give no rule keeps the colour it already has, including a fill you set by hand; only a card whose own rule finds no value turns grey. Ticking a second field within one card type replaces the first, because a card has one fill.
 
-A floating legend in the bottom-left shows one scale per active rule. Field rules and **Approval status** are alternatives rather than layers: choosing one clears the other. Untick every rule and the canvas returns to card colors. The choice is saved with the diagram.
+A floating legend in the bottom-left shows one scale per active rule. Field rules and **Approval status** are alternatives rather than layers: choosing one clears the other. Untick every rule and the canvas returns to card colors. The choice is saved with the diagram. The same legend is shown when the diagram is opened in view mode, so readers can tell what the colours mean.
 
 #### Show on card
 

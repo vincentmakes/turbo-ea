@@ -116,7 +116,7 @@ import {
   colorKeyForCard,
   describeView,
   normaliseViewSource,
-  NO_VALUE,
+  buildLegend,
   type ViewResolvers,
   type ViewSource,
 } from "./viewSource";
@@ -3402,18 +3402,16 @@ export default function DiagramEditor() {
 
         const cardById = new Map(items.map((c) => [c.id, c] as const));
         const colorByCardId = new Map<string, string>();
-        const seenKeys = new Set<string>();
-        let coloured = 0;
+        const onCanvas: Card[] = [];
         for (const id of snapshot.ids) {
           const c = cardById.get(id);
           if (!c) continue;
+          onCanvas.push(c);
           const key = colorKeyForCard(view, c);
           if (key == null) continue; // no rule covers this card — leave it alone
           const entry = colorMap.get(key);
           if (!entry) continue;
           colorByCardId.set(id, entry.color);
-          seenKeys.add(key);
-          if (entry.value !== NO_VALUE) coloured += 1;
         }
 
         if (!isCurrent()) return;
@@ -3421,21 +3419,14 @@ export default function DiagramEditor() {
         applyCardLabels(frame, buildLinesByCardId(items));
         applyLogosFromCards(frame, items);
 
-        // One legend section per rule. The "no value" swatch only appears where
-        // a card on this canvas actually has no value — a permanent grey swatch
-        // in every section would be noise.
-        setViewLegendSections(
-          described.sections.map((sec) => ({
-            key: sec.key,
-            title: sec.title,
-            entries: Array.from(colorMap.values()).filter(
-              (e) =>
-                e.typeKey === sec.typeKey &&
-                e.fieldKey === sec.fieldKey &&
-                (e.value !== NO_VALUE || seenKeys.has(e.key)),
-            ),
-          })),
+        // One legend section per rule — shared with the read-only viewer.
+        const { sections, coloured } = buildLegend(
+          view,
+          fsTypesRef.current,
+          onCanvas,
+          viewResolvers,
         );
+        setViewLegendSections(sections);
         // Cells a rule actually coloured — not "cells touched", which used to
         // report the number greyed out whenever nothing matched.
         setViewAppliedCount(coloured > 0 ? coloured : painted);

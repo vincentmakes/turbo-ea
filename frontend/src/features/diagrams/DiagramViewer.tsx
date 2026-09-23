@@ -16,6 +16,7 @@ import { useAuthContext } from "@/hooks/AuthContext";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { usePageSubject } from "@/hooks/usePageTitle";
+import { useFieldLabel, useOptionLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { cardLogoUrl } from "@/components/CardLogoAvatar";
 import {
   applyCardLogosToXml,
@@ -25,6 +26,8 @@ import {
   readCardBoxesFromXml,
 } from "./drawio-shapes";
 import { composeCardLogoImage } from "./cardLogoImage";
+import DiagramViewLegend from "./DiagramViewLegend";
+import { buildLegend, normaliseViewSource, type ViewResolvers } from "./viewSource";
 import type { Card } from "@/types";
 
 /* ------------------------------------------------------------------ */
@@ -40,7 +43,8 @@ interface DiagramData {
   id: string;
   name: string;
   type: string;
-  data: { xml?: string; thumbnail?: string };
+  /** `view` is the editor's saved "colour by" choice — untrusted JSON. */
+  data: { xml?: string; thumbnail?: string; view?: unknown };
 }
 
 const EMPTY_DIAGRAM =
@@ -91,22 +95,30 @@ function listenForCardClicks(onCardClick: (cardId: string) => void) {
 type TypeLook = { icon?: string; color?: string };
 
 /**
+ * The cards on a stored diagram, looked up in batches through
+ * `fetchCardsByIds`: a single URL for a big canvas blew past the edge proxy's
+ * 8 KB request line and the viewer reported the 414 as "Diagram not found"
+ * (#1093). One lookup feeds both the logos and the colour legend.
+ */
+async function cardsOnDiagram(d: DiagramData, signal?: AbortSignal): Promise<Card[]> {
+  const xml = d.data?.xml || "";
+  const ids = xml ? extractCardIds(xml) : [];
+  if (ids.length === 0) return [];
+  return fetchCardsByIds(ids, { signal });
+}
+
+/**
  * Return the diagram with each card's logo painted into its XML, or the
- * diagram exactly as stored when there is nothing to paint. The card lookup
- * goes through `fetchCardsByIds` in batches: a single URL for a big canvas
- * blew past the edge proxy's 8 KB request line and the viewer reported the
- * 414 as "Diagram not found" (#1093). Any failure in here is the caller's to
- * swallow — a logo is never worth a blank viewer.
+ * diagram exactly as stored when there is nothing to paint. Any failure in
+ * here is the caller's to swallow — a logo is never worth a blank viewer.
  */
 async function withCardLogos(
   d: DiagramData,
+  cards: Card[],
   types: Map<string, TypeLook>,
-  signal?: AbortSignal,
 ): Promise<DiagramData> {
   const xml = d.data?.xml || "";
-  const ids = xml ? extractCardIds(xml) : [];
-  if (ids.length === 0) return d;
-  const cards = await fetchCardsByIds(ids, { signal });
+  if (!xml) return d;
   const byCard = new Map(cards.filter((c) => c.logo_updated_at).map((c) => [c.id, c]));
   if (byCard.size === 0) return d;
   // The composite is card-shaped, so it has to be built at each cell's
@@ -151,10 +163,18 @@ export default function DiagramViewer() {
   const [loading, setLoading] = useState(true);
   const [snackMsg, setSnackMsg] = useState("");
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [cards, setCards] = useState<Card[]>([]);
 
   // Read through a ref: the load effect must not re-run (and re-render the
   // whole iframe) just because the metamodel singleton resolved.
   const { types } = useMetamodel();
+  const typeLabel = useTypeLabel();
+  const fieldLabel = useFieldLabel();
+  const optionLabel = useOptionLabel();
+  const viewResolvers = useMemo<ViewResolvers>(
+    () => ({ typeLabel, fieldLabel, optionLabel, t }),
+    [typeLabel, fieldLabel, optionLabel, t],
+  );
   const typesRef = useRef(new Map<string, TypeLook>());
   typesRef.current = useMemo(
     () => new Map(types.map((tp) => [tp.key, { icon: tp.icon, color: tp.color }])),
@@ -196,17 +216,29 @@ export default function DiagramViewer() {
       }
       if (!isCurrent()) return;
       let next = stored;
+      let onCanvas: Card[] = [];
       try {
-        next = await withCardLogos(stored, typesRef.current, signal);
+        onCanvas = await cardsOnDiagram(stored, signal);
+        next = await withCardLogos(stored, onCanvas, typesRef.current);
       } catch {
         // Quiet by design: the diagram renders exactly as stored, without
         // its logos, rather than not at all.
       }
       if (!isCurrent()) return;
+      setCards(onCanvas);
       setDiagram(next);
       setLoading(false);
     },
     [id],
+  );
+
+  /* ---------- Colour legend ----------
+     The editor saves its "colour by" choice with the diagram and the colours
+     it painted into the XML, so the viewer already shows them — the reader
+     needs the key too. Built from the same pure helper as the editor's. */
+  const legend = useMemo(
+    () => buildLegend(normaliseViewSource(diagram?.data?.view), types, cards, viewResolvers),
+    [diagram?.data?.view, types, cards, viewResolvers],
   );
 
   /* ---------- Render ---------- */
@@ -283,6 +315,7 @@ export default function DiagramViewer() {
             style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
             title={t("viewer.title")}
           />
+          <DiagramViewLegend sections={legend.sections} appliedCount={legend.coloured} />
         </Box>
       </Box>
 

@@ -86,7 +86,7 @@ Le menu déroulant **Colorer par** dans la barre d'outils recolore les fiches du
 - **Statut d'approbation** -- recolore par `approuvée` / `en attente` / `cassée`.
 - **Valeurs de champ** -- cochez un champ à sélection unique sous n'importe quel type de fiche présent sur le canevas. **Plusieurs types de fiches peuvent porter chacun une règle en même temps** -- les Applications par criticité *et* les Composants IT par modèle d'hébergement. Un type sans règle conserve sa couleur actuelle, y compris un remplissage défini à la main ; seule une fiche dont la règle ne trouve aucune valeur devient grise. Un second champ au sein d'un même type remplace le premier, car une fiche n'a qu'un remplissage.
 
-Une légende flottante en bas à gauche affiche une échelle par règle active. Les règles de champ et le **Statut d'approbation** sont des alternatives, pas des couches : choisir l'un efface l'autre. Décochez toutes les règles et le canevas revient aux couleurs des fiches. Le choix est enregistré avec le diagramme.
+Une légende flottante en bas à gauche affiche une échelle par règle active. Les règles de champ et le **Statut d'approbation** sont des alternatives, pas des couches : choisir l'un efface l'autre. Décochez toutes les règles et le canevas revient aux couleurs des fiches. Le choix est enregistré avec le diagramme. La même légende s'affiche lorsque le diagramme est ouvert en mode consultation, afin que les lecteurs sachent ce que signifient les couleurs.
 
 #### Afficher sur la fiche
 

@@ -86,7 +86,7 @@ Il menu a tendina **Colora per** nella barra strumenti ricolora le schede sulla 
 - **Stato di approvazione** -- ricolora per `approvata` / `in attesa` / `rotta`.
 - **Valori di campo** -- spuntate un campo a selezione singola sotto qualsiasi tipo di scheda presente sulla tela. **Più tipi di scheda possono portare una regola ciascuno nello stesso momento**: le Applicazioni per criticità *e* i Componenti IT per modello di hosting. Un tipo senza regola mantiene il colore che ha già, compreso un riempimento impostato a mano; diventa grigia solo una scheda la cui regola non trova alcun valore. Un secondo campo all'interno di uno stesso tipo sostituisce il primo, perché una scheda ha un solo riempimento.
 
-Una legenda fluttuante in basso a sinistra mostra una scala per ogni regola attiva. Le regole di campo e lo **Stato di approvazione** sono alternative, non livelli: sceglierne una cancella l'altra. Togliendo ogni regola la tela torna ai colori delle schede. La scelta viene salvata col diagramma.
+Una legenda fluttuante in basso a sinistra mostra una scala per ogni regola attiva. Le regole di campo e lo **Stato di approvazione** sono alternative, non livelli: sceglierne una cancella l'altra. Togliendo ogni regola la tela torna ai colori delle schede. La scelta viene salvata col diagramma. La stessa legenda compare anche quando il diagramma è aperto in modalità di visualizzazione, così chi lo legge sa cosa significano i colori.
 
 #### Mostra sulla scheda
 

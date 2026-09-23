@@ -12,7 +12,30 @@ vi.mock("@/api/client", async (importOriginal) => ({
 }));
 vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: () => ({
-    types: [{ key: "Application", label: "Application", icon: "apps", color: "#0f7eb5" }],
+    types: [
+      {
+        key: "Application",
+        label: "Application",
+        icon: "apps",
+        color: "#0f7eb5",
+        fields_schema: [
+          {
+            section: "Main",
+            fields: [
+              {
+                key: "criticality",
+                label: "Criticality",
+                type: "single_select",
+                options: [
+                  { key: "high", label: "Highly critical", color: "#ff0000" },
+                  { key: "low", label: "Barely critical", color: "#00ff00" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
     relationTypes: [],
     loading: false,
   }),
@@ -149,5 +172,43 @@ describe("DiagramViewer", () => {
     const src = decodeURIComponent(iframe()!.getAttribute("src")!.split("#R")[1]);
     expect(src).toContain("data:image/png;base64,AAA");
     expect(src).not.toBe(d.data.xml);
+  });
+
+  describe("colour legend", () => {
+    function mockWithView(view: unknown, items: unknown[]) {
+      const d = { ...diagram(["card-1", "card-2"]), data: { ...diagram(["card-1", "card-2"]).data, view } };
+      mockGet.mockImplementation(async (path: string) => {
+        if (path === "/diagrams/d1") return d;
+        if (path.startsWith("/cards?ids=")) return { items };
+        throw new Error(`unexpected path ${path}`);
+      });
+    }
+
+    it("shows the saved colour-by legend, read-only", async () => {
+      mockWithView({ kind: "card_fields", fields: { Application: "criticality" } }, [
+        { id: "card-1", name: "A", type: "Application", attributes: { criticality: "high" } },
+        { id: "card-2", name: "B", type: "Application", attributes: {} },
+      ]);
+      renderViewer();
+      await waitFor(() => expect(screen.getByText("Application · Criticality")).toBeInTheDocument());
+      expect(screen.getByText("Highly critical")).toBeInTheDocument();
+      expect(screen.getByText("Barely critical")).toBeInTheDocument();
+      // card-2 has no value, so the "no value" swatch belongs in the key.
+      expect(screen.getByText("No value")).toBeInTheDocument();
+      expect(screen.getByText("1 cell colored")).toBeInTheDocument();
+      // The viewer cannot change the view, so it offers no reset.
+      expect(screen.queryByRole("button", { name: "Reset to card colors" })).toBeNull();
+      // One card lookup feeds both the logos and the legend.
+      expect(mockGet.mock.calls.filter((c) => (c[0] as string).startsWith("/cards?ids="))).toHaveLength(1);
+    });
+
+    it("shows no legend when the diagram is coloured by card type", async () => {
+      mockWithView({ kind: "card_type" }, [
+        { id: "card-1", name: "A", type: "Application", attributes: { criticality: "high" } },
+      ]);
+      renderViewer();
+      await waitFor(() => expect(iframe()).not.toBeNull());
+      expect(screen.queryByText("Highly critical")).toBeNull();
+    });
   });
 });

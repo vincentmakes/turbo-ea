@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildColorMap,
+  buildLegend,
   colorKey,
   colorKeyForCard,
   describeView,
@@ -232,6 +233,31 @@ describe("toggleFieldRule", () => {
     expect(toggleFieldRule({ kind: "approval_status" }, "Application", "criticality")).toEqual({
       kind: "card_fields",
       fields: { Application: "criticality" },
+    });
+  });
+});
+
+describe("buildLegend", () => {
+  it("lists each rule's scale and adds 'no value' only where a card lacks one", () => {
+    const view: ViewSource = { kind: "card_fields", fields: { Application: "criticality", Process: "criticality" } };
+    const { sections, coloured } = buildLegend(view, TYPES, [
+      { type: "Application", attributes: { criticality: "high" } },
+      { type: "Process", attributes: {} },
+      { type: "Provider", attributes: { tier: "gold" } }, // no rule — ignored
+    ], R);
+    expect(sections.map((s) => s.title)).toEqual([
+      "Application · Criticality",
+      "Process · Criticality",
+    ]);
+    expect(sections[0].entries.map((e) => e.value)).toEqual(["high", "low"]);
+    expect(sections[1].entries.map((e) => e.value)).toEqual(["high", NO_VALUE]);
+    expect(coloured).toBe(1);
+  });
+
+  it("is empty for the card-type view", () => {
+    expect(buildLegend({ kind: "card_type" }, TYPES, [{ type: "Application" }], R)).toEqual({
+      sections: [],
+      coloured: 0,
     });
   });
 });

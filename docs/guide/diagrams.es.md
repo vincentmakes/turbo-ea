@@ -86,7 +86,7 @@ El desplegable **Colorear por** de la barra de herramientas recolorea las tarjet
 - **Estado de aprobación** -- recolorea por `aprobada` / `pendiente` / `rota`.
 - **Valores de campo** -- marque un campo de selección única bajo cualquier tipo de tarjeta presente en el lienzo. **Varios tipos de tarjeta pueden llevar una regla cada uno al mismo tiempo**: Aplicaciones por criticidad *y* Componentes de TI por modelo de alojamiento. Un tipo sin regla conserva el color que ya tenía, incluido un relleno puesto a mano; solo se vuelve gris una tarjeta cuya propia regla no encuentra valor. Un segundo campo dentro de un mismo tipo sustituye al primero, porque una tarjeta tiene un relleno.
 
-Una leyenda flotante en la esquina inferior izquierda muestra una escala por regla activa. Las reglas de campo y el **Estado de aprobación** son alternativas, no capas: elegir una borra la otra. Si desmarca todas las reglas, el lienzo vuelve a los colores de tarjeta. La elección se guarda con el diagrama.
+Una leyenda flotante en la esquina inferior izquierda muestra una escala por regla activa. Las reglas de campo y el **Estado de aprobación** son alternativas, no capas: elegir una borra la otra. Si desmarca todas las reglas, el lienzo vuelve a los colores de tarjeta. La elección se guarda con el diagrama. La misma leyenda se muestra cuando el diagrama se abre en modo de visualización, para que los lectores sepan qué significan los colores.
 
 #### Mostrar en la tarjeta
 

@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.149.0] - 2026-09-23
+
+### Added
+
+- **The diagram colour legend now also appears in view mode.** When a diagram is coloured by approval status or by a card field, opening it read-only shows the same legend as the editor, so readers can tell what each colour means.
+
 ## [2.148.0] - 2026-09-22
 
 ### Added
