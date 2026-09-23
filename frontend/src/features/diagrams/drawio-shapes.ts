@@ -412,6 +412,35 @@ export function isSwimlaneStyle(style: unknown): boolean {
   return String(style ?? "").includes("shape=swimlane");
 }
 
+/** The part of an mxCell the context-menu resolver reads. */
+export interface MenuCellLike {
+  value?: { getAttribute?: (name: string) => string | null } | null;
+  parent?: MenuCellLike | null;
+}
+
+/**
+ * The card cell a right-click belongs to, or `null` when it landed on no card.
+ *
+ * DrawIO hands the popup menu the cell it hit-tested, and a swimlane is only
+ * hit on its header and border: right-clicking the open body of a card that
+ * was drilled down into a container passes no cell at all, which used to drop
+ * every card action (View Card Details…, Unlink, …) from the menu. So when the
+ * hit cell resolves to no card, fall back to the container under the pointer
+ * (`swimlaneAt`, the graph's `getSwimlaneAt`). Walks up either way, so a click
+ * on an inner label still resolves to its card.
+ */
+export function resolveMenuCardCell<T extends MenuCellLike>(
+  cell: T | null | undefined,
+  swimlaneAt: () => T | null | undefined,
+): T | null {
+  const walk = (start: T | null | undefined): T | null => {
+    let c: MenuCellLike | null | undefined = start;
+    while (c && !c.value?.getAttribute?.("cardId")) c = c.parent;
+    return (c as T | null | undefined) ?? null;
+  };
+  return walk(cell) ?? (cell ? null : walk(swimlaneAt()));
+}
+
 /**
  * Build a card cell's `label` value. **The single renderer** — every path that
  * labels a card goes through here, the same rule `relationEdgeStyle` enforces

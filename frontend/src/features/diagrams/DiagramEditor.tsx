@@ -76,6 +76,7 @@ import {
   convertShapeToPendingCard,
   convertShapeToContainer,
   drillDownInto,
+  resolveMenuCardCell,
   rollUpInto,
   isInsideContainer,
   findExistingCardCellId,
@@ -428,12 +429,14 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
           );
 
           // If the right-click landed on (or inside) a card cell, surface
-          // the card-details shortcut. Walk up so clicks on inner labels
-          // still resolve to the card.
-          let cardCell = cell;
-          while (cardCell && !cardCell.value?.getAttribute?.("cardId")) {
-            cardCell = cardCell.parent;
-          }
+          // the card-details shortcut — including the open body of a
+          // drilled-down container, which DrawIO does not hit-test.
+          const cardCell = resolveMenuCardCell(cell, () =>
+            graph.getSwimlaneAt(
+              mxEvent.getClientX(evt) - offset.left + container.scrollLeft,
+              mxEvent.getClientY(evt) - offset.top + container.scrollTop,
+            ),
+          );
           const cardId = cardCell?.value?.getAttribute?.("cardId");
           const isPending = cardCell?.value?.getAttribute?.("pending") === "1";
           const isSyncedCard =

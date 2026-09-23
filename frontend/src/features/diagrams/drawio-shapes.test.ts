@@ -44,6 +44,7 @@ import {
   type DiagramGroupInput,
   type DiagramConnectorInput,
   fanWaypoints,
+  resolveMenuCardCell,
 } from "./drawio-shapes";
 import { LOGO_BOX_PX } from "./cardLogoImage";
 import { ICON_PATHS } from "./iconPaths";
@@ -2857,3 +2858,32 @@ describe("reading the geometry a logo has to match", () => {
   });
 });
 
+
+describe("resolveMenuCardCell", () => {
+  type C = { id: string; value?: { getAttribute: (n: string) => string | null }; parent?: C | null };
+  const node = (id: string, cardId: string | null, parent: C | null = null): C => ({
+    id,
+    value: { getAttribute: (n) => (n === "cardId" ? cardId : null) },
+    parent,
+  });
+  const container = node("container", "card-1");
+  const child = node("child", "card-2", container);
+  const plain = node("plain", null, null);
+  const label = node("label", null, child);
+
+  it("resolves the hit cell, walking up from an inner label", () => {
+    expect(resolveMenuCardCell(child, () => container)?.id).toBe("child");
+    expect(resolveMenuCardCell(label, () => null)?.id).toBe("child");
+  });
+
+  it("falls back to the container under the pointer when DrawIO hit nothing", () => {
+    // The open body of a drilled-down card is not hit-tested by DrawIO.
+    expect(resolveMenuCardCell(null, () => container)?.id).toBe("container");
+  });
+
+  it("does not claim a plain shape or empty canvas for a card", () => {
+    expect(resolveMenuCardCell(plain, () => container)).toBeNull();
+    expect(resolveMenuCardCell(null, () => null)).toBeNull();
+    expect(resolveMenuCardCell(null, () => plain)).toBeNull();
+  });
+});
