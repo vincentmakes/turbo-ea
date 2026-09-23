@@ -77,6 +77,7 @@ import {
   convertShapeToContainer,
   drillDownInto,
   resolveMenuCardCell,
+  capMenuToViewport,
   rollUpInto,
   isInsideContainer,
   findExistingCardCellId,
@@ -243,7 +244,8 @@ interface DrawIOMessage {
     | "relinkCell"
     | "convertCell"
     | "containerizeCell"
-    | "detachCell";
+    | "detachCell"
+    | "popupMenu";
   xml?: string;
   data?: string;
   libraries?: string;
@@ -253,6 +255,8 @@ interface DrawIOMessage {
   y?: number;
   cardId?: string;
   cellId?: string;
+  /** `popupMenu` only: whether DrawIO's right-click menu is now open. */
+  open?: boolean;
   edgeCellId?: string;
   sourceCardId?: string;
   targetCardId?: string;
@@ -400,6 +404,27 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
       }
 
       /* ---------- Right-click context menu ---------- */
+      // Fit the menu to the visible screen before DrawIO positions it, so a
+      // menu taller than a tablet in landscape scrolls instead of being
+      // cropped (see capMenuToViewport). The host is told when it opens and
+      // closes: the colour legend floats over the canvas in the parent page
+      // and would otherwise cover the menu's last rows.
+      const popupHandler = graph.popupMenuHandler;
+      if (popupHandler && typeof popupHandler.showMenu === "function") {
+        const origShowMenu = popupHandler.showMenu;
+        popupHandler.showMenu = function (...args: unknown[]) {
+          capMenuToViewport(this.div, win);
+          win.parent.postMessage(JSON.stringify({ event: "popupMenu", open: true }), "*");
+          return origShowMenu.apply(this, args);
+        };
+      }
+      if (popupHandler && typeof popupHandler.hideMenu === "function") {
+        const origHideMenu = popupHandler.hideMenu;
+        popupHandler.hideMenu = function (...args: unknown[]) {
+          win.parent.postMessage(JSON.stringify({ event: "popupMenu", open: false }), "*");
+          return origHideMenu.apply(this, args);
+        };
+      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const menus = ui.menus as any;
       if (menus?.createPopupMenu) {
@@ -817,6 +842,9 @@ export default function DiagramEditor() {
     [],
   );
   const [viewAppliedCount, setViewAppliedCount] = useState(0);
+  // DrawIO's right-click menu lives inside the iframe; while it is open the
+  // legend (which floats over the canvas from this page) steps aside.
+  const [popupMenuOpen, setPopupMenuOpen] = useState(false);
   // Relation verbs ("provides", "consumes", …) hidden on this diagram. Saved
   // with the diagram, so the read-only viewer and any published embed show
   // exactly what the author arranged. A ref mirrors it because the edge-style
@@ -3034,6 +3062,10 @@ export default function DiagramEditor() {
           if (msg.cellId) handleDetachRequest(msg.cellId);
           break;
 
+        case "popupMenu":
+          setPopupMenuOpen(msg.open === true);
+          break;
+
         default:
           break;
       }
@@ -3828,7 +3860,7 @@ export default function DiagramEditor() {
             }}
             title={t("editor.title")}
           />
-          {viewLegendSections.length > 0 && (
+          {viewLegendSections.length > 0 && !popupMenuOpen && (
             <DiagramViewLegend
               sections={viewLegendSections}
               appliedCount={viewAppliedCount}

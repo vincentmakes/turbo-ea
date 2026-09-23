@@ -45,6 +45,7 @@ import {
   type DiagramConnectorInput,
   fanWaypoints,
   resolveMenuCardCell,
+  capMenuToViewport,
 } from "./drawio-shapes";
 import { LOGO_BOX_PX } from "./cardLogoImage";
 import { ICON_PATHS } from "./iconPaths";
@@ -2885,5 +2886,25 @@ describe("resolveMenuCardCell", () => {
     expect(resolveMenuCardCell(plain, () => container)).toBeNull();
     expect(resolveMenuCardCell(null, () => null)).toBeNull();
     expect(resolveMenuCardCell(null, () => plain)).toBeNull();
+  });
+});
+
+describe("capMenuToViewport", () => {
+  it("caps the menu to the visual viewport and lets it scroll", () => {
+    const div = document.createElement("div");
+    capMenuToViewport(div, { innerHeight: 1000, visualViewport: { height: 700 } });
+    // The visible area, not the layout viewport, minus a margin on each side.
+    expect(div.style.maxHeight).toBe("684px");
+    expect(div.style.overflowY).toBe("auto");
+    expect(div.style.overflowX).toBe("hidden");
+  });
+
+  it("falls back to innerHeight and never goes negative", () => {
+    const div = document.createElement("div");
+    capMenuToViewport(div, { innerHeight: 500 });
+    expect(div.style.maxHeight).toBe("484px");
+    capMenuToViewport(div, { innerHeight: 4, visualViewport: null });
+    expect(div.style.maxHeight).toBe("0px");
+    expect(() => capMenuToViewport(null, { innerHeight: 500 })).not.toThrow();
   });
 });

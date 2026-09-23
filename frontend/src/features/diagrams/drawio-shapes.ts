@@ -412,6 +412,33 @@ export function isSwimlaneStyle(style: unknown): boolean {
   return String(style ?? "").includes("shape=swimlane");
 }
 
+/**
+ * Keep a DrawIO popup menu inside the visible screen, scrolling when it is
+ * taller than that.
+ *
+ * `mxPopupMenu.showMenu` only *moves* the menu into view (`mxUtils.fit`); it
+ * never shrinks it, so the editor's right-click menu — some 25 rows once the
+ * card actions are added — ran off the bottom of an iPad in landscape and
+ * cropped exactly those actions. DrawIO caps its own submenus the same way.
+ * Measured on the visual viewport because iPad Safari's toolbars and the
+ * on-screen keyboard shrink what is visible without changing `innerHeight`;
+ * read on every open, so a rotation between opens is picked up.
+ */
+export function capMenuToViewport(
+  div: HTMLElement | null | undefined,
+  win: { innerHeight: number; visualViewport?: { height: number } | null },
+  margin = 8,
+): void {
+  if (!div) return;
+  const visible = win.visualViewport?.height ?? win.innerHeight;
+  // Border-box so the cap includes the menu's own padding and border.
+  div.style.boxSizing = "border-box";
+  div.style.maxHeight = `${Math.max(0, Math.floor(visible - 2 * margin))}px`;
+  div.style.overflowY = "auto";
+  div.style.overflowX = "hidden";
+  div.style.setProperty("-webkit-overflow-scrolling", "touch");
+}
+
 /** The part of an mxCell the context-menu resolver reads. */
 export interface MenuCellLike {
   value?: { getAttribute?: (name: string) => string | null } | null;
