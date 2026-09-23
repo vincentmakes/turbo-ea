@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - **Right-clicking inside a drilled-down card on a diagram shows the card actions again.** Once a card had been drilled down into a container, right-clicking the open area inside it offered only the canvas menu; *View Card Details…*, *Change Linked Card…* and the other card actions are back.
-- **The diagram editor's right-click menu fits the screen on tablets.** On an iPad in landscape the menu ran off the bottom, hiding the card actions; it now stays within the visible screen and scrolls, and the colour legend steps aside while it is open.
+- **The diagram editor's right-click menu fits the screen on tablets.** On an iPad in landscape the menu ran off the bottom, hiding the card actions; it now stays within the visible screen, can be scrolled with a finger (a swipe no longer triggers an item or slides the page), and the colour legend steps aside while it is open.
 
 ## [2.148.0] - 2026-09-22
 

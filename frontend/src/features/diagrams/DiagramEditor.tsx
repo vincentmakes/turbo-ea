@@ -79,6 +79,7 @@ import {
   resolveMenuCardCell,
   fitMenuToBand,
   visibleBand,
+  enableMenuTouchScroll,
   rollUpInto,
   isInsideContainer,
   findExistingCardCellId,
@@ -415,6 +416,7 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
         const origShowMenu = popupHandler.showMenu;
         popupHandler.showMenu = function (...args: unknown[]) {
           fitMenuToBand(this.div, visibleBand(win), 8, false);
+          enableMenuTouchScroll(this.div);
           win.parent.postMessage(JSON.stringify({ event: "popupMenu", open: true }), "*");
           const result = origShowMenu.apply(this, args);
           // DrawIO fits the menu to the frame in a deferred callback; this one

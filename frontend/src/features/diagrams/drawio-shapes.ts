@@ -488,6 +488,8 @@ export function fitMenuToBand(
   s.overflowY = "auto";
   s.overflowX = "hidden";
   s.setProperty("-webkit-overflow-scrolling", "touch");
+  // A scroll that reaches the menu's end must not carry on into the page.
+  s.setProperty("overscroll-behavior", "contain");
   // Before DrawIO shows the menu it is not in the document yet, so its
   // offsets read 0 — position only once it has been placed.
   if (!reposition) return;
@@ -498,6 +500,63 @@ export function fitMenuToBand(
   } else if (top < band.top + margin) {
     s.top = `${band.top + margin}px`;
   }
+}
+
+/** Movement, in px, before a touch on the menu counts as a scroll, not a tap. */
+const MENU_DRAG_THRESHOLD = 6;
+
+/**
+ * Let a finger scroll a DrawIO popup menu.
+ *
+ * On iPadOS Safari (which reports itself as a Mac) DrawIO registers touch
+ * listeners on the menu rows and `preventDefault`s every `touchstart`, so the
+ * browser never starts a native scroll: the capped menu could not be scrolled,
+ * a swipe ended as a tap on whatever row it lifted from, and the gesture fell
+ * through to the page. These capture-phase listeners run before the rows'.
+ * They act only while `touchmove` is still `cancelable` — i.e. while the
+ * browser is *not* scrolling natively — so where native scrolling works
+ * (pointer-event browsers) they stand aside and there is no double scroll.
+ * A tap still reaches the row untouched. Installed once per menu element.
+ */
+export function enableMenuTouchScroll(div: HTMLElement | null | undefined): void {
+  if (!div || div.dataset.turboTouchScroll === "1") return;
+  div.dataset.turboTouchScroll = "1";
+  let startY = 0;
+  let startScroll = 0;
+  let dragging = false;
+  div.addEventListener(
+    "touchstart",
+    (e: TouchEvent) => {
+      startY = e.touches[0]?.clientY ?? 0;
+      startScroll = div.scrollTop;
+      dragging = false;
+    },
+    { capture: true, passive: true },
+  );
+  div.addEventListener(
+    "touchmove",
+    (e: TouchEvent) => {
+      if (!e.cancelable) return; // the browser is scrolling natively
+      const dy = (e.touches[0]?.clientY ?? startY) - startY;
+      if (!dragging && Math.abs(dy) < MENU_DRAG_THRESHOLD) return;
+      dragging = true;
+      div.scrollTop = startScroll - dy;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    { capture: true, passive: false },
+  );
+  div.addEventListener(
+    "touchend",
+    (e: TouchEvent) => {
+      if (!dragging) return;
+      // The end of a swipe is not a tap on the row it lifted from.
+      dragging = false;
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
+    },
+    { capture: true, passive: false },
+  );
 }
 
 /** The part of an mxCell the context-menu resolver reads. */

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   buildCardCellData,
   applyCardTypeIcons,
@@ -47,6 +47,7 @@ import {
   resolveMenuCardCell,
   fitMenuToBand,
   visibleBand,
+  enableMenuTouchScroll,
 } from "./drawio-shapes";
 import { LOGO_BOX_PX } from "./cardLogoImage";
 import { ICON_PATHS } from "./iconPaths";
@@ -2970,5 +2971,68 @@ describe("fitMenuToBand", () => {
     expect(div.style.top).toBe("58px");
     expect(div.style.maxHeight).toBe("0px");
     expect(() => fitMenuToBand(null, { top: 0, bottom: 1 })).not.toThrow();
+  });
+});
+
+describe("enableMenuTouchScroll", () => {
+  function touch(type: string, clientY: number | null, cancelable = true): Event {
+    const e = new Event(type, { bubbles: true, cancelable });
+    Object.defineProperty(e, "touches", { value: clientY == null ? [] : [{ clientY }] });
+    return e;
+  }
+
+  function setup() {
+    const div = document.createElement("div");
+    const row = document.createElement("div");
+    div.appendChild(row);
+    document.body.appendChild(div);
+    // A scrollable menu: jsdom does no layout, so scrollTop is a plain field here.
+    let top = 0;
+    Object.defineProperty(div, "scrollTop", { get: () => top, set: (v: number) => (top = v) });
+    const rowEnd = vi.fn();
+    row.addEventListener("touchend", rowEnd);
+    enableMenuTouchScroll(div);
+    return { div, row, rowEnd };
+  }
+
+  it("scrolls the menu with the finger and keeps the swipe from the page", () => {
+    const { div, row } = setup();
+    row.dispatchEvent(touch("touchstart", 400));
+    const move = touch("touchmove", 300);
+    row.dispatchEvent(move);
+    expect(div.scrollTop).toBe(100);
+    expect(move.defaultPrevented).toBe(true);
+  });
+
+  it("does not let the end of a swipe trigger the row under the finger", () => {
+    const { row, rowEnd } = setup();
+    row.dispatchEvent(touch("touchstart", 400));
+    row.dispatchEvent(touch("touchmove", 300));
+    row.dispatchEvent(touch("touchend", null));
+    expect(rowEnd).not.toHaveBeenCalled();
+  });
+
+  it("lets a tap through to the row", () => {
+    const { div, row, rowEnd } = setup();
+    row.dispatchEvent(touch("touchstart", 400));
+    row.dispatchEvent(touch("touchmove", 397)); // a finger's jitter, not a swipe
+    row.dispatchEvent(touch("touchend", null));
+    expect(rowEnd).toHaveBeenCalledTimes(1);
+    expect(div.scrollTop).toBe(0);
+  });
+
+  it("stands aside while the browser scrolls natively", () => {
+    const { div, row } = setup();
+    row.dispatchEvent(touch("touchstart", 400));
+    row.dispatchEvent(touch("touchmove", 300, false));
+    expect(div.scrollTop).toBe(0);
+  });
+
+  it("installs only once per menu", () => {
+    const { div, row } = setup();
+    enableMenuTouchScroll(div); // a second show of the same menu
+    row.dispatchEvent(touch("touchstart", 400));
+    row.dispatchEvent(touch("touchmove", 350));
+    expect(div.scrollTop).toBe(50);
   });
 });
