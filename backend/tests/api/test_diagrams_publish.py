@@ -14,6 +14,7 @@ make that safe:
 
 from __future__ import annotations
 
+import json
 import uuid
 
 import pytest
@@ -22,7 +23,13 @@ from app.api.v1.diagrams import sanitise_public_xml
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from app.core.security import create_portal_token
 from app.services.public_access import PUBLIC_ACCESS_COOKIE
-from tests.conftest import auth_headers, create_role, create_user
+from tests.conftest import (
+    auth_headers,
+    create_card,
+    create_card_type,
+    create_role,
+    create_user,
+)
 
 # A realistic fragment: a card-shaped cell plus a relation-stamped edge.
 CARD_XML = (
@@ -240,10 +247,68 @@ class TestPublicAccess:
         slug = await self._publish(client, admin, did)
 
         body = (await client.get(f"/api/v1/diagrams/public/{slug}")).json()
-        assert set(body) == {"name", "xml"}
+        assert set(body) == {"name", "xml", "legend"}
+        assert body["legend"] is None  # coloured by card type: nothing to key
         assert "cardId" not in body["xml"]
         assert "relationId" not in body["xml"]
         assert "11111111-1111-1111-1111-111111111111" not in body["xml"]
+
+    async def test_public_legend_is_aggregate_only(self, client, db, publish_env):
+        """The colour legend travels with the picture — labels, colours and
+        counts only; never a card's id, name or value."""
+        admin = publish_env["admin"]
+        await create_card_type(
+            db,
+            key="Application",
+            fields_schema=[
+                {
+                    "section": "Main",
+                    "fields": [
+                        {
+                            "key": "criticality",
+                            "label": "Criticality",
+                            "type": "single_select",
+                            "options": [
+                                {"key": "high", "label": "High", "color": "#ff0000"},
+                                {"key": "low", "label": "Low", "color": "#00ff00"},
+                            ],
+                        }
+                    ],
+                }
+            ],
+        )
+        coloured = await create_card(
+            db, name="Secret ERP", attributes={"criticality": "high", "costTotalAnnual": 999}
+        )
+        blank = await create_card(db, name="Secret CRM")
+        xml = CARD_XML.replace("11111111-1111-1111-1111-111111111111", str(coloured.id)).replace(
+            "</root>",
+            f'<object label="x" cardId="{blank.id}">'
+            '<mxCell vertex="1" parent="1"/></object></root>',
+        )
+        resp = await client.post(
+            "/api/v1/diagrams",
+            json={
+                "name": "Landscape",
+                "data": {
+                    "xml": xml,
+                    "view": {"kind": "card_fields", "fields": {"Application": "criticality"}},
+                },
+            },
+            headers=auth_headers(admin),
+        )
+        did = resp.json()["id"]
+        slug = await self._publish(client, admin, did)
+
+        legend = (await client.get(f"/api/v1/diagrams/public/{slug}")).json()["legend"]
+        assert legend["kind"] == "card_fields"
+        assert legend["coloured"] == 1
+        assert legend["rules"] == [
+            {"type_key": "Application", "field_key": "criticality", "has_missing": True}
+        ]
+        dumped = json.dumps(legend)
+        for leak in (str(coloured.id), str(blank.id), "Secret ERP", "Secret CRM", "999"):
+            assert leak not in dumped
 
     async def test_unpublished_diagram_is_404_not_403(self, client, db, publish_env):
         """An unpublished slug must be indistinguishable from a nonexistent one."""

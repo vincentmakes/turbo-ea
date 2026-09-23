@@ -86,7 +86,7 @@ O menu pendente **Colorir por** na barra de ferramentas recoloria os cartões da
 - **Estado de aprovação** -- recoloria por `aprovado` / `pendente` / `quebrado`.
 - **Valores de campo** -- assinale um campo de seleção única sob qualquer tipo de cartão presente na tela. **Vários tipos de cartão podem ter uma regra cada um ao mesmo tempo**: Aplicações por criticidade *e* Componentes de TI por modelo de alojamento. Um tipo sem regra mantém a cor que já tinha, incluindo um preenchimento definido à mão; só fica cinzento um cartão cuja própria regra não encontra valor. Um segundo campo dentro do mesmo tipo substitui o primeiro, porque um cartão tem um preenchimento.
 
-Uma legenda flutuante no canto inferior esquerdo mostra uma escala por regra ativa. As regras de campo e o **Estado de aprovação** são alternativas, não camadas: escolher uma limpa a outra. Ao desmarcar todas as regras, a tela volta às cores dos cartões. A escolha é guardada com o diagrama. A mesma legenda é apresentada quando o diagrama é aberto no modo de visualização, para que os leitores saibam o que as cores significam.
+Uma legenda flutuante no canto inferior esquerdo mostra uma escala por regra ativa. As regras de campo e o **Estado de aprovação** são alternativas, não camadas: escolher uma limpa a outra. Ao desmarcar todas as regras, a tela volta às cores dos cartões. A escolha é guardada com o diagrama. A mesma legenda é apresentada quando o diagrama é aberto no modo de visualização e na sua ligação publicada ou incorporada, para que os leitores saibam o que as cores significam.
 
 #### Mostrar no cartão
 

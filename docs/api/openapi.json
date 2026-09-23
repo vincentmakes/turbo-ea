@@ -24649,7 +24649,7 @@
     },
     "/api/v1/diagrams/public/{slug}": {
       "get": {
-        "description": "Return the published picture: a name and sanitised DrawIO XML.\n\nDeliberately narrow. No card ids, no relations, no description, no\nlifecycle \u2014 see ``sanitise_public_xml``. The XML is enough for the DrawIO\nlightbox to render, pan and zoom it, and nothing more.",
+        "description": "Return the published picture: a name, sanitised DrawIO XML and its legend.\n\nDeliberately narrow. No card ids, no relations, no description, no\nlifecycle \u2014 see ``sanitise_public_xml``. The XML is enough for the DrawIO\nlightbox to render, pan and zoom it, and nothing more. ``legend`` is the key\nto the colours the picture already shows (``None`` when coloured by card\ntype): labels, colours and counts only, never a card's identity or value \u2014\nsee ``build_public_legend``.",
         "operationId": "get_public_diagram_api_v1_diagrams_public__slug__get",
         "parameters": [
           {

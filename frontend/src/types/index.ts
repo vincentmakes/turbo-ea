@@ -2648,3 +2648,18 @@ export interface CardRestoreResponse {
   primary: Card;
   restored_passenger_ids: string[];
 }
+
+/**
+ * The colour legend of a published diagram (`GET /diagrams/public/{slug}`).
+ * Aggregate only — labels, colours and counts, never a card's identity. The
+ * `card_fields` shape carries a trimmed card type per rule, in the shape
+ * `viewSource.ts` already consumes.
+ */
+export type PublicDiagramLegend =
+  | { kind: "approval_status"; coloured: number }
+  | {
+      kind: "card_fields";
+      coloured: number;
+      rules: Array<{ type_key: string; field_key: string; has_missing: boolean }>;
+      types: CardType[];
+    };

@@ -86,7 +86,7 @@ Dropdownen **Farvelæg efter** i værktøjslinjen omfarver kortene på lærredet
 - **Approval status** — omfarver efter `approved` / `pending` / `broken`.
 - **Field values** — sæt flueben ved et single-select-felt under en hvilken som helst korttype på lærredet. **Flere korttyper kan hver bære én regel samtidig** — Applications efter kritikalitet *og* IT Components efter hosting-model. En korttype uden regel beholder den farve, den allerede har, også en udfyldning du selv har sat; kun et kort, hvis egen regel ikke finder nogen værdi, bliver gråt. Et andet felt inden for samme korttype erstatter det første, for et kort har én udfyldning.
 
-En flydende forklaring nederst til venstre viser én skala pr. aktiv regel. Feltregler og **Approval status** er alternativer, ikke lag: vælger du det ene, ryddes det andet. Fjerner du alle regler, vender lærredet tilbage til kortfarverne. Valget gemmes med diagrammet. Den samme forklaring vises også, når diagrammet åbnes i visningstilstand, så læserne kan se, hvad farverne betyder.
+En flydende forklaring nederst til venstre viser én skala pr. aktiv regel. Feltregler og **Approval status** er alternativer, ikke lag: vælger du det ene, ryddes det andet. Fjerner du alle regler, vender lærredet tilbage til kortfarverne. Valget gemmes med diagrammet. Den samme forklaring vises også, når diagrammet åbnes i visningstilstand og via dets publicerede eller indlejrede link, så læserne kan se, hvad farverne betyder.
 
 #### Vis på kortet
 

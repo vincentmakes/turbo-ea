@@ -8,6 +8,8 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { usePageSubject } from "@/hooks/usePageTitle";
+import { useFieldLabel, useOptionLabel, useTypeLabel } from "@/hooks/useResolveLabel";
+import type { PublicDiagramLegend } from "@/types";
 import { publicGet, publicPost, type ApiError } from "@/features/web-portals/publicApi";
 import {
   buildAuthorizeUrl,
@@ -17,6 +19,8 @@ import {
   PUBLIC_SSO_CALLBACK_PATH,
   type PublicSsoConfig,
 } from "@/lib/publicSso";
+import DiagramViewLegend from "./DiagramViewLegend";
+import { colorKey, legendSections, type ViewResolvers, type ViewSource } from "./viewSource";
 
 /**
  * The published, read-only render of a diagram — the page that gets iframed
@@ -62,6 +66,8 @@ const POPUP_CLOSED_POLL_MS = 500;
 interface PublicDiagram {
   name: string;
   xml: string;
+  /** Key to the colours the picture already shows; null for card-type colours. */
+  legend?: PublicDiagramLegend | null;
 }
 
 interface DiagramGate {
@@ -239,6 +245,38 @@ export default function PublicDiagramPage() {
     return () => window.clearInterval(id);
   }, [framed, signingIn]);
 
+  // The legend comes from the server as aggregate data (this page can read
+  // neither the metamodel nor the cards); only its labels are resolved here,
+  // in the visitor's locale, through the same builder the app uses.
+  const typeLabel = useTypeLabel();
+  const fieldLabel = useFieldLabel();
+  const optionLabel = useOptionLabel();
+  const legend = useMemo(() => {
+    const data = diagram?.legend;
+    if (!data) return null;
+    const r: ViewResolvers = { typeLabel, fieldLabel, optionLabel, t };
+    if (data.kind === "approval_status") {
+      const sections = legendSections({ kind: "approval_status" }, [], () => false, r);
+      return { sections, coloured: data.coloured };
+    }
+    const view: ViewSource = {
+      kind: "card_fields",
+      fields: Object.fromEntries(data.rules.map((rule) => [rule.type_key, rule.field_key])),
+    };
+    const missing = new Set(
+      data.rules
+        .filter((rule) => rule.has_missing)
+        .map((rule) => colorKey(rule.type_key, rule.field_key, "")),
+    );
+    const sections = legendSections(
+      view,
+      data.types,
+      (typeKey, fieldKey) => missing.has(colorKey(typeKey, fieldKey, "")),
+      r,
+    );
+    return { sections, coloured: data.coloured };
+  }, [diagram, typeLabel, fieldLabel, optionLabel, t]);
+
   // The browser tab names the diagram. Published pages carry no app chrome,
   // so this is the only thing telling a reader what they are looking at.
   usePageSubject(diagram?.name);
@@ -325,7 +363,15 @@ export default function PublicDiagramPage() {
   }
 
   return (
-    <Box sx={{ height: "100vh", width: "100vw", overflow: "hidden", bgcolor: "#fff" }}>
+    <Box
+      sx={{
+        height: "100vh",
+        width: "100vw",
+        overflow: "hidden",
+        bgcolor: "#fff",
+        position: "relative",
+      }}
+    >
       {viewerSrc ? (
         <iframe
           title={diagram?.name || "diagram"}
@@ -338,6 +384,9 @@ export default function PublicDiagramPage() {
           title={diagram?.name || ""}
           body={t("public.empty")}
         />
+      )}
+      {viewerSrc && legend && (
+        <DiagramViewLegend sections={legend.sections} appliedCount={legend.coloured} />
       )}
     </Box>
   );

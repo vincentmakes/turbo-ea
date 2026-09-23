@@ -86,7 +86,7 @@ Das Dropdown **Färben nach** in der Symbolleiste färbt die Karten auf der Lein
 - **Genehmigungsstatus** -- färbt nach `genehmigt` / `ausstehend` / `defekt`.
 - **Feldwerte** -- haken Sie ein Einzelauswahl-Feld unter einem beliebigen Kartentyp auf der Leinwand an. **Mehrere Kartentypen können gleichzeitig je eine Regel tragen** -- Anwendungen nach Kritikalität *und* IT-Komponenten nach Hosting-Modell. Ein Kartentyp ohne Regel behält seine bisherige Farbe, auch eine von Hand gesetzte Füllung; grau wird nur eine Karte, deren eigene Regel keinen Wert findet. Ein zweites Feld innerhalb eines Kartentyps ersetzt das erste, denn eine Karte hat eine Füllung.
 
-Eine schwebende Legende unten links zeigt eine Skala je aktiver Regel. Feldregeln und **Genehmigungsstatus** sind Alternativen, keine Ebenen: die Wahl der einen löscht die andere. Werden alle Regeln abgewählt, kehrt die Leinwand zu den Kartenfarben zurück. Die Wahl wird mit dem Diagramm gespeichert. Dieselbe Legende erscheint auch, wenn das Diagramm im Ansichtsmodus geöffnet wird, damit Leser die Bedeutung der Farben erkennen.
+Eine schwebende Legende unten links zeigt eine Skala je aktiver Regel. Feldregeln und **Genehmigungsstatus** sind Alternativen, keine Ebenen: die Wahl der einen löscht die andere. Werden alle Regeln abgewählt, kehrt die Leinwand zu den Kartenfarben zurück. Die Wahl wird mit dem Diagramm gespeichert. Dieselbe Legende erscheint auch, wenn das Diagramm im Ansichtsmodus geöffnet oder über seinen veröffentlichten bzw. eingebetteten Link angezeigt wird, damit Leser die Bedeutung der Farben erkennen.
 
 #### Auf Karte anzeigen
 

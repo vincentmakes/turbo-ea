@@ -23,6 +23,7 @@ from app.models.diagram import Diagram, diagram_cards
 from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import diagram_group_members
 from app.models.user import User
+from app.services.diagram_legend import build_public_legend
 from app.services.permission_service import PermissionService
 from app.services.public_access import (
     PUBLIC_ACCESS_COOKIE,
@@ -468,16 +469,21 @@ async def diagram_sso_callback(
 @router.get("/public/{slug}")
 async def get_public_diagram(
     d: Diagram = Depends(require_public_diagram),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Return the published picture: a name and sanitised DrawIO XML.
+    """Return the published picture: a name, sanitised DrawIO XML and its legend.
 
     Deliberately narrow. No card ids, no relations, no description, no
     lifecycle — see ``sanitise_public_xml``. The XML is enough for the DrawIO
-    lightbox to render, pan and zoom it, and nothing more.
+    lightbox to render, pan and zoom it, and nothing more. ``legend`` is the key
+    to the colours the picture already shows (``None`` when coloured by card
+    type): labels, colours and counts only, never a card's identity or value —
+    see ``build_public_legend``.
     """
     return {
         "name": d.name,
         "xml": sanitise_public_xml((d.data or {}).get("xml")),
+        "legend": await build_public_legend(db, d.data, _extract_card_refs(d.data)),
     }
 
 

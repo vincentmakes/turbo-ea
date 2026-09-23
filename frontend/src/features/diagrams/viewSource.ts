@@ -286,13 +286,37 @@ export interface LegendSectionData {
 }
 
 /**
- * The legend for a view over the cards actually on a canvas, plus the number of
- * cards a rule coloured with a real value.
+ * The legend sections for a view. `hasMissing` says whether any card on the
+ * canvas has no value for a rule — the "no value" swatch appears only then; a
+ * permanent grey swatch in every section would be noise.
  *
- * Shared by the editor and the read-only viewer so the two cannot disagree on
- * what the key says. The "no value" swatch appears only where a card on the
- * canvas actually has no value — a permanent grey swatch in every section would
- * be noise.
+ * The one section builder behind every legend: the editor and the in-app
+ * viewer derive `hasMissing` from the cards they hold, the published page gets
+ * it from the server, which never hands an account-less visitor the cards.
+ */
+export function legendSections(
+  view: ViewSource,
+  types: CardType[],
+  hasMissing: (typeKey: string, fieldKey: string) => boolean,
+  r: ViewResolvers,
+): LegendSectionData[] {
+  const colorMap = buildColorMap(view, types, r);
+  return describeView(view, types, r).sections.map((sec) => ({
+    key: sec.key,
+    title: sec.title,
+    entries: Array.from(colorMap.values()).filter(
+      (e) =>
+        e.typeKey === sec.typeKey &&
+        e.fieldKey === sec.fieldKey &&
+        (e.value !== NO_VALUE || hasMissing(e.typeKey, e.fieldKey)),
+    ),
+  }));
+}
+
+/**
+ * The legend for a view over the cards actually on a canvas, plus the number of
+ * cards a rule coloured with a real value. Shared by the editor and the in-app
+ * viewer so the two cannot disagree on what the key says.
  */
 export function buildLegend(
   view: ViewSource,
@@ -305,7 +329,6 @@ export function buildLegend(
   r: ViewResolvers,
 ): { sections: LegendSectionData[]; coloured: number } {
   const colorMap = buildColorMap(view, types, r);
-  const described = describeView(view, types, r);
   const seenKeys = new Set<string>();
   let coloured = 0;
   for (const c of cards) {
@@ -316,15 +339,11 @@ export function buildLegend(
     seenKeys.add(key);
     if (entry.value !== NO_VALUE) coloured += 1;
   }
-  const sections = described.sections.map((sec) => ({
-    key: sec.key,
-    title: sec.title,
-    entries: Array.from(colorMap.values()).filter(
-      (e) =>
-        e.typeKey === sec.typeKey &&
-        e.fieldKey === sec.fieldKey &&
-        (e.value !== NO_VALUE || seenKeys.has(e.key)),
-    ),
-  }));
+  const sections = legendSections(
+    view,
+    types,
+    (typeKey, fieldKey) => seenKeys.has(colorKey(typeKey, fieldKey, NO_VALUE)),
+    r,
+  );
   return { sections, coloured };
 }

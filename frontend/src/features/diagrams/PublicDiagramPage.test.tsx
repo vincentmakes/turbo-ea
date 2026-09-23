@@ -315,3 +315,103 @@ describe("PublicDiagramPage — public", () => {
     expect(window.open).not.toHaveBeenCalled();
   });
 });
+
+describe("PublicDiagramPage — colour legend", () => {
+  const CRITICALITY_TYPE = {
+    key: "Application",
+    label: "Application",
+    translations: {},
+    fields_schema: [
+      {
+        section: "",
+        fields: [
+          {
+            key: "criticality",
+            label: "Criticality",
+            type: "single_select",
+            translations: {},
+            options: [
+              {
+                key: "high",
+                label: "Highly critical",
+                color: "#ff0000",
+                translations: {},
+              },
+              {
+                key: "low",
+                label: "Barely critical",
+                color: "#00ff00",
+                translations: {},
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  function mockPublic(legend: unknown) {
+    publicGet.mockImplementation((path: string) =>
+      Promise.resolve(
+        path.endsWith("/gate")
+          ? { access_mode: "public", name: "Open" }
+          : { ...DIAGRAM, legend },
+      ),
+    );
+  }
+
+  it("renders the server's legend, read-only", async () => {
+    mockPublic({
+      kind: "card_fields",
+      coloured: 3,
+      rules: [
+        {
+          type_key: "Application",
+          field_key: "criticality",
+          has_missing: true,
+        },
+      ],
+      types: [CRITICALITY_TYPE],
+    });
+    renderPage();
+    expect(
+      await screen.findByText("Application · Criticality"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Highly critical")).toBeInTheDocument();
+    expect(screen.getByText("Barely critical")).toBeInTheDocument();
+    expect(screen.getByText("No value")).toBeInTheDocument();
+    expect(screen.getByText("3 cells colored")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("shows no 'no value' swatch when every card has a value", async () => {
+    mockPublic({
+      kind: "card_fields",
+      coloured: 2,
+      rules: [
+        {
+          type_key: "Application",
+          field_key: "criticality",
+          has_missing: false,
+        },
+      ],
+      types: [CRITICALITY_TYPE],
+    });
+    renderPage();
+    expect(await screen.findByText("Highly critical")).toBeInTheDocument();
+    expect(screen.queryByText("No value")).toBeNull();
+  });
+
+  it("renders the approval-status scale", async () => {
+    mockPublic({ kind: "approval_status", coloured: 4 });
+    renderPage();
+    expect(await screen.findByText("4 cells colored")).toBeInTheDocument();
+  });
+
+  it("renders no legend when the diagram is coloured by card type", async () => {
+    mockPublic(null);
+    renderPage();
+    expect(await screen.findByTitle("Landscape")).toBeInTheDocument();
+    expect(screen.queryByText(/cells? colored/)).toBeNull();
+  });
+});
