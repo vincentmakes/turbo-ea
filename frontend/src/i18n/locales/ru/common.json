@@ -496,5 +496,10 @@
   "dateField.placeholder.month": "мм",
   "dateField.placeholder.year": "гггг",
   "dateField.openPicker": "Открыть календарь",
-  "dateField.clear": "Очистить дату"
+  "dateField.clear": "Очистить дату",
+  "dateField.today": "Сегодня",
+  "dateField.previousMonth": "Предыдущий месяц",
+  "dateField.nextMonth": "Следующий месяц",
+  "dateField.chooseYear": "Выбрать год",
+  "dateField.calendar": "Календарь"
 }

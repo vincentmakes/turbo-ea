@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, waitFor, within } from "@testing-library/react";
 import i18n from "@/i18n";
+import { fullDateLabel, todayIso } from "@/lib/calendarGrid";
 import { getLuminance } from "@mui/material/styles";
 import { buildTheme } from "@/theme";
 import {
@@ -23,6 +24,26 @@ function useUserAgent(ua: string, maxTouchPoints = 0) {
     configurable: true,
     get: () => maxTouchPoints,
   });
+}
+
+/**
+ * The emitted rule that paints the date input's background, if any. Asserted on
+ * the rule rather than getComputedStyle: jsdom's cascade ignores specificity,
+ * so MUI's `background: none` on the input's single class wins there, whereas
+ * every browser lets the root-class-plus-element selector override it.
+ */
+function backdropRuleFor(input: HTMLElement): CSSStyleRule | undefined {
+  const root = input.closest(".MuiTextField-root") as HTMLElement;
+  const rootClass = Array.from(root.classList).find((c) => c.startsWith("css-"));
+  const rules = Array.from(document.styleSheets).flatMap((sheet) =>
+    Array.from(sheet.cssRules),
+  ) as CSSStyleRule[];
+  return rules.find(
+    (r) =>
+      r.selectorText?.includes(`.${rootClass}`) &&
+      r.selectorText.includes("input[type=date]") &&
+      r.style.getPropertyValue("background-color") !== "",
+  );
 }
 
 function expectedPlaceholder() {
@@ -267,27 +288,12 @@ describe("DateField", () => {
     },
   );
 
-  it("applies the backdrop to the rendered date input", () => {
+  it("leaves Chrome's date input background alone, so its grey placeholder stays grey", () => {
+    // Blink derives its placeholder colour from the input's background too; the
+    // WebKit backdrop once turned Chrome's native dd.mm.yyyy black.
     render(<DateField label="Target date" value="" onChange={vi.fn()} />);
     const input = screen.getByLabelText("Target date") as HTMLInputElement;
-    const root = input.closest(".MuiTextField-root") as HTMLElement;
-    const rootClass = Array.from(root.classList).find((c) => c.startsWith("css-"));
-    const expected = webkitPlaceholderBackdrop(buildTheme("light")).replace(/\s/g, "");
-
-    // Asserted on the emitted rule rather than getComputedStyle: jsdom's
-    // cascade ignores specificity, so MUI's `background: none` on the input's
-    // single class wins there, whereas every browser lets this
-    // root-class-plus-element selector override it.
-    const rules = Array.from(document.styleSheets).flatMap((sheet) =>
-      Array.from(sheet.cssRules),
-    ) as CSSStyleRule[];
-    const rule = rules.find(
-      (r) =>
-        r.selectorText?.includes(`.${rootClass}`) &&
-        r.selectorText.includes("input[type=date]"),
-    );
-    expect(rule).toBeDefined();
-    expect(rule!.style.getPropertyValue("background-color").replace(/\s/g, "")).toBe(expected);
+    expect(backdropRuleFor(input)).toBeUndefined();
   });
 });
 
@@ -384,15 +390,80 @@ describe("DateField on WebKit", () => {
     }
   });
 
-  it("offers a calendar button on macOS that opens the native picker", () => {
+  it("applies the backdrop to the rendered date input", () => {
     useUserAgent(SAFARI_MAC);
     render(<DateField label="Target date" value="" onChange={vi.fn()} />);
-    const input = screen.getByLabelText("Target date");
+    const input = screen.getByLabelText("Target date") as HTMLInputElement;
+    const expected = webkitPlaceholderBackdrop(buildTheme("light")).replace(/\s/g, "");
+    const rule = backdropRuleFor(input);
+    expect(rule).toBeDefined();
+    expect(rule!.style.getPropertyValue("background-color").replace(/\s/g, "")).toBe(expected);
+  });
+
+  const openCalendar = () =>
     fireEvent.click(
       screen.getByRole("button", { name: i18n.t("common:dateField.openPicker") }),
     );
-    expect(showPicker).toHaveBeenCalledTimes(1);
-    expect(document.activeElement).toBe(input);
+  const calendar = () => screen.queryByRole("dialog", { name: i18n.t("common:dateField.calendar") });
+
+  it("opens the themed calendar from the button, not the native popover", () => {
+    useUserAgent(SAFARI_MAC);
+    render(<DateField label="Target date" value="2026-09-23" onChange={vi.fn()} />);
+    openCalendar();
+    expect(calendar()).not.toBeNull();
+    expect(showPicker).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: fullDateLabel(i18n.language, "2026-09-23") }),
+    ).toBeInTheDocument();
+  });
+
+  it("commits a day picked in the calendar once, and closes it", async () => {
+    useUserAgent(SAFARI_MAC);
+    const onChange = vi.fn();
+    const { container } = render(
+      <DateField label="Target date" value="" onChange={onChange} />,
+    );
+    const input = screen.getByLabelText("Target date") as HTMLInputElement;
+    openCalendar();
+    fireEvent.click(screen.getByRole("button", { name: i18n.t("common:dateField.today") }));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(todayIso());
+    expect(input.value).toBe(todayIso());
+    expect(placeholderEl(container)).toBeNull();
+    await waitFor(() => expect(calendar()).toBeNull());
+
+    fireEvent.focus(input);
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears from inside the calendar", () => {
+    useUserAgent(SAFARI_MAC);
+    const onChange = vi.fn();
+    render(<DateField label="Target date" value="2026-09-23" onChange={onChange} />);
+    openCalendar();
+    const dialog = calendar() as HTMLElement;
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: i18n.t("common:dateField.clear") }),
+    );
+    expect(onChange).toHaveBeenCalledWith("");
+  });
+
+  it("honours the caller's min / max in the calendar", () => {
+    useUserAgent(SAFARI_MAC);
+    render(
+      <DateField
+        label="Target date"
+        value="2026-09-15"
+        onChange={vi.fn()}
+        slotProps={{ htmlInput: { min: "2026-09-10", max: "2026-09-20" } }}
+      />,
+    );
+    openCalendar();
+    expect(
+      screen.getByRole("button", { name: fullDateLabel(i18n.language, "2026-09-21") }),
+    ).toBeDisabled();
   });
 
   it("disables the calendar button with the field", () => {
@@ -403,30 +474,19 @@ describe("DateField on WebKit", () => {
     ).toBeDisabled();
   });
 
-  it("falls back to focusing when showPicker is unavailable", () => {
-    useUserAgent(SAFARI_MAC);
-    delete (HTMLInputElement.prototype as { showPicker?: () => void }).showPicker;
-    render(<DateField label="Target date" value="" onChange={vi.fn()} />);
-    const input = screen.getByLabelText("Target date");
-    fireEvent.click(
-      screen.getByRole("button", { name: i18n.t("common:dateField.openPicker") }),
-    );
-    expect(document.activeElement).toBe(input);
-  });
-
   it.each([
     ["iPad (desktop-mode UA)", SAFARI_MAC, 5],
     ["iPhone", SAFARI_IPHONE, 5],
-  ])("shows the calendar button and placeholder on %s", (_name, ua, touch) => {
+  ])("shows the calendar button, placeholder and themed calendar on %s", (_name, ua, touch) => {
     useUserAgent(ua as string, touch as number);
     const { container } = render(
       <DateField label="Target date" value="" onChange={vi.fn()} />,
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: i18n.t("common:dateField.openPicker") }),
-    );
-    expect(showPicker).toHaveBeenCalledTimes(1);
     expect(placeholderEl(container)).not.toBeNull();
+    openCalendar();
+    expect(calendar()).not.toBeNull();
+    // Not focused: on iOS that would raise the native wheel underneath.
+    expect(document.activeElement).not.toBe(screen.getByLabelText("Target date"));
   });
 
   it("offers no clear button while the field is empty", () => {
@@ -535,16 +595,13 @@ describe("DateField on WebKit", () => {
     ).toBeInTheDocument();
   });
 
-  it("still commits a calendar pick through the new button", () => {
+  it("still commits a pick from Safari's native popover (clicked into the field)", () => {
     useUserAgent(SAFARI_MAC);
     const onChange = vi.fn();
     const { container } = render(
       <DateField label="Target date" value="" onChange={onChange} />,
     );
     const input = screen.getByLabelText("Target date") as HTMLInputElement;
-    fireEvent.click(
-      screen.getByRole("button", { name: i18n.t("common:dateField.openPicker") }),
-    );
     fireEvent.focus(input);
     fireEvent.blur(input);
     fireEvent.change(input, { target: { value: "2026-09-23" } });

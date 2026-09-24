@@ -496,5 +496,10 @@
   "dateField.placeholder.month": "mm",
   "dateField.placeholder.year": "aaaa",
   "dateField.openPicker": "Abrir calendário",
-  "dateField.clear": "Limpar data"
+  "dateField.clear": "Limpar data",
+  "dateField.today": "Hoje",
+  "dateField.previousMonth": "Mês anterior",
+  "dateField.nextMonth": "Próximo mês",
+  "dateField.chooseYear": "Escolher ano",
+  "dateField.calendar": "Calendário"
 }

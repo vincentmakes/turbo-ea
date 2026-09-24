@@ -496,5 +496,10 @@
   "dateField.placeholder.month": "شهر",
   "dateField.placeholder.year": "سنة",
   "dateField.openPicker": "فتح التقويم",
-  "dateField.clear": "مسح التاريخ"
+  "dateField.clear": "مسح التاريخ",
+  "dateField.today": "اليوم",
+  "dateField.previousMonth": "الشهر السابق",
+  "dateField.nextMonth": "الشهر التالي",
+  "dateField.chooseYear": "اختر السنة",
+  "dateField.calendar": "التقويم"
 }

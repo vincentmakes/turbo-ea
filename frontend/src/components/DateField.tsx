@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Box, IconButton, TextField, type TextFieldProps } from "@mui/material";
+import { type Theme } from "@mui/material/styles";
 import { useForkRef } from "@mui/material/utils";
 import { useTranslation } from "react-i18next";
+import DateCalendarPopover from "@/components/DateCalendarPopover";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { currentDateInputEngine } from "@/lib/browserEngine";
 import {
@@ -62,7 +64,8 @@ export type DateFieldProps = Omit<
  *    {@link webkitPlaceholderBackdrop}).
  *  - **A calendar button on every WebKit engine** (Safari on Mac, iPhone and
  *    iPad), which has none of its own — Chrome's is part of its native widget.
- *    It opens the native picker via `showPicker()`.
+ *    It opens `DateCalendarPopover`, a themed MUI calendar, because WebKit's
+ *    native popover is drawn by the OS, cannot be styled and renders tiny.
  *  - **A clear button on WebKit while a date is set.** iOS's picker Reset
  *    re-selects the old date on its wheel and can leave it in the field, so the
  *    field offers its own clear, which commits `""` at once. Touch WebKit also
@@ -116,19 +119,52 @@ export function DateField({
 
   const webkit = engine !== "other";
   const showPlaceholder = webkit && draft === "" && !incomplete;
-  const readOnly = [slotProps?.input, InputProps, slotProps?.htmlInput, inputProps].some(
-    (p) => typeof p === "object" && p !== null && (p as { readOnly?: boolean }).readOnly,
+  const readOnly = [
+    slotProps?.input,
+    InputProps,
+    slotProps?.htmlInput,
+    inputProps,
+  ].some(
+    (p) =>
+      typeof p === "object" &&
+      p !== null &&
+      (p as { readOnly?: boolean }).readOnly,
   );
 
+  // WebKit's native date popover is drawn by macOS / iOS, cannot be styled
+  // and renders tiny, so the calendar button opens the themed one instead.
+  // The input is deliberately not focused: on iOS that would also raise the
+  // native wheel underneath.
+  const [calendarAnchor, setCalendarAnchor] = useState<HTMLElement | null>(
+    null,
+  );
   const openPicker = () => {
     const input = ownInputRef.current;
     if (!input) return;
-    input.focus();
-    try {
-      input.showPicker?.();
-    } catch {
-      // Not supported (Safari < 16) or not allowed: focusing is the fallback.
+    setCalendarAnchor(
+      input.closest<HTMLElement>(".MuiFormControl-root") ?? input,
+    );
+  };
+
+  const pickDate = (iso: string) => {
+    const input = ownInputRef.current;
+    if (input) input.value = iso;
+    setDraft(iso);
+    setIncomplete(false);
+    // A whole date picked at once: no partial dates to protect (#865).
+    commit(iso);
+    setCalendarAnchor(null);
+  };
+
+  const rangeOf = (key: "min" | "max") => {
+    for (const p of [slotProps?.htmlInput, inputProps]) {
+      const v =
+        typeof p === "object" && p !== null
+          ? (p as Record<string, unknown>)[key]
+          : undefined;
+      if (typeof v === "string") return v;
     }
+    return undefined;
   };
 
   // iOS's own picker Reset re-selects the old date on its wheel and cannot be
@@ -200,75 +236,109 @@ export function DateField({
   }
 
   return (
-    <TextField
-      {...rest}
-      type="date"
-      value={draft}
-      disabled={disabled}
-      inputRef={handleInputRef}
-      error={incomplete || error}
-      helperText={incomplete ? t("dateField.incomplete") : helperText}
-      slotProps={
-        {
-          ...slotProps,
-          // The deprecated InputProps / inputProps are only defaults for these
-          // two slots inside TextField, so they are folded in here — otherwise
-          // passing either slot would silently drop them.
-          input: composeSlot(InputProps, slotProps?.input, inputExtras),
-          htmlInput: composeSlot(inputProps, slotProps?.htmlInput, webkit ? { lang: locale } : {}),
-        } as TextFieldProps["slotProps"]
-      }
-      sx={[
-        (theme) => ({
-          "& input[type=date]": {
-            backgroundColor: webkitPlaceholderBackdrop(theme),
-          },
-        }),
-        showPlaceholder && {
-          "& input:not(:focus)::-webkit-datetime-edit": { opacity: 0 },
-          "& input:not(:focus)::-webkit-date-and-time-value": { opacity: 0 },
-          "& .Mui-focused [data-date-placeholder]": { visibility: "hidden" },
-        },
-        // Our button replaces any native indicator, so a field never shows two.
-        webkit && {
-          "& input::-webkit-calendar-picker-indicator": { display: "none" },
-        },
-        ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
-      ]}
-      onFocus={(e) => {
-        focused.current = true;
-        onFocus?.(e);
-      }}
-      onChange={(e) => {
-        const input = e.target as HTMLInputElement;
-        const next = input.value;
-        const partial = input.validity?.badInput ?? false;
-        setDraft(next);
-        if (!partial) setIncomplete(false);
-        // Commit now when the field is already blurred (the picker took focus,
-        // so nothing else will), and always on touch WebKit: its only input
-        // is the picker — whole dates or Reset's "" — never segment typing,
-        // so the per-keystroke partial dates #865 guards against cannot occur.
-        if (!partial && (!focused.current || engine === "webkit-touch")) commit(next);
-      }}
-      onBlur={(e) => {
-        focused.current = false;
-        const input = e.currentTarget as HTMLInputElement;
-        if (input.validity?.badInput) {
-          setIncomplete(true);
-        } else {
-          setIncomplete(false);
-          commit(input.value);
+    <>
+      <TextField
+        {...rest}
+        type="date"
+        value={draft}
+        disabled={disabled}
+        inputRef={handleInputRef}
+        error={incomplete || error}
+        helperText={incomplete ? t("dateField.incomplete") : helperText}
+        slotProps={
+          {
+            ...slotProps,
+            // The deprecated InputProps / inputProps are only defaults for these
+            // two slots inside TextField, so they are folded in here — otherwise
+            // passing either slot would silently drop them.
+            input: composeSlot(InputProps, slotProps?.input, inputExtras),
+            htmlInput: composeSlot(
+              inputProps,
+              slotProps?.htmlInput,
+              webkit ? { lang: locale } : {},
+            ),
+          } as TextFieldProps["slotProps"]
         }
-        onBlur?.(e);
-      }}
-    />
+        sx={[
+          // WebKit only: Blink derives its own placeholder colour from the
+          // input's background too, and the backdrop would turn Chrome's grey
+          // native placeholder black.
+          webkit &&
+            ((theme: Theme) => ({
+              "& input[type=date]": {
+                backgroundColor: webkitPlaceholderBackdrop(theme),
+              },
+            })),
+          showPlaceholder && {
+            "& input:not(:focus)::-webkit-datetime-edit": { opacity: 0 },
+            "& input:not(:focus)::-webkit-date-and-time-value": { opacity: 0 },
+            "& .Mui-focused [data-date-placeholder]": { visibility: "hidden" },
+          },
+          // Our button replaces any native indicator, so a field never shows two.
+          webkit && {
+            "& input::-webkit-calendar-picker-indicator": { display: "none" },
+          },
+          ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+        ]}
+        onFocus={(e) => {
+          focused.current = true;
+          onFocus?.(e);
+        }}
+        onChange={(e) => {
+          const input = e.target as HTMLInputElement;
+          const next = input.value;
+          const partial = input.validity?.badInput ?? false;
+          setDraft(next);
+          if (!partial) setIncomplete(false);
+          // Commit now when the field is already blurred (the picker took focus,
+          // so nothing else will), and always on touch WebKit: its only input
+          // is the picker — whole dates or Reset's "" — never segment typing,
+          // so the per-keystroke partial dates #865 guards against cannot occur.
+          if (!partial && (!focused.current || engine === "webkit-touch"))
+            commit(next);
+        }}
+        onBlur={(e) => {
+          focused.current = false;
+          const input = e.currentTarget as HTMLInputElement;
+          if (input.validity?.badInput) {
+            setIncomplete(true);
+          } else {
+            setIncomplete(false);
+            commit(input.value);
+          }
+          onBlur?.(e);
+        }}
+      />
+      {webkit && (
+        <DateCalendarPopover
+          open={calendarAnchor !== null}
+          anchorEl={calendarAnchor}
+          value={draft}
+          weekLocale={locale}
+          min={rangeOf("min")}
+          max={rangeOf("max")}
+          onSelect={pickDate}
+          onClear={
+            draft !== ""
+              ? () => {
+                  clearDate();
+                  setCalendarAnchor(null);
+                }
+              : undefined
+          }
+          onClose={() => setCalendarAnchor(null)}
+        />
+      )}
+    </>
   );
 }
 
 // Compact enough that a set date, the clear button and the calendar button
 // all fit a 170px field (the lifecycle row) without clipping the year.
-const ADORNMENT_BUTTON_SX = { p: 0.25, "&.MuiIconButton-edgeEnd": { mr: -0.5 } } as const;
+const ADORNMENT_BUTTON_SX = {
+  p: 0.25,
+  "&.MuiIconButton-edgeEnd": { mr: -0.5 },
+} as const;
 
 type SlotValue = object | ((ownerState: unknown) => object) | undefined;
 
@@ -277,7 +347,11 @@ type SlotValue = object | ((ownerState: unknown) => object) | undefined;
  * top-level prop, then the slot prop — the caller always wins. Function-form
  * slot props are composed rather than replaced.
  */
-function composeSlot(deprecated: object | undefined, slot: unknown, extras: object): SlotValue {
+function composeSlot(
+  deprecated: object | undefined,
+  slot: unknown,
+  extras: object,
+): SlotValue {
   if (typeof slot === "function") {
     return (ownerState: unknown) => ({
       ...extras,

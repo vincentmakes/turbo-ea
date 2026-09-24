@@ -496,5 +496,10 @@
   "dateField.placeholder.month": "月",
   "dateField.placeholder.year": "年",
   "dateField.openPicker": "打开日历",
-  "dateField.clear": "清除日期"
+  "dateField.clear": "清除日期",
+  "dateField.today": "今天",
+  "dateField.previousMonth": "上个月",
+  "dateField.nextMonth": "下个月",
+  "dateField.chooseYear": "选择年份",
+  "dateField.calendar": "日历"
 }

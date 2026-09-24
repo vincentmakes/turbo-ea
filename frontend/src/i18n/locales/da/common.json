@@ -496,5 +496,10 @@
   "dateField.placeholder.month": "mm",
   "dateField.placeholder.year": "åååå",
   "dateField.openPicker": "Åbn kalender",
-  "dateField.clear": "Ryd dato"
+  "dateField.clear": "Ryd dato",
+  "dateField.today": "I dag",
+  "dateField.previousMonth": "Forrige måned",
+  "dateField.nextMonth": "Næste måned",
+  "dateField.chooseYear": "Vælg år",
+  "dateField.calendar": "Kalender"
 }
