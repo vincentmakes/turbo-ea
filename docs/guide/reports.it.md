@@ -154,17 +154,15 @@ Il **Report Costi** fornisce un'analisi finanziaria del vostro panorama tecnolog
 
 ### Anno fiscale
 
-I costi sono annuali, quindi il report li mostra sempre per **un solo anno fiscale** — quello corrente all'apertura. Il costo annuale di una scheda conta **per intero** in ogni anno fiscale, da quello in cui diventa **Attivo** fino a quello in cui cade la sua **Fine vita**, entrambi inclusi. Nulla viene calcolato pro rata: un'applicazione dismessa a novembre porta ancora l'intero costo annuale in quell'anno e nulla nel successivo. Una scheda la cui Fine vita cadeva in un anno fiscale precedente non si somma quindi più al totale.
+I costi sono annuali, quindi il report li mostra per **l'anno fiscale corrente**, indicato da un chip nella barra degli strumenti, ad esempio **Anno fiscale corrente: AF 2026** (oppure *AF 2025–2026* quando il vostro anno fiscale non inizia a gennaio). Il costo annuale di una scheda conta **per intero** quando l'anno fiscale corrente cade tra quello in cui la scheda diventa **Attivo** e quello in cui cade la sua **Fine vita**, entrambi inclusi. Nulla viene calcolato pro rata: un'applicazione dismessa a novembre porta ancora l'intero costo annuale quest'anno. Una scheda la cui Fine vita cadeva in un anno fiscale precedente non viene conteggiata.
 
-Le date del ciclo di vita mancanti vengono interpretate come negli altri report con il viaggio nel tempo:
+Le date del ciclo di vita mancanti vengono interpretate come nei report con il viaggio nel tempo:
 
-- **Nessuna data Attivo, ma una data di Pianificazione o di Introduzione** — la scheda è ancora pianificata e non conta in alcun anno.
-- **Nessuna data di Fine vita** — la scheda conta in ogni anno a partire da quello in cui diventa attiva.
-- **Nessuna data del ciclo di vita** — la scheda conta in ogni anno.
+- **Nessuna data Attivo, ma una data di Pianificazione o di Introduzione** — la scheda è ancora pianificata e non viene conteggiata.
+- **Nessuna data di Fine vita** — la scheda conta a partire dall'anno in cui diventa attiva.
+- **Nessuna data del ciclo di vita** — la scheda conta.
 
-Per vedere un altro anno, trascinate lo slider **Viaggio nel tempo** nella barra degli strumenti. Si ferma solo sugli anni fiscali — in mezzo non c'è nulla su cui fermarsi — e i tasti freccia avanzano di un anno alla volta. L'indicazione mostra l'anno selezionato (ad esempio *AF 2026*, oppure *AF 2025–2026* quando il vostro anno fiscale non inizia a gennaio), e **Anno fiscale corrente** vi riporta a quello. Lo slider copre gli anni coperti dai cicli di vita delle vostre schede, più uno per lato.
-
-L'anno selezionato vale per tutta la pagina: i totali, la treemap, la tabella, le aggregazioni per **Origine dei costi** (un Componente IT dismesso smette di sommarsi al totale della sua Applicazione) e il drill-down. Compare nell'intestazione di stampa ed è salvato con il report: un report salvato sull'anno corrente si riapre sull'anno che sarà corrente in quel momento, uno salvato su un altro anno si riapre su quell'anno. Un amministratore stabilisce il mese di inizio dell'anno fiscale in [Impostazioni → Generale](../admin/settings.md).
+La regola vale per tutta la pagina — i totali, la treemap, la tabella, le aggregazioni per **Origine dei costi** (un Componente IT dismesso smette di sommarsi al totale della sua Applicazione) e il drill-down — e l'anno fiscale compare nell'intestazione di stampa. Non è possibile scegliere altri anni: una scheda porta un solo importo annuale e i costi reali cambiano da un anno all'altro, quindi lo stesso importo mostrato per un altro anno sarebbe fuorviante. Un amministratore stabilisce il mese di inizio dell'anno fiscale in [Impostazioni → Generale](../admin/settings.md).
 
 ### Origine dei costi
 
@@ -194,7 +192,7 @@ Quando almeno un'Origine costi è attiva, i rettangoli del treemap diventano **c
 - **Singola Origine costi attiva** — il drill-down mostra un treemap delle card collegate (ad esempio, cliccando su *NexaCore ERP* con `Componente IT · Costo annuale totale` selezionato vengono mostrati i componenti IT collegati a NexaCore ERP, dimensionati per il loro costo annuale).
 - **Più Origini costi attive** — il drill-down mostra **un treemap per origine affiancati** (1 colonna su schermi stretti, 2 su quelli ampi). Ogni pannello ha la propria intestazione, il proprio totale e la propria `% del totale` nel tooltip — così i diversi tipi di card mantengono la propria scala invece di essere compressi in un unico grafico.
 
-L'anno fiscale, la selezione dell'Origine costi e gli altri filtri vengono mantenuti durante il drill-down, e il livello di drill-down fa parte della configurazione del report salvato: salvando un report mentre si è in drill-down lo si riapre direttamente a quel livello. Senza un'Origine costi attiva, un clic su un rettangolo apre invece il pannello laterale della card (non c'è nulla da scomporre).
+La selezione dell'Origine costi e gli altri filtri vengono mantenuti durante il drill-down, e il livello di drill-down fa parte della configurazione del report salvato: salvando un report mentre si è in drill-down lo si riapre direttamente a quel livello. Senza un'Origine costi attiva, un clic su un rettangolo apre invece il pannello laterale della card (non c'è nulla da scomporre).
 
 **Limitare a schede specifiche** — Il chip accanto al selettore del tipo apre un selettore: scegli una o più schede e la treemap, i totali e la tabella si limiteranno a quelle e a tutto ciò che si trova sotto di esse. Il chip è nascosto mentre sei all'interno di un rettangolo, poiché quel dettaglio ti ha già portato a un altro tipo di scheda; esci e l'ambito è ancora lì.
 

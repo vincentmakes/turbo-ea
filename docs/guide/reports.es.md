@@ -154,17 +154,15 @@ El **Informe de Costos** proporciona un análisis financiero de su panorama tecn
 
 ### Año fiscal
 
-Los costes son anuales, por lo que el informe siempre los muestra para **un año fiscal** — el actual al abrirlo. El coste anual de una tarjeta cuenta **íntegramente** en cada año fiscal, desde aquel en que pasa a **Activo** hasta aquel en que cae su **Fin de vida**, ambos incluidos. No se prorratea nada: una aplicación que se retira en noviembre sigue aportando todo su coste anual a ese año y nada al siguiente. Por eso, una tarjeta cuyo Fin de vida cayó en un año fiscal anterior ya no suma al total.
+Los costes son anuales, por lo que el informe los muestra para **el año fiscal actual**, que un chip de la barra de herramientas indica, por ejemplo **Año fiscal actual: AF 2026** (o *AF 2025–2026* cuando su año fiscal no empieza en enero). El coste anual de una tarjeta cuenta **íntegramente** cuando el año fiscal actual se sitúa entre aquel en que la tarjeta pasa a **Activo** y aquel en que cae su **Fin de vida**, ambos incluidos. No se prorratea nada: una aplicación que se retira en noviembre sigue aportando todo su coste anual este año. Una tarjeta cuyo Fin de vida cayó en un año fiscal anterior no se cuenta.
 
-Las fechas de ciclo de vida que faltan se interpretan igual que en los demás informes con viaje en el tiempo:
+Las fechas de ciclo de vida que faltan se interpretan igual que en los informes con viaje en el tiempo:
 
-- **Sin fecha Activo, pero con fecha de Planificación o de Introducción** — la tarjeta sigue planificada y no cuenta en ningún año.
-- **Sin fecha de Fin de vida** — la tarjeta cuenta en todos los años a partir de aquel en que pasa a Activo.
-- **Sin ninguna fecha de ciclo de vida** — la tarjeta cuenta en todos los años.
+- **Sin fecha Activo, pero con fecha de Planificación o de Introducción** — la tarjeta sigue planificada y no se cuenta.
+- **Sin fecha de Fin de vida** — la tarjeta cuenta a partir del año en que pasa a Activo.
+- **Sin ninguna fecha de ciclo de vida** — la tarjeta cuenta.
 
-Para ver otro año, arrastre el control deslizante **Viaje en el tiempo** de la barra de herramientas. Solo se detiene en años fiscales — entre uno y otro no hay nada en lo que detenerse — y las teclas de flecha avanzan de año en año. La indicación muestra el año seleccionado (por ejemplo *AF 2026*, o *AF 2025–2026* cuando su año fiscal no empieza en enero), y **Año fiscal actual** le devuelve a él. El control abarca los años que cubren los ciclos de vida de sus tarjetas, más uno a cada lado.
-
-El año seleccionado se aplica a toda la página: los totales, el mapa de árbol, la tabla, los agregados por **Origen de los costes** (un Componente TI retirado deja de sumar al total de su Aplicación) y el desglose. Figura en la cabecera impresa y se guarda con el informe: un informe guardado en el año actual se vuelve a abrir en el año que sea el actual en ese momento, y uno guardado en otro año se abre en ese año. Un administrador define el mes en que empieza el año fiscal en [Configuración → General](../admin/settings.md).
+La regla se aplica a toda la página — los totales, el mapa de árbol, la tabla, los agregados por **Origen de los costes** (un Componente TI retirado deja de sumar al total de su Aplicación) y el desglose — y el año fiscal figura en la cabecera impresa. No hay selector de otros años: una tarjeta tiene un único importe anual y los costes reales cambian de un año a otro, así que la misma cifra mostrada para otro año induciría a error. Un administrador define el mes en que empieza el año fiscal en [Configuración → General](../admin/settings.md).
 
 ### Origen de los costes
 
@@ -194,7 +192,7 @@ Siempre que haya al menos un Origen de los costes activo, los rectángulos del m
 - **Un único Origen de costes activo** — el desglose muestra un mapa de árbol de las tarjetas relacionadas (por ejemplo, al hacer clic en *NexaCore ERP* con `Componente TI · Coste anual total` marcado se muestran los Componentes TI vinculados a NexaCore ERP, dimensionados por su coste anual).
 - **Varios Orígenes de costes activos** — el desglose muestra **un mapa de árbol por origen, en paralelo** (1 columna en pantallas estrechas, 2 en pantallas amplias). Cada panel tiene su propio encabezado, su propio total y su propio `% del total` en la información sobre herramientas, de modo que los distintos tipos de tarjeta conservan su escala en lugar de mezclarse en un único gráfico.
 
-El año fiscal, la selección de Origen de los costes y los demás filtros se conservan al profundizar, y el nivel de desglose forma parte de la configuración del informe guardado: guardar un informe mientras se está profundizando lo abre directamente en ese nivel. Sin un Origen de costes activo, hacer clic en un rectángulo abre en su lugar el panel lateral de la tarjeta (no hay nada que desglosar).
+La selección de Origen de los costes y los demás filtros se conservan al profundizar, y el nivel de desglose forma parte de la configuración del informe guardado: guardar un informe mientras se está profundizando lo abre directamente en ese nivel. Sin un Origen de costes activo, hacer clic en un rectángulo abre en su lugar el panel lateral de la tarjeta (no hay nada que desglosar).
 
 **Limitar a tarjetas concretas** — El chip contiguo al selector de tipo abre un selector: elija una o varias tarjetas y el treemap, los totales y la tabla se limitarán a esas y a todo lo que hay debajo. El chip se oculta mientras esté dentro de un rectángulo, ya que ese detalle le ha llevado a otro tipo de tarjeta; salga de él y el alcance seguirá ahí.
 

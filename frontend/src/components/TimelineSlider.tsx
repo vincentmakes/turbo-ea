@@ -79,18 +79,6 @@ interface TimelineSliderProps {
    *  how many cards arrive and how many retire. Rendered as two chips in the
    *  label row while travelling forward. Omit to show none. */
   delta?: { arriving: number; retiring: number };
-  /** Resolution of a drag, in ms. Defaults to one day. `null` locks the thumb
-   *  to `yearMarks` alone — MUI's snap-to-marks mode — for a slider whose
-   *  stops are periods rather than dates (the Cost report's fiscal years).
-   *  Arrow keys then step mark to mark as well. */
-  step?: number | null;
-  /** Wording of the selected value in the read-out and the thumb's tooltip.
-   *  Defaults to a date. Pair it with `step={null}` when a mark stands for a
-   *  period and its date is only where the period starts. */
-  formatValue?: (v: number) => string;
-  /** Label of the chip that returns to `todayMs`. Defaults to "Reset to today";
-   *  override it when `todayMs` is a period's mark rather than today. */
-  resetLabel?: string;
 }
 
 const fmtTip = (v: number) =>
@@ -212,9 +200,6 @@ export default function TimelineSlider({
   milestoneCards,
   onMilestoneCardClick,
   onActiveSpanChange,
-  step = ONE_DAY_MS,
-  formatValue,
-  resetLabel,
 }: TimelineSliderProps) {
   const { t } = useTranslation("common");
   const isRtl = useIsRtl();
@@ -297,7 +282,7 @@ export default function TimelineSlider({
   // this mark's tooltip has always avoided.
   const readout = activeCluster
     ? spanLabel(activeCluster.value, activeCluster.spanEnd)
-    : (formatValue ?? fmtFull)(value);
+    : fmtFull(value);
 
   // Step-through targets are the marks AS DRAWN — the pixel clusters, not the
   // raw per-date milestones behind them. A merged mark is one thing on screen
@@ -468,7 +453,7 @@ export default function TimelineSlider({
         {isAway && (
           <Chip
             size="small"
-            label={resetLabel ?? t("timelineSlider.resetToToday")}
+            label={t("timelineSlider.resetToToday")}
             onClick={() => onChange(todayMs)}
             sx={{
               height: 22,
@@ -517,12 +502,12 @@ export default function TimelineSlider({
               value={thumbValue}
               min={cappedRange.min}
               max={cappedRange.max}
-              step={step}
+              step={ONE_DAY_MS}
               track={false}
               marks={responsiveMarks}
               onChange={(_, v) => onChange(snapToCluster(v as number))}
               valueLabelDisplay="auto"
-              valueLabelFormat={formatValue ?? fmtTip}
+              valueLabelFormat={fmtTip}
               sx={{
                 color: accent,
                 height: 6,

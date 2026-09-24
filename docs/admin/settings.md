@@ -65,7 +65,7 @@ At least one language must remain enabled at all times.
 
 ### Fiscal Year Start
 
-Select the month that begins your organization's fiscal year (January through December). This setting affects how **budget lines** in the PPM module are grouped by fiscal year. For example, if the fiscal year starts in April, a budget line dated June 2026 belongs to FY 2026–2027. It also decides the fiscal years the [Cost Report](../guide/reports.md#cost-report) shows costs for, and where each one begins.
+Select the month that begins your organization's fiscal year (January through December). This setting affects how **budget lines** in the PPM module are grouped by fiscal year. For example, if the fiscal year starts in April, a budget line dated June 2026 belongs to FY 2026–2027. It also decides which fiscal year the [Cost Report](../guide/reports.md#cost-report) shows.
 
 The default is **January** (calendar year = fiscal year).
 

@@ -154,17 +154,15 @@ Skift til **lagdelt afhængighedsvisning** ved hjælp af view-mode-knapperne i v
 
 ### Regnskabsår
 
-Omkostninger er årlige, så rapporten viser dem altid for **ét regnskabsår** — det indeværende, når du åbner den. Et korts årlige omkostning tæller **fuldt ud** i hvert regnskabsår fra det, hvor kortet bliver **Aktiv**, til det, hvor dets **Udløb** falder, begge inklusive. Intet fordeles forholdsmæssigt: En applikation, der udfases i november, bærer stadig hele sin årlige omkostning for det år og ingen i det næste. Et kort, hvis udløb faldt i et tidligere regnskabsår, tæller derfor ikke længere med i totalen.
+Omkostninger er årlige, så rapporten viser dem for **det indeværende regnskabsår** — en chip i værktøjslinjen angiver det, for eksempel **Regnskabsår 2026 (indeværende)** (eller *Regnskabsår 2025–2026 (indeværende)*, når jeres regnskabsår ikke starter i januar). Et korts årlige omkostning tæller **fuldt ud**, når det indeværende regnskabsår ligger mellem det år, hvor kortet bliver **Aktiv**, og det år, hvor dets **Udløb** falder, begge inklusive. Intet fordeles forholdsmæssigt: En applikation, der udfases i november, bærer stadig hele sin årlige omkostning i år. Et kort, hvis udløb faldt i et tidligere regnskabsår, tælles ikke med.
 
-Manglende livscyklusdatoer læses som i de andre rapporter med tidsrejse:
+Manglende livscyklusdatoer læses som i rapporterne med tidsrejse:
 
-- **Ingen Aktiv-dato, men en Planlagt- eller Indfasning-dato** — kortet er stadig planlagt og tæller ikke i noget år.
-- **Ingen Udløb-dato** — kortet tæller i hvert år fra det, hvor det bliver aktivt.
-- **Ingen livscyklusdatoer overhovedet** — kortet tæller i hvert år.
+- **Ingen Aktiv-dato, men en Planlagt- eller Indfasning-dato** — kortet er stadig planlagt og tælles ikke med.
+- **Ingen Udløb-dato** — kortet tæller fra det år, hvor det bliver aktivt.
+- **Ingen livscyklusdatoer overhovedet** — kortet tæller.
 
-For at se et andet år skal du trække skyderen **Tidsrejse** i værktøjslinjen. Den stopper kun på regnskabsår — der er intet imellem at lande på — og piletasterne flytter ét år ad gangen. Visningen angiver det valgte år (for eksempel *Regnskabsår 2026* eller *Regnskabsår 2025–2026*, når jeres regnskabsår ikke starter i januar), og **Indeværende regnskabsår** bringer dig tilbage. Skyderen dækker de år, dine korts livscyklusser spænder over, plus ét i hver ende.
-
-Det valgte år gælder for alt på siden: totalerne, treemap'et, tabellen, **Omkostningskilde**-sammentællinger (en udfaset IT-komponent holder op med at tælle med i sin applikations total) og drill-down. Det udskrives i rapportens sidehoved og gemmes med rapporten: En rapport gemt på det indeværende år åbner på det år, der er indeværende til den tid, og en rapport gemt på et andet år åbner på det år. En administrator angiver, hvilken måned regnskabsåret starter i, under [Indstillinger → Generelt](../admin/settings.md).
+Reglen gælder for alt på siden — totalerne, treemap'et, tabellen, **Omkostningskilde**-sammentællinger (en udfaset IT-komponent holder op med at tælle med i sin applikations total) og drill-down — og regnskabsåret udskrives i rapportens sidehoved. Der er ingen mulighed for at vælge andre år: Et kort har ét årligt beløb, og de reelle omkostninger ændrer sig fra år til år, så det samme tal vist for et andet år ville være misvisende. En administrator angiver, hvilken måned regnskabsåret starter i, under [Indstillinger → Generelt](../admin/settings.md).
 
 ### Cost Source
 
@@ -194,7 +192,7 @@ Når mindst én Cost Source er aktiv, er treemap-rektanglerne **klikbare**. Klik
 - **Enkelt Cost Source aktiv** — drill gengiver én treemap over de relaterede kort (f.eks. ved klik på *NexaCore ERP* med `IT Component · Total Annual Cost` markeret vises de IT Components, der er linket til NexaCore ERP, størrelses-justeret efter deres årlige omkostning).
 - **Flere Cost Sources aktive** — drill gengiver **én treemap pr. kilde side om side** (1 kolonne på smalle viewports, 2 på brede). Hvert panel har sin egen overskrift, sit eget total og sit eget pr.-panel `% af total` i tooltip'en — så forskellige korttyper forbliver på deres egen skala i stedet for at blive presset ind i ét diagram.
 
-Regnskabsåret, Cost Source-valget og andre filtre bevares, mens du driller, og det drillede niveau er en del af den gemte rapports konfiguration — at gemme en rapport, mens du har drillet ind, genåbner direkte på det niveau. Uden **nogen** Cost Source aktiv åbner klik på et rektangel kort-sidepanelet i stedet (der er intet at bryde ned).
+Cost Source-valget og andre filtre bevares, mens du driller, og det drillede niveau er en del af den gemte rapports konfiguration — at gemme en rapport, mens du har drillet ind, genåbner direkte på det niveau. Uden **nogen** Cost Source aktiv åbner klik på et rektangel kort-sidepanelet i stedet (der er intet at bryde ned).
 
 **Afgrænsning til bestemte kort** — Chippen ved siden af korttypevælgeren åbner en vælger: vælg et eller flere kort, og træstrukturen, totalerne og tabellen afgrænses til disse og alt under dem. Chippen skjules, mens du er inde i et rektangel, da det allerede har flyttet dig til en anden korttype; forlad det, og afgrænsningen er der stadig.
 

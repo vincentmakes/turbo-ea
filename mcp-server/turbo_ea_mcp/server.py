@@ -559,23 +559,20 @@ async def get_cost_treemap(
     type: str = "Application",
     cost_field: str = "costTotalAnnual",
     group_by: str = "",
-    fiscal_year: int | None = None,
 ) -> str:
-    """Treemap of annual card cost for one fiscal year, grouped optionally.
+    """Treemap of annual card cost for the current fiscal year, grouped optionally.
 
-    Costs are annual and scoped to a fiscal year: a card counts, at its full
-    annual cost, in every fiscal year from the one it goes active in through
-    the one its end-of-life date falls in. Cards retired in an earlier year are
-    left out. The response names the fiscal year applied, the current one and
-    the range of years the cards' lifecycles span.
+    Only cards live in the current fiscal year count, each at its full annual
+    cost: from the fiscal year a card goes active in through the one its
+    end-of-life date falls in. Cards retired in an earlier fiscal year are left
+    out. The response names the fiscal year (`fiscal_year`, named after the
+    calendar year it ends in) and its start month (`fiscal_year_start`).
 
     Args:
         type: Card type to aggregate (default 'Application').
         cost_field: Cost field key on that type (default 'costTotalAnnual').
         group_by: Optional related card type key to group spend by
             (e.g. 'BusinessCapability', 'Organization').
-        fiscal_year: Fiscal year to report on, named after the calendar year
-            it ends in (e.g. 2027). Defaults to the current fiscal year.
     """
     token = await _get_current_token()
     if not token:
@@ -588,7 +585,6 @@ async def get_cost_treemap(
                 "type": type,
                 "cost_field": cost_field,
                 "group_by": group_by,
-                "fiscal_year": fiscal_year,
             }
         ),
     )

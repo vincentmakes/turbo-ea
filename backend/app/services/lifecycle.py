@@ -8,7 +8,6 @@ displayed or sorted. Keep the three in sync.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from datetime import date, datetime, timezone
 
 from app.services.fiscal_year import fiscal_year_for
@@ -105,25 +104,3 @@ def is_live_in_fiscal_year(lifecycle: dict | None, fiscal_year: int, start_month
         return False
     end_of_life = parse_lifecycle_date(lc.get("endOfLife"))
     return end_of_life is None or fiscal_year <= fiscal_year_for(end_of_life, start_month)
-
-
-def fiscal_year_span(
-    lifecycles: Iterable[dict | None], start_month: int, current_fy: int
-) -> tuple[int, int]:
-    """The fiscal years worth offering a picker over, as ``(first, last)``.
-
-    Covers the fiscal year of every ``active`` and ``endOfLife`` date — the only
-    two dates that move a card in or out of a year — plus the current one,
-    widened by a year each side so the picker can show the year *before* the
-    first card goes live and the year *after* the last one retires. That is the
-    same one-year padding ``computeTimelineRange`` gives the date slider.
-    """
-    years = {current_fy}
-    for lc in lifecycles:
-        if not lc:
-            continue
-        for phase in ("active", "endOfLife"):
-            d = parse_lifecycle_date(lc.get(phase))
-            if d is not None:
-                years.add(fiscal_year_for(d, start_month))
-    return min(years) - 1, max(years) + 1

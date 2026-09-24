@@ -6,11 +6,7 @@ from datetime import date
 
 import pytest
 
-from app.services.lifecycle import (
-    fiscal_year_span,
-    is_live_in_fiscal_year,
-    parse_lifecycle_date,
-)
+from app.services.lifecycle import is_live_in_fiscal_year, parse_lifecycle_date
 
 
 class TestParseLifecycleDate:
@@ -101,28 +97,3 @@ class TestIsLiveInFiscalYear:
         lc = {"active": "2025-02-01T00:00:00", "endOfLife": "2025-12-31T23:59:59"}
         assert is_live_in_fiscal_year(lc, 2025, 1)
         assert not is_live_in_fiscal_year(lc, 2026, 1)
-
-
-class TestFiscalYearSpan:
-    def test_no_dates_is_the_current_year_padded(self):
-        assert fiscal_year_span([None, {}, {"plan": "2010-01-01"}], 1, 2026) == (2025, 2027)
-
-    def test_covers_active_and_end_of_life_dates_padded_by_one(self):
-        lifecycles = [
-            {"active": "2021-04-01", "endOfLife": "2024-01-01"},
-            {"active": "2027-07-01", "endOfLife": "2031-03-01"},
-        ]
-        assert fiscal_year_span(lifecycles, 1, 2026) == (2020, 2032)
-
-    def test_always_includes_the_current_year(self):
-        lifecycles = [{"active": "2010-01-01", "endOfLife": "2012-01-01"}]
-        assert fiscal_year_span(lifecycles, 1, 2026) == (2009, 2027)
-
-    def test_uses_the_start_month(self):
-        # 2026-10-15 is FY2027 on an October start.
-        lifecycles = [{"endOfLife": "2026-10-15"}]
-        assert fiscal_year_span(lifecycles, 10, 2026) == (2025, 2028)
-
-    def test_ignores_phases_that_do_not_move_a_card_in_or_out(self):
-        lifecycles = [{"plan": "2000-01-01", "phaseIn": "2001-01-01", "phaseOut": "2040-01-01"}]
-        assert fiscal_year_span(lifecycles, 1, 2026) == (2025, 2027)

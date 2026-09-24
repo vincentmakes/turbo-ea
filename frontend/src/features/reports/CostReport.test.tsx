@@ -1,15 +1,15 @@
 /**
- * Tests for the Cost report's card scope (#954) and its fiscal-year slider.
+ * Tests for the Cost report's card scope (#954) and its fiscal-year indicator.
  *
  * Scope: the risk is not the filter itself but its blast radius — the metric
  * strip, the treemap and the table footer are all derived separately, so a
  * scope applied in the wrong place leaves them disagreeing with each other.
  *
- * Fiscal year: the server applies the year, so these pin what reaches the
- * request and what the slider is handed — one stop per year, nothing between.
+ * Fiscal year: the server shows the current year only and names it; the page
+ * must say which year that is and never ask for another.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, waitFor, within } from "@testing-library/react";
+import { render, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { createRef } from "react";
 import CostReport from "./CostReport";
@@ -45,30 +45,10 @@ vi.mock("@/hooks/useAuth", () => ({
 }));
 vi.mock("@/components/CardDetailSidePanel", () => ({ default: () => null }));
 
-// Captured so the fiscal-year wiring can be asserted at the slider boundary,
-// the same pattern as CapabilityMapReport.test.tsx.
-type SliderProps = {
-  value: number;
-  onChange: (v: number) => void;
-  yearMarks: { value: number; label: string }[];
-  todayMs?: number;
-  step?: number | null;
-  formatValue?: (v: number) => string;
-  resetLabel?: string;
-};
-const sliderProps: SliderProps[] = [];
-vi.mock("@/components/TimelineSlider", () => ({
-  default: (props: SliderProps) => {
-    sliderProps.push(props);
-    return <div data-testid="timeline-slider" />;
-  },
-}));
-
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
-import { fiscalYearStartMs } from "@/lib/fiscalYear";
 
 const APP_TYPE = {
   key: "Application",
@@ -97,7 +77,6 @@ const COST_ITEMS = [
   { id: "erp", name: "ERP", cost: 500, attributes: {} },
 ];
 
-const CURRENT_FY = 2026;
 let fyStart = 1;
 
 let consumedConfig: Record<string, unknown> | null = { view: "table" };
@@ -105,19 +84,15 @@ let consumedConfig: Record<string, unknown> | null = { view: "table" };
 beforeEach(() => {
   vi.clearAllMocks();
   consumedConfig = { view: "table" };
-  sliderProps.length = 0;
   fyStart = 1;
 
   vi.mocked(api.get).mockImplementation((path: string) => {
     if (path.startsWith("/reports/cost-treemap")) {
-      const asked = new URLSearchParams(path.split("?")[1]).get("fiscal_year");
       return Promise.resolve({
         items: COST_ITEMS,
         total: 620,
-        fiscal_year: asked ? Number(asked) : CURRENT_FY,
-        current_fiscal_year: CURRENT_FY,
+        fiscal_year: 2026,
         fiscal_year_start: fyStart,
-        fiscal_year_range: { min: 2024, max: 2029 },
       }) as never;
     }
     // The scope hook's own hierarchy fetch.
@@ -205,76 +180,35 @@ describe("CostReport scope filter", () => {
 });
 
 describe("CostReport fiscal year", () => {
-  const treemapCalls = () =>
-    vi
+  const indicator = () => document.querySelector('[data-testid="cost-fiscal-year"]');
+
+  it("names the current fiscal year the figures are for", async () => {
+    renderCost();
+    await waitFor(() => expect(indicator()).not.toBeNull());
+    expect(indicator()).toHaveTextContent("Current fiscal year: FY 2026");
+    expect(within(toolbar()).getByText("Current fiscal year: FY 2026")).toBeInTheDocument();
+  });
+
+  it("names a fiscal year that straddles two calendar years by both", async () => {
+    fyStart = 10;
+    renderCost();
+    await waitFor(() => expect(indicator()).toHaveTextContent("Current fiscal year: FY 2025–2026"));
+  });
+
+  it("never asks the server for a particular year", async () => {
+    renderCost();
+    await waitFor(() => expect(indicator()).not.toBeNull());
+    const calls = vi
       .mocked(api.get)
       .mock.calls.map(([path]) => String(path))
       .filter((path) => path.startsWith("/reports/cost-treemap"));
-  const askedYear = (path: string) =>
-    new URLSearchParams(path.split("?")[1]).get("fiscal_year");
-  const lastSlider = () => sliderProps[sliderProps.length - 1];
-  const persisted = () => {
-    const calls = vi.mocked(useSavedReport).mock.results[0].value.persistConfig.mock.calls;
-    return calls[calls.length - 1][0] as Record<string, unknown>;
-  };
-
-  it("leaves the year to the server until one is picked", async () => {
-    renderCost();
-    await waitFor(() => expect(sliderProps.length).toBeGreaterThan(0));
-    expect(treemapCalls().length).toBeGreaterThan(0);
-    for (const path of treemapCalls()) expect(askedYear(path)).toBeNull();
+    expect(calls.length).toBeGreaterThan(0);
+    for (const path of calls) expect(path).not.toContain("fiscal_year");
   });
 
-  it("offers one stop per fiscal year and nothing in between", async () => {
+  it("offers no year picker", async () => {
     renderCost();
-    await waitFor(() => expect(sliderProps.length).toBeGreaterThan(0));
-    const props = lastSlider();
-    expect(props.step).toBeNull();
-    expect(props.yearMarks.map((m) => m.label)).toEqual([
-      "2024",
-      "2025",
-      "2026",
-      "2027",
-      "2028",
-      "2029",
-    ]);
-    expect(props.yearMarks.map((m) => m.value)).toEqual(
-      [2024, 2025, 2026, 2027, 2028, 2029].map((fy) => fiscalYearStartMs(fy, 1)),
-    );
-    // Standing on the current year, which is also where "reset" returns to.
-    expect(props.value).toBe(fiscalYearStartMs(CURRENT_FY, 1));
-    expect(props.todayMs).toBe(fiscalYearStartMs(CURRENT_FY, 1));
-    expect(props.resetLabel).toBe("Current fiscal year");
-  });
-
-  it("names the year in full, straddling two years on a non-January start", async () => {
-    fyStart = 10;
-    renderCost();
-    await waitFor(() => expect(sliderProps.length).toBeGreaterThan(0));
-    const props = lastSlider();
-    expect(props.yearMarks[0].value).toBe(fiscalYearStartMs(2024, 10));
-    expect(props.formatValue?.(fiscalYearStartMs(2028, 10))).toBe("FY 2027–2028");
-  });
-
-  it("refetches for the year picked, and forgets it back on the current year", async () => {
-    renderCost();
-    await waitFor(() => expect(sliderProps.length).toBeGreaterThan(0));
-
-    act(() => lastSlider().onChange(fiscalYearStartMs(2028, 1)));
-    await waitFor(() => expect(askedYear(treemapCalls().at(-1)!)).toBe("2028"));
-    await waitFor(() => expect(lastSlider().value).toBe(fiscalYearStartMs(2028, 1)));
-    expect(persisted().fiscalYear).toBe(2028);
-
-    act(() => lastSlider().onChange(fiscalYearStartMs(CURRENT_FY, 1)));
-    await waitFor(() => expect(askedYear(treemapCalls().at(-1)!)).toBeNull());
-    // Not stored as 2026: a saved report opened next year follows next year.
-    expect(persisted().fiscalYear).toBeUndefined();
-  });
-
-  it("restores a saved fiscal year into the request", async () => {
-    consumedConfig = { view: "table", fiscalYear: 2027 };
-    renderCost();
-    await waitFor(() => expect(treemapCalls().some((p) => askedYear(p) === "2027")).toBe(true));
-    await waitFor(() => expect(lastSlider().value).toBe(fiscalYearStartMs(2027, 1)));
+    await waitFor(() => expect(indicator()).not.toBeNull());
+    expect(document.querySelector(".MuiSlider-root")).toBeNull();
   });
 });

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **The Cost report now shows costs for one fiscal year, and a Time Travel slider picks which.** Costs are annual, so the report opens on the current fiscal year and a card's annual cost counts in full in every fiscal year from the one it goes Active in through the one its End of Life falls in — nothing is pro-rated, so an application retiring in November still carries its whole cost for that year. The slider stops on fiscal years only, with the arrow keys stepping one year at a time, and **Current fiscal year** brings you back. The year applies to the totals, the treemap, the table, Cost Source roll-ups and drill-downs, is printed in the report header and is saved with the report. Fiscal years start in the month set under Settings → General.
+- **The Cost report says which fiscal year its figures are for.** A chip in the toolbar reads, for example, *Current fiscal year: FY 2026* (or *FY 2025–2026* when your fiscal year does not start in January), and the same line appears in the printed and exported header. Costs are annual and a card carries a single annual figure, so the report shows the current fiscal year only. Fiscal years start in the month set under Settings → General.
 
 ### Changed
 
@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-- **The Cost report no longer counts cards whose End of Life is already past.** A card retired in an earlier fiscal year still added its full annual cost to the totals, including when costs were rolled up from related cards. The same fix applies to the cost figures AI assistants read through the MCP server, which can now also ask for a specific fiscal year.
+- **The Cost report no longer counts cards whose End of Life is already past.** A card retired in an earlier fiscal year still added its full annual cost to the totals, including when costs were rolled up from related cards. A card now counts, at its full annual cost, when it is live in the current fiscal year — from the year it goes Active through the year of its End of Life, never pro-rated. The same fix applies to the cost figures AI assistants read through the MCP server.
 
 ## [2.149.3] - 2026-09-24
 

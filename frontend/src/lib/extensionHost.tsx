@@ -148,7 +148,7 @@ import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.31";
+export const UI_SDK_VERSION = "1.30";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -1125,10 +1125,6 @@ export function initExtensionHost(): void {
       // milestone clustering, the persisted `timelineDate` convention via
       // `useTimeline`). An async loader, not a static import: the slider only
       // lives in report chunks today and must not join the eager main bundle.
-      // Since SDK 1.31 the slider also takes `step` (`null` locks the thumb to
-      // its marks — a slider whose stops are periods, like the Cost report's
-      // fiscal years), `formatValue` (how the read-out and thumb word a
-      // value) and `resetLabel`. All optional; the defaults are unchanged.
       loadTimeline: () =>
         Promise.all([
           import("@/components/TimelineSlider"),
