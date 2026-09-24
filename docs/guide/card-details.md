@@ -90,6 +90,8 @@ The lifecycle model tracks a component through five phases:
 
 Each phase has a **date picker** so you can record when the component entered or will enter that phase. A visual timeline bar shows the component's position in its lifecycle.
 
+If a phase is dated after a phase that should follow it — for example **Phase Out** after **End of Life** — a warning icon appears next to that date, and the same warning shows under the field while editing. It is only a hint: the dates can still be saved as entered.
+
 ### Custom Attribute Sections
 
 Depending on the card type, you will see additional sections with **custom fields** configured in the metamodel. Field types include:

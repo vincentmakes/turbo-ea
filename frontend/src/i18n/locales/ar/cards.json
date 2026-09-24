@@ -80,6 +80,7 @@
   "description.title": "الوصف",
   "description.noDescription": "لم يتم تقديم وصف.",
   "lifecycle.title": "دورة الحياة",
+  "lifecycle.orderWarning": "بعد {{phase}} ({{date}})",
   "attributes.calculated": "محسوب",
   "attributes.percentageRange": "أدخل رقمًا بين 0 و100",
   "attributes.auto": "تلقائي",

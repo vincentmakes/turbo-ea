@@ -80,6 +80,7 @@
   "description.title": "Description",
   "description.noDescription": "Aucune description fournie.",
   "lifecycle.title": "Cycle de vie",
+  "lifecycle.orderWarning": "Après {{phase}} ({{date}})",
   "attributes.calculated": "calculé",
   "attributes.percentageRange": "Saisissez un nombre entre 0 et 100",
   "attributes.auto": "auto",

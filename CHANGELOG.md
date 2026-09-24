@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [2.149.1] - 2026-09-23
 
+### Added
+
+- **Lifecycle dates out of phase order are flagged.** When a phase is dated after a phase that should follow it — for example Phase Out after End of Life — the card's lifecycle timeline shows a warning next to that date, and the same warning appears under the field while editing. It is advisory only: the dates can still be saved as entered.
+
 ### Fixed
 
 - **Date fields in Safari now use one consistent, readable calendar — on Mac, iPhone and iPad.** Safari's own date control filled every empty field with today's date, opened a tiny system calendar that ignored the app's theme, and could lose a picked or typed date. In Safari, date fields are now the app's own: an empty field shows a grey day/month/year placeholder (for example `dd.mm.yyyy`, in your region's order), and clicking or tapping anywhere on the field — or on its calendar icon — opens the same calendar in the app's style (light or dark, weeks starting on your region's first day), with Today and Clear. On a Mac you can also type a date in your region's format; anything that is not a real date is flagged in red and the last good date is kept. On iPhone and iPad a tap opens the calendar without the keyboard. Chrome and Firefox keep their own native date fields exactly as before. Applies to every date field in the app — card lifecycle phases, risk and mitigation dates, PPM dialogs and custom date attributes ([#1142](https://github.com/vincentmakes/turbo-ea/issues/1142)).

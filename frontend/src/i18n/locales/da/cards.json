@@ -80,6 +80,7 @@
   "description.title": "Beskrivelse",
   "description.noDescription": "Ingen beskrivelse angivet.",
   "lifecycle.title": "Livscyklus",
+  "lifecycle.orderWarning": "Efter {{phase}} ({{date}})",
   "attributes.calculated": "beregnet",
   "attributes.percentageRange": "Indtast et tal mellem 0 og 100",
   "attributes.auto": "auto",

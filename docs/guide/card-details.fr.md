@@ -91,6 +91,8 @@ Le modèle de cycle de vie suit un composant à travers cinq phases :
 
 Chaque phase dispose d'un **sélecteur de date** pour enregistrer quand le composant est entré ou entrera dans cette phase. Une barre chronologique visuelle montre la position du composant dans son cycle de vie.
 
+Si une phase est datée après une phase qui devrait la suivre — par exemple **Retrait progressif** après **Fin de vie** —, une icône d'avertissement apparaît à côté de cette date, et le même avertissement s'affiche sous le champ pendant la modification. Ce n'est qu'une indication : les dates peuvent tout de même être enregistrées telles quelles.
+
 ### Sections d'attributs personnalisés
 
 Selon le type de fiche, vous verrez des sections supplémentaires avec des **champs personnalisés** configurés dans le métamodèle. Les types de champs incluent :

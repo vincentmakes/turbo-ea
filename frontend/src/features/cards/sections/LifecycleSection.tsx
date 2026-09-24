@@ -6,12 +6,13 @@ import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { PHASE_ICONS } from "@/components/LifecycleBadge";
-import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
+import { PHASES, getPhaseLabels, lifecycleOrderIssues } from "@/lib/lifecyclePhases";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { todayIsoDate } from "@/lib/dates";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
@@ -80,6 +81,18 @@ function LifecycleSection({
     onDirtyChange?.(dirty);
     return () => onDirtyChange?.(false);
   }, [dirty, onDirtyChange]);
+
+  // Advisory only: a phase dated after one that should follow it is flagged,
+  // never refused — real lifecycles do slip, and the save stays the user's call.
+  const orderIssues = lifecycleOrderIssues(lifecycle);
+  const orderWarning = (phase: (typeof PHASES)[number]) => {
+    const later = orderIssues[phase];
+    if (!later) return null;
+    return t("lifecycle.orderWarning", {
+      phase: phaseLabels[later],
+      date: formatDate(lifecycle[later]),
+    });
+  };
 
   const save = async () => {
     await onSave({ lifecycle });
@@ -211,6 +224,7 @@ function LifecycleSection({
                 ? "#fff"
                 : theme.palette.text.disabled;
               const annotation = phaseAnnotation?.(phase);
+              const warning = orderWarning(phase);
               return (
                 <Box
                   key={phase}
@@ -265,6 +279,18 @@ function LifecycleSection({
                   >
                     {date ? formatDate(date) : "—"}
                   </Typography>
+                  {warning && (
+                    <Tooltip title={warning}>
+                      <Box
+                        component="span"
+                        role="img"
+                        aria-label={warning}
+                        sx={{ display: "inline-flex", ml: 0.5, verticalAlign: "middle" }}
+                      >
+                        <MaterialSymbol icon="warning" size={14} color={theme.palette.warning.main} />
+                      </Box>
+                    </Tooltip>
+                  )}
                   {annotation?.note}
                 </Box>
               );
@@ -276,14 +302,21 @@ function LifecycleSection({
             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
               {PHASES.map((phase) => {
                 const annotation = phaseAnnotation?.(phase);
+                const warning = orderWarning(phase);
                 return (
-                  <Box key={phase}>
+                  <Box key={phase} sx={{ maxWidth: 170 }}>
                     <DateField
                       label={phaseLabels[phase]}
                       size="small"
                       value={lifecycle[phase] || ""}
                       onChange={(v) =>
                         setLifecycle({ ...lifecycle, [phase]: v })
+                      }
+                      helperText={warning ?? undefined}
+                      slotProps={
+                        warning
+                          ? { formHelperText: { sx: { color: "warning.main", mx: 0 } } }
+                          : undefined
                       }
                       sx={{
                         width: 170,

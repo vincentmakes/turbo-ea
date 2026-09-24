@@ -93,6 +93,8 @@ Das Lebenszyklusmodell verfolgt eine Komponente durch fünf Phasen:
 
 Jede Phase verfügt über eine **Datumsauswahl**, damit Sie festhalten können, wann die Komponente in diese Phase eingetreten ist oder eintreten wird. Ein visueller Zeitleistenbalken zeigt die Position der Komponente in ihrem Lebenszyklus.
 
+Liegt das Datum einer Phase nach dem einer folgenden Phase — zum Beispiel **Auslauf** nach **Lebensende** —, erscheint neben diesem Datum ein Warnsymbol, und beim Bearbeiten steht derselbe Hinweis unter dem Feld. Es ist nur ein Hinweis: Die Daten lassen sich trotzdem wie eingegeben speichern.
+
 ### Benutzerdefinierte Attributabschnitte
 
 Abhängig vom Kartentyp werden Sie zusätzliche Abschnitte mit **benutzerdefinierten Feldern** sehen, die im Metamodell konfiguriert sind. Feldtypen umfassen:

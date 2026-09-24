@@ -80,6 +80,7 @@
   "description.title": "描述",
   "description.noDescription": "未提供描述。",
   "lifecycle.title": "生命周期",
+  "lifecycle.orderWarning": "晚于{{phase}}（{{date}}）",
   "attributes.calculated": "计算值",
   "attributes.percentageRange": "请输入 0 到 100 之间的数字",
   "attributes.auto": "自动",

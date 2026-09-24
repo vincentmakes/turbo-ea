@@ -80,6 +80,7 @@
   "description.title": "Описание",
   "description.noDescription": "Описание не указано.",
   "lifecycle.title": "Жизненный цикл",
+  "lifecycle.orderWarning": "Позже этапа «{{phase}}» ({{date}})",
   "attributes.calculated": "вычисляемое",
   "attributes.percentageRange": "Введите число от 0 до 100",
   "attributes.auto": "авто",
