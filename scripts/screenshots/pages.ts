@@ -2064,9 +2064,10 @@ export const DOC_PAGES: PageDef[] = [
     waitFor: ".MuiCardActionArea-root, .MuiAlert-root",
     actions: [
       { type: "wait", ms: 2500 },
-      // Scroll past the page intro so the category chips and two rows of
-      // tiles are in frame.
-      { type: "scroll", target: "", pixels: 280 },
+      // Scroll past the page intro so the tabs, category chips and the first
+      // sections of tiles are in frame (anchored on the tab bar, since the
+      // intro's height varies with the language).
+      { type: "scroll", target: "[role='tablist']", align: "start" },
       { type: "wait", ms: 400 },
     ],
     filenames: {
