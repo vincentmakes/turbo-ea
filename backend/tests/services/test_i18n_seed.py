@@ -353,3 +353,95 @@ class TestRelationTranslations:
                 f"Relation '{relation['key']}' reverse_label translation "
                 f"for locale '{locale}' is empty or not a string"
             )
+
+
+# ---------------------------------------------------------------------------
+# A parent's translation must not be one of its children's
+# ---------------------------------------------------------------------------
+
+
+def _flat(translations) -> dict:
+    """A flat ``{locale: text}`` map from either translation shape the seed uses."""
+    if not isinstance(translations, dict):
+        return {}
+    label = translations.get("label")
+    return label if isinstance(label, dict) else translations
+
+
+def _entry(label, translations) -> tuple[str, dict]:
+    return (label or "", _flat(translations))
+
+
+def _option_entries(field: dict) -> list[tuple[str, dict]]:
+    return [_entry(o.get("label"), o.get("translations")) for o in field.get("options") or []]
+
+
+def _field_entries(field: dict) -> list[tuple[str, dict]]:
+    return [_entry(field.get("label"), field.get("translations")), *_option_entries(field)]
+
+
+def _parent_child_pairs():
+    """(where, parent, descendants) for every translated entry that contains others."""
+    for t in TYPES:
+        key = t["key"]
+        descendants = [
+            _entry(s.get("label"), s.get("translations"))
+            for s in [*(t.get("subtypes") or []), *(t.get("stakeholder_roles") or [])]
+        ]
+        for section in t.get("fields_schema") or []:
+            fields = section.get("fields") or []
+            section_children = [e for f in fields for e in _field_entries(f)]
+            yield (
+                f"{key} section '{section['section']}'",
+                _entry(section["section"], section.get("translations")),
+                section_children,
+            )
+            for f in fields:
+                if f.get("options"):
+                    yield (
+                        f"{key} field '{f['key']}'",
+                        _entry(f.get("label"), f.get("translations")),
+                        _option_entries(f),
+                    )
+            descendants += [_entry(section["section"], section.get("translations"))]
+            descendants += section_children
+        yield f"type '{key}'", _entry(t["label"], t.get("translations")), descendants
+    for r in RELATIONS:
+        attrs = []
+        for item in r.get("attributes_schema") or []:
+            for f in item.get("fields") or [item]:
+                attrs += _field_entries(f)
+        if attrs:
+            yield f"relation '{r['key']}'", _entry(r["label"], r.get("translations")), attrs
+
+
+# Genuine synonyms: the English words differ, but a language uses one word for both.
+_SHARED_WORD_ALLOWED = {
+    ("provider", "vendor"),  # «Fournisseur», «Proveedor», «供应商», …
+    ("supports", "supporting"),  # «支持»
+}
+
+
+class TestNoTranslationLeaksFromChildren:
+    """Guards the shape of the Danish bug fixed by migration 152.
+
+    A bulk pass that adds a locale by injecting a value into every translation
+    dict can land a child's text on its parent — Application became «Produktnavn»
+    (its Product Name field), the Organization Information section «Kunde» (a
+    subtype). A parent may share a word with a descendant only where the English
+    labels are the same word too.
+    """
+
+    @pytest.mark.parametrize("locale", SUPPORTED_LOCALES)
+    def test_parent_never_carries_a_childs_translation(self, locale):
+        leaks = []
+        for where, (parent_en, parent_tr), descendants in _parent_child_pairs():
+            parent_text = parent_tr.get(locale)
+            if not parent_text:
+                continue
+            for child_en, child_tr in descendants:
+                same_word = child_en.lower() == parent_en.lower()
+                allowed = (parent_en.lower(), child_en.lower()) in _SHARED_WORD_ALLOWED
+                if child_tr.get(locale) == parent_text and not same_word and not allowed:
+                    leaks.append(f"{where}: '{parent_en}' reads «{parent_text}» like '{child_en}'")
+        assert not leaks, "\n".join(leaks)

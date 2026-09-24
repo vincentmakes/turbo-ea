@@ -1187,7 +1187,7 @@ TYPES = [
                     "pt": "Informações do objetivo",
                     "zh": "目标信息",
                     "ru": "Информация о цели",
-                    "da": "Mål",
+                    "da": "Målinformation",
                     "ar": "معلومات الهدف",
                 },
                 "fields": [
@@ -1251,7 +1251,7 @@ TYPES = [
                             "pt": "Tipo de objetivo",
                             "zh": "目标类型",
                             "ru": "Тип цели",
-                            "da": "Operationel",
+                            "da": "Måltype",
                             "ar": "نوع الهدف",
                         },
                     },
@@ -1301,7 +1301,7 @@ TYPES = [
                 "pt": "Objetivo",
                 "zh": "目标",
                 "ru": "Цель",
-                "da": "Fremskridt (%)",
+                "da": "Mål",
                 "ar": "هدف",
             },
             "description": {
@@ -1372,7 +1372,7 @@ TYPES = [
                     "pt": "Informações da plataforma",
                     "zh": "平台信息",
                     "ru": "Информация о платформе",
-                    "da": "Teknisk",
+                    "da": "Platformsinformation",
                     "ar": "معلومات المنصّة",
                 },
                 "fields": [
@@ -1423,7 +1423,7 @@ TYPES = [
                             "pt": "Tipo de plataforma",
                             "zh": "平台类型",
                             "ru": "Тип платформы",
-                            "da": "Teknisk",
+                            "da": "Platformstype",
                             "ar": "نوع المنصّة",
                         },
                     },
@@ -1439,7 +1439,7 @@ TYPES = [
                 "pt": "Plataforma",
                 "zh": "平台",
                 "ru": "Платформа",
-                "da": "Teknisk",
+                "da": "Platform",
                 "ar": "منصّة",
             },
             "description": {
@@ -1542,7 +1542,7 @@ TYPES = [
                     "pt": "Informações da iniciativa",
                     "zh": "举措信息",
                     "ru": "Информация об инициативе",
-                    "da": "Epic",
+                    "da": "Initiativinformation",
                     "ar": "معلومات المبادرة",
                 },
                 "fields": [
@@ -1627,7 +1627,7 @@ TYPES = [
                             "pt": "Valor de negócio",
                             "zh": "业务价值",
                             "ru": "Бизнес-ценность",
-                            "da": "Lav",
+                            "da": "Forretningsværdi",
                             "ar": "القيمة التجارية",
                         },
                     },
@@ -1694,7 +1694,7 @@ TYPES = [
                             "pt": "Esforço",
                             "zh": "工作量",
                             "ru": "Трудозатраты",
-                            "da": "Lav",
+                            "da": "Indsats",
                             "ar": "الجهد",
                         },
                     },
@@ -1710,7 +1710,7 @@ TYPES = [
                     "pt": "Custos e cronograma",
                     "zh": "成本与时间表",
                     "ru": "Стоимость и сроки",
-                    "da": "Lav",
+                    "da": "Omkostninger & tidsplan",
                     "ar": "التكلفة والجدول الزمني",
                 },
                 "fields": [
@@ -1847,7 +1847,7 @@ TYPES = [
                 "pt": "Iniciativa",
                 "zh": "举措",
                 "ru": "Инициатива",
-                "da": "Observatør",
+                "da": "Initiativ",
                 "ar": "مبادرة",
             },
             "description": {
@@ -1966,7 +1966,7 @@ TYPES = [
                     "pt": "Informações da organização",
                     "zh": "组织信息",
                     "ru": "Информация об организации",
-                    "da": "Kunde",
+                    "da": "Organisationsinformation",
                     "ar": "معلومات المؤسسة",
                 },
                 "fields": [
@@ -2016,7 +2016,7 @@ TYPES = [
                 "pt": "Organização",
                 "zh": "组织",
                 "ru": "Организация",
-                "da": "Lokation",
+                "da": "Organisation",
                 "ar": "مؤسسة",
             },
             "description": {
@@ -2053,7 +2053,7 @@ TYPES = [
                     "pt": "Informações da capacidade",
                     "zh": "能力信息",
                     "ru": "Информация о возможности",
-                    "da": "Forretningskompetence",
+                    "da": "Kompetenceinformation",
                     "ar": "معلومات القدرة",
                 },
                 "fields": [
@@ -2169,7 +2169,7 @@ TYPES = [
                             "pt": "Nível de capacidade",
                             "zh": "能力级别",
                             "ru": "Уровень возможности",
-                            "da": "Niveau 5",
+                            "da": "Kompetenceniveau",
                             "ar": "مستوى القدرة",
                         },
                     },
@@ -2202,7 +2202,7 @@ TYPES = [
                     "pt": "Avaliação BPM",
                     "zh": "BPM评估",
                     "ru": "Оценка BPM",
-                    "da": "Kernekompetence",
+                    "da": "BPM-vurdering",
                     "ar": "تقييم BPM",
                 },
                 "fields": [
@@ -2285,7 +2285,7 @@ TYPES = [
                             "pt": "Importância estratégica",
                             "zh": "战略重要性",
                             "ru": "Стратегическая значимость",
-                            "da": "Kritisk",
+                            "da": "Strategisk betydning",
                             "ar": "الأهمية الاستراتيجية",
                         },
                     },
@@ -2319,7 +2319,7 @@ TYPES = [
                 "pt": "Capacidade de negócio",
                 "zh": "业务能力",
                 "ru": "Бизнес-возможность",
-                "da": "Kompetencemodenhed",
+                "da": "Forretningskompetence",
                 "ar": "قدرة تجارية",
             },
             "description": {
@@ -2437,7 +2437,7 @@ TYPES = [
                     "pt": "Informações do contexto de negócio",
                     "zh": "业务上下文信息",
                     "ru": "Информация о бизнес-контексте",
-                    "da": "ESG-kompetence",
+                    "da": "Forretningskontekstinformation",
                     "ar": "معلومات السياق التجاري",
                 },
                 "fields": [
@@ -2520,7 +2520,7 @@ TYPES = [
                             "pt": "Maturidade",
                             "zh": "成熟度",
                             "ru": "Зрелость",
-                            "da": "Optimeret",
+                            "da": "Modenhed",
                             "ar": "مستوى النضج",
                         },
                     },
@@ -2536,7 +2536,7 @@ TYPES = [
                 "pt": "Contexto de negócio",
                 "zh": "业务上下文",
                 "ru": "Бизнес-контекст",
-                "da": "Optimeret",
+                "da": "Forretningskontekst",
                 "ar": "سياق تجاري",
             },
             "description": {
@@ -2640,7 +2640,7 @@ TYPES = [
                     "pt": "Classificação do processo",
                     "zh": "流程分类",
                     "ru": "Классификация процесса",
-                    "da": "Procesvariant",
+                    "da": "Procesklassifikation",
                     "ar": "تصنيف العملية",
                 },
                 "fields": [
@@ -2729,7 +2729,7 @@ TYPES = [
                     "pt": "Detalhes operacionais",
                     "zh": "运营详情",
                     "ru": "Операционные детали",
-                    "da": "Risikoniveau",
+                    "da": "Driftsdetaljer",
                     "ar": "التفاصيل التشغيلية",
                 },
                 "fields": [
@@ -2850,7 +2850,7 @@ TYPES = [
                 "pt": "Processo de negócio",
                 "zh": "业务流程",
                 "ru": "Бизнес-процесс",
-                "da": "Observatør",
+                "da": "Forretningsproces",
                 "ar": "عملية تجارية",
             },
             "description": {
@@ -3180,7 +3180,7 @@ TYPES = [
                 "pt": "Aplicação",
                 "zh": "应用程序",
                 "ru": "Приложение",
-                "da": "Produktnavn",
+                "da": "Applikation",
                 "ar": "تطبيق",
             },
             "description": {
@@ -3267,7 +3267,7 @@ TYPES = [
                     "pt": "Informações da interface",
                     "zh": "接口信息",
                     "ru": "Информация об интерфейсе",
-                    "da": "MCP-server",
+                    "da": "Grænsefladeinformation",
                     "ar": "معلومات الواجهة",
                 },
                 "fields": [
@@ -3335,7 +3335,7 @@ TYPES = [
                 "pt": "Interface",
                 "zh": "接口",
                 "ru": "Интерфейс",
-                "da": "Protokol",
+                "da": "Grænseflade",
                 "ar": "واجهة",
             },
             "description": {
@@ -3373,7 +3373,7 @@ TYPES = [
                     "pt": "Informações de dados",
                     "zh": "数据信息",
                     "ru": "Информация о данных",
-                    "da": "Dataobjekt",
+                    "da": "Datainformation",
                     "ar": "معلومات البيانات",
                 },
                 "fields": [
@@ -3441,7 +3441,7 @@ TYPES = [
                 "pt": "Objeto de dados",
                 "zh": "数据对象",
                 "ru": "Объект данных",
-                "da": "Indeholder personoplysninger",
+                "da": "Dataobjekt",
                 "ar": "كائن بيانات",
             },
             "description": {
@@ -3594,7 +3594,7 @@ TYPES = [
                     "pt": "Informações do componente",
                     "zh": "组件信息",
                     "ru": "Информация о компоненте",
-                    "da": "AI-model",
+                    "da": "Komponentinformation",
                     "ar": "معلومات المكوّن",
                 },
                 "fields": [
@@ -3680,7 +3680,7 @@ TYPES = [
                     "pt": "Custos",
                     "zh": "成本",
                     "ru": "Стоимость",
-                    "da": "Har AI-funktioner",
+                    "da": "Omkostninger",
                     "ar": "التكلفة",
                 },
                 "fields": [
@@ -3730,7 +3730,7 @@ TYPES = [
                 "pt": "Componente de TI",
                 "zh": "IT组件",
                 "ru": "ИТ-компонент",
-                "da": "Licenstype",
+                "da": "IT-komponent",
                 "ar": "مكوّن تقني",
             },
             "description": {
@@ -3803,7 +3803,7 @@ TYPES = [
                     "pt": "Informações do fornecedor",
                     "zh": "供应商信息",
                     "ru": "Информация о поставщике",
-                    "da": "Udbyder",
+                    "da": "Udbyderinformation",
                     "ar": "معلومات المزوّد",
                 },
                 "fields": [
@@ -3867,7 +3867,7 @@ TYPES = [
                             "pt": "Tipo de fornecedor",
                             "zh": "供应商类型",
                             "ru": "Тип поставщика",
-                            "da": "Intern udbyder",
+                            "da": "Udbydertype",
                             "ar": "نوع المزوّد",
                         },
                     },
@@ -3917,7 +3917,7 @@ TYPES = [
                 "pt": "Fornecedor",
                 "zh": "供应商",
                 "ru": "Поставщик",
-                "da": "Kontraktslutdato",
+                "da": "Udbyder",
                 "ar": "مزوّد",
             },
             "description": {
@@ -4593,7 +4593,7 @@ RELATIONS = [
                 "pt": "utiliza",
                 "zh": "使用",
                 "ru": "использует",
-                "da": "Brugstype",
+                "da": "bruger",
                 "ar": "نوع الاستخدام",
             },
             "reverse_label": {
@@ -4668,7 +4668,7 @@ RELATIONS = [
                 "pt": "suporta",
                 "zh": "支持",
                 "ru": "поддерживает",
-                "da": "Supporttype",
+                "da": "understøtter",
                 "ar": "نوع الدعم",
             },
             "reverse_label": {
@@ -4774,7 +4774,7 @@ RELATIONS = [
                 "pt": "CRUD",
                 "zh": "CRUD",
                 "ru": "CRUD",
-                "da": "Slet",
+                "da": "CRUD",
                 "ar": "CRUD",
             },
             "reverse_label": {
@@ -4810,7 +4810,7 @@ RELATIONS = [
                 "pt": "utiliza",
                 "zh": "使用",
                 "ru": "использует",
-                "da": "Årlig omkostning",
+                "da": "bruger",
                 "ar": "يستخدم",
             },
             "reverse_label": {
@@ -4844,7 +4844,7 @@ RELATIONS = [
                 "pt": "pertence a",
                 "zh": "属于",
                 "ru": "принадлежит",
-                "da": "Ressourceklassifikation",
+                "da": "tilhører",
                 "ar": "ينتمي إلى",
             },
             "reverse_label": {
@@ -5120,7 +5120,7 @@ RELATIONS = [
                 "pt": "suporta",
                 "zh": "支持",
                 "ru": "поддерживает",
-                "da": "Supporttype",
+                "da": "understøtter",
                 "ar": "نوع الدعم",
             },
             "reverse_label": {
@@ -5206,7 +5206,7 @@ RELATIONS = [
                 "pt": "utiliza",
                 "zh": "使用",
                 "ru": "использует",
-                "da": "Slet",
+                "da": "bruger",
                 "ar": "يستخدم",
             },
             "reverse_label": {

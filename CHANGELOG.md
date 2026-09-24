@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **The user manual's screenshots were retaken from the current release in every language**, so they match what you see today — the always-visible field labels, the call-activity link panel and link dots in BPM, the newer reference-catalogue versions, the 20 MB attachment hint, and a fresh AI description suggestion among them. The manual's step for saving a report now names the **Save report** icon it actually is.
 
+### Fixed
+
+- **Danish card types, sections, fields and relations show their own names again.** In Danish, Application appeared as «Produktnavn», Organisation as «Lokation», Data Object as «Indeholder personoplysninger» and most other card types under the name of one of their own fields; several section headings, select fields and relation verbs did the same (the Application → Data Object relation read «Slet», "delete"). All 42 labels now read correctly — Applikation, Organisation, Dataobjekt, Forretningskompetence and so on — on new installs and, after the upgrade, on existing ones. A Danish label an administrator already changed by hand is kept as it is.
+
 ## [2.149.1] - 2026-09-23
 
 ### Added
