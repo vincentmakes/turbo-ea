@@ -258,6 +258,8 @@
   "cost.drillDown.allItems": "Все «{{type}}»",
   "cost.drillDown.hint": "Подсказка: кликните по прямоугольнику, чтобы детализировать его стоимость.",
   "cost.drillDown.path": "Путь детализации",
+  "cost.fiscalYear": "Финансовый год",
+  "cost.currentFiscalYear": "Текущий финансовый год",
   "matrix.title": "Матрица",
   "matrix.rows": "Строки",
   "matrix.columns": "Столбцы",

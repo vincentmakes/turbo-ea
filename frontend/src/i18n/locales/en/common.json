@@ -268,6 +268,8 @@
   "timelineSlider.past": "Past",
   "timelineSlider.future": "Future",
   "timelineSlider.resetToToday": "Reset to today",
+  "fiscalYear.single": "FY {{year}}",
+  "fiscalYear.span": "FY {{from}}–{{to}}",
   "timelineSlider.milestoneActivating_one": "{{count}} card goes live",
   "timelineSlider.milestoneActivating_other": "{{count}} cards go live",
   "timelineSlider.milestoneDisappearing_one": "{{count}} card retires",

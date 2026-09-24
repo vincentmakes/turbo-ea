@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.150.0] - 2026-09-24
+
+### Added
+
+- **The Cost report now shows costs for one fiscal year, and a Time Travel slider picks which.** Costs are annual, so the report opens on the current fiscal year and a card's annual cost counts in full in every fiscal year from the one it goes Active in through the one its End of Life falls in — nothing is pro-rated, so an application retiring in November still carries its whole cost for that year. The slider stops on fiscal years only, with the arrow keys stepping one year at a time, and **Current fiscal year** brings you back. The year applies to the totals, the treemap, the table, Cost Source roll-ups and drill-downs, is printed in the report header and is saved with the report. Fiscal years start in the month set under Settings → General.
+
+### Changed
+
+- **Fiscal years in the PPM cost charts are named in your language** — for example *GJ 2026* in German — instead of always *FY 2026*.
+
+### Fixed
+
+- **The Cost report no longer counts cards whose End of Life is already past.** A card retired in an earlier fiscal year still added its full annual cost to the totals, including when costs were rolled up from related cards. The same fix applies to the cost figures AI assistants read through the MCP server, which can now also ask for a specific fiscal year.
+
 ## [2.149.3] - 2026-09-24
 
 ### Fixed

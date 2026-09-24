@@ -152,6 +152,20 @@ Le **Rapport Coûts** fournit une analyse financière de votre paysage technolog
 - **Vue graphique à barres** -- Comparaison des coûts entre composants
 - **Type de fiche** -- Choisissez le type de fiche autour duquel le rapport est construit (Application, Composant IT, Fournisseur, …).
 
+### Exercice fiscal
+
+Les coûts sont annuels : le rapport les présente donc toujours pour **un seul exercice fiscal** — l'exercice en cours à l'ouverture. Le coût annuel d'une fiche compte **en totalité** dans chaque exercice, depuis celui où elle devient **Actif** jusqu'à celui où tombe sa **Fin de vie**, les deux inclus. Rien n'est calculé au prorata : une application retirée en novembre porte encore la totalité de son coût annuel pour cet exercice, et plus rien pour le suivant. Une fiche dont la Fin de vie tombait dans un exercice antérieur ne s'ajoute donc plus au total.
+
+Les dates de cycle de vie manquantes sont interprétées comme dans les autres rapports dotés du voyage dans le temps :
+
+- **Pas de date Actif, mais une date de Planification ou de Mise en service** — la fiche est encore planifiée et ne compte dans aucun exercice.
+- **Pas de date de Fin de vie** — la fiche compte dans chaque exercice à partir de celui où elle devient active.
+- **Aucune date de cycle de vie** — la fiche compte dans chaque exercice.
+
+Pour consulter un autre exercice, faites glisser le curseur **Voyage dans le temps** de la barre d'outils. Il ne s'arrête que sur des exercices — il n'y a rien entre deux — et les flèches du clavier avancent d'un exercice à la fois. L'affichage indique l'exercice choisi (par exemple *EF 2026*, ou *EF 2025–2026* lorsque votre exercice ne commence pas en janvier), et **Exercice fiscal en cours** vous y ramène. Le curseur s'étend sur les exercices couverts par les cycles de vie de vos fiches, plus un de chaque côté.
+
+L'exercice choisi s'applique à toute la page : les totaux, le treemap, le tableau, les agrégations par **Source des coûts** (un composant IT retiré cesse de s'ajouter au total de son application) et le forage. Il figure dans l'en-tête imprimé et est enregistré avec le rapport : un rapport enregistré sur l'exercice en cours se rouvre sur l'exercice alors en cours, un rapport enregistré sur un autre exercice se rouvre sur celui-ci. Le mois de début de l'exercice est défini par un administrateur dans [Paramètres → Général](../admin/settings.md).
+
 ### Source des coûts
 
 Lorsque le type de fiche sélectionné possède au moins un type de relation pointant vers un type qui détient un champ de coût, un sélecteur **Source des coûts** apparaît à côté du **Type de fiche**. Il permet de choisir d'où viennent les chiffres :
@@ -180,7 +194,7 @@ Dès qu'au moins une Source de coût est active, les rectangles du treemap devie
 - **Une seule Source de coût active** — le forage affiche un treemap des fiches liées (par exemple, cliquer sur *NexaCore ERP* avec `Composant SI · Coût annuel total` coché montre les composants SI liés à NexaCore ERP, dimensionnés par leur coût annuel).
 - **Plusieurs Sources de coût actives** — le forage affiche **un treemap par source côte à côte** (1 colonne sur écran étroit, 2 sur écran large). Chaque panneau possède son propre en-tête, son propre total et son propre `% du total` dans l'infobulle — ainsi les différents types de fiches conservent leur échelle au lieu d'être tassés dans un seul graphique.
 
-Le curseur de chronologie, la sélection de Source de coût et les autres filtres sont préservés pendant le forage, et le niveau de forage fait partie de la configuration du rapport sauvegardé — sauvegarder un rapport en cours de forage le rouvre directement à ce niveau. Sans Source de coût active, un clic sur un rectangle ouvre plutôt le panneau latéral de la fiche (il n'y a rien à décomposer).
+L'exercice fiscal, la sélection de Source de coût et les autres filtres sont préservés pendant le forage, et le niveau de forage fait partie de la configuration du rapport sauvegardé — sauvegarder un rapport en cours de forage le rouvre directement à ce niveau. Sans Source de coût active, un clic sur un rectangle ouvre plutôt le panneau latéral de la fiche (il n'y a rien à décomposer).
 
 **Limiter à certaines fiches** — La puce voisine du sélecteur de type ouvre un sélecteur : choisissez une ou plusieurs fiches et la treemap, les totaux et le tableau se limitent à celles-ci et à tout ce qui se trouve en dessous. La puce disparaît lorsque vous avez zoomé dans un rectangle, puisqu'un tel zoom vous a déjà déplacé vers un autre type de fiche ; quittez-le et le périmètre est toujours là.
 

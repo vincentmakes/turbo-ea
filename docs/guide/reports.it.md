@@ -152,6 +152,20 @@ Il **Report Costi** fornisce un'analisi finanziaria del vostro panorama tecnolog
 - **Vista grafico a barre** — Confronto dei costi tra componenti
 - **Tipo di scheda** — Scegliete il tipo di scheda su cui costruire il report (Applicazione, Componente IT, Fornitore, …).
 
+### Anno fiscale
+
+I costi sono annuali, quindi il report li mostra sempre per **un solo anno fiscale** — quello corrente all'apertura. Il costo annuale di una scheda conta **per intero** in ogni anno fiscale, da quello in cui diventa **Attivo** fino a quello in cui cade la sua **Fine vita**, entrambi inclusi. Nulla viene calcolato pro rata: un'applicazione dismessa a novembre porta ancora l'intero costo annuale in quell'anno e nulla nel successivo. Una scheda la cui Fine vita cadeva in un anno fiscale precedente non si somma quindi più al totale.
+
+Le date del ciclo di vita mancanti vengono interpretate come negli altri report con il viaggio nel tempo:
+
+- **Nessuna data Attivo, ma una data di Pianificazione o di Introduzione** — la scheda è ancora pianificata e non conta in alcun anno.
+- **Nessuna data di Fine vita** — la scheda conta in ogni anno a partire da quello in cui diventa attiva.
+- **Nessuna data del ciclo di vita** — la scheda conta in ogni anno.
+
+Per vedere un altro anno, trascinate lo slider **Viaggio nel tempo** nella barra degli strumenti. Si ferma solo sugli anni fiscali — in mezzo non c'è nulla su cui fermarsi — e i tasti freccia avanzano di un anno alla volta. L'indicazione mostra l'anno selezionato (ad esempio *AF 2026*, oppure *AF 2025–2026* quando il vostro anno fiscale non inizia a gennaio), e **Anno fiscale corrente** vi riporta a quello. Lo slider copre gli anni coperti dai cicli di vita delle vostre schede, più uno per lato.
+
+L'anno selezionato vale per tutta la pagina: i totali, la treemap, la tabella, le aggregazioni per **Origine dei costi** (un Componente IT dismesso smette di sommarsi al totale della sua Applicazione) e il drill-down. Compare nell'intestazione di stampa ed è salvato con il report: un report salvato sull'anno corrente si riapre sull'anno che sarà corrente in quel momento, uno salvato su un altro anno si riapre su quell'anno. Un amministratore stabilisce il mese di inizio dell'anno fiscale in [Impostazioni → Generale](../admin/settings.md).
+
 ### Origine dei costi
 
 Quando il tipo di scheda selezionato ha almeno un tipo di relazione che punta a un tipo dotato di un campo di costo, accanto a **Tipo di scheda** compare un selettore **Origine dei costi**. Permette di scegliere da dove provengono i numeri:
@@ -180,7 +194,7 @@ Quando almeno un'Origine costi è attiva, i rettangoli del treemap diventano **c
 - **Singola Origine costi attiva** — il drill-down mostra un treemap delle card collegate (ad esempio, cliccando su *NexaCore ERP* con `Componente IT · Costo annuale totale` selezionato vengono mostrati i componenti IT collegati a NexaCore ERP, dimensionati per il loro costo annuale).
 - **Più Origini costi attive** — il drill-down mostra **un treemap per origine affiancati** (1 colonna su schermi stretti, 2 su quelli ampi). Ogni pannello ha la propria intestazione, il proprio totale e la propria `% del totale` nel tooltip — così i diversi tipi di card mantengono la propria scala invece di essere compressi in un unico grafico.
 
-Lo slider della linea temporale, la selezione dell'Origine costi e gli altri filtri vengono mantenuti durante il drill-down, e il livello di drill-down fa parte della configurazione del report salvato: salvando un report mentre si è in drill-down lo si riapre direttamente a quel livello. Senza un'Origine costi attiva, un clic su un rettangolo apre invece il pannello laterale della card (non c'è nulla da scomporre).
+L'anno fiscale, la selezione dell'Origine costi e gli altri filtri vengono mantenuti durante il drill-down, e il livello di drill-down fa parte della configurazione del report salvato: salvando un report mentre si è in drill-down lo si riapre direttamente a quel livello. Senza un'Origine costi attiva, un clic su un rettangolo apre invece il pannello laterale della card (non c'è nulla da scomporre).
 
 **Limitare a schede specifiche** — Il chip accanto al selettore del tipo apre un selettore: scegli una o più schede e la treemap, i totali e la tabella si limiteranno a quelle e a tutto ciò che si trova sotto di esse. Il chip è nascosto mentre sei all'interno di un rettangolo, poiché quel dettaglio ti ha già portato a un altro tipo di scheda; esci e l'ambito è ancora lì.
 

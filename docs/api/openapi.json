@@ -31599,7 +31599,7 @@
     },
     "/api/v1/reports/cost": {
       "get": {
-        "description": "Cost aggregation report.",
+        "description": "Cost aggregation report for one fiscal year (the current one by default).\n\nA card counts in a fiscal year by the same rule as ``GET /reports/cost-treemap``.",
         "operationId": "cost_report_api_v1_reports_cost_get",
         "parameters": [
           {
@@ -31610,6 +31610,24 @@
               "default": "Application",
               "title": "Type",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "fiscal_year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9999,
+                  "minimum": 1900,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Fiscal Year"
             }
           }
         ],
@@ -31641,7 +31659,7 @@
     },
     "/api/v1/reports/cost-treemap": {
       "get": {
-        "description": "Cost treemap: items with cost, optionally grouped by a related type.\n\nWhen ``aggregate`` is non-empty, each entry is a ``\"<typeKey>:<costFieldKey>\"``\npair identifying a cost field on a related card type. The endpoint sums that\nfield across each primary card's related cards (relations resolved\nbidirectionally, parallel relations de-duped) and adds the per-pair totals.\nBecause every pair targets a different card type **or** a different cost field\non the same type, no related card contributes more than once to a given\nprimary card's roll-up. This lets a type that has no cost field of its own\n(e.g. Provider) display costs sourced from related Applications, IT\nComponents, etc., even all of them at once.\n\nWhen ``parent_card_id`` is set, the primary card set is restricted to cards\nthat have at least one relation (in either direction) to that parent. This\npowers the treemap drill-down \u2014 clicking a parent rectangle re-queries with\nthe related type as ``type`` and the parent's id as ``parent_card_id``.",
+        "description": "Cost treemap: items with cost, optionally grouped by a related type.\n\nCosts are annual and scoped to one ``fiscal_year`` \u2014 the current one when\nomitted. A card counts, at its full annual cost, in every fiscal year from\nthe one it goes ``active`` in through the one its ``endOfLife`` falls in;\nthere is no pro-rating. The rule applies to\nthe primary cards and, in ``aggregate`` mode, to the related cards being\nsummed, so a retired IT Component stops adding to its Application's total.\nThe response names the fiscal year it applied plus the current one, the\nworkspace's start month and ``fiscal_year_range``: the span of years the\ncards' lifecycles make worth offering, computed before the year filter so\nit does not move as the year changes.\n\nWhen ``aggregate`` is non-empty, each entry is a ``\"<typeKey>:<costFieldKey>\"``\npair identifying a cost field on a related card type. The endpoint sums that\nfield across each primary card's related cards (relations resolved\nbidirectionally, parallel relations de-duped) and adds the per-pair totals.\nBecause every pair targets a different card type **or** a different cost field\non the same type, no related card contributes more than once to a given\nprimary card's roll-up. This lets a type that has no cost field of its own\n(e.g. Provider) display costs sourced from related Applications, IT\nComponents, etc., even all of them at once.\n\nWhen ``parent_card_id`` is set, the primary card set is restricted to cards\nthat have at least one relation (in either direction) to that parent. This\npowers the treemap drill-down \u2014 clicking a parent rectangle re-queries with\nthe related type as ``type`` and the parent's id as ``parent_card_id``.",
         "operationId": "cost_treemap_api_v1_reports_cost_treemap_get",
         "parameters": [
           {
@@ -31714,6 +31732,24 @@
                 }
               ],
               "title": "Parent Card Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "fiscal_year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9999,
+                  "minimum": 1900,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Fiscal Year"
             }
           }
         ],

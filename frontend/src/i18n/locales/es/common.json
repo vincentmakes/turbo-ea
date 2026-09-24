@@ -192,6 +192,8 @@
   "timelineSlider.past": "Pasado",
   "timelineSlider.future": "Futuro",
   "timelineSlider.resetToToday": "Restablecer a hoy",
+  "fiscalYear.single": "AF {{year}}",
+  "fiscalYear.span": "AF {{from}}–{{to}}",
   "timelineSlider.milestoneActivating_one": "{{count}} ficha entra en producción",
   "timelineSlider.milestoneActivating_other": "{{count}} fichas entran en producción",
   "timelineSlider.milestoneDisappearing_one": "{{count}} ficha se retira",

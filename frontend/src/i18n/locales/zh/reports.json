@@ -258,6 +258,8 @@
   "cost.drillDown.allItems": "全部「{{type}}」",
   "cost.drillDown.hint": "提示：点击矩形可分解其成本构成。",
   "cost.drillDown.path": "下钻路径",
+  "cost.fiscalYear": "财年",
+  "cost.currentFiscalYear": "当前财年",
   "matrix.title": "矩阵",
   "matrix.rows": "行",
   "matrix.columns": "列",

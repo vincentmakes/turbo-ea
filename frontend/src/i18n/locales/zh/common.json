@@ -192,6 +192,8 @@
   "timelineSlider.past": "过去",
   "timelineSlider.future": "未来",
   "timelineSlider.resetToToday": "重置到今天",
+  "fiscalYear.single": "{{year}} 财年",
+  "fiscalYear.span": "{{from}}–{{to}} 财年",
   "timelineSlider.milestoneActivating_one": "{{count}} 张卡片投入使用",
   "timelineSlider.milestoneActivating_other": "{{count}} 张卡片投入使用",
   "timelineSlider.milestoneDisappearing_one": "{{count}} 张卡片退役",

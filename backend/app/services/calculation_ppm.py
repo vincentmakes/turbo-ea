@@ -39,12 +39,20 @@ from typing import Any
 from sqlalchemy import case, extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.app_settings import AppSettings
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_risk import PpmRisk
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
 from app.models.ppm_wbs import PpmWbs
+
+# Re-exported: the fiscal-year helpers lived here before they were shared with
+# the cost reports, and callers (the calculation engine, tests) import them
+# from this module.
+from app.services.fiscal_year import (  # noqa: F401
+    _fiscal_year,
+    fiscal_year_for,
+    get_fiscal_year_start,
+)
 from app.services.ppm_portfolio_service import latest_reports
 
 INITIATIVE_TYPE = "Initiative"
@@ -76,47 +84,6 @@ def needs_ppm(formula: str) -> bool:
     negative would be a wrong number, so this errs wide on purpose.
     """
     return bool(_PPM_REFERENCE.search(formula or ""))
-
-
-def _fiscal_year(year: int, month: int, start_month: int) -> int:
-    """Fiscal year for a (year, month), named after the year the year *ends* in.
-
-    Note the ``start_month > 1`` guard. Without it every date would land in
-    ``year + 1`` on a January start, because ``month >= 1`` is always true.
-    """
-    return year + (1 if 1 < start_month <= 12 and month >= start_month else 0)
-
-
-def fiscal_year_for(value: date_type | None, start_month: int) -> int | None:
-    """Fiscal year a date falls in, named after the year the year *ends* in.
-
-    With a start month of October, 2025-10-15 opens FY2026 and 2025-09-30 closes
-    FY2025 — the US-federal / UK convention. With the default start month of
-    January the fiscal year is just the calendar year, so the distinction only
-    ever shows up on installs that changed the setting.
-
-    ``None`` for a dateless row: it still counts towards the totals, it just
-    belongs to no particular year (see ``unscheduled*`` in the payload).
-    """
-    if value is None:
-        return None
-    return _fiscal_year(value.year, value.month, start_month)
-
-
-async def get_fiscal_year_start(db: AsyncSession) -> int:
-    """Fiscal year start month (1-12) from app settings; January by default.
-
-    Read per run, never cached in module state: an admin can change it in-flight
-    via ``PATCH /settings/fiscal-year-start``, and a stale process-wide cache
-    would make workers disagree. Bulk callers hoist it out of their loop and
-    pass it down, so this is one query per recalculation, not one per card.
-    """
-    row = (
-        await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-    ).scalar_one_or_none()
-    general = (row.general_settings if row else None) or {}
-    month = general.get("fiscalYearStart", 1)
-    return month if isinstance(month, int) and 1 <= month <= 12 else 1
 
 
 def _zero_measures() -> dict[str, float]:

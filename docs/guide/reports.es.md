@@ -152,6 +152,20 @@ El **Informe de Costos** proporciona un análisis financiero de su panorama tecn
 - **Vista de gráfico de barras** — Comparación de costos entre componentes
 - **Tipo de tarjeta** — Elija el tipo de tarjeta sobre el que se construye el informe (Aplicación, Componente TI, Proveedor, …).
 
+### Año fiscal
+
+Los costes son anuales, por lo que el informe siempre los muestra para **un año fiscal** — el actual al abrirlo. El coste anual de una tarjeta cuenta **íntegramente** en cada año fiscal, desde aquel en que pasa a **Activo** hasta aquel en que cae su **Fin de vida**, ambos incluidos. No se prorratea nada: una aplicación que se retira en noviembre sigue aportando todo su coste anual a ese año y nada al siguiente. Por eso, una tarjeta cuyo Fin de vida cayó en un año fiscal anterior ya no suma al total.
+
+Las fechas de ciclo de vida que faltan se interpretan igual que en los demás informes con viaje en el tiempo:
+
+- **Sin fecha Activo, pero con fecha de Planificación o de Introducción** — la tarjeta sigue planificada y no cuenta en ningún año.
+- **Sin fecha de Fin de vida** — la tarjeta cuenta en todos los años a partir de aquel en que pasa a Activo.
+- **Sin ninguna fecha de ciclo de vida** — la tarjeta cuenta en todos los años.
+
+Para ver otro año, arrastre el control deslizante **Viaje en el tiempo** de la barra de herramientas. Solo se detiene en años fiscales — entre uno y otro no hay nada en lo que detenerse — y las teclas de flecha avanzan de año en año. La indicación muestra el año seleccionado (por ejemplo *AF 2026*, o *AF 2025–2026* cuando su año fiscal no empieza en enero), y **Año fiscal actual** le devuelve a él. El control abarca los años que cubren los ciclos de vida de sus tarjetas, más uno a cada lado.
+
+El año seleccionado se aplica a toda la página: los totales, el mapa de árbol, la tabla, los agregados por **Origen de los costes** (un Componente TI retirado deja de sumar al total de su Aplicación) y el desglose. Figura en la cabecera impresa y se guarda con el informe: un informe guardado en el año actual se vuelve a abrir en el año que sea el actual en ese momento, y uno guardado en otro año se abre en ese año. Un administrador define el mes en que empieza el año fiscal en [Configuración → General](../admin/settings.md).
+
 ### Origen de los costes
 
 Cuando el tipo de tarjeta seleccionado tiene al menos un tipo de relación que apunta a un tipo con un campo de coste, aparece un selector **Origen de los costes** junto a **Tipo de tarjeta**. Permite escoger de dónde proceden las cifras:
@@ -180,7 +194,7 @@ Siempre que haya al menos un Origen de los costes activo, los rectángulos del m
 - **Un único Origen de costes activo** — el desglose muestra un mapa de árbol de las tarjetas relacionadas (por ejemplo, al hacer clic en *NexaCore ERP* con `Componente TI · Coste anual total` marcado se muestran los Componentes TI vinculados a NexaCore ERP, dimensionados por su coste anual).
 - **Varios Orígenes de costes activos** — el desglose muestra **un mapa de árbol por origen, en paralelo** (1 columna en pantallas estrechas, 2 en pantallas amplias). Cada panel tiene su propio encabezado, su propio total y su propio `% del total` en la información sobre herramientas, de modo que los distintos tipos de tarjeta conservan su escala en lugar de mezclarse en un único gráfico.
 
-El control deslizante de cronología, la selección de Origen de los costes y los demás filtros se conservan al profundizar, y el nivel de desglose forma parte de la configuración del informe guardado: guardar un informe mientras se está profundizando lo abre directamente en ese nivel. Sin un Origen de costes activo, hacer clic en un rectángulo abre en su lugar el panel lateral de la tarjeta (no hay nada que desglosar).
+El año fiscal, la selección de Origen de los costes y los demás filtros se conservan al profundizar, y el nivel de desglose forma parte de la configuración del informe guardado: guardar un informe mientras se está profundizando lo abre directamente en ese nivel. Sin un Origen de costes activo, hacer clic en un rectángulo abre en su lugar el panel lateral de la tarjeta (no hay nada que desglosar).
 
 **Limitar a tarjetas concretas** — El chip contiguo al selector de tipo abre un selector: elija una o varias tarjetas y el treemap, los totales y la tabla se limitarán a esas y a todo lo que hay debajo. El chip se oculta mientras esté dentro de un rectángulo, ya que ese detalle le ha llevado a otro tipo de tarjeta; salga de él y el alcance seguirá ahí.
 

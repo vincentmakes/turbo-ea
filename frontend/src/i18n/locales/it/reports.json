@@ -258,6 +258,8 @@
   "cost.drillDown.allItems": "Tutti gli elementi: {{type}}",
   "cost.drillDown.hint": "Suggerimento: fare clic su un rettangolo per scomporne il costo.",
   "cost.drillDown.path": "Percorso di drill-down",
+  "cost.fiscalYear": "Anno fiscale",
+  "cost.currentFiscalYear": "Anno fiscale corrente",
   "matrix.title": "Matrice",
   "matrix.rows": "Righe",
   "matrix.columns": "Colonne",

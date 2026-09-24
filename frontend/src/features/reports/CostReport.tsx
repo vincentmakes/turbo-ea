@@ -21,6 +21,7 @@ import { Treemap, ResponsiveContainer, Tooltip as RTooltip } from "recharts";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
+import TimelineSlider from "@/components/TimelineSlider";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { applyScope, useCardScope } from "@/hooks/useCardScope";
@@ -34,6 +35,7 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
+import { fiscalYearLabel, fiscalYearOfMs, fiscalYearStartMs } from "@/lib/fiscalYear";
 import type { CardType, FieldDef, RelationType } from "@/types";
 
 interface CostItem {
@@ -41,6 +43,49 @@ interface CostItem {
   name: string;
   cost: number;
   attributes?: Record<string, unknown>;
+}
+
+interface CostTreemapResponse {
+  items: CostItem[];
+  total: number;
+  /** The fiscal year the costs are for (the current one unless asked). */
+  fiscal_year?: number;
+  current_fiscal_year?: number;
+  /** Month (1-12) the workspace's fiscal year starts in. */
+  fiscal_year_start?: number;
+  /** Years the cards' lifecycles make worth offering; stable across years. */
+  fiscal_year_range?: { min: number; max: number };
+}
+
+/** What the fiscal-year slider is built from, read off the responses. */
+interface FiscalYearMeta {
+  start: number;
+  current: number;
+  min: number;
+  max: number;
+}
+
+/**
+ * How far the slider reaches from the current fiscal year. The look-back stays
+ * one year inside `TimelineSlider`'s own ten-year cap (a leap day can push the
+ * tenth year's start past it); the look-ahead keeps a mistyped far-future
+ * End of Life from turning the track into a smear of marks.
+ */
+const FY_LOOKBACK = 9;
+const FY_LOOKAHEAD = 10;
+
+/** Merge the fiscal-year metadata of every response behind the current view. */
+function fiscalYearMetaOf(responses: CostTreemapResponse[]): FiscalYearMeta | null {
+  const found = responses.filter(
+    (r) => r.current_fiscal_year != null && r.fiscal_year_start != null && r.fiscal_year_range,
+  );
+  if (found.length === 0) return null;
+  return {
+    start: found[0].fiscal_year_start as number,
+    current: found[0].current_fiscal_year as number,
+    min: Math.min(...found.map((r) => r.fiscal_year_range!.min)),
+    max: Math.max(...found.map((r) => r.fiscal_year_range!.max)),
+  };
 }
 
 interface AggregateOption {
@@ -200,6 +245,11 @@ export default function CostReport() {
   // Drill-down stack. Empty = root. Each frame swaps the treemap to the related
   // cards contributing to that frame's parent. Re-queried via parent_card_id.
   const [drillStack, setDrillStack] = useState<DrillFrame[]>([]);
+  // Costs are annual and scoped to one fiscal year. `null` follows the current
+  // one — so a saved report opened next year shows next year — and only a year
+  // someone travelled to is stored, like `useTimeline`'s `persistValue`.
+  const [fiscalYear, setFiscalYear] = useState<number | null>(null);
+  const [fyMeta, setFyMeta] = useState<FiscalYearMeta | null>(null);
 
   // Narrow the treemap to chosen cards and everything beneath them (#954),
   // at the root level only: a drill switches to the *related* card type, so a
@@ -249,18 +299,19 @@ export default function CostReport() {
       if (Array.isArray(cfg.scopeIds)) {
         setScopeIds((cfg.scopeIds as unknown[]).filter((v): v is string => typeof v === "string"));
       }
+      setFiscalYear(typeof cfg.fiscalYear === "number" ? cfg.fiscalYear : null);
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getConfig = () => ({
     cardTypeKey, costField, costSources, groupBy, view, sortK, sortD,
-    drillStack, scopeIds,
+    drillStack, scopeIds, fiscalYear: fiscalYear ?? undefined,
   });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, costField, costSources, groupBy, view, sortK, sortD, drillStack, scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, costField, costSources, groupBy, view, sortK, sortD, drillStack, scopeIds, fiscalYear]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -274,6 +325,7 @@ export default function CostReport() {
     setSortD("desc");
     setDrillStack([]);
     setScopeIds([]);
+    setFiscalYear(null);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const typeDef = useMemo(() => types.find((t) => t.key === cardTypeKey), [types, cardTypeKey]);
@@ -382,15 +434,14 @@ export default function CostReport() {
               cost_field: s.fieldKey,
               parent_card_id: parentId,
             });
-            return api.get<{ items: CostItem[]; total: number }>(
-              `/reports/cost-treemap?${p}`,
-              { signal },
-            );
+            if (fiscalYear != null) p.set("fiscal_year", String(fiscalYear));
+            return api.get<CostTreemapResponse>(`/reports/cost-treemap?${p}`, { signal });
           }),
         );
         if (!isCurrent()) return;
         setDrillPanels(rs.map((r, i) => ({ source: sources[i], items: r.items })));
         setRawItems(null);
+        setFyMeta((prev) => fiscalYearMetaOf(rs) ?? prev);
       } else {
         const p = new URLSearchParams({ type: cardTypeKey });
         if (activeAggregates.length > 0) {
@@ -398,16 +449,53 @@ export default function CostReport() {
         } else {
           p.set("cost_field", costField);
         }
-        const r = await api.get<{ items: CostItem[]; total: number }>(
-          `/reports/cost-treemap?${p}`,
-          { signal },
-        );
+        if (fiscalYear != null) p.set("fiscal_year", String(fiscalYear));
+        const r = await api.get<CostTreemapResponse>(`/reports/cost-treemap?${p}`, { signal });
         if (!isCurrent()) return;
         setRawItems(r.items);
         setDrillPanels(null);
+        setFyMeta((prev) => fiscalYearMetaOf([r]) ?? prev);
       }
     },
-    [cardTypeKey, costField, activeAggregates, drillFrame, canViewCostsGlobally],
+    [cardTypeKey, costField, activeAggregates, drillFrame, canViewCostsGlobally, fiscalYear],
+  );
+
+  // The year on show: the one travelled to, else the current one. The server
+  // names the current year, so it is unknown until the first response lands.
+  const selectedFy = fyMeta ? (fiscalYear ?? fyMeta.current) : null;
+
+  // One stop per fiscal year and nothing in between — the slider is locked to
+  // its marks (`step={null}`), because an annual cost has no meaning at a day.
+  // A mark sits where its year starts; its label is the bare year so the
+  // slider's label thinning still fits, and the read-out names it in full.
+  const fySlider = useMemo(() => {
+    if (!fyMeta) return null;
+    const first = Math.max(fyMeta.min, fyMeta.current - FY_LOOKBACK);
+    const last = Math.min(fyMeta.max, fyMeta.current + FY_LOOKAHEAD);
+    const marks: { value: number; label: string }[] = [];
+    for (let fy = first; fy <= last; fy++) {
+      marks.push({ value: fiscalYearStartMs(fy, fyMeta.start), label: String(fy) });
+    }
+    if (marks.length === 0) return null;
+    return {
+      marks,
+      range: { min: marks[0].value, max: marks[marks.length - 1].value },
+      todayMs: fiscalYearStartMs(fyMeta.current, fyMeta.start),
+    };
+  }, [fyMeta]);
+
+  const handleFiscalYearChange = useCallback(
+    (v: number) => {
+      if (!fyMeta) return;
+      const fy = fiscalYearOfMs(v, fyMeta.start);
+      setFiscalYear(fy === fyMeta.current ? null : fy);
+    },
+    [fyMeta],
+  );
+
+  const formatFiscalYear = useCallback(
+    (v: number) => (fyMeta ? fiscalYearLabel(fiscalYearOfMs(v, fyMeta.start), fyMeta.start, t) : ""),
+    [fyMeta, t],
   );
 
   // Unify root and drilled data into a list of panels: depth-0 has one
@@ -420,8 +508,8 @@ export default function CostReport() {
     return [];
   }, [drillPanels, rawItems, scope.closure]);
 
-  // Per-panel totals (no time-travel filtering — costs reflect the current
-  // state of the cards, not their state at an earlier point in time).
+  // Per-panel totals. The fiscal year is applied by the server — including to
+  // the related cards an aggregate sums — so there is nothing to filter here.
   const panelsWithTotals = useMemo(() => {
     return panels.map((p) => ({
       source: p.source,
@@ -460,6 +548,10 @@ export default function CostReport() {
     const tp = types.find((tp) => tp.key === cardTypeKey);
     const tpLabel = typeLabel(tp) || cardTypeKey;
     params.push({ label: t("common:labels.type"), value: tpLabel });
+    // Always stated: every figure on the page is for exactly one fiscal year.
+    if (fyMeta && selectedFy != null) {
+      params.push({ label: t("cost.fiscalYear"), value: fiscalYearLabel(selectedFy, fyMeta.start, t) });
+    }
     if (activeAggregates.length > 0) {
       params.push({
         label: t("cost.costSource"),
@@ -487,7 +579,7 @@ export default function CostReport() {
       });
     }
     return params;
-  }, [cardTypeKey, types, costField, costFields, activeAggregates, groupBy, groupableFields, view, drillStack, effectiveScopeIds, t, typeLabel]);
+  }, [cardTypeKey, types, costField, costFields, activeAggregates, groupBy, groupableFields, view, drillStack, effectiveScopeIds, fyMeta, selectedFy, t, typeLabel]);
 
   // Drill is offered at depth 0 whenever at least one aggregate source is
   // active. With multiple sources, depth 1 renders one chart per source so
@@ -670,6 +762,19 @@ export default function CostReport() {
               <MenuItem value="">{t("common:labels.none")}</MenuItem>
               {groupableFields.map((f) => <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>)}
             </TextField>
+          )}
+
+          {fySlider && fyMeta && selectedFy != null && (
+            <TimelineSlider
+              value={fiscalYearStartMs(selectedFy, fyMeta.start)}
+              onChange={handleFiscalYearChange}
+              dateRange={fySlider.range}
+              yearMarks={fySlider.marks}
+              todayMs={fySlider.todayMs}
+              step={null}
+              formatValue={formatFiscalYear}
+              resetLabel={t("cost.currentFiscalYear")}
+            />
           )}
         </>
       }

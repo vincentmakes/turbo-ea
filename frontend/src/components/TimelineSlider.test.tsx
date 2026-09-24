@@ -665,3 +665,55 @@ describe("TimelineSlider merged mark range", () => {
     expect(onChange).toHaveBeenCalledWith(away);
   });
 });
+
+describe("TimelineSlider locked to its marks (step={null})", () => {
+  // Fiscal years with an October start: each mark is where a year begins.
+  const FY26 = ms("2025-10-01");
+  const FY27 = ms("2026-10-01");
+  const FY28 = ms("2027-10-01");
+  const FY_MARKS = [
+    { value: FY26, label: "2026" },
+    { value: FY27, label: "2027" },
+    { value: FY28, label: "2028" },
+  ];
+  const fyLabel = (v: number) =>
+    ({ [FY26]: "FY 2025–2026", [FY27]: "FY 2026–2027", [FY28]: "FY 2027–2028" })[v] ?? "?";
+
+  function renderLocked(value: number) {
+    const onChange = vi.fn();
+    render(
+      <TimelineSlider
+        value={value}
+        onChange={onChange}
+        dateRange={{ min: FY26, max: FY28 }}
+        yearMarks={FY_MARKS}
+        todayMs={FY26}
+        step={null}
+        formatValue={fyLabel}
+        resetLabel="Current fiscal year"
+      />,
+    );
+    return { onChange };
+  }
+
+  it("steps from mark to mark with the arrow keys", () => {
+    const { onChange } = renderLocked(FY26);
+    fireEvent.keyDown(screen.getByRole("slider"), { key: "ArrowRight" });
+    expect(onChange).toHaveBeenLastCalledWith(FY27);
+  });
+
+  it("words the value through formatValue, in the read-out and on the thumb", () => {
+    renderLocked(FY27);
+    // Once in the label row, once in the thumb's value label.
+    expect(screen.getAllByText("FY 2026–2027")).toHaveLength(2);
+    expect(screen.queryByText("Oct 1, 2026")).toBeNull();
+    expect(screen.queryByText("Oct 2026")).toBeNull();
+  });
+
+  it("names the reset chip after the caller's label, and it returns to todayMs", async () => {
+    const { onChange } = renderLocked(FY28);
+    expect(screen.queryByText("Reset to today")).toBeNull();
+    await userEvent.click(screen.getByText("Current fiscal year"));
+    expect(onChange).toHaveBeenCalledWith(FY26);
+  });
+});

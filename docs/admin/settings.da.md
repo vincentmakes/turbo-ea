@@ -65,7 +65,7 @@ Mindst ét sprog skal forblive aktiveret til enhver tid.
 
 ### Regnskabsårets start
 
-Vælg den måned, der starter din organisations regnskabsår (januar til december). Denne indstilling påvirker, hvordan **budgetlinjer** i PPM-modulet grupperes efter regnskabsår. For eksempel, hvis regnskabsåret starter i april, tilhører en budgetlinje dateret juni 2026 regnskabsåret 2026-2027.
+Vælg den måned, der starter din organisations regnskabsår (januar til december). Denne indstilling påvirker, hvordan **budgetlinjer** i PPM-modulet grupperes efter regnskabsår. For eksempel, hvis regnskabsåret starter i april, tilhører en budgetlinje dateret juni 2026 regnskabsåret 2026-2027. Den afgør også, hvilke regnskabsår [Omkostningsrapporten](../guide/reports.md) viser omkostninger for, og hvornår hvert af dem starter.
 
 Standarden er **januar** (kalenderår = regnskabsår).
 

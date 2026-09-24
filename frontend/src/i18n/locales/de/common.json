@@ -192,6 +192,8 @@
   "timelineSlider.past": "Vergangenheit",
   "timelineSlider.future": "Zukunft",
   "timelineSlider.resetToToday": "Auf heute zurücksetzen",
+  "fiscalYear.single": "GJ {{year}}",
+  "fiscalYear.span": "GJ {{from}}–{{to}}",
   "timelineSlider.milestoneActivating_one": "{{count}} Karte geht live",
   "timelineSlider.milestoneActivating_other": "{{count}} Karten gehen live",
   "timelineSlider.milestoneDisappearing_one": "{{count}} Karte scheidet aus",

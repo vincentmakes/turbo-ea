@@ -258,6 +258,8 @@
   "cost.drillDown.allItems": "Alle {{type}}",
   "cost.drillDown.hint": "Tipp: Klicken Sie auf ein Rechteck, um dessen Kosten aufzuschlüsseln.",
   "cost.drillDown.path": "Drilldown-Pfad",
+  "cost.fiscalYear": "Geschäftsjahr",
+  "cost.currentFiscalYear": "Aktuelles Geschäftsjahr",
   "matrix.title": "Matrix",
   "matrix.rows": "Zeilen",
   "matrix.columns": "Spalten",

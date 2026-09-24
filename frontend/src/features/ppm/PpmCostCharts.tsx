@@ -37,6 +37,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useChartTheme } from "@/hooks/useChartTheme";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { useFiscalYearStart } from "@/hooks/useFiscalYearStart";
+import { fiscalYearLabel } from "@/lib/fiscalYear";
 import {
   makeRtlAxisTick,
   rtlLegendItemStyle,
@@ -160,7 +161,7 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
   // empty frame.
   if (costLines.length === 0 && budgetLines.length === 0) return null;
 
-  const yearLabel = (fy: number) => (fyStart === 1 ? `FY ${fy}` : `FY ${fy - 1}–${fy}`);
+  const yearLabel = (fy: number) => fiscalYearLabel(fy, fyStart, t);
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>

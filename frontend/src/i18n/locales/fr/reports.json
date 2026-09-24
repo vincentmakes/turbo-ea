@@ -258,6 +258,8 @@
   "cost.drillDown.allItems": "Tous les {{type}}",
   "cost.drillDown.hint": "Astuce : cliquez sur un rectangle pour décomposer son coût.",
   "cost.drillDown.path": "Chemin d'exploration",
+  "cost.fiscalYear": "Exercice fiscal",
+  "cost.currentFiscalYear": "Exercice fiscal en cours",
   "matrix.title": "Matrice",
   "matrix.rows": "Lignes",
   "matrix.columns": "Colonnes",

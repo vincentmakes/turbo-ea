@@ -268,6 +268,8 @@
   "timelineSlider.past": "Fortid",
   "timelineSlider.future": "Fremtid",
   "timelineSlider.resetToToday": "Nulstil til i dag",
+  "fiscalYear.single": "Regnskabsår {{year}}",
+  "fiscalYear.span": "Regnskabsår {{from}}–{{to}}",
   "timelineSlider.milestoneActivating_one": "{{count}} kort går i drift",
   "timelineSlider.milestoneActivating_other": "{{count}} kort går i drift",
   "timelineSlider.milestoneDisappearing_one": "{{count}} kort udfases",

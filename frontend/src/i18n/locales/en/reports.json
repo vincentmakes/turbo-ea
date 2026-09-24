@@ -258,6 +258,8 @@
   "cost.drillDown.allItems": "All {{type}}",
   "cost.drillDown.hint": "Tip: click a rectangle to break down its cost.",
   "cost.drillDown.path": "Drill-down path",
+  "cost.fiscalYear": "Fiscal year",
+  "cost.currentFiscalYear": "Current fiscal year",
   "matrix.title": "Matrix",
   "matrix.rows": "Rows",
   "matrix.columns": "Columns",

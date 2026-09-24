@@ -152,6 +152,20 @@ Der **Kostenbericht** bietet eine finanzielle Analyse Ihrer Technologielandschaf
 - **Balkendiagramm-Ansicht** — Kostenvergleich über Komponenten hinweg
 - **Kartentyp** — Wählen Sie, um welchen Kartentyp der Bericht aufgebaut wird (Anwendung, IT-Komponente, Anbieter, …).
 
+### Geschäftsjahr
+
+Kosten sind jährlich, daher zeigt der Bericht sie immer für **ein Geschäftsjahr** — beim Öffnen das aktuelle. Die Jahreskosten einer Karte zählen **in voller Höhe** in jedem Geschäftsjahr von dem, in dem sie **Aktiv** wird, bis zu dem, in das ihr **End of Life** fällt, beide eingeschlossen. Nichts wird anteilig verrechnet: Eine Anwendung, die im November ausläuft, trägt für dieses Jahr noch ihre vollen Jahreskosten und im nächsten keine mehr. Eine Karte, deren End of Life in einem früheren Geschäftsjahr lag, zählt daher nicht mehr zur Summe.
+
+Fehlende Lebenszyklusdaten werden wie in den anderen Zeitreise-Berichten gelesen:
+
+- **Kein Aktiv-Datum, aber ein Planungs- oder Einführungsdatum** — die Karte ist noch geplant und zählt in keinem Jahr.
+- **Kein End-of-Life-Datum** — die Karte zählt in jedem Jahr ab dem, in dem sie aktiv wird.
+- **Überhaupt keine Lebenszyklusdaten** — die Karte zählt in jedem Jahr.
+
+Um ein anderes Jahr anzusehen, ziehen Sie den **Zeitreise**-Schieberegler in der Werkzeugleiste. Er hält nur auf Geschäftsjahren — dazwischen gibt es nichts, worauf er landen könnte —, und die Pfeiltasten springen jeweils ein Jahr weiter. Die Anzeige nennt das gewählte Jahr (zum Beispiel *GJ 2026* oder *GJ 2025–2026*, wenn Ihr Geschäftsjahr nicht im Januar beginnt), und **Aktuelles Geschäftsjahr** bringt Sie zurück. Der Schieberegler umfasst die Jahre, die die Lebenszyklen Ihrer Karten abdecken, plus je eines davor und danach.
+
+Das gewählte Jahr gilt für alles auf der Seite: die Summen, die Treemap, die Tabelle, **Kostenquellen**-Aggregationen (eine ausgelaufene IT-Komponente zählt nicht mehr zur Summe ihrer Anwendung) und Drilldowns. Es wird im Berichtskopf gedruckt und mit dem Bericht gespeichert: Ein im aktuellen Jahr gespeicherter Bericht öffnet sich im dann jeweils aktuellen Jahr, ein auf einem anderen Jahr gespeicherter Bericht in genau diesem Jahr. In welchem Monat das Geschäftsjahr beginnt, legt ein Administrator unter [Einstellungen → Allgemein](../admin/settings.md) fest.
+
 ### Kostenquelle
 
 Sobald der gewählte Kartentyp mindestens eine Beziehung zu einem Typ besitzt, der ein Kostenfeld trägt, erscheint neben **Kartentyp** ein **Kostenquelle**-Auswahlfeld. Damit legen Sie fest, woher die Zahlen stammen:
@@ -180,7 +194,7 @@ Sobald mindestens eine Kostenquelle aktiv ist, sind die Treemap-Rechtecke **ankl
 - **Eine Kostenquelle aktiv** — der Drilldown zeigt eine Treemap der verknüpften Karten (z. B. zeigt ein Klick auf *NexaCore ERP* mit angehakter `IT-Komponente · Jährliche Gesamtkosten` die mit NexaCore ERP verknüpften IT-Komponenten, dimensioniert nach ihren Jahreskosten).
 - **Mehrere Kostenquellen aktiv** — der Drilldown zeigt **eine Treemap pro Quelle nebeneinander** (eine Spalte auf schmalen Anzeigen, zwei auf breiten). Jedes Panel hat seine eigene Überschrift, seinen eigenen Gesamtbetrag und seinen eigenen `% des Gesamtwerts` im Tooltip — so behalten unterschiedliche Kartentypen ihre eigene Skala, anstatt in ein einziges Diagramm gequetscht zu werden.
 
-Der Zeitleisten-Schieberegler, die Kostenquellen-Auswahl und andere Filter bleiben beim Drilldown erhalten, und die Drilldown-Ebene ist Teil der gespeicherten Berichtskonfiguration — wer einen Bericht im hineingezoomten Zustand speichert, öffnet ihn direkt auf dieser Ebene wieder. Wenn **keine** Kostenquelle aktiv ist, öffnet ein Klick auf ein Rechteck stattdessen das Karten-Seitenpanel (es gibt nichts aufzuschlüsseln).
+Das Geschäftsjahr, die Kostenquellen-Auswahl und andere Filter bleiben beim Drilldown erhalten, und die Drilldown-Ebene ist Teil der gespeicherten Berichtskonfiguration — wer einen Bericht im hineingezoomten Zustand speichert, öffnet ihn direkt auf dieser Ebene wieder. Wenn **keine** Kostenquelle aktiv ist, öffnet ein Klick auf ein Rechteck stattdessen das Karten-Seitenpanel (es gibt nichts aufzuschlüsseln).
 
 **Auf bestimmte Karten eingrenzen** — Der Chip neben der Kartentyp-Auswahl öffnet eine Auswahl: Wählen Sie eine oder mehrere Karten, und Treemap, Summen und Tabelle zeigen nur diese und alles darunter. Während Sie in ein Rechteck hineingezoomt haben, wird der Chip ausgeblendet, da eine Detailansicht bereits zu einem anderen Kartentyp gewechselt ist; verlassen Sie sie, ist die Eingrenzung weiterhin aktiv.
 

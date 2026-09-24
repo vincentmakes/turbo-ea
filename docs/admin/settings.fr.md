@@ -65,7 +65,7 @@ Au moins une langue doit rester activée en permanence.
 
 ### Début de l'exercice fiscal
 
-Sélectionnez le mois de début de l'exercice fiscal de votre organisation (janvier à décembre). Ce paramètre affecte le regroupement des **lignes budgétaires** dans le module PPM par exercice fiscal. Par exemple, si l'exercice fiscal commence en avril, une ligne budgétaire de juin 2026 appartient à l'EF 2026–2027.
+Sélectionnez le mois de début de l'exercice fiscal de votre organisation (janvier à décembre). Ce paramètre affecte le regroupement des **lignes budgétaires** dans le module PPM par exercice fiscal. Par exemple, si l'exercice fiscal commence en avril, une ligne budgétaire de juin 2026 appartient à l'EF 2026–2027. Il détermine aussi les exercices pour lesquels le [Rapport Coûts](../guide/reports.md) présente les coûts, et la date de début de chacun.
 
 La valeur par défaut est **janvier** (année civile = exercice fiscal).
 

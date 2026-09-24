@@ -258,6 +258,8 @@
   "cost.drillDown.allItems": "Todos los {{type}}",
   "cost.drillDown.hint": "Sugerencia: haga clic en un rectángulo para desglosar su coste.",
   "cost.drillDown.path": "Ruta de desglose",
+  "cost.fiscalYear": "Año fiscal",
+  "cost.currentFiscalYear": "Año fiscal actual",
   "matrix.title": "Matriz",
   "matrix.rows": "Filas",
   "matrix.columns": "Columnas",

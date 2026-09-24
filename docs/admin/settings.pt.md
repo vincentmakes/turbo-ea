@@ -65,7 +65,7 @@ Pelo menos um idioma deve permanecer habilitado o tempo todo.
 
 ### Início do Ano Fiscal
 
-Selecione o mês em que o ano fiscal da sua organização começa (janeiro a dezembro). Esta configuração afeta como as **linhas de orçamento** no módulo PPM são agrupadas por ano fiscal. Por exemplo, se o ano fiscal começa em abril, uma linha de orçamento de junho de 2026 pertence ao AF 2026–2027.
+Selecione o mês em que o ano fiscal da sua organização começa (janeiro a dezembro). Esta configuração afeta como as **linhas de orçamento** no módulo PPM são agrupadas por ano fiscal. Por exemplo, se o ano fiscal começa em abril, uma linha de orçamento de junho de 2026 pertence ao AF 2026–2027. Também determina os anos fiscais para os quais o [Relatório de Custos](../guide/reports.md) apresenta os custos e quando começa cada um.
 
 O padrão é **janeiro** (ano civil = ano fiscal).
 

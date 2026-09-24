@@ -65,7 +65,7 @@ Mindestens eine Sprache muss jederzeit aktiviert bleiben.
 
 ### Beginn des Geschäftsjahres
 
-Wählen Sie den Monat, in dem das Geschäftsjahr Ihrer Organisation beginnt (Januar bis Dezember). Diese Einstellung beeinflusst, wie **Budgetzeilen** im PPM-Modul nach Geschäftsjahr gruppiert werden. Wenn das Geschäftsjahr beispielsweise im April beginnt, gehört eine Budgetzeile vom Juni 2026 zum GJ 2026–2027.
+Wählen Sie den Monat, in dem das Geschäftsjahr Ihrer Organisation beginnt (Januar bis Dezember). Diese Einstellung beeinflusst, wie **Budgetzeilen** im PPM-Modul nach Geschäftsjahr gruppiert werden. Wenn das Geschäftsjahr beispielsweise im April beginnt, gehört eine Budgetzeile vom Juni 2026 zum GJ 2026–2027. Sie bestimmt außerdem, für welche Geschäftsjahre der [Kostenbericht](../guide/reports.md) Kosten ausweist und wann jedes davon beginnt.
 
 Der Standardwert ist **Januar** (Kalenderjahr = Geschäftsjahr).
 

@@ -152,6 +152,20 @@ O **Relatório de Custos** fornece análise financeira do seu cenário tecnológ
 - **Visualização em gráfico de barras** — Comparação de custos entre componentes
 - **Tipo de cartão** — Escolha o tipo de cartão em torno do qual o relatório é construído (Aplicação, Componente de TI, Fornecedor, …).
 
+### Ano fiscal
+
+Os custos são anuais, por isso o relatório mostra-os sempre para **um único ano fiscal** — o atual quando o abre. O custo anual de um cartão conta **na íntegra** em cada ano fiscal, desde aquele em que passa a **Ativo** até aquele em que cai o seu **Fim de vida**, ambos incluídos. Nada é calculado pro rata: uma aplicação desativada em novembro continua a contar com todo o custo anual nesse ano e com nada no seguinte. Assim, um cartão cujo Fim de vida caiu num ano fiscal anterior deixa de somar ao total.
+
+As datas de ciclo de vida em falta são interpretadas tal como nos outros relatórios com viagem no tempo:
+
+- **Sem data Ativo, mas com uma data de Planejamento ou de Entrada** — o cartão continua planeado e não conta em nenhum ano.
+- **Sem data de Fim de vida** — o cartão conta em todos os anos a partir daquele em que passa a Ativo.
+- **Sem quaisquer datas de ciclo de vida** — o cartão conta em todos os anos.
+
+Para ver outro ano, arraste o cursor **Viagem no tempo** da barra de ferramentas. Só para em anos fiscais — não há nada entre eles onde parar — e as teclas de seta avançam um ano de cada vez. A indicação mostra o ano selecionado (por exemplo *AF 2026*, ou *AF 2025–2026* quando o seu ano fiscal não começa em janeiro), e **Ano fiscal atual** leva-o de volta. O cursor abrange os anos cobertos pelos ciclos de vida dos seus cartões, mais um de cada lado.
+
+O ano selecionado aplica-se a toda a página: aos totais, ao treemap, à tabela, às agregações por **Origem dos custos** (um Componente de TI desativado deixa de somar ao total da sua Aplicação) e ao detalhamento. Aparece no cabeçalho impresso e é guardado com o relatório: um relatório guardado no ano atual reabre no ano que for o atual nessa altura, e um guardado noutro ano reabre nesse ano. Um administrador define o mês de início do ano fiscal em [Configurações → Geral](../admin/settings.md).
+
 ### Origem dos custos
 
 Quando o tipo de cartão selecionado tem pelo menos um tipo de relação que aponta para um tipo com um campo de custo, surge um seletor **Origem dos custos** junto a **Tipo de cartão**. Permite escolher de onde vêm os valores:
@@ -180,7 +194,7 @@ Sempre que pelo menos uma Origem de custos estiver ativa, os retângulos do mapa
 - **Uma única Origem de custos ativa** — o detalhamento mostra um mapa de árvore dos cartões relacionados (por exemplo, ao clicar em *NexaCore ERP* com `Componente de TI · Custo anual total` marcado são mostrados os Componentes de TI ligados ao NexaCore ERP, dimensionados pelo seu custo anual).
 - **Várias Origens de custos ativas** — o detalhamento mostra **um mapa de árvore por origem lado a lado** (1 coluna em ecrãs estreitos, 2 em ecrãs largos). Cada painel tem o seu próprio cabeçalho, o seu próprio total e a sua própria `% do total` na dica de ferramenta — assim os diferentes tipos de cartão mantêm a sua escala em vez de serem comprimidos num único gráfico.
 
-O cursor de cronologia, a seleção de Origem de custos e os restantes filtros são preservados durante o detalhamento, e o nível de detalhamento faz parte da configuração do relatório guardado — guardar um relatório enquanto se está a detalhar reabre-o diretamente nesse nível. Sem uma Origem de custos ativa, um clique num retângulo abre antes o painel lateral do cartão (não há nada a decompor).
+O ano fiscal, a seleção de Origem de custos e os restantes filtros são preservados durante o detalhamento, e o nível de detalhamento faz parte da configuração do relatório guardado — guardar um relatório enquanto se está a detalhar reabre-o diretamente nesse nível. Sem uma Origem de custos ativa, um clique num retângulo abre antes o painel lateral do cartão (não há nada a decompor).
 
 **Limitar a cartões específicos** — O chip ao lado do seletor de tipo abre um seletor: escolha um ou mais cartões e o treemap, os totais e a tabela limitam-se a esses e a tudo o que está abaixo deles. O chip fica oculto enquanto estiver dentro de um retângulo, pois esse detalhe já o levou a outro tipo de cartão; saia dele e o âmbito continua lá.
 

@@ -258,6 +258,8 @@
   "cost.drillDown.allItems": "جميع {{type}}",
   "cost.drillDown.hint": "تلميح: انقر على مستطيل لتفصيل تكلفته.",
   "cost.drillDown.path": "مسار التفصيل",
+  "cost.fiscalYear": "السنة المالية",
+  "cost.currentFiscalYear": "السنة المالية الحالية",
   "matrix.title": "المصفوفة",
   "matrix.rows": "الصفوف",
   "matrix.columns": "الأعمدة",

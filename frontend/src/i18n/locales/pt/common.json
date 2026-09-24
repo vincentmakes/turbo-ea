@@ -192,6 +192,8 @@
   "timelineSlider.past": "Passado",
   "timelineSlider.future": "Futuro",
   "timelineSlider.resetToToday": "Redefinir para hoje",
+  "fiscalYear.single": "AF {{year}}",
+  "fiscalYear.span": "AF {{from}}–{{to}}",
   "timelineSlider.milestoneActivating_one": "{{count}} card entra em produção",
   "timelineSlider.milestoneActivating_other": "{{count}} cards entram em produção",
   "timelineSlider.milestoneDisappearing_one": "{{count}} card sai",
