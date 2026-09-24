@@ -14,11 +14,13 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
+from app.models.relation_type import RelationType
 from app.models.survey import Survey, SurveyResponse
 from app.models.user import User
 from app.services import notification_service, survey_service
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
+from app.services.relation_orientation import direction_for
 
 router = APIRouter(prefix="/surveys", tags=["surveys"])
 
@@ -205,7 +207,13 @@ async def _apply_relation_change(
     from app.services.card_write_service import _emit_relation_events
 
     rtk = field_def["relation_type_key"]
-    direction = field_def["direction"]
+    # The field's direction is the builder's; the relation type is the
+    # authority on which end this card sits at, so a stale or hand-edited field
+    # can never look up — or write — a relation the wrong way round (#1140).
+    rt = (
+        await db.execute(select(RelationType).where(RelationType.key == rtk))
+    ).scalar_one_or_none()
+    direction = direction_for(rt, card.type, field_def["direction"])
     desired_ids = _relation_peer_ids(new_value)
 
     if direction == "outgoing":

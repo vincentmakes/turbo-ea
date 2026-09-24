@@ -19,6 +19,7 @@ from app.models.relation_type import RelationType
 from app.models.turbolens import TurboLensAnalysisRun, TurboLensAssessment
 from app.services import adr_service
 from app.services.data_quality import calc_data_quality
+from app.services.relation_orientation import orient_endpoints
 
 logger = logging.getLogger("turboea.turbolens.commit")
 
@@ -334,6 +335,9 @@ async def execute_commit(db: AsyncSession, run_id: str, data: dict[str, Any]) ->
         if not rel_type or not await _validate_relation_type(db, rel_type):
             continue
 
+        # The ends come from model output; store them the way the relation
+        # type runs whichever order the model gave them in (#1140).
+        source_uuid, target_uuid = await orient_endpoints(db, rel_type, source_uuid, target_uuid)
         rel = Relation(
             id=uuid.uuid4(),
             type=rel_type,

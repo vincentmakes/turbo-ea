@@ -49,6 +49,7 @@ from app.models.user import User
 from app.services import card_reference
 from app.services.card_resolver import CardResolver
 from app.services.email_backends.runtime import apply_email_settings_to_runtime
+from app.services.relation_orientation import oriented
 from app.services.workspace_io import exporter as exp
 from app.services.workspace_io import schema
 from app.services.workspace_io.bundle import WorkspaceBundle, from_cell
@@ -942,6 +943,7 @@ async def _apply_relations(db, bundle: WorkspaceBundle, sr: SectionResult, dry_r
         if r.get("target_type"):
             type_keys.add(r["target_type"])
     resolver = await CardResolver.load(db, type_keys)
+    rt_by_key = {rt.key: rt for rt in (await db.execute(select(RelationType))).scalars().all()}
     existing = {
         (rel.type, rel.source_id, rel.target_id)
         for rel in (await db.execute(select(Relation))).scalars().all()
@@ -962,15 +964,24 @@ async def _apply_relations(db, bundle: WorkspaceBundle, sr: SectionResult, dry_r
                 f"({data.get('source_ref')!r} -> {data.get('target_ref')!r})"
             )
             continue
-        key = (rtype, s_res.card_id, t_res.card_id)
+        # A bundle from an instance that still held a relation stored the other
+        # way round lands in the relation type's direction here (#1140).
+        source_id, target_id = oriented(
+            rt_by_key.get(rtype),
+            s_res.card_id,
+            t_res.card_id,
+            str(data.get("source_type") or ""),
+            str(data.get("target_type") or ""),
+        )
+        key = (rtype, source_id, target_id)
         if key in existing:
             sr.skip("already_present")
             continue
         db.add(
             Relation(
                 type=rtype,
-                source_id=s_res.card_id,
-                target_id=t_res.card_id,
+                source_id=source_id,
+                target_id=target_id,
                 description=data.get("description"),
                 attributes=data.get("attributes") or {},
             )

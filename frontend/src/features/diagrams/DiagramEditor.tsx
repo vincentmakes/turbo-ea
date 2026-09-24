@@ -111,6 +111,7 @@ import type {
   RemovedRelationTombstone,
 } from "./drawio-shapes";
 import { edgeIncoming, groupRelationsByOtherCard, pruneDeletedRelations } from "./expandChildren";
+import { relationCreatePayload } from "./relationSync";
 import ExpandMenu from "./ExpandMenu";
 import type { ExpandMenuPick, ExpandMenuTarget } from "./ExpandMenu";
 import ColorBySelector from "./ColorBySelector";
@@ -2507,18 +2508,10 @@ export default function DiagramEditor() {
           return;
         }
 
-        const stashedAttrs = pendingEdgeAttributesRef.current.get(edgeCellId);
-        const payload: Record<string, unknown> = {
-          type: rel.relationType,
-          // A relation picked in its reverse direction runs target -> source
-          // even though the edge points the other way.
-          source_id: rel.reversed ? rel.targetCardId : rel.sourceCardId,
-          target_id: rel.reversed ? rel.sourceCardId : rel.targetCardId,
-        };
-        if (stashedAttrs && Object.keys(stashedAttrs).length > 0) {
-          payload.attributes = stashedAttrs;
-        }
-        const created = await api.post<Relation>("/relations", payload);
+        const created = await api.post<Relation>(
+          "/relations",
+          relationCreatePayload(rel, pendingEdgeAttributesRef.current.get(edgeCellId)),
+        );
         pendingEdgeAttributesRef.current.delete(edgeCellId);
 
         markEdgeSynced(
@@ -2592,11 +2585,13 @@ export default function DiagramEditor() {
           continue; // skip if endpoints still pending
         }
         try {
-          const created = await api.post<Relation>("/relations", {
-            type: r.relationType,
-            source_id: r.reversed ? r.targetCardId : r.sourceCardId,
-            target_id: r.reversed ? r.sourceCardId : r.targetCardId,
-          });
+          // Same body as a single-edge sync, attributes chosen in the picker
+          // included — Sync all used to drop them (#1140).
+          const created = await api.post<Relation>(
+            "/relations",
+            relationCreatePayload(r, pendingEdgeAttributesRef.current.get(r.edgeCellId)),
+          );
+          pendingEdgeAttributesRef.current.delete(r.edgeCellId);
           markEdgeSynced(
             frame,
             r.edgeCellId,

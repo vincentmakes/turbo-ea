@@ -223,6 +223,50 @@ class TestCreateRelation:
 # ---------------------------------------------------------------
 
 
+class TestCreateRelationOrientation:
+    """A relation sent with its ends the other way round is stored in the
+    relation type's direction (#1140) — the API accepts card ids, and a row
+    stored backwards is invisible in card detail and draws a provider as a
+    consumer."""
+
+    async def test_swapped_ends_are_stored_in_the_type_direction(self, client, db, rel_env):
+        resp = await client.post(
+            "/api/v1/relations",
+            json={
+                "type": "app_to_itc",
+                "source_id": str(rel_env["target"].id),
+                "target_id": str(rel_env["source"].id),
+                "attributes": {"flowDirection": "forward"},
+            },
+            headers=auth_headers(rel_env["admin"]),
+        )
+        assert resp.status_code == 201, resp.text
+        data = resp.json()
+        assert data["source_id"] == str(rel_env["source"].id)
+        assert data["target_id"] == str(rel_env["target"].id)
+        # The attributes travel unchanged: flowDirection is read on the type's axis.
+        assert data["attributes"] == {"flowDirection": "forward"}
+
+    async def test_swapped_ends_merge_into_the_existing_relation(self, client, db, rel_env):
+        existing = await create_relation(
+            db,
+            type_key="app_to_itc",
+            source_id=rel_env["source"].id,
+            target_id=rel_env["target"].id,
+        )
+        resp = await client.post(
+            "/api/v1/relations",
+            json={
+                "type": "app_to_itc",
+                "source_id": str(rel_env["target"].id),
+                "target_id": str(rel_env["source"].id),
+            },
+            headers=auth_headers(rel_env["admin"]),
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["id"] == str(existing.id)
+
+
 class TestListRelations:
     async def test_list_returns_relations(self, client, db, rel_env):
         admin = rel_env["admin"]

@@ -3273,9 +3273,10 @@ async def upsert_relations_bulk(
     """Create or delete many relations between cards in one call.
 
     Call get_relation_types first to see which relation type keys exist
-    and which source/target card types each one connects — the backend
-    rejects relations whose source or target types don't match the
-    metamodel definition.
+    and which source/target card types each one connects. A name reference
+    whose `type` does not match the relation type's end is rejected; an id
+    reference sent the other way round (target card first) is stored in the
+    relation type's direction, with its attributes unchanged.
 
     Args:
         operations: List of operation dicts. Each dict mirrors

@@ -1348,3 +1348,116 @@ async def test_a_file_attachment_transfers_when_the_bundle_is_read_from_disk(db,
     assert len(restored) == 1
     assert restored[0].name == "contract.pdf"
     assert restored[0].data == blob  # byte-identical through the lazy store
+
+
+async def test_import_stores_a_backwards_relation_in_its_type_direction(db):
+    """A bundle exported from an instance that still held a relation stored the
+    other way round (#1140) lands in the relation type's direction, with its
+    attributes unchanged — and a correct row for the same pair is not doubled."""
+    user = await create_user(db, email="importer@test.com", role="admin")
+
+    def _card_type(key: str) -> dict:
+        return {c: None for c in exp.CARD_TYPE_COLUMNS} | {
+            "key": key,
+            "label": key,
+            "icon": "widgets",
+            "color": "#123456",
+            "has_hierarchy": False,
+            "has_successors": False,
+            "subtypes": [],
+            "fields_schema": [],
+            "stakeholder_roles": [],
+            "section_config": {},
+            "built_in": False,
+            "is_hidden": False,
+            "sort_order": 0,
+            "translations": {},
+        }
+
+    def _card(card_type: str, name: str) -> dict:
+        return {
+            "type": card_type,
+            "name": name,
+            "parent_path": "",
+            "subtype": None,
+            "description": None,
+            "external_id": f"ext-{name}",
+            "alias": None,
+            "approval_status": "DRAFT",
+            "status": "ACTIVE",
+            "lifecycle": {},
+            "attributes": {},
+        }
+
+    def _relation(src: tuple[str, str], tgt: tuple[str, str]) -> dict:
+        return {
+            "type": "gadget_feeds_port",
+            "source_type": src[0],
+            "source_ref": src[1],
+            "target_type": tgt[0],
+            "target_ref": tgt[1],
+            "description": None,
+            "attributes": {"flowDirection": "forward"},
+        }
+
+    relation_types = [
+        {c: None for c in exp.RELATION_TYPE_COLUMNS}
+        | {
+            "key": "gadget_feeds_port",
+            "label": "feeds",
+            "reverse_label": "is fed by",
+            "source_type_key": "Gadget",
+            "target_type_key": "Port",
+            "cardinality": "n:m",
+            "attributes_schema": [],
+            "built_in": False,
+            "is_hidden": False,
+            "sort_order": 0,
+            "translations": {},
+            "source_visible": True,
+            "source_mandatory": False,
+            "target_visible": True,
+            "target_mandatory": False,
+        }
+    ]
+    raw = _make_bundle(
+        {
+            schema.SHEET_CARD_TYPES: (
+                exp.CARD_TYPE_COLUMNS,
+                exp.CARD_TYPE_JSON,
+                [_card_type("Gadget"), _card_type("Port")],
+            ),
+            schema.SHEET_RELATION_TYPES: (
+                exp.RELATION_TYPE_COLUMNS,
+                exp.RELATION_TYPE_JSON,
+                relation_types,
+            ),
+            schema.SHEET_CARDS: (
+                exp.CARD_COLUMNS,
+                exp.CARD_JSON,
+                [_card("Gadget", "G1"), _card("Port", "P1")],
+            ),
+            schema.SHEET_RELATIONS: (
+                exp.RELATION_COLUMNS,
+                exp.RELATION_JSON,
+                # Backwards first, then the same relation the right way round.
+                [
+                    _relation(("Port", "P1"), ("Gadget", "G1")),
+                    _relation(("Gadget", "G1"), ("Port", "P1")),
+                ],
+            ),
+        }
+    )
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    gadget = (await db.execute(select(Card).where(Card.name == "G1"))).scalar_one()
+    port = (await db.execute(select(Card).where(Card.name == "P1"))).scalar_one()
+    rels = (
+        (await db.execute(select(Relation).where(Relation.type == "gadget_feeds_port")))
+        .scalars()
+        .all()
+    )
+    assert [(r.source_id, r.target_id) for r in rels] == [(gadget.id, port.id)]
+    assert rels[0].attributes == {"flowDirection": "forward"}

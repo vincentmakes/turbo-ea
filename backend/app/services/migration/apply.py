@@ -47,6 +47,7 @@ from app.models.stakeholder import Stakeholder
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.services.event_bus import event_bus
+from app.services.relation_orientation import orient_endpoints
 
 logger = logging.getLogger(__name__)
 
@@ -732,17 +733,40 @@ async def _apply_relation_pass(
                 staged.error_message = "Endpoint card not resolved in identity map"
                 continue
             if staged.action == "create":
-                rel = Relation(
-                    id=uuid.uuid4(),
-                    type=payload["tea_type"],
-                    source_id=src_uuid,
-                    target_id=tgt_uuid,
-                    attributes=payload.get("attributes") or {},
+                # The source platform's from/to is its own convention; store
+                # the relation the way the Turbo EA type runs (#1140), and
+                # reuse the row when that turned it onto one already present.
+                src_uuid, tgt_uuid = await orient_endpoints(
+                    db, payload["tea_type"], src_uuid, tgt_uuid
                 )
-                db.add(rel)
-                await db.flush()
-                staged.target_id = rel.id
-                counts["created"] += 1
+                present = (
+                    await db.execute(
+                        select(Relation).where(
+                            Relation.type == payload["tea_type"],
+                            Relation.source_id == src_uuid,
+                            Relation.target_id == tgt_uuid,
+                        )
+                    )
+                ).scalar_one_or_none()
+                if present is not None:
+                    present.attributes = {
+                        **(present.attributes or {}),
+                        **(payload.get("attributes") or {}),
+                    }
+                    staged.target_id = present.id
+                    counts["updated"] += 1
+                else:
+                    rel = Relation(
+                        id=uuid.uuid4(),
+                        type=payload["tea_type"],
+                        source_id=src_uuid,
+                        target_id=tgt_uuid,
+                        attributes=payload.get("attributes") or {},
+                    )
+                    db.add(rel)
+                    await db.flush()
+                    staged.target_id = rel.id
+                    counts["created"] += 1
             elif staged.action == "update":
                 if staged.target_id is None:
                     raise ValueError("update relation has no cached target_id")

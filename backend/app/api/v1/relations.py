@@ -30,6 +30,7 @@ from app.services.card_resolver import CardResolver
 from app.services.cost_field_filter import cost_field_keys_from_relation_schema
 from app.services.data_quality import calc_data_quality
 from app.services.permission_service import PermissionService
+from app.services.relation_orientation import orient_endpoints
 
 router = APIRouter(prefix="/relations", tags=["relations"])
 
@@ -552,6 +553,10 @@ async def apply_relation_operations(
                 raise HTTPException(422, f"Unknown relation type: {op.type}")
             source_id = _resolve_ref_input(op.source, rt_def, endpoint="source", resolver=resolver)
             target_id = _resolve_ref_input(op.target, rt_def, endpoint="target", resolver=resolver)
+            # Name refs are type-checked above; id refs are not, so turn a pair
+            # sent the other way round before the lookup, the delete and the
+            # cardinality guards all key on it (#1140).
+            source_id, target_id = await orient_endpoints(db, rt_def, source_id, target_id)
 
             # Look up an existing relation of this (type, source, target).
             existing = await db.execute(

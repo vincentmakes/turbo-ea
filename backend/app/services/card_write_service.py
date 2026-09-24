@@ -52,6 +52,7 @@ from app.services.card_uniqueness import check_sibling_name_unique
 from app.services.data_quality import calc_data_quality
 from app.services.event_bus import event_bus
 from app.services.hierarchy import HIERARCHY_LEVEL_KEY
+from app.services.relation_orientation import orient_endpoints
 
 # Fields that PPM budget/cost lines manage — calculations must not overwrite these.
 _PPM_MANAGED_FIELDS = {"costBudget", "costActual"}
@@ -1244,7 +1245,12 @@ async def upsert_relation(
     the ``POST /relations`` semantics (#905): reuse an existing row and merge
     supplied attributes / description onto it rather than inserting a
     duplicate. Returns ``(relation, reused, changed_fields)``; the row is
-    flushed, never committed."""
+    flushed, never committed.
+
+    The ends are turned into the relation type's direction first
+    (``relation_orientation``), so a request sent the other way round merges
+    into the existing row instead of forking a backwards one (#1140)."""
+    source_id, target_id = await orient_endpoints(db, type_key, source_id, target_id)
     existing = await db.execute(
         select(Relation).where(
             Relation.type == type_key,

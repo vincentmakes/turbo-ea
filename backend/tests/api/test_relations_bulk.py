@@ -261,3 +261,56 @@ async def test_bulk_viewer_forbidden(client, db, rel_env):
     }
     resp = await client.post("/api/v1/relations/bulk", json=payload, headers=auth_headers(viewer))
     assert resp.status_code == 403
+
+
+async def test_bulk_swapped_id_refs_are_stored_in_the_type_direction(client, db, rel_env):
+    """Id refs are not type-checked like name refs, so a pair sent the other way
+    round is turned into the relation type's direction (#1140)."""
+    payload = {
+        "operations": [
+            {
+                "row_index": 1,
+                "type": "app_to_itc",
+                "source": {"id": str(rel_env["itc1"].id)},
+                "target": {"id": str(rel_env["app1"].id)},
+                "attributes": {"flowDirection": "reverse"},
+            }
+        ]
+    }
+    resp = await client.post(
+        "/api/v1/relations/bulk", json=payload, headers=auth_headers(rel_env["admin"])
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["upserted"] == 1
+    rels = (await db.execute(select(Relation).where(Relation.type == "app_to_itc"))).scalars()
+    rels = list(rels.all())
+    assert len(rels) == 1
+    assert (rels[0].source_id, rels[0].target_id) == (rel_env["app1"].id, rel_env["itc1"].id)
+    assert rels[0].attributes == {"flowDirection": "reverse"}
+
+
+async def test_bulk_swapped_delete_removes_the_relation(client, db, rel_env):
+    rel = await create_relation(
+        db,
+        type_key="app_to_itc",
+        source_id=rel_env["app1"].id,
+        target_id=rel_env["itc1"].id,
+    )
+    await db.commit()
+    payload = {
+        "operations": [
+            {
+                "row_index": 1,
+                "action": "delete",
+                "type": "app_to_itc",
+                "source": {"id": str(rel_env["itc1"].id)},
+                "target": {"id": str(rel_env["app1"].id)},
+            }
+        ]
+    }
+    resp = await client.post(
+        "/api/v1/relations/bulk", json=payload, headers=auth_headers(rel_env["admin"])
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["deleted"] == 1
+    assert await db.get(Relation, rel.id) is None
