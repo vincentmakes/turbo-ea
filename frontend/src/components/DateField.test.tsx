@@ -1,58 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, act, waitFor, within } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import i18n from "@/i18n";
-import { fullDateLabel, todayIso } from "@/lib/calendarGrid";
-import { getLuminance } from "@mui/material/styles";
-import { buildTheme } from "@/theme";
-import {
-  datePlaceholder,
-  dateInputLocale,
-  webkitPlaceholderBackdrop,
-} from "@/lib/datePlaceholder";
 import { DateField } from "./DateField";
 
 const SAFARI_MAC =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15";
-
-const SAFARI_IPHONE =
-  "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
-
-function useUserAgent(ua: string, maxTouchPoints = 0) {
-  vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(ua);
-  // jsdom does not implement maxTouchPoints.
-  Object.defineProperty(window.navigator, "maxTouchPoints", {
-    configurable: true,
-    get: () => maxTouchPoints,
-  });
-}
-
-/**
- * The emitted rule that paints the date input's background, if any. Asserted on
- * the rule rather than getComputedStyle: jsdom's cascade ignores specificity,
- * so MUI's `background: none` on the input's single class wins there, whereas
- * every browser lets the root-class-plus-element selector override it.
- */
-function backdropRuleFor(input: HTMLElement): CSSStyleRule | undefined {
-  const root = input.closest(".MuiTextField-root") as HTMLElement;
-  const rootClass = Array.from(root.classList).find((c) => c.startsWith("css-"));
-  const rules = Array.from(document.styleSheets).flatMap((sheet) =>
-    Array.from(sheet.cssRules),
-  ) as CSSStyleRule[];
-  return rules.find(
-    (r) =>
-      r.selectorText?.includes(`.${rootClass}`) &&
-      r.selectorText.includes("input[type=date]") &&
-      r.style.getPropertyValue("background-color") !== "",
-  );
-}
-
-function expectedPlaceholder() {
-  return datePlaceholder(dateInputLocale(), {
-    day: i18n.t("common:dateField.placeholder.day"),
-    month: i18n.t("common:dateField.placeholder.month"),
-    year: i18n.t("common:dateField.placeholder.year"),
-  });
-}
 
 /** Mark the input as holding a partly-entered date, as browsers do via `validity`. */
 function setBadInput(input: HTMLInputElement, bad: boolean) {
@@ -269,343 +221,42 @@ describe("DateField", () => {
     expect(getComputedStyle(root).width).toBe("170px");
   });
 
-  // WebKit colours an empty segment's placeholder (today's date) by comparing
-  // the input's text colour with the input's own background, alpha ignored
-  // (RenderTheme::datePlaceholderTextColor). The backdrop must sit on the
-  // correct side of the text colour, or today's date renders like a real one.
-  it.each(["light", "dark"] as const)(
-    "gives WebKit a backdrop that greys the placeholder in %s mode",
-    (mode) => {
-      const theme = buildTheme(mode);
-      const backdrop = webkitPlaceholderBackdrop(theme);
-      const alphaChannel = Number(/rgba\([^)]*,\s*([\d.]+)\)/.exec(backdrop)?.[1]);
-      expect(alphaChannel).toBeLessThanOrEqual(0.02);
-
-      const text = getLuminance(theme.palette.text.primary);
-      const background = getLuminance(backdrop);
-      if (mode === "light") expect(text).toBeLessThan(background);
-      else expect(text).toBeGreaterThan(background);
-    },
-  );
-
-  it("leaves Chrome's date input background alone, so its grey placeholder stays grey", () => {
-    // Blink derives its placeholder colour from the input's background too; the
-    // WebKit backdrop once turned Chrome's native dd.mm.yyyy black.
-    render(<DateField label="Target date" value="" onChange={vi.fn()} />);
-    const input = screen.getByLabelText("Target date") as HTMLInputElement;
-    expect(backdropRuleFor(input)).toBeUndefined();
-  });
-});
-
-// Safari fills an empty date field with today's date and has no calendar
-// button on macOS; DateField draws Chrome's look itself there (#1142).
-describe("DateField on WebKit", () => {
-  const showPicker = vi.fn();
-
-  beforeEach(() => {
-    showPicker.mockReset();
-    (HTMLInputElement.prototype as { showPicker?: () => void }).showPicker = showPicker;
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    delete (HTMLInputElement.prototype as { showPicker?: () => void }).showPicker;
-    delete (window.navigator as { maxTouchPoints?: number }).maxTouchPoints;
-  });
-
-  function placeholderEl(container: HTMLElement) {
-    return container.querySelector("[data-date-placeholder]");
-  }
-
-  it("shows a day/month/year placeholder built from the input's locale while empty", () => {
-    useUserAgent(SAFARI_MAC);
-    const { container } = render(
-      <DateField label="Target date" value="" onChange={vi.fn()} />,
-    );
-    const placeholder = placeholderEl(container);
-    expect(placeholder).not.toBeNull();
-    expect(placeholder).toHaveTextContent(expectedPlaceholder());
-    expect(placeholder).toHaveAttribute("aria-hidden", "true");
-  });
-
-  it("draws the placeholder in the same light grey Chrome uses for an unset date", () => {
-    // Chrome paints its native day/month/year placeholder at about #9D9D9D on
-    // white; MUI's text.disabled (black at 38%) resolves to #9E9E9E there.
-    useUserAgent(SAFARI_MAC);
-    const { container } = render(
-      <DateField label="Target date" value="" onChange={vi.fn()} />,
-    );
-    const placeholder = placeholderEl(container) as HTMLElement;
-    expect(getComputedStyle(placeholder).color.replace(/\s/g, "")).toBe(
-      buildTheme("light").palette.text.disabled.replace(/\s/g, ""),
-    );
-  });
-
-  it("pins the input's lang to the placeholder's locale so the orders agree", () => {
-    useUserAgent(SAFARI_MAC);
-    render(<DateField label="Target date" value="" onChange={vi.fn()} />);
-    const input = screen.getByLabelText("Target date");
-    expect(input).toHaveAttribute("lang", dateInputLocale());
-  });
-
-  it("drops the placeholder once a date is set", () => {
-    useUserAgent(SAFARI_MAC);
-    const { container, rerender } = render(
-      <DateField label="Target date" value="" onChange={vi.fn()} />,
-    );
-    expect(placeholderEl(container)).not.toBeNull();
-    rerender(<DateField label="Target date" value="2026-07-24" onChange={vi.fn()} />);
-    expect(placeholderEl(container)).toBeNull();
-  });
-
-  it("drops the placeholder while the entry is incomplete, so the typed segments show", () => {
-    useUserAgent(SAFARI_MAC);
+  it("renders Chrome/Firefox's native date input with nothing added", () => {
+    // The default jsdom UA is neither WebKit nor Safari, i.e. the Chrome path.
     const { container } = render(
       <DateField label="Target date" value="" onChange={vi.fn()} />,
     );
     const input = screen.getByLabelText("Target date") as HTMLInputElement;
-    fireEvent.focus(input);
-    setBadInput(input, true);
-    fireEvent.blur(input);
-    expect(placeholderEl(container)).toBeNull();
-  });
-
-  it("follows the UI language for the field labels", async () => {
-    useUserAgent(SAFARI_MAC);
-    const previous = i18n.language;
-    await act(async () => {
-      await i18n.changeLanguage("de");
-    });
-    try {
-      const { container } = render(
-        <DateField label="Target date" value="" onChange={vi.fn()} />,
-      );
-      const text = placeholderEl(container)?.textContent ?? "";
-      expect(text).toContain("tt");
-      expect(text).toContain("jjjj");
-    } finally {
-      await act(async () => {
-        await i18n.changeLanguage(previous);
-      });
-    }
-  });
-
-  it("applies the backdrop to the rendered date input", () => {
-    useUserAgent(SAFARI_MAC);
-    render(<DateField label="Target date" value="" onChange={vi.fn()} />);
-    const input = screen.getByLabelText("Target date") as HTMLInputElement;
-    const expected = webkitPlaceholderBackdrop(buildTheme("light")).replace(/\s/g, "");
-    const rule = backdropRuleFor(input);
-    expect(rule).toBeDefined();
-    expect(rule!.style.getPropertyValue("background-color").replace(/\s/g, "")).toBe(expected);
-  });
-
-  const openCalendar = () =>
-    fireEvent.click(
-      screen.getByRole("button", { name: i18n.t("common:dateField.openPicker") }),
-    );
-  const calendar = () => screen.queryByRole("dialog", { name: i18n.t("common:dateField.calendar") });
-
-  it("opens the themed calendar from the button, not the native popover", () => {
-    useUserAgent(SAFARI_MAC);
-    render(<DateField label="Target date" value="2026-09-23" onChange={vi.fn()} />);
-    openCalendar();
-    expect(calendar()).not.toBeNull();
-    expect(showPicker).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole("button", { name: fullDateLabel(i18n.language, "2026-09-23") }),
-    ).toBeInTheDocument();
-  });
-
-  it("commits a day picked in the calendar once, and closes it", async () => {
-    useUserAgent(SAFARI_MAC);
-    const onChange = vi.fn();
-    const { container } = render(
-      <DateField label="Target date" value="" onChange={onChange} />,
-    );
-    const input = screen.getByLabelText("Target date") as HTMLInputElement;
-    openCalendar();
-    fireEvent.click(screen.getByRole("button", { name: i18n.t("common:dateField.today") }));
-
-    expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange).toHaveBeenCalledWith(todayIso());
-    expect(input.value).toBe(todayIso());
-    expect(placeholderEl(container)).toBeNull();
-    await waitFor(() => expect(calendar()).toBeNull());
-
-    fireEvent.focus(input);
-    fireEvent.blur(input);
-    expect(onChange).toHaveBeenCalledTimes(1);
-  });
-
-  it("clears from inside the calendar", () => {
-    useUserAgent(SAFARI_MAC);
-    const onChange = vi.fn();
-    render(<DateField label="Target date" value="2026-09-23" onChange={onChange} />);
-    openCalendar();
-    const dialog = calendar() as HTMLElement;
-    fireEvent.click(
-      within(dialog).getByRole("button", { name: i18n.t("common:dateField.clear") }),
-    );
-    expect(onChange).toHaveBeenCalledWith("");
-  });
-
-  it("honours the caller's min / max in the calendar", () => {
-    useUserAgent(SAFARI_MAC);
-    render(
-      <DateField
-        label="Target date"
-        value="2026-09-15"
-        onChange={vi.fn()}
-        slotProps={{ htmlInput: { min: "2026-09-10", max: "2026-09-20" } }}
-      />,
-    );
-    openCalendar();
-    expect(
-      screen.getByRole("button", { name: fullDateLabel(i18n.language, "2026-09-21") }),
-    ).toBeDisabled();
-  });
-
-  it("disables the calendar button with the field", () => {
-    useUserAgent(SAFARI_MAC);
-    render(<DateField label="Target date" value="" onChange={vi.fn()} disabled />);
-    expect(
-      screen.getByRole("button", { name: i18n.t("common:dateField.openPicker") }),
-    ).toBeDisabled();
-  });
-
-  it.each([
-    ["iPad (desktop-mode UA)", SAFARI_MAC, 5],
-    ["iPhone", SAFARI_IPHONE, 5],
-  ])("shows the calendar button, placeholder and themed calendar on %s", (_name, ua, touch) => {
-    useUserAgent(ua as string, touch as number);
-    const { container } = render(
-      <DateField label="Target date" value="" onChange={vi.fn()} />,
-    );
-    expect(placeholderEl(container)).not.toBeNull();
-    openCalendar();
-    expect(calendar()).not.toBeNull();
-    // Not focused: on iOS that would raise the native wheel underneath.
-    expect(document.activeElement).not.toBe(screen.getByLabelText("Target date"));
-  });
-
-  it("offers no clear button while the field is empty", () => {
-    useUserAgent(SAFARI_MAC);
-    render(<DateField label="Target date" value="" onChange={vi.fn()} />);
-    expect(
-      screen.queryByRole("button", { name: i18n.t("common:dateField.clear") }),
-    ).toBeNull();
-  });
-
-  it("clears a set date at once with its own button, bypassing the native picker", () => {
-    useUserAgent(SAFARI_IPHONE, 5);
-    const onChange = vi.fn();
-    const { container } = render(
-      <DateField label="Target date" value="2026-07-24" onChange={onChange} />,
-    );
-    const input = screen.getByLabelText("Target date") as HTMLInputElement;
-    fireEvent.click(screen.getByRole("button", { name: i18n.t("common:dateField.clear") }));
-
-    expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange).toHaveBeenCalledWith("");
-    expect(input.value).toBe("");
-    expect(placeholderEl(container)).not.toBeNull();
-    expect(
-      screen.queryByRole("button", { name: i18n.t("common:dateField.clear") }),
-    ).toBeNull();
-
-    // Leaving the field afterwards does not commit a second time.
-    fireEvent.blur(input);
-    expect(onChange).toHaveBeenCalledTimes(1);
-  });
-
-  it("offers no clear button on a disabled field", () => {
-    useUserAgent(SAFARI_MAC);
-    render(
-      <DateField label="Target date" value="2026-07-24" onChange={vi.fn()} disabled />,
-    );
-    expect(
-      screen.queryByRole("button", { name: i18n.t("common:dateField.clear") }),
-    ).toBeNull();
-  });
-
-  it("commits iOS picker Reset at once, without waiting for a blur", () => {
-    // Reset sets the value to "" through input/change while the field is focused.
-    useUserAgent(SAFARI_IPHONE, 5);
-    const onChange = vi.fn();
-    render(<DateField label="Target date" value="2026-07-24" onChange={onChange} />);
-    const input = screen.getByLabelText("Target date") as HTMLInputElement;
-
-    fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: "" } });
-    expect(onChange).toHaveBeenCalledWith("");
-
-    fireEvent.change(input, { target: { value: "2026-09-23" } });
-    expect(onChange).toHaveBeenLastCalledWith("2026-09-23");
-
-    fireEvent.blur(input);
-    expect(onChange).toHaveBeenCalledTimes(2);
-  });
-
-  it("keeps commit-on-blur on desktop Safari, where segments are typed (#865)", () => {
-    useUserAgent(SAFARI_MAC);
-    const onChange = vi.fn();
-    render(<DateField label="Target date" value="" onChange={onChange} />);
-    const input = screen.getByLabelText("Target date") as HTMLInputElement;
-
-    fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: "0002-07-24" } });
-    fireEvent.change(input, { target: { value: "2026-07-24" } });
-    expect(onChange).not.toHaveBeenCalled();
-    fireEvent.blur(input);
-    expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange).toHaveBeenCalledWith("2026-07-24");
-  });
-
-  it("leaves Chrome and Firefox to their own native placeholder and button", () => {
-    // The default jsdom UA is neither WebKit nor Safari.
-    const { container } = render(
-      <DateField label="Target date" value="" onChange={vi.fn()} />,
-    );
-    expect(placeholderEl(container)).toBeNull();
+    expect(input.type).toBe("date");
+    expect(input).not.toHaveAttribute("lang");
+    expect(input).not.toHaveAttribute("placeholder");
     expect(screen.queryByRole("button")).toBeNull();
-    expect(screen.getByLabelText("Target date")).not.toHaveAttribute("lang");
+    expect(container.querySelector("[data-date-placeholder]")).toBeNull();
+    // No rule paints the input's background: Blink derives its grey
+    // placeholder colour from it, and a backdrop once turned it black.
+    const root = input.closest(".MuiTextField-root") as HTMLElement;
+    const rootClasses = Array.from(root.classList).filter((c) => c.startsWith("css-"));
+    const rules = Array.from(document.styleSheets).flatMap((sheet) =>
+      Array.from(sheet.cssRules),
+    ) as CSSStyleRule[];
+    const painting = rules.filter(
+      (r) =>
+        rootClasses.some((c) => r.selectorText?.includes(`.${c}`)) &&
+        /input/.test(r.selectorText) &&
+        r.style.getPropertyValue("background-color") !== "",
+    );
+    expect(painting).toEqual([]);
   });
 
-  it("keeps the caller's deprecated InputProps and inputRef", () => {
-    useUserAgent(SAFARI_MAC);
-    const ref = { current: null as HTMLInputElement | null };
-    render(
-      <DateField
-        label="Target date"
-        value=""
-        onChange={vi.fn()}
-        variant="standard"
-        InputProps={{ disableUnderline: true }}
-        inputRef={ref}
-      />,
-    );
-    const input = screen.getByLabelText("Target date");
-    expect(ref.current).toBe(input);
-    const root = input.closest(".MuiInputBase-root") as HTMLElement;
-    // disableUnderline is what removes MUI's `underline` class.
-    expect(root.className).not.toMatch(/MuiInput-underline/);
-    expect(
-      screen.getByRole("button", { name: i18n.t("common:dateField.openPicker") }),
-    ).toBeInTheDocument();
-  });
-
-  it("still commits a pick from Safari's native popover (clicked into the field)", () => {
-    useUserAgent(SAFARI_MAC);
-    const onChange = vi.fn();
-    const { container } = render(
-      <DateField label="Target date" value="" onChange={onChange} />,
-    );
-    const input = screen.getByLabelText("Target date") as HTMLInputElement;
-    fireEvent.focus(input);
-    fireEvent.blur(input);
-    fireEvent.change(input, { target: { value: "2026-09-23" } });
-    expect(onChange).toHaveBeenCalledWith("2026-09-23");
-    expect(placeholderEl(container)).toBeNull();
+  it("renders the themed text field on Safari instead", () => {
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(SAFARI_MAC);
+    try {
+      render(<DateField label="Target date" value="2026-07-24" onChange={vi.fn()} />);
+      const input = screen.getByLabelText("Target date") as HTMLInputElement;
+      expect(input.type).toBe("text");
+      expect(document.querySelector('input[type="date"]')).toBeNull();
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 });

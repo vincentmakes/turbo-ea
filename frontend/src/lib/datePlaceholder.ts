@@ -1,4 +1,4 @@
-import { alpha, type Theme } from "@mui/material/styles";
+import { isValidIso } from "@/lib/calendarGrid";
 
 /**
  * The day/month/year placeholder a date field shows while it is empty —
@@ -24,8 +24,8 @@ export function datePlaceholder(locale: string | undefined, labels: DatePlacehol
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
-      // Native date inputs are always Gregorian (WebKit forces it), whatever
-      // the locale's default calendar.
+      // Date fields are always Gregorian, whatever the locale's default
+      // calendar (ar-SA would otherwise format in the Islamic calendar).
       calendar: "gregory",
       timeZone: "UTC",
     }).formatToParts(SAMPLE);
@@ -53,9 +53,8 @@ export function datePlaceholder(locale: string | undefined, labels: DatePlacehol
 
 /**
  * The browser's own locale, region included (`en-GB`, `de-CH`, …) — the same
- * source Chrome lays its native date field out from. DateField pins WebKit's
- * date input to it via `lang`, so the placeholder built here and the segments
- * Safari shows once the field is focused are in the same order.
+ * source Chrome lays its native date field out from, so Safari's themed field
+ * shows, and reads, dates in the order Chrome's native one does.
  */
 export function dateInputLocale(): string {
   try {
@@ -65,24 +64,61 @@ export function dateInputLocale(): string {
   }
 }
 
+const NUMERIC_PARTS: Intl.DateTimeFormatOptions = {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  calendar: "gregory",
+  numberingSystem: "latn",
+  timeZone: "UTC",
+};
+
+function numericFormatter(locale: string | undefined): Intl.DateTimeFormat {
+  try {
+    return new Intl.DateTimeFormat(locale, NUMERIC_PARTS);
+  } catch {
+    return new Intl.DateTimeFormat("en-US", NUMERIC_PARTS);
+  }
+}
+
+/** A stored ISO date in the locale's numeric format, e.g. `24.07.2026`. */
+export function formatLocalDate(iso: string, locale: string | undefined): string {
+  if (!isValidIso(iso)) return "";
+  const [y, m, d] = iso.split("-").map(Number);
+  return numericFormatter(locale).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+/** The order the locale writes day, month and year in, e.g. `["day","month","year"]`. */
+export function datePartOrder(locale: string | undefined): Array<"day" | "month" | "year"> {
+  return numericFormatter(locale)
+    .formatToParts(SAMPLE)
+    .map((p) => p.type)
+    .filter((t): t is "day" | "month" | "year" => t === "day" || t === "month" || t === "year");
+}
+
+// Arabic-Indic (U+0660–0669) and Extended Arabic-Indic (U+06F0–06F9) digits.
+function toLatinDigits(text: string): string {
+  return text.replace(/[\u0660-\u0669\u06f0-\u06f9]/g, (ch) =>
+    String((ch.charCodeAt(0) & 0xf) % 10),
+  );
+}
+
 /**
- * Near-invisible background for the date `<input>`, so WebKit greys its
- * placeholder segments instead of drawing them as a real date.
- *
- * An empty WebKit date field shows today's date as its placeholder
- * (`DateTimeEditElement`: `m_placeholderDate = currentLocalTime()`), and
- * `DateTimeFieldElement::resolveCustomStyle` overrides the `color` of every
- * empty segment — author CSS on `::-webkit-datetime-edit*` cannot win — with
- * `RenderTheme::datePlaceholderTextColor(hostText, hostBackground)`. That
- * lightens the text when it is darker than the input's *own* background and
- * darkens it otherwise, comparing luminance with alpha ignored. MUI's input
- * background is transparent, which WebKit reads as black: dark text is then
- * never "darker than black", gets darkened, and today's date renders exactly
- * like a stored one (#1142). A 1%-alpha copy of the surface colour is
- * invisible on any background but carries the surface's luminance, so the
- * comparison goes the right way in both light and dark mode. Other engines do
- * not derive placeholder colour from the background and are unaffected.
+ * Reads a typed date back to ISO: `""` for a blank field, `null` when the text
+ * is not a real date. The digit groups are taken in the locale's own
+ * day/month/year order, so any separator works (`24.07.2026`, `24/7/2026`,
+ * `24 07 2026`); the year must be written in full.
  */
-export function webkitPlaceholderBackdrop(theme: Theme): string {
-  return alpha(theme.palette.background.paper, 0.01);
+export function parseLocalDate(text: string, locale: string | undefined): string | null {
+  const trimmed = toLatinDigits(text).trim();
+  if (trimmed === "") return "";
+  const groups = trimmed.match(/\d+/g);
+  const order = datePartOrder(locale);
+  if (!groups || groups.length !== 3 || order.length !== 3) return null;
+  if (/[^\d\s./\-,\u200e\u200f年月日]/.test(trimmed.replace(/\d+/g, ""))) return null;
+  const parts: Record<string, string> = {};
+  order.forEach((type, i) => (parts[type] = groups[i]));
+  if (parts.year.length !== 4 || parts.month.length > 2 || parts.day.length > 2) return null;
+  const iso = `${parts.year}-${parts.month.padStart(2, "0")}-${parts.day.padStart(2, "0")}`;
+  return isValidIso(iso) ? iso : null;
 }

@@ -501,5 +501,6 @@
   "dateField.previousMonth": "Предыдущий месяц",
   "dateField.nextMonth": "Следующий месяц",
   "dateField.chooseYear": "Выбрать год",
-  "dateField.calendar": "Календарь"
+  "dateField.calendar": "Календарь",
+  "dateField.invalid": "Недопустимая дата — введите её в формате {{pattern}} или выберите в календаре."
 }

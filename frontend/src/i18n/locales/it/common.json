@@ -501,5 +501,6 @@
   "dateField.previousMonth": "Mese precedente",
   "dateField.nextMonth": "Mese successivo",
   "dateField.chooseYear": "Scegli anno",
-  "dateField.calendar": "Calendario"
+  "dateField.calendar": "Calendario",
+  "dateField.invalid": "Data non valida: inseriscila come {{pattern}} o sceglila dal calendario."
 }

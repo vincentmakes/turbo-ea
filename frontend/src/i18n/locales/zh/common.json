@@ -501,5 +501,6 @@
   "dateField.previousMonth": "上个月",
   "dateField.nextMonth": "下个月",
   "dateField.chooseYear": "选择年份",
-  "dateField.calendar": "日历"
+  "dateField.calendar": "日历",
+  "dateField.invalid": "日期无效——请按 {{pattern}} 格式输入，或从日历中选择。"
 }

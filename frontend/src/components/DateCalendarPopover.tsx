@@ -1,5 +1,20 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Box, Button, ButtonBase, IconButton, Popover, Typography } from "@mui/material";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
+import {
+  Box,
+  Button,
+  ButtonBase,
+  ClickAwayListener,
+  IconButton,
+  Paper,
+  Popper,
+  Typography,
+} from "@mui/material";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useIsRtl } from "@/hooks/useIsRtl";
@@ -19,6 +34,8 @@ import {
 } from "@/lib/calendarGrid";
 
 export interface DateCalendarPopoverProps {
+  /** Id of the calendar dialog, for the field's `aria-controls`. */
+  id?: string;
   open: boolean;
   anchorEl: HTMLElement | null;
   /** ISO date, or `""` when empty. */
@@ -31,6 +48,12 @@ export interface DateCalendarPopoverProps {
   /** Present only when the field can be cleared. */
   onClear?: () => void;
   onClose: () => void;
+  /**
+   * Move keyboard focus into the day grid on open. False when the field was
+   * clicked on a Mac, so the caret stays in the input and the user can keep
+   * typing while the calendar is open.
+   */
+  autoFocusGrid?: boolean;
 }
 
 const CELL = 36;
@@ -43,8 +66,15 @@ const YEAR_SPAN = 100;
  * locale-dependent piece — names, first weekday, digits — comes from `Intl`
  * via `lib/calendarGrid.ts`. Chrome and Firefox never render it: they keep
  * their own native picker.
+ *
+ * Deliberately a non-modal `Popper`, not a `Popover`: a modal would hide the
+ * field from assistive tech and swallow clicks while the user is typing into
+ * it. It renders in place (`disablePortal`) so a surrounding Dialog's focus
+ * trap keeps working, with the `fixed` strategy so a scrolling container
+ * cannot clip it.
  */
 export default function DateCalendarPopover({
+  id,
   open,
   anchorEl,
   value,
@@ -54,6 +84,7 @@ export default function DateCalendarPopover({
   onSelect,
   onClear,
   onClose,
+  autoFocusGrid = true,
 }: DateCalendarPopoverProps) {
   const { t, i18n } = useTranslation("common");
   const isRtl = useIsRtl();
@@ -64,20 +95,29 @@ export default function DateCalendarPopover({
   const [focusDay, setFocusDay] = useState(selected || today);
   const [yearMode, setYearMode] = useState(false);
   const gridRef = useRef<HTMLDivElement | null>(null);
+  const paperRef = useRef<HTMLDivElement | null>(null);
   const moveFocus = useRef(false);
 
   // Each opening starts on the month of the value (or today's).
   useEffect(() => {
-    if (open) {
-      setFocusDay(selected || today);
-      setYearMode(false);
-    }
+    if (!open) return;
+    setFocusDay(selected || today);
+    setYearMode(false);
+    if (!autoFocusGrid) return;
+    // Land keyboard focus on the selected (or today's) day once rendered.
+    const frame = requestAnimationFrame(() =>
+      gridRef.current?.querySelector<HTMLElement>('[tabindex="0"]')?.focus(),
+    );
+    return () => cancelAnimationFrame(frame);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const firstDay = useMemo(() => firstDayOfWeek(weekLocale), [weekLocale]);
   const labels = useMemo(() => weekdayLabels(lang, firstDay), [lang, firstDay]);
   const { year, month } = yearMonthOf(focusDay);
-  const days = useMemo(() => monthGrid(year, month, firstDay), [year, month, firstDay]);
+  const days = useMemo(
+    () => monthGrid(year, month, firstDay),
+    [year, month, firstDay],
+  );
 
   // Keyboard moves the roving focus; follow it with DOM focus.
   useEffect(() => {
@@ -107,8 +147,9 @@ export default function DateCalendarPopover({
       ArrowDown: () => addDays(focusDay, 7),
       PageUp: () => addMonths(focusDay, e.shiftKey ? -12 : -1),
       PageDown: () => addMonths(focusDay, e.shiftKey ? 12 : 1),
-      Home: () => addDays(focusDay, -((days.indexOf(focusDay) % 7 + 7) % 7)),
-      End: () => addDays(focusDay, 6 - ((days.indexOf(focusDay) % 7 + 7) % 7)),
+      Home: () => addDays(focusDay, -(((days.indexOf(focusDay) % 7) + 7) % 7)),
+      End: () =>
+        addDays(focusDay, 6 - (((days.indexOf(focusDay) % 7) + 7) % 7)),
     };
     const move = moves[e.key];
     if (move) {
@@ -122,185 +163,257 @@ export default function DateCalendarPopover({
 
   const years = useMemo(() => {
     const current = Number(today.slice(0, 4));
-    return Array.from({ length: YEAR_SPAN * 2 + 1 }, (_, i) => current - YEAR_SPAN + i);
+    return Array.from(
+      { length: YEAR_SPAN * 2 + 1 },
+      (_, i) => current - YEAR_SPAN + i,
+    );
   }, [today]);
 
   const prevIcon = isRtl ? "chevron_right" : "chevron_left";
   const nextIcon = isRtl ? "chevron_left" : "chevron_right";
 
   return (
-    <Popover
+    <Popper
       open={open}
       anchorEl={anchorEl}
-      onClose={onClose}
-      disableRestoreFocus
-      TransitionProps={{
-        // Land keyboard focus on the selected (or today's) day.
-        onEntered: () =>
-          gridRef.current?.querySelector<HTMLElement>('[tabindex="0"]')?.focus(),
-      }}
-      anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-      transformOrigin={{ vertical: "top", horizontal: "left" }}
-      slotProps={{
-        paper: {
-          role: "dialog",
-          "aria-label": t("dateField.calendar"),
-          sx: { p: 1.5, width: CELL * 7 + 24 },
-        },
-      }}
+      placement="bottom-start"
+      disablePortal
+      popperOptions={{ strategy: "fixed" }}
+      sx={{ zIndex: (theme) => theme.zIndex.modal + 1 }}
     >
-      <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-        <Button
-          size="small"
-          color="inherit"
-          onClick={() => setYearMode((v) => !v)}
-          aria-label={t("dateField.chooseYear")}
-          aria-expanded={yearMode}
-          endIcon={<MaterialSymbol icon={yearMode ? "arrow_drop_up" : "arrow_drop_down"} size={20} />}
-          sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.95rem", px: 1 }}
-        >
-          {monthTitle(lang, year, month)}
-        </Button>
-        <Box sx={{ flex: 1 }} />
-        {!yearMode && (
-          <>
-            <IconButton
-              size="small"
-              aria-label={t("dateField.previousMonth")}
-              onClick={() => setFocusDay(addMonths(focusDay, -1))}
-            >
-              <MaterialSymbol icon={prevIcon} size={20} />
-            </IconButton>
-            <IconButton
-              size="small"
-              aria-label={t("dateField.nextMonth")}
-              onClick={() => setFocusDay(addMonths(focusDay, 1))}
-            >
-              <MaterialSymbol icon={nextIcon} size={20} />
-            </IconButton>
-          </>
-        )}
-      </Box>
-
-      {yearMode ? (
-        <Box
-          role="listbox"
-          aria-label={t("dateField.chooseYear")}
-          sx={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 0.5,
-            height: CELL * 7,
-            overflowY: "auto",
+      <ClickAwayListener
+        onClickAway={(e) => {
+          // A click on the field itself is the field's own toggle to handle.
+          if (anchorEl?.contains(e.target as Node)) return;
+          onClose();
+        }}
+      >
+        <Paper
+          ref={paperRef}
+          id={id}
+          elevation={8}
+          role="dialog"
+          aria-label={t("dateField.calendar")}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.stopPropagation();
+              onClose();
+            }
           }}
-          ref={(el: HTMLDivElement | null) => {
-            el?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView?.({
-              block: "center",
-            });
+          onBlur={(e) => {
+            // Tabbing out of the calendar closes it, like leaving a menu.
+            const next = e.relatedTarget as Node | null;
+            if (
+              next &&
+              !paperRef.current?.contains(next) &&
+              !anchorEl?.contains(next)
+            )
+              onClose();
           }}
+          sx={{ p: 1.5, mt: 0.5, width: CELL * 7 + 24 }}
         >
-          {years.map((y) => (
-            <ButtonBase
-              key={y}
-              role="option"
-              aria-selected={y === year}
-              onClick={() => {
-                setFocusDay(addMonths(focusDay, (y - year) * 12));
-                setYearMode(false);
-              }}
+          <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+            <Button
+              size="small"
+              color="inherit"
+              onClick={() => setYearMode((v) => !v)}
+              aria-label={t("dateField.chooseYear")}
+              aria-expanded={yearMode}
+              endIcon={
+                <MaterialSymbol
+                  icon={yearMode ? "arrow_drop_up" : "arrow_drop_down"}
+                  size={20}
+                />
+              }
               sx={{
-                height: 32,
-                borderRadius: 4,
-                typography: "body2",
-                ...(y === year && {
-                  bgcolor: "primary.main",
-                  color: "primary.contrastText",
-                }),
-                "&:hover": { bgcolor: y === year ? "primary.dark" : "action.hover" },
+                textTransform: "none",
+                fontWeight: 600,
+                fontSize: "0.95rem",
+                px: 1,
               }}
             >
-              {new Intl.NumberFormat(lang, { useGrouping: false }).format(y)}
-            </ButtonBase>
-          ))}
-        </Box>
-      ) : (
-        <Box role="grid" aria-label={monthTitle(lang, year, month)} ref={gridRef} onKeyDown={onGridKey}>
-          <Box role="row" sx={{ display: "grid", gridTemplateColumns: `repeat(7, ${CELL}px)` }}>
-            {labels.map((l) => (
-              <Typography
-                key={l.long}
-                role="columnheader"
-                aria-label={l.long}
-                variant="caption"
-                color="text.secondary"
-                sx={{ textAlign: "center", lineHeight: `${CELL - 8}px` }}
-              >
-                {l.short}
-              </Typography>
-            ))}
+              {monthTitle(lang, year, month)}
+            </Button>
+            <Box sx={{ flex: 1 }} />
+            {!yearMode && (
+              <>
+                <IconButton
+                  size="small"
+                  aria-label={t("dateField.previousMonth")}
+                  onClick={() => setFocusDay(addMonths(focusDay, -1))}
+                >
+                  <MaterialSymbol icon={prevIcon} size={20} />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  aria-label={t("dateField.nextMonth")}
+                  onClick={() => setFocusDay(addMonths(focusDay, 1))}
+                >
+                  <MaterialSymbol icon={nextIcon} size={20} />
+                </IconButton>
+              </>
+            )}
           </Box>
-          {Array.from({ length: 6 }, (_, row) => (
-            <Box
-              key={row}
-              role="row"
-              sx={{ display: "grid", gridTemplateColumns: `repeat(7, ${CELL}px)` }}
-            >
-              {days.slice(row * 7, row * 7 + 7).map((iso) => {
-                const inMonth = yearMonthOf(iso).month === month;
-                const isSelected = iso === selected;
-                const isToday = iso === today;
-                const disabled = outOfRange(iso, min, max);
-                return (
-                  <Box key={iso} role="gridcell" aria-selected={isSelected} sx={{ p: "2px" }}>
-                    <ButtonBase
-                      data-iso={iso}
-                      tabIndex={iso === focusDay ? 0 : -1}
-                      disabled={disabled}
-                      aria-label={fullDateLabel(lang, iso)}
-                      aria-current={isToday ? "date" : undefined}
-                      onClick={() => pick(iso)}
-                      onFocus={() => iso !== focusDay && setFocusDay(iso)}
-                      sx={{
-                        width: CELL - 4,
-                        height: CELL - 4,
-                        borderRadius: "50%",
-                        typography: "body2",
-                        color: inMonth ? "text.primary" : "text.disabled",
-                        border: 1,
-                        borderColor: isToday && !isSelected ? "primary.main" : "transparent",
-                        "&:hover": { bgcolor: "action.hover" },
-                        "&.Mui-focusVisible": { outline: 2, outlineColor: "primary.main" },
-                        "&.Mui-disabled": { color: "text.disabled", opacity: 0.5 },
-                        ...(isSelected && {
-                          bgcolor: "primary.main",
-                          color: "primary.contrastText",
-                          fontWeight: 600,
-                          "&:hover": { bgcolor: "primary.dark" },
-                        }),
-                      }}
-                    >
-                      {dayNumber(lang, iso)}
-                    </ButtonBase>
-                  </Box>
-                );
-              })}
-            </Box>
-          ))}
-        </Box>
-      )}
 
-      <Box sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}>
-        {onClear ? (
-          <Button size="small" onClick={onClear}>
-            {t("dateField.clear")}
-          </Button>
-        ) : (
-          <span />
-        )}
-        <Button size="small" disabled={outOfRange(today, min, max)} onClick={() => pick(today)}>
-          {t("dateField.today")}
-        </Button>
-      </Box>
-    </Popover>
+          {yearMode ? (
+            <Box
+              role="listbox"
+              aria-label={t("dateField.chooseYear")}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, 1fr)",
+                gap: 0.5,
+                height: CELL * 7,
+                overflowY: "auto",
+              }}
+              ref={(el: HTMLDivElement | null) => {
+                el?.querySelector<HTMLElement>(
+                  '[aria-selected="true"]',
+                )?.scrollIntoView?.({
+                  block: "center",
+                });
+              }}
+            >
+              {years.map((y) => (
+                <ButtonBase
+                  key={y}
+                  role="option"
+                  aria-selected={y === year}
+                  onClick={() => {
+                    setFocusDay(addMonths(focusDay, (y - year) * 12));
+                    setYearMode(false);
+                  }}
+                  sx={{
+                    height: 32,
+                    borderRadius: 4,
+                    typography: "body2",
+                    ...(y === year && {
+                      bgcolor: "primary.main",
+                      color: "primary.contrastText",
+                    }),
+                    "&:hover": {
+                      bgcolor: y === year ? "primary.dark" : "action.hover",
+                    },
+                  }}
+                >
+                  {new Intl.NumberFormat(lang, { useGrouping: false }).format(
+                    y,
+                  )}
+                </ButtonBase>
+              ))}
+            </Box>
+          ) : (
+            <Box
+              role="grid"
+              aria-label={monthTitle(lang, year, month)}
+              ref={gridRef}
+              onKeyDown={onGridKey}
+            >
+              <Box
+                role="row"
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: `repeat(7, ${CELL}px)`,
+                }}
+              >
+                {labels.map((l) => (
+                  <Typography
+                    key={l.long}
+                    role="columnheader"
+                    aria-label={l.long}
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ textAlign: "center", lineHeight: `${CELL - 8}px` }}
+                  >
+                    {l.short}
+                  </Typography>
+                ))}
+              </Box>
+              {Array.from({ length: 6 }, (_, row) => (
+                <Box
+                  key={row}
+                  role="row"
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: `repeat(7, ${CELL}px)`,
+                  }}
+                >
+                  {days.slice(row * 7, row * 7 + 7).map((iso) => {
+                    const inMonth = yearMonthOf(iso).month === month;
+                    const isSelected = iso === selected;
+                    const isToday = iso === today;
+                    const disabled = outOfRange(iso, min, max);
+                    return (
+                      <Box
+                        key={iso}
+                        role="gridcell"
+                        aria-selected={isSelected}
+                        sx={{ p: "2px" }}
+                      >
+                        <ButtonBase
+                          data-iso={iso}
+                          tabIndex={iso === focusDay ? 0 : -1}
+                          disabled={disabled}
+                          aria-label={fullDateLabel(lang, iso)}
+                          aria-current={isToday ? "date" : undefined}
+                          onClick={() => pick(iso)}
+                          onFocus={() => iso !== focusDay && setFocusDay(iso)}
+                          sx={{
+                            width: CELL - 4,
+                            height: CELL - 4,
+                            borderRadius: "50%",
+                            typography: "body2",
+                            color: inMonth ? "text.primary" : "text.disabled",
+                            border: 1,
+                            borderColor:
+                              isToday && !isSelected
+                                ? "primary.main"
+                                : "transparent",
+                            "&:hover": { bgcolor: "action.hover" },
+                            "&.Mui-focusVisible": {
+                              outline: 2,
+                              outlineColor: "primary.main",
+                            },
+                            "&.Mui-disabled": {
+                              color: "text.disabled",
+                              opacity: 0.5,
+                            },
+                            ...(isSelected && {
+                              bgcolor: "primary.main",
+                              color: "primary.contrastText",
+                              fontWeight: 600,
+                              "&:hover": { bgcolor: "primary.dark" },
+                            }),
+                          }}
+                        >
+                          {dayNumber(lang, iso)}
+                        </ButtonBase>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              ))}
+            </Box>
+          )}
+
+          <Box sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}>
+            {onClear ? (
+              <Button size="small" onClick={onClear}>
+                {t("dateField.clear")}
+              </Button>
+            ) : (
+              <span />
+            )}
+            <Button
+              size="small"
+              disabled={outOfRange(today, min, max)}
+              onClick={() => pick(today)}
+            >
+              {t("dateField.today")}
+            </Button>
+          </Box>
+        </Paper>
+      </ClickAwayListener>
+    </Popper>
   );
 }

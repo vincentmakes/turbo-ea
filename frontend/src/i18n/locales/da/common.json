@@ -501,5 +501,6 @@
   "dateField.previousMonth": "Forrige måned",
   "dateField.nextMonth": "Næste måned",
   "dateField.chooseYear": "Vælg år",
-  "dateField.calendar": "Kalender"
+  "dateField.calendar": "Kalender",
+  "dateField.invalid": "Ikke en gyldig dato — skriv den som {{pattern}}, eller vælg den i kalenderen."
 }

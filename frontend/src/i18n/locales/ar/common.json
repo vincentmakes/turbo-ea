@@ -501,5 +501,6 @@
   "dateField.previousMonth": "الشهر السابق",
   "dateField.nextMonth": "الشهر التالي",
   "dateField.chooseYear": "اختر السنة",
-  "dateField.calendar": "التقويم"
+  "dateField.calendar": "التقويم",
+  "dateField.invalid": "تاريخ غير صالح — اكتبه بالصيغة {{pattern}} أو اختره من التقويم."
 }

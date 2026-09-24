@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { datePlaceholder, dateInputLocale } from "./datePlaceholder";
+import {
+  datePlaceholder,
+  dateInputLocale,
+  datePartOrder,
+  formatLocalDate,
+  parseLocalDate,
+} from "./datePlaceholder";
 
 const EN = { day: "dd", month: "mm", year: "yyyy" };
 
@@ -36,5 +42,49 @@ describe("datePlaceholder", () => {
 describe("dateInputLocale", () => {
   it("returns the browser's resolved locale", () => {
     expect(dateInputLocale()).toBe(new Intl.DateTimeFormat().resolvedOptions().locale);
+  });
+});
+
+describe("formatLocalDate / parseLocalDate", () => {
+  it.each([
+    ["en-US", "07/24/2026"],
+    ["en-GB", "24/07/2026"],
+    ["de-CH", "24.07.2026"],
+    ["zh-CN", "2026/07/24"],
+    ["ko-KR", "2026. 07. 24."],
+    ["nl-NL", "24-07-2026"],
+  ])("round-trips in the locale's own order (%s)", (locale, shown) => {
+    expect(formatLocalDate("2026-07-24", locale)).toBe(shown);
+    expect(parseLocalDate(shown, locale)).toBe("2026-07-24");
+  });
+
+  it("keeps Latin digits on display, even for Arabic", () => {
+    const shown = formatLocalDate("2026-07-24", "ar-EG");
+    expect(shown.replace(/[\u200e\u200f]/g, "")).toMatch(/24\/07\/2026/);
+    expect(parseLocalDate(shown, "ar-EG")).toBe("2026-07-24");
+  });
+
+  it("reads Arabic-Indic digits typed by the user", () => {
+    expect(parseLocalDate("٢٤/٠٧/٢٠٢٦", "ar-EG")).toBe("2026-07-24");
+  });
+
+  it("accepts any separator and unpadded day or month", () => {
+    expect(parseLocalDate("24/7/2026", "de-CH")).toBe("2026-07-24");
+    expect(parseLocalDate(" 1 2 2026 ", "de-CH")).toBe("2026-02-01");
+  });
+
+  it("treats blank as a clear and rejects what is not a real date", () => {
+    expect(parseLocalDate("   ", "de-CH")).toBe("");
+    expect(parseLocalDate("31.02.2026", "de-CH")).toBeNull();
+    expect(parseLocalDate("24.07.26", "de-CH")).toBeNull();
+    expect(parseLocalDate("24.07", "de-CH")).toBeNull();
+    expect(parseLocalDate("tomorrow", "de-CH")).toBeNull();
+    expect(parseLocalDate("24a07b2026", "de-CH")).toBeNull();
+  });
+
+  it("orders the parts from Intl, never from code", () => {
+    expect(datePartOrder("en-US")).toEqual(["month", "day", "year"]);
+    expect(datePartOrder("de-DE")).toEqual(["day", "month", "year"]);
+    expect(datePartOrder("zh-CN")).toEqual(["year", "month", "day"]);
   });
 });
