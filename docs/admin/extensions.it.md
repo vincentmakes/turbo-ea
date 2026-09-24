@@ -27,11 +27,15 @@ Alcune estensioni sono **gratuite** e non richiedono alcuna licenza. Si installa
 
 Ogni installazione genera una sola volta un **ID istanza** univoco (`TEA-XXXX-XXXX-XXXX`), mostrato in cima ad Admin → Estensioni con un pulsante di copia. È la tua identità di licenza: indicalo all'acquisto (lo Store integrato lo invia automaticamente; il checkout dello store online lo richiede) così ogni estensione acquistata per questa istanza — da qualsiasi amministratore, con qualsiasi e-mail — confluisce in un'unica licenza combinata. Identifica soltanto la tua istanza; non è mai una credenziale, quindi puoi condividerlo con il fornitore senza rischi.
 
+![Estensioni — scheda Installate con l'ID istanza](../assets/img/it/93a_admin_estensioni_installate.png)
+
 L'ID viaggia con un trasferimento del workspace, quindi il passaggio a un nuovo host mantiene valida la licenza. Dopo una **reinstallazione completa** l'istanza riceve un nuovo ID — chiedi al fornitore di riemettere la licenza per quello (un rapido «re-key» da parte sua).
 
 ## La scheda Store
 
 La scheda **Store** funziona senza alcuna configurazione ed elenca le estensioni pubblicate dal fornitore come una griglia di riquadri compatti: logo, nome, stato della licenza e prezzo. Fai clic su un riquadro per aprire un'ampia finestra di dettaglio: da un lato una galleria di schermate — scorrila con le frecce o le miniature e fai clic su una schermata per vederla a dimensione intera — e, accanto, la descrizione completa, i tag di categoria, i crediti di origine e licenza e le azioni. Quando lo store pubblica le note di rilascio dell'estensione, le due versioni più recenti compaiono sotto **Novità**, con un collegamento **Registro delle modifiche completo** alla pagina dell'estensione nello store. Le estensioni senza immagine mostrano un riquadro generato con le loro iniziali.
+
+![Estensioni — scheda Store](../assets/img/it/93_admin_estensioni_store.png)
 
 - **Acquista** apre la pagina di pagamento in una nuova scheda del browser. Non appena il pagamento è confermato, la licenza viene applicata automaticamente (una copia arriva anche via e-mail).
 - Alcune offerte sono vendute con **due piani**: mensile e annuale, di norma l'annuale scontato. La finestra dei dettagli propone allora **Acquisto mensile** e **Acquisto annuale** invece di un solo pulsante; entrambi portano allo stesso pagamento.

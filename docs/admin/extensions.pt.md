@@ -27,11 +27,15 @@ Algumas extensões são **gratuitas** e não exigem nenhuma licença. Elas são 
 
 Cada instalação gera uma única vez um **ID de instância** (`TEA-XXXX-XXXX-XXXX`), mostrado no topo de Admin → Extensões com um botão de cópia. É a sua identidade de licenciamento: indique-o na compra (a Loja integrada envia-o automaticamente; o checkout da loja online pede-o) para que cada extensão comprada para esta instância — por qualquer administrador, com qualquer e-mail — acabe numa única licença combinada. Apenas identifica a sua instância; nunca é uma credencial, pelo que pode partilhá-lo com o fornecedor sem risco.
 
+![Extensões — aba Instaladas com o ID da instância](../assets/img/pt/93a_admin_extensoes_instaladas.png)
+
 O ID viaja com uma transferência de workspace, pelo que mudar para um novo servidor mantém a licença válida. Após uma **reinstalação completa**, a instância recebe um ID novo — peça ao fornecedor que reemita a licença para ele (um rápido «re-key» do lado dele).
 
 ## O separador Loja
 
 O separador **Loja** funciona sem qualquer configuração e lista as extensões publicadas pelo fornecedor como uma grelha de mosaicos compactos — logótipo, nome, estado da licença e preço. Clique num mosaico para abrir uma janela de detalhes ampla: de um lado, uma galeria de capturas de ecrã — percorra-a com as setas ou as miniaturas e clique numa captura para a ver em tamanho real — e, ao lado, a descrição completa, as etiquetas de categoria, os créditos de origem e licença e as ações. Quando a loja publica notas de versão da extensão, as duas versões mais recentes aparecem em **Novidades**, com uma ligação **Registo de alterações completo** para a página da extensão na loja. As extensões sem imagem apresentam um mosaico gerado com as suas iniciais.
+
+![Extensões — aba Loja](../assets/img/pt/93_admin_extensoes_loja.png)
 
 - **Comprar** abre a página de pagamento num novo separador do navegador. Assim que o pagamento é confirmado, a sua licença é aplicada automaticamente (uma cópia também chega por e-mail).
 - Algumas ofertas são vendidas em **dois planos**: mensal e anual, normalmente o anual com desconto. A janela de detalhes passa então a oferecer **Comprar mensal** e **Comprar anual** em vez de um único botão; ambos levam ao mesmo pagamento.

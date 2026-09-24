@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.149.2] - 2026-09-24
+
+### Added
+
+- **The user manual now shows fourteen screens it used to describe only in words**, in all ten languages: the Extensions store and the Installed tab with your instance ID, starting a LeanIX migration, the module switches, e-mail sending methods and MCP section in Settings, the Save report dialog, a risk's mitigation tasks with their cycle history, inventory mass edit, grouping and import, and the diagram editor, its sync drawer and the colour legend in view mode.
+
+### Changed
+
+- **The user manual's screenshots were retaken from the current release in every language**, so they match what you see today — the always-visible field labels, the call-activity link panel and link dots in BPM, the newer reference-catalogue versions, the 20 MB attachment hint, and a fresh AI description suggestion among them. The manual's step for saving a report now names the **Save report** icon it actually is.
+
 ## [2.149.1] - 2026-09-23
 
 ### Added

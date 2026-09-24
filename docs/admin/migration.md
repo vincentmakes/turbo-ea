@@ -26,6 +26,8 @@ In LeanIX, open **Administration → Export → Full Snapshot**. This produces a
 
 ## The workflow
 
+![Starting a LeanIX migration in Settings → Migration](../assets/img/en/94_admin_migration_leanix.png)
+
 1. **Upload** the snapshot at **Settings → Migration → New migration**. Pick the source platform (LeanIX is the only option today), give the migration a label, and attach the snapshot file. The file stays on the server's disk; the database only holds metadata. Parsing runs in the background and the status moves through `uploaded → parsed` automatically.
 
 2. **Review** each entity kind in the per-tab view. Every staged row carries an action:

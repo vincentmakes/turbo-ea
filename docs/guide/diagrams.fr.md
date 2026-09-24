@@ -28,6 +28,8 @@ Regroupez les diagrammes associés dans des **groupes** — des étiquettes part
 
 Ouvrir un diagramme lance l'éditeur DrawIO plein écran dans une iframe de même origine. La barre d'outils native de DrawIO est disponible pour les formes, connecteurs, texte et mise en page -- chaque action propre à Turbo EA est exposée via le menu contextuel (clic droit), le bouton Sync de la barre d'outils, et la pastille en chevron qui surmonte chaque fiche.
 
+![Éditeur de diagrammes avec des fiches colorées selon la criticité métier](../assets/img/fr/99_editeur_diagramme.png)
+
 ### Insertion de fiches
 
 Utilisez le dialogue **Insérer des fiches** (depuis la barre d'outils ou le menu contextuel) pour ajouter des fiches au canevas :
@@ -88,6 +90,8 @@ Le menu déroulant **Colorer par** dans la barre d'outils recolore les fiches du
 
 Une légende flottante en bas à gauche affiche une échelle par règle active. Les règles de champ et le **Statut d'approbation** sont des alternatives, pas des couches : choisir l'un efface l'autre. Décochez toutes les règles et le canevas revient aux couleurs des fiches. Le choix est enregistré avec le diagramme. La même légende s'affiche lorsque le diagramme est ouvert en mode consultation ainsi que sur son lien publié ou intégré, afin que les lecteurs sachent ce que signifient les couleurs.
 
+![Diagramme en mode lecture avec sa légende de couleurs](../assets/img/fr/99b_diagramme_vue_legende.png)
+
 #### Afficher sur la fiche
 
 Un second bouton de la barre d'outils, **Afficher sur la fiche**, détermine **ce que dit chaque forme**. Cochez le **type de fiche**, le **sous-type** ou n'importe quel attribut des types de fiches présents sur le canevas : chaque forme reçoit alors de petites lignes de détail sous son nom. Les champs sont classés sous le type de fiche auquel ils appartiennent ; un champ partagé par plusieurs de ces types est regroupé sous **Communs**. C'est un bouton distinct de **Colorer par**, afin qu'aucune des deux listes n'oblige à faire défiler l'autre. **Tout effacer** décoche l'ensemble en une fois.
@@ -138,6 +142,8 @@ Le bouton **Sync** de la barre d'outils ouvre le tiroir latéral avec tout ce qu
     - une fiche **supprimée** ou **archivée** -- *Retirer du diagramme* enlève la cellule (et ses arêtes) du canevas ;
     - une **relation supprimée** -- *Retirer l'arête du diagramme* enlève l'arête obsolète du canevas ;
     - une relation dont le **sens du flux** a changé -- *Accepter la mise à jour* aligne la flèche sur l'inventaire.
+
+![Panneau de synchronisation de l'éditeur de diagrammes](../assets/img/fr/99a_diagramme_synchronisation.png)
 
 Turbo EA **vérifie automatiquement les changements d'inventaire à chaque ouverture d'un diagramme** -- un badge bleu sur le bouton Sync de la barre d'outils compte les changements à examiner. Rien n'est appliqué sans votre confirmation ; le badge ne fait que vous inviter dans le panneau. Le bouton **Vérifier les mises à jour** du panneau relance la même vérification à la demande.
 

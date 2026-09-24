@@ -86,6 +86,8 @@ Isso é necessário para o fluxo OAuth que autentica os usuários quando se cone
 3. Ative o interruptor para **habilitar** o MCP.
 4. A interface mostrará a URL do servidor MCP e instruções de configuração para compartilhar com sua equipe.
 
+![Seção Integração MCP da aba IA](../assets/img/pt/95b_admin_config_mcp.png)
+
 !!! warning
     O interruptor fica desabilitado se o SSO não estiver configurado. Configure o SSO primeiro.
 

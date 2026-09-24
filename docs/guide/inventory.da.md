@@ -136,6 +136,8 @@ Rullelisten **Felt** grupperer det, du kan ændre:
 - **Attributter** — ethvert redigerbart felt, der er defineret for den valgte korttype
 - **Relationer** — én post pr. relationstype og retning (for eksempel *kører på → It-komponent*)
 
+![Dialogen Masseredigering](../assets/img/da/98_inventory_mass_edit.png)
+
 Tags, relationer og overordnet har hver en **tilføj / fjern**-knap, så du udvider eller beskærer eksisterende værdier i stedet for at erstatte dem.
 
 Værdifeltet retter sig efter felttypen: et multivalgsfelt viser sine valgmuligheder med afkrydsningsfelter, et ja/nej-felt en kontakt og et datofelt en datovælger. Lader du værdien stå tom, ryddes feltet på alle de valgte kort. Felter, der beregnes af en formel, og omkostningsfelter, du ikke har tilladelse til at se, tilbydes ikke.
@@ -158,6 +160,8 @@ Et kort tager sine egne underordnede kort med sig, når det flyttes, og godkendt
 ## Gruppér lageret { #group-by }
 
 Klik på **Gruppér efter** i værktøjslinjen (ved siden af antallet af elementer) for at organisere tabellen i sammenfoldelige grupper. Livscyklusfase og godkendelsesstatus er altid tilgængelige; når tabellen er filtreret til én korttype, kommer dens undertype og alle attributter med enkeltvalg til.
+
+![Lageret grupperet efter TIME-model](../assets/img/da/98a_inventory_group_by.png)
 
 - Kort uden værdi i det valgte felt havner i gruppen **Ikke angivet** øverst — det naturlige udgangspunkt for at klassificere uklassificerede kort.
 - Klik på en gruppeoverskrift for at folde gruppen sammen eller ud. Overskriften viser antallet af kort i gruppen.
@@ -281,6 +285,8 @@ En relationstype, der bærer værdier, har **ingen `rel:`-kolonne** — en navne
 ### Import
 
 Klik på **Import** i værktøjslinjen, slip projektmappen, og gennemgå forhåndsvisningen før anvendelse. Forhåndsvisningen viser:
+
+![Dialogen Importér kort](../assets/img/da/98b_inventory_import.png)
 
 - **Kort der skal oprettes / opdateres** — samme som før
 - **Relationer der skal tilføjes / fjernes** — hver relations-operation kø-stillet af projektmappen

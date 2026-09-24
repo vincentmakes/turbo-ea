@@ -86,6 +86,8 @@ This is required for the OAuth flow that authenticates users when they connect f
 3. Toggle the switch to **enable** MCP.
 4. The UI will show the MCP Server URL and setup instructions to share with your team.
 
+![MCP Integration section on the AI settings tab](../assets/img/en/95b_admin_settings_mcp.png)
+
 !!! warning
     The toggle is disabled if SSO is not configured. Set up SSO first.
 

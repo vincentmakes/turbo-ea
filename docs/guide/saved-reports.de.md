@@ -7,7 +7,7 @@ Turbo EA ermöglicht es Ihnen, **Berichtskonfigurationen zu speichern**, damit S
 Von jeder Berichtsseite aus (Portfolio, Fähigkeitskarte, Lebenszyklus, Abhängigkeiten, Kosten, Matrix, Datenqualität oder EOL):
 
 1. Konfigurieren Sie den Bericht mit Ihren gewünschten Filtern, Gruppierungen und Achsenauswahlen
-2. Klicken Sie auf die Schaltfläche **Speichern** in der Berichtswerkzeugleiste
+2. Klicken Sie in der Berichtswerkzeugleiste auf das Symbol **Bericht speichern** (ein Lesezeichen)
 3. Geben Sie einen **Namen** für den gespeicherten Bericht ein
 4. Wählen Sie die **Sichtbarkeit**:
 
@@ -20,6 +20,8 @@ Von jeder Berichtsseite aus (Portfolio, Fähigkeitskarte, Lebenszyklus, Abhängi
 Für geteilte Berichte können Sie bestimmten Benutzern **Bearbeitungsrechte** gewähren, die es ihnen ermöglichen, die gespeicherte Konfiguration zu aktualisieren.
 
 5. Klicken Sie auf **Speichern** — eine Miniaturansicht wird automatisch von der aktuellen Visualisierung erfasst
+
+![Dialog Bericht speichern](../assets/img/de/96_bericht_speichern_dialog.png)
 
 ## Galerie gespeicherter Berichte
 

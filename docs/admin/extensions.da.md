@@ -27,11 +27,15 @@ Nogle udvidelser er **gratis** og kræver slet ingen licens. De installeres og k
 
 Hver installation genererer én gang en unik **instans-ID** (`TEA-XXXX-XXXX-XXXX`), som vises øverst på Admin → Udvidelser med en kopieringsknap. Det er din licensidentitet: Oplys den ved køb (den indbyggede Butik sender den automatisk; webbutikkens betaling beder om den), så hver udvidelse købt til denne instans — af enhver administrator, med enhver e-mail — ender i én samlet licens. Den identificerer kun din instans; den er aldrig en adgangsnøgle, så den kan trygt deles med din leverandør.
 
+![Udvidelser — fanen Installerede med instans-id'et](../assets/img/da/93a_admin_extensions_installed.png)
+
 ID'et følger med en workspace-overførsel, så flytning til en ny vært holder licensen gyldig. Efter en **fuld geninstallation** får instansen et nyt ID — bed din leverandør om at genudstede licensen til det (et hurtigt «re-key» hos leverandøren).
 
 ## Fanen Butik
 
 Fanen **Butik** virker uden nogen konfiguration og viser leverandørens udgivne udvidelser som et gitter af kompakte felter — logo, navn, licensstatus og pris. Klik på et felt for at åbne et stort detaljevindue: på den ene side et galleri af skærmbilleder — bladr med pilene eller miniaturerne, og klik på et skærmbillede for at se det i fuld størrelse — og ved siden af den fulde beskrivelse, kategorimærkater, kilde- og licensangivelser og handlingerne. Når butikken udgiver udgivelsesnoter til udvidelsen, vises de to nyeste versioner under **Nyheder** med et link **Fuld ændringslog** til udvidelsens side i butikken. Udvidelser uden grafik får et genereret felt med deres initialer.
+
+![Udvidelser — fanen Butik](../assets/img/da/93_admin_extensions_store.png)
 
 - **Køb** åbner betalingssiden i en ny browserfane. Så snart betalingen er bekræftet, anvendes din licens automatisk (en kopi ankommer også pr. e-mail).
 - Nogle tilbud sælges på **to planer**: en månedlig og en årlig, hvor den årlige som regel er billigere. Detaljevinduet viser så **Køb månedligt** og **Køb årligt** i stedet for én knap; begge fører til den samme betaling.

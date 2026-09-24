@@ -134,6 +134,8 @@ A lista **Campo** agrupa o que pode ser alterado:
 - **Atributos** — qualquer campo editável definido para o tipo de cartão selecionado
 - **Relações** — uma entrada por tipo de relação e direção (por exemplo *é executado em → Componente de TI*)
 
+![Diálogo Edição em massa](../assets/img/pt/98_inventario_edicao_massa.png)
+
 Etiquetas, relações e pai oferecem um botão **adicionar / remover**, para que amplie ou reduza os valores existentes em vez de os substituir.
 
 O controlo de valor adapta-se ao tipo de campo: um campo de seleção múltipla mostra as suas opções com caixas de verificação, um campo sim/não um interruptor e um campo de data um seletor de data. Deixar o valor vazio limpa o campo em todos os cartões selecionados. Os campos calculados por uma fórmula, e os campos de custo que não tem permissão para ver, não são disponibilizados.
@@ -156,6 +158,8 @@ Um cartão leva consigo os seus próprios filhos ao mover-se, e os cartões apro
 ## Agrupar o inventário { #group-by }
 
 Clique em **Agrupar por** na barra de ferramentas (ao lado da contagem de itens) para organizar a grelha em grupos expansíveis. A fase do ciclo de vida e o estado de aprovação estão sempre disponíveis; ao filtrar a grelha para um único tipo de cartão, acrescentam-se o seu subtipo e todos os atributos de seleção única.
+
+![Inventário agrupado por modelo TIME](../assets/img/pt/98a_inventario_agrupamento.png)
 
 - Os cartões sem valor no campo escolhido caem num grupo **Não definido**, no topo: o ponto de partida natural para classificar cartões pendentes.
 - Clique no cabeçalho de um grupo para o recolher ou expandir. O cabeçalho mostra o número de cartões do grupo.
@@ -257,6 +261,8 @@ Um tipo de relação que tem valores **não tem coluna `rel:`** — uma lista de
 ### Importar
 
 Clique em **Importar** na barra de ferramentas, solte a pasta de trabalho e verifique a pré-visualização antes de aplicar. Verá tanto os cards a criar / atualizar como as relações a adicionar / remover. Os erros (por exemplo, um destino ambíguo com os seus caminhos candidatos) bloqueiam a aplicação.
+
+![Diálogo Importar fichas](../assets/img/pt/98b_inventario_importacao.png)
 
 Algumas notas sobre a importação:
 

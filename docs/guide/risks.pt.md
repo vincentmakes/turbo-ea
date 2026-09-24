@@ -49,6 +49,8 @@ As fichas associadas são **agrupadas por tipo de ficha**, ordenadas alfabeticam
 
 A mitigação é capturada como **itens de trabalho atribuídos**, não como texto livre. Na página de detalhe do risco, o painel **Tarefas de mitigação** substitui o antigo campo único «plano de mitigação» — cada linha é uma tarefa real com o próprio proprietário, data-limite, histórico e (opcionalmente) regra de recorrência.
 
+![Tarefas de mitigação na página de detalhes do risco](../assets/img/pt/97_risco_tarefas_mitigacao.png)
+
 ### Única vs. recorrente
 
 Uma tarefa de mitigação é **única** por defeito — adequada para «Implementar MFA», «Assinar SCC atualizadas» ou qualquer trabalho com formato de projeto. Ative **Repete-se** no diálogo da tarefa e obtém uma **revisão de controlo recorrente**: por ex. «Re-atestar a documentação de transferência transfronteiriça a cada 12 meses», «Executar o tabletop de resposta a incidentes OT a cada 3 meses», «Auditar credenciais Jenkins semanalmente».

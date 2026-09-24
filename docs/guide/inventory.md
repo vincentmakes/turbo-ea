@@ -136,6 +136,8 @@ The **Field** dropdown groups what you can change:
 - **Attributes** — any editable field defined for the selected card type
 - **Relations** — one entry per relation type and direction (for example *runs on → IT Component*)
 
+![Mass Edit dialog](../assets/img/en/98_inventory_mass_edit.png)
+
 Tags, relations and parent each offer an **add / remove** toggle, so you extend or trim existing values instead of replacing them.
 
 The value control matches the field's type: a multi-select shows its options with checkboxes, a yes/no field a switch, a date field a date picker. Leaving the value empty clears the field on every selected card. Fields calculated by a formula, and cost fields you do not have permission to view, are not offered.
@@ -158,6 +160,8 @@ A card takes its own children with it when it moves, and approved cards drop bac
 ## Grouping the Inventory { #group-by }
 
 Click **Group by** in the toolbar (next to the item count) to organise the grid into collapsible groups. Lifecycle phase and approval status are always available; filtering the grid to a single card type also unlocks its subtype and every single-select attribute.
+
+![Inventory grouped by TIME Model](../assets/img/en/98a_inventory_group_by.png)
 
 - Cards without a value on the chosen field land in a **Not set** group at the top — the natural triage bucket for unclassified cards.
 - Click a group header to collapse or expand it. The header shows the group's card count.
@@ -293,6 +297,8 @@ If a card sheet and the `Relations` sheet contradict each other — a card remov
 ### Importing
 
 Click **Import** in the toolbar, drop the workbook, and review the preview before applying. The preview shows:
+
+![Import Cards dialog](../assets/img/en/98b_inventory_import.png)
 
 - **Cards to create / update** — same as before
 - **Relations to add / remove** — every relation operation queued by the workbook

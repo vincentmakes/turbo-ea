@@ -28,6 +28,8 @@ Agrupe diagramas relacionados em **grupos** — rótulos compartilhados em todo 
 
 Abrir um diagrama lança o editor DrawIO em ecrã inteiro num iframe da mesma origem. A barra de ferramentas nativa do DrawIO está disponível para formas, conectores, texto e layout -- cada ação própria do Turbo EA é exposta via o menu de contexto do clique direito, o botão Sync da barra de ferramentas e a seta superior sobre cada cartão.
 
+![Editor de diagramas com fichas coloridas por criticidade de negócio](../assets/img/pt/99_editor_diagrama.png)
+
 ### Inserir cartões
 
 Use a caixa de diálogo **Inserir cartões** (a partir da barra de ferramentas ou do menu de contexto) para adicionar cartões à tela:
@@ -88,6 +90,8 @@ O menu pendente **Colorir por** na barra de ferramentas recoloria os cartões da
 
 Uma legenda flutuante no canto inferior esquerdo mostra uma escala por regra ativa. As regras de campo e o **Estado de aprovação** são alternativas, não camadas: escolher uma limpa a outra. Ao desmarcar todas as regras, a tela volta às cores dos cartões. A escolha é guardada com o diagrama. A mesma legenda é apresentada quando o diagrama é aberto no modo de visualização e na sua ligação publicada ou incorporada, para que os leitores saibam o que as cores significam.
 
+![Diagrama em modo de visualização com a legenda de cores](../assets/img/pt/99b_diagrama_visualizacao_legenda.png)
+
 #### Mostrar no cartão
 
 Um segundo botão da barra de ferramentas, **Mostrar no cartão**, decide **o que cada forma diz**. Assinale o **tipo de cartão**, o **subtipo** ou qualquer atributo dos tipos de cartão presentes na tela, e cada forma ganha pequenas linhas de detalhe sob o seu nome. Os campos são listados sob o tipo de cartão a que pertencem; um campo partilhado por vários desses tipos é agrupado sob **Comuns**. É um botão separado de **Colorir por**, para que nenhuma das duas listas obrigue a percorrer a outra. **Limpar tudo** desmarca todas as caixas de uma só vez.
@@ -138,6 +142,8 @@ O botão **Sync** da barra de ferramentas abre o painel lateral com tudo o que e
     - um cartão **excluído** ou **arquivado** -- *Remover do diagrama* retira a célula (e as suas arestas) da tela;
     - uma **relação excluída** -- *Remover a aresta do diagrama* retira a aresta obsoleta da tela;
     - uma relação cuja **direção do fluxo** mudou -- *Aceitar atualização* alinha a seta com o inventário.
+
+![Painel de sincronização do editor de diagramas](../assets/img/pt/99a_diagrama_sincronizacao.png)
 
 O Turbo EA **verifica automaticamente as alterações do inventário sempre que abre um diagrama** -- um distintivo azul no botão Sync da barra de ferramentas conta as alterações a rever. Nada é aplicado sem a sua confirmação; o distintivo apenas o convida a abrir o painel. O botão **Verificar atualizações** do painel executa novamente a mesma verificação quando quiser.
 

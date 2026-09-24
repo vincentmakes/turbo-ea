@@ -28,6 +28,8 @@ Organize related diagrams into **groups** — shared, workspace-wide labels. A d
 
 Opening a diagram launches the full-screen DrawIO editor in a same-origin iframe. The native DrawIO toolbar is available for shapes, connectors, text, and layout — every Turbo EA action is exposed via the right-click context menu, the toolbar Sync button, and the chevron overlay that sits on top of each card.
 
+![Diagram editor with cards coloured by business criticality](../assets/img/en/99_diagram_editor.png)
+
 ### Inserting cards
 
 Use the **Insert Cards** dialog (opened from the toolbar or the right-click menu) to add cards to the canvas:
@@ -88,6 +90,8 @@ The **Color by** dropdown in the toolbar recolors the cards on the canvas:
 
 A floating legend in the bottom-left shows one scale per active rule. Field rules and **Approval status** are alternatives rather than layers: choosing one clears the other. Untick every rule and the canvas returns to card colors. The choice is saved with the diagram. The same legend is shown when the diagram is opened in view mode and on its published or embedded link, so readers can tell what the colours mean.
 
+![Diagram in view mode with its colour legend](../assets/img/en/99b_diagram_viewer_legend.png)
+
 #### Show on card
 
 A second toolbar button, **Show on card**, chooses **what each shape says**. Tick the **card type**, the **subtype**, or any attribute from the card types currently on the canvas, and each shape gains small detail lines under its name. Fields are listed under the card type they belong to, with any field several of those types share grouped under **Shared**. It is a separate button from **Color by** so that neither list has to be scrolled past to reach the other. **Clear all** empties every tick at once.
@@ -139,6 +143,8 @@ The **Sync** button in the toolbar opens the side drawer with everything queued 
     - a **deleted** or **archived** card — *Remove from diagram* takes the cell (and its edges) off the canvas;
     - a **deleted relation** — *Remove edge from diagram* takes the stale edge off the canvas;
     - a relation whose **flow direction** changed — *Accept update* moves the arrowhead to match the inventory.
+
+![Sync drawer in the diagram editor](../assets/img/en/99a_diagram_sync_drawer.png)
 
 Turbo EA **checks for inventory changes automatically every time you open a diagram** — a blue badge on the toolbar Sync button counts the changes awaiting review. Nothing is applied without your confirmation; the badge only invites you into the drawer. The **Check updates** button in the drawer re-runs the same check on demand.
 

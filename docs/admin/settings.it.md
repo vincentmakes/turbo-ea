@@ -91,6 +91,8 @@ Turbo EA invia e-mail di invito, notifiche dei sondaggi, reimpostazioni della pa
 
 ### Metodi di invio
 
+![Invio email con l'elenco dei metodi di invio](../assets/img/it/95a_admin_impostazioni_email.png)
+
 | Metodo | Quando usarlo |
 |--------|---------------|
 | **SMTP (nome utente e password)** | SMTP classico per server che accettano ancora l'autenticazione di base. Il valore predefinito. |
@@ -138,6 +140,8 @@ Dopo aver configurato un metodo, fai clic su **Invia e-mail di prova** per verif
     L'e-mail è facoltativa. Se non è configurato alcun metodo, le funzionalità che inviano e-mail saltano la consegna senza errori.
 
 ## Modulo BPM
+
+![Interruttori dei moduli in Impostazioni → Generali](../assets/img/it/95_admin_impostazioni_moduli.png)
 
 Attivate/disattivate il modulo **Business Process Management**. Quando disabilitato:
 

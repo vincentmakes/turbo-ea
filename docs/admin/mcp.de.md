@@ -86,6 +86,8 @@ Dies ist erforderlich für den OAuth-Ablauf, der Benutzer authentifiziert, wenn 
 3. Schalten Sie den Schalter auf **aktiviert**.
 4. Die Oberfläche zeigt die MCP-Server-URL und Einrichtungsanweisungen zum Teilen mit Ihrem Team.
 
+![Abschnitt MCP-Integration auf der Registerkarte KI](../assets/img/de/95b_admin_einstellungen_mcp.png)
+
 !!! warning
     Der Schalter ist deaktiviert, wenn SSO nicht konfiguriert ist. Richten Sie zuerst SSO ein.
 

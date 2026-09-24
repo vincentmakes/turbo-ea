@@ -134,6 +134,8 @@ La lista desplegable **Campo** agrupa lo que se puede modificar:
 - **Atributos** — cualquier campo editable definido para el tipo de tarjeta seleccionado
 - **Relaciones** — una entrada por tipo de relación y dirección (por ejemplo *se ejecuta en → Componente de TI*)
 
+![Diálogo Edición masiva](../assets/img/es/98_inventario_edicion_masiva.png)
+
 Las etiquetas, las relaciones y el padre ofrecen un conmutador **añadir / quitar**, de modo que amplíe o reduzca los valores existentes en lugar de sustituirlos.
 
 El control de valor se adapta al tipo de campo: un campo de selección múltiple muestra sus opciones con casillas, un campo de sí/no un interruptor y un campo de fecha un selector de fecha. Si deja el valor vacío, el campo se borra en todas las tarjetas seleccionadas. Los campos calculados por una fórmula, y los campos de coste que no tiene permiso para ver, no se ofrecen.
@@ -156,6 +158,8 @@ Una tarjeta arrastra consigo a sus hijas al moverse, y las tarjetas aprobadas vu
 ## Agrupar el inventario { #group-by }
 
 Haga clic en **Agrupar por** en la barra de herramientas (junto al recuento de elementos) para organizar la cuadrícula en grupos plegables. La fase del ciclo de vida y el estado de aprobación están siempre disponibles; al filtrar la cuadrícula a un único tipo de tarjeta se añaden su subtipo y todos sus atributos de selección única.
+
+![Inventario agrupado por modelo TIME](../assets/img/es/98a_inventario_agrupacion.png)
 
 - Las tarjetas sin valor en el campo elegido se agrupan en **Sin definir**, al principio de la lista: el punto de partida natural para clasificar tarjetas pendientes.
 - Haga clic en la cabecera de un grupo para plegarlo o desplegarlo. La cabecera muestra el número de tarjetas del grupo.
@@ -257,6 +261,8 @@ Un tipo de relación que lleva valores **no tiene columna `rel:`** — una lista
 ### Importar
 
 Haga clic en **Importar** en la barra de herramientas, suelte el libro y revise la vista previa antes de aplicar. Verá tanto las fichas a crear / actualizar como las relaciones a añadir / eliminar. Los errores (por ejemplo, un destino ambiguo con sus rutas candidatas) bloquean la aplicación.
+
+![Diálogo Importar fichas](../assets/img/es/98b_inventario_importacion.png)
 
 Algunas aclaraciones sobre la importación:
 

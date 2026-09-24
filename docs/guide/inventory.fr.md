@@ -134,6 +134,8 @@ La liste déroulante **Champ** regroupe les éléments modifiables :
 - **Attributs** — tout champ modifiable défini pour le type de fiche sélectionné
 - **Relations** — une entrée par type de relation et par direction (par exemple *s'exécute sur → Composant informatique*)
 
+![Boîte de dialogue Modification en masse](../assets/img/fr/98_inventaire_modification_masse.png)
+
 Les étiquettes, les relations et le parent proposent chacun un bouton **ajouter / retirer**, afin d'étendre ou de réduire les valeurs existantes plutôt que de les remplacer.
 
 Le champ de saisie s'adapte au type de champ : une liste à choix multiples affiche ses options avec des cases à cocher, un champ oui/non un interrupteur, un champ date un sélecteur de date. Laisser la valeur vide efface le champ sur toutes les fiches sélectionnées. Les champs calculés par une formule, ainsi que les champs de coût que vous n'êtes pas autorisé à voir, ne sont pas proposés.
@@ -156,6 +158,8 @@ Une fiche emporte ses propres enfants lors du déplacement, et les fiches approu
 ## Regrouper l'inventaire { #group-by }
 
 Cliquez sur **Grouper par** dans la barre d'outils (à côté du nombre d'éléments) pour organiser la grille en groupes repliables. La phase de cycle de vie et le statut d'approbation sont toujours disponibles ; lorsque la grille est filtrée sur un seul type de fiche, son sous-type et tous ses attributs à choix unique s'y ajoutent.
+
+![Inventaire regroupé par modèle TIME](../assets/img/fr/98a_inventaire_regroupement.png)
 
 - Les fiches sans valeur pour le champ choisi sont rassemblées dans un groupe **Non défini** en haut de la grille : le point de départ naturel pour trier les fiches non classées.
 - Cliquez sur l'en-tête d'un groupe pour le replier ou le déplier. L'en-tête affiche le nombre de fiches du groupe.
@@ -257,6 +261,8 @@ Un type de relation qui porte des valeurs n'a **pas de colonne `rel:`** — une 
 ### Import
 
 Cliquez sur **Importer** dans la barre d'outils, déposez le classeur et vérifiez l'aperçu avant d'appliquer. Vous voyez à la fois les fiches à créer / mettre à jour et les relations à ajouter / supprimer. Les erreurs (par exemple, une cible ambiguë avec ses chemins candidats) bloquent l'application.
+
+![Boîte de dialogue Importer des fiches](../assets/img/fr/98b_inventaire_import.png)
 
 Quelques précisions sur l'import :
 

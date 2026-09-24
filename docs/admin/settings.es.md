@@ -91,6 +91,8 @@ Turbo EA envía correos de invitación, notificaciones de encuestas, restablecim
 
 ### Métodos de envío
 
+![Envío de correo electrónico con la lista de métodos de envío](../assets/img/es/95a_admin_config_correo.png)
+
 | Método | Cuándo usarlo |
 |--------|---------------|
 | **SMTP (usuario y contraseña)** | SMTP clásico para servidores que aún aceptan autenticación básica. El predeterminado. |
@@ -138,6 +140,8 @@ Después de configurar cualquier método, haga clic en **Enviar correo de prueba
     El correo es opcional. Si no se configura ningún método, las funciones que envían correos omiten la entrega de forma silenciosa.
 
 ## Módulo BPM
+
+![Interruptores de módulos en Configuración → General](../assets/img/es/95_admin_config_modulos.png)
 
 Active o desactive el módulo de **Gestión de Procesos de Negocio** (BPM). Cuando está desactivado:
 

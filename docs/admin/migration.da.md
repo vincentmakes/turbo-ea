@@ -26,6 +26,8 @@ I LeanIX skal du åbne **Administration → Export → Full Snapshot**. Dette pr
 
 ## Arbejdsprocessen
 
+![Start en LeanIX-migrering under Indstillinger → Migrering](../assets/img/da/94_admin_migration_leanix.png)
+
 1. **Upload** snapshottet på **Indstillinger → Migrering → Ny migrering**. Vælg kildeplatformen (LeanIX er den eneste mulighed i dag), giv migreringen en etiket, og vedhæft snapshot-filen. Filen forbliver på serverens disk; databasen indeholder kun metadata. Parsing kører i baggrunden, og statussen flytter automatisk gennem `uploaded → parsed`.
 
 2. **Gennemgå** hver entitets-art i per-faneblad-visningen. Hver staged række bærer en handling:

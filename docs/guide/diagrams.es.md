@@ -28,6 +28,8 @@ Agrupe diagramas relacionados en **grupos**: etiquetas compartidas en todo el es
 
 Abrir un diagrama lanza el editor DrawIO a pantalla completa en un iframe del mismo origen. La barra de herramientas nativa de DrawIO está disponible para formas, conectores, texto y diseño -- cada acción propia de Turbo EA está expuesta vía el menú contextual del clic derecho, el botón Sync de la barra de herramientas y el chevrón que aparece encima de cada tarjeta.
 
+![Editor de diagramas con fichas coloreadas por criticidad de negocio](../assets/img/es/99_editor_diagrama.png)
+
 ### Insertar tarjetas
 
 Use el diálogo **Insertar tarjetas** (desde la barra de herramientas o el menú contextual) para añadir tarjetas al lienzo:
@@ -88,6 +90,8 @@ El desplegable **Colorear por** de la barra de herramientas recolorea las tarjet
 
 Una leyenda flotante en la esquina inferior izquierda muestra una escala por regla activa. Las reglas de campo y el **Estado de aprobación** son alternativas, no capas: elegir una borra la otra. Si desmarca todas las reglas, el lienzo vuelve a los colores de tarjeta. La elección se guarda con el diagrama. La misma leyenda se muestra cuando el diagrama se abre en modo de visualización y en su enlace publicado o incrustado, para que los lectores sepan qué significan los colores.
 
+![Diagrama en modo de visualización con su leyenda de colores](../assets/img/es/99b_diagrama_vista_leyenda.png)
+
 #### Mostrar en la tarjeta
 
 Un segundo botón de la barra de herramientas, **Mostrar en la tarjeta**, decide **qué dice cada forma**. Marque el **tipo de tarjeta**, el **subtipo** o cualquier atributo de los tipos de tarjeta presentes en el lienzo, y cada forma añadirá pequeñas líneas de detalle bajo su nombre. Los campos se listan bajo el tipo de tarjeta al que pertenecen; un campo compartido por varios de esos tipos se agrupa bajo **Comunes**. Es un botón aparte de **Colorear por**, para que ninguna de las dos listas obligue a recorrer la otra. **Borrar todo** desmarca todas las casillas de una vez.
@@ -138,6 +142,8 @@ El botón **Sync** de la barra de herramientas abre el panel lateral con todo lo
     - una tarjeta **eliminada** o **archivada** -- *Quitar del diagrama* retira la celda (y sus aristas) del lienzo;
     - una **relación eliminada** -- *Quitar la arista del diagrama* retira la arista obsoleta del lienzo;
     - una relación cuya **dirección del flujo** cambió -- *Aceptar actualización* alinea la flecha con el inventario.
+
+![Panel de sincronización del editor de diagramas](../assets/img/es/99a_diagrama_sincronizacion.png)
 
 Turbo EA **comprueba automáticamente los cambios del inventario cada vez que abre un diagrama** -- una insignia azul en el botón Sync de la barra de herramientas cuenta los cambios pendientes de revisión. Nada se aplica sin su confirmación; la insignia solo le invita a abrir el panel. El botón **Comprobar actualizaciones** del panel vuelve a ejecutar la misma comprobación bajo demanda.
 

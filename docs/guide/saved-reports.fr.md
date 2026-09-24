@@ -7,7 +7,7 @@ Turbo EA vous permet de **sauvegarder des configurations de rapports** afin de p
 Depuis n'importe quelle page de rapport (Portefeuille, Carte de capacités, Cycle de vie, Dépendances, Coûts, Matrice, Qualité des données ou EOL) :
 
 1. Configurez le rapport avec les filtres, regroupements et selections d'axes souhaites
-2. Cliquez sur le bouton **Sauvegarder** dans la barre d'outils du rapport
+2. Cliquez sur l'icône **Enregistrer le rapport** (un marque-page) dans la barre d'outils du rapport
 3. Entrez un **nom** pour le rapport sauvegarde
 4. Choisissez la **visibilité** :
 
@@ -20,6 +20,8 @@ Depuis n'importe quelle page de rapport (Portefeuille, Carte de capacités, Cycl
 Pour les rapports partages, vous pouvez accorder des **permissions de modification** à des utilisateurs spécifiques, leur permettant de mettre à jour la configuration sauvegardée.
 
 5. Cliquez sur **Sauvegarder** -- une miniature est automatiquement capturee à partir de la visualisation actuelle
+
+![Boîte de dialogue Enregistrer le rapport](../assets/img/fr/96_dialogue_enregistrer_rapport.png)
 
 ## Galerie de rapports sauvegardés
 

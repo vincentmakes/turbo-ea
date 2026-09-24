@@ -49,6 +49,8 @@ Las fichas vinculadas se **agrupan por tipo de ficha**, se ordenan alfabéticame
 
 La mitigación se captura como **elementos de trabajo asignados**, no como texto libre. En la página de detalle del riesgo, el panel **Tareas de mitigación** sustituye al antiguo campo único «plan de mitigación» — cada fila es una tarea real con su propio propietario, fecha de vencimiento, historial y (opcionalmente) una regla de recurrencia.
 
+![Tareas de mitigación en la página de detalle del riesgo](../assets/img/es/97_riesgo_tareas_mitigacion.png)
+
 ### De un solo uso vs. recurrente
 
 Una tarea de mitigación es **de un solo uso** por defecto — adecuada para «Desplegar MFA», «Firmar SCC actualizadas» o cualquier trabajo con forma de proyecto. Active **Se repite** en el diálogo de la tarea y obtendrá una **revisión de control recurrente**: p. ej. «Re-atestiguar la documentación de transferencias transfronterizas cada 12 meses», «Realizar el simulacro de incidente OT cada 3 meses», «Auditar credenciales de Jenkins cada semana».

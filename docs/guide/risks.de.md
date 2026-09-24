@@ -49,6 +49,8 @@ Verknüpfte Karten werden **nach Kartentyp gruppiert**, innerhalb jeder Gruppe a
 
 Minderung wird als **verantwortete Arbeitsaufgaben** erfasst, nicht als Freitext. Auf der Risikodetailseite ersetzt das Panel **Minderungsmaßnahmen** das frühere einzelne «Minderungsplan»-Feld — jede Zeile ist eine reale Aufgabe mit eigenem Eigentümer, Fälligkeitsdatum, Verlauf und (optional) einer Wiederholungsregel.
 
+![Maßnahmen zur Risikominderung auf der Risikodetailseite](../assets/img/de/97_risiko_massnahmen.png)
+
 ### Einmalig vs. wiederkehrend
 
 Eine Minderungsmaßnahme ist standardmäßig **einmalig** — passend für «MFA ausrollen», «Aktualisierte SCC unterzeichnen» oder jede projektartige Arbeit. Aktiviert man **Wiederholt sich** im Aufgabendialog, entsteht eine **wiederkehrende Kontrollprüfung**: z. B. «Dokumentation grenzüberschreitender Übermittlungen alle 12 Monate neu attestieren», «OT-Notfallübung alle 3 Monate durchführen», «Jenkins-Anmeldedaten wöchentlich prüfen».

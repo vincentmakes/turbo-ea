@@ -24,6 +24,8 @@ import {
   DOC_PAGES,
   MARKETING_PAGES,
   CARD_LOOKUPS,
+  DIAGRAM_LOOKUPS,
+  RISK_LOOKUPS,
   type PageDef,
   type ScreenshotAction,
 } from "./pages.js";
@@ -348,17 +350,83 @@ async function resolveDraftIds(
 }
 
 // ---------------------------------------------------------------------------
+// Diagram / risk resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve `{{diagramId:<key>}}` and `{{riskId:<key>}}` — a demo diagram by its
+ * exact name (DIAGRAM_LOOKUPS) and a demo risk by its reference
+ * (RISK_LOOKUPS). Only the tokens some route actually uses are looked up.
+ * Keys in the returned map are `<kind>:<key>`, as written in the route.
+ */
+async function resolveNamedIds(
+  page: Page,
+  config: Config,
+  token: string,
+  pageDefs: PageDef[]
+): Promise<Record<string, string>> {
+  const headers = { Authorization: `Bearer ${token}` };
+  const resolved: Record<string, string> = {};
+
+  const wanted = new Set<string>();
+  for (const def of pageDefs) {
+    for (const match of def.route.matchAll(/\{\{(diagramId|riskId):(\w+)\}\}/g)) {
+      wanted.add(`${match[1]}:${match[2]}`);
+    }
+  }
+
+  for (const ref of wanted) {
+    const [kind, key] = ref.split(":");
+    try {
+      if (kind === "diagramId") {
+        const name = DIAGRAM_LOOKUPS[key as keyof typeof DIAGRAM_LOOKUPS];
+        const res = await page.request.get(
+          `${config.baseUrl}/api/v1/diagrams?search=${encodeURIComponent(name)}`,
+          { headers }
+        );
+        const rows = res.ok() ? await res.json() : [];
+        const hit = Array.isArray(rows) ? rows.find((d) => d.name === name) : undefined;
+        if (hit) resolved[ref] = hit.id;
+      } else {
+        const reference = RISK_LOOKUPS[key as keyof typeof RISK_LOOKUPS];
+        const res = await page.request.get(
+          `${config.baseUrl}/api/v1/risks?search=${encodeURIComponent(reference)}&page_size=20`,
+          { headers }
+        );
+        const data = res.ok() ? await res.json() : { items: [] };
+        const hit = (data.items || []).find((r: { reference: string }) => r.reference === reference);
+        if (hit) resolved[ref] = hit.id;
+      }
+    } catch (e) {
+      console.warn(`  WARNING: lookup failed for ${ref}: ${e}`);
+    }
+    if (resolved[ref]) {
+      console.log(`  Resolved ${ref} → ${resolved[ref]}`);
+    } else {
+      console.warn(`  WARNING: ${ref} not found — its shots will be skipped.`);
+    }
+  }
+
+  return resolved;
+}
+
+// ---------------------------------------------------------------------------
 // Route interpolation
 // ---------------------------------------------------------------------------
 
 function interpolateRoute(
   route: string,
   cardIds: Record<string, string>,
-  draftIds: Record<string, string> = {}
+  draftIds: Record<string, string> = {},
+  namedIds: Record<string, string> = {}
 ): string | null {
   return route
     .replace(/\{\{cardId:(\w+)\}\}/g, (_match, key) => cardIds[key] || "__MISSING__")
-    .replace(/\{\{draftId:(\w+)\}\}/g, (_match, key) => draftIds[key] || "__MISSING__");
+    .replace(/\{\{draftId:(\w+)\}\}/g, (_match, key) => draftIds[key] || "__MISSING__")
+    .replace(
+      /\{\{(diagramId|riskId):(\w+)\}\}/g,
+      (_match, kind, key) => namedIds[`${kind}:${key}`] || "__MISSING__"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -383,6 +451,21 @@ async function executeActions(
           );
         } else if (action.target === "top") {
           await page.evaluate(() => window.scrollTo(0, 0));
+        } else if (action.align === "start") {
+          // Put the element at the top of whatever scrolls it, leaving room
+          // for the fixed app bar above the page content.
+          await page
+            .locator(action.target)
+            .first()
+            .evaluate((el) => {
+              el.scrollIntoView({ block: "start" });
+              let p = el.parentElement;
+              while (p && !(p.scrollHeight > p.clientHeight && /auto|scroll/.test(getComputedStyle(p).overflowY))) {
+                p = p.parentElement;
+              }
+              (p ?? document.scrollingElement)?.scrollBy(0, -88);
+            })
+            .catch(() => {});
         } else {
           // Scroll to a specific element
           await page
@@ -446,6 +529,26 @@ async function executeActions(
       case "wait":
         await page.waitForTimeout(action.ms);
         break;
+
+      case "waitFor":
+        // Wait until any of the comma-separated selectors is visible — for
+        // state that takes an unpredictable time to appear (an LLM answer,
+        // an iframe editor booting). Like the page-level waitFor, a timeout
+        // only warns.
+        try {
+          const selectors = action.selector.split(",").map((s) => s.trim());
+          await Promise.race(
+            selectors.map((sel) =>
+              page
+                .locator(sel)
+                .first()
+                .waitFor({ state: "visible", timeout: action.timeout ?? 15000 })
+            )
+          );
+        } catch {
+          console.warn(`    WARNING: waitFor action timed out for: ${action.selector}`);
+        }
+        break;
     }
   }
 }
@@ -460,11 +563,12 @@ async function capturePage(
   outputPath: string,
   cardIds: Record<string, string>,
   draftIds: Record<string, string>,
+  namedIds: Record<string, string>,
   config: Config,
   locale: string
 ): Promise<boolean> {
   // Resolve route
-  const route = interpolateRoute(pageDef.route, cardIds, draftIds);
+  const route = interpolateRoute(pageDef.route, cardIds, draftIds, namedIds);
   if (!route || route.includes("__MISSING__")) {
     console.warn(`  SKIP ${pageDef.id}: unresolved card ID in route`);
     return false;
@@ -626,7 +730,15 @@ async function main(): Promise<void> {
   // does not match the npm dependency. Unset everywhere else, so the normal
   // `npm run install-browsers` flow is unchanged.
   const executablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined;
-  const browser: Browser = await chromium.launch({ headless: true, executablePath });
+  //
+  // `SCREENSHOT_BROWSER_ARGS` appends extra Chromium flags (space-separated),
+  // for sandboxes whose only way out is an HTTP proxy — e.g.
+  // `--proxy-server=http://127.0.0.1:3128 --ignore-certificate-errors-spki-list=<hash>`.
+  // The Inter and Material Symbols webfonts come from Google Fonts; if they
+  // cannot load, every icon renders as its ligature name and the capture is
+  // useless. Chromium never proxies loopback, so the app is still reached directly.
+  const extraArgs = (process.env.SCREENSHOT_BROWSER_ARGS || "").split(/\s+/).filter(Boolean);
+  const browser: Browser = await chromium.launch({ headless: true, executablePath, args: extraArgs });
   const context = await browser.newContext({
     viewport: config.viewport,
     deviceScaleFactor: 2, // Retina-quality screenshots
@@ -646,6 +758,7 @@ async function main(): Promise<void> {
       ...docPages,
       ...mktPages,
     ]);
+    const namedIds = await resolveNamedIds(page, config, token, [...docPages, ...mktPages]);
 
     let captured = 0;
     let skipped = 0;
@@ -670,7 +783,7 @@ async function main(): Promise<void> {
         process.stdout.write(`  Capturing ${filename}...`);
 
         const ok = await capturePage(
-          page, pageDef, outDir, cardIds, draftIds, config, locale
+          page, pageDef, outDir, cardIds, draftIds, namedIds, config, locale
         );
 
         if (ok) {
@@ -701,7 +814,7 @@ async function main(): Promise<void> {
         process.stdout.write(`  Capturing ${filename}...`);
 
         const ok = await capturePage(
-          page, pageDef, outDir, cardIds, draftIds, config, "en"
+          page, pageDef, outDir, cardIds, draftIds, namedIds, config, "en"
         );
 
         if (ok) {

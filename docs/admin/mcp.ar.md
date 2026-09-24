@@ -86,6 +86,8 @@ https://your-domain.example.com/mcp/oauth/callback
 3. حرّك المفتاح إلى وضع **التفعيل** لـ MCP.
 4. ستعرض الواجهة عنوان URL لخادم MCP وتعليمات الإعداد لمشاركتها مع فريقك.
 
+![قسم تكامل MCP في تبويب الذكاء الاصطناعي](../assets/img/ar/95b_admin_settings_mcp.png)
+
 !!! warning
     يكون المفتاح معطّلًا إذا لم يكن SSO مُعَدًّا. أعدّ SSO أولًا.
 

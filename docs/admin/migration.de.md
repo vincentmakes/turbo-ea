@@ -16,6 +16,8 @@ In LeanIX öffnen Sie **Administration → Export → Full Snapshot**. Dadurch e
 
 ## Der Workflow
 
+![LeanIX-Migration starten unter Einstellungen → Migration](../assets/img/de/94_admin_migration_leanix.png)
+
 1. **Hochladen** des Snapshots unter **Einstellungen → Migration → Neue Migration**. Die Datei verbleibt auf der Festplatte des Servers; die Datenbank speichert nur Metadaten. Das Parsen läuft im Hintergrund und der Status wechselt automatisch von `uploaded → parsed`.
 
 2. **Überprüfen** jedes Entitäts-Typs in der Tab-Ansicht. Jede staged Zeile trägt eine Aktion:

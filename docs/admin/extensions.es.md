@@ -27,11 +27,15 @@ Algunas extensiones son **gratuitas** y no requieren ninguna licencia. Se instal
 
 Cada instalación genera una única vez un **ID de instancia** (`TEA-XXXX-XXXX-XXXX`), visible en la parte superior de Admin → Extensiones con un botón de copia. Es su identidad de licencia: indíquelo al comprar (la Tienda integrada lo envía automáticamente; el pago de la tienda en línea lo solicita) para que cada extensión comprada para esta instancia — por cualquier administrador, con cualquier correo — termine en una única licencia combinada. Solo identifica su instancia; nunca es una credencial, así que puede compartirlo con su proveedor sin riesgo.
 
+![Extensiones — pestaña Instaladas con el ID de instancia](../assets/img/es/93a_admin_extensiones_instaladas.png)
+
 El ID viaja con una transferencia de espacio de trabajo, por lo que mudarse a un nuevo servidor mantiene la licencia válida. Tras una **reinstalación completa**, la instancia recibe un ID nuevo — pida a su proveedor que vuelva a emitir su licencia para él (un rápido «re-key» por su parte).
 
 ## La pestaña Tienda
 
 La pestaña **Tienda** funciona sin configuración alguna y lista las extensiones publicadas por el proveedor como una cuadrícula de fichas compactas: logotipo, nombre, estado de licencia y precio. Haga clic en cualquier ficha para abrir una ventana de detalles grande: a un lado, una galería de capturas de pantalla — recórrala con las flechas o las miniaturas y haga clic en una captura para verla a tamaño completo — y, junto a ella, la descripción completa, las etiquetas de categoría, los créditos de origen y licencia y las acciones. Cuando la tienda publica notas de versión de la extensión, las dos versiones más recientes aparecen bajo **Novedades**, con un enlace **Registro de cambios completo** a la página de la extensión en la tienda. Las extensiones que no incluyen imagen muestran una ficha generada con sus iniciales.
+
+![Extensiones — pestaña Tienda](../assets/img/es/93_admin_extensiones_tienda.png)
 
 - **Comprar** abre la página de pago en una pestaña nueva del navegador. En cuanto se confirma el pago, tu licencia se aplica automáticamente (también llega una copia por correo).
 - Algunas ofertas se venden con **dos planes**: mensual y anual, normalmente el anual con descuento. Su ventana de detalles muestra entonces **Comprar mensual** y **Comprar anual** en lugar de un único botón; ambos llevan al mismo pago.

@@ -27,11 +27,15 @@ Some extensions are **free** and require no license at all. They install and run
 
 Every installation generates a unique **instance ID** (`TEA-XXXX-XXXX-XXXX`) once, shown at the top of Admin → Extensions with a copy button. It is your licensing identity: quote it when purchasing (the in-app Store sends it automatically; the storefront checkout asks for it) so that every extension bought for this instance — by any administrator, under any email — lands in one combined license. It identifies your instance only; it is never a credential, so it is safe to share with your vendor.
 
+![Extensions — Installed tab with the instance ID](../assets/img/en/93a_admin_extensions_installed.png)
+
 The ID travels with a workspace transfer, so moving to a new host keeps your license working. After a **full reinstall** the instance gets a new ID — ask your vendor to re-issue your license for it (a quick "re-key" on their side).
 
 ## The Store tab
 
 The **Store** tab works out of the box and lists the vendor's published extensions as a grid of compact tiles — logo, name, licence state and price. Click any tile to open a large details window: a screenshot gallery on one side — step through it with the arrows or the thumbnails, click a screenshot to view it full size — and, beside it, the full description, category tags, source/licence credits and the actions. When the store publishes release notes for the extension, the two most recent releases appear under **What's new**, with a **Full changelog** link to the extension's page on the store. Extensions that ship no artwork show a generated tile carrying their initials.
+
+![Extensions — Store tab](../assets/img/en/93_admin_extensions_store.png)
 
 - **Buy** opens the payment page in a new browser tab. Once the payment is confirmed, your license applies automatically (a copy also arrives by email).
 - Some listings are sold on **two plans**: a monthly one and a yearly one, the yearly usually at a discount. Their details window then offers **Buy monthly** and **Buy yearly** instead of a single Buy, and either one takes you to the same checkout.

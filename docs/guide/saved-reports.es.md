@@ -7,7 +7,7 @@ Turbo EA permite **guardar configuraciones de informes** para que pueda volver r
 Desde cualquier página de informe (Portafolio, Mapa de Capacidades, Ciclo de Vida, Dependencias, Costos, Matriz, Calidad de Datos o EOL):
 
 1. Configure el informe con los filtros, agrupaciones y selecciones de ejes deseados
-2. Haga clic en el botón **Guardar** en la barra de herramientas del informe
+2. Haga clic en el icono **Guardar informe** (un marcador) en la barra de herramientas del informe
 3. Ingrese un **nombre** para el informe guardado
 4. Elija la **visibilidad**:
 
@@ -20,6 +20,8 @@ Desde cualquier página de informe (Portafolio, Mapa de Capacidades, Ciclo de Vi
 Para informes compartidos, puede otorgar **permisos de edición** a usuarios específicos, permitiéndoles actualizar la configuración guardada.
 
 5. Haga clic en **Guardar** — se captura automáticamente una miniatura de la visualización actual
+
+![Diálogo Guardar informe](../assets/img/es/96_dialogo_guardar_informe.png)
 
 ## Galería de Informes Guardados
 

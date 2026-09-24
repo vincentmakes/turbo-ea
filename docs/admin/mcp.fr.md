@@ -86,6 +86,8 @@ Ceci est nécessaire pour le flux OAuth qui authentifie les utilisateurs lorsqu'
 3. Activez le commutateur pour **activer** MCP.
 4. L'interface affichera l'URL du serveur MCP et les instructions de configuration à partager avec votre équipe.
 
+![Section Intégration MCP de l'onglet IA](../assets/img/fr/95b_admin_parametres_mcp.png)
+
 !!! warning
     Le commutateur est désactivé si le SSO n'est pas configuré. Configurez d'abord le SSO.
 

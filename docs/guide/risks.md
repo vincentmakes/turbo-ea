@@ -52,6 +52,8 @@ Linked cards are **grouped by card type**, ordered alphabetically inside each gr
 
 Mitigation is captured as **owned work items**, not free-text. On the risk detail page the **Mitigation tasks** panel replaces the old single-field "mitigation plan" — each row is a real task with its own owner, due date, history and (optionally) a recurrence rule.
 
+![Mitigation tasks on the risk detail page](../assets/img/en/97_risk_mitigation_tasks.png)
+
 ### One-shot vs. recurring
 
 A mitigation task is **one-shot** by default — fitness-for-purpose for "Roll out MFA", "Sign updated SCCs", or any project-shaped piece of work. Toggle **Repeats** in the task dialog and you get a **recurring control review**: e.g. "Re-attest cross-border transfer documentation every 12 months", "Run the OT incident response tabletop every 3 months", "Audit Jenkins credentials every week".

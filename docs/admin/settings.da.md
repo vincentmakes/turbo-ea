@@ -91,6 +91,8 @@ Turbo EA sender invitations-e-mails, undersøgelsesnotifikationer, nulstillinger
 
 ### Afsendelsesmetoder
 
+![E-mail-afsendelse med listen over afsendelsesmetoder](../assets/img/da/95a_admin_settings_email.png)
+
 | Metode | Hvornår skal den bruges |
 |--------|--------------------------|
 | **SMTP (brugernavn og adgangskode)** | Klassisk SMTP til servere, der stadig accepterer grundlæggende godkendelse. Standarden. |
@@ -138,6 +140,8 @@ Når du har konfigureret en metode, skal du klikke på **Send test-e-mail** for 
     E-mail er valgfri. Hvis ingen metode er konfigureret, springer funktioner, der sender e-mails, leveringen over uden fejl.
 
 ## BPM-modul
+
+![Modulkontakter under Indstillinger → Generelt](../assets/img/da/95_admin_settings_modules.png)
 
 Slå **Business Process Management**-modulet til eller fra. Når det er deaktiveret:
 

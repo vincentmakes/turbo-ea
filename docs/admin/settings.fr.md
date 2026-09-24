@@ -91,6 +91,8 @@ Turbo EA envoie des e-mails d'invitation, des notifications d'enquête, des réi
 
 ### Méthodes d'envoi
 
+![Envoi d'e-mails avec la liste des méthodes d'envoi](../assets/img/fr/95a_admin_parametres_email.png)
+
 | Méthode | Quand l'utiliser |
 |---------|------------------|
 | **SMTP (nom d'utilisateur et mot de passe)** | SMTP classique pour les serveurs qui acceptent encore l'authentification de base. Par défaut. |
@@ -138,6 +140,8 @@ Après avoir configuré une méthode, cliquez sur **Envoyer un e-mail de test** 
     L'e-mail est facultatif. Si aucune méthode n'est configurée, les fonctionnalités qui envoient des e-mails ignorent simplement l'envoi.
 
 ## Module BPM
+
+![Activation des modules dans Paramètres → Général](../assets/img/fr/95_admin_parametres_modules.png)
 
 Activez ou désactivez le module **Gestion des processus métier**. Lorsqu'il est désactivé :
 

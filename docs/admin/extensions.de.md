@@ -27,11 +27,15 @@ Manche Erweiterungen sind **kostenlos** und benötigen überhaupt keine Lizenz. 
 
 Jede Installation erzeugt einmalig eine eindeutige **Instanz-ID** (`TEA-XXXX-XXXX-XXXX`), die oben auf Admin → Erweiterungen mit einem Kopier-Button angezeigt wird. Sie ist Ihre Lizenzidentität: Geben Sie sie beim Kauf an (der In-App-Store sendet sie automatisch; die Storefront-Kasse fragt danach), damit jede für diese Instanz gekaufte Erweiterung — von jedem Administrator, unter jeder E-Mail-Adresse — in einer gemeinsamen Lizenz landet. Sie identifiziert nur Ihre Instanz; sie ist niemals ein Zugangsschlüssel und kann daher bedenkenlos an Ihren Anbieter weitergegeben werden.
 
+![Erweiterungen – Registerkarte Installiert mit der Instanz-ID](../assets/img/de/93a_admin_erweiterungen_installiert.png)
+
 Die ID wandert mit einem Workspace-Transfer mit, sodass ein Umzug auf einen neuen Host die Lizenz gültig lässt. Nach einer **Neuinstallation** erhält die Instanz eine neue ID — bitten Sie Ihren Anbieter, die Lizenz dafür neu auszustellen (ein schnelles „Re-Key" auf dessen Seite).
 
 ## Der Store-Tab
 
 Der Tab **Store** funktioniert ohne jede Konfiguration und listet die veröffentlichten Erweiterungen des Anbieters als Raster kompakter Kacheln auf – Logo, Name, Lizenzstatus und Preis. Ein Klick auf eine Kachel öffnet ein großes Detailfenster: auf der einen Seite eine Screenshot-Galerie – blättern Sie mit den Pfeilen oder den Vorschaubildern, ein Klick auf einen Screenshot zeigt ihn in voller Größe – und daneben die vollständige Beschreibung, Kategorie-Tags, Quellen- und Lizenzangaben sowie die Aktionen. Veröffentlicht der Store Versionshinweise zur Erweiterung, erscheinen die zwei neuesten Versionen unter **Neuigkeiten**, mit einem Link **Vollständiges Änderungsprotokoll** zur Seite der Erweiterung im Store. Erweiterungen ohne eigenes Logo erhalten eine generierte Kachel mit ihren Initialen.
+
+![Erweiterungen – Registerkarte Store](../assets/img/de/93_admin_erweiterungen_store.png)
 
 - **Kaufen** öffnet die Zahlungsseite in einem neuen Browser-Tab. Sobald die Zahlung bestätigt ist, wird Ihre Lizenz automatisch angewendet (eine Kopie kommt zusätzlich per E-Mail).
 - Manche Angebote werden in **zwei Varianten** verkauft: monatlich und jährlich, wobei die jährliche meist günstiger ist. Ihr Detailfenster bietet dann **Monatlich kaufen** und **Jährlich kaufen** statt einer einzelnen Schaltfläche; beide führen zur selben Kasse.

@@ -91,6 +91,8 @@ Turbo EA sends invitation emails, survey notifications, password resets, and oth
 
 ### Sending methods
 
+![Email delivery settings with the sending-method list](../assets/img/en/95a_admin_settings_email.png)
+
 | Method | When to use |
 |--------|-------------|
 | **SMTP (username & password)** | Classic SMTP for servers that still accept basic auth. The default. |
@@ -138,6 +140,8 @@ After configuring any method, click **Send Test Email** to verify it works.
     Email is optional. If no method is configured, features that send emails gracefully skip delivery.
 
 ## BPM Module
+
+![Module toggles in Settings → General](../assets/img/en/95_admin_settings_modules.png)
 
 Toggle the **Business Process Management** module on or off. When disabled:
 

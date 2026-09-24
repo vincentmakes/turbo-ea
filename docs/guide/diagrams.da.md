@@ -28,6 +28,8 @@ Gruppér relaterede diagrammer i **grupper** — delte etiketter på tværs af a
 
 Når du åbner et diagram, starter den fuldskærms DrawIO-editor i en same-origin iframe. Den oprindelige DrawIO-værktøjslinje er tilgængelig for figurer, forbindelser, tekst og layout — hver Turbo EA-handling eksponeres via højrekliks-kontekstmenuen, synkroniseringsknappen i værktøjslinjen og chevron-overlejringen, der ligger oven på hvert kort.
 
+![Diagrameditor med kort farvelagt efter forretningskritikalitet](../assets/img/da/99_diagram_editor.png)
+
 ### Indsættelse af kort
 
 Brug dialogen **Insert Cards** (åbnes fra værktøjslinjen eller højrekliks-menuen) til at føje kort til lærredet:
@@ -88,6 +90,8 @@ Dropdownen **Farvelæg efter** i værktøjslinjen omfarver kortene på lærredet
 
 En flydende forklaring nederst til venstre viser én skala pr. aktiv regel. Feltregler og **Approval status** er alternativer, ikke lag: vælger du det ene, ryddes det andet. Fjerner du alle regler, vender lærredet tilbage til kortfarverne. Valget gemmes med diagrammet. Den samme forklaring vises også, når diagrammet åbnes i visningstilstand og via dets publicerede eller indlejrede link, så læserne kan se, hvad farverne betyder.
 
+![Diagram i visningstilstand med farveforklaring](../assets/img/da/99b_diagram_viewer_legend.png)
+
 #### Vis på kortet
 
 En anden knap i værktøjslinjen, **Vis på kortet**, afgør, **hvad hver figur siger**. Sæt flueben ved **korttypen**, **undertypen** eller en vilkårlig egenskab fra de korttyper, der aktuelt er på lærredet, og hver figur får små detaljelinjer under sit navn. Felterne står under den korttype, de hører til; et felt, som flere af de typer deler, samles under **Fælles**. Det er en separat knap fra **Farvelæg efter**, så ingen af de to lister skal scrolles forbi for at nå den anden. **Ryd alle** fjerner alle flueben på én gang.
@@ -138,6 +142,8 @@ Knappen **Sync** i værktøjslinjen åbner sideskuffen med alt, der er kø-still
     - et **slettet** eller **arkiveret** kort — *Fjern fra diagrammet* fjerner cellen (og dens kanter) fra lærredet;
     - en **slettet relation** — *Fjern kanten fra diagrammet* fjerner den forældede kant fra lærredet;
     - en relation med ændret **flowretning** — *Acceptér opdatering* retter pilespidsen ind efter lageret.
+
+![Synkroniseringspanelet i diagrameditoren](../assets/img/da/99a_diagram_sync_drawer.png)
 
 Turbo EA **tjekker automatisk for lagerændringer, hver gang du åbner et diagram** — et blåt badge på værktøjslinjens Sync-knap tæller de ændringer, der afventer gennemgang. Intet anvendes uden din bekræftelse; badget inviterer dig blot ind i panelet. Knappen **Tjek opdateringer** i panelet kører det samme tjek igen efter behov.
 

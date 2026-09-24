@@ -86,6 +86,8 @@ Questo è necessario per il flusso OAuth che autentica gli utenti quando si conn
 3. Attivare l'interruttore per **abilitare** MCP.
 4. L'interfaccia mostrerà l'URL del server MCP e le istruzioni di configurazione da condividere con il team.
 
+![Sezione Integrazione MCP della scheda IA](../assets/img/it/95b_admin_impostazioni_mcp.png)
+
 !!! warning
     L'interruttore è disabilitato se l'SSO non è configurato. Configurare prima l'SSO.
 

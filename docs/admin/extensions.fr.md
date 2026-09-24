@@ -27,11 +27,15 @@ Certaines extensions sont **gratuites** et ne nécessitent aucune licence. Elles
 
 Chaque installation génère une seule fois un **ID d'instance** unique (`TEA-XXXX-XXXX-XXXX`), affiché en haut d'Admin → Extensions avec un bouton de copie. C'est votre identité de licence : indiquez-le lors de l'achat (la Boutique intégrée l'envoie automatiquement ; le paiement de la boutique en ligne le demande) afin que chaque extension achetée pour cette instance — par n'importe quel administrateur, sous n'importe quelle adresse e-mail — aboutisse dans une licence unique combinée. Il identifie seulement votre instance ; ce n'est jamais un identifiant secret, vous pouvez donc le partager sans risque avec votre fournisseur.
 
+![Extensions — onglet Installées avec l'identifiant d'instance](../assets/img/fr/93a_admin_extensions_installees.png)
+
 L'ID voyage avec un transfert d'espace de travail : une migration vers un nouvel hôte conserve donc une licence valide. Après une **réinstallation complète**, l'instance reçoit un nouvel ID — demandez à votre fournisseur de réémettre votre licence pour celui-ci (un simple « re-key » de son côté).
 
 ## L'onglet Boutique
 
 L'onglet **Boutique** fonctionne sans aucune configuration et liste les extensions publiées par le fournisseur sous forme de grille de tuiles compactes — logo, nom, état de licence et prix. Cliquez sur une tuile pour ouvrir une grande fenêtre de détails : d'un côté une galerie de captures d'écran — parcourez-la avec les flèches ou les vignettes, cliquez sur une capture pour l'afficher en taille réelle — et, à côté, la description complète, les étiquettes de catégorie, les crédits de source et de licence et les actions. Lorsque la boutique publie des notes de version pour l'extension, les deux versions les plus récentes apparaissent sous **Nouveautés**, avec un lien **Journal des modifications complet** vers la page de l'extension sur la boutique. Les extensions sans visuel affichent une tuile générée portant leurs initiales.
+
+![Extensions — onglet Boutique](../assets/img/fr/93_admin_extensions_boutique.png)
 
 - **Acheter** ouvre la page de paiement dans un nouvel onglet du navigateur. Dès que le paiement est confirmé, votre licence s'applique automatiquement (une copie arrive aussi par e-mail).
 - Certaines offres sont vendues selon **deux formules** : mensuelle et annuelle, l'annuelle étant généralement remisée. Leur fenêtre de détails propose alors **Achat mensuel** et **Achat annuel** au lieu d'un seul bouton ; les deux mènent au même paiement.

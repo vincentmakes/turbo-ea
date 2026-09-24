@@ -7,7 +7,7 @@ Turbo EA lader dig **gemme rapportkonfigurationer**, så du hurtigt kan vende ti
 Fra enhver rapportside (Portefølje, Kompetencekort, Livscyklus, Afhængigheder, Omkostning, Matrix, Datakvalitet eller EOL):
 
 1. Konfigurer rapporten med dine ønskede filtre, grupperinger og aksevalg
-2. Klik på **Gem**-knappen i rapportens værktøjslinje
+2. Klik på ikonet **Gem rapport** (et bogmærke) i rapportens værktøjslinje
 3. Indtast et **navn** for den gemte rapport
 4. Vælg **synligheden**:
 
@@ -20,6 +20,8 @@ Fra enhver rapportside (Portefølje, Kompetencekort, Livscyklus, Afhængigheder,
 For delte rapporter kan du give **redigeringstilladelser** til specifikke brugere, hvilket tillader dem at opdatere den gemte konfiguration.
 
 5. Klik på **Gem** — et miniaturebillede fanges automatisk fra den aktuelle visualisering
+
+![Dialogen Gem rapport](../assets/img/da/96_save_report_dialog.png)
 
 ## Galleri af gemte rapporter
 

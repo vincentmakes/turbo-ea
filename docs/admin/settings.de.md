@@ -91,6 +91,8 @@ Turbo EA versendet Einladungs-E-Mails, Umfrage-Benachrichtigungen, Passwort-Zur�
 
 ### Versandmethoden
 
+![E-Mail-Versand mit der Auswahl der Versandmethode](../assets/img/de/95a_admin_einstellungen_email.png)
+
 | Methode | Wann verwenden |
 |---------|----------------|
 | **SMTP (Benutzername & Passwort)** | Klassisches SMTP für Server, die weiterhin Basisauthentifizierung akzeptieren. Der Standard. |
@@ -138,6 +140,8 @@ Klicken Sie nach der Konfiguration auf **Test-E-Mail senden**, um die Funktion z
     E-Mail ist optional. Wenn keine Methode konfiguriert ist, überspringen Funktionen, die E-Mails senden, die Zustellung ohne Fehler.
 
 ## BPM-Modul
+
+![Modulschalter unter Einstellungen → Allgemein](../assets/img/de/95_admin_einstellungen_module.png)
 
 Schalten Sie das **Business Process Management**-Modul ein oder aus. Wenn deaktiviert:
 

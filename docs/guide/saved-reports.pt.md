@@ -7,7 +7,7 @@ O Turbo EA permite **salvar configurações de relatórios** para que você poss
 A partir de qualquer página de relatório (Portfólio, Mapa de Capacidades, Ciclo de Vida, Dependências, Custos, Matriz, Qualidade dos Dados ou EOL):
 
 1. Configure o relatório com os filtros, agrupamentos e seleções de eixos desejados
-2. Clique no botão **Salvar** na barra de ferramentas do relatório
+2. Clique no ícone **Salvar relatório** (um marcador) na barra de ferramentas do relatório
 3. Insira um **nome** para o relatório salvo
 4. Escolha a **visibilidade**:
 
@@ -20,6 +20,8 @@ A partir de qualquer página de relatório (Portfólio, Mapa de Capacidades, Cic
 Para relatórios compartilhados, você pode conceder **permissões de edição** a usuários específicos, permitindo que eles atualizem a configuração salva.
 
 5. Clique em **Salvar** — uma miniatura é automaticamente capturada da visualização atual
+
+![Diálogo Salvar relatório](../assets/img/pt/96_dialogo_salvar_relatorio.png)
 
 ## Galeria de Relatórios Salvos
 

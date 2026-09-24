@@ -28,6 +28,8 @@ Raggruppa i diagrammi correlati in **gruppi** — etichette condivise a livello 
 
 Aprire un diagramma avvia l'editor DrawIO a schermo intero in un iframe della stessa origine. La barra degli strumenti nativa di DrawIO è disponibile per forme, connettori, testo e layout -- ogni azione propria di Turbo EA è esposta tramite il menu contestuale del clic destro, il pulsante Sync della barra strumenti e il chevron sopra ogni scheda.
 
+![Editor di diagrammi con schede colorate per criticità aziendale](../assets/img/it/99_editor_diagramma.png)
+
 ### Inserire schede
 
 Usate la finestra **Inserisci schede** (dalla barra strumenti o dal menu contestuale) per aggiungere schede alla tela:
@@ -88,6 +90,8 @@ Il menu a tendina **Colora per** nella barra strumenti ricolora le schede sulla 
 
 Una legenda fluttuante in basso a sinistra mostra una scala per ogni regola attiva. Le regole di campo e lo **Stato di approvazione** sono alternative, non livelli: sceglierne una cancella l'altra. Togliendo ogni regola la tela torna ai colori delle schede. La scelta viene salvata col diagramma. La stessa legenda compare anche quando il diagramma è aperto in modalità di visualizzazione e sul suo link pubblicato o incorporato, così chi lo legge sa cosa significano i colori.
 
+![Diagramma in modalità visualizzazione con la legenda dei colori](../assets/img/it/99b_diagramma_vista_legenda.png)
+
 #### Mostra sulla scheda
 
 Un secondo pulsante nella barra strumenti, **Mostra sulla scheda**, decide **cosa dice ogni forma**. Spuntate il **tipo di scheda**, il **sottotipo** o qualsiasi attributo dei tipi di scheda presenti sulla tela: ogni forma acquisirà piccole righe di dettaglio sotto il proprio nome. I campi sono elencati sotto il tipo di scheda a cui appartengono; un campo condiviso da più di questi tipi è raggruppato sotto **Comuni**. È un pulsante distinto da **Colora per**, così nessuna delle due liste costringe a scorrere l'altra. **Cancella tutto** toglie tutte le spunte in una volta.
@@ -138,6 +142,8 @@ Il pulsante **Sync** della barra strumenti apre il pannello laterale con tutto c
     - una scheda **eliminata** o **archiviata** -- *Rimuovi dal diagramma* toglie la cella (e i suoi collegamenti) dalla tela;
     - una **relazione eliminata** -- *Rimuovi il collegamento dal diagramma* toglie il collegamento obsoleto dalla tela;
     - una relazione con **direzione del flusso** cambiata -- *Accetta aggiornamento* allinea la freccia all'inventario.
+
+![Pannello di sincronizzazione dell'editor di diagrammi](../assets/img/it/99a_diagramma_sincronizzazione.png)
 
 Turbo EA **controlla automaticamente le modifiche dell'inventario a ogni apertura di un diagramma** -- un badge blu sul pulsante Sync della barra strumenti conta le modifiche da rivedere. Nulla viene applicato senza la vostra conferma; il badge vi invita solo ad aprire il pannello. Il pulsante **Verifica aggiornamenti** nel pannello riesegue lo stesso controllo su richiesta.
 

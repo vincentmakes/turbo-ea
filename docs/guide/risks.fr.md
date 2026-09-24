@@ -49,6 +49,8 @@ Les fiches liées sont **regroupées par type de fiche**, triées alphabétiquem
 
 La mitigation est capturée sous forme d'**éléments de travail attribués**, et non en texte libre. Sur la page de détail du risque, le panneau **Tâches de mitigation** remplace l'ancien champ unique « plan de mitigation » — chaque ligne est une vraie tâche avec son propre propriétaire, sa date d'échéance, son historique et (en option) sa règle de récurrence.
 
+![Actions de mitigation sur la page de détail du risque](../assets/img/fr/97_risque_taches_attenuation.png)
+
 ### À un coup vs. récurrente
 
 Une tâche de mitigation est **à un coup** par défaut — adaptée à « Déployer la MFA », « Signer les SCC mises à jour », ou tout travail à dimension projet. Activez **Se répète** dans la boîte de dialogue de la tâche et vous obtenez une **revue de contrôle récurrente** : par ex. « Ré-attester la documentation de transfert transfrontalier tous les 12 mois », « Mener l'exercice tabletop d'incident OT tous les 3 mois », « Auditer les identifiants Jenkins chaque semaine ».

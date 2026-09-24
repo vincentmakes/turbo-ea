@@ -86,6 +86,8 @@ https://your-domain.example.com/mcp/oauth/callback
 3. 切换开关以**启用** MCP。
 4. 界面将显示 MCP 服务器 URL 和设置说明，供您与团队共享。
 
+![AI 设置选项卡中的 MCP 集成部分](../assets/img/zh/95b_admin_settings_mcp.png)
+
 !!! warning
     如果未配置 SSO，开关将被禁用。请先设置 SSO。
 

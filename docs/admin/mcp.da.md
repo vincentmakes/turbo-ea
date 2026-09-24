@@ -86,6 +86,8 @@ Dette kræves for OAuth-flowet, der autentificerer brugere, når de forbinder fr
 3. Slå kontakten til for at **aktivere** MCP.
 4. UI'et vil vise MCP-server-URL'en og opsætningsinstruktioner til at dele med dit team.
 
+![Afsnittet MCP-integration på fanen AI](../assets/img/da/95b_admin_settings_mcp.png)
+
 !!! warning
     Kontakten er deaktiveret, hvis SSO ikke er konfigureret. Opsæt SSO først.
 

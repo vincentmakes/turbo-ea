@@ -28,6 +28,8 @@ Gruppieren Sie zusammengehörige Diagramme in **Gruppen** — gemeinsame, arbeit
 
 Beim Öffnen eines Diagramms startet der DrawIO-Editor im Vollbildmodus in einem Same-Origin-iframe. Die native DrawIO-Symbolleiste steht für Formen, Verbinder, Text und Layout zur Verfügung -- jede Turbo-EA-Aktion ist über das Rechtsklick-Kontextmenü, die Sync-Schaltfläche in der Symbolleiste und das Chevron-Overlay über jeder Karte erreichbar.
 
+![Diagramm-Editor mit nach Geschäftskritikalität eingefärbten Karten](../assets/img/de/99_diagramm_editor.png)
+
 ### Karten einfügen
 
 Verwenden Sie den Dialog **Karten einfügen** (aus der Symbolleiste oder dem Kontextmenü), um Karten zur Leinwand hinzuzufügen:
@@ -88,6 +90,8 @@ Das Dropdown **Färben nach** in der Symbolleiste färbt die Karten auf der Lein
 
 Eine schwebende Legende unten links zeigt eine Skala je aktiver Regel. Feldregeln und **Genehmigungsstatus** sind Alternativen, keine Ebenen: die Wahl der einen löscht die andere. Werden alle Regeln abgewählt, kehrt die Leinwand zu den Kartenfarben zurück. Die Wahl wird mit dem Diagramm gespeichert. Dieselbe Legende erscheint auch, wenn das Diagramm im Ansichtsmodus geöffnet oder über seinen veröffentlichten bzw. eingebetteten Link angezeigt wird, damit Leser die Bedeutung der Farben erkennen.
 
+![Diagramm im Ansichtsmodus mit Farblegende](../assets/img/de/99b_diagramm_ansicht_legende.png)
+
 #### Auf Karte anzeigen
 
 Eine zweite Schaltfläche in der Symbolleiste, **Auf Karte anzeigen**, bestimmt, **was jede Form aussagt**. Wählen Sie den **Kartentyp**, den **Untertyp** oder ein beliebiges Attribut der aktuell auf der Leinwand vorhandenen Kartentypen — jede Form erhält dann kleine Detailzeilen unter ihrem Namen. Die Felder stehen unter dem Kartentyp, zu dem sie gehören; ein Feld, das mehrere dieser Typen teilen, steht unter **Gemeinsam**. Eine eigene Schaltfläche neben **Färben nach**, damit für keine der beiden Listen an der anderen vorbeigescrollt werden muss. **Alle löschen** entfernt sämtliche Häkchen auf einmal.
@@ -138,6 +142,8 @@ Die **Sync**-Schaltfläche in der Symbolleiste öffnet den Seiten-Drawer mit all
     - eine **gelöschte** oder **archivierte** Karte -- *Vom Diagramm entfernen* nimmt die Zelle (samt ihrer Kanten) von der Leinwand;
     - eine **gelöschte Relation** -- *Kante vom Diagramm entfernen* nimmt die veraltete Kante von der Leinwand;
     - eine Relation mit geänderter **Flussrichtung** -- *Update übernehmen* richtet die Pfeilspitze nach dem Inventar aus.
+
+![Synchronisierungsleiste im Diagramm-Editor](../assets/img/de/99a_diagramm_synchronisierung.png)
 
 Turbo EA **prüft bei jedem Öffnen eines Diagramms automatisch auf Inventaränderungen** -- ein blaues Badge auf der Sync-Schaltfläche der Symbolleiste zählt die zu prüfenden Änderungen. Nichts wird ohne Ihre Bestätigung angewendet; das Badge lädt nur in die Seitenleiste ein. Die Schaltfläche **Updates prüfen** in der Seitenleiste führt dieselbe Prüfung bei Bedarf erneut aus.
 

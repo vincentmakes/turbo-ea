@@ -134,6 +134,8 @@ Il menu a discesa **Campo** raggruppa ciò che è possibile modificare:
 - **Attributi** — qualsiasi campo modificabile definito per il tipo di scheda selezionato
 - **Relazioni** — una voce per ogni tipo di relazione e direzione (ad esempio *è eseguito su → Componente IT*)
 
+![Finestra Modifica massiva](../assets/img/it/98_inventario_modifica_massiva.png)
+
 Tag, relazioni e padre offrono ciascuno un interruttore **aggiungi / rimuovi**, così da estendere o ridurre i valori esistenti invece di sostituirli.
 
 Il controllo del valore si adatta al tipo di campo: un campo a selezione multipla mostra le sue opzioni con caselle di spunta, un campo sì/no un interruttore, un campo data un selettore di data. Lasciando il valore vuoto il campo viene svuotato su tutte le schede selezionate. I campi calcolati da una formula e i campi di costo che non sei autorizzato a vedere non vengono proposti.
@@ -156,6 +158,8 @@ Una scheda porta con sé le proprie schede figlie e le schede approvate tornano 
 ## Raggruppare l'inventario { #group-by }
 
 Fai clic su **Raggruppa per** nella barra degli strumenti (accanto al conteggio degli elementi) per organizzare la griglia in gruppi comprimibili. La fase del ciclo di vita e lo stato di approvazione sono sempre disponibili; filtrando la griglia su un solo tipo di scheda si aggiungono il suo sottotipo e tutti gli attributi a selezione singola.
+
+![Inventario raggruppato per modello TIME](../assets/img/it/98a_inventario_raggruppamento.png)
 
 - Le schede senza valore nel campo scelto finiscono nel gruppo **Non impostato**, in cima all'elenco: il punto di partenza naturale per classificare le schede in sospeso.
 - Fai clic sull'intestazione di un gruppo per comprimerlo o espanderlo. L'intestazione mostra il numero di schede del gruppo.
@@ -257,6 +261,8 @@ Un tipo di relazione che porta valori **non ha una colonna `rel:`** — un elenc
 ### Importare
 
 Cliccate su **Importa** nella barra degli strumenti, rilasciate la cartella di lavoro e verificate l'anteprima prima di applicare. Vedrete sia le schede da creare / aggiornare sia le relazioni da aggiungere / rimuovere. Gli errori (per esempio, un target ambiguo con i suoi percorsi candidati) bloccano l'applicazione.
+
+![Finestra Importa schede](../assets/img/it/98b_inventario_importazione.png)
 
 Alcune precisazioni sull'importazione:
 

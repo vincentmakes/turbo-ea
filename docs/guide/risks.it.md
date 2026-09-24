@@ -49,6 +49,8 @@ Le schede collegate sono **raggruppate per tipo di scheda**, ordinate alfabetica
 
 La mitigazione è catturata come **voci di lavoro assegnate**, non come testo libero. Sulla pagina di dettaglio del rischio il pannello **Attività di mitigazione** sostituisce il vecchio campo singolo «piano di mitigazione» — ogni riga è un'attività reale con proprio proprietario, scadenza, cronologia e (opzionalmente) regola di ricorrenza.
 
+![Attività di mitigazione nella pagina di dettaglio del rischio](../assets/img/it/97_rischio_attivita_mitigazione.png)
+
 ### Una tantum vs. ricorrente
 
 Un'attività di mitigazione è **una tantum** per impostazione predefinita — adatta a «Distribuire MFA», «Firmare SCC aggiornate» o qualsiasi lavoro a forma di progetto. Attivate **Si ripete** nel dialogo dell'attività e ottenete una **revisione di controllo ricorrente**: ad es. «Ri-attestare la documentazione di trasferimento transfrontaliero ogni 12 mesi», «Eseguire il tabletop di risposta agli incidenti OT ogni 3 mesi», «Auditare le credenziali Jenkins ogni settimana».

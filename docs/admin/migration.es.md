@@ -16,6 +16,8 @@ En LeanIX, abra **Administration → Export → Full Snapshot**. Esto produce un
 
 ## El flujo de trabajo
 
+![Iniciar una migración de LeanIX en Configuración → Migración](../assets/img/es/94_admin_migracion_leanix.png)
+
 1. **Cargar** el snapshot en **Configuración → Migración → Nueva migración**. El archivo permanece en el disco del servidor; la base de datos solo almacena metadatos. El parseo se ejecuta en segundo plano y el estado avanza automáticamente de `uploaded → parsed`.
 
 2. **Revisar** cada tipo de entidad en la vista por pestañas. Cada fila staged lleva una acción:

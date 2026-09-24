@@ -52,6 +52,8 @@ Tilknyttede kort **grupperes efter korttype**, sorteres alfabetisk inden for hve
 
 Afhjælpning fanges som **ejede arbejdselementer**, ikke friform-tekst. På risikodetaljesiden erstatter panelet **Mitigation tasks** det gamle enkelte felt "mitigation plan" — hver række er en rigtig opgave med sin egen ejer, forfaldsdato, historik og (valgfrit) en gentagelses-regel.
 
+![Afbødningsopgaver på risikoens detaljeside](../assets/img/da/97_risk_mitigation_tasks.png)
+
 ### Engangs vs. tilbagevendende
 
 En afhjælpningsopgave er **engangs** som standard — egnet til "Roll out MFA", "Sign updated SCCs" eller et hvilket som helst projektformet stykke arbejde. Slå **Repeats** til i opgavedialogen, og du får en **tilbagevendende kontrolgennemgang**: f.eks. "Re-attest cross-border transfer documentation every 12 months", "Run the OT incident response tabletop every 3 months", "Audit Jenkins credentials every week".

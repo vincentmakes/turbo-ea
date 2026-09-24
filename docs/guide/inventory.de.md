@@ -134,6 +134,8 @@ Das Dropdown **Feld** gruppiert die Änderungsmöglichkeiten:
 - **Attribute** — jedes bearbeitbare Feld des ausgewählten Kartentyps
 - **Beziehungen** — ein Eintrag je Beziehungstyp und Richtung (zum Beispiel *läuft auf → IT-Komponente*)
 
+![Dialog Massenbearbeitung](../assets/img/de/98_inventar_massenbearbeitung.png)
+
 Tags, Beziehungen und das übergeordnete Element bieten jeweils einen Umschalter **Hinzufügen / Entfernen**, sodass Sie vorhandene Werte ergänzen oder reduzieren, statt sie zu ersetzen.
 
 Das Eingabeelement richtet sich nach dem Feldtyp: Ein Mehrfachauswahlfeld zeigt seine Optionen mit Kontrollkästchen, ein Ja/Nein-Feld einen Schalter, ein Datumsfeld eine Datumsauswahl. Bleibt der Wert leer, wird das Feld auf allen ausgewählten Karten geleert. Per Formel berechnete Felder sowie Kostenfelder, für die Ihnen die Leseberechtigung fehlt, werden nicht angeboten.
@@ -156,6 +158,8 @@ Eine Karte nimmt ihre untergeordneten Elemente mit, und freigegebene Karten fall
 ## Inventar gruppieren { #group-by }
 
 Klicken Sie in der Symbolleiste auf **Gruppieren nach** (neben der Trefferanzahl), um das Raster in ein- und ausklappbare Gruppen zu gliedern. Lebenszyklusphase und Genehmigungsstatus sind immer verfügbar; ist das Raster auf einen einzelnen Kartentyp gefiltert, kommen dessen Untertyp und alle Einfachauswahl-Attribute hinzu.
+
+![Inventar gruppiert nach TIME-Modell](../assets/img/de/98a_inventar_gruppierung.png)
 
 - Karten ohne Wert im gewählten Feld landen in einer Gruppe **Nicht gesetzt** ganz oben — dem natürlichen Sammelbecken für noch nicht klassifizierte Karten.
 - Ein Klick auf eine Gruppenüberschrift klappt die Gruppe ein oder aus. Die Überschrift zeigt die Anzahl der Karten der Gruppe.
@@ -257,6 +261,8 @@ Ein Beziehungstyp, der Werte trägt, hat **keine `rel:`-Spalte** — dafür ist 
 ### Importieren
 
 Klicken Sie in der Werkzeugleiste auf **Import**, ziehen Sie die Arbeitsmappe in den Dialog und prüfen Sie die Vorschau, bevor Sie anwenden. Sie sehen sowohl die zu erzeugenden/aktualisierenden Karten als auch die hinzuzufügenden/zu entfernenden Beziehungen. Fehler (z. B. mehrdeutige Beziehungsziele mit Kandidatenpfaden) blockieren das Anwenden.
+
+![Dialog Karten importieren](../assets/img/de/98b_inventar_import.png)
 
 Ein paar Hinweise zum Importieren:
 
