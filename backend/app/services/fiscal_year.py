@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from datetime import date as date_type
 from datetime import datetime, timezone
+from typing import overload
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +29,16 @@ def _fiscal_year(year: int, month: int, start_month: int) -> int:
     ``year + 1`` on a January start, because ``month >= 1`` is always true.
     """
     return year + (1 if 1 < start_month <= 12 and month >= start_month else 0)
+
+
+# Overloaded so a caller holding a real date gets an ``int`` back, not an
+# ``int | None`` it would have to narrow before comparing years.
+@overload
+def fiscal_year_for(value: date_type, start_month: int) -> int: ...
+@overload
+def fiscal_year_for(value: None, start_month: int) -> None: ...
+@overload
+def fiscal_year_for(value: date_type | None, start_month: int) -> int | None: ...
 
 
 def fiscal_year_for(value: date_type | None, start_month: int) -> int | None:
