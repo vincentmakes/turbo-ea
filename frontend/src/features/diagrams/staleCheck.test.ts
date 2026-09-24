@@ -248,6 +248,27 @@ describe("diffStaleItems", () => {
     ]);
   });
 
+  it("reads a relation stored against its type on the type's axis (#1140)", () => {
+    // Edge drawn id1 → id2 over a relation stored the same way round, but that
+    // row runs against its type (the Interface is its source), so its flow is
+    // read on the type's axis: the edge is drawn against the relation.
+    const items = diffStaleItems(
+      [],
+      [edge("e1", "r1", "id1", "id2")],
+      inv(
+        [card("id1", "A"), card("id2", "B")],
+        [rel("r1", "id1", "id2", { flowDirection: "forward" })],
+      ),
+      color,
+      relLabel,
+      flowOf,
+      (relation) => relation.id === "r1",
+    );
+    expect(items).toEqual([
+      expect.objectContaining({ kind: "relationFlowChanged", newFlow: "forward", incoming: true }),
+    ]);
+  });
+
   it("flags a flow the inventory gained after the edge was drawn", () => {
     const items = diffStaleItems(
       [],

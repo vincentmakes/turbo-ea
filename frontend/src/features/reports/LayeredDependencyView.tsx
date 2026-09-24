@@ -87,6 +87,7 @@ import {
   filterEndOfLifeNodes,
   filterHiddenTypes,
   buildLdvAggregateFlow,
+  orientEdgesToRelationTypes,
   stripEdgeLabels,
   LDV_NODE_W,
   LDV_NODE_H,
@@ -1279,13 +1280,30 @@ function LayeredDependencyInner({
   /* ---- Card display settings (persisted, shared with the card-detail section) ---- */
   const [settings, updateSettings] = useLdvSettings();
 
+  const { relationTypes } = useMetamodel();
+  const relTypeByKey = useMemo(
+    () => new Map(relationTypes.map((rt) => [rt.key, rt])),
+    [relationTypes],
+  );
+
+  /* ---- Draw every relation the way its TYPE runs ----
+     `flowDirection` means something on the relation type's axis (forward on
+     Application → Interface is the application providing), so a row stored the
+     other way round must be turned before anything lays it out or draws its
+     arrowheads — otherwise a provider is drawn as a consumer (#1140). Done once,
+     here, so both layouts, hover and "Create diagram" agree. */
+  const orientedEdges = useMemo(
+    () => orientEdgesToRelationTypes(rawNodes, rawEdges, relTypeByKey),
+    [rawNodes, rawEdges, relTypeByKey],
+  );
+
   /* ---- Hide end-of-life related cards unless toggled on (centre always kept) ---- */
   const lifecycleFiltered = useMemo(
     () =>
       settings.showEndOfLife
-        ? { nodes: rawNodes, edges: rawEdges }
-        : filterEndOfLifeNodes(rawNodes, rawEdges, centerId, asOfMs),
-    [rawNodes, rawEdges, settings.showEndOfLife, centerId, asOfMs],
+        ? { nodes: rawNodes, edges: orientedEdges }
+        : filterEndOfLifeNodes(rawNodes, orientedEdges, centerId, asOfMs),
+    [rawNodes, orientedEdges, settings.showEndOfLife, centerId, asOfMs],
   );
 
   /* ---- Card types on the view, counted BEFORE the type filter ----
@@ -1316,11 +1334,6 @@ function LayeredDependencyInner({
          bracketed label suffix (e.g. " [Leading]"), using the metamodel's
          relation-type attribute schemas. flowDirection is excluded — it is
          shown as a direction arrow, not a bracket. ---- */
-  const { relationTypes } = useMetamodel();
-  const relTypeByKey = useMemo(
-    () => new Map(relationTypes.map((rt) => [rt.key, rt])),
-    [relationTypes],
-  );
   const relValueResolver = useCallback(
     (edge: GEdge): string | undefined =>
       relationValueSuffix(edge, relTypeByKey, (opt) => fieldLabel(opt)),

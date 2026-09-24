@@ -10,6 +10,7 @@
  */
 
 import dagre from "@dagrejs/dagre";
+import { runsAgainstType } from "@/lib/relationSort";
 import { LAYER_COLORS } from "@/theme/tokens";
 import type { CardType } from "@/types";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
@@ -202,6 +203,38 @@ export type FlowDir = "bidirectional" | "forward" | "reverse";
 export function readFlowDir(attrs: Record<string, unknown> | undefined): FlowDir | undefined {
   const v = attrs?.flowDirection;
   return v === "bidirectional" || v === "forward" || v === "reverse" ? v : undefined;
+}
+
+/**
+ * Turn every edge stored against its relation type's direction the type's way
+ * round, so its `flowDirection` — which means something on the TYPE's axis
+ * (`forward` on Application → Interface is the application *providing*) —
+ * puts the arrowhead where the user chose (discussion #1140).
+ *
+ * Applied once where the view receives its edges, so the plain and aggregate
+ * layouts, hover highlighting and "Create diagram" all see the same direction.
+ * Only the endpoints move: the label is the forward verb either way, and the
+ * attributes are the relation's own. Edges with no known relation type (the
+ * synthetic hierarchy line) and edges whose cards are not on the view pass
+ * through untouched.
+ */
+export function orientEdgesToRelationTypes(
+  nodes: GNode[],
+  edges: GEdge[],
+  relTypeByKey: Map<string, { source_type_key: string; target_type_key: string }>,
+): GEdge[] {
+  const typeOf = new Map(nodes.map((n) => [n.id, n.type]));
+  let changed = false;
+  const out = edges.map((e) => {
+    if (!runsAgainstType(relTypeByKey.get(e.type), typeOf.get(e.source), typeOf.get(e.target))) {
+      return e;
+    }
+    changed = true;
+    return { ...e, source: e.target, target: e.source };
+  });
+  // Hand back the caller's array when nothing moved, so memoised consumers
+  // downstream see a stable reference on the common path.
+  return changed ? out : edges;
 }
 
 /* ------------------------------------------------------------------ */

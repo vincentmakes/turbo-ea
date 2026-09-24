@@ -140,6 +140,10 @@ export function diffStaleItems(
     relationTypeKey: string,
     attributes: Record<string, unknown> | undefined,
   ) => RelationFlowDirection | undefined,
+  /** Is the relation stored against its relation type's direction
+   *  (`runsAgainstType`)? Its flow is then read on the type's axis, so the
+   *  restyle must treat the edge as drawn the other way (#1140). */
+  runsAgainst: (relation: Relation) => boolean = () => false,
 ): StaleItem[] {
   const items: StaleItem[] = [];
   const flaggedCardIds = new Set<string>();
@@ -218,8 +222,8 @@ export function diffStaleItems(
         targetName: edge.targetName,
         newFlow,
         incoming:
-          edge.sourceCardId === relation.target_id &&
-          edge.targetCardId === relation.source_id,
+          (edge.sourceCardId === relation.target_id &&
+            edge.targetCardId === relation.source_id) !== runsAgainst(relation),
       });
     }
   }

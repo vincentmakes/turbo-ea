@@ -157,3 +157,34 @@ export function parseSideKey(key: string): { key: string; isSource?: boolean } {
   if (key.endsWith("__in")) return { key: key.slice(0, -4), isSource: false };
   return { key };
 }
+
+/**
+ * Is this relation row stored against its relation type's direction?
+ *
+ * True when the row's source card is of the type's TARGET card type and its
+ * target card of the SOURCE type — e.g. a `relAppToInterface` row whose source
+ * is the Interface. Several write paths accept ids without checking them
+ * against the type (the Excel Relations sheet, `/relations/bulk` id refs, the
+ * MCP server, the extension bridge, workspace import, and the diagram editor
+ * before 2.39.1), so such rows exist in the wild.
+ *
+ * It matters wherever a direction is DRAWN: a relation's `flowDirection` means
+ * something on the type's axis — card detail offers `forward` as the
+ * Application being *Provider* — so reading it on the stored row's axis draws
+ * a backwards row's provider as a consumer (discussion #1140). Every arrow
+ * renderer asks this one question and reads the row as if it were stored the
+ * type's way.
+ *
+ * Never true for a self-referencing type (the stored direction IS the meaning
+ * there), and false whenever anything is unknown, so unrecognised data draws
+ * exactly as stored.
+ */
+export function runsAgainstType(
+  rt: { source_type_key: string; target_type_key: string } | undefined,
+  sourceCardType: string | undefined,
+  targetCardType: string | undefined,
+): boolean {
+  if (!rt || !sourceCardType || !targetCardType) return false;
+  if (rt.source_type_key === rt.target_type_key) return false;
+  return sourceCardType === rt.target_type_key && targetCardType === rt.source_type_key;
+}

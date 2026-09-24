@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { groupRelationsByOtherCard, pruneDeletedRelations } from "./expandChildren";
+import { edgeIncoming, groupRelationsByOtherCard, pruneDeletedRelations } from "./expandChildren";
 import type { ExpandChildData } from "./drawio-shapes";
 import type { Relation } from "@/types";
 
@@ -152,5 +152,38 @@ describe("pruneDeletedRelations", () => {
     // No relation id means it cannot have been deleted server-side.
     const out = pruneDeletedRelations([child({ relationId: undefined })], new Set(["rel-uses"]));
     expect(out).toHaveLength(1);
+  });
+});
+
+describe("edgeIncoming", () => {
+  const APP_TO_IF = { source_type_key: "Application", target_type_key: "Interface" };
+  const APP = { id: "app-1", name: "Multicash", type: "Application" };
+  const IF = { id: "if-1", name: "MultiCash | SAP", type: "Interface" };
+  const stored = (source: typeof APP, target: typeof APP): Relation => ({
+    id: "r1",
+    type: "relAppToInterface",
+    source_id: source.id,
+    target_id: target.id,
+    source,
+    target,
+    attributes: { flowDirection: "forward" },
+  });
+
+  it("follows the stored row when it runs the type's way", () => {
+    const r = stored(APP, IF);
+    expect(edgeIncoming(r, IF.id, APP_TO_IF)).toBe(true);
+    expect(edgeIncoming(r, APP.id, APP_TO_IF)).toBe(false);
+  });
+
+  it("reads a row stored the other way round on the type's axis (#1140)", () => {
+    // Interface → Application in storage; Application → Interface by type.
+    const r = stored(IF, APP);
+    expect(edgeIncoming(r, IF.id, APP_TO_IF)).toBe(true);
+    expect(edgeIncoming(r, APP.id, APP_TO_IF)).toBe(false);
+  });
+
+  it("falls back to the stored row when the relation type is unknown", () => {
+    const r = stored(IF, APP);
+    expect(edgeIncoming(r, APP.id, undefined)).toBe(true);
   });
 });

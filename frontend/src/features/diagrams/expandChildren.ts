@@ -9,6 +9,7 @@
  * — each keeping its own verb and relation id.
  */
 
+import { runsAgainstType } from "@/lib/relationSort";
 import type { Relation } from "@/types";
 import type { ExpandChildData, ExpandChildRelation } from "./drawio-shapes";
 
@@ -56,6 +57,26 @@ export function groupRelationsByOtherCard(
     groups.push(group);
   }
   return groups;
+}
+
+/**
+ * Does the relation point AT the expanded card? That is `incoming` on an
+ * expansion edge, which is always inserted expanded card → child: it moves the
+ * arrowhead to the expanded card's end, and `relationEdgeStyle` combines it with
+ * the relation's `flowDirection`.
+ *
+ * Read on the relation TYPE's axis, not the stored row's: a row stored against
+ * its type (an Interface as the source of an Application → Interface link) is
+ * read as if stored the type's way, because its `flowDirection` means something
+ * on that axis — otherwise a provider is drawn as a consumer (#1140). A
+ * normally stored row reduces to `rel.target_id === cardId`.
+ */
+export function edgeIncoming(
+  rel: Relation,
+  cardId: string,
+  rt: { source_type_key: string; target_type_key: string } | undefined,
+): boolean {
+  return (rel.target_id === cardId) !== runsAgainstType(rt, rel.source?.type, rel.target?.type);
 }
 
 /**

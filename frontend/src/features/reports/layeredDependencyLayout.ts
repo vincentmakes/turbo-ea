@@ -670,3 +670,8 @@ export {
   type LaneForAlign,
   type AlignedLane,
 } from "./ldvLayoutShared";
+
+// The view turns relations stored against their type the type's way before
+// laying them out (#1140); exported from here so a consumer building its own
+// graph from these builders can do the same.
+export { orientEdgesToRelationTypes } from "./ldvLayoutShared";

@@ -6,6 +6,7 @@ import {
   orderRelationTypesByOtherEnd,
   otherEnd,
   parseSideKey,
+  runsAgainstType,
   sideKey,
   sortRelationsByName,
 } from "./relationSort";
@@ -289,5 +290,32 @@ describe("parseSideKey", () => {
     const self = { key: "orgToOrg", source_type_key: "Organization", target_type_key: "Organization" };
     expect(parseSideKey(sideKey(self, true))).toEqual({ key: "orgToOrg", isSource: true });
     expect(parseSideKey(sideKey(self, false))).toEqual({ key: "orgToOrg", isSource: false });
+  });
+});
+
+describe("runsAgainstType", () => {
+  const appToIf = { source_type_key: "Application", target_type_key: "Interface" };
+  const selfPair = { source_type_key: "Organization", target_type_key: "Organization" };
+
+  it("is false for a row stored the type's way", () => {
+    expect(runsAgainstType(appToIf, "Application", "Interface")).toBe(false);
+  });
+
+  it("is true for a row stored the other way round (#1140)", () => {
+    expect(runsAgainstType(appToIf, "Interface", "Application")).toBe(true);
+  });
+
+  it("is never true for a self-referencing type", () => {
+    expect(runsAgainstType(selfPair, "Organization", "Organization")).toBe(false);
+  });
+
+  it("is false when anything is unknown", () => {
+    expect(runsAgainstType(undefined, "Interface", "Application")).toBe(false);
+    expect(runsAgainstType(appToIf, undefined, "Application")).toBe(false);
+    expect(runsAgainstType(appToIf, "Interface", undefined)).toBe(false);
+  });
+
+  it("is false for a pair that matches neither orientation", () => {
+    expect(runsAgainstType(appToIf, "ITComponent", "Application")).toBe(false);
   });
 });

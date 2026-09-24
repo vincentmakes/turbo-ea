@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.149.3] - 2026-09-24
+
+### Fixed
+
+- **Arrows between an application and an interface follow the flow direction set on the link.** In the Layered Dependency View, in a diagram created from it and when expanding a card on a diagram, a link could point the wrong way: an application marked as the interface's *Provider* was drawn with the arrow pointing at the application, so the provider read as a consumer ([#1140](https://github.com/vincentmakes/turbo-ea/discussions/1140)). This happened to links that had been saved the other way round (the interface recorded as the start of the link), for example by an older version of the diagram editor, a spreadsheet import or an integration. Every arrow now follows the Provider / Consumer / Bidirectional choice however the link was saved. A diagram that was already created from the view keeps its old arrows — create it again to pick up the fix.
+
 ## [2.149.2] - 2026-09-24
 
 ### Added
