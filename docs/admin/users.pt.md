@@ -124,7 +124,7 @@ Papéis personalizados podem ser criados com controle granular de permissões so
 
 As permissões aplicam-se à barra de endereços tanto quanto ao menu. Uma página que uma função não pode abrir mostra o aviso **Acesso negado** com uma ligação de volta ao painel, quer se chegue pela navegação, por um marcador ou por uma ligação partilhada — ocultar uma entrada de menu e bloquear a página são sempre a mesma decisão.
 
-As permissões de um papel aplicam-se por predefinição a todos os tipos de card. Um administrador pode restringi-las por tipo de card — permitindo ou negando **Criar**, **Editar**, **Arquivar** e **Eliminar** — no separador **Permissões** do tipo de card no [Metamodelo](metamodel.md#permissions).
+As permissões de um papel aplicam-se por predefinição a todos os tipos de card. Um administrador pode restringi-las por tipo de card — permitindo ou negando **Ver**, **Criar**, **Editar**, **Arquivar** e **Eliminar** — no separador **Permissões** do tipo de card no [Metamodelo](metamodel.md#permissions). Negar **Ver** vai mais longe: os cards desse tipo desaparecem para o papel em todo o lado, exceto aqueles em que os seus utilizadores detêm um papel de parte interessada (consulte [Ocultar um tipo de cartão a um papel](metamodel.md#hiding-a-card-type-from-a-role)).
 
 #### Desativando um Usuário
 

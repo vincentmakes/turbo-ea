@@ -133,9 +133,9 @@ I ruoli possono essere rimossi in due modi:
 
 La chiave di un ruolo può essere corretta finché **nessuno ricopre il ruolo**: i sondaggi che lo utilizzano seguono automaticamente la rinomina, e rinominare l'unico ruolo di un tipo non è un problema perché il ruolo sopravvive. Appena qualcuno lo ricopre, la chiave viene bloccata e il campo ne spiega il motivo. I ruoli creati prima di questa convenzione mantengono la chiave che già avevano e continuano a funzionare; viene verificata solo una chiave nuova o modificata.
 
-#### Autorizzazioni
+#### Autorizzazioni { #permissions }
 
-I tipi di scheda possono limitare ciò che ogni ruolo applicativo può fare con le loro schede. Apri la scheda **Autorizzazioni** nel pannello del tipo per una matrice di ruoli e delle quattro azioni — **Crea**, **Modifica**, **Archivia** ed **Elimina**.
+I tipi di scheda possono limitare ciò che ogni ruolo applicativo può fare con le loro schede. Apri la scheda **Autorizzazioni** nel pannello del tipo per una matrice di ruoli e delle cinque azioni — **Visualizza**, **Crea**, **Modifica**, **Archivia** ed **Elimina**.
 
 ![Autorizzazioni per tipo di scheda](../assets/img/it/85_admin_autorizzazioni_tipo_scheda.png)
 
@@ -153,6 +153,27 @@ Alcune regole da conoscere:
 - **I ruoli stakeholder continuano ad applicarsi.** Negare **Modifica** a un ruolo su un tipo rimuove la sua autorizzazione a livello di intero panorama, non l'autorità che detiene come proprietario assegnato di una singola scheda. Vedi [Utenti e ruoli](users.md).
 - **La modifica di massa segue un divieto, non un permesso.** Un tipo che nega **Modifica** blocca anche le modifiche di massa; un permesso non concede di per sé la distinta autorizzazione di modifica di massa.
 - Le modifiche hanno effetto per gli altri utenti al successivo ricaricamento dell'applicazione.
+
+##### Nascondere un tipo di scheda a un ruolo { #hiding-a-card-type-from-a-role }
+
+Negare **Visualizza** nasconde completamente il tipo al ruolo. Per i suoi utenti le schede di quel tipo non esistono: sono escluse dall'inventario, dalla ricerca, dai conteggi e dalle esportazioni, dalle relazioni e dalla gerarchia delle altre schede, e da ogni report, grafico, grafo delle dipendenze e dashboard, così come dagli elenchi di BPM, PPM, GRC, decisioni, diagrammi e TurboLens. Aprire una di queste schede da un link mostra **non trovata** anziché **accesso negato**, così la pagina non rivela nemmeno che la scheda esiste.
+
+- **Consentire Visualizza funziona al contrario.** A un ruolo che non può consultare affatto l'inventario si può consentire **Visualizza** su un solo tipo; i suoi utenti vedono allora le schede di quel tipo, e solo di quel tipo.
+- **Per Visualizza, Eredita si legge in due modi.** Nell'inventario, nelle pagine delle schede, nella ricerca e nelle esportazioni, *eredita* segue l'autorizzazione **Visualizza** del ruolo a livello di intero panorama. Nei moduli che hanno una propria autorizzazione — report, BPM, PPM, rischi, decisioni, diagrammi, TurboLens — solo un **Nega** esplicito nasconde qualcosa, quindi un ruolo che può leggere i report ma non consultare l'inventario conserva i propri report.
+- **Un divieto su Visualizza blocca le altre azioni.** Un ruolo che non può vedere un tipo non può nemmeno creare, modificare, archiviare o eliminare le sue schede. Le altre celle della riga mostrano un'icona a forma di lucchetto e conservano i valori memorizzati, che tornano ad applicarsi non appena **Visualizza** non è più negato.
+- **Gli stakeholder conservano le proprie schede.** Chi è assegnato a una scheda tramite un ruolo stakeholder che concede la visualizzazione continua a vedere quella scheda — e solo quella — anche quando il suo ruolo applicativo non può visualizzarne il tipo.
+- **Un divieto su Visualizza per Iniziativa vale anche per PPM.** L'autorizzazione PPM non fa ricomparire le iniziative nascoste; il ruolo vede solo quelle su cui è stakeholder.
+- **I collegamenti che non puoi vedere vengono mantenuti.** Quando qualcuno modifica le schede collegate a una decisione, a un diagramma o a un passo di processo, i collegamenti a schede che non può vedere restano al loro posto.
+- **L'IA Architettura ha bisogno dell'intero panorama.** L'IA Architettura di TurboLens ragiona su tutte le schede, quindi non è disponibile per un ruolo a cui è nascosto anche un solo tipo di scheda.
+
+Alcuni elementi non vengono filtrati di proposito, perché si tratta di pubblicazioni o di amministrazione e non di consultazione:
+
+- i portali web pubblicati e i diagrammi pubblicati;
+- il disegno di un diagramma e il testo scritto in una decisione o in uno Statement of Architecture Work (le schede collegate vengono invece filtrate);
+- i valori prodotti dai campi calcolati, che vengono determinati sull'intero panorama;
+- il registro degli eventi e il flusso di eventi in tempo reale per gli amministratori, e l'esportazione dell'area di lavoro;
+- i sondaggi che un amministratore ha inviato all'utente;
+- le estensioni, che agiscono per conto del sistema e non di un utente.
 
 #### Traduzioni
 

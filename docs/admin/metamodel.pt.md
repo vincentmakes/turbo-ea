@@ -133,9 +133,9 @@ Os papéis podem ser removidos de duas formas:
 
 A chave de um papel pode ser corrigida enquanto **ninguém detiver o papel** — os inquéritos que o utilizam acompanham a mudança de nome automaticamente, e renomear o único papel de um tipo não é problema, pois o papel sobrevive. Assim que alguém o detém, a chave fica bloqueada e o campo explica porquê. Os papéis criados antes desta convenção mantêm a chave que já tinham e continuam a funcionar; só é verificada uma chave nova ou alterada.
 
-#### Permissões
+#### Permissões { #permissions }
 
-Os tipos de cartão podem restringir o que cada papel da aplicação pode fazer com os seus cartões. Abra o separador **Permissões** no painel do tipo para ver uma matriz de papéis e das quatro ações — **Criar**, **Editar**, **Arquivar** e **Eliminar**.
+Os tipos de cartão podem restringir o que cada papel da aplicação pode fazer com os seus cartões. Abra o separador **Permissões** no painel do tipo para ver uma matriz de papéis e das cinco ações — **Ver**, **Criar**, **Editar**, **Arquivar** e **Eliminar**.
 
 ![Permissões por tipo de cartão](../assets/img/pt/85_admin_permissoes_tipo_card.png)
 
@@ -153,6 +153,27 @@ Algumas regras a conhecer:
 - **Os papéis de partes interessadas continuam a aplicar-se.** Negar **Editar** a um papel num tipo remove a sua permissão em todo o panorama, não a autoridade que detém como proprietário designado de um cartão específico. Consulte [Utilizadores e papéis](users.md).
 - **A edição em massa segue uma negação, não uma permissão.** Um tipo que nega **Editar** também bloqueia edições em massa; uma permissão não concede, por si só, a permissão distinta de edição em massa.
 - As alterações produzem efeito para os outros utilizadores no próximo carregamento da aplicação.
+
+##### Ocultar um tipo de cartão a um papel { #hiding-a-card-type-from-a-role }
+
+Negar **Ver** oculta completamente o tipo ao papel. Para os seus utilizadores, os cartões desse tipo não existem: ficam de fora do inventário, da pesquisa, das contagens e das exportações, das relações e da hierarquia de outros cartões, e de todos os relatórios, gráficos, grafos de dependências e painéis, bem como das listas de BPM, PPM, GRC, decisões, diagramas e TurboLens. Abrir um desses cartões a partir de uma ligação mostra **não encontrado** em vez de **acesso negado**, pelo que a página nem sequer revela que o cartão existe.
+
+- **Permitir Ver funciona no sentido inverso.** A um papel que não pode de todo consultar o inventário pode ser permitido **Ver** num único tipo; os seus utilizadores passam então a ver os cartões desse tipo, e apenas desse tipo.
+- **Para Ver, Herdar lê-se de duas formas.** No inventário, nas páginas dos cartões, na pesquisa e nas exportações, *herdar* segue a permissão **Ver** do papel em todo o panorama. Nos módulos que têm permissão própria — relatórios, BPM, PPM, riscos, decisões, diagramas, TurboLens — só um **Negar** explícito oculta alguma coisa, pelo que um papel que pode ler relatórios, mas não consultar o inventário, mantém os seus relatórios.
+- **Uma negação de Ver bloqueia as outras ações.** Um papel que não pode ver um tipo também não pode criar, editar, arquivar nem eliminar os seus cartões. As outras células da linha mostram um ícone de cadeado e mantêm os valores guardados, que voltam a aplicar-se assim que **Ver** deixar de estar negado.
+- **As partes interessadas mantêm os seus cartões.** Quem está atribuído a um cartão através de um papel de parte interessada que concede visualização continua a ver esse cartão — e apenas esse — mesmo quando o seu papel da aplicação não pode ver o respetivo tipo.
+- **Uma negação de Ver em Iniciativa também se aplica ao PPM.** A permissão de PPM não faz reaparecer as iniciativas ocultas; o papel vê apenas aquelas em que é parte interessada.
+- **As ligações que não pode ver são mantidas.** Quando alguém edita os cartões ligados a uma decisão, a um diagrama ou a um passo de processo, as ligações a cartões que não pode ver permanecem no lugar.
+- **A IA de Arquitetura precisa de todo o panorama.** A IA de Arquitetura do TurboLens raciocina sobre todos os cartões, pelo que fica indisponível para um papel ao qual esteja oculto qualquer tipo de cartão.
+
+Algumas coisas não são filtradas propositadamente, porque se trata de publicações ou de administração, e não de consulta:
+
+- os portais web publicados e os diagramas publicados;
+- o desenho de um diagrama e o texto escrito numa decisão ou num Statement of Architecture Work (os cartões ligados a eles são filtrados);
+- os valores produzidos por campos calculados, que são apurados sobre todo o panorama;
+- o registo de eventos e o fluxo de eventos em tempo real para administradores, e a exportação do espaço de trabalho;
+- os inquéritos que um administrador enviou ao utilizador;
+- as extensões, que atuam em nome do sistema e não de um utilizador.
 
 #### Traduções
 
