@@ -479,7 +479,7 @@ async def resource_stats(
         by_card_type = {}
 
     if f.want_links:
-        link_total = (
+        link_total: int = (
             await db.execute(
                 _apply_link_filters(
                     select(func.count(Document.id)).join(Card, Card.id == Document.card_id), f

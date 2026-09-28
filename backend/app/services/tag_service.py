@@ -149,7 +149,8 @@ async def set_card_tags(
         rows = await db.execute(
             select(CardTag).where(CardTag.card_id == card.id, CardTag.tag_id.in_(removed))
         )
-        for link in rows.scalars().all():
+        links: list[CardTag] = list(rows.scalars().all())
+        for link in links:
             await db.delete(link)
     await db.flush()
     await rescore_cards(db, [card.id])

@@ -102,7 +102,7 @@ class PermissionService:
 
         result = await db.execute(select(CardType.role_permissions).where(CardType.key == type_key))
         raw = result.scalar_one_or_none()
-        overrides = dict(raw) if raw else {}
+        overrides: dict[str, dict] = dict(raw) if raw else {}
         PermissionService._type_perm_cache[type_key] = (overrides, now)
         return overrides
 

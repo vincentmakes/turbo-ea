@@ -47,7 +47,7 @@ STARTUP_LOCK_KEY: Final[int] = int.from_bytes(b"TURBOEA", "big")
 async def startup_lock(engine: AsyncEngine, *, key: int = STARTUP_LOCK_KEY) -> AsyncIterator[None]:
     """Hold the boot-time advisory lock for the duration of the block."""
     async with engine.connect() as conn:
-        acquired = (
+        acquired: bool = (
             await conn.execute(text("SELECT pg_try_advisory_lock(:key)"), {"key": key})
         ).scalar_one()
         if not acquired:

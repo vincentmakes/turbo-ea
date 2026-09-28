@@ -571,7 +571,7 @@ async def architect_objectives(
         q = q.where(card_search_filter(search))
     q = _ordered_by_relevance(q, search).limit(50)
     result = await db.execute(q)
-    cards = result.scalars().all()
+    cards: list[Card] = list(result.scalars().all())
     return [
         {
             "id": str(c.id),
@@ -601,7 +601,7 @@ async def architect_capabilities(
         q = q.where(card_search_filter(search))
     q = _ordered_by_relevance(q, search).limit(50)
     result = await db.execute(q)
-    cards = result.scalars().all()
+    cards: list[Card] = list(result.scalars().all())
     return [
         {
             "id": str(c.id),

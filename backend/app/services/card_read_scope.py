@@ -321,6 +321,8 @@ def event_read_filters(read_scope: CardReadScope) -> tuple[ColumnElement[bool], 
         return ()
     event_card = aliased(Card)
     card_ok = read_scope.clause(event_card, mode="module")
+    if card_ok is None:  # cannot happen past the unrestricted check above; keeps mypy honest
+        return ()
     filters: list[ColumnElement[bool]] = [
         or_(Event.card_id.is_(None), Event.card_id.in_(select(event_card.id).where(card_ok)))
     ]

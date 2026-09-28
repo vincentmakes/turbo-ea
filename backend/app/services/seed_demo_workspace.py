@@ -200,7 +200,7 @@ async def _module_enabled(db: AsyncSession, key: str, default: bool) -> bool:
     toggle.
     """
     row = await db.execute(select(AppSettings.general_settings).limit(1))
-    general = row.scalar_one_or_none() or {}
+    general: dict[str, object] = row.scalar_one_or_none() or {}
     return bool(general.get(key, default))
 
 
