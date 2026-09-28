@@ -27,6 +27,7 @@ from sqlalchemy import select
 
 from app.core.permissions import ALL_APP_PERMISSION_KEYS
 from app.models.card_type import CardType
+from app.models.turbolens import TurboLensVendorAnalysis
 from app.services.permission_service import PermissionService
 from tests.conftest import (
     auth_headers,
@@ -160,6 +161,14 @@ async def world(db, client):
     # Starred before the deny exists: a favourite outlives a later deny.
     resp = await client.post(f"/api/v1/favorites/{sentinel['id']}", headers=auth_headers(reader))
     assert resp.status_code in (200, 201), resp.text
+
+    # A vendor analysis row is written by a background job, never by a route:
+    # seed it directly so `/turbolens/vendors` carries the sentinel's name.
+    db.add(
+        TurboLensVendorAnalysis(
+            vendor_name="Vendor X", category="ERP", app_count=1, app_list=[SENTINEL]
+        )
+    )
 
     ct = (await db.execute(select(CardType).where(CardType.key == "Secret"))).scalar_one()
     ct.role_permissions = {"restricted": {"inventory.view": False}}

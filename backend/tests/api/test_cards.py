@@ -208,8 +208,12 @@ class TestPpmViewCardRead:
     ):
         headers = auth_headers(ppm_view_env["ppm_user"])
         initiative_id = ppm_view_env["initiative"].id
+        await create_card(db, card_type="Initiative", name="Init A child", parent_id=initiative_id)
         resp = await client.get(f"/api/v1/cards/{initiative_id}/hierarchy", headers=headers)
         assert resp.status_code == 200
+        # The tree is read in module mode: a role without the global
+        # `inventory.view` still sees the children of a card it may open.
+        assert [c["name"] for c in resp.json()["children"]] == ["Init A child"]
         resp = await client.get(f"/api/v1/cards/{initiative_id}/history", headers=headers)
         assert resp.status_code == 200
 

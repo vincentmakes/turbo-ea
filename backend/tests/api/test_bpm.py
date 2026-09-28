@@ -8,9 +8,11 @@ import uuid
 import pytest
 from sqlalchemy import select
 
+from app.models.card_type import CardType
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
 from app.models.process_message_flow import ProcessMessageFlow
+from app.services.permission_service import PermissionService
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -614,6 +616,74 @@ class TestMessageFlows:
         )
         assert resp.status_code == 200, resp.text
         assert resp.json()["interface_id"] is None
+
+    async def test_clear_keeps_an_interface_link_the_caller_cannot_see(self, client, db, bpm_env):
+        """A null aimed at a link the caller was never shown leaves it in place."""
+        admin = bpm_env["admin"]
+        process = bpm_env["process"]
+        await create_card_type(db, key="Interface", label="Interface")
+        iface = await create_card(db, card_type="Interface", name="Order API", user_id=admin.id)
+        await create_role(
+            db,
+            key="modeller",
+            label="Modeller",
+            permissions={"inventory.view": True, "bpm.view": True, "bpm.edit": True},
+        )
+        modeller = await create_user(db, email="modeller@test.com", role="modeller")
+        ct = (await db.execute(select(CardType).where(CardType.key == "Interface"))).scalar_one()
+        ct.role_permissions = {"modeller": {"inventory.view": False}}
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+
+        await self._save(client, admin, process)
+        flows = (
+            await client.get(
+                f"/api/v1/bpm/processes/{process.id}/message-flows", headers=auth_headers(admin)
+            )
+        ).json()
+        flow_id = flows[0]["id"]
+        resp = await client.patch(
+            f"/api/v1/bpm/processes/{process.id}/message-flows/{flow_id}",
+            json={"interface_id": str(iface.id)},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+
+        # The modeller is shown no link, and their "clear" must not remove it.
+        listed = (
+            await client.get(
+                f"/api/v1/bpm/processes/{process.id}/message-flows",
+                headers=auth_headers(modeller),
+            )
+        ).json()
+        assert listed[0]["interface_id"] is None
+        resp = await client.patch(
+            f"/api/v1/bpm/processes/{process.id}/message-flows/{flow_id}",
+            json={"interface_id": None},
+            headers=auth_headers(modeller),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["interface_id"] is None
+        row = (
+            await db.execute(
+                select(ProcessMessageFlow).where(ProcessMessageFlow.id == uuid.UUID(flow_id))
+            )
+        ).scalar_one()
+        assert row.interface_id == iface.id
+        flows = (
+            await client.get(
+                f"/api/v1/bpm/processes/{process.id}/message-flows", headers=auth_headers(admin)
+            )
+        ).json()
+        assert flows[0]["interface_id"] == str(iface.id)
+
+        # Linking a hidden Interface is refused as not found.
+        resp = await client.patch(
+            f"/api/v1/bpm/processes/{process.id}/message-flows/{flow_id}",
+            json={"interface_id": str(iface.id)},
+            headers=auth_headers(modeller),
+        )
+        assert resp.status_code == 404
 
     async def test_link_rejects_a_card_that_is_not_an_interface(self, client, db, bpm_env):
         admin = bpm_env["admin"]

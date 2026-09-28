@@ -1134,7 +1134,10 @@ async def get_hierarchy(
 
     # Walk up parent chain to collect ancestors. The walk covers the full
     # chain (the level is structural), but an ancestor hidden from the caller
-    # by a type deny is left out of the list they are shown.
+    # by a type deny is left out of the list they are shown. Module mode, like
+    # the card's other sub-reads (relation summary, descendants, history): the
+    # gate above admits a card through `ppm.view` or a stakeholder role too,
+    # and inventory mode would show such a reader an empty tree.
     ancestors: list[dict] = []
     depth = 0
     current = card
@@ -1146,7 +1149,7 @@ async def get_hierarchy(
         if not parent:
             break
         depth += 1
-        if read_scope.readable(parent.id, parent.type, mode="inventory"):
+        if read_scope.readable(parent.id, parent.type, mode="module"):
             ancestors.append(
                 {
                     "id": str(parent.id),
@@ -1162,7 +1165,7 @@ async def get_hierarchy(
     children_result = await db.execute(
         select(Card)
         .where(Card.parent_id == uid, Card.status == "ACTIVE")
-        .where(*read_scope.where(Card, mode="inventory"))
+        .where(*read_scope.where(Card, mode="module"))
         .order_by(Card.name)
     )
     children = [

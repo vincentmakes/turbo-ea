@@ -612,13 +612,22 @@ async def update_message_flow(
         ):
             raise HTTPException(404, "Interface card not found")
         flow.interface_id = iface_id
-    else:
+    elif flow.interface_id is None or await is_card_readable(
+        db, current_user, flow.interface_id, mode="module", type_key="Interface"
+    ):
         flow.interface_id = None
+    # else: a clear aimed at a link the caller was never shown keeps it, as an
+    # element's links do (`update_element`). The response reads as unlinked,
+    # exactly as the list shows a hidden Interface.
 
     await db.commit()
     # The `interface` relationship is `noload`, so the identity-mapped row
     # still carries the pre-PATCH value — answer from the card just validated.
-    return {**message_flow_to_dict(flow), "interface_name": iface.name if iface else None}
+    return {
+        **message_flow_to_dict(flow),
+        "interface_id": str(iface.id) if iface else None,
+        "interface_name": iface.name if iface else None,
+    }
 
 
 # ── Template endpoints ───────────────────────────────────────────────────

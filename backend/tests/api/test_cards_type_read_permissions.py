@@ -19,6 +19,7 @@ from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.card_type import CardType
 from app.models.stakeholder import Stakeholder
+from app.models.turbolens import TurboLensVendorAnalysis
 from app.services.permission_service import PermissionService
 from tests.conftest import (
     auth_headers,
@@ -255,3 +256,97 @@ class TestReports:
         resp = await client.get("/api/v1/reports/dashboard", headers=auth_headers(reporter))
         assert resp.json()["by_type"].get("Initiative") == 2
         assert resp.json()["trends"] is not None
+
+
+class TestHierarchy:
+    """The tree is read in module mode: a deny subtracts, nothing else does."""
+
+    async def test_hidden_type_relatives_are_omitted(self, client, db, env):
+        await create_card(db, card_type="Initiative", name="Hidden child", parent_id=env["app"].id)
+        for who, expected in (("member", []), ("viewer", ["Hidden child"])):
+            resp = await client.get(
+                f"/api/v1/cards/{env['app'].id}/hierarchy", headers=auth_headers(env[who])
+            )
+            assert resp.status_code == 200
+            assert [c["name"] for c in resp.json()["children"]] == expected, who
+
+    async def test_stakeholder_only_reader_sees_the_tree(self, client, db, env):
+        """A card opened through a stakeholder role shows its children (module mode)."""
+        await create_role(db, key="holder", label="Holder", permissions={})
+        holder = await create_user(db, email="holder@t.com", role="holder")
+        db.add(Stakeholder(card_id=env["held"].id, user_id=holder.id, role="responsible"))
+        await db.flush()
+        child = await create_card(
+            db, card_type="Application", name="Held child", parent_id=env["held"].id
+        )
+        resp = await client.get(
+            f"/api/v1/cards/{env['held'].id}/hierarchy", headers=auth_headers(holder)
+        )
+        assert resp.status_code == 200
+        assert [c["id"] for c in resp.json()["children"]] == [str(child.id)]
+        resp = await client.get(f"/api/v1/cards/{child.id}/hierarchy", headers=auth_headers(holder))
+        assert resp.status_code == 403  # module mode on the tree, not on the gate
+
+
+class TestTurboLensVendors:
+    """The vendor analysis stores card names; a reader sees only the ones they may read."""
+
+    @pytest.fixture
+    async def vendors(self, db, env):
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_card_type(db, key="Provider", label="Provider")
+        await create_role(
+            db,
+            key="analyst",
+            label="Analyst",
+            permissions={"inventory.view": True, "turbolens.view": True},
+        )
+        analyst = await create_user(db, email="analyst@t.com", role="analyst")
+        await create_card(db, card_type="Application", name="Hidden App")
+        await create_card(db, card_type="ITComponent", name="Visible Component")
+        db.add_all(
+            [
+                TurboLensVendorAnalysis(
+                    vendor_name="Mixed Vendor",
+                    category="ERP",
+                    app_count=2,
+                    app_list=["Hidden App", "Visible Component"],
+                ),
+                TurboLensVendorAnalysis(
+                    vendor_name="Hidden Only Vendor",
+                    category="CRM",
+                    app_count=1,
+                    app_list=["Hidden App"],
+                ),
+                TurboLensVendorAnalysis(vendor_name="Bare Vendor", category="Other", app_count=0),
+            ]
+        )
+        await db.flush()
+        await set_overrides(db, "Application", {"analyst": {"inventory.view": False}})
+        return analyst
+
+    async def test_hidden_card_names_are_dropped(self, client, env, vendors):
+        resp = await client.get("/api/v1/turbolens/vendors", headers=auth_headers(vendors))
+        assert resp.status_code == 200
+        by_name = {v["vendor_name"]: v for v in resp.json()}
+        assert set(by_name) == {"Mixed Vendor", "Bare Vendor"}
+        assert by_name["Mixed Vendor"]["app_list"] == ["Visible Component"]
+        assert by_name["Mixed Vendor"]["app_count"] == 1
+        assert "Hidden App" not in resp.text
+
+    async def test_admin_sees_everything(self, client, env, vendors):
+        resp = await client.get("/api/v1/turbolens/vendors", headers=auth_headers(env["admin"]))
+        assert {v["vendor_name"] for v in resp.json()} == {
+            "Mixed Vendor",
+            "Hidden Only Vendor",
+            "Bare Vendor",
+        }
+
+    async def test_provider_deny_hides_every_vendor(self, client, db, env, vendors):
+        await set_overrides(db, "Provider", {"analyst": {"inventory.view": False}})
+        resp = await client.get("/api/v1/turbolens/vendors", headers=auth_headers(vendors))
+        assert resp.json() == []
+        resp = await client.get(
+            "/api/v1/turbolens/vendors/hierarchy", headers=auth_headers(vendors)
+        )
+        assert resp.json() == []

@@ -15,7 +15,7 @@ from typing import Any, Awaitable, Callable
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import Float as SAFloat
-from sqlalchemy import cast, func, select
+from sqlalchemy import cast, func, not_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -315,9 +315,43 @@ async def get_vendors(
     result = await db.execute(
         select(TurboLensVendorAnalysis).order_by(TurboLensVendorAnalysis.app_count.desc())
     )
-    return [
+    vendors = [
         VendorAnalysisOut.model_validate(v, from_attributes=True) for v in result.scalars().all()
     ]
+    read_scope = await CardReadScope.load(db, user)
+    if read_scope.is_unrestricted(mode="module"):
+        return vendors
+    # A vendor is a Provider card, and `app_list` names the Application and IT
+    # Component cards linked to it: a reader denied Provider sees no vendors,
+    # and a card hidden from them is dropped from every list it appears in.
+    if not read_scope.type_readable("Provider", mode="module"):
+        return []
+    hidden_names = await _hidden_vendor_card_names(db, read_scope)
+    out: list[VendorAnalysisOut] = []
+    for v in vendors:
+        apps = [name for name in (v.app_list or []) if name not in hidden_names]
+        if v.app_list and not apps:
+            continue  # the vendor exists only through cards the reader may not see
+        v.app_list = apps
+        v.app_count = len(apps)
+        out.append(v)
+    return out
+
+
+async def _hidden_vendor_card_names(db: AsyncSession, read_scope: CardReadScope) -> set[str]:
+    """Names of every card ``read_scope`` may not read.
+
+    The vendor analysis stores card *names* (``turbolens_vendors``), so the
+    filter has to work by name, and it takes every type rather than only the
+    two the analysis draws on today: a hidden card is hidden whatever wrote
+    its name into the list. ``clause`` is never ``None`` here since the caller
+    has already ruled out an unrestricted scope.
+    """
+    readable = read_scope.clause(Card, mode="module")
+    if readable is None:
+        return set()
+    rows = await db.execute(select(Card.name).where(not_(readable)))
+    return {name for (name,) in rows.all()}
 
 
 # ── Vendor Resolution ─────────────────────────────────────────────────────
@@ -350,6 +384,11 @@ async def get_vendor_hierarchy(
 ) -> list[VendorHierarchyOut]:
     """Get canonical vendor hierarchy tree."""
     await PermissionService.require_permission(db, user, "turbolens.view")
+    # Every node is a Provider card (by canonical name); a reader denied that
+    # type sees none. The payload carries counts and costs, never card names.
+    read_scope = await CardReadScope.load(db, user)
+    if not read_scope.type_readable("Provider", mode="module"):
+        return []
 
     result = await db.execute(
         select(TurboLensVendorHierarchy).order_by(TurboLensVendorHierarchy.app_count.desc())
