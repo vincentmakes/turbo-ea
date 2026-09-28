@@ -133,9 +133,9 @@ Los roles pueden retirarse de dos formas:
 
 La clave de un rol puede corregirse mientras **nadie ostente el rol**: las encuestas que lo utilizan siguen el cambio de nombre automáticamente, y renombrar el único rol de un tipo no supone problema, ya que el rol sobrevive. En cuanto alguien lo ostenta, la clave queda bloqueada y el campo explica por qué. Los roles creados antes de esta convención conservan la clave que ya tenían y siguen funcionando; solo se comprueba una clave nueva o modificada.
 
-#### Permisos
+#### Permisos { #permissions }
 
-Los tipos de tarjeta pueden restringir lo que cada rol de aplicación puede hacer con sus tarjetas. Abra la pestaña **Permisos** en el panel del tipo para ver una matriz de roles frente a las cuatro acciones — **Crear**, **Editar**, **Archivar** y **Eliminar**.
+Los tipos de tarjeta pueden restringir lo que cada rol de aplicación puede hacer con sus tarjetas. Abra la pestaña **Permisos** en el panel del tipo para ver una matriz de roles frente a las cinco acciones — **Ver**, **Crear**, **Editar**, **Archivar** y **Eliminar**.
 
 ![Permisos por tipo de ficha](../assets/img/es/85_admin_permisos_tipo_ficha.png)
 
@@ -153,6 +153,27 @@ Algunas reglas que conviene conocer:
 - **Los roles de partes interesadas siguen aplicándose.** Denegar **Editar** a un rol en un tipo elimina su permiso a nivel de todo el panorama, no la autoridad que ostenta como propietario asignado de una tarjeta concreta. Consulte [Usuarios y roles](users.md).
 - **La edición masiva sigue una denegación, no una autorización.** Un tipo que deniega **Editar** también bloquea las ediciones masivas; una autorización no concede por sí sola el permiso independiente de edición masiva.
 - Los cambios surten efecto para otros usuarios la próxima vez que recarguen la aplicación.
+
+##### Ocultar un tipo de tarjeta a un rol { #hiding-a-card-type-from-a-role }
+
+Denegar **Ver** oculta el tipo por completo al rol. Para sus usuarios, las tarjetas de ese tipo no existen: quedan fuera del inventario, de la búsqueda, de los recuentos y de las exportaciones, de las relaciones y de la jerarquía de otras tarjetas, y de todo informe, gráfico, grafo de dependencias y panel, así como de las listas de BPM, PPM, GRC, decisiones, diagramas y TurboLens. Abrir una de esas tarjetas desde un enlace muestra **no encontrado** en lugar de **acceso denegado**, de modo que la página ni siquiera revela que la tarjeta existe.
+
+- **Permitir Ver funciona en sentido contrario.** A un rol que no puede explorar el inventario en absoluto se le puede permitir **Ver** en un tipo; sus usuarios ven entonces las tarjetas de ese tipo, y solo las de ese tipo.
+- **Heredar se interpreta de dos maneras para Ver.** En el inventario, en las páginas de tarjeta, en la búsqueda y en las exportaciones, *heredar* sigue el permiso **Ver** del rol a nivel de todo el panorama. En los módulos que tienen su propio permiso — informes, BPM, PPM, riesgos, decisiones, diagramas, TurboLens — solo un **Denegar** explícito oculta algo, de modo que un rol que puede leer informes pero no explorar el inventario conserva sus informes.
+- **Denegar Ver bloquea las demás acciones.** Un rol que no puede ver un tipo tampoco puede crear, editar, archivar ni eliminar sus tarjetas. Las demás celdas de la fila muestran un icono de candado y conservan sus valores guardados, que vuelven a aplicarse en cuanto **Ver** deja de estar denegado.
+- **Las partes interesadas conservan sus tarjetas.** Quien esté asignado a una tarjeta mediante un rol de parte interesada que concede la visualización sigue viendo esa tarjeta —y solo esa— aunque su rol de aplicación no pueda ver su tipo.
+- **Denegar Ver en Iniciativa también se aplica a PPM.** El permiso de PPM no recupera las iniciativas ocultas; el rol solo ve aquellas en las que es parte interesada.
+- **Se conservan los vínculos que no se pueden ver.** Cuando alguien edita las tarjetas vinculadas a una decisión, un diagrama o un paso de proceso, los vínculos a tarjetas que esa persona no puede ver se mantienen.
+- **La IA de Arquitectura necesita todo el panorama.** La IA de Arquitectura de TurboLens razona sobre todas las tarjetas, por lo que no está disponible para un rol al que se le oculte cualquier tipo de tarjeta.
+
+Algunas cosas no se filtran a propósito, porque son publicaciones o tareas de administración y no exploración:
+
+- los portales web publicados y los diagramas publicados;
+- el dibujo de un diagrama y el texto redactado en una decisión o en una Declaración de Trabajo de Arquitectura (las tarjetas vinculadas a ellos sí se filtran);
+- los valores de los campos calculados, que se obtienen a partir de todo el panorama;
+- el registro de eventos y el flujo de eventos en directo para los administradores, así como la exportación del workspace;
+- las encuestas que un administrador ha enviado al usuario;
+- las extensiones, que actúan en nombre del sistema y no de un usuario.
 
 #### Traducciones
 

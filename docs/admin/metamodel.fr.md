@@ -133,9 +133,9 @@ Les rôles peuvent être retirés de deux façons :
 
 La clé d'un rôle peut être corrigée tant que **personne ne détient le rôle** — les enquêtes qui le ciblent suivent le renommage automatiquement, et renommer l'unique rôle d'un type ne pose pas de problème puisque le rôle lui survit. Dès que quelqu'un détient le rôle, la clé est verrouillée et le champ en explique la raison. Les rôles créés avant cette convention conservent leur clé existante et continuent de fonctionner ; seule une clé nouvelle ou modifiée est vérifiée.
 
-#### Autorisations
+#### Autorisations { #permissions }
 
-Les types de fiches peuvent restreindre ce que chaque rôle applicatif peut faire avec leurs fiches. Ouvrez l'onglet **Autorisations** dans le panneau du type pour afficher une matrice des rôles et des quatre actions — **Créer**, **Modifier**, **Archiver** et **Supprimer**.
+Les types de fiches peuvent restreindre ce que chaque rôle applicatif peut faire avec leurs fiches. Ouvrez l'onglet **Autorisations** dans le panneau du type pour afficher une matrice des rôles et des cinq actions — **Voir**, **Créer**, **Modifier**, **Archiver** et **Supprimer**.
 
 ![Autorisations par type de fiche](../assets/img/fr/85_admin_autorisations_type_fiche.png)
 
@@ -153,6 +153,27 @@ Quelques règles à connaître :
 - **Les rôles de parties prenantes s'appliquent toujours.** Refuser **Modifier** à un rôle sur un type supprime son autorisation à l'échelle du paysage, pas l'autorité détenue en tant que propriétaire désigné d'une fiche précise. Voir [Utilisateurs et rôles](users.md).
 - **La modification en masse suit un refus, pas une autorisation.** Un type qui refuse **Modifier** bloque aussi les modifications en masse ; une autorisation n'accorde pas pour autant l'autorisation distincte de modification en masse.
 - Les changements prennent effet pour les autres utilisateurs au prochain rechargement de l'application.
+
+##### Masquer un type de fiche à un rôle { #hiding-a-card-type-from-a-role }
+
+Refuser **Voir** masque entièrement le type au rôle. Pour ses utilisateurs, les fiches de ce type n'existent pas : elles sont absentes de l'inventaire, de la recherche, des décomptes et des exports, des relations et de la hiérarchie des autres fiches, de chaque rapport, graphique, graphe de dépendances et tableau de bord, ainsi que des listes du BPM, du PPM, de la GRC, des décisions, des diagrammes et de TurboLens. Ouvrir une telle fiche depuis un lien affiche **introuvable** plutôt qu'**accès refusé**, si bien que la page ne révèle même pas que la fiche existe.
+
+- **Autoriser Voir fonctionne dans l'autre sens.** Un rôle qui ne peut pas du tout parcourir l'inventaire peut se voir autoriser **Voir** sur un type ; ses utilisateurs voient alors les fiches de ce type, et de ce type seulement.
+- **Hériter se lit de deux façons pour Voir.** Dans l'inventaire, sur les pages de fiche, dans la recherche et dans les exports, *hériter* suit l'autorisation **Voir** du rôle à l'échelle du paysage. Dans les modules dotés de leur propre autorisation — rapports, BPM, PPM, risques, décisions, diagrammes, TurboLens —, seul un **Refuser** explicite masque quoi que ce soit : un rôle qui peut lire les rapports sans pouvoir parcourir l'inventaire conserve donc ses rapports.
+- **Un refus de Voir verrouille les autres actions.** Un rôle qui ne peut pas voir un type ne peut pas non plus créer, modifier, archiver ni supprimer ses fiches. Les autres cellules de la ligne affichent une icône de cadenas et conservent leurs valeurs enregistrées, qui s'appliquent de nouveau dès que **Voir** n'est plus refusé.
+- **Les parties prenantes conservent leurs fiches.** Une personne affectée à une fiche par un rôle de partie prenante qui accorde la consultation voit toujours cette fiche — et elle seule — même si son rôle applicatif ne peut pas voir le type de la fiche.
+- **Un refus de Voir sur Initiative s'applique aussi au PPM.** L'autorisation PPM ne fait pas réapparaître les initiatives masquées ; le rôle ne voit que celles dont il est partie prenante.
+- **Les liens invisibles sont conservés.** Lorsqu'une personne modifie les fiches liées à une décision, à un diagramme ou à une étape de processus, les liens vers des fiches qu'elle ne peut pas voir restent en place.
+- **L'Architecture IA a besoin de tout le paysage.** L'Architecture IA de TurboLens raisonne sur l'ensemble des fiches ; elle est donc indisponible pour tout rôle auquel un type de fiche, quel qu'il soit, est masqué.
+
+Quelques éléments ne sont volontairement pas filtrés, car ils relèvent de la publication ou de l'administration plutôt que de la consultation :
+
+- les portails web publiés et les diagrammes publiés ;
+- le dessin d'un diagramme et le texte rédigé dans une décision ou un Statement of Architecture Work (les fiches qui y sont liées sont, elles, filtrées) ;
+- les valeurs des champs calculés, qui sont établies sur l'ensemble du paysage ;
+- le journal des événements et le flux d'événements en direct destinés aux administrateurs, ainsi que l'export du workspace ;
+- les enquêtes qu'un administrateur a envoyées à l'utilisateur ;
+- les extensions, qui agissent pour le compte du système et non d'un utilisateur.
 
 #### Traductions
 

@@ -133,9 +133,9 @@ Roller kan fjernes på to måder:
 
 En rolles nøgle kan rettes, så længe **ingen har rollen** — undersøgelser der bruger den følger automatisk med omdøbningen, og det er også i orden at omdøbe en types eneste rolle, da rollen overlever det. Så snart nogen har rollen, låses nøglen, og feltet forklarer hvorfor. Roller oprettet før denne konvention beholder den nøgle de allerede har og fungerer fortsat; kun en ny eller ændret nøgle kontrolleres.
 
-#### Tilladelser
+#### Tilladelser { #permissions }
 
-Korttyper kan begrænse, hvad hver applikationsrolle må gøre med deres kort. Åbn fanen **Tilladelser** i typepanelet for at se en matrix af roller over for de fire korthandlinger — **Opret**, **Rediger**, **Arkivér** og **Slet**.
+Korttyper kan begrænse, hvad hver applikationsrolle må gøre med deres kort. Åbn fanen **Tilladelser** i typepanelet for at se en matrix af roller over for de fem korthandlinger — **Vis**, **Opret**, **Rediger**, **Arkivér** og **Slet**.
 
 ![Tilladelser pr. korttype](../assets/img/da/85_admin_card_type_permissions.png)
 
@@ -153,6 +153,27 @@ Nogle regler er værd at kende:
 - **Interessentroller gælder stadig.** At nægte en rolle **Rediger** på en type fjerner dens landskabsdækkende tilladelse, ikke den myndighed nogen har som tildelt ejer af ét bestemt kort. Se [Brugere og roller](users.md).
 - **Masseredigering følger et nej, ikke et ja.** En type, der nægter **Rediger**, blokerer også masseredigeringer; en tilladelse giver ikke i sig selv den separate masseredigeringstilladelse.
 - Ændringer træder i kraft for andre brugere, næste gang de genindlæser applikationen.
+
+##### Skjul en korttype for en rolle { #hiding-a-card-type-from-a-role }
+
+At nægte **Vis** skjuler typen helt for rollen. For rollens brugere findes kort af den type ikke: de er udeladt af lageret, søgning, optællinger og eksporter, af relationerne og hierarkiet på andre kort og af alle rapporter, grafer, afhængighedsgrafer og dashboards samt af listerne i BPM, PPM, GRC, beslutninger, diagrammer og TurboLens. Åbnes et sådant kort fra et link, vises **ikke fundet** i stedet for **adgang nægtet**, så siden ikke engang afslører, at kortet findes.
+
+- **At tillade Vis virker den modsatte vej.** En rolle, der slet ikke må gennemse lageret, kan få tilladt **Vis** på én type; dens brugere ser så kortene af den type og kun den type.
+- **Arv læses på to måder for Vis.** I lageret, på kortsider, i søgning og i eksporter følger *arv* rollens landskabsdækkende **Vis**-tilladelse. I moduler, der har deres egen tilladelse — rapporter, BPM, PPM, risici, beslutninger, diagrammer, TurboLens — skjuler kun et udtrykkeligt **Nægt** noget, så en rolle, der må læse rapporter, men ikke gennemse lageret, beholder sine rapporter.
+- **Et nej til Vis låser de øvrige handlinger.** En rolle, der ikke må se en type, kan heller ikke oprette, redigere, arkivere eller slette dens kort. Rækkens øvrige celler viser et låseikon og bevarer deres gemte værdier, som gælder igen, så snart **Vis** ikke længere er nægtet.
+- **Interessenter beholder deres kort.** En person, der er tildelt et kort gennem en interessentrolle, som giver adgang til at se det, ser stadig det kort — og kun det — selv når vedkommendes applikationsrolle ikke må se typen.
+- **Et nej til Vis på Initiativ gælder også i PPM.** PPM-tilladelsen bringer ikke skjulte initiativer tilbage; rollen ser kun dem, den er interessent på.
+- **Links, du ikke kan se, bevares.** Når nogen redigerer de kort, der er knyttet til en beslutning, et diagram eller et procestrin, bliver links til kort, som vedkommende ikke kan se, liggende.
+- **Architecture AI kræver hele landskabet.** TurboLens' Architecture AI ræsonnerer over alle kort, så den er ikke tilgængelig for en rolle, der har blot én korttype skjult.
+
+Nogle ting filtreres bevidst ikke, fordi de er publikationer eller administration snarere end gennemsyn:
+
+- publicerede webportaler og publicerede diagrammer;
+- selve tegningen på et diagram og teksten skrevet i en beslutning eller et Statement of Architecture Work (de kort, der er knyttet til dem, filtreres);
+- værdier fra beregnede felter, som udregnes på tværs af hele landskabet;
+- hændelsesloggen og den direkte hændelsesstrøm for administratorer samt arbejdsområdeeksporten;
+- undersøgelser, som en administrator har sendt til brugeren;
+- udvidelser, som handler på vegne af systemet frem for en bruger.
 
 #### Oversættelser
 

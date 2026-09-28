@@ -124,7 +124,7 @@ Se pueden crear roles personalizados con control granular de permisos sobre inve
 
 Los permisos se aplican tanto a la barra de direcciones como al menú. Una página que un rol no puede abrir muestra el aviso **Acceso denegado** con un enlace de vuelta al panel, tanto si se llega desde la navegación como desde un marcador o un enlace compartido: ocultar una entrada de menú y bloquear la página son siempre la misma decisión.
 
-Los permisos de un rol se aplican de forma predeterminada a todos los tipos de ficha. Un administrador puede restringirlos por tipo de ficha — permitiendo o denegando **Crear**, **Editar**, **Archivar** y **Eliminar** — en la pestaña **Permisos** del tipo de ficha en el [Metamodelo](metamodel.md#permissions).
+Los permisos de un rol se aplican de forma predeterminada a todos los tipos de ficha. Un administrador puede restringirlos por tipo de ficha — permitiendo o denegando **Ver**, **Crear**, **Editar**, **Archivar** y **Eliminar** — en la pestaña **Permisos** del tipo de ficha en el [Metamodelo](metamodel.md#permissions). Así se permite que cualquiera cree Aplicaciones mientras las Organizaciones y las Iniciativas quedan reservadas a un equipo central. Denegar **Ver** va más allá: las fichas de ese tipo desaparecen para el rol en todas partes, salvo aquellas en las que sus usuarios tienen un rol de parte interesada (consulte [Ocultar un tipo de ficha a un rol](metamodel.md#hiding-a-card-type-from-a-role)).
 
 #### Desactivar un Usuario
 

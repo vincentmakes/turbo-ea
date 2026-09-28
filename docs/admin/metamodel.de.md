@@ -133,9 +133,9 @@ Rollen lassen sich auf zwei Arten entfernen:
 
 Der Schlüssel einer Rolle lässt sich korrigieren, solange **niemand die Rolle innehat** — Umfragen, die sie verwenden, folgen der Umbenennung automatisch, und auch die einzige Rolle eines Typs lässt sich umbenennen, da die Rolle dabei erhalten bleibt. Sobald jemand die Rolle innehat, ist der Schlüssel gesperrt und das Feld erklärt warum. Rollen, die vor dieser Konvention angelegt wurden, behalten ihren bestehenden Schlüssel und funktionieren weiterhin; geprüft wird nur ein neuer oder geänderter Schlüssel.
 
-#### Berechtigungen
+#### Berechtigungen { #permissions }
 
-Kartentypen können einschränken, was jede Anwendungsrolle mit ihren Karten tun darf. Öffnen Sie die Registerkarte **Berechtigungen** im Typ-Bereich, um eine Matrix aus Rollen und den vier Kartenaktionen zu erhalten — **Erstellen**, **Bearbeiten**, **Archivieren** und **Löschen**.
+Kartentypen können einschränken, was jede Anwendungsrolle mit ihren Karten tun darf. Öffnen Sie die Registerkarte **Berechtigungen** im Typ-Bereich, um eine Matrix aus Rollen und den fünf Kartenaktionen zu erhalten — **Anzeigen**, **Erstellen**, **Bearbeiten**, **Archivieren** und **Löschen**.
 
 ![Kartentyp-Berechtigungen](../assets/img/de/85_admin_kartentyp_berechtigungen.png)
 
@@ -153,6 +153,27 @@ Einige Regeln sind wichtig:
 - **Stakeholder-Rollen gelten weiterhin.** Wird einer Rolle **Bearbeiten** für einen Typ verweigert, entfällt nur ihre systemweite Berechtigung, nicht die Befugnis als zugewiesene:r Eigentümer:in einer einzelnen Karte. Siehe [Benutzer & Rollen](users.md).
 - **Massenbearbeitung folgt einer Verweigerung, nicht einer Erlaubnis.** Ein Typ, der **Bearbeiten** verweigert, blockiert auch Massenbearbeitungen; eine Erlaubnis erteilt nicht die separate Massenbearbeitungsberechtigung.
 - Änderungen wirken für andere Benutzer beim nächsten Neuladen der Anwendung.
+
+##### Einen Kartentyp vor einer Rolle ausblenden { #hiding-a-card-type-from-a-role }
+
+Wird **Anzeigen** verweigert, ist der Typ für die Rolle vollständig ausgeblendet. Für ihre Benutzer existieren Karten dieses Typs nicht: Sie fehlen im Inventar, in der Suche, in Zählungen und Exporten, in den Beziehungen und der Hierarchie anderer Karten, in allen Berichten, Grafiken, Abhängigkeitsgraphen und Dashboards sowie in den Listen von BPM, PPM, GRC, Entscheidungen, Diagrammen und TurboLens. Wird eine solche Karte über einen Link geöffnet, erscheint **nicht gefunden** statt **Zugriff verweigert**, sodass die Seite nicht einmal verrät, dass die Karte existiert.
+
+- **Anzeigen zu erlauben wirkt in die andere Richtung.** Einer Rolle, die das Inventar überhaupt nicht durchsuchen darf, kann **Anzeigen** für einen einzelnen Typ erlaubt werden; ihre Benutzer sehen dann die Karten dieses Typs, und zwar nur dieses Typs.
+- **Erben hat bei Anzeigen zwei Bedeutungen.** Im Inventar, auf Kartenseiten, in der Suche und in Exporten folgt *Erben* der systemweiten Berechtigung **Anzeigen** der Rolle. In Modulen mit eigener Berechtigung — Berichte, BPM, PPM, Risiken, Entscheidungen, Diagramme, TurboLens — blendet nur ein ausdrückliches **Verweigern** etwas aus, sodass eine Rolle, die Berichte lesen, aber das Inventar nicht durchsuchen darf, ihre Berichte behält.
+- **Ein verweigertes Anzeigen sperrt die übrigen Aktionen.** Eine Rolle, die einen Typ nicht sehen darf, kann dessen Karten auch nicht erstellen, bearbeiten, archivieren oder löschen. Die übrigen Zellen der Zeile zeigen ein Schlosssymbol und behalten ihre gespeicherten Werte, die wieder gelten, sobald **Anzeigen** nicht mehr verweigert wird.
+- **Stakeholder behalten ihre Karten.** Wer einer Karte über eine Stakeholder-Rolle zugewiesen ist, die das Anzeigen gewährt, sieht diese Karte weiterhin — und nur diese —, auch wenn die eigene Anwendungsrolle ihren Typ nicht anzeigen darf.
+- **Ein verweigertes Anzeigen für Initiativen gilt auch in PPM.** Die PPM-Berechtigung holt ausgeblendete Initiativen nicht zurück; die Rolle sieht nur diejenigen, bei denen sie Stakeholder ist.
+- **Nicht sichtbare Verknüpfungen bleiben erhalten.** Bearbeitet jemand die Karten, die mit einer Entscheidung, einem Diagramm oder einem Prozessschritt verknüpft sind, bleiben Verknüpfungen zu Karten, die diese Person nicht sehen kann, bestehen.
+- **Die Architektur-KI braucht die gesamte Landschaft.** Die Architektur-KI von TurboLens bezieht jede Karte in ihre Überlegungen ein und steht deshalb keiner Rolle zur Verfügung, vor der auch nur ein Kartentyp ausgeblendet ist.
+
+Einiges wird bewusst nicht gefiltert, weil es sich um Veröffentlichungen oder Administration handelt und nicht um das Durchsuchen des Bestands:
+
+- veröffentlichte Webportale und veröffentlichte Diagramme;
+- die Zeichnung eines Diagramms sowie der Text einer Entscheidung oder eines Statement of Architecture Work (die damit verknüpften Karten werden gefiltert);
+- Werte berechneter Felder, die über die gesamte Landschaft ermittelt werden;
+- das Ereignisprotokoll und der Live-Ereignisstream für Administratoren sowie der Workspace-Export;
+- Umfragen, die ein Administrator an den Benutzer gesendet hat;
+- Erweiterungen, die im Namen des Systems handeln und nicht im Namen eines Benutzers.
 
 #### Übersetzungen
 

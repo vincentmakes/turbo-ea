@@ -124,7 +124,7 @@ Benutzerdefinierte Rollen können mit granularer Berechtigungssteuerung über In
 
 Berechtigungen gelten für die Adressleiste ebenso wie für das Menü. Eine Seite, die eine Rolle nicht öffnen darf, zeigt den Hinweis **Zugriff verweigert** mit einem Link zurück zum Dashboard — unabhängig davon, ob sie über die Navigation, ein Lesezeichen oder einen geteilten Link aufgerufen wird. Einen Menüeintrag auszublenden und die Seite zu sperren ist damit immer dieselbe Entscheidung.
 
-Die Berechtigungen einer Rolle gelten standardmäßig für jeden Kartentyp. Ein Administrator kann dies pro Kartentyp einschränken — **Erstellen**, **Bearbeiten**, **Archivieren** und **Löschen** jeweils erlauben oder verweigern — auf der Registerkarte **Berechtigungen** des Kartentyps im [Metamodell](metamodel.md#permissions).
+Die Berechtigungen einer Rolle gelten standardmäßig für jeden Kartentyp. Ein Administrator kann dies pro Kartentyp einschränken — **Anzeigen**, **Erstellen**, **Bearbeiten**, **Archivieren** und **Löschen** jeweils erlauben oder verweigern — auf der Registerkarte **Berechtigungen** des Kartentyps im [Metamodell](metamodel.md#permissions). So können Sie jedem das Erstellen von Anwendungen erlauben und Organisationen und Initiativen einem zentralen Team vorbehalten. Das Verweigern von **Anzeigen** geht weiter: Karten dieses Typs verschwinden für die Rolle überall, mit Ausnahme der Karten, bei denen ihre Benutzer eine Stakeholder-Rolle innehaben (siehe [Einen Kartentyp vor einer Rolle ausblenden](metamodel.md#hiding-a-card-type-from-a-role)).
 
 #### Einen Benutzer deaktivieren
 

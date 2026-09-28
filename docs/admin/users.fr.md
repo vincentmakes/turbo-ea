@@ -124,7 +124,7 @@ Des rôles personnalisés peuvent être créés avec un contrôle granulaire des
 
 Les autorisations s'appliquent à la barre d'adresse comme au menu. Une page qu'un rôle ne peut pas ouvrir affiche la mention **Accès refusé** avec un lien vers le tableau de bord, qu'elle soit atteinte depuis la navigation, un favori ou un lien partagé — masquer une entrée de menu et bloquer la page sont donc toujours la même décision.
 
-Les autorisations d'un rôle s'appliquent par défaut à tous les types de fiches. Un administrateur peut les restreindre par type de fiche — autoriser ou refuser **Créer**, **Modifier**, **Archiver** et **Supprimer** — dans l'onglet **Autorisations** du type de fiche dans le [Métamodèle](metamodel.md#permissions).
+Les autorisations d'un rôle s'appliquent par défaut à tous les types de fiches. Un administrateur peut les restreindre par type de fiche — autoriser ou refuser **Voir**, **Créer**, **Modifier**, **Archiver** et **Supprimer** — dans l'onglet **Autorisations** du type de fiche dans le [Métamodèle](metamodel.md#permissions). C'est ainsi que l'on permet à tout le monde de créer des applications tout en réservant les organisations et les initiatives à une équipe centrale. Refuser **Voir** va plus loin : les fiches de ce type disparaissent partout pour le rôle, à l'exception de celles sur lesquelles ses utilisateurs détiennent un rôle de partie prenante (voir [Masquer un type de fiche à un rôle](metamodel.md#hiding-a-card-type-from-a-role)).
 
 #### Désactiver un utilisateur
 
