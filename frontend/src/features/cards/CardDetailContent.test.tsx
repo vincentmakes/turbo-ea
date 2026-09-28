@@ -26,6 +26,7 @@ vi.mock("@/hooks/useCardTabActivity", () => ({
   useCardTabActivity: () => ({ hasUpdates: () => false, noteVisit: () => {} }),
 }));
 vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => null,
   useAuthContext: () => ({ user: { id: "u1", permissions: { "*": true } } }),
 }));
 vi.mock("@/hooks/usePermissions", () => ({ usePermissions: () => ({ can: () => true }) }));

@@ -526,6 +526,9 @@ export interface CardListResponse {
   total: number;
   page: number;
   page_size: number;
+  /** `ids=` mode only: requested ids that exist but are hidden from the
+   *  caller by a card-type View deny (as opposed to deleted). */
+  withheld_ids?: string[];
 }
 
 export interface RelationRef {

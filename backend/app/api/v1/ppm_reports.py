@@ -18,6 +18,7 @@ from app.api.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.ppm import PpmGanttItem, PpmGroupOption
 from app.services import ppm_portfolio_service as portfolio
+from app.services.card_read_scope import CardReadScope
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/reports/ppm", tags=["ppm-reports"])
@@ -30,7 +31,7 @@ async def ppm_group_options(
 ):
     """Return card types that Initiative has relation types to (for grouping dropdown)."""
     await PermissionService.require_permission(db, user, "ppm.view")
-    return await portfolio.build_group_options(db)
+    return await portfolio.build_group_options(db, read_scope=await CardReadScope.load(db, user))
 
 
 @router.get("/dashboard")
@@ -40,7 +41,9 @@ async def ppm_dashboard(
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
 
-    initiatives = await portfolio.load_initiatives(db, portfolio.PortfolioScope())
+    initiatives = await portfolio.load_initiatives(
+        db, portfolio.PortfolioScope(), read_scope=await CardReadScope.load(db, user)
+    )
     init_ids = [c.id for c in initiatives]
     latest = await portfolio.latest_reports(db, init_ids)
     totals = await portfolio.sum_budget_actual(db, init_ids)
@@ -55,6 +58,11 @@ async def ppm_gantt(
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
 
-    initiatives = await portfolio.load_initiatives(db, portfolio.PortfolioScope())
+    read_scope = await CardReadScope.load(db, user)
+    initiatives = await portfolio.load_initiatives(
+        db, portfolio.PortfolioScope(), read_scope=read_scope
+    )
     latest = await portfolio.latest_reports(db, [c.id for c in initiatives])
-    return await portfolio.build_gantt_items(db, initiatives, latest, group_by=group_by)
+    return await portfolio.build_gantt_items(
+        db, initiatives, latest, group_by=group_by, read_scope=read_scope
+    )

@@ -23,6 +23,7 @@ from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.survey import Survey
 from app.models.user import User
+from app.services.card_read_scope import CardReadScope
 from app.services.data_quality import rescore_card_type
 from app.services.permission_service import PermissionService
 
@@ -314,11 +315,14 @@ async def list_stakeholder_roles(
 
     # One grouped query for every role rather than a count per row — the panel
     # renders this list on every card-type drawer open.
+    # Counted over the cards the caller may see, so a type hidden from them
+    # does not report how many assignments it carries.
     count_rows = (
         await db.execute(
             select(Stakeholder.role, func.count(Stakeholder.id))
             .join(Card, Stakeholder.card_id == Card.id)
             .where(Card.type == type_key)
+            .where(*(await CardReadScope.load(db, user)).where(Card, mode="module"))
             .group_by(Stakeholder.role)
         )
     ).all()
@@ -347,7 +351,12 @@ async def get_stakeholder_role(
     if not srd:
         raise HTTPException(404, "Stakeholder role not found")
 
-    stakeholder_count = await _stakeholder_count(db, type_key, role_key)
+    read_scope = await CardReadScope.load(db, user)
+    stakeholder_count = (
+        await _stakeholder_count(db, type_key, role_key)
+        if read_scope.type_readable(type_key, mode="module")
+        else 0
+    )
     return _srd_response(srd, stakeholder_count=stakeholder_count)
 
 

@@ -76,3 +76,17 @@ def require_permission(app_perm: str, *, card_type_key: str | None = None):
         return user
 
     return _check
+
+
+async def get_card_read_scope(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The caller's card read scope (``app.services.card_read_scope``).
+
+    Resolved once per request; FastAPI caches dependencies, so a route that
+    also takes ``get_current_user`` / ``get_db`` shares the same session.
+    """
+    from app.services.card_read_scope import CardReadScope
+
+    return await CardReadScope.load(db, user)

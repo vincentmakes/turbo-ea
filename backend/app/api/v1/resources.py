@@ -61,6 +61,7 @@ from app.schemas.resource import (
     ResourceSkipped,
     ResourceStats,
 )
+from app.services.card_read_scope import CardReadScope
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -102,6 +103,9 @@ class _Filters:
     since: datetime | None = None
     until: datetime | None = None
     archived: str = "any"
+    # The caller's card read scope (module mode): resources on a card hidden
+    # from them are left out of every list, count and byte total.
+    read_where: tuple = ()
 
     @property
     def want_files(self) -> bool:
@@ -150,6 +154,8 @@ def _parse_filters(
 def _apply_card_filters(stmt: Select, f: _Filters) -> Select:
     """Filters that live on the joined ``cards`` row — identical for both
     branches."""
+    if f.read_where:
+        stmt = stmt.where(*f.read_where)
     if f.card_id:
         stmt = stmt.where(Card.id == f.card_id)
     if f.card_types:
@@ -309,6 +315,7 @@ async def list_resources(
     f = _parse_filters(
         search, kind, card_id, card_type, category, mime_type, created_by, since, until, archived
     )
+    f.read_where = (await CardReadScope.load(db, user)).where(Card, mode="module")
     branches = _branches(f)
     if not branches:
         return ResourceListPage(items=[], total=0, page=page, page_size=page_size)
@@ -390,6 +397,7 @@ async def resource_stats(
     f = _parse_filters(
         search, kind, card_id, card_type, category, mime_type, created_by, since, until, archived
     )
+    f.read_where = (await CardReadScope.load(db, user)).where(Card, mode="module")
 
     stats = ResourceStats()
     card_ids: set[uuid.UUID] = set()

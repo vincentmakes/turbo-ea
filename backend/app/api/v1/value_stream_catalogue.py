@@ -35,7 +35,9 @@ class ImportRequest(BaseModel):
 async def get_catalogue(
     locale: str | None = None,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_permission("inventory.view")),
+    # The catalogue marks which entries already exist as BusinessContext cards, so a
+    # role denied View on that type may not open it.
+    user: User = Depends(require_permission("inventory.view", card_type_key="BusinessContext")),
 ):
     """Return the full active value-stream catalogue, flattened to a
     parent-stream + child-stage tree so the existing browser UI can render

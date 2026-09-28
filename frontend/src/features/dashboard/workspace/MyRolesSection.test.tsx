@@ -8,6 +8,7 @@ vi.mock("@/api/client", () => ({
 }));
 
 vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => null,
   useAuthContext: vi.fn(),
 }));
 

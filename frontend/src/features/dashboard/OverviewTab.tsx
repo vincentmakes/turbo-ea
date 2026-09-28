@@ -24,6 +24,7 @@ import {
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useReadableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { api } from "@/api/client";
@@ -52,6 +53,7 @@ export default function OverviewTab() {
   // so default axis ticks render over the bars; this anchors them outside instead.
   const rtlAxisTick = makeRtlAxisTick(theme.palette.text.secondary);
   const { types } = useMetamodel();
+  const readableTypes = useReadableCardTypes("module");
   const typeLabel = useTypeLabel();
   const [data, setData] = useState<DashboardData | null>(null);
 
@@ -110,7 +112,9 @@ export default function OverviewTab() {
 
   if (!data) return <LinearProgress />;
 
-  const typeCards = types.filter(
+  // A type the user may not see gets no tile — not even an empty one for the
+  // four always-shown types.
+  const typeCards = readableTypes.filter(
     (t) => !t.is_hidden && ((data.by_type[t.key] ?? 0) > 0 || ["Application", "BusinessCapability", "ITComponent", "Initiative"].includes(t.key)),
   );
 

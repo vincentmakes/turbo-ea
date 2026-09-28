@@ -16,6 +16,7 @@ import {
   canOpenExtensionPath,
   getExtensionDisplayName,
 } from "@/lib/extensionHost";
+import { routePermissionsFor } from "@/components/RequirePermission";
 import { canAccessPath } from "@/lib/routePermissions";
 import type { Notification } from "@/types";
 
@@ -41,7 +42,7 @@ export default function NotificationDetailDialog({
 }) {
   const { t } = useTranslation("notifications");
   const { user } = useAuthContext();
-  const perms = user?.permissions;
+  const perms = routePermissionsFor(user);
   const data = notification.data ?? {};
   const ext = typeof data.ext === "string" ? data.ext : undefined;
   const link = notification.link;

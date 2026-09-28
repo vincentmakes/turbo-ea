@@ -11,6 +11,7 @@ from app.database import get_db
 from app.models.document import Document
 from app.models.user import User
 from app.schemas.common import DocumentCreate
+from app.services.card_read_scope import require_card_readable
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -24,6 +25,7 @@ async def list_documents(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "documents.view")
+    await require_card_readable(db, user, uuid.UUID(card_id), mode="module")
     result = await db.execute(select(Document).where(Document.card_id == uuid.UUID(card_id)))
     docs = result.scalars().all()
     return [

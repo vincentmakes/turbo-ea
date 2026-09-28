@@ -19,6 +19,7 @@ from app.schemas.common import (
     StakeholderBulkResult,
     StakeholderCreate,
 )
+from app.services.card_read_scope import require_card_readable
 from app.services.data_quality import rescore_cards
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
@@ -85,6 +86,10 @@ async def list_stakeholders(
     await PermissionService.require_permission(db, user, "stakeholders.view")
     card_result = await db.execute(select(Card.type).where(Card.id == uuid.UUID(card_id)))
     card_type_key = card_result.scalar_one_or_none()
+    if card_type_key is not None:
+        await require_card_readable(
+            db, user, uuid.UUID(card_id), mode="module", type_key=card_type_key
+        )
     roles = await _roles_for_type(db, card_type_key) if card_type_key else _DEFAULT_ROLES
     labels = _role_labels(roles)
 

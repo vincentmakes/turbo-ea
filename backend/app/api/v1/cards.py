@@ -80,6 +80,12 @@ from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_completeness import missing_mandatory
 from app.services.card_flags import orphaned_condition, stale_condition
 from app.services.card_logo_service import logo_updated_map
+from app.services.card_read_scope import (
+    CardReadScope,
+    require_card_readable,
+    require_inventory_browse,
+    scrub_event_payloads,
+)
 from app.services.card_resolver import CardResolver
 from app.services.card_search import card_search_filter, card_search_rank
 from app.services.card_uniqueness import check_sibling_name_unique
@@ -214,20 +220,32 @@ async def _card_response_with_cost_check(db: AsyncSession, user: User, card: Car
     )
 
 
-async def _require_card_read(db: AsyncSession, user: User, card_id: uuid.UUID) -> None:
-    """Read gate for card-scoped GETs: `inventory.view` OR stakeholder `card.view`
+async def _require_card_read(db: AsyncSession, user: User, card_id: uuid.UUID) -> str:
+    """Read gate for card-scoped GETs; returns the card's type key.
+
+    Readable = `inventory.view` (per-type aware) OR stakeholder `card.view`
     OR — when the card is an Initiative — the PPM module's `ppm.view`. The PPM
     detail page (/ppm/:id, route-gated on ppm.view) fronts the Initiative card
-    itself, so ppm.view must be able to read it (#1043). The type lookup runs
-    only on the fallback path, so the common path costs nothing extra.
+    itself, so ppm.view must be able to read it (#1043). An explicit View deny
+    on the card's type wins over that fallback (`has_app_permission` answers
+    False for every permission on a View-denied type).
+
+    404 when the card does not exist *or* is hidden from the caller by a type
+    deny — a hidden card does not exist for them. 403 otherwise.
     """
-    if await PermissionService.check_permission(db, user, "inventory.view", card_id, "card.view"):
-        return
-    card_type = (await db.execute(select(Card.type).where(Card.id == card_id))).scalar_one_or_none()
-    if card_type == "Initiative" and await PermissionService.has_app_permission(
-        db, user, "ppm.view"
+    type_key = await PermissionService._card_type_key(db, card_id)
+    if type_key is None:
+        raise HTTPException(404, "Card not found")
+    if await PermissionService.check_permission(
+        db, user, "inventory.view", card_id, "card.view", card_type_key=type_key
     ):
-        return
+        return type_key
+    if type_key == "Initiative" and await PermissionService.has_app_permission(
+        db, user, "ppm.view", card_type_key=type_key
+    ):
+        return type_key
+    if await PermissionService.is_type_denied(db, user, "inventory.view", type_key):
+        raise HTTPException(404, "Card not found")
     raise HTTPException(403, "Insufficient permissions")
 
 
@@ -295,7 +313,7 @@ async def list_cards(
     ),
     sort_dir: str | None = Query(None, description="`asc` (default) or `desc`."),
 ):
-    await PermissionService.require_permission(db, user, "inventory.view")
+    read_scope = await require_inventory_browse(db, user)
     q = select(Card)
     count_q = select(func.count(Card.id))
 
@@ -303,6 +321,10 @@ async def list_cards(
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
     q = q.where(Card.type.not_in(hidden_types_sq))
     count_q = count_q.where(Card.type.not_in(hidden_types_sq))
+    # ...and cards the caller may not read (card-type View deny).
+    q = q.where(*read_scope.where(Card, mode="inventory"))
+    count_q = count_q.where(*read_scope.where(Card, mode="inventory"))
+    withheld_ids: list[str] = []
 
     if ids:
         # Skip silently-malformed UUIDs so a single bad id doesn't 500 a batch.
@@ -319,6 +341,13 @@ async def list_cards(
             return CardListResponse(items=[], total=0, page=page, page_size=page_size)
         q = q.where(Card.id.in_(id_list))
         count_q = count_q.where(Card.id.in_(id_list))
+        if not read_scope.is_unrestricted(mode="inventory"):
+            rows = await db.execute(select(Card.id, Card.type).where(Card.id.in_(id_list)))
+            withheld_ids = [
+                str(cid)
+                for cid, ctype in rows.all()
+                if not read_scope.readable(cid, ctype, mode="inventory")
+            ]
 
     if type:
         types_list = [t.strip() for t in type.split(",") if t.strip()]
@@ -398,7 +427,9 @@ async def list_cards(
         for card in cards
     ]
 
-    return CardListResponse(items=items, total=total, page=page, page_size=page_size)
+    return CardListResponse(
+        items=items, total=total, page=page, page_size=page_size, withheld_ids=withheld_ids
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -442,7 +473,7 @@ async def list_my_stakeholder_cards(
 
     # Self-lookups need the same gate as the rest of the workspace; cross-user
     # lookups additionally require `stakeholders.view`.
-    await PermissionService.require_permission(db, user, "inventory.view")
+    read_scope = await require_inventory_browse(db, user)
     if target_user_id != user.id:
         target = await db.get(User, target_user_id)
         if target is None:
@@ -466,6 +497,7 @@ async def list_my_stakeholder_cards(
         .join(roles_subq, roles_subq.c.card_id == Card.id)
         .where(Card.status == "ACTIVE")
         .where(Card.type.not_in(hidden_types_sq))
+        .where(*read_scope.where(Card, mode="inventory"))
         .order_by(Card.updated_at.desc())
         .limit(limit)
         .options(
@@ -534,15 +566,17 @@ async def list_my_created_cards(
     Workspace → Cards I Created section can offer a "Show more" button
     on long lists.
     """
-    await PermissionService.require_permission(db, user, "inventory.view")
+    read_scope = await require_inventory_browse(db, user)
 
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+    readable = read_scope.where(Card, mode="inventory")
 
     base = (
         select(Card)
         .where(Card.created_by == user.id)
         .where(Card.status == "ACTIVE")
         .where(Card.type.not_in(hidden_types_sq))
+        .where(*readable)
     )
 
     total = (
@@ -552,6 +586,7 @@ async def list_my_created_cards(
             .where(Card.created_by == user.id)
             .where(Card.status == "ACTIVE")
             .where(Card.type.not_in(hidden_types_sq))
+            .where(*readable)
         )
     ).scalar() or 0
 
@@ -590,6 +625,9 @@ async def create_card(
     await PermissionService.require_permission(
         db, user, "inventory.create", card_type_key=body.type
     )
+    if body.parent_id:
+        # A parent hidden from the caller does not exist for them.
+        await require_card_readable(db, user, uuid.UUID(body.parent_id), mode="module")
     card = await card_write_service.create_card(
         db,
         card_write_service.WriteActor.from_user(user),
@@ -707,7 +745,9 @@ async def bulk_create_cards(
     # That's any type referenced by a `parent_path/name` ref. We always
     # include the rows' own types so resolution against the live DB works.
     parent_types: set[str] = {r.type for r in rows}
-    resolver = await CardResolver.load(db, parent_types)
+    # A parent the caller may not read resolves as missing, as if it did not exist.
+    read_scope = await CardReadScope.load(db, user)
+    resolver = await CardResolver.load(db, parent_types, read_scope=read_scope, mode="module")
 
     # Build a dep graph: each row → its parent row (if the parent is in the
     # same batch). Rows that resolve their parent against the live DB or
@@ -830,6 +870,12 @@ async def bulk_create_cards(
                     resolved_parent = uuid.UUID(r.parent_id)
                 except ValueError as exc:
                     raise HTTPException(422, f"Invalid parent_id UUID: {r.parent_id}") from exc
+                if not read_scope.readable(
+                    resolved_parent,
+                    await PermissionService._card_type_key(db, resolved_parent),
+                    mode="module",
+                ):
+                    raise HTTPException(404, "Parent card not found")
             elif r.parent_name:
                 # Look up against same-batch created rows first.
                 ref_keys = [
@@ -994,10 +1040,10 @@ async def resolve_card_refs(
     `missing`. Ambiguous results include up to a handful of candidate
     paths so the UI can render a useful disambiguation hint.
     """
-    await PermissionService.require_permission(db, user, "inventory.view")
+    read_scope = await require_inventory_browse(db, user)
 
     type_keys: set[str] = {r.type for r in body.refs}
-    resolver = await CardResolver.load(db, type_keys)
+    resolver = await CardResolver.load(db, type_keys, read_scope=read_scope, mode="inventory")
 
     results: list[CardRefResolveResult] = []
     for ref in body.refs:
@@ -1031,11 +1077,12 @@ async def cards_counts(
     Declared above /{card_id} so the literal `counts` segment isn't shadowed
     by the UUID-typed catch-all and parsed as a (broken) UUID.
     """
-    await PermissionService.require_permission(db, user, "inventory.view")
+    read_scope = await require_inventory_browse(db, user)
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
     rows = await db.execute(
         select(Card.type, func.count(Card.id))
         .where(Card.status == "ACTIVE", Card.type.not_in(hidden_types_sq))
+        .where(*read_scope.where(Card, mode="inventory"))
         .group_by(Card.type)
     )
     by_type = [CardTypeCount(type=tp, count=int(cnt)) for tp, cnt in rows.all()]
@@ -1079,13 +1126,17 @@ async def get_hierarchy(
     """
     uid = uuid.UUID(card_id)
     await _require_card_read(db, user, uid)
+    read_scope = await CardReadScope.load(db, user)
     result = await db.execute(select(Card).where(Card.id == uid))
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
 
-    # Walk up parent chain to collect ancestors
+    # Walk up parent chain to collect ancestors. The walk covers the full
+    # chain (the level is structural), but an ancestor hidden from the caller
+    # by a type deny is left out of the list they are shown.
     ancestors: list[dict] = []
+    depth = 0
     current = card
     seen: set[uuid.UUID] = {uid}
     while current.parent_id and current.parent_id not in seen:
@@ -1094,20 +1145,25 @@ async def get_hierarchy(
         parent = res.scalar_one_or_none()
         if not parent:
             break
-        ancestors.append(
-            {
-                "id": str(parent.id),
-                "name": parent.name,
-                "type": parent.type,
-                "parent_label": parent.parent_label,
-            }
-        )
+        depth += 1
+        if read_scope.readable(parent.id, parent.type, mode="inventory"):
+            ancestors.append(
+                {
+                    "id": str(parent.id),
+                    "name": parent.name,
+                    "type": parent.type,
+                    "parent_label": parent.parent_label,
+                }
+            )
         current = parent
     ancestors.reverse()  # root first
 
     # Direct children
     children_result = await db.execute(
-        select(Card).where(Card.parent_id == uid, Card.status == "ACTIVE").order_by(Card.name)
+        select(Card)
+        .where(Card.parent_id == uid, Card.status == "ACTIVE")
+        .where(*read_scope.where(Card, mode="inventory"))
+        .order_by(Card.name)
     )
     children = [
         {
@@ -1122,7 +1178,7 @@ async def get_hierarchy(
     return {
         "ancestors": ancestors,
         "children": children,
-        "level": len(ancestors) + 1,
+        "level": depth + 1,
         "parent_label": card.parent_label,
     }
 
@@ -1144,15 +1200,16 @@ async def relation_summary(
     relations.
     """
     uid = uuid.UUID(card_id)
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uid, card_permission="card.view"
-    )
+    await _require_card_read(db, user, uid)
     card = await db.get(Card, uid)
     if not card:
         raise HTTPException(404, "Card not found")
 
-    # Same hidden-type / archived filter rules as GET /relations so counts
-    # match what the user would actually see if they clicked through.
+    # Same hidden-type / archived / read-scope filter rules as GET /relations
+    # (module mode there too) so counts match what the user would actually
+    # see if they clicked through.
+    read_scope = await CardReadScope.load(db, user)
+    peer_readable = read_scope.where(Card, mode="module")
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
     excluded_card_sq = select(Card.id).where(
         or_(Card.type.in_(hidden_types_sq), Card.status == "ARCHIVED")
@@ -1164,6 +1221,7 @@ async def relation_summary(
         .where(
             Relation.source_id == uid,
             Relation.target_id.not_in(excluded_card_sq),
+            *peer_readable,
         )
         .group_by(Relation.type, Card.type)
     )
@@ -1173,6 +1231,7 @@ async def relation_summary(
         .where(
             Relation.target_id == uid,
             Relation.source_id.not_in(excluded_card_sq),
+            *peer_readable,
         )
         .group_by(Relation.type, Card.type)
     )
@@ -1220,14 +1279,20 @@ async def relation_summary(
     # Hierarchy snapshot — children count + parent info. ACTIVE children
     # only, matching what the diagram editor would actually drill into.
     children_count = await db.scalar(
-        select(func.count(Card.id)).where(Card.parent_id == uid, Card.status == "ACTIVE")
+        select(func.count(Card.id)).where(
+            Card.parent_id == uid, Card.status == "ACTIVE", *peer_readable
+        )
     )
     parent_id_str: str | None = None
     parent_name: str | None = None
     parent_type: str | None = None
     if card.parent_id is not None:
         parent = await db.get(Card, card.parent_id)
-        if parent and parent.status == "ACTIVE":
+        if (
+            parent
+            and parent.status == "ACTIVE"
+            and read_scope.readable(parent.id, parent.type, mode="module")
+        ):
             parent_id_str = str(parent.id)
             parent_name = parent.name
             parent_type = parent.type
@@ -1269,6 +1334,7 @@ async def _descendant_relation_map(
     *,
     relation_type: str | None = None,
     direction: RelationDirection | None = None,
+    read_scope: CardReadScope | None = None,
 ) -> dict[tuple[str, RelationDirection], dict[uuid.UUID, list[Card]]]:
     """Map ``(relation_type_key, direction) -> {peer_card_id: [descendants linking it]}``.
 
@@ -1288,9 +1354,12 @@ async def _descendant_relation_map(
     - **Peers inside the subtree are excluded** — a relation between two
       descendants is internal to the tree, not an additional related card.
 
-    Archived cards and cards of hidden types are filtered on both ends, so the
+    Archived cards, cards of hidden types and cards outside ``read_scope``
+    (module mode, as ``GET /relations``) are filtered on both ends, so the
     roll-up matches what ``GET /relations`` would show the same user.
     """
+    read_scope = read_scope or CardReadScope.everything()
+    readable = read_scope.clause(Card, mode="module")
     try:
         descendant_ids = await card_lifecycle.collect_descendants(db, root.id)
     except HTTPException:
@@ -1302,7 +1371,11 @@ async def _descendant_relation_map(
 
     # ACTIVE descendants only, mirroring the hierarchy section + relation-summary.
     desc_rows = await db.execute(
-        select(Card).where(Card.id.in_(descendant_ids), Card.status == "ACTIVE")
+        select(Card).where(
+            Card.id.in_(descendant_ids),
+            Card.status == "ACTIVE",
+            *read_scope.where(Card, mode="module"),
+        )
     )
     descendants = {c.id: c for c in desc_rows.scalars().all()}
     if not descendants:
@@ -1321,6 +1394,11 @@ async def _descendant_relation_map(
         Relation.source_id.not_in(excluded_card_sq),
         Relation.target_id.not_in(excluded_card_sq),
     )
+    if readable is not None:
+        readable_ids_sq = select(Card.id).where(readable)
+        rel_q = rel_q.where(
+            Relation.source_id.in_(readable_ids_sq), Relation.target_id.in_(readable_ids_sq)
+        )
     if relation_type:
         rel_q = rel_q.where(Relation.type == relation_type)
     rel_rows = await db.execute(rel_q.limit(_MAX_DESCENDANT_RELATIONS))
@@ -1386,14 +1464,14 @@ async def descendant_relation_summary(
     empty list for leaf cards and for non-hierarchical types.
     """
     uid = uuid.UUID(card_id)
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uid, card_permission="card.view"
-    )
+    await _require_card_read(db, user, uid)
     card = await db.get(Card, uid)
     if not card:
         raise HTTPException(404, "Card not found")
 
-    by_side = await _descendant_relation_map(db, card)
+    by_side = await _descendant_relation_map(
+        db, card, read_scope=await CardReadScope.load(db, user)
+    )
     entries = [
         DescendantRelationSummaryEntry(relation_type_key=rt_key, direction=side, count=len(peers))
         for (rt_key, side), peers in by_side.items()
@@ -1428,15 +1506,17 @@ async def descendant_relations(
     entries. Read-only by design — there is no matching write route.
     """
     uid = uuid.UUID(card_id)
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uid, card_permission="card.view"
-    )
+    await _require_card_read(db, user, uid)
     card = await db.get(Card, uid)
     if not card:
         raise HTTPException(404, "Card not found")
 
     by_side = await _descendant_relation_map(
-        db, card, relation_type=relation_type, direction=direction
+        db,
+        card,
+        relation_type=relation_type,
+        direction=direction,
+        read_scope=await CardReadScope.load(db, user),
     )
     # Union the requested sides. A peer reached on both sides of a
     # self-referencing type is one row; its `via` owners are re-deduped here
@@ -1878,13 +1958,16 @@ async def bulk_archive_cards(
     primary_id_set = {p.id for p in primaries}
     descendants_set: set[uuid.UUID] = set()
     related_set: set[uuid.UUID] = set()
+    read_scope = await CardReadScope.load(db, user)
 
     for p in primaries:
         per_primary_body = CardArchiveRequest(
             child_strategy=body.child_strategy,
             cascade_all_related=body.cascade_all_related,
         )
-        descendants, related, _ = await _resolve_archive_delete_set(db, p, per_primary_body)
+        descendants, related, _ = await _resolve_archive_delete_set(
+            db, p, per_primary_body, read_scope
+        )
         for did in descendants:
             if did not in primary_id_set:
                 descendants_set.add(did)
@@ -2037,13 +2120,16 @@ async def bulk_delete_cards(
     primary_id_set = {p.id for p in primaries}
     descendants_set: set[uuid.UUID] = set()
     related_set: set[uuid.UUID] = set()
+    read_scope = await CardReadScope.load(db, user)
 
     for p in primaries:
         per_primary_body = CardDeleteRequest(
             child_strategy=body.child_strategy,
             cascade_all_related=body.cascade_all_related,
         )
-        descendants, related, _ = await _resolve_archive_delete_set(db, p, per_primary_body)
+        descendants, related, _ = await _resolve_archive_delete_set(
+            db, p, per_primary_body, read_scope
+        )
         for did in descendants:
             if did in primary_id_set:
                 continue
@@ -2269,6 +2355,11 @@ async def update_card(
     # `strict_attributes` is a request-side flag, not a column.
     strict_attrs = updates.pop("strict_attributes", False)
 
+    new_parent = updates.get("parent_id")
+    if new_parent and str(new_parent) != str(card.parent_id):
+        # A parent hidden from the caller does not exist for them.
+        await require_card_readable(db, user, uuid.UUID(str(new_parent)), mode="module")
+
     # Preserve cost-typed keys when the user lacks cost access on this card.
     # PATCH does a full replace on `attributes`, so simply dropping the
     # forbidden keys from the incoming payload would wipe whatever the card
@@ -2326,17 +2417,22 @@ async def get_archive_impact(
     the relations list endpoint at `/api/v1/relations`.
     """
     uid = uuid.UUID(card_id)
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uid, card_permission="card.view"
-    )
+    await _require_card_read(db, user, uid)
     res = await db.execute(select(Card).where(Card.id == uid))
     primary = res.scalar_one_or_none()
     if not primary:
         raise HTTPException(404, "Card not found")
 
-    children, grandparent, related_rows = await card_lifecycle.gather_archive_impact(db, primary)
+    read_scope = await CardReadScope.load(db, user)
+    children, grandparent, related_rows = await card_lifecycle.gather_archive_impact(
+        db, primary, read_scope
+    )
 
-    descendants = await card_lifecycle.collect_descendants(db, uid)
+    descendants = list(
+        await read_scope.readable_card_ids(
+            db, await card_lifecycle.collect_descendants(db, uid), mode="module"
+        )
+    )
     descendant_count = len(descendants)
     approved_descendant_count = 0
     if descendants:
@@ -2351,7 +2447,9 @@ async def get_archive_impact(
     if children:
         for child in children:
             sub = await card_lifecycle.collect_descendants(db, child.id)
-            children_per_descendant[child.id] = len(sub)
+            children_per_descendant[child.id] = len(
+                await read_scope.readable_card_ids(db, sub, mode="module")
+            )
 
     return ArchiveImpactResponse(
         child_count=len(children),
@@ -2398,6 +2496,7 @@ async def _resolve_archive_delete_set(
     db: AsyncSession,
     primary: Card,
     body: CardArchiveRequest | CardDeleteRequest,
+    read_scope: CardReadScope | None = None,
 ) -> tuple[list[uuid.UUID], list[uuid.UUID], list[uuid.UUID]]:
     """Resolve (descendants, related_card_ids, full_affected_excluding_primary).
 
@@ -2410,6 +2509,7 @@ async def _resolve_archive_delete_set(
         child_strategy=body.child_strategy,
         related_card_ids=body.related_card_ids,
         cascade_all_related=body.cascade_all_related,
+        read_scope=read_scope,
     )
 
 
@@ -2427,19 +2527,30 @@ async def _ensure_permission_on_each(
     # `check_permission` does not re-read each row.
     type_rows = await db.execute(select(Card.id, Card.type).where(Card.id.in_(card_ids)))
     type_by_id = {row_id: row_type for row_id, row_type in type_rows.all()}
+    read_scope = await CardReadScope.load(db, user)
     denied: list[str] = []
+    hidden_denied = 0
     for cid in card_ids:
         if not await PermissionService.check_permission(
             db, user, app_perm, cid, card_perm, card_type_key=type_by_id.get(cid)
         ):
-            denied.append(str(cid))
-            if len(denied) >= 5:
+            # Never echo the id of a card the caller cannot see.
+            if read_scope.readable(cid, type_by_id.get(cid), mode="module"):
+                denied.append(str(cid))
+            else:
+                hidden_denied += 1
+            if len(denied) + hidden_denied >= 5:
                 break
-    if denied:
+    if denied or hidden_denied:
+        parts = []
+        if denied:
+            parts.append(", ".join(denied))
+        if hidden_denied:
+            parts.append(f"{hidden_denied} card(s) you cannot see")
         raise HTTPException(
             403,
-            f"Not enough permissions for cards: {', '.join(denied)}"
-            + (" (and possibly more)" if len(denied) >= 5 else ""),
+            f"Not enough permissions for cards: {'; '.join(parts)}"
+            + (" (and possibly more)" if len(denied) + hidden_denied >= 5 else ""),
         )
 
 
@@ -2487,7 +2598,7 @@ async def archive_card(
         )
 
     descendants, related_card_ids, full_affected = await _resolve_archive_delete_set(
-        db, primary, body
+        db, primary, body, await CardReadScope.load(db, user)
     )
     await _ensure_permission_on_each(
         db,
@@ -2540,14 +2651,14 @@ async def get_restore_impact(
     individually restored are filtered out.
     """
     uid = uuid.UUID(card_id)
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uid, card_permission="card.view"
-    )
+    await _require_card_read(db, user, uid)
     res = await db.execute(select(Card).where(Card.id == uid))
     primary = res.scalar_one_or_none()
     if not primary:
         raise HTTPException(404, "Card not found")
-    rows = await card_lifecycle.gather_restore_impact(db, primary)
+    rows = await card_lifecycle.gather_restore_impact(
+        db, primary, await CardReadScope.load(db, user)
+    )
     return RestoreImpactResponse(
         passengers=[
             RestoreImpactPassenger(
@@ -2692,7 +2803,7 @@ async def delete_card(
         )
 
     descendants, related_card_ids, _full_affected = await _resolve_archive_delete_set(
-        db, primary, body
+        db, primary, body, await CardReadScope.load(db, user)
     )
     permission_targets = [*descendants, *related_card_ids]
     await _ensure_permission_on_each(
@@ -2831,9 +2942,16 @@ async def get_history(
     page_size: int = Query(50, ge=1, le=200),
 ):
     await _require_card_read(db, user, uuid.UUID(card_id))
+    # A relation event names its peer; drop the ones whose peer is hidden from
+    # the caller, so History does not list a card the Relations section omits.
+    read_scope = await CardReadScope.load(db, user)
+    peer_ok = read_scope.ref_clause(
+        Event.data["peer_type"].astext, Event.data["peer_id"].astext, mode="module"
+    )
     q = (
         select(Event)
         .where(Event.card_id == uuid.UUID(card_id))
+        .where(*(() if peer_ok is None else (peer_ok,)))
         .options(selectinload(Event.user))
         .order_by(Event.created_at.desc())
         .offset((page - 1) * page_size)
@@ -2841,16 +2959,17 @@ async def get_history(
     )
     result = await db.execute(q)
     events = result.scalars().all()
+    payloads = await scrub_event_payloads(db, read_scope, [e.data for e in events])
     return [
         {
             "id": str(e.id),
             "event_type": e.event_type,
-            "data": e.data,
+            "data": data,
             "user_id": str(e.user_id) if e.user_id else None,
             "user_display_name": e.user.display_name if e.user else None,
             "created_at": e.created_at.isoformat() if e.created_at else None,
         }
-        for e in events
+        for e, data in zip(events, payloads)
     ]
 
 
@@ -2916,9 +3035,7 @@ async def my_permissions(
     user: User = Depends(get_current_user),
 ):
     """Return the current user's effective permissions on a specific card."""
-    result = await db.execute(select(Card).where(Card.id == uuid.UUID(card_id)))
-    if not result.scalar_one_or_none():
-        raise HTTPException(404, "Card not found")
+    await require_card_readable(db, user, uuid.UUID(card_id), mode="module")
 
     return await PermissionService.get_effective_card_permissions(db, user, uuid.UUID(card_id))
 
@@ -2944,9 +3061,11 @@ async def export_json(
     if len(type_list) > 20:
         raise HTTPException(400, "Maximum 20 type keys allowed")
 
+    read_scope = await CardReadScope.load(db, user)
     q = (
         select(Card)
         .where(Card.status == "ACTIVE", Card.type.in_(type_list))
+        .where(*read_scope.where(Card, mode="module"))
         .options(selectinload(Card.tags).selectinload(Tag.group))
     )
     if include_stakeholders:
@@ -2980,7 +3099,9 @@ async def export_json(
             provider_card_ids -= set(card_ids)
 
             if provider_card_ids:
-                prov_q = select(Card.id, Card.name).where(Card.id.in_(provider_card_ids))
+                prov_q = select(Card.id, Card.name).where(
+                    Card.id.in_(provider_card_ids), *read_scope.where(Card, mode="module")
+                )
                 prov_result = await db.execute(prov_q)
                 prov_name_map = {row.id: row.name for row in prov_result.all()}
 
@@ -3051,9 +3172,11 @@ async def export_csv(
     type: str | None = Query(None),
 ):
     await PermissionService.require_permission(db, user, "inventory.export")
+    read_scope = await CardReadScope.load(db, user)
     q = (
         select(Card)
         .where(Card.status == "ACTIVE")
+        .where(*read_scope.where(Card, mode="module"))
         .options(selectinload(Card.stakeholders).selectinload(Stakeholder.user))
     )
     if type:

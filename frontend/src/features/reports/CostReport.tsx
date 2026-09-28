@@ -23,6 +23,7 @@ import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useReadableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { applyScope, useCardScope } from "@/hooks/useCardScope";
 import CardScopeFilter from "@/components/CardScopeFilter";
@@ -191,6 +192,8 @@ const TreemapContent = ({
 export default function CostReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { types, relationTypes, loading: ml } = useMetamodel();
+  // Report type pickers offer only the types the user may see.
+  const readableTypes = useReadableCardTypes("module");
   const typeLabel = useTypeLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
@@ -337,7 +340,8 @@ export default function CostReport() {
   // reachable via several relation types, the backend de-dupes at link-resolution time.
   const aggregateOptions = useMemo<AggregateOption[]>(() => {
     if (!typeDef) return [];
-    const typeMap = new Map<string, CardType>(types.map((tp) => [tp.key, tp]));
+    // Only types the user may see can be summed into a visible card's cost.
+    const typeMap = new Map<string, CardType>(readableTypes.map((tp) => [tp.key, tp]));
     const reachable = new Set<string>();
     for (const rt of relationTypes as RelationType[]) {
       if (rt.is_hidden) continue;
@@ -368,7 +372,7 @@ export default function CostReport() {
     }
     out.sort((a, b) => a.label.localeCompare(b.label));
     return out;
-  }, [typeDef, types, relationTypes, cardTypeKey, typeLabel, fieldLabel, t]);
+  }, [typeDef, readableTypes, relationTypes, cardTypeKey, typeLabel, fieldLabel, t]);
 
   // Drop any selected pair that's no longer offered (e.g. after switching card type).
   useEffect(() => {
@@ -623,7 +627,7 @@ export default function CostReport() {
       toolbar={
         <>
           <TextField select size="small" label={t("cost.cardType")} value={cardTypeKey} onChange={(e) => { setCardTypeKey(e.target.value); setDrillStack([]); }} sx={{ minWidth: 150 }}>
-            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
+            {readableTypes.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
           {/* Hidden while drilled: at depth >= 1 the cards are of the related
               type, so a scope over the root type has nothing to say. */}

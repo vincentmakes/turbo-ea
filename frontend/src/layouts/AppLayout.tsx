@@ -56,7 +56,7 @@ import {
   resolveNavPlacement,
   type NavItemDef,
 } from "@/layouts/navItems";
-import { hasPermission } from "@/components/RequirePermission";
+import { hasPermission, routePermissionsFor } from "@/components/RequirePermission";
 import { canAccessPath, permissionForPath } from "@/lib/routePermissions";
 import type { BadgeCounts, Card } from "@/types";
 
@@ -198,8 +198,10 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     // Delegates to the shared helper rather than re-deriving the semantics —
     // OR over a list, wildcard, fail-closed — so the nav can never drift from
     // what RouteGuard enforces.
-    const hasPerm = (perm?: string | string[]) =>
-      !perm || hasPermission(user.permissions, perm);
+    // `routePermissionsFor` widens `inventory.view` to "may read some card
+    // type", matching what RouteGuard enforces for the Inventory route.
+    const routePerms = routePermissionsFor(user);
+    const hasPerm = (perm?: string | string[]) => !perm || hasPermission(routePerms, perm);
 
     // A nav entry that points at a route inherits that route's permission from
     // ROUTE_PERMISSIONS, so the menu and the router can never disagree. An
@@ -301,7 +303,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     };
 
     return items.filter((item) => hasNavPerm(item)).map(resolve);
-  }, [bpmEnabled, ppmEnabled, grcEnabled, turboLensReady, uiExtensions, can, user.permissions, t]);
+  }, [bpmEnabled, ppmEnabled, grcEnabled, turboLensReady, uiExtensions, can, user, t]);
 
   // Resolve admin item labels via i18n and filter based on permissions.
   // Extension routes that requested the "admin" nav group follow the core
@@ -310,9 +312,10 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   // gate); a user without it simply does not see the entry. Labels are plain
   // strings from the bundle, so t() falls through to them.
   const adminItems = useMemo(() => {
-    const core = ADMIN_ITEM_DEFS.filter((item) =>
-      canAccessPath(user.permissions, item.path ?? "/"),
-    ).map((def) => ({ ...def, label: t(def.labelKey) }));
+    const routePerms = routePermissionsFor(user);
+    const core = ADMIN_ITEM_DEFS.filter((item) => canAccessPath(routePerms, item.path ?? "/")).map(
+      (def) => ({ ...def, label: t(def.labelKey) }),
+    );
     const contributed = uiExtensions
       .flatMap(({ plugin }) => (plugin.routes ?? []).filter((r) => r.navGroup === "admin"))
       .filter((route) => !route.permission || hasPermission(user.permissions, route.permission))
@@ -324,7 +327,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         label: t(route.label),
       }));
     return [...core, ...contributed];
-  }, [user.permissions, t, uiExtensions]);
+  }, [user, t, uiExtensions]);
 
   // Should the admin section be shown at all?
   const showAdmin = adminItems.length > 0;
@@ -343,8 +346,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
   // Reference Catalogue links, gated by the same table as their routes.
   const canOpen = useCallback(
-    (path: string) => canAccessPath(user.permissions, path),
-    [user.permissions],
+    (path: string) => canAccessPath(routePermissionsFor(user), path),
+    [user],
   );
   const canOpenAnyCatalogue =
     canOpen("/capability-catalogue") ||

@@ -14,6 +14,7 @@ vi.mock("@/api/client", async () => {
 vi.mock("@/hooks/useMetamodel", () => ({ useMetamodel: vi.fn() }));
 
 vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => null,
   useAuthContext: () => ({ user: { permissions: { "*": true } } }),
 }));
 

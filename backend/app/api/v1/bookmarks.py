@@ -14,6 +14,7 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.user import User
 from app.schemas.common import BookmarkCreate, BookmarkUpdate
+from app.services.card_read_scope import require_inventory_browse
 from app.services.card_search import card_search_filter
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.permission_service import PermissionService
@@ -378,8 +379,10 @@ async def bookmark_odata_feed(
     page_size: int = Query(1000, ge=1, le=10000),
 ):
     """OData-style JSON feed for a bookmark's filtered cards.
-    Requires authentication. Returns data matching the bookmark's saved filters."""
-    await PermissionService.require_permission(db, user, "inventory.view")
+    Requires authentication. Returns data matching the bookmark's saved filters,
+    limited to the cards the *caller* may read — a shared bookmark never hands
+    over a card type the reader is denied."""
+    read_scope = await require_inventory_browse(db, user)
 
     bid = uuid.UUID(bm_id)
     result = await db.execute(
@@ -408,6 +411,7 @@ async def bookmark_odata_feed(
     # Exclude hidden types
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
     q = q.where(Card.type.not_in(hidden_types_sq))
+    q = q.where(*read_scope.where(Card, mode="inventory"))
 
     # Type filter
     bm_types = filters.get("types", [])

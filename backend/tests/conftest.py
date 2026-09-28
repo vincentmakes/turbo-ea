@@ -245,9 +245,11 @@ def _clear_permission_cache():
 
     PermissionService._role_cache.clear()
     PermissionService._srd_cache.clear()
+    PermissionService.invalidate_type_permission_cache()
     yield
     PermissionService._role_cache.clear()
     PermissionService._srd_cache.clear()
+    PermissionService.invalidate_type_permission_cache()
 
 
 @pytest.fixture(autouse=True)

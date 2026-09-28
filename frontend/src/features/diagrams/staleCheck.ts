@@ -1,5 +1,5 @@
 import { api } from "@/api/client";
-import { CARD_IDS_CHUNK, fetchCardsByIds } from "@/api/cardsByIds";
+import { CARD_IDS_CHUNK, fetchCardsByIdsDetailed } from "@/api/cardsByIds";
 import type { Card, Relation } from "@/types";
 import type {
   RelationFlowDirection,
@@ -61,6 +61,10 @@ export type StaleItem =
 export interface InventoryState {
   cardById: Map<string, Card>;
   relationById: Map<string, Relation>;
+  /** Canvas cards that exist but are hidden from this user by a card-type
+   *  View deny. Never flagged — and neither are edges touching them, whose
+   *  relations the server leaves out for the same reason. */
+  withheldCardIds?: Set<string>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -89,8 +93,8 @@ export async function fetchInventoryState(
   for (let i = 0; i < unique.length; i += CARD_IDS_CHUNK) {
     chunks.push(unique.slice(i, i + CARD_IDS_CHUNK));
   }
-  const [cards, relationLists] = await Promise.all([
-    fetchCardsByIds(unique, { signal }),
+  const [{ cards, withheldIds }, relationLists] = await Promise.all([
+    fetchCardsByIdsDetailed(unique, { signal }),
     Promise.all(
       chunks.map((chunk) =>
         api.get<Relation[]>(
@@ -105,7 +109,7 @@ export async function fetchInventoryState(
   // each endpoint — the Map dedupes.
   for (const rel of relationLists.flat()) relationById.set(rel.id, rel);
 
-  return { cardById, relationById };
+  return { cardById, relationById, withheldCardIds: new Set(withheldIds) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -155,6 +159,9 @@ export function diffStaleItems(
     if (seenCellIds.has(cell.cellId)) continue;
     seenCellIds.add(cell.cellId);
 
+    // Hidden from this user, not deleted: say nothing about it.
+    if (inventory.withheldCardIds?.has(cell.cardId)) continue;
+
     const card = inventory.cardById.get(cell.cardId);
     if (!card) {
       flaggedCardIds.add(cell.cardId);
@@ -190,7 +197,9 @@ export function diffStaleItems(
     if (!edge.sourceCardId || !edge.targetCardId) continue;
     if (
       flaggedCardIds.has(edge.sourceCardId) ||
-      flaggedCardIds.has(edge.targetCardId)
+      flaggedCardIds.has(edge.targetCardId) ||
+      inventory.withheldCardIds?.has(edge.sourceCardId) ||
+      inventory.withheldCardIds?.has(edge.targetCardId)
     ) {
       continue;
     }

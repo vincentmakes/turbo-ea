@@ -42,7 +42,9 @@ class ImportRequest(BaseModel):
 async def get_catalogue(
     locale: str | None = None,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_permission("inventory.view")),
+    # The catalogue marks which entries already exist as BusinessCapability cards, so a
+    # role denied View on that type may not open it.
+    user: User = Depends(require_permission("inventory.view", card_type_key="BusinessCapability")),
 ):
     """Return the full active catalogue with `existing_card_id` annotations.
 

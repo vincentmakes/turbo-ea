@@ -20,6 +20,8 @@ import Collapse from "@mui/material/Collapse";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useOptionalAuthUser } from "@/hooks/AuthContext";
+import { readableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import {
   useResolveLabel,
@@ -676,7 +678,15 @@ function RelationsSection({
   const relLabel = useRelationLabel();
   const [rawRelations, setRawRelations] = useState<Relation[]>([]);
   const { types: allTypes, relationTypes, getType } = useMetamodel();
-  const visibleTypeKeys = useMemo(() => new Set(allTypes.map((t) => t.key)), [allTypes]);
+  // A relation type whose other end the user may not see gets no group at
+  // all — no empty section, no Add button, no mandatory warning. `getType`
+  // stays unfiltered: this card itself may be of a type the user can only
+  // open through a stakeholder role.
+  const authUser = useOptionalAuthUser();
+  const visibleTypeKeys = useMemo(
+    () => new Set(readableCardTypes(allTypes, authUser, "module").map((t) => t.key)),
+    [allTypes, authUser],
+  );
 
   // The single add surface: a dialog, opened either from a group's `+` (with
   // that relation type pre-selected) or from the section's Add button.

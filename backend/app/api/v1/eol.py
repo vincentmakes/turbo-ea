@@ -21,6 +21,7 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.user import User
 from app.services.card_flags import EOL_TYPES
+from app.services.card_read_scope import CardReadScope
 from app.services.eol_service import resolve_eol_statuses
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
@@ -314,8 +315,12 @@ async def eol_card_status(
             detail="Only Application and ITComponent types carry EOL information",
         )
 
+    read_scope = await CardReadScope.load(db, user)
     result = await db.execute(
-        select(Card).where(Card.type == type_key).where(Card.status == "ACTIVE")
+        select(Card)
+        .where(Card.type == type_key)
+        .where(Card.status == "ACTIVE")
+        .where(*read_scope.where(Card, mode="module"))
     )
     cards = result.scalars().all()
     # Hand the connection back BEFORE the outbound round-trip. `get_db` is a
@@ -349,7 +354,11 @@ async def mass_eol_search(
 
     # Fetch all active cards of the given type
     stmt = (
-        select(Card).where(Card.type == type_key).where(Card.status == "ACTIVE").order_by(Card.name)
+        select(Card)
+        .where(Card.type == type_key)
+        .where(Card.status == "ACTIVE")
+        .where(*(await CardReadScope.load(db, user)).where(Card, mode="module"))
+        .order_by(Card.name)
     )
     result = await db.execute(stmt)
     cards = result.scalars().all()
@@ -408,6 +417,7 @@ async def mass_eol_link(
     never auto-filled from vendor EOL data.
     """
     await PermissionService.require_permission(db, user, "eol.manage")
+    read_scope = await CardReadScope.load(db, user)
 
     updated = []
 
@@ -421,7 +431,7 @@ async def mass_eol_link(
         stmt = select(Card).where(Card.id == card_id)
         result = await db.execute(stmt)
         card = result.scalar_one_or_none()
-        if not card:
+        if not card or not read_scope.readable(card.id, card.type, mode="module"):
             continue
 
         # Update attributes. Re-linking a card to the product/cycle it already

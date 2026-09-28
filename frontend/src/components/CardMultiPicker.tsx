@@ -22,6 +22,8 @@ import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useCardSearch } from "@/hooks/useCardSearch";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useOptionalAuthUser } from "@/hooks/AuthContext";
+import { readableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import {
   bestRankBySubtree,
@@ -142,15 +144,20 @@ export default function CardMultiPicker({
     [types],
   );
 
+  const authUser = useOptionalAuthUser();
   const visibleTypes = useMemo(() => {
-    const offered = allTypes.filter((tp) => !tp.is_hidden);
+    // Only types the user may browse are offered on the rail.
+    const offered = readableCardTypes(
+      allTypes.filter((tp) => !tp.is_hidden),
+      authUser,
+    );
     // A caller-supplied list is the whole world for this opening; the rail
     // never offers a type the caller did not ask for.
     const narrowed = callerTypes.length
       ? offered.filter((tp) => callerTypes.includes(tp.key))
       : offered;
     return narrowed.slice().sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99));
-  }, [allTypes, callerTypes]);
+  }, [allTypes, callerTypes, authUser]);
   const typeMap = useMemo(() => new Map(visibleTypes.map((tp) => [tp.key, tp])), [visibleTypes]);
   /** With one type there is nothing to facet — drop the rail, go single-pane. */
   const railHidden = callerTypes.length === 1;

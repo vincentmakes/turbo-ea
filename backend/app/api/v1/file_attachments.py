@@ -21,6 +21,7 @@ from app.services.attachment_validation import (
     resolve_format,
     validate_content,
 )
+from app.services.card_read_scope import require_card_readable
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -34,6 +35,7 @@ async def list_file_attachments(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "documents.view")
+    await require_card_readable(db, user, uuid.UUID(card_id), mode="module")
     result = await db.execute(
         select(FileAttachment)
         .where(FileAttachment.card_id == uuid.UUID(card_id))
@@ -157,6 +159,8 @@ async def download_file_attachment(
     attachment = result.scalar_one_or_none()
     if not attachment:
         raise HTTPException(404, "File attachment not found")
+    # An attachment of a card hidden from the caller does not exist for them.
+    await require_card_readable(db, user, attachment.card_id, mode="module")
 
     # RFC 6266 / RFC 5987: HTTP header values must be Latin-1 encodable, so a
     # raw filename with non-Latin-1 characters (Cyrillic, CJK, emoji, ...) would

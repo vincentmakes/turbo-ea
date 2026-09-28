@@ -118,6 +118,20 @@ describe("diffStaleItems", () => {
     ]);
   });
 
+  it("never flags a card hidden from the user by a type deny, nor its edges", () => {
+    // The card exists but the server withheld it: not deleted, and the
+    // relation touching it was left out for the same reason.
+    const items = diffStaleItems(
+      [cell("c1", "id1", "Visible"), cell("c2", "hidden", "Secret")],
+      [edge("e1", "r1", "id1", "hidden")],
+      { ...inv([card("id1", "Visible")]), withheldCardIds: new Set(["hidden"]) },
+      color,
+      relLabel,
+      flowOf,
+    );
+    expect(items).toEqual([]);
+  });
+
   it("flags a hard-deleted card (absent from the batch response)", () => {
     const items = diffStaleItems(
       [cell("c1", "id1", "Gone")],

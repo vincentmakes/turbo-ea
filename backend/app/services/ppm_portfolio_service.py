@@ -17,7 +17,7 @@ from __future__ import annotations
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +31,9 @@ from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
 from app.models.tag import CardTag
 from app.models.user import User
+
+if TYPE_CHECKING:
+    from app.services.card_read_scope import CardReadScope
 from app.schemas.ppm import (
     PpmGanttItem,
     PpmGanttStakeholder,
@@ -107,9 +110,17 @@ class PortfolioScope:
         )
 
 
-async def load_initiatives(db: AsyncSession, scope: PortfolioScope) -> list[Card]:
-    """Every ACTIVE Initiative card matching ``scope``."""
+async def load_initiatives(
+    db: AsyncSession, scope: PortfolioScope, *, read_scope: CardReadScope | None = None
+) -> list[Card]:
+    """Every ACTIVE Initiative card matching ``scope``.
+
+    ``read_scope`` (authenticated callers) leaves out Initiatives hidden from
+    the reader; the public portfolio portal passes none.
+    """
     q = select(Card).where(Card.type == INITIATIVE_TYPE, Card.status == "ACTIVE")
+    if read_scope is not None:
+        q = q.where(*read_scope.where(Card, mode="module"))
     if scope.subtypes:
         q = q.where(Card.subtype.in_(scope.subtypes))
     if scope.approval_statuses:
@@ -262,9 +273,17 @@ async def sum_budget_actual(
 
 
 async def build_group_map(
-    db: AsyncSession, initiative_ids: Sequence[uuid.UUID], group_by: str
+    db: AsyncSession,
+    initiative_ids: Sequence[uuid.UUID],
+    group_by: str,
+    *,
+    read_scope: CardReadScope | None = None,
 ) -> dict[uuid.UUID, tuple[uuid.UUID, str]]:
-    """Map initiative id → (group card id, group card name)."""
+    """Map initiative id → (group card id, group card name).
+
+    A group card hidden from the reader (``read_scope``) is not a group: its
+    initiatives fall to the ungrouped bucket.
+    """
     if not initiative_ids:
         return {}
     rt_result = await db.execute(
@@ -306,11 +325,20 @@ async def build_group_map(
     init_to_group_id: dict[uuid.UUID, uuid.UUID] = {}
     group_card_ids: set[uuid.UUID] = set()
 
+    hidden_groups: set[uuid.UUID] = set()
+    if read_scope is not None:
+        candidates = {
+            rel.target_id if source_is_initiative.get(rel.type, True) else rel.source_id
+            for rel in relations
+        }
+        hidden_groups = await read_scope.hidden_card_ids(db, candidates, mode="module")
     for rel in relations:
         if source_is_initiative.get(rel.type, True):
             init_id, group_id = rel.source_id, rel.target_id
         else:
             init_id, group_id = rel.target_id, rel.source_id
+        if group_id in hidden_groups:
+            continue
         if init_id not in init_to_group_id:
             init_to_group_id[init_id] = group_id
             group_card_ids.add(group_id)
@@ -325,7 +353,9 @@ async def build_group_map(
     }
 
 
-async def build_group_options(db: AsyncSession) -> list[PpmGroupOption]:
+async def build_group_options(
+    db: AsyncSession, *, read_scope: CardReadScope | None = None
+) -> list[PpmGroupOption]:
     """Card types Initiative can be grouped by, carrying their metamodel entity.
 
     ``label`` and ``translations`` come from the ``CardType`` row so the client
@@ -348,6 +378,8 @@ async def build_group_options(db: AsyncSession) -> list[PpmGroupOption]:
     for rt in rel_types:
         other = rt.target_type_key if rt.source_type_key == INITIATIVE_TYPE else rt.source_type_key
         if other and other != INITIATIVE_TYPE:
+            if read_scope is not None and not read_scope.type_readable(other, mode="module"):
+                continue
             seen.add(other)
     if not seen:
         return []
@@ -379,6 +411,7 @@ async def build_gantt_items(
     group_by: str | None = None,
     role_keys: Sequence[str] | None = None,
     allow_email_fallback: bool = True,
+    read_scope: CardReadScope | None = None,
 ) -> list[PpmGanttItem]:
     """Build the full (unredacted) board rows. Used directly by the authed route.
 
@@ -393,7 +426,9 @@ async def build_gantt_items(
     def _name(u: User) -> str:
         return (u.display_name or u.email) if allow_email_fallback else (u.display_name or "")
 
-    group_map = await build_group_map(db, init_ids, group_by) if group_by else {}
+    group_map = (
+        await build_group_map(db, init_ids, group_by, read_scope=read_scope) if group_by else {}
+    )
     cost_agg = await build_cost_aggregates(db, init_ids)
     reporters = await load_reporters(db, [r.reporter_id for r in latest.values()])
     stakeholder_map = await load_stakeholders(db, init_ids, role_keys=role_keys)

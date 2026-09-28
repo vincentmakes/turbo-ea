@@ -26,8 +26,23 @@ export async function fetchCardsByIds(
   ids: Iterable<string>,
   opts: GetOptions = {},
 ): Promise<Card[]> {
+  return (await fetchCardsByIdsDetailed(ids, opts)).cards;
+}
+
+/**
+ * `fetchCardsByIds`, also returning the ids the server withheld.
+ *
+ * `withheldIds` are cards that exist but are hidden from the caller by a
+ * card-type View deny. A caller that already holds the id — a diagram cell —
+ * must tell "hidden from me" apart from "deleted", or it would offer to remove
+ * a card that is merely not visible to this user.
+ */
+export async function fetchCardsByIdsDetailed(
+  ids: Iterable<string>,
+  opts: GetOptions = {},
+): Promise<{ cards: Card[]; withheldIds: string[] }> {
   const unique = Array.from(new Set(Array.from(ids).filter(Boolean)));
-  if (unique.length === 0) return [];
+  if (unique.length === 0) return { cards: [], withheldIds: [] };
   const chunks: string[][] = [];
   for (let i = 0; i < unique.length; i += CARD_IDS_CHUNK) {
     chunks.push(unique.slice(i, i + CARD_IDS_CHUNK));
@@ -40,5 +55,8 @@ export async function fetchCardsByIds(
       ),
     ),
   );
-  return pages.flatMap((page) => page.items);
+  return {
+    cards: pages.flatMap((page) => page.items),
+    withheldIds: pages.flatMap((page) => page.withheld_ids ?? []),
+  };
 }

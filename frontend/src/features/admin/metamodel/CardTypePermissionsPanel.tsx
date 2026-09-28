@@ -35,6 +35,11 @@ import type { CardTypePermissionMatrix } from "@/types";
 
 type CellState = "inherit" | "allow" | "deny";
 
+/** The View action. An explicit View deny locks the role's other cells: a
+ *  role that may not see a type's cards holds no authority over them (the
+ *  backend's `type_cell_decision`). */
+const VIEW_ACTION = "inventory.view";
+
 /** The draft map mirrors the wire shape: `{roleKey: {permission: boolean}}`. */
 type Draft = Record<string, Record<string, boolean>>;
 
@@ -170,8 +175,11 @@ export default function CardTypePermissionsPanel({
       <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 0.5 }}>
         {t("metamodel.permissionsPanel.title")}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         {t("metamodel.permissionsPanel.description")}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {t("metamodel.permissionsPanel.viewNote")}
       </Typography>
 
       {saveError && (
@@ -231,6 +239,24 @@ export default function CardTypePermissionsPanel({
                           <Tooltip title={t("metamodel.permissionsPanel.adminLocked")}>
                             <span>
                               <MaterialSymbol icon="lock" size={18} color="#9e9e9e" />
+                            </span>
+                          </Tooltip>
+                        </TableCell>
+                      );
+                    }
+
+                    // View denied → every other action on the type is denied
+                    // too. The stored cells are kept (they come back if View
+                    // is reset), but they are not editable meanwhile.
+                    if (
+                      action.key !== VIEW_ACTION &&
+                      cellState(draft, role.key, VIEW_ACTION) === "deny"
+                    ) {
+                      return (
+                        <TableCell key={action.key} align="center">
+                          <Tooltip title={t("metamodel.permissionsPanel.lockedByView")}>
+                            <span aria-label={t("metamodel.permissionsPanel.lockedByView")}>
+                              <MaterialSymbol icon="visibility_off" size={18} color="#9e9e9e" />
                             </span>
                           </Tooltip>
                         </TableCell>

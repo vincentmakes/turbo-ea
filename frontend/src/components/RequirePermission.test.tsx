@@ -5,6 +5,9 @@ import RequirePermission, {
   hasPermission,
   hasTypePermission,
   canCreateAnyCardType,
+  canReadAnyCardType,
+  canReadType,
+  routePermissionsFor,
 } from "./RequirePermission";
 import { AuthProvider } from "@/hooks/AuthContext";
 import type { User } from "@/types";
@@ -214,5 +217,81 @@ describe("canCreateAnyCardType", () => {
 
   it("is true for admin", () => {
     expect(canCreateAnyCardType({ permissions: { "*": true } }, types)).toBe(true);
+  });
+});
+
+describe("per-type View (card read permission)", () => {
+  const member = {
+    permissions: { "inventory.view": true, "inventory.edit": true, "inventory.create": true },
+    type_permissions: {
+      Initiative: { "inventory.view": false, "inventory.edit": true },
+      Objective: { "inventory.view": true },
+    },
+  };
+
+  it("a View deny hides the type in both modes", () => {
+    expect(canReadType(member, "Initiative")).toBe(false);
+    expect(canReadType(member, "Initiative", "module")).toBe(false);
+    expect(canReadType(member, "Application")).toBe(true);
+  });
+
+  it("a View deny takes every other permission on the type away", () => {
+    // Even the explicit Edit allow stored next to it.
+    expect(hasTypePermission(member, "inventory.edit", "Initiative")).toBe(false);
+    expect(hasTypePermission(member, "inventory.create", "Initiative")).toBe(false);
+    expect(hasTypePermission(member, "inventory.edit", "Application")).toBe(true);
+  });
+
+  it("inventory mode needs the global grant or an allow; module mode only subtracts denies", () => {
+    const reporter = {
+      permissions: { "reports.ea_dashboard": true },
+      type_permissions: { Objective: { "inventory.view": true } },
+    };
+    expect(canReadType(reporter, "Application")).toBe(false);
+    expect(canReadType(reporter, "Objective")).toBe(true);
+    expect(canReadType(reporter, "Application", "module")).toBe(true);
+  });
+
+  it("an allow alone opens the inventory; nothing at all does not", () => {
+    expect(
+      canReadAnyCardType({ permissions: {}, type_permissions: { X: { "inventory.view": true } } }),
+    ).toBe(true);
+    expect(canReadAnyCardType({ permissions: {} })).toBe(false);
+    expect(canReadAnyCardType({ permissions: { "*": true } })).toBe(true);
+  });
+
+  it("routePermissionsFor widens inventory.view for an allow-only role", () => {
+    const perms = routePermissionsFor({
+      permissions: { "reports.portfolio": true },
+      type_permissions: { X: { "inventory.view": true } },
+    });
+    expect(perms["inventory.view"]).toBe(true);
+    expect(perms["reports.portfolio"]).toBe(true);
+    expect(routePermissionsFor({ permissions: {} })["inventory.view"]).toBeUndefined();
+  });
+
+  it("an allow-only role reaches a page gated on inventory.view", () => {
+    wrap(
+      <RequirePermission permission="inventory.view">
+        <div>inventory</div>
+      </RequirePermission>,
+      {
+        ...makeUser({}),
+        type_permissions: { X: { "inventory.view": true } },
+      },
+    );
+    expect(screen.getByText("inventory")).toBeInTheDocument();
+  });
+
+  it("a Create allow on a View-denied type does not make a New button", () => {
+    expect(
+      canCreateAnyCardType(
+        {
+          permissions: {},
+          type_permissions: { X: { "inventory.create": true, "inventory.view": false } },
+        },
+        [],
+      ),
+    ).toBe(false);
   });
 });

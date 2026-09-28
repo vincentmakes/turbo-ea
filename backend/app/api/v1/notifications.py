@@ -3,17 +3,19 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.models.card import Card
 from app.models.notification import Notification
 from app.models.survey import Survey, SurveyResponse
 from app.models.todo import Todo
 from app.models.user import User
 from app.services import notification_service
+from app.services.card_read_scope import CardReadScope
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -36,6 +38,23 @@ def _notif_to_dict(n: Notification) -> dict:
     }
 
 
+async def _readable_notifications(db: AsyncSession, user: User) -> tuple:
+    """Keep notifications about a card hidden from the user out of the bell.
+
+    The rows stay: they come back if the card-type View deny is lifted.
+    """
+    read_scope = await CardReadScope.load(db, user)
+    clause = read_scope.clause(Card, mode="module")
+    if clause is None:
+        return ()
+    return (
+        or_(
+            Notification.card_id.is_(None),
+            Notification.card_id.in_(select(Card.id).where(clause)),
+        ),
+    )
+
+
 @router.get("")
 async def list_notifications(
     db: AsyncSession = Depends(get_db),
@@ -46,9 +65,10 @@ async def list_notifications(
 ):
     """List notifications for the current user."""
     await PermissionService.require_permission(db, user, "notifications.manage")
+    readable = await _readable_notifications(db, user)
     q = (
         select(Notification)
-        .where(Notification.user_id == user.id)
+        .where(Notification.user_id == user.id, *readable)
         .options(selectinload(Notification.actor))
         .order_by(Notification.created_at.desc())
     )
@@ -56,7 +76,7 @@ async def list_notifications(
         q = q.where(Notification.is_read == is_read)
 
     # Count
-    count_q = select(func.count(Notification.id)).where(Notification.user_id == user.id)
+    count_q = select(func.count(Notification.id)).where(Notification.user_id == user.id, *readable)
     if is_read is not None:
         count_q = count_q.where(Notification.is_read == is_read)
     total = (await db.execute(count_q)).scalar() or 0
@@ -75,7 +95,15 @@ async def unread_count(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "notifications.manage")
-    count = await notification_service.get_unread_count(db, user.id)
+    count = (
+        await db.execute(
+            select(func.count(Notification.id)).where(
+                Notification.user_id == user.id,
+                Notification.is_read == False,  # noqa: E712
+                *await _readable_notifications(db, user),
+            )
+        )
+    ).scalar() or 0
     return {"count": count}
 
 

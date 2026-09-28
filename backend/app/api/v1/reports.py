@@ -38,6 +38,11 @@ from app.services.card_flags import (
     stale_cutoff,
 )
 from app.services.card_logo_service import logo_updated_map
+from app.services.card_read_scope import (
+    CardReadScope,
+    event_read_filters,
+    scrub_event_payloads,
+)
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.eol_service import (
     eol_status,
@@ -71,9 +76,14 @@ def _current_lifecycle_phase(lifecycle: dict | None) -> str | None:
 @router.get("/dashboard")
 async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    # Every aggregate below counts only the cards the caller may read.
+    read_scope = await CardReadScope.load(db, user)
+    readable = read_scope.where(Card, mode="module")
     # Count by type
     type_counts = await db.execute(
-        select(Card.type, func.count(Card.id)).where(Card.status == "ACTIVE").group_by(Card.type)
+        select(Card.type, func.count(Card.id))
+        .where(Card.status == "ACTIVE", *readable)
+        .group_by(Card.type)
     )
     by_type = {row[0]: row[1] for row in type_counts.all()}
 
@@ -82,14 +92,14 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
 
     # Average completion
     avg_result = await db.execute(
-        select(func.avg(Card.data_quality)).where(Card.status == "ACTIVE")
+        select(func.avg(Card.data_quality)).where(Card.status == "ACTIVE", *readable)
     )
     avg_data_quality = avg_result.scalar() or 0
 
     # Approval status distribution
     status_counts = await db.execute(
         select(Card.approval_status, func.count(Card.id))
-        .where(Card.status == "ACTIVE")
+        .where(Card.status == "ACTIVE", *readable)
         .group_by(Card.approval_status)
     )
     statuses = {row[0]: row[1] for row in status_counts.all()}
@@ -101,7 +111,7 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
             func.sum(case((Card.data_quality.between(25, 49.999), 1), else_=0)).label("dq_25_50"),
             func.sum(case((Card.data_quality.between(50, 74.999), 1), else_=0)).label("dq_50_75"),
             func.sum(case((Card.data_quality >= 75, 1), else_=0)).label("dq_75_100"),
-        ).where(Card.status == "ACTIVE")
+        ).where(Card.status == "ACTIVE", *readable)
     )
     dq_row = dq_result.one()
     data_quality_dist = {
@@ -112,7 +122,9 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
     }
 
     # Lifecycle phase distribution
-    lifecycle_result = await db.execute(select(Card.lifecycle).where(Card.status == "ACTIVE"))
+    lifecycle_result = await db.execute(
+        select(Card.lifecycle).where(Card.status == "ACTIVE", *readable)
+    )
     lifecycle_dist: dict[str, int] = {
         "plan": 0,
         "phaseIn": 0,
@@ -133,7 +145,11 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
     # in a single batch lookup keyed on `card_id` to keep the dashboard's
     # Recent Activity panel readable without extra round-trips.
     events_result = await db.execute(
-        select(Event).options(selectinload(Event.user)).order_by(Event.created_at.desc()).limit(20)
+        select(Event)
+        .where(*event_read_filters(read_scope))
+        .options(selectinload(Event.user))
+        .order_by(Event.created_at.desc())
+        .limit(20)
     )
     events_list = list(events_result.scalars().all())
     referenced_card_ids = {e.card_id for e in events_list if e.card_id is not None}
@@ -152,17 +168,18 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
             return name_by_card_id.get(e.card_id)
         return None
 
+    payloads = await scrub_event_payloads(db, read_scope, [e.data for e in events_list])
     recent_events = [
         {
             "id": str(e.id),
             "card_id": str(e.card_id) if e.card_id else None,
             "card_name": _resolve_name(e),
             "event_type": e.event_type,
-            "data": e.data,
+            "data": data,
             "user_display_name": e.user.display_name if e.user else None,
             "created_at": e.created_at.isoformat() if e.created_at else None,
         }
-        for e in events_list
+        for e, data in zip(events_list, payloads)
     ]
 
     # Trend indicators vs ~30 days ago (cold-start safe — returns nulls when
@@ -174,8 +191,13 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
         "approved_count": statuses.get("APPROVED", 0),
         "broken_count": statuses.get("BROKEN", 0),
     }
-    previous_snapshot = await get_comparison_snapshot(db, days_ago=30)
-    trends = compute_trend_block(current=current_kpis, previous=previous_snapshot)
+    # KPI snapshots are landscape-wide: comparing a restricted reader's totals
+    # against them would show a "trend" that is only the hidden cards.
+    if read_scope.is_unrestricted(mode="module"):
+        previous_snapshot = await get_comparison_snapshot(db, days_ago=30)
+        trends = compute_trend_block(current=current_kpis, previous=previous_snapshot)
+    else:
+        trends = None
 
     return {
         "total_cards": total,
@@ -200,18 +222,25 @@ async def my_workspace_summary(
     key beyond authentication is required.
     """
     today = datetime.now(timezone.utc).date()
+    # Counters agree with the lists they front: favorites (module mode, like
+    # GET /favorites) and the stakeholder / created lists (inventory mode).
+    read_scope = await CardReadScope.load(db, user)
 
     # Favorites (one row per favorited card).
     favorite_count = (
-        await db.execute(select(func.count(UserFavorite.id)).where(UserFavorite.user_id == user.id))
+        await db.execute(
+            select(func.count(UserFavorite.id))
+            .join(Card, Card.id == UserFavorite.card_id)
+            .where(UserFavorite.user_id == user.id, *read_scope.where(Card, mode="module"))
+        )
     ).scalar() or 0
 
     # Distinct cards on which the user holds at least one stakeholder role.
     stakeholder_card_count = (
         await db.execute(
-            select(func.count(func.distinct(Stakeholder.card_id))).where(
-                Stakeholder.user_id == user.id
-            )
+            select(func.count(func.distinct(Stakeholder.card_id)))
+            .join(Card, Card.id == Stakeholder.card_id)
+            .where(Stakeholder.user_id == user.id, *read_scope.where(Card, mode="inventory"))
         )
     ).scalar() or 0
 
@@ -264,6 +293,7 @@ async def my_workspace_summary(
                 Stakeholder.user_id == user.id,
                 Card.status == "ACTIVE",
                 Card.approval_status == "BROKEN",
+                *read_scope.where(Card, mode="inventory"),
             )
         )
     ).scalar() or 0
@@ -280,6 +310,7 @@ async def my_workspace_summary(
                 Card.created_by == user.id,
                 Card.status == "ACTIVE",
                 Card.type.not_in(hidden_types_sq),
+                *read_scope.where(Card, mode="inventory"),
             )
         )
     ).scalar() or 0
@@ -315,6 +346,7 @@ async def admin_dashboard_summary(
     ninety_days_ago = now - timedelta(days=90)
 
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
 
     # ---- KPI strip --------------------------------------------------------
     total_users = (
@@ -337,6 +369,7 @@ async def admin_dashboard_summary(
             select(func.count(Card.id)).where(
                 Card.status == "ACTIVE",
                 Card.type.not_in(hidden_types_sq),
+                *readable,
                 Card.id.not_in(has_stakeholder_sq),
             )
         )
@@ -357,6 +390,7 @@ async def admin_dashboard_summary(
             select(func.count(Card.id)).where(
                 Card.status == "ACTIVE",
                 Card.type.not_in(hidden_types_sq),
+                *readable,
                 Card.approval_status == "DRAFT",
                 Card.updated_at < thirty_days_ago,
             )
@@ -368,6 +402,7 @@ async def admin_dashboard_summary(
             select(func.count(Card.id)).where(
                 Card.status == "ACTIVE",
                 Card.type.not_in(hidden_types_sq),
+                *readable,
                 Card.approval_status == "BROKEN",
             )
         )
@@ -419,6 +454,7 @@ async def admin_dashboard_summary(
             .where(
                 Card.status == "ACTIVE",
                 Card.type.not_in(hidden_types_sq),
+                *readable,
             )
             .group_by(Card.type)
         )
@@ -430,6 +466,7 @@ async def admin_dashboard_summary(
             .where(
                 Card.status == "ACTIVE",
                 Card.type.not_in(hidden_types_sq),
+                *readable,
             )
             .group_by(Card.type)
         )
@@ -492,6 +529,7 @@ async def admin_dashboard_summary(
             .where(
                 Card.status == "ACTIVE",
                 Card.type.not_in(hidden_types_sq),
+                *readable,
                 Card.approval_status.in_(("DRAFT", "BROKEN", "REJECTED")),
             )
             .group_by(Card.type, Card.approval_status)
@@ -515,7 +553,11 @@ async def admin_dashboard_summary(
 
     # ---- Recent system activity (50 events) ------------------------------
     sys_events_result = await db.execute(
-        select(Event).options(selectinload(Event.user)).order_by(Event.created_at.desc()).limit(50)
+        select(Event)
+        .where(*event_read_filters(await CardReadScope.load(db, user)))
+        .options(selectinload(Event.user))
+        .order_by(Event.created_at.desc())
+        .limit(50)
     )
     sys_events_list = list(sys_events_result.scalars().all())
     sys_card_ids = {e.card_id for e in sys_events_list if e.card_id is not None}
@@ -532,17 +574,20 @@ async def admin_dashboard_summary(
             return sys_name_by_card_id.get(e.card_id)
         return None
 
+    sys_payloads = await scrub_event_payloads(
+        db, await CardReadScope.load(db, user), [e.data for e in sys_events_list]
+    )
     recent_activity = [
         {
             "id": str(e.id),
             "card_id": str(e.card_id) if e.card_id else None,
             "card_name": _resolve_sys_name(e),
             "event_type": e.event_type,
-            "data": e.data,
+            "data": data,
             "user_display_name": e.user.display_name if e.user else None,
             "created_at": e.created_at.isoformat() if e.created_at else None,
         }
-        for e in sys_events_list
+        for e, data in zip(sys_events_list, sys_payloads)
     ]
 
     # ---- Unassigned + oldest overdue todos -------------------------------
@@ -622,6 +667,7 @@ async def stakeholder_directory(
     await PermissionService.require_permission(db, user, "admin.users")
 
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
 
     # Fetch the raw join rows ungrouped — we group in Python so we can keep
     # the per-user card list (which a SQL group-by would collapse).
@@ -638,6 +684,7 @@ async def stakeholder_directory(
             .where(
                 Card.status == "ACTIVE",
                 Card.type.not_in(hidden_types_sq),
+                *readable,
             )
         )
     ).all()
@@ -770,8 +817,11 @@ async def landscape(
     """Landscape report: cards grouped by a related type."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     can_view_costs_global = await PermissionService.has_app_permission(db, user, "costs.view")
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
     # Get all cards of the target type
-    result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
+    result = await db.execute(
+        select(Card).where(Card.type == type, Card.status == "ACTIVE", *readable)
+    )
     sheets = result.scalars().all()
     # Resolve cost field keys for the target type once
     target_type_result = await db.execute(
@@ -790,7 +840,7 @@ async def landscape(
 
     # Get group cards (must come before relations query so IDs are available)
     group_result = await db.execute(
-        select(Card).where(Card.type == group_by, Card.status == "ACTIVE")
+        select(Card).where(Card.type == group_by, Card.status == "ACTIVE", *readable)
     )
     groups = group_result.scalars().all()
 
@@ -909,7 +959,10 @@ async def portfolio(
     if cost_keys & {x_axis, y_axis, size_field, color_field}:
         await PermissionService.require_permission(db, user, "costs.view")
 
-    result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
+    result = await db.execute(
+        select(Card).where(Card.type == type, Card.status == "ACTIVE", *readable)
+    )
     sheets = result.scalars().all()
     items = []
     for card in sheets:
@@ -950,8 +1003,13 @@ async def app_portfolio(
     if target_type is None or target_type.is_hidden:
         raise HTTPException(status_code=404, detail=f"Card type '{type}' not found")
 
+    read_scope = await CardReadScope.load(db, user)
+    readable = read_scope.where(Card, mode="module")
+
     # 1. Get all active cards of the requested type
-    apps_result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
+    apps_result = await db.execute(
+        select(Card).where(Card.type == type, Card.status == "ACTIVE", *readable)
+    )
     apps = apps_result.scalars().all()
     app_ids = [a.id for a in apps]
     app_id_set = {str(a.id) for a in apps}
@@ -992,6 +1050,7 @@ async def app_portfolio(
             select(Card).where(
                 Card.id.in_(list(related_ids)),
                 Card.status == "ACTIVE",
+                *readable,
             )
         )
         for card in rel_result.scalars().all():
@@ -1049,7 +1108,7 @@ async def app_portfolio(
         if not pending:
             break
         anc_result = await db.execute(
-            select(Card).where(Card.id.in_(list(pending)), Card.status == "ACTIVE")
+            select(Card).where(Card.id.in_(list(pending)), Card.status == "ACTIVE", *readable)
         )
         pending = set()
         for card in anc_result.scalars().all():
@@ -1067,6 +1126,13 @@ async def app_portfolio(
             if parent_id and parent_id not in related_map:
                 pending.add(parent_id)
 
+    # A parent the reader may not see was never loaded; drop the dangling
+    # pointer so the member renders as a root instead of naming a hidden card.
+    if not read_scope.is_unrestricted(mode="module"):
+        for member in related_map.values():
+            if member.get("parent_id") and member["parent_id"] not in related_map:
+                member["parent_id"] = None
+
     # 5. Get relation types for label resolution
     rt_result = await db.execute(select(RelationType).where(RelationType.is_hidden.is_(False)))
     relation_types_list = rt_result.scalars().all()
@@ -1081,7 +1147,7 @@ async def app_portfolio(
             other = rt.target_type_key
         elif rt.target_type_key == type:
             other = rt.source_type_key
-        if other:
+        if other and read_scope.type_readable(other, mode="module"):
             rel_type_defs.append(
                 {
                     "key": rt.key,
@@ -1101,7 +1167,9 @@ async def app_portfolio(
 
     # 7. Get all organizations for org filter options (backwards-compat)
     orgs_result = await db.execute(
-        select(Card).where(Card.type == "Organization", Card.status == "ACTIVE").order_by(Card.name)
+        select(Card)
+        .where(Card.type == "Organization", Card.status == "ACTIVE", *readable)
+        .order_by(Card.name)
     )
     orgs = orgs_result.scalars().all()
 
@@ -1334,7 +1402,15 @@ async def matrix(
 
     # Column-level selects: only id / name / parent_id are ever used, so there
     # is no reason to hydrate whole Card rows for both axes.
-    card_cols = select(Card.id, Card.name, Card.parent_id).where(Card.status == "ACTIVE")
+    #
+    # Both axes and both ends of every edge are limited to the cards the
+    # reader may see; "complete" means complete within that scope. A row
+    # whose parent is hidden keeps a dangling parent_id, which the client
+    # already treats as a root (as it does for an archived parent).
+    read_scope = await CardReadScope.load(db, user)
+    card_cols = select(Card.id, Card.name, Card.parent_id).where(
+        Card.status == "ACTIVE", *read_scope.where(Card, mode="module")
+    )
     rows = (await db.execute(card_cols.where(Card.type == row_type).order_by(Card.name))).all()
     cols = (
         rows
@@ -1362,6 +1438,8 @@ async def matrix(
                     and_(src_card.type == row_type, tgt_card.type == col_type),
                     and_(src_card.type == col_type, tgt_card.type == row_type),
                 ),
+                *read_scope.where(src_card, mode="module"),
+                *read_scope.where(tgt_card, mode="module"),
             )
         )
         if requested_types is not None:
@@ -1456,7 +1534,8 @@ async def roadmap(
 ):
     """Roadmap: lifecycle timeline data."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    q = select(Card).where(Card.status == "ACTIVE")
+    read_scope = await CardReadScope.load(db, user)
+    q = select(Card).where(Card.status == "ACTIVE", *read_scope.where(Card, mode="module"))
     if type:
         q = q.where(Card.type == type)
     result = await db.execute(q)
@@ -1510,7 +1589,12 @@ async def cost_report(
     fy_start = await get_fiscal_year_start(db)
     fy = current_fiscal_year(fy_start)
 
-    result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
+    read_scope = await CardReadScope.load(db, user)
+    result = await db.execute(
+        select(Card).where(
+            Card.type == type, Card.status == "ACTIVE", *read_scope.where(Card, mode="module")
+        )
+    )
     sheets = [
         c for c in result.scalars().all() if is_live_in_fiscal_year(c.lifecycle, fy, fy_start)
     ]
@@ -1574,14 +1658,24 @@ async def cost_treemap(
         raise HTTPException(400, f"Invalid cost_field: {cost_field!r}")
     fy_start = await get_fiscal_year_start(db)
     fy = current_fiscal_year(fy_start)
-    result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
+    read_scope = await CardReadScope.load(db, user)
+    result = await db.execute(
+        select(Card).where(
+            Card.type == type, Card.status == "ACTIVE", *read_scope.where(Card, mode="module")
+        )
+    )
     sheets = [
         c for c in result.scalars().all() if is_live_in_fiscal_year(c.lifecycle, fy, fy_start)
     ]
 
     if parent_card_id is not None:
         # Restrict sheets to those linked (in either direction) to the parent card.
+        # A parent hidden from the reader has no linked cards as far as they know.
         sheet_ids = [c.id for c in sheets]
+        if parent_card_id not in await read_scope.readable_card_ids(
+            db, {parent_card_id}, mode="module"
+        ):
+            sheet_ids = []
         if sheet_ids:
             edges_result = await db.execute(
                 select(Relation).where(
@@ -1641,8 +1735,13 @@ async def cost_treemap(
         cost_by_primary: dict[str, float] = {}
 
         for type_key, field_key in pairs:
+            # Hidden related cards are never summed into a visible card's total.
             rel_result = await db.execute(
-                select(Card).where(Card.type == type_key, Card.status == "ACTIVE")
+                select(Card).where(
+                    Card.type == type_key,
+                    Card.status == "ACTIVE",
+                    *read_scope.where(Card, mode="module"),
+                )
             )
             # A related card outside the current fiscal year contributes nothing.
             related_cards = [
@@ -1722,7 +1821,11 @@ async def cost_treemap(
     if group_by:
         # Get group cards
         grp_result = await db.execute(
-            select(Card).where(Card.type == group_by, Card.status == "ACTIVE")
+            select(Card).where(
+                Card.type == group_by,
+                Card.status == "ACTIVE",
+                *read_scope.where(Card, mode="module"),
+            )
         )
         grp_sheets = grp_result.scalars().all()
         grp_map = {str(g.id): g.name for g in grp_sheets}
@@ -1782,12 +1885,15 @@ async def capability_heatmap(
     if metric == "total_cost":
         await PermissionService.require_permission(db, user, "costs.view")
     can_view_costs_global = await PermissionService.has_app_permission(db, user, "costs.view")
+    read_scope = await CardReadScope.load(db, user)
+    readable = read_scope.where(Card, mode="module")
     # Get all business capabilities
     caps_result = await db.execute(
         select(Card)
         .where(
             Card.type == "BusinessCapability",
             Card.status == "ACTIVE",
+            *readable,
         )
         .order_by(Card.name)
     )
@@ -1808,7 +1914,7 @@ async def capability_heatmap(
 
     # Get related applications via relations
     apps_result = await db.execute(
-        select(Card).where(Card.type == "Application", Card.status == "ACTIVE")
+        select(Card).where(Card.type == "Application", Card.status == "ACTIVE", *readable)
     )
     apps = apps_result.scalars().all()
     app_map = {str(a.id): a for a in apps}
@@ -1844,7 +1950,7 @@ async def capability_heatmap(
     }
     if related_ids:
         rel_cards_result = await db.execute(
-            select(Card).where(Card.id.in_(list(related_ids)), Card.status == "ACTIVE")
+            select(Card).where(Card.id.in_(list(related_ids)), Card.status == "ACTIVE", *readable)
         )
         for card in rel_cards_result.scalars().all():
             related_map[str(card.id)] = {"id": str(card.id), "name": card.name, "type": card.type}
@@ -1982,7 +2088,7 @@ async def capability_heatmap(
             }
         )
 
-    return {
+    payload = {
         "items": items,
         "metric": metric,
         "filterable_types": filterable_types,
@@ -2019,6 +2125,13 @@ async def capability_heatmap(
         "fields_schema": app_fields_schema,
         "tag_groups": cap_tag_groups_payload,
     }
+    # No facet for a relationship whose other end the reader may not see.
+    payload["relation_types"] = [
+        rt
+        for rt in payload["relation_types"]
+        if read_scope.type_readable(rt["other_type_key"], mode="module")
+    ]
+    return payload
 
 
 @router.get("/dependencies")
@@ -2031,8 +2144,14 @@ async def dependencies(
 ):
     """Dependency / interface map: nodes + edges for graph rendering."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    # Always load ALL active cards for ancestor path resolution
-    full_result = await db.execute(select(Card).where(Card.status == "ACTIVE"))
+    # Always load ALL active cards for ancestor path resolution — every card the
+    # reader may see. Filtering this one load removes hidden cards from the
+    # nodes, from every edge (both ends must be visible) and from ancestor
+    # paths, and stops the BFS from bridging through a hidden card.
+    read_scope = await CardReadScope.load(db, user)
+    full_result = await db.execute(
+        select(Card).where(Card.status == "ACTIVE", *read_scope.where(Card, mode="module"))
+    )
     all_sheets = full_result.scalars().all()
     full_map = {str(card.id): card for card in all_sheets}
 
@@ -2161,9 +2280,17 @@ async def dependencies(
 
 @router.get("/data-quality")
 async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    """Data quality & completeness dashboard."""
+    """Data quality & completeness dashboard.
+
+    Counts only the cards the reader may see. ``orphaned`` stays the system
+    truth — "no relation at all", counting relations to hidden cards — so the
+    tile keeps agreeing with ``orphaned_condition()`` behind its drill-down.
+    """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    result = await db.execute(select(Card).where(Card.status == "ACTIVE"))
+    read_scope = await CardReadScope.load(db, user)
+    result = await db.execute(
+        select(Card).where(Card.status == "ACTIVE", *read_scope.where(Card, mode="module"))
+    )
     sheets = result.scalars().all()
 
     # By-type stats
@@ -2328,7 +2455,8 @@ async def data_quality_cards(
     if scope is not None and scope not in ("orphaned", "stale", *eol_scopes):
         raise HTTPException(status_code=400, detail=f"Unknown scope: {scope}")
 
-    conditions = [Card.status == "ACTIVE"]
+    read_scope = await CardReadScope.load(db, user)
+    conditions = [Card.status == "ACTIVE", *read_scope.where(Card, mode="module")]
     if type:
         conditions.append(Card.type == type)
     if band:
@@ -2404,11 +2532,13 @@ async def eol_report(
     is best placed to answer the one it could not.
     """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    # 1. Fetch all active Applications and ITComponents
+    read_scope = await CardReadScope.load(db, user)
+    # 1. Fetch all active Applications and ITComponents the reader may see
     result = await db.execute(
         select(Card).where(
             Card.status == "ACTIVE",
             Card.type.in_(EOL_TYPES),
+            *read_scope.where(Card, mode="module"),
         )
     )
     all_sheets = result.scalars().all()

@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,6 +37,9 @@ from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
 from app.models.relation import Relation
 from app.models.tag import CardTag
+
+if TYPE_CHECKING:
+    from app.services.card_read_scope import CardReadScope
 from app.schemas.bpm_public import (
     PUBLIC_PROCESS_ATTRIBUTES,
     BpmPublicFlow,
@@ -176,7 +179,11 @@ class ProcessMapData:
 
 
 async def build_process_map(
-    db: AsyncSession, scope: ProcessScope, *, include_landscape: bool = True
+    db: AsyncSession,
+    scope: ProcessScope,
+    *,
+    include_landscape: bool = True,
+    read_scope: CardReadScope | None = None,
 ) -> ProcessMapData:
     """Load the process landscape: hierarchy plus related apps, data, orgs, contexts.
 
@@ -185,8 +192,18 @@ async def build_process_map(
     house's filter needs. The public Process Navigator portal publishes none of
     that data, so loading every Application card in the instance on every
     anonymous page load would be work done purely to throw away.
+
+    ``read_scope`` limits every card this map loads to the ones an
+    authenticated reader may see (module mode). The portal passes none: a
+    published portal is an explicit publication with its own configuration.
     """
+    readable = read_scope.where(Card, mode="module") if read_scope is not None else ()
     processes = await load_processes(db, scope)
+    if readable:
+        allowed = await read_scope.readable_card_ids(  # type: ignore[union-attr]
+            db, [p.id for p in processes], mode="module"
+        )
+        processes = [p for p in processes if p.id in allowed]
     if not processes:
         return ProcessMapData()
 
@@ -194,7 +211,9 @@ async def build_process_map(
 
     async def _active(type_key: str) -> list[Card]:
         result = await db.execute(
-            select(Card).where(Card.type == type_key, Card.status == "ACTIVE").order_by(Card.name)
+            select(Card)
+            .where(Card.type == type_key, Card.status == "ACTIVE", *readable)
+            .order_by(Card.name)
         )
         return list(result.scalars().all())
 

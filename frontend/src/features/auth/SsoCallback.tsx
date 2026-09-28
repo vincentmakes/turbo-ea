@@ -7,6 +7,7 @@ import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import { useTranslation } from "react-i18next";
 
+import { routePermissionsFor } from "@/components/RequirePermission";
 import { canAccessPath } from "@/lib/routePermissions";
 import { consumeReturnPath } from "@/lib/returnPath";
 import {
@@ -96,7 +97,7 @@ export default function SsoCallback({ onSsoCallback }: Props) {
           return;
         }
         // Fail-closed: no user, or no permissions on it, means the dashboard.
-        const perms = (signedIn as User | null | undefined)?.permissions;
+        const perms = routePermissionsFor(signedIn as User | null | undefined);
         if (canAccessPath(perms, returnPath)) {
           navigate(returnPath, { replace: true });
           return;

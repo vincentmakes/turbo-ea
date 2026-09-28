@@ -157,9 +157,10 @@ def _enforce_field_gating(
 
 # ── Helpers ────────────────────────────────────────────────────────────
 
-# The four inventory permissions a card type may override, in the order the
-# admin Permissions tab renders them.
+# The five inventory permissions a card type may override, in the order the
+# admin Permissions tab renders them. View leads: a View deny locks the rest.
 _TYPE_PERMISSION_ORDER: tuple[str, ...] = (
+    "inventory.view",
     "inventory.create",
     "inventory.edit",
     "inventory.archive",
@@ -189,8 +190,16 @@ async def _validated_role_permissions(db: AsyncSession, raw: object) -> dict:
         raise HTTPException(400, str(exc)) from exc
 
 
-def _serialize_type(t: CardType) -> dict:
-    return {
+def _serialize_type(t: CardType, *, include_role_permissions: bool = True) -> dict:
+    """Serialise a card type.
+
+    ``role_permissions`` is the per-role RBAC matrix of the type — which roles
+    may see, create, edit… its cards. Read routes pass
+    ``include_role_permissions=False`` for callers without ``admin.metamodel``:
+    nothing outside the admin Permissions tab needs it, and it would tell any
+    user which types are hidden from which role.
+    """
+    out = {
         "key": t.key,
         "label": t.label,
         "description": t.description,
@@ -215,6 +224,9 @@ def _serialize_type(t: CardType) -> dict:
         # admin "reset to default color" affordance.
         "default_color": DEFAULT_TYPE_COLORS.get(t.key),
     }
+    if not include_role_permissions:
+        out.pop("role_permissions", None)
+    return out
 
 
 def _serialize_relation_type(r: RelationType) -> dict:
@@ -489,7 +501,8 @@ async def list_types(
     if not include_hidden:
         q = q.where(CardType.is_hidden == False)  # noqa: E712
     result = await db.execute(q)
-    return [_serialize_type(t) for t in result.scalars().all()]
+    rbac = await PermissionService.has_app_permission(db, user, "admin.metamodel")
+    return [_serialize_type(t, include_role_permissions=rbac) for t in result.scalars().all()]
 
 
 @router.get("/types/{key}")
@@ -500,7 +513,8 @@ async def get_type(
     t = result.scalar_one_or_none()
     if not t:
         raise HTTPException(404, "Card type not found")
-    return _serialize_type(t)
+    rbac = await PermissionService.has_app_permission(db, user, "admin.metamodel")
+    return _serialize_type(t, include_role_permissions=rbac)
 
 
 @router.get("/types/{key}/permissions")
@@ -510,7 +524,7 @@ async def get_type_permissions(
     """The per-role permission matrix for one card type (admin Permissions tab).
 
     Gated on ``admin.metamodel`` because it reveals part of the RBAC matrix.
-    It deliberately exposes only the four type-scoped inventory bits per role —
+    It deliberately exposes only the five type-scoped inventory bits per role —
     never the full permission set, which stays behind ``admin.roles`` — so an
     admin who may edit the metamodel can see what a role inherits without
     being handed the whole role configuration.
@@ -879,6 +893,9 @@ async def create_type(
         await _ensure_successor_relation_type(db, t.key)
     await db.commit()
     await db.refresh(t)
+    # A lookup of this key before it existed cached "no overrides"; drop it so
+    # overrides created with the type apply at once, not a TTL later.
+    PermissionService.invalidate_type_permission_cache(t.key)
     return _serialize_type(t)
 
 

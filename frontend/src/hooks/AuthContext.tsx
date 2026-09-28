@@ -27,3 +27,14 @@ export function useAuthContext(): AuthContextValue {
   }
   return ctx;
 }
+
+/**
+ * The signed-in user, or `null` outside an `<AuthProvider>`.
+ *
+ * For presentation-only filters (which card types to offer in a picker) that
+ * must not crash a component rendered on its own — a test, a public page. The
+ * server enforces every read; this only avoids offering what it would refuse.
+ */
+export function useOptionalAuthUser(): User | null {
+  return useContext(AuthContext)?.user ?? null;
+}

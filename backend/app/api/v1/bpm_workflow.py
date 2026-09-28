@@ -27,6 +27,7 @@ from app.schemas.bpm import (
 )
 from app.services import notification_service
 from app.services.bpmn_parser import ARTEFACT_TYPES, parse_bpmn
+from app.services.card_read_scope import CardReadScope, is_card_readable
 from app.services.element_relation_sync import (
     ELEMENT_LINK_KEYS,
     element_link_ids,
@@ -47,7 +48,8 @@ router = APIRouter(prefix="/bpm", tags=["bpm-workflow"])
 # ── Helpers ─────────────────────────────────────────────────────────────
 
 
-async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID) -> Card:
+async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID, user: User) -> Card:
+    """The ACTIVE BusinessProcess, 404 when missing or hidden from ``user``."""
     result = await db.execute(
         select(Card).where(
             Card.id == process_id,
@@ -57,6 +59,8 @@ async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID) -> Card:
     )
     card = result.scalar_one_or_none()
     if not card:
+        raise HTTPException(404, "Business process not found")
+    if not await is_card_readable(db, user, card.id, mode="module", type_key=card.type):
         raise HTTPException(404, "Business process not found")
     return card
 
@@ -266,7 +270,7 @@ async def get_published_flow(
     """Get the currently published process flow (visible to all authenticated users)."""
     await PermissionService.require_permission(db, user, "bpm.view")
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     result = await db.execute(
         select(ProcessFlowVersion)
         .options(
@@ -299,7 +303,7 @@ async def list_drafts(
 ):
     """List draft (and pending) flow versions for a process."""
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     if not await _can_view_drafts(db, user, pid):
         raise HTTPException(403, "Insufficient permissions to view drafts")
 
@@ -350,7 +354,7 @@ async def create_draft(
 ):
     """Create a new draft process flow, optionally cloned from an existing version."""
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     if not await _can_edit_draft(db, user, pid):
         raise HTTPException(403, "Insufficient permissions to create drafts")
 
@@ -420,7 +424,7 @@ async def get_version(
     """Get a specific process flow version by ID."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
 
     result = await db.execute(
         select(ProcessFlowVersion)
@@ -458,7 +462,7 @@ async def update_draft(
     """Update a draft process flow. Only drafts can be edited."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     if not await _can_edit_draft(db, user, pid):
         raise HTTPException(403, "Insufficient permissions")
 
@@ -504,7 +508,7 @@ async def delete_draft(
     """Delete a draft process flow. Only drafts can be deleted."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     if not await _can_edit_draft(db, user, pid):
         raise HTTPException(403, "Insufficient permissions")
 
@@ -537,7 +541,7 @@ async def submit_for_approval(
     """Submit a draft for approval by the business process owner."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    process = await _get_process_or_404(db, pid)
+    process = await _get_process_or_404(db, pid, user)
     if not await _can_edit_draft(db, user, pid):
         raise HTTPException(403, "Insufficient permissions")
 
@@ -631,7 +635,7 @@ async def approve_version(
     the previous published version becomes archived."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    process = await _get_process_or_404(db, pid)
+    process = await _get_process_or_404(db, pid, user)
     if not await _can_approve_flow(db, user, pid):
         raise HTTPException(403, "Only process owners, admins, or BPM admins can approve")
 
@@ -694,10 +698,11 @@ async def approve_version(
         valid_card_ids: set[str] = set()
         if linked_card_ids:
             card_result = await db.execute(
-                select(Card.id, Card.name, Card.status).where(
+                select(Card.id, Card.name, Card.status, Card.type).where(
                     Card.id.in_([uuid.UUID(cid) for cid in linked_card_ids])
                 )
             )
+            approver_scope = await CardReadScope.load(db, user)
             card_name_map: dict[str, str] = {}
             for row in card_result.all():
                 cid_str = str(row[0])
@@ -705,7 +710,13 @@ async def approve_version(
                 if row[2] == "ACTIVE":
                     valid_card_ids.add(cid_str)
                 else:
-                    stale_link_warnings.append(f"{row[1]} ({cid_str[:8]}...) is no longer active")
+                    # Never name a card the approver may not see.
+                    label = (
+                        f"{row[1]} ({cid_str[:8]}...)"
+                        if approver_scope.readable(row[0], row[3], mode="module")
+                        else "A linked card"
+                    )
+                    stale_link_warnings.append(f"{label} is no longer active")
             # Check for deleted (not found) cards
             for cid in linked_card_ids:
                 if cid not in card_name_map:
@@ -827,7 +838,7 @@ async def reject_version(
     """Reject a pending process flow, returning it to draft status."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    process = await _get_process_or_404(db, pid)
+    process = await _get_process_or_404(db, pid, user)
     if not await _can_approve_flow(db, user, pid):
         raise HTTPException(403, "Only process owners, admins, or BPM admins can reject")
 
@@ -945,7 +956,7 @@ async def withdraw_version(
     """
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    process = await _get_process_or_404(db, pid)
+    process = await _get_process_or_404(db, pid, user)
 
     if not await _can_withdraw_flow(db, user, pid):
         raise HTTPException(403, "Insufficient permissions to withdraw a published process flow")
@@ -1065,7 +1076,7 @@ async def list_archived(
     defeat the point of recording the withdrawal.
     """
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     if not await _can_view_drafts(db, user, pid):
         raise HTTPException(403, "Insufficient permissions to view archives")
 
@@ -1100,7 +1111,7 @@ async def get_draft_elements(
     merged with any saved draft_element_links (pre-linked EA references)."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     if not await _can_view_drafts(db, user, pid):
         raise HTTPException(403, "Insufficient permissions")
 
@@ -1137,21 +1148,32 @@ async def get_draft_elements(
             xml_called[ext.bpmn_element_id] = target
             card_ids.add(str(target))
 
-    # Resolve names
+    # Resolve names — and which linked cards are hidden from the reader: a
+    # link to a card they may not see is shown as no link at all.
+    read_scope = await CardReadScope.load(db, user)
     name_map: dict[str, str] = {}
+    hidden: set[str] = set()
     if card_ids:
         card_result = await db.execute(
-            select(Card.id, Card.name).where(Card.id.in_([uuid.UUID(cid) for cid in card_ids]))
+            select(Card.id, Card.name, Card.type).where(
+                Card.id.in_([uuid.UUID(cid) for cid in card_ids])
+            )
         )
-        for row in card_result.all():
-            name_map[str(row[0])] = row[1]
+        for cid, cname, ctype in card_result.all():
+            if read_scope.readable(cid, ctype, mode="module"):
+                name_map[str(cid)] = cname
+            else:
+                hidden.add(str(cid))
+
+    def _vis(cid: str | None) -> str | None:
+        return None if cid in hidden else cid
 
     elements = []
     for ext in extracted:
         link = links.get(ext.bpmn_element_id, {})
-        app_id = link.get("application_id")
-        do_id = link.get("data_object_id")
-        itc_id = link.get("it_component_id")
+        app_id = _vis(link.get("application_id"))
+        do_id = _vis(link.get("data_object_id"))
+        itc_id = _vis(link.get("it_component_id"))
         # The draft's own link wins, mirroring the publish-time precedence in
         # `_apply_draft_link`: a key the draft carries is what the user set
         # here (a card, or an explicit clear), and the XML's own reference is
@@ -1159,12 +1181,12 @@ async def get_draft_elements(
         bp_id: str | None = None
         if ext.element_type not in ARTEFACT_TYPES:
             if "business_process_id" in link:
-                bp_id = link.get("business_process_id")
+                bp_id = _vis(link.get("business_process_id"))
             else:
                 xml_target = xml_called.get(ext.bpmn_element_id)
                 if xml_target and str(xml_target) in name_map:
                     bp_id = str(xml_target)
-        org_ids = link.get("organization_ids") or []
+        org_ids = [oid for oid in (link.get("organization_ids") or []) if oid not in hidden]
         elements.append(
             {
                 "bpmn_element_id": ext.bpmn_element_id,
@@ -1182,7 +1204,9 @@ async def get_draft_elements(
                 "data_object_name": name_map.get(do_id, "") if do_id else None,
                 "it_component_id": itc_id,
                 "it_component_name": name_map.get(itc_id, "") if itc_id else None,
-                "called_element": ext.process_reference,
+                "called_element": (
+                    None if ext.process_reference in hidden else ext.process_reference
+                ),
                 "business_process_id": bp_id,
                 "business_process_name": name_map.get(bp_id, "") if bp_id else None,
                 "organizations": [{"id": oid, "name": name_map.get(oid, "")} for oid in org_ids],
@@ -1204,7 +1228,7 @@ async def update_draft_element_link(
     """Update a single draft element link (pre-link EA references before publishing)."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     if not await _can_edit_draft(db, user, pid):
         raise HTTPException(403, "Insufficient permissions")
 
@@ -1222,6 +1246,40 @@ async def update_draft_element_link(
 
     links = dict(version.draft_element_links or {})
     existing = links.get(bpmn_element_id, {})
+
+    # Read scope: linking a card hidden from the caller is a 404 (it does not
+    # exist for them); clearing or replacing links they were never shown
+    # keeps those links.
+    read_scope = await CardReadScope.load(db, user)
+
+    def _uuids(ids: set[str]) -> set[uuid.UUID]:
+        out: set[uuid.UUID] = set()
+        for i in ids:
+            try:
+                out.add(uuid.UUID(str(i)))
+            except ValueError:
+                continue  # malformed: left to the validators below
+        return out
+
+    async def _hidden(ids: set[str]) -> set[str]:
+        """Ids of existing cards the caller may not see."""
+        found = await read_scope.hidden_card_ids(db, _uuids(ids), mode="module")
+        return {str(i) for i in found}
+
+    for key in ("application_id", "data_object_id", "it_component_id", "business_process_id"):
+        if key not in body:
+            continue
+        new, old_val = body[key], existing.get(key)
+        if new and await _hidden({new}):
+            raise HTTPException(404, "Card not found")
+        if not new and old_val and await _hidden({old_val}):
+            body[key] = old_val
+    if body.get("organization_ids") is not None:
+        wanted = {o for o in body["organization_ids"] if o}
+        if await _hidden(wanted):
+            raise HTTPException(404, "Card not found")
+        before = {o for o in (existing.get("organization_ids") or []) if o}
+        body["organization_ids"] = sorted(wanted | await _hidden(before))
 
     # The process link is validated at write time — the picker is the only
     # sanctioned source, so a bad id here is a client bug, not stale data.
@@ -1288,7 +1346,7 @@ async def get_flow_permissions(
 ):
     """Return the current user's permissions on the process flow."""
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     return {
         "can_view_drafts": await _can_view_drafts(db, user, pid),
         "can_edit_draft": await _can_edit_draft(db, user, pid),

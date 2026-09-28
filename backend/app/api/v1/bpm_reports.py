@@ -16,6 +16,7 @@ from app.models.process_flow_version import ProcessFlowVersion
 from app.models.relation import Relation
 from app.models.user import User
 from app.services import process_map_service
+from app.services.card_read_scope import CardReadScope
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/reports/bpm", tags=["reports"])
@@ -28,11 +29,13 @@ async def bpm_dashboard(
 ):
     """BPM KPIs: counts, maturity distribution, automation levels, risk."""
     await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
-    # All active BusinessProcess cards
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
+    # All active BusinessProcess cards the reader may see
     result = await db.execute(
         select(Card).where(
             Card.type == "BusinessProcess",
             Card.status == "ACTIVE",
+            *readable,
         )
     )
     processes = result.scalars().all()
@@ -76,7 +79,9 @@ async def bpm_dashboard(
         .where(ProcessFlowVersion.status == "published")
         .distinct()
     )
-    processes_with_diagrams = len(diag_result.all())
+    # Coverage of the processes counted above, not of every process there is.
+    process_ids = {p.id for p in processes}
+    processes_with_diagrams = sum(1 for (pid,) in diag_result.all() if pid in process_ids)
 
     return {
         "total_processes": total,
@@ -116,11 +121,13 @@ async def capability_process_matrix(
     if not all_ids:
         return {"rows": [], "columns": [], "cells": []}
 
-    card_result = await db.execute(select(Card).where(Card.id.in_(all_ids)))
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
+    card_result = await db.execute(select(Card).where(Card.id.in_(all_ids), *readable))
     card_map = {card.id: card for card in card_result.scalars().all()}
 
     rows = [{"id": str(pid), "name": card_map[pid].name} for pid in process_ids if pid in card_map]
     columns = [{"id": str(cid), "name": card_map[cid].name} for cid in cap_ids if cid in card_map]
+    # A cell is only as visible as both of its ends.
     cells = [
         {
             "process_id": str(r.source_id),
@@ -128,6 +135,7 @@ async def capability_process_matrix(
             "attributes": r.attributes or {},
         }
         for r in rels
+        if r.source_id in card_map and r.target_id in card_map
     ]
 
     return {"rows": rows, "columns": columns, "cells": cells}
@@ -186,11 +194,15 @@ async def process_application_matrix(
     if not all_ids:
         return {"rows": [], "columns": [], "cells": []}
 
-    card_result = await db.execute(select(Card).where(Card.id.in_(all_ids)))
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
+    card_result = await db.execute(select(Card).where(Card.id.in_(all_ids), *readable))
     card_map = {card.id: card for card in card_result.scalars().all()}
 
     rows = [{"id": str(pid), "name": card_map[pid].name} for pid in process_ids if pid in card_map]
     columns = [{"id": str(aid), "name": card_map[aid].name} for aid in app_ids if aid in card_map]
+    # A cell is only as visible as both of its ends.
+    visible = {str(cid) for cid in card_map}
+    cells = [c for c in cells if c["process_id"] in visible and c["application_id"] in visible]
 
     return {"rows": rows, "columns": columns, "cells": cells}
 
@@ -221,7 +233,8 @@ async def process_dependencies(
     if not node_ids:
         return {"nodes": [], "edges": []}
 
-    card_result = await db.execute(select(Card).where(Card.id.in_(node_ids)))
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
+    card_result = await db.execute(select(Card).where(Card.id.in_(node_ids), *readable))
     nodes = [
         {
             "id": str(card.id),
@@ -231,6 +244,9 @@ async def process_dependencies(
         }
         for card in card_result.scalars().all()
     ]
+    # An edge is only as visible as both of its ends.
+    visible = {n["id"] for n in nodes}
+    edges = [e for e in edges if e["source"] in visible and e["target"] in visible]
 
     return {"nodes": nodes, "edges": edges}
 
@@ -246,11 +262,13 @@ async def capability_heatmap(
 ):
     """Capability tree colored by a chosen metric."""
     await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
+    read_scope = await CardReadScope.load(db, user)
     # Load capabilities
     cap_result = await db.execute(
         select(Card).where(
             Card.type == "BusinessCapability",
             Card.status == "ACTIVE",
+            *read_scope.where(Card, mode="module"),
         )
     )
     capabilities = cap_result.scalars().all()
@@ -258,10 +276,16 @@ async def capability_heatmap(
     # Load process→capability relations
     rel_result = await db.execute(select(Relation).where(Relation.type == "relProcessToBC"))
     rels = rel_result.scalars().all()
+    # A process the reader may not see is not counted.
+    readable_processes = await read_scope.readable_card_ids(
+        db, {r.source_id for r in rels}, mode="module"
+    )
 
     # Count processes per capability
     process_count: dict = {}
     for r in rels:
+        if r.source_id not in readable_processes:
+            continue
         cid = r.target_id
         process_count[cid] = process_count.get(cid, 0) + 1
 
@@ -339,8 +363,9 @@ async def process_organization_matrix(
     if not all_ids:
         return {"rows": [], "columns": [], "cells": []}
 
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
     card_result = await db.execute(
-        select(Card).where(Card.id.in_(all_ids), Card.status == "ACTIVE")
+        select(Card).where(Card.id.in_(all_ids), Card.status == "ACTIVE", *readable)
     )
     card_map = {card.id: card for card in card_result.scalars().all()}
 
@@ -404,11 +429,18 @@ async def element_application_map(
     if not all_ids:
         return []
 
-    card_result = await db.execute(select(Card).where(Card.id.in_(all_ids)))
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
+    card_result = await db.execute(select(Card).where(Card.id.in_(all_ids), *readable))
     card_map = {str(card.id): card.name for card in card_result.scalars().all()}
 
     result_list = []
     for app_id, elems in grouped.items():
+        # An application or process the reader may not see is left out.
+        if app_id not in card_map:
+            continue
+        elems = [e for e in elems if e["process_id"] in card_map]
+        if not elems:
+            continue
         for elem in elems:
             elem["process_name"] = card_map.get(elem["process_id"], "")
         result_list.append(
@@ -436,7 +468,9 @@ async def process_map(
     """
     await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
 
-    data = await process_map_service.build_process_map(db, process_map_service.ProcessScope())
+    data = await process_map_service.build_process_map(
+        db, process_map_service.ProcessScope(), read_scope=await CardReadScope.load(db, user)
+    )
     if not data.processes:
         return {"items": [], "organizations": [], "business_contexts": []}
 
@@ -481,12 +515,14 @@ async def value_stream_matrix(
     Includes related apps and parent_id for nested process display.
     """
     await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
     # All active BusinessProcesses
     proc_result = await db.execute(
         select(Card)
         .where(
             Card.type == "BusinessProcess",
             Card.status == "ACTIVE",
+            *readable,
         )
         .order_by(Card.name)
     )
@@ -502,6 +538,7 @@ async def value_stream_matrix(
         .where(
             Card.type == "Organization",
             Card.status == "ACTIVE",
+            *readable,
         )
         .order_by(Card.name)
     )
@@ -514,6 +551,7 @@ async def value_stream_matrix(
             Card.type == "BusinessContext",
             Card.subtype == "valueStream",
             Card.status == "ACTIVE",
+            *readable,
         )
         .order_by(Card.name)
     )
@@ -524,6 +562,7 @@ async def value_stream_matrix(
         select(Card).where(
             Card.type == "Application",
             Card.status == "ACTIVE",
+            *readable,
         )
     )
     apps = app_result.scalars().all()

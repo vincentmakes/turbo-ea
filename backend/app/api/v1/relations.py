@@ -26,6 +26,7 @@ from app.schemas.relation import (
 )
 from app.services import card_write_service
 from app.services.calculation_engine import run_calculations_for_card
+from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.card_resolver import CardResolver
 from app.services.cost_field_filter import cost_field_keys_from_relation_schema
 from app.services.data_quality import calc_data_quality
@@ -128,6 +129,13 @@ async def _relation_cost_redaction(
     return redact
 
 
+async def _relation_readable(db: AsyncSession, user: User, rel: Relation) -> bool:
+    """Both ends of ``rel`` are readable by ``user`` (module mode)."""
+    read_scope = await CardReadScope.load(db, user)
+    readable = await read_scope.readable_card_ids(db, {rel.source_id, rel.target_id}, mode="module")
+    return rel.source_id in readable and rel.target_id in readable
+
+
 @router.get("", response_model=list[RelationResponse])
 async def list_relations(
     db: AsyncSession = Depends(get_db),
@@ -174,6 +182,10 @@ async def list_relations(
     src = aliased(Card)
     tgt = aliased(Card)
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+    # Module mode: this route is ungated, so only an explicit card-type View
+    # deny subtracts. Both ends are filtered — a relation to a card the caller
+    # may not read does not exist for them.
+    read_scope = await CardReadScope.load(db, user)
 
     q = (
         select(
@@ -195,6 +207,7 @@ async def list_relations(
         # archive so they reappear on restore; hard-delete and the 30-day
         # auto-purge clean them up.
         .where(src.status != "ARCHIVED", tgt.status != "ARCHIVED")
+        .where(*read_scope.where(src, mode="module"), *read_scope.where(tgt, mode="module"))
     )
 
     if card_id:
@@ -271,6 +284,9 @@ async def create_relation(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "relations.manage")
+    # An end hidden from the caller does not exist for them.
+    await require_card_readable(db, user, uuid.UUID(body.source_id), mode="module")
+    await require_card_readable(db, user, uuid.UUID(body.target_id), mode="module")
     # Idempotent upsert on (type, source, target) — discussion #905 — via the
     # shared card write service, so every write path merges instead of
     # duplicating.
@@ -305,7 +321,7 @@ async def update_relation(
     await PermissionService.require_permission(db, user, "relations.manage")
     result = await db.execute(select(Relation).where(Relation.id == uuid.UUID(rel_id)))
     rel = result.scalar_one_or_none()
-    if not rel:
+    if not rel or not await _relation_readable(db, user, rel):
         raise HTTPException(404, "Relation not found")
     update_data = body.model_dump(exclude_unset=True)
     # If the user lacks cost access on the source card, preserve any existing
@@ -370,7 +386,7 @@ async def delete_relation(
     await PermissionService.require_permission(db, user, "relations.manage")
     result = await db.execute(select(Relation).where(Relation.id == uuid.UUID(rel_id)))
     rel = result.scalar_one_or_none()
-    if not rel:
+    if not rel or not await _relation_readable(db, user, rel):
         raise HTTPException(404, "Relation not found")
     source_card = await db.get(Card, rel.source_id)
     target_card = await db.get(Card, rel.target_id)
@@ -472,7 +488,11 @@ async def bulk_relations(
     dry_run_savepoint = await db.begin_nested() if body.dry_run else None
 
     results, upserted, deleted, failed = await apply_relation_operations(
-        db, list(body.operations), actor_id=user.id, dry_run=body.dry_run
+        db,
+        list(body.operations),
+        actor_id=user.id,
+        dry_run=body.dry_run,
+        read_scope=await CardReadScope.load(db, user),
     )
 
     if body.dry_run:
@@ -498,6 +518,7 @@ async def apply_relation_operations(
     *,
     actor_id: uuid.UUID,
     dry_run: bool,
+    read_scope: CardReadScope | None = None,
 ) -> tuple[list[RelationBulkResult], int, int, int]:
     """Apply relation upsert/delete ops within the CURRENT transaction and
     return ``(results, upserted, deleted, failed)``.
@@ -507,6 +528,9 @@ async def apply_relation_operations(
     when the caller created cards earlier in the same session (the combined
     ``/cards/bulk-create`` path), name/path refs resolve against those
     just-created cards too. Events are emitted only when ``dry_run`` is False.
+
+    ``read_scope`` (module mode) makes a card hidden from the caller resolve as
+    missing, whether it was referenced by name or by id.
     """
     operations = list(operations)
 
@@ -523,7 +547,8 @@ async def apply_relation_operations(
     for rt in rt_by_key.values():
         type_keys.add(rt.source_type_key)
         type_keys.add(rt.target_type_key)
-    resolver = await CardResolver.load(db, type_keys)
+    resolver = await CardResolver.load(db, type_keys, read_scope=read_scope, mode="module")
+    check_ids = read_scope is not None and not read_scope.is_unrestricted(mode="module")
 
     results: list[RelationBulkResult] = []
     upserted = 0
@@ -556,6 +581,13 @@ async def apply_relation_operations(
             # Name refs are type-checked above; id refs are not, so turn a pair
             # sent the other way round before the lookup, the delete and the
             # cardinality guards all key on it (#1140).
+            if check_ids:
+                assert read_scope is not None
+                readable = await read_scope.readable_card_ids(
+                    db, {source_id, target_id}, mode="module"
+                )
+                if source_id not in readable or target_id not in readable:
+                    raise HTTPException(404, "Card not found")
             source_id, target_id = await orient_endpoints(db, rt_def, source_id, target_id)
 
             # Look up an existing relation of this (type, source, target).

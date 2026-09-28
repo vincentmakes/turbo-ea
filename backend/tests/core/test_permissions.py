@@ -31,6 +31,7 @@ from app.core.permissions import (
     VIEWER_PERMISSIONS,
     migrate_legacy_app_permissions,
     strip_legacy_card_permissions,
+    type_cell_decision,
     validate_type_role_permissions,
 )
 
@@ -470,18 +471,18 @@ class TestTypeScopedPermissions:
     def test_all_type_scoped_keys_are_real_app_keys(self):
         assert TYPE_SCOPED_APP_PERMISSIONS <= ALL_APP_PERMISSION_KEYS
 
-    def test_type_scoped_keys_are_the_four_write_actions(self):
+    def test_type_scoped_keys_are_view_and_the_four_write_actions(self):
         assert TYPE_SCOPED_APP_PERMISSIONS == {
+            "inventory.view",
             "inventory.create",
             "inventory.edit",
             "inventory.archive",
             "inventory.delete",
         }
 
-    def test_view_is_not_type_scoped(self):
-        # Hiding a type from a role would have to reach every list, report and
-        # graph endpoint — deliberately out of scope for the override map.
-        assert "inventory.view" not in TYPE_SCOPED_APP_PERMISSIONS
+    def test_export_and_bulk_edit_stay_global(self):
+        assert "inventory.export" not in TYPE_SCOPED_APP_PERMISSIONS
+        assert "inventory.bulk_edit" not in TYPE_SCOPED_APP_PERMISSIONS
 
     def test_adds_no_new_permission_keys(self):
         # The override map reuses existing keys, so every default role dict
@@ -525,7 +526,12 @@ class TestValidateTypeRolePermissions:
 
     def test_non_type_scoped_permission_rejected(self):
         with pytest.raises(ValueError, match="cannot be set per card type"):
-            self._validate({"member": {"inventory.view": False}})
+            self._validate({"member": {"inventory.export": False}})
+
+    def test_view_cell_accepted(self):
+        assert self._validate({"member": {"inventory.view": False}}) == {
+            "member": {"inventory.view": False}
+        }
 
     def test_unknown_permission_rejected(self):
         with pytest.raises(ValueError, match="cannot be set per card type"):
@@ -542,3 +548,33 @@ class TestValidateTypeRolePermissions:
     def test_non_dict_cells_rejected(self):
         with pytest.raises(ValueError, match="must be an object"):
             self._validate({"member": True})
+
+
+class TestTypeCellDecision:
+    """The one rule every per-type checker shares (backend and frontend)."""
+
+    @pytest.mark.parametrize(
+        ("cells", "permission", "expected"),
+        [
+            # Nothing stored: inherit.
+            ({}, "inventory.edit", None),
+            (None, "inventory.view", None),
+            # A stored cell decides its own permission, either way.
+            ({"inventory.edit": False}, "inventory.edit", False),
+            ({"inventory.edit": True}, "inventory.edit", True),
+            ({"inventory.view": True}, "inventory.view", True),
+            ({"inventory.view": False}, "inventory.view", False),
+            # A cell never decides another permission...
+            ({"inventory.create": False}, "inventory.edit", None),
+            ({"inventory.view": True}, "inventory.edit", None),
+            # ...except an explicit View deny, which takes everything.
+            ({"inventory.view": False}, "inventory.edit", False),
+            ({"inventory.view": False, "inventory.edit": True}, "inventory.edit", False),
+            ({"inventory.view": False}, "comments.create", False),
+            ({"inventory.view": False}, "ppm.view", False),
+            # A non-scoped permission is never decided by an ordinary cell.
+            ({"inventory.edit": True}, "comments.create", None),
+        ],
+    )
+    def test_decision_table(self, cells, permission, expected):
+        assert type_cell_decision(cells, permission) is expected

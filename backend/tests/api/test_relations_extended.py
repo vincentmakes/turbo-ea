@@ -58,42 +58,38 @@ async def rel_ext_env(db):
 
 class TestRelationNonexistentCards:
     async def test_create_with_nonexistent_source(self, client, db, rel_ext_env):
-        """Creating a relation with a nonexistent source card ID should fail.
+        """Creating a relation with a nonexistent source card ID is a 404.
 
-        The endpoint does not validate card existence before INSERT, so the
-        database FK constraint fires and raises IntegrityError (500).
+        Both ends go through the card read check before the INSERT, so a
+        missing card is reported cleanly instead of surfacing as an FK error.
         """
         admin = rel_ext_env["admin"]
         fake_source = str(uuid.uuid4())
-        with pytest.raises(Exception):
-            await client.post(
-                "/api/v1/relations",
-                json={
-                    "type": "app_to_itc",
-                    "source_id": fake_source,
-                    "target_id": str(rel_ext_env["target"].id),
-                },
-                headers=auth_headers(admin),
-            )
+        response = await client.post(
+            "/api/v1/relations",
+            json={
+                "type": "app_to_itc",
+                "source_id": fake_source,
+                "target_id": str(rel_ext_env["target"].id),
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 404
 
     async def test_create_with_nonexistent_target(self, client, db, rel_ext_env):
-        """Creating a relation with a nonexistent target card ID should fail.
-
-        The endpoint does not validate card existence before INSERT, so the
-        database FK constraint fires and raises IntegrityError (500).
-        """
+        """Creating a relation with a nonexistent target card ID is a 404."""
         admin = rel_ext_env["admin"]
         fake_target = str(uuid.uuid4())
-        with pytest.raises(Exception):
-            await client.post(
-                "/api/v1/relations",
-                json={
-                    "type": "app_to_itc",
-                    "source_id": str(rel_ext_env["source"].id),
-                    "target_id": fake_target,
-                },
-                headers=auth_headers(admin),
-            )
+        response = await client.post(
+            "/api/v1/relations",
+            json={
+                "type": "app_to_itc",
+                "source_id": str(rel_ext_env["source"].id),
+                "target_id": fake_target,
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 404
 
 
 # ---------------------------------------------------------------

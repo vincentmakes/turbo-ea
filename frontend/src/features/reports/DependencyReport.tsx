@@ -31,6 +31,7 @@ import { buildAdjacency } from "./dependencyAdjacency";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useReadableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useTimeline } from "@/hooks/useTimeline";
@@ -464,6 +465,8 @@ function computeTreeLayout(
 export default function DependencyReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { types } = useMetamodel();
+  // Report type pickers offer only the types the user may see.
+  const readableTypes = useReadableCardTypes("module");
   const { user } = useAuthContext();
   const canCreateDiagram =
     !!user?.permissions?.["*"] || !!user?.permissions?.["diagrams.manage"];
@@ -1192,7 +1195,7 @@ export default function DependencyReport() {
             sx={{ minWidth: 150 }}
           >
             <MenuItem value="">{t("dependency.allTypes")}</MenuItem>
-            {types.filter((tp) => !tp.is_hidden).map((tp) => (
+            {readableTypes.filter((tp) => !tp.is_hidden).map((tp) => (
               <MenuItem key={tp.key} value={tp.key}>
                 {typeLabel(tp)}
               </MenuItem>

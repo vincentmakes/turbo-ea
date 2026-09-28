@@ -20,7 +20,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // permissions (discussion #1068). They render deep in the tree, always inside
 // an AuthProvider in the app; the tests mount them directly, so the context is
 // stubbed with an admin (whose wildcard grants every type).
+/** The user the type-read filter sees; `null` (no user) filters nothing. */
+const authRef = vi.hoisted(() => ({ user: null as Record<string, unknown> | null }));
+
 vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => authRef.user,
   useAuthContext: () => ({
     user: { id: "u1", email: "a@test.com", display_name: "Admin", permissions: { "*": true } },
     refreshUser: vi.fn(),
@@ -90,6 +94,7 @@ vi.mock("react-router", () => ({ useNavigate: () => vi.fn() }));
 
 beforeEach(() => {
   mm.relationTypes = [appToOrg];
+  authRef.user = null;
 });
 
 import { api } from "@/api/client";
@@ -354,6 +359,30 @@ describe("RelationsSection with several relation types on one pair", () => {
     expect(screen.getByText("Also is used by")).toBeInTheDocument();
     const legalRow = screen.getAllByRole("listitem").find((el) => el.textContent?.includes("Legal"));
     expect(legalRow?.textContent).not.toContain("Also");
+  });
+});
+
+describe("RelationsSection with a card type the role may not view", () => {
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+  });
+
+  it("offers no group for a relation type whose other end is hidden", async () => {
+    // A View deny means the Objective cards do not exist for this role, so a
+    // group headed "supports" would only ever be an empty promise (and its Add
+    // button a picker with nothing in it).
+    mm.relationTypes = [appToOrg, appToObj];
+    authRef.user = {
+      id: "u2",
+      permissions: { "inventory.view": true, "inventory.edit": true },
+      type_permissions: { Objective: { "inventory.view": false } },
+    };
+    mockApi([], []);
+
+    await openSection();
+
+    await waitFor(() => expect(screen.getByText("is used by")).toBeInTheDocument());
+    expect(screen.queryByText("supports")).not.toBeInTheDocument();
   });
 });
 

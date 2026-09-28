@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { api } from "@/api/client";
-import { hasTypePermission } from "@/components/RequirePermission";
+import { canReadType as canReadTypeFor, hasTypePermission } from "@/components/RequirePermission";
 import type { User, CardEffectivePermissions } from "@/types";
 
 /**
@@ -33,13 +33,21 @@ export function usePermissions(user: User | null) {
   );
 
   /**
-   * Check one of the four type-scoped inventory permissions for a specific
-   * card type, honouring that type's per-role overrides. Falls back to the
-   * role's landscape-wide grant when the type says nothing (discussion #1068).
+   * Check one of the five type-scoped inventory permissions (View, Create,
+   * Edit, Archive, Delete) for a specific card type, honouring that type's
+   * per-role overrides. Falls back to the role's landscape-wide grant when the
+   * type says nothing (discussion #1068); an explicit View deny on the type
+   * denies everything on it.
    */
   const canForType = useCallback(
     (permission: string, typeKey: string | null | undefined): boolean =>
       hasTypePermission(user, permission, typeKey),
+    [user]
+  );
+
+  /** May the user browse cards of this type landscape-wide? */
+  const canReadType = useCallback(
+    (typeKey: string | null | undefined): boolean => canReadTypeFor(user, typeKey),
     [user]
   );
 
@@ -110,6 +118,7 @@ export function usePermissions(user: User | null) {
     permissions,
     can,
     canForType,
+    canReadType,
     isAdmin,
     canViewCostsGlobally,
     cardPermissions,

@@ -13,6 +13,7 @@ vi.mock("./ServiceNowAdmin", () => ({
 
 const mockUser = { permissions: {} as Record<string, boolean> };
 vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => null,
   useAuthContext: () => ({ user: mockUser }),
 }));
 

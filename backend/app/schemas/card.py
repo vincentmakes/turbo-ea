@@ -167,6 +167,11 @@ class CardListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+    # Only in `ids=` mode: requested ids that exist but are hidden from the
+    # caller by a card-type View deny. Lets a caller that already holds the id
+    # (a diagram cell) tell "hidden from me" from "deleted" — without it the
+    # diagram editor would offer to remove every hidden card from the canvas.
+    withheld_ids: list[str] = []
 
 
 class CardRelationSummaryEntry(BaseModel):

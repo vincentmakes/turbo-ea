@@ -22,7 +22,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Snackbar from "@mui/material/Snackbar";
 import { api } from "@/api/client";
 import { useAuth } from "@/hooks/useAuth";
-import { hasTypePermission } from "@/components/RequirePermission";
+import { canReadType, hasTypePermission } from "@/components/RequirePermission";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CatalogueBrowser from "./CatalogueBrowser";
 import type {
@@ -57,6 +57,9 @@ export default function CataloguePage({ config }: Props) {
   // The importer creates cards of exactly one type, so the per-card-type
   // override for that type decides (discussion #1068).
   const canCreate = hasTypePermission(user, "inventory.create", config.inventoryCardType);
+  // The catalogue marks which entries already exist as cards of this type, so
+  // a role denied View on it may not open the page (the API refuses it too).
+  const canRead = canReadType(user, config.inventoryCardType);
   const canManageUpdates = can("admin.metamodel");
 
   const [payload, setPayload] = useState<CataloguePayload | null>(null);
@@ -221,6 +224,14 @@ export default function CataloguePage({ config }: Props) {
       setImportProgress(null);
     }
   };
+
+  if (!canRead) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="warning">{t("common:accessDenied.body")}</Alert>
+      </Box>
+    );
+  }
 
   if (loading) {
     return (

@@ -58,6 +58,7 @@ from app.schemas.turbolens import (
     VendorAnalysisOut,
     VendorHierarchyOut,
 )
+from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.card_search import card_search_filter, card_search_rank
 from app.services.permission_service import PermissionService
 from app.services.turbolens_ai import get_ai_config, is_ai_configured
@@ -199,28 +200,30 @@ async def turbolens_overview(
     """Dashboard KPIs: card counts, quality, vendor/duplicate summaries."""
     await PermissionService.require_permission(db, user, "turbolens.view")
 
-    active = Card.status != "ARCHIVED"
+    # Every KPI below counts only the cards the reader may see.
+    read_scope = await CardReadScope.load(db, user)
+    active = (Card.status != "ARCHIVED", *read_scope.where(Card, mode="module"))
 
     # Card counts by type
     type_counts = await db.execute(
-        select(Card.type, func.count(Card.id)).where(active).group_by(Card.type)
+        select(Card.type, func.count(Card.id)).where(*active).group_by(Card.type)
     )
     cards_by_type = {t: c for t, c in type_counts.all()}
     total_cards = sum(cards_by_type.values())
 
     # Average data quality
-    quality_result = await db.execute(select(func.avg(Card.data_quality)).where(active))
+    quality_result = await db.execute(select(func.avg(Card.data_quality)).where(*active))
     quality_avg = quality_result.scalar() or 0
 
     # Quality distribution: Bronze (<45), Silver (45-79), Gold (>=80)
     bronze_result = await db.execute(
-        select(func.count(Card.id)).where(active, Card.data_quality < 45)
+        select(func.count(Card.id)).where(*active, Card.data_quality < 45)
     )
     silver_result = await db.execute(
-        select(func.count(Card.id)).where(active, Card.data_quality >= 45, Card.data_quality < 80)
+        select(func.count(Card.id)).where(*active, Card.data_quality >= 45, Card.data_quality < 80)
     )
     gold_result = await db.execute(
-        select(func.count(Card.id)).where(active, Card.data_quality >= 80)
+        select(func.count(Card.id)).where(*active, Card.data_quality >= 80)
     )
     quality_bronze = bronze_result.scalar() or 0
     quality_silver = silver_result.scalar() or 0
@@ -229,7 +232,7 @@ async def turbolens_overview(
     # Total annual IT cost
     cost_result = await db.execute(
         select(func.sum(cast(Card.attributes["costTotalAnnual"].as_string(), SAFloat))).where(
-            active, Card.attributes["costTotalAnnual"].isnot(None)
+            *active, Card.attributes["costTotalAnnual"].isnot(None)
         )
     )
     total_cost = cost_result.scalar() or 0
@@ -249,7 +252,7 @@ async def turbolens_overview(
     # Top issues: low quality cards
     low_quality = await db.execute(
         select(Card.id, Card.name, Card.type, Card.data_quality)
-        .where(active, Card.data_quality < 40)
+        .where(*active, Card.data_quality < 40)
         .order_by(Card.data_quality.asc())
         .limit(10)
     )
@@ -390,9 +393,34 @@ async def get_duplicates(
     result = await db.execute(
         select(TurboLensDuplicateCluster).order_by(TurboLensDuplicateCluster.analysed_at.desc())
     )
-    return [
+    clusters = [
         DuplicateClusterOut.model_validate(c, from_attributes=True) for c in result.scalars().all()
     ]
+    read_scope = await CardReadScope.load(db, user)
+    if read_scope.is_unrestricted(mode="module"):
+        return clusters
+    # A cluster is about cards of one type: drop it when the reader may not see
+    # that type, and drop members hidden from them from the rest.
+    member_ids: set[uuid.UUID] = set()
+    for c in clusters:
+        for cid in c.card_ids or []:
+            try:
+                member_ids.add(uuid.UUID(cid))
+            except ValueError:
+                continue
+    hidden = {str(i) for i in await read_scope.hidden_card_ids(db, member_ids, mode="module")}
+    out: list[DuplicateClusterOut] = []
+    for c in clusters:
+        ids = c.card_ids or []
+        names = c.card_names or []
+        keep = [i for i, cid in enumerate(ids) if cid not in hidden]
+        if len(keep) < 2 and ids:
+            continue  # not a duplicate cluster as far as this reader can tell
+        c.card_ids = [ids[i] for i in keep]
+        if len(names) == len(ids):
+            c.card_names = [names[i] for i in keep]
+        out.append(c)
+    return out
 
 
 @router.patch("/duplicates/{cluster_id}/status")
@@ -457,8 +485,18 @@ async def get_modernizations(
     result = await db.execute(
         select(TurboLensModernization).order_by(TurboLensModernization.analysed_at.desc())
     )
-    return [
+    items = [
         ModernizationOut.model_validate(m, from_attributes=True) for m in result.scalars().all()
+    ]
+    read_scope = await CardReadScope.load(db, user)
+    if read_scope.is_unrestricted(mode="module"):
+        return items
+    ids = {uuid.UUID(m.card_id) for m in items if m.card_id}
+    hidden = {str(i) for i in await read_scope.hidden_card_ids(db, ids, mode="module")}
+    return [
+        m
+        for m in items
+        if m.card_id not in hidden and read_scope.type_readable(m.target_type, mode="module")
     ]
 
 
@@ -485,7 +523,11 @@ async def architect_objectives(
     """Search Objective cards for architect objective selection."""
     await PermissionService.require_permission(db, user, "turbolens.manage")
 
-    q = select(Card).where(Card.type == "Objective", Card.status != "ARCHIVED")
+    q = select(Card).where(
+        Card.type == "Objective",
+        Card.status != "ARCHIVED",
+        *(await CardReadScope.load(db, user)).where(Card, mode="module"),
+    )
     if search:
         q = q.where(card_search_filter(search))
     q = _ordered_by_relevance(q, search).limit(50)
@@ -511,7 +553,11 @@ async def architect_capabilities(
     """Search BusinessCapability cards for architect capability selection."""
     await PermissionService.require_permission(db, user, "turbolens.manage")
 
-    q = select(Card).where(Card.type == "BusinessCapability", Card.status != "ARCHIVED")
+    q = select(Card).where(
+        Card.type == "BusinessCapability",
+        Card.status != "ARCHIVED",
+        *(await CardReadScope.load(db, user)).where(Card, mode="module"),
+    )
     if search:
         q = q.where(card_search_filter(search))
     q = _ordered_by_relevance(q, search).limit(50)
@@ -543,8 +589,10 @@ async def architect_objective_dependencies(
     if not ids:
         return {"nodes": [], "edges": []}
 
-    # Load all active cards
-    full_result = await db.execute(select(Card).where(Card.status == "ACTIVE"))
+    # Load all active cards the reader may see — a hidden card is neither a
+    # node nor a bridge in the dependency walk.
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
+    full_result = await db.execute(select(Card).where(Card.status == "ACTIVE", *readable))
     all_cards = full_result.scalars().all()
     card_map = {str(c.id): c for c in all_cards}
 
@@ -641,6 +689,19 @@ async def architect_objective_dependencies(
     return {"nodes": nodes, "edges": edges}
 
 
+async def _require_whole_landscape(db: AsyncSession, user: User) -> None:
+    """The Architecture AI reasons over the whole landscape.
+
+    Its prompts carry every card's name and relations, its dedupe resolves
+    against existing cards and its commit writes relations — none of which can
+    honour a card-type View deny without leaking or silently diverging. A user
+    whose role is denied View on any card type may not run it.
+    """
+    read_scope = await CardReadScope.load(db, user)
+    if not read_scope.is_unrestricted(mode="module"):
+        raise HTTPException(403, "The Architecture AI needs read access to every card type")
+
+
 @router.post("/architect/phase1")
 async def architect_phase1(
     body: TurboLensArchitectRequest,
@@ -649,6 +710,7 @@ async def architect_phase1(
 ):
     """Phase 1: business & functional clarification questions."""
     await PermissionService.require_permission(db, user, "turbolens.manage")
+    await _require_whole_landscape(db, user)
 
     if not body.requirement:
         raise HTTPException(400, "Requirement is required for Phase 1")
@@ -669,6 +731,7 @@ async def architect_phase2(
 ):
     """Phase 2: technical & NFR deep-dive questions."""
     await PermissionService.require_permission(db, user, "turbolens.manage")
+    await _require_whole_landscape(db, user)
 
     if not body.requirement or not body.phase1_qa:
         raise HTTPException(400, "Requirement and phase1QA are required for Phase 2")
@@ -690,6 +753,7 @@ async def architect_phase3_options(
 ):
     """Phase 3a: generate solution options."""
     await PermissionService.require_permission(db, user, "turbolens.manage")
+    await _require_whole_landscape(db, user)
 
     if not body.requirement or not body.all_qa:
         raise HTTPException(400, "Requirement and allQA are required")
@@ -710,6 +774,7 @@ async def architect_phase3_gaps(
 ):
     """Phase 3b: identify products needed for the business requirements."""
     await PermissionService.require_permission(db, user, "turbolens.manage")
+    await _require_whole_landscape(db, user)
 
     if not body.requirement or not body.all_qa:
         raise HTTPException(400, "Requirement and allQA are required")
@@ -733,6 +798,7 @@ async def architect_phase3_deps(
 ):
     """Phase 3c: dependency analysis for selected products."""
     await PermissionService.require_permission(db, user, "turbolens.manage")
+    await _require_whole_landscape(db, user)
 
     if not body.requirement or not body.all_qa:
         raise HTTPException(400, "Requirement and allQA are required")
@@ -757,6 +823,7 @@ async def architect_phase3(
 ):
     """Phase 4: capability mapping with selected option context."""
     await PermissionService.require_permission(db, user, "turbolens.manage")
+    await _require_whole_landscape(db, user)
 
     if not body.requirement or not body.all_qa:
         raise HTTPException(400, "Requirement and allQA are required for Phase 3")
@@ -1069,6 +1136,13 @@ async def list_compliance(
 
     rows_res = await db.execute(stmt)
     rows = list(rows_res.scalars().all())
+    # A finding about a card hidden from the reader is left out; findings that
+    # name no card (landscape-wide) are kept.
+    read_scope = await CardReadScope.load(db, user)
+    hidden = await read_scope.hidden_card_ids(
+        db, {r.card_id for r in rows if r.card_id}, mode="module"
+    )
+    rows = [r for r in rows if r.card_id not in hidden]
 
     card_ids = {r.card_id for r in rows if r.card_id}
     meta_map = await _load_card_meta(db, card_ids)
@@ -1729,6 +1803,7 @@ async def list_card_compliance_findings(
         card_uuid = uuid.UUID(card_id)
     except ValueError as exc:
         raise HTTPException(400, "Invalid card id") from exc
+    await require_card_readable(db, user, card_uuid, mode="module")
 
     stmt = select(TurboLensComplianceFinding).where(TurboLensComplianceFinding.card_id == card_uuid)
     if not include_auto_resolved:
@@ -1946,6 +2021,7 @@ async def architect_commit(
 ):
     """Commit an assessment: create Initiative, cards, relations, and ADR."""
     await PermissionService.require_permission(db, user, "turbolens.manage")
+    await _require_whole_landscape(db, user)
 
     assessment = await db.get(TurboLensAssessment, uuid.UUID(body.assessment_id))
     if not assessment:

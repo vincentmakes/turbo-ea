@@ -50,6 +50,7 @@ from app.schemas.ppm import (
 )
 from app.services import notification_service
 from app.services.calculation_ppm import root_wbs_completion_map
+from app.services.card_read_scope import is_card_readable
 from app.services.card_write_service import recalculate_and_rescore
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
@@ -57,14 +58,35 @@ from app.services.permission_service import PermissionService
 router = APIRouter(prefix="/ppm", tags=["ppm"])
 
 
-async def _get_initiative_or_404(db: AsyncSession, initiative_id: str) -> Card:
+async def _get_initiative_or_404(db: AsyncSession, initiative_id: str, user: User) -> Card:
+    """The Initiative card; 404 when missing or hidden from ``user``.
+
+    A card-type View deny on Initiative wins over ``ppm.view``: the PPM
+    surfaces of an Initiative the user may not see do not exist for them,
+    unless they hold a stakeholder role on it (module-mode read rule).
+    """
     result = await db.execute(
         select(Card).where(Card.id == initiative_id, Card.type == "Initiative")
     )
     card = result.scalar_one_or_none()
-    if not card:
+    if not card or not await is_card_readable(db, user, card.id, mode="module", type_key=card.type):
         raise HTTPException(status_code=404, detail="Initiative not found")
     return card
+
+
+async def _ensure_task_readable(db: AsyncSession, user: User, task_id) -> None:
+    """404 when the task does not exist or its Initiative is hidden from ``user``."""
+    task = await db.get(PpmTask, uuid.UUID(str(task_id)))
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    await _ensure_initiative_readable(db, user, task.initiative_id)
+
+
+async def _ensure_initiative_readable(
+    db: AsyncSession, user: User, initiative_id: uuid.UUID | str
+) -> None:
+    """404 (as "not found") when a child row's Initiative is hidden from ``user``."""
+    await _get_initiative_or_404(db, str(initiative_id), user)
 
 
 async def _sync_initiative_costs(
@@ -205,7 +227,7 @@ async def list_reports(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
-    await _get_initiative_or_404(db, initiative_id)
+    await _get_initiative_or_404(db, initiative_id, user)
     result = await db.execute(
         select(PpmStatusReport)
         .where(PpmStatusReport.initiative_id == initiative_id)
@@ -227,7 +249,7 @@ async def create_report(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
-    await _get_initiative_or_404(db, initiative_id)
+    await _get_initiative_or_404(db, initiative_id, user)
     report = PpmStatusReport(
         id=uuid.uuid4(),
         initiative_id=initiative_id,
@@ -260,6 +282,7 @@ async def update_report(
     report = result.scalar_one_or_none()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
+    await _ensure_initiative_readable(db, user, report.initiative_id)
     for key, val in body.model_dump(exclude_unset=True).items():
         setattr(report, key, val)
     await db.commit()
@@ -280,6 +303,7 @@ async def delete_report(
     report = result.scalar_one_or_none()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
+    await _ensure_initiative_readable(db, user, report.initiative_id)
     initiative_id = report.initiative_id
     await db.delete(report)
     await db.commit()
@@ -310,7 +334,7 @@ async def list_cost_lines(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
-    await _get_initiative_or_404(db, initiative_id)
+    await _get_initiative_or_404(db, initiative_id, user)
     result = await db.execute(
         select(PpmCostLine)
         .where(PpmCostLine.initiative_id == initiative_id)
@@ -327,7 +351,7 @@ async def create_cost_line(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
-    await _get_initiative_or_404(db, initiative_id)
+    await _get_initiative_or_404(db, initiative_id, user)
     cl = PpmCostLine(
         id=uuid.uuid4(),
         initiative_id=initiative_id,
@@ -356,6 +380,7 @@ async def update_cost_line(
     cl = result.scalar_one_or_none()
     if not cl:
         raise HTTPException(status_code=404, detail="Cost line not found")
+    await _ensure_initiative_readable(db, user, cl.initiative_id)
     initiative_id = str(cl.initiative_id)
     for key, val in body.model_dump(exclude_unset=True).items():
         setattr(cl, key, val)
@@ -376,6 +401,7 @@ async def delete_cost_line(
     cl = result.scalar_one_or_none()
     if not cl:
         raise HTTPException(status_code=404, detail="Cost line not found")
+    await _ensure_initiative_readable(db, user, cl.initiative_id)
     initiative_id = str(cl.initiative_id)
     await db.delete(cl)
     await db.commit()
@@ -407,7 +433,7 @@ async def list_budget_lines(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
-    await _get_initiative_or_404(db, initiative_id)
+    await _get_initiative_or_404(db, initiative_id, user)
     result = await db.execute(
         select(PpmBudgetLine)
         .where(PpmBudgetLine.initiative_id == initiative_id)
@@ -427,7 +453,7 @@ async def create_budget_line(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
-    await _get_initiative_or_404(db, initiative_id)
+    await _get_initiative_or_404(db, initiative_id, user)
     bl = PpmBudgetLine(
         id=uuid.uuid4(),
         initiative_id=initiative_id,
@@ -454,6 +480,7 @@ async def update_budget_line(
     bl = result.scalar_one_or_none()
     if not bl:
         raise HTTPException(status_code=404, detail="Budget line not found")
+    await _ensure_initiative_readable(db, user, bl.initiative_id)
     initiative_id = str(bl.initiative_id)
     for key, val in body.model_dump(exclude_unset=True).items():
         setattr(bl, key, val)
@@ -474,6 +501,7 @@ async def delete_budget_line(
     bl = result.scalar_one_or_none()
     if not bl:
         raise HTTPException(status_code=404, detail="Budget line not found")
+    await _ensure_initiative_readable(db, user, bl.initiative_id)
     initiative_id = str(bl.initiative_id)
     await db.delete(bl)
     await db.commit()
@@ -490,7 +518,7 @@ async def has_costs(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
-    await _get_initiative_or_404(db, initiative_id)
+    await _get_initiative_or_404(db, initiative_id, user)
     budget_result = await db.execute(
         select(func.count())
         .select_from(PpmBudgetLine)
@@ -541,7 +569,7 @@ async def list_risks(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
-    await _get_initiative_or_404(db, initiative_id)
+    await _get_initiative_or_404(db, initiative_id, user)
     result = await db.execute(
         select(PpmRisk)
         .where(PpmRisk.initiative_id == initiative_id)
@@ -558,7 +586,7 @@ async def create_risk(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
-    await _get_initiative_or_404(db, initiative_id)
+    await _get_initiative_or_404(db, initiative_id, user)
     risk = PpmRisk(
         id=uuid.uuid4(),
         initiative_id=initiative_id,
@@ -590,6 +618,7 @@ async def update_risk(
     risk = result.scalar_one_or_none()
     if not risk:
         raise HTTPException(status_code=404, detail="Risk not found")
+    await _ensure_initiative_readable(db, user, risk.initiative_id)
     data = body.model_dump(exclude_unset=True)
     for key, val in data.items():
         setattr(risk, key, val)
@@ -613,6 +642,7 @@ async def delete_risk(
     risk = result.scalar_one_or_none()
     if not risk:
         raise HTTPException(status_code=404, detail="Risk not found")
+    await _ensure_initiative_readable(db, user, risk.initiative_id)
     initiative_id = risk.initiative_id
     await db.delete(risk)
     await db.commit()
@@ -697,7 +727,7 @@ async def list_tasks(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
-    await _get_initiative_or_404(db, initiative_id)
+    await _get_initiative_or_404(db, initiative_id, user)
     result = await db.execute(
         select(PpmTask)
         .where(PpmTask.initiative_id == initiative_id)
@@ -714,7 +744,7 @@ async def create_task(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
-    card = await _get_initiative_or_404(db, initiative_id)
+    card = await _get_initiative_or_404(db, initiative_id, user)
     task = PpmTask(
         id=uuid.uuid4(),
         initiative_id=initiative_id,
@@ -768,11 +798,12 @@ async def update_task(
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    await _ensure_initiative_readable(db, user, task.initiative_id)
     old_assignee_id = str(task.assignee_id) if task.assignee_id else None
     data = body.model_dump(exclude_unset=True)
     for key, val in data.items():
         setattr(task, key, val)
-    card = await _get_initiative_or_404(db, str(task.initiative_id))
+    card = await _get_initiative_or_404(db, str(task.initiative_id), user)
     await _sync_task_todo(db, task, card, user.id)
     # Notify new assignee when assignee changes
     new_assignee_id = task.assignee_id
@@ -817,6 +848,7 @@ async def delete_task(
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    await _ensure_initiative_readable(db, user, task.initiative_id)
     # Clean up linked todo
     link = f"/ppm/{task.initiative_id}?tab=tasks#task-{task.id}"
     todo_result = await db.execute(select(Todo).where(Todo.link == link, Todo.is_system.is_(True)))
@@ -859,6 +891,7 @@ async def list_task_comments(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
+    await _ensure_task_readable(db, user, task_id)
     result = await db.execute(
         select(PpmTaskComment)
         .where(PpmTaskComment.task_id == task_id)
@@ -880,6 +913,7 @@ async def create_task_comment(
     task = t_result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    await _ensure_initiative_readable(db, user, task.initiative_id)
     comment = PpmTaskComment(
         id=uuid.uuid4(),
         task_id=task_id,
@@ -903,6 +937,7 @@ async def update_task_comment(
     comment = result.scalar_one_or_none()
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
+    await _ensure_task_readable(db, user, comment.task_id)
     # Only author or ppm.manage can edit
     has_manage = await PermissionService.check_permission(db, user, "ppm.manage")
     if comment.user_id != user.id and not has_manage:
@@ -923,6 +958,7 @@ async def delete_task_comment(
     comment = result.scalar_one_or_none()
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
+    await _ensure_task_readable(db, user, comment.task_id)
     has_manage = await PermissionService.check_permission(db, user, "ppm.manage")
     if comment.user_id != user.id and not has_manage:
         raise HTTPException(status_code=403, detail="Not allowed")
@@ -1147,7 +1183,7 @@ async def list_wbs(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
-    await _get_initiative_or_404(db, initiative_id)
+    await _get_initiative_or_404(db, initiative_id, user)
     result = await db.execute(
         select(PpmWbs)
         .where(PpmWbs.initiative_id == initiative_id)
@@ -1164,7 +1200,7 @@ async def create_wbs(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
-    await _get_initiative_or_404(db, initiative_id)
+    await _get_initiative_or_404(db, initiative_id, user)
     if body.parent_id:
         parent_result = await db.execute(
             select(PpmWbs).where(
@@ -1209,6 +1245,7 @@ async def update_wbs(
     wbs = result.scalar_one_or_none()
     if not wbs:
         raise HTTPException(status_code=404, detail="WBS item not found")
+    await _ensure_initiative_readable(db, user, wbs.initiative_id)
     data = body.model_dump(exclude_unset=True)
     # Validate parent_id to prevent cycles
     if "parent_id" in data and data["parent_id"]:
@@ -1259,6 +1296,7 @@ async def delete_wbs(
     wbs = result.scalar_one_or_none()
     if not wbs:
         raise HTTPException(status_code=404, detail="WBS item not found")
+    await _ensure_initiative_readable(db, user, wbs.initiative_id)
     initiative_id = str(wbs.initiative_id)
     await db.delete(wbs)
     # The deleted package's tasks fall back to no work package (FK SET NULL),
@@ -1362,7 +1400,7 @@ async def list_dependencies(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
-    await _get_initiative_or_404(db, initiative_id)
+    await _get_initiative_or_404(db, initiative_id, user)
     result = await db.execute(
         select(PpmDependency)
         .where(PpmDependency.initiative_id == initiative_id)
@@ -1382,7 +1420,7 @@ async def create_dependency(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
-    await _get_initiative_or_404(db, initiative_id)
+    await _get_initiative_or_404(db, initiative_id, user)
 
     if body.pred_kind == body.succ_kind and body.pred_id == body.succ_id:
         raise HTTPException(status_code=422, detail="A row cannot depend on itself")
@@ -1459,6 +1497,7 @@ async def delete_dependency(
     dep = result.scalar_one_or_none()
     if not dep:
         raise HTTPException(status_code=404, detail="Dependency not found")
+    await _ensure_initiative_readable(db, user, dep.initiative_id)
     await db.delete(dep)
     await db.commit()
 
@@ -1471,7 +1510,7 @@ async def get_initiative_completion(
 ):
     """Return overall completion % for an initiative (average of root WBS items)."""
     await PermissionService.require_permission(db, user, "ppm.view")
-    card = await _get_initiative_or_404(db, initiative_id)
+    card = await _get_initiative_or_404(db, initiative_id, user)
     # Shared with the `ppm.completion` formula variable so the Overview tab and
     # a calculated field can never disagree (#1111).
     completion = await root_wbs_completion_map(db, [card.id])

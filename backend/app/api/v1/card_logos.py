@@ -16,6 +16,7 @@ from app.models.card_logo import CardLogo
 from app.models.card_type import CardType
 from app.models.user import User
 from app.services.brand_icons import icon_count, resolve_brand_icon, search_brand_icons
+from app.services.card_read_scope import require_inventory_browse
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -112,12 +113,13 @@ async def list_brand_icons(
 ):
     """Search the bundled brand-icon pack.
 
-    Gated on ``inventory.view``: the payload is public CC0 metadata, so nothing
-    here needs shaping, but this would otherwise be the only authenticated read
-    in the file with no permission at all — and ``inventory.view`` is the
-    weakest permission anyone who could act on the result already holds.
+    Gated on inventory access (``require_inventory_browse``): the payload is
+    public CC0 metadata, so nothing here needs shaping, but this would
+    otherwise be the only authenticated read in the file with no permission at
+    all — and inventory access is the weakest permission anyone who could act
+    on the result already holds.
     """
-    await PermissionService.require_permission(db, user, "inventory.view")
+    await require_inventory_browse(db, user)
     return {"items": search_brand_icons(search, limit), "total": icon_count()}
 
 
@@ -140,7 +142,7 @@ async def resolve_brand_icons(
     form is what a caller should store, since a bare slug resolves to whichever
     pack carries it.
     """
-    await PermissionService.require_permission(db, user, "inventory.view")
+    await require_inventory_browse(db, user)
     wanted = [r.strip() for r in refs.split(",") if r.strip()][:500]
     known: dict[str, str] = {}
     unknown: list[str] = []

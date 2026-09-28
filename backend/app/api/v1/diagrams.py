@@ -23,6 +23,7 @@ from app.models.diagram import Diagram, diagram_cards
 from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import diagram_group_members
 from app.models.user import User
+from app.services.card_read_scope import CardReadScope
 from app.services.diagram_legend import build_public_legend
 from app.services.permission_service import PermissionService
 from app.services.public_access import (
@@ -157,6 +158,20 @@ async def _get_card_ids(db: AsyncSession, diagram_id: uuid.UUID) -> list[str]:
     return [str(row[0]) for row in result.all()]
 
 
+async def _readable_card_ids(db: AsyncSession, user: User, card_ids: list[str]) -> list[str]:
+    """``card_ids`` minus the cards hidden from ``user`` (order kept)."""
+    read_scope = await CardReadScope.load(db, user)
+    if read_scope.is_unrestricted(mode="module"):
+        return card_ids
+    ok = {
+        str(c)
+        for c in await read_scope.readable_card_ids(
+            db, {uuid.UUID(c) for c in card_ids}, mode="module"
+        )
+    }
+    return [c for c in card_ids if c in ok]
+
+
 async def _get_card_ids_bulk(db: AsyncSession) -> dict[str, list[str]]:
     """Return mapping of diagram_id -> [card_id, ...] for all diagrams."""
     result = await db.execute(select(diagram_cards))
@@ -260,8 +275,16 @@ async def list_diagrams(
     result = await db.execute(stmt)
     rows = list(result.scalars().all())
 
-    # Bulk-load supporting data
+    # Bulk-load supporting data. Linked cards hidden from the reader are left
+    # out of `card_ids`, and a hidden card's name never matches a search.
+    read_scope = await CardReadScope.load(db, user)
     id_map = await _get_card_ids_bulk(db)
+    if not read_scope.is_unrestricted(mode="module"):
+        all_linked = {uuid.UUID(c) for ids in id_map.values() for c in ids}
+        readable_linked = {
+            str(c) for c in await read_scope.readable_card_ids(db, all_linked, mode="module")
+        }
+        id_map = {did: [c for c in ids if c in readable_linked] for did, ids in id_map.items()}
     group_map = await _get_group_ids_bulk(db)
     creator_names = await _get_creator_names(db, rows)
 
@@ -271,7 +294,13 @@ async def list_diagrams(
         like = f"%{search.strip()}%"
         matching_card_ids = {
             str(row[0])
-            for row in (await db.execute(select(Card.id).where(Card.name.ilike(like)))).all()
+            for row in (
+                await db.execute(
+                    select(Card.id).where(
+                        Card.name.ilike(like), *read_scope.where(Card, mode="module")
+                    )
+                )
+            ).all()
         }
 
         def _matches(d: Diagram) -> bool:
@@ -394,6 +423,11 @@ async def create_diagram(
     await db.flush()  # get d.id
 
     if body.card_ids:
+        read_scope = await CardReadScope.load(db, user)
+        if await read_scope.hidden_card_ids(
+            db, {uuid.UUID(c) for c in body.card_ids}, mode="module"
+        ):
+            raise HTTPException(404, "Card not found")
         await _set_card_ids(db, d.id, body.card_ids)
 
     await db.commit()
@@ -498,7 +532,7 @@ async def get_diagram(
     d = result.scalar_one_or_none()
     if not d:
         raise HTTPException(404, "Diagram not found")
-    linked_card_ids = await _get_card_ids(db, d.id)
+    linked_card_ids = await _readable_card_ids(db, user, await _get_card_ids(db, d.id))
     group_result = await db.execute(
         select(diagram_group_members.c.group_id).where(diagram_group_members.c.diagram_id == d.id)
     )
@@ -544,10 +578,17 @@ async def update_diagram(
         new_data["card_refs"] = _extract_card_refs(new_data)
         d.data = new_data
     if body.card_ids is not None:
-        await _set_card_ids(db, d.id, body.card_ids)
+        read_scope = await CardReadScope.load(db, user)
+        wanted = {uuid.UUID(c) for c in body.card_ids}
+        if await read_scope.hidden_card_ids(db, wanted, mode="module"):
+            raise HTTPException(404, "Card not found")
+        # The client was only shown the readable links — keep the hidden ones.
+        current = {uuid.UUID(c) for c in await _get_card_ids(db, d.id)}
+        wanted |= await read_scope.hidden_card_ids(db, current, mode="module")
+        await _set_card_ids(db, d.id, [str(c) for c in wanted])
     await db.commit()
     await db.refresh(d)
-    linked_card_ids = await _get_card_ids(db, d.id)
+    linked_card_ids = await _readable_card_ids(db, user, await _get_card_ids(db, d.id))
     return {"id": str(d.id), "name": d.name, "card_ids": linked_card_ids}
 
 

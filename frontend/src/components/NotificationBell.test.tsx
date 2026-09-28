@@ -34,6 +34,7 @@ vi.mock("@/components/NotificationDetailDialog", () => ({
   ),
 }));
 vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => null,
   useAuthContext: () => ({ user: { id: "u1", permissions: {} }, refreshUser: async () => {} }),
 }));
 

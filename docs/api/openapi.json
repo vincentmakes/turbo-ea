@@ -2628,6 +2628,14 @@
           "total": {
             "title": "Total",
             "type": "integer"
+          },
+          "withheld_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Withheld Ids",
+            "type": "array"
           }
         },
         "required": [
@@ -19140,7 +19148,7 @@
     },
     "/api/v1/bookmarks/{bm_id}/odata": {
       "get": {
-        "description": "OData-style JSON feed for a bookmark's filtered cards.\nRequires authentication. Returns data matching the bookmark's saved filters.",
+        "description": "OData-style JSON feed for a bookmark's filtered cards.\nRequires authentication. Returns data matching the bookmark's saved filters,\nlimited to the cards the *caller* may read \u2014 a shared bookmark never hands\nover a card type the reader is denied.",
         "operationId": "bookmark_odata_feed_api_v1_bookmarks__bm_id__odata_get",
         "parameters": [
           {
@@ -21226,7 +21234,7 @@
     },
     "/api/v1/card-logos/brand-icons": {
       "get": {
-        "description": "Search the bundled brand-icon pack.\n\nGated on ``inventory.view``: the payload is public CC0 metadata, so nothing\nhere needs shaping, but this would otherwise be the only authenticated read\nin the file with no permission at all \u2014 and ``inventory.view`` is the\nweakest permission anyone who could act on the result already holds.",
+        "description": "Search the bundled brand-icon pack.\n\nGated on inventory access (``require_inventory_browse``): the payload is\npublic CC0 metadata, so nothing here needs shaping, but this would\notherwise be the only authenticated read in the file with no permission at\nall \u2014 and inventory access is the weakest permission anyone who could act\non the result already holds.",
         "operationId": "list_brand_icons_api_v1_card_logos_brand_icons_get",
         "parameters": [
           {
@@ -27312,7 +27320,7 @@
     },
     "/api/v1/metamodel/types/{key}/permissions": {
       "get": {
-        "description": "The per-role permission matrix for one card type (admin Permissions tab).\n\nGated on ``admin.metamodel`` because it reveals part of the RBAC matrix.\nIt deliberately exposes only the four type-scoped inventory bits per role \u2014\nnever the full permission set, which stays behind ``admin.roles`` \u2014 so an\nadmin who may edit the metamodel can see what a role inherits without\nbeing handed the whole role configuration.\n\n``inherited`` is what the role grants landscape-wide; ``overrides`` is what\nthis type stores. A cell missing from ``overrides`` inherits. Archived\nroles are omitted, and a stored override naming a role that no longer\nexists is simply not listed (it is inert at check time too).",
+        "description": "The per-role permission matrix for one card type (admin Permissions tab).\n\nGated on ``admin.metamodel`` because it reveals part of the RBAC matrix.\nIt deliberately exposes only the five type-scoped inventory bits per role \u2014\nnever the full permission set, which stays behind ``admin.roles`` \u2014 so an\nadmin who may edit the metamodel can see what a role inherits without\nbeing handed the whole role configuration.\n\n``inherited`` is what the role grants landscape-wide; ``overrides`` is what\nthis type stores. A cell missing from ``overrides`` inherits. Archived\nroles are omitted, and a stored override naming a role that no longer\nexists is simply not listed (it is inert at check time too).",
         "operationId": "get_type_permissions_api_v1_metamodel_types__key__permissions_get",
         "parameters": [
           {
@@ -31764,7 +31772,7 @@
     },
     "/api/v1/reports/data-quality": {
       "get": {
-        "description": "Data quality & completeness dashboard.",
+        "description": "Data quality & completeness dashboard.\n\nCounts only the cards the reader may see. ``orphaned`` stays the system\ntruth \u2014 \"no relation at all\", counting relations to hidden cards \u2014 so the\ntile keeps agreeing with ``orphaned_condition()`` behind its drill-down.",
         "operationId": "data_quality_api_v1_reports_data_quality_get",
         "responses": {
           "200": {

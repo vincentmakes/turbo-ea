@@ -37,6 +37,7 @@ from app.schemas.risk import (
     RiskUpdate,
 )
 from app.services import notification_service
+from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.permission_service import PermissionService
 from app.services.risk_service import (
     _REFERENCE_RE,
@@ -122,6 +123,7 @@ async def load_filtered_risks(
     source_type: list[str] | None,
     search: str | None,
     overdue: bool,
+    read_scope: CardReadScope | None = None,
 ) -> list[Risk]:
     """Shared filter pipeline used by ``GET /risks``, ``GET /risks/metrics``
     and the mitigation-task export so the KPI tiles + matrix + both export
@@ -174,6 +176,9 @@ async def load_filtered_risks(
                 select(RiskCard.risk_id)
                 .join(Card, Card.id == RiskCard.card_id)
                 .where(Card.type.in_(card_types))
+                # Filtering by a type must not surface risks through cards
+                # the reader may not see.
+                .where(*(read_scope.where(Card, mode="module") if read_scope else ()))
             )
         )
 
@@ -189,6 +194,12 @@ async def load_filtered_risks(
             and r.status not in ("closed", "accepted", "mitigated")
         ]
     return rows
+
+
+async def _risk_out(db: AsyncSession, user: User, risk: Risk) -> RiskOut:
+    """One risk as the caller sees it — linked cards limited to their read scope."""
+    read_scope = await CardReadScope.load(db, user)
+    return RiskOut.model_validate(await risk_to_dict(db, risk, read_scope=read_scope))
 
 
 @router.get("", response_model=RiskListPage)
@@ -220,6 +231,7 @@ async def list_risks(
 
     rows = await load_filtered_risks(
         db,
+        read_scope=await CardReadScope.load(db, user),
         status=status,
         category=category,
         level=level,
@@ -249,7 +261,10 @@ async def list_risks(
     total = len(rows)
     start = (page - 1) * page_size
     page_rows = rows[start : start + page_size]
-    items = [RiskOut.model_validate(await risk_to_dict(db, r)) for r in page_rows]
+    read_scope = await CardReadScope.load(db, user)
+    items = [
+        RiskOut.model_validate(await risk_to_dict(db, r, read_scope=read_scope)) for r in page_rows
+    ]
     return RiskListPage(items=items, total=total, page=page, page_size=page_size)
 
 
@@ -273,6 +288,7 @@ async def risk_metrics(
     await PermissionService.require_permission(db, user, "risks.view")
     rows = await load_filtered_risks(
         db,
+        read_scope=await CardReadScope.load(db, user),
         status=status,
         category=category,
         level=level,
@@ -299,7 +315,7 @@ async def get_risk(
 ) -> RiskOut:
     await PermissionService.require_permission(db, user, "risks.view")
     risk = await _load_risk(db, risk_id)
-    return RiskOut.model_validate(await risk_to_dict(db, risk))
+    return await _risk_out(db, user, risk)
 
 
 @router.post("", response_model=RiskOut)
@@ -334,7 +350,7 @@ async def create_risk(
 
     await db.commit()
     await db.refresh(risk)
-    return RiskOut.model_validate(await risk_to_dict(db, risk))
+    return await _risk_out(db, user, risk)
 
 
 async def _load_reference_state(db: AsyncSession) -> tuple[int, set[str]]:
@@ -384,6 +400,8 @@ async def bulk_import_risks(
     Permission: ``risks.manage``.
     """
     await PermissionService.require_permission(db, user, "risks.manage")
+    # A card hidden from the importer resolves as "not found".
+    import_readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
 
     # Dry-run isolation: wrap the whole batch in our own savepoint so the
     # discard at the end only undoes our work and never reaches a wrapping
@@ -468,7 +486,7 @@ async def bulk_import_risks(
                 cname = raw_name.strip()
                 if not cname:
                     continue
-                res = await db.execute(select(Card.id).where(Card.name == cname))
+                res = await db.execute(select(Card.id).where(Card.name == cname, *import_readable))
                 matches = res.all()
                 if len(matches) == 1:
                     card_ids.append(matches[0][0])
@@ -674,7 +692,7 @@ async def update_risk(
 
     await db.commit()
     await db.refresh(risk)
-    return RiskOut.model_validate(await risk_to_dict(db, risk))
+    return await _risk_out(db, user, risk)
 
 
 async def _notify_status_change(
@@ -752,6 +770,9 @@ async def link_risk_cards(
             "Risk is closed and read-only. Reopen it first to link cards.",
         )
     requested = _parse_card_ids(body.card_ids)
+    read_scope = await CardReadScope.load(db, user)
+    if await read_scope.hidden_card_ids(db, requested, mode="module"):
+        raise HTTPException(404, "Card not found")
     existing = set(await linked_card_ids(db, risk.id))
     await link_cards(db, risk.id, requested, body.role)
     # Re-query to get the actually-inserted set (link_cards skips invalid ids).
@@ -759,7 +780,7 @@ async def link_risk_cards(
     await publish_risk_event(db, risk, "risk.added", new_links, actor_id=user.id)
     await db.commit()
     await db.refresh(risk)
-    return RiskOut.model_validate(await risk_to_dict(db, risk))
+    return await _risk_out(db, user, risk)
 
 
 @router.delete("/{risk_id}/cards/{card_id}", response_model=RiskOut)
@@ -791,7 +812,7 @@ async def unlink_risk_card(
         await publish_risk_event(db, risk, "risk.removed", [cid], actor_id=user.id)
     await db.commit()
     await db.refresh(risk)
-    return RiskOut.model_validate(await risk_to_dict(db, risk))
+    return await _risk_out(db, user, risk)
 
 
 # ---------------------------------------------------------------------------
@@ -837,7 +858,7 @@ async def promote_compliance(
     )
     await db.commit()
     await db.refresh(risk)
-    return RiskOut.model_validate(await risk_to_dict(db, risk))
+    return await _risk_out(db, user, risk)
 
 
 # ---------------------------------------------------------------------------
@@ -857,6 +878,8 @@ async def risks_for_card(
         cid = uuid.UUID(card_id)
     except ValueError as exc:
         raise HTTPException(400, "Invalid card id") from exc
+    # A card hidden from the reader has no risks as far as they can tell.
+    await require_card_readable(db, user, cid, mode="module")
     result = await db.execute(
         select(Risk)
         .join(RiskCard, RiskCard.risk_id == Risk.id)
@@ -864,7 +887,8 @@ async def risks_for_card(
         .order_by(Risk.updated_at.desc())
     )
     risks = list(result.scalars().all())
-    return [RiskOut.model_validate(await risk_to_dict(db, r)) for r in risks]
+    read_scope = await CardReadScope.load(db, user)
+    return [RiskOut.model_validate(await risk_to_dict(db, r, read_scope=read_scope)) for r in risks]
 
 
 # Explicit re-exports to keep ruff happy on module-level imports that

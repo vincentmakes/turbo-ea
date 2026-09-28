@@ -133,6 +133,7 @@ const urlCell = {
 } as const;
 const isFreeTextField = (type: string) => type === "text" || type === "multiline_text";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { readableCardTypes } from "@/hooks/useReadableCardTypes";
 import { canCreateAnyCardType, hasTypePermission } from "@/components/RequirePermission";
 import { useCardSearch } from "@/hooks/useCardSearch";
 import { useTypeLabel, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
@@ -771,6 +772,10 @@ export default function InventoryPage() {
   const optLabel = useOptionLabel();
   const stLabel = useSubtypeLabel();
   const { user } = useAuth();
+  // The types this user may browse. The metamodel stays complete (a card held
+  // through a stakeholder role can be of a type they cannot browse), but the
+  // type filter, the relation columns and mass-edit only offer these.
+  const readableTypes = useMemo(() => readableCardTypes(types, user), [types, user]);
   const { mode } = useThemeMode();
   const isRtl = useIsRtl();
   const canArchive = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.archive"]);
@@ -1409,7 +1414,10 @@ export default function InventoryPage() {
   // types). Several may connect the same pair of card types — this list keeps them
   // all, and is what the sidebar facets are built from so a card related only
   // through the second type stays filterable.
-  const visibleTypeKeys = useMemo(() => new Set(types.map((t) => t.key)), [types]);
+  const visibleTypeKeys = useMemo(
+    () => new Set(readableTypes.map((t) => t.key)),
+    [readableTypes],
+  );
   const allRelevantRelTypes = useMemo(() => {
     if (!selectedType) return [];
     return relationTypes.filter(
@@ -3988,7 +3996,7 @@ export default function InventoryPage() {
           PaperProps={{ sx: { width: 300 } }}
         >
           <InventoryFilterSidebar
-            types={types}
+            types={readableTypes}
             filters={filters}
             onFiltersChange={setFilters}
             collapsed={false}
@@ -4026,7 +4034,7 @@ export default function InventoryPage() {
         </Drawer>
       ) : (
         <InventoryFilterSidebar
-          types={types}
+          types={readableTypes}
           filters={filters}
           onFiltersChange={setFilters}
           collapsed={sidebarCollapsed}
@@ -4193,9 +4201,19 @@ export default function InventoryPage() {
         >
           <MenuItem
             onClick={() => {
-              exportToExcel(filteredData, typeConfig, types, relationTypes, {
-                canViewCosts: canViewCostsGlobally,
-              });
+              // No `rel:` column for a relation whose other end the user may
+              // not see — it could only ever be empty for them.
+              exportToExcel(
+                filteredData,
+                typeConfig,
+                types,
+                relationTypes.filter(
+                  (rt) =>
+                    visibleTypeKeys.has(rt.source_type_key) &&
+                    visibleTypeKeys.has(rt.target_type_key),
+                ),
+                { canViewCosts: canViewCostsGlobally },
+              );
               setExportMenuAnchor(null);
             }}
           >

@@ -30,6 +30,7 @@ vi.mock("@/hooks/useTimeline", () => ({
 }));
 
 vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => null,
   useAuthContext: () => ({ user: { permissions: { "*": true } } }),
 }));
 

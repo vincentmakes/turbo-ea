@@ -33,6 +33,7 @@ const authRef = vi.hoisted(() => ({
   },
 }));
 vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => null,
   useAuthContext: () => ({ user: authRef.user, refreshUser: vi.fn() }),
 }));
 

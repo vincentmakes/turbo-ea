@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // an AuthProvider in the app; the tests mount them directly, so the context is
 // stubbed with an admin (whose wildcard grants every type).
 vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => null,
   useAuthContext: () => ({
     user: { id: "u1", email: "a@test.com", display_name: "Admin", permissions: { "*": true } },
     refreshUser: vi.fn(),

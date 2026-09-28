@@ -15,12 +15,14 @@ from app.models.card import Card
 from app.models.process_assessment import ProcessAssessment
 from app.models.user import User
 from app.schemas.bpm import ProcessAssessmentCreate, ProcessAssessmentUpdate
+from app.services.card_read_scope import is_card_readable
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/bpm", tags=["bpm"])
 
 
-async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID) -> Card:
+async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID, user: User) -> Card:
+    """The ACTIVE BusinessProcess, 404 when missing or hidden from ``user``."""
     result = await db.execute(
         select(Card).where(
             Card.id == process_id,
@@ -30,6 +32,8 @@ async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID) -> Card:
     )
     card = result.scalar_one_or_none()
     if not card:
+        raise HTTPException(404, "Business process not found")
+    if not await is_card_readable(db, user, card.id, mode="module", type_key=card.type):
         raise HTTPException(404, "Business process not found")
     return card
 
@@ -46,7 +50,7 @@ async def list_assessments(
 ):
     await PermissionService.require_permission(db, user, "bpm.assessments")
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     result = await db.execute(
         select(ProcessAssessment)
         .options(selectinload(ProcessAssessment.assessor))
@@ -82,7 +86,7 @@ async def create_assessment(
 ):
     await PermissionService.require_permission(db, current_user, "bpm.assessments")
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, current_user)
 
     assessment = ProcessAssessment(
         process_id=pid,
@@ -117,7 +121,7 @@ async def update_assessment(
 ):
     await PermissionService.require_permission(db, current_user, "bpm.assessments")
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, current_user)
     result = await db.execute(
         select(ProcessAssessment).where(
             ProcessAssessment.id == uuid.UUID(assessment_id),
@@ -156,7 +160,7 @@ async def delete_assessment(
 ):
     await PermissionService.require_permission(db, current_user, "bpm.assessments")
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, current_user)
     result = await db.execute(
         select(ProcessAssessment).where(
             ProcessAssessment.id == uuid.UUID(assessment_id),

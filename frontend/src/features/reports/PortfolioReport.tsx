@@ -51,6 +51,7 @@ import ReportFilterSection from "./ReportFilterSection";
 import { api, isAbortError } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useReadableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
@@ -628,6 +629,8 @@ export default function PortfolioReport({
   const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
   const { types: metamodelTypes } = useMetamodel();
+  // The type selector offers only the types the user may see.
+  const readableTypes = useReadableCardTypes("module");
   const typeLabel = useTypeLabel();
   const relLabel = useRelationLabel();
   const fieldLabel = useFieldLabel();
@@ -1374,7 +1377,7 @@ export default function PortfolioReport({
   // Visible card types — populates the optional type selector and resolves
   // the localised label of the currently-selected type for dynamic strings.
   const cardTypeOptions = useMemo(() => {
-    return metamodelTypes
+    return readableTypes
       .filter((tp) => !tp.is_hidden)
       .map((tp) => ({
         key: tp.key,
@@ -1383,7 +1386,7 @@ export default function PortfolioReport({
         color: tp.color,
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [metamodelTypes, typeLabel]);
+  }, [readableTypes, typeLabel]);
   const currentType = metamodelTypes.find((tp) => tp.key === cardType);
   const currentTypeLabel = typeLabel(currentType) || cardType;
   const typeIcon = currentType?.icon || "dashboard";

@@ -11,6 +11,7 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
+from app.services.card_read_scope import CardReadScope, require_card_readable
 
 router = APIRouter(prefix="/favorites", tags=["favorites"])
 
@@ -22,14 +23,19 @@ async def list_favorites(
     user: User = Depends(get_current_user),
 ):
     """List current user's favorite cards."""
+    # A favourite on a card now hidden from the user (a View deny added after
+    # it was starred) is left out rather than deleted — it reappears if the
+    # deny is lifted.
+    read_scope = await CardReadScope.load(db, user)
     stmt = (
         select(UserFavorite)
-        .where(UserFavorite.user_id == user.id)
+        .join(Card, UserFavorite.card_id == Card.id)
+        .where(UserFavorite.user_id == user.id, *read_scope.where(Card, mode="module"))
         .order_by(UserFavorite.created_at.desc())
     )
 
     if type:
-        stmt = stmt.join(Card, UserFavorite.card_id == Card.id).where(Card.type == type)
+        stmt = stmt.where(Card.type == type)
 
     result = await db.execute(stmt)
     favorites = result.scalars().all()
@@ -53,10 +59,8 @@ async def add_favorite(
     """Add a card to favorites. Idempotent — returns 200 if already favorited."""
     cid = uuid.UUID(card_id)
 
-    # Verify card exists
-    card_result = await db.execute(select(Card).where(Card.id == cid))
-    if not card_result.scalar_one_or_none():
-        raise HTTPException(404, "Card not found")
+    # Verify the card exists and is visible to the caller
+    await require_card_readable(db, user, cid, mode="module")
 
     # Check if already favorited
     existing = await db.execute(

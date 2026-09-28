@@ -19,6 +19,11 @@ from app.models.event import Event
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
+from app.services.card_read_scope import (
+    CardReadScope,
+    event_read_filters,
+    scrub_event_payloads,
+)
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -129,6 +134,9 @@ async def list_my_card_events(
         select(Event)
         .options(selectinload(Event.user))
         .where(Event.card_id.in_(select(relevant_card_ids.c.card_id)))
+        # Same activity-feed rule as the dashboard's: no event about a card,
+        # or naming a peer, hidden from the reader.
+        .where(*event_read_filters(await CardReadScope.load(db, user)))
         .order_by(Event.created_at.desc())
         .limit(limit)
     )
@@ -150,17 +158,20 @@ async def list_my_card_events(
             return name_by_card_id.get(e.card_id)
         return None
 
+    payloads = await scrub_event_payloads(
+        db, await CardReadScope.load(db, user), [e.data for e in events_list]
+    )
     return [
         {
             "id": str(e.id),
             "card_id": str(e.card_id) if e.card_id else None,
             "card_name": _resolve_name(e),
             "event_type": e.event_type,
-            "data": e.data,
+            "data": data,
             "user_display_name": e.user.display_name if e.user else None,
             "created_at": e.created_at.isoformat() if e.created_at else None,
         }
-        for e in events_list
+        for e, data in zip(events_list, payloads)
     ]
 
 

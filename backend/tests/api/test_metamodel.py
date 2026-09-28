@@ -1461,10 +1461,58 @@ class TestTypeRolePermissions:
 
         response = await client.patch(
             "/api/v1/metamodel/types/Application",
-            json={"role_permissions": {"member": {"inventory.view": False}}},
+            json={"role_permissions": {"member": {"inventory.export": False}}},
             headers=auth_headers(admin),
         )
         assert response.status_code == 400
+
+    async def test_view_override_accepted(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+        await create_role(db, key="member", label="Member", permissions={"inventory.view": True})
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application",
+            json={"role_permissions": {"member": {"inventory.view": False}}},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        assert response.json()["role_permissions"] == {"member": {"inventory.view": False}}
+
+    async def test_matrix_is_hidden_from_non_admins(self, client, db, metamodel_env):
+        """Which types are hidden from which role is RBAC config, not metadata."""
+        viewer = metamodel_env["viewer"]
+        ct = await create_card_type(db, key="Application", label="Application")
+        ct.role_permissions = {"viewer": {"inventory.view": False}}
+        await db.flush()
+
+        one = await client.get("/api/v1/metamodel/types/Application", headers=auth_headers(viewer))
+        assert one.status_code == 200
+        assert "role_permissions" not in one.json()
+        many = await client.get("/api/v1/metamodel/types", headers=auth_headers(viewer))
+        assert all("role_permissions" not in t for t in many.json())
+
+    async def test_created_type_overrides_apply_immediately(self, client, db, metamodel_env):
+        """A lookup before the type existed must not keep answering "no overrides"."""
+        from app.services.permission_service import PermissionService
+
+        admin = metamodel_env["admin"]
+        viewer = metamodel_env["viewer"]
+        # Prime the per-type cache with the not-yet-existing key.
+        assert await PermissionService.load_type_role_permissions(db, "Gadget") == {}
+        response = await client.post(
+            "/api/v1/metamodel/types",
+            json={
+                "key": "Gadget",
+                "label": "Gadget",
+                "role_permissions": {"viewer": {"inventory.view": False}},
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code in (200, 201)
+        assert not await PermissionService.has_app_permission(
+            db, viewer, "inventory.view", card_type_key="Gadget"
+        )
 
     async def test_create_type_accepts_the_map(self, client, db, metamodel_env):
         admin = metamodel_env["admin"]
@@ -1501,6 +1549,7 @@ class TestTypePermissionsMatrix:
         assert response.status_code == 200
         body = response.json()
         assert [a["key"] for a in body["actions"]] == [
+            "inventory.view",
             "inventory.create",
             "inventory.edit",
             "inventory.archive",

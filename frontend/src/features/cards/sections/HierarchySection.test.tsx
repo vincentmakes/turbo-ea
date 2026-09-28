@@ -22,6 +22,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => null,
   useAuthContext: () => ({
     user: { id: "u1", email: "a@test.com", display_name: "Admin", permissions: { "*": true } },
     refreshUser: vi.fn(),

@@ -140,9 +140,11 @@ async def export_mitigation_tasks(
 
     # Lazy import to keep the cross-router dependency localized.
     from app.api.v1.risks import load_filtered_risks
+    from app.services.card_read_scope import CardReadScope
 
     risks = await load_filtered_risks(
         db,
+        read_scope=await CardReadScope.load(db, user),
         status=status,
         category=category,
         level=level,

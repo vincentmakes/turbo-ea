@@ -22,11 +22,15 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
+
+if TYPE_CHECKING:
+    from app.services.card_read_scope import CardReadScope, ReadMode
 
 
 def decode_ref(ref: str) -> list[str]:
@@ -100,26 +104,44 @@ class CardResolver:
         self._path_cache = path_cache
 
     @classmethod
-    async def load(cls, db: AsyncSession, type_keys: set[str]) -> CardResolver:
+    async def load(
+        cls,
+        db: AsyncSession,
+        type_keys: set[str],
+        *,
+        read_scope: CardReadScope | None = None,
+        mode: ReadMode = "inventory",
+    ) -> CardResolver:
         """Fetch every active card whose type is in `type_keys` *and* every
         ancestor needed to build their parent paths. We over-fetch slightly
         (all cards of those types, regardless of depth) but in practice the
         parent chain stays within the same type only for hierarchical types;
         for cross-type chains we need to walk via id lookups, so we also
-        load any parent that wasn't already in the set."""
+        load any parent that wasn't already in the set.
+
+        ``read_scope`` limits the *resolvable* cards to those the caller may
+        read, so a reference to a card hidden by a type deny resolves as
+        ``missing`` — exactly what it would do if the card did not exist.
+        Ancestors still load, so paths of readable cards still build. System
+        callers (workspace import) pass no scope."""
         if not type_keys:
             return cls({}, {}, {})
 
         # First pass: pull every active card of the requested types.
+        readable = read_scope.where(Card, mode=mode) if read_scope is not None else ()
         result = await db.execute(
             select(Card.id, Card.parent_id, Card.type, Card.name).where(
                 Card.type.in_(type_keys),
                 Card.status == "ACTIVE",
+                *readable,
             )
         )
         rows: list[tuple[uuid.UUID, uuid.UUID | None, str, str]] = [
             (r[0], r[1], r[2], r[3]) for r in result.all()
         ]
+        # Only first-pass rows are resolvable: an ancestor loaded to build a
+        # path must not become a match (it may be archived or hidden).
+        first_pass_count = len(rows)
 
         # Second pass: walk parent_ids transitively to load ancestors that
         # weren't already pulled (different type than the target leaf).
@@ -157,8 +179,9 @@ class CardResolver:
         path_cache: dict[uuid.UUID, tuple[str, ...]] = {}
         by_type_name: dict[tuple[str, str], list[Candidate]] = {}
         by_id: dict[uuid.UUID, Card] = {}
+        resolvable: set[uuid.UUID] = {r[0] for r in rows[:first_pass_count]}
         for cid, _pid, ctype, cname in rows:
-            if ctype not in type_keys:
+            if ctype not in type_keys or cid not in resolvable:
                 continue
             path = walk_path(cid)
             path_cache[cid] = path

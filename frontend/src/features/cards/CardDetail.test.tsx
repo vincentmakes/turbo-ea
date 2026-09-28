@@ -71,6 +71,7 @@ vi.mock("@/features/bpm/ProcessAssessmentPanel", () => ({
 }));
 
 vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => null,
   useAuthContext: () => ({
     user: {
       id: "user-1",

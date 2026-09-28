@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.151.0] - 2026-09-28
+
+### Added
+
+- **Card types can be hidden from a role.** The Permissions tab of a card type (Admin → Metamodel) has a fifth action, **View**. Denying it makes that type's cards disappear for the role everywhere — inventory, search, counts, exports, relations and hierarchy on other cards, every report and chart, the dashboard, and the lists in BPM, PPM, GRC, decisions, diagrams and TurboLens — and opening one from a link shows *not found*. Allowing it lets a role that cannot browse the inventory see the cards of that one type. People still see the individual cards they hold a stakeholder role on.
+- **A View deny also denies creating, editing, archiving and deleting cards of that type.** The panel shows those cells locked while View is denied, and keeps their settings for when it is not.
+- **Editing the cards linked to a decision, a diagram or a process step leaves links to cards you cannot see in place**, so someone a type is hidden from cannot remove those links by accident.
+- **The TurboLens Architecture AI needs to see the whole landscape**, so it is unavailable to a role from which a card type is hidden.
+
+### Security
+
+- **The per-role permission matrix of each card type is now returned to metamodel administrators only.** Other users no longer receive it with the card type list.
+
 ## [2.150.0] - 2026-09-24
 
 ### Added
