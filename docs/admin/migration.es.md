@@ -77,18 +77,18 @@ El snapshot no contiene lo siguiente — el importador marca lo faltante en la c
 
 ## Exportar a SAP LeanIX
 
-La misma página funciona también en sentido inverso. **Exportar espacio de trabajo** (junto a **Nueva migración**) descarga el espacio de trabajo actual como un libro xlsx **Full Snapshot** de LeanIX: la misma disposición que acepta el importador. El archivo se vuelve a importar aquí sin cambios y puede entregarse a un tenant de LeanIX o a cualquier herramienta que lea exportaciones de LeanIX.
+La misma página funciona también en sentido inverso. **Exportar espacio de trabajo** (junto a **Nueva migración**) descarga el espacio de trabajo actual como un **paquete de Integration API de LeanIX**: un `.zip` que se carga en LeanIX mediante **Administración → Integration API**. LeanIX no puede importar su propio libro *Full Snapshot* (SAP restaura las instantáneas a petición); la Integration API es la única importación masiva que un administrador de LeanIX puede ejecutar por sí mismo.
 
-Contenido del libro:
+El paquete contiene:
 
-- **Una hoja por tipo de tarjeta**, nombrada al estilo LeanIX (`Process` para Proceso de negocio, `Project` para Iniciativa, `UserGroup` para Organización); un tipo creado por un administrador conserva su propia clave. Cada fila lleva las columnas básicas (`id`, `name`, `displayName`, `status`, `description`, `category` = subtipo, `completion` = calidad de datos, `qualitySeal` = estado de aprobación), las fases `lifecycle:*`, una columna `tags:<Grupo>` por grupo de etiquetas, una columna `subscriptions:<TipoDeRol>:<NombreDeRol>` por rol de parte interesada y una columna por atributo.
-- **`displayName` es la ruta jerárquica** (`Ventas / Gestión de leads`): así nombra LeanIX las fichas anidadas y así referencian las filas de relación sus extremos.
-- **`childParentRelation`** para la jerarquía y **una hoja por tipo de relación** (`applicationITComponentRelation`, …) con los atributos de la relación como columnas adicionales. Las relaciones de sucesión se escriben en la dirección de LeanIX (`from` es la tarjeta más antigua).
-- **`TagGroups`, `Tags`, `Documents`** (enlaces), **`Comments`, `Types`** y una referencia de campos **`ReadMe`** con la lista completa de opciones de cada campo de selección, para que una reimportación cree desplegables reales.
+- **`ldif.json`**: los datos en el formato LeanIX Data Interchange Format: un elemento por tarjeta (tipo de fact sheet nombrado al estilo LeanIX — `Process` para Proceso de negocio, `Project` para Iniciativa, `UserGroup` para Organización — con nombre, descripción, subtipo, fases del ciclo de vida, todos los atributos, etiquetas, partes interesadas como suscripciones y enlaces a documentos) y un elemento por relación con los nombres de relación de LeanIX (`relApplicationToITComponent`, …). La jerarquía se convierte en `relToParent`; las relaciones de sucesión se escriben en la dirección de LeanIX. El id de la tarjeta de Turbo EA se guarda como id externo del fact sheet, de modo que ejecutar el paquete dos veces actualiza en lugar de duplicar.
+- **`processors.json`**: la configuración de procesadores generada para esta exportación concreta: un procesador de fact sheets por tipo que escribe solo los campos presentes, un procesador de relaciones por tipo de relación, más procesadores de etiquetas, suscripciones y recursos. El modo de procesamiento es *partial*: no se elimina nada en el espacio de trabajo de destino y una actualización conserva el valor de LeanIX cuando la tarjeta exportada no lo tiene.
+- **`comments.json`**: los comentarios, que la Integration API no puede importar, conservados como referencia.
+- **`README.md`**: los pasos de carga (navegador y REST), los tipos y relaciones exportados y qué ajustar.
 
-Las tarjetas archivadas se excluyen salvo que se marque **Incluir tarjetas archivadas**. Los archivos de documentos, los hilos de comentarios y las cuentas de usuario no forman parte del formato, igual que en la importación; los valores de selección múltiple se escriben separados por comas en una sola celda.
+Para cargarlo: cree una configuración de procesadores en **Administración → Integration API** con los datos del conector del README, pegue `processors.json` como configuración y `ldif.json` como entrada, pulse **Test run** para ver todos los problemas sin escribir nada y después **Run**. LeanIX informa de cualquier campo, subtipo, tipo de relación o usuario que su espacio de trabajo no tenga: créelo allí o elimine esa entrada de `processors.json`. Los tipos creados en Turbo EA se exportan con su propia clave y necesitan antes el mismo tipo en el metamodelo de LeanIX.
 
-La exportación está protegida por `admin.export_workspace`, el mismo permiso que la exportación del paquete de espacio de trabajo, porque el archivo es el panorama completo.
+Las tarjetas archivadas se excluyen salvo que se marque **Incluir tarjetas archivadas**. La exportación está protegida por `admin.export_workspace`, el mismo permiso que la exportación del paquete de espacio de trabajo, porque el archivo es el panorama completo.
 
 ## Reejecución de un import
 

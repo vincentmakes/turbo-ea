@@ -77,18 +77,18 @@ xlsx 的第一张表（`ReadMe`）是 LeanIX 的权威字段参考：每一列�
 
 ## 导出到 SAP LeanIX
 
-同一页面也可以反向使用。**导出工作区**（位于**新建迁移**旁）会将当前工作区下载为 LeanIX **Full Snapshot** xlsx 工作簿——与导入器接受的布局完全相同。该文件可以原样重新导入到这里，也可以交给 LeanIX 租户或任何能读取 LeanIX 导出的工具。
+同一页面也可以反向使用。**导出工作区**（位于**新建迁移**旁）会将当前工作区下载为 **LeanIX Integration API 导入包**——一个通过 LeanIX 的**管理 → Integration API** 加载的 `.zip` 文件。LeanIX 无法导入自己的 *Full Snapshot* 工作簿（SAP 只能应请求恢复快照），因此 Integration API 是 LeanIX 管理员能够独立运行的唯一批量导入方式。
 
-工作簿包含：
+导入包包含：
 
-- **每个卡片类型一个工作表**，按 LeanIX 的方式命名（业务流程为 `Process`，举措为 `Project`，组织为 `UserGroup`）；管理员创建的类型保留自己的键。每行包含核心列（`id`、`name`、`displayName`、`status`、`description`、`category` = 子类型、`completion` = 数据质量、`qualitySeal` = 审批状态）、`lifecycle:*` 阶段、每个标签组一列 `tags:<组>`、每个干系人角色一列 `subscriptions:<角色类型>:<角色名称>`，以及每个属性一列。
-- **`displayName` 是层级路径**（`销售 / 线索管理`）——这是 LeanIX 为嵌套事实表命名的方式，也是关系行引用其端点的方式。
-- 用于层级的 **`childParentRelation`**，以及**每个关系类型一个工作表**（`applicationITComponentRelation` 等），关系属性作为额外列。继任关系按 LeanIX 的方向写入（`from` 为较旧的卡片）。
-- **`TagGroups`、`Tags`、`Documents`**（链接）、**`Comments`、`Types`** 以及一份 **`ReadMe`** 字段参考，列出每个选择字段的完整选项列表，以便重新导入时创建真正的下拉列表。
+- **`ldif.json`**——LeanIX Data Interchange Format 格式的数据：每张卡片一个条目（事实表类型按 LeanIX 方式命名——业务流程为 `Process`，举措为 `Project`，组织为 `UserGroup`——包含名称、描述、子类型、生命周期阶段、全部属性、标签、作为订阅的干系人以及文档链接），每个关系一个条目，使用 LeanIX 的关系名称（`relApplicationToITComponent` 等）。层级结构变为 `relToParent`；继任关系按 LeanIX 的方向写入。Turbo EA 的卡片 ID 保存为事实表的外部 ID，因此再次运行该包会更新而不是重复创建。
+- **`processors.json`**——专为本次导出生成的处理器配置：每个类型一个事实表处理器（只写入卡片实际携带的字段），每个关系类型一个关系处理器，以及标签、订阅和资源处理器。处理模式为 *partial*：目标工作区中不会删除任何内容，当导出的卡片没有某个值时，更新会保留 LeanIX 的现有值。
+- **`comments.json`**——Integration API 无法导入的评论，仅供参考。
+- **`README.md`**——加载步骤（浏览器和 REST）、导出中包含的类型与关系，以及需要调整的内容。
 
-除非勾选**包含已归档的卡片**，否则已归档的卡片不会导出。与导入时一样，文档文件、评论线程和用户账户不属于该格式；多选值以逗号分隔写在同一单元格中。
+加载方法：在**管理 → Integration API** 中按 README 中的连接器信息创建处理器配置，将 `processors.json` 粘贴为配置、`ldif.json` 粘贴为输入，先点击 **Test run** 在不写入任何内容的情况下查看所有问题，再点击 **Run**。LeanIX 会报告其工作区中不存在的字段、子类型、关系类型或用户——请在那里创建，或从 `processors.json` 中删除相应条目。在 Turbo EA 中创建的类型按其自身的键导出，需要先在 LeanIX 元模型中创建同名类型。
 
-导出受 `admin.export_workspace` 权限保护——与工作区包导出相同的权限，因为该文件就是整个架构全景。
+除非勾选**包含已归档的卡片**，否则已归档的卡片不会导出。导出受 `admin.export_workspace` 权限保护——与工作区包导出相同的权限，因为该文件就是整个架构全景。
 
 ## 重新运行 import
 

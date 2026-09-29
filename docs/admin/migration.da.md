@@ -87,18 +87,18 @@ Snapshottet bærer ikke disse — importøren viser, hvad der mangler i per-ræk
 
 ## Eksport til SAP LeanIX
 
-Samme side fungerer også den modsatte vej. **Eksportér arbejdsområde** (ved siden af **Ny migrering**) downloader det aktuelle arbejdsområde som en LeanIX **Full Snapshot**-xlsx-projektmappe – samme layout, som importøren accepterer. Filen kan importeres uændret her igen og gives videre til en LeanIX-tenant eller ethvert værktøj, der læser LeanIX-eksporter.
+Samme side fungerer også den modsatte vej. **Eksportér arbejdsområde** (ved siden af **Ny migrering**) downloader det aktuelle arbejdsområde som en **LeanIX Integration API-pakke** – en `.zip`, du indlæser i LeanIX via **Administration → Integration API**. LeanIX kan ikke importere sin egen *Full Snapshot*-projektmappe (SAP gendanner snapshots på forespørgsel); Integration API er den eneste masseimport, en LeanIX-administrator selv kan køre.
 
-Projektmappen indeholder:
+Pakken indeholder:
 
-- **Ét ark pr. korttype**, navngivet som i LeanIX (`Process` for Forretningsproces, `Project` for Initiativ, `UserGroup` for Organisation); en administratoroprettet type beholder sin egen nøgle. Hver række har kernekolonnerne (`id`, `name`, `displayName`, `status`, `description`, `category` = undertype, `completion` = datakvalitet, `qualitySeal` = godkendelsesstatus), `lifecycle:*`-faserne, én kolonne `tags:<Gruppe>` pr. tag-gruppe, én kolonne `subscriptions:<Rolletype>:<Rollenavn>` pr. interessentrolle og én kolonne pr. attribut.
-- **`displayName` er hierarkistien** (`Salg / Lead-håndtering`) – sådan navngiver LeanIX indlejrede fact sheets, og sådan refererer relationsrækker til deres endepunkter.
-- **`childParentRelation`** for hierarkiet og **ét ark pr. relationstype** (`applicationITComponentRelation`, …) med relationsattributter som ekstra kolonner. Efterfølgerrelationer skrives i LeanIX' retning (`from` er det ældste kort).
-- **`TagGroups`, `Tags`, `Documents`** (links), **`Comments`, `Types`** og en **`ReadMe`**-feltreference med den fulde liste af valgmuligheder for hvert valgfelt, så en genimport opretter rigtige rullelister.
+- **`ldif.json`** – data i LeanIX Data Interchange Format: ét element pr. kort (fact sheet-typen navngivet som i LeanIX – `Process` for Forretningsproces, `Project` for Initiativ, `UserGroup` for Organisation – med navn, beskrivelse, undertype, livscyklusfaser, alle attributter, tags, interessenter som subscriptions og dokumentlinks) og ét element pr. relation under LeanIX' relationsnavne (`relApplicationToITComponent`, …). Hierarkiet bliver til `relToParent`; efterfølgerrelationer skrives i LeanIX' retning. Turbo EA-kortets id gemmes som fact sheetets eksterne id, så en gentagen kørsel opdaterer i stedet for at duplikere.
+- **`processors.json`** – processorkonfigurationen genereret til netop denne eksport: én fact sheet-processor pr. type, der kun skriver de felter, kortene faktisk har, én relationsprocessor pr. relationstype samt processorer til tags, subscriptions og ressourcer. Behandlingstilstanden er *partial*: intet slettes i målarbejdsområdet, og en opdatering beholder LeanIX' værdi, når det eksporterede kort ikke har nogen.
+- **`comments.json`** – kommentarer, som Integration API ikke kan importere, gemt til reference.
+- **`README.md`** – indlæsningstrinnene (browser og REST), de eksporterede typer og relationer og hvad der skal tilpasses.
 
-Arkiverede kort udelades, medmindre **Medtag arkiverede kort** er markeret. Dokumentfiler, kommentartråde og brugerkonti er som ved import ikke en del af formatet; værdier med flere valg skrives kommaseparerede i én celle.
+Sådan indlæses pakken: Opret en processorkonfiguration under **Administration → Integration API** med connector-oplysningerne fra README, indsæt `processors.json` som konfiguration og `ldif.json` som input, klik på **Test run** for at se alle problemer uden at skrive noget, og derefter på **Run**. LeanIX melder ethvert felt, enhver undertype, relationstype eller bruger, som arbejdsområdet ikke har – opret det dér, eller fjern posten fra `processors.json`. Typer oprettet i Turbo EA eksporteres under deres egen nøgle og kræver først samme type i LeanIX' metamodel.
 
-Eksporten er beskyttet af `admin.export_workspace` – samme tilladelse som eksporten af arbejdsområde-bundtet, fordi filen er hele landskabet.
+Arkiverede kort udelades, medmindre **Medtag arkiverede kort** er markeret. Eksporten er beskyttet af `admin.export_workspace` – samme tilladelse som eksporten af arbejdsområde-bundtet, fordi filen er hele landskabet.
 
 ## Genkørsel af en import
 

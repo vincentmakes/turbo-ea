@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from app.services.migration.snapshot import MigrationSnapshot, SourceEntity
-from app.services.migration.sources.leanix import mappings, xlsx_exporter, xlsx_parser
+from app.services.migration.sources.leanix import ldif_exporter, mappings, xlsx_parser
 
 
 class LeanixSource:
@@ -56,15 +56,17 @@ class LeanixSource:
         return xlsx_parser.parse_xlsx_path(str(path))
 
     # ---- Export ----
-    # The reverse direction: a Turbo EA workspace written in the same
-    # Full Snapshot layout ``parse`` reads, so a Turbo EA → LeanIX →
-    # Turbo EA trip round-trips. Deliberately duck-typed rather than part
-    # of ``MigrationSource`` — the route checks ``hasattr(source, "export")``.
-    export_extension: str = ".xlsx"
-    export_media_type: str = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    # The reverse direction. LeanIX cannot import its own Full Snapshot
+    # workbook (SAP restores snapshots on request), so the export is an
+    # **Integration API bundle**: a zip with the LDIF data, the processor
+    # configuration that imports it, and a README — the one bulk import
+    # a LeanIX admin can run alone. Deliberately duck-typed rather than
+    # part of ``MigrationSource`` — the route checks ``hasattr(source, "export")``.
+    export_extension: str = ".zip"
+    export_media_type: str = "application/zip"
 
     def export(self, snapshot: MigrationSnapshot) -> bytes:
-        return xlsx_exporter.build_workbook(snapshot)
+        return ldif_exporter.build_bundle(snapshot)
 
     # ---- Extension hooks ----
     def post_build_card_payload(

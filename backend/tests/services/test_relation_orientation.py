@@ -234,6 +234,7 @@ _FIXED_DIRECTION = {
 _NOT_THE_MODEL = {
     "models/relation.py": "the model's own class statement",
     "services/migration/sources/leanix/xlsx_parser.py": "the snapshot dataclass",
+    "services/migration/export_snapshot.py": "the snapshot dataclass (export side)",
 }
 
 

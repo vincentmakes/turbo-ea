@@ -87,18 +87,18 @@ The snapshot does not carry these — the importer surfaces what is missing in t
 
 ## Exporting to SAP LeanIX
 
-The same page also runs in reverse. **Export workspace** (next to **New migration**) downloads the current workspace as a LeanIX **Full Snapshot** xlsx workbook — the same layout the importer accepts, so the file re-imports here unchanged and can be handed to a LeanIX tenant or to any tool that reads LeanIX exports.
+The same page also runs in reverse. **Export workspace** (next to **New migration**) downloads the current workspace as a **LeanIX Integration API bundle** — a `.zip` you load through **Administration → Integration API** in LeanIX. LeanIX cannot import its own *Full Snapshot* workbook (SAP restores snapshots on request), so the Integration API is the one bulk import a LeanIX administrator can run alone.
 
-What the workbook contains:
+The bundle contains:
 
-- **One sheet per card type**, named the LeanIX way (`Process` for Business Process, `Project` for Initiative, `UserGroup` for Organization); an admin-created type keeps its own key. Each row carries the core columns (`id`, `name`, `displayName`, `status`, `description`, `category` = subtype, `completion` = data quality, `qualitySeal` = approval status), the `lifecycle:*` phases, one `tags:<Group>` column per tag group, one `subscriptions:<RoleType>:<RoleName>` column per stakeholder role, and one column per attribute.
-- **`displayName` is the hierarchy path** (`Sales / Lead Management`) — how LeanIX names nested fact sheets, and how relation rows reference their endpoints.
-- **`childParentRelation`** for the hierarchy and **one sheet per relation type** (`applicationITComponentRelation`, …) with relation attributes as extra columns. Lineage relations are written in LeanIX's direction (`from` is the older card).
-- **`TagGroups`, `Tags`, `Documents`** (links), **`Comments`, `Types`** and a **`ReadMe`** field reference listing the complete option list of every select field, so a re-import creates proper dropdowns.
+- **`ldif.json`** — the data in the LeanIX Data Interchange Format: one item per card (the fact-sheet type named the LeanIX way — `Process` for Business Process, `Project` for Initiative, `UserGroup` for Organization — with name, description, subtype, lifecycle phases, every attribute, tags, stakeholders as subscriptions and document links) and one item per relation under LeanIX's relation names (`relApplicationToITComponent`, …). The hierarchy becomes `relToParent`; lineage relations are written in LeanIX's direction. The Turbo EA card id is stored as the fact sheet's external id, so running the bundle twice updates rather than duplicates.
+- **`processors.json`** — the processor configuration generated for exactly this export: one fact-sheet processor per type writing only the fields the cards carry, one relation processor per relation type, plus tag, subscription and resource processors. The processing mode is *partial*: nothing in the target workspace is deleted, and an update keeps LeanIX's value when the exported card has none.
+- **`comments.json`** — comments, which the Integration API cannot import, kept for reference.
+- **`README.md`** — the load steps (browser and REST), the types and relations in the export, and what to adjust.
 
-Archived cards are left out unless **Include archived cards** is ticked. Document files, comment threading and user accounts are not part of the format, as on import; multiple-select values are written comma-separated in one cell.
+To load it: create a processor configuration in **Administration → Integration API** with the connector details from the README, paste `processors.json` as the configuration and `ldif.json` as the input, click **Test run** to see every problem without writing anything, then **Run**. LeanIX reports any field, subtype, relation type or user its workspace does not have — add it there or remove that entry from `processors.json`. Types created in Turbo EA are exported under their own key and need the same type in the LeanIX meta model first.
 
-The export is gated by `admin.export_workspace` — the same permission as the workspace bundle export, because the file is the whole landscape.
+Archived cards are left out unless **Include archived cards** is ticked. The export is gated by `admin.export_workspace`, the same permission as the workspace bundle export, because the file is the whole landscape.
 
 ## Re-running an import
 

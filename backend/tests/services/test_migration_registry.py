@@ -20,16 +20,17 @@ def test_leanix_source_is_registered_at_import_time() -> None:
     assert src.accepted_extensions == (".xlsx",)
 
 
-def test_leanix_source_exports_the_format_it_imports() -> None:
-    """The LeanIX adapter is the one that can also WRITE its platform's
-    format (``GET /migration/export``). The hook is duck-typed rather
-    than part of the protocol, so the route and the sources listing
-    both look for a callable ``export`` — pin its presence and shape."""
+def test_leanix_source_exports_an_import_bundle() -> None:
+    """The LeanIX adapter is the one that can also WRITE for its platform
+    (``GET /migration/export``). The hook is duck-typed rather than part
+    of the protocol, so the route and the sources listing both look for
+    a callable ``export`` — pin its presence and shape."""
     src = SOURCES["leanix"]
     assert callable(getattr(src, "export", None))
-    assert src.export_extension == ".xlsx"
-    assert src.export_extension in src.accepted_extensions
-    assert src.export_media_type.startswith("application/vnd.openxmlformats")
+    # An Integration API bundle, not the Full Snapshot workbook the
+    # importer reads: LeanIX offers no self-service import of the latter.
+    assert src.export_extension == ".zip"
+    assert src.export_media_type == "application/zip"
 
 
 def test_leanix_source_declares_auto_mapped_columns() -> None:

@@ -196,11 +196,11 @@ def build_snapshot_from_rows(
     subscriptions: list[Subscription] = []
     for sh in stakeholders:
         user = user_by_id.get(sh.user_id)
-        card = card_by_id.get(sh.card_id)
-        if user is None or card is None or not user.email:
+        holder = card_by_id.get(sh.card_id)
+        if user is None or holder is None or not user.email:
             continue
         role_type = "OBSERVER" if sh.role == "observer" else "RESPONSIBLE"
-        role_name = role_label.get((card.type, sh.role)) or _humanise_key(sh.role)
+        role_name = role_label.get((holder.type, sh.role)) or _humanise_key(sh.role)
         subscriptions.append(
             Subscription(
                 source_id=str(sh.id),
@@ -392,6 +392,6 @@ def _metamodel_type(ct: CardType) -> MetamodelType:
         is_custom=not ct.built_in,
         fields=fields,
         subtypes=[
-            s.get("key") for s in (ct.subtypes or []) if isinstance(s, dict) and s.get("key")
+            str(s["key"]) for s in (ct.subtypes or []) if isinstance(s, dict) and s.get("key")
         ],
     )

@@ -3,7 +3,7 @@
 Database-backed: the snapshot is assembled from real rows created with
 the conftest factories, then checked field by field in Turbo EA
 vocabulary (card-type keys, relation keys). The LeanIX spelling is the
-adapter's job and is covered by ``test_migration_leanix_xlsx_exporter.py``.
+adapter's job and is covered by ``test_migration_leanix_ldif_exporter.py``.
 """
 
 from __future__ import annotations

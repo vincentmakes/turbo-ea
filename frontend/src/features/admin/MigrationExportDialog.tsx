@@ -21,8 +21,9 @@ import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 
 // The reverse of the platform-migration importer: download the current
-// workspace in a source platform's own export format
-// (GET /migration/export?source_key=…). Registry-driven like the upload
+// workspace as an import bundle for a source platform
+// (GET /migration/export?source_key=…) — for LeanIX a zip holding the LDIF
+// data and the processor configuration its Integration API runs. Registry-driven like the upload
 // dialog — every source reporting ``supports_export`` is offered — and
 // the download follows the same blob/anchor pattern as the workspace
 // bundle export in WorkspaceTransferAdmin.
@@ -50,7 +51,7 @@ async function downloadMigrationExport(
   const blob = await res.blob();
   const disposition = res.headers.get("Content-Disposition") || "";
   const match = disposition.match(/filename="?([^"]+)"?/);
-  const filename = match ? match[1] : `${sourceKey}_export.xlsx`;
+  const filename = match ? match[1] : `${sourceKey}_export.zip`;
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -102,7 +103,7 @@ export default function MigrationExportDialog({
           <Typography variant="body2" color="text.secondary">
             {t(
               "migration.export.help",
-              "Download the current workspace — cards, relations, tags, stakeholders, documents and comments — as the selected platform's own export file. The same file can be uploaded back through New migration.",
+              "Download the current workspace — cards, relations, tags, stakeholders and document links — as an import bundle for the selected platform. For SAP LeanIX this is a .zip with the data (LDIF) and the processor configuration to run in Administration → Integration API; the README inside explains the steps.",
             )}
           </Typography>
           <FormControl fullWidth size="small">

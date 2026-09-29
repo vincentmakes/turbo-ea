@@ -1,4 +1,4 @@
-"""``GET /migration/export`` — the workspace in a source platform's own format.
+"""``GET /migration/export`` — the workspace as a source platform's import bundle.
 
 Gated on ``admin.export_workspace`` (the same authority as the workspace
 bundle export, since the file is the whole landscape), registry-driven
@@ -8,12 +8,12 @@ the literal path is not swallowed by the UUID route.
 
 from __future__ import annotations
 
+import json
+import zipfile
 from io import BytesIO
 
 import pytest
-from openpyxl import load_workbook  # type: ignore[import-untyped]
 
-from app.services.migration.sources.leanix.xlsx_parser import is_xlsx_payload
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -96,26 +96,40 @@ class TestExportRoute:
         )
         assert resp.status_code == 200
 
-    async def test_returns_a_leanix_workbook_as_an_attachment(self, client, db, export_env):
+    async def test_returns_a_leanix_integration_api_bundle_as_an_attachment(
+        self, client, db, export_env
+    ):
         resp = await client.get(
             "/api/v1/migration/export",
             params={"source_key": "leanix"},
             headers=auth_headers(export_env["admin"]),
         )
         assert resp.status_code == 200
-        assert resp.headers["content-type"].startswith(
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        assert resp.headers["content-type"].startswith("application/zip")
         disposition = resp.headers["content-disposition"]
-        assert 'filename="leanix_export_' in disposition and disposition.endswith('.xlsx"')
-        assert is_xlsx_payload(resp.content[:4])
+        assert 'filename="leanix_export_' in disposition and disposition.endswith('.zip"')
 
-        wb = load_workbook(BytesIO(resp.content))
-        assert "Application" in wb.sheetnames
-        assert "Process" in wb.sheetnames  # BusinessProcess → LeanIX "Process"
-        assert "processApplicationRelation" in wb.sheetnames
-        names = [r[2] for r in wb["Application"].iter_rows(min_row=3, values_only=True)]
-        assert names == ["Salesforce"]  # archived card left out by default
+        with zipfile.ZipFile(BytesIO(resp.content)) as zf:
+            assert set(zf.namelist()) == {
+                "README.md",
+                "ldif.json",
+                "processors.json",
+                "comments.json",
+            }
+            ldif = json.loads(zf.read("ldif.json"))
+            processors = json.loads(zf.read("processors.json"))
+        assert ldif["processingDirection"] == "inbound"
+        by_type: dict[str, list] = {}
+        for item in ldif["content"]:
+            by_type.setdefault(item["type"], []).append(item)
+        assert [i["data"]["name"] for i in by_type["Application"]] == ["Salesforce"]  # no archived
+        assert "Process" in by_type  # BusinessProcess → LeanIX "Process"
+        assert len(by_type["relProcessToApplication"]) == 1
+        assert {p["type"] for p in processors["processors"]} >= {
+            "Application",
+            "Process",
+            "relProcessToApplication",
+        }
 
     async def test_include_archived_flag(self, client, db, export_env):
         resp = await client.get(
@@ -124,12 +138,14 @@ class TestExportRoute:
             headers=auth_headers(export_env["admin"]),
         )
         assert resp.status_code == 200
-        wb = load_workbook(BytesIO(resp.content))
-        rows = list(wb["Application"].iter_rows(min_row=3, values_only=True))
-        assert sorted((r[2], r[4]) for r in rows) == [
-            ("Old CRM", "ARCHIVED"),
-            ("Salesforce", "ACTIVE"),
-        ]
+        with zipfile.ZipFile(BytesIO(resp.content)) as zf:
+            ldif = json.loads(zf.read("ldif.json"))
+        apps = sorted(
+            (i["data"]["name"], i["data"]["status"])
+            for i in ldif["content"]
+            if i["type"] == "Application"
+        )
+        assert apps == [("Old CRM", "ARCHIVED"), ("Salesforce", "ACTIVE")]
 
     async def test_unknown_source_is_404(self, client, db, export_env):
         resp = await client.get(
