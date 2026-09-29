@@ -75,6 +75,21 @@ El snapshot no contiene lo siguiente — el importador marca lo faltante en la c
 - **Historial de auditoría** previo a la importación — el historial de Turbo EA comienza con el timestamp de apply.
 - **Diagramas / pósters / dashboards / búsquedas guardadas / preferencias de notificación / tokens API / webhooks** — sin equivalente en Turbo EA o sin análogo en el snapshot.
 
+## Exportar a SAP LeanIX
+
+La misma página funciona también en sentido inverso. **Exportar espacio de trabajo** (junto a **Nueva migración**) descarga el espacio de trabajo actual como un libro xlsx **Full Snapshot** de LeanIX: la misma disposición que acepta el importador. El archivo se vuelve a importar aquí sin cambios y puede entregarse a un tenant de LeanIX o a cualquier herramienta que lea exportaciones de LeanIX.
+
+Contenido del libro:
+
+- **Una hoja por tipo de tarjeta**, nombrada al estilo LeanIX (`Process` para Proceso de negocio, `Project` para Iniciativa, `UserGroup` para Organización); un tipo creado por un administrador conserva su propia clave. Cada fila lleva las columnas básicas (`id`, `name`, `displayName`, `status`, `description`, `category` = subtipo, `completion` = calidad de datos, `qualitySeal` = estado de aprobación), las fases `lifecycle:*`, una columna `tags:<Grupo>` por grupo de etiquetas, una columna `subscriptions:<TipoDeRol>:<NombreDeRol>` por rol de parte interesada y una columna por atributo.
+- **`displayName` es la ruta jerárquica** (`Ventas / Gestión de leads`): así nombra LeanIX las fichas anidadas y así referencian las filas de relación sus extremos.
+- **`childParentRelation`** para la jerarquía y **una hoja por tipo de relación** (`applicationITComponentRelation`, …) con los atributos de la relación como columnas adicionales. Las relaciones de sucesión se escriben en la dirección de LeanIX (`from` es la tarjeta más antigua).
+- **`TagGroups`, `Tags`, `Documents`** (enlaces), **`Comments`, `Types`** y una referencia de campos **`ReadMe`** con la lista completa de opciones de cada campo de selección, para que una reimportación cree desplegables reales.
+
+Las tarjetas archivadas se excluyen salvo que se marque **Incluir tarjetas archivadas**. Los archivos de documentos, los hilos de comentarios y las cuentas de usuario no forman parte del formato, igual que en la importación; los valores de selección múltiple se escriben separados por comas en una sola celda.
+
+La exportación está protegida por `admin.export_workspace`, el mismo permiso que la exportación del paquete de espacio de trabajo, porque el archivo es el panorama completo.
+
 ## Reejecución de un import
 
 La idempotencia está incorporada. La tabla `migration_identity_map` registra la asignación UUID LeanIX → Turbo EA para cada entidad importada. Un re-upload del mismo snapshot (o de un snapshot actualizado del mismo workspace) detecta entidades existentes y escribe filas staged `update`/`skip` en vez de duplicar `create`s. El `external_id` de la tarjeta lleva el `factSheetId` de LeanIX, por lo que el vínculo sobrevive incluso si se borra la identity map.

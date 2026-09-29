@@ -78,6 +78,10 @@ class Tag:
     group_name: str | None
     group_mode: str | None  # SINGLE | MULTIPLE
     color: str | None = None
+    # Entity types the group is restricted to (native type names), when
+    # the source models that. Only the exporter fills it today; parsers
+    # may leave it ``None``.
+    group_restrict_to_types: list[str] | None = None
 
 
 @dataclass

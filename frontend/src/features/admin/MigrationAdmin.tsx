@@ -33,7 +33,10 @@ import {
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { hasPermission } from "@/components/RequirePermission";
+import { useAuthContext } from "@/hooks/AuthContext";
 import { invalidateCache as invalidateMetamodelCache } from "@/hooks/useMetamodel";
+import MigrationExportDialog from "./MigrationExportDialog";
 
 // Admin surface for the platform-migration importer. Lives under
 // Settings → Migration. End-to-end flow: pick a source platform, upload
@@ -46,6 +49,8 @@ interface SourceInfo {
   key: string;
   label: string;
   accepted_extensions: string[];
+  // The adapter can also WRITE its platform's format (GET /migration/export).
+  supports_export: boolean;
 }
 
 interface Migration {
@@ -185,11 +190,13 @@ function fmtDate(iso: string | null): string {
 
 export default function MigrationAdmin() {
   const { t } = useTranslation(["admin", "common"]);
+  const { user } = useAuthContext();
   const [migrations, setMigrations] = useState<Migration[]>([]);
   const [sources, setSources] = useState<SourceInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [selected, setSelected] = useState<Migration | null>(null);
   const [previews, setPreviews] = useState<Record<string, PreviewPage | null>>({});
   const [activeKind, setActiveKind] = useState<EntityKind>("card");
@@ -206,6 +213,18 @@ export default function MigrationAdmin() {
     (key: string) => sources.find((s) => s.key === key)?.label || key,
     [sources],
   );
+
+  // The reverse direction — the workspace written in a platform's own
+  // export format. The file is the whole landscape, so it is gated on
+  // the same permission as the workspace bundle export, not on
+  // admin.migrate; the button only renders when a registered adapter
+  // can actually write its format.
+  const exportableSources = useMemo(
+    () => sources.filter((s) => s.supports_export).map((s) => ({ key: s.key, label: s.label })),
+    [sources],
+  );
+  const canExport =
+    exportableSources.length > 0 && hasPermission(user?.permissions, "admin.export_workspace");
 
   const loadList = useCallback(async () => {
     try {
@@ -489,14 +508,25 @@ export default function MigrationAdmin() {
             )}
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<MaterialSymbol icon="upload" />}
-          onClick={() => setUploadOpen(true)}
-          disabled={sources.length === 0}
-        >
-          {t("migration.newButton", "New migration")}
-        </Button>
+        <Stack direction="row" spacing={1}>
+          {canExport && (
+            <Button
+              variant="outlined"
+              startIcon={<MaterialSymbol icon="download" />}
+              onClick={() => setExportOpen(true)}
+            >
+              {t("migration.export.button", "Export workspace")}
+            </Button>
+          )}
+          <Button
+            variant="contained"
+            startIcon={<MaterialSymbol icon="upload" />}
+            onClick={() => setUploadOpen(true)}
+            disabled={sources.length === 0}
+          >
+            {t("migration.newButton", "New migration")}
+          </Button>
+        </Stack>
       </Stack>
 
       {error && (
@@ -588,6 +618,14 @@ export default function MigrationAdmin() {
           </TableBody>
         </Table>
       </Paper>
+
+      {canExport && (
+        <MigrationExportDialog
+          open={exportOpen}
+          sources={exportableSources}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
 
       <UploadDialog
         open={uploadOpen}

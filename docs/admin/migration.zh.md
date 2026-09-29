@@ -75,6 +75,21 @@ xlsx 的第一张表（`ReadMe`）是 LeanIX 的权威字段参考：每一列�
 - **导入之前的审计历史** — Turbo EA 历史从 apply 时间戳开始。
 - **图表 / 海报视图 / 仪表板 / 已保存搜索 / 通知偏好 / API 令牌 / Webhook** — Turbo EA 中无对应物，或快照中无类似项。
 
+## 导出到 SAP LeanIX
+
+同一页面也可以反向使用。**导出工作区**（位于**新建迁移**旁）会将当前工作区下载为 LeanIX **Full Snapshot** xlsx 工作簿——与导入器接受的布局完全相同。该文件可以原样重新导入到这里，也可以交给 LeanIX 租户或任何能读取 LeanIX 导出的工具。
+
+工作簿包含：
+
+- **每个卡片类型一个工作表**，按 LeanIX 的方式命名（业务流程为 `Process`，举措为 `Project`，组织为 `UserGroup`）；管理员创建的类型保留自己的键。每行包含核心列（`id`、`name`、`displayName`、`status`、`description`、`category` = 子类型、`completion` = 数据质量、`qualitySeal` = 审批状态）、`lifecycle:*` 阶段、每个标签组一列 `tags:<组>`、每个干系人角色一列 `subscriptions:<角色类型>:<角色名称>`，以及每个属性一列。
+- **`displayName` 是层级路径**（`销售 / 线索管理`）——这是 LeanIX 为嵌套事实表命名的方式，也是关系行引用其端点的方式。
+- 用于层级的 **`childParentRelation`**，以及**每个关系类型一个工作表**（`applicationITComponentRelation` 等），关系属性作为额外列。继任关系按 LeanIX 的方向写入（`from` 为较旧的卡片）。
+- **`TagGroups`、`Tags`、`Documents`**（链接）、**`Comments`、`Types`** 以及一份 **`ReadMe`** 字段参考，列出每个选择字段的完整选项列表，以便重新导入时创建真正的下拉列表。
+
+除非勾选**包含已归档的卡片**，否则已归档的卡片不会导出。与导入时一样，文档文件、评论线程和用户账户不属于该格式；多选值以逗号分隔写在同一单元格中。
+
+导出受 `admin.export_workspace` 权限保护——与工作区包导出相同的权限，因为该文件就是整个架构全景。
+
 ## 重新运行 import
 
 幂等性已内置。`migration_identity_map` 表记录每个已导入实体的 LeanIX → Turbo EA UUID 映射。重新上传相同快照（或同一工作区的更新快照）会检测已存在的实体并写入 `update`/`skip` staged 行，而非重复 `create`。卡片的 `external_id` 携带 LeanIX 的 `factSheetId`，因此即便 identity map 被清空，链接仍可恢复。

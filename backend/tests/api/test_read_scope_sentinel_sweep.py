@@ -83,6 +83,7 @@ SKIP_PREFIXES = (
     "/api/v1/value-stream-catalogue",
     "/api/v1/principles-catalogue",
     "/api/v1/admin/workspace",
+    "/api/v1/migration/export",
     "/api/v1/web-portals/public",
     "/api/v1/diagrams/public",
     "/api/v1/ext-assets",

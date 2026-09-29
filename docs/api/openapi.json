@@ -13508,6 +13508,11 @@
           "label": {
             "title": "Label",
             "type": "string"
+          },
+          "supports_export": {
+            "default": false,
+            "title": "Supports Export",
+            "type": "boolean"
           }
         },
         "required": [
@@ -27897,6 +27902,59 @@
           }
         },
         "summary": "List Migrations",
+        "tags": [
+          "Migration"
+        ]
+      }
+    },
+    "/api/v1/migration/export": {
+      "get": {
+        "description": "Download the workspace in ``source_key``'s own export format.\n\nThe reverse of the importer: the inventory, metamodel, tags,\nstakeholders, documents and comments are collected into the same\nsnapshot shape the parsers produce, and the adapter writes its\nplatform's file \u2014 for LeanIX the Full Snapshot xlsx workbook the\nimporter accepts back unchanged. A full-landscape export, so it is\ngated like the workspace bundle export rather than per card type.",
+        "operationId": "export_workspace_api_v1_migration_export_get",
+        "parameters": [
+          {
+            "description": "Registry key of the target platform",
+            "in": "query",
+            "name": "source_key",
+            "required": true,
+            "schema": {
+              "description": "Registry key of the target platform",
+              "title": "Source Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Workspace",
         "tags": [
           "Migration"
         ]

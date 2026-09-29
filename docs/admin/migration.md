@@ -85,6 +85,21 @@ The snapshot does not carry these — the importer surfaces what is missing in t
 - **Audit history** prior to the import — Turbo EA's history starts at the apply timestamp.
 - **Diagrams / poster views / dashboards / saved searches / notification preferences / API tokens / webhooks** — no equivalent in Turbo EA, or no analog in the snapshot.
 
+## Exporting to SAP LeanIX
+
+The same page also runs in reverse. **Export workspace** (next to **New migration**) downloads the current workspace as a LeanIX **Full Snapshot** xlsx workbook — the same layout the importer accepts, so the file re-imports here unchanged and can be handed to a LeanIX tenant or to any tool that reads LeanIX exports.
+
+What the workbook contains:
+
+- **One sheet per card type**, named the LeanIX way (`Process` for Business Process, `Project` for Initiative, `UserGroup` for Organization); an admin-created type keeps its own key. Each row carries the core columns (`id`, `name`, `displayName`, `status`, `description`, `category` = subtype, `completion` = data quality, `qualitySeal` = approval status), the `lifecycle:*` phases, one `tags:<Group>` column per tag group, one `subscriptions:<RoleType>:<RoleName>` column per stakeholder role, and one column per attribute.
+- **`displayName` is the hierarchy path** (`Sales / Lead Management`) — how LeanIX names nested fact sheets, and how relation rows reference their endpoints.
+- **`childParentRelation`** for the hierarchy and **one sheet per relation type** (`applicationITComponentRelation`, …) with relation attributes as extra columns. Lineage relations are written in LeanIX's direction (`from` is the older card).
+- **`TagGroups`, `Tags`, `Documents`** (links), **`Comments`, `Types`** and a **`ReadMe`** field reference listing the complete option list of every select field, so a re-import creates proper dropdowns.
+
+Archived cards are left out unless **Include archived cards** is ticked. Document files, comment threading and user accounts are not part of the format, as on import; multiple-select values are written comma-separated in one cell.
+
+The export is gated by `admin.export_workspace` — the same permission as the workspace bundle export, because the file is the whole landscape.
+
 ## Re-running an import
 
 Idempotency is built in. The `migration_identity_map` table records the source-side → Turbo EA UUID for every entity that has been imported (keyed by `(source_id, entity_kind, source_type)` so the same external id can legitimately exist in imports from two different sources). A re-upload of the same snapshot (or an updated snapshot from the same workspace) detects existing entities and writes `update` / `skip` staged rows rather than duplicate `create`s. The card's `external_id` carries the source-side id (LeanIX `factSheetId`, Ardoq component id, …) so the link survives even if the identity map is wiped.

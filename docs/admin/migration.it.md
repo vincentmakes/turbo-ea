@@ -75,6 +75,21 @@ Lo snapshot non contiene questi elementi — l'importatore segnala il mancante n
 - **Cronologia di audit** precedente all'import — la cronologia Turbo EA inizia dal timestamp di apply.
 - **Diagrammi / poster / dashboard / ricerche salvate / preferenze di notifica / token API / webhook** — nessun equivalente in Turbo EA o nessun analogo nello snapshot.
 
+## Esportare verso SAP LeanIX
+
+La stessa pagina funziona anche in senso inverso. **Esporta spazio di lavoro** (accanto a **Nuova migrazione**) scarica lo spazio di lavoro corrente come cartella di lavoro xlsx **Full Snapshot** di LeanIX: lo stesso layout che l'importatore accetta. Il file si reimporta qui senza modifiche e può essere consegnato a un tenant LeanIX o a qualsiasi strumento che legga esportazioni LeanIX.
+
+Contenuto della cartella di lavoro:
+
+- **Un foglio per tipo di scheda**, con i nomi di LeanIX (`Process` per Processo di business, `Project` per Iniziativa, `UserGroup` per Organizzazione); un tipo creato da un amministratore mantiene la propria chiave. Ogni riga contiene le colonne di base (`id`, `name`, `displayName`, `status`, `description`, `category` = sottotipo, `completion` = qualità dei dati, `qualitySeal` = stato di approvazione), le fasi `lifecycle:*`, una colonna `tags:<Gruppo>` per gruppo di tag, una colonna `subscriptions:<TipoRuolo>:<NomeRuolo>` per ruolo di stakeholder e una colonna per attributo.
+- **`displayName` è il percorso gerarchico** (`Vendite / Gestione lead`): è così che LeanIX nomina le schede annidate e che le righe di relazione referenziano le loro estremità.
+- **`childParentRelation`** per la gerarchia e **un foglio per tipo di relazione** (`applicationITComponentRelation`, …) con gli attributi della relazione come colonne aggiuntive. Le relazioni di successione sono scritte nella direzione di LeanIX (`from` è la scheda più vecchia).
+- **`TagGroups`, `Tags`, `Documents`** (link), **`Comments`, `Types`** e un riferimento dei campi **`ReadMe`** con l'elenco completo delle opzioni di ogni campo a scelta, così che una reimportazione crei veri menu a discesa.
+
+Le schede archiviate sono escluse a meno che non sia selezionato **Includi le schede archiviate**. I file dei documenti, i thread dei commenti e gli account utente non fanno parte del formato, come nell'importazione; i valori a scelta multipla sono scritti separati da virgole in un'unica cella.
+
+L'esportazione è protetta da `admin.export_workspace`, la stessa autorizzazione dell'esportazione del bundle dello spazio di lavoro, perché il file è l'intero panorama.
+
 ## Riesecuzione di un import
 
 L'idempotenza è integrata. La tabella `migration_identity_map` registra la corrispondenza UUID LeanIX → Turbo EA per ogni entità importata. Un re-upload dello stesso snapshot (o di uno snapshot aggiornato dello stesso workspace) rileva le entità esistenti e scrive righe staged `update`/`skip` invece di duplicare `create`. Il campo `external_id` della carta porta il `factSheetId` LeanIX, quindi il collegamento sopravvive anche se la identity map viene cancellata.

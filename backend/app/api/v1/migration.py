@@ -15,7 +15,10 @@ lives in :mod:`app.services.migration.staging`,
 Endpoints:
 
 - ``GET /migration/sources`` — list every registered source adapter so
-  the upload picker knows what's available.
+  the upload picker knows what's available (and which ones can export).
+- ``GET /migration/export`` — download the workspace in a source
+  platform's own export format (the reverse of the importer). Gated by
+  ``admin.export_workspace`` like the workspace bundle export.
 - ``POST /migration/upload`` — multipart upload with ``source_key``.
   Returns the migration id and fires a background task to parse +
   stage.
@@ -51,6 +54,7 @@ from fastapi import (
     Query,
     UploadFile,
 )
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -63,6 +67,7 @@ from app.models.card_type import CardType
 from app.models.migration import Migration, StagedRecord
 from app.models.user import User
 from app.services.migration.apply import apply_migration
+from app.services.migration.export_snapshot import build_export_snapshot
 from app.services.migration.registry import SOURCES, get_source
 from app.services.migration.staging import (
     stage_cards,
@@ -95,6 +100,9 @@ class SourceOut(BaseModel):
     key: str
     label: str
     accepted_extensions: list[str]
+    # True when the adapter can also write its platform's export format
+    # (``GET /migration/export?source_key=``).
+    supports_export: bool = False
 
 
 class MigrationOut(BaseModel):
@@ -242,9 +250,61 @@ async def list_sources(
             key=src.key,
             label=src.label,
             accepted_extensions=list(src.accepted_extensions),
+            supports_export=_supports_export(src),
         )
         for src in SOURCES.values()
     ]
+
+
+def _supports_export(source: object) -> bool:
+    """An adapter exports when it duck-types the optional ``export`` hook.
+
+    Deliberately not part of the ``MigrationSource`` protocol: only the
+    LeanIX adapter writes its platform's format today, and the protocol
+    is not widened for one adapter.
+    """
+    return callable(getattr(source, "export", None))
+
+
+@router.get("/export")
+async def export_workspace(
+    source_key: str = Query(..., description="Registry key of the target platform"),
+    include_archived: bool = Query(False),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Download the workspace in ``source_key``'s own export format.
+
+    The reverse of the importer: the inventory, metamodel, tags,
+    stakeholders, documents and comments are collected into the same
+    snapshot shape the parsers produce, and the adapter writes its
+    platform's file — for LeanIX the Full Snapshot xlsx workbook the
+    importer accepts back unchanged. A full-landscape export, so it is
+    gated like the workspace bundle export rather than per card type.
+    """
+    await PermissionService.require_permission(db, user, "admin.export_workspace")
+    try:
+        source = get_source(source_key)
+    except KeyError:
+        raise HTTPException(404, f"Unknown migration source: {source_key}") from None
+    if not _supports_export(source):
+        raise HTTPException(400, f"Source {source_key!r} does not support export")
+
+    snapshot = await build_export_snapshot(db, include_archived=include_archived)
+    # Hand the pooled connection back before the CPU-bound serialisation:
+    # nothing below touches the database.
+    await db.commit()
+    data = await run_in_threadpool(source.export, snapshot)  # type: ignore[attr-defined]
+
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M")
+    extension = getattr(source, "export_extension", ".bin")
+    media_type = getattr(source, "export_media_type", "application/octet-stream")
+    filename = f"{source.key}_export_{ts}{extension}"
+    return StreamingResponse(
+        iter([data]),
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/upload", response_model=MigrationOut, status_code=201)

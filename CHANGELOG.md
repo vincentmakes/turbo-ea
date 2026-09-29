@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.152.0] - 2026-09-29
+
+### Added
+
+- **Export the workspace as a SAP LeanIX workbook.** Admin → Settings → Migration → Platform migration has an **Export workspace** button that downloads the whole inventory as a LeanIX *Full Snapshot* xlsx file — one sheet per card type and per relation type, plus tag groups, tags, documents, comments and a field reference. Card and relation types are named the LeanIX way (*Process*, *Project*, *UserGroup*, `applicationITComponentRelation`, …), lineage links are written in LeanIX's direction, nested cards carry their hierarchy path as display name, and stakeholders become subscriptions. The file re-imports through the LeanIX importer unchanged, and archived cards can be included on request. Gated by the workspace-export permission.
+
+### Fixed
+
+- **LeanIX imports now map data-object lineage.** `dataObjectSuccessorRelation` rows landed as conflicts because the relation was missing from the import mapping; they now create *succeeds* links between Data Objects like the other lineage relations.
+
 ## [2.151.0] - 2026-09-28
 
 ### Added

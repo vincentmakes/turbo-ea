@@ -85,6 +85,21 @@ Snapshottet bærer ikke disse — importøren viser, hvad der mangler i per-ræk
 - **Revisionshistorik** før importen — Turbo EA's historik starter ved apply-tidsstemplet.
 - **Diagrammer / poster views / dashboards / gemte søgninger / notifikationspræferencer / API-tokens / webhooks** — ingen ækvivalent i Turbo EA eller ingen analog i snapshottet.
 
+## Eksport til SAP LeanIX
+
+Samme side fungerer også den modsatte vej. **Eksportér arbejdsområde** (ved siden af **Ny migrering**) downloader det aktuelle arbejdsområde som en LeanIX **Full Snapshot**-xlsx-projektmappe – samme layout, som importøren accepterer. Filen kan importeres uændret her igen og gives videre til en LeanIX-tenant eller ethvert værktøj, der læser LeanIX-eksporter.
+
+Projektmappen indeholder:
+
+- **Ét ark pr. korttype**, navngivet som i LeanIX (`Process` for Forretningsproces, `Project` for Initiativ, `UserGroup` for Organisation); en administratoroprettet type beholder sin egen nøgle. Hver række har kernekolonnerne (`id`, `name`, `displayName`, `status`, `description`, `category` = undertype, `completion` = datakvalitet, `qualitySeal` = godkendelsesstatus), `lifecycle:*`-faserne, én kolonne `tags:<Gruppe>` pr. tag-gruppe, én kolonne `subscriptions:<Rolletype>:<Rollenavn>` pr. interessentrolle og én kolonne pr. attribut.
+- **`displayName` er hierarkistien** (`Salg / Lead-håndtering`) – sådan navngiver LeanIX indlejrede fact sheets, og sådan refererer relationsrækker til deres endepunkter.
+- **`childParentRelation`** for hierarkiet og **ét ark pr. relationstype** (`applicationITComponentRelation`, …) med relationsattributter som ekstra kolonner. Efterfølgerrelationer skrives i LeanIX' retning (`from` er det ældste kort).
+- **`TagGroups`, `Tags`, `Documents`** (links), **`Comments`, `Types`** og en **`ReadMe`**-feltreference med den fulde liste af valgmuligheder for hvert valgfelt, så en genimport opretter rigtige rullelister.
+
+Arkiverede kort udelades, medmindre **Medtag arkiverede kort** er markeret. Dokumentfiler, kommentartråde og brugerkonti er som ved import ikke en del af formatet; værdier med flere valg skrives kommaseparerede i én celle.
+
+Eksporten er beskyttet af `admin.export_workspace` – samme tilladelse som eksporten af arbejdsområde-bundtet, fordi filen er hele landskabet.
+
 ## Genkørsel af en import
 
 Idempotens er indbygget. Tabellen `migration_identity_map` registrerer kildesiden → Turbo EA-UUID for hver entitet, der er blevet importeret (nøglet af `(source_id, entity_kind, source_type)`, så samme eksterne id legitimt kan eksistere i imports fra to forskellige kilder). En genupload af samme snapshot (eller et opdateret snapshot fra samme arbejdsområde) detekterer eksisterende entiteter og skriver `update`- / `skip`-staged rækker i stedet for duplikerede `create`s. Kortets `external_id` bærer kildesidens id (LeanIX `factSheetId`, Ardoq-komponent-id, …), så linket overlever, selv hvis identitetskortet tørres.

@@ -75,6 +75,21 @@ Der Snapshot enthält Folgendes nicht — der Importer kennzeichnet Fehlendes in
 - **Audit-Verlauf** vor dem Import — der Turbo-EA-Verlauf beginnt mit dem Apply-Zeitstempel.
 - **Diagramme / Poster-Ansichten / Dashboards / gespeicherte Suchen / Benachrichtigungseinstellungen / API-Tokens / Webhooks** — kein Äquivalent in Turbo EA oder kein Pendant im Snapshot.
 
+## Export nach SAP LeanIX
+
+Dieselbe Seite funktioniert auch in umgekehrter Richtung. **Workspace exportieren** (neben **Neue Migration**) lädt den aktuellen Workspace als LeanIX-**Full-Snapshot**-xlsx-Arbeitsmappe herunter – dasselbe Layout, das der Importer akzeptiert. Die Datei lässt sich hier unverändert wieder importieren und an einen LeanIX-Mandanten oder jedes Werkzeug übergeben, das LeanIX-Exporte liest.
+
+Inhalt der Arbeitsmappe:
+
+- **Ein Blatt pro Kartentyp**, benannt wie in LeanIX (`Process` für Geschäftsprozess, `Project` für Initiative, `UserGroup` für Organisation); ein vom Admin angelegter Typ behält seinen Schlüssel. Jede Zeile enthält die Kernspalten (`id`, `name`, `displayName`, `status`, `description`, `category` = Subtyp, `completion` = Datenqualität, `qualitySeal` = Freigabestatus), die `lifecycle:*`-Phasen, eine Spalte `tags:<Gruppe>` pro Tag-Gruppe, eine Spalte `subscriptions:<Rollentyp>:<Rollenname>` pro Stakeholder-Rolle und eine Spalte pro Attribut.
+- **`displayName` ist der Hierarchiepfad** (`Vertrieb / Lead-Management`) – so benennt LeanIX verschachtelte Fact Sheets, und so referenzieren Beziehungszeilen ihre Endpunkte.
+- **`childParentRelation`** für die Hierarchie und **ein Blatt pro Beziehungstyp** (`applicationITComponentRelation`, …) mit Beziehungsattributen als zusätzlichen Spalten. Nachfolgebeziehungen werden in LeanIX-Richtung geschrieben (`from` ist die ältere Karte).
+- **`TagGroups`, `Tags`, `Documents`** (Links), **`Comments`, `Types`** und eine **`ReadMe`**-Feldreferenz mit der vollständigen Optionsliste jedes Auswahlfelds, damit ein erneuter Import echte Dropdowns anlegt.
+
+Archivierte Karten werden nur mit **Archivierte Karten einschließen** aufgenommen. Dokumentdateien, Kommentar-Threads und Benutzerkonten gehören wie beim Import nicht zum Format; Mehrfachauswahl-Werte stehen kommagetrennt in einer Zelle.
+
+Der Export ist durch `admin.export_workspace` geschützt – dieselbe Berechtigung wie beim Export des Workspace-Bundles, denn die Datei ist die gesamte Landschaft.
+
 ## Wiederholung eines Imports
 
 Idempotenz ist eingebaut. Die Tabelle `migration_identity_map` speichert die LeanIX → Turbo-EA-UUID-Zuordnung für jede importierte Entität. Ein erneuter Upload desselben Snapshots (oder eines aktualisierten Snapshots aus demselben Workspace) erkennt vorhandene Entitäten und erzeugt `update`/`skip`-Staged-Rows statt doppelter `create`s. Das Feld `external_id` der Karte trägt die LeanIX-`factSheetId`, sodass die Verknüpfung erhalten bleibt, selbst wenn die Identity-Map gelöscht wird.

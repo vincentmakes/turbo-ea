@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from app.services.migration.snapshot import MigrationSnapshot, SourceEntity
-from app.services.migration.sources.leanix import mappings, xlsx_parser
+from app.services.migration.sources.leanix import mappings, xlsx_exporter, xlsx_parser
 
 
 class LeanixSource:
@@ -54,6 +54,17 @@ class LeanixSource:
 
     def parse(self, path: str | Path) -> MigrationSnapshot:
         return xlsx_parser.parse_xlsx_path(str(path))
+
+    # ---- Export ----
+    # The reverse direction: a Turbo EA workspace written in the same
+    # Full Snapshot layout ``parse`` reads, so a Turbo EA → LeanIX →
+    # Turbo EA trip round-trips. Deliberately duck-typed rather than part
+    # of ``MigrationSource`` — the route checks ``hasattr(source, "export")``.
+    export_extension: str = ".xlsx"
+    export_media_type: str = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+    def export(self, snapshot: MigrationSnapshot) -> bytes:
+        return xlsx_exporter.build_workbook(snapshot)
 
     # ---- Extension hooks ----
     def post_build_card_payload(
