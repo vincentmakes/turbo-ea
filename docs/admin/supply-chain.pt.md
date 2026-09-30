@@ -17,10 +17,11 @@ Imagens assinadas:
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/nginx`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+- `ghcr.io/vincentmakes/turbo-ea/ollama` (perfil opcional `ai`)
 
 O chart do Helm, `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea`, é assinado da mesma forma por `.github/workflows/helm-publish.yml` em cada tag de versão (identidade `…/helm-publish.yml@<ref>`).
 
-A imagem `ollama` é reconstruída manualmente fora da matriz e atualmente não é assinada; se você depende do perfil Ollama incluído e precisa de verificação, construa-a a partir do código-fonte.
+Todas as imagens que o `docker-compose.yml` pode baixar estão nessa lista. A imagem `ollama` entrou nela na 2.154.0: antes era reconstruída à mão fora da matriz e não era assinada, por isso as versões até a 2.153.0 não têm assinatura para ela nem uma tag `ollama:<version>`.
 
 A assinatura se aplica ao digest da lista de manifestos OCI, então uma única assinatura cobre de forma transparente tanto `linux/amd64` quanto `linux/arm64`. Não há assinatura por plataforma para procurar.
 
@@ -113,6 +114,8 @@ O fluxo de publicação executa o [Trivy](https://github.com/aquasecurity/trivy)
 - **Portão** — qualquer achado CRITICAL com correção disponível **faz a publicação falhar**, a menos que a CVE esteja listada em `.github/trivy-allowlist` com uma justificativa escrita (cada entrada é reavaliada trimestralmente e removida assim que o upstream lança um patch).
 
 As mesmas duas etapas são repetidas diariamente contra os manifestos `:latest` realmente publicados, e um achado HIGH ou CRITICAL corrigível em uma imagem publicada dispara uma reconstrução contra repositórios Alpine atualizados. Os achados HIGH permanecem por enquanto apenas em observação: as bases são alpine (`python:3.12-alpine`, `postgres:18-alpine`, `nginx:alpine`) e carregam regularmente achados de fundo contra a musl-libc e dependências apk transitivas que nenhum caminho de código do Turbo EA alcança, mas que o Trivy reporta mesmo assim.
+
+**Análise dinâmica da pilha em execução.** Uma vez por semana, as imagens `:latest` publicadas também são iniciadas com o `docker-compose.yml` inalterado e sondadas pela análise básica passiva do OWASP ZAP, anonimamente e com a sessão do administrador de demonstração: cabeçalhos de resposta, atributos de cookies, Content-Security-Policy e vazamentos de informação em cada página e rota de API que o spider alcança. Nada é submetido a fuzzing. Os alertas aceitos são listados com justificativa em `.github/zap-rules.tsv`; qualquer outro faz a execução falhar. A análise cobre a pilha na sua forma padrão, não o seu proxy reverso, provedor de identidade ou rede: execute o seu próprio DAST contra a sua instância.
 
 **Para operadores:** o portão protege as imagens publicadas, mas execute também o seu próprio scanner sobre a imagem baixada — sua política pode diferir da nossa. A SBOM publicada é uma entrada limpa.
 

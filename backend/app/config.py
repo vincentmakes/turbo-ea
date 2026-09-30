@@ -4,7 +4,16 @@ import os
 from pathlib import Path
 from urllib.parse import quote
 
-_DEFAULT_SECRET_KEYS = ("change-me-in-production", "dev-secret-key-change-in-production")
+# Placeholder keys the lifespan check refuses outside development: the two
+# code defaults and the value shipped in `.env.example` (an operator who copies
+# the file without editing it must not end up with a well-known signing key —
+# backend/tests/core/test_startup.py reads the example file to keep these in
+# step).
+_DEFAULT_SECRET_KEYS = (
+    "change-me-in-production",
+    "dev-secret-key-change-in-production",
+    "changeme_generate_with_python_c_import_secrets_print_secrets_token_urlsafe_64",
+)
 
 # Placeholder From address used when the admin never configured one. The Graph
 # backend treats it as "unset" and lets the sender mailbox supply the From.

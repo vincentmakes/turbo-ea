@@ -5,6 +5,24 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.154.0] - 2026-09-30
+
+### Security
+
+- **A vulnerable dependency now blocks a pull request.** The two dependency audits (pip-audit for the backend, audit-ci for the frontend) used to run as informational checks; they fail the PR now, and an advisory with no upstream fix is accepted only with a written, dated reason.
+- **Every commit is scanned for leaked credentials.** A gitleaks job runs on every pull request and push, with the same release as a pre-commit hook, and a finding lands in the repository's Security tab.
+- **The bundled Ollama image is now built, signed, attested and scanned like the other five.** It joins the publish matrix, is pinned to an Ollama release instead of `latest`, is verified with cosign, Trivy-gated on publish and rescanned daily, and runs with the same dropped capabilities as every other service in the compose file.
+- **The published stack is probed weekly with OWASP ZAP.** The signed images are booted with demo data and scanned passively, anonymously and as an administrator, for header, cookie and content-security-policy weaknesses; accepted alerts are listed with a reason and anything else fails the run.
+- **The example `SECRET_KEY` shipped in `.env.example` is refused outside development**, like the two code defaults it sat next to, so a copied-but-unedited file can no longer start a production instance with a well-known signing key.
+
+### Changed
+
+- **Dependabot opens base-image bump PRs.** Pinned Docker bases (nginx, PostgreSQL, Python, Node, Ollama) get one grouped weekly pull request when a newer tag exists; the docker entry had been configured for security-only updates, which do not exist for container images, so it never opened anything.
+
+### Fixed
+
+- **`docker compose --profile ai` works with a pinned `TURBO_EA_TAG`.** The `ollama:<version>` tag the compose file asks for is now published with every release; only `latest` existed before.
+
 ## [2.153.0] - 2026-09-30
 
 ### Added

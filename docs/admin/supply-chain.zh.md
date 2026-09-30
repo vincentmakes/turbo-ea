@@ -17,10 +17,11 @@
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/nginx`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+- `ghcr.io/vincentmakes/turbo-ea/ollama`（可选的 `ai` profile）
 
 Helm chart `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea` 由 `.github/workflows/helm-publish.yml` 在每个发布标签上以同样方式签名（身份为 `…/helm-publish.yml@<ref>`）。
 
-`ollama` 镜像在矩阵之外手工重建，目前未签名；如果您依赖内置的 Ollama profile 并需要验证，请从源码构建。
+`docker-compose.yml` 能拉取的每个镜像都在该列表中。`ollama` 镜像自 2.154.0 起加入：此前它在矩阵之外手工重建且未签名，因此 2.153.0 及更早的版本既没有它的签名，也没有 `ollama:<version>` 标签。
 
 签名作用于 OCI manifest list 的 digest，因此一个签名即可透明地同时覆盖 `linux/amd64` 与 `linux/arm64`，不存在需要逐个查找的按平台签名。
 
@@ -113,6 +114,8 @@ SBOM 列出了 buildkit 在最终镜像中观察到的每个软件包（apk 包�
 - **门禁** — 任何已有修复的 CRITICAL 发现都会**导致发布失败**，除非该 CVE 已连同书面理由列入 `.github/trivy-allowlist`（每个条目每季度重新评估，一旦上游发布补丁便立即移除）。
 
 同样的两步每天会针对实际已发布的 `:latest` manifest 重新运行；已发布镜像上出现可修复的 HIGH 或 CRITICAL 发现时，会触发针对最新 Alpine 仓库的重建。HIGH 级别的发现目前仍只观察不拦截：基础镜像基于 alpine（`python:3.12-alpine`、`postgres:18-alpine`、`nginx:alpine`），经常带有针对 musl-libc 和 apk 传递依赖的基线发现，这些路径 Turbo EA 的代码根本不会触及，但 Trivy 仍会报告。
+
+**运行中栈的动态扫描。** 每周一次，已发布的 `:latest` 镜像还会用未经修改的 `docker-compose.yml` 启动，并由 OWASP ZAP 的被动基线扫描探测——匿名一次、以演示管理员身份登录一次：检查爬虫触及的每个页面和 API 路由的响应头、Cookie 标志、Content-Security-Policy 和信息泄露。不做任何模糊测试。已接受的告警连同理由列在 `.github/zap-rules.tsv` 中；其余任何告警都会使运行失败。该扫描覆盖的是默认形态的栈，而非您的反向代理、身份提供方或网络——请针对您自己的实例运行自己的 DAST。
 
 **对运维人员：** 门禁保护的是已发布的镜像，但仍请对拉取到的镜像运行您自己的扫描器——您的策略可能与我们的不同。已发布的 SBOM 是一份干净的输入。
 

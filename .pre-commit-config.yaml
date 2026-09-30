@@ -12,6 +12,14 @@ repos:
       - id: no-commit-to-branch
         args: [--branch, main]
 
+  # ── Secrets ───────────────────────────────────────────────────────────
+  # Same gitleaks release and the same /.gitleaks.toml as the CI Secret Scan
+  # job, so a commit that passes here passes there.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
   # ── Backend: Python linting & formatting ──────────────────────────────
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.8.6

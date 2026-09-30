@@ -8,6 +8,8 @@ use a minimal mock approach.
 from __future__ import annotations
 
 import logging
+import re
+from pathlib import Path
 
 import pytest
 
@@ -23,6 +25,17 @@ class TestDefaultSecretKeys:
         """Both known default keys should be in the tuple."""
         assert "change-me-in-production" in _DEFAULT_SECRET_KEYS
         assert "dev-secret-key-change-in-production" in _DEFAULT_SECRET_KEYS
+
+    def test_env_example_placeholder_is_refused(self):
+        """An operator who copies .env.example unedited must not get a well-known key.
+
+        The example value used to be missing from the denylist, so the manual's claim that
+        the backend refuses it was false. Read the value off disk so the two cannot drift.
+        """
+        env_example = Path(__file__).resolve().parents[3] / ".env.example"
+        match = re.search(r"^SECRET_KEY=(\S+)$", env_example.read_text(encoding="utf-8"), re.M)
+        assert match, ".env.example no longer ships a SECRET_KEY= line"
+        assert match.group(1) in _DEFAULT_SECRET_KEYS
 
     def test_default_keys_are_strings(self):
         for key in _DEFAULT_SECRET_KEYS:

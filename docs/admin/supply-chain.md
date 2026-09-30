@@ -17,10 +17,11 @@ Signed images:
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/nginx`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+- `ghcr.io/vincentmakes/turbo-ea/ollama` (optional `ai` profile)
 
 The Helm chart, `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea`, is signed the same way by `.github/workflows/helm-publish.yml` on every release tag (identity `…/helm-publish.yml@<ref>`).
 
-The `ollama` image is rebuilt manually outside the matrix and is not currently signed; if you depend on the bundled Ollama profile and need verification, build it from source.
+Every image `docker-compose.yml` can pull is in that list. The `ollama` image joined it in 2.154.0: before that it was rebuilt by hand outside the matrix and was not signed, so releases up to 2.153.0 carry no signature for it and no `ollama:<version>` tag at all.
 
 The signature applies to the OCI manifest list digest, so a single signature transparently covers both `linux/amd64` and `linux/arm64`. There is no per-platform signature to chase down.
 
@@ -114,7 +115,9 @@ The publish workflow runs [Trivy](https://github.com/aquasecurity/trivy) against
 
 The same two steps re-run daily against the live `:latest` manifests, and a fixable HIGH or CRITICAL on a published image triggers a rebuild against fresh Alpine repositories. HIGH findings stay observe-only for now: the bases are alpine-based (`python:3.12-alpine`, `postgres:18-alpine`, `nginx:alpine`) and regularly carry baseline findings against musl-libc and transitive apk dependencies that no Turbo EA code path reaches, but that Trivy reports anyway.
 
-**For operators:** the gate protects the published images, but run your own scanner against the pulled image as well — your policy may differ from ours. The published SBOM is a clean input.
+**Dynamic scan of the running stack.** Once a week the published `:latest` images are also booted with the unmodified `docker-compose.yml` and probed with OWASP ZAP's passive baseline scan, anonymously and signed in as the demo administrator: response headers, cookie flags, Content-Security-Policy and information leaks on every page and API route the spider reaches. Nothing is fuzzed. Accepted alerts are listed with a reason in `.github/zap-rules.tsv`; anything else fails the run.
+
+**For operators:** the gate protects the published images, but run your own scanner against the pulled image as well — your policy may differ from ours. The published SBOM is a clean input. The same goes for the dynamic scan: it covers the stack in its default shape, not your reverse proxy, identity provider or network, so run a DAST of your own against your instance.
 
 **For contributors:** if you spot a finding that's genuinely exploitable in a Turbo EA usage path, please report it via [private security advisory](https://github.com/vincentmakes/turbo-ea/security/advisories/new) rather than commenting in a public issue. See [`SECURITY.md`](https://github.com/vincentmakes/turbo-ea/blob/main/SECURITY.md).
 

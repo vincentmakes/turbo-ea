@@ -17,10 +17,11 @@ Immagini firmate:
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/nginx`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+- `ghcr.io/vincentmakes/turbo-ea/ollama` (profilo opzionale `ai`)
 
 Il chart Helm, `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea`, è firmato nello stesso modo da `.github/workflows/helm-publish.yml` a ogni tag di release (identità `…/helm-publish.yml@<ref>`).
 
-L'immagine `ollama` viene ricostruita manualmente fuori dalla matrice e al momento non è firmata; se dipendete dal profilo Ollama incluso e vi serve la verifica, costruitela dal sorgente.
+Ogni immagine che `docker-compose.yml` può scaricare è in quell'elenco. L'immagine `ollama` vi è entrata nella 2.154.0: prima veniva ricostruita a mano fuori dalla matrice e non era firmata, quindi le versioni fino alla 2.153.0 non hanno né una firma per essa né un tag `ollama:<version>`.
 
 La firma si applica al digest della manifest list OCI, quindi una sola firma copre in modo trasparente sia `linux/amd64` sia `linux/arm64`. Non c'è alcuna firma per piattaforma da rincorrere.
 
@@ -113,6 +114,8 @@ Il workflow di pubblicazione esegue [Trivy](https://github.com/aquasecurity/triv
 - **Gate** — qualsiasi rilievo CRITICAL con una correzione disponibile **fa fallire la pubblicazione**, a meno che la CVE non sia elencata in `.github/trivy-allowlist` con una motivazione scritta (ogni voce viene rivalutata ogni trimestre e rimossa appena upstream rilascia una patch).
 
 Gli stessi due passi vengono ripetuti ogni giorno sui manifest `:latest` effettivamente pubblicati, e un rilievo HIGH o CRITICAL correggibile su un'immagine pubblicata avvia una ricostruzione sui repository Alpine aggiornati. I rilievi HIGH restano per ora in sola osservazione: le basi sono alpine (`python:3.12-alpine`, `postgres:18-alpine`, `nginx:alpine`) e portano regolarmente rilievi di fondo su musl-libc e dipendenze apk transitive che nessun percorso di codice di Turbo EA raggiunge, ma che Trivy segnala comunque.
+
+**Scansione dinamica dello stack in esecuzione.** Una volta alla settimana le immagini `:latest` pubblicate vengono anche avviate con il `docker-compose.yml` invariato e sondate con la scansione baseline passiva di OWASP ZAP, in forma anonima e con la sessione dell'amministratore demo: intestazioni di risposta, attributi dei cookie, Content-Security-Policy e fughe di informazioni su ogni pagina e route API raggiunta dallo spider. Nulla viene sottoposto a fuzzing. Gli avvisi accettati sono elencati con motivazione in `.github/zap-rules.tsv`; tutto il resto fa fallire l'esecuzione. La scansione copre lo stack nella sua forma predefinita, non il vostro reverse proxy, identity provider o rete: eseguite un DAST vostro contro la vostra istanza.
 
 **Per gli operatori:** il gate protegge le immagini pubblicate, ma eseguite anche il vostro scanner sull'immagine scaricata — la vostra policy può differire dalla nostra. La SBOM pubblicata è un input pulito.
 

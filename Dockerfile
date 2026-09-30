@@ -768,7 +768,10 @@ EXPOSE 8080
 CMD ["/usr/local/bin/turboea-nginx-entrypoint"]
 
 
-FROM ollama/ollama:latest AS ollama
+# Pinned to a release tag (never `:latest`): the tag is what Dependabot's
+# docker entry bumps, what the Trivy gate in docker-publish.yml scans, and
+# what cosign signs — a moving tag has none of the three.
+FROM ollama/ollama:0.35.0 AS ollama
 
 ARG APP_UID
 ARG APP_GID

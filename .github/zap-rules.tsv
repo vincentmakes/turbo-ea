@@ -1,0 +1,16 @@
+# ZAP baseline rules for .github/workflows/dast-scan.yml (passed as `-c`).
+#
+# Format: one rule per line, TAB-separated —
+#   <ZAP plugin id>	<IGNORE|WARN|FAIL>	<free text: why, reviewer, date>
+# Lines starting with `#` are comments. Plugin ids: https://www.zaproxy.org/docs/alerts/
+#
+# The scan fails on any alert not listed here (fail_action: true), so this
+# file is the DAST counterpart of .github/trivy-allowlist: every entry names
+# the alert it accepts and why the finding is not exploitable in Turbo EA's
+# deployment shape, and every entry is re-read at the quarterly allowlist
+# review. Prefer fixing over listing — a missing header is a one-line nginx
+# change. Never IGNORE a High-risk alert; downgrade it to WARN at most, with
+# the mitigation written next to it.
+#
+# The file is deliberately empty on 2026-09-30: the first `workflow_dispatch`
+# run of dast-scan.yml is the triage pass that populates it.

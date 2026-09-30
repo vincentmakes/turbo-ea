@@ -62,6 +62,7 @@ jobs:
               - 'scripts/dump_openapi.py'
             frontend:
               - 'frontend/**'
+              - '.github/audit-ci.jsonc'
             mcp:
               - 'mcp-server/**'
             docs:
@@ -197,14 +198,47 @@ jobs:
         run: python -m mypy app/
         working-directory: backend
 
+  # ── Secret scanning ──────────────────────────────────────────────────
+  # Deliberately NOT path-filtered: a credential can land in any file, so
+  # this job runs on every PR and every push to main. The action scans the
+  # commit range of the event (base^..head), so fetch-depth: 0 is required.
+  # Known non-secrets (test fixtures, a truncated example JWT in the manual)
+  # are allowlisted by exact value in /.gitleaks.toml — never by directory.
+  secrets:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # the action comments the finding on the PR
+      security-events: write # SARIF upload to the Security tab below
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.30.1 # same release as the pre-commit hook
+          GITLEAKS_CONFIG: ${{ github.workspace }}/.gitleaks.toml
+      # The action only stores the SARIF as a run artifact; this puts the
+      # finding in the Security tab next to CodeQL / Trivy / Scout.
+      - name: Upload SARIF to the Security tab
+        if: always() && hashFiles('results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        with:
+          sarif_file: results.sarif
+          category: gitleaks
+
   # ── Security Scanning ────────────────────────────────────────────────
   security-backend:
     name: Backend Security Scan
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    # Informational only — does not block PRs until findings are triaged
-    continue-on-error: true
+    # Blocking since 2.154.0: a production dependency with an open advisory
+    # fails the PR. An advisory with no upstream fix is ignored with a
+    # rationale comment on the `--ignore-vuln` flag below, never by making
+    # the job informational again (see .github/SECURITY_PIPELINE.md).
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -216,9 +250,10 @@ jobs:
         # `allow_editables` a required keyword-only argument of
         # RequirementCommand.make_requirement_preparer(); pip-tools 7.6.0 still
         # calls it the old way, so pip-compile dies with a TypeError before it
-        # reads a single dependency — which silently turned this whole scan
-        # into a no-op rather than failing loudly (the job is
-        # continue-on-error). Drop the pin once pip-tools supports pip 26.2.
+        # reads a single dependency — which, while the job was still
+        # continue-on-error, silently turned this whole scan into a no-op
+        # rather than failing loudly. Drop the pin once pip-tools supports
+        # pip 26.2.
         run: pip install "pip<26.2" pip-audit pip-tools
       - name: Generate requirements and audit
         # PYSEC-2025-183 (PyJWT "weak encryption"): disputed upstream. The
@@ -238,8 +273,10 @@ jobs:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
-    # Informational only — does not block PRs until findings are triaged
-    continue-on-error: true
+    # Blocking since 2.154.0: a production dependency with an open advisory
+    # fails the PR. An advisory with no patched version is allowlisted with
+    # a rationale in .github/audit-ci.jsonc, never by making the job
+    # informational again (see .github/SECURITY_PIPELINE.md).
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

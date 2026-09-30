@@ -319,7 +319,7 @@ Every push to `main` and every `v*.*.*` tag automatically publishes multi-arch (
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/nginx`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
-- `ghcr.io/vincentmakes/turbo-ea/ollama` *(rebuilt manually when upstream Ollama changes; not part of the regular CI matrix)*
+- `ghcr.io/vincentmakes/turbo-ea/ollama` *(optional `ai` profile; built, signed and scanned with the others since 2.154.0)*
 - `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea` *(the Helm chart, as an OCI artifact — published on release tags only)*
 
 The root compose file is production-only and pulls published images from GHCR:

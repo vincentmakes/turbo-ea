@@ -184,6 +184,11 @@ services:
       - ai
     restart: unless-stopped
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    # Same hardening as every other service; Ollama needs no capability.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
     volumes:

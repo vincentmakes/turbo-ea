@@ -1,0 +1,137 @@
+# Weekly dynamic scan (DAST) of the PUBLISHED stack.
+#
+# Everything else in the pipeline looks at code and image contents. This is
+# the one job that boots Turbo EA as an operator would — the signed `:latest`
+# images, docker-compose.yml unchanged, demo data seeded — and probes the
+# running instance with OWASP ZAP's baseline scan: spider + AJAX spider for
+# the SPA, passive rules only (headers, cookies, CSP, information leaks).
+# Passive means read-only: nothing is fuzzed, nothing is mutated, and the
+# demo administrator can never be locked out by it.
+#
+# Two passes, same target: anonymous, and signed in as the seeded demo admin
+# so the authenticated API and every app page are in scope too. The sign-in
+# is the app's own httpOnly cookie, injected by ZAP's replacer on every
+# request — the same thing a browser would send.
+#
+# Accepted alerts live in .github/zap-rules.tsv with a written rationale
+# (the trivy-allowlist discipline); anything not listed fails the run.
+# Active scanning and third-party penetration testing stay out of scope —
+# see .github/SECURITY_PIPELINE.md.
+name: DAST
+
+on:
+  schedule:
+    # Tuesday 06:00 UTC — the day after the Monday no-cache image rebuild,
+    # so the scan sees the freshest :latest.
+    - cron: "0 6 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dast
+  cancel-in-progress: false
+
+jobs:
+  zap-baseline:
+    name: ZAP baseline against the published stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Boot the published stack with demo data
+        run: |
+          set -euo pipefail
+          # Production posture on purpose: a strong random SECRET_KEY, the
+          # real cookie flags, /api/docs switched off — the scan must see
+          # what an operator ships, not the development conveniences.
+          {
+            echo "SECRET_KEY=$(openssl rand -hex 32)"
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
+            echo "ENVIRONMENT=production"
+            echo "SEED_DEMO=true"
+            echo "HOST_PORT=8920"
+            echo "TURBO_EA_TAG=latest"
+          } > .env
+          # nginx bind-mounts ./certs read-only; the mount fails if the
+          # directory is absent (same as .devcontainer/setup-demo.sh).
+          mkdir -p certs
+          docker compose pull --quiet
+          docker compose up -d
+          # Seeding the demo dataset takes a few minutes on a cold runner.
+          for i in $(seq 1 240); do
+            if curl -fsS http://localhost:8920/api/health >/dev/null 2>&1; then
+              echo "stack is up after $((i * 2))s"
+              break
+            fi
+            if [ "$i" -eq 240 ]; then
+              echo "::error::stack did not become healthy within 8 minutes"
+              docker compose logs --tail 200
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Sign in as the demo administrator
+        id: login
+        run: |
+          set -euo pipefail
+          # The demo admin is created by the backend when SEED_DEMO is on
+          # (app/main.py) and is public knowledge — it is in the README.
+          # One login: the endpoint allows 10/min and locks after 5 failures.
+          cookie=$(
+            curl -fsS -o /dev/null -c - \
+              -X POST http://localhost:8920/api/v1/auth/login \
+              -H 'Content-Type: application/json' \
+              -d '{"email":"admin@turboea.demo","password":"TurboEA!2025"}' \
+            | awk '$6 == "access_token" { print $7 }'
+          )
+          test -n "$cookie" || { echo "::error::login returned no access_token cookie"; exit 1; }
+          echo "::add-mask::$cookie"
+          echo "cookie=$cookie" >> "$GITHUB_OUTPUT"
+
+      # `-j` adds the modern (browser-driven) spider — the app is a React
+      # SPA and the classic spider alone sees index.html — and `-m` caps
+      # spidering at 10 minutes. The action runs ZAP with --network=host,
+      # which is why `localhost` reaches the compose stack. Values inside
+      # `-z` must not contain spaces: zap-baseline.py splits them on " ".
+      - name: ZAP baseline (anonymous)
+        uses: zaproxy/action-baseline@a418de766254e096fa7d9e30f8dc9662b58df224 # v0.9.0
+        with:
+          target: http://localhost:8920
+          rules_file_name: .github/zap-rules.tsv
+          cmd_options: "-j -m 10"
+          fail_action: true
+          allow_issue_writing: false
+          artifact_name: zap-anonymous
+
+      # Same scan, signed in: ZAP's replacer stamps the admin's session
+      # cookie onto every request it proxies (the AJAX spider's browser
+      # included), which is exactly what the app expects — the token is an
+      # httpOnly cookie, never a header the SPA could set itself.
+      - name: ZAP baseline (signed in as admin)
+        uses: zaproxy/action-baseline@a418de766254e096fa7d9e30f8dc9662b58df224 # v0.9.0
+        with:
+          target: http://localhost:8920
+          rules_file_name: .github/zap-rules.tsv
+          cmd_options: >-
+            -j -m 10
+            -z "-config replacer.full_list(0).description=session
+            -config replacer.full_list(0).enabled=true
+            -config replacer.full_list(0).matchtype=REQ_HEADER
+            -config replacer.full_list(0).matchstr=Cookie
+            -config replacer.full_list(0).regex=false
+            -config replacer.full_list(0).replacement=access_token=${{ steps.login.outputs.cookie }}"
+          fail_action: true
+          allow_issue_writing: false
+          artifact_name: zap-signed-in
+
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose logs --tail 300
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v --remove-orphans

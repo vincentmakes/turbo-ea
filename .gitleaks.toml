@@ -1,0 +1,57 @@
+# gitleaks configuration — secret scanning for CI (Secret Scan job in
+# .github/workflows/ci.yml) and the pre-commit hook (.pre-commit-config.yaml).
+#
+# The default rule set is extended, never replaced. Every allowlist below names
+# ONE known non-secret by exact value, scoped to the files that carry it, so a
+# real credential pasted into the same file is still caught. Do not allowlist a
+# directory, a rule id, or a pattern wider than the value it exists for.
+#
+# Something the scan flags that IS a secret: rotate it first, then rewrite the
+# history that carries it, then push. An allowlist entry is never the answer.
+#
+# Same review discipline as .github/trivy-allowlist: a reason on every entry,
+# re-evaluated at the quarterly allowlist review.
+
+title = "Turbo EA"
+
+[extend]
+useDefault = true
+
+# The API manual (all 10 locales) shows a Bearer header with a truncated JWT
+# header segment and an ellipsis — three dots are not a token.
+[[allowlists]]
+description = "docs/admin/api.*.md — truncated example JWT with an ellipsis"
+condition = "AND"
+paths = ['''^docs/admin/api(\.[a-z]{2})?\.md$''']
+regexTarget = "secret"
+regexes = ['''^eyJhbGciOiJIUzI1NiIs\.\.\.$''']
+
+# Terraform mock-provider tests feed the modules a visibly synthetic 48-hex
+# SECRET_KEY (the validation rule needs 32+ characters) and reference the
+# Kubernetes Secret's key NAMES ("pgPassword"), never a value.
+[[allowlists]]
+description = "deploy/terraform/*/tests — synthetic module inputs"
+condition = "AND"
+paths = ['''^deploy/terraform/[^/]+/tests/[^/]+\.tftest\.hcl$''']
+regexTarget = "secret"
+regexes = [
+  '''^0123456789abcdef0123456789abcdef0123456789abcdef$''',
+  '''^"pgPassword"$''',
+]
+
+# pytest fixtures: the extension-store tests exercise claim/renewal tokens with
+# literal counting-sequence values, and the password-reset tests set a second
+# throwaway password to prove the old one stopped working.
+[[allowlists]]
+description = "backend/tests/api — literal token and password fixtures"
+condition = "AND"
+paths = [
+  '''^backend/tests/api/test_extensions_api\.py$''',
+  '''^backend/tests/api/test_password_reset\.py$''',
+]
+regexTarget = "secret"
+regexes = [
+  '''^tok_1234567890abcdef$''',
+  '''^rk_0123456789abcdef$''',
+  '''^OtherPass1234$''',
+]

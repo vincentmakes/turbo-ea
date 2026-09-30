@@ -17,10 +17,11 @@ Signerede images:
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/nginx`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+- `ghcr.io/vincentmakes/turbo-ea/ollama` (valgfri `ai`-profil)
 
 Helm-chartet, `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea`, signeres på samme måde af `.github/workflows/helm-publish.yml` ved hvert release-tag (identitet `…/helm-publish.yml@<ref>`).
 
-`ollama`-imaget genopbygges manuelt uden for matrixen og er i øjeblikket ikke signeret; hvis du er afhængig af den medfølgende Ollama-profil og har brug for verifikation, så byg det fra kildekoden.
+Alle images, som `docker-compose.yml` kan hente, står på den liste. `ollama`-imaget kom med i 2.154.0: før det blev det genopbygget manuelt uden for matrixen og var ikke signeret, så udgivelser til og med 2.153.0 har hverken en signatur for det eller et `ollama:<version>`-tag.
 
 Signaturen gælder for OCI manifest list-digest, så en enkelt signatur dækker transparent både `linux/amd64` og `linux/arm64`. Der er ingen per-platform-signatur at jagte.
 
@@ -113,6 +114,8 @@ Publicerings-workflowet kører [Trivy](https://github.com/aquasecurity/trivy) mo
 - **Port** — ethvert CRITICAL-fund med en tilgængelig rettelse **får publiceringen til at fejle**, medmindre CVE'en står i `.github/trivy-allowlist` med en skriftlig begrundelse (hver post revurderes kvartalsvis og fjernes, så snart upstream udsender en patch).
 
 De samme to trin køres dagligt igen mod de faktisk publicerede `:latest`-manifester, og et rettelsesbart HIGH- eller CRITICAL-fund på et publiceret image udløser en genopbygning mod friske Alpine-repositorier. HIGH-fund forbliver indtil videre kun under observation: baserne er alpine-baserede (`python:3.12-alpine`, `postgres:18-alpine`, `nginx:alpine`) og bærer regelmæssigt baseline-fund mod musl-libc og transitive apk-afhængigheder, som ingen kodesti i Turbo EA når, men som Trivy rapporterer alligevel.
+
+**Dynamisk scanning af den kørende stak.** Én gang om ugen startes de udgivne `:latest`-images også med den uændrede `docker-compose.yml` og undersøges med OWASP ZAPs passive baseline-scanning, anonymt og logget ind som demo-administrator: svar-headers, cookie-flag, Content-Security-Policy og informationslæk på hver side og API-rute, som spideren når. Intet fuzzes. Accepterede advarsler står med begrundelse i `.github/zap-rules.tsv`; alt andet får kørslen til at fejle. Scanningen dækker stakken i dens standardform, ikke din reverse proxy, identitetsudbyder eller dit netværk — kør derfor din egen DAST mod din instans.
 
 **Til operatører:** porten beskytter de publicerede images, men kør også din egen scanner mod det trukne image — din politik kan afvige fra vores. Den publicerede SBOM er et rent input.
 

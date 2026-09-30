@@ -4,6 +4,8 @@
 #   - pip & npm: version updates disabled (open-pull-requests-limit: 0).
 #     Dependabot *security* updates still create PRs automatically — that
 #     feature is controlled by the repo's Security settings, not this file.
+#   - docker: version updates ENABLED (grouped, weekly) — see the entry
+#     for why the security-only posture cannot work for container bases.
 #   - GitHub Actions: monthly version updates kept enabled. Pinning actions
 #     to current versions is a supply-chain security best practice.
 
@@ -37,24 +39,34 @@ updates:
       - "frontend"
     open-pull-requests-limit: 0
 
-  # Docker base images — security updates only
+  # Docker base images — VERSION updates, grouped into one weekly PR
   # Covers every `FROM` line in the root Dockerfile (nginx, python, postgres,
-  # node, alpine/git, ollama). Version update PRs are disabled; security PRs
-  # bypass this limit (controlled by the repo's Security settings).
-  # Why this exists: CVE-2026-42945 ("NGINX Rift") shipped in nginx 1.30.0,
-  # and we'd been on the moving `nginx:alpine` tag — no signal until the
-  # daily image scan caught it. Pinning + Dependabot Docker closes that gap.
+  # node, alpine/git, ollama). Unlike pip and npm, this ecosystem has NO
+  # security-update path: the GitHub Advisory Database carries no container
+  # advisories, so with `open-pull-requests-limit: 0` (as it stood until
+  # 2.154.0) Dependabot could never open a docker PR at all. Version bumps
+  # of the pinned tags are the only signal it can give, and a pinned tag
+  # with no bump signal is exactly the situation this entry was created to
+  # end: CVE-2026-42945 ("NGINX Rift") shipped in nginx 1.30.0 while we
+  # were on the moving `nginx:alpine` tag — no signal until the daily image
+  # scan caught it. A base bump PR still has to pass the Trivy gate in
+  # docker-publish.yml like any other change.
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      # One PR for all base images rather than one per FROM line.
+      docker-bases:
+        patterns:
+          - "*"
     commit-message:
       prefix: "chore(deps)"
     labels:
       - "dependencies"
       - "security"
       - "docker"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
 
   # GitHub Actions — keep CI actions up to date (supply-chain security)
   - package-ecosystem: "github-actions"

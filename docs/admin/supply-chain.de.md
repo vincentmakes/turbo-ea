@@ -17,10 +17,11 @@ Signierte Images:
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/nginx`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+- `ghcr.io/vincentmakes/turbo-ea/ollama` (optionales `ai`-Profil)
 
 Das Helm-Chart `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea` wird von `.github/workflows/helm-publish.yml` bei jedem Release-Tag auf dieselbe Weise signiert (Identität `…/helm-publish.yml@<ref>`).
 
-Das `ollama`-Image wird manuell außerhalb der Matrix neu gebaut und ist derzeit nicht signiert; wenn Sie auf das mitgelieferte Ollama-Profil angewiesen sind und eine Verifikation benötigen, bauen Sie es aus dem Quellcode.
+Jedes Image, das `docker-compose.yml` ziehen kann, steht in dieser Liste. Das `ollama`-Image kam in 2.154.0 hinzu: davor wurde es von Hand außerhalb der Matrix gebaut und war nicht signiert, sodass Releases bis einschließlich 2.153.0 weder eine Signatur dafür noch ein `ollama:<version>`-Tag tragen.
 
 Die Signatur gilt für den Digest der OCI-Manifestliste, sodass eine einzige Signatur transparent sowohl `linux/amd64` als auch `linux/arm64` abdeckt. Es gibt keine plattformspezifische Signatur, der man hinterherlaufen müsste.
 
@@ -113,6 +114,8 @@ Der Publish-Workflow lässt [Trivy](https://github.com/aquasecurity/trivy) in zw
 - **Gate** — jeder CRITICAL-Fund mit verfügbarem Fix **lässt die Veröffentlichung scheitern**, sofern die CVE nicht mit schriftlicher Begründung in `.github/trivy-allowlist` steht (jeder Eintrag wird vierteljährlich neu bewertet und entfernt, sobald upstream einen Patch liefert).
 
 Dieselben zwei Schritte laufen täglich erneut gegen die live veröffentlichten `:latest`-Manifeste, und ein behebbarer HIGH- oder CRITICAL-Fund in einem veröffentlichten Image stößt einen Neubau gegen frische Alpine-Repositorys an. HIGH-Funde bleiben vorerst reine Beobachtung: Die Basis-Images sind alpine-basiert (`python:3.12-alpine`, `postgres:18-alpine`, `nginx:alpine`) und tragen regelmäßig Grundrauschen gegen musl-libc und transitive apk-Abhängigkeiten, das kein Turbo-EA-Codepfad erreicht, das Trivy aber dennoch meldet.
+
+**Dynamischer Scan des laufenden Stacks.** Einmal pro Woche werden die veröffentlichten `:latest`-Images zusätzlich mit der unveränderten `docker-compose.yml` gestartet und mit dem passiven Baseline-Scan von OWASP ZAP geprüft, anonym und als Demo-Administrator angemeldet: Antwort-Header, Cookie-Flags, Content-Security-Policy und Informationslecks auf jeder Seite und API-Route, die der Spider erreicht. Nichts wird gefuzzt. Akzeptierte Meldungen stehen mit Begründung in `.github/zap-rules.tsv`; alles andere lässt den Lauf fehlschlagen. Der Scan deckt den Stack in seiner Standardform ab, nicht Ihren Reverse-Proxy, Identity-Provider oder Ihr Netzwerk — führen Sie daher einen eigenen DAST gegen Ihre Instanz aus.
 
 **Für Betreiber:** Das Gate schützt die veröffentlichten Images, lassen Sie aber zusätzlich Ihren eigenen Scanner über das gezogene Image laufen — Ihre Richtlinie kann von unserer abweichen. Die veröffentlichte SBOM ist eine saubere Eingabe.
 
