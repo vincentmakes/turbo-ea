@@ -35,7 +35,7 @@ Two scanners covering the same layer is deliberate — different vuln DBs have d
 - **CodeQL** — GitHub's default-setup, languages `actions / javascript / javascript-typescript / python / typescript`, query suite `default`, threat model `remote`. Findings land in the Security tab; CRITICAL/HIGH alerts require dismissal or a fix.
 
 ### On every push to `main` and on `v*.*.*` tags
-[`docker-publish.yml`](workflows/docker-publish.yml) — for each of the 5 image targets (`db`, `backend`, `frontend`, `nginx`, `mcp-server` — every image `docker-compose.yml` pulls from GHCR; `backend/tests/services/test_publish_image_matrix.py` pins this list, the daily-scan matrix and the reconcile matrix to the compose file. The optional Ollama container is upstream's own `ollama/ollama` tag, pinned in compose and bumped by Dependabot's `docker-compose` entry: it was published as a thin patched image for 2.154.0 to 2.154.2 only, which put 75 upstream-toolchain CVEs the repo cannot fix into the Security tab on day one, so 2.155.0 stopped):
+[`docker-publish.yml`](workflows/docker-publish.yml) — for each of the 5 image targets (`db`, `backend`, `frontend`, `nginx`, `mcp-server` — every image `docker-compose.yml` pulls from GHCR; `backend/tests/services/test_publish_image_matrix.py` pins this list, the daily-scan matrix and the reconcile matrix to the compose file. The optional Ollama container is upstream's own `ollama/ollama` tag, pinned in compose and bumped by Dependabot's `docker-compose` entry: it was published as a thin patched image for 2.154.0 to 2.154.2 only, which put 75 upstream-toolchain CVEs the repo cannot fix into the Security tab on day one, so 2.155.0 stopped; its `trivy-ollama` configuration was then retired with `code-scanning-retire.yml`):
 1. Build multi-arch (`linux/amd64,linux/arm64`) with `provenance: true` + `sbom: true` (SLSA attestations).
 2. Push to `ghcr.io/vincentmakes/turbo-ea/<image>` with `latest` + `sha-<short>` + semver tags.
 3. **cosign** — keyless OIDC signing of the manifest list digest. No key to rotate; verification uses the workflow identity certificate. The signature is a **Sigstore bundle** (cosign 3 via cosign-installer v4), stored on GHCR under the `sha256-<digest>` index tag because GHCR has no referrers API.
@@ -197,6 +197,9 @@ you republish the image.
    rebuilt image. HIGH/CRITICAL alerts self-heal via the next publish/daily
    observe once the image is patched, but the reconcile closes them immediately
    too.
+
+### Retiring a scan configuration
+GitHub closes an alert only when a **new analysis in the same category** omits it, so a category nothing produces any more — an image dropped from the matrix, a renamed category — keeps its alerts open forever. Run [`code-scanning-retire.yml`](workflows/code-scanning-retire.yml) from the Actions tab with the tool, the category and the category typed again as confirmation: it refuses a category a workflow in the checkout still uploads (the next run would recreate it), lists the configuration's analyses, deletes them newest first through the code-scanning API (`?confirm_delete` on the last one is what closes the alerts) and fails if any alert is left in the category. It is the "Delete configuration" button of the Security tab's tool-status page, on record. The 75 `trivy-ollama` alerts of 2026-09-30 were retired this way after 2.155.0 stopped publishing that image.
 
 ### A Python finding names a package we don't depend on
 

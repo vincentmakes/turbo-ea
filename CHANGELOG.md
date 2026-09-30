@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.155.1] - 2026-09-30
+
+### Added
+
+- **A Code Scanning Retire workflow** deletes one scan configuration (tool + category) from the Actions tab so GitHub closes the alerts nothing will ever clear again, such as the 75 filed by the ollama image before 2.155.0 stopped publishing it. It refuses a category a workflow still produces and asks for the category typed twice.
+
 ## [2.155.0] - 2026-09-30
 
 ### Removed

@@ -1,0 +1,186 @@
+name: Code Scanning Retire
+
+# Deletes every analysis of ONE code-scanning configuration (tool + category)
+# so GitHub closes the alerts that configuration filed.
+#
+# Why this exists
+# ---------------
+# GitHub closes a code-scanning alert only when a NEW analysis in the SAME
+# category omits it. A category that nothing produces any more therefore keeps
+# its alerts open forever: 2.155.0 stopped publishing the ollama image, and the
+# 75 alerts its `trivy-ollama` scans had filed stayed open with no run left to
+# clear them. The Security tab offers a "Delete configuration" button for this;
+# this workflow is the same operation from the Actions tab, so it is on record.
+#
+# How the API works
+# -----------------
+# Analyses of a configuration form a chain that must be deleted NEWEST FIRST:
+# each DELETE answers with `next_analysis_url` (the next older analysis) and
+# `confirm_delete_url`; the last one needs `?confirm_delete`, and deleting it is
+# what closes the alerts (and drops their history — hence the two guards below).
+#
+# Guards
+# ------
+# 1. A category some workflow still produces is refused: retire the producer
+#    first, or the next run just recreates the configuration.
+# 2. The category has to be typed twice (`confirm`), the posture of the API's
+#    own `confirm_delete`.
+#
+# Manual run only. See .github/SECURITY_PIPELINE.md, "Retiring a scan
+# configuration".
+
+on:
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: "Code-scanning tool name as the Security tab shows it (Trivy, CodeQL, gitleaks, docker-scout)"
+        type: string
+        default: Trivy
+      category:
+        description: "The configuration's category, e.g. trivy-ollama"
+        type: string
+        required: true
+      confirm:
+        description: "Type the category again to confirm — its alerts and their history are deleted"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: code-scanning-retire
+  cancel-in-progress: false
+
+jobs:
+  retire:
+    name: Retire ${{ inputs.tool }} / ${{ inputs.category }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Refuse a mistyped confirmation
+        env:
+          CATEGORY: ${{ inputs.category }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CATEGORY" ] || [ "$CATEGORY" != "$CONFIRM" ]; then
+            echo "::error::confirm must repeat the category exactly (got '$CONFIRM' for '$CATEGORY')"
+            exit 1
+          fi
+
+      # Every `category:` a workflow in this checkout still uploads, with
+      # `${{ matrix.image }}` expanded over that workflow's `image: [...]`
+      # matrix. Retiring one of those would only be undone by its next run.
+      - name: Refuse a category a workflow still produces
+        env:
+          CATEGORY: ${{ inputs.category }}
+        run: |
+          set -euo pipefail
+          python3 - "$CATEGORY" <<'EOF'
+          import glob
+          import re
+          import sys
+
+          wanted = sys.argv[1]
+          # Spelled in pieces: written out, GitHub's expression engine would
+          # expand it inside this very script before Python ever ran.
+          expr_open = "$" + "{{"
+          image_expr = expr_open + " matrix.image }}"
+          matrix_re = re.compile(r"^\s*image:\s*\[([^\]]+)\]\s*$", re.M)
+          category_re = re.compile(r"^[ \t]*category:[ \t]*(\S.*?)[ \t]*$", re.M)
+          live: set[str] = set()
+          for path in sorted(glob.glob(".github/workflows/*.yml")):
+              text = open(path, encoding="utf-8").read()
+              images = [i.strip() for m in matrix_re.findall(text) for i in m.split(",")]
+              for cat in category_re.findall(text):
+                  if image_expr in cat:
+                      live.update(cat.replace(image_expr, img) for img in images)
+                  elif expr_open not in cat:
+                      live.add(cat)
+          print("categories the workflows still produce:")
+          for cat in sorted(live):
+              print("  ", cat)
+          if wanted in live:
+              print(f"::error::'{wanted}' is still produced by a workflow in this checkout; retire the producer first")
+              sys.exit(1)
+          print(f"'{wanted}' is not produced by any workflow — safe to retire")
+          EOF
+
+      - name: List the configuration's analyses
+        id: list
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TOOL: ${{ inputs.tool }}
+          CATEGORY: ${{ inputs.category }}
+        run: |
+          set -euo pipefail
+          gh api --paginate \
+            "repos/$REPO/code-scanning/analyses?tool_name=$TOOL&per_page=100" \
+            | jq -c --arg cat "$CATEGORY" '[.[] | select(.category == $cat)]' \
+            > analyses.json
+          count=$(jq 'length' analyses.json)
+          echo "Analyses in $TOOL / $CATEGORY: $count"
+          jq -r '.[] | [(.id|tostring), .created_at, (.results_count|tostring), (.deletable|tostring), (.error // "")] | @tsv' analyses.json \
+            | column -t -s "$(printf '\t')" || true
+          if [ "$count" -eq 0 ]; then
+            echo "::error::no analysis found for tool '$TOOL' and category '$CATEGORY' — nothing to retire"
+            exit 1
+          fi
+          # Newest first is how the API wants the chain walked.
+          jq -r 'sort_by(.created_at) | reverse | .[0].id' analyses.json > newest.txt
+          echo "newest=$(cat newest.txt)" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+
+      - name: Delete the chain, newest first
+        id: delete
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NEXT_ID: ${{ steps.list.outputs.newest }}
+        run: |
+          set -euo pipefail
+          deleted=0
+          next_id="$NEXT_ID"
+          while [ -n "$next_id" ] && [ "$next_id" != "null" ]; do
+            # confirm_delete on every hop: the last analysis of the set needs it,
+            # and it is harmless on the others.
+            response=$(gh api -X DELETE "repos/$REPO/code-scanning/analyses/$next_id?confirm_delete")
+            deleted=$((deleted + 1))
+            echo "deleted analysis $next_id"
+            next_url=$(echo "$response" | jq -r '.next_analysis_url // empty')
+            if [ -z "$next_url" ]; then
+              next_id=""
+            else
+              next_id="${next_url##*/analyses/}"
+              next_id="${next_id%%\?*}"
+            fi
+          done
+          echo "deleted=$deleted" >> "$GITHUB_OUTPUT"
+          echo "Deleted $deleted analyses"
+
+      - name: Report what is left
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TOOL: ${{ inputs.tool }}
+          CATEGORY: ${{ inputs.category }}
+          DELETED: ${{ steps.delete.outputs.deleted }}
+          LISTED: ${{ steps.list.outputs.count }}
+        run: |
+          set -euo pipefail
+          left=$(gh api --paginate "repos/$REPO/code-scanning/alerts?state=open&per_page=100" \
+            | jq --arg cat "$CATEGORY" '[.[] | select(.most_recent_instance.category == $cat)] | length')
+          {
+            echo "## Retired $TOOL / \`$CATEGORY\`"
+            echo
+            echo "- analyses listed: $LISTED, deleted: $DELETED"
+            echo "- open alerts still in the category: $left"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$left" != "0" ]; then
+            echo "::error::$left alerts still open in $CATEGORY — the chain was not fully deleted; re-run"
+            exit 1
+          fi
