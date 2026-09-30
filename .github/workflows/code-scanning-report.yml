@@ -47,9 +47,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          gh api --paginate \
+          # --slurp folds the pages into one array, so a second page of
+          # alerts is counted rather than printed as a second table.
+          gh api --paginate --slurp \
             "repos/$REPO/code-scanning/alerts?state=open&per_page=100" \
-            > alerts.json
+            | jq '[.[][]]' > alerts.json
 
           count=$(jq 'length' alerts.json)
           echo "Open code-scanning alerts: $count"

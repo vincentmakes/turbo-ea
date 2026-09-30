@@ -14,10 +14,16 @@ name: Code Scanning Retire
 #
 # How the API works
 # -----------------
-# Analyses of a configuration form a chain that must be deleted NEWEST FIRST:
-# each DELETE answers with `next_analysis_url` (the next older analysis) and
-# `confirm_delete_url`; the last one needs `?confirm_delete`, and deleting it is
-# what closes the alerts (and drops their history — hence the two guards below).
+# Analyses of a configuration form SETS, one per (ref, commit) the tool ran on,
+# and each set is a chain that must be deleted NEWEST FIRST: a DELETE answers
+# with `next_analysis_url` (the next older analysis of the same set) and
+# `confirm_delete_url`; the last one needs `?confirm_delete`, and deleting it
+# is what closes the alerts (and drops their history — hence the two guards
+# below). The first version of this workflow walked one chain and stopped, and
+# because a publish run scans a fresh commit every time, every set held exactly
+# one analysis: each run retired one of them and left the rest (2.155.2). It
+# now deletes every analysis flagged `deletable` — the head of each set — and
+# re-lists until the category is empty.
 #
 # Guards
 # ------
@@ -109,8 +115,8 @@ jobs:
           print(f"'{wanted}' is not produced by any workflow — safe to retire")
           EOF
 
-      - name: List the configuration's analyses
-        id: list
+      - name: Delete every set, newest first
+        id: delete
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -118,49 +124,61 @@ jobs:
           CATEGORY: ${{ inputs.category }}
         run: |
           set -euo pipefail
-          gh api --paginate \
-            "repos/$REPO/code-scanning/analyses?tool_name=$TOOL&per_page=100" \
-            | jq -c --arg cat "$CATEGORY" '[.[] | select(.category == $cat)]' \
-            > analyses.json
-          count=$(jq 'length' analyses.json)
+          # --slurp folds the pages into one array; without it a second page is
+          # a second top-level array and every jq below counts it separately.
+          list() {
+            gh api --paginate --slurp \
+              "repos/$REPO/code-scanning/analyses?tool_name=$TOOL&per_page=100" \
+              | jq -c --arg cat "$CATEGORY" '[.[][] | select(.category == $cat)]'
+          }
+          analyses=$(list)
+          count=$(jq 'length' <<<"$analyses")
           echo "Analyses in $TOOL / $CATEGORY: $count"
-          jq -r '.[] | [(.id|tostring), .created_at, (.results_count|tostring), (.deletable|tostring), (.error // "")] | @tsv' analyses.json \
-            | column -t -s "$(printf '\t')" || true
+          jq -r '.[] | [(.id|tostring), .ref, .commit_sha[0:8], .created_at, (.results_count|tostring), "deletable=\(.deletable)", (.error // "")] | @tsv' <<<"$analyses"
           if [ "$count" -eq 0 ]; then
             echo "::error::no analysis found for tool '$TOOL' and category '$CATEGORY' — nothing to retire"
             exit 1
           fi
-          # Newest first is how the API wants the chain walked.
-          jq -r 'sort_by(.created_at) | reverse | .[0].id' analyses.json > newest.txt
-          echo "newest=$(cat newest.txt)" >> "$GITHUB_OUTPUT"
-          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "listed=$count" >> "$GITHUB_OUTPUT"
 
-      - name: Delete the chain, newest first
-        id: delete
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          NEXT_ID: ${{ steps.list.outputs.newest }}
-        run: |
-          set -euo pipefail
           deleted=0
-          next_id="$NEXT_ID"
-          while [ -n "$next_id" ] && [ "$next_id" != "null" ]; do
-            # confirm_delete on every hop: the last analysis of the set needs it,
-            # and it is harmless on the others.
-            response=$(gh api -X DELETE "repos/$REPO/code-scanning/analyses/$next_id?confirm_delete")
-            deleted=$((deleted + 1))
-            echo "deleted analysis $next_id"
-            next_url=$(echo "$response" | jq -r '.next_analysis_url // empty')
-            if [ -z "$next_url" ]; then
-              next_id=""
-            else
-              next_id="${next_url##*/analyses/}"
-              next_id="${next_id%%\?*}"
+          rounds=0
+          while [ "$count" -gt 0 ]; do
+            rounds=$((rounds + 1))
+            if [ "$rounds" -gt 50 ]; then
+              echo "::error::$count analyses still listed after $rounds rounds; re-run"
+              exit 1
             fi
+            # Every analysis flagged deletable is the newest of its set, so
+            # each one starts a chain of its own.
+            heads=$(jq -r '.[] | select(.deletable) | .id' <<<"$analyses")
+            if [ -z "$heads" ]; then
+              echo "::error::$count analyses listed but none is deletable — the API refuses to walk them"
+              exit 1
+            fi
+            for head in $heads; do
+              next_id="$head"
+              while [ -n "$next_id" ] && [ "$next_id" != "null" ]; do
+                # confirm_delete on every hop: the last analysis of a set needs
+                # it, and it is harmless on the others.
+                response=$(gh api -X DELETE "repos/$REPO/code-scanning/analyses/$next_id?confirm_delete")
+                deleted=$((deleted + 1))
+                echo "deleted analysis $next_id"
+                next_url=$(jq -r '.next_analysis_url // empty' <<<"$response")
+                if [ -z "$next_url" ]; then
+                  next_id=""
+                else
+                  next_id="${next_url##*/analyses/}"
+                  next_id="${next_id%%\?*}"
+                fi
+              done
+            done
+            analyses=$(list)
+            count=$(jq 'length' <<<"$analyses")
+            echo "round $rounds: $count analyses left"
           done
           echo "deleted=$deleted" >> "$GITHUB_OUTPUT"
-          echo "Deleted $deleted analyses"
+          echo "Deleted $deleted analyses in $rounds round(s)"
 
       - name: Report what is left
         env:
@@ -169,11 +187,11 @@ jobs:
           TOOL: ${{ inputs.tool }}
           CATEGORY: ${{ inputs.category }}
           DELETED: ${{ steps.delete.outputs.deleted }}
-          LISTED: ${{ steps.list.outputs.count }}
+          LISTED: ${{ steps.delete.outputs.listed }}
         run: |
           set -euo pipefail
-          left=$(gh api --paginate "repos/$REPO/code-scanning/alerts?state=open&per_page=100" \
-            | jq --arg cat "$CATEGORY" '[.[] | select(.most_recent_instance.category == $cat)] | length')
+          left=$(gh api --paginate --slurp "repos/$REPO/code-scanning/alerts?state=open&per_page=100" \
+            | jq --arg cat "$CATEGORY" '[.[][] | select(.most_recent_instance.category == $cat)] | length')
           {
             echo "## Retired $TOOL / \`$CATEGORY\`"
             echo
@@ -181,6 +199,6 @@ jobs:
             echo "- open alerts still in the category: $left"
           } | tee -a "$GITHUB_STEP_SUMMARY"
           if [ "$left" != "0" ]; then
-            echo "::error::$left alerts still open in $CATEGORY — the chain was not fully deleted; re-run"
+            echo "::error::$left alerts still open in $CATEGORY — some set was not fully deleted; re-run"
             exit 1
           fi
