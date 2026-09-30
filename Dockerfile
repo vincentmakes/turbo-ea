@@ -1,7 +1,7 @@
 ARG APP_UID=1000
 ARG APP_GID=1000
 
-FROM python:3.12-alpine AS backend-build
+FROM python:3.14-alpine AS backend-build
 
 RUN apk add --no-cache gcc musl-dev
 
@@ -22,7 +22,7 @@ COPY backend/ ./
 RUN pip install --no-cache-dir --no-deps --prefix=/install .
 
 
-FROM python:3.12-alpine AS backend
+FROM python:3.14-alpine AS backend
 
 ARG APP_UID
 ARG APP_GID
@@ -100,7 +100,7 @@ RUN apk upgrade --no-cache && \
 USER ${APP_UID}:${APP_GID}
 
 
-FROM node:24-alpine AS frontend-build
+FROM node:26-alpine AS frontend-build
 
 WORKDIR /app
 
@@ -111,12 +111,12 @@ COPY frontend/ ./
 RUN npm run build
 
 
-FROM alpine/git:v2.47.2 AS drawio
+FROM alpine/git:v2.54.0 AS drawio
 
 RUN git clone --depth 1 --branch v31.4.1 https://github.com/jgraph/drawio.git /drawio
 
 
-FROM nginx:1.30.3-alpine AS frontend
+FROM nginx:1.31.0-alpine AS frontend
 
 ARG APP_UID
 ARG APP_GID
@@ -158,7 +158,7 @@ EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]
 
 
-FROM nginx:1.30.3-alpine AS nginx
+FROM nginx:1.31.0-alpine AS nginx
 
 ARG APP_UID
 ARG APP_GID
@@ -786,7 +786,7 @@ RUN mkdir -p /models && \
 USER ${APP_UID}:${APP_GID}
 
 
-FROM python:3.12-alpine AS mcp-server
+FROM python:3.14-alpine AS mcp-server
 
 ARG APP_UID
 ARG APP_GID
