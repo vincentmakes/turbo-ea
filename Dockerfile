@@ -111,12 +111,12 @@ COPY frontend/ ./
 RUN npm run build
 
 
-FROM alpine/git:v2.47.2 AS drawio
+FROM alpine/git:v2.54.0 AS drawio
 
 RUN git clone --depth 1 --branch v31.4.1 https://github.com/jgraph/drawio.git /drawio
 
 
-FROM nginx:1.30.3-alpine AS frontend
+FROM nginx:1.30.5-alpine AS frontend
 
 ARG APP_UID
 ARG APP_GID
@@ -158,7 +158,7 @@ EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]
 
 
-FROM nginx:1.30.3-alpine AS nginx
+FROM nginx:1.30.5-alpine AS nginx
 
 ARG APP_UID
 ARG APP_GID
