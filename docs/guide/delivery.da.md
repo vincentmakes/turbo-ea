@@ -66,6 +66,7 @@ Når en SoAW er godkendt, kan du anmode om underskrifter fra interessenter. Klik
 
 - **Preview-tilstand** — Skrivebeskyttet visning af det komplette SoAW-dokument
 - **DOCX-eksport** — Download SoAW'en som et formateret Word-dokument til offline-deling eller udskrift
+- **PDF-eksport** — Åbner en printklar visning i en ny fane; brug browserens *Gem som PDF*. Tillad pop op-vinduer for dette websted, hvis intet åbnes.
 
 ### SoAW-fane på initiativkort
 

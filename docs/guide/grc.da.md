@@ -104,6 +104,8 @@ Underskrevne ADR'er er låst og kan ikke redigeres — for at lave ændringer sk
 
 Klik på preview-ikonet for at se en skrivebeskyttet, formateret version af ADR'en — nyttig til gennemgang før underskrift.
 
+Fra forhåndsvisningen, eller fra editoren for en gemt beslutning, klik på **PDF** for at åbne en printklar kopi i en ny fane — metadata, de fire sektioner, tilknyttede kort, udvidelsessektioner og signaturblokken, med godkender og udskriftsdato i sidefoden — eller på **Word** for at downloade netop den beslutning som `.docx`. Editoren eksporterer den senest gemte version, så gem først, hvis du har ugemte ændringer.
+
 ## Risk
 
 ![GRC — Risikoregister](../assets/img/da/53_grc_risk_register.png)

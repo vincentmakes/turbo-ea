@@ -147,6 +147,7 @@
   "risks.field.updatedAt": "Последнее обновление",
   "risks.field.acceptedBy": "Принял",
   "risks.field.acceptedAt": "Дата принятия",
+  "risks.field.acceptanceRationale": "Обоснование принятия",
   "risks.cards.none": "Нет связанных карточек. Добавьте приложения, ИТ-компоненты или системы, на которые влияет этот риск.",
   "risks.cards.linkPlaceholder": "Поиск карточек для связи…",
   "risks.cards.link": "Связать карточку",

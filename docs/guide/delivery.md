@@ -66,6 +66,7 @@ Once a SoAW is approved, you can request sign-offs from stakeholders. Click **Re
 
 - **Preview mode** — Read-only view of the complete SoAW document
 - **DOCX export** — Download the SoAW as a formatted Word document for offline sharing or printing
+- **PDF export** — Opens a print-ready view in a new tab; use the browser's *Save as PDF*. Allow pop-ups for this site if nothing opens.
 
 ### SoAW Tab on Initiative Cards
 

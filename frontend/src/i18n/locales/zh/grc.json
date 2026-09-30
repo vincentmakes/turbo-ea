@@ -147,6 +147,7 @@
   "risks.field.updatedAt": "最后更新",
   "risks.field.acceptedBy": "接受者",
   "risks.field.acceptedAt": "接受时间",
+  "risks.field.acceptanceRationale": "接受理由",
   "risks.cards.none": "未关联任何卡片。请添加此风险影响的应用、IT 组件或系统。",
   "risks.cards.linkPlaceholder": "搜索要关联的卡片…",
   "risks.cards.link": "关联卡片",

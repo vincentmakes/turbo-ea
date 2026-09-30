@@ -147,6 +147,7 @@
   "risks.field.updatedAt": "Dernière mise à jour",
   "risks.field.acceptedBy": "Accepté par",
   "risks.field.acceptedAt": "Accepté le",
+  "risks.field.acceptanceRationale": "Justification de l'acceptation",
   "risks.cards.none": "Aucune fiche liée. Ajoutez les applications, composants informatiques ou systèmes concernés par ce risque.",
   "risks.cards.linkPlaceholder": "Rechercher des fiches à lier…",
   "risks.cards.link": "Lier la fiche",

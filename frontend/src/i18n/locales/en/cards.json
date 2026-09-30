@@ -656,6 +656,7 @@
   "compliance.create.newFinding": "New finding",
   "compliance.create.title": "New compliance finding",
   "compliance.drawer.edit": "Edit",
+  "compliance.drawer.linkedRisk": "Linked risk",
   "compliance.edit.title": "Edit compliance finding",
   "compliance.create.regulation": "Regulation",
   "compliance.create.article": "Article (optional)",

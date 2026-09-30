@@ -66,6 +66,7 @@ Una vez que un SoAW es aprobado, puede solicitar firmas de las partes interesada
 
 - **Modo de vista previa** — Vista de solo lectura del documento SoAW completo
 - **Exportación DOCX** — Descargue el SoAW como un documento Word formateado para compartir o imprimir sin conexión
+- **Exportación PDF** — Abre una vista lista para imprimir en una pestaña nueva; use *Guardar como PDF* del navegador. Permita las ventanas emergentes para este sitio si no se abre nada.
 
 ### Pestaña SoAW en las fichas de Iniciativa
 

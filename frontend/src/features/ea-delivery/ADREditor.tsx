@@ -31,6 +31,8 @@ import { usePageSubject } from "@/hooks/usePageTitle";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPermission } from "@/components/RequirePermission";
 import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
+import { openPrintWindow } from "@/lib/printDocument";
+import { printAdr } from "./adrPrint";
 import type { Card, ArchitectureDecision, SoAWSignatory } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success"> = {
@@ -141,6 +143,36 @@ export default function ADREditor() {
   }, [id, t]);
 
   // Save
+  // Both exports read the last *saved* version: the editor keeps the ADR as
+  // separate fields, and re-fetching keeps the PDF/Word identical to the
+  // preview and the grid export. The tooltip on the buttons says so.
+  const handleExportPdf = async () => {
+    if (!id) return;
+    // Open before the await, or a pop-up blocker eats the window (Safari/Firefox).
+    const win = openPrintWindow();
+    if (!win) return;
+    try {
+      const fresh = await api.get<ArchitectureDecision>(`/adr/${id}`);
+      printAdr(fresh, win);
+    } catch {
+      win.close();
+      setError(t("adr.editor.error.loadFailed"));
+    }
+  };
+
+  const handleExportWord = async () => {
+    if (!id) return;
+    try {
+      const [fresh, { exportAdrsToDocx }] = await Promise.all([
+        api.get<ArchitectureDecision>(`/adr/${id}`),
+        import("./adrExport"),
+      ]);
+      await exportAdrsToDocx([fresh]);
+    } catch {
+      setError(t("adr.export.error"));
+    }
+  };
+
   const handleSave = useCallback(async () => {
     if (!title.trim()) {
       setError(t("adr.editor.titleRequired"));
@@ -501,6 +533,30 @@ export default function ADREditor() {
           >
             {t("adr.editor.duplicate")}
           </Button>
+        )}
+        {!isNew && (
+          <Tooltip title={t("adr.editor.exportSavedTooltip")}>
+            <Button
+              variant="outlined"
+              startIcon={<MaterialSymbol icon="picture_as_pdf" size={18} />}
+              onClick={handleExportPdf}
+              sx={{ textTransform: "none" }}
+            >
+              {t("editor.pdf")}
+            </Button>
+          </Tooltip>
+        )}
+        {!isNew && (
+          <Tooltip title={t("adr.editor.exportSavedTooltip")}>
+            <Button
+              variant="outlined"
+              startIcon={<MaterialSymbol icon="article" size={18} />}
+              onClick={handleExportWord}
+              sx={{ textTransform: "none" }}
+            >
+              {t("editor.word")}
+            </Button>
+          </Tooltip>
         )}
 
         {/* Generic extension slot in the action row — header-level affordances

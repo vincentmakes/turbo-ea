@@ -148,6 +148,7 @@
   "risks.field.updatedAt": "آخر تحديث",
   "risks.field.acceptedBy": "قُبِل بواسطة",
   "risks.field.acceptedAt": "تاريخ القبول",
+  "risks.field.acceptanceRationale": "مبرر القبول",
   "risks.cards.none": "لا توجد بطاقات مرتبطة. أضف التطبيقات أو مكونات تقنية المعلومات أو الأنظمة التي يؤثر عليها هذا الخطر.",
   "risks.cards.linkPlaceholder": "ابحث عن بطاقات لربطها…",
   "risks.cards.link": "ربط بطاقة",

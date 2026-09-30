@@ -104,6 +104,8 @@ Open a signed ADR and click **Revise** to create a new draft based on the signed
 
 Click the preview icon to view a read-only, formatted version of the ADR — useful for reviewing before signing.
 
+From the preview, or from the editor of a saved decision, click **PDF** to open a print-ready copy in a new tab — metadata, the four sections, linked cards, extension sections and the signature block, with the approver and print date in the footer — or **Word** to download that single decision as a `.docx`. The editor exports the last saved version, so save first if you have unsaved edits.
+
 ## Risk
 
 ![GRC — Risk Register](../assets/img/en/53_grc_risk_register.png)

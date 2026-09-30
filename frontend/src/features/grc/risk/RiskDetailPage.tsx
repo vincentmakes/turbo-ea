@@ -40,6 +40,7 @@ import { DateField } from "@/components/DateField";
 import { api, ApiError } from "@/api/client";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import type {
+  MitigationTask,
   Risk,
   RiskCategory,
   RiskImpact,
@@ -47,6 +48,8 @@ import type {
   RiskStatus,
 } from "@/types";
 import { ExtensionSlot } from "@/lib/extensionHost";
+import { openPrintWindow } from "@/lib/printDocument";
+import { printRisk } from "./riskPrint";
 import AffectedCardsList from "./AffectedCardsList";
 import RiskMatrix from "./RiskMatrix";
 import MitigationTasksPanel, {
@@ -287,6 +290,20 @@ export default function RiskDetailPage() {
     }
   };
 
+  const exportPdf = async () => {
+    if (!risk) return;
+    // Open before the await, or a pop-up blocker eats the window (Safari/Firefox).
+    const win = openPrintWindow();
+    if (!win) return;
+    try {
+      const tasks = await api.get<MitigationTask[]>(`/risks/${risk.id}/mitigation-tasks`);
+      printRisk(risk, tasks, win);
+    } catch (e) {
+      win.close();
+      setError(e instanceof ApiError ? e.message : String(e));
+    }
+  };
+
   const deleteRisk = async () => {
     if (!risk) return;
     const confirmMsg = t("risks.confirmDelete", { reference: risk.reference });
@@ -421,6 +438,14 @@ export default function RiskDetailPage() {
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={exportPdf}
+            startIcon={<MaterialSymbol icon="picture_as_pdf" size={16} />}
+          >
+            {tCommon("actions.exportPdf")}
+          </Button>
           <Button
             variant="outlined"
             color="error"

@@ -98,6 +98,8 @@ Cuando hace clic en **Crear riesgo** en un hallazgo no conforme (véase [TurboLe
 
 El botón **Exportar** del Registro de Riesgos escribe un `.xlsx` de dos hojas: la hoja 1 es la cuadrícula de riesgos filtrada, la hoja 2 es una fila por ciclo de cada tarea de cada riesgo en el mismo filtro, incluyendo el tiempo de anticipación y la marca de activación. Úselo para paquetes de auditoría o para partes interesadas sin acceso a Turbo EA. Cada fila de tarea en el panel de detalle dispone también de su propio botón **Exportar historial** para un libro por tarea.
 
+Un riesgo individual también puede imprimirse desde su página de detalle: **Exportar PDF** (junto a **Eliminar**) abre un expediente listo para imprimir — identificación, evaluación inicial y residual, tareas de mitigación con sus ciclos más recientes, tarjetas afectadas, flujo de trabajo y justificación de la aceptación — en una pestaña nueva, listo para *Guardar como PDF* del navegador.
+
 ### Importación {: #import }
 
 El botón **Importar**, junto a «Exportar», carga riesgos de forma masiva desde un archivo `.xlsx`. Haga clic en **Descargar plantilla** para obtener un libro inicial con los encabezados correctos, rellene un riesgo por fila y súbalo. Una fila cuya `reference` coincide con un riesgo existente se **omite** (el importador nunca actualiza riesgos existentes), de modo que reimportar un registro exportado anteriormente es idempotente; cada otra fila crea un riesgo **completamente nuevo** con una referencia `R-NNNNNN` generada automáticamente. La vista previa indica cuántas filas se omitirán antes de que confirme.

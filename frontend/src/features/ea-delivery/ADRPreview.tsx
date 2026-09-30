@@ -21,6 +21,7 @@ import { usePageSubject } from "@/hooks/usePageTitle";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPermission } from "@/components/RequirePermission";
 import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
+import { printAdr } from "./adrPrint";
 import type { ArchitectureDecision } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
@@ -65,6 +66,17 @@ export default function ADRPreview() {
       }
     })();
   }, [id]);
+
+  const handleExportWord = async () => {
+    if (!adr) return;
+    try {
+      // Lazy: keeps the docx engine out of the preview chunk until asked for.
+      const { exportAdrsToDocx } = await import("./adrExport");
+      await exportAdrsToDocx([adr]);
+    } catch {
+      setSnack(t("adr.export.error"));
+    }
+  };
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href).then(
@@ -151,6 +163,38 @@ export default function ADRPreview() {
             <MaterialSymbol icon="link" size={20} />
           </IconButton>
         </Tooltip>
+        {compact ? (
+          <Tooltip title={t("editor.exportPdf")}>
+            <IconButton onClick={() => printAdr(adr)}>
+              <MaterialSymbol icon="picture_as_pdf" size={20} />
+            </IconButton>
+          </Tooltip>
+        ) : (
+          <Button
+            size="small"
+            startIcon={<MaterialSymbol icon="picture_as_pdf" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={() => printAdr(adr)}
+          >
+            {t("editor.pdf")}
+          </Button>
+        )}
+        {compact ? (
+          <Tooltip title={t("editor.exportWord")}>
+            <IconButton onClick={handleExportWord}>
+              <MaterialSymbol icon="article" size={20} />
+            </IconButton>
+          </Tooltip>
+        ) : (
+          <Button
+            size="small"
+            startIcon={<MaterialSymbol icon="article" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={handleExportWord}
+          >
+            {t("editor.word")}
+          </Button>
+        )}
         {compact ? (
           <Tooltip title={t("common:actions.edit")}>
             <IconButton onClick={() => navigate(`/ea-delivery/adr/${id}`)}>

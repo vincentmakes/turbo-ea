@@ -40,6 +40,7 @@ import {
   severityChipColor,
 } from "@/features/turbolens/utils";
 import ComplianceLifecycleTimeline from "./ComplianceLifecycleTimeline";
+import { printFinding } from "./findingPrint";
 
 interface Props {
   finding: TurboLensComplianceFinding | null;
@@ -79,10 +80,17 @@ export default function FindingDetailDrawer({
   const { t } = useTranslation("admin");
   const { t: tCards } = useTranslation("cards");
   const { t: tRisks } = useTranslation("grc");
+  const { t: tCommon } = useTranslation("common");
   const { byKey: regulationsByKey } = useComplianceRegulations();
 
   const [saving, setSaving] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  // DB label first, then the built-in i18n label, then the raw key — the same
+  // resolution the subtitle always used, shared with the PDF export.
+  const regulationLabel = (f: TurboLensComplianceFinding) =>
+    regulationsByKey[f.regulation]?.label ??
+    t(`compliance_regulation_${f.regulation}`, { defaultValue: f.regulation });
   // Accept-with-rationale lives here so every consumer of the drawer (the
   // GRC scanner and the per-card Compliance tab) collects the required
   // review note the same way — see ComplianceLifecycleTimeline.transition().
@@ -138,9 +146,20 @@ export default function FindingDetailDrawer({
             <Typography variant="h6" fontWeight={700} sx={{ pr: 1 }}>
               {finding.regulation_article || tCards("compliance.drawer.untitled")}
             </Typography>
-            <IconButton onClick={onClose} size="small" aria-label="Close">
-              <MaterialSymbol icon="close" />
-            </IconButton>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Tooltip title={tCommon("actions.exportPdf")}>
+                <IconButton
+                  size="small"
+                  aria-label={tCommon("actions.exportPdf")}
+                  onClick={() => printFinding(finding, regulationLabel(finding))}
+                >
+                  <MaterialSymbol icon="picture_as_pdf" />
+                </IconButton>
+              </Tooltip>
+              <IconButton onClick={onClose} size="small" aria-label="Close">
+                <MaterialSymbol icon="close" />
+              </IconButton>
+            </Stack>
           </Stack>
 
           {/* Lifecycle timeline */}
@@ -178,10 +197,7 @@ export default function FindingDetailDrawer({
 
           {/* Subtitle: regulation + card */}
           <Typography variant="subtitle2" color="text.secondary">
-            {regulationsByKey[finding.regulation]?.label ??
-              t(`compliance_regulation_${finding.regulation}`, {
-                defaultValue: finding.regulation,
-              })}
+            {regulationLabel(finding)}
             {finding.card_name && finding.card_id ? ` · ${finding.card_name}` : ""}
           </Typography>
 

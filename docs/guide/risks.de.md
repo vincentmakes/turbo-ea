@@ -98,6 +98,8 @@ Wenn Sie auf einem nicht konformen Befund auf **Risiko anlegen** klicken (siehe 
 
 Die Schaltfläche **Exportieren** auf der Risikoregister-Seite schreibt eine zweiteilige `.xlsx`: Blatt 1 enthält das gefilterte Risiko-Grid, Blatt 2 eine Zeile pro Zyklus über alle Aufgaben aller Risiken im gleichen Filter-Set, inklusive Vorlaufzeit und Aktivierungszeitstempel. Nutzen Sie sie für Audit-Pakete oder zur Weitergabe an Stakeholder ohne Turbo-EA-Login. Jede Aufgabenzeile im Detail-Panel verfügt zudem über eine eigene Schaltfläche **Verlauf exportieren** für eine aufgabenbezogene Arbeitsmappe.
 
+Ein einzelnes Risiko lässt sich auch von seiner Detailseite aus drucken: **PDF exportieren** (neben **Löschen**) öffnet ein druckfertiges Dossier — Identifikation, Erst- und Restbewertung, Maßnahmen mit ihren letzten Zyklen, betroffene Karten, Workflow und Akzeptanzbegründung — in einem neuen Tab, bereit für *Als PDF speichern* im Browser.
+
 ### Import {: #import }
 
 Die Schaltfläche **Import** neben „Export“ lädt Risiken in großer Menge aus einer `.xlsx`-Datei. Klicken Sie auf **Vorlage herunterladen**, um eine Startdatei mit den richtigen Spaltenüberschriften zu erhalten, tragen Sie pro Zeile ein Risiko ein und laden Sie die Datei hoch. Eine Zeile, deren `reference` zu einem vorhandenen Risiko passt, wird **übersprungen** (der Import aktualisiert niemals bestehende Risiken), sodass der erneute Import eines zuvor exportierten Registers idempotent ist; jede andere Zeile erstellt ein **völlig neues** Risiko mit einer frisch generierten Referenz `R-NNNNNN`. Die Vorschau zeigt vor der Bestätigung an, wie viele Zeilen übersprungen werden.

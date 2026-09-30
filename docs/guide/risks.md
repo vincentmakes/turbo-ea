@@ -101,6 +101,8 @@ When you click **Create risk** on a non-compliant finding (see [TurboLens](turbo
 
 The Risk Register's **Export** button writes a two-sheet `.xlsx`: sheet 1 is the filtered risk grid, sheet 2 is one row per cycle across every task on every risk in the same filter set, including the lead-time and activation timestamps. Use it for audit packs or for hand-off to stakeholders who don't have a Turbo EA login. Each task row in the detail panel also has its own **Export history** button for a per-task workbook.
 
+A single risk can also be printed from its detail page: **Export PDF** (next to **Delete**) opens a print-ready dossier — identification, initial and residual assessment, mitigation tasks with their most recent cycles, affected cards, workflow and acceptance rationale — in a new tab, ready for the browser's *Save as PDF*.
+
 ### Import {: #import }
 
 The **Import** button next to Export loads risks in bulk from an `.xlsx` file. Click **Download template** to get a starter workbook with the right headers, fill in one risk per row, and upload it. A row whose `reference` matches an existing risk is **skipped** (the importer never updates existing risks), so re-importing a previously exported register is idempotent; every other row creates a **brand-new** risk with a freshly generated `R-NNNNNN` reference. The preview tells you how many rows will be skipped before you confirm.

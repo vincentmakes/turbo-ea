@@ -148,6 +148,7 @@
   "risks.field.updatedAt": "Sidst opdateret",
   "risks.field.acceptedBy": "Accepteret af",
   "risks.field.acceptedAt": "Accepteret den",
+  "risks.field.acceptanceRationale": "Begrundelse for accept",
   "risks.cards.none": "Ingen kort tilknyttet. Tilføj de applikationer, IT-komponenter eller systemer, som denne risiko påvirker.",
   "risks.cards.linkPlaceholder": "Søg kort at tilknytte…",
   "risks.cards.link": "Tilknyt kort",

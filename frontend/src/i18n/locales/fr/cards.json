@@ -656,6 +656,7 @@
   "compliance.create.newFinding": "Nouveau constat",
   "compliance.create.title": "Nouveau constat de conformité",
   "compliance.drawer.edit": "Modifier",
+  "compliance.drawer.linkedRisk": "Risque lié",
   "compliance.edit.title": "Modifier le constat de conformité",
   "compliance.create.regulation": "Réglementation",
   "compliance.create.article": "Article (optionnel)",

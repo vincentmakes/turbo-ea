@@ -98,6 +98,8 @@ Quando clica em **Criar risco** numa constatação não conforme (ver [TurboLens
 
 O botão **Exportar** do Registo de Riscos escreve um `.xlsx` de duas folhas: a folha 1 é a grelha de riscos filtrada, a folha 2 é uma linha por ciclo de cada tarefa de cada risco no mesmo filtro, incluindo tempo de antecedência e carimbo de ativação. Use-o para pacotes de auditoria ou para partes interessadas sem acesso ao Turbo EA. Cada linha de tarefa no painel de detalhe dispõe também do próprio botão **Exportar histórico** para um livro por tarefa.
 
+Um risco individual também pode ser impresso a partir da sua página de detalhes: **Exportar PDF** (ao lado de **Excluir**) abre um dossiê pronto para impressão — identificação, avaliação inicial e residual, tarefas de mitigação com seus ciclos mais recentes, cartões afetados, fluxo de trabalho e justificativa da aceitação — em uma nova aba, pronto para *Salvar como PDF* do navegador.
+
 ### Importação {: #import }
 
 O botão **Importar**, ao lado de «Exportar», carrega riscos em massa a partir de um ficheiro `.xlsx`. Clique em **Descarregar modelo** para obter um livro inicial com os cabeçalhos corretos, preencha um risco por linha e carregue-o. Uma linha cuja `reference` corresponde a um risco existente é **ignorada** (o importador nunca atualiza riscos existentes), pelo que reimportar um registo exportado anteriormente é idempotente; cada outra linha cria um risco **totalmente novo** com uma referência `R-NNNNNN` gerada automaticamente. A pré-visualização indica quantas linhas serão ignoradas antes de confirmar.

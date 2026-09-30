@@ -19,6 +19,7 @@
   "actions.linkCopied": "Link in die Zwischenablage kopiert",
   "actions.copyManually": "Diesen Link manuell kopieren:",
   "actions.print": "Drucken",
+  "actions.exportPdf": "PDF exportieren",
   "actions.download": "Herunterladen",
   "actions.upload": "Hochladen",
   "actions.refresh": "Aktualisieren",

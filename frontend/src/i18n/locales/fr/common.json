@@ -19,6 +19,7 @@
   "actions.linkCopied": "Lien copié dans le presse-papiers",
   "actions.copyManually": "Copiez ce lien manuellement :",
   "actions.print": "Imprimer",
+  "actions.exportPdf": "Exporter en PDF",
   "actions.download": "Télécharger",
   "actions.upload": "Charger",
   "actions.refresh": "Actualiser",

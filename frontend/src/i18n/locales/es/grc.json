@@ -147,6 +147,7 @@
   "risks.field.updatedAt": "Última actualización",
   "risks.field.acceptedBy": "Aceptado por",
   "risks.field.acceptedAt": "Aceptado el",
+  "risks.field.acceptanceRationale": "Justificación de la aceptación",
   "risks.cards.none": "No hay fichas vinculadas. Añada las aplicaciones, componentes de TI o sistemas afectados por este riesgo.",
   "risks.cards.linkPlaceholder": "Buscar fichas para vincular…",
   "risks.cards.link": "Vincular ficha",

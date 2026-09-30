@@ -656,6 +656,7 @@
   "compliance.create.newFinding": "Nuovo riscontro",
   "compliance.create.title": "Nuovo riscontro di conformità",
   "compliance.drawer.edit": "Modifica",
+  "compliance.drawer.linkedRisk": "Rischio collegato",
   "compliance.edit.title": "Modifica riscontro di conformità",
   "compliance.create.regulation": "Regolamento",
   "compliance.create.article": "Articolo (opzionale)",

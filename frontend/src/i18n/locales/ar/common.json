@@ -19,6 +19,7 @@
   "actions.linkCopied": "تم نسخ الرابط إلى الحافظة",
   "actions.copyManually": "انسخ هذا الرابط يدويًا:",
   "actions.print": "طباعة",
+  "actions.exportPdf": "تصدير PDF",
   "actions.download": "تنزيل",
   "actions.upload": "رفع",
   "actions.refresh": "تحديث",

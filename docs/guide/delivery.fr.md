@@ -66,6 +66,7 @@ Une fois qu'un SoAW est approuvé, vous pouvez demander des signatures aux parti
 
 - **Mode aperçu** -- Vue en lecture seule du document SoAW complet
 - **Export DOCX** -- Téléchargez le SoAW sous forme de document Word formaté pour le partage hors ligne ou l'impression
+- **Export PDF** -- Ouvre une vue prête à imprimer dans un nouvel onglet ; utilisez *Enregistrer au format PDF* du navigateur. Autorisez les fenêtres pop-up pour ce site si rien ne s'ouvre.
 
 ### Onglet SoAW sur les fiches d'initiative
 

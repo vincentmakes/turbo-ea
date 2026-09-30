@@ -147,6 +147,7 @@
   "risks.field.updatedAt": "Zuletzt aktualisiert",
   "risks.field.acceptedBy": "Akzeptiert von",
   "risks.field.acceptedAt": "Akzeptiert am",
+  "risks.field.acceptanceRationale": "Begründung der Akzeptanz",
   "risks.cards.none": "Keine Karten verknüpft. Fügen Sie die Anwendungen, IT-Komponenten oder Systeme hinzu, die dieses Risiko betrifft.",
   "risks.cards.linkPlaceholder": "Karten zum Verknüpfen suchen…",
   "risks.cards.link": "Karte verknüpfen",

@@ -41,6 +41,8 @@ Every finding must be scoped either to a specific card or to the whole landscape
 
 Open any finding — from the Compliance grid or from a card's **Compliance** tab — and click **Edit** in the drawer to change its compliance **status** (for example Compliant → Partial), severity, requirement, gap, evidence, remediation, article, or linked card after it was created. Editing the content leaves the finding's lifecycle decision untouched; use the lifecycle timeline for that. Requires `compliance.manage`.
 
+The drawer also has a **PDF** icon next to **Close** that opens a print-ready one-page summary of the finding — regulation, article, card or landscape scope, severity, status, requirement, gap, evidence, remediation and review trail — in a new tab for the browser's *Save as PDF*.
+
 ## Running an AI scan
 
 !!! info "AI required for scans, not for manual findings"

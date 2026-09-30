@@ -147,6 +147,7 @@
   "risks.field.updatedAt": "Ultimo aggiornamento",
   "risks.field.acceptedBy": "Accettato da",
   "risks.field.acceptedAt": "Accettato il",
+  "risks.field.acceptanceRationale": "Motivazione dell'accettazione",
   "risks.cards.none": "Nessuna scheda collegata. Aggiungi le applicazioni, i componenti IT o i sistemi interessati da questo rischio.",
   "risks.cards.linkPlaceholder": "Cerca schede da collegare…",
   "risks.cards.link": "Collega scheda",

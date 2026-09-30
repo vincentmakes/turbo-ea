@@ -66,6 +66,7 @@ Una volta approvato un SoAW, potete richiedere le firme dagli stakeholder. Clicc
 
 - **Modalità anteprima** — Vista di sola lettura del documento SoAW completo
 - **Esportazione DOCX** — Scaricate il SoAW come documento Word formattato per la condivisione offline o la stampa
+- **Esportazione PDF** — Apre una vista pronta per la stampa in una nuova scheda; usate *Salva come PDF* del browser. Consentite i pop-up per questo sito se non si apre nulla.
 
 ### Scheda SoAW sulle card di Iniziativa
 

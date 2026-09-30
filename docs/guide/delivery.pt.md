@@ -66,6 +66,7 @@ Uma vez que um SoAW é aprovado, você pode solicitar assinaturas das partes int
 
 - **Modo de pré-visualização** — Visualização somente leitura do documento SoAW completo
 - **Exportação DOCX** — Baixe o SoAW como um documento Word formatado para compartilhamento offline ou impressão
+- **Exportação PDF** — Abre uma visualização pronta para impressão em uma nova aba; use *Salvar como PDF* do navegador. Permita pop-ups para este site se nada abrir.
 
 ### Aba SoAW nos cards de Iniciativa
 

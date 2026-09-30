@@ -21,16 +21,7 @@ import {
   type TemplateSectionDef,
 } from "./soawTemplate";
 import type { SoAWDocumentInfo, SoAWVersionEntry, SoAWSectionData, SoAWSignatory } from "@/types";
-
-/** Escape a string for safe interpolation into HTML. */
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+import { escapeHtml, printDocument } from "@/lib/printDocument";
 
 // ─── constants (matching PDF styles) ─────────────────────────────────────────
 
@@ -584,7 +575,7 @@ export const PREVIEW_CSS = `
     .soaw-signatures .sig-grid { grid-template-columns: 1fr 1fr; }
     .soaw-signatures .sig-card.approved { border-color: #66bb6a; background: #f1f8e9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     @page { @bottom-center { content: element(soaw-footer); } margin-bottom: 60px; }
-    .soaw-print-footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 8pt; color: #888; border-top: 1px solid #ccc; padding-top: 4px; }
+    .soaw-print-footer, .doc-print-footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 8pt; color: #888; border-top: 1px solid #ccc; padding-top: 4px; }
   }
 `;
 
@@ -763,34 +754,25 @@ export function exportToPdf(
   signedAt?: string | null,
 ) {
   const t = (key: string, opts?: Record<string, unknown>) => String(i18n.t(`delivery:${key}`, opts as never));
-  const w = window.open("", "_blank");
-  if (!w) {
-    alert(t("export.popupBlocked"));
-    return;
-  }
-
   const body = buildPreviewBody(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt);
 
-  // Build footer for signed documents
-  let footerHtml = "";
+  // Footer for signed documents
+  const parts: string[] = [];
   if (signatories && signatories.length > 0) {
     const approver = signatories.find((s) => s.status === "signed");
     const approvalDate = signedAt ? new Date(signedAt).toLocaleDateString() : (approver?.signed_at ? new Date(approver.signed_at).toLocaleDateString() : "");
     const printDate = new Date().toLocaleDateString();
-    const parts: string[] = [];
     if (approver) parts.push(t("export.approvedBy", { name: approver.display_name }));
     if (approvalDate) parts.push(t("export.dateOfApproval", { date: approvalDate }));
     parts.push(t("export.printed", { date: printDate }));
-    footerHtml = `<div class="soaw-print-footer">${parts.join("  &middot;  ")}</div>`;
   }
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>${escapeHtml(name || "SoAW")}</title>
-<style>${PREVIEW_CSS}</style></head><body class="soaw-preview">${body}${footerHtml}</body></html>`;
-
-  w.document.write(html);
-  w.document.close();
-
-  // Give the browser a moment to render, then open print dialog
-  setTimeout(() => w.print(), 400);
+  // Shared pop-up print path (window, sanitiser, print dialog): lib/printDocument.ts
+  printDocument({
+    title: name || "SoAW",
+    bodyHtml: body,
+    footerParts: parts,
+    bodyClass: "soaw-preview",
+    css: PREVIEW_CSS,
+  });
 }

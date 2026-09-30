@@ -379,6 +379,7 @@
   "adr.editor.status": "الحالة",
   "adr.editor.revisionLabel": "المراجعة {{number}}",
   "adr.editor.signatures": "التوقيعات",
+  "adr.editor.exportSavedTooltip": "يصدّر آخر نسخة محفوظة",
   "adr.editor.fullySigned": "موقّع بالكامل",
   "adr.editor.sigApproved": "معتمد",
   "adr.editor.sigPending": "قيد الانتظار",

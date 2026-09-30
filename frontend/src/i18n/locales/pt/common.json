@@ -19,6 +19,7 @@
   "actions.linkCopied": "Link copiado para a área de transferência",
   "actions.copyManually": "Copie este link manualmente:",
   "actions.print": "Imprimir",
+  "actions.exportPdf": "Exportar PDF",
   "actions.download": "Baixar",
   "actions.upload": "Enviar",
   "actions.refresh": "Atualizar",

@@ -19,6 +19,7 @@
   "actions.linkCopied": "Ссылка скопирована в буфер обмена",
   "actions.copyManually": "Скопируйте эту ссылку вручную:",
   "actions.print": "Печать",
+  "actions.exportPdf": "Экспорт в PDF",
   "actions.download": "Скачать",
   "actions.upload": "Загрузить",
   "actions.refresh": "Обновить",

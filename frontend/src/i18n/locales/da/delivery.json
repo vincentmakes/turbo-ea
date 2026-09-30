@@ -379,6 +379,7 @@
   "adr.editor.status": "Status",
   "adr.editor.revisionLabel": "Revision {{number}}",
   "adr.editor.signatures": "Underskrifter",
+  "adr.editor.exportSavedTooltip": "Eksporterer den senest gemte version",
   "adr.editor.fullySigned": "Fuldt underskrevet",
   "adr.editor.sigApproved": "Godkendt",
   "adr.editor.sigPending": "Afventer",

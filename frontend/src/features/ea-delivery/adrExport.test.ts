@@ -78,4 +78,10 @@ describe("exportAdrsToDocx — extension sections", () => {
     // The export still completed and saved despite the extension throwing.
     expect(mockSaveAs).toHaveBeenCalledTimes(1);
   });
+
+  it("names a single-decision export after its reference (the preview/editor Word button)", async () => {
+    await exportAdrsToDocx([adr()]);
+    const filename = String(mockSaveAs.mock.calls[0][1]);
+    expect(filename).toMatch(/^ADR-0001_\d{4}-\d{2}-\d{2}_\d{4}\.docx$/);
+  });
 });

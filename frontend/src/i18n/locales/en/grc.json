@@ -148,6 +148,7 @@
   "risks.field.updatedAt": "Last updated",
   "risks.field.acceptedBy": "Accepted by",
   "risks.field.acceptedAt": "Accepted at",
+  "risks.field.acceptanceRationale": "Acceptance rationale",
   "risks.cards.none": "No cards linked. Add the applications, IT components or systems this risk affects.",
   "risks.cards.linkPlaceholder": "Search cards to link…",
   "risks.cards.link": "Link card",

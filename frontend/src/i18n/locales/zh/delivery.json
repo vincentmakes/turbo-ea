@@ -379,6 +379,7 @@
   "adr.editor.status": "状态",
   "adr.editor.revisionLabel": "修订版 {{number}}",
   "adr.editor.signatures": "签名",
+  "adr.editor.exportSavedTooltip": "导出最近保存的版本",
   "adr.editor.fullySigned": "已全部签署",
   "adr.editor.sigApproved": "已批准",
   "adr.editor.sigPending": "待签署",

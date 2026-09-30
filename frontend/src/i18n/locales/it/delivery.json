@@ -379,6 +379,7 @@
   "adr.editor.status": "Stato",
   "adr.editor.revisionLabel": "Revisione {{number}}",
   "adr.editor.signatures": "Firme",
+  "adr.editor.exportSavedTooltip": "Esporta l'ultima versione salvata",
   "adr.editor.fullySigned": "Completamente firmato",
   "adr.editor.sigApproved": "Approvato",
   "adr.editor.sigPending": "In attesa",

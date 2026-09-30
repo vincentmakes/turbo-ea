@@ -66,6 +66,7 @@ Sobald ein SoAW genehmigt ist, können Sie Abzeichnungen von Stakeholdern anford
 
 - **Vorschaumodus** — Schreibgeschützte Ansicht des vollständigen SoAW-Dokuments
 - **DOCX-Export** — Das SoAW als formatiertes Word-Dokument zum Offline-Teilen oder Drucken herunterladen
+- **PDF-Export** — Öffnet eine druckfertige Ansicht in einem neuen Tab; nutzen Sie *Als PDF speichern* im Browser. Erlauben Sie Pop-ups für diese Seite, falls sich nichts öffnet.
 
 ### SoAW-Reiter auf Initiative-Karten
 
