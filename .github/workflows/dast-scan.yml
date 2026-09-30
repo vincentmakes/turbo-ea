@@ -129,15 +129,18 @@ jobs:
       # 10 minutes. --network=host is why `localhost` reaches the compose
       # stack. Exit codes: 0 clean, 1 FAIL, 2 WARN, 3 the scan itself broke.
       # Both passes always run so one dispatch yields both reports; the
-      # verdict is taken in the last step.
+      # verdict is taken in the last step. The exit code is captured with
+      # `|| rc=$?`: every `run:` block executes under `bash -e`, and `set +e`
+      # or a bare `rc=$?` after a failing command does not survive it — the
+      # second dispatch (run 36753108909) died on ZAP's exit 2 before the
+      # code was recorded, skipped the signed-in pass and reported "missing".
       - name: ZAP baseline (anonymous)
         id: zap_anon
         run: |
-          set -uo pipefail
+          rc=0
           docker run --rm --network=host -v "$PWD/zap-work:/zap/wrk:rw" "$ZAP_IMAGE" \
             zap-baseline.py -t "$TARGET" -c zap-rules.tsv -j -m 10 \
-              -J anonymous.json -w anonymous.md -r anonymous.html
-          rc=$?
+              -J anonymous.json -w anonymous.md -r anonymous.html || rc=$?
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
           echo "anonymous pass exit code: $rc"
 
@@ -151,12 +154,11 @@ jobs:
         env:
           COOKIE: ${{ steps.login.outputs.cookie }}
         run: |
-          set -uo pipefail
+          rc=0
           docker run --rm --network=host -v "$PWD/zap-work:/zap/wrk:rw" "$ZAP_IMAGE" \
             zap-baseline.py -t "$TARGET" -c zap-rules.tsv -j -m 10 \
               -J signed-in.json -w signed-in.md -r signed-in.html \
-              -z "-config replacer.full_list(0).description=session -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=Cookie -config replacer.full_list(0).regex=false -config replacer.full_list(0).replacement=access_token=${COOKIE}"
-          rc=$?
+              -z "-config replacer.full_list(0).description=session -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=Cookie -config replacer.full_list(0).regex=false -config replacer.full_list(0).replacement=access_token=${COOKIE}" || rc=$?
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
           echo "signed-in pass exit code: $rc"
 

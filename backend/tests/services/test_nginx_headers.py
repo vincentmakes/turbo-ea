@@ -63,6 +63,38 @@ class TestContentSecurityPolicy:
         assert app, "no app/api CSP found"
         assert all("frame-ancestors 'self'" in p for p in app), app
 
+    # ZAP's CSP rule (10055) is IGNOREd in .github/zap-rules.tsv because two of
+    # its findings are deliberate — `img-src https:` and Emotion's
+    # `style-src 'unsafe-inline'` — and the rules file cannot accept a
+    # sub-alert without accepting the plugin. These two tests are what keep
+    # that IGNORE from hiding a real regression: the SPA and the embed page
+    # run the app bundle alone, and no policy may open a scriptable directive
+    # to the world.
+    def test_spa_and_embed_policies_run_only_the_bundle(self):
+        policies = _CSP_RE.findall(_entrypoint())
+        spa = [p for p in policies if "fonts.googleapis.com" in p]
+        assert len(spa) >= 4, f"expected the SPA and embed policies of both server blocks: {spa}"
+        loose = [p for p in spa if "script-src 'self';" not in p]
+        assert not loose, (
+            "the SPA / embed CSP must keep `script-src 'self'` exact — no inline, no eval, "
+            f"no CDN: {loose}"
+        )
+
+    def test_no_scriptable_directive_is_open_to_the_world(self):
+        policies = _CSP_RE.findall(_entrypoint())
+        offenders = []
+        for policy in policies:
+            for directive in policy.split(";"):
+                name, _, sources = directive.strip().partition(" ")
+                if name not in {"script-src", "connect-src", "frame-src", "object-src", "base-uri"}:
+                    continue
+                tokens = sources.split()
+                if "*" in tokens or any(t in {"https:", "http:", "data:", "blob:"} for t in tokens):
+                    offenders.append(directive.strip())
+        assert not offenders, (
+            f"wildcard or scheme-only source on a scriptable directive: {offenders}"
+        )
+
 
 class TestGeneratedConfigHasNoBackticks:
     def test_no_command_substitution_inside_the_config_heredoc(self):

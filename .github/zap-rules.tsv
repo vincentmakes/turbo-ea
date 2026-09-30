@@ -13,11 +13,30 @@
 # the mitigation written next to it.
 #
 # Seeded from the first dispatch run (2026-09-30, run 36746175997): 0 FAIL,
-# 7 WARN. Two of the seven were fixed at the source instead of listed here —
-# 10036 (Server header leaked the nginx version: `server_tokens off`) and
-# 10055 (the app and /api CSPs carried no `frame-ancestors`; they do now).
-# The five below are informational or not applicable to this deployment
-# shape; each is Low or Informational risk in ZAP's own rating.
+# 7 WARN. One of the seven was fixed at the source instead of listed here —
+# 10036 (Server header leaked the nginx version: `server_tokens off`). The
+# CSP rule (10055) had three findings; `frame-ancestors` was added to the app
+# and /api policies, and the two that remain are accepted below. The rest
+# are informational or not applicable to this deployment shape; each is Low
+# or Informational risk in ZAP's own rating.
+#
+# A rule id covers every sub-alert of that plugin: zap-baseline's rules file
+# keys on the plugin id, not on the alert reference (10055-4, 10055-6), so an
+# IGNORE here is broad by construction. Where that matters — the CSP — the
+# policy is pinned statically in backend/tests/services/test_nginx_headers.py
+# so the accepted findings cannot widen into a script-src regression.
+
+# CSP: Wildcard Directive (10055-4) and style-src unsafe-inline (10055-6).
+# Medium in ZAP's rating, both deliberate. `img-src` allows `https:` because
+# the Extension Store renders logos from the catalogue's own host and an
+# extension page may show images from its vendor — an image cannot run
+# script, and every scriptable directive stays 'self'. `style-src
+# 'unsafe-inline'` is what MUI's Emotion runtime needs to inject its
+# stylesheets; there is no 'unsafe-inline' on script-src anywhere. Both
+# sub-alerts fire on every SPA page, so the plugin has to be listed; the
+# static test keeps `script-src 'self'` exact on the app and embed policies.
+# Reviewed 2026-09-30; revisit if Emotion nonces are adopted.
+10055	IGNORE	img-src https: is deliberate (store logos, extension pages); style-src unsafe-inline is Emotion; script-src pinned by test_nginx_headers.py
 
 # Non-Storable Content. Informational. The API answers with
 # Cache-Control: no-store on purpose — session-bound JSON must never land in a

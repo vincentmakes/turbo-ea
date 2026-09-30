@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **The weekly dynamic scan records its verdict.** The ZAP exit code was lost to the shell's exit-on-error mode, which skipped the signed-in pass and reported both passes as missing. The one remaining CSP finding is accepted with its reasons (`img-src https:` for Extension Store logos, `style-src 'unsafe-inline'` for MUI), and the policy's script directives are now pinned by a test so that acceptance cannot hide a real regression.
 - **Dependabot keeps the Python base image on its 3.12 line.** A Python "minor" (3.12 → 3.14) is a new interpreter, and CI tests on 3.12, so it is a migration to decide on rather than a weekly bump; patch releases still come through, as they do for nginx.
 
 ## [2.154.1] - 2026-09-30
