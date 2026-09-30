@@ -24,6 +24,20 @@ _DOCKERFILE = _ROOT / "Dockerfile"
 _FRONTEND_NGINX = _ROOT / "frontend" / "nginx.conf"
 _ENTRYPOINT_OPEN = "RUN cat <<'EOF' > /usr/local/bin/turboea-nginx-entrypoint"
 _CSP_RE = re.compile(r'add_header Content-Security-Policy \\"([^"]*)\\" always;')
+# The SPA and the embed page are the two policies that load the Google Fonts
+# stylesheets; this exact source list is what identifies them.
+_SPA_STYLE_SRC = ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"]
+_SCHEME_ONLY = {"https:", "http:", "data:", "blob:"}
+
+
+def _directives(policy: str) -> dict[str, list[str]]:
+    """Parse a CSP header value into {directive: [source tokens]}."""
+    out: dict[str, list[str]] = {}
+    for directive in policy.split(";"):
+        name, _, sources = directive.strip().partition(" ")
+        if name:
+            out[name] = sources.split()
+    return out
 
 
 def _entrypoint() -> str:
@@ -69,28 +83,28 @@ class TestContentSecurityPolicy:
     # sub-alert without accepting the plugin. These two tests are what keep
     # that IGNORE from hiding a real regression: the SPA and the embed page
     # run the app bundle alone, and no policy may open a scriptable directive
-    # to the world.
+    # to the world. Policies are compared as parsed directives, never as
+    # substrings of the header string.
     def test_spa_and_embed_policies_run_only_the_bundle(self):
-        policies = _CSP_RE.findall(_entrypoint())
-        spa = [p for p in policies if "fonts.googleapis.com" in p]
+        spa = [
+            d
+            for d in map(_directives, _CSP_RE.findall(_entrypoint()))
+            if d.get("style-src") == _SPA_STYLE_SRC
+        ]
         assert len(spa) >= 4, f"expected the SPA and embed policies of both server blocks: {spa}"
-        loose = [p for p in spa if "script-src 'self';" not in p]
+        loose = [d for d in spa if d.get("script-src") != ["'self'"]]
         assert not loose, (
             "the SPA / embed CSP must keep `script-src 'self'` exact — no inline, no eval, "
             f"no CDN: {loose}"
         )
 
     def test_no_scriptable_directive_is_open_to_the_world(self):
-        policies = _CSP_RE.findall(_entrypoint())
         offenders = []
-        for policy in policies:
-            for directive in policy.split(";"):
-                name, _, sources = directive.strip().partition(" ")
-                if name not in {"script-src", "connect-src", "frame-src", "object-src", "base-uri"}:
-                    continue
-                tokens = sources.split()
-                if "*" in tokens or any(t in {"https:", "http:", "data:", "blob:"} for t in tokens):
-                    offenders.append(directive.strip())
+        for directives in map(_directives, _CSP_RE.findall(_entrypoint())):
+            for name in ("script-src", "connect-src", "frame-src", "object-src", "base-uri"):
+                tokens = directives.get(name, [])
+                if "*" in tokens or any(t in _SCHEME_ONLY for t in tokens):
+                    offenders.append((name, tokens))
         assert not offenders, (
             f"wildcard or scheme-only source on a scriptable directive: {offenders}"
         )
