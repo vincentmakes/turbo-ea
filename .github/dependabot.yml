@@ -69,6 +69,12 @@ updates:
       # a line change is a deliberate edit.
       - dependency-name: "nginx"
         update-types: ["version-update:semver-minor"]
+      # Python's "minor" IS its runtime generation: 3.12 → 3.14 is a semver
+      # minor to Dependabot but a new interpreter to us, and CI tests on the
+      # 3.12 line (`python-version: "3.12"` in ci.yml), so the image and the
+      # tests must move together, by hand. Patches (3.12.x) still flow.
+      - dependency-name: "python"
+        update-types: ["version-update:semver-minor"]
     groups:
       # One PR for all base images rather than one per FROM line.
       docker-bases:

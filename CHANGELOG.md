@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.154.2] - 2026-09-30
+
+### Fixed
+
+- **Dependabot keeps the Python base image on its 3.12 line.** A Python "minor" (3.12 → 3.14) is a new interpreter, and CI tests on 3.12, so it is a migration to decide on rather than a weekly bump; patch releases still come through, as they do for nginx.
+
 ## [2.154.1] - 2026-09-30
 
 ### Security
