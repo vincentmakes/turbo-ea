@@ -12,5 +12,39 @@
 # change. Never IGNORE a High-risk alert; downgrade it to WARN at most, with
 # the mitigation written next to it.
 #
-# The file is deliberately empty on 2026-09-30: the first `workflow_dispatch`
-# run of dast-scan.yml is the triage pass that populates it.
+# Seeded from the first dispatch run (2026-09-30, run 36746175997): 0 FAIL,
+# 7 WARN. Two of the seven were fixed at the source instead of listed here —
+# 10036 (Server header leaked the nginx version: `server_tokens off`) and
+# 10055 (the app and /api CSPs carried no `frame-ancestors`; they do now).
+# The five below are informational or not applicable to this deployment
+# shape; each is Low or Informational risk in ZAP's own rating.
+
+# Non-Storable Content. Informational. The API answers with
+# Cache-Control: no-store on purpose — session-bound JSON must never land in a
+# shared cache — and ZAP reports exactly that. Reviewed 2026-09-30.
+10049	IGNORE	API responses are deliberately no-store; informational
+
+# Timestamp Disclosure - Unix. Low. The one hit is a 10-digit integer constant
+# inside the minified SPA bundle (a library's epoch constant), not a leaked
+# server time. Reviewed 2026-09-30; re-check if the hit moves to an API route.
+10096	IGNORE	integer constant in the minified bundle, not a server timestamp
+
+# Modern Web Application. Informational. States that the site is a
+# JavaScript application and the classic spider will see little; it is, and
+# that is why the AJAX spider runs. Reviewed 2026-09-30.
+10109	IGNORE	informational: it is an SPA, the AJAX spider is on
+
+# Sub Resource Integrity Attribute Missing. Medium in ZAP's rating, not
+# actionable here: the only cross-origin <link> tags are the Google Fonts
+# stylesheets (Material Symbols, Inter), whose CSS is generated per user
+# agent, so no integrity hash can be pinned. font-src / style-src in the CSP
+# restrict those origins to fonts.googleapis.com and fonts.gstatic.com.
+# Reviewed 2026-09-30; drops out if the fonts are ever self-hosted.
+90003	IGNORE	Google Fonts stylesheets cannot carry an SRI hash; origins are CSP-pinned
+
+# Cross-Origin-Embedder-Policy Header Missing. Low. COEP require-corp would
+# refuse every cross-origin subresource that lacks CORP headers (the fonts
+# above, the DrawIO assets) and pairs with COOP, which `location /` must
+# never carry: the SSO popup relays its result to window.opener (#1126).
+# Reviewed 2026-09-30.
+90004	IGNORE	COEP would break fonts and the SSO popup relay; COOP is off by design

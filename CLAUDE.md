@@ -1908,7 +1908,9 @@ This section covers the **runtime** security model of a deployed Turbo EA instan
 - Backend only exposed via internal Docker network (not to host)
 
 ### Nginx Security Headers
-- Content-Security-Policy (strict, self-only with font/DrawIO exceptions)
+- Content-Security-Policy (strict, self-only with font/DrawIO exceptions; every policy names `frame-ancestors` — `'self'` on the app and `/api`, the operator's embed allowlist on the three embed paths — because CSP supersedes `X-Frame-Options` in current browsers and ZAP flags a policy without it)
+- `server_tokens off` in every server block (edge and frontend), so the `Server` header carries no nginx version
+- The generated edge config is written through an **unquoted** heredoc so `${NGINX_*}` expands — a backtick anywhere in it, a comment included, is a command substitution at container start (`add_header: not found` in the boot log). `tests/services/test_nginx_headers.py` pins all three of these; the weekly DAST is what found them.
 - X-Frame-Options: SAMEORIGIN
 - X-Content-Type-Options: nosniff
 - Strict-Transport-Security: max-age=31536000

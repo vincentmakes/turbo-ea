@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.154.1] - 2026-09-30
+
+### Security
+
+- **The `Server` header no longer reveals the nginx version**, on the edge and on the frontend server.
+- **Every Content-Security-Policy now names `frame-ancestors`.** The app and API policies say `'self'`, matching the existing frame protection; the embed paths keep the operator's allowlist.
+
+### Fixed
+
+- **The weekly dynamic scan can go green.** It now runs ZAP from its container directly: both passes always run, the reports are uploaded as artifacts and shown in the run summary, and one verdict step fails the job on an unaccepted alert. The scan can also be dispatched against the `main` tag to check a fix before it is released. The five alerts the first run raised by design are accepted in the rules file with their reasons.
+- **The edge nginx no longer executes words from its own comments at start-up.** Backticks inside the generated configuration ran as commands and printed `add_header: not found` in the boot log.
+- **Dependabot opens its pull requests again.** The configuration named labels the repository does not have, and Dependabot refuses a PR whose label is missing. Base-image bumps are also limited to minor and patch versions; a new major of Python, Node or nginx is a migration to decide on, not a weekly bump.
+
 ## [2.154.0] - 2026-09-30
 
 ### Security

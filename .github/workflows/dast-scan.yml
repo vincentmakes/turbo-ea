@@ -1,22 +1,27 @@
 # Weekly dynamic scan (DAST) of the PUBLISHED stack.
 #
 # Everything else in the pipeline looks at code and image contents. This is
-# the one job that boots Turbo EA as an operator would — the signed `:latest`
-# images, docker-compose.yml unchanged, demo data seeded — and probes the
-# running instance with OWASP ZAP's baseline scan: spider + AJAX spider for
-# the SPA, passive rules only (headers, cookies, CSP, information leaks).
-# Passive means read-only: nothing is fuzzed, nothing is mutated, and the
-# demo administrator can never be locked out by it.
+# the one job that boots Turbo EA as an operator would — the signed images,
+# docker-compose.yml unchanged, demo data seeded — and probes the running
+# instance with OWASP ZAP's baseline scan: spider + AJAX spider for the SPA,
+# passive rules only (headers, cookies, CSP, information leaks). Passive
+# means read-only: nothing is fuzzed, nothing is mutated, and the demo
+# administrator can never be locked out by it.
 #
 # Two passes, same target: anonymous, and signed in as the seeded demo admin
 # so the authenticated API and every app page are in scope too. The sign-in
 # is the app's own httpOnly cookie, injected by ZAP's replacer on every
 # request — the same thing a browser would send.
 #
-# Accepted alerts live in .github/zap-rules.tsv with a written rationale
-# (the trivy-allowlist discipline); anything not listed fails the run.
-# Active scanning and third-party penetration testing stay out of scope —
-# see .github/SECURITY_PIPELINE.md.
+# ZAP is run straight from its container rather than through
+# zaproxy/action-baseline: the action still uploads its reports through the
+# retired v1 artifacts API (every run ends in "artifact name is not valid",
+# even a clean one), it drops the rules file unless it holds an IGNORE line,
+# and it hides the exit code this job needs to run BOTH passes before
+# deciding. Accepted alerts live in .github/zap-rules.tsv with a written
+# rationale (the trivy-allowlist discipline); anything not listed fails the
+# run. Active scanning and third-party penetration testing stay out of
+# scope — see .github/SECURITY_PIPELINE.md.
 name: DAST
 
 on:
@@ -25,6 +30,14 @@ on:
     # so the scan sees the freshest :latest.
     - cron: "0 6 * * 2"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          Image tag to boot (TURBO_EA_TAG). `latest` is what operators run;
+          `main` is what the last merge published, so a header fix can be
+          checked before it is released.
+        type: string
+        default: latest
 
 permissions:
   contents: read
@@ -32,6 +45,10 @@ permissions:
 concurrency:
   group: dast
   cancel-in-progress: false
+
+env:
+  TARGET: http://localhost:8920
+  ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:stable
 
 jobs:
   zap-baseline:
@@ -42,6 +59,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Boot the published stack with demo data
+        env:
+          TAG: ${{ inputs.tag || 'latest' }}
         run: |
           set -euo pipefail
           # Production posture on purpose: a strong random SECRET_KEY, the
@@ -53,8 +72,9 @@ jobs:
             echo "ENVIRONMENT=production"
             echo "SEED_DEMO=true"
             echo "HOST_PORT=8920"
-            echo "TURBO_EA_TAG=latest"
+            echo "TURBO_EA_TAG=${TAG}"
           } > .env
+          echo "Scanning images tagged :${TAG}" >> "$GITHUB_STEP_SUMMARY"
           # nginx bind-mounts ./certs read-only; the mount fails if the
           # directory is absent (same as .devcontainer/setup-demo.sh).
           mkdir -p certs
@@ -62,7 +82,7 @@ jobs:
           docker compose up -d
           # Seeding the demo dataset takes a few minutes on a cold runner.
           for i in $(seq 1 240); do
-            if curl -fsS http://localhost:8920/api/health >/dev/null 2>&1; then
+            if curl -fsS "${TARGET}/api/health" >/dev/null 2>&1; then
               echo "stack is up after $((i * 2))s"
               break
             fi
@@ -83,7 +103,7 @@ jobs:
           # One login: the endpoint allows 10/min and locks after 5 failures.
           cookie=$(
             curl -fsS -o /dev/null -c - \
-              -X POST http://localhost:8920/api/v1/auth/login \
+              -X POST "${TARGET}/api/v1/auth/login" \
               -H 'Content-Type: application/json' \
               -d '{"email":"admin@turboea.demo","password":"TurboEA!2025"}' \
             | awk '$6 == "access_token" { print $7 }'
@@ -92,41 +112,94 @@ jobs:
           echo "::add-mask::$cookie"
           echo "cookie=$cookie" >> "$GITHUB_OUTPUT"
 
-      # `-j` adds the modern (browser-driven) spider — the app is a React
-      # SPA and the classic spider alone sees index.html — and `-m` caps
-      # spidering at 10 minutes. The action runs ZAP with --network=host,
-      # which is why `localhost` reaches the compose stack. Values inside
-      # `-z` must not contain spaces: zap-baseline.py splits them on " ".
+      # ZAP runs as its own unprivileged user inside the container and writes
+      # the reports (and its automation plan) into /zap/wrk, so it gets a
+      # world-writable scratch directory rather than the checkout. The rules
+      # file is copied in because `-c` resolves relative to /zap/wrk.
+      - name: Prepare the ZAP work directory
+        run: |
+          set -euo pipefail
+          mkdir -p zap-work
+          cp .github/zap-rules.tsv zap-work/zap-rules.tsv
+          chmod 777 zap-work
+          docker pull --quiet "$ZAP_IMAGE"
+
+      # `-j` adds the browser-driven spider — the app is a React SPA and the
+      # classic spider alone sees index.html — and `-m` caps spidering at
+      # 10 minutes. --network=host is why `localhost` reaches the compose
+      # stack. Exit codes: 0 clean, 1 FAIL, 2 WARN, 3 the scan itself broke.
+      # Both passes always run so one dispatch yields both reports; the
+      # verdict is taken in the last step.
       - name: ZAP baseline (anonymous)
-        uses: zaproxy/action-baseline@a418de766254e096fa7d9e30f8dc9662b58df224 # v0.9.0
-        with:
-          target: http://localhost:8920
-          rules_file_name: .github/zap-rules.tsv
-          cmd_options: "-j -m 10"
-          fail_action: true
-          allow_issue_writing: false
-          artifact_name: zap-anonymous
+        id: zap_anon
+        run: |
+          set -uo pipefail
+          docker run --rm --network=host -v "$PWD/zap-work:/zap/wrk:rw" "$ZAP_IMAGE" \
+            zap-baseline.py -t "$TARGET" -c zap-rules.tsv -j -m 10 \
+              -J anonymous.json -w anonymous.md -r anonymous.html
+          rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          echo "anonymous pass exit code: $rc"
 
       # Same scan, signed in: ZAP's replacer stamps the admin's session
       # cookie onto every request it proxies (the AJAX spider's browser
       # included), which is exactly what the app expects — the token is an
-      # httpOnly cookie, never a header the SPA could set itself.
+      # httpOnly cookie, never a header the SPA could set itself. Values
+      # inside -z must not contain spaces: zap-baseline.py splits them on " ".
       - name: ZAP baseline (signed in as admin)
-        uses: zaproxy/action-baseline@a418de766254e096fa7d9e30f8dc9662b58df224 # v0.9.0
+        id: zap_auth
+        env:
+          COOKIE: ${{ steps.login.outputs.cookie }}
+        run: |
+          set -uo pipefail
+          docker run --rm --network=host -v "$PWD/zap-work:/zap/wrk:rw" "$ZAP_IMAGE" \
+            zap-baseline.py -t "$TARGET" -c zap-rules.tsv -j -m 10 \
+              -J signed-in.json -w signed-in.md -r signed-in.html \
+              -z "-config replacer.full_list(0).description=session -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=Cookie -config replacer.full_list(0).regex=false -config replacer.full_list(0).replacement=access_token=${COOKIE}"
+          rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          echo "signed-in pass exit code: $rc"
+
+      - name: Upload the anonymous-pass reports
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
-          target: http://localhost:8920
-          rules_file_name: .github/zap-rules.tsv
-          cmd_options: >-
-            -j -m 10
-            -z "-config replacer.full_list(0).description=session
-            -config replacer.full_list(0).enabled=true
-            -config replacer.full_list(0).matchtype=REQ_HEADER
-            -config replacer.full_list(0).matchstr=Cookie
-            -config replacer.full_list(0).regex=false
-            -config replacer.full_list(0).replacement=access_token=${{ steps.login.outputs.cookie }}"
-          fail_action: true
-          allow_issue_writing: false
-          artifact_name: zap-signed-in
+          name: zap-anonymous
+          path: zap-work/anonymous.*
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload the signed-in-pass reports
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: zap-signed-in
+          path: zap-work/signed-in.*
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Verdict
+        if: always()
+        env:
+          RC_ANON: ${{ steps.zap_anon.outputs.rc }}
+          RC_AUTH: ${{ steps.zap_auth.outputs.rc }}
+        run: |
+          set -euo pipefail
+          for pass in anonymous signed-in; do
+            if [ -f "zap-work/${pass}.md" ]; then
+              {
+                echo "## ZAP baseline — ${pass}"
+                echo
+                cat "zap-work/${pass}.md"
+                echo
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          echo "anonymous=${RC_ANON:-missing} signed-in=${RC_AUTH:-missing}"
+          if [ "${RC_ANON:-3}" != "0" ] || [ "${RC_AUTH:-3}" != "0" ]; then
+            echo "::error::ZAP reported alerts not accepted in .github/zap-rules.tsv (anonymous=${RC_ANON:-missing}, signed-in=${RC_AUTH:-missing}); read the report artifacts"
+            exit 1
+          fi
 
       - name: Stack logs on failure
         if: failure()

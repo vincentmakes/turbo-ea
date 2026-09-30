@@ -9,6 +9,9 @@
 #   - GitHub Actions: monthly version updates kept enabled. Pinning actions
 #     to current versions is a supply-chain security best practice.
 
+# Labels: every label named below must already exist in the repository, or
+# Dependabot refuses to open the PR ("The following labels could not be
+# found"). Only `dependencies`, `security` and `frontend` exist today.
 version: 2
 updates:
   # Python (pip) — security updates only
@@ -22,7 +25,6 @@ updates:
     labels:
       - "dependencies"
       - "security"
-      - "backend"
     open-pull-requests-limit: 0
 
   # npm — security updates only
@@ -55,6 +57,13 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # A new MAJOR of a base (python 3.12 → 3.14, node 24 → 26) is a migration
+    # decided by a person, not a weekly bump: the first grouped PR proposed
+    # exactly that for three bases at once. Minor and patch tags — the
+    # NGINX-Rift class of fix — still come through every week.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       # One PR for all base images rather than one per FROM line.
       docker-bases:
@@ -65,7 +74,6 @@ updates:
     labels:
       - "dependencies"
       - "security"
-      - "docker"
     open-pull-requests-limit: 5
 
   # GitHub Actions — keep CI actions up to date (supply-chain security)
@@ -82,5 +90,4 @@ updates:
       prefix: "chore(ci)"
     labels:
       - "dependencies"
-      - "ci"
     open-pull-requests-limit: 3

@@ -292,6 +292,7 @@ case "$tls_enabled" in
     listen ${http_port};
 ${nginx_http_ipv6_line}
     server_name ${NGINX_SERVER_NAME};
+    server_tokens off;
     return 301 https://\$host:${NGINX_TLS_HOST_PORT}\$request_uri;
 }"
         export NGINX_HTTPS_SERVER_BLOCK="server {
@@ -299,6 +300,7 @@ ${nginx_http_ipv6_line}
 ${nginx_https_ipv6_line}
     http2 on;
     server_name ${NGINX_SERVER_NAME};
+    server_tokens off;
     # Attachments are capped at 20 MB by the backend
     # (services/attachment_validation.py); the extra megabyte lets a slightly
     # oversized upload reach it, so the user gets its readable 400 instead of
@@ -378,7 +380,7 @@ ${nginx_https_ipv6_line}
         add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
         add_header X-XSS-Protection \"1; mode=block\" always;
         add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
-        add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'\" always;
+        add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'\" always;
     }
 
     # OAuth 2.1 discovery (RFC 9728 / RFC 8414). Standard MCP clients fetch these
@@ -439,12 +441,12 @@ ${nginx_https_ipv6_line}
 
     # ---- Published-diagram embedding -------------------------------------
     # These three paths are the ONLY ones that may be framed by another site.
-    # `add_header` in a location replaces the inherited set, so each re-declares
+    # add_header in a location replaces the inherited set, so each re-declares
     # the full header block minus X-Frame-Options (which has no allowlist form)
     # and carries frame-ancestors instead.
-    # Never add Cross-Origin-Opener-Policy to `location /`: an SSO-gated
+    # Never add Cross-Origin-Opener-Policy to 'location /': an SSO-gated
     # embedded diagram signs in through a popup whose /auth/callback page
-    # relays the result to `window.opener`, and COOP would sever that link
+    # relays the result to window.opener, and COOP would sever that link
     # (#1126).
 
     # The public embed page itself.
@@ -518,7 +520,7 @@ ${nginx_https_ipv6_line}
         add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
         add_header X-XSS-Protection \"1; mode=block\" always;
         add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
-        add_header Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'\" always;
+        add_header Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'\" always;
     }
 }"
         ;;
@@ -527,6 +529,7 @@ ${nginx_https_ipv6_line}
     listen ${http_port};
 ${nginx_http_ipv6_line}
     server_name ${NGINX_SERVER_NAME};
+    server_tokens off;
     # Attachments are capped at 20 MB by the backend
     # (services/attachment_validation.py); the extra megabyte lets a slightly
     # oversized upload reach it, so the user gets its readable 400 instead of
@@ -601,7 +604,7 @@ ${nginx_http_ipv6_line}
         add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
         add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
         add_header X-XSS-Protection \"1; mode=block\" always;
-        add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'\" always;
+        add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'\" always;
     }
 
     # OAuth 2.1 discovery (RFC 9728 / RFC 8414). Standard MCP clients fetch these
@@ -662,12 +665,12 @@ ${nginx_http_ipv6_line}
 
     # ---- Published-diagram embedding -------------------------------------
     # These three paths are the ONLY ones that may be framed by another site.
-    # `add_header` in a location replaces the inherited set, so each re-declares
+    # add_header in a location replaces the inherited set, so each re-declares
     # the full header block minus X-Frame-Options (which has no allowlist form)
     # and carries frame-ancestors instead.
-    # Never add Cross-Origin-Opener-Policy to `location /`: an SSO-gated
+    # Never add Cross-Origin-Opener-Policy to 'location /': an SSO-gated
     # embedded diagram signs in through a popup whose /auth/callback page
-    # relays the result to `window.opener`, and COOP would sever that link
+    # relays the result to window.opener, and COOP would sever that link
     # (#1126).
 
     # The public embed page itself.
@@ -739,7 +742,7 @@ ${nginx_http_ipv6_line}
         add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
         add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
         add_header X-XSS-Protection \"1; mode=block\" always;
-        add_header Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'\" always;
+        add_header Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'\" always;
     }
 }"
         export NGINX_HTTPS_SERVER_BLOCK=''
