@@ -2,7 +2,10 @@
 #
 # Format: one rule per line, TAB-separated —
 #   <ZAP plugin id>	<IGNORE|WARN|FAIL>	<free text: why, reviewer, date>
+#   <ZAP plugin id>	OUTOFSCOPE	<URL regex the rule must not be applied to>
 # Lines starting with `#` are comments. Plugin ids: https://www.zaproxy.org/docs/alerts/
+# OUTOFSCOPE is the narrow form: the rule stays live everywhere but the
+# matching URLs, so a finding in our own code still fails the scan.
 #
 # The scan fails on any alert not listed here (fail_action: true), so this
 # file is the DAST counterpart of .github/trivy-allowlist: every entry names
@@ -67,3 +70,20 @@
 # never carry: the SSO popup relays its result to window.opener (#1126).
 # Reviewed 2026-09-30.
 90004	IGNORE	COEP would break fonts and the SSO popup relay; COOP is off by design
+
+# jgraph/drawio v31.4.1 is vendored into the frontend image and served under
+# /drawio/. Five content rules fire on its own files — the minified bundles
+# (app.min.js, main.js, extensions.min.js), the AsciiMath library and the
+# dia.txt translation strings — none of which Turbo EA authors or can change
+# short of forking DrawIO. OUTOFSCOPE keeps each rule live for the app's own
+# bundle and skips only that path; a global IGNORE would hide the same
+# finding in code that is ours. The two header alerts the same crawl raised
+# on /drawio/ (10021, 10063) were fixed in the edge nginx config instead and
+# are pinned by test_nginx_headers.py. The crawl is not deterministic: the
+# first three runs never reached the editor, so this section was added on
+# the fourth (2026-09-30, run 36770264921). Revisit on a DrawIO bump.
+10023	OUTOFSCOPE	^https?://[^/]+/drawio/.*
+10027	OUTOFSCOPE	^https?://[^/]+/drawio/.*
+10099	OUTOFSCOPE	^https?://[^/]+/drawio/.*
+10110	OUTOFSCOPE	^https?://[^/]+/drawio/.*
+2	OUTOFSCOPE	^https?://[^/]+/drawio/.*

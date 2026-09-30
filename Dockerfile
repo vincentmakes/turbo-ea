@@ -473,6 +473,7 @@ ${nginx_https_ipv6_line}
         proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
         add_header X-Content-Type-Options \"nosniff\" always;
         add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
         add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
         add_header Content-Security-Policy \"frame-ancestors ${NGINX_EMBED_FRAME_ANCESTORS}\" always;
     }
@@ -487,6 +488,8 @@ ${nginx_https_ipv6_line}
         add_header X-Robots-Tag \"noindex, nofollow\" always;
         add_header Cache-Control \"no-store, no-transform\" always;
         add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
         add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
         add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors ${NGINX_EMBED_FRAME_ANCESTORS}\" always;
     }
@@ -498,15 +501,26 @@ ${nginx_https_ipv6_line}
         add_header Cache-Control \"no-store, no-transform\" always;
         add_header X-Frame-Options \"SAMEORIGIN\" always;
         add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
         add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
         add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'\" always;
     }
 
+    # add_header in a location replaces the inherited set, so this block
+    # re-declares the response-level security headers; without them every
+    # DrawIO script, stylesheet and image left the edge with none (ZAP 10021
+    # and 10063 in the 2026-09-30 DAST run). X-Frame-Options and the CSP are
+    # page-level and live on /drawio/index.html above.
     location ^~ /drawio/ {
         proxy_pass \$frontend_upstream\$request_uri;
         proxy_set_header Host \$host;
         add_header X-Robots-Tag \"noindex, nofollow\" always;
         add_header Cache-Control \"no-cache, no-transform\" always;
+        add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
+        add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
     }
 
     location / {
@@ -697,6 +711,7 @@ ${nginx_http_ipv6_line}
         proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
         add_header X-Content-Type-Options \"nosniff\" always;
         add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
         add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
         add_header Content-Security-Policy \"frame-ancestors ${NGINX_EMBED_FRAME_ANCESTORS}\" always;
     }
@@ -711,6 +726,8 @@ ${nginx_http_ipv6_line}
         add_header X-Robots-Tag \"noindex, nofollow\" always;
         add_header Cache-Control \"no-store, no-transform\" always;
         add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
         add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
         add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors ${NGINX_EMBED_FRAME_ANCESTORS}\" always;
     }
@@ -722,14 +739,24 @@ ${nginx_http_ipv6_line}
         add_header Cache-Control \"no-store, no-transform\" always;
         add_header X-Frame-Options \"SAMEORIGIN\" always;
         add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
         add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'\" always;
     }
 
+    # add_header in a location replaces the inherited set, so this block
+    # re-declares the response-level security headers; without them every
+    # DrawIO script, stylesheet and image left the edge with none (ZAP 10021
+    # and 10063 in the 2026-09-30 DAST run). X-Frame-Options and the CSP are
+    # page-level and live on /drawio/index.html above.
     location ^~ /drawio/ {
         proxy_pass \$frontend_upstream\$request_uri;
         proxy_set_header Host \$host;
         add_header X-Robots-Tag \"noindex, nofollow\" always;
         add_header Cache-Control \"no-cache, no-transform\" always;
+        add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
     }
 
     location / {

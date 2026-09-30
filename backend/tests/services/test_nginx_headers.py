@@ -19,6 +19,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 _ROOT = Path(__file__).resolve().parents[3]
 _DOCKERFILE = _ROOT / "Dockerfile"
 _FRONTEND_NGINX = _ROOT / "frontend" / "nginx.conf"
@@ -28,6 +30,11 @@ _CSP_RE = re.compile(r'add_header Content-Security-Policy \\"([^"]*)\\" always;'
 # stylesheets; this exact source list is what identifies them.
 _SPA_STYLE_SRC = ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"]
 _SCHEME_ONLY = {"https:", "http:", "data:", "blob:"}
+# A `location { ... }` block of the generated config; blocks never nest there.
+_LOCATION_RE = re.compile(r"^(    location [^\n]*\{)\n(.*?)^    \}", re.M | re.S)
+# The response-level headers every location that speaks add_header must repeat.
+# X-Frame-Options and the CSP are page-level and belong to HTML responses only.
+_RESPONSE_HEADERS = ("X-Content-Type-Options", "Referrer-Policy", "Permissions-Policy")
 
 
 def _directives(policy: str) -> dict[str, list[str]]:
@@ -123,3 +130,35 @@ class TestGeneratedConfigHasNoBackticks:
             if in_block and line.strip() == '}"':
                 in_block = False
         assert not inside, f"backticks inside the generated nginx config run as commands: {inside}"
+
+
+class TestEveryLocationKeepsTheSecurityHeaders:
+    """nginx's add_header in a location REPLACES the inherited set.
+
+    So a location that adds even one header of its own (a Cache-Control, an
+    X-Robots-Tag) silently drops every security header the server block
+    declared. `location ^~ /drawio/` did exactly that: it carried the two
+    caching headers and nothing else, and every DrawIO script, stylesheet and
+    image left the edge without X-Content-Type-Options or Permissions-Policy —
+    ZAP 10021 and 10063 in the 2026-09-30 DAST run (36770264921), the first
+    whose crawl reached the diagram editor. A location that adds no header at
+    all inherits the set and is fine.
+    """
+
+    @pytest.mark.parametrize("header", _RESPONSE_HEADERS)
+    def test_every_header_adding_location_redeclares(self, header: str):
+        script = _entrypoint()
+        offenders = [
+            opener.strip()
+            for opener, body in _LOCATION_RE.findall(script)
+            if "add_header" in body and header not in body
+        ]
+        assert not offenders, (
+            f"these locations add headers of their own and so lose the inherited {header}; "
+            f"re-declare it (add_header replaces the inherited set): {offenders}"
+        )
+
+    def test_the_scan_covers_the_drawio_locations(self):
+        openers = [opener for opener, _ in _LOCATION_RE.findall(_entrypoint())]
+        assert sum("/drawio/" in o for o in openers) >= 4, openers
+        assert sum("/drawio-embed/" in o for o in openers) >= 2, openers
