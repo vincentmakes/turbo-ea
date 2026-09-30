@@ -98,7 +98,7 @@ jobs:
       # which is why `localhost` reaches the compose stack. Values inside
       # `-z` must not contain spaces: zap-baseline.py splits them on " ".
       - name: ZAP baseline (anonymous)
-        uses: zaproxy/action-baseline@a418de766254e096fa7d9e30f8dc9662b58df224 # v0.9.0
+        uses: zaproxy/action-baseline@41aee98ebc7cf2802c3beae4e7d4336413a21e43 # v0.9.0
         with:
           target: http://localhost:8920
           rules_file_name: .github/zap-rules.tsv
@@ -112,7 +112,7 @@ jobs:
       # included), which is exactly what the app expects — the token is an
       # httpOnly cookie, never a header the SPA could set itself.
       - name: ZAP baseline (signed in as admin)
-        uses: zaproxy/action-baseline@a418de766254e096fa7d9e30f8dc9662b58df224 # v0.9.0
+        uses: zaproxy/action-baseline@41aee98ebc7cf2802c3beae4e7d4336413a21e43 # v0.9.0
         with:
           target: http://localhost:8920
           rules_file_name: .github/zap-rules.tsv
