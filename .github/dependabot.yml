@@ -64,6 +64,11 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # nginx numbers its stable line even (1.30.x) and mainline odd
+      # (1.31.x), so a "minor" bump moves off the stable line. Patches only;
+      # a line change is a deliberate edit.
+      - dependency-name: "nginx"
+        update-types: ["version-update:semver-minor"]
     groups:
       # One PR for all base images rather than one per FROM line.
       docker-bases:
