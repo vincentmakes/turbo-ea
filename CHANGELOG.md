@@ -5,12 +5,6 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.155.2] - 2026-09-30
-
-### Fixed
-
-- **The Code Scanning Retire workflow now drains a configuration in one run.** GitHub keeps one analysis set per commit a tool ran on, so the first version deleted a single analysis per run and reported the category retired while the rest stayed listed; it now deletes every set and re-lists until none is left. Both code-scanning workflows also count a second page of API results instead of printing it as a second table.
-
 ## [2.155.1] - 2026-09-30
 
 ### Added
