@@ -284,6 +284,7 @@
   "risks.tasks.history.collapse": "Skjul historik",
   "risks.export.sheetRisks": "Risici",
   "risks.export.sheetTasks": "Afbødningsopgaver",
+  "risks.export.documentTitle": "Risiko",
   "risks.import.title": "Importér risici",
   "risks.import.intro": "Upload en .xlsx-fil for at oprette risici i massevis. Hver række bliver til en ny risiko; rækker, hvis reference allerede matcher en eksisterende risiko, springes over. Ejere matches via e-mail og kort via præcist navn — alt, der ikke kan matches, springes over med en advarsel.",
   "risks.import.downloadTemplate": "Download skabelon",

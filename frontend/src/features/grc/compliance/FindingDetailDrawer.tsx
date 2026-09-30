@@ -30,6 +30,8 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import LinkifiedText from "@/components/LinkifiedText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
@@ -80,8 +82,11 @@ export default function FindingDetailDrawer({
   const { t } = useTranslation("admin");
   const { t: tCards } = useTranslation("cards");
   const { t: tRisks } = useTranslation("grc");
-  const { t: tCommon } = useTranslation("common");
+  // The PDF button reads like the SoAW's, so it borrows the SoAW labels.
+  const { t: tDelivery } = useTranslation("delivery");
   const { byKey: regulationsByKey } = useComplianceRegulations();
+  const theme = useTheme();
+  const compact = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [saving, setSaving] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -147,15 +152,22 @@ export default function FindingDetailDrawer({
               {finding.regulation_article || tCards("compliance.drawer.untitled")}
             </Typography>
             <Stack direction="row" spacing={0.5} alignItems="center">
-              <Tooltip title={tCommon("actions.exportPdf")}>
-                <IconButton
+              {compact ? (
+                <Tooltip title={tDelivery("editor.exportPdf")}>
+                  <IconButton onClick={() => printFinding(finding, regulationLabel(finding))}>
+                    <MaterialSymbol icon="picture_as_pdf" size={20} />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <Button
                   size="small"
-                  aria-label={tCommon("actions.exportPdf")}
+                  startIcon={<MaterialSymbol icon="picture_as_pdf" size={18} />}
+                  sx={{ textTransform: "none" }}
                   onClick={() => printFinding(finding, regulationLabel(finding))}
                 >
-                  <MaterialSymbol icon="picture_as_pdf" />
-                </IconButton>
-              </Tooltip>
+                  {tDelivery("editor.pdf")}
+                </Button>
+              )}
               <IconButton onClick={onClose} size="small" aria-label="Close">
                 <MaterialSymbol icon="close" />
               </IconButton>

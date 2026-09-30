@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildPrintHtml,
-  chipRow,
+  documentHeader,
   escapeHtml,
   htmlIsEmpty,
   metaTable,
   openPrintWindow,
   printDocument,
   section,
-  signatureGrid,
+  signatureBlock,
   tableHtml,
   textBlock,
   writePrintDocument,
@@ -47,29 +47,41 @@ describe("printDocument fragment builders", () => {
     expect(html).toContain("&lt;b&gt;x&lt;/b&gt;");
   });
 
-  it("section, textBlock and chipRow drop blank content", () => {
+  it("section and textBlock drop blank content", () => {
     expect(section("T", "")).toBe("");
     expect(section("T", "<p>x</p>")).toBe("<h2>T</h2><p>x</p>");
     expect(textBlock("  ")).toBe("");
     expect(textBlock("a\nb")).toBe('<p class="pre">a\nb</p>');
-    expect(chipRow([null, "", "Open"])).toContain('<span class="doc-chip">Open</span>');
-    expect(chipRow([null])).toBe("");
   });
 
-  it("signatureGrid renders one card per signatory with the right state", () => {
-    const html = signatureGrid(
-      [
-        { user_id: "1", display_name: "Ada", email: "ada@x", status: "signed", signed_at: "2026-06-01T10:00:00Z" },
-        { user_id: "2", display_name: "Bob", status: "pending", signed_at: null },
-      ],
-      { approved: "Approved", pending: "Pending", signed: (d) => `Signed: ${d}` },
-      (iso) => `@${iso}`,
+  it("documentHeader is the SoAW title block: centred type heading without rule, centred name", () => {
+    const html = documentHeader("Architecture Decision Record", "ADR-0001 — Adopt <bus>");
+    expect(html).toBe(
+      '<h1 style="text-align:center;border:none;">Architecture Decision Record</h1>' +
+        '<p style="text-align:center;font-size:14pt;color:#555;">ADR-0001 — Adopt &lt;bus&gt;</p>',
     );
-    expect(html).toContain('sig-card approved');
-    expect(html).toContain('sig-card pending');
-    expect(html).toContain("Signed: @2026-06-01T10:00:00Z");
-    expect(html).toContain("ada@x");
-    expect(signatureGrid([], { approved: "", pending: "", signed: () => "" }, (s) => s)).toBe("");
+  });
+
+  it("signatureBlock renders the SoAW block: heading, one card per signatory, badge only when all signed", () => {
+    const labels = {
+      title: "Signatures",
+      fullySigned: "Fully Signed",
+      approved: "Approved",
+      pending: "Pending",
+      signed: (d: string) => `Signed: ${d}`,
+    };
+    const ada = { user_id: "1", display_name: "Ada", email: "ada@x", status: "signed" as const, signed_at: "2026-06-01T10:00:00Z" };
+    const bob = { user_id: "2", display_name: "Bob", status: "pending" as const, signed_at: null };
+    const mixed = signatureBlock([ada, bob], labels, (iso) => `@${iso}`);
+    expect(mixed).toMatch(/^<div class="doc-signatures"><h2>Signatures<\/h2><div class="sig-grid">/);
+    expect(mixed).toContain("sig-card approved");
+    expect(mixed).toContain("sig-card pending");
+    expect(mixed).toContain("Signed: @2026-06-01T10:00:00Z");
+    expect(mixed).toContain("ada@x");
+    expect(mixed).not.toContain("fully-signed");
+    const all = signatureBlock([ada], labels, (iso) => iso);
+    expect(all).toContain('<h2>Signatures <span class="sig-badge fully-signed">Fully Signed</span></h2>');
+    expect(signatureBlock([], labels, (s) => s)).toBe("");
   });
 });
 

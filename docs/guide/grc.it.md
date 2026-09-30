@@ -100,7 +100,7 @@ Aprite un ADR firmato e cliccate su **Revisiona** per creare una nuova bozza bas
 
 Cliccate sull'icona di anteprima per visualizzare una versione in sola lettura e formattata dell'ADR — utile per la revisione prima della firma.
 
-Dall'anteprima, o dall'editor di una decisione salvata, fate clic su **PDF** per aprire una copia pronta per la stampa in una nuova scheda — metadati, le quattro sezioni, schede collegate, sezioni delle estensioni e blocco firme, con approvatore e data di stampa a piè di pagina — oppure su **Word** per scaricare quella singola decisione come `.docx`. L'editor esporta l'ultima versione salvata: salvate prima se avete modifiche non salvate.
+Dall'anteprima, fate clic su **PDF** per aprire una copia pronta per la stampa in una nuova scheda — metadati, le quattro sezioni, schede collegate, sezioni delle estensioni e blocco firme, con approvatore e data di stampa a piè di pagina. L'editor ha lo stesso pulsante **PDF** più **Word**, che scarica la decisione come `.docx` finché non è firmata; entrambi esportano lo stato corrente dell'editor, modifiche non salvate comprese.
 
 ## Rischio
 

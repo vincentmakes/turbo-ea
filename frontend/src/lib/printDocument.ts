@@ -44,32 +44,35 @@ export function htmlIsEmpty(html: string | null | undefined): boolean {
 export const DOCUMENT_PRINT_CSS = `
   @page { size: A4 portrait; margin: 18mm; }
   body.doc-print { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 40px auto; color: #222; line-height: 1.6; font-size: 11pt; }
-  .doc-print h1 { font-size: 22pt; color: #1a1a2e; border-bottom: 2px solid #1976d2; padding-bottom: 8px; margin-bottom: 8px; }
+  .doc-print h1 { font-size: 22pt; color: #1a1a2e; border-bottom: 2px solid #1976d2; padding-bottom: 8px; }
   .doc-print h2 { font-size: 16pt; color: #333; margin-top: 28px; }
   .doc-print h3 { font-size: 13pt; color: #444; margin-top: 20px; }
   .doc-print table { width: 100%; border-collapse: collapse; margin: 12px 0; }
   .doc-print th, .doc-print td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 10pt; vertical-align: top; }
   .doc-print th { background: #f5f5f5; font-weight: 600; }
-  .doc-print .meta-label { font-weight: 600; width: 160px; }
-  .doc-print .doc-caption { font-size: 10pt; color: #666; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 4px; }
-  .doc-print .doc-subtitle { font-size: 14pt; color: #555; margin: 0 0 12px; }
-  .doc-print .doc-chips { margin: 0 0 16px; }
-  .doc-print .doc-chip { display: inline-block; font-size: 9pt; padding: 1px 10px; border-radius: 3px; background: #eee; color: #333; margin-right: 6px; }
+  .doc-print .meta-label { font-weight: 600; width: 140px; }
   .doc-print .pre { white-space: pre-wrap; }
-  .doc-print .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .doc-print .sig-card { padding: 12px; border: 1px solid #ccc; border-radius: 4px; }
-  .doc-print .sig-card.approved { border-color: #66bb6a; background: #f1f8e9; }
-  .doc-print .sig-card.pending { border-color: #ccc; background: #fafafa; }
-  .doc-print .sig-card .sig-status { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-weight: 700; font-size: 10pt; }
-  .doc-print .sig-card .sig-status.approved { color: #2e7d32; }
-  .doc-print .sig-card .sig-status.pending { color: #ed6c02; }
-  .doc-print .sig-card .sig-name { font-weight: 600; font-size: 10pt; }
-  .doc-print .sig-card .sig-detail { font-size: 9pt; color: #666; }
+  .doc-signatures { margin-top: 36px; border-top: 2px solid #e0e0e0; padding-top: 16px; }
+  .doc-signatures h2 { display: flex; align-items: center; gap: 8px; }
+  .doc-signatures .sig-badge { display: inline-block; font-size: 9pt; padding: 2px 10px; border-radius: 3px; font-weight: 600; }
+  .doc-signatures .sig-badge.signed { background: #e8f5e9; color: #2e7d32; }
+  .doc-signatures .sig-badge.fully-signed { background: #2e7d32; color: #fff; }
+  .doc-signatures .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .doc-signatures .sig-card { padding: 12px; border: 1px solid #ccc; border-radius: 4px; }
+  .doc-signatures .sig-card.approved { border-color: #66bb6a; background: #f1f8e9; }
+  .doc-signatures .sig-card.pending { border-color: #ccc; background: #fafafa; }
+  .doc-signatures .sig-card .sig-status { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-weight: 700; font-size: 10pt; }
+  .doc-signatures .sig-card .sig-status.approved { color: #2e7d32; }
+  .doc-signatures .sig-card .sig-status.pending { color: #ed6c02; }
+  .doc-signatures .sig-card .sig-name { font-weight: 600; font-size: 10pt; }
+  .doc-signatures .sig-card .sig-detail { font-size: 9pt; color: #666; }
   .doc-print-footer { display: none; }
   @media print {
     body.doc-print { margin: 20px; }
     .no-print { display: none !important; }
-    .doc-print .sig-card.approved, .doc-print .doc-chip { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .doc-signatures .sig-grid { grid-template-columns: 1fr 1fr; }
+    .doc-signatures .sig-card.approved { border-color: #66bb6a; background: #f1f8e9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .doc-signatures .sig-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .doc-print-footer { display: block; position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 8pt; color: #888; border-top: 1px solid #ccc; padding-top: 4px; }
   }
 `;
@@ -134,6 +137,18 @@ export function printDocument(opts: PrintDocumentOptions): void {
 
 // ─── Fragment builders ──────────────────────────────────────────────────────
 
+/**
+ * The SoAW title block: a centred document-type heading without the rule,
+ * then the record's name as a centred 14pt subtitle. Every printed record
+ * opens this way so an ADR, a risk and a finding read like the SoAW.
+ */
+export function documentHeader(typeLabel: string, name: string): string {
+  return (
+    `<h1 style="text-align:center;border:none;">${escapeHtml(typeLabel)}</h1>` +
+    `<p style="text-align:center;font-size:14pt;color:#555;">${escapeHtml(name)}</p>`
+  );
+}
+
 /** Two-column label/value table; rows with an empty value are skipped. */
 export function metaTable(rows: [label: string, value: string | null | undefined][]): string {
   const kept = rows.filter(([, v]) => v != null && String(v).trim() !== "");
@@ -169,42 +184,45 @@ export function tableHtml(headers: string[], rows: string[][]): string {
   return `<table>${head}${body}</table>`;
 }
 
-/** Inline chips, e.g. status / severity / level badges under a title. */
-export function chipRow(labels: (string | null | undefined)[]): string {
-  const kept = labels.filter((l): l is string => !!l && l.trim() !== "");
-  if (kept.length === 0) return "";
-  return `<p class="doc-chips">${kept.map((l) => `<span class="doc-chip">${escapeHtml(l)}</span>`).join("")}</p>`;
-}
-
 export interface SignatureLabels {
+  /** Block heading, e.g. "Signatures". */
+  title: string;
+  /** Badge on the heading once every signatory has signed. */
+  fullySigned: string;
   approved: string;
   pending: string;
   /** "Signed: {date}" with the date already formatted. */
   signed: (date: string) => string;
 }
 
-/** The two-column signature card grid SoAW and ADR previews share. */
-export function signatureGrid(
+/**
+ * The SoAW signature block: a ruled-off section whose heading carries a
+ * "Fully signed" badge once everyone has signed, then the two-column card grid.
+ * Nothing when there are no signatories.
+ */
+export function signatureBlock(
   signatories: SoAWSignatory[],
   labels: SignatureLabels,
   formatDateTime: (iso: string) => string,
 ): string {
   if (signatories.length === 0) return "";
-  const cards = signatories
-    .map((sig) => {
-      const ok = sig.status === "signed";
-      let html = `<div class="sig-card ${ok ? "approved" : "pending"}">`;
-      html += `<div class="sig-status ${ok ? "approved" : "pending"}">${
-        ok ? `&#10003; ${escapeHtml(labels.approved)}` : `&#9711; ${escapeHtml(labels.pending)}`
-      }</div>`;
-      html += `<div class="sig-name">${escapeHtml(sig.display_name)}</div>`;
-      if (sig.email) html += `<div class="sig-detail">${escapeHtml(sig.email)}</div>`;
-      if (ok && sig.signed_at) {
-        html += `<div class="sig-detail">${escapeHtml(labels.signed(formatDateTime(sig.signed_at)))}</div>`;
-      }
-      html += `</div>`;
-      return html;
-    })
-    .join("");
-  return `<div class="sig-grid">${cards}</div>`;
+  const allSigned = signatories.every((s) => s.status === "signed");
+  let html = `<div class="doc-signatures"><h2>${escapeHtml(labels.title)}`;
+  if (allSigned) html += ` <span class="sig-badge fully-signed">${escapeHtml(labels.fullySigned)}</span>`;
+  html += `</h2><div class="sig-grid">`;
+  for (const sig of signatories) {
+    const ok = sig.status === "signed";
+    html += `<div class="sig-card ${ok ? "approved" : "pending"}">`;
+    html += `<div class="sig-status ${ok ? "approved" : "pending"}">${
+      ok ? `&#10003; ${escapeHtml(labels.approved)}` : `&#9711; ${escapeHtml(labels.pending)}`
+    }</div>`;
+    html += `<div class="sig-name">${escapeHtml(sig.display_name)}</div>`;
+    if (sig.email) html += `<div class="sig-detail">${escapeHtml(sig.email)}</div>`;
+    if (ok && sig.signed_at) {
+      html += `<div class="sig-detail">${escapeHtml(labels.signed(formatDateTime(sig.signed_at)))}</div>`;
+    }
+    html += `</div>`;
+  }
+  html += `</div></div>`;
+  return html;
 }

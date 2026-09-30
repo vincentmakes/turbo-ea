@@ -42,7 +42,7 @@ Jeder Befund muss entweder auf eine bestimmte Karte oder auf die gesamte Landsch
 
 Öffnen Sie einen Befund — aus dem Compliance-Raster oder aus dem **Compliance**-Reiter einer Karte — und klicken Sie im Drawer auf **Bearbeiten**, um nach der Erstellung dessen Compliance-**Status** (zum Beispiel Konform → Teilweise), Schweregrad, Anforderung, Lücke, Nachweis, Behebung, Artikel oder verknüpfte Karte zu ändern. Das Bearbeiten des Inhalts lässt die Lebenszyklus-Entscheidung des Befunds unberührt; verwenden Sie dafür die Lebenszyklus-Zeitleiste. Erfordert `compliance.manage`.
 
-Der Seitenbereich hat außerdem ein **PDF**-Symbol neben **Schließen**, das eine druckfertige einseitige Zusammenfassung des Befunds — Regulierung, Artikel, Karte oder landschaftsweiter Geltungsbereich, Schweregrad, Status, Anforderung, Lücke, Nachweis, Abhilfe und Prüfverlauf — in einem neuen Tab für *Als PDF speichern* im Browser öffnet.
+Der Seitenbereich hat außerdem eine **PDF**-Schaltfläche neben **Schließen**, die eine druckfertige einseitige Zusammenfassung des Befunds — Regulierung, Artikel, Karte oder landschaftsweiter Geltungsbereich, Schweregrad, Status, Anforderung, Lücke, Nachweis, Abhilfe und Prüfverlauf — in einem neuen Tab für *Als PDF speichern* im Browser öffnet.
 
 ## Einen KI-Scan ausführen
 

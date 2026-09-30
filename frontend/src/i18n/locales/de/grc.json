@@ -284,6 +284,7 @@
   "risks.tasks.history.collapse": "Verlauf einklappen",
   "risks.export.sheetRisks": "Risiken",
   "risks.export.sheetTasks": "Maßnahmen",
+  "risks.export.documentTitle": "Risiko",
   "risks.import.title": "Risiken importieren",
   "risks.import.intro": "Laden Sie eine .xlsx-Datei hoch, um Risiken in großer Menge anzulegen. Jede Zeile wird zu einem neuen Risiko; Zeilen, deren Referenz bereits zu einem vorhandenen Risiko passt, werden übersprungen. Eigentümer werden per E-Mail und Karten anhand des exakten Namens zugeordnet — alles, was nicht zugeordnet werden kann, wird mit einer Warnung übersprungen.",
   "risks.import.downloadTemplate": "Vorlage herunterladen",

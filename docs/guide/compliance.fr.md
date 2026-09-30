@@ -42,7 +42,7 @@ Chaque constat doit être rattaché soit à une fiche spécifique, soit à l'ens
 
 Ouvrez un constat — depuis la grille Conformité ou depuis l'onglet **Conformité** d'une fiche — et cliquez sur **Modifier** dans le tiroir pour changer, après sa création, son **statut** de conformité (par exemple Conforme → Partiel), sa sévérité, son exigence, son écart, sa preuve, sa remédiation, son article ou sa fiche liée. Modifier le contenu ne touche pas à la décision de cycle de vie du constat ; utilisez pour cela la chronologie du cycle de vie. Nécessite `compliance.manage`.
 
-Le panneau propose aussi une icône **PDF** à côté de **Fermer** qui ouvre un résumé d'une page prêt à imprimer du constat — réglementation, article, fiche ou portée à l'échelle du paysage, gravité, statut, exigence, écart, preuve, remédiation et historique de revue — dans un nouvel onglet pour *Enregistrer au format PDF* du navigateur.
+Le panneau propose aussi un bouton **PDF** à côté de **Fermer** qui ouvre un résumé d'une page prêt à imprimer du constat — réglementation, article, fiche ou portée à l'échelle du paysage, gravité, statut, exigence, écart, preuve, remédiation et historique de revue — dans un nouvel onglet pour *Enregistrer au format PDF* du navigateur.
 
 ## Exécuter un scan IA
 

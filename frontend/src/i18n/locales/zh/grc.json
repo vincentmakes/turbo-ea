@@ -284,6 +284,7 @@
   "risks.tasks.history.collapse": "收起历史",
   "risks.export.sheetRisks": "风险",
   "risks.export.sheetTasks": "缓解任务",
+  "risks.export.documentTitle": "风险",
   "risks.import.title": "导入风险",
   "risks.import.intro": "上传 .xlsx 文件以批量创建风险。每一行都会成为一条新风险；编号已与现有风险匹配的行会被跳过。负责人按电子邮件匹配，卡片按名称精确匹配——无法匹配的内容将被跳过并给出警告。",
   "risks.import.downloadTemplate": "下载模板",

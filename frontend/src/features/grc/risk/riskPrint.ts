@@ -15,7 +15,7 @@ import {
 } from "@/hooks/useDateFormat";
 import { formatRecurrence } from "@/lib/recurrence/recurrenceLabel";
 import {
-  chipRow,
+  documentHeader,
   escapeHtml,
   metaTable,
   printDocument,
@@ -43,20 +43,18 @@ export function buildRiskPrintBody(risk: Risk, tasks: MitigationTask[]): string 
   const date = (iso: string | null | undefined) => (iso ? formatDateWith(fmt, iso) : "");
   const dateTime = (iso: string | null | undefined) => (iso ? formatDateTimeWith(fmt, iso) : "");
 
-  let html = `<div class="doc-caption">${escapeHtml(t("risks.title"))}</div>`;
-  html += `<h1>${escapeHtml(risk.reference)} — ${escapeHtml(risk.title)}</h1>`;
-  html += chipRow([
-    t(`risks.level.${risk.residual_level ?? risk.initial_level}`),
-    t(`risks.status.${risk.status}`),
-    risk.source_type !== "manual" ? t(`risks.source.${risk.source_type}`) : null,
-  ]);
+  // The SoAW cover: document type, then the record's name.
+  let html = documentHeader(t("risks.export.documentTitle"), `${risk.reference} — ${risk.title}`);
 
-  // Identification
+  // Identification (status, level and source are rows here, as the SoAW keeps
+  // everything about the document in its first table)
   const source =
     t(`risks.source.${risk.source_type}`) + (risk.source_ref ? ` (${risk.source_ref})` : "");
   html += section(
     t("risks.section.identification"),
     metaTable([
+      [t("risks.col.status"), t(`risks.status.${risk.status}`)],
+      [t("risks.field.level"), t(`risks.level.${risk.residual_level ?? risk.initial_level}`)],
       [t("risks.field.description"), risk.description],
       [t("risks.field.category"), t(`risks.category.${risk.category}`)],
       [t("risks.field.source"), source],

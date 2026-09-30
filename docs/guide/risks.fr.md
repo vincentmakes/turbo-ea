@@ -98,7 +98,7 @@ Quand vous cliquez sur **Créer un risque** sur un constat non conforme (voir [T
 
 Le bouton **Exporter** du Registre des risques écrit un `.xlsx` à deux feuilles : la feuille 1 est la grille de risques filtrée, la feuille 2 est une ligne par cycle pour chaque tâche de chaque risque dans le même filtre, incluant le délai de préavis et l'horodatage d'activation. Utilisez-le pour les dossiers d'audit ou pour les parties prenantes sans compte Turbo EA. Chaque ligne de tâche dans le panneau de détail dispose aussi de son propre bouton **Exporter l'historique** pour un classeur par tâche.
 
-Un risque isolé peut aussi être imprimé depuis sa page de détail : **Exporter en PDF** (à côté de **Supprimer**) ouvre un dossier prêt à imprimer — identification, évaluation initiale et résiduelle, tâches de mitigation avec leurs derniers cycles, fiches affectées, workflow et justification de l'acceptation — dans un nouvel onglet, prêt pour *Enregistrer au format PDF* du navigateur.
+Un risque isolé peut aussi être imprimé depuis sa page de détail : **PDF** (à côté de **Supprimer**) ouvre un dossier prêt à imprimer — identification, évaluation initiale et résiduelle, tâches de mitigation avec leurs derniers cycles, fiches affectées, workflow et justification de l'acceptation — dans un nouvel onglet, prêt pour *Enregistrer au format PDF* du navigateur.
 
 ### Importation {: #import }
 

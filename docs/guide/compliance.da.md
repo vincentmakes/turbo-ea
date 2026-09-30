@@ -41,7 +41,7 @@ Hvert fund skal afgrænses enten til et bestemt kort eller til hele landskabet �
 
 Åbn et fund — fra Compliance-gitteret eller fra et korts **Compliance**-fane — og klik på **Rediger** i panelet for efter oprettelsen at ændre dets compliance-**status** (for eksempel Compliant → Delvis), alvorlighed, krav, mangel, dokumentation, afhjælpning, artikel eller tilknyttet kort. Redigering af indholdet rører ikke ved fundets livscyklusbeslutning; brug livscyklus-tidslinjen til det. Kræver `compliance.manage`.
 
-Panelet har også et **PDF**-ikon ved siden af **Luk**, der åbner et printklart etsides resumé af fundet — regulering, artikel, kort eller landskabsdækkende omfang, alvorlighed, status, krav, gab, evidens, afhjælpning og revisionsspor — i en ny fane til browserens *Gem som PDF*.
+Panelet har også en **PDF**-knap ved siden af **Luk**, der åbner et printklart etsides resumé af fundet — regulering, artikel, kort eller landskabsdækkende omfang, alvorlighed, status, krav, gab, evidens, afhjælpning og revisionsspor — i en ny fane til browserens *Gem som PDF*.
 
 ## Køre en AI-scanning
 

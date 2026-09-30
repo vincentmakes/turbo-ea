@@ -284,6 +284,7 @@
   "risks.tasks.history.collapse": "طيّ السجل",
   "risks.export.sheetRisks": "المخاطر",
   "risks.export.sheetTasks": "مهام التخفيف",
+  "risks.export.documentTitle": "خطر",
   "risks.import.title": "استيراد المخاطر",
   "risks.import.intro": "ارفع ملف .xlsx لإنشاء مخاطر بالجملة. يصبح كل صف خطرًا جديدًا؛ تُتخطّى الصفوف التي يطابق مرجعها خطرًا موجودًا. يُطابَق المالكون بالبريد الإلكتروني والبطاقات بالاسم الدقيق — ويُتخطّى كل ما لا يمكن مطابقته مع تحذير.",
   "risks.import.downloadTemplate": "تنزيل القالب",

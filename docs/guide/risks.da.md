@@ -101,7 +101,7 @@ Når du klikker på **Create risk** på et ikke-overholdt fund (se [TurboLens](t
 
 Risikoregistrets **Export**-knap skriver et to-arks `.xlsx`: ark 1 er det filtrerede risikogitter, ark 2 er én række pr. cyklus på tværs af hver opgave på hver risiko i samme filter-sæt, inklusive lead-time og aktiverings-tidsstempler. Brug det til audit-pakker eller til overdragelse til interessenter, der ikke har et Turbo EA-login. Hver opgaverække i detaljepanelet har også sin egen **Export history**-knap til en pr.-opgave-projektmappe.
 
-En enkelt risiko kan også udskrives fra dens detaljeside: **Eksportér PDF** (ved siden af **Slet**) åbner et printklart dossier — identifikation, indledende og residual vurdering, afbødningsopgaver med deres seneste cyklusser, berørte kort, workflow og begrundelse for accept — i en ny fane, klar til browserens *Gem som PDF*.
+En enkelt risiko kan også udskrives fra dens detaljeside: **PDF** (ved siden af **Slet**) åbner et printklart dossier — identifikation, indledende og residual vurdering, afbødningsopgaver med deres seneste cyklusser, berørte kort, workflow og begrundelse for accept — i en ny fane, klar til browserens *Gem som PDF*.
 
 ### Import {: #import }
 

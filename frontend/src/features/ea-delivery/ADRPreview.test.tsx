@@ -14,11 +14,9 @@ vi.mock("@/hooks/AuthContext", () => ({
   useAuthContext: () => ({ user: { id: "u1", permissions: {} }, refreshUser: async () => {} }),
 }));
 vi.mock("./adrPrint", () => ({ printAdr: vi.fn() }));
-vi.mock("./adrExport", () => ({ exportAdrsToDocx: vi.fn(async () => {}) }));
 
 import { api } from "@/api/client";
 import { printAdr } from "./adrPrint";
-import { exportAdrsToDocx } from "./adrExport";
 import ADRPreview from "./ADRPreview";
 
 const adr: ArchitectureDecision = {
@@ -50,7 +48,6 @@ beforeEach(() => {
     return {} as never;
   });
   vi.mocked(printAdr).mockReset();
-  vi.mocked(exportAdrsToDocx).mockClear();
 });
 
 function renderPreview() {
@@ -64,19 +61,12 @@ function renderPreview() {
 }
 
 describe("ADRPreview — export buttons", () => {
-  it("offers PDF and Word, and PDF prints the loaded decision", async () => {
+  it("offers PDF like the SoAW preview (and no Word there), and PDF prints the loaded decision", async () => {
     renderPreview();
     const pdf = await screen.findByRole("button", { name: /PDF$/ });
-    expect(screen.getByRole("button", { name: /Word$/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Word$/ })).not.toBeInTheDocument();
     await userEvent.click(pdf);
     expect(printAdr).toHaveBeenCalledTimes(1);
     expect(printAdr).toHaveBeenCalledWith(expect.objectContaining({ id: "adr-1" }));
-  });
-
-  it("Word exports exactly the one decision through the shared DOCX exporter", async () => {
-    renderPreview();
-    await userEvent.click(await screen.findByRole("button", { name: /Word$/ }));
-    expect(exportAdrsToDocx).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(exportAdrsToDocx).mock.calls[0][0]).toHaveLength(1);
   });
 });

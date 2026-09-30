@@ -264,6 +264,36 @@ function statusLabel(status: string, t: (key: string) => string): string {
 
 // ─── ADR export ─────────────────────────────────────────────────────────────
 
+export interface AdrDocxCover {
+  title: string;
+  subtitle: string;
+  /** Only a multi-decision export dates its cover; a single one reads like the SoAW. */
+  generatedOn: string | null;
+}
+
+/**
+ * What the Word cover says. One decision mirrors the SoAW cover — the
+ * document type over the record's name, nothing else; several decisions keep
+ * the collection title, the count and the generation date.
+ */
+export function adrDocxCover(adrs: ArchitectureDecision[]): AdrDocxCover {
+  const t = (key: string, opts?: Record<string, unknown>) =>
+    String(i18n.t(`delivery:${key}`, opts as never));
+  if (adrs.length === 1) {
+    const [adr] = adrs;
+    return {
+      title: t("adr.export.documentTitle"),
+      subtitle: `${adr.reference_number} — ${adr.title}`,
+      generatedOn: null,
+    };
+  }
+  return {
+    title: t("adr.export.title"),
+    subtitle: t("adr.export.subtitle", { count: adrs.length }),
+    generatedOn: t("adr.export.generatedOn", { date: new Date().toLocaleDateString() }),
+  };
+}
+
 /**
  * Export one or more ADRs to a single styled .docx file.
  * Each ADR starts on a new page with a title block, metadata table, and the
@@ -277,12 +307,14 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
 
   const children: (Paragraph | Table)[] = [];
 
-  // ── Cover / document title ──
+  // ── Cover / document title — the SoAW cover: document type, then the name
+  // under a blue rule. Only a multi-decision export adds the count and date.
+  const cover = adrDocxCover(adrs);
   children.push(
     new Paragraph({
       children: [
         new TextRun({
-          text: t("adr.export.title"),
+          text: cover.title,
           bold: true,
           font: FONT,
           size: SIZE_TITLE,
@@ -298,35 +330,37 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
     new Paragraph({
       children: [
         new TextRun({
-          text: t("adr.export.subtitle", { count: adrs.length }),
+          text: cover.subtitle,
           font: FONT,
           size: SIZE_SUBTITLE,
           color: COLOR_SUBTITLE,
         }),
       ],
       alignment: AlignmentType.CENTER,
-      spacing: { after: 200 },
+      spacing: { after: 400 },
       border: {
         bottom: { style: BorderStyle.SINGLE, size: 3, color: COLOR_PART, space: 8 },
       },
     }),
   );
 
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: t("adr.export.generatedOn", { date: new Date().toLocaleDateString() }),
-          italics: true,
-          font: FONT,
-          size: SIZE_BODY,
-          color: COLOR_PREAMBLE,
-        }),
-      ],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 400 },
-    }),
-  );
+  if (cover.generatedOn) {
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: cover.generatedOn,
+            italics: true,
+            font: FONT,
+            size: SIZE_BODY,
+            color: COLOR_PREAMBLE,
+          }),
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 400 },
+      }),
+    );
+  }
 
   // ── Table of contents (just a list of decisions) ──
   if (adrs.length > 1) {
@@ -371,24 +405,27 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
       );
     }
 
-    // Part-style banner: reference + title
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: `${adr.reference_number} — ${adr.title}`,
-            bold: true,
-            font: FONT,
-            size: SIZE_PART,
-            color: COLOR_PART,
-          }),
-        ],
-        spacing: { before: SPACING_PART_BEFORE, after: SPACING_PART_AFTER },
-        border: {
-          bottom: { style: BorderStyle.SINGLE, size: 3, color: "e0e0e0", space: 6 },
-        },
-      }),
-    );
+    // Part-style banner: reference + title. A single decision is already
+    // named on the cover, exactly as the SoAW names its document.
+    if (adrs.length > 1) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `${adr.reference_number} — ${adr.title}`,
+              bold: true,
+              font: FONT,
+              size: SIZE_PART,
+              color: COLOR_PART,
+            }),
+          ],
+          spacing: { before: SPACING_PART_BEFORE, after: SPACING_PART_AFTER },
+          border: {
+            bottom: { style: BorderStyle.SINGLE, size: 3, color: "e0e0e0", space: 6 },
+          },
+        }),
+      );
+    }
 
     // Metadata table (status, created, signed, signatories)
     const metaRows: [string, string][] = [];
@@ -411,6 +448,20 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
       metaRows.push([t("adr.grid.signedBy"), signedNames.join(", ")]);
     }
 
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: t("export.documentInfo"),
+            bold: true,
+            font: FONT,
+            size: SIZE_H2,
+            color: COLOR_H2,
+          }),
+        ],
+        spacing: { before: SPACING_H2_BEFORE, after: SPACING_AFTER_DEFAULT },
+      }),
+    );
     children.push(
       buildDocxTable([t("export.field"), t("export.value")], metaRows),
     );

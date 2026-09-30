@@ -19,7 +19,6 @@
   "actions.linkCopied": "链接已复制到剪贴板",
   "actions.copyManually": "请手动复制此链接：",
   "actions.print": "打印",
-  "actions.exportPdf": "导出 PDF",
   "actions.download": "下载",
   "actions.upload": "上传",
   "actions.refresh": "刷新",

@@ -42,7 +42,7 @@ Ogni rilevazione deve essere circoscritta a una card specifica o all'intero paes
 
 Apri una rilevazione — dalla griglia Conformità o dalla scheda **Conformità** di una card — e fai clic su **Modifica** nel drawer per cambiare, dopo la creazione, il suo **stato** di conformità (ad esempio Conforme → Parziale), gravità, requisito, lacuna, evidenza, rimedio, articolo o card collegata. La modifica del contenuto non tocca la decisione del ciclo di vita della rilevazione; per quello usa la timeline del ciclo di vita. Richiede `compliance.manage`.
 
-Il pannello ha anche un'icona **PDF** accanto a **Chiudi** che apre un riepilogo di una pagina pronto per la stampa della rilevazione — regolamento, articolo, scheda o ambito dell'intero panorama, gravità, stato, requisito, gap, evidenza, rimedio e cronologia della revisione — in una nuova scheda per *Salva come PDF* del browser.
+Il pannello ha anche un pulsante **PDF** accanto a **Chiudi** che apre un riepilogo di una pagina pronto per la stampa della rilevazione — regolamento, articolo, scheda o ambito dell'intero panorama, gravità, stato, requisito, gap, evidenza, rimedio e cronologia della revisione — in una nuova scheda per *Salva come PDF* del browser.
 
 ## Eseguire una scansione IA
 

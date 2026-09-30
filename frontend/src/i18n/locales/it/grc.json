@@ -284,6 +284,7 @@
   "risks.tasks.history.collapse": "Comprimi cronologia",
   "risks.export.sheetRisks": "Rischi",
   "risks.export.sheetTasks": "Attività di mitigazione",
+  "risks.export.documentTitle": "Rischio",
   "risks.import.title": "Importa rischi",
   "risks.import.intro": "Carica un file .xlsx per creare rischi in blocco. Ogni riga diventa un nuovo rischio; le righe il cui riferimento corrisponde già a un rischio esistente vengono saltate. I responsabili vengono abbinati tramite e-mail e le schede tramite nome esatto — tutto ciò che non può essere abbinato viene saltato con un avviso.",
   "risks.import.downloadTemplate": "Scarica modello",

@@ -69,10 +69,13 @@ function task(overrides: Partial<MitigationTask> = {}): MitigationTask {
 describe("buildRiskPrintBody", () => {
   it("renders identification, assessments, tasks with cycles, cards and audit with translated labels", () => {
     const html = buildRiskPrintBody(risk(), [task()]);
-    expect(html).toContain("<h1>R-000042 — Legacy CRM unsupported</h1>");
-    expect(html).toContain("Risk Register");
-    expect(html).toContain('<span class="doc-chip">Critical</span>');
-    expect(html).toContain('<span class="doc-chip">In progress</span>');
+    // The SoAW cover: document type, then "reference — title".
+    expect(html).toContain('<h1 style="text-align:center;border:none;">Risk</h1>');
+    expect(html).toContain(">R-000042 — Legacy CRM unsupported</p>");
+    expect(html).not.toContain("doc-chip");
+    // Status, level and source are rows of the first table, not chips.
+    expect(html).toContain('<td class="meta-label">Status</td><td class="pre">In progress</td>');
+    expect(html).toContain('<td class="meta-label">Level</td><td class="pre">Critical</td>');
     expect(html).toContain("Technology");
     expect(html).toContain("Ada Lovelace");
     expect(html).toContain("Vendor support ends.\nSecond line.");

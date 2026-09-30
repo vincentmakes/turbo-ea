@@ -39,9 +39,12 @@ function finding(overrides: Partial<TurboLensComplianceFinding> = {}): TurboLens
 describe("buildFindingPrintBody", () => {
   it("renders regulation, article, scope, chips, sections and the review trail", () => {
     const html = buildFindingPrintBody(finding(), "EU AI Act");
-    expect(html).toContain("<h1>Art. 9 — Risk management system</h1>");
-    expect(html).toContain("EU AI Act &middot; NexaCore ERP");
-    expect(html).toContain('<span class="doc-chip">High</span>');
+    // The SoAW cover: document type, then "regulation — article".
+    expect(html).toContain('<h1 style="text-align:center;border:none;">Compliance finding</h1>');
+    expect(html).toContain(">EU AI Act — Art. 9 — Risk management system</p>");
+    expect(html).toContain("<h2>Document Information</h2>");
+    expect(html).not.toContain("doc-chip");
+    expect(html).toContain('<td class="meta-label">Severity</td><td class="pre">High</td>');
     expect(html).toContain("AI detected");
     expect(html).toContain("NexaCore ERP (Application)");
     expect(html).toContain("Risk Management");
@@ -71,6 +74,7 @@ describe("buildFindingPrintBody", () => {
       "GDPR",
     );
     expect(html).not.toContain("<h2>Gap</h2>");
+    expect(html).toContain(">GDPR — Art. 9 — Risk management system</p>");
     expect(html).toContain("Landscape-wide");
     expect(html).not.toContain("<h2>Reviewed</h2>");
     expect(html).not.toContain("Linked risk");
@@ -79,6 +83,7 @@ describe("buildFindingPrintBody", () => {
   it("escapes scalar fields", () => {
     const html = buildFindingPrintBody(finding({ regulation_article: "<script>x</script>" }), "<b>EU</b>");
     expect(html).not.toContain("<script>");
+    expect(html).not.toContain("<b>EU</b>");
     expect(html).toContain("&lt;script&gt;x&lt;/script&gt;");
     expect(html).toContain("&lt;b&gt;EU&lt;/b&gt;");
   });

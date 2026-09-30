@@ -284,6 +284,7 @@
   "risks.tasks.history.collapse": "Contraer historial",
   "risks.export.sheetRisks": "Riesgos",
   "risks.export.sheetTasks": "Tareas de mitigación",
+  "risks.export.documentTitle": "Riesgo",
   "risks.import.title": "Importar riesgos",
   "risks.import.intro": "Suba un archivo .xlsx para crear riesgos de forma masiva. Cada fila se convierte en un nuevo riesgo; las filas cuya referencia ya coincide con un riesgo existente se omiten. Los responsables se asocian por correo electrónico y las fichas por nombre exacto — todo lo que no se pueda asociar se omite con una advertencia.",
   "risks.import.downloadTemplate": "Descargar plantilla",

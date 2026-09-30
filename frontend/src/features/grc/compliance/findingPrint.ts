@@ -13,8 +13,7 @@ import {
   getCachedDateFormat,
 } from "@/hooks/useDateFormat";
 import {
-  chipRow,
-  escapeHtml,
+  documentHeader,
   metaTable,
   printDocument,
   section,
@@ -44,34 +43,36 @@ export function buildFindingPrintBody(
 ): string {
   const fmt = getCachedDateFormat();
   const dateTime = (iso: string | null | undefined) => (iso ? formatDateTimeWith(fmt, iso) : "");
-  const title = finding.regulation_article || tCards("compliance.drawer.untitled");
+  // The SoAW cover: document type, then the record's name.
+  let html = documentHeader(
+    tCards("compliance.drawer.untitled"),
+    finding.regulation_article ? `${regulationLabel} — ${finding.regulation_article}` : regulationLabel,
+  );
 
-  let html = `<div class="doc-caption">${escapeHtml(tCards("compliance.drawer.untitled"))}</div>`;
-  html += `<h1>${escapeHtml(title)}</h1>`;
-  html += `<p class="doc-subtitle">${escapeHtml(regulationLabel)}${
-    finding.card_name ? ` &middot; ${escapeHtml(finding.card_name)}` : ""
-  }</p>`;
-  html += chipRow([
-    tAdmin(`compliance_severity_${finding.severity}`),
-    tAdmin(`compliance_status_${finding.status}`),
-    finding.decision ? tAdmin(`compliance_decision_${finding.decision}`) : null,
-    finding.ai_detected ? tAdmin("compliance_ai_detected") : null,
-  ]);
-
-  html += metaTable([
-    [tCards("compliance.cardTab.col.regulation"), regulationLabel],
-    [tCards("compliance.grid.col.article"), finding.regulation_article],
-    [
-      tCards("compliance.grid.col.card"),
-      finding.card_name
-        ? `${finding.card_name}${finding.card_type ? ` (${finding.card_type})` : ""}`
-        : tAdmin("compliance_scope_landscape"),
-    ],
-    [tCards("compliance.drawer.category"), categoryLabel(finding.category)],
-    [tCards("compliance.drawer.linkedRisk"), finding.risk_reference ?? ""],
-    [tCards("compliance.grid.col.created"), dateTime(finding.created_at)],
-    [tCards("compliance.grid.col.modified"), dateTime(finding.updated_at)],
-  ]);
+  html += section(
+    tDelivery("export.documentInfo"),
+    metaTable([
+      [tCards("compliance.cardTab.col.regulation"), regulationLabel],
+      [tCards("compliance.grid.col.article"), finding.regulation_article],
+      [tCards("compliance.grid.col.severity"), tAdmin(`compliance_severity_${finding.severity}`)],
+      [tCards("compliance.grid.col.status"), tAdmin(`compliance_status_${finding.status}`)],
+      [
+        tCards("compliance.grid.col.decision"),
+        finding.decision ? tAdmin(`compliance_decision_${finding.decision}`) : "",
+      ],
+      [tCards("compliance.grid.col.ai"), finding.ai_detected ? tAdmin("compliance_ai_detected") : ""],
+      [
+        tCards("compliance.grid.col.card"),
+        finding.card_name
+          ? `${finding.card_name}${finding.card_type ? ` (${finding.card_type})` : ""}`
+          : tAdmin("compliance_scope_landscape"),
+      ],
+      [tCards("compliance.drawer.category"), categoryLabel(finding.category)],
+      [tCards("compliance.drawer.linkedRisk"), finding.risk_reference ?? ""],
+      [tCards("compliance.grid.col.created"), dateTime(finding.created_at)],
+      [tCards("compliance.grid.col.modified"), dateTime(finding.updated_at)],
+    ]),
+  );
 
   html += section(tCards("compliance.grid.col.requirement"), textBlock(finding.requirement));
   const gap = finding.gap_description && finding.gap_description.trim() !== "—" ? finding.gap_description : "";

@@ -55,7 +55,7 @@ beforeEach(() => vi.mocked(printFinding).mockReset());
 describe("FindingDetailDrawer — Export PDF", () => {
   it("prints the open finding with the resolved regulation label", async () => {
     render(<FindingDetailDrawer finding={finding} onClose={vi.fn()} />);
-    const btn = screen.getByRole("button", { name: "Export PDF" });
+    const btn = screen.getByRole("button", { name: /PDF$/ });
     await userEvent.click(btn);
     expect(printFinding).toHaveBeenCalledTimes(1);
     expect(printFinding).toHaveBeenCalledWith(finding, "EU AI Act (custom)");

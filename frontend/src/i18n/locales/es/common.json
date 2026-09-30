@@ -19,7 +19,6 @@
   "actions.linkCopied": "Enlace copiado al portapapeles",
   "actions.copyManually": "Copie este enlace manualmente:",
   "actions.print": "Imprimir",
-  "actions.exportPdf": "Exportar PDF",
   "actions.download": "Descargar",
   "actions.upload": "Subir",
   "actions.refresh": "Actualizar",

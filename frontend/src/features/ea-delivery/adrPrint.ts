@@ -15,12 +15,13 @@ import {
 } from "@/hooks/useDateFormat";
 import { getExtensionAdrExportSections } from "@/lib/extensionHost";
 import {
+  documentHeader,
   escapeHtml,
   htmlIsEmpty,
   metaTable,
   printDocument,
   section,
-  signatureGrid,
+  signatureBlock,
   tableHtml,
   writePrintDocument,
   type PrintDocumentOptions,
@@ -43,30 +44,35 @@ export function buildAdrPrintBody(adr: ArchitectureDecision): string {
   const date = (iso: string | null | undefined) => (iso ? formatDateWith(fmt, iso) : "");
   const dateTime = (iso: string) => formatDateTimeWith(fmt, iso);
 
-  let html = `<div class="doc-caption">${escapeHtml(t("adr.export.title"))}</div>`;
-  html += `<h1>${escapeHtml(adr.title)}</h1>`;
+  // The SoAW cover: document type, then the record's name and revision.
   const revLabel =
     adr.revision_number && adr.revision_number > 1
       ? t("export.revision", { number: adr.revision_number })
       : "";
-  html += `<p class="doc-subtitle">${escapeHtml(adr.reference_number)}${escapeHtml(revLabel)}</p>`;
+  let html = documentHeader(
+    t("adr.export.documentTitle"),
+    `${adr.reference_number} — ${adr.title}${revLabel}`,
+  );
 
   const signedNames = (adr.signatories ?? [])
     .filter((s) => s.status === "signed")
     .map((s) => s.display_name)
     .filter(Boolean);
-  html += metaTable([
-    [t("adr.grid.status"), statusLabel(adr.status)],
-    [t("adr.grid.createdBy"), adr.creator_name ?? ""],
-    [t("adr.grid.created"), date(adr.created_at)],
-    [t("adr.grid.lastModified"), date(adr.updated_at)],
-    [t("adr.grid.signed"), date(adr.signed_at)],
-    [
-      t("adr.export.revisionLabel"),
-      adr.revision_number && adr.revision_number > 1 ? String(adr.revision_number) : "",
-    ],
-    [t("adr.grid.signedBy"), signedNames.join(", ")],
-  ]);
+  html += section(
+    t("export.documentInfo"),
+    metaTable([
+      [t("adr.grid.status"), statusLabel(adr.status)],
+      [t("adr.grid.createdBy"), adr.creator_name ?? ""],
+      [t("adr.grid.created"), date(adr.created_at)],
+      [t("adr.grid.lastModified"), date(adr.updated_at)],
+      [t("adr.grid.signed"), date(adr.signed_at)],
+      [
+        t("adr.export.revisionLabel"),
+        adr.revision_number && adr.revision_number > 1 ? String(adr.revision_number) : "",
+      ],
+      [t("adr.grid.signedBy"), signedNames.join(", ")],
+    ]),
+  );
 
   const rich = (title: string, content: string | null) =>
     htmlIsEmpty(content) ? "" : section(title, content ?? "");
@@ -102,17 +108,16 @@ export function buildAdrPrintBody(adr: ArchitectureDecision): string {
     }
   }
 
-  html += section(
-    t("adr.editor.signatures"),
-    signatureGrid(
-      adr.signatories ?? [],
-      {
-        approved: t("export.approved"),
-        pending: t("export.pending"),
-        signed: (d) => t("export.signed", { date: d }),
-      },
-      dateTime,
-    ),
+  html += signatureBlock(
+    adr.signatories ?? [],
+    {
+      title: t("export.signatures"),
+      fullySigned: t("export.fullySigned"),
+      approved: t("export.approved"),
+      pending: t("export.pending"),
+      signed: (d) => t("export.signed", { date: d }),
+    },
+    dateTime,
   );
 
   return html;
@@ -121,12 +126,17 @@ export function buildAdrPrintBody(adr: ArchitectureDecision): string {
 /** Title, body and footer for the pop-up. Pure; exported for tests. */
 export function adrPrintDocument(adr: ArchitectureDecision): PrintDocumentOptions {
   const fmt = getCachedDateFormat();
+  // The SoAW footer rule: approver, approval date and print date, and only on
+  // a document that has signatories at all.
   const parts: string[] = [];
-  const approver = (adr.signatories ?? []).find((s) => s.status === "signed");
-  const approvalDate = adr.signed_at ?? approver?.signed_at ?? null;
-  if (approver) parts.push(t("export.approvedBy", { name: approver.display_name }));
-  if (approvalDate) parts.push(t("export.dateOfApproval", { date: formatDateWith(fmt, approvalDate) }));
-  parts.push(t("export.printed", { date: formatDateTimeWith(fmt, new Date()) }));
+  const signatories = adr.signatories ?? [];
+  if (signatories.length > 0) {
+    const approver = signatories.find((s) => s.status === "signed");
+    const approvalDate = adr.signed_at ?? approver?.signed_at ?? null;
+    if (approver) parts.push(t("export.approvedBy", { name: approver.display_name }));
+    if (approvalDate) parts.push(t("export.dateOfApproval", { date: formatDateWith(fmt, approvalDate) }));
+    parts.push(t("export.printed", { date: formatDateWith(fmt, new Date()) }));
+  }
   return {
     title: `${adr.reference_number} — ${adr.title}`,
     bodyHtml: buildAdrPrintBody(adr),

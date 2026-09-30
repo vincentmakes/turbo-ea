@@ -98,7 +98,7 @@ Quando cliccate **Crea rischio** su un riscontro non conforme (vedi [TurboLens](
 
 Il pulsante **Esporta** del Registro dei Rischi scrive un `.xlsx` a due fogli: il foglio 1 è la griglia di rischi filtrata, il foglio 2 una riga per ciclo di ciascuna attività di ciascun rischio nello stesso filtro, inclusi tempo di preavviso e timestamp di attivazione. Usatelo per dossier di audit o per stakeholder senza accesso a Turbo EA. Ogni riga di attività nel pannello di dettaglio dispone inoltre del proprio pulsante **Esporta cronologia** per una cartella di lavoro per attività.
 
-Un singolo rischio può anche essere stampato dalla sua pagina di dettaglio: **Esporta PDF** (accanto a **Elimina**) apre un dossier pronto per la stampa — identificazione, valutazione iniziale e residua, attività di mitigazione con i cicli più recenti, schede interessate, workflow e motivazione dell'accettazione — in una nuova scheda, pronto per *Salva come PDF* del browser.
+Un singolo rischio può anche essere stampato dalla sua pagina di dettaglio: **PDF** (accanto a **Elimina**) apre un dossier pronto per la stampa — identificazione, valutazione iniziale e residua, attività di mitigazione con i cicli più recenti, schede interessate, workflow e motivazione dell'accettazione — in una nuova scheda, pronto per *Salva come PDF* del browser.
 
 ### Importazione {: #import }
 

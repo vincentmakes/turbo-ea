@@ -284,6 +284,7 @@
   "risks.tasks.history.collapse": "Réduire l'historique",
   "risks.export.sheetRisks": "Risques",
   "risks.export.sheetTasks": "Actions de mitigation",
+  "risks.export.documentTitle": "Risque",
   "risks.import.title": "Importer des risques",
   "risks.import.intro": "Téléchargez un fichier .xlsx pour créer des risques en masse. Chaque ligne devient un nouveau risque ; les lignes dont la référence correspond déjà à un risque existant sont ignorées. Les responsables sont identifiés par e-mail et les fiches par nom exact — tout ce qui ne peut pas être identifié est ignoré avec un avertissement.",
   "risks.import.downloadTemplate": "Télécharger le modèle",

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Print or export a single decision, risk or compliance finding.** An Architecture Decision Record has **PDF** and **Word** buttons on both its preview and its editor (the editor exports the last saved version); a risk's detail page has an **Export PDF** button next to Delete; the compliance finding drawer has a PDF icon next to Close. PDF opens the same print-ready pop-up the Statement of Architecture Work uses — A4 portrait, the record's sections and linked cards, a printed-on footer, and for a signed decision its signature block with the approver in the footer — ready for the browser's *Save as PDF*. The Word export reuses the decisions grid's document layout for one record.
+- **Print or export a single decision, risk or compliance finding.** The same **PDF** and **Word** buttons the Statement of Architecture Work has: an Architecture Decision Record's preview has **PDF**, its editor has **PDF** and, until the decision is signed, **Word**; a risk's detail page and the compliance finding drawer each have **PDF**. The PDF opens the SoAW's print-ready pop-up — the document type over the record's name, a Document Information table, the record's sections and linked cards, and for a signed decision the signature block with the approver and print date in the footer — ready for the browser's *Save as PDF*. A single decision's Word file now opens like the SoAW's, with the decision named under the title instead of a "1 decision" count and a generation date.
 
 ## [2.152.0] - 2026-09-29
 

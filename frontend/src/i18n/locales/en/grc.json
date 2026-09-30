@@ -284,6 +284,7 @@
   "risks.tasks.history.collapse": "Collapse history",
   "risks.export.sheetRisks": "Risks",
   "risks.export.sheetTasks": "Mitigation tasks",
+  "risks.export.documentTitle": "Risk",
   "risks.import.title": "Import risks",
   "risks.import.intro": "Upload an .xlsx file to create risks in bulk. Each row becomes a new risk; rows whose reference already matches an existing risk are skipped. Owners are matched by email and cards by exact name — anything that can't be matched is skipped with a warning.",
   "risks.import.downloadTemplate": "Download template",

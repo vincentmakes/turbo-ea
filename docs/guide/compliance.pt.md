@@ -42,7 +42,7 @@ Cada descoberta deve estar delimitada a um card específico ou a toda a paisagem
 
 Abra uma descoberta — a partir da grade de Conformidade ou da aba **Conformidade** de um card — e clique em **Editar** no painel para alterar, após a criação, o seu **status** de conformidade (por exemplo Conforme → Parcial), severidade, requisito, lacuna, evidência, remediação, artigo ou card vinculado. Editar o conteúdo não altera a decisão de ciclo de vida da descoberta; use a linha do tempo do ciclo de vida para isso. Requer `compliance.manage`.
 
-O painel também tem um ícone **PDF** ao lado de **Fechar** que abre um resumo de uma página pronto para impressão da descoberta — regulamento, artigo, cartão ou escopo de todo o panorama, severidade, status, requisito, lacuna, evidência, remediação e histórico de revisão — em uma nova aba para *Salvar como PDF* do navegador.
+O painel também tem um botão **PDF** ao lado de **Fechar** que abre um resumo de uma página pronto para impressão da descoberta — regulamento, artigo, cartão ou escopo de todo o panorama, severidade, status, requisito, lacuna, evidência, remediação e histórico de revisão — em uma nova aba para *Salvar como PDF* do navegador.
 
 ## Executar uma varredura IA
 

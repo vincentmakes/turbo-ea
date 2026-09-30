@@ -67,17 +67,6 @@ export default function ADRPreview() {
     })();
   }, [id]);
 
-  const handleExportWord = async () => {
-    if (!adr) return;
-    try {
-      // Lazy: keeps the docx engine out of the preview chunk until asked for.
-      const { exportAdrsToDocx } = await import("./adrExport");
-      await exportAdrsToDocx([adr]);
-    } catch {
-      setSnack(t("adr.export.error"));
-    }
-  };
-
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href).then(
       () => setSnack(t("preview.linkCopied")),
@@ -177,22 +166,6 @@ export default function ADRPreview() {
             onClick={() => printAdr(adr)}
           >
             {t("editor.pdf")}
-          </Button>
-        )}
-        {compact ? (
-          <Tooltip title={t("editor.exportWord")}>
-            <IconButton onClick={handleExportWord}>
-              <MaterialSymbol icon="article" size={20} />
-            </IconButton>
-          </Tooltip>
-        ) : (
-          <Button
-            size="small"
-            startIcon={<MaterialSymbol icon="article" size={18} />}
-            sx={{ textTransform: "none" }}
-            onClick={handleExportWord}
-          >
-            {t("editor.word")}
           </Button>
         )}
         {compact ? (

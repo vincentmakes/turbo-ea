@@ -37,8 +37,10 @@ afterEach(() => vi.restoreAllMocks());
 describe("buildAdrPrintBody", () => {
   it("renders the metadata, sections, linked cards and signatures in document order", () => {
     const html = buildAdrPrintBody(adr());
-    expect(html).toContain("<h1>Adopt event bus</h1>");
-    expect(html).toContain("ADR-0001");
+    // The SoAW cover: document type, then "reference — title — Revision n".
+    expect(html).toContain('<h1 style="text-align:center;border:none;">Architecture Decision Record</h1>');
+    expect(html).toContain(">ADR-0001 — Adopt event bus — Revision 2</p>");
+    expect(html).toContain("<h2>Document Information</h2>");
     expect(html).toContain("Signed");
     expect(html).toContain("Ada Lovelace");
     expect(html).toContain("Grace Hopper");
@@ -48,10 +50,19 @@ describe("buildAdrPrintBody", () => {
     expect(html).not.toContain("<h2>Consequences</h2>");
     expect(html).not.toContain("<h2>Alternatives");
     expect(html).toContain("NexaCore ERP");
+    expect(html).toContain('<div class="doc-signatures"><h2>Signatures</h2>');
     expect(html).toContain('sig-card approved');
     expect(html).toContain('sig-card pending');
+    expect(html).not.toContain("fully-signed");
     expect(html.indexOf("<h2>Context</h2>")).toBeLessThan(html.indexOf("NexaCore ERP"));
     expect(html.indexOf("NexaCore ERP")).toBeLessThan(html.indexOf("sig-grid"));
+  });
+
+  it("badges the signature heading once every signatory has signed, like the SoAW", () => {
+    const html = buildAdrPrintBody(
+      adr({ signatories: [{ user_id: "u2", display_name: "Grace", status: "signed", signed_at: "2026-06-02T09:30:00Z" }] }),
+    );
+    expect(html).toContain('<span class="sig-badge fully-signed">Fully Signed</span>');
   });
 
   it("escapes scalar fields so a hostile title renders as text", () => {
@@ -96,10 +107,9 @@ describe("adrPrintDocument / printAdr", () => {
     expect(doc.footerParts?.[2]).toMatch(/^Printed: /);
   });
 
-  it("a draft with no signatories has only the print date in the footer", () => {
+  it("a draft with no signatories has no footer, the SoAW rule", () => {
     const doc = adrPrintDocument(adr({ status: "draft", signatories: [], signed_at: null }));
-    expect(doc.footerParts).toHaveLength(1);
-    expect(doc.footerParts?.[0]).toMatch(/^Printed: /);
+    expect(doc.footerParts).toEqual([]);
   });
 
   it("writes into a pre-opened window when one is passed", () => {

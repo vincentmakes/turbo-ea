@@ -42,7 +42,7 @@ Cada hallazgo debe estar acotado a una tarjeta específica o a todo el paisaje �
 
 Abra un hallazgo — desde la cuadrícula de Cumplimiento o desde la pestaña **Cumplimiento** de una tarjeta — y haga clic en **Editar** en el panel para cambiar, después de su creación, su **estado** de cumplimiento (por ejemplo Conforme → Parcial), severidad, requisito, brecha, evidencia, remediación, artículo o tarjeta vinculada. Editar el contenido no altera la decisión del ciclo de vida del hallazgo; use para ello la línea de tiempo del ciclo de vida. Requiere `compliance.manage`.
 
-El panel también tiene un icono **PDF** junto a **Cerrar** que abre un resumen de una página listo para imprimir del hallazgo — regulación, artículo, tarjeta o alcance de todo el panorama, severidad, estado, requisito, brecha, evidencia, remediación e historial de revisión — en una pestaña nueva para *Guardar como PDF* del navegador.
+El panel también tiene un botón **PDF** junto a **Cerrar** que abre un resumen de una página listo para imprimir del hallazgo — regulación, artículo, tarjeta o alcance de todo el panorama, severidad, estado, requisito, brecha, evidencia, remediación e historial de revisión — en una pestaña nueva para *Guardar como PDF* del navegador.
 
 ## Ejecutar un escaneo IA
 
