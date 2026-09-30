@@ -17,11 +17,10 @@
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/nginx`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
-- `ghcr.io/vincentmakes/turbo-ea/ollama`（可选的 `ai` profile）
 
 Helm chart `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea` 由 `.github/workflows/helm-publish.yml` 在每个发布标签上以同样方式签名（身份为 `…/helm-publish.yml@<ref>`）。
 
-`docker-compose.yml` 能拉取的每个镜像都在该列表中。`ollama` 镜像自 2.154.0 起加入：此前它在矩阵之外手工重建且未签名，因此 2.153.0 及更早的版本既没有它的签名，也没有 `ollama:<version>` 标签。
+`docker-compose.yml` 从 GHCR 拉取的每个镜像都在该列表中。可选的 Ollama 容器不在其中：自 2.155.0 起，`docker-compose.yml` 直接固定上游 `ollama/ollama` 镜像的发布标签，Turbo EA 既不签名也不扫描该镜像——请使用上游提供的方式进行验证。打过补丁的副本 `ghcr.io/vincentmakes/turbo-ea/ollama` 仅存在于 2.154.0 至 2.154.2 版本。
 
 签名作用于 OCI manifest list 的 digest，因此一个签名即可透明地同时覆盖 `linux/amd64` 与 `linux/arm64`，不存在需要逐个查找的按平台签名。
 

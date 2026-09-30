@@ -43,7 +43,7 @@ updates:
 
   # Docker base images — VERSION updates, grouped into one weekly PR
   # Covers every `FROM` line in the root Dockerfile (nginx, python, postgres,
-  # node, alpine/git, ollama). Unlike pip and npm, this ecosystem has NO
+  # node, alpine/git). Unlike pip and npm, this ecosystem has NO
   # security-update path: the GitHub Advisory Database carries no container
   # advisories, so with `open-pull-requests-limit: 0` (as it stood until
   # 2.154.0) Dependabot could never open a docker PR at all. Version bumps
@@ -86,6 +86,26 @@ updates:
       - "dependencies"
       - "security"
     open-pull-requests-limit: 5
+
+  # Docker Compose — the one image compose pulls that this repo does not
+  # build: the optional Ollama container is upstream's own `ollama/ollama`,
+  # pinned to a release tag in docker-compose.yml since 2.155.0 (the thin
+  # patched image of 2.154.x was dropped). This entry is what keeps that
+  # pin moving. The `ghcr.io/vincentmakes/turbo-ea/*:${TURBO_EA_TAG}` lines
+  # carry a variable tag Dependabot cannot resolve, so it leaves them alone.
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "security"
+    open-pull-requests-limit: 1
 
   # GitHub Actions — keep CI actions up to date (supply-chain security)
   - package-ecosystem: "github-actions"

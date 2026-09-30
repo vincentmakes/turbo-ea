@@ -774,21 +774,6 @@ CMD ["/usr/local/bin/turboea-nginx-entrypoint"]
 # Pinned to a release tag (never `:latest`): the tag is what Dependabot's
 # docker entry bumps, what the Trivy gate in docker-publish.yml scans, and
 # what cosign signs — a moving tag has none of the three.
-FROM ollama/ollama:0.35.0 AS ollama
-
-ARG APP_UID
-ARG APP_GID
-
-USER root
-
-ENV OLLAMA_MODELS=/models
-
-RUN mkdir -p /models && \
-    chown -R ${APP_UID}:${APP_GID} /models
-
-USER ${APP_UID}:${APP_GID}
-
-
 FROM python:3.12-alpine AS mcp-server
 
 ARG APP_UID

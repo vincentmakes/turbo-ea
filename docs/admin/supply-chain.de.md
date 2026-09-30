@@ -17,11 +17,10 @@ Signierte Images:
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/nginx`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
-- `ghcr.io/vincentmakes/turbo-ea/ollama` (optionales `ai`-Profil)
 
 Das Helm-Chart `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea` wird von `.github/workflows/helm-publish.yml` bei jedem Release-Tag auf dieselbe Weise signiert (Identität `…/helm-publish.yml@<ref>`).
 
-Jedes Image, das `docker-compose.yml` ziehen kann, steht in dieser Liste. Das `ollama`-Image kam in 2.154.0 hinzu: davor wurde es von Hand außerhalb der Matrix gebaut und war nicht signiert, sodass Releases bis einschließlich 2.153.0 weder eine Signatur dafür noch ein `ollama:<version>`-Tag tragen.
+Jedes Image, das `docker-compose.yml` von GHCR zieht, steht in dieser Liste. Der optionale Ollama-Container gehört nicht dazu: Seit 2.155.0 verweist `docker-compose.yml` direkt auf das Release-Tag des Upstream-Images `ollama/ollama`, und Turbo EA signiert oder scannt dieses Image nicht — prüfen Sie es mit den Mitteln, die Upstream bereitstellt. Eine gepatchte Kopie, `ghcr.io/vincentmakes/turbo-ea/ollama`, existiert nur für 2.154.0 bis 2.154.2.
 
 Die Signatur gilt für den Digest der OCI-Manifestliste, sodass eine einzige Signatur transparent sowohl `linux/amd64` als auch `linux/arm64` abdeckt. Es gibt keine plattformspezifische Signatur, der man hinterherlaufen müsste.
 

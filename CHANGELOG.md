@@ -5,6 +5,25 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.155.0] - 2026-09-30
+
+### Removed
+
+- **The `ollama` image is no longer published.** `docker-compose.yml` pulls upstream's own `ollama/ollama` image, pinned to a release tag that Dependabot keeps current. Models already pulled stay where they are (`ollama_models` volume, same path). Turbo EA published a patched copy for 2.154.0 to 2.154.2 only: it added nothing but a non-root user, and in exchange the project was signing, gating and re-scanning a binary it cannot rebuild, which filled the Security tab with 75 upstream-toolchain findings on its first day.
+
+### Changed
+
+- **The bundled Ollama container runs as upstream ships it.** Root inside the container, because upstream's image has no models directory for Docker to seed a volume from; capabilities are still dropped, no host port is published and only the backend talks to it.
+
+### Security
+
+- **Frontend dependencies moved past four advisories**: DOMPurify 3.4.16 (GHSA-p98j-92pf-mc4p), js-yaml 5.4.2 (GHSA-r3ph-w7gj-g6xm) and both copies of brace-expansion (GHSA-q2hr-2g5m-vwhr, GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p).
+
+### Fixed
+
+- **The backend dependency audit carried a stale ignore** for a PyJWT advisory that stopped applying five releases ago; it is removed, so the audit runs with no exceptions.
+- **The Code Scanning Report also lists recent analyses** (tool, category, results, processing errors), the data behind the Security tab's tool-status page, so a configuration reported as failed can be read from a run.
+
 ## [2.154.2] - 2026-09-30
 
 ### Fixed

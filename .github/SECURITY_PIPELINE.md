@@ -35,7 +35,7 @@ Two scanners covering the same layer is deliberate — different vuln DBs have d
 - **CodeQL** — GitHub's default-setup, languages `actions / javascript / javascript-typescript / python / typescript`, query suite `default`, threat model `remote`. Findings land in the Security tab; CRITICAL/HIGH alerts require dismissal or a fix.
 
 ### On every push to `main` and on `v*.*.*` tags
-[`docker-publish.yml`](workflows/docker-publish.yml) — for each of the 6 image targets (`db`, `backend`, `frontend`, `nginx`, `mcp-server`, `ollama` — every image `docker-compose.yml` can pull; `backend/tests/services/test_publish_image_matrix.py` pins this list, the daily-scan matrix and the reconcile matrix to the compose file, after `ollama` spent two years outside all three, unsigned and unscanned):
+[`docker-publish.yml`](workflows/docker-publish.yml) — for each of the 5 image targets (`db`, `backend`, `frontend`, `nginx`, `mcp-server` — every image `docker-compose.yml` pulls from GHCR; `backend/tests/services/test_publish_image_matrix.py` pins this list, the daily-scan matrix and the reconcile matrix to the compose file. The optional Ollama container is upstream's own `ollama/ollama` tag, pinned in compose and bumped by Dependabot's `docker-compose` entry: it was published as a thin patched image for 2.154.0 to 2.154.2 only, which put 75 upstream-toolchain CVEs the repo cannot fix into the Security tab on day one, so 2.155.0 stopped):
 1. Build multi-arch (`linux/amd64,linux/arm64`) with `provenance: true` + `sbom: true` (SLSA attestations).
 2. Push to `ghcr.io/vincentmakes/turbo-ea/<image>` with `latest` + `sha-<short>` + semver tags.
 3. **cosign** — keyless OIDC signing of the manifest list digest. No key to rotate; verification uses the workflow identity certificate. The signature is a **Sigstore bundle** (cosign 3 via cosign-installer v4), stored on GHCR under the `sha256-<digest>` index tag because GHCR has no referrers API.
@@ -59,8 +59,7 @@ Two scanners covering the same layer is deliberate — different vuln DBs have d
 >    publishes `:latest`, a release could otherwise ship `:latest` with a stale
 >    apk layer. The build step therefore also sets
 >    `no-cache-filters: backend,db,frontend,nginx,mcp-server` (plural — the
->    singular form is silently ignored; `ollama` is absent on purpose, its
->    stage has no package step) **on `push` events only**, which forces
+>    singular form is silently ignored) **on `push` events only**, which forces
 >    just the Alpine runtime stages (the ones running `apk upgrade --no-cache`) to
 >    rebuild against the live alpine repos on every cached build, while the
 >    expensive `frontend-build` / `backend-build` stages stay cached. This
@@ -79,7 +78,7 @@ Two scanners covering the same layer is deliberate — different vuln DBs have d
 > — it is `no-cache: true` and tags `:latest`.
 
 ### Weekly — Monday 06:00 UTC
-[`docker-publish.yml`](workflows/docker-publish.yml) re-runs with `no-cache: true` for cron events. The Alpine runtime stages each run `apk upgrade --no-cache`, so a forced rebuild against fresh alpine repos automatically picks up apk-package CVEs in pinned bases — no human in the loop. (The `ollama` stage is a non-Alpine base with no package step; its fixes arrive as base-tag bumps from Dependabot, gated by Trivy like any other change.)
+[`docker-publish.yml`](workflows/docker-publish.yml) re-runs with `no-cache: true` for cron events. The Alpine runtime stages each run `apk upgrade --no-cache`, so a forced rebuild against fresh alpine repos automatically picks up apk-package CVEs in pinned bases — no human in the loop.
 
 ### Weekly — Tuesday 06:00 UTC (DAST)
 [`dast-scan.yml`](workflows/dast-scan.yml) — the one job that looks at a **running** Turbo EA rather than at code or image contents. It boots the signed `:latest` images with the unmodified `docker-compose.yml` (`ENVIRONMENT=production`, a random `SECRET_KEY`, `SEED_DEMO=true`), waits for `/api/health`, and runs [OWASP ZAP](https://www.zaproxy.org/)'s **baseline** scan twice against `http://localhost:8920`: anonymously, and signed in as the seeded demo administrator (the login cookie is stamped onto every proxied request by ZAP's replacer, so the authenticated API and every SPA page are in scope). Baseline = spider + AJAX spider + **passive** rules only: headers, cookie flags, CSP, information leaks. Nothing is fuzzed or mutated, so the demo admin cannot be locked out and no rate limit is tripped.
@@ -104,7 +103,8 @@ That closes a week-long window. `:latest` is otherwise only retagged on a releas
 | --- | --- | --- | --- |
 | `pip` | `/backend` | weekly | **Security PRs only.** `open-pull-requests-limit: 0` blocks version-update noise; security PRs bypass the limit. |
 | `npm` | `/frontend` | weekly | Same. |
-| `docker` | `/` | weekly | **Version-update PRs, grouped into one.** Not security-only: the GitHub Advisory Database has no container advisories, so `open-pull-requests-limit: 0` (as it stood until 2.154.0) meant Dependabot could never open a docker PR at all. Covers every `FROM` line in the root Dockerfile (nginx, python, postgres, node, alpine-git, ollama). Added after NGINX Rift to close the "moving tag" gap; the bump PR still has to pass the Trivy gate. |
+| `docker` | `/` | weekly | **Version-update PRs, grouped into one.** Not security-only: the GitHub Advisory Database has no container advisories, so `open-pull-requests-limit: 0` (as it stood until 2.154.0) meant Dependabot could never open a docker PR at all. Covers every `FROM` line in the root Dockerfile (nginx, python, postgres, node, alpine-git). Added after NGINX Rift to close the "moving tag" gap; the bump PR still has to pass the Trivy gate. |
+| `docker-compose` | `/` | weekly | **Version-update PRs.** The one image compose pulls that this repo does not build: the upstream `ollama/ollama` tag (since 2.155.0). Majors ignored like the docker entry; the variable `${TURBO_EA_TAG}` references are unresolvable and skipped. |
 | `github-actions` | `/` | **monthly, version updates enabled, grouped** | All actions bundled into one PR (e.g. PR #603 = 8-action group). Pinning actions to current SHAs is itself a supply-chain security best practice. |
 
 ### Monthly — UI-engine version bump
@@ -246,7 +246,7 @@ The Scout step is gated on `env.DOCKERHUB_PAT != ''`, so an unset secret skips t
 ### A Dependabot PR opened
 
 - **`pip` / `npm` (weekly, security-only)** — these are by definition security PRs. CI verifies they don't break tests. Review the upstream changelog briefly, then merge.
-- **`docker` (weekly, version bumps, grouped)** — base-image tag bumps (`nginx`, `python`, `postgres`, `node`, `alpine/git`, `ollama`). Not every one is a CVE fix, but a pinned base can only get one this way. The publish workflow's Trivy gate runs on the PR's merge, so a bump that *introduces* a CRITICAL cannot reach `:latest`. Read the base's release notes for a major, otherwise merge when CI is green.
+- **`docker` / `docker-compose` (weekly, version bumps)** — base-image tag bumps (`nginx`, `python`, `postgres`, `node`, `alpine/git`) and the upstream `ollama/ollama` pin in compose. Not every one is a CVE fix, but a pinned base can only get one this way. The publish workflow's Trivy gate runs on the PR's merge, so a bump that *introduces* a CRITICAL cannot reach `:latest`. Read the base's release notes for a major, otherwise merge when CI is green.
 - **`github-actions` (monthly, grouped)** — all actions in one PR. Read the major-version release notes for each (Dependabot includes them in the body). Most are Node-runtime cutovers with no API change. Merge when CI is green.
 
 ### A new CVE class needs a new scanner

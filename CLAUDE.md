@@ -635,7 +635,7 @@ turbo-ea/
 │   ├── tests/
 │   └── pyproject.toml
 │
-├── Dockerfile                         # Root multi-stage build (targets: backend, db, frontend, nginx, ollama, mcp-server)
+├── Dockerfile                         # Root multi-stage build (targets: backend, db, frontend, nginx, mcp-server)
 ├── nginx/                             # Edge nginx config + assets (default.conf, assets/)
 │
 ├── frontend/
@@ -1884,7 +1884,7 @@ Single source of truth: `/VERSION` file at project root.
 
 ## Security
 
-This section covers the **runtime** security model of a deployed Turbo EA instance. For the **CI / supply-chain** side — what scanners cover what, Trivy/Scout/CodeQL/gitleaks/ZAP/Dependabot wiring, allowlist procedures, image signing/verification — see [`.github/SECURITY_PIPELINE.md`](.github/SECURITY_PIPELINE.md). Four things there are gates, not observers, since 2.154.0: the two dependency audits (`pip-audit`, `audit-ci`) fail a PR; the Secret Scan (gitleaks, config in `/.gitleaks.toml`, allowlists by exact value only, mirrored by a pre-commit hook) fails a PR; the Trivy CRITICAL gate fails a publish; and the weekly DAST (`dast-scan.yml`, OWASP ZAP baseline against the published `:latest` stack booted with `SEED_DEMO`, anonymous + signed in as the demo admin, accepted alerts in `.github/zap-rules.tsv`) fails its run. Every image `docker-compose.yml` can pull — `ollama` included — is in the publish/sign/scan matrices, pinned by `backend/tests/services/test_publish_image_matrix.py`.
+This section covers the **runtime** security model of a deployed Turbo EA instance. For the **CI / supply-chain** side — what scanners cover what, Trivy/Scout/CodeQL/gitleaks/ZAP/Dependabot wiring, allowlist procedures, image signing/verification — see [`.github/SECURITY_PIPELINE.md`](.github/SECURITY_PIPELINE.md). Four things there are gates, not observers, since 2.154.0: the two dependency audits (`pip-audit`, `audit-ci`) fail a PR; the Secret Scan (gitleaks, config in `/.gitleaks.toml`, allowlists by exact value only, mirrored by a pre-commit hook) fails a PR; the Trivy CRITICAL gate fails a publish; and the weekly DAST (`dast-scan.yml`, OWASP ZAP baseline against the published `:latest` stack booted with `SEED_DEMO`, anonymous + signed in as the demo admin, accepted alerts in `.github/zap-rules.tsv`) fails its run. Every image `docker-compose.yml` pulls from GHCR is in the publish/sign/scan matrices, pinned by `backend/tests/services/test_publish_image_matrix.py`; the optional Ollama container is upstream's own pinned image and deliberately outside them (see *GHCR Image Publishing*).
 
 ### Startup Security
 - App **refuses to start** with default `SECRET_KEY` in non-development environments
@@ -2022,23 +2022,23 @@ Production-only stack with PostgreSQL, backend, frontend, edge nginx, and option
 - **frontend**: pulled from `ghcr.io/vincentmakes/turbo-ea/frontend:${TURBO_EA_TAG}`, exposed only inside the compose network
 - **nginx**: pulled from `ghcr.io/vincentmakes/turbo-ea/nginx:${TURBO_EA_TAG}`, public entrypoint on `HOST_PORT`, proxies `/api`, `/mcp`, `/drawio`, and `/` to internal services
 - **mcp-server**: optional profile `mcp`, pulled from `ghcr.io/vincentmakes/turbo-ea/mcp-server:${TURBO_EA_TAG}`
-- **ollama**: optional profile `ai`, pulled from `ghcr.io/vincentmakes/turbo-ea/ollama:${TURBO_EA_TAG}`, persisted in the `ollama_models` volume
+- **ollama**: optional profile `ai`, upstream's own `ollama/ollama:<release>` pinned in `docker-compose.yml` (not built, signed or scanned by this repo; bumped by Dependabot's `docker-compose` entry), persisted in the `ollama_models` volume
 
 ### dev/docker-compose.dev.yml
-Development-only override that adds `build:` back to `db`, `backend`, `frontend`, `nginx`, `ollama`, and `mcp-server` using the root `Dockerfile` targets. Use it with:
+Development-only override that adds `build:` back to `db`, `backend`, `frontend`, `nginx`, and `mcp-server` using the root `Dockerfile` targets (the Ollama service keeps pulling upstream's image). Use it with:
 
 ```bash
 docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml up -d --build
 ```
 
 ### GHCR Image Publishing (opt-in)
-- **Workflow**: `.github/workflows/docker-publish.yml` builds and pushes multi-arch (`amd64` + `arm64`) images to `ghcr.io/vincentmakes/turbo-ea/{db,backend,frontend,nginx,mcp-server,ollama}` on every push to `main`, every `v*.*.*` tag, and on `workflow_dispatch`. **Every image compose can pull is in that matrix, `ollama` included** (since 2.154.0): it used to be republished by hand as a thin patch over `ollama/ollama:latest`, which left it the one image that was never signed, never Trivy-gated, never rescanned daily, and never tagged with the release version `docker-compose.yml` asks for (`ollama:${TURBO_EA_TAG}` did not exist). Its base is a pinned release tag (`FROM ollama/ollama:0.x.y`, bumped by Dependabot's docker entry), its stage has no package step so it stays out of `no-cache-filters`, and `backend/tests/services/test_publish_image_matrix.py` pins the three image matrices (`docker-publish.yml`, `security-scan-published.yml`, `trivy-reconcile.yml`) to the set of images compose references.
+- **Workflow**: `.github/workflows/docker-publish.yml` builds and pushes multi-arch (`amd64` + `arm64`) images to `ghcr.io/vincentmakes/turbo-ea/{db,backend,frontend,nginx,mcp-server}` on every push to `main`, every `v*.*.*` tag, and on `workflow_dispatch`. **Every image compose pulls from GHCR is in that matrix, and `backend/tests/services/test_publish_image_matrix.py` pins the three image matrices** (`docker-publish.yml`, `security-scan-published.yml`, `trivy-reconcile.yml`) to the set of images compose references. **The optional Ollama container is deliberately not one of them.** For two years it was a thin non-root patch over `ollama/ollama:latest` republished by hand — unsigned, unscanned, never tagged with the release version compose asked for. 2.154.0 put it in the matrix, and the very first publish filed 75 Trivy alerts, all Go-toolchain CVEs inside the upstream `ollama` binary that nothing in this repo can rebuild (0.35.0 was upstream's newest release). Signing and scanning someone else's binary bought nothing but an allowlist to maintain, so 2.155.0 dropped the image: `docker-compose.yml` pins upstream's own `ollama/ollama:<release>`, Dependabot's `docker-compose` entry bumps it, the container runs as root the way upstream ships it (the image has no `/models` directory for Docker to seed a volume from, so a non-root user could not write a fresh one) with capabilities dropped and no host port, and `OLLAMA_MODELS=/models` keeps the volume path so models pulled before 2.155.0 stay in place. The same test forbids an `AS ollama` stage from coming back and requires every non-GHCR image compose pulls to carry a release tag.
 - **Compose usage**: production uses `docker compose pull && docker compose up -d`. Development uses the `dev/docker-compose.dev.yml` file to build from source. Pin a version with `TURBO_EA_TAG=0.70.x` (defaults to `latest`).
 - **Auth**: workflow uses the auto-provisioned `GITHUB_TOKEN` (`packages: write`); no extra secrets needed. Packages must be flipped to **Public** in GitHub package settings on first publish.
 
 ### Ollama Service (opt-in)
 - **Profile**: `ai` — started with `docker compose --profile ai up -d`
-- **Image**: `ghcr.io/vincentmakes/turbo-ea/ollama:${TURBO_EA_TAG}`, exposes port 11434 internally only
+- **Image**: upstream `ollama/ollama:<release>`, pinned in `docker-compose.yml` (see the GHCR publishing bullet above for why the repo publishes no copy), exposes port 11434 internally only
 - **Volume**: `ollama_models` for persistent model storage
 - **Memory**: Configurable via `OLLAMA_MEMORY_LIMIT` (default 4G)
 - **Health check**: Uses `ollama list`
@@ -2055,7 +2055,6 @@ All container images are built from one `/Dockerfile` at the repo root using mul
 | `drawio` | `alpine/git:v2.47.2` | Clones jgraph/drawio v31.4.1 |
 | `frontend` | `nginx:1.30.3-alpine` | Final frontend image — built SPA + DrawIO assets, runs as non-root `nginx` |
 | `nginx` | `nginx:1.30.3-alpine` | Edge nginx (public entrypoint, proxies `/api`, `/mcp`, `/drawio`, `/`) — config from `nginx/default.conf` |
-| `ollama` | `ollama/ollama:<pinned release>` | Thin non-root patch over upstream Ollama (pinned tag, bumped by Dependabot) |
 | `mcp-server` | `python:3.12-alpine` | MCP server image — copies `VERSION` + `mcp-server/`, runs as non-root |
 
 ### Nginx Configuration

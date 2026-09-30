@@ -122,15 +122,6 @@ CVE-2026-32283
 CVE-2026-32285
 CVE-2026-33810
 
-# Note: the IDs above also appear in the optional `ollama` image (Go
-# stdlib CVEs in `/usr/bin/ollama`). The `ollama` service is opt-in
-# (`docker compose --profile ai`), is bound only to the internal
-# Docker network (no host port published), and accepts requests only
-# from the backend service. The same Go stdlib vulnerabilities cannot
-# be rebuilt from this repo — the fix lands when upstream Ollama
-# rebuilds. Trivy treats them as the same CVE IDs already listed
-# above, so a single allowlist entry covers both image targets.
-
 # Reviewed 2026-05-06 (round 2) — additional Go stdlib CVEs surfaced in
 # the same `gosu` binary by upstream advisories after the initial
 # triage. Same rationale as the block above: `gosu` only invokes

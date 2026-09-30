@@ -179,18 +179,27 @@ services:
       - "${TLS_HOST_PORT:-9443}:8443"
 
   ollama:
-    image: ghcr.io/vincentmakes/turbo-ea/ollama:${TURBO_EA_TAG:-latest}
+    # Upstream's own image, pinned to a release tag (bumped by Dependabot's
+    # docker-compose entry). Turbo EA published a thin non-root patch over it
+    # in 2.154.0 to 2.154.2 and stopped: the patch added nothing but a user,
+    # and in exchange the repo was signing, gating and re-scanning a binary
+    # it cannot rebuild. It runs as root the way upstream ships it because
+    # the image has no /models directory for Docker to seed the volume from,
+    # so a non-root user could not write a fresh volume; capabilities are
+    # still dropped, no host port is published and only the backend talks
+    # to it. OLLAMA_MODELS keeps the volume path the patched image used, so
+    # models pulled before 2.155.0 stay in place.
+    image: ollama/ollama:0.35.0
     profiles:
       - ai
     restart: unless-stopped
-    user: "${APP_UID:-1000}:${APP_GID:-1000}"
-    # Same hardening as every other service; Ollama needs no capability.
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
     environment:
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
+      OLLAMA_MODELS: /models
     volumes:
       - ollama_models:/models
     expose:

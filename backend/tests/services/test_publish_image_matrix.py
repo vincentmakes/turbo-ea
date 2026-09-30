@@ -1,15 +1,19 @@
-"""Every image compose can pull is built, signed, scanned and reconciled.
+"""Every image compose pulls from GHCR is built, signed, scanned and reconciled.
 
 The ``ollama`` image spent two years outside ``docker-publish.yml``'s matrix as a
-"thin patch over ``ollama/ollama:latest``, republished by hand" — which made it
-the one image that was never cosign-signed, never Trivy-gated, never rescanned
-by the daily job, and never tagged with the release version ``docker-compose.yml``
-asks for (``ollama:${TURBO_EA_TAG}`` did not exist). Nothing noticed, because
-the three matrices were hand-maintained lists that nothing compared.
+"thin patch over ``ollama/ollama:latest``, republished by hand" — never
+cosign-signed, never Trivy-gated, never rescanned by the daily job, and never
+tagged with the release version ``docker-compose.yml`` asked for. Nothing
+noticed, because the three matrices were hand-maintained lists that nothing
+compared. 2.154.0 put it in the matrix; 2.155.0 dropped the image altogether,
+because the patch added nothing but a non-root user and in exchange the repo
+was signing and scanning a Go binary it cannot rebuild (75 upstream-toolchain
+alerts on day one). Compose now pins upstream's own tag.
 
 These tests read the workflows and the compose file as text (the pattern of
 ``test_publish_workflow_signing``) and pin: the three matrices are one set, that
-set is exactly the images ``docker-compose.yml`` references on GHCR, and the
+set is exactly the images ``docker-compose.yml`` references on GHCR, every
+image compose pulls from elsewhere is pinned to a release tag, and the
 Dockerfile pins every ``FROM`` to a tag rather than ``:latest``.
 """
 
@@ -29,6 +33,7 @@ _MATRIX_WORKFLOWS = (
 )
 _MATRIX_RE = re.compile(r"^\s*image:\s*\[([^\]]+)\]\s*$", re.MULTILINE)
 _COMPOSE_IMAGE_RE = re.compile(r"ghcr\.io/vincentmakes/turbo-ea/([a-z-]+):\$\{TURBO_EA_TAG")
+_COMPOSE_ANY_IMAGE_RE = re.compile(r"^\s*image:\s*(\S+)\s*$", re.MULTILINE)
 _FROM_RE = re.compile(r"^FROM\s+(\S+)\s+AS\s+(\S+)\s*$", re.MULTILINE)
 
 
@@ -39,9 +44,12 @@ def _matrix_of(name: str) -> set[str]:
     return {item.strip() for item in matches[0].split(",")}
 
 
+def _compose_text() -> str:
+    return (_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+
+
 def _compose_images() -> set[str]:
-    text = (_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
-    return set(_COMPOSE_IMAGE_RE.findall(text))
+    return set(_COMPOSE_IMAGE_RE.findall(_compose_text()))
 
 
 class TestImageMatrices:
@@ -56,9 +64,20 @@ class TestImageMatrices:
         matrices = {name: _matrix_of(name) for name in _MATRIX_WORKFLOWS}
         assert len({frozenset(m) for m in matrices.values()}) == 1, matrices
 
-    def test_ollama_is_no_longer_the_exception(self):
-        assert "ollama" in _compose_images()
-        assert "ollama" in _matrix_of("docker-publish.yml")
+
+class TestUpstreamComposeImagesArePinned:
+    def test_every_non_ghcr_image_carries_a_release_tag(self):
+        upstream = [
+            ref
+            for ref in _COMPOSE_ANY_IMAGE_RE.findall(_compose_text())
+            if not ref.startswith("ghcr.io/vincentmakes/turbo-ea/")
+        ]
+        assert upstream, "expected at least the upstream ollama/ollama image in docker-compose.yml"
+        floating = [ref for ref in upstream if ":" not in ref or ref.endswith(":latest")]
+        assert not floating, (
+            f"{floating}: an upstream image compose pulls must be pinned to a release tag — "
+            "a moving tag is invisible to Dependabot's docker-compose entry"
+        )
 
 
 class TestDockerfileBasesArePinned:
@@ -72,4 +91,11 @@ class TestDockerfileBasesArePinned:
         assert not floating, (
             f"{floating}: a moving tag is invisible to Dependabot's docker entry and cannot be "
             "reproduced from a signature; pin a release tag"
+        )
+
+    def test_no_ollama_stage_is_built_here(self):
+        text = (_ROOT / "Dockerfile").read_text(encoding="utf-8")
+        assert "AS ollama" not in text, (
+            "the ollama image is upstream's, pinned in docker-compose.yml; do not reintroduce "
+            "a patched copy the repo would have to sign and scan"
         )

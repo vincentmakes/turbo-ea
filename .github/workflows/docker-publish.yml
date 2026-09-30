@@ -31,16 +31,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Every image docker-compose.yml can pull, `ollama` included (since
-        # 2.154.0). It used to be republished by hand as a "thin patch over
-        # ollama/ollama:latest" — which left it the one image that was never
-        # signed, never Trivy-gated, never rescanned, and never tagged with
-        # the release version compose asks for (`ollama:${TURBO_EA_TAG}`).
-        # Its stage is one cached layer over a pinned base, so a main push
-        # costs a cache hit and a manifest push. Keep this list identical to
+        # Every image docker-compose.yml pulls from GHCR. The optional Ollama
+        # container is not one of them: compose pins upstream's own
+        # `ollama/ollama` tag (2.155.0). Turbo EA published a thin non-root
+        # patch over it in 2.154.0 to 2.154.2 and stopped — the patch added
+        # nothing but a user, and in exchange this workflow was signing,
+        # gating and re-scanning a Go binary the repo cannot rebuild (75
+        # upstream-toolchain alerts on day one). Keep this list identical to
         # security-scan-published.yml and trivy-reconcile.yml —
         # backend/tests/services/test_publish_image_matrix.py pins the three.
-        image: [db, backend, frontend, nginx, mcp-server, ollama]
+        image: [db, backend, frontend, nginx, mcp-server]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -122,11 +122,6 @@ jobs:
           # NOTE: the input is `no-cache-filters` (plural) — build-push-action
           # silently ignores the singular form. An empty string is parsed as an
           # empty list, so no `--no-cache-filter` flag is emitted at all.
-          #
-          # `ollama` is deliberately absent from the list: its stage runs no
-          # package manager, so there is nothing an uncached rebuild would
-          # refresh — its freshness is the pinned base tag, bumped by
-          # Dependabot and re-scanned daily like the others.
           no-cache-filters: ${{ github.event_name == 'push' && 'backend,db,frontend,nginx,mcp-server' || '' }}
           provenance: true
           sbom: true

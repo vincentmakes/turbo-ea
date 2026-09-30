@@ -19,7 +19,7 @@
 
 Self-hosted Enterprise Architecture Management platform that creates a **digital twin of your IT landscape**. Inspired by LeanIX, with a fully admin-configurable metamodel — card types, fields, subtypes, and relations are all data, not code.
 
-> **Docker runtime note:** The bundled Docker stack uses custom non-root images for all services and defaults to running as uid:gid `1000:1000`, including PostgreSQL, edge nginx, Ollama, and the MCP server.
+> **Docker runtime note:** The bundled Docker stack uses custom non-root images for all services and defaults to running as uid:gid `1000:1000`, including PostgreSQL, edge nginx, and the MCP server. The optional Ollama container is upstream's own image and runs as upstream ships it, with capabilities dropped and no host port.
 
 
 
@@ -319,7 +319,6 @@ Every push to `main` and every `v*.*.*` tag automatically publishes multi-arch (
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/nginx`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
-- `ghcr.io/vincentmakes/turbo-ea/ollama` *(optional `ai` profile; built, signed and scanned with the others since 2.154.0)*
 - `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea` *(the Helm chart, as an OCI artifact — published on release tags only)*
 
 The root compose file is production-only and pulls published images from GHCR:

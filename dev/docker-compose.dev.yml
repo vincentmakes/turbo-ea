@@ -23,12 +23,6 @@ services:
       dockerfile: Dockerfile
       target: nginx
 
-  ollama:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: ollama
-
   mcp-server:
     build:
       context: .

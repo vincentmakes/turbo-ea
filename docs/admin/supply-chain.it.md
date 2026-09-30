@@ -17,11 +17,10 @@ Immagini firmate:
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/nginx`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
-- `ghcr.io/vincentmakes/turbo-ea/ollama` (profilo opzionale `ai`)
 
 Il chart Helm, `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea`, è firmato nello stesso modo da `.github/workflows/helm-publish.yml` a ogni tag di release (identità `…/helm-publish.yml@<ref>`).
 
-Ogni immagine che `docker-compose.yml` può scaricare è in quell'elenco. L'immagine `ollama` vi è entrata nella 2.154.0: prima veniva ricostruita a mano fuori dalla matrice e non era firmata, quindi le versioni fino alla 2.153.0 non hanno né una firma per essa né un tag `ollama:<version>`.
+Ogni immagine che `docker-compose.yml` scarica da GHCR è in quell'elenco. Il container Ollama opzionale non lo è: dalla 2.155.0 `docker-compose.yml` fissa direttamente il tag di release dell'immagine upstream `ollama/ollama`, e Turbo EA non firma né analizza quell'immagine — verificatela con gli strumenti forniti dal progetto upstream. Una copia con patch, `ghcr.io/vincentmakes/turbo-ea/ollama`, esiste solo per le versioni dalla 2.154.0 alla 2.154.2.
 
 La firma si applica al digest della manifest list OCI, quindi una sola firma copre in modo trasparente sia `linux/amd64` sia `linux/arm64`. Non c'è alcuna firma per piattaforma da rincorrere.
 

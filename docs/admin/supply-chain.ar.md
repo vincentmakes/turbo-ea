@@ -17,11 +17,10 @@
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/nginx`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
-- `ghcr.io/vincentmakes/turbo-ea/ollama` (ملف التعريف الاختياري `ai`)
 
 يُوقَّع مخطط Helm، `ghcr.io/vincentmakes/turbo-ea/charts/turbo-ea`، بالطريقة نفسها بواسطة `.github/workflows/helm-publish.yml` عند كل وسم إصدار (الهوية `…/helm-publish.yml@<ref>`).
 
-كل صورة يمكن لـ `docker-compose.yml` سحبها موجودة في هذه القائمة. انضمت صورة `ollama` إليها في الإصدار 2.154.0: قبل ذلك كانت تُعاد بناؤها يدويًا خارج المصفوفة ولم تكن موقَّعة، لذا لا تحمل الإصدارات حتى 2.153.0 أي توقيع لها ولا أي وسم `ollama:<version>`.
+كل صورة يسحبها `docker-compose.yml` من GHCR موجودة في هذه القائمة. أما حاوية Ollama الاختيارية فليست منها: منذ الإصدار 2.155.0 يثبّت `docker-compose.yml` مباشرةً وسم إصدار الصورة الأصلية `ollama/ollama`، ولا يقوم Turbo EA بتوقيع هذه الصورة ولا بفحصها — تحقق منها بالوسائل التي يوفرها المشروع الأصلي. توجد نسخة معدّلة، `ghcr.io/vincentmakes/turbo-ea/ollama`، للإصدارات من 2.154.0 إلى 2.154.2 فقط.
 
 ينطبق التوقيع على هضم (digest) قائمة بيان OCI، لذا فإن توقيعًا واحدًا يغطّي بشفافية كلًّا من `linux/amd64` و`linux/arm64`. لا يوجد توقيع منفصل لكل منصّة يلزم تتبّعه.
 

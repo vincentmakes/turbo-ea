@@ -42,7 +42,7 @@
     "bpmn-js-create-append-anything": "^2.1.0",
     "bpmn-js-properties-panel": "^5.65.0",
     "docx": "^9.5.1",
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.16",
     "file-saver": "^2.0.5",
     "html-to-image": "^1.11.13",
     "i18next": "^25.8.13",
@@ -89,7 +89,7 @@
     "yaml": ">=2.4.2",
     "markdown-it": ">=14.2.0",
     "form-data": ">=4.0.6",
-    "js-yaml": ">=5.2.2",
+    "js-yaml": ">=5.4.1",
     "postcss": ">=8.5.18",
     "@babel/core": "^7.29.7",
     "image-size": "$image-size"
