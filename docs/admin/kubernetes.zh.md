@@ -141,6 +141,8 @@ chart 生成一条 Ingress 规则——`publicUrl` 的主机、路径 `/`、`pat
 
 TLS 方面，要么在 Ingress 上使用 cert-manager 的 `tls:` 块，要么使用云平台的托管证书（ACM、GKE ManagedCertificate）并在负载均衡器上终止 TLS。集群内到 nginx 的流量是明文 HTTP；以 `https://` 开头的 `publicUrl` 才是让 Cookie 变为 `secure` 的关键。
 
+**让 Ingress 保持私有。** Turbo EA 无需从互联网访问（参见[网络暴露面](../getting-started/setup.md)）。在 **EKS** 上，设置 `alb.ingress.kubernetes.io/scheme: internal`，就像下面的 AWS 示例那样；控制器随后会把 ALB 放在带有 `kubernetes.io/role/internal-elb` 标签的子网中。在 **GKE** 上，使用 `gce-internal` Ingress 类，它会创建内部应用负载均衡器，并需要该区域中的一个仅代理子网。使用 **AKS 应用路由**时，创建一个 `NginxIngressController`，在其 `loadBalancerAnnotations` 中设置 `service.beta.kubernetes.io/azure-load-balancer-internal: "true"`，并让 Ingress 指向它的类。用户随后通过您的 VPN 或零信任访问网关访问该主机名。
+
 ## 升级
 
 ```bash
@@ -178,7 +180,7 @@ ingress:
   enabled: true
   className: alb
   annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/scheme: internal
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
     alb.ingress.kubernetes.io/ssl-redirect: "443"

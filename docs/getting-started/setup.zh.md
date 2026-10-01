@@ -172,6 +172,18 @@ TLS_HOST_PORT=443
 
 对于位于现有反向代理（Caddy、Traefik、Cloudflare Tunnel）后的设置，保持 `TURBO_EA_TLS_ENABLED=false`，让代理处理 TLS。
 
+## 网络暴露面
+
+Turbo EA 保存着您整个 IT 版图的全景（应用、供应商、成本和风险），因此请将其作为内部应用运行。它不需要任何来自互联网的入站访问，其可选的出站调用（扩展商店、每日新版本检查、AI 提供商）通过您常规的出站网络发出。
+
+- **不要将其暴露在公共互联网上。** 将其发布在您的私有网络中，或置于内部负载均衡器或 Ingress 之后，而不是公网地址上。
+- **仅允许经批准的企业设备访问。** 通过您的 VPN 或零信任访问网关访问它（例如位于 Cloudflare Tunnel 之前的 Cloudflare Access、Microsoft Entra Private Access 或 Zscaler Private Access），并在身份提供商的条件访问策略中要求使用受管理且合规的设备。
+- **保留单点登录。** 网络限制是对 [SSO](../admin/sso.md) 和角色的补充，而不是替代。
+
+有些功能本就是为了触达该边界之外的人：嵌入外部网站的[已发布图表](../guide/diagrams.md)、公开的[门户网站](../admin/web-portals.md)，以及从其厂商云端连接 [MCP 服务器](../admin/mcp.md)的 AI 助手。它们都需要一条通往 Turbo EA 的路径，因此请审慎启用：能留在内部网络的就留在内部网络，否则只开放它们所需的部分。
+
+[Kubernetes 与云](../admin/kubernetes.md)中的大多数云示例以及[托管容器服务](../admin/managed-containers.md)中的所有模板都会发布一个公共端点，以便首次部署可以访问。这两个页面都说明了如何在投入生产之前将其改为私有。
+
 ## 允许嵌入图表（可选）
 
 [已发布的图表](../guide/diagrams.md)可以嵌入到其他站点，例如 Confluence 页面或内网门户，但前提是你先指定该站点。默认情况下，任何外部站点都不能将 Turbo EA 放入框架中。

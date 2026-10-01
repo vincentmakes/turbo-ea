@@ -44,6 +44,16 @@ flowchart LR
 | 进入容器的 Shell | `az containerapp exec` | 无 | ECS Exec |
 | 只读根文件系统 | 不可用 | 不是可配置项 | 可以，但会禁用 ECS Exec（模板中关闭） |
 
+## 网络暴露面
+
+每个模板都会发布一个公共端点，以便首次部署可以访问。Turbo EA 并不需要它（参见[网络暴露面](../getting-started/setup.md)），因此请在投入生产前将其改为私有：
+
+- **Azure Container Apps。** 部署到集成 VNet 并使用内部负载均衡器的环境中，使应用只获得私有地址；或者为应用的 Ingress 添加 IP 限制，只放行您企业的地址段。
+- **Google Cloud Run。** 将服务的 Ingress 设置为 `internal-and-cloud-load-balancing`（模板中的注释已建议在负载均衡器就绪后这样做），然后在负载均衡器的后端服务上启用 Identity-Aware Proxy，或改为在服务前放置一个内部应用负载均衡器。
+- **AWS ECS Fargate。** 在模板中将负载均衡器的 `Scheme` 改为 `internal` 并为其指定私有子网，或者将其安全组限制为您企业的地址段。
+
+相同平台的 [Terraform](terraform.md) 模块会创建同样的公共端点，同样的设置也适用。
+
 ## Azure Container Apps
 
 **前提条件。**

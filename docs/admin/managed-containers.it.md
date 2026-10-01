@@ -44,6 +44,16 @@ I tre modelli costruiscono la stessa cosa:
 | Shell in un container | `az containerapp exec` | nessuna | ECS Exec |
 | File system radice in sola lettura | non disponibile | non è un'impostazione | possibile, ma disabilita ECS Exec (spento nel modello) |
 
+## Esposizione in rete
+
+Ogni modello pubblica un endpoint pubblico perché una prima installazione sia raggiungibile. Turbo EA non ne ha bisogno (vedere [Esposizione in rete](../getting-started/setup.md)), quindi rendetelo privato prima della produzione:
+
+- **Azure Container Apps.** Distribuite in un ambiente integrato in una VNet con un load balancer interno, in modo che l'app riceva solo un indirizzo privato, oppure aggiungete all'ingress dell'app restrizioni IP che lascino passare solo i vostri intervalli aziendali.
+- **Google Cloud Run.** Impostate l'ingress del servizio su `internal-and-cloud-load-balancing` (il commento del modello lo suggerisce già una volta attivo il load balancer), poi abilitate Identity-Aware Proxy sul servizio di backend del load balancer, oppure mettete invece un Application Load Balancer interno davanti al servizio.
+- **AWS ECS Fargate.** Cambiate lo `Scheme` del load balancer in `internal` nel modello e assegnategli subnet private, oppure limitate il suo security group agli intervalli di indirizzi della vostra azienda.
+
+I moduli [Terraform](terraform.md) per le stesse piattaforme creano lo stesso endpoint pubblico e valgono le stesse impostazioni.
+
 ## Azure Container Apps
 
 **Prerequisiti.**

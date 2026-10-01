@@ -173,6 +173,18 @@ Place `cert.pem` and `key.pem` in `./certs/` (the directory is mounted read-only
 
 For setups behind an existing reverse proxy (Caddy, Traefik, Cloudflare Tunnel), leave `TURBO_EA_TLS_ENABLED=false` and let the proxy handle TLS. If that proxy also authenticates your users (Azure App Service EasyAuth, oauth2-proxy, Authelia), Turbo EA can accept that identity directly with no OIDC client at all — see [Reverse proxy authentication](../admin/sso.md#reverse-proxy-authentication).
 
+## Network exposure
+
+Turbo EA holds a map of your entire IT landscape (applications, vendors, costs and risks), so run it as an internal application. It needs no inbound access from the internet, and its optional outbound calls (the Extension Store, the daily check for a newer release, an AI provider) leave through your normal egress.
+
+- **Keep it off the open internet.** Publish it on your private network, or behind an internal load balancer or ingress, rather than on a public address.
+- **Let only approved corporate devices in.** Reach it through your VPN or a zero-trust access gateway (for example Cloudflare Access in front of a Cloudflare Tunnel, Microsoft Entra Private Access or Zscaler Private Access), and require a compliant, managed device in your identity provider's conditional-access policy.
+- **Keep single sign-on.** Network restrictions add to [SSO](../admin/sso.md) and roles; they do not replace them.
+
+A few features exist to reach people outside that boundary: a [published diagram](../guide/diagrams.md) embedded in an external site, a public [web portal](../admin/web-portals.md), and an AI assistant that connects to the [MCP server](../admin/mcp.md) from its vendor's cloud. Each of them needs a route to Turbo EA, so enable them deliberately: keep them on the internal network where you can, and otherwise expose only what they need.
+
+Most cloud examples in [Kubernetes & Cloud](../admin/kubernetes.md) and every template in [Managed container services](../admin/managed-containers.md) publish a public endpoint so that a first deployment can be reached. Both pages explain how to make it private before production.
+
 ## Allowing diagram embedding (optional)
 
 A [published diagram](../guide/diagrams.md#sharing-a-diagram-outside-turbo-ea) can be embedded in another site — a Confluence page, an intranet portal — but only if you name that site first. By default no external site may place Turbo EA in a frame at all.

@@ -175,6 +175,18 @@ Coloque `cert.pem` y `key.pem` en `./certs/` (el directorio se monta en modo sol
 
 Para configuraciones detrás de un proxy inverso existente (Caddy, Traefik, Cloudflare Tunnel), deje `TURBO_EA_TLS_ENABLED=false` y deje que el proxy gestione TLS.
 
+## Exposición en la red
+
+Turbo EA contiene un mapa de todo su panorama de TI (aplicaciones, proveedores, costes y riesgos), por lo que debe operarlo como una aplicación interna. No necesita ningún acceso entrante desde internet, y sus llamadas salientes opcionales (la tienda de extensiones, la comprobación diaria de nuevas versiones, un proveedor de IA) salen por su conexión de salida habitual.
+
+- **Manténgalo fuera de la internet abierta.** Publíquelo en su red privada, o detrás de un balanceador de carga o un ingress internos, en lugar de en una dirección pública.
+- **Permita el acceso solo a dispositivos corporativos aprobados.** Acceda a él a través de su VPN o de una pasarela de acceso zero-trust (por ejemplo Cloudflare Access delante de un Cloudflare Tunnel, Microsoft Entra Private Access o Zscaler Private Access) y exija un dispositivo gestionado y conforme en la política de acceso condicional de su proveedor de identidad.
+- **Mantenga el inicio de sesión único.** Las restricciones de red se suman a [SSO](../admin/sso.md) y a los roles; no los sustituyen.
+
+Algunas funciones existen precisamente para llegar a personas fuera de ese perímetro: un [diagrama publicado](../guide/diagrams.md) incrustado en un sitio externo, un [portal web](../admin/web-portals.md) público y un asistente de IA que se conecta al [servidor MCP](../admin/mcp.md) desde la nube de su proveedor. Cada una necesita una ruta hasta Turbo EA, así que actívelas de forma deliberada: manténgalas en la red interna siempre que pueda y, si no, exponga solo lo que necesitan.
+
+La mayoría de los ejemplos en la nube de [Kubernetes y nube](../admin/kubernetes.md) y todas las plantillas de [Servicios de contenedores gestionados](../admin/managed-containers.md) publican un endpoint público para que un primer despliegue sea accesible. Ambas páginas explican cómo hacerlo privado antes de pasar a producción.
+
 ## Permitir la inserción de diagramas (opcional)
 
 Un [diagrama publicado](../guide/diagrams.md) puede insertarse en otro sitio — una página de Confluence, un portal de intranet — pero solo si indicas antes ese sitio. De forma predeterminada, ningún sitio externo puede colocar Turbo EA en un marco.

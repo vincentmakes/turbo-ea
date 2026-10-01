@@ -44,6 +44,16 @@ Alle tre skabeloner bygger det samme:
 | Shell ind i en container | `az containerapp exec` | ingen | ECS Exec |
 | Skrivebeskyttet rodfilsystem | ikke tilgængeligt | ikke en indstilling | muligt, men slår ECS Exec fra (slået fra i skabelonen) |
 
+## Netværkseksponering
+
+Alle skabeloner udgiver et offentligt endpoint, så en første udrulning kan nås. Turbo EA har ikke brug for det (se [Netværkseksponering](../getting-started/setup.md)), så gør det privat før produktion:
+
+- **Azure Container Apps.** Udrul i et VNet-integreret miljø med en intern load balancer, så appen kun får en privat adresse, eller tilføj IP-begrænsninger på appens ingress, så kun virksomhedens adresseområder slipper igennem.
+- **Google Cloud Run.** Sæt tjenestens ingress til `internal-and-cloud-load-balancing` (kommentaren i skabelonen foreslår det allerede, når load balanceren kører), og slå derefter Identity-Aware Proxy til på load balancerens backend-tjeneste, eller sæt i stedet en intern Application Load Balancer foran tjenesten.
+- **AWS ECS Fargate.** Ændr load balancerens `Scheme` til `internal` i skabelonen, og giv den private subnet, eller begræns dens sikkerhedsgruppe til virksomhedens adresseområder.
+
+[Terraform](terraform.md)-modulerne til de samme platforme opretter det samme offentlige endpoint, og de samme indstillinger gælder.
+
 ## Azure Container Apps
 
 **Forudsætninger.**

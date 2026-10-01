@@ -44,6 +44,16 @@ Alle drei Vorlagen bauen dasselbe:
 | Shell in einen Container | `az containerapp exec` | keine | ECS Exec |
 | Schreibgeschütztes Root-Dateisystem | nicht verfügbar | keine Einstellung | möglich, deaktiviert aber ECS Exec (in der Vorlage aus) |
 
+## Erreichbarkeit im Netzwerk
+
+Jede Vorlage veröffentlicht einen öffentlichen Endpunkt, damit eine erste Bereitstellung erreichbar ist. Turbo EA braucht keinen (siehe [Erreichbarkeit im Netzwerk](../getting-started/setup.md)), also machen Sie ihn vor dem Produktivbetrieb privat:
+
+- **Azure Container Apps.** Stellen Sie in eine VNet-integrierte Umgebung mit internem Load Balancer bereit, sodass die App nur eine private Adresse erhält, oder fügen Sie dem Ingress der App IP-Beschränkungen hinzu, die nur Ihre Firmennetze durchlassen.
+- **Google Cloud Run.** Setzen Sie den Ingress des Dienstes auf `internal-and-cloud-load-balancing` (der Kommentar in der Vorlage schlägt das bereits vor, sobald der Load Balancer steht), und aktivieren Sie dann Identity-Aware Proxy für den Backend-Dienst des Load Balancers, oder setzen Sie stattdessen einen internen Application Load Balancer vor den Dienst.
+- **AWS ECS Fargate.** Ändern Sie in der Vorlage das `Scheme` des Load Balancers auf `internal` und geben Sie ihm private Subnetze, oder beschränken Sie seine Sicherheitsgruppe auf die Adressbereiche Ihres Unternehmens.
+
+Die [Terraform](terraform.md)-Module für dieselben Plattformen legen denselben öffentlichen Endpunkt an; es gelten dieselben Einstellungen.
+
 ## Azure Container Apps
 
 **Voraussetzungen.**

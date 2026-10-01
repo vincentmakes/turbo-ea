@@ -44,6 +44,16 @@ All three templates build the same thing:
 | Shell into a container | `az containerapp exec` | none | ECS Exec |
 | Read-only root filesystem | not available | not a setting | possible, but disables ECS Exec (off in the template) |
 
+## Network exposure
+
+Every template publishes a public endpoint so that a first deployment can be reached. Turbo EA does not need one (see [Network exposure](../getting-started/setup.md#network-exposure)), so make it private before production:
+
+- **Azure Container Apps.** Deploy into a VNet-integrated environment with an internal load balancer, so the app only gets a private address, or add IP restrictions to the app's ingress so that only your corporate ranges get through.
+- **Google Cloud Run.** Set the service's ingress to `internal-and-cloud-load-balancing` (the template's comment already suggests this once the load balancer is up), then enable Identity-Aware Proxy on the load balancer's backend service, or put an internal Application Load Balancer in front of the service instead.
+- **AWS ECS Fargate.** Change the load balancer's `Scheme` to `internal` in the template and give it private subnets, or limit its security group to your corporate address ranges.
+
+The [Terraform](terraform.md) modules for the same platforms create the same public endpoint, and the same settings apply.
+
 ## Azure Container Apps
 
 **Prerequisites.**

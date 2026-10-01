@@ -174,6 +174,18 @@ Placér `cert.pem` og `key.pem` i `./certs/` (mappen monteres skrivebeskyttet i 
 
 For opsætninger bag en eksisterende reverse proxy (Caddy, Traefik, Cloudflare Tunnel), lad `TURBO_EA_TLS_ENABLED=false` stå, og lad proxyen håndtere TLS.
 
+## Netværkseksponering
+
+Turbo EA rummer et kort over hele dit IT-landskab (applikationer, leverandører, omkostninger og risici), så kør det som en intern applikation. Det har ikke brug for indgående adgang fra internettet, og dets valgfrie udgående kald (Udvidelsesbutikken, det daglige tjek for en nyere version, en AI-udbyder) går ud via din normale udgående forbindelse.
+
+- **Hold det væk fra det åbne internet.** Udgiv det på dit private netværk eller bag en intern load balancer eller ingress i stedet for på en offentlig adresse.
+- **Giv kun godkendte virksomhedsenheder adgang.** Tilgå det via din VPN eller en zero trust-adgangsgateway (for eksempel Cloudflare Access foran en Cloudflare Tunnel, Microsoft Entra Private Access eller Zscaler Private Access), og kræv en administreret, kompatibel enhed i din identitetsudbyders politik for betinget adgang.
+- **Behold single sign-on.** Netværksbegrænsninger supplerer [SSO](../admin/sso.md) og roller; de erstatter dem ikke.
+
+Nogle funktioner findes netop for at nå personer uden for den grænse: et [publiceret diagram](../guide/diagrams.md), der er indlejret på et eksternt websted, en offentlig [webportal](../admin/web-portals.md) og en AI-assistent, der forbinder til [MCP-serveren](../admin/mcp.md) fra sin leverandørs cloud. Hver af dem kræver en vej til Turbo EA, så slå dem bevidst til: hold dem på det interne netværk, hvor du kan, og eksponér ellers kun det, de har brug for.
+
+De fleste cloud-eksempler i [Kubernetes og cloud](../admin/kubernetes.md) og alle skabeloner i [Administrerede containertjenester](../admin/managed-containers.md) udgiver et offentligt endpoint, så en første udrulning kan nås. Begge sider forklarer, hvordan du gør det privat før produktion.
+
 ## Tillad indlejring af diagrammer (valgfrit)
 
 Et [udgivet diagram](../guide/diagrams.md) kan indlejres på et andet websted — en Confluence-side, en intranetportal — men kun hvis du navngiver det websted først. Som standard må intet eksternt websted overhovedet placere Turbo EA i en ramme.

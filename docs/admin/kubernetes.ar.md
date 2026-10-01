@@ -141,6 +141,8 @@ kubectl create secret generic turbo-ea-credentials -n turbo-ea \
 
 من أجل TLS، إما كتلة `tls:` من cert-manager على الـ Ingress، أو الشهادة المُدارة للسحابة (ACM، أو ManagedCertificate في GKE) مع إنهاء TLS على موازن الحمل. داخل العنقود، حركة المرور نحو nginx هي HTTP عادي؛ وما يجعل ملف تعريف الارتباط `secure` هو أن يبدأ `publicUrl` بـ `https://`.
 
+**أبقِ Ingress خاصًا.** لا يحتاج Turbo EA إلى أن يكون قابلًا للوصول من الإنترنت (راجع [التعرّض للشبكة](../getting-started/setup.md)). على **EKS**، اضبط `alb.ingress.kubernetes.io/scheme: internal` كما يفعل مثال AWS أدناه؛ عندها يضع المتحكم موازن ALB في الشبكات الفرعية الموسومة بـ `kubernetes.io/role/internal-elb`. على **GKE**، استخدم فئة Ingress المسماة `gce-internal`، التي تنشئ Application Load Balancer داخليًا وتتطلب شبكة فرعية مخصصة للوكيل فقط (proxy-only) في المنطقة. مع **توجيه التطبيقات في AKS**، أنشئ `NginxIngressController` تضبط `loadBalancerAnnotations` الخاصة به القيمة `service.beta.kubernetes.io/azure-load-balancer-internal: "true"`، ووجّه Ingress إلى فئته. يصل المستخدمون بعد ذلك إلى اسم المضيف عبر شبكة VPN أو بوابة الوصول بنموذج انعدام الثقة لديك.
+
 ## الترقيات
 
 ```bash
@@ -178,7 +180,7 @@ ingress:
   enabled: true
   className: alb
   annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/scheme: internal
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
     alb.ingress.kubernetes.io/ssl-redirect: "443"

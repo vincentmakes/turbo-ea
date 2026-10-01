@@ -141,6 +141,8 @@ Due limiti sono impostati sull'nginx di bordo ma vanno alzati **anche** sul cont
 
 Per TLS, o un blocco `tls:` di cert-manager sull'Ingress, oppure il certificato gestito del cloud (ACM, ManagedCertificate di GKE) con TLS sul bilanciatore. Nel cluster il traffico verso nginx è HTTP semplice; è un `publicUrl` che inizia con `https://` a rendere `secure` il cookie.
 
+**Mantenete privato l'Ingress.** Turbo EA non ha bisogno di essere raggiungibile da Internet (vedere [Esposizione in rete](../getting-started/setup.md)). Su **EKS** impostate `alb.ingress.kubernetes.io/scheme: internal`, come fa l'esempio AWS più sotto; il controller colloca quindi l'ALB nelle subnet con il tag `kubernetes.io/role/internal-elb`. Su **GKE** usate la classe di Ingress `gce-internal`, che crea un Application Load Balancer interno e richiede una subnet solo proxy nella regione. Con l'**application routing di AKS** create un `NginxIngressController` le cui `loadBalancerAnnotations` impostano `service.beta.kubernetes.io/azure-load-balancer-internal: "true"` e puntate l'Ingress sulla sua classe. Gli utenti raggiungono quindi il nome host tramite la vostra VPN o il vostro gateway di accesso zero-trust.
+
 ## Aggiornamenti
 
 ```bash
@@ -178,7 +180,7 @@ ingress:
   enabled: true
   className: alb
   annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/scheme: internal
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
     alb.ingress.kubernetes.io/ssl-redirect: "443"

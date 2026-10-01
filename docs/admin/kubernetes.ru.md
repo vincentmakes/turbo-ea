@@ -141,6 +141,8 @@ kubectl create secret generic turbo-ea-credentials -n turbo-ea \
 
 Для TLS — либо блок `tls:` cert-manager на Ingress, либо управляемый сертификат облака (ACM, ManagedCertificate в GKE) с завершением TLS на балансировщике. Внутри кластера трафик к nginx идёт по обычному HTTP; cookie становится `secure` именно благодаря `publicUrl`, начинающемуся с `https://`.
 
+**Держите Ingress закрытым.** Turbo EA не нужно быть доступным из интернета (см. [Сетевая доступность](../getting-started/setup.md)). В **EKS** задайте `alb.ingress.kubernetes.io/scheme: internal`, как в примере для AWS ниже; тогда контроллер размещает ALB в подсетях с тегом `kubernetes.io/role/internal-elb`. В **GKE** используйте класс Ingress `gce-internal`: он создаёт внутренний Application Load Balancer и требует в регионе подсеть только для прокси (proxy-only). С **маршрутизацией приложений AKS** создайте `NginxIngressController`, у которого `loadBalancerAnnotations` задают `service.beta.kubernetes.io/azure-load-balancer-internal: "true"`, и направьте Ingress на его класс. Пользователи затем обращаются к имени хоста через ваш VPN или шлюз доступа zero trust.
+
 ## Обновления
 
 ```bash
@@ -178,7 +180,7 @@ ingress:
   enabled: true
   className: alb
   annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/scheme: internal
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
     alb.ingress.kubernetes.io/ssl-redirect: "443"

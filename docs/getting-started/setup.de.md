@@ -174,6 +174,18 @@ Legen Sie `cert.pem` und `key.pem` in `./certs/` ab (das Verzeichnis wird schrei
 
 Für Setups hinter einem bestehenden Reverse-Proxy (Caddy, Traefik, Cloudflare Tunnel) lassen Sie `TURBO_EA_TLS_ENABLED=false` und überlassen die TLS-Terminierung dem Proxy.
 
+## Erreichbarkeit im Netzwerk
+
+Turbo EA enthält eine Karte Ihrer gesamten IT-Landschaft (Anwendungen, Anbieter, Kosten und Risiken). Betreiben Sie es deshalb als interne Anwendung. Es benötigt keinen eingehenden Zugriff aus dem Internet, und seine optionalen ausgehenden Verbindungen (der Extension Store, die tägliche Prüfung auf eine neuere Version, ein KI-Anbieter) laufen über Ihren üblichen ausgehenden Internetzugang.
+
+- **Halten Sie es vom offenen Internet fern.** Stellen Sie es in Ihrem privaten Netzwerk oder hinter einem internen Load Balancer bzw. Ingress bereit, nicht unter einer öffentlichen Adresse.
+- **Lassen Sie nur freigegebene Firmengeräte zu.** Greifen Sie über Ihr VPN oder ein Zero-Trust-Zugangsgateway darauf zu (zum Beispiel Cloudflare Access vor einem Cloudflare Tunnel, Microsoft Entra Private Access oder Zscaler Private Access), und verlangen Sie in der Richtlinie für bedingten Zugriff Ihres Identitätsanbieters ein verwaltetes, konformes Gerät.
+- **Behalten Sie Single Sign-on bei.** Netzwerkbeschränkungen ergänzen [SSO](../admin/sso.md) und Rollen, sie ersetzen sie nicht.
+
+Einige Funktionen sind gerade dafür da, Personen außerhalb dieser Grenze zu erreichen: ein [veröffentlichtes Diagramm](../guide/diagrams.md), das in eine externe Website eingebettet ist, ein öffentliches [Web-Portal](../admin/web-portals.md) und ein KI-Assistent, der sich aus der Cloud seines Anbieters mit dem [MCP-Server](../admin/mcp.md) verbindet. Jede davon braucht einen Weg zu Turbo EA. Aktivieren Sie sie deshalb bewusst: Halten Sie sie, wo möglich, im internen Netz, und geben Sie andernfalls nur frei, was sie benötigen.
+
+Die meisten Cloud-Beispiele unter [Kubernetes & Cloud](../admin/kubernetes.md) und alle Vorlagen unter [Verwaltete Container-Dienste](../admin/managed-containers.md) veröffentlichen einen öffentlichen Endpunkt, damit eine erste Bereitstellung erreichbar ist. Beide Seiten erklären, wie Sie ihn vor dem Produktivbetrieb privat machen.
+
 ## Einbetten von Diagrammen erlauben (optional)
 
 Ein [veröffentlichtes Diagramm](../guide/diagrams.md) kann in eine andere Website eingebettet werden — eine Confluence-Seite, ein Intranet-Portal —, aber nur, wenn Sie diese Website zuvor benennen. Standardmäßig darf keine externe Website Turbo EA überhaupt in einen Frame einbetten.
