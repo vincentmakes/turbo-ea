@@ -144,11 +144,15 @@ export const api = {
   // `file` is optional: one endpoint (a card's logo) accepts EITHER an upload
   // or a form field naming a built-in icon, and a multipart body with no file
   // part is how the second form is sent.
+  //
+  // `method` defaults to POST (create); PUT is for an endpoint that replaces
+  // an existing resource's bytes in place (a file attachment's content).
   upload: <T>(
     path: string,
     file: File | undefined,
     fieldName = "file",
     extraFields?: Record<string, string>,
+    options?: { method?: "POST" | "PUT" },
   ) => {
     const form = new FormData();
     if (file) form.append(fieldName, file);
@@ -156,7 +160,7 @@ export const api = {
       for (const [k, v] of Object.entries(extraFields)) form.append(k, v);
     }
     return fetch(`${BASE}${path}`, {
-      method: "POST",
+      method: options?.method ?? "POST",
       body: form,
       credentials: "same-origin",
       headers: { "X-Turbo-EA-Origin": "web" },

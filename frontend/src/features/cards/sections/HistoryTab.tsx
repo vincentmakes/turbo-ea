@@ -38,6 +38,8 @@ const EVENT_META_ICONS: Record<string, { icon: string; color: string }> = {
   "document.updated": { icon: "edit_note", color: "#1976d2" },
   "document.removed": { icon: "link_off", color: "#f44336" },
   "file.uploaded": { icon: "upload_file", color: "#1976d2" },
+  "file.replaced": { icon: "sync", color: "#1976d2" },
+  "file.updated": { icon: "edit_note", color: "#1976d2" },
   "file.deleted": { icon: "delete", color: "#f44336" },
   "card_logo.updated": { icon: "image", color: "#1976d2" },
   "card_logo.deleted": { icon: "hide_image", color: "#f44336" },
@@ -78,6 +80,8 @@ function getEventMeta(t: (key: string) => string): Record<string, { label: strin
     "document.updated": { label: t("history.events.documentUpdated"), ...EVENT_META_ICONS["document.updated"] },
     "document.removed": { label: t("history.events.documentRemoved"), ...EVENT_META_ICONS["document.removed"] },
     "file.uploaded": { label: t("history.events.fileUploaded"), ...EVENT_META_ICONS["file.uploaded"] },
+    "file.replaced": { label: t("history.events.fileReplaced"), ...EVENT_META_ICONS["file.replaced"] },
+    "file.updated": { label: t("history.events.fileUpdated"), ...EVENT_META_ICONS["file.updated"] },
     "file.deleted": { label: t("history.events.fileDeleted"), ...EVENT_META_ICONS["file.deleted"] },
     "card_logo.updated": { label: t("history.events.cardLogoUpdated"), ...EVENT_META_ICONS["card_logo.updated"] },
     "card_logo.deleted": { label: t("history.events.cardLogoDeleted"), ...EVENT_META_ICONS["card_logo.deleted"] },
@@ -242,11 +246,20 @@ function EventDetail({ data, eventType, fallbackSummary, typeIconFor, t }: Event
     return <PlainSummary text={fallbackSummary || ""} />;
   }
 
-  if (eventType === "file.uploaded" || eventType === "file.deleted") {
-    const name = (data.name as string) || fallbackSummary || "";
-    const size = data.size as number | undefined;
-    const sizeText = size != null ? ` · ${(size / 1024).toFixed(1)} KB` : "";
-    return <PlainSummary text={`${name}${sizeText}`} />;
+  if (eventType.startsWith("file.")) {
+    const fileLine = (d: Record<string, unknown>) => {
+      const name = (d.name as string) || "";
+      const size = d.size as number | undefined;
+      return size != null ? `${name} · ${(size / 1024).toFixed(1)} KB` : name;
+    };
+    const current = fileLine(data) || fallbackSummary || "";
+    // A replace carries the version it superseded as `previous` (not as
+    // `changes`: a raw byte count is not a field diff anyone wants to read).
+    const previous = data.previous as Record<string, unknown> | undefined;
+    if (eventType === "file.replaced" && previous) {
+      return <PlainSummary text={`${fileLine(previous)} → ${current}`} />;
+    }
+    return <PlainSummary text={current} />;
   }
 
   if (eventType.startsWith("stakeholder.")) {
@@ -411,15 +424,17 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
       {events.map((e) => {
         const meta = eventMeta[e.event_type] || { label: e.event_type, icon: "info", color: "#9e9e9e" };
         const changes = e.data?.changes as Record<string, unknown> | undefined;
-        // A document link's `url` / `type` are its own fields, not the card's:
-        // label them as the link dialog does, so a card attribute that happens
-        // to be keyed `type` is not borrowed for the row (#1166).
+        // A document link's `url` / `type` and a file's `category` are the
+        // resource's own fields, not the card's: label them as the Resources
+        // dialogs do, so a card attribute that happens to be keyed `type` is
+        // not borrowed for the row (#1166).
         const labels =
-          e.event_type === "document.updated"
+          e.event_type === "document.updated" || e.event_type === "file.updated"
             ? {
                 ...fieldLabels,
                 url: t("resources.addLinkDialog.url"),
                 type: t("resources.addLinkDialog.type"),
+                category: t("resources.uploadFileDialog.category"),
               }
             : fieldLabels;
         const rows = changes

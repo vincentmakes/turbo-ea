@@ -773,6 +773,31 @@
         "title": "Body_import_bpmn_api_v1_bpm_processes__process_id__diagram_import_post",
         "type": "object"
       },
+      "Body_replace_file_attachment_api_v1_file_attachments__attachment_id__content_put": {
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_replace_file_attachment_api_v1_file_attachments__attachment_id__content_put",
+        "type": "object"
+      },
       "Body_upload_bundle_api_v1_admin_extensions_install_post": {
         "properties": {
           "file": {
@@ -5838,6 +5863,35 @@
           "field_mappings"
         ],
         "title": "FieldMappingUpdate",
+        "type": "object"
+      },
+      "FileAttachmentUpdate": {
+        "description": "Rename or re-categorise a file attachment \u2014 omitted fields stay as is.\n\nThe bytes are untouched (that is what ``PUT \u2026/content`` is for), so a new\n``name`` must keep an extension that maps to the stored format; the route\nchecks that against the row. ``category`` set to ``\"\"`` or ``null`` clears.",
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "FileAttachmentUpdate",
         "type": "object"
       },
       "FileUploadsEnabledPayload": {
@@ -26142,6 +26196,106 @@
           }
         },
         "summary": "Delete File Attachment",
+        "tags": [
+          "file-attachments"
+        ]
+      },
+      "patch": {
+        "description": "Rename a file attachment or change its category.\n\nThe bytes are untouched, so the new name must keep an extension that\nmaps to the stored format (``.jpg`` \u2194 ``.jpeg`` is fine, ``.pdf`` \u2192\n``.docx`` is not \u2014 that is a replace). Only the fields that move are\nwritten and recorded as ``changes`` on a ``file.updated`` event; a\nno-op PATCH writes nothing and emits nothing (#1166). Not gated on the\nuploads toggle: like a delete, it moves no bytes.",
+        "operationId": "update_file_attachment_api_v1_file_attachments__attachment_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FileAttachmentUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update File Attachment",
+        "tags": [
+          "file-attachments"
+        ]
+      }
+    },
+    "/api/v1/file-attachments/{attachment_id}/content": {
+      "put": {
+        "description": "Upload a new version of a file into the same attachment.\n\nThe row keeps its id, so every reference to it survives, but otherwise it\nreads as a fresh upload: name, MIME, size and bytes come from the new\nfile, ``category`` from the form exactly as on an upload (absent means\nnone \u2014 a multipart field cannot say \"clear\" any other way, FastAPI reads\nan empty form value as omitted), and ``created_at`` / ``created_by`` are\nreset to now and the person replacing it. The version it supersedes lives\non only in the card's History, as ``previous`` on the ``file.replaced``\nevent (#1166). Same checks as an upload, and refused for the same reason\nwhile uploads are switched off.",
+        "operationId": "replace_file_attachment_api_v1_file_attachments__attachment_id__content_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_replace_file_attachment_api_v1_file_attachments__attachment_id__content_put"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace File Attachment",
         "tags": [
           "file-attachments"
         ]

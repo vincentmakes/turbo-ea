@@ -7,7 +7,10 @@ import {
   ATTACHMENT_MIME_TYPES,
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENT_MB,
+  extensionOf,
+  formatForName,
   hasAcceptedExtension,
+  keepsStoredFormat,
 } from "./attachmentFormats";
 
 describe("attachment format table", () => {
@@ -85,5 +88,39 @@ describe("hasAcceptedExtension", () => {
     for (const name of ["a.zip", "a.msg", "a.eml", "a.odt", "a.7z", "a.csv", "a.webp"]) {
       expect(hasAcceptedExtension(name), name).toBe(true);
     }
+  });
+});
+
+describe("renaming a stored attachment (#1166)", () => {
+  const pdf = { name: "spec.pdf", mime_type: "application/pdf" };
+
+  it("reads the extension the way the backend does", () => {
+    expect(extensionOf("Report.PDF")).toBe(".pdf");
+    expect(extensionOf("archive.tar.gz")).toBe(".gz");
+    expect(extensionOf("noext")).toBe("");
+    expect(extensionOf(".hidden")).toBe("");
+    expect(formatForName("x.docx")?.mime).toContain("wordprocessingml");
+    expect(formatForName("x.exe")).toBeUndefined();
+  });
+
+  it("allows a rename that keeps the stored format", () => {
+    expect(keepsStoredFormat("Architecture overview.pdf", pdf)).toBe(true);
+    // .jpg and .jpeg are one stored type.
+    expect(keepsStoredFormat("photo.jpeg", { name: "photo.jpg", mime_type: "image/jpeg" })).toBe(
+      true,
+    );
+  });
+
+  it("refuses a rename that would claim another format or none", () => {
+    expect(keepsStoredFormat("overview.docx", pdf)).toBe(false);
+    expect(keepsStoredFormat("overview", pdf)).toBe(false);
+  });
+
+  it("always lets a legacy row keep its own extension", () => {
+    // A stored MIME that predates the canonical table matches no row, but
+    // keeping the extension the file already has can never be wrong.
+    const legacy = { name: "old.pdf", mime_type: "application/x-pdf" };
+    expect(keepsStoredFormat("renamed.pdf", legacy)).toBe(true);
+    expect(keepsStoredFormat("renamed.txt", legacy)).toBe(false);
   });
 });

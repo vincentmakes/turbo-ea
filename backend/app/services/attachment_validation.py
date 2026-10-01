@@ -224,6 +224,14 @@ def extension_of(filename: str) -> str:
     return name[dot:].lower()
 
 
+def extensions_for_mime(mime: str) -> tuple[str, ...]:
+    """Every accepted extension stored as ``mime`` — ``.jpg`` and ``.jpeg``
+    share one, as do ``.gz`` and ``.tgz``. A rename may move between these
+    and nowhere else, because the extension is what names the stored format.
+    """
+    return tuple(sorted(f.extension for f in FORMATS if f.mime == mime))
+
+
 def resolve_format(filename: str) -> AttachmentFormat:
     """The format an upload claims to be, from its name alone."""
     ext = extension_of(filename)

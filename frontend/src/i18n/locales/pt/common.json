@@ -167,6 +167,8 @@
   "dashboard.activity.action.document.updated": "atualizou um link de documento em",
   "dashboard.activity.action.file.uploaded": "enviou um arquivo para",
   "dashboard.activity.action.file.deleted": "excluiu um arquivo de",
+  "dashboard.activity.action.file.replaced": "substituiu um arquivo em",
+  "dashboard.activity.action.file.updated": "atualizou um arquivo em",
   "dashboard.activity.action.comment.created": "comentou em",
   "dashboard.activity.action.tag.added": "etiquetou",
   "dashboard.activity.action.tag.removed": "removeu uma etiqueta de",

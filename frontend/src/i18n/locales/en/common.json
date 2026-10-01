@@ -243,6 +243,8 @@
   "dashboard.activity.action.document.updated": "updated a document link on",
   "dashboard.activity.action.file.uploaded": "uploaded a file to",
   "dashboard.activity.action.file.deleted": "deleted a file from",
+  "dashboard.activity.action.file.replaced": "replaced a file on",
+  "dashboard.activity.action.file.updated": "updated a file on",
   "dashboard.activity.action.comment.created": "commented on",
   "dashboard.activity.action.tag.added": "tagged",
   "dashboard.activity.action.tag.removed": "removed a tag from",

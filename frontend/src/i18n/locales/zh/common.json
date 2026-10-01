@@ -167,6 +167,8 @@
   "dashboard.activity.action.document.updated": "更新了文档链接：",
   "dashboard.activity.action.file.uploaded": "上传了文件：",
   "dashboard.activity.action.file.deleted": "删除了文件：",
+  "dashboard.activity.action.file.replaced": "替换了文件：",
+  "dashboard.activity.action.file.updated": "更新了文件：",
   "dashboard.activity.action.comment.created": "评论了",
   "dashboard.activity.action.tag.added": "添加了标签",
   "dashboard.activity.action.tag.removed": "移除了标签",

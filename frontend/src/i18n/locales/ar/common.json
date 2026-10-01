@@ -243,6 +243,8 @@
   "dashboard.activity.action.document.updated": "حدّث رابط مستند في",
   "dashboard.activity.action.file.uploaded": "رفع ملفًا إلى",
   "dashboard.activity.action.file.deleted": "حذف ملفًا من",
+  "dashboard.activity.action.file.replaced": "استبدل ملفًا في",
+  "dashboard.activity.action.file.updated": "حدّث ملفًا في",
   "dashboard.activity.action.comment.created": "علّق على",
   "dashboard.activity.action.tag.added": "أضاف وسمًا إلى",
   "dashboard.activity.action.tag.removed": "أزال وسمًا من",

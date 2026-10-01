@@ -167,6 +167,8 @@
   "dashboard.activity.action.document.updated": "обновил ссылку на документ у",
   "dashboard.activity.action.file.uploaded": "загрузил файл к",
   "dashboard.activity.action.file.deleted": "удалил файл у",
+  "dashboard.activity.action.file.replaced": "заменил файл у",
+  "dashboard.activity.action.file.updated": "обновил файл у",
   "dashboard.activity.action.comment.created": "прокомментировал",
   "dashboard.activity.action.tag.added": "добавил тег к",
   "dashboard.activity.action.tag.removed": "удалил тег у",

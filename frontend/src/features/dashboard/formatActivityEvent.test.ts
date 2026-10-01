@@ -141,6 +141,12 @@ describe("formatActivityEvent", () => {
     expect(
       formatActivityEvent({ ...baseEvent, event_type: "file.uploaded" }, t).category,
     ).toBe("document");
+    expect(
+      formatActivityEvent({ ...baseEvent, event_type: "file.replaced" }, t).category,
+    ).toBe("document");
+    expect(
+      formatActivityEvent({ ...baseEvent, event_type: "file.updated" }, t).category,
+    ).toBe("document");
   });
 
   it("uses a generic 'other' category and the fallback action text for unknown event types", () => {

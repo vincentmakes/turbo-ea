@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.common import DocumentCreate, DocumentUpdate
+from app.schemas.common import DocumentCreate, DocumentUpdate, FileAttachmentUpdate
 
 # ---------------------------------------------------------------------------
 # DocumentCreate.validate_url_scheme
@@ -119,6 +119,26 @@ class TestDocumentUpdate:
         upd = DocumentUpdate(name="  Guide ", type=" architecture ")
         assert upd.name == "Guide"
         assert upd.type == "architecture"
+
+
+class TestFileAttachmentUpdate:
+    """PATCH body for a file attachment — name and category only."""
+
+    def test_all_fields_optional(self):
+        assert FileAttachmentUpdate().model_dump(exclude_unset=True) == {}
+
+    def test_blank_name_rejected(self):
+        with pytest.raises(ValidationError, match="must not be empty"):
+            FileAttachmentUpdate(name="  ")
+
+    def test_name_is_stripped(self):
+        assert FileAttachmentUpdate(name="  Guide.pdf ").name == "Guide.pdf"
+
+    def test_empty_category_clears_but_stays_set(self):
+        upd = FileAttachmentUpdate(category="")
+        assert upd.category is None
+        assert "category" in upd.model_dump(exclude_unset=True)
+        assert FileAttachmentUpdate(category=" security ").category == "security"
 
 
 # ---------------------------------------------------------------------------

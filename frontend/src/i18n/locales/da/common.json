@@ -243,6 +243,8 @@
   "dashboard.activity.action.document.updated": "opdaterede et dokumentlink på",
   "dashboard.activity.action.file.uploaded": "uploadede en fil til",
   "dashboard.activity.action.file.deleted": "slettede en fil fra",
+  "dashboard.activity.action.file.replaced": "erstattede en fil på",
+  "dashboard.activity.action.file.updated": "opdaterede en fil på",
   "dashboard.activity.action.comment.created": "kommenterede på",
   "dashboard.activity.action.tag.added": "tilføjede et tag til",
   "dashboard.activity.action.tag.removed": "fjernede et tag fra",

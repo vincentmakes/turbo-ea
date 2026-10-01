@@ -167,6 +167,8 @@
   "dashboard.activity.action.document.updated": "Dokumentlink aktualisiert auf",
   "dashboard.activity.action.file.uploaded": "Datei hochgeladen zu",
   "dashboard.activity.action.file.deleted": "Datei gelöscht von",
+  "dashboard.activity.action.file.replaced": "Datei ersetzt auf",
+  "dashboard.activity.action.file.updated": "Datei aktualisiert auf",
   "dashboard.activity.action.comment.created": "kommentierte",
   "dashboard.activity.action.tag.added": "markierte",
   "dashboard.activity.action.tag.removed": "entfernte ein Tag von",

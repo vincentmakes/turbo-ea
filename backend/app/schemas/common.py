@@ -187,6 +187,36 @@ class DocumentUpdate(BaseModel):
         return v
 
 
+class FileAttachmentUpdate(BaseModel):
+    """Rename or re-categorise a file attachment — omitted fields stay as is.
+
+    The bytes are untouched (that is what ``PUT …/content`` is for), so a new
+    ``name`` must keep an extension that maps to the stored format; the route
+    checks that against the row. ``category`` set to ``""`` or ``null`` clears.
+    """
+
+    name: str | None = None
+    category: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_not_blank(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            raise ValueError("must not be empty")
+        return v
+
+    @field_validator("category")
+    @classmethod
+    def normalise_category(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
+
+
 class DocumentResponse(BaseModel):
     id: str
     card_id: str

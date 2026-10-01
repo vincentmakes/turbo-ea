@@ -24,6 +24,8 @@ const EVENT_TAB_MAP: Record<string, string> = {
   "document.updated": "resources",
   "document.removed": "resources",
   "file.uploaded": "resources",
+  "file.replaced": "resources",
+  "file.updated": "resources",
   "file.deleted": "resources",
   "card.created": "card",
   "card.updated": "card",

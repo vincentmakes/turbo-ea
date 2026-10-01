@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **Document links on a card's Resources tab can be edited.** A pencil icon next to each link opens the same dialog used to add one, with the name, URL and link type pre-filled; the change is recorded in the card's History tab and the dashboard activity feed, and a save that changes nothing records nothing ([#1166](https://github.com/vincentmakes/turbo-ea/issues/1166)).
+- **A file attachment can be replaced in place, renamed and re-categorised.** The replace icon next to a file uploads a new version into the same entry under the same checks as an upload (and is unavailable while uploads are switched off); the entry is then dated and attributed to the person who replaced it, and the version it superseded survives only in the card's History. The pencil icon changes the file's name — the extension must stay the same — or its category. Both are recorded in History and the dashboard activity feed ([#1166](https://github.com/vincentmakes/turbo-ea/issues/1166)).
 
 ### Fixed
 

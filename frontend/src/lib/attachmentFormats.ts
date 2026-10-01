@@ -121,8 +121,43 @@ export const ATTACHMENT_MIME_TYPES: { id: string; labelKey: string; icon: string
  * The backend still checks the bytes — this only saves a wasted request.
  */
 export function hasAcceptedExtension(filename: string): boolean {
+  const ext = extensionOf(filename);
+  return ext !== "" && ACCEPTED_ATTACHMENT_EXTENSIONS.includes(ext);
+}
+
+/**
+ * Lowercase final suffix including the dot, or `""` when there is none —
+ * the mirror of `extension_of` in `attachment_validation.py`
+ * (`archive.tar.gz` → `.gz`).
+ */
+export function extensionOf(filename: string): string {
   const name = (filename || "").trim().split(/[/\\]/).pop() ?? "";
   const dot = name.lastIndexOf(".");
-  if (dot <= 0 || dot === name.length - 1) return false;
-  return ACCEPTED_ATTACHMENT_EXTENSIONS.includes(name.slice(dot).toLowerCase());
+  if (dot <= 0 || dot === name.length - 1) return "";
+  return name.slice(dot).toLowerCase();
+}
+
+/** The format a filename claims, by its extension; `undefined` when not accepted. */
+export function formatForName(filename: string): AttachmentFormat | undefined {
+  const ext = extensionOf(filename);
+  return ATTACHMENT_FORMATS.find((f) => f.ext === ext);
+}
+
+/**
+ * Whether renaming a stored attachment to `newName` keeps its format.
+ *
+ * The bytes are not re-uploaded on a rename, so the new extension must map
+ * to the MIME already stored (`.jpg` ↔ `.jpeg` is fine, `.pdf` → `.docx` is
+ * not — that is a replace). Same rule as `PATCH /file-attachments/{id}`,
+ * including its fallback for a legacy row whose stored MIME predates the
+ * canonical table: keeping the current extension is always allowed.
+ */
+export function keepsStoredFormat(
+  newName: string,
+  current: { name: string; mime_type: string },
+): boolean {
+  const ext = extensionOf(newName);
+  if (!ext) return false;
+  if (ext === extensionOf(current.name)) return true;
+  return formatForName(newName)?.mime === current.mime_type;
 }

@@ -167,6 +167,8 @@
   "dashboard.activity.action.document.updated": "ha aggiornato un collegamento al documento su",
   "dashboard.activity.action.file.uploaded": "ha caricato un file su",
   "dashboard.activity.action.file.deleted": "ha eliminato un file da",
+  "dashboard.activity.action.file.replaced": "ha sostituito un file su",
+  "dashboard.activity.action.file.updated": "ha aggiornato un file su",
   "dashboard.activity.action.comment.created": "ha commentato",
   "dashboard.activity.action.tag.added": "ha etichettato",
   "dashboard.activity.action.tag.removed": "ha rimosso un tag da",

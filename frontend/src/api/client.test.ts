@@ -273,6 +273,34 @@ describe("error handling", () => {
 // auth helpers
 // ---------------------------------------------------------------------------
 
+describe("api.upload", () => {
+  const file = new File(["%PDF-1.7"], "spec.pdf", { type: "application/pdf" });
+
+  it("POSTs a multipart body with the file and extra fields by default", async () => {
+    mockFetch.mockReturnValue(jsonResponse({ id: "f1" }));
+    await api.upload("/cards/c1/file-attachments", file, "file", { category: "security" });
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toBe("/api/v1/cards/c1/file-attachments");
+    expect(init.method).toBe("POST");
+    const form = init.body as FormData;
+    expect(form.get("file")).toBe(file);
+    expect(form.get("category")).toBe("security");
+    // No JSON content type: the browser sets the multipart boundary itself.
+    expect(init.headers["Content-Type"]).toBeUndefined();
+  });
+
+  it("sends PUT when asked, for replacing a resource's bytes in place", async () => {
+    mockFetch.mockReturnValue(jsonResponse({ id: "f1" }));
+    await api.upload("/file-attachments/f1/content", file, "file", undefined, { method: "PUT" });
+    expect(mockFetch.mock.calls[0][1].method).toBe("PUT");
+  });
+
+  it("rejects with the server's detail as a plain Error", async () => {
+    mockFetch.mockReturnValue(jsonResponse({ detail: "File is empty" }, 400));
+    await expect(api.upload("/cards/c1/file-attachments", file)).rejects.toThrow("File is empty");
+  });
+});
+
 describe("auth helpers", () => {
   it("auth.login calls POST /auth/login", async () => {
     mockFetch.mockReturnValueOnce(jsonResponse({ access_token: "jwt-123" }));

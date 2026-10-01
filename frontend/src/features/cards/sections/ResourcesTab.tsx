@@ -33,7 +33,9 @@ import {
   ATTACHMENT_MIME_ICONS,
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENT_MB,
+  extensionOf,
   hasAcceptedExtension,
+  keepsStoredFormat,
 } from "@/lib/attachmentFormats";
 import type { DiagramSummary, FileAttachment } from "@/types";
 
@@ -114,11 +116,20 @@ function ResourcesTab({
   const [linkType, setLinkType] = useState("documentation");
   const [linkError, setLinkError] = useState("");
 
-  // File upload dialog
+  // File upload dialog — also the Replace dialog: when `replaceTargetRef`
+  // names an attachment, the picked file goes into that entry instead of a
+  // new one (#1166).
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadCategory, setUploadCategory] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingFileRef = useRef<File | null>(null);
+  const replaceTargetRef = useRef<FileAttachment | null>(null);
+
+  // File edit dialog (name + category; the bytes stay — that is Replace).
+  const [editingFile, setEditingFile] = useState<FileAttachment | null>(null);
+  const [editFileName, setEditFileName] = useState("");
+  const [editFileCategory, setEditFileCategory] = useState("");
+  const [editFileError, setEditFileError] = useState("");
 
   // Diagram link dialog
   const [linkDiagramOpen, setLinkDiagramOpen] = useState(false);
@@ -182,27 +193,50 @@ function ResourcesTab({
     // on a drag-drop or an "All files" pick, so the name is checked here too.
     if (!hasAcceptedExtension(file.name)) {
       setError(t("resources.invalidType"));
+      replaceTargetRef.current = null;
       return;
     }
     if (file.size > MAX_ATTACHMENT_BYTES) {
       setError(t("resources.fileTooLarge", { size: MAX_ATTACHMENT_MB }));
+      replaceTargetRef.current = null;
       return;
     }
 
     pendingFileRef.current = file;
-    setUploadCategory("");
+    // A replace starts from the entry's current category; an upload from none.
+    setUploadCategory(replaceTargetRef.current?.category ?? "");
     setUploadDialogOpen(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const startReplaceFile = (f: FileAttachment) => {
+    replaceTargetRef.current = f;
+    fileInputRef.current?.click();
+  };
+
+  const closeUploadDialog = () => {
+    setUploadDialogOpen(false);
+    pendingFileRef.current = null;
+    replaceTargetRef.current = null;
   };
 
   const handleConfirmUpload = async () => {
     const file = pendingFileRef.current;
     if (!file) return;
+    const target = replaceTargetRef.current;
 
     try {
+      // A replace is a fresh upload into the same entry, so the category is
+      // sent the same way: whatever is selected, or nothing for "No category".
       const extraFields: Record<string, string> = {};
       if (uploadCategory) extraFields.category = uploadCategory;
-      await api.upload(`/cards/${fsId}/file-attachments`, file, "file", extraFields);
+      if (target) {
+        await api.upload(`/file-attachments/${target.id}/content`, file, "file", extraFields, {
+          method: "PUT",
+        });
+      } else {
+        await api.upload(`/cards/${fsId}/file-attachments`, file, "file", extraFields);
+      }
       setError("");
       loadFiles();
     } catch (err) {
@@ -210,10 +244,47 @@ function ResourcesTab({
       // ("File content does not match its '.pdf' extension.") rather than a
       // generic failure the user cannot act on.
       const detail = err instanceof Error ? err.message : "";
-      setError(detail || t("resources.error.uploadFailed"));
+      setError(
+        detail || t(target ? "resources.error.replaceFailed" : "resources.error.uploadFailed"),
+      );
     }
-    pendingFileRef.current = null;
-    setUploadDialogOpen(false);
+    closeUploadDialog();
+  };
+
+  // ── File edit (name / category) ──
+  const openEditFile = (f: FileAttachment) => {
+    setEditingFile(f);
+    setEditFileName(f.name);
+    setEditFileCategory(f.category ?? "");
+    setEditFileError("");
+  };
+
+  const closeEditFile = () => {
+    setEditingFile(null);
+    setEditFileName("");
+    setEditFileCategory("");
+    setEditFileError("");
+  };
+
+  // The bytes are not re-uploaded on a rename, so the extension has to keep
+  // naming the stored format — the same rule the backend enforces.
+  const editFileExtOk = editingFile ? keepsStoredFormat(editFileName, editingFile) : true;
+  const canSaveFileEdit = Boolean(editFileName.trim()) && editFileExtOk;
+
+  const handleSaveFileEdit = async () => {
+    if (!editingFile || !canSaveFileEdit) return;
+    try {
+      await api.patch(`/file-attachments/${editingFile.id}`, {
+        name: editFileName.trim(),
+        category: editFileCategory,
+      });
+      closeEditFile();
+      loadFiles();
+    } catch (err) {
+      setEditFileError(
+        err instanceof ApiError ? err.message : t("resources.error.fileUpdateFailed"),
+      );
+    }
   };
 
   const handleDeleteFile = async (fileId: string) => {
@@ -368,14 +439,16 @@ function ResourcesTab({
         </AccordionSummary>
         <AccordionDetails>
           {canManageDocuments && fileUploadsEnabled && (
+            <input
+              ref={fileInputRef}
+              type="file"
+              hidden
+              accept={ATTACHMENT_ACCEPT}
+              onChange={handleFileSelect}
+            />
+          )}
+          {canManageDocuments && fileUploadsEnabled && (
             <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
-              <input
-                ref={fileInputRef}
-                type="file"
-                hidden
-                accept={ATTACHMENT_ACCEPT}
-                onChange={handleFileSelect}
-              />
               <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
                 {t("resources.maxSize", { size: MAX_ATTACHMENT_MB })}
               </Typography>
@@ -403,6 +476,20 @@ function ResourcesTab({
                         <MaterialSymbol icon="download" size={18} />
                       </IconButton>
                     </Tooltip>
+                    {canManageDocuments && fileUploadsEnabled && (
+                      <Tooltip title={t("resources.replaceFile")}>
+                        <IconButton size="small" onClick={() => startReplaceFile(f)}>
+                          <MaterialSymbol icon="sync" size={18} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {canManageDocuments && (
+                      <Tooltip title={t("resources.editFile")}>
+                        <IconButton size="small" onClick={() => openEditFile(f)}>
+                          <MaterialSymbol icon="edit" size={16} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                     {canManageDocuments && (
                       <Tooltip title={t("resources.deleteFile")}>
                         <IconButton
@@ -794,14 +881,15 @@ function ResourcesTab({
       {/* ── Upload File Dialog ── */}
       <Dialog
         open={uploadDialogOpen && fileUploadsEnabled}
-        onClose={() => {
-          setUploadDialogOpen(false);
-          pendingFileRef.current = null;
-        }}
+        onClose={closeUploadDialog}
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>{t("resources.uploadFileDialog.title")}</DialogTitle>
+        <DialogTitle>
+          {replaceTargetRef.current
+            ? t("resources.replaceFileDialog.title", { name: replaceTargetRef.current.name })
+            : t("resources.uploadFileDialog.title")}
+        </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {pendingFileRef.current?.name}
@@ -823,16 +911,58 @@ function ResourcesTab({
           </TextField>
         </DialogContent>
         <DialogActions>
-          <Button
-            onClick={() => {
-              setUploadDialogOpen(false);
-              pendingFileRef.current = null;
-            }}
-          >
-            {t("common:actions.cancel")}
-          </Button>
+          <Button onClick={closeUploadDialog}>{t("common:actions.cancel")}</Button>
           <Button variant="contained" onClick={handleConfirmUpload}>
-            {t("resources.uploadFile")}
+            {replaceTargetRef.current ? t("resources.replaceFile") : t("resources.uploadFile")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Edit File Dialog (name + category) ── */}
+      <Dialog open={editingFile !== null} onClose={closeEditFile} maxWidth="xs" fullWidth>
+        <DialogTitle>{t("resources.editFileDialog.title")}</DialogTitle>
+        <DialogContent>
+          {editFileError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setEditFileError("")}>
+              {editFileError}
+            </Alert>
+          )}
+          <TextField
+            autoFocus
+            label={t("resources.editFileDialog.name")}
+            fullWidth
+            value={editFileName}
+            onChange={(e) => setEditFileName(e.target.value)}
+            error={!editFileExtOk}
+            helperText={
+              editFileExtOk || !editingFile
+                ? undefined
+                : t("resources.editFileDialog.keepExtension", {
+                    ext: extensionOf(editingFile.name),
+                  })
+            }
+            sx={{ mt: 1, mb: 2 }}
+          />
+          <TextField
+            select
+            label={t("resources.uploadFileDialog.category")}
+            fullWidth
+            size="small"
+            value={editFileCategory}
+            onChange={(e) => setEditFileCategory(e.target.value)}
+          >
+            <MenuItem value="">{t("resources.uploadFileDialog.noCategory")}</MenuItem>
+            {fileCategories.map((cat) => (
+              <MenuItem key={cat.key} value={cat.key}>
+                {fieldLabel(cat, locale)}
+              </MenuItem>
+            ))}
+          </TextField>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeEditFile}>{t("common:actions.cancel")}</Button>
+          <Button variant="contained" disabled={!canSaveFileEdit} onClick={handleSaveFileEdit}>
+            {t("common:actions.save")}
           </Button>
         </DialogActions>
       </Dialog>

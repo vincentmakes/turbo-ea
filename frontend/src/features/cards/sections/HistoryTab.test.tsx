@@ -130,3 +130,59 @@ describe("HistoryTab — document link edits (#1166)", () => {
     expect(screen.getByText("operations")).toBeInTheDocument();
   });
 });
+
+describe("HistoryTab — file attachment replace and edit (#1166)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders a replace as old version → new version", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      {
+        id: "evt-4",
+        event_type: "file.replaced",
+        created_at: "2026-10-01T10:00:00Z",
+        user_id: "u1",
+        user_display_name: "Vincent",
+        data: {
+          attachment_id: "file-1",
+          name: "new.pdf",
+          size: 300,
+          mime_type: "application/pdf",
+          summary: "new.pdf",
+          previous: { name: "old.pdf", size: 204800, mime_type: "application/pdf" },
+        },
+      },
+    ]);
+
+    renderTab();
+
+    expect(await screen.findByText("File replaced")).toBeInTheDocument();
+    expect(screen.getByText("old.pdf · 200.0 KB → new.pdf · 0.3 KB")).toBeInTheDocument();
+  });
+
+  it("labels a file's category row as the upload dialog does", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      {
+        id: "evt-5",
+        event_type: "file.updated",
+        created_at: "2026-10-01T10:00:00Z",
+        user_id: "u1",
+        user_display_name: "Vincent",
+        data: {
+          attachment_id: "file-1",
+          name: "spec.pdf",
+          size: 2048,
+          summary: "spec.pdf",
+          changes: { category: { old: null, new: "security" } },
+        },
+      },
+    ]);
+
+    renderTab();
+
+    expect(await screen.findByText("File updated")).toBeInTheDocument();
+    expect(screen.getByText("Category")).toBeInTheDocument();
+    expect(screen.getByText("security")).toBeInTheDocument();
+  });
+});
