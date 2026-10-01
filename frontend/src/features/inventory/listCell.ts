@@ -5,9 +5,10 @@
  *
  * Values are separated by `; `, never by `,`: card and tag names are free text
  * and commonly carry a comma ("Acme, Inc."). A `;` inside a value is written
- * `\;`. The splitter keeps every escape in the parts it returns, because a
- * relation ref also carries the path escapes `\\` and `\/` that `decodePath()`
- * reads later; a plain value such as a tag is unescaped with
+ * `\;` — by `encodePathSegment()` for a relation ref, by `escapeListItem()`
+ * for a tag. The splitter keeps every escape in the parts it returns, because
+ * a relation ref also carries the path escapes `\\` and `\/` that
+ * `decodePath()` reads later; a plain value such as a tag is unescaped with
  * `unescapeListItem()`.
  *
  * Workbooks written before tags moved to `;` (format 3 and earlier), and sheets
@@ -46,12 +47,6 @@ export const LIST_SEPARATOR = "; ";
  *   the cell has one, the comma reading otherwise.
  */
 export type ListCellMode = "semicolon" | "comma" | "auto";
-
-/** Escape `;` in a value that is already escaped for something else (a
- * relation ref carrying `\\` and `\/` from `encodePathSegment()`). */
-export function escapeListSeparator(value: string): string {
-  return value.replace(/;/g, "\\;");
-}
 
 /** Escape a plain value (a tag) for a multi-valued cell: `\` and `;`. */
 export function escapeListItem(value: string): string {

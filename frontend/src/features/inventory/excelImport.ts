@@ -234,10 +234,10 @@ function pathKey(type: string, segments: string[]): string {
   return `${type}|${segments.map((s) => s.toLowerCase()).join("/")}`;
 }
 
-/** Mirror of `encodePathSegment()` in `excelExport.ts` — escape `\` and `/`
- * so a card name containing either character round-trips cleanly. */
+/** Mirror of `encodePathSegment()` in `excelExport.ts` — escape `\`, `/`
+ * and `;` so a card name containing any of them round-trips cleanly. */
 function encodePathSegment(name: string): string {
-  return name.replace(/\\/g, "\\\\").replace(/\//g, "\\/");
+  return name.replace(/\\/g, "\\\\").replace(/\//g, "\\/").replace(/;/g, "\\;");
 }
 
 /**

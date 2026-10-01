@@ -112,9 +112,11 @@ function buildWorkbook(
 }
 
 describe("encodePathSegment", () => {
-  it("escapes backslash and slash so card names round-trip", () => {
+  it("escapes backslash, slash and semicolon so card names round-trip", () => {
     expect(exportEncode("A/B")).toBe("A\\/B");
     expect(exportEncode("A\\B")).toBe("A\\\\B");
+    expect(exportEncode("A;B")).toBe("A\\;B");
+    expect(exportEncode("A\\;B")).toBe("A\\\\\\;B");
     expect(exportEncode("Plain")).toBe("Plain");
   });
 });

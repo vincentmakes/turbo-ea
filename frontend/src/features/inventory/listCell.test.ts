@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   escapeListItem,
-  escapeListSeparator,
   isCurrentWorkbookFormat,
   listCellReadings,
   splitListCell,
@@ -121,10 +120,6 @@ describe("escaping", () => {
       expect(split.parts.map(unescapeListItem)).toEqual([value, "other"]);
     },
   );
-
-  it("escapeListSeparator touches only `;`, leaving path escapes for decodePath", () => {
-    expect(escapeListSeparator("Ops \\/ Run; Sales")).toBe("Ops \\/ Run\\; Sales");
-  });
 
   it("unescapeListItem keeps a lone trailing backslash", () => {
     expect(unescapeListItem("a\\")).toBe("a\\");

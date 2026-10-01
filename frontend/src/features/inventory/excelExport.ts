@@ -4,12 +4,7 @@ import { api } from "@/api/client";
 import i18n from "@/i18n";
 import { typeLabel } from "@/hooks/useResolveLabel";
 import type { Card, CardType, Relation, RelationType, StakeholderRoleOption } from "@/types";
-import {
-  escapeListItem,
-  escapeListSeparator,
-  LIST_SEPARATOR,
-  WORKBOOK_FORMAT_VERSION,
-} from "./listCell";
+import { escapeListItem, LIST_SEPARATOR, WORKBOOK_FORMAT_VERSION } from "./listCell";
 
 /**
  * Excel export — LeanIX-style multi-sheet workbook.
@@ -68,8 +63,13 @@ const RELATION_ID_CHUNK = 200;
 const META_SHEET_NAME = "_Meta";
 const RELATIONS_SHEET_NAME = "Relations";
 
+/** Escape a card name for a ref or `parent_path`: `\` first, then the two
+ * characters the ref grammar gives a meaning — `/` (path separator) and `;`
+ * (list separator in a `rel:` cell, #1171). `decodePath()` reads any `\x`
+ * back as `x`, so `parent_path` and the `Relations` sheet take the `;`
+ * escape too without needing it. */
 export function encodePathSegment(name: string): string {
-  return name.replace(/\\/g, "\\\\").replace(/\//g, "\\/");
+  return name.replace(/\\/g, "\\\\").replace(/\//g, "\\/").replace(/;/g, "\\;");
 }
 
 function buildParentPath(card: Card, byId: Map<string, Card>): string {
@@ -347,13 +347,13 @@ function buildCardRowForType(
     // only thing that shows up in a diff.
     // Semicolons (not commas) separate targets within a cell — card names
     // are free-form and commonly contain `,` (e.g. "Acme, Inc."), and a `;`
-    // inside a name is escaped. Read by `splitListCell()` (`listCell.ts`),
+    // inside a name is escaped by `encodePathSegment()`. Read by
+    // `splitListCell()` (`listCell.ts`),
     // which never treats a comma as a separator in a workbook carrying
     // `_Meta` — so a lone "This is X, it does Y" stays one target (#1171).
     row[`rel:${rt.key}`] = targets
       .map((t) => buildTargetRef(t, byId, nameAmbiguity))
       .sort((a, b) => a.localeCompare(b, i18n.language, { sensitivity: "base" }))
-      .map(escapeListSeparator)
       .join(LIST_SEPARATOR);
   }
 
