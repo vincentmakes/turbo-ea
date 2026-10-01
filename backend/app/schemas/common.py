@@ -127,6 +127,28 @@ class TodoResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+_ALLOWED_DOCUMENT_URL_SCHEMES = ("http://", "https://", "mailto:")
+
+
+def _normalise_document_url(v: str | None) -> str | None:
+    """Strip a document link's URL and require an allowed scheme.
+
+    An empty or whitespace-only value means *no URL* and is stored as
+    ``None`` — the Resources tab already sends ``null`` for an empty field,
+    and on an update ``""`` is how a caller clears the URL. Anything else
+    must start with ``http://``, ``https://`` or ``mailto:``; the check is
+    shared by create and update so the two can never disagree (#1166).
+    """
+    if v is None:
+        return None
+    v = v.strip()
+    if not v:
+        return None
+    if not v.startswith(_ALLOWED_DOCUMENT_URL_SCHEMES):
+        raise ValueError("URL must use http://, https://, or mailto: scheme")
+    return v
+
+
 class DocumentCreate(BaseModel):
     name: str
     url: str | None = None
@@ -135,12 +157,33 @@ class DocumentCreate(BaseModel):
     @field_validator("url")
     @classmethod
     def validate_url_scheme(cls, v: str | None) -> str | None:
+        return _normalise_document_url(v)
+
+
+class DocumentUpdate(BaseModel):
+    """Partial update of a document link — omitted fields stay unchanged.
+
+    ``url`` may be set to ``null`` (or ``""``) to clear it; ``name`` and
+    ``type`` cannot be blanked.
+    """
+
+    name: str | None = None
+    url: str | None = None
+    type: str | None = None
+
+    @field_validator("url")
+    @classmethod
+    def validate_url_scheme(cls, v: str | None) -> str | None:
+        return _normalise_document_url(v)
+
+    @field_validator("name", "type")
+    @classmethod
+    def validate_not_blank(cls, v: str | None) -> str | None:
         if v is None:
-            return v
+            return None
         v = v.strip()
-        # Only allow http, https, and mailto schemes
-        if not (v.startswith("http://") or v.startswith("https://") or v.startswith("mailto:")):
-            raise ValueError("URL must use http://, https://, or mailto: scheme")
+        if not v:
+            raise ValueError("must not be empty")
         return v
 
 

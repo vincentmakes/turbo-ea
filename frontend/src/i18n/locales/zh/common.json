@@ -164,6 +164,7 @@
   "dashboard.activity.action.risk.removed": "移除了风险：",
   "dashboard.activity.action.document.added": "添加了文档链接：",
   "dashboard.activity.action.document.removed": "移除了文档链接：",
+  "dashboard.activity.action.document.updated": "更新了文档链接：",
   "dashboard.activity.action.file.uploaded": "上传了文件：",
   "dashboard.activity.action.file.deleted": "删除了文件：",
   "dashboard.activity.action.comment.created": "评论了",

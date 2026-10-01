@@ -164,6 +164,7 @@
   "dashboard.activity.action.risk.removed": "удалил риск у",
   "dashboard.activity.action.document.added": "добавил ссылку на документ к",
   "dashboard.activity.action.document.removed": "удалил ссылку на документ у",
+  "dashboard.activity.action.document.updated": "обновил ссылку на документ у",
   "dashboard.activity.action.file.uploaded": "загрузил файл к",
   "dashboard.activity.action.file.deleted": "удалил файл у",
   "dashboard.activity.action.comment.created": "прокомментировал",

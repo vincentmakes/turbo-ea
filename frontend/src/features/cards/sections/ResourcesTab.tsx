@@ -26,7 +26,8 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
 import { useResourceTypes } from "@/hooks/useResourceTypes";
 import { fieldLabel } from "@/hooks/useResolveLabel";
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
+import { getUrlErrorMsg, isValidUrl } from "./cardDetailUtils";
 import {
   ATTACHMENT_ACCEPT,
   ATTACHMENT_MIME_ICONS,
@@ -103,11 +104,15 @@ function ResourcesTab({
   const [linkedDiagrams, setLinkedDiagrams] = useState<DiagramSummary[]>([]);
   const [error, setError] = useState("");
 
-  // Document link dialog
-  const [addLinkOpen, setAddLinkOpen] = useState(false);
+  // Document link dialog — one dialog for Add and Edit; `editingDoc` says
+  // which. `linkError` is the server's own reason for a refusal, shown
+  // inside the dialog: the page-level Alert sits behind the modal (#1166).
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [editingDoc, setEditingDoc] = useState<DocumentLink | null>(null);
   const [linkName, setLinkName] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [linkType, setLinkType] = useState("documentation");
+  const [linkError, setLinkError] = useState("");
 
   // File upload dialog
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -233,21 +238,64 @@ function ResourcesTab({
   };
 
   // ── Document Links ──
-  const handleAddLink = async () => {
-    if (!linkName.trim()) return;
+  const resetLinkForm = () => {
+    setEditingDoc(null);
+    setLinkName("");
+    setLinkUrl("");
+    setLinkType("documentation");
+    setLinkError("");
+  };
+
+  const openAddLink = () => {
+    resetLinkForm();
+    setLinkDialogOpen(true);
+  };
+
+  const openEditLink = (doc: DocumentLink) => {
+    setEditingDoc(doc);
+    setLinkName(doc.name);
+    setLinkUrl(doc.url ?? "");
+    setLinkType(doc.type || "documentation");
+    setLinkError("");
+    setLinkDialogOpen(true);
+  };
+
+  // Cancel, Esc and the backdrop all drop whatever was typed — a half-typed
+  // link must not resurface the next time the dialog opens.
+  const closeLinkDialog = () => {
+    setLinkDialogOpen(false);
+    resetLinkForm();
+  };
+
+  // Same rule the backend applies (`DocumentCreate.validate_url_scheme`):
+  // http://, https:// or mailto:, empty allowed. Checked here so the reason
+  // is visible while typing rather than as a 422 after the click.
+  const linkUrlValid = isValidUrl(linkUrl);
+  const canSaveLink = Boolean(linkName.trim()) && linkUrlValid;
+
+  const handleSaveLink = async () => {
+    if (!canSaveLink) return;
+    const payload = {
+      name: linkName.trim(),
+      url: linkUrl.trim() || null,
+      type: linkType,
+    };
     try {
-      await api.post(`/cards/${fsId}/documents`, {
-        name: linkName,
-        url: linkUrl || null,
-        type: linkType,
-      });
-      setLinkName("");
-      setLinkUrl("");
-      setLinkType("documentation");
-      setAddLinkOpen(false);
+      if (editingDoc) {
+        await api.patch(`/documents/${editingDoc.id}`, payload);
+      } else {
+        await api.post(`/cards/${fsId}/documents`, payload);
+      }
+      closeLinkDialog();
       loadDocs();
-    } catch {
-      setError(t("resources.error.linkFailed"));
+    } catch (err) {
+      // An ApiError carries the backend's reason (e.g. the URL scheme it
+      // refused); a generic "Failed to link" gives the user nothing to fix.
+      setLinkError(
+        err instanceof ApiError
+          ? err.message
+          : t(editingDoc ? "resources.error.linkUpdateFailed" : "resources.error.linkFailed"),
+      );
     }
   };
 
@@ -441,7 +489,7 @@ function ResourcesTab({
               <Button
                 size="small"
                 startIcon={<MaterialSymbol icon="add" size={18} />}
-                onClick={() => setAddLinkOpen(true)}
+                onClick={openAddLink}
                 sx={{ textTransform: "none" }}
               >
                 {t("resources.addLink")}
@@ -454,12 +502,24 @@ function ResourcesTab({
                 key={doc.id}
                 secondaryAction={
                   canManageDocuments ? (
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDeleteLink(doc.id)}
-                    >
-                      <MaterialSymbol icon="close" size={16} />
-                    </IconButton>
+                    <Box>
+                      <Tooltip title={t("common:actions.edit")}>
+                        <IconButton
+                          size="small"
+                          onClick={() => openEditLink(doc)}
+                        >
+                          <MaterialSymbol icon="edit" size={16} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title={t("common:actions.delete")}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteLink(doc.id)}
+                        >
+                          <MaterialSymbol icon="close" size={16} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   ) : undefined
                 }
               >
@@ -586,7 +646,12 @@ function ResourcesTab({
                     <Tooltip title={t("resources.unlinkDiagram")}>
                       <IconButton
                         size="small"
-                        onClick={() => handleUnlinkDiagram(d.id)}
+                        onClick={(e) => {
+                          // The row itself navigates to the diagram; the
+                          // unlink click must not ride along with it (#1166).
+                          e.stopPropagation();
+                          handleUnlinkDiagram(d.id);
+                        }}
                       >
                         <MaterialSymbol icon="link_off" size={18} />
                       </IconButton>
@@ -772,15 +837,24 @@ function ResourcesTab({
         </DialogActions>
       </Dialog>
 
-      {/* ── Add Link Dialog ── */}
+      {/* ── Add / Edit Link Dialog ── */}
       <Dialog
-        open={addLinkOpen}
-        onClose={() => setAddLinkOpen(false)}
+        open={linkDialogOpen}
+        onClose={closeLinkDialog}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>{t("resources.addLinkDialog.title")}</DialogTitle>
+        <DialogTitle>
+          {editingDoc
+            ? t("resources.editLinkDialog.title")
+            : t("resources.addLinkDialog.title")}
+        </DialogTitle>
         <DialogContent>
+          {linkError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setLinkError("")}>
+              {linkError}
+            </Alert>
+          )}
           <TextField
             autoFocus
             label={t("resources.addLinkDialog.name")}
@@ -810,18 +884,20 @@ function ResourcesTab({
             value={linkUrl}
             onChange={(e) => setLinkUrl(e.target.value)}
             placeholder="https://..."
+            error={!linkUrlValid}
+            helperText={linkUrlValid ? undefined : getUrlErrorMsg(t)}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddLinkOpen(false)}>
+          <Button onClick={closeLinkDialog}>
             {t("common:actions.cancel")}
           </Button>
           <Button
             variant="contained"
-            disabled={!linkName.trim()}
-            onClick={handleAddLink}
+            disabled={!canSaveLink}
+            onClick={handleSaveLink}
           >
-            {t("common:actions.add")}
+            {editingDoc ? t("common:actions.save") : t("common:actions.add")}
           </Button>
         </DialogActions>
       </Dialog>

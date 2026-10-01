@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.common import DocumentCreate
+from app.schemas.common import DocumentCreate, DocumentUpdate
 
 # ---------------------------------------------------------------------------
 # DocumentCreate.validate_url_scheme
@@ -53,13 +53,15 @@ class TestDocumentCreateUrlValidation:
         with pytest.raises(ValidationError, match="http://.*https://.*mailto:"):
             DocumentCreate(name="File", url="file:///etc/passwd")
 
-    def test_empty_string_rejected(self):
-        with pytest.raises(ValidationError, match="http://.*https://.*mailto:"):
-            DocumentCreate(name="Empty", url="")
+    def test_empty_string_means_no_url(self):
+        # The Resources tab sends null for an empty field; a client that
+        # sends "" means the same thing and must not be refused (#1166).
+        doc = DocumentCreate(name="Empty", url="")
+        assert doc.url is None
 
-    def test_whitespace_only_rejected(self):
-        with pytest.raises(ValidationError, match="http://.*https://.*mailto:"):
-            DocumentCreate(name="Spaces", url="   ")
+    def test_whitespace_only_means_no_url(self):
+        doc = DocumentCreate(name="Spaces", url="   ")
+        assert doc.url is None
 
     def test_url_stripped(self):
         """Leading/trailing whitespace should be stripped."""
@@ -82,6 +84,41 @@ class TestDocumentCreateUrlValidation:
     def test_custom_type(self):
         doc = DocumentCreate(name="Manual", url="https://docs.com", type="pdf")
         assert doc.type == "pdf"
+
+
+class TestDocumentUpdate:
+    """PATCH body for a document link — every field optional, same URL rule."""
+
+    def test_all_fields_optional(self):
+        upd = DocumentUpdate()
+        assert upd.model_dump(exclude_unset=True) == {}
+
+    def test_only_provided_fields_are_set(self):
+        upd = DocumentUpdate(name="Renamed")
+        assert upd.model_dump(exclude_unset=True) == {"name": "Renamed"}
+
+    def test_url_shares_the_create_rule(self):
+        with pytest.raises(ValidationError, match="http://.*https://.*mailto:"):
+            DocumentUpdate(url="javascript:alert(1)")
+        assert DocumentUpdate(url="  https://example.com ").url == "https://example.com"
+
+    def test_empty_url_clears_it(self):
+        assert DocumentUpdate(url="").url is None
+        assert DocumentUpdate(url="   ").url is None
+        assert "url" in DocumentUpdate(url="").model_dump(exclude_unset=True)
+
+    def test_blank_name_rejected(self):
+        with pytest.raises(ValidationError, match="must not be empty"):
+            DocumentUpdate(name="   ")
+
+    def test_blank_type_rejected(self):
+        with pytest.raises(ValidationError, match="must not be empty"):
+            DocumentUpdate(type="")
+
+    def test_name_and_type_are_stripped(self):
+        upd = DocumentUpdate(name="  Guide ", type=" architecture ")
+        assert upd.name == "Guide"
+        assert upd.type == "architecture"
 
 
 # ---------------------------------------------------------------------------

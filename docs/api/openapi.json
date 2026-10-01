@@ -4698,6 +4698,46 @@
         "title": "DocumentCreate",
         "type": "object"
       },
+      "DocumentUpdate": {
+        "description": "Partial update of a document link \u2014 omitted fields stay unchanged.\n\n``url`` may be set to ``null`` (or ``\"\"``) to clear it; ``name`` and\n``type`` cannot be blanked.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "title": "DocumentUpdate",
+        "type": "object"
+      },
       "DuplicateClusterOut": {
         "properties": {
           "analysed_at": {
@@ -25258,6 +25298,55 @@
           }
         },
         "summary": "Delete Document",
+        "tags": [
+          "documents"
+        ]
+      },
+      "patch": {
+        "description": "Edit a document link's name, URL or type.\n\nSame authority as deleting it (``documents.manage`` or the card-level\n``card.manage_documents``). Only the fields that actually move are\nwritten and recorded, as ``changes = {field: {\"old\", \"new\"}}`` on a\n``document.updated`` event \u2014 the shape the card's History tab renders.\nA PATCH that changes nothing writes nothing and emits nothing, so a\nre-saved dialog never moves the card's Modified date (#1166).",
+        "operationId": "update_document_api_v1_documents__doc_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "doc_id",
+            "required": true,
+            "schema": {
+              "title": "Doc Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Document",
         "tags": [
           "documents"
         ]

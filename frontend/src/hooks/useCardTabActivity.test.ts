@@ -211,6 +211,12 @@ describe("useCardTabActivity", () => {
         user_id: USER_OTHER,
       },
       {
+        id: "2b",
+        event_type: "document.updated",
+        created_at: isoMinus(10),
+        user_id: USER_OTHER,
+      },
+      {
         id: "3",
         event_type: "risk.updated",
         created_at: isoMinus(10),

@@ -240,6 +240,7 @@
   "dashboard.activity.action.risk.removed": "removed a risk from",
   "dashboard.activity.action.document.added": "added a document link to",
   "dashboard.activity.action.document.removed": "removed a document link from",
+  "dashboard.activity.action.document.updated": "updated a document link on",
   "dashboard.activity.action.file.uploaded": "uploaded a file to",
   "dashboard.activity.action.file.deleted": "deleted a file from",
   "dashboard.activity.action.comment.created": "commented on",

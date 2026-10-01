@@ -21,6 +21,7 @@ const EVENT_TAB_MAP: Record<string, string> = {
   "adr.linked": "adrs",
   "adr.unlinked": "adrs",
   "document.added": "resources",
+  "document.updated": "resources",
   "document.removed": "resources",
   "file.uploaded": "resources",
   "file.deleted": "resources",

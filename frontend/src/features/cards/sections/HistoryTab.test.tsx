@@ -90,3 +90,43 @@ describe("HistoryTab — approval status changes", () => {
     expect(await screen.findByText("SUPERSEDED")).toBeInTheDocument();
   });
 });
+
+describe("HistoryTab — document link edits (#1166)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  /* `url` and `type` are the link's own fields. Without the override the row
+   * would show the raw key, or borrow the label of a card attribute that
+   * happens to be keyed `type`. */
+  it("labels a link's url and type rows as the link dialog does", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      {
+        id: "evt-3",
+        event_type: "document.updated",
+        created_at: "2026-09-30T10:00:00Z",
+        user_id: "u1",
+        user_display_name: "Vincent",
+        data: {
+          document_id: "doc-1",
+          name: "Runbook",
+          url: "https://wiki.example.com/ops",
+          type: "operations",
+          summary: "Runbook",
+          changes: {
+            url: { old: "https://wiki.example.com/runbook", new: "https://wiki.example.com/ops" },
+            type: { old: "documentation", new: "operations" },
+          },
+        },
+      },
+    ]);
+
+    renderTab();
+
+    expect(await screen.findByText("Document link updated")).toBeInTheDocument();
+    expect(screen.getByText("URL")).toBeInTheDocument();
+    expect(screen.getByText("Link Type")).toBeInTheDocument();
+    expect(screen.getByText("https://wiki.example.com/ops")).toBeInTheDocument();
+    expect(screen.getByText("operations")).toBeInTheDocument();
+  });
+});

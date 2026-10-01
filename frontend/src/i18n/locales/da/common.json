@@ -240,6 +240,7 @@
   "dashboard.activity.action.risk.removed": "fjernede en risiko fra",
   "dashboard.activity.action.document.added": "tilføjede et dokumentlink til",
   "dashboard.activity.action.document.removed": "fjernede et dokumentlink fra",
+  "dashboard.activity.action.document.updated": "opdaterede et dokumentlink på",
   "dashboard.activity.action.file.uploaded": "uploadede en fil til",
   "dashboard.activity.action.file.deleted": "slettede en fil fra",
   "dashboard.activity.action.comment.created": "kommenterede på",

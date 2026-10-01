@@ -164,6 +164,7 @@
   "dashboard.activity.action.risk.removed": "a retiré un risque de",
   "dashboard.activity.action.document.added": "a ajouté un lien de document à",
   "dashboard.activity.action.document.removed": "a supprimé un lien de document de",
+  "dashboard.activity.action.document.updated": "a modifié un lien de document sur",
   "dashboard.activity.action.file.uploaded": "a téléversé un fichier sur",
   "dashboard.activity.action.file.deleted": "a supprimé un fichier de",
   "dashboard.activity.action.comment.created": "a commenté",

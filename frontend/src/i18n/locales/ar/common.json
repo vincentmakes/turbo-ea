@@ -240,6 +240,7 @@
   "dashboard.activity.action.risk.removed": "أزال خطرًا من",
   "dashboard.activity.action.document.added": "أضاف رابط مستند إلى",
   "dashboard.activity.action.document.removed": "أزال رابط مستند من",
+  "dashboard.activity.action.document.updated": "حدّث رابط مستند في",
   "dashboard.activity.action.file.uploaded": "رفع ملفًا إلى",
   "dashboard.activity.action.file.deleted": "حذف ملفًا من",
   "dashboard.activity.action.comment.created": "علّق على",
