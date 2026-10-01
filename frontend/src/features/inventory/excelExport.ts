@@ -4,6 +4,12 @@ import { api } from "@/api/client";
 import i18n from "@/i18n";
 import { typeLabel } from "@/hooks/useResolveLabel";
 import type { Card, CardType, Relation, RelationType, StakeholderRoleOption } from "@/types";
+import {
+  escapeListItem,
+  escapeListSeparator,
+  LIST_SEPARATOR,
+  WORKBOOK_FORMAT_VERSION,
+} from "./listCell";
 
 /**
  * Excel export — LeanIX-style multi-sheet workbook.
@@ -16,9 +22,10 @@ import type { Card, CardType, Relation, RelationType, StakeholderRoleOption } fr
  * Card sheets carry:
  *   - core columns (id, type, name, parent_path, …)
  *   - `attr_<key>` columns derived from `fields_schema`
- *   - `rel:<relation_type_key>` columns for relation types whose source is
- *     this card type and whose `attributes_schema` is empty (the simple
- *     case that fits in a comma-separated cell)
+ *   - `rel:<relation_type_key>` columns, one per relation type whose source
+ *     is this card type, holding the target refs separated by `; ` (the cell
+ *     grammar lives in `listCell.ts`)
+ *   - a `tags` column of `Group: Tag` entries, also separated by `; `
  *   - `stakeholder:<role_key>` columns — one per stakeholder role of the
  *     sheet's type, cells of semicolon-separated email addresses
  *     (`ada@corp.com; bob@corp.com`), mirroring LeanIX's
@@ -49,7 +56,10 @@ import type { Card, CardType, Relation, RelationType, StakeholderRoleOption } fr
 // no longer creates or deletes relations. A version-2 workbook still imports;
 // the mismatch banner is what tells its author that an `action = delete` row is
 // no longer honoured.
-const FORMAT_VERSION = "3";
+// 4: the `tags` column is `; `-separated like every other list cell, and a `;`
+// inside a value is escaped `\;` (#1171). A version-3 workbook imports with
+// nothing lost — `isCurrentWorkbookFormat()` in `listCell.ts`.
+const FORMAT_VERSION = WORKBOOK_FORMAT_VERSION;
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
 const MAX_PATH_DEPTH = 8;
 // Card ids per `GET /relations?card_ids=` / `GET /cards?ids=` request. Keeps
@@ -313,9 +323,11 @@ function buildCardRowForType(
     reference: card.reference ?? "",
     alias: card.alias ?? "",
     approval_status: card.approval_status ?? "",
+    // `; `, not `, `: a tag name may hold a comma ("Acme, Inc."), and the
+    // importer would read it as two tags (#1171).
     tags: (card.tags || [])
-      .map((tg) => (tg.group_name ? `${tg.group_name}: ${tg.name}` : tg.name))
-      .join(", "),
+      .map((tg) => escapeListItem(tg.group_name ? `${tg.group_name}: ${tg.name}` : tg.name))
+      .join(LIST_SEPARATOR),
   };
 
   for (const phase of LIFECYCLE_PHASES) {
@@ -334,14 +346,15 @@ function buildCardRowForType(
     // unchanged landscape produces an identical cell and a real edit is the
     // only thing that shows up in a diff.
     // Semicolons (not commas) separate targets within a cell — card names
-    // are free-form and commonly contain `,` (e.g. "Acme, Inc."). Read by
-    // `splitRelationCell()` in `excelImport.ts`, which also accepts the
-    // old comma format for backwards compatibility with workbooks
-    // exported before this convention.
+    // are free-form and commonly contain `,` (e.g. "Acme, Inc."), and a `;`
+    // inside a name is escaped. Read by `splitListCell()` (`listCell.ts`),
+    // which never treats a comma as a separator in a workbook carrying
+    // `_Meta` — so a lone "This is X, it does Y" stays one target (#1171).
     row[`rel:${rt.key}`] = targets
       .map((t) => buildTargetRef(t, byId, nameAmbiguity))
       .sort((a, b) => a.localeCompare(b, i18n.language, { sensitivity: "base" }))
-      .join("; ");
+      .map(escapeListSeparator)
+      .join(LIST_SEPARATOR);
   }
 
   for (const roleKey of stakeholderRoleKeys) {

@@ -13,6 +13,15 @@ import type {
   TagGroup,
 } from "@/types";
 
+import {
+  isCurrentWorkbookFormat,
+  type ListCellMode,
+  listCellReadings,
+  splitListCell,
+  tagsAreSemicolonSeparated,
+  unescapeListItem,
+} from "./listCell";
+
 const t = (key: string, opts?: Record<string, unknown>) =>
   i18n.t(key, { ns: "inventory", ...opts });
 
@@ -229,24 +238,6 @@ function pathKey(type: string, segments: string[]): string {
  * so a card name containing either character round-trips cleanly. */
 function encodePathSegment(name: string): string {
   return name.replace(/\\/g, "\\\\").replace(/\//g, "\\/");
-}
-
-/**
- * Split a `rel:<key>` cell into individual target references. Semicolons
- * are the canonical separator (see `excelExport.ts`) because card names
- * commonly contain commas. As a transitional courtesy we fall back to
- * commas when the cell contains no semicolon — this keeps workbooks
- * exported before the convention switch importable. A cell containing
- * any `;` is treated as semicolon-separated, so a single new-format cell
- * with comma-bearing names parses correctly even when the cell happens
- * to also contain commas inside those names.
- */
-function splitRelationCell(cell: string): string[] {
-  const sep = cell.includes(";") ? ";" : ",";
-  return cell
-    .split(sep)
-    .map((s) => s.trim())
-    .filter(Boolean);
 }
 
 /**
@@ -555,6 +546,22 @@ export function parseWorkbookSheets(
 
 // ---- Core: validate ------------------------------------------------------
 
+/** What `validateImport()` knows about the workbook a sheet came from. */
+export interface ValidateImportOptions {
+  /** `_Meta` sheet info, absent for a hand-built sheet or a CSV. Decides how
+   * the `tags` column is separated (`tagsCellMode`). */
+  meta?: MetaInfo;
+}
+
+/**
+ * How to read a `tags` cell. Format 4 writes it `; `-separated; earlier
+ * formats wrote `, `; a sheet without `_Meta` could be either.
+ */
+function tagsCellMode(meta: MetaInfo | undefined): ListCellMode {
+  if (!meta) return "auto";
+  return tagsAreSemicolonSeparated(meta.formatVersion) ? "semicolon" : "comma";
+}
+
 export function validateImport(
   rows: Record<string, unknown>[],
   existingCards: Card[],
@@ -564,6 +571,7 @@ export function validateImport(
   calculatedFields: CalculatedFieldsMap = {},
   users: UserRef[] = [],
   stakeholderRolesByType: StakeholderRolesByType = {},
+  opts: ValidateImportOptions = {},
 ): ImportReport {
   const errors: ImportError[] = [];
   const warnings: ImportWarning[] = [];
@@ -714,6 +722,18 @@ export function validateImport(
       else tagByNameOnly.set(bare, tg.id);
     }
   }
+  /** Whether one `tags` entry names a tag — ambiguous bare names included,
+   * since they still name something (and get their own warning). */
+  const isKnownTagEntry = (entry: string): boolean => {
+    const colonIdx = entry.indexOf(":");
+    if (colonIdx > 0) {
+      const groupName = entry.slice(0, colonIdx).trim().toLowerCase();
+      const tagName = entry.slice(colonIdx + 1).trim().toLowerCase();
+      if (tagByGroupTag.has(`${groupName}|${tagName}`)) return true;
+    }
+    return tagByNameOnly.has(entry.trim().toLowerCase());
+  };
+  const tagsMode = tagsCellMode(opts.meta);
 
   for (let i = 0; i < rows.length; i++) {
     const rowNum = i + 2; // +2 because row 1 is the header, data starts at 2
@@ -1083,15 +1103,16 @@ export function validateImport(
 
     if (rowHasAttrError) continue;
 
-    // Parse optional Tags column: "Group: Tag, Group: Tag" (or bare "Tag")
+    // Parse optional Tags column: "Group: Tag; Group: Tag" (or bare "Tag").
+    // Workbooks before format 4 separated entries with `, `; there a cell is
+    // one tag when the whole of it names one ("Vendor: Acme, Inc."), and
+    // comma-separated otherwise.
     let parsedTagIds: string[] | undefined;
     const tagsCell = str(raw["tags"] ?? raw["Tags"]);
     if (tagsCell !== "") {
       parsedTagIds = [];
-      const entries = tagsCell
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const split = splitListCell(tagsCell, tagsMode, isKnownTagEntry);
+      const entries = split.bySemicolon ? split.parts.map(unescapeListItem) : split.parts;
       for (const entry of entries) {
         const colonIdx = entry.indexOf(":");
         let resolved: string | null | undefined;
@@ -1143,7 +1164,8 @@ export function validateImport(
       const cell = str(raw[col]);
       const ids: string[] = [];
       if (cell !== "") {
-        for (const entry of splitRelationCell(cell)) {
+        // Emails hold neither `;` nor `,`, so either separator is safe here.
+        for (const entry of splitListCell(cell, "auto").parts) {
           const ref = parseStakeholderEntry(entry);
           const resolved = ref.email ? userByEmail.get(ref.email.toLowerCase()) : undefined;
           if (!resolved) {
@@ -1305,7 +1327,7 @@ export async function validateMultiSheet(
 
   const meta = parsed.meta;
   // Banner-trigger: a format mismatch is non-fatal — surface as a warning.
-  if (meta?.formatVersion && meta.formatVersion !== "3") {
+  if (meta?.formatVersion && !isCurrentWorkbookFormat(meta.formatVersion)) {
     warnings.push({
       message: t("import.warnings.formatVersionMismatch", {
         version: meta.formatVersion,
@@ -1325,6 +1347,7 @@ export async function validateMultiSheet(
       calculatedFields,
       users,
       stakeholderRolesByType,
+      { meta },
     );
     errors.push(
       ...sheetReport.errors.map((e) => ({
@@ -1423,6 +1446,14 @@ export async function validateMultiSheet(
   type StagedRef = { type: string; ref: string };
   const refsToResolve = new Map<string, StagedRef>();
 
+  // How a `rel:` cell is separated. Every workbook carrying `_Meta` has
+  // written `; ` since the multi-sheet format began, so a comma there is
+  // always part of a name — the lone target "This is X, it does Y" stays one
+  // target (#1171), and a deleted "A, B" is reported missing rather than
+  // quietly linked to unrelated cards "A" and "B". Only a sheet with no
+  // `_Meta` falls back to the comma reading for a cell with no `;`.
+  const relCellMode: ListCellMode = meta ? "semicolon" : "auto";
+
   function stageRef(type: string, ref: string): void {
     const segs = decodePath(ref);
     if (segs.length === 0) return;
@@ -1461,7 +1492,9 @@ export async function validateMultiSheet(
         if (!rt) continue;
         const cellRaw = str(raw[col]);
         if (!cellRaw) continue;
-        for (const part of splitRelationCell(cellRaw)) {
+        // Stage every reading of an ambiguous comma cell — the whole cell and
+        // each part — so one round-trip can tell which of them names a card.
+        for (const part of listCellReadings(cellRaw, relCellMode)) {
           stageRef(rt.target_type_key, part);
         }
       }
@@ -1589,6 +1622,15 @@ export async function validateMultiSheet(
     return undefined;
   }
 
+  /** Whether a ref names a card, in this workbook or the instance — the
+   * comma reading of a `rel:` cell keeps the whole cell as one target when
+   * it does. Ambiguous counts: the name exists, it just needs a path. */
+  function refNamesACard(targetTypeKey: string, ref: string): boolean {
+    if (sameBatchCreate(targetTypeKey, ref)) return true;
+    const r = refResults.get(refLookupKey(targetTypeKey, ref));
+    return r?.status === "resolved" || r?.status === "ambiguous";
+  }
+
   // ----- Inline `rel:<key>` columns on card sheets -------------------------
   // Build a lookup: source card identity → set of existing relations of each type.
   // We use this to compute deletes (cell empty → drop everything) and noops.
@@ -1688,7 +1730,9 @@ export async function validateMultiSheet(
           continue;
         }
         const cellRaw = str(raw[col]);
-        const targetRefs = cellRaw ? splitRelationCell(cellRaw) : [];
+        const targetRefs = splitListCell(cellRaw, relCellMode, (whole) =>
+          refNamesACard(rt.target_type_key, whole),
+        ).parts;
         const targetHandles: CardRefHandle[] = [];
         let resolvedAll = true;
         for (const tr of targetRefs) {

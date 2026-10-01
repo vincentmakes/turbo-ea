@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.156.1] - 2026-10-01
+
+### Fixed
+
+- **A card whose name contains a comma survives an Excel export and re-import as a relation target.** A relation cell holding a single target such as `This is X, it does Y` was read as two targets, `This is X` and `it does Y`, so the import stopped with two "doesn't match any card" errors; a comma is now never a separator in an exported workbook, a `;` inside a card name is escaped, and the `tags` column uses `; ` too so a tag named `Acme, Inc.` round-trips. Older workbooks and hand-built sheets still import ([#1171](https://github.com/vincentmakes/turbo-ea/issues/1171)).
+
 ## [2.156.0] - 2026-10-01
 
 ### Added

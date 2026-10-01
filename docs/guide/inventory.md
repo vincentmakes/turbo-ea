@@ -247,13 +247,15 @@ rel:supports     →  NexaCore ERP; BillingApp; Salesforce
 rel:depends_on   →  Sales / Customer Mgmt / CRM
 ```
 
-Semicolons (not commas) separate targets because card names commonly contain `,` (e.g. `Acme, Inc.`). Inside a name, `/` and `\` must be escaped as `\/` and `\\` — the importer reads the cell with the same rules as `parent_path`, so a name like `SAP S/4HANA` is written as `SAP S\/4HANA`. The exporter does this for you automatically; only hand-typed cells need the escapes.
+Semicolons (not commas) separate targets because card names commonly contain `,` (e.g. `Acme, Inc.`). Inside a name, `/` and `\` must be escaped as `\/` and `\\`, and a `;` as `\;` — the importer reads the cell with the same rules as `parent_path`, so a name like `SAP S/4HANA` is written as `SAP S\/4HANA`. The exporter does this for you automatically; only hand-typed cells need the escapes.
 
 There is one column per relation type that starts from the sheet's card type — **all of them**, including types that carry values. Targets are listed alphabetically, so re-exporting an unchanged landscape gives you a byte-identical file and a real edit is the only thing that shows up in a diff.
 
 Cells are **declarative**: the set of targets in the cell becomes the complete set of outgoing relations of that type from that source after import. **Removing a target from the list drops that relation**; emptying the cell drops them all. Omitting the column entirely (no `rel:supports` column at all) leaves existing relations untouched — so deleting columns you don't care about before re-importing is safe.
 
-For backwards compatibility, the importer also accepts comma-separated cells (workbooks exported before this convention). A cell containing any `;` is always treated as semicolon-separated.
+A comma is never a separator in a workbook exported by Turbo EA (it carries a `_Meta` sheet), so a cell holding one target such as `This is X, it does Y` stays one target. A sheet without `_Meta` (built by hand, or exported before 1.23) may still separate targets with commas: a cell containing any `;` is semicolon-separated, and a cell without one is read as a single target when the whole cell names a card, and as comma-separated otherwise.
+
+The `tags` column follows the same rule: `Group: Tag` entries separated by `; ` (for example `Vendor: Acme, Inc.; Region: EU`), with a `;` inside a tag name written as `\;`. Workbooks exported before 2.156.1 separated tags with commas and still import as before.
 
 ### Stakeholder cells
 

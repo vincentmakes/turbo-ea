@@ -32,6 +32,7 @@ import {
   type StakeholderRolesByType,
   type UserRef,
 } from "./excelImport";
+import { isCurrentWorkbookFormat } from "./listCell";
 
 interface ImportDialogProps {
   open: boolean;
@@ -288,7 +289,7 @@ export default function ImportDialog({
             {/* Format version banner — surfaces when the file was exported
                 from an older Turbo EA version. Non-blocking — the user
                 can still proceed but we want them to eyeball the diff. */}
-            {report.meta?.formatVersion && report.meta.formatVersion !== "3" && (
+            {report.meta?.formatVersion && !isCurrentWorkbookFormat(report.meta.formatVersion) && (
               <Alert severity="warning" sx={{ mb: 2 }}>
                 {t("import.formatVersionBanner", {
                   version: report.meta.formatVersion,

@@ -247,11 +247,13 @@ rel:supports     →  NexaCore ERP; BillingApp; Salesforce
 rel:depends_on   →  Sales / Customer Mgmt / CRM
 ```
 
-Semikoloner (ikke kommaer) separerer mål, fordi kortnavne almindeligvis indeholder `,` (f.eks. `Acme, Inc.`). Inde i et navn skal `/` og `\` undgås som `\/` og `\\` — importøren læser cellen med de samme regler som `parent_path`, så et navn som `SAP S/4HANA` skrives som `SAP S\/4HANA`. Eksportøren gør dette automatisk for dig; kun hånd-skrevne celler har brug for escapes.
+Semikoloner (ikke kommaer) separerer mål, fordi kortnavne almindeligvis indeholder `,` (f.eks. `Acme, Inc.`). Inde i et navn skal `/` og `\` undgås som `\/` og `\\`, og et `;` som `\;` — importøren læser cellen med de samme regler som `parent_path`, så et navn som `SAP S/4HANA` skrives som `SAP S\/4HANA`. Eksportøren gør dette automatisk for dig; kun hånd-skrevne celler har brug for escapes.
 
 Celler er **deklarative**: sættet af mål i cellen bliver det komplette sæt af udgående relationer af den type fra den kilde efter import. **At fjerne et mål fra listen dropper den relation**; at tømme cellen dropper dem alle. At udelade kolonnen helt (ingen `rel:supports`-kolonne overhovedet) efterlader eksisterende relationer urørt.
 
-For bagudkompatibilitet accepterer importøren også komma-separerede celler (projektmapper eksporteret før denne konvention). En celle, der indeholder et `;`, behandles altid som semikolon-separeret.
+I en projektmappe eksporteret af Turbo EA (den har et `_Meta`-ark) er et komma aldrig en separator, så en celle med ét mål som `This is X, it does Y` forbliver ét mål. Et ark uden `_Meta` (bygget i hånden eller eksporteret før 1.23) kan stadig adskille mål med kommaer: en celle, der indeholder et `;`, er semikolon-separeret, og en celle uden læses som ét mål, når hele cellen navngiver et kort, og ellers som komma-separeret.
+
+Kolonnen `tags` følger samme regel: `Gruppe: Tag`-poster adskilt af `; ` (f.eks. `Vendor: Acme, Inc.; Region: EU`), hvor et `;` i et tagnavn skrives som `\;`. Projektmapper eksporteret før 2.156.1 adskilte tags med kommaer og importeres stadig som før.
 
 ### Interessent-celler
 
