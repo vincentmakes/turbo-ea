@@ -1,7 +1,9 @@
 """Integration tests for the archived card purge loop.
 
-Tests the business logic of permanently deleting cards archived 30+ days ago,
-along with their relations. Requires a PostgreSQL test database.
+Runs the loop's own body (``_purge_archived_cards_once`` in ``app.main``)
+against a PostgreSQL test database: cards archived past the retention
+window are permanently deleted together with their relations, and the
+admin's retention setting is honoured.
 """
 
 from __future__ import annotations
@@ -43,46 +45,11 @@ async def purge_env(db):
 
 
 async def _run_purge(db):
-    """Execute the purge logic (extracted from _purge_archived_cards_loop)."""
-    from sqlalchemy import or_
+    """The production purge body, run once with no retention setting stored
+    (so the 30-day default applies). ``None`` would mean "purge disabled"."""
+    from app.main import _purge_archived_cards_once
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=_PURGE_RETENTION_DAYS)
-    result = await db.execute(
-        select(Card).where(
-            Card.status == "ARCHIVED",
-            Card.archived_at.isnot(None),
-            Card.archived_at <= cutoff,
-        )
-    )
-    cards_to_purge = result.scalars().all()
-    if not cards_to_purge:
-        return 0
-
-    purged_ids = [c.id for c in cards_to_purge]
-    # Delete relations referencing these cards
-    rels = await db.execute(
-        select(Relation).where(
-            or_(
-                Relation.source_id.in_(purged_ids),
-                Relation.target_id.in_(purged_ids),
-            )
-        )
-    )
-    for rel in rels.scalars().all():
-        await db.delete(rel)
-
-    # Self-heal stranded children — mirrors the production purge loop.
-    stranded_res = await db.execute(
-        select(Card).where(Card.parent_id.in_(purged_ids), Card.id.not_in(purged_ids))
-    )
-    for stranded in stranded_res.scalars().all():
-        stranded.parent_id = None
-
-    for card in cards_to_purge:
-        await db.delete(card)
-
-    await db.commit()
-    return len(purged_ids)
+    return await _purge_archived_cards_once(db)
 
 
 # ---------------------------------------------------------------------------
@@ -351,3 +318,52 @@ class TestArchivePurgeCutoff:
 
         now = datetime.now(timezone.utc)
         assert _archive_purge_cutoff(30, now) == now - timedelta(days=30)
+
+
+class TestRetentionSetting:
+    """The window comes from ``general_settings.archiveRetentionDays``."""
+
+    async def _settings(self, db, days):
+        from app.models.app_settings import AppSettings
+
+        db.add(AppSettings(id="default", general_settings={"archiveRetentionDays": days}))
+        await db.flush()
+
+    async def _archived(self, db, env, name, days_ago):
+        card = await create_card(
+            db, card_type="Application", name=name, status="ARCHIVED", user_id=env["user"].id
+        )
+        card.archived_at = datetime.now(timezone.utc) - timedelta(days=days_ago)
+        await db.flush()
+        return card
+
+    async def test_zero_keeps_archived_cards_forever(self, db, purge_env):
+        from app.main import _purge_archived_cards_once
+
+        await self._settings(db, 0)
+        old = await self._archived(db, purge_env, "Ancient", 400)
+        assert await _purge_archived_cards_once(db) is None
+        assert (await db.execute(select(Card).where(Card.id == old.id))).scalar_one_or_none()
+
+    async def test_a_custom_window_moves_the_cutoff(self, db, purge_env):
+        from app.main import _purge_archived_cards_once
+
+        await self._settings(db, 10)
+        gone = await self._archived(db, purge_env, "Eleven days", 11)
+        kept = await self._archived(db, purge_env, "Nine days", 9)
+        assert await _purge_archived_cards_once(db) == 1
+        assert (
+            await db.execute(select(Card).where(Card.id == gone.id))
+        ).scalar_one_or_none() is None
+        assert (await db.execute(select(Card).where(Card.id == kept.id))).scalar_one_or_none()
+
+    async def test_a_pinned_clock_decides_the_cutoff(self, db, purge_env):
+        from app.main import _purge_archived_cards_once
+
+        card = await self._archived(db, purge_env, "Borderline", 20)
+        assert await _purge_archived_cards_once(db) == 0
+        later = datetime.now(timezone.utc) + timedelta(days=11)
+        assert await _purge_archived_cards_once(db, now=later) == 1
+        assert (
+            await db.execute(select(Card).where(Card.id == card.id))
+        ).scalar_one_or_none() is None
