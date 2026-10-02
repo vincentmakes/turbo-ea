@@ -69,8 +69,7 @@ export function extractSheetsFromDOM(node: HTMLElement | null): ExportSheet[] {
       cells.forEach((td, i) => {
         const text = (td.textContent || "").replace(/\s+/g, " ").trim();
         if (columns[i]?.type === "number") {
-          const num = Number(text.replace(/[^0-9.-]/g, ""));
-          row[`c${i}`] = Number.isFinite(num) && text !== "" ? num : text;
+          row[`c${i}`] = parseDisplayedNumber(text) ?? text;
         } else {
           row[`c${i}`] = text;
         }
@@ -96,6 +95,47 @@ export function extractSheetsFromDOM(node: HTMLElement | null): ExportSheet[] {
   });
 
   return sheets;
+}
+
+export interface NumberSeparators {
+  group: string;
+  decimal: string;
+}
+
+/** The separators the runtime locale writes numbers with — what the DOM shows. */
+export function localeNumberSeparators(locale?: string): NumberSeparators {
+  const parts = new Intl.NumberFormat(locale).formatToParts(12345.6);
+  return {
+    group: parts.find((p) => p.type === "group")?.value ?? ",",
+    decimal: parts.find((p) => p.type === "decimal")?.value ?? ".",
+  };
+}
+
+const RUNTIME_SEPARATORS = localeNumberSeparators();
+
+/**
+ * Read a number back off a rendered cell: `1,234.50` here, `1.234,50` under a
+ * German locale, `12 %`, `€ 99`, and an accounting `(500)`. `null` when the
+ * text carries no digits (`n/a`, `—`) or is not one number (`2024-01-05`), so
+ * the caller keeps the text instead of exporting a zero.
+ */
+export function parseDisplayedNumber(
+  text: string,
+  separators: NumberSeparators = RUNTIME_SEPARATORS,
+): number | null {
+  let s = text.trim();
+  const accounting = /^\(.*\)$/.test(s);
+  if (accounting) s = s.slice(1, -1);
+  // A locale grouping on a (narrow no-break) space reaches the DOM as a plain
+  // space after whitespace collapsing, so any space is a group separator then.
+  if (/\s/.test(separators.group)) s = s.replace(/\s+/g, "");
+  else if (separators.group) s = s.split(separators.group).join("");
+  if (separators.decimal !== ".") s = s.split(separators.decimal).join(".");
+  const cleaned = s.replace(/[^0-9.-]/g, "");
+  if (!/\d/.test(cleaned)) return null;
+  const n = Number(cleaned);
+  if (!Number.isFinite(n)) return null;
+  return accounting ? -Math.abs(n) : n;
 }
 
 const sanitizeFilename = (s: string): string =>
@@ -188,10 +228,14 @@ export async function exportReportToXlsx(data: ReportExportData): Promise<void> 
       return { wch: Math.min(maxLen + 2, 60) };
     });
 
-    let name = sanitizeSheetName(sheet.name);
+    const base = sanitizeSheetName(sheet.name);
+    let name = base;
     let suffix = 1;
     while (usedNames.has(name)) {
-      name = sanitizeSheetName(`${sheet.name} ${++suffix}`);
+      // Make room for the suffix inside Excel's 31 characters: a 31-character
+      // base re-sliced to the same 31 characters never became unique.
+      const tag = ` ${++suffix}`;
+      name = sanitizeSheetName(`${base.slice(0, 31 - tag.length)}${tag}`);
     }
     usedNames.add(name);
     XLSX.utils.book_append_sheet(wb, ws, name);
@@ -556,15 +600,20 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
       // always render the chart on a single slide and scale it to fit —
       // visualizations like treemaps, heatmaps and network graphs lose
       // meaning when split horizontally, so don't risk it.
-      const pages = data.paginateRowSelector
+      const paginated = data.paginateRowSelector
         ? await paginateChartImage(captured, chartWidth, chartHeight)
-        : [
-            {
-              dataUrl: captured.dataUrl,
-              sourceWidth: captured.width,
-              sourceHeight: captured.height,
-            },
-          ];
+        : [];
+      // No pages back (no canvas to slice with) means one slide, not no export.
+      const pages =
+        paginated.length > 0
+          ? paginated
+          : [
+              {
+                dataUrl: captured.dataUrl,
+                sourceWidth: captured.width,
+                sourceHeight: captured.height,
+              },
+            ];
       const firstPage = pages[0];
       const firstFit = fitImageInBox(
         firstPage.sourceWidth,

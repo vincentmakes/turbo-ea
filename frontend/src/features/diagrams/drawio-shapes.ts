@@ -2199,10 +2199,27 @@ export function attachCellLifecycleListeners(
   // and we shouldn't pester them about every connected edge.
   const pendingIncidentalEdgeRemovals = new Set<string>();
 
+  // Every card / shape vertex and every edge seen so far, for the CHANGE-diff
+  // fallback below. A batch that CELLS_REMOVED reports is dropped from these
+  // maps as it is handled, so the diff never reports the same removal twice
+  // (which handed the editor a second tombstone for an edge it had already
+  // consumed or suppressed).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const knownVertexCells = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const knownEdgeCells = new Map<string, any>();
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const removedListener = (_sender: unknown, evt: any) => {
     const cells = evt.getProperty("cells") || [];
     if (cells.length === 0) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const cell of cells as any[]) {
+      if (cell?.id) {
+        knownVertexCells.delete(cell.id);
+        knownEdgeCells.delete(cell.id);
+      }
+    }
     // eslint-disable-next-line no-console
     console.debug("[turbo-ea] CELLS_REMOVED", {
       count: cells.length,
@@ -2431,10 +2448,6 @@ export function attachCellLifecycleListeners(
   // model CHANGE, detect which ones disappeared since last tick. The
   // synthesised removal then routes through the same `removedListener`
   // so cascade-edge-removal works for these paths too.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const knownVertexCells = new Map<string, any>();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const knownEdgeCells = new Map<string, any>();
   const seedKnownCells = () => {
     const allCells = model.cells || {};
     for (const k of Object.keys(allCells)) {
@@ -3470,9 +3483,16 @@ export function attachParentChangeListener(
   } catch {
     // ignore — older mxGraph builds without MOVE_CELLS
   }
+  // The deferred check must not run once the listener is detached: the
+  // editor that would receive the event is gone, and re-parenting cells
+  // behind its back is not a cleanup.
+  let disposed = false;
+  let pendingMouseUp: ReturnType<typeof setTimeout> | null = null;
   const onMouseUp = () => {
     // Defer one tick so any open transaction has settled.
-    setTimeout(() => {
+    pendingMouseUp = setTimeout(() => {
+      pendingMouseUp = null;
+      if (disposed) return;
       // Force-detach: walk every card cell and check whether its visual
       // bounds escape its parent's bounds. mxGraph's
       // `shouldRemoveCellsFromParent` override sometimes fails in
@@ -3567,6 +3587,11 @@ export function attachParentChangeListener(
     // ignore
   }
   return () => {
+    disposed = true;
+    if (pendingMouseUp) {
+      clearTimeout(pendingMouseUp);
+      pendingMouseUp = null;
+    }
     try {
       model.removeListener(listener);
     } catch {

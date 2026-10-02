@@ -316,7 +316,7 @@ export function cardCell(id: string, opts: CardCellOptions): FakeCell {
   return baseCell(id, {
     value: opts.value ?? attrBag(attrs),
     style: opts.style ?? "rounded=1;whiteSpace=wrap;html=1;fillColor=#0f7eb5;",
-    geometry: opts.geometry ?? { x: 0, y: 0, width: 210, height: 60 },
+    geometry: opts.geometry === undefined ? { x: 0, y: 0, width: 210, height: 60 } : opts.geometry,
     parent: opts.parent,
     collapsed: opts.collapsed,
   });
@@ -327,7 +327,12 @@ export function plainCell(id: string, opts: CellOptions & { label?: string; edge
   return baseCell(id, {
     value: opts.value ?? opts.label ?? "",
     style: opts.style ?? "rounded=0;whiteSpace=wrap;html=1;",
-    geometry: opts.geometry ?? (opts.edge ? new FakeGeometry() : { x: 0, y: 0, width: 120, height: 60 }),
+    geometry:
+      opts.geometry === undefined
+        ? opts.edge
+          ? new FakeGeometry()
+          : { x: 0, y: 0, width: 120, height: 60 }
+        : opts.geometry,
     parent: opts.parent,
     collapsed: opts.collapsed,
     edge: opts.edge,
@@ -338,8 +343,8 @@ export function plainCell(id: string, opts: CellOptions & { label?: string; edge
 export function containerCell(id: string, opts: CardCellOptions): FakeCell {
   return cardCell(id, {
     ...opts,
-    style: opts.style ?? "swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#0f7eb5;",
-    geometry: opts.geometry ?? { x: 0, y: 0, width: 400, height: 300 },
+    style: opts.style ?? "shape=swimlane;whiteSpace=wrap;html=1;startSize=28;fillColor=#0f7eb5;",
+    geometry: opts.geometry === undefined ? { x: 0, y: 0, width: 400, height: 300 } : opts.geometry,
   });
 }
 
@@ -747,6 +752,8 @@ export class FakeGraph extends FakeEventSource {
 export interface FakeWindowOptions {
   /** Extra members on the fake window (`mxUtils.fit`, `document`, …). */
   win?: Record<string, unknown>;
+  /** Where the iframe sits in the parent page (`iframe.getBoundingClientRect()`); default at the origin. */
+  iframeRect?: Partial<Geo>;
 }
 
 export interface FakeIframe {
@@ -837,7 +844,19 @@ export function fakeIframe(opts: { cells?: FakeCell[] | Record<string, FakeCell>
     clearTimeout: globalThis.clearTimeout.bind(globalThis),
     ...(opts.win ?? {}),
   };
-  const iframe = { contentWindow: win, contentDocument: document } as unknown as HTMLIFrameElement;
+  const r = { x: 0, y: 0, width: 1200, height: 800, ...(opts.iframeRect ?? {}) };
+  const iframe = {
+    contentWindow: win,
+    contentDocument: document,
+    getBoundingClientRect: () => ({
+      ...r,
+      left: r.x,
+      top: r.y,
+      right: r.x + r.width,
+      bottom: r.y + r.height,
+      toJSON: () => r,
+    }),
+  } as unknown as HTMLIFrameElement;
 
   const fire: FakeIframe["fire"] = {
     model: (name, props = {}) => model.fireEvent(eventObject(resolveEvent(name), props), model),

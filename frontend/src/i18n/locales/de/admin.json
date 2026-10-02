@@ -1389,6 +1389,8 @@
   "turbolens_started_at": "Gestartet",
   "turbolens_completed_at": "Abgeschlossen",
   "turbolens_error": "Fehler",
+  "turbolens_analysis_failed": "Analyse fehlgeschlagen",
+  "turbolens_polling_lost_connection": "Verbindung beim Abfragen des Analysestatus verloren",
   "turbolens_no_history": "Noch keine Analyseläufe.",
   "turbolens_settings_description": "Verbindungen zu TurboLens-Instanzen für KI-gestützte Analysen verwalten.",
   "turbolens_no_connection_title": "Keine Verbindung konfiguriert",

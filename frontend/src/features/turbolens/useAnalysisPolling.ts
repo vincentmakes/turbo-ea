@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
+import i18n from "@/i18n";
 
 interface AnalysisRun {
   id: string;
@@ -45,20 +46,25 @@ export function useAnalysisPolling(onComplete?: () => void, onError?: (msg: stri
   useEffect(() => {
     if (!runId || !polling) return;
 
+    // A reply that lands after this run was superseded or stopped must not
+    // act: `stopPolling` clears whatever interval is current — the new run's.
+    let cancelled = false;
     const check = async () => {
       try {
         const run = await api.get<AnalysisRun>(`/turbolens/analysis-runs/${runId}`);
+        if (cancelled) return;
         if (run.status === "failed") {
           stopPolling();
-          onErrorRef.current?.(run.error_message || "Analysis failed");
+          onErrorRef.current?.(run.error_message || i18n.t("admin:turbolens_analysis_failed"));
           onCompleteRef.current?.();
         } else if (run.status !== "running") {
           stopPolling();
           onCompleteRef.current?.();
         }
       } catch {
+        if (cancelled) return;
         stopPolling();
-        onErrorRef.current?.("Lost connection while polling analysis status");
+        onErrorRef.current?.(i18n.t("admin:turbolens_polling_lost_connection"));
       }
     };
 
@@ -66,6 +72,7 @@ export function useAnalysisPolling(onComplete?: () => void, onError?: (msg: stri
     check();
     timerRef.current = setInterval(check, POLL_INTERVAL_MS);
     return () => {
+      cancelled = true;
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [runId, polling, stopPolling]);

@@ -27,6 +27,14 @@
  * `ApiError` and `isAbortError` stay the real ones (`vi.importActual`), so the
  * request hooks' abort handling and the pages' `err instanceof ApiError` keep
  * working.
+ *
+ * A test that calls `vi.resetModules()` (to restart a singleton hook's cache
+ * per test) must also import `@/api/client` statically. The mock factory runs
+ * once, on the first import of `@/api/client`, and its result survives the
+ * reset while this module is re-evaluated by it; without the static import the
+ * factory first runs inside a test, after a reset, and captures a fresh
+ * `mockApi` that the one the test configured can never reach. Guard with
+ * `expect(api).toBe(mockApi.api)`.
  */
 import { vi } from "vitest";
 

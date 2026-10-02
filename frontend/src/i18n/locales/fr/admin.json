@@ -1389,6 +1389,8 @@
   "turbolens_started_at": "Démarré",
   "turbolens_completed_at": "Terminé",
   "turbolens_error": "Erreur",
+  "turbolens_analysis_failed": "L’analyse a échoué",
+  "turbolens_polling_lost_connection": "Connexion perdue pendant la vérification de l’état de l’analyse",
   "turbolens_no_history": "Aucun historique d'analyse.",
   "turbolens_settings_description": "Gérer les connexions aux instances TurboLens pour l'analyse par IA.",
   "turbolens_no_connection_title": "Aucune connexion configurée",

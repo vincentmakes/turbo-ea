@@ -1389,6 +1389,8 @@
   "turbolens_started_at": "Iniciado",
   "turbolens_completed_at": "Completado",
   "turbolens_error": "Error",
+  "turbolens_analysis_failed": "El análisis ha fallado",
+  "turbolens_polling_lost_connection": "Se perdió la conexión al consultar el estado del análisis",
   "turbolens_no_history": "Sin historial de análisis.",
   "turbolens_settings_description": "Gestionar conexiones a instancias de TurboLens para análisis con IA.",
   "turbolens_no_connection_title": "Sin conexión configurada",

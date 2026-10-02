@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { Filters } from "./InventoryFilterSidebar";
 import {
   EMPTY_VALUE,
+  eolColumnApplies,
   filtersAfterTypeToggle,
   hierarchyLabelColumnApplies,
   normalizeRelationFilterKeys,
@@ -246,5 +247,18 @@ describe("hierarchyLabelColumnApplies", () => {
   it("does not apply to a type with no hierarchy or an empty vocabulary", () => {
     expect(hierarchyLabelColumnApplies(types, ["Objective"])).toBe(false);
     expect(hierarchyLabelColumnApplies(types, ["Application"])).toBe(false);
+  });
+});
+
+describe("eolColumnApplies", () => {
+  it("offers the End of life column for exactly one selected EOL-eligible type", () => {
+    expect(eolColumnApplies(["Application"])).toBe(true);
+    expect(eolColumnApplies(["ITComponent"])).toBe(true);
+  });
+
+  it("withholds it with no type filter, two types, or a type that cannot carry an EOL", () => {
+    expect(eolColumnApplies([])).toBe(false);
+    expect(eolColumnApplies(["Application", "ITComponent"])).toBe(false);
+    expect(eolColumnApplies(["BusinessCapability"])).toBe(false);
   });
 });

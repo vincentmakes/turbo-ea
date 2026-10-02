@@ -655,9 +655,11 @@ export function validateImport(
   }
 
   // Index existing cards by id for fast lookup
+  // Keyed by `normalizeId` — a UUID is case-insensitive, and a sheet edited in a
+  // tool that upper-cases them must still find its cards.
   const existingById = new Map<string, Card>();
   for (const card of existingCards) {
-    existingById.set(card.id, card);
+    existingById.set(normalizeId(card.id), card);
   }
 
   // Index existing cards by (type, full ancestor path) for parent_path resolution.
@@ -684,7 +686,7 @@ export function validateImport(
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i];
     const id = str(raw["id"] ?? raw["Id"] ?? raw["ID"]);
-    if (id && UUID_RE.test(id)) fileIds.add(id);
+    if (id && UUID_RE.test(id)) fileIds.add(normalizeId(id));
     const ppRaw = str(raw["parent_path"]);
     const name = str(raw["name"] ?? raw["Name"]);
     const rowType = str(raw["type"] ?? raw["Type"]) || preSelectedType || "";
@@ -787,7 +789,7 @@ export function validateImport(
       }
 
       // Rule 8: duplicate id in file
-      const prevRow = seenIds.get(id);
+      const prevRow = seenIds.get(normalizeId(id));
       if (prevRow !== undefined) {
         errors.push({
           row: rowNum,
@@ -796,12 +798,12 @@ export function validateImport(
         });
         continue;
       }
-      seenIds.set(id, rowNum);
+      seenIds.set(normalizeId(id), rowNum);
 
       // Rule 6: id must match existing — but for cross-instance imports the
       // source UUID won't exist locally, so demote to a "create" with a
       // warning instead of failing the row outright.
-      matchedExisting = existingById.get(id);
+      matchedExisting = existingById.get(normalizeId(id));
       if (!matchedExisting) {
         warnings.push({
           row: rowNum,
@@ -810,7 +812,7 @@ export function validateImport(
         });
         // Fall through: the row will be classified as a create below; we
         // intentionally drop the file id so the server generates a fresh one.
-        seenIds.delete(id);
+        seenIds.delete(normalizeId(id));
       } else if (matchedExisting.type !== type) {
         // Rule 7: type must match for an update
         errors.push({
@@ -836,9 +838,9 @@ export function validateImport(
       } else {
         parentPathKey = pathKey(type, parentSegments);
 
-        // Self-reference: a row whose parent_path is its own path.
-        const ownKey = pathKey(type, [...parentSegments, name]);
-        if (parentPathKey === ownKey) {
+        const existingMatch = existingByPath.get(parentPathKey);
+        // Self-reference: the parent path resolves to this row's own card.
+        if (existingMatch && id && normalizeId(existingMatch) === normalizeId(id)) {
           errors.push({
             row: rowNum,
             column: "parent_path",
@@ -846,8 +848,6 @@ export function validateImport(
           });
           continue;
         }
-
-        const existingMatch = existingByPath.get(parentPathKey);
         if (existingMatch) {
           // Use the existing card's id directly — overrides any stale parent_id.
           parentId = existingMatch;
@@ -887,7 +887,7 @@ export function validateImport(
         continue;
       }
       // parent must exist in DB or be another row in the file
-      if (!existingById.has(parentId) && !fileIds.has(parentId)) {
+      if (!existingById.has(normalizeId(parentId)) && !fileIds.has(normalizeId(parentId))) {
         errors.push({
           row: rowNum,
           column: "parent_id",
@@ -896,7 +896,7 @@ export function validateImport(
         continue;
       }
       // parent must not be self
-      if (parentId === id) {
+      if (id && normalizeId(parentId) === normalizeId(id)) {
         errors.push({
           row: rowNum,
           column: "parent_id",
@@ -918,6 +918,7 @@ export function validateImport(
 
     // Build lifecycle object
     const lifecycle: Record<string, string> = {};
+    let rowHasLifecycleError = false;
     for (const phase of LIFECYCLE_PHASES) {
       const val = str(raw[`lifecycle_${phase}`]);
       if (val) {
@@ -928,11 +929,15 @@ export function validateImport(
             column: `lifecycle_${phase}`,
             message: t("import.errors.invalidDate", { row: rowNum, field: `lifecycle_${phase}`, value: val }),
           });
+          rowHasLifecycleError = true;
         } else {
           lifecycle[phase] = val;
         }
       }
     }
+    // An errored row is not a card to create — the preview's counts say what
+    // the import would do, and it will not run while an error stands.
+    if (rowHasLifecycleError) continue;
 
     // Build attributes object, validating against field defs
     const fieldDefs = fieldDefsForType(type, allTypes);
@@ -1216,7 +1221,8 @@ export function validateImport(
     };
 
     if (id && matchedExisting) {
-      parsed.id = id;
+      // The card's own id, not the sheet's spelling of it.
+      parsed.id = matchedExisting.id;
       parsed.existing = matchedExisting;
       // Classify as update when regular fields, tags, or stakeholders changed
       const { patch, changes } = buildPatch(data, matchedExisting);

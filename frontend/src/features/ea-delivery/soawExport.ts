@@ -357,9 +357,14 @@ export async function exportToDocx(
   let currentPart: string | null = null;
 
   const addSectionContent = (def: TemplateSectionDef, data: SoAWSectionData) => {
-    if (data.hidden) return;
-    if (isSectionEmpty(def, data)) return;
+    if (!data.hidden && !isSectionEmpty(def, data)) addTemplateSection(def, data);
+    // A custom section is anchored on a template section's *position*, so it
+    // prints whether or not that section did — the editor lists it there
+    // either way, and a hidden anchor used to take it down with it.
+    addCustomSectionsAfter(def);
+  };
 
+  const addTemplateSection = (def: TemplateSectionDef, data: SoAWSectionData) => {
     // Part header
     if (def.part !== currentPart) {
       currentPart = def.part;
@@ -441,8 +446,9 @@ export async function exportToDocx(
     }
 
     children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
+  };
 
-    // Insert custom sections after this template section
+  const addCustomSectionsAfter = (def: TemplateSectionDef) => {
     for (const cs of customSections) {
       if (cs.insertAfter === def.id) {
         children.push(
@@ -605,7 +611,7 @@ export function buildPreviewBody(
   customSections: { id: string; title: string; content: string; insertAfter: string }[],
   revisionNumber?: number,
   signatories?: SoAWSignatory[],
-  _signedAt?: string | null,
+  signedAt?: string | null,
 ): string {
   const t = (key: string, opts?: Record<string, unknown>) => String(i18n.t(`delivery:${key}`, opts as never));
   let html = "";
@@ -650,9 +656,13 @@ export function buildPreviewBody(
   let currentPart = "";
 
   const renderSection = (def: TemplateSectionDef, data: SoAWSectionData) => {
-    if (data.hidden) return;
-    if (isSectionEmpty(def, data)) return;
+    if (!data.hidden && !isSectionEmpty(def, data)) renderTemplateSection(def, data);
+    // Anchored on the template section's position, printed whether or not
+    // that section was — same rule as the Word export.
+    renderCustomSectionsAfter(def);
+  };
 
+  const renderTemplateSection = (def: TemplateSectionDef, data: SoAWSectionData) => {
     if (def.part !== currentPart) {
       currentPart = def.part;
       const partLabel = def.part === "I" ? (t("export.partI")) : (t("export.partII"));
@@ -687,8 +697,9 @@ export function buildPreviewBody(
       }
       html += `</table>`;
     }
+  };
 
-    // Custom sections after this
+  const renderCustomSectionsAfter = (def: TemplateSectionDef) => {
     const customBadge = t("export.custom");
     for (const cs of customSections) {
       if (cs.insertAfter === def.id) {
@@ -729,8 +740,11 @@ export function buildPreviewBody(
       html += `<div class="sig-status ${isSig ? "approved" : "pending"}">${isSig ? `&#10003; ${sigApproved}` : `&#9711; ${sigPending}`}</div>`;
       html += `<div class="sig-name">${escapeHtml(sig.display_name)}</div>`;
       if (sig.email) html += `<div class="sig-detail">${escapeHtml(sig.email)}</div>`;
-      if (isSig && sig.signed_at) {
-        const signedLabel = t("export.signed", { date: new Date(sig.signed_at).toLocaleString() });
+      // A signatory's own stamp first; the document-level one (what the PDF
+      // footer prints) when the row carries none.
+      const signedWhen = sig.signed_at || (isSig ? signedAt : null);
+      if (isSig && signedWhen) {
+        const signedLabel = t("export.signed", { date: new Date(signedWhen).toLocaleString() });
         html += `<div class="sig-detail">${signedLabel}</div>`;
       }
       html += `</div>`;

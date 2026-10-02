@@ -64,7 +64,8 @@ describe("parseRiskWorkbook", () => {
   it("coerces date cells to YYYY-MM-DD", () => {
     const ws = XLSX.utils.aoa_to_sheet([
       ["title", "target_resolution_date"],
-      ["Dated", new Date(Date.UTC(2026, 11, 31))],
+      // A local date: west of UTC a UTC midnight is still the previous day.
+      ["Dated", new Date(2026, 11, 31)],
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Risks");

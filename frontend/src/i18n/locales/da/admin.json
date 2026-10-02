@@ -1389,6 +1389,8 @@
   "turbolens_started_at": "Startet",
   "turbolens_completed_at": "Fuldført",
   "turbolens_error": "Fejl",
+  "turbolens_analysis_failed": "Analysen mislykkedes",
+  "turbolens_polling_lost_connection": "Forbindelsen gik tabt under forespørgsel om analysens status",
   "turbolens_no_history": "Ingen analysekørsler endnu.",
   "turbolens_settings_description": "Administrér forbindelser til TurboLens-instanser for AI-drevet analyse.",
   "turbolens_no_connection_title": "Ingen forbindelse konfigureret",

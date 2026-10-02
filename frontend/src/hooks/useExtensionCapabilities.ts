@@ -33,10 +33,10 @@ async function fetchCapabilities(): Promise<Set<string>> {
       _cache = set;
       return set;
     })
-    .catch(() => {
-      _cache = new Set<string>();
-      return _cache;
-    })
+    // Not cached: this mount gets no capabilities, the next one asks again,
+    // so a transient error at boot cannot hide the authoring affordances for
+    // the whole session.
+    .catch(() => new Set<string>())
     .finally(() => {
       _inflight = null;
     });

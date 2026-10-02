@@ -1389,6 +1389,8 @@
   "turbolens_started_at": "بدأ",
   "turbolens_completed_at": "اكتمل",
   "turbolens_error": "خطأ",
+  "turbolens_analysis_failed": "فشل التحليل",
+  "turbolens_polling_lost_connection": "انقطع الاتصال أثناء الاستعلام عن حالة التحليل",
   "turbolens_no_history": "لا توجد عمليات تحليل بعد.",
   "turbolens_settings_description": "إدارة الاتصالات بمثيلات TurboLens للتحليل المدعوم بالذكاء الاصطناعي.",
   "turbolens_no_connection_title": "لم تتم تهيئة اتصال",

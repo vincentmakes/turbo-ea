@@ -1389,6 +1389,8 @@
   "turbolens_started_at": "Started",
   "turbolens_completed_at": "Completed",
   "turbolens_error": "Error",
+  "turbolens_analysis_failed": "Analysis failed",
+  "turbolens_polling_lost_connection": "Lost connection while polling analysis status",
   "turbolens_no_history": "No analysis runs yet.",
   "turbolens_settings_description": "Manage connections to TurboLens instances for AI-powered analysis.",
   "turbolens_no_connection_title": "No Connection Configured",

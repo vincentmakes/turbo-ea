@@ -85,10 +85,9 @@ export function useComplianceRegulations() {
     return map;
   }, [regulations]);
 
-  const refresh = useCallback(() => {
-    _cached = null;
-    return _fetch();
-  }, []);
+  // Re-fetch without dropping the cache first: a refetch that fails keeps
+  // the list every consumer already shows instead of blanking it.
+  const refresh = useCallback(() => _fetch(), []);
 
   return { regulations, enabled, byKey, loaded, refresh };
 }
