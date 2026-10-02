@@ -13,21 +13,9 @@ from __future__ import annotations
 
 import json
 import zipfile
-from datetime import datetime
 from io import BytesIO
 
-from app.services.migration.snapshot import (
-    Comment,
-    Document,
-    MetamodelField,
-    MetamodelRelationType,
-    MetamodelType,
-    MigrationSnapshot,
-    Relation,
-    SourceEntity,
-    Subscription,
-    Tag,
-)
+from app.services.migration.snapshot import MigrationSnapshot
 from app.services.migration.sources.leanix.ldif_exporter import (
     COMMENTS_FILE,
     LDIF_FILE,
@@ -44,119 +32,7 @@ from app.services.migration.sources.leanix.mappings import (
     RELATION_MAPPING,
     TYPE_MAPPING,
 )
-
-# ---------------------------------------------------------------------------
-# Fixture snapshot
-# ---------------------------------------------------------------------------
-
-
-def _snapshot() -> MigrationSnapshot:
-    entities = [
-        SourceEntity(
-            source_id="app-1",
-            type="Application",
-            name="Salesforce",
-            display_name="Salesforce",
-            category="businessApplication",
-            description="CRM",
-            lifecycle={"plan": "2019-01-01", "active": "2020-01-01"},
-            tags=["tag-emea", "tag-pilot"],
-            custom_fields={
-                "costTotalAnnual": 1200.5,
-                "hostingType": "cloud",
-                "regions": ["emea", "apac"],
-                "externalId": "LX-42",
-                "alias": "SFDC",
-            },
-            quality_seal="APPROVED",
-            completion=0.85,
-            status="ACTIVE",
-        ),
-        SourceEntity(source_id="app-2", type="Application", name="New CRM", status="ACTIVE"),
-        SourceEntity(source_id="bc-1", type="BusinessCapability", name="Sales", status="ACTIVE"),
-        SourceEntity(
-            source_id="bc-2",
-            type="BusinessCapability",
-            name="Lead Mgmt",
-            display_name="Sales / Lead Mgmt",
-            parent_id="bc-1",
-            status="ACTIVE",
-        ),
-        SourceEntity(source_id="proc-1", type="BusinessProcess", name="Order to Cash"),
-        SourceEntity(source_id="org-1", type="Organization", name="Sales EMEA", category="team"),
-        SourceEntity(source_id="srv-1", type="Server", name="db-01"),  # admin-created type
-    ]
-    relations = [
-        Relation("rel-1", "relAppToBC", "app-1", "bc-2", attributes={}),
-        # Turbo EA: source succeeds target → app-2 succeeds app-1.
-        Relation("rel-2", "relAppSuccessor", "app-2", "app-1", attributes={}),
-        Relation("rel-3", "relProcessToApp", "proc-1", "app-1", attributes={}),
-        Relation("rel-4", "relOrgToApp", "org-1", "app-1", attributes={"usageType": "owner"}),
-        Relation("rel-5", "relServerToApp", "srv-1", "app-1", attributes={}),
-        Relation("rel-6", "relAppToBC", "app-1", "missing", attributes={}),  # dangling
-    ]
-    subscriptions = [
-        Subscription(
-            "sub-1", "app-1", "owner@example.com", "Owner", "Application Owner", "RESPONSIBLE"
-        ),
-        Subscription("sub-2", "app-1", "a@example.com", "A", "Observer", "OBSERVER"),
-    ]
-    tags = [
-        Tag("tag-emea", "EMEA", "Region", "MULTIPLE", "#ff0000"),
-        Tag("tag-pilot", "Pilot", "Stage", "SINGLE", None, group_restrict_to_types=["Application"]),
-    ]
-    documents = [Document("doc-1", "app-1", "Runbook", "https://wiki.example.com/sf")]
-    comments = [
-        Comment(
-            "cmt-1",
-            "app-1",
-            "owner@example.com",
-            "Renewal due in Q3",
-            created_at=datetime(2024, 3, 1, 12, 0),
-        )
-    ]
-    metamodel_types = [
-        MetamodelType(
-            "Application",
-            False,
-            fields=[
-                MetamodelField("Application", "costTotalAnnual", "Total annual cost", "cost"),
-                MetamodelField(
-                    "Application",
-                    "hostingType",
-                    "Hosting type",
-                    "single_select",
-                    options=[{"key": "cloud", "label": "Cloud"}],
-                ),
-                MetamodelField("Application", "regions", "Regions", "multiple_select"),
-                MetamodelField("Application", "unusedField", "Unused", "text"),
-            ],
-            subtypes=["businessApplication", "microservice"],
-        ),
-        MetamodelType("BusinessCapability", False),
-        MetamodelType("BusinessProcess", False),
-        MetamodelType("Organization", False, subtypes=["team"]),
-        MetamodelType("Server", True),
-    ]
-    metamodel_relation_types = [
-        MetamodelRelationType("relAppToBC", "Application", "BusinessCapability", "supports"),
-        MetamodelRelationType("relAppSuccessor", "Application", "Application", "succeeds"),
-        MetamodelRelationType("relProcessToApp", "BusinessProcess", "Application", "uses"),
-        MetamodelRelationType("relOrgToApp", "Organization", "Application", "uses"),
-        MetamodelRelationType("relServerToApp", "Server", "Application", "hosts"),
-    ]
-    return MigrationSnapshot(
-        version="turbo-ea",
-        entities=entities,
-        relations=relations,
-        subscriptions=subscriptions,
-        tags=tags,
-        documents=documents,
-        comments=comments,
-        users=[],
-        metamodel_types=metamodel_types,
-        metamodel_relation_types=metamodel_relation_types,
-    )
+from tests.migration_helpers import sample_snapshot as _snapshot
 
 
 def _open(data: bytes) -> tuple[dict, dict, list, str]:
