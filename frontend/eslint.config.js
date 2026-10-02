@@ -47,4 +47,9 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // The browser smoke suite runs under Node (Playwright), not in the page.
+    files: ["e2e/**/*.ts", "playwright.config.ts"],
+    languageOptions: { globals: { ...globals.node } },
+  },
 );

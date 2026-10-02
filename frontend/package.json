@@ -12,6 +12,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
     "gen:diagram-icons": "node scripts/gen-diagram-icon-paths.mjs",
     "gen:brand-icons": "node scripts/gen-brand-icons.mjs",
     "gen:demo-logos": "node scripts/gen-demo-logos.mjs"
@@ -61,6 +62,7 @@
     "@eslint/js": "^9.0.0",
     "@iconify-json/logos": "^1.2.13",
     "@material-symbols/svg-400": "^0.44.12",
+    "@playwright/test": "^1.63.0",
     "@resvg/resvg-js": "^2.6.2",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.1.0",

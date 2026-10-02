@@ -2,6 +2,11 @@
 
 Automated screenshot capture for Turbo EA documentation and marketing site using [Playwright](https://playwright.dev/).
 
+> Looking for the browser **tests**? Those live in `frontend/e2e/` (the `Frontend E2E`
+> CI job) and share this script's idioms — the API login, the demo-data lookups and the
+> DrawIO ready selector. `scripts/e2e/install-drawio.sh` fetches the DrawIO build the
+> image ships so the suite can run against `vite preview` without Docker.
+
 ## Prerequisites
 
 1. **Turbo EA running** with demo data:

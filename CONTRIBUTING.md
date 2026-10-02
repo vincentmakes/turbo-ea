@@ -125,6 +125,12 @@ cd frontend
 npm run lint
 npm run build
 
+# Browser smoke suite (if you changed the diagram editor, the BPMN modeler,
+# the PPM Gantt, the dependency view or the metamodel graph). Needs a backend
+# with the demo data on :8000 — `SEED_DEMO=true make dev-backend` in another
+# terminal — and fetches the DrawIO build the image ships on first run.
+make e2e
+
 # Docs (if you changed anything in docs/ or mkdocs.yml)
 pip install -r requirements-docs.txt
 mkdocs build --strict
@@ -371,7 +377,7 @@ to `main` via **Settings > Branches > Branch protection rules**:
 | Rule | Setting | Why |
 |------|---------|-----|
 | **Require pull request reviews** | 1 approval minimum | Prevents unreviewed code from landing |
-| **Require status checks to pass** | Backend Lint, Backend Unit Tests, Backend Integration Tests, Backend Security Scan, Frontend Lint, Frontend Build, Frontend Tests, Frontend Security Scan, MCP Server Tests, Secret Scan, Docs Build | Prevents broken code, docs, a vulnerable dependency or a leaked credential from merging |
+| **Require status checks to pass** | Backend Lint, Backend Unit Tests, Backend Integration Tests, Backend Security Scan, Frontend Lint, Frontend Build, Frontend Tests, Frontend E2E, Frontend Security Scan, MCP Server Tests, Secret Scan, Docs Build | Prevents broken code, docs, a vulnerable dependency or a leaked credential from merging |
 | **Require branches to be up to date** | Enabled | Ensures CI ran against the latest `main` |
 | **Require conversation resolution** | Enabled | Review comments must be addressed |
 | **Restrict force pushes** | Block everyone | Protects commit history |

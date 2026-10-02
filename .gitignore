@@ -107,3 +107,8 @@ crash.log
 deploy/terraform/**/*.tfvars
 !deploy/terraform/**/*.tfvars.example
 *.auto.tfvars
+
+# Browser smoke suite (frontend/e2e): reports, traces and the saved sign-in (the DrawIO clone lands in .cache/, ignored above)
+frontend/playwright-report/
+frontend/test-results/
+frontend/e2e/.auth/

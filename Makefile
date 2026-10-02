@@ -1,5 +1,5 @@
 .PHONY: help dev dev-backend dev-frontend lint lint-backend lint-frontend \
-	test test-backend test-frontend test-unit build format typecheck \
+	test test-backend test-frontend test-unit e2e e2e-drawio build format typecheck \
 	lock-deps audit docker-up docker-down docker-build pull-prod up-prod down-prod up-dev down-dev build-dev backup
 
 help: ## Show this help
@@ -44,6 +44,14 @@ test-unit: ## Run backend unit tests only (no database needed)
 
 test-frontend: ## Run frontend tests
 	cd frontend && npx vitest run
+
+e2e-drawio: ## Install the bundled DrawIO editor into frontend/dist for the browser smoke suite
+	scripts/e2e/install-drawio.sh frontend/dist/drawio
+
+e2e: ## Run the browser smoke suite against a backend on :8000 (start it with SEED_DEMO=true make dev-backend)
+	cd frontend && npm run build
+	$(MAKE) e2e-drawio
+	cd frontend && npx playwright test
 
 # ── Type Checking ───────────────────────────────────────────────────────
 
