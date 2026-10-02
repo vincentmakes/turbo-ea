@@ -309,8 +309,19 @@ def parse_json(raw: str) -> Any:
     except json.JSONDecodeError:
         pass
 
-    # 2. Extract outermost JSON
-    match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", text)
+    # 2. Extract outermost JSON. The text's own first bracket decides which
+    #    shape to look for: a response that opens with "[" is an array, and
+    #    the object alternative would otherwise lift the first complete
+    #    element out of a truncated array and hand the caller a dict for a
+    #    list. Only text with prose around the JSON may take either shape.
+    first = text[:1]
+    if first == "[":
+        pattern = r"(\[[\s\S]*\])"
+    elif first == "{":
+        pattern = r"(\{[\s\S]*\})"
+    else:
+        pattern = r"(\{[\s\S]*\}|\[[\s\S]*\])"
+    match = re.search(pattern, text)
     if match:
         try:
             return json.loads(match.group(1))

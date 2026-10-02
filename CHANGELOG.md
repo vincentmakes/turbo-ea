@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **A migrated custom field whose key already exists on the target card type is not added again.** The *Imported from* section only checked itself for duplicates, so a custom field sharing a key with a field in another section gave the type two fields reading one value.
 - **ServiceNow sync runs record their counts.** The created / updated / skipped / deleted / error counts of a pull and every count of a push were kept in memory only, so the Sync runs list showed `fetched` alone for a pull and zeros for a push, however much had been synced.
 - **Editing a ServiceNow mapping's field list returns the list just saved.** The response to the save, and the dialog it refreshed, still showed the rows it had just replaced until the page was reloaded.
+- **A TurboLens vendor analysis no longer fails when the model's answer is cut off.** A truncated batch whose only complete entry was the first one was read as a single object instead of a list and the run ended with an error; the parser now follows the shape the answer opened with, and both the vendor analysis and the vendor resolution read an answer that is a single object as one entry instead of failing.
+- **The Architecture AI no longer proposes a capability link twice.** When the model had already linked a new application to one of the capabilities chosen in the Business Requirements step, the guardrail that makes every new application support a capability added the same link again, and committing the proposal created the relation twice.
 
 ## [2.156.1] - 2026-10-01
 

@@ -340,6 +340,15 @@ IMPORTANT:
             parsed = parse_json(result["text"])
         except Exception as e:
             logger.warning("Batch %d\u2013%d failed: %s", i + 1, batch_end, e)
+        # The model was asked for an array: a lone object is one entry and
+        # anything else is no answer, so the per-vendor fallback below covers
+        # whatever is missing instead of the batch failing the whole run.
+        if isinstance(parsed, dict):
+            parsed = [parsed]
+        elif isinstance(parsed, list):
+            parsed = [p for p in parsed if isinstance(p, dict)]
+        else:
+            parsed = None
 
         # Fallback: single-vendor mode for missing vendors
         parsed_names = {p.get("name") for p in (parsed or [])}
@@ -511,8 +520,13 @@ Return ONLY a JSON array:
                 "You are an enterprise architect. Return only valid JSON arrays. No markdown.",
             )
             parsed = parse_json(result["text"])
-            if isinstance(parsed, list):
-                all_resolved.extend(parsed)
+            # A lone object is one entry; anything else is a failed batch,
+            # which keeps every name in it as its own canonical form below.
+            if isinstance(parsed, dict):
+                parsed = [parsed]
+            if not isinstance(parsed, list):
+                raise ValueError("expected a JSON array")
+            all_resolved.extend(p for p in parsed if isinstance(p, dict))
         except Exception as e:
             logger.warning("Resolution batch %d failed: %s", i, e)
             for n in batch:
