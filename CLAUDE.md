@@ -352,7 +352,16 @@ Every change that introduces user-visible content must include translations. Bef
 - CI enforces this via `.github/workflows/version-check.yml`: any PR that touches `VERSION` is failed unless `CHANGELOG.md` has a matching `## [<version>]` heading. This prevents the Publish-GitHub-Release workflow from breaking later at tag time.
 
 ### Testing Conventions
-- **Every new feature or bug fix should include tests.** CI will block PRs that fail lint or tests.
+- **Every new feature and every bug fix must include tests. This is a requirement, not a preference.** A change without tests is not finished: do not call it done and do not open a PR for it. What that means for each kind of change:
+  - **Bug fix**: a regression test that fails on the code before the fix and passes after it. Reproduce the bug in a test first, then fix it.
+  - **New or changed backend endpoint**: an API test under `backend/tests/api/` covering the success path, the permission denial (403, or 404 where `CardReadScope` hides the card) and at least one rejected input.
+  - **New or changed backend service logic**: unit tests under `backend/tests/services/` (or `tests/core/`).
+  - **New or changed frontend component, hook or `lib` helper**: a Vitest test next to the source file covering what it renders and how it responds to its main interaction. A new page component is no exception: untested page components are where most of the frontend's uncovered code sits.
+  - **New or changed MCP tool**: a test under `mcp-server/tests/`.
+  - **Refactor with no behaviour change**: the existing tests must still pass unchanged. Say so in the PR's Test Plan.
+  - **No runtime effect at all** (docs, CI config, translations only): no test required. Say so in the PR's Test Plan.
+- **Never lower coverage on the files you touch.** CI prints per-file coverage in `Backend Integration Tests` (pytest-cov) and `Frontend Tests` (Vitest V8). A file you changed must not end the PR less covered than it started.
+- **Treat every test job as blocking, whether or not CI does.** `Backend Integration Tests` runs every `tests/api/` test but is `continue-on-error` and not a required check, so a red run there does not stop a merge on its own. A failure in it is still a failure: fix it before the PR is done.
 - **Backend tests** live in `backend/tests/` mirroring the source structure (`core/`, `services/`, `api/`).
 - **Frontend tests** live next to source files (e.g., `client.ts` → `client.test.ts`).
 - Backend integration tests use the savepoint-rollback pattern — each test runs in a transaction that rolls back automatically, so tests never pollute each other.
