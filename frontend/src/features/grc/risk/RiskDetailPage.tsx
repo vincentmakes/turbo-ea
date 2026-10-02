@@ -42,6 +42,8 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
 import { DateField } from "@/components/DateField";
 import { api, ApiError } from "@/api/client";
+import { useAuthContext } from "@/hooks/AuthContext";
+import { hasPermission } from "@/components/RequirePermission";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import type {
   MitigationTask,
@@ -189,6 +191,11 @@ export default function RiskDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuthContext();
+  // Every write on this page goes through `risks.manage`. A viewer still
+  // sees the whole record, read-only; the mitigation panel keeps its own
+  // carve-out for an assignee completing their own occurrence.
+  const canManage = hasPermission(user?.permissions, "risks.manage");
 
   const [risk, setRisk] = useState<Risk | null>(null);
   usePageSubject(risk ? `${risk.reference} ${risk.title}` : null);
@@ -340,7 +347,10 @@ export default function RiskDetailPage() {
     const allowed = ALLOWED_TRANSITIONS[risk.status as RiskStatus];
     if (!allowed?.has(target)) {
       setError(
-        `${risk.status.replace(/_/g, " ")} → ${target.replace(/_/g, " ")} not allowed`,
+        t("risks.action.transitionNotAllowed", {
+          from: t(`risks.status.${risk.status}`),
+          to: t(`risks.status.${target}`),
+        }),
       );
       return;
     }
@@ -365,7 +375,7 @@ export default function RiskDetailPage() {
     );
   }
   if (!risk) {
-    return <Alert severity="warning">Not found.</Alert>;
+    return <Alert severity="warning">{tCommon("errors.notFound")}</Alert>;
   }
 
   const inlineMatrix = (probability: RiskProbability, impact: RiskImpact) => {
@@ -388,7 +398,7 @@ export default function RiskDetailPage() {
   // **Reopen** side action stays enabled so users can recover from a
   // premature closure.
   const isClosed = risk.status === "closed";
-  const lockInput = saving || isClosed;
+  const lockInput = saving || isClosed || !canManage;
   // Already-linked cards are dropped from the picker so the list only ever
   // offers something that would actually change the risk.
   const linkedCardIds = risk.cards.map((c) => c.card_id);
@@ -462,15 +472,17 @@ export default function RiskDetailPage() {
               {tDelivery("editor.pdf")}
             </Button>
           )}
-          <Button
-            variant="outlined"
-            color="error"
-            size="small"
-            onClick={deleteRisk}
-            startIcon={<MaterialSymbol icon="delete" size={16} />}
-          >
-            {t("risks.deleteRisk")}
-          </Button>
+          {canManage && (
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              onClick={deleteRisk}
+              startIcon={<MaterialSymbol icon="delete" size={16} />}
+            >
+              {t("risks.deleteRisk")}
+            </Button>
+          )}
         </Stack>
       </Stack>
 
@@ -490,14 +502,16 @@ export default function RiskDetailPage() {
           icon={<MaterialSymbol icon="lock" size={18} />}
           sx={{ mb: 2 }}
           action={
-            <Button
-              size="small"
-              color="primary"
-              onClick={() => tryTransition("in_progress")}
-              startIcon={<MaterialSymbol icon="replay" size={16} />}
-            >
-              {t("risks.action.reopen")}
-            </Button>
+            canManage ? (
+              <Button
+                size="small"
+                color="primary"
+                onClick={() => tryTransition("in_progress")}
+                startIcon={<MaterialSymbol icon="replay" size={16} />}
+              >
+                {t("risks.action.reopen")}
+              </Button>
+            ) : undefined
           }
         >
           {t("risks.closed.readOnlyBanner")}
@@ -611,7 +625,7 @@ export default function RiskDetailPage() {
               ) : (
                 <AffectedCardsList
                   cards={risk.cards}
-                  onUnlink={isClosed ? undefined : unlinkCard}
+                  onUnlink={isClosed || !canManage ? undefined : unlinkCard}
                 />
               )}
               {/* Shared CardPicker: browses on open, pages in more on scroll,
@@ -699,6 +713,7 @@ export default function RiskDetailPage() {
           riskId={risk.id}
           riskReference={risk.reference}
           riskClosed={isClosed}
+          canManage={canManage}
           users={users}
           currentUserId={currentUserId}
           onSummaryChange={setTaskSummary}
@@ -833,7 +848,7 @@ export default function RiskDetailPage() {
                   <Step key={s} completed={STATUS_STEPS.indexOf(s) < statusStepIndex}>
                     <StepButton
                       onClick={() => tryTransition(s)}
-                      disabled={!allowed || saving}
+                      disabled={!allowed || saving || !canManage}
                     >
                       {t(`risks.status.${s}`)}
                     </StepButton>
@@ -861,7 +876,7 @@ export default function RiskDetailPage() {
                     variant="contained"
                     color="primary"
                     onClick={() => tryTransition(step.target)}
-                    disabled={saving}
+                    disabled={saving || !canManage}
                     startIcon={<MaterialSymbol icon={step.icon} size={18} />}
                     endIcon={<MaterialSymbol icon="arrow_forward" size={16} />}
                   >
@@ -887,7 +902,7 @@ export default function RiskDetailPage() {
                   variant={side.variant ?? "outlined"}
                   color={side.color}
                   onClick={() => tryTransition(side.target)}
-                  disabled={saving}
+                  disabled={saving || !canManage}
                   startIcon={<MaterialSymbol icon={side.icon} size={16} />}
                 >
                   {t(`risks.action.${side.labelKey}`)}

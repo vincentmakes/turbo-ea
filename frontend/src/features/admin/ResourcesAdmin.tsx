@@ -38,7 +38,8 @@ import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { api } from "@/api/client";
+import { api, isAbortError } from "@/api/client";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
 import BulkSelectionBar, { BulkSelectionAction } from "@/components/BulkSelectionBar";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
@@ -350,29 +351,39 @@ export default function ResourcesAdmin() {
     [filters],
   );
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const listParams = buildFilterParams({
-        page: String(page),
-        page_size: String(pageSize),
-        sort_by: sortBy,
-        sort_dir: sortDir,
-      });
-      const [data, statsData] = await Promise.all([
-        api.get<ResourceListPage>(`/resources?${listParams.toString()}`),
-        api.get<ResourceStats>(`/resources/stats?${buildFilterParams().toString()}`),
-      ]);
-      setRows(data.items);
-      setTotal(data.total);
-      setStats(statsData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [buildFilterParams, page, pageSize, sortBy, sortDir]);
+  // Through the request guard: a filter change while on a later page issues
+  // the page-reset re-query right behind the stale one, and only the latest
+  // reply may land (the request-hook rule in CLAUDE.md, #882).
+  const { run } = useLatestRequest();
+  const load = useCallback(
+    () =>
+      run(async ({ signal, isCurrent }) => {
+        setLoading(true);
+        setError("");
+        try {
+          const listParams = buildFilterParams({
+            page: String(page),
+            page_size: String(pageSize),
+            sort_by: sortBy,
+            sort_dir: sortDir,
+          });
+          const [data, statsData] = await Promise.all([
+            api.get<ResourceListPage>(`/resources?${listParams.toString()}`, { signal }),
+            api.get<ResourceStats>(`/resources/stats?${buildFilterParams().toString()}`, { signal }),
+          ]);
+          if (!isCurrent()) return;
+          setRows(data.items);
+          setTotal(data.total);
+          setStats(statsData);
+        } catch (err) {
+          if (!isCurrent() || isAbortError(err)) return;
+          setError(err instanceof Error ? err.message : String(err));
+        } finally {
+          if (isCurrent()) setLoading(false);
+        }
+      }),
+    [run, buildFilterParams, page, pageSize, sortBy, sortDir],
+  );
 
   useEffect(() => {
     load();

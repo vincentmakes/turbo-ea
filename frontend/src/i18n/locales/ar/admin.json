@@ -1645,6 +1645,8 @@
   "compliance_ai_detected": "تم اكتشاف الذكاء الاصطناعي",
   "compliance_ai_detected_help": "وضع الماسح علامة على هذه البطاقة كمضمّنة أو موفّرة لقدرات ذكاء اصطناعي. افتح النتيجة لتأكيد أو رفض الحكم — تحدّث إجابتك سمة «يحتوي على ميزات ذكاء اصطناعي» للبطاقة.",
   "compliance_auto_resolved": "تم الحل تلقائيًا",
+  "compliance_reviewer": "المراجع",
+  "compliance_reviewed_at": "تاريخ المراجعة",
   "compliance_running": "الفحص قيد التشغيل — ستُحدَّث النتائج تلقائيًا.",
   "compliance_permission_denied": "تحتاج إلى صلاحية الامتثال لتشغيل عمليات الفحص أو عرضها.",
   "compliance_scan_title": "فحص الامتثال",

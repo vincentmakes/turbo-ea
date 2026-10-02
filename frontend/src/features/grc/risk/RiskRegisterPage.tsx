@@ -40,7 +40,11 @@ import { arrayFacetBinding } from "@/components/grid/facetColumnSync";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import { todayIsoDate } from "@/lib/dates";
 import MetricCard from "@/features/reports/MetricCard";
-import { api, ApiError } from "@/api/client";
+import { api, ApiError, isAbortError } from "@/api/client";
+import { useAuthContext } from "@/hooks/AuthContext";
+import { hasPermission } from "@/components/RequirePermission";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
 import type {
   MitigationTask,
   Risk,
@@ -206,6 +210,10 @@ export default function RiskRegisterPage() {
   const { mode } = useThemeMode();
   const isRtl = useIsRtl();
   const { formatDate } = useDateFormat();
+  const { user } = useAuthContext();
+  // Create / Import write through `risks.manage`; a viewer gets the register
+  // without the buttons rather than a 403 after filling the dialog in.
+  const canManage = hasPermission(user?.permissions, "risks.manage");
   const gridRef = useRef<AgGridReact<Risk> | null>(null);
 
   const [rows, setRows] = useState<Risk[]>([]);
@@ -217,6 +225,9 @@ export default function RiskRegisterPage() {
   // Read by the facet bindings' stable callbacks (see useFacetColumnSync).
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
+  // Only the free-text search goes to the server debounced; the discrete
+  // filters re-query at once (CLAUDE.md, search boxes).
+  const [debouncedSearch, searchPending] = useDebouncedValue(filters.search, 300);
   const initialPrefs = useMemo(loadRiskPrefs, []);
   const [sidebarCollapsed, setSidebarCollapsedRaw] = useState(
     initialPrefs.filtersCollapsed,
@@ -384,7 +395,7 @@ export default function RiskRegisterPage() {
   const buildFilterParams = useCallback(
     (base: Record<string, string> = {}) => {
       const params = new URLSearchParams(base);
-      if (filters.search.trim()) params.set("search", filters.search.trim());
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
       filters.statuses.forEach((s) => params.append("status", s));
       filters.categories.forEach((c) => params.append("category", c));
       filters.levels.forEach((l) => params.append("level", l));
@@ -397,34 +408,66 @@ export default function RiskRegisterPage() {
       if (filters.overdueOnly) params.set("overdue", "true");
       return params;
     },
-    [filters],
+    // Keyed on the individual slices (not `filters`) so a keystroke in the
+    // search box, which replaces the object, does not re-query before the
+    // debounce settles.
+    [
+      debouncedSearch,
+      filters.statuses,
+      filters.categories,
+      filters.levels,
+      filters.sources,
+      filters.owners,
+      filters.cards,
+      filters.cardTypes,
+      filters.overdueOnly,
+    ],
   );
 
-  const reload = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = buildFilterParams({ page: "1", page_size: "1000" });
-      const data = await api.get<RiskListPage>(`/risks?${params}`);
-      setRows(data.items);
-    } catch (e) {
-      if (e instanceof ApiError) setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [buildFilterParams]);
+  // Both fetches are keyed on user-controlled filters, so a reply for the
+  // previous filter set must never overwrite the current one (#882): each
+  // goes through `useLatestRequest`, which aborts the predecessor and drops
+  // a late reply.
+  const { run: runList } = useLatestRequest();
+  const { run: runMetrics } = useLatestRequest();
 
-  const reloadMetrics = useCallback(async () => {
-    try {
-      const params = buildFilterParams();
-      const qs = params.toString();
-      const m = await api.get<RiskMetrics>(
-        qs ? `/risks/metrics?${qs}` : "/risks/metrics",
-      );
-      setMetrics(m);
-    } catch {
-      setMetrics(null);
-    }
-  }, [buildFilterParams]);
+  const reload = useCallback(
+    () =>
+      runList(async ({ signal, isCurrent }) => {
+        setLoading(true);
+        try {
+          const params = buildFilterParams({ page: "1", page_size: "1000" });
+          const data = await api.get<RiskListPage>(`/risks?${params}`, { signal });
+          if (!isCurrent()) return;
+          setRows(data.items);
+        } catch (e) {
+          if (!isCurrent() || isAbortError(e)) return;
+          if (e instanceof ApiError) setError(e.message);
+        } finally {
+          if (isCurrent()) setLoading(false);
+        }
+      }),
+    [runList, buildFilterParams],
+  );
+
+  const reloadMetrics = useCallback(
+    () =>
+      runMetrics(async ({ signal, isCurrent }) => {
+        try {
+          const params = buildFilterParams();
+          const qs = params.toString();
+          const m = await api.get<RiskMetrics>(
+            qs ? `/risks/metrics?${qs}` : "/risks/metrics",
+            { signal },
+          );
+          if (isCurrent()) setMetrics(m);
+        } catch (e) {
+          if (!isCurrent() || isAbortError(e)) return;
+          setMetrics(null);
+        }
+      }),
+    [runMetrics, buildFilterParams],
+  );
 
   useEffect(() => {
     reload();
@@ -859,7 +902,7 @@ export default function RiskRegisterPage() {
         <Grid item xs={6} md={2.4}>
           <MetricCard
             label={t("risks.kpi.avgLevel")}
-            value={topLvl ?? "—"}
+            value={topLvl ? t(`risks.level.${topLvl}`) : "—"}
             icon="assessment"
             color="#6a1b9a"
             iconColor="#6a1b9a"
@@ -997,23 +1040,27 @@ export default function RiskRegisterPage() {
               >
                 {t("common:actions.export", { defaultValue: "Export" })}
               </Button>
-              <Button
-                variant="outlined"
-                color="inherit"
-                startIcon={<MaterialSymbol icon="upload" size={18} />}
-                onClick={() => setImportOpen(true)}
-                sx={{ textTransform: "none" }}
-              >
-                {t("common:actions.import", { defaultValue: "Import" })}
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<MaterialSymbol icon="add" size={18} />}
-                onClick={() => setDialogSeed(emptySeed())}
-                sx={{ textTransform: "none" }}
-              >
-                {t("common:actions.create", { defaultValue: "Create" })}
-              </Button>
+              {canManage && (
+                <Button
+                  variant="outlined"
+                  color="inherit"
+                  startIcon={<MaterialSymbol icon="upload" size={18} />}
+                  onClick={() => setImportOpen(true)}
+                  sx={{ textTransform: "none" }}
+                >
+                  {t("common:actions.import", { defaultValue: "Import" })}
+                </Button>
+              )}
+              {canManage && (
+                <Button
+                  variant="contained"
+                  startIcon={<MaterialSymbol icon="add" size={18} />}
+                  onClick={() => setDialogSeed(emptySeed())}
+                  sx={{ textTransform: "none" }}
+                >
+                  {t("common:actions.create", { defaultValue: "Create" })}
+                </Button>
+              )}
             </Stack>
           </Stack>
           <Box
@@ -1036,7 +1083,7 @@ export default function RiskRegisterPage() {
               rowData={grouping.rowData}
               columnDefs={visibleColumnDefs}
               defaultColDef={defaultColDef}
-              loading={loading}
+              loading={loading || searchPending}
               animateRows
               {...grouping.gridProps}
               getRowId={(p) => grouping.groupRowId(p.data)}

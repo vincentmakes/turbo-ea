@@ -1659,6 +1659,8 @@
   "compliance_ai_detected": "ИИ обнаружен",
   "compliance_ai_detected_help": "Сканер пометил эту карточку как содержащую или предоставляющую ИИ. Откройте находку, чтобы подтвердить или отклонить вердикт — ваш ответ обновит атрибут карточки «Содержит функции ИИ».",
   "compliance_auto_resolved": "Автоматически решено",
+  "compliance_reviewer": "Проверяющий",
+  "compliance_reviewed_at": "Дата проверки",
   "compliance_decision_new": "Новое",
   "compliance_decision_in_review": "На рассмотрении",
   "compliance_decision_mitigated": "Смягчено",

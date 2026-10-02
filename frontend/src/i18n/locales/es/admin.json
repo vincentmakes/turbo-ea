@@ -1659,6 +1659,8 @@
   "compliance_ai_detected": "IA detectada",
   "compliance_ai_detected_help": "El escáner ha marcado esta tarjeta como portadora o proveedora de IA. Abra el hallazgo para confirmar o rechazar el veredicto — su respuesta actualiza el atributo «Tiene funciones de IA» de la tarjeta.",
   "compliance_auto_resolved": "Resuelto automáticamente",
+  "compliance_reviewer": "Revisor",
+  "compliance_reviewed_at": "Revisado el",
   "compliance_decision_new": "Nuevo",
   "compliance_decision_in_review": "En revisión",
   "compliance_decision_mitigated": "Mitigado",

@@ -255,6 +255,9 @@ export default function SurveyRespond() {
         const data = await api.get<SurveyRespondForm>(
           `/surveys/${surveyId}/respond/${cardId}`,
         );
+        // An empty body is "nothing to respond to", not a crash: leave
+        // `form` null so the not-found copy renders.
+        if (!data) return;
         setForm(data);
 
         // Initialize field responses based on action type
@@ -308,9 +311,21 @@ export default function SurveyRespond() {
     setSubmitting(true);
     setError("");
     try {
-      await api.post(`/surveys/${surveyId}/respond/${cardId}`, {
-        responses: fieldResponses,
-      });
+      // A number/cost box cleared on screen is stored as "" (see
+      // renderFieldInput); the server expects null for "no value".
+      const numericKeys = new Set(
+        (form?.fields ?? [])
+          .filter((f) => f.type === "number" || f.type === "cost")
+          .map((f) => f.key),
+      );
+      const responses = Object.fromEntries(
+        Object.entries(fieldResponses).map(([key, resp]) =>
+          numericKeys.has(key) && resp.new_value === ""
+            ? [key, { ...resp, new_value: null }]
+            : [key, resp],
+        ),
+      );
+      await api.post(`/surveys/${surveyId}/respond/${cardId}`, { responses });
       setSubmitted(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("surveys.respond.error.submitFailed"));
@@ -430,7 +445,13 @@ export default function SurveyRespond() {
           size="small"
           fullWidth
           value={value ?? ""}
-          onChange={(e) => setNewValue(field.key, e.target.value ? Number(e.target.value) : null)}
+          // A cleared box is kept as "" so it stays empty on screen; `null`
+          // would read as "untouched" and fall back to the current value,
+          // which is how the old number snapped back under the cursor.
+          // `handleSubmit` turns the "" into null on the wire.
+          onChange={(e) =>
+            setNewValue(field.key, e.target.value === "" ? "" : Number(e.target.value))
+          }
         />
       );
     }

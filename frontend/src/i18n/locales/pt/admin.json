@@ -1659,6 +1659,8 @@
   "compliance_ai_detected": "IA detectada",
   "compliance_ai_detected_help": "O scanner sinalizou este cartão como contendo ou fornecendo IA. Abra o achado para confirmar ou rejeitar o veredicto — sua resposta atualiza o atributo «Possui funcionalidades de IA» do cartão.",
   "compliance_auto_resolved": "Resolvido automaticamente",
+  "compliance_reviewer": "Revisor",
+  "compliance_reviewed_at": "Revisado em",
   "compliance_decision_new": "Novo",
   "compliance_decision_in_review": "Em revisão",
   "compliance_decision_mitigated": "Mitigado",

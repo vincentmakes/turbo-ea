@@ -1645,6 +1645,8 @@
   "compliance_ai_detected": "AI detekteret",
   "compliance_ai_detected_help": "Scanneren markerede dette kort som indlejret eller leverende AI-funktioner. Åbn fundet for at bekræfte eller afvise verdiktet — dit svar opdaterer kortets «Har AI-funktioner»-egenskab.",
   "compliance_auto_resolved": "Auto-løst",
+  "compliance_reviewer": "Kontrollant",
+  "compliance_reviewed_at": "Kontrolleret den",
   "compliance_running": "Scanning kører — fund opdateres automatisk.",
   "compliance_permission_denied": "Du skal have compliance-tilladelsen for at køre eller se scanninger.",
   "compliance_scan_title": "Compliance-scanning",

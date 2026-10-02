@@ -1659,6 +1659,8 @@
   "compliance_ai_detected": "KI erkannt",
   "compliance_ai_detected_help": "Der Scanner hat diese Karte als KI-eingebettet oder KI-bereitstellend markiert. Öffnen Sie den Befund, um das Urteil zu bestätigen oder abzulehnen — die Antwort aktualisiert das Kartenattribut «Hat KI-Funktionen».",
   "compliance_auto_resolved": "Automatisch behoben",
+  "compliance_reviewer": "Prüfer",
+  "compliance_reviewed_at": "Geprüft am",
   "compliance_decision_new": "Neu",
   "compliance_decision_in_review": "In Prüfung",
   "compliance_decision_mitigated": "Behoben",

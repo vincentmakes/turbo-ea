@@ -115,9 +115,10 @@ export async function useDateFormatModule() {
     useDateFormat: () => ({
       dateFormat: hookState.dateFormat,
       loading: false,
-      formatDate: (d: string | null | undefined) => (d ? actual.formatDateWith(d, hookState.dateFormat as import("@/hooks/useDateFormat").DateFormatKey) : ""),
-      formatDateTime: (d: string | null | undefined) =>
-        d ? actual.formatDateTimeWith(d, hookState.dateFormat as import("@/hooks/useDateFormat").DateFormatKey) : "",
+      formatDate: (d: Date | string | number | null | undefined) =>
+        actual.formatDateWith(hookState.dateFormat as import("@/hooks/useDateFormat").DateFormatKey, d),
+      formatDateTime: (d: Date | string | number | null | undefined) =>
+        actual.formatDateTimeWith(hookState.dateFormat as import("@/hooks/useDateFormat").DateFormatKey, d),
       invalidate: vi.fn(),
       example: "",
     }),
@@ -207,18 +208,28 @@ export async function useComplianceRegulationsModule() {
   const actual = await vi.importActual<typeof import("@/hooks/useComplianceRegulations")>(
     "@/hooks/useComplianceRegulations",
   );
+  // `enabled` and `byKey` are memoised on the regulations array, as the real
+  // hook does: a consumer keys an effect on `enabled`, and a fresh array per
+  // render would spin it forever.
+  let memo: {
+    regulations: ComplianceRegulation[];
+    enabled: ComplianceRegulation[];
+    byKey: Record<string, ComplianceRegulation>;
+  } | null = null;
+  const refresh = vi.fn(async () => {});
   return {
     ...actual,
     invalidateComplianceRegulations: vi.fn(),
     useComplianceRegulations: () => {
       const regulations = hookState.complianceRegulations;
-      return {
-        regulations,
-        enabled: regulations.filter((r) => r.is_enabled),
-        byKey: Object.fromEntries(regulations.map((r) => [r.key, r])),
-        loaded: true,
-        refresh: vi.fn(async () => {}),
-      };
+      if (!memo || memo.regulations !== regulations) {
+        memo = {
+          regulations,
+          enabled: regulations.filter((r) => r.is_enabled),
+          byKey: Object.fromEntries(regulations.map((r) => [r.key, r])),
+        };
+      }
+      return { ...memo, loaded: true, refresh };
     },
   };
 }

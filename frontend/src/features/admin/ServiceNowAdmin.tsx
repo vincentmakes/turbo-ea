@@ -960,15 +960,27 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
                 size="small"
                 value={fm.turbo_field}
                 onChange={(_, v) => updateFieldMapping(idx, "turbo_field", v || "")}
-                onInputChange={(_, v) => updateFieldMapping(idx, "turbo_field", v)}
+                // Only what the user types is a value. MUI also fires this with
+                // reason "reset" when it re-syncs the input to the value's label,
+                // and writing that back stored the display label as the path.
+                onInputChange={(_, v, reason) => {
+                  if (reason === "input") updateFieldMapping(idx, "turbo_field", v);
+                }}
                 options={turboFieldOptions.map((o) => o.path)}
                 groupBy={(option) => {
                   const found = turboFieldOptions.find((o) => o.path === option);
                   return found?.group || "";
                 }}
-                getOptionLabel={(option) => {
+                // The input shows the path, which is what is stored; the human
+                // label is only decoration on the list rows.
+                renderOption={(props, option) => {
+                  const { key, ...rest } = props;
                   const found = turboFieldOptions.find((o) => o.path === option);
-                  return found ? `${option} — ${found.label}` : option;
+                  return (
+                    <li key={key} {...rest}>
+                      {found ? `${option} — ${found.label}` : option}
+                    </li>
+                  );
                 }}
                 renderInput={(params) => (
                   <TextField {...params} label={t("servicenow.mappings.dialog.turboEaField")} placeholder="name" />

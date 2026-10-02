@@ -176,6 +176,7 @@
   "risks.action.mark_mitigated": "وضع علامة كمُخفَّف",
   "risks.action.start_monitoring": "بدء المراقبة",
   "risks.action.noTransitions": "لا توجد انتقالات إضافية متاحة.",
+  "risks.action.transitionNotAllowed": "الانتقال من {{from}} إلى {{to}} غير مسموح",
   "risks.action.nextStep": "الخطوة التالية:",
   "risks.action.otherActions": "إجراءات أخرى:",
   "risks.action.resume_mitigation": "استئناف التخفيف",

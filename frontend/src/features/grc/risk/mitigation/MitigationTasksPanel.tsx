@@ -49,6 +49,12 @@ interface Props {
   riskId: string;
   riskReference: string;
   riskClosed: boolean;
+  /**
+   * Whether the viewer holds `risks.manage`. Without it every write control
+   * is disabled except completing an occurrence assigned to the viewer, the
+   * backend's own carve-out. Defaults to true for callers that gate upstream.
+   */
+  canManage?: boolean;
   users: UserOption[];
   currentUserId: string | null;
   /** Notify parent when the open/total/overdue summary changes, so the
@@ -114,6 +120,7 @@ export default function MitigationTasksPanel({
   riskId,
   riskReference,
   riskClosed,
+  canManage = true,
   users,
   currentUserId,
   onSummaryChange,
@@ -234,7 +241,7 @@ export default function MitigationTasksPanel({
           variant="contained"
           size="small"
           startIcon={<MaterialSymbol icon="add_task" size={16} />}
-          disabled={riskClosed}
+          disabled={riskClosed || !canManage}
           onClick={() => {
             setEditorTask(null);
             setEditorOpen(true);
@@ -417,7 +424,7 @@ export default function MitigationTasksPanel({
                           <IconButton
                             size="small"
                             color="primary"
-                            disabled={riskClosed}
+                            disabled={riskClosed || !canManage}
                             onClick={() => handlePromote(task, live)}
                           >
                             <MaterialSymbol icon="bolt" size={18} />
@@ -431,7 +438,7 @@ export default function MitigationTasksPanel({
                           <IconButton
                             size="small"
                             color="success"
-                            disabled={riskClosed}
+                            disabled={riskClosed || !(canManage || canCompleteSelf)}
                             onClick={() => {
                               setCompleteTask(task);
                               setCompleteOcc(live);
@@ -450,7 +457,7 @@ export default function MitigationTasksPanel({
                           <IconButton
                             size="small"
                             color="warning"
-                            disabled={riskClosed}
+                            disabled={riskClosed || !canManage}
                             onClick={() => {
                               setCompleteTask(task);
                               setCompleteOcc(live);
@@ -467,7 +474,7 @@ export default function MitigationTasksPanel({
                       <span>
                         <IconButton
                           size="small"
-                          disabled={riskClosed}
+                          disabled={riskClosed || !canManage}
                           onClick={() => {
                             setEditorTask(task);
                             setEditorOpen(true);
@@ -490,7 +497,7 @@ export default function MitigationTasksPanel({
                         <IconButton
                           size="small"
                           color="error"
-                          disabled={riskClosed}
+                          disabled={riskClosed || !canManage}
                           onClick={() => handleDelete(task)}
                         >
                           <MaterialSymbol icon="delete" size={18} />

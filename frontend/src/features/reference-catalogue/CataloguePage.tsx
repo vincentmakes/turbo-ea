@@ -215,9 +215,12 @@ export default function CataloguePage({ config }: Props) {
           : baseMsg,
       );
       // Retain whatever did land so the user can see partial results in the
-      // dialog and still navigate to the inventory.
+      // dialog and still navigate to the inventory — and reload, so the tree
+      // marks those entries as existing. The selection is kept: the failed
+      // batch can be retried, and the server skips what already exists.
       if (aggregate.created.length > 0 || aggregate.relinked.length > 0) {
         setImportResult(aggregate);
+        await reload();
       }
     } finally {
       setImporting(false);
@@ -390,6 +393,12 @@ export default function CataloguePage({ config }: Props) {
           {importResult ? t(`cards:${ns}.importDoneTitle`) : t(`cards:${ns}.importConfirmTitle`)}
         </DialogTitle>
         <DialogContent>
+          {/* Shown with or without a result: a partial failure has both. */}
+          {importError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {importError}
+            </Alert>
+          )}
           {!importResult && (
             <>
               <Typography variant="body2" sx={{ mb: 1 }}>
@@ -412,11 +421,6 @@ export default function CataloguePage({ config }: Props) {
                     sx={{ mt: 0.5 }}
                   />
                 </Box>
-              )}
-              {importError && (
-                <Alert severity="error" sx={{ mt: 2 }}>
-                  {importError}
-                </Alert>
               )}
             </>
           )}

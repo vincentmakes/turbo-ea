@@ -176,6 +176,7 @@
   "risks.action.mark_mitigated": "Markér som afbødet",
   "risks.action.start_monitoring": "Start overvågning",
   "risks.action.noTransitions": "Ingen yderligere overgange tilgængelige.",
+  "risks.action.transitionNotAllowed": "{{from}} → {{to}} er ikke tilladt",
   "risks.action.nextStep": "Næste skridt:",
   "risks.action.otherActions": "Andre handlinger:",
   "risks.action.resume_mitigation": "Genoptag afbødning",

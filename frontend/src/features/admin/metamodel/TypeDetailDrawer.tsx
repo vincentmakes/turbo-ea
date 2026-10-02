@@ -216,7 +216,9 @@ export default function TypeDetailDrawer({
       };
       await api.patch(`/metamodel/types/${cardTypeKey.key}`, {
         label,
-        description: description || undefined,
+        // Sent as-is: dropping an empty string left a cleared description
+        // unsaved, with the stored text coming back on the next refresh.
+        description,
         category,
         color,
         icon,

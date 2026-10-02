@@ -1659,6 +1659,8 @@
   "compliance_ai_detected": "IA détectée",
   "compliance_ai_detected_help": "Le scanner a identifié cette fiche comme intégrant ou fournissant de l'IA. Ouvrez le constat pour confirmer ou rejeter le verdict — votre réponse met à jour l'attribut «Fonctionnalités IA» de la fiche.",
   "compliance_auto_resolved": "Résolu automatiquement",
+  "compliance_reviewer": "Réviseur",
+  "compliance_reviewed_at": "Révisé le",
   "compliance_decision_new": "Nouveau",
   "compliance_decision_in_review": "En revue",
   "compliance_decision_mitigated": "Atténué",

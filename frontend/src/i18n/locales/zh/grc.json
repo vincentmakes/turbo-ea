@@ -175,6 +175,7 @@
   "risks.action.mark_mitigated": "标记为已缓解",
   "risks.action.start_monitoring": "开始监控",
   "risks.action.noTransitions": "没有更多可用的状态转换。",
+  "risks.action.transitionNotAllowed": "不允许从 {{from}} 转换到 {{to}}",
   "risks.action.nextStep": "下一步：",
   "risks.action.otherActions": "其他操作：",
   "risks.action.resume_mitigation": "恢复缓解",

@@ -218,7 +218,8 @@ export default function SurveyResults() {
   }
 
   if (!survey) {
-    return <Alert severity="error">{t("surveyResults.notFound")}</Alert>;
+    // The fetch's own message when it failed; "not found" only for an empty answer.
+    return <Alert severity="error">{error || t("surveyResults.notFound")}</Alert>;
   }
 
   return (

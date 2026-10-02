@@ -175,6 +175,7 @@
   "risks.action.mark_mitigated": "Als gemildert markieren",
   "risks.action.start_monitoring": "Überwachung starten",
   "risks.action.noTransitions": "Keine weiteren Übergänge verfügbar.",
+  "risks.action.transitionNotAllowed": "{{from}} → {{to}} ist nicht zulässig",
   "risks.action.nextStep": "Nächster Schritt:",
   "risks.action.otherActions": "Weitere Aktionen:",
   "risks.action.resume_mitigation": "Maßnahmen fortsetzen",

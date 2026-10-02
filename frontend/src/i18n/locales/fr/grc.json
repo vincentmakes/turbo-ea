@@ -175,6 +175,7 @@
   "risks.action.mark_mitigated": "Marquer comme atténué",
   "risks.action.start_monitoring": "Démarrer la surveillance",
   "risks.action.noTransitions": "Aucune transition supplémentaire disponible.",
+  "risks.action.transitionNotAllowed": "{{from}} → {{to}} n'est pas autorisé",
   "risks.action.nextStep": "Étape suivante :",
   "risks.action.otherActions": "Autres actions :",
   "risks.action.resume_mitigation": "Reprendre l'atténuation",

@@ -48,6 +48,7 @@ import {
 } from "@/features/grc/risk/riskDefaults";
 import { Link as RouterLink, useNavigate } from "react-router";
 import { useAuthContext } from "@/hooks/AuthContext";
+import { hasPermission } from "@/components/RequirePermission";
 import ComplianceScanCard from "./ComplianceScanCard";
 import { useAnalysisPolling } from "@/features/turbolens/useAnalysisPolling";
 import { todayIsoDate } from "@/lib/dates";
@@ -87,6 +88,7 @@ function exportComplianceToCsv(
   findings: TurboLensComplianceFinding[],
   t: (k: string) => string,
   tCards: (k: string) => string,
+  tCommon: (k: string) => string,
 ): void {
   const header = [
     tCards("compliance.grid.col.card"),
@@ -95,14 +97,14 @@ function exportComplianceToCsv(
     tCards("compliance.grid.col.article"),
     tCards("compliance.grid.col.requirement"),
     tCards("compliance.grid.col.lifecycle"),
-    "AI detected",
-    "Auto-resolved",
-    "Regulation",
-    "Gap",
-    "Evidence",
-    "Remediation",
-    "Reviewer",
-    "Reviewed at",
+    t("compliance_ai_detected"),
+    t("compliance_auto_resolved"),
+    tCards("compliance.cardTab.col.regulation"),
+    t("compliance_gap"),
+    t("compliance_evidence"),
+    t("compliance_remediation"),
+    t("compliance_reviewer"),
+    t("compliance_reviewed_at"),
   ];
   const lines = [header.map(csvCell).join(",")];
   for (const f of findings) {
@@ -114,8 +116,8 @@ function exportComplianceToCsv(
         f.regulation_article ?? "",
         f.requirement ?? "",
         t(`compliance_decision_${f.decision}`),
-        f.ai_detected ? "Yes" : "No",
-        f.auto_resolved ? "Yes" : "No",
+        f.ai_detected ? tCommon("labels.yes") : tCommon("labels.no"),
+        f.auto_resolved ? tCommon("labels.yes") : tCommon("labels.no"),
         f.regulation,
         f.gap_description ?? "",
         f.evidence ?? "",
@@ -144,8 +146,13 @@ function exportComplianceToCsv(
 export default function ComplianceScanner() {
   const { t } = useTranslation("admin");
   const { t: tCards } = useTranslation("cards");
+  const { t: tCommon } = useTranslation("common");
   const navigate = useNavigate();
   const { user } = useAuthContext();
+  // Scanning, creating, deciding and deleting findings all write through
+  // `compliance.manage`; the grid defaults to manage=true, so the flag has
+  // to be passed or a viewer sees every write control.
+  const canManage = hasPermission(user?.permissions, "compliance.manage");
   const phaseLabel = useCallback(
     (phase: string) => {
       const key = `compliance_phase_${phase}`;
@@ -561,7 +568,7 @@ export default function ComplianceScanner() {
                 regs: Array.isArray(s.regulations) ? s.regulations.length : 0,
               })
             }
-            disabled={selectedRegs.size === 0 || enabledRegulations.length === 0}
+            disabled={!canManage || selectedRegs.size === 0 || enabledRegulations.length === 0}
           >
             {enabledRegulations.length === 0 ? (
               <Alert severity="info" sx={{ mt: 1 }}>
@@ -755,6 +762,7 @@ export default function ComplianceScanner() {
 
         <ComplianceGrid
           findings={filteredComplianceFindings}
+          canManage={canManage}
           filters={{
             statuses: complianceStatusFilter,
             severities: complianceSeverityFilter,
@@ -794,7 +802,7 @@ export default function ComplianceScanner() {
           loading={complianceLoading}
           onCreate={() => setCreateFindingOpen(true)}
           onExport={() =>
-            exportComplianceToCsv(filteredComplianceFindings, t, tCards)
+            exportComplianceToCsv(filteredComplianceFindings, t, tCards, tCommon)
           }
           onDelete={async (f) => {
             try {

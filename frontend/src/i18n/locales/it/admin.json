@@ -1659,6 +1659,8 @@
   "compliance_ai_detected": "IA rilevata",
   "compliance_ai_detected_help": "Lo scanner ha segnalato questa scheda come dotata o fornitrice di IA. Apri il riscontro per confermare o rifiutare il verdetto — la risposta aggiorna l'attributo «Ha funzionalità di IA» della scheda.",
   "compliance_auto_resolved": "Risolto automaticamente",
+  "compliance_reviewer": "Revisore",
+  "compliance_reviewed_at": "Revisionato il",
   "compliance_decision_new": "Nuovo",
   "compliance_decision_in_review": "In revisione",
   "compliance_decision_mitigated": "Mitigato",

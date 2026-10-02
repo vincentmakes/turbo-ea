@@ -175,6 +175,7 @@
   "risks.action.mark_mitigated": "Отметить как сниженный",
   "risks.action.start_monitoring": "Начать мониторинг",
   "risks.action.noTransitions": "Дальнейшие переходы недоступны.",
+  "risks.action.transitionNotAllowed": "Переход {{from}} → {{to}} не разрешён",
   "risks.action.nextStep": "Следующий шаг:",
   "risks.action.otherActions": "Другие действия:",
   "risks.action.resume_mitigation": "Возобновить снижение",

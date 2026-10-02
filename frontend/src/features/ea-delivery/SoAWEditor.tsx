@@ -300,8 +300,11 @@ export default function SoAWEditor() {
       } else {
         const created = await api.post<SoAW>("/soaw", payload);
         soawIdRef.current = created.id;
-        // Update URL without re-rendering
-        window.history.replaceState(null, "", `/ea-delivery/soaw/${created.id}`);
+        // Route to the saved record so `id` resolves: the header, the
+        // Preview and Request-signatures buttons and the `?action=` deep
+        // links all key off it. A bare `history.replaceState` left the
+        // editor in its "new document" shape until a reload.
+        navigate(`/ea-delivery/soaw/${created.id}`, { replace: true });
       }
       setSnack(t("editor.savedSuccessfully"));
     } catch (e) {

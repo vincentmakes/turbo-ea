@@ -175,6 +175,7 @@
   "risks.action.mark_mitigated": "Marcar como mitigado",
   "risks.action.start_monitoring": "Iniciar supervisión",
   "risks.action.noTransitions": "No hay más transiciones disponibles.",
+  "risks.action.transitionNotAllowed": "{{from}} → {{to}} no está permitido",
   "risks.action.nextStep": "Siguiente paso:",
   "risks.action.otherActions": "Otras acciones:",
   "risks.action.resume_mitigation": "Reanudar mitigación",

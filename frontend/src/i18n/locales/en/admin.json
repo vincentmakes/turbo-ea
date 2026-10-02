@@ -1645,6 +1645,8 @@
   "compliance_ai_detected": "AI detected",
   "compliance_ai_detected_help": "The scanner flagged this card as embedding or providing AI capabilities. Open the finding to confirm or reject the verdict — your answer updates the card's \"Has AI Features\" attribute.",
   "compliance_auto_resolved": "Auto-resolved",
+  "compliance_reviewer": "Reviewer",
+  "compliance_reviewed_at": "Reviewed at",
   "compliance_running": "Scan running — findings will refresh automatically.",
   "compliance_permission_denied": "You need the compliance permission to run or view scans.",
   "compliance_scan_title": "Compliance scan",
