@@ -50,98 +50,12 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: vi.fn(),
 }));
 
-// AG Grid is complex in jsdom — stub it to avoid layout engine issues.
-// The `select-all-rows` escape hatch lets tests drive row selection the way a
-// user would, since the mass-edit toolbar only appears once rows are selected.
-vi.mock("ag-grid-react", () => {
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  /**
-   * The slice of AG Grid's api the page actually calls, faithful enough to
-   * drive "Export current view" — which reads its values back *out of the
-   * grid*, not from `rowData`. `getCellValue` reproduces ValueService: run the
-   * valueGetter, then the valueFormatter, then fall back to the raw value.
-   * That fallback is the whole of issue #887, so the double has to keep it.
-   *
-   * Anything not modelled here answers with a no-op, so a code path that
-   * happens to reach for another api method can't fail the test that isn't
-   * about it.
-   */
-  function makeGridApi(columnDefs: any[], rowData: any[]) {
-    const cols = (columnDefs ?? []).map((def) => ({
-      def,
-      getColId: () => def.colId ?? def.field,
-      // The cell context menu reads the colDef to pick a filter kind.
-      getColDef: () => def,
-    }));
-    const stubs: Record<string, any> = {
-      getDisplayedRowCount: () => (rowData ?? []).length,
-      getAllDisplayedColumns: () => cols.filter((c) => !c.def.hide),
-      getDisplayNameForColumn: (c: any) => c.def.headerName,
-      forEachNodeAfterFilterAndSort: (fn: any) =>
-        (rowData ?? []).forEach((data) => fn({ data })),
-      getCellValue: ({ rowNode, colKey, useFormatter }: any) => {
-        // Real AG Grid takes either a Column or a colId string; the export
-        // path passes the column, the cell context menu passes the id.
-        const def =
-          typeof colKey === "string"
-            ? cols.find((c) => c.getColId() === colKey)?.def
-            : colKey.def;
-        if (!def) return undefined;
-        const value = def.valueGetter
-          ? def.valueGetter({ data: rowNode.data })
-          : rowNode.data?.[def.field];
-        if (!useFormatter) return value;
-        const formatted = def.valueFormatter?.({ value, data: rowNode.data });
-        return formatted ?? (Array.isArray(value) ? value.join(", ") : value);
-      },
-      getSelectedRows: () => rowData ?? [],
-      getFilterModel: () => ({}),
-    };
-    return new Proxy(stubs, {
-      get: (target, prop: string) => target[prop] ?? (() => undefined),
-    });
-  }
-
-  return {
-    AgGridReact: vi.fn(
-      ({
-        rowData,
-        columnDefs,
-        onSelectionChanged,
-        loading,
-        ref,
-      }: {
-        rowData: unknown[];
-        columnDefs?: unknown[];
-        onSelectionChanged?: (event: {
-          api: { getSelectedRows: () => unknown[] };
-        }) => void;
-        loading?: boolean;
-        ref?: { current: unknown };
-      }) => {
-        // React 19 hands `ref` to a function component as an ordinary prop.
-        if (ref && typeof ref === "object") {
-          ref.current = { api: makeGridApi(columnDefs as any[], rowData) };
-        }
-        return (
-          <div
-            data-testid="ag-grid"
-            data-row-count={rowData?.length ?? 0}
-            data-loading={String(Boolean(loading))}
-          >
-            <button
-              data-testid="select-all-rows"
-              onClick={() =>
-                onSelectionChanged?.({ api: { getSelectedRows: () => rowData ?? [] } })
-              }
-            />
-          </div>
-        );
-      },
-    ),
-  };
-  /* eslint-enable @typescript-eslint/no-explicit-any */
-});
+// AG Grid is complex in jsdom — stub it to avoid layout engine issues. The
+// shared stub keeps the `select-all-rows` escape hatch (the mass-edit toolbar
+// only appears once rows are selected) and a grid api faithful enough to drive
+// "Export current view", which reads its values back *out of the grid* through
+// `getCellValue` (#887). See `@/test/agGridStub`.
+vi.mock("ag-grid-react", () => import("@/test/agGridStub").then((m) => m.agGridReactModule()));
 
 // Stub sub-components not under test
 // Stubbed, but with escape hatches so tests can drive filter changes the way a

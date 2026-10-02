@@ -51,6 +51,12 @@ import {
 } from "./drawio-shapes";
 import { LOGO_BOX_PX } from "./cardLogoImage";
 import { ICON_PATHS } from "./iconPaths";
+import {
+  attrBag as xmlAttrBag,
+  cardCell as kitCardCell,
+  fakeIframe,
+  plainCell as kitPlainCell,
+} from "@/test/mxGraphFake";
 
 /** Minimal fake mxGraph model so applyCardTypeIcons can run without DrawIO. */
 type FakeCell = {
@@ -1349,71 +1355,22 @@ describe("flowDirection survives the pending → synced switch", () => {
 /*  expandCardGroup — the edges the + / Expand menu inserts (#905)          */
 /* ---------------------------------------------------------------------- */
 
-/** Fake mxGraph with just enough surface for expandCardGroup's edge output. */
+/** The expanded card on a fake canvas; `cells` omits mxGraph's root and default parent. */
 function expandFrame() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cells: Record<string, any> = {};
-  const root = { id: "__root" };
-  const parent = {
-    id: "parent-cell",
-    value: attrBag({ cardId: "org-1", cardType: "Organization", label: "Nexatech" }),
+  const parent = kitCardCell("parent-cell", {
+    cardId: "org-1",
+    cardType: "Organization",
+    label: "Nexatech",
     geometry: { x: 0, y: 0, width: 180, height: 50 },
-  };
-  cells["parent-cell"] = parent;
-  const model = {
-    cells,
-    beginUpdate() {},
-    endUpdate() {},
-    getCell: (id: string) => cells[id] ?? null,
+  });
+  const f = fakeIframe({ cells: [parent] });
+  return {
+    iframe: f.iframe,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setValue: (cell: any, v: unknown) => {
-      cell.value = v;
-    },
-    // Geometry support: the fanned parallel-edge path reads both endpoints'
-    // boxes and writes a waypoint onto the edge.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getGeometry: (cell: any) => cell.geometry ?? null,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setGeometry: (cell: any, g: unknown) => {
-      cell.geometry = g;
+    get cells(): Record<string, any> {
+      return Object.fromEntries(Object.entries(f.cells).filter(([id]) => id !== "0" && id !== "1"));
     },
   };
-  const graph = {
-    getModel: () => model,
-    getDefaultParent: () => root,
-    getCellGeometry: () => ({ x: 0, y: 0, width: 180, height: 50 }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    insertVertex: (_p: any, id: string, obj: any, x: number, y: number, w: number, h: number, style: string) => {
-      const cell = { id, value: obj, style, geometry: { x, y, width: w, height: h } };
-      cells[id] = cell;
-      return cell;
-    },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    insertEdge: (_p: any, id: string, _v: unknown, _s: any, _t: any, style: string) => {
-      const geometry = {
-        points: undefined as unknown,
-        clone() {
-          return { ...this, clone: this.clone };
-        },
-      };
-      const cell = { id, value: null, style, edge: true, geometry };
-      cells[id] = cell;
-      return cell;
-    },
-  };
-  const iframe = {
-    contentWindow: {
-      __turboGraph: graph,
-      mxUtils: { createXmlDocument: () => ({ createElement: () => attrBag() }) },
-      mxPoint: class {
-        constructor(
-          public x: number,
-          public y: number,
-        ) {}
-      },
-    },
-  } as unknown as HTMLIFrameElement;
-  return { iframe, cells };
 }
 
 /** One neighbour of the expanded card, related by `relOrgToApp` ("uses"). */
@@ -1546,7 +1503,7 @@ describe("expandCardGroup edges", () => {
 
     const edge = Object.values(f.cells).find((c) => c.edge);
     expect(edge.style).toContain("entityRelationEdgeStyle");
-    expect(edge.geometry.points).toBeUndefined();
+    expect(edge.geometry.points).toBeNull();
   });
 
   it("hides the verb on expansion edges when the diagram hides labels", () => {
@@ -1945,55 +1902,16 @@ describe("firstLineText", () => {
   });
 });
 
-/** Fake frame for the label-apply passes: cells carry an attribute bag, a
- *  geometry, and the model supports the lookups `applyCardLabels` performs. */
+/** The label-apply passes on a fake canvas: `cells` carry an XML attribute bag and a geometry. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function labelFrame(cells: Record<string, any>) {
-  const model = {
-    cells,
-    beginUpdate() {},
-    endUpdate() {},
-    getCell: (id: string) => cells[id] ?? null,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getStyle: (c: any) => c._style ?? "",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setStyle: (c: any, style: string) => {
-      c._style = style;
-    },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getChildCount: (c: any) => (c.children ?? []).length,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getChildAt: (c: any, i: number) => (c.children ?? [])[i] ?? null,
-  };
-  const graph = {
-    getModel: () => model,
-    refresh() {},
-    removeCellOverlays() {},
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getCellGeometry: (c: any) => c.geometry ?? null,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resizeCell: (c: any, rect: Geo) => {
-      c.geometry = { ...rect };
-    },
-  };
-  const win = {
-    mxRectangle: class {
-      constructor(
-        public x: number,
-        public y: number,
-        public width: number,
-        public height: number,
-      ) {}
-    },
-    __turboGraph: graph,
-  };
-  return { contentWindow: win } as unknown as HTMLIFrameElement;
+  return fakeIframe({ cells: Object.values(cells) }).iframe;
 }
 
-/** A card vertex with a geometry, for the label-apply passes. */
+/** A vertex for the label-apply passes; no `geo` means no geometry. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function labelVertex(id: string, attrs: Record<string, string>, geo: Geo): any {
-  return { ...scanVertex(id, attrs), geometry: { ...geo } };
+function labelVertex(id: string, attrs: Record<string, string>, geo?: Geo): any {
+  return kitPlainCell(id, { value: xmlAttrBag(attrs), style: "", geometry: geo ? { ...geo } : null });
 }
 
 const TOP_GEO: Geo = { x: 0, y: 0, width: 210, height: 60 };
@@ -2310,7 +2228,7 @@ describe("applyCardLabels — a container's header holds its rows", () => {
 describe("normaliseEditedCardLabel", () => {
   it("re-syncs cardName after a hand-typed (F2) rename", () => {
     const cells = {
-      top: scanVertex("top", {
+      top: labelVertex("top", {
         cardId: "id-top",
         cardType: "Application",
         cardName: "Old Name",
@@ -2332,7 +2250,7 @@ describe("normaliseEditedCardLabel", () => {
     // the rows come back on the next display pass, which renders from the
     // card record rather than from the cell.
     const cells = {
-      top: scanVertex("top", {
+      top: labelVertex("top", {
         cardId: "id-top",
         cardType: "Application",
         cardName: "Old Name",
@@ -2344,7 +2262,7 @@ describe("normaliseEditedCardLabel", () => {
   });
 
   it("ignores cells that are not card cells", () => {
-    const cells = { plain: scanVertex("plain", { label: "Just a box" }) };
+    const cells = { plain: labelVertex("plain", { label: "Just a box" }) };
     expect(normaliseEditedCardLabel(labelFrame(cells), "plain")).toBeNull();
   });
 });

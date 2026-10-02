@@ -1,32 +1,16 @@
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { AuthProvider } from "@/hooks/AuthContext";
-import type { User } from "@/types";
+import { makeUser, renderWithProviders } from "@/test/render";
 
 import RouteGuard from "./RouteGuard";
 
-function makeUser(permissions: Record<string, boolean> | undefined): User {
-  return {
-    id: "u1",
-    email: "u@example.com",
-    display_name: "U",
-    role: "member",
-    is_active: true,
-    permissions,
-  };
-}
-
 function renderAt(path: string, permissions: Record<string, boolean> | undefined) {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <AuthProvider user={makeUser(permissions)} refreshUser={async () => {}}>
-        <RouteGuard>
-          <div>page content</div>
-        </RouteGuard>
-      </AuthProvider>
-    </MemoryRouter>,
+  return renderWithProviders(
+    <RouteGuard>
+      <div>page content</div>
+    </RouteGuard>,
+    { route: path, user: makeUser({ role: "member", permissions }) },
   );
 }
 
