@@ -580,8 +580,10 @@ async def risk_to_dict(
         # pre-release 'ppm' source) to 'manual' instead of letting one
         # legacy row fail response validation and 500 the entire list.
         # Migration 127 rewrites such rows; this guards anything it missed.
+        # 'extension' is in the vocabulary (SDK 1.9 risks bridge) — it used
+        # to be coerced too, so a risk an extension filed read as manual.
         "source_type": risk.source_type
-        if risk.source_type in ("manual", "compliance")
+        if risk.source_type in ("manual", "compliance", "extension")
         else "manual",
         "source_ref": risk.source_ref,
         "initial_probability": risk.initial_probability,

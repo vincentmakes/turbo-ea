@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.156.2] - 2026-10-02
+
+### Fixed
+
+- **A risk filed by an extension is listed with its source, `extension`.** The register's responses coerced every source outside `manual` / `compliance` to `manual`, so the Source filter and label could not tell an extension's risks apart from hand-entered ones.
+
 ## [2.156.1] - 2026-10-01
 
 ### Fixed
