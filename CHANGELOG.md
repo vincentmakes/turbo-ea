@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Editing a ServiceNow mapping's field list returns the list just saved.** The response to the save, and the dialog it refreshed, still showed the rows it had just replaced until the page was reloaded.
 - **A TurboLens vendor analysis no longer fails when the model's answer is cut off.** A truncated batch whose only complete entry was the first one was read as a single object instead of a list and the run ended with an error; the parser now follows the shape the answer opened with, and both the vendor analysis and the vendor resolution read an answer that is a single object as one entry instead of failing.
 - **The Architecture AI no longer proposes a capability link twice.** When the model had already linked a new application to one of the capabilities chosen in the Business Requirements step, the guardrail that makes every new application support a capability added the same link again, and committing the proposal created the relation twice.
+- **A compliance scan keeps a card the user marked as not AI-bearing out of scope.** The EU AI Act detector accepted any card id in the model's answer, so a card deliberately left out of the question could be put back in scope by the model naming it anyway, and a made-up id could fail the whole scan; it now only takes answers about the cards it asked about.
 
 ## [2.156.1] - 2026-10-01
 

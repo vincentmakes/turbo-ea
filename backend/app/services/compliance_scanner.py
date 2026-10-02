@@ -226,6 +226,7 @@ async def detect_ai_bearing_cards(
         if progress_cb:
             await progress_cb("ai_detection", batch_index, total_batches, "")
         batch = candidates[start : start + AI_DETECTION_BATCH_SIZE]
+        asked = {c.id for c in batch}
         payload = [
             {
                 "id": c.id,
@@ -312,6 +313,14 @@ async def detect_ai_bearing_cards(
                 continue
             card_id = item.get("id")
             if not card_id:
+                continue
+            # Only the cards this batch asked about. A made-up id would put a
+            # card that does not exist in scope (and its EU AI Act fallback
+            # finding would then fail the whole scan on the foreign key), and
+            # a card the user marked as not AI-bearing was deliberately left
+            # out of the question — that verdict is final whatever the model
+            # answers.
+            if card_id not in asked:
                 continue
             # Subtype-match cards stay marked as such — don't downgrade.
             if card_id in scoped and scoped[card_id]["subtype_match"]:
