@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - **A risk filed by an extension is listed with its source, `extension`.** The register's responses coerced every source outside `manual` / `compliance` to `manual`, so the Source filter and label could not tell an extension's risks apart from hand-entered ones.
+- **Re-importing an updated platform export no longer duplicates documents and comments.** The migration importer inserted every staged document and comment unconditionally, so each re-import of a LeanIX export added another copy of every link and every comment on the cards it refreshed. Both are now matched on the source's own id (and on the card plus URL, or the author plus text, when the identity map was wiped) and updated or skipped instead; a renamed document keeps its one entry.
+- **A platform migration no longer creates a user from a malformed email address.** A subscription whose address the preview had already flagged as malformed (an unsplit `a@x.com;b@x.com` cell, a display name) was still turned into a deactivated user at apply time; the row is now counted as a conflict and skipped, as the preview says.
+- **Archived entities imported with *Also import archived entities* land archived.** They were created as live cards whatever the source said; they now carry the archived status, and an existing card is never archived by a re-import.
+- **A migrated custom field whose key already exists on the target card type is not added again.** The *Imported from* section only checked itself for duplicates, so a custom field sharing a key with a field in another section gave the type two fields reading one value.
 
 ## [2.156.1] - 2026-10-01
 

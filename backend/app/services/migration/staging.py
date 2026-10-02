@@ -29,6 +29,7 @@ clears and rewrites staged rows so admins can iterate.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import uuid
 from typing import Any
@@ -112,7 +113,9 @@ def build_card_payload(
         "external_id": entity.source_id,
         "lifecycle": entity.lifecycle or {},
         "attributes": dict(entity.custom_fields),
-        "status": "ACTIVE",
+        # An archived entity the admin opted in to (``include_archived``)
+        # lands archived, not as a live card.
+        "status": "ARCHIVED" if (entity.status or "").upper() == "ARCHIVED" else "ACTIVE",
         "approval_status": "DRAFT",
     }
     if entity.category:
@@ -990,7 +993,7 @@ async def stage_comments(
                 migration_id=migration.id,
                 source_type=migration.source_type,
                 entity_kind="comment",
-                source_id=comment.source_id or f"{comment.entity_id}:{hash(comment.body)}",
+                source_id=comment.source_id or _synth_comment_source_id(comment),
                 source_data={
                     "entity_id": comment.entity_id,
                     "author_email": (comment.author_email or "").strip().lower(),
@@ -1002,6 +1005,17 @@ async def stage_comments(
         )
     await db.flush()
     return stats
+
+
+def _synth_comment_source_id(comment: Any) -> str:
+    """A stable id for a comment the source gave none.
+
+    Built from the entity and a digest of the body — never ``hash()``,
+    which is salted per process, so the id would differ on every parse
+    and the apply step could not recognise the comment on a re-import.
+    """
+    digest = hashlib.sha256((comment.body or "").encode("utf-8")).hexdigest()[:16]
+    return f"{comment.entity_id}:{digest}"
 
 
 # ---------------------------------------------------------------------------

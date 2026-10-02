@@ -1,24 +1,34 @@
 """Source-neutral migration apply pipeline.
 
 Walks the :class:`StagedRecord` rows produced by
-:mod:`app.services.migration.staging` in dependency order:
+:mod:`app.services.migration.staging` in dependency order, one pass per
+``entity_kind``:
 
-1. Custom metamodel types / fields / relation types — must exist
-   before any card or relation referencing them lands.
-2. Users — referenced by subscriptions in pass 10.
-3. Cards in topological parent-first order — populates the identity
-   map so relation endpoints can resolve.
-4. Tag groups, then tags — must come before card_tag joins.
-5. Card-tag join rows.
-6. Relations — endpoints resolved against the now-fresh identity map.
-7. Subscriptions — Stakeholder rows that reference users + cards from
-   earlier passes.
-8. Documents and comments.
+1. ``metamodel_type``, 2. ``metamodel_field``, 3. ``metamodel_relation_type``
+   — custom metamodel must exist before any card or relation referencing
+   it lands.
+4. ``user`` — referenced by subscriptions and comments below.
+5. ``card`` — topological parent-first order; populates the identity map
+   so relation endpoints can resolve.
+6. ``tag_group``, 7. ``tag`` — must come before the card-tag joins.
+8. ``card_tag``.
+9. ``relation`` — endpoints resolved against the now-fresh identity map,
+   stored in the relation type's direction.
+10. ``subscription`` — Stakeholder rows referencing users + cards from
+    earlier passes.
+11. ``document``, 12. ``comment`` — matched on the identity map (the
+    source's own id) with a natural-key fallback, so a re-import of an
+    updated export updates or skips them instead of duplicating.
 
-Each pass runs inside its own ``SAVEPOINT``: one failing entity does
-not poison the rest of the import. Errors are captured back onto the
-``staged_records.error_message`` column so the admin can see exactly
-what failed without reading server logs.
+Every pass catches per-row exceptions so one entity the pipeline cannot
+place (an unresolved target, an unknown action) does not poison the
+rest of the import: the error is captured onto
+``staged_records.error_message`` and the migration lands ``failed`` with
+the count, so the admin can see exactly what failed without reading
+server logs. There are no savepoints: the whole apply is one
+transaction the job commits at the end, so a *database* error (a
+violated constraint) aborts that transaction and the job records the
+migration as failed with nothing applied.
 
 The pipeline is source-agnostic — it walks rows by ``entity_kind`` and
 ``action`` and never touches the adapter (mappings were already
@@ -998,7 +1008,16 @@ async def _apply_metamodel_field_pass(
                 }
                 schema.append(imported_section)
             field_key = payload["field_key"]
-            if any((f.get("key") == field_key) for f in (imported_section.get("fields") or [])):
+            # A key already on the type — in any section, not only the
+            # imported one — is the same attribute slot; adding it again
+            # would give the type two fields reading one value.
+            if any(
+                f.get("key") == field_key
+                for sec in schema
+                if isinstance(sec, dict)
+                for f in (sec.get("fields") or [])
+                if isinstance(f, dict)
+            ):
                 counts["skipped"] += 1
                 staged.status = "applied"
                 continue
@@ -1127,6 +1146,12 @@ async def _apply_user_pass(
         .all()
     )
     for staged in rows:
+        if staged.action == "conflict":
+            # A malformed address the staging step flagged for the admin
+            # is never a user to create.
+            counts["conflicts"] += 1
+            staged.status = "applied"
+            continue
         try:
             if staged.action == "skip":
                 # User already exists — populate identity map and move on.
@@ -1273,6 +1298,19 @@ async def _apply_document_pass(
                 staged.status = "applied"
                 staged.error_message = "Card not resolved in identity map"
                 continue
+            existing_doc = await _find_existing_document(db, staged, card_uuid, payload.get("url"))
+            if existing_doc is not None:
+                # Re-import: the same link is already on the card. Take a
+                # renamed title along; never add a second copy.
+                if payload.get("name") and existing_doc.name != payload["name"]:
+                    existing_doc.name = payload["name"]
+                    counts["updated"] += 1
+                else:
+                    counts["skipped"] += 1
+                staged.target_id = existing_doc.id
+                staged.status = "applied"
+                await _upsert_identity_map_kind(db, staged, "document")
+                continue
             doc = Document(
                 id=uuid.uuid4(),
                 card_id=card_uuid,
@@ -1286,6 +1324,7 @@ async def _apply_document_pass(
             staged.target_id = doc.id
             staged.status = "applied"
             counts["created"] += 1
+            await _upsert_identity_map_kind(db, staged, "document")
         except Exception as exc:  # noqa: BLE001
             logger.exception("migration apply: document %s failed", staged.source_id)
             counts["errors"] += 1
@@ -1293,6 +1332,64 @@ async def _apply_document_pass(
             staged.error_message = str(exc)[:1000]
     await db.flush()
     return counts
+
+
+async def _find_existing_document(
+    db: AsyncSession,
+    staged: StagedRecord,
+    card_uuid: uuid.UUID,
+    url: str | None,
+) -> Document | None:
+    """The Document an earlier import landed for this staged row, if any.
+
+    The identity map (the source's own document id) is the primary key;
+    the card + URL pair is the fallback for an identity map that was
+    wiped, mirroring the ``external_id`` fallback cards get.
+    """
+    target = await _identity_lookup(db, staged.source_id, "document", staged.source_type)
+    if target is not None:
+        doc = (await db.execute(select(Document).where(Document.id == target))).scalar_one_or_none()
+        if doc is not None:
+            return doc
+    if not url:
+        return None
+    return (
+        await db.execute(
+            select(Document)
+            .where(Document.card_id == card_uuid, Document.url == url)
+            .order_by(Document.created_at.asc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
+async def _find_existing_comment(
+    db: AsyncSession,
+    staged: StagedRecord,
+    card_uuid: uuid.UUID,
+    author_uuid: uuid.UUID,
+    body: str,
+) -> Comment | None:
+    """The Comment an earlier import landed for this staged row, if any —
+    the identity map first, then the same author saying the same thing
+    on the same card."""
+    target = await _identity_lookup(db, staged.source_id, "comment", staged.source_type)
+    if target is not None:
+        row = (await db.execute(select(Comment).where(Comment.id == target))).scalar_one_or_none()
+        if row is not None:
+            return row
+    return (
+        await db.execute(
+            select(Comment)
+            .where(
+                Comment.card_id == card_uuid,
+                Comment.user_id == author_uuid,
+                Comment.content == body,
+            )
+            .order_by(Comment.created_at.asc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
 
 
 # ---------------------------------------------------------------------------
@@ -1342,17 +1439,35 @@ async def _apply_comment_pass(
                 staged.status = "applied"
                 staged.error_message = "Author not resolved — comment skipped"
                 continue
-            db.add(
-                Comment(
-                    id=uuid.uuid4(),
-                    card_id=card_uuid,
-                    user_id=author_uuid,
-                    content=payload["body"],
-                    parent_id=None,  # threading intentionally flattened
-                )
+            existing_comment = await _find_existing_comment(
+                db, staged, card_uuid, author_uuid, payload["body"]
             )
+            if existing_comment is not None:
+                # Re-import: the source's own comment id matched (or the
+                # same author said the same thing on the same card). An
+                # edited body is carried over; a second copy is never added.
+                if existing_comment.content != payload["body"]:
+                    existing_comment.content = payload["body"]
+                    counts["updated"] += 1
+                else:
+                    counts["skipped"] += 1
+                staged.target_id = existing_comment.id
+                staged.status = "applied"
+                await _upsert_identity_map_kind(db, staged, "comment")
+                continue
+            comment = Comment(
+                id=uuid.uuid4(),
+                card_id=card_uuid,
+                user_id=author_uuid,
+                content=payload["body"],
+                parent_id=None,  # threading intentionally flattened
+            )
+            db.add(comment)
+            await db.flush()
+            staged.target_id = comment.id
             staged.status = "applied"
             counts["created"] += 1
+            await _upsert_identity_map_kind(db, staged, "comment")
         except Exception as exc:  # noqa: BLE001
             logger.exception("migration apply: comment %s failed", staged.source_id)
             counts["errors"] += 1

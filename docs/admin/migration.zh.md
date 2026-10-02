@@ -38,7 +38,7 @@
 
     映射按迁移生效，状态为 `parsed` 或 `previewed` 时可随时编辑。源平台核心列由适配器直接路由到 Turbo EA 标准槽位（例如 LeanIX 的 `name`、`displayName`、`description`、`status`、`category → subtype`、`lifecycle:*`、`qualitySeal`、`completion`），在标签页顶部以只读信息横幅列出 — 这些无需做映射决定。
 
-4. **应用**：满意后即可。Apply 流水线在 12 个按依赖顺序排列的 pass 中（元模型类型 → 元模型字段 → 元模型关系类型 → 用户 → 卡片 → 标签组 → 标签 → 卡片-标签关联 → 关系 → 订阅 → 文档 → 评论），各自的 savepoint 内运行 — 单行失败不会污染整个 import。状态从 `applying → applied`（或 `failed`，如果错误超过安全阈值）。
+4. **应用**：满意后即可。Apply 流水线在 12 个按依赖顺序排列的 pass 中（元模型类型 → 元模型字段 → 元模型关系类型 → 用户 → 卡片 → 标签组 → 标签 → 卡片-标签关联 → 关系 → 订阅 → 文档 → 评论）；流水线无法安置的行会连同原因一并记录，而不会中断其余的 import。状态从 `applying → applied`（或 `failed`，如果错误超过安全阈值）。
 
     如果解析后的快照包含**冲突**行，staging 标签页上方会出现警告横幅（带可点击的小药丸，跳转到对应标签页），点击**应用**会打开确认对话框，详细列出哪些类型携带冲突。在 apply 执行前必须显式确认冲突行将被跳过。应用后的*应用结果*在 *已创建 / 已更新 / 已跳过 / 错误* 旁显示专门的 *冲突* 小药丸 — 冲突不是悄无声息的跳过，而是管理员在迁移历史中可见的一等结果。
 
@@ -92,7 +92,7 @@ xlsx 的第一张表（`ReadMe`）是 LeanIX 的权威字段参考：每一列�
 
 ## 重新运行 import
 
-幂等性已内置。`migration_identity_map` 表记录每个已导入实体的 LeanIX → Turbo EA UUID 映射。重新上传相同快照（或同一工作区的更新快照）会检测已存在的实体并写入 `update`/`skip` staged 行，而非重复 `create`。卡片的 `external_id` 携带 LeanIX 的 `factSheetId`，因此即便 identity map 被清空，链接仍可恢复。
+幂等性已内置。`migration_identity_map` 表记录每个已导入实体的 LeanIX → Turbo EA UUID 映射。重新上传相同快照（或同一工作区的更新快照）会检测已存在的实体并写入 `update`/`skip` staged 行，而非重复 `create`。卡片的 `external_id` 携带 LeanIX 的 `factSheetId`，因此即便 identity map 被清空，链接仍可恢复。文档和评论也以同样方式匹配——按来源自身的 id，或在 identity map 被清空时按卡片加 URL（评论则按作者加文本）——因此重新导入绝不会添加第二份副本。
 
 如需重做导入（例如您在 UI 中批量删除了已导入卡片，希望全部重新落地），请使用迁移行上的垃圾桶图标删除它，然后重新上传。`applied` 迁移可被删除；删除会释放按文件哈希的幂等锁，允许重新上传同一快照。`migration_identity_map` 中指向已不存在卡片的孤立行，会在下一次 staging pass 中自动剪枝 — 无需手动清理 identity map。
 
