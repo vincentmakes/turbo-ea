@@ -356,6 +356,20 @@ def _diff_to_changes(
     return changes
 
 
+def _bump(run: SnowSyncRun, key: str, by: int = 1) -> None:
+    """Count on the run's ``stats`` by *reassigning* the dict.
+
+    ``stats`` is a plain JSONB column: an in-place increment of one key is
+    invisible to SQLAlchemy's change tracking once the row has been
+    flushed — and every query the sync makes autoflushes — so the counts
+    a run reported in memory never reached the table. The Sync runs page
+    then showed ``fetched`` alone for a pull and zeros for a push.
+    """
+    stats = dict(run.stats or {})
+    stats[key] = stats.get(key, 0) + by
+    run.stats = stats
+
+
 class SyncEngine:
     """Orchestrates pull/push sync between ServiceNow and Turbo EA."""
 
@@ -450,7 +464,7 @@ class SyncEngine:
                     )
                 except Exception as exc:
                     logger.error("Error processing SNOW record %s: %s", sys_id, exc)
-                    run.stats["errors"] = run.stats.get("errors", 0) + 1  # type: ignore[union-attr]
+                    _bump(run, "errors")
 
             # Handle deletions (conservative/strict mode)
             if mapping.sync_mode in ("conservative", "strict"):
@@ -555,9 +569,9 @@ class SyncEngine:
 
         # Update stats
         if action != "skip":
-            run.stats[action + "d"] = run.stats.get(action + "d", 0) + 1  # type: ignore[union-attr]
+            _bump(run, action + "d")
         else:
-            run.stats["skipped"] = run.stats.get("skipped", 0) + 1  # type: ignore[union-attr]
+            _bump(run, "skipped")
 
     async def _fuzzy_match_card(
         self,
@@ -684,7 +698,7 @@ class SyncEngine:
                 status="pending",
             )
             self.db.add(staged)
-            run.stats["deleted"] = run.stats.get("deleted", 0) + 1  # type: ignore[union-attr]
+            _bump(run, "deleted")
 
     async def _apply_staged(self, run: SnowSyncRun) -> dict[str, int]:
         """Apply all pending staged records for a sync run."""
@@ -929,7 +943,7 @@ class SyncEngine:
             id_map_by_card = {e.card_id: e for e in id_map_result.scalars().all()}
 
             for card in cards:
-                run.stats["processed"] = run.stats.get("processed", 0) + 1  # type: ignore[union-attr]
+                _bump(run, "processed")
                 try:
                     # Build card data dict for transformation
                     card_data = {
@@ -949,7 +963,7 @@ class SyncEngine:
                             mapping.snow_table, id_entry.snow_sys_id, snow_data
                         )
                         id_entry.last_synced_at = datetime.now(timezone.utc)
-                        run.stats["updated"] = run.stats.get("updated", 0) + 1  # type: ignore[union-attr]
+                        _bump(run, "updated")
                     else:
                         # Create new SNOW record
                         result = await self.client.create_record(mapping.snow_table, snow_data)
@@ -965,11 +979,11 @@ class SyncEngine:
                                 last_synced_at=datetime.now(timezone.utc),
                             )
                             self.db.add(new_entry)
-                        run.stats["created"] = run.stats.get("created", 0) + 1  # type: ignore[union-attr]
+                        _bump(run, "created")
 
                 except Exception as exc:
                     logger.error("Push failed for card %s: %s", card.id, exc)
-                    run.stats["errors"] = run.stats.get("errors", 0) + 1  # type: ignore[union-attr]
+                    _bump(run, "errors")
 
             run.status = "completed"
             run.completed_at = datetime.now(timezone.utc)

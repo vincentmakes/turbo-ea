@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **A platform migration no longer creates a user from a malformed email address.** A subscription whose address the preview had already flagged as malformed (an unsplit `a@x.com;b@x.com` cell, a display name) was still turned into a deactivated user at apply time; the row is now counted as a conflict and skipped, as the preview says.
 - **Archived entities imported with *Also import archived entities* land archived.** They were created as live cards whatever the source said; they now carry the archived status, and an existing card is never archived by a re-import.
 - **A migrated custom field whose key already exists on the target card type is not added again.** The *Imported from* section only checked itself for duplicates, so a custom field sharing a key with a field in another section gave the type two fields reading one value.
+- **ServiceNow sync runs record their counts.** The created / updated / skipped / deleted / error counts of a pull and every count of a push were kept in memory only, so the Sync runs list showed `fetched` alone for a pull and zeros for a push, however much had been synced.
+- **Editing a ServiceNow mapping's field list returns the list just saved.** The response to the save, and the dialog it refreshed, still showed the rows it had just replaced until the page was reloaded.
 
 ## [2.156.1] - 2026-10-01
 
