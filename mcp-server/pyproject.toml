@@ -30,4 +30,16 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
 ]
+
+[tool.coverage.run]
+source = ["turbo_ea_mcp"]
+omit = ["turbo_ea_mcp/__main__.py"]
+
+[tool.coverage.report]
+# A floor just under the measured total (77% on 2026-10-01); raise it in any
+# PR that lifts the number, never lower it.
+fail_under = 76
+show_missing = true
+skip_covered = true

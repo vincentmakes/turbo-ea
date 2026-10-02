@@ -371,7 +371,7 @@ to `main` via **Settings > Branches > Branch protection rules**:
 | Rule | Setting | Why |
 |------|---------|-----|
 | **Require pull request reviews** | 1 approval minimum | Prevents unreviewed code from landing |
-| **Require status checks to pass** | Backend Lint, Backend Unit Tests, Backend Security Scan, Frontend Lint, Frontend Build, Frontend Tests, Frontend Security Scan, Secret Scan, Docs Build | Prevents broken code, docs, a vulnerable dependency or a leaked credential from merging |
+| **Require status checks to pass** | Backend Lint, Backend Unit Tests, Backend Integration Tests, Backend Security Scan, Frontend Lint, Frontend Build, Frontend Tests, Frontend Security Scan, MCP Server Tests, Secret Scan, Docs Build | Prevents broken code, docs, a vulnerable dependency or a leaked credential from merging |
 | **Require branches to be up to date** | Enabled | Ensures CI ran against the latest `main` |
 | **Require conversation resolution** | Enabled | Review comments must be addressed |
 | **Restrict force pushes** | Block everyone | Protects commit history |

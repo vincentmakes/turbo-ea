@@ -84,10 +84,19 @@ addopts = "-q"
 
 [tool.coverage.run]
 source = ["app"]
-omit = ["app/services/seed*.py"]
+# The metamodel seed and the demo datasets are data, not logic; seed_markers.py
+# is logic and stays measured.
+omit = ["app/services/seed.py", "app/services/seed_demo*.py"]
+# Async SQLAlchemy runs every query on a greenlet. Without this, coverage.py
+# stops tracing a request handler at its first `await db.execute()` and reports
+# the rest of the function as never run — the suite measured 62% that way and
+# 81% with the same tests once greenlets were traced (comments.py: 52% → 94%).
+concurrency = ["greenlet", "thread"]
 
 [tool.coverage.report]
-fail_under = 40
+# A floor just under the measured total, raised whenever a PR lifts it. CI
+# fails the Backend Integration Tests job when the suite drops below it.
+fail_under = 80
 show_missing = true
 skip_covered = true
 

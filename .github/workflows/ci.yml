@@ -128,15 +128,15 @@ jobs:
         working-directory: backend
 
   # Integration suite — exercises the full HTTP stack against a real
-  # Postgres. Slow (~15 min). Informational by default so PRs aren't
-  # blocked on it; flip continue-on-error to false (or remove the line)
-  # to make it required again.
+  # Postgres. Slow (~11 min). It is the only job that runs tests/api/, i.e.
+  # most of the backend suite, so it blocks: it ran as informational
+  # (continue-on-error) until 2026-10, which meant a red API suite could not
+  # stop a merge on its own.
   backend-test-integration:
     name: Backend Integration Tests
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    continue-on-error: true
     services:
       postgres:
         image: postgres:16-alpine
@@ -161,7 +161,8 @@ jobs:
       - run: pip install -e ".[dev]"
         working-directory: backend
       - name: Run all tests with coverage
-        # Runs the full suite (unit + integration) so the 40% coverage gate
+        # Runs the full suite (unit + integration) so the coverage floor
+        # (`fail_under` in backend/pyproject.toml — the one place it is set)
         # reflects total covered code, not just what tests/api/ exercises.
         # The unit subset is also run by the fast Backend Unit Tests job
         # for quick PR feedback — the duplication here costs ~30s out of
@@ -169,7 +170,8 @@ jobs:
         # `-n auto` enables pytest-xdist parallelism — conftest.py allocates
         # a per-worker Postgres schema (test_gw0, test_gw1, ...) so workers
         # don't collide on the savepoint-rollback fixture.
-        run: python -m pytest -n auto --cov=app --cov-report=term-missing --cov-fail-under=40 -q
+        # The XML report feeds the diff-coverage gate below.
+        run: python -m pytest -n auto --cov=app --cov-report=term-missing --cov-report=xml -q
         working-directory: backend
         env:
           POSTGRES_HOST: localhost
@@ -177,6 +179,27 @@ jobs:
           POSTGRES_USER: turboea
           POSTGRES_PASSWORD: turboea
           TEST_POSTGRES_DB: turboea_test
+      - name: Coverage summary
+        if: always()
+        run: |
+          echo "## Backend coverage" >> "$GITHUB_STEP_SUMMARY"
+          python -m coverage report --format=markdown --skip-covered --sort=-miss \
+            >> "$GITHUB_STEP_SUMMARY" || echo "No coverage data." >> "$GITHUB_STEP_SUMMARY"
+        working-directory: backend
+      # Every change must be tested (CLAUDE.md, Testing Conventions): the
+      # lines a PR adds or changes must themselves be ≥ 80% covered, whatever
+      # the suite-wide total. diff-cover runs offline against the base branch;
+      # a line it cannot attribute to the PR is not counted. Push-to-main has
+      # no base to diff against, so the step runs on pull requests only.
+      - name: Diff coverage (changed lines must be tested)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          pip install diff-cover==10.6.0
+          diff-cover coverage.xml --compare-branch="origin/${{ github.base_ref }}" \
+            --fail-under=80 --markdown-report diff-cover.md
+          cat diff-cover.md >> "$GITHUB_STEP_SUMMARY"
+        working-directory: backend
 
   backend-typecheck:
     name: Backend Type Check
@@ -403,7 +426,31 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
-      - run: npx vitest run --coverage.enabled --coverage.reporter=text
+      # Reporters and the coverage floors live in frontend/vitest.config.ts.
+      - run: npx vitest run --coverage.enabled
+        working-directory: frontend
+      - name: Coverage summary
+        if: always()
+        run: |
+          echo "## Frontend coverage" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f coverage/coverage-summary.json ]; then
+            jq -r '.total | "| | Covered | Total | % |\n|---|---|---|---|",
+              (to_entries[] | "| \(.key) | \(.value.covered) | \(.value.total) | \(.value.pct) |")' \
+              coverage/coverage-summary.json >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No coverage data." >> "$GITHUB_STEP_SUMMARY"
+          fi
+        working-directory: frontend
+      # Same gate as the backend job: the lines a PR touches must be ≥ 80%
+      # covered. diff-cover reads the LCOV report vitest.config.ts emits.
+      - name: Diff coverage (changed lines must be tested)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          pip install diff-cover==10.6.0
+          diff-cover coverage/lcov.info --compare-branch="origin/${{ github.base_ref }}" \
+            --fail-under=80 --markdown-report diff-cover.md
+          cat diff-cover.md >> "$GITHUB_STEP_SUMMARY"
         working-directory: frontend
 
   # ── MCP Server ───────────────────────────────────────────────────────
@@ -421,7 +468,24 @@ jobs:
           cache-dependency-path: mcp-server/pyproject.toml
       - run: pip install -e ".[dev]"
         working-directory: mcp-server
-      - run: python -m pytest -q
+      # The coverage floor is `fail_under` in mcp-server/pyproject.toml.
+      - run: python -m pytest -q --cov=turbo_ea_mcp --cov-report=term-missing --cov-report=xml
+        working-directory: mcp-server
+      - name: Coverage summary
+        if: always()
+        run: |
+          echo "## MCP server coverage" >> "$GITHUB_STEP_SUMMARY"
+          python -m coverage report --format=markdown --skip-covered --sort=-miss \
+            >> "$GITHUB_STEP_SUMMARY" || echo "No coverage data." >> "$GITHUB_STEP_SUMMARY"
+        working-directory: mcp-server
+      - name: Diff coverage (changed lines must be tested)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          pip install diff-cover==10.6.0
+          diff-cover coverage.xml --compare-branch="origin/${{ github.base_ref }}" \
+            --fail-under=80 --markdown-report diff-cover.md
+          cat diff-cover.md >> "$GITHUB_STEP_SUMMARY"
         working-directory: mcp-server
 
   # ── OpenAPI Spec (auto-regenerated for the docs site) ────────────────

@@ -30,8 +30,17 @@ export default defineConfig({
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
       exclude: ["src/test/**", "src/**/*.test.{ts,tsx}", "src/main.tsx"],
+      // `text` is what the CI log shows; `lcov` feeds the diff-coverage gate
+      // on changed lines and `json-summary` the job summary (ci.yml).
+      reporter: ["text", "lcov", "json-summary"],
+      // Floors just under the measured totals (lines 50.0, statements 48.9,
+      // branches 43.2, functions 41.6 on 2026-10-01). Raise them in any PR
+      // that lifts the number; never lower them.
       thresholds: {
-        statements: 0,
+        lines: 49,
+        statements: 48,
+        branches: 42,
+        functions: 40,
       },
     },
   },
