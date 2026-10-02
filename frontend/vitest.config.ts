@@ -32,7 +32,15 @@ export default defineConfig({
       exclude: ["src/test/**", "src/**/*.test.{ts,tsx}", "src/main.tsx"],
       // `text` is what the CI log shows; `lcov` feeds the diff-coverage gate
       // on changed lines and `json-summary` the job summary (ci.yml).
-      reporter: ["text", "lcov", "json-summary"],
+      // diff-cover reads an `SF:` path as absolute or relative to the git
+      // root, so the LCOV report is rooted at the repository, not at
+      // frontend/ — otherwise no changed line ever matches and the gate
+      // passes vacuously.
+      reporter: [
+        "text",
+        ["lcov", { projectRoot: path.resolve(__dirname, "..") }],
+        "json-summary",
+      ],
       // Floors just under the measured totals (lines 50.0, statements 48.9,
       // branches 43.2, functions 41.6 on 2026-10-01). Raise them in any PR
       // that lifts the number; never lower them.
