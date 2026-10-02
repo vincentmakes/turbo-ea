@@ -41,14 +41,14 @@ export default defineConfig({
         ["lcov", { projectRoot: path.resolve(__dirname, "..") }],
         "json-summary",
       ],
-      // Floors just under the measured totals (lines 50.0, statements 48.9,
-      // branches 43.2, functions 41.6 on 2026-10-01). Raise them in any PR
+      // Floors just under the measured totals (lines 64.7, statements 63.2,
+      // branches 55.6, functions 54.9 on 2026-10-02). Raise them in any PR
       // that lifts the number; never lower them.
       thresholds: {
-        lines: 49,
-        statements: 48,
-        branches: 42,
-        functions: 40,
+        lines: 63,
+        statements: 62,
+        branches: 54,
+        functions: 53,
       },
     },
   },
