@@ -153,6 +153,8 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # diff-cover needs the merge base with the base branch
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
@@ -190,14 +192,16 @@ jobs:
       # lines a PR adds or changes must themselves be ≥ 80% covered, whatever
       # the suite-wide total. diff-cover runs offline against the base branch;
       # a line it cannot attribute to the PR is not counted. Push-to-main has
-      # no base to diff against, so the step runs on pull requests only.
+      # no base to diff against, so the step runs on pull requests only. The
+      # diff is base...HEAD, so the checkout above keeps the full history: a
+      # shallow clone has no merge base and diff-cover aborts before reporting.
       - name: Diff coverage (changed lines must be tested)
         if: github.event_name == 'pull_request'
         run: |
-          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          git fetch --no-tags origin "${{ github.base_ref }}"
           pip install diff-cover==10.6.0
           diff-cover coverage.xml --compare-branch="origin/${{ github.base_ref }}" \
-            --fail-under=80 --markdown-report diff-cover.md
+            --fail-under=80 --format markdown:diff-cover.md
           cat diff-cover.md >> "$GITHUB_STEP_SUMMARY"
         working-directory: backend
 
@@ -419,6 +423,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # diff-cover needs the merge base with the base branch
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
@@ -446,10 +452,10 @@ jobs:
       - name: Diff coverage (changed lines must be tested)
         if: github.event_name == 'pull_request'
         run: |
-          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          git fetch --no-tags origin "${{ github.base_ref }}"
           pip install diff-cover==10.6.0
           diff-cover coverage/lcov.info --compare-branch="origin/${{ github.base_ref }}" \
-            --fail-under=80 --markdown-report diff-cover.md
+            --fail-under=80 --format markdown:diff-cover.md
           cat diff-cover.md >> "$GITHUB_STEP_SUMMARY"
         working-directory: frontend
 
@@ -461,6 +467,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # diff-cover needs the merge base with the base branch
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
@@ -481,10 +489,10 @@ jobs:
       - name: Diff coverage (changed lines must be tested)
         if: github.event_name == 'pull_request'
         run: |
-          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          git fetch --no-tags origin "${{ github.base_ref }}"
           pip install diff-cover==10.6.0
           diff-cover coverage.xml --compare-branch="origin/${{ github.base_ref }}" \
-            --fail-under=80 --markdown-report diff-cover.md
+            --fail-under=80 --format markdown:diff-cover.md
           cat diff-cover.md >> "$GITHUB_STEP_SUMMARY"
         working-directory: mcp-server
 
