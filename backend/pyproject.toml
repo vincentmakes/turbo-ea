@@ -96,7 +96,7 @@ concurrency = ["greenlet", "thread"]
 [tool.coverage.report]
 # A floor just under the measured total, raised whenever a PR lifts it. CI
 # fails the Backend Integration Tests job when the suite drops below it.
-fail_under = 80
+fail_under = 91
 show_missing = true
 skip_covered = true
 
