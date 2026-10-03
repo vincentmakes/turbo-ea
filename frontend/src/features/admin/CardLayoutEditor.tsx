@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
@@ -220,6 +221,29 @@ export function moveFieldBetweenSections(
 }
 
 // ── FieldCard (display component, used by sortable wrapper + overlay) ──
+
+/**
+ * Every change in this editor is written the moment it is made — there is no
+ * Save button — so a failed PATCH has to be said somewhere. On success the
+ * caller's refresh runs; on failure `onSaveError` surfaces the alert and the
+ * refresh is skipped, so the screen keeps the stored layout rather than one
+ * the server never accepted. Returns whether the save landed.
+ */
+async function patchLayout(
+  typeKey: string,
+  body: Record<string, unknown>,
+  onRefresh: () => void,
+  onSaveError: () => void,
+): Promise<boolean> {
+  try {
+    await api.patch(`/metamodel/types/${typeKey}`, body);
+  } catch {
+    onSaveError();
+    return false;
+  }
+  onRefresh();
+  return true;
+}
 
 function FieldCard({
   field,
@@ -482,7 +506,7 @@ function DroppableColumn({ id, label, children, isEmpty }: {
 
 function VisualFieldLayout({
   sectionIdx, section, typeKey, fieldsSchema, calculatedFieldKeys,
-  onRefresh, openAddField, openEditField, promptDeleteField,
+  onRefresh, onSaveError, openAddField, openEditField, promptDeleteField,
 }: {
   sectionIdx: number;
   section: SectionDef;
@@ -490,6 +514,7 @@ function VisualFieldLayout({
   fieldsSchema: SectionDef[];
   calculatedFieldKeys: string[];
   onRefresh: () => void;
+  onSaveError: () => void;
   openAddField: (si: number) => void;
   openEditField: (si: number, fi: number) => void;
   promptDeleteField: (si: number, fi: number) => void;
@@ -531,10 +556,9 @@ function VisualFieldLayout({
       if (!key) return;
       const next = moveFieldBetweenSections(fieldsSchema, sectionIdx, key, targetIdx);
       if (!next) return;
-      await api.patch(`/metamodel/types/${typeKey}`, { fields_schema: next });
-      onRefresh();
+      await patchLayout(typeKey, { fields_schema: next }, onRefresh, onSaveError);
     },
-    [moveFieldKey, closeMoveMenu, fieldsSchema, sectionIdx, typeKey, onRefresh],
+    [moveFieldKey, closeMoveMenu, fieldsSchema, sectionIdx, typeKey, onRefresh, onSaveError],
   );
 
   const fieldMap = useMemo(() => {
@@ -606,9 +630,8 @@ function VisualFieldLayout({
     const groups = Object.keys(c).filter(k => k.startsWith("group:")).map(k => k.slice(6));
     const schema = [...fieldsSchema];
     schema[sectionIdx] = { ...schema[sectionIdx], fields: newFields, groups, ...(extra ?? {}) };
-    await api.patch(`/metamodel/types/${typeKey}`, { fields_schema: schema });
-    onRefresh();
-  }, [fieldMap, fieldsSchema, sectionIdx, typeKey, onRefresh]);
+    await patchLayout(typeKey, { fields_schema: schema }, onRefresh, onSaveError);
+  }, [fieldMap, fieldsSchema, sectionIdx, typeKey, onRefresh, onSaveError]);
 
   // Per-locale group (subsection) header translations, persisted to the
   // section's groupTranslations map. Empty values are pruned.
@@ -625,11 +648,11 @@ function VisualFieldLayout({
         ...schema[sectionIdx],
         groupTranslations: Object.keys(nextGT).length > 0 ? nextGT : undefined,
       };
-      await api.patch(`/metamodel/types/${typeKey}`, { fields_schema: schema });
+      // The dialog stays open on a failed save, so the admin can retry.
+      if (!(await patchLayout(typeKey, { fields_schema: schema }, onRefresh, onSaveError))) return;
       setGroupTxName(null);
-      onRefresh();
     },
-    [section.groupTranslations, fieldsSchema, sectionIdx, typeKey, onRefresh],
+    [section.groupTranslations, fieldsSchema, sectionIdx, typeKey, onRefresh, onSaveError],
   );
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -752,8 +775,7 @@ function VisualFieldLayout({
     } else {
       schema[sectionIdx] = { ...schema[sectionIdx], columns: val as 1 | 2 };
     }
-    await api.patch(`/metamodel/types/${typeKey}`, { fields_schema: schema });
-    onRefresh();
+    await patchLayout(typeKey, { fields_schema: schema }, onRefresh, onSaveError);
   };
 
   // Add a new group
@@ -980,10 +1002,11 @@ function VisualFieldLayout({
 
 function DescriptionFieldsPanel({
   typeKey, fieldsSchema, calculatedFieldKeys,
-  onRefresh, openAddField, openEditField, promptDeleteField,
+  onRefresh, onSaveError, openAddField, openEditField, promptDeleteField,
 }: {
   typeKey: string; fieldsSchema: SectionDef[]; calculatedFieldKeys: string[];
   onRefresh: () => void;
+  onSaveError: () => void;
   openAddField: (si: number) => void;
   openEditField: (si: number, fi: number) => void;
   promptDeleteField: (si: number, fi: number) => void;
@@ -1009,8 +1032,7 @@ function DescriptionFieldsPanel({
     const newFields = arrayMove(customFields, oldIdx, newIdx);
     const schema = [...fieldsSchema];
     schema[actualDescIdx] = { ...schema[actualDescIdx], fields: newFields };
-    await api.patch(`/metamodel/types/${typeKey}`, { fields_schema: schema });
-    onRefresh();
+    await patchLayout(typeKey, { fields_schema: schema }, onRefresh, onSaveError);
   };
 
   const addFieldToDescription = async () => {
@@ -1018,8 +1040,7 @@ function DescriptionFieldsPanel({
       openAddField(actualDescIdx);
     } else {
       const schema: SectionDef[] = [...fieldsSchema, { section: "__description", fields: [] }];
-      await api.patch(`/metamodel/types/${typeKey}`, { fields_schema: schema });
-      onRefresh();
+      await patchLayout(typeKey, { fields_schema: schema }, onRefresh, onSaveError);
     }
   };
 
@@ -1164,11 +1185,19 @@ export default function CardLayoutEditor({
     });
   };
 
+  // A failed save is shown once, at the top of the editor, whichever section
+  // or panel it came from; the next successful save clears it.
+  const [saveError, setSaveError] = useState(false);
+  const reportSaveError = useCallback(() => setSaveError(true), []);
+  const refreshAfterSave = useCallback(() => {
+    setSaveError(false);
+    onRefresh();
+  }, [onRefresh]);
+
   const persistSectionConfig = useCallback(async (patch: Record<string, unknown>) => {
     const updated = { ...secCfg, ...patch };
-    await api.patch(`/metamodel/types/${cardType.key}`, { section_config: updated });
-    onRefresh();
-  }, [secCfg, cardType.key, onRefresh]);
+    await patchLayout(cardType.key, { section_config: updated }, refreshAfterSave, reportSaveError);
+  }, [secCfg, cardType.key, refreshAfterSave, reportSaveError]);
 
   const updateSectionProp = async (sectionKey: string, prop: Partial<SectionConfig>) => {
     await persistSectionConfig({ [sectionKey]: { ...(secCfg[sectionKey] || {}), ...prop } });
@@ -1199,11 +1228,13 @@ export default function CardLayoutEditor({
     const schema = [...cardType.fields_schema, { section: newSectionName, fields: [] }];
     const newCustomIdx = customSections.length;
     const newOrder = [...sectionOrder, `custom:${newCustomIdx}`];
-    await api.patch(`/metamodel/types/${cardType.key}`, {
-      fields_schema: schema,
-      section_config: { ...secCfg, __order: newOrder },
-    });
-    onRefresh();
+    const saved = await patchLayout(
+      cardType.key,
+      { fields_schema: schema, section_config: { ...secCfg, __order: newOrder } },
+      refreshAfterSave,
+      reportSaveError,
+    );
+    if (!saved) return;
     setNewSectionName("");
     setAddSectionOpen(false);
     setExpandedSections((prev) => new Set([...prev, `custom:${newCustomIdx}`]));
@@ -1217,6 +1248,12 @@ export default function CardLayoutEditor({
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t("cardLayout.dragSections")}
       </Typography>
+
+      {saveError && (
+        <Alert severity="error" onClose={() => setSaveError(false)} sx={{ mb: 2 }}>
+          {t("metamodel.typeDrawer.failedToSave")}
+        </Alert>
+      )}
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
         <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
@@ -1248,7 +1285,8 @@ export default function CardLayoutEditor({
                     typeKey={cardType.key}
                     fieldsSchema={cardType.fields_schema}
                     calculatedFieldKeys={calculatedFieldKeys}
-                    onRefresh={onRefresh}
+                    onRefresh={refreshAfterSave}
+                    onSaveError={reportSaveError}
                     openAddField={openAddField}
                     openEditField={openEditField}
                     promptDeleteField={promptDeleteField}
@@ -1259,7 +1297,8 @@ export default function CardLayoutEditor({
                     typeKey={cardType.key}
                     fieldsSchema={cardType.fields_schema}
                     calculatedFieldKeys={calculatedFieldKeys}
-                    onRefresh={onRefresh}
+                    onRefresh={refreshAfterSave}
+                    onSaveError={reportSaveError}
                     openAddField={openAddField}
                     openEditField={openEditField}
                     promptDeleteField={promptDeleteField}
