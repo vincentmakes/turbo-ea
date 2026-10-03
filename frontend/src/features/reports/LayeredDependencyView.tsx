@@ -96,13 +96,27 @@ import {
   type LdvNodeData,
   type LdvGroupData,
   type LdvEdgeData,
-  type LdvClusterData,
 } from "./layeredDependencyLayout";
 import { LDV_HANDLE_SPECS } from "./ldvHandles";
 import { ldvEdgeStroke } from "./ldvLineStyle";
 import { absolutePosition } from "./ldvEdgeRouting";
 import { buildRoundedOrthPath } from "./ldvChannels";
 import { ldvFocusRing } from "./ldvFocusRing";
+import { computeObstacles, type ObstacleBounds } from "./ldvObstacles";
+import {
+  clusterMembersOf,
+  hoveredNeighborsOf,
+  hoverDimStyle,
+  pulseSpotlightStyle,
+} from "./ldvHighlight";
+import { computeHierarchyMarkers } from "./ldvHierarchyMarkers";
+import { exportImageSize, isAppleMobileDevice } from "./ldvExportSizing";
+import {
+  effectiveCenterY,
+  effectiveOffset,
+  liveWaypointPolyline,
+  longestSegmentMidpoint,
+} from "./ldvEdgeGeometry";
 import LinkChangeIcon from "./LinkChangeIcon";
 import { isPresentAtDate } from "./timelineRange";
 import type { TimelineChange } from "./timelineRange";
@@ -124,43 +138,11 @@ const PHASE_DOT: Record<string, string> = {
 };
 
 /* Obstacle boxes (cards + group-label strips) that edge labels must avoid.
-   Computed once per render in the parent and shared with every edge through
-   context. Previously each edge recomputed this from the full node list with a
-   `.find()` inside the loop — O(E·N²) on every drag frame. */
-type ObstacleBounds = { x1: number; y1: number; x2: number; y2: number };
+   Computed once per render in the parent (`computeObstacles`, ldvObstacles.ts)
+   and shared with every edge through context. Previously each edge recomputed
+   this from the full node list with a `.find()` inside the loop — O(E·N²) on
+   every drag frame. */
 const LdvObstaclesContext = createContext<ObstacleBounds[]>([]);
-
-function computeObstacles(nodeList: Node[]): ObstacleBounds[] {
-  const byId = new Map(nodeList.map((n) => [n.id, n]));
-  const bounds: ObstacleBounds[] = [];
-  for (const n of nodeList) {
-    if (n.type === "ldvNode" && n.parentId) {
-      const w = (n.style?.width as number) ?? LDV_NODE_W;
-      const h = (n.style?.height as number) ?? LDV_NODE_H;
-      // Through the whole chain: in aggregate mode a card sits inside a type
-      // box inside a lane, and one level of flattening puts its obstacle box
-      // in the wrong place.
-      const { x: ax, y: ay } = absolutePosition(n, byId);
-      bounds.push({ x1: ax, y1: ay, x2: ax + w, y2: ay + h });
-    } else if (n.type === "ldvCluster") {
-      // The WHOLE box, not just its title strip: an aggregate connector may
-      // cross a box it does not belong to, and its count must not come to rest
-      // inside one — a number floating among a box's cards reads as belonging
-      // to them.
-      const w = (n.style?.width as number) ?? 0;
-      const h = (n.style?.height as number) ?? 0;
-      const { x: ax, y: ay } = absolutePosition(n, byId);
-      bounds.push({ x1: ax, y1: ay, x2: ax + w, y2: ay + h });
-    } else if (n.type === "ldvGroup") {
-      // Group label strip across the top of the box.
-      const gx = n.position.x;
-      const gy = n.position.y;
-      const gw = (n.style?.width as number) ?? 0;
-      bounds.push({ x1: gx, y1: gy, x2: gx + gw, y2: gy + 34 });
-    }
-  }
-  return bounds;
-}
 
 /* ------------------------------------------------------------------ */
 /*  Custom Layered Dependency View Node                                */
@@ -900,79 +882,32 @@ const LdvEdgeComponent = memo(
     const hoverColor = severed ? STATUS_COLORS.error : isDark ? "#4fc3f7" : "#1976d2";
     const color = active ? hoverColor : baseColor;
 
-    const rawOffset = edgeData?.pathOffset ?? 20;
-    const minOffset = edgeData?.minOffset ?? 0;
-    const verticalGap = Math.abs(targetY - sourceY);
     // Channel-routed edges carry an orthogonal waypoint polyline that dodges
-    // the rows of cards between their endpoints. Honour it only while the
-    // live handle positions still match the layout-time anchors — a dragged
-    // endpoint invalidates the stored bends, and the edge then degrades to
-    // the default smoothstep shape instead of a broken polyline.
-    const waypoints = edgeData?.waypoints;
-    const anchors = edgeData?.anchors;
-    const waypointsFresh =
-      !!waypoints &&
-      waypoints.length > 0 &&
-      !!anchors &&
-      Math.abs(anchors.sx - sourceX) < 4 &&
-      Math.abs(anchors.sy - sourceY) < 4 &&
-      Math.abs(anchors.tx - targetX) < 4 &&
-      Math.abs(anchors.ty - targetY) < 4;
+    // the rows of cards between their endpoints; `liveWaypointPolyline` honours
+    // it only while the live handles still match the layout-time anchors.
+    const polyline = liveWaypointPolyline(
+      edgeData?.waypoints,
+      edgeData?.anchors,
+      { x: sourceX, y: sourceY },
+      { x: targetX, y: targetY },
+    );
     let path: string;
     let lx: number;
     let ly: number;
-    if (waypointsFresh) {
-      // Live endpoints with stored bends. Snap the first/last bend onto the
-      // live handle along the axis its segment runs on, so every segment is
-      // exactly orthogonal despite the few px of live-vs-layout measurement
-      // drift the anchor tolerance admits — that drift used to render as
-      // visibly tilted "verticals".
-      const wps = waypoints.map((p) => ({ ...p }));
-      const first = wps[0];
-      if (Math.abs(first.x - anchors.sx) < 1) first.x = sourceX;
-      else if (Math.abs(first.y - anchors.sy) < 1) first.y = sourceY;
-      const last = wps[wps.length - 1];
-      if (Math.abs(last.x - anchors.tx) < 1) last.x = targetX;
-      else if (Math.abs(last.y - anchors.ty) < 1) last.y = targetY;
-      const pts = [{ x: sourceX, y: sourceY }, ...wps, { x: targetX, y: targetY }];
-      path = buildRoundedOrthPath(pts, 8);
-      // Default label anchor: midpoint of the longest segment.
-      let bi = 0;
-      let bl = -1;
-      for (let k = 0; k + 1 < pts.length; k++) {
-        const l = Math.abs(pts[k + 1].x - pts[k].x) + Math.abs(pts[k + 1].y - pts[k].y);
-        if (l > bl) {
-          bl = l;
-          bi = k;
-        }
-      }
-      lx = (pts[bi].x + pts[bi + 1].x) / 2;
-      ly = (pts[bi].y + pts[bi + 1].y) / 2;
+    if (polyline) {
+      path = buildRoundedOrthPath(polyline, 8);
+      ({ x: lx, y: ly } = longestSegmentMidpoint(polyline));
     } else {
-      // The routing engine pins the horizontal run to an explicit centerY
-      // (staggered against other runs and kept clear of cards). Honour it
-      // only while it still lies between the live handle Ys — after a drag
-      // the stored value can go stale, and a centerY outside the span would
-      // make the path double back on itself.
-      const routedCenterY = edgeData?.centerY;
-      const centerY =
-        routedCenterY !== undefined &&
-        routedCenterY > Math.min(sourceY, targetY) + 8 &&
-        routedCenterY < Math.max(sourceY, targetY) - 8
-          ? routedCenterY
-          : undefined;
-      // If the edge must clear an obstruction, use at least minOffset (large
-      // offsets flip the smoothstep into its wrap-around shape, which is what
-      // routes around the card); otherwise keep the offset well inside the
-      // handle span so the bend stubs never fight the pinned centerY.
-      const offset = minOffset > 0
-        ? Math.max(rawOffset, minOffset)
-        : centerY !== undefined
-          ? Math.max(
-              4,
-              Math.min(rawOffset, Math.abs(centerY - sourceY) - 6, Math.abs(targetY - centerY) - 6),
-            )
-          : Math.min(rawOffset, Math.max(10, verticalGap * 0.48));
+      // The routing engine's pinned centerY and bend offset, each sanity-checked
+      // against the live handle span (see ldvEdgeGeometry.ts).
+      const centerY = effectiveCenterY(edgeData?.centerY, sourceY, targetY);
+      const offset = effectiveOffset(
+        edgeData?.pathOffset ?? 20,
+        edgeData?.minOffset ?? 0,
+        centerY,
+        sourceY,
+        targetY,
+      );
       [path, lx, ly] = getSmoothStepPath({
         sourceX, sourceY, targetX, targetY,
         sourcePosition, targetPosition,
@@ -1376,21 +1311,12 @@ function LayeredDependencyInner({
   // that are NOT currently on the diagram (so the marker points to something the
   // Reveal tools can surface, and disappears once revealed). Empty when the
   // display toggle is off.
-  const hierarchyMarkers = useMemo(() => {
-    const m = new Map<string, { hiddenParent: boolean; hiddenChildren: boolean }>();
+  const hierarchyMarkers = useMemo(
     // Markers are affordances for the Reveal tools — only surface them where the
     // consumer wires those tools up (the static TurboLens views don't).
-    if (!settings.showHierarchyMarkers || !onNodeReveal) return m;
-    const visibleIds = new Set(nodes.map((n) => n.id));
-    const parentsWithVisibleChild = new Set<string>();
-    for (const n of nodes) if (n.parent_id) parentsWithVisibleChild.add(n.parent_id);
-    for (const n of nodes) {
-      const hiddenParent = !!n.parent_id && !visibleIds.has(n.parent_id);
-      const hiddenChildren = !!n.hasChildren && !parentsWithVisibleChild.has(n.id);
-      if (hiddenParent || hiddenChildren) m.set(n.id, { hiddenParent, hiddenChildren });
-    }
-    return m;
-  }, [nodes, settings.showHierarchyMarkers, onNodeReveal]);
+    () => computeHierarchyMarkers(nodes, settings.showHierarchyMarkers && !!onNodeReveal),
+    [nodes, settings.showHierarchyMarkers, onNodeReveal],
+  );
 
   /** Card types actually on the canvas — the picker only offers their fields,
    *  and the node renderer only needs their metadata. */
@@ -1487,24 +1413,10 @@ function LayeredDependencyInner({
       // "Load failed" error (desktop Chrome/FF allow far more). So we pick
       // device-aware caps and fit the FINAL canvas inside both a per-dimension
       // and a total-area budget. Desktop output is unchanged for normal diagrams.
-      const isAppleMobile =
-        /iP(hone|ad|od)/.test(navigator.userAgent) ||
-        (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
-      const maxDim = isAppleMobile ? 4096 : 6000;
-      const maxArea = isAppleMobile ? 16_000_000 : 64_000_000;
-      const pixelRatio = isAppleMobile ? 1 : Math.min(window.devicePixelRatio || 1, 2);
-      // Supersample the logical bounds (×2) for crispness, as before.
-      const rawW = Math.max(800, Math.round((bounds.width + pad * 2) * 2));
-      const rawH = Math.max(600, Math.round((bounds.height + pad * 2) * 2));
-      // Scale so the final canvas (raw × pixelRatio) fits maxDim per side and maxArea total.
-      const finalW = rawW * pixelRatio;
-      const finalH = rawH * pixelRatio;
-      let fit = Math.min(1, maxDim / finalW, maxDim / finalH);
-      if (finalW * fit * (finalH * fit) > maxArea) {
-        fit *= Math.sqrt(maxArea / (finalW * fit * (finalH * fit)));
-      }
-      const imageWidth = Math.max(1, Math.round(rawW * fit));
-      const imageHeight = Math.max(1, Math.round(rawH * fit));
+      const { imageWidth, imageHeight, pixelRatio } = exportImageSize(bounds, pad, {
+        isAppleMobile: isAppleMobileDevice(navigator),
+        devicePixelRatio: window.devicePixelRatio,
+      });
       const vp = getViewportForBounds(bounds, imageWidth, imageHeight, 0.2, 4, 0.06);
       const viewportEl = containerRef.current?.querySelector(
         ".react-flow__viewport",
@@ -1892,53 +1804,14 @@ function LayeredDependencyInner({
   }, []);
 
   /** Cluster id → the cards inside it, for highlighting a whole box. */
-  const clusterMembers = useMemo(() => {
-    const m = new Map<string, string[]>();
-    for (const n of builtNodes) {
-      if (n.type === "ldvCluster") m.set(n.id, (n.data as LdvClusterData).memberIds ?? []);
-    }
-    return m;
-  }, [builtNodes]);
+  const clusterMembers = useMemo(() => clusterMembersOf(builtNodes), [builtNodes]);
 
-  // Set of nodes connected to the hovered node (for dimming others).
-  //
-  // Read off each line's `members` — the card-level relations behind it — not
-  // off its endpoints: an aggregate connector's endpoints are boxes, so
-  // hovering one card inside a box would otherwise light up every card in the
-  // box at the other end rather than the ones it is actually related to.
-  const hoveredNeighbors = useMemo(() => {
-    if (!hoveredNode) return null;
-    const s = new Set<string>([hoveredNode]);
-    const ownMembers = clusterMembers.get(hoveredNode);
-    if (ownMembers) for (const id of ownMembers) s.add(id);
-
-    for (const e of rfEdges) {
-      const d = e.data as LdvEdgeData | undefined;
-      const pairs = d?.members ?? [{ source: e.source, target: e.target }];
-      // The box itself is hovered: everything it connects to lights up.
-      if (e.source === hoveredNode || e.target === hoveredNode) {
-        s.add(e.source === hoveredNode ? e.target : e.source);
-        for (const p of pairs) {
-          s.add(p.source);
-          s.add(p.target);
-        }
-        continue;
-      }
-      for (const p of pairs) {
-        if (p.source === hoveredNode) s.add(p.target);
-        if (p.target === hoveredNode) s.add(p.source);
-      }
-    }
-
-    // Keep a lit card's box lit, or the box would dim out from under it.
-    if (memberOf) {
-      for (const id of [...s]) {
-        const box = memberOf.get(id);
-        if (box) s.add(box);
-      }
-    }
-    return s;
-  }, [hoveredNode, rfEdges, clusterMembers, memberOf]);
+  // Set of nodes connected to the hovered node (for dimming others) — read
+  // off each line's card-level `members`, see hoveredNeighborsOf.
+  const hoveredNeighbors = useMemo(
+    () => hoveredNeighborsOf(hoveredNode, rfEdges, clusterMembers, memberOf),
+    [hoveredNode, rfEdges, clusterMembers, memberOf],
+  );
 
   // Inject hover state + callbacks into edges + reorder for z-index
   const orderedEdges = useMemo(() => {
@@ -1987,42 +1860,11 @@ function LayeredDependencyInner({
   ]);
 
   // CSS-based dimming avoids recreating node objects (which causes flickering)
-  const hoverStyle = useMemo(() => {
-    if (!hoveredNeighbors) return "";
-    // CSS.escape: a cluster id carries colons (`cluster:type:Application`),
-    // which are selector syntax. Card ids are UUIDs and never needed it.
-    const keep = [...hoveredNeighbors]
-      .map((id) => `.react-flow__node[data-id="${CSS.escape(id)}"]`)
-      .join(",");
-    return [
-      `.ldv-hover-active .react-flow__node-ldvNode, .ldv-hover-active .react-flow__node-ldvCluster { opacity: 0.35; transition: opacity 0.15s; }`,
-      `${keep} { opacity: 1 !important; }`,
-    ].join("\n");
-  }, [hoveredNeighbors]);
+  const hoverStyle = useMemo(() => hoverDimStyle(hoveredNeighbors), [hoveredNeighbors]);
 
   // Spotlight for a clicked transition mark. Built as CSS keyed on node id,
-  // exactly like `hoverStyle` above: recreating node objects to carry a
-  // transient flag causes flicker, and this needs to layer over whatever
-  // border/badge the card already has rather than replace it.
-  const pulseStyle = useMemo(() => {
-    const entries = Object.entries(pulseCards ?? {});
-    if (!entries.length) return "";
-    const rules = [
-      // Everything fades for the pulse, so the changed cards read instantly
-      // even on a dense canvas; the fade lifts on its own.
-      `.ldv-pulse-active .react-flow__node-ldvNode { opacity: 0.3; transition: opacity 0.2s; }`,
-      `@keyframes ldv-pulse-live { 0%,100% { box-shadow: 0 0 0 0 ${TIMELINE_COLORS.goLive}00 } 50% { box-shadow: 0 0 0 8px ${TIMELINE_COLORS.goLive}66 } }`,
-      `@keyframes ldv-pulse-retire { 0%,100% { box-shadow: 0 0 0 0 ${STATUS_COLORS.error}00 } 50% { box-shadow: 0 0 0 8px ${STATUS_COLORS.error}66 } }`,
-    ];
-    for (const [id, kind] of entries) {
-      const sel = `.react-flow__node[data-id="${CSS.escape(id)}"]`;
-      rules.push(
-        `${sel} { opacity: 1 !important; z-index: 10 !important; }`,
-        `${sel} > * { animation: ldv-pulse-${kind === "live" ? "live" : "retire"} 0.65s ease-in-out 2; border-radius: 8px; }`,
-      );
-    }
-    return rules.join("\n");
-  }, [pulseCards]);
+  // exactly like `hoverStyle` above (see ldvHighlight.ts).
+  const pulseStyle = useMemo(() => pulseSpotlightStyle(pulseCards), [pulseCards]);
 
   // Obstacle boxes for edge-label placement — computed once here and shared
   // with every edge via context (each edge no longer walks the node list).
