@@ -752,6 +752,26 @@ class TestApply:
         card = await _one(db, Card, external_id="old-1")
         assert card.status == "ARCHIVED"
 
+    async def test_a_re_import_never_archives_an_existing_card(self, db, env):
+        # The archived status lands on a *created* card only: a live card the
+        # export now reports as archived takes the update and keeps its status.
+        existing = await create_card(
+            db, card_type="Application", name="Old name", user_id=env["admin"].id
+        )
+        existing.external_id = "old-1"
+        await db.flush()
+        snap = empty_snapshot()
+        snap.entities.append(SourceEntity("old-1", "Application", "Retired", status="ARCHIVED"))
+        m = await _migration(db, env)
+        await stage_all(db, m, source_for(snap), snap, include_archived=True)
+        (row,) = await staged_rows(db, m, "card")
+        assert row.action == "update" and row.target_id == existing.id
+        counts = await apply_migration(db, m, env["admin"])
+        assert counts["per_pass"]["card"]["created"] == 0
+        await db.refresh(existing)
+        assert existing.name == "Retired"
+        assert existing.status == "ACTIVE"
+
     async def test_field_mappings_remap_attributes_and_route_lifecycle_dates(self, db, env):
         snap = sample_snapshot()
         app1 = next(e for e in snap.entities if e.source_id == "app-1")
