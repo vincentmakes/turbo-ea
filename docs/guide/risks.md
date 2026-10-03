@@ -117,7 +117,7 @@ Both the TurboLens Security Overview and the Risk Register page render a 4×4 pr
 
 ## Register grid
 
-The register is an AG Grid that mirrors the [Inventory](inventory.md) standards: sortable, filterable, resizable columns with per-user persistent preferences (visible columns, sort order, sidebar state). A toolbar **+ New risk** opens the manual create dialog. The toolbar **Export** button writes a two-sheet `.xlsx` carrying the filtered risk grid on sheet 1 and one row per mitigation-task cycle on sheet 2 — see [Mitigation tasks → Export](#export) for the column shape.
+The register is an AG Grid that mirrors the [Inventory](inventory.md) standards: sortable, filterable, resizable columns with per-user persistent preferences (visible columns, sort order, sidebar state). A toolbar **+ New risk** opens the manual create dialog. The toolbar **Export** button writes a two-sheet `.xlsx` carrying the filtered risk grid on sheet 1 and one row per mitigation-task cycle on sheet 2 — see [Mitigation tasks → Export](#export) for the column shape. A **Source** column shows whether a risk was entered by hand, promoted from a compliance finding or filed by an extension, and it follows the sidebar's Source filter.
 
 ### Filtering by affected cards
 

@@ -239,7 +239,7 @@ describe("SoAWEditor — a new document", () => {
       table_data: { columns: SECTION_2_1.columns, rows: [["", ""]] },
     });
     expect(body.sections["3.1"].togaf_data).toEqual(Object.fromEntries(getTogafPhases().map((p) => [p.key, ""])));
-    // The editor routes to the created record (2.156.2): the header drops
+    // The editor routes to the created record (2.157.0): the header drops
     // the "new document" title and the Preview button appears without a
     // reload, because `id` now resolves. A bare `history.replaceState` left
     // it in the new-document shape.

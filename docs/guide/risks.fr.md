@@ -114,7 +114,7 @@ La Vue d'ensemble Sécurité de TurboLens comme la page du Registre des risques 
 
 ## Grille du registre
 
-Le registre est une grille AG Grid qui reprend les standards de la page [Inventaire](inventory.md) : colonnes triables, filtrables et redimensionnables avec préférences utilisateur persistées (colonnes visibles, ordre de tri, état de la barre latérale). Un bouton **+ Nouveau risque** dans la barre d'outils ouvre le dialogue de création manuelle. Le bouton **Exporter** de la barre d'outils écrit un `.xlsx` à deux feuilles avec la grille de risques filtrée sur la feuille 1 et une ligne par cycle de tâche de mitigation sur la feuille 2 — voir [Tâches de mitigation → Export](#export) pour le format des colonnes.
+Le registre est une grille AG Grid qui reprend les standards de la page [Inventaire](inventory.md) : colonnes triables, filtrables et redimensionnables avec préférences utilisateur persistées (colonnes visibles, ordre de tri, état de la barre latérale). Un bouton **+ Nouveau risque** dans la barre d'outils ouvre le dialogue de création manuelle. Le bouton **Exporter** de la barre d'outils écrit un `.xlsx` à deux feuilles avec la grille de risques filtrée sur la feuille 1 et une ligne par cycle de tâche de mitigation sur la feuille 2 — voir [Tâches de mitigation → Export](#export) pour le format des colonnes. Une colonne **Source** indique si un risque a été saisi à la main, promu depuis un constat de conformité ou créé par une extension, et suit le filtre Source de la barre latérale.
 
 ### Filtrer par fiches concernées
 

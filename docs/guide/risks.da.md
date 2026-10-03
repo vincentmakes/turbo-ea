@@ -117,7 +117,7 @@ Både TurboLens Security Overview og Risikoregister-siden gengiver et 4×4 sands
 
 ## Register-gitter
 
-Registret er et AG Grid, der spejler [Inventar](inventory.md)-standarderne: sorterbare, filterbare, størrelses-justerbare kolonner med vedvarende pr.-bruger-præferencer (synlige kolonner, sorteringsrækkefølge, sidepanel-tilstand). En værktøjslinje **+ New risk** åbner dialogen til manuel oprettelse. Værktøjslinjens **Export**-knap skriver et to-arks `.xlsx` med det filtrerede risikogitter på ark 1 og én række pr. afhjælpningsopgave-cyklus på ark 2 — se [Afhjælpningsopgaver → Eksport](#export) for kolonneformen.
+Registret er et AG Grid, der spejler [Inventar](inventory.md)-standarderne: sorterbare, filterbare, størrelses-justerbare kolonner med vedvarende pr.-bruger-præferencer (synlige kolonner, sorteringsrækkefølge, sidepanel-tilstand). En værktøjslinje **+ New risk** åbner dialogen til manuel oprettelse. Værktøjslinjens **Export**-knap skriver et to-arks `.xlsx` med det filtrerede risikogitter på ark 1 og én række pr. afhjælpningsopgave-cyklus på ark 2 — se [Afhjælpningsopgaver → Eksport](#export) for kolonneformen. En **Kilde**-kolonne viser, om en risiko er indtastet manuelt, hævet fra et compliance-fund eller oprettet af en udvidelse, og den følger sidepanelets Kilde-filter.
 
 ### Filtrering efter berørte kort
 

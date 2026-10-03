@@ -114,7 +114,7 @@ Tanto el Resumen de Seguridad de TurboLens como la página del Registro de Riesg
 
 ## Cuadrícula del registro
 
-El registro es una cuadrícula AG Grid que sigue los estándares de la página [Inventario](inventory.md): columnas ordenables, filtrables y redimensionables con preferencias por usuario persistidas (columnas visibles, orden, estado de la barra lateral). Un botón **+ Nuevo riesgo** en la barra de herramientas abre el diálogo de creación manual. El botón **Exportar** de la barra de herramientas escribe un `.xlsx` de dos hojas con la cuadrícula de riesgos filtrada en la hoja 1 y una fila por ciclo de tarea de mitigación en la hoja 2 — véase [Tareas de mitigación → Exportación](#export) para el formato de columnas.
+El registro es una cuadrícula AG Grid que sigue los estándares de la página [Inventario](inventory.md): columnas ordenables, filtrables y redimensionables con preferencias por usuario persistidas (columnas visibles, orden, estado de la barra lateral). Un botón **+ Nuevo riesgo** en la barra de herramientas abre el diálogo de creación manual. El botón **Exportar** de la barra de herramientas escribe un `.xlsx` de dos hojas con la cuadrícula de riesgos filtrada en la hoja 1 y una fila por ciclo de tarea de mitigación en la hoja 2 — véase [Tareas de mitigación → Exportación](#export) para el formato de columnas. Una columna **Origen** indica si un riesgo se introdujo a mano, se promovió desde un hallazgo de cumplimiento o lo creó una extensión, y sigue el filtro Origen de la barra lateral.
 
 ### Filtrar por fichas afectadas
 

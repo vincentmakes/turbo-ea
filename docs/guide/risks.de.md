@@ -114,7 +114,7 @@ Sowohl die Sicherheits-Übersicht von TurboLens als auch die Risikoregister-Seit
 
 ## Register-Grid
 
-Das Register ist ein AG-Grid, das den Standards der [Inventar](inventory.md)-Seite folgt: sortierbare, filterbare und in der Breite anpassbare Spalten mit persistierten Nutzereinstellungen (sichtbare Spalten, Sortierung, Sidebar-Zustand). Über die Symbolleiste öffnest du mit **+ Neues Risiko** den manuellen Anlage-Dialog. Die Symbolleisten-Schaltfläche **Exportieren** schreibt eine zweiteilige `.xlsx` mit dem gefilterten Risiko-Grid auf Blatt 1 und einer Zeile pro Aufgabenzyklus auf Blatt 2 — siehe [Minderungsmaßnahmen → Export](#export) für die Spaltenstruktur.
+Das Register ist ein AG-Grid, das den Standards der [Inventar](inventory.md)-Seite folgt: sortierbare, filterbare und in der Breite anpassbare Spalten mit persistierten Nutzereinstellungen (sichtbare Spalten, Sortierung, Sidebar-Zustand). Über die Symbolleiste öffnest du mit **+ Neues Risiko** den manuellen Anlage-Dialog. Die Symbolleisten-Schaltfläche **Exportieren** schreibt eine zweiteilige `.xlsx` mit dem gefilterten Risiko-Grid auf Blatt 1 und einer Zeile pro Aufgabenzyklus auf Blatt 2 — siehe [Minderungsmaßnahmen → Export](#export) für die Spaltenstruktur. Eine Spalte **Quelle** zeigt, ob ein Risiko manuell erfasst, aus einem Compliance-Befund übernommen oder von einer Erweiterung angelegt wurde, und folgt dem Quelle-Filter der Sidebar.
 
 ### Nach betroffenen Karten filtern
 

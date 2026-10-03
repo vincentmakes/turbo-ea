@@ -78,6 +78,7 @@
   "risks.col.reference": "编号",
   "risks.col.title": "标题",
   "risks.col.category": "类别",
+  "risks.col.source": "来源",
   "risks.col.initialLevel": "初始",
   "risks.col.residualLevel": "剩余",
   "risks.col.status": "状态",

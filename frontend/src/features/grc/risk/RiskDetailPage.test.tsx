@@ -316,7 +316,7 @@ describe("RiskDetailPage — loading", () => {
   it("renders the not-found state when the risk cannot be read", async () => {
     mockApi.fail("get", "/risks/r1", 404, "nope");
     renderPage();
-    // The fallback is the shared not-found copy, not a hardcoded string (2.156.2).
+    // The fallback is the shared not-found copy, not a hardcoded string (2.157.0).
     expect(await findAlertText(i18n.t("common:errors.notFound"))).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 6 })).not.toBeInTheDocument();
   });
@@ -746,7 +746,7 @@ describe("RiskDetailPage — delete, print, navigation", () => {
 });
 
 describe("RiskDetailPage — permissions", () => {
-  it("renders the record read-only for a user holding only risks.view (2.156.2)", async () => {
+  it("renders the record read-only for a user holding only risks.view (2.157.0)", async () => {
     // The page used to read no permission, so a viewer saw an enabled Delete
     // button, editable fields and the workflow buttons; only the backend's
     // 403 stopped the write.

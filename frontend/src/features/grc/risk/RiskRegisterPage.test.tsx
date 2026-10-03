@@ -273,7 +273,7 @@ describe("RiskRegisterPage — loading", () => {
     expect(screen.getByText(t("risks.kpi.overdue")).closest(".MuiPaper-root")).toHaveTextContent("2");
     expect(screen.getByText(t("risks.kpi.createdMonth")).closest(".MuiPaper-root")).toHaveTextContent("1");
     // The "Average level" tile shows the top level's translated label, not
-    // the raw key `topLevel()` returns (2.156.2).
+    // the raw key `topLevel()` returns (2.157.0).
     expect(screen.getByText(t("risks.kpi.avgLevel")).closest(".MuiPaper-root")).toHaveTextContent(
       t("risks.level.critical"),
     );
@@ -398,6 +398,10 @@ describe("RiskRegisterPage — column definitions", () => {
     const [r1, r2, r3] = RISKS;
 
     expect(gridStub.cellValue("category", r1, { formatted: true })).toBe(t("risks.category.security"));
+    expect(gridStub.cellValue("source_type", r1, { formatted: true })).toBe(t(`risks.source.${r1.source_type}`));
+    expect(gridStub.cellValue("source_type", { ...r1, source_type: "extension" }, { formatted: true })).toBe(
+      t("risks.source.extension"),
+    );
     expect(gridStub.cellValue("initial_level", r1, { formatted: true })).toBe(t("risks.level.critical"));
     expect(gridStub.cellValue("residual_level", r1, { formatted: true })).toBe("—");
     expect(gridStub.cellValue("residual_level", r2, { formatted: true })).toBe(t("risks.level.low"));
@@ -414,6 +418,7 @@ describe("RiskRegisterPage — column definitions", () => {
 
     // Empty values format to the empty string, not "undefined".
     expect(gridStub.cellValue("category", { ...r1, category: null }, { formatted: true })).toBe("");
+    expect(gridStub.cellValue("source_type", { ...r1, source_type: null }, { formatted: true })).toBe("");
     expect(gridStub.cellValue("status", { ...r1, status: null }, { formatted: true })).toBe("");
     expect(gridStub.cellValue("initial_level", { ...r1, initial_level: null }, { formatted: true })).toBe("");
   });
@@ -469,6 +474,9 @@ describe("RiskRegisterPage — column definitions", () => {
 
     expect(cell("category", { value: "security" }).getByText(t("risks.category.security"))).toBeInTheDocument();
     expect(gridStub.colDef("category").cellRenderer({ value: null })).toBeNull();
+
+    expect(cell("source_type", { value: "extension" }).getByText(t("risks.source.extension"))).toBeInTheDocument();
+    expect(gridStub.colDef("source_type").cellRenderer({ value: null })).toBeNull();
 
     expect(cell("initial_level", { value: "critical" }).getByText(t("risks.level.critical"))).toBeInTheDocument();
     expect(gridStub.colDef("initial_level").cellRenderer({ value: null })).toBeNull();
@@ -693,7 +701,7 @@ describe("RiskRegisterPage — toolbar actions", () => {
     await waitFor(() => expect(metricCalls()).toHaveLength(2));
   });
 
-  it("hides Create and Import from a user without risks.manage, keeping Export (2.156.2)", async () => {
+  it("hides Create and Import from a user without risks.manage, keeping Export (2.157.0)", async () => {
     // The page used to read no permission at all, so a viewer with only
     // `risks.view` saw Create and Import exactly like an admin and only the
     // backend's 403 stopped the write.

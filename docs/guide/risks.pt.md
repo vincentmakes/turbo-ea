@@ -114,7 +114,7 @@ Tanto a Visão Geral de Segurança do TurboLens como a página do Registo de Ris
 
 ## Grelha do registo
 
-O registo é um AG Grid que segue os padrões da página [Inventário](inventory.md): colunas ordenáveis, filtráveis e redimensionáveis com preferências por utilizador persistidas (colunas visíveis, ordenação, estado da barra lateral). Um botão **+ Novo risco** na barra de ferramentas abre o diálogo de criação manual. O botão **Exportar** da barra de ferramentas escreve um `.xlsx` de duas folhas com a grelha de riscos filtrada na folha 1 e uma linha por ciclo de tarefa de mitigação na folha 2 — ver [Tarefas de mitigação → Exportação](#export) para o formato de colunas.
+O registo é um AG Grid que segue os padrões da página [Inventário](inventory.md): colunas ordenáveis, filtráveis e redimensionáveis com preferências por utilizador persistidas (colunas visíveis, ordenação, estado da barra lateral). Um botão **+ Novo risco** na barra de ferramentas abre o diálogo de criação manual. O botão **Exportar** da barra de ferramentas escreve um `.xlsx` de duas folhas com a grelha de riscos filtrada na folha 1 e uma linha por ciclo de tarefa de mitigação na folha 2 — ver [Tarefas de mitigação → Exportação](#export) para o formato de colunas. Uma coluna **Origem** indica se um risco foi introduzido à mão, promovido a partir de uma constatação de conformidade ou criado por uma extensão, e segue o filtro Origem da barra lateral.
 
 ### Filtrar por fichas afetadas
 

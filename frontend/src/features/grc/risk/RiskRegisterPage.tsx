@@ -110,6 +110,7 @@ export const RISK_GRID_COLUMNS: Array<{ id: string; labelKey: string }> = [
   { id: "reference", labelKey: "risks.col.reference" },
   { id: "title", labelKey: "risks.col.title" },
   { id: "category", labelKey: "risks.col.category" },
+  { id: "source_type", labelKey: "risks.col.source" },
   { id: "initial_level", labelKey: "risks.col.initialLevel" },
   { id: "residual_level", labelKey: "risks.col.residualLevel" },
   { id: "status", labelKey: "risks.col.status" },
@@ -575,6 +576,10 @@ export default function RiskRegisterPage() {
         get: () => filtersRef.current.statuses,
         set: (v) => setFilters((p) => ({ ...p, statuses: v as RiskFilters["statuses"] })),
       }),
+      source_type: arrayFacetBinding<GroupedRow<Risk>>({
+        get: () => filtersRef.current.sources,
+        set: (v) => setFilters((p) => ({ ...p, sources: v as RiskFilters["sources"] })),
+      }),
       owner_name: arrayFacetBinding<GroupedRow<Risk>>({
         // The facet keys on the user id; the cell (and its column filter)
         // carries the display name.
@@ -666,6 +671,19 @@ export default function RiskRegisterPage() {
               variant="outlined"
               label={t(`risks.category.${p.value}`)}
             />
+          ) : null,
+      },
+      {
+        // Where the risk came from: entered by hand, promoted from a
+        // compliance finding, or filed by an extension.
+        field: "source_type",
+        headerName: t("risks.col.source"),
+        width: 130,
+        filter: "agSetColumnFilter",
+        valueFormatter: (p) => (p.value ? t(`risks.source.${p.value}`) : ""),
+        cellRenderer: (p: ICellRendererParams<Risk, string>) =>
+          p.value ? (
+            <Chip size="small" variant="outlined" label={t(`risks.source.${p.value}`)} />
           ) : null,
       },
       {

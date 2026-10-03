@@ -246,7 +246,7 @@ describe("SurveyResults — load", () => {
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
-  it("shows the API error when the fetch fails, and «Survey not found» only when it did not (2.156.2)", async () => {
+  it("shows the API error when the fetch fails, and «Survey not found» only when it did not (2.157.0)", async () => {
     // The page used to record the API message in `error` and then render the
     // not-found alert whenever `survey` was null, so a server failure read as
     // a missing survey.

@@ -521,7 +521,7 @@ describe("ServiceNowAdmin mappings", () => {
     expect(mockApi.callsOf("get", "/servicenow/mappings")).toHaveLength(2);
   });
 
-  it("stores the typed Turbo EA field path, never the option's display label (2.156.2)", async () => {
+  it("stores the typed Turbo EA field path, never the option's display label (2.157.0)", async () => {
     // The row's Autocomplete is `freeSolo` with a controlled `value`. Once the
     // typed text equalled an option path, MUI re-synced the input to the
     // option's label ("name — Name") and fired `onInputChange` with reason

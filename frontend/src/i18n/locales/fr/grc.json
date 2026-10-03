@@ -78,6 +78,7 @@
   "risks.col.reference": "Référence",
   "risks.col.title": "Titre",
   "risks.col.category": "Catégorie",
+  "risks.col.source": "Source",
   "risks.col.initialLevel": "Initial",
   "risks.col.residualLevel": "Résiduel",
   "risks.col.status": "Statut",

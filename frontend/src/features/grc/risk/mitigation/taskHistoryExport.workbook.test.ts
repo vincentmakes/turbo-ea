@@ -146,6 +146,7 @@ const RISK_HEADERS = [
   "title",
   "description",
   "category",
+  "source",
   "initial_level",
   "residual_level",
   "status",
@@ -267,6 +268,7 @@ describe("risksToRows", () => {
         title: "IdP outage",
         description: "Loss of access if the IdP is down",
         category: "operational",
+        source: "manual",
         initial_level: "critical",
         residual_level: "medium",
         status: "in_progress",
@@ -417,8 +419,9 @@ describe("exportRegister", () => {
     const riskRows = aoa(wb.Sheets.Risks);
     expect(riskRows[0]).toEqual(RISK_HEADERS);
     expect(riskRows.slice(1).map((r) => r[0])).toEqual(["R-000001", "R-000002"]);
-    expect(riskRows[1][9]).toBe("NexaCore ERP; Identity Platform");
-    expect(riskRows[2][9]).toBe("");
+    expect(riskRows[1][4]).toBe("manual");
+    expect(riskRows[1][10]).toBe("NexaCore ERP; Identity Platform");
+    expect(riskRows[2][10]).toBe("");
 
     const taskRows = aoa(wb.Sheets["Mitigation tasks"]);
     expect(taskRows[0]).toEqual(OCCURRENCE_HEADERS);
@@ -433,9 +436,9 @@ describe("exportRegister", () => {
   it("stringifies every risk cell, so an empty residual level is a blank string cell", () => {
     exportRegister([makeRisk({ residual_level: null })], []);
     const ws = lastWritten().wb.Sheets.Risks;
-    // residual_level is column F.
-    expect(ws.F2.t).toBe("s");
-    expect(ws.F2.v).toBe("");
+    // residual_level is column G (reference, title, description, category, source, initial, residual).
+    expect(ws.G2.t).toBe("s");
+    expect(ws.G2.v).toBe("");
     expect(ws["!cols"]).toHaveLength(RISK_HEADERS.length);
   });
 

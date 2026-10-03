@@ -5,11 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.156.2] - 2026-10-02
+## [2.157.0] - 2026-10-03
+
+### Added
+
+- **A Source column on the Risk Register** shows whether a risk was entered by hand, promoted from a compliance finding or filed by an extension. It can be hidden from the Columns tab, follows the sidebar's Source filter, and lands in the Excel export.
+
+### Changed
+
+- **Automated test coverage now stands at 93% of the backend and 65% of the frontend.**
 
 ### Fixed
 
-- **A risk filed by an extension shows its source as *Extension* on its detail page, in its PDF and under the register's Source filter.** The API coerced every source outside `manual` / `compliance` to `manual`, so such a risk read as hand-entered and the filter's *Extension* option never matched it. The register's table carries no Source column; the filter and the detail page are where the source shows.
+- **A risk filed by an extension shows its source as *Extension* on its detail page, in its PDF, under the register's Source filter and in the new Source column.** The API coerced every source outside `manual` / `compliance` to `manual`, so such a risk read as hand-entered and the filter's *Extension* option never matched it.
 - **Re-importing an updated platform export no longer duplicates documents and comments.** The migration importer inserted every staged document and comment unconditionally, so each re-import of a LeanIX export added another copy of every link and every comment on the cards it refreshed. Both are now matched on the source's own id (and on the card plus URL, or the author plus text, when the identity map was wiped) and updated or skipped instead; a renamed document keeps its one entry.
 - **A platform migration no longer creates a user from a malformed email address.** A subscription whose address the preview had already flagged as malformed (an unsplit `a@x.com;b@x.com` cell, a display name) was still turned into a deactivated user at apply time; the row is now counted as a conflict and skipped, as the preview says.
 - **Archived entities imported with *Also import archived entities* land archived.** They were created as live cards whatever the source said; they now carry the archived status, and an existing card is never archived by a re-import.

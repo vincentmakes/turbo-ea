@@ -870,7 +870,7 @@ describe("ComplianceScanner — finding actions", () => {
       reader.readAsText(objectUrl.created[0]);
     });
     const lines = text.replace(/^\uFEFF/, "").split("\r\n");
-    // Every header cell is translated (2.156.2): none of them is a bare English string.
+    // Every header cell is translated (2.157.0): none of them is a bare English string.
     expect(lines[0].split(",")).toEqual([
       tcards("compliance.grid.col.card"),
       tcards("compliance.grid.col.severity"),
@@ -897,7 +897,7 @@ describe("ComplianceScanner — finding actions", () => {
     objectUrl();
   });
 
-  it("hands the grid canManage=false and disables the scan for a viewer (2.156.2)", async () => {
+  it("hands the grid canManage=false and disables the scan for a viewer (2.157.0)", async () => {
     // The scanner used to read no permission at all, so `ComplianceGrid`
     // fell back to its `canManage = true` default and a viewer saw Create,
     // Delete and the bulk actions; only the backend's 403 stopped the write.

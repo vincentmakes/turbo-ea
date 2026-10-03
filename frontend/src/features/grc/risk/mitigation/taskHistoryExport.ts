@@ -172,6 +172,7 @@ interface RiskRow {
   title: string;
   description: string;
   category: string;
+  source: string;
   initial_level: string;
   residual_level: string;
   status: string;
@@ -187,6 +188,7 @@ export function risksToRows(risks: Risk[]): RiskRow[] {
     title: r.title,
     description: r.description ?? "",
     category: r.category,
+    source: r.source_type,
     initial_level: r.initial_level,
     residual_level: r.residual_level ?? "",
     status: r.status,
@@ -202,6 +204,7 @@ const RISK_COLUMNS: readonly (keyof RiskRow)[] = [
   "title",
   "description",
   "category",
+  "source",
   "initial_level",
   "residual_level",
   "status",

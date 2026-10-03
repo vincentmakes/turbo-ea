@@ -114,7 +114,7 @@ Sia la Panoramica Sicurezza di TurboLens sia la pagina del Registro dei Rischi m
 
 ## Griglia del registro
 
-Il registro è un AG Grid che segue gli standard della pagina [Inventario](inventory.md): colonne ordinabili, filtrabili e ridimensionabili con preferenze utente persistite (colonne visibili, ordinamento, stato della sidebar). Il pulsante **+ Nuovo rischio** in barra strumenti apre il dialogo di creazione manuale. Il pulsante **Esporta** della barra strumenti scrive un `.xlsx` a due fogli con la griglia di rischi filtrata nel foglio 1 e una riga per ciclo di attività di mitigazione nel foglio 2 — vedi [Attività di mitigazione → Esportazione](#export) per il formato delle colonne.
+Il registro è un AG Grid che segue gli standard della pagina [Inventario](inventory.md): colonne ordinabili, filtrabili e ridimensionabili con preferenze utente persistite (colonne visibili, ordinamento, stato della sidebar). Il pulsante **+ Nuovo rischio** in barra strumenti apre il dialogo di creazione manuale. Il pulsante **Esporta** della barra strumenti scrive un `.xlsx` a due fogli con la griglia di rischi filtrata nel foglio 1 e una riga per ciclo di attività di mitigazione nel foglio 2 — vedi [Attività di mitigazione → Esportazione](#export) per il formato delle colonne. Una colonna **Origine** indica se un rischio è stato inserito a mano, promosso da un rilievo di conformità o creato da un'estensione, e segue il filtro Origine della sidebar.
 
 ### Filtrare per schede interessate
 
