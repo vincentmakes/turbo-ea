@@ -21,6 +21,9 @@ nosetests.xml
 coverage.xml
 # Vitest coverage output and diff-cover's markdown report (ci.yml)
 frontend/coverage/
+# Per-shard hand-offs to the aggregate CI jobs (ci.yml)
+frontend/.vitest-reports/
+backend/coverage.shard-*
 diff-cover.md
 *.cover
 *.py,cover

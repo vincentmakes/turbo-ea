@@ -383,6 +383,13 @@ to `main` via **Settings > Branches > Branch protection rules**:
 | **Restrict force pushes** | Block everyone | Protects commit history |
 | **Restrict deletions** | Block everyone | Prevents accidental branch deletion |
 
+`Backend Integration Tests` and `Frontend Tests` are aggregate jobs: the two
+suites run as shard jobs on parallel runners (`Backend Integration Tests
+(shard k/4)`, `Frontend Tests (shard k/3)`), and the aggregate combines their
+coverage, enforces the floors and the diff gate, and fails whenever a shard
+failed — so only the aggregate names belong in the rule above; the shard jobs
+need no protection rule of their own.
+
 The three security jobs **block**: `Backend Security Scan` (pip-audit) and
 `Frontend Security Scan` (audit-ci) fail on any open advisory in a production
 dependency, and `Secret Scan` (gitleaks) fails on a credential anywhere in the

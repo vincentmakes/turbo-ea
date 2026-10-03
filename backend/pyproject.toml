@@ -92,10 +92,16 @@ omit = ["app/services/seed.py", "app/services/seed_demo*.py"]
 # the rest of the function as never run — the suite measured 62% that way and
 # 81% with the same tests once greenlets were traced (comments.py: 52% → 94%).
 concurrency = ["greenlet", "thread"]
+# CI measures the suite as shards on separate runners and combines the data
+# files afterwards; relative paths keep the combine independent of where each
+# runner checked the repository out.
+relative_files = true
 
 [tool.coverage.report]
 # A floor just under the measured total, raised whenever a PR lifts it. CI
-# fails the Backend Integration Tests job when the suite drops below it.
+# fails the Backend Integration Tests job when the suite drops below it — the
+# aggregate over the shard jobs, which each run with `--cov-fail-under=0`; the
+# floor only means something on the combined data.
 fail_under = 91
 show_missing = true
 skip_covered = true

@@ -148,15 +148,30 @@ jobs:
         working-directory: backend
 
   # Integration suite — exercises the full HTTP stack against a real
-  # Postgres. Slow (~11 min). It is the only job that runs tests/api/, i.e.
-  # most of the backend suite, so it blocks: it ran as informational
+  # Postgres. It is the only job that runs tests/api/, i.e. most of the
+  # backend suite, so it blocks: it ran as informational
   # (continue-on-error) until 2026-10, which meant a red API suite could not
   # stop a merge on its own.
-  backend-test-integration:
-    name: Backend Integration Tests
+  #
+  # The suite (~6,400 tests) took 16 min of pytest on one 4-core runner even
+  # with `-n auto`, so it runs as four shards on four runners (~4 min each)
+  # and the aggregate job below combines their coverage. `--shard K/N` is a
+  # hook in backend/tests/shard_plugin.py (imported by tests/conftest.py)
+  # that assigns every test FILE to one shard by a stable hash of its path,
+  # so the shards partition the suite exactly. A shard measures coverage but
+  # neither reports nor gates on it: the suite-wide floor (`fail_under` in
+  # backend/pyproject.toml) and the diff-coverage gate only mean something on
+  # the combined data. To add a shard, extend the matrix AND the `/4` in the
+  # pytest command and the job name.
+  backend-test-shards:
+    name: Backend Integration Tests (shard ${{ matrix.shard }}/4)
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     services:
       postgres:
         image: postgres:16-alpine
@@ -173,8 +188,6 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0 # diff-cover needs the merge base with the base branch
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
@@ -182,18 +195,20 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
       - run: pip install -e ".[dev]"
         working-directory: backend
-      - name: Run all tests with coverage
-        # Runs the full suite (unit + integration) so the coverage floor
-        # (`fail_under` in backend/pyproject.toml — the one place it is set)
-        # reflects total covered code, not just what tests/api/ exercises.
-        # The unit subset is also run by the fast Backend Unit Tests job
-        # for quick PR feedback — the duplication here costs ~30s out of
-        # the integration job and keeps coverage meaningful.
-        # `-n auto` enables pytest-xdist parallelism — conftest.py allocates
-        # a per-worker Postgres schema (test_gw0, test_gw1, ...) so workers
-        # don't collide on the savepoint-rollback fixture.
-        # The XML report feeds the diff-coverage gate below.
-        run: python -m pytest -n auto --cov=app --cov-report=term-missing --cov-report=xml -q
+      - name: Run shard ${{ matrix.shard }} of 4 with coverage
+        # The shard holds its quarter of the full suite (unit + integration)
+        # so the combined coverage reflects total covered code, not just what
+        # tests/api/ exercises; the unit subset is also run by the fast
+        # Backend Unit Tests job for quick PR feedback.
+        # `-n auto` enables pytest-xdist parallelism within the shard —
+        # conftest.py allocates a per-worker Postgres schema (test_gw0,
+        # test_gw1, ...) so workers don't collide on the savepoint-rollback
+        # fixture. `--cov-report=` skips the per-shard report and
+        # `--cov-fail-under=0` the per-shard floor; both belong to the
+        # aggregate job.
+        run: >-
+          python -m pytest -n auto --shard=${{ matrix.shard }}/4
+          --cov=app --cov-report= --cov-fail-under=0 -q
         working-directory: backend
         env:
           POSTGRES_HOST: localhost
@@ -201,6 +216,57 @@ jobs:
           POSTGRES_USER: turboea
           POSTGRES_PASSWORD: turboea
           TEST_POSTGRES_DB: turboea_test
+      - name: Hand the coverage data to the aggregate job
+        # Not a dotfile: upload-artifact skips hidden files by default.
+        run: mv .coverage "coverage.shard-${{ matrix.shard }}"
+        working-directory: backend
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-coverage-${{ matrix.shard }}
+          path: backend/coverage.shard-${{ matrix.shard }}
+          if-no-files-found: error
+          retention-days: 1
+
+  # The required check (CONTRIBUTING.md, branch protection table). It
+  # combines the shards' coverage data, enforces the suite-wide floor and the
+  # diff-coverage gate, and writes the per-file table to the job summary.
+  # It must RUN when a shard fails, and fail itself: `needs` alone would skip
+  # it, and branch protection treats a skipped required check as passing.
+  # When the backend did not change, `changes` gates it off exactly as before.
+  backend-test-integration:
+    name: Backend Integration Tests
+    needs: [changes, backend-test-shards]
+    if: always() && needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every shard must have passed
+        run: |
+          echo "shard jobs: ${{ needs.backend-test-shards.result }}"
+          test "${{ needs.backend-test-shards.result }}" = "success"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # diff-cover needs the merge base with the base branch
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      # coverage reads [tool.coverage.*] from backend/pyproject.toml; the
+      # report needs the sources checked out above, the data comes from the
+      # shards.
+      - run: pip install "coverage[toml]>=7" diff-cover==10.6.0
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: backend-coverage-*
+          merge-multiple: true
+          path: backend
+      - name: Combine the shards' coverage and enforce the floor
+        # `coverage report` exits non-zero when the total is under
+        # `fail_under` (backend/pyproject.toml — the one place it is set).
+        # The XML report feeds the diff-coverage gate below.
+        run: |
+          python -m coverage combine coverage.shard-*
+          python -m coverage report
+          python -m coverage xml
+        working-directory: backend
       - name: Coverage summary
         if: always()
         run: |
@@ -219,7 +285,6 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
-          pip install diff-cover==10.6.0
           diff-cover coverage.xml --compare-branch="origin/${{ github.base_ref }}" \
             --fail-under=80 --format markdown:diff-cover.md
           cat diff-cover.md >> "$GITHUB_STEP_SUMMARY"
@@ -436,12 +501,63 @@ jobs:
       - run: npm run build
         working-directory: frontend
 
-  frontend-test:
-    name: Frontend Tests
+  # The Vitest suite (~6,100 tests) took 9 min on one 4-core runner, so it
+  # runs as three shards on three runners and the aggregate job below merges
+  # their results and coverage. Vitest's own `--shard` assigns every test
+  # file to one shard by a stable hash of its path; `--reporter=blob` writes
+  # the results AND the raw coverage map to .vitest-reports/ for the merge.
+  # Vitest checks the coverage thresholds on every run, sharded or not, so a
+  # shard zeroes them — a third of the suite cannot meet the suite-wide floors
+  # in frontend/vitest.config.ts; the merge run enforces them. To add a shard,
+  # extend the matrix AND the `/3` in the command and the job name.
+  frontend-test-shards:
+    name: Frontend Tests (shard ${{ matrix.shard }}/3)
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - name: Run shard ${{ matrix.shard }} of 3 with coverage
+        # `--reporter=default` keeps the console output a failing shard
+        # needs; `blob` alone prints nothing.
+        run: >-
+          npx vitest run --shard=${{ matrix.shard }}/3
+          --reporter=default --reporter=blob --coverage.enabled
+          --coverage.thresholds.lines=0 --coverage.thresholds.statements=0
+          --coverage.thresholds.branches=0 --coverage.thresholds.functions=0
+        working-directory: frontend
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: frontend-blob-${{ matrix.shard }}
+          path: frontend/.vitest-reports/
+          if-no-files-found: error
+          include-hidden-files: true # the directory is a dotdir
+          retention-days: 1
+
+  # The required check (CONTRIBUTING.md, branch protection table). Same
+  # shape as Backend Integration Tests: it must RUN when a shard fails and
+  # fail itself, because a skipped required check reads as passing.
+  frontend-test:
+    name: Frontend Tests
+    needs: [changes, frontend-test-shards]
+    if: always() && needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every shard must have passed
+        run: |
+          echo "shard jobs: ${{ needs.frontend-test-shards.result }}"
+          test "${{ needs.frontend-test-shards.result }}" = "success"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # diff-cover needs the merge base with the base branch
@@ -450,10 +566,19 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+      # vitest and @vitest/coverage-v8 do the merge, so the install is needed.
       - run: npm ci
         working-directory: frontend
-      # Reporters and the coverage floors live in frontend/vitest.config.ts.
-      - run: npx vitest run --coverage.enabled
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: frontend-blob-*
+          merge-multiple: true
+          path: frontend/.vitest-reports
+      - name: Merge the shards' results and coverage, enforce the floors
+        # Re-emits the reporters configured in frontend/vitest.config.ts
+        # (text, lcov, json-summary) from the merged coverage map and checks
+        # the thresholds there.
+        run: npx vitest run --merge-reports --coverage.enabled
         working-directory: frontend
       - name: Coverage summary
         if: always()
