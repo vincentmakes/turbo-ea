@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.shard_plugin import parse_shard, shard_of
+from tests.shard_plugin import assign_shards, parse_shard
 
 pytest_plugins = ["pytester"]
 
@@ -59,13 +59,29 @@ def test_a_shard_is_deterministic(tree: pytest.Pytester) -> None:
     assert passed_ids(tree, f"--shard=2/{COUNT}") == passed_ids(tree, f"--shard=2/{COUNT}")
 
 
-def test_shard_assignment_is_a_stable_hash_of_the_path() -> None:
-    # crc32 is defined by the algorithm, not by the process: the same file lands
-    # in the same shard on every runner, which is what lets separate CI jobs
-    # take disjoint slices without talking to each other.
-    assert shard_of("tests/api/test_cards.py", 4) == shard_of("tests/api/test_cards.py", 4)
-    assert 1 <= shard_of("tests/api/test_cards.py", 4) <= 4
-    assert shard_of("x", 1) == 1
+def test_assignment_deals_the_heaviest_files_first_into_the_lightest_shard() -> None:
+    weights = {"a.py": 10, "b.py": 9, "c.py": 1, "d.py": 1}
+    assignment = assign_shards(weights, 2)
+    assert set(assignment) == set(weights)
+    assert all(1 <= k <= 2 for k in assignment.values())
+    # a→1 (10), b→2 (9), c→2 (10), d→1 (11): both shards end within one test of each other
+    loads = {k: sum(w for f, w in weights.items() if assignment[f] == k) for k in (1, 2)}
+    assert loads == {1: 11, 2: 10}
+
+
+def test_assignment_is_deterministic_and_breaks_ties_on_the_path() -> None:
+    weights = {"z.py": 3, "a.py": 3, "m.py": 3}
+    first = assign_shards(weights, 3)
+    assert first == assign_shards(dict(reversed(list(weights.items()))), 3)
+    assert first == {"a.py": 1, "m.py": 2, "z.py": 3}
+
+
+def test_no_shard_is_left_empty_while_there_are_enough_files() -> None:
+    # An empty shard would exit 5 ("no tests collected") and fail its CI leg.
+    weights = {f"f{i}.py": 1 + i % 3 for i in range(7)}
+    assignment = assign_shards(weights, 4)
+    assert set(assignment.values()) == {1, 2, 3, 4}
+    assert assign_shards({}, 2) == {}
 
 
 @pytest.mark.parametrize("value", ["0/4", "5/4", "1/0", "abc", "1", "2/x", "/4"])

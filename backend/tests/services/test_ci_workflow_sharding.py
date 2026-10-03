@@ -37,7 +37,12 @@ CASES = [
         "Backend Integration Tests",
         "backend",
         4,
-        ["--shard=${{ matrix.shard }}/4", "--cov-report= ", "--cov-fail-under=0", "-n auto"],
+        [
+            "--shard=${{ matrix.shard }}/${{ strategy.job-total }}",
+            "--cov-report= ",
+            "--cov-fail-under=0",
+            "-n auto",
+        ],
         [
             "python -m coverage combine coverage.shard-*",
             "python -m coverage report",
@@ -52,7 +57,7 @@ CASES = [
         "frontend",
         3,
         [
-            "--shard=${{ matrix.shard }}/3",
+            "--shard=${{ matrix.shard }}/${{ strategy.job-total }}",
             "--reporter=blob",
             "--coverage.thresholds.lines=0",
             "--coverage.thresholds.statements=0",
@@ -77,7 +82,10 @@ def test_the_aggregate_is_the_required_check_and_cannot_be_skipped_past_a_failed
     # The required name sits on the aggregate alone; shard legs carry "(shard k/N)".
     assert f"    name: {required_name}\n" in aggregate
     assert CI.read_text().count(f"    name: {required_name}\n") == 1
-    assert f"    name: {required_name} (shard ${{{{ matrix.shard }}}}/{count})\n" in shards
+    assert (
+        f"    name: {required_name} (shard ${{{{ matrix.shard }}}}/${{{{ strategy.job-total }}}})\n"
+        in shards
+    )
 
     # Skipped reads as passing: run on always(), gate only on the changes filter,
     # and make the very first step fail on anything but a fully green matrix.
@@ -86,13 +94,19 @@ def test_the_aggregate_is_the_required_check_and_cannot_be_skipped_past_a_failed
     guard = first_step(aggregate)
     assert f"needs.{shards_id}.result" in guard and '= "success"' in guard
 
-    # The matrix is the one place the shard count is declared; the command and
-    # the job name must say the same N.
+    # The matrix is the ONLY place the shard count is declared: the name and
+    # the command read it from strategy.job-total, the legs publish it, and
+    # the aggregate refuses to combine fewer data files than that.
     assert "      fail-fast: false\n" in shards
     assert f"        shard: [{', '.join(str(k) for k in range(1, count + 1))}]\n" in shards
+    assert "      count: ${{ steps.meta.outputs.count }}" in shards
+    assert 'echo "count=${{ strategy.job-total }}" >> "$GITHUB_OUTPUT"' in shards
     for flag in shard_flags:
         assert flag in shards, flag
     assert "if-no-files-found: error" in shards
+    assert "overwrite: true" in shards
+    assert f'expected="${{{{ needs.{shards_id}.outputs.count }}}}"' in aggregate
+    assert 'test "$found" -eq "$expected"' in aggregate
 
     for command in aggregate_commands:
         assert command in aggregate, command

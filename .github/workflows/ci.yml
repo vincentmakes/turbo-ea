@@ -157,14 +157,15 @@ jobs:
   # with `-n auto`, so it runs as four shards on four runners (~4 min each)
   # and the aggregate job below combines their coverage. `--shard K/N` is a
   # hook in backend/tests/shard_plugin.py (imported by tests/conftest.py)
-  # that assigns every test FILE to one shard by a stable hash of its path,
-  # so the shards partition the suite exactly. A shard measures coverage but
-  # neither reports nor gates on it: the suite-wide floor (`fail_under` in
-  # backend/pyproject.toml) and the diff-coverage gate only mean something on
-  # the combined data. To add a shard, extend the matrix AND the `/4` in the
-  # pytest command and the job name.
+  # that deals every test FILE to one shard, largest first into the lightest
+  # shard, so the shards partition the suite exactly and are balanced. A
+  # shard measures coverage but neither reports nor gates on it: the
+  # suite-wide floor (`fail_under` in backend/pyproject.toml) and the
+  # diff-coverage gate only mean something on the combined data. The matrix
+  # is the ONLY place the shard count is set: `strategy.job-total` carries it
+  # into the job name, the pytest command and the aggregate's count check.
   backend-test-shards:
-    name: Backend Integration Tests (shard ${{ matrix.shard }}/4)
+    name: Backend Integration Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
@@ -172,6 +173,8 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
+    outputs:
+      count: ${{ steps.meta.outputs.count }} # every leg writes the same value
     services:
       postgres:
         image: postgres:16-alpine
@@ -195,7 +198,9 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
       - run: pip install -e ".[dev]"
         working-directory: backend
-      - name: Run shard ${{ matrix.shard }} of 4 with coverage
+      - id: meta
+        run: echo "count=${{ strategy.job-total }}" >> "$GITHUB_OUTPUT"
+      - name: Run shard ${{ matrix.shard }} of ${{ strategy.job-total }} with coverage
         # The shard holds its quarter of the full suite (unit + integration)
         # so the combined coverage reflects total covered code, not just what
         # tests/api/ exercises; the unit subset is also run by the fast
@@ -207,7 +212,7 @@ jobs:
         # `--cov-fail-under=0` the per-shard floor; both belong to the
         # aggregate job.
         run: >-
-          python -m pytest -n auto --shard=${{ matrix.shard }}/4
+          python -m pytest -n auto --shard=${{ matrix.shard }}/${{ strategy.job-total }}
           --cov=app --cov-report= --cov-fail-under=0 -q
         working-directory: backend
         env:
@@ -225,6 +230,7 @@ jobs:
           name: backend-coverage-${{ matrix.shard }}
           path: backend/coverage.shard-${{ matrix.shard }}
           if-no-files-found: error
+          overwrite: true # "Re-run failed jobs" uploads the same name again
           retention-days: 1
 
   # The required check (CONTRIBUTING.md, branch protection table). It
@@ -259,19 +265,26 @@ jobs:
           merge-multiple: true
           path: backend
       - name: Combine the shards' coverage and enforce the floor
-        # `coverage report` exits non-zero when the total is under
-        # `fail_under` (backend/pyproject.toml — the one place it is set).
-        # The XML report feeds the diff-coverage gate below.
+        # A missing artifact is silent at download, so the count is checked
+        # first: a shard whose data never arrived would otherwise drop its
+        # files from the total. `coverage report` exits non-zero when the
+        # total is under `fail_under` (backend/pyproject.toml — the one place
+        # it is set); `xml` would too, so it runs after. The XML report feeds
+        # the diff-coverage gate below.
         run: |
+          expected="${{ needs.backend-test-shards.outputs.count }}"
+          found=$(ls coverage.shard-* | wc -l)
+          test "$found" -eq "$expected" || { echo "::error::$found of $expected shard data files"; exit 1; }
           python -m coverage combine coverage.shard-*
           python -m coverage report
           python -m coverage xml
         working-directory: backend
       - name: Coverage summary
         if: always()
+        # Informational (`--fail-under=0`): the floor was enforced above.
         run: |
           echo "## Backend coverage" >> "$GITHUB_STEP_SUMMARY"
-          python -m coverage report --format=markdown --skip-covered --sort=-miss \
+          python -m coverage report --format=markdown --skip-covered --sort=-miss --fail-under=0 \
             >> "$GITHUB_STEP_SUMMARY" || echo "No coverage data." >> "$GITHUB_STEP_SUMMARY"
         working-directory: backend
       # Every change must be tested (CLAUDE.md, Testing Conventions): the
@@ -508,10 +521,11 @@ jobs:
   # the results AND the raw coverage map to .vitest-reports/ for the merge.
   # Vitest checks the coverage thresholds on every run, sharded or not, so a
   # shard zeroes them — a third of the suite cannot meet the suite-wide floors
-  # in frontend/vitest.config.ts; the merge run enforces them. To add a shard,
-  # extend the matrix AND the `/3` in the command and the job name.
+  # in frontend/vitest.config.ts; the merge run enforces them. The matrix is
+  # the ONLY place the shard count is set: `strategy.job-total` carries it
+  # into the job name, the vitest command and the aggregate's count check.
   frontend-test-shards:
-    name: Frontend Tests (shard ${{ matrix.shard }}/3)
+    name: Frontend Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
@@ -519,6 +533,8 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3]
+    outputs:
+      count: ${{ steps.meta.outputs.count }} # every leg writes the same value
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -528,11 +544,13 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
-      - name: Run shard ${{ matrix.shard }} of 3 with coverage
+      - id: meta
+        run: echo "count=${{ strategy.job-total }}" >> "$GITHUB_OUTPUT"
+      - name: Run shard ${{ matrix.shard }} of ${{ strategy.job-total }} with coverage
         # `--reporter=default` keeps the console output a failing shard
         # needs; `blob` alone prints nothing.
         run: >-
-          npx vitest run --shard=${{ matrix.shard }}/3
+          npx vitest run --shard=${{ matrix.shard }}/${{ strategy.job-total }}
           --reporter=default --reporter=blob --coverage.enabled
           --coverage.thresholds.lines=0 --coverage.thresholds.statements=0
           --coverage.thresholds.branches=0 --coverage.thresholds.functions=0
@@ -543,6 +561,7 @@ jobs:
           path: frontend/.vitest-reports/
           if-no-files-found: error
           include-hidden-files: true # the directory is a dotdir
+          overwrite: true # "Re-run failed jobs" uploads the same name again
           retention-days: 1
 
   # The required check (CONTRIBUTING.md, branch protection table). Same
@@ -575,10 +594,15 @@ jobs:
           merge-multiple: true
           path: frontend/.vitest-reports
       - name: Merge the shards' results and coverage, enforce the floors
-        # Re-emits the reporters configured in frontend/vitest.config.ts
-        # (text, lcov, json-summary) from the merged coverage map and checks
-        # the thresholds there.
-        run: npx vitest run --merge-reports --coverage.enabled
+        # A missing blob is silent at download, so the count is checked first.
+        # The merge re-emits the reporters configured in
+        # frontend/vitest.config.ts (text, lcov, json-summary) from the merged
+        # coverage map and checks the thresholds there.
+        run: |
+          expected="${{ needs.frontend-test-shards.outputs.count }}"
+          found=$(ls .vitest-reports/blob-*.json | wc -l)
+          test "$found" -eq "$expected" || { echo "::error::$found of $expected shard reports"; exit 1; }
+          npx vitest run --merge-reports --coverage.enabled
         working-directory: frontend
       - name: Coverage summary
         if: always()
