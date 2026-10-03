@@ -71,9 +71,10 @@
 # Reviewed 2026-09-30.
 90004	IGNORE	COEP would break fonts and the SSO popup relay; COOP is off by design
 
-# jgraph/drawio v31.4.1 is vendored into the frontend image and served under
-# /drawio/. Five content rules fire on its own files — the minified bundles
-# (app.min.js, main.js, extensions.min.js), the AsciiMath library and the
+# jgraph/drawio (the tag the Dockerfile pins) is vendored into the frontend
+# image and served under /drawio/. Five content rules fire on its own files —
+# the minified bundles (app.min.js, main.js, extensions.min.js), the
+# AsciiMath library and the
 # dia.txt translation strings — none of which Turbo EA authors or can change
 # short of forking DrawIO. OUTOFSCOPE keeps each rule live for the app's own
 # bundle and skips only that path; a global IGNORE would hide the same
