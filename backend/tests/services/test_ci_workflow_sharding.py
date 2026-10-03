@@ -93,6 +93,9 @@ def test_the_aggregate_is_the_required_check_and_cannot_be_skipped_past_a_failed
     assert f"    if: always() && needs.changes.outputs.{gate} == 'true'\n" in aggregate
     guard = first_step(aggregate)
     assert f"needs.{shards_id}.result" in guard and '= "success"' in guard
+    # The always() summary step must not run before checkout when the guard
+    # failed — it would only add a second error to an already red job.
+    assert "if: always() && steps.shards-ok.outcome == 'success'" in aggregate
 
     # The matrix is the ONLY place the shard count is declared: the name and
     # the command read it from strategy.job-total, the legs publish it, and

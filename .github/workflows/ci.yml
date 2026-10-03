@@ -246,6 +246,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Every shard must have passed
+        id: shards-ok
         run: |
           echo "shard jobs: ${{ needs.backend-test-shards.result }}"
           test "${{ needs.backend-test-shards.result }}" = "success"
@@ -280,7 +281,9 @@ jobs:
           python -m coverage xml
         working-directory: backend
       - name: Coverage summary
-        if: always()
+        # Runs when the floor step failed (that is when the table matters), not
+        # when the shard guard did: nothing is checked out then.
+        if: always() && steps.shards-ok.outcome == 'success'
         # Informational (`--fail-under=0`): the floor was enforced above.
         run: |
           echo "## Backend coverage" >> "$GITHUB_STEP_SUMMARY"
@@ -574,6 +577,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Every shard must have passed
+        id: shards-ok
         run: |
           echo "shard jobs: ${{ needs.frontend-test-shards.result }}"
           test "${{ needs.frontend-test-shards.result }}" = "success"
@@ -605,7 +609,8 @@ jobs:
           npx vitest run --merge-reports --coverage.enabled
         working-directory: frontend
       - name: Coverage summary
-        if: always()
+        # As in the backend aggregate: after a failed floor, not a failed guard.
+        if: always() && steps.shards-ok.outcome == 'success'
         run: |
           echo "## Frontend coverage" >> "$GITHUB_STEP_SUMMARY"
           if [ -f coverage/coverage-summary.json ]; then
