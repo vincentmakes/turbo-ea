@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **Automated test coverage now stands at 93% of the backend and 65% of the frontend.**
+- **Automated test coverage now stands at 93% of the backend and 70% of the frontend.**
 
 ### Fixed
 - A change in the card layout editor that the server rejects now shows an error at the top of the editor instead of failing silently and leaving the stale layout on screen.
