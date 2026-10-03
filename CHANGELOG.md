@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Automated test coverage now stands at 93% of the backend and 65% of the frontend.**
 
 ### Fixed
+- Pressing Escape to dismiss the formula editor's suggestion list no longer closes the whole calculation dialog and discards the form.
+- Typing `.` right after accepting a formula suggestion (for example `data`) now opens the field list at once instead of swallowing the keystroke.
 
 - **A risk filed by an extension shows its source as *Extension* on its detail page, in its PDF, under the register's Source filter and in the new Source column.** The API coerced every source outside `manual` / `compliance` to `manual`, so such a risk read as hand-entered and the filter's *Extension* option never matched it.
 - **Re-importing an updated platform export no longer duplicates documents and comments.** The migration importer inserted every staged document and comment unconditionally, so each re-import of a LeanIX export added another copy of every link and every comment on the cards it refreshed. Both are now matched on the source's own id (and on the card plus URL, or the author plus text, when the identity map was wiped) and updated or skipped instead; a renamed document keeps its one entry.

@@ -185,7 +185,6 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [cursorToken, setCursorToken] = useState({ prefix: "", token: "" });
-  const suppressRef = useRef(false);
 
   const getTextarea = useCallback(
     () => document.getElementById(TEXTAREA_ID) as HTMLTextAreaElement | null,
@@ -359,10 +358,6 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
   const handleValueChange = useCallback(
     (newValue: string) => {
       onChange(newValue);
-      if (suppressRef.current) {
-        suppressRef.current = false;
-        return;
-      }
       // Read cursor position after the editor updates
       requestAnimationFrame(() => {
         const ta = getTextarea();
@@ -401,7 +396,9 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
     const newValue = before + suggestion.insert + after;
     const newCursorPos = before.length + suggestion.insert.length;
 
-    suppressRef.current = true;
+    // No "ignore the echo" flag here: the editor reports only real input
+    // events, so a flag set now would swallow the user's NEXT keystroke —
+    // typing `.` straight after accepting `data` opened no field list.
     onChange(newValue);
     setShowSuggestions(false);
     setCursorToken({ prefix: "", token: "" });
@@ -428,6 +425,11 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
         applySuggestion(filteredSuggestions[selectedIdx]);
       }
     } else if (e.key === "Escape") {
+      // Only the suggestion list closes: without stopping the event here, MUI's
+      // Dialog treated the same keydown as escapeKeyDown and unmounted the
+      // whole edit dialog, discarding the form.
+      e.preventDefault();
+      e.stopPropagation();
       setShowSuggestions(false);
     }
   };
