@@ -245,7 +245,7 @@ async def fetch_logo(url: str, sniff: SniffFn) -> tuple[bytes, str]:
         return data, mime
 
     # Unreachable: the loop either returns or raises.
-    raise LogoFetchError("image_url_unreachable", "Too many redirects.")  # pragma: no mutate, unreachable: every hop returns or raises
+    raise LogoFetchError("image_url_unreachable", "Too many redirects.")  # pragma: no mutate, unreachable: every hop returns or raises  # pragma: no cover
 
 
 class _FetchCache:
