@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
@@ -36,7 +37,7 @@ vi.mock("@/features/grc/risk/CreateRiskDialog", () => ({
 }));
 
 import { mockApi } from "@/test/apiMock";
-import { renderWithProviders } from "@/test/render";
+import { renderWithProviders, wrapWithProviders } from "@/test/render";
 import type { Risk } from "@/types";
 import RisksTab from "./RisksTab";
 
@@ -109,10 +110,28 @@ describe("RisksTab", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
+  it("paints the spinner first, never a flash of the empty state", () => {
+    // The first commit, before any effect runs: what a browser paints while
+    // the request is still in flight.
+    const html = renderToStaticMarkup(wrapWithProviders(<RisksTab cardId={CARD_ID} />));
+    expect(html).toContain('role="progressbar"');
+    expect(html).not.toContain("No risks linked to this card.");
+    expect(mockApi.callsOf("get")).toHaveLength(0);
+  });
+
   it("renders one row per risk with its chips, and dashes for missing values", async () => {
     renderTab();
     expect(await screen.findByText("Unpatched database")).toBeInTheDocument();
     expect(screen.getByText("Risks")).toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader").map((th) => th.textContent)).toEqual([
+      "Reference",
+      "Title",
+      "Category",
+      "Initial",
+      "Residual",
+      "Status",
+      "Target",
+    ]);
 
     const row1 = screen.getByText("R-000001").closest("tr") as HTMLElement;
     expect(within(row1).getByText("Security")).toBeInTheDocument();
@@ -169,7 +188,43 @@ describe("RisksTab", () => {
     const { user } = renderTab();
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(`GET /cards/${CARD_ID}/risks failed`);
+    // Nothing was loaded, so the list is the empty state rather than a table.
+    expect(screen.getByText("No risks linked to this card.")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
     await user.click(within(alert).getByRole("button", { name: /close/i }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("stays quiet when the request is aborted rather than failed", async () => {
+    mockApi.abort("get", `/cards/${CARD_ID}/risks`);
+    renderTab();
+    expect(await screen.findByText("No risks linked to this card.")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("reloads the list when the card changes", async () => {
+    const OTHER_ID = "ca4d0000-0000-4000-8000-000000000099";
+    mockApi.on("get", `/cards/${OTHER_ID}/risks`, [
+      makeRisk({ id: "r9", reference: "R-000009", title: "Other card's risk" }),
+    ]);
+    const { rerender } = renderWithProviders(<RisksTab cardId={CARD_ID} />);
+    expect(await screen.findByText("Unpatched database")).toBeInTheDocument();
+
+    rerender(wrapWithProviders(<RisksTab cardId={OTHER_ID} />));
+    expect(await screen.findByText("Other card's risk")).toBeInTheDocument();
+    expect(screen.queryByText("Unpatched database")).not.toBeInTheDocument();
+    expect(mockApi.callsOf("get", `/cards/${OTHER_ID}/risks`)).toHaveLength(1);
+  });
+
+  it("closes the create dialog once the risk is created", async () => {
+    // No route table: the tab stays mounted after the navigation, so what it
+    // does with its own dialog is observable.
+    const { user } = renderWithProviders(<RisksTab cardId={CARD_ID} />);
+    await screen.findByText("Unpatched database");
+    await user.click(screen.getByRole("button", { name: /Create new risk/ }));
+    await user.click(screen.getByRole("button", { name: "created" }));
+    await waitFor(() => expect(mockApi.callsOf("get", `/cards/${CARD_ID}/risks`)).toHaveLength(2));
+    await waitFor(() => expect(screen.queryByTestId("create-risk-dialog")).not.toBeInTheDocument());
+    expect(await screen.findByText("Unpatched database")).toBeInTheDocument();
   });
 });

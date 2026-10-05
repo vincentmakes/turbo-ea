@@ -8,14 +8,15 @@
  * `relProviderToITC`, as target when the type runs the other way.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 
 import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
-import { renderWithProviders, userWith } from "@/test/render";
+import { makeUser, renderWithProviders, userWith, wrapWithProviders } from "@/test/render";
 import {
   CARDS,
   CARD_IDS,
@@ -26,7 +27,7 @@ import {
   makeCard,
   makeRelationType,
 } from "@/test/fixtures/metamodel";
-import type { Relation } from "@/types";
+import type { Relation, RelationType } from "@/types";
 import VendorField from "./VendorField";
 
 const FS_ID = CARD_IDS.postgres;
@@ -76,6 +77,13 @@ function renderField(props: Partial<Props> = {}, user?: ReturnType<typeof userWi
   return { ...utils, onChange, onRelationChange, onProviderSelected };
 }
 
+/** The `search` param of every `/cards` request, in order ("" for a browse). */
+function cardSearches(): string[] {
+  return mockApi
+    .callsOf("get", "/cards?*")
+    .map((c) => new URL(c.path, "http://x").searchParams.get("search") ?? "");
+}
+
 beforeEach(() => {
   hookState.reset();
   withMetamodel(CARD_TYPES, RELATION_TYPES);
@@ -90,6 +98,60 @@ beforeEach(() => {
 });
 
 describe("VendorField", () => {
+  it("paints the current vendor in the very first render", () => {
+    // Before any effect runs: the value must not flash in late.
+    const paint = (value: string) =>
+      renderToStaticMarkup(
+        wrapWithProviders(<VendorField value={value} onChange={() => {}} cardTypeKey="ITComponent" />),
+      );
+    expect(paint("Globex")).toContain('value="Globex"');
+    expect(paint("")).toContain('value=""');
+  });
+
+  it("searches Providers for the current vendor from the start, with a placeholder hint", async () => {
+    renderField({ value: "Globex" });
+    expect(screen.getByLabelText("Provider")).toHaveAttribute(
+      "placeholder",
+      "Search existing providers or type a new name...",
+    );
+    await waitFor(() => expect(mockApi.callsOf("get", "/cards?*").length).toBeGreaterThanOrEqual(1));
+    const first = new URL(mockApi.callsOf("get", "/cards?*")[0].path, "http://x").searchParams;
+    expect(first.get("type")).toBe("Provider");
+    expect(first.get("search")).toBe("Globex");
+  });
+
+  it("debounces the search: a superseded keystroke never reaches the server", async () => {
+    vi.useFakeTimers();
+    try {
+      renderField();
+      // An empty field browses: no search term at all.
+      expect(cardSearches()).toEqual([""]);
+      const input = screen.getByLabelText("Provider");
+      fireEvent.change(input, { target: { value: "A" } });
+      act(() => vi.advanceTimersByTime(200));
+      fireEvent.change(input, { target: { value: "Ac" } });
+      // 400 ms in: the first keystroke's timer would have fired by now.
+      act(() => vi.advanceTimersByTime(200));
+      await act(async () => {});
+      expect(cardSearches()).not.toContain("A");
+      act(() => vi.advanceTimersByTime(200));
+      await act(async () => {});
+      expect(cardSearches()).toEqual(["", "Ac"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("follows the vendor value when the parent changes it", async () => {
+    const onChange = vi.fn();
+    const { rerender } = renderWithProviders(
+      <VendorField value="Globex" onChange={onChange} cardTypeKey="ITComponent" />,
+    );
+    expect(screen.getByLabelText("Provider")).toHaveValue("Globex");
+    rerender(wrapWithProviders(<VendorField value="Acme Corp" onChange={onChange} cardTypeKey="ITComponent" />));
+    expect(screen.getByLabelText("Provider")).toHaveValue("Acme Corp");
+  });
+
   it("uses the Provider label by default and an override when given", () => {
     const { unmount } = renderField();
     expect(screen.getByLabelText("Provider")).toBeInTheDocument();
@@ -109,6 +171,85 @@ describe("VendorField", () => {
     renderField({ fsId: FS_ID, cardTypeKey: "BusinessCapability" });
     await waitFor(() => expect(mockApi.callsOf("get", "/cards?*")).toHaveLength(1));
     expect(mockApi.callsOf("get", /^\/relations/)).toHaveLength(0);
+  });
+
+  it("ignores relation types that touch the card type but not Provider, or Provider but not the card type", async () => {
+    // Applications have relation types of their own, none of them to a Provider.
+    renderField({ fsId: FS_ID, cardTypeKey: "Application" });
+    await waitFor(() => expect(mockApi.callsOf("get", "/cards?*")).toHaveLength(1));
+    expect(mockApi.callsOf("get", /^\/relations/)).toHaveLength(0);
+  });
+
+  it("finds the Provider relation type among unrelated ones on either side", async () => {
+    withMetamodel(CARD_TYPES, [
+      makeRelationType({ key: "relITCToBC", source_type_key: "ITComponent", target_type_key: "BusinessCapability" }),
+      makeRelationType({ key: "relAppToProvider", source_type_key: "Application", target_type_key: "Provider" }),
+      REL_PROVIDER_TO_ITC,
+    ]);
+    renderField({ fsId: FS_ID });
+    await waitFor(() => expect(mockApi.callsOf("get", /^\/relations/)).toHaveLength(1));
+    expect(mockApi.callsOf("get", /^\/relations/)[0].path).toBe(RELATIONS_URL);
+  });
+
+  it("picks the Provider relation type with the lowest sort order, then by key", async () => {
+    const provider = (key: string, sort_order: number): RelationType =>
+      makeRelationType({ key, source_type_key: "Provider", target_type_key: "ITComponent", sort_order });
+    withMetamodel(CARD_TYPES, [provider("relA", 5), provider("relZ", 1), provider("relM", 1), provider("relB", 2)]);
+    mockApi.on("get", /^\/relations/, []);
+    const { unmount } = renderField({ fsId: FS_ID });
+    await waitFor(() => expect(mockApi.callsOf("get", /^\/relations/)).toHaveLength(1));
+    expect(mockApi.callsOf("get", /^\/relations/)[0].path).toBe(`/relations?card_id=${FS_ID}&type=relM`);
+    unmount();
+
+    // Unset sort orders count as 0.
+    mockApi.reset();
+    mockApi.on("get", "/cards?*", cardPage([]));
+    mockApi.on("get", /^\/relations/, []);
+    withMetamodel(CARD_TYPES, [provider("relC", 3), { ...provider("relQ", 0), sort_order: undefined } as RelationType, provider("relD", 2)]);
+    renderField({ fsId: FS_ID });
+    await waitFor(() => expect(mockApi.callsOf("get", /^\/relations/)).toHaveLength(1));
+    expect(mockApi.callsOf("get", /^\/relations/)[0].path).toBe(`/relations?card_id=${FS_ID}&type=relQ`);
+  });
+
+  it("looks the Provider up again for a new card or a new card type", async () => {
+    const OTHER = CARD_IDS.erp;
+    mockApi.on("get", /^\/relations/, []);
+    const onChange = vi.fn();
+    const { rerender } = renderWithProviders(
+      <VendorField value="" onChange={onChange} cardTypeKey="BusinessCapability" fsId={FS_ID} />,
+    );
+    await waitFor(() => expect(mockApi.callsOf("get", "/cards?*")).toHaveLength(1));
+    expect(mockApi.callsOf("get", /^\/relations/)).toHaveLength(0);
+
+    rerender(wrapWithProviders(<VendorField value="" onChange={onChange} cardTypeKey="ITComponent" fsId={FS_ID} />));
+    await waitFor(() => expect(mockApi.callsOf("get", /^\/relations/)).toHaveLength(1));
+    expect(mockApi.callsOf("get", /^\/relations/)[0].path).toBe(RELATIONS_URL);
+
+    rerender(wrapWithProviders(<VendorField value="" onChange={onChange} cardTypeKey="ITComponent" fsId={OTHER} />));
+    await waitFor(() => expect(mockApi.callsOf("get", /^\/relations/)).toHaveLength(2));
+    expect(mockApi.callsOf("get", /^\/relations/)[1].path).toBe(
+      `/relations?card_id=${OTHER}&type=${REL_PROVIDER_TO_ITC.key}`,
+    );
+  });
+
+  it("reads the Provider off whichever end of the relation it sits on, skipping unnamed ones", async () => {
+    withMetamodel(CARD_TYPES, [
+      makeRelationType({ key: "relITCToProvider", source_type_key: "ITComponent", target_type_key: "Provider" }),
+    ]);
+    mockApi.on("get", `/relations?card_id=${FS_ID}&type=relITCToProvider`, [
+      { id: "rel-0", type: "relITCToProvider", source_id: FS_ID, target_id: "ghost" },
+      {
+        id: "rel-1",
+        type: "relITCToProvider",
+        source_id: FS_ID,
+        target_id: GLOBEX.id,
+        source: { id: FS_ID, type: "ITComponent", name: "PostgreSQL" },
+        target: { id: GLOBEX.id, type: "Provider", name: "Globex" },
+      },
+    ]);
+    renderField({ fsId: FS_ID });
+    expect(await screen.findByText("Globex")).toBeInTheDocument();
+    expect(screen.queryByText("PostgreSQL")).not.toBeInTheDocument();
   });
 
   it("reports typed text as the vendor value", async () => {
@@ -132,6 +273,8 @@ describe("VendorField", () => {
     await user.click(screen.getByRole("option", { name: /Acme Corp/ }));
 
     expect(onChange).toHaveBeenCalledWith("Acme Corp");
+    // Picking reports the vendor once, not once more per input reset.
+    expect(onChange).toHaveBeenCalledTimes(1);
     expect(onProviderSelected).toHaveBeenCalledWith({ id: ACME.id, name: "Acme Corp" });
     await waitFor(() => expect(onRelationChange).toHaveBeenCalledTimes(1));
     // The old link goes first, then the new one in the type's direction.
@@ -143,6 +286,209 @@ describe("VendorField", () => {
     });
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
     expect(screen.getByLabelText("Provider")).toHaveValue("Acme Corp");
+  });
+
+  it("names the new link from the re-read, skipping rows without a name, and drops a stale chip", async () => {
+    mockApi.on("get", RELATIONS_URL, () =>
+      mockApi.callsOf("post", "/relations").length
+        ? [{ id: "rel-x", type: REL_PROVIDER_TO_ITC.key, source_id: "ghost", target_id: FS_ID }, ...linkedTo(ACME)]
+        : [EXISTING],
+    );
+    const { user, onRelationChange } = renderField({ fsId: FS_ID });
+    await screen.findByText("Globex");
+    await user.click(screen.getByLabelText("Provider"));
+    await user.click(await screen.findByRole("option", { name: /Acme Corp/ }));
+    await waitFor(() => expect(onRelationChange).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("Acme Corp")).toBeInTheDocument();
+    expect(screen.queryByText("Globex")).not.toBeInTheDocument();
+  });
+
+  it("shows no chip when the re-read after linking finds no named Provider", async () => {
+    mockApi.on("get", RELATIONS_URL, () => (mockApi.callsOf("post", "/relations").length ? [] : [EXISTING]));
+    const { user, onRelationChange } = renderField({ fsId: FS_ID });
+    await screen.findByText("Globex");
+    await user.click(screen.getByLabelText("Provider"));
+    await user.click(await screen.findByRole("option", { name: /Acme Corp/ }));
+    await waitFor(() => expect(onRelationChange).toHaveBeenCalledTimes(1));
+    expect(document.querySelector(".MuiChip-root")).toBeNull();
+  });
+
+  it("follows a metamodel change in which way round the Provider relation runs", async () => {
+    mockApi.on("get", /^\/relations/, []);
+    const onChange = vi.fn();
+    const ui = () => <VendorField value="" onChange={onChange} cardTypeKey="ITComponent" fsId={FS_ID} />;
+    const { user, rerender } = renderWithProviders(ui());
+    await waitFor(() => expect(mockApi.callsOf("get", /^\/relations/)).toHaveLength(1));
+
+    withMetamodel(CARD_TYPES, [
+      makeRelationType({ key: "relITCToProvider", source_type_key: "ITComponent", target_type_key: "Provider" }),
+    ]);
+    rerender(wrapWithProviders(ui()));
+    await waitFor(() => expect(mockApi.callsOf("get", /^\/relations/)).toHaveLength(2));
+
+    await user.click(screen.getByLabelText("Provider"));
+    await user.click(await screen.findByRole("option", { name: /Acme Corp/ }));
+    await waitFor(() => expect(mockApi.callsOf("post", "/relations")).toHaveLength(1));
+    expect(mockApi.callsOf("post", "/relations")[0].body).toEqual({
+      type: "relITCToProvider",
+      source_id: FS_ID,
+      target_id: ACME.id,
+    });
+  });
+
+  it("makes no relation calls for a card type without a Provider relation", async () => {
+    const { user, onProviderSelected } = renderField({ fsId: FS_ID, cardTypeKey: "BusinessCapability" });
+    await user.click(screen.getByLabelText("Provider"));
+    await user.click(await screen.findByRole("option", { name: /Acme Corp/ }));
+    expect(onProviderSelected).toHaveBeenCalledWith({ id: ACME.id, name: "Acme Corp" });
+    await waitFor(() => expect(mockApi.callsOf("get", "/cards?*").length).toBeGreaterThanOrEqual(1));
+    expect(mockApi.callsOf("get", /^\/relations/)).toHaveLength(0);
+    expect(mockApi.callsOf("post")).toHaveLength(0);
+  });
+
+  it("works without the optional callbacks", async () => {
+    // An error thrown inside an event handler never fails a test by itself;
+    // it is reported on window, so collect it there.
+    const errors: unknown[] = [];
+    const onError = (e: ErrorEvent) => {
+      errors.push(e.error);
+      e.preventDefault();
+    };
+    window.addEventListener("error", onError);
+    try {
+      const onChange = vi.fn();
+      const { user } = renderWithProviders(
+        <VendorField value="" onChange={onChange} cardTypeKey="ITComponent" />,
+      );
+      await user.click(screen.getByLabelText("Provider"));
+      await user.click(await screen.findByRole("option", { name: /Acme Corp/ }));
+      expect(await screen.findByText("Acme Corp", { selector: ".MuiChip-label" })).toBeInTheDocument();
+
+      // Clearing drops the chip too.
+      await user.click(screen.getByLabelText("Provider"));
+      await user.click(screen.getByTitle("Clear"));
+      expect(onChange).toHaveBeenLastCalledWith(undefined);
+      expect(screen.queryByText("Acme Corp", { selector: ".MuiChip-label" })).not.toBeInTheDocument();
+      expect(errors).toEqual([]);
+    } finally {
+      window.removeEventListener("error", onError);
+    }
+  });
+
+  it("creates a Provider without a card id and without the optional callbacks", async () => {
+    mockApi.on("post", "/cards", { id: "prov-new", name: "Initech Corp" });
+    const onChange = vi.fn();
+    const { user } = renderWithProviders(
+      <VendorField value="" onChange={onChange} cardTypeKey="ITComponent" />,
+    );
+    await user.type(screen.getByLabelText("Provider"), "Initech");
+    await user.click(await screen.findByRole("option", { name: /Create Provider "Initech"/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Create New Provider" });
+    await user.click(within(dialog).getByRole("button", { name: "Create & Link" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    // The server's name wins over what was typed: field, chip and the reported value.
+    expect(onChange).toHaveBeenLastCalledWith("Initech Corp");
+    expect(screen.getByLabelText("Provider")).toHaveValue("Initech Corp");
+    expect(screen.getByText("Initech Corp", { selector: ".MuiChip-label" })).toBeInTheDocument();
+    expect(mockApi.callsOf("post", "/relations")).toHaveLength(0);
+  });
+
+  it("links a created Provider to the card even without the selection callback", async () => {
+    mockApi.on("post", "/cards", { id: "prov-new", name: "Initech" });
+    const { user } = renderWithProviders(
+      <VendorField value="" onChange={vi.fn()} cardTypeKey="ITComponent" fsId={FS_ID} />,
+    );
+    await user.type(screen.getByLabelText("Provider"), "Initech");
+    await user.click(await screen.findByRole("option", { name: /Create Provider "Initech"/ }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Create & Link" }));
+    await waitFor(() => expect(mockApi.callsOf("post", "/relations")).toHaveLength(1));
+    expect(mockApi.callsOf("post", "/relations")[0].body).toEqual({
+      type: REL_PROVIDER_TO_ITC.key,
+      source_id: "prov-new",
+      target_id: FS_ID,
+    });
+  });
+
+  it("shows the create in progress, and is ready for the next one afterwards", async () => {
+    let release: (v: { id: string; name: string }) => void = () => {};
+    mockApi.on("post", "/cards", () => new Promise<{ id: string; name: string }>((resolve) => (release = resolve)));
+    const { user } = renderField();
+    await user.type(screen.getByLabelText("Provider"), "Initech");
+    await user.click(await screen.findByRole("option", { name: /Create Provider "Initech"/ }));
+    let dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Create & Link" }));
+    await waitFor(() => expect(mockApi.callsOf("post", "/cards")).toHaveLength(1));
+    expect(within(dialog).getByRole("button", { name: "Creating..." })).toBeDisabled();
+
+    await act(async () => release({ id: "prov-new", name: "Initech" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await user.clear(screen.getByLabelText("Provider"));
+    await user.type(screen.getByLabelText("Provider"), "Umbrella");
+    await user.click(await screen.findByRole("option", { name: /Create Provider "Umbrella"/ }));
+    dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Create & Link" })).toBeEnabled();
+  });
+
+  it("closes the create dialog on Escape without creating anything", async () => {
+    const { user } = renderField();
+    await user.type(screen.getByLabelText("Provider"), "Initech");
+    await user.click(await screen.findByRole("option", { name: /Create Provider "Initech"/ }));
+    await screen.findByRole("dialog");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockApi.callsOf("post")).toHaveLength(0);
+  });
+
+  it("offers to create a Provider when the matches are only partial", async () => {
+    const { user } = renderField();
+    await user.type(screen.getByLabelText("Provider"), "Acme");
+    await waitFor(() => expect(cardSearches()).toContain("Acme"));
+    expect(await screen.findByRole("option", { name: /Create Provider "Acme"/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Acme Corp/ })).toBeInTheDocument();
+  });
+
+  it("offers creation to a role granted Provider creation globally or on the type alone", async () => {
+    const { user, unmount } = renderField({}, userWith("inventory.view", "inventory.create"));
+    await user.type(screen.getByLabelText("Provider"), "Initech");
+    expect(await screen.findByRole("option", { name: /Create Provider "Initech"/ })).toBeInTheDocument();
+    unmount();
+
+    const typeOnly = makeUser({
+      role: "member",
+      permissions: { "inventory.view": true },
+      type_permissions: { Provider: { "inventory.create": true } },
+    });
+    const second = renderField({}, typeOnly);
+    await second.user.type(screen.getByLabelText("Provider"), "Initech");
+    expect(await screen.findByRole("option", { name: /Create Provider "Initech"/ })).toBeInTheDocument();
+  });
+
+  it("names the new link from the far end when the type runs card → Provider", async () => {
+    withMetamodel(CARD_TYPES, [
+      makeRelationType({ key: "relITCToProvider", source_type_key: "ITComponent", target_type_key: "Provider" }),
+    ]);
+    const url = `/relations?card_id=${FS_ID}&type=relITCToProvider`;
+    mockApi.on("get", url, () =>
+      mockApi.callsOf("post", "/relations").length
+        ? [
+            {
+              id: "rel-n",
+              type: "relITCToProvider",
+              source_id: FS_ID,
+              target_id: ACME.id,
+              source: { id: FS_ID, type: "ITComponent", name: "PostgreSQL" },
+              target: { id: ACME.id, type: "Provider", name: "Acme Corp" },
+            },
+          ]
+        : [],
+    );
+    const { user, onRelationChange } = renderField({ fsId: FS_ID });
+    await user.click(screen.getByLabelText("Provider"));
+    await user.click(await screen.findByRole("option", { name: /Acme Corp/ }));
+    await waitFor(() => expect(onRelationChange).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("Acme Corp", { selector: ".MuiChip-label" })).toBeInTheDocument();
+    expect(screen.queryByText("PostgreSQL")).not.toBeInTheDocument();
   });
 
   it("puts the Provider on the target side when the type runs card → Provider", async () => {

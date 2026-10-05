@@ -10,6 +10,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useComplianceRegulations", () =>
@@ -44,6 +45,12 @@ vi.mock("@/features/grc/compliance/FindingDetailDrawer", () => ({
           onClick={() => onUpdated({ ...finding, requirement: "Updated requirement" })}
         >
           mark updated
+        </button>
+        <button
+          type="button"
+          onClick={() => onUpdated({ ...finding, id: "f2", requirement: "Other row updated" })}
+        >
+          update other row
         </button>
       </div>
     ) : null,
@@ -94,7 +101,7 @@ vi.mock("@/features/grc/risk/CreateRiskDialog", () => ({
 
 import { mockApi } from "@/test/apiMock";
 import { hookState } from "@/test/hooks";
-import { renderWithProviders } from "@/test/render";
+import { renderWithProviders, wrapWithProviders } from "@/test/render";
 import { setViewportWidth } from "@/test/matchMedia";
 import type { ComplianceRegulation, TurboLensComplianceFinding } from "@/types";
 import ComplianceTab from "./ComplianceTab";
@@ -146,6 +153,7 @@ const FINDINGS: TurboLensComplianceFinding[] = [
     status: "compliant",
     severity: "low",
     decision: "verified",
+    review_note: "Signed off by the AI board",
     auto_resolved: true,
   }),
 ];
@@ -181,10 +189,27 @@ describe("ComplianceTab", () => {
     expect(await screen.findByText(/No compliance findings recorded/)).toBeInTheDocument();
   });
 
+  it("paints the spinner first, never a flash of the empty state", () => {
+    // The first commit, before any effect runs: what a browser paints while
+    // the request is still in flight.
+    const html = renderToStaticMarkup(wrapWithProviders(<ComplianceTab cardId={CARD_ID} />));
+    expect(html).toContain('role="progressbar"');
+    expect(html).not.toContain("No compliance findings recorded");
+    expect(mockApi.callsOf("get")).toHaveLength(0);
+  });
+
   it("renders a row per finding, naming the regulation from the catalogue or the built-in label", async () => {
     renderTab();
     expect(await screen.findByText("Keep a record of processing")).toBeInTheDocument();
     expect(screen.getByText("Compliance findings")).toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader").map((th) => th.textContent)).toEqual([
+      "Regulation",
+      "Article",
+      "Status",
+      "Severity",
+      "Lifecycle",
+      "Requirement",
+    ]);
 
     const row1 = screen.getByText("Keep a record of processing").closest("tr") as HTMLElement;
     // Admin-managed label wins over the built-in one.
@@ -200,6 +225,22 @@ describe("ComplianceTab", () => {
     expect(within(row2).getByText("—")).toBeInTheDocument();
     expect(within(row2).getByText("Verified")).toBeInTheDocument();
     expect(row2).toHaveStyle({ opacity: "0.65" });
+
+    // The lifecycle chip explains itself: the reviewer's note when there is
+    // one, otherwise what the lifecycle state means.
+    expect(
+      within(row1).getByLabelText("Fresh from the scanner. Awaiting human review."),
+    ).toHaveTextContent("New");
+    expect(within(row2).getByLabelText("Signed off by the AI board")).toHaveTextContent("Verified");
+  });
+
+  it("shows a regulation neither the catalogue nor the built-in labels know by its key", async () => {
+    mockApi.on("get", LIST, [
+      makeFinding({ id: "f9", requirement: "Follow the house rule", regulation: "acme_policy" }),
+    ]);
+    renderTab();
+    const row = (await screen.findByText("Follow the house rule")).closest("tr") as HTMLElement;
+    expect(within(row).getByText("acme_policy")).toBeInTheDocument();
   });
 
   it("re-queries with include_auto_resolved when the checkbox is ticked", async () => {
@@ -225,9 +266,22 @@ describe("ComplianceTab", () => {
     // Both the table row and the drawer reflect the update.
     expect(screen.getByTestId("drawer-requirement")).toHaveTextContent("Updated requirement");
     expect(screen.getByRole("cell", { name: "Updated requirement" })).toBeInTheDocument();
+    // Only the updated finding's row changed.
+    expect(screen.queryByRole("cell", { name: "Keep a record of processing" })).not.toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "Register the AI system" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "close drawer" }));
     expect(screen.queryByTestId("drawer")).not.toBeInTheDocument();
+  });
+
+  it("updates another finding's row without swapping the open drawer", async () => {
+    const { user } = renderTab();
+    await user.click(await screen.findByText("Keep a record of processing"));
+    await user.click(screen.getByRole("button", { name: "update other row" }));
+    expect(screen.getByTestId("drawer-requirement")).toHaveTextContent("Keep a record of processing");
+    expect(screen.getByRole("cell", { name: "Other row updated" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "Keep a record of processing" })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "Register the AI system" })).not.toBeInTheDocument();
   });
 
   it("hands the finding to the edit dialog and applies what it saved", async () => {
@@ -241,6 +295,8 @@ describe("ComplianceTab", () => {
     await user.click(screen.getByRole("button", { name: "save finding" }));
     expect(screen.queryByTestId("edit-dialog")).not.toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "Saved requirement" })).toBeInTheDocument();
+    // Saving does not reopen the drawer it was launched from.
+    expect(screen.queryByTestId("drawer")).not.toBeInTheDocument();
   });
 
   it("closes the edit dialog without changing the row", async () => {
@@ -263,6 +319,18 @@ describe("ComplianceTab", () => {
     expect(await screen.findByText("Risk detail page")).toBeInTheDocument();
   });
 
+  it("closes the risk dialog once the risk is created", async () => {
+    // No route table: the tab stays mounted after the navigation, so what it
+    // does with its own dialog is observable.
+    const { user } = renderWithProviders(<ComplianceTab cardId={CARD_ID} />);
+    await user.click(await screen.findByText("Keep a record of processing"));
+    await user.click(screen.getByRole("button", { name: "promote" }));
+    await user.click(screen.getByRole("button", { name: "risk created" }));
+    await waitFor(() => expect(mockApi.callsOf("get", LIST)).toHaveLength(2));
+    await waitFor(() => expect(screen.queryByTestId("risk-dialog")).not.toBeInTheDocument());
+    expect(await screen.findByText("Keep a record of processing")).toBeInTheDocument();
+  });
+
   it("dismisses the risk dialog and navigates to an existing risk from the drawer", async () => {
     const { user } = renderTab();
     await user.click(await screen.findByText("Keep a record of processing"));
@@ -282,8 +350,37 @@ describe("ComplianceTab", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.getByText("Art. 30")).toBeInTheDocument();
     expect(screen.getByText("GDPR (custom label)")).toBeInTheDocument();
+
+    const first = screen.getByText("Keep a record of processing").parentElement as HTMLElement;
+    expect(within(first).getByText("Non-compliant")).toBeInTheDocument();
+    expect(within(first).getByText("High")).toBeInTheDocument();
+    expect(within(first).getByText("New")).toBeInTheDocument();
+    const second = screen.getByText("Register the AI system").parentElement as HTMLElement;
+    // Not in the catalogue → the built-in label.
+    expect(within(second).getByText("EU AI Act")).toBeInTheDocument();
+    expect(within(second).getByText("Compliant")).toBeInTheDocument();
+    expect(within(second).getByText("Low")).toBeInTheDocument();
+    expect(within(second).getByText("Verified")).toBeInTheDocument();
+
     await user.click(screen.getByText("Register the AI system"));
     expect(screen.getByTestId("drawer-requirement")).toHaveTextContent("Register the AI system");
+  });
+
+  it("names an unknown regulation by its key on a phone too", async () => {
+    setViewportWidth(400);
+    mockApi.on("get", LIST, [
+      makeFinding({ id: "f9", requirement: "Follow the house rule", regulation: "acme_policy" }),
+    ]);
+    renderTab();
+    const card = (await screen.findByText("Follow the house rule")).parentElement as HTMLElement;
+    expect(within(card).getByText("acme_policy")).toBeInTheDocument();
+  });
+
+  it("stays quiet when the request is aborted rather than failed", async () => {
+    mockApi.abort("get", LIST);
+    renderTab();
+    expect(await screen.findByText(/No compliance findings recorded/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("surfaces a failed load as a dismissible alert", async () => {
@@ -291,6 +388,9 @@ describe("ComplianceTab", () => {
     const { user } = renderTab();
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(`GET ${LIST} failed`);
+    // Nothing was loaded, so the list is the empty state rather than a table.
+    expect(screen.getByText(/No compliance findings recorded/)).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
     await user.click(within(alert).getByRole("button", { name: /close/i }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
