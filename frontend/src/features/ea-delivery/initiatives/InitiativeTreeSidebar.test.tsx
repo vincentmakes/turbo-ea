@@ -106,10 +106,15 @@ describe("InitiativeTreeSidebar", () => {
     expect(screen.getByText("Cloud Migration")).toBeInTheDocument();
     expect(screen.getByText("Lift and shift")).toBeInTheDocument();
     expect(screen.getByText("Old programme")).toBeInTheDocument();
-    // Two artefacts on the programme.
+    // Two artefacts on the programme; initiatives without any get no count chip.
     expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.queryByText("0")).not.toBeInTheDocument();
     expect(screen.getByText("3 initiatives")).toBeInTheDocument();
+    expect(screen.queryByText("No initiatives match the current filters.")).not.toBeInTheDocument();
     expect(screen.queryByText("Unlinked artefacts")).not.toBeInTheDocument();
+    // The status dot names the raw status in its tooltip; it is not printed as text.
+    expect(screen.getByLabelText("atRisk")).toBeInTheDocument();
+    expect(screen.queryByText("atRisk")).not.toBeInTheDocument();
   });
 
   it("selects on row click, toggles a favourite without selecting, and collapses a branch", async () => {
@@ -130,6 +135,8 @@ describe("InitiativeTreeSidebar", () => {
     expect(screen.queryByText("Lift and shift")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "chevron_right" }));
     expect(screen.getByText("Lift and shift")).toBeInTheDocument();
+    // The chevron does not select the row it sits on.
+    expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
   it("drives every filter through its setter", async () => {
@@ -139,8 +146,17 @@ describe("InitiativeTreeSidebar", () => {
     await user.type(screen.getByPlaceholderText("Search initiatives…"), "c");
     expect(filterSetters.setSearch).toHaveBeenCalledWith("c");
 
-    await user.click(screen.getByRole("combobox", { name: "Status" }));
-    await user.click(within(await screen.findByRole("listbox")).getByRole("option", { name: "Archived" }));
+    // The current status shows in the closed select; the menu offers all three.
+    const status = screen.getByRole("combobox", { name: "Status" });
+    expect(status).toHaveTextContent("Active");
+    await user.click(status);
+    const statuses = await screen.findByRole("listbox");
+    expect(within(statuses).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Active",
+      "Archived",
+      "All",
+    ]);
+    await user.click(within(statuses).getByRole("option", { name: "Archived" }));
     expect(filterSetters.setStatus).toHaveBeenCalledWith("ARCHIVED");
 
     // Subtypes come from the Initiative card type, through the label resolver.
@@ -151,9 +167,13 @@ describe("InitiativeTreeSidebar", () => {
     expect(filterSetters.setSubtype).toHaveBeenCalledWith("project");
 
     await user.click(screen.getByRole("combobox", { name: "Artefacts" }));
-    await user.click(
-      within(await screen.findByRole("listbox")).getByRole("option", { name: "Without artefacts" }),
-    );
+    const artefacts = await screen.findByRole("listbox");
+    expect(within(artefacts).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "All",
+      "With artefacts",
+      "Without artefacts",
+    ]);
+    await user.click(within(artefacts).getByRole("option", { name: "Without artefacts" }));
     expect(filterSetters.setArtefacts).toHaveBeenCalledWith("without");
 
     await user.click(screen.getByRole("button", { name: "Favorites only" }));
@@ -178,5 +198,33 @@ describe("InitiativeTreeSidebar", () => {
 
     await user.click(screen.getByRole("combobox", { name: "Subtype" }));
     expect(within(await screen.findByRole("listbox")).getAllByRole("option")).toHaveLength(1);
+  });
+
+  it("counts decisions in the artefact chip", () => {
+    const AN_ADR = { id: "a1", title: "ADR" } as InitiativeTreeNode["adrs"][number];
+    renderSidebar({ tree: [node(PROGRAM, { soaws: [A_SOAW], adrs: [AN_ADR] })], totalCount: 1 });
+    expect(screen.getByText("2")).toBeInTheDocument();
+  });
+
+  it("takes subtypes from the Initiative type even when it is not the first type", async () => {
+    withMetamodel([
+      makeCardType({ key: "Application", subtypes: [makeSubtype({ key: "microservice", label: "Microservice" })] }),
+      INITIATIVE_TYPE,
+    ]);
+    const user = userEvent.setup();
+    renderSidebar();
+
+    await user.click(screen.getByRole("combobox", { name: "Subtype" }));
+    const subtypes = await screen.findByRole("listbox");
+    expect(within(subtypes).getByRole("option", { name: "Program" })).toBeInTheDocument();
+    expect(within(subtypes).queryByRole("option", { name: "Microservice" })).not.toBeInTheDocument();
+  });
+
+  it("puts a search icon in the search field", () => {
+    renderSidebar();
+    const field = screen.getByPlaceholderText("Search initiatives…").closest(
+      ".MuiInputBase-root",
+    ) as HTMLElement;
+    expect(within(field).getByText("search")).toBeInTheDocument();
   });
 });

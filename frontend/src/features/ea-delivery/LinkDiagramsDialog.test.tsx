@@ -109,5 +109,61 @@ describe("LinkDiagramsDialog", () => {
     expect(screen.getByRole("button", { name: "Saving..." })).toBeDisabled();
     // No initiative name to interpolate: the <strong> is empty rather than broken.
     expect(screen.queryByText("Cloud Migration", { selector: "strong" })).not.toBeInTheDocument();
+    const strong = screen.getByRole("dialog").querySelector("strong");
+    expect(strong).not.toBeNull();
+    expect(strong).toHaveTextContent(/^$/);
+  });
+
+  it("escapes HTML in the initiative name instead of injecting it", () => {
+    const risky = makeCard({ id: "init-x", type: "Initiative", name: "R&D <i>pilot</i>" });
+    renderDialog({ initiatives: [risky], linkInitiativeId: "init-x" });
+
+    const strong = screen.getByRole("dialog").querySelector("strong");
+    expect(strong).toHaveTextContent("R&D <i>pilot</i>");
+    expect(strong?.querySelector("i")).toBeNull();
+  });
+
+  it("keeps the whole list for a whitespace-only search", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(screen.getByPlaceholderText("Search diagrams..."), "  ");
+    expect(screen.getByText("Target landscape")).toBeInTheDocument();
+    expect(screen.getByText("Integration map")).toBeInTheDocument();
+    expect(screen.getByText("Data flows")).toBeInTheDocument();
+    expect(screen.queryByText("No diagrams match your search.")).not.toBeInTheDocument();
+  });
+
+  it("names linked initiatives from the latest initiatives prop", () => {
+    const { rerender } = renderDialog();
+    const flows = () => screen.getByText("Data flows").closest("li") as HTMLElement;
+    expect(within(flows()).getByText("Not linked")).toBeInTheDocument();
+
+    // Data flows is linked to init-1; seen from ERP Replacement, Cloud Migration is the other link.
+    rerender(
+      <LinkDiagramsDialog
+        open
+        onClose={vi.fn()}
+        diagrams={DIAGRAMS}
+        initiatives={[{ ...CLOUD, name: "Cloud Migration v2" }, ERP]}
+        linkInitiativeId="init-2"
+        linkSelected={[]}
+        linking={false}
+        onToggle={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+    expect(within(flows()).getByText("Cloud Migration v2")).toBeInTheDocument();
+  });
+
+  it("puts a search icon in the search field and keeps row checkboxes out of the tab order", () => {
+    renderDialog();
+    const field = screen.getByPlaceholderText("Search diagrams...").closest(
+      ".MuiInputBase-root",
+    ) as HTMLElement;
+    expect(within(field).getByText("search")).toBeInTheDocument();
+
+    const landscape = screen.getByText("Target landscape").closest("li") as HTMLElement;
+    expect(within(landscape).getByRole("checkbox")).toHaveAttribute("tabindex", "-1");
   });
 });

@@ -1,11 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
 import { mockApi } from "@/test/apiMock";
-import { USERS, ADMIN_USER, MEMBER_USER, INACTIVE_USER } from "@/test/fixtures/metamodel";
+import {
+  USERS,
+  ADMIN_USER,
+  MEMBER_USER,
+  VIEWER_USER,
+  INACTIVE_USER,
+} from "@/test/fixtures/metamodel";
 import SignatureRequestDialog from "./SignatureRequestDialog";
 
 function renderDialog(props: Partial<React.ComponentProps<typeof SignatureRequestDialog>> = {}) {
@@ -108,5 +116,95 @@ describe("SignatureRequestDialog", () => {
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("paints an empty search and the prompt before any effect runs", () => {
+    // MUI portals render nothing on the server; keep the dialog inline.
+    const theme = createTheme({ components: { MuiModal: { defaultProps: { disablePortal: true } } } });
+    const html = renderToStaticMarkup(
+      <ThemeProvider theme={theme}>
+        <SignatureRequestDialog
+          open
+          onClose={vi.fn()}
+          onRequest={vi.fn(async () => {})}
+          title="Request signatures"
+          description="Pick who must sign this decision."
+          requesting={false}
+        />
+      </ThemeProvider>,
+    );
+    const host = document.createElement("div");
+    host.innerHTML = html;
+    expect(host.querySelector("input")).toHaveValue("");
+    expect(within(host).queryByText("Search users...")).not.toBeNull();
+    expect(within(host).queryByText("No users found")).toBeNull();
+  });
+
+  it("does not load users while closed, and loads them once it opens", async () => {
+    const user = userEvent.setup();
+    const props = {
+      onClose: vi.fn(),
+      onRequest: vi.fn(async () => {}),
+      title: "Request signatures",
+      description: "Pick who must sign this decision.",
+      requesting: false,
+    };
+    const { rerender } = render(<SignatureRequestDialog open={false} {...props} />);
+    expect(mockApi.callsOf("get", "/users")).toHaveLength(0);
+
+    rerender(<SignatureRequestDialog open {...props} />);
+    await waitFor(() => expect(mockApi.callsOf("get", "/users")).toHaveLength(1));
+
+    await user.type(screen.getByPlaceholderText("Search users..."), "test");
+    expect(await screen.findByText(ADMIN_USER.display_name)).toBeInTheDocument();
+  });
+
+  it("starts with no signatories when reopened", async () => {
+    const user = userEvent.setup();
+    const props = {
+      onClose: vi.fn(),
+      onRequest: vi.fn(async () => {}),
+      title: "Request signatures",
+      description: "Pick who must sign this decision.",
+      requesting: false,
+    };
+    const { rerender } = render(<SignatureRequestDialog open {...props} />);
+    await waitFor(() => expect(mockApi.callsOf("get", "/users")).toHaveLength(1));
+
+    await user.type(screen.getByPlaceholderText("Search users..."), "viewer");
+    await user.click(await screen.findByText(VIEWER_USER.display_name));
+    expect(screen.getByRole("button", { name: "Request 1 Signature" })).toBeEnabled();
+
+    rerender(<SignatureRequestDialog open={false} {...props} />);
+    rerender(<SignatureRequestDialog open {...props} />);
+    expect(screen.queryByText(VIEWER_USER.display_name)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Request 0 Signatures" })).toBeDisabled();
+    await waitFor(() => expect(mockApi.callsOf("get", "/users")).toHaveLength(2));
+  });
+
+  it("matches a display name regardless of case", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await waitFor(() => expect(mockApi.callsOf("get", "/users")).toHaveLength(1));
+
+    // "test a" is in the admin's name, not in any email.
+    await user.type(screen.getByPlaceholderText("Search users..."), "TEST A");
+    expect(await screen.findByText(ADMIN_USER.display_name)).toBeInTheDocument();
+    expect(screen.queryByText(MEMBER_USER.display_name)).not.toBeInTheDocument();
+  });
+
+  it("treats a whitespace-only search as no search", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await waitFor(() => expect(mockApi.callsOf("get", "/users")).toHaveLength(1));
+
+    const search = screen.getByPlaceholderText("Search users...");
+    // The field carries a search icon.
+    const field = search.closest(".MuiInputBase-root") as HTMLElement;
+    expect(within(field).getByText("search")).toBeInTheDocument();
+    await user.type(search, "   ");
+    // The prompt stays in the results area; nothing is reported as missing.
+    expect(screen.getByText("Search users...", { selector: "p" })).toBeInTheDocument();
+    expect(screen.queryByText("No users found")).not.toBeInTheDocument();
   });
 });

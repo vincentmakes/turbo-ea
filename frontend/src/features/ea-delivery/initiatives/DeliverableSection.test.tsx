@@ -106,6 +106,9 @@ describe("DeliverableSection — SoAW", () => {
     const { user } = renderSection(
       <DeliverableSection kind="soaw" items={[soaw({ id: "s1", name: "Migration SoAW" })]} />,
     );
+    // A populated group shows no empty hint and no revision suffix for revision 1.
+    expect(screen.queryByText("No Statements of Architecture Work yet.")).not.toBeInTheDocument();
+    expect(screen.queryByText(/\(Rev/)).not.toBeInTheDocument();
     await user.click(screen.getByText("Migration SoAW"));
     expect(screen.getByTestId("location")).toHaveTextContent("/ea-delivery/soaw/s1");
   });
@@ -146,6 +149,12 @@ describe("DeliverableSection — diagrams", () => {
 
     expect(screen.getByText("Diagrams")).toBeInTheDocument();
     expect(screen.getByText("Linked to 3 cards")).toBeInTheDocument();
+    // The chip's tooltip repeats the count; a diagram on this initiative alone gets no chip.
+    expect(screen.getByText("Linked to 3 cards").closest(".MuiChip-root")).toHaveAttribute(
+      "aria-label",
+      "Linked to 3 cards",
+    );
+    expect(screen.queryByText("Linked to 1 card")).not.toBeInTheDocument();
 
     const unlinks = screen.getAllByRole("button", { name: "Unlink from this initiative" });
     expect(unlinks).toHaveLength(2);
@@ -161,7 +170,12 @@ describe("DeliverableSection — diagrams", () => {
 
   it("hides unlink and link controls without an initiative, and renders the empty hint", () => {
     renderSection(
-      <DeliverableSection kind="diagram" items={[diagram({ id: "d1", name: "Orphan" })]} />,
+      <DeliverableSection
+        kind="diagram"
+        items={[diagram({ id: "d1", name: "Orphan" })]}
+        onUnlinkDiagram={vi.fn()}
+        onLinkDiagrams={vi.fn()}
+      />,
     );
     expect(screen.queryByRole("button", { name: "Unlink from this initiative" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Link diagrams to this initiative/)).not.toBeInTheDocument();
@@ -188,5 +202,86 @@ describe("DeliverableSection — ADRs", () => {
   it("shows the empty hint for a group with no decisions and no add handler", () => {
     renderSection(<DeliverableSection kind="adr" items={[]} />);
     expect(screen.getByText("No Architecture Decisions yet.")).toBeInTheDocument();
+  });
+});
+
+describe("DeliverableSection — header and empty groups", () => {
+  it("labels the header add button Add", () => {
+    renderSection(
+      <DeliverableSection
+        kind="adr"
+        items={[adr({ id: "a1", title: "Adopt event bus" })]}
+        initiativeId="init-1"
+        onAdd={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Add Architecture Decision" })).toHaveTextContent(
+      /^addAdd$/,
+    );
+  });
+
+  it("offers only the Add stub for an empty diagram group, not the link affordance", () => {
+    renderSection(
+      <DeliverableSection
+        kind="diagram"
+        items={[]}
+        initiativeId="init-1"
+        onAdd={vi.fn()}
+        onLinkDiagrams={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /Add Diagram$/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Link diagrams to this initiative/)).not.toBeInTheDocument();
+  });
+});
+
+describe("DeliverableSection — status chips", () => {
+  const chipOf = (label: string) => screen.getByText(label).closest(".MuiChip-root");
+
+  it("labels and colours every SoAW status, and shows an unknown one as is", () => {
+    renderSection(
+      <DeliverableSection
+        kind="soaw"
+        items={[
+          soaw({ id: "s1", name: "One", status: "draft" }),
+          soaw({ id: "s2", name: "Two", status: "in_review" }),
+          soaw({ id: "s3", name: "Three", status: "approved" }),
+          // Not a status the type knows: the raw value is shown, uncoloured.
+          soaw({ id: "s4", name: "Four", status: "archived" as string as SoAW["status"] }),
+        ]}
+      />,
+    );
+    expect(chipOf("Draft")).toHaveClass("MuiChip-colorDefault");
+    expect(chipOf("In Review")).toHaveClass("MuiChip-colorWarning");
+    expect(chipOf("Approved")).toHaveClass("MuiChip-colorSuccess");
+    expect(chipOf("archived")).toHaveClass("MuiChip-colorDefault");
+  });
+
+  it("labels and colours every ADR status, and shows an unknown one as is", () => {
+    renderSection(
+      <DeliverableSection
+        kind="adr"
+        items={[
+          adr({ id: "a1", title: "One", status: "draft", reference_number: "ADR-1" }),
+          adr({ id: "a2", title: "Two", status: "in_review", reference_number: "ADR-2" }),
+          adr({
+            id: "a3",
+            title: "Three",
+            status: "approved" as string as ArchitectureDecision["status"],
+            reference_number: "ADR-3",
+          }),
+          adr({
+            id: "a4",
+            title: "Four",
+            status: "superseded" as string as ArchitectureDecision["status"],
+            reference_number: "ADR-4",
+          }),
+        ]}
+      />,
+    );
+    expect(chipOf("Draft")).toHaveClass("MuiChip-colorDefault");
+    expect(chipOf("In Review")).toHaveClass("MuiChip-colorWarning");
+    expect(chipOf("Approved")).toHaveClass("MuiChip-colorSuccess");
+    expect(chipOf("superseded")).toHaveClass("MuiChip-colorDefault");
   });
 });

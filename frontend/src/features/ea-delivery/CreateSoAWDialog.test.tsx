@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
@@ -138,5 +140,120 @@ describe("CreateSoAWDialog", () => {
       <CreateSoAWDialog open onClose={onClose} onCreated={vi.fn()} initiatives={INITIATIVES} />,
     );
     expect(screen.getByLabelText("Document name")).toHaveValue("");
+  });
+
+  it("paints an empty name and no initiative before any effect runs", () => {
+    // MUI portals render nothing on the server; keep the dialog inline.
+    const theme = createTheme({ components: { MuiModal: { defaultProps: { disablePortal: true } } } });
+    const html = renderToStaticMarkup(
+      <ThemeProvider theme={theme}>
+        <CreateSoAWDialog open onClose={vi.fn()} onCreated={vi.fn()} initiatives={INITIATIVES} />
+      </ThemeProvider>,
+    );
+    const host = document.createElement("div");
+    host.innerHTML = html;
+    const inputs = host.querySelectorAll("input");
+    // The document name, then the select's hidden value input.
+    expect(inputs).toHaveLength(2);
+    expect(inputs[0]).toHaveValue("");
+    expect(inputs[1]).toHaveValue("");
+    expect(within(host).queryByText("Creating...")).toBeNull();
+  });
+
+  it("labels the initiative picker and offers only None when no initiatives are given", async () => {
+    const user = userEvent.setup();
+    renderDialog({ initiatives: undefined });
+
+    expect(screen.getByText("Initiative", { selector: "label" })).toBeInTheDocument();
+    await user.click(screen.getByRole("combobox"));
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getAllByRole("option")).toHaveLength(1);
+    expect(within(listbox).getByRole("option", { name: "None" })).toBeInTheDocument();
+  });
+
+  it("does not submit a blank or whitespace-only name, by button or by Enter", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const field = screen.getByLabelText("Document name");
+    await user.type(field, "{Enter}");
+    await user.type(field, "   ");
+    expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
+    await user.type(field, "{Enter}");
+
+    expect(mockApi.callsOf("post", "/soaw")).toHaveLength(0);
+  });
+
+  it("marks the name field invalid only while an error is shown", async () => {
+    mockApi.fail("post", "/soaw", 400, "name taken");
+    const user = userEvent.setup();
+    renderDialog();
+
+    const field = screen.getByLabelText("Document name");
+    expect(field).toHaveAttribute("aria-invalid", "false");
+    await user.type(field, "Dup");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await screen.findByText("POST /soaw failed");
+    expect(field).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("falls back to a generic message when the failure is not an Error", async () => {
+    mockApi.on("post", "/soaw", () => Promise.reject("nope"));
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(screen.getByLabelText("Document name"), "Odd failure");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    expect(await screen.findByText("Failed to create")).toBeInTheDocument();
+  });
+
+  it("shows Creating... while in flight and clears the previous error on retry", async () => {
+    mockApi.fail("post", "/soaw", 400, "name taken");
+    const user = userEvent.setup();
+    const { onCreated } = renderDialog();
+
+    await user.type(screen.getByLabelText("Document name"), "Retry me");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+    await screen.findByText("POST /soaw failed");
+
+    let release: (v: SoAW) => void = () => {};
+    mockApi.on("post", "/soaw", () => new Promise<SoAW>((resolve) => (release = resolve)));
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    const busy = await screen.findByRole("button", { name: "Creating..." });
+    expect(busy).toBeDisabled();
+    expect(screen.queryByText("POST /soaw failed")).not.toBeInTheDocument();
+
+    release(CREATED);
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+  });
+
+  it("clears an error when the dialog is reopened", async () => {
+    mockApi.fail("post", "/soaw", 400, "name taken");
+    const user = userEvent.setup();
+    const props = { onClose: vi.fn(), onCreated: vi.fn(), initiatives: INITIATIVES };
+    const { rerender } = render(<CreateSoAWDialog open {...props} />);
+
+    await user.type(screen.getByLabelText("Document name"), "Dup");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+    await screen.findByText("POST /soaw failed");
+
+    rerender(<CreateSoAWDialog open={false} {...props} />);
+    rerender(<CreateSoAWDialog open {...props} />);
+    expect(screen.queryByText("POST /soaw failed")).not.toBeInTheDocument();
+  });
+
+  it("does not wipe the form while the dialog animates closed", async () => {
+    const user = userEvent.setup();
+    const props = { onClose: vi.fn(), onCreated: vi.fn(), initiatives: INITIATIVES };
+    const { rerender } = render(<CreateSoAWDialog open {...props} />);
+
+    await user.type(screen.getByLabelText("Document name"), "Half typed");
+    rerender(<CreateSoAWDialog open={false} {...props} />);
+
+    // The exit transition still shows the form; the reset is for the next open.
+    expect(screen.getByLabelText("Document name")).toHaveValue("Half typed");
   });
 });

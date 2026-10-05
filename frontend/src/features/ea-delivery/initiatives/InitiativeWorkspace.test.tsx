@@ -3,8 +3,22 @@ import { screen, within } from "@testing-library/react";
 
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 vi.mock("@/components/CardDetailSidePanel", () => ({
-  default: ({ cardId, open }: { cardId: string | null; open: boolean }) =>
-    open ? <div data-testid="card-preview" data-card-id={cardId} /> : null,
+  default: ({
+    cardId,
+    open,
+    onClose,
+  }: {
+    cardId: string | null;
+    open: boolean;
+    onClose: () => void;
+  }) =>
+    open ? (
+      <div data-testid="card-preview" data-card-id={cardId}>
+        <button type="button" onClick={onClose}>
+          close preview
+        </button>
+      </div>
+    ) : null,
 }));
 
 import { hookState, withMetamodel } from "@/test/hooks";
@@ -91,6 +105,9 @@ describe("InitiativeWorkspace", () => {
   it("renders the empty-state CTA and dispatches a creation with no initiative", async () => {
     const { user, onCreateArtefact } = renderWorkspace(null);
     expect(screen.getByText("Pick an initiative to start")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Select an initiative on the left to manage its Statements of Architecture Work/),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /New artefact/ }));
     await user.click(await screen.findByRole("menuitem", { name: /New Architecture Decision/ }));
@@ -158,6 +175,10 @@ describe("InitiativeWorkspace", () => {
     expect(screen.queryByTestId("card-preview")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Preview card" }));
     expect(screen.getByTestId("card-preview")).toHaveAttribute("data-card-id", "init-1");
+
+    // The panel's own close button dismisses it.
+    await user.click(screen.getByRole("button", { name: "close preview" }));
+    expect(screen.queryByTestId("card-preview")).not.toBeInTheDocument();
   });
 
   it("marks an archived initiative and falls back to the raw status key", () => {
@@ -165,9 +186,52 @@ describe("InitiativeWorkspace", () => {
     const chips = screen.getAllByText("Archived");
     expect(chips.length).toBeGreaterThanOrEqual(2); // header chip + details row
     expect(screen.getByText("customState")).toBeInTheDocument();
+    // No subtype: no empty subtype chip next to Archived and the status, no Subtype row.
+    const statusChip = screen.getByText("customState").closest(".MuiChip-root") as HTMLElement;
+    expect(statusChip.parentElement?.querySelectorAll(".MuiChip-root")).toHaveLength(2);
+    expect(screen.queryByText("Subtype")).not.toBeInTheDocument();
+    expect(screen.getByText("Status")).toBeInTheDocument();
     expect(screen.queryByText("Child initiatives")).not.toBeInTheDocument();
     expect(screen.queryByText("Description")).not.toBeInTheDocument();
     const favorite = screen.getByRole("button", { name: "Add to favorites" });
     expect(within(favorite).getByText("cards_star")).toBeInTheDocument();
+  });
+
+  it("shows the subtype label as a header chip and a Subtype detail row", () => {
+    renderWorkspace({ kind: "initiative", node: node(PROGRAM) });
+    // Header chip and details value, both resolved to the label — never the raw key.
+    expect(screen.getAllByText("Program")).toHaveLength(2);
+    expect(screen.queryByText("program")).not.toBeInTheDocument();
+    expect(screen.getByText("Subtype")).toBeInTheDocument();
+    expect(screen.getByText("Status")).toBeInTheDocument();
+  });
+
+  it("shows each child's subtype label, and no chip for a child without one", () => {
+    const PLAIN = makeCard({ id: "init-4", type: "Initiative", name: "Plain child" });
+    renderWorkspace({
+      kind: "initiative",
+      node: node(PROGRAM, { children: [node(CHILD, { level: 1 }), node(PLAIN, { level: 1 })] }),
+    });
+    const childRow = screen.getByText("Lift and shift").parentElement as HTMLElement;
+    expect(within(childRow).getByText("Project")).toBeInTheDocument();
+    expect(screen.queryByText("project")).not.toBeInTheDocument();
+    const plainRow = screen.getByText("Plain child").parentElement as HTMLElement;
+    expect(plainRow.querySelectorAll(".MuiChip-root")).toHaveLength(0);
+  });
+
+  it.each([
+    ["atRisk", "At Risk"],
+    ["offTrack", "Off Track"],
+    ["onHold", "On Hold"],
+    ["completed", "Completed"],
+  ])("labels the %s initiative status as %s", (status, label) => {
+    const card = makeCard({
+      id: "init-9",
+      type: "Initiative",
+      name: "Status probe",
+      attributes: { initiativeStatus: status },
+    });
+    renderWorkspace({ kind: "initiative", node: node(card) });
+    expect(screen.getByText(label)).toBeInTheDocument();
   });
 });
