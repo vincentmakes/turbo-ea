@@ -855,14 +855,17 @@ jobs:
               mcp) label="MCP server coverage" ;;
               *) label="$suite coverage" ;;
             esac
-            # --argjson rejects anything that is not a number.
-            jq -n --arg label "$label" --argjson pct "$(cat "$total")" '{
+            # --argjson rejects anything that is not a number. The colour is
+            # picked from the rounded figure the badge shows, never the raw
+            # one, or 69.6 reads "70%" in the colour of the band below 70.
+            jq -n --arg label "$label" --argjson pct "$(cat "$total")" '
+              ($pct | round) as $shown | {
               schemaVersion: 1,
               label: $label,
-              message: "\($pct | round)%",
-              color: (if $pct >= 90 then "brightgreen" elif $pct >= 80 then "green"
-                      elif $pct >= 70 then "yellowgreen" elif $pct >= 60 then "yellow"
-                      elif $pct >= 50 then "orange" else "red" end)
+              message: "\($shown)%",
+              color: (if $shown >= 90 then "brightgreen" elif $shown >= 80 then "green"
+                      elif $shown >= 70 then "yellowgreen" elif $shown >= 60 then "yellow"
+                      elif $shown >= 50 then "orange" else "red" end)
             }' > "$suite.json"
           done
           git add -A
