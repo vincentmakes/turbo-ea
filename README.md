@@ -2,9 +2,13 @@
 
 
 [![CI](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml/badge.svg)](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml)
+[![Backend coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/vincentmakes/turbo-ea/coverage/backend.json)](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml?query=branch%3Amain)
+[![Frontend coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/vincentmakes/turbo-ea/coverage/frontend.json)](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml?query=branch%3Amain)
+[![MCP server coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/vincentmakes/turbo-ea/coverage/mcp.json)](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml?query=branch%3Amain)
 [![License: FSL-1.1-MIT](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB.svg)](https://www.python.org/)
 [![React 19](https://img.shields.io/badge/react-19-61DAFB.svg)](https://react.dev/)
+[![GHCR pulls](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/vincentmakes/turbo-ea/ghcr-stats/backend.json&query=$.downloads_compact&label=ghcr%20pulls&color=blue)](https://github.com/vincentmakes/turbo-ea/pkgs/container/turbo-ea%2Fbackend)
 [![GitHub Sponsors Badge](https://img.shields.io/badge/GitHub%20Sponsors-FF009D?logo=githubsponsors&logoColor=fff&style=flat-square)](https://github.com/sponsors/vincentmakes)
 
 

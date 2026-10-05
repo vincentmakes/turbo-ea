@@ -15,8 +15,8 @@
 # The scrape runs read-only; only the publish job, which runs nothing
 # third-party, holds `contents: write`.
 #
-# Badge (the backend is pulled once per install, so it counts installs):
-#   https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/vincentmakes/turbo-ea/ghcr-stats/backend.json&query=downloads_compact&label=ghcr+pulls&style=flat-square
+# The README's "ghcr pulls" badge reads backend.json: the backend is pulled
+# once per install, so its count reads as installs.
 name: GHCR Stats
 
 on:
@@ -111,7 +111,7 @@ jobs:
           remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git init -q branch && cd branch
           git config user.name "github-actions[bot]"
-          git config user.email "41898233+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # Build on the existing branch (a daily history of the counts); the
           # first run creates it as an orphan with no code in it.
           if git fetch -q --depth 1 "$remote" ghcr-stats 2>/dev/null; then

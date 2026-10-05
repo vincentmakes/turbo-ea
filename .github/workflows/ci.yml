@@ -305,6 +305,21 @@ jobs:
             --fail-under=80 --format markdown:diff-cover.md
           cat diff-cover.md >> "$GITHUB_STEP_SUMMARY"
         working-directory: backend
+      # On main, hand the suite-wide total to the coverage-badges job. Only
+      # reached when the floor step passed (no always()).
+      - name: Record the total for the coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p ../coverage-badge
+          python -m coverage report --format=total --precision=1 --fail-under=0 \
+            > ../coverage-badge/backend
+        working-directory: backend
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-badge-backend
+          path: coverage-badge/
+          retention-days: 1
 
   backend-typecheck:
     name: Backend Type Check
@@ -632,6 +647,20 @@ jobs:
             --fail-under=80 --format markdown:diff-cover.md
           cat diff-cover.md >> "$GITHUB_STEP_SUMMARY"
         working-directory: frontend
+      # On main, hand the line coverage to the coverage-badges job (as in the
+      # backend aggregate: only after the floors passed).
+      - name: Record the total for the coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p ../coverage-badge
+          jq -r '.total.lines.pct' coverage/coverage-summary.json > ../coverage-badge/frontend
+        working-directory: frontend
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-badge-frontend
+          path: coverage-badge/
+          retention-days: 1
 
   # ── MCP Server ───────────────────────────────────────────────────────
   # The browser smoke suite: the diagram editor, the BPMN modeler, the Gantt,
@@ -762,6 +791,82 @@ jobs:
             --fail-under=80 --format markdown:diff-cover.md
           cat diff-cover.md >> "$GITHUB_STEP_SUMMARY"
         working-directory: mcp-server
+      - name: Record the total for the coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p ../coverage-badge
+          python -m coverage report --format=total --precision=1 --fail-under=0 \
+            > ../coverage-badge/mcp
+        working-directory: mcp-server
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-badge-mcp
+          path: coverage-badge/
+          retention-days: 1
+
+  # ── Coverage badges ──────────────────────────────────────────────────
+  # On main, turns the totals the three test jobs hand over into shields.io
+  # endpoint files (backend.json, frontend.json, mcp.json) on the `coverage`
+  # data branch, which the README badges read. `main` itself is never
+  # written. A suite that did not run on this push (path filter) or failed
+  # keeps its last published value. The job runs only on push to main, so no
+  # pull-request code ever holds the write token.
+  coverage-badges:
+    name: Coverage Badges
+    needs: [backend-test-integration, frontend-test, mcp-test]
+    if: >-
+      always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && contains(needs.*.result, 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: coverage-badges
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: coverage-badge-*
+          merge-multiple: true
+          path: totals
+      - name: Commit to the coverage branch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git init -q branch && cd branch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch -q --depth 1 "$remote" coverage 2>/dev/null; then
+            git checkout -q -b coverage FETCH_HEAD
+          else
+            git checkout -q --orphan coverage
+          fi
+          for total in ../totals/*; do
+            suite=$(basename "$total")
+            case "$suite" in
+              mcp) label="MCP server coverage" ;;
+              *) label="$suite coverage" ;;
+            esac
+            # --argjson rejects anything that is not a number.
+            jq -n --arg label "$label" --argjson pct "$(cat "$total")" '{
+              schemaVersion: 1,
+              label: $label,
+              message: "\($pct | round)%",
+              color: (if $pct >= 90 then "brightgreen" elif $pct >= 80 then "green"
+                      elif $pct >= 70 then "yellowgreen" elif $pct >= 60 then "yellow"
+                      elif $pct >= 50 then "orange" else "red" end)
+            }' > "$suite.json"
+          done
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Coverage unchanged; nothing to commit."
+            exit 0
+          fi
+          git commit -q -m "chore: update coverage badges [skip ci]"
+          git push -q "$remote" coverage
 
   # ── OpenAPI Spec (auto-regenerated for the docs site) ────────────────
   # On PRs:  fails if docs/api/openapi.json has drifted from the backend.
