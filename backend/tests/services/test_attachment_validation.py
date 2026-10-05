@@ -6,12 +6,33 @@ import pytest
 
 from app.services.attachment_validation import (
     ACCEPTED_EXTENSIONS,
+    ACCEPTED_LABEL,
     MAX_ATTACHMENT_BYTES,
     MAX_ATTACHMENT_MB,
+    SNIFF_BYTES,
+    AttachmentFormat,
     InvalidAttachmentError,
+    _is_7z,
+    _is_eml,
+    _is_gif,
+    _is_gzip,
+    _is_jpeg,
+    _is_json,
+    _is_ole2,
+    _is_pdf,
+    _is_png,
+    _is_svg,
+    _is_tar,
+    _is_text,
+    _is_webp,
+    _is_xml,
+    _is_zip,
+    _text_body,
     extension_of,
+    extensions_for_mime,
     resolve_format,
     validate_attachment,
+    validate_content,
 )
 
 # Minimal heads that are genuinely the container each extension claims.
@@ -164,3 +185,150 @@ class TestSizeConstant:
     def test_resolve_format_does_not_read_content(self):
         # Resolving happens before the body is read, so it must work on a name.
         assert resolve_format("anything.png").mime == "image/png"
+
+
+# ---------------------------------------------------------------------------
+# Each signature, at its edge: the genuine bytes pass and a one-byte miss fails.
+# ---------------------------------------------------------------------------
+
+LABEL = (
+    "7Z, CSV, DOC, DOCX, EML, GIF, GZ, JPEG, JPG, JSON, MD, MSG, ODG, ODP, ODS, ODT, "
+    "PDF, PNG, PPT, PPTX, SVG, TAR, TGZ, TXT, WEBP, XLS, XLSX, XML, ZIP"
+)
+
+SIGNATURES = [
+    # (sniffer, bytes, expected)
+    (_is_pdf, b"%PDF-1.4", True),
+    (_is_pdf, b"junk\n%PDF-1.4", True),
+    (_is_pdf, b"%PDF1.4", False),
+    (_is_pdf, b"x" * 1019 + b"%PDF-", True),
+    (_is_pdf, b"x" * 1020 + b"%PDF-", False),
+    (_is_zip, b"PK\x03\x04", True),
+    (_is_zip, b"PK\x05\x06", True),
+    (_is_zip, b"PK\x07\x08", True),
+    (_is_zip, b"PK\x03\x05", False),
+    (_is_zip, b"PK\x03", False),
+    (_is_zip, b"xPK\x03\x04", False),
+    (_is_ole2, b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1", True),
+    (_is_ole2, b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe2", False),
+    (_is_gzip, b"\x1f\x8b", True),
+    (_is_gzip, b"\x1f\x8c", False),
+    (_is_gzip, b"\x1f", False),
+    (_is_tar, b"\x00" * 257 + b"ustar", True),
+    (_is_tar, b"\x00" * 256 + b"ustar", False),
+    (_is_tar, b"\x00" * 257 + b"ustaR", False),
+    (_is_7z, b"7z\xbc\xaf\x27\x1c", True),
+    (_is_7z, b"7z\xbc\xaf\x27\x1d", False),
+    (_is_png, b"\x89PNG\r\n\x1a\n", True),
+    (_is_png, b"\x89PNG\r\n\x1a\r", False),
+    (_is_jpeg, b"\xff\xd8\xff", True),
+    (_is_jpeg, b"\xff\xd8\xfe", False),
+    (_is_gif, b"GIF87a", True),
+    (_is_gif, b"GIF89a", True),
+    (_is_gif, b"GIF88a", False),
+    (_is_webp, b"RIFF\x00\x00\x00\x00WEBP", True),
+    (_is_webp, b"RIFX\x00\x00\x00\x00WEBP", False),
+    (_is_webp, b"RIFF\x00\x00\x00\x00WEBQ", False),
+    (_is_webp, b"RIFF\x00\x00\x00WEBP", False),
+    (_is_text, b"", False),
+    (_is_text, b"plain", True),
+    (_is_text, b"a\x00b", False),
+    (_is_text, b"\xff\xfea\x00", True),
+    (_is_text, b"\xfe\xff\x00a", True),
+    (_is_json, b"[1]", True),
+    (_is_json, b"\xef\xbb\xbf \n{}", True),
+    (_is_json, b"x{}", False),
+    (_is_json, b"{\x00}", False),
+    (_is_json, b"", False),
+    (_is_xml, b"<a/>", True),
+    (_is_xml, b"\xef\xbb\xbf\t<a/>", True),
+    (_is_xml, b"a<b/>", False),
+    (_is_xml, b"<a>\x00</a>", False),
+    (_is_svg, b"<SVG xmlns='x'/>", True),
+    (_is_svg, b"<?xml?>\n<svg/>", True),
+    (_is_svg, b"<html/>", False),
+    (_is_svg, b"svg <svg/>", False),
+    (_is_eml, b"From: a@b.c", True),
+    (_is_eml, b"X-Mailer:\tthing", True),
+    (_is_eml, b"\xef\xbb\xbf  Subject: hi", True),
+    (_is_eml, b"Received: x\nhello", True),
+    (_is_eml, b"1From: a@b.c", False),
+    (_is_eml, b"From:a@b.c", False),
+    (_is_eml, b"From a: b", False),
+    (_is_eml, b"hello\nFrom: a@b.c", False),
+    (_is_eml, b"From: a\x00", False),
+    (_is_eml, b"", False),
+]
+
+
+class TestSignatures:
+    @pytest.mark.parametrize(("sniff", "head", "expected"), SIGNATURES)
+    def test_signature(self, sniff, head, expected):
+        assert sniff(head) is expected
+
+    def test_text_body_skips_a_utf8_bom_and_leading_whitespace(self):
+        assert _text_body(b"\xef\xbb\xbf \n\tbody ") == b"body "
+        assert _text_body(b"  body") == b"body"
+        assert _text_body(b"\xef\xbbx") == b"\xef\xbbx"
+
+
+class TestNamesAndMessages:
+    @pytest.mark.parametrize(
+        ("filename", "ext"),
+        [
+            ("report.PDF", ".pdf"),
+            ("dir/sub/a.Docx", ".docx"),
+            ("C:\\Users\\me\\a.XLSX", ".xlsx"),
+            ("  spaced.txt  ", ".txt"),
+            ("a.b/c", ""),
+            ("a/b.c\\d", ""),
+            ("dir/.hidden", ""),
+            ("", ""),
+            (None, ""),
+        ],
+    )
+    def test_extension_of(self, filename, ext):
+        assert extension_of(filename) == ext
+
+    def test_extensions_for_mime(self):
+        assert extensions_for_mime("image/jpeg") == (".jpeg", ".jpg")
+        assert extensions_for_mime("application/gzip") == (".gz", ".tgz")
+        assert extensions_for_mime("application/pdf") == (".pdf",)
+        assert extensions_for_mime("application/x-msdownload") == ()
+
+    def test_the_accepted_list(self):
+        assert ACCEPTED_LABEL == LABEL
+        assert ACCEPTED_EXTENSIONS == tuple(sorted(ACCEPTED_EXTENSIONS))
+        assert len(ACCEPTED_EXTENSIONS) == 29
+
+    def test_unlisted_extension_message(self):
+        with pytest.raises(InvalidAttachmentError) as exc:
+            resolve_format("setup.EXE")
+        assert str(exc.value) == f"File type '.exe' is not allowed. Accepted: {LABEL}."
+
+    def test_missing_extension_message(self):
+        with pytest.raises(InvalidAttachmentError) as exc:
+            resolve_format("README")
+        assert str(exc.value) == f"File type with no extension is not allowed. Accepted: {LABEL}."
+
+    def test_empty_and_mismatch_messages(self):
+        with pytest.raises(InvalidAttachmentError) as exc:
+            validate_content(resolve_format("a.pdf"), b"")
+        assert str(exc.value) == "File is empty"
+        with pytest.raises(InvalidAttachmentError) as exc:
+            validate_content(resolve_format("a.pdf"), b"MZ")
+        assert str(exc.value) == "File content does not match its '.pdf' extension."
+
+    def test_only_the_sniff_window_is_inspected(self):
+        seen: list[int] = []
+
+        def sniff(head: bytes) -> bool:
+            seen.append(len(head))
+            return True
+
+        fmt = AttachmentFormat(".x", "x/x", "X", sniff)
+        validate_content(fmt, b"a" * (SNIFF_BYTES + 50))
+        assert seen == [SNIFF_BYTES] == [1024]
+
+    def test_an_invalid_attachment_is_a_value_error(self):
+        assert issubclass(InvalidAttachmentError, ValueError)

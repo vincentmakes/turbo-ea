@@ -139,7 +139,7 @@ def _check_addresses(host: str) -> None:
         try:
             ip = ipaddress.ip_address(addr)
         except ValueError:  # pragma: no cover — getaddrinfo returns literals
-            continue
+            continue  # pragma: no mutate, unreachable: getaddrinfo returns IP literals
         if (
             ip.is_private
             or ip.is_loopback
@@ -245,7 +245,7 @@ async def fetch_logo(url: str, sniff: SniffFn) -> tuple[bytes, str]:
         return data, mime
 
     # Unreachable: the loop either returns or raises.
-    raise LogoFetchError("image_url_unreachable", "Too many redirects.")
+    raise LogoFetchError("image_url_unreachable", "Too many redirects.")  # pragma: no mutate, unreachable: every hop returns or raises
 
 
 class _FetchCache:
