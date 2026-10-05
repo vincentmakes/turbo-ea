@@ -33,3 +33,30 @@ mcp = 68
 "mcp-server/turbo_ea_mcp/api_client.py" = 94  # chunked id lookups, origin + batch headers
 "mcp-server/turbo_ea_mcp/identity.py" = 83
 "mcp-server/turbo_ea_mcp/batches.py" = 95     # mutation-batch ledger and confirm tokens
+
+# Backend, measured file by file with mutmut_scope.py on 2026-10-05 after the
+# test-hardening passes. Each floor sits about 2 points under its score.
+"backend/app/core/security.py" = 95                   # JWTs, portal tokens, the res claim
+"backend/app/core/permissions.py" = 98                # permission registry, type cells
+"backend/app/core/encryption.py" = 98                 # Fernet secrets at rest
+"backend/app/services/public_access.py" = 92          # SSO gate, visitor email, cookies
+"backend/app/services/card_read_scope.py" = 92        # the one card read scope
+"backend/app/services/attachment_validation.py" = 88  # uploads are what their bytes say
+"backend/app/services/relation_orientation.py" = 96   # relations in their type's direction
+"backend/app/services/calculation_engine.py" = 90     # the formula engine
+"backend/app/services/risk_service.py" = 92           # risk register metrics and seeding
+"backend/app/services/lifecycle.py" = 96              # does this card's cost count
+"backend/app/services/fiscal_year.py" = 86
+"backend/app/services/card_flags.py" = 95             # orphaned / stale / EOL coverage
+"backend/app/services/extensions/cron.py" = 93        # extension job schedules
+"backend/app/services/bpmn_flow_order.py" = 94        # the reading order of a process
+
+# Frontend, measured with Stryker (static mutants ignored) on 2026-10-05.
+"frontend/src/lib/returnPath.ts" = 98                # post-SSO open-redirect guards
+"frontend/src/lib/routePermissions.ts" = 86          # route gating (its table is static)
+"frontend/src/lib/relationSort.ts" = 93
+"frontend/src/lib/searchRank.ts" = 92
+"frontend/src/lib/cardTree.ts" = 87
+"frontend/src/lib/fiscalYear.ts" = 93
+"frontend/src/components/grid/dragFill.ts" = 92
+"frontend/src/features/reports/portfolioHelpers.ts" = 67
