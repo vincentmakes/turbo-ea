@@ -17,6 +17,7 @@ from app.services.bpmn_flow_order import (
     _order_within,
     _tarjan_scc,
     _weak_component_rank,
+    order_flow_nodes,
 )
 
 
@@ -115,3 +116,21 @@ class TestWeakComponentRank:
         doc = {"a": 0, "b": 1}
         ranks = _weak_component_rank(["a", "b"], {("a", "ghost"), ("ghost", "b")}, doc)
         assert ranks["a"] != ranks["b"]
+
+
+class TestEdgeFiltering:
+    """An edge ``order_flow_nodes`` must ignore is skipped on its own — the
+    edges after it still order the nodes."""
+
+    def test_a_self_loop_listed_first(self):
+        order = order_flow_nodes(["a", "b"], [("a", "a"), ("b", "a")], {})
+        assert order == ["b", "a"]
+
+    def test_a_flow_into_its_own_sub_process_listed_first(self):
+        # x sits inside S; x → S lifts to S → S at the top level, which says
+        # nothing about the order there.
+        order = order_flow_nodes(
+            ["a", "b", "S", "x"], [("x", "S"), ("b", "a")], {"x": "S", "a": None, "b": None}
+        )
+        assert order.index("b") < order.index("a")
+        assert order.index("S") < order.index("x")

@@ -15,11 +15,16 @@ import pytest
 from sqlalchemy import select
 
 from app.models.event import Event
+from app.models.notification import Notification
 from app.models.risk import Risk, RiskCard
-from app.models.risk_mitigation_task import RiskMitigationTask
+from app.models.risk_mitigation_task import (
+    RiskMitigationTask,
+    RiskMitigationTaskOccurrence,
+)
 from app.models.todo import Todo
 from app.models.turbolens import TurboLensAnalysisRun, TurboLensComplianceFinding
 from app.services import risk_service
+from app.services.card_read_scope import CardReadScope
 from app.services.risk_service import (
     build_level_matrix,
     compute_metrics,
@@ -27,7 +32,10 @@ from app.services.risk_service import (
     link_cards,
     promote_compliance_finding,
     risk_count,
+    risk_snapshot,
     risk_summary,
+    risk_to_dict,
+    sync_owner_todo,
     validate_status_transition,
 )
 from tests.conftest import create_card, create_card_type, create_role, create_user
@@ -86,11 +94,30 @@ class TestLevelMatrix:
     def test_incomplete_or_unknown_pairs_are_not_counted(self, fields):
         assert build_level_matrix([risk(**fields)]) == [[0] * 4 for _ in range(4)]
 
+    def test_a_skipped_risk_does_not_end_the_count(self):
+        risks = [
+            risk(initial_probability="high", initial_impact=None),
+            risk(initial_probability="bogus", initial_impact="low"),
+            risk(initial_probability="high", initial_impact="low"),
+        ]
+        assert build_level_matrix(risks) == [
+            [0, 0, 0, 0],
+            [0, 0, 0, 1],
+            [0, 0, 0, 0],
+            [0, 0, 0, 0],
+        ]
+
 
 class _Frozen(datetime):
     @classmethod
     def now(cls, tz=None):
         return NOW
+
+
+class _FrozenOffTheHour(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return datetime(2026, 3, 15, 12, 34, 56, 789000, tzinfo=timezone.utc)
 
 
 class TestComputeMetrics:
@@ -145,6 +172,22 @@ class TestComputeMetrics:
         assert metrics["initial_matrix"] == [[0] * 4 for _ in range(4)]
         assert metrics["residual_matrix"] == [[0] * 4 for _ in range(4)]
 
+    def test_the_month_starts_at_midnight_whatever_the_clock_says(self, monkeypatch):
+        monkeypatch.setattr(risk_service, "datetime", _FrozenOffTheHour)
+        overdue = date(2026, 3, 14)
+        risks = [
+            risk(status="in_progress", target_resolution_date=overdue, created_at=MONTH_START),
+            risk(
+                status="in_progress",
+                target_resolution_date=overdue,
+                created_at=MONTH_START - timedelta(microseconds=1),
+            ),
+        ]
+        metrics = compute_metrics(risks)
+        assert metrics["created_this_month"] == 1
+        assert metrics["by_status"]["in_progress"] == 2
+        assert metrics["overdue"] == 2
+
     def test_no_risks(self):
         metrics = compute_metrics([])
         assert metrics["total"] == 0
@@ -188,6 +231,28 @@ class TestSummaryAndTransitions:
 
     def test_staying_put_is_always_allowed(self):
         validate_status_transition("legacy", "legacy")
+
+
+class TestSnapshot:
+    def test_values_are_json_ready(self):
+        owner = uuid.uuid4()
+        snap = risk_snapshot(
+            risk(
+                title="Snap",
+                owner_id=owner,
+                target_resolution_date=date(2026, 6, 1),
+                accepted_at=NOW,
+                initial_probability="high",
+            )
+        )
+        assert snap["owner_id"] == str(owner)
+        assert snap["target_resolution_date"] == "2026-06-01"
+        assert snap["accepted_at"] == "2026-03-15T12:00:00+00:00"
+        assert (snap["title"], snap["initial_probability"], snap["accepted_by"]) == (
+            "Snap",
+            "high",
+            None,
+        )
 
 
 @pytest.fixture
@@ -278,6 +343,236 @@ class TestCreateRisk:
         )
         assert [(e.card_id, e.user_id) for e in events] == [(card.id, actor.id)]
         assert events[0].data["created"] is True
+
+    async def test_the_event_payload(self, db, people):
+        actor, _ = people
+        card = await create_card(db, card_type="Application", name="App")
+        r = await create_risk(
+            db,
+            title="Payload",
+            category="security",
+            initial_probability="high",
+            initial_impact="high",
+            card_ids=[card.id],
+            actor_id=actor.id,
+            event_extra={"via": "test"},
+        )
+        event = (
+            await db.execute(select(Event).where(Event.event_type == "risk.added"))
+        ).scalar_one()
+        expected = {
+            "risk_id": str(r.id),
+            "reference": "R-000001",
+            "title": "Payload",
+            "level": r.initial_level,
+            "status": "identified",
+            "category": "security",
+            "link": f"/ea-delivery/risks/{r.id}",
+            "summary": risk_summary(r),
+            "via": "test",
+            "created": True,
+        }
+        assert r.initial_level is not None
+        assert {k: event.data.get(k) for k in expected} == expected
+
+
+class TestSyncOwnerTodo:
+    @pytest.mark.parametrize(
+        "status, todo_status",
+        [
+            ("identified", "open"),
+            ("in_progress", "open"),
+            ("mitigated", "done"),
+            ("monitoring", "done"),
+            ("accepted", "done"),
+            ("closed", "done"),
+        ],
+    )
+    async def test_the_todo_follows_the_risk(self, db, people, status, todo_status):
+        actor, owner = people
+        r = await create_risk(db, title="Lifecycle", owner_id=owner.id, actor_id=actor.id)
+        r.status = status
+        await sync_owner_todo(db, r, actor_id=actor.id, previous_owner=owner.id)
+        todo = (
+            await db.execute(select(Todo).where(Todo.link == f"/ea-delivery/risks/{r.id}"))
+        ).scalar_one()
+        assert todo.status == todo_status
+
+    async def test_a_persons_own_todo_on_the_same_link_is_left_alone(self, db, people):
+        actor, owner = people
+        r = await create_risk(db, title="Mine", owner_id=owner.id, actor_id=actor.id)
+        link = f"/ea-delivery/risks/{r.id}"
+        db.add(
+            Todo(
+                id=uuid.uuid4(),
+                description="My own note",
+                status="open",
+                link=link,
+                is_system=False,
+                assigned_to=actor.id,
+                created_by=actor.id,
+            )
+        )
+        await db.flush()
+        r.owner_id = None
+        await sync_owner_todo(db, r, actor_id=actor.id, previous_owner=owner.id)
+        await db.flush()
+        rows = (
+            await db.execute(select(Todo.description, Todo.is_system).where(Todo.link == link))
+        ).all()
+        assert rows == [("My own note", False)]
+
+    async def test_the_assignment_notification(self, db, people):
+        actor, owner = people
+        r = await create_risk(db, title="N" * 250, owner_id=owner.id, actor_id=actor.id)
+        note = (
+            await db.execute(select(Notification).where(Notification.user_id == owner.id))
+        ).scalar_one()
+        assert (note.type, note.title, note.message, note.link, note.actor_id) == (
+            "risk_assigned",
+            "Risk R-000001 assigned to you",
+            "N" * 200,
+            f"/ea-delivery/risks/{r.id}",
+            actor.id,
+        )
+        assert note.data == {"risk_id": str(r.id), "reference": "R-000001", "level": "medium"}
+
+
+def _reader(*, base_view: bool, denied: frozenset[str]) -> CardReadScope:
+    return CardReadScope(
+        role_key="r",
+        wildcard=False,
+        base_view=base_view,
+        denied_types=denied,
+        allowed_types=frozenset(),
+        stakeholder_card_ids=frozenset(),
+    )
+
+
+class TestRiskToDict:
+    async def test_every_field(self, db, people):
+        actor, owner = people
+        card = await create_card(db, card_type="Application", name="CRM")
+        r = await create_risk(
+            db,
+            title="Lock-in",
+            description="Body",
+            category="security",
+            initial_probability="high",
+            initial_impact="medium",
+            owner_id=owner.id,
+            target_resolution_date=date(2026, 6, 1),
+            card_ids=[card.id],
+            source_type="compliance",
+            source_ref="gdpr",
+            actor_id=actor.id,
+        )
+        r.residual_probability, r.residual_impact, r.residual_level = "low", "low", "low"
+        r.status = "accepted"
+        r.acceptance_rationale = "Cheaper to live with."
+        r.accepted_by, r.accepted_at = actor.id, NOW
+        await db.flush()
+        await db.refresh(r)
+        assert r.created_at is not None and r.updated_at is not None
+        assert await risk_to_dict(db, r) == {
+            "id": str(r.id),
+            "reference": "R-000001",
+            "title": "Lock-in",
+            "description": "Body",
+            "category": "security",
+            "source_type": "compliance",
+            "source_ref": "gdpr",
+            "initial_probability": "high",
+            "initial_impact": "medium",
+            "initial_level": r.initial_level,
+            "residual_probability": "low",
+            "residual_impact": "low",
+            "residual_level": "low",
+            "owner_id": str(owner.id),
+            "owner_name": "Test User",
+            "target_resolution_date": "2026-06-01",
+            "status": "accepted",
+            "acceptance_rationale": "Cheaper to live with.",
+            "accepted_by": str(actor.id),
+            "accepted_at": "2026-03-15T12:00:00+00:00",
+            "created_by": str(actor.id),
+            "created_at": r.created_at.isoformat(),
+            "updated_at": r.updated_at.isoformat(),
+            "cards": [
+                {
+                    "card_id": str(card.id),
+                    "card_name": "CRM",
+                    "card_type": "Application",
+                    "role": "affected",
+                }
+            ],
+        }
+
+    async def test_a_bare_risk(self, db):
+        bare = Risk(
+            id=uuid.uuid4(),
+            reference="R-000009",
+            title="Bare",
+            status="identified",
+            category="operational",
+            source_type="ppm",  # retired vocabulary reads as manual
+        )
+        d = await risk_to_dict(db, bare)
+        keys = (
+            "source_type",
+            "owner_id",
+            "owner_name",
+            "target_resolution_date",
+            "accepted_by",
+            "accepted_at",
+            "created_by",
+            "created_at",
+            "updated_at",
+            "cards",
+        )
+        assert {k: d[k] for k in keys} == {
+            "source_type": "manual",
+            "owner_id": None,
+            "owner_name": None,
+            "target_resolution_date": None,
+            "accepted_by": None,
+            "accepted_at": None,
+            "created_by": None,
+            "created_at": None,
+            "updated_at": None,
+            "cards": [],
+        }
+
+    async def test_an_owner_without_a_user_row_has_no_name(self, db):
+        orphan = Risk(
+            id=uuid.uuid4(),
+            reference="R-000010",
+            title="Orphan",
+            status="identified",
+            category="operational",
+            source_type="extension",
+            owner_id=uuid.uuid4(),
+        )
+        d = await risk_to_dict(db, orphan)
+        assert (d["owner_id"], d["owner_name"], d["source_type"]) == (
+            str(orphan.owner_id),
+            None,
+            "extension",
+        )
+
+    async def test_linked_cards_follow_the_module_read_scope(self, db, people):
+        actor, _ = people
+        await create_card_type(db, key="Secret", label="Secret")
+        app = await create_card(db, card_type="Application", name="CRM")
+        vault = await create_card(db, card_type="Secret", name="Vault")
+        r = await create_risk(db, title="Scoped", card_ids=[app.id, vault.id], actor_id=actor.id)
+        # No landscape-wide view (inventory mode would hide CRM too) and an
+        # explicit deny on Secret: the risk register is module mode.
+        reader = _reader(base_view=False, denied=frozenset({"Secret"}))
+        scoped = await risk_to_dict(db, r, read_scope=reader)
+        assert [c["card_name"] for c in scoped["cards"]] == ["CRM"]
+        unscoped = await risk_to_dict(db, r)
+        assert sorted(c["card_name"] for c in unscoped["cards"]) == ["CRM", "Vault"]
 
 
 class TestLinkCards:
@@ -370,6 +665,12 @@ class TestPromote:
         links = (await db.execute(select(RiskCard.card_id).where(RiskCard.risk_id == r.id))).all()
         assert links == [(card.id,)]
 
+    async def test_a_requirement_without_a_gap_is_the_whole_description(self, db, people):
+        actor, _ = people
+        finding = await _finding(db, actor, gap_description="")
+        r = await promote_compliance_finding(db, finding.id, actor.id)
+        assert r.description == "A DPIA is required."
+
     async def test_without_an_article_the_regulation_names_it(self, db, people):
         actor, _ = people
         finding = await _finding(
@@ -436,6 +737,14 @@ class TestPromote:
             1,
             actor.id,
         )
+        occurrence = (
+            await db.execute(
+                select(RiskMitigationTaskOccurrence).where(
+                    RiskMitigationTaskOccurrence.task_id == task.id
+                )
+            )
+        ).scalar_one()
+        assert occurrence.due_date == due
 
     async def test_long_titles_are_cut_at_500(self, db, people):
         actor, _ = people

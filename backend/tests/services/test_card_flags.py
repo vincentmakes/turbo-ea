@@ -44,6 +44,11 @@ def test_a_card_touched_earlier_on_the_cutoff_day_is_not_stale():
     assert day_before < cutoff
 
 
+def test_a_naive_now_reads_as_utc():
+    naive = datetime(2026, 8, 25, 13, 0)
+    assert staleness_cutoff(30, "days", now=naive) == datetime(2026, 7, 26, tzinfo=timezone.utc)
+
+
 @pytest.mark.parametrize("unit", STALENESS_UNITS)
 def test_cutoff_is_midnight_not_the_current_time_of_day(unit):
     """The builder shows the admin a date, so the query must use one. A cutoff

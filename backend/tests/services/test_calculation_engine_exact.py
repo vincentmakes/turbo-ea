@@ -391,6 +391,19 @@ class TestDetectCycles:
         # And an edit that introduces a cycle is still caught.
         assert await detect_cycles(db, self._new("b", "data.a", calc_id=None)) is not None
 
+    async def test_an_edit_that_moves_the_target_drops_the_old_edge(self, db):
+        stored = await self._active(db, "a", "data.b")
+        await self._active(db, "b", "data.a")
+        # Stored, "a" and "b" read each other; the edit retargets that
+        # calculation at "c", so the old "a" edge must not be counted.
+        assert await detect_cycles(db, self._new("c", "data.x", calc_id=stored.id)) is None
+
+    async def test_a_diamond_is_not_a_cycle(self, db):
+        await self._active(db, "b", "data.d")
+        await self._active(db, "c", "data.d")
+        await self._active(db, "d", "data.plain")
+        assert await detect_cycles(db, self._new("a", "data.b + data.c")) is None
+
 
 class TestSharedContext:
     """Every root a formula can read about a card's surroundings, compared whole."""
@@ -519,6 +532,37 @@ class TestSharedContext:
         assert (shared["children"], shared["children_count"], shared["parent"]) == ([], 0, None)
         assert shared["hierarchy_level"] == 1
 
+    async def test_a_skipped_relation_does_not_end_the_scan(self, db):
+        from app.services.calculation_engine import build_shared_context
+        from tests.conftest import create_relation, create_relation_type
+
+        for key in ("Application", "Interface"):
+            await create_card_type(db, key=key, label=key)
+        await create_relation_type(
+            db,
+            key="relHidden",
+            source_type_key="Application",
+            target_type_key="Interface",
+            is_hidden=True,
+        )
+        await create_relation_type(
+            db, key="relAppToInterface", source_type_key="Application", target_type_key="Interface"
+        )
+        card = await create_card(db, card_type="Application", name="Card")
+        first = await create_card(db, card_type="Interface", name="First")
+        second = await create_card(db, card_type="Interface", name="Second")
+        await create_relation(db, type_key="relHidden", source_id=card.id, target_id=first.id)
+        for other in (first, second):
+            await create_relation(
+                db, type_key="relAppToInterface", source_id=card.id, target_id=other.id
+            )
+        shared = await build_shared_context(db, card)
+        assert sorted(e["name"] for e in shared["relations"]["relAppToInterface"]) == [
+            "First",
+            "Second",
+        ]
+        assert shared["relation_count"] == {"relAppToInterface": 2}
+
     async def test_an_archived_parent_reads_as_none(self, db):
         from app.services.calculation_engine import build_shared_context
 
@@ -596,3 +640,90 @@ class TestRunCalculationsForType:
         assert stored == {"Ok": None, "Mixed": "Division by zero"}
         await db.refresh(good)
         assert good.attributes["ratio"] == 0.5
+
+
+class TestRunCalculationsForCard:
+    def _calc(self, name, formula, target, *, order=0, active=True, type_key="Application"):
+        return Calculation(
+            name=name,
+            formula=formula,
+            target_type_key=type_key,
+            target_field_key=target,
+            is_active=active,
+            execution_order=order,
+        )
+
+    async def test_active_calculations_of_the_type_run_in_execution_order(self, db, app_type):
+        from app.services.calculation_engine import run_calculations_for_card
+
+        await create_card_type(db, key="Other", label="Other")
+        # Stored first but ordered second: it reads what the first one writes.
+        second = self._calc("Second", "data.first + 1", "second", order=2)
+        db.add(second)
+        await db.flush()
+        first = self._calc("First", "10", "first", order=1)
+        db.add_all(
+            [
+                first,
+                self._calc("Off", "99", "off", active=False),
+                self._calc("Elsewhere", "7", "else", type_key="Other"),
+            ]
+        )
+        await db.flush()
+        card = await create_card(db, card_type="Application", attributes={})
+        assert await run_calculations_for_card(db, card) == [
+            {
+                "calculation_id": str(first.id),
+                "name": "First",
+                "target_field": "first",
+                "success": True,
+                "error": None,
+            },
+            {
+                "calculation_id": str(second.id),
+                "name": "Second",
+                "target_field": "second",
+                "success": True,
+                "error": None,
+            },
+        ]
+        assert card.attributes == {"first": 10, "second": 11}
+        assert first.last_run_at is not None
+        assert first.last_run_at.tzinfo is not None
+
+    async def test_last_error_follows_the_latest_run(self, db, app_type):
+        from app.services.calculation_engine import run_calculations_for_card
+
+        calc = self._calc("Inverse", "1 / data.num", "inverse")
+        calc.last_error = "stale"
+        db.add(calc)
+        await db.flush()
+        bad = await create_card(db, card_type="Application", attributes={"num": 0})
+        [result] = await run_calculations_for_card(db, bad)
+        assert (result["success"], result["error"]) == (False, "Division by zero")
+        assert calc.last_error == "Division by zero"
+        good = await create_card(db, card_type="Application", attributes={"num": 2})
+        [result] = await run_calculations_for_card(db, good)
+        assert (result["success"], result["error"], calc.last_error) == (True, None, None)
+
+    async def test_excluded_targets_are_skipped(self, db, app_type):
+        from app.services.calculation_engine import run_calculations_for_card
+
+        db.add_all(
+            [
+                self._calc("A", "1", "a", order=0),
+                self._calc("B", "2", "b", order=1),
+                self._calc("C", "3", "c", order=2),
+            ]
+        )
+        await db.flush()
+
+        async def names(**kwargs):
+            card = await create_card(db, card_type="Application", attributes={})
+            return [r["name"] for r in await run_calculations_for_card(db, card, **kwargs)]
+
+        assert await names() == ["A", "B", "C"]
+        assert await names(exclude_field="a") == ["B", "C"]
+        assert await names(exclude_fields={"b"}) == ["A", "C"]
+        assert await names(exclude_field="a", exclude_fields={"b"}) == ["C"]
+        assert await names(exclude_fields={"a", "b", "c"}) == []

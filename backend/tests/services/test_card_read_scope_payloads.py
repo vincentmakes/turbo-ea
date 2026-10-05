@@ -16,14 +16,25 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy import String, literal, select
 
+from app.models.card_type import CardType
 from app.models.event import Event
+from app.models.stakeholder import Stakeholder
 from app.services.card_read_scope import (
     CardReadScope,
     event_read_filters,
+    is_card_readable,
+    require_card_readable,
     require_inventory_browse,
     scrub_event_payloads,
 )
-from tests.conftest import create_card, create_card_type, create_role, create_user
+from app.services.permission_service import PermissionService
+from tests.conftest import (
+    create_card,
+    create_card_type,
+    create_role,
+    create_stakeholder_role_def,
+    create_user,
+)
 
 HELD = uuid.uuid4()
 
@@ -205,6 +216,16 @@ class TestScrubEventPayloads:
         # A copy: the stored payload is never edited in place.
         assert payloads[2]["card_id"] == s
 
+    async def test_a_hidden_id_counts_wherever_it_alone_appears(self, db, landscape):
+        s = str(landscape["secret"].id)
+        hidden_only = scope(denied=("Secret",))
+        # A single value, not a list.
+        assert await scrub_event_payloads(db, hidden_only, [{"card_id": s}]) == [{"card_id": None}]
+        # After a value that is not an id at all.
+        assert await scrub_event_payloads(db, hidden_only, [{"linked_card_ids": ["junk", s]}]) == [
+            {"linked_card_ids": ["junk"]}
+        ]
+
 
 class TestKeepHidden:
     def test_hidden_links_are_merged_into_the_desired_set(self):
@@ -309,3 +330,81 @@ async def test_an_unreadable_card_is_a_404_saying_not_found(db):
     with pytest.raises(HTTPException) as exc:
         await require_card_readable(db, user, uuid.uuid4(), mode="inventory")
     assert (exc.value.status_code, exc.value.detail) == (404, "Card not found")
+
+
+# ── The stakeholder carve-out and the single-card guards, from real roles ────
+
+
+async def _cells(db, type_key: str, overrides: dict) -> None:
+    ct = (await db.execute(select(CardType).where(CardType.key == type_key))).scalar_one()
+    ct.role_permissions = overrides
+    await db.flush()
+    PermissionService.invalidate_type_permission_cache()
+
+
+async def _reader(db, *, base_view: bool):
+    await create_role(db, key="r", label="R", permissions={"inventory.view": base_view})
+    return await create_user(db, email="reader@t.com", role="r")
+
+
+async def _hold(db, card, user, role: str = "viewer") -> None:
+    db.add(Stakeholder(card_id=card.id, user_id=user.id, role=role))
+    await db.flush()
+
+
+@pytest.fixture
+async def carve(db):
+    for type_key in ("Open", "Secret"):
+        await create_card_type(db, key=type_key, label=type_key)
+        for role in ("viewer", "watcher"):
+            await create_stakeholder_role_def(
+                db, card_type_key=type_key, key=role, permissions={"card.view": True}
+            )
+    return {
+        "open": await create_card(db, card_type="Open", name="Open"),
+        "secret": await create_card(db, card_type="Secret", name="Secret"),
+    }
+
+
+class TestStakeholderCarveOut:
+    """``stakeholder_card_ids`` holds only the cards a role grant does not
+    already make readable — the carve-out, never a copy of the inventory."""
+
+    async def test_with_the_global_grant_only_denied_types_are_carved_out(self, db, carve):
+        user = await _reader(db, base_view=True)
+        await _cells(db, "Secret", {"r": {"inventory.view": False}})
+        await _hold(db, carve["open"], user)
+        await _hold(db, carve["secret"], user)
+        read_scope = await CardReadScope.load(db, user)
+        assert read_scope.stakeholder_card_ids == frozenset({carve["secret"].id})
+
+    async def test_without_it_allowed_types_need_no_carve_out(self, db, carve):
+        user = await _reader(db, base_view=False)
+        await _cells(db, "Open", {"r": {"inventory.view": True}})
+        await _hold(db, carve["open"], user)
+        await _hold(db, carve["secret"], user)
+        read_scope = await CardReadScope.load(db, user)
+        assert read_scope.stakeholder_card_ids == frozenset({carve["secret"].id})
+
+    async def test_two_roles_on_one_card_do_not_end_the_scan(self, db, carve):
+        user = await _reader(db, base_view=False)
+        other = await create_card(db, card_type="Secret", name="Other")
+        await _hold(db, carve["secret"], user, "viewer")
+        await _hold(db, carve["secret"], user, "watcher")
+        await _hold(db, other, user, "viewer")
+        read_scope = await CardReadScope.load(db, user)
+        assert read_scope.stakeholder_card_ids == frozenset({carve["secret"].id, other.id})
+
+
+class TestSingleCardGuards:
+    @pytest.mark.parametrize("mode", ["inventory", "module"])
+    async def test_an_unknown_card_is_never_readable(self, db, mode):
+        user = await _reader(db, base_view=True)
+        assert await is_card_readable(db, user, uuid.uuid4(), mode=mode) is False
+
+    async def test_require_honours_the_mode_it_is_given(self, db, carve):
+        user = await _reader(db, base_view=False)
+        with pytest.raises(HTTPException) as exc:
+            await require_card_readable(db, user, carve["open"].id, mode="inventory")
+        assert (exc.value.status_code, exc.value.detail) == (404, "Card not found")
+        assert await require_card_readable(db, user, carve["open"].id, mode="module") == "Open"
