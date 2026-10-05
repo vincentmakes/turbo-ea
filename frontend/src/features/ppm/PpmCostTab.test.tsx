@@ -140,7 +140,11 @@ describe("PpmCostTab — summary and tables", () => {
 
   it("hands both line sets to the charts", async () => {
     renderTab();
-    expect(await screen.findByTestId("cost-charts")).toHaveTextContent("2 costs / 2 budgets");
+    // The cost lines arrive as props and render at once; the budget lines come
+    // from their own GET. Wait for the second render, not the first.
+    await waitFor(() =>
+      expect(screen.getByTestId("cost-charts")).toHaveTextContent("2 costs / 2 budgets"),
+    );
   });
 
   it("shows both empty states", async () => {

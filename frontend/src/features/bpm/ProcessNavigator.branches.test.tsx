@@ -948,6 +948,8 @@ describe("ProcessNavigator fullscreen preview", () => {
     await act(async () => {
       await user.click(flow);
     });
-    expect(await screen.findByTestId("bpmn-viewer")).toHaveAttribute("data-has-colors", "true");
+    await waitFor(() =>
+      expect(screen.getByTestId("bpmn-viewer")).toHaveAttribute("data-has-colors", "true"),
+    );
   });
 });
