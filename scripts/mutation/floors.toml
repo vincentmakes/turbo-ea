@@ -54,11 +54,11 @@ mcp = 68
 # Frontend, measured with Stryker (static mutants ignored) on 2026-10-05.
 "frontend/src/lib/returnPath.ts" = 98                # post-SSO open-redirect guards
 "frontend/src/lib/linkify.ts" = 79                   # what in free text becomes a link
-"frontend/src/lib/richHtml.ts" = 86                  # the one stored-HTML sanitiser
+"frontend/src/lib/richHtml.ts" = 88                  # the one stored-HTML sanitiser
 "frontend/src/lib/routePermissions.ts" = 86          # route gating (its table is static)
 "frontend/src/lib/relationSort.ts" = 93
 "frontend/src/lib/searchRank.ts" = 92
-"frontend/src/lib/cardTree.ts" = 87
+"frontend/src/lib/cardTree.ts" = 93
 "frontend/src/lib/fiscalYear.ts" = 93
 "frontend/src/components/grid/dragFill.ts" = 92
-"frontend/src/features/reports/portfolioHelpers.ts" = 67
+"frontend/src/features/reports/portfolioHelpers.ts" = 88
