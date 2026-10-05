@@ -113,4 +113,43 @@ describe("TagsCellEditor", () => {
     const { user } = renderEditor({ stopEditing: undefined });
     await user.click(screen.getByRole("button", { name: /Save/ }));
   });
+  it("resolves tags from groups that arrive after the editor mounted", async () => {
+    const onValueChange = vi.fn();
+    const api = { stopEditing: vi.fn() } as unknown as Props["api"];
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <TagsCellEditor value={[onPremRef]} groups={[HOSTING_GROUP]} typeKey="Application" onValueChange={onValueChange} api={api} />,
+    );
+    rerender(
+      <TagsCellEditor value={[onPremRef]} groups={TAG_GROUPS} typeKey="Application" onValueChange={onValueChange} api={api} />,
+    );
+    await pick(user, "Audited");
+    const last = onValueChange.mock.calls.at(-1)?.[0] as TagRef[];
+    expect(last.map((t) => t.id).sort()).toEqual([AUDITED.id, ON_PREM.id].sort());
+  });
+
+  it("keeps mouse-downs and Escape from reaching the grid around it", () => {
+    const parentMouseDown = vi.fn();
+    const parentKeyDown = vi.fn();
+    const gridStopEditing = vi.fn();
+    render(
+      <div onMouseDown={parentMouseDown} onKeyDown={parentKeyDown}>
+        <TagsCellEditor
+          value={[onPremRef]}
+          groups={TAG_GROUPS}
+          onValueChange={vi.fn()}
+          api={{ stopEditing: gridStopEditing } as unknown as Props["api"]}
+        />
+      </div>,
+    );
+    fireEvent.mouseDown(screen.getByRole("button", { name: /Save/ }));
+    expect(parentMouseDown).not.toHaveBeenCalled();
+    const input = screen.getByRole("combobox", { name: "Tags" });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(gridStopEditing).toHaveBeenCalledWith(true);
+    expect(parentKeyDown).not.toHaveBeenCalled();
+    // Other keys still bubble to the grid.
+    fireEvent.keyDown(input, { key: "a" });
+    expect(parentKeyDown).toHaveBeenCalledTimes(1);
+  });
 });

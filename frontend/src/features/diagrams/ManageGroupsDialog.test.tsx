@@ -5,7 +5,7 @@
  * gallery refetches.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -168,5 +168,59 @@ describe("ManageGroupsDialog", () => {
     rerender(<ManageGroupsDialog open {...props} />);
     expect(screen.getByPlaceholderText("New group name")).toHaveValue("");
     expect(screen.queryByDisplayValue("Architecture")).not.toBeInTheDocument();
+  });
+  /** Pick `hex` in the swatch picker at `index` and save it. */
+  async function pickColor(user: ReturnType<typeof userEvent.setup>, index: number, hex: string) {
+    await user.click(screen.getAllByLabelText("Pick color")[index]);
+    await user.click(await screen.findByTitle(hex));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+  }
+
+  it("sends the picked colour for a new group and resets it after the create", async () => {
+    const { user } = renderDialog();
+    await pickColor(user, 0, "#ef4444");
+    const input = screen.getByPlaceholderText("New group name");
+    await user.type(input, "Security{Enter}");
+    expect(mockApi.callsOf("post", "/diagram-groups")[0].body).toMatchObject({ color: "#ef4444" });
+    await user.type(input, "Ops{Enter}");
+    expect(mockApi.callsOf("post", "/diagram-groups")[1].body).toMatchObject({
+      name: "Ops",
+      color: "#60a5fa",
+    });
+  });
+
+  it("drops a picked colour when reopened", async () => {
+    const { user, rerender } = renderDialog();
+    await pickColor(user, 0, "#ef4444");
+    const props = { groups: GROUPS, onClose: vi.fn(), onChanged: vi.fn() };
+    rerender(<ManageGroupsDialog open={false} {...props} />);
+    rerender(<ManageGroupsDialog open {...props} />);
+    await user.type(screen.getByPlaceholderText("New group name"), "Security{Enter}");
+    expect(mockApi.callsOf("post", "/diagram-groups")[0].body).toMatchObject({ color: "#60a5fa" });
+  });
+
+  it("refuses a whitespace-only rename through the check button", async () => {
+    const { user, onChanged } = renderDialog();
+    const row = rowOf("Operations");
+    await user.click(within(row).getByTitle("Rename"));
+    const field = screen.getByDisplayValue("Operations");
+    await user.clear(field);
+    await user.type(field, "   ");
+    await user.click(within(row).getByRole("button", { name: "check" }));
+    expect(mockApi.callsOf("patch")).toHaveLength(0);
+    expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it("reports recolours and deletes to the latest onChanged callback", async () => {
+    installConfirm(true);
+    const { user, rerender, onChanged } = renderDialog();
+    const latest = vi.fn();
+    rerender(<ManageGroupsDialog open groups={GROUPS} onClose={vi.fn()} onChanged={latest} />);
+    await pickColor(user, 1, "#22c55e");
+    expect(mockApi.callsOf("patch", "/diagram-groups/g1")[0].body).toEqual({ color: "#22c55e" });
+    await waitFor(() => expect(latest).toHaveBeenCalledTimes(1));
+    await user.click(within(rowOf("Operations")).getByRole("button", { name: "delete" }));
+    await waitFor(() => expect(latest).toHaveBeenCalledTimes(2));
+    expect(onChanged).not.toHaveBeenCalled();
   });
 });

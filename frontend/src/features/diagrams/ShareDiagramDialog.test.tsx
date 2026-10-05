@@ -8,7 +8,7 @@
  * returned, never typed.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -202,5 +202,171 @@ describe("ShareDiagramDialog", () => {
     rerender(<ShareDiagramDialog open initial={PUBLISHED} {...props} />);
     expect(screen.queryByRole("button", { name: "Apply access changes" })).not.toBeInTheDocument();
     expect(modeSelect()).toHaveTextContent("Anyone with the link");
+  });
+  describe("details", () => {
+    // The published view always carries info notes, which are alerts too.
+    const INFO_NOTES = [/Embedding in another site/, /visitors sign in through a small pop-up/];
+    const errorAlerts = () =>
+      screen.queryAllByRole("alert").filter((a) => !INFO_NOTES.some((r) => r.test(a.textContent ?? "")));
+    const SSO_PUBLISHED: PublishState = {
+      ...PUBLISHED,
+      access_mode: "sso",
+      allowed_email_domains: ["acme.com", "partner.org"],
+    };
+
+    it("explains what publishing does and shows no error at first", () => {
+      renderDialog();
+      expect(
+        screen.getByText(
+          "Publish a read-only link that renders without signing in, so the diagram can be embedded in a wiki page.",
+        ),
+      ).toBeInTheDocument();
+      expect(errorAlerts()).toHaveLength(0);
+      expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    });
+
+    it("shows the embed note, but the SSO pop-up note only in SSO mode", () => {
+      renderDialog({ initial: PUBLISHED });
+      expect(
+        screen.getByText(/Embedding in another site also requires an administrator/),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/visitors sign in through a small pop-up window/)).not.toBeInTheDocument();
+    });
+
+    it("renders the link fields read-only", () => {
+      renderDialog({ initial: PUBLISHED });
+      expect(screen.getByRole("textbox", { name: "Link" })).toHaveAttribute("readonly");
+      expect(screen.getByRole("textbox", { name: "Embed code" })).toHaveAttribute("readonly");
+    });
+
+    it("leaves both fields empty while the server has not assigned a slug", () => {
+      renderDialog({ initial: { ...PUBLISHED, public_slug: null } });
+      expect(screen.getByRole("textbox", { name: "Link" })).toHaveValue("");
+      expect(screen.getByRole("textbox", { name: "Embed code" })).toHaveValue("");
+    });
+
+    it("lists the stored domains comma-separated with no pending change", () => {
+      renderDialog({ initial: SSO_PUBLISHED });
+      expect(screen.getByRole("textbox", { name: "Allowed email domains" })).toHaveValue(
+        "acme.com, partner.org",
+      );
+      expect(
+        screen.getByText("Comma-separated. Leave empty to allow anyone your identity provider authenticates."),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Apply access changes" })).not.toBeInTheDocument();
+    });
+
+    it("offers Apply as soon as only the domain list changed", async () => {
+      const { user } = renderDialog({ initial: SSO_PUBLISHED });
+      await user.type(screen.getByRole("textbox", { name: "Allowed email domains" }), ", other.io");
+      expect(screen.getByRole("button", { name: "Apply access changes" })).toBeInTheDocument();
+    });
+
+    it("disables the toggle and shows progress while the request runs", async () => {
+      let release: () => void = () => {};
+      mockApi.on("post", PUBLISH, () => new Promise((resolve) => (release = () => resolve(PUBLISHED))));
+      const { user } = renderDialog();
+      await user.click(publishSwitch());
+      await waitFor(() => expect(publishSwitch()).toBeDisabled());
+      expect(screen.getByRole("progressbar")).toBeInTheDocument();
+      release();
+      await waitFor(() => expect(publishSwitch()).toBeChecked());
+      expect(publishSwitch()).toBeEnabled();
+      expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+      expect(errorAlerts()).toHaveLength(0);
+    });
+
+    it("re-enables the toggle and clears the error on a successful retry", async () => {
+      mockApi.fail("post", PUBLISH, 500, "boom");
+      const { user } = renderDialog();
+      await user.click(publishSwitch());
+      expect(await screen.findByText(`POST ${PUBLISH} failed`)).toBeInTheDocument();
+      expect(publishSwitch()).toBeEnabled();
+      mockApi.on("post", PUBLISH, PUBLISHED);
+      await user.click(publishSwitch());
+      await waitFor(() => expect(publishSwitch()).toBeChecked());
+      expect(errorAlerts()).toHaveLength(0);
+    });
+
+    it("falls back to the generic message for a non-Error failure", async () => {
+      mockApi.on("post", PUBLISH, () => {
+        throw "nope";
+      });
+      const { user } = renderDialog();
+      await user.click(publishSwitch());
+      expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+    });
+
+    it("works without an onChange callback", async () => {
+      const { user } = renderDialog({ onChange: undefined });
+      await user.click(publishSwitch());
+      await waitFor(() => expect(publishSwitch()).toBeChecked());
+      expect(errorAlerts()).toHaveLength(0);
+    });
+
+    it("takes the mode the server returns, so a re-publish after unpublishing starts public", async () => {
+      const { user } = renderDialog({ initial: SSO_PUBLISHED });
+      await user.click(publishSwitch());
+      await waitFor(() => expect(publishSwitch()).not.toBeChecked());
+      await user.click(publishSwitch());
+      await waitFor(() => expect(publishSwitch()).toBeChecked());
+      expect(mockApi.callsOf("post", PUBLISH)[0].body).toEqual({
+        access_mode: "public",
+        allowed_email_domains: [],
+      });
+    });
+
+    it("follows a new initial state while open", () => {
+      const props = { diagramId: DIAGRAM_ID, diagramName: "Landscape", onClose: vi.fn() };
+      const { rerender } = renderDialog();
+      expect(publishSwitch()).not.toBeChecked();
+      rerender(<ShareDiagramDialog open initial={PUBLISHED} {...props} />);
+      expect(publishSwitch()).toBeChecked();
+      expect(screen.getByRole("textbox", { name: "Link" })).toHaveValue(EMBED_URL);
+    });
+
+    it("clears the copied mark and a stale error when reopened", async () => {
+      const props = { diagramId: DIAGRAM_ID, diagramName: "Landscape", onClose: vi.fn() };
+      mockApi.fail("delete", PUBLISH, 500, "boom");
+      const { user, rerender } = renderDialog({ initial: PUBLISHED });
+      const [copyLink] = screen.getAllByRole("button", { name: "Copy" });
+      await user.click(copyLink);
+      await waitFor(() => expect(copyLink).toHaveTextContent("check"));
+      await user.click(publishSwitch());
+      expect(await screen.findByText(`DELETE ${PUBLISH} failed`)).toBeInTheDocument();
+      rerender(<ShareDiagramDialog open={false} initial={PUBLISHED} {...props} />);
+      rerender(<ShareDiagramDialog open initial={PUBLISHED} {...props} />);
+      expect(screen.getAllByRole("button", { name: "Copy" })[0]).toHaveTextContent("content_copy");
+      expect(errorAlerts()).toHaveLength(0);
+    });
+
+    it("drops the previous copied mark when a later copy is refused", async () => {
+      const { user, writeText } = renderDialog({ initial: PUBLISHED });
+      const [copyLink, copySnippet] = screen.getAllByRole("button", { name: "Copy" });
+      await user.click(copyLink);
+      await waitFor(() => expect(copyLink).toHaveTextContent("check"));
+      writeText.mockRejectedValueOnce(new Error("denied"));
+      await user.click(copySnippet);
+      await waitFor(() => expect(copyLink).toHaveTextContent("content_copy"));
+      expect(copySnippet).toHaveTextContent("content_copy");
+    });
+
+    it("does nothing on Copy when the clipboard API is unavailable", () => {
+      renderDialog({ initial: PUBLISHED });
+      Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true });
+      const errors: unknown[] = [];
+      const onError = (e: ErrorEvent) => {
+        errors.push(e.error);
+        e.preventDefault();
+      };
+      window.addEventListener("error", onError);
+      try {
+        fireEvent.click(screen.getAllByRole("button", { name: "Copy" })[0]);
+      } finally {
+        window.removeEventListener("error", onError);
+      }
+      expect(errors).toEqual([]);
+      expect(screen.getAllByRole("button", { name: "Copy" })[0]).toHaveTextContent("content_copy");
+    });
   });
 });

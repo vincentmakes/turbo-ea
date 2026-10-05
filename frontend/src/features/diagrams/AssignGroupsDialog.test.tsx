@@ -6,7 +6,7 @@
  * create (`onGroupsChanged`).
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -159,5 +159,30 @@ describe("AssignGroupsDialog", () => {
     expect(screen.getByText("Organize «Ops map» into one or more groups.")).toBeInTheDocument();
     expect(checkbox("Architecture")).not.toBeChecked();
     expect(checkbox("Operations")).toBeChecked();
+  });
+  it("saves an empty set for a diagram that carries no group ids", async () => {
+    const { user, onSaved } = renderDialog({ diagram: { ...DIAGRAM, group_ids: undefined } });
+    expect(checkbox("Architecture")).not.toBeChecked();
+    await user.click(saveButton());
+    expect(mockApi.callsOf("put", "/diagrams/d1/groups")[0].body).toEqual({ group_ids: [] });
+    expect(onSaved).toHaveBeenCalledWith([]);
+  });
+
+  it("renders a blank name and an empty create field without a diagram", () => {
+    renderDialog({ diagram: null });
+    expect(screen.getByText("Organize «» into one or more groups.")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Create new group")).toHaveValue("");
+  });
+
+  it("disables Save while the request is in flight and re-enables it after", async () => {
+    let release: () => void = () => {};
+    mockApi.on("put", "/diagrams/d1/groups", () => new Promise((resolve) => (release = () => resolve({}))));
+    const { user, onSaved } = renderDialog();
+    await user.click(saveButton());
+    await waitFor(() => expect(saveButton()).toBeDisabled());
+    expect(onSaved).not.toHaveBeenCalled();
+    release();
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(["g1"]));
+    await waitFor(() => expect(saveButton()).toBeEnabled());
   });
 });

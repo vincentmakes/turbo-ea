@@ -108,9 +108,31 @@ describe("RelationPickerDialog", () => {
   it("renders a relation type's description as linkified secondary text", () => {
     const described = { ...REL_APP_TO_BC, description: "See https://docs.example/rel" };
     renderDialog({}, [described]);
+    expect(screen.getByRole("button", { name: /supports/ })).toHaveTextContent(
+      "ERP Core → Finance · See https://docs.example/rel",
+    );
     const link = screen.getByRole("link", { name: "https://docs.example/rel" });
     expect(link).toHaveAttribute("href", "https://docs.example/rel");
     expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("ignores types that share only one end with the drawn pair", () => {
+    const orgToBc = makeRelationType({
+      key: "relOrgToBC",
+      source_type_key: "Organization",
+      target_type_key: "BusinessCapability",
+      label: "owns",
+    });
+    const bcToProvider = makeRelationType({
+      key: "relBCToProvider",
+      source_type_key: "BusinessCapability",
+      target_type_key: "Provider",
+      label: "is sourced from",
+    });
+    renderDialog({}, [orgToBc, bcToProvider, REL_APP_TO_BC]);
+    expect(screen.getAllByRole("button", { name: /supports|owns|is sourced from/ })).toHaveLength(1);
+    expect(screen.queryByText("owns")).not.toBeInTheDocument();
+    expect(screen.queryByText("is sourced from")).not.toBeInTheDocument();
   });
 
   it("commits a type without editable attributes on the first click", async () => {
@@ -170,6 +192,18 @@ describe("RelationPickerDialog", () => {
       await user.click(screen.getAllByRole("button", { name: /sends data to/ })[0]);
       await user.click(screen.getByRole("button", { name: "Create" }));
       expect(onSelect).toHaveBeenCalledWith(REL_APP_TO_APP, "as-is", undefined);
+    });
+
+    it("starts a re-picked type with no attributes after Back", async () => {
+      const { user, onSelect } = renderDialog({ endpoints: APP_TO_APP });
+      await user.click(screen.getAllByRole("button", { name: /sends data to/ })[0]);
+      await user.click(screen.getByRole("combobox", { name: "Flow Direction" }));
+      const listbox = await screen.findByRole("listbox");
+      await user.click(within(listbox).getByRole("option", { name: /receives data from/ }));
+      await user.click(screen.getByRole("button", { name: "Back" }));
+      await user.click(screen.getAllByRole("button", { name: /sends data to/ })[1]);
+      await user.click(screen.getByRole("button", { name: "Create" }));
+      expect(onSelect).toHaveBeenCalledWith(REL_APP_TO_APP, "reversed", undefined);
     });
 
     it("returns to the list on Back and closes on Cancel", async () => {

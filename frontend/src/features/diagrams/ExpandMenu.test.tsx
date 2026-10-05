@@ -7,7 +7,7 @@
  * Every commit hands the editor a typed pick and closes the menu.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
+import { act, render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -263,5 +263,245 @@ describe("ExpandMenu", () => {
     rerender(<ExpandMenu target={target({ cellId: "cell-2" })} {...props} />);
     await waitFor(() => expect(mockApi.callsOf("get", SUMMARY)).toHaveLength(2));
     expect(await screen.findByRole("button", { name: "Insert (0)" })).toBeDisabled();
+  });
+});
+
+describe("ExpandMenu loading and sections", () => {
+  const OTHER = CARD_IDS.sales;
+  const OTHER_SUMMARY = `/cards/${OTHER}/relation-summary`;
+  const HOSTS: RelationSummaryEntry = {
+    relation_type_key: "relITCToApp",
+    label: "hosts",
+    direction: "outgoing",
+    peer_type_key: "Application",
+    count: 1,
+  };
+
+  function deferred<T = unknown>() {
+    let resolve!: (v: T) => void;
+    let reject!: (e: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  /** Let every pending promise chain settle, then flush React. */
+  async function settle() {
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+  }
+
+  it("shows the title and a spinner, not the sections, until every fetch is back", async () => {
+    const s = deferred();
+    const h = deferred();
+    mockApi.on("get", SUMMARY, () => s.promise);
+    mockApi.on("get", HIERARCHY, () => h.promise);
+    renderMenu();
+    expect(screen.getByText("Expand related cards")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("progressbar")).toBeInTheDocument());
+    expect(screen.queryByText("Show Dependency")).not.toBeInTheDocument();
+    s.resolve({ by_type: ENTRIES, hierarchy: NESTED });
+    await waitFor(() => expect(mockApi.callsOf("get", HIERARCHY)).toHaveLength(1));
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.queryByText("Show Dependency")).not.toBeInTheDocument();
+    h.resolve({ ancestors: [], children: CHILDREN, level: 1 });
+    expect(await screen.findByText("Show Dependency")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("labels the three sections and shows no empty hints for a card with everything", async () => {
+    renderMenu();
+    expect(await screen.findByText("Invoicing")).toBeInTheDocument();
+    expect(screen.getByText("Treasury")).toBeInTheDocument();
+    expect(screen.getByText("Show Dependency")).toBeInTheDocument();
+    expect(screen.getByText("Drill-Down")).toBeInTheDocument();
+    expect(screen.getByText("Roll-Up")).toBeInTheDocument();
+    expect(screen.queryByText("No relations from this card.")).not.toBeInTheDocument();
+    expect(screen.queryByText("No children to drill into.")).not.toBeInTheDocument();
+    expect(screen.queryByText("No parent to roll up to.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    // The arrow shows which way the relation points from this card.
+    expect(rowOf("is supported by")).toHaveTextContent("arrow_downward");
+    expect(rowOf("is supported by")).not.toHaveTextContent("arrow_outward");
+    expect(rowOf("realises")).toHaveTextContent("arrow_outward");
+    // Nothing is pre-ticked.
+    expect(within(rowOf("Invoicing")).getByRole("checkbox")).not.toBeChecked();
+    expect(within(rowOf("Collections")).getByRole("checkbox")).not.toBeChecked();
+  });
+
+  it("lists only the relation types for a leaf root card", async () => {
+    summary(ENTRIES, LEAF_ROOT);
+    renderMenu();
+    expect(await screen.findByText("No children to drill into.")).toBeInTheDocument();
+    expect(screen.getAllByRole("checkbox")).toHaveLength(ENTRIES.length);
+    // No drill-down button at all, not even the disabled "all inside" one.
+    expect(screen.queryByRole("button", { name: /Drill into|All children/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Roll up/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Parent:/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("keeps a small spinner while the summary promises children the list lacks", async () => {
+    mockApi.on("get", HIERARCHY, { ancestors: [], children: [], level: 1 });
+    renderMenu();
+    expect(await screen.findByText("Treasury")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.queryByText("No children to drill into.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Drill into/ })).not.toBeInTheDocument();
+  });
+
+  it("toggles a child from its row or its own checkbox", async () => {
+    const { user } = renderMenu();
+    await user.click(await screen.findByText("Collections"));
+    expect(screen.getByRole("button", { name: "Drill into 1 selected" })).toBeInTheDocument();
+    await user.click(screen.getByText("Collections"));
+    expect(screen.getByRole("button", { name: "Drill into all 2 children" })).toBeInTheDocument();
+    const box = within(rowOf("Invoicing")).getByRole("checkbox");
+    await user.click(box);
+    expect(box).toBeChecked();
+    expect(within(rowOf("Collections")).getByRole("checkbox")).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Drill into 1 selected" })).toBeInTheDocument();
+  });
+
+  it("ignores a forced click on a zero-count relation type", async () => {
+    renderMenu();
+    await screen.findByText("enables");
+    fireEvent.click(rowOf("enables"));
+    expect(screen.getByRole("button", { name: "Insert (0)" })).toBeDisabled();
+  });
+
+  it("names an unnamed parent with a question mark and does not roll up to it", async () => {
+    summary([], { ...NESTED, children_count: 0, parent_name: null });
+    const { user, onPick, onClose } = renderMenu();
+    expect(await screen.findByText("Parent: ?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Roll up to parent only" }));
+    expect(onPick).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("starts the next target with no selections", async () => {
+    const { user, rerender, onClose, onPick } = renderMenu();
+    await user.click(await screen.findByText("Collections"));
+    await user.click(screen.getByText("Tax"));
+    expect(screen.getByRole("button", { name: "Drill into 1 selected" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Roll up with 1 sibling" })).toBeInTheDocument();
+    rerender(<ExpandMenu target={null} onClose={onClose} onPick={onPick} />);
+    rerender(<ExpandMenu target={target({ cellId: "cell-2" })} onClose={onClose} onPick={onPick} />);
+    expect(
+      await screen.findByRole("button", { name: "Drill into all 2 children" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Roll up to parent only" })).toBeInTheDocument();
+  });
+
+  it("drops the previous card's children and siblings for a leaf target", async () => {
+    mockApi.on("get", OTHER_SUMMARY, { by_type: [], hierarchy: LEAF_ROOT });
+    const { rerender, onClose, onPick } = renderMenu();
+    expect(await screen.findByText("Invoicing")).toBeInTheDocument();
+    rerender(<ExpandMenu target={null} onClose={onClose} onPick={onPick} />);
+    rerender(<ExpandMenu target={target({ cardId: OTHER })} onClose={onClose} onPick={onPick} />);
+    expect(await screen.findByText("No relations from this card.")).toBeInTheDocument();
+    expect(screen.queryByText("Invoicing")).not.toBeInTheDocument();
+    expect(screen.queryByText("Treasury")).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: /Drill into/ })).not.toBeInTheDocument();
+  });
+
+  it("does not carry the previous card's relation count into a failed load", async () => {
+    mockApi.fail("get", OTHER_SUMMARY, 500);
+    const { rerender, onClose, onPick } = renderMenu();
+    expect(await screen.findByText("3 relations across all groups")).toBeInTheDocument();
+    rerender(<ExpandMenu target={null} onClose={onClose} onPick={onPick} />);
+    rerender(<ExpandMenu target={target({ cardId: OTHER })} onClose={onClose} onPick={onPick} />);
+    expect(await screen.findByText("Failed to load relation summary.")).toBeInTheDocument();
+    expect(screen.getByText("0 relations across all groups")).toBeInTheDocument();
+  });
+
+  it("clears an earlier load error when switched straight to another card", async () => {
+    mockApi.fail("get", SUMMARY, 500);
+    mockApi.on("get", OTHER_SUMMARY, { by_type: [HOSTS], hierarchy: LEAF_ROOT });
+    const { rerender, onClose, onPick } = renderMenu();
+    expect(await screen.findByText("Failed to load relation summary.")).toBeInTheDocument();
+    rerender(<ExpandMenu target={target({ cardId: OTHER })} onClose={onClose} onPick={onPick} />);
+    expect(await screen.findByText("hosts")).toBeInTheDocument();
+    expect(screen.queryByText("Failed to load relation summary.")).not.toBeInTheDocument();
+  });
+
+  it("ignores a summary that lands after the target moved on", async () => {
+    const a = deferred();
+    const b = deferred();
+    mockApi.on("get", SUMMARY, () => a.promise);
+    mockApi.on("get", OTHER_SUMMARY, () => b.promise);
+    const { rerender, onClose, onPick } = renderMenu();
+    rerender(<ExpandMenu target={target({ cardId: OTHER })} onClose={onClose} onPick={onPick} />);
+    await waitFor(() => expect(mockApi.callsOf("get", OTHER_SUMMARY)).toHaveLength(1));
+    a.resolve({ by_type: ENTRIES, hierarchy: LEAF_ROOT });
+    await settle();
+    // Still waiting for the current card: spinner up, nothing counted from the stale reply.
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.getByText("0 relations across all groups")).toBeInTheDocument();
+    b.resolve({ by_type: [HOSTS], hierarchy: LEAF_ROOT });
+    expect(await screen.findByText("hosts")).toBeInTheDocument();
+    expect(screen.queryByText("is supported by")).not.toBeInTheDocument();
+    expect(screen.getByText("1 relation across all groups")).toBeInTheDocument();
+  });
+
+  it("ignores a failure that lands after the target moved on", async () => {
+    const a = deferred();
+    mockApi.on("get", SUMMARY, () => a.promise);
+    mockApi.on("get", OTHER_SUMMARY, { by_type: [HOSTS], hierarchy: LEAF_ROOT });
+    const { rerender, onClose, onPick } = renderMenu();
+    rerender(<ExpandMenu target={target({ cardId: OTHER })} onClose={onClose} onPick={onPick} />);
+    expect(await screen.findByText("hosts")).toBeInTheDocument();
+    a.reject(new Error("late"));
+    await settle();
+    expect(screen.queryByText("Failed to load relation summary.")).not.toBeInTheDocument();
+    expect(screen.getByText("hosts")).toBeInTheDocument();
+  });
+
+  it("ignores children and siblings that land after the target moved on", async () => {
+    const h = deferred();
+    const sib = deferred();
+    mockApi.on("get", HIERARCHY, () => h.promise);
+    mockApi.on("get", SIBLINGS, () => sib.promise);
+    mockApi.on("get", OTHER_SUMMARY, { by_type: [], hierarchy: LEAF_ROOT });
+    const { rerender, onClose, onPick } = renderMenu();
+    await waitFor(() => expect(mockApi.callsOf("get", SIBLINGS)).toHaveLength(1));
+    expect(mockApi.callsOf("get", HIERARCHY)).toHaveLength(1);
+    rerender(<ExpandMenu target={target({ cardId: OTHER })} onClose={onClose} onPick={onPick} />);
+    expect(await screen.findByText("No relations from this card.")).toBeInTheDocument();
+    h.resolve({ ancestors: [], children: CHILDREN, level: 1 });
+    sib.resolve({ items: SIBLING_ROWS });
+    await settle();
+    expect(screen.queryByText("Invoicing")).not.toBeInTheDocument();
+    expect(screen.queryByText("Treasury")).not.toBeInTheDocument();
+  });
+
+  it("never commits an empty relation pick", async () => {
+    mockApi.on("get", OTHER_SUMMARY, { by_type: [HOSTS], hierarchy: LEAF_ROOT });
+    const { user, rerender, onClose, onPick } = renderMenu();
+    await user.click(await screen.findByText("is supported by"));
+    // Straight to another card: the earlier tick matches none of its relation types.
+    rerender(<ExpandMenu target={target({ cardId: OTHER })} onClose={onClose} onPick={onPick} />);
+    expect(await screen.findByText("hosts")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Insert/ }));
+    expect(onPick).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("never commits an empty drill-down pick", async () => {
+    const { user, rerender, onClose, onPick } = renderMenu();
+    await user.click(await screen.findByText("Collections"));
+    // The canvas now already nests the one child that was ticked.
+    rerender(
+      <ExpandMenu target={target({ nestedCardIds: new Set(["ch-2"]) })} onClose={onClose} onPick={onPick} />,
+    );
+    await waitFor(() => expect(mockApi.callsOf("get", SUMMARY)).toHaveLength(2));
+    expect(await screen.findByText("Already in container")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Drill into/ }));
+    expect(onPick).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

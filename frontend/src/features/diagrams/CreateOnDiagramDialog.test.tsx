@@ -8,7 +8,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen, within } from "@testing-library/react";
 
-import { renderWithProviders, makeUser, userWith } from "@/test/render";
+import { renderWithProviders, makeUser, userWith, wrapWithProviders } from "@/test/render";
 import { CARD_TYPES } from "@/test/fixtures/metamodel";
 import type { User } from "@/types";
 import CreateOnDiagramDialog from "./CreateOnDiagramDialog";
@@ -137,5 +137,53 @@ describe("CreateOnDiagramDialog", () => {
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onCreate).not.toHaveBeenCalled();
+  });
+  it("titles the dialog and spells the hint out word by word", async () => {
+    const { user } = renderDialog();
+    expect(screen.getByText("Create Card")).toBeInTheDocument();
+    await pickType(user, "IT Component");
+    const hint = screen.getByText(/Will be added to the diagram as a pending/);
+    expect(hint.textContent).toBe(
+      "Will be added to the diagram as a pending IT Component. Synchronise to save it to the inventory.",
+    );
+  });
+
+  it("clears type, name and description after a create", async () => {
+    const { user, onCreate } = renderDialog();
+    const description = screen.getByRole("textbox", { name: "Description (optional)" });
+    await pickType(user, "Application");
+    await user.type(nameField(), "Billing Portal");
+    await user.type(description, "Invoices");
+    await user.click(addButton());
+    expect(onCreate).toHaveBeenCalledTimes(1);
+    expect(description).toHaveValue("");
+    expect(screen.queryByText(/Will be added to the diagram as a pending/)).not.toBeInTheDocument();
+    // The type was reset too, so a name alone is not enough again.
+    await user.type(nameField(), "Next");
+    expect(addButton()).toBeDisabled();
+  });
+
+  it("clears type, name and description on Cancel", async () => {
+    const { user, onClose } = renderDialog();
+    const description = screen.getByRole("textbox", { name: "Description (optional)" });
+    await pickType(user, "Application");
+    await user.type(nameField(), "Billing Portal");
+    await user.type(description, "Invoices");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(nameField()).toHaveValue("");
+    expect(description).toHaveValue("");
+    await user.type(nameField(), "Next");
+    expect(addButton()).toBeDisabled();
+  });
+
+  it("seeds the name when the dialog is opened later with a prefill", () => {
+    const { rerender } = renderDialog({ open: false });
+    rerender(
+      wrapWithProviders(
+        <CreateOnDiagramDialog open types={CARD_TYPES} prefillName="Legacy Box" onClose={vi.fn()} onCreate={vi.fn()} />,
+      ),
+    );
+    expect(nameField()).toHaveValue("Legacy Box");
   });
 });

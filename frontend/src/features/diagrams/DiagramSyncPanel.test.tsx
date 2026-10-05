@@ -256,6 +256,7 @@ describe("DiagramSyncPanel", () => {
 
     const renamed = rowOf("Old Name");
     expect(within(renamed).getByText("New Name")).toBeInTheDocument();
+    expect(within(renamed).getByText("New Name").parentElement).toHaveTextContent("Old Name New Name");
     await user.click(within(renamed).getByRole("button", { name: "Accept update from inventory" }));
     expect(onAcceptStale).toHaveBeenCalledWith("s-1");
 
@@ -295,5 +296,45 @@ describe("DiagramSyncPanel", () => {
   it("renders nothing while closed", () => {
     renderPanel({ open: false, pendingCards: [CARD] });
     expect(screen.queryByText("Synchronise")).not.toBeInTheDocument();
+  });
+  it("titles the drawer and shows no section heading while every list is empty", () => {
+    renderPanel();
+    expect(screen.getByText("Synchronise")).toBeInTheDocument();
+    for (const heading of [
+      "New Cards",
+      "New Relations",
+      "Removed Relations",
+      "Hierarchy Changes",
+      "Inventory Changed",
+    ]) {
+      expect(screen.queryByText(heading)).not.toBeInTheDocument();
+    }
+  });
+
+  it("spaces the relation verb between the two card names", () => {
+    renderPanel({ pendingRels: [REL], staleItems: [STALE[3], STALE[4]] });
+    expect(screen.getByText(/→ uses →/).parentElement).toHaveTextContent(
+      "Billing Portal → uses → PostgreSQL",
+    );
+    expect(screen.getByText(/→ supports →/).parentElement).toHaveTextContent(
+      "ERP Core → supports → Finance",
+    );
+    expect(screen.getByText(/→ sends data to →/).parentElement).toHaveTextContent(
+      "ERP Core → sends data to → CRM Cloud",
+    );
+  });
+
+  it("falls back to a question mark for unnamed hierarchy cards", () => {
+    renderPanel({
+      pendingParentChanges: [
+        { ...ATTACH, cardName: "", parentCardName: "" },
+        { ...DETACH, cardName: "", parentCardName: "" },
+      ],
+    });
+    expect(screen.getAllByText("?")).toHaveLength(2);
+    expect(screen.getByText("Will become a child of «?»")).toBeInTheDocument();
+    expect(
+      screen.getByText("Will become a root card (currently nested under «?»)"),
+    ).toBeInTheDocument();
   });
 });
