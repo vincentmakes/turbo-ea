@@ -4,12 +4,14 @@
  * the delete confirm, driven through the shared api kit.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, within, waitFor } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
 import { mockApi } from "@/test/apiMock";
+import i18n from "@/i18n";
 import type { EAPrinciple } from "@/types";
 import PrinciplesAdmin from "./PrinciplesAdmin";
 
@@ -236,5 +238,204 @@ describe("PrinciplesAdmin delete", () => {
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
 
     expect(await screen.findByRole("alert", { hidden: true })).toHaveTextContent("Failed to delete principle");
+  });
+});
+
+describe("PrinciplesAdmin — details the first pass missed", () => {
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    const promise = new Promise<T>((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  }
+
+  it("paints no rows, no empty state and the display switch on before the load", () => {
+    const html = renderToStaticMarkup(<PrinciplesAdmin />);
+    expect(html).not.toContain("MuiCard-root");
+    expect(html).not.toContain("No EA principles defined yet");
+    // The only checkbox at first paint is the EA Delivery display switch.
+    expect(html.split('type="checkbox"')).toHaveLength(2);
+    expect(html).toContain('checked=""');
+  });
+
+  it("renders the intro, both section labels and the active-toggle tooltips", async () => {
+    await renderPage();
+    expect(
+      screen.getByText(/Define the architecture principles that govern your IT landscape/),
+    ).toBeInTheDocument();
+    const reuse = rowOf(REUSE.title);
+    expect(within(reuse).getByText("Implications:")).toBeInTheDocument();
+    expect(within(reuse).getByLabelText("Deactivate")).toBeInTheDocument();
+    expect(within(rowOf(CLOUD.title)).getByLabelText("Activate")).toBeInTheDocument();
+  });
+
+  it("shows a rationale on its own, and drops blank lines from the bullets", async () => {
+    mockApi.on("get", PATH, [
+      {
+        id: "p-3",
+        title: "Only why",
+        rationale: "First reason\n\nSecond reason\n",
+        is_active: true,
+        sort_order: 0,
+      },
+      {
+        id: "p-4",
+        title: "Only consequences",
+        implications: "\nOne\n\nTwo",
+        is_active: true,
+        sort_order: 1,
+      },
+    ]);
+    render(<PrinciplesAdmin />);
+
+    await screen.findByText("Only why");
+    const why = rowOf("Only why");
+    expect(within(why).getByText("Rationale:")).toBeInTheDocument();
+    expect(within(why).queryByText("Implications:")).not.toBeInTheDocument();
+    expect(within(why).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "First reason",
+      "Second reason",
+    ]);
+    const then = rowOf("Only consequences");
+    expect(within(then).queryByText("Rationale:")).not.toBeInTheDocument();
+    expect(within(then).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "One",
+      "Two",
+    ]);
+  });
+
+  it("hides the empty state while a reload is in flight", async () => {
+    mockApi.on("get", PATH, []);
+    mockApi.on("post", PATH, {});
+    const user = userEvent.setup();
+    render(<PrinciplesAdmin />);
+    const empty = /No EA principles defined yet/;
+    expect(await screen.findByText(empty)).toBeInTheDocument();
+
+    const reload = deferred<EAPrinciple[]>();
+    mockApi.on("get", PATH, () => reload.promise);
+    await user.click(screen.getByRole("button", { name: /New Principle/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText("Principle Title"), "First");
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+
+    await waitFor(() => expect(mockApi.callsOf("get", PATH)).toHaveLength(2));
+    await waitFor(() => expect(screen.queryByText(empty)).not.toBeInTheDocument());
+
+    reload.resolve([{ id: "p-9", title: "First", is_active: true, sort_order: 0 }]);
+    expect(await screen.findByText("First")).toBeInTheDocument();
+  });
+
+  it("reloads when the language changes", async () => {
+    await renderPage();
+    expect(mockApi.callsOf("get", PATH)).toHaveLength(1);
+    try {
+      await act(async () => {
+        await i18n.changeLanguage("de");
+      });
+      await waitFor(() => expect(mockApi.callsOf("get", PATH)).toHaveLength(2));
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
+  });
+
+  it("prefills every section when editing", async () => {
+    const user = await renderPage();
+
+    await user.click(within(rowOf(REUSE.title)).getByRole("button", { name: "Edit" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText("Principle Title")).toHaveValue(REUSE.title);
+    expect(within(dialog).getByLabelText("Statement")).toHaveValue(REUSE.description);
+    expect(within(dialog).getByLabelText("Rationale")).toHaveValue(REUSE.rationale);
+    expect(within(dialog).getByLabelText("Implications")).toHaveValue(REUSE.implications);
+  });
+
+  it("starts a fresh form after an edit was cancelled", async () => {
+    const user = await renderPage();
+
+    await user.click(within(rowOf(REUSE.title)).getByRole("button", { name: "Edit" }));
+    let dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await expectNoDialog();
+
+    await user.click(screen.getByRole("button", { name: /New Principle/ }));
+    dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Create EA Principle")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Principle Title")).toHaveValue("");
+    expect(within(dialog).getByLabelText("Statement")).toHaveValue("");
+    expect(within(dialog).getByRole("button", { name: "Create" })).toBeDisabled();
+  });
+
+  it("shows a hint in every field and refuses a blank title", async () => {
+    const user = await renderPage();
+
+    await user.click(screen.getByRole("button", { name: /New Principle/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText("Principle Title")).toHaveAttribute(
+      "placeholder",
+      "e.g. Reuse before Buy before Build",
+    );
+    expect(within(dialog).getByLabelText("Statement")).toHaveAttribute(
+      "placeholder",
+      "What does this principle state?",
+    );
+    expect(within(dialog).getByLabelText("Rationale")).toHaveAttribute(
+      "placeholder",
+      "Why is this principle important?",
+    );
+    expect(within(dialog).getByLabelText("Implications")).toHaveAttribute(
+      "placeholder",
+      "What are the practical consequences of following this principle?",
+    );
+
+    await user.type(within(dialog).getByLabelText("Principle Title"), "   ");
+    expect(within(dialog).getByRole("button", { name: "Create" })).toBeDisabled();
+  });
+
+  it("closes the edit dialog on Escape without saving", async () => {
+    const user = await renderPage();
+
+    await user.click(screen.getByRole("button", { name: /New Principle/ }));
+    await screen.findByRole("dialog");
+    await user.keyboard("{Escape}");
+
+    await expectNoDialog();
+    expect(mockApi.callsOf("post")).toHaveLength(0);
+  });
+
+  it("closes the delete confirm on Escape without deleting", async () => {
+    const user = await renderPage();
+
+    await user.click(within(rowOf(CLOUD.title)).getByRole("button", { name: "Delete" }));
+    await screen.findByRole("dialog");
+    await user.keyboard("{Escape}");
+
+    await expectNoDialog();
+    expect(mockApi.callsOf("delete")).toHaveLength(0);
+  });
+
+  it("ignores a second Delete click on the closing confirm", async () => {
+    const gate = deferred<unknown>();
+    mockApi.on("delete", `${PATH}/p-2`, () => gate.promise);
+    const user = await renderPage();
+
+    await user.click(within(rowOf(CLOUD.title)).getByRole("button", { name: "Delete" }));
+    const dialog = await screen.findByRole("dialog");
+    const confirm = within(dialog).getByRole("button", { name: "Delete" });
+    await user.click(confirm);
+    await waitFor(() => expect(mockApi.callsOf("delete")).toHaveLength(1));
+
+    await act(async () => {
+      gate.resolve({});
+    });
+    // The confirm is fading out with nothing left to delete.
+    fireEvent.click(confirm);
+
+    await expectNoDialog();
+    expect(mockApi.callsOf("delete")).toHaveLength(1);
+    expect(screen.queryByText("Failed to delete principle")).not.toBeInTheDocument();
   });
 });
