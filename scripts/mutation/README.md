@@ -179,6 +179,15 @@ Each of these was found the hard way while wiring it up; keep them.
   silently ignored, so a suite that pins a timezone fails Stryker's initial
   run and aborts it. `frontend/vitest.stryker.config.ts` finds those suites
   by scanning for the stub and leaves them out of mutation runs only.
+- **Static mutants are ignored** (`ignoreStatic`). A mutant in a module-level
+  initialiser (`ROUTE_PERMISSIONS`, a lookup table, a constant) runs once at
+  import, so Stryker cannot tell which tests cover it and reruns the whole
+  suite for each one. On nine `lib/` files, 236 of them took an estimated
+  95% of the run, about 19 hours. That is enough to keep a nightly chunk from
+  ever finishing, and to time out a PR that edits one table. They are reported
+  `Ignored`, and the gate counts `Ignored` as excluded. Tables like these are
+  covered by the guard tests that pin them instead (`routePermissions.test.ts`
+  reads `App.tsx` and the backend registry off disk).
 - **Stryker's dry run** runs every test related to the mutated files, which
   for a shared `lib/` helper is a large part of the suite, so
   `dryRunTimeoutMinutes` is raised from its default of 5.

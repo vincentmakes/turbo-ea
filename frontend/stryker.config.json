@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
-  "_comment": "Mutation testing (CLAUDE.md, Testing Conventions, gate 3). PRs pass --mutate with the changed line ranges (scripts/mutation/stryker_mutate_args.py); the nightly mutates everything below. The pass/fail floors live in scripts/mutation/floors.toml, read by scripts/mutation/gate.py, so thresholds.break stays null here. ignorePatterns are gitignore-style: each is anchored with a leading / so 'reports' cannot also drop src/features/reports. Stryker runs vitest.stryker.config.ts, which leaves out the suites that pin a timezone (they cannot under Stryker's threads pool).",
+  "_comment": "Mutation testing (CLAUDE.md, Testing Conventions, gate 3). PRs pass --mutate with the changed line ranges (scripts/mutation/stryker_mutate_args.py); the nightly mutates everything below. The pass/fail floors live in scripts/mutation/floors.toml, read by scripts/mutation/gate.py, so thresholds.break stays null here. ignorePatterns are gitignore-style: each is anchored with a leading / so 'reports' cannot also drop src/features/reports. Stryker runs vitest.stryker.config.ts, which leaves out the suites that pin a timezone (they cannot under Stryker's threads pool). ignoreStatic: a static mutant (a module-level initialiser such as ROUTE_PERMISSIONS) has no per-test coverage, so Stryker reruns the WHOLE suite for each one — 236 of them were 95% of a nine-file run's time, enough to stall a nightly chunk for good and a PR touching one table for hours; they are reported Ignored, which the gate excludes.",
   "testRunner": "vitest",
   "vitest": {
     "configFile": "vitest.stryker.config.ts"
@@ -41,6 +41,7 @@
   "incrementalFile": "reports/stryker-incremental.json",
   "timeoutMS": 20000,
   "dryRunTimeoutMinutes": 30,
+  "ignoreStatic": true,
   "thresholds": {
     "high": 80,
     "low": 60,
