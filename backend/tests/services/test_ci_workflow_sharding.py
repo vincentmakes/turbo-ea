@@ -6,6 +6,10 @@ required check as passing, so the aggregate job carrying the required name has
 to run on ``always()`` and fail explicitly when a shard failed; and a shard
 measures a fraction of the suite, so it must never report or gate on the
 coverage it collected — the floor and the diff gate belong to the aggregate.
+
+The frontend aggregate also folds in the browser suite's coverage: it needs
+``frontend-e2e`` for that LCOV, never for its verdict, and the merged floor,
+the diff gate and the badge read the merged report only when that job passed.
 """
 
 from __future__ import annotations
@@ -25,15 +29,20 @@ def jobs() -> dict[str, str]:
     return {parts[i]: parts[i + 1] for i in range(1, len(parts), 2)}
 
 
+def steps(body: str) -> list[str]:
+    """A job's steps as raw text blocks, in order."""
+    return re.split(r"^      - ", body.split("    steps:\n", 1)[1], flags=re.M)[1:]
+
+
 def first_step(body: str) -> str:
-    steps = body.split("    steps:\n", 1)[1]
-    return re.split(r"^      - ", steps, flags=re.M)[1]
+    return steps(body)[0]
 
 
 CASES = [
     pytest.param(
         "backend-test-integration",
         "backend-test-shards",
+        "",
         "Backend Integration Tests",
         "backend",
         4,
@@ -53,6 +62,7 @@ CASES = [
     pytest.param(
         "frontend-test",
         "frontend-test-shards",
+        ", frontend-e2e",
         "Frontend Tests",
         "frontend",
         3,
@@ -64,17 +74,24 @@ CASES = [
             "--coverage.thresholds.branches=0",
             "--coverage.thresholds.functions=0",
         ],
-        ["npx vitest run --merge-reports --coverage.enabled"],
+        [
+            "npx vitest run --merge-reports --coverage.enabled",
+            "node scripts/merge-lcov.mjs --out coverage-merged --fail-under-from-package "
+            "coverage/lcov.info coverage-e2e/lcov.info",
+            "diff-cover coverage-merged/lcov.info",
+        ],
         id="frontend",
     ),
 ]
 
 
 @pytest.mark.parametrize(
-    "aggregate_id, shards_id, required_name, gate, count, shard_flags, aggregate_commands", CASES
+    "aggregate_id, shards_id, extra_needs, required_name, gate, count, shard_flags, "
+    "aggregate_commands",
+    CASES,
 )
 def test_the_aggregate_is_the_required_check_and_cannot_be_skipped_past_a_failed_shard(
-    aggregate_id, shards_id, required_name, gate, count, shard_flags, aggregate_commands
+    aggregate_id, shards_id, extra_needs, required_name, gate, count, shard_flags, aggregate_commands
 ):
     j = jobs()
     aggregate, shards = j[aggregate_id], j[shards_id]
@@ -89,7 +106,7 @@ def test_the_aggregate_is_the_required_check_and_cannot_be_skipped_past_a_failed
 
     # Skipped reads as passing: run on always(), gate only on the changes filter,
     # and make the very first step fail on anything but a fully green matrix.
-    assert f"    needs: [changes, {shards_id}]\n" in aggregate
+    assert f"    needs: [changes, {shards_id}{extra_needs}]\n" in aggregate
     assert f"    if: always() && needs.changes.outputs.{gate} == 'true'\n" in aggregate
     guard = first_step(aggregate)
     assert f"needs.{shards_id}.result" in guard and '= "success"' in guard
@@ -120,6 +137,51 @@ def test_the_aggregate_is_the_required_check_and_cannot_be_skipped_past_a_failed
         assert "continue-on-error:" not in body
 
 
+def test_the_frontend_aggregate_folds_in_the_browser_coverage_only_from_a_green_run():
+    """The browser suite's LCOV joins the figure; its verdict stays its own check."""
+    j = jobs()
+    aggregate, e2e = j["frontend-test"], j["frontend-e2e"]
+
+    # Wherever the frontend figure is measured, the browser suite ran too —
+    # otherwise the merged floor and the badge would swing with the path filter.
+    assert (
+        "    if: needs.changes.outputs.e2e == 'true' "
+        "|| needs.changes.outputs.frontend == 'true'\n" in e2e
+    )
+    assert 'E2E_COVERAGE: "1"' in e2e
+    assert "node scripts/e2e-coverage.mjs" in e2e
+    upload = next(s for s in steps(e2e) if "name: frontend-e2e-coverage" in s)
+    assert "path: frontend/coverage-e2e/lcov.info" in upload
+    assert "if-no-files-found: error" in upload
+    assert "continue-on-error:" not in e2e
+
+    # The aggregate downloads and merges only from a green run, and its guard
+    # step judges the shards alone.
+    download = next(s for s in steps(aggregate) if "name: frontend-e2e-coverage" in s)
+    assert "if: needs.frontend-e2e.result == 'success'" in download
+    assert "needs.frontend-e2e.result" not in first_step(aggregate)
+    merge = next(s for s in steps(aggregate) if "scripts/merge-lcov.mjs" in s)
+    success_branch, _, fallback = merge.partition("else")
+    assert "--fail-under-from-package" in success_branch
+    assert "--fail-under-from-package" not in fallback
+    assert "merge-lcov.mjs --out coverage-merged coverage/lcov.info\n" in fallback
+    for step in steps(aggregate):
+        if "coverage-badge/frontend" in step or "name: coverage-badge-frontend" in step:
+            assert "needs.frontend-e2e.result == 'success'" in step, step
+    assert "jq -r '.total.lines.pct' coverage-merged/coverage-summary.json" in aggregate
+
+
+def test_the_merged_lines_floor_is_a_number_when_set():
+    """merge-lcov.mjs reads it from package.json; a string would silently never gate."""
+    import json
+
+    pkg = json.loads((CI.parents[2] / "frontend" / "package.json").read_text())
+    floor = pkg.get("config", {}).get("coverageFloorMergedLines")
+    if floor is not None:
+        assert isinstance(floor, (int, float)) and not isinstance(floor, bool)
+        assert 0 <= floor <= 100
+
+
 def test_the_frontend_blob_upload_includes_the_hidden_reports_directory():
     # .vitest-reports/ is a dotdir and upload-artifact skips hidden files by default.
     shards = jobs()["frontend-test-shards"]
@@ -146,3 +208,8 @@ def test_the_workflow_parses():
         assert job_id in parsed["jobs"], job_id
     assert parsed["jobs"]["backend-test-shards"]["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
     assert parsed["jobs"]["frontend-test-shards"]["strategy"]["matrix"]["shard"] == [1, 2, 3]
+    assert parsed["jobs"]["frontend-test"]["needs"] == [
+        "changes",
+        "frontend-test-shards",
+        "frontend-e2e",
+    ]

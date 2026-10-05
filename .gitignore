@@ -23,6 +23,10 @@ coverage.xml
 frontend/coverage/
 # Per-shard hand-offs to the aggregate CI jobs (ci.yml)
 frontend/.vitest-reports/
+# Browser-suite coverage: raw V8 recordings, their LCOV and the unit+browser merge (ci.yml, make e2e-coverage)
+frontend/.e2e-coverage/
+frontend/coverage-e2e/
+frontend/coverage-merged/
 backend/coverage.shard-*
 # Mutation testing (scripts/mutation/): mutmut's shadow root and the links into
 # it, Stryker's reports, sandbox and log, and the gate's working files

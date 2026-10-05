@@ -3,9 +3,9 @@
  * requested URL and lands there once signed in. The run's second and last
  * login — `/auth/login` is rate-limited and locks after five failures.
  */
-import { expect, test } from "@playwright/test";
-
-import { ADMIN, gotoApp } from "./fixtures";
+// The shared `test`, not @playwright/test's: its `page` fixture is what records
+// coverage. The worker's `demo` fixture is lazy, so nothing is looked up here.
+import { ADMIN, expect, gotoApp, test } from "./fixtures";
 import { t } from "./i18n";
 
 test.use({ storageState: { cookies: [], origins: [] } });

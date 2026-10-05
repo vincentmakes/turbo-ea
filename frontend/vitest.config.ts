@@ -25,10 +25,14 @@ export default defineConfig({
     // ones). 15s keeps genuine hangs failing while giving slow-runner
     // headroom.
     testTimeout: 15_000,
-    include: ["src/**/*.test.{ts,tsx}"],
+    // scripts/: the coverage tooling CI runs (e2e-coverage.mjs, merge-lcov.mjs).
+    include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["src/**/*.{ts,tsx}"],
+      // scripts/e2e-coverage.mjs mirrors this include/exclude for the browser
+      // suite's report (`isMeasured`); change both together. The scripts
+      // themselves are measured too, so nothing new sits outside the gate.
+      include: ["src/**/*.{ts,tsx}", "scripts/**/*.mjs"],
       exclude: ["src/test/**", "src/**/*.test.{ts,tsx}", "src/main.tsx"],
       // `text` is what the CI log shows; `lcov` feeds the diff-coverage gate
       // on changed lines and `json-summary` the job summary (ci.yml).
