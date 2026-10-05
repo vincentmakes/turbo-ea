@@ -175,6 +175,10 @@ Each of these was found the hard way while wiring it up; keep them.
   security override pins `@babel/core` to 7 everywhere. A nested override in
   `frontend/package.json` gives the instrumenter its own; without it,
   printing any TypeScript generic crashes Stryker.
+- **Stryker runs Vitest in worker threads**, where `vi.stubEnv("TZ", …)` is
+  silently ignored, so a suite that pins a timezone fails Stryker's initial
+  run and aborts it. `frontend/vitest.stryker.config.ts` finds those suites
+  by scanning for the stub and leaves them out of mutation runs only.
 - **Stryker's dry run** runs every test related to the mutated files, which
   for a shared `lib/` helper is a large part of the suite, so
   `dryRunTimeoutMinutes` is raised from its default of 5.

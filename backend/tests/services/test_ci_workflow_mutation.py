@@ -138,6 +138,10 @@ def test_the_nightly_alone_may_write_issues():
 def test_stryker_config_leaves_the_floor_to_the_gate():
     config = json.loads((ROOT / "frontend" / "stryker.config.json").read_text())
     assert config["testRunner"] == "vitest"
+    # Stryker's threads pool ignores vi.stubEnv("TZ"); its config leaves those suites out
+    assert config["vitest"]["configFile"] == "vitest.stryker.config.ts"
+    stryker_vitest = (ROOT / "frontend" / "vitest.stryker.config.ts").read_text()
+    assert "stubEnv" in stryker_vitest and "configDefaults.exclude" in stryker_vitest
     assert config["thresholds"]["break"] is None  # the floor lives in floors.toml
     assert config["jsonReporter"]["fileName"] == "reports/mutation/mutation.json"
     assert config["incrementalFile"] == "reports/stryker-incremental.json"
