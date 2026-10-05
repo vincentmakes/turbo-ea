@@ -235,3 +235,77 @@ class TestRequireInventoryBrowse:
         read_scope = await require_inventory_browse(db, user)
         assert read_scope.base_view is True
         assert read_scope.role_key == "v"
+
+
+class TestModuleModeIsWhatTheFeedsUse:
+    """Feeds, payloads and id lookups read in module mode: a role without the
+    global View grant still sees every type that is not explicitly denied."""
+
+    NO_VIEW = {"base_view": False, "denied": ("Secret",)}
+
+    async def test_event_filters_keep_undenied_types_without_the_global_grant(self, db, landscape):
+        o, s = landscape["open"], landscape["secret"]
+        db.add_all(
+            [
+                Event(card_id=o.id, event_type="t.open", data={}),
+                Event(card_id=s.id, event_type="t.secret", data={}),
+                Event(card_id=None, event_type="t.ref", data={"type": "Open", "id": "x"}),
+            ]
+        )
+        await db.flush()
+        filters = event_read_filters(scope(**self.NO_VIEW))
+        kept = (await db.execute(select(Event.event_type).where(*filters))).scalars().all()
+        assert sorted(k for k in kept if k.startswith("t.")) == ["t.open", "t.ref"]
+
+    async def test_payload_scrub_keeps_undenied_types_without_the_global_grant(self, db, landscape):
+        o, s = str(landscape["open"].id), str(landscape["secret"].id)
+        out = await scrub_event_payloads(db, scope(**self.NO_VIEW), [{"card_ids": [o, s]}])
+        assert out == [{"card_ids": [o]}]
+
+    async def test_id_lookups_honour_the_mode(self, db, landscape):
+        o, s = landscape["open"].id, landscape["secret"].id
+        read_scope = scope(**self.NO_VIEW)
+        assert await read_scope.readable_card_ids(db, {o, s}, mode="module") == {o}
+        assert await read_scope.readable_card_ids(db, {o, s}, mode="inventory") == set()
+        assert await read_scope.hidden_card_ids(db, {o, s}, mode="module") == {s}
+        assert await read_scope.hidden_card_ids(db, {o, s}, mode="inventory") == {o, s}
+
+    async def test_lookups_pass_the_card_id_to_the_stakeholder_check(self, db, landscape):
+        h, s = landscape["held"].id, landscape["secret"].id
+        read_scope = scope(denied=("Secret",), held=(h,))
+        assert await read_scope.readable_card_ids(db, {h, s}, mode="module") == {h}
+        assert await read_scope.hidden_card_ids(db, {h, s}, mode="module") == {s}
+
+
+class TestScopeBasics:
+    def test_everything(self):
+        everything = CardReadScope.everything()
+        assert (everything.role_key, everything.wildcard, everything.base_view) == (
+            "*",
+            True,
+            True,
+        )
+        assert everything.denied_types == frozenset()
+        assert everything.allowed_types == frozenset()
+        assert everything.stakeholder_card_ids == frozenset()
+
+    def test_readable_accepts_a_held_card_id_as_text(self):
+        read_scope = scope(denied=("Secret",), held=(HELD,))
+        assert read_scope.readable(str(HELD), "Secret", mode="module") is True
+        assert read_scope.readable(HELD, "Secret", mode="module") is True
+        assert read_scope.readable("not-a-uuid", "Secret", mode="module") is False
+        assert read_scope.readable(None, "Secret", mode="module") is False
+        assert read_scope.readable(str(uuid.uuid4()), "Secret", mode="module") is False
+
+    def test_readable_without_held_cards_skips_the_id(self):
+        assert scope(denied=("Secret",)).readable("not-a-uuid", "Secret", mode="module") is False
+
+
+async def test_an_unreadable_card_is_a_404_saying_not_found(db):
+    from app.services.card_read_scope import require_card_readable
+
+    await create_role(db, key="r", label="R", permissions={})
+    user = await create_user(db, email="r@t.com", role="r")
+    with pytest.raises(HTTPException) as exc:
+        await require_card_readable(db, user, uuid.uuid4(), mode="inventory")
+    assert (exc.value.status_code, exc.value.detail) == (404, "Card not found")
