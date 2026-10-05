@@ -97,3 +97,47 @@ class TestIsLiveInFiscalYear:
         lc = {"active": "2025-02-01T00:00:00", "endOfLife": "2025-12-31T23:59:59"}
         assert is_live_in_fiscal_year(lc, 2025, 1)
         assert not is_live_in_fiscal_year(lc, 2026, 1)
+
+
+class TestCurrentLifecyclePhase:
+    """The phase a card is in today: the latest phase whose date has arrived."""
+
+    @staticmethod
+    def _today() -> date:
+        from datetime import datetime, timezone
+
+        return datetime.now(timezone.utc).date()
+
+    def test_the_latest_arrived_phase_wins_over_earlier_ones(self):
+        from datetime import timedelta
+
+        from app.services.lifecycle import current_lifecycle_phase
+
+        past = (self._today() - timedelta(days=30)).isoformat()
+        future = (self._today() + timedelta(days=30)).isoformat()
+        assert (
+            current_lifecycle_phase({"plan": past, "active": past, "endOfLife": future}) == "active"
+        )
+
+    def test_a_phase_starting_today_has_arrived(self):
+        from app.services.lifecycle import current_lifecycle_phase
+
+        assert (
+            current_lifecycle_phase({"plan": "2000-01-01", "active": self._today().isoformat()})
+            == "active"
+        )
+
+    def test_all_dates_in_the_future_reads_as_the_earliest_set_phase(self):
+        from datetime import timedelta
+
+        from app.services.lifecycle import current_lifecycle_phase
+
+        soon = (self._today() + timedelta(days=10)).isoformat()
+        later = (self._today() + timedelta(days=20)).isoformat()
+        assert current_lifecycle_phase({"active": later, "phaseIn": soon}) == "phaseIn"
+
+    @pytest.mark.parametrize("lifecycle", [None, {}, {"plan": ""}, {"active": None}])
+    def test_nothing_set_is_no_phase(self, lifecycle):
+        from app.services.lifecycle import current_lifecycle_phase
+
+        assert current_lifecycle_phase(lifecycle) is None

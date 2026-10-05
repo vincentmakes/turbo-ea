@@ -132,3 +132,57 @@ class TestJobScheduleValidation:
     def test_bad_cron_expression_is_invalid(self):
         job = ExtensionJob(name="t", interval_seconds=None, run=self._run, cron="not a cron")
         assert validate_job_schedule(job) is not None
+
+
+class TestParseErrorsNameTheField:
+    """An extension author reads these when a job will not load."""
+
+    @pytest.mark.parametrize(
+        "expr, message",
+        [
+            ("* * * *", "cron expression must have 5 fields, got 4: '* * * *'"),
+            ("1,,2 * * * *", "minute: empty list entry in '1,,2'"),
+            ("*/x * * * *", "minute: bad step in '*/x'"),
+            ("1-5/2/3 * * * *", "minute: bad step in '1-5/2/3'"),
+            ("*/0 * * * *", "minute: step must be >= 1 in '*/0'"),
+            ("* a-b * * *", "hour: bad range in 'a-b'"),
+            ("* * x * *", "day-of-month: bad value in 'x'"),
+            ("* * * 5-3 *", "month: inverted range in '5-3'"),
+            ("* * * * 8", "day-of-week: value out of range 0-7 in '8'"),
+            ("60 * * * *", "minute: value out of range 0-59 in '60'"),
+        ],
+    )
+    def test_message(self, expr, message):
+        with pytest.raises(CronError) as exc:
+            validate_cron(expr)
+        assert str(exc.value) == message
+
+
+class TestStepsAndRestriction:
+    def test_a_step_of_one_is_valid(self):
+        validate_cron("*/1 * * * *")
+        assert next_fire("*/1 * * * *", datetime(2026, 1, 1, 10, 0, tzinfo=UTC)) == datetime(
+            2026, 1, 1, 10, 1, tzinfo=UTC
+        )
+
+    def test_a_star_inside_a_list_still_restricts_the_day(self):
+        # "1,*" covers every day but is not a bare "*": with a weekday also
+        # set, vixie OR semantics make every day match, not just Mondays.
+        # 2026-01-01 is a Thursday.
+        assert next_fire("0 0 1,* * 1", datetime(2026, 1, 1, 12, 0, tzinfo=UTC)) == datetime(
+            2026, 1, 2, 0, 0, tzinfo=UTC
+        )
+
+
+class TestTimezones:
+    def test_an_aware_instant_is_converted_not_relabelled(self):
+        from datetime import timedelta, timezone
+
+        after = datetime(2026, 1, 1, 10, 0, tzinfo=timezone(timedelta(hours=2)))  # 08:00 UTC
+        assert next_fire("0 9 * * *", after) == datetime(2026, 1, 1, 9, 0, tzinfo=UTC)
+
+    def test_seconds_and_microseconds_are_zeroed(self):
+        after = datetime(2026, 1, 1, 10, 0, 30, 123456, tzinfo=UTC)
+        result = next_fire("* * * * *", after)
+        assert result == datetime(2026, 1, 1, 10, 1, tzinfo=UTC)
+        assert (result.second, result.microsecond) == (0, 0)

@@ -194,3 +194,60 @@ def test_stale_cutoff_matches_the_documented_threshold():
         )
         < 60
     )
+
+
+# ---------------------------------------------------------------------------
+# The boundary instant: "before the cutoff" is strict, in SQL as in prose
+# ---------------------------------------------------------------------------
+
+
+class _Frozen(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return NOW
+
+
+async def _cards_matching(db, condition, *stamps):
+    from sqlalchemy import select
+
+    from app.models.card import Card
+    from tests.conftest import create_card, create_card_type
+
+    await create_card_type(db, key="Application", label="Application")
+    by_id = {}
+    for i, stamp in enumerate(stamps):
+        card = await create_card(db, card_type="Application", name=f"Card {i}")
+        card.updated_at = stamp
+        await db.flush()
+        by_id[card.id] = i
+    rows = (await db.execute(select(Card.id).where(condition))).scalars().all()
+    return sorted(by_id[r] for r in rows if r in by_id)
+
+
+async def test_a_card_exactly_at_the_stale_cutoff_is_not_stale(db, monkeypatch):
+    import app.services.card_flags as card_flags
+
+    monkeypatch.setattr(card_flags, "datetime", _Frozen)
+    cutoff = NOW - timedelta(days=STALE_AFTER_DAYS)
+    matched = await _cards_matching(
+        db, card_flags.stale_condition(), cutoff, cutoff - timedelta(seconds=1)
+    )
+    assert matched == [1]
+
+
+async def test_a_card_exactly_at_the_survey_cutoff_does_not_match(db, monkeypatch):
+    import app.services.card_flags as card_flags
+
+    monkeypatch.setattr(card_flags, "datetime", _Frozen)
+    condition = not_updated_condition({"not_updated_for": {"value": 30, "unit": "days"}})
+    midnight = datetime(2026, 7, 26, tzinfo=timezone.utc)
+    matched = await _cards_matching(db, condition, midnight, midnight - timedelta(seconds=1))
+    assert matched == [1]
+
+
+def test_an_unknown_eol_bucket_names_itself():
+    from app.services.card_flags import eol_bucket_condition
+
+    with pytest.raises(ValueError) as exc:
+        eol_bucket_condition("nope")
+    assert str(exc.value) == "Unknown EOL bucket: nope"

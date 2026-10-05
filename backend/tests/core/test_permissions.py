@@ -578,3 +578,30 @@ class TestTypeCellDecision:
     )
     def test_decision_table(self, cells, permission, expected):
         assert type_cell_decision(cells, permission) is expected
+
+
+class TestValidationMessages:
+    """The messages reach the admin verbatim (the route turns them into a 400)."""
+
+    def _refusal(self, raw) -> str:
+        with pytest.raises(ValueError) as exc:
+            validate_type_role_permissions(
+                raw, known_role_keys={"admin", "member"}, wildcard_role_keys={"admin"}
+            )
+        return str(exc.value)
+
+    def test_not_an_object(self):
+        assert self._refusal(["member"]) == "role_permissions must be an object"
+
+    def test_a_key_that_is_not_a_role_key(self):
+        assert self._refusal({7: {}}) == "role_permissions keys must be role keys"
+
+    def test_a_permission_outside_the_type_scoped_set(self):
+        message = self._refusal({"member": {"admin.users": False}})
+        allowed = ", ".join(sorted(TYPE_SCOPED_APP_PERMISSIONS))
+        assert message.endswith(f"(allowed: {allowed})")
+
+
+def test_nothing_to_migrate_returns_the_very_same_map():
+    perms = {"inventory.view": True}
+    assert migrate_legacy_app_permissions(perms) is perms
