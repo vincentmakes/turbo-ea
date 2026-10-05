@@ -148,6 +148,10 @@ def test_stryker_config_leaves_the_floor_to_the_gate():
     # A static mutant has no per-test coverage, so each one reruns the whole
     # suite: left on, they cost a nine-file run 95% of its time.
     assert config["ignoreStatic"] is True
+    # The dry run is single-threaded over every test related to the mutated
+    # files: the whole suite extrapolated to ~50 minutes on 2026-10-05, so a
+    # widely imported module's chunk needs this much or it never finishes.
+    assert config["dryRunTimeoutMinutes"] >= 60
     # gitignore-style: an unanchored "reports" also drops src/features/reports,
     # tests and all, from Stryker's sandbox — silently.
     assert config["ignorePatterns"] and all(p.startswith("/") for p in config["ignorePatterns"])

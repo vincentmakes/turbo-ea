@@ -40,7 +40,7 @@
   },
   "incrementalFile": "reports/stryker-incremental.json",
   "timeoutMS": 20000,
-  "dryRunTimeoutMinutes": 30,
+  "dryRunTimeoutMinutes": 60,
   "ignoreStatic": true,
   "thresholds": {
     "high": 80,

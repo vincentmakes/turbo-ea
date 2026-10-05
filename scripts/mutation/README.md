@@ -189,8 +189,13 @@ Each of these was found the hard way while wiring it up; keep them.
   covered by the guard tests that pin them instead (`routePermissions.test.ts`
   reads `App.tsx` and the backend registry off disk).
 - **Stryker's dry run** runs every test related to the mutated files, which
-  for a shared `lib/` helper is a large part of the suite, so
-  `dryRunTimeoutMinutes` is raised from its default of 5.
+  for a shared `lib/` helper is a large part of the suite, and it runs them on
+  ONE thread. `dryRunTimeoutMinutes` is therefore 60, not the default 5:
+  measured on 2026-10-05, the dry run for `src/api/client.ts` ran its 4,027
+  related tests in 27 minutes, and the whole suite (7,443 tests) extrapolates
+  to about 50. A module nearly every test imports (`MaterialSymbol`, the hooks)
+  sits near that upper end; under 30 minutes its chunk would time out every
+  night and never be measured.
 - **mutmut is pinned exactly** because `mutmut_scope.py` reads its `results`
   and `show` output. To bump it: change both pins, run
   `backend/tests/core/test_mutation_scripts.py`, then
