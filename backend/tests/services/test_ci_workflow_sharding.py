@@ -91,7 +91,14 @@ CASES = [
     CASES,
 )
 def test_the_aggregate_is_the_required_check_and_cannot_be_skipped_past_a_failed_shard(
-    aggregate_id, shards_id, extra_needs, required_name, gate, count, shard_flags, aggregate_commands
+    aggregate_id,
+    shards_id,
+    extra_needs,
+    required_name,
+    gate,
+    count,
+    shard_flags,
+    aggregate_commands,
 ):
     j = jobs()
     aggregate, shards = j[aggregate_id], j[shards_id]
