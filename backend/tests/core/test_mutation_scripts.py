@@ -808,7 +808,7 @@ class TestStrykerNightly:
         assert list(state.glob("*.mutation.json"))  # the other chunk still landed
 
     def test_the_budget_stops_a_chunk_and_keeps_its_previous_report(
-        self, frontend_repo, tmp_path, monkeypatch
+        self, frontend_repo, tmp_path, monkeypatch, capsys
     ):
         fe, config = frontend_repo
         for name in ("a", "b", "c", "d"):
@@ -824,3 +824,5 @@ class TestStrykerNightly:
         assert stryker_scope.nightly("1/1", 0.02, state, fe, config) == 0
         assert time.monotonic() - started < 30  # stopped, not waited out
         assert previous.read_text() == '{"files": {}}'
+        # it had the whole budget and still did not finish: say so
+        assert "cannot finish within one budget" in capsys.readouterr().out

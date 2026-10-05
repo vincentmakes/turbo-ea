@@ -61,7 +61,7 @@ FRONTEND = REPO / "frontend"
 CONFIG = FRONTEND / "stryker.config.json"
 REPORT = Path("reports") / "mutation" / "mutation.json"  # relative to the frontend
 STRYKER = ["npx", "stryker", "run"]  # the command; a test swaps in a stand-in
-CHUNKS = 8  # per shard: ~8 files each at today's size, small enough to finish
+CHUNKS = 16  # per shard: ~4 files each at today's size, small enough to finish
 MIN_CHUNK_SECONDS = 60  # never start a chunk with less time than this left
 
 STATUS = {
@@ -245,6 +245,13 @@ def nightly(
             failed.append(chunk)
         else:
             print("Budget spent mid-chunk; it keeps its previous report.")
+            if remaining >= budget * 60 * 0.9:
+                # It had (nearly) the whole night and still did not finish, so
+                # it never will: the chunk count needs raising.
+                print(
+                    f"::warning::chunk {chunk} of shard {shard} cannot finish within one "
+                    "budget; raise CHUNKS in scripts/mutation/stryker_scope.py"
+                )
             break
     if failed:
         print(f"::error::Stryker failed on chunk(s) {failed} of shard {shard}")
