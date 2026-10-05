@@ -2332,10 +2332,12 @@ APPLICATIONS = [
             "numberOfUsers": 310,
             "commercialApplication": False,
         },
+        # Both ends on `_in_months`: against `_in_years(1)` the phase-out
+        # overtook the end of life from every 4 October.
         lifecycle={
             "active": _in_years(-6),
             "phaseOut": _in_months(3),
-            "endOfLife": _in_years(1),
+            "endOfLife": _in_months(15),
         },
     ),
     _fs(

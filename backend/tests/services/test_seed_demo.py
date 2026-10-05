@@ -9,10 +9,14 @@ it ever hits the database.
 
 from __future__ import annotations
 
+import datetime as datetime_module
+import importlib.util
 from datetime import date
+from typing import Self
 
 import pytest
 
+import app.services.seed_demo as seed_demo_module
 from app.services.seed import RELATIONS as META_RELATIONS
 from app.services.seed import TYPES as META_TYPES
 from app.services.seed_demo import (
@@ -86,20 +90,66 @@ for _t in META_TYPES:
 _rel_type_by_key: dict[str, dict] = {r["key"]: r for r in META_RELATIONS}
 
 # Every demo card, in one list — the same set the seeder inserts.
-_ALL_DEMO_CARDS: list[dict] = (
-    ORGANIZATIONS
-    + BUSINESS_CAPABILITIES
-    + BUSINESS_CONTEXTS
-    + APPLICATIONS
-    + IT_COMPONENTS
-    + INTERFACES
-    + DATA_OBJECTS
-    + TECH_CATEGORIES
-    + PROVIDERS
-    + OBJECTIVES
-    + INITIATIVES
-    + PLATFORMS
+_CARD_LISTS = (
+    "ORGANIZATIONS",
+    "BUSINESS_CAPABILITIES",
+    "BUSINESS_CONTEXTS",
+    "APPLICATIONS",
+    "IT_COMPONENTS",
+    "INTERFACES",
+    "DATA_OBJECTS",
+    "TECH_CATEGORIES",
+    "PROVIDERS",
+    "OBJECTIVES",
+    "INITIATIVES",
+    "PLATFORMS",
 )
+
+_ALL_DEMO_CARDS: list[dict] = [
+    card for name in _CARD_LISTS for card in getattr(seed_demo_module, name)
+]
+
+
+def _demo_cards_as_of(today: date) -> list[dict]:
+    """The demo cards as `seed_demo` builds them when seeded on `today`.
+
+    The lifecycle dates are computed from `date.today()` once, at import, so
+    the module is executed afresh under its own name with `datetime.date`
+    pinned for the duration of the import. The shared `seed_demo` module the
+    rest of this file imports is left untouched.
+    """
+
+    class _PinnedDate(date):
+        @classmethod
+        def today(cls) -> Self:
+            return cls(today.year, today.month, today.day)
+
+    spec = importlib.util.spec_from_file_location(
+        f"_seed_demo_as_of_{today:%Y%m%d}", seed_demo_module.__file__
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    real_date = datetime_module.date
+    datetime_module.date = _PinnedDate  # type: ignore[misc]
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        datetime_module.date = real_date  # type: ignore[misc]
+    return [card for name in _CARD_LISTS for card in getattr(module, name)]
+
+
+def _phases_running_backwards(cards: list[dict]) -> list[str]:
+    """plan -> phaseIn -> active -> phaseOut -> endOfLife must not decrease."""
+    phases = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"]
+    broken = []
+    for c in cards:
+        lc = {k: v for k, v in (c.get("lifecycle") or {}).items() if v}
+        dated = [(p, lc[p]) for p in phases if p in lc]
+        for (p1, v1), (p2, v2) in zip(dated, dated[1:]):
+            if v2 < v1:
+                broken.append(f"{c['name']}: {p1}={v1} after {p2}={v2}")
+    return broken
+
 
 _rel_attr_options: dict[str, dict[str, set[str]]] = {}
 for _r in META_RELATIONS:
@@ -1049,15 +1099,25 @@ class TestDemoLifecycles:
         so the data was correct in spring and backwards in autumn depending
         only on the day the demo happened to be seeded.
         """
-        phases = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"]
-        broken = []
-        for c in _ALL_DEMO_CARDS:
-            lc = {k: v for k, v in (c.get("lifecycle") or {}).items() if v}
-            dated = [(p, lc[p]) for p in phases if p in lc]
-            for (p1, v1), (p2, v2) in zip(dated, dated[1:]):
-                if v2 < v1:
-                    broken.append(f"{c['name']}: {p1}={v1} after {p2}={v2}")
+        broken = _phases_running_backwards(_ALL_DEMO_CARDS)
         assert not broken, f"lifecycles running backwards: {broken}"
+
+    @pytest.mark.parametrize("month, day", [(1, 1), (12, 31)], ids=["jan-1", "dec-31"])
+    def test_lifecycle_phases_run_forwards_whatever_the_seed_day(self, month, day):
+        """The same ordering, checked as if the demo were seeded on the first and
+        the last day of the year, so CI catches a mixed lifecycle on any day.
+
+        The test above only sees the day CI happens to run: Partner Extranet's
+        `phaseOut: _in_months(3)` passed `endOfLife: _in_years(1)` on 4 October
+        and the suite went red with no change to the seed. Those two days are
+        enough. Within a calendar year an `_in_years` date is fixed while an
+        `_in_months` date only moves forward, so a pair of them can only be out
+        of order on a run of days that starts on 1 January or ends on
+        31 December.
+        """
+        seeded_on = date(date.today().year, month, day)
+        broken = _phases_running_backwards(_demo_cards_as_of(seeded_on))
+        assert not broken, f"seeded on {seeded_on}, lifecycles running backwards: {broken}"
 
     def test_it_components_do_not_all_retire_on_one_day(self):
         """They used to share a single hard-coded end date, which drew one
