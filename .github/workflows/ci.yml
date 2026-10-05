@@ -855,17 +855,20 @@ jobs:
               mcp) label="MCP server coverage" ;;
               *) label="$suite coverage" ;;
             esac
-            # --argjson rejects anything that is not a number. The colour is
+            # --argjson rejects anything that is not a number. The colours
+            # follow Google's coverage guidelines (Testing Blog, "Code
+            # Coverage Best Practices", 2020): 90% exemplary, 75%
+            # commendable, 60% acceptable, so every acceptable figure is a
+            # shade of green and only one below 60 warns. The colour is
             # picked from the rounded figure the badge shows, never the raw
-            # one, or 69.6 reads "70%" in the colour of the band below 70.
+            # one, or 69.6 would read "70%" in the colour of the band below.
             jq -n --arg label "$label" --argjson pct "$(cat "$total")" '
               ($pct | round) as $shown | {
               schemaVersion: 1,
               label: $label,
               message: "\($shown)%",
-              color: (if $shown >= 90 then "brightgreen" elif $shown >= 80 then "green"
-                      elif $shown >= 70 then "yellowgreen" elif $shown >= 60 then "yellow"
-                      elif $shown >= 50 then "orange" else "red" end)
+              color: (if $shown >= 90 then "brightgreen" elif $shown >= 75 then "green"
+                      elif $shown >= 60 then "yellowgreen" else "orange" end)
             }' > "$suite.json"
           done
           git add -A
