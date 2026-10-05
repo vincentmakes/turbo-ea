@@ -12,7 +12,7 @@
  * records the nodes and edges it is handed.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { useLocation } from "react-router";
 import type { GEdge, GNode } from "@/features/reports/layeredDependencyLayout";
 
@@ -208,8 +208,8 @@ describe("AssessmentViewer — loading and errors", () => {
     resolve(assessment());
     expect(await screen.findByRole("heading", { name: "CRM replacement" })).toBeInTheDocument();
     expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
-    // The assessment's title names the browser tab.
-    expect(screen.getByTestId("subject")).toHaveTextContent("CRM replacement");
+    // The assessment's title names the browser tab, set by an effect after that render.
+    await waitFor(() => expect(screen.getByTestId("subject")).toHaveTextContent("CRM replacement"));
   });
 
   it("shows the request's error when the assessment cannot be loaded", async () => {
