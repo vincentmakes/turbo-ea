@@ -92,8 +92,9 @@ describe("EolLinkSection — linked card", () => {
   it("marks a cycle whose eol flag is true as End of Life", async () => {
     renderSection(makeCard({ ...LINKED, attributes: { eol_product: "postgresql", eol_cycle: "12" } }));
     await screen.findByText("postgresql 12");
-    // Header chip, status badge and the "End of Life" row chip "Yes (EOL)".
-    expect((await screen.findAllByText("End of Life")).length).toBeGreaterThanOrEqual(3);
+    // Title, header chip, status badge and the row label. The last three come
+    // from the cycles request, which lands after the product the card holds.
+    await waitFor(() => expect(screen.getAllByText("End of Life")).toHaveLength(4));
     expect(screen.getByText("Yes (EOL)")).toBeInTheDocument();
     expect(screen.getByText("No")).toBeInTheDocument();
   });
@@ -217,13 +218,15 @@ describe("EolLinkSection — unlinked card", () => {
     mockApi.on("get", "/eol/products?search=redis", [{ name: "redis" }, { name: "redis-stack" }]);
     mockApi.on("get", "/eol/products/redis", []);
     mockApi.on("get", "/eol/products/fuzzy*", []);
-    const user = userEvent.setup();
+    // No pause between keystrokes: on a loaded runner a real one can outlast
+    // the 300 ms debounce and let an intermediate value through.
+    const user = userEvent.setup({ delay: null });
     renderSection(makeCard({ type: "ITComponent", name: "Cache" }), { initialExpanded: true });
 
     const search = screen.getByLabelText("Search product on endoflife.date");
     await user.type(search, "redis");
     // One request for the settled value, none for the intermediate ones.
-    const option = await screen.findByRole("option", { name: "redis" });
+    const option = await screen.findByRole("option", { name: "redis" }, { timeout: 3000 });
     expect(mockApi.callsOf("get", /^\/eol\/products\?search=/)).toHaveLength(1);
     expect(screen.getByRole("option", { name: "redis-stack" })).toBeInTheDocument();
 

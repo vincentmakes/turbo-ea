@@ -202,3 +202,188 @@ describe("AiSuggestPanel", () => {
     expect(within(panel).getByText("50%")).toBeInTheDocument();
   });
 });
+
+describe("AiSuggestPanel — details", () => {
+  it("explains the wait while loading", () => {
+    renderPanel({ loading: true, response: null });
+    expect(
+      screen.getByText(
+        "Searching the web and generating a description with AI. This may take a few seconds.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("names each confidence chip with its percentage", () => {
+    renderPanel({
+      response: {
+        ...WITH_FIELDS,
+        suggestions: {
+          ...WITH_FIELDS.suggestions,
+          isCloud: { value: true, confidence: 0.3, source: "inventory scan" },
+        },
+      },
+      fieldsSchema: SCHEMA,
+    });
+    // MUI hands a string tooltip title to its child as the accessible name.
+    expect(screen.getByLabelText("Confidence: 60%")).toHaveTextContent("60%");
+    expect(screen.getByLabelText("Confidence: 30%")).toHaveTextContent("30%");
+    expect(screen.getByLabelText("Confidence: 90%")).toHaveTextContent("90%");
+    // An extra field's own source is shown next to it.
+    expect(screen.getByText("inventory scan")).toBeInTheDocument();
+  });
+
+  it("forwards extra suggestions without editors when no schema is given", async () => {
+    const user = userEvent.setup();
+    const { onApply } = renderPanel({ response: WITH_FIELDS });
+    expect(screen.queryByText("Cloud Hosted")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Apply suggestions/ }));
+    expect(onApply).toHaveBeenCalledWith({
+      description: "A CRM.",
+      fields: { isCloud: true, criticality: "high", unknownField: 42 },
+    });
+  });
+
+  it("drops field overrides when a new response arrives", async () => {
+    const user = userEvent.setup();
+    const onApply = vi.fn();
+    const { rerender } = render(
+      <AiSuggestPanel
+        response={WITH_FIELDS}
+        loading={false}
+        error=""
+        onApply={onApply}
+        onDismiss={vi.fn()}
+        fieldsSchema={SCHEMA}
+      />,
+    );
+    await user.click(screen.getByRole("checkbox"));
+    expect(screen.getByText("No")).toBeInTheDocument();
+    rerender(
+      <AiSuggestPanel
+        response={{ ...WITH_FIELDS }}
+        loading={false}
+        error=""
+        onApply={onApply}
+        onDismiss={vi.fn()}
+        fieldsSchema={SCHEMA}
+      />,
+    );
+    expect(screen.getByText("Yes")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).toBeChecked();
+    await user.click(screen.getByRole("button", { name: /Apply suggestions/ }));
+    expect(onApply).toHaveBeenCalledWith({
+      description: "A CRM.",
+      fields: { isCloud: true, criticality: "high", unknownField: 42 },
+    });
+  });
+
+  it("renders nothing for a response that carries no suggestions object", () => {
+    const { container } = renderPanel({
+      response: { sources: [], model: "gemma3:4b" } as unknown as AiSuggestResponse,
+    });
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("lists the titled sources comma-separated, at most five", () => {
+    renderPanel({
+      response: {
+        ...DESCRIPTION_ONLY,
+        sources: [
+          { title: "One", url: "https://one.example" },
+          { url: "https://untitled.example" },
+          { title: "Two" },
+          { title: "Three" },
+          { title: "Four" },
+          { title: "Five" },
+          { title: "Six" },
+        ],
+      },
+    });
+    const line = screen.getByText(/^Sources:/);
+    expect(line.textContent).toBe("Sources: One, Two, Three, Four, Five");
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+  });
+
+  it("prints the sources line exactly for the default response", () => {
+    renderPanel();
+    expect(screen.getByText(/^Sources:/).textContent).toBe("Sources: SAP, Wikipedia");
+  });
+
+  it("shows the sources without a model chip when no model is reported", () => {
+    renderPanel({ response: { ...DESCRIPTION_ONLY, model: undefined } });
+    expect(screen.getByText(/^Sources:/)).toBeInTheDocument();
+    // The model chip carries the smart_toy glyph.
+    expect(screen.queryByText("smart_toy")).not.toBeInTheDocument();
+  });
+
+  it("shows the model chip without a sources line when there are no sources", () => {
+    const { rerender } = renderPanel({
+      response: { ...DESCRIPTION_ONLY, sources: [] },
+    });
+    expect(screen.getByText("gemma3:4b")).toBeInTheDocument();
+    expect(screen.getByText("smart_toy")).toBeInTheDocument();
+    expect(screen.queryByText(/Sources/)).not.toBeInTheDocument();
+
+    // A response without any sources array at all is tolerated the same way.
+    rerender(
+      <AiSuggestPanel
+        response={{ ...DESCRIPTION_ONLY, sources: undefined } as unknown as AiSuggestResponse}
+        loading={false}
+        error=""
+        onApply={vi.fn()}
+        onDismiss={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("gemma3:4b")).toBeInTheDocument();
+    expect(screen.queryByText(/Sources/)).not.toBeInTheDocument();
+  });
+
+  it("shows neither model nor sources when the response reports none", () => {
+    renderPanel({ response: { ...DESCRIPTION_ONLY, sources: [], model: undefined } });
+    expect(screen.queryByText("smart_toy")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sources/)).not.toBeInTheDocument();
+    // Nothing renders a stray "0" for the empty sources list.
+    expect(screen.queryByText("0")).not.toBeInTheDocument();
+  });
+
+  it("keeps Apply disabled for a whitespace-only description", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    const box = screen.getByRole("textbox");
+    await user.clear(box);
+    await user.type(box, "   ");
+    expect(screen.getByRole("button", { name: /Apply description/ })).toBeDisabled();
+  });
+
+  it("offers a select only for a single_select field that has options", () => {
+    const schema: SectionDef[] = [
+      makeSection({
+        fields: [
+          makeField({ key: "tier", label: "Tier", type: "single_select" }),
+          makeField({
+            key: "isCloud",
+            label: "Cloud Hosted",
+            type: "boolean",
+            options: [makeOption({ key: "x", label: "X" })],
+          }),
+        ],
+      }),
+    ];
+    renderPanel({
+      response: {
+        suggestions: {
+          tier: { value: "gold", confidence: 0.7 },
+          isCloud: { value: true, confidence: 0.7 },
+        },
+        sources: [],
+      },
+      fieldsSchema: schema,
+    });
+    expect(screen.getByText("Tier")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).toBeChecked();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  });
+});
+
