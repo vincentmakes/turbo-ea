@@ -15,21 +15,21 @@ mcp = 60
 min_mutants = 10
 
 # The whole suite, measured by mutation-nightly.yml. A floor sits just under
-# the measured score. The MCP server was measured in full on 2026-10-05
-# (39.8%). The backend (~61,000 mutants) and the frontend are measured by the
+# the measured score. The MCP server was measured in full on 2026-10-05:
+# 39.8% at the baseline, 69.5% after the first test-hardening pass. The backend (~61,000 mutants) and the frontend are measured by the
 # nightly over its first runs; their floors stay 0 until that baseline is
 # complete, then rise to it like every other floor.
 [suite]
 backend = 0
 frontend = 0
-mcp = 39
+mcp = 68
 
 # Critical existing modules, enforced per file by the nightly once fully
 # measured: the code where a weak test is a security or a money bug.
 [modules]
-# MCP server, measured 2026-10-05.
-"mcp-server/turbo_ea_mcp/oauth.py" = 34       # redirect-URI validation (CWE-601)
-"mcp-server/turbo_ea_mcp/logo_fetch.py" = 43  # SSRF guards on agent-chosen URLs
-"mcp-server/turbo_ea_mcp/api_client.py" = 29  # chunked id lookups, origin + batch headers
+# MCP server, re-measured 2026-10-05 after the test-hardening pass.
+"mcp-server/turbo_ea_mcp/oauth.py" = 92       # redirect-URI validation (CWE-601)
+"mcp-server/turbo_ea_mcp/logo_fetch.py" = 95  # SSRF guards on agent-chosen URLs
+"mcp-server/turbo_ea_mcp/api_client.py" = 94  # chunked id lookups, origin + batch headers
 "mcp-server/turbo_ea_mcp/identity.py" = 83
-"mcp-server/turbo_ea_mcp/batches.py" = 25     # mutation-batch ledger and confirm tokens
+"mcp-server/turbo_ea_mcp/batches.py" = 95     # mutation-batch ledger and confirm tokens

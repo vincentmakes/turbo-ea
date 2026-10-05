@@ -311,3 +311,68 @@ describe("runWithConcurrency", () => {
     expect(onProgress).toHaveBeenCalledWith(0, 0);
   });
 });
+
+describe("dragFill edges", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("clamps a drag past the last row onto the last row", () => {
+    expect(fillRowIndices(0, 10, 3)).toEqual([1, 2]);
+    expect(fillRowIndices(2, -5, 3)).toEqual([0, 1]);
+  });
+
+  const pointAt = (el: unknown) => {
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => el,
+    });
+  };
+
+  it("reads a row index only from a real, non-negative integer attribute", () => {
+    const rowWith = (raw: string | null) => ({
+      closest: () => ({ getAttribute: () => raw }),
+    });
+    pointAt(rowWith("0"));
+    expect(rowIndexAtPoint(1, 1)).toBe(0);
+    pointAt(rowWith("7"));
+    expect(rowIndexAtPoint(1, 1)).toBe(7);
+    for (const raw of [null, "-1", "1.5", "abc"]) {
+      pointAt(rowWith(raw));
+      expect(rowIndexAtPoint(1, 1)).toBeNull();
+    }
+  });
+
+  it("tolerates a hit that is not an element", () => {
+    pointAt({});
+    expect(rowIndexAtPoint(1, 1)).toBeNull();
+    pointAt(null);
+    expect(rowIndexAtPoint(1, 1)).toBeNull();
+  });
+
+  it("does not scroll with a zero edge band or a zero step", () => {
+    expect(autoScrollStep(-50, 0, 500, 0, 24)).toBe(0);
+    expect(autoScrollStep(-50, 0, 500, 48, 0)).toBe(0);
+    expect(autoScrollStep(550, 0, 500, -1, 24)).toBe(0);
+  });
+
+  it("does not scroll exactly on the edge of the band", () => {
+    expect(autoScrollStep(48, 0, 500, 48, 24)).toBe(0);
+    expect(autoScrollStep(452, 0, 500, 48, 24)).toBe(0);
+    expect(autoScrollStep(47, 0, 500, 48, 24)).toBeLessThan(0);
+    expect(autoScrollStep(453, 0, 500, 48, 24)).toBeGreaterThan(0);
+  });
+
+  it("runs nothing for no items, with or without a progress callback", async () => {
+    const progress = vi.fn();
+    expect(await runWithConcurrency([], 3, async () => 1, progress)).toEqual([]);
+    expect(progress).toHaveBeenCalledWith(0, 0);
+    expect(await runWithConcurrency([], 3, async () => 1)).toEqual([]);
+  });
+
+  it("escapes quotes and backslashes in a column id", () => {
+    const container = document.createElement("div");
+    container.innerHTML = `<div row-index="0"><div col-id='a"b\\c'>cell</div></div>`;
+    expect(findCellElement(container, 0, 'a"b\\c')?.textContent).toBe("cell");
+  });
+});
