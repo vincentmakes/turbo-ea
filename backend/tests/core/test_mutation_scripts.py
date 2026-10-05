@@ -501,6 +501,7 @@ def suite_repo(tmp_path):
     (backend / "app" / "seed.py").write_text("def s():\n    return 1\n")
     (tmp_path / "VERSION").write_text("1.0.0\n")
     (tmp_path / "frontend").mkdir()
+    (tmp_path / ".git").mkdir()
     return tmp_path
 
 
@@ -705,6 +706,7 @@ class TestShadowRoot:
         assert mutants == shadow / "backend" and mutants.is_dir() and not mutants.is_symlink()
         assert (shadow / "VERSION").read_text() == "1.0.0\n"
         assert (shadow / "frontend").is_symlink()
+        assert not (shadow / ".git").exists()  # git inside the mirror must not see a work tree
         assert (mutants / "alembic").is_symlink()
         # what mutmut copies itself must never be a link into the real tree
         for owned in ("app", "tests", "pyproject.toml"):

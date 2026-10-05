@@ -89,7 +89,9 @@ def build(suite: str, repo: Path = REPO) -> Path:
     mutants.mkdir(parents=True, exist_ok=True)
 
     for entry in repo.iterdir():
-        if entry.name in (SHADOW_NAME, suite):
+        # Never .git: a link to it would make the mirror look like a work tree
+        # to any git command run inside it, with every file "changed".
+        if entry.name in (SHADOW_NAME, suite, ".git"):
             continue
         _link(shadow / entry.name, f"../../{entry.name}")
 
