@@ -150,3 +150,75 @@ describe("closureSize", () => {
     expect(closureSize([], byParent)).toBe(0);
   });
 });
+
+describe("cardTree edges", () => {
+  const card = (id: string, name: string, parent_id: string | null): TreeCard => ({
+    id,
+    name,
+    type: "BusinessCapability",
+    parent_id,
+  });
+
+  it("dedupeScopeRoots terminates on a cycle above the pick", () => {
+    const cyclic = new Map<string, string | null>([
+      ["x", "a"],
+      ["a", "b"],
+      ["b", "a"],
+    ]);
+    expect(dedupeScopeRoots(["x"], cyclic)).toEqual(["x"]);
+  });
+
+  it("visibleForQuery never adds a parent that is not loaded", () => {
+    const orphan = new Map([["o", card("o", "Payments", "missing")]]);
+    expect(visibleForQuery(orphan, "Payments")).toEqual(new Set(["o"]));
+  });
+
+  it("bestRankBySubtree ranks exactly the loaded cards", () => {
+    const ranks = bestRankBySubtree(byId, byParent, "Pay")!;
+    expect([...ranks.keys()].sort()).toEqual(CARDS.map((c) => c.id).sort());
+  });
+
+  it("bestRankBySubtree terminates on a cycle", () => {
+    const a = card("a", "Alpha", "b");
+    const b = card("b", "Beta", "a");
+    const cyclicById = new Map([
+      ["a", a],
+      ["b", b],
+    ]);
+    const cyclicByParent = new Map<string | null, TreeCard[]>([
+      ["a", [b]],
+      ["b", [a]],
+    ]);
+    const ranks = bestRankBySubtree(cyclicById, cyclicByParent, "Alpha")!;
+    // The guard cuts the loop rather than following it: "a" keeps its own
+    // rank and every card still gets one.
+    expect(ranks.get("a")).toBe(0);
+    expect(ranks.size).toBe(2);
+  });
+
+  it("flattenTree orders siblings by best rank, then by name", () => {
+    const siblings = [card("z", "Zulu", null), card("y", "Yankee", null), card("w", "Whiskey", null)];
+    const rows = flattenTree({
+      byParent: new Map<string | null, TreeCard[]>([[null, siblings]]),
+      selectedIds: new Set(),
+      visibleSet: null,
+      // Zulu ranks best; Yankee and Whiskey tie, so their names decide.
+      bestRank: new Map([
+        ["z", 1],
+        ["y", 3],
+        ["w", 3],
+      ]),
+    });
+    expect(rows.map((r) => r.card.name)).toEqual(["Zulu", "Whiskey", "Yankee"]);
+  });
+
+  it("closureSize terminates on a cycle", () => {
+    const a = card("a", "Alpha", "b");
+    const b = card("b", "Beta", "a");
+    const cyclicByParent = new Map<string | null, TreeCard[]>([
+      ["a", [b]],
+      ["b", [a]],
+    ]);
+    expect(closureSize(["a"], cyclicByParent)).toBe(2);
+  });
+});

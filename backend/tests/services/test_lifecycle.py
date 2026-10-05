@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 
 import pytest
 
@@ -141,3 +141,21 @@ class TestCurrentLifecyclePhase:
         from app.services.lifecycle import current_lifecycle_phase
 
         assert current_lifecycle_phase(lifecycle) is None
+
+
+class _UtcOnlyClock(datetime):
+    """UTC already says 1 October; the host's local clock still says 30 September."""
+
+    @classmethod
+    def now(cls, tz=None):
+        if tz is timezone.utc:
+            return datetime(2025, 10, 1, 0, 30, tzinfo=timezone.utc)
+        return datetime(2025, 9, 30, 20, 30)
+
+
+def test_the_current_phase_reads_today_in_utc(monkeypatch):
+    from app.services import lifecycle
+    from app.services.lifecycle import current_lifecycle_phase
+
+    monkeypatch.setattr(lifecycle, "datetime", _UtcOnlyClock)
+    assert current_lifecycle_phase({"phaseIn": "2025-01-01", "active": "2025-10-01"}) == "active"

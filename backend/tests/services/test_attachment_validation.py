@@ -282,6 +282,9 @@ class TestNamesAndMessages:
             ("  spaced.txt  ", ".txt"),
             ("a.b/c", ""),
             ("a/b.c\\d", ""),
+            # Only the last segment counts, however deep the dotted folders go.
+            ("x/a.b/c", ""),
+            ("x\\a.b\\c", ""),
             ("dir/.hidden", ""),
             ("", ""),
             (None, ""),

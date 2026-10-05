@@ -7,13 +7,15 @@ matter are the start month itself (it opens the *next* year's name), January
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 
 import pytest
 
 from app.models.app_settings import AppSettings
+from app.services import fiscal_year as fiscal_year_module
 from app.services.fiscal_year import (
     _fiscal_year,
+    current_fiscal_year,
     fiscal_year_for,
     get_fiscal_year_start,
 )
@@ -75,3 +77,18 @@ class TestStoredStartMonth:
     )
     async def test_anything_else_falls_back_to_january(self, db, general):
         assert await _stored(db, general) == 1
+
+
+class _UtcOnlyClock(datetime):
+    """UTC already says 1 October; the host's local clock still says 30 September."""
+
+    @classmethod
+    def now(cls, tz=None):
+        if tz is timezone.utc:
+            return datetime(2025, 10, 1, 0, 30, tzinfo=timezone.utc)
+        return datetime(2025, 9, 30, 20, 30)
+
+
+def test_today_is_read_in_utc(monkeypatch):
+    monkeypatch.setattr(fiscal_year_module, "datetime", _UtcOnlyClock)
+    assert current_fiscal_year(10) == 2026

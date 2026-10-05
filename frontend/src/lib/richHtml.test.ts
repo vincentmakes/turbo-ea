@@ -58,6 +58,11 @@ describe("sanitizeRichHtml", () => {
     expect(a.hasAttribute("rel")).toBe(false);
   });
 
+  it("leaves elements other than anchors alone", () => {
+    const html = '<map name="m"><area href="https://x.io" target="_self" alt="a"></map>';
+    expect(sanitizeRichHtml(html)).toBe(html);
+  });
+
   it("links a text node that is nothing but a URL", () => {
     const [a] = anchors(sanitizeRichHtml("<p>https://x.io</p>"));
     expect(a.getAttribute("href")).toBe("https://x.io");

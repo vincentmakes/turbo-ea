@@ -13,7 +13,10 @@ import {
   isAppAliveAtDate,
   isRetiredByDate,
   matchesFilters,
+  matchesStaticFilters,
   MULTIPLE_COLOR,
+  parseDate,
+  pickSelectFields,
   REL_SUBTYPE_PREFIX,
   relationMemberMatchesSubtypeFilters,
   relationOnSide,
@@ -393,5 +396,309 @@ describe("relation facets on a self-referencing type", () => {
     const isSiteOf = baseFilters({ relationFilters: { orgToOrg__in: ["hq"] }, relTypeKeys });
     expect(matchesFilters(site, isSiteOf)).toBe(true);
     expect(matchesFilters(hq, isSiteOf)).toBe(false);
+  });
+});
+
+
+/* ----- exact answers: every branch states its full result ----- */
+
+describe("pickSelectFields / extractRelSubtypes / parseDate", () => {
+  it("keeps only single_select fields, in schema order, across sections", () => {
+    const tier: FieldDef = { key: "tier", label: "Tier", type: "single_select", options: [] };
+    const risk: FieldDef = { key: "risk", label: "Risk", type: "single_select", options: [] };
+    const schema = [
+      { section: "A", fields: [{ key: "n", label: "N", type: "number" }, tier] },
+      { section: "B", fields: [] },
+      { section: "C", fields: [risk, { key: "t", label: "T", type: "multiple_select" }] },
+    ];
+    expect(pickSelectFields(schema)).toEqual([tier, risk]);
+    expect(pickSelectFields([])).toEqual([]);
+  });
+
+  it("reads a relation type from either end and tolerates a missing schema", () => {
+    const appIsSource: RelTypeDef = { ...plainRelType, attributes_schema: [usageTypeField] };
+    const noSchema: RelTypeDef = { ...orgUsesApp, attributes_schema: undefined };
+    expect(extractRelSubtypes([appIsSource, noSchema, orgUsesApp], "Application")).toEqual([
+      { relType: appIsSource, field: usageTypeField },
+      { relType: orgUsesApp, field: usageTypeField },
+    ]);
+    // Neither end is an Organization here.
+    expect(extractRelSubtypes([appIsSource], "Organization")).toEqual([]);
+  });
+
+  it("parses a date or answers null", () => {
+    expect(parseDate("2026-01-02")).toBe(Date.UTC(2026, 0, 2));
+    expect(parseDate("")).toBeNull();
+    expect(parseDate(undefined)).toBeNull();
+    expect(parseDate("not a date")).toBeNull();
+  });
+});
+
+describe("resolveColorBy / appColorBucket exact buckets", () => {
+  const tierField: FieldDef = {
+    key: "tier",
+    label: "Tier",
+    type: "single_select",
+    options: [
+      { key: "gold", label: "Gold", color: "#ffd700" },
+      { key: "bare", label: "Bare" },
+    ],
+  };
+  const fieldRes = { kind: "field" as const, field: tierField };
+  const withTier = (tier: unknown): AppData => ({ ...app("x"), attributes: { tier } });
+
+  it("resolves own fields, rel keys and unknowns", () => {
+    expect(resolveColorBy("", [tierField], [usageSub])).toEqual({ kind: "none" });
+    expect(resolveColorBy("tier", [tierField], [usageSub])).toEqual(fieldRes);
+    expect(resolveColorBy("nope", [tierField], [usageSub])).toEqual({ kind: "none" });
+    expect(resolveColorBy(`${REL_SUBTYPE_PREFIX}nope`, [tierField], [usageSub])).toEqual({
+      kind: "none",
+    });
+    // An own field whose key merely contains the prefix is still an own field.
+    const odd: FieldDef = { ...tierField, key: "x-rel:" };
+    expect(resolveColorBy("x-rel:", [odd], [])).toEqual({ kind: "field", field: odd });
+  });
+
+  it("buckets an own field value", () => {
+    expect(appColorBucket(app("x"), { kind: "none" }, LABELS)).toEqual({
+      key: "__none__",
+      color: DEFAULT_APP_COLOR,
+      label: "",
+      isUnset: false,
+    });
+    expect(appColorBucket(withTier("gold"), fieldRes, LABELS)).toEqual({
+      key: "gold",
+      color: "#ffd700",
+      label: "Gold",
+      isUnset: false,
+    });
+    // An option without a colour, and a value no option knows.
+    expect(appColorBucket(withTier("bare"), fieldRes, LABELS)).toEqual({
+      key: "bare",
+      color: UNSET_COLOR,
+      label: "Bare",
+      isUnset: false,
+    });
+    expect(appColorBucket(withTier("legacy"), fieldRes, LABELS)).toEqual({
+      key: "legacy",
+      color: UNSET_COLOR,
+      label: "legacy",
+      isUnset: false,
+    });
+    const noOptions = { kind: "field" as const, field: { ...tierField, options: undefined } };
+    expect(appColorBucket(withTier("gold"), noOptions, LABELS)).toEqual({
+      key: "gold",
+      color: UNSET_COLOR,
+      label: "gold",
+      isUnset: false,
+    });
+    const unset = { key: "__unset__", color: UNSET_COLOR, label: "Not set", isUnset: true };
+    expect(appColorBucket(withTier(""), fieldRes, LABELS)).toEqual(unset);
+    expect(appColorBucket({ ...app("x"), attributes: undefined }, fieldRes, LABELS)).toEqual(
+      unset,
+    );
+  });
+
+  it("buckets a relation subtype value", () => {
+    const relRes = { kind: "rel" as const, sub: usageSub };
+    expect(appColorBucket(app("a", [orgRel("owner")]), relRes, LABELS)).toEqual({
+      key: "owner",
+      color: "#1976d2",
+      label: "Owner",
+      isUnset: false,
+    });
+    expect(appColorBucket(app("a", [orgRel("retired")]), relRes, LABELS)).toEqual({
+      key: "retired",
+      color: UNSET_COLOR,
+      label: "retired",
+      isUnset: false,
+    });
+    expect(appColorBucket(app("a", [orgRel("owner"), orgRel("user")]), relRes, LABELS)).toEqual({
+      key: "__multiple__",
+      color: MULTIPLE_COLOR,
+      label: "Multiple",
+      isUnset: false,
+    });
+    // The same value twice is one value; another relation type and a
+    // non-string value do not count.
+    const noisy = app("a", [
+      orgRel("owner"),
+      orgRel("owner", "org-2"),
+      { ...orgRel("user"), relation_type: "relOther" },
+      { ...orgRel(undefined), attributes: { usageType: 3 } },
+    ]);
+    expect(appColorBucket(noisy, relRes, LABELS).key).toBe("owner");
+    expect(appColorBucket(app("a", [orgRel(undefined)]), relRes, LABELS)).toEqual({
+      key: "__unset__",
+      color: UNSET_COLOR,
+      label: "Not set",
+      isUnset: true,
+    });
+    expect(getAppColorLabel(app("a", [orgRel(undefined)]), relRes, LABELS)).toBeNull();
+    expect(getAppColorLabel(app("a", [orgRel("user")]), relRes, LABELS)).toBe("User");
+  });
+});
+
+describe("buildColorSegments / buildColorLegend exact output", () => {
+  const relRes = { kind: "rel" as const, sub: usageSub };
+
+  it("counts each bucket once, in first-seen order", () => {
+    const apps = [app("a", [orgRel("owner")]), app("b", [orgRel("user")]), app("c", [orgRel("owner")])];
+    expect(buildColorSegments(apps, relRes, LABELS)).toEqual([
+      { color: "#1976d2", label: "Owner", n: 2 },
+      { color: "#66bb6a", label: "User", n: 1 },
+    ]);
+    expect(buildColorSegments([], relRes, LABELS)).toEqual([]);
+    expect(buildColorSegments(apps, { kind: "none" }, LABELS)).toEqual([]);
+  });
+
+  it("lists coloured options, and Multiple only when a card needs it", () => {
+    const field: FieldDef = {
+      key: "tier",
+      label: "Tier",
+      type: "single_select",
+      options: [
+        { key: "gold", label: "Gold", color: "#ffd700" },
+        { key: "bare", label: "Bare" },
+      ],
+    };
+    expect(buildColorLegend({ kind: "none" }, LABELS, [])).toBeNull();
+    expect(buildColorLegend({ kind: "field", field }, LABELS, [])).toEqual([
+      { label: "Gold", color: "#ffd700" },
+    ]);
+    expect(
+      buildColorLegend({ kind: "field", field: { ...field, options: undefined } }, LABELS, []),
+    ).toBeNull();
+    expect(buildColorLegend(relRes, LABELS, [app("a", [orgRel("owner")])])).toEqual([
+      { label: "Owner", color: "#1976d2" },
+      { label: "User", color: "#66bb6a" },
+      { label: "Stakeholder", color: "#ff9800" },
+    ]);
+    expect(buildColorLegend(relRes, LABELS, [app("a", [orgRel("owner"), orgRel("user")])])).toEqual([
+      { label: "Owner", color: "#1976d2" },
+      { label: "User", color: "#66bb6a" },
+      { label: "Stakeholder", color: "#ff9800" },
+      { label: "Multiple", color: MULTIPLE_COLOR },
+    ]);
+    const colourless = { ...usageSub, options: [{ key: "x", label: "X" }] };
+    expect(buildColorLegend({ kind: "rel", sub: colourless }, LABELS, [])).toBeNull();
+  });
+});
+
+describe("relationMemberMatchesSubtypeFilters edges", () => {
+  it("skips an unknown composite and reads null or '' as empty", () => {
+    const a = app("a", [{ ...orgRel(undefined, "orgA"), attributes: { usageType: null } }]);
+    expect(relationMemberMatchesSubtypeFilters(a, "orgA", { nope: ["owner"] }, [usageSub])).toBe(true);
+    const empty = { [usageSub.composite]: [EMPTY_FILTER_KEY] };
+    expect(relationMemberMatchesSubtypeFilters(a, "orgA", empty, [usageSub])).toBe(true);
+    const blank = app("b", [{ ...orgRel(undefined, "orgA"), attributes: { usageType: "" } }]);
+    expect(relationMemberMatchesSubtypeFilters(blank, "orgA", empty, [usageSub])).toBe(true);
+    // A non-string value matches neither a real value nor EMPTY.
+    const odd = app("c", [{ ...orgRel(undefined, "orgA"), attributes: { usageType: 3 } }]);
+    expect(relationMemberMatchesSubtypeFilters(odd, "orgA", empty, [usageSub])).toBe(false);
+    expect(
+      relationMemberMatchesSubtypeFilters(odd, "orgA", { [usageSub.composite]: ["3"] }, [usageSub]),
+    ).toBe(false);
+    // EMPTY and a real value together: either satisfies the member.
+    const both = { [usageSub.composite]: [EMPTY_FILTER_KEY, "owner"] };
+    expect(relationMemberMatchesSubtypeFilters(app("d", [orgRel("owner", "orgA")]), "orgA", both, [usageSub])).toBe(true);
+    // No relation to that member at all: nothing to match.
+    expect(relationMemberMatchesSubtypeFilters(app("e", []), "orgA", empty, [usageSub])).toBe(false);
+  });
+});
+
+describe("matchesStaticFilters, one filter kind at a time", () => {
+  const f = (over: Partial<FilterState>) => baseFilters(over);
+  const withAttrs = (attributes: Record<string, unknown> | undefined): AppData => ({
+    ...app("Payments Hub"),
+    attributes,
+  });
+
+  it("matches with no filter at all", () => {
+    expect(matchesStaticFilters(app("a"), f({}))).toBe(true);
+  });
+
+  it("attribute filters: values, EMPTY, both, and AND across keys", () => {
+    const gold = withAttrs({ tier: "gold", risk: "low" });
+    expect(matchesStaticFilters(gold, f({ attributeFilters: { tier: [] } }))).toBe(true);
+    expect(matchesStaticFilters(gold, f({ attributeFilters: { tier: ["gold"] } }))).toBe(true);
+    expect(matchesStaticFilters(gold, f({ attributeFilters: { tier: ["silver"] } }))).toBe(false);
+    const empty = f({ attributeFilters: { tier: [EMPTY_FILTER_KEY] } });
+    expect(matchesStaticFilters(gold, empty)).toBe(false);
+    for (const attributes of [{}, { tier: "" }, { tier: null }, undefined]) {
+      expect(matchesStaticFilters(withAttrs(attributes), empty)).toBe(true);
+    }
+    const either = f({ attributeFilters: { tier: [EMPTY_FILTER_KEY, "gold"] } });
+    expect(matchesStaticFilters(gold, either)).toBe(true);
+    expect(matchesStaticFilters(withAttrs({ tier: "silver" }), either)).toBe(false);
+    const both = f({ attributeFilters: { tier: ["gold"], risk: ["high"] } });
+    expect(matchesStaticFilters(gold, both)).toBe(false);
+  });
+
+  it("relation filters by card type: ids, EMPTY and both", () => {
+    const owned = app("a", [orgRel("owner", "orgA")]);
+    const lonely = app("b", []);
+    expect(matchesStaticFilters(owned, f({ relationFilters: { Organization: [] } }))).toBe(true);
+    expect(matchesStaticFilters(owned, f({ relationFilters: { Organization: ["orgA"] } }))).toBe(true);
+    expect(matchesStaticFilters(owned, f({ relationFilters: { Organization: ["orgB"] } }))).toBe(false);
+    // Another card type with the same id does not count.
+    expect(matchesStaticFilters(owned, f({ relationFilters: { ITComponent: ["orgA"] } }))).toBe(false);
+    const none = f({ relationFilters: { Organization: [EMPTY_FILTER_KEY] } });
+    expect(matchesStaticFilters(lonely, none)).toBe(true);
+    expect(matchesStaticFilters(owned, none)).toBe(false);
+    const either = f({ relationFilters: { Organization: [EMPTY_FILTER_KEY, "orgA"] } });
+    expect(matchesStaticFilters(owned, either)).toBe(true);
+    expect(matchesStaticFilters(lonely, either)).toBe(true);
+    expect(matchesStaticFilters(app("c", [orgRel("owner", "orgB")]), either)).toBe(false);
+  });
+
+  it("relation filters by relation type only when the key is one", () => {
+    const owned = app("a", [orgRel("owner", "orgA")]);
+    const byType = f({
+      relationFilters: { relOrgToApp: ["orgA"] },
+      relTypeKeys: new Set(["relOrgToApp"]),
+    });
+    expect(matchesStaticFilters(owned, byType)).toBe(true);
+    // The same key without relTypeKeys reads as a card type no row carries.
+    expect(matchesStaticFilters(owned, f({ relationFilters: { relOrgToApp: ["orgA"] } }))).toBe(false);
+  });
+
+  it("relation-subtype filters: unknown composites, null and non-string values", () => {
+    const nullValue = app("a", [{ ...orgRel(undefined), attributes: { usageType: null } }]);
+    const numeric = app("b", [{ ...orgRel(undefined), attributes: { usageType: 3 } }]);
+    const empty = f({ relSubtypeFilters: { [usageSub.composite]: [EMPTY_FILTER_KEY] } });
+    expect(matchesStaticFilters(nullValue, empty)).toBe(true);
+    expect(matchesStaticFilters(numeric, empty)).toBe(false);
+    expect(matchesStaticFilters(numeric, f({ relSubtypeFilters: { [usageSub.composite]: ["3"] } }))).toBe(false);
+    expect(matchesStaticFilters(numeric, f({ relSubtypeFilters: { nope: ["owner"] } }))).toBe(true);
+    // No relation of that type at all matches neither EMPTY nor a value.
+    expect(matchesStaticFilters(app("c", []), empty)).toBe(false);
+    const either = f({ relSubtypeFilters: { [usageSub.composite]: [EMPTY_FILTER_KEY, "owner"] } });
+    expect(matchesStaticFilters(app("d", [orgRel("owner")]), either)).toBe(true);
+    expect(matchesStaticFilters(app("e", [orgRel("user")]), either)).toBe(false);
+  });
+
+  it("tag filters: OR within a group, AND across groups", () => {
+    const tagGroups = [
+      { id: "g1", name: "Region", mode: "single", tags: [{ id: "eu", name: "EU" }, { id: "us", name: "US" }] },
+      { id: "g2", name: "Tier", mode: "single", tags: [{ id: "t1", name: "T1" }] },
+    ];
+    const tagged = (ids?: string[]): AppData => ({ ...app("a"), tag_ids: ids });
+    const euOrUs = f({ tagFilterIds: ["eu", "us"], tagGroups });
+    expect(matchesStaticFilters(tagged(["us"]), euOrUs)).toBe(true);
+    expect(matchesStaticFilters(tagged(["t1"]), euOrUs)).toBe(false);
+    expect(matchesStaticFilters(tagged(undefined), euOrUs)).toBe(false);
+    const euAndT1 = f({ tagFilterIds: ["eu", "t1"], tagGroups });
+    expect(matchesStaticFilters(tagged(["eu", "t1"]), euAndT1)).toBe(true);
+    expect(matchesStaticFilters(tagged(["eu"]), euAndT1)).toBe(false);
+    // A selection no group holds narrows nothing.
+    expect(matchesStaticFilters(tagged([]), f({ tagFilterIds: ["ghost"], tagGroups }))).toBe(true);
+  });
+
+  it("search is a case-insensitive substring of the name", () => {
+    const hub = app("Payments Hub");
+    expect(matchesStaticFilters(hub, f({ search: "payments" }))).toBe(true);
+    expect(matchesStaticFilters(hub, f({ search: "HUB" }))).toBe(true);
+    expect(matchesStaticFilters(hub, f({ search: "ledger" }))).toBe(false);
   });
 });
