@@ -46,6 +46,23 @@ describe("sanitizeRichHtml", () => {
     }
   });
 
+  it("trims an href before deciding whether it may stay", () => {
+    const [a] = anchors(sanitizeRichHtml('<a href=" https://x.io">x</a>'));
+    expect(a.getAttribute("href")?.trim()).toBe("https://x.io");
+    expect(a.getAttribute("target")).toBe("_blank");
+  });
+
+  it("drops a stored rel along with a disallowed href", () => {
+    const [a] = anchors(sanitizeRichHtml('<a href="javascript:alert(1)" rel="opener">x</a>'));
+    expect(a.hasAttribute("href")).toBe(false);
+    expect(a.hasAttribute("rel")).toBe(false);
+  });
+
+  it("links a text node that is nothing but a URL", () => {
+    const [a] = anchors(sanitizeRichHtml("<p>https://x.io</p>"));
+    expect(a.getAttribute("href")).toBe("https://x.io");
+  });
+
   it("links a bare URL in a text node and hands punctuation back", () => {
     const out = sanitizeRichHtml("<p>see https://x.io/doc. Then</p>");
     const [a] = anchors(out);

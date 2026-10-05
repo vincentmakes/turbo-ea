@@ -52,6 +52,21 @@ describe("splitLinks", () => {
     ]);
   });
 
+  it("trims a bracket only when it is last and unbalanced", () => {
+    expect(splitLinks("https://a.io/a)b")).toEqual([link("https://a.io/a)b")]);
+    expect(splitLinks("https://a.io/a]b")).toEqual([link("https://a.io/a]b")]);
+    expect(splitLinks("https://a.io/[x]")).toEqual([link("https://a.io/[x]")]);
+    expect(splitLinks("https://a.io/x:")).toEqual([link("https://a.io/x"), text(":")]);
+  });
+
+  it("leaves a scheme with nothing after it as text", () => {
+    for (const s of ["See https://.", "See http://.", "Try http://!"]) {
+      expect(splitLinks(s)).toEqual([text(s)]);
+    }
+    // Ending in a scheme is not the same as being one.
+    expect(splitLinks("https://a.io/?u=http://")).toEqual([link("https://a.io/?u=http://")]);
+  });
+
   it("preserves the scheme's case in the href", () => {
     expect(splitLinks("HTTPS://A.IO/Path")).toEqual([link("HTTPS://A.IO/Path")]);
   });
