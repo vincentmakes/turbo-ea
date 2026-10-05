@@ -21,8 +21,10 @@ function edge(source: string, target: string, data?: Record<string, unknown>): E
 }
 
 // jsdom ships no `CSS.escape`; the two style builders need it for ids that
-// carry selector syntax. A minimal stand-in for the one case that matters here
-// (colons), installed only when the environment has none and removed after.
+// carry selector syntax. A minimal stand-in, installed only when the
+// environment has none and removed after: it escapes colons (what a cluster id
+// carries) and backslashes (the escape character itself, so an id already
+// holding one cannot be read back as a different selector).
 type CssGlobal = { CSS?: { escape?: (ident: string) => string } };
 const g = globalThis as unknown as CssGlobal;
 let previousCss: CssGlobal["CSS"];
@@ -32,7 +34,7 @@ beforeAll(() => {
   if (typeof g.CSS?.escape === "function") return;
   previousCss = g.CSS;
   polyfilled = true;
-  g.CSS = { ...(g.CSS ?? {}), escape: (ident: string) => ident.replace(/:/g, "\\:") };
+  g.CSS = { ...(g.CSS ?? {}), escape: (ident: string) => ident.replace(/[\\:]/g, "\\$&") };
 });
 
 afterAll(() => {
