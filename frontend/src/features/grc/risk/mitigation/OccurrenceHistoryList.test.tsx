@@ -159,3 +159,83 @@ describe("OccurrenceHistoryList", () => {
     expect(screen.getByRole("button", { name: /Show 1 older cycle$/ })).toBeInTheDocument();
   });
 });
+
+describe("OccurrenceHistoryList — per-cycle details", () => {
+  /** The glyph shown at the head of a cycle's block, found through its deep-link anchor. */
+  const glyphOf = (id: string) =>
+    document.getElementById(`occurrence-${id}`)?.querySelector(".material-symbols-outlined")?.textContent;
+
+  it("anchors each cycle for deep links and marks its status with its own glyph", () => {
+    render(
+      <OccurrenceHistoryList
+        occurrences={[
+          makeOcc({ id: "done", sequence: 4, status: "done", completed_at: "2026-03-02T09:30:00" }),
+          makeOcc({ id: "skipped", sequence: 3, status: "skipped" }),
+          makeOcc({ id: "scheduled", sequence: 5, status: "scheduled" }),
+          makeOcc({ id: "open", sequence: 2, status: "open" }),
+        ]}
+      />,
+    );
+    expect(glyphOf("done")).toBe("check_circle");
+    expect(glyphOf("skipped")).toBe("skip_next");
+    expect(glyphOf("scheduled")).toBe("event_upcoming");
+    expect(glyphOf("open")).toBe("schedule");
+  });
+
+  it("separates each label from its value", () => {
+    render(
+      <OccurrenceHistoryList
+        occurrences={[
+          makeOcc({ id: "o1", sequence: 1, status: "done", due_date: "2026-03-01", completed_at: "2026-03-02T09:30:00" }),
+        ]}
+      />,
+    );
+    expect(screen.getByText("Target: 2026-03-01")).toBeInTheDocument();
+    expect(screen.getByText("Completed: 2026-03-02 09:30")).toBeInTheDocument();
+  });
+
+  it("shows an unassigned scheduled cycle as Unassigned, without an activation date when it has no due date", () => {
+    render(
+      <OccurrenceHistoryList
+        occurrences={[makeOcc({ id: "o1", sequence: 1, status: "scheduled", due_date: null })]}
+        leadTimeDays={7}
+      />,
+    );
+    expect(screen.getByText("Unassigned")).toBeInTheDocument();
+    expect(screen.queryByText(/^Activates/)).not.toBeInTheDocument();
+  });
+
+  it("follows a new occurrence list", () => {
+    const view = render(<OccurrenceHistoryList occurrences={[makeOcc({ id: "o1", sequence: 1 })]} />);
+    expect(screen.getByText("Cycle #1")).toBeInTheDocument();
+    view.rerender(
+      <OccurrenceHistoryList
+        occurrences={[makeOcc({ id: "o1", sequence: 1, status: "done" }), makeOcc({ id: "o2", sequence: 2 })]}
+      />,
+    );
+    expect(screen.getAllByText(/^Cycle #\d+$/).map((el) => el.textContent)).toEqual(["Cycle #2", "Cycle #1"]);
+  });
+});
+
+describe("OccurrenceHistoryList — show older / collapse", () => {
+  const cycles = (n: number) =>
+    Array.from({ length: n }, (_, i) => makeOcc({ id: `o${i + 1}`, sequence: i + 1, status: "done" }));
+
+  it("offers neither control when five cycles or fewer exist", () => {
+    render(<OccurrenceHistoryList occurrences={cycles(5)} />);
+    expect(screen.getAllByText(/^Cycle #\d+$/)).toHaveLength(5);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("offers Collapse only once expanded, and drops it when the list shrinks back to five", async () => {
+    const user = userEvent.setup();
+    const view = render(<OccurrenceHistoryList occurrences={cycles(7)} />);
+    expect(screen.queryByRole("button", { name: /Collapse history/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Show 2 older cycles/ }));
+    expect(screen.getByRole("button", { name: /Collapse history/ })).toBeInTheDocument();
+
+    view.rerender(<OccurrenceHistoryList occurrences={cycles(5)} />);
+    expect(screen.getAllByText(/^Cycle #\d+$/)).toHaveLength(5);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+});

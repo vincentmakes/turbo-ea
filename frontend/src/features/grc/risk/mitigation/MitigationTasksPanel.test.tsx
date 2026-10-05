@@ -14,14 +14,16 @@ import type { MitigationTask, MitigationTaskOccurrence } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
-vi.mock("./taskHistoryExport", () => ({ exportTaskHistory: vi.fn() }));
+// By alias path, not "./taskHistoryExport", so the mutation harness's out-of-tree
+// copies (which import it by absolute path) see the same mock.
+vi.mock("@/features/grc/risk/mitigation/taskHistoryExport", () => ({ exportTaskHistory: vi.fn() }));
 
 import { mockApi } from "@/test/apiMock";
 import { installConfirm } from "@/test/dom";
 import { USERS } from "@/test/fixtures/metamodel";
 import { hookState } from "@/test/hooks";
 import { todayIsoDate } from "@/lib/dates";
-import { exportTaskHistory } from "./taskHistoryExport";
+import { exportTaskHistory } from "@/features/grc/risk/mitigation/taskHistoryExport";
 import MitigationTasksPanel, { type TaskSummary } from "./MitigationTasksPanel";
 
 const USER_OPTIONS = USERS.slice(0, 2).map((u) => ({ id: u.id, email: u.email, display_name: u.display_name }));

@@ -9,7 +9,8 @@
  * the export test asserts only what the panel fetches and hands over.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { useLocation } from "react-router";
 import type { ArchitectureDecision } from "@/types";
 
@@ -32,6 +33,7 @@ vi.mock("@/features/ea-delivery/AdrGrid", () => ({
     onQuickFilterChange,
     onFrozenColumnsChange,
     autoHeight,
+    loading,
   }: {
     adrs: ArchitectureDecision[];
     hiddenColumns: Set<string>;
@@ -46,9 +48,11 @@ vi.mock("@/features/ea-delivery/AdrGrid", () => ({
     onQuickFilterChange: (s: string) => void;
     onFrozenColumnsChange?: (next: string[]) => void;
     autoHeight?: boolean;
+    loading?: boolean;
   }) => (
     <div
       data-testid="adr-grid"
+      data-loading={String(Boolean(loading))}
       data-ids={adrs.map((a) => a.id).join(",")}
       data-hidden={[...hiddenColumns].join(",")}
       data-frozen={(frozenColumns ?? []).join(",")}
@@ -159,7 +163,8 @@ import { mockApi } from "@/test/apiMock";
 import { installConfirm } from "@/test/dom";
 import { CARD_TYPES } from "@/test/fixtures/metamodel";
 import { withMetamodel } from "@/test/hooks";
-import { renderWithProviders, userWith } from "@/test/render";
+import { renderWithProviders, userWith, wrapWithProviders } from "@/test/render";
+import i18n from "@/i18n";
 import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
 import { ADR_GRID_LS_KEY } from "@/features/ea-delivery/adrGridPrefs";
 import { exportAdrsToDocx } from "@/features/ea-delivery/adrExport";
@@ -532,5 +537,211 @@ describe("DecisionsPanel — column prefs", () => {
     renderPanel();
     await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
     expect(grid()).toHaveAttribute("data-order", "title");
+  });
+});
+
+describe("DecisionsPanel — first paint and defaults", () => {
+  it("paints a spinner, not the grid, before the decisions are fetched", () => {
+    const html = renderToStaticMarkup(wrapWithProviders(<DecisionsPanel />, { route: "/grc" }));
+    expect(html).toContain("MuiCircularProgress");
+    expect(html).not.toContain('data-testid="adr-grid"');
+  });
+
+  it("starts with an empty quick filter and never asks the grid for its own loading overlay", async () => {
+    renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    expect(grid()).toHaveAttribute("data-quick", "");
+    expect(grid()).toHaveAttribute("data-loading", "false");
+  });
+
+  it("renders read-only for a session without a user or without a permission map", async () => {
+    renderWithProviders(<DecisionsPanel />, { route: "/grc", user: null });
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    expect(screen.queryByRole("button", { name: /New decision/ })).not.toBeInTheDocument();
+  });
+
+  it("treats a user whose permissions are missing as unable to manage", async () => {
+    const bare = { ...userWith("adr.view"), permissions: undefined } as unknown as ReturnType<typeof userWith>;
+    renderPanel(bare);
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    expect(screen.queryByRole("button", { name: /New decision/ })).not.toBeInTheDocument();
+  });
+
+  it("closes the create dialog once the new decision is created", async () => {
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    await user.click(screen.getByRole("button", { name: /New decision/ }));
+    await user.click(screen.getByTestId("create-done"));
+    expect(path()).toBe("/ea-delivery/adr/adr-new");
+    expect(screen.queryByTestId("create-adr-dialog")).not.toBeInTheDocument();
+  });
+
+  it("picks up an extension column registered after the panel mounted", async () => {
+    renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    expect(JSON.parse(sidebar().getAttribute("data-ext")!)).toEqual([]);
+    act(() => {
+      registerExtension("late", {
+        key: "late",
+        sdkVersion: UI_SDK_VERSION,
+        adrGridColumns: [{ id: "npv", label: "NPV", value: () => null }],
+      });
+    });
+    await waitFor(() =>
+      expect(JSON.parse(sidebar().getAttribute("data-ext")!)).toEqual([{ colId: "ext-late-npv", label: "NPV" }]),
+    );
+  });
+});
+
+describe("DecisionsPanel — facets and freezing", () => {
+  it("ignores decisions without linked cards when building the card facets", async () => {
+    mockApi.on("get", "/adr", [
+      ...ADRS,
+      makeAdr({ id: "a4", linked_cards: undefined as unknown as ArchitectureDecision["linked_cards"] }),
+    ]);
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3,a4"));
+    expect(JSON.parse(sidebar().getAttribute("data-types")!).map((t: { key: string }) => t.key)).toEqual([
+      "Application",
+      "ITComponent",
+      "Gadget",
+    ]);
+    expect(JSON.parse(sidebar().getAttribute("data-cards")!).map((c: { id: string }) => c.id)).toEqual([
+      "c-erp",
+      "c-unknown",
+      "c-pg",
+    ]);
+    // The card filters simply leave it out.
+    await applyFilters(user, { cardTypes: ["Application"] });
+    expect(gridIds()).toBe("a1,a2");
+    await applyFilters(user, { cardTypes: [], linkedCards: ["c-pg"] });
+    expect(gridIds()).toBe("a1");
+  });
+
+  it("colours each linked card by its metamodel type", async () => {
+    renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    const cards = JSON.parse(sidebar().getAttribute("data-cards")!) as { id: string; color: string }[];
+    const colorOf = (id: string) => cards.find((c) => c.id === id)!.color;
+    expect(colorOf("c-erp")).toBe(CARD_TYPES.find((t) => t.key === "Application")!.color);
+    expect(colorOf("c-pg")).toBe(CARD_TYPES.find((t) => t.key === "ITComponent")!.color);
+  });
+
+  it("unfreezes only the toggled column", async () => {
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    await user.click(screen.getByTestId("grid-freeze"));
+    await user.click(screen.getByTestId("freeze-status"));
+    expect(grid()).toHaveAttribute("data-frozen", "title,status");
+    await user.click(screen.getByTestId("freeze-status"));
+    expect(grid()).toHaveAttribute("data-frozen", "title");
+  });
+});
+
+describe("DecisionsPanel — date bounds", () => {
+  const BOUNDARY = [
+    makeAdr({
+      id: "b1",
+      status: "signed",
+      created_at: "2026-04-01",
+      updated_at: "2026-04-02",
+      signed_at: "2026-04-03",
+    }),
+    makeAdr({
+      id: "b2",
+      status: "signed",
+      created_at: "2026-04-10T23:59:59",
+      updated_at: "2026-04-11T23:59:59",
+      signed_at: "2026-04-12T23:59:59",
+    }),
+  ];
+
+  beforeEach(() => {
+    mockApi.on("get", "/adr", BOUNDARY);
+  });
+
+  it("includes a decision stamped exactly on a From date", async () => {
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("b1,b2"));
+    await applyFilters(user, { dateCreatedFrom: "2026-04-01" });
+    expect(gridIds()).toBe("b1,b2");
+    await applyFilters(user, { dateCreatedFrom: "", dateModifiedFrom: "2026-04-02" });
+    expect(gridIds()).toBe("b1,b2");
+    await applyFilters(user, { dateModifiedFrom: "", dateSignedFrom: "2026-04-03" });
+    expect(gridIds()).toBe("b1,b2");
+    await applyFilters(user, { dateSignedFrom: "2026-04-04" });
+    expect(gridIds()).toBe("b2");
+  });
+
+  it("includes a decision stamped at the last second of a To date", async () => {
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("b1,b2"));
+    await applyFilters(user, { dateCreatedTo: "2026-04-10" });
+    expect(gridIds()).toBe("b1,b2");
+    await applyFilters(user, { dateCreatedTo: "", dateModifiedTo: "2026-04-11" });
+    expect(gridIds()).toBe("b1,b2");
+    await applyFilters(user, { dateModifiedTo: "", dateSignedTo: "2026-04-12" });
+    expect(gridIds()).toBe("b1,b2");
+    await applyFilters(user, { dateSignedTo: "2026-04-11" });
+    expect(gridIds()).toBe("b1");
+  });
+
+  it("keeps a decision signed later the same day as the To date", async () => {
+    mockApi.on("get", "/adr", ADRS);
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    await applyFilters(user, { dateSignedTo: "2026-02-01" });
+    expect(gridIds()).toBe("a1");
+    await applyFilters(user, { dateSignedTo: "", dateSignedFrom: "2026-02-02" });
+    expect(gridIds()).toBe("");
+  });
+});
+
+describe("DecisionsPanel — failures that are not API errors", () => {
+  /** Reject the way a non-`Error` throw does (a string), so the panel's own message shows. */
+  const throwString = (msg: string) => () => {
+    throw msg;
+  };
+
+  it("falls back to its own message for a delete, a duplicate and an export", async () => {
+    mockApi.on("delete", "/adr/a1", throwString("x"));
+    mockApi.on("post", "/adr/a2/duplicate", throwString("x"));
+    mockApi.on("get", /^\/adr\/a\d$/, throwString("x"));
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+
+    await user.click(screen.getByTestId("del-a1"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to delete");
+    await user.click(screen.getByTestId("dup-a2"));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Failed to duplicate"));
+    await user.click(screen.getByTestId("export-all"));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Failed to export decisions"));
+    expect(gridIds()).toBe("a1,a2,a3");
+  });
+
+  it("speaks the language the user switched to after the panel mounted", async () => {
+    mockApi.on("delete", "/adr/a1", throwString("x"));
+    mockApi.on("post", "/adr/a2/duplicate", throwString("x"));
+    mockApi.on("get", /^\/adr\/a\d$/, throwString("x"));
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    try {
+      await act(async () => {
+        await i18n.changeLanguage("de");
+      });
+      await user.click(screen.getByTestId("del-a1"));
+      expect(confirmSpy).toHaveBeenLastCalledWith("Diese Architekturentscheidung löschen?");
+      expect(await screen.findByRole("alert")).toHaveTextContent("Löschen fehlgeschlagen");
+      await user.click(screen.getByTestId("dup-a2"));
+      await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Duplizieren fehlgeschlagen"));
+      await user.click(screen.getByTestId("export-all"));
+      await waitFor(() =>
+        expect(screen.getByRole("alert")).toHaveTextContent("Export der Entscheidungen fehlgeschlagen"),
+      );
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
   });
 });

@@ -5,7 +5,7 @@
  * and how the form seeds itself from an existing task.
  */
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { MitigationTask, MitigationTaskOccurrence } from "@/types";
 
@@ -244,5 +244,177 @@ describe("MitigationTaskDialog — edit", () => {
     });
     expect(screen.getByLabelText("Due date")).toHaveValue("");
     expect(screen.getByRole("checkbox", { name: "Repeats" })).not.toBeChecked();
+  });
+});
+
+describe("MitigationTaskDialog — form details", () => {
+  it("bounds the title, interval and lead-time inputs and explains the lead time", async () => {
+    const { user } = renderDialog();
+    expect(titleBox()).toHaveAttribute("maxLength", "500");
+    await user.click(screen.getByRole("checkbox", { name: "Repeats" }));
+    const interval = screen.getByRole("spinbutton", { name: "" });
+    expect(interval).toHaveAttribute("min", "1");
+    expect(interval).toHaveAttribute("max", "365");
+    const leadTime = screen.getByRole("spinbutton", { name: /Lead time/ });
+    expect(leadTime).toHaveAttribute("min", "0");
+    expect(leadTime).toHaveAttribute("max", "3650");
+    expect(
+      screen.getByText("Open this task on the assignee's Todo list this many days before the due date."),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps a typed interval, and falls back to 1 for one it cannot read", async () => {
+    const { user, onSubmit } = renderDialog();
+    await user.type(titleBox(), "Access review");
+    await user.click(screen.getByRole("checkbox", { name: "Repeats" }));
+    const interval = screen.getByRole("spinbutton", { name: "" });
+    fireEvent.change(interval, { target: { value: "abc" } });
+    expect(interval).toHaveValue(1);
+    fireEvent.change(interval, { target: { value: "12" } });
+    expect(interval).toHaveValue(12);
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ recurrence_unit: "months", recurrence_interval: 12 });
+  });
+
+  it("refuses a title made only of spaces", async () => {
+    const { user } = renderDialog();
+    await user.type(titleBox(), "   ");
+    expect(screen.getByRole("button", { name: "Create task" })).toBeDisabled();
+  });
+
+  it("trims the description and sends null for one made only of spaces", async () => {
+    const first = renderDialog();
+    await first.user.type(titleBox(), "Patch servers");
+    await first.user.type(screen.getByRole("textbox", { name: "Description" }), "  Apply the fix  ");
+    await first.user.click(screen.getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(first.onSubmit).toHaveBeenCalled());
+    expect(first.onSubmit.mock.calls[0][0].description).toBe("Apply the fix");
+  });
+
+  it("sends a null description for one made only of spaces", async () => {
+    const { user, onSubmit } = renderDialog();
+    await user.type(titleBox(), "Patch servers");
+    await user.type(screen.getByRole("textbox", { name: "Description" }), "   ");
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0].description).toBeNull();
+  });
+
+  it("locks the form while the submit is in flight, and unlocks it once it settles", async () => {
+    let release!: () => void;
+    const onSubmit = vi.fn(
+      () =>
+        new Promise<void>((r) => {
+          release = r;
+        }),
+    );
+    const { user, onClose } = renderDialog({ onSubmit });
+    await user.type(titleBox(), "Patch servers");
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Create task" })).toBeDisabled());
+    expect(titleBox()).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    await act(async () => release());
+    expect(onClose).toHaveBeenCalledTimes(1);
+    // The dialog stays mounted by its parent; it must not stay locked for the next use.
+    expect(titleBox()).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
+  });
+});
+
+describe("MitigationTaskDialog — owner picker", () => {
+  it("marks the current owner as the selected option", async () => {
+    const { user } = renderDialog({ task: RECURRING_TASK });
+    await user.click(screen.getByRole("button", { name: "Open" }));
+    expect(await screen.findByRole("option", { name: "Test Member (member@test.local)" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("option", { name: `${USER_OPTIONS[0].display_name} (${USER_OPTIONS[0].email})` })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+  });
+
+  it("sends a null owner once the owner is cleared", async () => {
+    const { user, onSubmit } = renderDialog({ task: RECURRING_TASK });
+    await user.clear(screen.getByRole("combobox", { name: "Owner" }));
+    expect(screen.getByRole("combobox", { name: "Owner" })).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0].owner_id).toBeNull();
+  });
+});
+
+describe("MitigationTaskDialog — seeding", () => {
+  const ONE_SHOT: MitigationTask = {
+    ...RECURRING_TASK,
+    description: null,
+    recurrence_unit: "none",
+    recurrence_interval: 1,
+    lead_time_days: 0,
+    occurrences: [
+      makeOcc({ id: "o1", sequence: 1, status: "done", due_date: "2026-01-01" }),
+      makeOcc({ id: "o2", sequence: 2, status: "scheduled", due_date: "2027-03-15" }),
+    ],
+  };
+
+  it("seeds the due date from a scheduled cycle and an empty description from a missing one", () => {
+    renderDialog({ task: ONE_SHOT });
+    expect(screen.getByLabelText("Due date")).toHaveValue("2027-03-15");
+    expect(screen.getByRole("textbox", { name: "Description" })).toHaveValue("");
+  });
+
+  it("sends no due date for a task whose cycles are all closed", async () => {
+    const { user, onSubmit } = renderDialog({
+      task: { ...ONE_SHOT, occurrences: [makeOcc({ id: "o1", sequence: 1, status: "done" })] },
+    });
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ due_date: null, description: null });
+  });
+
+  it("offers monthly recurrence, every 6, when a one-shot task is made recurring", async () => {
+    const { user, onSubmit } = renderDialog({ task: ONE_SHOT });
+    await user.click(screen.getByRole("checkbox", { name: "Repeats" }));
+    expect(selectFor("Unit")).toHaveTextContent("months");
+    expect(screen.getByRole("spinbutton", { name: "" })).toHaveValue(6);
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ recurrence_unit: "months", recurrence_interval: 6 });
+  });
+
+  it("resets to a blank form when it is reopened for a new task", async () => {
+    const onSubmit = vi.fn(async (_p: MitigationTaskDialogPayload) => {});
+    const user = userEvent.setup();
+    const props = { open: true, users: USER_OPTIONS, onClose: vi.fn(), onSubmit };
+    const view = render(<MitigationTaskDialog {...props} task={RECURRING_TASK} />);
+    expect(titleBox()).toHaveValue("Review access rights");
+
+    view.rerender(<MitigationTaskDialog {...props} task={null} />);
+    expect(screen.getByRole("heading", { name: "New mitigation task" })).toBeInTheDocument();
+    expect(titleBox()).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "Description" })).toHaveValue("");
+    expect(screen.getByRole("combobox", { name: "Owner" })).toHaveValue("");
+    expect(screen.getByLabelText("Due date")).toHaveValue("");
+    expect(screen.getByRole("checkbox", { name: "Repeats" })).not.toBeChecked();
+
+    await user.click(screen.getByRole("checkbox", { name: "Repeats" }));
+    expect(screen.getByRole("spinbutton", { name: "" })).toHaveValue(6);
+    expect(screen.getByRole("spinbutton", { name: /Lead time/ })).toHaveValue(7);
+  });
+
+  it("leaves the form as it was while the dialog closes", async () => {
+    const props = { users: USER_OPTIONS, onClose: vi.fn(), onSubmit: vi.fn(async () => {}) };
+    const view = render(<MitigationTaskDialog {...props} open task={RECURRING_TASK} />);
+    expect(titleBox()).toHaveValue("Review access rights");
+    // The parent closes the dialog and forgets the task in the same render.
+    view.rerender(<MitigationTaskDialog {...props} open={false} task={null} />);
+    // Still fading out: the content must not blank under the user's eyes.
+    expect(screen.getByDisplayValue("Review access rights")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Quarterly IAM review")).toBeInTheDocument();
   });
 });
