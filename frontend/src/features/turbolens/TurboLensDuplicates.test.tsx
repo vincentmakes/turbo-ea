@@ -1,0 +1,500 @@
+/**
+ * TurboLens → Duplicates tab, both sub-tabs.
+ *
+ * Duplicates: the clusters from `GET /turbolens/duplicates` as cards (status,
+ * type, domain, members, evidence, recommendation) with status / type filters
+ * and the three triage actions (`PATCH /turbolens/duplicates/{id}/status`).
+ * Modernization: `GET /turbolens/duplicates/modernizations` grouped by
+ * priority with a per-type chip filter. Both "run" buttons POST and then hand
+ * the run to the real `useAnalysisPolling`, which reloads the matching list
+ * when the run settles or surfaces its error.
+ */
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { screen, waitFor, within } from "@testing-library/react";
+
+vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
+
+import { mockApi } from "@/test/apiMock";
+import { hookState, withMetamodel } from "@/test/hooks";
+import { CARD_TYPES } from "@/test/fixtures/metamodel";
+import { renderWithProviders } from "@/test/render";
+import type { TurboLensDuplicateCluster, TurboLensModernization } from "@/types";
+import TurboLensDuplicates from "./TurboLensDuplicates";
+
+const CLUSTERS_URL = "/turbolens/duplicates";
+const MODS_URL = "/turbolens/duplicates/modernizations";
+const DETECT_URL = "/turbolens/duplicates/analyse";
+const MODERNIZE_URL = "/turbolens/duplicates/modernize";
+const STATUS_URL = /^\/turbolens\/duplicates\/[^/]+\/status$/;
+
+function cluster(
+  overrides: Partial<TurboLensDuplicateCluster> & { id: string; cluster_name: string },
+): TurboLensDuplicateCluster {
+  return {
+    card_type: "Application",
+    functional_domain: null,
+    card_ids: null,
+    card_names: null,
+    evidence: "",
+    recommendation: "",
+    status: "pending",
+    analysed_at: null,
+    ...overrides,
+  };
+}
+
+function modernization(
+  overrides: Partial<TurboLensModernization> & { id: string },
+): TurboLensModernization {
+  return {
+    target_type: "Application",
+    card_name: null,
+    current_tech: "",
+    modernization_type: "rehost",
+    recommendation: "",
+    effort: "medium",
+    priority: "medium",
+    status: "open",
+    ...overrides,
+  };
+}
+
+const CRM = cluster({
+  id: "c1",
+  cluster_name: "CRM overlap",
+  functional_domain: "Sales",
+  card_names: ["Salesforce", "HubSpot"],
+  evidence: "Both manage leads",
+  recommendation: "Consolidate on Salesforce",
+});
+const DB = cluster({
+  id: "c2",
+  cluster_name: "Database overlap",
+  card_type: "ITComponent",
+  card_names: ["Oracle", "Postgres", "Salesforce"],
+  evidence: "Same RDBMS role",
+  recommendation: "Standardise",
+  status: "confirmed",
+});
+const DOCS = cluster({ id: "c3", cluster_name: "Doc tools", status: "dismissed" });
+const CLUSTERS = [CRM, DB, DOCS];
+
+const MODS = [
+  modernization({
+    id: "m1",
+    card_name: "Legacy CRM",
+    current_tech: "COBOL on z/OS",
+    modernization_type: "rehost",
+    recommendation: "Move to SaaS",
+    effort: "high",
+    priority: "critical",
+  }),
+  modernization({
+    id: "m2",
+    target_type: "ITComponent",
+    modernization_type: "upgrade",
+    recommendation: "Upgrade to v19",
+    effort: "low",
+    priority: "",
+  }),
+  modernization({ id: "m3", card_name: "Old ERP", priority: "high", recommendation: "Re-platform" }),
+  modernization({ id: "m4", card_name: "Intranet", priority: "low", recommendation: "Retire" }),
+  modernization({ id: "m5", card_name: "Wiki", priority: "low", recommendation: "Replace" }),
+];
+
+function renderTab() {
+  return renderWithProviders(<TurboLensDuplicates />, { route: "/turbolens?tab=duplicates" });
+}
+
+function kpiValue(label: string): string | null {
+  const tile = screen.getByText(label).closest(".MuiPaper-root") as HTMLElement;
+  return tile.querySelector("h5")?.textContent ?? null;
+}
+
+function clusterCard(name: string): HTMLElement {
+  return screen.getByText(name).closest(".MuiCard-root") as HTMLElement;
+}
+
+function clusterNames(): string[] {
+  return Array.from(document.querySelectorAll(".MuiCard-root h6")).map((h) => h.textContent ?? "");
+}
+
+/** A triage action: the tooltip labels the wrapper span, the icon names the button. */
+function action(card: HTMLElement, tooltip: string): HTMLElement {
+  return within(within(card).getByLabelText(tooltip)).getByRole("button");
+}
+
+function closeAlert(text: string) {
+  const alert = screen.getByText(text).closest(".MuiAlert-root") as HTMLElement;
+  return within(alert).getByRole("button", { name: "Close" });
+}
+
+const DETECT = /Detect Duplicates$/;
+const ASSESS = /Assess Modernization$/;
+
+beforeEach(() => {
+  mockApi.reset();
+  hookState.reset();
+  withMetamodel(CARD_TYPES);
+});
+
+describe("TurboLensDuplicates — overview", () => {
+  it("summarises clusters and modernizations in the KPI tiles and tab labels", async () => {
+    mockApi.on("get", CLUSTERS_URL, CLUSTERS);
+    mockApi.on("get", MODS_URL, MODS);
+    renderTab();
+
+    expect(screen.getByRole("heading", { name: "Duplicate Detection & Modernization" })).toBeInTheDocument();
+    await screen.findByText("CRM overlap");
+    expect(kpiValue("Duplicate Clusters")).toBe("3 (1 pending)");
+    expect(kpiValue("Confirmed Duplicates")).toBe("1");
+    // Salesforce appears in two clusters and is counted once.
+    expect(kpiValue("Affected Cards")).toBe("4");
+    expect(kpiValue("Mod. Opportunities")).toBe("5 (2 critical/high)");
+    expect(screen.getByRole("tab", { name: "Duplicates (3)" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Modernization (5)" })).toBeInTheDocument();
+  });
+
+  it("drops the pending and critical qualifiers when there are none", async () => {
+    mockApi.on("get", CLUSTERS_URL, [DB]);
+    mockApi.on("get", MODS_URL, [MODS[3]]);
+    renderTab();
+
+    await screen.findByText("Database overlap");
+    expect(kpiValue("Duplicate Clusters")).toBe("1");
+    expect(kpiValue("Mod. Opportunities")).toBe("1");
+  });
+});
+
+describe("TurboLensDuplicates — duplicate clusters", () => {
+  it("shows a spinner, then the empty state when nothing was found", async () => {
+    let resolve: (v: TurboLensDuplicateCluster[]) => void = () => {};
+    mockApi.on("get", CLUSTERS_URL, () => new Promise<TurboLensDuplicateCluster[]>((r) => (resolve = r)));
+    mockApi.on("get", MODS_URL, []);
+    renderTab();
+
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    resolve([]);
+    expect(await screen.findByText("No duplicate clusters found")).toBeInTheDocument();
+    expect(
+      screen.getByText("Run duplicate detection to find functional overlaps in your portfolio."),
+    ).toBeInTheDocument();
+  });
+
+  it("treats failed loads as empty lists", async () => {
+    mockApi.fail("get", CLUSTERS_URL);
+    mockApi.fail("get", MODS_URL);
+    renderTab();
+
+    expect(await screen.findByText("No duplicate clusters found")).toBeInTheDocument();
+    expect(kpiValue("Duplicate Clusters")).toBe("0");
+    expect(kpiValue("Mod. Opportunities")).toBe("0");
+  });
+
+  it("renders each cluster with its type, domain, members, evidence and recommendation", async () => {
+    mockApi.on("get", CLUSTERS_URL, CLUSTERS);
+    mockApi.on("get", MODS_URL, []);
+    renderTab();
+
+    await screen.findByText("CRM overlap");
+    const crm = clusterCard("CRM overlap");
+    expect(within(crm).getByText("pending")).toBeInTheDocument();
+    expect(within(crm).getByText("Application")).toBeInTheDocument();
+    expect(within(crm).getByText("Sales")).toBeInTheDocument();
+    expect(within(crm).getByText("Members")).toBeInTheDocument();
+    expect(within(crm).getByText("Salesforce")).toBeInTheDocument();
+    expect(within(crm).getByText("HubSpot")).toBeInTheDocument();
+    expect(within(crm).getByText("Both manage leads")).toBeInTheDocument();
+    expect(within(crm).getByText("Consolidate on Salesforce")).toBeInTheDocument();
+
+    // The type is labelled from the metamodel.
+    expect(within(clusterCard("Database overlap")).getByText("IT Component")).toBeInTheDocument();
+
+    // No members → no Members block.
+    expect(within(clusterCard("Doc tools")).queryByText("Members")).not.toBeInTheDocument();
+
+    // The action matching the current status is disabled.
+    expect(action(crm, "Confirm duplicate")).toBeEnabled();
+    expect(action(clusterCard("Database overlap"), "Confirm duplicate")).toBeDisabled();
+    expect(action(clusterCard("Doc tools"), "Dismiss")).toBeDisabled();
+  });
+
+  it("filters clusters by status and by card type", async () => {
+    mockApi.on("get", CLUSTERS_URL, CLUSTERS);
+    mockApi.on("get", MODS_URL, []);
+    const { user } = renderTab();
+
+    await screen.findByText("CRM overlap");
+    const [statusSelect, typeSelect] = screen.getAllByRole("combobox");
+
+    await user.click(statusSelect);
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "All",
+      "Pending",
+      "Confirmed",
+      "Investigating",
+      "Dismissed",
+    ]);
+    await user.click(screen.getByRole("option", { name: "Confirmed" }));
+    expect(clusterNames()).toEqual(["Database overlap"]);
+
+    await user.click(statusSelect);
+    await user.click(screen.getByRole("option", { name: "Investigating" }));
+    expect(screen.getByText("No duplicate clusters found")).toBeInTheDocument();
+
+    await user.click(statusSelect);
+    await user.click(screen.getByRole("option", { name: "All" }));
+    await user.click(typeSelect);
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "All",
+      "Application",
+      "IT Component",
+    ]);
+    await user.click(screen.getByRole("option", { name: "Application" }));
+    expect(clusterNames()).toEqual(["CRM overlap", "Doc tools"]);
+  });
+
+  it("confirms, investigates and dismisses a cluster", async () => {
+    mockApi.on("get", CLUSTERS_URL, CLUSTERS);
+    mockApi.on("get", MODS_URL, []);
+    let finishPatch: () => void = () => {};
+    mockApi.on("patch", STATUS_URL, () => new Promise<void>((r) => (finishPatch = r)));
+    const { user } = renderTab();
+
+    await screen.findByText("CRM overlap");
+    await user.click(action(clusterCard("CRM overlap"), "Confirm duplicate"));
+
+    // While the PATCH is in flight the actions give way to a spinner.
+    const crm = clusterCard("CRM overlap");
+    expect(within(crm).getByRole("progressbar")).toBeInTheDocument();
+    expect(within(crm).queryByLabelText("Confirm duplicate")).not.toBeInTheDocument();
+    finishPatch();
+
+    await waitFor(() => expect(within(clusterCard("CRM overlap")).getByText("confirmed")).toBeInTheDocument());
+    expect(mockApi.callsOf("patch", STATUS_URL)).toEqual([
+      { method: "patch", path: "/turbolens/duplicates/c1/status", body: { status: "confirmed" } },
+    ]);
+    expect(action(clusterCard("CRM overlap"), "Confirm duplicate")).toBeDisabled();
+    expect(kpiValue("Confirmed Duplicates")).toBe("2");
+    expect(kpiValue("Duplicate Clusters")).toBe("3");
+
+    mockApi.on("patch", STATUS_URL, undefined);
+    await user.click(action(clusterCard("CRM overlap"), "Investigate"));
+    await waitFor(() =>
+      expect(within(clusterCard("CRM overlap")).getByText("investigating")).toBeInTheDocument(),
+    );
+    await user.click(action(clusterCard("CRM overlap"), "Dismiss"));
+    await waitFor(() => expect(within(clusterCard("CRM overlap")).getByText("dismissed")).toBeInTheDocument());
+    expect(mockApi.callsOf("patch", STATUS_URL).map((c) => c.body)).toEqual([
+      { status: "confirmed" },
+      { status: "investigating" },
+      { status: "dismissed" },
+    ]);
+  });
+
+  it("keeps the status and shows the error when the update fails", async () => {
+    mockApi.on("get", CLUSTERS_URL, CLUSTERS);
+    mockApi.on("get", MODS_URL, []);
+    mockApi.fail("patch", STATUS_URL, 403, "Forbidden");
+    const { user } = renderTab();
+
+    await screen.findByText("CRM overlap");
+    await user.click(action(clusterCard("CRM overlap"), "Dismiss"));
+
+    expect(await screen.findByText("PATCH /turbolens/duplicates/c1/status failed")).toBeInTheDocument();
+    expect(within(clusterCard("CRM overlap")).getByText("pending")).toBeInTheDocument();
+    expect(action(clusterCard("CRM overlap"), "Dismiss")).toBeEnabled();
+
+    await user.click(closeAlert("PATCH /turbolens/duplicates/c1/status failed"));
+    expect(screen.queryByText(/status failed/)).not.toBeInTheDocument();
+  });
+
+  it("runs duplicate detection and reloads the clusters when the run completes", async () => {
+    mockApi.on("get", CLUSTERS_URL, []);
+    mockApi.on("get", MODS_URL, []);
+    mockApi.on("post", DETECT_URL, { run_id: "run-d" });
+    let answerPoll: (run: unknown) => void = () => {};
+    mockApi.on("get", "/turbolens/analysis-runs/run-d", () => new Promise((r) => (answerPoll = r)));
+    const { user } = renderTab();
+
+    await screen.findByText("No duplicate clusters found");
+    await user.click(screen.getByRole("button", { name: DETECT }));
+
+    expect(await screen.findByText("Duplicate detection started")).toBeInTheDocument();
+    await waitFor(() => expect(mockApi.callsOf("get", "/turbolens/analysis-runs/run-d")).toHaveLength(1));
+    expect(screen.getByRole("button", { name: DETECT })).toBeDisabled();
+
+    mockApi.on("get", CLUSTERS_URL, CLUSTERS);
+    answerPoll({ id: "run-d", status: "completed", analysis_type: "duplicates" });
+    expect(await screen.findByText("CRM overlap")).toBeInTheDocument();
+    expect(mockApi.callsOf("get", CLUSTERS_URL)).toHaveLength(2);
+    // Only the clusters are reloaded, not the modernizations.
+    expect(mockApi.callsOf("get", MODS_URL)).toHaveLength(1);
+    expect(screen.getByRole("button", { name: DETECT })).toBeEnabled();
+
+    await user.click(closeAlert("Duplicate detection started"));
+    expect(screen.queryByText("Duplicate detection started")).not.toBeInTheDocument();
+  });
+
+  it("shows the error when detection cannot be started", async () => {
+    mockApi.on("get", CLUSTERS_URL, CLUSTERS);
+    mockApi.on("get", MODS_URL, []);
+    mockApi.fail("post", DETECT_URL, 409, "already running");
+    const { user } = renderTab();
+
+    await screen.findByText("CRM overlap");
+    await user.click(screen.getByRole("button", { name: DETECT }));
+    expect(await screen.findByText(`POST ${DETECT_URL} failed`)).toBeInTheDocument();
+    expect(screen.queryByText("Duplicate detection started")).not.toBeInTheDocument();
+  });
+
+  it("stringifies an error that is not an ApiError", async () => {
+    mockApi.on("get", CLUSTERS_URL, CLUSTERS);
+    mockApi.on("get", MODS_URL, []);
+    mockApi.on("post", DETECT_URL, () => {
+      throw new Error("socket hang up");
+    });
+    mockApi.on("patch", STATUS_URL, () => {
+      throw new Error("patch exploded");
+    });
+    const { user } = renderTab();
+
+    await screen.findByText("CRM overlap");
+    await user.click(screen.getByRole("button", { name: DETECT }));
+    expect(await screen.findByText("Error: socket hang up")).toBeInTheDocument();
+
+    await user.click(action(clusterCard("CRM overlap"), "Confirm duplicate"));
+    expect(await screen.findByText("Error: patch exploded")).toBeInTheDocument();
+  });
+});
+
+describe("TurboLensDuplicates — modernization", () => {
+  async function openModernization(user: ReturnType<typeof renderTab>["user"], count: number) {
+    await user.click(await screen.findByRole("tab", { name: `Modernization (${count})` }));
+  }
+
+  it("shows a spinner, then the empty state when there are no assessments", async () => {
+    mockApi.on("get", CLUSTERS_URL, []);
+    let resolve: (v: TurboLensModernization[]) => void = () => {};
+    mockApi.on("get", MODS_URL, () => new Promise<TurboLensModernization[]>((r) => (resolve = r)));
+    const { user } = renderTab();
+
+    await openModernization(user, 0);
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    resolve([]);
+    expect(await screen.findByText("No modernization assessments yet")).toBeInTheDocument();
+    expect(
+      screen.getByText("Run a modernization assessment to identify upgrade opportunities."),
+    ).toBeInTheDocument();
+  });
+
+  it("groups opportunities by priority, critical first", async () => {
+    mockApi.on("get", CLUSTERS_URL, []);
+    mockApi.on("get", MODS_URL, MODS);
+    const { user } = renderTab();
+
+    await openModernization(user, 5);
+    const headers = screen.getAllByText(/^(CRITICAL|HIGH|MEDIUM|LOW)$/);
+    expect(headers.map((h) => h.textContent)).toEqual(["CRITICAL", "HIGH", "MEDIUM", "LOW"]);
+    expect(screen.getAllByText("1 opportunity")).toHaveLength(3);
+    expect(screen.getByText("2 opportunities")).toBeInTheDocument();
+
+    const legacy = screen.getByText("Legacy CRM").closest(".MuiCard-root") as HTMLElement;
+    expect(within(legacy).getByText("high")).toBeInTheDocument(); // effort
+    expect(within(legacy).getByText("critical")).toBeInTheDocument(); // priority
+    expect(within(legacy).getByText("rehost")).toBeInTheDocument();
+    expect(within(legacy).getByText("COBOL on z/OS")).toBeInTheDocument();
+    expect(within(legacy).getByText("Move to SaaS")).toBeInTheDocument();
+
+    // No priority → the MEDIUM group; no card name → a dash; no current tech → no code line.
+    const unnamed = screen.getByText("Upgrade to v19").closest(".MuiCard-root") as HTMLElement;
+    expect(within(unnamed).getByText("-")).toBeInTheDocument();
+    expect(within(unnamed).queryByText("COBOL on z/OS")).not.toBeInTheDocument();
+    const medium = screen.getByText("MEDIUM").closest(".MuiBox-root") as HTMLElement;
+    expect(within(medium).getByText("Upgrade to v19")).toBeInTheDocument();
+  });
+
+  it("filters by target type with the chip row", async () => {
+    mockApi.on("get", CLUSTERS_URL, []);
+    mockApi.on("get", MODS_URL, MODS);
+    const { user } = renderTab();
+
+    await openModernization(user, 5);
+    expect(screen.getByRole("button", { name: "All (5)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Application (4)" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "IT Component (1)" }));
+    expect(screen.getByText("Upgrade to v19")).toBeInTheDocument();
+    expect(screen.queryByText("Legacy CRM")).not.toBeInTheDocument();
+    expect(screen.queryByText("CRITICAL")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "All (5)" }));
+    expect(screen.getByText("Legacy CRM")).toBeInTheDocument();
+  });
+
+  it("assesses the chosen target type and reloads the opportunities when the run completes", async () => {
+    mockApi.on("get", CLUSTERS_URL, []);
+    mockApi.on("get", MODS_URL, []);
+    mockApi.on("post", MODERNIZE_URL, { run_id: "run-m" });
+    let answerPoll: (run: unknown) => void = () => {};
+    mockApi.on("get", "/turbolens/analysis-runs/run-m", () => new Promise((r) => (answerPoll = r)));
+    const { user } = renderTab();
+
+    await openModernization(user, 0);
+    await screen.findByText("No modernization assessments yet");
+
+    // Target types are labelled from the metamodel; unknown keys stay raw.
+    await user.click(screen.getByRole("combobox"));
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Application",
+      "IT Component",
+      "Interface",
+      "DataObject",
+      "System",
+    ]);
+    await user.click(screen.getByRole("option", { name: "IT Component" }));
+    await user.click(screen.getByRole("button", { name: ASSESS }));
+
+    expect(await screen.findByText("Modernization assessment started")).toBeInTheDocument();
+    expect(mockApi.callsOf("post", MODERNIZE_URL)[0].body).toEqual({ target_type: "ITComponent" });
+    await waitFor(() => expect(mockApi.callsOf("get", "/turbolens/analysis-runs/run-m")).toHaveLength(1));
+    expect(screen.getByRole("button", { name: ASSESS })).toBeDisabled();
+
+    mockApi.on("get", MODS_URL, MODS);
+    answerPoll({ id: "run-m", status: "completed", analysis_type: "modernization" });
+    expect(await screen.findByText("Legacy CRM")).toBeInTheDocument();
+    expect(mockApi.callsOf("get", MODS_URL)).toHaveLength(2);
+    expect(mockApi.callsOf("get", CLUSTERS_URL)).toHaveLength(1);
+    expect(screen.getByRole("tab", { name: "Modernization (5)" })).toBeInTheDocument();
+  });
+
+  it("surfaces a failed assessment run and a failure to start one", async () => {
+    mockApi.on("get", CLUSTERS_URL, []);
+    mockApi.on("get", MODS_URL, []);
+    mockApi.on("post", MODERNIZE_URL, { run_id: "run-m" });
+    mockApi.on("get", "/turbolens/analysis-runs/run-m", {
+      id: "run-m",
+      status: "failed",
+      analysis_type: "modernization",
+      error_message: "Model returned invalid JSON",
+    });
+    const { user } = renderTab();
+
+    await openModernization(user, 0);
+    await user.click(screen.getByRole("button", { name: ASSESS }));
+    expect(await screen.findByText("Model returned invalid JSON")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: ASSESS })).toBeEnabled());
+
+    mockApi.fail("post", MODERNIZE_URL, 400, "bad type");
+    await user.click(screen.getByRole("button", { name: ASSESS }));
+    expect(await screen.findByText(`POST ${MODERNIZE_URL} failed`)).toBeInTheDocument();
+    expect(screen.queryByText("Model returned invalid JSON")).not.toBeInTheDocument();
+
+    mockApi.on("post", MODERNIZE_URL, () => {
+      throw new Error("offline");
+    });
+    await user.click(screen.getByRole("button", { name: ASSESS }));
+    expect(await screen.findByText("Error: offline")).toBeInTheDocument();
+  });
+});
