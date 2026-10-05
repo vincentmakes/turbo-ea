@@ -138,9 +138,11 @@ def judge(
     partial = allow_pending and scope == "suite" and total.pending > 0
     if total.pending and not partial:
         lines.append(
-            f"**Incomplete run:** {total.pending} mutant(s) were never tested. "
-            "A partial run is not a score; re-run the job."
+            f"**Incomplete run:** {total.pending} mutant(s) were never tested — the run "
+            "hit its time budget or stopped early. A partial run is not a score; "
+            f"of the {total.scored} that were tested, {total.killed} were killed."
         )
+        lines += ["", *file_table(records)]
         return Verdict(passed=False, incomplete=True, lines=lines)
 
     passed = True
@@ -186,6 +188,12 @@ def judge(
             if suite_of(module) != suite:
                 continue
             t = files.get(module, Tally())
+            if t.scored + t.excluded + t.pending == 0:
+                # A wrong path, a file with nothing mutable, or a shard whose
+                # records never arrived: never a silent pass.
+                module_rows.append(f"| `{module}` | not measured | {module_floor}% | **check** |")
+                passed = passed and partial
+                continue
             if t.pending:
                 module_rows.append(
                     f"| `{module}` | {fmt(t.score)} so far | {module_floor}% | "

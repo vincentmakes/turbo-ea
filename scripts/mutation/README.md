@@ -142,6 +142,13 @@ Each of these was found the hard way while wiring it up; keep them.
   makes `<suite>/mutants` a link to `.mutation/<suite>/<suite>/`, inside a
   per-suite mirror of the repository made of symlinks, so the parents line up
   again.
+- **Source scans are left out.** Some guard tests read `app/` as text with
+  `ast` or a regex. Under mutmut `app/` is its rewritten copy, so those scans
+  fail, and they could never kill a runtime mutant anyway. Mark such a test
+  module with `pytestmark = pytest.mark.source_scan` (or one test with the
+  decorator) and `backend/tests/mutation_plugin.py` deselects it whenever
+  mutmut runs pytest. A missed one stops the stats pass, which runs with
+  `-x`, and the log names it.
 - **Decorated functions are never mutated.** mutmut skips any function with
   a decorator other than a bare `@staticmethod` / `@classmethod`, which
   includes every FastAPI route handler. The PR job lists changed functions
@@ -186,6 +193,6 @@ Each of these was found the hard way while wiring it up; keep them.
 | `floors.toml` | every floor |
 
 Tests: `backend/tests/core/test_mutation_scripts.py` (the scripts),
-`backend/tests/core/test_conftest_mutation.py` (per-process schemas, `TEST_DB_REQUIRED`),
+`backend/tests/core/test_conftest_mutation.py` (per-process schemas, `TEST_DB_REQUIRED`, `source_scan`),
 `backend/tests/services/test_ci_workflow_mutation.py` (the workflows),
 `backend/tests/services/test_mutation_pragmas.py` (suppression reasons).

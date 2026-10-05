@@ -241,6 +241,14 @@ class TestGate:
         assert not verdict.passed  # 91.7% overall, but the critical module sits at 50%
         assert any("critical.py" in line and "**FAIL**" in line for line in verdict.lines)
 
+    def test_a_listed_module_without_records_is_never_a_silent_pass(self):
+        records = [rec("killed")]
+        complete = gate.judge(records, "backend", "suite", FLOORS)
+        assert not complete.passed
+        assert any("not measured" in line for line in complete.lines)
+        records.append(rec("pending", line=2, raw="not checked"))
+        assert gate.judge(records, "backend", "suite", FLOORS, allow_pending=True).passed
+
     def test_module_floors_of_another_suite_are_ignored(self):
         floors = {**FLOORS, "modules": {"frontend/src/lib/a.ts": 100}}
         assert gate.judge([rec("killed")], "backend", "suite", floors).passed
@@ -263,7 +271,7 @@ class TestGate:
                 "--scope",
                 "suite",
                 "--floors",
-                str(floors_file(tmp_path)),
+                str(floors_file(tmp_path, {**FLOORS, "modules": {}})),
                 "--records",
                 str(shard1),
                 str(shard2),

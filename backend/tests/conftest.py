@@ -27,6 +27,7 @@ from sqlalchemy.pool import NullPool
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from app.core.security import create_access_token, hash_password
 from app.models.base import Base
+from tests import mutation_plugin
 
 # ``--shard K/N`` (CI runs the suite as shards on parallel runners). Importing the
 # hooks registers them on this conftest; the implementation lives in its own
@@ -34,8 +35,16 @@ from app.models.base import Base
 from tests.shard_plugin import (  # noqa: F401
     pytest_addoption,
     pytest_collection_modifyitems,
-    pytest_configure,
 )
+from tests.shard_plugin import pytest_configure as _shard_configure
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    _shard_configure(config)
+    # Mutation runs leave out tests that scan source as text (see the module).
+    config.addinivalue_line("markers", mutation_plugin.DESCRIPTION)
+    config.pluginmanager.register(mutation_plugin, "turbo-ea-mutation")
+
 
 # Pre-computed bcrypt hash for the default test password "TestPassword1".
 # Avoids ~200ms of CPU per create_user() call — saves minutes across 800+ tests.

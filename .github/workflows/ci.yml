@@ -887,7 +887,10 @@ jobs:
   # The Python jobs restore the mutmut cache the nightly saves on main:
   # mutmut's per-test stats are a SERIAL pass over the whole suite (~an hour
   # for the backend), and with the cache it only collects tests that are new
-  # in the PR. A cold cache still works, just slower.
+  # in the PR. A cold cache still works, just slower. `--budget` stops
+  # mutmut cleanly before the job's own timeout, so a change to a function
+  # thousands of tests reach ends as a scored "incomplete run" in the
+  # summary, never as a killed job with nothing to read.
   backend-mutation:
     name: Backend Mutation Tests
     needs: changes
@@ -942,7 +945,7 @@ jobs:
       - name: Mutate the functions this pull request touches
         run: >-
           python scripts/mutation/mutmut_scope.py run --suite backend
-          --changed mutation-changed.json --max-children 4
+          --changed mutation-changed.json --max-children 4 --budget 120
       - name: Score the mutants on changed lines
         run: |
           python scripts/mutation/mutmut_scope.py collect --suite backend \
@@ -988,7 +991,7 @@ jobs:
       - name: Mutate the functions this pull request touches
         run: >-
           python scripts/mutation/mutmut_scope.py run --suite mcp
-          --changed mutation-changed.json --max-children 4
+          --changed mutation-changed.json --max-children 4 --budget 45
       - name: Score the mutants on changed lines
         run: |
           python scripts/mutation/mutmut_scope.py collect --suite mcp \

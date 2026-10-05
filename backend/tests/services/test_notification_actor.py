@@ -17,6 +17,11 @@ from __future__ import annotations
 import ast
 import pathlib
 
+import pytest
+
+# Reads app/ as text: left out of mutation runs (tests/mutation_plugin.py).
+pytestmark = pytest.mark.source_scan
+
 APP = pathlib.Path(__file__).resolve().parents[2] / "app"
 
 NOTIFY_FUNCS = {

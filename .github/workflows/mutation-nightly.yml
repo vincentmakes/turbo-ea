@@ -61,6 +61,8 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4, 5, 6]
+    outputs:
+      count: ${{ steps.meta.outputs.count }} # every leg writes the same value
     services:
       postgres:
         image: postgres:16-alpine
@@ -97,6 +99,8 @@ jobs:
           path: .mutation/backend/backend
           key: mutmut-backend-shard${{ matrix.shard }}-${{ github.run_id }}
           restore-keys: mutmut-backend-shard${{ matrix.shard }}-
+      - id: meta
+        run: echo "count=${{ strategy.job-total }}" >> "$GITHUB_OUTPUT"
       - name: Mutate shard ${{ matrix.shard }} within the budget
         run: >-
           python scripts/mutation/mutmut_scope.py run --suite backend --shard "$SHARD"
@@ -171,6 +175,8 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    outputs:
+      count: ${{ steps.meta.outputs.count }} # every leg writes the same value
     env:
       SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
     steps:
@@ -187,6 +193,8 @@ jobs:
           path: frontend/reports/stryker-incremental.json
           key: stryker-frontend-shard${{ matrix.shard }}-${{ github.run_id }}
           restore-keys: stryker-frontend-shard${{ matrix.shard }}-
+      - id: meta
+        run: echo "count=${{ strategy.job-total }}" >> "$GITHUB_OUTPUT"
       - name: Mutate shard ${{ matrix.shard }}
         run: |
           FILES="$(python3 ../scripts/mutation/stryker_scope.py shard --shard "$SHARD")"
@@ -249,6 +257,17 @@ jobs:
           if [ "$SAVE_CACHE" != "true" ]; then informational="--informational"; fi
           failed=0
           : > survivors.md
+          # A shard whose records never arrived would silently drop its files
+          # from the score, so the count is checked first.
+          for pair in "backend:${{ needs.backend.outputs.count }}" "mcp:1" \
+                      "frontend:${{ needs.frontend.outputs.count }}"; do
+            suite="${pair%%:*}"; expected="${pair##*:}"
+            found="$(find records -name "mutation-records-$suite-*.json" | wc -l)"
+            if [ "$found" -ne "$expected" ]; then
+              echo "::error::$suite: $found of $expected shard record files"
+              failed=1
+            fi
+          done
           for suite in backend mcp frontend; do
             # A shard that produced no records leaves the glob unmatched; the
             # gate then fails on the missing file, which is the point.

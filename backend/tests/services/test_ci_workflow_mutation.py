@@ -50,6 +50,8 @@ def test_each_suite_has_a_diff_scoped_pr_gate(job_id, name, suite):
     assert f"scripts/mutation/gate.py --suite {suite} --scope diff" in body
     assert '--summary "$GITHUB_STEP_SUMMARY"' in body
     assert "continue-on-error" not in body
+    if suite != "frontend":  # stop cleanly before the job timeout, with a summary
+        assert "--budget " in body
 
 
 def test_the_backend_gate_cannot_pass_on_a_missing_database():
@@ -64,7 +66,13 @@ def test_no_mutation_job_interpolates_step_output_into_a_script():
     """`--mutate` is built from file names a PR controls."""
     for job_id in ("backend-mutation", "mcp-mutation", "frontend-mutation"):
         assert "${{ steps." not in jobs(CI)[job_id]
-    assert "${{ steps." not in NIGHTLY.read_text()
+    # the nightly's only step outputs are the shard counts its jobs export
+    for line in NIGHTLY.read_text().splitlines():
+        if "${{ steps." in line:
+            assert (
+                line.strip()
+                == "count: ${{ steps.meta.outputs.count }} # every leg writes the same value"
+            )
 
 
 @pytest.mark.parametrize("filter_name", ["backend", "frontend", "mcp"])
@@ -110,6 +118,8 @@ def test_the_nightly_measures_every_suite_resumably():
 
 def test_the_nightly_report_runs_after_failed_shards_and_uses_the_gate():
     body = jobs(NIGHTLY)["report"]
+    # a missing shard must not silently shrink the score
+    assert "needs.backend.outputs.count" in body and "needs.frontend.outputs.count" in body
     assert "needs: [backend, mcp, frontend]" in body
     assert "if: always()" in body
     assert 'gate.py --suite "$suite" --scope suite --allow-pending' in body
