@@ -190,7 +190,9 @@ function renderCost() {
 const metric = (label: string) => screen.getByText(label).closest(".MuiPaper-root");
 
 async function pickOption(label: RegExp, option: RegExp) {
-  fireEvent.mouseDown(screen.getByRole("combobox", { name: label }));
+  // The request the caller waited on is recorded when it is sent, not when its
+  // response renders, so the toolbar may still be behind a spinner here.
+  fireEvent.mouseDown(await screen.findByRole("combobox", { name: label }, { timeout: 5000 }));
   const listbox = await screen.findByRole("listbox");
   fireEvent.click(within(listbox).getByRole("option", { name: option }));
   // A multi-select keeps its menu open; close it so the page is reachable again.

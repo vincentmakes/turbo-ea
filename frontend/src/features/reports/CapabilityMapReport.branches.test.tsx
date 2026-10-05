@@ -191,7 +191,9 @@ const legend = () => document.querySelector(".report-legend") as HTMLElement;
 const loaded = () => within(document.body).findByText("Finance");
 
 async function pick(label: RegExp, option: RegExp) {
-  fireEvent.mouseDown(screen.getByRole("combobox", { name: label }));
+  // The request the caller waited on is recorded when it is sent, not when its
+  // response renders, so the toolbar may still be behind a spinner here.
+  fireEvent.mouseDown(await screen.findByRole("combobox", { name: label }, { timeout: 5000 }));
   const listbox = await screen.findByRole("listbox");
   fireEvent.click(within(listbox).getByRole("option", { name: option }));
 }
