@@ -76,8 +76,9 @@ describe("EolLinkSection — linked card", () => {
     expect(screen.getByText("End of Life")).toBeInTheDocument();
     expect(await screen.findByText("postgresql 16")).toBeInTheDocument();
     expect(screen.getByText("Linked to")).toBeInTheDocument();
-    // Header chip + status badge both read "Supported".
-    expect(screen.getAllByText("Supported")).toHaveLength(2);
+    // Header chip + status badge both read "Supported". They come from the
+    // cycles request, which lands after the product name the card already holds.
+    await waitFor(() => expect(screen.getAllByText("Supported")).toHaveLength(2));
     expect(screen.getByText("2023-09-14")).toBeInTheDocument();
     expect(screen.getByText("16.4")).toBeInTheDocument();
     expect(screen.getByText("Sixteen")).toBeInTheDocument();
