@@ -4,9 +4,13 @@
     src/lib/a.ts:10-14,src/lib/b.ts:3-3
     python scripts/mutation/stryker_scope.py shard --shard 3/8
     src/features/a.tsx,src/lib/b.ts,...
+    python scripts/mutation/stryker_scope.py nightly --shard 3/8 --budget 280 \\
+        --state frontend/reports/nightly
     python scripts/mutation/stryker_scope.py collect \\
         --report frontend/reports/mutation/mutation.json --changed changed.json \\
         --output records.json
+    python scripts/mutation/stryker_scope.py collect --state frontend/reports/nightly \\
+        --shard 3/8 --output records.json
 
 ``args`` prints the value for ``stryker run --mutate``: one ``file:first-last``
 entry per changed range of every file the config's ``mutate`` globs select
@@ -18,18 +22,34 @@ config's list entirely, which is what scopes the run to those lines.
 config selects, dealt largest-first by size like the backend's test shards, so
 the nightly can spread the whole frontend over N runners.
 
-``collect`` reads the report (mutation-testing-report-schema) and writes the
+``nightly`` makes a shard RESUMABLE, which Stryker alone is not: it writes
+its incremental file only when a whole run completes, so a cold shard that
+overran its budget would lose every result, every night. The shard's files are
+split into ``CHUNKS`` stable chunks (by a hash of the path, so a new file never
+moves the others), each with its own incremental file and last report in the
+cached ``--state`` directory. Chunks run oldest-report-first until the budget
+is spent; a chunk cut off by the budget keeps its previous report.
+
+``collect`` reads a report (mutation-testing-report-schema) and writes the
 records ``gate.py`` scores; with ``--changed`` it keeps only mutants whose
 location overlaps a changed line, so a mutant the incremental file carried
-over from elsewhere in the file never counts.
+over from elsewhere in the file never counts. With ``--state`` it merges the
+chunk reports of a shard and adds a ``pending`` record for every shard file no
+chunk has measured yet, so the gate shows the baseline's progress.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import shutil
+import signal
+import subprocess
 import sys
+import time
+import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -39,6 +59,10 @@ from changed_lines import touches  # noqa: E402
 REPO = Path(__file__).resolve().parents[2]
 FRONTEND = REPO / "frontend"
 CONFIG = FRONTEND / "stryker.config.json"
+REPORT = Path("reports") / "mutation" / "mutation.json"  # relative to the frontend
+STRYKER = ["npx", "stryker", "run"]  # the command; a test swaps in a stand-in
+CHUNKS = 8  # per shard: ~8 files each at today's size, small enough to finish
+MIN_CHUNK_SECONDS = 60  # never start a chunk with less time than this left
 
 STATUS = {
     "Killed": "killed",
@@ -145,6 +169,128 @@ def shard_files(shard: str, frontend: Path = FRONTEND, config_path: Path = CONFI
     return sorted(mine)
 
 
+def chunk_of(path: str, chunks: int | None = None) -> int:
+    return zlib.crc32(path.encode("utf-8")) % (chunks or CHUNKS)
+
+
+def shard_index(shard: str) -> str:
+    return shard.partition("/")[0]
+
+
+def _report_path(state: Path, shard: str, chunk: int) -> Path:
+    return state / f"chunk-{shard_index(shard)}-{chunk}.mutation.json"
+
+
+def _run_chunk(files: list[str], incremental: Path, timeout: float, frontend: Path) -> str:
+    """Run Stryker on one chunk: ``done``, ``failed`` or ``budget``."""
+    (frontend / REPORT).unlink(missing_ok=True)
+    cmd = [
+        *STRYKER,
+        "--mutate",
+        ",".join(files),
+        "--incremental",
+        "--incrementalFile",
+        str(incremental),
+    ]
+    # Its own process group, so the budget stops Stryker's workers too.
+    proc = subprocess.Popen(cmd, cwd=frontend, start_new_session=True)
+    try:
+        code = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        os.killpg(proc.pid, signal.SIGTERM)
+        try:
+            proc.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait()
+        return "budget"
+    return "done" if code == 0 and (frontend / REPORT).exists() else "failed"
+
+
+def nightly(
+    shard: str,
+    budget: float,
+    state: Path,
+    frontend: Path = FRONTEND,
+    config_path: Path = CONFIG,
+    max_chunks: int | None = None,
+    clock=time.monotonic,
+) -> int:
+    """Advance a shard's baseline by as many chunks as the budget allows."""
+    state.mkdir(parents=True, exist_ok=True)
+    groups: dict[int, list[str]] = {}
+    for rel in shard_files(shard, frontend, config_path):
+        groups.setdefault(chunk_of(rel), []).append(rel)
+
+    def last_report(chunk: int) -> float:
+        path = _report_path(state, shard, chunk)
+        return path.stat().st_mtime if path.exists() else 0.0
+
+    order = sorted(groups, key=lambda c: (last_report(c), c))
+    if max_chunks is not None:
+        order = order[:max_chunks]
+    deadline = clock() + budget * 60
+    failed = []
+    for chunk in order:
+        remaining = deadline - clock()
+        if remaining < MIN_CHUNK_SECONDS:
+            print(f"Budget spent; {len(order) - order.index(chunk)} chunk(s) wait for next run.")
+            break
+        incremental = state / f"chunk-{shard_index(shard)}-{chunk}.incremental.json"
+        outcome = _run_chunk(groups[chunk], incremental.resolve(), remaining, frontend)
+        print(f"chunk {chunk} ({len(groups[chunk])} files): {outcome}")
+        if outcome == "done":
+            shutil.copyfile(frontend / REPORT, _report_path(state, shard, chunk))
+        elif outcome == "failed":
+            failed.append(chunk)
+        else:
+            print("Budget spent mid-chunk; it keeps its previous report.")
+            break
+    if failed:
+        print(f"::error::Stryker failed on chunk(s) {failed} of shard {shard}")
+        return 1
+    return 0
+
+
+def merged_report(state: Path, shard: str) -> dict:
+    """The newest result for every file across a shard's chunk reports."""
+    files: dict = {}
+    paths = sorted(
+        state.glob(f"chunk-{shard_index(shard)}-*.mutation.json"), key=lambda p: p.stat().st_mtime
+    )
+    for path in paths:  # oldest first, so a newer report of a file wins
+        files.update(json.loads(path.read_text("utf-8")).get("files", {}))
+    return {"files": files}
+
+
+def collect_state(
+    state: Path, shard: str, frontend: Path = FRONTEND, config_path: Path = CONFIG
+) -> list[dict]:
+    mine = shard_files(shard, frontend, config_path)
+    report = merged_report(state, shard)
+    report["files"] = {
+        k: v
+        for k, v in report["files"].items()
+        if (Path(k).relative_to(frontend).as_posix() if Path(k).is_absolute() else k) in mine
+    }
+    records = collect(report, None, frontend)
+    measured = {r["file"] for r in records}
+    for rel in mine:
+        if f"frontend/{rel}" not in measured and rel not in report["files"]:
+            records.append(
+                {
+                    "suite": "frontend",
+                    "file": f"frontend/{rel}",
+                    "function": None,
+                    "line": None,
+                    "status": "pending",
+                    "raw_status": "not measured yet (whole file)",
+                    "id": rel,
+                }
+            )
+    return records
+
+
 def collect(report: dict, changed: dict | None, frontend: Path = FRONTEND) -> list[dict]:
     scope = None
     if changed is not None:
@@ -188,22 +334,37 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--changed", type=Path, required=True)
     sh = sub.add_parser("shard")
     sh.add_argument("--shard", required=True, help="K/N")
+    n = sub.add_parser("nightly")
+    n.add_argument("--shard", required=True, help="K/N")
+    n.add_argument("--budget", type=float, required=True, help="minutes")
+    n.add_argument("--state", type=Path, required=True, help="the cached chunk directory")
+    n.add_argument("--max-chunks", type=int, help="run at most this many chunks")
     c = sub.add_parser("collect")
-    c.add_argument("--report", type=Path, required=True)
+    source = c.add_mutually_exclusive_group(required=True)
+    source.add_argument("--report", type=Path, help="one Stryker JSON report")
+    source.add_argument("--state", type=Path, help="a nightly chunk directory (with --shard)")
+    c.add_argument("--shard", help="K/N, with --state")
     c.add_argument("--changed", type=Path)
     c.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     if args.command == "shard":
         print(",".join(shard_files(args.shard)))
         return 0
+    if args.command == "nightly":
+        return nightly(args.shard, args.budget, args.state, max_chunks=args.max_chunks)
     changed = json.loads(args.changed.read_text()) if args.changed else None
     if args.command == "args":
         print(mutate_arg(changed))
         return 0
-    if not args.report.exists():
-        print(f"::error::no Stryker report at {args.report}")
-        return 2
-    records = collect(json.loads(args.report.read_text("utf-8")), changed)
+    if args.state:
+        if not args.shard:
+            parser.error("--state needs --shard")
+        records = collect_state(args.state, args.shard)
+    else:
+        if not args.report.exists():
+            print(f"::error::no Stryker report at {args.report}")
+            return 2
+        records = collect(json.loads(args.report.read_text("utf-8")), changed)
     args.output.write_text(json.dumps(records, indent=1) + "\n")
     print(f"{len(records)} mutant record(s) written to {args.output}")
     return 0

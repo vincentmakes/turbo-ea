@@ -103,12 +103,12 @@ def test_the_nightly_measures_every_suite_resumably():
     j = jobs(NIGHTLY)
     assert {"backend", "mcp", "frontend", "report"} <= set(j)
     assert "shard: [1, " in j["backend"] and '--shard "$SHARD"' in j["backend"]
-    assert "shard: [1, " in j["frontend"] and "stryker_scope.py shard" in j["frontend"]
+    assert "shard: [1, " in j["frontend"] and "stryker_scope.py nightly" in j["frontend"]
+    assert '--budget "$BUDGET"' in j["frontend"] and "collect --state" in j["frontend"]
     assert "--shard 1/1" in j["mcp"]
     for job in ("backend", "mcp"):
         assert '--budget "$BUDGET"' in j[job]
         assert 'TEST_DB_REQUIRED: "1"' in j[job] or job == "mcp"
-    assert "--incremental" in j["frontend"]
     text = NIGHTLY.read_text()
     assert 'cron: "' in text and "workflow_dispatch:" in text
     # caches are written by main only
@@ -144,7 +144,8 @@ def test_stryker_config_leaves_the_floor_to_the_gate():
     # gitignore-style: an unanchored "reports" also drops src/features/reports,
     # tests and all, from Stryker's sandbox — silently.
     assert config["ignorePatterns"] and all(p.startswith("/") for p in config["ignorePatterns"])
-    assert "path: frontend/reports/stryker-incremental.json" in NIGHTLY.read_text()
+    # the nightly keeps one incremental file and report per chunk, cached
+    assert "path: frontend/reports/nightly" in NIGHTLY.read_text()
 
 
 def test_mutmut_is_pinned_identically_in_both_python_suites():

@@ -43,8 +43,11 @@ existing features are measured, not just new lines.
   incremental file. mutmut saves every verdict as it lands, so a shard that
   runs out of its `--budget` stops cleanly and the next night resumes. Once
   the baseline is complete, only functions that changed are re-tested.
-  Stryker writes its incremental file only when a run completes, so its
-  shards are smaller and must finish inside the job.
+  Stryker alone cannot resume, because it writes its incremental file only
+  when a whole run completes. `stryker_scope.py nightly` therefore splits
+  each frontend shard into stable chunks of files, each with its own
+  incremental file and last report, runs them oldest first until the budget
+  is spent, and lets a chunk cut off by the budget keep its previous report.
 - The `report` job runs `gate.py --scope suite --allow-pending` per suite
   against the `[suite]` floor and each `[modules]` floor. A floor applies once
   everything it covers is measured; until then the summary shows baseline
@@ -187,7 +190,7 @@ Each of these was found the hard way while wiring it up; keep them.
 |---|---|
 | `changed_lines.py` | lines a change adds or modifies, per file |
 | `mutmut_scope.py` | runs mutmut (PR, shard, files) and turns its results into records |
-| `stryker_scope.py` | `--mutate` value for a change or a shard; Stryker report to records |
+| `stryker_scope.py` | `--mutate` value for a change; the chunked, resumable nightly; Stryker reports to records |
 | `gate.py` | the one scorer: floors, summaries, survivor backlog, regressions |
 | `shadow_root.py` | the symlinked mirror mutmut's copy runs inside |
 | `floors.toml` | every floor |

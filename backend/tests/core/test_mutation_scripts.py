@@ -15,6 +15,7 @@ import json
 import subprocess
 import sys
 import textwrap
+import time
 import tomllib
 from pathlib import Path
 
@@ -680,6 +681,14 @@ class TestStrykerScope:
         with pytest.raises(ValueError):
             stryker_scope.shard_files("0/4")
 
+    def test_report_path_matches_the_config(self):
+        config = json.loads((REPO / "frontend" / "stryker.config.json").read_text())
+        assert stryker_scope.REPORT.as_posix() == config["jsonReporter"]["fileName"]
+
+    def test_chunks_are_stable_when_a_file_is_added(self):
+        assert stryker_scope.chunk_of("src/lib/a.ts") == stryker_scope.chunk_of("src/lib/a.ts")
+        assert 0 <= stryker_scope.chunk_of("src/lib/a.ts") < stryker_scope.CHUNKS
+
     def test_globs(self):
         regex = stryker_scope.glob_to_regex("src/**/*.{ts,tsx}")
         assert regex.match("src/a.ts") and regex.match("src/x/y/b.tsx")
@@ -722,3 +731,96 @@ class TestShadowRoot:
             config = tomllib.loads((REPO / suite / "pyproject.toml").read_text())
             assert config["tool"]["mutmut"]["source_paths"] == [source]
             assert source in shadow_root.mutmut_owned(REPO / suite)
+
+
+# ── stryker nightly: resumable chunks ───────────────────────────────────────
+
+FAKE_STRYKER = """
+import json, pathlib, sys, time
+args = sys.argv[1:]
+files = args[args.index("--mutate") + 1].split(",")
+if any("slow" in f for f in files):
+    time.sleep(60)
+if any("broken" in f for f in files):
+    sys.exit(1)
+report = {"files": {f: {"source": "x\\n", "mutants": [
+    {"id": "1", "mutatorName": "M", "replacement": "y", "status": "Killed",
+     "location": {"start": {"line": 1, "column": 1}, "end": {"line": 1, "column": 2}}}
+]} for f in files}}
+out = pathlib.Path("reports/mutation/mutation.json")
+out.parent.mkdir(parents=True, exist_ok=True)
+out.write_text(json.dumps(report))
+pathlib.Path(args[args.index("--incrementalFile") + 1]).write_text("{}")
+"""
+
+
+@pytest.fixture
+def frontend_repo(tmp_path, monkeypatch):
+    fe = tmp_path / "frontend"
+    (fe / "src").mkdir(parents=True)
+    for name in ("a", "b", "c", "d"):
+        (fe / "src" / f"{name}.ts").write_text("export const x = 1;\n")
+    (fe / "src" / "a.test.ts").write_text("test\n")
+    config = fe / "stryker.config.json"
+    config.write_text(json.dumps({"mutate": ["src/**/*.ts", "!src/**/*.test.ts"]}))
+    fake = tmp_path / "fake_stryker.py"
+    fake.write_text(FAKE_STRYKER)
+    monkeypatch.setattr(stryker_scope, "STRYKER", [sys.executable, str(fake)])
+    monkeypatch.setattr(stryker_scope, "CHUNKS", 2)
+    return fe, config
+
+
+class TestStrykerNightly:
+    def test_every_chunk_runs_and_collect_merges_them(self, frontend_repo, tmp_path):
+        fe, config = frontend_repo
+        state = tmp_path / "state"
+        assert stryker_scope.nightly("1/1", 30, state, fe, config) == 0
+        assert len(list(state.glob("chunk-1-*.mutation.json"))) == 2
+        assert len(list(state.glob("chunk-1-*.incremental.json"))) == 2
+        records = stryker_scope.collect_state(state, "1/1", fe, config)
+        assert sorted(r["file"] for r in records) == [
+            f"frontend/src/{n}.ts" for n in ("a", "b", "c", "d")
+        ]
+        assert {r["status"] for r in records} == {"killed"}
+
+    def test_files_no_chunk_has_measured_are_pending(self, frontend_repo, tmp_path):
+        fe, config = frontend_repo
+        state = tmp_path / "state"
+        assert stryker_scope.nightly("1/1", 30, state, fe, config, max_chunks=1) == 0
+        records = stryker_scope.collect_state(state, "1/1", fe, config)
+        statuses = {r["status"] for r in records}
+        assert statuses == {"killed", "pending"}
+        assert len(records) == 4
+
+    def test_the_oldest_chunk_runs_first(self, frontend_repo, tmp_path):
+        fe, config = frontend_repo
+        state = tmp_path / "state"
+        stryker_scope.nightly("1/1", 30, state, fe, config, max_chunks=1)
+        first = {p.name for p in state.glob("*.mutation.json")}
+        stryker_scope.nightly("1/1", 30, state, fe, config, max_chunks=1)
+        assert len({p.name for p in state.glob("*.mutation.json")} - first) == 1
+
+    def test_a_failing_chunk_fails_the_run_and_keeps_going(self, frontend_repo, tmp_path):
+        fe, config = frontend_repo
+        (fe / "src" / "broken.ts").write_text("x\n")
+        state = tmp_path / "state"
+        assert stryker_scope.nightly("1/1", 30, state, fe, config) == 1
+        assert list(state.glob("*.mutation.json"))  # the other chunk still landed
+
+    def test_the_budget_stops_a_chunk_and_keeps_its_previous_report(
+        self, frontend_repo, tmp_path, monkeypatch
+    ):
+        fe, config = frontend_repo
+        for name in ("a", "b", "c", "d"):
+            (fe / "src" / f"{name}.ts").unlink()
+        (fe / "src" / "slow.ts").write_text("x\n")
+        monkeypatch.setattr(stryker_scope, "CHUNKS", 1)
+        monkeypatch.setattr(stryker_scope, "MIN_CHUNK_SECONDS", 0)
+        state = tmp_path / "state"
+        state.mkdir()
+        previous = state / "chunk-1-0.mutation.json"
+        previous.write_text('{"files": {}}')
+        started = time.monotonic()
+        assert stryker_scope.nightly("1/1", 0.02, state, fe, config) == 0
+        assert time.monotonic() - started < 30  # stopped, not waited out
+        assert previous.read_text() == '{"files": {}}'

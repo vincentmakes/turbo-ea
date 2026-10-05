@@ -5,11 +5,12 @@
 # The per-PR jobs in ci.yml only ever see new lines. This workflow measures
 # everything: every mutable file of the three suites, dealt into shards
 # across runners. It is built to be RESUMABLE rather than fast. mutmut keeps
-# every verdict in its `mutants/` directory and StrykerJS in its incremental
-# file; both are cached per shard, so each night a shard picks up where the
-# previous one stopped (`--budget`), and once the baseline is complete only
-# the functions that changed since are re-tested. The same caches are what
-# the PR jobs restore, so they skip mutmut's serial stats pass.
+# every verdict in its `mutants/` directory; the frontend keeps one Stryker
+# incremental file and report per chunk of files. Both are cached per shard,
+# so each night a shard picks up where the previous one stopped (`--budget`),
+# and once the baseline is complete only what changed is re-tested. The
+# mutmut caches are also what the PR jobs restore, so they skip its serial
+# stats pass.
 #
 # The `report` job merges the shards, scores each suite with
 # `gate.py --scope suite --allow-pending` against the [suite] and [modules]
@@ -163,10 +164,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 3
 
-  # StrykerJS writes its incremental file only when a run completes, so a
-  # frontend shard must FINISH inside the job; there is no resuming half a
-  # run. Hence more, smaller shards than the backend, and `timeout` as a
-  # backstop that fails the shard visibly rather than hanging to the limit.
+  # StrykerJS alone cannot resume: it writes its incremental file only when a
+  # run completes. `stryker_scope.py nightly` splits each shard into stable
+  # chunks, each with its own incremental file and last report in a cached
+  # state directory, and runs them oldest-first until the budget is spent, so
+  # the frontend baseline also builds up over several nights.
   frontend:
     name: Frontend mutation (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
@@ -179,6 +181,7 @@ jobs:
       count: ${{ steps.meta.outputs.count }} # every leg writes the same value
     env:
       SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+      STATE: frontend/reports/nightly
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -188,31 +191,30 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
-      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: frontend/reports/stryker-incremental.json
-          key: stryker-frontend-shard${{ matrix.shard }}-${{ github.run_id }}
-          restore-keys: stryker-frontend-shard${{ matrix.shard }}-
       - id: meta
         run: echo "count=${{ strategy.job-total }}" >> "$GITHUB_OUTPUT"
-      - name: Mutate shard ${{ matrix.shard }}
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: frontend/reports/nightly
+          key: stryker-frontend-shard${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: stryker-frontend-shard${{ matrix.shard }}-
+      - name: Mutate shard ${{ matrix.shard }} within the budget
         run: |
-          FILES="$(python3 ../scripts/mutation/stryker_scope.py shard --shard "$SHARD")"
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-            FILES="$(echo "$FILES" | cut -d, -f1-2)" # the smoke test: two files a shard
-          fi
-          timeout "$(( BUDGET + 30 ))m" npx stryker run --mutate "$FILES" --incremental
-        working-directory: frontend
+          limit=""
+          # the smoke test on a pull request: one chunk a shard
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then limit="--max-chunks 1"; fi
+          # shellcheck disable=SC2086
+          python3 scripts/mutation/stryker_scope.py nightly --shard "$SHARD" \
+            --budget "$BUDGET" --state "$STATE" $limit
       - name: Collect the shard's verdicts
         if: always()
         run: >-
-          python3 scripts/mutation/stryker_scope.py collect
-          --report frontend/reports/mutation/mutation.json
+          python3 scripts/mutation/stryker_scope.py collect --state "$STATE" --shard "$SHARD"
           --output "mutation-records-frontend-${{ matrix.shard }}.json"
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: always() && env.SAVE_CACHE == 'true' && hashFiles('frontend/reports/stryker-incremental.json') != ''
+        if: always() && env.SAVE_CACHE == 'true'
         with:
-          path: frontend/reports/stryker-incremental.json
+          path: frontend/reports/nightly
           key: stryker-frontend-shard${{ matrix.shard }}-${{ github.run_id }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
