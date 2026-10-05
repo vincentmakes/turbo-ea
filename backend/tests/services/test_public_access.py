@@ -160,6 +160,12 @@ class TestResolveSsoVisitorEmail:
         )
         assert err.status_code == 403
 
+    async def test_an_address_with_several_ats_is_judged_by_its_last_part(self, monkeypatch):
+        err = await _refused(
+            monkeypatch, {"email": "a@example.com@evil.com"}, domains=["example.com"]
+        )
+        assert err.status_code == 403
+
     @pytest.mark.parametrize("domains", [None, []])
     async def test_empty_allowlist_admits_anyone_the_idp_authenticates(self, monkeypatch, domains):
         email, _ = await _resolve(monkeypatch, {"email": "a@anywhere.io"}, domains=domains)
