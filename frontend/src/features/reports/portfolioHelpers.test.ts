@@ -526,6 +526,7 @@ describe("resolveColorBy / appColorBucket exact buckets", () => {
       orgRel("owner", "org-2"),
       { ...orgRel("user"), relation_type: "relOther" },
       { ...orgRel(undefined), attributes: { usageType: 3 } },
+      { ...orgRel(undefined), attributes: { usageType: "" } },
     ]);
     expect(appColorBucket(noisy, relRes, LABELS).key).toBe("owner");
     expect(appColorBucket(app("a", [orgRel(undefined)]), relRes, LABELS)).toEqual({
@@ -700,5 +701,29 @@ describe("matchesStaticFilters, one filter kind at a time", () => {
     expect(matchesStaticFilters(hub, f({ search: "payments" }))).toBe(true);
     expect(matchesStaticFilters(hub, f({ search: "HUB" }))).toBe(true);
     expect(matchesStaticFilters(hub, f({ search: "ledger" }))).toBe(false);
+  });
+});
+
+
+describe("filters that must look at the right relation and date", () => {
+  it("matchesFilters drops a card retired by the timeline date", () => {
+    const retired: AppData = { ...app("old"), lifecycle: { endOfLife: "2020-01-01" } };
+    const f = baseFilters({ timelineDate: Date.UTC(2026, 0, 1) });
+    expect(matchesFilters(retired, f)).toBe(false);
+    expect(matchesFilters(app("live"), f)).toBe(true);
+  });
+
+  it("another relation type to the same card never satisfies a subtype filter", () => {
+    const other = { ...orgRel("owner", "orgA"), relation_type: "relOther" };
+    const a = app("a", [other]);
+    const owner = { [usageSub.composite]: ["owner"] };
+    expect(relationMemberMatchesSubtypeFilters(a, "orgA", owner, [usageSub])).toBe(false);
+    expect(matchesStaticFilters(a, baseFilters({ relSubtypeFilters: owner }))).toBe(false);
+  });
+
+  it("an empty-string subtype value counts as empty", () => {
+    const blank = app("a", [{ ...orgRel(undefined), attributes: { usageType: "" } }]);
+    const empty = baseFilters({ relSubtypeFilters: { [usageSub.composite]: [EMPTY_FILTER_KEY] } });
+    expect(matchesStaticFilters(blank, empty)).toBe(true);
   });
 });
