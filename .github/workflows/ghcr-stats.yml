@@ -1,0 +1,129 @@
+# Daily GHCR pull counts for the README badge.
+#
+# GitHub exposes no API for container download counts, so
+# actionstore/ghcr-stats scrapes each package page and writes a small JSON
+# file per image (downloads, downloads_compact, day/week/month figures).
+# The files are committed to the dedicated `ghcr-stats` branch, never to
+# `main`: `main` is protected (PR + review required), and a data branch
+# keeps the daily commits out of the code history. Nothing triggers on a
+# push to that branch, and the commit carries [skip ci] regardless.
+#
+# The image packages are nested under the repo (`turbo-ea/<image>`), so the
+# action's `name` input takes the URL-encoded form `turbo-ea%2F<image>`: it
+# builds https://github.com/<owner>/<repo>/pkgs/container/<name> verbatim.
+#
+# The scrape runs read-only; only the publish job, which runs nothing
+# third-party, holds `contents: write`.
+#
+# Badge (the backend is pulled once per install, so it counts installs):
+#   https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/vincentmakes/turbo-ea/ghcr-stats/backend.json&query=downloads_compact&label=ghcr+pulls&style=flat-square
+name: GHCR Stats
+
+on:
+  schedule:
+    - cron: "23 3 * * *" # daily, 03:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghcr-stats
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: backend
+        uses: actionstore/ghcr-stats@3bf18e157b9a95158e54c0f6c4f72b61f67fba39 # v1.0.4
+        with:
+          owner: vincentmakes
+          repo: turbo-ea
+          name: turbo-ea%2Fbackend
+          path: stats/backend.json
+
+      - name: frontend
+        uses: actionstore/ghcr-stats@3bf18e157b9a95158e54c0f6c4f72b61f67fba39 # v1.0.4
+        with:
+          owner: vincentmakes
+          repo: turbo-ea
+          name: turbo-ea%2Ffrontend
+          path: stats/frontend.json
+
+      - name: nginx
+        uses: actionstore/ghcr-stats@3bf18e157b9a95158e54c0f6c4f72b61f67fba39 # v1.0.4
+        with:
+          owner: vincentmakes
+          repo: turbo-ea
+          name: turbo-ea%2Fnginx
+          path: stats/nginx.json
+
+      - name: db
+        uses: actionstore/ghcr-stats@3bf18e157b9a95158e54c0f6c4f72b61f67fba39 # v1.0.4
+        with:
+          owner: vincentmakes
+          repo: turbo-ea
+          name: turbo-ea%2Fdb
+          path: stats/db.json
+
+      - name: mcp-server
+        uses: actionstore/ghcr-stats@3bf18e157b9a95158e54c0f6c4f72b61f67fba39 # v1.0.4
+        with:
+          owner: vincentmakes
+          repo: turbo-ea
+          name: turbo-ea%2Fmcp-server
+          path: stats/mcp-server.json
+
+      # If GitHub changes the package page markup, the action still writes a
+      # file, just an empty one, and the step stays green. Fail it here so a
+      # stale badge does not go unnoticed.
+      - name: Check every image produced a count
+        run: |
+          set -euo pipefail
+          for image in backend frontend nginx db mcp-server; do
+            jq -e '.downloads | numbers' "stats/${image}.json" > /dev/null \
+              || { echo "::error::no download count for ${image}"; exit 1; }
+          done
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ghcr-stats
+          path: stats/
+          retention-days: 1
+
+  publish:
+    needs: scrape
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: ghcr-stats
+          path: stats
+
+      - name: Commit to the ghcr-stats branch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git init -q branch && cd branch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898233+github-actions[bot]@users.noreply.github.com"
+          # Build on the existing branch (a daily history of the counts); the
+          # first run creates it as an orphan with no code in it.
+          if git fetch -q --depth 1 "$remote" ghcr-stats 2>/dev/null; then
+            git checkout -q -b ghcr-stats FETCH_HEAD
+          else
+            git checkout -q --orphan ghcr-stats
+          fi
+          cp ../stats/*.json .
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Counts unchanged; nothing to commit."
+            exit 0
+          fi
+          git commit -q -m "chore: update GHCR stats [skip ci]"
+          git push -q "$remote" ghcr-stats
