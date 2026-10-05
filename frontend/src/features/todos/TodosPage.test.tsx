@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useLocation } from "react-router";
 
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
@@ -9,7 +9,7 @@ vi.mock("@/api/client", () => ({
 }));
 
 import { api } from "@/api/client";
-import type { Todo } from "@/types";
+import type { MySurveyItem, Todo } from "@/types";
 import TodosPage from "./TodosPage";
 
 const TODOS: Todo[] = [
@@ -232,5 +232,359 @@ describe("TodosPage", () => {
     await user.clear(search);
     await user.type(search, "zzz-no-such-task");
     expect(screen.getByText("No tasks match the current filters.")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Branches beyond the view controls: row actions, the Created-by-me tab, the
+// status filters, persisted preferences and the Surveys sub-panel.
+// ---------------------------------------------------------------------------
+
+function LocationProbe() {
+  const loc = useLocation();
+  return <div data-testid="location">{loc.pathname + loc.search}</div>;
+}
+
+function renderAt(route = "/todos") {
+  return render(
+    <MemoryRouter initialEntries={[route]}>
+      <TodosPage />
+      <LocationProbe />
+    </MemoryRouter>,
+  );
+}
+
+const location = () => screen.getByTestId("location").textContent;
+
+/** Script `/todos?…` with a per-query answer; everything else as `mockApi()`. */
+function routeTodos(byQuery: (query: string) => Todo[]) {
+  vi.mocked(api.get).mockImplementation((path: string) => {
+    if (path.startsWith("/notifications/badge-counts")) {
+      return Promise.resolve({ open_todos: 2, pending_surveys: 1 });
+    }
+    if (path.startsWith("/todos")) return Promise.resolve(byQuery(path.split("?")[1] ?? ""));
+    return Promise.resolve({});
+  });
+}
+
+const ROW_TODOS: Todo[] = [
+  {
+    id: "r1",
+    description: "Review the vendor contract",
+    status: "open",
+    origin: "manual",
+    card_id: "card-9",
+    card_name: "SAP S/4HANA",
+    due_date: "2099-01-15",
+  },
+  {
+    id: "r2",
+    description: "Quarterly access review",
+    status: "scheduled",
+    origin: "risk",
+    is_system: false,
+    recurrence_unit: "months",
+    recurrence_interval: 3,
+  },
+  {
+    id: "r3",
+    description: "Sign the ADR",
+    status: "open",
+    origin: "adr",
+    is_system: true,
+    card_id: "card-7",
+  },
+  {
+    id: "r4",
+    description: "Acknowledge the notice",
+    status: "open",
+    origin: "extension",
+    is_system: true,
+  },
+  {
+    id: "r5",
+    description: "Approve the process",
+    status: "open",
+    origin: "bpm",
+    is_system: true,
+    link: "/bpm/processes/p1/flow",
+  },
+];
+
+describe("TodosPage — row actions", () => {
+  beforeEach(() => {
+    localStorage.setItem(
+      "turboea.todos.prefs",
+      JSON.stringify({ sort: "dueDate", grouped: false, collapsed: [] }),
+    );
+    routeTodos(() => ROW_TODOS);
+    vi.mocked(api.patch).mockResolvedValue({});
+    vi.mocked(api.post).mockResolvedValue({});
+  });
+
+  it("shows the flat-view metadata: origin, card link, recurrence, scheduled, due date", async () => {
+    renderAt();
+    await screen.findByText("Quarterly access review");
+
+    // The origin item appears per row in the flat view (but never for manual).
+    expect(screen.getAllByText("Risk").length).toBeGreaterThan(0);
+    expect(screen.getByText(/^Due: /)).toBeInTheDocument();
+    expect(screen.getByText("Scheduled")).toBeInTheDocument();
+    expect(screen.getByLabelText("Every 3 months")).toBeInTheDocument();
+  });
+
+  it("completes a manual todo and reopens it", async () => {
+    const user = userEvent.setup();
+    renderAt();
+    const title = await screen.findByText("Review the vendor contract");
+    const row = title.closest("li") as HTMLElement;
+
+    await user.click(within(row).getByRole("button", { name: /radio_button_unchecked/ }));
+    expect(api.patch).toHaveBeenCalledWith("/todos/r1", { status: "done" });
+    await waitFor(() =>
+      expect(within(row).getByRole("button", { name: /check_circle/ })).toBeInTheDocument(),
+    );
+
+    await user.click(within(row).getByRole("button", { name: /check_circle/ }));
+    expect(api.patch).toHaveBeenLastCalledWith("/todos/r1", { status: "open" });
+  });
+
+  it("activates a scheduled occurrence instead of completing it", async () => {
+    const user = userEvent.setup();
+    renderAt();
+    await screen.findByText("Quarterly access review");
+
+    await user.click(screen.getByTitle("Activate now"));
+    expect(api.post).toHaveBeenCalledWith("/todos/r2/promote", {});
+    expect(api.patch).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByText("Scheduled")).not.toBeInTheDocument());
+  });
+
+  it("follows a system todo's link, falls back to its card, and completes one with neither", async () => {
+    const user = userEvent.setup();
+    renderAt();
+    await screen.findByText("Approve the process");
+
+    const rowOf = (text: string) => screen.getByText(text).closest("li") as HTMLElement;
+
+    // With a link the action is labelled by its tooltip; without one it is bare.
+    await user.click(within(rowOf("Approve the process")).getByRole("button", { name: "Go to document" }));
+    expect(location()).toBe("/bpm/processes/p1/flow");
+
+    await user.click(within(rowOf("Sign the ADR")).getByRole("button", { name: /open_in_new/ }));
+    expect(location()).toBe("/cards/card-7");
+
+    await user.click(within(rowOf("Acknowledge the notice")).getByRole("button", { name: /open_in_new/ }));
+    expect(api.patch).toHaveBeenCalledWith("/todos/r4", { status: "done" });
+  });
+
+  it("navigates from a row title and from the card link", async () => {
+    const user = userEvent.setup();
+    renderAt();
+    await screen.findByText("Approve the process");
+
+    await user.click(screen.getByText("Approve the process"));
+    expect(location()).toBe("/bpm/processes/p1/flow");
+
+    await user.click(screen.getByText("Sign the ADR"));
+    expect(location()).toBe("/cards/card-7");
+
+    await user.click(screen.getByRole("button", { name: "SAP S/4HANA" }));
+    expect(location()).toBe("/cards/card-9");
+
+    // A title with neither link nor card is inert.
+    await user.click(screen.getByText("Acknowledge the notice"));
+    expect(location()).toBe("/cards/card-9");
+  });
+
+  it("opens a mirrored todo's external reference in a new tab", async () => {
+    routeTodos(() => [TODOS[1]]);
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const user = userEvent.setup();
+    renderAt();
+    await screen.findByText("Check access rights");
+
+    await user.click(screen.getByRole("button", { name: /Mirrored to jira/ }));
+    expect(open).toHaveBeenCalledWith("https://jira.example/browse/KAN-6", "_blank", "noopener,noreferrer");
+    open.mockRestore();
+  });
+});
+
+describe("TodosPage — tabs, status filters and preferences", () => {
+  it("queries created-only on the second tab and shows each todo's assignee", async () => {
+    routeTodos((q) =>
+      q.startsWith("created_only")
+        ? [
+            { id: "c1", description: "Delegated task", status: "open", assignee_name: "Lee Park" },
+            { id: "c2", description: "Nobody's task", status: "open" },
+          ]
+        : TODOS,
+    );
+    const user = userEvent.setup();
+    renderAt();
+    await screen.findByText("Write onboarding doc");
+
+    await user.click(screen.getByRole("tab", { name: "Created by me" }));
+    expect(await screen.findByText("Delegated task")).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith("/todos?created_only=true&status=open", expect.anything());
+    expect(screen.getByText("Assigned to: Lee Park")).toBeInTheDocument();
+    expect(screen.getByText("Unassigned")).toBeInTheDocument();
+  });
+
+  it("maps Upcoming to the scheduled state, omits the filter for All, and keeps one per tab", async () => {
+    routeTodos(() => TODOS);
+    const user = userEvent.setup();
+    renderAt();
+    await screen.findByText("Write onboarding doc");
+
+    await user.click(screen.getByRole("button", { name: "Upcoming" }));
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith("/todos?assigned_only=true&status=scheduled", expect.anything()),
+    );
+    await user.click(screen.getByRole("button", { name: "All" }));
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith("/todos?assigned_only=true", expect.anything()),
+    );
+    // Re-clicking the selected toggle is a no-op (ToggleButtonGroup hands null).
+    const calls = vi.mocked(api.get).mock.calls.length;
+    await user.click(screen.getByRole("button", { name: "All" }));
+    expect(vi.mocked(api.get).mock.calls.length).toBe(calls);
+
+    // The second tab keeps its own filter, still "open".
+    await user.click(screen.getByRole("tab", { name: "Created by me" }));
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith("/todos?created_only=true&status=open", expect.anything()),
+    );
+  });
+
+  it("shows the empty state when nothing is loaded", async () => {
+    routeTodos(() => []);
+    renderAt();
+    expect(await screen.findByText("No todos found.")).toBeInTheDocument();
+  });
+
+  it("restores a persisted flat, origin-sorted view and drops unknown collapsed origins", async () => {
+    localStorage.setItem(
+      "turboea.todos.prefs",
+      JSON.stringify({ sort: "origin", grouped: false, collapsed: ["risk", "bogus"] }),
+    );
+    routeTodos(() => TODOS);
+    const user = userEvent.setup();
+    renderAt();
+    await screen.findByText("Write onboarding doc");
+
+    expect(screen.getByLabelText("Sort")).toHaveTextContent("Origin");
+    await user.click(screen.getByRole("button", { name: "Group by origin" }));
+    // Grouping supersedes the origin sort and honours the persisted collapse.
+    expect(screen.getByLabelText("Sort")).toHaveTextContent("Due date");
+    expect(screen.queryByText("Check access rights")).not.toBeInTheDocument();
+    const prefs = JSON.parse(localStorage.getItem("turboea.todos.prefs") ?? "{}");
+    expect(prefs).toEqual({ sort: "origin", grouped: true, collapsed: ["risk"] });
+  });
+
+  it("falls back to defaults when the stored preferences are corrupt, and persists a new sort", async () => {
+    localStorage.setItem("turboea.todos.prefs", "{not json");
+    routeTodos(() => TODOS);
+    const user = userEvent.setup();
+    renderAt();
+    await screen.findByText("Write onboarding doc");
+
+    expect(screen.getByLabelText("Sort")).toHaveTextContent("Due date");
+    await user.click(screen.getByLabelText("Sort"));
+    await user.click(screen.getByRole("option", { name: "Newest first" }));
+    expect(screen.getByLabelText("Sort")).toHaveTextContent("Newest first");
+    const prefs = JSON.parse(localStorage.getItem("turboea.todos.prefs") ?? "{}");
+    expect(prefs.sort).toBe("created");
+  });
+
+  it("deselects an origin chip on a second click", async () => {
+    routeTodos(() => TODOS);
+    const user = userEvent.setup();
+    renderAt();
+    await screen.findByText("Write onboarding doc");
+
+    await user.click(screen.getByText("Manual · 1"));
+    expect(screen.queryByText("Check access rights")).not.toBeInTheDocument();
+    await user.click(screen.getByText("Manual · 1"));
+    expect(screen.getByText("Check access rights")).toBeInTheDocument();
+  });
+
+  it("ignores a failing badge-count request", async () => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/notifications/badge-counts")) return Promise.reject(new Error("x"));
+      if (path.startsWith("/todos")) return Promise.resolve(TODOS);
+      return Promise.resolve({});
+    });
+    renderAt();
+    expect(await screen.findByText("Write onboarding doc")).toBeInTheDocument();
+  });
+});
+
+describe("TodosPage — Surveys sub-panel", () => {
+  const SURVEYS: MySurveyItem[] = [
+    {
+      survey_id: "s1",
+      survey_name: "Application owner check",
+      survey_message: "Please confirm the owners.",
+      pending_count: 2,
+      items: [
+        { response_id: "resp1", card_id: "card-1", card_name: "CRM", card_type: "Application" },
+        { response_id: "resp2", card_id: "card-2", card_name: "ERP", card_type: "Application" },
+      ],
+    } as MySurveyItem,
+  ];
+
+  function routeSurveys(reply: () => Promise<unknown>) {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/notifications/badge-counts")) {
+        return Promise.resolve({ open_todos: 0, pending_surveys: 2 });
+      }
+      if (path === "/surveys/my") return reply();
+      if (path.startsWith("/todos")) return Promise.resolve(TODOS);
+      return Promise.resolve({});
+    });
+  }
+
+  it("lists pending surveys from ?tab=surveys and opens a response", async () => {
+    routeSurveys(() => Promise.resolve(SURVEYS));
+    const user = userEvent.setup();
+    renderAt("/todos?tab=surveys");
+
+    expect(await screen.findByText("Application owner check")).toBeInTheDocument();
+    expect(screen.getByText("2 pending")).toBeInTheDocument();
+    expect(screen.getByText("Please confirm the owners.")).toBeInTheDocument();
+    await user.click(screen.getByText("ERP"));
+    expect(location()).toBe("/surveys/s1/respond/card-2");
+  });
+
+  it("switches between the sections through the tabs", async () => {
+    routeSurveys(() => Promise.resolve([]));
+    const user = userEvent.setup();
+    renderAt();
+    await screen.findByText("Write onboarding doc");
+
+    await user.click(screen.getByRole("tab", { name: /Surveys/ }));
+    expect(location()).toBe("/todos?tab=surveys");
+    expect(await screen.findByText("No pending surveys. You're all caught up!")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: /^Todos/ }));
+    expect(location()).toBe("/todos");
+    expect(await screen.findByText("Write onboarding doc")).toBeInTheDocument();
+  });
+
+  it("shows a dismissible error when the surveys cannot be loaded", async () => {
+    routeSurveys(() => Promise.reject(new Error("Survey service down")));
+    const user = userEvent.setup();
+    renderAt("/todos?tab=surveys");
+
+    expect(await screen.findByText("Survey service down")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /close/i }));
+    expect(screen.queryByText("Survey service down")).not.toBeInTheDocument();
+  });
+
+  it("falls back to a generic message for a non-Error rejection", async () => {
+    routeSurveys(() => Promise.reject("nope"));
+    renderAt("/todos?tab=surveys");
+    expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
   });
 });
