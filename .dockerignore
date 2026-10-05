@@ -35,3 +35,10 @@ mkdocs.yml
 mcp-server/__pycache__
 mcp-server/.pytest_cache
 mcp-server/venv
+
+# Mutation testing working files (scripts/mutation/)
+.mutation
+backend/mutants
+mcp-server/mutants
+frontend/reports
+frontend/.stryker-tmp

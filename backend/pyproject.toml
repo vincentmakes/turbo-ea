@@ -46,6 +46,9 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=5.0.0",
     "pytest-xdist>=3.5.0",
+    # Mutation testing. Pinned exactly: scripts/mutation/mutmut_scope.py reads
+    # its `results` / `show` output, so a bump is a deliberate, tested change.
+    "mutmut==3.8.0",
     "httpx>=0.28.0",
     "ruff>=0.8.0",
     "pip-audit>=2.7.0",
@@ -81,6 +84,8 @@ select = ["E", "F", "I", "N", "W"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 addopts = "-q"
+# Never collect the copy of the suite mutmut keeps under mutants/.
+testpaths = ["tests"]
 
 [tool.coverage.run]
 source = ["app"]
@@ -146,3 +151,17 @@ module = [
     "app.api.v1.web_portals",
 ]
 ignore_errors = true
+
+
+# Mutation testing (CLAUDE.md, Testing Conventions, gate 3). Always run through
+# scripts/mutation/mutmut_scope.py: it builds the shadow root the copied tests
+# need to find the repository (scripts/mutation/shadow_root.py) and passes the
+# mutant-name patterns that scope a run. Scope is never set with `only_mutate`:
+# it is not part of mutmut's config fingerprint, so changing it keeps stale
+# test-to-function stats and newly scoped functions read "no tests".
+[tool.mutmut]
+source_paths = ["app"]
+pytest_add_cli_args_test_selection = ["tests/"]
+pytest_add_cli_args = ["-p", "no:cacheprovider"]
+# Data, not logic — the same files [tool.coverage.run] omits.
+do_not_mutate = ["app/services/seed.py", "app/services/seed_demo*.py"]

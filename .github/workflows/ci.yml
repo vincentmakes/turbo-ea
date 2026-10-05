@@ -61,11 +61,16 @@ jobs:
             backend:
               - 'backend/**'
               - 'scripts/dump_openapi.py'
+              # The mutation gate's scripts and floors (backend-mutation;
+              # their unit tests live in backend/tests/core).
+              - 'scripts/mutation/**'
             frontend:
               - 'frontend/**'
               - '.github/audit-ci.jsonc'
+              - 'scripts/mutation/**'
             mcp:
               - 'mcp-server/**'
+              - 'scripts/mutation/**'
             docs:
               - 'docs/**'
               - 'mkdocs.yml'
@@ -867,6 +872,191 @@ jobs:
           fi
           git commit -q -m "chore: update coverage badges [skip ci]"
           git push -q "$remote" coverage
+
+  # ── Mutation testing ─────────────────────────────────────────────────
+  # Gate 3 of CLAUDE.md's Testing Conventions (scripts/mutation/README.md).
+  # Coverage proves a changed line ran; these prove a test would NOTICE it
+  # being wrong. Each job mutates the functions a pull request touches —
+  # mutmut for the two Python suites, StrykerJS for the frontend — keeps the
+  # mutants that sit on a line the PR added or changed, and fails when fewer
+  # than the [diff] floor in scripts/mutation/floors.toml of them are killed.
+  # `changed_lines.py` diffs against the merge base, so the checkout keeps the
+  # full history, like diff-cover. PR-only: push-to-main has no base, and the
+  # whole suite is the nightly's (mutation-nightly.yml).
+  #
+  # The Python jobs restore the mutmut cache the nightly saves on main:
+  # mutmut's per-test stats are a SERIAL pass over the whole suite (~an hour
+  # for the backend), and with the cache it only collects tests that are new
+  # in the PR. A cold cache still works, just slower.
+  backend-mutation:
+    name: Backend Mutation Tests
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: turboea
+          POSTGRES_PASSWORD: turboea
+          POSTGRES_DB: turboea_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U turboea -d turboea_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: turboea
+      POSTGRES_PASSWORD: turboea
+      TEST_POSTGRES_DB: turboea_test
+      # conftest.py skips every database test when Postgres is unreachable;
+      # here that would read as "no test kills anything" and still exit 0.
+      TEST_DB_REQUIRED: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the diff needs the merge base with the base branch
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: pip install -e ".[dev]"
+        working-directory: backend
+      - name: Lines this pull request changes
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          python scripts/mutation/changed_lines.py --base "origin/${{ github.base_ref }}" \
+            --output mutation-changed.json -- backend/app
+      - name: Restore the nightly's mutmut cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mutation/backend/backend
+          key: mutmut-backend-pr-${{ github.sha }} # never saved; the prefix below is
+          restore-keys: mutmut-backend-shard1-
+      - name: Mutate the functions this pull request touches
+        run: >-
+          python scripts/mutation/mutmut_scope.py run --suite backend
+          --changed mutation-changed.json --max-children 4
+      - name: Score the mutants on changed lines
+        run: |
+          python scripts/mutation/mutmut_scope.py collect --suite backend \
+            --changed mutation-changed.json --output mutation-backend.json
+          python scripts/mutation/gate.py --suite backend --scope diff \
+            --records mutation-backend.json --summary "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mutation-backend
+          path: mutation-backend.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  mcp-mutation:
+    name: MCP Mutation Tests
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.mcp == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: mcp-server/pyproject.toml
+      - run: pip install -e ".[dev]"
+        working-directory: mcp-server
+      - name: Lines this pull request changes
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          python scripts/mutation/changed_lines.py --base "origin/${{ github.base_ref }}" \
+            --output mutation-changed.json -- mcp-server/turbo_ea_mcp
+      - name: Restore the nightly's mutmut cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mutation/mcp-server/mcp-server
+          key: mutmut-mcp-pr-${{ github.sha }}
+          restore-keys: mutmut-mcp-shard1-
+      - name: Mutate the functions this pull request touches
+        run: >-
+          python scripts/mutation/mutmut_scope.py run --suite mcp
+          --changed mutation-changed.json --max-children 4
+      - name: Score the mutants on changed lines
+        run: |
+          python scripts/mutation/mutmut_scope.py collect --suite mcp \
+            --changed mutation-changed.json --output mutation-mcp.json
+          python scripts/mutation/gate.py --suite mcp --scope diff \
+            --records mutation-mcp.json --summary "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mutation-mcp
+          path: mutation-mcp.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Stryker's `--mutate` takes line ranges, so the frontend job mutates
+  # exactly the changed lines rather than whole functions.
+  frontend-mutation:
+    name: Frontend Mutation Tests
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - name: Lines this pull request changes
+        # The --mutate value is built from file names the PR controls, so it
+        # travels through a file and an env var, never `${{ }}` in a script.
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          python3 scripts/mutation/changed_lines.py --base "origin/${{ github.base_ref }}" \
+            --output mutation-changed.json -- frontend/src
+          python3 scripts/mutation/stryker_scope.py args --changed mutation-changed.json \
+            > mutation-mutate.txt
+      - name: Mutate the changed lines
+        run: |
+          MUTATE="$(cat ../mutation-mutate.txt)"
+          if [ -z "$MUTATE" ]; then echo "No mutable frontend file changed."; exit 0; fi
+          npx stryker run --mutate "$MUTATE"
+        working-directory: frontend
+      - name: Score the mutants on changed lines
+        run: |
+          if [ -s frontend/reports/mutation/mutation.json ]; then
+            python3 scripts/mutation/stryker_scope.py collect \
+              --report frontend/reports/mutation/mutation.json \
+              --changed mutation-changed.json --output mutation-frontend.json
+          else
+            echo "[]" > mutation-frontend.json
+          fi
+          python3 scripts/mutation/gate.py --suite frontend --scope diff \
+            --records mutation-frontend.json --summary "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mutation-frontend
+          path: |
+            mutation-frontend.json
+            frontend/reports/mutation/
+          if-no-files-found: ignore
+          retention-days: 14
 
   # ── OpenAPI Spec (auto-regenerated for the docs site) ────────────────
   # On PRs:  fails if docs/api/openapi.json has drifted from the backend.

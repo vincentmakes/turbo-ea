@@ -5,7 +5,8 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  // .stryker-tmp is StrykerJS's sandbox (instrumented copies of src/), reports/ its output.
+  { ignores: ["dist", ".stryker-tmp", "reports"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

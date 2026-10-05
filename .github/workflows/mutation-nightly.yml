@@ -1,0 +1,310 @@
+# Mutation testing of the WHOLE codebase — the existing features, not just
+# what a pull request changes (CLAUDE.md, Testing Conventions, gate 3;
+# scripts/mutation/README.md).
+#
+# The per-PR jobs in ci.yml only ever see new lines. This workflow measures
+# everything: every mutable file of the three suites, dealt into shards
+# across runners. It is built to be RESUMABLE rather than fast. mutmut keeps
+# every verdict in its `mutants/` directory and StrykerJS in its incremental
+# file; both are cached per shard, so each night a shard picks up where the
+# previous one stopped (`--budget`), and once the baseline is complete only
+# the functions that changed since are re-tested. The same caches are what
+# the PR jobs restore, so they skip mutmut's serial stats pass.
+#
+# The `report` job merges the shards, scores each suite with
+# `gate.py --scope suite --allow-pending` against the [suite] and [modules]
+# floors in scripts/mutation/floors.toml (a floor applies once everything it
+# covers is measured), names the files whose score fell since the previous
+# night, and keeps ONE open issue, "Mutation survivors (nightly)", holding the
+# current survivor backlog — the list the test-hardening PRs work through.
+#
+# On a pull request that edits this file the run is a smoke test of the
+# plumbing: a short budget, informational, no cache saved, no issue touched.
+name: Mutation (nightly)
+
+on:
+  schedule:
+    # Weekdays 01:13 UTC: done before the working day, clear of the Monday
+    # image rebuild and the Tuesday DAST run.
+    - cron: "13 1 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      budget:
+        description: Minutes each shard may spend mutating before it stops cleanly.
+        type: number
+        default: 280
+  pull_request:
+    paths:
+      - ".github/workflows/mutation-nightly.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-nightly-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  BUDGET: ${{ github.event_name == 'pull_request' && '15' || inputs.budget || '280' }}
+  # Caches are written by main only; a pull request only ever reads them.
+  SAVE_CACHE: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+
+jobs:
+  # The matrix is the only place a shard count is set: `strategy.job-total`
+  # carries it into the scope script and the cache key. Changing it re-deals
+  # the files, so the first night after a change starts cold.
+  backend:
+    name: Backend mutation (shard ${{ matrix.shard }}/${{ strategy.job-total }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: turboea
+          POSTGRES_PASSWORD: turboea
+          POSTGRES_DB: turboea_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U turboea -d turboea_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: turboea
+      POSTGRES_PASSWORD: turboea
+      TEST_POSTGRES_DB: turboea_test
+      TEST_DB_REQUIRED: "1"
+      SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: pip install -e ".[dev]"
+        working-directory: backend
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mutation/backend/backend
+          key: mutmut-backend-shard${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: mutmut-backend-shard${{ matrix.shard }}-
+      - name: Mutate shard ${{ matrix.shard }} within the budget
+        run: >-
+          python scripts/mutation/mutmut_scope.py run --suite backend --shard "$SHARD"
+          --budget "$BUDGET" --max-children 4
+      - name: Collect the shard's verdicts
+        if: always()
+        run: >-
+          python scripts/mutation/mutmut_scope.py collect --suite backend --shard "$SHARD"
+          --output "mutation-records-backend-${{ matrix.shard }}.json"
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: always() && env.SAVE_CACHE == 'true'
+        with:
+          path: .mutation/backend/backend
+          key: mutmut-backend-shard${{ matrix.shard }}-${{ github.run_id }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mutation-records-backend-${{ matrix.shard }}
+          path: mutation-records-backend-${{ matrix.shard }}.json
+          if-no-files-found: warn
+          retention-days: 3
+
+  mcp:
+    name: MCP mutation
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: mcp-server/pyproject.toml
+      - run: pip install -e ".[dev]"
+        working-directory: mcp-server
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mutation/mcp-server/mcp-server
+          key: mutmut-mcp-shard1-${{ github.run_id }}
+          restore-keys: mutmut-mcp-shard1-
+      - name: Mutate the MCP server within the budget
+        run: >-
+          python scripts/mutation/mutmut_scope.py run --suite mcp --shard 1/1
+          --budget "$BUDGET" --max-children 4
+      - name: Collect the verdicts
+        if: always()
+        run: >-
+          python scripts/mutation/mutmut_scope.py collect --suite mcp --shard 1/1
+          --output mutation-records-mcp-1.json
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: always() && env.SAVE_CACHE == 'true'
+        with:
+          path: .mutation/mcp-server/mcp-server
+          key: mutmut-mcp-shard1-${{ github.run_id }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mutation-records-mcp-1
+          path: mutation-records-mcp-1.json
+          if-no-files-found: warn
+          retention-days: 3
+
+  # StrykerJS writes its incremental file only when a run completes, so a
+  # frontend shard must FINISH inside the job; there is no resuming half a
+  # run. Hence more, smaller shards than the backend, and `timeout` as a
+  # backstop that fails the shard visibly rather than hanging to the limit.
+  frontend:
+    name: Frontend mutation (shard ${{ matrix.shard }}/${{ strategy.job-total }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    env:
+      SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: frontend/reports/stryker-incremental.json
+          key: stryker-frontend-shard${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: stryker-frontend-shard${{ matrix.shard }}-
+      - name: Mutate shard ${{ matrix.shard }}
+        run: |
+          FILES="$(python3 ../scripts/mutation/stryker_scope.py shard --shard "$SHARD")"
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            FILES="$(echo "$FILES" | cut -d, -f1-2)" # the smoke test: two files a shard
+          fi
+          timeout "$(( BUDGET + 30 ))m" npx stryker run --mutate "$FILES" --incremental
+        working-directory: frontend
+      - name: Collect the shard's verdicts
+        if: always()
+        run: >-
+          python3 scripts/mutation/stryker_scope.py collect
+          --report frontend/reports/mutation/mutation.json
+          --output "mutation-records-frontend-${{ matrix.shard }}.json"
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: always() && env.SAVE_CACHE == 'true' && hashFiles('frontend/reports/stryker-incremental.json') != ''
+        with:
+          path: frontend/reports/stryker-incremental.json
+          key: stryker-frontend-shard${{ matrix.shard }}-${{ github.run_id }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mutation-records-frontend-${{ matrix.shard }}
+          path: mutation-records-frontend-${{ matrix.shard }}.json
+          if-no-files-found: warn
+          retention-days: 3
+
+  report:
+    name: Mutation report
+    needs: [backend, mcp, frontend]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # the previous night's records
+      issues: write # the survivors issue
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_TITLE: Mutation survivors (nightly)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: mutation-records-*
+          merge-multiple: true
+          path: records
+      - name: The previous night's baseline
+        if: env.SAVE_CACHE == 'true'
+        run: |
+          prev="$(gh run list --workflow mutation-nightly.yml --branch main --status completed \
+            --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+          mkdir -p previous
+          if [ -n "$prev" ]; then
+            gh run download "$prev" --name mutation-baseline --dir previous || true
+          fi
+      - name: Score every suite against its floors
+        id: score
+        run: |
+          informational=""
+          if [ "$SAVE_CACHE" != "true" ]; then informational="--informational"; fi
+          failed=0
+          : > survivors.md
+          for suite in backend mcp frontend; do
+            # A shard that produced no records leaves the glob unmatched; the
+            # gate then fails on the missing file, which is the point.
+            # shellcheck disable=SC2086
+            python3 scripts/mutation/gate.py --suite "$suite" --scope suite --allow-pending \
+              --records records/mutation-records-"$suite"-*.json \
+              --previous previous/mutation-records-"$suite"-*.json \
+              --summary "$GITHUB_STEP_SUMMARY" --survivors "survivors-$suite.md" \
+              $informational || failed=1
+            if [ -f "survivors-$suite.md" ]; then
+              { cat "survivors-$suite.md"; echo; } >> survivors.md
+            fi
+          done
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mutation-baseline
+          path: records/
+          retention-days: 30
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mutation-survivors
+          path: survivors.md
+          retention-days: 30
+      - name: Update the survivors issue
+        if: env.SAVE_CACHE == 'true'
+        run: |
+          {
+            echo "Surviving mutants in the existing code, refreshed by every run of"
+            echo "\`mutation-nightly.yml\` ([latest run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID))."
+            echo "Each one is a change to the code that no test notices. Work through them"
+            echo "critical modules first: add the assertion it exposes, delete the code it proves"
+            echo "dead, or mark a genuinely equivalent one with a reasoned pragma"
+            echo "(\`scripts/mutation/README.md\`). Raise the module's floor in"
+            echo "\`scripts/mutation/floors.toml\` in the same PR."
+            echo
+            cat survivors.md
+          } > body.md
+          # An issue body holds 65,536 characters; the full list is the artifact.
+          if [ "$(wc -c < body.md)" -gt 60000 ]; then
+            head -c 60000 body.md > body.trimmed
+            # shellcheck disable=SC2016 # the backticks are Markdown
+            printf '\n\n… truncated; the full list is the `mutation-survivors` artifact of the run.\n' >> body.trimmed
+            mv body.trimmed body.md
+          fi
+          number="$(gh issue list --state open --search "\"$ISSUE_TITLE\" in:title" \
+            --json number,title --jq ".[] | select(.title == env.ISSUE_TITLE) | .number" | head -n 1)"
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file body.md
+          else
+            gh issue create --title "$ISSUE_TITLE" --body-file body.md
+          fi
+      - name: Fail when a suite or module is under its floor
+        if: steps.score.outputs.failed == '1'
+        run: |
+          echo "::error::a mutation floor was breached; see the job summary"
+          exit 1

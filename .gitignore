@@ -24,6 +24,16 @@ frontend/coverage/
 # Per-shard hand-offs to the aggregate CI jobs (ci.yml)
 frontend/.vitest-reports/
 backend/coverage.shard-*
+# Mutation testing (scripts/mutation/): mutmut's shadow root and the links into
+# it, Stryker's reports, sandbox and log, and the gate's working files
+.mutation/
+backend/mutants
+mcp-server/mutants
+frontend/reports/
+frontend/.stryker-tmp/
+frontend/stryker.log
+mutation-*.json
+mutation-*.md
 diff-cover.md
 *.cover
 *.py,cover

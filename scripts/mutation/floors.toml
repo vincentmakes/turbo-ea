@@ -1,0 +1,24 @@
+# Mutation-score floors, read by scripts/mutation/gate.py. Integers, percent.
+# They ratchet upward only: a PR that lifts a measured score raises its floor
+# here in the same diff; nothing ever lowers one (CLAUDE.md, Testing
+# Conventions). Score = killed / (killed + survived); a mutant no test reaches
+# counts as survived.
+
+# Mutants on the lines a pull request adds or changes. Enforced by the
+# Backend / Frontend / MCP Mutation Tests jobs on every PR, once at least
+# `min_mutants` of them are in scope (below that a percentage is noise and the
+# Test Plan answers for each survivor instead).
+[diff]
+backend = 60
+frontend = 60
+mcp = 60
+min_mutants = 10
+
+# The whole suite, measured by mutation-nightly.yml.
+[suite]
+backend = 0
+frontend = 0
+mcp = 0
+
+# Critical existing modules, measured by the nightly and enforced per file.
+[modules]

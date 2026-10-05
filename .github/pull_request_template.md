@@ -25,9 +25,10 @@
 
 -
 
-- [ ] All CI checks pass (backend lint, backend tests, frontend lint, frontend build, frontend tests)
+- [ ] All CI checks pass (backend lint, backend tests, frontend lint, frontend build, frontend tests, mutation tests)
 - [ ] Manually tested the affected feature
 - [ ] Added/updated tests for new or changed behavior
+- [ ] Mutation gate: my tests kill the mutants on the lines I changed (`make mutation-diff`). Score: ___ %. Every surviving mutant I kept and every `no mutate` / `Stryker disable` pragma I added is listed below with its reason
 
 ## Checklist
 

@@ -57,10 +57,19 @@ def _test_db_url() -> str:
 
 
 def _worker_schema() -> str | None:
-    """Return a per-worker schema name when running under pytest-xdist."""
+    """Return a per-worker schema name when tests run in parallel processes.
+
+    pytest-xdist names its workers. mutmut does not: it forks one pytest run
+    per mutant, several at once, each of which would otherwise create and drop
+    every table in the same schema under the others. ``MUTANT_UNDER_TEST`` is
+    set in every process mutmut runs tests in, and a forked child's pid is
+    unique among the ones alive at the same time.
+    """
     worker = os.getenv("PYTEST_XDIST_WORKER")
     if worker:
         return f"test_{worker}"
+    if os.getenv("MUTANT_UNDER_TEST"):
+        return f"test_mut_{os.getpid()}"
     return None
 
 
@@ -115,6 +124,11 @@ def test_engine():
         asyncio.run(_setup())
     except Exception as exc:
         asyncio.run(engine.dispose())
+        # A skip is right for a laptop without Docker. For a mutation run it is
+        # a silent lie: every database test skips, every mutant they would have
+        # killed reads "no tests" or "survived", and the run still exits 0.
+        if os.getenv("TEST_DB_REQUIRED"):
+            pytest.fail(f"Test database not available ({exc}) and TEST_DB_REQUIRED is set")
         pytest.skip(f"Test database not available ({exc})")
 
     yield engine

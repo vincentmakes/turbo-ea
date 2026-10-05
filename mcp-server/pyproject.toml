@@ -31,7 +31,13 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=5.0.0",
+    # Mutation testing; pinned exactly for the reason given in backend/pyproject.toml.
+    "mutmut==3.8.0",
 ]
+
+[tool.pytest.ini_options]
+# Never collect the copy of the suite mutmut keeps under mutants/.
+testpaths = ["tests"]
 
 [tool.coverage.run]
 source = ["turbo_ea_mcp"]
@@ -43,3 +49,11 @@ omit = ["turbo_ea_mcp/__main__.py"]
 fail_under = 76
 show_missing = true
 skip_covered = true
+
+# Mutation testing (CLAUDE.md, Testing Conventions, gate 3). Always run through
+# scripts/mutation/mutmut_scope.py, for the reasons in backend/pyproject.toml.
+[tool.mutmut]
+source_paths = ["turbo_ea_mcp"]
+pytest_add_cli_args_test_selection = ["tests/"]
+pytest_add_cli_args = ["-p", "no:cacheprovider"]
+do_not_mutate = ["turbo_ea_mcp/__main__.py"]

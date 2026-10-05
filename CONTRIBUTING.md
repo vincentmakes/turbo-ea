@@ -138,7 +138,39 @@ mkdocs build --strict
 # OpenAPI spec (if you changed any backend route, schema, or VERSION)
 python scripts/dump_openapi.py
 git diff --stat docs/api/openapi.json   # commit this if it changed
+
+# Mutation gate on what you changed (the PR's three Mutation Tests jobs).
+# The backend part needs the test database: ./scripts/test.sh starts one.
+make mutation-diff
 ```
+
+### Mutation testing
+
+Line coverage tells you a test *ran* a line. Mutation testing tells you a
+test would *notice the line being wrong*: the tool makes small changes to the
+code (`<` becomes `<=`, a condition becomes `True`, a value becomes `None`)
+and a test suite earns a point only when one of its tests fails. A test with
+no assertion covers code and kills nothing.
+
+Every pull request is checked on the lines it adds or changes, by mutmut for
+the backend and the MCP server and by StrykerJS for the frontend. The job
+summary lists each surviving mutant as a small diff. For each one, in this
+order:
+
+1. **Add the assertion it exposes.** Almost always the right answer.
+2. **Delete the code it proves dead**, if no behaviour depends on it.
+3. **Suppress it with a reason**, only when the mutant is genuinely
+   equivalent (it cannot change behaviour): `# pragma: no mutate, <reason>`
+   in Python (a comma, not a colon, after `no mutate`) or
+   `// Stryker disable next-line <Mutator>: <reason>` in TypeScript. List it
+   in the PR's Test Plan.
+
+The rest of the codebase is measured by the nightly mutation run, which
+keeps the **Mutation survivors (nightly)** issue up to date. A PR that only
+adds tests to kill survivors from that list is welcome on its own; raise the
+module's floor in `scripts/mutation/floors.toml` in the same PR. The full
+guide, including how to read a result and run one module, is
+[`scripts/mutation/README.md`](scripts/mutation/README.md).
 
 ---
 
@@ -377,7 +409,7 @@ to `main` via **Settings > Branches > Branch protection rules**:
 | Rule | Setting | Why |
 |------|---------|-----|
 | **Require pull request reviews** | 1 approval minimum | Prevents unreviewed code from landing |
-| **Require status checks to pass** | Backend Lint, Backend Unit Tests, Backend Integration Tests, Backend Security Scan, Frontend Lint, Frontend Build, Frontend Tests, Frontend E2E, Frontend Security Scan, MCP Server Tests, Secret Scan, Docs Build | Prevents broken code, docs, a vulnerable dependency or a leaked credential from merging |
+| **Require status checks to pass** | Backend Lint, Backend Unit Tests, Backend Integration Tests, Backend Mutation Tests, Backend Security Scan, Frontend Lint, Frontend Build, Frontend Tests, Frontend Mutation Tests, Frontend E2E, Frontend Security Scan, MCP Server Tests, MCP Mutation Tests, Secret Scan, Docs Build | Prevents broken code, docs, a vulnerable dependency or a leaked credential from merging |
 | **Require branches to be up to date** | Enabled | Ensures CI ran against the latest `main` |
 | **Require conversation resolution** | Enabled | Review comments must be addressed |
 | **Restrict force pushes** | Block everyone | Protects commit history |
@@ -389,6 +421,15 @@ suites run as shard jobs on parallel runners (`Backend Integration Tests
 coverage, enforces the floors and the diff gate, and fails whenever a shard
 failed — so only the aggregate names belong in the rule above; the shard jobs
 need no protection rule of their own.
+
+The three mutation jobs (`Backend Mutation Tests`, `Frontend Mutation Tests`,
+`MCP Mutation Tests`) are pull-request-only and run whenever their suite
+changes: each mutates the code the PR touched and fails when fewer than the
+`[diff]` floor in `scripts/mutation/floors.toml` of the mutants on changed
+lines are killed. The existing code is measured by the separate
+`mutation-nightly.yml` workflow, which is not a status check: it reports
+through its job summary and the **Mutation survivors (nightly)** issue. See
+[Mutation testing](#mutation-testing) below.
 
 The three security jobs **block**: `Backend Security Scan` (pip-audit) and
 `Frontend Security Scan` (audit-ci) fail on any open advisory in a production

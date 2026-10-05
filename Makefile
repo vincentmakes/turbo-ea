@@ -1,5 +1,6 @@
 .PHONY: help dev dev-backend dev-frontend lint lint-backend lint-frontend \
-	test test-backend test-frontend test-unit e2e e2e-drawio build format typecheck \
+	test test-backend test-frontend test-unit e2e e2e-drawio \
+	mutation-diff mutation-backend mutation-mcp mutation-frontend mutation-clean build format typecheck \
 	lock-deps audit docker-up docker-down docker-build pull-prod up-prod down-prod up-dev down-dev build-dev backup
 
 help: ## Show this help
@@ -52,6 +53,40 @@ e2e: ## Run the browser smoke suite against a backend on :8000 (start it with SE
 	cd frontend && npm run build
 	$(MAKE) e2e-drawio
 	cd frontend && npx playwright test
+
+# ── Mutation testing (scripts/mutation/README.md) ───────────────────────
+# BASE is what a change is compared with; the backend targets need the test
+# database scripts/test.sh starts (or any Postgres on POSTGRES_*).
+BASE ?= origin/main
+
+mutation-diff: ## Mutation-test the functions your branch changed, scored like the PR gate
+	python scripts/mutation/changed_lines.py --base $(BASE) --output mutation-changed.json -- backend/app mcp-server/turbo_ea_mcp frontend/src
+	python scripts/mutation/mutmut_scope.py run --suite backend --changed mutation-changed.json
+	python scripts/mutation/mutmut_scope.py collect --suite backend --changed mutation-changed.json --output mutation-backend.json
+	python scripts/mutation/gate.py --suite backend --scope diff --records mutation-backend.json
+	python scripts/mutation/mutmut_scope.py run --suite mcp --changed mutation-changed.json
+	python scripts/mutation/mutmut_scope.py collect --suite mcp --changed mutation-changed.json --output mutation-mcp.json
+	python scripts/mutation/gate.py --suite mcp --scope diff --records mutation-mcp.json
+	@ARG=$$(python scripts/mutation/stryker_scope.py args --changed mutation-changed.json); \
+	if [ -n "$$ARG" ]; then \
+	  (cd frontend && npx stryker run --mutate "$$ARG") && \
+	  python scripts/mutation/stryker_scope.py collect --report frontend/reports/mutation/mutation.json --changed mutation-changed.json --output mutation-frontend.json && \
+	  python scripts/mutation/gate.py --suite frontend --scope diff --records mutation-frontend.json; \
+	else echo "No mutable frontend file changed."; fi
+
+mutation-backend: ## Mutation-test one backend module, e.g. FILE=app/services/lifecycle.py (then `cd backend && mutmut browse`)
+	python scripts/mutation/mutmut_scope.py run --suite backend --files $(FILE)
+
+mutation-mcp: ## Mutation-test one MCP server module, e.g. FILE=turbo_ea_mcp/oauth.py
+	python scripts/mutation/mutmut_scope.py run --suite mcp --files $(FILE)
+
+mutation-frontend: ## Mutation-test one frontend file, e.g. FILE=src/lib/searchRank.ts (report: frontend/reports/mutation/index.html)
+	cd frontend && npx stryker run --mutate "$(FILE)"
+
+mutation-clean: ## Remove mutmut's shadow roots and Stryker's reports
+	python scripts/mutation/shadow_root.py backend --clean
+	python scripts/mutation/shadow_root.py mcp-server --clean
+	rm -rf frontend/reports frontend/.stryker-tmp mutation-*.json
 
 # ── Type Checking ───────────────────────────────────────────────────────
 
