@@ -188,6 +188,146 @@ describe("HierarchyLabelsDialog", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it("shows the dialog title and the explanation", () => {
+    const { dialog } = renderDialog();
+    expect(within(dialog).getByText("Hierarchy link types")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Label each parent-child link in a card type's hierarchy/),
+    ).toBeInTheDocument();
+  });
+
+  it("renders an empty list and never saves while no card type is given", async () => {
+    const user = userEvent.setup();
+    render(<HierarchyLabelsDialog open cardType={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+
+    expect(within(dialog).getByText("No link types defined")).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Key")).not.toBeInTheDocument();
+    await user.click(saveButton());
+    expect(mockApi.callsOf("patch")).toHaveLength(0);
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("reloads the labels when the card type changes", async () => {
+    const props = { onClose: vi.fn(), onSaved: vi.fn() };
+    const { rerender } = render(<HierarchyLabelsDialog open cardType={SITE} {...props} />);
+    expect(screen.getAllByLabelText("Key")).toHaveLength(2);
+
+    rerender(<HierarchyLabelsDialog open cardType={BARE} {...props} />);
+    await waitFor(() => expect(screen.queryByLabelText("Key")).not.toBeInTheDocument());
+    expect(screen.getByText("No link types defined")).toBeInTheDocument();
+  });
+
+  it("clears a previous save error when the dialog is reopened", async () => {
+    mockApi.fail("patch", PATH, 400, "Label key in use");
+    const props = { onClose: vi.fn(), onSaved: vi.fn() };
+    const user = userEvent.setup();
+    const { rerender } = render(<HierarchyLabelsDialog open cardType={SITE} {...props} />);
+    await user.click(saveButton());
+    expect(await screen.findByRole("alert")).toHaveTextContent("Label key in use");
+
+    rerender(<HierarchyLabelsDialog open={false} cardType={SITE} {...props} />);
+    rerender(<HierarchyLabelsDialog open cardType={SITE} {...props} />);
+    await waitFor(() => expect(screen.getAllByLabelText("Key")).toHaveLength(2));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("disables Save while the request is in flight and re-enables it after a failure", async () => {
+    let reject: (e: unknown) => void = () => {};
+    mockApi.on("patch", PATH, () => new Promise((_, rej) => (reject = rej)));
+    const { user, dialog } = renderDialog();
+
+    await user.click(saveButton());
+    await waitFor(() => expect(mockApi.callsOf("patch", PATH)).toHaveLength(1));
+    expect(saveButton()).toBeDisabled();
+
+    reject(new Error("network down"));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("network down");
+    expect(saveButton()).toBeEnabled();
+  });
+
+  it("clears the error on a successful retry", async () => {
+    mockApi.fail("patch", PATH, 400, "Label key in use");
+    const { user, dialog, onSaved } = renderDialog();
+    await user.click(saveButton());
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Label key in use");
+
+    mockApi.on("patch", PATH, {});
+    await user.click(saveButton());
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the error message when the server detail is not a string", async () => {
+    mockApi.fail("patch", PATH, 422, [{ msg: "bad" }]);
+    const { user, dialog } = renderDialog();
+    await user.click(saveButton());
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "PATCH /metamodel/types/Site failed",
+    );
+  });
+
+  it("shows a generic message when the failure is not an Error at all", async () => {
+    mockApi.on("patch", PATH, () => Promise.reject("nope"));
+    const { user, dialog } = renderDialog();
+    await user.click(saveButton());
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Failed to save the hierarchy link types",
+    );
+  });
+
+  it("refuses to save while any one row is incomplete", async () => {
+    const { user, dialog } = renderDialog();
+    expect(saveButton()).toBeEnabled();
+    await user.click(within(dialog).getByRole("button", { name: /Add link type/ }));
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it("needs a key on a new row even when its label is filled in", async () => {
+    const { user, dialog } = renderDialog(BARE);
+    await user.click(within(dialog).getByRole("button", { name: /Add link type/ }));
+    await user.type(within(dialog).getByLabelText("Label (English)"), "Commercial");
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it("treats a whitespace-only label as missing", async () => {
+    const { user, dialog } = renderDialog(BARE);
+    await user.click(within(dialog).getByRole("button", { name: /Add link type/ }));
+    await user.type(within(dialog).getByLabelText("Key"), "commercial");
+    const label = within(dialog).getByLabelText("Label (English)");
+    expect(label).toHaveAttribute("aria-invalid", "true");
+    await user.type(label, "   ");
+    expect(label).toHaveAttribute("aria-invalid", "true");
+    expect(saveButton()).toBeDisabled();
+    await user.type(label, "x");
+    expect(label).toHaveAttribute("aria-invalid", "false");
+    expect(saveButton()).toBeEnabled();
+  });
+
+  it("marks stored labels as valid and a stored label without any text as invalid", () => {
+    const type = makeCardType({
+      key: "Site",
+      has_hierarchy: true,
+      hierarchy_labels: [
+        makeOption({ key: "primary", label: "Primary" }),
+        makeOption({ key: "nameless", label: undefined as unknown as string }),
+      ],
+    });
+    const { dialog } = renderDialog(type);
+    const labels = within(dialog).getAllByLabelText("Label (English)");
+    expect(labels[0]).toHaveAttribute("aria-invalid", "false");
+    expect(labels[1]).toHaveAttribute("aria-invalid", "true");
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it("does not report two empty new keys as duplicates", async () => {
+    const { user, dialog } = renderDialog(BARE);
+    await user.click(within(dialog).getByRole("button", { name: /Add link type/ }));
+    await user.click(within(dialog).getByRole("button", { name: /Add link type/ }));
+    expect(within(dialog).getAllByLabelText("Key")).toHaveLength(2);
+    expect(within(dialog).queryByText("This key is already used in this list")).not.toBeInTheDocument();
+  });
+
   it("cancels without saving", async () => {
     const { user, onClose, dialog } = renderDialog();
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));

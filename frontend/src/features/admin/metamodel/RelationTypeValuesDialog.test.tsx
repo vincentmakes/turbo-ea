@@ -256,3 +256,315 @@ describe("RelationTypeValuesDialog", () => {
     expect(mockApi.callsOf("patch")).toHaveLength(0);
   });
 });
+
+/** Three custom pickers: two with values, one stored without an options list. */
+const CUSTOM_REL = makeRelationType({
+  key: "relAppToITC",
+  label: "runs on",
+  source_type_key: "Application",
+  target_type_key: "ITComponent",
+  attributes_schema: [
+    makeField({
+      key: "tier",
+      label: "Tier",
+      type: "single_select",
+      options: [makeOption({ key: "gold", label: "Gold" }), makeOption({ key: "silver", label: "Silver" })],
+    }),
+    makeField({
+      key: "region",
+      label: "Region",
+      type: "single_select",
+      options: [makeOption({ key: "emea", label: "EMEA" })],
+    }),
+    makeField({ key: "zone", label: "Zone", type: "single_select" }),
+  ],
+});
+const CUSTOM_PATH = `/metamodel/relation-types/${CUSTOM_REL.key}`;
+const DIM_NAME = "Type name (English)";
+const DIM_KEY = "Type key (e.g. usageType)";
+const DUPLICATE = "This key is already used in this list";
+
+type SavedField = { key: string; label: string; options: Array<{ key: string; label: string }> };
+
+async function saveCustom(user: UserEvent): Promise<SavedField[]> {
+  await user.click(saveButton());
+  await waitFor(() => expect(mockApi.callsOf("patch", CUSTOM_PATH)).toHaveLength(1));
+  return (mockApi.callsOf("patch", CUSTOM_PATH)[0].body as { attributes_schema: SavedField[] })
+    .attributes_schema;
+}
+
+function values(els: HTMLElement[]): string[] {
+  return els.map((el) => (el as HTMLInputElement).value);
+}
+
+describe("RelationTypeValuesDialog details", () => {
+  it("shows its title and explanation, and no empty note when pickers exist", () => {
+    const { dialog } = renderDialog();
+    expect(within(dialog).getByText("Manage relation values")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Manage the "type" values for this relation \(e\.g\. Owner \/ User\)/),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByText("This relation has no type values yet. Add one below."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("puts the Hidden chip on the hidden built-in value only", () => {
+    const { dialog } = renderDialog();
+    expect(within(valueRow(dialog, "User")).getByText("Hidden")).toBeInTheDocument();
+    expect(within(valueRow(dialog, "Owner")).queryByText("Hidden")).not.toBeInTheDocument();
+  });
+
+  it("treats a relation type without a schema as having no pickers", () => {
+    const { dialog } = renderDialog(
+      makeRelationType({
+        key: "relBare",
+        source_type_key: "Application",
+        target_type_key: "Application",
+        attributes_schema: null as unknown as [],
+      }),
+    );
+    expect(
+      within(dialog).getByText("This relation has no type values yet. Add one below."),
+    ).toBeInTheDocument();
+    expect(saveButton()).toBeEnabled();
+  });
+
+  it("renders stored custom pickers editable, valid, and with their keys locked", () => {
+    const { dialog } = renderDialog(CUSTOM_REL);
+
+    const names = within(dialog).getAllByLabelText(DIM_NAME);
+    expect(values(names)).toEqual(["Tier", "Region", "Zone"]);
+    for (const n of names) expect(n).toHaveAttribute("aria-invalid", "false");
+    for (const k of within(dialog).getAllByLabelText(DIM_KEY)) expect(k).toBeDisabled();
+    expect(within(dialog).getAllByText("Field key cannot be changed after creation")).toHaveLength(3);
+
+    // Zone has no options list, so only Tier's and Region's values render.
+    expect(values(within(dialog).getAllByLabelText("Key"))).toEqual(["gold", "silver", "emea"]);
+    for (const l of within(dialog).getAllByLabelText("Label")) {
+      expect(l).toHaveAttribute("aria-invalid", "false");
+    }
+    expect(saveButton()).toBeEnabled();
+  });
+
+  it("adds a value only to the picker whose button was clicked, even one stored without options", async () => {
+    const { user, dialog } = renderDialog(CUSTOM_REL);
+
+    await user.click(within(dialog).getAllByRole("button", { name: /Add value/ })[2]);
+    const keys = within(dialog).getAllByLabelText("Key");
+    expect(keys).toHaveLength(4);
+    await user.type(keys[3], "east");
+    await user.type(within(dialog).getAllByLabelText("Label")[3], "East");
+
+    const schema = await saveCustom(user);
+    expect(schema.map((f) => f.options.map((o) => o.key))).toEqual([
+      ["gold", "silver"],
+      ["emea"],
+      ["east"],
+    ]);
+  });
+
+  it("removes a value from its own picker only", async () => {
+    const { user, dialog } = renderDialog(CUSTOM_REL);
+
+    await user.click(within(dialog).getAllByRole("button", { name: "close" })[0]);
+    expect(values(within(dialog).getAllByLabelText("Key"))).toEqual(["silver", "emea"]);
+
+    const schema = await saveCustom(user);
+    expect(schema.map((f) => f.options.map((o) => o.key))).toEqual([["silver"], ["emea"], []]);
+  });
+
+  it("names and keys only the picker being edited", async () => {
+    const { user, dialog } = renderDialog(CUSTOM_REL);
+
+    await user.click(within(dialog).getByRole("button", { name: /Add type/ }));
+    await user.type(within(dialog).getAllByLabelText(DIM_NAME)[3], "Criticality");
+    await user.type(within(dialog).getAllByLabelText(DIM_KEY)[3], "criticality");
+
+    const schema = await saveCustom(user);
+    expect(schema.map((f) => [f.key, f.label])).toEqual([
+      ["tier", "Tier"],
+      ["region", "Region"],
+      ["zone", "Zone"],
+      ["criticality", "Criticality"],
+    ]);
+  });
+
+  it("deletes only the picker whose delete button was clicked", async () => {
+    const { user, dialog } = renderDialog(CUSTOM_REL);
+    await user.click(within(dialog).getAllByRole("button", { name: "Delete" })[1]);
+    expect(values(within(dialog).getAllByLabelText(DIM_NAME))).toEqual(["Tier", "Zone"]);
+  });
+
+  it("flags a new picker key that repeats a stored one and refuses to save", async () => {
+    const { user, dialog } = renderDialog();
+    await user.click(within(dialog).getByRole("button", { name: /Add type/ }));
+    await user.type(within(dialog).getByLabelText(DIM_NAME), "Usage");
+    await user.type(within(dialog).getByLabelText(DIM_KEY), "usageType");
+
+    expect(within(dialog).getByText(DUPLICATE)).toBeInTheDocument();
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it("does not report empty new keys as duplicates", async () => {
+    const { user, dialog } = renderDialog(EMPTY_REL);
+    await user.click(within(dialog).getByRole("button", { name: /Add type/ }));
+    await user.click(within(dialog).getByRole("button", { name: /Add type/ }));
+    await user.click(within(dialog).getAllByRole("button", { name: /Add value/ })[0]);
+    await user.click(within(dialog).getAllByRole("button", { name: /Add value/ })[0]);
+    expect(within(dialog).getAllByLabelText(DIM_KEY)).toHaveLength(2);
+    expect(within(dialog).getAllByLabelText("Key")).toHaveLength(2);
+    expect(within(dialog).queryByText(DUPLICATE)).not.toBeInTheDocument();
+  });
+
+  it("validates a new picker: whitespace is no name, and a named picker needs its key", async () => {
+    const { user, dialog } = renderDialog(EMPTY_REL);
+    await user.click(within(dialog).getByRole("button", { name: /Add type/ }));
+    const name = within(dialog).getByLabelText(DIM_NAME);
+    const key = within(dialog).getByLabelText(DIM_KEY);
+
+    // Pristine: the name is flagged, the key is not yet.
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(key).toHaveAttribute("aria-invalid", "false");
+
+    await user.type(name, "   ");
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(key).toHaveAttribute("aria-invalid", "false");
+    await user.type(key, "crit");
+    expect(saveButton()).toBeDisabled();
+
+    await user.clear(name);
+    await user.type(name, "Crit");
+    expect(name).toHaveAttribute("aria-invalid", "false");
+    expect(saveButton()).toBeEnabled();
+    await user.clear(key);
+    expect(key).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("validates a new value: whitespace is no label, and a labelled value needs its key", async () => {
+    const { user, dialog } = renderDialog(EMPTY_REL);
+    await user.click(within(dialog).getByRole("button", { name: /Add type/ }));
+    await user.type(within(dialog).getByLabelText(DIM_NAME), "Crit");
+    await user.type(within(dialog).getByLabelText(DIM_KEY), "crit");
+    await user.click(within(dialog).getByRole("button", { name: /Add value/ }));
+    const key = within(dialog).getByLabelText("Key");
+    const label = within(dialog).getByLabelText("Label");
+
+    expect(key).toHaveAttribute("aria-invalid", "false");
+    expect(label).toHaveAttribute("aria-invalid", "true");
+
+    await user.type(label, "   ");
+    expect(key).toHaveAttribute("aria-invalid", "false");
+    expect(label).toHaveAttribute("aria-invalid", "true");
+    await user.type(key, "high");
+    expect(saveButton()).toBeDisabled();
+
+    await user.clear(label);
+    await user.type(label, "High");
+    expect(label).toHaveAttribute("aria-invalid", "false");
+    expect(saveButton()).toBeEnabled();
+    await user.clear(key);
+    expect(key).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("flags a stored row that has neither a key nor a label", () => {
+    const { dialog } = renderDialog(
+      makeRelationType({
+        key: "relBroken",
+        source_type_key: "Application",
+        target_type_key: "Application",
+        attributes_schema: [
+          makeField({
+            key: "",
+            label: undefined as unknown as string,
+            type: "single_select",
+            options: [makeOption({ key: "", label: undefined as unknown as string })],
+          }),
+        ],
+      }),
+    );
+    expect(within(dialog).getByLabelText(DIM_NAME)).toHaveAttribute("aria-invalid", "true");
+    expect(within(dialog).getByLabelText("Label")).toHaveAttribute("aria-invalid", "true");
+    expect(saveButton()).toBeDisabled();
+  });
+});
+
+describe("RelationTypeValuesDialog lifecycle and saving", () => {
+  it("renders empty and never saves while no relation type is given", async () => {
+    const user = userEvent.setup();
+    render(<RelationTypeValuesDialog open relationType={null} onClose={vi.fn()} onSaved={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByText("This relation has no type values yet. Add one below."),
+    ).toBeInTheDocument();
+    await user.click(saveButton());
+    expect(mockApi.callsOf("patch")).toHaveLength(0);
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("reloads the pickers when the relation type changes", async () => {
+    const props = { onClose: vi.fn(), onSaved: vi.fn() };
+    const { rerender } = render(<RelationTypeValuesDialog open relationType={REL} {...props} />);
+    expect(screen.getByText("Usage type")).toBeInTheDocument();
+
+    rerender(<RelationTypeValuesDialog open relationType={CUSTOM_REL} {...props} />);
+    await waitFor(() => expect(screen.queryByText("Usage type")).not.toBeInTheDocument());
+    expect(values(screen.getAllByLabelText(DIM_NAME))).toEqual(["Tier", "Region", "Zone"]);
+  });
+
+  it("clears a previous save error when the dialog is reopened", async () => {
+    mockApi.fail("patch", PATH, 400, "Key already exists on this relation");
+    const props = { onClose: vi.fn(), onSaved: vi.fn() };
+    const user = userEvent.setup();
+    const { rerender } = render(<RelationTypeValuesDialog open relationType={REL} {...props} />);
+    await user.click(saveButton());
+    expect(await screen.findByRole("alert")).toHaveTextContent("Key already exists on this relation");
+
+    rerender(<RelationTypeValuesDialog open={false} relationType={REL} {...props} />);
+    rerender(<RelationTypeValuesDialog open relationType={REL} {...props} />);
+    await waitFor(() => expect(screen.getByText("Usage type")).toBeInTheDocument());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("disables Save while the request is in flight", async () => {
+    let reject: (e: unknown) => void = () => {};
+    mockApi.on("patch", PATH, () => new Promise((_, rej) => (reject = rej)));
+    const { user, dialog } = renderDialog();
+
+    await user.click(saveButton());
+    await waitFor(() => expect(mockApi.callsOf("patch", PATH)).toHaveLength(1));
+    expect(saveButton()).toBeDisabled();
+
+    reject(new Error("network down"));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("network down");
+    expect(saveButton()).toBeEnabled();
+  });
+
+  it("clears the error on a successful retry", async () => {
+    mockApi.fail("patch", PATH, 400, "Key already exists on this relation");
+    const { user, dialog, onSaved } = renderDialog();
+    await user.click(saveButton());
+    expect(await within(dialog).findByRole("alert")).toBeInTheDocument();
+
+    mockApi.on("patch", PATH, {});
+    await user.click(saveButton());
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the error message when the server detail is not a string", async () => {
+    mockApi.fail("patch", PATH, 422, [{ msg: "bad" }]);
+    const { user, dialog } = renderDialog();
+    await user.click(saveButton());
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(`PATCH ${PATH} failed`);
+  });
+
+  it("shows a generic message when the failure is not an Error at all", async () => {
+    mockApi.on("patch", PATH, () => Promise.reject("nope"));
+    const { user, dialog } = renderDialog();
+    await user.click(saveButton());
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Failed to save relation values",
+    );
+  });
+});

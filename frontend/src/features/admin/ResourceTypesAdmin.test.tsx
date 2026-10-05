@@ -4,7 +4,8 @@
  * through the shared api kit. `IconPicker` is stubbed with a plain input.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within, waitFor, fireEvent } from "@testing-library/react";
+import { act, render, screen, within, waitFor, fireEvent } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -26,8 +27,9 @@ vi.mock("@/hooks/useResourceTypes", () => ({
   }),
 }));
 
+import i18n from "@/i18n";
 import { mockApi } from "@/test/apiMock";
-import type { ResourceType } from "@/types";
+import type { ResourceType, ResourceTypeKind } from "@/types";
 import ResourceTypesAdmin from "./ResourceTypesAdmin";
 
 const PATH = "/metamodel/resource-types";
@@ -286,5 +288,257 @@ describe("ResourceTypesAdmin delete", () => {
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
 
     expect(await screen.findByRole("alert", { hidden: true })).toHaveTextContent("Could not delete resource type.");
+  });
+});
+
+describe("ResourceTypesAdmin first paint and reloads", () => {
+  it("paints only the description before the list has loaded", () => {
+    const host = document.createElement("div");
+    host.innerHTML = renderToStaticMarkup(<ResourceTypesAdmin />);
+    expect(host.textContent).toContain("Manage the link types and file categories");
+    expect(host.textContent).not.toContain("Link types");
+    expect(host.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it("orders each section's heading, description and rows, with no alert after a good load", async () => {
+    const { container } = render(<ResourceTypesAdmin />);
+    await screen.findByText("Documentation");
+
+    expect(Array.from(container.querySelectorAll("h6")).map((el) => el.textContent)).toEqual([
+      "Link types",
+      "Wiki",
+      "Documentation",
+      "Contract",
+      "File categories",
+      "Manual",
+      "Invoice",
+    ]);
+    const text = container.textContent ?? "";
+    const at = (s: string) => {
+      const i = text.indexOf(s);
+      expect(i, s).toBeGreaterThanOrEqual(0);
+      return i;
+    };
+    expect(at("Categories for document links (e.g. documentation, contract, security).")).toBeLessThan(
+      at("Wiki"),
+    );
+    expect(at("Contract")).toBeLessThan(at("Categories for uploaded file attachments."));
+    expect(at("Categories for uploaded file attachments.")).toBeLessThan(at("Manual"));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("ignores rows of an unknown kind", async () => {
+    mockApi.on("get", PATH, [
+      ...ITEMS,
+      makeType({ id: "rt-9", kind: "legacy" as ResourceTypeKind, key: "old", label: "Old thing" }),
+    ]);
+    await renderPage();
+    expect(screen.getByText("File categories")).toBeInTheDocument();
+    expect(screen.queryByText("Old thing")).not.toBeInTheDocument();
+  });
+
+  it("shows a link type's own icon, the link fallback, and the label icon for file categories", async () => {
+    await renderPage();
+    expect(within(rowOf("Documentation")).getByText("description")).toBeInTheDocument();
+    expect(within(rowOf("Contract")).getByText("gavel")).toBeInTheDocument();
+    expect(within(rowOf("Wiki")).getByText("link")).toBeInTheDocument();
+    expect(within(rowOf("Invoice")).getByText("label")).toBeInTheDocument();
+    expect(within(rowOf("Invoice")).queryByText("link")).not.toBeInTheDocument();
+  });
+
+  it("hides the sections while the list reloads", async () => {
+    mockApi.on("patch", `${PATH}/rt-3`, {});
+    const user = await renderPage();
+    let resolve: (v: unknown) => void = () => {};
+    mockApi.on("get", PATH, () => new Promise((r) => (resolve = r)));
+
+    await user.click(within(rowOf("Wiki")).getByRole("checkbox"));
+    await waitFor(() => expect(mockApi.callsOf("get", PATH)).toHaveLength(2));
+    await waitFor(() => expect(screen.queryByText("Link types")).not.toBeInTheDocument());
+    await act(async () => resolve(ITEMS));
+    expect(await screen.findByText("Link types")).toBeInTheDocument();
+  });
+
+  it("reloads the list when the interface language changes", async () => {
+    await renderPage();
+    expect(mockApi.callsOf("get", PATH)).toHaveLength(1);
+    try {
+      await act(async () => {
+        await i18n.changeLanguage("de");
+      });
+      await waitFor(() => expect(mockApi.callsOf("get", PATH)).toHaveLength(2));
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
+  });
+
+  it("labels the toggle and the delete button by what they do", async () => {
+    await renderPage();
+    expect(
+      within(rowOf("Contract")).getByLabelText(
+        "Disable — hides it from the picker but keeps existing values.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(rowOf("Wiki")).getByLabelText("Enable")).toBeInTheDocument();
+    expect(
+      within(rowOf("Documentation")).getByLabelText(
+        "Built-in entries cannot be deleted. Disable them with the toggle instead.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(rowOf("Contract")).getByLabelText("Delete")).toBeInTheDocument();
+  });
+});
+
+describe("ResourceTypesAdmin dialog details", () => {
+  async function openCreate(user: UserEvent, name = /Add link type/) {
+    await user.click(screen.getByRole("button", { name }));
+    return screen.findByRole("dialog");
+  }
+
+  it("shows the help texts, the icon label and one translation field per other locale", async () => {
+    const user = await renderPage();
+    const dialog = await openCreate(user);
+
+    expect(
+      within(dialog).getByText("Lowercase identifier stored on cards. Cannot be changed later."),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText("Icon")).toBeInTheDocument();
+    expect(within(dialog).getByText("Translations")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("Display label per locale. Leave empty to fall back to the default label."),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("English")).not.toBeInTheDocument();
+    for (const name of ["Deutsch", "Français", "Español", "Italiano", "Português", "中文", "Русский", "Dansk", "العربية"]) {
+      expect(within(dialog).getByLabelText(name)).toBeInTheDocument();
+    }
+  });
+
+  it("enables Create only once both a key and a label carry text", async () => {
+    const user = await renderPage();
+    const dialog = await openCreate(user);
+    const create = within(dialog).getByRole("button", { name: "Create" });
+    const key = within(dialog).getByLabelText("Key");
+    const label = within(dialog).getByLabelText("Display label");
+
+    await user.type(label, "Runbook");
+    expect(create).toBeDisabled();
+    await user.type(key, "   ");
+    expect(create).toBeDisabled();
+    await user.clear(label);
+    await user.clear(key);
+    await user.type(key, "runbook");
+    expect(create).toBeDisabled();
+    await user.type(label, "   ");
+    expect(create).toBeDisabled();
+    await user.type(label, "R");
+    expect(create).toBeEnabled();
+  });
+
+  it("trims the key, label and icon it sends", async () => {
+    mockApi.on("post", PATH, {});
+    const user = await renderPage();
+    const dialog = await openCreate(user);
+
+    await user.type(within(dialog).getByLabelText("Key"), "  RunBook ");
+    await user.type(within(dialog).getByLabelText("Display label"), "  Runbook ");
+    fireEvent.change(within(dialog).getByLabelText("icon"), { target: { value: " book " } });
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+
+    await waitFor(() => expect(mockApi.callsOf("post", PATH)).toHaveLength(1));
+    expect(mockApi.callsOf("post", PATH)[0].body).toMatchObject({
+      key: "runbook",
+      label: "Runbook",
+      icon: "book",
+    });
+  });
+
+  it("edits a link type without an icon from the link fallback and saves no icon", async () => {
+    mockApi.on("patch", `${PATH}/rt-3`, {});
+    const user = await renderPage();
+    await user.click(within(rowOf("Wiki")).getByRole("button", { name: "Edit" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText("icon")).toHaveValue("link");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(mockApi.callsOf("patch", `${PATH}/rt-3`)).toHaveLength(1));
+    expect(mockApi.callsOf("patch", `${PATH}/rt-3`)[0].body).toMatchObject({ icon: null });
+  });
+
+  it("edits a file category without the icon picker", async () => {
+    const user = await renderPage();
+    await user.click(within(rowOf("Invoice")).getByRole("button", { name: "Edit" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText("Key")).toHaveValue("invoice");
+    expect(within(dialog).queryByLabelText("icon")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("Icon")).not.toBeInTheDocument();
+  });
+
+  it("opens a fresh create form after cancelling an edit", async () => {
+    const user = await renderPage();
+    await user.click(within(rowOf("Contract")).getByRole("button", { name: "Edit" }));
+    let dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Edit entry")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await expectNoDialog();
+
+    dialog = await openCreate(user);
+    expect(within(dialog).getByText("Add entry")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Key")).toBeEnabled();
+    expect(within(dialog).getByLabelText("Key")).toHaveValue("");
+    expect(within(dialog).getByRole("button", { name: "Create" })).toBeInTheDocument();
+  });
+
+  it("closes the create dialog on Cancel and on Escape without saving", async () => {
+    const user = await renderPage();
+    let dialog = await openCreate(user);
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await expectNoDialog();
+
+    dialog = await openCreate(user, /Add file category/);
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await expectNoDialog();
+    expect(mockApi.callsOf("post")).toHaveLength(0);
+  });
+
+  it("shows a generic message when saving fails without an Error", async () => {
+    mockApi.on("post", PATH, () => Promise.reject("nope"));
+    const user = await renderPage();
+    const dialog = await openCreate(user);
+    await user.type(within(dialog).getByLabelText("Key"), "runbook");
+    await user.type(within(dialog).getByLabelText("Display label"), "Runbook");
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+
+    expect(await screen.findByRole("alert", { hidden: true })).toHaveTextContent(
+      "Could not save resource type.",
+    );
+  });
+});
+
+describe("ResourceTypesAdmin delete dialog", () => {
+  it("closes the confirm on Escape without deleting", async () => {
+    const user = await renderPage();
+    await user.click(within(rowOf("Contract")).getByRole("button", { name: /delete/i }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await expectNoDialog();
+    expect(mockApi.callsOf("delete")).toHaveLength(0);
+  });
+
+  it("ignores a Delete click that lands while the cancelled confirm is closing", async () => {
+    mockApi.on("delete", `${PATH}/rt-2`, {});
+    const user = await renderPage();
+    await user.click(within(rowOf("Contract")).getByRole("button", { name: /delete/i }));
+    const dialog = await screen.findByRole("dialog");
+    const cancel = within(dialog).getByRole("button", { name: "Cancel" });
+    const confirmDelete = within(dialog).getByRole("button", { name: "Delete" });
+
+    fireEvent.click(cancel);
+    fireEvent.click(confirmDelete);
+
+    await expectNoDialog();
+    expect(mockApi.callsOf("delete")).toHaveLength(0);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
