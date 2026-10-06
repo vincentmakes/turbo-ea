@@ -6,12 +6,15 @@ seed_metamodel creates card types, relation types, and RBAC roles.
 
 from __future__ import annotations
 
+import copy
+
 from sqlalchemy import func, select
 
 from app.models.card_type import CardType
 from app.models.relation_type import RelationType
 from app.models.role import Role
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
+from app.services.hierarchy import HIERARCHY_LEVEL_KEY
 from app.services.seed import RELATIONS, TYPES, seed_metamodel
 
 # ---------------------------------------------------------------------------
@@ -173,6 +176,41 @@ class TestSeedIdempotency:
 
         assert count_first == count_second
         assert roles_first == roles_second
+
+
+# ---------------------------------------------------------------------------
+# The seed injects into copies, never into the module constants
+#
+# `seed_metamodel` stamps the hierarchyLevel field and the English labels onto
+# every type and relation it writes. It used to do that to TYPES / RELATIONS
+# themselves, so every later reader in the same process (the demo seeders,
+# test_alembic_101's seed-layout check) saw the injected copy — which test ran
+# first decided whether that check passed, and mutmut's test order failed it.
+# ---------------------------------------------------------------------------
+
+
+class TestSeedLeavesModuleConstantsAlone:
+    async def test_types_and_relations_are_unchanged(self, db):
+        types_before = copy.deepcopy(TYPES)
+        relations_before = copy.deepcopy(RELATIONS)
+
+        await seed_metamodel(db)
+
+        assert TYPES == types_before
+        assert RELATIONS == relations_before
+
+    async def test_the_rows_still_carry_the_injections(self, db):
+        await seed_metamodel(db)
+
+        app = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+        field_keys = [f["key"] for s in app.fields_schema for f in s["fields"]]
+        assert field_keys.count(HIERARCHY_LEVEL_KEY) == 1
+        assert app.fields_schema[0]["translations"]["en"] == app.fields_schema[0]["section"]
+
+        rel = (
+            await db.execute(select(RelationType).where(RelationType.key == RELATIONS[0]["key"]))
+        ).scalar_one()
+        assert rel.translations["label"]["en"] == RELATIONS[0]["label"]
 
 
 # ---------------------------------------------------------------------------

@@ -5669,19 +5669,26 @@ async def seed_metamodel(db: AsyncSession) -> None:
     existing_rels_list = existing_rels_result.scalars().all()
     existing_rels = {r.key for r in existing_rels_list}
 
+    # Work on copies: the injections below rewrite every type and relation, and
+    # TYPES / RELATIONS are module constants that the demo seeders and tests
+    # read too, so injecting into them in place made those readers depend on
+    # whether a seed had already run in the same process.
+    types = copy.deepcopy(TYPES)
+    relations = copy.deepcopy(RELATIONS)
+
     # Inject the built-in hierarchyLevel field into every hierarchical type
     # (before English-translation injection so the field's "en" label is stamped
     # like any other field). Existing installs pick it up via migration 123.
-    for t in TYPES:
+    for t in types:
         _inject_hierarchy_level_into_type(t)
 
     # Ensure English labels are present in all translation dicts
-    for t in TYPES:
+    for t in types:
         _inject_english_translations_type(t)
-    for r in RELATIONS:
+    for r in relations:
         _inject_english_translations_relation(r)
 
-    for i, t in enumerate(TYPES):
+    for i, t in enumerate(types):
         key = t["key"]
         if key in existing_types:
             # Update built-in types: add new sections & merge translations
@@ -5800,7 +5807,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
 
     existing_rels_by_key = {r.key: r for r in existing_rels_list}
 
-    for i, r in enumerate(RELATIONS):
+    for i, r in enumerate(relations):
         if r["key"] in existing_rels:
             # Translations-only backfill for built-in relation types. Verbs,
             # cardinality and the attributes schema stay as the admin left them —
@@ -5890,7 +5897,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
     existing_srd_result = await db.execute(select(StakeholderRoleDefinition))
     existing_srd_map = {(s.card_type_key, s.key): s for s in existing_srd_result.scalars().all()}
 
-    for t in TYPES:
+    for t in types:
         type_key = t["key"]
         # Use the type's explicit stakeholder_roles if provided,
         # otherwise fall back to the same defaults used when creating
