@@ -8,11 +8,12 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
 import { mockApi } from "@/test/apiMock";
-import { renderWithProviders } from "@/test/render";
+import { renderWithProviders, wrapWithProviders } from "@/test/render";
 import type { TurboLensVendor } from "@/types";
 import TurboLensVendors from "./TurboLensVendors";
 
@@ -78,6 +79,12 @@ function tableRows(): HTMLElement[] {
   return within(screen.getByRole("table")).getAllByRole("row").slice(1);
 }
 
+/** A Select's label: the floating InputLabel and the outline notch sized around it. */
+function expectSelectLabel(text: string) {
+  expect(screen.getByText(text, { selector: "label" })).toBeInTheDocument();
+  expect(screen.getByText(text, { selector: "legend span" })).toBeInTheDocument();
+}
+
 const RUN = /Run Analysis$/;
 
 beforeEach(() => {
@@ -85,6 +92,13 @@ beforeEach(() => {
 });
 
 describe("TurboLensVendors", () => {
+  it("paints a spinner, not the empty state, before the vendors are requested", () => {
+    // The very first render, before any effect has run.
+    const html = renderToStaticMarkup(wrapWithProviders(<TurboLensVendors />));
+    expect(html).toContain('role="progressbar"');
+    expect(html).not.toContain("No vendor analysis data");
+  });
+
   it("shows a spinner, then the empty state when nothing has been analysed", async () => {
     let resolve: (v: TurboLensVendor[]) => void = () => {};
     mockApi.on("get", LIST_URL, () => new Promise<TurboLensVendor[]>((r) => (resolve = r)));
@@ -139,6 +153,7 @@ describe("TurboLensVendors", () => {
 
     const crm = categoryCard("CRM");
     expect(within(crm).getByRole("heading", { level: 4 })).toHaveTextContent("6");
+    expect(within(crm).getByText("vendors")).toBeInTheDocument();
     expect(within(crm).getByText("8 apps")).toBeInTheDocument();
     expect(within(crm).getByText("250K")).toBeInTheDocument();
     // Four vendor chips, then the overflow count.
@@ -151,10 +166,13 @@ describe("TurboLensVendors", () => {
     const db = categoryCard("Database");
     expect(within(db).getByText("2 apps")).toBeInTheDocument();
     expect(within(db).getByText("1.2M")).toBeInTheDocument();
+    // One vendor: no overflow chip.
+    expect(within(db).queryByText(/^\+/)).not.toBeInTheDocument();
 
     // A category with no apps and no cost shows neither chip.
     const other = categoryCard("Uncategorized");
     expect(within(other).queryByText(/apps$/)).not.toBeInTheDocument();
+    expect(within(other).queryByText("0")).not.toBeInTheDocument();
     expect(within(other).getByText("Acme Widgets")).toBeInTheDocument();
   });
 
@@ -173,6 +191,8 @@ describe("TurboLensVendors", () => {
     expect(within(row).getByText("1.2M")).toBeInTheDocument();
     expect(within(row).getByText("Relational database vendor")).toBeInTheDocument();
     expect(screen.getByRole("combobox")).toHaveTextContent("Database");
+    expect(screen.getByRole("button", { name: "view_list" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "grid_view" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("switches between the category grid and the vendor table", async () => {
@@ -184,16 +204,32 @@ describe("TurboLensVendors", () => {
 
     expect(screen.queryByText("Vendor Categories (3)")).not.toBeInTheDocument();
     expect(screen.getByText("All Vendors (8)")).toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+      "Vendor",
+      "Category",
+      "Sub-Category",
+      "Apps",
+      "Annual Cost",
+      "Reasoning",
+    ]);
     const rows = tableRows();
     expect(rows).toHaveLength(8);
 
     const salesforce = rows.find((r) => within(r).queryByText("Salesforce")) as HTMLElement;
-    expect(within(salesforce).getByText("Sales Cloud")).toBeInTheDocument();
+    expect(within(salesforce).getByText("Sales Cloud")).toHaveClass("MuiChip-label");
     expect(within(salesforce).getByText("250K")).toBeInTheDocument();
+    // The reasoning is truncated in the cell; the tooltip carries it in full.
+    expect(within(salesforce).getByText("Market-leading CRM suite")).toHaveAttribute(
+      "aria-label",
+      "Market-leading CRM suite",
+    );
 
-    // No cost and no reasoning → dashes.
+    // No cost and no reasoning → dashes; no sub-category → an empty cell.
     const hubspot = rows.find((r) => within(r).queryByText("HubSpot")) as HTMLElement;
-    expect(within(hubspot).getAllByText("-")).toHaveLength(2);
+    const [dashCost, dashReasoning] = within(hubspot).getAllByText("-");
+    expect(dashCost).toBeInTheDocument();
+    expect(dashReasoning).toHaveAttribute("aria-label", "");
+    expect(within(hubspot).getAllByRole("cell")[2]).toBeEmptyDOMElement();
 
     // Clicking the active toggle again keeps the view (exclusive group emits null).
     await user.click(screen.getByRole("button", { name: "view_list" }));
@@ -210,6 +246,9 @@ describe("TurboLensVendors", () => {
     await screen.findByText("Vendor Categories (3)");
     await user.click(screen.getByRole("button", { name: "view_list" }));
     const search = screen.getByPlaceholderText("Search vendor, category, sub-category...");
+    expect(
+      within(search.closest(".MuiInputBase-root") as HTMLElement).getByText("search"),
+    ).toBeInTheDocument();
 
     await user.type(search, "zoho");
     expect(tableRows().map((r) => within(r).getAllByRole("cell")[0].textContent)).toEqual(["Zoho"]);
@@ -223,6 +262,12 @@ describe("TurboLensVendors", () => {
     await user.type(search, "crm");
     expect(screen.getByText("All Vendors (6)")).toBeInTheDocument();
 
+    // A partial word inside a category ("Datab-as-e"); vendors with no
+    // category or sub-category never match on those empty fields.
+    await user.clear(search);
+    await user.type(search, "as");
+    expect(tableRows().map((r) => within(r).getAllByRole("cell")[0].textContent)).toEqual(["Oracle"]);
+
     // Whitespace alone is no filter.
     await user.clear(search);
     await user.type(search, "   ");
@@ -234,6 +279,7 @@ describe("TurboLensVendors", () => {
     const { user } = renderTab();
 
     await screen.findByText("Vendor Categories (3)");
+    expectSelectLabel("Category");
     await user.click(screen.getByRole("combobox"));
     const options = screen.getAllByRole("option").map((o) => o.textContent);
     expect(options).toEqual(["All", "CRM", "Database", "Uncategorized"]);
@@ -333,5 +379,91 @@ describe("TurboLensVendors", () => {
     await user.click(screen.getByRole("button", { name: RUN }));
 
     expect(await screen.findByText("Error: network down")).toBeInTheDocument();
+  });
+
+  it("orders categories alphabetically in the filter and by size in the grid, whatever the load order", async () => {
+    mockApi.on("get", LIST_URL, [MYSTERY, ORACLE, ...CRM]);
+    const { user } = renderTab();
+
+    expect(await screen.findByText("Vendor Categories (3)")).toBeInTheDocument();
+    const titles = Array.from(document.querySelectorAll(".MuiCard-root h6")).map((h) => h.textContent);
+    expect(titles).toEqual(["CRM", "Uncategorized", "Database"]);
+    expect(kpiValue("Top Category")).toBe("CRM (6)");
+
+    await user.click(screen.getByRole("combobox"));
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "All",
+      "CRM",
+      "Database",
+      "Uncategorized",
+    ]);
+  });
+
+  it("shows no overflow chip for a category of exactly four vendors", async () => {
+    mockApi.on("get", LIST_URL, CRM.slice(0, 4));
+    renderTab();
+
+    await screen.findByText("Vendor Categories (1)");
+    const crm = categoryCard("CRM");
+    for (const name of ["Salesforce", "HubSpot", "Zoho", "Pipedrive"]) {
+      expect(within(crm).getByText(name)).toBeInTheDocument();
+    }
+    expect(within(crm).queryByText(/^\+/)).not.toBeInTheDocument();
+  });
+
+  it("disables the button while the analysis request is in flight and clears an earlier error", async () => {
+    mockApi.on("get", LIST_URL, VENDORS);
+    mockApi.fail("post", ANALYSE_URL, 409, "Analysis already running");
+    const { user } = renderTab();
+
+    await screen.findByText("Vendor Categories (3)");
+    await user.click(screen.getByRole("button", { name: RUN }));
+    expect(await screen.findByText(`POST ${ANALYSE_URL} failed`)).toBeInTheDocument();
+
+    let answerPost: (v: { run_id: string }) => void = () => {};
+    mockApi.on("post", ANALYSE_URL, () => new Promise<{ run_id: string }>((r) => (answerPost = r)));
+    mockApi.on("get", RUN_URL, () => new Promise(() => {}));
+    await user.click(screen.getByRole("button", { name: RUN }));
+
+    // The retry clears the old error at once and locks the button.
+    expect(screen.queryByText(`POST ${ANALYSE_URL} failed`)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: RUN })).toBeDisabled();
+    answerPost({ run_id: "run-1" });
+    expect(await screen.findByText("Vendor analysis started")).toBeInTheDocument();
+  });
+
+  it("clears the previous run's notice when a new analysis cannot be started", async () => {
+    mockApi.on("get", LIST_URL, VENDORS);
+    mockApi.on("post", ANALYSE_URL, { run_id: "run-1" });
+    mockApi.on("get", RUN_URL, { id: "run-1", status: "completed", analysis_type: "vendors" });
+    const { user } = renderTab();
+
+    await screen.findByText("Vendor Categories (3)");
+    await user.click(screen.getByRole("button", { name: RUN }));
+    expect(await screen.findByText("Vendor analysis started")).toBeInTheDocument();
+    await waitFor(() => expect(mockApi.callsOf("get", LIST_URL)).toHaveLength(2));
+    await waitFor(() => expect(screen.getByRole("button", { name: RUN })).toBeEnabled());
+
+    mockApi.fail("post", ANALYSE_URL, 409, "Analysis already running");
+    await user.click(screen.getByRole("button", { name: RUN }));
+    expect(await screen.findByText(`POST ${ANALYSE_URL} failed`)).toBeInTheDocument();
+    expect(screen.queryByText("Vendor analysis started")).not.toBeInTheDocument();
+  });
+
+  it("empties the list when the reload after a run fails", async () => {
+    mockApi.on("get", LIST_URL, VENDORS);
+    mockApi.on("post", ANALYSE_URL, { run_id: "run-1" });
+    let answerPoll: (run: unknown) => void = () => {};
+    mockApi.on("get", RUN_URL, () => new Promise((r) => (answerPoll = r)));
+    const { user } = renderTab();
+
+    await screen.findByText("Vendor Categories (3)");
+    await user.click(screen.getByRole("button", { name: RUN }));
+    await waitFor(() => expect(mockApi.callsOf("get", RUN_URL)).toHaveLength(1));
+
+    mockApi.fail("get", LIST_URL);
+    answerPoll({ id: "run-1", status: "completed", analysis_type: "vendors" });
+    expect(await screen.findByText("No vendor analysis data")).toBeInTheDocument();
+    expect(screen.queryByText("Vendor Categories (3)")).not.toBeInTheDocument();
   });
 });

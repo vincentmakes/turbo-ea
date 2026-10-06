@@ -57,6 +57,13 @@ describe("TurboLensHistory", () => {
     renderWithProviders(<TurboLensHistory />);
 
     expect(screen.getByRole("heading", { name: "Analysis History" })).toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+      "Analysis Type",
+      "Status",
+      "Started",
+      "Completed",
+      "Error",
+    ]);
     const completedRow = (await screen.findByText("vendor_analysis")).closest("tr") as HTMLElement;
     expect(within(completedRow).getByText("completed")).toBeInTheDocument();
     expect(within(completedRow).getByText(/^2026-03-04 \d\d:15$/)).toBeInTheDocument();

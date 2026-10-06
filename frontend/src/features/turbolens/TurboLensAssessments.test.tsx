@@ -85,18 +85,34 @@ describe("TurboLensAssessments", () => {
     renderTab();
 
     expect(screen.getByRole("heading", { name: "Architecture Assessments" })).toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+      "Title",
+      "Created by",
+      "Status",
+      "Linked Initiative",
+      "Started",
+      "",
+    ]);
     await screen.findByText("CRM replacement");
+    // Rows replace the empty state.
+    expect(screen.queryByText(/No assessments yet/)).not.toBeInTheDocument();
 
     const saved = rowOf("CRM replacement");
     expect(within(saved).getByText("Ada Lovelace")).toBeInTheDocument();
-    expect(within(saved).getByText("Saved")).toBeInTheDocument();
+    expect(within(saved).getByText("Saved").closest(".MuiChip-root")).toHaveClass(
+      "MuiChip-colorPrimary",
+    );
+    // Author and date are set; the only dash is the empty initiative cell.
+    expect(within(saved).getAllByText("—")).toHaveLength(1);
     expect(within(saved).getByText("2026-02-01")).toBeInTheDocument();
     expect(within(saved).getByRole("button", { name: /Resume/ })).toBeInTheDocument();
     // No initiative yet: the cell is a dash.
     expect(within(saved).queryByRole("button", { name: /Initiative/ })).not.toBeInTheDocument();
 
     const committed = rowOf("Data platform");
-    expect(within(committed).getByText("Committed")).toBeInTheDocument();
+    expect(within(committed).getByText("Committed").closest(".MuiChip-root")).toHaveClass(
+      "MuiChip-colorSuccess",
+    );
     expect(within(committed).getByRole("button", { name: /Data Platform Initiative/ })).toBeInTheDocument();
     // A committed assessment cannot be resumed.
     expect(within(committed).queryByRole("button", { name: /Resume/ })).not.toBeInTheDocument();

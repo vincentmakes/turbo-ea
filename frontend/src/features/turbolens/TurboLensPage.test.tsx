@@ -7,17 +7,18 @@
  * which one the shell mounts.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { useLocation, useNavigate } from "react-router";
 
-vi.mock("./TurboLensDashboard", () => ({ default: () => <div>dashboard body</div> }));
-vi.mock("./TurboLensVendors", () => ({ default: () => <div>vendors body</div> }));
-vi.mock("./TurboLensResolution", () => ({ default: () => <div>resolution body</div> }));
-vi.mock("./TurboLensDuplicates", () => ({ default: () => <div>duplicates body</div> }));
-vi.mock("./TurboLensArchitect", () => ({ default: () => <div>architect body</div> }));
-vi.mock("./TurboLensAssessments", () => ({ default: () => <div>assessments body</div> }));
-vi.mock("./TurboLensHistory", () => ({ default: () => <div>history body</div> }));
+vi.mock("@/features/turbolens/TurboLensDashboard", () => ({ default: () => <div>dashboard body</div> }));
+vi.mock("@/features/turbolens/TurboLensVendors", () => ({ default: () => <div>vendors body</div> }));
+vi.mock("@/features/turbolens/TurboLensResolution", () => ({ default: () => <div>resolution body</div> }));
+vi.mock("@/features/turbolens/TurboLensDuplicates", () => ({ default: () => <div>duplicates body</div> }));
+vi.mock("@/features/turbolens/TurboLensArchitect", () => ({ default: () => <div>architect body</div> }));
+vi.mock("@/features/turbolens/TurboLensAssessments", () => ({ default: () => <div>assessments body</div> }));
+vi.mock("@/features/turbolens/TurboLensHistory", () => ({ default: () => <div>history body</div> }));
 
+import i18n from "@/i18n";
 import { renderWithProviders } from "@/test/render";
 import { resetPageTitle, usePageTitleSlots } from "@/hooks/usePageTitle";
 import TurboLensPage from "./TurboLensPage";
@@ -60,6 +61,14 @@ function renderPage(route = "/turbolens") {
   );
 }
 
+/** Exactly one tab body is mounted: the selected tab's. */
+function expectOnlyBody(key: string) {
+  for (const [, other] of TABS) {
+    if (other === key) expect(screen.getByText(`${other} body`)).toBeInTheDocument();
+    else expect(screen.queryByText(`${other} body`)).not.toBeInTheDocument();
+  }
+}
+
 /** A tab's accessible name carries its icon glyph, so match on the label's end. */
 function tab(label: string): HTMLElement {
   return screen.getByRole("tab", { name: new RegExp(`${label}$`) });
@@ -78,6 +87,7 @@ describe("TurboLensPage", () => {
     for (const [label] of TABS) expect(tab(label)).toBeInTheDocument();
     expect(tab("Dashboard")).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByText("dashboard body")).toBeInTheDocument();
+    expectOnlyBody("dashboard");
     expect(screen.getByTestId("section")).toHaveTextContent("Dashboard");
   });
 
@@ -88,7 +98,7 @@ describe("TurboLensPage", () => {
 
       expect(await screen.findByText(`${key} body`)).toBeInTheDocument();
       expect(tab(label)).toHaveAttribute("aria-selected", "true");
-      expect(screen.queryByText("dashboard body")).not.toBeInTheDocument();
+      expectOnlyBody(key);
       expect(screen.getByTestId("section")).toHaveTextContent(label);
     },
   );
@@ -129,5 +139,24 @@ describe("TurboLensPage", () => {
     await user.click(screen.getByRole("button", { name: "go home" }));
     await waitFor(() => expect(tab("Dashboard")).toHaveAttribute("aria-selected", "true"));
     expect(await screen.findByText("dashboard body")).toBeInTheDocument();
+  });
+
+  it("relabels the tabs and the section when the language changes", async () => {
+    renderPage("/turbolens?tab=vendors");
+    await screen.findByText("vendors body");
+    expect(tab("Vendors")).toBeInTheDocument();
+
+    try {
+      await act(async () => {
+        await i18n.changeLanguage("de");
+      });
+      await waitFor(() => expect(tab("Anbieter")).toHaveAttribute("aria-selected", "true"));
+      expect(tab("Verlauf")).toBeInTheDocument();
+      expect(screen.getByTestId("section")).toHaveTextContent("Anbieter");
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
   });
 });

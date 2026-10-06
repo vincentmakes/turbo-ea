@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { useLocation } from "react-router";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -14,7 +15,7 @@ vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMe
 import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { CARD_TYPES } from "@/test/fixtures/metamodel";
-import { renderWithProviders } from "@/test/render";
+import { renderWithProviders, wrapWithProviders } from "@/test/render";
 import type { TurboLensOverview } from "@/types";
 import TurboLensDashboard from "./TurboLensDashboard";
 
@@ -72,6 +73,13 @@ beforeEach(() => {
 });
 
 describe("TurboLensDashboard", () => {
+  it("paints a spinner, not the no-data message, before the overview is requested", () => {
+    // The very first render, before any effect has run.
+    const html = renderToStaticMarkup(wrapWithProviders(<TurboLensDashboard />));
+    expect(html).toContain('role="progressbar"');
+    expect(html).not.toContain("No data available yet");
+  });
+
   it("shows a spinner while the overview loads", async () => {
     let resolve: (v: TurboLensOverview) => void = () => {};
     mockApi.on("get", OVERVIEW_URL, () => new Promise<TurboLensOverview>((r) => (resolve = r)));
@@ -148,6 +156,9 @@ describe("TurboLensDashboard", () => {
     const { user } = renderDashboard();
 
     await screen.findByText("Cards by Type");
+    expect(
+      within(tableUnder("Cards by Type")).getAllByRole("columnheader").map((h) => h.textContent),
+    ).toEqual(["Type", "Count"]);
     const rows = within(tableUnder("Cards by Type")).getAllByRole("row").slice(1);
     expect(rows.map((r) => r.textContent)).toEqual([
       "Application12",
@@ -166,6 +177,11 @@ describe("TurboLensDashboard", () => {
 
     await screen.findByText("Top Quality Issues");
     const table = tableUnder("Top Quality Issues");
+    expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+      "Name",
+      "Type",
+      "Quality",
+    ]);
     const rows = within(table).getAllByRole("row").slice(1);
     expect(rows).toHaveLength(3);
 
@@ -192,5 +208,44 @@ describe("TurboLensDashboard", () => {
     ).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
     expect(screen.queryByText("Total Cards")).not.toBeInTheDocument();
+  });
+
+  it("colours a quality bar by band: below 30 error, below 60 warning, else primary", async () => {
+    mockApi.on("get", OVERVIEW_URL, {
+      ...OVERVIEW,
+      top_issues: [
+        { id: "b30", name: "At thirty", type: "Application", data_quality: 30 },
+        { id: "b60", name: "At sixty", type: "Application", data_quality: 60 },
+      ],
+    });
+    renderDashboard();
+
+    const thirty = (await screen.findByText("At thirty")).closest("tr") as HTMLElement;
+    expect(within(thirty).getByRole("progressbar")).toHaveClass("MuiLinearProgress-colorWarning");
+    const sixty = screen.getByText("At sixty").closest("tr") as HTMLElement;
+    expect(within(sixty).getByRole("progressbar")).toHaveClass("MuiLinearProgress-colorPrimary");
+  });
+
+  it("labels the types once the metamodel arrives after the overview", async () => {
+    withMetamodel([]);
+    mockApi.on("get", OVERVIEW_URL, OVERVIEW);
+    const { rerender } = renderDashboard();
+
+    await screen.findByText("Cards by Type");
+    // No metamodel yet: the raw keys.
+    expect(within(tableUnder("Cards by Type")).getByText("ITComponent")).toBeInTheDocument();
+
+    withMetamodel(CARD_TYPES);
+    rerender(
+      wrapWithProviders(
+        <>
+          <TurboLensDashboard />
+          <LocationProbe />
+        </>,
+        { route: "/turbolens" },
+      ),
+    );
+    expect(within(tableUnder("Cards by Type")).getByText("IT Component")).toBeInTheDocument();
+    expect(within(tableUnder("Top Quality Issues")).getByText("IT Component")).toBeInTheDocument();
   });
 });
