@@ -407,7 +407,8 @@ describe("MatrixReport export and shell", () => {
     expect(flagged["relAppToBc.c"]).toBe("No");
     // An option key the field does not define exports raw; an empty value not at all.
     expect(flagged["relAppToBc.mode"]).toBe("weird");
-    expect(flagged).not.toHaveProperty("relAppToBc.note");
+    // The array form: a dotted string would be read as a nested path and never fail.
+    expect(flagged).not.toHaveProperty(["relAppToBc.note"]);
   });
 
   it("writes counts, codes and dots into the grid sheet by cell mode", async () => {
