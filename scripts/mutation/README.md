@@ -188,6 +188,29 @@ Each of these was found the hard way while wiring it up; keep them.
   `Ignored`, and the gate counts `Ignored` as excluded. Tables like these are
   covered by the guard tests that pin them instead (`routePermissions.test.ts`
   reads `App.tsx` and the backend registry off disk).
+- **Frontend source scans skip inside Stryker's sandbox.** Some Vitest
+  suites read `src/` as text: the route tables parsed out of `App.tsx`, every
+  literal `t()` key, the per-field label pins. In the sandbox the files being
+  mutated are instrumented copies, so such a scan reads mutant switches and
+  fails Stryker's initial run. Then the whole chunk is lost; the `t()` scan
+  did that to the chunk holding `src/i18n/index.ts`. Wrap such a test in
+  `describeSourceScan` / `itSourceScan` from `src/test/sourceScan.ts`; they
+  skip under the `MUTATION_SANDBOX` flag that `vitest.stryker.config.ts` sets.
+  `test_ci_workflow_mutation.py` fails any test that reads files off disk
+  without them, unless it is allowlisted there with a reason.
+- **A lost runner loses half a night, not all of it.** GitHub sometimes takes
+  a runner away mid-job ("The runner has received a shutdown signal"). A job
+  in that state runs no later step, not even an `always()` one, so the
+  shard's cache and records would never be saved. The nightly therefore splits
+  each backend and frontend shard's budget into two halves. Between them a
+  checkpoint saves the cache under `…-<run id>-checkpoint` and uploads the
+  records (`overwrite: true`). Each half costs one more mutmut clean test,
+  about 20 minutes, which is why there are two halves and not more.
+- **mutmut's children are memory-capped.** The nightly runs mutmut under
+  `ulimit -v` (`MUTMUT_VMEM_KB`). A mutant that allocates without bound then
+  dies of `MemoryError`, which counts as killed, instead of starving the runner
+  until GitHub shuts it down. Stryker gets no such cap, because V8 reserves
+  more address space than any sensible limit.
 - **Stryker's dry run** runs every test related to the mutated files, which
   for a shared `lib/` helper is a large part of the suite, so
   `dryRunTimeoutMinutes` is raised from its default of 5.

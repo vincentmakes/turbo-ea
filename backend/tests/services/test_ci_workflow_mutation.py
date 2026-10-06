@@ -104,16 +104,87 @@ def test_the_nightly_measures_every_suite_resumably():
     assert {"backend", "mcp", "frontend", "report"} <= set(j)
     assert "shard: [1, " in j["backend"] and '--shard "$SHARD"' in j["backend"]
     assert "shard: [1, " in j["frontend"] and "stryker_scope.py nightly" in j["frontend"]
-    assert '--budget "$BUDGET"' in j["frontend"] and "collect --state" in j["frontend"]
+    assert '--budget "$((BUDGET / 2))"' in j["frontend"] and "collect --state" in j["frontend"]
     assert "--shard 1/1" in j["mcp"]
-    for job in ("backend", "mcp"):
-        assert '--budget "$BUDGET"' in j[job]
-        assert 'TEST_DB_REQUIRED: "1"' in j[job] or job == "mcp"
+    assert '--budget "$((BUDGET / 2))"' in j["backend"]
+    assert '--budget "$BUDGET"' in j["mcp"]
+    assert 'TEST_DB_REQUIRED: "1"' in j["backend"]
     text = NIGHTLY.read_text()
     assert 'cron: "' in text and "workflow_dispatch:" in text
     # caches are written by main only
     assert "SAVE_CACHE: ${{ github.event_name != 'pull_request' && github.ref == " in text
     assert text.count("if: always() && env.SAVE_CACHE == 'true'") == 3
+
+
+@pytest.mark.parametrize("job", ["backend", "frontend"])
+def test_a_lost_runner_loses_half_a_night_not_all_of_it(job):
+    """A runner that disappears mid-job runs no later step, not even an always()
+    one; the checkpoint between two halves of the budget keeps the first half's
+    verdicts in the cache and the shard's records in the artifact."""
+    body = jobs(NIGHTLY)[job]
+    assert body.count('--budget "$((BUDGET / 2))"') == 2
+    assert "first half of the budget" in body and "second half of the budget" in body
+    first = body.index("first half of the budget")
+    checkpoint = body.index("-${{ github.run_id }}-checkpoint")
+    second = body.index("second half of the budget")
+    assert first < checkpoint < second
+    # the final save keeps the plain key, so it is the newest by prefix next night
+    assert body.index("key: ") < second < body.rindex("-${{ github.run_id }}\n")
+    # the same artifact name is written twice
+    assert body.count("overwrite: true") == 2
+
+
+def test_a_failed_frontend_chunk_does_not_cost_the_second_half():
+    body = jobs(NIGHTLY)["frontend"]
+    second = body.index("second half of the budget")
+    checkpoint = body.index("Checkpoint the shard's verdicts")
+    for part in (body[checkpoint:second], body[second : second + 200]):
+        assert "!cancelled()" in part
+
+
+@pytest.mark.parametrize("job", ["backend", "mcp"])
+def test_mutmut_children_are_memory_capped(job):
+    body = jobs(NIGHTLY)[job]
+    runs = body.count("mutmut_scope.py run")
+    assert runs >= 1 and body.count('ulimit -v "$MUTMUT_VMEM_KB"') == runs
+    top = NIGHTLY.read_text().split("\njobs:\n", 1)[0]
+    assert re.search(r'MUTMUT_VMEM_KB: "\d+"', top)
+
+
+def test_vitest_does_not_flood_the_step_summary():
+    body = jobs(NIGHTLY)["frontend"]
+    assert body.count("GITHUB_STEP_SUMMARY: /dev/null") == body.count("stryker_scope.py nightly")
+
+
+# A frontend test that reads files off disk, and why it may skip the marker.
+READS_NO_SOURCE = {
+    "src/features/reports/linkChangeGlyphs.test.ts": "reads SVG assets in node_modules",
+}
+
+
+def test_frontend_source_scans_skip_inside_the_stryker_sandbox():
+    """In Stryker's sandbox the files being mutated are instrumented copies, so a
+    test reading src/ as text fails the initial run and aborts the chunk (the
+    t() key scan did, on src/i18n/index.ts). Every such test goes through
+    src/test/sourceScan.ts, which skips under the flag the Stryker config sets."""
+    frontend = ROOT / "frontend"
+    stryker_vitest = (frontend / "vitest.stryker.config.ts").read_text()
+    assert 'MUTATION_SANDBOX: "1"' in stryker_vitest
+    helper = (frontend / "src" / "test" / "sourceScan.ts").read_text()
+    assert 'process.env.MUTATION_SANDBOX === "1"' in helper
+    readers = sorted(
+        str(p.relative_to(frontend))
+        for p in (frontend / "src").rglob("*.test.ts*")
+        if re.search(r"\b(readFileSync|readdirSync)\b", p.read_text())
+    )
+    assert readers, "the scan found no file reader at all"
+    unmarked = [
+        r
+        for r in readers
+        if r not in READS_NO_SOURCE and '@/test/sourceScan"' not in (frontend / r).read_text()
+    ]
+    assert unmarked == [], f"read src/ as text without describeSourceScan/itSourceScan: {unmarked}"
+    assert set(READS_NO_SOURCE) <= set(readers), "stale READS_NO_SOURCE entry"
 
 
 def test_the_nightly_report_runs_after_failed_shards_and_uses_the_gate():

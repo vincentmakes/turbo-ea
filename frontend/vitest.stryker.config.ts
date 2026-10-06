@@ -7,6 +7,10 @@
 // in Stryker's initial test run, which aborts the whole mutation run. They are
 // found by scanning for the stub, so a new one is left out without anyone
 // having to remember this file, and they keep running in the normal suite.
+//
+// It also sets MUTATION_SANDBOX: a test that reads src/ as text would read the
+// instrumented copy of whatever this run mutates, so the scans wrapped in
+// `describeSourceScan` / `itSourceScan` (src/test/sourceScan.ts) skip here.
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { configDefaults, defineConfig, mergeConfig } from "vitest/config";
@@ -27,6 +31,7 @@ export default mergeConfig(
   defineConfig({
     test: {
       exclude: [...configDefaults.exclude, ...pinsTimeZone],
+      env: { MUTATION_SANDBOX: "1" },
     },
   }),
 );

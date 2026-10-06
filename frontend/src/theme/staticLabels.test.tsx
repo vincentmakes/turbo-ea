@@ -1,3 +1,4 @@
+
 /**
  * Field labels are static — UI_GUIDELINES.md §3.5.
  *
@@ -20,6 +21,7 @@ import InputLabel from "@mui/material/InputLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import { buildTheme } from "./index";
+import { describeSourceScan } from "@/test/sourceScan";
 
 function renderWithTheme(ui: React.ReactElement) {
   return render(<ThemeProvider theme={buildTheme("light")}>{ui}</ThemeProvider>);
@@ -86,7 +88,7 @@ describe("static field labels (theme defaults)", () => {
   });
 });
 
-describe("no per-field shrink / notched pins in src", () => {
+describeSourceScan("no per-field shrink / notched pins in src", () => {
   const SRC = path.resolve(__dirname, "..");
   const THEME = path.resolve(__dirname, "index.ts");
 

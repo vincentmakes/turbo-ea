@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve, relative } from "node:path";
 
 import i18n from "@/i18n";
+import { describeSourceScan } from "@/test/sourceScan";
 
 /**
  * Guards the direction `i18n.test.ts` does not cover.
@@ -344,7 +345,7 @@ describe("English resolution helper", () => {
 // 2. The guard
 // ---------------------------------------------------------------------------
 
-describe("Every literal t() key resolves in English", () => {
+describeSourceScan("Every literal t() key resolves in English", () => {
   it("has no key that would render as a raw string", () => {
     if (report.missing.length > 0) {
       expect.fail(
@@ -379,14 +380,14 @@ describe("Every literal t() key resolves in English", () => {
 // 3. Anti-rot
 // ---------------------------------------------------------------------------
 
-describe("Scanner still sees the codebase", () => {
+describeSourceScan("Scanner still sees the codebase", () => {
   it(`finds at least ${MIN_LITERAL_CALLS} literal t() calls`, () => {
     expect(report.files).toBeGreaterThan(300);
     expect(report.literalCalls).toBeGreaterThanOrEqual(MIN_LITERAL_CALLS);
   });
 });
 
-describe("Inline defaultValue fallbacks do not grow", () => {
+describeSourceScan("Inline defaultValue fallbacks do not grow", () => {
   it(`stays at or below ${DEFAULT_VALUE_BASELINE} call sites`, () => {
     if (report.defaultValueMisses.length > DEFAULT_VALUE_BASELINE) {
       expect.fail(
