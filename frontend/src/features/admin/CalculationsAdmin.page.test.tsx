@@ -732,7 +732,9 @@ describe("FormulaEditor suggestions", () => {
     list = await suggestionList();
     expect(list.getByText("riskScoreMax")).toBeInTheDocument();
     expect(list.getAllByText("PPM risks — all, open, and the highest risk score")).toHaveLength(3);
-  });
+    // Four multi-segment paths typed keystroke by keystroke take ~6 s on their
+    // own, so the global 15 s is too tight on a loaded CI shard.
+  }, 30_000);
 
   it("navigates with the arrow keys, clamping at both ends", async () => {
     const { user } = await renderPage();
