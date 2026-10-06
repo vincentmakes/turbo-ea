@@ -63,6 +63,7 @@ beforeEach(() => {
 describe("MyCreatedSection", () => {
   it("lists the cards the user created with their type pills", async () => {
     renderSection(3);
+    expect(screen.getByText("Cards I Created")).toBeInTheDocument();
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
     expect(await screen.findByText("NexaCore ERP")).toBeInTheDocument();
     expect(screen.getByText("Application")).toBeInTheDocument();
@@ -78,6 +79,12 @@ describe("MyCreatedSection", () => {
     renderSection(0);
     expect(await screen.findByText("You haven't created any cards yet.")).toBeInTheDocument();
     expect(screen.queryByText(/^Showing/)).not.toBeInTheDocument();
+  });
+
+  it("captions the server's total once the first page lands, not the count it was given", async () => {
+    renderSection(5);
+    expect(screen.getByText("Showing 0 of 5")).toBeInTheDocument();
+    expect(await screen.findByText("Showing 3 of 3")).toBeInTheDocument();
   });
 
   it("captions the count it was given until the first page lands", () => {
@@ -103,6 +110,22 @@ describe("MyCreatedSection", () => {
     expect(await screen.findByText("NexaCore ERP")).toBeInTheDocument();
     expect(screen.getByText("Showing 3 of 3")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("button", { name: /Show more|Loading/ })).not.toBeInTheDocument());
+  });
+
+  it("offers Show more again when the next batch still is not the last, with the refreshed total", async () => {
+    const first = [makeCard({ id: "a0", type: "Application", name: "App 0" })];
+    mockApi.on("get", FIRST_PAGE, page(first, 3, true));
+    mockApi.on("get", "/cards/my-created?limit=200&offset=1", page([ERP], 4, true));
+
+    const { user } = renderSection(3);
+    expect(await screen.findByText("Showing 1 of 3")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show more" }));
+
+    expect(await screen.findByText("NexaCore ERP")).toBeInTheDocument();
+    // A card was created meanwhile: the caption follows the server's new total.
+    expect(screen.getByText("Showing 2 of 4")).toBeInTheDocument();
+    // The button comes back, enabled, for the batch after this one.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Show more" })).toBeEnabled());
   });
 
   it("opens a card when its row is clicked", async () => {

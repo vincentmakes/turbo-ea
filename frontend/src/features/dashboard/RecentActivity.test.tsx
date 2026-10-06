@@ -43,9 +43,16 @@ function renderFeed(events: EventEntry[], maxRows?: number) {
   return renderWithProviders(<RecentActivity events={events} maxRows={maxRows} />);
 }
 
+/** Every activity sentence, in order. */
+const sentenceEls = () => Array.from(document.querySelectorAll<HTMLElement>("p.MuiTypography-body2"));
 /** The text of every activity sentence, in order. */
-const sentences = () =>
-  Array.from(document.querySelectorAll("p.MuiTypography-body2")).map((p) => p.textContent);
+const sentences = () => sentenceEls().map((p) => p.textContent);
+/**
+ * Per row, whether the timeline rail continues below its dot: the dot column
+ * (beside the sentence) holds the dot, plus the rail when one is drawn.
+ */
+const rails = () =>
+  sentenceEls().map((p) => (p.parentElement!.previousElementSibling as HTMLElement).children.length === 2);
 
 beforeEach(() => {
   hookState.reset();
@@ -105,6 +112,38 @@ describe("RecentActivity", () => {
     expect(screen.getAllByText("Today")).toHaveLength(1);
     expect(screen.getAllByText("Yesterday")).toHaveLength(1);
     expect(sentences()).toEqual(["Ada created A", "Ada archived B", "Ada restored C"]);
+    // The feed opens on the first day heading — nothing is printed above it.
+    const feed = screen.getByText("Today").parentElement!.parentElement as HTMLElement;
+    expect(feed.firstChild).toBe(screen.getByText("Today").parentElement);
+  });
+
+  it("gives each day heading its own identity", () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      renderFeed([
+        ev({ event_type: "card.created", card_id: "c1", card_name: "A", created_at: ago(10_000) }),
+        ev({ event_type: "card.restored", card_id: "c3", card_name: "C", created_at: yesterdayNoon() }),
+      ]);
+      expect(sentences()).toEqual(["Ada created A", "Ada restored C"]);
+      // Two headings sharing a React key would be reported (and could be dropped on update).
+      expect(errors.mock.calls.flat().map(String).join("\n")).not.toMatch(/same key/);
+    } finally {
+      errors.mockRestore();
+    }
+  });
+
+  it("draws the timeline rail between rows but not below the last one", () => {
+    renderFeed([
+      ev({ event_type: "card.created", card_id: "c1", card_name: "A", created_at: ago(10_000) }),
+      ev({ event_type: "card.archived", card_id: "c2", card_name: "B", created_at: ago(20_000) }),
+      ev({ event_type: "card.restored", card_id: "c3", card_name: "C", created_at: yesterdayNoon() }),
+    ]);
+    expect(rails()).toEqual([true, true, false]);
+  });
+
+  it("draws no rail under a single row", () => {
+    renderFeed([ev({ event_type: "card.created", card_id: "c1", card_name: "A" })]);
+    expect(rails()).toEqual([false]);
   });
 
   it("filters by category through the tabs", async () => {
@@ -161,5 +200,17 @@ describe("RecentActivity", () => {
     await user.hover(screen.getByText("2020-03-04"));
     expect(await screen.findByRole("tooltip")).toHaveTextContent("2020-03-04");
     expect(within(screen.getByRole("tooltip")).getByText(/10:00/)).toBeInTheDocument();
+  });
+
+  it("offers no time tooltip for an event without a timestamp", async () => {
+    const { user } = renderFeed([
+      ev({ event_type: "card.created", card_id: "c1", card_name: "A", created_at: undefined }),
+    ]);
+    expect(sentences()).toEqual(["Ada created A"]);
+    const time = sentenceEls()[0].nextElementSibling as HTMLElement;
+    expect(time).toHaveTextContent(/^$/);
+    await user.hover(time);
+    // Twice the tooltip's 400 ms enter delay: it would have opened by now.
+    await expect(screen.findByRole("tooltip", undefined, { timeout: 800 })).rejects.toThrow();
   });
 });

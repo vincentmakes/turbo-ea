@@ -4,11 +4,16 @@
  * Recharts is stubbed so each chart renders its data as plain buttons: the
  * assertions are about what `/reports/dashboard` turns into (KPI tiles, the
  * four charts' series, the browse-by-type list) and where each click goes.
+ * The stub also exposes each `Cell`'s fill, a series' `name`, the tooltip and
+ * legend text direction, and a "stray click" that hands a chart's handler an
+ * index past the end of its data.
  * `RecentActivity` is the real component — it has its own test.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { useLocation } from "react-router";
+import i18n from "@/i18n";
+import { APPROVAL_STATUS_COLORS, DATA_QUALITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { DashboardData } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -20,6 +25,10 @@ vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlM
 vi.mock("recharts", async () => {
   const { createContext, useContext } = await vi.importActual<typeof import("react")>("react");
   const DataCtx = createContext<any[]>([]);
+  /** A click Recharts reports with an index past the end of the series. */
+  const StrayClick = ({ onClick, index }: any) => (
+    <span data-testid="stray-click" onClick={() => onClick?.(undefined, index)} />
+  );
   return {
     ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
     BarChart: ({ data, children }: any) => (
@@ -27,47 +36,59 @@ vi.mock("recharts", async () => {
         <div data-testid="bar-chart">{children}</div>
       </DataCtx.Provider>
     ),
-    Bar: ({ onClick }: any) => {
+    Bar: ({ onClick, name, children }: any) => {
       const data = useContext(DataCtx);
       return (
-        <>
+        <div data-testid="bar-series" data-name={name}>
           {data.map((d: any, i: number) => (
             <button key={i} data-color={d.color} onClick={() => onClick?.(d, i)}>
               {`${d.name}: ${d.count}`}
             </button>
           ))}
-        </>
+          <StrayClick onClick={onClick} index={data.length} />
+          {children}
+        </div>
       );
     },
     PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
-    Pie: ({ data, label, onClick }: any) => (
+    Pie: ({ data, label, onClick, children }: any) => (
       <>
         {data.map((d: any, i: number) => (
           <button key={i} data-color={d.color} onClick={() => onClick?.(d, i)}>
             {`${d.name}: ${d.value}`}
           </button>
         ))}
+        <StrayClick onClick={onClick} index={data.length} />
+        {children}
         <svg data-testid="pie-labels">
-          {/* One label right of centre, one left, and one Recharts could not place. */}
+          {/* Right of centre, left of it, straight up, then four Recharts could not place. */}
           {label({ cx: 100, cy: 100, midAngle: 0, outerRadius: 78, value: data[0]?.value })}
           {label({ cx: 100, cy: 100, midAngle: 180, outerRadius: 78 })}
+          {label({ cx: 100, cy: 100, midAngle: 90, outerRadius: 78, value: 5 })}
           {label({ cy: 100, midAngle: 90, outerRadius: 78, value: 1 })}
+          {label({ cx: 100, midAngle: 90, outerRadius: 78, value: 1 })}
+          {label({ cx: 100, cy: 100, outerRadius: 78, value: 1 })}
+          {label({ cx: 100, cy: 100, midAngle: 90, value: 1 })}
         </svg>
       </>
     ),
-    Cell: () => null,
+    Cell: ({ fill }: any) => <i data-testid="cell" data-fill={fill} />,
     XAxis: () => null,
     YAxis: () => null,
     CartesianGrid: () => null,
-    Tooltip: () => null,
-    Legend: ({ formatter }: any) => <span data-testid="legend">{formatter("Draft")}</span>,
+    Tooltip: ({ contentStyle }: any) => <span data-testid="tooltip" data-direction={contentStyle?.direction} />,
+    Legend: ({ formatter, wrapperStyle }: any) => (
+      <span data-testid="legend" data-direction={wrapperStyle?.direction}>
+        {formatter("Draft")}
+      </span>
+    ),
   };
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
-import { CARD_TYPES } from "@/test/fixtures/metamodel";
+import { CARD_TYPES, makeCardType } from "@/test/fixtures/metamodel";
 import { makeUser, renderWithProviders } from "@/test/render";
 import type { User } from "@/types";
 import OverviewTab from "./OverviewTab";
@@ -134,6 +155,12 @@ const buttonsIn = (heading: string) =>
   within(section(heading))
     .queryAllByRole("button")
     .map((b) => b.textContent);
+/** The fill of every bar / slice a chart paints, in order. */
+const cellFills = (heading: string) =>
+  within(section(heading))
+    .queryAllByTestId("cell")
+    .map((c) => c.getAttribute("data-fill"));
+const colorOf = (key: string) => CARD_TYPES.find((t) => t.key === key)!.color;
 
 beforeEach(() => {
   mockApi.reset();
@@ -162,6 +189,13 @@ describe("OverviewTab — loading and KPIs", () => {
     expect(within(kpiTile("Broken")).getByText("2")).toBeInTheDocument();
     expect(within(kpiTile("Total Cards")).getByText(/\+5/)).toBeInTheDocument();
     expect(screen.getByText("Trend indicators are based on the last 30 days")).toBeInTheDocument();
+    // Every tile carries its own trend.
+    expect(within(kpiTile("Total Cards")).getByText("+29.4%")).toBeInTheDocument();
+    expect(within(kpiTile("Avg Completion")).getByText("+2.5%")).toBeInTheDocument();
+    expect(within(kpiTile("Approved")).getByText("-9.1%")).toBeInTheDocument();
+    expect(within(kpiTile("Approved")).getByText("(-1)")).toBeInTheDocument();
+    expect(within(kpiTile("Broken")).getByText("+100.0%")).toBeInTheDocument();
+    expect(within(kpiTile("Broken")).getByText("(+2)")).toBeInTheDocument();
   });
 
   it("drops the trend indicators and caption when no trend data exists", async () => {
@@ -195,17 +229,107 @@ describe("OverviewTab — charts", () => {
     const { user } = renderTab();
     await screen.findByText("Approval Status Distribution");
     expect(buttonsIn("Approval Status Distribution")).toEqual(["Draft: 4", "Approved: 10", "Broken: 2"]);
-    // The custom slice labels print the value outside the ring.
+    // The custom slice labels print the value outside the ring; a slice
+    // Recharts could not place (any coordinate missing) gets no label.
     const labels = within(section("Approval Status Distribution")).getByTestId("pie-labels");
-    expect(labels.querySelectorAll("text")).toHaveLength(2);
-    expect(labels.querySelectorAll("text")[0]).toHaveTextContent("4");
-    expect(labels.querySelectorAll("text")[0]).toHaveAttribute("text-anchor", "start");
-    expect(labels.querySelectorAll("text")[1]).toHaveTextContent("0");
-    expect(labels.querySelectorAll("text")[1]).toHaveAttribute("text-anchor", "end");
+    const texts = Array.from(labels.querySelectorAll("text"));
+    expect(texts.map((t) => t.textContent)).toEqual(["4", "0", "5"]);
+    expect(texts.map((t) => t.getAttribute("text-anchor"))).toEqual(["start", "end", "start"]);
     expect(within(section("Approval Status Distribution")).getByTestId("legend")).toHaveTextContent("Draft");
 
     await user.click(within(section("Approval Status Distribution")).getByRole("button", { name: "Broken: 2" }));
     expect(await screen.findByTestId("landed")).toHaveTextContent("/inventory?approval_status=BROKEN");
+  });
+
+  it("places each slice label 14px outside the ring, at the slice's mid-angle", async () => {
+    renderTab();
+    await screen.findByText("Approval Status Distribution");
+    const texts = Array.from(
+      within(section("Approval Status Distribution")).getByTestId("pie-labels").querySelectorAll("text"),
+    );
+    const at = (el: Element) => [Number(el.getAttribute("x")), Number(el.getAttribute("y"))];
+    // Centre (100, 100), outer radius 78 + 14; Recharts measures angles anticlockwise from 3 o'clock.
+    const [right, left, top] = texts.map(at);
+    expect(right[0]).toBeCloseTo(192);
+    expect(right[1]).toBeCloseTo(100);
+    expect(left[0]).toBeCloseTo(8);
+    expect(left[1]).toBeCloseTo(100);
+    expect(top[0]).toBeCloseTo(100);
+    expect(top[1]).toBeCloseTo(8);
+  });
+
+  it("paints each bar and slice in its own colour and names each series", async () => {
+    renderTab();
+    await screen.findByText("Cards by Type");
+    expect(cellFills("Cards by Type")).toEqual([
+      colorOf("Application"),
+      colorOf("Provider"),
+      colorOf("ITComponent"),
+      colorOf("Secret"),
+    ]);
+    expect(cellFills("Approval Status Distribution")).toEqual([
+      APPROVAL_STATUS_COLORS.DRAFT,
+      APPROVAL_STATUS_COLORS.APPROVED,
+      APPROVAL_STATUS_COLORS.BROKEN,
+    ]);
+    expect(cellFills("Completion Distribution")).toEqual([
+      DATA_QUALITY_COLORS["0-25"],
+      DATA_QUALITY_COLORS["25-50"],
+      DATA_QUALITY_COLORS["50-75"],
+      DATA_QUALITY_COLORS["75-100"],
+    ]);
+    expect(cellFills("Lifecycle Overview")).toEqual([
+      STATUS_COLORS.neutral,
+      STATUS_COLORS.info,
+      STATUS_COLORS.success,
+      STATUS_COLORS.warning,
+      STATUS_COLORS.error,
+      STATUS_COLORS.neutral,
+    ]);
+    // The series name is what the bar tooltip prints next to the value.
+    const seriesName = (heading: string) =>
+      within(section(heading)).getByTestId("bar-series").getAttribute("data-name");
+    expect(seriesName("Cards by Type")).toBe("Count");
+    expect(seriesName("Completion Distribution")).toBe("Cards");
+    expect(seriesName("Lifecycle Overview")).toBe("Cards");
+    // Tooltips and the legend read left-to-right.
+    expect(screen.getAllByTestId("tooltip").map((t) => t.getAttribute("data-direction"))).toEqual([
+      "ltr",
+      "ltr",
+      "ltr",
+      "ltr",
+    ]);
+    expect(screen.getByTestId("legend")).toHaveAttribute("data-direction", "ltr");
+  });
+
+  it("paints an approval status it has no colour for in the neutral colour", async () => {
+    mockApi.on("get", "/reports/dashboard", { ...DATA, approval_statuses: { APPROVED: 3, ON_HOLD: 2 } });
+    renderTab();
+    await screen.findByText("Approval Status Distribution");
+    expect(cellFills("Approval Status Distribution")).toEqual([
+      APPROVAL_STATUS_COLORS.APPROVED,
+      STATUS_COLORS.neutral,
+    ]);
+  });
+
+  it("ignores a click Recharts cannot map to a bar or a slice", async () => {
+    const errors: unknown[] = [];
+    const onError = (e: ErrorEvent) => {
+      errors.push(e.error);
+      e.preventDefault();
+    };
+    window.addEventListener("error", onError);
+    try {
+      renderTab();
+      await screen.findByText("Cards by Type");
+      fireEvent.click(within(section("Cards by Type")).getByTestId("stray-click"));
+      fireEvent.click(within(section("Approval Status Distribution")).getByTestId("stray-click"));
+      expect(errors).toEqual([]);
+      expect(screen.queryByTestId("landed")).not.toBeInTheDocument();
+      expect(screen.getByText("Cards by Type")).toBeInTheDocument();
+    } finally {
+      window.removeEventListener("error", onError);
+    }
   });
 
   it("charts the completion buckets and opens the data-quality report", async () => {
@@ -236,6 +360,47 @@ describe("OverviewTab — charts", () => {
     expect(await screen.findByTestId("landed")).toHaveTextContent("/reports/lifecycle");
   });
 
+  it("counts each lifecycle phase under its own key", async () => {
+    mockApi.on("get", "/reports/dashboard", {
+      ...DATA,
+      lifecycle_distribution: { plan: 1, phaseIn: 2, active: 3, phaseOut: 4, endOfLife: 5, none: 6 },
+    });
+    renderTab();
+    await screen.findByText("Lifecycle Overview");
+    expect(buttonsIn("Lifecycle Overview")).toEqual([
+      "Plan: 1",
+      "Phase In: 2",
+      "Active: 3",
+      "Phase Out: 4",
+      "End of Life: 5",
+      "Not Set: 6",
+    ]);
+  });
+
+  it("relabels the lifecycle chart when the language changes", async () => {
+    renderTab();
+    await screen.findByText("Lifecycle Overview");
+    try {
+      await act(async () => {
+        await i18n.changeLanguage("de");
+      });
+      await waitFor(() =>
+        expect(buttonsIn("Lebenszyklus-Übersicht")).toEqual([
+          "Planung: 2",
+          "Einführung: 0",
+          "Aktiv: 7",
+          "Auslauf: 0",
+          "End of Life: 0",
+          "Nicht gesetzt: 0",
+        ]),
+      );
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
+  });
+
   it("shows the empty states when there are no cards and no approval data", async () => {
     mockApi.on("get", "/reports/dashboard", {
       ...DATA,
@@ -255,6 +420,14 @@ describe("OverviewTab — charts", () => {
     renderTab();
     expect(await screen.findAllByTestId("bar-chart")).toHaveLength(3);
     expect(within(section("Approval Status Distribution")).getByTestId("legend")).toHaveTextContent("Draft");
+    // Tooltips and the legend read right-to-left.
+    expect(screen.getAllByTestId("tooltip").map((t) => t.getAttribute("data-direction"))).toEqual([
+      "rtl",
+      "rtl",
+      "rtl",
+      "rtl",
+    ]);
+    expect(screen.getByTestId("legend")).toHaveAttribute("data-direction", "rtl");
   });
 });
 
@@ -271,6 +444,24 @@ describe("OverviewTab — browse by type and activity", () => {
     // An always-shown type with no cards reads 0.
     const capability = within(list).getByText("Business Capability").parentElement as HTMLElement;
     expect(within(capability).getByText("0")).toBeInTheDocument();
+  });
+
+  it("always lists Application, Business Capability, IT Component and Initiative — and nothing else empty", async () => {
+    withMetamodel([
+      ...CARD_TYPES,
+      makeCardType({ key: "Initiative", label: "Initiative", icon: "rocket_launch", color: "#33cc58" }),
+    ]);
+    mockApi.on("get", "/reports/dashboard", { ...DATA, by_type: {} });
+    renderTab();
+    await screen.findByText("Browse by Type");
+    const list = section("Browse by Type");
+    const rows = within(list)
+      .getAllByText(/^(Application|Business Capability|IT Component|Initiative|Provider|Secret)$/)
+      .map((el) => el.textContent);
+    expect(rows.sort()).toEqual(["Application", "Business Capability", "IT Component", "Initiative"]);
+    for (const name of rows) {
+      expect(within(within(list).getByText(name).parentElement as HTMLElement).getByText("0")).toBeInTheDocument();
+    }
   });
 
   it("opens the inventory filtered to a type from the list", async () => {

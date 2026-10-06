@@ -8,13 +8,14 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { useLocation } from "react-router";
 import type { CataloguePrinciple, PrinciplesCataloguePayload } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
 import { mockApi } from "@/test/apiMock";
-import { renderWithProviders } from "@/test/render";
+import { renderWithProviders, wrapWithProviders } from "@/test/render";
 import PrinciplesCataloguePage from "./PrinciplesCataloguePage";
 
 function principle(overrides: Partial<CataloguePrinciple> & { id: string; title: string }): CataloguePrinciple {
@@ -62,6 +63,25 @@ function renderPage() {
 /** The card of one principle. */
 const cardOf = (title: string) => screen.getByText(title).closest(".MuiCard-root") as HTMLElement;
 const checkboxOf = (title: string) => within(cardOf(title)).getByRole("checkbox");
+const NO_MATCHES = "No principles match your search";
+
+/** A promise the test settles by hand. */
+function deferred<T>() {
+  let resolve!: (v: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+/** Tick principles, open the import dialog from the selection bar, and confirm it. */
+async function importSelection(user: ReturnType<typeof renderPage>["user"], ...titles: string[]) {
+  for (const title of titles) await user.click(checkboxOf(title));
+  await user.click(screen.getByRole("button", { name: /Import/ }));
+  const confirm = await screen.findByRole("dialog", { name: "Import principles" });
+  await user.click(within(confirm).getByRole("button", { name: "Import" }));
+  return confirm;
+}
 
 beforeEach(() => {
   mockApi.reset();
@@ -69,12 +89,23 @@ beforeEach(() => {
 });
 
 describe("PrinciplesCataloguePage — browsing", () => {
+  it("paints the heading and a spinner — not the no-match state — before the catalogue arrives", () => {
+    const html = renderToStaticMarkup(wrapWithProviders(<PrinciplesCataloguePage />));
+    expect(html).toContain("Principles Catalogue");
+    expect(html).toContain("Curated reference set of industry-standard EA principles.");
+    expect(html).toContain('role="progressbar"');
+    expect(html).toContain("Showing 0 of 0 — 0 not yet imported");
+    expect(html).not.toContain(NO_MATCHES);
+  });
+
   it("lists every principle with its version, bullets and linkified description", async () => {
     renderPage();
+    expect(screen.getByRole("heading", { name: "Principles Catalogue" })).toBeInTheDocument();
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
     expect(await screen.findByText("Data is an Asset")).toBeInTheDocument();
     expect(screen.getByText("Catalogue v2026.1")).toBeInTheDocument();
     expect(screen.getByText("Showing 3 of 3 — 2 not yet imported")).toBeInTheDocument();
+    expect(screen.queryByText(NO_MATCHES)).not.toBeInTheDocument();
 
     const card = cardOf("Data is an Asset");
     expect(within(card).getByText("PR-001")).toBeInTheDocument();
@@ -90,12 +121,36 @@ describe("PrinciplesCataloguePage — browsing", () => {
   });
 
   it("marks an already-imported principle and offers no checkbox for it", async () => {
-    renderPage();
+    const { user } = renderPage();
     await screen.findByText("Business Continuity");
     const card = cardOf("Business Continuity");
     expect(within(card).getByText("Already imported")).toBeInTheDocument();
     expect(within(card).queryByRole("checkbox")).not.toBeInTheDocument();
     expect(within(card).queryByText("Rationale")).not.toBeInTheDocument();
+    // The tick that stands in for the checkbox explains itself.
+    await user.hover(within(card).getByText("check_circle"));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Already imported");
+  });
+
+  it("turns each non-blank line into a bullet, stripping only a leading marker", async () => {
+    mockApi.on("get", "/principles-catalogue", {
+      ...PAYLOAD,
+      principles: [
+        principle({
+          id: "PR-009",
+          title: "Lean Bullets",
+          rationale: "  - Indented bullet  \n   \n-tight bullet\n*   spaced bullet\nCost-effective reuse",
+        }),
+      ],
+    });
+    renderPage();
+    await screen.findByText("Lean Bullets");
+    expect(within(cardOf("Lean Bullets")).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "Indented bullet",
+      "tight bullet",
+      "spaced bullet",
+      "Cost-effective reuse",
+    ]);
   });
 
   it("omits the version chip when the catalogue has no version", async () => {
@@ -129,12 +184,45 @@ describe("PrinciplesCataloguePage — browsing", () => {
     expect(screen.getByText("No principles match your search")).toBeInTheDocument();
   });
 
+  it("matches the rationale too", async () => {
+    const { user } = renderPage();
+    await screen.findByText("Data is an Asset");
+    await user.type(screen.getByPlaceholderText("Search principles..."), "decisions");
+    expect(screen.getByText("Data is an Asset")).toBeInTheDocument();
+    expect(screen.queryByText("Reuse before Buy")).not.toBeInTheDocument();
+    expect(screen.queryByText("Business Continuity")).not.toBeInTheDocument();
+  });
+
+  it("ignores spaces around the search term, and a blank search shows everything", async () => {
+    const { user } = renderPage();
+    await screen.findByText("Data is an Asset");
+    const search = screen.getByPlaceholderText("Search principles...");
+
+    await user.type(search, "  reuse  ");
+    expect(screen.getByText("Reuse before Buy")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 3 — 2 not yet imported")).toBeInTheDocument();
+
+    await user.clear(search);
+    await user.type(search, "   ");
+    expect(screen.getByText("Showing 3 of 3 — 2 not yet imported")).toBeInTheDocument();
+  });
+
+  it("never matches a term that only exists across two fields run together", async () => {
+    const { user } = renderPage();
+    await screen.findByText("Data is an Asset");
+    // "Reuse before Buy" + "Prefer existing platforms": no single field holds "buyprefer".
+    await user.type(screen.getByPlaceholderText("Search principles..."), "buyprefer");
+    expect(screen.getByText(NO_MATCHES)).toBeInTheDocument();
+    expect(screen.queryByText("Reuse before Buy")).not.toBeInTheDocument();
+  });
+
   it("shows the load error and lets the user dismiss it", async () => {
     mockApi.fail("get", "/principles-catalogue", 500);
     const { user } = renderPage();
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("GET /principles-catalogue failed");
     expect(screen.getByText("No principles match your search")).toBeInTheDocument();
+    expect(screen.getByText("Showing 0 of 0 — 0 not yet imported")).toBeInTheDocument();
     await user.click(within(alert).getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -221,6 +309,83 @@ describe("PrinciplesCataloguePage — import", () => {
     expect(await screen.findByTestId("landed")).toHaveTextContent("/admin/metamodel");
   });
 
+  it("clears an earlier reload error once a later reload succeeds", async () => {
+    let gets = 0;
+    mockApi.on("get", "/principles-catalogue", () => {
+      gets += 1;
+      return gets === 2 ? Promise.reject(new Error("catalogue offline")) : PAYLOAD;
+    });
+    mockApi.on("post", "/principles-catalogue/import", { created: [], skipped: [], catalogue_version: null });
+    const { user } = renderPage();
+    await screen.findByText("Data is an Asset");
+
+    await importSelection(user, "Data is an Asset");
+    const done = await screen.findByRole("dialog", { name: "Import complete" });
+    // The reload after the import fails; the list stays and the error shows.
+    expect(await screen.findByText("catalogue offline")).toBeInTheDocument();
+    await user.click(within(done).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await importSelection(user, "Reuse before Buy");
+    await screen.findByRole("dialog", { name: "Import complete" });
+    await waitFor(() => expect(mockApi.callsOf("get", "/principles-catalogue")).toHaveLength(3));
+    await waitFor(() => expect(screen.queryByText("catalogue offline")).not.toBeInTheDocument());
+  });
+
+  it("locks the dialog while the import runs, and a retry clears the previous error", async () => {
+    let posts = 0;
+    const second = deferred<object>();
+    mockApi.on("post", "/principles-catalogue/import", () => {
+      posts += 1;
+      return posts === 1 ? Promise.reject(new Error("import offline")) : second.promise;
+    });
+    const { user } = renderPage();
+    await screen.findByText("Data is an Asset");
+    await user.click(checkboxOf("Reuse before Buy"));
+    await user.click(screen.getByRole("button", { name: /Import/ }));
+    const confirm = await screen.findByRole("dialog", { name: "Import principles" });
+    // Nothing has failed yet.
+    expect(within(confirm).queryByRole("alert")).not.toBeInTheDocument();
+
+    await user.click(within(confirm).getByRole("button", { name: "Import" }));
+    expect(await within(confirm).findByRole("alert")).toHaveTextContent("import offline");
+
+    await user.click(within(confirm).getByRole("button", { name: "Import" }));
+    await waitFor(() => expect(posts).toBe(2));
+    await waitFor(() => expect(within(confirm).queryByRole("alert")).not.toBeInTheDocument());
+    expect(within(confirm).getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(within(confirm).getByRole("progressbar")).toBeInTheDocument();
+    // Escape cannot close it mid-import.
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "Import principles" })).toBeInTheDocument();
+
+    second.resolve({ created: [{ catalogue_id: "PR-002", principle_id: "ep-2" }], skipped: [], catalogue_version: null });
+    expect(await screen.findByRole("dialog", { name: "Import complete" })).toBeInTheDocument();
+  });
+
+  it("closes the confirmation on Escape without importing", async () => {
+    const { user } = renderPage();
+    await screen.findByText("Data is an Asset");
+    await user.click(checkboxOf("Reuse before Buy"));
+    await user.click(screen.getByRole("button", { name: /Import/ }));
+    await screen.findByRole("dialog", { name: "Import principles" });
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockApi.callsOf("post")).toHaveLength(0);
+    expect(screen.getByText("1 principle selected")).toBeInTheDocument();
+  });
+
+  it("closes the result on Escape without leaving the page", async () => {
+    mockApi.on("post", "/principles-catalogue/import", { created: [], skipped: [], catalogue_version: null });
+    const { user } = renderPage();
+    await screen.findByText("Data is an Asset");
+    await importSelection(user, "Data is an Asset");
+    await screen.findByRole("dialog", { name: "Import complete" });
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.queryByTestId("landed")).not.toBeInTheDocument();
+  });
+
   it("closes the result dialog without leaving the page", async () => {
     mockApi.on("post", "/principles-catalogue/import", { created: [], skipped: [], catalogue_version: null });
     const { user } = renderPage();
@@ -245,7 +410,7 @@ describe("PrinciplesCataloguePage — import", () => {
     expect(within(confirm).getByText("Create 1 principle from the catalogue?")).toBeInTheDocument();
     await user.click(within(confirm).getByRole("button", { name: "Import" }));
 
-    expect(await within(confirm).findByText("POST /principles-catalogue/import failed")).toBeInTheDocument();
+    expect(await within(confirm).findByRole("alert")).toHaveTextContent("POST /principles-catalogue/import failed");
     expect(within(confirm).getByRole("button", { name: "Import" })).toBeEnabled();
     expect(mockApi.callsOf("get", "/principles-catalogue")).toHaveLength(1);
 

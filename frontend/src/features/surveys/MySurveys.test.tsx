@@ -76,6 +76,10 @@ describe("MySurveys", () => {
     expect(within(vendor).getByText("1 pending")).toBeInTheDocument();
     expect(within(vendor).getByText("Acme Corp")).toBeInTheDocument();
     expect(within(vendor).queryByRole("link")).not.toBeInTheDocument();
+
+    // A successful load shows neither an error nor the all-caught-up note.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText("No pending surveys. You're all caught up!")).not.toBeInTheDocument();
   });
 
   it("opens the respond page for the card that was clicked", async () => {
@@ -97,6 +101,8 @@ describe("MySurveys", () => {
     const alert = error.closest('[role="alert"]') as HTMLElement;
     await user.click(within(alert).getByRole("button", { name: "Close" }));
     expect(screen.queryByText("GET /surveys/my failed")).not.toBeInTheDocument();
+    // The error alert is gone altogether; only the informational note remains.
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
     // The empty-state note still renders under the error.
     expect(screen.getByText("No pending surveys. You're all caught up!")).toBeInTheDocument();
   });
