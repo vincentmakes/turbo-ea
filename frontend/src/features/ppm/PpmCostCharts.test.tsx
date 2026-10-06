@@ -6,7 +6,7 @@
  * series, the lines, the dotted budget references — and about the fiscal-year
  * picker and the collapse toggle that choose which data that is.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { PpmBudgetLine, PpmCostLine } from "@/types";
@@ -213,6 +213,11 @@ describe("PpmCostCharts — fiscal-year charts", () => {
     // No budget at all ⇒ no reference lines anywhere.
     expect(refsOf("Cumulative spend by category")).toEqual([]);
     expect(refsOf("Cumulative total spend")).toEqual([]);
+    expect(refsOf("Project to date")).toEqual([]);
+    expect(linesOf("Project to date")).toEqual([
+      ["capex", "Cumulative CapEx"],
+      ["opex", "Cumulative OpEx"],
+    ]);
   });
 
   it("saves the picked year and restores it on the next mount", async () => {
@@ -276,7 +281,8 @@ describe("PpmCostCharts — project chart and chrome", () => {
     renderCharts();
     const proj = chart("Project to date");
     expect(within(proj).getByTestId("y-tick")).toHaveTextContent("$2500");
-    expect(within(proj).getByTestId("tooltip")).toHaveTextContent("$1234|n/a|");
+    // Exact text: an undefined value renders as nothing at all.
+    expect(within(proj).getByTestId("tooltip").textContent).toBe("$1234|n/a|");
     expect(within(proj).getByTestId("legend")).toHaveTextContent("Legend entry");
   });
 
@@ -322,5 +328,104 @@ describe("PpmCostCharts — project chart and chrome", () => {
     renderCharts();
     expect(screen.getAllByTestId("line-chart")).toHaveLength(3);
     expect(within(chart("Project to date")).getByTestId("legend")).toHaveTextContent("Legend entry");
+  });
+});
+
+describe("PpmCostCharts — which fiscal year is current", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Mid-April 2026 — the first month of an April-start fiscal year. */
+  const freezeToday = () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 3, 15, 12));
+  };
+
+  it("derives the current fiscal year from today's month and the configured start", () => {
+    freezeToday();
+    invalidateFiscalYearStart(4);
+    renderCharts();
+    // April 2026 opens FY2027 (named after the year it ends in).
+    expect(screen.getByRole("combobox", { name: "Fiscal Year" })).toHaveTextContent("FY 2026–2027");
+    expect(pointsOf("Cumulative spend by category")[0].key).toBe("2026-04");
+  });
+
+  it("re-derives the current fiscal year once the configured start arrives", async () => {
+    freezeToday();
+    // Not primed: the hook starts on the January default and fetches.
+    mockApi.on("get", "/settings/fiscal-year-start", { month: 4 });
+    renderCharts();
+    const combo = screen.getByRole("combobox", { name: "Fiscal Year" });
+    expect(combo).toHaveTextContent("FY 2026");
+    await waitFor(() => expect(combo).toHaveTextContent("FY 2026–2027"));
+    expect(pointsOf("Cumulative spend by category")[0].key).toBe("2026-04");
+  });
+});
+
+describe("PpmCostCharts — the year picker", () => {
+  it("names the heading", () => {
+    renderCharts();
+    expect(screen.getByText("Spend over time")).toBeInTheDocument();
+  });
+
+  it("shows 'All fiscal years' once picked, and again on the next mount", async () => {
+    const { user, unmount } = renderCharts();
+    await pickYear(user, "All fiscal years");
+    expect(screen.getByRole("combobox", { name: "Fiscal Year" })).toHaveTextContent("All fiscal years");
+    await waitFor(() =>
+      expect(JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}").fiscalYear).toBe("all"),
+    );
+    unmount();
+    renderCharts();
+    expect(screen.getByRole("combobox", { name: "Fiscal Year" })).toHaveTextContent("All fiscal years");
+  });
+
+  it("shows the current year when it was stored as a number rather than the sentinel", () => {
+    const currentYear = new Date().getFullYear();
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ fiscalYear: currentYear, expanded: true }));
+    renderCharts();
+    expect(screen.getByRole("combobox", { name: "Fiscal Year" })).toHaveTextContent(`FY ${currentYear}`);
+  });
+
+  it("follows new cost and budget lines handed to it", async () => {
+    const { user, rerender } = renderCharts();
+    rerender(
+      <PpmCostCharts
+        costLines={[
+          cost({ id: "n1", category: "capex", actual: 10, date: "2018-06-03" }),
+          cost({ id: "n2", category: "opex", actual: 5, date: null }),
+          cost({ id: "n3", category: "opex", actual: 5, date: null }),
+        ]}
+        budgetLines={[budget({ id: "nb", fiscal_year: 2018, category: "opex", amount: 70 })]}
+      />,
+    );
+    expect(pointsOf("Project to date").map((p) => p.key)).toEqual(["2018-06"]);
+    expect(last(pointsOf("Project to date"))).toMatchObject({ capex: 10, opex: 0 });
+    expect(refsOf("Project to date")).toEqual([["OpEx budget", 70]]);
+    expect(screen.getByText("2 undated cost items are not shown on the charts")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("combobox", { name: "Fiscal Year" }));
+    const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(options).toContain("FY 2018");
+    expect(options).not.toContain("FY 2020");
+  });
+});
+
+describe("PpmCostCharts — empty charts", () => {
+  it("shows the empty label in all three charts when no cost line is dated across all years", () => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ fiscalYear: "all", expanded: true }));
+    renderCharts([], [budget({ id: "b1", fiscal_year: 2020, amount: 100 })]);
+    expect(screen.getAllByText("No cost data to chart yet")).toHaveLength(3);
+    expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
+  });
+
+  it("shows the empty label for a fiscal year that has not started yet", async () => {
+    const future = new Date().getFullYear() + 3;
+    const { user } = renderCharts([], [budget({ id: "bf", fiscal_year: future, amount: 100 })]);
+    await pickYear(user, `FY ${future}`);
+    // Twelve months, none of them reached: nothing to draw in charts 1 and 2.
+    expect(screen.getAllByText("No cost data to chart yet")).toHaveLength(3);
+    expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
   });
 });

@@ -9,6 +9,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, screen, waitFor } from "@testing-library/react";
 import { useLocation } from "react-router";
+import { renderToStaticMarkup } from "react-dom/server";
 import type {
   PortalPpmPortfolio as Payload,
   PpmPortfolioItem,
@@ -17,7 +18,7 @@ import type {
 import type { PpmPortfolioViewProps } from "@/features/ppm/PpmPortfolioView";
 
 const publicGet = vi.fn();
-vi.mock("./publicApi", () => ({ publicGet: (...a: unknown[]) => publicGet(...a) }));
+vi.mock("@/features/web-portals/publicApi", () => ({ publicGet: (...a: unknown[]) => publicGet(...a) }));
 
 let lastProps: PpmPortfolioViewProps | null = null;
 vi.mock("@/features/ppm/PpmPortfolioView", () => ({
@@ -31,7 +32,7 @@ vi.mock("@/features/ppm/PpmPortfolioView", () => ({
   },
 }));
 
-import { renderWithProviders } from "@/test/render";
+import { renderWithProviders, wrapWithProviders } from "@/test/render";
 import PortalPpmPortfolio from "./PortalPpmPortfolio";
 
 function item(id: string, name: string): PpmPortfolioItem {
@@ -178,5 +179,46 @@ describe("PortalPpmPortfolio", () => {
     expect(lastProps?.items).toEqual([]);
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
+  });
+});
+
+describe("PortalPpmPortfolio — first paint and superseded requests", () => {
+  it("paints a loading, empty board before any response", () => {
+    const html = renderToStaticMarkup(
+      wrapWithProviders(<PortalPpmPortfolio slug="exec" portal={portal()} />, {
+        route: "/portal/exec",
+        user: null,
+        routes: [{ path: "/portal/exec" }],
+      }),
+    );
+    expect(html).toContain('data-loading="true"');
+    expect(lastProps?.items).toEqual([]);
+    expect(lastProps?.groupOptions).toEqual([]);
+    expect(lastProps?.dashboard).toBeNull();
+  });
+
+  it("ignores a superseded grouping's late response and keeps the spinner for the newer one", async () => {
+    const pending = new Map<string, (p: Payload) => void>();
+    publicGet.mockImplementation(
+      (path: string) => new Promise<Payload>((resolve) => pending.set(path, resolve)),
+    );
+    renderBoard();
+    await waitFor(() => expect(pending.has(pathFor("Organization"))).toBe(true));
+    act(() => lastProps?.onGroupByChange?.("Platform"));
+    await waitFor(() => expect(pending.has(pathFor("Platform"))).toBe(true));
+
+    // The Organization request was superseded; it settles first anyway.
+    await act(async () => {
+      pending.get(pathFor("Organization"))?.(payload("Organization", [item("i1", "ERP Upgrade")]));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(screen.getByTestId("board")).toHaveAttribute("data-loading", "true");
+    expect(screen.getByTestId("board")).not.toHaveTextContent("ERP Upgrade");
+
+    await act(async () => {
+      pending.get(pathFor("Platform"))?.(payload("Platform", [item("i2", "Cloud Move")]));
+    });
+    await waitFor(() => expect(screen.getByTestId("board")).toHaveAttribute("data-loading", "false"));
+    expect(screen.getByTestId("board")).toHaveTextContent("Cloud Move");
   });
 });

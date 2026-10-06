@@ -6,25 +6,32 @@
  * (and drops `tab` for the default), and that the active tab names the page.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
-import { useLocation } from "react-router";
+import { act, screen, waitFor } from "@testing-library/react";
+import { useLocation, useNavigate, useNavigationType } from "react-router";
 
-vi.mock("./PpmPortfolio", () => ({ default: () => <div data-testid="ppm-portfolio" /> }));
+vi.mock("@/features/ppm/PpmPortfolio", () => ({ default: () => <div data-testid="ppm-portfolio" /> }));
 vi.mock("@/features/reports/EaDeliveryReport", () => ({
   default: () => <div data-testid="ea-delivery" />,
 }));
 
 import { renderWithProviders } from "@/test/render";
 import { resetPageTitle, usePageTitleSlots } from "@/hooks/usePageTitle";
+import i18n from "@/i18n";
 import PpmHome from "./PpmHome";
 
 function Probe() {
   const location = useLocation();
+  const navigationType = useNavigationType();
+  const navigate = useNavigate();
   const { section } = usePageTitleSlots();
   return (
     <>
       <div data-testid="search">{location.search}</div>
+      <div data-testid="nav-type">{navigationType}</div>
       <div data-testid="section">{section?.text ?? ""}</div>
+      {/* A link elsewhere in the app pointing at a tab while the page is open. */}
+      <button onClick={() => navigate("/ppm?tab=ea-delivery")}>go to EA Delivery</button>
+      <button onClick={() => navigate("/ppm")}>go to PPM</button>
     </>
   );
 }
@@ -55,6 +62,7 @@ describe("PpmHome", () => {
   it("opens the tab named in the URL", async () => {
     renderHome("/ppm?tab=ea-delivery");
     expect(await screen.findByTestId("ea-delivery")).toBeInTheDocument();
+    expect(screen.queryByTestId("ppm-portfolio")).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /EA Delivery/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("section")).toHaveTextContent("EA Delivery");
   });
@@ -77,5 +85,45 @@ describe("PpmHome", () => {
     expect(await screen.findByTestId("ppm-portfolio")).toBeInTheDocument();
     expect(screen.getByTestId("search")).toHaveTextContent("?groupBy=Organization");
     expect(screen.getByTestId("search")).not.toHaveTextContent("tab=");
+  });
+
+  it("replaces the history entry when switching tabs instead of pushing one", async () => {
+    const { user } = renderHome();
+    await screen.findByTestId("ppm-portfolio");
+    expect(screen.getByTestId("nav-type")).toHaveTextContent("POP");
+    await user.click(screen.getByRole("tab", { name: /EA Delivery/ }));
+    expect(await screen.findByTestId("ea-delivery")).toBeInTheDocument();
+    expect(screen.getByTestId("nav-type")).toHaveTextContent("REPLACE");
+  });
+
+  it("follows the URL when it changes under the open page", async () => {
+    const { user } = renderHome();
+    await screen.findByTestId("ppm-portfolio");
+
+    await user.click(screen.getByRole("button", { name: "go to EA Delivery" }));
+    expect(await screen.findByTestId("ea-delivery")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /EA Delivery/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByTestId("ppm-portfolio")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "go to PPM" }));
+    expect(await screen.findByTestId("ppm-portfolio")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Portfolio/ })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("relabels the tabs and the page section when the language changes", async () => {
+    renderHome();
+    await screen.findByTestId("ppm-portfolio");
+    try {
+      await act(async () => {
+        await i18n.changeLanguage("es");
+      });
+      expect(screen.getByRole("tab", { name: /Portafolio/ })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("tab", { name: /Entrega EA/ })).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByTestId("section")).toHaveTextContent("Portafolio"));
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
   });
 });

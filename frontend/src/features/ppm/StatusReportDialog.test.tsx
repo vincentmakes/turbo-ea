@@ -5,7 +5,7 @@
  * pre-fills, and the exact POST / PATCH body (empty texts sent as null).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { PpmStatusReport } from "@/types";
 
@@ -13,6 +13,7 @@ vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientMo
 
 import { mockApi } from "@/test/apiMock";
 import { todayIsoDate } from "@/lib/dates";
+import i18n from "@/i18n";
 import StatusReportDialog from "./StatusReportDialog";
 
 const REPORT: PpmStatusReport = {
@@ -169,5 +170,30 @@ describe("StatusReportDialog — editing", () => {
       next_steps: null,
     });
     expect(mockApi.callsOf("post")).toHaveLength(0);
+  });
+});
+
+describe("StatusReportDialog — pre-filled texts and translated buttons", () => {
+  it("pre-fills accomplishments and next steps when the report has them", () => {
+    renderDialog({ ...REPORT, accomplishments: "Closed epic 4" });
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("textbox", { name: "Accomplishments" })).toHaveValue("Closed epic 4");
+    expect(within(dialog).getByRole("textbox", { name: "Next Steps" })).toHaveValue("Re-plan sprint 7");
+  });
+
+  it("translates Cancel and Save through the shared common keys", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+    try {
+      renderDialog(REPORT);
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByRole("button", { name: "Abbrechen" })).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Speichern" })).toBeInTheDocument();
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
   });
 });
