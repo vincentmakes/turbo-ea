@@ -13,7 +13,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
-import { useLocation } from "react-router";
+import { renderToStaticMarkup } from "react-dom/server";
+import { useLocation, useNavigate } from "react-router";
 import type { GEdge, GNode } from "@/features/reports/layeredDependencyLayout";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -33,7 +34,7 @@ vi.mock("@/features/reports/LayeredDependencyView", () => ({
 import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { CARD_TYPES, RELATION_TYPES } from "@/test/fixtures/metamodel";
-import { renderWithProviders } from "@/test/render";
+import { renderWithProviders, wrapWithProviders } from "@/test/render";
 import { resetPageTitle, usePageTitleSlots } from "@/hooks/usePageTitle";
 import type { TurboLensAssessment } from "@/types";
 import AssessmentViewer from "./AssessmentViewer";
@@ -581,5 +582,228 @@ describe("AssessmentViewer — other shapes", () => {
     expect(await screen.findByText("Only gap")).toBeInTheDocument();
     expect(screen.getByText("Only need")).toBeInTheDocument();
     expect(screen.queryByText("Market Recommendations")).not.toBeInTheDocument();
+  });
+});
+
+describe("AssessmentViewer — loading by route", () => {
+  it("paints the loading line first, before the request is even sent", () => {
+    const html = renderToStaticMarkup(
+      wrapWithProviders(<AssessmentViewer />, {
+        route: "/turbolens/assessments/a-1",
+        routes: [{ path: "/turbolens/assessments/:id" }],
+      }),
+    );
+    expect(html).toContain("Loading...");
+    expect(html).not.toContain("Assessment not found");
+  });
+
+  it("waits without a request when the route carries no id", async () => {
+    renderWithProviders(<AssessmentViewer />, {
+      route: "/turbolens/assessments",
+      routes: [{ path: "/turbolens/assessments" }],
+    });
+
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
+    await waitFor(() => expect(mockApi.callsOf("get")).toHaveLength(0));
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
+  });
+
+  it("loads the next assessment when the route's id changes", async () => {
+    mockApi.on("get", URL_A1, assessment());
+    mockApi.on("get", "/turbolens/assessments/a-2", assessment({ id: "a-2", title: "Second assessment" }));
+    function Jump() {
+      const navigate = useNavigate();
+      return <button onClick={() => navigate("/turbolens/assessments/a-2")}>jump</button>;
+    }
+    const { user } = renderWithProviders(
+      <>
+        <AssessmentViewer />
+        <Jump />
+      </>,
+      { route: "/turbolens/assessments/a-1", routes: [{ path: "/turbolens/assessments/:id" }] },
+    );
+
+    await screen.findByRole("heading", { name: "CRM replacement" });
+    await user.click(screen.getByRole("button", { name: "jump" }));
+    expect(await screen.findByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
+    expect(mockApi.callsOf("get").map((c) => c.path)).toEqual([URL_A1, "/turbolens/assessments/a-2"]);
+  });
+});
+
+describe("AssessmentViewer — header states", () => {
+  it("colours the status chip by status", async () => {
+    mockApi.on("get", URL_A1, assessment());
+    const first = renderViewer();
+    expect((await screen.findByText("Saved")).closest(".MuiChip-root")).toHaveClass("MuiChip-colorPrimary");
+    first.unmount();
+
+    mockApi.on("get", URL_A1, assessment({ status: "committed", initiative_id: "init-9", initiative_name: "X" }));
+    renderViewer();
+    expect((await screen.findByText("Committed")).closest(".MuiChip-root")).toHaveClass("MuiChip-colorSuccess");
+  });
+
+  it("links an initiative only once the assessment is committed", async () => {
+    // A saved assessment that somehow carries an initiative id does not link it.
+    mockApi.on("get", URL_A1, assessment({ initiative_id: "init-9", initiative_name: "CRM Programme" }));
+    const first = renderViewer();
+    await screen.findByRole("heading", { name: "CRM replacement" });
+    expect(screen.queryByText(/^Linked Initiative/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open Initiative" })).not.toBeInTheDocument();
+    first.unmount();
+
+    // A committed one without an initiative has nothing to link either.
+    mockApi.on("get", URL_A1, assessment({ status: "committed", initiative_id: null }));
+    renderViewer();
+    await screen.findByText("Committed");
+    expect(screen.queryByText(/^Linked Initiative/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open Initiative" })).not.toBeInTheDocument();
+  });
+});
+
+describe("AssessmentViewer — sparse session data", () => {
+  it("shows an empty requirement and no capability chips when nothing was captured", async () => {
+    mockApi.on("get", URL_A1, assessment({ session_data: {} }));
+    renderViewer();
+
+    const header = (await screen.findByText("Requirements")).closest(".MuiStack-root") as HTMLElement;
+    const panel = header.nextElementSibling as HTMLElement;
+    expect(panel).toHaveClass("MuiPaper-outlined");
+    expect(panel.textContent).toBe("");
+    expect(screen.queryByText(/Which business capabilities/)).not.toBeInTheDocument();
+  });
+
+  it("tolerates gap and dependency results without their lists", async () => {
+    mockApi.on(
+      "get",
+      URL_A1,
+      assessment({
+        session_data: {
+          requirement: "Req",
+          gapResult: { summary: "gap summary only" },
+          depsResult: { summary: "deps summary only" },
+        },
+      }),
+    );
+    renderViewer();
+
+    expect(await screen.findByText("Req")).toBeInTheDocument();
+    expect(screen.queryByText("Gap Analysis")).not.toBeInTheDocument();
+    expect(screen.queryByText("gap summary only")).not.toBeInTheDocument();
+    expect(screen.queryByText("Dependencies")).not.toBeInTheDocument();
+    expect(screen.queryByText("deps summary only")).not.toBeInTheDocument();
+  });
+});
+
+describe("AssessmentViewer — optional details", () => {
+  it("renders each optional detail in its own element", async () => {
+    mockApi.on("get", URL_A1, assessment());
+    renderViewer();
+
+    // Summaries are paragraphs of their own, not loose text in the page.
+    expect(await screen.findByText("Three capability gaps")).toHaveClass("MuiTypography-body2");
+    expect(screen.getByText("One platform dependency")).toHaveClass("MuiTypography-body2");
+    expect(screen.getByText("Target state after the CRM swap")).toHaveClass("MuiTypography-body2");
+
+    // A recommendation's and an option's reasoning are captions; costs are chips.
+    expect(screen.getByText("Native to the suite")).toHaveClass("MuiTypography-caption");
+    expect(screen.getByText("$50k/yr").closest(".MuiChip-root")).not.toBeNull();
+    expect(screen.getByText("SSO for every user")).toHaveClass("MuiTypography-caption");
+    expect(screen.getByText("Industry standard")).toHaveClass("MuiTypography-caption");
+    expect(screen.getByText("$10k/yr").closest(".MuiChip-root")).not.toBeNull();
+
+    // An NFR category and a relation's label are chips.
+    expect(screen.getByText("availability").closest(".MuiChip-root")).not.toBeNull();
+    const rels = panelOf(/^Proposed New Relations/);
+    expect(within(rels).getByText("hosts").closest(".MuiChip-root")).not.toBeNull();
+    // A relation without a label gets no chip at all.
+    expect(within(rels).getAllByText("uses")).toHaveLength(2);
+    expect(rels.querySelectorAll(".MuiChip-root")).toHaveLength(3);
+  });
+
+  it("offers no options grid for a dependency without options", async () => {
+    mockApi.on("get", URL_A1, assessment());
+    renderViewer();
+
+    const idp = (await screen.findByText("Identity provider")).closest(".MuiPaper-outlined") as HTMLElement;
+    expect(idp.querySelector(".MuiGrid-container")).not.toBeNull();
+    const bus = screen.getByText("Message bus").closest(".MuiPaper-outlined") as HTMLElement;
+    expect(bus.querySelector(".MuiGrid-container")).toBeNull();
+  });
+});
+
+describe("AssessmentViewer — merged graph edge cases", () => {
+  const MAPPING_NO_DEPS = {
+    capabilities: [{ id: "cap-a", name: "Payments", isNew: false, existingCardId: "bc-pay" }],
+    proposedCards: [
+      { id: "pc-app", name: "Gateway", cardTypeKey: "Application", isNew: true },
+      { id: "pc-itc", name: "Vault", cardTypeKey: "ITComponent", isNew: true },
+      { id: "pc-app2", name: "Ledger", cardTypeKey: "Application", isNew: true },
+      { id: "pc-itc2", name: "HSM", cardTypeKey: "ITComponent", isNew: true },
+    ],
+    proposedRelations: [
+      // A capability addressed by its own id lands on the existing card it stands for.
+      { sourceId: "pc-app", targetId: "cap-a", relationType: "relAppToBC" },
+      { sourceId: "pc-app2", targetId: "bc-pay", relationType: "relAppToBC" },
+      // Fitting neither direction of the relation type: kept as stored.
+      { sourceId: "pc-app", targetId: "pc-app2", relationType: "relAppToITC" },
+      { sourceId: "pc-itc", targetId: "pc-itc2", relationType: "relAppToITC" },
+      // No relation type at all.
+      { sourceId: "pc-itc", targetId: "pc-app", relationType: "" },
+    ],
+  };
+
+  it("builds the graph from proposals alone when there is no existing landscape", async () => {
+    mockApi.on("get", URL_A1, assessment({ session_data: { capabilityMapping: MAPPING_NO_DEPS } }));
+    renderViewer();
+
+    expect(await screen.findByTestId("ldv")).toHaveTextContent("5 nodes / 5 edges");
+    expect(ldv.props?.nodes).toEqual([
+      { id: "pc-app", name: "Gateway", type: "Application", proposed: true },
+      { id: "pc-itc", name: "Vault", type: "ITComponent", proposed: true },
+      { id: "pc-app2", name: "Ledger", type: "Application", proposed: true },
+      { id: "pc-itc2", name: "HSM", type: "ITComponent", proposed: true },
+      { id: "bc-pay", name: "Payments", type: "BusinessCapability", proposed: false },
+    ]);
+    expect(ldv.props?.edges.map((e) => [e.source, e.target, e.type])).toEqual([
+      ["pc-app", "bc-pay", "relAppToBC"],
+      ["pc-app2", "bc-pay", "relAppToBC"],
+      ["pc-app", "pc-app2", "relAppToITC"],
+      ["pc-itc", "pc-itc2", "relAppToITC"],
+      ["pc-itc", "pc-app", ""],
+    ]);
+    expect(ldv.props?.edges[4]).toMatchObject({ label: "", reverse_label: undefined });
+  });
+
+  it("names a capability addressed by the existing card it stands for", async () => {
+    mockApi.on("get", URL_A1, assessment({ session_data: { capabilityMapping: MAPPING_NO_DEPS } }));
+    renderViewer();
+
+    const rels = (await screen.findByText(/^Proposed New Relations/)).closest(".MuiPaper-outlined") as HTMLElement;
+    const lines = Array.from(rels.querySelectorAll(".MuiStack-root .MuiStack-root")).map((l) => l.textContent);
+    expect(lines.slice(0, 2)).toEqual(["Gatewayarrow_forwardPayments", "Ledgerarrow_forwardPayments"]);
+  });
+
+  it("draws a proposed card already on the existing canvas once", async () => {
+    mockApi.on(
+      "get",
+      URL_A1,
+      assessment({
+        session_data: {
+          capabilityMapping: {
+            capabilities: [],
+            proposedCards: [{ id: "app-live", name: "Live App", cardTypeKey: "Application", isNew: false }],
+            proposedRelations: [],
+            existingDependencies: {
+              nodes: [{ id: "app-live", name: "Live App", type: "Application" }],
+              edges: [],
+            },
+          },
+        },
+      }),
+    );
+    renderViewer();
+
+    expect(await screen.findByTestId("ldv")).toHaveTextContent("1 nodes / 0 edges");
+    expect(ldv.props?.nodes.map((n) => n.id)).toEqual(["app-live"]);
   });
 });

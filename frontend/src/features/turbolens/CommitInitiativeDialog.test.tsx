@@ -472,7 +472,9 @@ describe("CommitInitiativeDialog — commit run", () => {
     fillDates();
     await user.click(submitButton());
 
-    await user.keyboard("{Escape}");
+    // Escape on the dialog itself: pressed with focus on the page body, it
+    // would never reach the dialog's handler and the check would prove nothing.
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
 
@@ -483,5 +485,269 @@ describe("CommitInitiativeDialog — commit run", () => {
     await advancePoll();
     await advancePoll();
     expect(mockApi.callsOf("get", RUN)).toHaveLength(polls);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Form details
+// ---------------------------------------------------------------------------
+
+/** Every prop but the mapping, for a rerender. */
+function dialogWith(mapping: CapabilityMappingResult, onClose = vi.fn()) {
+  return (
+    <CommitInitiativeDialog
+      open
+      onClose={onClose}
+      assessmentId="as-1"
+      requirement={REQUIREMENT}
+      capabilityMapping={mapping}
+      objectiveIds={["obj-1", "obj-unknown"]}
+      selectedOption={OPTION}
+    />
+  );
+}
+
+/** The material-symbol ligatures rendered in a row, in order. */
+function iconsIn(row: HTMLElement): string[] {
+  return Array.from(row.querySelectorAll(".material-symbols-outlined")).map((i) => i.textContent ?? "");
+}
+
+describe("CommitInitiativeDialog — form details", () => {
+  it("names the dialog, explains the objectives and starts without an error", () => {
+    renderDialog();
+
+    expect(within(screen.getByRole("dialog")).getByText("Create Initiative from Assessment")).toBeInTheDocument();
+    expect(screen.getByText("These objectives will be linked to the new initiative.")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("cuts a long option title or requirement to 200 characters for the initiative name", () => {
+    const long = "x".repeat(150) + "y".repeat(100);
+    const first = renderDialog({ selectedOption: { ...OPTION, title: long } });
+    expect(screen.getByRole("textbox", { name: /Initiative Name/ })).toHaveValue(long.slice(0, 200));
+    first.unmount();
+
+    renderDialog({ selectedOption: undefined, requirement: long });
+    expect(screen.getByRole("textbox", { name: /Initiative Name/ })).toHaveValue(long.slice(0, 200));
+  });
+
+  it("needs a start date even when the end date is set", () => {
+    renderDialog();
+    setDate(/End Date/, "2027-03-31");
+    expect(submitButton()).toBeDisabled();
+  });
+
+  it("does not accept a name made only of spaces", async () => {
+    const { user } = renderDialog();
+    fillDates();
+    const nameField = screen.getByRole("textbox", { name: /Initiative Name/ });
+    await user.clear(nameField);
+    await user.type(nameField, "   ");
+    expect(submitButton()).toBeDisabled();
+  });
+
+  it("explains each card switch in its tooltip", async () => {
+    const { user } = renderDialog();
+    expect(within(rowOf("FraudShield")).getByLabelText("Disable this card and its relations")).toBeInTheDocument();
+
+    await user.click(cardSwitch("FraudShield"));
+    expect(within(rowOf("FraudShield")).getByLabelText("Enable this card and its relations")).toBeInTheDocument();
+  });
+
+  it("shows each card's type icon, and none for a type the metamodel does not know", () => {
+    renderDialog({
+      capabilityMapping: {
+        ...MAPPING,
+        proposedCards: [
+          ...MAPPING.proposedCards,
+          { id: "pc-widget", name: "Gizmo", cardTypeKey: "Widget", isNew: true },
+        ],
+      },
+    });
+
+    expect(iconsIn(rowOf("FraudShield"))).toEqual(["apps", "edit"]);
+    expect(iconsIn(rowOf("Okta"))).toEqual(["memory", "edit"]);
+    expect(iconsIn(rowOf("Gizmo"))).toEqual(["edit"]);
+  });
+
+  it("closes the inline editor after Enter and after Cancel", async () => {
+    const { user } = renderDialog();
+
+    await user.click(within(rowOf("FraudShield")).getByRole("button", { name: "Edit" }));
+    await user.type(screen.getByDisplayValue("FraudShield"), " Pro{Enter}");
+    expect(screen.queryByDisplayValue("FraudShield Pro")).not.toBeInTheDocument();
+    expect(within(rowOf("FraudShield Pro")).getByRole("button", { name: "Edit" })).toBeInTheDocument();
+
+    await user.click(within(rowOf("Okta")).getByRole("button", { name: "Edit" }));
+    await user.type(screen.getByDisplayValue("Okta"), " Y");
+    await user.click(within(editingRow("Okta Y")).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByDisplayValue("Okta Y")).not.toBeInTheDocument();
+    expect(within(rowOf("Okta")).getByRole("button", { name: "Edit" })).toBeInTheDocument();
+  });
+
+  it("shows a relation's label as a chip", () => {
+    renderDialog();
+    const section = screen.getByText(/^Relations to Create/).parentElement as HTMLElement;
+    expect(within(section).getByText("supports").closest(".MuiChip-root")).not.toBeNull();
+  });
+
+  it("has no relations section when nothing is to be related", () => {
+    renderDialog({ capabilityMapping: { ...MAPPING, proposedRelations: [] } });
+    expect(screen.getByText("Cards to Create (2/2)")).toBeInTheDocument();
+    expect(screen.queryByText(/^Relations to Create/)).not.toBeInTheDocument();
+  });
+
+  it("names an unknown objective by its id when the mapping has no existing landscape", () => {
+    renderDialog({
+      capabilityMapping: { ...MAPPING, existingDependencies: undefined },
+      objectiveIds: ["obj-x"],
+    });
+    expect(screen.getByText("obj-x")).toBeInTheDocument();
+  });
+});
+
+describe("CommitInitiativeDialog — relation switches follow their cards", () => {
+  it("disables a relation whose source card is switched off, and only those", async () => {
+    const { user } = renderDialog();
+
+    await user.click(cardSwitch("FraudShield"));
+    const [r0, r1, r2, r3] = relationSwitches();
+    expect(r0).toBeDisabled();
+    expect(r1).toBeDisabled();
+    expect(r2).toBeDisabled();
+    expect(r3).toBeEnabled();
+    expect(r3).toBeChecked();
+  });
+
+  it("does not bring back a relation whose source is still off when its target returns", async () => {
+    const { user } = renderDialog();
+
+    await user.click(cardSwitch("Okta"));
+    await user.click(cardSwitch("FraudShield"));
+    expect(screen.getByText("Relations to Create (1/4)")).toBeInTheDocument();
+
+    await user.click(cardSwitch("Okta"));
+    expect(screen.getByText("Relations to Create (1/4)")).toBeInTheDocument();
+  });
+
+  it("shows a relation switched off as unchecked", async () => {
+    const { user } = renderDialog();
+
+    await user.click(relationSwitches()[3]);
+    expect(relationSwitches()[3]).not.toBeChecked();
+    expect(relationSwitches()[3]).toBeEnabled();
+  });
+
+  it("starts over from a new mapping", () => {
+    const { rerender } = renderDialog();
+    expect(screen.getByText("Cards to Create (2/2)")).toBeInTheDocument();
+
+    // Now Okta is the card switched off in phase 5, and "Switched Off" is back on.
+    rerender(
+      dialogWith({
+        ...MAPPING,
+        proposedCards: [
+          MAPPING.proposedCards[0],
+          { ...MAPPING.proposedCards[1], disabled: true },
+          { ...MAPPING.proposedCards[2], disabled: false },
+          MAPPING.proposedCards[3],
+        ],
+      }),
+    );
+
+    expect(screen.getByText("Cards to Create (2/2)")).toBeInTheDocument();
+    expect(cardSwitch("Switched Off")).toBeChecked();
+    expect(screen.queryByText("Okta", { selector: "p" })).not.toBeInTheDocument();
+    expect(screen.getByText("Relations to Create (3/4)")).toBeInTheDocument();
+    const [r0, r1, r2, r3] = relationSwitches();
+    expect(r0).toBeChecked();
+    expect(r1).not.toBeChecked();
+    expect(r1).toBeDisabled();
+    expect(r2).toBeChecked();
+    expect(r2).toBeEnabled();
+    expect(r3).toBeChecked();
+  });
+});
+
+describe("CommitInitiativeDialog — commit run details", () => {
+  let run: TurboLensAnalysisRun;
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    run = analysisRun({});
+    mockApi.on("post", COMMIT, { run_id: "run-1" });
+    mockApi.on("get", RUN, () => run);
+  });
+
+  it("sends the initiative name without surrounding spaces", async () => {
+    const { user } = renderDialog();
+    const nameField = screen.getByRole("textbox", { name: /Initiative Name/ });
+    await user.clear(nameField);
+    await user.type(nameField, "  Fraud programme  ");
+    fillDates();
+    await user.click(submitButton());
+
+    expect(mockApi.callsOf("post", COMMIT)[0].body).toMatchObject({ initiativeName: "Fraud programme" });
+  });
+
+  it("keeps the last progress when a poll brings none", async () => {
+    const { user } = renderDialog();
+    fillDates();
+    await user.click(submitButton());
+
+    run = analysisRun({ results: progress("creating_cards", 1, 3) });
+    await advancePoll();
+    expect(screen.getByText("Creating cards (1/3)...")).toBeInTheDocument();
+
+    run = analysisRun({ results: { note: "still working" } });
+    await advancePoll();
+    expect(screen.getByText("Creating cards (1/3)...")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "33");
+  });
+
+  it("can be dismissed once the run has completed", async () => {
+    const { user, onClose } = renderDialog();
+    fillDates();
+    await user.click(submitButton());
+
+    run = analysisRun({ status: "completed", results: { initiative_id: "init-9", card_count: 2, relation_count: 3 } });
+    await advancePoll();
+    expect(screen.getByText("Initiative created successfully!")).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops polling once the run has failed", async () => {
+    const { user } = renderDialog();
+    fillDates();
+    await user.click(submitButton());
+
+    run = analysisRun({ status: "failed", error_message: "nope" });
+    await advancePoll();
+    expect(screen.getByText("nope")).toBeInTheDocument();
+    const polls = mockApi.callsOf("get", RUN).length;
+
+    await advancePoll();
+    await advancePoll();
+    expect(mockApi.callsOf("get", RUN)).toHaveLength(polls);
+  });
+
+  it("starts a retried commit from the opening step, not the failed run's progress", async () => {
+    const { user } = renderDialog();
+    fillDates();
+    await user.click(submitButton());
+
+    run = analysisRun({ results: progress("creating_cards", 1, 3) });
+    await advancePoll();
+    run = analysisRun({ status: "failed", error_message: "nope", results: progress("creating_cards", 1, 3) });
+    await advancePoll();
+    expect(screen.getByText("nope")).toBeInTheDocument();
+
+    run = analysisRun({});
+    await user.click(submitButton());
+    expect(screen.getByText("Creating initiative...")).toBeInTheDocument();
+    expect(screen.queryByText("Creating cards (1/3)...")).not.toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).not.toHaveAttribute("aria-valuenow");
   });
 });
