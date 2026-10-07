@@ -104,3 +104,30 @@ def test_a_scope_without_a_path_passes_through():
 def test_non_http_scopes_are_not_gated(scope_type):
     reached, sent = call(scope_type=scope_type)
     assert reached and sent == []
+
+
+def run_raw(scope):
+    reached, sent = [], []
+
+    async def inner(scope, receive, send):
+        reached.append(scope)
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message):
+        sent.append(message)
+
+    asyncio.run(RequireBearerForMcp(inner, METADATA)(scope, receive, send))
+    return bool(reached), sent
+
+
+def test_a_scope_with_no_path_key_passes_through():
+    reached, sent = run_raw({"type": "http", "headers": []})
+    assert reached and sent == []
+
+
+def test_a_protocol_request_with_no_headers_key_is_challenged():
+    reached, sent = run_raw({"type": "http", "path": "/mcp", "method": "POST"})
+    assert not reached
+    assert response_of(sent)[0] == 401
