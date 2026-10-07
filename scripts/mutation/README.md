@@ -35,19 +35,24 @@ changed.
    in scope; below that it warns and the PR's Test Plan answers for each
    survivor.
 
-**Every weekday night** (`mutation-nightly.yml`): the whole codebase, so the
-existing features are measured, not just new lines.
+**Every working-day evening** (`mutation-nightly.yml`, Sunday to Thursday,
+17:13 UTC; GitHub starts it several hours late, so the results land before the
+next morning): the whole codebase, so the existing features are measured, not
+just new lines.
 
 - Every mutable file is dealt into shards (6 backend, 1 MCP, 8 frontend) and
   each shard caches its results: mutmut's `mutants/` directory, Stryker's
   incremental file. mutmut saves every verdict as it lands, so a shard that
-  runs out of its `--budget` stops cleanly and the next night resumes. Once
-  the baseline is complete, only functions that changed are re-tested.
+  runs out of its `--budget` stops cleanly and the next night resumes from the
+  functions still unchecked (see below). Once the baseline is complete, only
+  functions that changed are re-tested.
   Stryker alone cannot resume, because it writes its incremental file only
   when a whole run completes. `stryker_scope.py nightly` therefore splits
   each frontend shard into stable chunks of files, each with its own
   incremental file and last report, runs them oldest first until the budget
   is spent, and lets a chunk cut off by the budget keep its previous report.
+  A chunk whose last report was made from the same inputs is skipped (see
+  below).
 - The `report` job runs `gate.py --scope suite --allow-pending` per suite
   against the `[suite]` floor and each `[modules]` floor. A floor applies once
   everything it covers is measured; until then the summary shows baseline
@@ -164,6 +169,21 @@ Each of these was found the hard way while wiring it up; keep them.
   by mutant-name patterns instead, and every run generates every file.
 - **Always pass patterns.** Without mutant names, mutmut's "clean test" step
   reruns the whole suite serially a second time.
+- **A nightly shard names only the functions still unchecked.** mutmut keeps
+  a verdict only for mutants it was *not* asked for by name: every mutant a
+  pattern on its command line matches is re-tested, verdict or not. A shard
+  that passed its files' patterns re-tested its whole baseline every night,
+  fastest first, and once that took the whole budget, the unchecked mutants
+  (the slow ones, last in mutmut's order) never came up: on 2026-10-07 the
+  backend shards ran at over a mutant a second all night and the baseline
+  stayed at 95%. `mutmut_scope.py run --shard` therefore runs mutmut once on
+  a name that matches nothing, which regenerates the mutants, resets the
+  verdicts of every function whose code changed, and stops before any test.
+  It then reads the `.meta` file beside each mutated file and names only the
+  functions that still have a mutant without a verdict. That also shrinks the
+  clean test to those functions' tests. A PR's changed functions and
+  `--files` still name everything, because there a re-test is what was asked
+  for.
 - **`TEST_DB_REQUIRED=1`.** `backend/tests/conftest.py` skips every database
   test when Postgres is unreachable. Under mutmut that reads as "nothing kills
   anything" and still exits 0, so the mutation jobs turn the skip into a
@@ -198,6 +218,15 @@ Each of these was found the hard way while wiring it up; keep them.
   skip under the `MUTATION_SANDBOX` flag that `vitest.stryker.config.ts` sets.
   `test_ci_workflow_mutation.py` fails any test that reads files off disk
   without them, unless it is allowlisted there with a reason.
+- **An unchanged frontend chunk is skipped.** Stryker pays a full dry run,
+  several minutes, for every chunk, even when it reuses every result. Each
+  chunk therefore records `inputs_digest` (every file under `src/`, the
+  lockfile and the Stryker, Vitest and TypeScript configs) next to its report,
+  and `stryker_scope.py nightly` skips a chunk whose recorded digest matches.
+  A night with no frontend change costs minutes, and the second half of the
+  budget re-runs only the chunks the first half failed or did not reach. The
+  digest covers all of `src/`, not just the chunk's files and the tests,
+  because a mutant's tests also run every module the file imports.
 - **A lost runner loses half a night, not all of it.** GitHub sometimes takes
   a runner away mid-job ("The runner has received a shutdown signal"). A job
   in that state runs no later step, not even an `always()` one, so the

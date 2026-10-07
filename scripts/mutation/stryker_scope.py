@@ -28,7 +28,13 @@ overran its budget would lose every result, every night. The shard's files are
 split into ``CHUNKS`` stable chunks (by a hash of the path, so a new file never
 moves the others), each with its own incremental file and last report in the
 cached ``--state`` directory. Chunks run oldest-report-first until the budget
-is spent; a chunk cut off by the budget keeps its previous report.
+is spent; a chunk cut off by the budget keeps its previous report. A chunk
+whose last report was made from the same inputs (``inputs_digest``: every file
+under ``src/`` plus the lockfile and the Stryker/Vitest/TypeScript configs) is
+skipped: Stryker pays a full dry run per chunk even when it reuses every
+result, which on a quiet night was hours per shard spent re-running nothing,
+and the second half of the budget walked every chunk the first half had just
+finished.
 
 ``collect`` reads a report (mutation-testing-report-schema) and writes the
 records ``gate.py`` scores; with ``--changed`` it keeps only mutants whose
@@ -41,6 +47,7 @@ chunk has measured yet, so the gate shows the baseline's progress.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -63,6 +70,13 @@ REPORT = Path("reports") / "mutation" / "mutation.json"  # relative to the front
 STRYKER = ["npx", "stryker", "run"]  # the command; a test swaps in a stand-in
 CHUNKS = 16  # per shard: ~4 files each at today's size, small enough to finish
 MIN_CHUNK_SECONDS = 60  # never start a chunk with less time than this left
+# What a chunk's verdicts depend on besides src/ (relative to the frontend).
+DIGEST_FILES = (
+    "package-lock.json",
+    "stryker.config.json",
+    "vitest.config.ts",
+    "vitest.stryker.config.ts",
+)
 
 STATUS = {
     "Killed": "killed",
@@ -181,6 +195,27 @@ def _report_path(state: Path, shard: str, chunk: int) -> Path:
     return state / f"chunk-{shard_index(shard)}-{chunk}.mutation.json"
 
 
+def _inputs_path(state: Path, shard: str, chunk: int) -> Path:
+    return state / f"chunk-{shard_index(shard)}-{chunk}.inputs"
+
+
+def inputs_digest(frontend: Path = FRONTEND) -> str:
+    """One hash of everything a chunk's verdicts can depend on.
+
+    The whole of ``src/``, not just the chunk's files and the tests: a mutated
+    file's tests also run every module it imports, and Stryker's own
+    incremental diff, which only compares mutated and test files, would carry
+    a verdict across a change to one of those.
+    """
+    paths = [p for p in (frontend / "src").rglob("*") if p.is_file()]
+    paths += frontend.glob("tsconfig*.json")
+    paths += [frontend / name for name in DIGEST_FILES if (frontend / name).is_file()]
+    digest = hashlib.sha256()
+    for rel, path in sorted((p.relative_to(frontend).as_posix(), p) for p in paths):
+        digest.update(rel.encode() + b"\0" + path.read_bytes() + b"\0")
+    return digest.hexdigest()
+
+
 def _run_chunk(files: list[str], incremental: Path, timeout: float, frontend: Path) -> str:
     """Run Stryker on one chunk: ``done``, ``failed`` or ``budget``."""
     (frontend / REPORT).unlink(missing_ok=True)
@@ -230,8 +265,17 @@ def nightly(
     if max_chunks is not None:
         order = order[:max_chunks]
     deadline = clock() + budget * 60
+    inputs = inputs_digest(frontend)
     failed = []
     for chunk in order:
+        recorded = _inputs_path(state, shard, chunk)
+        if (
+            _report_path(state, shard, chunk).exists()
+            and recorded.exists()
+            and recorded.read_text() == inputs
+        ):
+            print(f"chunk {chunk} ({len(groups[chunk])} files): unchanged")
+            continue
         remaining = deadline - clock()
         if remaining < MIN_CHUNK_SECONDS:
             print(f"Budget spent; {len(order) - order.index(chunk)} chunk(s) wait for next run.")
@@ -241,6 +285,7 @@ def nightly(
         print(f"chunk {chunk} ({len(groups[chunk])} files): {outcome}")
         if outcome == "done":
             shutil.copyfile(frontend / REPORT, _report_path(state, shard, chunk))
+            recorded.write_text(inputs)
         elif outcome == "failed":
             failed.append(chunk)
         else:

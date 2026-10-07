@@ -14,11 +14,22 @@ a set of mutant-name patterns, never on nothing: without names mutmut's
   module would otherwise mutate all of it.
 * ``--shard K/N`` (the nightly): every mutable file, dealt largest-first into
   N shards like ``backend/tests/shard_plugin.py`` deals test files, so the
-  suite runs on N runners. mutmut keeps each verdict in ``mutants/`` and skips
-  it next time, so with ``--budget`` a shard stops cleanly after that many
-  minutes and the next night resumes where it stopped: the baseline of the
-  existing code is built up over several nights, then only changed functions
-  are re-tested.
+  suite runs on N runners. mutmut keeps each verdict in ``mutants/``, so with
+  ``--budget`` a shard stops cleanly after that many minutes and the next
+  night resumes where it stopped: the baseline of the existing code is built
+  up over several nights, then only changed functions are re-tested.
+
+  That resumption is this script's doing, not mutmut's: mutmut re-tests every
+  mutant NAMED on its command line, verdict or not, and skips verdicts only
+  when it is given no names at all, which would mean the whole suite as its
+  clean test and every shard's mutants at once. Passing the shard's file
+  patterns therefore re-tested the whole shard each night, fastest first, so
+  once the baseline was large the budget ran out before the mutants still
+  unchecked came up (2026-10-07: a night of 1.2 mutants a second and not one
+  new verdict). A shard run first lets mutmut regenerate the mutants without
+  testing any (``generate_only``), which is also when it resets the verdicts
+  of every function whose code changed, then names only the functions that
+  still have an unchecked mutant (``unchecked_patterns``).
 
 ``collect`` reads ``mutmut results`` and writes the records ``gate.py``
 scores; with ``--changed`` it keeps only mutants on a changed line, with
@@ -48,6 +59,7 @@ import signal
 import subprocess
 import sys
 import threading
+import time
 import tomllib
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -79,6 +91,9 @@ STATUS = {
 _RESULT = re.compile(r"^\s+(\S+__mutmut_\d+): (.+?)\s*$")
 _HUNK = re.compile(r"^@@ -(\d+)(?:,\d+)? \+\d+(?:,\d+)? @@")
 _NOTHING_MATCHES = "Filtered for specific mutants, but nothing matches"
+# A name no mutant has. mutmut generates the mutants, loads its stats, then
+# stops on _NOTHING_MATCHES before running a single test.
+_GENERATE_ONLY = "mutmut_scope.generate_only__mutmut_0"
 
 
 # ── configuration ────────────────────────────────────────────────────────────
@@ -430,6 +445,29 @@ def report_skipped(skipped: list[str]) -> None:
             fh.write("\n".join(text) + "\n")
 
 
+def generate_only(directory: Path, max_children: int) -> subprocess.CompletedProcess:
+    """Bring ``mutants/`` up to date with the source without testing anything."""
+    return mutmut(directory, "run", "--max-children", str(max_children), _GENERATE_ONLY)
+
+
+def unchecked_patterns(directory: Path, files: list[str]) -> list[str]:
+    """One pattern per function of ``files`` that still has a mutant without a
+    verdict, read from the ``.meta`` file mutmut keeps beside each mutated
+    file. A file with no ``.meta`` has never been generated: all of it."""
+    patterns: list[str] = []
+    for rel in files:
+        meta = directory / "mutants" / f"{rel}.meta"
+        if not meta.is_file():
+            patterns += patterns_for(rel)
+            continue
+        verdicts = json.loads(meta.read_text("utf-8")).get("exit_code_by_key", {})
+        functions = {
+            name.rpartition("__mutmut_")[0] for name, code in verdicts.items() if code is None
+        }
+        patterns += [f"{function}__mutmut_*" for function in sorted(functions)]
+    return patterns
+
+
 def run(
     suite: str,
     changed: dict | None,
@@ -447,6 +485,22 @@ def run(
         print(f"No {suite} function to mutate in this scope.")
         return 0
     shadow_root.build(SUITE_DIRS[suite], repo)
+    if changed is None and not files:
+        started = time.monotonic()
+        generated = generate_only(directory, max_children)
+        # mutmut's assertion lands on stderr when its output is captured
+        stopped = _NOTHING_MATCHES in generated.stdout + generated.stderr
+        if generated.returncode != 0 and not stopped:
+            print(generated.stdout, generated.stderr, sep="\n")
+            return generated.returncode
+        in_scope = shard_files(suite, shard, repo) if shard else mutable_files(suite, repo)
+        patterns = unchecked_patterns(directory, in_scope)
+        if not patterns:
+            print(f"Every {suite} mutant in this scope has a verdict.")
+            return 0
+        print(f"{len(patterns)} function(s) still have an unchecked mutant.")
+        if budget:
+            budget = max(budget - (time.monotonic() - started) / 60, 1.0)
     args = ["run", "--max-children", str(max_children), *patterns]
     result = mutmut(directory, *args, stream=True, budget=budget)
     if result.returncode != 0 and _NOTHING_MATCHES in result.stdout:

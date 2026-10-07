@@ -1409,7 +1409,9 @@ describe("InventoryFilterSidebar — Views tab", () => {
     await waitFor(() => expect(screen.getByText(/No saved views yet/)).toBeInTheDocument());
     expect(mockApi.callsOf("delete").map((c) => c.path)).toEqual(["/bookmarks/bm-1"]);
     expect(mockApi.callsOf("get", "/bookmarks")).toHaveLength(2);
-    expect(sidebarPrefs().activeViewId).toBeNull();
+    // Written by a passive effect, which can run after the list has rendered
+    // (it did under Stryker's load): wait for it rather than read it once.
+    await waitFor(() => expect(sidebarPrefs().activeViewId).toBeNull());
     // The row's action buttons never apply the view.
     expect(onGroupByChange).not.toHaveBeenCalled();
   });

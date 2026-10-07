@@ -25,9 +25,13 @@ name: Mutation (nightly)
 
 on:
   schedule:
-    # Weekdays 01:13 UTC: done before the working day, clear of the Monday
-    # image rebuild and the Tuesday DAST run.
-    - cron: "13 1 * * 1-5"
+    # Sunday to Thursday at 17:13 UTC, so the results are there each working
+    # morning. GitHub starts this repository's scheduled runs 6-7 h late
+    # (October 2026: this one, set for 01:13, was created at 07:11 and 07:30;
+    # ghcr-stats, set for 03:23, at 10:25 and 10:33), so an evening slot is
+    # what still finishes, ~5 h later, before the working day. Clear of the
+    # Monday image rebuild and the Tuesday DAST run.
+    - cron: "13 17 * * 0-4"
   workflow_dispatch:
     inputs:
       budget:

@@ -246,3 +246,14 @@ def test_every_floor_is_documented_in_the_rule_that_owns_it():
         assert job in (ROOT / "CONTRIBUTING.md").read_text()
     template = (ROOT / ".github" / "pull_request_template.md").read_text()
     assert "Mutation" in template
+
+
+def test_the_nightly_is_scheduled_in_the_evening():
+    """GitHub starts this repository's scheduled runs 6-7 h late, so an
+    early-morning slot ran through the working day."""
+    crons = re.findall(r'cron: "([^"]+)"', NIGHTLY.read_text())
+    assert len(crons) == 1
+    minute, hour, day, month, weekdays = crons[0].split()
+    assert 16 <= int(hour) <= 19
+    # the evenings before Monday to Friday
+    assert (day, month, weekdays) == ("*", "*", "0-4")
