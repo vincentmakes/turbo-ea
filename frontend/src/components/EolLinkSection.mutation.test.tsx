@@ -459,6 +459,78 @@ describe("EolLinkSection — superseded and failed requests", () => {
   });
 });
 
+describe("EolLinkSection — the save error and the progress bar", () => {
+  const REDIS = { ...LINKED, attributes: { eol_product: "redis", eol_cycle: "7" } };
+
+  /** Change the linked card to cycle 12 through the picker and press Link. */
+  async function relinkTo12(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByTitle("Change linked product"));
+    await screen.findAllByText("Version / Cycle");
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: /^12/ }));
+    await user.click(screen.getByRole("button", { name: "Link" }));
+  }
+
+  it("names a failed link that carries no message, and clears it once a retry saves", async () => {
+    mockApi.on("get", "/eol/products/postgresql", [
+      { cycle: "16", eol: future(48) },
+      { cycle: "12", eol: true },
+    ]);
+    const user = userEvent.setup();
+    const onSave = vi.fn(() => Promise.reject("nope"));
+    render(<EolLinkSection card={LINKED} onSave={onSave} />);
+    await screen.findByText("Active Support");
+    await relinkTo12(user);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+
+    onSave.mockImplementation(() => Promise.resolve());
+    await user.click(screen.getByRole("button", { name: "Link" }));
+    expect(await screen.findByText("Linked to")).toBeInTheDocument();
+    expect(onSave).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("spaces a failed unlink's error, closes it, and clears it once an unlink saves", async () => {
+    const user = userEvent.setup();
+    mockApi.on("get", "/eol/products/postgresql", [{ cycle: "16", eol: future(48) }]);
+    const onSave = vi.fn(() => Promise.reject(new Error("PATCH /cards/x failed")));
+    render(<EolLinkSection card={LINKED} onSave={onSave} />);
+    await screen.findByText("Active Support");
+
+    await user.click(screen.getByTitle("Unlink EOL data"));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("PATCH /cards/x failed");
+    expect(alert).toHaveStyle({ marginBottom: "16px" });
+    await user.click(within(alert).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await user.click(screen.getByTitle("Unlink EOL data"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("PATCH /cards/x failed");
+
+    onSave.mockImplementation(() => Promise.resolve());
+    await user.click(screen.getByTitle("Unlink EOL data"));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(screen.queryByText("Active Support")).not.toBeInTheDocument());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("keeps the progress bar while the current product loads, whatever the superseded one does", async () => {
+    const pg = holdGets("/eol/products/postgresql");
+    const redis = holdGets("/eol/products/redis");
+    const { rerender, onSave } = renderSection(LINKED);
+    rerender(<EolLinkSection card={REDIS} onSave={onSave} />);
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+
+    // The superseded product's reply lands while redis is still loading.
+    await settle(pg[0], [{ cycle: "16", eol: future(48), support: true }]);
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+
+    await settle(redis[0], [{ cycle: "7", eol: true, support: false }]);
+    expect(await screen.findByText("Yes (EOL)")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+});
+
 describe("EolLinkSection — the picker on an unlinked card", () => {
   beforeEach(() => {
     mockApi.on("get", FUZZY, [

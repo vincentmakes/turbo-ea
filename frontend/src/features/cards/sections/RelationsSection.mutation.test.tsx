@@ -790,3 +790,55 @@ describe("RelationsSection — relation types without a group of their own", () 
     expect(screen.queryByRole("button", { name: /Add Relation/ })).not.toBeInTheDocument();
   });
 });
+
+describe("RelationsSection — load state and the header count", () => {
+  function headerCount(): HTMLElement | null {
+    const header = screen.getByText("Relations").parentElement as HTMLElement;
+    return header.querySelector(".MuiChip-root");
+  }
+
+  it("shows no error while the relations load, then counts them in the header", async () => {
+    let release!: (rows: Relation[]) => void;
+    mockApi.on(
+      "get",
+      `/relations?card_id=${FS}`,
+      () => new Promise<Relation[]>((resolve) => (release = resolve)),
+    );
+    mount();
+    await waitFor(() => expect(mockApi.callsOf("get", `/relations?card_id=${FS}`)).toHaveLength(1));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("is used by")).toBeInTheDocument();
+
+    await act(async () => release([rel("1", "Finance"), rel("2", "Legal")]));
+    expect(await screen.findByText("Finance")).toBeInTheDocument();
+    const count = headerCount();
+    expect(count).toHaveTextContent("2");
+    expect(count).toHaveStyle({ marginLeft: "8px", height: "20px", fontSize: "0.7rem" });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows no count in the header when the relations cannot be loaded", async () => {
+    mockApi.fail("get", `/relations?card_id=${FS}`, 500);
+    mount();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      `GET /relations?card_id=${FS} failed`,
+    );
+    expect(headerCount()).toBeNull();
+  });
+
+  it("closes a failed remove's error from its close button", async () => {
+    routeRelations([rel("1", "Finance")]);
+    mockApi.fail("delete", "/relations/1", 500);
+    const view = mount();
+    await screen.findByText("Finance");
+
+    await view.user.click(within(rowOf("Finance")).getByRole("button", { name: "Remove" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("DELETE /relations/1 failed");
+    expect(alert).toHaveStyle({ margin: "8px" });
+
+    await view.user.click(within(alert).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("Finance")).toBeInTheDocument();
+  });
+});

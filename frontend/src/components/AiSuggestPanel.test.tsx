@@ -10,6 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { makeField, makeOption, makeSection } from "@/test/fixtures/metamodel";
 import type { AiSuggestResponse, SectionDef } from "@/types";
 import i18n from "@/i18n";
+import { STATUS_COLORS } from "@/theme/tokens";
 import AiSuggestPanel from "./AiSuggestPanel";
 
 const SCHEMA: SectionDef[] = [
@@ -231,6 +232,23 @@ describe("AiSuggestPanel — details", () => {
     expect(screen.getByLabelText("Confidence: 90%")).toHaveTextContent("90%");
     // An extra field's own source is shown next to it.
     expect(screen.getByText("inventory scan")).toBeInTheDocument();
+  });
+
+  it("colours each confidence chip by band, with the bands' lower bounds included", () => {
+    renderPanel({
+      response: {
+        ...WITH_FIELDS,
+        suggestions: {
+          description: { value: "A CRM.", confidence: 0.8 },
+          isCloud: { value: true, confidence: 0.5 },
+          criticality: { value: "high", confidence: 0.49 },
+        },
+      },
+      fieldsSchema: SCHEMA,
+    });
+    expect(screen.getByLabelText("Confidence: 80%")).toHaveStyle({ color: STATUS_COLORS.success });
+    expect(screen.getByLabelText("Confidence: 50%")).toHaveStyle({ color: STATUS_COLORS.warning });
+    expect(screen.getByLabelText("Confidence: 49%")).toHaveStyle({ color: STATUS_COLORS.error });
   });
 
   it("forwards extra suggestions without editors when no schema is given", async () => {

@@ -580,6 +580,43 @@ describe("SuccessorsSection", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
   });
 
+  it("clears a failed remove's error once a remove succeeds", async () => {
+    mockApi.fail("delete", "/relations/*", 500);
+    const { user } = renderSection();
+    await screen.findByText("ERP Legacy");
+    const row = screen.getByText("ERP Legacy").closest("li") as HTMLElement;
+    await user.click(within(row).getByTitle("Remove"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("DELETE /relations/rel-pred failed");
+
+    mockApi.on("delete", "/relations/*", {});
+    await user.click(within(row).getByTitle("Remove"));
+    await waitFor(() => expect(mockApi.callsOf("delete", "/relations/rel-pred")).toHaveLength(2));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+
+  it("shows no error while the lineage loads after the relation types arrive", async () => {
+    // The section first renders before the metamodel carries the successor
+    // relation type, then loads the lineage once it does.
+    withMetamodel(CARD_TYPES, RELATION_TYPES);
+    let release!: (rels: Relation[]) => void;
+    mockApi.on(
+      "get",
+      RELATIONS_URL,
+      () => new Promise<Relation[]>((resolve) => (release = resolve)),
+    );
+    const { rerender } = renderWithProviders(<SuccessorsSection card={CARD} />);
+
+    withMetamodel(CARD_TYPES, [...RELATION_TYPES, SUCCESSOR_RT]);
+    rerender(wrapWithProviders(<SuccessorsSection card={CARD} />));
+    await waitFor(() => expect(mockApi.callsOf("get", RELATIONS_URL)).toHaveLength(1));
+    expect(screen.getByRole("button", { name: /Lineage/ })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await act(async () => release(RELATIONS));
+    expect(await screen.findByText("ERP Legacy")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("offers no editing controls when the user cannot edit", async () => {
     renderSection({ canEdit: false });
     await screen.findByText("ERP Legacy");

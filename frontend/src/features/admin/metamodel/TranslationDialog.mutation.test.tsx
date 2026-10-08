@@ -188,6 +188,24 @@ describe("TranslationDialog — locale tabs", () => {
     rerender({});
     await waitFor(() => expect(tabOf("fr")).toHaveAttribute("aria-selected", "true"));
   });
+
+  it("stays on the tab it opened on when more locales are enabled later", async () => {
+    // Opened while only German and French were enabled: German is the tab the
+    // dialog shows. Enabling English afterwards adds a tab ahead of it but
+    // must not move the selection under the user.
+    locales.enabled = ["de", "fr"];
+    const { rerender } = renderDialog();
+    await waitFor(() => expect(tabOf("de")).toHaveAttribute("aria-selected", "true"));
+
+    locales.enabled = [...SUPPORTED_LOCALES];
+    rerender({});
+    expect(await screen.findByRole("tab", { name: /English/ })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+    expect(tabOf("de")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByPlaceholderText("Application")).toHaveValue("Anwendung");
+  });
 });
 
 describe("TranslationDialog — headings and groups", () => {

@@ -119,3 +119,119 @@ describe("TodosTab — moving to another card", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
+
+describe("TodosTab — error alerts", () => {
+  function rowButtons(text: string): HTMLElement[] {
+    return within(screen.getByText(text).closest("li") as HTMLElement).getAllByRole("button");
+  }
+
+  it("loads the list with an abort signal", async () => {
+    render(<TodosTab fsId={FS_ID} />);
+    await screen.findByText("First card's todo");
+    const call = mockApi.api.get.mock.calls.find(([path]) => path === LIST);
+    expect(call?.[1]).toEqual({ signal: expect.any(AbortSignal) });
+  });
+
+  it("shows no error on mount, and spaces a load error from the list", async () => {
+    render(<TodosTab fsId={FS_ID} />);
+    await screen.findByText("First card's todo");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    mockApi.fail("get", OTHER_LIST, 500);
+    render(<TodosTab fsId={OTHER} />);
+    expect(await screen.findByRole("alert")).toHaveStyle({ marginBottom: "8px" });
+  });
+
+  it("closes a failed action's error from its close button", async () => {
+    mockApi.fail("patch", "/todos/*", 500);
+    const user = userEvent.setup();
+    render(<TodosTab fsId={FS_ID} />);
+    await screen.findByText("First card's todo");
+
+    await user.click(rowButtons("First card's todo")[0]);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("PATCH /todos/t1 failed");
+    expect(alert).toHaveStyle({ marginBottom: "8px" });
+
+    await user.click(within(alert).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("clears a failed action's error once an activation succeeds", async () => {
+    const scheduled: Todo = {
+      id: "s1",
+      description: "Scheduled cycle",
+      status: "scheduled",
+      recurrence_unit: "months",
+      recurrence_interval: 1,
+    };
+    mockApi.on("get", LIST, [...FIRST, scheduled]);
+    mockApi.fail("patch", "/todos/*", 500);
+    mockApi.on("post", "/todos/s1/promote", {});
+    const user = userEvent.setup();
+    render(<TodosTab fsId={FS_ID} />);
+    await screen.findByText("Scheduled cycle");
+
+    await user.click(rowButtons("First card's todo")[0]);
+    expect(await screen.findByRole("alert")).toHaveTextContent("PATCH /todos/t1 failed");
+
+    await user.click(screen.getByTitle("Activate now"));
+    await waitFor(() => expect(mockApi.callsOf("post", "/todos/s1/promote")).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+
+  it("clears a failed action's error once a delete succeeds", async () => {
+    mockApi.fail("patch", "/todos/*", 500);
+    mockApi.on("delete", "/todos/*", {});
+    const user = userEvent.setup();
+    render(<TodosTab fsId={FS_ID} />);
+    await screen.findByText("First card's todo");
+
+    await user.click(rowButtons("First card's todo")[0]);
+    expect(await screen.findByRole("alert")).toHaveTextContent("PATCH /todos/t1 failed");
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(mockApi.callsOf("delete", "/todos/t1")).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+
+  it("closes a failed add's error from its close button, and clears it while retrying", async () => {
+    mockApi.fail("post", LIST, 500);
+    const user = userEvent.setup();
+    render(<TodosTab fsId={FS_ID} />);
+    await screen.findByText("First card's todo");
+    await waitFor(() => expect(mockApi.callsOf("get", "/users")).toHaveLength(1));
+
+    await user.click(screen.getByRole("button", { name: /Add Todo/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Add Todo" });
+    await user.type(within(dialog).getByLabelText("Description"), "Renew the contract");
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent(`POST ${LIST} failed`);
+    expect(alert).toHaveStyle({ marginTop: "8px" });
+    await user.click(within(alert).getByRole("button", { name: "Close" }));
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+
+    // Fail again, then retry: the previous error is gone while the retry runs.
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(`POST ${LIST} failed`);
+    const retry = deferred<unknown>();
+    mockApi.on("post", LIST, () => retry.promise);
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+    await waitFor(() => expect(mockApi.callsOf("post", LIST)).toHaveLength(3));
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+    await act(async () => retry.resolve({}));
+  });
+
+  it("spaces the assignees error inside the Add dialog", async () => {
+    mockApi.fail("get", "/users", 500);
+    const user = userEvent.setup();
+    render(<TodosTab fsId={FS_ID} />);
+    await screen.findByText("First card's todo");
+
+    await user.click(screen.getByRole("button", { name: /Add Todo/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Add Todo" });
+    expect(await within(dialog).findByRole("alert")).toHaveStyle({ marginTop: "8px" });
+  });
+});

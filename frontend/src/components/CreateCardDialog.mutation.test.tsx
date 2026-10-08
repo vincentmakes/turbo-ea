@@ -1311,4 +1311,76 @@ describe("CreateCardDialog — end-of-life auto-search", () => {
     expect(screen.queryByText("python")).not.toBeInTheDocument();
     expect(screen.queryByText(/No EOL matches found/)).not.toBeInTheDocument();
   });
+
+  it("shows no search error before a search or after one that finds matches", async () => {
+    renderDialog({ initialType: "ITComponent" });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    mockApi.on("get", /^\/eol\/products\/fuzzy/, [{ name: "python", score: 0.9 }]);
+    typeName("Python");
+    await debounce();
+    expect(screen.getByText("python")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows a failed search's error, spaced, for a name typed with surrounding spaces", async () => {
+    mockApi.on("get", /^\/eol\/products\/fuzzy/, () =>
+      Promise.reject(new Error("endoflife.date unreachable")),
+    );
+    renderDialog({ initialType: "ITComponent" });
+    typeName("  Python  ");
+    await debounce();
+    expect(fuzzyCalls()).toEqual([fuzzyPath("Python")]);
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("endoflife.date unreachable");
+    expect(alert).toHaveStyle({ marginTop: "8px" });
+  });
+
+  it("says a name typed with surrounding spaces has no match", async () => {
+    renderDialog({ initialType: "ITComponent" });
+    typeName(" Go ");
+    await debounce();
+    expect(fuzzyCalls()).toEqual([fuzzyPath("Go")]);
+    expect(screen.getByText(/No EOL matches found/)).toBeInTheDocument();
+  });
+
+  it("does not show an earlier failure while a search for the same name runs", async () => {
+    deferFuzzy();
+    renderDialog({ initialType: "ITComponent" });
+    typeName("Python");
+    await debounce();
+    await act(async () => {
+      reply("Python").reject(new Error("endoflife.date unreachable"));
+    });
+    await flush();
+    expect(screen.getByRole("alert")).toHaveTextContent("endoflife.date unreachable");
+
+    // Another name starts a search; going back to the failed name while it
+    // runs must not bring the old error back over the running search.
+    typeName("Pythons");
+    await debounce();
+    typeName("Python");
+    expect(screen.getByText('Searching endoflife.date for "Python"...')).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("does not search while the dialog is closed", async () => {
+    const { update } = renderDialog({ initialType: "ITComponent" });
+    typeName("Node");
+    await debounce();
+    expect(fuzzyCalls()).toEqual([fuzzyPath("Node")]);
+
+    update({ initialType: "ITComponent", open: false });
+    await flush();
+    await debounce();
+    expect(fuzzyCalls()).toEqual([fuzzyPath("Node")]);
+  });
+});
+
+describe("CreateCardDialog — the tag groups warning", () => {
+  it("is spaced from the fields below it", async () => {
+    mockApi.fail("get", "/tag-groups", 500);
+    renderDialog({ initialType: "Widget" });
+    expect(await screen.findByRole("alert")).toHaveStyle({ marginBottom: "16px" });
+  });
 });

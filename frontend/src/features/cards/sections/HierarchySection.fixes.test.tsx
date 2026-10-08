@@ -92,3 +92,50 @@ describe("HierarchySection — moving to another card", () => {
     expect(screen.getByText("Company C1")).toBeInTheDocument();
   });
 });
+
+describe("HierarchySection — loading and errors", () => {
+  it("shows a progress bar and no error while the hierarchy loads", async () => {
+    const pending = deferred<HierarchyData>();
+    mockApi.on("get", "/cards/b/hierarchy", () => pending.promise);
+    renderWithProviders(<HierarchySection card={CARD_B} onUpdate={vi.fn()} />);
+    await waitFor(() => expect(mockApi.callsOf("get", "/cards/b/hierarchy")).toHaveLength(1));
+
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await act(async () => pending.resolve(B_TREE));
+    expect(await screen.findByText("Company B1")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("loads the hierarchy with an abort signal", async () => {
+    mockApi.on("get", "/cards/b/hierarchy", B_TREE);
+    renderWithProviders(<HierarchySection card={CARD_B} onUpdate={vi.fn()} />);
+    await screen.findByText("Company B1");
+    const call = mockApi.api.get.mock.calls.find(([path]) => path === "/cards/b/hierarchy");
+    expect(call?.[1]).toEqual({ signal: expect.any(AbortSignal) });
+  });
+
+  it("shows a failed load's error spaced from the section, with no progress bar", async () => {
+    mockApi.fail("get", "/cards/b/hierarchy", 500);
+    renderWithProviders(<HierarchySection card={CARD_B} onUpdate={vi.fn()} />);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("GET /cards/b/hierarchy failed");
+    expect(alert).toHaveStyle({ marginBottom: "16px" });
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("clears a failed removal's error once the parent is removed", async () => {
+    mockApi.on("get", "/cards/b/hierarchy", B_TREE);
+    mockApi.fail("patch", "/cards/b", 500);
+    const onUpdate = vi.fn();
+    const { user } = renderWithProviders(<HierarchySection card={CARD_B} onUpdate={onUpdate} />);
+    await user.click(await screen.findByTitle("Remove parent"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("PATCH /cards/b failed");
+
+    mockApi.on("patch", "/cards/b", {});
+    await user.click(screen.getByTitle("Remove parent"));
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});

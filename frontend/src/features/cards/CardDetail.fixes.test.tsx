@@ -345,3 +345,50 @@ describe("CardDetail — a failed logo action", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
+
+describe("CardDetail — a failed approval transition", () => {
+  it("shows the error spaced above the content, and closes it from its close button", async () => {
+    mockApi.fail("post", /^\/cards\/c1\/approval-status/, 503);
+    const { user } = renderPage();
+    await user.click(await screen.findByText("approval-approve"));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("POST /cards/c1/approval-status?action=approve failed");
+    expect(alert).toHaveStyle({ marginBottom: "16px" });
+
+    await user.click(within(alert).getByRole("button", { name: /close/i }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+
+  it("clears the error once a later transition goes through", async () => {
+    let calls = 0;
+    mockApi.on("post", /^\/cards\/c1\/approval-status/, () => {
+      calls += 1;
+      if (calls === 1) throw new ApiError("Server unavailable", 503, null);
+      return {};
+    });
+    const { user } = renderPage();
+    await user.click(await screen.findByText("approval-approve"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Server unavailable");
+
+    await user.click(screen.getByText("approval-approve"));
+    await waitFor(() => expect(screen.getByTestId("approval")).toHaveTextContent("APPROVED"));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+describe("CardDetail — error spacing", () => {
+  it("spaces a failed subtype save's error above the content", async () => {
+    mockApi.fail("patch", "/cards/c1", 500);
+    const { user } = renderPage();
+    await user.click(await screen.findByRole("button", { name: "Change subtype" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Microservice" }));
+    expect(await screen.findByRole("alert")).toHaveStyle({ marginBottom: "16px" });
+  });
+
+  it("spaces a failed logo action's error above the content", async () => {
+    const { user } = renderPage();
+    await user.click(await screen.findByText("logo-fail"));
+    expect(await screen.findByRole("alert")).toHaveStyle({ marginBottom: "16px" });
+  });
+});

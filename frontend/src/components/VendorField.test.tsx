@@ -706,3 +706,72 @@ describe("VendorField", () => {
     expect(onProviderSelected).toHaveBeenCalledWith(null);
   });
 });
+
+describe("VendorField — error alerts", () => {
+  async function openCreateDialog(user: ReturnType<typeof renderField>["user"]) {
+    await user.type(screen.getByLabelText("Provider"), "Initech");
+    await user.click(await screen.findByRole("option", { name: /Create Provider "Initech"/ }));
+    return screen.findByRole("dialog");
+  }
+
+  it("shows no error under the field once the linked Provider is shown", async () => {
+    mockApi.on("get", RELATIONS_URL, [EXISTING]);
+    renderField({ fsId: FS_ID });
+    expect(await screen.findByText("Globex", { selector: ".MuiChip-label" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("closes a failed link's error from its close button", async () => {
+    mockApi.fail("post", "/relations", 500);
+    const { user } = renderField({ fsId: FS_ID });
+    await user.click(screen.getByLabelText("Provider"));
+    await user.click(await screen.findByRole("option", { name: /Acme Corp/ }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("POST /relations failed");
+    await user.click(within(alert).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("opens the create dialog without an error", async () => {
+    const { user } = renderField({ fsId: FS_ID });
+    const dialog = await openCreateDialog(user);
+    expect(within(dialog).getByRole("button", { name: "Create & Link" })).toBeEnabled();
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("closes a failed create's error from its close button, keeping the dialog open", async () => {
+    mockApi.fail("post", "/cards", 409, "duplicate");
+    const { user } = renderField({ fsId: FS_ID });
+    const dialog = await openCreateDialog(user);
+    await user.click(within(dialog).getByRole("button", { name: "Create & Link" }));
+
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent("POST /cards failed");
+    expect(alert).toHaveStyle({ marginTop: "8px" });
+    await user.click(within(alert).getByRole("button", { name: "Close" }));
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("drops a failed create's error while the retry runs", async () => {
+    mockApi.fail("post", "/cards", 409, "duplicate");
+    const { user } = renderField({ fsId: FS_ID });
+    const dialog = await openCreateDialog(user);
+    await user.click(within(dialog).getByRole("button", { name: "Create & Link" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("POST /cards failed");
+
+    let release!: (card: { id: string; name: string }) => void;
+    mockApi.on(
+      "post",
+      "/cards",
+      () => new Promise<{ id: string; name: string }>((resolve) => (release = resolve)),
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Create & Link" }));
+    await waitFor(() => expect(mockApi.callsOf("post", "/cards")).toHaveLength(2));
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+
+    await act(async () => release({ id: "prov-new", name: "Initech" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+});
