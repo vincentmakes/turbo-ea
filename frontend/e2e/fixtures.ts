@@ -11,9 +11,11 @@
  * - `drawio` / `waitForDrawio`: the DrawIO iframe, ready once the SPA's
  *   bootstrap has put the graph on `window.__turboGraph`.
  * - `page` (override): with `E2E_COVERAGE=1`, records Chromium's V8 coverage
- *   of the SPA's `/assets/*.js` chunks into `.e2e-coverage/<testId>-<retry>.json`
- *   (a V8 `ProcessCov`, `{ result: ScriptCov[] }`), one file per test so a
- *   worker restart loses nothing already written. `scripts/e2e-coverage.mjs`
+ *   of the SPA's `/assets/*.js` chunks into
+ *   `.e2e-coverage/<testId>-<repeat>-<retry>.json` (a V8 `ProcessCov`,
+ *   `{ result: ScriptCov[] }`), one file per test run — a worker restart loses
+ *   nothing already written, and `--repeat-each` keeps every repetition
+ *   instead of the last one overwriting the rest. `scripts/e2e-coverage.mjs`
  *   remaps them onto the sources and `Frontend Tests` (ci.yml) merges that
  *   with the unit suite's coverage. Every spec imports `test` from here —
  *   `login.spec.ts` included — so the fixture reaches them all. A second page
@@ -25,6 +27,7 @@ import { fileURLToPath } from "node:url";
 
 import { test as base, expect, type APIRequestContext, type Frame, type FrameLocator, type Page } from "@playwright/test";
 
+import { isAppAsset } from "../scripts/app-asset.mjs";
 import { t } from "./i18n";
 
 export const E2E_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -36,10 +39,8 @@ export const ADMIN = { email: "admin@turboea.demo", password: "TurboEA!2025" };
 
 /** `E2E_COVERAGE=1`: record the SPA's V8 coverage (ci.yml, `make e2e-coverage`). */
 const COLLECT_COVERAGE = process.env.E2E_COVERAGE === "1";
-/** Raw recordings, one file per test; `scripts/e2e-coverage.mjs` converts them. */
+/** Raw recordings, one file per test run; `scripts/e2e-coverage.mjs` converts them. */
 export const COVERAGE_DIR = path.join(E2E_DIR, "..", ".e2e-coverage");
-/** The SPA's own chunks. DrawIO's /drawio/js/*.js has no map to src/ and would only bloat the files. Same regex in scripts/e2e-coverage.mjs. */
-const APP_ASSET = /\/assets\/[^/?#]+\.js$/;
 
 export interface DemoData {
   /** "Application Landscape Overview": 8 application cells, 3 relation edges. */
@@ -157,12 +158,15 @@ export const test = base.extend<Record<string, never>, { demo: DemoData }>({
     if (page.isClosed()) return;
     const entries = await page.coverage.stopJSCoverage();
     // `source` is the chunk text (the converter reads dist/assets/ instead) and
-    // DrawIO's scripts carry tens of MB of ranges per diagram test: both dropped.
+    // DrawIO's scripts carry tens of MB of ranges per diagram test: both
+    // dropped. `isAppAsset` swallows a non-URL — an eval'd script reports its
+    // `//# sourceURL` name, which must not throw inside the fixture's teardown.
     const result = entries
-      .filter((entry) => APP_ASSET.test(new URL(entry.url).pathname))
+      .filter((entry) => isAppAsset(entry.url))
       .map(({ url, scriptId, functions }) => ({ url, scriptId, functions }));
     await fs.mkdir(COVERAGE_DIR, { recursive: true });
-    await fs.writeFile(path.join(COVERAGE_DIR, `${testInfo.testId}-${testInfo.retry}.json`), JSON.stringify({ result }));
+    const name = `${testInfo.testId}-${testInfo.repeatEachIndex}-${testInfo.retry}.json`;
+    await fs.writeFile(path.join(COVERAGE_DIR, name), JSON.stringify({ result }));
   },
   demo: [
     async ({ playwright }, use) => {

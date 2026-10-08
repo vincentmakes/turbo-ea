@@ -7,6 +7,12 @@
 !CHANGELOG.md
 frontend/node_modules
 frontend/dist
+# Test and coverage output (ci.yml, make e2e-coverage)
+frontend/coverage
+frontend/coverage-e2e
+frontend/coverage-merged
+frontend/.e2e-coverage
+frontend/.vitest-reports
 backend/__pycache__
 backend/.pytest_cache
 backend/venv

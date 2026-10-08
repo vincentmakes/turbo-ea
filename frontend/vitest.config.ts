@@ -30,9 +30,12 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       // scripts/e2e-coverage.mjs mirrors this include/exclude for the browser
-      // suite's report (`isMeasured`); change both together. The scripts
-      // themselves are measured too, so nothing new sits outside the gate.
-      include: ["src/**/*.{ts,tsx}", "scripts/**/*.mjs"],
+      // suite's report (`isMeasured`); change both together — the parity test
+      // in scripts/e2e-coverage.test.ts pins these two lists. The coverage
+      // tooling CI runs is measured too, named file by file: a `scripts/**`
+      // glob would also take in the untested generator scripts (gen-*.mjs),
+      // and the next PR to touch one would fail the diff gate on them.
+      include: ["src/**/*.{ts,tsx}", "scripts/app-asset.mjs", "scripts/e2e-coverage.mjs", "scripts/merge-lcov.mjs"],
       exclude: ["src/test/**", "src/**/*.test.{ts,tsx}", "src/main.tsx"],
       // `text` is what the CI log shows; `lcov` feeds the diff-coverage gate
       // on changed lines and `json-summary` the job summary (ci.yml).

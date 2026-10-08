@@ -32,16 +32,10 @@ import libReport from "istanbul-lib-report";
 import reports from "istanbul-reports";
 import { parseAstAsync } from "vite";
 
-/** The SPA's own chunks. Same regex as e2e/fixtures.ts: DrawIO's /drawio/js/*.js has no map to src/. */
-export const APP_ASSET = /\/assets\/[^/?#]+\.js$/;
+// The one definition of "an app chunk", shared with the recording side (e2e/fixtures.ts).
+import { APP_ASSET, isAppAsset } from "./app-asset.mjs";
 
-export function isAppAsset(url) {
-  try {
-    return APP_ASSET.test(new URL(url).pathname);
-  } catch {
-    return false;
-  }
-}
+export { APP_ASSET, isAppAsset };
 
 /**
  * Mirrors vitest.config.ts `coverage.include` / `coverage.exclude`:
@@ -94,9 +88,9 @@ export function chunkPathFor(url, distDir) {
   return path.join(distDir, decodeURIComponent(new URL(url).pathname));
 }
 
-/** The chunk's source map: the `//# sourceMappingURL=` it names, else `<chunk>.map`. */
+/** The chunk's source map: the `//# sourceMappingURL=` comment it ENDS with, else `<chunk>.map`. */
 export function sourceMapPathFor(code, jsPath) {
-  const match = /\/\/[#@]\s*sourceMappingURL=(\S+)\s*$/.exec(code.trimEnd());
+  const match = /\/\/[#@]\s*sourceMappingURL=(\S+)\s*$/.exec(code);
   if (match && !match[1].startsWith("data:")) return path.resolve(path.dirname(jsPath), match[1]);
   return `${jsPath}.map`;
 }
@@ -169,7 +163,8 @@ export function parseArgs(argv, frontendRoot) {
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const key = arg.replace(/^--/, "");
-    if (!arg.startsWith("--") || !(key in opts)) throw new Error(`e2e-coverage: unknown option ${arg}`);
+    // hasOwn, not `in`: `--toString x` must be an unknown option, not a prototype hit.
+    if (!arg.startsWith("--") || !Object.hasOwn(opts, key)) throw new Error(`e2e-coverage: unknown option ${arg}`);
     const value = argv[++i];
     if (value === undefined) throw new Error(`e2e-coverage: ${arg} needs a value`);
     opts[key] = path.resolve(frontendRoot, value);
