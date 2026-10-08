@@ -291,10 +291,35 @@ async def test_an_identity_of_another_kind_is_written_and_refreshed(db, env):
     tag_row = (await identities(db, "tag"))[("N1", "inmem")]
     assert (tag_row.target_id, tag_row.migration_id) == (staged.target_id, env.m.id)
     assert tag_row.last_seen_at is not None
+    tag_row.last_seen_at = None
+    later = await make_migration(db, user=env.admin)
     staged.target_id = uuid.uuid4()
+    staged.migration_id = later.id
     await ap._upsert_identity_map_kind(db, staged, "tag")
-    assert tag_row.target_id == staged.target_id
+    assert (tag_row.target_id, tag_row.migration_id) == (staged.target_id, later.id)
+    assert tag_row.last_seen_at is not None
     assert card_identity.target_id != staged.target_id
+
+
+async def test_an_identity_from_another_source_is_left_alone(db, env):
+    other_card = await identity(db, "N1", uuid.uuid4(), source_type="other")
+    other_tag = await identity(db, "N1", uuid.uuid4(), kind="tag", source_type="other")
+    before = (other_card.target_id, other_tag.target_id)
+    staged = await stage(db, env, "card", "N1", target_id=uuid.uuid4())
+    await ap._upsert_identity_map(db, staged)
+    await ap._upsert_identity_map_kind(db, staged, "tag")
+    await db.flush()
+    assert (other_card.target_id, other_tag.target_id) == before
+    assert set(await identities(db, "card")) == {("N1", "inmem"), ("N1", "other")}
+    assert set(await identities(db, "tag")) == {("N1", "inmem"), ("N1", "other")}
+
+
+async def test_a_parent_is_looked_up_among_this_migration_s_staged_cards_only(db, env):
+    top = await create_card(db, name="Top")
+    await stage(db, env, "card", "P", action="skip", target_id=top.id)
+    await stage(db, env, "tag", "P", target_id=uuid.uuid4())
+    child = await stage(db, env, "card", "C", parent_source_id="P")
+    assert await ap._resolve_parent_card_id(db, child) == top.id
 
 
 async def test_a_parent_resolves_from_this_migration_first_then_the_identity_map(db, env):
@@ -405,8 +430,9 @@ async def test_skips_and_conflicts_are_terminal(db, env, published):
     skip = await stage(db, env, "card", "S1", action="skip", target_id=kept.id)
     bare_skip = await stage(db, env, "card", "S2", action="skip")
     conflict = await stage(db, env, "card", "C1", action="conflict")
-    assert await ap._apply_card_pass(db, env.m, env.admin) == zero(skipped=2, conflicts=1)
-    assert [s.status for s in (skip, bare_skip, conflict)] == ["applied"] * 3
+    conflict2 = await stage(db, env, "card", "C2", action="conflict")
+    assert await ap._apply_card_pass(db, env.m, env.admin) == zero(skipped=2, conflicts=2)
+    assert [s.status for s in (skip, bare_skip, conflict, conflict2)] == ["applied"] * 4
     assert set(await identities(db, "card")) == {("S1", "inmem")}
     assert published == []
 
@@ -493,6 +519,24 @@ async def test_an_update_merges_and_records_exactly_what_moved(db, env, publishe
         }
     ]
     assert (await identities(db, "card"))[("N1", "inmem")].target_id == card.id
+
+
+async def test_an_update_records_a_new_subtype_and_not_the_parent_it_kept(db, env, published):
+    top = await create_card(db, name="Top")
+    card = await create_card(db, name="Child", parent_id=top.id, subtype="Old")
+    staged = await stage(
+        db,
+        env,
+        "card",
+        "U1",
+        action="update",
+        target_id=card.id,
+        data={"payload": {"subtype": "New"}},
+    )
+    await ap._apply_single_card(db, staged, env.admin)
+    assert (card.subtype, card.parent_id) == ("New", top.id)
+    (event,) = published
+    assert event["data"]["changes"] == {"subtype": {"old": "Old", "new": "New"}}
 
 
 async def test_an_update_that_changes_nothing_leaves_the_card_alone(db, env, published):
@@ -588,10 +632,11 @@ async def test_tag_groups_are_created_unless_already_resolved(db, env):
     db.add(existing)
     await db.flush()
     resolved = await stage(db, env, "tag_group", "G0", action="skip", target_id=existing.id)
+    await stage(db, env, "tag_group", "G4", action="skip", target_id=existing.id)
     unresolved_skip = await stage(db, env, "tag_group", "G1", action="skip", data={"name": "Re"})
     new = await stage(db, env, "tag_group", "G2", data={"name": "Domain", "mode": "single"})
     await stage(db, env, "tag_group", "G3", data={"name": "Plain"})
-    assert await ap._apply_tag_group_pass(db, env.m, env.admin) == zero(created=3, skipped=1)
+    assert await ap._apply_tag_group_pass(db, env.m, env.admin) == zero(created=3, skipped=2)
     groups = {g.name: g for g in (await db.execute(select(TagGroup))).scalars()}
     assert (groups["Domain"].mode, groups["Domain"].description) == (
         "single",
@@ -604,20 +649,46 @@ async def test_tag_groups_are_created_unless_already_resolved(db, env):
 
 
 async def test_tags_find_their_group_by_staged_id_fallback_name_or_database(db, env):
-    staged_group = TagGroup(name="Staged")
+    # Renamed since staging, so only the staged index can find it by "Staged".
+    staged_group = TagGroup(name="Renamed after staging")
+    elsewhere = TagGroup(name="Another migration's group")
     fallback = TagGroup(name="Imported from inmem")
     by_name = TagGroup(name="ByName")
-    db.add_all([staged_group, fallback, by_name])
+    db.add_all([staged_group, elsewhere, fallback, by_name])
+    await db.flush()
+    old_tag = Tag(tag_group_id=by_name.id, name="Old")
+    db.add(old_tag)
     await db.flush()
     await stage(db, env, "tag_group", "Staged", target_id=staged_group.id)
     await stage(db, env, "tag_group", "Pending")  # no target: not indexed
+    # Neither another migration's group row nor a tag row of this one is a
+    # group the index may pick up, whichever comes last.
+    other = await make_migration(db, user=env.admin)
+    db.add(
+        StagedRecord(
+            migration_id=other.id,
+            source_type="inmem",
+            entity_kind="tag_group",
+            source_id="Staged",
+            source_data={},
+            action="create",
+            target_id=elsewhere.id,
+        )
+    )
+    await stage(db, env, "tag", "Staged", action="skip", target_id=old_tag.id)
+    await stage(db, env, "tag", "T0", action="skip", target_id=old_tag.id)
     rows = {
         "T1": {"name": "One", "group_name": "Staged", "color": "#111111"},
         "T2": {"name": "Two"},
         "T3": {"name": "Three", "group_name": "ByName"},
     }
     staged = {k: await stage(db, env, "tag", k, data=v) for k, v in rows.items()}
-    assert await ap._apply_tag_pass(db, env.m, env.admin) == zero(created=3)
+    # A skip that never resolved its target is created like any other row.
+    unresolved = await stage(
+        db, env, "tag", "T4", action="skip", data={"name": "Four", "group_name": "ByName"}
+    )
+    assert await ap._apply_tag_pass(db, env.m, env.admin) == zero(created=4, skipped=2)
+    assert unresolved.target_id is not None
     tags = {t.name: t for t in (await db.execute(select(Tag))).scalars()}
     assert (tags["One"].tag_group_id, tags["One"].color) == (staged_group.id, "#111111")
     assert tags["Two"].tag_group_id == fallback.id
@@ -724,10 +795,41 @@ async def test_a_relation_already_present_takes_the_new_attributes(db, env, ends
             "attributes": {"k": 1},
         },
     )
-    assert await ap._apply_relation_pass(db, env.m, env.admin) == zero(updated=1)
+    again = await stage(
+        db,
+        env,
+        "relation",
+        "R2",
+        data={"tea_type": "app_to_itc", "from_entity_id": "app", "to_entity_id": "server"},
+    )
+    assert await ap._apply_relation_pass(db, env.m, env.admin) == zero(updated=2)
     assert present.attributes == {"a": 1, "k": 1}
-    assert staged.target_id == present.id
+    assert staged.target_id == again.target_id == present.id
     assert len((await db.execute(select(Relation))).scalars().all()) == 1
+
+
+async def test_only_a_relation_of_the_same_type_and_ends_is_reused(db, env, ends):
+    await create_relation_type(db, key="app_to_itc_2", label="also runs on")
+    spare = await create_card(db, card_type="ITComponent", name="Spare")
+    other_type = await create_relation(
+        db, type_key="app_to_itc_2", source_id=ends.app.id, target_id=ends.server.id
+    )
+    other_target = await create_relation(db, source_id=ends.app.id, target_id=spare.id)
+    staged = await stage(
+        db,
+        env,
+        "relation",
+        "R1",
+        data={
+            "tea_type": "app_to_itc",
+            "from_entity_id": "app",
+            "to_entity_id": "server",
+            "attributes": {"k": 1},
+        },
+    )
+    assert await ap._apply_relation_pass(db, env.m, env.admin) == zero(created=1)
+    assert staged.target_id not in {other_type.id, other_target.id}
+    assert (other_type.attributes, other_target.attributes) == ({}, {})
 
 
 async def test_relation_updates_skips_conflicts_and_failures(db, env, ends):
@@ -746,14 +848,24 @@ async def test_relation_updates_skips_conflicts_and_failures(db, env, ends):
     )
     skip = await stage(db, env, "relation", "S", action="skip", data=data)
     conflict = await stage(db, env, "relation", "C", action="conflict", data=data)
+    await stage(db, env, "relation", "C2", action="conflict", data=data)
+    update2 = await stage(
+        db,
+        env,
+        "relation",
+        "U2",
+        action="update",
+        target_id=existing.id,
+        data={**data, "attributes": {"c": 3}},
+    )
     orphan = await stage(db, env, "relation", "O", data={**data, "to_entity_id": "ghost"})
     no_target = await stage(db, env, "relation", "N", action="update", data=data)
     gone = await stage(db, env, "relation", "G", action="update", target_id=uuid.uuid4(), data=data)
     assert await ap._apply_relation_pass(db, env.m, env.admin) == zero(
-        updated=1, skipped=2, conflicts=1, errors=2
+        updated=2, skipped=2, conflicts=2, errors=2
     )
-    assert existing.attributes == {"a": 1, "b": 2}
-    assert [s.status for s in (update, skip, conflict, orphan)] == ["applied"] * 4
+    assert existing.attributes == {"a": 1, "b": 2, "c": 3}
+    assert [s.status for s in (update, update2, skip, conflict, orphan)] == ["applied"] * 5
     assert orphan.error_message == "Endpoint card not resolved in identity map"
     assert (no_target.status, no_target.error_message) == (
         "error",
@@ -777,10 +889,11 @@ async def test_a_custom_type_is_created_once_with_import_defaults(db, env):
     existing = await stage(
         db, env, "metamodel_type", "App", data={"proposed_tea_key": "Application"}
     )
+    await stage(db, env, "metamodel_type", "ITC", data={"proposed_tea_key": "ITComponent"})
     other = await stage(db, env, "metamodel_type", "X", action="skip")
     broken = await stage(db, env, "metamodel_type", "Y", data={})
     assert await ap._apply_metamodel_type_pass(db, env.m, env.admin) == zero(
-        created=2, skipped=2, errors=1
+        created=2, skipped=3, errors=1
     )
     server = (await db.execute(select(CardType).where(CardType.key == "Server"))).scalar_one()
     assert (server.label, server.category, server.icon, server.color) == (
@@ -866,6 +979,52 @@ async def test_custom_fields_land_in_an_imported_section(db, env):
     assert (missing.status, missing.error_message) == ("error", "target card type 'Nope' not found")
 
 
+async def test_a_field_mapping_is_looked_up_by_the_native_type_before_the_first_colon(db, env):
+    # ``source_id`` is ``<native_type>:<field_key>`` and a field key may hold
+    # a colon of its own; a row with no field key consults the empty key.
+    env.m.field_mappings = {"LX": {"a:b": "description", "": "description"}}
+    await db.flush()
+    await create_card_type(db, key="Widget", label="Widget")
+    colon = await stage(
+        db,
+        env,
+        "metamodel_field",
+        "LX:a:b",
+        data={"field_key": "a:b", "tea_type": "text", "target_type": "Widget"},
+    )
+    keyless = await stage(
+        db, env, "metamodel_field", "LX:", data={"tea_type": "text", "target_type": "Widget"}
+    )
+    assert await ap._apply_metamodel_field_pass(db, env.m, env.admin) == zero(skipped=2)
+    assert (colon.status, keyless.status) == ("applied", "applied")
+
+
+async def test_an_imported_section_without_a_field_list_gets_one(db, env):
+    await create_card_type(
+        db,
+        key="Widget",
+        label="Widget",
+        fields_schema=[{"section": "Imported from inmem", "columns": 2}],
+    )
+    await stage(
+        db,
+        env,
+        "metamodel_field",
+        "LX:new",
+        data={"field_key": "new", "tea_type": "text", "target_type": "Widget"},
+    )
+    assert await ap._apply_metamodel_field_pass(db, env.m, env.admin) == zero(created=1)
+    ct = (await db.execute(select(CardType).where(CardType.key == "Widget"))).scalar_one()
+    await db.refresh(ct)
+    assert ct.fields_schema == [
+        {
+            "section": "Imported from inmem",
+            "columns": 2,
+            "fields": [{"key": "new", "label": "new", "type": "text", "weight": 0}],
+        }
+    ]
+
+
 async def test_a_second_import_reuses_the_imported_section(db, env):
     await create_card_type(
         db,
@@ -936,9 +1095,29 @@ async def test_a_custom_relation_type_needs_both_ends(db, env):
         data={"native_name": "relRef", "from_type": "Application", "to_type": None},
     )
     skip = await stage(db, env, "metamodel_relation_type", "R5", action="skip")
-    assert await ap._apply_metamodel_relation_type_pass(db, env.m, env.admin) == zero(
-        created=2, skipped=3
+    last = await stage(
+        db,
+        env,
+        "metamodel_relation_type",
+        "R6",
+        data={"native_name": "relLast", "from_type": "Application", "to_type": "Application"},
     )
+    other = await make_migration(db, user=env.admin)
+    elsewhere = StagedRecord(
+        migration_id=other.id,
+        source_type="inmem",
+        entity_kind="metamodel_relation_type",
+        source_id="R7",
+        source_data={"native_name": "relElsewhere", "from_type": "A", "to_type": "B"},
+        action="create",
+    )
+    db.add(elsewhere)
+    await db.flush()
+    assert await ap._apply_metamodel_relation_type_pass(db, env.m, env.admin) == zero(
+        created=3, skipped=3
+    )
+    assert last.status == "applied"
+    assert elsewhere.status != "applied"
     rts = {rt.key: rt for rt in (await db.execute(select(RelationType))).scalars()}
     serves = rts["relServerToApp"]
     assert (serves.label, serves.reverse_label, serves.cardinality) == (
@@ -957,6 +1136,7 @@ async def test_a_custom_relation_type_needs_both_ends(db, env):
     )
     assert open_end.error_message == "Relation endpoint missing — set 'to_type' in preview"
     assert [s.status for s in (created, plain, existing, open_end, skip)] == ["applied"] * 5
+    assert "relElsewhere" not in rts
 
 
 # ── users and stakeholders ──────────────────────────────────────────────────
@@ -969,10 +1149,12 @@ async def test_users_land_deactivated_members_and_are_mapped(db, env):
         db, env, "user", "s@x.com", data={"email": "s@x.com", "display_name": "Sam"}
     )
     known = await stage(db, env, "user", "known@test.com", action="skip", target_id=existing.id)
+    await stage(db, env, "user", "KNOWN@test.com", action="skip", target_id=existing.id)
     bad = await stage(db, env, "user", "bad", action="conflict")
+    await stage(db, env, "user", "worse", action="conflict")
     broken = await stage(db, env, "user", "broken", data={})
     assert await ap._apply_user_pass(db, env.m, env.admin) == zero(
-        created=2, skipped=1, conflicts=1, errors=1
+        created=2, skipped=2, conflicts=2, errors=1
     )
     users = {u.email: u for u in (await db.execute(select(User))).scalars()}
     created = users["new@x.com"]
@@ -995,6 +1177,9 @@ async def test_subscriptions_become_stakeholders_once(db, env, ends):
     alice = await create_user(db, email="alice@test.com")
     await identity(db, "alice@test.com", alice.id, kind="user")
     db.add(Stakeholder(card_id=ends.other.id, user_id=alice.id, role="responsible"))
+    # Bob holding the same role on the same card is not Alice holding it.
+    bob = await create_user(db, email="bob@test.com")
+    db.add(Stakeholder(card_id=ends.app.id, user_id=bob.id, role="owner"))
     await db.flush()
     owner = await stage(
         db,
@@ -1013,15 +1198,25 @@ async def test_subscriptions_become_stakeholders_once(db, env, ends):
         db, env, "subscription", "S4", data={"entity_id": "app", "user_email": "ghost@test.com"}
     )
     conflict = await stage(db, env, "subscription", "S5", action="conflict")
-    assert await ap._apply_subscription_pass(db, env.m, env.admin) == zero(
-        created=2, skipped=2, conflicts=1
+    await stage(db, env, "subscription", "S6", action="conflict")
+    late = await stage(
+        db, env, "subscription", "S7", data={"entity_id": "server", "user_email": "alice@test.com"}
     )
-    stakes = {(s.card_id, s.role): s for s in (await db.execute(select(Stakeholder))).scalars()}
+    assert await ap._apply_subscription_pass(db, env.m, env.admin) == zero(
+        created=3, skipped=2, conflicts=2
+    )
+    stakes = {
+        (s.card_id, s.role): s
+        for s in (await db.execute(select(Stakeholder))).scalars()
+        if s.user_id == alice.id
+    }
     assert set(stakes) == {
         (ends.app.id, "owner"),
         (ends.app.id, "responsible"),
         (ends.other.id, "responsible"),
+        (ends.server.id, "responsible"),
     }
+    assert late.target_id == stakes[(ends.server.id, "responsible")].id
     assert owner.target_id == stakes[(ends.app.id, "owner")].id
     assert default_role.target_id == stakes[(ends.app.id, "responsible")].id
     assert held.target_id == stakes[(ends.other.id, "responsible")].id
@@ -1034,10 +1229,31 @@ async def test_subscriptions_become_stakeholders_once(db, env, ends):
 
 async def test_documents_are_created_or_matched_by_identity_then_url(db, env, ends):
     by_id = Document(card_id=ends.app.id, name="Old title", url="https://a", type="link")
-    by_url = Document(card_id=ends.app.id, name="Spec", url="https://spec", type="link")
-    db.add_all([by_id, by_url])
+    kept = Document(card_id=ends.app.id, name="Kept", url="https://kept", type="link")
+    # Two copies of one link: the earlier is the match. The later is added
+    # first, so only the ordering — not insertion — can pick the right one.
+    later_copy = Document(
+        card_id=ends.app.id,
+        name="Spec copy",
+        url="https://spec",
+        type="link",
+        created_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
+    )
+    db.add(later_copy)
+    await db.flush()
+    by_url = Document(
+        card_id=ends.app.id,
+        name="Spec",
+        url="https://spec",
+        type="link",
+        created_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
+    )
+    # The same URL on another card is a different document.
+    elsewhere = Document(card_id=ends.other.id, name="Elsewhere", url="https://fresh", type="link")
+    db.add_all([by_id, kept, by_url, elsewhere])
     await db.flush()
     await identity(db, "D1", by_id.id, kind="document")
+    await identity(db, "D7", kept.id, kind="document")
     await identity(db, "D-gone", uuid.uuid4(), kind="document")
     rename = await stage(db, env, "document", "D1", data={"entity_id": "app", "name": "New title"})
     same = await stage(
@@ -1057,10 +1273,28 @@ async def test_documents_are_created_or_matched_by_identity_then_url(db, env, en
     orphan = await stage(db, env, "document", "D4", data={"entity_id": "ghost", "name": "X"})
     conflict = await stage(db, env, "document", "D5", action="conflict")
     broken = await stage(db, env, "document", "D6", data={"entity_id": "app"})
-    assert await ap._apply_document_pass(db, env.m, env.admin) == zero(
-        created=1, updated=1, skipped=2, conflicts=1, errors=1
+    unchanged = await stage(db, env, "document", "D7", data={"entity_id": "app", "name": "Kept"})
+    retitled = await stage(
+        db,
+        env,
+        "document",
+        "D8",
+        data={"entity_id": "app", "name": "Spec v2", "url": "https://spec"},
     )
-    assert by_id.name == "New title"
+    await stage(db, env, "document", "D9", action="conflict")
+    another = await stage(
+        db,
+        env,
+        "document",
+        "D10",
+        data={"entity_id": "app", "name": "Another", "url": "https://another"},
+    )
+    assert await ap._apply_document_pass(db, env.m, env.admin) == zero(
+        created=2, updated=2, skipped=3, conflicts=2, errors=1
+    )
+    assert (by_id.name, by_url.name, later_copy.name) == ("New title", "Spec v2", "Spec copy")
+    assert (unchanged.target_id, retitled.target_id) == (kept.id, by_url.id)
+    assert another.target_id is not None
     fresh = (await db.execute(select(Document).where(Document.name == "Fresh"))).scalar_one()
     assert (fresh.card_id, fresh.url, fresh.type, fresh.created_by) == (
         ends.app.id,
@@ -1089,9 +1323,11 @@ async def test_comments_need_a_known_author_and_are_matched_on_reimport(db, env,
     await identity(db, "alice@test.com", alice.id, kind="user")
     edited = Comment(card_id=ends.app.id, user_id=alice.id, content="first draft")
     same = Comment(card_id=ends.app.id, user_id=alice.id, content="unchanged")
-    db.add_all([edited, same])
+    edited_again = Comment(card_id=ends.app.id, user_id=alice.id, content="draft two")
+    db.add_all([edited, same, edited_again])
     await db.flush()
     await identity(db, "C1", edited.id, kind="comment")
+    await identity(db, "C9", edited_again.id, kind="comment")
     author = {"entity_id": "app", "author_email": "alice@test.com"}
     rows = {
         "C1": await stage(db, env, "comment", "C1", data={**author, "body": "final"}),
@@ -1107,16 +1343,21 @@ async def test_comments_need_a_known_author_and_are_matched_on_reimport(db, env,
         ),
         "C6": await stage(db, env, "comment", "C6", data={**author, "entity_id": "ghost"}),
         "C7": await stage(db, env, "comment", "C7", data=author),
+        "C8": await stage(db, env, "comment", "C8", data={**author, "body": "unchanged"}),
+        "C9": await stage(db, env, "comment", "C9", data={**author, "body": "final again"}),
+        "C10": await stage(db, env, "comment", "C10", data={**author, "body": "second new"}),
     }
     assert await ap._apply_comment_pass(db, env.m, env.admin) == zero(
-        created=1, updated=1, skipped=4, errors=1
+        created=2, updated=2, skipped=5, errors=1
     )
+    assert [rows[k].status for k in rows if k != "C7"] == ["applied"] * 9
     assert (edited.content, same.content) == ("final", "unchanged")
     new = (await db.execute(select(Comment).where(Comment.content == "brand new"))).scalar_one()
     assert (new.card_id, new.user_id, new.parent_id) == (ends.app.id, alice.id, None)
     assert [rows[k].target_id for k in ("C1", "C2", "C3")] == [edited.id, same.id, new.id]
     mapped = await identities(db, "comment")
-    assert {k for (k, _s) in mapped} == {"C1", "C2", "C3"}
+    assert {k for (k, _s) in mapped} == {"C1", "C2", "C3", "C8", "C9", "C10"}
+    assert edited_again.content == "final again"
     assert (
         rows["C4"].error_message
         == rows["C5"].error_message
@@ -1128,8 +1369,25 @@ async def test_comments_need_a_known_author_and_are_matched_on_reimport(db, env,
 
 async def test_a_comment_identity_whose_row_is_gone_falls_back_to_its_content(db, env, ends):
     alice = await create_user(db, email="alice@test.com")
-    kept = Comment(card_id=ends.app.id, user_id=alice.id, content="hello")
+    # The earlier of two identical comments is the match; the later one is
+    # added first, and the same words on another card do not count.
+    db.add(
+        Comment(
+            card_id=ends.app.id,
+            user_id=alice.id,
+            content="hello",
+            created_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
+        )
+    )
+    await db.flush()
+    kept = Comment(
+        card_id=ends.app.id,
+        user_id=alice.id,
+        content="hello",
+        created_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
+    )
     db.add(kept)
+    db.add(Comment(card_id=ends.other.id, user_id=alice.id, content="bye"))
     await db.flush()
     await identity(db, "C1", uuid.uuid4(), kind="comment")
     staged = await stage(db, env, "comment", "C1")
@@ -1160,7 +1418,7 @@ LONG = "boom " * 300
     ],
 )
 async def test_a_row_that_raises_is_recorded_on_its_own_row(
-    db, env, ends, monkeypatch, published, kind, runner, data
+    db, env, ends, monkeypatch, published, caplog, kind, runner, data
 ):
     alice = await create_user(db, email="alice@test.com")
     await identity(db, "alice@test.com", alice.id, kind="user")
@@ -1183,22 +1441,28 @@ async def test_a_row_that_raises_is_recorded_on_its_own_row(
         raise ValueError(LONG)
 
     monkeypatch.setattr(ap, "uuid", SimpleNamespace(uuid4=explode, UUID=uuid.UUID))
-    counts = await getattr(ap, runner)(db, env.m, env.admin)
+    with caplog.at_level(logging.ERROR, logger=LOGGER):
+        counts = await getattr(ap, runner)(db, env.m, env.admin)
     assert counts["errors"] == 2
     assert counts["created"] == 0
     for staged in (first, second):
         assert staged.status == "error"
         assert staged.error_message == LONG[:1000]
+    assert [r.getMessage() for r in caplog.records if r.name == LOGGER] == [
+        f"migration apply: {kind} F1 failed",
+        f"migration apply: {kind} F2 failed",
+    ]
 
 
 async def test_a_card_tag_or_relation_that_raises_is_recorded_on_its_own_row(
-    db, env, ends, monkeypatch
+    db, env, ends, monkeypatch, caplog
 ):
     async def broken(*a, **k):
         raise ValueError(LONG)
 
     monkeypatch.setattr(ap, "_identity_lookup", broken)
     tag_row = await stage(db, env, "card_tag", "L1", data={"entity_id": "app", "tag_id": "t"})
+    await stage(db, env, "card_tag", "L2", data={"entity_id": "app", "tag_id": "t"})
     rel_row = await stage(
         db,
         env,
@@ -1206,10 +1470,16 @@ async def test_a_card_tag_or_relation_that_raises_is_recorded_on_its_own_row(
         "R1",
         data={"tea_type": "app_to_itc", "from_entity_id": "app", "to_entity_id": "server"},
     )
-    assert (await ap._apply_card_tag_pass(db, env.m, env.admin))["errors"] == 1
-    assert (await ap._apply_relation_pass(db, env.m, env.admin))["errors"] == 1
+    with caplog.at_level(logging.ERROR, logger=LOGGER):
+        assert (await ap._apply_card_tag_pass(db, env.m, env.admin))["errors"] == 2
+        assert (await ap._apply_relation_pass(db, env.m, env.admin))["errors"] == 1
     for staged in (tag_row, rel_row):
         assert (staged.status, staged.error_message) == ("error", LONG[:1000])
+    assert [r.getMessage() for r in caplog.records if r.name == LOGGER] == [
+        "migration apply: card_tag L1 failed",
+        "migration apply: card_tag L2 failed",
+        "migration apply: relation R1 failed",
+    ]
 
 
 async def test_a_field_for_an_unknown_type_records_a_truncated_reason(db, env):
