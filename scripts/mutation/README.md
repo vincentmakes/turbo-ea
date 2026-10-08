@@ -218,6 +218,19 @@ Each of these was found the hard way while wiring it up; keep them.
   silently ignored, so a suite that pins a timezone fails Stryker's initial
   run and aborts it. `frontend/vitest.stryker.config.ts` finds those suites
   by scanning for the stub and leaves them out of mutation runs only.
+- **Async queries get 5s, not 1s, under Stryker.** The initial run executes
+  every related test in one worker thread with the mutated files
+  instrumented, and on a CI runner a big page re-rendering after a click can
+  take longer than Testing Library's 1s default for `findBy*` / `waitFor`.
+  One such failure aborts the job. The Stryker config's own setup file,
+  `src/test/mutationSetup.ts`, raises the timeout for mutation runs only;
+  `src/test/mutationSetup.test.ts` pins it under both configs.
+- **A test that fails only in Stryker's initial run is an environment
+  difference until shown otherwise.** Reproduce it with
+  `make mutation-frontend FILE=<the mutated file>`, which runs the same
+  related tests the same way, before changing product code for it. If it
+  passes there and fails in CI, it is timing: give the test headroom, never
+  exclude it.
 - **Static mutants are ignored** (`ignoreStatic`). A mutant in a module-level
   initialiser (`ROUTE_PERMISSIONS`, a lookup table, a constant) runs once at
   import, so Stryker cannot tell which tests cover it and reruns the whole
