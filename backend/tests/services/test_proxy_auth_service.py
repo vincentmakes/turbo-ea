@@ -306,7 +306,7 @@ def test_any_other_verification_error_is_401_and_logged(cfg, monkeypatch, caplog
         err = raises(401, pas._verify_forwarded_id_token, "tok")
     assert err.detail == "Proxy identity token could not be verified."
     assert isinstance(err.__cause__, ValueError)
-    assert [r.getMessage() for r in caplog.records] == [
+    assert [r.getMessage() for r in caplog.records if r.name == pas.__name__] == [
         "Proxy id-token verification failed: bad signature"
     ]
 

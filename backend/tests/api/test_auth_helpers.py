@@ -440,7 +440,7 @@ async def test_no_map_or_no_claim_changes_nothing(db, roles, role_map, monkeypat
 async def test_an_untrusted_identity_is_granted_nothing(db, roles, role_map, caplog):
     with caplog.at_level("WARNING", logger=auth.logger.name):
         assert await auth._resolve_proxy_role(db, identity("ea-admins", verified=False)) is None
-    assert [r.getMessage() for r in caplog.records] == [
+    assert [r.getMessage() for r in caplog.records if r.name == auth.logger.name] == [
         "Ignoring TURBO_EA_PROXY_AUTH_ROLE_MAP for p@example.com: the identity was neither "
         "signature-verified nor accompanied by a shared secret."
     ]
@@ -462,7 +462,7 @@ async def test_an_unmatched_value_falls_back_to_the_default_role(db, roles, role
 async def test_an_undefined_target_falls_back_and_says_so(db, roles, role_map, caplog):
     with caplog.at_level("WARNING", logger=auth.logger.name):
         assert await auth._resolve_proxy_role(db, identity("ea-gone")) == "member"
-    assert [r.getMessage() for r in caplog.records] == [
+    assert [r.getMessage() for r in caplog.records if r.name == auth.logger.name] == [
         "TURBO_EA_PROXY_AUTH_ROLE_MAP points at role 'retired', which is not defined. "
         "Falling back to the default role."
     ]
@@ -475,7 +475,7 @@ async def test_an_archived_target_falls_back_and_says_so(db, roles, role_map, ca
     await db.flush()
     with caplog.at_level("WARNING", logger=auth.logger.name):
         assert await auth._resolve_proxy_role(db, identity("ea-gone")) == "member"
-    assert [r.getMessage() for r in caplog.records] == [
+    assert [r.getMessage() for r in caplog.records if r.name == auth.logger.name] == [
         "TURBO_EA_PROXY_AUTH_ROLE_MAP points at role 'retired', which is archived. "
         "Falling back to the default role."
     ]

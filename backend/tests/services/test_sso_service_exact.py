@@ -25,6 +25,13 @@ import app.services.sso_service as sso
 
 LOGGER = sso.logger.name
 
+
+def logged(caplog) -> list[str]:
+    """This module's log lines only: under mutmut the root logger runs at
+    INFO, so httpx's own ``HTTP Request: …`` line is captured too."""
+    return [r.getMessage() for r in caplog.records if r.name == LOGGER]
+
+
 # ── get_provider_config ─────────────────────────────────────────────────────
 
 MS = "https://login.microsoftonline.com"
@@ -344,9 +351,7 @@ async def test_the_exchange_request(config, client_kwargs, verified, caplog):
         "redirect_uri": "https://app.test/cb",
         "scope": "openid email profile",
     }
-    assert [r.getMessage() for r in caplog.records] == [
-        f"SSO token exchange: POST {TOKEN_URL} (provider=microsoft)"
-    ]
+    assert logged(caplog) == [f"SSO token exchange: POST {TOKEN_URL} (provider=microsoft)"]
 
 
 async def test_no_provider_key_means_microsoft(config, client_kwargs, verified):
@@ -384,7 +389,7 @@ async def test_a_discovery_failure(config, monkeypatch, caplog):
     monkeypatch.setattr(sso, "discover_oidc", discover)
     with caplog.at_level(logging.INFO, logger=LOGGER):
         await expect(502, "SSO authentication failed. Could not reach identity provider.")
-    assert [r.getMessage() for r in caplog.records] == ["Failed to fetch OIDC discovery document"]
+    assert logged(caplog) == ["Failed to fetch OIDC discovery document"]
 
 
 async def test_a_connect_error(config, client_kwargs, caplog):
@@ -398,7 +403,7 @@ async def test_a_connect_error(config, client_kwargs, caplog):
             "Cannot reach identity provider for token exchange. "
             "Check that the backend container can reach the token endpoint.",
         )
-    assert caplog.records[-1].getMessage() == (
+    assert logged(caplog)[-1] == (
         f"SSO token exchange: cannot connect to {TOKEN_URL} — check Docker networking"
     )
 
@@ -410,7 +415,7 @@ async def test_another_transport_error(config, client_kwargs, caplog):
     client_kwargs.handler = timeout
     with caplog.at_level(logging.INFO, logger=LOGGER):
         await expect(502, "SSO authentication failed. Identity provider is unavailable.")
-    assert caplog.records[-1].getMessage() == f"SSO token exchange request failed to {TOKEN_URL}"
+    assert logged(caplog)[-1] == f"SSO token exchange request failed to {TOKEN_URL}"
 
 
 async def test_a_rejected_code_logs_the_providers_error(config, client_kwargs, caplog):
@@ -419,7 +424,7 @@ async def test_a_rejected_code_logs_the_providers_error(config, client_kwargs, c
     )
     with caplog.at_level(logging.INFO, logger=LOGGER):
         await expect(401, "SSO authentication failed: Code expired.")
-    assert caplog.records[-1].getMessage() == (
+    assert logged(caplog)[-1] == (
         "SSO token exchange failed (microsoft): status=400 error=invalid_grant desc=Code expired."
     )
 
@@ -437,7 +442,7 @@ async def test_a_rejected_code_without_details(config, client_kwargs, caplog, re
     client_kwargs.handler = lambda r: response
     with caplog.at_level(logging.INFO, logger=LOGGER):
         await expect(401, "SSO authentication failed: Token exchange failed")
-    assert caplog.records[-1].getMessage() == (
+    assert logged(caplog)[-1] == (
         "SSO token exchange failed (microsoft): status=400 error=unknown desc=Token exchange failed"
     )
 
@@ -446,7 +451,7 @@ async def test_no_id_token(config, client_kwargs, caplog):
     client_kwargs.handler = lambda r: httpx.Response(200, json={"access_token": "a", "x": 1})
     with caplog.at_level(logging.INFO, logger=LOGGER):
         await expect(401, "No id_token received from identity provider")
-    assert caplog.records[-1].getMessage() == (
+    assert logged(caplog)[-1] == (
         "SSO token response missing id_token (microsoft). Keys received: ['access_token', 'x']"
     )
 
@@ -470,7 +475,7 @@ async def test_an_issuer_mismatch(config, client_kwargs, verified, caplog, claim
             f"SSO token issuer mismatch: expected {expected_issuer!r}, "
             f"got {actual}. Check issuer URL in SSO settings.",
         )
-    assert caplog.records[-1].getMessage() == (
+    assert logged(caplog)[-1] == (
         f"SSO id_token issuer mismatch (microsoft): expected={expected_issuer} "
         f"actual={actual.strip(chr(39))}"
     )
@@ -483,7 +488,7 @@ async def test_an_audience_mismatch(config, client_kwargs, verified, caplog, cla
     verified.error = jwt.InvalidAudienceError("bad aud")
     with caplog.at_level(logging.INFO, logger=LOGGER):
         await expect(401, "SSO token audience mismatch. Check Client ID in SSO settings.")
-    assert caplog.records[-1].getMessage() == (
+    assert logged(caplog)[-1] == (
         f"SSO id_token audience mismatch (microsoft): expected=client-1 actual={actual}"
     )
 
@@ -497,6 +502,6 @@ async def test_any_other_verification_failure(config, client_kwargs, verified, c
             "Failed to verify SSO token signature. "
             "Check JWKS URI and that the backend can reach it.",
         )
-    assert caplog.records[-1].getMessage() == (
+    assert logged(caplog)[-1] == (
         f"Failed to verify SSO id_token (microsoft, jwks={MS}/contoso/discovery/v2.0/keys)"
     )
