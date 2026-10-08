@@ -886,6 +886,8 @@ def _build_reset_email_body(display_name: str, app_title: str, reset_url: str) -
     safe_link = _html.escape(reset_url)
 
     intro = f"Hi {safe_name}," if safe_name else "Hi,"
+    # Plain text is not HTML: the name goes in as written.
+    plain_intro = f"Hi {display_name}," if display_name else "Hi,"
     wrapper = "font-family: sans-serif; max-width: 600px; margin: 0 auto"
     header_s = "background: #1a1a2e; padding: 16px 24px"
     body_s = "padding: 24px; border: 1px solid #e0e0e0"
@@ -910,7 +912,7 @@ def _build_reset_email_body(display_name: str, app_title: str, reset_url: str) -
         "</div></div>"
     )
     body_text = (
-        f"{intro}\n\n"
+        f"{plain_intro}\n\n"
         f"We received a request to reset the password for your {app_title} account.\n"
         f"Open the link below to choose a new password (valid for one hour):\n\n"
         f"{reset_url}\n\n"
@@ -934,6 +936,8 @@ def _build_setup_email_body(display_name: str, app_title: str, setup_url: str) -
     safe_link = _html.escape(setup_url)
 
     intro = f"Hi {safe_name}," if safe_name else "Hi,"
+    # Plain text is not HTML: the name goes in as written.
+    plain_intro = f"Hi {display_name}," if display_name else "Hi,"
     wrapper = "font-family: sans-serif; max-width: 600px; margin: 0 auto"
     header_s = "background: #1a1a2e; padding: 16px 24px"
     body_s = "padding: 24px; border: 1px solid #e0e0e0"
@@ -956,7 +960,7 @@ def _build_setup_email_body(display_name: str, app_title: str, setup_url: str) -
         "</div></div>"
     )
     body_text = (
-        f"{intro}\n\n"
+        f"{plain_intro}\n\n"
         f"Your {app_title} account is ready.\n"
         f"Open the link below to set your password and sign in:\n\n"
         f"{setup_url}\n\n"

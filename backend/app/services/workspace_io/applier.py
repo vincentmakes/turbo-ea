@@ -54,7 +54,11 @@ from app.services.workspace_io import exporter as exp
 from app.services.workspace_io import schema
 from app.services.workspace_io.bundle import WorkspaceBundle, from_cell
 from app.services.workspace_io.entities import apply_entity_section
-from app.services.workspace_io.secrets import EMAIL_SECRET_PATHS, GENERAL_SECRET_PATHS
+from app.services.workspace_io.secrets import (
+    EMAIL_SECRET_PATHS,
+    GENERAL_SECRET_PATHS,
+    strip_secrets,
+)
 from app.services.workspace_io.sections import (
     ENTITY_SECTIONS,
     SHEET_BOOKMARK_SHARES,
@@ -639,9 +643,13 @@ async def _apply_settings(db, bundle: WorkspaceBundle, sr: SectionResult, dry_ru
         if key:
             incoming[key] = from_cell(row.get("value"), is_json=True)
 
+    # Every secret goes before the merge — the exporter's own definition, so a
+    # hand-edited bundle cannot plant a credential in plain text or another
+    # instance's undecryptable ``enc:`` token. The target keeps its own.
     if "general_settings" in incoming and isinstance(incoming["general_settings"], dict):
         general = dict(row_obj.general_settings or {})
-        merged = _merge_settings(general, incoming["general_settings"], GENERAL_SECRET_PATHS)
+        clean_general, _ = strip_secrets(incoming["general_settings"], None)
+        merged = _merge_settings(general, clean_general, GENERAL_SECRET_PATHS)
         if merged != (row_obj.general_settings or {}):
             row_obj.general_settings = merged
             sr.updated += 1
@@ -649,9 +657,8 @@ async def _apply_settings(db, bundle: WorkspaceBundle, sr: SectionResult, dry_ru
             sr.skip("identical")
     if "email_settings" in incoming and isinstance(incoming["email_settings"], dict):
         email = dict(row_obj.email_settings or {})
-        # Secrets (smtp_password, oauth_client_secret, service_account_json) are
-        # never in a legit bundle; _merge_settings refuses to write them back.
-        merged_email = _merge_settings(email, incoming["email_settings"], EMAIL_SECRET_PATHS)
+        _, clean_email = strip_secrets(None, incoming["email_settings"])
+        merged_email = _merge_settings(email, clean_email, EMAIL_SECRET_PATHS)
         if merged_email != (row_obj.email_settings or {}):
             row_obj.email_settings = merged_email
             sr.updated += 1
@@ -689,20 +696,25 @@ def _find_asset(bundle: WorkspaceBundle, prefix: str) -> bytes | None:
 def _merge_settings(
     target: dict[str, Any], incoming: dict[str, Any], secret_paths: tuple[tuple[str, ...], ...]
 ) -> dict[str, Any]:
-    """Shallow-merge ``incoming`` into ``target`` but never write a secret path.
+    """Merge ``incoming`` into ``target``, block by block, never writing a secret path.
 
     The exporter strips secrets, so a bundle carrying one is hand-edited or
     malicious — an incoming secret leaf is ignored entirely (it would land
-    unencrypted), and the target's own value is always preserved.
+    unencrypted), and the target's own value is always preserved. An incoming
+    block is merged into the target's, or into an empty one when the target
+    has none: copying it whole is how a secret inside it used to get through.
     """
     secret_leaves = {p[0] for p in secret_paths if len(p) == 1}
     merged = dict(target)
     for key, value in incoming.items():
         if key in secret_leaves:
             continue
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+        if isinstance(value, dict):
+            current = merged.get(key)
             sub_secrets = tuple(p[1:] for p in secret_paths if p and p[0] == key)
-            merged[key] = _merge_settings(merged[key], value, sub_secrets)
+            merged[key] = _merge_settings(
+                current if isinstance(current, dict) else {}, value, sub_secrets
+            )
         else:
             merged[key] = value
     return merged
@@ -804,6 +816,11 @@ def _make_cards_applier(user: User):
                         sr.errors.append(f"card {name!r}: parent {parent_path!r} not found")
                         continue
 
+            # One savepoint per row, as bulk create does: a row refused after
+            # it was added — the depth check reads the flushed card, a value too
+            # long for its column fails at flush — must leave nothing behind and
+            # must not take the rows after it down with it.
+            row_sp = await db.begin_nested()
             try:
                 await _validate_url_attributes(db, type_key, data.get("attributes") or {})
                 # Carry the human-readable reference verbatim so IDs stay stable
@@ -868,11 +885,14 @@ def _make_cards_applier(user: User):
                         card_id=card.id,
                         user_id=user.id,
                     )
-                created_refs[(type_key, own_ref)] = card.id
-                sr.created += 1
             except Exception as exc:  # noqa: BLE001
+                await row_sp.rollback()
                 sr.failed += 1
                 sr.errors.append(f"card {name!r}: {exc}")
+            else:
+                await row_sp.commit()
+                created_refs[(type_key, own_ref)] = card.id
+                sr.created += 1
         await db.flush()
 
     return _apply

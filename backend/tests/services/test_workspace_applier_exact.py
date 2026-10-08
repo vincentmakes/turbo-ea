@@ -9,6 +9,7 @@ no test compared.
 
 from __future__ import annotations
 
+import json
 import uuid
 from types import SimpleNamespace
 
@@ -187,6 +188,24 @@ def test_settings_merge_protects_top_level_and_deep_secrets():
 
 def test_settings_merge_replaces_a_scalar_with_a_dict():
     assert applier._merge_settings({"x": 1}, {"x": {"y": 2}}, ()) == {"x": {"y": 2}}
+
+
+def test_settings_merge_drops_a_secret_inside_a_block_the_target_lacks():
+    # Fixed in 2.157.3: with no ``sso`` / ``ai`` block on the target, the
+    # incoming one was copied wholesale, secret included.
+    merged = applier._merge_settings(
+        {"theme": "dark", "ai": "off"},
+        {
+            "sso": {"client_secret": "evil", "enabled": True},
+            "ai": {"apiKey": "evil", "model": "m"},
+        },
+        GENERAL_SECRET_PATHS,
+    )
+    assert merged == {"theme": "dark", "sso": {"enabled": True}, "ai": {"model": "m"}}
+    deep = (("a", "b", "c"),)
+    assert applier._merge_settings({}, {"a": {"b": {"c": "evil", "d": 2}}}, deep) == {
+        "a": {"b": {"d": 2}}
+    }
 
 
 # ── metamodel ───────────────────────────────────────────────────────────────
@@ -541,6 +560,75 @@ async def test_unchanged_settings_are_skipped_and_the_runtime_is_left_alone(db, 
     assert runtime == []
     assert counts(sr) == (0, 0, 2, 0, 0)
     assert sr.skip_reasons == {"identical": 2}
+
+
+def settings_rows(general: dict, email: dict) -> list[dict]:
+    return [
+        {"key": "general_settings", "value": json.dumps(general)},
+        {"key": "email_settings", "value": json.dumps(email)},
+    ]
+
+
+async def test_a_bundle_cannot_plant_a_secret_on_a_fresh_instance(db, runtime):
+    """Fixed in 2.157.3: the exporter strips secrets, the importer did not, so a
+    hand-edited bundle wrote them — in plain text, or as another instance's
+    undecryptable ``enc:`` token."""
+    general = {
+        "theme": "dark",
+        "sso": {"client_secret": "evil", "enabled": True},
+        "ai": {"apiKey": "evil", "model": "m"},
+        "ext.jira.secret.token": "planted",
+        "ext.jira.project": "P",
+        "ext.secret.mode": "an extension named secret",
+        "legacy": "enc:from-another-instance",
+    }
+    email = {
+        "smtp_host": "mail",
+        "smtp_password": "evil",
+        "oauth_client_secret": "evil",
+        "service_account_json": "{}",
+        "relay": {"token": "enc:x"},
+    }
+    sr = section()
+    await applier._apply_settings(
+        db, bundle(schema.SHEET_SETTINGS, settings_rows(general, email)), sr, False
+    )
+    row = await settings_row(db)
+    assert row.general_settings == {
+        "theme": "dark",
+        "sso": {"enabled": True},
+        "ai": {"model": "m"},
+        "ext.jira.project": "P",
+        "ext.secret.mode": "an extension named secret",
+    }
+    assert row.email_settings == {"smtp_host": "mail", "relay": {}}
+    assert runtime == [{"smtp_host": "mail", "relay": {}}]
+    assert counts(sr) == (0, 2, 0, 0, 0)
+
+
+async def test_an_import_keeps_the_target_s_own_secrets(db, runtime):
+    db.add(
+        AppSettings(
+            id="default",
+            general_settings={
+                "sso": {"client_secret": "enc:mine"},
+                "ext.jira.secret.token": "enc:mine-too",
+            },
+            email_settings={"smtp_password": "enc:pw"},
+        )
+    )
+    await db.flush()
+    general = {"sso": {"enabled": True}, "ext.jira.secret.token": "planted"}
+    email = {"smtp_host": "mail", "smtp_password": "evil"}
+    await applier._apply_settings(
+        db, bundle(schema.SHEET_SETTINGS, settings_rows(general, email)), section(), False
+    )
+    row = await settings_row(db)
+    assert row.general_settings == {
+        "sso": {"client_secret": "enc:mine", "enabled": True},
+        "ext.jira.secret.token": "enc:mine-too",
+    }
+    assert row.email_settings == {"smtp_password": "enc:pw", "smtp_host": "mail"}
 
 
 async def test_settings_that_are_not_objects_are_ignored(db, runtime):

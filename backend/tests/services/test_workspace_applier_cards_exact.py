@@ -85,6 +85,12 @@ async def card_named(db, name, type_key="Application"):
     ).scalar_one()
 
 
+async def maybe_card(db, name, type_key="Application"):
+    return (
+        await db.execute(select(Card).where(Card.name == name, Card.type == type_key))
+    ).scalar_one_or_none()
+
+
 # ── the cards pass ──────────────────────────────────────────────────────────
 
 
@@ -240,6 +246,28 @@ async def test_a_card_too_deep_for_the_capability_tree_fails(db, env, published)
     assert counts(sr) == (0, 0, 0, 0, 1)
     assert "maximum depth of 5 levels" in sr.errors[0]
     assert published == []
+    # Fixed in 2.157.3: the refused card was counted as failed yet stayed in
+    # the session, and the import committed it six levels deep.
+    assert await maybe_card(db, "L6", "BusinessCapability") is None
+
+
+async def test_a_row_the_database_refuses_leaves_the_rest_of_the_import_intact(db, env, published):
+    """A value too long for its column fails at flush. Before 2.157.3 that left
+    the session needing a rollback, so every later row failed with it and the
+    pass itself raised."""
+    sr = await run_cards(
+        db,
+        env.user,
+        [
+            {"type": "Application", "name": "Too long", "status": "S" * 30},
+            {"type": "Application", "name": "After"},
+        ],
+    )
+    assert counts(sr) == (1, 0, 0, 0, 1)
+    assert sr.errors[0].startswith("card 'Too long': ")
+    assert await maybe_card(db, "Too long") is None
+    assert (await card_named(db, "After")).status == "ACTIVE"
+    assert [c["data"]["name"] for c in published] == ["After"]
 
 
 async def test_a_clashing_reference_is_regenerated_or_dropped(db, env, published):
