@@ -257,6 +257,13 @@ Each of these was found the hard way while wiring it up; keep them.
   dies of `MemoryError`, which counts as killed, instead of starving the runner
   until GitHub shuts it down. Stryker gets no such cap, because V8 reserves
   more address space than any sensible limit.
+- **The frontend coverage tooling is in Stryker's scope too.** `stryker.config.json`
+  names `scripts/app-asset.mjs`, `scripts/e2e-coverage.mjs` and
+  `scripts/merge-lcov.mjs` beside `src/**` — the three files `Frontend Tests`
+  gates on (the merged figure, its floor, the diff gate's input) — so the PR
+  job diffs `frontend/src` *and* `frontend/scripts`, and `mutable_files` walks
+  both for the nightly. The generator scripts next to them stay out: they are
+  named file by file, never as `scripts/**`.
 - **Stryker's dry run** runs every test related to the mutated files, which
   for a shared `lib/` helper is a large part of the suite, and it runs them on
   ONE thread. `dryRunTimeoutMinutes` is therefore 60, not the default 5:

@@ -149,12 +149,18 @@ def test_the_frontend_aggregate_folds_in_the_browser_coverage_only_from_a_green_
     j = jobs()
     aggregate, e2e = j["frontend-test"], j["frontend-e2e"]
 
-    # Wherever the frontend figure is measured, the browser suite ran too —
-    # otherwise the merged floor and the badge would swing with the path filter.
-    assert (
-        "    if: needs.changes.outputs.e2e == 'true' "
-        "|| needs.changes.outputs.frontend == 'true'\n" in e2e
-    )
+    # Wherever a frontend change can move the figure, the browser suite ran
+    # too — otherwise the merged floor and the badge would swing with the path
+    # filter. The e2e filter is therefore frontend/** plus its own inputs, and
+    # the job gates on it alone: the wider `frontend` filter also fires for
+    # scripts/mutation/**, which cannot move the figure and must not boot the
+    # browser suite.
+    assert "    if: needs.changes.outputs.e2e == 'true'\n" in e2e
+    rest = CI.read_text().split("            e2e:\n", 1)[1]
+    entries = re.match(r"((?:              .*\n)+)", rest).group(1)
+    assert "- 'frontend/**'\n" in entries
+    assert "- 'scripts/e2e/**'\n" in entries
+    assert "scripts/mutation" not in entries
     assert 'E2E_COVERAGE: "1"' in e2e
     assert "node scripts/e2e-coverage.mjs" in e2e
     upload = next(s for s in steps(e2e) if "name: frontend-e2e-coverage" in s)
@@ -178,15 +184,19 @@ def test_the_frontend_aggregate_folds_in_the_browser_coverage_only_from_a_green_
     assert "jq -r '.total.lines.pct' coverage-merged/coverage-summary.json" in aggregate
 
 
-def test_the_merged_lines_floor_is_a_number_when_set():
-    """merge-lcov.mjs reads it from package.json; a string would silently never gate."""
+def test_the_merged_lines_floor_is_set_and_a_number():
+    """merge-lcov.mjs reads it from package.json under --fail-under-from-package.
+
+    The script refuses a string or an out-of-range value itself; the case that
+    needs pinning here is the key going MISSING (a rename, a typo), which the
+    script now refuses too — this test keeps the key where CI expects it.
+    """
     import json
 
     pkg = json.loads((CI.parents[2] / "frontend" / "package.json").read_text())
-    floor = pkg.get("config", {}).get("coverageFloorMergedLines")
-    if floor is not None:
-        assert isinstance(floor, (int, float)) and not isinstance(floor, bool)
-        assert 0 <= floor <= 100
+    floor = pkg["config"]["coverageFloorMergedLines"]
+    assert isinstance(floor, (int, float)) and not isinstance(floor, bool)
+    assert 0 <= floor <= 100
 
 
 def test_the_frontend_blob_upload_includes_the_hidden_reports_directory():

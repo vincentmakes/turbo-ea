@@ -424,9 +424,12 @@ need no protection rule of their own.
 
 `Frontend Tests` also lists `Frontend E2E` in its `needs`, to merge the browser
 suite's coverage into the diff gate, the merged-lines floor and the README badge
-when that job passed. It does not fail when `Frontend E2E` fails — that job is
-its own required check — and `Frontend E2E` now runs on every pull request that
-touches `frontend/**`, not only on the paths of the widgets it drives.
+when that job passed. It does not fail when `Frontend E2E` fails or is skipped —
+that job is its own required check — and `Frontend E2E` now runs on every pull
+request that touches `frontend/**`, not only on the paths of the widgets it
+drives. The merge is anchored on the unit report (the browser suite can cover a
+line Vitest lists, never add one), so the merged figure cannot exceed what the
+unit suite measures plus what the browser suite genuinely drove.
 
 The three mutation jobs (`Backend Mutation Tests`, `Frontend Mutation Tests`,
 `MCP Mutation Tests`) are pull-request-only and run whenever their suite

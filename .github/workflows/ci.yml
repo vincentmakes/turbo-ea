@@ -94,23 +94,16 @@ jobs:
             terraform:
               - 'deploy/terraform/**'
               - 'scripts/check_deploy_versions.py'
-            # The browser smoke suite: its own files, the frontend build inputs
-            # and the five widget features it drives (frontend/e2e/README in
-            # CLAUDE.md's Testing Conventions). The Dockerfile pins the DrawIO
-            # tag the suite installs.
+            # The browser smoke suite. Its coverage is part of the frontend
+            # figure Frontend Tests enforces (merged with the unit suite's),
+            # so it runs on ANY frontend change, not only on the five widget
+            # features it drives — but not on the `frontend` filter above
+            # as a whole: that one also carries scripts/mutation/** and the
+            # audit-ci config for the mutation and audit jobs, neither of
+            # which can move the figure. The Dockerfile pins the DrawIO tag
+            # the suite installs.
             e2e:
-              - 'frontend/e2e/**'
-              - 'frontend/playwright.config.ts'
-              - 'frontend/package.json'
-              - 'frontend/package-lock.json'
-              - 'frontend/vite.config.ts'
-              - 'frontend/drawio-config/**'
-              - 'frontend/src/features/diagrams/**'
-              - 'frontend/src/features/bpm/**'
-              - 'frontend/src/features/ppm/**'
-              - 'frontend/src/features/reports/**'
-              - 'frontend/src/features/admin/metamodel/**'
-              - 'frontend/src/features/admin/MetamodelAdmin.tsx'
+              - 'frontend/**'
               - 'scripts/e2e/**'
               - 'Dockerfile'
             ci:
@@ -594,9 +587,10 @@ jobs:
     name: Frontend Tests
     # frontend-e2e is a dependency for its coverage, not its verdict: the
     # aggregate waits for it, merges its LCOV when it passed, and runs on unit
-    # coverage alone when it failed — a red browser suite is Frontend E2E's
-    # own required check. It is never skipped when this job runs: both gate
-    # on the frontend filter.
+    # coverage alone when it failed or was skipped — a red browser suite is
+    # Frontend E2E's own required check, and it is skipped only on a change
+    # that cannot move the frontend figure (the `frontend` filter is wider
+    # than the `e2e` one by scripts/mutation/** and the audit-ci config).
     needs: [changes, frontend-test-shards, frontend-e2e]
     if: always() && needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
@@ -725,12 +719,14 @@ jobs:
   frontend-e2e:
     name: Frontend E2E
     needs: changes
-    # The e2e filter (the suite's own files, scripts/e2e, the Dockerfile) OR
-    # any frontend change: this job's coverage is part of the figure Frontend
-    # Tests enforces and the README badge shows, so it runs wherever that
-    # figure is measured. It finishes minutes before the unit shards, so the
+    # The e2e filter is frontend/** plus the suite's own inputs: this job's
+    # coverage is part of the figure Frontend Tests enforces and the README
+    # badge shows, so it runs wherever a frontend change can move that
+    # figure. A PR the `frontend` filter catches for other reasons
+    # (scripts/mutation/**) skips it, and the aggregate then merges unit
+    # coverage alone. It finishes minutes before the unit shards, so the
     # critical path is unchanged.
-    if: needs.changes.outputs.e2e == 'true' || needs.changes.outputs.frontend == 'true'
+    if: needs.changes.outputs.e2e == 'true'
     # Pinned, not `ubuntu-latest`: `playwright install --with-deps` installs
     # Chromium's system libraries from a per-release apt list, and a runner
     # image Playwright does not know yet fails that step. `ubuntu-latest`
@@ -1088,7 +1084,10 @@ jobs:
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Stryker's single-threaded dry run alone may take up to its
+    # dryRunTimeoutMinutes (60, stryker.config.json) on a widely imported
+    # module; the mutants need room after it, as in backend-mutation.
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1106,7 +1105,7 @@ jobs:
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
           python3 scripts/mutation/changed_lines.py --base "origin/${{ github.base_ref }}" \
-            --output mutation-changed.json -- frontend/src
+            --output mutation-changed.json -- frontend/src frontend/scripts
           python3 scripts/mutation/stryker_scope.py args --changed mutation-changed.json \
             > mutation-mutate.txt
       - name: Mutate the changed lines

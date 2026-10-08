@@ -225,6 +225,15 @@ def test_stryker_config_leaves_the_floor_to_the_gate():
     # files: the whole suite extrapolated to ~50 minutes on 2026-10-05, so a
     # widely imported module's chunk needs this much or it never finishes.
     assert config["dryRunTimeoutMinutes"] >= 60
+    # ... and the PR job must leave the mutants room after a dry run that long,
+    # or it dies on the job timeout with no verdict instead of a clear one.
+    job = jobs(CI)["frontend-mutation"]
+    timeout = int(re.search(r"^    timeout-minutes: (\d+)$", job, flags=re.M).group(1))
+    assert timeout >= config["dryRunTimeoutMinutes"] + 60
+    # The coverage tooling Frontend Tests gates on is mutated like the app.
+    for script in ("scripts/app-asset.mjs", "scripts/e2e-coverage.mjs", "scripts/merge-lcov.mjs"):
+        assert script in config["mutate"]
+    assert "frontend/scripts" in job and "frontend/src" in job
     # gitignore-style: an unanchored "reports" also drops src/features/reports,
     # tests and all, from Stryker's sandbox — silently.
     assert config["ignorePatterns"] and all(p.startswith("/") for p in config["ignorePatterns"])

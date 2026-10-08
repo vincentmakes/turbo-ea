@@ -155,14 +155,23 @@ def mutate_arg(changed: dict, config_path: Path = CONFIG) -> str:
 
 
 def mutable_files(frontend: Path = FRONTEND, config_path: Path = CONFIG) -> list[str]:
-    """Every frontend-relative file the config's ``mutate`` globs select, sorted."""
+    """Every frontend-relative file the config's ``mutate`` globs select, sorted.
+
+    Walks ``src/`` (the app) and ``scripts/`` (the coverage tooling CI gates
+    on) — the two directories the ``mutate`` list names — never the frontend
+    root, which would mean node_modules.
+    """
     selected = selector(config_path)
     found = []
-    for path in (frontend / "src").rglob("*"):
-        if path.suffix in (".ts", ".tsx") and path.is_file():
-            rel = path.relative_to(frontend).as_posix()
-            if selected(rel):
-                found.append(rel)
+    for subdir in ("src", "scripts"):
+        root = frontend / subdir
+        if not root.is_dir():
+            continue
+        for path in root.rglob("*"):
+            if path.suffix in (".ts", ".tsx", ".mjs") and path.is_file():
+                rel = path.relative_to(frontend).as_posix()
+                if selected(rel):
+                    found.append(rel)
     return sorted(found)
 
 

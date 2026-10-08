@@ -67,7 +67,7 @@ e2e-coverage: ## Run the browser smoke suite with V8 coverage and write frontend
 BASE ?= origin/main
 
 mutation-diff: ## Mutation-test the functions your branch changed, scored like the PR gate
-	python scripts/mutation/changed_lines.py --base $(BASE) --output mutation-changed.json -- backend/app mcp-server/turbo_ea_mcp frontend/src
+	python scripts/mutation/changed_lines.py --base $(BASE) --output mutation-changed.json -- backend/app mcp-server/turbo_ea_mcp frontend/src frontend/scripts
 	python scripts/mutation/mutmut_scope.py run --suite backend --changed mutation-changed.json
 	python scripts/mutation/mutmut_scope.py collect --suite backend --changed mutation-changed.json --output mutation-backend.json
 	python scripts/mutation/gate.py --suite backend --scope diff --records mutation-backend.json
