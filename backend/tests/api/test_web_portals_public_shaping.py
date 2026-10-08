@@ -233,3 +233,88 @@ class TestUntoggledPortal:
         await db.flush()
         resp = await client.get(f"{BASE}/relation-options?type_key=ITComponent")
         assert resp.json() == []
+
+
+class TestWhichRelationTypesAPortalCanShow:
+    """The relation types a toggle can switch on are the ones the portal page
+    offers: not hidden, touching the portal's card type at either end."""
+
+    @staticmethod
+    async def _toggle(db, env, **extra):
+        env["portal"].card_config = {"toggles": {**TOGGLES, **extra}}
+        await db.flush()
+
+    async def test_an_incoming_relation_type_is_sent_when_shown(self, client, db, env):
+        # Application is the TARGET of org_to_app: the other end is Organization.
+        await self._toggle(db, env, **{"rel:org_to_app": {"card": False, "detail": True}})
+        crm = _by_name(await _cards(client), "CRM")
+        assert sorted((r["type"], r["related_name"]) for r in crm["relations"]) == [
+            ("app_to_itc", "Server"),
+            ("org_to_app", "Sales"),
+        ]
+        resp = await client.get(f"{BASE}/relation-options?type_key=Organization")
+        assert [o["name"] for o in resp.json()] == ["Sales"]
+
+    async def test_a_hidden_relation_type_is_never_sent(self, client, db, env):
+        await create_relation_type(
+            db,
+            key="app_secret_org",
+            source_type_key="Application",
+            target_type_key="Organization",
+            is_hidden=True,
+        )
+        await create_relation(
+            db, type_key="app_secret_org", source_id=env["crm"].id, target_id=env["sales"].id
+        )
+        await self._toggle(db, env, **{"rel:app_secret_org": {"card": True, "detail": True}})
+        crm = _by_name(await _cards(client), "CRM")
+        assert "app_secret_org" not in {r["type"] for r in crm["relations"]}
+        resp = await client.get(f"{BASE}/relation-options?type_key=Organization")
+        assert resp.json() == []
+
+    async def test_a_filter_on_a_type_that_never_touches_the_portal_type_is_ignored(
+        self, client, db, env
+    ):
+        await create_relation_type(
+            db, key="itc_to_org", source_type_key="ITComponent", target_type_key="Organization"
+        )
+        await self._toggle(db, env, **{"rel:itc_to_org": {"card": True, "detail": True}})
+        probe = json.dumps({"itc_to_org": str(env["server"].id)})
+        assert (await _cards(client, f"?relation_filters={probe}"))["total"] == 2
+
+    async def test_a_self_referencing_type_is_shown_from_both_ends(self, client, db, env):
+        admin_id = env["portal"].created_by
+        await create_card_type(db, key="Capability", label="Capability")
+        await create_relation_type(
+            db, key="cap_depends", source_type_key="Capability", target_type_key="Capability"
+        )
+        billing = await create_card(db, card_type="Capability", name="Billing", user_id=admin_id)
+        invoicing = await create_card(
+            db, card_type="Capability", name="Invoicing", user_id=admin_id
+        )
+        await create_relation(
+            db, type_key="cap_depends", source_id=billing.id, target_id=invoicing.id
+        )
+        db.add(
+            WebPortal(
+                name="Caps",
+                slug="caps",
+                card_type="Capability",
+                is_published=True,
+                created_by=admin_id,
+                card_config={"toggles": {"rel:cap_depends": {"card": True, "detail": True}}},
+            )
+        )
+        await db.flush()
+
+        resp = await client.get("/api/v1/web-portals/public/caps/cards")
+        assert resp.status_code == 200
+        related = {
+            item["name"]: [r["related_name"] for r in item["relations"]]
+            for item in resp.json()["items"]
+        }
+        assert related == {"Billing": ["Invoicing"], "Invoicing": ["Billing"]}
+        options = await client.get(
+            "/api/v1/web-portals/public/caps/relation-options?type_key=Capability"
+        )
+        assert sorted(o["name"] for o in options.json()) == ["Billing", "Invoicing"]
