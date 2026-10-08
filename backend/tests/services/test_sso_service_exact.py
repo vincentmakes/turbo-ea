@@ -104,7 +104,7 @@ def test_okta_without_a_domain(config):
 def test_oidc_with_manual_endpoints():
     config = {
         "provider": "oidc",
-        "issuer_url": "https://idp.example/realms/x/",
+        "issuer_url": "https://idp.example/realmX/",  # only the slash is stripped
         "authorization_endpoint": "https://idp.example/auth",
         "token_endpoint": "https://idp.example/token",
         "jwks_uri": "https://idp.example/certs",
@@ -113,7 +113,7 @@ def test_oidc_with_manual_endpoints():
         "authorization_endpoint": "https://idp.example/auth",
         "token_endpoint": "https://idp.example/token",
         "jwks_uri": "https://idp.example/certs",
-        "issuer": "https://idp.example/realms/x",
+        "issuer": "https://idp.example/realmX",
         "scopes": "openid email profile",
         "extra_auth_params": {},
         "subject_claim": "sub",
@@ -343,7 +343,7 @@ async def test_the_exchange_request(config, client_kwargs, verified, caplog):
     (req,) = client_kwargs.requests
     assert client_kwargs.kwargs == [{"timeout": 15.0}]
     assert req.headers["content-type"] == "application/x-www-form-urlencoded"
-    assert dict(httpx.QueryParams(req.content.decode())) == {
+    form = {
         "grant_type": "authorization_code",
         "client_id": "client-1",
         "client_secret": "s3cret",
@@ -351,6 +351,11 @@ async def test_the_exchange_request(config, client_kwargs, verified, caplog):
         "redirect_uri": "https://app.test/cb",
         "scope": "openid email profile",
     }
+    assert dict(httpx.QueryParams(req.content.decode())) == form
+    # no header beyond the ones httpx sends with any form post
+    with httpx.Client() as plain:
+        expected = plain.build_request("POST", TOKEN_URL, data=form).headers
+    assert sorted(req.headers.keys()) == sorted(expected.keys())
     assert logged(caplog) == [f"SSO token exchange: POST {TOKEN_URL} (provider=microsoft)"]
 
 
@@ -378,6 +383,26 @@ async def test_discovery_supplies_endpoints_and_falls_back_to_the_configured_iss
     assert [str(r.url) for r in client_kwargs.requests] == ["https://idp.example/token"]
     # no issuer in the document: the configured one, slash-stripped
     assert verified.args == [("tok", "client-1", "https://idp.example/k", "https://idp.example")]
+
+
+async def test_an_issuer_in_the_discovery_document_wins(
+    config, client_kwargs, verified, monkeypatch
+):
+    config["sso"].update(provider="oidc", issuer_url="https://idp.example/")
+
+    async def discover(url):
+        return {
+            "token_endpoint": "https://idp.example/token",
+            "jwks_uri": "https://idp.example/k",
+            "issuer": "https://issuer.example/tenant",
+        }
+
+    monkeypatch.setattr(sso, "discover_oidc", discover)
+    client_kwargs.handler = lambda r: httpx.Response(200, json={"id_token": "tok"})
+    await exchange()
+    assert verified.args == [
+        ("tok", "client-1", "https://idp.example/k", "https://issuer.example/tenant")
+    ]
 
 
 async def test_a_discovery_failure(config, monkeypatch, caplog):

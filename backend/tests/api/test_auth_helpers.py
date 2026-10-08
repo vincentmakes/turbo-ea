@@ -143,6 +143,21 @@ def test_an_account_expiring_later_still_gets_a_session():
     assert auth._issue_session(request(), Response(), user(access_expires_at=future)).access_token
 
 
+def test_the_expiry_instant_itself_still_gets_a_session(monkeypatch):
+    """Expired means strictly past, the rule ``get_current_user`` applies to the
+    token right after; a stricter check here would refuse a session the rest
+    of the app still honours."""
+    instant = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+
+    class Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return instant
+
+    monkeypatch.setattr(auth, "datetime", Frozen)
+    assert auth._issue_session(request(), Response(), user(access_expires_at=instant)).access_token
+
+
 # ── emailed links ───────────────────────────────────────────────────────────
 
 

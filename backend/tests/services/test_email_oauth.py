@@ -31,8 +31,11 @@ PUBLIC_KEY = _KEY.public_key()
 
 
 @pytest.fixture(autouse=True)
-def _clean_cache():
+def _clean_cache(monkeypatch):
     oauth.reset_cache()
+    # the module's lock binds to the first event loop that contends it, and
+    # every test runs on its own loop
+    monkeypatch.setattr(oauth, "_lock", asyncio.Lock())
     yield
     oauth.reset_cache()
 
@@ -42,8 +45,12 @@ def wire(monkeypatch):
     """Route every AsyncClient the module opens to a recording MockTransport."""
     state = {"requests": [], "responses": [], "timeouts": []}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx.Request) -> httpx.Response:
         state["requests"].append(request)
+        # yield once, as a real round-trip would: without it the first of two
+        # concurrent callers finishes before the second starts, and the
+        # re-check under the lock is never exercised
+        await asyncio.sleep(0)
         status, body = state["responses"].pop(0)
         if isinstance(body, str):
             return httpx.Response(status, text=body)
