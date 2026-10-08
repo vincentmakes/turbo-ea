@@ -863,7 +863,7 @@ async def test_the_cascade_events_record_each_moved_descendant(db, caps, monkeyp
         same.id: {"hierarchyLevel": 4},
     }
     await svc.emit_hierarchy_cascade_events(
-        db, [primary, moved, same, unknown], previous, primary.id, actor
+        db, [primary, same, unknown, moved], previous, primary.id, actor
     )
     assert published == [
         (
