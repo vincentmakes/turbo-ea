@@ -60,6 +60,10 @@ mcp = 68
 "backend/app/services/email_backends/oauth.py" = 95   # mail OAuth tokens and their cache
 "backend/app/api/v1/auth.py" = 94
 
+# Audit and approval, measured 2026-10-08 after the rollback/approval pass.
+"backend/app/services/rollback_service.py" = 97       # undoing a mutation batch
+"backend/app/services/card_approval.py" = 97          # approval breaks and their fan-out
+
 # Frontend, measured with Stryker (static mutants ignored) on 2026-10-05.
 "frontend/src/lib/returnPath.ts" = 98                # post-SSO open-redirect guards
 "frontend/src/lib/linkify.ts" = 79                   # what in free text becomes a link
