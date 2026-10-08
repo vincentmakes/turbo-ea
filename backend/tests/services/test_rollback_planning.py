@@ -491,11 +491,11 @@ def test_entity_ref_with_no_payload():
 
 async def test_entities_touched_groups_by_kind():
     events = [
+        ev("comment.added", {}),  # touches nothing, and must not end the walk
         ev("card.updated", {"id": "c-1"}),
         ev("card.updated", {"id": "c-2"}),
         ev("tag.added", {}),
         ev("risk.updated", {"risk_id": "k"}),
-        ev("comment.added", {}),
     ]
     assert await rs._entities_touched(events) == {
         "card": {"c-1", "c-2", str(CID)},

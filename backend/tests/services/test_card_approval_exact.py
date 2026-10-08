@@ -167,6 +167,20 @@ async def test_each_person_gets_their_own_cards(db, env):
     assert by_user[other.id]["card_id"] == b.id
 
 
+async def test_several_people_with_one_card_each_all_get_theirs(db, env):
+    owner, other = env["owner"], env["other"]
+    a = await create_card(db, name="A", approval_status="BROKEN")
+    b = await create_card(db, name="B", approval_status="BROKEN")
+    await hold(db, a, owner)
+    await hold(db, b, other)
+    got = await card_approval.build_approval_broken_recipients(
+        db, cards=[a, b], actor_id=None, actor_display_name="Ada"
+    )
+    assert sorted((r["user_id"], r["card_id"]) for r in got) == sorted(
+        [(owner.id, a.id), (other.id, b.id)]
+    )
+
+
 async def test_a_held_card_that_did_not_break_is_not_mentioned(db, env):
     owner = env["owner"]
     broken = await create_card(db, name="Broken", approval_status="BROKEN")
@@ -257,7 +271,8 @@ async def test_without_background_tasks_each_row_is_created_inline(db, env, monk
         email_items_title="ignored",
     )
     second = {"user_id": env["other"].id, "title": "T2", "message": "M2"}
-    await card_approval.deliver_approval_broken(db, [first, second], actor_id=None)
+    actor = env["editor"].id
+    await card_approval.deliver_approval_broken(db, [first, second], actor_id=actor)
     assert calls == [
         (
             db,
@@ -269,7 +284,7 @@ async def test_without_background_tasks_each_row_is_created_inline(db, env, monk
                 "link": "/x",
                 "data": {"k": 1},
                 "card_id": card_id,
-                "actor_id": None,
+                "actor_id": actor,
             },
         ),
         (
@@ -282,7 +297,7 @@ async def test_without_background_tasks_each_row_is_created_inline(db, env, monk
                 "link": None,
                 "data": None,
                 "card_id": None,
-                "actor_id": None,
+                "actor_id": actor,
             },
         ),
     ]
@@ -302,6 +317,7 @@ async def test_nothing_to_deliver_schedules_nothing(db, env, monkeypatch):
 async def test_the_single_card_wrapper_builds_then_delivers(db, env):
     owner, editor = env["owner"], env["editor"]
     card = await create_card(db, name="Solo", approval_status="BROKEN")
+    await hold(db, card, editor)  # the actor: never told about their own edit
     await hold(db, card, owner)
     tasks = BackgroundTasks()
     await card_approval.notify_approval_broken(
@@ -350,7 +366,9 @@ def delivered(monkeypatch):
     calls = []
 
     async def fake(db, recipients, *, actor_id, background_tasks=None):
-        calls.append({"recipients": recipients, "actor_id": actor_id, "tasks": background_tasks})
+        calls.append(
+            {"db": db, "recipients": recipients, "actor_id": actor_id, "tasks": background_tasks}
+        )
 
     monkeypatch.setattr(card_approval, "deliver_approval_broken", fake)
     return calls
@@ -393,7 +411,7 @@ async def test_each_moved_child_gets_its_event(db, env, published, delivered):
     ]
     # nothing broke, so nobody is owed a re-review
     assert delivered == [
-        {"recipients": [], "actor_id": editor.id, "tasks": None},
+        {"db": db, "recipients": [], "actor_id": editor.id, "tasks": None},
     ]
 
 
@@ -425,6 +443,7 @@ async def test_a_cleared_label_and_a_break_are_recorded_with_the_move(
     assert published[0]["user_id"] is None
     assert delivered == [
         {
+            "db": db,
             "recipients": [
                 {"user_id": owner.id, **card_approval._single_card_entry(child.id, "Child", "Ada")}
             ],
@@ -503,7 +522,7 @@ async def test_a_child_no_longer_active_is_not_notified(db, env, published, deli
 
 async def test_a_child_that_no_longer_exists_is_skipped(db, env, published, delivered):
     real = await create_card(db, name="Real")
-    ghost = uuid.uuid4()
+    ghost = uuid.UUID(int=1)  # sorts before every real id, so it is met first
     await card_approval.record_child_strategy_effects(
         db,
         results=[result(disconnected_ids=[real.id, ghost], approval_broken_ids=[ghost])],
@@ -527,3 +546,17 @@ async def test_nothing_touched_records_nothing(db, env, published, delivered):
         db, results=[], actor_id=None, actor_display_name="Ada"
     )
     assert published == [] and delivered == []
+
+
+async def test_the_cascade_never_notifies_the_actor(db, env, published, delivered):
+    editor, owner = env["editor"], env["owner"]
+    child = await create_card(db, name="Child", approval_status="BROKEN")
+    await hold(db, child, editor)
+    await hold(db, child, owner)
+    await card_approval.record_child_strategy_effects(
+        db,
+        results=[result(disconnected_ids=[child.id], approval_broken_ids=[child.id])],
+        actor_id=editor.id,
+        actor_display_name="Ada",
+    )
+    assert [r["user_id"] for r in delivered[0]["recipients"]] == [owner.id]

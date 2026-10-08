@@ -185,6 +185,7 @@ def propagated(monkeypatch):
     calls = []
 
     async def fake(db, risk, **kwargs):
+        assert db is not None
         calls.append((risk.id, kwargs))
 
     monkeypatch.setattr(compliance_risk_sync, "propagate_risk_to_findings", fake)
@@ -224,11 +225,12 @@ async def test_delete_risk_that_is_gone(db, propagated):
 async def test_unlink_risk_card(db):
     card = await create_card(db, name="App")
     risk = await risk_service.create_risk(db, title="R", card_ids=[card.id], actor_id=None)
+    other = await risk_service.create_risk(db, title="Other", card_ids=[card.id], actor_id=None)
     op = {"op": "unlink_risk_card", "risk_id": str(risk.id), "card_id": str(card.id)}
     assert await apply(db, op) == ok(op)
     await db.flush()
-    rows = await db.execute(select(RiskCard).where(RiskCard.risk_id == risk.id))
-    assert rows.scalars().all() == []
+    rows = await db.execute(select(RiskCard.risk_id).where(RiskCard.card_id == card.id))
+    assert list(rows.scalars().all()) == [other.id]  # only the batch's link went
     assert await apply(db, op) == skipped(op, "already_unlinked")
     for bad in (
         {"op": "unlink_risk_card", "card_id": str(card.id)},
@@ -269,6 +271,7 @@ async def test_restore_risk_fields(db, propagated, owner_synced):
         "op": "restore_risk_fields",
         "risk_id": str(risk.id),
         "fields": {
+            "reference": "R-999999",  # not restorable: skipped, and the rest still restored
             "title": "Before",
             "initial_probability": "very_high",
             "initial_impact": "critical",
@@ -276,7 +279,6 @@ async def test_restore_risk_fields(db, propagated, owner_synced):
             "owner_id": str(old_owner.id),
             "target_resolution_date": "2026-05-06T00:00:00",
             "status": "identified",
-            "reference": "R-999999",  # not restorable: ignored
         },
     }
     result = await apply(db, op)
@@ -328,6 +330,17 @@ async def test_restore_risk_fields_falls_back_to_a_medium_initial_level(
     await apply(db, op)
     assert risk.initial_probability == "legacy"
     assert risk.initial_level == "medium"
+
+
+async def test_restore_risk_fields_re_derives_the_residual_level(db, propagated, owner_synced):
+    risk = await risk_service.create_risk(db, title="Now", card_ids=[], actor_id=None)
+    op = {
+        "op": "restore_risk_fields",
+        "risk_id": str(risk.id),
+        "fields": {"residual_probability": "low", "residual_impact": "critical"},
+    }
+    await apply(db, op)
+    assert risk.residual_level == "medium"
 
 
 async def test_restore_risk_fields_of_a_risk_that_is_gone(db, owner_synced):
@@ -463,11 +476,14 @@ async def test_tag_ops_need_a_card_and_a_tag(db, tagging, rescored, name):
 
 async def test_remove_card_tag(db, tagging, rescored):
     card, tag = tagging
+    elsewhere = await create_card(db, name="Elsewhere")
+    db.add(CardTag(card_id=elsewhere.id, tag_id=tag.id))
     db.add(CardTag(card_id=card.id, tag_id=tag.id))
     await db.flush()
     op = {"op": "remove_card_tag", "card_id": str(card.id), "tag_id": str(tag.id)}
     assert await apply(db, op) == ok(op)
     assert await card_tags(db, card) == []
+    assert await card_tags(db, elsewhere) == [tag.id]
     assert rescored == [("cards", [card.id])]
     assert await apply(db, op) == skipped(op, "already_removed")
 
@@ -536,6 +552,11 @@ async def test_close_survey(db):
     survey = Survey(name="S", target_type_key="Application", status="active")
     db.add(survey)
     await db.flush()
+    other_survey = Survey(name="Other", target_type_key="Application", status="active")
+    db.add(other_survey)
+    await db.flush()
+    theirs = SurveyResponse(survey_id=other_survey.id, card_id=card.id, user_id=u1.id)
+    db.add(theirs)
     pending = SurveyResponse(survey_id=survey.id, card_id=card.id, user_id=u1.id)
     answered = SurveyResponse(
         survey_id=survey.id, card_id=card.id, user_id=u2.id, status="completed"
@@ -550,6 +571,7 @@ async def test_close_survey(db):
     assert before <= survey.closed_at <= datetime.now(timezone.utc)
     left = await db.execute(select(SurveyResponse.id).where(SurveyResponse.survey_id == survey.id))
     assert list(left.scalars().all()) == [answered.id]
+    assert await exists(db, SurveyResponse, theirs.id)
     assert await apply(db, op) == skipped(op, "already_closed")
     gone = {"op": "close_survey", "survey_id": GHOST}
     assert await apply(db, gone) == skipped(gone, "not_found")
@@ -585,10 +607,11 @@ async def test_conflicts_are_later_batches_touching_our_entities(db, actor):
     await add_event(db, ours, "card.updated", {"id": "c-1"})
     await add_event(db, ours, "relation.created", {"id": "r-1"})
     later = await open_batch(db, actor, "later", after=ours)
+    await add_event(db, later, "comment.added", {"id": "c-1"})  # no entity: skipped, not the end
+    await add_event(db, later, "risk.updated", {"risk_id": "k"})  # a kind we never touched
     await add_event(db, later, "card.updated", {"id": "c-1"})
     await add_event(db, later, "relation.deleted", {"id": "r-1"})
     await add_event(db, later, "relation.created", {"id": "c-1"})  # same id, other kind
-    await add_event(db, later, "comment.added", {"id": "c-1"})  # no entity
     unrelated = await open_batch(db, actor, "unrelated", after=ours)
     await add_event(db, unrelated, "card.updated", {"id": "c-9"})
     earlier = MutationBatch(tool_name="earlier", actor_user_id=actor.id, dry_run=False)
