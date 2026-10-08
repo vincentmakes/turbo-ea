@@ -64,6 +64,9 @@ mcp = 68
 # The card write path, measured 2026-10-08 after the card-write pass.
 "backend/app/services/card_write_service.py" = 97     # every card and relation write
 
+# Platform migration, measured 2026-10-08 after the migration-apply pass.
+"backend/app/services/migration/apply.py" = 97        # landing a third-party EA export
+
 # Audit and approval, measured 2026-10-08 after the rollback/approval pass.
 "backend/app/services/rollback_service.py" = 97       # undoing a mutation batch
 "backend/app/services/card_approval.py" = 97          # approval breaks and their fan-out
