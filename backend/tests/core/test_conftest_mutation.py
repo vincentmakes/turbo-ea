@@ -78,6 +78,8 @@ def test_a_missing_database_skips_unless_it_is_required(extra, code, message):
     [
         ({}, {"test_scan", "test_runs", "test_module_scan"}),
         ({"MUTANT_UNDER_TEST": "stats"}, {"test_runs"}),
+        # mutmut's clean pass: set, but empty
+        ({"MUTANT_UNDER_TEST": ""}, {"test_runs"}),
     ],
 )
 def test_source_scans_are_left_out_only_under_mutmut(pytester, monkeypatch, env, expected):
