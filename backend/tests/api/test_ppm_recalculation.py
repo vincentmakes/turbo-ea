@@ -90,10 +90,16 @@ class TestWorkPackages:
         )
         assert await _progress(db, env["card_id"]) == 90.0
 
-        events = await _rollup_events(db, env["card_id"])
-        assert len(events) == 2
-        assert events[-1].data["changes"]["attributes"]["new"]["progress"] == 90.0
-        assert events[-1].data["changes"]["attributes"]["old"]["progress"] == 40.0
+        # Matched by content, not position: both events share the transaction's
+        # created_at, so the query has no order to rely on.
+        transitions = {
+            (
+                e.data["changes"]["attributes"]["old"].get("progress"),
+                e.data["changes"]["attributes"]["new"]["progress"],
+            )
+            for e in await _rollup_events(db, env["card_id"])
+        }
+        assert transitions == {(None, 40.0), (40.0, 90.0)}
 
     async def test_delete_recomputes_without_the_package(self, client, db, env):
         init_id = env["init_id"]

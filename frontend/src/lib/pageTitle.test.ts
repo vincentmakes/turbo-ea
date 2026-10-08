@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import en from "@/i18n/locales/en/nav.json";
+import { itSourceScan } from "@/test/sourceScan";
 
 import {
   MAX_SUBJECT_LENGTH,
@@ -119,7 +120,7 @@ describe("parity", () => {
    * listed as bare. A new route added without a decision fails here rather
    * than silently shipping a tab that just repeats the app title.
    */
-  it("covers every route in App.tsx", () => {
+  itSourceScan("covers every route in App.tsx", () => {
     const declared = new Set(
       [...appSource().matchAll(/<Route\s+path="([^"]+)"/g)].map((m) => m[1]),
     );
@@ -130,7 +131,7 @@ describe("parity", () => {
     expect(unreviewed).toEqual([]);
   });
 
-  it("has no stale entries pointing at routes that no longer exist", () => {
+  itSourceScan("has no stale entries pointing at routes that no longer exist", () => {
     const declared = new Set(
       [...appSource().matchAll(/<Route\s+path="([^"]+)"/g)].map((m) => m[1]),
     );

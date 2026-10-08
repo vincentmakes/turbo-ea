@@ -10,6 +10,7 @@ CLI; the scripts import each other by bare name, so their directory goes on
 from __future__ import annotations
 
 import difflib
+import fnmatch
 import importlib
 import json
 import subprocess
@@ -525,17 +526,108 @@ class TestMutmutRunAndCollect:
         assert calls == [("run", "--max-children", "3", "app.x.x_plain__mutmut_*")]
         assert (suite_repo / "backend" / "mutants").is_symlink()
 
-    def test_a_shard_runs_whole_files(self, suite_repo, monkeypatch):
+    @staticmethod
+    def fake_mutmut(monkeypatch, calls, meta=None, generate=None):
+        """mutmut as the nightly sees it: the generate-only call stops on
+        "nothing matches" (after writing ``meta``, as generation does)."""
+
+        def fake(d, *a, stream=False, budget=None):
+            calls.append((a, budget))
+            if a[-1] == mutmut_scope._GENERATE_ONLY:
+                if generate is not None:
+                    return generate
+                if meta is not None:
+                    path = d / "mutants" / "app" / "x.py.meta"
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(json.dumps({"exit_code_by_key": meta}))
+                # captured, mutmut's assertion lands on stderr (verified on 3.8.0)
+                err = f"AssertionError: {mutmut_scope._NOTHING_MATCHES}"
+                return subprocess.CompletedProcess(a, 1, "Listing all tests", err)
+            return subprocess.CompletedProcess(a, 0, "", "")
+
+        monkeypatch.setattr(mutmut_scope, "mutmut", fake)
+
+    def test_a_shard_never_generated_runs_whole_files(self, suite_repo, monkeypatch):
         calls = []
-        monkeypatch.setattr(
-            mutmut_scope,
-            "mutmut",
-            lambda d, *a, stream=False, budget=None: (
-                calls.append((a, budget)) or subprocess.CompletedProcess(a, 0, "", "")
-            ),
-        )
+        self.fake_mutmut(monkeypatch, calls)
         assert mutmut_scope.run("backend", None, 2, suite_repo, shard="1/1", budget=5) == 0
-        assert calls == [(("run", "--max-children", "2", "app.x.x_*", "app.x.xǁ*"), 5)]
+        generate, test = calls
+        assert generate == (("run", "--max-children", "2", mutmut_scope._GENERATE_ONLY), None)
+        assert test[0] == ("run", "--max-children", "2", "app.x.x_*", "app.x.xǁ*")
+        assert 1 <= test[1] <= 5  # what generating took comes off the budget
+
+    def test_a_shard_names_only_functions_with_an_unchecked_mutant(self, suite_repo, monkeypatch):
+        """mutmut re-tests every mutant named on its command line, verdict or
+        not: naming the shard's files re-tested its whole baseline each night,
+        and the unchecked tail never came up (run 12, 2026-10-07)."""
+        calls = []
+        meta = {
+            "app.x.x_plain__mutmut_1": 1,
+            "app.x.x_plain__mutmut_2": 0,
+            "app.x.x_other__mutmut_1": None,  # unchecked, or reset by a code change
+            "app.x.x_other__mutmut_2": 1,
+            "app.x.xǁThingǁmethod__mutmut_1": None,
+            "app.x.xǁThingǁmethod__mutmut_2": None,
+            "app.x.x_untested__mutmut_1": 33,  # no tests: a verdict too
+        }
+        self.fake_mutmut(monkeypatch, calls, meta=meta)
+        assert mutmut_scope.run("backend", None, 2, suite_repo, shard="1/1", budget=5) == 0
+        assert calls[-1][0] == (
+            "run",
+            "--max-children",
+            "2",
+            # partly checked: the one mutant by name, so its killed sibling is not re-run
+            "app.x.x_other__mutmut_1",
+            # nothing checked yet: the function's pattern
+            "app.x.xǁThingǁmethod__mutmut_*",
+        )
+        # the names pick out exactly the unchecked mutants and no others
+        names = list(meta)
+        picked = [n for n in names if any(fnmatch.fnmatch(n, p) for p in calls[-1][0][3:])]
+        assert picked == [n for n, code in meta.items() if code is None]
+
+    def test_a_shard_reopens_survivors_after_generating_and_before_naming(
+        self, suite_repo, monkeypatch
+    ):
+        calls, order = [], []
+        self.fake_mutmut(monkeypatch, calls, meta={"app.x.x_plain__mutmut_1": 0})
+
+        def reopen(directory, files):
+            order.append(("reopen", list(calls), files))
+            meta = directory / "mutants" / "app" / "x.py.meta"
+            meta.write_text(json.dumps({"exit_code_by_key": {"app.x.x_plain__mutmut_1": None}}))
+            return 1
+
+        monkeypatch.setattr(mutmut_scope, "reopen_survivors", reopen)
+        assert mutmut_scope.run("backend", None, 2, suite_repo, shard="1/1", budget=5) == 0
+        (step, before, files) = order[0]
+        assert [c[0][-1] for c in before] == [mutmut_scope._GENERATE_ONLY]
+        assert files == ["app/x.py"]
+        assert calls[-1][0][-1] == "app.x.x_plain__mutmut_*"
+
+    def test_a_shard_with_every_verdict_in_place_tests_nothing(
+        self, suite_repo, monkeypatch, capsys
+    ):
+        calls = []
+        self.fake_mutmut(monkeypatch, calls, meta={"app.x.x_plain__mutmut_1": 1})
+        assert mutmut_scope.run("backend", None, 2, suite_repo, shard="1/1", budget=5) == 0
+        assert len(calls) == 1  # generated, then nothing to test
+        assert "has a verdict" in capsys.readouterr().out
+
+    def test_a_failure_while_generating_stops_the_shard(self, suite_repo, monkeypatch):
+        calls = []
+        failed = subprocess.CompletedProcess([], 2, "SyntaxError", "")
+        self.fake_mutmut(monkeypatch, calls, generate=failed)
+        assert mutmut_scope.run("backend", None, 2, suite_repo, shard="1/1") == 2
+        assert len(calls) == 1
+
+    def test_named_files_are_retested_on_purpose(self, suite_repo, monkeypatch):
+        """``--files`` (and a PR's changed functions) still name everything:
+        there a re-test is what was asked for."""
+        calls = []
+        self.fake_mutmut(monkeypatch, calls, meta={"app.x.x_plain__mutmut_1": 1})
+        assert mutmut_scope.run("backend", None, 2, suite_repo, files=["app/x.py"]) == 0
+        assert [c[0] for c in calls] == [("run", "--max-children", "2", "app.x.x_*", "app.x.xǁ*")]
 
     def test_run_with_nothing_mutable_changed_does_not_start_mutmut(self, suite_repo, monkeypatch):
         monkeypatch.setattr(mutmut_scope, "mutmut", lambda *a, **k: pytest.fail("ran mutmut"))
@@ -608,6 +700,175 @@ class TestMutmutRunAndCollect:
 
 
 # ── stryker_scope ────────────────────────────────────────────────────────────
+
+
+def survivors_suite(tmp_path, verdicts, tests_by_function, tests, commit="abc123"):
+    """A suite as a cached nightly leaves it: test modules, mutmut's stats and
+    one file's verdicts."""
+    suite = tmp_path / "suite"
+    for rel, text in tests.items():
+        (suite / rel).parent.mkdir(parents=True, exist_ok=True)
+        (suite / rel).write_text(text)
+    mutants = suite / "mutants"
+    (mutants / "app").mkdir(parents=True)
+    (mutants / "mutmut-stats.json").write_text(
+        json.dumps({"tests_by_mangled_function_name": tests_by_function, "git_commit": commit})
+    )
+    (mutants / "app" / "x.py.meta").write_text(json.dumps({"exit_code_by_key": verdicts}))
+    return suite
+
+
+def verdicts_of(suite):
+    return json.loads((suite / "mutants" / "app" / "x.py.meta").read_text())["exit_code_by_key"]
+
+
+class TestReopenSurvivors:
+    """mutmut keeps a survivor's verdict until its function's code changes, so
+    the kills a tests-only PR adds never reached the nightly (found while
+    hardening the auth modules, 2026-10-08)."""
+
+    VERDICTS = {
+        "app.x.x_plain__mutmut_1": 1,  # killed: never reopened
+        "app.x.x_plain__mutmut_2": 0,  # survived, tested by test_a
+        "app.x.x_other__mutmut_1": 0,  # survived, tested by test_b only
+        "app.x.x_untested__mutmut_1": 33,  # no tests, now run by test_a
+        "app.x.x_new__mutmut_1": None,  # already unchecked
+    }
+    TESTS_BY_FUNCTION = {
+        "app.x.x_plain": ["tests/test_a.py::test_one", "tests/test_b.py::test_two"],
+        "app.x.x_other": ["tests/test_b.py::test_three"],
+        "app.x.x_untested": ["tests/test_a.py::test_new"],
+    }
+    TESTS = {"tests/test_a.py": "def test_one(): pass\n", "tests/test_b.py": "B = 1\n"}
+
+    def suite(self, tmp_path, monkeypatch, changed_since=None):
+        suite = survivors_suite(tmp_path, self.VERDICTS, self.TESTS_BY_FUNCTION, self.TESTS)
+        monkeypatch.setattr(mutmut_scope, "tests_changed_since", lambda d, c: changed_since)
+        return suite
+
+    def test_a_changed_test_module_reopens_the_survivors_it_runs(self, tmp_path, monkeypatch):
+        suite = self.suite(tmp_path, monkeypatch, changed_since=set())
+        mutmut_scope.reopen_survivors(suite, ["app/x.py"])  # first run: the baseline
+        (suite / "tests" / "test_a.py").write_text("def test_one(): assert 1\n")
+        verdicts_before = verdicts_of(suite)
+        assert mutmut_scope.reopen_survivors(suite, ["app/x.py"]) == 2
+        after = verdicts_of(suite)
+        assert {k for k in after if after[k] != verdicts_before[k]} == {
+            "app.x.x_plain__mutmut_2",
+            "app.x.x_untested__mutmut_1",
+        }
+        assert after["app.x.x_plain__mutmut_2"] is None
+        assert after["app.x.x_untested__mutmut_1"] is None
+        assert after["app.x.x_plain__mutmut_1"] == 1
+        assert after["app.x.x_other__mutmut_1"] == 0  # test_b did not change
+
+    def test_unchanged_tests_reopen_nothing_and_the_digest_records_them(
+        self, tmp_path, monkeypatch
+    ):
+        suite = self.suite(tmp_path, monkeypatch, changed_since=set())
+        assert mutmut_scope.reopen_survivors(suite, ["app/x.py"]) == 0
+        assert mutmut_scope.reopen_survivors(suite, ["app/x.py"]) == 0
+        assert verdicts_of(suite) == self.VERDICTS
+        digest = json.loads((suite / "mutants" / mutmut_scope.TESTS_DIGEST).read_text())
+        assert digest == mutmut_scope.tests_digest(suite)
+        assert set(digest) == {"tests/test_a.py", "tests/test_b.py"}
+
+    def test_a_new_test_module_counts_as_changed(self, tmp_path, monkeypatch):
+        suite = self.suite(tmp_path, monkeypatch, changed_since=set())
+        mutmut_scope.reopen_survivors(suite, ["app/x.py"])
+        (suite / "tests" / "test_c.py").write_text("def test_four(): pass\n")
+        stats = json.loads((suite / "mutants" / "mutmut-stats.json").read_text())
+        # what mutmut's stats pass in generate_only records for the new module
+        stats["tests_by_mangled_function_name"]["app.x.x_other"].append(
+            "tests/test_c.py::test_four"
+        )
+        (suite / "mutants" / "mutmut-stats.json").write_text(json.dumps(stats))
+        assert mutmut_scope.reopen_survivors(suite, ["app/x.py"]) == 1
+        assert verdicts_of(suite)["app.x.x_other__mutmut_1"] is None
+
+    def test_the_first_run_asks_git_what_changed_since_the_stats(self, tmp_path, monkeypatch):
+        seen = []
+        suite = survivors_suite(tmp_path, self.VERDICTS, self.TESTS_BY_FUNCTION, self.TESTS)
+        monkeypatch.setattr(
+            mutmut_scope,
+            "tests_changed_since",
+            lambda d, commit: seen.append((d, commit)) or {"tests/test_b.py"},
+        )
+        assert mutmut_scope.reopen_survivors(suite, ["app/x.py"]) == 2
+        assert seen == [(suite, "abc123")]
+        after = verdicts_of(suite)
+        assert after["app.x.x_plain__mutmut_2"] is None
+        assert after["app.x.x_other__mutmut_1"] is None
+        assert after["app.x.x_untested__mutmut_1"] == 33  # run by test_a only
+
+    def test_without_git_every_test_module_counts_as_changed(self, tmp_path, monkeypatch):
+        suite = self.suite(tmp_path, monkeypatch, changed_since=None)
+        assert mutmut_scope.reopen_survivors(suite, ["app/x.py"]) == 3
+        assert [k for k, v in verdicts_of(suite).items() if v is not None] == [
+            "app.x.x_plain__mutmut_1"
+        ]
+
+    def test_only_the_files_in_scope_are_touched(self, tmp_path, monkeypatch):
+        suite = self.suite(tmp_path, monkeypatch, changed_since=None)
+        assert mutmut_scope.reopen_survivors(suite, ["app/y.py"]) == 0
+        assert verdicts_of(suite) == self.VERDICTS
+
+    def test_no_stats_means_nothing_to_reopen(self, tmp_path):
+        suite = tmp_path / "suite"
+        (suite / "mutants").mkdir(parents=True)
+        assert mutmut_scope.reopen_survivors(suite, ["app/x.py"]) == 0
+        assert not (suite / "mutants" / mutmut_scope.TESTS_DIGEST).exists()
+
+    def test_the_digest_hashes_every_test_module_by_content(self, tmp_path):
+        suite = tmp_path / "suite"
+        (suite / "tests" / "api").mkdir(parents=True)
+        (suite / "tests" / "api" / "test_a.py").write_text("A")
+        (suite / "tests" / "notes.txt").write_text("not a module")
+        first = mutmut_scope.tests_digest(suite)
+        assert list(first) == ["tests/api/test_a.py"]
+        (suite / "tests" / "api" / "test_a.py").write_text("B")
+        assert mutmut_scope.tests_digest(suite) != first
+
+
+class TestTestsChangedSince:
+    @staticmethod
+    def git(cwd, *args):
+        subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+
+    @pytest.fixture
+    def repo(self, tmp_path):
+        self.git(tmp_path, "init", "-q")
+        self.git(tmp_path, "config", "user.email", "t@example.com")
+        self.git(tmp_path, "config", "user.name", "t")
+        suite = tmp_path / "backend"
+        (suite / "tests").mkdir(parents=True)
+        (suite / "app").mkdir()
+        (suite / "tests" / "test_a.py").write_text("A")
+        (suite / "tests" / "test_b.py").write_text("B")
+        (suite / "app" / "x.py").write_text("X")
+        self.git(tmp_path, "add", "-A")
+        self.git(tmp_path, "commit", "-qm", "base")
+        base = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=tmp_path, capture_output=True, text=True
+        ).stdout.strip()
+        (suite / "tests" / "test_a.py").write_text("A2")
+        (suite / "tests" / "test_c.py").write_text("C")
+        (suite / "app" / "x.py").write_text("X2")  # source: not a test
+        self.git(tmp_path, "add", "-A")
+        self.git(tmp_path, "commit", "-qm", "next")
+        return suite, base
+
+    def test_lists_the_test_modules_changed_since_the_commit(self, repo):
+        suite, base = repo
+        assert mutmut_scope.tests_changed_since(suite, base) == {
+            "tests/test_a.py",
+            "tests/test_c.py",
+        }
+
+    def test_no_commit_or_an_unknown_one_cannot_say(self, repo):
+        suite, _ = repo
+        assert mutmut_scope.tests_changed_since(suite, None) is None
+        assert mutmut_scope.tests_changed_since(suite, "0" * 40) is None
 
 
 class TestStrykerScope:
@@ -828,3 +1089,96 @@ class TestStrykerNightly:
         assert previous.read_text() == '{"files": {}}'
         # it had the whole budget and still did not finish: say so
         assert "cannot finish within one budget" in capsys.readouterr().out
+        # and it is not marked as measured from today's inputs
+        assert not (state / "chunk-1-0.inputs").exists()
+
+
+class TestStrykerNightlySkipsUnchangedChunks:
+    """Stryker pays a full dry run per chunk even when every result is reused,
+    so a chunk whose last report was made from the same inputs is skipped."""
+
+    @staticmethod
+    def calls(monkeypatch):
+        seen = []
+        real = stryker_scope._run_chunk
+
+        def counting(files, *args):
+            seen.append(sorted(files))
+            return real(files, *args)
+
+        monkeypatch.setattr(stryker_scope, "_run_chunk", counting)
+        return seen
+
+    def test_a_second_pass_over_the_same_inputs_runs_nothing(
+        self, frontend_repo, tmp_path, monkeypatch, capsys
+    ):
+        fe, config = frontend_repo
+        state = tmp_path / "state"
+        assert stryker_scope.nightly("1/1", 30, state, fe, config) == 0
+        reports = {p: p.read_text() for p in state.glob("*.mutation.json")}
+        seen = self.calls(monkeypatch)
+        assert stryker_scope.nightly("1/1", 30, state, fe, config) == 0
+        assert seen == []
+        assert {p: p.read_text() for p in state.glob("*.mutation.json")} == reports
+        assert capsys.readouterr().out.count(": unchanged") == 2
+
+    def test_any_change_under_src_reruns_every_chunk(self, frontend_repo, tmp_path, monkeypatch):
+        fe, config = frontend_repo
+        state = tmp_path / "state"
+        stryker_scope.nightly("1/1", 30, state, fe, config)
+        # a test file belongs to no chunk, yet it can change every verdict
+        (fe / "src" / "a.test.ts").write_text("test, edited\n")
+        seen = self.calls(monkeypatch)
+        stryker_scope.nightly("1/1", 30, state, fe, config)
+        assert sorted(f for chunk in seen for f in chunk) == [
+            f"src/{n}.ts" for n in ("a", "b", "c", "d")
+        ]
+
+    def test_a_config_change_reruns_too(self, frontend_repo, tmp_path, monkeypatch):
+        fe, config = frontend_repo
+        state = tmp_path / "state"
+        (fe / "package-lock.json").write_text("{}")
+        stryker_scope.nightly("1/1", 30, state, fe, config)
+        (fe / "package-lock.json").write_text('{"lockfileVersion": 3}')
+        seen = self.calls(monkeypatch)
+        stryker_scope.nightly("1/1", 30, state, fe, config)
+        assert len(seen) == 2
+
+    def test_a_failed_chunk_is_retried(self, frontend_repo, tmp_path, monkeypatch):
+        fe, config = frontend_repo
+        (fe / "src" / "broken.ts").write_text("x\n")
+        state = tmp_path / "state"
+        assert stryker_scope.nightly("1/1", 30, state, fe, config) == 1
+        seen = self.calls(monkeypatch)
+        assert stryker_scope.nightly("1/1", 30, state, fe, config) == 1
+        assert len(seen) == 1 and "src/broken.ts" in seen[0]
+
+    def test_a_chunk_with_a_report_but_no_recorded_inputs_reruns(
+        self, frontend_repo, tmp_path, monkeypatch
+    ):
+        """A cache saved before the digest existed carries reports only."""
+        fe, config = frontend_repo
+        state = tmp_path / "state"
+        stryker_scope.nightly("1/1", 30, state, fe, config)
+        for recorded in state.glob("*.inputs"):
+            recorded.unlink()
+        seen = self.calls(monkeypatch)
+        stryker_scope.nightly("1/1", 30, state, fe, config)
+        assert len(seen) == 2
+
+    def test_the_digest_covers_content_and_names_not_listing_order(self, frontend_repo):
+        fe, _ = frontend_repo
+        before = stryker_scope.inputs_digest(fe)
+        assert stryker_scope.inputs_digest(fe) == before
+        (fe / "src" / "b.ts").write_text("export const x = 2;\n")
+        changed = stryker_scope.inputs_digest(fe)
+        assert changed != before
+        (fe / "src" / "b.ts").rename(fe / "src" / "e.ts")
+        renamed = stryker_scope.inputs_digest(fe)
+        assert renamed != changed
+        (fe / "tsconfig.app.json").write_text("{}")
+        configured = stryker_scope.inputs_digest(fe)
+        assert configured != renamed
+        # a file outside src/ and the listed configs is not an input
+        (fe / "README.md").write_text("notes\n")
+        assert stryker_scope.inputs_digest(fe) == configured

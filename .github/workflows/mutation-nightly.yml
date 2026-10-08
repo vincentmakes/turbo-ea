@@ -25,9 +25,13 @@ name: Mutation (nightly)
 
 on:
   schedule:
-    # Weekdays 01:13 UTC: done before the working day, clear of the Monday
-    # image rebuild and the Tuesday DAST run.
-    - cron: "13 1 * * 1-5"
+    # Sunday to Thursday at 17:13 UTC, so the results are there each working
+    # morning. GitHub starts this repository's scheduled runs 6-7 h late
+    # (October 2026: this one, set for 01:13, was created at 07:11 and 07:30;
+    # ghcr-stats, set for 03:23, at 10:25 and 10:33), so an evening slot is
+    # what still finishes, ~5 h later, before the working day. Clear of the
+    # Monday image rebuild and the Tuesday DAST run.
+    - cron: "13 17 * * 0-4"
   workflow_dispatch:
     inputs:
       budget:
@@ -49,6 +53,10 @@ env:
   BUDGET: ${{ github.event_name == 'pull_request' && '15' || inputs.budget || '280' }}
   # Caches are written by main only; a pull request only ever reads them.
   SAVE_CACHE: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+  # Address-space cap (`ulimit -v`, KiB) for each process mutmut forks: 3 GiB.
+  # The whole backend suite in one process peaks at ~0.65 GiB (VmPeak, measured
+  # 2026-10-06), and four children at the cap still fit a 16 GB runner.
+  MUTMUT_VMEM_KB: "3145728"
 
 jobs:
   # The matrix is the only place a shard count is set: `strategy.job-total`
@@ -102,10 +110,46 @@ jobs:
           restore-keys: mutmut-backend-shard${{ matrix.shard }}-
       - id: meta
         run: echo "count=${{ strategy.job-total }}" >> "$GITHUB_OUTPUT"
-      - name: Mutate shard ${{ matrix.shard }} within the budget
+      # Two halves with a checkpoint between: a runner that is lost mid-job
+      # ("The runner has received a shutdown signal") runs no later step, not
+      # even an always() one, so without the checkpoint its whole night is
+      # gone and the report has no records file for the shard. Each half
+      # re-runs mutmut's clean test (~20 min), which is why there is only one.
+      # `ulimit -v` caps every forked pytest child, so a runaway mutant hits
+      # MemoryError (and is killed) instead of exhausting the runner.
+      # A dispatched run hands the budget input over as "280.0", which bash's
+      # integer arithmetic rejects (run 14 failed every shard on it in its
+      # first second), so the halving is done once, in Python, for both halves.
+      - name: Split the budget in two
         run: >-
-          python scripts/mutation/mutmut_scope.py run --suite backend --shard "$SHARD"
-          --budget "$BUDGET" --max-children 4
+          python3 -c 'import os; print("HALF_BUDGET=%g" % (float(os.environ["BUDGET"]) / 2))'
+          >> "$GITHUB_ENV"
+      - name: Mutate shard ${{ matrix.shard }}, first half of the budget
+        run: |
+          ulimit -v "$MUTMUT_VMEM_KB"
+          python scripts/mutation/mutmut_scope.py run --suite backend --shard "$SHARD" \
+            --budget "$HALF_BUDGET" --max-children 4
+      - name: Checkpoint the shard's verdicts
+        run: >-
+          python scripts/mutation/mutmut_scope.py collect --suite backend --shard "$SHARD"
+          --output "mutation-records-backend-${{ matrix.shard }}.json"
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: env.SAVE_CACHE == 'true'
+        with:
+          path: .mutation/backend/backend
+          key: mutmut-backend-shard${{ matrix.shard }}-${{ github.run_id }}-checkpoint
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-records-backend-${{ matrix.shard }}
+          path: mutation-records-backend-${{ matrix.shard }}.json
+          if-no-files-found: warn
+          retention-days: 3
+          overwrite: true
+      - name: Mutate shard ${{ matrix.shard }}, second half of the budget
+        run: |
+          ulimit -v "$MUTMUT_VMEM_KB"
+          python scripts/mutation/mutmut_scope.py run --suite backend --shard "$SHARD" \
+            --budget "$HALF_BUDGET" --max-children 4
       - name: Collect the shard's verdicts
         if: always()
         run: >-
@@ -123,6 +167,7 @@ jobs:
           path: mutation-records-backend-${{ matrix.shard }}.json
           if-no-files-found: warn
           retention-days: 3
+          overwrite: true
 
   mcp:
     name: MCP mutation
@@ -142,10 +187,13 @@ jobs:
           path: .mutation/mcp-server/mcp-server
           key: mutmut-mcp-shard1-${{ github.run_id }}
           restore-keys: mutmut-mcp-shard1-
+      # A couple of minutes end to end, so no checkpoint; the memory cap is
+      # the backend's (see above).
       - name: Mutate the MCP server within the budget
-        run: >-
-          python scripts/mutation/mutmut_scope.py run --suite mcp --shard 1/1
-          --budget "$BUDGET" --max-children 4
+        run: |
+          ulimit -v "$MUTMUT_VMEM_KB"
+          python scripts/mutation/mutmut_scope.py run --suite mcp --shard 1/1 \
+            --budget "$BUDGET" --max-children 4
       - name: Collect the verdicts
         if: always()
         run: >-
@@ -198,14 +246,58 @@ jobs:
           path: frontend/reports/nightly
           key: stryker-frontend-shard${{ matrix.shard }}-${{ github.run_id }}
           restore-keys: stryker-frontend-shard${{ matrix.shard }}-
-      - name: Mutate shard ${{ matrix.shard }} within the budget
+      # Two halves with a checkpoint between, for the reason the backend job
+      # gives. A chunk's state is written when the chunk finishes, so the
+      # checkpoint keeps every chunk the first half completed. The summary
+      # file is pointed at /dev/null: Vitest's reporter appends to it on every
+      # chunk, which overflowed the step summary's 1 MB limit.
+      # A dispatched run hands the budget input over as "280.0", which bash's
+      # integer arithmetic rejects (run 14 failed every shard on it in its
+      # first second), so the halving is done once, in Python, for both halves.
+      - name: Split the budget in two
+        run: >-
+          python3 -c 'import os; print("HALF_BUDGET=%g" % (float(os.environ["BUDGET"]) / 2))'
+          >> "$GITHUB_ENV"
+      - name: Mutate shard ${{ matrix.shard }}, first half of the budget
+        env:
+          GITHUB_STEP_SUMMARY: /dev/null
         run: |
           limit=""
-          # the smoke test on a pull request: one chunk a shard
+          # the smoke test on a pull request: one chunk a shard per half
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then limit="--max-chunks 1"; fi
           # shellcheck disable=SC2086
           python3 scripts/mutation/stryker_scope.py nightly --shard "$SHARD" \
-            --budget "$BUDGET" --state "$STATE" $limit
+            --budget "$HALF_BUDGET" --state "$STATE" $limit
+      # A chunk that fails fails the step only after every other chunk ran, so
+      # the checkpoint and the second half still run; only a cancel stops them.
+      - name: Checkpoint the shard's verdicts
+        if: ${{ !cancelled() }}
+        run: >-
+          python3 scripts/mutation/stryker_scope.py collect --state "$STATE" --shard "$SHARD"
+          --output "mutation-records-frontend-${{ matrix.shard }}.json"
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: ${{ !cancelled() && env.SAVE_CACHE == 'true' }}
+        with:
+          path: frontend/reports/nightly
+          key: stryker-frontend-shard${{ matrix.shard }}-${{ github.run_id }}-checkpoint
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: mutation-records-frontend-${{ matrix.shard }}
+          path: mutation-records-frontend-${{ matrix.shard }}.json
+          if-no-files-found: warn
+          retention-days: 3
+          overwrite: true
+      - name: Mutate shard ${{ matrix.shard }}, second half of the budget
+        if: ${{ !cancelled() }}
+        env:
+          GITHUB_STEP_SUMMARY: /dev/null
+        run: |
+          limit=""
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then limit="--max-chunks 1"; fi
+          # shellcheck disable=SC2086
+          python3 scripts/mutation/stryker_scope.py nightly --shard "$SHARD" \
+            --budget "$HALF_BUDGET" --state "$STATE" $limit
       - name: Collect the shard's verdicts
         if: always()
         run: >-
@@ -223,6 +315,7 @@ jobs:
           path: mutation-records-frontend-${{ matrix.shard }}.json
           if-no-files-found: warn
           retention-days: 3
+          overwrite: true
 
   report:
     name: Mutation report

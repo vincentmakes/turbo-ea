@@ -10,6 +10,13 @@ runs anything. So a test marked ``@pytest.mark.source_scan`` (or a module with
 one running pytest, which it signals with ``MUTANT_UNDER_TEST`` in every
 process it starts. Everywhere else the marker changes nothing.
 
+It is the variable's presence that counts, not its value: mutmut runs its
+clean pass with ``MUTANT_UNDER_TEST=""``, and when the run is scoped to
+functions (``mutmut_scope.py --changed``) that pass is the whole suite,
+because a function's mutant pattern never matches the name mutmut files its
+tests under — so a truthiness check let every scan run against the rewritten
+copy and fail the clean pass.
+
 Registered by ``tests/conftest.py``'s ``pytest_configure``.
 """
 
@@ -27,7 +34,7 @@ DESCRIPTION = (
 
 
 def under_mutmut() -> bool:
-    return bool(os.environ.get("MUTANT_UNDER_TEST"))
+    return "MUTANT_UNDER_TEST" in os.environ
 
 
 @pytest.hookimpl(tryfirst=True)

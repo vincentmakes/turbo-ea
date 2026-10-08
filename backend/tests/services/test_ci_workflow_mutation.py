@@ -11,7 +11,9 @@ reports it through the same gate.
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -104,16 +106,87 @@ def test_the_nightly_measures_every_suite_resumably():
     assert {"backend", "mcp", "frontend", "report"} <= set(j)
     assert "shard: [1, " in j["backend"] and '--shard "$SHARD"' in j["backend"]
     assert "shard: [1, " in j["frontend"] and "stryker_scope.py nightly" in j["frontend"]
-    assert '--budget "$BUDGET"' in j["frontend"] and "collect --state" in j["frontend"]
+    assert '--budget "$HALF_BUDGET"' in j["frontend"] and "collect --state" in j["frontend"]
     assert "--shard 1/1" in j["mcp"]
-    for job in ("backend", "mcp"):
-        assert '--budget "$BUDGET"' in j[job]
-        assert 'TEST_DB_REQUIRED: "1"' in j[job] or job == "mcp"
+    assert '--budget "$HALF_BUDGET"' in j["backend"]
+    assert '--budget "$BUDGET"' in j["mcp"]
+    assert 'TEST_DB_REQUIRED: "1"' in j["backend"]
     text = NIGHTLY.read_text()
     assert 'cron: "' in text and "workflow_dispatch:" in text
     # caches are written by main only
     assert "SAVE_CACHE: ${{ github.event_name != 'pull_request' && github.ref == " in text
     assert text.count("if: always() && env.SAVE_CACHE == 'true'") == 3
+
+
+@pytest.mark.parametrize("job", ["backend", "frontend"])
+def test_a_lost_runner_loses_half_a_night_not_all_of_it(job):
+    """A runner that disappears mid-job runs no later step, not even an always()
+    one; the checkpoint between two halves of the budget keeps the first half's
+    verdicts in the cache and the shard's records in the artifact."""
+    body = jobs(NIGHTLY)[job]
+    assert body.count('--budget "$HALF_BUDGET"') == 2
+    assert "first half of the budget" in body and "second half of the budget" in body
+    first = body.index("first half of the budget")
+    checkpoint = body.index("-${{ github.run_id }}-checkpoint")
+    second = body.index("second half of the budget")
+    assert first < checkpoint < second
+    # the final save keeps the plain key, so it is the newest by prefix next night
+    assert body.index("key: ") < second < body.rindex("-${{ github.run_id }}\n")
+    # the same artifact name is written twice
+    assert body.count("overwrite: true") == 2
+
+
+def test_a_failed_frontend_chunk_does_not_cost_the_second_half():
+    body = jobs(NIGHTLY)["frontend"]
+    second = body.index("second half of the budget")
+    checkpoint = body.index("Checkpoint the shard's verdicts")
+    for part in (body[checkpoint:second], body[second : second + 200]):
+        assert "!cancelled()" in part
+
+
+@pytest.mark.parametrize("job", ["backend", "mcp"])
+def test_mutmut_children_are_memory_capped(job):
+    body = jobs(NIGHTLY)[job]
+    runs = body.count("mutmut_scope.py run")
+    assert runs >= 1 and body.count('ulimit -v "$MUTMUT_VMEM_KB"') == runs
+    top = NIGHTLY.read_text().split("\njobs:\n", 1)[0]
+    assert re.search(r'MUTMUT_VMEM_KB: "\d+"', top)
+
+
+def test_vitest_does_not_flood_the_step_summary():
+    body = jobs(NIGHTLY)["frontend"]
+    assert body.count("GITHUB_STEP_SUMMARY: /dev/null") == body.count("stryker_scope.py nightly")
+
+
+# A frontend test that reads files off disk, and why it may skip the marker.
+READS_NO_SOURCE = {
+    "src/features/reports/linkChangeGlyphs.test.ts": "reads SVG assets in node_modules",
+}
+
+
+def test_frontend_source_scans_skip_inside_the_stryker_sandbox():
+    """In Stryker's sandbox the files being mutated are instrumented copies, so a
+    test reading src/ as text fails the initial run and aborts the chunk (the
+    t() key scan did, on src/i18n/index.ts). Every such test goes through
+    src/test/sourceScan.ts, which skips under the flag the Stryker config sets."""
+    frontend = ROOT / "frontend"
+    stryker_vitest = (frontend / "vitest.stryker.config.ts").read_text()
+    assert 'MUTATION_SANDBOX: "1"' in stryker_vitest
+    helper = (frontend / "src" / "test" / "sourceScan.ts").read_text()
+    assert 'process.env.MUTATION_SANDBOX === "1"' in helper
+    readers = sorted(
+        str(p.relative_to(frontend))
+        for p in (frontend / "src").rglob("*.test.ts*")
+        if re.search(r"\b(readFileSync|readdirSync)\b", p.read_text())
+    )
+    assert readers, "the scan found no file reader at all"
+    unmarked = [
+        r
+        for r in readers
+        if r not in READS_NO_SOURCE and '@/test/sourceScan"' not in (frontend / r).read_text()
+    ]
+    assert unmarked == [], f"read src/ as text without describeSourceScan/itSourceScan: {unmarked}"
+    assert set(READS_NO_SOURCE) <= set(readers), "stale READS_NO_SOURCE entry"
 
 
 def test_the_nightly_report_runs_after_failed_shards_and_uses_the_gate():
@@ -179,3 +252,39 @@ def test_every_floor_is_documented_in_the_rule_that_owns_it():
         assert job in (ROOT / "CONTRIBUTING.md").read_text()
     template = (ROOT / ".github" / "pull_request_template.md").read_text()
     assert "Mutation" in template
+
+
+def test_the_nightly_is_scheduled_in_the_evening():
+    """GitHub starts this repository's scheduled runs 6-7 h late, so an
+    early-morning slot ran through the working day."""
+    crons = re.findall(r'cron: "([^"]+)"', NIGHTLY.read_text())
+    assert len(crons) == 1
+    minute, hour, day, month, weekdays = crons[0].split()
+    assert 16 <= int(hour) <= 19
+    # the evenings before Monday to Friday
+    assert (day, month, weekdays) == ("*", "*", "0-4")
+
+
+@pytest.mark.parametrize("job", ["backend", "frontend"])
+def test_the_budget_is_halved_without_integer_arithmetic(job, tmp_path):
+    """A dispatch hands the number input over as "280.0", and bash's $(( ))
+    rejects it: run 14 failed every shard in its first second. The halving is
+    one Python step, ahead of both halves, that also refuses a non-number."""
+    body = jobs(NIGHTLY)[job]
+    assert "$((" not in body
+    split = body.index("Split the budget in two")
+    assert split < body.index("first half of the budget")
+    # the step's folded `run: >-` block, joined the way YAML folds it
+    block = body[split:].split("run: >-\n", 1)[1].split("\n      - ", 1)[0]
+    command = " ".join(line.strip() for line in block.splitlines() if line.strip())
+    for budget, half in (("280", "140"), ("280.0", "140"), ("15", "7.5")):
+        env_file = tmp_path / f"env-{budget}"
+        env = {"PATH": os.environ["PATH"], "BUDGET": budget, "GITHUB_ENV": str(env_file)}
+        subprocess.run(["bash", "-c", command], env=env, check=True)
+        assert env_file.read_text() == f"HALF_BUDGET={half}\n"
+    bad = subprocess.run(
+        ["bash", "-c", command],
+        env={"PATH": os.environ["PATH"], "BUDGET": "abc", "GITHUB_ENV": str(tmp_path / "bad")},
+        capture_output=True,
+    )
+    assert bad.returncode != 0

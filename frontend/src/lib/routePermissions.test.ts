@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { ADMIN_ITEM_DEFS, NAV_ITEM_DEFS } from "@/layouts/navItems";
+import { itSourceScan } from "@/test/sourceScan";
 
 import {
   INTENTIONALLY_UNGATED,
@@ -144,7 +145,7 @@ describe("parity", () => {
    * explicitly listed as ungated. A new route added without a decision fails
    * here rather than shipping silently open.
    */
-  it("covers every route in App.tsx", () => {
+  itSourceScan("covers every route in App.tsx", () => {
     const source = fs.readFileSync(
       path.resolve(__dirname, "../App.tsx"),
       "utf-8",
@@ -167,7 +168,7 @@ describe("parity", () => {
     expect(unreviewed).toEqual([]);
   });
 
-  it("has no stale entries pointing at routes that no longer exist", () => {
+  itSourceScan("has no stale entries pointing at routes that no longer exist", () => {
     const source = fs.readFileSync(
       path.resolve(__dirname, "../App.tsx"),
       "utf-8",

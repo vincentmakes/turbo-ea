@@ -8,6 +8,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from sqlalchemy import select
 
 from app.core.permissions import (
     MEMBER_PERMISSIONS,
@@ -15,6 +16,7 @@ from app.core.permissions import (
     RESPONSIBLE_CARD_PERMISSIONS,
     VIEWER_PERMISSIONS,
 )
+from app.models.card_type import CardType
 from app.services.permission_service import PermissionService
 from tests.conftest import (
     create_card,
@@ -653,3 +655,134 @@ class TestImpersonationWithOverrides:
             )
         finally:
             request_impersonation.reset(token)
+
+
+# ---------------------------------------------------------------------------
+# get_effective_card_permissions: each can_* flag, one grant at a time
+# ---------------------------------------------------------------------------
+
+# can_* flag → (app-level key, card-level key). The card-detail buttons read
+# these flags, so a flag wired to the wrong key would show an action the write
+# route then refuses, or hide one it allows.
+EFFECTIVE_FLAGS = {
+    "can_view": ("inventory.view", "card.view"),
+    "can_edit": ("inventory.edit", "card.edit"),
+    "can_archive": ("inventory.archive", "card.archive"),
+    "can_delete": ("inventory.delete", "card.delete"),
+    "can_approval_status": ("inventory.approval_status", "card.approval_status"),
+    "can_manage_stakeholders": ("stakeholders.manage", "card.manage_stakeholders"),
+    "can_manage_relations": ("relations.manage", "card.manage_relations"),
+    "can_manage_documents": ("documents.manage", "card.manage_documents"),
+    "can_manage_comments": ("comments.manage", "card.manage_comments"),
+    "can_create_comments": ("comments.create", "card.create_comments"),
+    "can_bpm_edit": ("bpm.edit", "card.bpm_edit"),
+    "can_bpm_manage_drafts": ("bpm.manage_drafts", "card.bpm_manage_drafts"),
+    "can_bpm_approve": ("bpm.approve_flows", "card.bpm_approve"),
+    "can_bpm_withdraw": ("bpm.withdraw_flows", "card.bpm_withdraw"),
+    "can_manage_adr_links": ("adr.manage", "card.manage_adr_links"),
+    "can_manage_diagram_links": ("diagrams.manage", "card.manage_diagram_links"),
+}
+ALL_FLAGS = [*EFFECTIVE_FLAGS, "can_view_costs"]
+
+
+@pytest.fixture
+async def flag_env(db):
+    PermissionService.invalidate_role_cache()
+    PermissionService.invalidate_srd_cache()
+    PermissionService.invalidate_type_permission_cache()
+    await create_card_type(db, key="Application", label="Application")
+    await create_role(db, key="admin", label="Admin", permissions={"*": True})
+    await create_role(db, key="nothing", label="Nothing", permissions={})
+    owner = await create_user(db, email="owner@test.com", role="admin")
+    card = await create_card(db, card_type="Application", name="App", user_id=owner.id)
+    yield card
+    PermissionService.invalidate_role_cache()
+    PermissionService.invalidate_srd_cache()
+    PermissionService.invalidate_type_permission_cache()
+
+
+def only(*flags: str) -> dict:
+    return {flag: flag in flags for flag in ALL_FLAGS}
+
+
+class TestEffectiveFlagsOneGrantAtATime:
+    async def test_no_grant_at_all_allows_nothing(self, db, flag_env):
+        user = await create_user(db, email="none@test.com", role="nothing")
+        result = await PermissionService.get_effective_card_permissions(db, user, flag_env.id)
+        assert result["effective"] == only()
+        assert result["app_level"] == {}
+        assert result["stakeholder_roles"] == []
+        assert result["card_level"] == {}
+        assert result["type_overrides"] == {}
+
+    @pytest.mark.parametrize("flag", list(EFFECTIVE_FLAGS))
+    async def test_the_app_level_key_alone_sets_exactly_its_flag(self, db, flag_env, flag):
+        app_key = EFFECTIVE_FLAGS[flag][0]
+        await create_role(db, key="one", label="One", permissions={app_key: True, "x.y": False})
+        user = await create_user(db, email="app@test.com", role="one")
+        result = await PermissionService.get_effective_card_permissions(db, user, flag_env.id)
+        assert result["effective"] == only(flag)
+        assert result["app_level"] == {app_key: True, "x.y": False}
+
+    @pytest.mark.parametrize("flag", list(EFFECTIVE_FLAGS))
+    async def test_the_card_level_key_alone_sets_its_flag_and_costs(self, db, flag_env, flag):
+        card_key = EFFECTIVE_FLAGS[flag][1]
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="holder", permissions={card_key: True}
+        )
+        user = await create_user(db, email="card@test.com", role="nothing")
+        await _assign_stakeholder(db, flag_env.id, user.id, "holder")
+        result = await PermissionService.get_effective_card_permissions(db, user, flag_env.id)
+        # any stakeholder role also reveals the card's costs
+        assert result["effective"] == only(flag, "can_view_costs")
+        assert result["card_level"] == {card_key: True}
+        assert result["stakeholder_roles"] == ["holder"]
+
+    async def test_a_false_card_level_grant_is_not_collected(self, db, flag_env):
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Application",
+            key="mixed",
+            permissions={"card.edit": False, "card.view": True},
+        )
+        user = await create_user(db, email="mixed@test.com", role="nothing")
+        await _assign_stakeholder(db, flag_env.id, user.id, "mixed")
+        result = await PermissionService.get_effective_card_permissions(db, user, flag_env.id)
+        assert result["card_level"] == {"card.view": True}
+        assert result["effective"] == only("can_view", "can_view_costs")
+
+    async def test_a_stakeholder_role_without_a_definition_grants_only_costs(self, db, flag_env):
+        user = await create_user(db, email="undefined@test.com", role="nothing")
+        await _assign_stakeholder(db, flag_env.id, user.id, "ghost")
+        result = await PermissionService.get_effective_card_permissions(db, user, flag_env.id)
+        assert result["card_level"] == {}
+        assert result["effective"] == only("can_view_costs")
+
+    async def test_costs_view_alone_sets_only_costs(self, db, flag_env):
+        await create_role(db, key="costs", label="Costs", permissions={"costs.view": True})
+        user = await create_user(db, email="costs@test.com", role="costs")
+        result = await PermissionService.get_effective_card_permissions(db, user, flag_env.id)
+        assert result["effective"] == only("can_view_costs")
+
+    async def test_the_wildcard_sets_everything_and_hides_its_other_keys(self, db, flag_env):
+        await create_role(
+            db, key="wild", label="Wild", permissions={"*": True, "inventory.view": False}
+        )
+        user = await create_user(db, email="wild@test.com", role="wild")
+        result = await PermissionService.get_effective_card_permissions(db, user, flag_env.id)
+        assert result["effective"] == only(*ALL_FLAGS)
+        assert result["app_level"] == {"*": True}
+
+    async def test_a_type_cell_overrides_the_role_grant(self, db, flag_env):
+        """A stored per-type cell decides its own permission for this card's type."""
+        await create_role(db, key="editor", label="Editor", permissions={"inventory.edit": True})
+        app_type = (
+            await db.execute(select(CardType).where(CardType.key == "Application"))
+        ).scalar_one()
+        app_type.role_permissions = {"editor": {"inventory.edit": False, "inventory.view": True}}
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+        user = await create_user(db, email="editor@test.com", role="editor")
+        result = await PermissionService.get_effective_card_permissions(db, user, flag_env.id)
+        assert result["type_overrides"] == {"inventory.edit": False, "inventory.view": True}
+        assert result["effective"] == only("can_view")
