@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.157.4] - 2026-10-08
+
+### Security
+- A public web portal now sends visitors only what its page shows. A field or built-in property (description, lifecycle, tags, stakeholders, data quality, approval status) switched off in both the list and the detail view, and a relation type that is not switched on, no longer reach the visitor's browser, and filtering or sorting on them is ignored.
+- A public web portal no longer publishes the names of archived cards a portal card is related to.
+- A portal's relation filter lists only cards reachable through the relation types the portal shows.
+- Printing a process flow escapes the process and approver names, and sanitises the stored diagram image it falls back to, so markup in them can no longer run in the print window.
+
 ## [2.157.3] - 2026-10-08
 
 ### Security

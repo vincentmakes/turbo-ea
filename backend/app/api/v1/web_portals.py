@@ -29,9 +29,9 @@ from app.models.web_portal import WebPortal
 from app.schemas.bpm_public import BpmPublicFlow, BpmPublicProcessMap
 from app.schemas.common import WebPortalCreate, WebPortalUpdate
 from app.schemas.ppm_public import PpmPublicPortfolio
+from app.services import portal_visibility, sso_service
 from app.services import ppm_portfolio_service as ppm_portfolio
 from app.services import process_map_service as process_map
-from app.services import sso_service
 from app.services.card_search import card_search_filter, card_search_rank
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.permission_service import PermissionService
@@ -433,20 +433,9 @@ async def get_public_portal(
     if fst:
         # Public portals are unauthenticated — always strip cost fields from the
         # exposed schema so the rendered form/columns never reference them.
-        cost_keys = cost_field_keys_from_card_schema(fst.fields_schema)
-        public_schema = fst.fields_schema
-        if cost_keys:
-            public_schema = []
-            for section in fst.fields_schema or []:
-                if not isinstance(section, dict):
-                    public_schema.append(section)
-                    continue
-                fields = [
-                    f
-                    for f in (section.get("fields") or [])
-                    if not (isinstance(f, dict) and f.get("key") in cost_keys)
-                ]
-                public_schema.append({**section, "fields": fields})
+        public_schema = portal_visibility.public_fields_schema(
+            fst.fields_schema, cost_field_keys_from_card_schema(fst.fields_schema)
+        )
         type_info = {
             "key": fst.key,
             "label": fst.label,
@@ -558,8 +547,18 @@ async def get_public_portal_relation_options(
     """Return card name/id pairs for a given type, for filter dropdowns.
 
     M-7: Only returns cards that are actually related to at least one card
-    visible through the portal (matching the portal's card_type and filters).
+    visible through the portal (matching the portal's card_type and filters),
+    and only through a relation type the portal shows: the page offers this
+    filter for those alone, and any other answer would publish the names of
+    cards the portal hides.
     """
+    visibility = await portal_visibility.load_portal_visibility(
+        db, portal.card_type, portal.card_config
+    )
+    rel_keys = visibility.relation_types_reaching(type_key)
+    if not rel_keys:
+        return []
+
     # Build a subquery for portal-visible card IDs (apply portal filters)
     visible_q = select(Card.id).where(
         Card.type == portal.card_type,
@@ -582,8 +581,12 @@ async def get_public_portal_relation_options(
     # Only return cards of type_key that are related to a portal-visible card
     related_ids = (
         select(Relation.target_id)
-        .where(Relation.source_id.in_(visible_q))
-        .union(select(Relation.source_id).where(Relation.target_id.in_(visible_q)))
+        .where(Relation.type.in_(rel_keys), Relation.source_id.in_(visible_q))
+        .union(
+            select(Relation.source_id).where(
+                Relation.type.in_(rel_keys), Relation.target_id.in_(visible_q)
+            )
+        )
     )
 
     card_result = await db.execute(
@@ -615,7 +618,15 @@ async def get_public_portal_cards(
     portal: WebPortal = Depends(require_portal_access),
     db: AsyncSession = Depends(get_db),
 ):
-    """Public endpoint: returns cards for a published portal with optional filtering."""
+    """Public endpoint: returns cards for a published portal with optional filtering.
+
+    Each card carries only what the portal's page shows (``card_config.toggles``),
+    and a filter or sort on anything else is ignored: a filtered ``total`` would
+    otherwise reveal the value the page hides.
+    """
+    visibility = await portal_visibility.load_portal_visibility(
+        db, portal.card_type, portal.card_config
+    )
     q = select(Card).where(
         Card.type == portal.card_type,
         Card.status == "ACTIVE",
@@ -670,7 +681,7 @@ async def get_public_portal_cards(
             parsed = json.loads(attr_filters)
             if isinstance(parsed, dict):
                 for attr_key, attr_val in parsed.items():
-                    if not isinstance(attr_key, str) or not attr_key:
+                    if attr_key not in visibility.exposed_fields:
                         continue
                     cond = Card.attributes[attr_key].astext.cast(Text) == str(attr_val)
                     q = q.where(cond)
@@ -679,7 +690,7 @@ async def get_public_portal_cards(
             pass  # Ignore malformed attr_filters
 
     # Filter by relationship to a specific card (single, legacy)
-    if related_type and related_id:
+    if related_type in visibility.relation_types and related_id:
         rid = uuid.UUID(related_id)
         related_fs = (
             select(Relation.target_id)
@@ -703,7 +714,7 @@ async def get_public_portal_cards(
             parsed_rf = json.loads(relation_filters)
             if isinstance(parsed_rf, dict):
                 for rel_key, card_id in parsed_rf.items():
-                    if not rel_key or not card_id:
+                    if rel_key not in visibility.relation_types or not card_id:
                         continue
                     rid = uuid.UUID(str(card_id))
                     sub = (
@@ -737,6 +748,9 @@ async def get_public_portal_cards(
     }
     if sort_by not in _allowed_sorts:
         sort_by = "name"
+    # The order of a hidden property would reveal its values.
+    if sort_by in portal_visibility.BUILT_IN_TOGGLES and not visibility.shows_built_in(sort_by):
+        sort_by = "name"
     sort_col = getattr(Card, sort_by, Card.name)
     order = [sort_col.desc() if sort_dir == "desc" else sort_col.asc()]
     # Best matches first when searching — but only while the ordering would
@@ -757,7 +771,7 @@ async def get_public_portal_cards(
     # Collect tag data for the result cards
     card_ids = [card.id for card in cards]
     tags_map: dict[str, list] = {}
-    if card_ids:
+    if card_ids and visibility.shows_built_in("tags"):
         tag_rows = await db.execute(
             select(
                 CardTag.card_id,
@@ -781,9 +795,12 @@ async def get_public_portal_cards(
                 }
             )
 
-    # Collect relations for the result cards (to show related items)
+    # Collect relations for the result cards (to show related items): only the
+    # relation types the page shows, and only to cards that are still active —
+    # an archived card's name is not published.
     relations_map: dict[str, list] = {}
-    if card_ids:
+    rel_keys = visibility.relation_types
+    if card_ids and rel_keys:
         # Source relations
         src_rows = await db.execute(
             select(
@@ -794,7 +811,11 @@ async def get_public_portal_cards(
                 Card.type.label("target_type"),
             )
             .join(Card, Card.id == Relation.target_id)
-            .where(Relation.source_id.in_(card_ids))
+            .where(
+                Relation.source_id.in_(card_ids),
+                Relation.type.in_(rel_keys),
+                Card.status == "ACTIVE",
+            )
         )
         for row in src_rows.all():
             fsid = str(row[0])
@@ -817,7 +838,11 @@ async def get_public_portal_cards(
                 Card.type.label("source_type"),
             )
             .join(Card, Card.id == Relation.source_id)
-            .where(Relation.target_id.in_(card_ids))
+            .where(
+                Relation.target_id.in_(card_ids),
+                Relation.type.in_(rel_keys),
+                Card.status == "ACTIVE",
+            )
         )
         for row in tgt_rows.all():
             fsid = str(row[0])
@@ -833,7 +858,7 @@ async def get_public_portal_cards(
 
     # Collect stakeholders for the result cards
     subs_map: dict[str, list] = {}
-    if card_ids:
+    if card_ids and visibility.shows_built_in("stakeholders"):
         sub_rows = await db.execute(
             select(
                 Stakeholder.card_id,
@@ -852,25 +877,14 @@ async def get_public_portal_cards(
                 }
             )
 
-    # Public portal: always strip cost fields — there is no authenticated user
-    # to evaluate, so default to "no costs.view". The logo toggle rides along in
-    # the same row rather than costing a second round trip.
-    portal_type_row = (
-        await db.execute(
-            select(CardType.fields_schema, CardType.allow_card_logo).where(
-                CardType.key == portal.card_type
-            )
-        )
-    ).one_or_none()
-    portal_cost_keys = cost_field_keys_from_card_schema(
-        portal_type_row.fields_schema if portal_type_row else None
-    )
-
     # Custom logos, when this portal's card type has them switched on. The
     # image itself is served by the unauthenticated /cards/{id}/logo route, so
     # an anonymous visitor renders it with no further plumbing.
+    allow_card_logo = (
+        await db.execute(select(CardType.allow_card_logo).where(CardType.key == portal.card_type))
+    ).scalar_one_or_none()
     logo_map: dict[str, str] = {}
-    if card_ids and portal_type_row and portal_type_row.allow_card_logo:
+    if card_ids and allow_card_logo:
         logo_rows = await db.execute(
             select(CardLogo.card_id, CardLogo.updated_at).where(CardLogo.card_id.in_(card_ids))
         )
@@ -878,29 +892,35 @@ async def get_public_portal_cards(
             str(cid): updated_at.isoformat() for cid, updated_at in logo_rows.all() if updated_at
         }
 
+    # Every item goes through the portal's visibility: attributes are cut to
+    # the fields the page shows (cost fields are never among them, as there is
+    # no authenticated user to evaluate costs.view for) and hidden built-in
+    # properties are blanked.
     items = []
     for card in cards:
         fsid = str(card.id)
-        attrs = card.attributes
-        if attrs and portal_cost_keys:
-            attrs = {k: v for k, v in attrs.items() if k not in portal_cost_keys}
         items.append(
-            {
-                "id": fsid,
-                "name": card.name,
-                "type": card.type,
-                "subtype": card.subtype,
-                "description": card.description,
-                "lifecycle": card.lifecycle,
-                "attributes": attrs,
-                "approval_status": card.approval_status,
-                "data_quality": card.data_quality,
-                "tags": tags_map.get(fsid, []),
-                "relations": relations_map.get(fsid, []),
-                "stakeholders": subs_map.get(fsid, []),
-                "updated_at": card.updated_at.isoformat() if card.updated_at else None,
-                "logo_updated_at": logo_map.get(fsid),
-            }
+            portal_visibility.shape_public_item(
+                {
+                    "id": fsid,
+                    "name": card.name,
+                    "type": card.type,
+                    "subtype": card.subtype,
+                    "description": card.description,
+                    "lifecycle": card.lifecycle,
+                    "attributes": card.attributes,
+                    "approval_status": card.approval_status,
+                    "data_quality": card.data_quality,
+                    "tags": tags_map.get(fsid, []),
+                    "relations": relations_map.get(fsid, []),
+                    "stakeholders": subs_map.get(fsid, []),
+                    "updated_at": card.updated_at.isoformat() if card.updated_at else None,
+                    "logo_updated_at": logo_map.get(fsid),
+                },
+                exposed_fields=visibility.exposed_fields,
+                built_ins=visibility.built_ins,
+                visible_relation_types=visibility.relation_types,
+            )
         )
 
     return {

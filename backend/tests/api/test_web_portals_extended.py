@@ -27,10 +27,31 @@ from tests.conftest import (
 
 @pytest.fixture
 async def portal_env(db):
-    """Set up card types and a published portal."""
+    """Set up card types and a published portal.
+
+    The portal shows ``app_to_itc`` relations and the type has a
+    ``businessCriticality`` field: a public portal returns and filters on
+    nothing its page does not show (see test_web_portals_public_shaping.py).
+    """
     await create_role(db, key="admin", permissions={"*": True})
     admin = await create_user(db, email="admin@test.com", role="admin")
-    await create_card_type(db, key="Application", label="Application")
+    await create_card_type(
+        db,
+        key="Application",
+        label="Application",
+        fields_schema=[
+            {
+                "section": "Main",
+                "fields": [
+                    {
+                        "key": "businessCriticality",
+                        "label": "Business Criticality",
+                        "type": "single_select",
+                    }
+                ],
+            }
+        ],
+    )
     await create_card_type(db, key="ITComponent", label="IT Component")
     await create_relation_type(
         db,
@@ -46,6 +67,7 @@ async def portal_env(db):
         card_type="Application",
         is_published=True,
         created_by=admin.id,
+        card_config={"toggles": {"rel:app_to_itc": {"card": True, "detail": True}}},
     )
     db.add(portal)
     await db.flush()

@@ -1178,6 +1178,35 @@ describe("ProcessFlowTab printing", () => {
     expect(printWindow.close).toHaveBeenCalled();
   });
 
+  it("escapes the process name and the approver it writes into the print page", async () => {
+    // The page is same-origin, so markup in either name would run as the app.
+    script({ published: { ...PUBLISHED, approved_by_name: "<b>Eve</b>" } });
+    const { user } = await renderPublished({ processName: "<img src=x onerror=alert(1)>" });
+    await user.click(screen.getByRole("button", { name: /Print \/ PDF/ }));
+    await waitFor(() => expect(printWindow.document.close).toHaveBeenCalled());
+    expect(written).not.toContain("<img");
+    expect(written).not.toContain("<b>Eve");
+    expect(written).toContain("<title>&lt;img src=x onerror=alert(1)&gt; - Rev 3</title>");
+    expect(written).toContain("<h1>&lt;img src=x onerror=alert(1)&gt;</h1>");
+    expect(written).toContain("&lt;b&gt;Eve&lt;/b&gt;");
+  });
+
+  it("sanitises the stored thumbnail it prints when the diagram cannot be rendered", async () => {
+    viewerState.fail = true;
+    script({
+      published: {
+        ...PUBLISHED,
+        svg_thumbnail: '<svg><script>alert(1)</script><rect width="4" onload="alert(2)"/></svg>',
+      },
+    });
+    const { user } = await renderPublished();
+    await user.click(screen.getByRole("button", { name: /Print \/ PDF/ }));
+    await waitFor(() => expect(printWindow.document.close).toHaveBeenCalled());
+    expect(written).toContain('<rect width="4"');
+    expect(written).not.toContain("<script");
+    expect(written).not.toContain("onload");
+  });
+
   it("renders the diagram off screen and cleans up after itself", async () => {
     const { user } = await renderPublished();
     await user.click(screen.getByRole("button", { name: /Print \/ PDF/ }));

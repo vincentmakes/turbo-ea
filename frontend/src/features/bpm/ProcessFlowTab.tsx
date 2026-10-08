@@ -53,6 +53,7 @@ import MessageFlowsTable from "./MessageFlowsTable";
 import { isArtefactType } from "./elementTypes";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { escapeHtml } from "@/lib/printDocument";
 // Aliased: this file already has a local STATUS_COLORS holding MUI palette
 // names, which is a different thing from the design tokens' hex values.
 import { STATUS_COLORS as SEMANTIC_COLORS } from "@/theme";
@@ -413,16 +414,21 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       viewer.destroy();
       document.body.removeChild(el);
     } catch {
-      // Fallback: try svg_thumbnail
-      svgContent = version.svg_thumbnail || "";
+      // Fallback: the stored thumbnail. It is client-supplied, so it is
+      // sanitised like the thumbnails this tab renders.
+      svgContent = DOMPurify.sanitize(version.svg_thumbnail || "");
     }
 
     if (!svgContent) return;
 
-    const title = processName || t("flowTab.processFlow");
-    const watermarkText = version.approved_by_name
-      ? t("flowTab.revisionApprovedBy", { revision: version.revision, name: version.approved_by_name, date: formatVersionDate(version.approved_at) })
-      : t("flowTab.revisionLabel", { revision: version.revision });
+    // The print page is same-origin, so every name written into it is escaped:
+    // markup in a process or approver name would otherwise run as the app.
+    const title = escapeHtml(processName || t("flowTab.processFlow"));
+    const watermarkText = escapeHtml(
+      version.approved_by_name
+        ? t("flowTab.revisionApprovedBy", { revision: version.revision, name: version.approved_by_name, date: formatVersionDate(version.approved_at) })
+        : t("flowTab.revisionLabel", { revision: version.revision }),
+    );
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;

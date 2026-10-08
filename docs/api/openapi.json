@@ -41135,7 +41135,7 @@
     },
     "/api/v1/web-portals/public/{slug}/cards": {
       "get": {
-        "description": "Public endpoint: returns cards for a published portal with optional filtering.",
+        "description": "Public endpoint: returns cards for a published portal with optional filtering.\n\nEach card carries only what the portal's page shows (``card_config.toggles``),\nand a filter or sort on anything else is ignored: a filtered ``total`` would\notherwise reveal the value the page hides.",
         "operationId": "get_public_portal_cards_api_v1_web_portals_public__slug__cards_get",
         "parameters": [
           {
@@ -41433,7 +41433,7 @@
     },
     "/api/v1/web-portals/public/{slug}/relation-options": {
       "get": {
-        "description": "Return card name/id pairs for a given type, for filter dropdowns.\n\nM-7: Only returns cards that are actually related to at least one card\nvisible through the portal (matching the portal's card_type and filters).",
+        "description": "Return card name/id pairs for a given type, for filter dropdowns.\n\nM-7: Only returns cards that are actually related to at least one card\nvisible through the portal (matching the portal's card_type and filters),\nand only through a relation type the portal shows: the page offers this\nfilter for those alone, and any other answer would publish the names of\ncards the portal hides.",
         "operationId": "get_public_portal_relation_options_api_v1_web_portals_public__slug__relation_options_get",
         "parameters": [
           {
