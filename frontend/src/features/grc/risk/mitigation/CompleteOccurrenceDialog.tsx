@@ -6,6 +6,7 @@
  */
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -38,18 +39,26 @@ export default function CompleteOccurrenceDialog({
   const { t } = useTranslation("grc");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // A refused complete / skip keeps the dialog open with the reason shown
+  // here, so the notes the user typed are not lost.
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) setNotes("");
+    if (!open) return;
+    setNotes("");
+    setError(null);
   }, [open]);
 
   if (!task || !occurrence) return null;
 
   const handleSubmit = async () => {
     setSubmitting(true);
+    setError(null);
     try {
       await onSubmit(notes.trim() ? notes.trim() : null);
       onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSubmitting(false);
     }
@@ -75,6 +84,11 @@ export default function CompleteOccurrenceDialog({
       <DialogTitle>{t(titleKey)}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
+          {error && (
+            <Alert severity="error" onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
           <Typography variant="body2">
             <strong>{task.title}</strong>
           </Typography>

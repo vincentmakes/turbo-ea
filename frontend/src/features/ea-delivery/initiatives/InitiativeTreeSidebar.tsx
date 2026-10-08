@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -10,12 +10,85 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useSubtypeLabel } from "@/hooks/useResolveLabel";
+import { useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { CARD_TYPE_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { INITIATIVE_STATUS_COLORS } from "./constants";
 import type { InitiativeTreeNode } from "./useInitiativeData";
 
 export const UNLINKED_KEY = "__unlinked__";
+
+/** The Initiative type's own option for an `initiativeStatus` value, if any. */
+function useInitiativeStatusOption() {
+  const { types } = useMetamodel();
+  return useCallback(
+    (status: string) =>
+      types
+        .find((mt) => mt.key === "Initiative")
+        ?.fields_schema.flatMap((section) => section.fields)
+        .find((field) => field.key === "initiativeStatus")
+        ?.options?.find((o) => o.key === status),
+    [types],
+  );
+}
+
+/**
+ * Names an initiative's `initiativeStatus` value — the sidebar's status dot and
+ * the workspace header's status chip share it. The Initiative type's own
+ * option label (translated) comes first, so an admin's custom option reads as
+ * its label rather than its key; the bundled wording covers a built-in key the
+ * metamodel lacks, and anything else is shown as stored.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useInitiativeStatusLabel() {
+  const { t } = useTranslation(["delivery", "common"]);
+  const statusOption = useInitiativeStatusOption();
+  const optLabel = useOptionLabel();
+  return useCallback(
+    (status: string): string => {
+      const option = statusOption(status);
+      if (option) return optLabel(option);
+      const builtIn: Record<string, string> = {
+        onTrack: t("initiativeStatus.onTrack"),
+        atRisk: t("initiativeStatus.atRisk"),
+        offTrack: t("initiativeStatus.offTrack"),
+        onHold: t("initiativeStatus.onHold"),
+        completed: t("initiativeStatus.completed"),
+      };
+      return builtIn[status] ?? status;
+    },
+    [statusOption, optLabel, t],
+  );
+}
+
+/**
+ * Colours an initiative's `initiativeStatus` value, resolved like its label:
+ * the Initiative type's option colour first, so an admin's custom option is
+ * not grey; the bundled colour for a built-in key; grey for anything else.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useInitiativeStatusColor() {
+  const statusOption = useInitiativeStatusOption();
+  return useCallback(
+    (status: string): string =>
+      statusOption(status)?.color || INITIATIVE_STATUS_COLORS[status] || STATUS_COLORS.neutral,
+    [statusOption],
+  );
+}
+
+/**
+ * Enter / Space on a row selects it, as a click does. Only a key pressed on
+ * the row itself counts: the chevron and the star inside it are buttons of
+ * their own, and their keys belong to them.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function selectOnKey(select: () => void) {
+  return (e: KeyboardEvent<HTMLElement>) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    select();
+  };
+}
 
 interface FilterState {
   search: string;
@@ -223,6 +296,8 @@ function TreeBranch({
   favorites,
   onToggleFavorite,
 }: BranchProps) {
+  const statusLabel = useInitiativeStatusLabel();
+  const statusColor = useInitiativeStatusColor();
   // Default: parents are open; collapses are user-driven, in-memory.
   const [open, setOpen] = useState(true);
   const hasChildren = node.children.length > 0;
@@ -255,7 +330,12 @@ function TreeBranch({
             : "3px solid transparent",
           "&:hover": { bgcolor: isSelected ? "action.selected" : "action.hover" },
         }}
+        role="button"
+        tabIndex={0}
+        aria-label={initiative.name}
+        aria-current={isSelected ? "true" : undefined}
         onClick={() => onSelect(initiative.id)}
+        onKeyDown={selectOnKey(() => onSelect(initiative.id))}
       >
         {/* Tree guide lines for nested levels */}
         {Array.from({ length: level }).map((_, i) => (
@@ -320,14 +400,13 @@ function TreeBranch({
           />
         )}
         {initStatus && (
-          <Tooltip title={initStatus} placement="top">
+          <Tooltip title={statusLabel(initStatus)} placement="top">
             <Box
               sx={{
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                bgcolor:
-                  INITIATIVE_STATUS_COLORS[initStatus] ?? STATUS_COLORS.neutral,
+                bgcolor: statusColor(initStatus),
               }}
             />
           </Tooltip>
@@ -385,7 +464,12 @@ function UnlinkedRow({
   const { t } = useTranslation(["delivery", "common"]);
   return (
     <Box
+      role="button"
+      tabIndex={0}
+      aria-label={t("sidebar.unlinked")}
       onClick={onSelect}
+      onKeyDown={selectOnKey(onSelect)}
+      aria-current={selected ? "true" : undefined}
       sx={{
         display: "flex",
         alignItems: "center",

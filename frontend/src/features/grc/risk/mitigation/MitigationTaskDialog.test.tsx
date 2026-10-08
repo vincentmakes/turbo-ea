@@ -416,5 +416,86 @@ describe("MitigationTaskDialog — seeding", () => {
     // Still fading out: the content must not blank under the user's eyes.
     expect(screen.getByDisplayValue("Review access rights")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Quarterly IAM review")).toBeInTheDocument();
+    // …nor flip to the create wording for the moment it is still visible.
+    expect(screen.getByText("Edit mitigation task")).toBeInTheDocument();
+    expect(screen.queryByText("New mitigation task")).not.toBeInTheDocument();
+    expect(screen.getByText("Save changes")).toBeInTheDocument();
+    expect(screen.queryByText("Create task")).not.toBeInTheDocument();
+  });
+
+  it("keeps the create wording while a create dialog closes", () => {
+    const props = { users: USER_OPTIONS, onClose: vi.fn(), onSubmit: vi.fn(async () => {}) };
+    const view = render(<MitigationTaskDialog {...props} open task={null} />);
+    view.rerender(<MitigationTaskDialog {...props} open={false} task={null} />);
+    expect(screen.getByText("New mitigation task")).toBeInTheDocument();
+    expect(screen.getByText("Create task")).toBeInTheDocument();
+  });
+});
+
+describe("MitigationTaskDialog — a failed save", () => {
+  it("stays open with the error shown inside it, keeping what was typed", async () => {
+    const onSubmit = vi.fn(async () => {
+      throw new Error("POST /risks/r1/mitigation-tasks failed");
+    });
+    const { user, onClose } = renderDialog({ onSubmit });
+    await user.type(titleBox(), "Enable MFA");
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "POST /risks/r1/mitigation-tasks failed",
+    );
+    expect(onClose).not.toHaveBeenCalled();
+    expect(titleBox()).toHaveValue("Enable MFA");
+    // Unlocked again, so the user can retry.
+    expect(titleBox()).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Create task" })).toBeEnabled();
+  });
+
+  it("names a failure that is not an Error with the generic message", async () => {
+    const onSubmit = vi.fn(async () => {
+      throw "nope";
+    });
+    const { user, onClose } = renderDialog({ task: RECURRING_TASK, onSubmit });
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await within(screen.getByRole("dialog")).findByRole("alert")).toHaveTextContent(
+      "Something went wrong",
+    );
+    expect(onClose).not.toHaveBeenCalled();
+    expect(titleBox()).toHaveValue("Review access rights");
+  });
+
+  it("clears the error when a retry succeeds, then closes", async () => {
+    let fail = true;
+    const onSubmit = vi.fn(async () => {
+      if (fail) throw new Error("refused");
+    });
+    const { user, onClose } = renderDialog({ onSubmit });
+    await user.type(titleBox(), "Enable MFA");
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("refused");
+
+    fail = false;
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+  });
+
+  it("opens without the previous error when it is reopened", async () => {
+    const onSubmit = vi.fn(async () => {
+      throw new Error("refused");
+    });
+    const props = { users: USER_OPTIONS, onClose: vi.fn(), onSubmit, task: null };
+    const user = userEvent.setup();
+    const view = render(<MitigationTaskDialog {...props} open />);
+    await user.type(titleBox(), "Enable MFA");
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("refused");
+
+    view.rerender(<MitigationTaskDialog {...props} open={false} />);
+    view.rerender(<MitigationTaskDialog {...props} open />);
+    await waitFor(() => expect(titleBox()).toHaveValue(""));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

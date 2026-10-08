@@ -62,7 +62,8 @@ export default function CreateSoAWDialog({
   }, [open, fixedInitiativeId]);
 
   const handleCreate = async () => {
-    if (!name.trim()) return;
+    // A second Enter while the POST is in flight must not create a duplicate.
+    if (!name.trim() || creating) return;
     setCreating(true);
     setError(null);
     try {

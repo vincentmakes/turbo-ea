@@ -258,26 +258,25 @@ export default function InitiativesTab({
   const handleCreateArtefact = useCallback(
     (kind: DeliverableKind, initiativeId?: string) => {
       const target = initiativeId ?? selectedInitiativeId ?? "";
-      const isInitiative = target && target !== UNLINKED_KEY;
+      // Only a loaded initiative counts: a stale id (e.g. a deleted initiative
+      // still in the URL) or the Unlinked bucket is never handed on as a parent.
+      const node = flatNodeMap.get(target);
       if (kind === "soaw") {
-        onCreateSoaw(isInitiative ? target : "");
+        onCreateSoaw(node ? target : "");
       } else if (kind === "diagram") {
-        onCreateDiagram(isInitiative ? target : undefined);
+        onCreateDiagram(node ? target : undefined);
       } else if (kind === "adr") {
-        if (isInitiative) {
-          const node = flatNodeMap.get(target);
-          if (node) {
-            onCreateAdr([
-              {
-                id: node.initiative.id,
-                name: node.initiative.name,
-                type: node.initiative.type,
-              },
-            ]);
-            return;
-          }
-        }
-        onCreateAdr([]);
+        onCreateAdr(
+          node
+            ? [
+                {
+                  id: node.initiative.id,
+                  name: node.initiative.name,
+                  type: node.initiative.type,
+                },
+              ]
+            : [],
+        );
       }
     },
     [

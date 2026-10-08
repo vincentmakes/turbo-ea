@@ -302,7 +302,6 @@ export default function DeliverableSection(props: Props) {
     const statusLabels: Record<string, string> = {
       draft: t("status.draft"),
       in_review: t("status.inReview"),
-      approved: t("status.approved"),
       signed: t("status.signed"),
     };
     return (

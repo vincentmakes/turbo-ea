@@ -24,6 +24,7 @@ import ListItem from "@mui/material/ListItem";
 import ListItemText from "@mui/material/ListItemText";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
 import type { RiskImportItem, RiskImportResponse } from "@/types";
@@ -40,6 +41,7 @@ type Step = "upload" | "preview" | "done";
 
 export default function RiskImportDialog({ open, onClose, onComplete }: RiskImportDialogProps) {
   const { t } = useTranslation(["grc", "common"]);
+  const theme = useTheme();
   const fileRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<Step>("upload");
   const [fileName, setFileName] = useState("");
@@ -358,7 +360,9 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
             <MaterialSymbol
               icon={result.failed > 0 ? "warning" : "check_circle"}
               size={48}
-              color={result.failed > 0 ? "warning.main" : "success.main"}
+              color={
+                result.failed > 0 ? theme.palette.warning.main : theme.palette.success.main
+              }
             />
             <Typography variant="h6">
               {t("grc:risks.import.doneTitle", {

@@ -81,6 +81,10 @@ function TodosPanel() {
   const navigate = useNavigate();
   const { formatDate } = useDateFormat();
   const [todos, setTodos] = useState<Todo[]>([]);
+  // A list still loading, or one that failed to load, is not an empty list.
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [actionError, setActionError] = useState("");
   // tab 0 = Assigned to me · tab 1 = Created by me. Each tab keeps its
   // own status filter so switching back and forth doesn't reset the view.
   const [tab, setTab] = useState(0);
@@ -110,9 +114,20 @@ function TodosPanel() {
         currentStatus === "all"
           ? ""
           : `&status=${currentStatus === "upcoming" ? "scheduled" : currentStatus}`;
-      const res = await api.get<Todo[]>(`/todos?${scope}${statusParam}`, { signal });
-      if (!isCurrent()) return;
-      setTodos(res);
+      setLoading(true);
+      setLoadError("");
+      try {
+        const res = await api.get<Todo[]>(`/todos?${scope}${statusParam}`, { signal });
+        if (!isCurrent()) return;
+        setTodos(res);
+      } catch (err) {
+        if (!isCurrent()) return;
+        // The rows on screen belong to the previous filter: drop them.
+        setTodos([]);
+        setLoadError(err instanceof Error ? err.message : t("errors.generic"));
+      } finally {
+        if (isCurrent()) setLoading(false);
+      }
     },
     [tab, currentStatus],
   );
@@ -161,16 +176,26 @@ function TodosPanel() {
   };
 
   const toggleStatus = async (todo: Todo) => {
-    // A scheduled (dormant) recurring occurrence isn't completable yet —
-    // activate it first.
-    if (todo.status === "scheduled") {
-      await api.post(`/todos/${todo.id}/promote`, {});
-      setTodos(todos.map((td) => (td.id === todo.id ? { ...td, status: "open" } : td)));
-      return;
+    setActionError("");
+    try {
+      // A scheduled (dormant) recurring occurrence isn't completable yet —
+      // activate it first.
+      if (todo.status === "scheduled") {
+        await api.post(`/todos/${todo.id}/promote`, {});
+        // Functional updates: two quick toggles must not undo each other.
+        setTodos((prev) =>
+          prev.map((td) => (td.id === todo.id ? { ...td, status: "open" } : td)),
+        );
+        return;
+      }
+      const newStatus = todo.status === "open" ? "done" : "open";
+      await api.patch(`/todos/${todo.id}`, { status: newStatus });
+      setTodos((prev) =>
+        prev.map((td) => (td.id === todo.id ? { ...td, status: newStatus } : td)),
+      );
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : t("errors.generic"));
     }
-    const newStatus = todo.status === "open" ? "done" : "open";
-    await api.patch(`/todos/${todo.id}`, { status: newStatus });
-    setTodos(todos.map((td) => (td.id === todo.id ? { ...td, status: newStatus } : td)));
   };
 
   const handleTodoAction = (todo: Todo) => {
@@ -524,6 +549,17 @@ function TodosPanel() {
         />
       </Box>
 
+      {actionError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError("")}>
+          {actionError}
+        </Alert>
+      )}
+      {loadError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {loadError}
+        </Alert>
+      )}
+
       <List>
         {(useGroupedView
           ? groups.flatMap((group) => {
@@ -571,7 +607,11 @@ function TodosPanel() {
               ];
             })
           : visibleTodos.map((todo) => renderTodoRow(todo, true)))}
-        {todos.length === 0 ? (
+        {loading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+            <CircularProgress size={28} />
+          </Box>
+        ) : loadError ? null : todos.length === 0 ? (
           <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
             {t("todos.empty")}
           </Typography>
@@ -595,12 +635,17 @@ function SurveysPanel() {
   const [surveys, setSurveys] = useState<MySurveyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Stays set after the alert is dismissed: a failed load is not "all caught up".
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     api
       .get<MySurveyItem[]>("/surveys/my")
       .then(setSurveys)
-      .catch((e) => setError(e instanceof Error ? e.message : t("errors.generic")))
+      .catch((e) => {
+        setLoadFailed(true);
+        setError(e instanceof Error ? e.message : t("errors.generic"));
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -620,7 +665,7 @@ function SurveysPanel() {
         </Alert>
       )}
 
-      {surveys.length === 0 && (
+      {surveys.length === 0 && !loadFailed && (
         <Alert severity="info">
           {t("todos.surveysEmpty")}
         </Alert>

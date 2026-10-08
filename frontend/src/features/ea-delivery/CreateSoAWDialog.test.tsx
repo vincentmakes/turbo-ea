@@ -256,4 +256,20 @@ describe("CreateSoAWDialog", () => {
     // The exit transition still shows the form; the reset is for the next open.
     expect(screen.getByLabelText("Document name")).toHaveValue("Half typed");
   });
+
+  it("ignores a second Enter while the document is being created", async () => {
+    let release: (v: SoAW) => void = () => {};
+    mockApi.on("post", "/soaw", () => new Promise<SoAW>((resolve) => (release = resolve)));
+    const user = userEvent.setup();
+    const { onCreated } = renderDialog();
+
+    await user.type(screen.getByLabelText("Document name"), "Migration SoAW{Enter}");
+    await screen.findByRole("button", { name: "Creating..." });
+    await user.type(screen.getByLabelText("Document name"), "{Enter}");
+    expect(mockApi.callsOf("post", "/soaw")).toHaveLength(1);
+
+    release(CREATED);
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+    expect(mockApi.callsOf("post", "/soaw")).toHaveLength(1);
+  });
 });

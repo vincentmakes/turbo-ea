@@ -83,6 +83,9 @@ export default function ADREditor() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [snackbar, setSnackbar] = useState("");
+  // One-shot workflow actions (sign, duplicate, revise, link a card) run one
+  // at a time: a double click must not send the same POST twice.
+  const actionBusyRef = useRef(false);
 
   // Sign dialog
   const [signDialogOpen, setSignDialogOpen] = useState(false);
@@ -227,7 +230,8 @@ export default function ADREditor() {
 
   // Duplicate
   const handleDuplicate = async () => {
-    if (!id) return;
+    if (!id || actionBusyRef.current) return;
+    actionBusyRef.current = true;
     try {
       const dup = await api.post<ArchitectureDecision>(
         `/adr/${id}/duplicate`,
@@ -237,6 +241,8 @@ export default function ADREditor() {
       setSnackbar(t("adr.editor.duplicated"));
     } catch {
       setError(t("adr.editor.error.duplicateFailed"));
+    } finally {
+      actionBusyRef.current = false;
     }
   };
 
@@ -262,7 +268,8 @@ export default function ADREditor() {
 
   // Sign
   const handleSign = async () => {
-    if (!id) return;
+    if (!id || actionBusyRef.current) return;
+    actionBusyRef.current = true;
     try {
       const updated = await api.post<ArchitectureDecision>(
         `/adr/${id}/sign`,
@@ -278,12 +285,15 @@ export default function ADREditor() {
       );
     } catch {
       setError(t("adr.editor.error.signFailed"));
+    } finally {
+      actionBusyRef.current = false;
     }
   };
 
   // Revise
   const handleRevise = async () => {
-    if (!id) return;
+    if (!id || actionBusyRef.current) return;
+    actionBusyRef.current = true;
     try {
       const rev = await api.post<ArchitectureDecision>(
         `/adr/${id}/revise`,
@@ -293,6 +303,8 @@ export default function ADREditor() {
       setSnackbar(t("adr.editor.revised"));
     } catch {
       setError(t("adr.editor.error.reviseFailed"));
+    } finally {
+      actionBusyRef.current = false;
     }
   };
 
@@ -361,7 +373,8 @@ export default function ADREditor() {
   };
 
   const handleLinkCard = async (cardId: string) => {
-    if (!id) return;
+    if (!id || actionBusyRef.current) return;
+    actionBusyRef.current = true;
     try {
       const updated = await api.post<ArchitectureDecision>(
         `/adr/${id}/cards`,
@@ -371,6 +384,8 @@ export default function ADREditor() {
       setCardLinkOpen(false);
     } catch {
       setError(t("cards:resources.error.linkFailed"));
+    } finally {
+      actionBusyRef.current = false;
     }
   };
 
@@ -562,7 +577,7 @@ export default function ADREditor() {
           </Button>
         )}
         {!isNew && status === "in_review" && (
-          <Tooltip title={t("adr.editor.recallSignaturesTooltip")}>
+          <Tooltip title={t("adr.editor.recallSignaturesTooltip")} describeChild>
             <Button
               variant="outlined"
               color="warning"

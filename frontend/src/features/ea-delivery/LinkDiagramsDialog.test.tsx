@@ -66,6 +66,19 @@ describe("LinkDiagramsDialog", () => {
     expect(within(flows).getByText("Not linked")).toBeInTheDocument();
   });
 
+  it("renders the linked-card chips without nesting them inside a paragraph", () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      renderDialog();
+      const chip = screen.getByText("ERP Replacement").closest(".MuiChip-root") as HTMLElement;
+      // A chip is a <div>: inside the secondary text's <p> it is invalid DOM nesting.
+      expect(chip.closest("p")).toBeNull();
+      expect(errors.mock.calls.flat().join(" ")).not.toMatch(/cannot be a descendant of <p>|validateDOMNesting/);
+    } finally {
+      errors.mockRestore();
+    }
+  });
+
   it("toggles a diagram on click and saves through the callback", async () => {
     const user = userEvent.setup();
     const { onToggle, onSave } = renderDialog();

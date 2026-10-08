@@ -26,7 +26,7 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import RichTextEditor from "./RichTextEditor";
 import EditableTable from "./EditableTable";
@@ -1124,7 +1124,10 @@ export default function SoAWEditor() {
                   border: "1px solid",
                   borderColor: sig.status === "signed" ? "success.light" : "divider",
                   borderRadius: 1,
-                  bgcolor: sig.status === "signed" ? "success.50" : "action.hover",
+                  bgcolor:
+                    sig.status === "signed"
+                      ? alpha(theme.palette.success.main, 0.08)
+                      : "action.hover",
                 }}
               >
                 {sig.status === "signed" ? (

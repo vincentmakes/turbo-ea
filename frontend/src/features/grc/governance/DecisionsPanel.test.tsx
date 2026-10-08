@@ -686,6 +686,32 @@ describe("DecisionsPanel — date bounds", () => {
     expect(gridIds()).toBe("b1");
   });
 
+  it("includes the last second of a To day whatever offset suffix the timestamp carries", async () => {
+    // 23:59:59.5 on 2026-04-10 local time, written three ways the API can send it.
+    const lastMoment = new Date(2026, 3, 10, 23, 59, 59, 500);
+    const offset = -lastMoment.getTimezoneOffset();
+    const pad = (n: number) => String(Math.abs(n)).padStart(2, "0");
+    const withOffset = `2026-04-10T23:59:59${offset < 0 ? "-" : "+"}${pad(Math.trunc(offset / 60))}:${pad(offset % 60)}`;
+    mockApi.on("get", "/adr", [
+      makeAdr({ id: "z", status: "signed", created_at: lastMoment.toISOString(), updated_at: withOffset, signed_at: "2026-04-10T23:59:59.999999" }),
+    ]);
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("z"));
+    await applyFilters(user, { dateCreatedTo: "2026-04-10" });
+    expect(gridIds()).toBe("z");
+    await applyFilters(user, { dateCreatedTo: "", dateModifiedTo: "2026-04-10" });
+    expect(gridIds()).toBe("z");
+    await applyFilters(user, { dateModifiedTo: "", dateSignedTo: "2026-04-10" });
+    expect(gridIds()).toBe("z");
+    // The day before still excludes it, and the From side agrees on the day.
+    await applyFilters(user, { dateSignedTo: "2026-04-09" });
+    expect(gridIds()).toBe("");
+    await applyFilters(user, { dateSignedTo: "", dateCreatedFrom: "2026-04-10" });
+    expect(gridIds()).toBe("z");
+    await applyFilters(user, { dateCreatedFrom: "2026-04-11" });
+    expect(gridIds()).toBe("");
+  });
+
   it("keeps a decision signed later the same day as the To date", async () => {
     mockApi.on("get", "/adr", ADRS);
     const { user } = renderPanel();

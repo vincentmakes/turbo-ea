@@ -207,6 +207,39 @@ describe("EaDeliveryReport", () => {
       expect(screen.getByTestId("CreateAdrDialog-open")).toBeInTheDocument();
     });
 
+    it("never fixes a SoAW or a diagram to a stale initiative id from the URL", async () => {
+      // A deleted initiative still in the URL: the header button hands it on as-is.
+      renderPage("/reports/ea-delivery?initiative=deleted-1");
+      expect(captured.NewArtefactSplitButton.initiativeId).toBe("deleted-1");
+
+      await call("NewArtefactSplitButton", "onSelect", "soaw", "deleted-1");
+      expect(screen.getByTestId("CreateSoAWDialog-open")).toBeInTheDocument();
+      expect(captured.CreateSoAWDialog.fixedInitiativeId).toBeUndefined();
+      expect(captured.CreateSoAWDialog.initiatives).toEqual(INITIATIVES);
+
+      await call("NewArtefactSplitButton", "onSelect", "diagram", "deleted-1");
+      expect(screen.getByTestId("CreateDiagramDialog-open")).toBeInTheDocument();
+      expect(captured.CreateDiagramDialog.initialCardIds).toEqual([]);
+    });
+
+    it("fixes nothing before the workspace has reported its initiatives", async () => {
+      renderPage("/reports/ea-delivery?initiative=init-1", false);
+      await call("NewArtefactSplitButton", "onSelect", "soaw", "init-1");
+      expect(screen.getByTestId("CreateSoAWDialog-open")).toBeInTheDocument();
+      expect(captured.CreateSoAWDialog.fixedInitiativeId).toBeUndefined();
+
+      await call("NewArtefactSplitButton", "onSelect", "diagram", "init-1");
+      expect(captured.CreateDiagramDialog.initialCardIds).toEqual([]);
+    });
+
+    it("fixes a SoAW and a diagram to the URL's initiative once it is loaded", async () => {
+      renderPage("/reports/ea-delivery?initiative=init-1");
+      await call("NewArtefactSplitButton", "onSelect", "soaw", "init-1");
+      expect(captured.CreateSoAWDialog.fixedInitiativeId).toBe("init-1");
+      await call("NewArtefactSplitButton", "onSelect", "diagram", "init-1");
+      expect(captured.CreateDiagramDialog.initialCardIds).toEqual(["init-1"]);
+    });
+
     it("forwards the workspace's own create callbacks", async () => {
       renderPage();
       await call("InitiativesTab", "onCreateAdr");

@@ -618,6 +618,23 @@ describe("SoAWEditor — signatures", () => {
     expect(screen.getByText(t("editor.signaturesProgress", { signed: 1, total: 2 }))).toBeInTheDocument();
   });
 
+  it("tints a signed signatory's card with the theme's success colour and greys a pending one", async () => {
+    const other = { ...PENDING_U2, user_id: "u3", display_name: "Linus" };
+    mockApi.on("get", "/soaw/s1", { ...SOAW, status: "in_review", signatories: [SIGNED_U2, other] });
+    renderEdit();
+    await waitForLoaded();
+
+    const signedCard = (await screen.findByText(t("editor.sigApproved"))).closest(
+      ".MuiBox-root",
+    )?.parentElement as HTMLElement;
+    const pendingCard = screen.getByText(t("editor.sigPending")).closest(".MuiBox-root")
+      ?.parentElement as HTMLElement;
+    expect(signedCard).toHaveTextContent("Grace Hopper");
+    expect(pendingCard).toHaveTextContent("Linus");
+    expect(signedCard).toHaveStyle({ backgroundColor: "rgba(46, 125, 50, 0.08)" });
+    expect(pendingCard).toHaveStyle({ backgroundColor: "rgba(0, 0, 0, 0.04)" });
+  });
+
   it("rejects with a comment and resets to a new draft revision", async () => {
     mockApi.on("get", "/auth/me", { id: "u2" });
     mockApi.on("get", "/soaw/s1", { ...SOAW, status: "in_review", signatories: [PENDING_U2] });

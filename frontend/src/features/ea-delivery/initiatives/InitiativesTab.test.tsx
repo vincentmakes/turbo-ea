@@ -277,13 +277,21 @@ describe("InitiativesTab", () => {
     expect(first).not.toHaveBeenCalled();
   });
 
-  it("shows the empty workspace for an unknown selected id and creates an unlinked decision from it", async () => {
-    const { user, onCreateAdr } = renderTab({ selectedInitiativeId: "ghost" });
+  it("shows the empty workspace for an unknown selected id and creates unlinked artefacts from it", async () => {
+    const { user, onCreateAdr, onCreateSoaw, onCreateDiagram } = renderTab({ selectedInitiativeId: "ghost" });
     expect(await screen.findByText("Pick an initiative to start")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /New artefact/ }));
-    await user.click(await screen.findByRole("menuitem", { name: /New Architecture Decision/ }));
+    const open = async (label: RegExp) => {
+      await user.click(screen.getByRole("button", { name: /New artefact/ }));
+      await user.click(await screen.findByRole("menuitem", { name: label }));
+    };
+    await open(/New Architecture Decision/);
     expect(onCreateAdr).toHaveBeenCalledWith([]);
+    // A stale id (a deleted initiative in the URL) is never handed on.
+    await open(/New Statement of Architecture Work/);
+    expect(onCreateSoaw).toHaveBeenCalledWith("");
+    await open(/New Diagram/);
+    expect(onCreateDiagram).toHaveBeenCalledWith(undefined);
   });
 
   describe("restoring the last pick", () => {

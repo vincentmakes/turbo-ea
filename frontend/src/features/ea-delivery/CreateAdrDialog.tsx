@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -40,6 +40,13 @@ export default function CreateAdrDialog({
   const [linkedCards, setLinkedCards] = useState<LinkedCard[]>(preLinkedCards);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  // Once the decision exists, a failed card link must never lead to a second
+  // create: a retry only links the cards still missing.
+  const [created, setCreated] = useState<ArchitectureDecision | null>(null);
+  const [doneIds, setDoneIds] = useState<ReadonlySet<string>>(new Set());
+  // The parent hears about the created decision once, however the dialog is
+  // left — even when Cancel lands while the links are still in flight.
+  const reportedRef = useRef(false);
 
   // Card picker
   const [showSearch, setShowSearch] = useState(false);
@@ -55,6 +62,9 @@ export default function CreateAdrDialog({
       setCreating(false);
       setError("");
       setShowSearch(false);
+      setCreated(null);
+      setDoneIds(new Set());
+      reportedRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -69,31 +79,70 @@ export default function CreateAdrDialog({
     setLinkedCards((prev) => prev.filter((c) => c.id !== cardId));
   };
 
+  const reportCreated = (adr: ArchitectureDecision) => {
+    if (reportedRef.current) return;
+    reportedRef.current = true;
+    onCreated(adr);
+  };
+
   const handleCreate = async () => {
     if (!title.trim()) return;
     setCreating(true);
     setError("");
-    try {
-      const adr = await api.post<ArchitectureDecision>("/adr", {
-        title: title.trim(),
-      });
-      // Link cards sequentially
-      for (const card of linkedCards) {
-        await api.post(`/adr/${adr.id}/cards`, { card_id: card.id });
+    let adr = created;
+    if (!adr) {
+      try {
+        adr = await api.post<ArchitectureDecision>("/adr", {
+          title: title.trim(),
+        });
+      } catch {
+        setError(t("adr.createDialog.error"));
+        setCreating(false);
+        return;
       }
-      onCreated(adr);
-      onClose();
-    } catch {
-      setError(t("adr.createDialog.error"));
-    } finally {
-      setCreating(false);
+      setCreated(adr);
     }
+    // Link cards sequentially; one refused link does not stop the others.
+    const linked = new Set(doneIds);
+    const failed: LinkedCard[] = [];
+    for (const card of linkedCards) {
+      if (linked.has(card.id)) continue;
+      try {
+        await api.post(`/adr/${adr.id}/cards`, { card_id: card.id });
+        linked.add(card.id);
+      } catch {
+        failed.push(card);
+      }
+    }
+    setDoneIds(linked);
+    setCreating(false);
+    if (failed.length > 0) {
+      setError(
+        t("adr.createDialog.linkError", { cards: failed.map((c) => c.name).join(", ") }),
+      );
+      return;
+    }
+    reportCreated(adr);
+    onClose();
+  };
+
+  // While the decision itself is being created there is nothing to hand the
+  // parent yet, and a parent told about it later navigates to it — so the
+  // dialog cannot be left until the create has answered.
+  const createPending = creating && !created;
+
+  // Leaving after a failed link still leaves a decision behind: the parent
+  // hears about it, so its list shows the decision rather than going stale.
+  const handleClose = () => {
+    if (createPending) return;
+    if (created) reportCreated(created);
+    onClose();
   };
 
   const linkedIds = new Set(linkedCards.map((c) => c.id));
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t("adr.createDialog.title")}</DialogTitle>
       <DialogContent>
         {error && (
@@ -108,6 +157,7 @@ export default function CreateAdrDialog({
           fullWidth
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          disabled={!!created}
           sx={{ mt: 1, mb: 2 }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && title.trim() && !creating) handleCreate();
@@ -126,7 +176,7 @@ export default function CreateAdrDialog({
                 key={card.id}
                 label={card.name}
                 size="small"
-                onDelete={() => removeCard(card.id)}
+                onDelete={doneIds.has(card.id) ? undefined : () => removeCard(card.id)}
               />
             ))}
           </Box>
@@ -155,7 +205,9 @@ export default function CreateAdrDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
+        <Button onClick={handleClose} disabled={createPending}>
+          {t("common:actions.cancel")}
+        </Button>
         <Button
           variant="contained"
           disabled={!title.trim() || creating}

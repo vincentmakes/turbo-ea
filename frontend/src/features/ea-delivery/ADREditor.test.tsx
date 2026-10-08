@@ -424,21 +424,21 @@ describe("ADREditor — review actions", () => {
 
   it("recalls signatures back to draft", async () => {
     await renderLoaded(IN_REVIEW, () => ({ ...IN_REVIEW, status: "draft", signatories: [] }));
-    await userEvent.click(screen.getByRole("button", { name: /recall all pending signature requests/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Recall Signatures$/ }));
     expect(await screen.findByText("Signatures recalled — decision reset to draft")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Request Signatures/ })).toBeInTheDocument();
   });
 
   it("reports a failed recall", async () => {
     await renderLoaded(IN_REVIEW, () => new Error("x"));
-    await userEvent.click(screen.getByRole("button", { name: /recall all pending signature requests/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Recall Signatures$/ }));
     expect(await screen.findByText("Failed to recall signatures")).toBeInTheDocument();
   });
 
   it("offers no Sign to a user who is not a pending signatory", async () => {
     await renderLoaded({ ...IN_REVIEW, signatories: [IN_REVIEW.signatories[1]] });
     expect(screen.queryByRole("button", { name: /^draw Sign$/ })).toBeNull();
-    expect(screen.getByRole("button", { name: /recall all pending signature requests/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Recall Signatures$/ })).toBeInTheDocument();
   });
 
   it("opens the sign or the reject dialog from a deep link", async () => {

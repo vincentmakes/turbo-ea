@@ -10,7 +10,11 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { CARD_TYPE_COLORS } from "@/theme/tokens";
-import { INITIATIVE_STATUS_COLORS } from "./constants";
+import {
+  selectOnKey,
+  useInitiativeStatusColor,
+  useInitiativeStatusLabel,
+} from "./InitiativeTreeSidebar";
 import DeliverableSection, {
   type DeliverableKind,
 } from "./DeliverableSection";
@@ -129,6 +133,8 @@ function InitiativeView({
 }) {
   const { t } = useTranslation(["delivery", "common"]);
   const subtypeLabel = useCardSubtypeLabel();
+  const statusLabel = useInitiativeStatusLabel();
+  const statusColor = useInitiativeStatusColor();
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const { initiative, children, soaws, diagrams, adrs } = node;
@@ -136,14 +142,6 @@ function InitiativeView({
   const initStatus = attrs.initiativeStatus as string | undefined;
   const isArchived = initiative.status === "ARCHIVED";
   const fav = isFavorite(initiative.id);
-
-  const statusLabels: Record<string, string> = {
-    onTrack: t("initiativeStatus.onTrack"),
-    atRisk: t("initiativeStatus.atRisk"),
-    offTrack: t("initiativeStatus.offTrack"),
-    onHold: t("initiativeStatus.onHold"),
-    completed: t("initiativeStatus.completed"),
-  };
 
   return (
     <Box sx={{ p: 2 }}>
@@ -200,10 +198,10 @@ function InitiativeView({
         )}
         {initStatus && (
           <Chip
-            label={statusLabels[initStatus] ?? initStatus}
+            label={statusLabel(initStatus)}
             size="small"
             sx={{
-              bgcolor: INITIATIVE_STATUS_COLORS[initStatus] ?? "#9e9e9e",
+              bgcolor: statusColor(initStatus),
               color: "#fff",
               fontWeight: 500,
               height: 22,
@@ -258,7 +256,11 @@ function InitiativeView({
             {children.map((c) => (
               <Box
                 key={c.initiative.id}
+                role="button"
+                tabIndex={0}
+                aria-label={c.initiative.name}
                 onClick={() => onSelectInitiative(c.initiative.id)}
+                onKeyDown={selectOnKey(() => onSelectInitiative(c.initiative.id))}
                 sx={{
                   display: "flex",
                   alignItems: "center",
