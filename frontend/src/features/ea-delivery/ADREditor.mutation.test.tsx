@@ -360,6 +360,13 @@ describe("ADREditor — loading a decision", () => {
     renderAt("/ea-delivery/adr/adr-1");
 
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    // Centred in a box of its own, which the confirmation toast sits beside.
+    expect(screen.getByRole("progressbar").parentElement).toHaveStyle({
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      minHeight: "300px",
+    });
     expect(screen.queryByLabelText("Title")).toBeNull();
     expect(screen.queryByRole("button", { name: /Save$/ })).toBeNull();
 
