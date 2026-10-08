@@ -9,8 +9,8 @@
  * the run to the real `useAnalysisPolling`, which reloads the matching list
  * when the run settles or surfaces its error.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -20,6 +20,7 @@ import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { CARD_TYPES } from "@/test/fixtures/metamodel";
 import { renderWithProviders, wrapWithProviders } from "@/test/render";
+import i18n from "@/i18n";
 import type { TurboLensDuplicateCluster, TurboLensModernization } from "@/types";
 import TurboLensDuplicates from "./TurboLensDuplicates";
 
@@ -230,14 +231,31 @@ describe("TurboLensDuplicates — duplicate clusters", () => {
     ).toBeInTheDocument();
   });
 
-  it("treats failed loads as empty lists", async () => {
+  it("shows each list's load error, not its empty state, when it cannot be loaded", async () => {
     mockApi.fail("get", CLUSTERS_URL);
     mockApi.fail("get", MODS_URL);
-    renderTab();
+    const { user } = renderTab();
 
-    expect(await screen.findByText("No duplicate clusters found")).toBeInTheDocument();
-    expect(kpiValue("Duplicate Clusters")).toBe("0");
-    expect(kpiValue("Mod. Opportunities")).toBe("0");
+    expect(await screen.findByRole("alert")).toHaveTextContent(`GET ${CLUSTERS_URL} failed`);
+    expect(screen.queryByText("No duplicate clusters found")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: /^Modernization/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(`GET ${MODS_URL} failed`);
+    expect(screen.queryByText("No modernization assessments yet")).not.toBeInTheDocument();
+  });
+
+  it("keeps the two lists' load errors apart, with a generic message when the error carries none", async () => {
+    mockApi.on("get", CLUSTERS_URL, () => Promise.reject("offline"));
+    mockApi.on("get", MODS_URL, []);
+    const { user } = renderTab();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+    expect(screen.queryByText("No duplicate clusters found")).not.toBeInTheDocument();
+
+    // The modernization list loaded: its empty state, no error.
+    await user.click(screen.getByRole("tab", { name: /^Modernization/ }));
+    expect(await screen.findByText("No modernization assessments yet")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("renders each cluster with its type, domain, members, evidence and recommendation", async () => {
@@ -640,7 +658,7 @@ describe("TurboLensDuplicates — modernization", () => {
     expect(await screen.findByText("Modernization assessment started")).toBeInTheDocument();
   });
 
-  it("empties the opportunities when the reload after a run fails", async () => {
+  it("shows the error instead of the opportunities when the reload after a run fails", async () => {
     mockApi.on("get", CLUSTERS_URL, []);
     mockApi.on("get", MODS_URL, MODS);
     mockApi.on("post", MODERNIZE_URL, { run_id: "run-m" });
@@ -654,8 +672,18 @@ describe("TurboLensDuplicates — modernization", () => {
 
     mockApi.fail("get", MODS_URL);
     answerPoll({ id: "run-m", status: "completed", analysis_type: "modernization" });
-    expect(await screen.findByText("No modernization assessments yet")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Modernization (0)" })).toBeInTheDocument();
+    expect(await screen.findByText(`GET ${MODS_URL} failed`)).toBeInTheDocument();
+    expect(screen.queryByText("No modernization assessments yet")).not.toBeInTheDocument();
+    expect(screen.queryByText("Legacy CRM")).not.toBeInTheDocument();
+
+    // The next successful reload clears the error.
+    mockApi.on("get", MODS_URL, MODS);
+    mockApi.on("get", "/turbolens/analysis-runs/run-m2", { id: "run-m2", status: "completed" });
+    mockApi.on("post", MODERNIZE_URL, { run_id: "run-m2" });
+    await waitFor(() => expect(screen.getByRole("button", { name: ASSESS })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: ASSESS }));
+    expect(await screen.findByText("Legacy CRM")).toBeInTheDocument();
+    expect(screen.queryByText(`GET ${MODS_URL} failed`)).not.toBeInTheDocument();
   });
 });
 
@@ -735,7 +763,7 @@ describe("TurboLensDuplicates — more cluster cases", () => {
     expect(await screen.findByText("Duplicate detection started")).toBeInTheDocument();
   });
 
-  it("empties the clusters when the reload after a run fails", async () => {
+  it("shows the error instead of the clusters when the reload after a run fails", async () => {
     mockApi.on("get", CLUSTERS_URL, CLUSTERS);
     mockApi.on("get", MODS_URL, []);
     mockApi.on("post", DETECT_URL, { run_id: "run-d" });
@@ -749,7 +777,62 @@ describe("TurboLensDuplicates — more cluster cases", () => {
 
     mockApi.fail("get", CLUSTERS_URL);
     answerPoll({ id: "run-d", status: "completed", analysis_type: "duplicates" });
-    expect(await screen.findByText("No duplicate clusters found")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Duplicates (0)" })).toBeInTheDocument();
+    expect(await screen.findByText(`GET ${CLUSTERS_URL} failed`)).toBeInTheDocument();
+    expect(screen.queryByText("No duplicate clusters found")).not.toBeInTheDocument();
+    expect(screen.queryByText("CRM overlap")).not.toBeInTheDocument();
+
+    // The next successful reload clears the error.
+    mockApi.on("get", CLUSTERS_URL, CLUSTERS);
+    mockApi.on("get", "/turbolens/analysis-runs/run-d2", { id: "run-d2", status: "completed" });
+    mockApi.on("post", DETECT_URL, { run_id: "run-d2" });
+    await waitFor(() => expect(screen.getByRole("button", { name: DETECT })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: DETECT }));
+    expect(await screen.findByText("CRM overlap")).toBeInTheDocument();
+    expect(screen.queryByText(`GET ${CLUSTERS_URL} failed`)).not.toBeInTheDocument();
+  });
+});
+
+describe("TurboLensDuplicates — every counted opportunity is listed", () => {
+  afterEach(async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en");
+    });
+  });
+
+  it("lists an opportunity whose priority is not one of the four, after the known groups", async () => {
+    mockApi.on("get", CLUSTERS_URL, []);
+    mockApi.on("get", MODS_URL, [
+      modernization({ id: "u1", card_name: "Mainframe", priority: "urgent", recommendation: "Escalate" }),
+      ...MODS,
+      modernization({ id: "u2", card_name: "Fax server", priority: "urgent", recommendation: "Switch off" }),
+      modernization({ id: "a1", card_name: "Wiki", priority: "asap", recommendation: "Migrate" }),
+    ]);
+    const { user } = renderTab();
+
+    await user.click(await screen.findByRole("tab", { name: "Modernization (8)" }));
+    expect(screen.getByRole("button", { name: "All (8)" })).toBeInTheDocument();
+    // Eight counted, eight listed.
+    expect(document.querySelectorAll(".MuiCard-root")).toHaveLength(8);
+    // The other priorities follow the known four, alphabetically.
+    const headers = screen.getAllByText(/^(CRITICAL|HIGH|MEDIUM|LOW|URGENT|ASAP)$/);
+    expect(headers.map((h) => h.textContent)).toEqual(["CRITICAL", "HIGH", "MEDIUM", "LOW", "ASAP", "URGENT"]);
+    const urgent = screen.getByText("URGENT").closest(".MuiBox-root") as HTMLElement;
+    expect(within(urgent).getByText("Escalate")).toBeInTheDocument();
+    expect(within(urgent).getByText("Switch off")).toBeInTheDocument();
+    expect(within(urgent).getByText("2 opportunities")).toBeInTheDocument();
+  });
+
+  it("counts each group's opportunities in the user's language", async () => {
+    mockApi.on("get", CLUSTERS_URL, []);
+    mockApi.on("get", MODS_URL, MODS);
+    const { user } = renderTab();
+
+    await user.click(await screen.findByRole("tab", { name: "Modernization (5)" }));
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+    expect(await screen.findAllByText("1 Möglichkeit")).toHaveLength(3);
+    expect(screen.getByText("2 Möglichkeiten")).toBeInTheDocument();
+    expect(screen.queryByText(/opportunit/)).not.toBeInTheDocument();
   });
 });

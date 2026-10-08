@@ -62,6 +62,9 @@ export default function TurboLensDuplicates() {
   // ── Duplicates state ───────────────────────────────────────────────
   const [clusters, setClusters] = useState<TurboLensDuplicateCluster[]>([]);
   const [loadingClusters, setLoadingClusters] = useState(true);
+  // A failed load is shown in place of its list, never as "no data".
+  // "" = failed with no message of its own.
+  const [clustersLoadError, setClustersLoadError] = useState<string | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [statusFilter, setStatusFilter] = useState("__all__");
   const [typeFilter, setTypeFilter] = useState("__all__");
@@ -69,6 +72,7 @@ export default function TurboLensDuplicates() {
   // ── Modernization state ────────────────────────────────────────────
   const [modernizations, setModernizations] = useState<TurboLensModernization[]>([]);
   const [loadingModern, setLoadingModern] = useState(true);
+  const [modernLoadError, setModernLoadError] = useState<string | null>(null);
   const [assessing, setAssessing] = useState(false);
   const [targetType, setTargetType] = useState("Application");
   const [modTypeFilter, setModTypeFilter] = useState("__all__");
@@ -85,11 +89,13 @@ export default function TurboLensDuplicates() {
   // ── Load duplicates ────────────────────────────────────────────────
   const loadClusters = useCallback(async () => {
     setLoadingClusters(true);
+    setClustersLoadError(null);
     try {
       const data = await api.get<TurboLensDuplicateCluster[]>("/turbolens/duplicates");
       setClusters(data);
-    } catch {
+    } catch (err: unknown) {
       setClusters([]);
+      setClustersLoadError(err instanceof Error ? err.message : "");
     } finally {
       setLoadingClusters(false);
     }
@@ -98,13 +104,15 @@ export default function TurboLensDuplicates() {
   // ── Load modernizations ────────────────────────────────────────────
   const loadModernizations = useCallback(async () => {
     setLoadingModern(true);
+    setModernLoadError(null);
     try {
       const data = await api.get<TurboLensModernization[]>(
         "/turbolens/duplicates/modernizations",
       );
       setModernizations(data);
-    } catch {
+    } catch (err: unknown) {
       setModernizations([]);
+      setModernLoadError(err instanceof Error ? err.message : "");
     } finally {
       setLoadingModern(false);
     }
@@ -209,7 +217,15 @@ export default function TurboLensDuplicates() {
     return groups;
   }, [filteredMods]);
 
-  const priorityOrder = ["critical", "high", "medium", "low"];
+  // The four known priorities first, then any other the AI returned, so
+  // every opportunity counted above is also listed.
+  const priorityOrder = useMemo(() => {
+    const known = ["critical", "high", "medium", "low"];
+    const others = Object.keys(modsByPriority)
+      .filter((p) => !known.includes(p))
+      .sort();
+    return [...known, ...others];
+  }, [modsByPriority]);
 
   return (
     <Box>
@@ -316,6 +332,8 @@ export default function TurboLensDuplicates() {
             <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
               <CircularProgress />
             </Box>
+          ) : clustersLoadError !== null ? (
+            <Alert severity="error">{clustersLoadError || t("common:errors.generic")}</Alert>
           ) : filteredClusters.length === 0 ? (
             <Paper sx={{ p: 4, textAlign: "center" }}>
               <MaterialSymbol icon="content_copy" size={48} color="#9e9e9e" />
@@ -518,6 +536,8 @@ export default function TurboLensDuplicates() {
             <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
               <CircularProgress />
             </Box>
+          ) : modernLoadError !== null ? (
+            <Alert severity="error">{modernLoadError || t("common:errors.generic")}</Alert>
           ) : filteredMods.length === 0 ? (
             <Paper sx={{ p: 4, textAlign: "center" }}>
               <MaterialSymbol icon="auto_fix_high" size={48} color="#9e9e9e" />
@@ -543,7 +563,7 @@ export default function TurboLensDuplicates() {
                         sx={{ fontWeight: 700 }}
                       />
                       <Typography variant="caption" color="text.secondary">
-                        {items.length} {items.length === 1 ? "opportunity" : "opportunities"}
+                        {t("turbolens_opportunity_count", { count: items.length })}
                       </Typography>
                     </Stack>
                     <Grid container spacing={2}>

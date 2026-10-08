@@ -44,19 +44,26 @@ export default function TurboLensResolution() {
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  // A failed load is shown in place of the hierarchy, never as "no data".
+  // "" = failed with no message of its own.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("__all__");
   const [categoryFilter, setCategoryFilter] = useState("__all__");
   const [sortBy, setSortBy] = useState<SortKey>("linked");
   const { startPolling, polling: pollActive } = useAnalysisPolling(() => loadHierarchy(), (msg) => setError(msg));
+  // A type the resolver did not name is shown as it came.
+  const vendorTypeLabel = (tp: string) => t(`turbolens_vendor_type_${tp}`, { defaultValue: tp });
 
   const loadHierarchy = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const data = await api.get<TurboLensVendorHierarchy[]>("/turbolens/vendors/hierarchy");
       setHierarchy(data);
-    } catch {
+    } catch (err: unknown) {
       setHierarchy([]);
+      setLoadError(err instanceof Error ? err.message : "");
     } finally {
       setLoading(false);
     }
@@ -95,7 +102,8 @@ export default function TurboLensResolution() {
   const filtered = useMemo(() => {
     let result = hierarchy;
     if (typeFilter !== "__all__") {
-      result = result.filter(v => v.vendor_type === typeFilter);
+      // Same derivation as the option list: an untyped entry is "unknown".
+      result = result.filter(v => (v.vendor_type || "unknown") === typeFilter);
     }
     if (categoryFilter !== "__all__") {
       result = result.filter(v => v.category === categoryFilter);
@@ -164,6 +172,8 @@ export default function TurboLensResolution() {
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress />
         </Box>
+      ) : loadError !== null ? (
+        <Alert severity="error">{loadError || t("common:errors.generic")}</Alert>
       ) : hierarchy.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: "center" }}>
           <MaterialSymbol icon="account_tree" size={48} color="#9e9e9e" />
@@ -229,7 +239,7 @@ export default function TurboLensResolution() {
               >
                 <MenuItem value="__all__">{t("turbolens_filter_all")}</MenuItem>
                 {allTypes.map(tp => (
-                  <MenuItem key={tp} value={tp}>{tp}</MenuItem>
+                  <MenuItem key={tp} value={tp}>{vendorTypeLabel(tp)}</MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -288,7 +298,8 @@ export default function TurboLensResolution() {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={v.vendor_type}
+                        // Same derivation as the type filter: an untyped entry is "unknown".
+                        label={vendorTypeLabel(v.vendor_type || "unknown")}
                         size="small"
                         color={vendorTypeColor(v.vendor_type)}
                       />

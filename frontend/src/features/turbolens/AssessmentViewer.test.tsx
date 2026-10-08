@@ -11,8 +11,8 @@
  * The Layered Dependency View is stubbed (it has its own test); the stub
  * records the nodes and edges it is handed.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useLocation, useNavigate } from "react-router";
 import type { GEdge, GNode } from "@/features/reports/layeredDependencyLayout";
@@ -36,6 +36,7 @@ import { hookState, withMetamodel } from "@/test/hooks";
 import { CARD_TYPES, RELATION_TYPES } from "@/test/fixtures/metamodel";
 import { renderWithProviders, wrapWithProviders } from "@/test/render";
 import { resetPageTitle, usePageTitleSlots } from "@/hooks/usePageTitle";
+import i18n from "@/i18n";
 import type { TurboLensAssessment } from "@/types";
 import AssessmentViewer from "./AssessmentViewer";
 
@@ -628,6 +629,85 @@ describe("AssessmentViewer — loading by route", () => {
     expect(await screen.findByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
     expect(mockApi.callsOf("get").map((c) => c.path)).toEqual([URL_A1, "/turbolens/assessments/a-2"]);
   });
+
+  function Jump() {
+    const navigate = useNavigate();
+    return <button onClick={() => navigate("/turbolens/assessments/a-2")}>jump</button>;
+  }
+
+  function renderWithJump() {
+    return renderWithProviders(
+      <>
+        <AssessmentViewer />
+        <Jump />
+      </>,
+      { route: "/turbolens/assessments/a-1", routes: [{ path: "/turbolens/assessments/:id" }] },
+    );
+  }
+
+  it("drops a failed load's error once the route moves to an assessment that loads", async () => {
+    mockApi.fail("get", URL_A1, 404, "Not found");
+    mockApi.on("get", "/turbolens/assessments/a-2", assessment({ id: "a-2", title: "Second assessment" }));
+    const { user } = renderWithJump();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(`GET ${URL_A1} failed`);
+    await user.click(screen.getByRole("button", { name: "jump" }));
+    expect(await screen.findByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows the assessment the route names when the one it left answers last", async () => {
+    let answerFirst: (v: TurboLensAssessment) => void = () => {};
+    mockApi.on("get", URL_A1, () => new Promise<TurboLensAssessment>((r) => (answerFirst = r)));
+    mockApi.on("get", "/turbolens/assessments/a-2", assessment({ id: "a-2", title: "Second assessment" }));
+    const { user } = renderWithJump();
+
+    await waitFor(() => expect(mockApi.callsOf("get", URL_A1)).toHaveLength(1));
+    await user.click(screen.getByRole("button", { name: "jump" }));
+    expect(await screen.findByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
+    // The request for the assessment it left was cancelled.
+    const [firstPath, firstOpts] = mockApi.api.get.mock.calls[0] as [string, { signal?: AbortSignal }?];
+    expect(firstPath).toBe(URL_A1);
+    expect(firstOpts?.signal?.aborted).toBe(true);
+
+    await act(async () => answerFirst(assessment()));
+    expect(screen.getByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "CRM replacement" })).not.toBeInTheDocument();
+  });
+
+  it("keeps loading while the assessment the route names is on its way, whatever the one it left does", async () => {
+    let answerFirst: (v: TurboLensAssessment) => void = () => {};
+    let answerSecond: (v: TurboLensAssessment) => void = () => {};
+    mockApi.on("get", URL_A1, () => new Promise<TurboLensAssessment>((r) => (answerFirst = r)));
+    mockApi.on("get", "/turbolens/assessments/a-2", () => new Promise<TurboLensAssessment>((r) => (answerSecond = r)));
+    const { user } = renderWithJump();
+
+    await waitFor(() => expect(mockApi.callsOf("get", URL_A1)).toHaveLength(1));
+    await user.click(screen.getByRole("button", { name: "jump" }));
+    await waitFor(() => expect(mockApi.callsOf("get", "/turbolens/assessments/a-2")).toHaveLength(1));
+
+    await act(async () => answerFirst(assessment()));
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+
+    await act(async () => answerSecond(assessment({ id: "a-2", title: "Second assessment" })));
+    expect(await screen.findByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
+  });
+
+  it("ignores a failure of the assessment it left", async () => {
+    let failFirst: (err: Error) => void = () => {};
+    mockApi.on("get", URL_A1, () => new Promise<TurboLensAssessment>((_, reject) => (failFirst = reject)));
+    mockApi.on("get", "/turbolens/assessments/a-2", assessment({ id: "a-2", title: "Second assessment" }));
+    const { user } = renderWithJump();
+
+    await waitFor(() => expect(mockApi.callsOf("get", URL_A1)).toHaveLength(1));
+    await user.click(screen.getByRole("button", { name: "jump" }));
+    expect(await screen.findByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
+
+    await act(async () => failFirst(new Error("late failure")));
+    expect(screen.getByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });
 
 describe("AssessmentViewer — header states", () => {
@@ -805,5 +885,104 @@ describe("AssessmentViewer — merged graph edge cases", () => {
 
     expect(await screen.findByTestId("ldv")).toHaveTextContent("1 nodes / 0 edges");
     expect(ldv.props?.nodes.map((n) => n.id)).toEqual(["app-live"]);
+  });
+});
+
+describe("AssessmentViewer — states in the user's language", () => {
+  afterEach(async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en");
+    });
+  });
+
+  async function inGerman() {
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+  }
+
+  it("says it is loading", async () => {
+    await inGerman();
+    mockApi.on("get", URL_A1, () => new Promise(() => {}));
+    renderViewer();
+
+    expect(screen.getByText("Wird geladen...")).toBeInTheDocument();
+    expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
+  });
+
+  it("names a failed load with no message of its own", async () => {
+    await inGerman();
+    mockApi.on("get", URL_A1, () => Promise.reject(new Error("")));
+    renderViewer();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Bewertung konnte nicht geladen werden");
+  });
+
+  it("says the assessment was not found", async () => {
+    await inGerman();
+    mockApi.on("get", URL_A1, null);
+    renderViewer();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Bewertung nicht gefunden");
+  });
+});
+
+describe("AssessmentViewer — relation ends the graph cannot place", () => {
+  /** The relation list's lines, as text. */
+  async function relationLines(): Promise<(string | null)[]> {
+    const rels = (await screen.findByText(/^Proposed New Relations/)).closest(".MuiPaper-outlined") as HTMLElement;
+    return Array.from(rels.querySelectorAll(".MuiStack-root .MuiStack-root")).map((l) => l.textContent);
+  }
+
+  it("names a relation's end after the node the diagram draws it to", async () => {
+    // "pc-crm" stands for the landscape's "app-crm" under another name; a
+    // relation addressing "app-crm" is drawn to the proposal's node.
+    mockApi.on(
+      "get",
+      URL_A1,
+      assessment({
+        session_data: {
+          capabilityMapping: {
+            capabilities: [{ id: "cap-new", name: "Lead Scoring", isNew: true }],
+            proposedCards: [
+              { id: "pc-crm", name: "CRM (proposed)", cardTypeKey: "Application", isNew: false, existingCardId: "app-crm" },
+            ],
+            proposedRelations: [{ sourceId: "app-crm", targetId: "cap-new", relationType: "relAppToBC" }],
+            existingDependencies: { nodes: [{ id: "app-crm", name: "Salesforce", type: "Application" }], edges: [] },
+          },
+        },
+      }),
+    );
+    renderViewer();
+
+    expect(await relationLines()).toEqual(["CRM (proposed)arrow_forwardLead Scoring"]);
+    const props = ldv.props;
+    if (!props) throw new Error("LayeredDependencyView was not rendered");
+    expect(props.edges.map((e) => [e.source, e.target])).toEqual([["pc-crm", "cap-new"]]);
+    expect(props.nodes.find((n) => n.id === "pc-crm")?.name).toBe("CRM (proposed)");
+  });
+
+  it("draws no edge for a relation that is missing an end", async () => {
+    mockApi.on(
+      "get",
+      URL_A1,
+      assessment({
+        session_data: {
+          capabilityMapping: {
+            capabilities: [{ id: "cap-new", name: "Lead Scoring", isNew: true }],
+            proposedCards: [{ id: "pc-app", name: "Gateway", cardTypeKey: "Application", isNew: true }],
+            proposedRelations: [
+              { sourceId: "pc-app", relationType: "relAppToBC" },
+              { targetId: "pc-app", relationType: "relAppToITC" },
+              { sourceId: "pc-app", targetId: "", relationType: "relAppToBC" },
+            ],
+          },
+        },
+      }),
+    );
+    renderViewer();
+
+    expect(await screen.findByTestId("ldv")).toHaveTextContent("2 nodes / 0 edges");
+    expect(ldv.props?.edges).toEqual([]);
   });
 });

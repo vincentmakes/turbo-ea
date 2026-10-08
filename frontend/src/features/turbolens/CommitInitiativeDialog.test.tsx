@@ -12,6 +12,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import i18n from "@/i18n";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
@@ -375,7 +376,7 @@ describe("CommitInitiativeDialog — commit run", () => {
     });
     await advancePoll();
     expect(screen.getByText("Initiative created successfully!")).toBeInTheDocument();
-    expect(screen.getByText("2 proposed new cards, 2 proposed new relations")).toBeInTheDocument();
+    expect(screen.getByText("2 new cards, 2 new relations")).toBeInTheDocument();
 
     // The run is finished: no further polling.
     const polls = mockApi.callsOf("get", RUN).length;
@@ -410,7 +411,7 @@ describe("CommitInitiativeDialog — commit run", () => {
     run = analysisRun({ status: "completed", results: null });
     await advancePoll();
     expect(screen.getByText("Initiative created successfully!")).toBeInTheDocument();
-    expect(screen.queryByText(/proposed new cards/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/new card/)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Open Initiative/ }));
     expect(openSpy).not.toHaveBeenCalled();
@@ -731,6 +732,35 @@ describe("CommitInitiativeDialog — commit run details", () => {
     await advancePoll();
     await advancePoll();
     expect(mockApi.callsOf("get", RUN)).toHaveLength(polls);
+  });
+
+  it("counts what was created in the singular and the plural", async () => {
+    const { user } = renderDialog();
+    fillDates();
+    await user.click(submitButton());
+
+    run = analysisRun({ status: "completed", results: { initiative_id: "init-9", card_count: 1, relation_count: 0 } });
+    await advancePoll();
+    expect(await screen.findByText("1 new card, 0 new relations")).toBeInTheDocument();
+  });
+
+  it("counts what was created in the user's language", async () => {
+    const { user } = renderDialog();
+    fillDates();
+    await user.click(submitButton());
+
+    try {
+      await act(async () => {
+        await i18n.changeLanguage("de");
+      });
+      run = analysisRun({ status: "completed", results: { initiative_id: "init-9", card_count: 2, relation_count: 1 } });
+      await advancePoll();
+      expect(await screen.findByText("2 neue Karten, 1 neue Beziehung")).toBeInTheDocument();
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
   });
 
   it("starts a retried commit from the opening step, not the failed run's progress", async () => {

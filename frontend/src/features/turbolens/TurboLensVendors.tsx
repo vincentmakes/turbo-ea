@@ -36,10 +36,13 @@ import { useAnalysisPolling } from "./useAnalysisPolling";
 // Helpers
 // ---------------------------------------------------------------------------
 
-function groupByCategory(vendors: TurboLensVendor[]): Record<string, TurboLensVendor[]> {
+function groupByCategory(
+  vendors: TurboLensVendor[],
+  uncategorized: string,
+): Record<string, TurboLensVendor[]> {
   const groups: Record<string, TurboLensVendor[]> = {};
   for (const v of vendors) {
-    const cat = v.category || "Uncategorized";
+    const cat = v.category || uncategorized;
     if (!groups[cat]) groups[cat] = [];
     groups[cat].push(v);
   }
@@ -52,11 +55,16 @@ function groupByCategory(vendors: TurboLensVendor[]): Record<string, TurboLensVe
 
 export default function TurboLensVendors() {
   const { t } = useTranslation("admin");
+  // One label for a vendor without a category: grid, filter and table alike.
+  const uncategorized = t("metamodel.uncategorized");
   const [vendors, setVendors] = useState<TurboLensVendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [analysing, setAnalysing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  // A failed load is shown in place of the list, never as "no data".
+  // "" = failed with no message of its own.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("__all__");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
@@ -64,11 +72,13 @@ export default function TurboLensVendors() {
 
   const loadVendors = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const data = await api.get<TurboLensVendor[]>("/turbolens/vendors");
       setVendors(data);
-    } catch {
+    } catch (err: unknown) {
       setVendors([]);
+      setLoadError(err instanceof Error ? err.message : "");
     } finally {
       setLoading(false);
     }
@@ -95,14 +105,14 @@ export default function TurboLensVendors() {
 
   // Derived data
   const allCategories = useMemo(() => {
-    const cats = new Set(vendors.map(v => v.category || "Uncategorized"));
+    const cats = new Set(vendors.map(v => v.category || uncategorized));
     return Array.from(cats).sort();
-  }, [vendors]);
+  }, [vendors, uncategorized]);
 
   const filtered = useMemo(() => {
     let result = vendors;
     if (categoryFilter !== "__all__") {
-      result = result.filter(v => (v.category || "Uncategorized") === categoryFilter);
+      result = result.filter(v => (v.category || uncategorized) === categoryFilter);
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -113,9 +123,9 @@ export default function TurboLensVendors() {
       );
     }
     return result;
-  }, [vendors, categoryFilter, search]);
+  }, [vendors, categoryFilter, search, uncategorized]);
 
-  const categories = groupByCategory(filtered);
+  const categories = groupByCategory(filtered, uncategorized);
   const categoryEntries = Object.entries(categories).sort(
     (a, b) => b[1].length - a[1].length,
   );
@@ -162,6 +172,8 @@ export default function TurboLensVendors() {
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress />
         </Box>
+      ) : loadError !== null ? (
+        <Alert severity="error">{loadError || t("common:errors.generic")}</Alert>
       ) : vendors.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: "center" }}>
           <MaterialSymbol icon="storefront" size={48} color="#9e9e9e" />
@@ -326,7 +338,7 @@ export default function TurboLensVendors() {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Chip label={v.category} size="small" variant="outlined" />
+                        <Chip label={v.category || uncategorized} size="small" variant="outlined" />
                       </TableCell>
                       <TableCell>
                         {v.sub_category && (

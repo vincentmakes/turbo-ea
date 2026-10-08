@@ -705,12 +705,13 @@ describe("TurboLensArchitect — resuming an assessment from a link", () => {
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\?tab=architect$/));
     expect(screen.getByTestId("navigation-type")).toHaveTextContent("REPLACE");
 
-    // `assessmentSaved` is not pinned: it currently drops back to false here.
+    // The resumed assessment is the saved one: it stays saved.
     expect(storedSession()).toEqual({
       ...FULL,
       assessmentId: "as-9",
-      assessmentSaved: expect.any(Boolean),
+      assessmentSaved: true,
     });
+    expect(screen.getByRole("button", { name: /Assessment saved/ })).toBeDisabled();
   });
 
   it("fills in defaults for everything an older snapshot does not carry", async () => {

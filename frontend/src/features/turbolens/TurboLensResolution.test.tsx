@@ -6,14 +6,15 @@
  * and four sort orders; and the "Resolve Vendors" flow —
  * `POST /turbolens/vendors/resolve` followed by the real `useAnalysisPolling`.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
 import { mockApi } from "@/test/apiMock";
 import { renderWithProviders, wrapWithProviders } from "@/test/render";
+import i18n from "@/i18n";
 import type { TurboLensVendorHierarchy } from "@/types";
 import TurboLensResolution from "./TurboLensResolution";
 
@@ -146,11 +147,21 @@ describe("TurboLensResolution", () => {
     ).toBeInTheDocument();
   });
 
-  it("treats a failed load as no data", async () => {
+  it("shows the error, not the empty state, when the hierarchy cannot be loaded", async () => {
     mockApi.fail("get", LIST_URL);
     renderTab();
 
-    expect(await screen.findByText("No vendor hierarchy data")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(`GET ${LIST_URL} failed`);
+    expect(screen.queryByText("No vendor hierarchy data")).not.toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("falls back to a generic message when the failed load carries none", async () => {
+    mockApi.on("get", LIST_URL, () => Promise.reject("offline"));
+    renderTab();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+    expect(screen.queryByText("No vendor hierarchy data")).not.toBeInTheDocument();
   });
 
   it("summarises the hierarchy in KPI tiles", async () => {
@@ -193,7 +204,7 @@ describe("TurboLensResolution", () => {
     ]);
 
     const sap = rowOf("SAP");
-    expect(within(sap).getByText("vendor")).toHaveClass("MuiChip-label");
+    expect(within(sap).getByText("Vendor")).toHaveClass("MuiChip-label");
     expect(within(sap).getByText("SAP SE")).toBeInTheDocument();
     expect(within(sap).getByText("SAP AG")).toBeInTheDocument();
     // Two aliases: no overflow chip.
@@ -225,7 +236,7 @@ describe("TurboLensResolution", () => {
 
     // Empty alias list, no cost, no confidence → three dashes.
     const widget = rowOf("Widget Module");
-    expect(within(widget).getByText("module")).toBeInTheDocument();
+    expect(within(widget).getByText("Module")).toHaveClass("MuiChip-label");
     expect(within(widget).getByText("Tools")).toBeInTheDocument();
     expect(within(widget).getAllByText("-")).toHaveLength(3);
   });
@@ -261,11 +272,11 @@ describe("TurboLensResolution", () => {
     await user.click(screen.getAllByRole("combobox")[0]);
     expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
       "All",
-      "module",
-      "product",
-      "vendor",
+      "Module",
+      "Product",
+      "Vendor",
     ]);
-    await user.click(screen.getByRole("option", { name: "vendor" }));
+    await user.click(screen.getByRole("option", { name: "Vendor" }));
     expect(names()).toEqual(["SAP", "Microsoft"]);
 
     await user.click(screen.getAllByRole("combobox")[1]);
@@ -430,8 +441,8 @@ describe("TurboLensResolution", () => {
     await user.click(screen.getAllByRole("combobox")[0]);
     expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
       "All",
-      "module",
-      "unknown",
+      "Module",
+      "Unknown",
     ]);
   });
 
@@ -455,7 +466,7 @@ describe("TurboLensResolution", () => {
     expect(await screen.findByText("Vendor resolution started")).toBeInTheDocument();
   });
 
-  it("empties the hierarchy when the reload after a run fails", async () => {
+  it("shows the error instead of the hierarchy when the reload after a run fails", async () => {
     mockApi.on("get", LIST_URL, HIERARCHY);
     mockApi.on("post", RESOLVE_URL, { run_id: "run-7" });
     let answerPoll: (run: unknown) => void = () => {};
@@ -468,7 +479,107 @@ describe("TurboLensResolution", () => {
 
     mockApi.fail("get", LIST_URL);
     answerPoll({ id: "run-7", status: "completed", analysis_type: "vendor_resolution" });
-    expect(await screen.findByText("No vendor hierarchy data")).toBeInTheDocument();
+    expect(await screen.findByText(`GET ${LIST_URL} failed`)).toBeInTheDocument();
+    expect(screen.queryByText("No vendor hierarchy data")).not.toBeInTheDocument();
     expect(screen.queryByText("Vendor Hierarchy (4)")).not.toBeInTheDocument();
+  });
+
+  it("clears a failed load's error once a later reload succeeds", async () => {
+    mockApi.fail("get", LIST_URL);
+    mockApi.on("post", RESOLVE_URL, { run_id: "run-7" });
+    let answerPoll: (run: unknown) => void = () => {};
+    mockApi.on("get", RUN_URL, () => new Promise((r) => (answerPoll = r)));
+    const { user } = renderTab();
+
+    expect(await screen.findByText(`GET ${LIST_URL} failed`)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: RESOLVE }));
+    await waitFor(() => expect(mockApi.callsOf("get", RUN_URL)).toHaveLength(1));
+
+    mockApi.on("get", LIST_URL, HIERARCHY);
+    answerPoll({ id: "run-7", status: "completed", analysis_type: "vendor_resolution" });
+    expect(await screen.findByText("Vendor Hierarchy (4)")).toBeInTheDocument();
+    expect(screen.queryByText(`GET ${LIST_URL} failed`)).not.toBeInTheDocument();
+  });
+
+  it("lists exactly the untyped entries under the \"unknown\" type", async () => {
+    mockApi.on("get", LIST_URL, [
+      WIDGET,
+      entry({ id: "u", canonical_name: "Untyped", vendor_type: "" }),
+      entry({ id: "n", canonical_name: "Null typed", vendor_type: null as unknown as string }),
+    ]);
+    const { user } = renderTab();
+    // Typed entries keep their own type; the two untyped ones share "unknown".
+    await screen.findByText("Vendor Hierarchy (3)");
+
+    await choose(user, 0, "Unknown");
+    expect(names().sort()).toEqual(["Null typed", "Untyped"]);
+    expect(screen.getByText("Vendor Hierarchy (2)")).toBeInTheDocument();
+
+    await choose(user, 0, "Module");
+    expect(names()).toEqual(["Widget Module"]);
+  });
+});
+
+describe("TurboLensResolution — vendor type labels", () => {
+  afterEach(async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en");
+    });
+  });
+
+  /** The text of the type chip in `name`'s row. */
+  function typeChip(name: string): string | null {
+    return within(rowOf(name)).getAllByRole("cell")[1].textContent;
+  }
+
+  it("names an untyped entry's type in the table as the filter does", async () => {
+    mockApi.on("get", LIST_URL, [
+      WIDGET,
+      entry({ id: "u", canonical_name: "Untyped", vendor_type: "" }),
+      entry({ id: "n", canonical_name: "Null typed", vendor_type: null as unknown as string }),
+    ]);
+    renderTab();
+
+    await screen.findByText("Vendor Hierarchy (3)");
+    expect(typeChip("Untyped")).toBe("Unknown");
+    expect(typeChip("Null typed")).toBe("Unknown");
+    expect(within(rowOf("Untyped")).getByText("Unknown").closest(".MuiChip-root")).toHaveClass(
+      "MuiChip-colorDefault",
+    );
+  });
+
+  it("names every type in the user's language, in the table and the filter", async () => {
+    mockApi.on("get", LIST_URL, [
+      ...HIERARCHY,
+      entry({ id: "p", canonical_name: "Cloud Platform", vendor_type: "platform" }),
+      entry({ id: "u", canonical_name: "Untyped", vendor_type: "" }),
+    ]);
+    const { user } = renderTab();
+    await screen.findByText("Vendor Hierarchy (6)");
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+
+    expect(await screen.findByText("Anbieterhierarchie (6)")).toBeInTheDocument();
+    expect(typeChip("SAP")).toBe("Anbieter");
+    expect(typeChip("Hana Cloud")).toBe("Produkt");
+    expect(typeChip("Widget Module")).toBe("Modul");
+    expect(typeChip("Cloud Platform")).toBe("Plattform");
+    expect(typeChip("Untyped")).toBe("Unbekannt");
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    const [all, ...typeOptions] = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(all).toBe("Alle");
+    expect(typeOptions.sort()).toEqual(["Anbieter", "Modul", "Plattform", "Produkt", "Unbekannt"]);
+  });
+
+  it("shows a type it has no name for as it came", async () => {
+    mockApi.on("get", LIST_URL, [WIDGET, entry({ id: "r", canonical_name: "Resell Co", vendor_type: "reseller" })]);
+    const { user } = renderTab();
+
+    await screen.findByText("Vendor Hierarchy (2)");
+    expect(typeChip("Resell Co")).toBe("reseller");
+    await choose(user, 0, "reseller");
+    expect(names()).toEqual(["Resell Co"]);
   });
 });
