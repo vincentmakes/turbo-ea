@@ -572,9 +572,12 @@ describe("ADREditor — workflow actions", () => {
     expect(await screen.findByText("New revision created")).toBeInTheDocument();
   });
 
-  it("confirms a new revision while the revision is still loading", async () => {
+  it("confirms a new revision while it loads, with one confirmation throughout", async () => {
     // The confirmation used to sit inside the loaded page, so it waited for the
     // whole reload of the new revision; hold that reload open to prove it doesn't.
+    // And it must be ONE toast: the page switches from the old decision to the
+    // spinner to the new one, and a toast remounted at each switch re-animates
+    // and restarts its timer (and detached the element a test had just found).
     const signed = { ...base, status: "signed" as const, signed_at: "2026-06-03T12:00:00Z" };
     const reload = deferred();
     let loads = 0;
@@ -584,9 +587,14 @@ describe("ADREditor — workflow actions", () => {
     });
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /New Revision/ }));
+    const toast = await screen.findByText("New revision created");
     await waitFor(() => expect(location()).toBe("/ea-delivery/adr/adr-rev"));
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
-    expect(screen.getByText("New revision created")).toBeInTheDocument();
+    expect(toast).toBeInTheDocument();
+
+    reload.resolve({ ...signed, id: "adr-rev" });
+    await screen.findByDisplayValue(signed.title);
+    expect(toast).toBeInTheDocument();
   });
 
   it("requesting signatures: dialog copy, busy flag through a failure, and a reply without signatories", async () => {

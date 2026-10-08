@@ -215,8 +215,6 @@ def test_stryker_config_leaves_the_floor_to_the_gate():
     assert config["vitest"]["configFile"] == "vitest.stryker.config.ts"
     stryker_vitest = (ROOT / "frontend" / "vitest.stryker.config.ts").read_text()
     assert "stubEnv" in stryker_vitest and "configDefaults.exclude" in stryker_vitest
-    # a four-process instrumented dry run outlasts Testing Library's 1s waits
-    assert '"./src/test/mutationSetup.ts"' in stryker_vitest
     assert config["thresholds"]["break"] is None  # the floor lives in floors.toml
     assert config["jsonReporter"]["fileName"] == "reports/mutation/mutation.json"
     assert config["incrementalFile"] == "reports/stryker-incremental.json"

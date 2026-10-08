@@ -11,9 +11,6 @@
 // It also sets MUTATION_SANDBOX: a test that reads src/ as text would read the
 // instrumented copy of whatever this run mutates, so the scans wrapped in
 // `describeSourceScan` / `itSourceScan` (src/test/sourceScan.ts) skip here.
-//
-// And it adds src/test/mutationSetup.ts, which gives Testing Library's async
-// queries the headroom a four-process instrumented run needs.
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { configDefaults, defineConfig, mergeConfig } from "vitest/config";
@@ -35,8 +32,6 @@ export default mergeConfig(
     test: {
       exclude: [...configDefaults.exclude, ...pinsTimeZone],
       env: { MUTATION_SANDBOX: "1" },
-      // Appended to the base config's setup.ts, which still runs first.
-      setupFiles: ["./src/test/mutationSetup.ts"],
     },
   }),
 );

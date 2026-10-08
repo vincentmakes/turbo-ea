@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Printing a process flow escapes the process and approver names, and sanitises the stored diagram image it falls back to, so markup in them can no longer run in the print window.
 
 ### Fixed
-- Duplicating a decision or creating a new revision confirms it right away, instead of only once the new decision has finished loading.
+- Saving a new decision, duplicating one or creating a new revision shows its confirmation once and right away, instead of showing it, losing it while the new decision loads and showing it again.
 
 ## [2.157.3] - 2026-10-08
 
