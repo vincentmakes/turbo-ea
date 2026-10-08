@@ -117,11 +117,18 @@ jobs:
       # re-runs mutmut's clean test (~20 min), which is why there is only one.
       # `ulimit -v` caps every forked pytest child, so a runaway mutant hits
       # MemoryError (and is killed) instead of exhausting the runner.
+      # A dispatched run hands the budget input over as "280.0", which bash's
+      # integer arithmetic rejects (run 14 failed every shard on it in its
+      # first second), so the halving is done once, in Python, for both halves.
+      - name: Split the budget in two
+        run: >-
+          python3 -c 'import os; print("HALF_BUDGET=%g" % (float(os.environ["BUDGET"]) / 2))'
+          >> "$GITHUB_ENV"
       - name: Mutate shard ${{ matrix.shard }}, first half of the budget
         run: |
           ulimit -v "$MUTMUT_VMEM_KB"
           python scripts/mutation/mutmut_scope.py run --suite backend --shard "$SHARD" \
-            --budget "$((BUDGET / 2))" --max-children 4
+            --budget "$HALF_BUDGET" --max-children 4
       - name: Checkpoint the shard's verdicts
         run: >-
           python scripts/mutation/mutmut_scope.py collect --suite backend --shard "$SHARD"
@@ -142,7 +149,7 @@ jobs:
         run: |
           ulimit -v "$MUTMUT_VMEM_KB"
           python scripts/mutation/mutmut_scope.py run --suite backend --shard "$SHARD" \
-            --budget "$((BUDGET / 2))" --max-children 4
+            --budget "$HALF_BUDGET" --max-children 4
       - name: Collect the shard's verdicts
         if: always()
         run: >-
@@ -244,6 +251,13 @@ jobs:
       # checkpoint keeps every chunk the first half completed. The summary
       # file is pointed at /dev/null: Vitest's reporter appends to it on every
       # chunk, which overflowed the step summary's 1 MB limit.
+      # A dispatched run hands the budget input over as "280.0", which bash's
+      # integer arithmetic rejects (run 14 failed every shard on it in its
+      # first second), so the halving is done once, in Python, for both halves.
+      - name: Split the budget in two
+        run: >-
+          python3 -c 'import os; print("HALF_BUDGET=%g" % (float(os.environ["BUDGET"]) / 2))'
+          >> "$GITHUB_ENV"
       - name: Mutate shard ${{ matrix.shard }}, first half of the budget
         env:
           GITHUB_STEP_SUMMARY: /dev/null
@@ -253,7 +267,7 @@ jobs:
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then limit="--max-chunks 1"; fi
           # shellcheck disable=SC2086
           python3 scripts/mutation/stryker_scope.py nightly --shard "$SHARD" \
-            --budget "$((BUDGET / 2))" --state "$STATE" $limit
+            --budget "$HALF_BUDGET" --state "$STATE" $limit
       # A chunk that fails fails the step only after every other chunk ran, so
       # the checkpoint and the second half still run; only a cancel stops them.
       - name: Checkpoint the shard's verdicts
@@ -283,7 +297,7 @@ jobs:
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then limit="--max-chunks 1"; fi
           # shellcheck disable=SC2086
           python3 scripts/mutation/stryker_scope.py nightly --shard "$SHARD" \
-            --budget "$((BUDGET / 2))" --state "$STATE" $limit
+            --budget "$HALF_BUDGET" --state "$STATE" $limit
       - name: Collect the shard's verdicts
         if: always()
         run: >-

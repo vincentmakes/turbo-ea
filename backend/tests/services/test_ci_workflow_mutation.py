@@ -11,7 +11,9 @@ reports it through the same gate.
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -104,9 +106,9 @@ def test_the_nightly_measures_every_suite_resumably():
     assert {"backend", "mcp", "frontend", "report"} <= set(j)
     assert "shard: [1, " in j["backend"] and '--shard "$SHARD"' in j["backend"]
     assert "shard: [1, " in j["frontend"] and "stryker_scope.py nightly" in j["frontend"]
-    assert '--budget "$((BUDGET / 2))"' in j["frontend"] and "collect --state" in j["frontend"]
+    assert '--budget "$HALF_BUDGET"' in j["frontend"] and "collect --state" in j["frontend"]
     assert "--shard 1/1" in j["mcp"]
-    assert '--budget "$((BUDGET / 2))"' in j["backend"]
+    assert '--budget "$HALF_BUDGET"' in j["backend"]
     assert '--budget "$BUDGET"' in j["mcp"]
     assert 'TEST_DB_REQUIRED: "1"' in j["backend"]
     text = NIGHTLY.read_text()
@@ -122,7 +124,7 @@ def test_a_lost_runner_loses_half_a_night_not_all_of_it(job):
     one; the checkpoint between two halves of the budget keeps the first half's
     verdicts in the cache and the shard's records in the artifact."""
     body = jobs(NIGHTLY)[job]
-    assert body.count('--budget "$((BUDGET / 2))"') == 2
+    assert body.count('--budget "$HALF_BUDGET"') == 2
     assert "first half of the budget" in body and "second half of the budget" in body
     first = body.index("first half of the budget")
     checkpoint = body.index("-${{ github.run_id }}-checkpoint")
@@ -257,3 +259,28 @@ def test_the_nightly_is_scheduled_in_the_evening():
     assert 16 <= int(hour) <= 19
     # the evenings before Monday to Friday
     assert (day, month, weekdays) == ("*", "*", "0-4")
+
+
+@pytest.mark.parametrize("job", ["backend", "frontend"])
+def test_the_budget_is_halved_without_integer_arithmetic(job, tmp_path):
+    """A dispatch hands the number input over as "280.0", and bash's $(( ))
+    rejects it: run 14 failed every shard in its first second. The halving is
+    one Python step, ahead of both halves, that also refuses a non-number."""
+    body = jobs(NIGHTLY)[job]
+    assert "$((" not in body
+    split = body.index("Split the budget in two")
+    assert split < body.index("first half of the budget")
+    # the step's folded `run: >-` block, joined the way YAML folds it
+    block = body[split:].split("run: >-\n", 1)[1].split("\n      - ", 1)[0]
+    command = " ".join(line.strip() for line in block.splitlines() if line.strip())
+    for budget, half in (("280", "140"), ("280.0", "140"), ("15", "7.5")):
+        env_file = tmp_path / f"env-{budget}"
+        env = {"PATH": os.environ["PATH"], "BUDGET": budget, "GITHUB_ENV": str(env_file)}
+        subprocess.run(["bash", "-c", command], env=env, check=True)
+        assert env_file.read_text() == f"HALF_BUDGET={half}\n"
+    bad = subprocess.run(
+        ["bash", "-c", command],
+        env={"PATH": os.environ["PATH"], "BUDGET": "abc", "GITHUB_ENV": str(tmp_path / "bad")},
+        capture_output=True,
+    )
+    assert bad.returncode != 0
