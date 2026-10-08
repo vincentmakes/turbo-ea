@@ -19,9 +19,12 @@ import KeyInput, { isValidKey } from "@/components/KeyInput";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { LOCALE_LABELS } from "@/i18n";
 import { api, ApiError } from "@/api/client";
-import type { FieldDef, FieldOption, RelationType } from "@/types";
+import type { FieldDef, FieldOption, RelationType, TranslationMap } from "@/types";
 import { DEFAULT_OPTION_COLOR } from "./constants";
 import { cleanTranslationMap } from "./helpers";
+
+/** A dimension or a value, as far as its name goes. */
+type LabelledRow = { label?: string; translations?: TranslationMap };
 
 interface Props {
   open: boolean;
@@ -54,14 +57,25 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
       // original-ness travels with the row, so a new row never locks just
       // because its typed key matches an existing one.
       const cloned: FieldDef[] = JSON.parse(JSON.stringify(relationType.attributes_schema ?? []));
+      // A stored custom row with no label but with text in this locale takes
+      // that text as its label: the name field shows it, so the rule the red
+      // flag and Save read must be met by it too.
+      const adoptLabel = (row: LabelledRow & { built_in?: boolean }) => {
+        const here = row.translations?.[locale];
+        if (!row.built_in && !(row.label ?? "").trim() && here?.trim()) row.label = here;
+      };
       for (const f of cloned) {
         f._original = true;
-        for (const o of f.options ?? []) o._original = true;
+        adoptLabel(f);
+        for (const o of f.options ?? []) {
+          o._original = true;
+          adoptLabel(o);
+        }
       }
       setSchema(cloned);
       setError(null);
     }
-  }, [open, relationType]);
+  }, [open, relationType, locale]);
 
   // Only single_select dimensions are user-managed (relation "type" pickers).
   const isManaged = (f: FieldDef) => f.type === "single_select";
@@ -168,12 +182,26 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
     }
   };
 
+  // A custom row is labelled by its `label`: the canonical fallback every
+  // locale without a translation shows. A translation alone leaves the row
+  // unlabelled everywhere else, so the red flag, the key's `required` and the
+  // Save check below all read this one rule.
+  const labelled = (row: { label?: string }) => !!(row.label ?? "").trim();
+
+  // What a custom row's name field shows: this locale's text, or — when it has
+  // none — the label, as that locale would. Never an empty translation over a
+  // label, so the field is empty exactly when the row is unlabelled.
+  const shownLabel = (row: LabelledRow) => {
+    const here = row.translations?.[locale];
+    return here?.trim() ? here : (row.label ?? "");
+  };
+
   // Validation: every custom field/option needs a valid key + label.
   const invalid = schema.some(
     (f) =>
       isManaged(f) &&
-      ((!f.built_in && (!isValidKey(f.key) || !f.label.trim())) ||
-        (f.options ?? []).some((o) => !o.built_in && (!isValidKey(o.key) || !o.label.trim()))),
+      ((!f.built_in && (!isValidKey(f.key) || !labelled(f))) ||
+        (f.options ?? []).some((o) => !o.built_in && (!isValidKey(o.key) || !labelled(o)))),
   );
 
   // Keys must be unique: dimension keys across the whole schema, and option keys
@@ -228,10 +256,10 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
                   <TextField
                     size="small"
                     label={`${t("metamodel.dimensionLabel")} (${LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] || locale})`}
-                    value={f.translations?.[locale] ?? f.label}
+                    value={shownLabel(f)}
                     onChange={(e) => setFieldLabel(fi, e.target.value)}
                     sx={{ flex: 1 }}
-                    error={!(f.translations?.[locale] ?? f.label ?? "").trim()}
+                    error={!labelled(f)}
                   />
                   <Tooltip title={t("common:actions.delete")}>
                     <IconButton size="small" onClick={() => removeField(fi)}>
@@ -251,7 +279,7 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
                 locked={!!f._original}
                 lockedReason={t("metamodel.fieldEditor.keyLockedReason")}
                 sx={{ mb: 1.5 }}
-                required={!!(f.translations?.[locale] ?? f.label ?? "").trim()}
+                required={labelled(f)}
                 externalError={
                   duplicateDimensionKeys.has(f.key) ? t("validation:key.duplicate") : undefined
                 }
@@ -302,7 +330,7 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
                     locked={!!opt._original}
                     lockedReason={t("metamodel.fieldEditor.optionKeyLocked")}
                     sx={{ flex: 1 }}
-                    required={!!(opt.translations?.[locale] ?? opt.label ?? "").trim()}
+                    required={labelled(opt)}
                     externalError={
                       duplicateOptionKeysByField.get(fi)?.has(opt.key)
                         ? t("validation:key.duplicate")
@@ -312,10 +340,10 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
                   <TextField
                     size="small"
                     label={t("metamodel.fieldEditor.optionLabelLabel")}
-                    value={opt.translations?.[locale] ?? opt.label}
+                    value={shownLabel(opt)}
                     onChange={(e) => setOptionLabel(fi, oi, e.target.value)}
                     sx={{ flex: 1 }}
-                    error={!(opt.translations?.[locale] ?? opt.label ?? "").trim()}
+                    error={!labelled(opt)}
                   />
                   <ColorPicker
                     compact

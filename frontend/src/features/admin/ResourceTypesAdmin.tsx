@@ -70,6 +70,8 @@ export default function ResourceTypesAdmin() {
   const { refresh } = useResourceTypes();
 
   const [items, setItems] = useState<ResourceType[]>([]);
+  // True only until the first load settles: a reload keeps the current list
+  // on screen instead of blanking both sections.
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -80,7 +82,6 @@ export default function ResourceTypesAdmin() {
   const [deleteConfirm, setDeleteConfirm] = useState<ResourceType | null>(null);
 
   const fetchItems = useCallback(async () => {
-    setLoading(true);
     try {
       const data = await api.get<ResourceType[]>("/metamodel/resource-types");
       setItems(data);
@@ -173,10 +174,16 @@ export default function ResourceTypesAdmin() {
   };
 
   const handleToggleEnabled = async (r: ResourceType) => {
-    await api.patch(`/metamodel/resource-types/${r.id}`, {
-      is_enabled: !r.is_enabled,
-    });
-    fetchItems();
+    try {
+      await api.patch(`/metamodel/resource-types/${r.id}`, {
+        is_enabled: !r.is_enabled,
+      });
+      fetchItems();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : t("metamodel.resourceTypes.saveError"),
+      );
+    }
   };
 
   const renderRow = (r: ResourceType) => (

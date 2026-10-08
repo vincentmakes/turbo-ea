@@ -240,3 +240,150 @@ describe("EolAdmin cycle picker", () => {
     expect(within(dialog).getByRole("button", { name: "Confirm" })).toBeDisabled();
   });
 });
+
+describe("EolAdmin cycle picker, reopened for another product", () => {
+  it("does not offer the previous product's cycles when the next product's fetch fails", async () => {
+    mockApi.on("get", "/eol/products/ubuntu", CYCLES);
+    mockApi.fail("get", "/eol/products/ubuntu-core");
+    const user = userEvent.setup();
+    render(<EolAdmin />);
+    await search(user);
+
+    await user.click(within(cardOf("Ubuntu LTS")).getByText("ubuntu"));
+    let dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByRole("combobox")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await user.click(within(cardOf("Ubuntu LTS")).getByText("ubuntu-core"));
+    dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "GET /eol/products/ubuntu-core failed",
+    );
+    // Only the error: no select still listing ubuntu's 24.04 / 22.04 / 18.04.
+    expect(within(dialog).queryByRole("combobox")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Confirm" })).toBeDisabled();
+  });
+
+  it("never renders the no-cycles note before the progress bar, even reopened during the fade-out", async () => {
+    const pending: Array<(v: EolCycle[]) => void> = [];
+    mockApi.on("get", "/eol/products/ubuntu-core", []);
+    mockApi.on("get", "/eol/products/ubuntu", () => new Promise<EolCycle[]>((r) => pending.push(r)));
+    const user = userEvent.setup();
+    render(<EolAdmin />);
+    await search(user);
+
+    // ubuntu-core has no cycles: the note is right there.
+    await user.click(within(cardOf("Ubuntu LTS")).getByText("ubuntu-core"));
+    let dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText(/No release cycles found/)).toBeInTheDocument();
+
+    const seen: string[] = [];
+    // A node rendered for one commit and removed by the next shows up as a
+    // removal; a detached node keeps its text, so both lists are checked.
+    const collect = (records: MutationRecord[]) => {
+      for (const r of records) {
+        r.addedNodes.forEach((n) => seen.push(n.textContent ?? ""));
+        r.removedNodes.forEach((n) => seen.push(n.textContent ?? ""));
+      }
+    };
+    // Close with Escape and, while the dialog is still fading out, open the
+    // other match from the keyboard.
+    await user.keyboard("{Escape}");
+    const observer = new MutationObserver(collect);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    const ubuntu = within(cardOf("Ubuntu LTS")).getByText("ubuntu").closest<HTMLElement>(
+      "[role=button]",
+    );
+    ubuntu?.focus();
+    await user.keyboard("{Enter}");
+    dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByRole("progressbar")).toBeInTheDocument();
+    collect(observer.takeRecords());
+    observer.disconnect();
+
+    expect(seen.some((s) => s.includes('No release cycles found for "ubuntu"'))).toBe(false);
+    pending.forEach((resolve) => resolve(CYCLES));
+    expect(await within(dialog).findByRole("combobox")).toBeInTheDocument();
+  });
+});
+
+describe("EolAdmin cycle picker, a slow fetch from an earlier opening", () => {
+  function deferredCycles() {
+    let resolve!: (v: EolCycle[]) => void;
+    let reject!: (e: unknown) => void;
+    const promise = new Promise<EolCycle[]>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  async function reopenWhileFirstIsPending() {
+    const first = deferredCycles();
+    const second = deferredCycles();
+    mockApi.on("get", "/eol/products/ubuntu", () => first.promise);
+    mockApi.on("get", "/eol/products/ubuntu-core", () => second.promise);
+    const user = userEvent.setup();
+    render(<EolAdmin />);
+    await search(user);
+
+    await user.click(within(cardOf("Ubuntu LTS")).getByText("ubuntu"));
+    let dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await user.click(within(cardOf("Ubuntu LTS")).getByText("ubuntu-core"));
+    dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("progressbar")).toBeInTheDocument();
+    return { dialog, first, second };
+  }
+
+  it("neither fills nor settles the picker opened for another product", async () => {
+    const { dialog, first, second } = await reopenWhileFirstIsPending();
+
+    first.resolve(CYCLES);
+    // Let the late reply settle, then check it changed nothing.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(within(dialog).getByRole("progressbar")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("combobox")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText(/No release cycles found/)).not.toBeInTheDocument();
+
+    second.resolve([]);
+    expect(
+      await within(dialog).findByText('No release cycles found for "ubuntu-core".'),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole("combobox")).not.toBeInTheDocument();
+  });
+
+  it("does not report its failure in the picker opened for another product", async () => {
+    const { dialog, first, second } = await reopenWhileFirstIsPending();
+
+    first.reject(new Error("GET /eol/products/ubuntu failed"));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("progressbar")).toBeInTheDocument();
+
+    second.resolve(CYCLES);
+    expect(await within(dialog).findByRole("combobox")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+describe("EolAdmin cycle picker, closing", () => {
+  it("keeps the cycles on screen while the picker fades out", async () => {
+    mockApi.on("get", "/eol/products/ubuntu", CYCLES);
+    const user = userEvent.setup();
+    render(<EolAdmin />);
+    await search(user);
+
+    await user.click(within(cardOf("Ubuntu LTS")).getByText("ubuntu"));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByRole("combobox")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    // Mid-exit: still the select, not a fresh progress bar.
+    expect(within(dialog).queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("combobox", { hidden: true })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+});

@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.157.5] - 2026-10-08
+
+### Fixed
+- Admin pages (tags, regulations, resource types, EOL mass linking, extensions, Survey Builder): a failed save, toggle or load is shown instead of silently dropped.
+- Admin pages: clicking Save, Create or Next twice no longer sends the request twice, so Survey Builder can no longer create a second survey or skip a step.
+- Tags: group and tag names and descriptions are saved trimmed.
+- Extensions: the license dialog opens empty each time, a discarded install stays discarded, a purchase confirmed past the apply gate applies the license it was blocked on, and the page intro is translated.
+- Survey Builder: a reopened draft keeps its "Via relation" narrowing, and a draft whose card type was removed says so instead of showing a blank select.
+- EOL mass linking: the version picker never offers the previous product's cycles.
+- Relation-type values: a stored custom value without a label no longer crashes the dialog.
+
 ## [2.157.4] - 2026-10-08
 
 ### Security

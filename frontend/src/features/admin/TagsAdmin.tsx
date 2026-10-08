@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -19,6 +19,7 @@ import DialogActions from "@mui/material/DialogActions";
 import Chip from "@mui/material/Chip";
 import Tooltip from "@mui/material/Tooltip";
 import Autocomplete from "@mui/material/Autocomplete";
+import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
@@ -64,15 +65,47 @@ export default function TagsAdmin() {
   const [editTag, setEditTag] = useState<Tag | null>(null);
   const [editTagDraft, setEditTagDraft] = useState({ name: "", description: "", color: "#1976d2" });
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  // The failure of the open dialog's request (only one dialog is open at a
+  // time), and of the list load ("" when it carried no message).
+  const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const messageOf = (e: unknown) => (e instanceof Error ? e.message : t("common:errors.generic"));
+  // The open dialog's request is in flight: its submit button is disabled,
+  // and a second click that lands before that re-render is ignored.
+  const busyRef = useRef(false);
+  const [busy, setBusy] = useState(false);
+  /** Send one dialog's request; false when it failed (error shown) or another is in flight. */
+  const submit = async (request: () => Promise<unknown>): Promise<boolean> => {
+    if (busyRef.current) return false;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await request();
+      return true;
+    } catch (e) {
+      setError(messageOf(e));
+      return false;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
 
-  const load = () => api.get<TagGroup[]>("/tag-groups").then(setGroups);
+  const load = () =>
+    api.get<TagGroup[]>("/tag-groups").then(
+      (res) => {
+        setGroups(res);
+        setLoadError(null);
+      },
+      (e) => setLoadError(e instanceof Error ? e.message : ""),
+    );
 
   useEffect(() => {
     load();
   }, []);
 
   const createGroup = async () => {
-    await api.post("/tag-groups", { name: groupName });
+    if (!(await submit(() => api.post("/tag-groups", { name: groupName.trim() })))) return;
     setGroupName("");
     setCreateGroupOpen(false);
     load();
@@ -80,11 +113,14 @@ export default function TagsAdmin() {
 
   const createTag = async () => {
     if (!addTagGroupId) return;
-    await api.post(`/tag-groups/${addTagGroupId}/tags`, {
-      name: tagName,
-      description: tagDescription.trim() || null,
-      color: tagColor,
-    });
+    const sent = await submit(() =>
+      api.post(`/tag-groups/${addTagGroupId}/tags`, {
+        name: tagName.trim(),
+        description: tagDescription.trim() || null,
+        color: tagColor,
+      }),
+    );
+    if (!sent) return;
     setTagName("");
     setTagDescription("");
     setAddTagGroupId(null);
@@ -92,6 +128,7 @@ export default function TagsAdmin() {
   };
 
   const openEditGroup = (g: TagGroup) => {
+    setError("");
     setEditGroup(g);
     setEditGroupDraft({
       name: g.name,
@@ -109,17 +146,20 @@ export default function TagsAdmin() {
     // allowlist that would lock it to none).
     const payload = {
       ...editGroupDraft,
+      name: editGroupDraft.name.trim(),
+      description: editGroupDraft.description.trim() || null,
       restrict_to_types:
         editGroupDraft.restrict_to_types.length > 0
           ? editGroupDraft.restrict_to_types
           : null,
     };
-    await api.patch(`/tag-groups/${editGroup.id}`, payload);
+    if (!(await submit(() => api.patch(`/tag-groups/${editGroup.id}`, payload)))) return;
     setEditGroup(null);
     load();
   };
 
   const openEditTag = (tag: Tag) => {
+    setError("");
     setEditTag(tag);
     setEditTagDraft({
       name: tag.name,
@@ -130,34 +170,63 @@ export default function TagsAdmin() {
 
   const updateTag = async () => {
     if (!editTag) return;
-    await api.patch(`/tag-groups/${editTag.tag_group_id}/tags/${editTag.id}`, {
-      ...editTagDraft,
-      description: editTagDraft.description.trim() || null,
-    });
+    const sent = await submit(() =>
+      api.patch(`/tag-groups/${editTag.tag_group_id}/tags/${editTag.id}`, {
+        ...editTagDraft,
+        name: editTagDraft.name.trim(),
+        description: editTagDraft.description.trim() || null,
+      }),
+    );
+    if (!sent) return;
     setEditTag(null);
     load();
   };
 
+  const openDelete = (target: DeleteTarget) => {
+    setError("");
+    setDeleteTarget(target);
+  };
+
   const confirmDelete = async () => {
     if (!deleteTarget) return;
-    if (deleteTarget.kind === "group") {
-      await api.delete(`/tag-groups/${deleteTarget.id}`);
-    } else {
-      await api.delete(`/tag-groups/${deleteTarget.groupId}/tags/${deleteTarget.id}`);
-    }
+    const sent = await submit(() =>
+      deleteTarget.kind === "group"
+        ? api.delete(`/tag-groups/${deleteTarget.id}`)
+        : api.delete(`/tag-groups/${deleteTarget.groupId}/tags/${deleteTarget.id}`),
+    );
+    if (!sent) return;
     setDeleteTarget(null);
     load();
   };
+
+  const errorAlert = error && (
+    <Alert severity="error" sx={{ mt: 1, mb: 2 }}>
+      {error}
+    </Alert>
+  );
 
   return (
     <Box>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
         <Typography variant="h5" fontWeight={600}>{t("tags.title")}</Typography>
         <Box sx={{ flex: 1 }} />
-        <Button variant="contained" startIcon={<MaterialSymbol icon="add" size={18} />} onClick={() => setCreateGroupOpen(true)}>
+        <Button
+          variant="contained"
+          startIcon={<MaterialSymbol icon="add" size={18} />}
+          onClick={() => {
+            setError("");
+            setCreateGroupOpen(true);
+          }}
+        >
           {t("tags.newGroup")}
         </Button>
       </Box>
+
+      {loadError !== null && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {loadError || t("common:errors.generic")}
+        </Alert>
+      )}
 
       {groups.map((g) => (
         <Card key={g.id} sx={{ mb: 2 }}>
@@ -186,11 +255,19 @@ export default function TagsAdmin() {
                 );
               })()}
               <Box sx={{ flex: 1 }} />
-              <Button size="small" onClick={() => setAddTagGroupId(g.id)}>{t("tags.addTag")}</Button>
+              <Button
+                size="small"
+                onClick={() => {
+                  setError("");
+                  setAddTagGroupId(g.id);
+                }}
+              >
+                {t("tags.addTag")}
+              </Button>
               <IconButton size="small" aria-label={t("tags.editGroup")} title={t("tags.editGroup")} onClick={() => openEditGroup(g)}>
                 <MaterialSymbol icon="edit" size={18} />
               </IconButton>
-              <IconButton size="small" color="error" aria-label={t("tags.deleteGroup")} title={t("tags.deleteGroup")} onClick={() => setDeleteTarget({ kind: "group", id: g.id, name: g.name })}>
+              <IconButton size="small" color="error" aria-label={t("tags.deleteGroup")} title={t("tags.deleteGroup")} onClick={() => openDelete({ kind: "group", id: g.id, name: g.name })}>
                 <MaterialSymbol icon="delete" size={18} />
               </IconButton>
             </Box>
@@ -202,7 +279,7 @@ export default function TagsAdmin() {
                   title={tag.description || undefined}
                   sx={tag.color ? { bgcolor: tag.color, color: readableTextColor(tag.color) } : {}}
                   onClick={() => openEditTag(tag)}
-                  onDelete={() => setDeleteTarget({ kind: "tag", id: tag.id, groupId: g.id, name: tag.name })}
+                  onDelete={() => openDelete({ kind: "tag", id: tag.id, groupId: g.id, name: tag.name })}
                 />
               ))}
               {g.tags.length === 0 && <Typography variant="body2" color="text.secondary">{t("tags.noTags")}</Typography>}
@@ -214,17 +291,19 @@ export default function TagsAdmin() {
       <Dialog open={createGroupOpen} onClose={() => setCreateGroupOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>{t("tags.newGroup")}</DialogTitle>
         <DialogContent>
+          {errorAlert}
           <TextField fullWidth label={t("tags.groupName")} value={groupName} onChange={(e) => setGroupName(e.target.value)} sx={{ mt: 1 }} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateGroupOpen(false)}>{t("common:actions.cancel")}</Button>
-          <Button variant="contained" onClick={createGroup} disabled={!groupName.trim()}>{t("common:actions.create")}</Button>
+          <Button variant="contained" onClick={createGroup} disabled={busy || !groupName.trim()}>{t("common:actions.create")}</Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={!!addTagGroupId} onClose={() => setAddTagGroupId(null)} maxWidth="xs" fullWidth>
         <DialogTitle>{t("tags.addTag")}</DialogTitle>
         <DialogContent>
+          {errorAlert}
           <TextField fullWidth label={t("tags.tagName")} value={tagName} onChange={(e) => setTagName(e.target.value)} sx={{ mt: 1, mb: 2 }} />
           <TextField
             fullWidth
@@ -239,13 +318,14 @@ export default function TagsAdmin() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddTagGroupId(null)}>{t("common:actions.cancel")}</Button>
-          <Button variant="contained" onClick={createTag} disabled={!tagName.trim()}>{t("common:actions.add")}</Button>
+          <Button variant="contained" onClick={createTag} disabled={busy || !tagName.trim()}>{t("common:actions.add")}</Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={!!editGroup} onClose={() => setEditGroup(null)} maxWidth="xs" fullWidth>
         <DialogTitle>{t("tags.editGroup")}</DialogTitle>
         <DialogContent>
+          {errorAlert}
           <TextField
             fullWidth
             label={t("tags.groupName")}
@@ -328,7 +408,7 @@ export default function TagsAdmin() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditGroup(null)}>{t("common:actions.cancel")}</Button>
-          <Button variant="contained" onClick={updateGroup} disabled={!editGroupDraft.name.trim()}>
+          <Button variant="contained" onClick={updateGroup} disabled={busy || !editGroupDraft.name.trim()}>
             {t("common:actions.save")}
           </Button>
         </DialogActions>
@@ -337,6 +417,7 @@ export default function TagsAdmin() {
       <Dialog open={!!editTag} onClose={() => setEditTag(null)} maxWidth="xs" fullWidth>
         <DialogTitle>{t("tags.editTag")}</DialogTitle>
         <DialogContent>
+          {errorAlert}
           <TextField
             fullWidth
             label={t("tags.tagName")}
@@ -361,7 +442,7 @@ export default function TagsAdmin() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditTag(null)}>{t("common:actions.cancel")}</Button>
-          <Button variant="contained" onClick={updateTag} disabled={!editTagDraft.name.trim()}>
+          <Button variant="contained" onClick={updateTag} disabled={busy || !editTagDraft.name.trim()}>
             {t("common:actions.save")}
           </Button>
         </DialogActions>
@@ -377,10 +458,11 @@ export default function TagsAdmin() {
               ? t("tags.deleteGroupConfirm", { name: deleteTarget?.name })
               : t("tags.deleteTagConfirm", { name: deleteTarget?.name })}
           </DialogContentText>
+          {errorAlert}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteTarget(null)}>{t("common:actions.cancel")}</Button>
-          <Button variant="contained" color="error" onClick={confirmDelete}>
+          <Button variant="contained" color="error" onClick={confirmDelete} disabled={busy}>
             {t("common:actions.delete")}
           </Button>
         </DialogActions>

@@ -766,7 +766,7 @@ describe("ExtensionsAdmin — update confirmation", () => {
     expect(screen.getByText("Extensions")).toBeInTheDocument();
   });
 
-  it("names an update from the catalogue, else the installed list, else its key", async () => {
+  it("names an update from the catalogue, else the installed list, else its key, else its bundle", async () => {
     let preview: Record<string, unknown> = {};
     primeUpdate(() => preview, [OTHER_EXT, EXT]);
     // An answer with no notes: whatever it says about versions is not used.
@@ -786,8 +786,8 @@ describe("ExtensionsAdmin — update confirmation", () => {
         { extension_key: "esg-pack", diff: { changelog: { ...BUNDLE_NOTES, notes: "" } } },
         "Update ESG Content Pack to 1.1.0?",
       ],
-      // No key at all: nothing to name, and nothing to ask the store about.
-      [{ diff: { changelog: { ...BUNDLE_NOTES, notes: "" } } }, "Update to 1.1.0?"],
+      // No key at all: named by its bundle, and nothing to ask the store about.
+      [{ diff: { changelog: { ...BUNDLE_NOTES, notes: "" } } }, "Update esg.teax to 1.1.0?"],
     ];
     for (const [next, title] of cases) {
       preview = next;
@@ -1046,6 +1046,7 @@ describe("ExtensionsAdmin — purchase claim", () => {
     const regate = dialogTitled("License required");
     expect(within(regate).getByText(/verified but needs a license to finish installing/)).toBeInTheDocument();
     expect(within(regate).queryByText("License signature invalid")).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Paste license text here…")).toHaveValue("");
   });
 
   it("a second checkout replaces the first poll; a purchase from a tile installs nothing", async () => {

@@ -246,6 +246,13 @@ export default function ExtensionsAdmin() {
     from: string;
     to: string;
   } | null>(null);
+  // What the two confirmations render: the last value they were opened with,
+  // so the text stays put while the dialog fades out after being cleared.
+  const [shownUpdate, setShownUpdate] = useState(updateConfirm);
+  if (updateConfirm && updateConfirm !== shownUpdate) setShownUpdate(updateConfirm);
+  const [shownDowngrade, setShownDowngrade] = useState(downgradeConfirm);
+  if (downgradeConfirm && downgradeConfirm !== shownDowngrade)
+    setShownDowngrade(downgradeConfirm);
   const [instanceId, setInstanceId] = useState("");
   const [instanceCopied, setInstanceCopied] = useState(false);
   const [storeBusyKey, setStoreBusyKey] = useState<string | null>(null);
@@ -281,6 +288,10 @@ export default function ExtensionsAdmin() {
     text: string;
     dropped: string[];
   } | null>(null);
+  // What the confirmation lists: the last value it was opened with, so the
+  // dropped extensions stay put while the dialog fades out after being cleared.
+  const [shownLicenseDowngrade, setShownLicenseDowngrade] = useState(downgrade);
+  if (downgrade && downgrade !== shownLicenseDowngrade) setShownLicenseDowngrade(downgrade);
 
   // Purchase claim polling (Buy → Stripe tab → poll until license lands).
   const [claiming, setClaiming] = useState<{
@@ -296,6 +307,9 @@ export default function ExtensionsAdmin() {
   const [installError, setInstallError] = useState<string | null>(null);
   const bundleFileRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bumped by every clearPoll: a status reply still in flight when its poll
+  // was cleared (Discard, Close, a newer run) belongs to nobody and is dropped.
+  const pollGenRef = useRef(0);
 
   // Continue an install automatically once its license arrives.
   const pendingInstallRef = useRef<string | null>(null);
@@ -319,6 +333,7 @@ export default function ExtensionsAdmin() {
   const [applyGate, setApplyGate] = useState(false);
 
   const clearPoll = useCallback(() => {
+    pollGenRef.current += 1;
     if (pollRef.current) {
       clearTimeout(pollRef.current);
       pollRef.current = null;
@@ -438,10 +453,11 @@ export default function ExtensionsAdmin() {
       const stamped = next.diff?.changelog;
       if (!stamped) return;
       const key = next.extension_key ?? "";
+      // No key at all: the bundle's file name, as the install dialog does.
       const name =
         catalog?.items.find((i) => i.key === key)?.name ??
         extensions.find((e) => e.key === key)?.name ??
-        key;
+        (key || next.filename);
       setUpdateConfirm({ id: next.id, name, notes: stamped });
       if (stamped.notes || !key) return;
 
@@ -470,11 +486,13 @@ export default function ExtensionsAdmin() {
   const poll = useCallback(
     (id: string) => {
       clearPoll();
+      const gen = pollGenRef.current;
       pollRef.current = setTimeout(async () => {
         try {
           const next = await api.get<ExtensionInstall>(
             `/admin/extensions/install/${id}`,
           );
+          if (gen !== pollGenRef.current) return;
           setInstall(next);
           if (!TERMINAL.has(next.status)) {
             poll(id);
@@ -511,6 +529,7 @@ export default function ExtensionsAdmin() {
             autoApplyRef.current = false;
           }
         } catch (e) {
+          if (gen !== pollGenRef.current) return;
           setInstallError(e instanceof Error ? e.message : String(e));
         }
       }, POLL_MS);
@@ -544,6 +563,14 @@ export default function ExtensionsAdmin() {
     },
     [poll],
   );
+
+  // Every opening starts from an empty paste and no error.
+  const openLicenseDialog = (item: StoreItem | null) => {
+    setGateItem(item);
+    setLicenseText("");
+    setLicenseError(null);
+    setLicenseDialogOpen(true);
+  };
 
   const closeLicenseDialog = useCallback(() => {
     setLicenseDialogOpen(false);
@@ -622,10 +649,18 @@ export default function ExtensionsAdmin() {
             );
             await loadAll();
             const continueKey = pendingInstallRef.current;
+            const continueApplyId = pendingApplyRef.current;
             setLicenseDialogOpen(false);
             setGateItem(null);
+            setLicenseText("");
+            setLicenseError(null);
+            setApplyGate(false);
             pendingInstallRef.current = null;
-            if (continueKey) void startStoreInstall(continueKey);
+            pendingApplyRef.current = null;
+            // Resume whatever the license was needed for, as a pasted one
+            // does: the uploaded file waiting to be applied, or a store install.
+            if (continueApplyId) void applyInstall(continueApplyId);
+            else if (continueKey) void startStoreInstall(continueKey);
             return;
           }
         } catch {
@@ -645,7 +680,7 @@ export default function ExtensionsAdmin() {
         pollClaim(token, itemKey);
       }, CLAIM_POLL_MS);
     },
-    [clearClaimPoll, loadAll, startStoreInstall, t],
+    [clearClaimPoll, loadAll, startStoreInstall, applyInstall, t],
   );
 
   // Open a Stripe checkout link (paid subscription or no-card trial) and
@@ -721,8 +756,7 @@ export default function ExtensionsAdmin() {
     }
     // Not entitled: ask for the license first, then continue automatically.
     pendingInstallRef.current = item.key;
-    setGateItem(item);
-    setLicenseDialogOpen(true);
+    openLicenseDialog(item);
   };
 
   const handleBundleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -869,8 +903,7 @@ export default function ExtensionsAdmin() {
             "The store has no newer license — check your subscription, or paste a license file.",
           ),
         );
-        setGateItem(null);
-        setLicenseDialogOpen(true);
+        openLicenseDialog(null);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -1128,10 +1161,7 @@ export default function ExtensionsAdmin() {
       )}
 
       <Typography variant="body2" color="text.secondary">
-        {t(
-          "extensions.intro",
-          "Add customer-specific capabilities without changing the core. Install vendor-signed extensions one click at a time from the built-in Store, or upload the extension and license files directly — the file-based flow needs no connection to the Store, so everything still works on air-gapped instances.",
-        )}
+        {t("extensions.intro")}
       </Typography>
 
       <Alert severity="info" icon={<MaterialSymbol icon="handshake" />}>
@@ -1346,10 +1376,7 @@ export default function ExtensionsAdmin() {
               )}
               <Button
                 size="small"
-                onClick={() => {
-                  setGateItem(null);
-                  setLicenseDialogOpen(true);
-                }}
+                onClick={() => openLicenseDialog(null)}
               >
                 {t("extensions.rows.enterLicense", "Enter license…")}
               </Button>
@@ -1369,10 +1396,7 @@ export default function ExtensionsAdmin() {
                 <Button
                   size="small"
                   color="inherit"
-                  onClick={() => {
-                    setGateItem(null);
-                    setLicenseDialogOpen(true);
-                  }}
+                  onClick={() => openLicenseDialog(null)}
                 >
                   {t("extensions.rows.enterLicense", "Enter license…")}
                 </Button>
@@ -1844,7 +1868,7 @@ export default function ExtensionsAdmin() {
             )}
           </DialogContentText>
           <Stack spacing={0.5} sx={{ mb: 1.5 }}>
-            {(downgrade?.dropped ?? []).map((key) => (
+            {(shownLicenseDowngrade?.dropped ?? []).map((key) => (
               <Stack key={key} direction="row" spacing={1} alignItems="center">
                 <MaterialSymbol icon="extension_off" size={18} />
                 <Typography variant="body2">
@@ -1867,9 +1891,11 @@ export default function ExtensionsAdmin() {
           <Button
             color="warning"
             variant="contained"
-            disabled={licenseBusy}
+            // Null while the dialog fades out: nothing left to confirm.
+            disabled={licenseBusy || downgrade === null}
             onClick={() => {
-              const text = downgrade?.text ?? "";
+              if (!downgrade) return;
+              const text = downgrade.text;
               setDowngrade(null);
               void submitLicense(text, true);
             }}
@@ -1974,20 +2000,20 @@ export default function ExtensionsAdmin() {
             "extensions.updateConfirm.title",
             "Update {{name}} to {{version}}?",
             {
-              name: updateConfirm?.name ?? "",
-              version: updateConfirm?.notes.version ?? "",
+              name: shownUpdate?.name ?? "",
+              version: shownUpdate?.notes.version ?? "",
             },
           )}
         </DialogTitle>
         <DialogContent dividers>
           {updateNotesBusy && <LinearProgress sx={{ mb: 2 }} />}
-          {updateConfirm && (
+          {shownUpdate && (
             <ExtensionChangelog
-              notes={updateConfirm.notes.notes}
-              version={updateConfirm.notes.version}
-              fromVersion={updateConfirm.notes.from_version}
-              name={updateConfirm.name}
-              changelogUrl={updateConfirm.notes.changelog_url}
+              notes={shownUpdate.notes.notes}
+              version={shownUpdate.notes.version}
+              fromVersion={shownUpdate.notes.from_version}
+              name={shownUpdate.name}
+              changelogUrl={shownUpdate.notes.changelog_url}
             />
           )}
         </DialogContent>
@@ -2022,8 +2048,8 @@ export default function ExtensionsAdmin() {
               "extensions.downgrade.body",
               "This will install version {{to}} over the currently installed {{from}} — a downgrade. Extension data is never deleted, but the older version may not understand data written by the newer one.",
               {
-                from: downgradeConfirm?.from ?? "",
-                to: downgradeConfirm?.to ?? "",
+                from: shownDowngrade?.from ?? "",
+                to: shownDowngrade?.to ?? "",
               },
             )}
           </DialogContentText>
