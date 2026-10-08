@@ -45,7 +45,8 @@ just new lines.
   incremental file. mutmut saves every verdict as it lands, so a shard that
   runs out of its `--budget` stops cleanly and the next night resumes from the
   functions still unchecked (see below). Once the baseline is complete, only
-  functions that changed are re-tested.
+  functions that changed are re-tested, plus the survivors that a changed
+  test runs.
   Stryker alone cannot resume, because it writes its incremental file only
   when a whole run completes. `stryker_scope.py nightly` therefore splits
   each frontend shard into stable chunks of files, each with its own
@@ -156,7 +157,9 @@ Each of these was found the hard way while wiring it up; keep them.
   module with `pytestmark = pytest.mark.source_scan` (or one test with the
   decorator) and `backend/tests/mutation_plugin.py` deselects it whenever
   mutmut runs pytest. A missed one stops the stats pass, which runs with
-  `-x`, and the log names it.
+  `-x`, and the log names it. The plugin keys on `MUTANT_UNDER_TEST` being
+  *set*: mutmut runs its clean test with it set to an empty string, and that
+  clean test is the whole suite (see below).
 - **Decorated functions are never mutated.** mutmut skips any function with
   a decorator other than a bare `@staticmethod` / `@classmethod`, which
   includes every FastAPI route handler. The PR job lists changed functions
@@ -180,10 +183,24 @@ Each of these was found the hard way while wiring it up; keep them.
   a name that matches nothing, which regenerates the mutants, resets the
   verdicts of every function whose code changed, and stops before any test.
   It then reads the `.meta` file beside each mutated file and names only the
-  functions that still have a mutant without a verdict. That also shrinks the
-  clean test to those functions' tests. A PR's changed functions and
-  `--files` still name everything, because there a re-test is what was asked
-  for.
+  functions that still have a mutant without a verdict, or, where only some
+  of a function's mutants lack one, those mutants by name, so the killed
+  ones are not re-run. A PR's changed functions and `--files` still name
+  everything, because there a re-test is what was asked for. None of this
+  shrinks mutmut's clean test: a function pattern never matches the name
+  mutmut files that function's tests under, so it runs the whole suite.
+- **A changed test reopens the survivors it runs.** mutmut keeps a verdict
+  until its function's *code* changes; a new or edited test revisits
+  nothing, so a tests-only PR's kills would never reach the nightly and its
+  floors would fail against the old survivors. Between generating and
+  naming, `reopen_survivors` resets every survived or untested mutant whose
+  function a changed test module runs (by mutmut's own stats, which the
+  generate step has just updated with any new tests). "Changed" is judged
+  against `mutants/mutmut-tests-digest.json`, a hash per test module that
+  each run leaves in the cached directory; the first run, with no digest
+  yet, asks git what changed since the commit mutmut's stats were built at,
+  fetching that commit into the shallow checkout, and treats every test
+  module as changed if git cannot say.
 - **`TEST_DB_REQUIRED=1`.** `backend/tests/conftest.py` skips every database
   test when Postgres is unreachable. Under mutmut that reads as "nothing kills
   anything" and still exits 0, so the mutation jobs turn the skip into a

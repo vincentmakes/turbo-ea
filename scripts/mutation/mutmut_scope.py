@@ -31,6 +31,14 @@ a set of mutant-name patterns, never on nothing: without names mutmut's
   of every function whose code changed, then names only the functions that
   still have an unchecked mutant (``unchecked_patterns``).
 
+  A changed *test* resets nothing in mutmut: it keeps a survivor's verdict
+  until its function's source changes, so the kills a tests-only PR adds
+  would never reach the nightly. Between generating and naming, a shard
+  therefore reopens every survived or untested mutant whose function is
+  exercised by a test module that changed since the last run
+  (``reopen_survivors``), judged by a digest of the test modules kept in the
+  cached ``mutants/``.
+
 ``collect`` reads ``mutmut results`` and writes the records ``gate.py``
 scores; with ``--changed`` it keeps only mutants on a changed line, with
 ``--shard`` only the shard's files.
@@ -52,6 +60,7 @@ from __future__ import annotations
 import argparse
 import ast
 import fnmatch
+import hashlib
 import json
 import os
 import re
@@ -94,6 +103,11 @@ _NOTHING_MATCHES = "Filtered for specific mutants, but nothing matches"
 # A name no mutant has. mutmut generates the mutants, loads its stats, then
 # stops on _NOTHING_MATCHES before running a single test.
 _GENERATE_ONLY = "mutmut_scope.generate_only__mutmut_0"
+# Beside mutmut's own files in the cached mutants/: what the tests were when
+# the cached verdicts were last brought up to date.
+TESTS_DIGEST = "mutmut-tests-digest.json"
+# Verdicts a new test can change: survived (0) and no tests (33).
+_REOPENABLE = (0, 33)
 
 
 # ── configuration ────────────────────────────────────────────────────────────
@@ -451,9 +465,12 @@ def generate_only(directory: Path, max_children: int) -> subprocess.CompletedPro
 
 
 def unchecked_patterns(directory: Path, files: list[str]) -> list[str]:
-    """One pattern per function of ``files`` that still has a mutant without a
-    verdict, read from the ``.meta`` file mutmut keeps beside each mutated
-    file. A file with no ``.meta`` has never been generated: all of it."""
+    """The mutants of ``files`` that still have no verdict, read from the
+    ``.meta`` file mutmut keeps beside each mutated file: one pattern for a
+    function none of whose mutants has one (new or changed code), the exact
+    names where only some lack one (a budget cut mid-function, a reopened
+    survivor), since a pattern would re-test the function's killed mutants
+    too. A file with no ``.meta`` has never been generated: all of it."""
     patterns: list[str] = []
     for rel in files:
         meta = directory / "mutants" / f"{rel}.meta"
@@ -461,11 +478,96 @@ def unchecked_patterns(directory: Path, files: list[str]) -> list[str]:
             patterns += patterns_for(rel)
             continue
         verdicts = json.loads(meta.read_text("utf-8")).get("exit_code_by_key", {})
-        functions = {
-            name.rpartition("__mutmut_")[0] for name, code in verdicts.items() if code is None
-        }
-        patterns += [f"{function}__mutmut_*" for function in sorted(functions)]
+        by_function: dict[str, list[str]] = {}
+        unchecked: dict[str, list[str]] = {}
+        for name, code in verdicts.items():
+            function = name.rpartition("__mutmut_")[0]
+            by_function.setdefault(function, []).append(name)
+            if code is None:
+                unchecked.setdefault(function, []).append(name)
+        for function in sorted(unchecked):
+            if len(unchecked[function]) == len(by_function[function]):
+                patterns.append(f"{function}__mutmut_*")
+            else:
+                patterns += sorted(unchecked[function])
     return patterns
+
+
+def tests_digest(directory: Path) -> dict[str, str]:
+    """sha256 of every module under the suite's ``tests/``, suite-relative."""
+    return {
+        path.relative_to(directory).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted((directory / "tests").rglob("*.py"))
+    }
+
+
+def tests_changed_since(directory: Path, commit: str | None) -> set[str] | None:
+    """Test modules changed between ``commit`` and HEAD, suite-relative, or
+    None when git cannot say. A CI checkout is shallow, so the commit is
+    fetched when it is missing."""
+    if not commit:
+        return None
+
+    def git(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", *args], cwd=directory, capture_output=True, text=True)
+
+    if git("cat-file", "-e", f"{commit}^{{commit}}").returncode != 0:
+        if git("fetch", "--quiet", "--depth=1", "origin", commit).returncode != 0:
+            return None
+    diff = git("diff", "--name-only", "--relative", commit, "HEAD", "--", "tests")
+    if diff.returncode != 0:
+        return None
+    return {line for line in diff.stdout.splitlines() if line}
+
+
+def reopen_survivors(directory: Path, files: list[str]) -> int:
+    """Reset to unchecked every survived or untested mutant of ``files`` whose
+    function a changed test module exercises; return how many.
+
+    Changed means since the digest the previous run left in ``mutants/``. The
+    first run has none and asks git what changed since the commit mutmut's
+    stats were built at, or, when git cannot say, treats every test module as
+    changed. Run it after ``generate_only``: that is when mutmut associates
+    the tests that are new with the functions they run.
+    """
+    mutants = directory / "mutants"
+    stats_file = mutants / "mutmut-stats.json"
+    if not stats_file.is_file():
+        return 0
+    stats = json.loads(stats_file.read_text("utf-8"))
+    current = tests_digest(directory)
+    digest_file = mutants / TESTS_DIGEST
+    if digest_file.is_file():
+        previous = json.loads(digest_file.read_text("utf-8"))
+        changed = {f for f in previous.keys() | current.keys() if previous.get(f) != current.get(f)}
+    else:
+        changed = tests_changed_since(directory, stats.get("git_commit"))
+        if changed is None:
+            changed = set(current)
+    tests_by_function = stats.get("tests_by_mangled_function_name", {})
+    reopened = 0
+    for rel in files if changed else []:
+        meta = mutants / f"{rel}.meta"
+        if not meta.is_file():
+            continue
+        data = json.loads(meta.read_text("utf-8"))
+        verdicts = data.get("exit_code_by_key", {})
+        stale = [
+            name
+            for name, code in verdicts.items()
+            if code in _REOPENABLE
+            and any(
+                test.split("::", 1)[0] in changed
+                for test in tests_by_function.get(name.rpartition("__mutmut_")[0], ())
+            )
+        ]
+        if stale:
+            for name in stale:
+                verdicts[name] = None
+            meta.write_text(json.dumps(data), "utf-8")
+            reopened += len(stale)
+    digest_file.write_text(json.dumps(current, indent=1, sort_keys=True), "utf-8")
+    return reopened
 
 
 def run(
@@ -494,11 +596,14 @@ def run(
             print(generated.stdout, generated.stderr, sep="\n")
             return generated.returncode
         in_scope = shard_files(suite, shard, repo) if shard else mutable_files(suite, repo)
+        reopened = reopen_survivors(directory, in_scope)
+        if reopened:
+            print(f"{reopened} survivor(s) reopened: a test that runs them changed.")
         patterns = unchecked_patterns(directory, in_scope)
         if not patterns:
             print(f"Every {suite} mutant in this scope has a verdict.")
             return 0
-        print(f"{len(patterns)} function(s) still have an unchecked mutant.")
+        print(f"{len(patterns)} function(s) or mutant(s) still unchecked.")
         if budget:
             budget = max(budget - (time.monotonic() - started) / 60, 1.0)
     args = ["run", "--max-children", str(max_children), *patterns]

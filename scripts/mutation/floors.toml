@@ -33,6 +33,7 @@ mcp = 68
 "mcp-server/turbo_ea_mcp/api_client.py" = 94  # chunked id lookups, origin + batch headers
 "mcp-server/turbo_ea_mcp/identity.py" = 83
 "mcp-server/turbo_ea_mcp/batches.py" = 95     # mutation-batch ledger and confirm tokens
+"mcp-server/turbo_ea_mcp/config.py" = 98      # env parsing, the write kill switch
 
 # Backend, measured file by file with mutmut_scope.py on 2026-10-05 after the
 # test-hardening passes. Each floor sits about 2 points under its score.
@@ -50,6 +51,14 @@ mcp = 68
 "backend/app/services/card_flags.py" = 95             # orphaned / stale / EOL coverage
 "backend/app/services/extensions/cron.py" = 93        # extension job schedules
 "backend/app/services/bpmn_flow_order.py" = 94        # the reading order of a process
+
+# Authentication, measured 2026-10-08 after the security hardening pass. auth.py's
+# route handlers are decorated, which mutmut never mutates, so its score is its
+# helpers' (cookies, session issue, federated provisioning, emailed links).
+"backend/app/services/proxy_auth_service.py" = 93     # trusted-proxy identity headers
+"backend/app/services/sso_service.py" = 95            # SSO code exchange, id_token checks
+"backend/app/services/email_backends/oauth.py" = 95   # mail OAuth tokens and their cache
+"backend/app/api/v1/auth.py" = 94
 
 # Frontend, measured with Stryker (static mutants ignored) on 2026-10-05.
 "frontend/src/lib/returnPath.ts" = 98                # post-SSO open-redirect guards
