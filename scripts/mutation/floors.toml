@@ -60,6 +60,9 @@ mcp = 68
 "backend/app/services/email_backends/oauth.py" = 95   # mail OAuth tokens and their cache
 "backend/app/api/v1/auth.py" = 94
 
+# The card write path, measured 2026-10-08 after the card-write pass.
+"backend/app/services/card_write_service.py" = 97     # every card and relation write
+
 # Audit and approval, measured 2026-10-08 after the rollback/approval pass.
 "backend/app/services/rollback_service.py" = 97       # undoing a mutation batch
 "backend/app/services/card_approval.py" = 97          # approval breaks and their fan-out
