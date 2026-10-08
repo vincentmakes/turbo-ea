@@ -766,12 +766,15 @@ describe("ProcessNavigator matrix and dependency views", () => {
     expect(mockNavigate).toHaveBeenLastCalledWith("/cards/o2c");
   });
 
-  it("says there are no dependencies, and logs a failed load", async () => {
+  it("logs a failed dependencies load and stops loading", async () => {
+    // Only the correct half is pinned: the page currently shows the "no
+    // dependencies" empty state on a failed load, which is a bug (a failure
+    // should say so) — not something to lock in.
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     mockApi.fail("get", "/reports/bpm/process-dependencies");
     renderNavigator("/bpm?view=dependencies");
-    expect(await screen.findByText("No process dependencies defined yet.")).toBeInTheDocument();
-    expect(error).toHaveBeenCalled();
+    await waitFor(() => expect(error).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole("progressbar")).toBeNull());
     error.mockRestore();
   });
 });
@@ -923,11 +926,14 @@ describe("ProcessNavigatorBody with a restricted capability set", () => {
     expect(await screen.findByText("Quote")).toBeInTheDocument();
   });
 
-  it("logs a failed map load and renders the empty house", async () => {
+  it("logs a failed map load and stops loading", async () => {
+    // Only the correct half is pinned: the page currently shows the empty
+    // house ("No Business Processes found") on a failed load, which is a bug
+    // (a failure should say so) — not something to lock in.
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     renderBody({ loadMap: () => Promise.reject(new Error("map down")) }, FULL_CAPABILITIES);
-    expect(await screen.findByText(/No Business Processes found/)).toBeInTheDocument();
-    expect(error).toHaveBeenCalled();
+    await waitFor(() => expect(error).toHaveBeenCalled());
+    await waitFor(() => expect(document.querySelectorAll(".MuiSkeleton-root")).toHaveLength(0));
     error.mockRestore();
   });
 });
