@@ -42,10 +42,11 @@ vi.mock("./BpmnTemplateChooser", () => ({
 }));
 
 // The off-screen renderer behind thumbnails and print.
-const viewerState = vi.hoisted(() => ({ fail: false, svg: "<svg>generated</svg>" }));
+const viewerState = vi.hoisted(() => ({ fail: false, svg: "<svg>generated</svg>", imports: 0 }));
 vi.mock("bpmn-js/lib/NavigatedViewer", () => ({
   default: class FakeNavigatedViewer {
     async importXML() {
+      viewerState.imports += 1;
       if (viewerState.fail) throw new Error("cannot import");
     }
     async saveSVG() {
@@ -260,6 +261,7 @@ beforeEach(() => {
   mockNavigate.mockReset();
   viewerState.fail = false;
   viewerState.svg = "<svg>generated</svg>";
+  viewerState.imports = 0;
   script();
 });
 
@@ -480,7 +482,11 @@ describe("ProcessFlowTab published actions", () => {
       script({ published: { ...PUBLISHED, svg_thumbnail: "" } });
       const user = await renderPublished();
       await user.click(screen.getByRole("button", { name: /Print \/ PDF/ }));
-      await new Promise((r) => setTimeout(r, 20));
+      // `handlePrint` awaits the viewer's import before it reaches the guard;
+      // waiting for that call (rather than a fixed sleep) means the guard has
+      // run — its rejection and the `return` settle in the same microtask
+      // turn, before waitFor's next poll — so the negative assertion is live.
+      await waitFor(() => expect(viewerState.imports).toBe(1));
       expect(openSpy).not.toHaveBeenCalled();
     });
 

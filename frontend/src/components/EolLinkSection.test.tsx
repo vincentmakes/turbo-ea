@@ -4,10 +4,12 @@
  * card's name (600 ms debounce), a manual product search (300 ms debounce)
  * and a cycle select loaded from `GET /eol/products/{product}`.
  *
- * Real timers throughout: the debounces are short, and `findBy*` waits.
+ * Real timers throughout: the debounces are short, and `findBy*` waits. The
+ * one exception is the one-character auto-search test, whose assertion is
+ * that NOTHING happens — only a fake clock can prove that.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -207,11 +209,29 @@ describe("EolLinkSection — unlinked card", () => {
   });
 
   it("skips the auto-search for a one-character name", async () => {
-    mockApi.on("get", "/eol/products/fuzzy*", []);
-    renderSection(makeCard({ type: "Application", name: "X" }));
-    expect(screen.getByText(/Link this application to a product/)).toBeInTheDocument();
-    await new Promise((r) => setTimeout(r, 800));
-    expect(mockApi.callsOf("get")).toHaveLength(0);
+    // Fake timers, so the 600 ms debounce is driven past deterministically —
+    // a real-time sleep could run out before the timer on a loaded runner and
+    // pass with the guard removed. The two-character control under the same
+    // clock proves the negative assertion is live.
+    vi.useFakeTimers();
+    try {
+      mockApi.on("get", "/eol/products/fuzzy*", []);
+      const { unmount } = renderSection(makeCard({ type: "Application", name: "X" }));
+      expect(screen.getByText(/Link this application to a product/)).toBeInTheDocument();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(mockApi.callsOf("get")).toHaveLength(0);
+      unmount();
+
+      renderSection(makeCard({ type: "Application", name: "Xy" }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(mockApi.callsOf("get", /^\/eol\/products\/fuzzy\?search=Xy/)).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("searches manually with a debounce and reports a product without cycles", async () => {
