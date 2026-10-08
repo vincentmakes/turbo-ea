@@ -24,8 +24,10 @@ changed.
 1. `changed_lines.py` lists the lines the PR adds or modifies (merge base vs.
    working tree; a pure deletion adds nothing to test).
 2. The suite's tool mutates what those lines belong to:
-   - mutmut: every top-level **function or method** the change touches
-     (`mutmut_scope.py run --changed`). mutmut cannot scope below a function.
+   - mutmut: the mutants **on a changed line** of every top-level function
+     or method the change touches (`mutmut_scope.py run --changed`). mutmut
+     itself only takes whole functions, so they are generated first and then
+     named one by one — the same mutants step 3 keeps.
    - Stryker: the exact **line ranges** (`stryker_scope.py args`), because its
      `--mutate` accepts `file:first-last`.
 3. The collector keeps the mutants that sit **on a changed line** and writes
@@ -185,8 +187,8 @@ Each of these was found the hard way while wiring it up; keep them.
   It then reads the `.meta` file beside each mutated file and names only the
   functions that still have a mutant without a verdict, or, where only some
   of a function's mutants lack one, those mutants by name, so the killed
-  ones are not re-run. A PR's changed functions and `--files` still name
-  everything, because there a re-test is what was asked for. None of this
+  ones are not re-run. `--files` still names everything, because there a
+  re-test is what was asked for. None of this
   shrinks mutmut's clean test: a function pattern never matches the name
   mutmut files that function's tests under, so it runs the whole suite.
 - **A changed test reopens the survivors it runs.** mutmut keeps a verdict
@@ -272,8 +274,23 @@ Each of these was found the hard way while wiring it up; keep them.
   to about 50. A module nearly every test imports (`MaterialSymbol`, the hooks)
   sits near that upper end; under 30 minutes its chunk would time out every
   night and never be measured.
+- **A PR runs, and scores, only the mutants on its changed lines.** Asking
+  mutmut for the touched functions ran all of each, through every test that
+  reaches the function: #1195 tested some 840 mutants (12 minutes) to score
+  111. `run --changed` therefore
+  generates first, like a shard, and names the mutants `collect` would keep
+  (`changed_line_mutants`, through the same `placement` rule). Placing a
+  mutant needs its diff, and `mutmut show` re-reads a mutated file that runs
+  to megabytes in a process of its own for each one: scoring #1195 took
+  24 minutes, longer than testing it. `mutant_diffs` renders the same diff in-process
+  from the `.spans` line index mutmut writes beside every mutated file
+  (2,343 mutants of `migration/apply.py`: identical output, 19 s against 71
+  for mutmut's renderer per mutant and about half an hour as processes),
+  falling back to `mutmut show` for a mutant the index cannot place, and
+  `collect` diffs only the mutants of functions the change touches.
 - **mutmut is pinned exactly** because `mutmut_scope.py` reads its `results`
-  and `show` output. To bump it: change both pins, run
+  and `show` output, its `.spans` index and `parse_generated_function`. To
+  bump it: change both pins, run
   `backend/tests/core/test_mutation_scripts.py`, then
   `make mutation-backend FILE=app/services/lifecycle.py` and check that
   `collect` still places every mutant on a source line.

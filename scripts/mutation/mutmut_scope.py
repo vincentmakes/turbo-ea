@@ -9,9 +9,13 @@
 a set of mutant-name patterns, never on nothing: without names mutmut's
 "clean test" step re-runs the whole suite serially a second time.
 
-* ``--changed`` (a PR): the mutants of every top-level function or method the
-  change touches. Not the whole file: one edited line in a 3,000-line route
-  module would otherwise mutate all of it.
+* ``--changed`` (a PR): the mutants on a changed line of every top-level
+  function or method the change touches — exactly the ones ``collect`` will
+  score. mutmut can only be asked for whole functions, so the mutants are
+  generated first (``generate_only``) and then named one by one
+  (``changed_line_mutants``): naming whole functions tested every mutant
+  of each, through every test that reaches it — #1195 tested some 840
+  mutants to score 111.
 * ``--shard K/N`` (the nightly): every mutable file, dealt largest-first into
   N shards like ``backend/tests/shard_plugin.py`` deals test files, so the
   suite runs on N runners. mutmut keeps each verdict in ``mutants/``, so with
@@ -53,13 +57,22 @@ the absolute line is recovered here: the function is found with ``ast`` and
 the diff's ``-`` line is checked against the source. Anything that cannot be
 placed counts as changed when its function overlaps the change — the gate
 errs towards asking about a mutant, never towards hiding one.
+
+That diff is rendered in this process (``mutant_diffs``), the way ``mutmut
+show`` renders it, rather than by ``mutmut show`` itself: one process per
+mutant, each re-reading a mutated file that runs to megabytes, made scoring
+a PR that touched a large module take longer than testing it (#1195: 24
+minutes to keep 111 mutants). ``mutmut show`` stays
+the fallback for a mutant the index cannot place.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import difflib
 import fnmatch
+import functools
 import hashlib
 import json
 import os
@@ -266,20 +279,25 @@ def file_for(module: str, directory: Path) -> str:
 # ── locating a mutant in the source ──────────────────────────────────────────
 
 
+@functools.lru_cache(maxsize=16)
+def _function_spans(source: str) -> dict[tuple[str, str | None], tuple[int, int]]:
+    """Every top-level function's and method's span, parsed once per source:
+    a changed file is located against for each of its thousands of mutants."""
+    spans: dict[tuple[str, str | None], tuple[int, int]] = {}
+    for node in ast.parse(source).body:
+        candidates = [(node, None)]
+        if isinstance(node, ast.ClassDef):
+            candidates = [(child, node.name) for child in node.body]
+        for child, cls in candidates:
+            if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+                first = min([child.lineno, *(d.lineno for d in child.decorator_list)])
+                spans.setdefault((child.name, cls), (first, child.end_lineno or child.lineno))
+    return spans
+
+
 def function_span(source: str, func: str, cls: str | None) -> tuple[int, int] | None:
     """(first line incl. decorators, last line) of a top-level function or method."""
-    tree = ast.parse(source)
-    body = tree.body
-    if cls is not None:
-        owner = next((n for n in body if isinstance(n, ast.ClassDef) and n.name == cls), None)
-        if owner is None:
-            return None
-        body = owner.body
-    for node in body:
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name == func:
-            first = min([node.lineno, *(d.lineno for d in node.decorator_list)])
-            return first, node.end_lineno or node.lineno
-    return None
+    return _function_spans(source).get((func, cls))
 
 
 def diff_origin(lines: list[str], first: int) -> int:
@@ -354,6 +372,90 @@ def locate(source: str, func: str, cls: str | None, diff: str) -> tuple[list[int
         if matches:
             found.append(min(matches, key=lambda n: abs(n - guess)))
     return found, span
+
+
+def placement(source: str, name: str, diff: str, ranges: list) -> tuple[bool, int | None]:
+    """Whether a mutant is on a changed line, and which: ``collect`` keeps a
+    mutant by this rule and ``run`` names one by it, so the two cannot drift.
+    One that cannot be placed counts when its function overlaps the change."""
+    _, func, cls = split_name(name)
+    found, span = locate(source, func, cls, diff)
+    if found:
+        hits = [n for n in found if touches(ranges, n)]
+        return bool(hits), min(hits) if hits else None
+    return bool(span) and touches(ranges, span[0], span[1]), None
+
+
+def mutant_diffs(directory: Path, rel: str, names: list[str], workers: int = 8) -> dict[str, str]:
+    """``mutmut show``'s diff of each named mutant of one file.
+
+    Rendered here from the line index mutmut writes beside a mutated file
+    (``<file>.spans``), the way ``mutmut show`` renders it
+    (``mutation/diff_apply.get_diff_for_mutant``), but reading the file once
+    instead of once per mutant in a process of its own. A mutant the index
+    cannot place falls back to ``mutmut show``.
+    """
+    diffs = _diffs_from_index(directory, rel, names)
+    missing = [n for n in names if n not in diffs]
+    if missing:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            diffs.update(zip(missing, pool.map(lambda n: show(directory, n), missing)))
+    return diffs
+
+
+def _diffs_from_index(directory: Path, rel: str, names: list[str]) -> dict[str, str]:
+    try:
+        import libcst as cst
+        from mutmut.mutation.diff_apply import parse_generated_function
+    except ImportError:
+        return {}
+    mutated = directory / "mutants" / rel
+    try:
+        index = json.loads(mutated.with_name(mutated.name + ".spans").read_text("utf-8"))
+        lines = mutated.read_text("utf-8").splitlines(keepends=True)
+    except (OSError, ValueError):
+        return {}
+    if index.get("version") != 1:
+        return {}
+    spans = index.get("spans", {})
+    code: dict[str, str | None] = {}
+
+    def render(generated: str, plain: str, is_method: bool) -> str | None:
+        if generated not in code:
+            span = spans.get(generated)
+            function = None
+            if span:
+                source = "".join(lines[span[0] - 1 : span[1]])
+                function = parse_generated_function(source, name=generated, is_method=is_method)
+            code[generated] = (
+                cst.Module([function.with_changes(name=cst.Name(plain))]).code.strip()
+                if function is not None
+                else None
+            )
+        return code[generated]
+
+    out: dict[str, str] = {}
+    for name in names:
+        try:
+            _, func, cls = split_name(name)
+            generated = name.rpartition(".")[2]
+            orig = generated.rpartition("__mutmut_")[0] + "__mutmut_orig"
+            before = render(orig, func, cls is not None)
+            after = render(generated, func, cls is not None)
+        except Exception:  # noqa: BLE001 — whatever it is, ``mutmut show`` gets a try
+            continue
+        if before is None or after is None:
+            continue
+        out[name] = "\n".join(
+            difflib.unified_diff(
+                before.split("\n"),
+                after.split("\n"),
+                fromfile=rel,
+                tofile=rel,
+                lineterm="",
+            )
+        )
+    return out
 
 
 # ── mutmut ───────────────────────────────────────────────────────────────────
@@ -570,6 +672,27 @@ def reopen_survivors(directory: Path, files: list[str]) -> int:
     return reopened
 
 
+def changed_line_mutants(suite: str, changed: dict, repo: Path = REPO) -> list[str] | None:
+    """The generated mutants that ``collect`` would score for this change —
+    on a changed line of a touched function — or None when a changed file
+    has no ``.meta`` to read them from."""
+    directory = suite_dir(suite, repo)
+    names: list[str] = []
+    for rel, ranges in sorted(changed_files(changed, suite, repo).items()):
+        source = (directory / rel).read_text("utf-8")
+        touched = set(touched_functions(source, ranges))
+        if not touched:
+            continue
+        meta = directory / "mutants" / f"{rel}.meta"
+        if not meta.is_file():
+            return None
+        verdicts = json.loads(meta.read_text("utf-8")).get("exit_code_by_key", {})
+        candidates = sorted(n for n in verdicts if split_name(n)[1:] in touched)
+        diffs = mutant_diffs(directory, rel, candidates)
+        names += [n for n in candidates if placement(source, n, diffs[n], ranges)[0]]
+    return names
+
+
 def run(
     suite: str,
     changed: dict | None,
@@ -587,7 +710,7 @@ def run(
         print(f"No {suite} function to mutate in this scope.")
         return 0
     shadow_root.build(SUITE_DIRS[suite], repo)
-    if changed is None and not files:
+    if changed is not None or not files:
         started = time.monotonic()
         generated = generate_only(directory, max_children)
         # mutmut's assertion lands on stderr when its output is captured
@@ -595,15 +718,24 @@ def run(
         if generated.returncode != 0 and not stopped:
             print(generated.stdout, generated.stderr, sep="\n")
             return generated.returncode
-        in_scope = shard_files(suite, shard, repo) if shard else mutable_files(suite, repo)
-        reopened = reopen_survivors(directory, in_scope)
-        if reopened:
-            print(f"{reopened} survivor(s) reopened: a test that runs them changed.")
-        patterns = unchecked_patterns(directory, in_scope)
-        if not patterns:
-            print(f"Every {suite} mutant in this scope has a verdict.")
-            return 0
-        print(f"{len(patterns)} function(s) or mutant(s) still unchecked.")
+        if changed is not None:
+            names = changed_line_mutants(suite, changed, repo)
+            if names == []:
+                print(f"No {suite} mutant lands on a changed line.")
+                return 0
+            if names:
+                print(f"{len(names)} mutant(s) on changed lines.")
+                patterns = names
+        else:
+            in_scope = shard_files(suite, shard, repo) if shard else mutable_files(suite, repo)
+            reopened = reopen_survivors(directory, in_scope)
+            if reopened:
+                print(f"{reopened} survivor(s) reopened: a test that runs them changed.")
+            patterns = unchecked_patterns(directory, in_scope)
+            if not patterns:
+                print(f"Every {suite} mutant in this scope has a verdict.")
+                return 0
+            print(f"{len(patterns)} function(s) or mutant(s) still unchecked.")
         if budget:
             budget = max(budget - (time.monotonic() - started) / 60, 1.0)
     args = ["run", "--max-children", str(max_children), *patterns]
@@ -646,6 +778,7 @@ def collect(
     if files:
         only = set(files)
 
+    sources: dict[str, str] = {}
     records = []
     for name, raw in sorted(results(directory).items()):
         module, func, cls = split_name(name)
@@ -654,6 +787,13 @@ def collect(
             continue
         if only is not None and rel not in only:
             continue
+        if scope is not None:
+            # A mutant only ever changes its own function's lines: one whose
+            # function the change misses needs no diff to be dropped.
+            source = sources.setdefault(rel, (directory / rel).read_text("utf-8"))
+            span = function_span(source, func, cls)
+            if span is not None and not touches(scope[rel], span[0], span[1]):
+                continue
         records.append(
             {
                 "suite": suite,
@@ -668,22 +808,20 @@ def collect(
     if scope is None:
         return records
 
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        diffs = list(pool.map(lambda r: show(directory, r["id"]), records))
-    sources: dict[str, str] = {}
+    diffs: dict[str, str] = {}
+    by_file: dict[str, list[str]] = {}
+    for record in records:
+        by_file.setdefault(record["file"][len(prefix) + 1 :], []).append(record["id"])
+    for rel, names in by_file.items():
+        diffs.update(mutant_diffs(directory, rel, names, workers))
     kept = []
-    for record, diff in zip(records, diffs, strict=True):
+    for record in records:
         rel = record["file"][len(prefix) + 1 :]
-        source = sources.setdefault(rel, (directory / rel).read_text("utf-8"))
-        _, func, cls = split_name(record["id"])
-        found, span = locate(source, func, cls, diff)
-        ranges = scope[rel]
-        if found:
-            if not any(touches(ranges, n) for n in found):
-                continue
-            record["line"] = min(n for n in found if touches(ranges, n))
-        elif not span or not touches(ranges, span[0], span[1]):
+        diff = diffs[record["id"]]
+        on_change, line = placement(sources[rel], record["id"], diff, scope[rel])
+        if not on_change:
             continue
+        record["line"] = line
         body = [
             d for d in diff.splitlines() if d.startswith(("-", "+")) and d[:3] not in ("---", "+++")
         ]

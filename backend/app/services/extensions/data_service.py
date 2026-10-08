@@ -167,7 +167,8 @@ def count_write_in_active_batch() -> None:
 def _parse_uuid(value: str, what: str) -> uuid.UUID:
     try:
         return uuid.UUID(value)
-    except (TypeError, ValueError) as e:
+    # A non-str reaches ``str.replace`` inside ``uuid.UUID``: AttributeError.
+    except (AttributeError, TypeError, ValueError) as e:
         raise ExtensionDataError(f"Invalid {what}: {value!r}") from e
 
 
@@ -466,7 +467,7 @@ class ExtensionData:
             q = q.where(match)
             count_q = count_q.where(match)
         if parent_id:
-            pid = uuid.UUID(parent_id)
+            pid = _parse_uuid(parent_id, "parent_id")
             q = q.where(Card.parent_id == pid)
             count_q = count_q.where(Card.parent_id == pid)
 
@@ -879,6 +880,14 @@ class ExtensionData:
                 f"Field(s) not writable via the extension bridge: {', '.join(refused)} "
                 f"(writable: {', '.join(sorted(UPDATABLE_CARD_FIELDS))})"
             )
+        # The REST schema's rule (``normalize_parent_id``): empty clears the
+        # parent, anything else must be a card id.
+        if "parent_id" in patch:
+            raw_parent = patch["parent_id"]
+            patch = {
+                **patch,
+                "parent_id": str(_parse_uuid(raw_parent, "parent_id")) if raw_parent else None,
+            }
 
         async def op(db: AsyncSession) -> ExtCard:
             card = (await db.execute(select(Card).where(Card.id == cid))).scalar_one_or_none()

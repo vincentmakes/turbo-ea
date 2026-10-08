@@ -689,7 +689,7 @@ async def test_a_reparent_records_each_moved_descendant(db, env, published):
 # ── archive: what is affected ───────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("raw,shown", [("nope", "'nope'"), (None, "None")])
+@pytest.mark.parametrize("raw,shown", [("nope", "'nope'"), (None, "None"), (7, "7")])
 async def test_a_malformed_related_id_is_refused(db, env, raw, shown):
     card = await create_card(db, name="P")
     with pytest.raises(HTTPException) as exc:

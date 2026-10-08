@@ -71,6 +71,9 @@ mcp = 68
 # Authorization, measured in full by the nightly on 2026-10-08 at 93.0%.
 "backend/app/services/permission_service.py" = 91     # app, type-cell and stakeholder grants
 
+# Workspace transfer, measured 2026-10-08 after the applier pass.
+"backend/app/services/workspace_io/applier.py" = 95   # importing a whole workspace bundle
+
 # Frontend, measured with Stryker (static mutants ignored) on 2026-10-05.
 "frontend/src/lib/returnPath.ts" = 98                # post-SSO open-redirect guards
 "frontend/src/lib/linkify.ts" = 79                   # what in free text becomes a link

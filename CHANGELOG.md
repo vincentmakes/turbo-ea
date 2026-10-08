@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.157.3] - 2026-10-08
+
+### Security
+- A workspace import no longer writes credentials a hand-edited bundle carries — an SSO client secret, AI API key, mail credential, extension secret or encrypted value from another instance; the target instance keeps its own.
+
+### Fixed
+- A card a workspace import refuses for exceeding the hierarchy depth limit is no longer imported anyway, and a row the database rejects no longer makes the rest of the import fail with it.
+- Creating, editing, bulk-editing or filtering cards with a malformed parent id now returns a validation error instead of a server error, and an empty parent id on an edit clears the parent.
+- The plain-text version of the password reset and account setup emails greets the user by their name as written, instead of with HTML escapes such as `&#x27;`.
+
 ## [2.157.2] - 2026-10-05
 
 ### Fixed
