@@ -687,3 +687,12 @@ async def test_group_members_alone_are_applied_on_a_selective_run(db, env, final
         db, bundle({}), env.user, sheets={SHEET_DIAGRAM_GROUP_MEMBERS}, dry_run=True
     )
     assert [s.sheet for s in result.sections] == [SHEET_DIAGRAM_GROUP_MEMBERS]
+
+
+async def test_an_ambiguous_match_does_not_stop_the_pass(db, env, published):
+    await create_card(db, name="Twin")
+    await create_card(db, name="Twin")
+    rows = [{"type": "Application", "name": "Twin"}, {"type": "Application", "name": "After"}]
+    sr = await run_cards(db, env.user, rows)
+    assert counts(sr) == (1, 0, 1, 0, 0)
+    assert sr.skip_reasons == {"ambiguous_match": 1}
