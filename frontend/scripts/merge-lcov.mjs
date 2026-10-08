@@ -1,20 +1,31 @@
 #!/usr/bin/env node
 /**
- * Merge LCOV reports by LINE UNION and, optionally, enforce a floor on the
- * merged lines percentage.
+ * Merge LCOV reports line by line, ANCHORED on the first report, and
+ * optionally enforce a floor on the merged lines percentage.
  *
- *   node scripts/merge-lcov.mjs --out <dir> [--fail-under <pct> | --fail-under-from-package [package.json]] <a.info> [<b.info> ...]
+ *   node scripts/merge-lcov.mjs --out <dir> [--fail-under <pct> | --fail-under-from-package [package.json]] <anchor.info> [<b.info> ...]
  *
  * `Frontend Tests` (ci.yml) feeds it the unit suite's coverage/lcov.info and
  * the browser suite's coverage-e2e/lcov.info. The two come from different
  * pipelines — Vitest remaps V8 ranges through vite's per-module dev transform,
  * the browser report through the minified production bundle's source map — so
  * their statement, branch and function ids and column positions do not agree
- * for the same file. Source LINES do, which is why this merge is a union of
- * `DA:` records and nothing else: a line counts as covered when either suite
- * executed a statement starting on it, hits are summed, and the denominator is
- * every line either report mentions. FN/FNDA/BRDA are not emitted; the unit
- * suite's four metrics stay in Vitest's own report.
+ * for the same file. Source LINES do, which is why this merge works on `DA:`
+ * records and nothing else. FN/FNDA/BRDA are not emitted; the unit suite's
+ * four metrics stay in Vitest's own report.
+ *
+ * The FIRST report is the anchor and defines the universe: the files it lists
+ * and, within each, the lines it lists. A later report can only raise the hit
+ * count of a line the anchor already knows (hits are summed); a line it alone
+ * lists, or a file it alone lists, is dropped and counted in the diagnostics.
+ * Vitest reports every file `coverage.include` matches, tested or not, so the
+ * unit report is the complete universe — and anything the browser report adds
+ * beyond it is a disagreement between the two pipelines, not coverage: a
+ * `v8 ignore` comment the minifier stripped, a statement boundary the
+ * production map places on another line, or an `isMeasured` exclusion that
+ * drifted from vitest.config.ts. A union let those in as uncovered lines the
+ * diff gate then charged to a PR; anchoring means the merge can only ever
+ * undercount, never inflate, whichever way the two reports disagree.
  *
  * With one input the output is that input's line view, so the steps that read
  * `<dir>/lcov.info` and `<dir>/coverage-summary.json` never branch on whether
@@ -39,8 +50,7 @@ export function parseLcov(text) {
   const files = new Map();
   let current = null;
   for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line) continue;
+    const line = raw.trim(); // a blank line matches no record kind below and is skipped
     if (line.startsWith("SF:")) {
       const sf = line.slice(3);
       current = files.get(sf) ?? new Map();
@@ -63,18 +73,39 @@ export function parseLcov(text) {
   return files;
 }
 
-/** Union of files and lines; hits summed. @param {LcovData[]} inputs @returns {LcovData} */
-export function mergeLcov(inputs) {
+/**
+ * Merge onto the first input (the anchor): its files and lines are the
+ * universe, later inputs only add hits to lines the anchor lists. Everything a
+ * later input knows and the anchor does not is dropped and counted.
+ * @param {LcovData[]} inputs
+ * @returns {{ merged: LcovData, droppedLines: number, droppedFiles: number }}
+ */
+export function mergeAnchored(inputs) {
   /** @type {LcovData} */
-  const out = new Map();
-  for (const files of inputs) {
+  const merged = new Map();
+  const [anchor, ...rest] = inputs;
+  for (const [sf, lines] of anchor ?? []) merged.set(sf, new Map(lines));
+  let droppedLines = 0;
+  let droppedFiles = 0;
+  for (const files of rest) {
     for (const [sf, lines] of files) {
-      const target = out.get(sf) ?? new Map();
-      out.set(sf, target);
-      for (const [n, hits] of lines) target.set(n, (target.get(n) ?? 0) + hits);
+      const target = merged.get(sf);
+      if (!target) {
+        droppedFiles += 1;
+        continue;
+      }
+      for (const [n, hits] of lines) {
+        if (target.has(n)) target.set(n, target.get(n) + hits);
+        else droppedLines += 1;
+      }
     }
   }
-  return out;
+  return { merged, droppedLines, droppedFiles };
+}
+
+/** The anchored merge's data alone. @param {LcovData[]} inputs @returns {LcovData} */
+export function mergeLcov(inputs) {
+  return mergeAnchored(inputs).merged;
 }
 
 /** Deterministic LCOV text (files and lines sorted) with LF/LH per file. @param {LcovData} merged */
@@ -122,9 +153,9 @@ export function summarize(merged) {
 }
 
 /**
- * Lines covered in the merge that the first input left at zero or did not
- * list: what the later inputs contributed. Printed as a diagnostic — a very
- * large number against a small browser suite means a remap went wrong.
+ * Lines covered in the merge that the anchor left at zero: what the later
+ * inputs contributed. Printed as a diagnostic — a very large number against a
+ * small browser suite means a remap went wrong.
  * @param {LcovData} first @param {LcovData} merged
  */
 export function linesAddedBeyond(first, merged) {
@@ -138,12 +169,21 @@ export function linesAddedBeyond(first, merged) {
   return added;
 }
 
-/** The merged-lines floor: `config.coverageFloorMergedLines` in package.json, or undefined when unset. */
+/**
+ * The merged-lines floor: `config.coverageFloorMergedLines` in package.json.
+ * A missing key is an error, not "no floor": `--fail-under-from-package` is
+ * how CI asks for the gate, and a key lost to a typo must fail the job rather
+ * than let every figure through.
+ */
 export async function readFloor(packageJsonPath) {
   const pkg = JSON.parse(await readFile(packageJsonPath, "utf8"));
   const floor = pkg.config?.coverageFloorMergedLines;
-  if (floor === undefined) return undefined;
-  if (typeof floor !== "number" || !Number.isFinite(floor) || floor < 0 || floor > 100) {
+  if (floor === undefined) {
+    throw new Error(`merge-lcov: config.coverageFloorMergedLines is not set in ${packageJsonPath}`);
+  }
+  // Number.isFinite is false for every non-number (no coercion), so it is the
+  // whole type check; the range then rules out the ±Infinity JSON can carry (1e999).
+  if (!Number.isFinite(floor) || floor < 0 || floor > 100) {
     throw new Error(`merge-lcov: config.coverageFloorMergedLines in ${packageJsonPath} must be a number in [0, 100], got ${JSON.stringify(floor)}`);
   }
   return floor;
@@ -191,7 +231,7 @@ export async function main(argv, { log = console.log, error = console.error } = 
     if (!text.trim()) throw new Error(`merge-lcov: ${file} is empty`);
     inputs.push(parseLcov(text));
   }
-  const merged = mergeLcov(inputs);
+  const { merged, droppedLines, droppedFiles } = mergeAnchored(inputs);
   const summary = summarize(merged);
   await mkdir(opts.out, { recursive: true });
   await writeFile(path.join(opts.out, "lcov.info"), formatLcov(merged));
@@ -200,7 +240,10 @@ export async function main(argv, { log = console.log, error = console.error } = 
   const { total, covered, pct } = summary.total.lines;
   log(`merged ${opts.inputs.length} LCOV report(s) over ${merged.size} files -> ${opts.out}/lcov.info`);
   log(`lines: ${covered}/${total} (${pct}%)`);
-  if (inputs.length > 1) log(`lines covered beyond the first report: ${linesAddedBeyond(inputs[0], merged)}`);
+  if (inputs.length > 1) {
+    log(`lines covered beyond the first report: ${linesAddedBeyond(inputs[0], merged)}`);
+    log(`dropped (not in the first report): ${droppedLines} lines, ${droppedFiles} files`);
+  }
 
   let floor = opts.failUnder;
   if (opts.failUnderFromPackage) floor = await readFloor(opts.failUnderFromPackage);
