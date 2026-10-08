@@ -4,7 +4,7 @@
  * error) and the apply-links round trip, through the shared api kit.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within, waitFor } from "@testing-library/react";
+import { act, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -354,6 +354,43 @@ describe("EolAdmin cycle picker, a slow fetch from an earlier opening", () => {
       await within(dialog).findByText('No release cycles found for "ubuntu-core".'),
     ).toBeInTheDocument();
     expect(within(dialog).queryByRole("combobox")).not.toBeInTheDocument();
+  });
+
+  it("does not replace the cycles of the picker opened for another product when it lands last", async () => {
+    const { dialog, first, second } = await reopenWhileFirstIsPending();
+
+    second.resolve([]);
+    expect(
+      await within(dialog).findByText('No release cycles found for "ubuntu-core".'),
+    ).toBeInTheDocument();
+
+    // ubuntu's reply arrives after ubuntu-core's: it must not fill the select.
+    await act(async () => {
+      first.resolve(CYCLES);
+      await first.promise;
+    });
+    expect(within(dialog).queryByRole("combobox")).not.toBeInTheDocument();
+    expect(within(dialog).getByText('No release cycles found for "ubuntu-core".')).toBeInTheDocument();
+  });
+
+  it("sends each cycle request with an abort signal, and aborts it when another product is opened", async () => {
+    const { second } = await reopenWhileFirstIsPending();
+
+    const getCalls = mockApi.api.get.mock.calls.filter(([path]) =>
+      String(path).startsWith("/eol/products/"),
+    );
+    expect(getCalls.map(([path]) => path)).toEqual([
+      "/eol/products/ubuntu",
+      "/eol/products/ubuntu-core",
+    ]);
+    const [firstSignal, secondSignal] = getCalls.map(
+      ([, opts]) => (opts as { signal?: AbortSignal } | undefined)?.signal,
+    );
+    expect(firstSignal).toBeInstanceOf(AbortSignal);
+    expect(secondSignal).toBeInstanceOf(AbortSignal);
+    expect(firstSignal?.aborted).toBe(true);
+    expect(secondSignal?.aborted).toBe(false);
+    second.resolve(CYCLES);
   });
 
   it("does not report its failure in the picker opened for another product", async () => {

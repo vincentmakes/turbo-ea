@@ -141,6 +141,52 @@ describe("RelationTypeValuesDialog — a stored row's label", () => {
     expect(saved).toMatchObject({ label: "Tier", translations: { de: "Stufe", en: "Tier" } });
   });
 
+  it("takes a stored row's text here as its label when it carries no label at all", async () => {
+    // As the API can hand it back: the `label` key absent, not blank.
+    const { user, dialog } = renderDialog(
+      makeField({
+        key: "tier",
+        label: undefined,
+        translations: { en: "Tier" },
+        type: "single_select",
+        options: [makeOption({ key: "gold", label: undefined, translations: { en: "Gold" } })],
+      }),
+    );
+    const name = within(dialog).getByLabelText(DIM_NAME);
+    const value = within(dialog).getByLabelText("Label");
+    expect(name).toHaveValue("Tier");
+    expect(name).toHaveAttribute("aria-invalid", "false");
+    expect(value).toHaveValue("Gold");
+    expect(value).toHaveAttribute("aria-invalid", "false");
+    expect(saveButton()).toBeEnabled();
+
+    await user.click(saveButton());
+    await waitFor(() => expect(mockApi.callsOf("patch", PATH)).toHaveLength(1));
+    const [saved] = (mockApi.callsOf("patch", PATH)[0].body as { attributes_schema: FieldDef[] })
+      .attributes_schema;
+    expect(saved).toMatchObject({ label: "Tier", translations: { en: "Tier" } });
+    expect(saved.options?.[0]).toMatchObject({ label: "Gold", translations: { en: "Gold" } });
+  });
+
+  it("shows empty and flags a row with no label at all and no text here", async () => {
+    const { dialog } = renderDialog(
+      makeField({
+        key: "tier",
+        label: undefined,
+        translations: { de: "Stufe" },
+        type: "single_select",
+        options: [makeOption({ key: "gold", label: undefined })],
+      }),
+    );
+    const name = within(dialog).getByLabelText(DIM_NAME);
+    const value = within(dialog).getByLabelText("Label");
+    expect(name).toHaveValue("");
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(value).toHaveValue("");
+    expect(value).toHaveAttribute("aria-invalid", "true");
+    expect(saveButton()).toBeDisabled();
+  });
+
   it("leaves a built-in row's stored label alone", async () => {
     const { user } = renderDialog(
       makeField({

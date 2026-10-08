@@ -202,6 +202,35 @@ describe("ExtensionsAdmin — license dialog after a confirmed purchase", () => 
     expect(within(dialog).getByText("Apply license", { selector: "button" })).toBeDisabled();
   });
 
+  it("drops the paste's error as the purchase closes the dialog, as Cancel does", async () => {
+    vi.spyOn(window, "open").mockReturnValue(null);
+    prime({ extensions: [EXPIRED], catalog: catalogOf(STORE_ITEM) });
+    mockApi.on("put", LICENSE_PATH, () => {
+      throw new ApiError("License signature invalid", 400, "bad");
+    });
+    mockApi.on("post", CLAIM_PATH, { status: "applied" });
+    renderPage();
+    await settle();
+
+    click(within(tileOf("ESG Content Pack")).getByText("Buy", { selector: "button" }));
+    click(tab("Installed"));
+    await settle();
+    click(screen.getByRole("button", { name: /Enter license/ }));
+    const dialog = screen.getByRole("dialog");
+    typeLicense("garbage");
+    click(within(dialog).getByText("Apply license", { selector: "button" }));
+    await settle();
+    expect(within(dialog).getByText("License signature invalid")).toBeInTheDocument();
+
+    await tick(5000);
+    expect(screen.getByText("Purchase confirmed — license applied.")).toBeInTheDocument();
+    // Still fading out, already without the failed paste's error.
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).queryByText("License signature invalid")).not.toBeInTheDocument();
+    await tick(500);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("opens the Renew fallback empty, without the earlier paste's error", async () => {
     await failPasteWhileClaiming();
 
@@ -211,6 +240,44 @@ describe("ExtensionsAdmin — license dialog after a confirmed purchase", () => 
     const dialog = screen.getByRole("dialog");
     expect(licenseBox()).toHaveValue("");
     expect(within(dialog).queryByText("License signature invalid")).not.toBeInTheDocument();
+  });
+});
+
+// ── A paste that fails after Cancel ────────────────────────────────────────
+
+describe("ExtensionsAdmin — a paste that fails after the dialog was cancelled", () => {
+  it("does not greet the next opening with that paste's error", async () => {
+    const EXPIRED = { ...EXT, entitlement: { ...EXT.entitlement, state: "expired" } };
+    prime({ extensions: [EXPIRED] });
+    let rejectPut!: (err: unknown) => void;
+    mockApi.on(
+      "put",
+      LICENSE_PATH,
+      () =>
+        new Promise((_, reject) => {
+          rejectPut = reject;
+        }),
+    );
+    renderPage();
+    await settle();
+    click(tab("Installed"));
+    await settle();
+
+    click(screen.getByRole("button", { name: /Enter license/ }));
+    let dialog = screen.getByRole("dialog");
+    typeLicense("garbage");
+    click(within(dialog).getByText("Apply license", { selector: "button" }));
+    await settle();
+    click(within(dialog).getByText("Cancel", { selector: "button" }));
+    // The PUT only fails now, with the dialog already closing.
+    await act(async () => rejectPut(new ApiError("License signature invalid", 400, "bad")));
+    await tick(500);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    click(screen.getByRole("button", { name: /Enter license/ }));
+    dialog = screen.getByRole("dialog");
+    expect(within(dialog).queryByText("License signature invalid")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
   });
 });
 

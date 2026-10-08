@@ -5,7 +5,7 @@
  * trimmed, the way the dialogs' enabled check already reads them.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, within, waitFor, fireEvent } from "@testing-library/react";
+import { act, render, screen, within, waitFor, fireEvent } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -205,7 +205,48 @@ describe("TagsAdmin failed requests", () => {
     await user.type(within(dialog).getByLabelText("Group Name"), "Region");
     await user.click(within(dialog).getByRole("button", { name: "Create" }));
     expect(await screen.findByText("Hosting")).toBeInTheDocument();
+    // Once the dialog has gone: until then the page is aria-hidden, and a role
+    // query would not see the page's alert even if it were still there.
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText("Something went wrong")).not.toBeInTheDocument();
+  });
+
+  it("drops a failed load's message once a later load succeeds", async () => {
+    mockApi.fail("get", "/tag-groups");
+    mockApi.on("post", "/tag-groups", {});
+    const user = userEvent.setup();
+    render(<TagsAdmin />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("GET /tag-groups failed");
+
+    mockApi.on("get", "/tag-groups", TAG_GROUPS);
+    await user.click(screen.getByRole("button", { name: /New Tag Group/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText("Group Name"), "Region");
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+    expect(await screen.findByText("Hosting")).toBeInTheDocument();
+    expect(screen.queryByText("GET /tag-groups failed")).not.toBeInTheDocument();
+  });
+});
+
+describe("TagsAdmin error alerts", () => {
+  it("sets the page's load error apart from the groups below it", async () => {
+    mockApi.fail("get", "/tag-groups");
+    render(<TagsAdmin />);
+    expect(await screen.findByRole("alert")).toHaveStyle({ marginBottom: "16px" });
+  });
+
+  it("spaces a dialog's error from the title above and the field below", async () => {
+    mockApi.fail("post", "/tag-groups");
+    const user = await renderPage();
+    await user.click(screen.getByRole("button", { name: /New Tag Group/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText("Group Name"), "Region");
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+    expect(await within(dialog).findByRole("alert")).toHaveStyle({
+      marginTop: "8px",
+      marginBottom: "16px",
+    });
   });
 });
 
@@ -377,6 +418,32 @@ describe("TagsAdmin double submit", () => {
     await user.click(within(groupCard("Risk")).getByRole("button", { name: "Delete Tag Group" }));
     const dialog = await screen.findByRole("dialog");
     await expectSingleSubmit(dialog, "Delete", "delete", `/tag-groups/${RISK_GROUP.id}`, release);
+  });
+
+  it("sends one request when the second click lands before the button re-renders", async () => {
+    const { reply, release } = pending();
+    mockApi.on("post", "/tag-groups", reply);
+    const user = await renderPage();
+    await user.click(screen.getByRole("button", { name: /New Tag Group/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText("Group Name"), "Region");
+    const button = within(dialog).getByRole("button", { name: "Create" });
+
+    // Both clicks in one batch: the second still finds the button enabled.
+    await act(async () => {
+      button.click();
+      button.click();
+    });
+    expect(mockApi.callsOf("post", "/tag-groups")).toHaveLength(1);
+    // The ignored click neither closed the dialog nor reloaded the list.
+    expect(screen.getByRole("dialog")).toBe(dialog);
+    expect(within(dialog).getByLabelText("Group Name")).toHaveValue("Region");
+    expect(mockApi.callsOf("get", "/tag-groups")).toHaveLength(1);
+
+    release();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockApi.callsOf("post", "/tag-groups")).toHaveLength(1);
+    expect(mockApi.callsOf("get", "/tag-groups")).toHaveLength(2);
   });
 
   it("lets the user submit again after a failed request", async () => {

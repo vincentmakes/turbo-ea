@@ -233,6 +233,54 @@ describe("SurveyBuilder — a reopened draft's relation narrowing", () => {
     );
     await act(async () => card.resolve({ id: "org-1", name: "Acme", type: "Organization" }));
   });
+
+  it("keeps it while one of the related cards cannot be looked up", async () => {
+    // The Organization the narrowing applies to is one the author cannot read;
+    // the IT Component beside it is known, but cannot judge the narrowing alone.
+    mockApi.on("get", "/surveys/survey-7", {
+      ...SAVED,
+      target_filters: { related_ids: ["itc-1", "org-1"], relation_type_key: "relOrgToAppOwns" },
+    });
+    mockApi.on("get", "/cards/itc-1", { id: "itc-1", name: "Kafka", type: "ITComponent" });
+    mockApi.fail("get", "/cards/org-1", 404, "Card not found");
+    const { user } = renderBuilder("/admin/surveys/survey-7");
+    await openDraft();
+    await user.click(next());
+    expect(await screen.findByText("Kafka")).toBeInTheDocument();
+    await waitFor(() => expect(mockApi.callsOf("patch", "/surveys/survey-7")).toHaveLength(1));
+
+    await user.click(screen.getByRole("button", { name: /Save Draft/ }));
+    await waitFor(() => expect(mockApi.callsOf("patch", "/surveys/survey-7")).toHaveLength(2));
+    expect(lastDraft().target_filters).toMatchObject({
+      related_ids: ["itc-1", "org-1"],
+      relation_type_key: "relOrgToAppOwns",
+    });
+  });
+});
+
+describe("SurveyBuilder — Next on a survey opened in place", () => {
+  it("does not auto-save a survey whose stored name is blank", async () => {
+    mockApi.on("get", "/surveys/survey-7", { ...SAVED, target_filters: {} });
+    mockApi.on("get", "/surveys/survey-8", {
+      ...SAVED,
+      id: "survey-8",
+      name: "   ",
+      target_filters: {},
+    });
+    const { user } = renderBuilder("/admin/surveys/survey-7");
+    await openDraft();
+    await user.click(next());
+    await screen.findByText("Target Cards");
+    await waitFor(() => expect(mockApi.callsOf("patch", "/surveys/survey-7")).toHaveLength(1));
+
+    await user.click(screen.getByRole("button", { name: "go /admin/surveys/survey-8" }));
+    await waitFor(() => expect(mockApi.callsOf("get", "/surveys/survey-8")).toHaveLength(1));
+    await user.click(next());
+    // On to the Fields step, without writing the blank-named survey.
+    expect(await screen.findByText("Select Fields")).toBeInTheDocument();
+    expect(mockApi.callsOf("patch", "/surveys/survey-8")).toHaveLength(0);
+    expect(mockApi.callsOf("post", "/surveys")).toHaveLength(0);
+  });
 });
 
 describe("SurveyBuilder — a draft whose target type is gone", () => {
