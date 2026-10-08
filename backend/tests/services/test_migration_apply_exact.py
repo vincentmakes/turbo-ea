@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -290,14 +290,15 @@ async def test_an_identity_of_another_kind_is_written_and_refreshed(db, env):
     await db.flush()
     tag_row = (await identities(db, "tag"))[("N1", "inmem")]
     assert (tag_row.target_id, tag_row.migration_id) == (staged.target_id, env.m.id)
-    assert tag_row.last_seen_at is not None
+    # Stamped in UTC, not the server's local wall clock.
+    assert tag_row.last_seen_at.utcoffset() == timedelta(0)
     tag_row.last_seen_at = None
     later = await make_migration(db, user=env.admin)
     staged.target_id = uuid.uuid4()
     staged.migration_id = later.id
     await ap._upsert_identity_map_kind(db, staged, "tag")
     assert (tag_row.target_id, tag_row.migration_id) == (staged.target_id, later.id)
-    assert tag_row.last_seen_at is not None
+    assert tag_row.last_seen_at.utcoffset() == timedelta(0)
     assert card_identity.target_id != staged.target_id
 
 
@@ -531,8 +532,9 @@ async def test_an_update_records_a_new_subtype_and_not_the_parent_it_kept(db, en
         "U1",
         action="update",
         target_id=card.id,
-        data={"payload": {"subtype": "New"}},
+        data={"raw": {"type": "LXApp"}, "payload": {"subtype": "New"}},
     )
+    # Called with no field mapping at all, a native type is not looked up.
     await ap._apply_single_card(db, staged, env.admin)
     assert (card.subtype, card.parent_id) == ("New", top.id)
     (event,) = published
@@ -697,6 +699,18 @@ async def test_tags_find_their_group_by_staged_id_fallback_name_or_database(db, 
     assert {k: mapped[(k, "inmem")].target_id for k in rows} == {
         k: s.target_id for k, s in staged.items()
     }
+
+
+async def test_only_tag_group_rows_name_a_group(db, env):
+    # A resolved row of another kind sharing the group's name is not a group:
+    # the tag finds the real one by name in the database.
+    group = TagGroup(name="Shared")
+    db.add(group)
+    await db.flush()
+    await stage(db, env, "user", "Shared", target_id=env.admin.id)
+    tag = await stage(db, env, "tag", "T1", data={"name": "One", "group_name": "Shared"})
+    assert await ap._apply_tag_pass(db, env.m, env.admin) == zero(created=1)
+    assert (await db.get(Tag, tag.target_id)).tag_group_id == group.id
 
 
 async def test_a_tag_without_a_group_fails_and_a_resolved_skip_is_mapped(db, env):
@@ -1482,7 +1496,7 @@ async def test_a_card_tag_or_relation_that_raises_is_recorded_on_its_own_row(
     ]
 
 
-async def test_a_field_for_an_unknown_type_records_a_truncated_reason(db, env):
+async def test_a_field_for_an_unknown_type_records_a_truncated_reason(db, env, caplog):
     long_key = "T" * 1200
     staged = await stage(
         db,
@@ -1498,7 +1512,12 @@ async def test_a_field_for_an_unknown_type_records_a_truncated_reason(db, env):
         "LX:g",
         data={"field_key": "g", "tea_type": "text", "target_type": long_key},
     )
-    assert await ap._apply_metamodel_field_pass(db, env.m, env.admin) == zero(errors=2)
+    with caplog.at_level(logging.ERROR, logger=LOGGER):
+        assert await ap._apply_metamodel_field_pass(db, env.m, env.admin) == zero(errors=2)
+    assert [r.getMessage() for r in caplog.records if r.name == LOGGER] == [
+        "migration apply: metamodel_field LX:f failed",
+        "migration apply: metamodel_field LX:g failed",
+    ]
     expected = f"target card type {long_key!r} not found"[:1000]
     assert (staged.status, staged.error_message) == ("error", expected)
     assert staged2.error_message == expected
