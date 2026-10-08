@@ -11,13 +11,15 @@ showed those were the values no test compared.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pytest
 from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import select
 
 from app.models.relation import Relation
+from app.models.stakeholder import Stakeholder
+from app.models.tag import CardTag, Tag, TagGroup
 from app.services import card_write_service as svc
 from app.services.card_write_service import WriteActor
 from tests.conftest import (
@@ -277,6 +279,22 @@ async def test_undeclared_attributes_are_kept_unless_strict(db, env):
     assert card.attributes == {"made_up": 1}
 
 
+async def test_undeclared_attributes_on_a_typed_card_need_strict_mode_to_fail(db, env):
+    card = await svc.create_card(
+        db, env["actor"], type_key="Application", name="Loose", attributes={"made_up": 1}
+    )
+    assert card.attributes["made_up"] == 1
+
+
+async def test_a_name_taken_at_the_root_is_free_under_a_parent(db, env):
+    await create_card(db, name="Twin")
+    parent = await create_card(db, name="Parent")
+    card = await svc.create_card(
+        db, env["actor"], type_key="Application", name="Twin", parent_id=parent.id
+    )
+    assert card.parent_id == parent.id
+
+
 async def test_a_create_refuses_a_sibling_with_the_same_name(db, env):
     parent = await create_card(db, name="Parent")
     await create_card(db, name="Twin", parent_id=parent.id)
@@ -514,6 +532,23 @@ async def test_a_reparent_that_is_too_deep_is_refused(db, env):
     assert "maximum depth of 5 levels" in exc.value.detail
 
 
+async def test_an_initiative_update_without_attributes_leaves_them_alone(db, env):
+    ini = await create_card(
+        db, card_type="Initiative", name="Programme", attributes={"costBudget": 100}
+    )
+    await create_budget_line(db, initiative_id=ini.id, amount=100)
+    assert await svc.update_card(db, env["actor"], ini, {"name": "Renamed"}) is True
+    assert ini.attributes["costBudget"] == 100
+
+
+async def test_any_other_value_is_announced_as_text(db, env, published, notified, steps):
+    card = await create_card(
+        db, card_type="ITComponent", name="Server", attributes={"hierarchyLevel": 1}
+    )
+    await svc.update_card(db, env["actor"], card, {"archived_at": date(2026, 1, 2)})
+    assert published[0]["data"]["changes"] == {"archived_at": {"old": None, "new": "2026-01-02"}}
+
+
 async def test_the_parent_guards_run_only_when_the_parent_moves(db, env, monkeypatch):
     guarded = []
 
@@ -720,6 +755,19 @@ async def test_cascade_all_related_adds_the_peers_it_was_not_given(db, env, monk
     assert result == ([], [given, extra], [given, extra])
 
 
+async def test_a_peer_reported_twice_is_taken_once(db, env, monkeypatch):
+    primary = await create_card(db, name="P")
+    peer = uuid.uuid4()
+
+    async def expand(db_, primary_id, read_scope):
+        return [peer, peer]
+
+    monkeypatch.setattr(svc.card_lifecycle, "expand_cascade_all_related", expand)
+    assert await svc.resolve_archive_delete_set(
+        db, primary, child_strategy=None, related_card_ids=[], cascade_all_related=True
+    ) == ([], [peer], [peer])
+
+
 async def test_without_cascade_all_related_no_peers_are_looked_up(db, env, monkeypatch):
     async def expand(*a, **k):
         raise AssertionError("expanded")
@@ -877,6 +925,42 @@ async def test_the_flip_archives_and_reports_what_it_took(db, env, effects, publ
         "card_id": primary.id,
         "user_id": env["user"].id,
     }
+
+
+@pytest.mark.parametrize("strategy", ["disconnect", "reparent"])
+async def test_every_card_the_archive_touches_is_signed_by_the_actor(db, env, effects, strategy):
+    primary = await create_card(db, name="P")
+    child = await create_card(db, name="C", parent_id=primary.id)
+    related = await create_card(db, name="R")
+    kid = await create_card(db, name="K", parent_id=related.id)
+    await archive(
+        db,
+        env["actor"],
+        primary,
+        child_strategy=strategy,
+        direct_children=[child],
+        related_card_ids=[related.id],
+        full_affected=[related.id],
+    )
+    user_id = env["user"].id
+    assert (primary.updated_by, related.updated_by) == (user_id, user_id)
+    assert (child.updated_by, kid.updated_by) == (user_id, user_id)
+
+
+async def test_the_archived_cards_come_back_with_tags_and_stakeholders(db, env, effects):
+    primary = await create_card(db, name="P")
+    group = TagGroup(name="Domain")
+    db.add(group)
+    await db.flush()
+    tag = Tag(tag_group_id=group.id, name="Finance")
+    db.add(tag)
+    await db.flush()
+    db.add(CardTag(card_id=primary.id, tag_id=tag.id))
+    db.add(Stakeholder(card_id=primary.id, user_id=env["user"].id, role="owner"))
+    await db.flush()
+    (flipped,), _, _ = await archive(db, env["actor"], primary)
+    assert [(t.name, t.group.name) for t in flipped.tags] == [("Finance", "Domain")]
+    assert [(s.role, s.user.email) for s in flipped.stakeholders] == [("owner", "writer@test.com")]
 
 
 async def test_a_lone_archive_sends_no_batch_event(db, env, effects, published):
@@ -1079,6 +1163,48 @@ async def test_an_existing_relation_takes_only_what_changed(db, env, published, 
         assert published[0]["data"]["fields"] == changed
     else:
         assert published == []
+
+
+async def test_both_relation_events_carry_the_cards_and_the_actor(db, env, published):
+    app = await create_card(db, name="Billing")
+    itc = await create_card(db, card_type="ITComponent", name="Server")
+    actor = ext_actor()
+    await svc.upsert_relation(db, actor, type_key="app_to_itc", source_id=app.id, target_id=itc.id)
+    await svc.upsert_relation(
+        db, actor, type_key="app_to_itc", source_id=app.id, target_id=itc.id, description="d"
+    )
+    assert [p["type"] for p in published] == ["relation.created"] * 2 + ["relation.updated"] * 2
+    for event in published:
+        data = event["data"]
+        assert (data["source_name"], data["target_name"]) == ("Billing", "Server")
+        assert (data["source_type"], data["target_type"]) == ("Application", "ITComponent")
+        assert data["ext"] == "sync"
+        assert event["user_id"] is None
+    user_actor = env["actor"]
+    await svc.upsert_relation(
+        db, user_actor, type_key="app_to_itc", source_id=app.id, target_id=itc.id, description="e"
+    )
+    assert {p["user_id"] for p in published[-2:]} == {env["user"].id}
+    assert "ext" not in published[-1]["data"]
+
+
+async def test_the_existing_row_must_match_type_source_and_target(db, env):
+    await create_relation_type(db, key="app_hosts_itc", label="hosts", reverse_label="hosted by")
+    app = await create_card(db, name="Billing")
+    other_app = await create_card(db, name="Payroll")
+    itc = await create_card(db, card_type="ITComponent", name="Server")
+    other_itc = await create_card(db, card_type="ITComponent", name="Backup")
+    taken = await create_relation(db, source_id=app.id, target_id=itc.id)
+    for type_key, source, target in [
+        ("app_hosts_itc", app, itc),  # same ends, another type
+        ("app_to_itc", other_app, itc),  # same type and target, another source
+        ("app_to_itc", app, other_itc),  # same type and source, another target
+    ]:
+        rel, reused, _ = await svc.upsert_relation(
+            db, env["actor"], type_key=type_key, source_id=source.id, target_id=target.id
+        )
+        assert reused is False and rel.id != taken.id
+        assert (rel.type, rel.source_id, rel.target_id) == (type_key, source.id, target.id)
 
 
 async def test_clearing_relation_attributes_counts_as_a_change(db, env):

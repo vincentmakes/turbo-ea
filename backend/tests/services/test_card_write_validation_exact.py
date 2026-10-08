@@ -209,6 +209,17 @@ async def test_a_percentage_out_of_range_or_not_a_number_is_refused(db, env, val
     assert detail_of(exc) == (422, "Field 'uptime' must be a number between 0 and 100")
 
 
+async def test_an_empty_percentage_does_not_end_the_scan(db):
+    # The keys are scanned in set order, so bury the bad one among many empty
+    # ones: an early exit on an empty field would let it through.
+    fields = [{"key": f"p{i}", "type": "percentage"} for i in range(30)]
+    await create_card_type(db, key="Many", label="Many", fields_schema=[{"fields": fields}])
+    attrs = {f"p{i}": None for i in range(30)} | {"p17": 150}
+    with pytest.raises(HTTPException) as exc:
+        await svc._validate_percentage_attributes(db, "Many", attrs)
+    assert exc.value.detail == "Field 'p17' must be a number between 0 and 100"
+
+
 async def test_only_percentage_typed_fields_are_range_checked(db, env):
     await svc._validate_percentage_attributes(db, "Application", {"notes": 500})
     await svc._validate_percentage_attributes(db, "Bare", {"progress": 500})
@@ -412,6 +423,31 @@ def test_what_the_option_check_lets_through(new, old):
     check_select(new, old)
 
 
+def test_no_skip_rule_ends_the_option_scan():
+    schema = [
+        {
+            "fields": [
+                {"key": "text", "type": "text", "options": [{"key": "a"}]},
+                {"key": "absent", "type": "single_select", "options": [{"key": "a"}]},
+                {"key": "blank", "type": "single_select", "options": [{"key": "a"}]},
+                {"key": "legacy", "type": "single_select", "options": [{"key": "a"}]},
+                {
+                    "key": "calc",
+                    "type": "single_select",
+                    "readonly": True,
+                    "options": [{"key": "a"}],
+                },
+                {"key": "open", "type": "single_select", "options": []},
+                {"key": "last", "type": "single_select", "options": [{"key": "a"}]},
+            ]
+        }
+    ]
+    new = {"text": "zzz", "blank": "", "legacy": "old", "calc": "zzz", "open": "zzz", "last": "b"}
+    with pytest.raises(HTTPException) as exc:
+        svc._check_select_options("Application", schema, new, {"legacy": "old"})
+    assert exc.value.detail["field_keys"] == ["last"]
+
+
 def test_no_schema_means_no_options():
     svc._check_select_options("Application", None, {"criticality": "x"}, {})
 
@@ -498,7 +534,15 @@ async def test_the_label_check_reads_the_stored_vocabulary(db):
     await svc._validate_hierarchy_label(db, "Organization", "sales", None, has_parent=True)
     with pytest.raises(HTTPException) as exc:
         await svc._validate_hierarchy_label(db, "Organization", "legal", None, has_parent=True)
-    assert exc.value.detail["valid_labels"] == ["commercial", "sales"]
+    assert exc.value.detail == {
+        "code": "invalid_hierarchy_label",
+        "message": (
+            "Card type 'Organization' does not define hierarchy link label 'legal'; "
+            "valid labels: commercial, sales."
+        ),
+        "valid_labels": ["commercial", "sales"],
+        "card_type": "Organization",
+    }
 
 
 @pytest.mark.parametrize("new,old", [(None, "x"), ("", None), ("same", "same")])
@@ -762,6 +806,27 @@ async def test_under_a_macro_the_levels_shift_and_the_macro_stays_pinned(db, cap
     assert l1.attributes == {"capabilityLevel": "L1", "hierarchyLevel": 2}
     assert l2.attributes == {"capabilityLevel": "L2", "hierarchyLevel": 3}
     assert changed == [macro, l1, l2]
+
+
+async def test_a_capability_already_at_its_level_is_not_reported(db, caps):
+    root = await create_card(
+        db,
+        card_type="BusinessCapability",
+        name="R",
+        attributes={"hierarchyLevel": 1, "capabilityLevel": "L1"},
+    )
+    child = await create_card(
+        db,
+        card_type="BusinessCapability",
+        name="C",
+        parent_id=root.id,
+        attributes={"hierarchyLevel": 2, "capabilityLevel": "L4"},
+    )
+    previous: dict = {}
+    assert await svc._sync_hierarchy_levels(db, root, previous=previous) == [child]
+    assert child.attributes == {"hierarchyLevel": 2, "capabilityLevel": "L2"}
+    assert previous == {child.id: {"hierarchyLevel": 2, "capabilityLevel": "L4"}}
+    assert await svc._sync_hierarchy_levels(db, root) == []
 
 
 async def test_a_capability_type_without_hierarchy_still_gets_its_level(db):
