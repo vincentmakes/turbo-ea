@@ -14,6 +14,7 @@ import { createRef } from "react";
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 vi.mock("@/hooks/useCurrency", () => import("@/test/hooks").then((m) => m.useCurrencyModule()));
+vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 
 const saved = vi.hoisted(() => ({
   config: null as Record<string, unknown> | null,
@@ -298,7 +299,7 @@ describe("CapabilityMapReport detail drawer", () => {
     fireEvent.click(within(chart()).getByText("Lead Management"));
     const panel = await screen.findByRole("presentation");
     expect(within(panel).getByText("Supporting Applications (1)")).toBeInTheDocument();
-    expect(within(panel).getByText("High Crit · EOL: 2099-01-01")).toBeInTheDocument();
+    expect(within(panel).getByText("High Crit · End of Life: 2099-01-01")).toBeInTheDocument();
     const link = within(panel).getByRole("link", { name: /view in inventory/i });
     // The relation filter travels by name; the unknown id is dropped.
     expect(link.getAttribute("href")).toContain("rel_Organization=Sales+Org");

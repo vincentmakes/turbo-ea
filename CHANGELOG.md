@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.157.5] - 2026-10-08
+
+### Fixed
+- Reports: a failed load shows an error instead of a spinner that never ends, on the capability map, matrix and EOL reports.
+- Portfolio report: grouping by a relation type lists each card only under the cards it reaches through that type, AI insights read lifecycle phases at the travelled date, and a saved relation-subtype filter survives opening the report.
+- Capability map: a restored metric the map no longer offers falls back to the application count, a heatmap of all-negative values is scaled from its real range, and the relation filter only matches the card type picked.
+- Matrix report: a saved report opens with its sorts, depths, filters and scopes, and Transpose keeps both scopes.
+- Lifecycle report: a saved date range is restored, and the Type column shows and sorts by the type's label.
+- EOL report: a card without EOL data is named by itself, never "null null", and dates follow the workspace date format.
+- Cost report: a saved cost field and cost sources are restored, and the tooltip shows its "% of total" figure again.
+- Process map: a cost stored as text no longer makes the map fail to load, and processes in a looping parent chain stay on the map.
+- Dependency report: the tree-card tooltip counts its connections with correct plurals, and a retired or upcoming card keeps its outline.
+
 ## [2.157.4] - 2026-10-08
 
 ### Security

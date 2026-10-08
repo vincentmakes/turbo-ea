@@ -14,6 +14,7 @@ import { createRef } from "react";
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 vi.mock("@/hooks/useCurrency", () => import("@/test/hooks").then((m) => m.useCurrencyModule()));
+vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 
 type SliderProps = {
   delta?: { arriving: number; retiring: number };
@@ -455,8 +456,8 @@ describe("CapabilityMapReport detail drawer", () => {
 
     expect(within(panel()).getByRole("heading", { name: "Billing" })).toBeInTheDocument();
     expect(rows()).toEqual([
-      ["Alpha", "EOL: 2099-01-01"],
-      ["Beta", "EOL: 2098-01-01"],
+      ["Alpha", "End of Life: 2099-01-01"],
+      ["Beta", "End of Life: 2098-01-01"],
       ["Delta", null],
     ]);
     expect([dot("Alpha"), dot("Beta"), dot("Delta")]).toEqual([null, null, null]);
@@ -472,8 +473,8 @@ describe("CapabilityMapReport detail drawer", () => {
     await openDrawer("Billing");
 
     expect(rows()).toEqual([
-      ["Alpha", "High Crit · EOL: 2099-01-01"],
-      ["Beta", "EOL: 2098-01-01"],
+      ["Alpha", "High Crit · End of Life: 2099-01-01"],
+      ["Beta", "End of Life: 2098-01-01"],
       ["Delta", "Low Crit"],
     ]);
     expect([dot("Alpha"), dot("Beta"), dot("Delta")]).toEqual([
@@ -490,7 +491,7 @@ describe("CapabilityMapReport detail drawer", () => {
     await openDrawer("Billing");
 
     expect([dot("Alpha"), dot("Beta"), dot("Delta")]).toEqual([null, null, null]);
-    expect(rows()[0]).toEqual(["Alpha", "EOL: 2099-01-01"]);
+    expect(rows()[0]).toEqual(["Alpha", "End of Life: 2099-01-01"]);
   });
 
   it("shows each metric plainly, only the cost formatted as money", async () => {

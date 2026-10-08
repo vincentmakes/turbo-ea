@@ -935,7 +935,7 @@ describe("group drawer", () => {
     expect(getComputedStyle(eol).color).toBe("rgb(230, 81, 0)");
     expect(within(panel).getByText("applications (2)")).toBeInTheDocument();
     expect(rowsOf(panel)).toEqual([
-      { name: "Cobalt", secondary: "High · EOL: 2099-12-31", warn: true },
+      { name: "Cobalt", secondary: "High · End of Life: 2099-12-31", warn: true },
       { name: "SAP ERP", secondary: "Business Application · High", warn: false },
     ]);
   });

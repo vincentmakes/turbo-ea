@@ -524,8 +524,10 @@ export default function DependencyReport() {
         means one thing however it was reached. -- */
   const [activeSpan, setActiveSpan] = useState<{ from: number; to: number } | null>(null);
 
-  /* -- LDV targeted reveals (hierarchy parent / children tools); tracked
-        separately so toggling one tool off clears only its own reveals -- */
+  /* -- LDV targeted reveals (hierarchy parent / children tools). Toggling a
+        tool off keeps what it revealed, so parents and children can be
+        layered in one view; both sets clear together on a re-centre or the
+        toolbar Reset -- */
   const [revealedParentIds, setRevealedParentIds] = useState<Set<string>>(new Set());
   const [revealedChildIds, setRevealedChildIds] = useState<Set<string>>(new Set());
 
@@ -930,6 +932,10 @@ export default function DependencyReport() {
     setLdvExpandedNodes(new Set());
     setRevealedParentIds(new Set());
     setRevealedChildIds(new Set());
+    // Tree instance ids are rooted at the centre, so a hovered one names a card
+    // the new tree does not have. A right-click re-centre swaps the tree under
+    // the pointer without a mouseleave, which left every card dimmed.
+    setHovered(null);
   }, [center]);
 
   // LDV expand mode: toggle a node's neighbors into the visible set
@@ -1609,6 +1615,14 @@ export default function DependencyReport() {
                 const inChain =
                   hovered !== null && hoveredChain.has(card.instanceId);
                 const dimmed = hovered !== null && !inChain;
+                // Solid where the card is part of this date's landscape,
+                // dashed where it is drawn despite not being — the grammar
+                // the diagram uses.
+                const changeOutline =
+                  card.node.changeState &&
+                  `1.5px ${
+                    isPresentAtDate(card.node.changeState) ? "solid" : "dashed"
+                  } ${changeColor(card.node.changeState)}`;
 
                 return (
                   <Tooltip
@@ -1685,16 +1699,20 @@ export default function DependencyReport() {
                           }),
                         }),
                         ...(card.node.changeState && {
-                          // Solid where the card is part of this date's
-                          // landscape, dashed where it is drawn despite not
-                          // being — the grammar the diagram uses.
-                          border: `1.5px ${
-                            isPresentAtDate(card.node.changeState) ? "solid" : "dashed"
-                          } ${changeColor(card.node.changeState)}`,
-                          borderLeft: `3.5px solid ${color}`,
-                          ...(!isPresentAtDate(card.node.changeState) && {
-                            opacity: dimmed ? 0.4 : 0.6,
-                          }),
+                          // Three sides only, so the type-coloured left edge
+                          // set above is kept. A spread key that already
+                          // exists keeps its FIRST position, and the CSS is
+                          // emitted in key order: these are keys the object
+                          // does not hold yet, so they land after the
+                          // collapsed outline's `borderColor` and win over it.
+                          borderTop: changeOutline,
+                          borderRight: changeOutline,
+                          borderBottom: changeOutline,
+                          // A running spotlight decides opacity on its own.
+                          ...(!isPresentAtDate(card.node.changeState) &&
+                            !pulsing && {
+                              opacity: dimmed ? 0.4 : 0.6,
+                            }),
                         }),
                       }}
                       onClick={() => toggleExpand(card.instanceId)}

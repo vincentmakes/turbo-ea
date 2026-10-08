@@ -1181,7 +1181,7 @@ describe("MatrixReport transpose", () => {
 });
 
 describe("MatrixReport request lifecycle", () => {
-  it("never shows the previous query's grid once a new query fails", async () => {
+  it("says why a new query failed, in place of the previous query's grid", async () => {
     let fail: (e: Error) => void = () => {};
     renderMatrix();
     await screen.findByText("App One");
@@ -1196,8 +1196,9 @@ describe("MatrixReport request lifecycle", () => {
       fail(new Error("boom"));
       await new Promise((res) => setTimeout(res, 0));
     });
-    // Only the absence of the stale grid is asserted: what replaces it after a
-    // failure is an endless spinner today (the page ignores the query error).
+    // The failure is said, in place of the stale grid and of the spinner.
+    expect(await screen.findByRole("alert")).toHaveTextContent("boom");
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     expect(screen.queryByText("App One")).not.toBeInTheDocument();
   });
 });

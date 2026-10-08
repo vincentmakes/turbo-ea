@@ -50,6 +50,7 @@ import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPa
 import ReportFilterSection from "./ReportFilterSection";
 import { api, isAbortError } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
+import { toIsoDate } from "@/lib/dates";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useReadableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
@@ -77,6 +78,7 @@ import {
   matchesStaticFilters,
   pickSelectFields,
   relationMemberMatchesSubtypeFilters,
+  relationOnSide,
   relSubtypeComposite,
   REL_SUBTYPE_PREFIX,
   resolveColorBy,
@@ -211,6 +213,7 @@ function groupApps(
     const seen = new Set<string>();
     for (const rel of app.relations) {
       if (rel.related_type !== mode.typeKey) continue;
+      if (mode.relTypeKey && !relationOnSide(rel, mode.relTypeKey)) continue;
       if (!buckets.has(rel.related_id) || seen.has(rel.related_id)) continue;
       if (memberMatch && !memberMatch(app, rel.related_id)) continue;
       seen.add(rel.related_id);
@@ -395,7 +398,7 @@ function GroupCard({
       {/* App chips */}
       {count > 0 && (
         <Box sx={{ p: 1.5, display: "flex", flexWrap: "wrap", gap: 0.5, flex: 1 }}>
-          {group.apps
+          {[...group.apps]
             .sort((a, b) => a.name.localeCompare(b.name))
             .map((app) => (
               <AppChip
@@ -965,7 +968,10 @@ export default function PortfolioReport({
   // Changing Group By changes which relation subtypes are in scope. Drop any
   // subtype filter that no longer applies, and reset a Color By that points at
   // a now-unavailable subtype, so a stale selection can't linger invisibly.
+  // Only once this card type's data has loaded: until then there are no
+  // subtypes at all, and a restored saved report would lose its filters.
   useEffect(() => {
+    if (dataCardType !== cardType) return;
     const valid = new Set(relSubtypes.map((s) => s.composite));
     setRelSubtypeFilters((prev) => {
       const next: Record<string, string[]> = {};
@@ -983,6 +989,17 @@ export default function PortfolioReport({
       setColorBy(selectFields[0]?.key ?? "");
     }
   }, [relSubtypes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The same for a Color By naming an own field this card type no longer has
+  // (a saved report outliving a metamodel change): the select would hold a
+  // value it has no option for, and the table a column of dashes. Also only
+  // once this type's fields have loaded, or every restored key looks unknown.
+  useEffect(() => {
+    if (dataCardType !== cardType) return;
+    if (!colorBy || colorBy.startsWith(REL_SUBTYPE_PREFIX)) return;
+    if (selectFields.some((f) => f.key === colorBy)) return;
+    setColorBy(selectFields[0]?.key ?? "");
+  }, [dataCardType, cardType, colorBy, selectFields]);
 
   // Timeline range
   const { dateRange, yearMarks, hasLifecycleData } = useMemo(
@@ -1198,7 +1215,8 @@ export default function PortfolioReport({
         attrDist[f.label] = counts;
       }
 
-      // Build lifecycle phase counts
+      // Build lifecycle phase counts — at the travelled date, the same date
+      // `filteredApps` was narrowed to.
       const lcCounts: Record<string, number> = {};
       for (const app of filteredApps) {
         const lc = app.lifecycle;
@@ -1206,12 +1224,12 @@ export default function PortfolioReport({
           lcCounts["No lifecycle"] = (lcCounts["No lifecycle"] || 0) + 1;
           continue;
         }
-        const now = Date.now();
+        const at = tl.timelineDate;
         const phases = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"];
         let current = "Unknown";
         for (const p of phases) {
           const d = lc[p] ? new Date(lc[p]).getTime() : null;
-          if (d && d <= now) current = p;
+          if (d && d <= at) current = p;
         }
         lcCounts[current] = (lcCounts[current] || 0) + 1;
       }
@@ -1238,7 +1256,8 @@ export default function PortfolioReport({
           activeFilterDescs.push(`${field?.label || key}: ${vals.join(", ")}`);
         }
       }
-      if (tl.timelineDate) activeFilterDescs.push(`Timeline date: ${tl.timelineDate}`);
+      if (tl.isTimeTraveling)
+        activeFilterDescs.push(`Timeline date: ${toIsoDate(new Date(tl.timelineDate))}`);
 
       const res = await api.post<PortfolioInsightsResponse>("/ai/portfolio-insights", {
         total_apps: filteredApps.length,
@@ -1255,7 +1274,7 @@ export default function PortfolioReport({
     } finally {
       setAiLoading(false);
     }
-  }, [data, filteredApps, groups, selectFields, colorBy, colorRes, colorLabels, groupByRaw, attrFilters, search, tl.timelineDate, t]);
+  }, [data, filteredApps, groups, selectFields, colorBy, colorRes, colorLabels, groupByRaw, attrFilters, search, tl.timelineDate, tl.isTimeTraveling, t]);
 
   const handleGroupClick = useCallback((g: GroupData) => {
     // g.key is the related card id for relation groups — keep it so the drawer
@@ -1452,7 +1471,8 @@ export default function PortfolioReport({
           const label = getAppColorLabel(a, colorRes, colorLabels, memberOf(a.id));
           if (label) parts.push(label);
         }
-        if (a.lifecycle?.endOfLife) parts.push(`EOL: ${a.lifecycle.endOfLife}`);
+        if (a.lifecycle?.endOfLife)
+          parts.push(t("eol.endOfLifeDate", { date: a.lifecycle.endOfLife }));
         return {
           id: a.id,
           name: a.name,
@@ -1461,7 +1481,7 @@ export default function PortfolioReport({
           warn: !!a.lifecycle?.endOfLife,
         };
       });
-  }, [drawer, colorBy, colorRes, colorLabels, perMemberColor, cardType, subtypeLabel]);
+  }, [drawer, colorBy, colorRes, colorLabels, perMemberColor, cardType, subtypeLabel, t]);
 
   const drawerEolCount = drawer?.apps.filter((a) => a.lifecycle?.endOfLife).length ?? 0;
 
@@ -1608,8 +1628,10 @@ export default function PortfolioReport({
                 {t("portfolio.relatedTypes")}
               </MenuItem>
             )}
+            {/* Each card type, then — under it, in the order built above — one
+                option per relation type when several reach it. */}
             {groupByOptions
-              .filter((o) => o.key.startsWith("rel:"))
+              .filter((o) => o.key.startsWith("rel:") || o.key.startsWith("relt:"))
               .map((o) => (
                 <MenuItem key={o.key} value={o.key}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -1667,6 +1689,9 @@ export default function PortfolioReport({
             }
             value={colorBy}
             onChange={(e) => setColorBy(e.target.value)}
+            // "No color" is the "" option: without displayEmpty MUI renders
+            // that value as a blank field.
+            slotProps={{ select: { displayEmpty: true } }}
             sx={{ minWidth: 180 }}
           >
             {colorByOptions
@@ -2239,7 +2264,7 @@ export default function PortfolioReport({
                       gap: 0.5,
                     }}
                   >
-                    {ungrouped
+                    {[...ungrouped]
                       .sort((a, b) => a.name.localeCompare(b.name))
                       .map((app) => (
                         <AppChip
@@ -2330,7 +2355,10 @@ export default function PortfolioReport({
                       })()
                     : app.relations
                         .filter(
-                          (r) => r.related_type === groupByMode.typeKey,
+                          (r) =>
+                            r.related_type === groupByMode.typeKey &&
+                            (!groupByMode.relTypeKey ||
+                              relationOnSide(r, groupByMode.relTypeKey)),
                         )
                         .map((r) => r.related_name)
                         .join(", ") || "\u2014";

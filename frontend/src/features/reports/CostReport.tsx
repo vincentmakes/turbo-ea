@@ -253,6 +253,23 @@ export default function CostReport() {
     [setScopeIds],
   );
 
+  const typeDef = useMemo(() => types.find((t) => t.key === cardTypeKey), [types, cardTypeKey]);
+  const costFields = useMemo(() => {
+    const raw = typeDef ? pickCostFields(typeDef.fields_schema) : [];
+    return raw.map((f) => ({ ...f, label: fieldLabel(f) }));
+  }, [typeDef, fieldLabel]);
+
+  // Auto-select cost field when card type changes — only when the current one
+  // is not on the type, so a restored field the type does carry is kept.
+  // Declared before the restore below on purpose: effects run in declaration
+  // order, so on mount this effect's pick (made from the starting type's
+  // fields) is queued first and the restored type + field overwrite it.
+  useEffect(() => {
+    if (costFields.length > 0 && !costFields.some((f) => f.key === costField)) {
+      setCostField(costFields[0].key);
+    }
+  }, [costFields]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Load saved report config
   useEffect(() => {
     const cfg = saved.consumeConfig();
@@ -304,21 +321,6 @@ export default function CostReport() {
     setDrillStack([]);
     setScopeIds([]);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const typeDef = useMemo(() => types.find((t) => t.key === cardTypeKey), [types, cardTypeKey]);
-  const costFields = useMemo(() => {
-    const raw = typeDef ? pickCostFields(typeDef.fields_schema) : [];
-    return raw.map((f) => ({ ...f, label: fieldLabel(f) }));
-  }, [typeDef, fieldLabel]);
-
-  // Auto-select cost field when card type changes
-  useEffect(() => {
-    if (costFields.length === 1) {
-      setCostField(costFields[0].key);
-    } else if (costFields.length > 0 && !costFields.some((f) => f.key === costField)) {
-      setCostField(costFields[0].key);
-    }
-  }, [costFields]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const groupableFields = useMemo(() => {
     if (!typeDef) return [];
@@ -374,13 +376,14 @@ export default function CostReport() {
     return out;
   }, [typeDef, readableTypes, relationTypes, cardTypeKey, typeLabel, fieldLabel, t]);
 
-  // Drop any selected pair that's no longer offered (e.g. after switching card type).
+  // Drop any selected pair that's no longer offered (e.g. after switching card
+  // type, or restored from a saved config) — once the metamodel says what is.
   useEffect(() => {
-    if (costSources.length === 0) return;
+    if (ml || costSources.length === 0) return;
     const valid = new Set(aggregateOptions.map((o) => o.value));
     const filtered = costSources.filter((s) => valid.has(s));
     if (filtered.length !== costSources.length) setCostSources(filtered);
-  }, [aggregateOptions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [aggregateOptions, costSources, ml]);
 
   const activeAggregates = useMemo(
     () => aggregateOptions.filter((o) => costSources.includes(o.value)),
@@ -397,7 +400,8 @@ export default function CostReport() {
   useAbortableEffect(
     async ({ signal, isCurrent }) => {
       if (!canViewCostsGlobally) {
-        setRawItems([]);
+        // Nothing loaded: a later grant shows the spinner, not an empty report.
+        setRawItems(null);
         setDrillPanels(null);
         return;
       }
@@ -606,7 +610,7 @@ export default function CostReport() {
       <Paper sx={{ p: 1.5 }} elevation={3}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{d.name}</Typography>
         <Typography variant="caption" display="block">{fmt.format(d.cost)}</Typography>
-        <Typography variant="caption" color="text.secondary">{panelTotal > 0 ? t("cost.percentOfTotal", { pct: ((d.cost / panelTotal) * 100).toFixed(1) }) : ""}</Typography>
+        <Typography variant="caption" color="text.secondary">{panelTotal > 0 ? t("cost.percentOfTotalValue", { pct: ((d.cost / panelTotal) * 100).toFixed(1) }) : ""}</Typography>
       </Paper>
     );
   };

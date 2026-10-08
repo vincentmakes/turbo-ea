@@ -23,6 +23,7 @@ holding an id — and ids are handed out freely by other portals' maps.
 
 from __future__ import annotations
 
+import math
 import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Sequence
@@ -344,13 +345,33 @@ async def load_flow_coverage(db: AsyncSession) -> tuple[set[str], dict[str, int]
     return published_ids, element_counts
 
 
+def _cost_value(value: object) -> float:
+    """A cost attribute as a number, or 0 when it is not one.
+
+    Cost fields carry no numeric check on write, so a value can arrive as a
+    string. A numeric string counts — the cost treemap reads one the same way,
+    with ``float()`` — and anything else (text, a list, a boolean, NaN) counts
+    as nothing rather than failing the whole map.
+    """
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, (int, float)):
+        return value if math.isfinite(value) else 0
+    if isinstance(value, str):
+        try:
+            num = float(value)
+        except ValueError:
+            return 0
+        return num if math.isfinite(num) else 0
+    return 0
+
+
 def total_app_cost(linked_apps: Sequence[dict]) -> float:
     """Sum of the linked applications' annual cost, tolerating either key."""
     return sum(
         (
-            a.get("attributes", {}).get("costTotalAnnual", 0)
-            or a.get("attributes", {}).get("totalAnnualCost", 0)
-            or 0
+            _cost_value(a.get("attributes", {}).get("costTotalAnnual"))
+            or _cost_value(a.get("attributes", {}).get("totalAnnualCost"))
         )
         for a in linked_apps
     )

@@ -29,6 +29,7 @@ import { applyScope, useCardScope } from "@/hooks/useCardScope";
 import CardScopeFilter from "@/components/CardScopeFilter";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 
@@ -93,9 +94,9 @@ function currentPhase(lc: Record<string, string>): string {
   return "plan";
 }
 
-function fmtDate(s: string | undefined): string {
-  if (!s) return "\u2014";
-  return new Date(s).toLocaleDateString("en-US", { year: "numeric", month: "short" });
+/** Position of a phase in the lifecycle, so phases sort plan → end of life. */
+function phaseRank(key: string): number {
+  return PHASES.findIndex((p) => p.key === key);
 }
 
 /* ------------------------------------------------------------------ */
@@ -110,6 +111,8 @@ export default function LifecycleReport() {
   const typeLabel = useTypeLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
+  const { formatDate } = useDateFormat();
+  const fmtDate = (s: string | undefined) => (s ? formatDate(s) : "\u2014");
   const saved = useSavedReport("lifecycle");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [cardTypeKey, setCardTypeKey] = useState("");
@@ -216,12 +219,15 @@ export default function LifecycleReport() {
     }
   }, [colorByOptions]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset custom dates mode when switching to a type without date fields
+  // Leave custom dates mode on a type without date fields. Keyed on the mode
+  // too, and only once the metamodel is known: a restored config lands in the
+  // same commit as this effect's first run, so it is checked against its own
+  // type rather than switched off before that type is resolved.
   useEffect(() => {
-    if (!hasDateFields) {
+    if (!ml && !hasDateFields && useCustomDates) {
       setUseCustomDates(false);
     }
-  }, [hasDateFields]);
+  }, [ml, hasDateFields, useCustomDates]);
 
   // Switching card type must not let the previous type's response land last
   // and repopulate the timeline (#882).
@@ -276,7 +282,7 @@ export default function LifecycleReport() {
       todayPct: ((now - tMin) / tRange) * 100,
       eolCount: eol,
     };
-  }, [scopedData]);
+  }, [scopedData, startDateKey, endDateKey]);
 
   // Year tick marks across the full range
   const totalMax = totalMin + totalRange;
@@ -330,8 +336,9 @@ export default function LifecycleReport() {
       });
     }
     if (useCustomDates) params.push({ label: t("common.mode"), value: t("lifecycle.dateRangeView") });
-    if (useCustomDates && customColorBy) {
-      const cLabel = colorByOptions.find((o) => o.key === customColorBy)?.label || customColorBy;
+    // A colour-by key no select field defines any more colours nothing.
+    const cLabel = colorByOptions.find((o) => o.key === customColorBy)?.label;
+    if (useCustomDates && cLabel) {
       params.push({ label: t("common.colorBy"), value: cLabel });
     }
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
@@ -342,11 +349,12 @@ export default function LifecycleReport() {
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
 
   const sort = (k: string) => { setSortD(sortK === k && sortD === "asc" ? "desc" : "asc"); setSortK(k); };
+  const cardTypeLabel = (key: string) => typeLabel(types.find((tp) => tp.key === key)) || key;
   const sorted = [...items].sort((a, b) => {
     const d = sortD === "asc" ? 1 : -1;
     if (sortK === "name") return a.name.localeCompare(b.name) * d;
-    if (sortK === "type") return a.type.localeCompare(b.type) * d;
-    if (sortK === "phase") return currentPhase(a.lifecycle).localeCompare(currentPhase(b.lifecycle)) * d;
+    if (sortK === "type") return cardTypeLabel(a.type).localeCompare(cardTypeLabel(b.type)) * d;
+    if (sortK === "phase") return (phaseRank(currentPhase(a.lifecycle)) - phaseRank(currentPhase(b.lifecycle))) * d;
     if (sortK === "eol") return ((a.lifecycle.endOfLife || "z").localeCompare(b.lifecycle.endOfLife || "z")) * d;
     if (sortK === "startDate") return ((a.attributes?.[startDateKey] as string || "z").localeCompare(b.attributes?.[startDateKey] as string || "z")) * d;
     if (sortK === "endDate") return ((a.attributes?.[endDateKey] as string || "z").localeCompare(b.attributes?.[endDateKey] as string || "z")) * d;
@@ -368,7 +376,8 @@ export default function LifecycleReport() {
     const val = item.attributes?.[customColorBy] as string | undefined;
     if (!val) return t("lifecycle.notSet");
     const fd = selectFields.find((f) => f.key === customColorBy);
-    const opt = fd?.options?.find((o) => o.key === val);
+    if (!fd) return t("lifecycle.notSet");
+    const opt = fd.options?.find((o) => o.key === val);
     return opt?.label ?? val;
   }
 
@@ -594,7 +603,7 @@ export default function LifecycleReport() {
                             </Tooltip>
                           ))}
                           {eolPct != null && (
-                            <Tooltip title={`End of Life: ${fmtDate(item.lifecycle.endOfLife)}`}>
+                            <Tooltip title={`${t("lifecycle.phaseEndOfLife")}: ${fmtDate(item.lifecycle.endOfLife)}`}>
                               <Box sx={{ position: "absolute", left: `${eolPct}%`, top: -2, transform: "translateX(-50%)", zIndex: 2, lineHeight: 0 }}>
                                 <svg width="20" height="20" viewBox="0 0 20 20">
                                   <circle cx="10" cy="10" r="9" fill="#f44336" stroke="#b71c1c" strokeWidth="1" />
@@ -656,7 +665,7 @@ export default function LifecycleReport() {
                   return (
                     <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => setSidePanelCardId(d.id)}>
                       <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
-                      <TableCell>{d.type}</TableCell>
+                      <TableCell>{cardTypeLabel(d.type)}</TableCell>
                       <TableCell>{fmtDate(d.attributes?.[startDateKey] as string)}</TableCell>
                       <TableCell>{fmtDate(d.attributes?.[endDateKey] as string)}</TableCell>
                       <TableCell>
@@ -669,14 +678,14 @@ export default function LifecycleReport() {
                     </TableRow>
                   );
                 }
-                const cp = currentPhase(d.lifecycle);
-                const phase = PHASES.find((p) => p.key === cp);
+                // currentPhase always answers one of PHASES.
+                const phase = PHASES[phaseRank(currentPhase(d.lifecycle))];
                 return (
                   <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => setSidePanelCardId(d.id)}>
                     <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
-                    <TableCell>{d.type}</TableCell>
+                    <TableCell>{cardTypeLabel(d.type)}</TableCell>
                     <TableCell>
-                      <Chip size="small" label={phase ? t(phase.labelKey) : cp} sx={{ bgcolor: phase?.color, color: "#fff", fontWeight: 600, height: 22, fontSize: "0.72rem" }} />
+                      <Chip size="small" label={t(phase.labelKey)} sx={{ bgcolor: phase.color, color: "#fff", fontWeight: 600, height: 22, fontSize: "0.72rem" }} />
                     </TableCell>
                     {PHASES.map((p) => <TableCell key={p.key}>{fmtDate(d.lifecycle[p.key])}</TableCell>)}
                   </TableRow>

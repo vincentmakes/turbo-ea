@@ -6,13 +6,14 @@
  * saved configuration is restored, persisted and reset.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { createRef } from "react";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
+vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 
 const saved = vi.hoisted(() => ({
   config: null as Record<string, unknown> | null,
@@ -65,6 +66,7 @@ import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType } from "@/test/fixtures/metamodel";
 import { toIsoDate } from "@/lib/dates";
+import i18n from "@/i18n";
 import EolReport from "./EolReport";
 
 const DAY = 86400000;
@@ -438,9 +440,9 @@ describe("EolReport — timeline rows", () => {
     await screen.findByText("Today");
     const nameRow = () => screen.getByLabelText("Nginx LB (nginx 1.25)").parentElement!.parentElement as HTMLElement;
     const barRow = () =>
-      screen.getByLabelText(/^nginx 1\.25 · EOL/).parentElement!.parentElement!.parentElement as HTMLElement;
+      screen.getByLabelText(/^nginx 1\.25 · End of Life/).parentElement!.parentElement!.parentElement as HTMLElement;
     const redisBarRow = () =>
-      screen.getByLabelText(/^redis 7 · EOL/).parentElement!.parentElement!.parentElement as HTMLElement;
+      screen.getByLabelText(/^redis 7 · End of Life/).parentElement!.parentElement!.parentElement as HTMLElement;
     expect(nameRow().children).toHaveLength(1);
     expect(barRow().children).toHaveLength(1);
 
@@ -456,7 +458,7 @@ describe("EolReport — timeline rows", () => {
   it("closes the side panel it opened", async () => {
     renderReport();
     await screen.findByText("Today");
-    fireEvent.click(screen.getByLabelText(/^redis 7 · EOL/));
+    fireEvent.click(screen.getByLabelText(/^redis 7 · End of Life/));
     expect(screen.getByTestId("side-panel")).toHaveTextContent("redis");
     fireEvent.click(screen.getByRole("button", { name: "close-panel" }));
     await waitFor(() => expect(screen.queryByTestId("side-panel")).not.toBeInTheDocument());
@@ -696,5 +698,106 @@ describe("EolReport — saved configuration", () => {
     fireEvent.click(screen.getByRole("button", { name: /reset to defaults/i }));
     expect(current).toHaveBeenCalled();
     expect(first).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fixes found by the mutation pass
+// ---------------------------------------------------------------------------
+
+describe("EolReport — fixes", () => {
+  async function inLanguage(lng: string, fn: () => Promise<void>) {
+    const previous = i18n.language;
+    await act(async () => {
+      await i18n.changeLanguage(lng);
+    });
+    try {
+      await fn();
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage(previous);
+      });
+    }
+  }
+
+  it("names a row without EOL data by itself, never as a null product", async () => {
+    serve([
+      item({ id: "box", name: "Unknown Box", status: "missing", source: "none" }),
+      item({ id: "half", name: "Half Linked", eol_product: "kafka", status: "unknown" }),
+    ]);
+    renderReport();
+    await screen.findByText("Today");
+    expect(screen.getByLabelText("Unknown Box")).toBeInTheDocument();
+    expect(screen.getByLabelText("End of Life: —")).toBeInTheDocument();
+    // A product without a cycle is named by the product alone.
+    expect(screen.getByLabelText("Half Linked (kafka)")).toBeInTheDocument();
+    expect(screen.getByLabelText("kafka · End of Life: —")).toBeInTheDocument();
+    expect(screen.getByText("kafka")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/null/);
+    expect(screen.queryByLabelText(/null/)).not.toBeInTheDocument();
+  });
+
+  it("says whether a cycle has reached its end or still has support, in the UI language", async () => {
+    saved.config = { view: "table" };
+    serve([
+      item({ id: "old", name: "Old Lib", eol_product: "old", eol_cycle: "1", status: "eol", cycle_data: { eol: true, support: false } }),
+      item({ id: "new", name: "New Lib", eol_product: "new", eol_cycle: "2", cycle_data: { eol: false, support: true } }),
+    ]);
+    renderReport();
+    await screen.findByRole("table");
+    // EOL Date, Support Until
+    expect(rowOf("Old Lib").slice(6, 8)).toEqual(["Yes (EOL)", "No"]);
+    expect(rowOf("New Lib").slice(6, 8)).toEqual(["No", "Yes"]);
+    await inLanguage("fr", async () => {
+      await waitFor(() => expect(rowOf("Old Lib").slice(6, 8)).toEqual(["Oui (EOL)", "Non"]));
+      expect(rowOf("New Lib").slice(6, 8)).toEqual(["Non", "Oui"]);
+    });
+  });
+
+  it("names the type filter by the metamodel's labels", async () => {
+    withMetamodel([
+      makeCardType({ key: "ITComponent", label: "Tech Component", color: "#d29270" }),
+      makeCardType({ key: "Application", label: "Business App", color: "#0f7eb5" }),
+    ]);
+    saved.config = { filterType: "ITComponent" };
+    renderReport();
+    await screen.findByText("Today");
+    expect(printParams()).toEqual(["Type: Tech Component"]);
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: /^type$/i }));
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "All Types",
+      "Business App",
+      "Tech Component",
+    ]);
+  });
+
+  it("names a type the metamodel does not know by its key", async () => {
+    withMetamodel([]);
+    saved.config = { filterType: "Server" };
+    renderReport();
+    await screen.findByText("No items match the current filters.");
+    expect(printParams()).toEqual(["Type: Server"]);
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: /^type$/i }));
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "All Types",
+      "Application",
+      "ITComponent",
+    ]);
+  });
+
+  it("words a failure that carries no message generically", async () => {
+    mockApi.on("get", "/reports/eol", () => Promise.reject("offline"));
+    renderReport();
+    expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
+  });
+
+  it("shows a failed load as an error, not a spinner", async () => {
+    mockApi.fail("get", "/reports/eol", 500, "boom");
+    renderReport();
+    expect(await screen.findByText("GET /reports/eol failed")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.queryByText("Today")).not.toBeInTheDocument();
   });
 });

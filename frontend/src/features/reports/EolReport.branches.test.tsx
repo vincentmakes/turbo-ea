@@ -12,6 +12,7 @@ import { createRef } from "react";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
+vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 
 const saved = vi.hoisted(() => ({
   config: null as Record<string, unknown> | null,
@@ -199,13 +200,13 @@ describe("EolReport timeline", () => {
     renderReport();
     await loaded();
     expect(screen.getByLabelText("Nginx LB (nginx 1.25)")).toBeInTheDocument();
-    expect(screen.getByLabelText(/^nginx 1\.25 · EOL: Jan 1, 2020 \(\d+d ago\)$/)).toBeInTheDocument();
-    expect(screen.getByLabelText("Active support until Jun 1, 2019")).toBeInTheDocument();
-    expect(screen.getByLabelText("End of Life: Jan 1, 2020")).toBeInTheDocument();
-    expect(screen.getByLabelText(/^postgresql 12 · EOL: .* \(2mo\)$/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^redis 7 · EOL: .* \(2\.2y\)$/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^nginx 1\.25 · End of Life: 2020-01-01 \(\d+d ago\)$/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Active support until 2019-06-01")).toBeInTheDocument();
+    expect(screen.getByLabelText("End of Life: 2020-01-01")).toBeInTheDocument();
+    expect(screen.getByLabelText(/^postgresql 12 · End of Life: .* \(2mo\)$/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^redis 7 · End of Life: .* \(2\.2y\)$/)).toBeInTheDocument();
     // A product with no cycle data still gets a bar, just with nothing dated.
-    expect(screen.getByLabelText("foo 1 · EOL: —")).toBeInTheDocument();
+    expect(screen.getByLabelText("foo 1 · End of Life: —")).toBeInTheDocument();
     expect(screen.getByLabelText("Impacts 2 apps")).toBeInTheDocument();
     expect(screen.getByText("Today")).toBeInTheDocument();
   });
@@ -214,9 +215,9 @@ describe("EolReport timeline", () => {
     renderReport();
     await loaded();
     expect(screen.getByLabelText("Legacy CRM (manually maintained)")).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Manual · EOL: .* \(\d+d\)$/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Manual · End of Life: .* \(\d+d\)$/)).toBeInTheDocument();
     expect(screen.getAllByLabelText(/End-of-Life date was manually maintained/).length).toBeGreaterThan(0);
-    expect(screen.getByText("lifecycle")).toBeInTheDocument();
+    expect(screen.getByText("Lifecycle")).toBeInTheDocument();
   });
 
   it("expands a product to its affected apps and opens one", async () => {
@@ -234,7 +235,7 @@ describe("EolReport timeline", () => {
   it("opens a product from its bar", async () => {
     renderReport();
     await loaded();
-    fireEvent.click(screen.getByLabelText(/^redis 7 · EOL/));
+    fireEvent.click(screen.getByLabelText(/^redis 7 · End of Life/));
     expect(screen.getByTestId("side-panel")).toHaveTextContent("redis");
   });
 
@@ -297,15 +298,17 @@ describe("EolReport table", () => {
     expect(names()).toEqual(["Nginx LB", "Postgres", "Legacy CRM", "Mystery", "Redis", "Unknown Box"]);
 
     const nginx = screen.getByRole("row", { name: /^Nginx LB/ });
-    expect(within(nginx).getByText("Jan 1, 2020")).toBeInTheDocument();
+    expect(within(nginx).getByText("2020-01-01")).toBeInTheDocument();
     expect(within(nginx).getByText(/^\(\d+d ago\)$/)).toBeInTheDocument();
-    expect(within(nginx).getByText("Jun 1, 2019")).toBeInTheDocument();
+    expect(within(nginx).getByText("2019-06-01")).toBeInTheDocument();
     expect(within(nginx).getByText("1.25.4")).toBeInTheDocument();
     expect(within(nginx).getByText("API")).toBeInTheDocument();
     expect(within(nginx).getByLabelText("Shop, Portal")).toHaveTextContent("2 apps");
 
     const pg = screen.getByRole("row", { name: /^Postgres/ });
-    expect(within(pg).getByText("Yes (EOL)")).toBeInTheDocument();
+    // Support `true` still has support: a plain yes, not an end of life.
+    expect(within(pg).getByText("Yes")).toBeInTheDocument();
+    expect(within(pg).queryByText("Yes (EOL)")).not.toBeInTheDocument();
     expect(within(pg).getByText("(2mo)")).toBeInTheDocument();
     expect(within(pg).getByText("1 app")).toBeInTheDocument();
     expect(within(screen.getByRole("row", { name: /^Redis/ })).getByText("No")).toBeInTheDocument();

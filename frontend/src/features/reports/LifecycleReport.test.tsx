@@ -25,6 +25,8 @@ vi.mock("@/hooks/useSavedReport", () => ({
   useSavedReport: vi.fn(),
 }));
 
+vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
+
 vi.mock("@/hooks/useThumbnailCapture", () => ({
   useThumbnailCapture: vi.fn(),
 }));
