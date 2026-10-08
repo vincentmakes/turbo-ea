@@ -9,6 +9,7 @@ CLI; the scripts import each other by bare name, so their directory goes on
 
 from __future__ import annotations
 
+import ast
 import difflib
 import fnmatch
 import importlib
@@ -375,6 +376,99 @@ def mutmut_style_diff(source, first, last, line, old, new):
     )
 
 
+# The mutants the generated-file helpers below write: name → (source line,
+# old text, new text). mutmut numbers them per function.
+GENERATED = {
+    "app.x.x_plain__mutmut_1": (8, "if a < b:", "if a <= b:"),
+    "app.x.x_plain__mutmut_2": (10, "return b", "return None"),
+    "app.x.xǁThingǁmethod__mutmut_1": (23, "total += i", "total -= i"),
+}
+_FUNCTIONS = {"plain": (None, 6, 10), "method": ("Thing", 20, 24)}
+
+
+def write_generated(directory, names=tuple(GENERATED), spans=True):
+    """``mutants/app/x.py`` as mutmut generates it — each function's
+    ``__mutmut_orig`` copy and its mutants, methods inside their class — with
+    the ``.spans`` line index and the ``.meta`` verdicts beside it."""
+    lines = SOURCE.splitlines()
+    top, methods = [], []
+    for func, (cls, first, last) in _FUNCTIONS.items():
+        key = (
+            f"x{mutmut_scope.CLASS_SEP}{cls}{mutmut_scope.CLASS_SEP}{func}" if cls else f"x_{func}"
+        )
+        copies = {f"{key}__mutmut_orig": lines[first - 1 : last]}
+        for name in names:
+            line, old, new = GENERATED[name]
+            if name.rpartition(".")[2].startswith(key + "__mutmut_"):
+                body = list(lines[first - 1 : last])
+                assert body[line - first].strip() == old
+                body[line - first] = body[line - first].replace(old, new)
+                copies[name.rpartition(".")[2]] = body
+        for generated, body in copies.items():
+            renamed = [body[0].replace(f"def {func}(", f"def {generated}(", 1), *body[1:]]
+            (methods if cls else top).extend([*renamed, ""])
+    text = "\n".join([*top, "class Thing:", *methods]) + "\n"
+    mutants = directory / "mutants" / "app"
+    mutants.mkdir(parents=True, exist_ok=True)
+    (mutants / "x.py").write_text(text)
+    if spans:
+        index = {}
+        for node in ast.parse(text).body:
+            for child in node.body if isinstance(node, ast.ClassDef) else [node]:
+                if isinstance(child, ast.FunctionDef):
+                    index[child.name] = [child.lineno, child.end_lineno]
+        (mutants / "x.py.spans").write_text(json.dumps({"version": 1, "spans": index}))
+    (mutants / "x.py.meta").write_text(json.dumps({"exit_code_by_key": dict.fromkeys(names)}))
+
+
+class TestMutantDiffs:
+    """The diffs ``collect`` and ``run`` place mutants by, rendered in-process:
+    one ``mutmut show`` process per mutant made scoring a PR that touched a
+    large module take longer than testing it."""
+
+    def test_they_are_what_mutmut_show_prints(self, tmp_path, monkeypatch):
+        diff_apply = pytest.importorskip("mutmut.mutation.diff_apply")
+        write_generated(tmp_path)
+        monkeypatch.setattr(mutmut_scope, "show", lambda d, n: pytest.fail("spawned show"))
+        diffs = mutmut_scope.mutant_diffs(tmp_path, "app/x.py", list(GENERATED))
+        monkeypatch.chdir(tmp_path)  # mutmut reads ``mutants/`` relative to the cwd
+        assert diffs == {
+            name: diff_apply.get_diff_for_mutant(name, path="app/x.py") for name in GENERATED
+        }
+
+    def test_each_lands_on_its_source_line(self, tmp_path):
+        write_generated(tmp_path)
+        diffs = mutmut_scope.mutant_diffs(tmp_path, "app/x.py", list(GENERATED))
+        for name, (line, _old, _new) in GENERATED.items():
+            _, func, cls = mutmut_scope.split_name(name)
+            assert mutmut_scope.locate(SOURCE, func, cls, diffs[name])[0] == [line]
+
+    def test_what_the_index_cannot_place_goes_to_mutmut_show(self, tmp_path, monkeypatch):
+        write_generated(tmp_path, names=["app.x.x_plain__mutmut_1"])
+        asked = []
+        monkeypatch.setattr(mutmut_scope, "show", lambda d, n: asked.append(n) or f"shown {n}")
+        missing = "app.x.x_plain__mutmut_9"
+        diffs = mutmut_scope.mutant_diffs(
+            tmp_path, "app/x.py", ["app.x.x_plain__mutmut_1", missing], workers=1
+        )
+        assert asked == [missing]
+        assert diffs[missing] == f"shown {missing}"
+        assert diffs["app.x.x_plain__mutmut_1"].startswith("--- app/x.py")
+
+    @pytest.mark.parametrize("spans", [False, "stale"])
+    def test_without_a_usable_index_every_mutant_goes_to_mutmut_show(
+        self, tmp_path, monkeypatch, spans
+    ):
+        write_generated(tmp_path, spans=spans is not False)
+        if spans == "stale":
+            index = tmp_path / "mutants" / "app" / "x.py.spans"
+            index.write_text(json.dumps({"version": 2, "spans": {}}))
+        asked = []
+        monkeypatch.setattr(mutmut_scope, "show", lambda d, n: asked.append(n) or "")
+        mutmut_scope.mutant_diffs(tmp_path, "app/x.py", list(GENERATED), workers=1)
+        assert sorted(asked) == sorted(GENERATED)
+
+
 class TestMutmutNames:
     @pytest.mark.parametrize(
         "rel, module",
@@ -522,12 +616,16 @@ class TestMutmutRunAndCollect:
             "docs/a.md": [[1, 1]],
         }
         assert mutmut_scope.run("backend", changed, 3, repo=suite_repo) == 0
-        # only the touched function, not the whole file
-        assert calls == [("run", "--max-children", "3", "app.x.x_plain__mutmut_*")]
+        # generated first; with no ``.meta`` to name mutants from, the touched
+        # function as a whole — never the whole file
+        assert calls == [
+            ("run", "--max-children", "3", mutmut_scope._GENERATE_ONLY),
+            ("run", "--max-children", "3", "app.x.x_plain__mutmut_*"),
+        ]
         assert (suite_repo / "backend" / "mutants").is_symlink()
 
     @staticmethod
-    def fake_mutmut(monkeypatch, calls, meta=None, generate=None):
+    def fake_mutmut(monkeypatch, calls, meta=None, generate=None, on_generate=None):
         """mutmut as the nightly sees it: the generate-only call stops on
         "nothing matches" (after writing ``meta``, as generation does)."""
 
@@ -536,6 +634,8 @@ class TestMutmutRunAndCollect:
             if a[-1] == mutmut_scope._GENERATE_ONLY:
                 if generate is not None:
                     return generate
+                if on_generate is not None:
+                    on_generate(d)
                 if meta is not None:
                     path = d / "mutants" / "app" / "x.py.meta"
                     path.parent.mkdir(parents=True, exist_ok=True)
@@ -628,6 +728,59 @@ class TestMutmutRunAndCollect:
         self.fake_mutmut(monkeypatch, calls, meta={"app.x.x_plain__mutmut_1": 1})
         assert mutmut_scope.run("backend", None, 2, suite_repo, files=["app/x.py"]) == 0
         assert [c[0] for c in calls] == [("run", "--max-children", "2", "app.x.x_*", "app.x.xǁ*")]
+
+    def test_a_pr_names_only_the_mutants_on_its_changed_lines(self, suite_repo, monkeypatch):
+        """The line-8 mutant, not its line-10 sibling nor the untouched
+        method's: what ``collect`` scores is all a PR runs."""
+        calls = []
+        self.fake_mutmut(monkeypatch, calls, on_generate=write_generated)
+        monkeypatch.setattr(mutmut_scope, "show", lambda d, n: pytest.fail("spawned show"))
+        changed = {"backend/app/x.py": [[8, 8]]}
+        assert mutmut_scope.run("backend", changed, 2, suite_repo, budget=5) == 0
+        generate, test = calls
+        assert generate[0] == ("run", "--max-children", "2", mutmut_scope._GENERATE_ONLY)
+        assert test[0] == ("run", "--max-children", "2", "app.x.x_plain__mutmut_1")
+        assert 1 <= test[1] <= 5  # what generating took comes off the budget
+
+    def test_a_pr_with_no_mutant_on_a_changed_line_tests_nothing(
+        self, suite_repo, monkeypatch, capsys
+    ):
+        calls = []
+        self.fake_mutmut(monkeypatch, calls, on_generate=write_generated)
+        assert mutmut_scope.run("backend", {"backend/app/x.py": [[9, 9]]}, 2, suite_repo) == 0
+        assert len(calls) == 1
+        assert "No backend mutant lands on a changed line." in capsys.readouterr().out
+
+    def test_a_failure_while_generating_stops_a_pr(self, suite_repo, monkeypatch):
+        calls = []
+        failed = subprocess.CompletedProcess([], 2, "SyntaxError", "")
+        self.fake_mutmut(monkeypatch, calls, generate=failed)
+        assert mutmut_scope.run("backend", {"backend/app/x.py": [[8, 8]]}, 2, suite_repo) == 2
+        assert len(calls) == 1
+
+    def test_run_and_collect_pick_the_same_mutants(self, suite_repo, monkeypatch):
+        write_generated(suite_repo / "backend")
+        changed = {"backend/app/x.py": [[8, 10], [23, 23]]}
+        text = "\n".join(f"    {name}: survived" for name in GENERATED)
+        monkeypatch.setattr(
+            mutmut_scope, "mutmut", lambda *a, **k: subprocess.CompletedProcess(a, 0, text, "")
+        )
+        monkeypatch.setattr(mutmut_scope, "show", lambda d, n: pytest.fail("spawned show"))
+        named = mutmut_scope.changed_line_mutants("backend", changed, suite_repo)
+        scored = [r["id"] for r in mutmut_scope.collect("backend", changed, repo=suite_repo)]
+        assert named == scored == sorted(GENERATED)
+
+    def test_collect_needs_no_diff_for_a_function_the_change_misses(self, suite_repo, monkeypatch):
+        statuses = {name: "survived" for name in GENERATED}
+        text = "\n".join(f"    {k}: {v}" for k, v in statuses.items())
+        monkeypatch.setattr(
+            mutmut_scope, "mutmut", lambda *a, **k: subprocess.CompletedProcess(a, 0, text, "")
+        )
+        asked = []
+        monkeypatch.setattr(mutmut_scope, "show", lambda d, n: asked.append(n) or "")
+        mutmut_scope.collect("backend", {"backend/app/x.py": [[8, 8]]}, repo=suite_repo)
+        # no generated file here, so every diff would be a ``mutmut show``
+        assert sorted(asked) == ["app.x.x_plain__mutmut_1", "app.x.x_plain__mutmut_2"]
 
     def test_run_with_nothing_mutable_changed_does_not_start_mutmut(self, suite_repo, monkeypatch):
         monkeypatch.setattr(mutmut_scope, "mutmut", lambda *a, **k: pytest.fail("ran mutmut"))

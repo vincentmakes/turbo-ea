@@ -1004,7 +1004,8 @@ async def resolve_archive_delete_set(
     for raw in related_card_ids:
         try:
             rid = uuid.UUID(raw)
-        except (TypeError, ValueError) as exc:
+        # A non-str reaches ``str.replace`` inside ``uuid.UUID``: AttributeError.
+        except (AttributeError, TypeError, ValueError) as exc:
             raise HTTPException(422, f"Invalid related_card_ids entry: {raw!r}") from exc
         if rid == primary.id or rid in seen_related:
             continue

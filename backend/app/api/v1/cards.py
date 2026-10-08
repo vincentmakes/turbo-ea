@@ -376,8 +376,12 @@ async def list_cards(
         q = q.where(match)
         count_q = count_q.where(match)
     if parent_id:
-        q = q.where(Card.parent_id == uuid.UUID(parent_id))
-        count_q = count_q.where(Card.parent_id == uuid.UUID(parent_id))
+        try:
+            parent_uuid = uuid.UUID(parent_id)
+        except ValueError as exc:
+            raise HTTPException(422, "parent_id must be a UUID") from exc
+        q = q.where(Card.parent_id == parent_uuid)
+        count_q = count_q.where(Card.parent_id == parent_uuid)
     if approval_status:
         statuses = [s.strip() for s in approval_status.split(",") if s.strip()]
         q = q.where(Card.approval_status.in_(statuses))

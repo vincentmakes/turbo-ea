@@ -82,6 +82,29 @@ def test_strip_secrets_scrubs_arbitrary_encrypted_value():
     assert g["nested"]["ok"] == "plain"
 
 
+def test_strip_secrets_drops_extension_secrets_by_key():
+    """``ctx.set_secret`` stores under ``ext.<key>.secret.<name>``. The key is
+    what marks it, so an empty or plain-text value goes too — not only one the
+    ``enc:`` scrub would catch."""
+    general = {
+        "ext.jira.secret.token": "",
+        "ext.jira.secret.oauth.refresh": "plain",
+        "ext.jira.secret": "a setting named secret",
+        "ext.jira.secretive.x": 1,
+        "ext.secret.mode": "an extension named secret",
+        "ext.jira.project": "P",
+        "extra.jira.secret.x": 2,
+    }
+    g, _ = strip_secrets(general, {})
+    assert g == {
+        "ext.jira.secret": "a setting named secret",
+        "ext.jira.secretive.x": 1,
+        "ext.secret.mode": "an extension named secret",
+        "ext.jira.project": "P",
+        "extra.jira.secret.x": 2,
+    }
+
+
 def test_strip_secrets_does_not_mutate_input():
     general = {"sso": {"client_secret": "enc:x"}}
     strip_secrets(general, {})

@@ -42,6 +42,19 @@ INSTANCE_LOCAL_FK_COLUMNS: frozenset[str] = frozenset(
 )
 
 
+def is_extension_secret_key(key: str) -> bool:
+    """True for ``ext.<key>.secret.<name>``, where ``ctx.set_secret`` stores an
+    extension's credentials (``extensions/jobs.py``).
+
+    Matched by key, not value: the ``enc:`` scrub misses an empty secret and a
+    plain-text one planted in a hand-edited bundle. Extension keys never contain
+    a dot (``KEY_PATTERN``), so the third segment is the namespace and an
+    extension that is itself named ``secret`` keeps its ordinary settings.
+    """
+    parts = key.split(".", 3)
+    return len(parts) == 4 and parts[0] == "ext" and parts[2] == "secret"
+
+
 def _drop_path(blob: dict[str, Any], path: tuple[str, ...]) -> None:
     """Delete a nested key by dotted path, tolerating missing intermediates."""
     node: Any = blob
@@ -74,16 +87,19 @@ def strip_secrets(
     general_settings: dict[str, Any] | None,
     email_settings: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Return export-safe copies of the two settings blobs.
+    """Return copies of the two settings blobs with every secret removed.
 
-    Drops the known credential paths, then defensively scrubs any remaining
-    ``enc:`` value. Never mutates the inputs.
+    Drops the known credential paths and the extension secrets, then
+    defensively scrubs any remaining ``enc:`` value. Never mutates the inputs.
+    The exporter runs it on the way out and the importer on the way in, so a
+    hand-edited bundle can no more plant a secret than a real one can carry one.
     """
     general = copy.deepcopy(general_settings or {})
     email = copy.deepcopy(email_settings or {})
 
     for path in GENERAL_SECRET_PATHS:
         _drop_path(general, path)
+    general = {k: v for k, v in general.items() if not is_extension_secret_key(k)}
     for path in EMAIL_SECRET_PATHS:
         _drop_path(email, path)
 

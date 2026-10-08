@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Any, Literal
 
@@ -42,6 +43,22 @@ def _validate_jsonb_dict(v: dict | None, field_name: str) -> dict | None:
     return v
 
 
+def normalize_parent_id(value: str | None) -> str | None:
+    """A card's parent as the API takes it: empty means none, anything else a UUID.
+
+    The edit guards already read ``""`` as "no parent", and every handler then
+    fed the value to ``uuid.UUID`` unguarded, so ``""`` on an edit and any
+    malformed id answered 500 (fixed in 2.157.3). Returns the canonical
+    spelling, which every handler can parse.
+    """
+    if not value:
+        return None
+    try:
+        return str(uuid.UUID(value))
+    except ValueError:
+        raise ValueError("parent_id must be a UUID") from None
+
+
 class CardCreate(BaseModel):
     type: str
     subtype: str | None = None
@@ -62,6 +79,11 @@ class CardCreate(BaseModel):
     # store side-channel metadata on the JSONB column. Recommended for AI
     # agent writes (S5).
     strict_attributes: bool = False
+
+    @field_validator("parent_id")
+    @classmethod
+    def validate_parent_id(cls, v: str | None) -> str | None:
+        return normalize_parent_id(v)
 
     @field_validator("lifecycle")
     @classmethod
@@ -89,6 +111,11 @@ class CardUpdate(BaseModel):
     alias: str | None = None
     # Same semantics as ``CardCreate.strict_attributes``.
     strict_attributes: bool = False
+
+    @field_validator("parent_id")
+    @classmethod
+    def validate_parent_id(cls, v: str | None) -> str | None:
+        return normalize_parent_id(v)
 
     @field_validator("lifecycle")
     @classmethod

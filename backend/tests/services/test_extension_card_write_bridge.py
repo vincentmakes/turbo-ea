@@ -222,6 +222,37 @@ class TestUpdate:
             await bridge.update_card("00000000-0000-0000-0000-000000000000", {"name": "ghost"})
 
 
+class TestParentId:
+    """Fixed in 2.157.3: a malformed parent id reached ``uuid.UUID`` raw and
+    escaped as a ``ValueError`` rather than the bridge's own error."""
+
+    async def test_a_malformed_parent_is_refused_and_an_empty_one_clears(self, db, env):
+        await create_card_type(db, key="Capability", label="Capability", has_hierarchy=True)
+        load_registry(grants=["core.cards.write"])
+        bridge = ExtensionData(KEY)
+        parent = await bridge.create_card(type="Capability", name="P")
+        child = await bridge.create_card(type="Capability", name="C", parent_id=parent.id)
+        for raw in ("nope", 7):
+            with pytest.raises(ExtensionDataError, match=f"Invalid parent_id: {raw!r}"):
+                await bridge.update_card(child.id, {"parent_id": raw})
+        assert (await bridge.update_card(child.id, {"name": "C2"})).parent_id == parent.id
+        moved = await bridge.update_card(child.id, {"parent_id": parent.id.upper()})
+        assert moved.parent_id == parent.id
+        assert (await bridge.update_card(child.id, {"parent_id": ""})).parent_id is None
+
+    async def test_the_parent_filter_finds_the_children_and_refuses_a_malformed_id(self, db, env):
+        await create_card_type(db, key="Capability", label="Capability", has_hierarchy=True)
+        parent = await create_card(db, card_type="Capability", name="P")
+        child = await create_card(db, card_type="Capability", name="C", parent_id=parent.id)
+        await create_card(db, card_type="Capability", name="Root")
+        load_registry(grants=["core.cards.read"])
+        bridge = ExtensionData(KEY)
+        page = await bridge.search_cards(parent_id=str(parent.id))
+        assert ([c.id for c in page.items], page.total) == ([str(child.id)], 1)
+        with pytest.raises(ExtensionDataError, match="Invalid parent_id: 'nope'"):
+            await bridge.search_cards(parent_id="nope")
+
+
 class TestArchive:
     async def test_archive_is_soft_and_gated_on_children(self, db, env):
         load_registry(grants=["core.cards.write"])

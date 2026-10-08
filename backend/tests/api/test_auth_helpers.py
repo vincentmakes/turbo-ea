@@ -199,8 +199,8 @@ RESET_HTML = (
     "</div></div>"
 )
 RESET_TEXT = (
-    # the plain-text greeting reuses the HTML-escaped name (as the code stands)
-    "Hi Ann &lt;b&gt;,\n\n"
+    # plain text is not HTML: the name goes in as written (2.157.3)
+    "Hi Ann <b>,\n\n"
     "We received a request to reset the password for your Turbo & EA account.\n"
     "Open the link below to choose a new password (valid for one hour):\n\n"
     "https://ea.example/reset?t=a&b\n\n"
@@ -250,10 +250,10 @@ def test_the_setup_email_body_without_a_name(name):
     assert body_text == SETUP_TEXT
 
 
-def test_the_setup_email_greets_by_escaped_name():
-    body_html, body_text = auth._build_setup_email_body("<i>Bo</i>", "T", "https://x")
-    assert '<p style="color:#333">Hi &lt;i&gt;Bo&lt;/i&gt;,</p>' in body_html
-    assert body_text.startswith("Hi &lt;i&gt;Bo&lt;/i&gt;,\n\n")
+def test_the_setup_email_greets_by_name_escaped_only_in_html():
+    body_html, body_text = auth._build_setup_email_body("O'Brien <i>Bo</i>", "T", "https://x")
+    assert '<p style="color:#333">Hi O&#x27;Brien &lt;i&gt;Bo&lt;/i&gt;,</p>' in body_html
+    assert body_text.startswith("Hi O'Brien <i>Bo</i>,\n\n")
 
 
 def test_the_reset_email_without_a_name():
