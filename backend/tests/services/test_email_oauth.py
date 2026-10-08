@@ -8,6 +8,7 @@ rules, through a real ``httpx.AsyncClient`` on a ``MockTransport``.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 import urllib.parse
@@ -220,6 +221,17 @@ async def test_a_response_without_a_token_is_an_error(wire, payload):
     assert str(exc.value) == "OAuth token request failed: response did not contain an access_token"
 
 
+async def test_concurrent_requests_for_one_token_fetch_it_once(wire):
+    """The second caller waits on the lock, then finds the first one's token."""
+    state = wire((200, {"access_token": "only"}), (200, {"access_token": "second"}))
+    args = dict(tenant_id="t", client_id="c", client_secret="s", scope="x")
+    tokens = await asyncio.gather(
+        oauth.get_client_credentials_token(**args), oauth.get_client_credentials_token(**args)
+    )
+    assert tokens == ["only", "only"]
+    assert len(state["requests"]) == 1
+
+
 # ── Google service account ──────────────────────────────────────────────────
 
 
@@ -377,3 +389,14 @@ def test_an_expired_entry_is_evicted(monkeypatch):
     assert oauth._cache_get("k") is None
     assert "k" not in oauth._token_cache
     _ = time  # time is patched per test; keep the import explicit
+
+
+async def test_concurrent_service_account_requests_fetch_once(wire):
+    state = wire((200, {"access_token": "only"}), (200, {"access_token": "second"}))
+    sa = service_account()
+    tokens = await asyncio.gather(
+        oauth.get_service_account_token(service_account_json=sa, subject="u", scope="s"),
+        oauth.get_service_account_token(service_account_json=sa, subject="u", scope="s"),
+    )
+    assert tokens == ["only", "only"]
+    assert len(state["requests"]) == 1

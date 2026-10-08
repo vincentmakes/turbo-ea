@@ -159,9 +159,11 @@ def test_the_base_url_falls_back_to_the_request(monkeypatch, configured):
     )
 
 
-def test_the_base_url_without_any_setting(monkeypatch):
-    monkeypatch.delattr(settings, "_app_base_url", raising=False)
-    assert auth._resolve_app_base_url(request("http", host="h.example")) == "http://h.example"
+def test_the_base_url_strips_only_the_trailing_slash(monkeypatch):
+    monkeypatch.setattr(settings, "_app_base_url", "https://ea.exampleX/", raising=False)
+    assert auth._resolve_app_base_url(request()) == "https://ea.exampleX"
+    monkeypatch.setattr(settings, "_app_base_url", "", raising=False)
+    assert auth._resolve_app_base_url(request("http", host="hostX")) == "http://hostX"
 
 
 RESET_HTML = (
