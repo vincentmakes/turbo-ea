@@ -98,6 +98,7 @@
   "flowTab.approveAndPublishButton": "Godkend og udgiv",
   "flowTab.drafts": "Kladder",
   "flowTab.elementUpdated": "Element opdateret",
+  "flowTab.elementUpdatedRefreshFailed": "Element opdateret, men listen kunne ikke opdateres",
   "flowTab.elementUpdateFailed": "Kunne ikke opdatere element",
   "flowTab.messageFlows": "Beskedflows",
   "flowTab.messageFlowsSubtitle": "Beskeder udvekslet mellem pools i dette diagram. Knyt hver til den grænseflade, der bærer den — kun til orientering, der oprettes ingen relation.",

@@ -101,6 +101,7 @@
   "flowTab.approveAndPublishButton": "Approve & Publish",
   "flowTab.drafts": "Drafts",
   "flowTab.elementUpdated": "Element updated",
+  "flowTab.elementUpdatedRefreshFailed": "Element updated, but the list could not be refreshed",
   "flowTab.elementUpdateFailed": "Failed to update element",
   "flowTab.messageFlows": "Message flows",
   "flowTab.messageFlowsSubtitle": "Messages exchanged between the pools of this diagram. Link each one to the Interface that carries it — informative only, no relation is created.",

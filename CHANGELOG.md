@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.157.5] - 2026-10-08
+
+### Fixed
+- PPM: a failed save keeps its dialog open with the reason, saves send one request however fast they are clicked, and a failed load or delete says so.
+- PPM: switching initiatives never shows the previous initiative's budget lines, budget figures read "—" rather than $0 while they load, and the spend charts wait for the budget.
+- PPM: the Description label is translated, and the edit and delete buttons and the Category and Status pickers have names.
+- Process flow and process navigator: failed loads show their error instead of an empty state, and an `?open=` link opens its process once the map has loaded.
+- Public portals: counts no longer pluralise a type name by appending "s" ("Business Capabilitys"), and changing a portal's slug no longer runs the old slug's sign-in.
+- Dashboard: a failed favourites or overview load shows its error, and a failed removal no longer dismisses the Undo of another removed card.
+- Diagram expand menu: switching to another card starts with no ticks and none of the previous card's children, and an empty child list says so instead of spinning.
+- App layout: a nav group stays highlighted on a sub-page of one of its entries, and the extension-license banner disappears when the user loses the permission.
+- Principles catalogue: no "0 of 0" caption before the catalogue loads, and a failed first load no longer reads "No principles match your search".
+- Excel import: an attribute whose key starts with "lifecycle_" or "stakeholder_" is no longer relabelled as a lifecycle or stakeholder column.
+
 ## [2.157.4] - 2026-10-08
 
 ### Security

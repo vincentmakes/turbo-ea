@@ -415,13 +415,10 @@ describe("ProcessNavigator house view", () => {
   });
 
   it("closes the drawer with Escape first, then leaves the zoom", async () => {
-    // NB: `?open=<id>` is not exercised here — the URL-sync effect rewrites the
-    // query on mount (drawer still closed) before the map has loaded, so the
-    // deep-link drawer never opens. Reported as a source bug.
-    const user = userEvent.setup();
-    renderNavigator("/bpm?zoom=o2c");
-    await user.click(await screen.findByText("Billing"));
+    // The drawer comes from the `?open=` deep link, once the map has loaded.
+    renderNavigator("/bpm?zoom=o2c&open=billing");
     expect(await screen.findByRole("tab", { name: /Overview/ })).toBeInTheDocument();
+    expect(screen.getByText("Billing", { selector: "h6" })).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("tab", { name: /Overview/ })).toBeNull());
     expect(screen.getByRole("button", { name: "All Processes" })).toBeInTheDocument();
@@ -673,12 +670,22 @@ describe("ProcessNavigator drawer", () => {
   });
 
   it("Flow: nothing at all offers the editor", async () => {
-    mockApi.fail("get", /\/flow\/published$/);
-    mockApi.fail("get", /\/flow\/drafts$/);
+    // Nothing published, and the drafts refused (a viewer may not see them).
+    script({ published: null });
+    mockApi.fail("get", /\/flow\/drafts$/, 403);
     const { user, d } = await openDrawer("Procure to Pay");
     await user.click(d.getByRole("tab", { name: /Flow/ }));
     await user.click(await d.findByText("Go to Process Flow"));
     expect(mockNavigate).toHaveBeenLastCalledWith("/cards/p2p?tab=1");
+  });
+
+  it("Flow: a failed flow load says so instead of offering the editor", async () => {
+    mockApi.fail("get", /\/flow\/published$/);
+    const { user, d } = await openDrawer("Procure to Pay");
+    await user.click(d.getByRole("tab", { name: /Flow/ }));
+    expect(await d.findByText("GET /bpm/processes/p2p/flow/published failed")).toBeInTheDocument();
+    expect(d.queryByText("No process flow available.")).toBeNull();
+    expect(d.queryByText("Go to Process Flow")).toBeNull();
   });
 
   it("Apps and Data tabs list the rolled-up landscape, or say there is none", async () => {
@@ -766,15 +773,14 @@ describe("ProcessNavigator matrix and dependency views", () => {
     expect(mockNavigate).toHaveBeenLastCalledWith("/cards/o2c");
   });
 
-  it("logs a failed dependencies load and stops loading", async () => {
-    // Only the correct half is pinned: the page currently shows the "no
-    // dependencies" empty state on a failed load, which is a bug (a failure
-    // should say so) — not something to lock in.
+  it("says a dependencies load failed, logs it and stops loading", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     mockApi.fail("get", "/reports/bpm/process-dependencies");
     renderNavigator("/bpm?view=dependencies");
-    await waitFor(() => expect(error).toHaveBeenCalled());
-    await waitFor(() => expect(screen.queryByRole("progressbar")).toBeNull());
+    expect(await screen.findByText("GET /reports/bpm/process-dependencies failed")).toBeInTheDocument();
+    expect(screen.queryByText("No process dependencies defined yet.")).toBeNull();
+    expect(error).toHaveBeenCalled();
+    expect(screen.queryByRole("progressbar")).toBeNull();
     error.mockRestore();
   });
 });
@@ -926,14 +932,13 @@ describe("ProcessNavigatorBody with a restricted capability set", () => {
     expect(await screen.findByText("Quote")).toBeInTheDocument();
   });
 
-  it("logs a failed map load and stops loading", async () => {
-    // Only the correct half is pinned: the page currently shows the empty
-    // house ("No Business Processes found") on a failed load, which is a bug
-    // (a failure should say so) — not something to lock in.
+  it("says a map load failed instead of showing the empty house, logs it and stops loading", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     renderBody({ loadMap: () => Promise.reject(new Error("map down")) }, FULL_CAPABILITIES);
-    await waitFor(() => expect(error).toHaveBeenCalled());
-    await waitFor(() => expect(document.querySelectorAll(".MuiSkeleton-root")).toHaveLength(0));
+    expect(await screen.findByText("map down")).toBeInTheDocument();
+    expect(screen.queryByText(/No Business Processes found/)).toBeNull();
+    expect(error).toHaveBeenCalled();
+    expect(document.querySelectorAll(".MuiSkeleton-root")).toHaveLength(0);
     error.mockRestore();
   });
 });

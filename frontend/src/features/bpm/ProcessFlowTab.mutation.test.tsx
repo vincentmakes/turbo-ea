@@ -346,13 +346,13 @@ describe("ProcessFlowTab first paint", () => {
 // ---------------------------------------------------------------------------
 
 describe("ProcessFlowTab loading", () => {
-  it("treats an unreadable permission set as no draft access and nothing loaded", async () => {
+  it("treats an unreadable permission set as no draft access, and says the load failed", async () => {
     mockApi.fail("get", `${BASE}/flow/permissions`);
     renderTab();
-    // A failed load shows the empty state today instead of an error (a bug); only the
-    // correct half — nothing loaded, nothing left over — is asserted here.
-    await waitFor(() => expect(mockApi.callsOf("get", `${BASE}/flow/permissions`)).toHaveLength(1));
-    await waitFor(() => expect(screen.queryByText("Loading published flow...")).toBeNull());
+    expect(await screen.findByText(`GET ${BASE}/flow/permissions failed`)).toBeInTheDocument();
+    expect(mockApi.callsOf("get", `${BASE}/flow/permissions`)).toHaveLength(1);
+    expect(screen.queryByText("Loading published flow...")).toBeNull();
+    expect(screen.queryByText("No published process flow yet")).toBeNull();
     expect(screen.queryByText(/draft available/)).toBeNull();
     expect(screen.queryByRole("button", { name: /New Draft from Template/ })).toBeNull();
     expect(screen.queryByRole("tab", { name: "Drafts" })).toBeNull();
@@ -423,13 +423,13 @@ describe("ProcessFlowTab loading", () => {
     expect(screen.queryByText("Loading archived flows...")).toBeNull();
   });
 
-  it("lists nothing when the archive cannot be loaded", async () => {
+  it("lists nothing, and says so, when the archive cannot be loaded", async () => {
     mockApi.fail("get", `${BASE}/flow/archived`);
     renderTab({ initialSubTab: 2 });
-    await waitFor(() => expect(mockApi.callsOf("get", `${BASE}/flow/archived`)).toHaveLength(1));
-    await waitFor(() => expect(screen.queryByText("Loading archived flows...")).toBeNull());
-    // A failed load shows the empty state today instead of an error (a bug); only the
-    // correct half — nothing loaded, nothing left over — is asserted here.
+    expect(await screen.findByText(`GET ${BASE}/flow/archived failed`)).toBeInTheDocument();
+    expect(mockApi.callsOf("get", `${BASE}/flow/archived`)).toHaveLength(1);
+    expect(screen.queryByText("Loading archived flows...")).toBeNull();
+    expect(screen.queryByText("No archived process flows.")).toBeNull();
     expect(screen.queryByText(/^Revision/)).toBeNull();
   });
 
@@ -445,9 +445,9 @@ describe("ProcessFlowTab loading", () => {
     await act(async () => {
       perms2.reject(new Error("forbidden"));
     });
-    // A failed load shows the empty state today instead of an error (a bug); only the
-    // correct half — nothing loaded, nothing left over — is asserted here.
-    await waitFor(() => expect(screen.queryByText("Loading published flow...")).toBeNull());
+    expect(await screen.findByText("forbidden")).toBeInTheDocument();
+    expect(screen.queryByText("Loading published flow...")).toBeNull();
+    expect(screen.queryByText("No published process flow yet")).toBeNull();
     expect(screen.queryByText("Create Order")).toBeNull();
     expect(screen.queryByText(/Approved/)).toBeNull();
   });
@@ -471,10 +471,10 @@ describe("ProcessFlowTab loading", () => {
     script({ base: BASE2 });
     mockApi.fail("get", `${BASE2}/flow/archived`);
     rerender(ui({ processId: "proc-2", initialSubTab: 2 }));
-    // A failed load shows the empty state today instead of an error (a bug); only the
-    // correct half — nothing loaded, nothing left over — is asserted here.
-    await waitFor(() => expect(mockApi.callsOf("get", `${BASE2}/flow/archived`)).toHaveLength(1));
-    await waitFor(() => expect(screen.queryByText("Revision 2")).toBeNull());
+    expect(await screen.findByText(`GET ${BASE2}/flow/archived failed`)).toBeInTheDocument();
+    expect(mockApi.callsOf("get", `${BASE2}/flow/archived`)).toHaveLength(1);
+    expect(screen.queryByText("Revision 2")).toBeNull();
+    expect(screen.queryByText("No archived process flows.")).toBeNull();
     expect(screen.queryByText("Loading archived flows...")).toBeNull();
   });
 
@@ -487,10 +487,10 @@ describe("ProcessFlowTab loading", () => {
     mockApi.on("get", `${BASE2}/elements`, []);
     mockApi.fail("get", `${BASE2}/flow/drafts`);
     rerender(ui({ processId: "proc-2", initialSubTab: 1 }));
-    // A failed load shows the empty state today instead of an error (a bug); only the
-    // correct half — nothing loaded, nothing left over — is asserted here.
-    await waitFor(() => expect(mockApi.callsOf("get", `${BASE2}/flow/drafts`).length).toBeGreaterThan(0));
-    await waitFor(() => expect(screen.queryByText("Revision 4")).toBeNull());
+    expect(await screen.findByText(`GET ${BASE2}/flow/drafts failed`)).toBeInTheDocument();
+    expect(mockApi.callsOf("get", `${BASE2}/flow/drafts`).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Revision 4")).toBeNull();
+    expect(screen.queryByText("No draft process flows.")).toBeNull();
   });
 });
 
@@ -967,7 +967,11 @@ describe("ProcessFlowTab published view", () => {
     mockApi.fail("get", `${BASE}/elements`);
     const chip = within(cellOf(rowOf("Create Order"), "Application")).getByText("SAP").closest(".MuiChip-root")!;
     await user.click(chip.querySelector(".MuiChip-deleteIcon")!);
-    expect(await screen.findByText("Element updated")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Element updated, but the list could not be refreshed"),
+    ).toBeInTheDocument();
+    // The table the user was editing stays on screen.
+    expect(screen.getByText("Create Order")).toBeInTheDocument();
     expect(screen.getByText(/^by Admin User on/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /View Full Size/ })).toBeInTheDocument();
   });

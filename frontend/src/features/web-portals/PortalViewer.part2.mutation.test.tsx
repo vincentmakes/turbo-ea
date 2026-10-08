@@ -429,11 +429,11 @@ describe("PortalViewer tile approval status", () => {
   it("colours each status chip by its verdict, and shows none for a draft", async () => {
     serveCards(cards, { approval_status: BOTH });
     await renderLoaded("Approved App");
-    expect(colours(chipOf(tileOf("Approved App").getByText("APPROVED")))).toEqual({
+    expect(colours(chipOf(tileOf("Approved App").getByText("Approved")))).toEqual({
       bg: "rgb(232, 245, 233)",
       fg: "rgb(46, 125, 50)",
     });
-    expect(colours(chipOf(tileOf("Rejected App").getByText("REJECTED")))).toEqual({
+    expect(colours(chipOf(tileOf("Rejected App").getByText("Rejected")))).toEqual({
       bg: "rgb(255, 235, 238)",
       fg: "rgb(198, 40, 40)",
     });
@@ -654,9 +654,9 @@ describe("PortalViewer detail approval status", () => {
   it("leaves the status out of the dialog when the portal shows it on the tile only", async () => {
     serveCards([card()], { approval_status: CARD_ONLY });
     const user = await renderLoaded();
-    expect(tileOf().getByText("APPROVED")).toBeInTheDocument();
+    expect(tileOf().getByText("Approved")).toBeInTheDocument();
     const dialog = await openDetail(user);
-    expect(dialog.queryByText("APPROVED")).toBeNull();
+    expect(dialog.queryByText("Approved")).toBeNull();
   });
 
   it("shows no status chip for a draft", async () => {
@@ -676,14 +676,14 @@ describe("PortalViewer detail approval status", () => {
     const user = await renderLoaded("Approved App");
 
     let dialog = await openDetail(user, "Approved App");
-    expect(colours(chipOf(dialog.getByText("APPROVED")))).toEqual({
+    expect(colours(chipOf(dialog.getByText("Approved")))).toEqual({
       bg: "rgb(232, 245, 233)",
       fg: "rgb(46, 125, 50)",
     });
     await closeDetail(user);
 
     dialog = await openDetail(user, "Rejected App");
-    expect(colours(chipOf(dialog.getByText("REJECTED")))).toEqual({
+    expect(colours(chipOf(dialog.getByText("Rejected")))).toEqual({
       bg: "rgb(255, 235, 238)",
       fg: "rgb(198, 40, 40)",
     });

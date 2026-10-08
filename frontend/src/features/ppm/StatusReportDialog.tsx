@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Alert from "@mui/material/Alert";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -15,6 +16,7 @@ import { DateField } from "@/components/DateField";
 import { api } from "@/api/client";
 import { todayIsoDate } from "@/lib/dates";
 import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
+import { RAG_COLORS } from "@/theme/tokens";
 import type { PpmStatusReport, PpmHealthValue } from "@/types";
 
 interface Props {
@@ -24,10 +26,10 @@ interface Props {
   onSaved: () => void;
 }
 
-const RAG_COLORS: Record<string, string> = {
-  onTrack: "#2e7d32",
-  atRisk: "#ed6c02",
-  offTrack: "#d32f2f",
+const HEALTH_FILL: Record<PpmHealthValue, string> = {
+  onTrack: RAG_COLORS.green,
+  atRisk: RAG_COLORS.amber,
+  offTrack: RAG_COLORS.red,
 };
 
 /** One RAG picker. Module scope: defined inline it was a fresh component type
@@ -64,9 +66,9 @@ function HealthToggle({
               fontSize: { xs: "0.7rem", sm: "0.8125rem" },
               lineHeight: 1.2,
               "&.Mui-selected": {
-                bgcolor: RAG_COLORS[v],
-                color: "#fff",
-                "&:hover": { bgcolor: RAG_COLORS[v] },
+                bgcolor: HEALTH_FILL[v],
+                color: "common.white",
+                "&:hover": { bgcolor: HEALTH_FILL[v] },
               },
             }}
           >
@@ -106,6 +108,7 @@ export default function StatusReportDialog({
   );
   const [nextSteps, setNextSteps] = useState(report?.next_steps || "");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
     setSaving(true);
@@ -125,8 +128,8 @@ export default function StatusReportDialog({
         await api.post(`/ppm/initiatives/${initiativeId}/reports`, payload);
       }
       onSaved();
-    } catch {
-      // ignore
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
     } finally {
       setSaving(false);
     }
@@ -142,6 +145,11 @@ export default function StatusReportDialog({
     >
       <DialogTitle>{isEdit ? t("editReport") : t("addReport")}</DialogTitle>
       <DialogContent>
+        {error && (
+          <Alert severity="error" sx={{ mb: 1 }}>
+            {error}
+          </Alert>
+        )}
         <Box display="flex" flexDirection="column" gap={2.5} mt={1}>
           <DateField
             label={t("reportDate")}

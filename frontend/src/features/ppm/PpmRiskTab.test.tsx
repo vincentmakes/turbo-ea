@@ -12,6 +12,7 @@ import type { PpmRisk } from "@/types";
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
 import { mockApi } from "@/test/apiMock";
+import { RAG_COLORS } from "@/theme/tokens";
 import i18n from "@/i18n";
 import PpmRiskTab from "./PpmRiskTab";
 
@@ -102,9 +103,13 @@ describe("PpmRiskTab — summary and table", () => {
     renderTab();
     const chipOf = (title: string, score: string) =>
       within(rowOf(title)).getByText(score, { selector: ".MuiChip-label" }).closest(".MuiChip-root") as HTMLElement;
-    expect(chipOf("Vendor lock-in", "20")).toHaveStyle({ backgroundColor: "#d32f2f" });
-    expect(chipOf("Budget overrun", "9")).toHaveStyle({ backgroundColor: "#ed6c02" });
-    expect(chipOf("Late delivery", "2")).toHaveStyle({ backgroundColor: "#2e7d32" });
+    expect(chipOf("Vendor lock-in", "20")).toHaveStyle({ backgroundColor: RAG_COLORS.red });
+    expect(chipOf("Budget overrun", "9")).toHaveStyle({ backgroundColor: RAG_COLORS.amber });
+    expect(chipOf("Late delivery", "2")).toHaveStyle({ backgroundColor: RAG_COLORS.green });
+    // White text on every band (palette.common.white).
+    for (const [title, score] of [["Vendor lock-in", "20"], ["Budget overrun", "9"], ["Late delivery", "2"]]) {
+      expect(chipOf(title, score)).toHaveStyle({ color: "rgb(255, 255, 255)" });
+    }
   });
 
   it("truncates a long description and shows dashes for a missing owner or mitigation", () => {
@@ -141,9 +146,7 @@ describe("PpmRiskTab — create, edit, delete", () => {
     await user.click(within(dialog).getByRole("combobox", { name: "Owner" }));
     await user.click(await screen.findByRole("option", { name: "grace@example.com" }));
 
-    // The status Select's label is not linked by `labelId`, so its combobox
-    // has no accessible name; it is the one showing the current status.
-    await user.click(within(dialog).getByText("Open", { selector: '[role="combobox"]' }));
+    await user.click(within(dialog).getByRole("combobox", { name: "Status" }));
     await user.click(await screen.findByRole("option", { name: "Mitigated" }));
 
     expect(save).toBeEnabled();
@@ -167,7 +170,7 @@ describe("PpmRiskTab — create, edit, delete", () => {
     const { user, onRefresh } = renderTab();
     // Let the user list land so the owner autocomplete can show its value.
     await waitFor(() => expect(mockApi.callsOf("get", "/users")).toHaveLength(1));
-    await user.click(within(rowOf("Vendor lock-in")).getByRole("button", { name: "edit" }));
+    await user.click(within(rowOf("Vendor lock-in")).getByRole("button", { name: "Edit" }));
 
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Edit Risk")).toBeInTheDocument();
@@ -197,7 +200,7 @@ describe("PpmRiskTab — create, edit, delete", () => {
 
   it("deletes a risk and refreshes the parent", async () => {
     const { user, onRefresh } = renderTab();
-    await user.click(within(rowOf("Late delivery")).getByRole("button", { name: "delete" }));
+    await user.click(within(rowOf("Late delivery")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(mockApi.callsOf("delete", "/ppm/risks/r3")).toHaveLength(1));
     await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
   });
@@ -245,8 +248,8 @@ describe("PpmRiskTab — labels and bands", () => {
     expect(kpi("High Risks")).toBe("1");
     const chipOf = (title: string, score: string) =>
       within(rowOf(title)).getByText(score, { selector: ".MuiChip-label" }).closest(".MuiChip-root") as HTMLElement;
-    expect(chipOf("Fifteen", "15")).toHaveStyle({ backgroundColor: "#d32f2f" });
-    expect(chipOf("Six", "6")).toHaveStyle({ backgroundColor: "#ed6c02" });
+    expect(chipOf("Fifteen", "15")).toHaveStyle({ backgroundColor: RAG_COLORS.red });
+    expect(chipOf("Six", "6")).toHaveStyle({ backgroundColor: RAG_COLORS.amber });
   });
 
   it("shows a description of exactly 80 characters in full", () => {
@@ -260,7 +263,7 @@ describe("PpmRiskTab — labels and bands", () => {
 describe("PpmRiskTab — dialog form", () => {
   it("edits a risk with no description or mitigation as empty fields, sent back as null", async () => {
     const { user } = renderTab();
-    await user.click(within(rowOf("Late delivery")).getByRole("button", { name: "edit" }));
+    await user.click(within(rowOf("Late delivery")).getByRole("button", { name: "Edit" }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("textbox", { name: "Description" })).toHaveValue("");
     expect(within(dialog).getByRole("textbox", { name: "Mitigation" })).toHaveValue("");
@@ -280,7 +283,7 @@ describe("PpmRiskTab — dialog form", () => {
 
   it("opens a blank form after an edit was cancelled", async () => {
     const { user } = renderTab();
-    await user.click(within(rowOf("Vendor lock-in")).getByRole("button", { name: "edit" }));
+    await user.click(within(rowOf("Vendor lock-in")).getByRole("button", { name: "Edit" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
@@ -292,7 +295,7 @@ describe("PpmRiskTab — dialog form", () => {
     expect(within(dialog).getByText("Probability: 3")).toBeInTheDocument();
     expect(within(dialog).getByText("Impact: 3")).toBeInTheDocument();
     expect(within(dialog).getByText("Risk Score: 9")).toBeInTheDocument();
-    expect(within(dialog).getByText("Open", { selector: '[role="combobox"]' })).toBeInTheDocument();
+    expect(within(dialog).getByRole("combobox", { name: "Status" })).toHaveTextContent("Open");
     expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
@@ -312,7 +315,9 @@ describe("PpmRiskTab — dialog form", () => {
     // The floating label, and the same text sizing the outline's notch.
     expect(within(dialog).getByText("Status", { selector: "label" })).toBeInTheDocument();
     expect(within(dialog).getByText("Status", { selector: "legend span" })).toBeInTheDocument();
-    await user.click(within(dialog).getByText("Open", { selector: '[role="combobox"]' }));
+    const status = within(dialog).getByRole("combobox", { name: "Status" });
+    expect(status).toHaveTextContent("Open");
+    await user.click(status);
     const options = await screen.findAllByRole("option");
     expect(options.map((o) => o.textContent)).toEqual([
       "Open",
@@ -343,6 +348,162 @@ describe("PpmRiskTab — dialog form", () => {
       const dialog = screen.getByRole("dialog");
       expect(within(dialog).getByRole("button", { name: "Abbrechen" })).toBeInTheDocument();
       expect(within(dialog).getByRole("button", { name: "Speichern" })).toBeInTheDocument();
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
+  });
+});
+
+describe("PpmRiskTab — saving once", () => {
+  /** A promise the test settles by hand. */
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    const promise = new Promise<T>((res) => {
+      resolve = res;
+    });
+    return { promise, resolve };
+  }
+
+  it("creates a risk once however often Save is clicked, and locks Save meanwhile", async () => {
+    const write = deferred<object>();
+    mockApi.on("post", createPath, () => write.promise);
+    const { user, onRefresh } = renderTab();
+    await user.click(screen.getByRole("button", { name: /Add Risk/ }));
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByRole("textbox", { name: "Risk Title" }), "Scope creep");
+    const save = within(dialog).getByRole("button", { name: "Save" });
+    // Both clicks land before the dialog re-renders.
+    act(() => {
+      save.click();
+      save.click();
+    });
+    expect(mockApi.callsOf("post", createPath)).toHaveLength(1);
+    expect(save).toBeDisabled();
+
+    write.resolve({});
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockApi.callsOf("post", createPath)).toHaveLength(1);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("unlocks Save after a failed save so the user can retry", async () => {
+    let posts = 0;
+    mockApi.on("post", createPath, () => (++posts === 1 ? Promise.reject(new Error("offline")) : {}));
+    const { user, onRefresh } = renderTab();
+    await user.click(screen.getByRole("button", { name: /Add Risk/ }));
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByRole("textbox", { name: "Risk Title" }), "Scope creep");
+    const save = within(dialog).getByRole("button", { name: "Save" });
+    await user.click(save);
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("offline");
+    await waitFor(() => expect(save).toBeEnabled());
+    await user.click(save);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(posts).toBe(2);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("PpmRiskTab — failed writes", () => {
+  it("keeps the dialog open and says why when creating a risk fails", async () => {
+    mockApi.fail("post", createPath, 500);
+    const { user, onRefresh } = renderTab();
+    await user.click(screen.getByRole("button", { name: /Add Risk/ }));
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByRole("textbox", { name: "Risk Title" }), "Scope creep");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent(`POST ${createPath} failed`);
+    expect(alert).toHaveStyle({ marginBottom: "8px" });
+    expect(screen.getByRole("dialog")).toBe(dialog);
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
+
+  it("keeps the dialog open and says why when saving an edit fails", async () => {
+    mockApi.fail("patch", "/ppm/risks/r3", 422);
+    const { user, onRefresh } = renderTab();
+    await user.click(within(rowOf("Late delivery")).getByRole("button", { name: "Edit" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("PATCH /ppm/risks/r3 failed");
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a generic message when a save fails without one", async () => {
+    mockApi.on("post", createPath, () => Promise.reject("network down"));
+    const { user } = renderTab();
+    await user.click(screen.getByRole("button", { name: /Add Risk/ }));
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByRole("textbox", { name: "Risk Title" }), "Scope creep");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Something went wrong");
+  });
+
+  it("opens the dialog again without the previous attempt's error", async () => {
+    mockApi.fail("patch", "/ppm/risks/r3", 422);
+    const { user } = renderTab();
+    await user.click(within(rowOf("Late delivery")).getByRole("button", { name: "Edit" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
+    await within(screen.getByRole("dialog")).findByRole("alert");
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: /Add Risk/ }));
+    expect(within(screen.getByRole("dialog")).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows a failed delete above the table, until the next delete succeeds", async () => {
+    mockApi.fail("delete", "/ppm/risks/r3", 409);
+    const { user, onRefresh } = renderTab();
+    await user.click(within(rowOf("Late delivery")).getByRole("button", { name: "Delete" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("DELETE /ppm/risks/r3 failed");
+    expect(alert).toHaveStyle({ marginBottom: "16px" });
+    expect(alert.compareDocumentPosition(screen.getByRole("table"))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    await user.click(within(rowOf("Budget overrun")).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("dismisses a failed delete", async () => {
+    mockApi.fail("delete", "/ppm/risks/r3", 409);
+    const { user } = renderTab();
+    await user.click(within(rowOf("Late delivery")).getByRole("button", { name: "Delete" }));
+    const alert = await screen.findByRole("alert");
+    await user.click(within(alert).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+});
+
+describe("PpmRiskTab — accessible names", () => {
+  it("names every row's edit and delete buttons", () => {
+    renderTab();
+    for (const title of ["Vendor lock-in", "Budget overrun", "Late delivery"]) {
+      expect(within(rowOf(title)).getByRole("button", { name: "Edit" })).toBeInTheDocument();
+      expect(within(rowOf(title)).getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    }
+  });
+
+  it("names the description field and the row buttons in the user's language", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+    try {
+      const { user } = renderTab();
+      expect(within(rowOf("Late delivery")).getByRole("button", { name: "Löschen" })).toBeInTheDocument();
+      await user.click(within(rowOf("Late delivery")).getByRole("button", { name: "Bearbeiten" }));
+      expect(
+        within(screen.getByRole("dialog")).getByRole("textbox", { name: "Beschreibung" }),
+      ).toBeInTheDocument();
     } finally {
       await act(async () => {
         await i18n.changeLanguage("en");

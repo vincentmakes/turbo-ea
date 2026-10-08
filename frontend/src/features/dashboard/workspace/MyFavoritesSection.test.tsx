@@ -66,6 +66,9 @@ const removeButton = (name: string) =>
     name: "Remove from favorites",
   });
 
+/** The error alert holding `el` — not the undo snackbar, which is an alert too. */
+const errorAlert = (el: HTMLElement) => el.closest(".MuiAlert-standardError");
+
 beforeEach(() => {
   mockApi.reset();
   hookState.reset();
@@ -111,6 +114,25 @@ describe("MyFavoritesSection", () => {
     expect(
       await screen.findByText("Browse the inventory and click the star to pin cards here."),
     ).toBeInTheDocument();
+  });
+
+  it("shows a failed favourites load as an error, not as the empty state", async () => {
+    mockApi.fail("get", "/favorites", 500);
+    const { user } = renderSection();
+    const alert = errorAlert(await screen.findByText("GET /favorites failed")) as HTMLElement;
+    expect(alert).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Browse the inventory and click the star to pin cards here."),
+    ).not.toBeInTheDocument();
+    expect(mockApi.callsOf("get", /^\/cards\//)).toHaveLength(0);
+
+    // Dismissing the error does not turn the failure into "nothing favourited".
+    await user.click(within(alert).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByText("GET /favorites failed")).not.toBeInTheDocument());
+    expect(
+      screen.queryByText("Browse the inventory and click the star to pin cards here."),
+    ).not.toBeInTheDocument();
   });
 
   it("loads at most eight cards and drops any it can no longer read", async () => {
@@ -163,6 +185,30 @@ describe("MyFavoritesSection", () => {
     await waitFor(() =>
       expect(screen.queryByText("Removed «SAP HANA» from favorites")).not.toBeInTheDocument(),
     );
+    expect(errorAlert(await screen.findByText("DELETE /favorites/c2 failed"))).toBeInTheDocument();
+  });
+
+  it("keeps the undo of a later removal when an earlier one fails", async () => {
+    const removal = deferred<null>();
+    mockApi.on("delete", "/favorites/c1", () => removal.promise);
+    const { user } = renderSection();
+    await screen.findByText("NexaCore ERP");
+    await user.click(removeButton("NexaCore ERP"));
+    await waitFor(() => expect(mockApi.callsOf("delete", "/favorites/c1")).toHaveLength(1));
+    await user.click(removeButton("SAP HANA"));
+    expect(await screen.findByText("Removed «SAP HANA» from favorites")).toBeInTheDocument();
+
+    // The first removal now fails: its card comes back with an error, and
+    // the second card's undo stays on offer.
+    await settle(mockApi.api.delete.mock.results[0].value as Promise<unknown>, () =>
+      removal.reject(new Error("offline")),
+    );
+    expect(await screen.findByText("NexaCore ERP")).toBeInTheDocument();
+    expect(errorAlert(screen.getByText("offline"))).toBeInTheDocument();
+    expect(screen.getByText("Removed «SAP HANA» from favorites")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(mockApi.callsOf("post", "/favorites/c2")).toHaveLength(1));
+    expect(await screen.findByText("SAP HANA")).toBeInTheDocument();
   });
 
   it("puts back the only favourite when its removal fails", async () => {

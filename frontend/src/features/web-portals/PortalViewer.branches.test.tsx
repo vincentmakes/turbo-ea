@@ -416,7 +416,8 @@ describe("PortalViewer board views", () => {
     });
     const { container } = renderPortal();
     expect(await screen.findByText("No results found")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Search items...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search Items...")).toBeInTheDocument();
+    expect(screen.getByText("Items: 0")).toBeInTheDocument();
     expect(container.querySelector("img[src='/api/v1/settings/logo']")).toBeNull();
   });
 });
@@ -433,7 +434,7 @@ describe("PortalViewer header and toolbar", () => {
       "target",
       "_blank",
     );
-    expect(screen.getByText("1 Application")).toBeInTheDocument();
+    expect(screen.getByText("Application: 1")).toBeInTheDocument();
     expect(document.querySelector("img[src='/api/v1/settings/logo']")).not.toBeNull();
   });
 
@@ -535,6 +536,7 @@ describe("PortalViewer header and toolbar", () => {
     await user.click(sortSelect());
     await user.click(await screen.findByRole("option", { name: "Name Z-A" }));
     await waitFor(() => expect(lastCardParams().get("sort_dir")).toBe("desc"));
+    expect(await screen.findByText("down")).toBeInTheDocument();
     expect(screen.getByText("SAP S/4HANA")).toBeInTheDocument();
   });
 });
@@ -567,7 +569,7 @@ describe("PortalViewer card tile", () => {
     expect(inTile.queryByText("Notes")).toBeNull();
     expect(inTile.queryByText("Hidden Field")).toBeNull();
     // Approval status chip is on (toggle), tags cap at four, +1 overflow.
-    expect(inTile.getByText("APPROVED")).toBeInTheDocument();
+    expect(inTile.getByText("Approved")).toBeInTheDocument();
     expect(inTile.getByText("SAP")).toBeInTheDocument();
     expect(inTile.queryByText("Legacy")).toBeNull();
     // +1 tag and +1 related card (five distinct related cards, four shown).
@@ -610,7 +612,7 @@ describe("PortalViewer card tile", () => {
     const name = await screen.findByText("SAP S/4HANA");
     const tile = within(name.closest(".MuiCard-root") as HTMLElement);
     expect(tile.getByText("+2")).toBeInTheDocument();
-    expect(tile.getByText("REJECTED")).toBeInTheDocument();
+    expect(tile.getByText("Rejected")).toBeInTheDocument();
     expect(tile.getByText("unknown-sub")).toBeInTheDocument();
     expect(tile.getByText("apps")).toBeInTheDocument(); // type icon instead of a logo
   });
@@ -645,7 +647,7 @@ describe("PortalViewer card tile", () => {
     expect(tile.getByText("High")).toBeInTheDocument();
     expect(tile.queryByRole("link", { name: "https://sap.example.com" })).toBeNull();
     // Approval status is off on the tile by default.
-    expect(tile.queryByText("APPROVED")).toBeNull();
+    expect(tile.queryByText("Approved")).toBeNull();
     // No relation filters without rel: toggles.
     expect(publicGet.mock.calls.some((c) => String(c[0]).includes("relation-options"))).toBe(false);
   });
@@ -676,7 +678,7 @@ describe("PortalViewer detail dialog", () => {
     expect(dialog.getByText("Application")).toBeInTheDocument();
     expect(dialog.getByText("Business Application")).toBeInTheDocument();
     expect(dialog.getByText("91% data quality")).toBeInTheDocument();
-    expect(dialog.getByText("APPROVED")).toBeInTheDocument();
+    expect(dialog.getByText("Approved")).toBeInTheDocument();
     expect(dialog.getByText("The ERP.")).toBeInTheDocument();
 
     // Attributes: the detail-only multiline field joins, the hidden one never.
@@ -765,7 +767,7 @@ describe("PortalViewer detail dialog", () => {
     await user.click(screen.getByText("SAP S/4HANA"));
     const dialog = within(await screen.findByRole("dialog"));
     expect(dialog.queryByText("Related Items")).toBeNull();
-    expect(dialog.getByText("REJECTED")).toBeInTheDocument();
+    expect(dialog.getByText("Rejected")).toBeInTheDocument();
   });
 
   it("renders the dialog full-screen with a compact pager on a phone", async () => {

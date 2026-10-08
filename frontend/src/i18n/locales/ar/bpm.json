@@ -101,6 +101,7 @@
   "flowTab.approveAndPublishButton": "اعتماد ونشر",
   "flowTab.drafts": "المسودّات",
   "flowTab.elementUpdated": "تم تحديث العنصر",
+  "flowTab.elementUpdatedRefreshFailed": "تم تحديث العنصر، لكن تعذّر تحديث القائمة",
   "flowTab.elementUpdateFailed": "تعذّر تحديث العنصر",
   "flowTab.messageFlows": "تدفقات الرسائل",
   "flowTab.messageFlowsSubtitle": "الرسائل المتبادلة بين أحواض هذا المخطط. اربط كل رسالة بالواجهة التي تنقلها — للعلم فقط، ولا يتم إنشاء أي علاقة.",

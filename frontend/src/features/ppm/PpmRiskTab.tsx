@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
@@ -27,6 +28,7 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
+import { RAG_COLORS } from "@/theme/tokens";
 import type { PpmRisk } from "@/types";
 
 interface UserOption {
@@ -36,9 +38,9 @@ interface UserOption {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 15) return "#d32f2f";
-  if (score >= 6) return "#ed6c02";
-  return "#2e7d32";
+  if (score >= 15) return RAG_COLORS.red;
+  if (score >= 6) return RAG_COLORS.amber;
+  return RAG_COLORS.green;
 }
 
 const STATUS_COLORS: Record<string, "default" | "error" | "warning" | "success" | "info"> = {
@@ -62,6 +64,13 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
     open: false,
   });
   const [users, setUsers] = useState<UserOption[]>([]);
+  // A failed save, shown in the dialog; a failed delete, shown above the table.
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  // The save is in flight: Save is disabled, and a second click that lands
+  // before that re-render is ignored.
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -75,6 +84,9 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
   useEffect(() => {
     api.get<UserOption[]>("/users").then(setUsers).catch(() => {});
   }, []);
+
+  const errorText = (err: unknown) =>
+    err instanceof Error ? err.message : t("common:errors.generic");
 
   const openRisks = risks.filter((r) => r.status === "open").length;
   const highRisks = risks.filter((r) => r.risk_score >= 15).length;
@@ -101,26 +113,44 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
         status: "open",
       });
     }
+    setSaveError(null);
     setDialog({ open: true, item });
   };
 
   const handleSave = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
     const payload = {
       ...form,
       description: form.description || null,
       mitigation: form.mitigation || null,
     };
-    if (dialog.item) {
-      await api.patch(`/ppm/risks/${dialog.item.id}`, payload);
-    } else {
-      await api.post(`/ppm/initiatives/${initiativeId}/risks`, payload);
+    try {
+      if (dialog.item) {
+        await api.patch(`/ppm/risks/${dialog.item.id}`, payload);
+      } else {
+        await api.post(`/ppm/initiatives/${initiativeId}/risks`, payload);
+      }
+    } catch (err) {
+      setSaveError(errorText(err));
+      return;
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
     setDialog({ open: false });
     onRefresh();
   };
 
   const handleDelete = async (id: string) => {
-    await api.delete(`/ppm/risks/${id}`);
+    setDeleteError(null);
+    try {
+      await api.delete(`/ppm/risks/${id}`);
+    } catch (err) {
+      setDeleteError(errorText(err));
+      return;
+    }
     onRefresh();
   };
 
@@ -178,6 +208,12 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
         </Button>
       </Box>
 
+      {deleteError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDeleteError(null)}>
+          {deleteError}
+        </Alert>
+      )}
+
       {/* Table */}
       <TableContainer
         component={Paper}
@@ -228,7 +264,7 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
                     size="small"
                     sx={{
                       bgcolor: scoreColor(risk.risk_score),
-                      color: "#fff",
+                      color: "common.white",
                       fontWeight: 700,
                       minWidth: 32,
                     }}
@@ -254,11 +290,16 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
                 </TableCell>
                 <TableCell>
                   <Box display="flex" gap={0.5}>
-                    <IconButton size="small" onClick={() => handleOpen(risk)}>
+                    <IconButton
+                      size="small"
+                      aria-label={t("common:actions.edit")}
+                      onClick={() => handleOpen(risk)}
+                    >
                       <MaterialSymbol icon="edit" size={16} />
                     </IconButton>
                     <IconButton
                       size="small"
+                      aria-label={t("common:actions.delete")}
                       onClick={() => handleDelete(risk.id)}
                     >
                       <MaterialSymbol icon="delete" size={16} />
@@ -293,6 +334,11 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
             {dialog.item ? t("editRisk") : t("addRisk")}
           </DialogTitle>
           <DialogContent>
+            {saveError && (
+              <Alert severity="error" sx={{ mb: 1 }}>
+                {saveError}
+              </Alert>
+            )}
             <Box display="flex" flexDirection="column" gap={2} mt={1}>
               <TextField
                 label={t("riskTitle")}
@@ -302,7 +348,7 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
                 size="small"
               />
               <TextField
-                label={t("common:description", "Description")}
+                label={t("common:labels.description")}
                 value={form.description}
                 onChange={(e) =>
                   setForm({ ...form, description: e.target.value })
@@ -373,8 +419,9 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
                 size="small"
               />
               <FormControl size="small">
-                <InputLabel>{t("riskStatus")}</InputLabel>
+                <InputLabel id="ppm-risk-status-label">{t("riskStatus")}</InputLabel>
                 <Select
+                  labelId="ppm-risk-status-label"
                   value={form.status}
                   label={t("riskStatus")}
                   onChange={(e) =>
@@ -399,7 +446,7 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
             <Button
               variant="contained"
               onClick={handleSave}
-              disabled={!form.title}
+              disabled={!form.title || saving}
             >
               {t("common:actions.save", "Save")}
             </Button>

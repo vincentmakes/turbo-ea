@@ -98,6 +98,7 @@
   "flowTab.approveAndPublishButton": "批准并发布",
   "flowTab.drafts": "草稿",
   "flowTab.elementUpdated": "元素已更新",
+  "flowTab.elementUpdatedRefreshFailed": "元素已更新，但无法刷新列表",
   "flowTab.elementUpdateFailed": "更新元素失败",
   "flowTab.messageFlows": "消息流",
   "flowTab.messageFlowsSubtitle": "此图中各泳池之间交换的消息。将每条消息关联到承载它的接口——仅供参考，不会创建关系。",

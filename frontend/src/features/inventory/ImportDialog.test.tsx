@@ -18,7 +18,16 @@ vi.mock("@/hooks/useCalculatedFields", () =>
 import { mockApi } from "@/test/apiMock";
 import { hookState } from "@/test/hooks";
 import { renderWithProviders, userWith, wrapWithProviders } from "@/test/render";
-import { CARDS, CARD_IDS, CARD_TYPES, RELATION_TYPES, TAG_GROUPS, USERS } from "@/test/fixtures/metamodel";
+import {
+  CARDS,
+  CARD_IDS,
+  CARD_TYPES,
+  RELATION_TYPES,
+  TAG_GROUPS,
+  USERS,
+  makeField,
+  makeSection,
+} from "@/test/fixtures/metamodel";
 import type { User } from "@/types";
 import ImportDialog from "./ImportDialog";
 
@@ -687,6 +696,37 @@ describe("ImportDialog — report states", () => {
     expect(cells).toEqual([
       ["ERP Core", "name", "ERP Core", "ERP Next"],
       ["regions", "(empty)", "emea"],
+    ]);
+  });
+
+  it("labels an attribute whose key looks like a lifecycle or stakeholder column by its key alone", async () => {
+    const types = CARD_TYPES.map((tp) =>
+      tp.key === "Application"
+        ? {
+            ...tp,
+            fields_schema: [
+              ...tp.fields_schema,
+              makeSection({
+                section: "Extra",
+                fields: [
+                  makeField({ key: "lifecycle_stage", label: "Stage", type: "text" }),
+                  makeField({ key: "stakeholder_notes", label: "Notes", type: "text" }),
+                ],
+              }),
+            ],
+          }
+        : tp,
+    );
+    const { user } = renderDialog({ allTypes: types });
+    await uploadAndReport(
+      workbook({ Application: [erp({ attr_lifecycle_stage: "pilot", attr_stakeholder_notes: "ok" })] }),
+    );
+    await user.click(screen.getByText("Changes to review (1)"));
+    const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
+    const cells = rows.map((r) => within(r).getAllByRole("cell").map((c) => c.textContent));
+    expect(cells).toEqual([
+      ["ERP Core", "lifecycle_stage", "(empty)", "pilot"],
+      ["stakeholder_notes", "(empty)", "ok"],
     ]);
   });
 

@@ -53,6 +53,7 @@ import DialogContent from "@mui/material/DialogContent";
 import AppBar from "@mui/material/AppBar";
 import Toolbar from "@mui/material/Toolbar";
 import Button from "@mui/material/Button";
+import Alert from "@mui/material/Alert";
 import DOMPurify from "dompurify";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColumnCountPicker from "@/components/ColumnCountPicker";
@@ -136,7 +137,6 @@ interface ProcNode extends ProcItem {
   children: ProcNode[];
   level: number;
   deepAppCount: number;
-  deepCost: number;
   deepUniqueApps: Map<string, AppData>;
   deepDataObjects: Map<string, DataObjRef>;
 }
@@ -195,7 +195,6 @@ function buildTree(items: ProcItem[]): ProcNode[] {
       children: [],
       level: 0,
       deepAppCount: 0,
-      deepCost: 0,
       deepUniqueApps: new Map(),
       deepDataObjects: new Map(),
     });
@@ -239,11 +238,6 @@ function buildTree(items: ProcItem[]): ProcNode[] {
     n.deepUniqueApps = appMap;
     n.deepDataObjects = doMap;
     n.deepAppCount = appMap.size;
-    n.deepCost = 0;
-    for (const app of appMap.values()) {
-      const attrs = app.attributes || {};
-      n.deepCost += (attrs.costTotalAnnual as number) || (attrs.totalAnnualCost as number) || 0;
-    }
   }
   for (const r of roots) propagate(r);
 
@@ -854,8 +848,8 @@ function DrawerOverview({
 
   return (
     <Box>
-      {/* Attribute chips */}
-      {attrChips.length > 0 && (
+      {/* Subtype + attribute chips */}
+      {(attrChips.length > 0 || drawerSubtypeLabel) && (
         <Box sx={{ display: "flex", gap: 0.5, mb: 2, flexWrap: "wrap" }}>
           {drawerSubtypeLabel && (
             <Chip size="small" label={drawerSubtypeLabel} variant="outlined" />
@@ -1341,6 +1335,7 @@ function DrawerFlow({
   const [loading, setLoading] = useState(true);
   const [hasPublished, setHasPublished] = useState(false);
   const [hasDrafts, setHasDrafts] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -1348,6 +1343,7 @@ function DrawerFlow({
     setHasPublished(false);
     setHasDrafts(false);
     setSvgThumbnail(null);
+    setError("");
 
     // One call for the published flow, its thumbnail and its steps — the tab
     // used to make two, and the fullscreen preview a third for the same data.
@@ -1361,14 +1357,16 @@ function DrawerFlow({
         }
         if (flow.hasDrafts) setHasDrafts(true);
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : t("common:errors.generic"));
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [processId, source]);
+  }, [processId, source, t]);
 
   // Navigate to card detail Process Flow tab (read-only published view)
   const openFlowTab = () => onNavigate(`/cards/${processId}?tab=1`);
@@ -1381,6 +1379,8 @@ function DrawerFlow({
         <CircularProgress size={32} />
       </Box>
     );
+
+  if (error) return <Alert severity="error">{error}</Alert>;
 
   if (!hasPublished && !hasDrafts)
     return (
@@ -1492,12 +1492,14 @@ function FlowPreviewDialog({
   const [loading, setLoading] = useState(true);
   const [bpmnXml, setBpmnXml] = useState<string | null>(null);
   const [elements, setElements] = useState<NavigatorStep[]>([]);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setBpmnXml(null);
     setElements([]);
+    setError("");
     source
       .loadFlow(node.id)
       .then((flow) => {
@@ -1505,14 +1507,16 @@ function FlowPreviewDialog({
         setBpmnXml(flow.bpmnXml);
         setElements(flow.steps);
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : t("common:errors.generic"));
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [node.id, source]);
+  }, [node.id, source, t]);
 
   const openFlowEditor = () => onNavigate(`/cards/${node.id}?tab=1`);
 
@@ -1542,6 +1546,8 @@ function FlowPreviewDialog({
           <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", py: 6 }}>
             <CircularProgress size={40} />
           </Box>
+        ) : error ? (
+          <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>
         ) : !bpmnXml ? (
           <Box sx={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", py: 6 }}>
             <MaterialSymbol icon="schema" size={48} color="#ccc" />
@@ -1873,16 +1879,21 @@ function MatrixView({
     cells: { process_id: string; application_id: string; source: string; element_name?: string }[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api
       .get<typeof data>("/reports/bpm/process-application-matrix")
       .then(setData)
-      .catch(console.error)
+      .catch((err) => {
+        console.error(err);
+        setError(err instanceof Error ? err.message : t("common:errors.generic"));
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   if (loading) return <LinearProgress />;
+  if (error) return <Alert severity="error">{error}</Alert>;
   if (!data || !data.rows.length)
     return (
       <Box sx={{ py: 4, textAlign: "center" }}>
@@ -1970,16 +1981,21 @@ function DependenciesView({ onNavigate }: { onNavigate: (id: string) => void }) 
     edges: { id: string; source: string; target: string }[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api
       .get<typeof data>("/reports/bpm/process-dependencies")
       .then(setData)
-      .catch(console.error)
+      .catch((err) => {
+        console.error(err);
+        setError(err instanceof Error ? err.message : t("common:errors.generic"));
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   if (loading) return <LinearProgress />;
+  if (error) return <Alert severity="error">{error}</Alert>;
   if (!data || !data.nodes.length)
     return (
       <Box sx={{ py: 4, textAlign: "center" }}>
@@ -2165,6 +2181,7 @@ export function ProcessNavigatorBody() {
   const [data, setData] = useState<ProcItem[] | null>(null);
   const [organizations, setOrganizations] = useState<RefItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [reordering, setReordering] = useState(false);
   const [rowOrder, setRowOrder] = useState<string[]>(["management", "core", "support"]);
 
@@ -2213,6 +2230,9 @@ export function ProcessNavigatorBody() {
   const [columns, setColumns] = useState<ColumnCount>(colsParam);
   const [zoomNodeId, setZoomNodeId] = useState<string | null>(zoomParam);
   const [drawerNode, setDrawerNode] = useState<ProcNode | null>(null);
+  // The `?open=` the page was opened with, held until the map has loaded so the
+  // URL sync below cannot erase it first.
+  const [pendingOpen, setPendingOpen] = useState<string | null>(drawerParam);
   const [flowNode, setFlowNode] = useState<ProcNode | null>(null);
   const [orgFilter, setOrgFilter] = useState<RefItem[]>([]);
 
@@ -2224,10 +2244,14 @@ export function ProcessNavigatorBody() {
         setData(r.items as ProcItem[]);
         setOrganizations(r.organizations ?? []);
         if (r.rowOrder?.length) setRowOrder(r.rowOrder);
+        setLoadError("");
       })
-      .catch(console.error)
+      .catch((err) => {
+        console.error(err);
+        setLoadError(err instanceof Error ? err.message : t("common:errors.generic"));
+      })
       .finally(() => setLoading(false));
-  }, [source]);
+  }, [source, t]);
 
   useEffect(() => {
     loadData();
@@ -2268,15 +2292,18 @@ export function ProcessNavigatorBody() {
     };
   }, [filteredTree, zoomNodeId]);
 
-  // ── Open drawer from URL param (initial mount only) ──
-  const initialDrawerApplied = useRef(false);
+  // ── Open drawer from URL param, once the map is in ──
   useEffect(() => {
-    if (!initialDrawerApplied.current && drawerParam && fullTree.length > 0) {
-      const node = findNode(fullTree, drawerParam);
-      if (node) setDrawerNode(node);
-      initialDrawerApplied.current = true;
-    }
-  }, [drawerParam, fullTree]);
+    if (!pendingOpen || !data) return;
+    const node = findNode(filteredTree, pendingOpen);
+    if (node) setDrawerNode(node);
+    setPendingOpen(null);
+  }, [pendingOpen, data, filteredTree]);
+
+  // ── Keep the open drawer on the current map (it reloads after a reorder) ──
+  useEffect(() => {
+    setDrawerNode((cur) => (cur ? (findNode(filteredTree, cur.id) ?? cur) : cur));
+  }, [filteredTree]);
 
   // ── Sync state → URL ──
   useEffect(() => {
@@ -2287,9 +2314,10 @@ export function ProcessNavigatorBody() {
     if (overlay !== "processType") params.overlay = overlay;
     if (columns !== DEFAULT_COLUMNS) params.cols = String(columns);
     if (zoomNodeId) params.zoom = zoomNodeId;
-    if (drawerNode) params.open = drawerNode.id;
+    const openId = drawerNode?.id ?? pendingOpen;
+    if (openId) params.open = openId;
     setSearchParams(params, { replace: true });
-  }, [viewMode, search, displayLevel, overlay, columns, zoomNodeId, drawerNode, setSearchParams]);
+  }, [viewMode, search, displayLevel, overlay, columns, zoomNodeId, drawerNode, pendingOpen, setSearchParams]);
 
   // ── Auto-persist to localStorage ──
   useEffect(() => {
@@ -2314,6 +2342,7 @@ export function ProcessNavigatorBody() {
     setColumns(DEFAULT_COLUMNS);
     setZoomNodeId(null);
     setDrawerNode(null);
+    setPendingOpen(null);
     setOrgFilter([]);
   }, [STORAGE_KEY]);
 
@@ -2372,7 +2401,7 @@ export function ProcessNavigatorBody() {
   const houseRows = useMemo(() => {
     const rows: Record<string, ProcNode[]> = {};
     for (const opt of ptOptions) rows[opt.key] = [];
-    if (!rows[ptDefaultKey]) rows[ptDefaultKey] = [];
+    // A hidden default type gets a row only when processes land in it (below).
     for (const node of displayTree) {
       const pType = (node.attributes?.processType as string) || ptDefaultKey;
       // Unknown / hidden keys get their own synthetic row instead of being
@@ -2692,7 +2721,9 @@ export function ProcessNavigatorBody() {
       {/* ── Main Content ── */}
       {viewMode === "house" && (
         <>
-          {displayTree.length === 0 ? (
+          {loadError ? (
+            <Alert severity="error">{loadError}</Alert>
+          ) : displayTree.length === 0 ? (
             <Box sx={{ py: 8, textAlign: "center" }}>
               <MaterialSymbol icon="account_tree" size={56} color="#ccc" />
               <Typography color="text.secondary" sx={{ mt: 1, fontSize: "1.05rem" }}>
@@ -2925,13 +2956,12 @@ export default function ProcessNavigator() {
       // Steps tab, the flow thumbnail and the fullscreen preview all want the
       // published flow and its elements.
       loadFlow: async (processId): Promise<ProcessFlowPayload> => {
+        // A failed flow or elements read is an error the tabs show; only the
+        // drafts read may fail quietly — it is refused to a viewer who may not
+        // see drafts, and it only decides the "drafts available" hint.
         const [pub, els, drafts] = await Promise.all([
-          api
-            .get<ProcessFlowVersion | null>(`/bpm/processes/${processId}/flow/published`)
-            .catch(() => null),
-          api
-            .get<ProcessElement[]>(`/bpm/processes/${processId}/elements`)
-            .catch(() => [] as ProcessElement[]),
+          api.get<ProcessFlowVersion | null>(`/bpm/processes/${processId}/flow/published`),
+          api.get<ProcessElement[]>(`/bpm/processes/${processId}/elements`),
           api
             .get<{ id: string }[]>(`/bpm/processes/${processId}/flow/drafts`)
             .catch(() => [] as { id: string }[]),

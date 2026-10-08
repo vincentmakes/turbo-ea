@@ -98,6 +98,7 @@
   "flowTab.approveAndPublishButton": "Approva e pubblica",
   "flowTab.drafts": "Bozze",
   "flowTab.elementUpdated": "Elemento aggiornato",
+  "flowTab.elementUpdatedRefreshFailed": "Elemento aggiornato, ma non è stato possibile aggiornare l'elenco",
   "flowTab.elementUpdateFailed": "Impossibile aggiornare l'elemento",
   "flowTab.messageFlows": "Flussi di messaggi",
   "flowTab.messageFlowsSubtitle": "Messaggi scambiati tra i pool di questo diagramma. Collega ciascuno all’interfaccia che lo trasporta: solo informativo, non viene creata alcuna relazione.",

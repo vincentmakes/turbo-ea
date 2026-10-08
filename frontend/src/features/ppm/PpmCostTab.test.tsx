@@ -82,14 +82,10 @@ const kpi = (caption: string) =>
 /** The table row holding `text`. */
 const rowOf = (text: string) => screen.getByText(text).closest("tr") as HTMLElement;
 
-/**
- * Pick an option in the dialog's Category select. Its `InputLabel` is not
- * linked by `labelId`, so the combobox is named by its value; it is the
- * dialog's only one.
- */
+/** Pick an option in the dialog's Category select. */
 async function pickCategory(user: ReturnType<typeof userEvent.setup>, label: "CapEx" | "OpEx") {
   const dialog = screen.getByRole("dialog");
-  await user.click(within(dialog).getByRole("combobox"));
+  await user.click(within(dialog).getByRole("combobox", { name: "Category" }));
   await user.click(await screen.findByRole("option", { name: label }));
 }
 
@@ -161,11 +157,8 @@ describe("PpmCostTab — summary and tables", () => {
 
   it("hands both line sets to the charts", async () => {
     renderTab();
-    // The cost lines arrive as props and render at once; the budget lines come
-    // from their own GET. Wait for the second render, not the first.
-    await waitFor(() =>
-      expect(screen.getByTestId("cost-charts")).toHaveTextContent("2 costs / 2 budgets"),
-    );
+    // The charts wait for the budget lines: their first render already has both.
+    expect(await screen.findByTestId("cost-charts")).toHaveTextContent("2 costs / 2 budgets");
   });
 
   it("shows both empty states", async () => {
@@ -208,7 +201,7 @@ describe("PpmCostTab — budget lines", () => {
   it("edits a budget line with its own values pre-filled", async () => {
     const { user } = renderTab();
     await screen.findByText("FY 2025");
-    await user.click(within(rowOf("FY 2025")).getByRole("button", { name: "edit" }));
+    await user.click(within(rowOf("FY 2025")).getByRole("button", { name: "Edit" }));
 
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Edit Budget Line")).toBeInTheDocument();
@@ -230,7 +223,7 @@ describe("PpmCostTab — budget lines", () => {
   it("deletes a budget line and reloads the list", async () => {
     const { user } = renderTab();
     await screen.findByText("FY 2026");
-    await user.click(within(rowOf("FY 2026")).getByRole("button", { name: "delete" }));
+    await user.click(within(rowOf("FY 2026")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(mockApi.callsOf("delete", "/ppm/budgets/b2")).toHaveLength(1));
     await waitFor(() => expect(mockApi.callsOf("get", budgetPath)).toHaveLength(2));
   });
@@ -274,7 +267,7 @@ describe("PpmCostTab — cost items", () => {
   it("edits a cost item, sending a cleared date as null", async () => {
     const { user, onRefresh } = renderTab();
     await screen.findByText("FY 2025");
-    await user.click(within(rowOf("Servers")).getByRole("button", { name: "edit" }));
+    await user.click(within(rowOf("Servers")).getByRole("button", { name: "Edit" }));
 
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Edit Cost Item")).toBeInTheDocument();
@@ -298,7 +291,7 @@ describe("PpmCostTab — cost items", () => {
   it("commits a date picked in the dialog", async () => {
     const { user } = renderTab();
     await screen.findByText("FY 2025");
-    await user.click(within(rowOf("Servers")).getByRole("button", { name: "edit" }));
+    await user.click(within(rowOf("Servers")).getByRole("button", { name: "Edit" }));
     const date = within(screen.getByRole("dialog")).getByLabelText("Date");
     fireEvent.focus(date);
     fireEvent.change(date, { target: { value: "2026-06-30" } });
@@ -311,7 +304,7 @@ describe("PpmCostTab — cost items", () => {
   it("deletes a cost item and refreshes the parent", async () => {
     const { user, onRefresh } = renderTab();
     await screen.findByText("FY 2025");
-    await user.click(within(rowOf("Servers")).getByRole("button", { name: "delete" }));
+    await user.click(within(rowOf("Servers")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(mockApi.callsOf("delete", "/ppm/costs/c2")).toHaveLength(1));
     await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
   });
@@ -353,12 +346,46 @@ describe("PpmCostTab — labels and empty states", () => {
     expect(screen.queryByText("No cost items yet")).not.toBeInTheDocument();
   });
 
-  it("starts with no budget lines while they are still loading", () => {
+  it("shows the budget lines loading, not an empty budget or a $0 total", () => {
     // The GET never settles: what shows is the state before any data lands.
     mockApi.on("get", budgetPath, () => new Promise(() => {}));
-    renderTab([]);
-    expect(screen.getByText("No budget lines yet")).toBeInTheDocument();
-    expect(kpi("Total Budget")).toBe("$0");
+    renderTab();
+    expect(screen.queryByText("No budget lines yet")).not.toBeInTheDocument();
+    const budgetTable = screen.getByRole("columnheader", { name: "Fiscal Year" }).closest("table") as HTMLElement;
+    expect(within(budgetTable).getByRole("progressbar")).toBeInTheDocument();
+    // Every figure that needs the budget waits for it; the actuals are known.
+    expect(kpi("Total Budget")).toBe("—");
+    expect(kpi("Variance")).toBe("—");
+    expect(kpi("Total Actual")).toBe("$550");
+    expect(kpi("CapEx")).toBe("$250 / —");
+    expect(kpi("OpEx")).toBe("$300 / —");
+    // An unknown variance is neither an overspend nor within budget.
+    const variance = screen.getByText("Variance", { selector: ".MuiTypography-caption" })
+      .nextElementSibling as HTMLElement;
+    expect(getComputedStyle(variance).color).not.toBe("rgb(211, 47, 47)"); // palette.error.main
+    expect(getComputedStyle(variance).color).not.toBe("rgb(46, 125, 50)"); // palette.success.main
+  });
+
+  it("drops the loading row once the budget lines have arrived", async () => {
+    renderTab();
+    await screen.findByText("FY 2025");
+    const budgetTable = screen.getByRole("columnheader", { name: "Fiscal Year" }).closest("table") as HTMLElement;
+    expect(within(budgetTable).queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("keeps the lines and totals on screen while it reloads them after a save", async () => {
+    const reload = deferred<PpmBudgetLine[]>();
+    let gets = 0;
+    mockApi.on("get", budgetPath, () => (++gets === 1 ? BUDGETS : reload.promise));
+    const { user } = renderTab();
+    await screen.findByText("FY 2025");
+    await user.click(screen.getByRole("button", { name: /Add Budget Line/ }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(gets).toBe(2));
+    expect(screen.getByText("FY 2025")).toBeInTheDocument();
+    expect(kpi("Total Budget")).toBe("$1400");
+    const budgetTable = screen.getByRole("columnheader", { name: "Fiscal Year" }).closest("table") as HTMLElement;
+    expect(within(budgetTable).queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
   it("labels each cost item's category chip", async () => {
@@ -380,10 +407,45 @@ describe("PpmCostTab — following its props", () => {
     const { rerender } = render(<PpmCostTab initiativeId="i1" costLines={[]} onRefresh={vi.fn()} />);
     await screen.findByText("FY 2025");
     rerender(<PpmCostTab initiativeId="i2" costLines={[]} onRefresh={vi.fn()} />);
+    // The first initiative's lines go the moment it is left, not once the next arrive.
+    expect(screen.queryByText("FY 2025")).not.toBeInTheDocument();
     expect(await screen.findByText("FY 2030")).toBeInTheDocument();
     expect(mockApi.callsOf("get", "/ppm/initiatives/i2/budgets")).toHaveLength(1);
-    await waitFor(() => expect(screen.queryByText("FY 2025")).not.toBeInTheDocument());
+    expect(screen.queryByText("FY 2025")).not.toBeInTheDocument();
     expect(kpi("Total Budget")).toBe("$50");
+  });
+
+  it("shows the next initiative's budget loading, never the last one's lines, while it switches", async () => {
+    const next = deferred<PpmBudgetLine[]>();
+    mockApi.on("get", "/ppm/initiatives/i2/budgets", () => next.promise);
+    const { rerender } = render(<PpmCostTab initiativeId="i1" costLines={COSTS} onRefresh={vi.fn()} />);
+    expect(await screen.findByTestId("cost-charts")).toHaveTextContent("2 costs / 2 budgets");
+    rerender(<PpmCostTab initiativeId="i2" costLines={COSTS} onRefresh={vi.fn()} />);
+    await waitFor(() => expect(mockApi.callsOf("get", "/ppm/initiatives/i2/budgets")).toHaveLength(1));
+
+    expect(screen.queryByText("FY 2025")).not.toBeInTheDocument();
+    expect(screen.queryByText("No budget lines yet")).not.toBeInTheDocument();
+    const budgetTable = screen.getByRole("columnheader", { name: "Fiscal Year" }).closest("table") as HTMLElement;
+    expect(within(budgetTable).getByRole("progressbar")).toBeInTheDocument();
+    expect(kpi("Total Budget")).toBe("—");
+    expect(kpi("CapEx")).toBe("$250 / —");
+    // Nor a chart drawn against no budget.
+    expect(screen.queryByTestId("cost-charts")).not.toBeInTheDocument();
+
+    next.resolve([budget({ id: "b9", initiative_id: "i2", fiscal_year: 2030, amount: 50 })]);
+    expect(await screen.findByText("FY 2030")).toBeInTheDocument();
+    expect(kpi("Total Budget")).toBe("$50");
+    expect(await screen.findByTestId("cost-charts")).toHaveTextContent("2 costs / 1 budgets");
+  });
+
+  it("shows a failed load for the next initiative, not the last one's lines", async () => {
+    mockApi.fail("get", "/ppm/initiatives/i2/budgets", 500);
+    const { rerender } = render(<PpmCostTab initiativeId="i1" costLines={[]} onRefresh={vi.fn()} />);
+    await screen.findByText("FY 2025");
+    rerender(<PpmCostTab initiativeId="i2" costLines={[]} onRefresh={vi.fn()} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("GET /ppm/initiatives/i2/budgets failed");
+    expect(screen.queryByText("FY 2025")).not.toBeInTheDocument();
+    expect(kpi("Total Budget")).toBe("—");
   });
 
   it("re-totals the actuals when the parent hands it new cost lines", async () => {
@@ -410,7 +472,7 @@ describe("PpmCostTab — dialogs", () => {
   it("opens a fresh budget form after an edit was cancelled", async () => {
     const { user } = renderTab();
     await screen.findByText("FY 2026");
-    await user.click(within(rowOf("FY 2026")).getByRole("button", { name: "edit" }));
+    await user.click(within(rowOf("FY 2026")).getByRole("button", { name: "Edit" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
@@ -419,7 +481,7 @@ describe("PpmCostTab — dialogs", () => {
     expect(within(dialog).getByRole("spinbutton", { name: "Fiscal Year" })).toHaveValue(
       new Date().getFullYear(),
     );
-    expect(within(dialog).getByRole("combobox")).toHaveTextContent("CapEx");
+    expect(within(dialog).getByRole("combobox", { name: "Category" })).toHaveTextContent("CapEx");
     expect(within(dialog).getByRole("spinbutton", { name: "Amount" })).toHaveValue(null);
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
 
@@ -435,10 +497,10 @@ describe("PpmCostTab — dialogs", () => {
     const { user } = renderTab();
     await screen.findByText("FY 2025");
     const licences = screen.getByRole("link", { name: "https://vendor.example.com" }).closest("tr") as HTMLElement;
-    await user.click(within(licences).getByRole("button", { name: "edit" }));
+    await user.click(within(licences).getByRole("button", { name: "Edit" }));
     let dialog = screen.getByRole("dialog");
     expect(within(dialog).getByLabelText("Date")).toHaveValue("2026-03-15");
-    expect(within(dialog).getByRole("combobox")).toHaveTextContent("OpEx");
+    expect(within(dialog).getByRole("combobox", { name: "Category" })).toHaveTextContent("OpEx");
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
@@ -446,7 +508,7 @@ describe("PpmCostTab — dialogs", () => {
     dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Add Cost Item")).toBeInTheDocument();
     expect(within(dialog).getByRole("textbox", { name: "Description" })).toHaveValue("");
-    expect(within(dialog).getByRole("combobox")).toHaveTextContent("CapEx");
+    expect(within(dialog).getByRole("combobox", { name: "Category" })).toHaveTextContent("CapEx");
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(mockApi.callsOf("post", costPath)).toHaveLength(1));
@@ -467,7 +529,7 @@ describe("PpmCostTab — dialogs", () => {
       // The floating label, and the same text sizing the outline's notch.
       expect(within(dialog).getByText("Category", { selector: "label" })).toBeInTheDocument();
       expect(within(dialog).getByText("Category", { selector: "legend span" })).toBeInTheDocument();
-      await user.click(within(dialog).getByRole("combobox"));
+      await user.click(within(dialog).getByRole("combobox", { name: "Category" }));
       const options = await screen.findAllByRole("option");
       expect(options.map((o) => o.textContent)).toEqual(["CapEx", "OpEx"]);
       await user.click(options[0]);
@@ -510,6 +572,314 @@ describe("PpmCostTab — dialogs", () => {
       dialog = screen.getByRole("dialog");
       expect(within(dialog).getByRole("button", { name: "Abbrechen" })).toBeInTheDocument();
       expect(within(dialog).getByRole("button", { name: "Speichern" })).toBeInTheDocument();
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
+  });
+});
+
+/** A promise the test settles by hand. */
+function deferred<T>() {
+  let resolve!: (v: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+/** Let every pending promise callback run (a macrotask runs after all microtasks). */
+const settle = () => act(() => new Promise<void>((r) => setTimeout(r, 0)));
+
+describe("PpmCostTab — loading the budget lines", () => {
+  it("shows a failed budget load as an error, not as an empty budget table", async () => {
+    mockApi.fail("get", budgetPath, 500);
+    renderTab();
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(`GET ${budgetPath} failed`);
+    // Above the totals it explains, set apart from them.
+    expect(alert.compareDocumentPosition(screen.getByText("Total Budget"))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(alert).toHaveStyle({ marginBottom: "16px" });
+    expect(screen.queryByText("No budget lines yet")).not.toBeInTheDocument();
+    // Nor as a $0 budget, nor as still loading.
+    expect(kpi("Total Budget")).toBe("—");
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  /** Resolve the lazy charts chunk, so a missing chart means "not drawn", not "chunk still loading". */
+  async function warmCharts() {
+    const { unmount } = render(<PpmCostTab initiativeId="i1" costLines={COSTS} onRefresh={vi.fn()} />);
+    await screen.findByTestId("cost-charts");
+    unmount();
+  }
+
+  it("draws no spend charts until the budget lines have arrived", async () => {
+    await warmCharts();
+    const pending = deferred<PpmBudgetLine[]>();
+    mockApi.on("get", budgetPath, () => pending.promise);
+    renderTab();
+    await settle();
+    expect(kpi("Total Budget")).toBe("—");
+    // A chart without its budget lines would read as an initiative with no budget.
+    expect(screen.queryByTestId("cost-charts")).not.toBeInTheDocument();
+
+    pending.resolve(BUDGETS);
+    expect(await screen.findByTestId("cost-charts")).toHaveTextContent("2 costs / 2 budgets");
+  });
+
+  it("draws no spend charts over a budget that failed to load", async () => {
+    await warmCharts();
+    mockApi.fail("get", budgetPath, 500);
+    renderTab();
+    expect(await screen.findByRole("alert")).toHaveTextContent(`GET ${budgetPath} failed`);
+    expect(screen.queryByTestId("cost-charts")).not.toBeInTheDocument();
+  });
+
+  it("ignores a budget response for an initiative it has since left", async () => {
+    const slow = deferred<PpmBudgetLine[]>();
+    mockApi.on("get", budgetPath, () => slow.promise);
+    mockApi.on("get", "/ppm/initiatives/i2/budgets", [
+      budget({ id: "b9", initiative_id: "i2", fiscal_year: 2030, amount: 50 }),
+    ]);
+    const { rerender } = render(<PpmCostTab initiativeId="i1" costLines={[]} onRefresh={vi.fn()} />);
+    rerender(<PpmCostTab initiativeId="i2" costLines={[]} onRefresh={vi.fn()} />);
+    expect(await screen.findByText("FY 2030")).toBeInTheDocument();
+
+    // The first initiative's lines land last; they must not replace the second's.
+    slow.resolve(BUDGETS);
+    await settle();
+    expect(screen.queryByText("FY 2025")).not.toBeInTheDocument();
+    expect(screen.getByText("FY 2030")).toBeInTheDocument();
+    expect(kpi("Total Budget")).toBe("$50");
+  });
+});
+
+describe("PpmCostTab — saving once", () => {
+  it("adds a budget line once however often Save is clicked, and locks Save meanwhile", async () => {
+    const write = deferred<object>();
+    mockApi.on("post", budgetPath, () => write.promise);
+    const { user } = renderTab();
+    await screen.findByText("FY 2025");
+    await user.click(screen.getByRole("button", { name: /Add Budget Line/ }));
+    const save = within(screen.getByRole("dialog")).getByRole("button", { name: "Save" });
+    // Both clicks land before the dialog re-renders.
+    act(() => {
+      save.click();
+      save.click();
+    });
+    expect(mockApi.callsOf("post", budgetPath)).toHaveLength(1);
+    expect(save).toBeDisabled();
+
+    write.resolve({});
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockApi.callsOf("post", budgetPath)).toHaveLength(1);
+  });
+
+  it("adds a cost item once however often Save is clicked, and locks Save meanwhile", async () => {
+    const write = deferred<object>();
+    mockApi.on("post", costPath, () => write.promise);
+    const { user, onRefresh } = renderTab();
+    await screen.findByText("FY 2025");
+    await user.click(screen.getByRole("button", { name: /Add Cost Item/ }));
+    const save = within(screen.getByRole("dialog")).getByRole("button", { name: "Save" });
+    act(() => {
+      save.click();
+      save.click();
+    });
+    expect(mockApi.callsOf("post", costPath)).toHaveLength(1);
+    expect(save).toBeDisabled();
+
+    write.resolve({});
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockApi.callsOf("post", costPath)).toHaveLength(1);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("unlocks Save after a failed save so the user can retry", async () => {
+    let posts = 0;
+    mockApi.on("post", budgetPath, () => (++posts === 1 ? Promise.reject(new Error("offline")) : {}));
+    mockApi.on("post", costPath, () => Promise.reject(new Error("offline")));
+    const { user } = renderTab();
+    await screen.findByText("FY 2025");
+    await user.click(screen.getByRole("button", { name: /Add Budget Line/ }));
+    const save = within(screen.getByRole("dialog")).getByRole("button", { name: "Save" });
+    await user.click(save);
+    expect(await within(screen.getByRole("dialog")).findByRole("alert")).toHaveTextContent("offline");
+    await waitFor(() => expect(save).toBeEnabled());
+    await user.click(save);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(posts).toBe(2);
+
+    await user.click(screen.getByRole("button", { name: /Add Cost Item/ }));
+    const saveCost = within(screen.getByRole("dialog")).getByRole("button", { name: "Save" });
+    await user.click(saveCost);
+    expect(await within(screen.getByRole("dialog")).findByRole("alert")).toHaveTextContent("offline");
+    await waitFor(() => expect(saveCost).toBeEnabled());
+  });
+});
+
+describe("PpmCostTab — failed writes", () => {
+  it("keeps the budget dialog open and says why when the save fails", async () => {
+    mockApi.fail("post", budgetPath, 500);
+    const { user } = renderTab();
+    await screen.findByText("FY 2025");
+    await user.click(screen.getByRole("button", { name: /Add Budget Line/ }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
+
+    const dialog = screen.getByRole("dialog");
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent(`POST ${budgetPath} failed`);
+    expect(alert).toHaveStyle({ marginBottom: "8px" });
+    // Nothing was written, so nothing is reloaded.
+    expect(mockApi.callsOf("get", budgetPath)).toHaveLength(1);
+  });
+
+  it("keeps the cost dialog open and says why when the save fails", async () => {
+    mockApi.fail("patch", "/ppm/costs/c2", 422);
+    const { user, onRefresh } = renderTab();
+    await screen.findByText("FY 2025");
+    await user.click(within(rowOf("Servers")).getByRole("button", { name: "Edit" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
+
+    const dialog = screen.getByRole("dialog");
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent("PATCH /ppm/costs/c2 failed");
+    expect(alert).toHaveStyle({ marginBottom: "8px" });
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a generic message when a save fails without one", async () => {
+    mockApi.on("post", costPath, () => Promise.reject("network down"));
+    const { user } = renderTab();
+    await screen.findByText("FY 2025");
+    await user.click(screen.getByRole("button", { name: /Add Cost Item/ }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
+    expect(await within(screen.getByRole("dialog")).findByRole("alert")).toHaveTextContent(
+      "Something went wrong",
+    );
+  });
+
+  it("opens either dialog again without the previous attempt's error", async () => {
+    mockApi.fail("post", budgetPath, 500);
+    mockApi.fail("post", costPath, 500);
+    const { user } = renderTab();
+    await screen.findByText("FY 2025");
+    for (const add of [/Add Budget Line/, /Add Cost Item/]) {
+      await user.click(screen.getByRole("button", { name: add }));
+      await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
+      await within(screen.getByRole("dialog")).findByRole("alert");
+      await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+      await user.click(screen.getByRole("button", { name: add }));
+      expect(within(screen.getByRole("dialog")).queryByRole("alert")).not.toBeInTheDocument();
+      await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    }
+  });
+
+  it("shows a failed budget delete above the budget table, until the next delete succeeds", async () => {
+    mockApi.fail("delete", "/ppm/budgets/b2", 409);
+    const { user } = renderTab();
+    await screen.findByText("FY 2026");
+    await user.click(within(rowOf("FY 2026")).getByRole("button", { name: "Delete" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("DELETE /ppm/budgets/b2 failed");
+    expect(alert).toHaveStyle({ marginBottom: "8px" });
+    expect(alert.compareDocumentPosition(screen.getByText("Fiscal Year"))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(mockApi.callsOf("get", budgetPath)).toHaveLength(1);
+
+    await user.click(within(rowOf("FY 2025")).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(mockApi.callsOf("delete", "/ppm/budgets/b1")).toHaveLength(1);
+  });
+
+  it("shows a failed cost delete above the cost table and lets it be dismissed", async () => {
+    mockApi.fail("delete", "/ppm/costs/c2", 409);
+    const { user, onRefresh } = renderTab();
+    await screen.findByText("FY 2025");
+    await user.click(within(rowOf("Servers")).getByRole("button", { name: "Delete" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("DELETE /ppm/costs/c2 failed");
+    expect(alert).toHaveStyle({ marginBottom: "8px" });
+    // Under the Cost Items heading, above its table.
+    expect(screen.getByText("Cost Items").compareDocumentPosition(alert)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(alert.compareDocumentPosition(rowOf("Servers"))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    await user.click(within(alert).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+
+  it("clears a failed cost delete once the next one succeeds", async () => {
+    mockApi.fail("delete", "/ppm/costs/c2", 409);
+    const { user, onRefresh } = renderTab();
+    await screen.findByText("FY 2025");
+    await user.click(within(rowOf("Servers")).getByRole("button", { name: "Delete" }));
+    await screen.findByRole("alert");
+
+    const licences = screen.getByRole("link", { name: "https://vendor.example.com" }).closest("tr") as HTMLElement;
+    await user.click(within(licences).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("dismisses a failed budget delete", async () => {
+    mockApi.fail("delete", "/ppm/budgets/b1", 409);
+    const { user } = renderTab();
+    await screen.findByText("FY 2025");
+    await user.click(within(rowOf("FY 2025")).getByRole("button", { name: "Delete" }));
+    const alert = await screen.findByRole("alert");
+    await user.click(within(alert).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+});
+
+describe("PpmCostTab — accessible names", () => {
+  it("names every row's edit and delete buttons", async () => {
+    renderTab();
+    await screen.findByText("FY 2025");
+    for (const row of [rowOf("FY 2025"), rowOf("Servers")]) {
+      expect(within(row).getByRole("button", { name: "Edit" })).toBeInTheDocument();
+      expect(within(row).getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    }
+  });
+
+  it("links each dialog's Category picker to its label", async () => {
+    const { user } = renderTab();
+    await screen.findByText("FY 2025");
+    for (const add of [/Add Budget Line/, /Add Cost Item/]) {
+      await user.click(screen.getByRole("button", { name: add }));
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByRole("combobox", { name: "Category" })).toHaveTextContent("CapEx");
+      await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    }
+  });
+
+  it("names the description column, the description field and the row buttons in the user's language", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+    try {
+      const { user } = renderTab();
+      await screen.findByText("FY 2025");
+      expect(screen.getByRole("columnheader", { name: "Beschreibung" })).toBeInTheDocument();
+      expect(within(rowOf("Servers")).getByRole("button", { name: "Bearbeiten" })).toBeInTheDocument();
+      expect(within(rowOf("Servers")).getByRole("button", { name: "Löschen" })).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: /Kostenposition hinzufügen/ }));
+      expect(
+        within(screen.getByRole("dialog")).getByRole("textbox", { name: "Beschreibung" }),
+      ).toBeInTheDocument();
     } finally {
       await act(async () => {
         await i18n.changeLanguage("en");

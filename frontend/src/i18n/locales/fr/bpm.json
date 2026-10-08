@@ -98,6 +98,7 @@
   "flowTab.approveAndPublishButton": "Approuver et publier",
   "flowTab.drafts": "Brouillons",
   "flowTab.elementUpdated": "Élément mis à jour",
+  "flowTab.elementUpdatedRefreshFailed": "Élément mis à jour, mais la liste n’a pas pu être actualisée",
   "flowTab.elementUpdateFailed": "Échec de la mise à jour de l’élément",
   "flowTab.messageFlows": "Flux de messages",
   "flowTab.messageFlowsSubtitle": "Messages échangés entre les pools de ce diagramme. Liez chacun à l’interface qui le transporte — informatif uniquement, aucune relation n’est créée.",

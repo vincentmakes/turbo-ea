@@ -10,13 +10,14 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { RAG_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import StatusReportDialog from "./StatusReportDialog";
 import type { PpmStatusReport } from "@/types";
 
-const RAG_COLORS: Record<string, string> = {
-  onTrack: "#2e7d32",
-  atRisk: "#ed6c02",
-  offTrack: "#d32f2f",
+const HEALTH_DOT_COLORS: Record<string, string> = {
+  onTrack: RAG_COLORS.green,
+  atRisk: RAG_COLORS.amber,
+  offTrack: RAG_COLORS.red,
 };
 
 interface Props {
@@ -106,7 +107,7 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
                             height: 12,
                             borderRadius: "50%",
                             flexShrink: 0,
-                            bgcolor: RAG_COLORS[value || ""] || "#bdbdbd",
+                            bgcolor: HEALTH_DOT_COLORS[value || ""] || STATUS_COLORS.neutral,
                           }}
                           title={statusLabel}
                         />

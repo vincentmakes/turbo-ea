@@ -98,6 +98,7 @@
   "flowTab.approveAndPublishButton": "Утвердить и опубликовать",
   "flowTab.drafts": "Черновики",
   "flowTab.elementUpdated": "Элемент обновлён",
+  "flowTab.elementUpdatedRefreshFailed": "Элемент обновлён, но не удалось обновить список",
   "flowTab.elementUpdateFailed": "Не удалось обновить элемент",
   "flowTab.messageFlows": "Потоки сообщений",
   "flowTab.messageFlowsSubtitle": "Сообщения, которыми обмениваются пулы этой диаграммы. Свяжите каждый с интерфейсом, который его передаёт — только для информации, связь не создаётся.",

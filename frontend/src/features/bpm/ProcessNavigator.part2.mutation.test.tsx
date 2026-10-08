@@ -261,29 +261,6 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-/**
- * A promise-shaped value whose callbacks run on the spot. The navigator loads
- * its map from an effect, and only a map that lands before the URL-sync
- * effect's (transition) navigation is processed can honour `?open=` — see
- * the deep-link test.
- */
-function settledNow<T>(value: T): Promise<T> {
-  const chain = {
-    then(onFulfilled: (v: T) => unknown) {
-      onFulfilled(value);
-      return chain;
-    },
-    catch() {
-      return chain;
-    },
-    finally(onFinally: () => void) {
-      onFinally();
-      return chain;
-    },
-  };
-  return chain as unknown as Promise<T>;
-}
-
 /** The card element (leaf or container) whose title is `name`. */
 function cardOf(name: string): HTMLElement {
   const title = screen.getAllByText(name).find((el) => el.closest("[draggable]"));
@@ -702,14 +679,13 @@ describe("ProcessNavigatorBody loading", () => {
     expect(document.querySelectorAll(".MuiSkeleton-root")).toHaveLength(0);
   });
 
-  it("offers no organization filter when the map fails to load", async () => {
-    // Only the filter is pinned here: what the page should say about the
-    // failure itself is a product question (it currently shows the empty
-    // house, as if there were no processes).
+  it("says the map failed to load, and offers no organization filter", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     renderBody(bodySource({ loadMap: () => Promise.reject(new Error("down")) }));
-    await waitFor(() => expect(error).toHaveBeenCalled());
-    await waitFor(() => expect(document.querySelectorAll(".MuiSkeleton-root")).toHaveLength(0));
+    expect(await screen.findByText("down")).toBeInTheDocument();
+    expect(screen.queryByText(/No Business Processes found/)).toBeNull();
+    expect(error).toHaveBeenCalled();
+    expect(document.querySelectorAll(".MuiSkeleton-root")).toHaveLength(0);
     expect(screen.queryByPlaceholderText("Filter by Organization...")).toBeNull();
   });
 
@@ -947,14 +923,12 @@ describe("ProcessNavigatorBody organization filter", () => {
   });
 });
 
-// `?open=<id>` only survives until the URL-sync effect's first write, which
-// runs on mount with the drawer still closed; a map that loads asynchronously
-// (any real source) therefore never sees the id — a product bug. The source
-// here answers on the spot so the effect's own logic can be checked.
+// `?open=<id>` is held until the map has loaded, so an asynchronous source (any
+// real one) still opens the drawer it names.
 describe("ProcessNavigatorBody deep link", () => {
   it("opens the drawer named by ?open= once the map is in", async () => {
     renderBody(
-      bodySource({ loadMap: () => settledNow(mapPayload()) }),
+      bodySource({ loadMap: async () => mapPayload() }),
       FULL_CAPABILITIES,
       meta(),
       "/portal/p?open=p2p",
@@ -966,7 +940,7 @@ describe("ProcessNavigatorBody deep link", () => {
 
   it("opens nothing for an unknown id", async () => {
     renderBody(
-      bodySource({ loadMap: () => settledNow(mapPayload()) }),
+      bodySource({ loadMap: async () => mapPayload() }),
       FULL_CAPABILITIES,
       meta(),
       "/portal/p?open=nope",

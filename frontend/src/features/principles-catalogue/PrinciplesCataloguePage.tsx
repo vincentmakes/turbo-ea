@@ -124,6 +124,21 @@ export default function PrinciplesCataloguePage() {
       setImportResult(result);
       setSelected(new Set());
       setImportOpen(false);
+      // Mark what now exists straight from the response, so the list is right
+      // even if the reload below fails (its error then shows above the list).
+      const nowExisting = new Map(
+        [...result.created, ...result.skipped]
+          .filter((r) => r.principle_id)
+          .map((r) => [r.catalogue_id, r.principle_id]),
+      );
+      setPayload((prev) =>
+        prev && {
+          ...prev,
+          principles: prev.principles.map((p) =>
+            nowExisting.has(p.id) ? { ...p, existing_principle_id: nowExisting.get(p.id)! } : p,
+          ),
+        },
+      );
       await reload();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -208,13 +223,17 @@ export default function PrinciplesCataloguePage() {
             </Button>
           </Stack>
         </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
-          {t("principlesCatalogue.matchCount", {
-            shown: filtered.length,
-            total: payload?.principles.length ?? 0,
-            importable: totalImportable,
-          })}
-        </Typography>
+        {/* No catalogue yet (loading, or the load failed): no count to give —
+            "0 of 0" would read as an empty catalogue. */}
+        {payload && (
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+            {t("principlesCatalogue.matchCount", {
+              shown: filtered.length,
+              total: payload.principles.length,
+              importable: totalImportable,
+            })}
+          </Typography>
+        )}
       </Paper>
 
       {loading && (
@@ -223,7 +242,10 @@ export default function PrinciplesCataloguePage() {
         </Box>
       )}
 
-      {!loading && filtered.length === 0 && (
+      {/* No catalogue at all means the load failed, not that nothing matches —
+          even once its error has been dismissed. A failed reload keeps the
+          list it had, over which "no matches" stays true. */}
+      {!loading && payload && filtered.length === 0 && (
         <Box
           sx={{
             py: 6,

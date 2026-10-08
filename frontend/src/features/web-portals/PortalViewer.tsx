@@ -27,6 +27,7 @@ import Collapse from "@mui/material/Collapse";
 import LinearProgress from "@mui/material/LinearProgress";
 import Divider from "@mui/material/Divider";
 import Tooltip from "@mui/material/Tooltip";
+import Alert from "@mui/material/Alert";
 import CardLogoAvatar from "@/components/CardLogoAvatar";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
@@ -319,6 +320,14 @@ function FieldValue({
 }
 
 export default function PortalViewer() {
+  const { slug } = useParams<{ slug: string }>();
+  // Keyed by slug: moving to another portal inside the app starts from nothing,
+  // so no request for the new slug is ever built from the old portal's
+  // configuration (its relation types, fields or filters).
+  return <PortalViewerForSlug key={slug} slug={slug} />;
+}
+
+function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
   const { t } = useTranslation("common");
   const { formatDate } = useDateFormat();
   const rl = useResolveLabel();
@@ -327,7 +336,6 @@ export default function PortalViewer() {
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
   const stLabel = useSubtypeLabel();
-  const { slug } = useParams<{ slug: string }>();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -348,8 +356,11 @@ export default function PortalViewer() {
   const [sortBy, setSortBy] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
   const [loading, setLoading] = useState(true);
-  const [fsLoading, setFsLoading] = useState(false);
+  // Loading until the first card query has answered, so "no results" never
+  // flashes before it.
+  const [fsLoading, setFsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [cardsError, setCardsError] = useState("");
   const [selectedFs, setSelectedFs] = useState<PortalCard | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -374,6 +385,9 @@ export default function PortalViewer() {
           const p = await publicGet<PublicPortal>(`/web-portals/public/${slug}`);
           if (!cancelled) setPortal(p);
         } catch (e) {
+          // The visitor has moved on to another portal: never start this
+          // one's sign-in (a navigation away from the page they are now on).
+          if (cancelled) return;
           const status = (e as ApiError).status;
           if (g.access_mode === "sso" && status === 401) {
             const canSso = Boolean(g.sso?.authorization_endpoint && g.sso?.client_id);
@@ -450,6 +464,7 @@ export default function PortalViewer() {
   const loadCards = useCallback(async () => {
     if (!slug) return;
     setFsLoading(true);
+    setCardsError("");
     try {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
@@ -478,12 +493,12 @@ export default function PortalViewer() {
       );
       setCards(data.items);
       setTotal(data.total);
-    } catch {
-      // ignore
+    } catch (e) {
+      setCardsError(e instanceof Error ? e.message : t("errors.generic"));
     } finally {
       setFsLoading(false);
     }
-  }, [slug, search, subtype, attrFilters, relationFilters, tagFilter, page, pageSize, sortBy, sortDir]);
+  }, [slug, search, subtype, attrFilters, relationFilters, tagFilter, page, pageSize, sortBy, sortDir, t]);
 
   useEffect(() => {
     // A board portal renders its own data; issuing the card query would be a
@@ -712,7 +727,7 @@ export default function PortalViewer() {
               )}
               {!isBoard && (
                 <Typography variant="body2" sx={{ mt: 1.5, opacity: 0.5, fontSize: "0.8rem" }}>
-                  {t("portal.itemCount", { count: total, label: portal.type_info ? typeLabel(portal.type_info) : "item" })}
+                  {t("portal.itemCount", { count: total, label: portal.type_info ? typeLabel(portal.type_info) : t("portal.items") })}
                 </Typography>
               )}
             </Box>
@@ -769,7 +784,7 @@ export default function PortalViewer() {
           >
             <TextField
               size="small"
-              placeholder={t("portal.searchPlaceholder", { label: portal.type_info ? typeLabel(portal.type_info) : "items" })}
+              placeholder={t("portal.searchPlaceholder", { label: portal.type_info ? typeLabel(portal.type_info) : t("portal.items") })}
               defaultValue={search}
               onChange={(e) => handleSearchChange(e.target.value)}
               sx={{ flex: 1, minWidth: 200 }}
@@ -958,7 +973,12 @@ export default function PortalViewer() {
 
         {/* Cards Grid */}
         <Box sx={{ maxWidth: 1200, mx: "auto", px: { xs: 2, md: 4 }, py: 3 }}>
-          {cards.length === 0 && !fsLoading && (
+          {cardsError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {cardsError}
+            </Alert>
+          )}
+          {cards.length === 0 && !fsLoading && !cardsError && (
             <Box sx={{ textAlign: "center", py: 8 }}>
               <Icon name="search_off" size={48} color="#ccc" />
               <Typography variant="h6" color="text.secondary" sx={{ mt: 1 }}>
@@ -1136,7 +1156,9 @@ export default function PortalViewer() {
                     {/* Approval Status */}
                     {show("approval_status", "card", false) && card.approval_status && card.approval_status !== "DRAFT" && (
                       <Chip
-                        label={card.approval_status}
+                        label={t(`status.${card.approval_status.toLowerCase()}`, {
+                          defaultValue: card.approval_status,
+                        })}
                         size="small"
                         sx={{
                           mt: 1,
@@ -1452,7 +1474,9 @@ export default function PortalViewer() {
                     )}
                     {show("approval_status", "detail") && selectedFs.approval_status && selectedFs.approval_status !== "DRAFT" && (
                     <Chip
-                      label={selectedFs.approval_status}
+                      label={t(`status.${selectedFs.approval_status.toLowerCase()}`, {
+                        defaultValue: selectedFs.approval_status,
+                      })}
                       size="small"
                       sx={{
                         height: 28,

@@ -115,20 +115,20 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
   const [selectedSiblings, setSelectedSiblings] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!target) {
-      setEntries(null);
-      setHierarchy(null);
-      setChildren([]);
-      setSiblings([]);
-      setSelectedDeps(new Set());
-      setSelectedChildren(new Set());
-      setSelectedSiblings(new Set());
-      setError(null);
-      return;
-    }
+    // Every new target starts clean — closing the menu, switching straight to
+    // another card, or reopening on the same one: ticks, lists and counts
+    // from the previous target never apply to this one.
+    setEntries(null);
+    setHierarchy(null);
+    setChildren([]);
+    setSiblings([]);
+    setSelectedDeps(new Set());
+    setSelectedChildren(new Set());
+    setSelectedSiblings(new Set());
+    setError(null);
+    if (!target) return;
     let cancelled = false;
     setLoading(true);
-    setError(null);
     api
       .get<RelationSummaryResponse>(`/cards/${target.cardId}/relation-summary`)
       .then(async (r) => {
@@ -187,6 +187,10 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
   );
 
   if (!target) return null;
+
+  // The new container is labelled with the parent's name, so a parent the
+  // summary could not name is shown but not offered for a roll-up.
+  const canRollUp = !!hierarchy?.parent_id && !!hierarchy.parent_name;
 
   const toggleDep = (entry: RelationSummaryEntry) => {
     if (entry.count === 0) return;
@@ -369,19 +373,17 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
 
           {/* ── Drill-Down (children) ─────────────────────────────── */}
           <Divider sx={{ my: 0.5 }} />
+          {/* The children are loaded before the sections render, so the list
+              here is final — even when the summary counted others (a child
+              archived or moved between the two requests). Count what is listed. */}
           <MenuSectionHeader
             icon="south"
             label={t("editor.expandMenu.drillDown")}
-            count={hierarchy?.children_count}
+            count={children.length}
           />
-          {hierarchy && hierarchy.children_count === 0 && (
+          {hierarchy && children.length === 0 && (
             <Box sx={{ px: 2, py: 1, color: "text.disabled", fontSize: "0.8rem" }}>
               {t("editor.expandMenu.noChildren")}
-            </Box>
-          )}
-          {hierarchy && hierarchy.children_count > 0 && children.length === 0 && (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
-              <CircularProgress size={14} />
             </Box>
           )}
           {children.map((c) => {
@@ -463,7 +465,7 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
               })}
             </Box>
           )}
-          {siblings.map((s) => {
+          {canRollUp && siblings.map((s) => {
             const selected = selectedSiblings.has(s.id);
             return (
               <MenuItem
@@ -487,7 +489,7 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
               </MenuItem>
             );
           })}
-          {hierarchy?.parent_id && (
+          {canRollUp && (
             <Box sx={{ display: "flex", justifyContent: "flex-end", px: 2, py: 0.75 }}>
               <Button
                 size="small"
