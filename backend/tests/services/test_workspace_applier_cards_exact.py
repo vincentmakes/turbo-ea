@@ -571,3 +571,119 @@ async def test_the_final_pass_keeps_the_ppm_managed_fields(db, env, monkeypatch)
     monkeypatch.setattr(calculation_engine, "run_calculations_for_card", calc)
     await applier._finalize_cards(db)
     assert seen == {ini.id: {"costBudget"}}
+
+
+# ── counters accumulate, and a refused row never ends the pass ──────────────
+
+
+async def test_refused_card_rows_are_counted_and_the_next_rows_still_land(db, env, published):
+    rows = [
+        {"name": "Typeless"},
+        {"type": "Application"},
+        {"type": "Application", "name": "Orphan", "parent_path": "Ghost"},
+        {"type": "Application", "name": "Lost", "parent_path": "Nowhere"},
+        {"type": "Application", "name": "Bad", "attributes": '{"website": "ftp://x"}'},
+        {"type": "Application", "name": "Worse", "attributes": '{"website": "gopher://x"}'},
+        {"type": "Application", "name": "Fine"},
+    ]
+    sr = await run_cards(db, env.user, rows)
+    assert counts(sr) == (1, 0, 0, 2, 4)
+    assert (await card_named(db, "Fine")).name == "Fine"
+
+
+async def test_an_archived_card_lands_archived(db, env, published):
+    await run_cards(db, env.user, [{"type": "Application", "name": "Old", "status": "ARCHIVED"}])
+    assert (await card_named(db, "Old")).status == "ARCHIVED"
+
+
+async def test_a_clash_falls_back_to_the_type_defaults_and_an_unknown_type_drops_it(
+    db, env, published
+):
+    bare_auto = (
+        await db.execute(select(CardType).where(CardType.key == "ITComponent"))
+    ).scalar_one()
+    bare_auto.reference_config = {"mode": "auto"}
+    taken = await create_card(db, name="Taken")
+    taken.reference = "R-1"
+    await db.flush()
+    rows = [
+        {"type": "ITComponent", "name": "Server", "reference": "R-1"},
+        {"type": "Ghost", "name": "Untyped", "reference": "R-1"},
+    ]
+    sr = await run_cards(db, env.user, rows)
+    assert counts(sr) == (2, 0, 0, 0, 0)
+    assert (await card_named(db, "Server", "ITComponent")).reference == "10000"
+    assert (await card_named(db, "Untyped", "Ghost")).reference is None
+
+
+async def test_relations_resolve_cards_of_every_source_and_target_type(db, env):
+    await create_relation_type(db, key="app_to_itc", label="runs on", reverse_label="hosts")
+    billing = await create_card(db, name="Billing")
+    server = await create_card(db, card_type="ITComponent", name="Server")
+    rows = [
+        {
+            "type": "app_to_itc",
+            "source_type": "Application",
+            "source_ref": "Billing",
+            "target_type": "ITComponent",
+            "target_ref": "Server",
+        }
+    ]
+    sr = applier.SectionResult(sheet=schema.SHEET_RELATIONS)
+    await applier._apply_relations(db, bundle({schema.SHEET_RELATIONS: rows}), sr, False)
+    (rel,) = (await db.execute(select(Relation))).scalars().all()
+    assert (rel.source_id, rel.target_id) == (billing.id, server.id)
+    assert counts(sr) == (1, 0, 0, 0, 0)
+
+
+async def test_card_tags_already_linked_are_skipped_before_new_ones(db, env):
+    group = TagGroup(name="Domain")
+    db.add(group)
+    await db.flush()
+    finance = Tag(tag_group_id=group.id, name="Finance")
+    db.add(finance)
+    linked = await create_card(db, name="Linked")
+    one = await create_card(db, name="One")
+    two = await create_card(db, name="Two")
+    await db.flush()
+    db.add(CardTag(card_id=linked.id, tag_id=finance.id))
+    await db.flush()
+    ok = {"card_type": "Application", "group_name": "Domain", "tag_name": "Finance"}
+    rows = [{**ok, "card_ref": "Linked"}, {**ok, "card_ref": "One"}, {**ok, "card_ref": "Two"}]
+    sr = applier.SectionResult(sheet=schema.SHEET_CARD_TAGS)
+    await applier._apply_card_tags(db, bundle({schema.SHEET_CARD_TAGS: rows}), sr, False)
+    await db.flush()
+    links = {(ct.card_id, ct.tag_id) for ct in (await db.execute(select(CardTag))).scalars()}
+    assert links == {(c.id, finance.id) for c in (linked, one, two)}
+    assert counts(sr) == (2, 0, 1, 0, 0)
+
+
+async def test_a_preview_creates_cards_as_the_importer_and_announces_nothing(
+    db, env, finalized, published
+):
+    result = await applier.diff_bundle(
+        db, bundle({schema.SHEET_CARDS: [{"type": "Application", "name": "Preview"}]}), env.user
+    )
+    (cards_section,) = [s for s in result.sections if s.sheet == schema.SHEET_CARDS]
+    assert counts(cards_section) == (1, 0, 0, 0, 0)
+    assert published == []
+
+
+async def test_a_selective_apply_creates_cards_as_the_importer(db, env, finalized, published):
+    result = await applier.apply_selected(
+        db,
+        bundle({schema.SHEET_CARDS: [{"type": "Application", "name": "Real"}]}),
+        env.user,
+        sheets={schema.SHEET_CARDS},
+        dry_run=False,
+    )
+    assert result.sections[0].created == 1
+    assert (await card_named(db, "Real")).created_by == env.user.id
+    assert [p["user_id"] for p in published] == [env.user.id]
+
+
+async def test_group_members_alone_are_applied_on_a_selective_run(db, env, finalized):
+    result = await applier.apply_selected(
+        db, bundle({}), env.user, sheets={SHEET_DIAGRAM_GROUP_MEMBERS}, dry_run=True
+    )
+    assert [s.sheet for s in result.sections] == [SHEET_DIAGRAM_GROUP_MEMBERS]

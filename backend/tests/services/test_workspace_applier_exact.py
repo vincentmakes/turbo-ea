@@ -660,3 +660,160 @@ async def test_bookmark_shares_match_the_user_by_email(db):
         f"bookmark share: bookmark {b!r} or user 'ghost@test.com' not found — skipped"
     )
     assert len(sr.errors) == 2
+
+
+# ── counters accumulate, and a refused row never ends a section ─────────────
+
+
+def test_every_changed_row_adds_to_the_updated_count():
+    sr = section()
+    applier._update_if_changed(SimpleNamespace(a=1), {"a": 2}, ["a"], sr)
+    applier._update_if_changed(SimpleNamespace(a=1), {"a": 3}, ["a"], sr)
+    assert counts(sr) == (0, 2, 0, 0, 0)
+
+
+def test_a_secret_name_is_protected_only_under_its_own_parent():
+    merged = applier._merge_settings(
+        {"sso": {"client_secret": "keep"}},
+        {"sso": {"apiKey": "not a secret here", "client_secret": "evil"}},
+        GENERAL_SECRET_PATHS,
+    )
+    assert merged == {"sso": {"client_secret": "keep", "apiKey": "not a secret here"}}
+
+
+async def test_card_types_after_a_refused_row_are_still_created(db):
+    rows = [
+        {"label": "No key"},
+        {"key": "Widget", "label": "W"},
+        {"key": ""},
+        {"key": "Gadget", "label": "G"},
+    ]
+    sr = section()
+    await applier._apply_card_types(db, bundle(schema.SHEET_CARD_TYPES, rows), sr, False)
+    assert (await card_type(db, "Widget")).label == "W"
+    assert (await card_type(db, "Gadget")) is not None
+    assert counts(sr) == (2, 0, 0, 0, 2)
+
+
+async def test_relation_types_after_a_refused_row_are_still_created(db):
+    await create_card_type(db, key="Application", label="Application")
+    rows = [
+        {"label": "keyless"},
+        {
+            "key": "a",
+            "label": "a",
+            "source_type_key": "Application",
+            "target_type_key": "Application",
+        },
+        {"key": ""},
+        {
+            "key": "b",
+            "label": "b",
+            "source_type_key": "Application",
+            "target_type_key": "Application",
+        },
+    ]
+    sr = section()
+    await applier._apply_relation_types(db, bundle(schema.SHEET_RELATION_TYPES, rows), sr, False)
+    assert (await relation_type(db, "b")) is not None
+    assert counts(sr) == (2, 0, 0, 0, 2)
+
+
+async def test_a_role_listed_twice_is_created_once(db):
+    rows = [{"key": "auditor", "label": "First"}, {"key": "auditor", "label": "Second"}]
+    sr = section()
+    await config(schema.SHEET_ROLES)(db, bundle(schema.SHEET_ROLES, rows), sr, False)
+    roles = (await db.execute(select(Role).where(Role.key == "auditor"))).scalars().all()
+    assert [r.label for r in roles] == ["Second"]
+    assert counts(sr) == (1, 1, 0, 0, 0)
+
+
+async def test_tag_groups_after_a_refused_row_are_created_once_each(db):
+    rows = [
+        {"description": "nameless"},
+        {"name": "Domain", "mode": "single"},
+        {"name": ""},
+        {"name": "Region"},
+        {"name": "Domain", "mode": "multi"},
+    ]
+    sr = section()
+    await applier._apply_tag_groups(db, bundle(schema.SHEET_TAG_GROUPS, rows), sr, False)
+    groups = (await db.execute(select(TagGroup))).scalars().all()
+    assert sorted(g.name for g in groups) == ["Domain", "Region"]
+    assert {g.name: g.mode for g in groups}["Domain"] == "multi"
+    assert counts(sr) == (2, 1, 0, 0, 2)
+
+
+async def test_several_tags_are_created_and_updated_in_one_pass(db):
+    group = TagGroup(name="Domain")
+    db.add(group)
+    await db.flush()
+    db.add_all(
+        [
+            Tag(tag_group_id=group.id, name="A", color="#000000", sort_order=0),
+            Tag(tag_group_id=group.id, name="B", color="#000000", sort_order=0),
+        ]
+    )
+    await db.flush()
+    rows = [
+        {"group_name": "Domain", "name": "A", "color": "#111111"},
+        {"group_name": "Domain", "name": "B", "color": "#222222"},
+        {"group_name": "Domain", "name": "C", "sort_order": 5},
+        {"group_name": "Domain", "name": "D", "sort_order": 7},
+    ]
+    sr = section()
+    await applier._apply_tags(db, bundle(schema.SHEET_TAGS, rows), sr, False)
+    tags = await tags_in(db)
+    assert (tags["C"].sort_order, tags["D"].sort_order) == (5, 7)
+    assert counts(sr) == (2, 2, 0, 0, 0)
+
+
+async def test_settings_keep_what_the_bundle_does_not_mention(db, runtime):
+    db.add(
+        AppSettings(
+            id="default",
+            general_settings={"theme": "dark", "keep": 1},
+            email_settings={"smtp_host": "old", "smtp_port": 25},
+        )
+    )
+    await db.flush()
+    rows = [
+        {"key": "general_settings", "value": '{"theme": "light"}'},
+        {"key": "email_settings", "value": '{"smtp_host": "new"}'},
+    ]
+    sr = applier.SectionResult(sheet=schema.SHEET_SETTINGS, updated=3)
+    await applier._apply_settings(db, bundle(schema.SHEET_SETTINGS, rows), sr, False)
+    row = await settings_row(db)
+    assert row.general_settings == {"theme": "light", "keep": 1}
+    assert row.email_settings == {"smtp_host": "new", "smtp_port": 25}
+    assert sr.updated == 5
+
+
+async def test_several_diagram_links_and_members_are_created(db, diagram_env):
+    env = diagram_env
+    second_card = await create_card(db, name="Payroll")
+    second_group = DiagramGroup(name="Other folder")
+    db.add(second_group)
+    await db.flush()
+    resolver = await CardResolver.load(db, {"Application"})
+    d = str(env.diagram.id)
+    cards_rows = [
+        {"diagram_id": d, "card_type": "Application", "card_ref": "Billing"},
+        {"diagram_id": d, "card_type": "Application", "card_ref": "Payroll"},
+    ]
+    sr = section()
+    await applier._apply_diagram_cards(db, bundle(SHEET_DIAGRAM_CARDS, cards_rows), sr, resolver)
+    assert counts(sr) == (2, 0, 0, 0, 0)
+    assert {r.card_id for r in (await db.execute(select(diagram_cards))).all()} == {
+        env.app.id,
+        second_card.id,
+    }
+    member_rows = [
+        {"diagram_id": d, "group_id": str(env.group.id)},
+        {"diagram_id": d, "group_id": str(second_group.id)},
+    ]
+    sr2 = section()
+    await applier._apply_diagram_group_members(
+        db, bundle(SHEET_DIAGRAM_GROUP_MEMBERS, member_rows), sr2
+    )
+    assert counts(sr2) == (2, 0, 0, 0, 0)
