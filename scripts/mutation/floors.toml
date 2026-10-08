@@ -16,11 +16,12 @@ min_mutants = 10
 
 # The whole suite, measured by mutation-nightly.yml. A floor sits just under
 # the measured score. The MCP server was measured in full on 2026-10-05:
-# 39.8% at the baseline, 69.5% after the first test-hardening pass. The backend (~61,000 mutants) and the frontend are measured by the
-# nightly over its first runs; their floors stay 0 until that baseline is
-# complete, then rise to it like every other floor.
+# 39.8% at the baseline, 69.5% after the first test-hardening pass. The
+# backend's baseline (60,921 mutants) completed on 2026-10-08 at 71.2%. The
+# frontend's stays 0 until the nightly has finished re-measuring it with the
+# page tests of #1180, then rises to it like every other floor.
 [suite]
-backend = 0
+backend = 69
 frontend = 0
 mcp = 68
 
@@ -63,6 +64,9 @@ mcp = 68
 # Audit and approval, measured 2026-10-08 after the rollback/approval pass.
 "backend/app/services/rollback_service.py" = 97       # undoing a mutation batch
 "backend/app/services/card_approval.py" = 97          # approval breaks and their fan-out
+
+# Authorization, measured in full by the nightly on 2026-10-08 at 93.0%.
+"backend/app/services/permission_service.py" = 91     # app, type-cell and stakeholder grants
 
 # Frontend, measured with Stryker (static mutants ignored) on 2026-10-05.
 "frontend/src/lib/returnPath.ts" = 98                # post-SSO open-redirect guards
