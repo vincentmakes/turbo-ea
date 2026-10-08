@@ -182,6 +182,12 @@ beforeEach(() => {
   mockApi.on("get", /^\/eol\/products\/fuzzy/, []);
 });
 
+
+// The AI button is found by its visible label. Its accessible name currently
+// comes from the tooltip ("Use AI to suggest…"), a label-in-name mismatch
+// (WCAG 2.5.3) that a role+name query would pin.
+const aiButton = () => screen.queryByText("Suggest with AI")?.closest("button") ?? null;
+
 describe("CreateCardDialog — required fields of every type", () => {
   it("renders each field type, and submits what was entered", async () => {
     const { user } = renderDialog({ initialType: "Widget" });
@@ -450,9 +456,9 @@ describe("CreateCardDialog — AI suggestions", () => {
     const { user } = renderDialog({ initialType: "Application" });
 
     await user.type(nameBox(), "S");
-    expect(screen.queryByRole("button", { name: /Use AI to suggest/ })).not.toBeInTheDocument();
+    expect(aiButton()).not.toBeInTheDocument();
     await user.type(nameBox(), "alesforce");
-    await user.click(screen.getByRole("button", { name: /Use AI to suggest/ }));
+    await user.click(aiButton()!);
 
     expect(mockApi.callsOf("post", "/ai/suggest")[0].body).toEqual({
       type_key: "Application",
@@ -474,7 +480,7 @@ describe("CreateCardDialog — AI suggestions", () => {
     });
     const { user } = renderDialog({ initialType: "Widget" });
     await user.type(nameBox(), "Gadget");
-    await user.click(screen.getByRole("button", { name: /Use AI to suggest/ }));
+    await user.click(aiButton()!);
     await user.click(await screen.findByRole("button", { name: /Apply suggestions/ }));
     expect(screen.getByRole("checkbox", { name: "Shared" })).toBeChecked();
   });
@@ -486,7 +492,7 @@ describe("CreateCardDialog — AI suggestions", () => {
     });
     const { user } = renderDialog({ initialType: "Widget" });
     await user.type(nameBox(), "Gadget");
-    await user.click(screen.getByRole("button", { name: /Use AI to suggest/ }));
+    await user.click(aiButton()!);
     await user.click(await screen.findByRole("button", { name: /Apply suggestions/ }));
     expect(screen.getByRole("textbox", { name: /^Description/ })).toHaveValue("");
     expect(screen.getByRole("checkbox", { name: "Shared" })).toBeChecked();
@@ -496,21 +502,21 @@ describe("CreateCardDialog — AI suggestions", () => {
     mockApi.fail("post", "/ai/suggest", 503);
     const { user } = renderDialog({ initialType: "Application" });
     await user.type(nameBox(), "Salesforce");
-    await user.click(screen.getByRole("button", { name: /Use AI to suggest/ }));
+    await user.click(aiButton()!);
 
     expect(await screen.findByText("AI Suggestion Failed")).toBeInTheDocument();
     expect(screen.getByText("POST /ai/suggest failed")).toBeInTheDocument();
     // The panel's own Close (the dialog header's is an icon labelled "Close").
     await user.click(screen.getByText("Close", { selector: "button" }));
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: /Use AI to suggest/ })).toBeInTheDocument();
+    expect(aiButton()!).toBeInTheDocument();
   });
 
   it("uses a generic message for a non-Error AI failure", async () => {
     mockApi.on("post", "/ai/suggest", () => Promise.reject("x"));
     const { user } = renderDialog({ initialType: "Application" });
     await user.type(nameBox(), "Salesforce");
-    await user.click(screen.getByRole("button", { name: /Use AI to suggest/ }));
+    await user.click(aiButton()!);
     expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
   });
 });
