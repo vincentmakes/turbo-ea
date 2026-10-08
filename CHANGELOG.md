@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - A portal's relation filter lists only cards reachable through the relation types the portal shows.
 - Printing a process flow escapes the process and approver names, and sanitises the stored diagram image it falls back to, so markup in them can no longer run in the print window.
 
+### Fixed
+- Duplicating a decision or creating a new revision confirms it right away, instead of only once the new decision has finished loading.
+
 ## [2.157.3] - 2026-10-08
 
 ### Security

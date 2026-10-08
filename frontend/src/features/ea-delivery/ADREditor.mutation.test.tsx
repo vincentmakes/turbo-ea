@@ -572,6 +572,23 @@ describe("ADREditor — workflow actions", () => {
     expect(await screen.findByText("New revision created")).toBeInTheDocument();
   });
 
+  it("confirms a new revision while the revision is still loading", async () => {
+    // The confirmation used to sit inside the loaded page, so it waited for the
+    // whole reload of the new revision; hold that reload open to prove it doesn't.
+    const signed = { ...base, status: "signed" as const, signed_at: "2026-06-03T12:00:00Z" };
+    const reload = deferred();
+    let loads = 0;
+    await renderLoaded(signed, {
+      adr: () => (++loads === 1 ? signed : reload.promise),
+      post: (path) => (path === "/adr/adr-1/revise" ? { ...signed, id: "adr-rev" } : {}),
+    });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /New Revision/ }));
+    await waitFor(() => expect(location()).toBe("/ea-delivery/adr/adr-rev"));
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.getByText("New revision created")).toBeInTheDocument();
+  });
+
   it("requesting signatures: dialog copy, busy flag through a failure, and a reply without signatories", async () => {
     const first = deferred();
     let calls = 0;

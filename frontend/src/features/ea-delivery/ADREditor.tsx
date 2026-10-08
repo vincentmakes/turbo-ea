@@ -389,6 +389,18 @@ export default function ADREditor() {
   );
   const signedCount = signatories.filter((s) => s.status === "signed").length;
 
+  // Duplicate and New Revision navigate to the new decision and confirm in the
+  // same breath, so the confirmation is set while that decision loads: it has
+  // to render under the spinner too, or it waits for the whole reload.
+  const snackbarEl = (
+    <Snackbar
+      open={!!snackbar}
+      autoHideDuration={3000}
+      onClose={() => setSnackbar("")}
+      message={snackbar}
+    />
+  );
+
   if (loading) {
     return (
       <Box
@@ -400,6 +412,7 @@ export default function ADREditor() {
         }}
       >
         <CircularProgress />
+        {snackbarEl}
       </Box>
     );
   }
@@ -938,12 +951,7 @@ export default function ADREditor() {
       </Dialog>
 
       {/* ── Snackbar ── */}
-      <Snackbar
-        open={!!snackbar}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar("")}
-        message={snackbar}
-      />
+      {snackbarEl}
     </Box>
   );
 }
