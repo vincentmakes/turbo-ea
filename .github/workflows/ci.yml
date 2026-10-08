@@ -905,6 +905,16 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # A suite hands over its total only when it ran and passed, and the
+          # frontend's only when the browser suite passed too, so a push can
+          # bring none. Without nullglob the loop below would then run once
+          # on the literal pattern and fail in cat.
+          shopt -s nullglob
+          totals=(totals/*)
+          if [ "${#totals[@]}" -eq 0 ]; then
+            echo "No suite handed over a coverage total; every badge keeps its last value."
+            exit 0
+          fi
           remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git init -q branch && cd branch
           git config user.name "github-actions[bot]"
