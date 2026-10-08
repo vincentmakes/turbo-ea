@@ -447,19 +447,26 @@ describe("HierarchySection — parent dialog", () => {
     expect(within(again).queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("Cancel leaves create mode too", async () => {
+  it("Cancel clears the error and leaves create mode too", async () => {
     serve(LABELLED);
+    mockApi.fail("patch", "/cards/b", 400);
     const { user } = renderSection();
     await user.click(await screen.findByTitle("Change parent"));
     const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByText("pick Company P"));
+    await user.click(within(dialog).getByRole("button", { name: "Set Parent" }));
+    await within(dialog).findByRole("alert");
     await user.click(within(dialog).getByRole("button", { name: /Create new/ }));
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     await waitForDialogClosed();
+    // The abandoned write's error does not stay behind on the section.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
     await user.click(screen.getByTitle("Change parent"));
     const again = await screen.findByRole("dialog");
     expect(within(again).getByTestId("card-picker")).toBeInTheDocument();
     expect(within(again).getByRole("button", { name: "Set Parent" })).toBeInTheDocument();
+    expect(within(again).queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("creates only on Enter, never for a blank name, and locks while creating", async () => {
@@ -619,17 +626,24 @@ describe("HierarchySection — add-child dialog", () => {
     expect(within(again).queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("Cancel leaves create mode too", async () => {
+  it("Cancel clears the error and leaves create mode too", async () => {
     serve(LABELLED);
+    mockApi.fail("patch", "/cards/p9", 400);
     const { user } = renderSection();
     await user.click(await screen.findByRole("button", { name: /Add Child/ }));
     const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByText("pick Company P"));
+    await user.click(within(dialog).getByRole("button", { name: "Add Child" }));
+    await within(dialog).findByRole("alert");
     await user.click(within(dialog).getByRole("button", { name: /Create new/ }));
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     await waitForDialogClosed();
+    // The abandoned write's error does not stay behind on the section.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Add Child/ }));
     const again = await screen.findByRole("dialog");
     expect(within(again).getByTestId("card-picker")).toBeInTheDocument();
+    expect(within(again).queryByRole("alert")).not.toBeInTheDocument();
   });
 });

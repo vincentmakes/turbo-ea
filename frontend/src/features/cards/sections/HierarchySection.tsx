@@ -33,6 +33,7 @@ import { hasTypePermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useOptionLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { api } from "@/api/client";
 import type { Card, FieldOption, HierarchyData } from "@/types";
 
@@ -226,10 +227,26 @@ function HierarchySection({
   const [createName, setCreateName] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
   const [hierarchyError, setHierarchyError] = useState("");
+  // A failed load: shown instead of a progress bar that would never end.
+  const [loadError, setLoadError] = useState("");
 
+  // Keyed on the card and also called after every write: only the newest
+  // load may write the tree, so a late reply for the card shown before cannot
+  // replace this card's hierarchy (#882).
+  const hierarchyRequest = useLatestRequest();
   const loadHierarchy = useCallback(() => {
-    api.get<HierarchyData>(`/cards/${card.id}/hierarchy`).then(setHierarchy).catch(() => {});
-  }, [card.id]);
+    void hierarchyRequest.run(async ({ signal, isCurrent }) => {
+      try {
+        const h = await api.get<HierarchyData>(`/cards/${card.id}/hierarchy`, { signal });
+        if (!isCurrent()) return;
+        setHierarchy(h);
+        setLoadError("");
+      } catch (err: unknown) {
+        if (!isCurrent()) return;
+        setLoadError(err instanceof Error ? err.message : t("common:errors.generic"));
+      }
+    });
+  }, [hierarchyRequest, card.id, t]);
 
   useEffect(loadHierarchy, [loadHierarchy]);
 
@@ -259,9 +276,14 @@ function HierarchySection({
   };
 
   const handleRemoveParent = async () => {
-    await api.patch(`/cards/${card.id}`, { parent_id: null });
-    loadHierarchy();
-    onUpdate();
+    try {
+      setHierarchyError("");
+      await api.patch(`/cards/${card.id}`, { parent_id: null });
+      loadHierarchy();
+      onUpdate();
+    } catch (err: unknown) {
+      setHierarchyError(err instanceof Error ? err.message : t("common:errors.generic"));
+    }
   };
 
   const handleAddChild = async () => {
@@ -279,8 +301,13 @@ function HierarchySection({
   };
 
   const handleRemoveChild = async (childId: string) => {
-    await api.patch(`/cards/${childId}`, { parent_id: null });
-    loadHierarchy();
+    try {
+      setHierarchyError("");
+      await api.patch(`/cards/${childId}`, { parent_id: null });
+      loadHierarchy();
+    } catch (err: unknown) {
+      setHierarchyError(err instanceof Error ? err.message : t("common:errors.generic"));
+    }
   };
 
   // The link label is set on the CHILD of each edge, so the parent line patches
@@ -352,8 +379,13 @@ function HierarchySection({
             {hierarchyError}
           </Alert>
         )}
+        {loadError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {loadError}
+          </Alert>
+        )}
         {!hierarchy ? (
-          <LinearProgress />
+          !loadError && <LinearProgress />
         ) : (
           <Box>
             {/* Ancestor breadcrumb trail */}
@@ -499,7 +531,7 @@ function HierarchySection({
                 )}
               </DialogContent>
               <DialogActions>
-                <Button onClick={() => { setPickingParent(false); setCreateMode(null); }}>{t("common:actions.cancel")}</Button>
+                <Button onClick={() => { setPickingParent(false); setCreateMode(null); setHierarchyError(""); }}>{t("common:actions.cancel")}</Button>
                 {!createMode && (
                   <Button variant="contained" onClick={handleSetParent} disabled={!selectedParent}>
                     {t("hierarchy.setParent")}
@@ -636,7 +668,7 @@ function HierarchySection({
                 )}
               </DialogContent>
               <DialogActions>
-                <Button onClick={() => { setAddChildOpen(false); setCreateMode(null); }}>{t("common:actions.cancel")}</Button>
+                <Button onClick={() => { setAddChildOpen(false); setCreateMode(null); setHierarchyError(""); }}>{t("common:actions.cancel")}</Button>
                 {createMode !== "child" && (
                   <Button variant="contained" onClick={handleAddChild} disabled={!selectedChild}>
                     {t("hierarchy.addChild")}

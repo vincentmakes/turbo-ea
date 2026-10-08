@@ -142,8 +142,10 @@ export default function KeyInput({
 }
 
 /** Validate a key without the component — for programmatic checks. */
-export function isValidKey(value: string): boolean {
-  return KEY_PATTERN.test(value);
+export function isValidKey(value: string | null | undefined): boolean {
+  // RegExp.test coerces its argument: a missing key would be tested as the
+  // word "undefined" and pass.
+  return typeof value === "string" && KEY_PATTERN.test(value);
 }
 
 /** Coerce a string to valid key format. */

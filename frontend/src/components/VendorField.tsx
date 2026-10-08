@@ -17,12 +17,14 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
+import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { hasTypePermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCardSearch } from "@/hooks/useCardSearch";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { VENDOR_ACCENT } from "@/theme/tokens";
 import type { Relation } from "@/types";
 
@@ -82,6 +84,11 @@ export default function VendorField({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingProvider, setPendingProvider] = useState<ProviderOption | null>(null);
   const [creating, setCreating] = useState(false);
+  // A failed create stays in its dialog; a failed link shows under the field.
+  const [createError, setCreateError] = useState("");
+  const [linkError, setLinkError] = useState("");
+  const errorMessage = (err: unknown) =>
+    err instanceof Error ? err.message : t("common:errors.generic");
 
   // Dynamically find a Provider↔cardTypeKey relation type from the metamodel.
   // Several may connect the pair, and this field carries one vendor link, so the
@@ -109,13 +116,20 @@ export default function VendorField({
     setInputValue(value || "");
   }, [value]);
 
-  // Check existing Provider relation on mount
-  useEffect(() => {
-    if (!fsId || !relType) return;
-
-    api
-      .get<Relation[]>(`/relations?card_id=${fsId}&type=${relType}`)
-      .then((rels) => {
+  // Check the existing Provider relation. Keyed on the card, so a reply for
+  // the card shown before must never land on this one (#882).
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      // The chip is this card's: the previous card's Provider must not stay on
+      // it while the lookup runs, nor after it finds none.
+      setLinkedProvider(null);
+      if (!fsId || !relType) return;
+      try {
+        const rels = await api.get<Relation[]>(
+          `/relations?card_id=${fsId}&type=${relType}`,
+          { signal },
+        );
+        if (!isCurrent()) return;
         // Find the Provider linked to this card
         for (const r of rels) {
           const isTarget = r.target_id === fsId;
@@ -125,9 +139,13 @@ export default function VendorField({
             break;
           }
         }
-      })
-      .catch(() => {});
-  }, [fsId, relType]);
+      } catch {
+        // The chip is a hint beside the vendor text, which is still shown:
+        // a failed lookup simply leaves it out.
+      }
+    },
+    [fsId, relType],
+  );
 
   // Browse + search Provider cards via the shared engine: an empty input
   // lists all Providers (browse), typing filters server-side (#702).
@@ -177,6 +195,7 @@ export default function VendorField({
   const handleCreateAndLink = async () => {
     if (!pendingProvider?.inputValue) return;
     setCreating(true);
+    setCreateError("");
     try {
       const newFs = await api.post<{ id: string; name: string }>("/cards", {
         type: "Provider",
@@ -185,40 +204,57 @@ export default function VendorField({
 
       onChange(newFs.name);
       setInputValue(newFs.name);
-      setLinkedProvider({ id: newFs.id, name: newFs.name });
 
       onProviderSelected?.({ id: newFs.id, name: newFs.name });
 
       if (fsId) {
+        // The chip appears once linkProvider has linked it; a link failure is
+        // reported by linkProvider itself, under the field.
         await linkProvider(newFs.id);
+      } else {
+        // No card to link yet: the chip is the feedback for the pick.
+        setLinkedProvider({ id: newFs.id, name: newFs.name });
       }
-    } catch {
-      // Silent fail — vendor text is still set
+      closeConfirm();
+    } catch (err) {
+      // Nothing was created: keep the dialog open so the user can retry.
+      setCreateError(errorMessage(err));
     } finally {
       setCreating(false);
-      setConfirmOpen(false);
-      setPendingProvider(null);
     }
+  };
+
+  // Cancel and Escape both forget the pending Provider, so nothing can still
+  // create it from the dialog while it closes.
+  const closeConfirm = () => {
+    setConfirmOpen(false);
+    setPendingProvider(null);
+    setCreateError("");
   };
 
   const linkProvider = async (providerId: string) => {
     if (!relType || !fsId) return;
 
+    setLinkError("");
     try {
-      // Remove existing provider relations first
-      const existing = await api.get<Relation[]>(
-        `/relations?card_id=${fsId}&type=${relType}`
-      );
-      for (const r of existing) {
-        await api.delete(`/relations/${r.id}`);
-      }
-
-      // Create new relation respecting the metamodel direction
+      // Link the new Provider first, respecting the metamodel direction, so a
+      // failed link leaves the card with the Provider it had. POST /relations
+      // checks no cardinality and is idempotent on the pair, so re-picking
+      // the linked Provider keeps its row.
       await api.post("/relations", {
         type: relType,
         source_id: providerIsSource ? providerId : fsId,
         target_id: providerIsSource ? fsId : providerId,
       });
+
+      // Then remove the card's other Provider relations of this type.
+      const existing = await api.get<Relation[]>(
+        `/relations?card_id=${fsId}&type=${relType}`
+      );
+      for (const r of existing) {
+        const providerEnd = r.target_id === fsId ? r.source_id : r.target_id;
+        if (providerEnd !== providerId) await api.delete(`/relations/${r.id}`);
+      }
 
       setLinkedProvider({ id: providerId, name: "" });
 
@@ -236,8 +272,8 @@ export default function VendorField({
       }
 
       onRelationChange?.();
-    } catch {
-      // Relation creation failed silently
+    } catch (err) {
+      setLinkError(errorMessage(err));
     }
   };
 
@@ -256,10 +292,10 @@ export default function VendorField({
             }
           }}
           onChange={(_e, newVal) => {
+            // `value` is the input text itself, so freeSolo never reports a
+            // typed string here: typing goes through onInputChange.
             if (newVal && typeof newVal !== "string") {
               handleSelect(newVal as ProviderOption);
-            } else if (typeof newVal === "string") {
-              onChange(newVal || undefined);
             } else if (newVal === null) {
               onChange(undefined);
               setLinkedProvider(null);
@@ -340,18 +376,28 @@ export default function VendorField({
             }}
           />
         )}
+        {linkError && (
+          <Alert severity="error" onClose={() => setLinkError("")}>
+            {linkError}
+          </Alert>
+        )}
       </Box>
 
       {/* Create Provider confirmation dialog */}
-      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={confirmOpen} onClose={closeConfirm} maxWidth="xs" fullWidth>
         <DialogTitle>{t("vendor.createNew.title")}</DialogTitle>
         <DialogContent>
+          {createError && (
+            <Alert severity="error" onClose={() => setCreateError("")} sx={{ mt: 1 }}>
+              {createError}
+            </Alert>
+          )}
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             {t("vendor.createNew.description", { name: pendingProvider?.inputValue })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)}>{t("common:actions.cancel")}</Button>
+          <Button onClick={closeConfirm}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             onClick={handleCreateAndLink}

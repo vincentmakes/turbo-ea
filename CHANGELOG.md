@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.157.5] - 2026-10-08
+
+### Fixed
+- Card detail: a failed load of todos, lineage, hierarchy or relations now says what failed instead of showing an empty list or a progress bar that never ends, and a failed delete, unlink, EOL link or Provider link says so.
+- Card detail: approve, reject or reset failing for a reason other than missing mandatory items now says why, and deleting a card with unsaved edits leaves the page instead of stranding you on a deleted card.
+- Card detail: a supported EOL cycle no longer reads "Yes (EOL)" in red, and the approval-blocked list names relation types by their verb, from the side the card is on.
+- Card detail: a failed logo or subtype save shows its error beside the card instead of replacing the whole page.
+- Card detail: switching to another card no longer shows the previous card's todos, hierarchy, Provider or approval details while the new one loads.
+- Create card: what was typed stays while the dialog closes, a failed or not-yet-run EOL search no longer reads "No EOL matches found", and an AI suggestion asked for an earlier type or session no longer lands in the form.
+- Provider field: relinking a card to another Provider keeps its current Provider if the new link fails.
+- Metamodel translation dialog: it edits the language its selected tab shows, even when the enabled languages arrive after it opened.
+
 ## [2.157.4] - 2026-10-08
 
 ### Security

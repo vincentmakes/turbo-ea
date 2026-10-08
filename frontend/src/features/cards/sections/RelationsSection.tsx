@@ -72,6 +72,16 @@ import { successorRelationKeys } from "@/lib/successorRelation";
  */
 type MultiLinkedMap = Map<string, { key: string; isSource: boolean; verb: string }[]>;
 
+/**
+ * A row's flow direction, in the Provider / Consumer words the buckets below
+ * and the attribute editor use (forward = provider, reverse = consumer).
+ */
+const FLOW_DIRECTION_TOOLTIP_KEYS = {
+  forward: "relations.role.provider",
+  reverse: "relations.role.consumer",
+  bidirectional: "relations.flowDirection.bidirectional",
+} as const;
+
 /* ── Relation Attributes Popover ────────────────────────────── */
 function RelationAttrsPopover({
   anchorEl,
@@ -112,7 +122,7 @@ function RelationAttrsPopover({
       onSaved(updated);
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("relations.errors.create"));
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSaving(false);
     }
@@ -192,6 +202,7 @@ function RelationGroup({
   const [attrsAnchor, setAttrsAnchor] = useState<HTMLElement | null>(null);
   const [attrsRelation, setAttrsRelation] = useState<Relation | null>(null);
   const [rollupOpen, setRollupOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const rtHasAttributes = hasEditableRelationAttributes(rt);
 
@@ -241,8 +252,13 @@ function RelationGroup({
   };
 
   const handleDelete = async (relId: string) => {
-    await api.delete(`/relations/${relId}`);
-    onReload();
+    try {
+      setDeleteError("");
+      await api.delete(`/relations/${relId}`);
+      onReload();
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : t("common:errors.generic"));
+    }
   };
 
   const openAttrs = (event: React.MouseEvent<HTMLElement>, rel: Relation) => {
@@ -302,7 +318,7 @@ function RelationGroup({
     const attrBadges = relationAttributeBadges(rt, attrs);
     const attrSet = !!flowBadge || attrBadges.length > 0;
     const editTooltip = flowBadge
-      ? t(`relations.flowDirection.${flowBadge.value}`)
+      ? t(FLOW_DIRECTION_TOOLTIP_KEYS[flowBadge.value])
       : attrBadges.length > 0
         ? attrBadges
             .map((b) =>
@@ -350,7 +366,11 @@ function RelationGroup({
               </Tooltip>
             )}
             {canManageRelations && (
-              <IconButton size="small" onClick={() => handleDelete(r.id)}>
+              <IconButton
+                size="small"
+                onClick={() => handleDelete(r.id)}
+                aria-label={t("common:actions.remove")}
+              >
                 <MaterialSymbol icon="close" size={16} />
               </IconButton>
             )}
@@ -587,6 +607,12 @@ function RelationGroup({
         )}
       </Box>
 
+      {deleteError && (
+        <Alert severity="error" onClose={() => setDeleteError("")} sx={{ m: 1 }}>
+          {deleteError}
+        </Alert>
+      )}
+
       {/* Related cards list — bucketed by role when the relation type
           carries flowDirection, grouped by subtype when toggled/auto, else
           a flat list. */}
@@ -698,9 +724,20 @@ function RelationsSection({
   // the section button — the dialog itself carries no type selector.
   const [addMenuAnchor, setAddMenuAnchor] = useState<HTMLElement | null>(null);
 
+  // A failed load hides the groups: their empty hints and the header count
+  // would describe a list the section never received.
+  const [loadError, setLoadError] = useState("");
   const load = useCallback(() => {
-    api.get<Relation[]>(`/relations?card_id=${fsId}`).then(setRawRelations).catch(() => {});
-  }, [fsId]);
+    api
+      .get<Relation[]>(`/relations?card_id=${fsId}`)
+      .then((rows) => {
+        setRawRelations(rows);
+        setLoadError("");
+      })
+      .catch((e: unknown) =>
+        setLoadError(e instanceof Error ? e.message : t("common:errors.generic")),
+      );
+  }, [fsId, t]);
 
   /** Reload the relation list *and* the card, after a relation mutation. */
   const reloadAll = useCallback(() => {
@@ -891,12 +928,16 @@ function RelationsSection({
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="hub" size={20} />
           <Typography fontWeight={600}>{t("relations.title")}</Typography>
-          <Chip size="small" label={totalRelations} sx={{ ml: 1, height: 20, fontSize: "0.7rem" }} />
+          {!loadError && (
+            <Chip size="small" label={totalRelations} sx={{ ml: 1, height: 20, fontSize: "0.7rem" }} />
+          )}
         </Box>
       </AccordionSummary>
       <AccordionDetails>
+        {loadError && <Alert severity="error">{loadError}</Alert>}
+
         {/* Displayed relation type groups */}
-        {displayedGroups.map(({ rt, isSource, mandatory, rels }) => (
+        {!loadError && displayedGroups.map(({ rt, isSource, mandatory, rels }) => (
           <RelationGroup
             key={sideKey(rt, isSource)}
             rt={rt}
@@ -914,7 +955,7 @@ function RelationsSection({
         ))}
 
         {/* Sides with data that have no displayed group of their own */}
-        {hiddenSides.map(({ rt, isSource }) => {
+        {!loadError && hiddenSides.map(({ rt, isSource }) => {
           const rels = relations.filter((r) => onSide(r, rt.key, fsId, isSource));
           if (rels.length === 0) return null;
           return (
@@ -935,7 +976,7 @@ function RelationsSection({
         })}
 
         {/* Empty state when nothing is displayed at all */}
-        {displayedGroups.length === 0 && totalRelations === 0 && (
+        {!loadError && displayedGroups.length === 0 && totalRelations === 0 && (
           <Typography color="text.secondary" variant="body2" sx={{ mb: 1 }}>
             {t("relations.empty")}
           </Typography>
@@ -943,7 +984,7 @@ function RelationsSection({
 
         {/* Relation types with no group of their own have no `+` to click, so
             they are reached from here: pick the type, then the same dialog. */}
-        {canManageRelations && hiddenSides.length > 0 && (
+        {!loadError && canManageRelations && hiddenSides.length > 0 && (
           <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
             <Button
               size="small"

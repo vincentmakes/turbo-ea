@@ -195,16 +195,55 @@ describe("RelationsSection — rows", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/cards/t-2");
 
     const financeRow = screen.getByText("Finance").closest("li") as HTMLElement;
-    await user.click(within(financeRow).getByRole("button", { name: /^close$/ }));
+    // The icon-only button is named for what it does.
+    await user.click(within(financeRow).getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(screen.queryByText("Finance")).not.toBeInTheDocument());
     expect(onCardUpdate).toHaveBeenCalled();
   });
 
-  it("shows the section empty state when the relations cannot be loaded and no group is shown", async () => {
+  it("shows the error, not the section empty state, when the relations cannot be loaded", async () => {
     withMetamodel([APP, ORG], [{ ...APP_TO_ORG, source_visible: false }]);
     mockApi.fail("get", `/relations?card_id=${FS}`, 500);
     renderSection();
-    expect(await screen.findByText("No relations yet.")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(`GET /relations?card_id=${FS} failed`);
+    expect(screen.queryByText("No relations yet.")).not.toBeInTheDocument();
+  });
+
+  it("shows no group's empty hint either when the relations cannot be loaded", async () => {
+    mockApi.on("get", `/relations?card_id=${FS}`, () => Promise.reject("nope"));
+    renderSection();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+    // The group would otherwise claim "No relations yet." for a list it never saw.
+    expect(screen.queryByText("No relations yet.")).not.toBeInTheDocument();
+    // Nor a count of zero on the header.
+    expect(within(screen.getByRole("button", { name: /Relations/ })).queryByText("0")).not.toBeInTheDocument();
+  });
+
+  it("shows a failed delete on its group and keeps the row", async () => {
+    routeRelations([rel("1", "Finance"), rel("2", "Legal")]);
+    mockApi.fail("delete", "/relations/1", 500);
+    const onCardUpdate = vi.fn();
+    const { user } = renderSection({ onCardUpdate });
+    const financeRow = (await screen.findByText("Finance")).closest("li") as HTMLElement;
+    await user.click(within(financeRow).getByRole("button", { name: "Remove" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("DELETE /relations/1 failed");
+    expect(screen.getByText("Finance")).toBeInTheDocument();
+    expect(onCardUpdate).not.toHaveBeenCalled();
+    expect(mockApi.callsOf("get", `/relations?card_id=${FS}`)).toHaveLength(1);
+  });
+
+  it("names a failed delete that carries no message, and clears it on the next success", async () => {
+    routeRelations([rel("1", "Finance"), rel("2", "Legal")]);
+    mockApi.on("delete", "/relations/1", () => Promise.reject("nope"));
+    const { user } = renderSection();
+    const financeRow = (await screen.findByText("Finance")).closest("li") as HTMLElement;
+    await user.click(within(financeRow).getByRole("button", { name: "Remove" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+
+    mockApi.on("delete", "/relations/1", undefined);
+    await user.click(within(financeRow).getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 
   it("labels a row with no resolvable other end as unknown", async () => {
@@ -271,7 +310,9 @@ describe("RelationsSection — attribute popover", () => {
     const { user } = renderSection();
     await user.click(await screen.findByRole("button", { name: "Edit details" }));
     await user.click(await screen.findByRole("button", { name: "Save" }));
-    expect(await screen.findByText("Failed to create relation")).toBeInTheDocument();
+    // The save updates an existing relation: it never reports a failed create.
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+    expect(screen.queryByText("Failed to create relation")).not.toBeInTheDocument();
   });
 });
 
@@ -298,8 +339,13 @@ describe("RelationsSection — flowDirection buckets", () => {
     // A bidirectional row sits in both buckets.
     expect(screen.getAllByText("Sync Bus")).toHaveLength(2);
     expect(at("Unspecified")).toBeLessThan(at("Legacy Link"));
-    // The bidirectional row's button names its direction.
+    // Each row's button names its direction — in words, never a raw i18n key.
     expect(screen.getAllByRole("button", { name: "Bidirectional" })).toHaveLength(2);
+    const ordersRow = screen.getByText("Orders API").closest("li") as HTMLElement;
+    expect(within(ordersRow).getByRole("button", { name: "Provider" })).toBeInTheDocument();
+    const billingRow = screen.getByText("Billing Feed").closest("li") as HTMLElement;
+    expect(within(billingRow).getByRole("button", { name: "Consumer" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /relations\.flowDirection/ })).not.toBeInTheDocument();
   });
 
   it("names the buckets Provider / Consumer from the target side and shows empty buckets", async () => {
@@ -316,6 +362,9 @@ describe("RelationsSection — flowDirection buckets", () => {
     expect(await screen.findByText("Provider Application")).toBeInTheDocument();
     expect(screen.getByText("Consumer Application")).toBeInTheDocument();
     expect(screen.getByText("None yet")).toBeInTheDocument();
+    // The row sits in the Provider bucket, and its button says so.
+    const erpRow = screen.getByText("ERP").closest("li") as HTMLElement;
+    expect(within(erpRow).getByRole("button", { name: "Provider" })).toBeInTheDocument();
     expect(screen.queryByText("Unspecified")).not.toBeInTheDocument();
   });
 });
@@ -394,7 +443,7 @@ describe("RelationsSection — group decorations", () => {
     renderSection({ canManageRelations: false });
     await screen.findByText("Finance");
     expect(screen.queryByRole("button", { name: /Add Organization/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^close$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
   });
 });
 

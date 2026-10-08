@@ -149,10 +149,11 @@ describe("TranslationDialog — locale tabs", () => {
     expect(screen.queryAllByRole("tab")).toHaveLength(0);
   });
 
-  it("selects the first enabled tab when the locale it opened on is disabled later", async () => {
+  it("selects, reads and writes the first enabled locale when the one it opened on is disabled later", async () => {
     // The dialog opened before the enabled-locale list arrived (all locales,
     // so English), and the list that arrived does not carry English.
-    const { rerender } = renderDialog();
+    const user = userEvent.setup();
+    const { onSave, rerender } = renderDialog();
     await screen.findByRole("tab", { name: /English/ });
 
     locales.enabled = ["de", "fr"];
@@ -160,6 +161,32 @@ describe("TranslationDialog — locale tabs", () => {
 
     await waitFor(() => expect(tabOf("de")).toHaveAttribute("aria-selected", "true"));
     expect(screen.queryByRole("tab", { name: /English/ })).not.toBeInTheDocument();
+    // The rows follow the selected tab: German, not the English column.
+    const input = screen.getByPlaceholderText("Application");
+    expect(input).toHaveValue("Anwendung");
+    await user.clear(input);
+    await user.type(input, "Applikation");
+    expect(countOf("de")).toBe("1/1");
+
+    await user.click(saveButton());
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    const body = typePatchBody();
+    expect(body.translations).toEqual({ label: { en: "Application", de: "Applikation" } });
+    expect(body).not.toHaveProperty("label");
+  });
+
+  it("returns to the picked tab when its locale is enabled again", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderDialog();
+    await user.click(await screen.findByRole("tab", { name: /Français/ }));
+
+    locales.enabled = ["de", "it"];
+    rerender({});
+    await waitFor(() => expect(tabOf("de")).toHaveAttribute("aria-selected", "true"));
+
+    locales.enabled = [...SUPPORTED_LOCALES];
+    rerender({});
+    await waitFor(() => expect(tabOf("fr")).toHaveAttribute("aria-selected", "true"));
   });
 });
 
@@ -305,6 +332,31 @@ describe("TranslationDialog — completion counts", () => {
       expect(countOf(locale)).toBe("0/1");
       expect(isMarkedComplete(locale)).toBe(false);
     }
+  });
+
+  it("does not recount every locale on a render that changed nothing it counts", async () => {
+    let reads = 0;
+    const watched = { ...CARD_TYPE } as CardType;
+    Object.defineProperty(watched, "description", {
+      enumerable: true,
+      get: () => {
+        reads += 1;
+        return "A business application";
+      },
+    });
+    const { rerender } = renderDialog(watched);
+    expect(await screen.findByPlaceholderText("Application.description")).toBeInTheDocument();
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    await act(async () => {});
+
+    const before = reads;
+    rerender({});
+    rerender({});
+    rerender({});
+    // The description row reads it once per render; the per-locale counts,
+    // which read it once per locale, are not recomputed.
+    expect(reads - before).toBeGreaterThan(0);
+    expect(reads - before).toBeLessThan(SUPPORTED_LOCALES.length);
   });
 
   it("counts subtypes, link types, sections, fields, options and roles per locale", async () => {

@@ -32,6 +32,11 @@ describe("isValidKey", () => {
     expect(isValidKey("")).toBe(false);
   });
 
+  it("rejects a missing key rather than reading it as the word \"undefined\"", () => {
+    expect(isValidKey(undefined)).toBe(false);
+    expect(isValidKey(null)).toBe(false);
+  });
+
   it("rejects keys with underscores", () => {
     expect(isValidKey("my_field")).toBe(false);
   });

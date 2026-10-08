@@ -678,6 +678,17 @@ describe("RelationsSection — props that change after mount", () => {
     expect(mockApi.callsOf("get", `/relations?card_id=${FS}`)).toHaveLength(2);
   });
 
+  it("drops a load error once a refresh loads the relations", async () => {
+    mockApi.fail("get", `/relations?card_id=${FS}`, 500);
+    const view = mount();
+    expect(await screen.findByRole("alert")).toHaveTextContent(`GET /relations?card_id=${FS} failed`);
+
+    routeRelations([rel("1", "Finance")]);
+    view.rerenderWith({ refreshKey: 1 });
+    expect(await screen.findByText("Finance")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("refreshes the card through the latest onCardUpdate", async () => {
     let rows = [rel("1", "Finance"), rel("2", "Legal")];
     mockApi.on("get", `/relations?card_id=${FS}`, () => rows);
@@ -691,7 +702,7 @@ describe("RelationsSection — props that change after mount", () => {
     await screen.findByText("Finance");
 
     view.rerenderWith({ onCardUpdate: second });
-    await view.user.click(within(rowOf("Finance")).getByRole("button", { name: /^close$/ }));
+    await view.user.click(within(rowOf("Finance")).getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(second).toHaveBeenCalledTimes(1));
     expect(first).not.toHaveBeenCalled();
   });

@@ -205,7 +205,7 @@ describe("VendorField", () => {
     mockApi.reset();
     mockApi.on("get", "/cards?*", cardPage([]));
     mockApi.on("get", /^\/relations/, []);
-    withMetamodel(CARD_TYPES, [provider("relC", 3), { ...provider("relQ", 0), sort_order: undefined } as RelationType, provider("relD", 2)]);
+    withMetamodel(CARD_TYPES, [provider("relC", 3), { ...provider("relQ", 0), sort_order: undefined } as unknown as RelationType, provider("relD", 2)]);
     renderField({ fsId: FS_ID });
     await waitFor(() => expect(mockApi.callsOf("get", /^\/relations/)).toHaveLength(1));
     expect(mockApi.callsOf("get", /^\/relations/)[0].path).toBe(`/relations?card_id=${FS_ID}&type=relQ`);
@@ -259,10 +259,13 @@ describe("VendorField", () => {
   });
 
   it("browses all Providers on open, then relinks the card to the picked one", async () => {
-    // Globex is linked until the POST lands; the re-read afterwards shows Acme.
-    mockApi.on("get", RELATIONS_URL, () =>
-      mockApi.callsOf("post", "/relations").length ? linkedTo(ACME) : [EXISTING],
-    );
+    // Globex is linked until the POST lands, both are until the old link is
+    // deleted, and the re-read afterwards shows Acme alone.
+    mockApi.on("get", RELATIONS_URL, () => {
+      if (!mockApi.callsOf("post", "/relations").length) return [EXISTING];
+      if (!mockApi.callsOf("delete", "/relations/rel-old").length) return [EXISTING, ...linkedTo(ACME)];
+      return linkedTo(ACME);
+    });
     const { user, onChange, onRelationChange, onProviderSelected } = renderField({ fsId: FS_ID });
     await screen.findByText("Globex");
 
@@ -277,13 +280,18 @@ describe("VendorField", () => {
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onProviderSelected).toHaveBeenCalledWith({ id: ACME.id, name: "Acme Corp" });
     await waitFor(() => expect(onRelationChange).toHaveBeenCalledTimes(1));
-    // The old link goes first, then the new one in the type's direction.
-    expect(mockApi.callsOf("delete", "/relations/rel-old")).toHaveLength(1);
+    // The new link goes first, in the type's direction; only then the old one,
+    // and never the new one.
     expect(mockApi.callsOf("post", "/relations")[0].body).toEqual({
       type: REL_PROVIDER_TO_ITC.key,
       source_id: ACME.id,
       target_id: FS_ID,
     });
+    expect(
+      mockApi.calls
+        .filter((c) => c.method === "post" || c.method === "delete")
+        .map((c) => `${c.method} ${c.path}`),
+    ).toEqual(["post /relations", "delete /relations/rel-old"]);
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
     expect(screen.getByLabelText("Provider")).toHaveValue("Acme Corp");
   });
@@ -557,6 +565,123 @@ describe("VendorField", () => {
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(mockApi.callsOf("post")).toHaveLength(0);
+  });
+
+  it("forgets the pending Provider on Cancel, so a stray click on the closing dialog creates nothing", async () => {
+    mockApi.on("post", "/cards", { id: "prov-new", name: "Initech" });
+    const { user, onProviderSelected } = renderField();
+    await user.type(screen.getByLabelText("Provider"), "Initech");
+    await user.click(await screen.findByRole("option", { name: /Create Provider "Initech"/ }));
+    const dialog = await screen.findByRole("dialog");
+    const createButton = within(dialog).getByRole("button", { name: "Create & Link" });
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    // The dialog is still fading out: its button is on screen but must be inert.
+    fireEvent.click(createButton);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockApi.callsOf("post")).toHaveLength(0);
+    expect(onProviderSelected).not.toHaveBeenCalled();
+  });
+
+  it("forgets the pending Provider on Escape too", async () => {
+    mockApi.on("post", "/cards", { id: "prov-new", name: "Initech" });
+    const { user } = renderField();
+    await user.type(screen.getByLabelText("Provider"), "Initech");
+    await user.click(await screen.findByRole("option", { name: /Create Provider "Initech"/ }));
+    const dialog = await screen.findByRole("dialog");
+    const createButton = within(dialog).getByRole("button", { name: "Create & Link" });
+    await user.keyboard("{Escape}");
+    fireEvent.click(createButton);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockApi.callsOf("post")).toHaveLength(0);
+  });
+
+  it("keeps the create dialog open with the error when the Provider cannot be created", async () => {
+    mockApi.fail("post", "/cards", 409, "duplicate");
+    const { user, onProviderSelected, onChange } = renderField({ fsId: FS_ID });
+    await user.type(screen.getByLabelText("Provider"), "Initech");
+    await user.click(await screen.findByRole("option", { name: /Create Provider "Initech"/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Create & Link" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("POST /cards failed");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Create & Link" })).toBeEnabled();
+    expect(onProviderSelected).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalledWith("Initech Corp");
+    expect(mockApi.callsOf("post", "/relations")).toHaveLength(0);
+
+    // Cancel closes it, and the next attempt starts without the old error.
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await user.clear(screen.getByLabelText("Provider"));
+    await user.type(screen.getByLabelText("Provider"), "Initech");
+    await user.click(await screen.findByRole("option", { name: /Create Provider "Initech"/ }));
+    const again = await screen.findByRole("dialog");
+    expect(within(again).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("names a failed create that carries no message", async () => {
+    mockApi.on("post", "/cards", () => Promise.reject("nope"));
+    const { user } = renderField();
+    await user.type(screen.getByLabelText("Provider"), "Initech");
+    await user.click(await screen.findByRole("option", { name: /Create Provider "Initech"/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Create & Link" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Something went wrong");
+  });
+
+  it("shows a failed link to the picked Provider, and drops it on the next successful one", async () => {
+    mockApi.on("get", RELATIONS_URL, [EXISTING]);
+    mockApi.fail("post", "/relations", 500);
+    const { user, onRelationChange } = renderField({ fsId: FS_ID });
+    await screen.findByText("Globex");
+    await user.click(screen.getByLabelText("Provider"));
+    await user.click(await screen.findByRole("option", { name: /Acme Corp/ }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("POST /relations failed");
+    expect(onRelationChange).not.toHaveBeenCalled();
+    // The card keeps the Provider it had, and the chip still says so.
+    expect(mockApi.callsOf("delete")).toHaveLength(0);
+    expect(screen.getByText("Globex", { selector: ".MuiChip-label" })).toBeInTheDocument();
+
+    mockApi.on("post", "/relations", {});
+    await user.click(screen.getByLabelText("Provider"));
+    await user.click(await screen.findByRole("option", { name: /Globex/ }));
+    await waitFor(() => expect(onRelationChange).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("names a failed link that carries no message", async () => {
+    mockApi.on("get", RELATIONS_URL, []);
+    mockApi.on("post", "/relations", () => Promise.reject("nope"));
+    const { user } = renderField({ fsId: FS_ID });
+    await user.click(screen.getByLabelText("Provider"));
+    await user.click(await screen.findByRole("option", { name: /Acme Corp/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+  });
+
+  it("ignores a late Provider lookup for the card it was showing before", async () => {
+    const OTHER = CARD_IDS.erp;
+    const otherUrl = `/relations?card_id=${OTHER}&type=${REL_PROVIDER_TO_ITC.key}`;
+    let releaseFirst: (rows: Relation[]) => void = () => {};
+    mockApi.on("get", RELATIONS_URL, () => new Promise<Relation[]>((resolve) => (releaseFirst = resolve)));
+    mockApi.on("get", otherUrl, []);
+    const onChange = vi.fn();
+    const { rerender } = renderWithProviders(
+      <VendorField value="" onChange={onChange} cardTypeKey="ITComponent" fsId={FS_ID} />,
+    );
+    await waitFor(() => expect(mockApi.callsOf("get", RELATIONS_URL)).toHaveLength(1));
+    rerender(wrapWithProviders(<VendorField value="" onChange={onChange} cardTypeKey="ITComponent" fsId={OTHER} />));
+    await waitFor(() => expect(mockApi.callsOf("get", otherUrl)).toHaveLength(1));
+    // The superseded lookup is aborted…
+    const firstOpts = mockApi.api.get.mock.calls.find(([path]) => path === RELATIONS_URL)?.[1] as
+      | { signal?: AbortSignal }
+      | undefined;
+    expect(firstOpts?.signal?.aborted).toBe(true);
+
+    // …and its reply, landing last, does not put the old card's Provider on this one.
+    await act(async () => releaseFirst([EXISTING]));
+    expect(screen.queryByText("Globex", { selector: ".MuiChip-label" })).not.toBeInTheDocument();
   });
 
   it("offers no create option when the role may not create Providers", async () => {

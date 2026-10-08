@@ -4,11 +4,12 @@
  * override extra field suggestions, and hands the result to `onApply`.
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { makeField, makeOption, makeSection } from "@/test/fixtures/metamodel";
 import type { AiSuggestResponse, SectionDef } from "@/types";
+import i18n from "@/i18n";
 import AiSuggestPanel from "./AiSuggestPanel";
 
 const SCHEMA: SectionDef[] = [
@@ -387,3 +388,51 @@ describe("AiSuggestPanel — details", () => {
   });
 });
 
+describe("AiSuggestPanel — metamodel labels", () => {
+  const LABELLED: SectionDef[] = [
+    makeSection({
+      section: "Business",
+      fields: [
+        makeField({
+          key: "isCloud",
+          label: "Cloud Hosted",
+          type: "boolean",
+          translations: { de: "In der Cloud gehostet" },
+        }),
+        makeField({
+          key: "criticality",
+          label: "",
+          type: "single_select",
+          options: [
+            makeOption({ key: "high", label: "High", translations: { de: "Hoch" } }),
+            makeOption({ key: "low", label: "Low" }),
+          ],
+        }),
+      ],
+    }),
+  ];
+
+  it("names a suggested field and its options in the UI language, falling back to the label then the key", async () => {
+    const previous = i18n.language;
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+    try {
+      const user = userEvent.setup();
+      renderPanel({ response: WITH_FIELDS, fieldsSchema: LABELLED });
+      expect(screen.getByText("In der Cloud gehostet")).toBeInTheDocument();
+      expect(screen.queryByText("Cloud Hosted")).not.toBeInTheDocument();
+      // An admin-created field with no label shows its key, never a blank.
+      expect(screen.getByText("criticality")).toBeInTheDocument();
+      // The select shows the translated option, and an untranslated one its label.
+      const select = screen.getByRole("combobox");
+      expect(select).toHaveTextContent("Hoch");
+      await user.click(select);
+      expect(await screen.findByRole("option", { name: "Low" })).toBeInTheDocument();
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage(previous);
+      });
+    }
+  });
+});

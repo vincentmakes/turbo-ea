@@ -16,6 +16,8 @@ vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientMo
 import { mockApi, type RouteMatcher } from "@/test/apiMock";
 import { CARD_IDS, cardById, makeCard } from "@/test/fixtures/metamodel";
 import { toIsoDate } from "@/lib/dates";
+import { STATUS_COLORS } from "@/theme/tokens";
+import i18n from "@/i18n";
 import type { Card, EolCycle } from "@/types";
 import EolLinkSection, { EolLinkDialog } from "./EolLinkSection";
 
@@ -92,6 +94,12 @@ async function renderLinkedWith(cycle: Partial<EolCycle>) {
 const searchBox = () =>
   screen.getByRole("combobox", { name: "Search product on endoflife.date" });
 
+/** The chip on a details row, found by the row's label. */
+const rowChip = (label: string) => {
+  const labels = screen.getAllByText(label);
+  return labels[labels.length - 1].nextElementSibling as HTMLElement;
+};
+
 beforeEach(() => {
   mockApi.reset();
   mockApi.on("get", SEARCH, []);
@@ -119,17 +127,29 @@ describe("EOL status and details", () => {
     await renderLinkedWith({ eol: true, support: false });
     expect(screen.getAllByText("End of Life")).toHaveLength(4);
     expect(screen.getByText("cancel")).toBeInTheDocument();
-    expect(screen.getByText("Yes (EOL)")).toBeInTheDocument();
-    expect(screen.getByText("No")).toBeInTheDocument();
+    expect(rowChip("End of Life")).toHaveTextContent("Yes (EOL)");
+    expect(rowChip("End of Life")).toHaveStyle({ color: STATUS_COLORS.error });
+    // support=false means active support has ended: "No", in the ended colour.
+    expect(rowChip("Active Support")).toHaveTextContent(/^No$/);
+    expect(rowChip("Active Support")).toHaveStyle({ color: STATUS_COLORS.error });
   });
 
   it("treats an eol flag of false as supported", async () => {
     await renderLinkedWith({ eol: false, support: true });
     expect(screen.getAllByText("Supported")).toHaveLength(2);
     expect(screen.getByText("check_circle")).toBeInTheDocument();
-    // The eol=false chip reads "No"; nothing else on the card does.
-    expect(screen.getAllByText("No")).toHaveLength(1);
+    expect(rowChip("End of Life")).toHaveTextContent(/^No$/);
+    expect(rowChip("End of Life")).toHaveStyle({ color: STATUS_COLORS.success });
+    // support=true means still supported — never read with EOL semantics.
+    expect(rowChip("Active Support")).toHaveTextContent(/^Yes$/);
+    expect(rowChip("Active Support")).toHaveStyle({ color: STATUS_COLORS.success });
+    expect(screen.queryByText("Yes (EOL)")).not.toBeInTheDocument();
     expect(screen.queryByText("Security fixes only")).not.toBeInTheDocument();
+  });
+
+  it("colours the active-support date by whether support is still running", async () => {
+    await renderLinkedWith({ eol: future(48), support: future(24) });
+    expect(rowChip("Active Support")).toHaveStyle({ color: STATUS_COLORS.success });
   });
 
   it("renders every details row the cycle carries", async () => {
@@ -251,6 +271,38 @@ describe("EolLinkSection — fetching the linked cycle", () => {
     expect(mockApi.callsOf("get", "/eol/products/redis")).toHaveLength(1);
   });
 
+  it("clears the previous product's details while another linked product loads", async () => {
+    const { rerender, onSave } = await renderLinkedWith({ eol: future(48), support: true });
+    expect(screen.getAllByText("Supported")).toHaveLength(2);
+
+    const held = holdGets("/eol/products/redis");
+    rerender(
+      <EolLinkSection
+        card={{ ...LINKED, attributes: { eol_product: "redis", eol_cycle: "7" } }}
+        onSave={onSave}
+      />,
+    );
+    expect(screen.getByText("redis 7")).toBeInTheDocument();
+    // Nothing from postgresql 16 may sit under the redis 7 header.
+    expect(screen.queryByText("Supported")).not.toBeInTheDocument();
+    expect(screen.queryByText("Active Support")).not.toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+
+    await settle(held[0], [{ cycle: "7", eol: true, support: false }]);
+    expect(await screen.findByText("Yes (EOL)")).toBeInTheDocument();
+  });
+
+  it("keeps the shown details while the same product is refreshed", async () => {
+    const user = userEvent.setup();
+    await renderLinkedWith({ eol: future(48), support: true });
+    const held = holdGets("/eol/products/postgresql");
+    await user.click(screen.getByTitle("Refresh EOL data"));
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.getAllByText("Supported")).toHaveLength(2);
+    await settle(held[0], [{ cycle: "16", eol: future(48), support: false }]);
+    expect(await screen.findAllByText("Security fixes only")).toHaveLength(2);
+  });
+
   it("forgets the cycle details once the card is unlinked", async () => {
     mockApi.on("get", FUZZY, []);
     const { rerender, onSave } = await renderLinkedWith({ eol: future(48) });
@@ -293,6 +345,117 @@ describe("EolLinkSection — fetching the linked cycle", () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.queryByText("Active Support")).not.toBeInTheDocument());
     expect(screen.queryByText("Supported")).not.toBeInTheDocument();
+  });
+});
+
+/** Run `fn` with the UI in `lng`, restoring the previous language afterwards. */
+async function inLanguage(lng: string, fn: () => Promise<void>) {
+  const previous = i18n.language;
+  await act(async () => {
+    await i18n.changeLanguage(lng);
+  });
+  try {
+    await fn();
+  } finally {
+    await act(async () => {
+      await i18n.changeLanguage(previous);
+    });
+  }
+}
+
+describe("EolLinkSection — superseded and failed requests", () => {
+  const REDIS = { ...LINKED, attributes: { eol_product: "redis", eol_cycle: "7" } };
+
+  it("ignores a late reply for the product the card was linked to before", async () => {
+    const pg = holdGets("/eol/products/postgresql");
+    const redis = holdGets("/eol/products/redis");
+    const { rerender, onSave } = renderSection(LINKED);
+    rerender(<EolLinkSection card={REDIS} onSave={onSave} />);
+    // The superseded request is aborted…
+    expect(getOpts(/\/eol\/products\/postgresql/, 0).signal?.aborted).toBe(true);
+
+    await settle(redis[0], [{ cycle: "7", eol: true, support: false }]);
+    expect(await screen.findByText("Yes (EOL)")).toBeInTheDocument();
+    // …and its reply, landing last, changes nothing.
+    await settle(pg[0], [{ cycle: "16", eol: future(48), support: true }]);
+    expect(screen.getByText("Yes (EOL)")).toBeInTheDocument();
+    expect(screen.queryByText("Supported")).not.toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("ignores a late failure for the product the card was linked to before", async () => {
+    const pg = holdGets("/eol/products/postgresql");
+    const redis = holdGets("/eol/products/redis");
+    const { rerender, onSave } = renderSection(LINKED);
+    rerender(<EolLinkSection card={REDIS} onSave={onSave} />);
+    await settle(redis[0], [{ cycle: "7", eol: true, support: false }]);
+    expect(await screen.findByText("Yes (EOL)")).toBeInTheDocument();
+    await act(async () => {
+      pg[0].reject(new Error("GET /eol/products/postgresql failed"));
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("names a missing cycle in the UI language", async () => {
+    mockApi.on("get", "/eol/products/postgresql", [{ cycle: "15" }]);
+    await inLanguage("de", async () => {
+      renderSection(LINKED);
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        'Zyklus "16" für postgresql nicht gefunden',
+      );
+    });
+  });
+
+  it("names a failure without a message in the UI language", async () => {
+    mockApi.on("get", "/eol/products/postgresql", () => Promise.reject("socket hang up"));
+    await inLanguage("de", async () => {
+      renderSection(LINKED);
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "EOL-Daten konnten nicht abgerufen werden",
+      );
+    });
+  });
+
+  it("keeps the picker open with the error when saving a new link fails", async () => {
+    mockApi.on("get", "/eol/products/postgresql", [
+      { cycle: "16", eol: future(48) },
+      { cycle: "12", eol: true },
+    ]);
+    const user = userEvent.setup();
+    const onSave = vi.fn(async () => {
+      throw new Error("PATCH /cards/x failed");
+    });
+    render(<EolLinkSection card={LINKED} onSave={onSave} />);
+    await screen.findByText("Active Support");
+    await user.click(screen.getByTitle("Change linked product"));
+    await screen.findAllByText("Version / Cycle");
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: /^12/ }));
+    await user.click(screen.getByRole("button", { name: "Link" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("PATCH /cards/x failed");
+    expect(onSave).toHaveBeenCalledTimes(1);
+    // Still in the picker, so the user can retry or cancel.
+    expect(screen.getByRole("button", { name: "Link" })).toBeInTheDocument();
+    expect(screen.queryByText("Linked to")).not.toBeInTheDocument();
+
+    // Cancelling the change drops the error with it.
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByText("Linked to")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("keeps the details with the error when unlinking fails", async () => {
+    const user = userEvent.setup();
+    mockApi.on("get", "/eol/products/postgresql", [{ cycle: "16", eol: future(48) }]);
+    const onSave = vi.fn(() => Promise.reject("nope"));
+    render(<EolLinkSection card={LINKED} onSave={onSave} />);
+    await screen.findByText("Active Support");
+    await user.click(screen.getByTitle("Unlink EOL data"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+    expect(screen.getByText("Active Support")).toBeInTheDocument();
+    expect(screen.getByText("Linked to")).toBeInTheDocument();
   });
 });
 

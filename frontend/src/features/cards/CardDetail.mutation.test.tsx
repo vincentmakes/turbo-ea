@@ -124,8 +124,8 @@ vi.mock("@/components/CardLogoMenu", () => ({
 }));
 
 // The real badge fires `onAction` and forgets the promise; this stand-in keeps
-// it, so what the page does with a failed transition (rethrow, or turn into
-// the mandatory-items list) is observable.
+// it, so a failed transition the page did NOT handle itself (shown as an error,
+// or turned into the mandatory-items list) would surface as `approval-failure`.
 vi.mock("@/components/ApprovalStatusBadge", () => ({
   default: function ApprovalBadgeStub({
     status,
@@ -615,13 +615,38 @@ describe("CardDetail — unsaved title edits", () => {
     const name = await beginEdit(user);
     await user.type(name, "X");
 
+    await user.click(screen.getByRole("link", { name: "go-c2" }));
+    expect(confirm).toHaveBeenCalledWith("You have unsaved changes. Leave without saving?");
+    expect(location()).toBe("/cards/c1");
+    expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue("CRMX");
+  });
+
+  it("leaves a deleted card without asking, even with a changed title", async () => {
+    // The unsaved title of a card that no longer exists has nowhere to go,
+    // so declining a prompt must not strand the user on its page.
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { user } = renderPage();
+    const name = await beginEdit(user);
+    await user.type(name, "X");
+
     const menu = await openActions(user);
     await user.click(within(menu).getByRole("menuitem", { name: /Delete/ }));
     await user.click(await screen.findByText("delete-confirm"));
-    expect(confirm).toHaveBeenCalledWith("You have unsaved changes. Leave without saving?");
-    expect(location()).toBe("/cards/c1");
-    // The dialog is closed even though the navigation was declined.
+    await waitFor(() => expect(location()).toBe("/inventory"));
+    expect(confirm).not.toHaveBeenCalled();
     expect(screen.queryByTestId("delete-dialog")).not.toBeInTheDocument();
+  });
+
+  it("leaves a deleted card without asking when a section has unsaved changes", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { user } = renderPage();
+    await user.click(await screen.findByText("content-dirty"));
+
+    const menu = await openActions(user);
+    await user.click(within(menu).getByRole("menuitem", { name: /Delete/ }));
+    await user.click(await screen.findByText("delete-confirm"));
+    await waitFor(() => expect(location()).toBe("/inventory"));
+    expect(confirm).not.toHaveBeenCalled();
   });
 });
 
@@ -992,43 +1017,52 @@ describe("CardDetail — approval", () => {
     const { user } = renderPage();
     await user.click(await screen.findByText("approval-approve"));
     await waitFor(() => expect(mockApi.callsOf("post")).toHaveLength(1));
-    // The handler settled without rethrowing.
+    // The handler settled without rethrowing, and without calling it an error.
     await act(async () => {});
     expect(screen.queryByText(BLOCKED)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByTestId("approval-failure")).not.toBeInTheDocument();
     expect(screen.getByTestId("approval")).toHaveTextContent("DRAFT");
   });
 
-  it("rethrows a block-shaped error that is not a 400", async () => {
+  it("shows a block-shaped error that is not a 400 as an error, not as the list", async () => {
     mockApi.fail("post", /^\/cards\/c1\/approval-status/, 409, blockedDetail([REL], []));
     const { user } = renderPage();
     await user.click(await screen.findByText("approval-approve"));
-    expect(await screen.findByTestId("approval-failure")).toHaveTextContent(
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "POST /cards/c1/approval-status?action=approve failed",
     );
     expect(screen.queryByText(BLOCKED)).not.toBeInTheDocument();
+    // Handled on the page: nothing is rethrown to the badge.
+    await act(async () => {});
+    expect(screen.queryByTestId("approval-failure")).not.toBeInTheDocument();
+    expect(screen.getByTestId("approval")).toHaveTextContent("DRAFT");
   });
 
-  it("rethrows a 400 whose detail is null", async () => {
+  it("shows a 400 whose detail is null as an error", async () => {
     mockApi.fail("post", /^\/cards\/c1\/approval-status/, 400, null);
     const { user } = renderPage();
     await user.click(await screen.findByText("approval-approve"));
-    expect(await screen.findByTestId("approval-failure")).toHaveTextContent(
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "POST /cards/c1/approval-status?action=approve failed",
     );
+    await act(async () => {});
+    expect(screen.queryByTestId("approval-failure")).not.toBeInTheDocument();
   });
 
-  it("rethrows a 400 carrying another code", async () => {
+  it("shows a 400 carrying another code as an error, not as the list", async () => {
     mockApi.fail("post", /^\/cards\/c1\/approval-status/, 400, { code: "something_else" });
     const { user } = renderPage();
     await user.click(await screen.findByText("approval-approve"));
-    expect(await screen.findByTestId("approval-failure")).toHaveTextContent(
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "POST /cards/c1/approval-status?action=approve failed",
     );
     expect(screen.queryByText(BLOCKED)).not.toBeInTheDocument();
+    await act(async () => {});
+    expect(screen.queryByTestId("approval-failure")).not.toBeInTheDocument();
   });
 
-  it("rethrows a look-alike that is not an ApiError", async () => {
+  it("shows a look-alike that is not an ApiError as an error, not as the list", async () => {
     mockApi.on("post", /^\/cards\/c1\/approval-status/, () =>
       Promise.reject(
         Object.assign(new Error("not an api error"), { status: 400, detail: blockedDetail([REL], []) }),
@@ -1036,8 +1070,45 @@ describe("CardDetail — approval", () => {
     );
     const { user } = renderPage();
     await user.click(await screen.findByText("approval-approve"));
-    expect(await screen.findByTestId("approval-failure")).toHaveTextContent("not an api error");
+    expect(await screen.findByRole("alert")).toHaveTextContent("not an api error");
     expect(screen.queryByText(BLOCKED)).not.toBeInTheDocument();
+    await act(async () => {});
+    expect(screen.queryByTestId("approval-failure")).not.toBeInTheDocument();
+  });
+
+  it("replaces an earlier failure's error with the mandatory-items list", async () => {
+    let calls = 0;
+    mockApi.on("post", /^\/cards\/c1\/approval-status/, () => {
+      calls += 1;
+      if (calls === 1) throw new ApiError("Server unavailable", 503, null);
+      throw new ApiError("blocked", 400, blockedDetail([REL], []));
+    });
+    const { user } = renderPage();
+    await user.click(await screen.findByText("approval-approve"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Server unavailable");
+
+    await user.click(screen.getByText("approval-approve"));
+    expect(await screen.findByText(BLOCKED)).toBeInTheDocument();
+    expect(screen.queryByText("Server unavailable")).not.toBeInTheDocument();
+  });
+
+  it("falls back to a generic message for a failure that is not an Error", async () => {
+    mockApi.on("post", /^\/cards\/c1\/approval-status/, () => Promise.reject("nope"));
+    const { user } = renderPage();
+    await user.click(await screen.findByText("approval-approve"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+  });
+
+  it("does not carry a failed transition's error over to the next card", async () => {
+    routeC2();
+    mockApi.fail("post", /^\/cards\/c1\/approval-status/, 500);
+    const { user } = renderPage();
+    await user.click(await screen.findByText("approval-approve"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("approval-status?action=approve failed");
+
+    await user.click(screen.getByRole("link", { name: "go-c2" }));
+    await waitFor(() => expect(content()).toHaveAttribute("data-name", "ERP"));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
 

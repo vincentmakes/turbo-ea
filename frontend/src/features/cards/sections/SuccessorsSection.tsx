@@ -51,6 +51,8 @@ function SuccessorsSection({
   const [relations, setRelations] = useState<Relation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // A failed load: shown instead of the lists, whose empty hints would lie.
+  const [loadError, setLoadError] = useState("");
 
   // Add dialog state
   const [addMode, setAddMode] = useState<"successor" | "predecessor" | null>(null);
@@ -74,10 +76,14 @@ function SuccessorsSection({
       .get<Relation[]>(`/relations?card_id=${card.id}&type=${successorRT.key}`)
       .then((rels) => {
         setRelations(rels);
+        setLoadError("");
         setLoading(false);
       })
-      .catch(() => setLoading(false));
-  }, [card.id, successorRT]);
+      .catch((err: unknown) => {
+        setLoadError(err instanceof Error ? err.message : t("common:errors.generic"));
+        setLoading(false);
+      });
+  }, [card.id, successorRT, t]);
 
   useEffect(loadRelations, [loadRelations]);
 
@@ -153,11 +159,17 @@ function SuccessorsSection({
   };
 
   const handleRemove = async (relId: string) => {
-    await api.delete(`/relations/${relId}`);
-    loadRelations();
+    try {
+      setError("");
+      await api.delete(`/relations/${relId}`);
+      loadRelations();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
+    }
   };
 
   const closeDialog = () => {
+    setError("");
     setAddMode(null);
     setSelected(null);
     setSearch("");
@@ -195,6 +207,8 @@ function SuccessorsSection({
         )}
         {loading ? (
           <LinearProgress />
+        ) : loadError ? (
+          <Alert severity="error">{loadError}</Alert>
         ) : (
           <Box>
             {/* Predecessors */}

@@ -76,6 +76,7 @@ vi.mock("@/components/VendorField", () => ({
 
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import type { CardType, RelationType } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Test data
@@ -157,7 +158,7 @@ const MOCK_TYPES = [
     fields_schema: [],
     is_hidden: false,
   },
-];
+] as unknown as CardType[];
 
 const MOCK_RELATION_TYPES = [
   {
@@ -168,7 +169,7 @@ const MOCK_RELATION_TYPES = [
     target_type_key: "ITComponent",
     cardinality: "n:m",
   },
-];
+] as unknown as RelationType[];
 
 beforeEach(() => {
   vi.clearAllMocks();

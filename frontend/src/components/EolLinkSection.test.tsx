@@ -98,7 +98,8 @@ describe("EolLinkSection — linked card", () => {
     // from the cycles request, which lands after the product the card holds.
     await waitFor(() => expect(screen.getAllByText("End of Life")).toHaveLength(4));
     expect(screen.getByText("Yes (EOL)")).toBeInTheDocument();
-    expect(screen.getByText("No")).toBeInTheDocument();
+    // support=false: active support has ended.
+    expect(screen.getByText("Active Support").nextElementSibling).toHaveTextContent(/^No$/);
   });
 
   it("warns when the eol date is within six months, and when only security fixes remain", async () => {

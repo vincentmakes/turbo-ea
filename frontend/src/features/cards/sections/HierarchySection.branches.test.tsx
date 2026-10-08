@@ -39,7 +39,7 @@ vi.mock("@/components/CardPicker", () => ({
 import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType } from "@/test/fixtures/metamodel";
-import { renderWithProviders, userWith } from "@/test/render";
+import { renderWithProviders, userWith, wrapWithProviders } from "@/test/render";
 import { HierarchySection } from "./index";
 import type { Card, HierarchyData } from "@/types";
 
@@ -116,11 +116,22 @@ describe("HierarchySection — rendering", () => {
     expect(screen.getByText("Company B1")).toBeInTheDocument();
   });
 
-  it("keeps the progress bar while the hierarchy fails to load", async () => {
+  it("stops the progress bar and shows the error when the hierarchy fails to load", async () => {
     mockApi.fail("get", "/cards/b/hierarchy", 500);
     renderSection();
-    await waitFor(() => expect(mockApi.callsOf("get", "/cards/b/hierarchy")).toHaveLength(1));
-    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("GET /cards/b/hierarchy failed");
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("names a failed load that carries no message, and drops it once another card loads", async () => {
+    mockApi.on("get", "/cards/b/hierarchy", () => Promise.reject("nope"));
+    mockApi.on("get", "/cards/c/hierarchy", ORPHAN);
+    const { rerender } = renderWithProviders(<HierarchySection card={CARD} onUpdate={vi.fn()} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+
+    rerender(wrapWithProviders(<HierarchySection card={{ ...CARD, id: "c" }} onUpdate={vi.fn()} />));
+    expect(await screen.findByText("No parent")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("shows the empty states and no edit controls for a read-only viewer", async () => {
@@ -162,6 +173,24 @@ describe("HierarchySection — parent", () => {
     await waitFor(() => expect(onUpdate).toHaveBeenCalled());
     expect(mockApi.callsOf("patch", "/cards/b")[0].body).toEqual({ parent_id: null });
     expect(mockApi.callsOf("get", "/cards/b/hierarchy").length).toBeGreaterThan(1);
+  });
+
+  it("shows a failed parent removal on the section and does not refresh the page", async () => {
+    mockApi.fail("patch", "/cards/b", 409);
+    const { user, onUpdate } = renderSection();
+    await user.click(await screen.findByTitle("Remove parent"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("PATCH /cards/b failed");
+    expect(onUpdate).not.toHaveBeenCalled();
+    // The parent is still shown: nothing was unlinked.
+    expect(screen.getByTitle("Remove parent")).toBeInTheDocument();
+    expect(mockApi.callsOf("get", "/cards/b/hierarchy")).toHaveLength(1);
+  });
+
+  it("names a failed parent removal that carries no message", async () => {
+    mockApi.on("patch", "/cards/b", () => Promise.reject("nope"));
+    const { user } = renderSection();
+    await user.click(await screen.findByTitle("Remove parent"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
   });
 
   it("sets a parent picked in the dialog, excluding self and children", async () => {
@@ -262,6 +291,26 @@ describe("HierarchySection — children", () => {
     await waitFor(() => expect(mockApi.callsOf("patch", "/cards/b1")).toHaveLength(1));
     expect(mockApi.callsOf("patch", "/cards/b1")[0].body).toEqual({ parent_id: null });
     expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it("shows a failed child unlink on the section and keeps the child listed", async () => {
+    mockApi.fail("patch", "/cards/b1", 409);
+    const { user } = renderSection();
+    await user.click(await screen.findByTitle("Remove from hierarchy"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("PATCH /cards/b1 failed");
+    expect(screen.getByText("Company B1")).toBeInTheDocument();
+    expect(mockApi.callsOf("get", "/cards/b/hierarchy")).toHaveLength(1);
+  });
+
+  it("names a failed child unlink that carries no message, and clears it on the next success", async () => {
+    mockApi.on("patch", "/cards/b1", () => Promise.reject("nope"));
+    const { user } = renderSection();
+    await user.click(await screen.findByTitle("Remove from hierarchy"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+
+    mockApi.on("patch", "/cards/b1", {});
+    await user.click(screen.getByTitle("Remove from hierarchy"));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 
   it("adds a picked child, excluding self and ancestors", async () => {
