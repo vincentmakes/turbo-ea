@@ -146,7 +146,9 @@ async def resolve_targets(db: AsyncSession, survey: Survey) -> tuple[list[dict],
             if op == "eq":
                 q = q.where(col == str_val)
             elif op == "ne":
-                q = q.where(col != str_val)
+                # "Not equals" reads as "everything that isn't this value",
+                # so a card with no value at all is in (SQL's NULL <> x is not).
+                q = q.where(sqlalchemy.or_(col.is_(None), col != str_val))
             elif op in ("gt", "lt", "gte", "lte"):
                 # Cast to numeric for comparisons
                 num_col = Card.attributes[key].astext.cast(sqlalchemy.Numeric)

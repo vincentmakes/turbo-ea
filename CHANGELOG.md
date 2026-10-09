@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [2.158.9] - 2026-10-09
 
+### Changed
+- Surveys: a **not equals** attribute filter now also reaches cards where that field is empty, so "Risk not equals Low" means every card whose risk is not Low. It used to leave out cards with no value at all.
+
 ### Fixed
 - API: saving a bookmark's sharing through `PATCH /bookmarks/{id}` returns the share list it just saved. The response repeated the previous list; the app itself reloads the list, so the screen was always right.
 

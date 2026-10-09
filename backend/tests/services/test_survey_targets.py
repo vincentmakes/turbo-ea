@@ -67,7 +67,8 @@ ALL = {"C10", "C20", "C30", "Bare"}
         ({"key": "risk", "op": "eq", "value": "low"}, {"C10"}),
         ({"key": "risk", "value": "low"}, {"C10"}),  # eq is the default
         ({"key": "cost", "op": "eq", "value": 20}, {"C20"}),  # compared as text
-        ({"key": "risk", "op": "ne", "value": "low"}, {"C20"}),  # a missing key never matches
+        # "Not equals" includes the cards with no value at all.
+        ({"key": "risk", "op": "ne", "value": "low"}, {"C20", "C30", "Bare"}),
         ({"key": "cost", "op": "gt", "value": 10}, {"C20", "C30"}),
         ({"key": "cost", "op": "gte", "value": "20"}, {"C20", "C30"}),
         ({"key": "cost", "op": "lt", "value": 20}, {"C10"}),
