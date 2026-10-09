@@ -22,22 +22,12 @@ export default function MySavedReportsSection() {
   const [reports, setReports] = useState<SavedReport[]>([]);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
     api
       .get<SavedReport[]>("/saved-reports?filter=my")
-      .then((data) => {
-        if (!cancelled) setReports(data.slice(0, MAX_VISIBLE));
-      })
-      .catch(() => {
-        if (!cancelled) setReports([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then((data) => setReports(data.slice(0, MAX_VISIBLE)))
+      // A failed load leaves the empty list the section starts with.
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   // Re-render once extension bundles finish registering so ext:* saved
@@ -51,18 +41,6 @@ export default function MySavedReportsSection() {
     const [, extKey, routeId] = reportType.split(":");
     const match = getExtensionRoutes().find((r) => r.extKey === extKey && r.route.id === routeId);
     return match?.route ?? null;
-  };
-
-  const handleOpen = (report: SavedReport) => {
-    const style = REPORT_TYPE_STYLE[report.report_type];
-    if (style) {
-      navigate(`${style.path}?saved_report_id=${report.id}`);
-      return;
-    }
-    const extRoute = extRouteFor(report.report_type);
-    if (extRoute) {
-      navigate(`${extRoute.path}?saved_report_id=${report.id}`);
-    }
   };
 
   return (
@@ -87,13 +65,14 @@ export default function MySavedReportsSection() {
           {reports.map((report) => {
             const style = REPORT_TYPE_STYLE[report.report_type];
             const extRoute = style ? null : extRouteFor(report.report_type);
-            const openable = Boolean(style || extRoute);
+            const path = style?.path ?? extRoute?.path;
+            const openable = Boolean(path);
             const fallbackColor = style?.color ?? (extRoute ? "#607d8b" : "#9e9e9e");
             const fallbackIcon = style?.icon ?? extRoute?.icon ?? "analytics";
             return (
               <Tooltip key={report.id} title={report.name} placement="top" arrow>
                 <Box
-                  onClick={() => openable && handleOpen(report)}
+                  onClick={() => path && navigate(`${path}?saved_report_id=${report.id}`)}
                   sx={{
                     cursor: openable ? "pointer" : "default",
                     borderRadius: 1,

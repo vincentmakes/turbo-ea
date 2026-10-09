@@ -4,6 +4,7 @@ import Box from "@mui/material/Box";
 import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import SectionPaper, { EmptyState } from "../workspace/SectionPaper";
 
 export interface CoverageRow {
@@ -20,10 +21,14 @@ interface Props {
 
 export default function StakeholderCoverageSection({ rows, loading }: Props) {
   const { t } = useTranslation("common");
-  const { types } = useMetamodel();
+  const { getType } = useMetamodel();
+  const typeLabel = useTypeLabel();
   const navigate = useNavigate();
 
-  const labelByKey = new Map(types.map((tp) => [tp.key, tp.label]));
+  const typeLabelFor = (key: string) => {
+    const type = getType(key);
+    return type ? typeLabel(type) : key;
+  };
 
   const visible = rows.filter((r) => r.missing > 0).slice(0, 8);
 
@@ -58,7 +63,7 @@ export default function StakeholderCoverageSection({ rows, loading }: Props) {
                 }}
               >
                 <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap>
-                  {labelByKey.get(r.type) ?? r.type}
+                  {typeLabelFor(r.type)}
                 </Typography>
                 <Box
                   sx={{

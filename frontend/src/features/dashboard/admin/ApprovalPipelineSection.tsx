@@ -5,6 +5,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import SectionPaper, { EmptyState } from "../workspace/SectionPaper";
 
@@ -31,9 +32,13 @@ const STATUS_COLOR: Record<PipelineStatus, string> = {
 
 export default function ApprovalPipelineSection({ rows, loading }: Props) {
   const { t } = useTranslation("common");
-  const { types } = useMetamodel();
+  const { getType } = useMetamodel();
+  const typeLabel = useTypeLabel();
   const navigate = useNavigate();
-  const labelByKey = new Map(types.map((tp) => [tp.key, tp.label]));
+  const typeLabelFor = (key: string) => {
+    const type = getType(key);
+    return type ? typeLabel(type) : key;
+  };
 
   const visible = rows.slice(0, 8);
 
@@ -87,7 +92,7 @@ export default function ApprovalPipelineSection({ rows, loading }: Props) {
                   noWrap
                   onClick={() => goTo(r.type)}
                 >
-                  {labelByKey.get(r.type) ?? r.type}
+                  {typeLabelFor(r.type)}
                 </Typography>
                 <Box
                   sx={{

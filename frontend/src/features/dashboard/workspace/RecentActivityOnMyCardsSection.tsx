@@ -15,6 +15,8 @@ export default function RecentActivityOnMyCardsSection() {
     api
       .get<EventEntry[]>("/events/my-cards")
       .then(setEvents)
+      // A failed load leaves the empty list the section starts with.
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 

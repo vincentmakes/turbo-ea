@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.158.14] - 2026-10-09
+
+### Fixed
+- Admin dashboard: **Approval pipeline by type** and **Stakeholder coverage by type** name each card type in the user's language, as the rest of the app does; they showed the English name whatever the language.
+- Workspace dashboard: when **My Open Todos**, **My Pending Surveys** or **Recent activity on my cards** cannot load, the section shows its empty state instead of leaving an unhandled error behind in the browser.
+
 ## [2.158.1] - 2026-10-09
 
 ### Fixed
