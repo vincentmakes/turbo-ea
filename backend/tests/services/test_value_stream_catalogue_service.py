@@ -294,6 +294,39 @@ async def test_a_newer_cached_catalogue_is_flattened_and_described(db, monkeypat
         "2.0.0",
     )
     assert version["value_stream_count"] == 1  # counted from the data when not stored
+    assert {k: version[k] for k in ("schema_version", "generated_at", "fetched_at")} == {
+        "schema_version": "2",
+        "generated_at": "2026-10-01T00:00:00Z",
+        "fetched_at": "2026-10-02T00:00:00Z",
+    }
+    assert version["available_locales"] == ["en"]
+    assert version["active_locale"] == "en"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cached_version", ["2.0.0", "1.9.9"])
+async def test_a_cache_no_newer_than_the_wheel_is_ignored(db, monkeypatch, cached_version):
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    await _cache_remote(db, svc, catalogue_version=cached_version)
+    payload = await svc.get_catalogue_payload(db)
+    names = {n["name"] for n in payload["value_streams"]}
+    assert "Acquire-to-Retire v3" not in names
+    assert (payload["version"]["source"], payload["version"]["bundled_version"]) == (
+        "bundled",
+        "2.0.0",
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_stored_count_is_reported_as_stored(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    await _cache_remote(db, svc, value_stream_count=42)
+    payload = await svc.get_catalogue_payload(db)
+    assert payload["version"]["value_stream_count"] == 42
 
 
 @pytest.mark.asyncio
