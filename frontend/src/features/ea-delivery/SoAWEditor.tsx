@@ -39,6 +39,7 @@ import {
 } from "./soawTemplate";
 import { exportToDocx, exportToPdf } from "./soawExport";
 import { api } from "@/api/client";
+import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import type { Card, SoAW, SoAWSectionData, SoAWSignatory } from "@/types";
@@ -268,11 +269,15 @@ export default function SoAWEditor() {
 
   // ── save ───────────────────────────────────────────────────────────────
 
+  // One save at a time: a second click before the first answered would
+  // create the document twice.
+  const save = useSubmitOnce();
   const handleSave = async () => {
     if (!name.trim()) {
       setError(t("editor.documentNameRequired"));
       return;
     }
+    await save.run(async () => {
     setSaving(true);
     setError("");
     try {
@@ -312,6 +317,7 @@ export default function SoAWEditor() {
     } finally {
       setSaving(false);
     }
+    });
   };
 
   // ── signing helpers ────────────────────────────────────────────────────

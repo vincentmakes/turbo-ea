@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
@@ -28,6 +28,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import RichTextEditor from "./RichTextEditor";
 import SignatureRequestDialog from "./SignatureRequestDialog";
 import { api } from "@/api/client";
+import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import { useAuth } from "@/hooks/useAuth";
@@ -84,8 +85,11 @@ export default function ADREditor() {
   const [error, setError] = useState("");
   const [snackbar, setSnackbar] = useState("");
   // One-shot workflow actions (sign, duplicate, revise, link a card) run one
-  // at a time: a double click must not send the same POST twice.
-  const actionBusyRef = useRef(false);
+  // at a time: a double click must not send the same POST twice, and the
+  // buttons say so while one runs. Save has its own guard: it may not run
+  // twice either, but it must not be blocked by a sign in flight.
+  const action = useSubmitOnce();
+  const save = useSubmitOnce();
 
   // Sign dialog
   const [signDialogOpen, setSignDialogOpen] = useState(false);
@@ -194,6 +198,7 @@ export default function ADREditor() {
       setError(t("adr.editor.titleRequired"));
       return;
     }
+    await save.run(async () => {
     setSaving(true);
     try {
       const payload = {
@@ -216,7 +221,9 @@ export default function ADREditor() {
     } finally {
       setSaving(false);
     }
+    });
   }, [
+    save,
     title,
     context,
     decision,
@@ -229,22 +236,20 @@ export default function ADREditor() {
   ]);
 
   // Duplicate
-  const handleDuplicate = async () => {
-    if (!id || actionBusyRef.current) return;
-    actionBusyRef.current = true;
-    try {
-      const dup = await api.post<ArchitectureDecision>(
-        `/adr/${id}/duplicate`,
-        {},
-      );
-      navigate(`/ea-delivery/adr/${dup.id}`);
-      setSnackbar(t("adr.editor.duplicated"));
-    } catch {
-      setError(t("adr.editor.error.duplicateFailed"));
-    } finally {
-      actionBusyRef.current = false;
-    }
-  };
+  const handleDuplicate = () =>
+    action.run(async () => {
+      if (!id) return;
+      try {
+        const dup = await api.post<ArchitectureDecision>(
+          `/adr/${id}/duplicate`,
+          {},
+        );
+        navigate(`/ea-delivery/adr/${dup.id}`);
+        setSnackbar(t("adr.editor.duplicated"));
+      } catch {
+        setError(t("adr.editor.error.duplicateFailed"));
+      }
+    });
 
   // Request signatures
   const handleRequestSignatures = async (userIds: string[]) => {
@@ -267,46 +272,42 @@ export default function ADREditor() {
   };
 
   // Sign
-  const handleSign = async () => {
-    if (!id || actionBusyRef.current) return;
-    actionBusyRef.current = true;
-    try {
-      const updated = await api.post<ArchitectureDecision>(
-        `/adr/${id}/sign`,
-        {},
-      );
-      setSignatories(updated.signatories || []);
-      setStatus(updated.status);
-      setSignedAt(updated.signed_at);
-      setSnackbar(
-        updated.status === "signed"
-          ? t("adr.editor.documentFullySigned")
-          : t("adr.editor.signatureRecorded"),
-      );
-    } catch {
-      setError(t("adr.editor.error.signFailed"));
-    } finally {
-      actionBusyRef.current = false;
-    }
-  };
+  const handleSign = () =>
+    action.run(async () => {
+      if (!id) return;
+      try {
+        const updated = await api.post<ArchitectureDecision>(
+          `/adr/${id}/sign`,
+          {},
+        );
+        setSignatories(updated.signatories || []);
+        setStatus(updated.status);
+        setSignedAt(updated.signed_at);
+        setSnackbar(
+          updated.status === "signed"
+            ? t("adr.editor.documentFullySigned")
+            : t("adr.editor.signatureRecorded"),
+        );
+      } catch {
+        setError(t("adr.editor.error.signFailed"));
+      }
+    });
 
   // Revise
-  const handleRevise = async () => {
-    if (!id || actionBusyRef.current) return;
-    actionBusyRef.current = true;
-    try {
-      const rev = await api.post<ArchitectureDecision>(
-        `/adr/${id}/revise`,
-        {},
-      );
-      navigate(`/ea-delivery/adr/${rev.id}`);
-      setSnackbar(t("adr.editor.revised"));
-    } catch {
-      setError(t("adr.editor.error.reviseFailed"));
-    } finally {
-      actionBusyRef.current = false;
-    }
-  };
+  const handleRevise = () =>
+    action.run(async () => {
+      if (!id) return;
+      try {
+        const rev = await api.post<ArchitectureDecision>(
+          `/adr/${id}/revise`,
+          {},
+        );
+        navigate(`/ea-delivery/adr/${rev.id}`);
+        setSnackbar(t("adr.editor.revised"));
+      } catch {
+        setError(t("adr.editor.error.reviseFailed"));
+      }
+    });
 
   // Recall signatures
   const handleRecallSignatures = async () => {
@@ -372,22 +373,20 @@ export default function ADREditor() {
     }
   };
 
-  const handleLinkCard = async (cardId: string) => {
-    if (!id || actionBusyRef.current) return;
-    actionBusyRef.current = true;
-    try {
-      const updated = await api.post<ArchitectureDecision>(
-        `/adr/${id}/cards`,
-        { card_id: cardId },
-      );
-      setLinkedCards(updated.linked_cards || []);
-      setCardLinkOpen(false);
-    } catch {
-      setError(t("cards:resources.error.linkFailed"));
-    } finally {
-      actionBusyRef.current = false;
-    }
-  };
+  const handleLinkCard = (cardId: string) =>
+    action.run(async () => {
+      if (!id) return;
+      try {
+        const updated = await api.post<ArchitectureDecision>(
+          `/adr/${id}/cards`,
+          { card_id: cardId },
+        );
+        setLinkedCards(updated.linked_cards || []);
+        setCardLinkOpen(false);
+      } catch {
+        setError(t("cards:resources.error.linkFailed"));
+      }
+    });
 
   const handleUnlinkCard = async (cardId: string) => {
     if (!id) return;
@@ -597,6 +596,7 @@ export default function ADREditor() {
               color="success"
               startIcon={<MaterialSymbol icon="draw" size={18} />}
               onClick={handleSign}
+              disabled={action.busy}
               sx={{ textTransform: "none" }}
             >
               {t("adr.editor.sign")}
@@ -618,6 +618,7 @@ export default function ADREditor() {
             variant="outlined"
             startIcon={<MaterialSymbol icon="edit_note" size={18} />}
             onClick={handleRevise}
+            disabled={action.busy}
             sx={{ textTransform: "none" }}
           >
             {t("adr.editor.newRevision")}
@@ -628,6 +629,7 @@ export default function ADREditor() {
             variant="outlined"
             startIcon={<MaterialSymbol icon="content_copy" size={18} />}
             onClick={handleDuplicate}
+            disabled={action.busy}
             sx={{ textTransform: "none" }}
           >
             {t("adr.editor.duplicate")}

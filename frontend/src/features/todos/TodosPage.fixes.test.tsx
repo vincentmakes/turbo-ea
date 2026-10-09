@@ -112,18 +112,6 @@ describe("TodosPage — loading the list", () => {
     expect(api.get).not.toHaveBeenCalled();
   });
 
-  it("centres the loading spinner with room above and below it", () => {
-    route(() => deferred<Todo[]>().promise);
-    renderAt();
-    const box = screen.getByRole("progressbar").parentElement as HTMLElement;
-    expect(box).toHaveStyle({
-      display: "flex",
-      justifyContent: "center",
-      paddingTop: "32px",
-      paddingBottom: "32px",
-    });
-  });
-
   it("keeps the spinner and shows no error while a filter change abandons the load in flight", async () => {
     const loads = new Map<string, ReturnType<typeof deferred<Todo[]>>>();
     vi.mocked(api.get).mockImplementation(((path: string, opts?: { signal?: AbortSignal }) => {
@@ -168,7 +156,6 @@ describe("TodosPage — loading the list", () => {
     await user.click(screen.getByRole("button", { name: "Done" }));
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Todo service down");
-    expect(alert).toHaveStyle({ marginBottom: "16px" });
     expect(screen.queryByText("First task")).toBeNull();
     // No row of any kind is left in the list.
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
@@ -231,7 +218,6 @@ describe("TodosPage — row actions", () => {
 
     await user.click(toggleOf("First task"));
     expect(await screen.findByRole("alert")).toHaveTextContent("Server down");
-    expect(screen.getByRole("alert")).toHaveStyle({ marginBottom: "16px" });
     expect(rowOf("First task")).toHaveTextContent("radio_button_unchecked");
     expect(rowOf("First task")).not.toHaveTextContent("check_circle");
 

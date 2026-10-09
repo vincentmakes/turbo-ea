@@ -141,6 +141,25 @@ describe("ADREditor — one request per workflow action, however often it is cli
     expect(postsTo("/adr/adr-1/sign")).toHaveLength(2);
   });
 
+  it("saves once on a double click of Save, and the buttons that run an action are disabled while it runs", async () => {
+    const patched = deferred();
+    vi.mocked(api.patch).mockImplementation((() => patched.promise) as never);
+    const dup = deferred();
+    await renderLoaded(base, () => dup.promise);
+    const user = userEvent.setup();
+
+    await user.dblClick(screen.getByRole("button", { name: /^save Save$/ }));
+    expect(vi.mocked(api.patch).mock.calls.filter(([p]) => p === "/adr/adr-1")).toHaveLength(1);
+    patched.resolve({});
+    await waitFor(() => expect(screen.getByRole("button", { name: /^save Save$/ })).toBeEnabled());
+
+    // A workflow action in flight disables the other action buttons too.
+    await user.click(screen.getByRole("button", { name: /Duplicate/ }));
+    expect(screen.getByRole("button", { name: /Duplicate/ })).toBeDisabled();
+    dup.resolve({ ...base, id: "adr-copy" });
+    await waitFor(() => expect(location()).toBe("/ea-delivery/adr/adr-copy"));
+  });
+
   it("duplicates once on a double click", async () => {
     const dup = deferred();
     await renderLoaded(base, () => dup.promise);

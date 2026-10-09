@@ -5,13 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.157.5] - 2026-10-08
+## [2.157.8] - 2026-10-09
 
 ### Fixed
 - Mitigation tasks, decisions and SoAWs: a failed save keeps its dialog open with the reason and what was typed, instead of closing as if it had saved.
-- Decisions and SoAWs: clicking Save, Sign, Duplicate, New revision or Enter twice no longer sends the request twice, and a failed card link no longer creates a second decision.
-- Decisions: the From / To date filters include the whole of both days, and a missing decision says so rather than "SoAW not found".
-- Initiative tree: rows can be reached and selected with the keyboard, and a custom status shows its own label and colour.
+- Decisions and SoAWs: clicking Save, Sign, Duplicate, New revision or Enter twice no longer sends the request twice (the action buttons are disabled while one runs), and a failed card link no longer creates a second decision.
+- Decisions: the From / To date filters follow the day a decision is shown under (the local calendar day), so both ends include the whole day whatever offset the stored timestamp carries, and a missing decision says so rather than "SoAW not found".
+- Initiative tree: rows can be reached and selected with the keyboard, and a custom status shows its own label and colour, with readable text on the status chip whatever colour the option carries.
 - EA Delivery: a new SoAW or diagram is never tied to an initiative id that matches no initiative.
 - Todos: two quick toggles no longer undo each other, and a list that is loading or failed to load shows a spinner or the error instead of "No todos found".
 - French: linked cards are « fiches », not « cartes ».

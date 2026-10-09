@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import { api } from "@/api/client";
+import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import type { ArchitectureDecision } from "@/types";
 
 interface LinkedCard {
@@ -38,7 +39,8 @@ export default function CreateAdrDialog({
 
   const [title, setTitle] = useState("");
   const [linkedCards, setLinkedCards] = useState<LinkedCard[]>(preLinkedCards);
-  const [creating, setCreating] = useState(false);
+  // One create at a time: Enter and the button share the guard.
+  const { busy: creating, run: create } = useSubmitOnce();
   const [error, setError] = useState("");
   // Once the decision exists, a failed card link must never lead to a second
   // create: a retry only links the cards still missing.
@@ -47,6 +49,9 @@ export default function CreateAdrDialog({
   // The parent hears about the created decision once, however the dialog is
   // left — even when Cancel lands while the links are still in flight.
   const reportedRef = useRef(false);
+  // Cancel during the link phase closes the dialog; the create that is still
+  // running must then neither report an error into it nor close it again.
+  const closedRef = useRef(false);
 
   // Card picker
   const [showSearch, setShowSearch] = useState(false);
@@ -59,12 +64,12 @@ export default function CreateAdrDialog({
     if (open) {
       setTitle("");
       setLinkedCards(preLinkedCards);
-      setCreating(false);
       setError("");
       setShowSearch(false);
       setCreated(null);
       setDoneIds(new Set());
       reportedRef.current = false;
+      closedRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -85,46 +90,47 @@ export default function CreateAdrDialog({
     onCreated(adr);
   };
 
-  const handleCreate = async () => {
-    if (!title.trim()) return;
-    setCreating(true);
-    setError("");
-    let adr = created;
-    if (!adr) {
-      try {
-        adr = await api.post<ArchitectureDecision>("/adr", {
-          title: title.trim(),
-        });
-      } catch {
-        setError(t("adr.createDialog.error"));
-        setCreating(false);
+  const handleCreate = () =>
+    create(async () => {
+      if (!title.trim()) return;
+      setError("");
+      let adr = created;
+      if (!adr) {
+        try {
+          adr = await api.post<ArchitectureDecision>("/adr", {
+            title: title.trim(),
+          });
+        } catch {
+          setError(t("adr.createDialog.error"));
+          return;
+        }
+        setCreated(adr);
+      }
+      // Link cards sequentially; one refused link does not stop the others.
+      const linked = new Set(doneIds);
+      const failed: LinkedCard[] = [];
+      for (const card of linkedCards) {
+        if (linked.has(card.id)) continue;
+        try {
+          await api.post(`/adr/${adr.id}/cards`, { card_id: card.id });
+          linked.add(card.id);
+        } catch {
+          failed.push(card);
+        }
+      }
+      // Cancelled meanwhile: the parent was told about the decision then, and
+      // the dialog is gone — nothing to show or close.
+      if (closedRef.current) return;
+      setDoneIds(linked);
+      if (failed.length > 0) {
+        setError(
+          t("adr.createDialog.linkError", { cards: failed.map((c) => c.name).join(", ") }),
+        );
         return;
       }
-      setCreated(adr);
-    }
-    // Link cards sequentially; one refused link does not stop the others.
-    const linked = new Set(doneIds);
-    const failed: LinkedCard[] = [];
-    for (const card of linkedCards) {
-      if (linked.has(card.id)) continue;
-      try {
-        await api.post(`/adr/${adr.id}/cards`, { card_id: card.id });
-        linked.add(card.id);
-      } catch {
-        failed.push(card);
-      }
-    }
-    setDoneIds(linked);
-    setCreating(false);
-    if (failed.length > 0) {
-      setError(
-        t("adr.createDialog.linkError", { cards: failed.map((c) => c.name).join(", ") }),
-      );
-      return;
-    }
-    reportCreated(adr);
-    onClose();
-  };
+      reportCreated(adr);
+      onClose();
+    });
 
   // While the decision itself is being created there is nothing to hand the
   // parent yet, and a parent told about it later navigates to it — so the
@@ -135,6 +141,7 @@ export default function CreateAdrDialog({
   // hears about it, so its list shows the decision rather than going stale.
   const handleClose = () => {
     if (createPending) return;
+    closedRef.current = true;
     if (created) reportCreated(created);
     onClose();
   };

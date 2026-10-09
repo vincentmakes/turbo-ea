@@ -260,28 +260,21 @@ export default function InitiativesTab({
       const target = initiativeId ?? selectedInitiativeId ?? "";
       // Only a loaded initiative counts: a stale id (e.g. a deleted initiative
       // still in the URL) or the Unlinked bucket is never handed on as a parent.
-      const node = flatNodeMap.get(target);
+      // Against every initiative, not the filtered tree — the report's
+      // dispatcher checks the same set, and an initiative the sidebar's search
+      // currently hides is still a valid parent.
+      const init = initiatives.find((i) => i.id === target);
       if (kind === "soaw") {
-        onCreateSoaw(node ? target : "");
+        onCreateSoaw(init ? target : "");
       } else if (kind === "diagram") {
-        onCreateDiagram(node ? target : undefined);
+        onCreateDiagram(init ? target : undefined);
       } else if (kind === "adr") {
-        onCreateAdr(
-          node
-            ? [
-                {
-                  id: node.initiative.id,
-                  name: node.initiative.name,
-                  type: node.initiative.type,
-                },
-              ]
-            : [],
-        );
+        onCreateAdr(init ? [{ id: init.id, name: init.name, type: init.type }] : []);
       }
     },
     [
       selectedInitiativeId,
-      flatNodeMap,
+      initiatives,
       onCreateSoaw,
       onCreateAdr,
       onCreateDiagram,

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
@@ -411,6 +411,32 @@ describe("CreateAdrDialog — a link fails after the decision was created", () =
     expect(linkCalls()).toEqual(["init-1", "card-1", "init-1"]);
   });
 
+  it("tells the parent once when cancelled during the link phase, and a late link failure changes nothing", async () => {
+    let failLink: (e: Error) => void = () => {};
+    mockApi.on("post", "/adr/adr-9/cards", (_path, body) => {
+      if ((body as { card_id: string }).card_id === "card-1") {
+        return new Promise((_resolve, reject) => (failLink = reject));
+      }
+      return { ok: true };
+    });
+    const { user, onCreated, onClose } = await createWithTwoCards();
+    // The decision exists and the first link is done; the second is still out.
+    await waitFor(() => expect(linkCalls()).toEqual(["init-1", "card-1"]));
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onCreated).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    // The link answers only now, and fails: no error for a dialog that is gone,
+    // and no second close.
+    await act(async () => {
+      failLink(new Error("link refused"));
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(onCreated).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("retries only the missing link, never a second decision, then finishes", async () => {
     failLinkOf("card-1", 1);
     const { user, onCreated, onClose } = await createWithTwoCards();
@@ -488,8 +514,12 @@ describe("CreateAdrDialog — a link fails after the decision was created", () =
     expect(onCreated).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
 
+    // The link lands after the cancel: the dialog is gone, so no second close.
     release();
-    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
     expect(onCreated).toHaveBeenCalledTimes(1);
   });
 

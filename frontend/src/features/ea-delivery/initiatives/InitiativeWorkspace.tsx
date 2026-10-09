@@ -10,11 +10,8 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { CARD_TYPE_COLORS } from "@/theme/tokens";
-import {
-  selectOnKey,
-  useInitiativeStatusColor,
-  useInitiativeStatusLabel,
-} from "./InitiativeTreeSidebar";
+import { selectOnKey } from "./selectOnKey";
+import { useInitiativeStatusColor, useInitiativeStatusLabel } from "./useInitiativeStatus";
 import DeliverableSection, {
   type DeliverableKind,
 } from "./DeliverableSection";
@@ -200,12 +197,12 @@ function InitiativeView({
           <Chip
             label={statusLabel(initStatus)}
             size="small"
-            sx={{
+            sx={(theme) => ({
               bgcolor: statusColor(initStatus),
-              color: "#fff",
+              color: theme.palette.getContrastText(statusColor(initStatus)),
               fontWeight: 500,
               height: 22,
-            }}
+            })}
           />
         )}
       </Box>

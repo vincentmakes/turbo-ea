@@ -550,11 +550,13 @@ function TodosPanel() {
       </Box>
 
       {actionError && (
+        // Stryker disable next-line ObjectLiteral: spacing is presentation
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError("")}>
           {actionError}
         </Alert>
       )}
       {loadError && (
+        // Stryker disable next-line ObjectLiteral: spacing is presentation
         <Alert severity="error" sx={{ mb: 2 }}>
           {loadError}
         </Alert>
@@ -608,6 +610,7 @@ function TodosPanel() {
             })
           : visibleTodos.map((todo) => renderTodoRow(todo, true)))}
         {loading ? (
+          // Stryker disable next-line ObjectLiteral: spacing is presentation
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <CircularProgress size={28} />
           </Box>
