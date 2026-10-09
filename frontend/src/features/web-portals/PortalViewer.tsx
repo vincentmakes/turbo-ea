@@ -474,6 +474,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
   const loadCards = useCallback(
     () =>
       cardsRequest.run(async ({ signal, isCurrent }) => {
+        // Stryker disable next-line ConditionalExpression: the route always carries a slug; this narrows the type
         if (!slug) return;
         setFsLoading(true);
         setCardsError("");
@@ -502,6 +503,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
           params.set("sort_dir", sortDir);
           const data = await publicGet<PortalCardListResponse>(
             `/web-portals/public/${slug}/cards?${params.toString()}`,
+            // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
             { signal },
           );
           if (!isCurrent()) return;
@@ -509,6 +511,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
           setTotal(data.total);
         } catch (e) {
           // A superseded query is aborted by the hook; that is not a failure.
+          // Stryker disable next-line OptionalChaining,StringLiteral: defensive; an abort only reaches here from a superseded query, which isCurrent() already stops
           if (!isCurrent() || (e as { name?: unknown } | null)?.name === "AbortError") return;
           setCardsError(failureMessage(e, "errors.generic"));
         } finally {

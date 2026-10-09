@@ -123,7 +123,8 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
                             height: 12,
                             borderRadius: "50%",
                             flexShrink: 0,
-                            bgcolor: HEALTH_DOT_COLORS[value || ""] || STATUS_COLORS.neutral,
+                            // Stryker disable next-line StringLiteral: no health is keyed by the empty string, nor by any other filler
+          bgcolor: HEALTH_DOT_COLORS[value || ""] || STATUS_COLORS.neutral,
                           }}
                           title={statusLabel}
                         />

@@ -235,8 +235,42 @@ describe("ProcessNavigator failed loads", () => {
       reorder.resolve();
     });
     expect(await screen.findByRole("alert")).toHaveTextContent("map down");
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.getByText("Procure to Pay")).toBeInTheDocument();
     expect(screen.getByText("Record to Report")).toBeInTheDocument();
+  });
+
+  it("shows no error while a reload is still on its way", async () => {
+    const base = [...ITEMS, proc("r2r", "Record to Report", { attributes: { processType: "core", sortOrder: 3 } })];
+    let maps = 0;
+    const reload = deferred<NavigatorMapPayload>();
+    const reorder = deferred<void>();
+    renderBody(
+      bodySource({
+        loadMap: () => {
+          maps += 1;
+          return maps === 1
+            ? Promise.resolve(mapPayload({ items: base as NavigatorMapPayload["items"] }))
+            : reload.promise;
+        },
+        reorderCards: vi.fn(() => reorder.promise),
+      }),
+      { ...FULL_CAPABILITIES, canReorder: true },
+    );
+    await screen.findByText("Procure to Pay");
+    dragOnto(cardOf("Procure to Pay"), cardOf("Record to Report"));
+    await act(async () => {
+      reorder.resolve();
+    });
+    await waitFor(() => expect(maps).toBe(2));
+    // The map stays, with nothing claiming a failure above it.
+    expect(screen.getByText("Procure to Pay")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    await act(async () => {
+      reload.resolve(mapPayload({ items: base as NavigatorMapPayload["items"] }));
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("says the matrix could not be loaded instead of showing it empty", async () => {
@@ -328,6 +362,9 @@ describe("ProcessNavigator ?open= deep link", () => {
     renderBody(bodySource(), FULL_CAPABILITIES, meta(), "/portal/p?open=nope");
     await screen.findByText("Procure to Pay");
     await waitFor(() => expect(locationText()).toBe(""));
+    // And opens nothing for it.
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("presentation")).toBeNull();
     expect(screen.queryByRole("tab", { name: /Overview/ })).toBeNull();
   });
 

@@ -148,6 +148,8 @@ export default function PpmOverviewTab({
     wbs_count: number;
   }>(`/ppm/initiatives/${card.id}/completion`, { keepPreviousData: false });
   const completionPct = completion?.completion;
+  // Stryker disable next-line ConditionalExpression,LogicalOperator: completionPct is read off completion, so the two are undefined together
+  const completionLoading = completion === undefined || completionPct === undefined;
 
   // Budget totals (from budget lines)
   const totalBudget = budgetLines.reduce((s, bl) => s + bl.amount, 0);
@@ -233,7 +235,7 @@ export default function PpmOverviewTab({
           <Alert severity="error">
             {completionError.message || t("common:errors.generic")}
           </Alert>
-        ) : completion === undefined || completionPct === undefined ? (
+        ) : completionLoading ? (
           <LinearProgress />
         ) : completion.wbs_count === 0 ? (
           <Typography variant="body2" color="text.secondary">

@@ -164,6 +164,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
         setBudgetSaveError(errorText(err));
         return;
       }
+      // Stryker disable next-line ObjectLiteral: a dialog state without `open` is closed
       setBudgetDialog({ open: false });
       loadBudgets();
     });
@@ -218,6 +219,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
         setCostSaveError(errorText(err));
         return;
       }
+      // Stryker disable next-line ObjectLiteral: a dialog state without `open` is closed
       setCostDialog({ open: false });
       onRefresh();
     });

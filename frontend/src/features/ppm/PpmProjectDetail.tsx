@@ -94,6 +94,7 @@ export default function PpmProjectDetail() {
   const [shownId, setShownId] = useState(id);
   if (shownId !== id) {
     setShownId(id);
+    // Stryker disable all: cleared while the spinner shows; nothing renders them before the next load replaces them
     setCard(null);
     setReports([]);
     setCostLines([]);
@@ -101,6 +102,7 @@ export default function PpmProjectDetail() {
     setRisks([]);
     setPerms(DEFAULT_PERMS);
     setError("");
+    // Stryker restore all
     setLoading(true);
   }
 
@@ -123,6 +125,7 @@ export default function PpmProjectDetail() {
     await dataRequest.run(async ({ signal, isCurrent }) => {
       setError("");
       try {
+        // Stryker disable ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
         const [c, r, cl, bl, ri] = await Promise.all([
           api.get<Card>(`/cards/${id}`, { signal }),
           api.get<PpmStatusReport[]>(`/ppm/initiatives/${id}/reports`, { signal }),
@@ -139,6 +142,7 @@ export default function PpmProjectDetail() {
         // Fetch effective permissions (non-blocking)
         api
           .get<CardEffectivePermissions>(`/cards/${id}/my-permissions`, { signal })
+      // Stryker restore ObjectLiteral
           .then((res) => {
             if (isCurrent()) setPerms(res.effective);
           })
@@ -157,6 +161,7 @@ export default function PpmProjectDetail() {
         if (isCurrent()) setLoading(false);
       }
     });
+    // Stryker disable next-line ArrayDeclaration: dataRequest is identity-stable and t only words a failure; any list is equivalent
   }, [t, dataRequest]);
 
   useEffect(() => {

@@ -127,6 +127,8 @@ describe("ProcessFlowTab confirm dialog error", () => {
     const dialog = within(await screen.findByRole("dialog"));
     expect(dialog.getByText("Submit for Approval?")).toBeInTheDocument();
     expect(dialog.queryByText(/submit failed/i)).toBeNull();
+    // Nor any other error: the dialog opens clean.
+    expect(dialog.queryByRole("alert")).toBeNull();
   });
 
   it("does not carry a failed action's error into another version's dialog", async () => {
@@ -137,6 +139,7 @@ describe("ProcessFlowTab confirm dialog error", () => {
     const dialog = within(await screen.findByRole("dialog"));
     expect(dialog.getByText("Approve and Publish?")).toBeInTheDocument();
     expect(dialog.queryByText(/submit failed/i)).toBeNull();
+    expect(dialog.queryByRole("alert")).toBeNull();
   });
 });
 

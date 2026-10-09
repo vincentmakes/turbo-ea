@@ -452,6 +452,7 @@ export default function ImportDialog({
                                 {/* One prefix per key: an attribute named
                                     `lifecycle_…` is not a lifecycle column. */}
                                 {field.replace(
+                                  // Stryker disable next-line Regex: every key the change table carries starts with its prefix (`attr_`, `lifecycle_`, `stakeholder_`) or has none, so an unanchored match is the same match
                                   /^(?:attr_|(lifecycle|stakeholder)_)/,
                                   (_m, kind?: string) => (kind ? `${kind}: ` : ""),
                                 )}

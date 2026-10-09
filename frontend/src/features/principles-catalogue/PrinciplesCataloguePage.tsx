@@ -126,10 +126,10 @@ export default function PrinciplesCataloguePage() {
       setImportOpen(false);
       // Mark what now exists straight from the response, so the list is right
       // even if the reload below fails (its error then shows above the list).
+      // A row skipped as `unknown_id` carries an empty id, which the list
+      // already reads as "not imported".
       const nowExisting = new Map(
-        [...result.created, ...result.skipped]
-          .filter((r) => r.principle_id)
-          .map((r) => [r.catalogue_id, r.principle_id]),
+        [...result.created, ...result.skipped].map((r) => [r.catalogue_id, r.principle_id]),
       );
       setPayload((prev) =>
         prev && {

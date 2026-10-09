@@ -318,6 +318,85 @@ describe("PortalViewer slug change", () => {
   });
 });
 
+describe("PortalViewer card queries answered out of order", () => {
+  /** Serve the first card query from `first`; every later one from `later`. */
+  function serveInOrder(first: Promise<unknown>, later: () => Promise<unknown>) {
+    let calls = 0;
+    serve(SLUG, {
+      cards: () => {
+        calls += 1;
+        return calls === 1 ? first : later();
+      },
+    });
+  }
+  const cardQueries = () => paths().filter((p) => p.startsWith(`/web-portals/public/${SLUG}/cards`));
+  /** The indeterminate bar above the grid; a card's own quality bar carries a value. */
+  const loadingBars = () =>
+    screen.queryAllByRole("progressbar").filter((el) => !el.hasAttribute("aria-valuenow"));
+
+  it("ignores the previous query's cards once a newer query has landed", async () => {
+    const user = userEvent.setup();
+    const first = deferred();
+    serveInOrder(first.promise, () => Promise.resolve({ items: [card({ id: "c2", name: "Later" })], total: 1 }));
+    renderPortal();
+    await waitFor(() => expect(cardQueries()).toHaveLength(1));
+
+    await user.type(await screen.findByPlaceholderText("Search Business Capability..."), "x");
+    await waitFor(() => expect(cardQueries()).toHaveLength(2));
+    expect(await screen.findByText("Later")).toBeInTheDocument();
+
+    await act(async () => {
+      first.resolve({ items: [card({ id: "c1", name: "Stale" })], total: 1 });
+    });
+    await act(settle);
+    expect(screen.queryByText("Stale")).not.toBeInTheDocument();
+    expect(screen.getByText("Later")).toBeInTheDocument();
+  });
+
+  it("ignores the previous query's failure once a newer query has landed", async () => {
+    const user = userEvent.setup();
+    const first = deferred();
+    serveInOrder(first.promise, () => Promise.resolve({ items: [card({ id: "c2", name: "Later" })], total: 1 }));
+    renderPortal();
+    await waitFor(() => expect(cardQueries()).toHaveLength(1));
+
+    await user.type(await screen.findByPlaceholderText("Search Business Capability..."), "x");
+    expect(await screen.findByText("Later")).toBeInTheDocument();
+
+    await act(async () => {
+      first.reject(new Error("the stale query failed"));
+    });
+    await act(settle);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("Later")).toBeInTheDocument();
+  });
+
+  it("keeps loading until the newest query answers, even when the previous one settles first", async () => {
+    const user = userEvent.setup();
+    const first = deferred();
+    const second = deferred();
+    serveInOrder(first.promise, () => second.promise);
+    renderPortal();
+    await waitFor(() => expect(cardQueries()).toHaveLength(1));
+
+    await user.type(await screen.findByPlaceholderText("Search Business Capability..."), "x");
+    await waitFor(() => expect(cardQueries()).toHaveLength(2));
+
+    await act(async () => {
+      first.resolve({ items: [card({ id: "c1", name: "Stale" })], total: 1 });
+    });
+    await act(settle);
+    expect(loadingBars()).toHaveLength(1);
+    expect(screen.queryByText("Stale")).not.toBeInTheDocument();
+
+    await act(async () => {
+      second.resolve({ items: [card({ id: "c2", name: "Later" })], total: 1 });
+    });
+    expect(await screen.findByText("Later")).toBeInTheDocument();
+    expect(loadingBars()).toHaveLength(0);
+  });
+});
+
 describe("PortalViewer card grid", () => {
   it("never says 'no results' before the first card query has answered", async () => {
     const seen: string[] = [];
