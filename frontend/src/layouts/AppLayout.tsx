@@ -490,8 +490,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const isActive = (path?: string) =>
     !!(path && (location.pathname === path || (path !== "/" && location.pathname.startsWith(path))));
   // A group is active whenever one of its entries is — same prefix match.
-  const isGroupActive = (children?: { path: string }[]) =>
-    !!children?.some((c) => isActive(c.path));
+  const isGroupActive = (children: { path: string }[]) =>
+    children.some((c) => isActive(c.path));
 
   const navBtnSx = (active: boolean) => ({
     color: active ? nav.fg : nav.fgMuted,

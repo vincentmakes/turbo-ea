@@ -304,3 +304,37 @@ describe("MyFavoritesSection", () => {
     expect(mockApi.callsOf("post")).toHaveLength(0);
   });
 });
+
+describe("MyFavoritesSection error banner", () => {
+  it("says something went wrong when the favourites load fails without a message", async () => {
+    mockApi.on("get", "/favorites", () => Promise.reject("offline"));
+    renderSection();
+    const alert = errorAlert(await screen.findByText("Something went wrong")) as HTMLElement;
+    expect(alert).toBeInTheDocument();
+    // Spaced off the list below it.
+    expect(alert).toHaveStyle({ marginBottom: "8px" });
+  });
+
+  it("says something went wrong when a removal fails without a message", async () => {
+    mockApi.on("delete", "/favorites/c2", () => Promise.reject("offline"));
+    const { user } = renderSection();
+    await screen.findByText("SAP HANA");
+    await user.click(removeButton("SAP HANA"));
+    expect(errorAlert(await screen.findByText("Something went wrong"))).toBeInTheDocument();
+    expect(await screen.findByText("SAP HANA")).toBeInTheDocument();
+  });
+
+  it("clears a failed removal's error once the next removal goes through", async () => {
+    mockApi.fail("delete", "/favorites/c2", 500);
+    const { user } = renderSection();
+    await screen.findByText("SAP HANA");
+    await user.click(removeButton("SAP HANA"));
+    expect(errorAlert(await screen.findByText("DELETE /favorites/c2 failed"))).toBeInTheDocument();
+    await screen.findByText("SAP HANA");
+
+    await user.click(removeButton("NexaCore ERP"));
+    await waitFor(() => expect(mockApi.callsOf("delete", "/favorites/c1")).toHaveLength(1));
+    expect(await screen.findByText("Removed «NexaCore ERP» from favorites")).toBeInTheDocument();
+    expect(screen.queryByText("DELETE /favorites/c2 failed")).not.toBeInTheDocument();
+  });
+});

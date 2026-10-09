@@ -341,6 +341,37 @@ describe("PortalViewer card grid", () => {
     renderPortal();
     expect(await screen.findByText("cards exploded")).toBeInTheDocument();
     expect(screen.queryByText("No results found")).toBeNull();
+    // In an error banner, spaced off the grid below it.
+    const alert = screen.getByText("cards exploded").closest(".MuiAlert-root") as HTMLElement;
+    expect(alert).toHaveClass("MuiAlert-standardError");
+    expect(alert).toHaveStyle({ marginBottom: "16px" });
+  });
+
+  it("says something went wrong when the card query fails without a message", async () => {
+    serve(SLUG, { cards: () => Promise.reject("offline") });
+    renderPortal();
+    const alert = (await screen.findByText("Something went wrong")).closest(".MuiAlert-root");
+    expect(alert).toHaveClass("MuiAlert-standardError");
+    expect(screen.queryByText("No results found")).toBeNull();
+  });
+
+  it("shows no error banner over the grid, from its first paint to its loaded cards", async () => {
+    const alertsSeen: number[] = [];
+    const cards = deferred();
+    serve(SLUG, {
+      cards: () => {
+        alertsSeen.push(document.querySelectorAll(".MuiAlert-root").length);
+        return cards.promise;
+      },
+    });
+    renderPortal();
+    await waitFor(() => expect(alertsSeen).toHaveLength(1));
+    expect(alertsSeen[0]).toBe(0);
+    await act(async () => {
+      cards.resolve({ items: [card()], total: 1 });
+    });
+    expect(await screen.findByText("Customer Management")).toBeInTheDocument();
+    expect(document.querySelectorAll(".MuiAlert-root")).toHaveLength(0);
   });
 
   it("names the approval status in words on the tile and in the detail dialog", async () => {

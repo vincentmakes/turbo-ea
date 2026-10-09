@@ -173,6 +173,37 @@ describe("StatusReportDialog — RAG colours", () => {
   });
 });
 
+describe("StatusReportDialog — RAG colours on hover", () => {
+  /** The background a selected toggle takes on hover: the last `.Mui-selected:hover` rule for its class. */
+  function selectedHoverBackground(button: HTMLElement): string {
+    const classes = Array.from(button.classList).filter((c) => c.startsWith("css-"));
+    const rules = Array.from(document.styleSheets)
+      .flatMap((sheet) => Array.from(sheet.cssRules))
+      .filter((r): r is CSSStyleRule => "selectorText" in r)
+      .filter((r) =>
+        classes.some((c) => r.selectorText.includes(`.${c}.Mui-selected:hover`)) &&
+        r.style.getPropertyValue("background-color") !== "",
+      );
+    return cssColor(rules.at(-1)?.style.getPropertyValue("background-color") ?? "");
+  }
+
+  /** A colour in one spelling (a stylesheet keeps hex, an inline style turns it into rgb). */
+  function cssColor(value: string): string {
+    const probe = document.createElement("div");
+    probe.style.backgroundColor = value;
+    return probe.style.backgroundColor;
+  }
+
+  it("keeps each selected health in its RAG colour while it is hovered", () => {
+    renderDialog(REPORT);
+    const button = (caption: string, name: string) =>
+      within(group(caption)).getByRole("button", { name });
+    expect(selectedHoverBackground(button("Scope", "On Track"))).toBe(cssColor(RAG_COLORS.green));
+    expect(selectedHoverBackground(button("Schedule", "At Risk"))).toBe(cssColor(RAG_COLORS.amber));
+    expect(selectedHoverBackground(button("Cost", "Off Track"))).toBe(cssColor(RAG_COLORS.red));
+  });
+});
+
 describe("StatusReportDialog — editing", () => {
   it("pre-fills the report and patches it", async () => {
     const { user, onSaved } = renderDialog(REPORT);

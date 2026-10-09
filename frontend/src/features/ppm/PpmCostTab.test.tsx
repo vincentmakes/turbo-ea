@@ -366,6 +366,15 @@ describe("PpmCostTab — labels and empty states", () => {
     expect(getComputedStyle(variance).color).not.toBe("rgb(46, 125, 50)"); // palette.success.main
   });
 
+  it("pads the budget loading row like the empty-state row it stands in for", () => {
+    mockApi.on("get", budgetPath, () => new Promise(() => {}));
+    renderTab();
+    const budgetTable = screen.getByRole("columnheader", { name: "Fiscal Year" }).closest("table") as HTMLElement;
+    const cell = within(budgetTable).getByRole("progressbar").closest("td") as HTMLElement;
+    expect(cell).toHaveAttribute("colspan", "4");
+    expect(cell).toHaveStyle({ paddingTop: "16px", paddingBottom: "16px" });
+  });
+
   it("drops the loading row once the budget lines have arrived", async () => {
     renderTab();
     await screen.findByText("FY 2025");

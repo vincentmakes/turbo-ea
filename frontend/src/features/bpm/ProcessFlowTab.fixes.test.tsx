@@ -264,3 +264,49 @@ describe("ProcessFlowTab sub-tab before permissions load", () => {
     expect(mockApi.callsOf("get", `${BASE}/flow/drafts`)).toHaveLength(0);
   });
 });
+
+describe("ProcessFlowTab failures without a message", () => {
+  it("says something went wrong when the permissions fail without a message", async () => {
+    mockApi.on("get", `${BASE}/flow/permissions`, () => Promise.reject("offline"));
+    renderTab();
+    expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveClass("MuiAlert-standardError");
+    expect(screen.queryByText("No published process flow yet")).toBeNull();
+  });
+
+  it("says something went wrong when the drafts fail without a message", async () => {
+    mockApi.on("get", `${BASE}/flow/drafts`, () => Promise.reject("offline"));
+    renderTab({ initialSubTab: 1 });
+    expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
+    expect(screen.queryByText("No draft process flows.")).toBeNull();
+  });
+
+  it("says something went wrong when the archive fails without a message", async () => {
+    mockApi.on("get", `${BASE}/flow/archived`, () => Promise.reject("offline"));
+    renderTab({ initialSubTab: 2 });
+    expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
+    expect(screen.queryByText("No archived process flows.")).toBeNull();
+  });
+});
+
+describe("ProcessFlowTab Organization column without the type", () => {
+  it("falls back to the column's own name when the metamodel has no Organization type", async () => {
+    withMetamodel([]);
+    const user = renderTab();
+    await screen.findByText("Create Order");
+    expect(screen.getByText("Link Organization")).toBeInTheDocument();
+    await user.click(screen.getByText("Link Organization"));
+    expect(screen.getByPlaceholderText("Search Organization...")).toBeInTheDocument();
+  });
+});
+
+describe("ProcessFlowTab tab contents", () => {
+  it("shows only the published flow under the Published tab, nothing of the Drafts tab", async () => {
+    renderTab();
+    await screen.findByText("Create Order");
+    expect(screen.getByRole("tab", { name: "Published" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByText("Loading drafts...")).toBeNull();
+    expect(screen.queryByText("No draft process flows.")).toBeNull();
+    expect(screen.queryByText("Revision 4")).toBeNull();
+  });
+});

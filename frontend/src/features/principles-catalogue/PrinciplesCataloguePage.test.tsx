@@ -105,7 +105,11 @@ describe("PrinciplesCataloguePage — browsing", () => {
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
     expect(await screen.findByText("Data is an Asset")).toBeInTheDocument();
     expect(screen.getByText("Catalogue v2026.1")).toBeInTheDocument();
-    expect(screen.getByText("Showing 3 of 3 — 2 not yet imported")).toBeInTheDocument();
+    // The count sits on its own line under the search bar.
+    expect(screen.getByText("Showing 3 of 3 — 2 not yet imported")).toHaveStyle({
+      display: "block",
+      marginTop: "8px",
+    });
     expect(screen.queryByText(NO_MATCHES)).not.toBeInTheDocument();
 
     const card = cardOf("Data is an Asset");

@@ -39,6 +39,7 @@ import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType, makeField, makeOption, makeSection, makeSubtype } from "@/test/fixtures/metamodel";
 import { makeUser } from "@/test/render";
+import i18n from "@/i18n";
 import type { FieldOption } from "@/types";
 
 const OPTIONS = [
@@ -385,3 +386,206 @@ describe("ProcessNavigator house rows", () => {
     expect(screen.getByText("Core Processes")).toBeInTheDocument();
   });
 });
+
+/** A promise the test rejects or resolves by hand. */
+function settleable<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+/** Run `check` in German, then put the suite's English back whatever happened. */
+async function inGerman(check: () => Promise<void>) {
+  await act(async () => {
+    await i18n.changeLanguage("de");
+  });
+  try {
+    await check();
+  } finally {
+    await act(async () => {
+      await i18n.changeLanguage("en");
+    });
+  }
+}
+
+const GENERIC = "Something went wrong";
+
+describe("ProcessNavigator failures without a message", () => {
+  it("says something went wrong when the map fails without a message", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    renderBody(bodySource({ loadMap: () => Promise.reject("offline") }));
+    expect(await screen.findByText(GENERIC)).toBeInTheDocument();
+    expect(screen.queryByText("No Business Processes found")).toBeNull();
+  });
+
+  it("says something went wrong in the drawer when the flow fails without a message", async () => {
+    const user = userEvent.setup();
+    renderBody(bodySource({ loadFlow: () => Promise.reject("offline") }));
+    await user.click(await screen.findByText("Procure to Pay"));
+    const d = await drawer();
+    await user.click(d.getByRole("tab", { name: /Flow/ }));
+    expect(await d.findByText(GENERIC)).toBeInTheDocument();
+    expect(d.queryByText("No process flow available.")).toBeNull();
+  });
+
+  it("says something went wrong in the fullscreen preview, in a banner spaced off its edges", async () => {
+    const user = userEvent.setup();
+    renderBody(bodySource({ loadFlow: () => Promise.reject("offline") }));
+    await screen.findByText("Order to Cash");
+    const [flow] = within(cardOf("Procure to Pay")).getAllByRole("button", { name: "View Flow" });
+    await user.click(flow);
+    const dialog = within(await screen.findByRole("dialog"));
+    const alert = (await dialog.findByText(GENERIC)).closest(".MuiAlert-root") as HTMLElement;
+    expect(alert).toHaveClass("MuiAlert-standardError");
+    expect(alert).toHaveStyle({
+      marginTop: "16px",
+      marginRight: "16px",
+      marginBottom: "16px",
+      marginLeft: "16px",
+    });
+  });
+
+  it("says something went wrong in the matrix, in the language the user switches to", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockApi.on("get", "/reports/bpm/process-application-matrix", () => Promise.reject("offline"));
+    renderNavigator("/bpm?view=matrix");
+    expect(await screen.findByText(GENERIC)).toBeInTheDocument();
+    await inGerman(async () => {
+      expect(
+        await screen.findByText(i18n.t("common:errors.generic", { lng: "de" })),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("says something went wrong in the dependencies, in the language the user switches to", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockApi.on("get", "/reports/bpm/process-dependencies", () => Promise.reject("offline"));
+    renderNavigator("/bpm?view=dependencies");
+    expect(await screen.findByText(GENERIC)).toBeInTheDocument();
+    await inGerman(async () => {
+      expect(
+        await screen.findByText(i18n.t("common:errors.generic", { lng: "de" })),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("logs a failed matrix load", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockApi.fail("get", "/reports/bpm/process-application-matrix");
+    renderNavigator("/bpm?view=matrix");
+    await screen.findByText("GET /reports/bpm/process-application-matrix failed");
+    expect(error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "GET /reports/bpm/process-application-matrix failed" }),
+    );
+  });
+});
+
+describe("ProcessNavigator answers for a process or source it has left", () => {
+  it("reloads the drawer's flow from a new source and ignores the failure of the load it replaced", async () => {
+    const stale = settleable<ProcessFlowPayload>();
+    const m = meta();
+    const ui = (source: ProcessNavigatorSource) => (
+      <MemoryRouter initialEntries={["/portal/p"]}>
+        <ProcessNavigatorProvider value={{ source, capabilities: FULL_CAPABILITIES, meta: m }}>
+          <ProcessNavigatorBody />
+        </ProcessNavigatorProvider>
+      </MemoryRouter>
+    );
+    const user = userEvent.setup();
+    const { rerender } = render(ui(bodySource({ loadFlow: () => stale.promise })));
+    await user.click(await screen.findByText("Procure to Pay"));
+    const d = await drawer();
+    await user.click(d.getByRole("tab", { name: /Flow/ }));
+    expect(d.getByRole("progressbar")).toBeInTheDocument();
+
+    rerender(
+      ui(
+        bodySource({
+          loadFlow: async () => ({
+            ...EMPTY_FLOW,
+            bpmnXml: "<xml/>",
+            svgThumbnail: "<svg data-testid='fresh-thumb'></svg>",
+          }),
+        }),
+      ),
+    );
+    expect(await d.findByTestId("fresh-thumb")).toBeInTheDocument();
+
+    await act(async () => {
+      stale.reject(new Error("stale source down"));
+    });
+    expect(d.queryByText("stale source down")).toBeNull();
+    expect(d.getByTestId("fresh-thumb")).toBeInTheDocument();
+  });
+
+  it("keeps the preview's new process when the one it left fails late", async () => {
+    const flows = { a: settleable<ProcessFlowPayload>(), b: settleable<ProcessFlowPayload>() };
+    renderBody(
+      bodySource({
+        loadMap: async () =>
+          mapPayload({
+            items: [
+              proc("a", "Alpha Flow", { has_diagram: true }),
+              proc("b", "Beta Flow", { has_diagram: true }),
+            ],
+          }),
+        loadFlow: (id: string) => flows[id as "a" | "b"].promise,
+      }),
+    );
+    await screen.findByText("Beta Flow");
+    fireEvent.click(within(cardOf("Alpha Flow")).getByRole("button", { name: "View Flow" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(cardOf("Beta Flow")).getByRole("button", { name: "View Flow", hidden: true }));
+    expect(within(dialog).getByText("Beta Flow — Flow")).toBeInTheDocument();
+
+    await act(async () => {
+      flows.b.resolve({ ...EMPTY_FLOW, bpmnXml: "XML-B" });
+    });
+    expect(await within(dialog).findByTestId("bpmn-viewer")).toHaveTextContent("XML-B");
+
+    await act(async () => {
+      flows.a.reject(new Error("alpha down"));
+    });
+    expect(within(dialog).queryByText("alpha down")).toBeNull();
+    expect(within(dialog).getByTestId("bpmn-viewer")).toHaveTextContent("XML-B");
+  });
+});
+
+describe("ProcessNavigator reset after a failed map", () => {
+  it("drops a deep link the failed map never opened", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const user = userEvent.setup();
+    renderBody(
+      bodySource({ loadMap: () => Promise.reject(new Error("map down")) }),
+      FULL_CAPABILITIES,
+      meta(),
+      "/portal/p?open=p2p",
+    );
+    await screen.findByText("map down");
+    await waitFor(() => expect(locationText()).toBe("open=p2p"));
+    await user.click(screen.getByRole("button", { name: "Reset to defaults" }));
+    await waitFor(() => expect(locationText()).toBe(""));
+  });
+});
+
+describe("ProcessNavigator drawer overview without chips", () => {
+  it("opens on the figures when the process has neither a subtype nor an attribute chip", async () => {
+    const user = userEvent.setup();
+    renderBody(
+      bodySource({
+        loadMap: async () => mapPayload({ items: [proc("plain", "Plain Process", { attributes: {} })] }),
+      }),
+    );
+    await user.click(await screen.findByText("Plain Process"));
+    const d = await drawer();
+    expect(d.queryAllByText((_, el) => el?.classList.contains("MuiChip-label") ?? false)).toEqual([]);
+    // The figures row comes first: no empty chip row sits above it.
+    const figures = d.getByText("Elements").parentElement?.parentElement as HTMLElement;
+    expect(figures.previousElementSibling).toBeNull();
+  });
+});
+
