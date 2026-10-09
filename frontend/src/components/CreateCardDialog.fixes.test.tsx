@@ -128,6 +128,40 @@ describe("CreateCardDialog — an AI suggestion from a closed session", () => {
     expect(screen.queryByText("LLM timed out")).not.toBeInTheDocument();
   });
 
+  // Closing alone ends the session: a reply that lands while the dialog is
+  // still fading out must not pop into it. (Reopening resets the name, so the
+  // name's own cancel covers a reply still pending at the reopen; this is the
+  // one moment only the close can cover.)
+  it("does not land in the dialog while it fades out after closing", async () => {
+    const reply = deferred<unknown>();
+    mockApi.on("post", "/ai/suggest", () => reply.promise);
+    const { user, setOpen } = renderDialog();
+    fireEvent.change(nameBox(), { target: { value: "Salesforce" } });
+    await user.click(suggestButton()!);
+    expect(await screen.findByText("Generating description...")).toBeInTheDocument();
+
+    // Hold the exit transition's timer, so the closing dialog stays mounted
+    // for as long as the test looks at it, however slow the run.
+    vi.useFakeTimers();
+    try {
+      setOpen(false);
+      await act(async () => {
+        reply.resolve({
+          suggestions: { description: { value: "A CRM platform.", confidence: 0.9 } },
+          sources: [],
+        });
+      });
+
+      // Still on screen, fading out, with what it held at the close...
+      expect(nameBox()).toHaveValue("Salesforce");
+      // ...and nothing that arrived after it.
+      expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+      expect(screen.queryByText("A CRM platform.")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not end the next session's own suggestion when it lands", async () => {
     const replies = [deferred<unknown>(), deferred<unknown>()];
     let call = 0;

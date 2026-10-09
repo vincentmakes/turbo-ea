@@ -133,8 +133,14 @@ describe("TodosTab — error alerts", () => {
   });
 
   it("shows no error on mount, and spaces a load error from the list", async () => {
+    const list = deferred<Todo[]>();
+    mockApi.on("get", LIST, () => list.promise);
     render(<TodosTab fsId={FS_ID} />);
-    await screen.findByText("First card's todo");
+    // The first load is still on its way: nothing has failed yet.
+    expect(mockApi.callsOf("get", LIST)).toHaveLength(1);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await act(async () => list.resolve(FIRST));
+    expect(screen.getByText("First card's todo")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
     mockApi.fail("get", OTHER_LIST, 500);
