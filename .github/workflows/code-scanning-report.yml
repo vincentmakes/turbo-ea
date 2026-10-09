@@ -16,8 +16,16 @@ name: Code Scanning Report
 # daily scan (`daily-trivy-<image>`) is not cleared by a publish-workflow scan
 # (`trivy-<image>`) or by trivy-reconcile, and vice versa.
 #
-# Uses the runner's preinstalled `gh` CLI with the built-in GITHUB_TOKEN and a
-# read-only `security-events` grant. No extra secrets.
+# It also dumps the open *Dependabot* and *secret-scanning* alerts, the two
+# finding classes that are not code scanning. GITHUB_TOKEN cannot read either
+# (there is no Dependabot-alerts permission for it), so those two steps use the
+# optional SECURITY_ALERTS_TOKEN secret: a fine-grained PAT scoped to this
+# repository with "Dependabot alerts: read" and "Secret scanning alerts: read".
+# Without it they are skipped and the summary says so, rather than reading as
+# "no alerts". The secret-scanning step never copies a secret's value.
+#
+# Code scanning uses the runner's preinstalled `gh` CLI with the built-in
+# GITHUB_TOKEN and a read-only `security-events` grant.
 #
 # Manual run: `gh workflow run code-scanning-report.yml` (or the Actions UI).
 
@@ -39,6 +47,11 @@ jobs:
   report:
     name: Dump open code-scanning alerts
     runs-on: ubuntu-latest
+    env:
+      # Optional fine-grained PAT (Dependabot alerts: read, Secret scanning
+      # alerts: read). GITHUB_TOKEN has no Dependabot-alerts permission at all,
+      # so without this secret those two sections are skipped, and say so.
+      SECURITY_ALERTS_TOKEN: ${{ secrets.SECURITY_ALERTS_TOKEN }}
     steps:
       - name: Fetch and render open alerts
         env:
@@ -111,11 +124,113 @@ jobs:
             jq -r '.[] | "| \(.id) | \(.tool.name) | `\(.category // "n/a")` | \(.created_at) | \(.results_count) | \(.error // "") | \(.warning // "") |"' analyses.json
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload alerts and analyses JSON
+      - name: Note skipped Dependabot and secret-scanning sections
+        if: env.SECURITY_ALERTS_TOKEN == ''
+        run: |
+          msg="Dependabot and secret-scanning alerts: skipped, SECURITY_ALERTS_TOKEN is not set"
+          echo "$msg"
+          { echo; echo "## Dependabot and secret-scanning alerts"; echo; echo "_${msg}._"; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fetch and render open Dependabot alerts
+        if: env.SECURITY_ALERTS_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ env.SECURITY_ALERTS_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          gh api --paginate --slurp \
+            "repos/$REPO/dependabot/alerts?state=open&per_page=100" \
+            | jq '[.[][]]' > dependabot.json
+
+          count=$(jq 'length' dependabot.json)
+          echo
+          echo "Open Dependabot alerts: $count"
+          echo
+
+          jq -r '.[] | [
+            (.number | tostring),
+            .security_advisory.severity,
+            .dependency.package.ecosystem,
+            .dependency.package.name,
+            .dependency.manifest_path,
+            .security_vulnerability.vulnerable_version_range,
+            (.security_vulnerability.first_patched_version.identifier // "none"),
+            .security_advisory.ghsa_id,
+            .created_at
+          ] | @tsv' dependabot.json | column -t -s "$(printf '\t')" || true
+
+          {
+            echo
+            echo "## Open Dependabot alerts ($count)"
+            echo
+            echo "| # | Severity | Ecosystem | Package | Manifest | Vulnerable | Patched | Advisory | Created |"
+            echo "| - | -------- | --------- | ------- | -------- | ---------- | ------- | -------- | ------- |"
+            jq -r '.[] | "| \(.number) | \(.security_advisory.severity) | \(.dependency.package.ecosystem) | `\(.dependency.package.name)` | `\(.dependency.manifest_path)` | `\(.security_vulnerability.vulnerable_version_range)` | \(.security_vulnerability.first_patched_version.identifier // "none") | \(.security_advisory.ghsa_id) | \(.created_at) |"' dependabot.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The projection below deliberately never reads the alert's `secret`
+      # field: the report lands in job logs, a run summary and an artifact,
+      # and a leaked credential must not be copied into any of them.
+      - name: Fetch and render open secret-scanning alerts
+        if: env.SECURITY_ALERTS_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ env.SECURITY_ALERTS_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # 404 = secret scanning is not enabled on the repository. Say so
+          # instead of failing the whole report.
+          if ! raw=$(gh api --paginate --slurp \
+              "repos/$REPO/secret-scanning/alerts?state=open&per_page=100" 2>err.txt); then
+            if grep -q "HTTP 404" err.txt; then
+              msg="Secret scanning is not enabled on this repository (Settings, Code security)"
+              echo "$msg"
+              { echo; echo "## Open secret-scanning alerts"; echo; echo "_${msg}._"; } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            cat err.txt >&2
+            exit 1
+          fi
+
+          jq '[.[][] | {
+            number, state, created_at, html_url,
+            secret_type, secret_type_display_name, validity,
+            push_protection_bypassed,
+            location_path: (.first_location_detected.path // null)
+          }]' <<<"$raw" > secret-scanning.json
+
+          count=$(jq 'length' secret-scanning.json)
+          echo
+          echo "Open secret-scanning alerts: $count"
+          echo
+
+          jq -r '.[] | [
+            (.number | tostring),
+            (.secret_type_display_name // .secret_type),
+            (.validity // "unknown"),
+            "push-protection-bypassed=\(.push_protection_bypassed // false)",
+            (.location_path // "n/a"),
+            .created_at
+          ] | @tsv' secret-scanning.json | column -t -s "$(printf '\t')" || true
+
+          {
+            echo
+            echo "## Open secret-scanning alerts ($count)"
+            echo
+            echo "| # | Type | Validity | Push protection bypassed | First location | Created |"
+            echo "| - | ---- | -------- | ------------------------ | -------------- | ------- |"
+            jq -r '.[] | "| \(.number) | \(.secret_type_display_name // .secret_type) | \(.validity // "unknown") | \(.push_protection_bypassed // false) | `\(.location_path // "n/a")` | \(.created_at) |"' secret-scanning.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the alerts and analyses as JSON
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: code-scanning-alerts
           path: |
             alerts.json
             analyses.json
+            dependabot.json
+            secret-scanning.json
           if-no-files-found: warn

@@ -115,6 +115,7 @@ That closes a week-long window. `:latest` is otherwise only retagged on a releas
 ### Monthly + on-demand
 - **GitHub Security tab** — review aggregated Trivy + Scout + CodeQL + gitleaks + Dependabot alerts. Dismiss with reason for known-not-applicable findings.
 - **Allowlist quarterly review** — re-evaluate every entry in `.github/trivy-allowlist`, `.github/audit-ci.jsonc`, `.github/zap-rules.tsv` **and** `/.gitleaks.toml`. Remove anything an upstream patch now fixes or a fixture no longer carries.
+  - **2026-Q4 (2026-10-09).** Run with the Code Scanning Report (run 37937872656) and a `trivy-reconcile.yml` diagnostic (run 37937876962). The Trivy allowlist lost all 64 entries: the diagnostic, which applies no allowlist, found 0 vulnerabilities at every severity on all five `:latest` images, and the file's own *Review record* lists why each block went. `audit-ci.jsonc` was already empty, `zap-rules.tsv` was reviewed on 2026-09-30 with a clean run since, and all three `.gitleaks.toml` fixture values are still in the files they name. The same run listed 8 open alerts. One was CodeQL `py/polynomial-redos` on the plain-decimal pattern in `backend/app/services/cost_value.py`, merged that day and reachable from the card write path, fixed in 2.157.11. The other seven were Trivy alerts from that morning's daily scan, libtiff CVE-2026-4775 (HIGH) on frontend and nginx and zlib CVE-2026-85091 (MEDIUM) on all five images. The daily scan's own `rebuild` job had already republished `:latest` with both fixed, so they close on the next daily scan, the one that uploads to their `daily-trivy-<image>` category.
 
 ## Operational runbook
 
@@ -129,6 +130,16 @@ have. To get the open alerts (CodeQL + Trivy + Scout) as a plain table:
   title — to the **job logs**, the **run summary**, and a `code-scanning-alerts`
   JSON artifact. Anything that can read an Actions run (including agent tooling
   that lacks the code-scanning API) can then read the findings.
+  - It also dumps the open **Dependabot** and **secret-scanning** alerts, the
+    two finding classes outside code scanning. `GITHUB_TOKEN` cannot read
+    either (it has no Dependabot-alerts permission at all), so those steps use
+    the optional `SECURITY_ALERTS_TOKEN` repository secret: a fine-grained PAT
+    scoped to this repository with **Dependabot alerts: read** and **Secret
+    scanning alerts: read**. Without it both sections print a *skipped* line,
+    so a summary never reads as "no alerts" when nothing was asked. A 404 on
+    secret scanning means it is not enabled (see *The Secret Scan failed a PR*,
+    step 4). The secret-scanning step never copies a secret's value into the
+    log, the summary or the artifact.
 - **Locally** — `./scripts/security/code-scanning-report.sh` (needs `gh auth
   login` + `jq`); add `--json` for the raw payload.
 
@@ -237,7 +248,7 @@ reintroduces the vendored-SBOM surface. See the 2026-07-30 block in
 
 ### The Trivy allowlist file
 
-Lives at [`.github/trivy-allowlist`](trivy-allowlist). **No `.yaml` / `.yml` extension by design** — Trivy 0.65+ infers the schema from the filename, and a YAML extension would force the YAML-schema parser, which rejects bare `CVE-XXXX-YYYYY` lines. If you rename it, drop the extension or use `.trivyignore`.
+Lives at [`.github/trivy-allowlist`](trivy-allowlist). It holds no entries since the 2026-Q4 review. Prove an entry absent with a `trivy-reconcile.yml` diagnostic run (the default `upload_sarif=false`), never with the daily scan: the daily scan applies the allowlist, so it cannot see what the file hides. Build-stage CVEs (the `drawio` and `frontend-build` stages) never belong in it, because every Trivy job scans a published runtime image and a build stage is never in one. **No `.yaml` / `.yml` extension by design** — Trivy 0.65+ infers the schema from the filename, and a YAML extension would force the YAML-schema parser, which rejects bare `CVE-XXXX-YYYYY` lines. If you rename it, drop the extension or use `.trivyignore`.
 
 ### Docker Scout failed authentication
 
