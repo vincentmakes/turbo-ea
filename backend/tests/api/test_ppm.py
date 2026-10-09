@@ -1334,7 +1334,7 @@ class TestCompletion:
             headers=auth_headers(ppm_env["admin"]),
         )
         assert resp.status_code == 200
-        assert resp.json()["completion"] == 0
+        assert resp.json() == {"completion": 0, "wbs_count": 0}
 
     async def test_averages_root_wbs_completions(self, client, ppm_env):
         """Completion is the average of root-level WBS completions."""
@@ -1358,6 +1358,8 @@ class TestCompletion:
         )
         assert resp.status_code == 200
         assert resp.json()["completion"] == 60.0  # (80 + 40) / 2
+        # The tab tells "no work packages" from a 0% by the count.
+        assert resp.json()["wbs_count"] == 2
 
     async def test_only_root_items_count(self, client, ppm_env):
         """Child WBS items should not directly affect the completion calc."""

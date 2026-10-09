@@ -67,6 +67,7 @@ import {
   type ColumnCount,
 } from "@/components/cardColumns";
 import { api } from "@/api/client";
+import { failureMessage, wordFailure } from "@/lib/failureMessage";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useSubtypeLabel } from "@/hooks/useResolveLabel";
@@ -1082,7 +1083,7 @@ function DrawerSteps({
         if (!cancelled) setElements(flow.steps);
       })
       .catch((err) => {
-        if (!cancelled) setError(err?.message || t("navigator.loadElementsFailed"));
+        if (!cancelled) setError(failureMessage(err, "navigator.loadElementsFailed"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -1090,13 +1091,13 @@ function DrawerSteps({
     return () => {
       cancelled = true;
     };
-  }, [processId, source, t]);
+  }, [processId, source]);
 
   if (loading) return <LinearProgress />;
   if (error)
     return (
       <Typography color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
-        {error}
+        {wordFailure(error, t)}
       </Typography>
     );
   if (elements.length === 0)
@@ -1352,7 +1353,7 @@ function DrawerFlow({
         if (flow.hasDrafts) setHasDrafts(true);
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : t("common:errors.generic"));
+        if (!cancelled) setError(failureMessage(err, "common:errors.generic"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -1360,7 +1361,7 @@ function DrawerFlow({
     return () => {
       cancelled = true;
     };
-  }, [processId, source, t]);
+  }, [processId, source]);
 
   // Navigate to card detail Process Flow tab (read-only published view)
   const openFlowTab = () => onNavigate(`/cards/${processId}?tab=1`);
@@ -1374,7 +1375,7 @@ function DrawerFlow({
       </Box>
     );
 
-  if (error) return <Alert severity="error">{error}</Alert>;
+  if (error) return <Alert severity="error">{wordFailure(error, t)}</Alert>;
 
   if (!hasPublished && !hasDrafts)
     return (
@@ -1502,7 +1503,7 @@ function FlowPreviewDialog({
         setElements(flow.steps);
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : t("common:errors.generic"));
+        if (!cancelled) setError(failureMessage(err, "common:errors.generic"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -1510,7 +1511,7 @@ function FlowPreviewDialog({
     return () => {
       cancelled = true;
     };
-  }, [node.id, source, t]);
+  }, [node.id, source]);
 
   const openFlowEditor = () => onNavigate(`/cards/${node.id}?tab=1`);
 
@@ -1541,7 +1542,8 @@ function FlowPreviewDialog({
             <CircularProgress size={40} />
           </Box>
         ) : error ? (
-          <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>
+          // Stryker disable next-line ObjectLiteral: spacing is presentation
+          <Alert severity="error" sx={{ m: 2 }}>{wordFailure(error, t)}</Alert>
         ) : !bpmnXml ? (
           <Box sx={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", py: 6 }}>
             <MaterialSymbol icon="schema" size={48} color="#ccc" />
@@ -1881,13 +1883,13 @@ function MatrixView({
       .then(setData)
       .catch((err) => {
         console.error(err);
-        setError(err instanceof Error ? err.message : t("common:errors.generic"));
+        setError(failureMessage(err, "common:errors.generic"));
       })
       .finally(() => setLoading(false));
-  }, [t]);
+  }, []);
 
   if (loading) return <LinearProgress />;
-  if (error) return <Alert severity="error">{error}</Alert>;
+  if (error) return <Alert severity="error">{wordFailure(error, t)}</Alert>;
   if (!data || !data.rows.length)
     return (
       <Box sx={{ py: 4, textAlign: "center" }}>
@@ -1983,13 +1985,13 @@ function DependenciesView({ onNavigate }: { onNavigate: (id: string) => void }) 
       .then(setData)
       .catch((err) => {
         console.error(err);
-        setError(err instanceof Error ? err.message : t("common:errors.generic"));
+        setError(failureMessage(err, "common:errors.generic"));
       })
       .finally(() => setLoading(false));
-  }, [t]);
+  }, []);
 
   if (loading) return <LinearProgress />;
-  if (error) return <Alert severity="error">{error}</Alert>;
+  if (error) return <Alert severity="error">{wordFailure(error, t)}</Alert>;
   if (!data || !data.nodes.length)
     return (
       <Box sx={{ py: 4, textAlign: "center" }}>
@@ -2242,10 +2244,10 @@ export function ProcessNavigatorBody() {
       })
       .catch((err) => {
         console.error(err);
-        setLoadError(err instanceof Error ? err.message : t("common:errors.generic"));
+        setLoadError(failureMessage(err, "common:errors.generic"));
       })
       .finally(() => setLoading(false));
-  }, [source, t]);
+  }, [source]);
 
   useEffect(() => {
     loadData();
@@ -2715,8 +2717,16 @@ export function ProcessNavigatorBody() {
       {/* ── Main Content ── */}
       {viewMode === "house" && (
         <>
-          {loadError ? (
-            <Alert severity="error">{loadError}</Alert>
+          {/* A failed reload keeps the house that is already on screen and
+              says so above it; only a failed first load has nothing to keep. */}
+          {loadError && data && (
+            // Stryker disable next-line ObjectLiteral: spacing is presentation
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {wordFailure(loadError, t)}
+            </Alert>
+          )}
+          {loadError && !data ? (
+            <Alert severity="error">{wordFailure(loadError, t)}</Alert>
           ) : displayTree.length === 0 ? (
             <Box sx={{ py: 8, textAlign: "center" }}>
               <MaterialSymbol icon="account_tree" size={56} color="#ccc" />

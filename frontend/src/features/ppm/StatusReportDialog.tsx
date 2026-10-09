@@ -146,6 +146,7 @@ export default function StatusReportDialog({
       <DialogTitle>{isEdit ? t("editReport") : t("addReport")}</DialogTitle>
       <DialogContent>
         {error && (
+          // Stryker disable next-line ObjectLiteral: spacing is presentation
           <Alert severity="error" sx={{ mb: 1 }}>
             {error}
           </Alert>

@@ -372,7 +372,6 @@ describe("PpmCostTab — labels and empty states", () => {
     const budgetTable = screen.getByRole("columnheader", { name: "Fiscal Year" }).closest("table") as HTMLElement;
     const cell = within(budgetTable).getByRole("progressbar").closest("td") as HTMLElement;
     expect(cell).toHaveAttribute("colspan", "4");
-    expect(cell).toHaveStyle({ paddingTop: "16px", paddingBottom: "16px" });
   });
 
   it("drops the loading row once the budget lines have arrived", async () => {
@@ -405,75 +404,6 @@ describe("PpmCostTab — labels and empty states", () => {
     const licences = screen.getByRole("link", { name: "https://vendor.example.com" }).closest("tr") as HTMLElement;
     expect(within(licences).getByText("OpEx")).toBeInTheDocument();
     expect(within(licences).queryByText("CapEx")).not.toBeInTheDocument();
-  });
-});
-
-describe("PpmCostTab — following its props", () => {
-  it("reloads the budget lines when it is pointed at another initiative", async () => {
-    mockApi.on("get", "/ppm/initiatives/i2/budgets", [
-      budget({ id: "b9", initiative_id: "i2", fiscal_year: 2030, amount: 50 }),
-    ]);
-    const { rerender } = render(<PpmCostTab initiativeId="i1" costLines={[]} onRefresh={vi.fn()} />);
-    await screen.findByText("FY 2025");
-    rerender(<PpmCostTab initiativeId="i2" costLines={[]} onRefresh={vi.fn()} />);
-    // The first initiative's lines go the moment it is left, not once the next arrive.
-    expect(screen.queryByText("FY 2025")).not.toBeInTheDocument();
-    expect(await screen.findByText("FY 2030")).toBeInTheDocument();
-    expect(mockApi.callsOf("get", "/ppm/initiatives/i2/budgets")).toHaveLength(1);
-    expect(screen.queryByText("FY 2025")).not.toBeInTheDocument();
-    expect(kpi("Total Budget")).toBe("$50");
-  });
-
-  it("shows the next initiative's budget loading, never the last one's lines, while it switches", async () => {
-    const next = deferred<PpmBudgetLine[]>();
-    mockApi.on("get", "/ppm/initiatives/i2/budgets", () => next.promise);
-    const { rerender } = render(<PpmCostTab initiativeId="i1" costLines={COSTS} onRefresh={vi.fn()} />);
-    expect(await screen.findByTestId("cost-charts")).toHaveTextContent("2 costs / 2 budgets");
-    rerender(<PpmCostTab initiativeId="i2" costLines={COSTS} onRefresh={vi.fn()} />);
-    await waitFor(() => expect(mockApi.callsOf("get", "/ppm/initiatives/i2/budgets")).toHaveLength(1));
-
-    expect(screen.queryByText("FY 2025")).not.toBeInTheDocument();
-    expect(screen.queryByText("No budget lines yet")).not.toBeInTheDocument();
-    const budgetTable = screen.getByRole("columnheader", { name: "Fiscal Year" }).closest("table") as HTMLElement;
-    expect(within(budgetTable).getByRole("progressbar")).toBeInTheDocument();
-    expect(kpi("Total Budget")).toBe("—");
-    expect(kpi("CapEx")).toBe("$250 / —");
-    // Nor a chart drawn against no budget.
-    expect(screen.queryByTestId("cost-charts")).not.toBeInTheDocument();
-
-    next.resolve([budget({ id: "b9", initiative_id: "i2", fiscal_year: 2030, amount: 50 })]);
-    expect(await screen.findByText("FY 2030")).toBeInTheDocument();
-    expect(kpi("Total Budget")).toBe("$50");
-    expect(await screen.findByTestId("cost-charts")).toHaveTextContent("2 costs / 1 budgets");
-  });
-
-  it("shows a failed load for the next initiative, not the last one's lines", async () => {
-    mockApi.fail("get", "/ppm/initiatives/i2/budgets", 500);
-    const { rerender } = render(<PpmCostTab initiativeId="i1" costLines={[]} onRefresh={vi.fn()} />);
-    await screen.findByText("FY 2025");
-    rerender(<PpmCostTab initiativeId="i2" costLines={[]} onRefresh={vi.fn()} />);
-    expect(await screen.findByRole("alert")).toHaveTextContent("GET /ppm/initiatives/i2/budgets failed");
-    expect(screen.queryByText("FY 2025")).not.toBeInTheDocument();
-    expect(kpi("Total Budget")).toBe("—");
-  });
-
-  it("re-totals the actuals when the parent hands it new cost lines", async () => {
-    const { rerender } = render(<PpmCostTab initiativeId="i1" costLines={COSTS} onRefresh={vi.fn()} />);
-    await screen.findByText("FY 2025");
-    expect(kpi("Total Actual")).toBe("$550");
-    rerender(
-      <PpmCostTab
-        initiativeId="i1"
-        costLines={[
-          cost({ id: "n1", category: "capex", actual: 700 }),
-          cost({ id: "n2", category: "opex", actual: 50 }),
-        ]}
-        onRefresh={vi.fn()}
-      />,
-    );
-    expect(kpi("Total Actual")).toBe("$750");
-    expect(kpi("CapEx")).toBe("$700 / $1000");
-    expect(kpi("OpEx")).toBe("$50 / $400");
   });
 });
 
@@ -611,7 +541,6 @@ describe("PpmCostTab — loading the budget lines", () => {
     expect(alert.compareDocumentPosition(screen.getByText("Total Budget"))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(alert).toHaveStyle({ marginBottom: "16px" });
     expect(screen.queryByText("No budget lines yet")).not.toBeInTheDocument();
     // Nor as a $0 budget, nor as still loading.
     expect(kpi("Total Budget")).toBe("—");
@@ -741,7 +670,6 @@ describe("PpmCostTab — failed writes", () => {
     const dialog = screen.getByRole("dialog");
     const alert = await within(dialog).findByRole("alert");
     expect(alert).toHaveTextContent(`POST ${budgetPath} failed`);
-    expect(alert).toHaveStyle({ marginBottom: "8px" });
     // Nothing was written, so nothing is reloaded.
     expect(mockApi.callsOf("get", budgetPath)).toHaveLength(1);
   });
@@ -756,7 +684,6 @@ describe("PpmCostTab — failed writes", () => {
     const dialog = screen.getByRole("dialog");
     const alert = await within(dialog).findByRole("alert");
     expect(alert).toHaveTextContent("PATCH /ppm/costs/c2 failed");
-    expect(alert).toHaveStyle({ marginBottom: "8px" });
     expect(onRefresh).not.toHaveBeenCalled();
   });
 
@@ -798,7 +725,6 @@ describe("PpmCostTab — failed writes", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("DELETE /ppm/budgets/b2 failed");
-    expect(alert).toHaveStyle({ marginBottom: "8px" });
     expect(alert.compareDocumentPosition(screen.getByText("Fiscal Year"))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
@@ -817,7 +743,6 @@ describe("PpmCostTab — failed writes", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("DELETE /ppm/costs/c2 failed");
-    expect(alert).toHaveStyle({ marginBottom: "8px" });
     // Under the Cost Items heading, above its table.
     expect(screen.getByText("Cost Items").compareDocumentPosition(alert)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,

@@ -36,7 +36,7 @@ function renderTab(card: Card = CARD) {
 beforeEach(() => {
   mockApi.reset();
   hookState.reset();
-  mockApi.on("get", "/ppm/initiatives/i1/completion", { completion: 40 });
+  mockApi.on("get", "/ppm/initiatives/i1/completion", { completion: 40, wbs_count: 3 });
 });
 
 describe("PpmOverviewTab — description", () => {
@@ -101,6 +101,20 @@ describe("PpmOverviewTab — completion", () => {
     renderTab();
     expect(completionSpinner()).not.toBeNull();
     expect(screen.queryByText(NO_WBS)).not.toBeInTheDocument();
+  });
+
+  it("says there are no work packages yet when the initiative has none, instead of a 0% ring", async () => {
+    mockApi.on("get", "/ppm/initiatives/i1/completion", { completion: 0, wbs_count: 0 });
+    renderTab();
+    expect(await screen.findByText("No work packages yet")).toBeInTheDocument();
+    expect(screen.queryByText("0%")).not.toBeInTheDocument();
+  });
+
+  it("shows a 0% ring, not the no-work-packages state, when the work packages exist but nothing is done", async () => {
+    mockApi.on("get", "/ppm/initiatives/i1/completion", { completion: 0, wbs_count: 2 });
+    renderTab();
+    expect(await screen.findByText("0%")).toBeInTheDocument();
+    expect(screen.queryByText("No work packages yet")).not.toBeInTheDocument();
   });
 
   it("shows a failed completion load as an error, not as no work packages", async () => {

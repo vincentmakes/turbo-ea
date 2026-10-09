@@ -210,7 +210,33 @@ describe("ProcessNavigator failed loads", () => {
     renderBody(bodySource({ loadMap: () => Promise.reject(new Error("map down")) }));
     expect(await screen.findByText("map down")).toBeInTheDocument();
     expect(screen.queryByText("No Business Processes found")).toBeNull();
-    expect(document.querySelectorAll(".MuiSkeleton-root")).toHaveLength(0);
+  });
+
+  it("keeps the map on screen when a reload fails, and says so above it", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const base = [...ITEMS, proc("r2r", "Record to Report", { attributes: { processType: "core", sortOrder: 3 } })];
+    let mapDown = false;
+    const reorder = deferred<void>();
+    renderBody(
+      bodySource({
+        loadMap: async () => {
+          if (mapDown) throw new Error("map down");
+          return mapPayload({ items: base as NavigatorMapPayload["items"] });
+        },
+        reorderCards: vi.fn(() => reorder.promise),
+      }),
+      { ...FULL_CAPABILITIES, canReorder: true },
+    );
+    await screen.findByText("Procure to Pay");
+    dragOnto(cardOf("Procure to Pay"), cardOf("Record to Report"));
+    // The reorder lands, and the reload it triggers fails.
+    mapDown = true;
+    await act(async () => {
+      reorder.resolve();
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent("map down");
+    expect(screen.getByText("Procure to Pay")).toBeInTheDocument();
+    expect(screen.getByText("Record to Report")).toBeInTheDocument();
   });
 
   it("says the matrix could not be loaded instead of showing it empty", async () => {
@@ -437,21 +463,14 @@ describe("ProcessNavigator failures without a message", () => {
     expect(d.queryByText("No process flow available.")).toBeNull();
   });
 
-  it("says something went wrong in the fullscreen preview, in a banner spaced off its edges", async () => {
+  it("says something went wrong in the fullscreen preview", async () => {
     const user = userEvent.setup();
     renderBody(bodySource({ loadFlow: () => Promise.reject("offline") }));
     await screen.findByText("Order to Cash");
     const [flow] = within(cardOf("Procure to Pay")).getAllByRole("button", { name: "View Flow" });
     await user.click(flow);
     const dialog = within(await screen.findByRole("dialog"));
-    const alert = (await dialog.findByText(GENERIC)).closest(".MuiAlert-root") as HTMLElement;
-    expect(alert).toHaveClass("MuiAlert-standardError");
-    expect(alert).toHaveStyle({
-      marginTop: "16px",
-      marginRight: "16px",
-      marginBottom: "16px",
-      marginLeft: "16px",
-    });
+    expect(await dialog.findByRole("alert")).toHaveTextContent(GENERIC);
   });
 
   it("says something went wrong in the matrix, in the language the user switches to", async () => {

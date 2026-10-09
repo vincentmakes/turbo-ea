@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, lazy, Suspense } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
@@ -29,6 +29,7 @@ import { DateField } from "@/components/DateField";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useApiQuery } from "@/hooks/useApiQuery";
+import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { todayIsoDate } from "@/lib/dates";
 import { KPI_VALUE_SX } from "./ppmStyles";
 import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
@@ -60,27 +61,15 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
     err instanceof Error ? err.message : t("common:errors.generic");
 
   // ── Budget lines (planned) ──
-  // The query keeps its lines while it reloads them after a save, but another
-  // initiative's lines must never stand in for this one's while a switch
-  // loads. So each payload is tagged with the initiative it was requested
-  // for. The tag is set by an effect declared before the query's own, so it
-  // moves exactly when the next request goes out: a response for the last
-  // initiative that lands in between keeps the last initiative's tag.
-  const requestedForRef = useRef(initiativeId);
-  useEffect(() => {
-    requestedForRef.current = initiativeId;
-  }, [initiativeId]);
+  // The query keeps its lines while it reloads them after a save. Another
+  // initiative never stands in for this one's: the parent mounts this tab with
+  // `key={initiativeId}`, so a switch is a fresh tab with a fresh query.
   const {
-    data: taggedBudgetLines,
+    data: loadedBudgetLines,
     loading: budgetLoading,
     error: budgetLoadError,
     refetch: loadBudgets,
-  } = useApiQuery<PpmBudgetLine[], { initiativeId: string; lines: PpmBudgetLine[] }>(
-    `/ppm/initiatives/${initiativeId}/budgets`,
-    { select: (lines) => ({ initiativeId: requestedForRef.current, lines }) },
-  );
-  const loadedBudgetLines =
-    taggedBudgetLines?.initiativeId === initiativeId ? taggedBudgetLines.lines : undefined;
+  } = useApiQuery<PpmBudgetLine[]>(`/ppm/initiatives/${initiativeId}/budgets`);
   const budgetLines = loadedBudgetLines ?? NO_BUDGET_LINES;
   // Until the budget lines have arrived, a budget figure is unknown — never $0.
   const budgetKnown = loadedBudgetLines !== undefined;
@@ -112,30 +101,9 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
     actual: 0,
     date: "",
   });
-  // Another initiative: an open dialog would save to it, and a failed delete
-  // belongs to the one left. Reset during render, so neither outlives a frame.
-  const [shownInitiativeId, setShownInitiativeId] = useState(initiativeId);
-  if (shownInitiativeId !== initiativeId) {
-    setShownInitiativeId(initiativeId);
-    setBudgetDialog({ open: false });
-    setCostDialog({ open: false });
-    setBudgetListError(null);
-    setCostListError(null);
-  }
   // A dialog's save is in flight: Save is disabled, and a second click that
   // lands before that re-render is ignored. Only one dialog is open at a time.
-  const savingRef = useRef(false);
-  const [saving, setSaving] = useState(false);
-  const beginSave = () => {
-    if (savingRef.current) return false;
-    savingRef.current = true;
-    setSaving(true);
-    return true;
-  };
-  const endSave = () => {
-    savingRef.current = false;
-    setSaving(false);
-  };
+  const { busy: saving, run: submit } = useSubmitOnce();
 
   // ── KPIs ──
   const totalBudget = useMemo(
@@ -182,23 +150,21 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
     setBudgetDialog({ open: true, item });
   };
 
-  const handleBudgetSave = async () => {
-    if (!beginSave()) return;
-    try {
-      if (budgetDialog.item) {
-        await api.patch(`/ppm/budgets/${budgetDialog.item.id}`, budgetForm);
-      } else {
-        await api.post(`/ppm/initiatives/${initiativeId}/budgets`, budgetForm);
+  const handleBudgetSave = () =>
+    submit(async () => {
+      try {
+        if (budgetDialog.item) {
+          await api.patch(`/ppm/budgets/${budgetDialog.item.id}`, budgetForm);
+        } else {
+          await api.post(`/ppm/initiatives/${initiativeId}/budgets`, budgetForm);
+        }
+      } catch (err) {
+        setBudgetSaveError(errorText(err));
+        return;
       }
-    } catch (err) {
-      setBudgetSaveError(errorText(err));
-      return;
-    } finally {
-      endSave();
-    }
-    setBudgetDialog({ open: false });
-    loadBudgets();
-  };
+      setBudgetDialog({ open: false });
+      loadBudgets();
+    });
 
   const handleBudgetDelete = async (id: string) => {
     setBudgetListError(null);
@@ -232,29 +198,27 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
     setCostDialog({ open: true, item });
   };
 
-  const handleCostSave = async () => {
-    if (!beginSave()) return;
-    const payload = {
-      description: costForm.description,
-      category: costForm.category,
-      actual: costForm.actual,
-      date: costForm.date || null,
-    };
-    try {
-      if (costDialog.item) {
-        await api.patch(`/ppm/costs/${costDialog.item.id}`, payload);
-      } else {
-        await api.post(`/ppm/initiatives/${initiativeId}/costs`, payload);
+  const handleCostSave = () =>
+    submit(async () => {
+      const payload = {
+        description: costForm.description,
+        category: costForm.category,
+        actual: costForm.actual,
+        date: costForm.date || null,
+      };
+      try {
+        if (costDialog.item) {
+          await api.patch(`/ppm/costs/${costDialog.item.id}`, payload);
+        } else {
+          await api.post(`/ppm/initiatives/${initiativeId}/costs`, payload);
+        }
+      } catch (err) {
+        setCostSaveError(errorText(err));
+        return;
       }
-    } catch (err) {
-      setCostSaveError(errorText(err));
-      return;
-    } finally {
-      endSave();
-    }
-    setCostDialog({ open: false });
-    onRefresh();
-  };
+      setCostDialog({ open: false });
+      onRefresh();
+    });
 
   const handleCostDelete = async (id: string) => {
     setCostListError(null);
@@ -271,6 +235,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
     <Box>
       {/* The totals below need the budget lines: say so when they failed to load. */}
       {budgetLoadError && (
+        // Stryker disable next-line ObjectLiteral: spacing is presentation
         <Alert severity="error" sx={{ mb: 2 }}>
           {errorText(budgetLoadError)}
         </Alert>
@@ -360,6 +325,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
       </Box>
 
       {budgetListError && (
+        // Stryker disable next-line ObjectLiteral: spacing is presentation
         <Alert severity="error" sx={{ mb: 1 }} onClose={() => setBudgetListError(null)}>
           {budgetListError}
         </Alert>
@@ -417,6 +383,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
             ))}
             {!budgetKnown && budgetLoading && (
               <TableRow>
+                {/* Stryker disable next-line ObjectLiteral: spacing is presentation */}
                 <TableCell colSpan={4} sx={{ py: 2 }}>
                   <LinearProgress />
                 </TableCell>
@@ -453,6 +420,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
       </Box>
 
       {costListError && (
+        // Stryker disable next-line ObjectLiteral: spacing is presentation
         <Alert severity="error" sx={{ mb: 1 }} onClose={() => setCostListError(null)}>
           {costListError}
         </Alert>
@@ -539,6 +507,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
           </DialogTitle>
           <DialogContent>
             {budgetSaveError && (
+              // Stryker disable next-line ObjectLiteral: spacing is presentation
               <Alert severity="error" sx={{ mb: 1 }}>
                 {budgetSaveError}
               </Alert>
@@ -612,6 +581,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
           </DialogTitle>
           <DialogContent>
             {costSaveError && (
+              // Stryker disable next-line ObjectLiteral: spacing is presentation
               <Alert severity="error" sx={{ mb: 1 }}>
                 {costSaveError}
               </Alert>

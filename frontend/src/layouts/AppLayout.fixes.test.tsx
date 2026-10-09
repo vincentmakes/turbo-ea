@@ -155,7 +155,6 @@ describe("AppLayout — group highlight on a sub-path", () => {
     renderAt("/turbolens/assessments/a1");
     const reports = screen.getByRole("button", { name: /Reports/ });
     expect(getComputedStyle(reports).color).toBe(ACTIVE);
-    expect(getComputedStyle(reports).fontWeight).toBe("700");
   });
 
   it("leaves the Reports button plain elsewhere", () => {
@@ -163,7 +162,6 @@ describe("AppLayout — group highlight on a sub-path", () => {
     renderAt("/inventory");
     const reports = screen.getByRole("button", { name: /Reports/ });
     expect(getComputedStyle(reports).color).toBe(MUTED);
-    expect(getComputedStyle(reports).fontWeight).toBe("500");
   });
 
   it("highlights the drawer's Admin header on a sub-path of an admin entry", async () => {

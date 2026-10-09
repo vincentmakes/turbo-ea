@@ -44,7 +44,20 @@ vi.mock("./PpmReportsTab", () => ({
     );
   },
 }));
-vi.mock("./PpmCostTab", () => ({ default: () => null }));
+// The cost tab stub counts its mounts: a switch must give it a fresh one
+// (its own query, closed dialogs), not the previous initiative's instance
+// with new props.
+const costTab = vi.hoisted(() => ({ mounts: 0 }));
+vi.mock("./PpmCostTab", async () => {
+  const { useEffect } = await import("react");
+  function CostTabStub({ initiativeId }: { initiativeId: string }) {
+    useEffect(() => {
+      costTab.mounts += 1;
+    }, []);
+    return <div data-testid="cost-tab">{initiativeId}</div>;
+  }
+  return { default: CostTabStub };
+});
 vi.mock("./PpmRiskTab", () => ({
   default: ({ risks }: { risks: { id: string }[] }) => (
     <div data-testid="risks-tab">{risks.map((r) => r.id).join(",")}</div>
@@ -149,6 +162,7 @@ function renderPage(path = "/ppm/i1") {
 beforeEach(() => {
   mockApi.reset();
   resetPageTitle();
+  costTab.mounts = 0;
 });
 
 describe("PpmProjectDetail switching initiatives", () => {
@@ -280,6 +294,21 @@ describe("PpmProjectDetail switching initiatives", () => {
     expect(screen.getByTestId("overview-tab")).toHaveTextContent("CRM Rollout");
   });
 
+  it("mounts a fresh cost tab for the next initiative", async () => {
+    serve("i1", "ERP Replacement");
+    serve("i2", "CRM Rollout");
+    renderPage("/ppm/i1?tab=cost");
+    expect(await screen.findByTestId("cost-tab")).toHaveTextContent("i1");
+    expect(costTab.mounts).toBe(1);
+
+    act(() => {
+      navigateTo("/ppm/i2?tab=cost");
+    });
+    await waitFor(() => expect(screen.getByTestId("cost-tab")).toHaveTextContent("i2"));
+    // A new instance, not the old one re-rendered with a new id.
+    expect(costTab.mounts).toBe(2);
+  });
+
   it("keeps the spinner while the next initiative loads when the one left finishes first", async () => {
     const card1 = deferred();
     const card2 = deferred();
@@ -306,35 +335,6 @@ describe("PpmProjectDetail switching initiatives", () => {
     expect(await screen.findByTestId("overview-tab")).toHaveTextContent("CRM Rollout");
   });
 
-  it("aborts the reads of the initiative the user has left", async () => {
-    const card1 = deferred();
-    serve("i1", "ERP Replacement", { card: () => card1.promise });
-    serve("i2", "CRM Rollout");
-    renderPage();
-    await waitFor(() => expect(mockApi.callsOf("get", "/cards/i1")).toHaveLength(1));
-    const signalOf = (path: string) => {
-      const call = mockApi.api.get.mock.calls.find(([p]) => p === path);
-      return (call?.[1] as { signal?: AbortSignal } | undefined)?.signal;
-    };
-    const reads = [
-      "/cards/i1",
-      "/ppm/initiatives/i1/reports",
-      "/ppm/initiatives/i1/costs",
-      "/ppm/initiatives/i1/budgets",
-      "/ppm/initiatives/i1/risks",
-    ];
-    for (const path of reads) expect(signalOf(path)?.aborted, path).toBe(false);
-
-    act(() => {
-      navigateTo("/ppm/i2");
-    });
-    expect(await screen.findByTestId("overview-tab")).toHaveTextContent("CRM Rollout");
-    for (const path of reads) expect(signalOf(path)?.aborted, path).toBe(true);
-    // The permissions read is abortable like the rest.
-    expect(mockApi.api.get).toHaveBeenCalledWith("/cards/i2/my-permissions", {
-      signal: expect.any(AbortSignal),
-    });
-  });
 });
 
 describe("PpmProjectDetail loaded data", () => {

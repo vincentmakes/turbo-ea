@@ -417,7 +417,7 @@ describe("PortalViewer board views", () => {
     const { container } = renderPortal();
     expect(await screen.findByText("No results found")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search Items...")).toBeInTheDocument();
-    expect(screen.getByText("Items: 0")).toBeInTheDocument();
+    expect(screen.getByText("0 Items")).toBeInTheDocument();
     expect(container.querySelector("img[src='/api/v1/settings/logo']")).toBeNull();
   });
 });
@@ -434,7 +434,7 @@ describe("PortalViewer header and toolbar", () => {
       "target",
       "_blank",
     );
-    expect(screen.getByText("Application: 1")).toBeInTheDocument();
+    expect(screen.getByText("1 Application")).toBeInTheDocument();
     expect(document.querySelector("img[src='/api/v1/settings/logo']")).not.toBeNull();
   });
 

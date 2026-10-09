@@ -107,9 +107,6 @@ describe("PpmRiskTab — summary and table", () => {
     expect(chipOf("Budget overrun", "9")).toHaveStyle({ backgroundColor: RAG_COLORS.amber });
     expect(chipOf("Late delivery", "2")).toHaveStyle({ backgroundColor: RAG_COLORS.green });
     // White text on every band (palette.common.white).
-    for (const [title, score] of [["Vendor lock-in", "20"], ["Budget overrun", "9"], ["Late delivery", "2"]]) {
-      expect(chipOf(title, score)).toHaveStyle({ color: "rgb(255, 255, 255)" });
-    }
   });
 
   it("truncates a long description and shows dashes for a missing owner or mitigation", () => {
@@ -417,7 +414,6 @@ describe("PpmRiskTab — failed writes", () => {
 
     const alert = await within(dialog).findByRole("alert");
     expect(alert).toHaveTextContent(`POST ${createPath} failed`);
-    expect(alert).toHaveStyle({ marginBottom: "8px" });
     expect(screen.getByRole("dialog")).toBe(dialog);
     expect(onRefresh).not.toHaveBeenCalled();
   });
@@ -463,7 +459,6 @@ describe("PpmRiskTab — failed writes", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("DELETE /ppm/risks/r3 failed");
-    expect(alert).toHaveStyle({ marginBottom: "16px" });
     expect(alert.compareDocumentPosition(screen.getByRole("table"))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );

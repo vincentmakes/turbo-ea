@@ -45,6 +45,8 @@ import { PercentBar } from "@/components/PercentBar";
 import { todayIsoDate } from "@/lib/dates";
 import TagPicker from "@/components/TagPicker";
 import { publicGet, type ApiError } from "./publicApi";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
+import { failureMessage, wordFailure } from "@/lib/failureMessage";
 import { buildAuthorizeUrl, newNonce } from "@/lib/publicSso";
 import PortalPpmPortfolio from "./PortalPpmPortfolio";
 import { BOARD_MAX_WIDTH, BOARD_GUTTER } from "@/features/ppm/ppmPortfolioFormat";
@@ -465,44 +467,56 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, visibleRelKeysStr]);
 
-  const loadCards = useCallback(async () => {
-    if (!slug) return;
-    setFsLoading(true);
-    setCardsError("");
-    try {
-      const params = new URLSearchParams();
-      if (search) params.set("search", search);
-      if (subtype) params.set("subtype", subtype);
-      const activeAttrFilters = Object.fromEntries(
-        Object.entries(attrFilters).filter(([, v]) => v !== "")
-      );
-      if (Object.keys(activeAttrFilters).length > 0) {
-        params.set("attr_filters", JSON.stringify(activeAttrFilters));
-      }
-      const activeRelFilters = Object.fromEntries(
-        Object.entries(relationFilters).filter(([, v]) => v !== "")
-      );
-      if (Object.keys(activeRelFilters).length > 0) {
-        params.set("relation_filters", JSON.stringify(activeRelFilters));
-      }
-      if (tagFilter.length > 0) {
-        params.set("tag_ids", tagFilter.join(","));
-      }
-      params.set("page", String(page));
-      params.set("page_size", String(pageSize));
-      params.set("sort_by", sortBy);
-      params.set("sort_dir", sortDir);
-      const data = await publicGet<PortalCardListResponse>(
-        `/web-portals/public/${slug}/cards?${params.toString()}`
-      );
-      setCards(data.items);
-      setTotal(data.total);
-    } catch (e) {
-      setCardsError(e instanceof Error ? e.message : t("errors.generic"));
-    } finally {
-      setFsLoading(false);
-    }
-  }, [slug, search, subtype, attrFilters, relationFilters, tagFilter, page, pageSize, sortBy, sortDir, t]);
+  // Keyed on every filter, so it runs as the newest request: a reply for the
+  // previous query can neither overwrite this one's cards nor put its error
+  // over them, and only the winner clears the spinner.
+  const cardsRequest = useLatestRequest();
+  const loadCards = useCallback(
+    () =>
+      cardsRequest.run(async ({ signal, isCurrent }) => {
+        if (!slug) return;
+        setFsLoading(true);
+        setCardsError("");
+        try {
+          const params = new URLSearchParams();
+          if (search) params.set("search", search);
+          if (subtype) params.set("subtype", subtype);
+          const activeAttrFilters = Object.fromEntries(
+            Object.entries(attrFilters).filter(([, v]) => v !== "")
+          );
+          if (Object.keys(activeAttrFilters).length > 0) {
+            params.set("attr_filters", JSON.stringify(activeAttrFilters));
+          }
+          const activeRelFilters = Object.fromEntries(
+            Object.entries(relationFilters).filter(([, v]) => v !== "")
+          );
+          if (Object.keys(activeRelFilters).length > 0) {
+            params.set("relation_filters", JSON.stringify(activeRelFilters));
+          }
+          if (tagFilter.length > 0) {
+            params.set("tag_ids", tagFilter.join(","));
+          }
+          params.set("page", String(page));
+          params.set("page_size", String(pageSize));
+          params.set("sort_by", sortBy);
+          params.set("sort_dir", sortDir);
+          const data = await publicGet<PortalCardListResponse>(
+            `/web-portals/public/${slug}/cards?${params.toString()}`,
+            { signal },
+          );
+          if (!isCurrent()) return;
+          setCards(data.items);
+          setTotal(data.total);
+        } catch (e) {
+          // A superseded query is aborted by the hook; that is not a failure.
+          if (!isCurrent() || (e as { name?: unknown } | null)?.name === "AbortError") return;
+          setCardsError(failureMessage(e, "errors.generic"));
+        } finally {
+          if (isCurrent()) setFsLoading(false);
+        }
+      }),
+    [cardsRequest, slug, search, subtype, attrFilters, relationFilters, tagFilter, page, pageSize, sortBy, sortDir],
+  );
 
   useEffect(() => {
     // A board portal renders its own data; issuing the card query would be a
@@ -978,8 +992,9 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
         {/* Cards Grid */}
         <Box sx={{ maxWidth: 1200, mx: "auto", px: { xs: 2, md: 4 }, py: 3 }}>
           {cardsError && (
+            // Stryker disable next-line ObjectLiteral: spacing is presentation
             <Alert severity="error" sx={{ mb: 2 }}>
-              {cardsError}
+              {wordFailure(cardsError, t)}
             </Alert>
           )}
           {cards.length === 0 && !fsLoading && !cardsError && (

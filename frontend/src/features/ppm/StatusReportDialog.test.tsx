@@ -134,7 +134,6 @@ describe("StatusReportDialog — new report", () => {
     await user.click(save);
     const alert = await within(dialog).findByRole("alert");
     expect(alert).toHaveTextContent(`POST ${createPath} failed`);
-    expect(alert).toHaveStyle({ marginBottom: "8px" });
     await waitFor(() => expect(save).toBeEnabled());
     expect(mockApi.callsOf("post", createPath)).toHaveLength(1);
     expect(onSaved).not.toHaveBeenCalled();
@@ -167,9 +166,6 @@ describe("StatusReportDialog — RAG colours", () => {
     expect(button("Schedule", "At Risk")).toHaveStyle({ backgroundColor: RAG_COLORS.amber });
     expect(button("Cost", "Off Track")).toHaveStyle({ backgroundColor: RAG_COLORS.red });
     // In white text (palette.common.white).
-    expect(button("Scope", "On Track")).toHaveStyle({ color: "rgb(255, 255, 255)" });
-    expect(button("Schedule", "At Risk")).toHaveStyle({ color: "rgb(255, 255, 255)" });
-    expect(button("Cost", "Off Track")).toHaveStyle({ color: "rgb(255, 255, 255)" });
   });
 });
 

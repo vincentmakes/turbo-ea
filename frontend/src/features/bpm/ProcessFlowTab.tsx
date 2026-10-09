@@ -52,6 +52,7 @@ import ElementTypeChip from "./ElementTypeChip";
 import MessageFlowsTable from "./MessageFlowsTable";
 import { isArtefactType } from "./elementTypes";
 import { api } from "@/api/client";
+import { failureMessage, wordFailure } from "@/lib/failureMessage";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { escapeHtml } from "@/lib/printDocument";
 // Aliased: this file already has a local STATUS_COLORS holding MUI palette
@@ -155,7 +156,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         api.get<ProcessFlowVersion | null>(`/bpm/processes/${processId}/flow/published`),
         // A failed elements read still shows the flow; the table says it failed.
         api.get<ProcessElement[]>(`/bpm/processes/${processId}/elements`).catch((err: unknown) => {
-          setElementsError(err instanceof Error ? err.message : t("common:errors.generic"));
+          setElementsError(failureMessage(err, "common:errors.generic"));
           return [] as ProcessElement[];
         }),
       ]);
@@ -176,11 +177,11 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       }
     } catch (err) {
       setPublished(null);
-      setLoadError(err instanceof Error ? err.message : t("common:errors.generic"));
+      setLoadError(failureMessage(err, "common:errors.generic"));
     } finally {
       setLoadingPub(false);
     }
-  }, [processId, t]);
+  }, [processId]);
 
   const loadDrafts = useCallback(async () => {
     if (!perms.can_view_drafts) return;
@@ -193,11 +194,11 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       setDrafts(data);
     } catch (err) {
       setDrafts([]);
-      setDraftsError(err instanceof Error ? err.message : t("common:errors.generic"));
+      setDraftsError(failureMessage(err, "common:errors.generic"));
     } finally {
       setLoadingDrafts(false);
     }
-  }, [processId, perms.can_view_drafts, t]);
+  }, [processId, perms.can_view_drafts]);
 
   const loadArchived = useCallback(async () => {
     if (!perms.can_view_drafts) return;
@@ -210,11 +211,11 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       setArchived(data);
     } catch (err) {
       setArchived([]);
-      setArchivedError(err instanceof Error ? err.message : t("common:errors.generic"));
+      setArchivedError(failureMessage(err, "common:errors.generic"));
     } finally {
       setLoadingArchived(false);
     }
-  }, [processId, perms.can_view_drafts, t]);
+  }, [processId, perms.can_view_drafts]);
 
   useEffect(() => {
     loadInitial();
@@ -856,7 +857,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       );
     }
     if (loadError) {
-      return <Alert severity="error">{loadError}</Alert>;
+      return <Alert severity="error">{wordFailure(loadError, t)}</Alert>;
     }
     if (!published) {
       const hasDrafts = drafts.length > 0;
@@ -982,8 +983,9 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
         {/* Editable process elements table */}
         {elementsError ? (
+          // Stryker disable next-line ObjectLiteral: spacing is presentation
           <Alert severity="error" sx={{ mt: 2 }}>
-            {elementsError}
+            {wordFailure(elementsError, t)}
           </Alert>
         ) : (
           renderElementsTable(elements, handleElementUpdate)
@@ -1034,7 +1036,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         )}
 
         {draftsError ? (
-          <Alert severity="error">{draftsError}</Alert>
+          <Alert severity="error">{wordFailure(draftsError, t)}</Alert>
         ) : drafts.length === 0 ? (
           <Box sx={{ textAlign: "center", py: 3 }}>
             <Typography color="text.secondary">{t("flowTab.noDrafts")}</Typography>
@@ -1191,6 +1193,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                     {draftElementsLoading[d.id] ? (
                       <Typography color="text.secondary" sx={{ mt: 2 }}>{t("flowTab.loadingElements")}</Typography>
                     ) : draftElementsError[d.id] ? (
+                      // Stryker disable next-line ObjectLiteral: spacing is presentation
                       <Alert severity="error" sx={{ mt: 2 }}>
                         {draftElementsError[d.id]}
                       </Alert>
@@ -1233,7 +1236,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     }
 
     if (archivedError) {
-      return <Alert severity="error">{archivedError}</Alert>;
+      return <Alert severity="error">{wordFailure(archivedError, t)}</Alert>;
     }
 
     if (archived.length === 0) {

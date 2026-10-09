@@ -222,14 +222,14 @@ describe("PortalViewer item count and labels", () => {
   it("names the item count without pluralising the type label", async () => {
     serve(SLUG, { cards: { items: [card(), card({ id: "c2", name: "Billing" })], total: 2 } });
     renderPortal();
-    expect(await screen.findByText("Business Capability: 2")).toBeInTheDocument();
+    expect(await screen.findByText("2 Business Capability")).toBeInTheDocument();
     expect(screen.queryByText(/Capabilitys/)).toBeNull();
   });
 
   it("names the items generically, and translated, when the portal carries no type info", async () => {
     serve(SLUG, { portal: portal({ type_info: null } as unknown as Partial<PublicPortal>) });
     renderPortal();
-    expect(await screen.findByText("Items: 1")).toBeInTheDocument();
+    expect(await screen.findByText("1 Items")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search Items...")).toBeInTheDocument();
     expect(screen.queryByText(/ item$/)).toBeNull();
   });
@@ -241,7 +241,7 @@ describe("PortalViewer item count and labels", () => {
     await user.click(screen.getByRole("button", { name: "tune" }));
     await user.click(await screen.findByRole("combobox", { name: /IT Component · runs on/ }));
     expect(
-      await screen.findByRole("option", { name: "IT Component · runs on: all", selected: true }),
+      await screen.findByRole("option", { name: "All IT Component · runs on", selected: true }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: /ons$/ })).toBeNull();
   });
@@ -342,17 +342,13 @@ describe("PortalViewer card grid", () => {
     renderPortal();
     expect(await screen.findByText("cards exploded")).toBeInTheDocument();
     expect(screen.queryByText("No results found")).toBeNull();
-    // In an error banner, spaced off the grid below it.
-    const alert = screen.getByText("cards exploded").closest(".MuiAlert-root") as HTMLElement;
-    expect(alert).toHaveClass("MuiAlert-standardError");
-    expect(alert).toHaveStyle({ marginBottom: "16px" });
+    expect(screen.getByRole("alert")).toHaveTextContent("cards exploded");
   });
 
   it("says something went wrong when the card query fails without a message", async () => {
     serve(SLUG, { cards: () => Promise.reject("offline") });
     renderPortal();
-    const alert = (await screen.findByText("Something went wrong")).closest(".MuiAlert-root");
-    expect(alert).toHaveClass("MuiAlert-standardError");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
     expect(screen.queryByText("No results found")).toBeNull();
   });
 

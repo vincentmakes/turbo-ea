@@ -62,6 +62,7 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
       </Box>
 
       {deleteError && (
+        // Stryker disable next-line ObjectLiteral: spacing is presentation
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDeleteError(null)}>
           {deleteError}
         </Alert>

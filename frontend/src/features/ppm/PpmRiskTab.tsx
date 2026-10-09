@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
@@ -27,6 +27,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
 import { RAG_COLORS } from "@/theme/tokens";
 import type { PpmRisk } from "@/types";
@@ -69,8 +70,7 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   // The save is in flight: Save is disabled, and a second click that lands
   // before that re-render is ignored.
-  const savingRef = useRef(false);
-  const [saving, setSaving] = useState(false);
+  const { busy: saving, run: submit } = useSubmitOnce();
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -117,31 +117,26 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
     setDialog({ open: true, item });
   };
 
-  const handleSave = async () => {
-    if (savingRef.current) return;
-    savingRef.current = true;
-    setSaving(true);
-    const payload = {
-      ...form,
-      description: form.description || null,
-      mitigation: form.mitigation || null,
-    };
-    try {
-      if (dialog.item) {
-        await api.patch(`/ppm/risks/${dialog.item.id}`, payload);
-      } else {
-        await api.post(`/ppm/initiatives/${initiativeId}/risks`, payload);
+  const handleSave = () =>
+    submit(async () => {
+      const payload = {
+        ...form,
+        description: form.description || null,
+        mitigation: form.mitigation || null,
+      };
+      try {
+        if (dialog.item) {
+          await api.patch(`/ppm/risks/${dialog.item.id}`, payload);
+        } else {
+          await api.post(`/ppm/initiatives/${initiativeId}/risks`, payload);
+        }
+      } catch (err) {
+        setSaveError(errorText(err));
+        return;
       }
-    } catch (err) {
-      setSaveError(errorText(err));
-      return;
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
-    setDialog({ open: false });
-    onRefresh();
-  };
+      setDialog({ open: false });
+      onRefresh();
+    });
 
   const handleDelete = async (id: string) => {
     setDeleteError(null);
@@ -209,6 +204,7 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
       </Box>
 
       {deleteError && (
+        // Stryker disable next-line ObjectLiteral: spacing is presentation
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDeleteError(null)}>
           {deleteError}
         </Alert>
@@ -335,6 +331,7 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
           </DialogTitle>
           <DialogContent>
             {saveError && (
+              // Stryker disable next-line ObjectLiteral: spacing is presentation
               <Alert severity="error" sx={{ mb: 1 }}>
                 {saveError}
               </Alert>

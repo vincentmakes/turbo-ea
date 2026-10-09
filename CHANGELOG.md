@@ -5,14 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.157.5] - 2026-10-08
+## [2.157.10] - 2026-10-09
 
 ### Fixed
-- PPM: a failed save keeps its dialog open with the reason, saves send one request however fast they are clicked, and a failed load or delete says so.
+- PPM: a failed save keeps its dialog open with the reason, saves send one request however fast they are clicked, and a failed load or delete says so. An initiative with no work packages shows "No work packages yet" on its Overview tab again instead of a 0% ring.
 - PPM: switching initiatives never shows the previous initiative's budget lines, budget figures read "—" rather than $0 while they load, and the spend charts wait for the budget.
 - PPM: the Description label is translated, and the edit and delete buttons and the Category and Status pickers have names.
-- Process flow and process navigator: failed loads show their error instead of an empty state, and an `?open=` link opens its process once the map has loaded.
-- Public portals: counts no longer pluralise a type name by appending "s" ("Business Capabilitys"), and changing a portal's slug no longer runs the old slug's sign-in.
+- Process flow and process navigator: failed loads show their error instead of an empty state (a failed reload of the process map keeps the map on screen and says so above it), the error re-words itself on a language switch without fetching again, and an `?open=` link opens its process once the map has loaded.
+- Public portals: counts read "12 Application" and the filter's first option "All Application" — the type's own label, never a guessed plural ("Business Capabilitys") — and changing a portal's slug no longer runs the old slug's sign-in. A search or filter answered out of order can no longer put the previous query's cards or error on screen.
 - Dashboard: a failed favourites or overview load shows its error, and a failed removal no longer dismisses the Undo of another removed card.
 - Diagram expand menu: switching to another card starts with no ticks and none of the previous card's children, and an empty child list says so instead of spinning.
 - App layout: a nav group stays highlighted on a sub-page of one of its entries, and the extension-license banner disappears when the user loses the permission.
@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - PPM: the status reports' edit and delete buttons have names, and a failed report delete says why instead of failing silently.
 - PPM: switching initiatives no longer shows the previous initiative's name, status reports, costs and risks while the next one loads, and neither a late reply for the previous initiative nor a refresh it started (such as a report delete that answers after the switch) can replace the new one's.
 - PPM: switching initiatives closes an open budget or cost dialog, so its save can no longer land on the other initiative, and clears a failed delete's message.
+
+### Changed
+- PPM: the health and risk-band colours come from the shared RAG palette, so amber and neutral are a shade different from before and match the rest of the app.
 
 ## [2.157.4] - 2026-10-08
 

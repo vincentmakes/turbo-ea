@@ -1514,4 +1514,9 @@ async def get_initiative_completion(
     # Shared with the `ppm.completion` formula variable so the Overview tab and
     # a calculated field can never disagree (#1111).
     completion = await root_wbs_completion_map(db, [card.id])
-    return {"completion": completion.get(str(card.id), 0)}
+    # How many work packages the figure is built on, so the Overview tab can
+    # tell "no work packages yet" from a 0% that some do carry.
+    wbs_count = await db.scalar(
+        select(func.count(PpmWbs.id)).where(PpmWbs.initiative_id == card.id)
+    )
+    return {"completion": completion.get(str(card.id), 0), "wbs_count": int(wbs_count or 0)}

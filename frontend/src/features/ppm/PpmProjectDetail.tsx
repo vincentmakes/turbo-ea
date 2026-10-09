@@ -257,6 +257,7 @@ export default function PpmProjectDetail() {
       )}
       {tab === 2 && (
         <PpmCostTab
+          key={id}
           initiativeId={id!}
           costLines={costLines}
           onRefresh={loadData}

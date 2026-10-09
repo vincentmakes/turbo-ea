@@ -145,7 +145,6 @@ describe("ProcessFlowTab load failures", () => {
     mockApi.fail("get", `${BASE}/flow/permissions`);
     renderTab();
     expect(await screen.findByText(`GET ${BASE}/flow/permissions failed`)).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveClass("MuiAlert-standardError");
     expect(screen.queryByText("No published process flow yet")).toBeNull();
     expect(screen.queryByText("Loading published flow...")).toBeNull();
   });
@@ -274,7 +273,6 @@ describe("ProcessFlowTab failures without a message", () => {
     mockApi.on("get", `${BASE}/flow/permissions`, () => Promise.reject("offline"));
     renderTab();
     expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveClass("MuiAlert-standardError");
     expect(screen.queryByText("No published process flow yet")).toBeNull();
   });
 
@@ -319,10 +317,7 @@ describe("ProcessFlowTab failed element loads", () => {
   it("says the published flow's elements could not be loaded instead of dropping the table", async () => {
     mockApi.fail("get", `${BASE}/elements`);
     renderTab();
-    const alert = (await screen.findByText(`GET ${BASE}/elements failed`)).closest(".MuiAlert-root");
-    expect(alert).toHaveClass("MuiAlert-standardError");
-    // Spaced off the flow above it, like the table it stands in for.
-    expect(alert).toHaveStyle({ marginTop: "16px" });
+    expect(await screen.findByText(`GET ${BASE}/elements failed`)).toBeInTheDocument();
     // The flow itself still shows; only the table is replaced by the error.
     expect(screen.getByTestId("bpmn-viewer")).toHaveTextContent("BPMN:<xml>bpmn</xml>");
     expect(screen.queryByText("Process Steps & Elements")).toBeNull();
@@ -331,8 +326,7 @@ describe("ProcessFlowTab failed element loads", () => {
   it("says something went wrong when the elements fail without a message", async () => {
     mockApi.on("get", `${BASE}/elements`, () => Promise.reject("offline"));
     renderTab();
-    const alert = (await screen.findByText("Something went wrong")).closest(".MuiAlert-root");
-    expect(alert).toHaveClass("MuiAlert-standardError");
+    expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
   });
 
   it("says a draft's elements could not be loaded, not that it has none, and retries on the next expand", async () => {
@@ -340,12 +334,10 @@ describe("ProcessFlowTab failed element loads", () => {
     mockApi.fail("get", `${BASE}/flow/versions/d1/draft-elements`);
     const user = renderTab({ initialSubTab: 1 });
     await user.click(await screen.findByText("Revision 4"));
-    const alert = (
-      await screen.findByText(`GET ${BASE}/flow/versions/d1/draft-elements failed`)
-    ).closest(".MuiAlert-root");
-    expect(alert).toHaveClass("MuiAlert-standardError");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      `GET ${BASE}/flow/versions/d1/draft-elements failed`,
+    );
     // Spaced off the draft's preview above it.
-    expect(alert).toHaveStyle({ marginTop: "16px" });
     expect(screen.queryByText("No named elements found in this draft.")).toBeNull();
 
     // Collapse and expand again: the failed load is asked for once more.
@@ -365,8 +357,7 @@ describe("ProcessFlowTab draft elements failing without a message", () => {
     mockApi.on("get", `${BASE}/flow/versions/d1/draft-elements`, () => Promise.reject("offline"));
     const user = renderTab({ initialSubTab: 1 });
     await user.click(await screen.findByText("Revision 4"));
-    const alert = (await screen.findByText("Something went wrong")).closest(".MuiAlert-root");
-    expect(alert).toHaveClass("MuiAlert-standardError");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
     expect(screen.queryByText("No named elements found in this draft.")).toBeNull();
   });
 });

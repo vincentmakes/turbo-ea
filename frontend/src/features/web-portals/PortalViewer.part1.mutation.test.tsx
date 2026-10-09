@@ -621,7 +621,7 @@ describe("PortalViewer header", () => {
     expect(
       screen.getByRole("heading", { level: 5, name: "Application Landscape" }),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/^Application: \d+$/)).toBeNull();
+    expect(screen.queryByText(/^\d+ Application$/)).toBeNull();
   });
 
   it("a portal with no view set still loads its cards", async () => {
@@ -825,7 +825,7 @@ describe("PortalViewer filter bar", () => {
     await openFilters(user);
     await user.click(await screen.findByRole("combobox", { name: "Application" }));
     expect(
-      await screen.findByRole("option", { name: "Application: all", selected: true }),
+      await screen.findByRole("option", { name: "All Application", selected: true }),
     ).toBeInTheDocument();
     await user.click(screen.getByRole("option", { name: "CRM" }));
     await waitFor(() => {
@@ -837,7 +837,7 @@ describe("PortalViewer filter bar", () => {
     expect(clearChip()).toBeInTheDocument();
 
     await user.click(screen.getByRole("combobox", { name: "Application" }));
-    await user.click(await screen.findByRole("option", { name: "Application: all" }));
+    await user.click(await screen.findByRole("option", { name: "All Application" }));
     await waitFor(() => expect(lastCardParams().has("relation_filters")).toBe(false));
     expect(clearChip()).toBeNull();
   });

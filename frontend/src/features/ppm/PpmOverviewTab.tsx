@@ -143,13 +143,11 @@ export default function PpmOverviewTab({
 
   // Initiative completion. Ordered per initiative, and never the previous
   // initiative's figure while the next one loads.
-  const { data: completionPct, error: completionError } = useApiQuery<
-    { completion: number },
-    number
-  >(`/ppm/initiatives/${card.id}/completion`, {
-    select: (r) => r.completion,
-    keepPreviousData: false,
-  });
+  const { data: completion, error: completionError } = useApiQuery<{
+    completion: number;
+    wbs_count: number;
+  }>(`/ppm/initiatives/${card.id}/completion`, { keepPreviousData: false });
+  const completionPct = completion?.completion;
 
   // Budget totals (from budget lines)
   const totalBudget = budgetLines.reduce((s, bl) => s + bl.amount, 0);
@@ -235,8 +233,12 @@ export default function PpmOverviewTab({
           <Alert severity="error">
             {completionError.message || t("common:errors.generic")}
           </Alert>
-        ) : completionPct === undefined ? (
+        ) : completion === undefined || completionPct === undefined ? (
           <LinearProgress />
+        ) : completion.wbs_count === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            {t("noWbsItems")}
+          </Typography>
         ) : (
           <Box display="flex" alignItems="center" gap={2}>
             <Box
