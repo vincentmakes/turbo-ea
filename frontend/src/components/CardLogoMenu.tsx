@@ -93,6 +93,9 @@ export default function CardLogoMenu({
       setIconPickerOpen(false);
       onNotify?.(t("logo.uploaded"));
     } catch (err) {
+      // The picker has no error of its own (the caller owns it), and it is
+      // modal: left open, it would hide the caller's error behind it.
+      setIconPickerOpen(false);
       onError?.(messageOf(err));
     } finally {
       setIconPickerBusy(false);

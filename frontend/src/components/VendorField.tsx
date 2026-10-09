@@ -175,6 +175,7 @@ export default function VendorField({
     }
 
     // Set vendor text
+    const previousText = value;
     onChange(provider.name);
     setInputValue(provider.name);
 
@@ -184,7 +185,12 @@ export default function VendorField({
 
     // Create relation if we have a card ID (detail-page editing flow)
     if (fsId) {
-      await linkProvider(provider.id);
+      if (!(await linkProvider(provider))) {
+        // The card keeps the Provider it had, so the text goes back to what
+        // it said before the pick.
+        onChange(previousText || undefined);
+        setInputValue(previousText);
+      }
     } else {
       // Show the chip optimistically so the user gets the same feedback
       // as in the detail-page flow.
@@ -210,7 +216,7 @@ export default function VendorField({
       if (fsId) {
         // The chip appears once linkProvider has linked it; a link failure is
         // reported by linkProvider itself, under the field.
-        await linkProvider(newFs.id);
+        await linkProvider(newFs);
       } else {
         // No card to link yet: the chip is the feedback for the pick.
         setLinkedProvider({ id: newFs.id, name: newFs.name });
@@ -232,8 +238,13 @@ export default function VendorField({
     setCreateError("");
   };
 
-  const linkProvider = async (providerId: string) => {
-    if (!relType || !fsId) return;
+  /**
+   * Links `picked` to the card in place of its current Provider. False only
+   * when the link itself failed, i.e. the card still has the Provider it had.
+   */
+  const linkProvider = async (picked: { id: string; name: string }): Promise<boolean> => {
+    if (!relType || !fsId) return true;
+    const providerId = picked.id;
 
     setLinkError("");
     try {
@@ -246,7 +257,13 @@ export default function VendorField({
         source_id: providerIsSource ? providerId : fsId,
         target_id: providerIsSource ? fsId : providerId,
       });
+    } catch (err) {
+      setLinkError(errorMessage(err));
+      return false;
+    }
 
+    // From here on the new Provider is linked, whatever fails next.
+    try {
       // Then remove the card's other Provider relations of this type.
       const existing = await api.get<Relation[]>(
         `/relations?card_id=${fsId}&type=${relType}`
@@ -270,11 +287,14 @@ export default function VendorField({
           break;
         }
       }
-
-      onRelationChange?.();
     } catch (err) {
+      // The old Provider may still be linked beside the new one: say so, and
+      // show the Provider the user picked, which the card does have.
       setLinkError(errorMessage(err));
+      setLinkedProvider({ id: providerId, name: picked.name });
     }
+    onRelationChange?.();
+    return true;
   };
 
   return (

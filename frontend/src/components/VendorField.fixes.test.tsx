@@ -2,8 +2,10 @@
  * VendorField regressions: the linked-Provider chip belongs to the card it was
  * looked up for, in the create-a-Provider flow it appears only once the new
  * Provider is actually linked to the card, and relinking the card to another
- * Provider never unlinks the old one before the new link is made.
+ * Provider never unlinks the old one before the new link is made — nor, when
+ * a step of it fails, leaves the text, the chip and the links disagreeing.
  */
+import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 
@@ -180,6 +182,8 @@ describe("VendorField — relinking the card to another Provider", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("POST /relations failed");
     expect(mockApi.callsOf("delete")).toHaveLength(0);
     expect(chip("Globex")).toBeInTheDocument();
+    // Nor does the text claim the Provider the card did not get.
+    expect(screen.getByLabelText("Provider")).toHaveValue("");
   });
 
   it("links the new Provider before it unlinks the old one", async () => {
@@ -197,6 +201,79 @@ describe("VendorField — relinking the card to another Provider", () => {
     expect(writes()).toEqual(["post /relations", `delete /relations/rel-${GLOBEX.id}`]);
     expect(chip("Globex")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  /** The card-detail flow: the field's text is the card's vendor attribute. */
+  function DetailField({
+    initial,
+    onChange,
+    onRelationChange,
+  }: {
+    initial: string;
+    onChange: (v: string | undefined) => void;
+    onRelationChange: () => void;
+  }) {
+    const [value, setValue] = useState(initial);
+    return (
+      <VendorField
+        value={value}
+        onChange={(v) => {
+          onChange(v);
+          setValue(v ?? "");
+        }}
+        cardTypeKey="ITComponent"
+        fsId={FS_ID}
+        onRelationChange={onRelationChange}
+      />
+    );
+  }
+
+  function renderDetail(initial: string) {
+    const onChange = vi.fn();
+    const onRelationChange = vi.fn();
+    const utils = renderWithProviders(
+      <DetailField initial={initial} onChange={onChange} onRelationChange={onRelationChange} />,
+    );
+    return { ...utils, onChange, onRelationChange };
+  }
+
+  it("puts the vendor text back when the new link fails", async () => {
+    mockApi.on("get", RELATIONS_URL, linkedTo(FS_ID, GLOBEX));
+    mockApi.fail("post", "/relations", 500);
+    const { user, onChange, onRelationChange } = renderDetail("Globex");
+    expect(await screen.findByText("Globex", { selector: ".MuiChip-label" })).toBeInTheDocument();
+
+    await pick(user, /Acme Corp/);
+    expect(await screen.findByRole("alert")).toHaveTextContent("POST /relations failed");
+    // The card keeps Globex: its text says so again, beside its chip.
+    await waitFor(() => expect(screen.getByLabelText("Provider")).toHaveValue("Globex"));
+    expect(onChange).toHaveBeenLastCalledWith("Globex");
+    expect(chip("Globex")).toBeInTheDocument();
+    expect(chip("Acme Corp")).not.toBeInTheDocument();
+    expect(onRelationChange).not.toHaveBeenCalled();
+  });
+
+  it("shows the new Provider and refreshes the relations when unlinking the old one fails", async () => {
+    serveRelations(RELATIONS_URL, linkedTo(FS_ID, GLOBEX), (b) => ({
+      ...b,
+      id: "rel-acme",
+      source: { id: ACME.id, type: "Provider", name: ACME.name },
+      target: { id: FS_ID, type: "ITComponent", name: "Some card" },
+    }));
+    mockApi.fail("delete", "/relations/*", 500);
+    const { user, onRelationChange } = renderDetail("Globex");
+    expect(await screen.findByText("Globex", { selector: ".MuiChip-label" })).toBeInTheDocument();
+
+    await pick(user, /Acme Corp/);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      `DELETE /relations/rel-${GLOBEX.id} failed`,
+    );
+    // Acme Corp is linked, so the field shows it — and the relations list
+    // is refreshed to show both Providers the card now has.
+    expect(await screen.findByText("Acme Corp", { selector: ".MuiChip-label" })).toBeInTheDocument();
+    expect(chip("Globex")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Provider")).toHaveValue("Acme Corp");
+    await waitFor(() => expect(onRelationChange).toHaveBeenCalledTimes(1));
   });
 
   it("keeps the link when the linked Provider is picked again on a card → Provider type", async () => {

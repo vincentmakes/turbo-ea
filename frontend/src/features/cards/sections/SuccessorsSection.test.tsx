@@ -611,10 +611,15 @@ describe("SuccessorsSection", () => {
     await waitFor(() => expect(mockApi.callsOf("get", RELATIONS_URL)).toHaveLength(1));
     expect(screen.getByRole("button", { name: /Lineage/ })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // Still loading: a progress bar, not the empty hints of a list not yet read.
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.queryByText("No predecessors.")).not.toBeInTheDocument();
+    expect(screen.queryByText("No successors.")).not.toBeInTheDocument();
 
     await act(async () => release(RELATIONS));
     expect(await screen.findByText("ERP Legacy")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
   it("offers no editing controls when the user cannot edit", async () => {

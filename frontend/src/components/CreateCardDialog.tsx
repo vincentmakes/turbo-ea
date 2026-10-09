@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useId, useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
@@ -107,6 +107,11 @@ export default function CreateCardDialog({
   );
 
   const [selectedType, setSelectedType] = useState(initialType || "");
+  // Names each picker's combobox after its label: the type's, the subtype's
+  // and every required select field's (keyed by the field).
+  const typeLabelId = useId();
+  const subtypeLabelId = `${typeLabelId}-subtype`;
+  const fieldLabelId = (key: string) => `${typeLabelId}-field-${key}`;
   /** `initialType` is supplied by the caller (the inventory's selected type,
    *  a diagram, a deep link) and may be one this role cannot create — so the
    *  submit button is gated on the *selected* type, not just on the list. */
@@ -248,6 +253,14 @@ export default function CreateCardDialog({
     setTagIds([]);
     setPendingProvider(null);
   }, [selectedType, initialType, initialSubtype, aiRequest]);
+
+  // So was one still in flight when the name or the subtype changed: it was
+  // asked for the card as it was then (the name as sent, i.e. trimmed).
+  const askedName = name.trim();
+  useEffect(() => {
+    aiRequest.cancel();
+    setAiLoading(false);
+  }, [askedName, subtype, aiRequest]);
 
   // Set initial type when dialog opens
   useEffect(() => {
@@ -486,8 +499,9 @@ export default function CreateCardDialog({
       case "single_select":
         return (
           <FormControl fullWidth key={field.key} required={field.required} sx={{ mb: 2 }}>
-            <InputLabel>{fieldLabel(field)}</InputLabel>
+            <InputLabel id={fieldLabelId(field.key)}>{fieldLabel(field)}</InputLabel>
             <Select
+              labelId={fieldLabelId(field.key)}
               value={(attributes[field.key] as string) ?? ""}
               label={fieldLabel(field)}
               onChange={(e) => setAttr(field.key, e.target.value || undefined)}
@@ -526,8 +540,9 @@ export default function CreateCardDialog({
         const labelText = fieldLabel(field);
         return (
           <FormControl fullWidth key={field.key} required={field.required} sx={{ mb: 2 }}>
-            <InputLabel>{labelText}</InputLabel>
+            <InputLabel id={fieldLabelId(field.key)}>{labelText}</InputLabel>
             <Select
+              labelId={fieldLabelId(field.key)}
               multiple
               value={arrVal}
               label={labelText}
@@ -709,8 +724,9 @@ export default function CreateCardDialog({
 
         {/* Type selector */}
         <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>{t("common:labels.type")}</InputLabel>
+          <InputLabel id={typeLabelId}>{t("common:labels.type")}</InputLabel>
           <Select
+            labelId={typeLabelId}
             value={selectedType}
             label={t("common:labels.type")}
             onChange={(e) => setSelectedType(e.target.value)}
@@ -738,8 +754,9 @@ export default function CreateCardDialog({
         {/* Subtype selector */}
         {hasSubtypes && (
           <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>{t("common:labels.subtype")}</InputLabel>
+            <InputLabel id={subtypeLabelId}>{t("common:labels.subtype")}</InputLabel>
             <Select
+              labelId={subtypeLabelId}
               value={subtype}
               label={t("common:labels.subtype")}
               onChange={(e) => setSubtype(e.target.value)}

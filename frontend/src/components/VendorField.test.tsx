@@ -345,13 +345,19 @@ describe("VendorField", () => {
   });
 
   it("makes no relation calls for a card type without a Provider relation", async () => {
-    const { user, onProviderSelected } = renderField({ fsId: FS_ID, cardTypeKey: "BusinessCapability" });
+    const { user, onProviderSelected, onChange } = renderField({
+      fsId: FS_ID,
+      cardTypeKey: "BusinessCapability",
+    });
     await user.click(screen.getByLabelText("Provider"));
     await user.click(await screen.findByRole("option", { name: /Acme Corp/ }));
     expect(onProviderSelected).toHaveBeenCalledWith({ id: ACME.id, name: "Acme Corp" });
     await waitFor(() => expect(mockApi.callsOf("get", "/cards?*").length).toBeGreaterThanOrEqual(1));
     expect(mockApi.callsOf("get", /^\/relations/)).toHaveLength(0);
     expect(mockApi.callsOf("post")).toHaveLength(0);
+    // Nothing to link is not a failed link: the vendor text is the pick.
+    expect(onChange).toHaveBeenLastCalledWith("Acme Corp");
+    expect(screen.getByLabelText("Provider")).toHaveValue("Acme Corp");
   });
 
   it("works without the optional callbacks", async () => {
@@ -633,7 +639,7 @@ describe("VendorField", () => {
   it("shows a failed link to the picked Provider, and drops it on the next successful one", async () => {
     mockApi.on("get", RELATIONS_URL, [EXISTING]);
     mockApi.fail("post", "/relations", 500);
-    const { user, onRelationChange } = renderField({ fsId: FS_ID });
+    const { user, onRelationChange, onChange } = renderField({ fsId: FS_ID });
     await screen.findByText("Globex");
     await user.click(screen.getByLabelText("Provider"));
     await user.click(await screen.findByRole("option", { name: /Acme Corp/ }));
@@ -643,6 +649,9 @@ describe("VendorField", () => {
     // The card keeps the Provider it had, and the chip still says so.
     expect(mockApi.callsOf("delete")).toHaveLength(0);
     expect(screen.getByText("Globex", { selector: ".MuiChip-label" })).toBeInTheDocument();
+    // The vendor text goes back to what it was: empty, i.e. no value.
+    expect(onChange).toHaveBeenLastCalledWith(undefined);
+    expect(screen.getByLabelText("Provider")).toHaveValue("");
 
     mockApi.on("post", "/relations", {});
     await user.click(screen.getByLabelText("Provider"));

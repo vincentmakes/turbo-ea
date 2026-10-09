@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Create card: what was typed stays while the dialog closes, a failed or not-yet-run EOL search no longer reads "No EOL matches found", and an AI suggestion asked for an earlier type or session no longer lands in the form.
 - Provider field: relinking a card to another Provider keeps its current Provider if the new link fails.
 - Metamodel translation dialog: it edits the language its selected tab shows, even when the enabled languages arrive after it opened.
+- Card logo: a brand icon that cannot be set closes the icon picker, so its error is no longer hidden behind it.
+- Provider field: when linking another Provider fails, the vendor text goes back to what it said instead of naming a Provider the card did not get.
+- Provider field: when the new Provider is linked but the old one cannot be unlinked, the field says so and shows the new Provider, and the card's relations are refreshed to show both.
+- Create card: an AI suggestion asked for an earlier name or subtype no longer lands in the form.
+- Create card: screen readers announce the Type, Subtype and required select pickers by their labels.
+- Card detail: the Lineage section shows its progress bar while it loads, instead of "No predecessors." and "No successors.", when the metamodel arrives after the card.
+- Card detail: the Relations header shows no count until the relations have loaded, instead of 0.
 
 ## [2.157.4] - 2026-10-08
 

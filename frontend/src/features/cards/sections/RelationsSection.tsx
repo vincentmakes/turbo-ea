@@ -727,12 +727,15 @@ function RelationsSection({
   // A failed load hides the groups: their empty hints and the header count
   // would describe a list the section never received.
   const [loadError, setLoadError] = useState("");
+  // Nor is there a count to show before the first load has landed.
+  const [loaded, setLoaded] = useState(false);
   const load = useCallback(() => {
     api
       .get<Relation[]>(`/relations?card_id=${fsId}`)
       .then((rows) => {
         setRawRelations(rows);
         setLoadError("");
+        setLoaded(true);
       })
       .catch((e: unknown) =>
         setLoadError(e instanceof Error ? e.message : t("common:errors.generic")),
@@ -928,7 +931,7 @@ function RelationsSection({
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="hub" size={20} />
           <Typography fontWeight={600}>{t("relations.title")}</Typography>
-          {!loadError && (
+          {loaded && !loadError && (
             <Chip size="small" label={totalRelations} sx={{ ml: 1, height: 20, fontSize: "0.7rem" }} />
           )}
         </Box>

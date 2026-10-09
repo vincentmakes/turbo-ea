@@ -9,7 +9,7 @@
  * `AddRelationsDialog` and `DescendantRelationsDrawer` are stubbed to the props
  * the section passes them; each has its own tests.
  */
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -217,6 +217,29 @@ describe("RelationsSection — rows", () => {
     expect(screen.queryByText("No relations yet.")).not.toBeInTheDocument();
     // Nor a count of zero on the header.
     expect(within(screen.getByRole("button", { name: /Relations/ })).queryByText("0")).not.toBeInTheDocument();
+  });
+
+  it("shows no count on the header until the relations have loaded", async () => {
+    let release!: (rows: Relation[]) => void;
+    mockApi.on(
+      "get",
+      `/relations?card_id=${FS}`,
+      () => new Promise<Relation[]>((resolve) => (release = resolve)),
+    );
+    renderSection();
+    const header = screen.getByRole("button", { name: /Relations/ });
+    await waitFor(() => expect(mockApi.callsOf("get", `/relations?card_id=${FS}`)).toHaveLength(1));
+    // Not a count of zero for a list the section has not received yet.
+    expect(within(header).queryByText("0")).not.toBeInTheDocument();
+
+    await act(async () => release([rel("1", "Finance"), rel("2", "Legal")]));
+    expect(await within(header).findByText("2")).toBeInTheDocument();
+  });
+
+  it("counts zero once the relations have loaded and there are none", async () => {
+    renderSection();
+    const header = screen.getByRole("button", { name: /Relations/ });
+    expect(await within(header).findByText("0")).toBeInTheDocument();
   });
 
   it("shows a failed delete on its group and keeps the row", async () => {

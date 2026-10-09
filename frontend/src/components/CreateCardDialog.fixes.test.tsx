@@ -1,8 +1,9 @@
 /**
  * CreateCardDialog regressions: an AI suggestion still in flight when the
- * dialog closes, or when another type is picked, belongs to the session and
- * type that asked for it, and must not land after them; and a failed
- * end-of-life auto-search clears once a search for the current name succeeds.
+ * dialog closes, or when another type, name or subtype is picked, belongs to
+ * the session and card that asked for it, and must not land after them; the
+ * type picker is named by its label; and a failed end-of-life auto-search
+ * clears once a search for the current name succeeds.
  *
  * `EolLinkDialog`, `VendorField` and `TagPicker` are stubbed down to the
  * callbacks the dialog wires — each has its own tests.
@@ -33,7 +34,7 @@ vi.mock("@/components/TagPicker", () => ({ default: () => null }));
 import CreateCardDialog from "./CreateCardDialog";
 import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
-import { makeCardType } from "@/test/fixtures/metamodel";
+import { makeCardType, makeSubtype } from "@/test/fixtures/metamodel";
 import { wrapWithProviders } from "@/test/render";
 
 const APP = makeCardType({ key: "Application", label: "Application" });
@@ -225,6 +226,127 @@ describe("CreateCardDialog — an AI suggestion for the type picked before", () 
     });
     expect(screen.queryByText("AI Suggestion Failed")).not.toBeInTheDocument();
     expect(screen.queryByText("LLM timed out")).not.toBeInTheDocument();
+  });
+});
+
+describe("CreateCardDialog — an AI suggestion for the name or subtype asked before", () => {
+  const SUGGESTION = {
+    suggestions: { description: { value: "A CRM platform.", confidence: 0.9 } },
+    sources: [],
+  };
+
+  async function ask(reply: Promise<unknown>) {
+    mockApi.on("post", "/ai/suggest", () => reply);
+    const r = renderDialog();
+    fireEvent.change(nameBox(), { target: { value: "Salesforce" } });
+    await r.user.click(suggestButton()!);
+    expect(await screen.findByText("Generating description...")).toBeInTheDocument();
+    return r;
+  }
+
+  it("does not land once the name has changed", async () => {
+    const reply = deferred<unknown>();
+    await ask(reply.promise);
+    fireEvent.change(nameBox(), { target: { value: "Workday" } });
+    await waitFor(() =>
+      expect(screen.queryByText("Generating description...")).not.toBeInTheDocument(),
+    );
+    // The new name may ask for its own suggestion straight away.
+    expect(suggestButton()).toBeInTheDocument();
+
+    await act(async () => reply.resolve(SUGGESTION));
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+    expect(screen.queryByText("A CRM platform.")).not.toBeInTheDocument();
+  });
+
+  it("does not show its failure for the new name either", async () => {
+    const reply = deferred<unknown>();
+    await ask(reply.promise);
+    fireEvent.change(nameBox(), { target: { value: "Workday" } });
+    await act(async () => reply.reject(new Error("LLM timed out")));
+    expect(screen.queryByText("AI Suggestion Failed")).not.toBeInTheDocument();
+    expect(screen.queryByText("LLM timed out")).not.toBeInTheDocument();
+  });
+
+  it("still lands when only spaces around the name changed", async () => {
+    // The request asked for the trimmed name, which is still the one typed.
+    const reply = deferred<unknown>();
+    await ask(reply.promise);
+    fireEvent.change(nameBox(), { target: { value: "Salesforce " } });
+    await act(async () => reply.resolve(SUGGESTION));
+    expect(await screen.findByText("AI Suggestions")).toBeInTheDocument();
+    expect(screen.getByText("A CRM platform.")).toBeInTheDocument();
+  });
+
+  it("does not land once another subtype is picked", async () => {
+    withMetamodel([
+      makeCardType({
+        key: "Application",
+        label: "Application",
+        subtypes: [makeSubtype({ key: "saas", label: "SaaS" })],
+      }),
+      ITC,
+    ]);
+    const reply = deferred<unknown>();
+    const { user } = await ask(reply.promise);
+
+    const subtypeControl = screen
+      .getByText("Subtype", { selector: "label" })
+      .closest(".MuiFormControl-root") as HTMLElement;
+    await user.click(within(subtypeControl).getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: "SaaS" }));
+    await waitFor(() =>
+      expect(screen.queryByText("Generating description...")).not.toBeInTheDocument(),
+    );
+
+    await act(async () => reply.resolve(SUGGESTION));
+    expect(screen.queryByText("AI Suggestions")).not.toBeInTheDocument();
+    expect(screen.queryByText("A CRM platform.")).not.toBeInTheDocument();
+  });
+});
+
+describe("CreateCardDialog — the type picker", () => {
+  it("is named by its label", () => {
+    renderDialog();
+    expect(screen.getByRole("combobox", { name: /^Type/ })).toHaveTextContent("Application");
+  });
+
+  it("names the subtype picker and every required select field by its own label", () => {
+    withMetamodel([
+      makeCardType({
+        key: "Application",
+        label: "Application",
+        subtypes: [makeSubtype({ key: "saas", label: "SaaS" })],
+        fields_schema: [
+          {
+            section: "Details",
+            fields: [
+              {
+                key: "criticality",
+                label: "Criticality",
+                type: "single_select",
+                required: true,
+                options: [{ key: "high", label: "High" }],
+              },
+              {
+                key: "hostingModel",
+                label: "Hosting Model",
+                type: "multiple_select",
+                required: true,
+                options: [{ key: "cloud", label: "Cloud" }],
+              },
+            ],
+          },
+        ],
+      }),
+      ITC,
+    ]);
+    renderDialog();
+    expect(screen.getByRole("combobox", { name: /^Subtype/ })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /^Criticality/ })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /^Hosting Model/ })).toBeInTheDocument();
+    // Each combobox has a label of its own, not a shared one.
+    expect(screen.getAllByRole("combobox", { name: /^Type/ })).toHaveLength(1);
   });
 });
 

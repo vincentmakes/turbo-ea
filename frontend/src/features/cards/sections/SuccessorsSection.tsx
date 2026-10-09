@@ -68,10 +68,9 @@ function SuccessorsSection({
   const [createLoading, setCreateLoading] = useState(false);
 
   const loadRelations = useCallback(() => {
-    if (!successorRT) {
-      setLoading(false);
-      return;
-    }
+    // Nothing is rendered without the relation type, and it may yet arrive
+    // with the metamodel: the lineage is still to be loaded then.
+    if (!successorRT) return;
     api
       .get<Relation[]>(`/relations?card_id=${card.id}&type=${successorRT.key}`)
       .then((rels) => {
