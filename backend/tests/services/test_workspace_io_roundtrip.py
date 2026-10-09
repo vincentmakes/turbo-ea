@@ -1496,3 +1496,52 @@ async def test_card_reference_survives_export_and_reimport(db):
         "BIL",
         "ext-7",
     )
+
+
+async def test_card_tags_and_relations_carry_full_card_paths(db):
+    """The CardTags and Relations rows name each card by its full path, and
+    an import into a landscape that lost them puts both back on the right
+    cards. Re-importing into the same instance skips every row, so only a
+    removal in between proves the refs resolve."""
+    from app.models.tag import CardTag, Tag, TagGroup
+    from tests.conftest import create_relation_type
+
+    user = await create_user(db, email="paths@test.com", role="admin")
+    await create_card_type(db, key="Application", label="Application", has_hierarchy=True)
+    await create_card_type(db, key="ITComponent", label="IT Component")
+    await create_relation_type(db, key="app_to_itc")
+    parent = await create_card(db, card_type="Application", name="Sales/EMEA", user_id=user.id)
+    child = await create_card(
+        db, card_type="Application", name="CRM", parent_id=parent.id, user_id=user.id
+    )
+    # Another card with the same name elsewhere: only the path tells them apart.
+    await create_card(db, card_type="Application", name="CRM", user_id=user.id)
+    db_card = await create_card(db, card_type="ITComponent", name="Postgres", user_id=user.id)
+    group = TagGroup(name="Scope")
+    db.add(group)
+    await db.flush()
+    tag = Tag(tag_group_id=group.id, name="In scope")
+    db.add(tag)
+    await db.flush()
+    db.add(CardTag(card_id=child.id, tag_id=tag.id))
+    db.add(Relation(type="app_to_itc", source_id=child.id, target_id=db_card.id, attributes={}))
+    await db.flush()
+
+    raw = await build_bundle(db)
+    bundle = parse_bundle(raw)
+    (tag_row,) = bundle.rows(schema.SHEET_CARD_TAGS)
+    assert (tag_row["card_type"], tag_row["card_ref"]) == ("Application", "Sales\\/EMEA / CRM")
+    assert (tag_row["group_name"], tag_row["tag_name"]) == ("Scope", "In scope")
+    (rel_row,) = bundle.rows(schema.SHEET_RELATIONS)
+    assert (rel_row["source_type"], rel_row["source_ref"]) == ("Application", "Sales\\/EMEA / CRM")
+    assert (rel_row["target_type"], rel_row["target_ref"]) == ("ITComponent", "Postgres")
+
+    await db.execute(delete(CardTag))
+    await db.execute(delete(Relation))
+    await db.flush()
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    tagged = (await db.execute(select(CardTag.card_id))).scalars().all()
+    assert tagged == [child.id]
+    (rel,) = (await db.execute(select(Relation))).scalars().all()
+    assert (rel.source_id, rel.target_id) == (child.id, db_card.id)
