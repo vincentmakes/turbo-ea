@@ -610,7 +610,7 @@ function TodosPanel() {
             })
           : visibleTodos.map((todo) => renderTodoRow(todo, true)))}
         {loading ? (
-          // Stryker disable next-line ObjectLiteral: spacing is presentation
+          // Stryker disable next-line all: the spinner's centring and spacing are presentation
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <CircularProgress size={28} />
           </Box>
