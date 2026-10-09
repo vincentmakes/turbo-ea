@@ -584,11 +584,11 @@ export default function MatrixReport() {
 
   const rowSelfIds = useMemo(
     () => parentsWithOwnRelations(rowTreeFull, relatedRowIds),
-    [rowTreeFull, relatedRowIds], // eslint-disable-line react-hooks/exhaustive-deps
+    [rowTreeFull, relatedRowIds],
   );
   const colSelfIds = useMemo(
     () => parentsWithOwnRelations(colTreeFull, relatedColIds),
-    [colTreeFull, relatedColIds], // eslint-disable-line react-hooks/exhaustive-deps
+    [colTreeFull, relatedColIds],
   );
 
   // Pruned trees based on visible depth (only in hierarchy mode). Self rows are

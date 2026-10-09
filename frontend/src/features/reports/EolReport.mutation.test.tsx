@@ -473,7 +473,6 @@ describe("EolReport — timeline rows", () => {
 
 describe("EolReport — countdowns", () => {
   const countdown = (name: string) => rowOf(name)[6].replace(/^[^(]*/, "");
-  const shape = (s: string) => s.replace(/\d+(\.\d+)?/g, "N");
 
   it("words today, 30 days and a year like the unit they belong to", async () => {
     saved.config = { view: "table" };
@@ -487,11 +486,13 @@ describe("EolReport — countdowns", () => {
     ]);
     renderReport();
     await screen.findByRole("table");
-    expect(countdown("Today item")).toMatch(/^\(0\D/);
-    expect(shape(countdown("Today item"))).toBe(shape(countdown("Past")));
+    expect(countdown("Today item")).toBe("(0 days ago)");
+    expect(countdown("Past")).toBe("(40 days ago)");
     // A month from now already counts in months, a year from now in years.
-    expect(shape(countdown("In 30"))).toBe(shape(countdown("In 90")));
-    expect(shape(countdown("In 365"))).toBe(shape(countdown("In 400")));
+    expect(countdown("In 30")).toBe("(1 month)");
+    expect(countdown("In 90")).toBe("(3 months)");
+    expect(countdown("In 365")).toBe("(1 year)");
+    expect(countdown("In 400")).toBe("(1.1 years)");
   });
 
   it("shows a dash and no countdown for an end-of-life date it cannot read", async () => {

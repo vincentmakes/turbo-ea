@@ -219,7 +219,7 @@ function ui(props: Parameters<typeof PortfolioReport>[0] = {}) {
 }
 const loaded = (name = "Standalone Tool") => within(document.body).findByText(name);
 
-async function pick(label: RegExp, option: string) {
+async function pick(label: RegExp, option: string | RegExp) {
   fireEvent.mouseDown(await screen.findByRole("combobox", { name: label }, { timeout: 5000 }));
   const listbox = await screen.findByRole("listbox");
   fireEvent.click(within(listbox).getByRole("option", { name: option }));
@@ -427,5 +427,66 @@ describe("restoring relation-subtype filters", () => {
         relSubtypeFilters: { "relOrgOwnsApp::usage": ["owner"] },
       }),
     );
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Switching the card type                                            */
+/* ------------------------------------------------------------------ */
+
+describe("switching the card type", () => {
+  /** The same two relation types, seen from the Organization end. */
+  const ORG_PAYLOAD = {
+    items: [
+      app("org-tr", "Treasury", {
+        relations: [
+          { relation_type: "relOrgOwnsApp", related_id: "erp", related_name: "SAP ERP", related_type: "Application" },
+          { relation_type: "relOrgUsesApp", related_id: "crm", related_name: "Salesforce", related_type: "Application" },
+        ],
+      }),
+    ],
+    fields_schema: [],
+    relation_types: [
+      { ...REL_OWNS, other_type_key: "Application" },
+      { ...REL_USES, other_type_key: "Application" },
+    ],
+    groupable_types: {
+      Application: [
+        { id: "erp", name: "SAP ERP", type: "Application" },
+        { id: "crm", name: "Salesforce", type: "Application" },
+      ],
+    },
+    organizations: [],
+    tag_groups: [],
+  };
+
+  it("names the relation axes and facets with the new type's verbs", async () => {
+    mockApi.on("get", "/reports/app-portfolio?type=Organization", ORG_PAYLOAD);
+    render(ui({ showTypeSelector: true }));
+    await loaded();
+    expect(screen.getByRole("combobox", { name: "Organization · is owned by" })).toBeInTheDocument();
+
+    await pick(/card type/i, /Organization$/);
+    await screen.findAllByText("Treasury");
+
+    // Seen from the Organization end the forward verbs apply.
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: /group by/i }));
+    const listbox = await screen.findByRole("listbox");
+    const options = within(listbox)
+      .getAllByRole("option")
+      .map((o) => o.textContent);
+    expect(options).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Application · owns"),
+        expect.stringContaining("Application · uses"),
+      ]),
+    );
+    expect(options.join("|")).not.toMatch(/is owned by|is used by/);
+    fireEvent.keyDown(listbox, { key: "Escape" });
+
+    fireEvent.click(await screen.findByText("1 more"));
+    expect(screen.getByRole("combobox", { name: "Application · owns" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Application · uses" })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /is owned by|is used by/ })).not.toBeInTheDocument();
   });
 });

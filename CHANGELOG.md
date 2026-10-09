@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Cost report: a saved cost field and cost sources are restored, and the tooltip shows its "% of total" figure again.
 - Process map: a cost stored as text no longer makes the map fail to load, and processes in a looping parent chain stay on the map.
 - Dependency report: the tree-card tooltip counts its connections with correct plurals, and a retired or upcoming card keeps its outline.
+- EOL report: the countdown beside an end-of-life date ("40 days ago", "3 months", "2.2 years") is in the UI language with its correct plural forms, not English abbreviations.
 
 ## [2.157.4] - 2026-10-08
 

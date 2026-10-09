@@ -886,7 +886,9 @@ export default function PortfolioReport({
       // which is true at both ends of such a type.
       const reaching = expandSides(
         (data.relation_types || []).filter((rt) => rt.other_type_key === typeKey),
-        cardType,
+        // The type `data` was loaded for, not the picker's: on a switch the
+        // picker moves one render before the old data is cleared.
+        dataCardType ?? cardType,
       );
       if (reaching.length > 1) {
         for (const { rt, isSource } of reaching) {
@@ -897,7 +899,7 @@ export default function PortfolioReport({
     }
 
     return opts;
-  }, [data, selectFields, metamodelTypes, typeLabel, relLabel]);
+  }, [data, dataCardType, cardType, selectFields, metamodelTypes, typeLabel, relLabel]);
 
   // Apply defaults once data is available. Skip when `data` is stale (loaded
   // for a previous card type) — otherwise we'd pick options from the old
@@ -1350,7 +1352,9 @@ export default function PortfolioReport({
       // key (the matcher tells the two kinds of key apart via `relTypeKeys`).
       const reaching = expandSides(
         (data.relation_types || []).filter((rt) => rt.other_type_key === typeKey),
-        cardType,
+        // The type `data` was loaded for, not the picker's: on a switch the
+        // picker moves one render before the old data is cleared.
+        dataCardType ?? cardType,
       );
       if (reaching.length > 1) {
         for (const { rt, isSource } of reaching) {
@@ -1360,7 +1364,7 @@ export default function PortfolioReport({
       }
     }
     return out;
-  }, [data, metamodelTypes, typeLabel, relLabel]);
+  }, [data, dataCardType, cardType, metamodelTypes, typeLabel, relLabel]);
 
   // Table helpers
   const tableSort = (k: string) => {

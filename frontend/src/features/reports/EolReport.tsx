@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
 import { Trans, useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useTheme, alpha } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -136,12 +137,12 @@ function daysUntil(dateStr: string | undefined | null): number | null {
   return Math.ceil((d.getTime() - Date.now()) / 86400000);
 }
 
-function countdownLabel(days: number | null): string {
+function countdownLabel(days: number | null, t: TFunction): string {
   if (days === null) return "";
-  if (days <= 0) return `${Math.abs(days)}d ago`;
-  if (days < 30) return `${days}d`;
-  if (days < 365) return `${Math.round(days / 30)}mo`;
-  return `${(days / 365).toFixed(1)}y`;
+  if (days <= 0) return t("eol.countdownDaysAgo", { count: Math.abs(days) });
+  if (days < 30) return t("eol.countdownDays", { count: days });
+  if (days < 365) return t("eol.countdownMonths", { count: Math.round(days / 30) });
+  return t("eol.countdownYears", { count: Number((days / 365).toFixed(1)) });
 }
 
 /** Source badge for manual vs API items */
@@ -272,7 +273,7 @@ export default function EolReport() {
     setSortK("status");
     setSortD("asc");
     setExpandedItem(null);
-  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [saved]);
 
   useEffect(() => {
     api
@@ -760,7 +761,7 @@ export default function EolReport() {
                     const eolDays =
                       typeof cd?.eol === "string" ? daysUntil(cd.eol) : null;
                     const productLabel = isManual ? t("eol.manual") : productName(item);
-                    const tipText = `${productLabel ? `${productLabel} \u00B7 ` : ""}${t("eol.endOfLifeDate", { date: fmtEol(cd?.eol) })}${eolDays !== null ? ` (${countdownLabel(eolDays)})` : ""}`;
+                    const tipText = `${productLabel ? `${productLabel} \u00B7 ` : ""}${t("eol.endOfLifeDate", { date: fmtEol(cd?.eol) })}${eolDays !== null ? ` (${countdownLabel(eolDays, t)})` : ""}`;
 
                     return (
                       <Box key={item.id}>
@@ -1096,7 +1097,7 @@ export default function EolReport() {
                               fontWeight: 600,
                             }}
                           >
-                            ({countdownLabel(eolDays)})
+                            ({countdownLabel(eolDays, t)})
                           </Typography>
                         )}
                       </Box>

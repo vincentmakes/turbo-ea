@@ -200,11 +200,11 @@ describe("EolReport timeline", () => {
     renderReport();
     await loaded();
     expect(screen.getByLabelText("Nginx LB (nginx 1.25)")).toBeInTheDocument();
-    expect(screen.getByLabelText(/^nginx 1\.25 · End of Life: 2020-01-01 \(\d+d ago\)$/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^nginx 1\.25 · End of Life: 2020-01-01 \(\d+ days ago\)$/)).toBeInTheDocument();
     expect(screen.getByLabelText("Active support until 2019-06-01")).toBeInTheDocument();
     expect(screen.getByLabelText("End of Life: 2020-01-01")).toBeInTheDocument();
-    expect(screen.getByLabelText(/^postgresql 12 · End of Life: .* \(2mo\)$/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^redis 7 · End of Life: .* \(2\.2y\)$/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^postgresql 12 · End of Life: .* \(2 months\)$/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^redis 7 · End of Life: .* \(2\.2 years\)$/)).toBeInTheDocument();
     // A product with no cycle data still gets a bar, just with nothing dated.
     expect(screen.getByLabelText("foo 1 · End of Life: —")).toBeInTheDocument();
     expect(screen.getByLabelText("Impacts 2 apps")).toBeInTheDocument();
@@ -215,7 +215,7 @@ describe("EolReport timeline", () => {
     renderReport();
     await loaded();
     expect(screen.getByLabelText("Legacy CRM (manually maintained)")).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Manual · End of Life: .* \(\d+d\)$/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Manual · End of Life: .* \(10 days\)$/)).toBeInTheDocument();
     expect(screen.getAllByLabelText(/End-of-Life date was manually maintained/).length).toBeGreaterThan(0);
     expect(screen.getByText("Lifecycle")).toBeInTheDocument();
   });
@@ -299,7 +299,7 @@ describe("EolReport table", () => {
 
     const nginx = screen.getByRole("row", { name: /^Nginx LB/ });
     expect(within(nginx).getByText("2020-01-01")).toBeInTheDocument();
-    expect(within(nginx).getByText(/^\(\d+d ago\)$/)).toBeInTheDocument();
+    expect(within(nginx).getByText(/^\(\d+ days ago\)$/)).toBeInTheDocument();
     expect(within(nginx).getByText("2019-06-01")).toBeInTheDocument();
     expect(within(nginx).getByText("1.25.4")).toBeInTheDocument();
     expect(within(nginx).getByText("API")).toBeInTheDocument();
@@ -309,7 +309,7 @@ describe("EolReport table", () => {
     // Support `true` still has support: a plain yes, not an end of life.
     expect(within(pg).getByText("Yes")).toBeInTheDocument();
     expect(within(pg).queryByText("Yes (EOL)")).not.toBeInTheDocument();
-    expect(within(pg).getByText("(2mo)")).toBeInTheDocument();
+    expect(within(pg).getByText("(2 months)")).toBeInTheDocument();
     expect(within(pg).getByText("1 app")).toBeInTheDocument();
     expect(within(screen.getByRole("row", { name: /^Redis/ })).getByText("No")).toBeInTheDocument();
     expect(within(screen.getByRole("row", { name: /^Legacy CRM/ })).getByText("Manual")).toBeInTheDocument();

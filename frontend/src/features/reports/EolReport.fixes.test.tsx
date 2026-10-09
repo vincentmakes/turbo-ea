@@ -1,6 +1,7 @@
 /**
  * Regression tests for EOL-report bugs fixed after the mutation pass: dates in
- * the workspace format, and no hardcoded English on the timeline.
+ * the workspace format, and no hardcoded English on the timeline or in the
+ * countdowns.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, render, screen, within } from "@testing-library/react";
@@ -36,6 +37,7 @@ import i18n from "@/i18n";
 import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType } from "@/test/fixtures/metamodel";
+import { toIsoDate } from "@/lib/dates";
 import EolReport from "./EolReport";
 
 const TYPES = [
@@ -162,5 +164,80 @@ describe("EolReport timeline wording", () => {
     renderReport();
     await screen.findAllByText("Legacy CRM");
     expect(screen.getByText("Lifecycle")).toBeInTheDocument();
+  });
+});
+
+describe("EolReport countdowns", () => {
+  const inDays = (n: number) => toIsoDate(new Date(Date.now() + n * 86400000));
+  /** One row per name, its end of life the given number of days away. */
+  const serveCountdowns = (days: Record<string, number>) =>
+    mockApi.on("get", "/reports/eol", {
+      items: Object.entries(days).map(([name, n]) =>
+        item({ id: name, name, eol_product: "p", eol_cycle: name, cycle_data: { eol: inDays(n) } }),
+      ),
+      summary: SUMMARY,
+    });
+  /** The countdown after a row's EOL date, e.g. "(2 months)". */
+  const countdown = (name: string) =>
+    within(screen.getByRole("row", { name: new RegExp(`^${name}`) })).getByText(/^\(.+\)$/).textContent;
+
+  it("words every unit as a counted English phrase", async () => {
+    saved.config = { view: "table" };
+    serveCountdowns({ Gone: -40, Today: 0, Tomorrow: 1, Week: 7, Month: 30, Quarter: 90, Year: 365, Later: 800 });
+    renderReport();
+    await screen.findByRole("table");
+    expect(countdown("Gone")).toBe("(40 days ago)");
+    expect(countdown("Today")).toBe("(0 days ago)");
+    expect(countdown("Tomorrow")).toBe("(1 day)");
+    expect(countdown("Week")).toBe("(7 days)");
+    expect(countdown("Month")).toBe("(1 month)");
+    expect(countdown("Quarter")).toBe("(3 months)");
+    expect(countdown("Year")).toBe("(1 year)");
+    expect(countdown("Later")).toBe("(2.2 years)");
+  });
+
+  it("words the countdown in the UI language", async () => {
+    saved.config = { view: "table" };
+    serveCountdowns({ Gone: -40, Tomorrow: 1, Quarter: 90, Later: 800 });
+    await inLanguage("de", async () => {
+      renderReport();
+      await screen.findByRole("table");
+      expect(countdown("Gone")).toBe("(vor 40 Tagen)");
+      expect(countdown("Tomorrow")).toBe("(1 Tag)");
+      expect(countdown("Quarter")).toBe("(3 Monate)");
+      expect(countdown("Later")).toBe("(2.2 Jahre)");
+    });
+  });
+
+  it("uses the language's own plural forms beyond one and other", async () => {
+    saved.config = { view: "table" };
+    serveCountdowns({ Three: 3, Five: 5, TwentyOne: 21 });
+    await inLanguage("ru", async () => {
+      renderReport();
+      await screen.findByRole("table");
+      expect(countdown("Three")).toBe("(3 дня)");
+      expect(countdown("Five")).toBe("(5 дней)");
+      expect(countdown("TwentyOne")).toBe("(21 день)");
+    });
+  });
+
+  it("uses Arabic's dual and its many form", async () => {
+    saved.config = { view: "table" };
+    serveCountdowns({ Two: 2, Eleven: 11 });
+    await inLanguage("ar", async () => {
+      renderReport();
+      await screen.findByRole("table");
+      expect(countdown("Two")).toBe("(2 يومان)");
+      expect(countdown("Eleven")).toBe("(11 يومًا)");
+    });
+  });
+
+  it("names it on the timeline's bar tooltip as well", async () => {
+    serveCountdowns({ Quarter: 90 });
+    await inLanguage("fr", async () => {
+      renderReport();
+      await screen.findByText("Aujourd’hui");
+      expect(screen.getByLabelText(/^p Quarter · Fin de vie : .+ \(3 mois\)$/)).toBeInTheDocument();
+    });
   });
 });
