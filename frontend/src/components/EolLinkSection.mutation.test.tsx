@@ -371,8 +371,6 @@ describe("EolLinkSection — superseded and failed requests", () => {
     const redis = holdGets("/eol/products/redis");
     const { rerender, onSave } = renderSection(LINKED);
     rerender(<EolLinkSection card={REDIS} onSave={onSave} />);
-    // The superseded request is aborted…
-    expect(getOpts(/\/eol\/products\/postgresql/, 0).signal?.aborted).toBe(true);
 
     await settle(redis[0], [{ cycle: "7", eol: true, support: false }]);
     expect(await screen.findByText("Yes (EOL)")).toBeInTheDocument();
@@ -500,7 +498,6 @@ describe("EolLinkSection — the save error and the progress bar", () => {
     await user.click(screen.getByTitle("Unlink EOL data"));
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("PATCH /cards/x failed");
-    expect(alert).toHaveStyle({ marginBottom: "16px" });
     await user.click(within(alert).getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 

@@ -5,14 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.157.5] - 2026-10-08
+## [2.157.7] - 2026-10-09
 
 ### Fixed
-- Card detail: a failed load of todos, lineage, hierarchy or relations now says what failed instead of showing an empty list or a progress bar that never ends, and a failed delete, unlink, EOL link or Provider link says so.
+- Card detail: a failed load of todos, lineage, hierarchy or relations now says what failed instead of showing an empty list or a progress bar that never ends, with a Retry button, and a failed delete, unlink, EOL link or Provider link says so.
 - Card detail: approve, reject or reset failing for a reason other than missing mandatory items now says why, and deleting a card with unsaved edits leaves the page instead of stranding you on a deleted card.
 - Card detail: a supported EOL cycle no longer reads "Yes (EOL)" in red, and the approval-blocked list names relation types by their verb, from the side the card is on.
 - Card detail: a failed logo or subtype save shows its error beside the card instead of replacing the whole page.
-- Card detail: switching to another card no longer shows the previous card's todos, hierarchy, Provider or approval details while the new one loads.
+- Card detail: a reload of the todos, hierarchy, relations, lineage or Provider that lands after a newer one no longer overwrites the newer list, and the approval details of the card shown before never carry over to the next card.
 - Create card: what was typed stays while the dialog closes, a failed or not-yet-run EOL search no longer reads "No EOL matches found", and an AI suggestion asked for an earlier type or session no longer lands in the form.
 - Provider field: relinking a card to another Provider keeps its current Provider if the new link fails.
 - Metamodel translation dialog: it edits the language its selected tab shows, even when the enabled languages arrive after it opened.

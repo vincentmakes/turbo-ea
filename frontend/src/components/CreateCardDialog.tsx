@@ -837,6 +837,7 @@ export default function CreateCardDialog({
 
         {/* Tags */}
         {selectedType && tagGroupsError !== null && (
+          // Stryker disable next-line ObjectLiteral: spacing is presentation
           <Alert severity="error" sx={{ mb: 2 }}>
             {t("create.tagsLoadFailed", {
               error: tagGroupsError || t("common:errors.generic"),
@@ -1007,6 +1008,7 @@ export default function CreateCardDialog({
 
                 {/* The search failed: not the same as finding nothing */}
                 {!eolSearching && eolAutoSearchDone && eolSearchError && eolSearchedName === name.trim() && (
+                  // Stryker disable next-line ObjectLiteral: spacing is presentation
                   <Alert severity="error" sx={{ mt: 1 }}>
                     {eolSearchError}
                   </Alert>

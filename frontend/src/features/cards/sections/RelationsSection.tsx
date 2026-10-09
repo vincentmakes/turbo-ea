@@ -29,7 +29,8 @@ import {
   useRelationLabel,
   useSubtypeLabel,
 } from "@/hooks/useResolveLabel";
-import { api } from "@/api/client";
+import { api, isAbortError } from "@/api/client";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
 import type {
   DescendantRelationSummaryEntry,
   Relation,
@@ -608,6 +609,7 @@ function RelationGroup({
       </Box>
 
       {deleteError && (
+        // Stryker disable next-line ObjectLiteral: spacing is presentation
         <Alert severity="error" onClose={() => setDeleteError("")} sx={{ m: 1 }}>
           {deleteError}
         </Alert>
@@ -729,18 +731,25 @@ function RelationsSection({
   const [loadError, setLoadError] = useState("");
   // Nor is there a count to show before the first load has landed.
   const [loaded, setLoaded] = useState(false);
-  const load = useCallback(() => {
-    api
-      .get<Relation[]>(`/relations?card_id=${fsId}`)
-      .then((rows) => {
-        setRawRelations(rows);
-        setLoadError("");
-        setLoaded(true);
-      })
-      .catch((e: unknown) =>
-        setLoadError(e instanceof Error ? e.message : t("common:errors.generic")),
-      );
-  }, [fsId, t]);
+  // Through the request hook, like the other sections' loads: a reload after a
+  // write that lands late must not overwrite the list a newer one fetched.
+  const listRequest = useLatestRequest();
+  const load = useCallback(
+    () =>
+      listRequest.run(async ({ signal, isCurrent }) => {
+        try {
+          const rows = await api.get<Relation[]>(`/relations?card_id=${fsId}`, { signal });
+          if (!isCurrent()) return;
+          setRawRelations(rows);
+          setLoadError("");
+          setLoaded(true);
+        } catch (e) {
+          if (!isCurrent() || isAbortError(e)) return;
+          setLoadError(e instanceof Error ? e.message : t("common:errors.generic"));
+        }
+      }),
+    [listRequest, fsId, t],
+  );
 
   /** Reload the relation list *and* the card, after a relation mutation. */
   const reloadAll = useCallback(() => {
@@ -748,7 +757,9 @@ function RelationsSection({
     onCardUpdate?.();
   }, [load, onCardUpdate]);
 
-  useEffect(load, [load, refreshKey]);
+  useEffect(() => {
+    void load();
+  }, [load, refreshKey]);
 
   // Sort once, here, rather than at each of the three render paths (flat list,
   // subtype buckets, flowDirection buckets) — `Array.prototype.filter` keeps
@@ -932,12 +943,24 @@ function RelationsSection({
           <MaterialSymbol icon="hub" size={20} />
           <Typography fontWeight={600}>{t("relations.title")}</Typography>
           {loaded && !loadError && (
+            // Stryker disable next-line ObjectLiteral: spacing is presentation
             <Chip size="small" label={totalRelations} sx={{ ml: 1, height: 20, fontSize: "0.7rem" }} />
           )}
         </Box>
       </AccordionSummary>
       <AccordionDetails>
-        {loadError && <Alert severity="error">{loadError}</Alert>}
+        {loadError && (
+          <Alert
+            severity="error"
+            action={
+              <Button color="inherit" size="small" onClick={load}>
+                {t("common:actions.retry")}
+              </Button>
+            }
+          >
+            {loadError}
+          </Alert>
+        )}
 
         {/* Displayed relation type groups */}
         {!loadError && displayedGroups.map(({ rt, isSource, mandatory, rels }) => (

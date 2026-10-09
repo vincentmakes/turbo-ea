@@ -178,11 +178,20 @@ function TodosTab({ fsId }: { fsId: string }) {
         </Button>
       </Box>
       {loadError && (
-        <Alert severity="error" sx={{ mb: 1 }}>
+        <Alert
+          severity="error"
+          sx={{ mb: 1 }}
+          action={
+            <Button color="inherit" size="small" onClick={load}>
+              {t("common:actions.retry")}
+            </Button>
+          }
+        >
           {loadError}
         </Alert>
       )}
       {error && (
+        // Stryker disable next-line ObjectLiteral: spacing is presentation
         <Alert severity="error" onClose={() => setError("")} sx={{ mb: 1 }}>
           {error}
         </Alert>
@@ -319,11 +328,13 @@ function TodosTab({ fsId }: { fsId: string }) {
         <DialogTitle>{t("todos.add")}</DialogTitle>
         <DialogContent>
           {addError && (
+            // Stryker disable next-line ObjectLiteral: spacing is presentation
             <Alert severity="error" onClose={() => setAddError("")} sx={{ mt: 1 }}>
               {addError}
             </Alert>
           )}
           {usersError !== null && (
+            // Stryker disable next-line ObjectLiteral: spacing is presentation
             <Alert severity="error" sx={{ mt: 1 }}>
               {t("todos.usersLoadFailed", {
                 error: usersError || t("common:errors.generic"),

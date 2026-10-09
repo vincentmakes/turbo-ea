@@ -1333,7 +1333,6 @@ describe("CreateCardDialog — end-of-life auto-search", () => {
     expect(fuzzyCalls()).toEqual([fuzzyPath("Python")]);
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("endoflife.date unreachable");
-    expect(alert).toHaveStyle({ marginTop: "8px" });
   });
 
   it("says a name typed with surrounding spaces has no match", async () => {
@@ -1377,10 +1376,3 @@ describe("CreateCardDialog — end-of-life auto-search", () => {
   });
 });
 
-describe("CreateCardDialog — the tag groups warning", () => {
-  it("is spaced from the fields below it", async () => {
-    mockApi.fail("get", "/tag-groups", 500);
-    renderDialog({ initialType: "Widget" });
-    expect(await screen.findByRole("alert")).toHaveStyle({ marginBottom: "16px" });
-  });
-});

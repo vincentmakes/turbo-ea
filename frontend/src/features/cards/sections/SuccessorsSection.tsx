@@ -26,7 +26,8 @@ import { hasTypePermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
-import { api } from "@/api/client";
+import { api, isAbortError } from "@/api/client";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
 import type { Card, Relation } from "@/types";
 import { findSuccessorRelationType } from "@/lib/successorRelation";
 
@@ -67,22 +68,30 @@ function SuccessorsSection({
   const [createName, setCreateName] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
 
+  // Through the request hook, like the other sections' loads: a reload after a
+  // write that lands late must not overwrite the list a newer one fetched.
+  const listRequest = useLatestRequest();
   const loadRelations = useCallback(() => {
     // Nothing is rendered without the relation type, and it may yet arrive
     // with the metamodel: the lineage is still to be loaded then.
     if (!successorRT) return;
-    api
-      .get<Relation[]>(`/relations?card_id=${card.id}&type=${successorRT.key}`)
-      .then((rels) => {
+    void listRequest.run(async ({ signal, isCurrent }) => {
+      try {
+        const rels = await api.get<Relation[]>(
+          `/relations?card_id=${card.id}&type=${successorRT.key}`,
+          { signal },
+        );
+        if (!isCurrent()) return;
         setRelations(rels);
         setLoadError("");
-        setLoading(false);
-      })
-      .catch((err: unknown) => {
+      } catch (err) {
+        if (!isCurrent() || isAbortError(err)) return;
         setLoadError(err instanceof Error ? err.message : t("common:errors.generic"));
-        setLoading(false);
-      });
-  }, [card.id, successorRT, t]);
+      } finally {
+        if (isCurrent()) setLoading(false);
+      }
+    });
+  }, [listRequest, card.id, successorRT, t]);
 
   useEffect(loadRelations, [loadRelations]);
 

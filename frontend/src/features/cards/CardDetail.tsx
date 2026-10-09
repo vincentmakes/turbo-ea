@@ -137,7 +137,7 @@ export default function CardDetail() {
   // URL is still this card's, which would race the push.
   useLayoutEffect(() => {
     if (deleted) navigate("/inventory");
-  }, [deleted]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [deleted, navigate]);
 
   // Inline subtype editing
   const [subtypeAnchor, setSubtypeAnchor] = useState<HTMLElement | null>(null);
@@ -924,6 +924,7 @@ export default function CardDetail() {
 
             {/* Subtype save failed */}
             {subtypeError && (
+              // Stryker disable next-line ObjectLiteral: spacing is presentation
               <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSubtypeError("")}>
                 {subtypeError}
               </Alert>
@@ -931,6 +932,7 @@ export default function CardDetail() {
 
             {/* Logo upload / icon / removal failed */}
             {logoError && (
+              // Stryker disable next-line ObjectLiteral: spacing is presentation
               <Alert severity="error" sx={{ mb: 2 }} onClose={() => setLogoError("")}>
                 {logoError}
               </Alert>
@@ -938,6 +940,7 @@ export default function CardDetail() {
 
             {/* Approval transition failed for any other reason */}
             {approvalError && (
+              // Stryker disable next-line ObjectLiteral: spacing is presentation
               <Alert severity="error" sx={{ mb: 2 }} onClose={() => setApprovalError("")}>
                 {approvalError}
               </Alert>

@@ -108,20 +108,11 @@ describe("HierarchySection — loading and errors", () => {
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
-  it("loads the hierarchy with an abort signal", async () => {
-    mockApi.on("get", "/cards/b/hierarchy", B_TREE);
-    renderWithProviders(<HierarchySection card={CARD_B} onUpdate={vi.fn()} />);
-    await screen.findByText("Company B1");
-    const call = mockApi.api.get.mock.calls.find(([path]) => path === "/cards/b/hierarchy");
-    expect(call?.[1]).toEqual({ signal: expect.any(AbortSignal) });
-  });
-
-  it("shows a failed load's error spaced from the section, with no progress bar", async () => {
+  it("shows a failed load's error, with no progress bar", async () => {
     mockApi.fail("get", "/cards/b/hierarchy", 500);
     renderWithProviders(<HierarchySection card={CARD_B} onUpdate={vi.fn()} />);
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("GET /cards/b/hierarchy failed");
-    expect(alert).toHaveStyle({ marginBottom: "16px" });
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 

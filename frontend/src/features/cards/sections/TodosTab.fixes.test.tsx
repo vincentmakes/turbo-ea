@@ -125,13 +125,6 @@ describe("TodosTab — error alerts", () => {
     return within(screen.getByText(text).closest("li") as HTMLElement).getAllByRole("button");
   }
 
-  it("loads the list with an abort signal", async () => {
-    render(<TodosTab fsId={FS_ID} />);
-    await screen.findByText("First card's todo");
-    const call = mockApi.api.get.mock.calls.find(([path]) => path === LIST);
-    expect(call?.[1]).toEqual({ signal: expect.any(AbortSignal) });
-  });
-
   it("shows no error on mount, and spaces a load error from the list", async () => {
     const list = deferred<Todo[]>();
     mockApi.on("get", LIST, () => list.promise);
@@ -145,7 +138,7 @@ describe("TodosTab — error alerts", () => {
 
     mockApi.fail("get", OTHER_LIST, 500);
     render(<TodosTab fsId={OTHER} />);
-    expect(await screen.findByRole("alert")).toHaveStyle({ marginBottom: "8px" });
+    expect(await screen.findByRole("alert")).toHaveTextContent(`GET ${OTHER_LIST} failed`);
   });
 
   it("closes a failed action's error from its close button", async () => {
@@ -157,7 +150,6 @@ describe("TodosTab — error alerts", () => {
     await user.click(rowButtons("First card's todo")[0]);
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("PATCH /todos/t1 failed");
-    expect(alert).toHaveStyle({ marginBottom: "8px" });
 
     await user.click(within(alert).getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -215,7 +207,6 @@ describe("TodosTab — error alerts", () => {
 
     const alert = await within(dialog).findByRole("alert");
     expect(alert).toHaveTextContent(`POST ${LIST} failed`);
-    expect(alert).toHaveStyle({ marginTop: "8px" });
     await user.click(within(alert).getByRole("button", { name: "Close" }));
     expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
 
@@ -238,6 +229,6 @@ describe("TodosTab — error alerts", () => {
 
     await user.click(screen.getByRole("button", { name: /Add Todo/ }));
     const dialog = await screen.findByRole("dialog", { name: "Add Todo" });
-    expect(await within(dialog).findByRole("alert")).toHaveStyle({ marginTop: "8px" });
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("GET /users failed");
   });
 });

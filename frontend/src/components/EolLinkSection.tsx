@@ -514,6 +514,9 @@ function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
 
 // ── Main EolLinkSection (for CardDetail) ───────────────────
 
+/** A cycle-fetch failure: the message as received, or a key worded at render. */
+type EolCycleError = string | { key: string; params?: Record<string, string> };
+
 interface EolLinkSectionProps {
   card: Card;
   onSave: (updates: Record<string, unknown>) => Promise<void>;
@@ -528,7 +531,7 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
 
   const [cycleData, setCycleData] = useState<EolCycle | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<EolCycleError>("");
   // A failed link/unlink save — an error, unlike the fetch warning above.
   const [saveError, setSaveError] = useState("");
   const [linking, setLinking] = useState(false);
@@ -561,17 +564,17 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
           const match = cycles.find((c) => String(c.cycle) === String(eolCycle));
           setCycleData(match || null);
           if (!match)
-            setError(
-              t("eol.errors.cycleNotFound", { cycle: eolCycle, product: eolProduct }),
-            );
+            setError({ key: "eol.errors.cycleNotFound", params: { cycle: eolCycle, product: eolProduct } });
         } catch (e) {
           if (!isCurrent()) return;
-          setError(e instanceof Error ? e.message : t("eol.errors.fetchFailed"));
+          setError(e instanceof Error ? e.message : { key: "eol.errors.fetchFailed" });
         } finally {
           if (isCurrent()) setLoading(false);
         }
       }),
-    [run, eolProduct, eolCycle, t],
+    // Not `t`: the error is stored as a key and worded at render, so a language
+    // switch re-words it without blanking the details and fetching them again.
+    [run, eolProduct, eolCycle],
   );
 
   useEffect(() => {
@@ -642,13 +645,14 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
       </AccordionSummary>
       <AccordionDetails>
         {saveError && (
+          // Stryker disable next-line ObjectLiteral: spacing is presentation
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError("")}>
             {saveError}
           </Alert>
         )}
         {error && (
           <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setError("")}>
-            {error}
+            {typeof error === "string" ? error : t(error.key, error.params)}
           </Alert>
         )}
 

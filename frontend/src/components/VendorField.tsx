@@ -408,6 +408,7 @@ export default function VendorField({
         <DialogTitle>{t("vendor.createNew.title")}</DialogTitle>
         <DialogContent>
           {createError && (
+            // Stryker disable next-line ObjectLiteral: spacing is presentation
             <Alert severity="error" onClose={() => setCreateError("")} sx={{ mt: 1 }}>
               {createError}
             </Alert>

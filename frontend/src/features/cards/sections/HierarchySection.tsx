@@ -380,7 +380,15 @@ function HierarchySection({
           </Alert>
         )}
         {loadError && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert
+            severity="error"
+            sx={{ mb: 2 }}
+            action={
+              <Button color="inherit" size="small" onClick={loadHierarchy}>
+                {t("common:actions.retry")}
+              </Button>
+            }
+          >
             {loadError}
           </Alert>
         )}

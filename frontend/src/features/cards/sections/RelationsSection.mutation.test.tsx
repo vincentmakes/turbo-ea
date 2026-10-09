@@ -813,7 +813,6 @@ describe("RelationsSection — load state and the header count", () => {
     expect(await screen.findByText("Finance")).toBeInTheDocument();
     const count = headerCount();
     expect(count).toHaveTextContent("2");
-    expect(count).toHaveStyle({ marginLeft: "8px", height: "20px", fontSize: "0.7rem" });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -835,7 +834,6 @@ describe("RelationsSection — load state and the header count", () => {
     await view.user.click(within(rowOf("Finance")).getByRole("button", { name: "Remove" }));
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("DELETE /relations/1 failed");
-    expect(alert).toHaveStyle({ margin: "8px" });
 
     await view.user.click(within(alert).getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
