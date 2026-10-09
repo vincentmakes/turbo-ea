@@ -1461,3 +1461,38 @@ async def test_import_stores_a_backwards_relation_in_its_type_direction(db):
     )
     assert [(r.source_id, r.target_id) for r in rels] == [(gadget.id, port.id)]
     assert rels[0].attributes == {"flowDirection": "forward"}
+
+
+async def test_card_reference_survives_export_and_reimport(db):
+    """``reference`` was in ``CARD_COLUMNS`` and read by the applier, but the
+    exporter never wrote it: a moved or restored card lost its human-readable
+    id. Every card column now comes off the card."""
+    user = await create_user(db, email="ref@test.com", role="admin")
+    await create_card_type(db, key="Application", label="Application")
+    await create_card(
+        db,
+        card_type="Application",
+        name="Billing",
+        user_id=user.id,
+        attributes={"criticality": "high"},
+    )
+    card = (await db.execute(select(Card).where(Card.name == "Billing"))).scalar_one()
+    card.reference = "APP-0042"
+    card.alias = "BIL"
+    card.external_id = "ext-7"
+    await db.flush()
+
+    raw = await build_bundle(db)
+    row = next(r for r in parse_bundle(raw).rows(schema.SHEET_CARDS) if r["name"] == "Billing")
+    assert (row["reference"], row["alias"], row["external_id"]) == ("APP-0042", "BIL", "ext-7")
+
+    await db.execute(delete(Card).where(Card.name == "Billing"))
+    await db.flush()
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    restored = (await db.execute(select(Card).where(Card.name == "Billing"))).scalar_one()
+    assert (restored.reference, restored.alias, restored.external_id) == (
+        "APP-0042",
+        "BIL",
+        "ext-7",
+    )

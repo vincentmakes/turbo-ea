@@ -157,27 +157,18 @@ def _mime_ext(mime: str | None) -> str:
     return _MIME_EXT.get((mime or "").lower(), "bin")
 
 
-def _card_ref(card: Card, by_id: dict[Any, Card]) -> str:
-    """Full ``parent_path / name`` ref for a card (root→name, escaped)."""
-    segments: list[str] = []
-    seen: set[Any] = set()
-    current = by_id.get(card.parent_id) if card.parent_id else None
-    while current is not None and current.id not in seen and len(segments) < schema.MAX_PATH_DEPTH:
-        seen.add(current.id)
-        segments.insert(0, current.name)
-        current = by_id.get(current.parent_id) if current.parent_id else None
-    return schema.build_ref_string(segments, card.name)
+def _card_record(card: Card, by_id: dict[Any, Card]) -> dict[str, Any]:
+    """One ``Cards`` row: every ``CARD_COLUMNS`` column read off the card.
 
-
-def _parent_path_cell(card: Card, by_id: dict[Any, Card]) -> str:
-    segments: list[str] = []
-    seen: set[Any] = set()
-    current = by_id.get(card.parent_id) if card.parent_id else None
-    while current is not None and current.id not in seen and len(segments) < schema.MAX_PATH_DEPTH:
-        seen.add(current.id)
-        segments.insert(0, current.name)
-        current = by_id.get(current.parent_id) if current.parent_id else None
-    return schema.encode_path(segments)
+    Deriving the row from the constant is what makes adding a column to it
+    enough to transfer it (``reference`` was listed, read by the applier and
+    never written until 2.158.8). ``parent_path`` is the one derived column.
+    """
+    record = {col: getattr(card, col) for col in CARD_COLUMNS if col != "parent_path"}
+    record["parent_path"] = schema.encode_path(schema.ancestor_names(card, by_id))
+    record["lifecycle"] = card.lifecycle or {}
+    record["attributes"] = card.attributes or {}
+    return record
 
 
 async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> bytes:
@@ -292,23 +283,7 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
         card_query = card_query.where(Card.status != "ARCHIVED")
     cards = (await db.execute(card_query)).scalars().all()
     by_id = {c.id: c for c in cards}
-    card_records = [
-        {
-            "type": c.type,
-            "name": c.name,
-            "parent_path": _parent_path_cell(c, by_id),
-            "parent_label": c.parent_label,
-            "subtype": c.subtype,
-            "description": c.description,
-            "external_id": c.external_id,
-            "alias": c.alias,
-            "approval_status": c.approval_status,
-            "status": c.status,
-            "lifecycle": c.lifecycle or {},
-            "attributes": c.attributes or {},
-        }
-        for c in cards
-    ]
+    card_records = [_card_record(c, by_id) for c in cards]
     _emit(schema.SHEET_CARDS, CARD_COLUMNS, CARD_JSON, card_records)
 
     # --- Card tags ------------------------------------------------------
@@ -324,7 +299,7 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
         card_tag_records.append(
             {
                 "card_type": card.type,
-                "card_ref": _card_ref(card, by_id),
+                "card_ref": entities.build_card_ref(card, by_id),
                 "group_name": group.name if group else "",
                 "tag_name": tag.name,
             }
@@ -343,9 +318,9 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
             {
                 "type": rel.type,
                 "source_type": src.type,
-                "source_ref": _card_ref(src, by_id),
+                "source_ref": entities.build_card_ref(src, by_id),
                 "target_type": tgt.type,
-                "target_ref": _card_ref(tgt, by_id),
+                "target_ref": entities.build_card_ref(tgt, by_id),
                 "description": rel.description,
                 "attributes": rel.attributes or {},
             }
@@ -372,7 +347,7 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
             {
                 "diagram_id": str(row.diagram_id),
                 "card_type": card.type,
-                "card_ref": _card_ref(card, full_card_map),
+                "card_ref": entities.build_card_ref(card, full_card_map),
             }
         )
     bundle_io.write_sheet(
