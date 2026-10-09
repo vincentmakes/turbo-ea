@@ -174,6 +174,33 @@ describe("EaDeliveryReport — the dialogs' starting state", () => {
     expect(captured.LinkDiagramsDialog.diagrams).toEqual(DIAGRAMS);
     expect(captured.LinkDiagramsDialog.linkInitiativeId).toBe("init-1");
   });
+
+  it("hands an already-open dialog the workspace's data as soon as it arrives", async () => {
+    renderPage({ withData: false });
+    await call("NewArtefactSplitButton", "onSelect", "soaw");
+    expect(captured.CreateSoAWDialog.initiatives).toEqual([]);
+
+    act(() => {
+      (captured.InitiativesTab.onDataReady as Fn)({ initiatives: INITIATIVES, diagrams: DIAGRAMS, refetch });
+    });
+    expect(captured.CreateSoAWDialog.initiatives).toEqual(INITIATIVES);
+    expect(captured.LinkDiagramsDialog.initiatives).toEqual(INITIATIVES);
+    expect(captured.LinkDiagramsDialog.diagrams).toEqual(DIAGRAMS);
+  });
+
+  it("follows a refresh of the workspace data while the link dialog is open", async () => {
+    renderPage();
+    await call("InitiativesTab", "onLinkDiagrams", "init-1");
+    const refreshed = [...DIAGRAMS, { id: "d4", name: "New one", card_ids: [] }];
+    const more = [...INITIATIVES, { id: "init-2", name: "Data Platform", type: "Initiative" }];
+
+    act(() => {
+      (captured.InitiativesTab.onDataReady as Fn)({ initiatives: more, diagrams: refreshed, refetch });
+    });
+    expect(captured.LinkDiagramsDialog.diagrams).toEqual(refreshed);
+    expect(captured.LinkDiagramsDialog.initiatives).toEqual(more);
+    expect(captured.CreateSoAWDialog.initiatives).toEqual(more);
+  });
 });
 
 describe("EaDeliveryReport — initiative selection in the URL", () => {

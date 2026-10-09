@@ -705,12 +705,13 @@ describe("TurboLensArchitect — resuming an assessment from a link", () => {
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\?tab=architect$/));
     expect(screen.getByTestId("navigation-type")).toHaveTextContent("REPLACE");
 
-    // `assessmentSaved` is not pinned: it currently drops back to false here.
+    // The resumed assessment is the saved one: it stays saved.
     expect(storedSession()).toEqual({
       ...FULL,
       assessmentId: "as-9",
-      assessmentSaved: expect.any(Boolean),
+      assessmentSaved: true,
     });
+    expect(screen.getByRole("button", { name: /Assessment saved/ })).toBeDisabled();
   });
 
   it("fills in defaults for everything an older snapshot does not carry", async () => {
@@ -872,17 +873,17 @@ describe("TurboLensArchitect — proposed relations by name", () => {
     ]);
   });
 
-  it("leaves an end the AI did not name blank instead of borrowing another card's name", () => {
+  it("does not list a relation the AI left without an end, as the diagram draws none for it", () => {
     startAt(5, {
       capabilityMapping: {
         ...MAPPING,
-        proposedRelations: [{ sourceId: "pc-1", relationType: "relAppToBC" }],
+        proposedRelations: [{ sourceId: "pc-1", relationType: "relAppToBC" }, MAPPING.proposedRelations[0]],
       },
     });
 
     const heading = screen.getByText(/Proposed New Relations \(1\)/);
     const panel = heading.closest(".MuiPaper-root") as HTMLElement;
     const ends = Array.from(panel.querySelectorAll(".MuiTypography-caption")).map((el) => el.textContent);
-    expect(ends).toEqual(["FraudShield", ""]);
+    expect(ends).toEqual(["FraudShield", "Fraud Detection"]);
   });
 });

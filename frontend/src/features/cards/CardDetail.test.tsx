@@ -177,7 +177,7 @@ beforeEach(() => {
       [APPLICATION_TYPE, BUSINESS_PROCESS_TYPE].find((t) => t.key === key),
     getRelationsForType: () => [],
     invalidateCache: vi.fn(),
-  });
+  } as unknown as ReturnType<typeof useMetamodel>);
 
   vi.mocked(useCalculatedFields).mockReturnValue({
     calculatedFields: {},
@@ -186,10 +186,12 @@ beforeEach(() => {
   });
 
   vi.mocked(useCurrency).mockReturnValue({
-    fmt: (v: number) => `$${v}`,
+    currency: "USD",
+    fmt: { format: (v: number) => `$${v}` },
     fmtShort: (v: number) => `$${v}`,
     symbol: "$",
     loading: false,
+    invalidate: vi.fn(),
   });
 });
 

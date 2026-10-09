@@ -487,6 +487,48 @@ describe("RelationTypeValuesDialog details", () => {
     expect(within(dialog).getByLabelText("Label")).toHaveAttribute("aria-invalid", "true");
     expect(saveButton()).toBeDisabled();
   });
+
+  it("flags, without crashing, a stored custom row that has a valid key but no label", () => {
+    const { dialog } = renderDialog(
+      makeRelationType({
+        key: "relNoLabel",
+        source_type_key: "Application",
+        target_type_key: "Application",
+        attributes_schema: [
+          makeField({
+            key: "tier",
+            label: undefined as unknown as string,
+            type: "single_select",
+            options: [makeOption({ key: "gold", label: undefined as unknown as string })],
+          }),
+        ],
+      }),
+    );
+    expect(within(dialog).getByLabelText(DIM_NAME)).toHaveAttribute("aria-invalid", "true");
+    expect(within(dialog).getByLabelText("Label")).toHaveAttribute("aria-invalid", "true");
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it("flags, without crashing, a stored custom value with a valid key but no label", () => {
+    const { dialog } = renderDialog(
+      makeRelationType({
+        key: "relNoValueLabel",
+        source_type_key: "Application",
+        target_type_key: "Application",
+        attributes_schema: [
+          makeField({
+            key: "tier",
+            label: "Tier",
+            type: "single_select",
+            options: [makeOption({ key: "gold", label: undefined as unknown as string })],
+          }),
+        ],
+      }),
+    );
+    expect(within(dialog).getByLabelText(DIM_NAME)).toHaveAttribute("aria-invalid", "false");
+    expect(within(dialog).getByLabelText("Label")).toHaveAttribute("aria-invalid", "true");
+    expect(saveButton()).toBeDisabled();
+  });
 });
 
 describe("RelationTypeValuesDialog lifecycle and saving", () => {

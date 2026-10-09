@@ -38,6 +38,7 @@ import CommitInitiativeDialog from "./CommitInitiativeDialog";
 import {
   urgencyColor,
   effortColor,
+  effortLabel,
   approachColor,
   ARCHITECT_STEPS,
   phaseToStepIndex,
@@ -587,7 +588,9 @@ function GapsView({
                         )}
                         {rec.integrationEffort && (
                           <Chip
-                            label={`${rec.integrationEffort} ${t("turbolens_arch_effort")}`}
+                            label={t("turbolens_arch_effort_chip", {
+                              effort: effortLabel(t, rec.integrationEffort),
+                            })}
                             size="small"
                             color={effortColor(rec.integrationEffort)}
                             variant="outlined"
@@ -674,6 +677,23 @@ interface ArchSession {
   assessmentSaved?: boolean;
 }
 
+/** What "the wizard changed materially" compares: a change re-enables Save. */
+function wizardSnapshot(
+  archPhase: number,
+  selectedOptionId: string | null,
+  capabilityMapping: CapabilityMappingResult | null,
+  selectedRecs: Set<string>,
+  selectedDeps: Set<string>,
+): string {
+  return JSON.stringify({
+    archPhase,
+    selectedOptionId,
+    capabilityMapping,
+    sr: Array.from(selectedRecs),
+    sd: Array.from(selectedDeps),
+  });
+}
+
 function loadSession(): ArchSession | null {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
@@ -696,6 +716,9 @@ export default function TurboLensArchitect() {
   const [archReq, setArchReq] = useState(saved?.archReq ?? "");
   const [archPhase, setArchPhase] = useState(saved?.archPhase ?? 0);
   const [archLoading, setArchLoading] = useState(false);
+  // The phase whose AI call is running — `archPhase` still names the one
+  // on screen (Analyze Capabilities runs phase 3 from phase 2).
+  const [runningPhase, setRunningPhase] = useState<number | null>(null);
   const [archQuestions, setArchQuestions] = useState<ArchQA[]>(
     saved?.archQuestions ?? [],
   );
@@ -802,13 +825,13 @@ export default function TurboLensArchitect() {
   // Reset assessmentSaved when wizard state changes materially
   const prevSnapshotRef = useRef("");
   useEffect(() => {
-    const snapshot = JSON.stringify({
+    const snapshot = wizardSnapshot(
       archPhase,
       selectedOptionId,
       capabilityMapping,
-      sr: Array.from(selectedRecs),
-      sd: Array.from(selectedDeps),
-    });
+      selectedRecs,
+      selectedDeps,
+    );
     if (prevSnapshotRef.current && prevSnapshotRef.current !== snapshot) {
       setAssessmentSaved(false);
     }
@@ -862,6 +885,8 @@ export default function TurboLensArchitect() {
         );
         if (resp.status === "committed" || !resp.session_data) return;
         const sd = resp.session_data;
+        const recs = new Set(sd.selectedRecs ?? []);
+        const deps = new Set(sd.selectedDeps ?? []);
         setArchReq(sd.archReq ?? "");
         setArchPhase(sd.archPhase ?? 0);
         setArchQuestions(sd.archQuestions ?? []);
@@ -872,12 +897,21 @@ export default function TurboLensArchitect() {
         setSelectedObjectives(sd.selectedObjectives ?? []);
         setSelectedCapabilities(sd.selectedCapabilities ?? []);
         setGapResult(sd.gapResult ?? null);
-        setSelectedRecs(new Set(sd.selectedRecs ?? []));
+        setSelectedRecs(recs);
         setDepsResult(sd.depsResult ?? null);
-        setSelectedDeps(new Set(sd.selectedDeps ?? []));
+        setSelectedDeps(deps);
         setCapabilityMapping(sd.capabilityMapping ?? null);
         setAssessmentId(resp.id);
         setAssessmentSaved(true);
+        // The loaded state IS the saved one: make it the baseline, so the
+        // change check does not read the load itself as an unsaved edit.
+        prevSnapshotRef.current = wizardSnapshot(
+          sd.archPhase ?? 0,
+          sd.selectedOptionId ?? null,
+          sd.capabilityMapping ?? null,
+          recs,
+          deps,
+        );
         // Clear the resume param so it doesn't re-trigger
         setSearchParams((prev) => {
           const next = new URLSearchParams(prev);
@@ -891,9 +925,13 @@ export default function TurboLensArchitect() {
   }, [resumeId, setSearchParams]);
 
   // Build merged dependency graph from existing + proposed
-  const buildMergedGraph = useCallback((): { nodes: GNode[]; edges: GEdge[] } => {
-    if (!capabilityMapping) return { nodes: [], edges: [] };
-    const existing = capabilityMapping.existingDependencies;
+  const buildMergedGraph = useCallback((mapping: CapabilityMappingResult): {
+    nodes: GNode[];
+    edges: GEdge[];
+    /** The name of the node a relation end is drawn to, if it is drawn at all. */
+    nameOf: (refId: string | undefined) => string | undefined;
+  } => {
+    const existing = mapping.existingDependencies;
     const nodeMap = new Map<string, GNode>();
 
     // Add existing nodes
@@ -913,7 +951,7 @@ export default function TurboLensArchitect() {
 
     // Add proposed cards as nodes with proposed=true (skip disabled)
     const disabledIds = new Set<string>();
-    for (const card of capabilityMapping.proposedCards) {
+    for (const card of mapping.proposedCards) {
       if (card.disabled) {
         disabledIds.add(card.id);
         continue;
@@ -929,7 +967,7 @@ export default function TurboLensArchitect() {
     }
 
     // Add capabilities as nodes (new ones are proposed)
-    for (const cap of capabilityMapping.capabilities) {
+    for (const cap of mapping.capabilities) {
       const id = cap.existingCardId || cap.id;
       if (!nodeMap.has(id)) {
         nodeMap.set(id, {
@@ -955,28 +993,31 @@ export default function TurboLensArchitect() {
       }
     }
 
+    const resolveId = (refId: string | undefined): string | undefined => {
+      // An end that is not set resolves to nothing — it must not match a
+      // capability or card whose existingCardId is unset too.
+      if (!refId) return undefined;
+      // Check capabilities by id or existingCardId
+      const cap = mapping.capabilities.find(
+        (c) => c.id === refId || c.existingCardId === refId,
+      );
+      if (cap) return cap.existingCardId || cap.id;
+      // Check proposedCards by existingCardId (handles dedup remapping)
+      const pc = mapping.proposedCards.find(
+        (c) => c.existingCardId === refId,
+      );
+      if (pc) return pc.id;
+      // Otherwise the id names its own node, if it is drawn at all.
+      return refId;
+    };
+
     // Proposed relations as edges — enforce metamodel source/target direction
-    for (const rel of capabilityMapping.proposedRelations) {
+    for (const rel of mapping.proposedRelations) {
       // Skip relations involving disabled cards
       if (disabledIds.has(rel.sourceId) || disabledIds.has(rel.targetId)) continue;
-      const resolveId = (refId: string): string => {
-        // Check capabilities by id or existingCardId
-        const cap = capabilityMapping.capabilities.find(
-          (c) => c.id === refId || c.existingCardId === refId,
-        );
-        if (cap) return cap.existingCardId || cap.id;
-        // Check proposedCards by existingCardId (handles dedup remapping)
-        const pc = capabilityMapping.proposedCards.find(
-          (c) => c.existingCardId === refId,
-        );
-        if (pc) return pc.id;
-        // If the ID is in the nodeMap already, use it directly
-        if (nodeMap.has(refId)) return refId;
-        return refId;
-      };
       let sid = resolveId(rel.sourceId);
       let tid = resolveId(rel.targetId);
-      if (!nodeMap.has(sid) || !nodeMap.has(tid)) continue;
+      if (!sid || !tid || !nodeMap.has(sid) || !nodeMap.has(tid)) continue;
 
       // Look up metamodel relation type to enforce correct direction
       const rt = relationTypes.find((r) => r.key === rel.relationType);
@@ -1009,10 +1050,16 @@ export default function TurboLensArchitect() {
       (n) => !n.proposed || connectedIds.has(n.id),
     );
 
-    return { nodes: filteredNodes, edges };
-  }, [capabilityMapping, relationTypes]);
+    const nameOf = (refId: string | undefined): string | undefined => {
+      const id = resolveId(refId);
+      return id ? nodeMap.get(id)?.name : undefined;
+    };
 
-  // Comprehensive name lookup for relation display (covers all ID sources)
+    return { nodes: filteredNodes, edges, nameOf };
+  }, [relationTypes]);
+
+  // Names a relation end the diagram does not draw — a switched-off card's
+  // end, named after the card itself (covers all ID sources).
   const relationNameMap = useMemo(() => {
     const map = new Map<string, string>();
     if (!capabilityMapping) return map;
@@ -1061,6 +1108,7 @@ export default function TurboLensArchitect() {
   };
 
   const runPhase = async (phase: number) => {
+    setRunningPhase(phase);
     setArchLoading(true);
     setError("");
     try {
@@ -1254,6 +1302,7 @@ export default function TurboLensArchitect() {
     setDepsResult(null);
     setSelectedDeps(new Set());
     setCapabilityMapping(null);
+    setRunningPhase(3.5);
     setArchLoading(true);
     setError("");
     try {
@@ -1860,10 +1909,10 @@ export default function TurboLensArchitect() {
                       </Box>
                     )}
 
-                    {(qType === "text" ||
-                      (!hasOptions &&
-                        qType !== "choice" &&
-                        qType !== "multi")) && (
+                    {/* Free text unless the question renders as choices:
+                        a choice/multi question without options, or a type
+                        the wizard has no widget for, is answered in words. */}
+                    {!((qType === "choice" || qType === "multi") && hasOptions) && (
                       <TextField
                         value={q.answer}
                         onChange={(e) => handleAnswerChange(i, e.target.value)}
@@ -2212,7 +2261,9 @@ export default function TurboLensArchitect() {
                                     )}
                                     {opt.integrationEffort && (
                                       <Chip
-                                        label={`${t("turbolens_arch_effort")}: ${opt.integrationEffort}`}
+                                        label={t("turbolens_arch_effort_option_chip", {
+                                          effort: effortLabel(t, opt.integrationEffort),
+                                        })}
                                         size="small"
                                         color={effortColor(opt.integrationEffort)}
                                         sx={{ fontSize: 10, height: 20 }}
@@ -2261,7 +2312,12 @@ export default function TurboLensArchitect() {
           !archLoading &&
           capabilityMapping &&
           (() => {
-            const merged = buildMergedGraph();
+            const merged = buildMergedGraph(capabilityMapping);
+            // A relation missing an end is not a relation: the diagram draws
+            // nothing for it, and neither does the list.
+            const listedRelations = capabilityMapping.proposedRelations.filter(
+              (rel) => rel.sourceId && rel.targetId,
+            );
             return (
               <>
                 {capabilityMapping.summary && (
@@ -2548,7 +2604,7 @@ export default function TurboLensArchitect() {
                 </Grid>
 
                 {/* Proposed relations */}
-                {capabilityMapping.proposedRelations.length > 0 && (
+                {listedRelations.length > 0 && (
                   <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
                     <Typography
                       variant="subtitle2"
@@ -2564,20 +2620,25 @@ export default function TurboLensArchitect() {
                         }}
                       />
                       {t("turbolens_architect_proposed_relations")} (
-                      {capabilityMapping.proposedRelations.length})
+                      {listedRelations.length})
                     </Typography>
                     <Stack spacing={0.3}>
-                      {capabilityMapping.proposedRelations.map((rel, i) => {
+                      {listedRelations.map((rel, i) => {
                         const srcCard = capabilityMapping.proposedCards.find(
                           (c) => c.id === rel.sourceId,
                         );
                         const tgtCard = capabilityMapping.proposedCards.find(
                           (c) => c.id === rel.targetId,
                         );
+                        // Named after the node the diagram draws each end to.
                         const srcName =
-                          relationNameMap.get(rel.sourceId) ?? rel.sourceId;
+                          merged.nameOf(rel.sourceId) ??
+                          relationNameMap.get(rel.sourceId) ??
+                          rel.sourceId;
                         const tgtName =
-                          relationNameMap.get(rel.targetId) ?? rel.targetId;
+                          merged.nameOf(rel.targetId) ??
+                          relationNameMap.get(rel.targetId) ??
+                          rel.targetId;
                         const relDisabled =
                           srcCard?.disabled || tgtCard?.disabled;
                         return (
@@ -2586,6 +2647,7 @@ export default function TurboLensArchitect() {
                             direction="row"
                             spacing={0.5}
                             alignItems="center"
+                            data-testid="proposed-relation"
                             sx={{
                               opacity: relDisabled ? 0.4 : 1,
                               textDecoration: relDisabled
@@ -2707,11 +2769,15 @@ export default function TurboLensArchitect() {
           <Box sx={{ display: "flex", alignItems: "center", gap: 2, py: 3 }}>
             <CircularProgress size={24} />
             <Typography variant="body2" color="text.secondary">
-              {archPhase < 3
-                ? t("turbolens_architect_loading")
-                : selectedOptionId
-                  ? t("turbolens_architect_analyzing_gaps")
-                  : t("turbolens_architect_generating_options")}
+              {runningPhase === 3
+                ? t("turbolens_architect_generating_options")
+                : runningPhase === 4
+                  ? t("turbolens_architect_analyzing_deps")
+                  : runningPhase === 5
+                    ? t("turbolens_architect_analyzing_capabilities")
+                    : archPhase < 3
+                      ? t("turbolens_architect_loading")
+                      : t("turbolens_architect_analyzing_gaps")}
             </Typography>
           </Box>
         )}

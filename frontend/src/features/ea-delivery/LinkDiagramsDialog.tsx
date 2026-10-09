@@ -154,6 +154,8 @@ export default function LinkDiagramsDialog({
                       </ListItemIcon>
                       <ListItemText
                         primary={d.name}
+                        // The chips are <div>s, which a <p> may not contain.
+                        slotProps={{ secondary: { component: "div" } }}
                         secondary={
                           linkedNames.length > 0 ? (
                             <Box

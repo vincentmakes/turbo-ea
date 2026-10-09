@@ -213,6 +213,8 @@ describe("MitigationTasksPanel — rendering", () => {
     mockApi.fail("get", "/risks/r1/mitigation-tasks", 403, "no");
     renderPanel();
     expect(await screen.findByRole("alert")).toHaveTextContent("GET /risks/r1/mitigation-tasks failed");
+    // A failed load is not an empty list.
+    expect(screen.queryByText(/No mitigation tasks yet/)).not.toBeInTheDocument();
   });
 
   it("disables every write control when the risk is closed or the viewer cannot manage", async () => {

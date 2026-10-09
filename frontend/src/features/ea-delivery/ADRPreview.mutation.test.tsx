@@ -265,6 +265,8 @@ describe("ADRPreview — signature block", () => {
     expect(pendingCard).toHaveStyle({ borderColor: "rgba(0, 0, 0, 0.12)" });
     expect(pendingCard).toHaveStyle({ backgroundColor: "rgba(0, 0, 0, 0.04)" });
     expect(signedCard).not.toHaveStyle({ backgroundColor: "rgba(0, 0, 0, 0.04)" });
+    // The signed card is tinted with the theme's success colour.
+    expect(signedCard).toHaveStyle({ backgroundColor: "rgba(46, 125, 50, 0.08)" });
   });
 });
 

@@ -11,8 +11,8 @@
  * The Layered Dependency View is stubbed (it has its own test); the stub
  * records the nodes and edges it is handed.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useLocation, useNavigate } from "react-router";
 import type { GEdge, GNode } from "@/features/reports/layeredDependencyLayout";
@@ -36,6 +36,7 @@ import { hookState, withMetamodel } from "@/test/hooks";
 import { CARD_TYPES, RELATION_TYPES } from "@/test/fixtures/metamodel";
 import { renderWithProviders, wrapWithProviders } from "@/test/render";
 import { resetPageTitle, usePageTitleSlots } from "@/hooks/usePageTitle";
+import i18n from "@/i18n";
 import type { TurboLensAssessment } from "@/types";
 import AssessmentViewer from "./AssessmentViewer";
 
@@ -233,6 +234,13 @@ describe("AssessmentViewer — loading and errors", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Assessment not found");
   });
+
+  it("falls back to the generic message when the load fails with something that is not an Error", async () => {
+    mockApi.on("get", URL_A1, () => Promise.reject("offline"));
+    renderViewer();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/^Failed to load assessment$/);
+  });
 });
 
 describe("AssessmentViewer — a saved assessment", () => {
@@ -328,7 +336,7 @@ describe("AssessmentViewer — a saved assessment", () => {
     expect(within(einstein).getByText("+ Integrated")).toBeInTheDocument();
     expect(within(einstein).getByText("- Costly")).toBeInTheDocument();
     expect(within(einstein).getByText("$50k/yr")).toBeInTheDocument();
-    expect(within(einstein).getByText("low effort")).toBeInTheDocument();
+    expect(within(einstein).getByText("Low effort")).toBeInTheDocument();
     const madkudu = within(lead).getByText("MadKudu").closest(".MuiPaper-root") as HTMLElement;
     expect(within(madkudu).queryByText("Selected")).not.toBeInTheDocument();
 
@@ -358,7 +366,7 @@ describe("AssessmentViewer — a saved assessment", () => {
     expect(within(okta).getByText("+ Mature")).toBeInTheDocument();
     expect(within(okta).getByText("- Price")).toBeInTheDocument();
     expect(within(okta).getByText("$10k/yr")).toBeInTheDocument();
-    expect(within(okta).getByText("medium effort")).toBeInTheDocument();
+    expect(within(okta).getByText("Medium effort")).toBeInTheDocument();
     const entra = within(idp).getByText("Entra ID").closest(".MuiPaper-root") as HTMLElement;
     expect(within(entra).getByText("Selected")).toBeInTheDocument();
 
@@ -394,7 +402,7 @@ describe("AssessmentViewer — a saved assessment", () => {
 
     const rels = panelOf(/^Proposed New Relations/);
     expect(within(rels).getByText(/^Proposed New Relations/)).toHaveTextContent("Proposed New Relations (6)");
-    const lines = Array.from(rels.querySelectorAll(".MuiStack-root .MuiStack-root")).map((l) => l.textContent);
+    const lines = within(rels).getAllByTestId("proposed-relation").map((l) => l.textContent);
     expect(lines).toEqual([
       "Sales Cloudarrow_forwardKafkauses",
       // Names resolve through the existing graph, capability and proposed-card ids.
@@ -628,6 +636,111 @@ describe("AssessmentViewer — loading by route", () => {
     expect(await screen.findByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
     expect(mockApi.callsOf("get").map((c) => c.path)).toEqual([URL_A1, "/turbolens/assessments/a-2"]);
   });
+
+  function Jump() {
+    const navigate = useNavigate();
+    return <button onClick={() => navigate("/turbolens/assessments/a-2")}>jump</button>;
+  }
+
+  function renderWithJump() {
+    return renderWithProviders(
+      <>
+        <AssessmentViewer />
+        <Jump />
+      </>,
+      { route: "/turbolens/assessments/a-1", routes: [{ path: "/turbolens/assessments/:id" }] },
+    );
+  }
+
+  it("drops a failed load's error once the route moves to an assessment that loads", async () => {
+    mockApi.fail("get", URL_A1, 404, "Not found");
+    mockApi.on("get", "/turbolens/assessments/a-2", assessment({ id: "a-2", title: "Second assessment" }));
+    const { user } = renderWithJump();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(`GET ${URL_A1} failed`);
+    await user.click(screen.getByRole("button", { name: "jump" }));
+    expect(await screen.findByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows the assessment the route names when the one it left answers last", async () => {
+    let answerFirst: (v: TurboLensAssessment) => void = () => {};
+    mockApi.on("get", URL_A1, () => new Promise<TurboLensAssessment>((r) => (answerFirst = r)));
+    mockApi.on("get", "/turbolens/assessments/a-2", assessment({ id: "a-2", title: "Second assessment" }));
+    const { user } = renderWithJump();
+
+    await waitFor(() => expect(mockApi.callsOf("get", URL_A1)).toHaveLength(1));
+    await user.click(screen.getByRole("button", { name: "jump" }));
+    expect(await screen.findByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
+    // The assessment it left answers only now, and changes nothing.
+    await act(async () => answerFirst(assessment()));
+    expect(screen.getByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "CRM replacement" })).not.toBeInTheDocument();
+  });
+
+  it("keeps loading while the assessment the route names is on its way, whatever the one it left does", async () => {
+    let answerFirst: (v: TurboLensAssessment) => void = () => {};
+    let answerSecond: (v: TurboLensAssessment) => void = () => {};
+    mockApi.on("get", URL_A1, () => new Promise<TurboLensAssessment>((r) => (answerFirst = r)));
+    mockApi.on("get", "/turbolens/assessments/a-2", () => new Promise<TurboLensAssessment>((r) => (answerSecond = r)));
+    const { user } = renderWithJump();
+
+    await waitFor(() => expect(mockApi.callsOf("get", URL_A1)).toHaveLength(1));
+    await user.click(screen.getByRole("button", { name: "jump" }));
+    await waitFor(() => expect(mockApi.callsOf("get", "/turbolens/assessments/a-2")).toHaveLength(1));
+
+    await act(async () => answerFirst(assessment()));
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+
+    await act(async () => answerSecond(assessment({ id: "a-2", title: "Second assessment" })));
+    expect(await screen.findByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
+  });
+
+  it("drops the assessment it left, title and tab subject, when the next one cannot be loaded", async () => {
+    mockApi.on("get", URL_A1, assessment());
+    let failSecond: (err: Error) => void = () => {};
+    mockApi.on(
+      "get",
+      "/turbolens/assessments/a-2",
+      () => new Promise<TurboLensAssessment>((_, reject) => (failSecond = reject)),
+    );
+    const { user } = renderWithProviders(
+      <>
+        <AssessmentViewer />
+        <Jump />
+        <Probe />
+      </>,
+      { route: "/turbolens/assessments/a-1", routes: [{ path: "/turbolens/assessments/:id" }] },
+    );
+
+    await screen.findByRole("heading", { name: "CRM replacement" });
+    await waitFor(() => expect(screen.getByTestId("subject")).toHaveTextContent("CRM replacement"));
+    await user.click(screen.getByRole("button", { name: "jump" }));
+    // While the next one is on its way, the tab no longer names the one it left.
+    await waitFor(() => expect(mockApi.callsOf("get", "/turbolens/assessments/a-2")).toHaveLength(1));
+    await waitFor(() => expect(screen.getByTestId("subject")).toHaveTextContent(/^$/));
+
+    await act(async () => failSecond(new Error("Gone")));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Gone");
+    expect(screen.queryByText("CRM replacement")).not.toBeInTheDocument();
+    expect(screen.getByTestId("subject")).toHaveTextContent(/^$/);
+  });
+
+  it("ignores a failure of the assessment it left", async () => {
+    let failFirst: (err: Error) => void = () => {};
+    mockApi.on("get", URL_A1, () => new Promise<TurboLensAssessment>((_, reject) => (failFirst = reject)));
+    mockApi.on("get", "/turbolens/assessments/a-2", assessment({ id: "a-2", title: "Second assessment" }));
+    const { user } = renderWithJump();
+
+    await waitFor(() => expect(mockApi.callsOf("get", URL_A1)).toHaveLength(1));
+    await user.click(screen.getByRole("button", { name: "jump" }));
+    expect(await screen.findByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
+
+    await act(async () => failFirst(new Error("late failure")));
+    expect(screen.getByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });
 
 describe("AssessmentViewer — header states", () => {
@@ -778,8 +891,8 @@ describe("AssessmentViewer — merged graph edge cases", () => {
     mockApi.on("get", URL_A1, assessment({ session_data: { capabilityMapping: MAPPING_NO_DEPS } }));
     renderViewer();
 
-    const rels = (await screen.findByText(/^Proposed New Relations/)).closest(".MuiPaper-outlined") as HTMLElement;
-    const lines = Array.from(rels.querySelectorAll(".MuiStack-root .MuiStack-root")).map((l) => l.textContent);
+    await screen.findByText(/^Proposed New Relations/);
+    const lines = screen.getAllByTestId("proposed-relation").map((l) => l.textContent);
     expect(lines.slice(0, 2)).toEqual(["Gatewayarrow_forwardPayments", "Ledgerarrow_forwardPayments"]);
   });
 
@@ -805,5 +918,198 @@ describe("AssessmentViewer — merged graph edge cases", () => {
 
     expect(await screen.findByTestId("ldv")).toHaveTextContent("1 nodes / 0 edges");
     expect(ldv.props?.nodes.map((n) => n.id)).toEqual(["app-live"]);
+  });
+});
+
+describe("AssessmentViewer — states in the user's language", () => {
+  afterEach(async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en");
+    });
+  });
+
+  async function inGerman() {
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+  }
+
+  it("says it is loading", async () => {
+    await inGerman();
+    mockApi.on("get", URL_A1, () => new Promise(() => {}));
+    renderViewer();
+
+    expect(screen.getByText("Wird geladen...")).toBeInTheDocument();
+    expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
+  });
+
+  it("names a failed load with no message of its own", async () => {
+    await inGerman();
+    mockApi.on("get", URL_A1, () => Promise.reject(new Error("")));
+    renderViewer();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Bewertung konnte nicht geladen werden");
+  });
+
+  it("says the assessment was not found", async () => {
+    await inGerman();
+    mockApi.on("get", URL_A1, null);
+    renderViewer();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Bewertung nicht gefunden");
+  });
+
+  it("names a product's and a dependency option's integration effort", async () => {
+    await inGerman();
+    mockApi.on("get", URL_A1, assessment());
+    renderViewer();
+
+    const einstein = (await screen.findByText("Einstein")).closest(".MuiPaper-root") as HTMLElement;
+    expect(within(einstein).getByText("Aufwand: Niedrig")).toBeInTheDocument();
+    const okta = screen.getByText("Okta").closest(".MuiPaper-root") as HTMLElement;
+    expect(within(okta).getByText("Aufwand: Mittel")).toBeInTheDocument();
+    expect(screen.queryByText(/ effort$/)).not.toBeInTheDocument();
+  });
+});
+
+describe("AssessmentViewer — an integration effort the AI named otherwise", () => {
+  it("shows it as it came", async () => {
+    const gaps = SESSION.gapResult.gaps;
+    const deps = SESSION.depsResult.dependencies;
+    mockApi.on(
+      "get",
+      URL_A1,
+      assessment({
+        session_data: {
+          ...SESSION,
+          gapResult: {
+            ...SESSION.gapResult,
+            gaps: [{ ...gaps[0], recommendations: [{ name: "Einstein", integrationEffort: "extreme" }] }],
+          },
+          depsResult: {
+            ...SESSION.depsResult,
+            dependencies: [{ ...deps[0], options: [{ name: "Okta", integrationEffort: "trivial" }] }],
+          },
+        },
+      }),
+    );
+    renderViewer();
+
+    const einstein = (await screen.findByText("Einstein")).closest(".MuiPaper-root") as HTMLElement;
+    expect(within(einstein).getByText("extreme effort")).toBeInTheDocument();
+    const okta = screen.getByText("Okta").closest(".MuiPaper-root") as HTMLElement;
+    expect(within(okta).getByText("trivial effort")).toBeInTheDocument();
+  });
+});
+
+describe("AssessmentViewer — relation ends the graph cannot place", () => {
+  /** The relation list's lines, as text. */
+  async function relationLines(): Promise<(string | null)[]> {
+    await screen.findByText(/^Proposed New Relations/);
+    return screen.getAllByTestId("proposed-relation").map((l) => l.textContent);
+  }
+
+  it("names a relation's end after the node the diagram draws it to", async () => {
+    // "pc-crm" stands for the landscape's "app-crm" under another name; a
+    // relation addressing "app-crm" is drawn to the proposal's node.
+    mockApi.on(
+      "get",
+      URL_A1,
+      assessment({
+        session_data: {
+          capabilityMapping: {
+            capabilities: [{ id: "cap-new", name: "Lead Scoring", isNew: true }],
+            proposedCards: [
+              { id: "pc-crm", name: "CRM (proposed)", cardTypeKey: "Application", isNew: false, existingCardId: "app-crm" },
+            ],
+            proposedRelations: [{ sourceId: "app-crm", targetId: "cap-new", relationType: "relAppToBC" }],
+            existingDependencies: { nodes: [{ id: "app-crm", name: "Salesforce", type: "Application" }], edges: [] },
+          },
+        },
+      }),
+    );
+    renderViewer();
+
+    expect(await relationLines()).toEqual(["CRM (proposed)arrow_forwardLead Scoring"]);
+    const props = ldv.props;
+    if (!props) throw new Error("LayeredDependencyView was not rendered");
+    expect(props.edges.map((e) => [e.source, e.target])).toEqual([["pc-crm", "cap-new"]]);
+    expect(props.nodes.find((n) => n.id === "pc-crm")?.name).toBe("CRM (proposed)");
+  });
+
+  it("draws no edge for a relation that is missing an end", async () => {
+    mockApi.on(
+      "get",
+      URL_A1,
+      assessment({
+        session_data: {
+          capabilityMapping: {
+            capabilities: [{ id: "cap-new", name: "Lead Scoring", isNew: true }],
+            proposedCards: [{ id: "pc-app", name: "Gateway", cardTypeKey: "Application", isNew: true }],
+            proposedRelations: [
+              { sourceId: "pc-app", relationType: "relAppToBC" },
+              { targetId: "pc-app", relationType: "relAppToITC" },
+              { sourceId: "pc-app", targetId: "", relationType: "relAppToBC" },
+            ],
+          },
+        },
+      }),
+    );
+    renderViewer();
+
+    expect(await screen.findByTestId("ldv")).toHaveTextContent("2 nodes / 0 edges");
+    expect(ldv.props?.edges).toEqual([]);
+  });
+
+  it("draws no edge from an end that is not a node of the diagram", async () => {
+    mockApi.on(
+      "get",
+      URL_A1,
+      assessment({
+        session_data: {
+          capabilityMapping: {
+            capabilities: [{ id: "cap-new", name: "Lead Scoring", isNew: true }],
+            proposedCards: [{ id: "pc-app", name: "Gateway", cardTypeKey: "Application", isNew: true }],
+            proposedRelations: [
+              { sourceId: "ghost-card", targetId: "cap-new", relationType: "relAppToBC" },
+              { sourceId: "pc-app", targetId: "cap-new", relationType: "relAppToBC" },
+            ],
+          },
+        },
+      }),
+    );
+    renderViewer();
+
+    expect(await screen.findByTestId("ldv")).toHaveTextContent("2 nodes / 1 edges");
+    expect(ldv.props?.edges.map((e) => [e.source, e.target])).toEqual([["pc-app", "cap-new"]]);
+  });
+
+  it("does not take a missing end for a card that came back without an id", async () => {
+    // The AI listed a landscape card without its id: a relation missing an end
+    // must still be dropped, not drawn to that card.
+    mockApi.on(
+      "get",
+      URL_A1,
+      assessment({
+        session_data: {
+          capabilityMapping: {
+            capabilities: [{ id: "cap-new", name: "Lead Scoring", isNew: true }],
+            proposedCards: [
+              { id: "pc-app", name: "Gateway", cardTypeKey: "Application", isNew: true },
+              { name: "Legacy Billing", cardTypeKey: "Application", isNew: false },
+            ],
+            proposedRelations: [
+              { targetId: "cap-new", relationType: "relAppToBC" },
+              { sourceId: "pc-app", relationType: "relAppToITC" },
+              { sourceId: "pc-app", targetId: "cap-new", relationType: "relAppToBC" },
+            ],
+          },
+        },
+      }),
+    );
+    renderViewer();
+
+    expect(await screen.findByTestId("ldv")).toHaveTextContent("3 nodes / 1 edges");
+    expect(ldv.props?.edges.map((e) => [e.source, e.target])).toEqual([["pc-app", "cap-new"]]);
   });
 });

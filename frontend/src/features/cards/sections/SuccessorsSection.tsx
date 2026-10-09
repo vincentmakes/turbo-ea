@@ -26,7 +26,8 @@ import { hasTypePermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
-import { api } from "@/api/client";
+import { api, isAbortError } from "@/api/client";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
 import type { Card, Relation } from "@/types";
 import { findSuccessorRelationType } from "@/lib/successorRelation";
 
@@ -51,6 +52,8 @@ function SuccessorsSection({
   const [relations, setRelations] = useState<Relation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // A failed load: shown instead of the lists, whose empty hints would lie.
+  const [loadError, setLoadError] = useState("");
 
   // Add dialog state
   const [addMode, setAddMode] = useState<"successor" | "predecessor" | null>(null);
@@ -65,19 +68,31 @@ function SuccessorsSection({
   const [createName, setCreateName] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
 
+  // Through the request hook, like the other sections' loads: a reload after a
+  // write that lands late must not overwrite the list a newer one fetched.
+  const listRequest = useLatestRequest();
   const loadRelations = useCallback(() => {
-    if (!successorRT) {
-      setLoading(false);
-      return;
-    }
-    api
-      .get<Relation[]>(`/relations?card_id=${card.id}&type=${successorRT.key}`)
-      .then((rels) => {
+    // Nothing is rendered without the relation type, and it may yet arrive
+    // with the metamodel: the lineage is still to be loaded then.
+    if (!successorRT) return;
+    void listRequest.run(async ({ signal, isCurrent }) => {
+      try {
+        const rels = await api.get<Relation[]>(
+          `/relations?card_id=${card.id}&type=${successorRT.key}`,
+          // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
+          { signal },
+        );
+        if (!isCurrent()) return;
         setRelations(rels);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [card.id, successorRT]);
+        setLoadError("");
+      } catch (err) {
+        if (!isCurrent() || isAbortError(err)) return;
+        setLoadError(err instanceof Error ? err.message : t("common:errors.generic"));
+      } finally {
+        if (isCurrent()) setLoading(false);
+      }
+    });
+  }, [listRequest, card.id, successorRT, t]);
 
   useEffect(loadRelations, [loadRelations]);
 
@@ -153,11 +168,17 @@ function SuccessorsSection({
   };
 
   const handleRemove = async (relId: string) => {
-    await api.delete(`/relations/${relId}`);
-    loadRelations();
+    try {
+      setError("");
+      await api.delete(`/relations/${relId}`);
+      loadRelations();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
+    }
   };
 
   const closeDialog = () => {
+    setError("");
     setAddMode(null);
     setSelected(null);
     setSearch("");
@@ -195,6 +216,8 @@ function SuccessorsSection({
         )}
         {loading ? (
           <LinearProgress />
+        ) : loadError ? (
+          <Alert severity="error">{loadError}</Alert>
         ) : (
           <Box>
             {/* Predecessors */}

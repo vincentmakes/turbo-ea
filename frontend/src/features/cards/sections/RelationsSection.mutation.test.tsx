@@ -678,6 +678,17 @@ describe("RelationsSection — props that change after mount", () => {
     expect(mockApi.callsOf("get", `/relations?card_id=${FS}`)).toHaveLength(2);
   });
 
+  it("drops a load error once a refresh loads the relations", async () => {
+    mockApi.fail("get", `/relations?card_id=${FS}`, 500);
+    const view = mount();
+    expect(await screen.findByRole("alert")).toHaveTextContent(`GET /relations?card_id=${FS} failed`);
+
+    routeRelations([rel("1", "Finance")]);
+    view.rerenderWith({ refreshKey: 1 });
+    expect(await screen.findByText("Finance")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("refreshes the card through the latest onCardUpdate", async () => {
     let rows = [rel("1", "Finance"), rel("2", "Legal")];
     mockApi.on("get", `/relations?card_id=${FS}`, () => rows);
@@ -691,7 +702,7 @@ describe("RelationsSection — props that change after mount", () => {
     await screen.findByText("Finance");
 
     view.rerenderWith({ onCardUpdate: second });
-    await view.user.click(within(rowOf("Finance")).getByRole("button", { name: /^close$/ }));
+    await view.user.click(within(rowOf("Finance")).getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(second).toHaveBeenCalledTimes(1));
     expect(first).not.toHaveBeenCalled();
   });
@@ -777,5 +788,112 @@ describe("RelationsSection — relation types without a group of their own", () 
     expect(await screen.findByText("is used by")).toBeInTheDocument();
     await settle();
     expect(screen.queryByRole("button", { name: /Add Relation/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("RelationsSection — load state and the header count", () => {
+  function headerCount(): HTMLElement | null {
+    const header = screen.getByText("Relations").parentElement as HTMLElement;
+    return header.querySelector(".MuiChip-root");
+  }
+
+  it("shows no error while the relations load, then counts them in the header", async () => {
+    let release!: (rows: Relation[]) => void;
+    mockApi.on(
+      "get",
+      `/relations?card_id=${FS}`,
+      () => new Promise<Relation[]>((resolve) => (release = resolve)),
+    );
+    mount();
+    await waitFor(() => expect(mockApi.callsOf("get", `/relations?card_id=${FS}`)).toHaveLength(1));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("is used by")).toBeInTheDocument();
+
+    await act(async () => release([rel("1", "Finance"), rel("2", "Legal")]));
+    expect(await screen.findByText("Finance")).toBeInTheDocument();
+    const count = headerCount();
+    expect(count).toHaveTextContent("2");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows no count in the header when the relations cannot be loaded", async () => {
+    mockApi.fail("get", `/relations?card_id=${FS}`, 500);
+    mount();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      `GET /relations?card_id=${FS} failed`,
+    );
+    expect(headerCount()).toBeNull();
+  });
+
+  it("re-reads the relations from the alert's Retry button", async () => {
+    mockApi.fail("get", `/relations?card_id=${FS}`, 500);
+    const view = mount();
+    const alert = await screen.findByRole("alert");
+
+    routeRelations([rel("1", "Finance")]);
+    await view.user.click(within(alert).getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Finance")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(headerCount()).toHaveTextContent("1");
+    expect(mockApi.callsOf("get", `/relations?card_id=${FS}`)).toHaveLength(2);
+  });
+
+  it("ignores a reload's reply once a newer reload has landed", async () => {
+    routeRelations([rel("1", "Finance")]);
+    const view = mount();
+    expect(await screen.findByText("Finance")).toBeInTheDocument();
+
+    // A refresh (say, after a write) whose answer is slow…
+    let releaseStale!: (rows: Relation[]) => void;
+    mockApi.on(
+      "get",
+      `/relations?card_id=${FS}`,
+      () => new Promise<Relation[]>((resolve) => (releaseStale = resolve)),
+    );
+    await settle(() => view.rerenderWith({ refreshKey: 1 }));
+    // …overtaken by the next refresh.
+    routeRelations([rel("2", "Legal")]);
+    await settle(() => view.rerenderWith({ refreshKey: 2 }));
+    expect(await screen.findByText("Legal")).toBeInTheDocument();
+
+    await settle(() => releaseStale([rel("3", "Stale")]));
+    expect(screen.queryByText("Stale")).not.toBeInTheDocument();
+    expect(screen.getByText("Legal")).toBeInTheDocument();
+  });
+
+  it("ignores a reload's failure once a newer reload has landed", async () => {
+    routeRelations([rel("1", "Finance")]);
+    const view = mount();
+    expect(await screen.findByText("Finance")).toBeInTheDocument();
+
+    let failStale!: (e: unknown) => void;
+    mockApi.on(
+      "get",
+      `/relations?card_id=${FS}`,
+      () => new Promise<Relation[]>((_, reject) => (failStale = reject)),
+    );
+    await settle(() => view.rerenderWith({ refreshKey: 1 }));
+    routeRelations([rel("2", "Legal")]);
+    await settle(() => view.rerenderWith({ refreshKey: 2 }));
+    expect(await screen.findByText("Legal")).toBeInTheDocument();
+
+    await settle(() => failStale(new Error("the stale reload failed")));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("Legal")).toBeInTheDocument();
+  });
+
+  it("closes a failed remove's error from its close button", async () => {
+    routeRelations([rel("1", "Finance")]);
+    mockApi.fail("delete", "/relations/1", 500);
+    const view = mount();
+    await screen.findByText("Finance");
+
+    await view.user.click(within(rowOf("Finance")).getByRole("button", { name: "Remove" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("DELETE /relations/1 failed");
+
+    await view.user.click(within(alert).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("Finance")).toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { configure, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, configure, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { SoAW, SoAWSectionData } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -215,6 +215,27 @@ describe("SoAWEditor — a new document", () => {
     fireEvent.click(saveButton());
     expect(await screen.findByText(t("editor.documentNameRequired"))).toBeInTheDocument();
     expect(mockApi.callsOf("post", "/soaw")).toHaveLength(0);
+  });
+
+  it("creates the document once however fast Save is clicked", async () => {
+    let release: (v: unknown) => void = () => {};
+    mockApi.on("post", "/soaw", () => new Promise((resolve) => (release = resolve)));
+    mockApi.on("get", "/soaw/s-new", (_p) => ({ ...SOAW, id: "s-new", name: "Payments SoAW" }));
+    renderNew();
+    await screen.findByText(t("editor.newTitle"));
+
+    setValue(screen.getByLabelText(new RegExp(`^${t("editor.documentName")}`)), "Payments SoAW");
+    // Both clicks land before React has re-rendered the button disabled.
+    const save = saveButton();
+    act(() => {
+      fireEvent.click(save);
+      fireEvent.click(save);
+    });
+    expect(mockApi.callsOf("post", "/soaw")).toHaveLength(1);
+
+    release({ ...SOAW, id: "s-new", name: "Payments SoAW" });
+    expect(await screen.findByText(t("editor.savedSuccessfully"))).toBeInTheDocument();
+    expect(mockApi.callsOf("post", "/soaw")).toHaveLength(1);
   });
 
   it("creates the document with the default sections, routes to it, then patches it on the next save", async () => {
@@ -616,6 +637,23 @@ describe("SoAWEditor — signatures", () => {
 
     expect(await screen.findByText(t("editor.signatureRecorded"))).toBeInTheDocument();
     expect(screen.getByText(t("editor.signaturesProgress", { signed: 1, total: 2 }))).toBeInTheDocument();
+  });
+
+  it("tints a signed signatory's card with the theme's success colour and greys a pending one", async () => {
+    const other = { ...PENDING_U2, user_id: "u3", display_name: "Linus" };
+    mockApi.on("get", "/soaw/s1", { ...SOAW, status: "in_review", signatories: [SIGNED_U2, other] });
+    renderEdit();
+    await waitForLoaded();
+
+    const signedCard = (await screen.findByText(t("editor.sigApproved"))).closest(
+      ".MuiBox-root",
+    )?.parentElement as HTMLElement;
+    const pendingCard = screen.getByText(t("editor.sigPending")).closest(".MuiBox-root")
+      ?.parentElement as HTMLElement;
+    expect(signedCard).toHaveTextContent("Grace Hopper");
+    expect(pendingCard).toHaveTextContent("Linus");
+    expect(signedCard).toHaveStyle({ backgroundColor: "rgba(46, 125, 50, 0.08)" });
+    expect(pendingCard).toHaveStyle({ backgroundColor: "rgba(0, 0, 0, 0.04)" });
   });
 
   it("rejects with a comment and resets to a new draft revision", async () => {

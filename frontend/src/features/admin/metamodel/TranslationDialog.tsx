@@ -47,10 +47,19 @@ export default function TranslationDialog({
 }: TranslationDialogProps) {
   const { t } = useTranslation(["admin", "common"]);
   const { enabledLocales } = useEnabledLocales();
-  const visibleLocales = SUPPORTED_LOCALES.filter((l) => enabledLocales.includes(l));
-  const [activeLocale, setActiveLocale] = useState<string>(
-    visibleLocales[0] || "en",
+  // Memoised: the completion counts below key on it.
+  const visibleLocales = useMemo(
+    () => SUPPORTED_LOCALES.filter((l) => enabledLocales.includes(l)),
+    [enabledLocales],
   );
+  // The tab the user picked, honoured only while its locale is enabled. Every
+  // row reads and writes `activeLocale`, which is therefore always the tab the
+  // strip shows selected — even when the enabled list arrives (or changes)
+  // after the dialog mounted and leaves the picked locale out.
+  const [pickedLocale, setPickedLocale] = useState<string>(visibleLocales[0] || "en");
+  const activeLocale = visibleLocales.includes(pickedLocale as (typeof visibleLocales)[number])
+    ? pickedLocale
+    : visibleLocales[0] || "en";
   const [translations, setTranslations] = useState<MetamodelTranslations>({});
   const [subtypes, setSubtypes] = useState<SubtypeDef[]>([]);
   const [hierarchyLabels, setHierarchyLabels] = useState<FieldOption[]>([]);
@@ -371,8 +380,8 @@ export default function TranslationDialog({
       {/* Locale tabs — enabled locales only */}
       <Box sx={{ px: 3, borderBottom: 1, borderColor: "divider" }}>
         <Tabs
-          value={visibleLocales.includes(activeLocale as typeof visibleLocales[number]) ? activeLocale : visibleLocales[0] || "en"}
-          onChange={(_, v) => setActiveLocale(v)}
+          value={activeLocale}
+          onChange={(_, v) => setPickedLocale(v)}
           variant="scrollable"
           scrollButtons="auto"
         >

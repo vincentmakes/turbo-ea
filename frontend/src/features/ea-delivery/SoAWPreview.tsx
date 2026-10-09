@@ -12,7 +12,7 @@ import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { buildPreviewBody, exportToPdf, PREVIEW_CSS } from "./soawExport";
@@ -236,7 +236,9 @@ export default function SoAWPreview() {
                     sig.status === "signed" ? "success.light" : "divider",
                   borderRadius: 1,
                   bgcolor:
-                    sig.status === "signed" ? "success.50" : "action.hover",
+                    sig.status === "signed"
+                      ? alpha(theme.palette.success.main, 0.08)
+                      : "action.hover",
                 }}
               >
                 {sig.status === "signed" ? (

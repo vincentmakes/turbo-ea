@@ -8,6 +8,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import { api } from "@/api/client";
+import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import type { SoAW } from "@/types";
 
 interface InitiativeOption {
@@ -49,7 +50,8 @@ export default function CreateSoAWDialog({
   const { t } = useTranslation(["delivery", "common"]);
   const [name, setName] = useState("");
   const [initiativeId, setInitiativeId] = useState(fixedInitiativeId ?? "");
-  const [creating, setCreating] = useState(false);
+  // A second Enter while the POST is in flight must not create a duplicate.
+  const { busy: creating, run: create } = useSubmitOnce();
   const [error, setError] = useState<string | null>(null);
 
   // Reset state every time the dialog opens.
@@ -61,23 +63,21 @@ export default function CreateSoAWDialog({
     }
   }, [open, fixedInitiativeId]);
 
-  const handleCreate = async () => {
-    if (!name.trim()) return;
-    setCreating(true);
-    setError(null);
-    try {
-      const created = await api.post<SoAW>("/soaw", {
-        name: name.trim(),
-        initiative_id: initiativeId || null,
-      });
-      onCreated(created);
-      onClose();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("error.createSoaw"));
-    } finally {
-      setCreating(false);
-    }
-  };
+  const handleCreate = () =>
+    create(async () => {
+      if (!name.trim()) return;
+      setError(null);
+      try {
+        const created = await api.post<SoAW>("/soaw", {
+          name: name.trim(),
+          initiative_id: initiativeId || null,
+        });
+        onCreated(created);
+        onClose();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t("error.createSoaw"));
+      }
+    });
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>

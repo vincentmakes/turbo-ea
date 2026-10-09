@@ -404,7 +404,7 @@ describe("MitigationTasksPanel — refused writes", () => {
     mockApi.on("get", "/risks/r1/mitigation-tasks", [OPEN, SCHEDULED]);
   });
 
-  it("shows why a new task was refused", async () => {
+  it("shows why a new task was refused inside the dialog, which stays open", async () => {
     mockApi.fail("post", "/risks/r1/mitigation-tasks", 422, "bad");
     const { user } = renderPanel();
     await screen.findByText("Review access rights");
@@ -412,31 +412,87 @@ describe("MitigationTasksPanel — refused writes", () => {
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByRole("textbox", { name: /^Title/ }), "Enable MFA");
     await user.click(within(dialog).getByRole("button", { name: "Create task" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("POST /risks/r1/mitigation-tasks failed");
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "POST /risks/r1/mitigation-tasks failed",
+    );
+    expect(screen.getByRole("dialog")).toBe(dialog);
+    expect(within(dialog).getByRole("textbox", { name: /^Title/ })).toHaveValue("Enable MFA");
     expect(listCalls()).toHaveLength(1);
   });
 
-  it("shows why an edit was refused", async () => {
+  it("shows why an edit was refused inside the dialog, which stays open", async () => {
     mockApi.fail("patch", "/mitigation-tasks/t1", 409, "stale");
     const { user } = renderPanel();
     await screen.findByText("Review access rights");
     await user.click(button(rowOf("Review access rights"), "edit")!);
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("PATCH /mitigation-tasks/t1 failed");
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "PATCH /mitigation-tasks/t1 failed",
+    );
+    expect(screen.getByRole("dialog")).toBe(dialog);
+    expect(listCalls()).toHaveLength(1);
   });
 
-  it("shows why completing a cycle was refused, and closes the dialog either way", async () => {
+  it("shows why completing a cycle was refused inside the dialog, which stays open with the notes", async () => {
     mockApi.fail("post", "/mitigation-tasks/t1/occurrences/o1/complete", 403, "not yours");
     const { user } = renderPanel();
     await screen.findByText("Review access rights");
     await user.click(button(rowOf("Review access rights"), "check_circle")!);
     const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByRole("textbox", { name: /Completion notes/ }), "Checked all accounts");
     await user.click(within(dialog).getByRole("button", { name: "Mark done" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
       "POST /mitigation-tasks/t1/occurrences/o1/complete failed",
     );
+    // The typed notes survive, the user can try again, and the panel does not repeat the error.
+    expect(screen.getByRole("dialog")).toBe(dialog);
+    expect(within(dialog).getByRole("textbox", { name: /Completion notes/ })).toHaveValue(
+      "Checked all accounts",
+    );
+    expect(within(dialog).getByRole("button", { name: "Mark done" })).toBeEnabled();
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(listCalls()).toHaveLength(1);
+  });
+
+  it("retries a refused skip with the same notes, then closes", async () => {
+    let refuse = true;
+    mockApi.on("post", "/mitigation-tasks/t1/occurrences/o1/skip", () => {
+      if (refuse) throw new Error("locked");
+      return {};
+    });
+    const { user } = renderPanel();
+    await screen.findByText("Review access rights");
+    await user.click(button(rowOf("Review access rights"), "skip_next")!);
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByRole("textbox", { name: /Completion notes/ }), "Not due");
+    await user.click(within(dialog).getByRole("button", { name: "Skip cycle" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("locked");
+
+    refuse = false;
+    await user.click(within(dialog).getByRole("button", { name: "Skip cycle" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockApi.callsOf("post", "/mitigation-tasks/t1/occurrences/o1/skip").map((c) => c.body)).toEqual([
+      { notes: "Not due" },
+      { notes: "Not due" },
+    ]);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("starts without the previous error when the complete dialog is reopened", async () => {
+    mockApi.fail("post", "/mitigation-tasks/t1/occurrences/o1/complete", 403, "not yours");
+    const { user } = renderPanel();
+    await screen.findByText("Review access rights");
+    await user.click(button(rowOf("Review access rights"), "check_circle")!);
+    let dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Mark done" }));
+    await within(dialog).findByRole("alert");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await user.click(button(rowOf("Review access rights"), "check_circle")!);
+    dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("closes the complete dialog on Cancel without posting", async () => {
