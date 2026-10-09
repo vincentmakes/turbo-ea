@@ -2,6 +2,7 @@
  * Shared utilities for TurboLens feature — color mappers, formatters, types.
  */
 import type { ChipProps } from "@mui/material/Chip";
+import type { TFunction } from "i18next";
 
 // ── Status types ────────────────────────────────────────────────────────
 
@@ -58,6 +59,11 @@ const EFFORT_COLORS: Record<string, ChipColor> = {
 
 export function effortColor(effort: string): ChipColor {
   return EFFORT_COLORS[effort] ?? "default";
+}
+
+/** An effort in the user's language; one the AI named otherwise shows as it came. */
+export function effortLabel(t: TFunction, effort: string): string {
+  return t(`admin:turbolens_effort_${effort}`, { defaultValue: effort });
 }
 
 const VENDOR_TYPE_COLORS: Record<string, ChipColor> = {

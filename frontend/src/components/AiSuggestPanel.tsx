@@ -13,6 +13,7 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { brand, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { AiSuggestResponse, FieldDef, SectionDef } from "@/types";
 
@@ -37,11 +38,11 @@ interface Props {
   fieldsSchema?: SectionDef[];
 }
 
-/** Confidence level label and color */
+/** Confidence badge colour (the badge itself shows the percentage). */
 function confidenceBadge(confidence: number) {
-  if (confidence >= 0.8) return { label: "High", color: STATUS_COLORS.success };
-  if (confidence >= 0.5) return { label: "Medium", color: STATUS_COLORS.warning };
-  return { label: "Low", color: STATUS_COLORS.error };
+  if (confidence >= 0.8) return { color: STATUS_COLORS.success };
+  if (confidence >= 0.5) return { color: STATUS_COLORS.warning };
+  return { color: STATUS_COLORS.error };
 }
 
 /** Resolve a FieldDef from fieldsSchema by key */
@@ -64,6 +65,8 @@ export default function AiSuggestPanel({
   fieldsSchema,
 }: Props) {
   const { t } = useTranslation(["common"]);
+  const fieldLabel = useFieldLabel();
+  const optionLabel = useOptionLabel();
 
   const [editedDescription, setEditedDescription] = useState<string | null>(null);
   const [fieldOverrides, setFieldOverrides] = useState<Record<string, unknown>>({});
@@ -210,7 +213,7 @@ export default function AiSuggestPanel({
           <Box key={key} sx={{ mt: hasDescription ? 2 : 0 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
               <Typography variant="body2" fontWeight={600}>
-                {fieldDef.label}
+                {fieldLabel(fieldDef)}
               </Typography>
               <Tooltip
                 title={`${t("ai.confidence")}: ${Math.round(s.confidence * 100)}%`}
@@ -266,7 +269,7 @@ export default function AiSuggestPanel({
               >
                 {fieldDef.options.map((opt) => (
                   <MenuItem key={opt.key} value={opt.key}>
-                    {opt.label}
+                    {optionLabel(opt)}
                   </MenuItem>
                 ))}
               </TextField>

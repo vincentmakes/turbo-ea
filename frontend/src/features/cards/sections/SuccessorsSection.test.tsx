@@ -111,6 +111,16 @@ beforeEach(() => {
   mockApi.on("delete", "/relations/*", {});
 });
 
+function deferred<T>() {
+  let resolve!: (v: T) => void;
+  let reject!: (e: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 describe("SuccessorsSection", () => {
   it("shows a progress bar until the relations arrive", async () => {
     renderSection();
@@ -175,14 +185,91 @@ describe("SuccessorsSection", () => {
     expect(within(screen.getByText("CRM Cloud").closest("li")!).getByText("category")).toBeInTheDocument();
   });
 
-  it("ends the progress bar when the load fails, and excludes only this card", async () => {
+  it("ends the progress bar and shows the error, not the empty hints, when the load fails", async () => {
     mockApi.fail("get", RELATIONS_URL, 500, "boom");
-    const { user } = renderSection();
+    renderSection();
+    expect(await screen.findByRole("alert")).toHaveTextContent(`GET ${RELATIONS_URL} failed`);
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    // An unknown lineage is not an empty one.
+    expect(screen.queryByText("No predecessors.")).not.toBeInTheDocument();
+    expect(screen.queryByText("No successors.")).not.toBeInTheDocument();
+  });
+
+  it("names a failed load that carries no message", async () => {
+    mockApi.on("get", RELATIONS_URL, () => Promise.reject("boom"));
+    renderSection();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+    expect(screen.queryByText("No predecessors.")).not.toBeInTheDocument();
+  });
+
+  it("drops a load error once the next card's lineage loads", async () => {
+    const other = cardById(CARD_IDS.crm);
+    const otherUrl = `/relations?card_id=${other.id}&type=${SUCCESSOR_RT.key}`;
+    mockApi.fail("get", RELATIONS_URL, 500, "boom");
+    mockApi.on("get", otherUrl, []);
+    const { rerender } = renderWithProviders(<SuccessorsSection card={CARD} />);
+    await screen.findByRole("alert");
+    rerender(wrapWithProviders(<SuccessorsSection card={other} />));
+    expect(await screen.findByText("No predecessors.")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("ignores a late lineage for the card shown before", async () => {
+    const other = cardById(CARD_IDS.crm);
+    const otherUrl = `/relations?card_id=${other.id}&type=${SUCCESSOR_RT.key}`;
+    const late = deferred<Relation[]>();
+    mockApi.on("get", RELATIONS_URL, () => late.promise);
+    mockApi.on("get", otherUrl, []);
+    const { rerender } = renderWithProviders(<SuccessorsSection card={CARD} />);
+    await waitFor(() => expect(mockApi.callsOf("get", RELATIONS_URL)).toHaveLength(1));
+
+    rerender(wrapWithProviders(<SuccessorsSection card={other} />));
+    expect(await screen.findByText("No predecessors.")).toBeInTheDocument();
+
+    await act(async () => late.resolve(RELATIONS));
+    expect(screen.queryByText("ERP Legacy")).not.toBeInTheDocument();
+    expect(screen.getByText("No predecessors.")).toBeInTheDocument();
+  });
+
+  it("ignores a late failure for the card shown before", async () => {
+    const other = cardById(CARD_IDS.crm);
+    const otherUrl = `/relations?card_id=${other.id}&type=${SUCCESSOR_RT.key}`;
+    const late = deferred<Relation[]>();
+    mockApi.on("get", RELATIONS_URL, () => late.promise);
+    mockApi.on("get", otherUrl, []);
+    const { rerender } = renderWithProviders(<SuccessorsSection card={CARD} />);
+    // Nothing has failed yet: no error on the first paint.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await waitFor(() => expect(mockApi.callsOf("get", RELATIONS_URL)).toHaveLength(1));
+
+    rerender(wrapWithProviders(<SuccessorsSection card={other} />));
+    expect(await screen.findByText("No predecessors.")).toBeInTheDocument();
+
+    await act(async () => late.reject(new Error("the first card's lineage failed")));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("No predecessors.")).toBeInTheDocument();
+  });
+
+  it("keeps the progress bar while the next card's lineage loads when the one left settles first", async () => {
+    const other = cardById(CARD_IDS.crm);
+    const otherUrl = `/relations?card_id=${other.id}&type=${SUCCESSOR_RT.key}`;
+    const first = deferred<Relation[]>();
+    const second = deferred<Relation[]>();
+    mockApi.on("get", RELATIONS_URL, () => first.promise);
+    mockApi.on("get", otherUrl, () => second.promise);
+    const { rerender } = renderWithProviders(<SuccessorsSection card={CARD} />);
+    await waitFor(() => expect(mockApi.callsOf("get", RELATIONS_URL)).toHaveLength(1));
+
+    rerender(wrapWithProviders(<SuccessorsSection card={other} />));
+    await waitFor(() => expect(mockApi.callsOf("get", otherUrl)).toHaveLength(1));
+
+    await act(async () => first.resolve(RELATIONS));
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.queryByText("ERP Legacy")).not.toBeInTheDocument();
+
+    await act(async () => second.resolve([]));
     expect(await screen.findByText("No predecessors.")).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Add Successor/ }));
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByTestId("picker-excludes")).toHaveTextContent(new RegExp(`^${CARD.id}$`));
   });
 
   it("re-reads the lineage when the card changes", async () => {
@@ -327,22 +414,24 @@ describe("SuccessorsSection", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("keeps an add error on the section after the dialog is cancelled", async () => {
+  it("drops an add error when the dialog is cancelled", async () => {
     mockApi.fail("post", "/relations", 409, "duplicate");
     const { user } = renderSection();
     await screen.findByText("ERP Legacy");
     await user.click(screen.getByRole("button", { name: /Add Successor/ }));
-    const dialog = await screen.findByRole("dialog");
+    let dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByTestId("card-picker"));
     await user.click(within(dialog).getByRole("button", { name: "Add" }));
-    await within(dialog).findByRole("alert");
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("POST /relations failed");
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
-    const alert = screen.getByRole("alert");
-    expect(alert).toHaveTextContent("POST /relations failed");
-    await user.click(within(alert).getByRole("button", { name: /close/i }));
+    // The abandoned add leaves nothing behind on the section…
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // …nor in the dialog when it is opened again.
+    await user.click(screen.getByRole("button", { name: /Add Successor/ }));
+    dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("starts the dialog afresh after Cancel", async () => {
@@ -537,6 +626,68 @@ describe("SuccessorsSection", () => {
     await user.click(within(row).getByTitle("Remove"));
     await waitFor(() => expect(mockApi.callsOf("delete", "/relations/rel-succ")).toHaveLength(1));
     expect(mockApi.callsOf("delete")).toHaveLength(1);
+  });
+
+  it("shows the error when a remove fails and keeps the row", async () => {
+    mockApi.fail("delete", "/relations/*", 500);
+    const { user } = renderSection();
+    await screen.findByText("ERP Legacy");
+    const row = screen.getByText("ERP Legacy").closest("li") as HTMLElement;
+    await user.click(within(row).getByTitle("Remove"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("DELETE /relations/rel-pred failed");
+    expect(screen.getByText("ERP Legacy")).toBeInTheDocument();
+    expect(mockApi.callsOf("get", RELATIONS_URL)).toHaveLength(1);
+  });
+
+  it("names a failed remove that carries no message", async () => {
+    mockApi.on("delete", "/relations/*", () => Promise.reject("not an Error"));
+    const { user } = renderSection();
+    await screen.findByText("CRM Cloud");
+    const row = screen.getByText("CRM Cloud").closest("li") as HTMLElement;
+    await user.click(within(row).getByTitle("Remove"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+  });
+
+  it("clears a failed remove's error once a remove succeeds", async () => {
+    mockApi.fail("delete", "/relations/*", 500);
+    const { user } = renderSection();
+    await screen.findByText("ERP Legacy");
+    const row = screen.getByText("ERP Legacy").closest("li") as HTMLElement;
+    await user.click(within(row).getByTitle("Remove"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("DELETE /relations/rel-pred failed");
+
+    mockApi.on("delete", "/relations/*", {});
+    await user.click(within(row).getByTitle("Remove"));
+    await waitFor(() => expect(mockApi.callsOf("delete", "/relations/rel-pred")).toHaveLength(2));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+
+  it("shows no error while the lineage loads after the relation types arrive", async () => {
+    // The section first renders before the metamodel carries the successor
+    // relation type, then loads the lineage once it does.
+    withMetamodel(CARD_TYPES, RELATION_TYPES);
+    let release!: (rels: Relation[]) => void;
+    mockApi.on(
+      "get",
+      RELATIONS_URL,
+      () => new Promise<Relation[]>((resolve) => (release = resolve)),
+    );
+    const { rerender } = renderWithProviders(<SuccessorsSection card={CARD} />);
+
+    withMetamodel(CARD_TYPES, [...RELATION_TYPES, SUCCESSOR_RT]);
+    rerender(wrapWithProviders(<SuccessorsSection card={CARD} />));
+    await waitFor(() => expect(mockApi.callsOf("get", RELATIONS_URL)).toHaveLength(1));
+    expect(screen.getByRole("button", { name: /Lineage/ })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // Still loading: a progress bar, not the empty hints of a list not yet read.
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.queryByText("No predecessors.")).not.toBeInTheDocument();
+    expect(screen.queryByText("No successors.")).not.toBeInTheDocument();
+
+    await act(async () => release(RELATIONS));
+    expect(await screen.findByText("ERP Legacy")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
   it("offers no editing controls when the user cannot edit", async () => {

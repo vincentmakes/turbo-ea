@@ -352,10 +352,8 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 
-// The AI button is found by its visible label. Its accessible name currently
-// comes from the tooltip ("Use AI to suggest…"), a label-in-name mismatch
-// (WCAG 2.5.3) that a role+name query would pin.
-const aiButton = () => screen.queryByText("Suggest with AI")?.closest("button") ?? null;
+// Named by its visible label (WCAG 2.5.3); the tooltip only describes it.
+const aiButton = () => screen.queryByRole("button", { name: /Suggest with AI/ });
 
 describe("CreateCardDialog — first paint", () => {
   it("opens already showing the preset type, subtype and attribute values, with nothing else on", () => {
@@ -729,6 +727,81 @@ describe("CreateCardDialog — closing and reopening", () => {
     expect(nameBox()).toHaveValue("Keep");
   });
 
+  it("keeps what was typed on screen while the dialog fades out", async () => {
+    const preset = { initialType: "Widget", initialAttributes: { notes: "Preset" } };
+    const { update } = renderDialog(preset);
+    fireEvent.change(nameBox(), { target: { value: "Thing" } });
+    fireEvent.change(descriptionBox(), { target: { value: "Desc" } });
+    fireEvent.change(screen.getByRole("textbox", { name: /^Notes/ }), { target: { value: "Edited" } });
+
+    update({ ...preset, open: false });
+    // Still mounted for the exit transition, and still showing the form as
+    // the user left it rather than a blanked one.
+    expect(screen.getByDisplayValue("Thing")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Desc")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Edited")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByDisplayValue("Thing")).not.toBeInTheDocument());
+
+    update({ ...preset, open: true });
+    expect(nameBox()).toHaveValue("");
+    expect(descriptionBox()).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: /^Notes/ })).toHaveValue("Preset");
+  });
+
+  it("opens on the initial type the caller holds when it opens, even one changed while closed", () => {
+    const { update } = renderDialog({ initialType: "Widget" });
+    update({ initialType: "Widget", open: false });
+    update({ open: false });
+    update({ open: true });
+    expect(selectValue(/^Type/)).toBe("");
+
+    update({ open: false });
+    update({ initialType: "Gizmo", open: false });
+    update({ initialType: "Gizmo", open: true });
+    expect(selectValue(/^Type/)).toBe("Gizmo");
+  });
+
+  it("says when the tag groups could not be loaded instead of dropping the picker", async () => {
+    mockApi.fail("get", "/tag-groups", 500);
+    renderDialog({ initialType: "Widget" });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Tags could not be loaded: GET /tag-groups failed",
+    );
+    expect(screen.queryByText("pick-tags")).not.toBeInTheDocument();
+  });
+
+  it("keeps the tag picker and says so when reloading the groups fails on reopen", async () => {
+    mockApi.on("get", "/tag-groups", [{ id: "g1", name: "Risk", mode: "multi", tags: [] }]);
+    const { update } = renderDialog({ initialType: "Widget" });
+    expect(await screen.findByText("pick-tags")).toBeInTheDocument();
+
+    mockApi.reset();
+    mockApi.fail("get", "/tag-groups", 503);
+    update({ initialType: "Widget", open: false });
+    update({ initialType: "Widget", open: true });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Tags could not be loaded: GET /tag-groups failed",
+    );
+    expect(screen.getByText("pick-tags")).toBeInTheDocument();
+
+    // A successful reload clears the warning.
+    mockApi.reset();
+    mockApi.on("get", "/tag-groups", [{ id: "g1", name: "Risk", mode: "multi", tags: [] }]);
+    update({ initialType: "Widget", open: false });
+    update({ initialType: "Widget", open: true });
+    await waitFor(() => expect(mockApi.callsOf("get", "/tag-groups")).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(screen.getByText("pick-tags")).toBeInTheDocument();
+  });
+
+  it("uses a generic reason when the tag groups fail with something that is not an Error", async () => {
+    mockApi.on("get", "/tag-groups", () => Promise.reject("nope"));
+    renderDialog({ initialType: "Widget" });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Tags could not be loaded: Something went wrong",
+    );
+  });
+
   it("loads tag groups only while open, and again on every reopen", () => {
     const { update } = renderDialog({ open: false });
     expect(mockApi.callsOf("get", "/tag-groups")).toHaveLength(0);
@@ -901,6 +974,17 @@ describe("CreateCardDialog — AI suggestions", () => {
   });
 
   const suggestButton = aiButton;
+
+  it("names the button by its visible label and keeps the tooltip as its description", async () => {
+    const { user } = renderDialog({ initialType: "Widget" });
+    fireEvent.change(nameBox(), { target: { value: "Gadget" } });
+    const button = screen.getByRole("button", { name: /Suggest with AI/ });
+    expect(button).not.toHaveAccessibleName(/Use AI to suggest/);
+    await user.hover(button);
+    await waitFor(() =>
+      expect(button).toHaveAccessibleDescription("Use AI to suggest a description for this card"),
+    );
+  });
 
   it("offers the button from two trimmed characters on", () => {
     renderDialog({ initialType: "Widget" });
@@ -1095,6 +1179,81 @@ describe("CreateCardDialog — end-of-life auto-search", () => {
     expect(screen.queryByText(/No EOL matches found/)).not.toBeInTheDocument();
   });
 
+  it("does not search again when a suggested match is picked", async () => {
+    deferFuzzy();
+    renderDialog({ initialType: "ITComponent" });
+    typeName("Python");
+    await debounce();
+    await settle("Python", [{ name: "python", score: 0.92 }]);
+    expect(fuzzyCalls()).toEqual([fuzzyPath("Python")]);
+
+    fireEvent.click(screen.getByText("python"));
+    await flush();
+    expect(screen.queryByText(/Searching endoflife\.date/)).not.toBeInTheDocument();
+    expect(fuzzyCalls()).toEqual([fuzzyPath("Python")]);
+    // The picker opened on the match, and the matches are still offered.
+    expect(eolProps()).toHaveAttribute("data-product", "python");
+    fireEvent.click(screen.getByText("eol-close"));
+    expect(screen.getByText("python")).toBeInTheDocument();
+  });
+
+  it("does not claim a name has no match before that name was searched", async () => {
+    renderDialog({ initialType: "ITComponent" });
+    typeName("Go");
+    await debounce();
+    expect(screen.getByText(/No EOL matches found/)).toBeInTheDocument();
+
+    // The verdict was about "Go"; "Gox" is still waiting for its own search.
+    typeName("Gox");
+    expect(screen.queryByText(/No EOL matches found/)).not.toBeInTheDocument();
+    await debounce();
+    expect(fuzzyCalls()).toEqual([fuzzyPath("Go"), fuzzyPath("Gox")]);
+    expect(screen.getByText(/No EOL matches found/)).toBeInTheDocument();
+  });
+
+  it("does not search the previous name again when closed and reopened", async () => {
+    const { update } = renderDialog({ initialType: "ITComponent" });
+    typeName("Node");
+    await debounce();
+    expect(fuzzyCalls()).toEqual([fuzzyPath("Node")]);
+    fireEvent.click(screen.getByRole("button", { name: "Manual Search" }));
+    fireEvent.click(screen.getByText("eol-link"));
+    expect(screen.getByText(/Linked to/)).toBeInTheDocument();
+
+    update({ initialType: "ITComponent", open: false });
+    await flush();
+    update({ initialType: "ITComponent", open: true });
+    await flush();
+    expect(nameBox()).toHaveValue("");
+    expect(screen.queryByText(/Searching endoflife\.date/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Linked to/)).not.toBeInTheDocument();
+
+    await debounce();
+    expect(fuzzyCalls()).toEqual([fuzzyPath("Node")]);
+    typeName("Python");
+    await debounce();
+    expect(fuzzyCalls()).toEqual([fuzzyPath("Node"), fuzzyPath("Python")]);
+  });
+
+  it("drops a search still running when the dialog is closed and reopened", async () => {
+    deferFuzzy();
+    const { update } = renderDialog({ initialType: "ITComponent" });
+    typeName("Node");
+    await debounce();
+    expect(screen.getByText('Searching endoflife.date for "Node"...')).toBeInTheDocument();
+
+    update({ initialType: "ITComponent", open: false });
+    update({ initialType: "ITComponent", open: true });
+    await flush();
+    expect(nameBox()).toHaveValue("");
+    expect(screen.queryByText(/Searching endoflife\.date/)).not.toBeInTheDocument();
+
+    // The old session's answer arriving late does not land in the new form.
+    await settle("Node", [{ name: "nodejs", score: 0.9 }]);
+    expect(screen.queryByText("nodejs")).not.toBeInTheDocument();
+    expect(screen.queryByText(/No EOL matches found/)).not.toBeInTheDocument();
+  });
+
   it("never searches for a type that does not track end of life", async () => {
     renderDialog({ initialType: "Widget" });
     typeName("Python");
@@ -1152,4 +1311,68 @@ describe("CreateCardDialog — end-of-life auto-search", () => {
     expect(screen.queryByText("python")).not.toBeInTheDocument();
     expect(screen.queryByText(/No EOL matches found/)).not.toBeInTheDocument();
   });
+
+  it("shows no search error before a search or after one that finds matches", async () => {
+    renderDialog({ initialType: "ITComponent" });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    mockApi.on("get", /^\/eol\/products\/fuzzy/, [{ name: "python", score: 0.9 }]);
+    typeName("Python");
+    await debounce();
+    expect(screen.getByText("python")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows a failed search's error, spaced, for a name typed with surrounding spaces", async () => {
+    mockApi.on("get", /^\/eol\/products\/fuzzy/, () =>
+      Promise.reject(new Error("endoflife.date unreachable")),
+    );
+    renderDialog({ initialType: "ITComponent" });
+    typeName("  Python  ");
+    await debounce();
+    expect(fuzzyCalls()).toEqual([fuzzyPath("Python")]);
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("endoflife.date unreachable");
+  });
+
+  it("says a name typed with surrounding spaces has no match", async () => {
+    renderDialog({ initialType: "ITComponent" });
+    typeName(" Go ");
+    await debounce();
+    expect(fuzzyCalls()).toEqual([fuzzyPath("Go")]);
+    expect(screen.getByText(/No EOL matches found/)).toBeInTheDocument();
+  });
+
+  it("does not show an earlier failure while a search for the same name runs", async () => {
+    deferFuzzy();
+    renderDialog({ initialType: "ITComponent" });
+    typeName("Python");
+    await debounce();
+    await act(async () => {
+      reply("Python").reject(new Error("endoflife.date unreachable"));
+    });
+    await flush();
+    expect(screen.getByRole("alert")).toHaveTextContent("endoflife.date unreachable");
+
+    // Another name starts a search; going back to the failed name while it
+    // runs must not bring the old error back over the running search.
+    typeName("Pythons");
+    await debounce();
+    typeName("Python");
+    expect(screen.getByText('Searching endoflife.date for "Python"...')).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("does not search while the dialog is closed", async () => {
+    const { update } = renderDialog({ initialType: "ITComponent" });
+    typeName("Node");
+    await debounce();
+    expect(fuzzyCalls()).toEqual([fuzzyPath("Node")]);
+
+    update({ initialType: "ITComponent", open: false });
+    await flush();
+    await debounce();
+    expect(fuzzyCalls()).toEqual([fuzzyPath("Node")]);
+  });
 });
+

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import Alert from "@mui/material/Alert";
 import LinkifiedText from "@/components/LinkifiedText";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
@@ -25,11 +26,15 @@ import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
 import type { RecurrenceUnit, Todo, User } from "@/types";
 import { defaultLeadTimeDays } from "@/lib/recurrence/leadTime";
 import { formatRecurrence, RECURRENCE_UNIT_OPTIONS } from "@/lib/recurrence/recurrenceLabel";
 
 // ── Tab: Todos ──────────────────────────────────────────────────
+// Stryker disable next-line ObjectLiteral: spacing is presentation
+const LOAD_ERROR_SX = { mb: 1 } as const;
+
 function TodosTab({ fsId }: { fsId: string }) {
   const { t } = useTranslation(["cards", "common"]);
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -39,6 +44,14 @@ function TodosTab({ fsId }: { fsId: string }) {
   const [newAssignee, setNewAssignee] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
   const [saving, setSaving] = useState(false);
+  // A failed add is shown in its dialog; a failed list action above the list.
+  const [addError, setAddError] = useState("");
+  const [error, setError] = useState("");
+  // A failed list load: shown instead of the empty state, which would be a lie.
+  const [loadError, setLoadError] = useState("");
+  // Why the people to assign to could not be loaded ("" when it was not an
+  // Error); null when they were. Shown in the Add dialog beside the picker.
+  const [usersError, setUsersError] = useState<string | null>(null);
 
   // Recurrence state for the Add dialog.
   const [recurring, setRecurring] = useState(false);
@@ -47,19 +60,31 @@ function TodosTab({ fsId }: { fsId: string }) {
   const [leadTimeDays, setLeadTimeDays] = useState(defaultLeadTimeDays("months", 1));
   const [leadTimeDirty, setLeadTimeDirty] = useState(false);
 
+  // Keyed on the card and also called after every write: only the newest
+  // load may write the list, so a late reply for the card shown before cannot
+  // replace this card's todos (#882).
+  const listRequest = useLatestRequest();
   const load = useCallback(() => {
-    api
-      .get<Todo[]>(`/cards/${fsId}/todos`)
-      .then(setTodos)
-      .catch(() => {});
-  }, [fsId]);
+    void listRequest.run(async ({ signal, isCurrent }) => {
+      try {
+        // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
+        const rows = await api.get<Todo[]>(`/cards/${fsId}/todos`, { signal });
+        if (!isCurrent()) return;
+        setTodos(rows);
+        setLoadError("");
+      } catch (err: unknown) {
+        if (!isCurrent()) return;
+        setLoadError(err instanceof Error ? err.message : t("common:errors.generic"));
+      }
+    });
+  }, [listRequest, fsId, t]);
   useEffect(load, [load]);
 
   useEffect(() => {
     api
       .get<User[]>("/users")
       .then(setUsers)
-      .catch(() => {});
+      .catch((err: unknown) => setUsersError(err instanceof Error ? err.message : ""));
   }, []);
 
   // Keep the lead-time suggestion in sync with the recurrence rule until the
@@ -78,11 +103,16 @@ function TodosTab({ fsId }: { fsId: string }) {
     setRecurrenceInterval(1);
     setLeadTimeDirty(false);
     setLeadTimeDays(defaultLeadTimeDays("months", 1));
+    setAddError("");
   };
+
+  const errorMessage = (err: unknown) =>
+    err instanceof Error ? err.message : t("common:errors.generic");
 
   const handleAdd = async () => {
     if (!newDesc.trim() || saving) return;
     setSaving(true);
+    setAddError("");
     try {
       const payload: Record<string, unknown> = { description: newDesc };
       if (newAssignee) payload.assigned_to = newAssignee;
@@ -96,6 +126,8 @@ function TodosTab({ fsId }: { fsId: string }) {
       resetDialog();
       setDialogOpen(false);
       load();
+    } catch (err) {
+      setAddError(errorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -103,20 +135,35 @@ function TodosTab({ fsId }: { fsId: string }) {
 
   const toggleStatus = async (todo: Todo) => {
     const newStatus = todo.status === "open" ? "done" : "open";
-    await api.patch(`/todos/${todo.id}`, { status: newStatus });
-    // Reload so a completed recurring todo's freshly-spawned next occurrence
-    // shows up in the list.
-    load();
+    try {
+      await api.patch(`/todos/${todo.id}`, { status: newStatus });
+      setError("");
+      // Reload so a completed recurring todo's freshly-spawned next occurrence
+      // shows up in the list.
+      load();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
   };
 
   const promote = async (todo: Todo) => {
-    await api.post(`/todos/${todo.id}/promote`, {});
-    load();
+    try {
+      await api.post(`/todos/${todo.id}/promote`, {});
+      setError("");
+      load();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
   };
 
   const handleDelete = async (todoId: string) => {
-    await api.delete(`/todos/${todoId}`);
-    load();
+    try {
+      await api.delete(`/todos/${todoId}`);
+      setError("");
+      load();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
   };
 
   const isRecurring = (todo: Todo) => !!todo.recurrence_unit && todo.recurrence_unit !== "none";
@@ -134,6 +181,25 @@ function TodosTab({ fsId }: { fsId: string }) {
           {t("todos.add")}
         </Button>
       </Box>
+      {loadError && (
+        <Alert
+          severity="error"
+          sx={LOAD_ERROR_SX}
+          action={
+            <Button color="inherit" size="small" onClick={load}>
+              {t("common:actions.retry")}
+            </Button>
+          }
+        >
+          {loadError}
+        </Alert>
+      )}
+      {error && (
+        // Stryker disable next-line ObjectLiteral: spacing is presentation
+        <Alert severity="error" onClose={() => setError("")} sx={{ mb: 1 }}>
+          {error}
+        </Alert>
+      )}
       <List dense>
         {todos.map((td) => {
           const scheduled = td.status === "scheduled";
@@ -141,7 +207,11 @@ function TodosTab({ fsId }: { fsId: string }) {
             <ListItem
               key={td.id}
               secondaryAction={
-                <IconButton size="small" onClick={() => handleDelete(td.id)}>
+                <IconButton
+                  size="small"
+                  onClick={() => handleDelete(td.id)}
+                  aria-label={t("common:actions.delete")}
+                >
                   <MaterialSymbol icon="close" size={16} />
                 </IconButton>
               }
@@ -213,10 +283,16 @@ function TodosTab({ fsId }: { fsId: string }) {
                     {td.external_url && (
                       <Chip
                         size="small"
-                        label={td.external_ref ?? td.external_source}
-                        title={t("common:todos.openExternal", {
-                          source: td.external_source ?? "",
-                        })}
+                        label={
+                          td.external_ref ||
+                          td.external_source ||
+                          t("common:actions.openInNewTab")
+                        }
+                        title={
+                          td.external_source
+                            ? t("common:todos.openExternal", { source: td.external_source })
+                            : t("common:actions.openInNewTab")
+                        }
                         icon={<MaterialSymbol icon="open_in_new" size={14} />}
                         variant="outlined"
                         color="primary"
@@ -236,7 +312,7 @@ function TodosTab({ fsId }: { fsId: string }) {
             </ListItem>
           );
         })}
-        {todos.length === 0 && (
+        {todos.length === 0 && !loadError && (
           <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
             {t("todos.empty")}
           </Typography>
@@ -255,6 +331,20 @@ function TodosTab({ fsId }: { fsId: string }) {
       >
         <DialogTitle>{t("todos.add")}</DialogTitle>
         <DialogContent>
+          {addError && (
+            // Stryker disable next-line ObjectLiteral: spacing is presentation
+            <Alert severity="error" onClose={() => setAddError("")} sx={{ mt: 1 }}>
+              {addError}
+            </Alert>
+          )}
+          {usersError !== null && (
+            // Stryker disable next-line ObjectLiteral: spacing is presentation
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {t("todos.usersLoadFailed", {
+                error: usersError || t("common:errors.generic"),
+              })}
+            </Alert>
+          )}
           <TextField
             autoFocus
             label={t("common:labels.description")}

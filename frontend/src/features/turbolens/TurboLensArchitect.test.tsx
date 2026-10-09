@@ -829,7 +829,7 @@ describe("TurboLensArchitect — product selection (phase 3b)", () => {
       "+ Real-time scoring",
       "- Costly",
       "$150k/yr",
-      "low effort",
+      "Low effort",
       "SaaS",
       "Subscription",
     ]) {
@@ -914,7 +914,7 @@ describe("TurboLensArchitect — dependencies (phase 3c)", () => {
       "+ Mature SSO",
       "- Per-seat cost",
       "$20k",
-      "effort: medium",
+      "effort: Medium",
     ]) {
       expect(screen.getByText(text)).toBeInTheDocument();
     }
