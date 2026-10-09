@@ -299,9 +299,8 @@ describe("TurboLensArchitect — the loading line of the later steps", () => {
 describe("TurboLensArchitect — naming a proposed relation's ends", () => {
   /** The proposed-relations list's lines, as text. */
   function relationLines(): (string | null)[] {
-    const heading = screen.getByText(/^Proposed New Relations/);
-    const rels = heading.closest(".MuiPaper-outlined") as HTMLElement;
-    return Array.from(rels.querySelectorAll(".MuiStack-root .MuiStack-root")).map((l) => l.textContent);
+    screen.getByText(/^Proposed New Relations/);
+    return screen.getAllByTestId("proposed-relation").map((l) => l.textContent);
   }
 
   it("names each end after the node the diagram draws it to", () => {
@@ -428,9 +427,8 @@ describe("TurboLensArchitect — relation ends the diagram cannot place", () => 
 
     expect(lastLdv().edges.map((e) => [e.source, e.target])).toEqual([["pc-1", "cap-new-1"]]);
     const heading = screen.getByText(/^Proposed New Relations/);
-    const rels = heading.closest(".MuiPaper-outlined") as HTMLElement;
     expect(heading).toHaveTextContent("Proposed New Relations (1)");
-    expect(Array.from(rels.querySelectorAll(".MuiStack-root .MuiStack-root")).map((l) => l.textContent)).toEqual([
+    expect(screen.getAllByTestId("proposed-relation").map((l) => l.textContent)).toEqual([
       "FraudShieldarrow_forwardFraud Detection",
     ]);
   });

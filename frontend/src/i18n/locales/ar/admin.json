@@ -1325,6 +1325,7 @@
   "turbolens_vendor_category": "الفئة",
   "turbolens_vendor_apps": "التطبيقات",
   "turbolens_vendor_cost": "التكلفة السنوية",
+  "turbolens_vendor_uncategorized": "غير مصنّف",
   "turbolens_run_duplicate_detection": "تشغيل اكتشاف التكرارات",
   "turbolens_no_duplicate_data": "لا توجد بيانات تكرارات. شغّل الاكتشاف أولاً.",
   "turbolens_analysis_started": "بدأ التحليل",

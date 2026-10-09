@@ -1325,6 +1325,7 @@
   "turbolens_vendor_category": "Kategori",
   "turbolens_vendor_apps": "Applikationer",
   "turbolens_vendor_cost": "Årlig omkostning",
+  "turbolens_vendor_uncategorized": "Ukategoriseret",
   "turbolens_run_duplicate_detection": "Kør dubletdetektion",
   "turbolens_no_duplicate_data": "Ingen dubletdata. Kør detektion først.",
   "turbolens_analysis_started": "Analyse startet",

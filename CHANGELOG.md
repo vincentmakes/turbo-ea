@@ -5,11 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.157.5] - 2026-10-08
+## [2.157.6] - 2026-10-09
 
 ### Fixed
 - TurboLens: a failed load of vendors, resolution or duplicates shows the error instead of "Run an analysis".
-- TurboLens: an integration drawn right to left keeps its arrowhead on its real target, and a bidirectional one has arrowheads at both ends.
+- TurboLens: an integration drawn right to left within one layer is now drawn at all, and one drawn bottom-to-top or right-to-left keeps its arrowhead on its real target instead of pointing at the wrong component. (An integration the AI marks bidirectional would get arrowheads at both ends; the analysis prompt does not currently emit that value.)
 - TurboLens: every counted modernization opportunity is listed, and the "unknown" type filter shows the untyped entries.
 - TurboLens Architect: a question with no usable options can be answered in free text, so the round can always be submitted, and an assessment resumed by link reads as saved.
 - TurboLens: the diagram badges, counts and assessment viewer messages are translated, with plurals.

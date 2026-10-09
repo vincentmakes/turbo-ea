@@ -1325,6 +1325,7 @@
   "turbolens_vendor_category": "类别",
   "turbolens_vendor_apps": "应用程序",
   "turbolens_vendor_cost": "年度费用",
+  "turbolens_vendor_uncategorized": "未分类",
   "turbolens_run_duplicate_detection": "运行重复检测",
   "turbolens_no_duplicate_data": "无重复数据。请先运行检测。",
   "turbolens_analysis_started": "分析已启动",

@@ -2647,6 +2647,7 @@ export default function TurboLensArchitect() {
                             direction="row"
                             spacing={0.5}
                             alignItems="center"
+                            data-testid="proposed-relation"
                             sx={{
                               opacity: relDisabled ? 0.4 : 1,
                               textDecoration: relDisabled

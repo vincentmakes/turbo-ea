@@ -1325,6 +1325,7 @@
   "turbolens_vendor_category": "Catégorie",
   "turbolens_vendor_apps": "Applications",
   "turbolens_vendor_cost": "Coût annuel",
+  "turbolens_vendor_uncategorized": "Non catégorisé",
   "turbolens_run_duplicate_detection": "Lancer la détection des doublons",
   "turbolens_no_duplicate_data": "Aucun doublon détecté. Lancez la détection d'abord.",
   "turbolens_analysis_started": "Analyse lancée",

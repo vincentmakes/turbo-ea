@@ -1325,6 +1325,7 @@
   "turbolens_vendor_category": "Категория",
   "turbolens_vendor_apps": "Приложения",
   "turbolens_vendor_cost": "Годовая стоимость",
+  "turbolens_vendor_uncategorized": "Без категории",
   "turbolens_run_duplicate_detection": "Запустить обнаружение дубликатов",
   "turbolens_no_duplicate_data": "Нет данных о дубликатах. Сначала запустите обнаружение.",
   "turbolens_analysis_started": "Анализ запущен",

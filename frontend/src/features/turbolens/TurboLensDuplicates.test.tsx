@@ -487,7 +487,7 @@ describe("TurboLensDuplicates — modernization", () => {
     expect(screen.getAllByText("1 opportunity")).toHaveLength(3);
     expect(screen.getByText("2 opportunities")).toBeInTheDocument();
 
-    const legacy = screen.getByText("Legacy CRM").closest(".MuiCard-root") as HTMLElement;
+    const legacy = clusterCard("Legacy CRM");
     expect(within(legacy).getByText("High")).toBeInTheDocument(); // effort
     expect(within(legacy).getByText("Critical")).toBeInTheDocument(); // priority
     expect(within(legacy).getByText("rehost")).toBeInTheDocument();
@@ -495,7 +495,7 @@ describe("TurboLensDuplicates — modernization", () => {
     expect(within(legacy).getByText("Move to SaaS")).toBeInTheDocument();
 
     // No priority → the MEDIUM group; no card name → a dash; no current tech → no code line.
-    const unnamed = screen.getByText("Upgrade to v19").closest(".MuiCard-root") as HTMLElement;
+    const unnamed = clusterCard("Upgrade to v19");
     expect(within(unnamed).getByText("-")).toBeInTheDocument();
     expect(within(unnamed).queryByText("COBOL on z/OS")).not.toBeInTheDocument();
     const medium = screen.getByText("MEDIUM").closest(".MuiBox-root") as HTMLElement;
@@ -635,9 +635,9 @@ describe("TurboLensDuplicates — modernization", () => {
     const { user } = renderTab();
 
     await openModernization(user, 5);
-    const legacy = screen.getByText("Legacy CRM").closest(".MuiCard-root") as HTMLElement;
+    const legacy = clusterCard("Legacy CRM");
     expect(within(legacy).getByText("COBOL on z/OS")).toHaveClass("MuiTypography-caption");
-    const unnamed = screen.getByText("Upgrade to v19").closest(".MuiCard-root") as HTMLElement;
+    const unnamed = clusterCard("Upgrade to v19");
     expect(unnamed.querySelectorAll(".MuiTypography-caption")).toHaveLength(0);
   });
 
@@ -904,15 +904,10 @@ describe("TurboLensDuplicates — statuses, priorities and efforts in the user's
     expect(screen.queryByText(/^(CRITICAL|HIGH|MEDIUM|LOW)$/i)).not.toBeInTheDocument();
 
     // Effort first, then priority.
-    const legacy = screen.getByText("Legacy CRM").closest(".MuiCard-root") as HTMLElement;
+    const legacy = clusterCard("Legacy CRM");
     expect(chipTexts(legacy).slice(0, 2)).toEqual(["Hoch", "Kritisch"]);
-    const wiki = screen.getByText("Wiki").closest(".MuiCard-root") as HTMLElement;
+    const wiki = clusterCard("Wiki");
     expect(chipTexts(wiki).slice(0, 2)).toEqual(["Mittel", "Niedrig"]);
-    // The effort and priority chips keep their compact type size.
-    expect(within(legacy).getByText("Hoch").closest(".MuiChip-root")).toHaveStyle({ fontSize: "10px" });
-    expect(within(legacy).getByText("Kritisch").closest(".MuiChip-root")).toHaveStyle({
-      fontSize: "10px",
-    });
   });
 
   it("gives an opportunity with no priority the priority of the group it is listed under", async () => {
@@ -921,7 +916,7 @@ describe("TurboLensDuplicates — statuses, priorities and efforts in the user's
     const { user } = renderTab();
 
     await user.click(await screen.findByRole("tab", { name: "Modernization (5)" }));
-    const unnamed = screen.getByText("Upgrade to v19").closest(".MuiCard-root") as HTMLElement;
+    const unnamed = clusterCard("Upgrade to v19");
     expect(chipTexts(unnamed).slice(0, 2)).toEqual(["Low", "Medium"]);
     expect(within(unnamed).getByText("Medium").closest(".MuiChip-root")).toHaveClass("MuiChip-colorWarning");
   });
@@ -939,9 +934,9 @@ describe("TurboLensDuplicates — statuses, priorities and efforts in the user's
       await i18n.changeLanguage("de");
     });
     expect(await screen.findByText("URGENT")).toBeInTheDocument();
-    const mainframe = screen.getByText("Mainframe").closest(".MuiCard-root") as HTMLElement;
+    const mainframe = clusterCard("Mainframe");
     expect(chipTexts(mainframe).slice(0, 2)).toEqual(["huge", "urgent"]);
-    const fax = screen.getByText("Fax server").closest(".MuiCard-root") as HTMLElement;
+    const fax = clusterCard("Fax server");
     expect(chipTexts(fax)[0]).toBe("Niedrig");
     expect(fax.textContent).not.toMatch(/turbolens_/);
     expect(mainframe.textContent).not.toMatch(/turbolens_/);

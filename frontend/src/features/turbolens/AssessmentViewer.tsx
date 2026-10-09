@@ -476,6 +476,7 @@ export default function AssessmentViewer() {
                                     <Chip label={rec.estimatedCost} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />
                                   )}
                                   {rec.integrationEffort && (
+                                    // Stryker disable next-line ObjectLiteral: the chip's compact size is presentation
                                     <Chip label={t("turbolens_arch_effort_chip", { effort: effortLabel(t, rec.integrationEffort) })} size="small" color={effortColor(rec.integrationEffort)} variant="outlined" sx={{ fontSize: 10, height: 20 }} />
                                   )}
                                 </Stack>
@@ -579,6 +580,7 @@ export default function AssessmentViewer() {
                                     <Chip label={opt.estimatedCost} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />
                                   )}
                                   {opt.integrationEffort && (
+                                    // Stryker disable next-line ObjectLiteral: the chip's compact size is presentation
                                     <Chip label={t("turbolens_arch_effort_chip", { effort: effortLabel(t, opt.integrationEffort) })} size="small" color={effortColor(opt.integrationEffort)} variant="outlined" sx={{ fontSize: 10, height: 20 }} />
                                   )}
                                 </Stack>
@@ -665,7 +667,13 @@ export default function AssessmentViewer() {
                     const srcName = merged.nameOf(rel.sourceId) ?? rel.sourceId;
                     const tgtName = merged.nameOf(rel.targetId) ?? rel.targetId;
                     return (
-                      <Stack key={i} direction="row" spacing={0.5} alignItems="center">
+                      <Stack
+                        key={i}
+                        direction="row"
+                        spacing={0.5}
+                        alignItems="center"
+                        data-testid="proposed-relation"
+                      >
                         <Typography variant="caption">{srcName}</Typography>
                         <MaterialSymbol icon="arrow_forward" size={12} color="#999" />
                         <Typography variant="caption">{tgtName}</Typography>

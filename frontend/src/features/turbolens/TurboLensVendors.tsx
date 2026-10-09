@@ -56,7 +56,7 @@ function groupByCategory(
 export default function TurboLensVendors() {
   const { t } = useTranslation("admin");
   // One label for a vendor without a category: grid, filter and table alike.
-  const uncategorized = t("metamodel.uncategorized");
+  const uncategorized = t("turbolens_vendor_uncategorized");
   const [vendors, setVendors] = useState<TurboLensVendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [analysing, setAnalysing] = useState(false);

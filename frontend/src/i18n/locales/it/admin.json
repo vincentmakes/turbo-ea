@@ -1325,6 +1325,7 @@
   "turbolens_vendor_category": "Categoria",
   "turbolens_vendor_apps": "Applicazioni",
   "turbolens_vendor_cost": "Costo annuale",
+  "turbolens_vendor_uncategorized": "Non categorizzato",
   "turbolens_run_duplicate_detection": "Avvia rilevamento duplicati",
   "turbolens_no_duplicate_data": "Nessun dato sui duplicati. Avvia prima il rilevamento.",
   "turbolens_analysis_started": "Analisi avviata",

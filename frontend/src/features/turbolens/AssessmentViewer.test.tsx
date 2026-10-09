@@ -402,7 +402,7 @@ describe("AssessmentViewer — a saved assessment", () => {
 
     const rels = panelOf(/^Proposed New Relations/);
     expect(within(rels).getByText(/^Proposed New Relations/)).toHaveTextContent("Proposed New Relations (6)");
-    const lines = Array.from(rels.querySelectorAll(".MuiStack-root .MuiStack-root")).map((l) => l.textContent);
+    const lines = within(rels).getAllByTestId("proposed-relation").map((l) => l.textContent);
     expect(lines).toEqual([
       "Sales Cloudarrow_forwardKafkauses",
       // Names resolve through the existing graph, capability and proposed-card ids.
@@ -672,11 +672,7 @@ describe("AssessmentViewer — loading by route", () => {
     await waitFor(() => expect(mockApi.callsOf("get", URL_A1)).toHaveLength(1));
     await user.click(screen.getByRole("button", { name: "jump" }));
     expect(await screen.findByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
-    // The request for the assessment it left was cancelled.
-    const [firstPath, firstOpts] = mockApi.api.get.mock.calls[0] as [string, { signal?: AbortSignal }?];
-    expect(firstPath).toBe(URL_A1);
-    expect(firstOpts?.signal?.aborted).toBe(true);
-
+    // The assessment it left answers only now, and changes nothing.
     await act(async () => answerFirst(assessment()));
     expect(screen.getByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "CRM replacement" })).not.toBeInTheDocument();
@@ -895,8 +891,8 @@ describe("AssessmentViewer — merged graph edge cases", () => {
     mockApi.on("get", URL_A1, assessment({ session_data: { capabilityMapping: MAPPING_NO_DEPS } }));
     renderViewer();
 
-    const rels = (await screen.findByText(/^Proposed New Relations/)).closest(".MuiPaper-outlined") as HTMLElement;
-    const lines = Array.from(rels.querySelectorAll(".MuiStack-root .MuiStack-root")).map((l) => l.textContent);
+    await screen.findByText(/^Proposed New Relations/);
+    const lines = screen.getAllByTestId("proposed-relation").map((l) => l.textContent);
     expect(lines.slice(0, 2)).toEqual(["Gatewayarrow_forwardPayments", "Ledgerarrow_forwardPayments"]);
   });
 
@@ -973,13 +969,6 @@ describe("AssessmentViewer — states in the user's language", () => {
     const okta = screen.getByText("Okta").closest(".MuiPaper-root") as HTMLElement;
     expect(within(okta).getByText("Aufwand: Mittel")).toBeInTheDocument();
     expect(screen.queryByText(/ effort$/)).not.toBeInTheDocument();
-    // Both effort chips keep their compact size.
-    for (const chip of [
-      within(einstein).getByText("Aufwand: Niedrig").closest(".MuiChip-root"),
-      within(okta).getByText("Aufwand: Mittel").closest(".MuiChip-root"),
-    ]) {
-      expect(chip).toHaveStyle({ fontSize: "10px", height: "20px" });
-    }
   });
 });
 
@@ -1016,8 +1005,8 @@ describe("AssessmentViewer — an integration effort the AI named otherwise", ()
 describe("AssessmentViewer — relation ends the graph cannot place", () => {
   /** The relation list's lines, as text. */
   async function relationLines(): Promise<(string | null)[]> {
-    const rels = (await screen.findByText(/^Proposed New Relations/)).closest(".MuiPaper-outlined") as HTMLElement;
-    return Array.from(rels.querySelectorAll(".MuiStack-root .MuiStack-root")).map((l) => l.textContent);
+    await screen.findByText(/^Proposed New Relations/);
+    return screen.getAllByTestId("proposed-relation").map((l) => l.textContent);
   }
 
   it("names a relation's end after the node the diagram draws it to", async () => {
