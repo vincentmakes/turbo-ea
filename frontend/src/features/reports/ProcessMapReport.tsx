@@ -13,6 +13,7 @@ import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import CircularProgress from "@mui/material/CircularProgress";
+import Alert from "@mui/material/Alert";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
 import Chip from "@mui/material/Chip";
@@ -191,6 +192,23 @@ interface ProcNode extends ProcItem {
   deepDataObjects: Map<string, DataObjRef>;
 }
 
+/**
+ * A cost attribute as a number, or 0. Cost fields carry no numeric check on
+ * write, so a value can arrive as text: a numeric string counts (as the
+ * backend's `total_app_cost` reads it), anything else counts as nothing —
+ * never a string concatenated into the sum.
+ */
+// A plain decimal, as the backend's `cost_value` reads it: digits, one point,
+// an optional exponent, surrounding whitespace. Not everything `Number()`
+// parses — `"0x10"` is not a cost — so the two roll-ups agree.
+const PLAIN_DECIMAL = /^\s*[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?\s*$/;
+
+function costValue(v: unknown): number {
+  const n =
+    typeof v === "number" ? v : typeof v === "string" && PLAIN_DECIMAL.test(v) ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : 0;
+}
+
 function buildTree(
   items: ProcItem[],
   orgFilter: string[],
@@ -234,9 +252,17 @@ function buildTree(
   }
 
   const roots: ProcNode[] = [];
+  // Links made so far, child id → parent node. A parent chain that loops back
+  // on itself has no root, so every process on it would vanish: the link that
+  // would close the loop is left out, and that process stands as the root.
+  const linkedTo = new Map<string, ProcNode>();
   for (const node of nodeMap.values()) {
-    if (node.parent_id && nodeMap.has(node.parent_id)) {
-      nodeMap.get(node.parent_id)!.children.push(node);
+    const parent = node.parent_id ? nodeMap.get(node.parent_id) : undefined;
+    let up = parent;
+    while (up && up !== node) up = linkedTo.get(up.id);
+    if (parent && up !== node) {
+      parent.children.push(node);
+      linkedTo.set(node.id, parent);
     } else {
       roots.push(node);
     }
@@ -269,7 +295,7 @@ function buildTree(
     n.deepCost = 0;
     for (const app of appMap.values()) {
       const attrs = app.attributes || {};
-      n.deepCost += ((attrs.costTotalAnnual as number) || (attrs.totalAnnualCost as number) || 0);
+      n.deepCost += costValue(attrs.costTotalAnnual) || costValue(attrs.totalAnnualCost);
     }
     return { apps: appMap, dos: doMap };
   }
@@ -569,6 +595,7 @@ export default function ProcessMapReport() {
 
   // Data
   const [data, setData] = useState<ProcItem[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<RefItem[]>([]);
   const [contexts, setContexts] = useState<RefItem[]>([]);
   const [drawer, setDrawer] = useState<ProcNode | null>(null);
@@ -648,8 +675,9 @@ export default function ProcessMapReport() {
       setData(r.items);
       setOrganizations(r.organizations ?? []);
       setContexts(r.business_contexts ?? []);
-    });
-  }, []);
+    }).catch((err) => setLoadError(err instanceof Error ? err.message : t("common:errors.generic")));
+    // Stryker disable next-line ArrayDeclaration: fetched once, on mount, by design
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- fetched once, on mount
 
   // Build full tree (with filters applied). The scope is applied to the flat
   // items *before* `buildTree`, so its `addAncestors` pass cannot climb above
@@ -678,17 +706,23 @@ export default function ProcessMapReport() {
   // Scoping into a shallow branch re-ranges the Display Depth options, which
   // can strand the current value outside them — a MUI Select with no matching
   // MenuItem renders blank and warns. `99` ("all levels") is a sentinel.
+  // A stored depth below the first level matches no option either.
   useEffect(() => {
-    if (displayLevel !== 99 && maxLvl > 0 && displayLevel > maxLvl) setDisplayLevel(maxLvl);
+    if (displayLevel === 99) return;
+    // Stryker disable next-line EqualityOperator: setting the level it already has is a no-op
+    if (displayLevel < 1) setDisplayLevel(1);
+    // Stryker disable next-line EqualityOperator: setting the level it already has is a no-op
+    else if (maxLvl > 0 && displayLevel > maxLvl) setDisplayLevel(maxLvl);
   }, [maxLvl, displayLevel]);
 
-  // A zoom target outside a newly-set scope is no longer in the tree. The
-  // derivation below already falls back to the whole (scoped) tree, so nothing
-  // breaks — but the stale id would linger in state with no breadcrumb to
-  // clear it from.
+  // A zoom target outside a newly-set scope, or hidden by an Organization /
+  // Business Context filter, is no longer in the tree. The derivation above
+  // already falls back to the whole (scoped) tree, so nothing breaks — but the
+  // stale id would linger in state with no breadcrumb to clear it from, and
+  // clearing the filter would silently zoom back in.
   useEffect(() => {
-    if (zoomNodeId && scope.closure && !scope.closure.has(zoomNodeId)) setZoomNodeId(null);
-  }, [zoomNodeId, scope.closure]);
+    if (zoomNodeId && !findNode(fullTree, zoomNodeId)) setZoomNodeId(null);
+  }, [zoomNodeId, fullTree]);
 
   // Compute max metric value across visible tree
   const maxVal = useMemo(() => {
@@ -826,7 +860,15 @@ export default function ProcessMapReport() {
       params.push({ label: t("processMap.businessContext"), value: ctxNames });
     }
     return params;
-  }, [metric, displayLevel, columns, showRelated, showRelatedLabel, filterOrgs, orgOptions, filterCtxs, ctxOptions, levelOptions, t]);
+  }, [metric, displayLevel, columns, effectiveScopeIds, showRelated, showRelatedLabel, filterOrgs, orgOptions, filterCtxs, ctxOptions, levelOptions, t]);
+
+  if (loadError)
+    return (
+      // Stryker disable next-line ObjectLiteral: spacing is presentation
+      <Box sx={{ py: 4 }}>
+        <Alert severity="error">{loadError}</Alert>
+      </Box>
+    );
 
   if (data === null)
     return (

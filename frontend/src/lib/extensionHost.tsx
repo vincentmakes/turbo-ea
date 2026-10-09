@@ -41,7 +41,9 @@
  * report scope controls are built on — pick cards and everything beneath them
  * comes with — plus its `dedupeScopeRoots` helper. Since SDK 1.15 the rest of
  * the kit ships too: `CardScopeFilter` (the toolbar chip that opens it),
- * `useCardScope` (scope state, closure, stale-id handling, type-change reset)
+ * `useCardScope` (scope state, closure, stale-id handling, type-change reset;
+ * since SDK 1.31 `setScopeIds(ids, forType)` sets a scope together with the
+ * card type it belongs to, so a restore that changes the type keeps it)
  * and `applyScope` (narrow a list to a closure). Since SDK 1.16
  * `integrationPanels` places an extension's integration configuration as a
  * sub-tab of Admin → Settings → Integrations, next to the built-in ServiceNow
@@ -148,7 +150,7 @@ import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.30";
+export const UI_SDK_VERSION = "1.31";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the

@@ -387,10 +387,8 @@ describe("tree view connection tooltip", () => {
 // ---------------------------------------------------------------------------
 
 /**
- * A tile tooltip reads "<Type> · <connections>[ · <repeat note>]" over an
- * italic usage hint. Returns the part between the type and the hint, so a test
- * asserts the wording without fixing how the count is phrased: the count is
- * passed to a key with no {{count}} placeholder and is not shown today.
+ * A tile tooltip reads "<Type> · <n> connections[ · <repeat note>]" over an
+ * italic usage hint. Returns the part between the type and the hint.
  */
 function tooltipMiddle(tip: HTMLElement, type: string): string {
   expect(tip.querySelector("strong")?.textContent).toBe(type);
@@ -441,8 +439,8 @@ describe("tree view tiles", () => {
 
     fireEvent.mouseOver(repeat);
     const tip = await screen.findByRole("tooltip", {}, { timeout: 4000 });
-    expect(tooltipMiddle(tip, "IT Component")).toMatch(
-      /^[^·]*connections · Also appears elsewhere in this tree$/,
+    expect(tooltipMiddle(tip, "IT Component")).toBe(
+      "2 connections · Also appears elsewhere in this tree",
     );
   });
 
@@ -450,7 +448,7 @@ describe("tree view tiles", () => {
     await openTree();
     fireEvent.mouseOver(tile("Beta"));
     const tip = await screen.findByRole("tooltip", {}, { timeout: 4000 });
-    expect(tooltipMiddle(tip, "Application")).toMatch(/^[^·]*connections$/);
+    expect(tooltipMiddle(tip, "Application")).toBe("2 connections");
   });
 
   it("badges a retired neighbour RETIRED", async () => {

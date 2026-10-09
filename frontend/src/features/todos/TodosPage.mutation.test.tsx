@@ -134,6 +134,9 @@ describe("TodosPage — page frame", () => {
     renderAt();
 
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    // Still loading: a spinner, never the empty state.
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.queryByText("No todos found.")).toBeNull();
     expect(screen.getByRole("tab", { name: "Assigned to me" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: "Open" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Done" })).toHaveAttribute("aria-pressed", "false");
@@ -146,6 +149,7 @@ describe("TodosPage — page frame", () => {
     expect(await screen.findByText("Write onboarding doc")).toBeInTheDocument();
     expect(screen.queryByText("No tasks match the current filters.")).toBeNull();
     expect(screen.queryByText("No todos found.")).toBeNull();
+    expect(screen.queryByRole("progressbar")).toBeNull();
   });
 
   it("puts a search icon in the search box", async () => {
@@ -506,15 +510,15 @@ describe("TodosPage — Surveys sub-panel", () => {
     expect(api.get).not.toHaveBeenCalledWith(expect.stringMatching(/^\/todos\?/), expect.anything());
   });
 
-  it("dismissing the load error leaves only the empty-state notice", async () => {
+  it("a failed load shows only its error, and dismissing it does not reveal the empty-state notice", async () => {
     route({ surveys: () => Promise.reject(new Error("Survey service down")) });
     const user = userEvent.setup();
     renderAt("/todos?tab=surveys");
     expect(await screen.findByText("Survey service down")).toBeInTheDocument();
-    expect(screen.getAllByRole("alert")).toHaveLength(2);
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
 
     await user.click(screen.getByRole("button", { name: /close/i }));
-    await waitFor(() => expect(screen.getAllByRole("alert")).toHaveLength(1));
-    expect(screen.getByRole("alert")).toHaveTextContent("No pending surveys. You're all caught up!");
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(screen.queryByText("No pending surveys. You're all caught up!")).toBeNull();
   });
 });

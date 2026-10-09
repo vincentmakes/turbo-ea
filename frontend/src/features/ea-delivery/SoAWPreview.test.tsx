@@ -194,6 +194,22 @@ describe("SoAWPreview — signatures", () => {
     expect(within(block).getAllByText(/@example\.com$/)).toHaveLength(1);
   });
 
+  it("tints a signed signatory's card with the theme's success colour and greys a pending one", async () => {
+    mockApi.on("get", "/soaw/s1", {
+      ...SOAW,
+      status: "in_review",
+      signatories: [SIGNED_SIGNATORY, { ...PENDING_SIGNATORY, user_id: "u3", display_name: "Linus" }],
+    });
+    renderPreview();
+    await screen.findByRole("heading", { name: SOAW.name });
+
+    const block = signatureBlock();
+    const signedCard = within(block).getByText("Grace Hopper").parentElement as HTMLElement;
+    const pendingCard = within(block).getByText("Linus").parentElement as HTMLElement;
+    expect(signedCard).toHaveStyle({ backgroundColor: "rgba(46, 125, 50, 0.08)" });
+    expect(pendingCard).toHaveStyle({ backgroundColor: "rgba(0, 0, 0, 0.04)" });
+  });
+
   it("falls back to N/A for a signed row without a timestamp", async () => {
     mockApi.on("get", "/soaw/s1", {
       ...SOAW,

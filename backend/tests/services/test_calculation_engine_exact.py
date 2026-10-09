@@ -368,7 +368,13 @@ class TestDetectCycles:
     async def test_a_three_step_cycle(self, db):
         await self._active(db, "b", "data.c")
         await self._active(db, "c", "data.a")
-        assert await detect_cycles(db, self._new("a", "data.b")) == ["b", "a"]
+        # The search starts from whichever stored calculation the (unordered)
+        # query returns first, so it may report any edge of b -> c -> a.
+        assert await detect_cycles(db, self._new("a", "data.b")) in (
+            ["b", "a"],
+            ["c", "b"],
+            ["a", "c"],
+        )
 
     async def test_a_chain_without_a_cycle(self, db):
         await self._active(db, "b", "data.c + data.plain")

@@ -147,7 +147,10 @@ describe("ADRPreview — load states", () => {
   it("shows the not-found alert when the decision comes back empty", async () => {
     serve(null);
     renderPreview();
-    expect(await screen.findByRole("alert")).toHaveTextContent(/not found/i);
+    const alert = await screen.findByRole("alert");
+    // It names what is missing: a decision, not a SoAW.
+    expect(alert).toHaveTextContent("Architecture decision not found");
+    expect(alert).not.toHaveTextContent("SoAW");
   });
 });
 

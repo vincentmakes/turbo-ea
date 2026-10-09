@@ -28,6 +28,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - PPM: the health and risk-band colours come from the shared RAG palette, so amber and neutral are a shade different from before and match the rest of the app.
 
+## [2.157.9] - 2026-10-09
+
+### Fixed
+- Reports: a failed load shows an error instead of a spinner that never ends, on the capability map, matrix and EOL reports.
+- Portfolio report: grouping by a relation type lists each card only under the cards it reaches through that type, AI insights read lifecycle phases at the travelled date, and a saved relation-subtype filter survives opening the report.
+- Capability map: a restored metric the map no longer offers falls back to the application count, a heatmap of all-negative values is scaled from its real range, and the relation filter only matches the card type picked.
+- Matrix report: a saved report opens with its sorts, depths, filters and scopes, and Transpose keeps both scopes.
+- Lifecycle report: a saved date range is restored, and the Type column shows and sorts by the type's label. Dates in the table and bar tooltips now show the full date in the workspace format (they showed month and year), and the phases sort in lifecycle order rather than alphabetically.
+- EOL report: a card without EOL data is named by itself, never "null null", and dates follow the workspace date format.
+- Cost report: a saved cost field and cost sources are restored, and the tooltip shows its "% of total" figure again.
+- Cost report, cost treemap, capability heatmap and process map: a cost stored as text (an Excel import, an integration, an older client) no longer makes the report fail to load; numeric text counts as the number it spells and anything else counts as nothing, and the process map's own roll-up reads it the same way. Processes in a looping parent chain stay on the map.
+- Cards: a cost or number field refuses a value that is not a number (text that is not a number, true/false) with a validation error instead of storing it, and numeric text such as "1200" is stored as the number.
+- Dependency report: the tree-card tooltip counts its connections with correct plurals, and a retired or upcoming card keeps its outline.
+- EOL report: the countdown beside an end-of-life date ("40 days ago", "3 months", "2.2 years") is in the UI language with its correct plural forms, not English abbreviations.
+- Cost and Lifecycle reports: a saved report that names another card type now opens with its scope, as the Matrix does.
+
+### Changed
+- Portfolio report: the Group by menu offers one entry per relation type, so a card can be grouped by the cards it reaches through a specific relationship; a saved report that already named one shows it in the select.
+
+## [2.157.8] - 2026-10-09
+
+### Fixed
+- Mitigation tasks, decisions and SoAWs: a failed save keeps its dialog open with the reason and what was typed, instead of closing as if it had saved.
+- Decisions and SoAWs: clicking Save, Sign, Duplicate, New revision or Enter twice no longer sends the request twice (the action buttons are disabled while one runs), and a failed card link no longer creates a second decision.
+- Decisions: the From / To date filters follow the day a decision is shown under (the local calendar day), so both ends include the whole day whatever offset the stored timestamp carries, and a missing decision says so rather than "SoAW not found".
+- Initiative tree: it is a tree for assistive tech — one tab stop, the arrow keys move between rows, Left and Right fold and unfold a branch, Home and End jump to the ends and Shift+F marks a favourite — instead of a column of buttons with buttons inside them; a custom status shows its own label and colour, with readable text on the status chip whatever colour the option carries.
+- EA Delivery: a new SoAW or diagram is never tied to an initiative id that matches no initiative.
+- Todos: two quick toggles no longer undo each other, and a list that is loading or failed to load shows a spinner or the error instead of "No todos found".
+- French: linked cards are « fiches », not « cartes ».
+- Mitigation tasks: pressing Escape or clicking outside while a task or a cycle is still saving no longer closes the dialog, so a failed save is shown instead of being lost.
+- Mitigation tasks: the Complete / Skip cycle dialog shows the due date in the workspace date format instead of a raw ISO date.
+
+## [2.157.7] - 2026-10-09
+
+### Fixed
+- Card detail: a failed load of todos, lineage, hierarchy or relations now says what failed instead of showing an empty list or a progress bar that never ends, with a Retry button, and a failed delete, unlink, EOL link or Provider link says so.
+- Card detail: approve, reject or reset failing for a reason other than missing mandatory items now says why, and deleting a card with unsaved edits leaves the page instead of stranding you on a deleted card.
+- Card detail: a supported EOL cycle no longer reads "Yes (EOL)" in red, and the approval-blocked list names relation types by their verb, from the side the card is on.
+- Card detail: a failed logo or subtype save shows its error beside the card instead of replacing the whole page.
+- Card detail: a reload of the todos, hierarchy, relations, lineage or Provider that lands after a newer one no longer overwrites the newer list, and the approval details of the card shown before never carry over to the next card.
+- Create card: what was typed stays while the dialog closes, a failed or not-yet-run EOL search no longer reads "No EOL matches found", and an AI suggestion asked for an earlier type or session no longer lands in the form.
+- Provider field: relinking a card to another Provider keeps its current Provider if the new link fails.
+- Metamodel translation dialog: it edits the language its selected tab shows, even when the enabled languages arrive after it opened.
+- Card logo: a brand icon that cannot be set closes the icon picker, so its error is no longer hidden behind it.
+- Provider field: when linking another Provider fails, the vendor text goes back to what it said instead of naming a Provider the card did not get.
+- Provider field: when the new Provider is linked but the old one cannot be unlinked, the field says so and shows the new Provider, and the card's relations are refreshed to show both.
+- Create card: an AI suggestion asked for an earlier name or subtype no longer lands in the form.
+- Create card: screen readers announce the Type, Subtype and required select pickers by their labels.
+- Card detail: the Lineage section shows its progress bar while it loads, instead of "No predecessors." and "No successors.", when the metamodel arrives after the card.
+- Card detail: the Relations header shows no count until the relations have loaded, instead of 0.
+
+## [2.157.6] - 2026-10-09
+
+### Fixed
+- TurboLens: a failed load of vendors, resolution or duplicates shows the error instead of "Run an analysis".
+- TurboLens: an integration drawn right to left within one layer is now drawn at all, and one drawn bottom-to-top or right-to-left keeps its arrowhead on its real target instead of pointing at the wrong component. (An integration the AI marks bidirectional would get arrowheads at both ends; the analysis prompt does not currently emit that value.)
+- TurboLens: every counted modernization opportunity is listed, and the "unknown" type filter shows the untyped entries.
+- TurboLens Architect: a question with no usable options can be answered in free text, so the round can always be submitted, and an assessment resumed by link reads as saved.
+- TurboLens: the diagram badges, counts and assessment viewer messages are translated, with plurals.
+- TurboLens: a duplicate cluster's status and a modernization opportunity's priority and effort are shown in the user's language instead of as raw values, and an opportunity without a priority shows the priority of the group it is listed under.
+- TurboLens Resolution: the vendor type filter lists its types in the alphabetical order of the names shown, not of the internal keys.
+- TurboLens Resolution: "Products / Modules" counts only products and modules, no longer platforms and untyped entries.
+- TurboLens: opening another assessment no longer keeps showing the previous one's title in the browser tab while it loads or when it cannot be loaded.
+- TurboLens Architect: a proposed relation missing an end is no longer listed under the name of an unrelated proposed card; like the diagram, the list leaves it out.
+- TurboLens Architect: the Create Initiative dialog no longer lists, counts or sends a proposed relation missing an end, so it shows the same relations as the target architecture, and it no longer fails to open when the AI proposes a new card without an id.
+- TurboLens Architect: the integration effort of a recommended product or dependency option is shown in the user's language instead of as the raw value.
+- TurboLens Architect: the Create Initiative dialog names each new card's type by its label instead of its internal key.
+- TurboLens Architect: committing an assessment no longer fails when the AI proposed a card without an id, and a relation with an unset end is never attached to an existing card whose id came back empty.
+
+## [2.157.5] - 2026-10-09
+
+### Fixed
+- Admin pages (tags, regulations, resource types, EOL mass linking, extensions, Survey Builder): a failed save, toggle or load is shown instead of silently dropped.
+- Admin pages: clicking Save, Create or Next twice no longer sends the request twice, so Survey Builder can no longer create a second survey or skip a step.
+- Tags: group and tag names and descriptions are saved trimmed.
+- Extensions: the license dialog opens empty each time, a discarded install stays discarded, and a purchase confirmed past the apply gate applies the license it was blocked on.
+- Survey Builder: a reopened draft keeps its "Via relation" narrowing, and a draft whose card type was removed says so instead of showing a blank select.
+- EOL mass linking: the version picker never offers the previous product's cycles.
+- Relation-type values: a stored custom value without a label no longer crashes the dialog. A custom value that has a translation in the current language but no label takes that translation as its label when the dialog opens, so it can be saved; switching the interface language while the dialog is open keeps the edits made in it.
+- Survey Builder: Back is disabled while Next is saving, so a Back click can no longer be undone by the save landing a moment later.
+- Survey Builder: after switching the interface language, a failed save, preview or load reports its error in the new language rather than the previous one, and opening another survey from the one on screen never shows the first survey's fields when its reply lands late.
+- Relation-type values: clicking Save twice quickly sends the change once.
+
+### Changed
+- Extensions: the page intro now describes the in-product Store alongside the file-based install flow, in every language.
+
 ## [2.157.4] - 2026-10-08
 
 ### Security

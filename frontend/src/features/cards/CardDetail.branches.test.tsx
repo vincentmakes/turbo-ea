@@ -13,7 +13,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router";
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation } from "react-router";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
@@ -432,6 +432,43 @@ describe("CardDetail — overflow actions", () => {
     await user.click(await screen.findByText("delete-confirm"));
     await waitFor(() => expect(location()).toBe("/inventory"));
   });
+
+  it("leaves a deleted card with unsaved edits by moving forward, never back through history", async () => {
+    // The unsaved-changes guard parks a sentinel entry in the real browser
+    // history and steps back over it once the page is no longer dirty. That
+    // step must not race the push to the inventory, or the browser can land
+    // back on the deleted card.
+    window.history.replaceState(null, "", "/inventory");
+    window.history.pushState(null, "", "/cards/c1");
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const user = userEvent.setup();
+    try {
+      render(
+        <BrowserRouter>
+          <AuthProvider user={makeUser()} refreshUser={async () => {}}>
+            <Routes>
+              <Route path="/cards/:id" element={<CardDetail />} />
+              <Route path="/inventory" element={<LocationProbe />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>,
+      );
+      await user.click(await screen.findByRole("button", { name: "Edit" }));
+      await user.type(screen.getByRole("textbox", { name: "Name" }), "X");
+      const back = vi.spyOn(window.history, "back");
+
+      await user.click(screen.getByRole("button", { name: "More actions" }));
+      await user.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: /Delete/ }));
+      await user.click(await screen.findByText("delete-confirm"));
+
+      await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/inventory"));
+      expect(window.location.pathname).toBe("/inventory");
+      expect(back).not.toHaveBeenCalled();
+      expect(confirm).not.toHaveBeenCalled();
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
 });
 
 describe("CardDetail — archived card", () => {
@@ -522,6 +559,36 @@ describe("CardDetail — approval", () => {
     await user.click(within(alert).getByRole("button", { name: /close/i }));
     expect(screen.queryByText("Cannot approve — missing mandatory items")).not.toBeInTheDocument();
   });
+
+  it("says why a transition failed for any other reason, and clears it once one goes through", async () => {
+    let calls = 0;
+    mockApi.on("post", /^\/cards\/c1\/approval-status/, () => {
+      calls += 1;
+      if (calls === 1) throw new ApiError("You may not approve this card", 403, "forbidden");
+      return {};
+    });
+    const { user } = renderPage();
+
+    await pickApproval(user, /Approve/);
+    expect(await screen.findByRole("alert")).toHaveTextContent("You may not approve this card");
+    expect(screen.queryByText("Cannot approve — missing mandatory items")).not.toBeInTheDocument();
+    expect(screen.getByText("Draft")).toBeInTheDocument();
+
+    await pickApproval(user, /Approve/);
+    expect(await screen.findByText("Approved")).toBeInTheDocument();
+    expect(screen.queryByText("You may not approve this card")).not.toBeInTheDocument();
+  });
+
+  it("dismisses a failed transition's error", async () => {
+    mockApi.fail("post", /^\/cards\/c1\/approval-status/, 500);
+    const { user } = renderPage();
+
+    await pickApproval(user, /Reject/);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("POST /cards/c1/approval-status?action=reject failed");
+    await user.click(within(alert).getByRole("button", { name: /close/i }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });
 
 describe("CardDetail — inline name editing", () => {
@@ -598,21 +665,29 @@ describe("CardDetail — inline subtype editing", () => {
     expect(mockApi.callsOf("patch")[1].body).toEqual({ subtype: null });
   });
 
-  it("replaces the page with the error when the subtype save fails", async () => {
+  it("shows the error beside the card when the subtype save fails", async () => {
     mockApi.fail("patch", "/cards/c1", 500);
     const { user } = renderPage();
     await user.click(await screen.findByRole("button", { name: "Change subtype" }));
     await user.click(await screen.findByRole("menuitem", { name: "Microservice" }));
-    expect(await screen.findByText("PATCH /cards/c1 failed")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("PATCH /cards/c1 failed");
+    // The card is still on screen, with its subtype unchanged.
+    expect(screen.getByRole("heading", { name: "CRM" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Change subtype" })).toHaveTextContent(
+      "Business Application",
+    );
   });
 
   it("shows a plain subtype label to a reader who cannot edit", async () => {
     mockApi.on("get", "/cards/c1/my-permissions", { effective: { ...PERMS, can_edit: false } });
     renderPage();
+    // Wait for the card AND the permissions before asserting what is absent —
+    // both buttons are also absent while the page is still loading.
+    expect(await screen.findByText("Business Application")).toBeInTheDocument();
+    await waitFor(() => expect(mockApi.callsOf("get", "/cards/c1/my-permissions")).toHaveLength(1));
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: "Change subtype" })).not.toBeInTheDocument(),
     );
-    expect(screen.getByText("Business Application")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
   });
 });
@@ -678,7 +753,10 @@ describe("CardDetail — logo menu, scroll and mobile", () => {
 
     await user.click(screen.getByLabelText("Change logo"));
     await user.click(await screen.findByText("logo-error"));
-    expect(await screen.findByText("Logo failed")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Logo failed");
+    // Beside the card, not instead of it.
+    expect(screen.getByRole("heading", { name: "CRM" })).toBeInTheDocument();
+    expect(screen.getByTestId("content")).toBeInTheDocument();
   });
 
   it("shows a back-to-top button once the page is scrolled", async () => {

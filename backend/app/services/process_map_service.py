@@ -37,6 +37,7 @@ from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
 from app.models.relation import Relation
 from app.models.tag import CardTag
+from app.services.cost_value import cost_value
 
 if TYPE_CHECKING:
     from app.services.card_read_scope import CardReadScope
@@ -345,12 +346,15 @@ async def load_flow_coverage(db: AsyncSession) -> tuple[set[str], dict[str, int]
 
 
 def total_app_cost(linked_apps: Sequence[dict]) -> float:
-    """Sum of the linked applications' annual cost, tolerating either key."""
+    """Sum of the linked applications' annual cost, tolerating either key.
+
+    Read through ``cost_value``, like every other cost reader: a cost stored
+    as text used to turn the whole map into a 500.
+    """
     return sum(
         (
-            a.get("attributes", {}).get("costTotalAnnual", 0)
-            or a.get("attributes", {}).get("totalAnnualCost", 0)
-            or 0
+            cost_value(a.get("attributes", {}).get("costTotalAnnual"))
+            or cost_value(a.get("attributes", {}).get("totalAnnualCost"))
         )
         for a in linked_apps
     )

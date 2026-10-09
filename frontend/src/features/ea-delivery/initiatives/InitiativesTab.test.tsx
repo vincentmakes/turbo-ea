@@ -184,8 +184,7 @@ describe("InitiativesTab", () => {
     expect(screen.getByRole("button", { name: "Remove from favorites" })).toBeInTheDocument();
 
     // …and the tree star removes the one the server reported.
-    const stars = screen.getAllByRole("button", { name: "cards_star" });
-    await user.click(stars[2]); // Data Platform
+    await user.click(screen.getByRole("button", { name: "Remove Data Platform from favorites" }));
     await waitFor(() => expect(mockApi.callsOf("delete", "/favorites/init-3")).toHaveLength(1));
 
     await user.click(screen.getByRole("button", { name: "Favorites only" }));
@@ -277,13 +276,21 @@ describe("InitiativesTab", () => {
     expect(first).not.toHaveBeenCalled();
   });
 
-  it("shows the empty workspace for an unknown selected id and creates an unlinked decision from it", async () => {
-    const { user, onCreateAdr } = renderTab({ selectedInitiativeId: "ghost" });
+  it("shows the empty workspace for an unknown selected id and creates unlinked artefacts from it", async () => {
+    const { user, onCreateAdr, onCreateSoaw, onCreateDiagram } = renderTab({ selectedInitiativeId: "ghost" });
     expect(await screen.findByText("Pick an initiative to start")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /New artefact/ }));
-    await user.click(await screen.findByRole("menuitem", { name: /New Architecture Decision/ }));
+    const open = async (label: RegExp) => {
+      await user.click(screen.getByRole("button", { name: /New artefact/ }));
+      await user.click(await screen.findByRole("menuitem", { name: label }));
+    };
+    await open(/New Architecture Decision/);
     expect(onCreateAdr).toHaveBeenCalledWith([]);
+    // A stale id (a deleted initiative in the URL) is never handed on.
+    await open(/New Statement of Architecture Work/);
+    expect(onCreateSoaw).toHaveBeenCalledWith("");
+    await open(/New Diagram/);
+    expect(onCreateDiagram).toHaveBeenCalledWith(undefined);
   });
 
   describe("restoring the last pick", () => {

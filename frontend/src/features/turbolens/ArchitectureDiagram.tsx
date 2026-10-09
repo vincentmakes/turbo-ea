@@ -90,13 +90,14 @@ interface ArchEdgeData {
 // Custom Node
 // ---------------------------------------------------------------------------
 
-const TYPE_LABELS: Record<string, string> = {
-  existing: "Reuse",
-  new: "New",
-  recommended: "Buy",
+const TYPE_LABEL_KEYS: Record<string, string> = {
+  existing: "turbolens_architect_approach_reuse",
+  new: "turbolens_architect_new",
+  recommended: "turbolens_architect_approach_buy",
 };
 
 const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
+  const { t } = useTranslation("admin");
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   const typeColor = TYPE_COLORS[data.compType] || "#999";
@@ -108,7 +109,8 @@ const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
     : TYPE_BG[data.compType]?.[isDark ? "dark" : "light"] ?? "rgba(0,0,0,0.04)";
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
   const handleStyle = { width: 6, height: 6, border: "none" };
-  const badgeLabel = TYPE_LABELS[data.compType] || data.compType;
+  const badgeLabelKey = TYPE_LABEL_KEYS[data.compType];
+  const badgeLabel = badgeLabelKey ? t(badgeLabelKey) : data.compType;
 
   return (
     <Box
@@ -227,7 +229,7 @@ ArchGroup.displayName = "ArchGroup";
 // Custom Edge
 // ---------------------------------------------------------------------------
 
-const ArchEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps) => {
+const ArchEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerStart, markerEnd }: EdgeProps) => {
   const theme = useTheme();
   const edgeData = data as ArchEdgeData | undefined;
   const active = edgeData?.isHovered || edgeData?.connectedToHovered;
@@ -252,6 +254,7 @@ const ArchEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targ
       <BaseEdge
         id={id}
         path={path}
+        markerStart={markerStart}
         markerEnd={markerEnd}
         style={{
           stroke: color,
@@ -299,7 +302,8 @@ const edgeTypes = { archEdge: ArchEdge };
 
 function buildArchFlow(
   arch: ArchitectureResult,
-  typeMap?: Map<string, { color: string; icon: string }>,
+  typeMap: Map<string, { color: string; icon: string }> | undefined,
+  directionLabel: (direction: string) => string,
 ): { nodes: Node[]; edges: Edge[] } {
   const layers = arch.layers ?? [];
   const integrations = arch.integrations ?? [];
@@ -461,27 +465,29 @@ function buildArchFlow(
     let target = re.targetId;
     let srcHandle = "b";
     let tgtHandle = "t";
+    // Lines are always drawn left-to-right / top-to-bottom; an integration
+    // written the other way round is drawn swapped, so its arrowhead goes on
+    // the drawn start — which is still the integration's real target.
+    let swapped = false;
 
     if (sLayer === tLayer && sPos && tPos) {
-      // Same layer → use left/right handles
-      if (sPos.x <= tPos.x) {
-        srcHandle = "r";
-        tgtHandle = "l";
-      } else {
-        srcHandle = "l";
-        tgtHandle = "r";
-        [source, target] = [target, source];
-      }
+      // Same layer → right side of the left node to left side of the right one
+      srcHandle = "r";
+      tgtHandle = "l";
+      // Stryker disable next-line EqualityOperator: two nodes at one x overlap, so swapping them draws the same line
+      if (sPos.x > tPos.x) swapped = true;
     } else if (sPos && tPos) {
       // Cross-layer → use top/bottom, ensure top-to-bottom direction
-      if (sPos.y > tPos.y) {
-        [source, target] = [target, source];
-      }
+      // Stryker disable next-line EqualityOperator: nodes in different layers never share a y
+      if (sPos.y > tPos.y) swapped = true;
     }
+    if (swapped) [source, target] = [target, source];
+
+    const arrow = { type: "arrowclosed" as const, color: "#888" };
 
     const labelParts: string[] = [];
     if (re.intg.protocol) labelParts.push(re.intg.protocol);
-    if (re.intg.direction && re.intg.direction !== "sync") labelParts.push(re.intg.direction);
+    if (re.intg.direction && re.intg.direction !== "sync") labelParts.push(directionLabel(re.intg.direction));
     const edgeLabel = labelParts.join(", ") || "";
 
     return {
@@ -497,7 +503,13 @@ function buildArchFlow(
         direction: re.intg.direction,
       } satisfies ArchEdgeData,
       animated: false,
-      markerEnd: { type: "arrowclosed" as const, color: "#888" },
+      // A bidirectional integration points both ways; a one-way one only at
+      // its real target.
+      ...(re.intg.direction === "bidirectional"
+        ? { markerStart: arrow, markerEnd: arrow }
+        : swapped
+          ? { markerStart: arrow }
+          : { markerEnd: arrow }),
       zIndex: 2,
     };
   });
@@ -520,7 +532,14 @@ function ArchitectureDiagramInner({ arch, types }: { arch: ArchitectureResult; t
     return m;
   }, [types]);
 
-  const { nodes, edges } = useMemo(() => buildArchFlow(arch, typeMap), [arch, typeMap]);
+  const { nodes, edges } = useMemo(
+    () =>
+      buildArchFlow(arch, typeMap, (direction) =>
+        // A direction it has no name for is shown as it came.
+        t(`turbolens_arch_direction_${direction}`, { defaultValue: direction }),
+      ),
+    [arch, typeMap, t],
+  );
 
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
@@ -588,7 +607,14 @@ function ArchitectureDiagramInner({ arch, types }: { arch: ArchitectureResult; t
             sx={{ bgcolor: TYPE_COLORS.recommended + "18", color: TYPE_COLORS.recommended, border: `1px solid ${TYPE_COLORS.recommended}44`, fontWeight: 600, fontSize: 11 }} />
         )}
         <Box sx={{ flex: 1 }} />
-        <Chip size="small" label={`${allComps.length} components \u00b7 ${(arch.integrations ?? []).length} integrations`} variant="outlined" />
+        <Chip
+          size="small"
+          label={`${t("turbolens_arch_component_count", { count: allComps.length })} \u00b7 ${t(
+            "turbolens_arch_integration_count",
+            { count: (arch.integrations ?? []).length },
+          )}`}
+          variant="outlined"
+        />
       </Stack>
       <Box sx={{ height: 600 }} className={hoveredNode ? "arch-hover-active" : undefined}>
         {hoverStyle && <style>{hoverStyle}</style>}

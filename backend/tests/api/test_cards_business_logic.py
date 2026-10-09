@@ -191,14 +191,31 @@ class TestDataQualityCalculation:
         assert resp.json()["data_quality"] == 100.0
 
     async def test_false_value_counts_as_unfilled(self, client, db, biz_env):
-        """Boolean False should not count as filled."""
+        """Boolean False should not count as filled.
+
+        On a boolean field, where False is a legal value: a cost or number
+        field refuses a bool outright (``test_cost_values.py``).
+        """
         admin = biz_env["admin"]
+        await create_card_type(
+            db,
+            key="Flagged",
+            label="Flagged",
+            fields_schema=[
+                {
+                    "section": "Flags",
+                    "fields": [
+                        {"key": "isCritical", "label": "Critical", "type": "boolean", "weight": 1},
+                    ],
+                }
+            ],
+        )
         resp = await client.post(
             "/api/v1/cards",
             json={
-                "type": "Application",
+                "type": "Flagged",
                 "name": "False Values",
-                "attributes": {"costTotalAnnual": False},
+                "attributes": {"isCritical": False},
             },
             headers=auth_headers(admin),
         )

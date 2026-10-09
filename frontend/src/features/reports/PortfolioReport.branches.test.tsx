@@ -13,6 +13,7 @@ import { createRef } from "react";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
+vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 
 const state = vi.hoisted(() => ({
   config: null as Record<string, unknown> | null,
@@ -264,7 +265,7 @@ describe("PortfolioReport chart interactions", () => {
     await loaded();
     fireEvent.click(within(chart()).getAllByText("Medium")[0]);
     const panel = await screen.findByRole("presentation");
-    expect(within(panel).getByText("Microservice · Medium · EOL: 2099-12-31")).toBeInTheDocument();
+    expect(within(panel).getByText("Microservice · Medium · End of Life: 2099-12-31")).toBeInTheDocument();
     expect(within(panel).getByText("EOL Risk")).toBeInTheDocument();
   });
 
@@ -336,9 +337,13 @@ describe("PortfolioReport relation grouping and subtypes", () => {
     state.config = { groupByRaw: "relt:relOrgUsesApp", view: "table" };
     renderPortfolio();
     await loaded();
-    // The table names the related cards of the axis' card type.
+    // The table names the cards related through that relation type only:
+    // Salesforce is used by Finance HQ, and merely owned by Payments Team.
     const row = screen.getByRole("row", { name: /Salesforce/ });
-    expect(within(row).getByText("Payments Team, Finance HQ")).toBeInTheDocument();
+    expect(within(row).getAllByRole("cell")[2]).toHaveTextContent(/^Finance HQ$/);
+    // SAP ERP is only owned: nothing on this axis.
+    const erp = screen.getByRole("row", { name: /SAP ERP/ });
+    expect(within(erp).getAllByRole("cell")[2]).toHaveTextContent(/^\u2014$/);
   });
 
   it("drills into a nested group without an inventory link, and changes depth", async () => {

@@ -264,12 +264,7 @@ describe("DeliverableSection — status chips", () => {
         items={[
           adr({ id: "a1", title: "One", status: "draft", reference_number: "ADR-1" }),
           adr({ id: "a2", title: "Two", status: "in_review", reference_number: "ADR-2" }),
-          adr({
-            id: "a3",
-            title: "Three",
-            status: "approved" as string as ArchitectureDecision["status"],
-            reference_number: "ADR-3",
-          }),
+          adr({ id: "a3", title: "Three", status: "signed", reference_number: "ADR-3" }),
           adr({
             id: "a4",
             title: "Four",
@@ -281,7 +276,7 @@ describe("DeliverableSection — status chips", () => {
     );
     expect(chipOf("Draft")).toHaveClass("MuiChip-colorDefault");
     expect(chipOf("In Review")).toHaveClass("MuiChip-colorWarning");
-    expect(chipOf("Approved")).toHaveClass("MuiChip-colorSuccess");
+    expect(chipOf("Signed")).toHaveClass("MuiChip-colorInfo");
     expect(chipOf("superseded")).toHaveClass("MuiChip-colorDefault");
   });
 });

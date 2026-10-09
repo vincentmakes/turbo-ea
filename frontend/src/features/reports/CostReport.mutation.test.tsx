@@ -768,8 +768,8 @@ describe("CostReport treemap tooltip", () => {
     await screen.findByTestId("treemap-tooltip");
     expect(tip("ERP")).toHaveTextContent("ERP");
     expect(tip("ERP")).toHaveTextContent("$500");
-    // The figure itself never renders (the key has no placeholder); only the caption is checked.
-    expect(tip("ERP")).toHaveTextContent(/% of total/i);
+    // 500 of 700.
+    expect(tip("ERP")).toHaveTextContent("ERP$50071.4% of total");
     expect(tip("inactive")).toBeEmptyDOMElement();
     expect(tip("nopayload")).toBeEmptyDOMElement();
   });
@@ -802,7 +802,7 @@ describe("CostReport permission", () => {
     expect(await screen.findByText("Cost data restricted")).toBeInTheDocument();
   });
 
-  it("shows an empty report, not leftovers, the moment costs.view is granted", async () => {
+  it("shows a spinner, not an empty report, the moment costs.view is granted", async () => {
     hookState.auth.user = userWith("reports.view");
     const pending = deferred<unknown>();
     mockApi.on("get", "/reports/cost-treemap*", () => pending.promise);
@@ -815,12 +815,45 @@ describe("CostReport permission", () => {
         <CostReport />
       </MemoryRouter>,
     );
-    expect(await screen.findByText("No cost data found.")).toBeInTheDocument();
-    expect(metricValue("Items")).toBe("0");
-    expect(metricValue("Total Cost")).toBe("$0");
+    expect(await screen.findByRole("progressbar")).toBeInTheDocument();
+    await waitFor(() => expect(treemapCalls()).toHaveLength(1));
+    expect(screen.queryByText("Cost data restricted")).not.toBeInTheDocument();
+    expect(screen.queryByText("No cost data found.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Total Cost")).not.toBeInTheDocument();
 
     await act(async () => pending.resolve({ items: ITEMS, total: 700 }));
     expect(await screen.findByTestId("treemap")).toBeInTheDocument();
+    expect(metricValue("Total Cost")).toBe("$700");
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("forgets the costs it showed when costs.view is withdrawn, so a regrant spins first", async () => {
+    const view = renderCost();
+    await screen.findByTestId("treemap");
+    expect(metricValue("Total Cost")).toBe("$700");
+    const page = () => (
+      <MemoryRouter>
+        <CostReport />
+      </MemoryRouter>
+    );
+
+    hookState.auth.user = userWith("reports.view");
+    view.rerender(page());
+    expect(await screen.findByText("Cost data restricted")).toBeInTheDocument();
+
+    const pending = deferred<unknown>();
+    mockApi.on("get", "/reports/cost-treemap*", () => pending.promise);
+    hookState.auth.user = userWith("costs.view");
+    view.rerender(page());
+    await waitFor(() => expect(treemapCalls()).toHaveLength(2));
+    // The figures from before the withdrawal are not shown as if current.
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.queryByTestId("treemap")).not.toBeInTheDocument();
+    expect(screen.queryByText("Total Cost")).not.toBeInTheDocument();
+
+    await act(async () => pending.resolve({ items: [{ id: "n", name: "New", cost: 5 }], total: 5 }));
+    expect(await screen.findByTestId("treemap")).toBeInTheDocument();
+    expect(metricValue("Total Cost")).toBe("$5");
   });
 
   it("titles the report", async () => {
@@ -912,6 +945,31 @@ describe("CostReport saved configuration", () => {
     renderCost();
     await screen.findByTestId("treemap");
     await waitFor(() => expect(lastPersisted()).toMatchObject({ scopeIds: ["crm"] }));
+  });
+
+  it("keeps the scope of a saved report that names another card type", async () => {
+    // The page opens on Application; the report scopes IT Components. The
+    // scope is restored for its own type, so the type change cannot drop it.
+    saved.config = { cardTypeKey: "ITComponent", scopeIds: ["crm"] };
+    renderCost();
+    await screen.findByTestId("treemap");
+    expect(await within(toolbar()).findByText("1 card")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(lastPersisted()).toMatchObject({ cardTypeKey: "ITComponent", scopeIds: ["crm"] }),
+    );
+  });
+
+  it("ignores a saved card type that is not a string, keeping the page's type and its scope", async () => {
+    // A hand-edited or corrupt config: the type stays on the default and the
+    // scope is kept for it.
+    saved.config = { cardTypeKey: 7, scopeIds: ["crm"] };
+    renderCost();
+    await screen.findByTestId("treemap");
+    expect(lastTreemapParams().get("type")).toBe("Application");
+    expect(await within(toolbar()).findByText("1 card")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(lastPersisted()).toMatchObject({ cardTypeKey: "Application", scopeIds: ["crm"] }),
+    );
   });
 
   it("applies a saved report that finishes loading after the page mounted", async () => {
@@ -1385,5 +1443,72 @@ describe("CostReport saving", () => {
     expect(new Set(saved.reportTypes)).toEqual(new Set(["cost"]));
     fireEvent.click(screen.getByRole("button", { name: /save report/i }));
     expect(saved.setSaveDialogOpen).toHaveBeenCalledWith(true);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Fixes found by the mutation pass                                    */
+/* ------------------------------------------------------------------ */
+
+describe("CostReport fixes", () => {
+  const lastPersisted = () =>
+    vi.mocked(saved.persistConfig).mock.calls[vi.mocked(saved.persistConfig).mock.calls.length - 1][0];
+
+  const PROJECT_TYPE = makeCardType({
+    key: "Project",
+    label: "Project",
+    fields_schema: [
+      makeSection({
+        section: "Budget",
+        fields: [
+          makeField({ key: "capex", label: "Capex", type: "cost" }),
+          makeField({ key: "opex", label: "Opex", type: "cost" }),
+        ],
+      }),
+    ],
+  });
+
+  it("keeps a restored cost field when the page opens on a single-cost-field type", async () => {
+    // Application (the page's starting type) carries a single cost field.
+    withMetamodel([APPLICATION_TYPE, PROJECT_TYPE], []);
+    saved.config = { cardTypeKey: "Project", costField: "opex" };
+    renderCost();
+    await screen.findByTestId("treemap");
+    await waitFor(() => expect(lastTreemapParams().get("type")).toBe("Project"));
+    expect(screen.getByRole("combobox", { name: /cost field/i })).toHaveTextContent("Opex");
+    const projectFields = treemapCalls()
+      .map(params)
+      .filter((p) => p.get("type") === "Project")
+      .map((p) => p.get("cost_field"));
+    expect(projectFields).toEqual(["opex"]);
+    await waitFor(() => expect(lastPersisted()).toMatchObject({ cardTypeKey: "Project", costField: "opex" }));
+  });
+
+  it("drops a restored cost source that is no longer offered", async () => {
+    saved.config = { costSources: ["Gone:budget", ITC] };
+    renderCost();
+    await screen.findByTestId("treemap");
+    await waitFor(() => expect(lastPersisted()).toMatchObject({ costSources: [ITC] }));
+    expect(screen.getByRole("combobox", { name: /cost source/i })).toHaveTextContent(
+      "IT Component · License Cost",
+    );
+    expect(lastTreemapParams().getAll("aggregate")).toEqual([ITC]);
+  });
+
+  it("keeps a restored cost source while the metamodel is still loading", async () => {
+    // Nothing is offered until the metamodel arrives; that is not "no longer offered".
+    hookState.metamodel = { types: [], relationTypes: [], loading: true };
+    saved.config = { costSources: [ITC] };
+    const view = renderCost();
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    withMetamodel([APPLICATION_TYPE, IT_COMPONENT_TYPE, CONTRACT_TYPE], RELATIONS);
+    view.rerender(
+      <MemoryRouter>
+        <CostReport />
+      </MemoryRouter>,
+    );
+    await screen.findByTestId("treemap");
+    await waitFor(() => expect(lastTreemapParams().getAll("aggregate")).toEqual([ITC]));
+    expect(lastPersisted()).toMatchObject({ costSources: [ITC] });
   });
 });

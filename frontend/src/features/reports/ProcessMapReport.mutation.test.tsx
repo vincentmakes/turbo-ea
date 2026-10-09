@@ -397,16 +397,35 @@ describe("ProcessMapReport hierarchy", () => {
     expect(titles()).toEqual(["Hire to Retire", "Order to Cash", "Collections", "Invoicing", "Orphan"]);
   });
 
-  it("survives a cyclic parent chain above a filtered process", async () => {
+  it("survives a cyclic parent chain above a filtered process, and keeps it on the map", async () => {
     reply([
       proc({ id: "x", name: "Standalone", org_ids: ["org-1"] }),
       proc({ id: "la", name: "Loop A", parent_id: "lb", org_ids: ["org-1"] }),
       proc({ id: "lb", name: "Loop B", parent_id: "lc" }),
       proc({ id: "lc", name: "Loop C", parent_id: "lb" }),
     ]);
-    saved.config = { filterOrgs: ["org-1"] };
+    saved.config = { filterOrgs: ["org-1"], displayLevel: 99 };
     renderMap();
     expect(await within(document.body).findByText("Standalone")).toBeInTheDocument();
+    // The loop's last link is the one left out: Loop C stands as its root.
+    expect(titles()).toEqual(["Loop C", "Loop B", "Loop A", "Standalone"]);
+  });
+
+  it("draws a parent chain that loops back on itself instead of dropping it", async () => {
+    reply([
+      proc({ id: "x", name: "Standalone" }),
+      proc({ id: "la", name: "Loop A", parent_id: "lb", apps: [APP_A] }),
+      proc({ id: "lb", name: "Loop B", parent_id: "la" }),
+      proc({ id: "kid", name: "Loop Child", parent_id: "la" }),
+      proc({ id: "self", name: "Own Parent", parent_id: "self", apps: [APP_B] }),
+    ]);
+    saved.config = { displayLevel: 99, metric: "app_count" };
+    renderMap();
+    await within(document.body).findByText("Standalone");
+    expect(titles()).toEqual(["Loop B", "Loop A", "Loop Child", "Own Parent", "Standalone"]);
+    // Rolled up like any other branch.
+    expect(headerChips("Loop B")).toEqual(["Process", "1 app"]);
+    expect(headerChips("Own Parent")).toEqual(["Process", "1"]);
   });
 
   it("nests each level's grid one step deeper than its parent's", async () => {
@@ -556,11 +575,16 @@ describe("ProcessMapReport print parameters", () => {
     expect(printParams()).toContain("Metric: Risk Level");
   });
 
-  it("omits a stored depth that matches no level", async () => {
+  it("pulls a stored depth below the first level up to it", async () => {
     saved.config = { displayLevel: 0 };
     renderMap();
     await within(document.body).findByText("Order to Cash");
-    expect(printParams()).toEqual(["Metric: Maturity (CMMI)", "Columns: 3"]);
+    await waitFor(() =>
+      expect(printParams()).toEqual(["Metric: Maturity (CMMI)", "Depth: Level 1", "Columns: 3"]),
+    );
+    expect(screen.getByRole("combobox", { name: /display depth/i })).toHaveTextContent("Level 1");
+    expect(titles()).toEqual(["Hire to Retire", "Order to Cash"]);
+    await waitFor(() => expect(saved.persistConfig).toHaveBeenLastCalledWith(expect.objectContaining({ displayLevel: 1 })));
   });
 });
 
@@ -755,6 +779,13 @@ describe("ProcessMapReport zoom", () => {
     await userEvent.click(await screen.findByRole("option", { name: "Retail" }));
 
     await waitFor(() => expect(titles()).toEqual(["Order to Cash"]));
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+
+    // Clearing the filter shows the whole map: the hidden zoom does not come back.
+    const clear = screen.getByText("Clear all").closest(".MuiChip-root") as HTMLElement;
+    fireEvent.click(within(clear).getByTestId("CancelIcon"));
+    await waitFor(() => expect(within(chart()).getByText("Hire to Retire")).toBeInTheDocument());
+    expect(titles()).toEqual(["Hire to Retire", "Order to Cash", "Collections", "Invoicing", "Send Invoice"]);
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   });
 

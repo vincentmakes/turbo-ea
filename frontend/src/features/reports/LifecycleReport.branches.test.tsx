@@ -13,6 +13,7 @@ import { createRef } from "react";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
+vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 
 const saved = vi.hoisted(() => ({
   config: null as Record<string, unknown> | null,
@@ -184,12 +185,12 @@ describe("LifecycleReport phase timeline", () => {
   it("draws one segment per phase with its date, and an end-of-life marker", async () => {
     renderLifecycle();
     await screen.findByText("Oracle DB");
-    expect(screen.getByLabelText("Plan: Jan 2018")).toBeInTheDocument();
-    expect(screen.getByLabelText("Active: Mar 2019")).toBeInTheDocument();
-    expect(screen.getByLabelText("Phase Out: Jan 2022")).toBeInTheDocument();
-    expect(screen.getByLabelText("End of Life: Jun 2024")).toBeInTheDocument();
+    expect(screen.getByLabelText("Plan: 2018-01-01")).toBeInTheDocument();
+    expect(screen.getByLabelText("Active: 2019-03-01")).toBeInTheDocument();
+    expect(screen.getByLabelText("Phase Out: 2022-01-01")).toBeInTheDocument();
+    expect(screen.getByLabelText("End of Life: 2024-06-30")).toBeInTheDocument();
     // A card with only a future plan date is still in Plan.
-    expect(screen.getByLabelText("Plan: Jan 2031")).toBeInTheDocument();
+    expect(screen.getByLabelText("Plan: 2031-01-01")).toBeInTheDocument();
     expect(screen.getByText("1 item at End of Life")).toBeInTheDocument();
   });
 
@@ -210,7 +211,7 @@ describe("LifecycleReport phase timeline", () => {
     fireEvent.click(screen.getByRole("button", { name: "close-panel" }));
     expect(screen.queryByTestId("side-panel")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText("Active: Jan 2021"));
+    fireEvent.click(screen.getByLabelText("Active: 2021-01-01"));
     expect(screen.getByTestId("side-panel")).toHaveTextContent("pg");
   });
 
@@ -238,15 +239,15 @@ describe("LifecycleReport table (phases)", () => {
     expect(bodyRows()[3]).toBe("PostgreSQL");
 
     await user.click(screen.getByRole("button", { name: "Current Phase" }));
-    // active < endOfLife < plan
-    expect(bodyRows()).toEqual(["PostgreSQL", "Oracle DB", "Future Thing", "Bare"]);
+    // In lifecycle order: plan < active < endOfLife
+    expect(bodyRows()).toEqual(["Future Thing", "Bare", "PostgreSQL", "Oracle DB"]);
     await user.click(screen.getByRole("button", { name: "Current Phase" }));
-    expect(bodyRows()[3]).toBe("PostgreSQL");
+    expect(bodyRows()).toEqual(["Oracle DB", "PostgreSQL", "Future Thing", "Bare"]);
 
     // Phase chips and dashes for unset dates.
     const oracle = screen.getByRole("row", { name: /Oracle DB/ });
     expect(within(oracle).getByText("End of Life")).toBeInTheDocument();
-    expect(within(oracle).getByText("Jun 2024")).toBeInTheDocument();
+    expect(within(oracle).getByText("2024-06-30")).toBeInTheDocument();
     expect(within(screen.getByRole("row", { name: /^Bare/ })).getAllByText("—")).toHaveLength(5);
 
     await user.click(oracle);
@@ -300,14 +301,14 @@ describe("LifecycleReport date-range mode", () => {
     renderLifecycle();
     await screen.findByText("Both Dates");
     await enableDateRange();
-    expect(screen.getByLabelText("Jan 2024 → Dec 2025 · Running")).toBeInTheDocument();
+    expect(screen.getByLabelText("2024-01-15 → 2025-12-15 · Running")).toBeInTheDocument();
     // An option key the field does not know shows raw.
-    expect(screen.getByLabelText("May 2023 → — · unknown")).toBeInTheDocument();
-    expect(screen.getByLabelText("— → Feb 2027 · Colourless")).toBeInTheDocument();
+    expect(screen.getByLabelText("2023-05-15 → — · unknown")).toBeInTheDocument();
+    expect(screen.getByLabelText("— → 2027-02-15 · Colourless")).toBeInTheDocument();
     // No end-of-life alert in this mode.
     expect(screen.queryByText(/at End of Life/)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText("Jan 2024 → Dec 2025 · Running"));
+    fireEvent.click(screen.getByLabelText("2024-01-15 → 2025-12-15 · Running"));
     expect(screen.getByTestId("side-panel")).toHaveTextContent("both");
   });
 
@@ -317,7 +318,7 @@ describe("LifecycleReport date-range mode", () => {
     await screen.findByText("Both Dates");
     await enableDateRange();
     await pick(/color by/i, /^Tier$/);
-    expect(screen.getByLabelText("Jan 2024 → Dec 2025 · Not set")).toBeInTheDocument();
+    expect(screen.getByLabelText("2024-01-15 → 2025-12-15 · Not set")).toBeInTheDocument();
     expect(within(document.querySelector(".report-legend") as HTMLElement).getByText("Tier 1"))
       .toBeInTheDocument();
   });
@@ -342,7 +343,7 @@ describe("LifecycleReport date-range mode", () => {
         expect.objectContaining({ cardTypeKey: "Application", useCustomDates: false }),
       ),
     );
-    expect(await screen.findByLabelText("End of Life: Jun 2024")).toBeInTheDocument();
+    expect(await screen.findByLabelText("End of Life: 2024-06-30")).toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: /date range view/i })).not.toBeInTheDocument();
   });
 
@@ -369,11 +370,11 @@ describe("LifecycleReport date-range mode", () => {
     expect(screen.getByRole("columnheader", { name: "Go-live" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
     const row = screen.getByRole("row", { name: /Rollout/ });
-    expect(within(row).getByText("Feb 2024")).toBeInTheDocument();
+    expect(within(row).getByText("2024-02-15")).toBeInTheDocument();
     expect(within(row).getByText("—")).toBeInTheDocument();
 
     await userEvent.setup().click(screen.getByRole("button", { name: /chart view/i }));
-    expect(await screen.findByLabelText("Feb 2024 → Sep 2024 · Not set")).toBeInTheDocument();
+    expect(await screen.findByLabelText("2024-02-15 → 2024-09-15 · Not set")).toBeInTheDocument();
   });
 
   it("sorts the date-range table by its own columns and shows colour chips", async () => {

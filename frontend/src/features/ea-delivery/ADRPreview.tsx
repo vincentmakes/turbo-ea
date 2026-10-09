@@ -13,7 +13,7 @@ import Snackbar from "@mui/material/Snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -85,7 +85,7 @@ export default function ADRPreview() {
   if (error || !adr) {
     return (
       <Box sx={{ maxWidth: 960, mx: "auto", py: 4 }}>
-        <Alert severity="error">{error || t("preview.notFound")}</Alert>
+        <Alert severity="error">{error || t("adr.editor.error.notFound")}</Alert>
       </Box>
     );
   }
@@ -307,7 +307,10 @@ export default function ADRPreview() {
                     border: "1px solid",
                     borderColor: sig.status === "signed" ? "success.light" : "divider",
                     borderRadius: 1,
-                    bgcolor: sig.status === "signed" ? "success.50" : "action.hover",
+                    bgcolor:
+                      sig.status === "signed"
+                        ? alpha(theme.palette.success.main, 0.08)
+                        : "action.hover",
                   }}
                 >
                   {sig.status === "signed" ? (

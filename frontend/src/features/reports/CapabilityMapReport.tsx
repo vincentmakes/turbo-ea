@@ -4,6 +4,7 @@ import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import CircularProgress from "@mui/material/CircularProgress";
+import Alert from "@mui/material/Alert";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
 import Chip from "@mui/material/Chip";
@@ -48,11 +49,12 @@ import {
   buildInventorySliceUrl,
   type InventorySliceFilters,
 } from "./portfolioInventoryLink";
-import { api } from "@/api/client";
+import { api, isAbortError } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { readableTextColor } from "@/lib/color";
 import { CARD_TYPE_COLORS } from "@/theme";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
@@ -151,6 +153,15 @@ const METRIC_OPTIONS: { key: Metric; labelKey: string; icon: string }[] = [
 
 const UNSET_COLOR = "rgba(128, 128, 128, 0.2)";
 
+/** A persisted config is free-form JSON, so a restored metric is checked. */
+function isMetric(value: unknown): value is Metric {
+  return METRIC_OPTIONS.some((o) => o.key === value);
+}
+
+/** What the "No color" sentinel used to be. Field keys can be "none" too, so it
+ *  now means "no colour" only on a type with no field keyed that way. */
+const LEGACY_NO_COLOR = "none";
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -169,9 +180,15 @@ function nodeMetric(node: CapNode, metric: Metric): number {
   return 0;
 }
 
-function heatColor(value: number, max: number, metric: Metric): string {
-  if (max === 0) return "rgba(128, 128, 128, 0.1)";
-  const ratio = Math.min(value / max, 1);
+/** Where `value` sits between the scale's ends, 0 (palest) to 1 (deepest).
+ *  The ends are taken from the values themselves, so every value is inside. */
+function heatRatio(value: number, min: number, max: number): number {
+  return (value - min) / (max - min);
+}
+
+function heatColor(value: number, min: number, max: number, metric: Metric): string {
+  if (max === min) return "rgba(128, 128, 128, 0.1)";
+  const ratio = heatRatio(value, min, max);
   if (metric === "risk_count") {
     const r = Math.round(255 - ratio * 55);
     const g = Math.round(255 - ratio * 207);
@@ -190,7 +207,7 @@ function getAppColor(
   selectFields: FieldDef[],
   defaultColor: string = CARD_TYPE_COLORS.Application,
 ): string {
-  if (!colorBy || colorBy === "none") return defaultColor;
+  if (!colorBy) return defaultColor;
   const val = (app.attributes || {})[colorBy] as string | undefined;
   if (!val) return UNSET_COLOR;
   const fd = selectFields.find((f) => f.key === colorBy);
@@ -203,7 +220,7 @@ function getAppColorLabel(
   colorBy: string,
   selectFields: FieldDef[],
 ): string | null {
-  if (!colorBy || colorBy === "none") return null;
+  if (!colorBy) return null;
   const val = (app.attributes || {})[colorBy] as string | undefined;
   if (!val) return null;
   const fd = selectFields.find((f) => f.key === colorBy);
@@ -246,9 +263,11 @@ function matchesFilters(
   const byRelType = app.related_by_rel_type || {};
   for (const [key, ids] of Object.entries(relationFilters)) {
     if (ids.length === 0) continue;
+    // `org_ids` is the Organization list, from payloads that predate
+    // `related_by_type`; it says nothing about any other card type.
     const appRelIds = relTypeKeys?.has(key)
       ? (byRelType[key] ?? [])
-      : (byType[key] || app.org_ids || []);
+      : (byType[key] ?? (key === "Organization" ? app.org_ids : undefined) ?? []);
     const wantEmpty = ids.includes(EMPTY_FILTER_KEY);
     const realIds = ids.filter((x) => x !== EMPTY_FILTER_KEY);
     if (wantEmpty && appRelIds.length === 0) continue;
@@ -480,6 +499,7 @@ function CapabilityCard({
   colorBy,
   selectFields,
   metric,
+  minVal,
   maxVal,
   onCapClick,
   onAppClick,
@@ -498,6 +518,9 @@ function CapabilityCard({
   colorBy: string;
   selectFields: FieldDef[];
   metric: Metric;
+  /** The heat scale's ends: zero, or the lowest value when one is negative,
+   *  up to the highest value. */
+  minVal: number;
   maxVal: number;
   onCapClick: (cap: CapNode) => void;
   onAppClick: (id: string) => void;
@@ -550,7 +573,7 @@ function CapabilityCard({
         <Box
           sx={{
             p: 1.5,
-            bgcolor: heatColor(val, maxVal, metric),
+            bgcolor: heatColor(val, minVal, maxVal, metric),
             borderBottom:
               showApps && visibleApps.length > 0 ? 1 : "none",
             borderColor: "divider",
@@ -566,7 +589,10 @@ function CapabilityCard({
               fontWeight: 700,
               flex: 1,
               minWidth: CARD_TITLE_MIN_WIDTH,
-              color: val > maxVal * 0.7 ? "#fff" : "#333",
+              color: (theme) =>
+                heatRatio(val, minVal, maxVal) > 0.7
+                  ? theme.palette.common.white
+                  : theme.palette.grey[900],
             }}
             noWrap
           >
@@ -624,7 +650,7 @@ function CapabilityCard({
       <Box
         sx={{
           p: 1.5,
-          bgcolor: heatColor(val, maxVal, metric),
+          bgcolor: heatColor(val, minVal, maxVal, metric),
           borderBottom: 1,
           borderColor: "divider",
           display: "flex",
@@ -642,7 +668,10 @@ function CapabilityCard({
             fontWeight: 700,
             flex: 1,
             minWidth: CARD_TITLE_MIN_WIDTH,
-            color: val > maxVal * 0.7 ? "#fff" : "#333",
+            color: (theme) =>
+              heatRatio(val, minVal, maxVal) > 0.7
+                ? theme.palette.common.white
+                : theme.palette.grey[900],
           }}
           noWrap
         >
@@ -694,6 +723,7 @@ function CapabilityCard({
               colorBy={colorBy}
               selectFields={selectFields}
               metric={metric}
+              minVal={minVal}
               maxVal={maxVal}
               onCapClick={onCapClick}
               onAppClick={onAppClick}
@@ -716,6 +746,7 @@ function CapabilityCard({
 export default function CapabilityMapReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { fmtShort } = useCurrency();
+  const { formatDate } = useDateFormat();
   const { types: metamodelTypes } = useMetamodel();
   const typeLabel = useTypeLabel();
   const relLabel = useRelationLabel();
@@ -726,6 +757,7 @@ export default function CapabilityMapReport() {
 
   // Data
   const [data, setData] = useState<CapItem[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [fieldsSchema, setFieldsSchema] = useState<SectionDef[]>([]);
   const [filterableTypes, setFilterableTypes] = useState<Record<string, FilterableTypeRef[]>>({});
   const [relationTypesData, setRelationTypesData] = useState<RelationTypeRef[]>([]);
@@ -773,7 +805,7 @@ export default function CapabilityMapReport() {
     const cfg = saved.consumeConfig();
     tl.restore(cfg?.timelineDate as number | undefined);
     if (cfg) {
-      if (cfg.metric) setMetric(cfg.metric as Metric);
+      if (isMetric(cfg.metric)) setMetric(cfg.metric);
       if (cfg.displayLevel != null) setDisplayLevel(cfg.displayLevel as number);
       if (isColumnCount(cfg.columns)) setColumns(cfg.columns);
       if (cfg.showApps != null) setShowApps(cfg.showApps as boolean);
@@ -836,10 +868,17 @@ export default function CapabilityMapReport() {
     }));
   }, [fieldsSchema, fieldLabel, optLabel]);
 
-  // Color-by options: all single_select fields + "none"
+  // The field the apps are coloured by, or "" — the picker's no-colour value,
+  // which no field key can collide with.
+  const colorKey =
+    colorBy === LEGACY_NO_COLOR && !selectFields.some((f) => f.key === LEGACY_NO_COLOR)
+      ? ""
+      : colorBy;
+
+  // Color-by options: "no colour" + all single_select fields
   const colorByOptions = useMemo(() => {
     const opts: { key: string; label: string }[] = [
-      { key: "none", label: t("capabilityMap.noColor") },
+      { key: "", label: t("capabilityMap.noColor") },
     ];
     for (const f of selectFields) {
       opts.push({ key: f.key, label: f.label });
@@ -861,14 +900,23 @@ export default function CapabilityMapReport() {
   // response land last (#882).
   useAbortableEffect(
     async ({ signal, isCurrent }) => {
-      const r = await api.get<{
+      let r: {
         items: CapItem[];
         filterable_types?: Record<string, FilterableTypeRef[]>;
         relation_types?: RelationTypeRef[];
         fields_schema?: SectionDef[];
         tag_groups?: TagGroupDef[];
-      }>(`/reports/capability-heatmap?metric=${metric}`, { signal });
+      };
+      try {
+        r = await api.get(`/reports/capability-heatmap?metric=${metric}`, { signal });
+      } catch (err) {
+        if (isAbortError(err) || !isCurrent()) return;
+        // Said on screen, not left as a spinner that never ends.
+        setLoadError(err instanceof Error ? err.message : t("common:errors.generic"));
+        return;
+      }
       if (!isCurrent()) return;
+      setLoadError(null);
       setData(r.items);
       if (r.filterable_types) setFilterableTypes(r.filterable_types);
       if (r.relation_types) setRelationTypesData(r.relation_types);
@@ -936,25 +984,27 @@ export default function CapabilityMapReport() {
   // Rows for the capability drawer: every unique app in the subtree.
   const drawerItems = useMemo<ReportCardListItem[]>(() => {
     if (!drawer) return [];
-    const coloured = colorBy && colorBy !== "none";
+    const coloured = !!colorKey;
     return Array.from(drawer.deepUniqueApps.values())
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((a) => {
         const parts: string[] = [];
         if (coloured) {
-          const label = getAppColorLabel(a, colorBy, selectFields);
+          const label = getAppColorLabel(a, colorKey, selectFields);
           if (label) parts.push(label);
         }
-        if (a.lifecycle?.endOfLife) parts.push(`EOL: ${a.lifecycle.endOfLife}`);
+        if (a.lifecycle?.endOfLife) {
+          parts.push(t("eol.endOfLifeDate", { date: formatDate(a.lifecycle.endOfLife) }));
+        }
         return {
           id: a.id,
           name: a.name,
           secondary: parts.join(" · ") || undefined,
-          dotColor: coloured ? getAppColor(a, colorBy, selectFields) : undefined,
+          dotColor: coloured ? getAppColor(a, colorKey, selectFields) : undefined,
           warn: !!a.lifecycle?.endOfLife,
         };
       });
-  }, [drawer, colorBy, selectFields]);
+  }, [drawer, colorKey, selectFields, formatDate, t]);
 
   /** Scoped capabilities as picker options, so chips label instantly. */
   const scopeOptions = useMemo<CardScopeOption[]>(() => {
@@ -1017,9 +1067,9 @@ export default function CapabilityMapReport() {
   const milestoneCardColor = useCallback(
     (id: string) => {
       const app = milestoneById.get(id);
-      return app ? getAppColor(app, colorBy, selectFields, appDefaultColor) : undefined;
+      return app ? getAppColor(app, colorKey, selectFields, appDefaultColor) : undefined;
     },
-    [milestoneById, colorBy, selectFields, appDefaultColor],
+    [milestoneById, colorKey, selectFields, appDefaultColor],
   );
 
   const {
@@ -1087,17 +1137,22 @@ export default function CapabilityMapReport() {
     if (displayLevel !== 99 && maxLvl > 0 && displayLevel > maxLvl) setDisplayLevel(maxLvl);
   }, [maxLvl, displayLevel]);
 
-  // Compute max metric value for heatmap coloring
-  const maxVal = useMemo(() => {
-    let mx = 0;
+  // The heat scale's range. It starts at zero unless a value is negative (a
+  // credit in the cost metric), and ends at the highest value even when that
+  // is below zero, so an all-negative map still shades instead of greying out.
+  const { minVal, maxVal } = useMemo(() => {
+    let mn = 0;
+    let mx = -Infinity;
     function walk(nodes: CapNode[]) {
       for (const n of nodes) {
-        mx = Math.max(mx, nodeMetric(n, metric));
+        const v = nodeMetric(n, metric);
+        mn = Math.min(mn, v);
+        mx = Math.max(mx, v);
         walk(n.children);
       }
     }
     walk(tree);
-    return mx;
+    return { minVal: mn, maxVal: tree.length > 0 ? mx : 0 };
   }, [tree, metric]);
 
   const fmtVal = useCallback(
@@ -1156,14 +1211,17 @@ export default function CapabilityMapReport() {
   }, [maxLvl, t]);
 
   // Color legend — built dynamically from schema
+  // Stryker disable next-line OptionalChaining: defensive; a picked colour key is one of the options
+  const colorByLabel = colorByOptions.find((o) => o.key === colorKey)?.label;
   const colorLegend = useMemo(() => {
-    if (!colorBy || colorBy === "none") return null;
-    const fd = selectFields.find((f) => f.key === colorBy);
+    // Stryker disable next-line ConditionalExpression: no field has an empty key, so the next guard returns null too
+    if (!colorKey) return null;
+    const fd = selectFields.find((f) => f.key === colorKey);
     if (!fd?.options) return null;
     return fd.options
       .filter((o) => o.color)
       .map((o) => ({ label: o.label, color: o.color! }));
-  }, [colorBy, selectFields]);
+  }, [colorKey, selectFields]);
 
   const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length + tagFilterIds.length;
   const printParams = useMemo(() => {
@@ -1181,8 +1239,8 @@ export default function CapabilityMapReport() {
       });
     }
     if (showApps) params.push({ label: t("common.showApps"), value: t("common:labels.yes") });
-    if (showApps && colorBy && colorBy !== "none") {
-      const cLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
+    if (showApps && colorKey) {
+      const cLabel = colorByOptions.find((o) => o.key === colorKey)?.label || "";
       params.push({ label: t("common.colorBy"), value: cLabel });
     }
     if (tl.printParam) params.push(tl.printParam);
@@ -1193,10 +1251,14 @@ export default function CapabilityMapReport() {
       });
     if (activeFilterCount > 0) params.push({ label: t("common.filters"), value: t("common.filtersActive", { count: activeFilterCount }) });
     return params;
-  }, [metric, displayLevel, columns, showApps, colorBy, colorByOptions, levelOptions, tl.printParam, timelineDelta, activeFilterCount, effectiveScopeIds, t]);
+  }, [metric, displayLevel, columns, showApps, colorKey, colorByOptions, levelOptions, tl.printParam, timelineDelta, activeFilterCount, effectiveScopeIds, t]);
 
   if (data === null)
-    return (
+    return loadError ? (
+      <Box sx={{ py: 4 }}>
+        <Alert severity="error">{loadError}</Alert>
+      </Box>
+    ) : (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
         <CircularProgress />
       </Box>
@@ -1288,8 +1350,9 @@ export default function CapabilityMapReport() {
               select
               size="small"
               label={t("capabilityMap.colorAppsBy")}
-              value={colorBy || "none"}
-              onChange={(e) => setColorBy(e.target.value === "none" ? "" : e.target.value)}
+              value={colorKey}
+              onChange={(e) => setColorBy(e.target.value)}
+              slotProps={{ select: { displayEmpty: true } }}
               sx={{ minWidth: 180 }}
             >
               {colorByOptions.map((o) => (
@@ -1493,7 +1556,7 @@ export default function CapabilityMapReport() {
                   sx={{
                     width: 28,
                     height: 12,
-                    bgcolor: heatColor(r * maxVal, maxVal, metric),
+                    bgcolor: heatColor(minVal + r * (maxVal - minVal), minVal, maxVal, metric),
                   }}
                 />
               ))}
@@ -1507,10 +1570,10 @@ export default function CapabilityMapReport() {
           </Box>
 
           {/* App color legend — dynamic from schema */}
-          {showApps && colorBy && colorLegend && colorLegend.length > 0 && (
+          {showApps && colorLegend && colorLegend.length > 0 && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, ml: 2 }}>
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                {colorByOptions.find((o) => o.key === colorBy)?.label}:
+                {colorByLabel}:
               </Typography>
               {colorLegend.map((item) => (
                 <Box
@@ -1551,6 +1614,11 @@ export default function CapabilityMapReport() {
       }
     >
       {pulsing && <style>{TIMELINE_PULSE_KEYFRAMES}</style>}
+      {loadError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {loadError}
+        </Alert>
+      )}
       {tree.length === 0 ? (
         <Box sx={{ py: 8, textAlign: "center" }}>
           <Typography color="text.secondary">
@@ -1566,9 +1634,10 @@ export default function CapabilityMapReport() {
                 displayLevel={displayLevel}
                 columns={columns}
                 showApps={showApps}
-                colorBy={colorBy}
+                colorBy={colorKey}
                 selectFields={selectFields}
                 metric={metric}
+                minVal={minVal}
                 maxVal={maxVal}
                 onCapClick={setDrawer}
                 onAppClick={handleAppClick}

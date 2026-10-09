@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import Alert from "@mui/material/Alert";
@@ -15,6 +15,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import type {
   TurboLensAssessment,
@@ -26,12 +27,19 @@ import type {
 } from "@/types";
 import type { GNode, GEdge } from "@/features/reports/layeredDependencyLayout";
 import LayeredDependencyView from "@/features/reports/LayeredDependencyView";
-import { approachColor, effortColor, urgencyColor } from "./utils";
+import { approachColor, effortColor, effortLabel, urgencyColor } from "./utils";
+
+interface MergedGraph {
+  nodes: GNode[];
+  edges: GEdge[];
+  /** The name of the node a relation end is drawn to, if it is drawn at all. */
+  nameOf: (refId: string | undefined) => string | undefined;
+}
 
 function buildMergedGraph(
   mapping: CapabilityMappingResult,
   relationTypes: RelationType[],
-): { nodes: GNode[]; edges: GEdge[] } {
+): MergedGraph {
   const nodes: GNode[] = [];
   const nodeMap = new Map<string, GNode>();
   const edges: GEdge[] = [];
@@ -77,8 +85,11 @@ function buildMergedGraph(
     }
   }
 
-  // Resolve relation endpoints — handle dedup remapping + capability IDs
-  const resolveId = (refId: string): string => {
+  // Resolve relation endpoints — handle dedup remapping + capability IDs.
+  // An end that is not set resolves to nothing (it must not match a
+  // capability or card whose existingCardId is unset too).
+  const resolveId = (refId: string | undefined): string | undefined => {
+    if (!refId) return undefined;
     const cap = mapping.capabilities.find(
       (c) => c.id === refId || c.existingCardId === refId,
     );
@@ -94,7 +105,7 @@ function buildMergedGraph(
   for (const rel of mapping.proposedRelations) {
     let sid = resolveId(rel.sourceId);
     let tid = resolveId(rel.targetId);
-    if (!nodeMap.has(sid) || !nodeMap.has(tid)) continue;
+    if (!sid || !tid || !nodeMap.has(sid) || !nodeMap.has(tid)) continue;
     const rt = relationTypes.find((r) => r.key === rel.relationType);
     if (rt) {
       const sType = nodeMap.get(sid)?.type;
@@ -112,8 +123,15 @@ function buildMergedGraph(
     });
   }
 
-  return { nodes, edges };
+  const nameOf = (refId: string | undefined): string | undefined => {
+    const id = resolveId(refId);
+    return id ? nodeMap.get(id)?.name : undefined;
+  };
+
+  return { nodes, edges, nameOf };
 }
+
+const NO_GRAPH: MergedGraph = { nodes: [], edges: [], nameOf: () => undefined };
 
 export default function AssessmentViewer() {
   const { t } = useTranslation("admin");
@@ -124,17 +142,33 @@ export default function AssessmentViewer() {
   const [assessment, setAssessment] = useState<TurboLensAssessment | null>(null);
   usePageSubject(assessment?.title);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  // null = no error; "" = the load failed with no message of its own.
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    api
-      .get<TurboLensAssessment>(`/turbolens/assessments/${id}`)
-      .then(setAssessment)
-      .catch((err) => setError(err.message || "Failed to load assessment"))
-      .finally(() => setLoading(false));
-  }, [id]);
+  // Keyed on the route's id: only the latest id's answer may land, and each
+  // id starts without the previous one's error.
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!id) return;
+      // Nothing of the assessment the route left survives the move, not even
+      // as the tab's subject while the next one loads or fails.
+      setAssessment(null);
+      setLoading(true);
+      setError(null);
+      try {
+        // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
+        const data = await api.get<TurboLensAssessment>(`/turbolens/assessments/${id}`, { signal });
+        if (isCurrent()) setAssessment(data);
+      } catch (err) {
+        // A superseded (or aborted) load owns none of the state.
+        if (!isCurrent()) return;
+        setError(err instanceof Error ? err.message : "");
+      } finally {
+        if (isCurrent()) setLoading(false);
+      }
+    },
+    [id],
+  );
 
   const sd = assessment?.session_data as Record<string, unknown> | null;
 
@@ -162,39 +196,25 @@ export default function AssessmentViewer() {
   const canResume = assessment?.status !== "committed";
 
   const merged = useMemo(() => {
-    if (!capabilityMapping) return { nodes: [] as GNode[], edges: [] as GEdge[] };
+    if (!capabilityMapping) return NO_GRAPH;
     return buildMergedGraph(capabilityMapping, relationTypes);
   }, [capabilityMapping, relationTypes]);
-
-  const nameMap = useMemo(() => {
-    const map = new Map<string, string>();
-    if (!capabilityMapping) return map;
-    for (const c of capabilityMapping.proposedCards) {
-      map.set(c.id, c.name);
-      if (c.existingCardId) map.set(c.existingCardId, c.name);
-    }
-    for (const c of capabilityMapping.capabilities) {
-      map.set(c.id, c.name);
-      if (c.existingCardId) map.set(c.existingCardId, c.name);
-    }
-    for (const n of capabilityMapping.existingDependencies?.nodes ?? []) {
-      map.set(n.id, n.name);
-    }
-    return map;
-  }, [capabilityMapping]);
 
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
         <Typography variant="body2" color="text.secondary">
-          Loading...
+          {t("common:labels.loading")}
         </Typography>
       </Box>
     );
   }
 
-  if (error || !assessment) {
-    return <Alert severity="error">{error || "Assessment not found"}</Alert>;
+  if (error !== null) {
+    return <Alert severity="error">{error || t("turbolens_assessment_load_failed")}</Alert>;
+  }
+  if (!assessment) {
+    return <Alert severity="error">{t("turbolens_assessment_not_found")}</Alert>;
   }
 
   const typeInfo = (key: string) => types.find((tp) => tp.key === key);
@@ -457,7 +477,8 @@ export default function AssessmentViewer() {
                                     <Chip label={rec.estimatedCost} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />
                                   )}
                                   {rec.integrationEffort && (
-                                    <Chip label={`${rec.integrationEffort} ${t("turbolens_arch_effort")}`} size="small" color={effortColor(rec.integrationEffort)} variant="outlined" sx={{ fontSize: 10, height: 20 }} />
+                                    // Stryker disable next-line ObjectLiteral: the chip's compact size is presentation
+                                    <Chip label={t("turbolens_arch_effort_chip", { effort: effortLabel(t, rec.integrationEffort) })} size="small" color={effortColor(rec.integrationEffort)} variant="outlined" sx={{ fontSize: 10, height: 20 }} />
                                   )}
                                 </Stack>
                               </Paper>
@@ -560,7 +581,8 @@ export default function AssessmentViewer() {
                                     <Chip label={opt.estimatedCost} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />
                                   )}
                                   {opt.integrationEffort && (
-                                    <Chip label={`${opt.integrationEffort} ${t("turbolens_arch_effort")}`} size="small" color={effortColor(opt.integrationEffort)} variant="outlined" sx={{ fontSize: 10, height: 20 }} />
+                                    // Stryker disable next-line ObjectLiteral: the chip's compact size is presentation
+                                    <Chip label={t("turbolens_arch_effort_chip", { effort: effortLabel(t, opt.integrationEffort) })} size="small" color={effortColor(opt.integrationEffort)} variant="outlined" sx={{ fontSize: 10, height: 20 }} />
                                   )}
                                 </Stack>
                               </Paper>
@@ -642,10 +664,17 @@ export default function AssessmentViewer() {
                 </Typography>
                 <Stack spacing={0.3}>
                   {capabilityMapping.proposedRelations.map((rel, i) => {
-                    const srcName = nameMap.get(rel.sourceId) ?? rel.sourceId;
-                    const tgtName = nameMap.get(rel.targetId) ?? rel.targetId;
+                    // Named after the node the diagram draws each end to.
+                    const srcName = merged.nameOf(rel.sourceId) ?? rel.sourceId;
+                    const tgtName = merged.nameOf(rel.targetId) ?? rel.targetId;
                     return (
-                      <Stack key={i} direction="row" spacing={0.5} alignItems="center">
+                      <Stack
+                        key={i}
+                        direction="row"
+                        spacing={0.5}
+                        alignItems="center"
+                        data-testid="proposed-relation"
+                      >
                         <Typography variant="caption">{srcName}</Typography>
                         <MaterialSymbol icon="arrow_forward" size={12} color="#999" />
                         <Typography variant="caption">{tgtName}</Typography>

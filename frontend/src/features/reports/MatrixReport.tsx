@@ -98,6 +98,8 @@ function heatColor(
 
 // Styling constants
 const ROW_HEADER_COL_WIDTH = 140;
+// Stryker disable next-line ObjectLiteral: the select width is presentation
+const AXIS_SELECT_SX = { minWidth: 150 } as const;
 // LEVEL_COLORS and CELL_BORDER moved inside component for theme access
 
 /**
@@ -211,8 +213,10 @@ export default function MatrixReport() {
   const [cellMode, setCellMode] = useState<CellMode>("exists");
   const [hideEmpty, setHideEmpty] = useState(false);
   const [showOnlyGaps, setShowOnlyGaps] = useState(false);
-  const [sortRows, setSortRows] = useState<SortMode>("hierarchy");
-  const [sortCols, setSortCols] = useState<SortMode>("hierarchy");
+  // The sort each axis was given. Read through `sortRows` / `sortCols` below,
+  // which turn "hierarchy" into A → Z on an axis that has none.
+  const [rowSort, setSortRows] = useState<SortMode>("hierarchy");
+  const [colSort, setSortCols] = useState<SortMode>("hierarchy");
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   const [hoveredCol, setHoveredCol] = useState<string | null>(null);
   const [popover, setPopover] = useState<{ el: HTMLElement; rowId: string; colId: string } | null>(null);
@@ -263,12 +267,22 @@ export default function MatrixReport() {
     measureHeaderOffsets();
   });
 
-  // Also re-measure on resize
-  useEffect(() => {
-    const observer = new ResizeObserver(measureHeaderOffsets);
-    if (theadRef.current) observer.observe(theadRef.current);
-    return () => observer.disconnect();
-  }, [measureHeaderOffsets]);
+  // Also re-measure on resize. The header is absent behind the loading spinner
+  // and a new one mounts after every reload, so the observer follows the
+  // element through a callback ref; an effect run once at mount found nothing.
+  const headerObserver = useRef<ResizeObserver | null>(null);
+  const setTheadRef = useCallback(
+    (el: HTMLTableSectionElement | null) => {
+      theadRef.current = el;
+      headerObserver.current?.disconnect();
+      if (el) {
+        headerObserver.current = new ResizeObserver(measureHeaderOffsets);
+        headerObserver.current.observe(el);
+      }
+    },
+    // Stryker disable next-line ArrayDeclaration: measureHeaderOffsets is a stable callback; any list is equivalent
+    [measureHeaderOffsets],
+  );
 
   // Load saved report config. Every key is guarded, and the filter keys are
   // shape-checked as well as presence-checked, so a report saved before they
@@ -283,23 +297,24 @@ export default function MatrixReport() {
       }
       if (cfg.hideEmpty !== undefined) setHideEmpty(cfg.hideEmpty as boolean);
       if (typeof cfg.showOnlyGaps === "boolean") setShowOnlyGaps(cfg.showOnlyGaps);
-      if (cfg.sortRows) setSortRows(cfg.sortRows as SortMode);
-      if (cfg.sortCols) setSortCols(cfg.sortCols as SortMode);
+      // A config without a sort opens the axis on its type's default — the
+      // hierarchy, read as A → Z on a flat type — not on whatever sort the
+      // page happened to be showing before.
+      setSortRows(cfg.sortRows ? (cfg.sortRows as SortMode) : "hierarchy");
+      setSortCols(cfg.sortCols ? (cfg.sortCols as SortMode) : "hierarchy");
       if (cfg.rowExpandedDepth !== undefined) setRowExpandedDepth(cfg.rowExpandedDepth as number);
       if (cfg.colExpandedDepth !== undefined) setColExpandedDepth(cfg.colExpandedDepth as number);
       setFilters(sanitiseFilters(cfg.filters));
       // Guarded the same way as the Capability Map's: a config is free-form
       // JSONB, so never trust its element types.
-      if (Array.isArray(cfg.rowScopeIds)) {
-        rowScope.setScopeIds(
-          (cfg.rowScopeIds as unknown[]).filter((v): v is string => typeof v === "string"),
-        );
-      }
-      if (Array.isArray(cfg.colScopeIds)) {
-        colScope.setScopeIds(
-          (cfg.colScopeIds as unknown[]).filter((v): v is string => typeof v === "string"),
-        );
-      }
+      const scopeIdsOf = (raw: unknown) =>
+        Array.isArray(raw) ? raw.filter((v): v is string => typeof v === "string") : undefined;
+      // Each scope is set for the axis type the config names, so it is read
+      // as that type's from the render the type lands on.
+      const nextRowScope = scopeIdsOf(cfg.rowScopeIds);
+      const nextColScope = scopeIdsOf(cfg.colScopeIds);
+      if (nextRowScope) rowScope.setScopeIds(nextRowScope, (cfg.rowType as string) || rowType);
+      if (nextColScope) colScope.setScopeIds(nextColScope, (cfg.colType as string) || colType);
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -357,7 +372,7 @@ export default function MatrixReport() {
   // convincing matrix under headings and filters it does not match, with
   // nothing to signal the disagreement. `keepPreviousData: false` falls back to
   // the spinner, and the hook discards a superseded response outright (#882).
-  const { data: matrixData, loading: matrixLoading } = useApiQuery<MatrixData>(
+  const { data: matrixData, loading: matrixLoading, error: matrixError } = useApiQuery<MatrixData>(
     matrixPath,
     { keepPreviousData: false },
   );
@@ -368,41 +383,28 @@ export default function MatrixReport() {
   const rowScope = useCardScope({ typeKey: rowType, hierarchy: data?.rows ?? null });
   const colScope = useCardScope({ typeKey: colType, hierarchy: data?.columns ?? null });
 
-  // Declared here rather than beside the other config plumbing above: its
-  // dependency array names the scope hooks, and an array literal is evaluated
-  // eagerly, so it has to sit below their declarations.
-  // Auto-persist config to localStorage
-  useEffect(() => {
-    saved.persistConfig(getConfig());
-  }, [rowType, colType, cellMode, hideEmpty, showOnlyGaps, sortRows, sortCols, rowExpandedDepth, colExpandedDepth, filters, rowScope.scopeIds, colScope.scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
-
-
-  // Reset depth when switching types
-  useEffect(() => {
-    const meta = types.find((t) => t.key === rowType);
-    if (meta?.has_hierarchy) setSortRows("hierarchy");
-    else if (sortRows === "hierarchy") setSortRows("alpha");
-    setRowExpandedDepth(Infinity);
-  }, [rowType, types]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const meta = types.find((t) => t.key === colType);
-    if (meta?.has_hierarchy) setSortCols("hierarchy");
-    else if (sortCols === "hierarchy") setSortCols("alpha");
-    setColExpandedDepth(Infinity);
-  }, [colType, types]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Filter keys are namespaced by relation type, so they are meaningless for a
-  // different axis pair — carrying them over would silently empty the new grid.
-  // Skipped on the first run so a saved report's filters survive being loaded.
-  // (Scope ids are per-axis rather than per-pair, so `useCardScope` clears
-  // each one on its own type change instead of both being wiped here.)
-  const loadedAxes = useRef<string | null>(null);
-  useEffect(() => {
-    const axes = `${rowType}|${colType}`;
-    if (loadedAxes.current !== null && loadedAxes.current !== axes) setFilters(EMPTY_FILTERS);
-    loadedAxes.current = axes;
-  }, [rowType, colType]);
+  /**
+   * The user's own pick of an axis type. Filter keys are namespaced by relation
+   * type, so they mean nothing for a different axis pair — carrying them over
+   * would silently empty the new grid. The axis reopens fully expanded, and a
+   * hierarchical type starts on its hierarchy; any other keeps its sort. A
+   * restored config and a transpose change types too, but carry their own
+   * sorts, depths and filters, so this runs from the pickers only.
+   */
+  const changeAxisType = (axis: "row" | "col", next: string) => {
+    // Stryker disable next-line OptionalChaining: defensive; the picker offers only types the metamodel has
+    const hierarchical = types.find((t) => t.key === next)?.has_hierarchy;
+    if (axis === "row") {
+      setRowType(next);
+      if (hierarchical) setSortRows("hierarchy");
+      setRowExpandedDepth(Infinity);
+    } else {
+      setColType(next);
+      if (hierarchical) setSortCols("hierarchy");
+      setColExpandedDepth(Infinity);
+    }
+    setFilters(EMPTY_FILTERS);
+  };
 
   // Every relation type able to connect the two axes. Any number may share an
   // ordered pair, so this is a list, not one per orientation. Everything
@@ -496,6 +498,18 @@ export default function MatrixReport() {
     colTreeFull.maxDepth,
   ) : 0;
 
+  // A hierarchy sort only exists on an axis with a hierarchy. Anywhere else —
+  // the initial default on a flat type, a restored config, a flat type picked
+  // after a hierarchical one — it reads as A → Z.
+  const sortRows: SortMode = rowSort === "hierarchy" && !rowHasHierarchy ? "alpha" : rowSort;
+  const sortCols: SortMode = colSort === "hierarchy" && !colHasHierarchy ? "alpha" : colSort;
+
+  // Auto-persist config to localStorage. Declared down here because its
+  // dependency array — evaluated eagerly — names the sorts read just above.
+  useEffect(() => {
+    saved.persistConfig(getConfig());
+  }, [rowType, colType, cellMode, hideEmpty, showOnlyGaps, sortRows, sortCols, rowExpandedDepth, colExpandedDepth, filters, rowScope.scopeIds, colScope.scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Relations per card, straight off the payload's edges — one pass over the
   // data rather than a full grid walk per axis.
   const { cardRowCounts, cardColCounts } = useMemo(() => {
@@ -551,11 +565,11 @@ export default function MatrixReport() {
 
   const rowSelfIds = useMemo(
     () => parentsWithOwnRelations(rowTreeFull, relatedRowIds),
-    [rowTreeFull, relatedRowIds], // eslint-disable-line react-hooks/exhaustive-deps
+    [rowTreeFull, relatedRowIds],
   );
   const colSelfIds = useMemo(
     () => parentsWithOwnRelations(colTreeFull, relatedColIds),
-    [colTreeFull, relatedColIds], // eslint-disable-line react-hooks/exhaustive-deps
+    [colTreeFull, relatedColIds],
   );
 
   // Pruned trees based on visible depth (only in hierarchy mode). Self rows are
@@ -806,6 +820,9 @@ export default function MatrixReport() {
     );
   };
 
+  // Stryker disable next-line StringLiteral: "col" is any axis that is not "row"
+  const pickColumnType = (e: { target: { value: string } }) => changeAxisType("col", e.target.value);
+
   /** Swap the axes, carrying each one's sort and depth across with it. */
   const handleTranspose = () => {
     setRowType(colType);
@@ -816,12 +833,16 @@ export default function MatrixReport() {
     setColExpandedDepth(rowExpandedDepth);
     setRowSearch(colSearch);
     setColSearch(rowSearch);
-    // The scopes belong to their axes, so they swap too. Read before either
-    // setter runs, since both are stale-closure snapshots of this render.
+    // The scopes belong to their axes, so they swap too, each set for the
+    // type its axis is about to carry. Read before either setter runs, since
+    // both are stale-closure snapshots of this render.
     const nextRowScope = colScope.scopeIds;
     const nextColScope = rowScope.scopeIds;
-    rowScope.setScopeIds(nextRowScope);
-    colScope.setScopeIds(nextColScope);
+    rowScope.setScopeIds(nextRowScope, colType);
+    colScope.setScopeIds(nextColScope, rowType);
+    // Swapping two different types makes a different axis pair: it starts
+    // unfiltered.
+    if (rowType !== colType) setFilters(EMPTY_FILTERS);
   };
 
   const sortModeLabel = (m: SortMode) => m === "alpha" ? t("matrix.alphaSort") : m === "count" ? t("matrix.byCount") : t("matrix.hierarchy");
@@ -876,11 +897,15 @@ export default function MatrixReport() {
     for (const [dimensionId, values] of Object.entries(filters.attrValues)) {
       if (values.length === 0) continue;
       const dim = valueIndex.dimensions.find((d) => d.id === dimensionId);
+      // A flag filters on "true" / "false" (the filter bar's Yes / No); only an
+      // enum's values are options with labels of their own.
+      const valueLabel = (v: string) =>
+        dim?.kind === "flag"
+          ? t(v === "true" ? "common:labels.yes" : "common:labels.no")
+          : (valueIndex.byId.get(`${dimensionId}:${v}`)?.label ?? v);
       params.push({
         label: dim ? fieldLabel(dim.field) : dimensionId,
-        value: values
-          .map((v) => valueIndex.byId.get(`${dimensionId}:${v}`)?.label ?? v)
-          .join(", "),
+        value: values.map(valueLabel).join(", "),
       });
     }
     if (filters.direction !== "any") {
@@ -1000,7 +1025,9 @@ export default function MatrixReport() {
     };
   }, [data, leafRowNodes, leafColNodes, cellMatrix, cellMode, valueIndex, pairRelationTypes, relationTypes, rowLabel, colLabel, printParams, chartRef, relationLabel, fieldLabel, t]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loading = ml || matrixLoading || data === null;
+  // A failed request leaves no data behind, and says so below rather than
+  // spinning for ever.
+  const loading = ml || matrixLoading || (data === null && !matrixError);
 
   const isHierarchyRowMode = sortRows === "hierarchy" && rowHasHierarchy && rowTreeFull !== null && rowTreeFull.maxDepth > 0;
   const isHierarchyColMode = sortCols === "hierarchy" && colHasHierarchy && colTreeFull !== null && colTreeFull.maxDepth > 0;
@@ -1022,7 +1049,7 @@ export default function MatrixReport() {
       onReset={handleReset}
       toolbar={
         <>
-          <TextField select size="small" label={t("matrix.rows")} value={rowType} onChange={(e) => setRowType(e.target.value)} sx={{ minWidth: 150 }}>
+          <TextField select size="small" label={t("matrix.rows")} value={rowType} onChange={(e) => changeAxisType("row", e.target.value)} sx={AXIS_SELECT_SX}>
             {readableTypes.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
           <CardScopeFilter
@@ -1036,7 +1063,7 @@ export default function MatrixReport() {
             tooltip={t("matrix.scopeTooltipRows")}
             initialOptions={rowScopeOptions}
           />
-          <TextField select size="small" label={t("matrix.columns")} value={colType} onChange={(e) => setColType(e.target.value)} sx={{ minWidth: 150 }}>
+          <TextField select size="small" label={t("matrix.columns")} value={colType} onChange={pickColumnType} sx={AXIS_SELECT_SX}>
             {readableTypes.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
           <CardScopeFilter
@@ -1150,6 +1177,8 @@ export default function MatrixReport() {
     >
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>
+      ) : matrixError ? (
+        <Alert severity="error">{matrixError.message || t("common:errors.generic")}</Alert>
       ) : (
       <>
       <MatrixFilterBar
@@ -1251,7 +1280,7 @@ export default function MatrixReport() {
               ))}
               <col style={{ width: 44 }} />
             </colgroup>
-            <thead ref={theadRef}>
+            <thead ref={setTheadRef}>
               {columnHeaderRows.map((row, levelIdx) => {
                 const stickyTop = headerTopOffsets[levelIdx] ?? 0;
                 return (

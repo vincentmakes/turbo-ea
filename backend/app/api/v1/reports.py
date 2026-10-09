@@ -44,6 +44,7 @@ from app.services.card_read_scope import (
     scrub_event_payloads,
 )
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
+from app.services.cost_value import cost_value
 from app.services.eol_service import (
     eol_status,
     fetch_cycles_for_products,
@@ -1604,7 +1605,7 @@ async def cost_report(
         attrs = card.attributes or {}
         cost = 0
         for ck in cost_field_keys:
-            cost += attrs.get(ck, 0) or 0
+            cost += cost_value(attrs.get(ck))
         if cost:
             items.append({"id": str(card.id), "name": card.name, "cost": cost})
             total += cost
@@ -1750,7 +1751,7 @@ async def cost_treemap(
                 if is_live_in_fiscal_year(c.lifecycle, fy, fy_start)
             ]
             related_cost_by_id = {
-                str(c.id): float((c.attributes or {}).get(field_key, 0) or 0) for c in related_cards
+                str(c.id): cost_value((c.attributes or {}).get(field_key)) for c in related_cards
             }
             related_id_set = {str(c.id) for c in related_cards}
             related_ids = [c.id for c in related_cards]
@@ -1802,7 +1803,7 @@ async def cost_treemap(
             total += cost
     else:
         for card in sheets:
-            cost = (card.attributes or {}).get(cost_field, 0) or 0
+            cost = cost_value((card.attributes or {}).get(cost_field))
             if not cost:
                 continue
             items.append(
@@ -2070,8 +2071,7 @@ async def capability_heatmap(
             for a in linked_apps:
                 attrs = a.attributes or {}
                 for ck in cost_field_keys:
-                    v = attrs.get(ck, 0) or 0
-                    total_cost += v
+                    total_cost += cost_value(attrs.get(ck))
 
         risk_count = sum(1 for a in linked_apps if (a.lifecycle or {}).get("endOfLife"))
 

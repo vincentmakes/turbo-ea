@@ -9,6 +9,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { useLocation } from "react-router";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -138,7 +139,8 @@ const REL_PROVIDER_TO_APP = makeRelationType({
 });
 
 const onClose = vi.fn();
-const onCreate = vi.fn(async () => "new-id");
+// Typed with the prop it stands in for, so `mock.calls[0][0]` is the create payload.
+const onCreate = vi.fn<ComponentProps<typeof CreateCardDialog>["onCreate"]>(async () => "new-id");
 
 function LocationProbe() {
   return <div data-testid="location">{useLocation().pathname}</div>;
@@ -183,10 +185,8 @@ beforeEach(() => {
 });
 
 
-// The AI button is found by its visible label. Its accessible name currently
-// comes from the tooltip ("Use AI to suggest…"), a label-in-name mismatch
-// (WCAG 2.5.3) that a role+name query would pin.
-const aiButton = () => screen.queryByText("Suggest with AI")?.closest("button") ?? null;
+// Named by its visible label (WCAG 2.5.3); the tooltip only describes it.
+const aiButton = () => screen.queryByRole("button", { name: /Suggest with AI/ });
 
 describe("CreateCardDialog — required fields of every type", () => {
   it("renders each field type, and submits what was entered", async () => {
@@ -308,11 +308,16 @@ describe("CreateCardDialog — errors and closing", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("keeps the dialog usable when tag groups cannot be loaded", async () => {
+  it("keeps the dialog usable when tag groups cannot be loaded, and says so", async () => {
     mockApi.fail("get", "/tag-groups", 500);
-    renderDialog({ initialType: "Application" });
-    await waitFor(() => expect(mockApi.callsOf("get", "/tag-groups")).toHaveLength(1));
+    const { user } = renderDialog({ initialType: "Application" });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Tags could not be loaded: GET /tag-groups failed",
+    );
     expect(screen.queryByText("pick-tags")).not.toBeInTheDocument();
+    await user.type(nameBox(), "Still works");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalled());
   });
 
   it("lets a modified click on the duplicate link through without closing", async () => {
@@ -433,13 +438,25 @@ describe("CreateCardDialog — end-of-life tracking", () => {
     expect(screen.getByRole("button", { name: "Manual Search" })).toBeInTheDocument();
   });
 
-  it("says so when the search finds nothing or fails", async () => {
-    mockApi.fail("get", /^\/eol\/products\/fuzzy/, 502);
+  it("says so when the search finds nothing", async () => {
     const { user } = renderDialog({ initialType: "ITComponent" });
     await user.type(nameBox(), "Obscure thing");
     expect(
       await screen.findByText(/No EOL matches found/, {}, { timeout: 3000 }),
     ).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("says the search failed, rather than that it found nothing, when it fails", async () => {
+    mockApi.fail("get", /^\/eol\/products\/fuzzy/, 502);
+    const { user } = renderDialog({ initialType: "ITComponent" });
+    await user.type(nameBox(), "Obscure thing");
+    expect(await screen.findByRole("alert", {}, { timeout: 3000 })).toHaveTextContent(
+      "GET /eol/products/fuzzy?search=Obscure%20thing&limit=5 failed",
+    );
+    expect(screen.queryByText(/No EOL matches found/)).not.toBeInTheDocument();
+    // Manual search stays available.
+    expect(screen.getByRole("button", { name: "Manual Search" })).toBeEnabled();
   });
 });
 

@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import * as XLSX from "xlsx";
+import { createTheme } from "@mui/material/styles";
 import type { RiskImportResponse } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -82,6 +83,8 @@ function renderDialog() {
 }
 
 const bulkImports = () => mockApi.callsOf("post", "/risks/bulk-import");
+/** The palette the dialog renders against (no ThemeProvider: MUI's default theme). */
+const PALETTE = createTheme().palette;
 
 beforeEach(() => {
   mockApi.reset();
@@ -410,7 +413,9 @@ describe("RiskImportDialog — step by step", () => {
     await act(async () => pending.resolve({ ...CLEAN, dry_run: false }));
     const heading = await screen.findByRole("heading", { name: "Imported 2 risks" });
     const done = heading.parentElement as HTMLElement;
-    expect(within(done).getByText("check_circle")).toBeInTheDocument();
+    // Coloured with the theme's success colour — a palette path like
+    // "success.main" is not a CSS colour and would be dropped by the browser.
+    expect(within(done).getByText("check_circle")).toHaveStyle({ color: PALETTE.success.main });
     expect(screen.queryByText(/rows were skipped/)).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     // The preview is gone, and so are its actions.
@@ -432,7 +437,9 @@ describe("RiskImportDialog — step by step", () => {
     await user.upload(fileInput(), workbookFile(ROWS));
     await user.click(await screen.findByRole("button", { name: /Import 1 risks/ }));
     const heading = await screen.findByRole("heading", { name: "Imported 1 risks" });
-    expect(within(heading.parentElement as HTMLElement).getByText("warning")).toBeInTheDocument();
+    expect(within(heading.parentElement as HTMLElement).getByText("warning")).toHaveStyle({
+      color: PALETTE.warning.main,
+    });
     expect(screen.queryByText("1 to create")).not.toBeInTheDocument();
   });
 

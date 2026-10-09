@@ -133,6 +133,27 @@ describe("RegulationsAdmin list", () => {
     await waitFor(() => expect(mockApi.callsOf("patch", `${PATH}/reg-2`)).toHaveLength(1));
     expect(mockApi.callsOf("patch", `${PATH}/reg-2`)[0].body).toEqual({ is_enabled: true });
     await waitFor(() => expect(mockApi.callsOf("get", PATH)).toHaveLength(2));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("reports a failed toggle and leaves the switch as it was", async () => {
+    mockApi.fail("patch", `${PATH}/reg-2`);
+    const user = await renderPage();
+
+    await user.click(within(rowOf("NIS2")).getByRole("checkbox"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(`PATCH ${PATH}/reg-2 failed`);
+    expect(within(rowOf("NIS2")).getByRole("checkbox")).not.toBeChecked();
+    expect(mockApi.callsOf("get", PATH)).toHaveLength(1);
+  });
+
+  it("reports a failed toggle without an Error generically", async () => {
+    mockApi.on("patch", `${PATH}/reg-2`, () => Promise.reject("down"));
+    const user = await renderPage();
+
+    await user.click(within(rowOf("NIS2")).getByRole("checkbox"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not save regulation.");
   });
 });
 
@@ -286,14 +307,20 @@ describe("RegulationsAdmin first paint and reloads", () => {
     expect(await screen.findByText("hipaa")).toBeInTheDocument();
   });
 
-  it("reloads the list when the interface language changes", async () => {
+  it("reloads the list when the interface language changes, keeping it on screen meanwhile", async () => {
     await renderPage();
     expect(mockApi.callsOf("get", PATH)).toHaveLength(1);
+    let resolve: (v: unknown) => void = () => {};
+    mockApi.on("get", PATH, () => new Promise((r) => (resolve = r)));
     try {
       await act(async () => {
         await i18n.changeLanguage("de");
       });
       await waitFor(() => expect(mockApi.callsOf("get", PATH)).toHaveLength(2));
+      expect(screen.getByText("GDPR")).toBeInTheDocument();
+      expect(screen.getByText("Internal controls")).toBeInTheDocument();
+      await act(async () => resolve(ITEMS));
+      expect(screen.getByText("GDPR")).toBeInTheDocument();
     } finally {
       await act(async () => {
         await i18n.changeLanguage("en");

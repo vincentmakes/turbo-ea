@@ -946,10 +946,8 @@ describe("AI insights request", () => {
       await waitFor(() => expect(mockApi.callsOf("post", "/ai/portfolio-insights")).toHaveLength(1));
       expect(body().lifecycle_summary).toEqual({ phaseOut: 1, active: 1, Unknown: 1, "No lifecycle": 2 });
       expect(body().attribute_summary).toEqual({ "Business Criticality": { high: 5 }, Tier: { t1: 5 } });
-      // Only the real filters are asserted: a "Timeline date" entry is also sent today
-      // although no date was chosen, which is a bug, not behaviour to pin.
-      expect(body().active_filters).toEqual(expect.arrayContaining(["Tier: t1", "region: eu"]));
-      expect((body().active_filters as string[]).slice(0, 2)).toEqual(["Tier: t1", "region: eu"]);
+      // Not time-travelling: no timeline entry among the filters.
+      expect(body().active_filters).toEqual(["Tier: t1", "region: eu"]);
       // Not coloured: no per-group breakdown.
       expect(body().groups).toEqual([
         { name: "High", count: 5, breakdown: {} },

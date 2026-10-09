@@ -791,7 +791,7 @@ describe("TurboLensArchitect — products and dependencies", () => {
 
   it("shows a dependency option's estimates as chips and adds none it does not have", () => {
     startAt(4);
-    expect(chipsIn(tileOf("Okta"))).toEqual(["Top Pick", "$20k", "effort: medium"]);
+    expect(chipsIn(tileOf("Okta"))).toEqual(["Top Pick", "$20k", "effort: Medium"]);
     expect(chipsIn(tileOf("Keycloak"))).toEqual([]);
   });
 

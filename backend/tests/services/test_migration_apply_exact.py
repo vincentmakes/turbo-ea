@@ -971,22 +971,22 @@ async def test_custom_fields_land_in_an_imported_section(db, env):
     )
     ct = (await db.execute(select(CardType).where(CardType.key == "Widget"))).scalar_one()
     await db.refresh(ct)
-    assert ct.fields_schema == [
-        {"section": "Main", "fields": [{"key": "taken", "type": "text"}]},
+    main, imported = ct.fields_schema
+    assert main == {"section": "Main", "fields": [{"key": "taken", "type": "text"}]}
+    assert {k: v for k, v in imported.items() if k != "fields"} == {
+        "section": "Imported from inmem",
+        "columns": 1,
+    }
+    # Fields land in the order the pass reads its (unordered) rows.
+    assert sorted(imported["fields"], key=lambda f: f["key"]) == [
+        {"key": "cost", "label": "Cost", "type": "cost", "weight": 0},
         {
-            "section": "Imported from inmem",
-            "columns": 1,
-            "fields": [
-                {"key": "cost", "label": "Cost", "type": "cost", "weight": 0},
-                {
-                    "key": "tier",
-                    "label": "tier",
-                    "type": "single_select",
-                    "weight": 0,
-                    "options": [{"key": "a", "label": "A"}],
-                    "translations": {"de": "Stufe"},
-                },
-            ],
+            "key": "tier",
+            "label": "tier",
+            "type": "single_select",
+            "weight": 0,
+            "options": [{"key": "a", "label": "A"}],
+            "translations": {"de": "Stufe"},
         },
     ]
     assert all(s.status == "applied" for s in [*staged, skip])
@@ -1262,9 +1262,12 @@ async def test_documents_are_created_or_matched_by_identity_then_url(db, env, en
         type="link",
         created_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
     )
+    # A link of its own for D8 to retitle. Two rows resolving to one document
+    # would leave the result to whichever the pass reads last.
+    by_url2 = Document(card_id=ends.app.id, name="Spec", url="https://spec2", type="link")
     # The same URL on another card is a different document.
     elsewhere = Document(card_id=ends.other.id, name="Elsewhere", url="https://fresh", type="link")
-    db.add_all([by_id, kept, by_url, elsewhere])
+    db.add_all([by_id, kept, by_url, by_url2, elsewhere])
     await db.flush()
     await identity(db, "D1", by_id.id, kind="document")
     await identity(db, "D7", kept.id, kind="document")
@@ -1293,7 +1296,7 @@ async def test_documents_are_created_or_matched_by_identity_then_url(db, env, en
         env,
         "document",
         "D8",
-        data={"entity_id": "app", "name": "Spec v2", "url": "https://spec"},
+        data={"entity_id": "app", "name": "Spec v2", "url": "https://spec2"},
     )
     await stage(db, env, "document", "D9", action="conflict")
     another = await stage(
@@ -1306,8 +1309,13 @@ async def test_documents_are_created_or_matched_by_identity_then_url(db, env, en
     assert await ap._apply_document_pass(db, env.m, env.admin) == zero(
         created=2, updated=2, skipped=3, conflicts=2, errors=1
     )
-    assert (by_id.name, by_url.name, later_copy.name) == ("New title", "Spec v2", "Spec copy")
-    assert (unchanged.target_id, retitled.target_id) == (kept.id, by_url.id)
+    assert (by_id.name, by_url.name, by_url2.name, later_copy.name) == (
+        "New title",
+        "Spec",
+        "Spec v2",
+        "Spec copy",
+    )
+    assert (unchanged.target_id, retitled.target_id) == (kept.id, by_url2.id)
     assert another.target_id is not None
     fresh = (await db.execute(select(Document).where(Document.name == "Fresh"))).scalar_one()
     assert (fresh.card_id, fresh.url, fresh.type, fresh.created_by) == (
@@ -1462,7 +1470,8 @@ async def test_a_row_that_raises_is_recorded_on_its_own_row(
     for staged in (first, second):
         assert staged.status == "error"
         assert staged.error_message == LONG[:1000]
-    assert [r.getMessage() for r in caplog.records if r.name == LOGGER] == [
+    # A pass reads its rows unordered, so the lines can come in either order.
+    assert sorted(r.getMessage() for r in caplog.records if r.name == LOGGER) == [
         f"migration apply: {kind} F1 failed",
         f"migration apply: {kind} F2 failed",
     ]
@@ -1489,7 +1498,8 @@ async def test_a_card_tag_or_relation_that_raises_is_recorded_on_its_own_row(
         assert (await ap._apply_relation_pass(db, env.m, env.admin))["errors"] == 1
     for staged in (tag_row, rel_row):
         assert (staged.status, staged.error_message) == ("error", LONG[:1000])
-    assert [r.getMessage() for r in caplog.records if r.name == LOGGER] == [
+    # A pass reads its rows unordered, so the lines can come in either order.
+    assert sorted(r.getMessage() for r in caplog.records if r.name == LOGGER) == [
         "migration apply: card_tag L1 failed",
         "migration apply: card_tag L2 failed",
         "migration apply: relation R1 failed",
@@ -1514,7 +1524,8 @@ async def test_a_field_for_an_unknown_type_records_a_truncated_reason(db, env, c
     )
     with caplog.at_level(logging.ERROR, logger=LOGGER):
         assert await ap._apply_metamodel_field_pass(db, env.m, env.admin) == zero(errors=2)
-    assert [r.getMessage() for r in caplog.records if r.name == LOGGER] == [
+    # A pass reads its rows unordered, so the lines can come in either order.
+    assert sorted(r.getMessage() for r in caplog.records if r.name == LOGGER) == [
         "migration apply: metamodel_field LX:f failed",
         "migration apply: metamodel_field LX:g failed",
     ]

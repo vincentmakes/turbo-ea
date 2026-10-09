@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 vi.mock("@/components/CardDetailSidePanel", () => ({
@@ -21,9 +21,17 @@ vi.mock("@/components/CardDetailSidePanel", () => ({
     ) : null,
 }));
 
+import i18n from "@/i18n";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { renderWithProviders } from "@/test/render";
-import { makeCard, makeCardType, makeSubtype } from "@/test/fixtures/metamodel";
+import {
+  makeCard,
+  makeCardType,
+  makeField,
+  makeOption,
+  makeSection,
+  makeSubtype,
+} from "@/test/fixtures/metamodel";
 import type { ArchitectureDecision, Card, DiagramSummary, SoAW } from "@/types";
 import InitiativeWorkspace from "./InitiativeWorkspace";
 import type { InitiativeTreeNode } from "./useInitiativeData";
@@ -233,5 +241,166 @@ describe("InitiativeWorkspace", () => {
     });
     renderWorkspace({ kind: "initiative", node: node(card) });
     expect(screen.getByText(label)).toBeInTheDocument();
+  });
+});
+
+describe("InitiativeWorkspace — the status chip is labelled from the metamodel", () => {
+  /** An Initiative type whose status field an admin has customised. */
+  const STATUS_TYPE = makeCardType({
+    ...INITIATIVE_TYPE,
+    fields_schema: [
+      makeSection({ section: "Details", fields: [makeField({ key: "budget" })] }),
+      makeSection({
+        section: "Initiative Information",
+        fields: [
+          makeField({
+            key: "initiativeStatus",
+            label: "Status",
+            type: "single_select",
+            options: [
+              makeOption({ key: "onTrack", label: "Green" }),
+              makeOption({
+                key: "paused",
+                label: "Paused by board",
+                translations: { de: "Vom Vorstand pausiert" },
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+  const withStatus = (status: string) =>
+    makeCard({ id: "init-9", type: "Initiative", name: "Status probe", attributes: { initiativeStatus: status } });
+
+  it("names a custom status by its option label, never by its key", () => {
+    withMetamodel([STATUS_TYPE]);
+    renderWorkspace({ kind: "initiative", node: node(withStatus("paused")) });
+    expect(screen.getByText("Paused by board")).toBeInTheDocument();
+    expect(screen.queryByText("paused")).not.toBeInTheDocument();
+  });
+
+  it("prefers the admin's label for a built-in status over the bundled wording", () => {
+    withMetamodel([STATUS_TYPE]);
+    renderWorkspace({ kind: "initiative", node: node(withStatus("onTrack")) });
+    expect(screen.getByText("Green")).toBeInTheDocument();
+    expect(screen.queryByText("On Track")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the bundled wording for a built-in status the metamodel lacks", () => {
+    withMetamodel([STATUS_TYPE]);
+    renderWorkspace({ kind: "initiative", node: node(withStatus("completed")) });
+    expect(screen.getByText("Completed")).toBeInTheDocument();
+  });
+
+  it("translates the option label into the user's language", async () => {
+    withMetamodel([STATUS_TYPE]);
+    try {
+      await act(async () => {
+        await i18n.changeLanguage("de");
+      });
+      renderWorkspace({ kind: "initiative", node: node(withStatus("paused")) });
+      expect(screen.getByText("Vom Vorstand pausiert")).toBeInTheDocument();
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+      localStorage.clear();
+    }
+  });
+});
+
+describe("InitiativeWorkspace — child initiatives can be reached by keyboard", () => {
+  const PLAIN = makeCard({ id: "init-4", type: "Initiative", name: "Plain child" });
+  const withChildren = () =>
+    renderWorkspace({
+      kind: "initiative",
+      node: node(PROGRAM, { children: [node(CHILD, { level: 1 }), node(PLAIN, { level: 1 })] }),
+    });
+
+  it("makes each child a focusable button named after it, selected with Enter or Space", async () => {
+    const { user, onSelectInitiative } = withChildren();
+    const child = screen.getByRole("button", { name: "Lift and shift" });
+    const plain = screen.getByRole("button", { name: "Plain child" });
+    for (const row of [child, plain]) expect(row).toHaveAttribute("tabindex", "0");
+
+    child.focus();
+    expect(child).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(onSelectInitiative).toHaveBeenLastCalledWith("init-2");
+
+    plain.focus();
+    await user.keyboard(" ");
+    expect(onSelectInitiative).toHaveBeenLastCalledWith("init-4");
+    expect(onSelectInitiative).toHaveBeenCalledTimes(2);
+
+    // Other keys do nothing.
+    await user.keyboard("a");
+    expect(onSelectInitiative).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps Space from scrolling the page when it selects a child", () => {
+    withChildren();
+    const child = screen.getByRole("button", { name: "Lift and shift" });
+    // fireEvent returns false when the handler prevented the default action.
+    expect(fireEvent.keyDown(child, { key: " " })).toBe(false);
+    expect(fireEvent.keyDown(child, { key: "a" })).toBe(true);
+  });
+});
+
+describe("InitiativeWorkspace — the status chip is coloured from the metamodel", () => {
+  const COLOURED_TYPE = makeCardType({
+    ...INITIATIVE_TYPE,
+    fields_schema: [
+      makeSection({
+        section: "Initiative Information",
+        fields: [
+          makeField({
+            key: "initiativeStatus",
+            type: "single_select",
+            options: [
+              makeOption({ key: "onTrack", label: "Green", color: "#00897b" }),
+              makeOption({ key: "paused", label: "Paused by board", color: "#6a1b9a" }),
+              makeOption({ key: "draft", label: "Draft" }),
+              makeOption({ key: "completed", label: "Done" }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+  const chipOf = (status: string, label: string) => {
+    renderWorkspace({
+      kind: "initiative",
+      node: node(
+        makeCard({ id: "init-9", type: "Initiative", name: "Status probe", attributes: { initiativeStatus: status } }),
+      ),
+    });
+    return screen.getByText(label).closest(".MuiChip-root") as HTMLElement;
+  };
+
+  beforeEach(() => {
+    withMetamodel([COLOURED_TYPE]);
+  });
+
+  it("paints a custom status in its option's colour, not grey", () => {
+    expect(chipOf("paused", "Paused by board")).toHaveStyle({ backgroundColor: "#6a1b9a" });
+  });
+
+  it("prefers the option's colour for a built-in status over the bundled one", () => {
+    expect(chipOf("onTrack", "Green")).toHaveStyle({ backgroundColor: "#00897b" });
+  });
+
+  it("keeps the bundled colour for a built-in status whose option has none", () => {
+    expect(chipOf("completed", "Done")).toHaveStyle({ backgroundColor: "#1976d2" });
+  });
+
+  it("paints a custom status without a colour grey", () => {
+    expect(chipOf("draft", "Draft")).toHaveStyle({ backgroundColor: "#9e9e9e" });
+  });
+
+  it("keeps the bundled colour for a built-in status the metamodel lacks", () => {
+    withMetamodel([INITIATIVE_TYPE]);
+    expect(chipOf("atRisk", "At Risk")).toHaveStyle({ backgroundColor: "#ff9800" });
   });
 });

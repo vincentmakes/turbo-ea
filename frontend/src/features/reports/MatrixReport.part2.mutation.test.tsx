@@ -311,9 +311,8 @@ describe("MatrixReport print summary", () => {
       { label: "Relation type", value: "enables, gone" },
       // A known option reads by its label, an unknown one raw.
       { label: "Mode", value: "Synchronous, async-gone" },
-      // Only the label: the value reads the raw "true" today (the lookup misses a
-      // boolean's bare value id), which is a bug, not behaviour to pin.
-      expect.objectContaining({ label: "Create" }),
+      // A flag reads as the filter bar's Yes / No, not the raw "true".
+      { label: "Create", value: "Yes" },
       // A dimension no relation type declares falls back to its id.
       { label: "ghost.dim", value: "v" },
       { label: "Direction", value: "Row is the source" },

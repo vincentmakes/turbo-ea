@@ -115,11 +115,21 @@ describe("TurboLensVendors", () => {
     expect(screen.queryByText("Unique Vendors")).not.toBeInTheDocument();
   });
 
-  it("treats a failed load as no data", async () => {
+  it("shows the error, not the empty state, when the vendors cannot be loaded", async () => {
     mockApi.fail("get", LIST_URL);
     renderTab();
 
-    expect(await screen.findByText("No vendor analysis data")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(`GET ${LIST_URL} failed`);
+    expect(screen.queryByText("No vendor analysis data")).not.toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("falls back to a generic message when the failed load carries none", async () => {
+    mockApi.on("get", LIST_URL, () => Promise.reject("offline"));
+    renderTab();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+    expect(screen.queryByText("No vendor analysis data")).not.toBeInTheDocument();
   });
 
   it("summarises the analysis in KPI tiles", async () => {
@@ -450,7 +460,7 @@ describe("TurboLensVendors", () => {
     expect(screen.queryByText("Vendor analysis started")).not.toBeInTheDocument();
   });
 
-  it("empties the list when the reload after a run fails", async () => {
+  it("shows the error instead of the list when the reload after a run fails", async () => {
     mockApi.on("get", LIST_URL, VENDORS);
     mockApi.on("post", ANALYSE_URL, { run_id: "run-1" });
     let answerPoll: (run: unknown) => void = () => {};
@@ -463,7 +473,38 @@ describe("TurboLensVendors", () => {
 
     mockApi.fail("get", LIST_URL);
     answerPoll({ id: "run-1", status: "completed", analysis_type: "vendors" });
-    expect(await screen.findByText("No vendor analysis data")).toBeInTheDocument();
+    expect(await screen.findByText(`GET ${LIST_URL} failed`)).toBeInTheDocument();
+    expect(screen.queryByText("No vendor analysis data")).not.toBeInTheDocument();
     expect(screen.queryByText("Vendor Categories (3)")).not.toBeInTheDocument();
+  });
+
+  it("clears a failed load's error once a later reload succeeds", async () => {
+    mockApi.fail("get", LIST_URL);
+    mockApi.on("post", ANALYSE_URL, { run_id: "run-1" });
+    let answerPoll: (run: unknown) => void = () => {};
+    mockApi.on("get", RUN_URL, () => new Promise((r) => (answerPoll = r)));
+    const { user } = renderTab();
+
+    expect(await screen.findByText(`GET ${LIST_URL} failed`)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: RUN }));
+    await waitFor(() => expect(mockApi.callsOf("get", RUN_URL)).toHaveLength(1));
+
+    mockApi.on("get", LIST_URL, VENDORS);
+    answerPoll({ id: "run-1", status: "completed", analysis_type: "vendors" });
+    expect(await screen.findByText("Vendor Categories (3)")).toBeInTheDocument();
+    expect(screen.queryByText(`GET ${LIST_URL} failed`)).not.toBeInTheDocument();
+  });
+
+  it("names an uncategorized vendor's category in the table as the grid and filter do", async () => {
+    mockApi.on("get", LIST_URL, VENDORS);
+    const { user } = renderTab();
+
+    await screen.findByText("Vendor Categories (3)");
+    await user.click(categoryCard("Uncategorized"));
+    expect(screen.getByText("All Vendors (1)")).toBeInTheDocument();
+    const [row] = tableRows();
+    expect(within(row).getByText("Acme Widgets")).toBeInTheDocument();
+    expect(within(within(row).getAllByRole("cell")[1]).getByText("Uncategorized")).toHaveClass("MuiChip-label");
+    expect(screen.getByRole("combobox")).toHaveTextContent("Uncategorized");
   });
 });

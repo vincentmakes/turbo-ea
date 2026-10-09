@@ -24,7 +24,25 @@ import { useAuthContext } from "@/hooks/AuthContext";
 import { useExtensionAdrGridColumns } from "@/lib/extensionHost";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
+import { toIsoDate, toLocalDate } from "@/lib/dates";
 import type { ArchitectureDecision } from "@/types";
+
+/**
+ * A timestamp's local calendar day as `YYYY-MM-DD` — the day the grid shows
+ * it on. The From / To filters compare on this, so both days are inclusive
+ * whatever offset or fraction the stored timestamp carries.
+ */
+function dayOf(value: string | null | undefined): string | null {
+  const d = toLocalDate(value);
+  return d ? toIsoDate(d) : null;
+}
+
+/** Whether `value` falls on or after `from` and on or before `to` (empty = unbounded). */
+function inDayRange(value: string | null | undefined, from: string, to: string): boolean {
+  const day = dayOf(value);
+  if (!day) return false;
+  return (!from || day >= from) && (!to || day <= to);
+}
 
 export default function DecisionsPanel() {
   const { t } = useTranslation(["grc", "delivery", "common"]);
@@ -176,31 +194,16 @@ export default function DecisionsPanel() {
         (a.linked_cards ?? []).some((c) => adrFilters.linkedCards.includes(c.id)),
       );
     }
-    if (adrFilters.dateCreatedFrom) {
-      list = list.filter((a) => a.created_at && a.created_at >= adrFilters.dateCreatedFrom);
+    const { dateCreatedFrom, dateCreatedTo, dateModifiedFrom, dateModifiedTo } = adrFilters;
+    const { dateSignedFrom, dateSignedTo } = adrFilters;
+    if (dateCreatedFrom || dateCreatedTo) {
+      list = list.filter((a) => inDayRange(a.created_at, dateCreatedFrom, dateCreatedTo));
     }
-    if (adrFilters.dateCreatedTo) {
-      list = list.filter(
-        (a) => a.created_at && a.created_at <= adrFilters.dateCreatedTo + "T23:59:59",
-      );
+    if (dateModifiedFrom || dateModifiedTo) {
+      list = list.filter((a) => inDayRange(a.updated_at, dateModifiedFrom, dateModifiedTo));
     }
-    if (adrFilters.dateModifiedFrom) {
-      list = list.filter(
-        (a) => a.updated_at && a.updated_at >= adrFilters.dateModifiedFrom,
-      );
-    }
-    if (adrFilters.dateModifiedTo) {
-      list = list.filter(
-        (a) => a.updated_at && a.updated_at <= adrFilters.dateModifiedTo + "T23:59:59",
-      );
-    }
-    if (adrFilters.dateSignedFrom) {
-      list = list.filter((a) => a.signed_at && a.signed_at >= adrFilters.dateSignedFrom);
-    }
-    if (adrFilters.dateSignedTo) {
-      list = list.filter(
-        (a) => a.signed_at && a.signed_at <= adrFilters.dateSignedTo + "T23:59:59",
-      );
+    if (dateSignedFrom || dateSignedTo) {
+      list = list.filter((a) => inDayRange(a.signed_at, dateSignedFrom, dateSignedTo));
     }
     if (adrFilters.signedBy.length > 0) {
       list = list.filter((a) =>

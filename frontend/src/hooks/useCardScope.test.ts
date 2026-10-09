@@ -154,6 +154,41 @@ describe("useCardScope", () => {
     expect(result.current.scopeIds).toEqual(["leads"]);
   });
 
+  it("keeps a scope set together with the type it belongs to, whichever lands first", async () => {
+    // A restored report sets the type and the scope in one pass. The scope
+    // names its type, so it is read as that type's from the render the type
+    // lands on — the caller never has to order the two.
+    const { result, rerender } = renderHook(
+      ({ typeKey }) => useCardScope({ typeKey, hierarchy: NODES }),
+      { initialProps: { typeKey: "Application" } },
+    );
+    act(() => result.current.setScopeIds(["leads"], "ITComponent"));
+    // Not this type's: reads as empty until the type lands.
+    expect(result.current.scopeIds).toEqual([]);
+
+    rerender({ typeKey: "ITComponent" });
+    expect(result.current.scopeIds).toEqual(["leads"]);
+    await waitFor(() => expect(result.current.closure).toEqual(new Set(["leads", "scoring"])));
+  });
+
+  it("reads a scope saved for another type as empty on the same render, and does not revive it", async () => {
+    const { result, rerender } = renderHook(
+      ({ typeKey }) => useCardScope({ typeKey, hierarchy: NODES }),
+      { initialProps: { typeKey: "Application" } },
+    );
+    act(() => result.current.setScopeIds(["leads"]));
+    await waitFor(() => expect(result.current.scopeIds).toEqual(["leads"]));
+
+    rerender({ typeKey: "ITComponent" });
+    // Empty on this very render, not after an effect.
+    expect(result.current.scopeIds).toEqual([]);
+    expect(result.current.closure).toBeNull();
+
+    // Switching back finds nothing left behind.
+    rerender({ typeKey: "Application" });
+    await waitFor(() => expect(result.current.scopeIds).toEqual([]));
+  });
+
   it("goes inert when disabled, without dropping what was picked", async () => {
     // Cost disables scoping while drilled into a sub-level; coming back out
     // must restore the scope rather than having silently discarded it.

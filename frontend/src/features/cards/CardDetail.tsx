@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo } from "react";
 import type { KeyboardEvent } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
@@ -31,7 +31,7 @@ import RestoreDialog from "@/features/cards/RestoreDialog";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
-import { useTypeLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel, useSubtypeLabel, useRelationLabel } from "@/hooks/useResolveLabel";
 import { useAiStatus, aiSuggestEnabledFor } from "@/hooks/useAiStatus";
 import { useArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { api, ApiError } from "@/api/client";
@@ -72,10 +72,11 @@ export default function CardDetail() {
   const [searchParams, setSearchParams] = useSearchParams();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const { getType } = useMetamodel();
+  const { getType, relationTypes } = useMetamodel();
   const { archiveRetentionDays } = useArchiveRetentionDays();
   const typeLabel = useTypeLabel();
   const stLabel = useSubtypeLabel();
+  const relLabel = useRelationLabel();
   const resolveSubtypeLabel = useCardSubtypeLabel();
   const [card, setCard] = useState<Card | null>(null);
   // Browser tab title; falls back to the route's «Card» label while loading,
@@ -94,6 +95,8 @@ export default function CardDetail() {
   // Custom logo (discussion #1024). The menu itself lives in CardLogoMenu,
   // shared with the Inventory grid's Logo column.
   const [logoMenuAnchor, setLogoMenuAnchor] = useState<HTMLElement | null>(null);
+  // A failed logo action is shown above the tabs; the card stays on screen.
+  const [logoError, setLogoError] = useState("");
 
   // Favorite star
   const [isFavorite, setIsFavorite] = useState(false);
@@ -121,14 +124,26 @@ export default function CardDetail() {
   const titleDirty =
     editingName &&
     (nameDraft !== (card?.name ?? "") || aliasDraft !== (card?.alias ?? ""));
+  // Once the card is deleted its unsaved edits have nowhere to go, so the
+  // page leaves without asking — declining the prompt used to strand the user
+  // on the page of a card that no longer exists.
+  const [deleted, setDeleted] = useState(false);
   useUnsavedChangesGuard(
-    sectionsDirty || titleDirty,
+    !deleted && (sectionsDirty || titleDirty),
     t("cards:detail.unsavedLeaveConfirm"),
   );
+  // A layout effect, so the navigation lands before the guard's own passive
+  // cleanup runs: that cleanup steps back over its history sentinel while the
+  // URL is still this card's, which would race the push.
+  useLayoutEffect(() => {
+    if (deleted) navigate("/inventory");
+  }, [deleted, navigate]);
 
   // Inline subtype editing
   const [subtypeAnchor, setSubtypeAnchor] = useState<HTMLElement | null>(null);
   const [subtypeSaving, setSubtypeSaving] = useState(false);
+  // A failed subtype save is shown above the tabs; the card stays on screen.
+  const [subtypeError, setSubtypeError] = useState("");
 
   // PPM auto-computed fields (for Initiative cards with PPM budget/cost lines)
   const [ppmHasBudget, setPpmHasBudget] = useState(false);
@@ -139,6 +154,9 @@ export default function CardDetail() {
   const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
+  // Any other failed approve / reject / reset — the badge fires the action and
+  // forgets it, so a failure nobody catches here would be shown to no one.
+  const [approvalError, setApprovalError] = useState("");
   const [approvalBlock, setApprovalBlock] = useState<{
     missing_relations: { key: string; label: string; side: "source" | "target"; other_type_key: string }[];
     missing_tag_groups: { id: string; name: string }[];
@@ -181,6 +199,10 @@ export default function CardDetail() {
 
   useEffect(() => {
     if (!id) return;
+    setApprovalError("");
+    setApprovalBlock(null);
+    setSubtypeError("");
+    setLogoError("");
     // Read tab from URL search params (e.g. ?tab=1&subtab=1)
     const urlTab = searchParams.get("tab");
     const urlSubTab = searchParams.get("subtab");
@@ -295,6 +317,7 @@ export default function CardDetail() {
             : "DRAFT";
       setCard({ ...card, approval_status: newStatus });
       setApprovalBlock(null);
+      setApprovalError("");
     } catch (err) {
       if (
         err instanceof ApiError &&
@@ -311,9 +334,10 @@ export default function CardDetail() {
           missing_relations: detail.missing_relations,
           missing_tag_groups: detail.missing_tag_groups,
         });
+        setApprovalError("");
         return;
       }
-      throw err;
+      setApprovalError(err instanceof Error ? err.message : t("common:errors.generic"));
     }
   };
 
@@ -379,13 +403,14 @@ export default function CardDetail() {
       return;
     }
     setSubtypeSaving(true);
+    setSubtypeError("");
     try {
       const updated = await api.patch<Card>(`/cards/${card.id}`, {
         subtype: next,
       });
       setCard(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err));
+      setSubtypeError(err instanceof Error ? err.message : t("common:errors.generic"));
     } finally {
       setSubtypeSaving(false);
       setSubtypeAnchor(null);
@@ -411,7 +436,7 @@ export default function CardDetail() {
 
   const handleDeleteConfirmed = () => {
     setDeleteDialogOpen(false);
-    navigate("/inventory");
+    setDeleted(true);
   };
 
   // ── AI suggestions ──────────────────────────────────────────
@@ -838,11 +863,12 @@ export default function CardDetail() {
         hasLogo={!!card.logo_updated_at}
         anchorEl={logoMenuAnchor}
         onClose={() => setLogoMenuAnchor(null)}
-        onChanged={(_id, logoUpdatedAt) =>
-          setCard((prev) => (prev ? { ...prev, logo_updated_at: logoUpdatedAt } : prev))
-        }
+        onChanged={(_id, logoUpdatedAt) => {
+          setLogoError("");
+          setCard((prev) => (prev ? { ...prev, logo_updated_at: logoUpdatedAt } : prev));
+        }}
         onNotify={setSnack}
-        onError={setError}
+        onError={setLogoError}
       />
 
       <Snackbar
@@ -896,6 +922,30 @@ export default function CardDetail() {
               </Alert>
             )}
 
+            {/* Subtype save failed */}
+            {subtypeError && (
+              // Stryker disable next-line ObjectLiteral: spacing is presentation
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSubtypeError("")}>
+                {subtypeError}
+              </Alert>
+            )}
+
+            {/* Logo upload / icon / removal failed */}
+            {logoError && (
+              // Stryker disable next-line ObjectLiteral: spacing is presentation
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setLogoError("")}>
+                {logoError}
+              </Alert>
+            )}
+
+            {/* Approval transition failed for any other reason */}
+            {approvalError && (
+              // Stryker disable next-line ObjectLiteral: spacing is presentation
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setApprovalError("")}>
+                {approvalError}
+              </Alert>
+            )}
+
             {/* Approval blocked: missing mandatory items */}
             {approvalBlock && (approvalBlock.missing_relations.length > 0 || approvalBlock.missing_tag_groups.length > 0) && (
               <Alert
@@ -909,7 +959,16 @@ export default function CardDetail() {
                 <Box component="ul" sx={{ m: 0, pl: 2 }}>
                   {approvalBlock.missing_relations.map((r) => (
                     <li key={`rel-${r.key}-${r.side}`}>
-                      {t("approval.missingRelation", { label: r.label, otherType: r.other_type_key })}
+                      {t("approval.missingRelation", {
+                        // The backend's verb is the untranslated label; the
+                        // metamodel's type says it in the user's language.
+                        label:
+                          relLabel(
+                            relationTypes.find((rt) => rt.key === r.key),
+                            r.side === "target",
+                          ) || r.label,
+                        otherType: typeLabel(getType(r.other_type_key)) || r.other_type_key,
+                      })}
                     </li>
                   ))}
                   {approvalBlock.missing_tag_groups.map((g) => (

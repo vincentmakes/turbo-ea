@@ -12,6 +12,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import i18n from "@/i18n";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
@@ -188,7 +189,7 @@ describe("CommitInitiativeDialog — selection", () => {
     // A card switched off in phase 5 is not offered at all; existing cards are not created.
     expect(screen.queryByText("Legacy CRM", { selector: "p" })).not.toBeInTheDocument();
     expect(screen.getByText("(Business Application)")).toBeInTheDocument();
-    expect(screen.getByText("ITComponent")).toBeInTheDocument();
+    expect(within(rowOf("Okta")).getByText("IT Component")).toBeInTheDocument();
 
     const [r0, r1, r2, r3] = relationSwitches();
     expect(r0).toBeChecked();
@@ -375,7 +376,7 @@ describe("CommitInitiativeDialog — commit run", () => {
     });
     await advancePoll();
     expect(screen.getByText("Initiative created successfully!")).toBeInTheDocument();
-    expect(screen.getByText("2 proposed new cards, 2 proposed new relations")).toBeInTheDocument();
+    expect(screen.getByText("2 new cards, 2 new relations")).toBeInTheDocument();
 
     // The run is finished: no further polling.
     const polls = mockApi.callsOf("get", RUN).length;
@@ -410,7 +411,7 @@ describe("CommitInitiativeDialog — commit run", () => {
     run = analysisRun({ status: "completed", results: null });
     await advancePoll();
     expect(screen.getByText("Initiative created successfully!")).toBeInTheDocument();
-    expect(screen.queryByText(/proposed new cards/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/new card/)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Open Initiative/ }));
     expect(openSpy).not.toHaveBeenCalled();
@@ -733,6 +734,35 @@ describe("CommitInitiativeDialog — commit run details", () => {
     expect(mockApi.callsOf("get", RUN)).toHaveLength(polls);
   });
 
+  it("counts what was created in the singular and the plural", async () => {
+    const { user } = renderDialog();
+    fillDates();
+    await user.click(submitButton());
+
+    run = analysisRun({ status: "completed", results: { initiative_id: "init-9", card_count: 1, relation_count: 0 } });
+    await advancePoll();
+    expect(await screen.findByText("1 new card, 0 new relations")).toBeInTheDocument();
+  });
+
+  it("counts what was created in the user's language", async () => {
+    const { user } = renderDialog();
+    fillDates();
+    await user.click(submitButton());
+
+    try {
+      await act(async () => {
+        await i18n.changeLanguage("de");
+      });
+      run = analysisRun({ status: "completed", results: { initiative_id: "init-9", card_count: 2, relation_count: 1 } });
+      await advancePoll();
+      expect(await screen.findByText("2 neue Karten, 1 neue Beziehung")).toBeInTheDocument();
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
+  });
+
   it("starts a retried commit from the opening step, not the failed run's progress", async () => {
     const { user } = renderDialog();
     fillDates();
@@ -749,5 +779,126 @@ describe("CommitInitiativeDialog — commit run details", () => {
     expect(screen.getByText("Creating initiative...")).toBeInTheDocument();
     expect(screen.queryByText("Creating cards (1/3)...")).not.toBeInTheDocument();
     expect(screen.getByRole("progressbar")).not.toHaveAttribute("aria-valuenow");
+  });
+});
+
+describe("CommitInitiativeDialog — relations missing an end", () => {
+  let run: TurboLensAnalysisRun;
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    run = analysisRun({});
+    mockApi.on("post", COMMIT, { run_id: "run-1" });
+    mockApi.on("get", RUN, () => run);
+  });
+
+  /**
+   * MAPPING's four relations at indices 0, 2, 3 and 4, with two the AI left an
+   * end of unset at 1 and 5, and a landscape card that came back without an id.
+   */
+  const GAPPY: CapabilityMappingResult = {
+    ...MAPPING,
+    proposedCards: [
+      ...MAPPING.proposedCards,
+      { name: "Legacy Billing", cardTypeKey: "Application", isNew: false } as CapabilityMappingResult["proposedCards"][number],
+    ],
+    proposedRelations: [
+      MAPPING.proposedRelations[0],
+      { targetId: "cap-new", relationType: "relAppToBC" } as CapabilityMappingResult["proposedRelations"][number],
+      MAPPING.proposedRelations[1],
+      MAPPING.proposedRelations[2],
+      MAPPING.proposedRelations[3],
+      { sourceId: "pc-app", targetId: "", relationType: "relAppToBC" },
+    ],
+  };
+
+  it("neither lists, counts nor commits one, as the target architecture's list leaves it out", async () => {
+    const { user } = renderDialog({ capabilityMapping: GAPPY });
+
+    // The four the target architecture lists, three of them selected.
+    expect(screen.getByText("Relations to Create (3/4)")).toBeInTheDocument();
+    expect(relationSwitches().map((sw) => sw.closest(".MuiStack-root")?.textContent)).toEqual([
+      "FraudShieldarrow_forwardFraud Detectionsupports",
+      "FraudShieldarrow_forwardOkta",
+      "Switched Offarrow_forwardFraud Detection",
+      "Legacy CRMarrow_forwardCustomer Management",
+    ]);
+    // No end is named after the card that came back without an id.
+    expect(screen.queryByText("Legacy Billing")).not.toBeInTheDocument();
+
+    fillDates();
+    await user.click(submitButton());
+    expect((mockApi.callsOf("post", COMMIT)[0].body as Record<string, unknown>).selectedRelationIndices).toEqual([
+      0, 2, 4,
+    ]);
+  });
+
+  it("does not bring one back when a card it names is switched off and on again", async () => {
+    const { user } = renderDialog({ capabilityMapping: GAPPY });
+
+    await user.click(cardSwitch("FraudShield"));
+    await user.click(cardSwitch("FraudShield"));
+    expect(screen.getByText("Relations to Create (3/4)")).toBeInTheDocument();
+
+    fillDates();
+    await user.click(submitButton());
+    const sent = (mockApi.callsOf("post", COMMIT)[0].body as Record<string, number[]>).selectedRelationIndices;
+    expect([...sent].sort()).toEqual([0, 2, 4]);
+  });
+
+  it("lists the relations of a new mapping it is given", () => {
+    const { rerender } = renderDialog({ capabilityMapping: GAPPY });
+    expect(screen.getByText("Relations to Create (3/4)")).toBeInTheDocument();
+
+    // The same cards, now with only the first relation and one missing its target.
+    rerender(dialogWith({ ...GAPPY, proposedRelations: [GAPPY.proposedRelations[0], GAPPY.proposedRelations[5]] }));
+    expect(screen.getByText("Relations to Create (1/1)")).toBeInTheDocument();
+    expect(relationSwitches()).toHaveLength(1);
+  });
+
+  it("has no relations section when no relation has both ends", () => {
+    renderDialog({
+      capabilityMapping: { ...MAPPING, proposedRelations: [GAPPY.proposedRelations[1], GAPPY.proposedRelations[5]] },
+    });
+
+    expect(screen.getByText("Cards to Create (2/2)")).toBeInTheDocument();
+    expect(screen.queryByText(/^Relations to Create/)).not.toBeInTheDocument();
+  });
+
+  it("offers no new card that came back without an id, and still opens", () => {
+    renderDialog({
+      capabilityMapping: {
+        ...MAPPING,
+        proposedCards: [
+          ...MAPPING.proposedCards,
+          { name: "Shadow IT", cardTypeKey: "Application", isNew: true } as CapabilityMappingResult["proposedCards"][number],
+          { name: "Legacy Billing", cardTypeKey: "Application", isNew: false } as CapabilityMappingResult["proposedCards"][number],
+        ],
+      },
+    });
+
+    // Selecting, renaming and committing a card all go by its id.
+    expect(screen.getByText("Cards to Create (2/2)")).toBeInTheDocument();
+    expect(cardSwitch("FraudShield")).toBeChecked();
+    expect(screen.queryByText("Shadow IT")).not.toBeInTheDocument();
+    expect(screen.queryByText("Legacy Billing")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(2);
+  });
+});
+
+describe("CommitInitiativeDialog — card type chips", () => {
+  it("names each new card's type by its label, and an unknown type by its key", () => {
+    renderDialog({
+      capabilityMapping: {
+        ...MAPPING,
+        proposedCards: [
+          ...MAPPING.proposedCards,
+          { id: "pc-odd", name: "Oddball", cardTypeKey: "NoSuchType", isNew: true },
+        ],
+      },
+    });
+    expect(within(rowOf("Okta")).getByText("IT Component")).toBeInTheDocument();
+    expect(within(rowOf("Okta")).queryByText("ITComponent")).toBeNull();
+    expect(within(rowOf("Oddball")).getByText("NoSuchType")).toBeInTheDocument();
   });
 });
