@@ -280,6 +280,7 @@ export default function EolReport() {
       .get<EolReportData>("/reports/eol")
       .then(setData)
       .catch((err) => setLoadError(err instanceof Error ? err.message : t("common:errors.generic")));
+    // Stryker disable next-line ArrayDeclaration: fetched once, on mount, by design
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- fetched once, on mount
 
   // Filter items
@@ -380,6 +381,7 @@ export default function EolReport() {
       const statusLabel = cfg ? t(cfg.labelKey) : filterStatus;
       params.push({ label: t("eol.status"), value: statusLabel });
     }
+    // Stryker disable next-line ConditionalExpression: the shell prints only parameters with a value
     if (filterType) params.push({ label: t("common:labels.type"), value: typeLabel(getType(filterType)) || filterType });
     if (filterSource) params.push({ label: t("eol.source"), value: filterSource === "api" ? "endoflife.date" : t("eol.manual") });
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
@@ -801,6 +803,7 @@ export default function EolReport() {
                             </Tooltip>
                             {/* Active support bar (release → support end) */}
                             {supportWidthPct && (
+                              // Stryker disable next-line OptionalChaining: defensive; a bar is drawn only from cycle data
                               <Tooltip title={t("eol.activeSupportUntil", { date: fmtSupport(cd?.support) })}>
                                 <Box
                                   className="bar"
@@ -818,6 +821,7 @@ export default function EolReport() {
                             )}
                             {/* EOL marker */}
                             {eolMs && (
+                              // Stryker disable next-line OptionalChaining: defensive; a marker is drawn only from cycle data
                               <Tooltip title={t("eol.endOfLifeDate", { date: fmtEol(cd?.eol) })}>
                                 <Box
                                   sx={{

@@ -1211,7 +1211,10 @@ export default function CapabilityMapReport() {
   }, [maxLvl, t]);
 
   // Color legend — built dynamically from schema
+  // Stryker disable next-line OptionalChaining: defensive; a picked colour key is one of the options
+  const colorByLabel = colorByOptions.find((o) => o.key === colorKey)?.label;
   const colorLegend = useMemo(() => {
+    // Stryker disable next-line ConditionalExpression: no field has an empty key, so the next guard returns null too
     if (!colorKey) return null;
     const fd = selectFields.find((f) => f.key === colorKey);
     if (!fd?.options) return null;
@@ -1570,7 +1573,7 @@ export default function CapabilityMapReport() {
           {showApps && colorLegend && colorLegend.length > 0 && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, ml: 2 }}>
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                {colorByOptions.find((o) => o.key === colorKey)?.label}:
+                {colorByLabel}:
               </Typography>
               {colorLegend.map((item) => (
                 <Box

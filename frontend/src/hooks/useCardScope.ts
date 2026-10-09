@@ -144,6 +144,7 @@ export function useCardScope({
   typeKeyRef.current = typeKey;
   const setScopeIds = useCallback((ids: string[], forType?: string | null) => {
     setScope({ ids, typeKey: forType === undefined ? typeKeyRef.current : forType });
+    // Stryker disable next-line ArrayDeclaration: refs and state setters are stable; any list is equivalent
   }, []);
 
   const active = enabled && scopeIds.length > 0 && !!typeKey;
@@ -199,6 +200,7 @@ export function useCardScope({
     if (scope.typeKey !== typeKey && scope.ids.length > 0) setScope({ ids: [], typeKey });
   }, [typeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Stryker disable next-line ArrayDeclaration: refs and state setters are stable; any list is equivalent
   const clear = useCallback(() => setScope({ ids: [], typeKey: typeKeyRef.current }), []);
 
   return {

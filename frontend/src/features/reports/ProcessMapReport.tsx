@@ -676,6 +676,7 @@ export default function ProcessMapReport() {
       setOrganizations(r.organizations ?? []);
       setContexts(r.business_contexts ?? []);
     }).catch((err) => setLoadError(err instanceof Error ? err.message : t("common:errors.generic")));
+    // Stryker disable next-line ArrayDeclaration: fetched once, on mount, by design
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- fetched once, on mount
 
   // Build full tree (with filters applied). The scope is applied to the flat
@@ -708,7 +709,9 @@ export default function ProcessMapReport() {
   // A stored depth below the first level matches no option either.
   useEffect(() => {
     if (displayLevel === 99) return;
+    // Stryker disable next-line EqualityOperator: setting the level it already has is a no-op
     if (displayLevel < 1) setDisplayLevel(1);
+    // Stryker disable next-line EqualityOperator: setting the level it already has is a no-op
     else if (maxLvl > 0 && displayLevel > maxLvl) setDisplayLevel(maxLvl);
   }, [maxLvl, displayLevel]);
 

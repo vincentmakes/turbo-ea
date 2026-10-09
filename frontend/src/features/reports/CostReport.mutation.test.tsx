@@ -959,6 +959,19 @@ describe("CostReport saved configuration", () => {
     );
   });
 
+  it("ignores a saved card type that is not a string, keeping the page's type and its scope", async () => {
+    // A hand-edited or corrupt config: the type stays on the default and the
+    // scope is kept for it.
+    saved.config = { cardTypeKey: 7, scopeIds: ["crm"] };
+    renderCost();
+    await screen.findByTestId("treemap");
+    expect(lastTreemapParams().get("type")).toBe("Application");
+    expect(await within(toolbar()).findByText("1 card")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(lastPersisted()).toMatchObject({ cardTypeKey: "Application", scopeIds: ["crm"] }),
+    );
+  });
+
   it("applies a saved report that finishes loading after the page mounted", async () => {
     const view = renderCost();
     await screen.findByTestId("treemap");

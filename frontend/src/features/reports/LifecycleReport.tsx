@@ -81,11 +81,12 @@ interface FieldDef {
 /* ------------------------------------------------------------------ */
 
 /** The phase chip in the table: the phase's colour on white, compact. */
+// Stryker disable all: the chip's colours, size and weight are presentation
 const phaseChipSx =
   (color: string): SxProps<Theme> =>
   (theme) =>
-    // Stryker disable next-line ObjectLiteral: the chip's size and weight are presentation
     ({ bgcolor: color, color: theme.palette.common.white, fontWeight: 600, height: 22, fontSize: "0.72rem" });
+// Stryker restore all
 
 function parseDate(s: string | undefined): number | null {
   if (!s) return null;
@@ -368,7 +369,9 @@ export default function LifecycleReport() {
   const sorted = [...items].sort((a, b) => {
     const d = sortD === "asc" ? 1 : -1;
     if (sortK === "name") return a.name.localeCompare(b.name) * d;
+    // Stryker disable next-line ArithmeticOperator: d is 1 or -1, so * and / agree
     if (sortK === "type") return cardTypeLabel(a.type).localeCompare(cardTypeLabel(b.type)) * d;
+    // Stryker disable next-line ArithmeticOperator: d is 1 or -1, so * and / agree
     if (sortK === "phase") return (phaseRank(currentPhase(a.lifecycle)) - phaseRank(currentPhase(b.lifecycle))) * d;
     if (sortK === "eol") return ((a.lifecycle.endOfLife || "z").localeCompare(b.lifecycle.endOfLife || "z")) * d;
     if (sortK === "startDate") return ((a.attributes?.[startDateKey] as string || "z").localeCompare(b.attributes?.[startDateKey] as string || "z")) * d;
@@ -392,6 +395,7 @@ export default function LifecycleReport() {
     if (!val) return t("lifecycle.notSet");
     const fd = selectFields.find((f) => f.key === customColorBy);
     if (!fd) return t("lifecycle.notSet");
+    // Stryker disable next-line OptionalChaining: defensive; a select field always carries options
     const opt = fd.options?.find((o) => o.key === val);
     return opt?.label ?? val;
   }

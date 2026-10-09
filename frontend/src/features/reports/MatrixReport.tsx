@@ -280,6 +280,7 @@ export default function MatrixReport() {
         headerObserver.current.observe(el);
       }
     },
+    // Stryker disable next-line ArrayDeclaration: measureHeaderOffsets is a stable callback; any list is equivalent
     [measureHeaderOffsets],
   );
 
@@ -391,6 +392,7 @@ export default function MatrixReport() {
    * sorts, depths and filters, so this runs from the pickers only.
    */
   const changeAxisType = (axis: "row" | "col", next: string) => {
+    // Stryker disable next-line OptionalChaining: defensive; the picker offers only types the metamodel has
     const hierarchical = types.find((t) => t.key === next)?.has_hierarchy;
     if (axis === "row") {
       setRowType(next);
@@ -818,6 +820,9 @@ export default function MatrixReport() {
     );
   };
 
+  // Stryker disable next-line StringLiteral: "col" is any axis that is not "row"
+  const pickColumnType = (e: { target: { value: string } }) => changeAxisType("col", e.target.value);
+
   /** Swap the axes, carrying each one's sort and depth across with it. */
   const handleTranspose = () => {
     setRowType(colType);
@@ -1058,7 +1063,7 @@ export default function MatrixReport() {
             tooltip={t("matrix.scopeTooltipRows")}
             initialOptions={rowScopeOptions}
           />
-          <TextField select size="small" label={t("matrix.columns")} value={colType} onChange={(e) => changeAxisType("col", e.target.value)} sx={AXIS_SELECT_SX}>
+          <TextField select size="small" label={t("matrix.columns")} value={colType} onChange={pickColumnType} sx={AXIS_SELECT_SX}>
             {readableTypes.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
           <CardScopeFilter

@@ -333,6 +333,17 @@ describe("LifecycleReport scope filter", () => {
     expect(screen.queryByText("Other App")).not.toBeInTheDocument();
   });
 
+  it("ignores a saved card type that is not a string", async () => {
+    mockApi();
+    withConfig({ cardTypeKey: 7, scopeIds: ["parent"] });
+    renderLifecycle();
+
+    await waitFor(() => expect(screen.getByText("Other App")).toBeInTheDocument());
+    // The report stays on every type: no request ever named the bogus one.
+    const paths = vi.mocked(api.get).mock.calls.map((c) => String(c[0]));
+    expect(paths.some((p) => p.includes("type=7"))).toBe(false);
+  });
+
   it("drops a scoped id the hierarchy no longer knows", async () => {
     mockApi();
     withConfig({ cardTypeKey: "Application", scopeIds: ["deleted"] });
