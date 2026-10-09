@@ -164,6 +164,13 @@ export default function SurveyBuilder() {
     currentIdRef.current = id;
   }, [id]);
 
+  // The current language's `t`, for the load below: a dependency there would
+  // re-fetch the survey on a language switch and overwrite unsaved edits.
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+
   // Load existing survey if editing
   useEffect(() => {
     if (!id) return;
@@ -196,7 +203,7 @@ export default function SurveyBuilder() {
         setSelectedFields(s.fields || []);
         setSurveyId(s.id);
       } catch (e) {
-        setError(e instanceof Error ? e.message : t("common:errors.generic"));
+        setError(e instanceof Error ? e.message : tRef.current("common:errors.generic"));
       } finally {
         setLoading(false);
       }
@@ -487,7 +494,7 @@ export default function SurveyBuilder() {
     } finally {
       setSaving(false);
     }
-  }, [name, description, message, targetTypeKey, targetRoles, buildTargetFilters, selectedFields, surveyId]);
+  }, [name, description, message, targetTypeKey, targetRoles, buildTargetFilters, selectedFields, surveyId, t]);
 
   // Preview targets. The preview reads the *persisted* survey, so the draft has
   // to be written first — `saveDraft` both creates-or-updates and hands back the
@@ -509,7 +516,7 @@ export default function SurveyBuilder() {
     } finally {
       setPreviewing(false);
     }
-  }, [saveDraft]);
+  }, [saveDraft, t]);
 
   // Send survey
   const handleSend = async () => {
@@ -691,6 +698,8 @@ export default function SurveyBuilder() {
   };
 
   const handleBack = () => {
+    // Next's save would move the step forward again when it lands.
+    if (advancingRef.current) return;
     setError("");
     setActiveStep((prev) => Math.max(prev - 1, 0));
   };
@@ -1533,7 +1542,7 @@ export default function SurveyBuilder() {
       {/* Navigation buttons */}
       <Box sx={{ display: "flex", justifyContent: "space-between", mt: 3 }}>
         <Button
-          disabled={activeStep === 0}
+          disabled={activeStep === 0 || advancing}
           onClick={handleBack}
           startIcon={<MaterialSymbol icon="arrow_back" size={18} />}
         >

@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Survey Builder: a reopened draft keeps its "Via relation" narrowing, and a draft whose card type was removed says so instead of showing a blank select.
 - EOL mass linking: the version picker never offers the previous product's cycles.
 - Relation-type values: a stored custom value without a label no longer crashes the dialog.
+- Survey Builder: Back is disabled while Next is saving, so a Back click can no longer be undone by the save landing a moment later.
+- Survey Builder: after switching the interface language, a failed save, preview or load reports its error in the new language rather than the previous one.
+- Relation-type values: clicking Save twice quickly sends the change once.
 
 ## [2.157.4] - 2026-10-08
 

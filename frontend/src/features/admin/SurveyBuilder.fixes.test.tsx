@@ -56,6 +56,7 @@ vi.mock("@/components/CardPicker", () => ({
 }));
 
 import SurveyBuilder from "./SurveyBuilder";
+import i18n from "@/i18n";
 import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import {
@@ -749,5 +750,111 @@ describe("SurveyBuilder — the Via relation select when the related cards chang
     } finally {
       warn.mockRestore();
     }
+  });
+});
+
+describe("SurveyBuilder — Back while Next is saving", () => {
+  const back = () => screen.getByRole("button", { name: /Back$/ });
+
+  it("is disabled until Next's save has finished", async () => {
+    const created = deferred<{ id: string }>();
+    mockApi.on("post", "/surveys", () => created.promise);
+    const { user } = renderBuilder();
+    await toTargetReady(user);
+    expect(back()).toBeEnabled();
+
+    await user.click(next());
+    await waitFor(() => expect(mockApi.callsOf("post", "/surveys")).toHaveLength(1));
+    expect(back()).toBeDisabled();
+
+    await act(async () => created.resolve({ id: "survey-1" }));
+    expect(await screen.findByText("Select Fields")).toBeInTheDocument();
+    await waitFor(() => expect(back()).toBeEnabled());
+  });
+
+  it("ignores a Back click that lands before Next re-renders", async () => {
+    const created = deferred<{ id: string }>();
+    mockApi.on("post", "/surveys", () => created.promise);
+    const { user } = renderBuilder();
+    await toTargetReady(user);
+
+    const nextButton = next();
+    const backButton = back();
+    await act(async () => {
+      nextButton.click();
+      backButton.click();
+    });
+    // Still on the Target step while the save runs — not sent back to Basics.
+    expect(screen.getByText("Target Cards")).toBeInTheDocument();
+
+    await act(async () => created.resolve({ id: "survey-1" }));
+    // Next's step, not the one Back would have bounced it to.
+    expect(await screen.findByText("Select Fields")).toBeInTheDocument();
+    expect(screen.queryByText("Target Cards")).not.toBeInTheDocument();
+  });
+});
+
+describe("SurveyBuilder — messages after a language switch", () => {
+  afterEach(async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en");
+    });
+  });
+
+  const toGerman = () =>
+    act(async () => {
+      await i18n.changeLanguage("de");
+    });
+
+  it("words a failed Save Draft in the language now in use", async () => {
+    mockApi.on("post", "/surveys", () => Promise.reject("offline"));
+    const { user } = renderBuilder();
+    await toTargetReady(user);
+
+    await toGerman();
+    await user.click(screen.getByRole("button", { name: "Entwurf speichern" }));
+    expect(await screen.findByText("Etwas ist schiefgelaufen")).toBeInTheDocument();
+    expect(screen.queryByText("Something went wrong")).not.toBeInTheDocument();
+  });
+
+  it("words a failed preview in the language now in use", async () => {
+    mockApi.on("post", "/surveys/survey-1/preview", () => Promise.reject("offline"));
+    const { user } = renderBuilder();
+    await toTargetReady(user);
+    await user.click(next());
+    await screen.findByText("Select Fields");
+    await user.click(screen.getByText("Criticality"));
+    await user.click(next());
+    expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
+
+    await toGerman();
+    await user.click(await screen.findByRole("button", { name: "Vorschau laden" }));
+    expect(await screen.findByText("Etwas ist schiefgelaufen")).toBeInTheDocument();
+    expect(screen.queryByText("Something went wrong")).not.toBeInTheDocument();
+  });
+
+  it("words a failed load in the language chosen while it was loading", async () => {
+    let failLoad!: (reason: unknown) => void;
+    mockApi.on("get", "/surveys/survey-7", () => new Promise((_, reject) => (failLoad = reject)));
+    renderBuilder("/admin/surveys/survey-7");
+    await waitFor(() => expect(mockApi.callsOf("get", "/surveys/survey-7")).toHaveLength(1));
+
+    await toGerman();
+    await act(async () => failLoad("offline"));
+    expect(await screen.findByText("Etwas ist schiefgelaufen")).toBeInTheDocument();
+  });
+
+  it("keeps the open draft and its edits — no reload — when the language changes", async () => {
+    mockApi.on("get", "/surveys/survey-7", { ...SAVED, target_filters: {} });
+    const { user } = renderBuilder("/admin/surveys/survey-7");
+    await openDraft();
+    const nameField = screen.getByLabelText(/Survey Name/);
+    await user.clear(nameField);
+    await user.type(nameField, "Edited");
+
+    await toGerman();
+    await waitFor(() => expect(screen.getByRole("button", { name: /Weiter/ })).toBeInTheDocument());
+    expect(mockApi.callsOf("get", "/surveys/survey-7")).toHaveLength(1);
+    expect(screen.getByDisplayValue("Edited")).toBeInTheDocument();
   });
 });

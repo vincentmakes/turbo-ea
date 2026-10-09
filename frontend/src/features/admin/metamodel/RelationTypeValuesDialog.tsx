@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -49,6 +49,9 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
   const [schema, setSchema] = useState<FieldDef[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // A second click that lands before `saving` re-renders the button disabled
+  // would send a second PATCH; the ref is checked at once.
+  const savingRef = useRef(false);
 
   useEffect(() => {
     if (open && relationType) {
@@ -148,7 +151,8 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
   };
 
   const handleSave = async () => {
-    if (!relationType) return;
+    if (!relationType || savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     setError(null);
     // Clean translations before persisting.
@@ -178,6 +182,7 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
             : t("metamodel.relationValuesSaveFailed");
       setError(msg);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };

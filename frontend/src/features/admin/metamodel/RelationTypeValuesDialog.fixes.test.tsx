@@ -8,7 +8,7 @@
  * Same harness as `RelationTypeValuesDialog.test.tsx`.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within, waitFor } from "@testing-library/react";
+import { act, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -206,5 +206,53 @@ describe("RelationTypeValuesDialog — a stored row's label", () => {
       .attributes_schema;
     expect(saved.label).toBe("");
     expect(saved.options?.[0].label).toBe("");
+  });
+});
+
+describe("RelationTypeValuesDialog — Save acts once", () => {
+  it("sends one PATCH however fast Save is clicked, and is disabled while it runs", async () => {
+    let release!: () => void;
+    mockApi.on("patch", PATH, () => new Promise<object>((res) => (release = () => res({}))));
+    const onSaved = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <RelationTypeValuesDialog
+        open
+        relationType={relWith(
+          makeField({ key: "tier", label: "Tier", type: "single_select", options: [] }),
+        )}
+        onClose={onClose}
+        onSaved={onSaved}
+      />,
+    );
+
+    // The second click lands before the first one re-renders the button.
+    const save = saveButton();
+    await act(async () => {
+      save.click();
+      save.click();
+    });
+    expect(mockApi.callsOf("patch", PATH)).toHaveLength(1);
+    expect(saveButton()).toBeDisabled();
+
+    await act(async () => release());
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(mockApi.callsOf("patch", PATH)).toHaveLength(1);
+  });
+});
+
+describe("RelationTypeValuesDialog — Save after a failed save", () => {
+  it("sends again once the refused save has finished", async () => {
+    mockApi.fail("patch", PATH, 409, "Conflict on save");
+    const { user } = renderDialog(
+      makeField({ key: "tier", label: "Tier", type: "single_select", options: [] }),
+    );
+    await user.click(saveButton());
+    expect(await screen.findByText("Conflict on save")).toBeInTheDocument();
+    await waitFor(() => expect(saveButton()).toBeEnabled());
+
+    await user.click(saveButton());
+    await waitFor(() => expect(mockApi.callsOf("patch", PATH)).toHaveLength(2));
   });
 });
