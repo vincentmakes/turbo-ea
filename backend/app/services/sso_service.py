@@ -102,8 +102,8 @@ def get_provider_config(sso: dict) -> dict:
     """
     provider = sso.get("provider", "microsoft")
     tenant = sso.get("tenant_id", "organizations")
-    domain = sso.get("domain", "")
-    issuer_url = sso.get("issuer_url", "")
+    domain = sso.get("domain")
+    issuer_url = sso.get("issuer_url")
 
     if provider == "microsoft":
         base = f"https://login.microsoftonline.com/{tenant}"
@@ -210,8 +210,8 @@ async def exchange_code_for_claims(
         raise HTTPException(400, "SSO is not enabled")
 
     provider = sso.get("provider", "microsoft")
-    client_id = sso.get("client_id", "")
-    client_secret = decrypt_value(sso.get("client_secret", ""))
+    client_id = sso.get("client_id")
+    client_secret = decrypt_value(sso.get("client_secret"))
 
     if not client_id or not client_secret:
         raise HTTPException(500, "SSO is not properly configured")
@@ -225,10 +225,12 @@ async def exchange_code_for_claims(
     jwks_uri = provider_cfg["jwks_uri"]
     issuer = provider_cfg["issuer"]
 
-    # For Generic OIDC, resolve endpoints from discovery document
+    # For Generic OIDC, resolve endpoints from discovery document. Only an OIDC
+    # provider asks for discovery, and get_provider_config refused one without
+    # an issuer URL.
     if provider_cfg.get("discovery_required"):
         try:
-            discovery = await discover_oidc(sso.get("issuer_url", ""))
+            discovery = await discover_oidc(sso["issuer_url"])
             token_url = discovery["token_endpoint"]
             jwks_uri = discovery["jwks_uri"]
             issuer = discovery.get("issuer", issuer)
@@ -252,7 +254,6 @@ async def exchange_code_for_claims(
                     "redirect_uri": redirect_uri,
                     "scope": provider_cfg["scopes"],
                 },
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
     except httpx.ConnectError:
         logger.exception(
@@ -268,11 +269,11 @@ async def exchange_code_for_claims(
         raise HTTPException(502, "SSO authentication failed. Identity provider is unavailable.")
 
     if token_response.status_code != 200:
-        error_data = (
-            token_response.json()
-            if token_response.headers.get("content-type", "").startswith("application/json")
-            else {}
+        content_type = token_response.headers.get(
+            "content-type",  # pragma: no mutate, header names are case-insensitive
+            "",  # pragma: no mutate, a missing header is not JSON, whatever it defaults to
         )
+        error_data = token_response.json() if content_type.startswith("application/json") else {}
         error_desc = error_data.get("error_description", "Token exchange failed")
         error_code = error_data.get("error", "unknown")
         logger.error(

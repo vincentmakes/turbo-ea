@@ -49,7 +49,9 @@ def _is_secure_request(request: Request) -> bool:
     Secure=True for 'production' environments that run behind plain HTTP
     (e.g. local-network deployments without TLS).
     """
-    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    forwarded_proto = request.headers.get(
+        "x-forwarded-proto"  # pragma: no mutate, header names are case-insensitive
+    )
     return forwarded_proto == "https" or request.url.scheme == "https"
 
 
@@ -65,7 +67,7 @@ def _set_auth_cookie(response: Response, token: str, *, secure: bool) -> None:
         key=AUTH_COOKIE,
         value=token,
         httponly=True,
-        samesite="lax",
+        samesite="lax",  # pragma: no mutate, also Starlette's default; named as the CSRF control
         secure=secure,
         path="/api",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
@@ -77,7 +79,7 @@ def _clear_auth_cookie(response: Response, *, secure: bool) -> None:
     response.delete_cookie(
         key=AUTH_COOKIE,
         httponly=True,
-        samesite="lax",
+        samesite="lax",  # pragma: no mutate, also Starlette's default; matches the cookie set
         secure=secure,
         path="/api",
     )
@@ -197,14 +199,14 @@ async def _provision_federated_user(
             role = invitation.role
             await db.delete(invitation)
 
+    # No password_hash: a federated account never signs in with a password.
     user = User(
         email=email,
         display_name=display_name or email.split("@")[0],
-        password_hash=None,
         role=role,
         auth_provider="sso",
         sso_subject_id=subject_id,
-        last_login=datetime.now(timezone.utc),
+        last_login=datetime.now(timezone.utc),  # pragma: no mutate, asyncpg reads naive as local
     )
     db.add(user)
     await db.commit()
@@ -548,7 +550,7 @@ async def _local_login_available(db: AsyncSession) -> bool:
     their password.
     """
     local_count = await db.execute(
-        select(func.count(User.id)).where(
+        select(func.count()).where(
             User.auth_provider != "sso",
             User.is_active.is_(True),
         )
@@ -977,7 +979,7 @@ def _resolve_app_base_url(request: Request) -> str:
        `app_config._app_base_url`).
     2. The current request's base URL (works for direct deployments).
     """
-    explicit = getattr(settings, "_app_base_url", "") or ""
+    explicit = settings._app_base_url
     if explicit:
         return explicit.rstrip("/")
     return str(request.base_url).rstrip("/")

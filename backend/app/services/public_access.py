@@ -130,7 +130,8 @@ async def build_sso_gate_config(db: AsyncSession, *, context: str) -> dict | Non
         cfg = sso_service.get_provider_config(sso)
         auth_endpoint = cfg["authorization_endpoint"]
         if cfg.get("discovery_required"):
-            discovery = await sso_service.discover_oidc(sso.get("issuer_url", ""))
+            # Only OIDC asks for discovery, and it is refused without an issuer URL.
+            discovery = await sso_service.discover_oidc(sso["issuer_url"])
             auth_endpoint = discovery["authorization_endpoint"]
         provider = sso.get("provider", "microsoft")
         out = {
@@ -172,7 +173,7 @@ async def resolve_sso_visitor_email(
         raise HTTPException(403, "Your email address is not verified with the identity provider.")
 
     # Google hosted-domain enforcement (mirrors the login callback).
-    if provider == "google" and sso.get("domain") and claims.get("hd", "") != sso["domain"]:
+    if provider == "google" and sso.get("domain") and claims.get("hd") != sso["domain"]:
         raise HTTPException(403, f"Sign-in restricted to {sso['domain']} accounts.")
 
     # Per-resource email-domain allowlist. Empty ⇒ any user the IdP authenticates.
@@ -187,7 +188,7 @@ async def resolve_sso_visitor_email(
 
 def normalise_access_mode(mode: str | None) -> str:
     """Coerce an access mode to one of the two supported values."""
-    return "sso" if (mode or "public") == "sso" else "public"
+    return "sso" if mode == "sso" else "public"
 
 
 def normalise_email_domains(domains: list[str] | None) -> list[str] | None:
