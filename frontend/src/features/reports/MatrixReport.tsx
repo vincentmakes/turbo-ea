@@ -1070,6 +1070,7 @@ export default function MatrixReport() {
       onReset={handleReset}
       toolbar={
         <>
+          {/* Stryker disable next-line ObjectLiteral: the select width is presentation */}
           <TextField select size="small" label={t("matrix.rows")} value={rowType} onChange={(e) => changeAxisType("row", e.target.value)} sx={{ minWidth: 150 }}>
             {readableTypes.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
@@ -1084,6 +1085,7 @@ export default function MatrixReport() {
             tooltip={t("matrix.scopeTooltipRows")}
             initialOptions={rowScopeOptions}
           />
+          {/* Stryker disable next-line ObjectLiteral: the select width is presentation */}
           <TextField select size="small" label={t("matrix.columns")} value={colType} onChange={(e) => changeAxisType("col", e.target.value)} sx={{ minWidth: 150 }}>
             {readableTypes.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>

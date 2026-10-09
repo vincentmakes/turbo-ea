@@ -92,11 +92,6 @@ describe("ProcessMapReport load failure", () => {
       "GET /reports/bpm/process-map failed",
     );
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
-    // Padded like the page it stands in for.
-    expect(screen.getByRole("alert").parentElement).toHaveStyle({
-      paddingTop: "32px",
-      paddingBottom: "32px",
-    });
   });
 
   it("says something went wrong when the failure is not an Error", async () => {

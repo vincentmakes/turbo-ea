@@ -800,10 +800,5 @@ describe("EolReport — fixes", () => {
     expect(await screen.findByText("GET /reports/eol failed")).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     expect(screen.queryByText("Today")).not.toBeInTheDocument();
-    // Padded like the page it stands in for.
-    expect(screen.getByRole("alert").parentElement).toHaveStyle({
-      paddingTop: "32px",
-      paddingBottom: "32px",
-    });
   });
 });

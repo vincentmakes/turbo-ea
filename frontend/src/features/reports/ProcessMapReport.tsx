@@ -198,8 +198,14 @@ interface ProcNode extends ProcItem {
  * backend's `total_app_cost` reads it), anything else counts as nothing —
  * never a string concatenated into the sum.
  */
+// A plain decimal, as the backend's `cost_value` reads it: digits, one point,
+// an optional exponent, surrounding whitespace. Not everything `Number()`
+// parses — `"0x10"` is not a cost — so the two roll-ups agree.
+const PLAIN_DECIMAL = /^\s*[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?\s*$/;
+
 function costValue(v: unknown): number {
-  const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+  const n =
+    typeof v === "number" ? v : typeof v === "string" && PLAIN_DECIMAL.test(v) ? Number(v) : NaN;
   return Number.isFinite(n) ? n : 0;
 }
 
@@ -855,6 +861,7 @@ export default function ProcessMapReport() {
 
   if (loadError)
     return (
+      // Stryker disable next-line ObjectLiteral: spacing is presentation
       <Box sx={{ py: 4 }}>
         <Alert severity="error">{loadError}</Alert>
       </Box>

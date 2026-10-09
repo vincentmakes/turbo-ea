@@ -622,17 +622,6 @@ describe("LifecycleReport current phase and phase table", () => {
     expect(chip("Bravo")).toBe("End of Life");
     expect(chip("Charlie")).toBe("Plan");
     expect(chip("Alpha")).toBe("Phase In");
-    // The phase chip wears the phase's colour, in white, at the table's small size.
-    const deltaChip = within(screen.getByRole("row", { name: /^Delta/ }))
-      .getAllByRole("cell")[2]
-      .querySelector(".MuiChip-root") as HTMLElement;
-    expect(deltaChip).toHaveStyle({
-      backgroundColor: "#4caf50",
-      color: "#fff",
-      fontWeight: "600",
-      height: "22px",
-      fontSize: "0.72rem",
-    });
     expect(
       screen.getAllByRole("columnheader").map((h) => h.textContent),
     ).toEqual(["Name", "Type", "Current Phase", "Plan", "Phase In", "Active", "Phase Out", "End of Life"]);

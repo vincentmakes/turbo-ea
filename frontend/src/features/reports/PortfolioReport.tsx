@@ -56,6 +56,7 @@ import { useReadableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
 import {
@@ -630,6 +631,7 @@ export default function PortfolioReport({
   titleOverride,
 }: PortfolioReportProps = {}) {
   const { t } = useTranslation(["reports", "common"]);
+  const { formatDate } = useDateFormat();
   const theme = useTheme();
   const { types: metamodelTypes } = useMetamodel();
   // The type selector offers only the types the user may see.
@@ -1476,7 +1478,7 @@ export default function PortfolioReport({
           if (label) parts.push(label);
         }
         if (a.lifecycle?.endOfLife)
-          parts.push(t("eol.endOfLifeDate", { date: a.lifecycle.endOfLife }));
+          parts.push(t("eol.endOfLifeDate", { date: formatDate(a.lifecycle.endOfLife) }));
         return {
           id: a.id,
           name: a.name,

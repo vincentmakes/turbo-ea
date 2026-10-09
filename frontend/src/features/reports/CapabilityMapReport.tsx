@@ -589,7 +589,10 @@ function CapabilityCard({
               fontWeight: 700,
               flex: 1,
               minWidth: CARD_TITLE_MIN_WIDTH,
-              color: heatRatio(val, minVal, maxVal) > 0.7 ? "#fff" : "#333",
+              color: (theme) =>
+                heatRatio(val, minVal, maxVal) > 0.7
+                  ? theme.palette.common.white
+                  : theme.palette.grey[900],
             }}
             noWrap
           >
@@ -665,7 +668,10 @@ function CapabilityCard({
             fontWeight: 700,
             flex: 1,
             minWidth: CARD_TITLE_MIN_WIDTH,
-            color: heatRatio(val, minVal, maxVal) > 0.7 ? "#fff" : "#333",
+            color: (theme) =>
+              heatRatio(val, minVal, maxVal) > 0.7
+                ? theme.palette.common.white
+                : theme.palette.grey[900],
           }}
           noWrap
         >

@@ -23,7 +23,6 @@ holding an id — and ids are handed out freely by other portals' maps.
 
 from __future__ import annotations
 
-import math
 import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Sequence
@@ -38,6 +37,7 @@ from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
 from app.models.relation import Relation
 from app.models.tag import CardTag
+from app.services.cost_value import cost_value
 
 if TYPE_CHECKING:
     from app.services.card_read_scope import CardReadScope
@@ -345,33 +345,16 @@ async def load_flow_coverage(db: AsyncSession) -> tuple[set[str], dict[str, int]
     return published_ids, element_counts
 
 
-def _cost_value(value: object) -> float:
-    """A cost attribute as a number, or 0 when it is not one.
-
-    Cost fields carry no numeric check on write, so a value can arrive as a
-    string. A numeric string counts — the cost treemap reads one the same way,
-    with ``float()`` — and anything else (text, a list, a boolean, NaN) counts
-    as nothing rather than failing the whole map.
-    """
-    if isinstance(value, bool):
-        return 0
-    if isinstance(value, (int, float)):
-        return value if math.isfinite(value) else 0
-    if isinstance(value, str):
-        try:
-            num = float(value)
-        except ValueError:
-            return 0
-        return num if math.isfinite(num) else 0
-    return 0
-
-
 def total_app_cost(linked_apps: Sequence[dict]) -> float:
-    """Sum of the linked applications' annual cost, tolerating either key."""
+    """Sum of the linked applications' annual cost, tolerating either key.
+
+    Read through ``cost_value``, like every other cost reader: a cost stored
+    as text used to turn the whole map into a 500.
+    """
     return sum(
         (
-            _cost_value(a.get("attributes", {}).get("costTotalAnnual"))
-            or _cost_value(a.get("attributes", {}).get("totalAnnualCost"))
+            cost_value(a.get("attributes", {}).get("costTotalAnnual"))
+            or cost_value(a.get("attributes", {}).get("totalAnnualCost"))
         )
         for a in linked_apps
     )

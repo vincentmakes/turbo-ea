@@ -355,19 +355,17 @@ describe("CapabilityMapReport heat scale", () => {
     renderMap();
     await loaded("Credits");
 
-    // The highest value is the deepest shade, the lowest the palest.
-    expect(bg(header("Credits"))).toBe("rgb(25, 90, 202)");
-    expect(bg(header("Refunds"))).toBe("rgb(227, 242, 253)");
-    expect(getComputedStyle(within(chart()).getByText("Credits")).color).toBe("rgb(255, 255, 255)");
+    // The highest value is the deepest shade, the lowest the palest: the two
+    // ends of the legend's own scale, which runs over the same range.
+    const scale = swatches();
+    expect(scale).toHaveLength(5);
+    expect(new Set(scale).size).toBe(5);
+    expect(bg(header("Credits"))).toBe(scale[4]);
+    expect(bg(header("Refunds"))).toBe(scale[0]);
+    // The deepest shade takes the light ink, the palest the dark one.
+    const ink = (name: string) => getComputedStyle(within(chart()).getByText(name)).color;
+    expect(ink("Credits")).not.toBe(ink("Refunds"));
     expect(within(legend()).getByText("Max: $-100")).toBeInTheDocument();
-    // The legend's scale runs over the same range.
-    expect(swatches()).toEqual([
-      "rgb(227, 242, 253)",
-      "rgb(177, 204, 240)",
-      "rgb(126, 166, 228)",
-      "rgb(76, 128, 215)",
-      "rgb(25, 90, 202)",
-    ]);
   });
 
   it("writes white on the deepest shades only, above 70% of the range", async () => {
@@ -385,10 +383,11 @@ describe("CapabilityMapReport heat scale", () => {
     renderMap();
     await loaded("Seven");
     const ink = (name: string) => getComputedStyle(within(chart()).getByText(name)).color;
-    expect(ink("Group")).toBe("rgb(255, 255, 255)");
-    expect(ink("Eight")).toBe("rgb(255, 255, 255)");
-    expect(ink("Seven")).toBe("rgb(51, 51, 51)");
-    expect(ink("Three")).toBe("rgb(51, 51, 51)");
+    // Above 70% of the range (Group rolls up 1000, Eight is 800): the light ink.
+    expect(ink("Eight")).toBe(ink("Group"));
+    // At or below it: the dark ink, a different colour.
+    expect(ink("Three")).toBe(ink("Seven"));
+    expect(ink("Seven")).not.toBe(ink("Eight"));
   });
 
   it("writes dark ink on a parent capability at exactly 70% of the range", async () => {
@@ -405,8 +404,10 @@ describe("CapabilityMapReport heat scale", () => {
     renderMap();
     await loaded("Kid");
     const ink = (name: string) => getComputedStyle(within(chart()).getByText(name)).color;
-    expect(ink("Parent")).toBe("rgb(51, 51, 51)");
-    expect(ink("Top")).toBe("rgb(255, 255, 255)");
+    // Exactly 70% is not above it: Parent (rolling up 700 of 1000) and Kid
+    // take the dark ink, Top the light one.
+    expect(ink("Parent")).toBe(ink("Kid"));
+    expect(ink("Parent")).not.toBe(ink("Top"));
   });
 
   it("spans a mixed range from the lowest value to the highest", async () => {

@@ -13,6 +13,7 @@ import { createRef } from "react";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
+vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 
 type SliderProps = {
   onMilestoneCardClick?: (card: { id: string; name: string; kind: string }) => void;

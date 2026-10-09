@@ -33,6 +33,7 @@ Contract notes:
 
 from __future__ import annotations
 
+import math
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -49,6 +50,7 @@ from app.models.relation_type import RelationType
 from app.services import card_approval, card_lifecycle, card_reference, notification_service
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_uniqueness import check_sibling_name_unique
+from app.services.cost_value import is_numeric_text
 from app.services.data_quality import calc_data_quality
 from app.services.event_bus import event_bus
 from app.services.hierarchy import HIERARCHY_LEVEL_KEY
@@ -191,6 +193,46 @@ async def _validate_percentage_attributes(
             continue
         if isinstance(val, bool) or not isinstance(val, (int, float)) or not 0 <= val <= 100:
             raise HTTPException(422, f"Field '{key}' must be a number between 0 and 100")
+
+
+async def _validate_cost_attributes(db: AsyncSession, card_type: str, attributes: dict) -> None:
+    """Validate that a ``cost`` or ``number`` attribute holds a number, coercing numeric text.
+
+    The readers (``cost_value``) tolerate text so a report never fails on a
+    value an older client or an import stored, but a write is where the bad
+    value can still be refused: a bool, a non-finite number or text that is
+    not a plain decimal is a 422. Numeric text (``"1200"``, the one shape an
+    integration can plausibly send) is stored as the number it spells, in
+    place, so the row never carries a string a reader has to re-parse.
+    """
+    if not attributes:
+        return
+    result = await db.execute(select(CardType.fields_schema).where(CardType.key == card_type))
+    schema = result.scalar_one_or_none()
+    if not schema:
+        return
+    numeric_keys: set[str] = set()
+    for section in schema:
+        for field in section.get("fields", []):
+            if field.get("type") in ("cost", "number"):
+                numeric_keys.add(field["key"])
+    for key in numeric_keys:
+        val = attributes.get(key)
+        if val is None or val == "":
+            continue
+        if isinstance(val, bool):
+            raise HTTPException(422, f"Field '{key}' must be a number")
+        if isinstance(val, (int, float)):
+            if not math.isfinite(val):
+                raise HTTPException(422, f"Field '{key}' must be a number")
+            continue
+        if is_numeric_text(val):
+            num = float(val)
+            if not math.isfinite(num):
+                raise HTTPException(422, f"Field '{key}' must be a number")
+            attributes[key] = int(num) if num.is_integer() else num
+            continue
+        raise HTTPException(422, f"Field '{key}' must be a number")
 
 
 def _is_empty_attr(val: object) -> bool:
@@ -721,6 +763,7 @@ async def create_card(
     flushed (uncommitted) row. Caller owns permission checks + the commit."""
     await _validate_url_attributes(db, type_key, attributes or {})
     await _validate_percentage_attributes(db, type_key, attributes or {})
+    await _validate_cost_attributes(db, type_key, attributes or {})
     await _validate_select_attributes(db, type_key, attributes or {}, {})
     await _validate_hierarchy_label(
         db, type_key, parent_label, None, has_parent=parent_id is not None
@@ -804,6 +847,7 @@ async def update_card(
     if "attributes" in updates and updates["attributes"]:
         await _validate_url_attributes(db, card.type, updates["attributes"])
         await _validate_percentage_attributes(db, card.type, updates["attributes"])
+        await _validate_cost_attributes(db, card.type, updates["attributes"])
         if strict_attributes:
             await _validate_strict_attributes(db, card.type, updates["attributes"])
 

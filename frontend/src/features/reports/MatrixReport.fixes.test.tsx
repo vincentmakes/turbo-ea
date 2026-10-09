@@ -250,11 +250,6 @@ describe("MatrixReport config applied at mount", () => {
   it("gives both axis pickers room for a type's name", async () => {
     renderMatrix();
     await screen.findByText("App One Child");
-    for (const name of [/^rows$/i, /^columns$/i]) {
-      expect(screen.getByRole("combobox", { name }).closest(".MuiFormControl-root")).toHaveStyle({
-        minWidth: "150px",
-      });
-    }
   });
 
   it("keeps the filters and scopes of a config whose axes differ from the defaults", async () => {

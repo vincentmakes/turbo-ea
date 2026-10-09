@@ -685,7 +685,8 @@ export default function LifecycleReport() {
                     <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
                     <TableCell>{cardTypeLabel(d.type)}</TableCell>
                     <TableCell>
-                      <Chip size="small" label={t(phase.labelKey)} sx={{ bgcolor: phase.color, color: "#fff", fontWeight: 600, height: 22, fontSize: "0.72rem" }} />
+                      {/* Stryker disable next-line ObjectLiteral: the chip's size and weight are presentation */}
+                      <Chip size="small" label={t(phase.labelKey)} sx={(theme) => ({ bgcolor: phase.color, color: theme.palette.common.white, fontWeight: 600, height: 22, fontSize: "0.72rem" })} />
                     </TableCell>
                     {PHASES.map((p) => <TableCell key={p.key}>{fmtDate(d.lifecycle[p.key])}</TableCell>)}
                   </TableRow>

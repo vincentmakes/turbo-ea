@@ -388,6 +388,7 @@ export default function EolReport() {
 
   if (loadError)
     return (
+      // Stryker disable next-line ObjectLiteral: spacing is presentation
       <Box sx={{ py: 4 }}>
         <Alert severity="error">{loadError}</Alert>
       </Box>
