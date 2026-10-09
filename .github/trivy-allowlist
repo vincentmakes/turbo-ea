@@ -33,166 +33,28 @@
 # blocks a release unless it is listed below; HIGH never blocks.
 
 # -----------------------------------------------------------------------------
-# Build-stage-only — `alpine/git:v2.47.2` used in the `drawio` stage
+# Review record
 # -----------------------------------------------------------------------------
-# Reviewed 2026-05-06 — the `drawio` build stage clones jgraph/drawio at
-# image-build time and copies the static webapp into the runtime
-# `frontend` image. The final `frontend` and `nginx` images are
-# `nginx:alpine` plus the built React `dist/` and the static drawio
-# webapp; neither `git`, `gnupg`, nor the alpine 3.21 base layer of
-# `alpine/git` is shipped to the runtime images that Trivy scans on the
-# Security tab. The `alpine/git` image only exists inside the buildx
-# layer cache, never in a published manifest, so these CVEs cannot be
-# reached by an attacker against a deployed Turbo EA installation.
-# Re-eval 2026-Q3 (or sooner if `alpine/git` publishes a v2.48+ tag we
-# can pin to).
-CVE-2025-15467
-CVE-2025-32988
-CVE-2025-32990
-CVE-2025-46334
-CVE-2025-48384
-CVE-2025-48385
-CVE-2025-68973
-CVE-2025-69419
-CVE-2025-69421
-CVE-2025-6965
-CVE-2026-1584
-CVE-2026-22184
-CVE-2026-25210
-CVE-2026-28387
-CVE-2026-28388
-CVE-2026-28389
-CVE-2026-28390
-CVE-2026-31789
-CVE-2026-33845
-CVE-2026-33846
-CVE-2026-40200
-
-# -----------------------------------------------------------------------------
-# Build-stage-only — `node:24-alpine` used in the `frontend-build` stage
-# -----------------------------------------------------------------------------
-# Reviewed 2026-05-06; base image bumped node:20 → node:24 (Active LTS)
-# on 2026-07-17 for #853 — these are Node.js-bundled npm dependencies
-# (cross-spawn, glob, tar, minimatch) that are present in `node_modules`
-# during `npm ci && npm run build`. The runtime `frontend` image is
-# `nginx:alpine` plus the built static `dist/` and the drawio webapp —
-# the entire Node runtime, npm, and `node_modules` tree is discarded
-# after the build stage. None of these packages are shipped or executed
-# at runtime, so an exploit chain via tar/minimatch/glob/cross-spawn
-# requires write access to our build environment, which is the GitHub
-# Actions runner. Node 24 bundles npm 11, which refreshes the bundled
-# dependency set — the trivy-reconcile job will prune any of these
-# entries that stop matching.
-CVE-2024-21538
-CVE-2025-64756
-CVE-2026-23745
-CVE-2026-23950
-CVE-2026-24842
-CVE-2026-26960
-CVE-2026-26996
-CVE-2026-27903
-CVE-2026-27904
-CVE-2026-29786
-CVE-2026-31802
-
-# -----------------------------------------------------------------------------
-# Upstream binary — `gosu` in `postgres:18-alpine`
-# -----------------------------------------------------------------------------
-# Reviewed 2026-05-06 — these are Go stdlib + jsonparser CVEs in the
-# `gosu` binary shipped at `/usr/local/bin/gosu` by the upstream
-# postgres image. `gosu` is invoked exactly once by postgres' entrypoint
-# to drop privileges from root before exec'ing postgres itself; it does
-# not open network sockets, parse untrusted input, or process JSON in
-# our usage path. The vulnerable Go stdlib code paths
-# (net/http parsing, crypto/x509, encoding/* fuzzing) are not reachable
-# from gosu's `setgid()/setuid()/exec()` flow. We cannot rebuild gosu
-# from this repo (it's a pre-compiled binary inherited from upstream);
-# the fix lands when `postgres:18-alpine` rebuilds against a patched
-# Go toolchain. Re-eval 2026-Q3.
-CVE-2025-58183
-CVE-2025-61726
-CVE-2025-61728
-CVE-2025-61729
-CVE-2025-68121
-CVE-2026-25679
-CVE-2026-27137
-CVE-2026-32280
-CVE-2026-32281
-CVE-2026-32283
-CVE-2026-32285
-CVE-2026-33810
-
-# Reviewed 2026-05-06 (round 2) — additional Go stdlib CVEs surfaced in
-# the same `gosu` binary by upstream advisories after the initial
-# triage. Same rationale as the block above: `gosu` only invokes
-# `setgid()/setuid()/exec()` on the postgres entrypoint and never
-# touches the vulnerable code paths (net/http parsing, net/url,
-# net/mail, net/textproto, html/template, encoding/asn1, encoding/pem,
-# crypto/x509, crypto/tls handshake, archive/tar, os.Root.Chmod /
-# os.FileInfo). Cannot rebuild from this repo; lands when
-# `postgres:18-alpine` rebuilds against Go 1.25.9+ / 1.26.2+.
-# Re-eval 2026-Q3.
-CVE-2025-47912
-CVE-2025-58185
-CVE-2025-58186
-CVE-2025-58187
-CVE-2025-58188
-CVE-2025-58189
-CVE-2025-61723
-CVE-2025-61724
-CVE-2025-61725
-CVE-2025-61727
-CVE-2025-61730
-CVE-2026-27139
-CVE-2026-27142
-CVE-2026-32282
-CVE-2026-32288
-CVE-2026-32289
-
-# -----------------------------------------------------------------------------
-# Transient — apk upgrade chain (remove when upstream alpine repo ships fix)
-# -----------------------------------------------------------------------------
-# Reviewed 2026-05-06 — `nghttp2-libs` CVE present in `nginx:alpine`
-# (1.68.0-r0) and `postgres:18-alpine` (1.68.0-r0). The runtime images
-# now run `apk upgrade --no-cache` so this will fix transparently when
-# alpine 3.23 ships `nghttp2 1.68.1-r0`. Listed here as a transitional
-# safety net so the enforcing Trivy gate doesn't break publishes in
-# the window between the CVE being reported and the alpine repo
-# carrying the patch. Remove this entry once a follow-up scan confirms
-# the runtime images report no nghttp2 finding.
-CVE-2026-27135
-
-# -----------------------------------------------------------------------------
-# Transient — pip's VENDORED dependency tree in the `backend` / `mcp-server`
-# images (remove once a rebuilt `:latest` confirms the alerts have cleared)
-# -----------------------------------------------------------------------------
-# Reviewed 2026-07-30 (VV) — none of these three are Turbo EA dependencies.
-# They are pip's own vendored packages: pip ships a CycloneDX SBOM of its
-# `_vendor/` tree at `pip/_vendor/bom.cdx.json`, and Trivy reads it, so
-# `setuptools 70.3.0` and `msgpack 1.1.2` (pinned in pip's `vendor.txt`)
-# surfaced as findings on the two python images. Upgrading pip does not help —
-# pip 26.2, the current latest, still vendors exactly those versions.
+# 2026-10-09 (Q4 review, overdue from Q3; VV): every entry removed. The
+# trivy-reconcile diagnostic of that day (run 37937876962) scanned all five
+# published `:latest` images at every severity, with unfixed findings shown and
+# WITHOUT this file applied, and found 0 vulnerabilities on each of backend, db,
+# frontend, mcp-server and nginx. So no listed id matched anything any more:
+#   - Build-stage-only (`alpine/git`, `node:24-alpine`, 32 ids): never scannable.
+#     All three Trivy jobs run `trivy image` against published runtime
+#     manifests, and a build stage is never in one. Do not list build-stage
+#     CVEs here; they cannot reach a deployed instance or the gate.
+#   - `gosu` in `postgres:18-alpine` (28 ids): upstream rebuilt it on a patched
+#     Go toolchain. An unfixed upstream-binary CVE cannot fail the gate anyway
+#     (`ignore-unfixed: true`), so such an entry only hides it from the daily
+#     observe scan, which is the one scan meant to show it.
+#   - `nghttp2` (CVE-2026-27135) and pip's vendored setuptools/msgpack
+#     (CVE-2025-47273, CVE-2026-59890, GHSA-6v7p-g79w-8964): the transitional
+#     entries whose own comments said to drop them once a rebuilt image scanned
+#     clean. The runtime images ship no pip since 2026-07-30.
 #
-# Not exploitable in Turbo EA's usage path, and now moot:
-#   - CVE-2025-47273 (setuptools, HIGH, fixed 78.1.1) — path traversal in
-#     `PackageIndex.download`, i.e. the deprecated easy_install code path.
-#     Requires running pip/easy_install against a hostile index in-container.
-#   - CVE-2026-59890 (setuptools, MEDIUM, fixed 83.0.0) — MANIFEST.in exclusion
-#     bypass when building an sdist on macOS APFS/HFS+. We build no sdists and
-#     the runtime is Linux; structurally inapplicable.
-#   - GHSA-6v7p-g79w-8964 (msgpack, HIGH, fixed 1.2.1) — `Unpacker` crash on
-#     reuse after a caught error. pip vendors msgpack only for CacheControl's
-#     index HTTP cache; same precondition as above.
-# Neither image executes pip at runtime (no `subprocess` / `sys.executable` /
-# pip call anywhere in `backend/app/` or `mcp-server/turbo_ea_mcp/`; the
-# extension loader imports modules from disk rather than installing them), and
-# both run non-root with `cap_drop: ALL`.
+# Prove an entry absent with trivy-reconcile.yml (default `upload_sarif=false`),
+# never with the daily scan: the daily scan applies this file, so it cannot see
+# what the file hides.
 #
-# The real fix shipped with this entry: the `backend` and `mcp-server` stages
-# of the root Dockerfile now DELETE pip after the app is installed, which
-# removes the vendored-SBOM surface entirely. These IDs are listed only as a
-# transitional safety net covering the window until a rebuilt `:latest` is
-# published and scanned. Drop this whole block once that scan is clean.
-CVE-2025-47273
-CVE-2026-59890
-GHSA-6v7p-g79w-8964
+# This file is intentionally empty of entries until a finding needs one.
