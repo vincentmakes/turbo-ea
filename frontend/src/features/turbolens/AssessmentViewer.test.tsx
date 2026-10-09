@@ -234,6 +234,13 @@ describe("AssessmentViewer — loading and errors", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Assessment not found");
   });
+
+  it("falls back to the generic message when the load fails with something that is not an Error", async () => {
+    mockApi.on("get", URL_A1, () => Promise.reject("offline"));
+    renderViewer();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/^Failed to load assessment$/);
+  });
 });
 
 describe("AssessmentViewer — a saved assessment", () => {
@@ -984,5 +991,57 @@ describe("AssessmentViewer — relation ends the graph cannot place", () => {
 
     expect(await screen.findByTestId("ldv")).toHaveTextContent("2 nodes / 0 edges");
     expect(ldv.props?.edges).toEqual([]);
+  });
+
+  it("draws no edge from an end that is not a node of the diagram", async () => {
+    mockApi.on(
+      "get",
+      URL_A1,
+      assessment({
+        session_data: {
+          capabilityMapping: {
+            capabilities: [{ id: "cap-new", name: "Lead Scoring", isNew: true }],
+            proposedCards: [{ id: "pc-app", name: "Gateway", cardTypeKey: "Application", isNew: true }],
+            proposedRelations: [
+              { sourceId: "ghost-card", targetId: "cap-new", relationType: "relAppToBC" },
+              { sourceId: "pc-app", targetId: "cap-new", relationType: "relAppToBC" },
+            ],
+          },
+        },
+      }),
+    );
+    renderViewer();
+
+    expect(await screen.findByTestId("ldv")).toHaveTextContent("2 nodes / 1 edges");
+    expect(ldv.props?.edges.map((e) => [e.source, e.target])).toEqual([["pc-app", "cap-new"]]);
+  });
+
+  it("does not take a missing end for a card that came back without an id", async () => {
+    // The AI listed a landscape card without its id: a relation missing an end
+    // must still be dropped, not drawn to that card.
+    mockApi.on(
+      "get",
+      URL_A1,
+      assessment({
+        session_data: {
+          capabilityMapping: {
+            capabilities: [{ id: "cap-new", name: "Lead Scoring", isNew: true }],
+            proposedCards: [
+              { id: "pc-app", name: "Gateway", cardTypeKey: "Application", isNew: true },
+              { name: "Legacy Billing", cardTypeKey: "Application", isNew: false },
+            ],
+            proposedRelations: [
+              { targetId: "cap-new", relationType: "relAppToBC" },
+              { sourceId: "pc-app", relationType: "relAppToITC" },
+              { sourceId: "pc-app", targetId: "cap-new", relationType: "relAppToBC" },
+            ],
+          },
+        },
+      }),
+    );
+    renderViewer();
+
+    expect(await screen.findByTestId("ldv")).toHaveTextContent("3 nodes / 1 edges");
+    expect(ldv.props?.edges.map((e) => [e.source, e.target])).toEqual([["pc-app", "cap-new"]]);
   });
 });

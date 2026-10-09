@@ -366,3 +366,43 @@ describe("TurboLensArchitect — naming a proposed relation's ends", () => {
     ]);
   });
 });
+
+describe("TurboLensArchitect — relation ends the diagram cannot place", () => {
+  it("draws no edge from an end that is not a node of the diagram", () => {
+    startAt(5, {
+      capabilityMapping: {
+        ...MAPPING,
+        proposedRelations: [
+          { sourceId: "ghost", targetId: "cap-new-1", relationType: "relAppToBC" },
+          ...MAPPING.proposedRelations,
+        ],
+      },
+    });
+
+    expect(lastLdv().edges.map((e) => [e.source, e.target])).toEqual([["pc-1", "cap-new-1"]]);
+  });
+
+  it("does not take a missing end for a card that came back without an id", () => {
+    // The AI listed a landscape card without its id: a relation missing an end
+    // must still be dropped, not drawn to that card.
+    startAt(5, {
+      capabilityMapping: {
+        ...MAPPING,
+        proposedCards: [
+          ...MAPPING.proposedCards,
+          { name: "Legacy Billing", cardTypeKey: "Application", isNew: false },
+        ],
+        proposedRelations: [
+          { targetId: "cap-new-1", relationType: "relAppToBC" },
+          { sourceId: "pc-1", relationType: "relAppToITC" },
+          ...MAPPING.proposedRelations,
+        ],
+      },
+    });
+
+    const { nodes, edges } = lastLdv();
+    expect(edges.map((e) => [e.source, e.target])).toEqual([["pc-1", "cap-new-1"]]);
+    // The card itself is still drawn, unconnected, as landscape context.
+    expect(nodes.map((n) => n.name)).toEqual(["FraudShield", "Legacy Billing", "Fraud Detection"]);
+  });
+});

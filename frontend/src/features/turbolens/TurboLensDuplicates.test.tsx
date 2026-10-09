@@ -258,6 +258,20 @@ describe("TurboLensDuplicates — duplicate clusters", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("names a modernization load that fails with no message of its own generically, apart from the clusters", async () => {
+    mockApi.on("get", CLUSTERS_URL, []);
+    mockApi.on("get", MODS_URL, () => Promise.reject("offline"));
+    const { user } = renderTab();
+
+    // The cluster list loaded: its empty state, no error.
+    expect(await screen.findByText("No duplicate clusters found")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: /^Modernization/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/^Something went wrong$/);
+    expect(screen.queryByText("No modernization assessments yet")).not.toBeInTheDocument();
+  });
+
   it("renders each cluster with its type, domain, members, evidence and recommendation", async () => {
     mockApi.on("get", CLUSTERS_URL, CLUSTERS);
     mockApi.on("get", MODS_URL, []);
