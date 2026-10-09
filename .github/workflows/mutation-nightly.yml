@@ -131,24 +131,28 @@ jobs:
         run: >-
           python3 -c 'import os; print("HALF_BUDGET=%g" % (float(os.environ["BUDGET"]) / 2))'
           >> "$GITHUB_ENV"
+      # `steps.first-half.outcome != 'skipped'`: a setup step that failed (a
+      # registry refusing the Postgres image, say) skips the first half, and
+      # then there is nothing to checkpoint or resume.
       - name: Mutate shard ${{ matrix.shard }}, first half of the budget
+        id: first-half
         run: |
           ulimit -v "$MUTMUT_VMEM_KB"
           python scripts/mutation/mutmut_scope.py run --suite backend --shard "$SHARD" \
             --budget "$HALF_BUDGET" --max-children 4 \
             --harness "mutation-harness-backend-${{ matrix.shard }}.json"
       - name: Checkpoint the shard's verdicts
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         run: >-
           python scripts/mutation/mutmut_scope.py collect --suite backend --shard "$SHARD"
           --output "mutation-records-backend-${{ matrix.shard }}.json"
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ !cancelled() && env.SAVE_CACHE == 'true' }}
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' && env.SAVE_CACHE == 'true' }}
         with:
           path: .mutation/backend/backend
           key: mutmut-backend-shard${{ matrix.shard }}-${{ github.run_id }}-checkpoint
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         with:
           name: mutation-records-backend-${{ matrix.shard }}
           path: mutation-records-backend-${{ matrix.shard }}.json
@@ -156,7 +160,7 @@ jobs:
           retention-days: 3
           overwrite: true
       - name: Mutate shard ${{ matrix.shard }}, second half of the budget
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         run: |
           ulimit -v "$MUTMUT_VMEM_KB"
           python scripts/mutation/mutmut_scope.py run --suite backend --shard "$SHARD" \
@@ -287,6 +291,7 @@ jobs:
           python3 -c 'import os; print("HALF_BUDGET=%g" % (float(os.environ["BUDGET"]) / 2))'
           >> "$GITHUB_ENV"
       - name: Mutate shard ${{ matrix.shard }}, first half of the budget
+        id: first-half
         env:
           GITHUB_STEP_SUMMARY: /dev/null
         run: |
@@ -298,21 +303,22 @@ jobs:
             --budget "$HALF_BUDGET" --state "$STATE" $limit \
             --harness "mutation-harness-frontend-${{ matrix.shard }}.json"
       # A chunk that fails fails the step only after every other chunk ran, so
-      # the checkpoint and the second half still run; only a cancel stops them.
+      # the checkpoint and the second half still run; only a cancel, or a setup
+      # step that failed before the first half could run, stops them.
       # What failed it — the tests of its initial run — is named as annotations
       # and in mutation-harness-frontend-N.json, which the report job renders.
       - name: Checkpoint the shard's verdicts
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         run: >-
           python3 scripts/mutation/stryker_scope.py collect --state "$STATE" --shard "$SHARD"
           --output "mutation-records-frontend-${{ matrix.shard }}.json"
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ !cancelled() && env.SAVE_CACHE == 'true' }}
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' && env.SAVE_CACHE == 'true' }}
         with:
           path: frontend/reports/nightly
           key: stryker-frontend-shard${{ matrix.shard }}-${{ github.run_id }}-checkpoint
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         with:
           name: mutation-records-frontend-${{ matrix.shard }}
           path: mutation-records-frontend-${{ matrix.shard }}.json
@@ -320,7 +326,7 @@ jobs:
           retention-days: 3
           overwrite: true
       - name: Mutate shard ${{ matrix.shard }}, second half of the budget
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         env:
           GITHUB_STEP_SUMMARY: /dev/null
         run: |

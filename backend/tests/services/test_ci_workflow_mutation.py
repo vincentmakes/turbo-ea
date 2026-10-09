@@ -139,12 +139,15 @@ def test_a_lost_runner_loses_half_a_night_not_all_of_it(job):
 @pytest.mark.parametrize("job", ["backend", "frontend"])
 def test_a_failed_first_half_does_not_cost_the_second_half(job):
     """A test failing on unmutated code fails the half; the checkpoint and the
-    second half still run, so an intermittent one costs half a night."""
+    second half still run, so an intermittent one costs half a night. A setup
+    step that failed (a registry refusing the Postgres image) skips the first
+    half, and then there is nothing to checkpoint or resume."""
     body = jobs(NIGHTLY)[job]
     second = body.index("second half of the budget")
     checkpoint = body.index("Checkpoint the shard's verdicts")
+    assert body.index("id: first-half") < checkpoint
     for part in (body[checkpoint:second], body[second : second + 200]):
-        assert "!cancelled()" in part
+        assert "!cancelled() && steps.first-half.outcome != 'skipped'" in part
 
 
 @pytest.mark.parametrize(
