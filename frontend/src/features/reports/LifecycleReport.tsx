@@ -146,7 +146,9 @@ export default function LifecycleReport() {
   useEffect(() => {
     const cfg = saved.consumeConfig();
     if (cfg) {
-      if (cfg.cardTypeKey) setCardTypeKey(cfg.cardTypeKey as string);
+      const restoredType =
+        typeof cfg.cardTypeKey === "string" && cfg.cardTypeKey ? cfg.cardTypeKey : undefined;
+      if (restoredType) setCardTypeKey(restoredType);
       if (cfg.view) setView(cfg.view as "chart" | "table");
       if (cfg.sortK) setSortK(cfg.sortK as string);
       if (cfg.sortD) setSortD(cfg.sortD as "asc" | "desc");
@@ -155,8 +157,13 @@ export default function LifecycleReport() {
       else if (cfg.useInitiativeDates !== undefined) setUseCustomDates(cfg.useInitiativeDates as boolean);
       if (cfg.customColorBy) setCustomColorBy(cfg.customColorBy as string);
       else if (cfg.initiativeColorBy) setCustomColorBy(cfg.initiativeColorBy as string);
+      // Set for the restored type, so the scope is read as that type's from
+      // the render the type lands on.
       if (Array.isArray(cfg.scopeIds)) {
-        setScopeIds((cfg.scopeIds as unknown[]).filter((v): v is string => typeof v === "string"));
+        setScopeIds(
+          (cfg.scopeIds as unknown[]).filter((v): v is string => typeof v === "string"),
+          restoredType,
+        );
       }
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps

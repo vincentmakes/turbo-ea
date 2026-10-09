@@ -54,10 +54,20 @@ export function applyScope<T extends { id: string }>(
   return items.filter((i) => closure.has(i.id));
 }
 
+/** One empty array, so an unscoped render keeps a stable identity. */
+const NO_SCOPE: string[] = [];
+
 export interface CardScopeResult {
   /** Subtree roots — the small set that gets persisted in a saved report. */
   scopeIds: string[];
-  setScopeIds: (ids: string[]) => void;
+  /**
+   * Set the scope, together with the card type it belongs to. `forType`
+   * defaults to the hook's current `typeKey`; a caller that changes the type
+   * and the scope in one pass (a restored report, a transpose) names the type
+   * it is about to set, so the scope is read as that type's from the render
+   * the type lands on, whatever order the two state updates run in.
+   */
+  setScopeIds: (ids: string[], forType?: string | null) => void;
   /**
    * `scopeIds` minus anything the hierarchy doesn't know about. This is what
    * the UI should count and label with, so a chip can never claim a scope the
@@ -100,7 +110,11 @@ export function useCardScope({
   hierarchy,
   enabled = true,
 }: {
-  /** Card type being scoped. Changing it clears the scope. */
+  /**
+   * Card type being scoped. A scope belongs to the type it was set for
+   * (`setScopeIds`'s `forType`), so a scope set for another type reads as
+   * empty and is dropped.
+   */
   typeKey: string | null;
   /**
    * Complete `{id, parent_id}` set, when the report already holds one. Pass
@@ -111,7 +125,26 @@ export function useCardScope({
   /** Turns scoping off entirely (Cost does this while drilled into a level). */
   enabled?: boolean;
 }): CardScopeResult {
-  const [scopeIds, setScopeIds] = useState<string[]>([]);
+  /**
+   * The scope and the type it was set for, as one value: scope ids belong to
+   * one card type, so what the hook answers for `typeKey` is this scope only
+   * while the two types agree. Keeping the pair — rather than clearing the
+   * ids in an effect when `typeKey` changes — is what lets a caller set the
+   * type and the scope in the same pass in either order (#1203).
+   */
+  const [scope, setScope] = useState<{ ids: string[]; typeKey: string | null }>({
+    ids: [],
+    typeKey: null,
+  });
+  const scopeIds = scope.typeKey === typeKey ? scope.ids : NO_SCOPE;
+
+  // `setScopeIds` stays identity-stable (callers list it in dependency
+  // arrays), so the default `forType` is read through a ref.
+  const typeKeyRef = useRef(typeKey);
+  typeKeyRef.current = typeKey;
+  const setScopeIds = useCallback((ids: string[], forType?: string | null) => {
+    setScope({ ids, typeKey: forType === undefined ? typeKeyRef.current : forType });
+  }, []);
 
   const active = enabled && scopeIds.length > 0 && !!typeKey;
   /**
@@ -154,18 +187,19 @@ export function useCardScope({
   }, [active, nodes, effectiveScopeIds]);
 
   /**
-   * Scope ids belong to one card type, so a type change makes them
-   * meaningless. Skipped on the first run: a saved report restores its type
-   * and its scope in the same pass, and wiping it here would undo the restore.
-   * Same shape as the `loadedAxes` guard in `MatrixReport`.
+   * A scope set for another type already reads as empty (above). When the
+   * type moves away from the scope's, the scope is also dropped, so that
+   * switching back does not bring it back. Keyed on the type alone, and read
+   * from this render's values: a scope set ahead of its type (a restore whose
+   * type state lands a render later) must survive until that type arrives,
+   * and a scope queued in the same pass as the type must not be judged
+   * against the type of the render before it.
    */
-  const lastType = useRef<string | null>(null);
   useEffect(() => {
-    if (lastType.current !== null && lastType.current !== typeKey) setScopeIds([]);
-    lastType.current = typeKey;
-  }, [typeKey]);
+    if (scope.typeKey !== typeKey && scope.ids.length > 0) setScope({ ids: [], typeKey });
+  }, [typeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const clear = useCallback(() => setScopeIds([]), []);
+  const clear = useCallback(() => setScope({ ids: [], typeKey: typeKeyRef.current }), []);
 
   return {
     scopeIds,

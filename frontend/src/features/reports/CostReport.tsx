@@ -274,7 +274,9 @@ export default function CostReport() {
   useEffect(() => {
     const cfg = saved.consumeConfig();
     if (cfg) {
-      if (cfg.cardTypeKey) setCardTypeKey(cfg.cardTypeKey as string);
+      const restoredType =
+        typeof cfg.cardTypeKey === "string" && cfg.cardTypeKey ? cfg.cardTypeKey : undefined;
+      if (restoredType) setCardTypeKey(restoredType);
       if (cfg.costField) setCostField(cfg.costField as string);
       if (Array.isArray(cfg.costSources)) {
         setCostSources(cfg.costSources as string[]);
@@ -292,8 +294,13 @@ export default function CostReport() {
             .filter((f): f is DrillFrame => f !== null)
         : [];
       setDrillStack(restored);
+      // Set for the restored type, so the scope is read as that type's from
+      // the render the type lands on.
       if (Array.isArray(cfg.scopeIds)) {
-        setScopeIds((cfg.scopeIds as unknown[]).filter((v): v is string => typeof v === "string"));
+        setScopeIds(
+          (cfg.scopeIds as unknown[]).filter((v): v is string => typeof v === "string"),
+          restoredType,
+        );
       }
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps

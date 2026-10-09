@@ -947,6 +947,18 @@ describe("CostReport saved configuration", () => {
     await waitFor(() => expect(lastPersisted()).toMatchObject({ scopeIds: ["crm"] }));
   });
 
+  it("keeps the scope of a saved report that names another card type", async () => {
+    // The page opens on Application; the report scopes IT Components. The
+    // scope is restored for its own type, so the type change cannot drop it.
+    saved.config = { cardTypeKey: "ITComponent", scopeIds: ["crm"] };
+    renderCost();
+    await screen.findByTestId("treemap");
+    expect(await within(toolbar()).findByText("1 card")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(lastPersisted()).toMatchObject({ cardTypeKey: "ITComponent", scopeIds: ["crm"] }),
+    );
+  });
+
   it("applies a saved report that finishes loading after the page mounted", async () => {
     const view = renderCost();
     await screen.findByTestId("treemap");

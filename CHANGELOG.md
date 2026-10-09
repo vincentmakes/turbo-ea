@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Cards: a cost or number field refuses a value that is not a number (text that is not a number, true/false) with a validation error instead of storing it, and numeric text such as "1200" is stored as the number.
 - Dependency report: the tree-card tooltip counts its connections with correct plurals, and a retired or upcoming card keeps its outline.
 - EOL report: the countdown beside an end-of-life date ("40 days ago", "3 months", "2.2 years") is in the UI language with its correct plural forms, not English abbreviations.
+- Cost and Lifecycle reports: a saved report that names another card type now opens with its scope, as the Matrix does.
 
 ### Changed
 - Portfolio report: the Group by menu offers one entry per relation type, so a card can be grouped by the cards it reaches through a specific relationship; a saved report that already named one shows it in the select.

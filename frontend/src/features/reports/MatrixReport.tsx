@@ -308,17 +308,12 @@ export default function MatrixReport() {
       // JSONB, so never trust its element types.
       const scopeIdsOf = (raw: unknown) =>
         Array.isArray(raw) ? raw.filter((v): v is string => typeof v === "string") : undefined;
+      // Each scope is set for the axis type the config names, so it is read
+      // as that type's from the render the type lands on.
       const nextRowScope = scopeIdsOf(cfg.rowScopeIds);
       const nextColScope = scopeIdsOf(cfg.colScopeIds);
-      if (nextRowScope) rowScope.setScopeIds(nextRowScope);
-      if (nextColScope) colScope.setScopeIds(nextColScope);
-      const nextRowType = (cfg.rowType as string) || rowType;
-      const nextColType = (cfg.colType as string) || colType;
-      if (nextRowType !== rowType || nextColType !== colType) {
-        pendingScopes.current = {
-          rowType: nextRowType, colType: nextColType, row: nextRowScope, col: nextColScope,
-        };
-      }
+      if (nextRowScope) rowScope.setScopeIds(nextRowScope, (cfg.rowType as string) || rowType);
+      if (nextColScope) colScope.setScopeIds(nextColScope, (cfg.colType as string) || colType);
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -386,24 +381,6 @@ export default function MatrixReport() {
   // point of a matrix, so the two are independent.
   const rowScope = useCardScope({ typeKey: rowType, hierarchy: data?.rows ?? null });
   const colScope = useCardScope({ typeKey: colType, hierarchy: data?.columns ?? null });
-
-  // `useCardScope` clears an axis's scope once a change of its type lands. A
-  // restored config and a transpose change the type AND set the scope in one
-  // pass, so they leave their scopes here to re-apply after that clear: this
-  // effect is declared below the scope hooks, so it runs after theirs.
-  const pendingScopes = useRef<{
-    rowType: string;
-    colType: string;
-    row?: string[];
-    col?: string[];
-  } | null>(null);
-  useEffect(() => {
-    const pending = pendingScopes.current;
-    if (!pending || pending.rowType !== rowType || pending.colType !== colType) return;
-    pendingScopes.current = null;
-    if (pending.row) rowScope.setScopeIds(pending.row);
-    if (pending.col) colScope.setScopeIds(pending.col);
-  }, [rowType, colType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * The user's own pick of an axis type. Filter keys are namespaced by relation
@@ -851,21 +828,16 @@ export default function MatrixReport() {
     setColExpandedDepth(rowExpandedDepth);
     setRowSearch(colSearch);
     setColSearch(rowSearch);
-    // The scopes belong to their axes, so they swap too. Read before either
-    // setter runs, since both are stale-closure snapshots of this render.
+    // The scopes belong to their axes, so they swap too, each set for the
+    // type its axis is about to carry. Read before either setter runs, since
+    // both are stale-closure snapshots of this render.
     const nextRowScope = colScope.scopeIds;
     const nextColScope = rowScope.scopeIds;
-    rowScope.setScopeIds(nextRowScope);
-    colScope.setScopeIds(nextColScope);
+    rowScope.setScopeIds(nextRowScope, colType);
+    colScope.setScopeIds(nextColScope, rowType);
     // Swapping two different types makes a different axis pair: it starts
-    // unfiltered, and `useCardScope` clears both scopes once the swap lands,
-    // so they are re-applied after that.
-    if (rowType !== colType) {
-      setFilters(EMPTY_FILTERS);
-      pendingScopes.current = {
-        rowType: colType, colType: rowType, row: nextRowScope, col: nextColScope,
-      };
-    }
+    // unfiltered.
+    if (rowType !== colType) setFilters(EMPTY_FILTERS);
   };
 
   const sortModeLabel = (m: SortMode) => m === "alpha" ? t("matrix.alphaSort") : m === "count" ? t("matrix.byCount") : t("matrix.hierarchy");
