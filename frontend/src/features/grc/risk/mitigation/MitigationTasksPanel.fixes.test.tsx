@@ -5,7 +5,7 @@
  * it, and a failed load must never read as "no tasks".
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { MitigationTask, MitigationTaskOccurrence } from "@/types";
 
@@ -13,6 +13,7 @@ vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientMo
 vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 vi.mock("@/features/grc/risk/mitigation/taskHistoryExport", () => ({ exportTaskHistory: vi.fn() }));
 
+import i18n from "@/i18n";
 import { mockApi } from "@/test/apiMock";
 import { installConfirm } from "@/test/dom";
 import { USERS } from "@/test/fixtures/metamodel";
@@ -207,6 +208,24 @@ describe("MitigationTasksPanel — failed writes that are not API errors", () =>
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(await screen.findByRole("alert")).toHaveTextContent("Failed to fetch");
     expect(mockApi.callsOf("post", "/risks/r1/mitigation-tasks")).toHaveLength(1);
+  });
+
+  it("speaks the language the user switched to after the panel mounted", async () => {
+    mockApi.on("delete", "/mitigation-tasks/t1", throwsString());
+    const { user } = renderPanel();
+    await screen.findByText("Review access rights");
+    try {
+      await act(async () => {
+        await i18n.changeLanguage("de");
+      });
+      await user.click(button(rowOf("Review access rights"), "delete"));
+      expect(await screen.findByRole("alert")).toHaveTextContent("Etwas ist schiefgelaufen");
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+      localStorage.clear();
+    }
   });
 
   it("shows why a delete failed", async () => {

@@ -40,7 +40,7 @@ function useInitiativeStatusOption() {
  */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useInitiativeStatusLabel() {
-  const { t } = useTranslation(["delivery", "common"]);
+  const { t } = useTranslation("delivery");
   const statusOption = useInitiativeStatusOption();
   const optLabel = useOptionLabel();
   return useCallback(

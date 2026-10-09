@@ -378,6 +378,39 @@ describe("CreateAdrDialog — a link fails after the decision was created", () =
     expect(screen.getByRole("button", { name: "Create" })).toBeEnabled();
   });
 
+  it("names every card it could not link, separated by commas", async () => {
+    mockApi.on("post", "/adr/adr-9/cards", () => {
+      throw new Error("link refused");
+    });
+    await createWithTwoCards();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The decision was created, but these cards could not be linked: Cloud Migration, NexaCore ERP.",
+    );
+  });
+
+  it("links the pre-linked cards to the next decision after it is reopened", async () => {
+    failLinkOf("card-1", 1);
+    const { user, onClose, onCreated, rerender } = await createWithTwoCards();
+    await screen.findByRole("alert");
+    expect(linkCalls()).toEqual(["init-1", "card-1"]);
+
+    const props = { onClose, onCreated, preLinkedCards: [INITIATIVE] };
+    rerender(<CreateAdrDialog open={false} {...props} />);
+    rerender(<CreateAdrDialog open {...props} />);
+    await waitFor(() => expect(screen.getByLabelText("Decision title")).toHaveValue(""));
+
+    // Nothing is linked to the new decision yet, so its card can still be removed.
+    const chip = screen.getByText("Cloud Migration").closest(".MuiChip-root") as HTMLElement;
+    expect(within(chip).getByTestId("CancelIcon")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Decision title"), "Second");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+    expect(mockApi.callsOf("post", "/adr")).toHaveLength(2);
+    expect(linkCalls()).toEqual(["init-1", "card-1", "init-1"]);
+  });
+
   it("retries only the missing link, never a second decision, then finishes", async () => {
     failLinkOf("card-1", 1);
     const { user, onCreated, onClose } = await createWithTwoCards();

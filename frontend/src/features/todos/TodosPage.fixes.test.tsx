@@ -4,8 +4,9 @@
  * stick. Every mock uses the `@/` alias.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 
 vi.mock("@/api/client", () => ({
@@ -97,6 +98,65 @@ describe("TodosPage — loading the list", () => {
     expect(screen.queryByText(EMPTY)).toBeNull();
   });
 
+  it("paints a spinner, with neither the empty state nor an error, before the first load is sent", () => {
+    // No effect runs here: this is the page as it is first painted.
+    const host = document.createElement("div");
+    host.innerHTML = renderToStaticMarkup(
+      <MemoryRouter initialEntries={["/todos"]}>
+        <TodosPage />
+      </MemoryRouter>,
+    );
+    expect(within(host).queryByRole("progressbar")).not.toBeNull();
+    expect(within(host).queryByText(EMPTY)).toBeNull();
+    expect(within(host).queryByRole("alert")).toBeNull();
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
+  it("centres the loading spinner with room above and below it", () => {
+    route(() => deferred<Todo[]>().promise);
+    renderAt();
+    const box = screen.getByRole("progressbar").parentElement as HTMLElement;
+    expect(box).toHaveStyle({
+      display: "flex",
+      justifyContent: "center",
+      paddingTop: "32px",
+      paddingBottom: "32px",
+    });
+  });
+
+  it("keeps the spinner and shows no error while a filter change abandons the load in flight", async () => {
+    const loads = new Map<string, ReturnType<typeof deferred<Todo[]>>>();
+    vi.mocked(api.get).mockImplementation(((path: string, opts?: { signal?: AbortSignal }) => {
+      if (!path.startsWith("/todos?")) return Promise.resolve({ open_todos: 0, pending_surveys: 0 });
+      const load = deferred<Todo[]>();
+      // As the real client does, an aborted request rejects.
+      opts?.signal?.addEventListener("abort", () =>
+        load.reject(new DOMException("The operation was aborted.", "AbortError")),
+      );
+      loads.set(path.split("?")[1], load);
+      return load.promise;
+    }) as never);
+    const user = userEvent.setup();
+    renderAt();
+    const OPEN = "assigned_only=true&status=open";
+    const DONE = "assigned_only=true&status=done";
+    expect(loads.has(OPEN)).toBe(true);
+
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    expect(loads.has(DONE)).toBe(true);
+    // The abandoned request has settled; the new one has not.
+    await act(async () => {
+      await loads.get(OPEN)!.promise.catch(() => {});
+    });
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    act(() => loads.get(DONE)!.resolve([{ ...FIRST, status: "done" }]));
+    expect(await screen.findByText("First task")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("drops the previous filter's rows when the next load fails, and recovers on the next success", async () => {
     route((q) =>
       q.includes("status=done") ? Promise.reject(new Error("Todo service down")) : [FIRST],
@@ -106,8 +166,12 @@ describe("TodosPage — loading the list", () => {
     await screen.findByText("First task");
 
     await user.click(screen.getByRole("button", { name: "Done" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Todo service down");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Todo service down");
+    expect(alert).toHaveStyle({ marginBottom: "16px" });
     expect(screen.queryByText("First task")).toBeNull();
+    // No row of any kind is left in the list.
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
     expect(screen.queryByText(EMPTY)).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Open" }));
@@ -167,6 +231,7 @@ describe("TodosPage — row actions", () => {
 
     await user.click(toggleOf("First task"));
     expect(await screen.findByRole("alert")).toHaveTextContent("Server down");
+    expect(screen.getByRole("alert")).toHaveStyle({ marginBottom: "16px" });
     expect(rowOf("First task")).toHaveTextContent("radio_button_unchecked");
     expect(rowOf("First task")).not.toHaveTextContent("check_circle");
 

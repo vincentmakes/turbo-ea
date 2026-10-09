@@ -154,6 +154,23 @@ describe("ADREditor — one request per workflow action, however often it is cli
     expect(postsTo("/adr/adr-1/duplicate")).toHaveLength(1);
   });
 
+  it("can duplicate again once the first attempt failed", async () => {
+    let calls = 0;
+    await renderLoaded(base, () => {
+      calls += 1;
+      return calls === 1 ? new Error("down") : { ...base, id: "adr-copy" };
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /Duplicate/ }));
+    expect(await screen.findByText("Failed to duplicate")).toBeInTheDocument();
+    expect(location()).toBe("/ea-delivery/adr/adr-1");
+
+    await user.click(screen.getByRole("button", { name: /Duplicate/ }));
+    await waitFor(() => expect(location()).toBe("/ea-delivery/adr/adr-copy"));
+    expect(postsTo("/adr/adr-1/duplicate")).toHaveLength(2);
+  });
+
   it("creates one revision on a double click, and can retry once the first attempt failed", async () => {
     const first = deferred();
     let calls = 0;

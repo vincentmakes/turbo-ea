@@ -452,6 +452,21 @@ describe("MitigationTaskDialog — a failed save", () => {
     expect(screen.getByRole("button", { name: "Create task" })).toBeEnabled();
   });
 
+  it("lets the error be dismissed, keeping what was typed and the dialog open", async () => {
+    const onSubmit = vi.fn(async () => {
+      throw new Error("refused");
+    });
+    const { user, onClose } = renderDialog({ onSubmit });
+    await user.type(titleBox(), "Enable MFA");
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    const alert = await screen.findByRole("alert");
+
+    await user.click(within(alert).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(titleBox()).toHaveValue("Enable MFA");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("names a failure that is not an Error with the generic message", async () => {
     const onSubmit = vi.fn(async () => {
       throw "nope";

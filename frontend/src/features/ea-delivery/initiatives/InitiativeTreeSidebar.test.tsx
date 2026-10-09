@@ -449,3 +449,73 @@ describe("InitiativeTreeSidebar — the status dot is coloured from the metamode
     expect(screen.getByLabelText("Draft")).toHaveStyle({ backgroundColor: "#9e9e9e" });
   });
 });
+
+describe("InitiativeTreeSidebar — a metamodel that is incomplete or arrives late", () => {
+  const PAUSED = makeCard({
+    id: "init-7",
+    type: "Initiative",
+    name: "Paused one",
+    attributes: { initiativeStatus: "paused" },
+  });
+  const WITH_PAUSED = makeCardType({
+    ...INITIATIVE_TYPE,
+    fields_schema: [
+      makeSection({
+        fields: [
+          makeField({
+            key: "initiativeStatus",
+            type: "single_select",
+            options: [makeOption({ key: "paused", label: "Paused by board", color: "#6a1b9a" })],
+          }),
+        ],
+      }),
+    ],
+  });
+
+  it("names and colours a built-in status from the bundled vocabulary without an Initiative type", () => {
+    withMetamodel([]);
+    renderSidebar({ tree: [node(PROGRAM)], totalCount: 1 });
+    expect(screen.getByLabelText("At Risk")).toHaveStyle({ backgroundColor: "#ff9800" });
+  });
+
+  it("names and colours a built-in status from the bundled vocabulary when its field lists no options", () => {
+    withMetamodel([
+      makeCardType({
+        ...INITIATIVE_TYPE,
+        fields_schema: [makeSection({ fields: [makeField({ key: "initiativeStatus" })] })],
+      }),
+    ]);
+    renderSidebar({ tree: [node(PROGRAM)], totalCount: 1 });
+    expect(screen.getByLabelText("At Risk")).toHaveStyle({ backgroundColor: "#ff9800" });
+  });
+
+  it("names and colours a status from the metamodel once it has loaded after the first render", () => {
+    withMetamodel([INITIATIVE_TYPE]);
+    const { rerender } = renderSidebar({ tree: [node(PAUSED)], totalCount: 1 });
+    // Before the metamodel knows the option, the status is shown as stored, in grey.
+    expect(screen.getByLabelText("paused")).toHaveStyle({ backgroundColor: "#9e9e9e" });
+
+    withMetamodel([WITH_PAUSED]);
+    rerender(
+      <InitiativeTreeSidebar
+        tree={[node(PAUSED)]}
+        totalCount={1}
+        selectedId={null}
+        onSelect={vi.fn()}
+        favorites={new Set()}
+        onToggleFavorite={vi.fn()}
+        filter={{ search: "", status: "ACTIVE", subtype: "", artefacts: "", favoritesOnly: false }}
+        filterSetters={{
+          setSearch: vi.fn(),
+          setStatus: vi.fn(),
+          setSubtype: vi.fn(),
+          setArtefacts: vi.fn(),
+          setFavoritesOnly: vi.fn(),
+        }}
+        unlinkedCount={0}
+      />,
+    );
+    expect(screen.queryByLabelText("paused")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Paused by board")).toHaveStyle({ backgroundColor: "#6a1b9a" });
+  });
+});
