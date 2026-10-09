@@ -136,12 +136,51 @@ def test_a_lost_runner_loses_half_a_night_not_all_of_it(job):
     assert body.count("overwrite: true") == 2
 
 
-def test_a_failed_frontend_chunk_does_not_cost_the_second_half():
-    body = jobs(NIGHTLY)["frontend"]
+@pytest.mark.parametrize("job", ["backend", "frontend"])
+def test_a_failed_first_half_does_not_cost_the_second_half(job):
+    """A test failing on unmutated code fails the half; the checkpoint and the
+    second half still run, so an intermittent one costs half a night."""
+    body = jobs(NIGHTLY)[job]
     second = body.index("second half of the budget")
     checkpoint = body.index("Checkpoint the shard's verdicts")
     for part in (body[checkpoint:second], body[second : second + 200]):
         assert "!cancelled()" in part
+
+
+@pytest.mark.parametrize(
+    "job, harness, runs",
+    [
+        ("backend", '"mutation-harness-backend-${{ matrix.shard }}.json"', 2),
+        ("mcp", "mutation-harness-mcp-1.json", 1),
+        ("frontend", '"mutation-harness-frontend-${{ matrix.shard }}.json"', 2),
+    ],
+)
+def test_every_shard_names_the_tests_that_failed_on_unmutated_code(job, harness, runs):
+    """The name used to sit thousands of lines deep in the step log, past what
+    the Actions API returns; every run writes it to a file the report renders."""
+    body = jobs(NIGHTLY)[job]
+    assert body.count(f"--harness {harness}") == runs
+    upload = body[body.rindex("- uses: actions/upload-artifact@") :]
+    assert f"name: mutation-harness-{job}-" in upload
+    assert f"path: {harness.strip(chr(34))}" in upload
+    assert "if: always()" in upload
+    assert "if-no-files-found: ignore" in upload  # nothing failed: nothing to upload
+    report = jobs(NIGHTLY)["report"]
+    assert "pattern: mutation-harness-*" in report
+    assert "harness.py report --dir harness" in report
+    assert '--summary "$GITHUB_STEP_SUMMARY" --output harness.md' in report
+    # the section tops both the summary and the issue
+    assert report.index("harness.py report") < report.index("Score every suite")
+    assert report.index("cat harness.md") < report.index('echo "Surviving mutants')
+    assert "harness.md" in report[report.index("name: mutation-survivors") :]
+
+
+def test_the_budget_is_the_only_limit_on_a_shard():
+    """More budget on a dispatched run must not run into the job timeout."""
+    for job in ("backend", "frontend"):
+        assert "timeout-minutes: 360" in jobs(NIGHTLY)[job]
+    top = NIGHTLY.read_text().split("\njobs:\n", 1)[0]
+    assert "At most" in top and "360-minute job" in top
 
 
 @pytest.mark.parametrize("job", ["backend", "mcp"])
@@ -215,6 +254,9 @@ def test_stryker_config_leaves_the_floor_to_the_gate():
     assert config["vitest"]["configFile"] == "vitest.stryker.config.ts"
     stryker_vitest = (ROOT / "frontend" / "vitest.stryker.config.ts").read_text()
     assert "stubEnv" in stryker_vitest and "configDefaults.exclude" in stryker_vitest
+    # the sandbox's own wait budget, never the normal suite's
+    assert 'setupFiles: ["./src/test/mutationSandbox.ts"]' in stryker_vitest
+    assert "mutationSandbox" not in (ROOT / "frontend" / "vitest.config.ts").read_text()
     assert config["thresholds"]["break"] is None  # the floor lives in floors.toml
     assert config["jsonReporter"]["fileName"] == "reports/mutation/mutation.json"
     assert config["incrementalFile"] == "reports/stryker-incremental.json"

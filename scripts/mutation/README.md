@@ -247,7 +247,30 @@ Each of these was found the hard way while wiring it up; keep them.
   too early). Raising a timeout fixes neither, and the test is never
   excluded to get past it. Three ADREditor runs failed this way: the editor
   rendered its confirmation toast inside both its loading branch and its
-  loaded page, so navigating to a new decision remounted it.
+  loaded page, so navigating to a new decision remounted it. The sandbox
+  does have a wait budget of its own: `src/test/mutationSandbox.ts` gives
+  Testing Library's `findBy*` / `waitFor` 5 s there instead of the suite's
+  1 s, because the instrumented single-thread run renders several times
+  slower and a correct `findByText` on a large page ran out of 1 s with no
+  race anywhere (CardDetail, 2026-10-08). The normal suite keeps 1 s, so a
+  slow render still fails a PR; a test that still fails in the sandbox has
+  a race.
+- **A test that fails on unmutated code is named, and the shard stays red.**
+  Every red nightly of October 2026 was one such test — Stryker's initial
+  run of a chunk, or mutmut's clean test of a shard — and its name sat
+  thousands of lines deep in the output, past the 5,000 lines the Actions
+  log API returns. `stryker_scope.py nightly` and `mutmut_scope.py run` now
+  read the names off their tool's output (`harness.py`), print one
+  `::error::` annotation per test, say so on the chunk's status line and
+  append the entries to `mutation-harness-<suite>-<shard>.json`, which the
+  shard uploads; the report job renders every such file at the top of its
+  summary and of the survivors issue (both halves append, so a test that
+  failed twice shows "2×", a deterministic failure rather than a one-off).
+  The chunk and the shard job still fail — a chunk that measured nothing is
+  not a pass — and nothing is retried: the section exists so the morning's
+  job is the fix, not the dig. The backend's checkpoint and second half now
+  run after a failed first half too, as the frontend's always did, so an
+  intermittent clean-test failure costs half a night rather than all of it.
 - **Static mutants are ignored** (`ignoreStatic`). A mutant in a module-level
   initialiser (`ROUTE_PERMISSIONS`, a lookup table, a constant) runs once at
   import, so Stryker cannot tell which tests cover it and reruns the whole
@@ -283,7 +306,10 @@ Each of these was found the hard way while wiring it up; keep them.
   each backend and frontend shard's budget into two halves. Between them a
   checkpoint saves the cache under `…-<run id>-checkpoint` and uploads the
   records (`overwrite: true`). Each half costs one more mutmut clean test,
-  about 20 minutes, which is why there are two halves and not more.
+  about 20 minutes, which is why there are two halves and not more. The
+  shard jobs' `timeout-minutes` is GitHub's maximum, 360, so the budget
+  input is the only limit: a dispatched run can take it to about 320 (two
+  halves plus setup).
 - **mutmut's children are memory-capped.** The nightly runs mutmut under
   `ulimit -v` (`MUTMUT_VMEM_KB`). A mutant that allocates without bound then
   dies of `MemoryError`, which counts as killed, instead of starving the runner
@@ -333,6 +359,7 @@ Each of these was found the hard way while wiring it up; keep them.
 | `mutmut_scope.py` | runs mutmut (PR, shard, files) and turns its results into records |
 | `stryker_scope.py` | `--mutate` value for a change; the chunked, resumable nightly; Stryker reports to records |
 | `gate.py` | the one scorer: floors, summaries, survivor backlog, regressions |
+| `harness.py` | names the tests that failed on unmutated code (Stryker's initial run, mutmut's clean test); the nightly's annotations, `mutation-harness-*.json` and the report section |
 | `shadow_root.py` | the symlinked mirror mutmut's copy runs inside |
 | `floors.toml` | every floor |
 

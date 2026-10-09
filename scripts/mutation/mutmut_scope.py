@@ -51,6 +51,11 @@ existing tests already run — is linked only to tests that are new as well.
 Its callers' tests and its module's are made to look new so mutmut collects
 them again; once per version of the function's code.
 
+A ``run`` that mutmut ends non-zero outside the budget is its clean test (the
+whole suite, no mutant applied) failing: the tests pytest's short summary
+names are printed as ``::error::`` annotations and, with ``--harness FILE``,
+appended to that file for the nightly's report (``harness.py``).
+
 ``collect`` reads ``mutmut results`` and writes the records ``gate.py``
 scores; with ``--changed`` it keeps only mutants on a changed line, with
 ``--shard`` only the shard's files.
@@ -96,6 +101,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import harness  # noqa: E402
 import shadow_root  # noqa: E402
 from changed_lines import touches  # noqa: E402
 
@@ -941,6 +947,7 @@ def run(
     shard: str | None = None,
     budget: float | None = None,
     files: list[str] | None = None,
+    harness_path: Path | None = None,
 ) -> int:
     directory = suite_dir(suite, repo)
     if changed is not None:
@@ -992,7 +999,43 @@ def run(
     if result.returncode != 0 and _NOTHING_MATCHES in result.stdout:
         print("The functions in scope hold nothing mutmut can mutate.")
         return 0
+    if result.returncode != 0:
+        report_harness_failure(suite, shard, result, harness_path)
     return result.returncode
+
+
+def report_harness_failure(
+    suite: str,
+    shard: str | None,
+    result: subprocess.CompletedProcess,
+    harness_path: Path | None,
+) -> list[dict]:
+    """Name the tests mutmut's clean test failed on, when its run exited non-zero.
+
+    The budget stop already reads as 0 (``mutmut``), so a non-zero exit here is
+    mutmut giving up before any verdict: the clean test (the whole suite, no
+    mutant applied) failed, and pytest's short summary names the tests.
+    """
+    found = harness.pytest_failures(result.stdout)
+    if not found:
+        found = [
+            {
+                "kind": "error",
+                "test": "",
+                "message": f"mutmut exited {result.returncode} before any verdict; "
+                "see the step log",
+            }
+        ]
+    where = f"{suite} shard {shard}" if shard else suite
+    print(
+        f"::error::{where}: mutmut's clean test failed on unmutated code; this run measured nothing"
+    )
+    entries = [harness.entry(suite, shard, None, f["kind"], f["test"], f["message"]) for f in found]
+    for e in entries:
+        harness.annotate(e, "mutmut's clean test")
+    if harness_path is not None:
+        harness.append(harness_path, entries)
+    return entries
 
 
 def results(directory: Path) -> dict[str, str]:
@@ -1092,6 +1135,9 @@ def main(argv: list[str] | None = None) -> int:
         if command == "run":
             p.add_argument("--max-children", type=int, default=4)
             p.add_argument("--budget", type=float, help="stop cleanly after this many minutes")
+            p.add_argument(
+                "--harness", type=Path, help="append the tests the clean test failed on here"
+            )
         else:
             p.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -1104,6 +1150,7 @@ def main(argv: list[str] | None = None) -> int:
             shard=args.shard,
             budget=args.budget,
             files=args.files,
+            harness_path=args.harness,
         )
     records = collect(args.suite, changed, shard=args.shard, files=args.files)
     args.output.write_text(json.dumps(records, indent=1) + "\n")

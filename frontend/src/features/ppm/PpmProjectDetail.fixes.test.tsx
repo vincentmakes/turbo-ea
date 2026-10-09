@@ -299,14 +299,17 @@ describe("PpmProjectDetail switching initiatives", () => {
     serve("i2", "CRM Rollout");
     renderPage("/ppm/i1?tab=cost");
     expect(await screen.findByTestId("cost-tab")).toHaveTextContent("i1");
-    expect(costTab.mounts).toBe(1);
+    // The stub counts in a passive effect, which flushes after the text the
+    // wait above saw was committed: read the count through a wait too, or a
+    // slower run (Stryker's initial run, nightly 2026-10-09) reads it early.
+    await waitFor(() => expect(costTab.mounts).toBe(1));
 
     act(() => {
       navigateTo("/ppm/i2?tab=cost");
     });
     await waitFor(() => expect(screen.getByTestId("cost-tab")).toHaveTextContent("i2"));
     // A new instance, not the old one re-rendered with a new id.
-    expect(costTab.mounts).toBe(2);
+    await waitFor(() => expect(costTab.mounts).toBe(2));
   });
 
   it("keeps the spinner while the next initiative loads when the one left finishes first", async () => {

@@ -42,11 +42,18 @@ location overlaps a changed line, so a mutant the incremental file carried
 over from elsewhere in the file never counts. With ``--state`` it merges the
 chunk reports of a shard and adds a ``pending`` record for every shard file no
 chunk has measured yet, so the gate shows the baseline's progress.
+
+A chunk whose Stryker run fails is failed by a test that failed on UNMUTATED
+code in Stryker's initial run (or, rarely, by Stryker itself). ``nightly``
+reads the names off Stryker's output, prints one ``::error::`` per test, says
+so on the chunk's status line and, with ``--harness FILE``, appends the entries
+for the report job (``harness.py``); the run still exits 1.
 """
 
 from __future__ import annotations
 
 import argparse
+import collections
 import hashlib
 import json
 import os
@@ -55,12 +62,14 @@ import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import harness  # noqa: E402
 from changed_lines import touches  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
@@ -70,6 +79,9 @@ REPORT = Path("reports") / "mutation" / "mutation.json"  # relative to the front
 STRYKER = ["npx", "stryker", "run"]  # the command; a test swaps in a stand-in
 CHUNKS = 16  # per shard: ~4 files each at today's size, small enough to finish
 MIN_CHUNK_SECONDS = 60  # never start a chunk with less time than this left
+# Lines of a chunk's output kept for reading its failure; Stryker exits right
+# after naming the tests its initial run failed on, so a short tail holds them.
+TAIL_LINES = 5000
 # What a chunk's verdicts depend on besides src/ (relative to the frontend).
 DIGEST_FILES = (
     "package-lock.json",
@@ -225,8 +237,16 @@ def inputs_digest(frontend: Path = FRONTEND) -> str:
     return digest.hexdigest()
 
 
-def _run_chunk(files: list[str], incremental: Path, timeout: float, frontend: Path) -> str:
-    """Run Stryker on one chunk: ``done``, ``failed`` or ``budget``."""
+def _run_chunk(
+    files: list[str], incremental: Path, timeout: float, frontend: Path
+) -> tuple[str, str]:
+    """Run Stryker on one chunk: (``done`` | ``failed`` | ``budget``, its output's tail).
+
+    The output is streamed through to stdout as before; the tail is kept so a
+    failed chunk can be read for the tests its initial run failed on
+    (``harness.stryker_dry_run_failures``), which Stryker logs right before it
+    exits.
+    """
     (frontend / REPORT).unlink(missing_ok=True)
     cmd = [
         *STRYKER,
@@ -235,9 +255,30 @@ def _run_chunk(files: list[str], incremental: Path, timeout: float, frontend: Pa
         "--incremental",
         "--incrementalFile",
         str(incremental),
+        "--allowConsoleColors",
+        "false",
     ]
     # Its own process group, so the budget stops Stryker's workers too.
-    proc = subprocess.Popen(cmd, cwd=frontend, start_new_session=True)
+    proc = subprocess.Popen(
+        cmd,
+        cwd=frontend,
+        start_new_session=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        errors="replace",
+    )
+    tail: collections.deque[str] = collections.deque(maxlen=TAIL_LINES)
+
+    def relay() -> None:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            tail.append(line)
+            sys.stdout.write(line)
+            sys.stdout.flush()
+
+    reader = threading.Thread(target=relay, daemon=True)
+    reader.start()
     try:
         code = proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -247,8 +288,23 @@ def _run_chunk(files: list[str], incremental: Path, timeout: float, frontend: Pa
         except subprocess.TimeoutExpired:
             os.killpg(proc.pid, signal.SIGKILL)
             proc.wait()
-        return "budget"
-    return "done" if code == 0 and (frontend / REPORT).exists() else "failed"
+        reader.join(timeout=30)
+        return "budget", "".join(tail)
+    reader.join(timeout=30)
+    status = "done" if code == 0 and (frontend / REPORT).exists() else "failed"
+    return status, "".join(tail)
+
+
+def _failed_status(found: list[dict]) -> str:
+    """The status line's detail for a failed chunk, from what its output said."""
+    tests = [f["test"] for f in found if f["kind"] == "test"]
+    if tests:
+        return "failed — initial test run: " + "; ".join(tests)
+    if any(f["kind"] == "timeout" for f in found):
+        return "failed — initial test run timed out"
+    if found:
+        return "failed — initial test run error: " + (found[0]["message"].splitlines() or [""])[0]
+    return "failed"
 
 
 def nightly(
@@ -259,8 +315,14 @@ def nightly(
     config_path: Path = CONFIG,
     max_chunks: int | None = None,
     clock=time.monotonic,
+    harness_path: Path | None = None,
 ) -> int:
-    """Advance a shard's baseline by as many chunks as the budget allows."""
+    """Advance a shard's baseline by as many chunks as the budget allows.
+
+    A chunk whose Stryker run fails is named for what failed it: the tests of
+    its initial run, each as a ``::error::`` annotation, and, with
+    ``harness_path``, as entries appended to that file for the report job.
+    """
     state.mkdir(parents=True, exist_ok=True)
     groups: dict[int, list[str]] = {}
     for rel in shard_files(shard, frontend, config_path):
@@ -290,13 +352,35 @@ def nightly(
             print(f"Budget spent; {len(order) - order.index(chunk)} chunk(s) wait for next run.")
             break
         incremental = state / f"chunk-{shard_index(shard)}-{chunk}.incremental.json"
-        outcome = _run_chunk(groups[chunk], incremental.resolve(), remaining, frontend)
+        outcome, output = _run_chunk(groups[chunk], incremental.resolve(), remaining, frontend)
+        if outcome == "failed":
+            found = harness.stryker_dry_run_failures(output)
+            print(f"chunk {chunk} ({len(groups[chunk])} files): {_failed_status(found)}")
+            if not found:
+                found = [
+                    {
+                        "kind": "unknown",
+                        "test": "",
+                        "message": "Stryker exited without an initial-test-run block; "
+                        "see the step log",
+                    }
+                ]
+            entries = [
+                harness.entry(
+                    "frontend", shard, chunk, f["kind"], f["test"], f["message"], groups[chunk]
+                )
+                for f in found
+            ]
+            for e in entries:
+                harness.annotate(e, "Stryker's initial test run")
+            if harness_path is not None:
+                harness.append(harness_path, entries)
+            failed.append(chunk)
+            continue
         print(f"chunk {chunk} ({len(groups[chunk])} files): {outcome}")
         if outcome == "done":
             shutil.copyfile(frontend / REPORT, _report_path(state, shard, chunk))
             recorded.write_text(inputs)
-        elif outcome == "failed":
-            failed.append(chunk)
         else:
             print("Budget spent mid-chunk; it keeps its previous report.")
             if remaining >= budget * 60 * 0.9:
@@ -400,6 +484,9 @@ def main(argv: list[str] | None = None) -> int:
     n.add_argument("--budget", type=float, required=True, help="minutes")
     n.add_argument("--state", type=Path, required=True, help="the cached chunk directory")
     n.add_argument("--max-chunks", type=int, help="run at most this many chunks")
+    n.add_argument(
+        "--harness", type=Path, help="append the tests a chunk's initial run failed on here"
+    )
     c = sub.add_parser("collect")
     source = c.add_mutually_exclusive_group(required=True)
     source.add_argument("--report", type=Path, help="one Stryker JSON report")
@@ -412,7 +499,13 @@ def main(argv: list[str] | None = None) -> int:
         print(",".join(shard_files(args.shard)))
         return 0
     if args.command == "nightly":
-        return nightly(args.shard, args.budget, args.state, max_chunks=args.max_chunks)
+        return nightly(
+            args.shard,
+            args.budget,
+            args.state,
+            max_chunks=args.max_chunks,
+            harness_path=args.harness,
+        )
     changed = json.loads(args.changed.read_text()) if args.changed else None
     if args.command == "args":
         print(mutate_arg(changed))
