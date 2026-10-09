@@ -578,6 +578,24 @@ class TestBulkCardinality:
         assert body["results"][0]["status"] == "upserted"
         assert body["results"][0]["relation_id"] == str(rel.id)
 
+    async def test_only_relations_of_the_same_type_count(self, client, db, rel_env):
+        # app1 already has an n:m relation of another type to itc1 and itc2.
+        await create_relation(db, source_id=rel_env["app1"].id, target_id=rel_env["itc1"].id)
+        await create_relation(db, source_id=rel_env["app2"].id, target_id=rel_env["itc1"].id)
+        await db.commit()
+        body = await _bulk(client, rel_env["admin"], _op(rel_env, type_="primary_owner"))
+        assert body["results"][0]["status"] == "upserted"
+
+    async def test_one_to_one_counts_this_pairs_ends_only(self, client, db, rel_env):
+        await create_relation(
+            db, type_key="primary_owner", source_id=rel_env["app1"].id, target_id=rel_env["itc1"].id
+        )
+        await db.commit()
+        body = await _bulk(
+            client, rel_env["admin"], _op(rel_env, type_="primary_owner", src="app2", tgt="itc2")
+        )
+        assert body["results"][0]["status"] == "upserted"
+
     async def test_one_to_many_allows_one_relation_per_source(self, client, db, rel_env):
         await create_relation_type(
             db,
