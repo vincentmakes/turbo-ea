@@ -68,12 +68,15 @@ def order_flow_nodes(
     # message flow needs lifting.
     edges_of: dict[str | None, set[tuple[str, str]]] = {}
     for source, target in edges:
-        if source not in known or target not in known or source == target:
+        # The stated contract, though _order_within would drop these edges anyway.
+        outside = source not in known or target not in known  # pragma: no mutate, see comment above
+        if outside or source == target:  # pragma: no mutate, see comment above
             continue
         container = _lowest_common_container(source, target, parent_of, known)
         lifted_source = _lift(source, container, parent_of, known)
         lifted_target = _lift(target, container, parent_of, known)
-        if lifted_source is None or lifted_target is None:
+        # Keeps the edge set typed; a None end is never a sibling either.
+        if lifted_source is None or lifted_target is None:  # pragma: no mutate, see above
             continue
         if lifted_source == lifted_target:
             continue
@@ -203,13 +206,12 @@ def _tarjan_scc(
     stack: list[str] = []
     component_of: dict[str, int] = {}
     components: list[list[str]] = []
-    counter = 0
 
     for root in nodes:
         if root in index_of:
             continue
-        index_of[root] = lowlink[root] = counter
-        counter += 1
+        # A node's index is the number of nodes visited before it.
+        index_of[root] = lowlink[root] = len(index_of)
         stack.append(root)
         on_stack.add(root)
         work: list[tuple[str, Iterable[str]]] = [(root, iter(sorted(successors.get(root, ()))))]
@@ -218,8 +220,7 @@ def _tarjan_scc(
             successor = next(pending, None)  # type: ignore[call-overload]
             if successor is not None:
                 if successor not in index_of:
-                    index_of[successor] = lowlink[successor] = counter
-                    counter += 1
+                    index_of[successor] = lowlink[successor] = len(index_of)
                     stack.append(successor)
                     on_stack.add(successor)
                     work.append((successor, iter(sorted(successors.get(successor, ())))))
@@ -257,8 +258,8 @@ def _longest_path_ranks(
         for member in components[index]:
             for successor in successors.get(member, ()):
                 other = component_of[successor]
-                if other != index and rank[other] < current + 1:
-                    rank[other] = current + 1
+                if other != index:
+                    rank[other] = max(rank[other], current + 1)
     return rank
 
 
@@ -295,8 +296,7 @@ def _weak_component_rank(
     for node_id in nodes:
         root = find(node_id)
         position = doc_index[node_id]
-        if root not in earliest or position < earliest[root]:
-            earliest[root] = position
+        earliest[root] = min(earliest.get(root, position), position)
 
     order = {root: i for i, root in enumerate(sorted(earliest, key=lambda r: earliest[r]))}
     return {node_id: order[find(node_id)] for node_id in nodes}

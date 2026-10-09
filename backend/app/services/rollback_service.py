@@ -297,25 +297,18 @@ def _plan_inverse(event: Event) -> dict[str, Any]:
     """Return the inverse-op dict for a single event, or an ``unsupported``
     marker when the event type is not reversed."""
     et = event.event_type
-    data = event.data or {}
     planner = _INVERSES.get(et)
-    if planner is not None and et.startswith("todo."):
-        # The one family with a planner AND a decline: the planner decides
-        # per event (extension-written or not), so it runs first.
-        op = planner(event, data)
-        if op.get("op") == "unsupported":
-            return op
-        return {"event_id": str(event.id), **op}
-    for prefix, reason in _DECLINED.items():
-        if et == prefix or (prefix.endswith(".") and et.startswith(prefix)):
-            return _unsupported(event, f"{et} is not reversed: {reason}")
-    planner = _INVERSES.get(et)
+    # todo.* is the one family with a planner AND a decline: there the planner
+    # decides per event (extension-written or not), so the decline never runs.
+    if planner is None or not et.startswith("todo."):
+        for prefix, reason in _DECLINED.items():
+            if et == prefix or (prefix.endswith(".") and et.startswith(prefix)):
+                return _unsupported(event, f"{et} is not reversed: {reason}")
     if planner is None:
         return _unsupported(event)
-    op = planner(event, data)
-    if op.get("op") == "unsupported":
-        return op
-    return {"event_id": str(event.id), **op}
+    # A planner that declines returns _unsupported(event, …), which already
+    # carries this event_id.
+    return {"event_id": str(event.id), **planner(event, event.data or {})}
 
 
 def plan_ops(events: list[Event]) -> list[dict[str, Any]]:
@@ -383,7 +376,7 @@ async def _find_conflicting_batches(
         return []
     q = (
         select(Event, MutationBatch)
-        .join(MutationBatch, Event.batch_id == MutationBatch.id)
+        .join(MutationBatch)
         .where(Event.batch_id != batch.id)
         .where(MutationBatch.created_at > batch.created_at)
     )
@@ -415,8 +408,7 @@ async def _find_conflicting_batches(
 
 
 def _uuid(value: Any) -> uuid.UUID | None:
-    if value in (None, ""):
-        return None
+    """``value`` as a UUID, or None for anything that is not one (None and "" included)."""
     try:
         return uuid.UUID(str(value))
     except ValueError:
@@ -887,7 +879,6 @@ async def execute_rollback(
         tool_name="rollback_batch",
         actor=actor,
         origin=request_origin.get() or "api",
-        dry_run=False,
     )
 
     results: list[dict[str, Any]] = []
@@ -904,7 +895,8 @@ async def execute_rollback(
             batch_id=rollback_batch.id,
         )
 
-    rollback_batch.committed_at = datetime.now(timezone.utc)
+    committed = datetime.now(timezone.utc)  # pragma: no mutate, asyncpg reads naive as local
+    rollback_batch.committed_at = committed
     rollback_batch.summary = {
         "reverses_batch_id": str(batch.id),
         "forced": force,

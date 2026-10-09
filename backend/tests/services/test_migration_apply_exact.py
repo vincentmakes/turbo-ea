@@ -1459,10 +1459,18 @@ async def test_a_row_that_raises_is_recorded_on_its_own_row(
     first = await stage(db, env, kind, "F1", data=payload)
     second = await stage(db, env, kind, "F2", data=payload)
 
-    def explode():
+    def explode(*_args, **_kwargs):
         raise ValueError(LONG)
 
-    monkeypatch.setattr(ap, "uuid", SimpleNamespace(uuid4=explode, UUID=uuid.UUID))
+    async def explode_async(*args, **kwargs):
+        explode()
+
+    if kind == "card":
+        # A card takes its id from the model's default, so the card pass is
+        # made to fail at its parent lookup instead.
+        monkeypatch.setattr(ap, "_resolve_parent_card_id", explode_async)
+    else:
+        monkeypatch.setattr(ap, "uuid", SimpleNamespace(uuid4=explode, UUID=uuid.UUID))
     with caplog.at_level(logging.ERROR, logger=LOGGER):
         counts = await getattr(ap, runner)(db, env.m, env.admin)
     assert counts["errors"] == 2

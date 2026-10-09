@@ -39,7 +39,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from fastapi import BackgroundTasks, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
@@ -95,12 +95,8 @@ async def _get_ppm_exclusions(db: AsyncSession, card: Card) -> set[str]:
     """Return field keys that PPM manages for this card (skip in calculations)."""
     if card.type != "Initiative":
         return set()
-    has_budget = await db.scalar(
-        select(func.count(PpmBudgetLine.id)).where(PpmBudgetLine.initiative_id == card.id)
-    )
-    has_costs = await db.scalar(
-        select(func.count(PpmCostLine.id)).where(PpmCostLine.initiative_id == card.id)
-    )
+    has_budget = await db.scalar(select(exists().where(PpmBudgetLine.initiative_id == card.id)))
+    has_costs = await db.scalar(select(exists().where(PpmCostLine.initiative_id == card.id)))
     excluded: set[str] = set()
     if has_budget:
         excluded.add("costBudget")
@@ -436,10 +432,11 @@ async def _validate_hierarchy_label(
 ) -> None:
     """Fetch the type's vocabulary and run the hierarchy-label check against it."""
     if not new_label or new_label == old_label:
-        return
+        return  # clearing or keeping the label passes, and needs no query
     result = await db.execute(select(CardType.hierarchy_labels).where(CardType.key == card_type))
     vocabulary = result.scalar_one_or_none()
-    _check_hierarchy_label(card_type, vocabulary, new_label, old_label, has_parent)
+    # The label changed (an unchanged one returned above), so no old label excuses it.
+    _check_hierarchy_label(card_type, vocabulary, new_label, None, has_parent)
 
 
 async def _validate_strict_attributes(db: AsyncSession, card_type: str, attributes: dict) -> None:
@@ -495,11 +492,7 @@ async def _max_descendant_depth(db: AsyncSession, card_id: uuid.UUID) -> int:
     child_ids = [row[0] for row in children_result.all()]
     if not child_ids:
         return 0
-    max_depth = 0
-    for cid in child_ids:
-        d = await _max_descendant_depth(db, cid)
-        max_depth = max(max_depth, d + 1)
-    return max_depth
+    return 1 + max([await _max_descendant_depth(db, cid) for cid in child_ids])
 
 
 async def _walk_ancestor_chain(
@@ -518,7 +511,6 @@ async def _walk_ancestor_chain(
     root_is_macro = False
     current_id = start_id
     seen: set[uuid.UUID] = set(exclude)
-    last_attrs: dict | None = None
     while current_id and current_id not in seen:
         seen.add(current_id)
         depth += 1
@@ -528,12 +520,9 @@ async def _walk_ancestor_chain(
             break
         parent_id, attrs = row[0], row[1]
         if parent_id is None:
-            last_attrs = attrs
+            level = (attrs or {}).get("capabilityLevel")
+            root_is_macro = level == MACRO_CAPABILITY_LEVEL_KEY
         current_id = parent_id
-    if last_attrs is not None and (last_attrs or {}).get("capabilityLevel") == (
-        MACRO_CAPABILITY_LEVEL_KEY
-    ):
-        root_is_macro = True
     return depth, root_is_macro
 
 
@@ -653,24 +642,17 @@ async def _sync_hierarchy_node(
     depth, root_is_macro = await _walk_ancestor_chain(db, card.parent_id, exclude={card.id})
     attrs = dict(card.attributes or {})
     before = dict(attrs)
-    dirty = False
 
     if hier:
-        raw_level = depth + 1  # NOT macro-aware, NOT capped
-        if attrs.get(HIERARCHY_LEVEL_KEY) != raw_level:
-            attrs[HIERARCHY_LEVEL_KEY] = raw_level
-            dirty = True
+        attrs[HIERARCHY_LEVEL_KEY] = depth + 1  # NOT macro-aware, NOT capped
 
     if is_bizcap:
         # Macros are pinned — keep "Macro", never recompute their capabilityLevel.
         if attrs.get("capabilityLevel") != MACRO_CAPABILITY_LEVEL_KEY:
             logical_depth = max(depth - 1, 0) if root_is_macro else depth
-            level_key = f"L{min(logical_depth + 1, 5)}"
-            if attrs.get("capabilityLevel") != level_key:
-                attrs["capabilityLevel"] = level_key
-                dirty = True
+            attrs["capabilityLevel"] = f"L{min(logical_depth + 1, 5)}"
 
-    if dirty:
+    if attrs != before:
         card.attributes = attrs
         changed.append(card)
         if previous is not None:
@@ -1066,15 +1048,8 @@ async def resolve_archive_delete_set(
     descendant_set = set(descendants)
     kept_related = [rid for rid in requested_related if rid not in descendant_set]
 
-    full_set: list[uuid.UUID] = []
-    seen_full: set[uuid.UUID] = set()
-    for cid in [*descendants, *kept_related]:
-        if cid in seen_full:
-            continue
-        seen_full.add(cid)
-        full_set.append(cid)
-
-    return descendants, kept_related, full_set
+    # Both lists are duplicate-free and disjoint, so together they are the set.
+    return descendants, kept_related, [*descendants, *kept_related]
 
 
 async def archive_card_set(
@@ -1122,7 +1097,7 @@ async def archive_card_set(
     to_flip_ids = [primary.id, *full_affected]
     flip_res = await db.execute(
         select(Card)
-        .where(Card.id.in_(to_flip_ids), Card.status == "ACTIVE")
+        .where(Card.id.in_(to_flip_ids))  # archive_cards_in_place skips the archived
         .options(
             selectinload(Card.tags).selectinload(Tag.group),
             selectinload(Card.stakeholders).selectinload(Stakeholder.user),
