@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.158.9] - 2026-10-09
+
+### Fixed
+- API: saving a bookmark's sharing through `PATCH /bookmarks/{id}` returns the share list it just saved. The response repeated the previous list; the app itself reloads the list, so the screen was always right.
+
 ## [2.158.1] - 2026-10-09
 
 ### Fixed
