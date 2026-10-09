@@ -256,6 +256,41 @@ describe("InitiativeTreeSidebar", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it("reads a branch's children from the tree it is given now, not the one it mounted with", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const props: Omit<Props, "tree"> = {
+      totalCount: 3,
+      selectedId: null,
+      onSelect,
+      favorites: new Set<string>(),
+      onToggleFavorite: vi.fn(),
+      filter: { search: "", status: "ACTIVE", subtype: "", artefacts: "", favoritesOnly: false },
+      filterSetters: {
+        setSearch: vi.fn(),
+        setStatus: vi.fn(),
+        setSubtype: vi.fn(),
+        setArtefacts: vi.fn(),
+        setFavoritesOnly: vi.fn(),
+      },
+      unlinkedCount: 0,
+    };
+    // Mounted on a tree of one leaf; the programme and its child arrive on a
+    // later render (a reload after a reorder).
+    const { rerender } = render(<InitiativeTreeSidebar {...props} tree={[node(ARCHIVED)]} />);
+    rerender(<InitiativeTreeSidebar {...props} tree={TREE} />);
+
+    item("Cloud Migration").focus();
+    // Right on an open parent steps into its first child, which the handler
+    // only knows about if it reads the current tree.
+    await user.keyboard("{ArrowRight}");
+    expect(item("Lift and shift")).toHaveFocus();
+    await user.keyboard("{ArrowLeft}{ArrowLeft}");
+    expect(item("Cloud Migration")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Lift and shift")).not.toBeInTheDocument();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it("marks a favourite with Shift+F, without selecting", async () => {
     const user = userEvent.setup();
     const { onSelect, onToggleFavorite } = renderSidebar({ unlinkedCount: 1 });
