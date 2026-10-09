@@ -298,6 +298,38 @@ class TestModuleModeIsWhatTheFeedsUse:
         assert await read_scope.hidden_card_ids(db, {h, s}, mode="module") == {s}
 
 
+class _NoSql:
+    """A session that fails the test on any query."""
+
+    async def execute(self, *args, **kwargs):
+        raise AssertionError("an unrestricted or empty lookup must not query")
+
+
+class TestLookupsWithoutSql:
+    """The fast path is load-bearing: an install that never sets a View cell
+    must run no extra SQL, and an empty id set needs no query at all."""
+
+    async def test_an_unrestricted_scope_returns_the_ids_as_given(self):
+        unknown = uuid.uuid4()
+        # Module mode reads every type for a role without the global grant
+        # too, as long as nothing is denied.
+        read_scope = scope(base_view=False)
+        assert await read_scope.readable_card_ids(_NoSql(), {HELD, unknown}, mode="module") == {
+            HELD,
+            unknown,
+        }
+        assert await read_scope.hidden_card_ids(_NoSql(), {HELD, unknown}, mode="module") == set()
+
+    async def test_an_empty_id_set_needs_no_query_even_when_restricted(self):
+        read_scope = scope(denied=("Secret",))
+        assert await read_scope.readable_card_ids(_NoSql(), [None], mode="module") == set()
+        assert await read_scope.hidden_card_ids(_NoSql(), [None], mode="module") == set()
+
+    async def test_unrestricted_payloads_are_scrubbed_without_a_query(self):
+        payloads = [{"card_id": str(HELD), "affected_card_ids": [str(uuid.uuid4())]}]
+        assert await scrub_event_payloads(_NoSql(), scope(base_view=False), payloads) == payloads
+
+
 class TestScopeBasics:
     def test_everything(self):
         everything = CardReadScope.everything()
