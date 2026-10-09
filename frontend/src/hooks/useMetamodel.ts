@@ -44,19 +44,13 @@ export function useMetamodel() {
       setRelationTypes(snap.relationTypes);
     };
     _subscribers.add(sub);
-    if (_cache) {
-      // The cache can fill between this component's render and this effect
-      // (another consumer's fetch landing first), leaving the state seeded
-      // empty at render with no fetch left to fill it.
-      sub(_cache);
-      setLoading(false);
-    } else {
-      _fetchOnce()
-        .then(sub)
-        .finally(() => {
-          if (!cancelled) setLoading(false);
-        });
-    }
+    // Always ask, even on a warm cache (which answers without a request): the
+    // cache can fill between this component's render and this effect, when
+    // another consumer's fetch lands first, and the state seeded empty at
+    // render would otherwise never be filled.
+    _fetchOnce()
+      .then(sub)
+      .finally(() => setLoading(false));
     return () => {
       cancelled = true;
       _subscribers.delete(sub);
