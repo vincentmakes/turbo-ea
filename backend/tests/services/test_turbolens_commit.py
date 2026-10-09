@@ -285,6 +285,69 @@ class TestExecuteCommit:
             "initiative_id": str(initiative.id),
         }
 
+    async def test_existing_entries_are_reached_through_their_own_id(self, db, env):
+        # A proposed card or a capability that names an existing card is
+        # keyed by its own id, which need not be that card's uuid; an entry
+        # still marked new is not keyed by the card it names.
+        redis = await create_card(db, card_type="ITComponent", name="Redis")
+        marketing = await create_card(db, card_type="BusinessCapability", name="Marketing")
+        billing = await create_card(db, card_type="BusinessCapability", name="Billing")
+        session = env["assessment"].session_data
+        env["assessment"].session_data = {
+            **session,
+            "capabilityMapping": {
+                "summary": "Impact summary",
+                "capabilities": [
+                    {"id": "cap_mkt", "existingCardId": str(marketing.id), "isNew": False},
+                    {"id": "cap_bill", "existingCardId": str(billing.id), "isNew": True},
+                ],
+                "proposedCards": [
+                    {
+                        "id": "new_app_1",
+                        "name": "Lead Scorer",
+                        "cardTypeKey": "Application",
+                        "isNew": True,
+                    },
+                    {
+                        "id": "db_ref",
+                        "name": "Postgres",
+                        "cardTypeKey": "ITComponent",
+                        "isNew": False,
+                        "existingCardId": str(env["postgres"].id),
+                    },
+                    {
+                        "id": "cache_ref",
+                        "name": "Redis",
+                        "cardTypeKey": "ITComponent",
+                        "isNew": True,
+                        "existingCardId": str(redis.id),
+                    },
+                ],
+                "proposedRelations": [
+                    {"sourceId": "new_app_1", "targetId": "db_ref", "relationType": "relAppToITC"},
+                    {"sourceId": "new_app_1", "targetId": "cap_mkt", "relationType": "relAppToBC"},
+                    {
+                        "sourceId": "new_app_1",
+                        "targetId": "cache_ref",
+                        "relationType": "relAppToITC",
+                    },
+                    {"sourceId": "new_app_1", "targetId": "cap_bill", "relationType": "relAppToBC"},
+                ],
+            },
+        }
+        data = {
+            **env["data"],
+            "selected_card_ids": ["new_app_1"],
+            "selected_relation_indices": [0, 1, 2, 3],
+        }
+        out = await execute_commit(db, str(env["run"].id), data)
+        assert out["card_count"] == 1 and out["relation_count"] == 2
+        app = (await _cards(db))["Lead Scorer Pro"]
+        rels = await _relations(db)
+        assert ("relAppToITC", app.id, env["postgres"].id) in rels
+        assert ("relAppToBC", app.id, marketing.id) in rels
+        assert not any({redis.id, billing.id} & {s, t} for _, s, t in rels)
+
     async def test_an_unset_id_or_relation_end_is_skipped_not_fatal(self, db, env):
         # The mapping is model output: a proposed card can come back with no
         # id (or an empty one) and a relation with an end left unset. Neither
