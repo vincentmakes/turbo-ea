@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createElement } from "react";
+import { createRoot } from "react-dom/client";
 import { renderHook, waitFor } from "@testing-library/react";
 
 // Mock the api module
@@ -114,6 +116,51 @@ describe("useMetamodel", () => {
     expect(appRels).toHaveLength(2); // app_to_itc + org_to_app
     expect(appRels.map((r) => r.key)).toContain("app_to_itc");
     expect(appRels.map((r) => r.key)).toContain("org_to_app");
+  });
+
+  it("hands the snapshot to a consumer that rendered before another consumer's fetch landed", async () => {
+    // The Create Card dialog on a diagram showed an empty type list: the
+    // editor rendered while the cache was empty, another consumer's fetch
+    // filled the cache before the editor's effect ran, and the effect then
+    // skipped the fetch without ever handing over the snapshot.
+    const types = [{ key: "Application", label: "Application" }];
+    let release!: (value: unknown) => void;
+    vi.mocked(api.get)
+      .mockReturnValueOnce(new Promise((resolve) => (release = resolve)))
+      .mockResolvedValueOnce([]);
+
+    const mod = await import("./useMetamodel");
+    // The first consumer starts the one fetch, held open by `release`.
+    const first = renderHook(() => mod.useMetamodel());
+    expect(api.get).toHaveBeenCalledTimes(2);
+
+    // The second consumer renders outside act(), so its passive effect runs in
+    // a later task than its render. Releasing the fetch from inside that render
+    // lets the cache fill in the microtasks between the two, which is the
+    // window the editor fell into.
+    let latest: ReturnType<typeof mod.useMetamodel> | null = null;
+    function Late() {
+      latest = mod.useMetamodel();
+      release(types);
+      return null;
+    }
+    const env = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    const actEnv = env.IS_REACT_ACT_ENVIRONMENT;
+    env.IS_REACT_ACT_ENVIRONMENT = false;
+    const root = createRoot(document.createElement("div"));
+    try {
+      root.render(createElement(Late));
+      await waitFor(() => expect(first.result.current.types).toEqual(types));
+      await waitFor(() => {
+        expect(latest?.types).toEqual(types);
+        expect(latest?.loading).toBe(false);
+      });
+    } finally {
+      root.unmount();
+      env.IS_REACT_ACT_ENVIRONMENT = actEnv;
+    }
+    // A warm cache never fetches again.
+    expect(api.get).toHaveBeenCalledTimes(2);
   });
 
   it("invalidateCache broadcasts fresh data to already-mounted consumers", async () => {
