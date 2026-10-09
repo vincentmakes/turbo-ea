@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.158.7] - 2026-10-09
+
+### Changed
+- Bulk relation changes (the spreadsheet import's relations, the MCP relation tool) now find, create and update a relation through the same code as a single relation edit, so the two cannot drift apart.
+
 ## [2.158.1] - 2026-10-09
 
 ### Fixed

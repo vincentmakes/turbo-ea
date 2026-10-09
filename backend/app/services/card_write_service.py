@@ -1279,6 +1279,63 @@ async def _emit_relation_events(
     )
 
 
+async def find_relation(
+    db: AsyncSession, type_key: str, source_id: uuid.UUID, target_id: uuid.UUID
+) -> Relation | None:
+    """The ``(type, source, target)`` row every relation write is idempotent on.
+
+    The ends must already be in the relation type's direction.
+    """
+    return (
+        await db.execute(
+            select(Relation).where(
+                Relation.type == type_key,
+                Relation.source_id == source_id,
+                Relation.target_id == target_id,
+            )
+        )
+    ).scalar_one_or_none()
+
+
+def add_relation(
+    db: AsyncSession,
+    *,
+    type_key: str,
+    source_id: uuid.UUID,
+    target_id: uuid.UUID,
+    attributes: dict | None,
+    description: str | None,
+) -> Relation:
+    """Stage a new relation row in the session (not flushed)."""
+    rel = Relation(
+        type=type_key,
+        source_id=source_id,
+        target_id=target_id,
+        attributes=attributes or {},
+        description=description,
+    )
+    db.add(rel)
+    return rel
+
+
+def merge_relation_fields(
+    rel: Relation, *, attributes: dict | None, description: str | None
+) -> list[str]:
+    """Overwrite what the caller supplied on an existing relation.
+
+    ``None`` leaves a field alone; ``attributes`` replaces the whole dict.
+    Returns the fields whose value changed, in a fixed order.
+    """
+    changed: list[str] = []
+    if attributes is not None and attributes != (rel.attributes or {}):
+        rel.attributes = attributes
+        changed.append("attributes")
+    if description is not None and description != rel.description:
+        rel.description = description
+        changed.append("description")
+    return changed
+
+
 async def upsert_relation(
     db: AsyncSession,
     actor: WriteActor,
@@ -1300,33 +1357,21 @@ async def upsert_relation(
     (``relation_orientation``), so a request sent the other way round merges
     into the existing row instead of forking a backwards one (#1140)."""
     source_id, target_id = await orient_endpoints(db, type_key, source_id, target_id)
-    existing = await db.execute(
-        select(Relation).where(
-            Relation.type == type_key,
-            Relation.source_id == source_id,
-            Relation.target_id == target_id,
-        )
-    )
-    rel = existing.scalar_one_or_none()
+    rel = await find_relation(db, type_key, source_id, target_id)
     reused = rel is not None
     changed: list[str] = []
 
     if rel is None:
-        rel = Relation(
-            type=type_key,
+        rel = add_relation(
+            db,
+            type_key=type_key,
             source_id=source_id,
             target_id=target_id,
-            attributes=attributes or {},
+            attributes=attributes,
             description=description,
         )
-        db.add(rel)
     else:
-        if attributes is not None and attributes != (rel.attributes or {}):
-            rel.attributes = attributes
-            changed.append("attributes")
-        if description is not None and description != rel.description:
-            rel.description = description
-            changed.append("description")
+        changed = merge_relation_fields(rel, attributes=attributes, description=description)
     await db.flush()
 
     # Run calculated fields for both source and target cards, then rescore.
