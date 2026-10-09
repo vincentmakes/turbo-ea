@@ -288,15 +288,13 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     }
   };
 
-  // Every confirm dialog opens and closes without the previous one's error.
+  // Every confirm dialog opens without the previous one's error: the error
+  // renders only inside the dialog, so clearing it on open is enough.
   const openConfirm = (type: "submit" | "approve" | "reject" | "delete", version: ProcessFlowVersion) => {
     setActionError("");
     setConfirmAction({ type, version });
   };
-  const closeConfirm = () => {
-    setActionError("");
-    setConfirmAction(null);
-  };
+  const closeConfirm = () => setConfirmAction(null);
 
   const handleAction = async () => {
     if (!confirmAction) return;

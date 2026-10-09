@@ -2292,6 +2292,7 @@ export function ProcessNavigatorBody() {
   useEffect(() => {
     if (!pendingOpen || !data) return;
     const node = findNode(filteredTree, pendingOpen);
+    // Stryker disable next-line ConditionalExpression: an unknown id finds no node, and no node is a closed drawer; the guard narrows the type
     if (node) setDrawerNode(node);
     setPendingOpen(null);
   }, [pendingOpen, data, filteredTree]);

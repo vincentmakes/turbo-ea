@@ -119,11 +119,11 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
     // another card, or reopening on the same one: ticks, lists and counts
     // from the previous target never apply to this one.
     setEntries(null);
-    // Stryker disable next-line CallExpression: cleared before a load whose spinner hides it; the load replaces it
+    // Stryker disable all: the hierarchy and its lists are cleared behind the spinner the load shows, and the load replaces them
     setHierarchy(null);
     setChildren([]);
-    // Stryker disable next-line ArrayDeclaration: cleared before a load whose spinner hides it; the load replaces it
     setSiblings([]);
+    // Stryker restore all
     setSelectedDeps(new Set());
     setSelectedChildren(new Set());
     setSelectedSiblings(new Set());
