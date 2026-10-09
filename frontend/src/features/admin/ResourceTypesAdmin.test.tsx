@@ -142,6 +142,27 @@ describe("ResourceTypesAdmin list", () => {
     await waitFor(() => expect(mockApi.callsOf("patch", `${PATH}/rt-3`)).toHaveLength(1));
     expect(mockApi.callsOf("patch", `${PATH}/rt-3`)[0].body).toEqual({ is_enabled: true });
     await waitFor(() => expect(mockApi.callsOf("get", PATH)).toHaveLength(2));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("reports a failed toggle and leaves the switch as it was", async () => {
+    mockApi.fail("patch", `${PATH}/rt-3`);
+    const user = await renderPage();
+
+    await user.click(within(rowOf("Wiki")).getByRole("checkbox"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(`PATCH ${PATH}/rt-3 failed`);
+    expect(within(rowOf("Wiki")).getByRole("checkbox")).not.toBeChecked();
+    expect(mockApi.callsOf("get", PATH)).toHaveLength(1);
+  });
+
+  it("reports a failed toggle without an Error generically", async () => {
+    mockApi.on("patch", `${PATH}/rt-3`, () => Promise.reject("down"));
+    const user = await renderPage();
+
+    await user.click(within(rowOf("Wiki")).getByRole("checkbox"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not save resource type.");
   });
 });
 
@@ -346,7 +367,7 @@ describe("ResourceTypesAdmin first paint and reloads", () => {
     expect(within(rowOf("Invoice")).queryByText("link")).not.toBeInTheDocument();
   });
 
-  it("hides the sections while the list reloads", async () => {
+  it("keeps the sections and their rows on screen while the list reloads", async () => {
     mockApi.on("patch", `${PATH}/rt-3`, {});
     const user = await renderPage();
     let resolve: (v: unknown) => void = () => {};
@@ -354,19 +375,28 @@ describe("ResourceTypesAdmin first paint and reloads", () => {
 
     await user.click(within(rowOf("Wiki")).getByRole("checkbox"));
     await waitFor(() => expect(mockApi.callsOf("get", PATH)).toHaveLength(2));
-    await waitFor(() => expect(screen.queryByText("Link types")).not.toBeInTheDocument());
-    await act(async () => resolve(ITEMS));
-    expect(await screen.findByText("Link types")).toBeInTheDocument();
+    expect(screen.getByText("Link types")).toBeInTheDocument();
+    expect(screen.getByText("File categories")).toBeInTheDocument();
+    expect(screen.getByText("Wiki")).toBeInTheDocument();
+    await act(async () => resolve(ITEMS.map((r) => (r.id === "rt-3" ? { ...r, is_enabled: true } : r))));
+    await waitFor(() => expect(within(rowOf("Wiki")).getByRole("checkbox")).toBeChecked());
+    expect(screen.getByText("Link types")).toBeInTheDocument();
   });
 
-  it("reloads the list when the interface language changes", async () => {
+  it("reloads the list when the interface language changes, keeping it on screen meanwhile", async () => {
     await renderPage();
     expect(mockApi.callsOf("get", PATH)).toHaveLength(1);
+    let resolve: (v: unknown) => void = () => {};
+    mockApi.on("get", PATH, () => new Promise((r) => (resolve = r)));
     try {
       await act(async () => {
         await i18n.changeLanguage("de");
       });
       await waitFor(() => expect(mockApi.callsOf("get", PATH)).toHaveLength(2));
+      expect(screen.getByText("Documentation")).toBeInTheDocument();
+      expect(screen.getByText("Invoice")).toBeInTheDocument();
+      await act(async () => resolve(ITEMS));
+      expect(screen.getByText("Documentation")).toBeInTheDocument();
     } finally {
       await act(async () => {
         await i18n.changeLanguage("en");

@@ -24,6 +24,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Card detail: the Lineage section shows its progress bar while it loads, instead of "No predecessors." and "No successors.", when the metamodel arrives after the card.
 - Card detail: the Relations header shows no count until the relations have loaded, instead of 0.
 
+## [2.157.6] - 2026-10-09
+
+### Fixed
+- TurboLens: a failed load of vendors, resolution or duplicates shows the error instead of "Run an analysis".
+- TurboLens: an integration drawn right to left within one layer is now drawn at all, and one drawn bottom-to-top or right-to-left keeps its arrowhead on its real target instead of pointing at the wrong component. (An integration the AI marks bidirectional would get arrowheads at both ends; the analysis prompt does not currently emit that value.)
+- TurboLens: every counted modernization opportunity is listed, and the "unknown" type filter shows the untyped entries.
+- TurboLens Architect: a question with no usable options can be answered in free text, so the round can always be submitted, and an assessment resumed by link reads as saved.
+- TurboLens: the diagram badges, counts and assessment viewer messages are translated, with plurals.
+- TurboLens: a duplicate cluster's status and a modernization opportunity's priority and effort are shown in the user's language instead of as raw values, and an opportunity without a priority shows the priority of the group it is listed under.
+- TurboLens Resolution: the vendor type filter lists its types in the alphabetical order of the names shown, not of the internal keys.
+- TurboLens Resolution: "Products / Modules" counts only products and modules, no longer platforms and untyped entries.
+- TurboLens: opening another assessment no longer keeps showing the previous one's title in the browser tab while it loads or when it cannot be loaded.
+- TurboLens Architect: a proposed relation missing an end is no longer listed under the name of an unrelated proposed card; like the diagram, the list leaves it out.
+- TurboLens Architect: the Create Initiative dialog no longer lists, counts or sends a proposed relation missing an end, so it shows the same relations as the target architecture, and it no longer fails to open when the AI proposes a new card without an id.
+- TurboLens Architect: the integration effort of a recommended product or dependency option is shown in the user's language instead of as the raw value.
+- TurboLens Architect: the Create Initiative dialog names each new card's type by its label instead of its internal key.
+- TurboLens Architect: committing an assessment no longer fails when the AI proposed a card without an id, and a relation with an unset end is never attached to an existing card whose id came back empty.
+
+## [2.157.5] - 2026-10-09
+
+### Fixed
+- Admin pages (tags, regulations, resource types, EOL mass linking, extensions, Survey Builder): a failed save, toggle or load is shown instead of silently dropped.
+- Admin pages: clicking Save, Create or Next twice no longer sends the request twice, so Survey Builder can no longer create a second survey or skip a step.
+- Tags: group and tag names and descriptions are saved trimmed.
+- Extensions: the license dialog opens empty each time, a discarded install stays discarded, and a purchase confirmed past the apply gate applies the license it was blocked on.
+- Survey Builder: a reopened draft keeps its "Via relation" narrowing, and a draft whose card type was removed says so instead of showing a blank select.
+- EOL mass linking: the version picker never offers the previous product's cycles.
+- Relation-type values: a stored custom value without a label no longer crashes the dialog. A custom value that has a translation in the current language but no label takes that translation as its label when the dialog opens, so it can be saved; switching the interface language while the dialog is open keeps the edits made in it.
+- Survey Builder: Back is disabled while Next is saving, so a Back click can no longer be undone by the save landing a moment later.
+- Survey Builder: after switching the interface language, a failed save, preview or load reports its error in the new language rather than the previous one, and opening another survey from the one on screen never shows the first survey's fields when its reply lands late.
+- Relation-type values: clicking Save twice quickly sends the change once.
+
+### Changed
+- Extensions: the page intro now describes the in-product Store alongside the file-based install flow, in every language.
+
 ## [2.157.4] - 2026-10-08
 
 ### Security

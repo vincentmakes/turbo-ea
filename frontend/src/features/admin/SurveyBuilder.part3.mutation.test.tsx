@@ -347,7 +347,7 @@ describe("SurveyBuilder — fields step", () => {
     expect(screen.queryByText("Please select a card type first.")).not.toBeInTheDocument();
   });
 
-  it("asks for a type when a draft's type has since been removed", async () => {
+  it("asks for a type on the Target step when a draft's type has since been removed", async () => {
     mockApi.on("get", "/surveys/survey-8", {
       id: "survey-8",
       name: "Old draft",
@@ -365,14 +365,15 @@ describe("SurveyBuilder — fields step", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       const { user } = renderBuilder("/admin/surveys/survey-8");
-      await openDraftAtFields(user);
+      await waitFor(() => expect(screen.getByLabelText(/Survey Name/)).toHaveValue("Old draft"));
+      await user.click(nextButton());
+      await screen.findByText("Target Cards");
 
-      expect(
-        screen.getByText("Choose which fields respondents should maintain or confirm for each card."),
-      ).toBeInTheDocument();
-      expect(screen.getByText("Please select a card type first.")).toBeInTheDocument();
-      expect(screen.queryByText("This type has no configurable fields.")).not.toBeInTheDocument();
-      expect(screen.queryByText("Select Relations")).not.toBeInTheDocument();
+      // The select shows no type, so the step does not pass on the stale key.
+      await user.click(nextButton());
+      expect(await screen.findByText("Please select a target card type")).toBeInTheDocument();
+      expect(screen.getByText("Target Cards")).toBeInTheDocument();
+      expect(screen.queryByText("Select Fields")).not.toBeInTheDocument();
     } finally {
       warn.mockRestore();
     }

@@ -174,7 +174,11 @@ async def execute_commit(db: AsyncSession, run_id: str, data: dict[str, Any]) ->
     selected_option_id = session_data.get("selectedOptionId")
 
     # Count total steps for progress tracking
-    cards_to_create = [c for c in proposed_cards if c.get("isNew") and c["id"] in selected_card_ids]
+    # The mapping is model output: an entry can come back without an id, and
+    # such an entry can be neither selected nor referenced by a relation.
+    cards_to_create = [
+        c for c in proposed_cards if c.get("isNew") and c.get("id") in selected_card_ids
+    ]
     rels_to_create = [
         proposed_relations[i]
         for i in sorted(selected_relation_indices)
@@ -187,13 +191,15 @@ async def execute_commit(db: AsyncSession, run_id: str, data: dict[str, Any]) ->
     id_map: dict[str, uuid.UUID] = {}
 
     # Map existing card references from proposed_cards
+    # An entry without an id is not keyed: an unset relation end ("") must
+    # never resolve to it.
     for pc in proposed_cards:
-        if not pc.get("isNew") and pc.get("existingCardId"):
+        if pc.get("id") and not pc.get("isNew") and pc.get("existingCardId"):
             id_map[pc["id"]] = uuid.UUID(pc["existingCardId"])
 
     # Map existing capabilities
     for cap in cap_mapping.get("capabilities", []):
-        if not cap.get("isNew") and cap.get("existingCardId"):
+        if cap.get("id") and not cap.get("isNew") and cap.get("existingCardId"):
             id_map[cap["id"]] = uuid.UUID(cap["existingCardId"])
 
     # ── Step 1: Create Initiative Card ────────────────────────────────────

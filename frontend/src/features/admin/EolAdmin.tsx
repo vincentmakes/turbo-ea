@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -21,6 +21,7 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { toLocalDate } from "@/lib/dates";
 import type { MassEolResult, EolCycle } from "@/types";
 
@@ -75,17 +76,38 @@ function CyclePickerDialog({
   const [error, setError] = useState("");
   const [selectedCycle, setSelectedCycle] = useState("");
 
-  useEffect(() => {
-    if (!open || !product) return;
-    setLoading(true);
-    setError("");
-    setSelectedCycle("");
-    api
-      .get<EolCycle[]>(`/eol/products/${encodeURIComponent(product)}`)
-      .then((res) => setCycles(res))
-      .catch((e) => setError(e instanceof Error ? e.message : t("common:errors.generic")))
-      .finally(() => setLoading(false));
-  }, [open, product]);
+  // Reset while rendering, not in the fetch effect: the effect runs after the
+  // first commit, which would show the previous opening's cycles (or the
+  // "no cycles" note) for a frame before the progress bar.
+  const openedFor = open ? product : "";
+  const [shownFor, setShownFor] = useState<string | null>(null);
+  if (openedFor !== shownFor) {
+    setShownFor(openedFor);
+    if (openedFor) {
+      setCycles([]);
+      setLoading(true);
+      setError("");
+      setSelectedCycle("");
+    }
+  }
+
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!open || !product) return;
+      try {
+        // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
+        const res = await api.get<EolCycle[]>(`/eol/products/${encodeURIComponent(product)}`, {
+          signal,
+        });
+        if (isCurrent()) setCycles(res);
+      } catch (e) {
+        if (isCurrent()) setError(e instanceof Error ? e.message : t("common:errors.generic"));
+      } finally {
+        if (isCurrent()) setLoading(false);
+      }
+    },
+    [open, product],
+  );
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -127,7 +149,7 @@ function CyclePickerDialog({
                       </Typography>
                       {c.latest && (
                         <Typography variant="caption" color="text.secondary">
-                          (latest: {c.latest})
+                          ({t("cards:eol.latest", { version: c.latest })})
                         </Typography>
                       )}
                       <Box sx={{ ml: "auto" }}>

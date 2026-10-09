@@ -31,7 +31,8 @@ import { useTranslation } from "react-i18next";
 import { usePageSection } from "@/hooks/usePageTitle";
 import { useSearchParams } from "react-router";
 
-import { api, ApiError } from "@/api/client";
+import { api, ApiError, isAbortError } from "@/api/client";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { invalidateExtensionCapabilities } from "@/hooks/useExtensionCapabilities";
@@ -296,6 +297,10 @@ export default function ExtensionsAdmin() {
   const [installError, setInstallError] = useState<string | null>(null);
   const bundleFileRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Each status read runs as the newest request: a reply still in flight when
+  // its poll was cleared (Discard, Close, a newer run) belongs to nobody and is
+  // aborted and dropped.
+  const pollRequest = useLatestRequest();
 
   // Continue an install automatically once its license arrives.
   const pendingInstallRef = useRef<string | null>(null);
@@ -319,11 +324,13 @@ export default function ExtensionsAdmin() {
   const [applyGate, setApplyGate] = useState(false);
 
   const clearPoll = useCallback(() => {
+    pollRequest.cancel();
     if (pollRef.current) {
       clearTimeout(pollRef.current);
       pollRef.current = null;
     }
-  }, []);
+  // Stryker disable next-line ArrayDeclaration: pollRequest is identity-stable, so the deps only satisfy the lint rule
+  }, [pollRequest]);
 
   const clearClaimPoll = useCallback(() => {
     if (claimPollRef.current) {
@@ -438,10 +445,11 @@ export default function ExtensionsAdmin() {
       const stamped = next.diff?.changelog;
       if (!stamped) return;
       const key = next.extension_key ?? "";
+      // No key at all: the bundle's file name, as the install dialog does.
       const name =
         catalog?.items.find((i) => i.key === key)?.name ??
         extensions.find((e) => e.key === key)?.name ??
-        key;
+        (key || next.filename);
       setUpdateConfirm({ id: next.id, name, notes: stamped });
       if (stamped.notes || !key) return;
 
@@ -470,52 +478,57 @@ export default function ExtensionsAdmin() {
   const poll = useCallback(
     (id: string) => {
       clearPoll();
-      pollRef.current = setTimeout(async () => {
-        try {
-          const next = await api.get<ExtensionInstall>(
-            `/admin/extensions/install/${id}`,
-          );
-          setInstall(next);
-          if (!TERMINAL.has(next.status)) {
-            poll(id);
-            return;
-          }
-          if (next.status === "installed") {
-            autoApplyRef.current = false;
-            // Content packs can add card types — refresh the metamodel cache.
-            void invalidateMetamodel();
-            // A newly installed extension may grant metamodel authoring
-            // capabilities — drop the capability cache so they appear without
-            // a full page reload.
-            invalidateExtensionCapabilities();
-            void loadAll();
-          } else if (next.status === "previewed" && autoApplyRef.current) {
-            // One-click store install: apply automatically unless the
-            // dry-run flagged failures (then fall back to manual review) or
-            // this would be a version DOWNGRADE (then confirm explicitly).
-            if (next.diff?.downgrade) {
-              autoApplyRef.current = false;
-              setDowngradeConfirm({ id: next.id, ...next.diff.downgrade });
-            } else if (next.diff?.totals?.failed) {
-              autoApplyRef.current = false;
-            } else if (next.diff?.changelog?.from_version) {
-              // An UPDATE, not a first install: stop and show what changes.
-              // `from_version` comes from the backend, so this is the same
-              // answer for a store update and a manual upload.
-              autoApplyRef.current = false;
-              void openUpdateConfirm(next);
-            } else {
-              void applyInstall(next.id);
+      pollRef.current = setTimeout(() => {
+        void pollRequest.run(async ({ signal, isCurrent }) => {
+          try {
+            // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
+            const next = await api.get<ExtensionInstall>(`/admin/extensions/install/${id}`, {
+              signal,
+            });
+            if (!isCurrent()) return;
+            setInstall(next);
+            if (!TERMINAL.has(next.status)) {
+              poll(id);
+              return;
             }
-          } else if (next.status === "failed") {
-            autoApplyRef.current = false;
+            if (next.status === "installed") {
+              autoApplyRef.current = false;
+              // Content packs can add card types — refresh the metamodel cache.
+              void invalidateMetamodel();
+              // A newly installed extension may grant metamodel authoring
+              // capabilities — drop the capability cache so they appear without
+              // a full page reload.
+              invalidateExtensionCapabilities();
+              void loadAll();
+            } else if (next.status === "previewed" && autoApplyRef.current) {
+              // One-click store install: apply automatically unless the
+              // dry-run flagged failures (then fall back to manual review) or
+              // this would be a version DOWNGRADE (then confirm explicitly).
+              if (next.diff?.downgrade) {
+                autoApplyRef.current = false;
+                setDowngradeConfirm({ id: next.id, ...next.diff.downgrade });
+              } else if (next.diff?.totals?.failed) {
+                autoApplyRef.current = false;
+              } else if (next.diff?.changelog?.from_version) {
+                // An UPDATE, not a first install: stop and show what changes.
+                // `from_version` comes from the backend, so this is the same
+                // answer for a store update and a manual upload.
+                autoApplyRef.current = false;
+                void openUpdateConfirm(next);
+              } else {
+                void applyInstall(next.id);
+              }
+            } else if (next.status === "failed") {
+              autoApplyRef.current = false;
+            }
+          } catch (e) {
+            if (!isCurrent() || isAbortError(e)) return;
+            setInstallError(e instanceof Error ? e.message : String(e));
           }
-        } catch (e) {
-          setInstallError(e instanceof Error ? e.message : String(e));
-        }
+        });
       }, POLL_MS);
     },
-    [clearPoll, loadAll, applyInstall, openUpdateConfirm],
+    [clearPoll, pollRequest, loadAll, applyInstall, openUpdateConfirm],
   );
 
   const startStoreInstall = useCallback(
@@ -544,6 +557,14 @@ export default function ExtensionsAdmin() {
     },
     [poll],
   );
+
+  // Every opening starts from an empty paste and no error.
+  const openLicenseDialog = (item: StoreItem | null) => {
+    setGateItem(item);
+    setLicenseText("");
+    setLicenseError(null);
+    setLicenseDialogOpen(true);
+  };
 
   const closeLicenseDialog = useCallback(() => {
     setLicenseDialogOpen(false);
@@ -622,10 +643,18 @@ export default function ExtensionsAdmin() {
             );
             await loadAll();
             const continueKey = pendingInstallRef.current;
+            const continueApplyId = pendingApplyRef.current;
             setLicenseDialogOpen(false);
             setGateItem(null);
+            setLicenseText("");
+            setLicenseError(null);
+            setApplyGate(false);
             pendingInstallRef.current = null;
-            if (continueKey) void startStoreInstall(continueKey);
+            pendingApplyRef.current = null;
+            // Resume whatever the license was needed for, as a pasted one
+            // does: the uploaded file waiting to be applied, or a store install.
+            if (continueApplyId) void applyInstall(continueApplyId);
+            else if (continueKey) void startStoreInstall(continueKey);
             return;
           }
         } catch {
@@ -645,7 +674,7 @@ export default function ExtensionsAdmin() {
         pollClaim(token, itemKey);
       }, CLAIM_POLL_MS);
     },
-    [clearClaimPoll, loadAll, startStoreInstall, t],
+    [clearClaimPoll, loadAll, startStoreInstall, applyInstall, t],
   );
 
   // Open a Stripe checkout link (paid subscription or no-card trial) and
@@ -721,8 +750,7 @@ export default function ExtensionsAdmin() {
     }
     // Not entitled: ask for the license first, then continue automatically.
     pendingInstallRef.current = item.key;
-    setGateItem(item);
-    setLicenseDialogOpen(true);
+    openLicenseDialog(item);
   };
 
   const handleBundleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -869,8 +897,7 @@ export default function ExtensionsAdmin() {
             "The store has no newer license — check your subscription, or paste a license file.",
           ),
         );
-        setGateItem(null);
-        setLicenseDialogOpen(true);
+        openLicenseDialog(null);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -1128,10 +1155,7 @@ export default function ExtensionsAdmin() {
       )}
 
       <Typography variant="body2" color="text.secondary">
-        {t(
-          "extensions.intro",
-          "Add customer-specific capabilities without changing the core. Install vendor-signed extensions one click at a time from the built-in Store, or upload the extension and license files directly — the file-based flow needs no connection to the Store, so everything still works on air-gapped instances.",
-        )}
+        {t("extensions.intro")}
       </Typography>
 
       <Alert severity="info" icon={<MaterialSymbol icon="handshake" />}>
@@ -1346,10 +1370,7 @@ export default function ExtensionsAdmin() {
               )}
               <Button
                 size="small"
-                onClick={() => {
-                  setGateItem(null);
-                  setLicenseDialogOpen(true);
-                }}
+                onClick={() => openLicenseDialog(null)}
               >
                 {t("extensions.rows.enterLicense", "Enter license…")}
               </Button>
@@ -1369,10 +1390,7 @@ export default function ExtensionsAdmin() {
                 <Button
                   size="small"
                   color="inherit"
-                  onClick={() => {
-                    setGateItem(null);
-                    setLicenseDialogOpen(true);
-                  }}
+                  onClick={() => openLicenseDialog(null)}
                 >
                   {t("extensions.rows.enterLicense", "Enter license…")}
                 </Button>
@@ -1867,9 +1885,11 @@ export default function ExtensionsAdmin() {
           <Button
             color="warning"
             variant="contained"
-            disabled={licenseBusy}
+            // Null while the dialog fades out: nothing left to confirm.
+            disabled={licenseBusy || downgrade === null}
             onClick={() => {
-              const text = downgrade?.text ?? "";
+              if (!downgrade) return;
+              const text = downgrade.text;
               setDowngrade(null);
               void submitLicense(text, true);
             }}
