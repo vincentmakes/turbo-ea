@@ -39,6 +39,7 @@
   "endDate": "Date de fin",
   "addReport": "Ajouter un rapport",
   "editReport": "Modifier le rapport",
+  "deleteReport": "Supprimer le rapport",
   "reportDate": "Date du rapport",
   "summary": "Résumé",
   "risks": "Risques",

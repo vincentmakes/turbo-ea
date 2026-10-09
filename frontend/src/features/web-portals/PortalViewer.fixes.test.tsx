@@ -144,6 +144,7 @@ interface Site {
   gate?: unknown;
   portal?: unknown;
   cards?: unknown;
+  relationOptions?: unknown;
 }
 
 let sites: Record<string, Site> = {};
@@ -166,7 +167,7 @@ function handle(path: string): Promise<unknown> {
       return typeof c === "function" ? (c as () => Promise<unknown>)() : reply(c);
     }
     if (path.startsWith(`${base}/relation-options?type_key=`)) {
-      return Promise.resolve([{ id: "i1", name: "HANA DB" }]);
+      return reply("relationOptions" in site ? site.relationOptions : [{ id: "i1", name: "HANA DB" }]);
     }
   }
   return Promise.reject(new Error(`unexpected request ${path}`));
@@ -393,5 +394,32 @@ describe("PortalViewer card grid", () => {
     const dialog = within(await screen.findByRole("dialog"));
     expect(dialog.getByText("Approved")).toBeInTheDocument();
     expect(dialog.queryByText("APPROVED")).toBeNull();
+  });
+});
+
+describe("PortalViewer relation filter options", () => {
+  it("offers no relation filter when its options fail to load, without an unhandled rejection", async () => {
+    const rejections: unknown[] = [];
+    const onRejection = (reason: unknown) => rejections.push(reason);
+    process.on("unhandledRejection", onRejection);
+    try {
+      serve(SLUG, { relationOptions: new Error("options down") });
+      const user = userEvent.setup();
+      renderPortal();
+      await screen.findByText("Customer Management");
+      await waitFor(() =>
+        expect(paths().filter((p) => p.includes("/relation-options"))).toHaveLength(1),
+      );
+      await act(async () => {
+        await settle();
+      });
+      expect(rejections).toEqual([]);
+      // The card grid is unaffected, and the filter with no options is not offered.
+      await user.click(screen.getByRole("button", { name: "tune" }));
+      expect(screen.queryByRole("combobox", { name: /IT Component/ })).toBeNull();
+      expect(screen.queryByText("options down")).toBeNull();
+    } finally {
+      process.off("unhandledRejection", onRejection);
+    }
   });
 });

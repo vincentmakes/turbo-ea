@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - App layout: a nav group stays highlighted on a sub-page of one of its entries, and the extension-license banner disappears when the user loses the permission.
 - Principles catalogue: no "0 of 0" caption before the catalogue loads, and a failed first load no longer reads "No principles match your search".
 - Excel import: an attribute whose key starts with "lifecycle_" or "stakeholder_" is no longer relabelled as a lifecycle or stakeholder column.
+- Process flow: a failed load of the published flow's or a draft's elements says so instead of leaving out the elements table or saying the draft has none, a draft link that saved but could not be re-read keeps its table and says the refresh failed, and an action that fails without a message says so in the user's language.
+- Process navigator: the process drawer names the approval status and the lifecycle phases in the user's language and shows lifecycle dates in the workspace date format, a failed steps load is reported in the user's language, and the flow viewer picks up recoloured card types once the metamodel has loaded.
+- Public portals: a relation filter whose options fail to load is simply left out, instead of raising an unhandled error in the page.
+- PPM: the status reports' edit and delete buttons have names, and a failed report delete says why instead of failing silently.
+- PPM: switching initiatives no longer shows the previous initiative's name, status reports, costs and risks while the next one loads, and a late reply for the previous initiative can no longer replace the new one's.
+- PPM: switching initiatives closes an open budget or cost dialog, so its save can no longer land on the other initiative, and clears a failed delete's message.
 
 ## [2.157.4] - 2026-10-08
 

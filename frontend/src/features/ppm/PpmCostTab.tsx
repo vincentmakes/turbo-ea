@@ -112,6 +112,16 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
     actual: 0,
     date: "",
   });
+  // Another initiative: an open dialog would save to it, and a failed delete
+  // belongs to the one left. Reset during render, so neither outlives a frame.
+  const [shownInitiativeId, setShownInitiativeId] = useState(initiativeId);
+  if (shownInitiativeId !== initiativeId) {
+    setShownInitiativeId(initiativeId);
+    setBudgetDialog({ open: false });
+    setCostDialog({ open: false });
+    setBudgetListError(null);
+    setCostListError(null);
+  }
   // A dialog's save is in flight: Save is disabled, and a second click that
   // lands before that re-render is ignored. Only one dialog is open at a time.
   const savingRef = useRef(false);

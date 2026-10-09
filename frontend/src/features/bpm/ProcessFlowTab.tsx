@@ -112,6 +112,8 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
   // Process elements (steps / lanes table for published view)
   const [elements, setElements] = useState<ProcessElement[]>([]);
+  // A failed elements load: shown in place of the table, never as "no table".
+  const [elementsError, setElementsError] = useState("");
 
   // Draft preview state
   const [expandedDraft, setExpandedDraft] = useState<string | null>(null);
@@ -124,6 +126,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   // Draft elements (pre-linking before publish)
   const [draftElements, setDraftElements] = useState<Record<string, ProcessElement[]>>({});
   const [draftElementsLoading, setDraftElementsLoading] = useState<Record<string, boolean>>({});
+  const [draftElementsError, setDraftElementsError] = useState<Record<string, string>>({});
 
   // Dialog states
   const [showTemplateChooser, setShowTemplateChooser] = useState(false);
@@ -145,11 +148,16 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   const loadInitial = useCallback(async () => {
     setLoadingPub(true);
     setLoadError("");
+    setElementsError("");
     try {
       const [permsData, pubData, elemData] = await Promise.all([
         api.get<ProcessFlowPermissions>(`/bpm/processes/${processId}/flow/permissions`),
         api.get<ProcessFlowVersion | null>(`/bpm/processes/${processId}/flow/published`),
-        api.get<ProcessElement[]>(`/bpm/processes/${processId}/elements`).catch(() => [] as ProcessElement[]),
+        // A failed elements read still shows the flow; the table says it failed.
+        api.get<ProcessElement[]>(`/bpm/processes/${processId}/elements`).catch((err: unknown) => {
+          setElementsError(err instanceof Error ? err.message : t("common:errors.generic"));
+          return [] as ProcessElement[];
+        }),
       ]);
       setPerms(permsData);
       setPublished(pubData);
@@ -316,7 +324,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       loadDrafts();
       loadArchived();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Action failed");
+      setActionError(err instanceof Error ? err.message : t("flowTab.actionFailed"));
     }
   };
 
@@ -359,13 +367,17 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
   const loadDraftElements = async (draftId: string) => {
     setDraftElementsLoading((prev) => ({ ...prev, [draftId]: true }));
+    setDraftElementsError((prev) => ({ ...prev, [draftId]: "" }));
     try {
       const elems = await api.get<ProcessElement[]>(
         `/bpm/processes/${processId}/flow/versions/${draftId}/draft-elements`
       );
       setDraftElements((prev) => ({ ...prev, [draftId]: elems }));
-    } catch {
-      setDraftElements((prev) => ({ ...prev, [draftId]: [] }));
+    } catch (err) {
+      setDraftElementsError((prev) => ({
+        ...prev,
+        [draftId]: err instanceof Error ? err.message : t("common:errors.generic"),
+      }));
     } finally {
       setDraftElementsLoading((prev) => ({ ...prev, [draftId]: false }));
     }
@@ -378,8 +390,17 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         updates
       );
       // Reload draft elements to get resolved names
-      await loadDraftElements(draftId);
-      setSnack(t("flowTab.draftElementLinkUpdated"));
+      try {
+        const elems = await api.get<ProcessElement[]>(
+          `/bpm/processes/${processId}/flow/versions/${draftId}/draft-elements`
+        );
+        setDraftElements((prev) => ({ ...prev, [draftId]: elems }));
+        setSnack(t("flowTab.draftElementLinkUpdated"));
+      } catch {
+        // The write landed; only the re-read failed. Keep the table on screen,
+        // as the published table does.
+        setSnack(t("flowTab.elementUpdatedRefreshFailed"));
+      }
     } catch {
       setSnack(t("flowTab.draftElementLinkFailed"));
     }
@@ -402,8 +423,8 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         console.error("Failed to load draft detail:", err);
       }
     }
-    // Load draft elements
-    if (!draftElements[draftId]) {
+    // Load draft elements — again when the last attempt failed
+    if (!draftElements[draftId] || draftElementsError[draftId]) {
       loadDraftElements(draftId);
     }
   };
@@ -960,7 +981,13 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         )}
 
         {/* Editable process elements table */}
-        {renderElementsTable(elements, handleElementUpdate)}
+        {elementsError ? (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {elementsError}
+          </Alert>
+        ) : (
+          renderElementsTable(elements, handleElementUpdate)
+        )}
 
         {/* Messages exchanged between pools, each linkable to an Interface card */}
         <MessageFlowsTable
@@ -1163,6 +1190,10 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                     {/* Draft element pre-linking table */}
                     {draftElementsLoading[d.id] ? (
                       <Typography color="text.secondary" sx={{ mt: 2 }}>{t("flowTab.loadingElements")}</Typography>
+                    ) : draftElementsError[d.id] ? (
+                      <Alert severity="error" sx={{ mt: 2 }}>
+                        {draftElementsError[d.id]}
+                      </Alert>
                     ) : draftElements[d.id] && draftElements[d.id].length > 0 ? (
                       renderElementsTable(
                         draftElements[d.id],

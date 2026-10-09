@@ -454,9 +454,13 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
       seen.add(rt.other_type_key);
       publicGet<{ id: string; name: string }[]>(
         `/web-portals/public/${slug}/relation-options?type_key=${rt.other_type_key}`
-      ).then((opts) =>
-        setRelationOptions((prev) => ({ ...prev, [rt.other_type_key]: opts }))
-      );
+      )
+        .then((opts) =>
+          setRelationOptions((prev) => ({ ...prev, [rt.other_type_key]: opts }))
+        )
+        // Best-effort: a filter whose options failed to load is simply not
+        // offered (it has none), and the cards still load without it.
+        .catch(() => {});
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, visibleRelKeysStr]);

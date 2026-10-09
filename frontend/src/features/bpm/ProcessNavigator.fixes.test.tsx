@@ -14,8 +14,13 @@ import { MemoryRouter, useLocation } from "react-router";
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 vi.mock("@/hooks/useAuth", () => import("@/test/hooks").then((m) => m.useAuthModule()));
+vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 vi.mock("@/features/bpm/BpmnViewer", () => ({
-  default: ({ bpmnXml }: { bpmnXml: string }) => <div data-testid="bpmn-viewer">{bpmnXml}</div>,
+  default: ({ bpmnXml, typeColors }: { bpmnXml: string; typeColors?: Record<string, string> }) => (
+    <div data-testid="bpmn-viewer" data-application-color={typeColors?.application}>
+      {bpmnXml}
+    </div>
+  ),
 }));
 
 const mockNavigate = vi.fn();
@@ -589,3 +594,79 @@ describe("ProcessNavigator drawer overview without chips", () => {
   });
 });
 
+
+describe("ProcessNavigator drawer overview labels", () => {
+  async function openP2p() {
+    const user = userEvent.setup();
+    renderNavigator();
+    await user.click(await screen.findByText("Procure to Pay"));
+    return { user, d: await drawer() };
+  }
+
+  it("names the approval status as the rest of the app does, not by its enum", async () => {
+    mockApi.on("get", /^\/cards\/[^/]+$/, { approval_status: "BROKEN", tags: [] });
+    const { d } = await openP2p();
+    const chip = (await d.findByText("Broken")).closest(".MuiChip-root");
+    expect(chip).toHaveClass("MuiChip-colorWarning");
+    expect(d.queryByText("BROKEN")).toBeNull();
+  });
+
+  it("names each lifecycle phase and shows its date in the workspace date format", async () => {
+    hookState.dateFormat = "DD/MM/YYYY";
+    mockApi.on("get", /^\/cards\/[^/]+$/, {
+      lifecycle: { phaseIn: "2024-03-01", endOfLife: "2030-12-31" },
+      tags: [],
+    });
+    const { d } = await openP2p();
+    expect(await d.findByText("Phase In: 01/03/2024")).toBeInTheDocument();
+    expect(d.getByText("End of Life: 31/12/2030")).toBeInTheDocument();
+    expect(d.queryByText(/phaseIn/)).toBeNull();
+  });
+
+  it("names the lifecycle phases in the user's language", async () => {
+    mockApi.on("get", /^\/cards\/[^/]+$/, { lifecycle: { active: "2024-03-01" }, tags: [] });
+    const { d } = await openP2p();
+    expect(await d.findByText("Active: 2024-03-01")).toBeInTheDocument();
+    await inGerman(async () => {
+      expect(
+        await d.findByText(`${i18n.t("common:lifecycle.active", { lng: "de" })}: 2024-03-01`),
+      ).toBeInTheDocument();
+    });
+  });
+});
+
+describe("ProcessNavigator drawer steps failing without a message", () => {
+  it("says the steps could not be loaded, in the language the user switches to", async () => {
+    const user = userEvent.setup();
+    renderBody(bodySource({ loadFlow: () => Promise.reject({}) }));
+    await user.click(await screen.findByText("Procure to Pay"));
+    const d = await drawer();
+    await user.click(d.getByRole("tab", { name: /Steps/ }));
+    expect(await d.findByText("Failed to load elements")).toBeInTheDocument();
+    await inGerman(async () => {
+      expect(await d.findByText("Elemente konnten nicht geladen werden")).toBeInTheDocument();
+    });
+  });
+});
+
+describe("ProcessNavigator link colours", () => {
+  it("hands the flow viewer the metamodel's colours once the metamodel has loaded", async () => {
+    const ui = () => (
+      <MemoryRouter initialEntries={["/bpm"]}>
+        <ProcessNavigator />
+      </MemoryRouter>
+    );
+    const { rerender } = render(ui());
+    await screen.findByText("Procure to Pay");
+    // The metamodel arrives after the page has mounted, with a recoloured type.
+    withMetamodel([bpType(), makeCardType({ key: "Application", color: "#123456" })]);
+    rerender(ui());
+    const [flow] = within(cardOf("Procure to Pay")).getAllByRole("button", { name: "View Flow" });
+    fireEvent.click(flow);
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(await dialog.findByTestId("bpmn-viewer")).toHaveAttribute(
+      "data-application-color",
+      "#123456",
+    );
+  });
+});

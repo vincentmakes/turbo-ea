@@ -13,6 +13,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { usePageSection, usePageSubject } from "@/hooks/usePageTitle";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
 import PpmOverviewTab from "./PpmOverviewTab";
 import PpmReportsTab from "./PpmReportsTab";
 import PpmCostTab from "./PpmCostTab";
@@ -33,6 +34,26 @@ const PPM_TAB_LABEL_KEYS = [
   "gantt",
   "cardDetails",
 ];
+
+// Until the initiative's own permissions have arrived.
+const DEFAULT_PERMS: CardEffectivePermissions["effective"] = {
+  can_view: true,
+  can_edit: true,
+  can_archive: true,
+  can_delete: true,
+  can_approval_status: true,
+  can_manage_stakeholders: true,
+  can_manage_relations: true,
+  can_manage_documents: true,
+  can_manage_comments: true,
+  can_create_comments: true,
+  can_bpm_edit: true,
+  can_bpm_manage_drafts: true,
+  can_bpm_approve: true,
+  can_manage_adr_links: true,
+  can_manage_diagram_links: true,
+  can_view_costs: true,
+};
 
 export default function PpmProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -64,60 +85,70 @@ export default function PpmProjectDetail() {
   const [costLines, setCostLines] = useState<PpmCostLine[]>([]);
   const [budgetLines, setBudgetLines] = useState<PpmBudgetLine[]>([]);
   const [risks, setRisks] = useState<PpmRisk[]>([]);
-  const [perms, setPerms] = useState<CardEffectivePermissions["effective"]>({
-    can_view: true,
-    can_edit: true,
-    can_archive: true,
-    can_delete: true,
-    can_approval_status: true,
-    can_manage_stakeholders: true,
-    can_manage_relations: true,
-    can_manage_documents: true,
-    can_manage_comments: true,
-    can_create_comments: true,
-    can_bpm_edit: true,
-    can_bpm_manage_drafts: true,
-    can_bpm_approve: true,
-    can_manage_adr_links: true,
-    can_manage_diagram_links: true,
-    can_view_costs: true,
-  });
+  const [perms, setPerms] = useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Another initiative: nothing of the previous one stays on screen while the
+  // next one loads. Reset during render, so not even one frame shows it.
+  const [shownId, setShownId] = useState(id);
+  if (shownId !== id) {
+    setShownId(id);
+    setCard(null);
+    setReports([]);
+    setCostLines([]);
+    setBudgetLines([]);
+    setRisks([]);
+    setPerms(DEFAULT_PERMS);
+    setError("");
+    setLoading(true);
+  }
+
+  // Only the newest load may write the page: a reply for an initiative the
+  // user has left must never overwrite the one they are on. Called again by
+  // the tabs after a change, so the imperative primitive rather than an effect.
+  const dataRequest = useLatestRequest();
+
   const loadData = useCallback(async () => {
     if (!id) return;
-    setError("");
-    try {
-      const [c, r, cl, bl, ri] = await Promise.all([
-        api.get<Card>(`/cards/${id}`),
-        api.get<PpmStatusReport[]>(`/ppm/initiatives/${id}/reports`),
-        api.get<PpmCostLine[]>(`/ppm/initiatives/${id}/costs`),
-        api.get<PpmBudgetLine[]>(`/ppm/initiatives/${id}/budgets`),
-        api.get<PpmRisk[]>(`/ppm/initiatives/${id}/risks`),
-      ]);
-      setCard(c);
-      setReports(r);
-      setCostLines(cl);
-      setBudgetLines(bl);
-      setRisks(ri);
-      // Fetch effective permissions (non-blocking)
-      api
-        .get<CardEffectivePermissions>(`/cards/${id}/my-permissions`)
-        .then((res) => setPerms(res.effective))
-        .catch(() => {});
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 403) {
-        setError(t("common:errors.forbidden"));
-      } else if (e instanceof ApiError && e.status === 404) {
-        setError(t("common:errors.notFound"));
-      } else {
-        setError(e instanceof Error ? e.message : String(e));
+    await dataRequest.run(async ({ signal, isCurrent }) => {
+      setError("");
+      try {
+        const [c, r, cl, bl, ri] = await Promise.all([
+          api.get<Card>(`/cards/${id}`, { signal }),
+          api.get<PpmStatusReport[]>(`/ppm/initiatives/${id}/reports`, { signal }),
+          api.get<PpmCostLine[]>(`/ppm/initiatives/${id}/costs`, { signal }),
+          api.get<PpmBudgetLine[]>(`/ppm/initiatives/${id}/budgets`, { signal }),
+          api.get<PpmRisk[]>(`/ppm/initiatives/${id}/risks`, { signal }),
+        ]);
+        if (!isCurrent()) return;
+        setCard(c);
+        setReports(r);
+        setCostLines(cl);
+        setBudgetLines(bl);
+        setRisks(ri);
+        // Fetch effective permissions (non-blocking)
+        api
+          .get<CardEffectivePermissions>(`/cards/${id}/my-permissions`, { signal })
+          .then((res) => {
+            if (isCurrent()) setPerms(res.effective);
+          })
+          .catch(() => {});
+      } catch (e) {
+        // Superseded (or aborted because it was): the newer load owns the page.
+        if (!isCurrent()) return;
+        if (e instanceof ApiError && e.status === 403) {
+          setError(t("common:errors.forbidden"));
+        } else if (e instanceof ApiError && e.status === 404) {
+          setError(t("common:errors.notFound"));
+        } else {
+          setError(e instanceof Error ? e.message : String(e));
+        }
+      } finally {
+        if (isCurrent()) setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [id, t]);
+    });
+  }, [id, t, dataRequest]);
 
   useEffect(() => {
     loadData();

@@ -56,6 +56,7 @@ import Button from "@mui/material/Button";
 import Alert from "@mui/material/Alert";
 import DOMPurify from "dompurify";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import ColumnCountPicker from "@/components/ColumnCountPicker";
 import {
   columnGridProps,
@@ -70,6 +71,8 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
+import { formatDateWith, getCachedDateFormat } from "@/hooks/useDateFormat";
+import { getPhaseLabels } from "@/lib/lifecyclePhases";
 import { useProcessTypeOptions } from "./useProcessTypeOptions";
 import type { ProcessTypeOption } from "./useProcessTypeOptions";
 import {
@@ -805,6 +808,11 @@ function DrawerOverview({
   const caps = useNavigatorCapabilities();
   const source = useNavigatorSource();
   const { resolve: resolveProcessType } = meta.processTypes;
+  // The workspace date format as the host page loaded it (the app's bootstrap,
+  // or the portal page). Not `useDateFormat`: in a portal it would fetch the
+  // setting through the authenticated client, which a portal never calls.
+  const formatDate = (value: string) => formatDateWith(getCachedDateFormat(), value);
+  const phaseLabels = getPhaseLabels(t);
   const [card, setCard] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -932,9 +940,8 @@ function DrawerOverview({
                   <Chip
                     key={phase}
                     size="small"
-                    label={`${phase}: ${date}`}
+                    label={`${phaseLabels[phase] ?? phase}: ${formatDate(date)}`}
                     variant="outlined"
-                    sx={{ textTransform: "capitalize" }}
                   />
                 ) : null,
             )}
@@ -965,20 +972,7 @@ function DrawerOverview({
               </Box>
             )}
             {card.approval_status ? (
-              <Chip
-                size="small"
-                label={String(card.approval_status)}
-                color={
-                  card.approval_status === "APPROVED"
-                    ? "success"
-                    : card.approval_status === "REJECTED"
-                      ? "error"
-                      : card.approval_status === "BROKEN"
-                        ? "warning"
-                        : "default"
-                }
-                variant="outlined"
-              />
+              <ApprovalStatusBadge status={String(card.approval_status)} />
             ) : null}
           </Box>
         </>
@@ -1088,7 +1082,7 @@ function DrawerSteps({
         if (!cancelled) setElements(flow.steps);
       })
       .catch((err) => {
-        if (!cancelled) setError(err?.message || "Failed to load elements");
+        if (!cancelled) setError(err?.message || t("navigator.loadElementsFailed"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -1096,7 +1090,7 @@ function DrawerSteps({
     return () => {
       cancelled = true;
     };
-  }, [processId, source]);
+  }, [processId, source, t]);
 
   if (loading) return <LinearProgress />;
   if (error)
@@ -2985,7 +2979,7 @@ export default function ProcessNavigator() {
         await api.patch("/settings/bpm-row-order", { row_order: order });
       },
     }),
-    [],
+    [linkTypeColors],
   );
 
   const capabilities = useMemo<NavigatorCapabilities>(
@@ -3000,7 +2994,7 @@ export default function ProcessNavigator() {
       subtypes: bpType?.subtypes ?? [],
       processTypes,
     }),
-    [bpType, processTypes, linkTypeColors],
+    [bpType, processTypes],
   );
 
   return (

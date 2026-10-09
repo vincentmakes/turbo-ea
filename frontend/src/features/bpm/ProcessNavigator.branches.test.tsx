@@ -17,6 +17,7 @@ import { MemoryRouter } from "react-router";
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 vi.mock("@/hooks/useAuth", () => import("@/test/hooks").then((m) => m.useAuthModule()));
+vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 vi.mock("./BpmnViewer", () => ({
   default: ({ bpmnXml, typeColors }: { bpmnXml: string; typeColors?: unknown }) => (
     <div data-testid="bpmn-viewer" data-has-colors={String(Boolean(typeColors))}>
@@ -563,10 +564,10 @@ describe("ProcessNavigator drawer", () => {
     expect(d.getByText("Value Chain")).toBeInTheDocument();
     // From the card fetch
     expect(await d.findByText("Card description")).toBeInTheDocument();
-    expect(d.getByText("active: 2020-01-01")).toBeInTheDocument();
-    expect(d.queryByText(/phaseOut/)).toBeNull();
+    expect(d.getByText("Active: 2020-01-01")).toBeInTheDocument();
+    expect(d.queryByText(/phaseOut|Phase Out/)).toBeNull();
     expect(d.getByText("75%")).toBeInTheDocument();
-    expect(d.getByText("BROKEN")).toBeInTheDocument();
+    expect(d.getByText("Broken")).toBeInTheDocument();
     expect(d.getByText("Strategic")).toBeInTheDocument();
     expect(d.getByText("Plain")).toBeInTheDocument();
     // Sub-processes: Quote has a child and an app.
@@ -588,7 +589,7 @@ describe("ProcessNavigator drawer", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     script({ card: { approval_status: "APPROVED", tags: [] } });
     const { d, user } = await openDrawer("Procure to Pay");
-    expect(await d.findByText("APPROVED")).toBeInTheDocument();
+    expect(await d.findByText("Approved")).toBeInTheDocument();
     // No data quality number and no description.
     expect(d.queryByText("Completion")).toBeNull();
     expect(d.queryByText("Description")).toBeNull();
@@ -603,12 +604,12 @@ describe("ProcessNavigator drawer", () => {
   });
 
   it.each([
-    ["REJECTED", "error"],
-    ["PENDING", "default"],
-  ])("Overview: %s approval renders with the %s colour", async (status, colour) => {
+    ["REJECTED", "Rejected", "error"],
+    ["DRAFT", "Draft", "default"],
+  ])("Overview: %s approval renders as %s with the %s colour", async (status, label, colour) => {
     script({ card: { approval_status: status } });
     const { d } = await openDrawer("Procure to Pay");
-    const chip = (await d.findByText(status)).closest(".MuiChip-root") as HTMLElement;
+    const chip = (await d.findByText(label)).closest(".MuiChip-root") as HTMLElement;
     expect(chip.className).toContain(`MuiChip-color${colour.charAt(0).toUpperCase()}${colour.slice(1)}`);
   });
 
@@ -866,7 +867,7 @@ describe("ProcessNavigatorBody with a restricted capability set", () => {
     await user.click(await screen.findByText("Order to Cash"));
     const d = await drawer();
     expect(d.getByText("Published description")).toBeInTheDocument();
-    expect(d.getByText("active: 2021-01-01")).toBeInTheDocument();
+    expect(d.getByText("Active: 2021-01-01")).toBeInTheDocument();
     expect(d.queryByRole("button", { name: "Open Card" })).toBeNull();
     expect(d.queryByText("View Flow")).toBeNull();
     expect(d.queryByRole("tab", { name: /Apps/ })).toBeNull();

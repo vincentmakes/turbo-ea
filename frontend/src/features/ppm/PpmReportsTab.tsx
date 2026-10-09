@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
@@ -33,9 +34,17 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
     open: boolean;
     report?: PpmStatusReport;
   }>({ open: false });
+  // A failed delete, shown above the reports.
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleDelete = async (reportId: string) => {
-    await api.delete(`/ppm/reports/${reportId}`);
+    setDeleteError(null);
+    try {
+      await api.delete(`/ppm/reports/${reportId}`);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : t("common:errors.generic"));
+      return;
+    }
     onRefresh();
   };
 
@@ -51,6 +60,12 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
           {t("addReport")}
         </Button>
       </Box>
+
+      {deleteError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDeleteError(null)}>
+          {deleteError}
+        </Alert>
+      )}
 
       {reports.length === 0 ? (
         <Paper sx={{ p: { xs: 3, sm: 4 }, textAlign: "center" }}>
@@ -127,12 +142,14 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
               <Box sx={{ flexShrink: 0 }}>
                 <IconButton
                   size="small"
+                  aria-label={t("editReport")}
                   onClick={() => setReportDialog({ open: true, report })}
                 >
                   <MaterialSymbol icon="edit" size={18} />
                 </IconButton>
                 <IconButton
                   size="small"
+                  aria-label={t("deleteReport")}
                   onClick={() => handleDelete(report.id)}
                 >
                   <MaterialSymbol icon="delete" size={18} />

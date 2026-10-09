@@ -31,6 +31,7 @@ import ProcessFlowTab from "./ProcessFlowTab";
 import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType } from "@/test/fixtures/metamodel";
+import i18n from "@/i18n";
 
 const BASE = "/bpm/processes/proc-1";
 
@@ -190,7 +191,9 @@ describe("ProcessFlowTab first load of a list", () => {
     });
     renderTab({ initialSubTab: 2 });
     expect(await screen.findByText("Loading archived flows...")).toBeInTheDocument();
-    expect(seen).toHaveLength(1);
+    // The loading text can paint before the effect has issued the GET: wait
+    // for the request itself, then check what the page showed at that moment.
+    await waitFor(() => expect(seen).toHaveLength(1));
     expect(seen[0]).not.toContain("No archived process flows.");
     await act(async () => {
       archive.resolve([]);
@@ -210,7 +213,8 @@ describe("ProcessFlowTab first load of a list", () => {
     });
     await user.click(screen.getByRole("tab", { name: "Drafts" }));
     expect(await screen.findByText("Loading drafts...")).toBeInTheDocument();
-    expect(seen).toHaveLength(1);
+    // As above: wait for the request, not for the text that precedes it.
+    await waitFor(() => expect(seen).toHaveLength(1));
     expect(seen[0]).not.toContain("No draft process flows.");
     await act(async () => {
       drafts.resolve([]);
@@ -308,5 +312,95 @@ describe("ProcessFlowTab tab contents", () => {
     expect(screen.queryByText("Loading drafts...")).toBeNull();
     expect(screen.queryByText("No draft process flows.")).toBeNull();
     expect(screen.queryByText("Revision 4")).toBeNull();
+  });
+});
+
+describe("ProcessFlowTab failed element loads", () => {
+  it("says the published flow's elements could not be loaded instead of dropping the table", async () => {
+    mockApi.fail("get", `${BASE}/elements`);
+    renderTab();
+    const alert = (await screen.findByText(`GET ${BASE}/elements failed`)).closest(".MuiAlert-root");
+    expect(alert).toHaveClass("MuiAlert-standardError");
+    // The flow itself still shows; only the table is replaced by the error.
+    expect(screen.getByTestId("bpmn-viewer")).toHaveTextContent("BPMN:<xml>bpmn</xml>");
+    expect(screen.queryByText("Process Steps & Elements")).toBeNull();
+  });
+
+  it("says something went wrong when the elements fail without a message", async () => {
+    mockApi.on("get", `${BASE}/elements`, () => Promise.reject("offline"));
+    renderTab();
+    const alert = (await screen.findByText("Something went wrong")).closest(".MuiAlert-root");
+    expect(alert).toHaveClass("MuiAlert-standardError");
+  });
+
+  it("says a draft's elements could not be loaded, not that it has none, and retries on the next expand", async () => {
+    mockApi.on("get", `${BASE}/flow/versions/d1`, DRAFTS[0]);
+    mockApi.fail("get", `${BASE}/flow/versions/d1/draft-elements`);
+    const user = renderTab({ initialSubTab: 1 });
+    await user.click(await screen.findByText("Revision 4"));
+    const alert = (
+      await screen.findByText(`GET ${BASE}/flow/versions/d1/draft-elements failed`)
+    ).closest(".MuiAlert-root");
+    expect(alert).toHaveClass("MuiAlert-standardError");
+    expect(screen.queryByText("No named elements found in this draft.")).toBeNull();
+
+    // Collapse and expand again: the failed load is asked for once more.
+    mockApi.on("get", `${BASE}/flow/versions/d1/draft-elements`, ELEMENTS);
+    await user.click(screen.getByText("Revision 4"));
+    await user.click(screen.getByText("Revision 4"));
+    expect(await screen.findByText("Pre-link Elements")).toBeInTheDocument();
+    expect(screen.getByText("Create Order")).toBeInTheDocument();
+    expect(screen.queryByText(`GET ${BASE}/flow/versions/d1/draft-elements failed`)).toBeNull();
+    expect(mockApi.callsOf("get", `${BASE}/flow/versions/d1/draft-elements`)).toHaveLength(2);
+  });
+});
+
+describe("ProcessFlowTab draft link saved but not re-read", () => {
+  it("keeps the draft's table and says the refresh failed, like the published table", async () => {
+    mockApi.on("get", `${BASE}/flow/versions/d1`, DRAFTS[0]);
+    let loads = 0;
+    mockApi.on("get", `${BASE}/flow/versions/d1/draft-elements`, () => {
+      loads += 1;
+      return loads === 1
+        ? Promise.resolve([{ ...ELEMENTS[0], application_id: "app-1", application_name: "SAP" }])
+        : Promise.reject(new Error("re-read failed"));
+    });
+    mockApi.on("put", /\/draft-elements\//, { status: "updated" });
+    const user = renderTab({ initialSubTab: 1 });
+    await user.click(await screen.findByText("Revision 4"));
+    const chip = (await screen.findByText("SAP")).closest(".MuiChip-root")!;
+    await user.click(chip.querySelector(".MuiChip-deleteIcon")!);
+
+    expect(
+      await screen.findByText("Element updated, but the list could not be refreshed"),
+    ).toBeInTheDocument();
+    expect(mockApi.callsOf("put", `${BASE}/flow/versions/d1/draft-elements/task_1`)).toHaveLength(1);
+    expect(screen.getByText("Pre-link Elements")).toBeInTheDocument();
+    expect(screen.getByText("Create Order")).toBeInTheDocument();
+    expect(screen.queryByText("re-read failed")).toBeNull();
+    expect(screen.queryByText("Draft element link updated")).toBeNull();
+  });
+});
+
+describe("ProcessFlowTab action failure without a message", () => {
+  it("says the action failed in the user's language", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+    try {
+      mockApi.on("post", `${BASE}/flow/versions/d1/submit`, () => Promise.reject("nope"));
+      const user = renderTab({ initialSubTab: 1 });
+      await screen.findByText(i18n.t("bpm:flowTab.revisionLabel", { revision: 4 }));
+      const [submit] = screen.getAllByRole("button", { name: i18n.t("bpm:flowTab.submitForApproval") });
+      await user.click(submit);
+      const dialog = within(await screen.findByRole("dialog"));
+      await user.click(dialog.getByRole("button", { name: i18n.t("common:actions.submit") }));
+      expect(await dialog.findByText("Aktion fehlgeschlagen")).toBeInTheDocument();
+      expect(dialog.queryByText("Action failed")).toBeNull();
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
   });
 });

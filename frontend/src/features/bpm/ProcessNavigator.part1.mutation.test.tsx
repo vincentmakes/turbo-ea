@@ -15,6 +15,7 @@ import { MemoryRouter } from "react-router";
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 vi.mock("@/hooks/useAuth", () => import("@/test/hooks").then((m) => m.useAuthModule()));
+vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 vi.mock("@/features/bpm/BpmnViewer", () => ({
   default: ({ bpmnXml, elements }: { bpmnXml: string; elements: unknown[] }) => (
     <div data-testid="bpmn-viewer" data-elements={String(elements.length)}>
@@ -930,14 +931,14 @@ describe("drawer overview", () => {
     expect(getComputedStyle(tag).backgroundColor).toBe("rgb(18, 52, 86)");
     expect(d.getByText("40%")).toBeInTheDocument();
     expect(d.getByText("Lifecycle")).toBeInTheDocument();
-    expect(d.getByText("APPROVED").closest(".MuiChip-root")).toHaveClass("MuiChip-colorSuccess");
+    expect(d.getByText("Approved").closest(".MuiChip-root")).toHaveClass("MuiChip-colorSuccess");
   });
 
   it("colours a broken approval as a warning", async () => {
     const { d } = await open("Procure to Pay", {
       source: { loadCard: vi.fn(async () => ({ approval_status: "BROKEN" })) },
     });
-    expect((await d.findByText("BROKEN")).closest(".MuiChip-root")).toHaveClass(
+    expect((await d.findByText("Broken")).closest(".MuiChip-root")).toHaveClass(
       "MuiChip-colorWarning",
     );
   });
