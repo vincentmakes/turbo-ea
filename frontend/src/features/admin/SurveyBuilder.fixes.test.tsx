@@ -347,7 +347,9 @@ describe("SurveyBuilder — a draft whose target type is gone", () => {
       await screen.findByText("Target Cards");
 
       const typeSelect = screen.getByRole("combobox", { name: /^Type/ });
-      expect(typeSelect).toHaveTextContent("Application");
+      // A loading label, never the stored key nor "unavailable".
+      expect(typeSelect).toHaveTextContent("Loading...");
+      expect(typeSelect).not.toHaveTextContent("Application");
       expect(typeSelect).not.toHaveTextContent("unavailable");
       const outOfRange = warn.mock.calls.filter((args) => String(args[0]).includes("out-of-range"));
       expect(outOfRange).toEqual([]);
@@ -430,6 +432,29 @@ describe("SurveyBuilder — a card lookup that outlives its survey", () => {
     expect(screen.queryByText("First Org")).not.toBeInTheDocument();
     expect(screen.getByTestId("specific-picker").querySelectorAll("span")).toHaveLength(1);
     expect(screen.getByTestId("related-picker").querySelectorAll("span")).toHaveLength(1);
+  });
+});
+
+describe("SurveyBuilder — a survey load that outlives its route", () => {
+  it("does not show the previous survey's fields when its reply lands after the route moved on", async () => {
+    const first = deferred<object>();
+    mockApi.on("get", "/surveys/survey-7", () => first.promise);
+    mockApi.on("get", "/surveys/survey-8", { ...SAVED, id: "survey-8", name: "Second" });
+    const { user } = renderBuilder("/admin/surveys/survey-7");
+    await waitFor(() => expect(mockApi.callsOf("get", "/surveys/survey-7")).toHaveLength(1));
+
+    await user.click(screen.getByRole("button", { name: "go /admin/surveys/survey-8" }));
+    await waitFor(() => expect(screen.getByLabelText(/Survey Name/)).toHaveValue("Second"));
+
+    // The first survey answers only now: it belongs to a route that is gone.
+    await act(async () => {
+      first.resolve({ ...SAVED, name: "First" });
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(screen.getByLabelText(/Survey Name/)).toHaveValue("Second");
+    expect(screen.queryByDisplayValue("First")).not.toBeInTheDocument();
   });
 });
 

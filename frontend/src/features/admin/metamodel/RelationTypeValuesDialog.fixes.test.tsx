@@ -22,6 +22,7 @@ import { mockApi } from "@/test/apiMock";
 import { makeField, makeOption, makeRelationType } from "@/test/fixtures/metamodel";
 import type { FieldDef } from "@/types";
 import RelationTypeValuesDialog from "./RelationTypeValuesDialog";
+import i18n from "@/i18n";
 
 const DIM_NAME = "Type name (English)";
 
@@ -254,5 +255,34 @@ describe("RelationTypeValuesDialog — Save after a failed save", () => {
 
     await user.click(saveButton());
     await waitFor(() => expect(mockApi.callsOf("patch", PATH)).toHaveLength(2));
+  });
+});
+
+describe("RelationTypeValuesDialog — a language switch while editing", () => {
+  it("keeps the edits made in the open dialog", async () => {
+    const { user, dialog } = renderDialog(
+      makeField({
+        key: "tier",
+        label: "Tier",
+        type: "single_select",
+        options: [makeOption({ key: "gold", label: "Gold" })],
+      }),
+    );
+    const name = within(dialog).getByLabelText(DIM_NAME);
+    await user.clear(name);
+    await user.type(name, "Service tier");
+    expect(name).toHaveValue("Service tier");
+
+    try {
+      await act(async () => {
+        await i18n.changeLanguage("de");
+      });
+      // Still the typed text: the dialog did not reset to the stored row.
+      expect(within(dialog).getByDisplayValue("Service tier")).toBeInTheDocument();
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
   });
 });

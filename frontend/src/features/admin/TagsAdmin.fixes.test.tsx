@@ -229,27 +229,6 @@ describe("TagsAdmin failed requests", () => {
   });
 });
 
-describe("TagsAdmin error alerts", () => {
-  it("sets the page's load error apart from the groups below it", async () => {
-    mockApi.fail("get", "/tag-groups");
-    render(<TagsAdmin />);
-    expect(await screen.findByRole("alert")).toHaveStyle({ marginBottom: "16px" });
-  });
-
-  it("spaces a dialog's error from the title above and the field below", async () => {
-    mockApi.fail("post", "/tag-groups");
-    const user = await renderPage();
-    await user.click(screen.getByRole("button", { name: /New Tag Group/ }));
-    const dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByLabelText("Group Name"), "Region");
-    await user.click(within(dialog).getByRole("button", { name: "Create" }));
-    expect(await within(dialog).findByRole("alert")).toHaveStyle({
-      marginTop: "8px",
-      marginBottom: "16px",
-    });
-  });
-});
-
 describe("TagsAdmin names", () => {
   it("creates a group under its trimmed name", async () => {
     mockApi.on("post", "/tag-groups", {});

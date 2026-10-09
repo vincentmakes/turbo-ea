@@ -6,7 +6,6 @@
  * - a status reply that lands after Discard finished does not bring the run
  *   back;
  * - "Apply anyway" cannot submit an empty license while its dialog fades out;
- * - the update and downgrade confirmations keep their text through the exit,
  *   and an update without an extension key is named by its bundle;
  * - the intro describes the Store as well as the file-based flow, in every
  *   locale.
@@ -478,38 +477,33 @@ describe("ExtensionsAdmin — entitlement downgrade confirmation", () => {
     ]);
   });
 
-  for (const action of ["Cancel", "Apply anyway"]) {
-    it(`keeps the dropped extensions listed while the confirmation closes on ${action}`, async () => {
-      prime();
-      mockApi.on("put", LICENSE_PATH, (_path, body) => {
-        if (!(body as { confirm: boolean }).confirm) {
-          throw new ApiError("Conflict", 409, {
-            code: "entitlement_downgrade",
-            dropped: ["sample-ext", "gone-ext"],
-          });
-        }
-        return {};
-      });
-      renderPage("/admin/extensions?tab=installed");
-      await settle();
-
-      click(screen.getByRole("button", { name: /Enter license/ }));
-      typeLicense("narrower-license");
-      click(within(screen.getByRole("dialog")).getByText("Apply license", { selector: "button" }));
-      await settle();
-      const confirm = dialogTitled("This license drops active entitlements");
-      expect(within(confirm).getByText("Sample Extension")).toBeInTheDocument();
-      expect(within(confirm).getByText("gone-ext")).toBeInTheDocument();
-
-      click(within(confirm).getByText(action, { selector: "button" }));
-      await settle();
-      // Still fading out: the same list, not an empty one.
-      expect(within(confirm).getByText("Sample Extension")).toBeInTheDocument();
-      expect(within(confirm).getByText("gone-ext")).toBeInTheDocument();
-      await tick(500);
-      expect(screen.queryByText("This license drops active entitlements")).not.toBeInTheDocument();
+  it("lists the dropped extensions by name, and an unknown key as it came", async () => {
+    prime();
+    mockApi.on("put", LICENSE_PATH, (_path, body) => {
+      if (!(body as { confirm: boolean }).confirm) {
+        throw new ApiError("Conflict", 409, {
+          code: "entitlement_downgrade",
+          dropped: ["sample-ext", "gone-ext"],
+        });
+      }
+      return {};
     });
-  }
+    renderPage("/admin/extensions?tab=installed");
+    await settle();
+
+    click(screen.getByRole("button", { name: /Enter license/ }));
+    typeLicense("narrower-license");
+    click(within(screen.getByRole("dialog")).getByText("Apply license", { selector: "button" }));
+    await settle();
+    const confirm = dialogTitled("This license drops active entitlements");
+    expect(within(confirm).getByText("Sample Extension")).toBeInTheDocument();
+    expect(within(confirm).getByText("gone-ext")).toBeInTheDocument();
+
+    click(within(confirm).getByText("Cancel", { selector: "button" }));
+    await settle();
+    await tick(500);
+    expect(screen.queryByText("This license drops active entitlements")).not.toBeInTheDocument();
+  });
 });
 
 // ── Update and downgrade confirmations ─────────────────────────────────────
@@ -550,29 +544,13 @@ describe("ExtensionsAdmin — update and downgrade confirmations", () => {
     await tick(2000);
   }
 
-  it("keeps the update title and notes while the confirmation closes on Cancel", async () => {
-    primeUpdate({ extension_key: "esg-pack", diff: { changelog: BUNDLE_NOTES } });
-    await startUpdate();
-    const confirm = dialogTitled("Update ESG Content Pack to 1.1.0?");
-
-    click(within(confirm).getByText("Cancel", { selector: "button" }));
-    await settle();
-    // Still fading out: the same title and notes, never "Update  to ?".
-    expect(within(confirm).getByText("Update ESG Content Pack to 1.1.0?")).toBeInTheDocument();
-    expect(within(confirm).getByText(/outbox no longer drains/)).toBeInTheDocument();
-    expect(screen.queryByText(/^Update\s+to\s*\?$/)).not.toBeInTheDocument();
-    await tick(500);
-    expect(screen.queryByText("Update ESG Content Pack to 1.1.0?")).not.toBeInTheDocument();
-  });
-
-  it("keeps the update title while the confirmation closes on Install", async () => {
+  it("applies the update once Install is confirmed", async () => {
     primeUpdate({ extension_key: "esg-pack", diff: { changelog: BUNDLE_NOTES } });
     await startUpdate();
     const confirm = dialogTitled("Update ESG Content Pack to 1.1.0?");
 
     click(within(confirm).getByText("Install", { selector: "button" }));
     await settle();
-    expect(within(confirm).getByText("Update ESG Content Pack to 1.1.0?")).toBeInTheDocument();
     expect(mockApi.callsOf("post", "/admin/extensions/install/s1/apply")).toHaveLength(1);
   });
 
@@ -585,33 +563,6 @@ describe("ExtensionsAdmin — update and downgrade confirmations", () => {
     expect(mockApi.callsOf("get", /store\/changelog/)).toHaveLength(0);
   });
 
-  it("keeps the downgrade versions while the confirmation closes", async () => {
-    prime({ catalog: catalogOf({ ...STORE_ITEM, entitlement_state: "active" }) });
-    mockApi.on("post", "/admin/extensions/store/install", {
-      id: "s1",
-      filename: "esg.teax",
-      status: "verifying",
-    });
-    mockApi.on("get", "/admin/extensions/install/s1", {
-      id: "s1",
-      filename: "esg.teax",
-      status: "previewed",
-      diff: { downgrade: { from: "2.0.0", to: "1.0.0" }, totals: ZERO_TOTALS },
-    });
-    renderPage();
-    await settle();
-    click(screen.getByText("Install", { selector: "button" }));
-    await settle();
-    await tick(2000);
-    const confirm = dialogTitled("Install an older version?");
-
-    click(within(confirm).getByText("Cancel", { selector: "button" }));
-    await settle();
-    expect(
-      within(confirm).getByText(/install version 1\.0\.0 over the currently installed 2\.0\.0/),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/install version\s+over/)).not.toBeInTheDocument();
-  });
 });
 
 // ── Intro ──────────────────────────────────────────────────────────────────

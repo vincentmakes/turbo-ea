@@ -31,7 +31,8 @@ import { useTranslation } from "react-i18next";
 import { usePageSection } from "@/hooks/usePageTitle";
 import { useSearchParams } from "react-router";
 
-import { api, ApiError } from "@/api/client";
+import { api, ApiError, isAbortError } from "@/api/client";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { invalidateExtensionCapabilities } from "@/hooks/useExtensionCapabilities";
@@ -246,13 +247,6 @@ export default function ExtensionsAdmin() {
     from: string;
     to: string;
   } | null>(null);
-  // What the two confirmations render: the last value they were opened with,
-  // so the text stays put while the dialog fades out after being cleared.
-  const [shownUpdate, setShownUpdate] = useState(updateConfirm);
-  if (updateConfirm && updateConfirm !== shownUpdate) setShownUpdate(updateConfirm);
-  const [shownDowngrade, setShownDowngrade] = useState(downgradeConfirm);
-  if (downgradeConfirm && downgradeConfirm !== shownDowngrade)
-    setShownDowngrade(downgradeConfirm);
   const [instanceId, setInstanceId] = useState("");
   const [instanceCopied, setInstanceCopied] = useState(false);
   const [storeBusyKey, setStoreBusyKey] = useState<string | null>(null);
@@ -288,10 +282,6 @@ export default function ExtensionsAdmin() {
     text: string;
     dropped: string[];
   } | null>(null);
-  // What the confirmation lists: the last value it was opened with, so the
-  // dropped extensions stay put while the dialog fades out after being cleared.
-  const [shownLicenseDowngrade, setShownLicenseDowngrade] = useState(downgrade);
-  if (downgrade && downgrade !== shownLicenseDowngrade) setShownLicenseDowngrade(downgrade);
 
   // Purchase claim polling (Buy → Stripe tab → poll until license lands).
   const [claiming, setClaiming] = useState<{
@@ -307,9 +297,10 @@ export default function ExtensionsAdmin() {
   const [installError, setInstallError] = useState<string | null>(null);
   const bundleFileRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Bumped by every clearPoll: a status reply still in flight when its poll
-  // was cleared (Discard, Close, a newer run) belongs to nobody and is dropped.
-  const pollGenRef = useRef(0);
+  // Each status read runs as the newest request: a reply still in flight when
+  // its poll was cleared (Discard, Close, a newer run) belongs to nobody and is
+  // aborted and dropped.
+  const pollRequest = useLatestRequest();
 
   // Continue an install automatically once its license arrives.
   const pendingInstallRef = useRef<string | null>(null);
@@ -333,12 +324,12 @@ export default function ExtensionsAdmin() {
   const [applyGate, setApplyGate] = useState(false);
 
   const clearPoll = useCallback(() => {
-    pollGenRef.current += 1;
+    pollRequest.cancel();
     if (pollRef.current) {
       clearTimeout(pollRef.current);
       pollRef.current = null;
     }
-  }, []);
+  }, [pollRequest]);
 
   const clearClaimPoll = useCallback(() => {
     if (claimPollRef.current) {
@@ -486,55 +477,56 @@ export default function ExtensionsAdmin() {
   const poll = useCallback(
     (id: string) => {
       clearPoll();
-      const gen = pollGenRef.current;
-      pollRef.current = setTimeout(async () => {
-        try {
-          const next = await api.get<ExtensionInstall>(
-            `/admin/extensions/install/${id}`,
-          );
-          if (gen !== pollGenRef.current) return;
-          setInstall(next);
-          if (!TERMINAL.has(next.status)) {
-            poll(id);
-            return;
-          }
-          if (next.status === "installed") {
-            autoApplyRef.current = false;
-            // Content packs can add card types — refresh the metamodel cache.
-            void invalidateMetamodel();
-            // A newly installed extension may grant metamodel authoring
-            // capabilities — drop the capability cache so they appear without
-            // a full page reload.
-            invalidateExtensionCapabilities();
-            void loadAll();
-          } else if (next.status === "previewed" && autoApplyRef.current) {
-            // One-click store install: apply automatically unless the
-            // dry-run flagged failures (then fall back to manual review) or
-            // this would be a version DOWNGRADE (then confirm explicitly).
-            if (next.diff?.downgrade) {
-              autoApplyRef.current = false;
-              setDowngradeConfirm({ id: next.id, ...next.diff.downgrade });
-            } else if (next.diff?.totals?.failed) {
-              autoApplyRef.current = false;
-            } else if (next.diff?.changelog?.from_version) {
-              // An UPDATE, not a first install: stop and show what changes.
-              // `from_version` comes from the backend, so this is the same
-              // answer for a store update and a manual upload.
-              autoApplyRef.current = false;
-              void openUpdateConfirm(next);
-            } else {
-              void applyInstall(next.id);
+      pollRef.current = setTimeout(() => {
+        void pollRequest.run(async ({ signal, isCurrent }) => {
+          try {
+            const next = await api.get<ExtensionInstall>(`/admin/extensions/install/${id}`, {
+              signal,
+            });
+            if (!isCurrent()) return;
+            setInstall(next);
+            if (!TERMINAL.has(next.status)) {
+              poll(id);
+              return;
             }
-          } else if (next.status === "failed") {
-            autoApplyRef.current = false;
+            if (next.status === "installed") {
+              autoApplyRef.current = false;
+              // Content packs can add card types — refresh the metamodel cache.
+              void invalidateMetamodel();
+              // A newly installed extension may grant metamodel authoring
+              // capabilities — drop the capability cache so they appear without
+              // a full page reload.
+              invalidateExtensionCapabilities();
+              void loadAll();
+            } else if (next.status === "previewed" && autoApplyRef.current) {
+              // One-click store install: apply automatically unless the
+              // dry-run flagged failures (then fall back to manual review) or
+              // this would be a version DOWNGRADE (then confirm explicitly).
+              if (next.diff?.downgrade) {
+                autoApplyRef.current = false;
+                setDowngradeConfirm({ id: next.id, ...next.diff.downgrade });
+              } else if (next.diff?.totals?.failed) {
+                autoApplyRef.current = false;
+              } else if (next.diff?.changelog?.from_version) {
+                // An UPDATE, not a first install: stop and show what changes.
+                // `from_version` comes from the backend, so this is the same
+                // answer for a store update and a manual upload.
+                autoApplyRef.current = false;
+                void openUpdateConfirm(next);
+              } else {
+                void applyInstall(next.id);
+              }
+            } else if (next.status === "failed") {
+              autoApplyRef.current = false;
+            }
+          } catch (e) {
+            if (!isCurrent() || isAbortError(e)) return;
+            setInstallError(e instanceof Error ? e.message : String(e));
           }
-        } catch (e) {
-          if (gen !== pollGenRef.current) return;
-          setInstallError(e instanceof Error ? e.message : String(e));
-        }
+        });
       }, POLL_MS);
     },
-    [clearPoll, loadAll, applyInstall, openUpdateConfirm],
+    [clearPoll, pollRequest, loadAll, applyInstall, openUpdateConfirm],
   );
 
   const startStoreInstall = useCallback(
@@ -1868,7 +1860,7 @@ export default function ExtensionsAdmin() {
             )}
           </DialogContentText>
           <Stack spacing={0.5} sx={{ mb: 1.5 }}>
-            {(shownLicenseDowngrade?.dropped ?? []).map((key) => (
+            {(downgrade?.dropped ?? []).map((key) => (
               <Stack key={key} direction="row" spacing={1} alignItems="center">
                 <MaterialSymbol icon="extension_off" size={18} />
                 <Typography variant="body2">
@@ -2000,20 +1992,20 @@ export default function ExtensionsAdmin() {
             "extensions.updateConfirm.title",
             "Update {{name}} to {{version}}?",
             {
-              name: shownUpdate?.name ?? "",
-              version: shownUpdate?.notes.version ?? "",
+              name: updateConfirm?.name ?? "",
+              version: updateConfirm?.notes.version ?? "",
             },
           )}
         </DialogTitle>
         <DialogContent dividers>
           {updateNotesBusy && <LinearProgress sx={{ mb: 2 }} />}
-          {shownUpdate && (
+          {updateConfirm && (
             <ExtensionChangelog
-              notes={shownUpdate.notes.notes}
-              version={shownUpdate.notes.version}
-              fromVersion={shownUpdate.notes.from_version}
-              name={shownUpdate.name}
-              changelogUrl={shownUpdate.notes.changelog_url}
+              notes={updateConfirm.notes.notes}
+              version={updateConfirm.notes.version}
+              fromVersion={updateConfirm.notes.from_version}
+              name={updateConfirm.name}
+              changelogUrl={updateConfirm.notes.changelog_url}
             />
           )}
         </DialogContent>
@@ -2048,8 +2040,8 @@ export default function ExtensionsAdmin() {
               "extensions.downgrade.body",
               "This will install version {{to}} over the currently installed {{from}} — a downgrade. Extension data is never deleted, but the older version may not understand data written by the newer one.",
               {
-                from: shownDowngrade?.from ?? "",
-                to: shownDowngrade?.to ?? "",
+                from: downgradeConfirm?.from ?? "",
+                to: downgradeConfirm?.to ?? "",
               },
             )}
           </DialogContentText>

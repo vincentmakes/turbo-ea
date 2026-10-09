@@ -33,7 +33,9 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import TagPicker from "@/components/TagPicker";
 import { useExtensionFieldTypes } from "@/lib/extensionHost";
-import { api } from "@/api/client";
+import { api, isAbortError } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
+import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import {
@@ -69,7 +71,7 @@ import type {
 } from "@/types";
 
 export default function SurveyBuilder() {
-  const { t } = useTranslation(["admin", "common"]);
+  const { t, i18n } = useTranslation(["admin", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { types, relationTypes, loading: metamodelLoading } = useMetamodel();
@@ -164,23 +166,21 @@ export default function SurveyBuilder() {
     currentIdRef.current = id;
   }, [id]);
 
-  // The current language's `t`, for the load below: a dependency there would
-  // re-fetch the survey on a language switch and overwrite unsaved edits.
-  const tRef = useRef(t);
-  useEffect(() => {
-    tRef.current = t;
-  }, [t]);
-
-  // Load existing survey if editing
-  useEffect(() => {
-    if (!id) return;
-    // A route change in place opens another survey: the previous one's chips
-    // must not stay on screen next to (or instead of) this one's.
-    setCardItems([]);
-    setRelatedItems([]);
-    const load = async () => {
+  // Load existing survey if editing. Keyed on the route id through the
+  // request hook, so a reply for the survey the route has since left cannot
+  // land on this one, and a language switch does not re-fetch the draft over
+  // unsaved edits (`i18n.t` reads the language in use at the time, so the
+  // fallback wording needs no dependency).
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!id) return;
+      // A route change in place opens another survey: the previous one's chips
+      // must not stay on screen next to (or instead of) this one's.
+      setCardItems([]);
+      setRelatedItems([]);
       try {
-        const s = await api.get<Survey>(`/surveys/${id}`);
+        const s = await api.get<Survey>(`/surveys/${id}`, { signal });
+        if (!isCurrent()) return;
         setName(s.name);
         setDescription(s.description);
         setMessage(s.message);
@@ -203,13 +203,14 @@ export default function SurveyBuilder() {
         setSelectedFields(s.fields || []);
         setSurveyId(s.id);
       } catch (e) {
-        setError(e instanceof Error ? e.message : tRef.current("common:errors.generic"));
+        if (!isCurrent() || isAbortError(e)) return;
+        setError(e instanceof Error ? e.message : i18n.t("common:errors.generic"));
       } finally {
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
       }
-    };
-    load();
-  }, [id]);
+    },
+    [id],
+  );
 
   useEffect(() => {
     api.get<TagGroup[]>("/tag-groups").then(setTagGroups).catch(() => {});
@@ -646,11 +647,10 @@ export default function SurveyBuilder() {
 
   // Next is waiting on its auto-save. A second click meanwhile is ignored:
   // it would save again and advance twice — past the Fields step's validation.
-  const advancingRef = useRef(false);
-  const [advancing, setAdvancing] = useState(false);
+  const { busy: advancing, isBusy: isAdvancing, run: advance } = useSubmitOnce();
 
   const handleNext = async () => {
-    if (advancingRef.current) return;
+    if (isAdvancing()) return;
     if (activeStep === 0 && !name.trim()) {
       setError(t("surveyBuilder.validation.nameRequired"));
       return;
@@ -683,23 +683,18 @@ export default function SurveyBuilder() {
       return;
     }
 
-    advancingRef.current = true;
-    setAdvancing(true);
-    try {
+    await advance(async () => {
       // Auto-save on step changes
       if (targetTypeKey && name.trim()) {
         await saveDraft();
       }
       setActiveStep((prev) => prev + 1);
-    } finally {
-      advancingRef.current = false;
-      setAdvancing(false);
-    }
+    });
   };
 
   const handleBack = () => {
     // Next's save would move the step forward again when it lands.
-    if (advancingRef.current) return;
+    if (isAdvancing()) return;
     setError("");
     setActiveStep((prev) => Math.max(prev - 1, 0));
   };
@@ -819,7 +814,7 @@ export default function SurveyBuilder() {
             {targetTypeKey && !targetTypeOffered && (
               <MenuItem value={targetTypeKey} disabled>
                 {metamodelLoading
-                  ? targetTypeKey
+                  ? t("common:labels.loading")
                   : t("surveyBuilder.target.typeUnavailable", {
                       type: selectedType ? typeLabel(selectedType) : targetTypeKey,
                     })}

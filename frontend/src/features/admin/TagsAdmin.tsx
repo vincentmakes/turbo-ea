@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -24,6 +24,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
+import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import type { CardType, Tag, TagGroup } from "@/types";
 import { readableTextColor } from "@/lib/color";
 
@@ -72,24 +73,18 @@ export default function TagsAdmin() {
   const messageOf = (e: unknown) => (e instanceof Error ? e.message : t("common:errors.generic"));
   // The open dialog's request is in flight: its submit button is disabled,
   // and a second click that lands before that re-render is ignored.
-  const busyRef = useRef(false);
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useSubmitOnce();
   /** Send one dialog's request; false when it failed (error shown) or another is in flight. */
-  const submit = async (request: () => Promise<unknown>): Promise<boolean> => {
-    if (busyRef.current) return false;
-    busyRef.current = true;
-    setBusy(true);
-    try {
-      await request();
-      return true;
-    } catch (e) {
-      setError(messageOf(e));
-      return false;
-    } finally {
-      busyRef.current = false;
-      setBusy(false);
-    }
-  };
+  const submit = async (request: () => Promise<unknown>): Promise<boolean> =>
+    (await run(async () => {
+      try {
+        await request();
+        return true;
+      } catch (e) {
+        setError(messageOf(e));
+        return false;
+      }
+    })) ?? false;
 
   const load = () =>
     api.get<TagGroup[]>("/tag-groups").then(

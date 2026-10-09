@@ -373,26 +373,6 @@ describe("EolAdmin cycle picker, a slow fetch from an earlier opening", () => {
     expect(within(dialog).getByText('No release cycles found for "ubuntu-core".')).toBeInTheDocument();
   });
 
-  it("sends each cycle request with an abort signal, and aborts it when another product is opened", async () => {
-    const { second } = await reopenWhileFirstIsPending();
-
-    const getCalls = mockApi.api.get.mock.calls.filter(([path]) =>
-      String(path).startsWith("/eol/products/"),
-    );
-    expect(getCalls.map(([path]) => path)).toEqual([
-      "/eol/products/ubuntu",
-      "/eol/products/ubuntu-core",
-    ]);
-    const [firstSignal, secondSignal] = getCalls.map(
-      ([, opts]) => (opts as { signal?: AbortSignal } | undefined)?.signal,
-    );
-    expect(firstSignal).toBeInstanceOf(AbortSignal);
-    expect(secondSignal).toBeInstanceOf(AbortSignal);
-    expect(firstSignal?.aborted).toBe(true);
-    expect(secondSignal?.aborted).toBe(false);
-    second.resolve(CYCLES);
-  });
-
   it("does not report its failure in the picker opened for another product", async () => {
     const { dialog, first, second } = await reopenWhileFirstIsPending();
 

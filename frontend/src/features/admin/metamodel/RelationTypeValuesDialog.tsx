@@ -19,6 +19,7 @@ import KeyInput, { isValidKey } from "@/components/KeyInput";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { LOCALE_LABELS } from "@/i18n";
 import { api, ApiError } from "@/api/client";
+import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import type { FieldDef, FieldOption, RelationType, TranslationMap } from "@/types";
 import { DEFAULT_OPTION_COLOR } from "./constants";
 import { cleanTranslationMap } from "./helpers";
@@ -48,13 +49,20 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
 
   const [schema, setSchema] = useState<FieldDef[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  // A second click that lands before `saving` re-renders the button disabled
-  // would send a second PATCH; the ref is checked at once.
-  const savingRef = useRef(false);
+  // One PATCH at a time: a second click that lands before `saving` re-renders
+  // the button disabled is ignored too.
+  const { busy: saving, run: submit } = useSubmitOnce();
 
+  // The language in use when the dialog opens, read through a ref: a
+  // dependency on it would reset the dialog — and throw away the edits made
+  // in it — on a language switch while it is open.
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
+
+  // Reset on open.
   useEffect(() => {
     if (open && relationType) {
+      const locale = localeRef.current;
       // Deep clone so edits don't mutate the cached metamodel. Mark every
       // existing dimension/option as original so its key stays locked — a row's
       // original-ness travels with the row, so a new row never locks just
@@ -78,7 +86,7 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
       setSchema(cloned);
       setError(null);
     }
-  }, [open, relationType, locale]);
+  }, [open, relationType]);
 
   // Only single_select dimensions are user-managed (relation "type" pickers).
   const isManaged = (f: FieldDef) => f.type === "single_select";
@@ -150,42 +158,38 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
     );
   };
 
-  const handleSave = async () => {
-    if (!relationType || savingRef.current) return;
-    savingRef.current = true;
-    setSaving(true);
-    setError(null);
-    // Clean translations before persisting.
-    const cleaned = schema.map(({ _original, ...f }) => ({
-      ...f,
-      translations: cleanTranslationMap(f.translations),
-      options: (f.options ?? []).map(({ _original: _o, ...o }) => ({
-        ...o,
-        // Persist the picker's displayed default so an untouched swatch still
-        // saves a color and its badge renders (issue #718).
-        color: o.color || DEFAULT_OPTION_COLOR,
-        translations: cleanTranslationMap(o.translations),
-      })),
-    }));
-    try {
-      await api.patch(`/metamodel/relation-types/${relationType.key}`, {
-        attributes_schema: cleaned,
-      });
-      onSaved();
-      onClose();
-    } catch (e) {
-      const msg =
-        e instanceof ApiError && typeof e.detail === "string"
-          ? e.detail
-          : e instanceof Error
-            ? e.message
-            : t("metamodel.relationValuesSaveFailed");
-      setError(msg);
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
-  };
+  const handleSave = () =>
+    submit(async () => {
+      if (!relationType) return;
+      setError(null);
+      // Clean translations before persisting.
+      const cleaned = schema.map(({ _original, ...f }) => ({
+        ...f,
+        translations: cleanTranslationMap(f.translations),
+        options: (f.options ?? []).map(({ _original: _o, ...o }) => ({
+          ...o,
+          // Persist the picker's displayed default so an untouched swatch still
+          // saves a color and its badge renders (issue #718).
+          color: o.color || DEFAULT_OPTION_COLOR,
+          translations: cleanTranslationMap(o.translations),
+        })),
+      }));
+      try {
+        await api.patch(`/metamodel/relation-types/${relationType.key}`, {
+          attributes_schema: cleaned,
+        });
+        onSaved();
+        onClose();
+      } catch (e) {
+        const msg =
+          e instanceof ApiError && typeof e.detail === "string"
+            ? e.detail
+            : e instanceof Error
+              ? e.message
+              : t("metamodel.relationValuesSaveFailed");
+        setError(msg);
+      }
+    });
 
   // A custom row is labelled by its `label`: the canonical fallback every
   // locale without a translation shows. A translation alone leaves the row
