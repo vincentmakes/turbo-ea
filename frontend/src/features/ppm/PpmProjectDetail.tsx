@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
 import Tabs from "@mui/material/Tabs";
@@ -109,7 +109,16 @@ export default function PpmProjectDetail() {
   // the tabs after a change, so the imperative primitive rather than an effect.
   const dataRequest = useLatestRequest();
 
+  // A tab hands `loadData` to its own async work (a delete, a save), which can
+  // answer after the user has switched initiative: the refresh must load the
+  // initiative on screen then, never the one the tab was rendered for.
+  const idRef = useRef(id);
+  useEffect(() => {
+    idRef.current = id;
+  }, [id]);
+
   const loadData = useCallback(async () => {
+    const id = idRef.current;
     if (!id) return;
     await dataRequest.run(async ({ signal, isCurrent }) => {
       setError("");
@@ -148,11 +157,11 @@ export default function PpmProjectDetail() {
         if (isCurrent()) setLoading(false);
       }
     });
-  }, [id, t, dataRequest]);
+  }, [t, dataRequest]);
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [id, loadData]);
 
   // When PPM has budget/cost lines, mark card cost fields as auto-computed
   const ppmAutoFieldKeys = useMemo(() => {

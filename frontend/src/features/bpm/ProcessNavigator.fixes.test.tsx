@@ -527,6 +527,33 @@ describe("ProcessNavigator answers for a process or source it has left", () => {
     expect(d.getByTestId("fresh-thumb")).toBeInTheDocument();
   });
 
+  it("reloads the drawer's steps from a new source and ignores the failure of the load it replaced", async () => {
+    const stale = settleable<ProcessFlowPayload>();
+    const m = meta();
+    const ui = (source: ProcessNavigatorSource) => (
+      <MemoryRouter initialEntries={["/portal/p"]}>
+        <ProcessNavigatorProvider value={{ source, capabilities: FULL_CAPABILITIES, meta: m }}>
+          <ProcessNavigatorBody />
+        </ProcessNavigatorProvider>
+      </MemoryRouter>
+    );
+    const user = userEvent.setup();
+    const { rerender } = render(ui(bodySource({ loadFlow: () => stale.promise })));
+    await user.click(await screen.findByText("Procure to Pay"));
+    const d = await drawer();
+    await user.click(d.getByRole("tab", { name: /Steps/ }));
+    expect(d.getByRole("progressbar")).toBeInTheDocument();
+
+    rerender(ui(bodySource({ loadFlow: async () => EMPTY_FLOW })));
+    expect(await d.findByText(/No BPMN elements found/)).toBeInTheDocument();
+
+    await act(async () => {
+      stale.reject(new Error("stale source down"));
+    });
+    expect(d.queryByText("stale source down")).toBeNull();
+    expect(d.getByText(/No BPMN elements found/)).toBeInTheDocument();
+  });
+
   it("keeps the preview's new process when the one it left fails late", async () => {
     const flows = { a: settleable<ProcessFlowPayload>(), b: settleable<ProcessFlowPayload>() };
     renderBody(

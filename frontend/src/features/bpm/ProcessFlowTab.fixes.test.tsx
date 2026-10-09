@@ -321,6 +321,8 @@ describe("ProcessFlowTab failed element loads", () => {
     renderTab();
     const alert = (await screen.findByText(`GET ${BASE}/elements failed`)).closest(".MuiAlert-root");
     expect(alert).toHaveClass("MuiAlert-standardError");
+    // Spaced off the flow above it, like the table it stands in for.
+    expect(alert).toHaveStyle({ marginTop: "16px" });
     // The flow itself still shows; only the table is replaced by the error.
     expect(screen.getByTestId("bpmn-viewer")).toHaveTextContent("BPMN:<xml>bpmn</xml>");
     expect(screen.queryByText("Process Steps & Elements")).toBeNull();
@@ -342,6 +344,8 @@ describe("ProcessFlowTab failed element loads", () => {
       await screen.findByText(`GET ${BASE}/flow/versions/d1/draft-elements failed`)
     ).closest(".MuiAlert-root");
     expect(alert).toHaveClass("MuiAlert-standardError");
+    // Spaced off the draft's preview above it.
+    expect(alert).toHaveStyle({ marginTop: "16px" });
     expect(screen.queryByText("No named elements found in this draft.")).toBeNull();
 
     // Collapse and expand again: the failed load is asked for once more.
@@ -352,6 +356,18 @@ describe("ProcessFlowTab failed element loads", () => {
     expect(screen.getByText("Create Order")).toBeInTheDocument();
     expect(screen.queryByText(`GET ${BASE}/flow/versions/d1/draft-elements failed`)).toBeNull();
     expect(mockApi.callsOf("get", `${BASE}/flow/versions/d1/draft-elements`)).toHaveLength(2);
+  });
+});
+
+describe("ProcessFlowTab draft elements failing without a message", () => {
+  it("says something went wrong when a draft's elements fail without a message", async () => {
+    mockApi.on("get", `${BASE}/flow/versions/d1`, DRAFTS[0]);
+    mockApi.on("get", `${BASE}/flow/versions/d1/draft-elements`, () => Promise.reject("offline"));
+    const user = renderTab({ initialSubTab: 1 });
+    await user.click(await screen.findByText("Revision 4"));
+    const alert = (await screen.findByText("Something went wrong")).closest(".MuiAlert-root");
+    expect(alert).toHaveClass("MuiAlert-standardError");
+    expect(screen.queryByText("No named elements found in this draft.")).toBeNull();
   });
 });
 

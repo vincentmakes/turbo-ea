@@ -116,6 +116,8 @@ describe("PpmReportsTab — deleting", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("DELETE /ppm/reports/rep2 failed");
     expect(alert).toHaveClass("MuiAlert-standardError");
+    // Spaced off the first report below it.
+    expect(alert).toHaveStyle({ marginBottom: "16px" });
     expect(alert.compareDocumentPosition(cardOf("2026-04-30"))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(onRefresh).not.toHaveBeenCalled();
     expect(rejections).toEqual([]);

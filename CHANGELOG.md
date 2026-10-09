@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Process navigator: the process drawer names the approval status and the lifecycle phases in the user's language and shows lifecycle dates in the workspace date format, a failed steps load is reported in the user's language, and the flow viewer picks up recoloured card types once the metamodel has loaded.
 - Public portals: a relation filter whose options fail to load is simply left out, instead of raising an unhandled error in the page.
 - PPM: the status reports' edit and delete buttons have names, and a failed report delete says why instead of failing silently.
-- PPM: switching initiatives no longer shows the previous initiative's name, status reports, costs and risks while the next one loads, and a late reply for the previous initiative can no longer replace the new one's.
+- PPM: switching initiatives no longer shows the previous initiative's name, status reports, costs and risks while the next one loads, and neither a late reply for the previous initiative nor a refresh it started (such as a report delete that answers after the switch) can replace the new one's.
 - PPM: switching initiatives closes an open budget or cost dialog, so its save can no longer land on the other initiative, and clears a failed delete's message.
 
 ## [2.157.4] - 2026-10-08
