@@ -44,6 +44,8 @@ const PpmCostCharts = lazy(() => import("./PpmCostCharts"));
 
 /** Stable stand-in until the budget lines have loaded. */
 const NO_BUDGET_LINES: PpmBudgetLine[] = [];
+// Stryker disable next-line ObjectLiteral: spacing is presentation
+const LOADING_CELL_SX = { py: 2 } as const;
 
 interface Props {
   initiativeId: string;
@@ -383,8 +385,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
             ))}
             {!budgetKnown && budgetLoading && (
               <TableRow>
-                {/* Stryker disable next-line ObjectLiteral: spacing is presentation */}
-                <TableCell colSpan={4} sx={{ py: 2 }}>
+                <TableCell colSpan={4} sx={LOADING_CELL_SX}>
                   <LinearProgress />
                 </TableCell>
               </TableRow>
