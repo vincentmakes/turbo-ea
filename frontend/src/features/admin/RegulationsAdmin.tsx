@@ -157,10 +157,16 @@ export default function RegulationsAdmin() {
   };
 
   const handleToggleEnabled = async (r: ComplianceRegulation) => {
-    await api.patch(`/metamodel/compliance-regulations/${r.id}`, {
-      is_enabled: !r.is_enabled,
-    });
-    fetchItems();
+    try {
+      await api.patch(`/metamodel/compliance-regulations/${r.id}`, {
+        is_enabled: !r.is_enabled,
+      });
+      fetchItems();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : t("metamodel.regulations.saveError"),
+      );
+    }
   };
 
   return (

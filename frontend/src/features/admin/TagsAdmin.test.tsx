@@ -173,7 +173,7 @@ describe("TagsAdmin groups", () => {
     );
     expect(mockApi.callsOf("patch", `/tag-groups/${HOSTING_GROUP.id}`)[0].body).toEqual({
       name: "Hosting",
-      description: "",
+      description: null,
       mode: "single",
       mandatory: true,
       restrict_to_types: null,

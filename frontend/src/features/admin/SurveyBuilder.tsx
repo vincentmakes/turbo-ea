@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, useMemo, useCallback } from "react";
+import { Fragment, useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
@@ -33,7 +33,9 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import TagPicker from "@/components/TagPicker";
 import { useExtensionFieldTypes } from "@/lib/extensionHost";
-import { api } from "@/api/client";
+import { api, isAbortError } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
+import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import {
@@ -69,10 +71,10 @@ import type {
 } from "@/types";
 
 export default function SurveyBuilder() {
-  const { t } = useTranslation(["admin", "common"]);
+  const { t, i18n } = useTranslation(["admin", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { types, relationTypes } = useMetamodel();
+  const { types, relationTypes, loading: metamodelLoading } = useMetamodel();
   const extFieldTypes = useExtensionFieldTypes();
   const typeLabel = useTypeLabel();
   const { formatDate } = useDateFormat();
@@ -157,12 +159,29 @@ export default function SurveyBuilder() {
   const [preview, setPreview] = useState<SurveyPreviewResult | null>(null);
   const [previewing, setPreviewing] = useState(false);
 
-  // Load existing survey if editing
+  // The survey the route currently names, for replies that land after it
+  // changed in place.
+  const currentIdRef = useRef(id);
   useEffect(() => {
-    if (!id) return;
-    const load = async () => {
+    currentIdRef.current = id;
+  }, [id]);
+
+  // Load existing survey if editing. Keyed on the route id through the
+  // request hook, so a reply for the survey the route has since left cannot
+  // land on this one, and a language switch does not re-fetch the draft over
+  // unsaved edits (`i18n.t` reads the language in use at the time, so the
+  // fallback wording needs no dependency).
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!id) return;
+      // A route change in place opens another survey: the previous one's chips
+      // must not stay on screen next to (or instead of) this one's.
+      setCardItems([]);
+      setRelatedItems([]);
       try {
-        const s = await api.get<Survey>(`/surveys/${id}`);
+        // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
+        const s = await api.get<Survey>(`/surveys/${id}`, { signal });
+        if (!isCurrent()) return;
         setName(s.name);
         setDescription(s.description);
         setMessage(s.message);
@@ -185,13 +204,14 @@ export default function SurveyBuilder() {
         setSelectedFields(s.fields || []);
         setSurveyId(s.id);
       } catch (e) {
-        setError(e instanceof Error ? e.message : t("common:errors.generic"));
+        if (!isCurrent() || isAbortError(e)) return;
+        setError(e instanceof Error ? e.message : i18n.t("common:errors.generic"));
       } finally {
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
       }
-    };
-    load();
-  }, [id]);
+    },
+    [id],
+  );
 
   useEffect(() => {
     api.get<TagGroup[]>("/tag-groups").then(setTagGroups).catch(() => {});
@@ -217,11 +237,15 @@ export default function SurveyBuilder() {
       [cardIds, cardItems, setCardItems],
       [relatedIds, relatedItems, setRelatedItems],
     ];
+    // A reply for a survey the route has since moved away from is dropped:
+    // landing late, it would put that survey's chips back on this one.
+    const forSurvey = id;
     for (const [ids, held, setHeld] of wanted) {
       const missing = ids.filter((id) => !held.some((c) => c.id === id));
       if (missing.length === 0) continue;
       Promise.all(missing.map((id) => api.get<Card>(`/cards/${id}`).catch(() => null))).then(
         (cards) => {
+          if (currentIdRef.current !== forSurvey) return;
           const fetched = cards.filter((c): c is Card => !!c);
           if (fetched.length === 0) return;
           setHeld((prev) => {
@@ -244,6 +268,9 @@ export default function SurveyBuilder() {
     () => types.find((ct) => ct.key === targetTypeKey),
     [types, targetTypeKey],
   );
+  // Whether the Type select offers the target type: a draft's type may have
+  // been removed or hidden since it was saved.
+  const targetTypeOffered = !!selectedType && !selectedType.is_hidden;
 
   const allFields = useMemo(() => {
     if (!selectedType) return [];
@@ -402,12 +429,24 @@ export default function SurveyBuilder() {
     );
   }, [relationTypes, targetTypeKey, relatedItems]);
 
-  // A narrowed relation type is meaningless once it no longer applies.
+  // A narrowed relation type is meaningless once it no longer applies — but
+  // that can only be judged once the related cards are known. A reopened
+  // draft hydrates them after it loads, and judging before that would drop
+  // its stored narrowing.
+  const relatedKnown = relatedIds.every((rid) => relatedItems.some((c) => c.id === rid));
   useEffect(() => {
+    if (!relatedKnown) return;
     if (relationTypeKey && !relatedRelationTypes.some((rt) => rt.key === relationTypeKey)) {
       setRelationTypeKey("");
     }
-  }, [relatedRelationTypes, relationTypeKey]);
+  }, [relatedRelationTypes, relationTypeKey, relatedKnown]);
+
+  // The create of a draft that has no id yet. One at a time: a double click,
+  // or Save Draft followed by Next (or the preview) before the reply, would
+  // otherwise each find no id and POST a survey of its own. Kept once it has
+  // succeeded, so a save whose `surveyId` was captured before the new id
+  // rendered still finds the survey it made.
+  const creatingRef = useRef<Promise<string> | null>(null);
 
   // Save draft
   const saveDraft = useCallback(async () => {
@@ -428,28 +467,49 @@ export default function SurveyBuilder() {
         await api.patch(`/surveys/${surveyId}`, body);
         return surveyId;
       }
-      const created = await api.post<Survey>("/surveys", body);
-      setSurveyId(created.id);
-      window.history.replaceState(null, "", `/admin/surveys/${created.id}`);
+      if (creatingRef.current) {
+        // Another save is creating the draft: wait for that survey, then write
+        // this call's own snapshot to it rather than creating a second one.
+        const sid = await creatingRef.current;
+        await api.patch(`/surveys/${sid}`, body);
+        return sid;
+      }
+      const creating = api.post<Survey>("/surveys", body).then((created) => created.id);
+      creatingRef.current = creating;
+      let createdId: string;
+      try {
+        createdId = await creating;
+      } catch (e) {
+        // No draft was made, so the next save may try again.
+        creatingRef.current = null;
+        throw e;
+      }
+      setSurveyId(createdId);
+      // Stryker disable next-line StringLiteral: browsers ignore replaceState's title argument
+      window.history.replaceState(null, "", `/admin/surveys/${createdId}`);
       // Returned, not just stored: `setSurveyId` does not update the `surveyId`
       // a caller already captured, so a caller that awaited us and then read
       // that variable would still see "" and create a *second* survey.
-      return created.id;
+      return createdId;
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
       return null;
     } finally {
       setSaving(false);
     }
-  }, [name, description, message, targetTypeKey, targetRoles, buildTargetFilters, selectedFields, surveyId]);
+  }, [name, description, message, targetTypeKey, targetRoles, buildTargetFilters, selectedFields, surveyId, t]);
 
   // Preview targets. The preview reads the *persisted* survey, so the draft has
   // to be written first — `saveDraft` both creates-or-updates and hands back the
   // id to preview, which is what keeps this from minting a second draft.
   const loadPreview = useCallback(async () => {
-    const sid = await saveDraft();
-    if (!sid) return; // save failed; saveDraft has already surfaced the error
+    // Spinner first: the save below is part of the preview's wait.
     setPreviewing(true);
+    const sid = await saveDraft();
+    if (!sid) {
+      setPreviewing(false);
+      return; // save failed; saveDraft has already surfaced the error
+    }
     setError("");
     try {
       const data = await api.post<SurveyPreviewResult>(`/surveys/${sid}/preview`, {});
@@ -459,7 +519,7 @@ export default function SurveyBuilder() {
     } finally {
       setPreviewing(false);
     }
-  }, [saveDraft]);
+  }, [saveDraft, t]);
 
   // Send survey
   const handleSend = async () => {
@@ -587,12 +647,19 @@ export default function SurveyBuilder() {
     );
   };
 
+  // Next is waiting on its auto-save. A second click meanwhile is ignored:
+  // it would save again and advance twice — past the Fields step's validation.
+  const { busy: advancing, isBusy: isAdvancing, run: advance } = useSubmitOnce();
+
   const handleNext = async () => {
+    if (isAdvancing()) return;
     if (activeStep === 0 && !name.trim()) {
       setError(t("surveyBuilder.validation.nameRequired"));
       return;
     }
-    if (activeStep === 1 && !targetTypeKey) {
+    // Against the types the select offers: a draft's type may have been
+    // removed or hidden since, which the select only shows as unavailable.
+    if (activeStep === 1 && !targetTypeOffered) {
       setError(t("surveyBuilder.validation.typeRequired"));
       return;
     }
@@ -607,24 +674,29 @@ export default function SurveyBuilder() {
 
     setError("");
 
-    // Auto-save on step changes
-    if (targetTypeKey && name.trim()) {
-      await saveDraft();
-    }
-
-    if (activeStep === 3) {
-      // Load preview when entering the last step
-    }
-
-    setActiveStep((prev) => Math.min(prev + 1, STEPS.length - 1));
-
-    // Auto-load preview on step 4
+    // Entering step 4: the preview's own save (which creates the draft when
+    // there is no id yet) is this step's auto-save. Saving here as well wrote
+    // the draft twice — and, with no id yet, created two surveys, since the
+    // preview's `saveDraft` was captured before this one's id arrived.
     if (activeStep === 2) {
-      setTimeout(() => loadPreview(), 100);
+      setActiveStep((prev) => prev + 1);
+      // In the same render that shows the step.
+      void loadPreview();
+      return;
     }
+
+    await advance(async () => {
+      // Auto-save on step changes
+      if (targetTypeKey && name.trim()) {
+        await saveDraft();
+      }
+      setActiveStep((prev) => prev + 1);
+    });
   };
 
   const handleBack = () => {
+    // Next's save would move the step forward again when it lands.
+    if (isAdvancing()) return;
     setError("");
     setActiveStep((prev) => Math.max(prev - 1, 0));
   };
@@ -738,6 +810,18 @@ export default function SurveyBuilder() {
                   </Box>
                 </MenuItem>
               ))}
+            {/* A draft's stored type that is no longer offered stays listed,
+                disabled, so the select shows it instead of rendering blank
+                (with MUI's out-of-range warning). Next still refuses it. */}
+            {targetTypeKey && !targetTypeOffered && (
+              <MenuItem value={targetTypeKey} disabled>
+                {metamodelLoading
+                  ? t("common:labels.loading")
+                  : t("surveyBuilder.target.typeUnavailable", {
+                      type: selectedType ? typeLabel(selectedType) : targetTypeKey,
+                    })}
+              </MenuItem>
+            )}
           </TextField>
 
           <Divider sx={{ my: 2 }} />
@@ -791,8 +875,15 @@ export default function SurveyBuilder() {
               size="small"
               fullWidth
               label={t("surveyBuilder.target.viaRelation")}
-              value={relationTypeKey}
+              // The effect above clears a relation that no longer applies, but
+              // a render late: show «Any relation» meanwhile rather than hand
+              // the select a value it does not offer.
+              value={
+                relatedRelationTypes.some((rt) => rt.key === relationTypeKey) ? relationTypeKey : ""
+              }
               onChange={(e) => setRelationTypeKey(e.target.value)}
+              // "" is "Any relation": without displayEmpty MUI renders it blank.
+              slotProps={{ select: { displayEmpty: true } }}
               sx={{ mb: 3 }}
             >
               <MenuItem value="">{t("surveyBuilder.target.viaAnyRelation")}</MenuItem>
@@ -1448,7 +1539,7 @@ export default function SurveyBuilder() {
       {/* Navigation buttons */}
       <Box sx={{ display: "flex", justifyContent: "space-between", mt: 3 }}>
         <Button
-          disabled={activeStep === 0}
+          disabled={activeStep === 0 || advancing}
           onClick={handleBack}
           startIcon={<MaterialSymbol icon="arrow_back" size={18} />}
         >
@@ -1469,6 +1560,7 @@ export default function SurveyBuilder() {
             <Button
               variant="contained"
               onClick={handleNext}
+              disabled={advancing}
               endIcon={<MaterialSymbol icon="arrow_forward" size={18} />}
               sx={{ textTransform: "none" }}
             >

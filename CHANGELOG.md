@@ -23,6 +23,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - TurboLens Architect: the Create Initiative dialog names each new card's type by its label instead of its internal key.
 - TurboLens Architect: committing an assessment no longer fails when the AI proposed a card without an id, and a relation with an unset end is never attached to an existing card whose id came back empty.
 
+## [2.157.5] - 2026-10-09
+
+### Fixed
+- Admin pages (tags, regulations, resource types, EOL mass linking, extensions, Survey Builder): a failed save, toggle or load is shown instead of silently dropped.
+- Admin pages: clicking Save, Create or Next twice no longer sends the request twice, so Survey Builder can no longer create a second survey or skip a step.
+- Tags: group and tag names and descriptions are saved trimmed.
+- Extensions: the license dialog opens empty each time, a discarded install stays discarded, and a purchase confirmed past the apply gate applies the license it was blocked on.
+- Survey Builder: a reopened draft keeps its "Via relation" narrowing, and a draft whose card type was removed says so instead of showing a blank select.
+- EOL mass linking: the version picker never offers the previous product's cycles.
+- Relation-type values: a stored custom value without a label no longer crashes the dialog. A custom value that has a translation in the current language but no label takes that translation as its label when the dialog opens, so it can be saved; switching the interface language while the dialog is open keeps the edits made in it.
+- Survey Builder: Back is disabled while Next is saving, so a Back click can no longer be undone by the save landing a moment later.
+- Survey Builder: after switching the interface language, a failed save, preview or load reports its error in the new language rather than the previous one, and opening another survey from the one on screen never shows the first survey's fields when its reply lands late.
+- Relation-type values: clicking Save twice quickly sends the change once.
+
+### Changed
+- Extensions: the page intro now describes the in-product Store alongside the file-based install flow, in every language.
+
 ## [2.157.4] - 2026-10-08
 
 ### Security

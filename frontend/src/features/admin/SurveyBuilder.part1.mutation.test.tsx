@@ -491,7 +491,9 @@ describe("SurveyBuilder — preview", () => {
     await user.click(screen.getByText("Criticality"));
     await user.click(next());
 
-    expect(await screen.findByRole("progressbar")).toBeInTheDocument();
+    // From the step's first render, not after a beat with the button showing.
+    await screen.findByText("Preview & Send", { selector: "h6" });
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Load Preview" })).not.toBeInTheDocument();
     await act(async () => pending.resolve(PREVIEW));
     expect(await screen.findByText("CRM")).toBeInTheDocument();
@@ -504,9 +506,10 @@ describe("SurveyBuilder — preview", () => {
     await user.click(screen.getByText("Criticality"));
     await user.click(next());
 
-    // Two step saves and the preview's own save, all refused.
-    await waitFor(() => expect(mockApi.callsOf("post", "/surveys")).toHaveLength(3));
     expect(await screen.findByRole("button", { name: "Load Preview" })).toBeInTheDocument();
+    // The Target step's save and the preview's own save (the step into the
+    // preview saves only through it), both refused.
+    expect(mockApi.callsOf("post", "/surveys")).toHaveLength(2);
     expect(screen.getByText("POST /surveys failed")).toBeInTheDocument();
     expect(mockApi.callsOf("post", /preview/)).toHaveLength(0);
   });
@@ -683,6 +686,8 @@ describe("SurveyBuilder — opening a saved draft", () => {
 
     await user.click(screen.getByRole("button", { name: "go /admin/surveys/survey-8" }));
     expect(await screen.findByText("Second App")).toBeInTheDocument();
+    // The first survey's chip goes with it.
+    expect(screen.queryByText("Hydrated App")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Back$/ }));
     await waitFor(() => expect(screen.getByLabelText(/Survey Name/)).toHaveValue("Second"));
   });
