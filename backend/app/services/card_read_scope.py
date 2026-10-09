@@ -133,7 +133,7 @@ class CardReadScope:
             )
         return cls(
             role_key=role_key,
-            wildcard=False,  # pragma: no mutate, only read for truthiness, where None is False
+            wildcard=False,
             base_view=base_view,
             denied_types=frozenset(denied),
             allowed_types=frozenset(allowed),
@@ -425,26 +425,12 @@ async def is_card_readable(
         return False
     if mode == "inventory":
         return await PermissionService.check_permission(
-            db,
-            user,
-            VIEW_PERMISSION,
-            card_id,
-            "card.view",
-            card_type_key=type_key,  # pragma: no mutate, saves a lookup of the same type
+            db, user, VIEW_PERMISSION, card_id, "card.view", card_type_key=type_key
         )
-    if not await PermissionService.is_type_denied(
-        db,
-        user,
-        VIEW_PERMISSION,  # pragma: no mutate, only a View deny denies, whatever is asked
-        type_key,
-    ):
+    if not await PermissionService.is_type_denied(db, user, VIEW_PERMISSION, type_key):
         return True
     return await PermissionService.has_card_permission(
-        db,
-        user,
-        card_id,
-        "card.view",
-        type_key=type_key,  # pragma: no mutate, saves a lookup of the same type
+        db, user, card_id, "card.view", type_key=type_key
     )
 
 
@@ -464,11 +450,7 @@ async def require_card_readable(
     if type_key is None:
         type_key = await PermissionService._card_type_key(db, card_id)
     if type_key is None or not await is_card_readable(
-        db,
-        user,
-        card_id,
-        mode=mode,
-        type_key=type_key,  # pragma: no mutate, saves a lookup of the same type
+        db, user, card_id, mode=mode, type_key=type_key
     ):
         raise HTTPException(404, "Card not found")
     return type_key

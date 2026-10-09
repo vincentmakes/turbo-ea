@@ -440,3 +440,63 @@ class TestSingleCardGuards:
             await require_card_readable(db, user, carve["open"].id, mode="inventory")
         assert (exc.value.status_code, exc.value.detail) == (404, "Card not found")
         assert await require_card_readable(db, user, carve["open"].id, mode="module") == "Open"
+
+    async def test_a_loaded_scope_is_not_a_wildcard(self, db, carve):
+        user = await _reader(db, base_view=True)
+        assert (await CardReadScope.load(db, user)).wildcard is False
+
+
+@pytest.fixture
+def type_lookups(monkeypatch):
+    """Card ids whose type the permission layer looked up."""
+    looked_up: list[uuid.UUID] = []
+    real = PermissionService._card_type_key
+
+    async def counting(db, card_id):
+        looked_up.append(card_id)
+        return await real(db, card_id)
+
+    monkeypatch.setattr(PermissionService, "_card_type_key", staticmethod(counting))
+    return looked_up
+
+
+class TestOneTypeLookupPerCard:
+    """The single-card guards hand the type they resolved down, so a card's
+    type is read once, not again by every permission check under them."""
+
+    @pytest.mark.parametrize("base_view", [True, False])
+    async def test_inventory_mode(self, db, carve, type_lookups, base_view):
+        user = await _reader(db, base_view=base_view)
+        card = carve["secret"]
+        assert await is_card_readable(db, user, card.id, mode="inventory") is base_view
+        assert type_lookups == [card.id]
+
+    async def test_module_mode_falls_through_to_the_stakeholder_check(
+        self, db, carve, type_lookups
+    ):
+        user = await _reader(db, base_view=True)
+        await _cells(db, "Secret", {"r": {"inventory.view": False}})
+        card = carve["secret"]
+        await _hold(db, card, user)
+        assert await is_card_readable(db, user, card.id, mode="module") is True
+        assert type_lookups == [card.id]
+
+    @pytest.mark.parametrize("mode", ["inventory", "module"])
+    async def test_require(self, db, carve, type_lookups, mode):
+        user = await _reader(db, base_view=True)
+        card = carve["open"]
+        assert await require_card_readable(db, user, card.id, mode=mode) == "Open"
+        assert type_lookups == [card.id]
+
+
+async def test_module_mode_asks_whether_view_is_denied(db, carve, monkeypatch):
+    asked: list[tuple[str, str]] = []
+
+    async def is_type_denied(db, user, permission, type_key):
+        asked.append((permission, type_key))
+        return False
+
+    monkeypatch.setattr(PermissionService, "is_type_denied", staticmethod(is_type_denied))
+    user = await _reader(db, base_view=False)
+    assert await is_card_readable(db, user, carve["secret"].id, mode="module") is True
+    assert asked == [("inventory.view", "Secret")]

@@ -133,6 +133,11 @@ In this order:
 
    The Python separator is a **comma**. mutmut splits its pragma on one, so
    `# pragma: no mutate block: why` silently degrades to a single-line pragma.
+   And mutmut reads a trailing pragma only at the **end of a statement** (or a
+   compound header such as `if …:`), where it covers mutants anchored on the
+   statement's first line. One after an argument inside a multi-line call is
+   not read at all and suppresses nothing; split the equivalent value into a
+   statement of its own, or restructure so the mutant cannot exist.
    Stryker takes the reason after a colon. Every suppression carries a reason
    of real words (`test_mutation_pragmas.py` checks), and the PR's Test Plan
    names it.

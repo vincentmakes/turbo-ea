@@ -416,6 +416,24 @@ class TestExecuteCalculation:
             f"Calculation 'c' failed for card {card.id}: ZeroDivisionError: division by zero"
         ]
 
+    async def test_a_context_that_cannot_be_built_is_a_failure(
+        self, db, app_type, monkeypatch, caplog
+    ):
+        from app.services import calculation_engine
+
+        async def broken(*args, **kwargs):
+            raise RuntimeError("db gone")
+
+        monkeypatch.setattr(calculation_engine, "build_shared_context", broken)
+        card = await create_card(db, card_type="Application", attributes={"k": 1})
+        with caplog.at_level(logging.WARNING, logger="turboea.calculations"):
+            result = await execute_calculation(db, await self._calc("1"), card)
+        assert result == (False, "Evaluation error (RuntimeError)")
+        assert card.attributes == {"k": 1}
+        assert [r.getMessage() for r in caplog.records] == [
+            f"Calculation 'c' failed for card {card.id}: RuntimeError: db gone"
+        ]
+
     async def test_blanks_as_zero(self, db, app_type):
         card = await create_card(db, card_type="Application", attributes={})
         calc = await self._calc("data.num + 1", blanks_as_zero=True)
