@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.158.5] - 2026-10-09
+
+### Fixed
+- TurboLens Architecture AI: when the model gave a proposed card the id of an existing card, the relations of a different proposal could be moved onto the wrong existing card in the target architecture. Each relation now stays on the card it was drawn to.
+
+### Changed
+- TurboLens Architecture AI: an older, unused way of generating the target architecture was removed; the wizard already used the capability-mapping step.
+
 ## [2.158.1] - 2026-10-09
 
 ### Fixed
