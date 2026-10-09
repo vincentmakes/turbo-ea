@@ -128,78 +128,165 @@ describe("InitiativeTreeSidebar", () => {
     expect(screen.getByLabelText("unknownState")).toBeInTheDocument();
   });
 
-  it("marks the selected initiative as current, and only that one", () => {
+  const item = (name: string) => screen.getByRole("treeitem", { name });
+
+  it("marks the selected initiative as selected, and only that one", () => {
     renderSidebar({ selectedId: "init-2", unlinkedCount: 1 });
-    const rowOf = (name: string) => screen.getByText(name).parentElement as HTMLElement;
-    expect(rowOf("Lift and shift")).toHaveAttribute("aria-current", "true");
-    expect(rowOf("Cloud Migration")).not.toHaveAttribute("aria-current");
-    expect(rowOf("Old programme")).not.toHaveAttribute("aria-current");
-    expect(rowOf("Unlinked artefacts")).not.toHaveAttribute("aria-current");
+    expect(item("Lift and shift")).toHaveAttribute("aria-selected", "true");
+    expect(item("Cloud Migration")).toHaveAttribute("aria-selected", "false");
+    expect(item("Old programme")).toHaveAttribute("aria-selected", "false");
+    expect(item("Unlinked artefacts")).toHaveAttribute("aria-selected", "false");
   });
 
-  it("marks the Unlinked row as current when it is selected", () => {
+  it("marks the Unlinked row as selected when it is selected", () => {
     renderSidebar({ selectedId: UNLINKED_KEY, unlinkedCount: 2 });
-    const rowOf = (name: string) => screen.getByText(name).parentElement as HTMLElement;
-    expect(rowOf("Unlinked artefacts")).toHaveAttribute("aria-current", "true");
-    expect(rowOf("Cloud Migration")).not.toHaveAttribute("aria-current");
+    expect(item("Unlinked artefacts")).toHaveAttribute("aria-selected", "true");
+    expect(item("Cloud Migration")).toHaveAttribute("aria-selected", "false");
   });
 
-  it("lets every row be reached by keyboard and selected with Enter or Space", async () => {
+  it("is one tree of levelled items, with the selected row as its only tab stop", () => {
+    renderSidebar({ selectedId: "init-2", unlinkedCount: 1 });
+    const tree = screen.getByRole("tree", { name: "Initiatives" });
+    const items = within(tree).getAllByRole("treeitem");
+    expect(items.map((i) => i.getAttribute("aria-label"))).toEqual([
+      "Unlinked artefacts",
+      "Cloud Migration",
+      "Lift and shift",
+      "Old programme",
+    ]);
+    expect(items.map((i) => i.getAttribute("aria-level"))).toEqual(["1", "1", "2", "1"]);
+    expect(items.filter((i) => i.getAttribute("tabindex") === "0")).toEqual([item("Lift and shift")]);
+    expect(items.filter((i) => i.getAttribute("tabindex") === "-1")).toHaveLength(3);
+    // Only a parent says whether it is open.
+    expect(item("Cloud Migration")).toHaveAttribute("aria-expanded", "true");
+    expect(item("Lift and shift")).not.toHaveAttribute("aria-expanded");
+    expect(item("Unlinked artefacts")).not.toHaveAttribute("aria-expanded");
+  });
+
+  it("puts the tab stop on the first row when nothing on screen is selected", () => {
+    renderSidebar({ selectedId: "nope", unlinkedCount: 1 });
+    expect(item("Unlinked artefacts")).toHaveAttribute("tabindex", "0");
+    expect(item("Cloud Migration")).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("selects a row with Enter or Space, and ignores other keys", async () => {
     const user = userEvent.setup();
     const { onSelect } = renderSidebar({ selectedId: "init-2", unlinkedCount: 1 });
 
-    const programme = screen.getByRole("button", { name: "Cloud Migration" });
-    const child = screen.getByRole("button", { name: "Lift and shift" });
-    const unlinked = screen.getByRole("button", { name: "Unlinked artefacts" });
-    for (const row of [programme, child, unlinked]) expect(row).toHaveAttribute("tabindex", "0");
-    // The current row keeps saying so.
-    expect(child).toHaveAttribute("aria-current", "true");
-    expect(programme).not.toHaveAttribute("aria-current");
-
-    programme.focus();
-    expect(programme).toHaveFocus();
+    item("Cloud Migration").focus();
     await user.keyboard("{Enter}");
     expect(onSelect).toHaveBeenLastCalledWith("init-1");
 
-    child.focus();
+    item("Lift and shift").focus();
     await user.keyboard(" ");
     expect(onSelect).toHaveBeenLastCalledWith("init-2");
 
-    unlinked.focus();
+    item("Unlinked artefacts").focus();
     await user.keyboard("{Enter}");
     expect(onSelect).toHaveBeenLastCalledWith(UNLINKED_KEY);
     expect(onSelect).toHaveBeenCalledTimes(3);
 
-    // Other keys do nothing.
     await user.keyboard("a");
     expect(onSelect).toHaveBeenCalledTimes(3);
   });
 
-  it("keeps Space from scrolling the list when it selects a row", () => {
+  it("keeps Space and the arrows from scrolling the list", () => {
     renderSidebar({ unlinkedCount: 1 });
     // fireEvent returns false when the handler prevented the default action.
-    expect(fireEvent.keyDown(screen.getByRole("button", { name: "Cloud Migration" }), { key: " " })).toBe(
-      false,
-    );
-    expect(fireEvent.keyDown(screen.getByRole("button", { name: "Unlinked artefacts" }), { key: " " })).toBe(
-      false,
-    );
-    expect(fireEvent.keyDown(screen.getByRole("button", { name: "Cloud Migration" }), { key: "a" })).toBe(true);
+    expect(fireEvent.keyDown(item("Cloud Migration"), { key: " " })).toBe(false);
+    expect(fireEvent.keyDown(item("Unlinked artefacts"), { key: " " })).toBe(false);
+    expect(fireEvent.keyDown(item("Cloud Migration"), { key: "ArrowDown" })).toBe(false);
+    expect(fireEvent.keyDown(item("Cloud Migration"), { key: "a" })).toBe(true);
+    // A leaf has nothing to expand, so Right is left to the browser.
+    expect(fireEvent.keyDown(item("Old programme"), { key: "ArrowRight" })).toBe(true);
   });
 
-  it("leaves Enter on the star and the chevron to those buttons, not the row", async () => {
+  it("moves between the rows on screen with the arrows, Home and End", async () => {
     const user = userEvent.setup();
-    const { onSelect, onToggleFavorite } = renderSidebar();
+    const { onSelect } = renderSidebar({ unlinkedCount: 1 });
 
-    screen.getAllByRole("button", { name: "cards_star" })[0].focus();
-    await user.keyboard("{Enter}");
-    expect(onToggleFavorite).toHaveBeenCalledWith("init-1");
+    item("Unlinked artefacts").focus();
+    await user.keyboard("{ArrowDown}");
+    expect(item("Cloud Migration")).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
+    expect(item("Lift and shift")).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
+    expect(item("Old programme")).toHaveFocus();
+    // The last row stays put.
+    await user.keyboard("{ArrowDown}");
+    expect(item("Old programme")).toHaveFocus();
 
-    screen.getByRole("button", { name: "expand_more" }).focus();
-    await user.keyboard("{Enter}");
-    expect(await screen.findByRole("button", { name: "chevron_right" })).toBeInTheDocument();
-    expect(screen.queryByText("Lift and shift")).not.toBeInTheDocument();
+    await user.keyboard("{ArrowUp}");
+    expect(item("Lift and shift")).toHaveFocus();
+    await user.keyboard("{Home}");
+    expect(item("Unlinked artefacts")).toHaveFocus();
+    await user.keyboard("{ArrowUp}");
+    expect(item("Unlinked artefacts")).toHaveFocus();
+    await user.keyboard("{End}");
+    expect(item("Old programme")).toHaveFocus();
+    // Moving never selects.
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("folds a branch with Left and Right, skips its children, and Left on a child goes up", async () => {
+    const user = userEvent.setup();
+    const { onSelect } = renderSidebar();
+
+    item("Lift and shift").focus();
+    await user.keyboard("{ArrowLeft}");
+    expect(item("Cloud Migration")).toHaveFocus();
+
+    await user.keyboard("{ArrowLeft}");
+    expect(item("Cloud Migration")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Lift and shift")).not.toBeInTheDocument();
+    expect(within(item("Cloud Migration")).getByText("chevron_right")).toBeInTheDocument();
+    // Down skips the folded child.
+    await user.keyboard("{ArrowDown}");
+    expect(item("Old programme")).toHaveFocus();
+
+    await user.keyboard("{ArrowUp}{ArrowRight}");
+    expect(item("Cloud Migration")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Lift and shift")).toBeInTheDocument();
+    // Right on an open parent steps into its first child.
+    await user.keyboard("{ArrowRight}");
+    expect(item("Lift and shift")).toHaveFocus();
+    // A top-level row has no parent to go to.
+    await user.keyboard("{ArrowLeft}{ArrowLeft}");
+    expect(item("Cloud Migration")).toHaveFocus();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("marks a favourite with Shift+F, without selecting", async () => {
+    const user = userEvent.setup();
+    const { onSelect, onToggleFavorite } = renderSidebar({ unlinkedCount: 1 });
+
+    item("Cloud Migration").focus();
+    await user.keyboard("{Shift>}F{/Shift}");
+    expect(onToggleFavorite).toHaveBeenCalledWith("init-1");
+    // A plain f is not it.
+    await user.keyboard("f");
+    expect(onToggleFavorite).toHaveBeenCalledTimes(1);
+    // The unlinked row has nothing to favourite.
+    item("Unlinked artefacts").focus();
+    await user.keyboard("{Shift>}F{/Shift}");
+    expect(onToggleFavorite).toHaveBeenCalledTimes(1);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("keeps the star and the chevron out of the tab order, naming the star by its row", () => {
+    renderSidebar();
+    const star = screen.getByRole("button", { name: "Remove Lift and shift from favorites" });
+    expect(star).toHaveAttribute("tabindex", "-1");
+    expect(star).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Mark Cloud Migration as favorite" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    // The chevron is decoration: the row's aria-expanded says what it shows.
+    expect(screen.queryByRole("button", { name: "expand_more" })).not.toBeInTheDocument();
+    const chevron = within(item("Cloud Migration")).getByText("expand_more").closest("button")!;
+    expect(chevron).toHaveAttribute("tabindex", "-1");
+    expect(chevron).toHaveAttribute("aria-hidden", "true");
   });
 
   it("selects on row click, toggles a favourite without selecting, and collapses a branch", async () => {
@@ -209,16 +296,18 @@ describe("InitiativeTreeSidebar", () => {
     await user.click(screen.getByText("Lift and shift"));
     expect(onSelect).toHaveBeenCalledWith("init-2");
 
-    const stars = screen.getAllByRole("button", { name: "cards_star" });
+    const stars = screen.getAllByRole("button", { name: /favorite/ });
     expect(stars).toHaveLength(3);
-    await user.click(stars[0]);
+    await user.click(screen.getByRole("button", { name: "Mark Cloud Migration as favorite" }));
     expect(onToggleFavorite).toHaveBeenCalledWith("init-1");
     expect(onSelect).toHaveBeenCalledTimes(1);
 
     // Collapse the programme: its child disappears, the chevron flips.
-    await user.click(screen.getByRole("button", { name: "expand_more" }));
+    const chevron = () => within(item("Cloud Migration")).getByText(/expand_more|chevron_right/);
+    await user.click(chevron());
     expect(screen.queryByText("Lift and shift")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "chevron_right" }));
+    expect(chevron()).toHaveTextContent("chevron_right");
+    await user.click(chevron());
     expect(screen.getByText("Lift and shift")).toBeInTheDocument();
     // The chevron does not select the row it sits on.
     expect(onSelect).toHaveBeenCalledTimes(1);

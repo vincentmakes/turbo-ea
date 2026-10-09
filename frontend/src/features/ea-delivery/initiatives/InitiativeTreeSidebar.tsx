@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -12,9 +12,9 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { CARD_TYPE_COLORS } from "@/theme/tokens";
-import { selectOnKey } from "./selectOnKey";
+import { treeKeyAction, visibleTreeRows } from "./treeKeys";
 import { useInitiativeStatusColor, useInitiativeStatusLabel } from "./useInitiativeStatus";
-import type { InitiativeTreeNode } from "./useInitiativeData";
+import { flattenTree, type InitiativeTreeNode } from "./useInitiativeData";
 
 export const UNLINKED_KEY = "__unlinked__";
 
@@ -63,6 +63,80 @@ export default function InitiativeTreeSidebar({
 
   const initiativeType = metamodelTypes.find((mt) => mt.key === "Initiative");
   const subtypes = initiativeType?.subtypes ?? [];
+
+  // Expansion lives here, not per branch: the arrow keys walk the rows on
+  // screen, so the sidebar has to know which branches are folded. Parents
+  // start open; a fold is user-driven and in-memory.
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleBranch = useCallback((id: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const unlinkedId = unlinkedCount > 0 ? UNLINKED_KEY : null;
+  const rows = useMemo(
+    () => visibleTreeRows(tree, collapsed, unlinkedId),
+    [tree, collapsed, unlinkedId],
+  );
+  const nodesById = useMemo(
+    () => new Map(flattenTree(tree).map((n) => [n.initiative.id, n])),
+    [tree],
+  );
+  // One tab stop (WAI-ARIA tree): the selected row when it is on screen,
+  // else the first row.
+  const tabStopId = rows.some((r) => r.id === selectedId) ? selectedId : (rows[0]?.id ?? null);
+
+  const treeRef = useRef<HTMLDivElement>(null);
+  const focusRow = (id: string | null | undefined) => {
+    if (!id) return;
+    const el = treeRef.current?.querySelector<HTMLElement>(`[data-tree-id="${CSS.escape(id)}"]`);
+    el?.focus();
+  };
+  const handleTreeKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const rowEl = (e.target as HTMLElement).closest<HTMLElement>("[data-tree-id]");
+    const id = rowEl?.dataset.treeId;
+    if (!id) return;
+    const index = rows.findIndex((r) => r.id === id);
+    if (index < 0) return;
+    const node = nodesById.get(id);
+    const action = treeKeyAction(e, {
+      hasChildren: !!node && node.children.length > 0,
+      expanded: !collapsed.has(id),
+    });
+    if (!action) return;
+    e.preventDefault();
+    switch (action) {
+      case "select":
+        onSelect(id);
+        break;
+      case "next":
+        focusRow(rows[index + 1]?.id);
+        break;
+      case "prev":
+        focusRow(rows[index - 1]?.id);
+        break;
+      case "first":
+        focusRow(rows[0]?.id);
+        break;
+      case "last":
+        focusRow(rows[rows.length - 1]?.id);
+        break;
+      case "expand":
+      case "collapse":
+        toggleBranch(id);
+        break;
+      case "parent":
+        focusRow(rows[index].parentId);
+        break;
+      case "favourite":
+        if (id !== UNLINKED_KEY) onToggleFavorite(id);
+        break;
+    }
+  };
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -161,13 +235,6 @@ export default function InitiativeTreeSidebar({
 
       {/* Tree body */}
       <Box sx={{ flex: 1, overflow: "auto", p: 0.5 }}>
-        {unlinkedCount > 0 && (
-          <UnlinkedRow
-            count={unlinkedCount}
-            selected={selectedId === UNLINKED_KEY}
-            onSelect={() => onSelect(UNLINKED_KEY)}
-          />
-        )}
         {tree.length === 0 && (
           <Typography
             variant="body2"
@@ -177,16 +244,34 @@ export default function InitiativeTreeSidebar({
             {t("sidebar.noResults")}
           </Typography>
         )}
-        {tree.map((node) => (
-          <TreeBranch
-            key={node.initiative.id}
-            node={node}
-            selectedId={selectedId}
-            onSelect={onSelect}
-            favorites={favorites}
-            onToggleFavorite={onToggleFavorite}
-          />
-        ))}
+        <Box
+          ref={treeRef}
+          role="tree"
+          aria-label={t("sidebar.treeLabel")}
+          onKeyDown={handleTreeKey}
+        >
+          {unlinkedId && (
+            <UnlinkedRow
+              count={unlinkedCount}
+              selected={selectedId === UNLINKED_KEY}
+              tabStop={tabStopId === UNLINKED_KEY}
+              onSelect={() => onSelect(UNLINKED_KEY)}
+            />
+          )}
+          {tree.map((node) => (
+            <TreeBranch
+              key={node.initiative.id}
+              node={node}
+              selectedId={selectedId}
+              tabStopId={tabStopId}
+              collapsed={collapsed}
+              onToggle={toggleBranch}
+              onSelect={onSelect}
+              favorites={favorites}
+              onToggleFavorite={onToggleFavorite}
+            />
+          ))}
+        </Box>
       </Box>
 
       {/* Footer */}
@@ -212,6 +297,10 @@ export default function InitiativeTreeSidebar({
 interface BranchProps {
   node: InitiativeTreeNode;
   selectedId: string | null;
+  /** The one row that takes the Tab key (roving tabindex). */
+  tabStopId: string | null;
+  collapsed: ReadonlySet<string>;
+  onToggle: (id: string) => void;
   onSelect: (id: string) => void;
   favorites: Set<string>;
   onToggleFavorite: (id: string) => void;
@@ -220,16 +309,19 @@ interface BranchProps {
 function TreeBranch({
   node,
   selectedId,
+  tabStopId,
+  collapsed,
+  onToggle,
   onSelect,
   favorites,
   onToggleFavorite,
 }: BranchProps) {
+  const { t } = useTranslation(["delivery", "common"]);
   const statusLabel = useInitiativeStatusLabel();
   const statusColor = useInitiativeStatusColor();
-  // Default: parents are open; collapses are user-driven, in-memory.
-  const [open, setOpen] = useState(true);
   const hasChildren = node.children.length > 0;
   const { initiative, level } = node;
+  const open = !collapsed.has(initiative.id);
   const isSelected = selectedId === initiative.id;
   const isArchived = initiative.status === "ARCHIVED";
   const attrs = (initiative.attributes ?? {}) as Record<string, unknown>;
@@ -258,12 +350,15 @@ function TreeBranch({
             : "3px solid transparent",
           "&:hover": { bgcolor: isSelected ? "action.selected" : "action.hover" },
         }}
-        role="button"
-        tabIndex={0}
+        role="treeitem"
+        tabIndex={tabStopId === initiative.id ? 0 : -1}
+        data-tree-id={initiative.id}
         aria-label={initiative.name}
-        aria-current={isSelected ? "true" : undefined}
+        aria-level={level + 1}
+        aria-selected={isSelected}
+        aria-expanded={hasChildren ? open : undefined}
+        aria-keyshortcuts="Shift+F"
         onClick={() => onSelect(initiative.id)}
-        onKeyDown={selectOnKey(() => onSelect(initiative.id))}
       >
         {/* Tree guide lines for nested levels */}
         {Array.from({ length: level }).map((_, i) => (
@@ -280,12 +375,17 @@ function TreeBranch({
           />
         ))}
 
+        {/* A mouse target only: the row carries the expanded state, and the
+            Left and Right keys fold it, so the chevron is neither a tab stop
+            nor announced. */}
         {hasChildren ? (
           <IconButton
             size="small"
+            tabIndex={-1}
+            aria-hidden="true"
             onClick={(e) => {
               e.stopPropagation();
-              setOpen((v) => !v);
+              onToggle(initiative.id);
             }}
             sx={{ width: 20, height: 20 }}
           >
@@ -339,8 +439,12 @@ function TreeBranch({
             />
           </Tooltip>
         )}
+        {/* A mouse target: from the keyboard the row's Shift+F does this. */}
         <IconButton
           size="small"
+          tabIndex={-1}
+          aria-label={t(isFavorite ? "sidebar.unstar" : "sidebar.star", { name: initiative.name })}
+          aria-pressed={isFavorite}
           onClick={(e) => {
             e.stopPropagation();
             onToggleFavorite(initiative.id);
@@ -367,6 +471,9 @@ function TreeBranch({
               key={child.initiative.id}
               node={child}
               selectedId={selectedId}
+              tabStopId={tabStopId}
+              collapsed={collapsed}
+              onToggle={onToggle}
               onSelect={onSelect}
               favorites={favorites}
               onToggleFavorite={onToggleFavorite}
@@ -383,21 +490,24 @@ function TreeBranch({
 function UnlinkedRow({
   count,
   selected,
+  tabStop,
   onSelect,
 }: {
   count: number;
   selected: boolean;
+  tabStop: boolean;
   onSelect: () => void;
 }) {
   const { t } = useTranslation(["delivery", "common"]);
   return (
     <Box
-      role="button"
-      tabIndex={0}
+      role="treeitem"
+      tabIndex={tabStop ? 0 : -1}
+      data-tree-id={UNLINKED_KEY}
       aria-label={t("sidebar.unlinked")}
+      aria-level={1}
+      aria-selected={selected}
       onClick={onSelect}
-      onKeyDown={selectOnKey(onSelect)}
-      aria-current={selected ? "true" : undefined}
       sx={{
         display: "flex",
         alignItems: "center",

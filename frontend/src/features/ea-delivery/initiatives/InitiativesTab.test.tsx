@@ -184,8 +184,7 @@ describe("InitiativesTab", () => {
     expect(screen.getByRole("button", { name: "Remove from favorites" })).toBeInTheDocument();
 
     // …and the tree star removes the one the server reported.
-    const stars = screen.getAllByRole("button", { name: "cards_star" });
-    await user.click(stars[2]); // Data Platform
+    await user.click(screen.getByRole("button", { name: "Remove Data Platform from favorites" }));
     await waitFor(() => expect(mockApi.callsOf("delete", "/favorites/init-3")).toHaveLength(1));
 
     await user.click(screen.getByRole("button", { name: "Favorites only" }));
