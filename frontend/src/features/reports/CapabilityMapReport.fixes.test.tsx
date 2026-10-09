@@ -6,7 +6,7 @@
  * end-of-life note.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { createRef } from "react";
 
@@ -304,6 +304,20 @@ describe("CapabilityMapReport colour-by sentinel", () => {
     expect(colorBySelect()).toHaveTextContent("Nonesuch");
   });
 
+  it("names only the app on its chip when apps are not coloured", async () => {
+    // An attribute under an empty key must not pass for a colour value.
+    h.config = { showApps: true };
+    serve(
+      payload([
+        cap("sales", "Sales", null, [app("a", "Alpha", { attributes: { "": "Mystery" } })]),
+      ]),
+    );
+    renderMap();
+    await loaded("Sales");
+    expect(within(chart()).getByRole("button", { name: "Alpha" })).toBeInTheDocument();
+    expect(within(chart()).queryByRole("button", { name: /Mystery/ })).not.toBeInTheDocument();
+  });
+
   it("goes back to no colour from a field", async () => {
     h.config = { showApps: true, colorBy: "criticality" };
     serve(WITH_NONE);
@@ -375,6 +389,24 @@ describe("CapabilityMapReport heat scale", () => {
     expect(ink("Eight")).toBe("rgb(255, 255, 255)");
     expect(ink("Seven")).toBe("rgb(51, 51, 51)");
     expect(ink("Three")).toBe("rgb(51, 51, 51)");
+  });
+
+  it("writes dark ink on a parent capability at exactly 70% of the range", async () => {
+    h.config = { metric: "total_cost" };
+    const costing = (id: string, cost: number) =>
+      app(id, id.toUpperCase(), { attributes: { costTotalAnnual: cost } });
+    serve(
+      payload([
+        cap("parent", "Parent", null),
+        cap("kid", "Kid", "parent", [costing("k", 700)]),
+        cap("top", "Top", null, [costing("t", 1000)]),
+      ]),
+    );
+    renderMap();
+    await loaded("Kid");
+    const ink = (name: string) => getComputedStyle(within(chart()).getByText(name)).color;
+    expect(ink("Parent")).toBe("rgb(51, 51, 51)");
+    expect(ink("Top")).toBe("rgb(255, 255, 255)");
   });
 
   it("spans a mixed range from the lowest value to the highest", async () => {
@@ -465,6 +497,8 @@ describe("CapabilityMapReport load failure", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "GET /reports/capability-heatmap?metric=total_cost failed",
     );
+    // Spaced from the map it sits above.
+    expect(screen.getByRole("alert")).toHaveStyle({ marginBottom: "16px" });
     expect(screen.getByRole("combobox", { name: /heatmap metric/i })).toBeInTheDocument();
 
     fireEvent.mouseDown(screen.getByRole("combobox", { name: /heatmap metric/i }));
@@ -473,5 +507,73 @@ describe("CapabilityMapReport load failure", () => {
     );
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     expect(within(chart()).getByText("Billing")).toBeInTheDocument();
+  });
+});
+
+describe("CapabilityMapReport load guards", () => {
+  /** A request the test settles by hand. */
+  function deferred() {
+    let reject!: (err: unknown) => void;
+    const promise = new Promise<never>((_, rej) => {
+      reject = rej;
+    });
+    return { promise, reject };
+  }
+  /** Let a settled request's continuation run to the end. */
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  const pickMetric = async (name: string) => {
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: /heatmap metric/i }));
+    fireEvent.click(within(await screen.findByRole("listbox")).getByRole("option", { name }));
+  };
+
+  it("says something went wrong when the load fails with something other than an Error", async () => {
+    mockApi.on("get", "/reports/capability-heatmap*", () => Promise.reject("boom"));
+    renderMap();
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Something went wrong");
+    // Padded like the page it stands in for.
+    expect(alert.parentElement).toHaveStyle({ paddingTop: "32px", paddingBottom: "32px" });
+  });
+
+  it("stays quiet and keeps the map when a metric switch is aborted", async () => {
+    serve(payload([cap("billing", "Billing", null, [app("a", "Alpha")])]));
+    const pending = deferred();
+    mockApi.on("get", "/reports/capability-heatmap?metric=total_cost", () => pending.promise);
+    renderMap();
+    await loaded("Billing");
+
+    await pickMetric("Total Cost");
+    await waitFor(() =>
+      expect(last(heatmapPaths())).toBe("/reports/capability-heatmap?metric=total_cost"),
+    );
+    await act(async () => {
+      pending.reject(new DOMException("The operation was aborted.", "AbortError"));
+      await flush();
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(within(chart()).getByText("Billing")).toBeInTheDocument();
+  });
+
+  it("ignores a failure that lands after a newer metric was picked", async () => {
+    serve(payload([cap("billing", "Billing", null, [app("a", "Alpha")])]));
+    const slow = deferred();
+    mockApi.on("get", "/reports/capability-heatmap?metric=total_cost", () => slow.promise);
+    mockApi.on(
+      "get",
+      "/reports/capability-heatmap?metric=risk_count",
+      payload([cap("risky", "Risky", null, [app("r", "Rho")])]),
+    );
+    renderMap();
+    await loaded("Billing");
+
+    await pickMetric("Total Cost");
+    await pickMetric("Risk (EOL count)");
+    await loaded("Risky");
+    await act(async () => {
+      slow.reject(new Error("too late"));
+      await flush();
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(within(chart()).getByText("Risky")).toBeInTheDocument();
   });
 });

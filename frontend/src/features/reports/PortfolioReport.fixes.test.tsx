@@ -348,6 +348,15 @@ describe("Color by select", () => {
     await waitFor(() => expect(lastPersisted()).toMatchObject({ colorBy: "crit" }));
   });
 
+  it("resets a saved colouring to No color when the card type has no select field left", async () => {
+    mockApi.on("get", "/reports/app-portfolio*", { ...PAYLOAD, fields_schema: [] });
+    state.config = { colorBy: "goneField" };
+    render(ui());
+    await loaded();
+    await waitFor(() => expect(lastPersisted()).toMatchObject({ colorBy: "" }));
+    expect(colorSelect()).toHaveTextContent("No color");
+  });
+
   it("keeps a saved colouring by a field that still exists", async () => {
     state.config = { colorBy: "tier" };
     render(ui());
@@ -459,6 +468,53 @@ describe("switching the card type", () => {
     organizations: [],
     tag_groups: [],
   };
+
+  /** A report request the test answers by hand, recording what was on screen when it was sent. */
+  function heldOrgRequest() {
+    let answer!: (value: unknown) => void;
+    const pending = new Promise((r) => (answer = r));
+    const seen: { body: string; groupBy: string }[] = [];
+    mockApi.on("get", "/reports/app-portfolio?type=Organization", () => {
+      // The request goes out right after the frame that still holds the
+      // previous type's data is drawn: that frame must read that data's verbs.
+      seen.push({
+        body: document.body.textContent ?? "",
+        groupBy: screen.getByRole("combobox", { name: /group by/i }).textContent ?? "",
+      });
+      return pending;
+    });
+    return { seen, answer };
+  }
+
+  it("keeps reading the loaded type's verbs in its facets until the new type's data arrives", async () => {
+    const held = heldOrgRequest();
+    render(ui({ showTypeSelector: true }));
+    await loaded();
+
+    await pick(/card type/i, /Organization$/);
+    await waitFor(() => expect(held.seen).toHaveLength(1));
+    expect(held.seen[0].body).toContain("Organization · is owned by");
+    expect(held.seen[0].body).not.toMatch(/Organization · (owns|uses)/);
+
+    held.answer(ORG_PAYLOAD);
+    expect(await screen.findByRole("combobox", { name: "Application · owns" })).toBeInTheDocument();
+  });
+
+  it("keeps reading the loaded type's verbs in the group-by axis while a saved report switches type", async () => {
+    const held = heldOrgRequest();
+    const { rerender } = render(ui({ showTypeSelector: true }));
+    await loaded();
+
+    state.config = { cardType: "Organization", groupByRaw: "relt:relOrgOwnsApp" };
+    state.loadedConfig = { id: "org-report" };
+    rerender(ui({ showTypeSelector: true }));
+    await waitFor(() => expect(held.seen).toHaveLength(1));
+    expect(held.seen[0].groupBy).toContain("Organization · is owned by");
+    expect(held.seen[0].groupBy).not.toContain("owns");
+
+    held.answer(ORG_PAYLOAD);
+    await screen.findAllByText("Treasury");
+  });
 
   it("names the relation axes and facets with the new type's verbs", async () => {
     mockApi.on("get", "/reports/app-portfolio?type=Organization", ORG_PAYLOAD);

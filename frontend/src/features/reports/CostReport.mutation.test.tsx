@@ -827,6 +827,35 @@ describe("CostReport permission", () => {
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
+  it("forgets the costs it showed when costs.view is withdrawn, so a regrant spins first", async () => {
+    const view = renderCost();
+    await screen.findByTestId("treemap");
+    expect(metricValue("Total Cost")).toBe("$700");
+    const page = () => (
+      <MemoryRouter>
+        <CostReport />
+      </MemoryRouter>
+    );
+
+    hookState.auth.user = userWith("reports.view");
+    view.rerender(page());
+    expect(await screen.findByText("Cost data restricted")).toBeInTheDocument();
+
+    const pending = deferred<unknown>();
+    mockApi.on("get", "/reports/cost-treemap*", () => pending.promise);
+    hookState.auth.user = userWith("costs.view");
+    view.rerender(page());
+    await waitFor(() => expect(treemapCalls()).toHaveLength(2));
+    // The figures from before the withdrawal are not shown as if current.
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.queryByTestId("treemap")).not.toBeInTheDocument();
+    expect(screen.queryByText("Total Cost")).not.toBeInTheDocument();
+
+    await act(async () => pending.resolve({ items: [{ id: "n", name: "New", cost: 5 }], total: 5 }));
+    expect(await screen.findByTestId("treemap")).toBeInTheDocument();
+    expect(metricValue("Total Cost")).toBe("$5");
+  });
+
   it("titles the report", async () => {
     renderCost();
     await screen.findByTestId("treemap");

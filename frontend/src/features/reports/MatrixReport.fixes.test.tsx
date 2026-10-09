@@ -234,6 +234,29 @@ describe("MatrixReport config applied at mount", () => {
     await waitFor(() => expect(lastPersisted()).toMatchObject({ sortCols: "alpha" }));
   });
 
+  it("keeps a count sort when the user picks a flat axis type", async () => {
+    withMetamodel([APP(true), BC(true), makeCardType({ key: "Provider", label: "Provider" })], [CRUD]);
+    renderMatrix();
+    await screen.findByText("App One Child");
+    await pick(/sort columns/i, /By count/);
+
+    await pick(/^columns$/i, /^Provider$/);
+    await waitFor(() => expect(lastPersisted()).toMatchObject({ colType: "Provider" }));
+    // Only a hierarchical type re-picks the hierarchy sort.
+    expect(lastPersisted()).toMatchObject({ sortCols: "count" });
+    expect(selectValue(/sort columns/i)).toBe("By count");
+  });
+
+  it("gives both axis pickers room for a type's name", async () => {
+    renderMatrix();
+    await screen.findByText("App One Child");
+    for (const name of [/^rows$/i, /^columns$/i]) {
+      expect(screen.getByRole("combobox", { name }).closest(".MuiFormControl-root")).toHaveStyle({
+        minWidth: "150px",
+      });
+    }
+  });
+
   it("keeps the filters and scopes of a config whose axes differ from the defaults", async () => {
     saved.config = {
       rowType: "BusinessCapability",
@@ -251,6 +274,22 @@ describe("MatrixReport config applied at mount", () => {
     );
     expect(chip("1 row")).toBeInTheDocument();
     expect(within(table()).queryByText("Cap One")).not.toBeInTheDocument();
+  });
+
+  it("keeps the scope of a config that changes the row type only", async () => {
+    mockApi.on("get", /row_type=BusinessCapability&col_type=BusinessCapability/, {
+      ...HIER,
+      rows: CAPS,
+      intersections: [],
+    });
+    saved.config = { rowType: "BusinessCapability", rowScopeIds: ["bc-2"] };
+    renderMatrix();
+    await waitFor(() => expect(lastPath()).toContain("row_type=BusinessCapability"));
+    await screen.findAllByText("Cap Two");
+    await waitFor(() =>
+      expect(lastPersisted()).toMatchObject({ rowScopeIds: ["bc-2"], colScopeIds: [] }),
+    );
+    expect(chip("1 row")).toBeInTheDocument();
   });
 
   it("keeps the scope of a config that changes the column type only", async () => {
@@ -313,6 +352,29 @@ describe("MatrixReport config applied after mount", () => {
     await waitFor(() => expect(lastPath()).toContain("col_type=Provider"));
     await waitFor(() => expect(selectValue(/sort columns/i)).toBe("A → Z"));
     expect(selectValue(/sort rows/i)).toBe("Hierarchy");
+  });
+
+  it("leaves no scope behind to come back when it keeps the axis types", async () => {
+    const view = renderMatrix();
+    await screen.findByText("App One Child");
+
+    await openSaved({ rowScopeIds: ["app-2"] }, view);
+    await waitFor(() => expect(chip("1 row")).toBeInTheDocument());
+
+    // Another row type clears the scope, as any type change does ...
+    await pick(/^rows$/i, /^Business Capability$/);
+    await waitFor(() =>
+      expect(lastPersisted()).toMatchObject({ rowType: "BusinessCapability", rowScopeIds: [] }),
+    );
+    // ... and going back does not bring the reopened report's scope with it.
+    await pick(/^rows$/i, /^Application$/);
+    await waitFor(() =>
+      expect(lastPath()).toBe("/reports/matrix?row_type=Application&col_type=BusinessCapability"),
+    );
+    await screen.findByText("App Two");
+    expect(within(table()).getByText("App One")).toBeInTheDocument();
+    expect(lastPersisted()).toMatchObject({ rowType: "Application", rowScopeIds: [] });
+    expect(screen.queryByText("1 row", { selector: ".MuiChip-label" })).not.toBeInTheDocument();
   });
 
   it("still applies the sorts the config does carry", async () => {
@@ -495,6 +557,20 @@ describe("MatrixReport failed load", () => {
     mockApi.on("get", "/reports/matrix*", () => Promise.reject(new Error("")));
     renderMatrix();
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+  });
+});
+
+describe("MatrixReport aborted load", () => {
+  it("stays on the spinner, neither failing nor drawing an empty grid", async () => {
+    mockApi.abort("get", "/reports/matrix*");
+    renderMatrix();
+    await waitFor(() => expect(mockApi.callsOf("get", "/reports/matrix*")).toHaveLength(1));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 });
 
