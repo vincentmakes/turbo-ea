@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import itertools
 import socket
 import time
 from collections.abc import Callable
@@ -196,7 +197,8 @@ async def fetch_logo(url: str, sniff: SniffFn) -> tuple[bytes, str]:
         )
 
     current = url
-    for hop in range(MAX_REDIRECTS + 1):
+    # Bounded by the redirect check below: hop MAX_REDIRECTS returns or raises.
+    for hop in itertools.count():
         host = _check_url(current)
         # Blocking, but bounded and cached by the resolver; a thread keeps a
         # slow DNS answer from stalling the event loop for the whole batch.
@@ -209,7 +211,7 @@ async def fetch_logo(url: str, sniff: SniffFn) -> tuple[bytes, str]:
             ) as client:
                 async with client.stream("GET", current) as response:
                     if response.is_redirect:
-                        location = response.headers.get("location", "")
+                        location = response.headers.get("location")
                         if not location or hop == MAX_REDIRECTS:
                             raise LogoFetchError(
                                 "image_url_unreachable",
@@ -243,9 +245,7 @@ async def fetch_logo(url: str, sniff: SniffFn) -> tuple[bytes, str]:
                 "raster image file.",
             )
         return data, mime
-
-    # Unreachable: the loop either returns or raises.
-    raise LogoFetchError("image_url_unreachable", "Too many redirects.")  # pragma: no mutate, unreachable: every hop returns or raises  # pragma: no cover
+    raise AssertionError("unreachable")  # pragma: no mutate, never reached  # pragma: no cover
 
 
 class _FetchCache:
@@ -268,16 +268,14 @@ class _FetchCache:
             return None
         stamped, data, mime = hit
         if time.monotonic() - stamped > self._ttl:
-            self._items.pop(url, None)
+            del self._items[url]
             return None
         return data, mime
 
     def put(self, url: str, data: bytes, mime: str) -> None:
         if len(self._items) >= self._max:
             # Plain FIFO: the working set is "the batch being previewed".
-            oldest = next(iter(self._items), None)
-            if oldest is not None:
-                self._items.pop(oldest, None)
+            del self._items[next(iter(self._items))]
         self._items[url] = (time.monotonic(), data, mime)
 
     def clear(self) -> None:
