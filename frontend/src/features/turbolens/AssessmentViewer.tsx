@@ -156,6 +156,7 @@ export default function AssessmentViewer() {
       setLoading(true);
       setError(null);
       try {
+        // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
         const data = await api.get<TurboLensAssessment>(`/turbolens/assessments/${id}`, { signal });
         if (isCurrent()) setAssessment(data);
       } catch (err) {

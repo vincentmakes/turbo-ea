@@ -32,6 +32,9 @@ import { useAnalysisPolling } from "./useAnalysisPolling";
 // Target Type Options
 // ---------------------------------------------------------------------------
 
+// Stryker disable next-line ObjectLiteral: the chip's compact size is presentation
+const COMPACT_CHIP_SX = { fontSize: 10 } as const;
+
 const TARGET_TYPES = [
   "Application",
   "ITComponent",
@@ -581,12 +584,10 @@ export default function TurboLensDuplicates() {
                                 </Typography>
                                 <Stack direction="row" spacing={0.5}>
                                   {m.effort && (
-                                    // Stryker disable next-line ObjectLiteral: the chip's compact size is presentation
-                                    <Chip label={valueLabel("turbolens_effort_", m.effort)} size="small" color={effortColor(m.effort)} variant="outlined" sx={{ fontSize: 10 }} />
+                                    <Chip label={valueLabel("turbolens_effort_", m.effort)} size="small" color={effortColor(m.effort)} variant="outlined" sx={COMPACT_CHIP_SX} />
                                   )}
                                   {/* No priority → the group it is listed under. */}
-                                  {/* Stryker disable next-line ObjectLiteral: the chip's compact size is presentation */}
-                                  <Chip label={valueLabel("turbolens_priority_", m.priority || "medium")} size="small" color={priorityColor(m.priority || "medium")} sx={{ fontSize: 10 }} />
+                                  <Chip label={valueLabel("turbolens_priority_", m.priority || "medium")} size="small" color={priorityColor(m.priority || "medium")} sx={COMPACT_CHIP_SX} />
                                 </Stack>
                               </Stack>
                               <Chip label={m.modernization_type} size="small" variant="outlined" color="info" sx={{ mb: 1 }} />

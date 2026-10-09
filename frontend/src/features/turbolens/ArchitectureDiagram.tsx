@@ -474,9 +474,11 @@ function buildArchFlow(
       // Same layer → right side of the left node to left side of the right one
       srcHandle = "r";
       tgtHandle = "l";
+      // Stryker disable next-line EqualityOperator: two nodes at one x overlap, so swapping them draws the same line
       if (sPos.x > tPos.x) swapped = true;
     } else if (sPos && tPos) {
       // Cross-layer → use top/bottom, ensure top-to-bottom direction
+      // Stryker disable next-line EqualityOperator: nodes in different layers never share a y
       if (sPos.y > tPos.y) swapped = true;
     }
     if (swapped) [source, target] = [target, source];
