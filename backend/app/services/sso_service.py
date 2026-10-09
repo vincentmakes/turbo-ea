@@ -220,7 +220,7 @@ async def exchange_code_for_claims(
 
     provider = sso.get("provider", "microsoft")
     client_id = sso.get("client_id")
-    client_secret = decrypt_value(sso.get("client_secret"))
+    client_secret = decrypt_value(sso.get("client_secret") or "")
 
     if not client_id or not client_secret:
         raise HTTPException(500, "SSO is not properly configured")
