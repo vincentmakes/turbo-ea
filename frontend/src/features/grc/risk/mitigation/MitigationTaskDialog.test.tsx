@@ -4,6 +4,7 @@
  * Pure dialog: every assertion is about the payload handed to `onSubmit`
  * and how the form seeds itself from an existing task.
  */
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -512,5 +513,54 @@ describe("MitigationTaskDialog — a failed save", () => {
     view.rerender(<MitigationTaskDialog {...props} open />);
     await waitFor(() => expect(titleBox()).toHaveValue(""));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("cannot be closed while the save is in flight, so a failure lands in the open dialog", async () => {
+    let fail!: (e: Error) => void;
+    const onSubmit = vi.fn(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          fail = reject;
+        }),
+    );
+    const onClose = vi.fn();
+    // A parent that really closes the dialog, as the mitigation panel does.
+    function Host() {
+      const [open, setOpen] = useState(true);
+      return (
+        <MitigationTaskDialog
+          open={open}
+          task={null}
+          users={USER_OPTIONS}
+          onClose={() => {
+            onClose();
+            setOpen(false);
+          }}
+          onSubmit={onSubmit}
+        />
+      );
+    }
+    const user = userEvent.setup();
+    render(<Host />);
+    await user.type(titleBox(), "Enable MFA");
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Create task" })).toBeDisabled());
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await user.click(document.querySelector(".MuiDialog-container") as HTMLElement);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    await act(async () => fail(new Error("POST /risks/r1/mitigation-tasks failed")));
+    expect(await within(screen.getByRole("dialog")).findByRole("alert")).toHaveTextContent(
+      "POST /risks/r1/mitigation-tasks failed",
+    );
+    expect(titleBox()).toHaveValue("Enable MFA");
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Once the request has answered, Escape closes it again.
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

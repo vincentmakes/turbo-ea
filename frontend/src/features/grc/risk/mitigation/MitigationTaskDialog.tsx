@@ -168,10 +168,16 @@ export default function MitigationTaskDialog({
     }
   };
 
+  // Escape and the backdrop cannot leave while the request is out: a failure
+  // that answered into a closed dialog would never be seen.
+  const handleClose = () => {
+    if (!submitting) onClose();
+  };
+
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       fullWidth
       maxWidth="sm"
       disableRestoreFocus

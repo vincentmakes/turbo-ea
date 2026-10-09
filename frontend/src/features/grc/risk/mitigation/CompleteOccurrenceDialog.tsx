@@ -15,6 +15,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { MitigationTask, MitigationTaskOccurrence } from "@/types";
 
 export type CompleteMode = "complete" | "skip";
@@ -37,6 +38,7 @@ export default function CompleteOccurrenceDialog({
   onSubmit,
 }: Props) {
   const { t } = useTranslation("grc");
+  const { formatDate } = useDateFormat();
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   // A refused complete / skip keeps the dialog open with the reason shown
@@ -64,6 +66,12 @@ export default function CompleteOccurrenceDialog({
     }
   };
 
+  // Escape and the backdrop cannot leave while the request is out: a failure
+  // that answered into a closed dialog would never be seen.
+  const handleClose = () => {
+    if (!submitting) onClose();
+  };
+
   const titleKey =
     mode === "complete"
       ? "risks.tasks.complete.title"
@@ -76,7 +84,7 @@ export default function CompleteOccurrenceDialog({
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       fullWidth
       maxWidth="sm"
       disableRestoreFocus
@@ -94,7 +102,7 @@ export default function CompleteOccurrenceDialog({
           </Typography>
           {occurrence.due_date && (
             <Typography variant="caption" color="text.secondary">
-              {t("risks.tasks.complete.dueLabel")}: {occurrence.due_date}
+              {t("risks.tasks.complete.dueLabel")}: {formatDate(occurrence.due_date)}
             </Typography>
           )}
           {occurrence.assigned_owner_name && (

@@ -3,11 +3,15 @@
  * under test is the dialog's own state: the notes it hands over, the error a
  * refused submit leaves inside it, and when that state is reset.
  */
-import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { MitigationTask, MitigationTaskOccurrence } from "@/types";
 
+vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
+
+import { hookState } from "@/test/hooks";
 import CompleteOccurrenceDialog from "./CompleteOccurrenceDialog";
 
 const OCCURRENCE: MitigationTaskOccurrence = {
@@ -49,11 +53,17 @@ const TASK: MitigationTask = {
 
 function deferred() {
   let resolve!: () => void;
-  const promise = new Promise<void>((res) => {
+  let reject!: (e: Error) => void;
+  const promise = new Promise<void>((res, rej) => {
     resolve = res;
+    reject = rej;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
+
+beforeEach(() => {
+  hookState.reset();
+});
 
 type Props = React.ComponentProps<typeof CompleteOccurrenceDialog>;
 
@@ -145,5 +155,57 @@ describe("CompleteOccurrenceDialog", () => {
     rerender({ open: true });
     await waitFor(() => expect(notesBox()).toHaveValue(""));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows the due date in the workspace date format, not as a raw ISO string", () => {
+    hookState.dateFormat = "DD/MM/YYYY";
+    renderDialog();
+    expect(screen.getByText("Due: 15/06/2030")).toBeInTheDocument();
+    expect(screen.queryByText(/2030-06-15/)).not.toBeInTheDocument();
+  });
+
+  it("cannot be closed while the submit is in flight, so a failure lands in the open dialog", async () => {
+    const pending = deferred();
+    const onSubmit = vi.fn(() => pending.promise);
+    const onClose = vi.fn();
+    // A parent that really closes the dialog, as the mitigation panel does.
+    function Host() {
+      const [open, setOpen] = useState(true);
+      return (
+        <CompleteOccurrenceDialog
+          open={open}
+          mode="complete"
+          task={TASK}
+          occurrence={OCCURRENCE}
+          onClose={() => {
+            onClose();
+            setOpen(false);
+          }}
+          onSubmit={onSubmit}
+        />
+      );
+    }
+    const user = userEvent.setup();
+    render(<Host />);
+    await user.type(notesBox(), "Checked");
+    await user.click(screen.getByRole("button", { name: "Mark done" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Mark done" })).toBeDisabled());
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await user.click(document.querySelector(".MuiDialog-container") as HTMLElement);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    await act(async () => pending.reject(new Error("Occurrence already closed")));
+    expect(await within(screen.getByRole("dialog")).findByRole("alert")).toHaveTextContent(
+      "Occurrence already closed",
+    );
+    expect(notesBox()).toHaveValue("Checked");
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Once the request has answered, Escape closes it again.
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

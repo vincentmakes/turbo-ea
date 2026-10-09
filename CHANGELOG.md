@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - EA Delivery: a new SoAW or diagram is never tied to an initiative id that matches no initiative.
 - Todos: two quick toggles no longer undo each other, and a list that is loading or failed to load shows a spinner or the error instead of "No todos found".
 - French: linked cards are « fiches », not « cartes ».
+- Mitigation tasks: pressing Escape or clicking outside while a task or a cycle is still saving no longer closes the dialog, so a failed save is shown instead of being lost.
+- Mitigation tasks: the Complete / Skip cycle dialog shows the due date in the workspace date format instead of a raw ISO date.
 
 ## [2.157.4] - 2026-10-08
 
