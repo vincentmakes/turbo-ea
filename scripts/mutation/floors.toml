@@ -88,3 +88,4 @@ mcp = 68
 "frontend/src/lib/fiscalYear.ts" = 93
 "frontend/src/components/grid/dragFill.ts" = 92
 "frontend/src/features/reports/portfolioHelpers.ts" = 88
+"frontend/src/features/bpm/processNavigatorState.ts" = 98  # the Process Navigator's tree, URL and reorder rules
