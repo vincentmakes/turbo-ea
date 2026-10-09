@@ -3,7 +3,8 @@
  * reply for the card shown before must never replace the current card's tree
  * (nor its error the current card's tree).
  */
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -114,6 +115,19 @@ describe("HierarchySection — loading and errors", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("GET /cards/b/hierarchy failed");
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("re-reads the hierarchy from the alert's Retry button", async () => {
+    mockApi.fail("get", "/cards/b/hierarchy", 500);
+    const user = userEvent.setup();
+    renderWithProviders(<HierarchySection card={CARD_B} onUpdate={vi.fn()} />);
+    const alert = await screen.findByRole("alert");
+
+    mockApi.on("get", "/cards/b/hierarchy", B_TREE);
+    await user.click(within(alert).getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Company B1")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(mockApi.callsOf("get", "/cards/b/hierarchy")).toHaveLength(2);
   });
 
   it("clears a failed removal's error once the parent is removed", async () => {

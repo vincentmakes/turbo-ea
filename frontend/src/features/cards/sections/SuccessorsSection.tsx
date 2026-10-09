@@ -79,6 +79,7 @@ function SuccessorsSection({
       try {
         const rels = await api.get<Relation[]>(
           `/relations?card_id=${card.id}&type=${successorRT.key}`,
+          // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
           { signal },
         );
         if (!isCurrent()) return;

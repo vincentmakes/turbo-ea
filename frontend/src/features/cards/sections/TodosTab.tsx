@@ -32,6 +32,9 @@ import { defaultLeadTimeDays } from "@/lib/recurrence/leadTime";
 import { formatRecurrence, RECURRENCE_UNIT_OPTIONS } from "@/lib/recurrence/recurrenceLabel";
 
 // ── Tab: Todos ──────────────────────────────────────────────────
+// Stryker disable next-line ObjectLiteral: spacing is presentation
+const LOAD_ERROR_SX = { mb: 1 } as const;
+
 function TodosTab({ fsId }: { fsId: string }) {
   const { t } = useTranslation(["cards", "common"]);
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -64,6 +67,7 @@ function TodosTab({ fsId }: { fsId: string }) {
   const load = useCallback(() => {
     void listRequest.run(async ({ signal, isCurrent }) => {
       try {
+        // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
         const rows = await api.get<Todo[]>(`/cards/${fsId}/todos`, { signal });
         if (!isCurrent()) return;
         setTodos(rows);
@@ -180,7 +184,7 @@ function TodosTab({ fsId }: { fsId: string }) {
       {loadError && (
         <Alert
           severity="error"
-          sx={{ mb: 1 }}
+          sx={LOAD_ERROR_SX}
           action={
             <Button color="inherit" size="small" onClick={load}>
               {t("common:actions.retry")}

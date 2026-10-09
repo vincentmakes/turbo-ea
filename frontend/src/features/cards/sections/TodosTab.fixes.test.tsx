@@ -120,6 +120,22 @@ describe("TodosTab — moving to another card", () => {
   });
 });
 
+describe("TodosTab — retrying a failed load", () => {
+  it("re-reads the list from the alert's Retry button", async () => {
+    mockApi.fail("get", LIST, 500);
+    const user = userEvent.setup();
+    render(<TodosTab fsId={FS_ID} />);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(`GET ${LIST} failed`);
+
+    mockApi.on("get", LIST, FIRST);
+    await user.click(within(alert).getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("First card's todo")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(mockApi.callsOf("get", LIST)).toHaveLength(2);
+  });
+});
+
 describe("TodosTab — error alerts", () => {
   function rowButtons(text: string): HTMLElement[] {
     return within(screen.getByText(text).closest("li") as HTMLElement).getAllByRole("button");

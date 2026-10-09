@@ -825,6 +825,63 @@ describe("RelationsSection — load state and the header count", () => {
     expect(headerCount()).toBeNull();
   });
 
+  it("re-reads the relations from the alert's Retry button", async () => {
+    mockApi.fail("get", `/relations?card_id=${FS}`, 500);
+    const view = mount();
+    const alert = await screen.findByRole("alert");
+
+    routeRelations([rel("1", "Finance")]);
+    await view.user.click(within(alert).getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Finance")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(headerCount()).toHaveTextContent("1");
+    expect(mockApi.callsOf("get", `/relations?card_id=${FS}`)).toHaveLength(2);
+  });
+
+  it("ignores a reload's reply once a newer reload has landed", async () => {
+    routeRelations([rel("1", "Finance")]);
+    const view = mount();
+    expect(await screen.findByText("Finance")).toBeInTheDocument();
+
+    // A refresh (say, after a write) whose answer is slow…
+    let releaseStale!: (rows: Relation[]) => void;
+    mockApi.on(
+      "get",
+      `/relations?card_id=${FS}`,
+      () => new Promise<Relation[]>((resolve) => (releaseStale = resolve)),
+    );
+    await settle(() => view.rerenderWith({ refreshKey: 1 }));
+    // …overtaken by the next refresh.
+    routeRelations([rel("2", "Legal")]);
+    await settle(() => view.rerenderWith({ refreshKey: 2 }));
+    expect(await screen.findByText("Legal")).toBeInTheDocument();
+
+    await settle(() => releaseStale([rel("3", "Stale")]));
+    expect(screen.queryByText("Stale")).not.toBeInTheDocument();
+    expect(screen.getByText("Legal")).toBeInTheDocument();
+  });
+
+  it("ignores a reload's failure once a newer reload has landed", async () => {
+    routeRelations([rel("1", "Finance")]);
+    const view = mount();
+    expect(await screen.findByText("Finance")).toBeInTheDocument();
+
+    let failStale!: (e: unknown) => void;
+    mockApi.on(
+      "get",
+      `/relations?card_id=${FS}`,
+      () => new Promise<Relation[]>((_, reject) => (failStale = reject)),
+    );
+    await settle(() => view.rerenderWith({ refreshKey: 1 }));
+    routeRelations([rel("2", "Legal")]);
+    await settle(() => view.rerenderWith({ refreshKey: 2 }));
+    expect(await screen.findByText("Legal")).toBeInTheDocument();
+
+    await settle(() => failStale(new Error("the stale reload failed")));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("Legal")).toBeInTheDocument();
+  });
+
   it("closes a failed remove's error from its close button", async () => {
     routeRelations([rel("1", "Finance")]);
     mockApi.fail("delete", "/relations/1", 500);

@@ -558,6 +558,7 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
         try {
           const cycles = await api.get<EolCycle[]>(
             `/eol/products/${encodeURIComponent(eolProduct)}`,
+            // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
             { signal },
           );
           if (!isCurrent()) return;

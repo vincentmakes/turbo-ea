@@ -738,6 +738,7 @@ function RelationsSection({
     () =>
       listRequest.run(async ({ signal, isCurrent }) => {
         try {
+          // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
           const rows = await api.get<Relation[]>(`/relations?card_id=${fsId}`, { signal });
           if (!isCurrent()) return;
           setRawRelations(rows);
@@ -943,7 +944,7 @@ function RelationsSection({
           <MaterialSymbol icon="hub" size={20} />
           <Typography fontWeight={600}>{t("relations.title")}</Typography>
           {loaded && !loadError && (
-            // Stryker disable next-line ObjectLiteral: spacing is presentation
+            // Stryker disable next-line all: the chip's spacing and size are presentation
             <Chip size="small" label={totalRelations} sx={{ ml: 1, height: 20, fontSize: "0.7rem" }} />
           )}
         </Box>

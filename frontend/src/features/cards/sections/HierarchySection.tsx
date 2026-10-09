@@ -189,6 +189,9 @@ function HierarchyLinkLabel({
   );
 }
 
+// Stryker disable next-line ObjectLiteral: spacing is presentation
+const LOAD_ERROR_SX = { mb: 2 } as const;
+
 function HierarchySection({
   card,
   onUpdate,
@@ -237,6 +240,7 @@ function HierarchySection({
   const loadHierarchy = useCallback(() => {
     void hierarchyRequest.run(async ({ signal, isCurrent }) => {
       try {
+        // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
         const h = await api.get<HierarchyData>(`/cards/${card.id}/hierarchy`, { signal });
         if (!isCurrent()) return;
         setHierarchy(h);
@@ -382,7 +386,7 @@ function HierarchySection({
         {loadError && (
           <Alert
             severity="error"
-            sx={{ mb: 2 }}
+            sx={LOAD_ERROR_SX}
             action={
               <Button color="inherit" size="small" onClick={loadHierarchy}>
                 {t("common:actions.retry")}
