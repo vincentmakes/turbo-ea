@@ -98,6 +98,8 @@ function heatColor(
 
 // Styling constants
 const ROW_HEADER_COL_WIDTH = 140;
+// Stryker disable next-line ObjectLiteral: the select width is presentation
+const AXIS_SELECT_SX = { minWidth: 150 } as const;
 // LEVEL_COLORS and CELL_BORDER moved inside component for theme access
 
 /**
@@ -1070,8 +1072,7 @@ export default function MatrixReport() {
       onReset={handleReset}
       toolbar={
         <>
-          {/* Stryker disable next-line ObjectLiteral: the select width is presentation */}
-          <TextField select size="small" label={t("matrix.rows")} value={rowType} onChange={(e) => changeAxisType("row", e.target.value)} sx={{ minWidth: 150 }}>
+          <TextField select size="small" label={t("matrix.rows")} value={rowType} onChange={(e) => changeAxisType("row", e.target.value)} sx={AXIS_SELECT_SX}>
             {readableTypes.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
           <CardScopeFilter
@@ -1085,8 +1086,7 @@ export default function MatrixReport() {
             tooltip={t("matrix.scopeTooltipRows")}
             initialOptions={rowScopeOptions}
           />
-          {/* Stryker disable next-line ObjectLiteral: the select width is presentation */}
-          <TextField select size="small" label={t("matrix.columns")} value={colType} onChange={(e) => changeAxisType("col", e.target.value)} sx={{ minWidth: 150 }}>
+          <TextField select size="small" label={t("matrix.columns")} value={colType} onChange={(e) => changeAxisType("col", e.target.value)} sx={AXIS_SELECT_SX}>
             {readableTypes.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
           <CardScopeFilter

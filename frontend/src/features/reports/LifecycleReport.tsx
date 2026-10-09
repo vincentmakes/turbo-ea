@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import type { SxProps, Theme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -78,6 +79,13 @@ interface FieldDef {
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
+
+/** The phase chip in the table: the phase's colour on white, compact. */
+const phaseChipSx =
+  (color: string): SxProps<Theme> =>
+  (theme) =>
+    // Stryker disable next-line ObjectLiteral: the chip's size and weight are presentation
+    ({ bgcolor: color, color: theme.palette.common.white, fontWeight: 600, height: 22, fontSize: "0.72rem" });
 
 function parseDate(s: string | undefined): number | null {
   if (!s) return null;
@@ -685,8 +693,7 @@ export default function LifecycleReport() {
                     <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
                     <TableCell>{cardTypeLabel(d.type)}</TableCell>
                     <TableCell>
-                      {/* Stryker disable next-line ObjectLiteral: the chip's size and weight are presentation */}
-                      <Chip size="small" label={t(phase.labelKey)} sx={(theme) => ({ bgcolor: phase.color, color: theme.palette.common.white, fontWeight: 600, height: 22, fontSize: "0.72rem" })} />
+                      <Chip size="small" label={t(phase.labelKey)} sx={phaseChipSx(phase.color)} />
                     </TableCell>
                     {PHASES.map((p) => <TableCell key={p.key}>{fmtDate(d.lifecycle[p.key])}</TableCell>)}
                   </TableRow>
