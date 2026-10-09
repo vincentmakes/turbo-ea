@@ -218,6 +218,7 @@ export default function TagsAdmin() {
       </Box>
 
       {loadError !== null && (
+        // Stryker disable next-line ObjectLiteral: the alert's margin is presentation
         <Alert severity="error" sx={{ mb: 2 }}>
           {loadError || t("common:errors.generic")}
         </Alert>

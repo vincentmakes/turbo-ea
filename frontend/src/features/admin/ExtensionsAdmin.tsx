@@ -329,6 +329,7 @@ export default function ExtensionsAdmin() {
       clearTimeout(pollRef.current);
       pollRef.current = null;
     }
+  // Stryker disable next-line ArrayDeclaration: pollRequest is identity-stable, so the deps only satisfy the lint rule
   }, [pollRequest]);
 
   const clearClaimPoll = useCallback(() => {
@@ -480,6 +481,7 @@ export default function ExtensionsAdmin() {
       pollRef.current = setTimeout(() => {
         void pollRequest.run(async ({ signal, isCurrent }) => {
           try {
+            // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
             const next = await api.get<ExtensionInstall>(`/admin/extensions/install/${id}`, {
               signal,
             });

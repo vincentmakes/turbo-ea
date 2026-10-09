@@ -95,6 +95,7 @@ function CyclePickerDialog({
     async ({ signal, isCurrent }) => {
       if (!open || !product) return;
       try {
+        // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
         const res = await api.get<EolCycle[]>(`/eol/products/${encodeURIComponent(product)}`, {
           signal,
         });

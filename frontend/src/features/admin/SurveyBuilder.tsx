@@ -179,6 +179,7 @@ export default function SurveyBuilder() {
       setCardItems([]);
       setRelatedItems([]);
       try {
+        // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
         const s = await api.get<Survey>(`/surveys/${id}`, { signal });
         if (!isCurrent()) return;
         setName(s.name);
@@ -484,6 +485,7 @@ export default function SurveyBuilder() {
         throw e;
       }
       setSurveyId(createdId);
+      // Stryker disable next-line StringLiteral: browsers ignore replaceState's title argument
       window.history.replaceState(null, "", `/admin/surveys/${createdId}`);
       // Returned, not just stored: `setSurveyId` does not update the `surveyId`
       // a caller already captured, so a caller that awaited us and then read

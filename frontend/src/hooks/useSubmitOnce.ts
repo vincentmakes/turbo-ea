@@ -33,6 +33,7 @@ export function useSubmitOnce(): SubmitOnce {
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
 
+  // Stryker disable next-line ArrayDeclaration: a ref read needs no deps; any list is equivalent
   const isBusy = useCallback(() => busyRef.current, []);
 
   const run = useCallback(async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
@@ -45,6 +46,7 @@ export function useSubmitOnce(): SubmitOnce {
       busyRef.current = false;
       setBusy(false);
     }
+    // Stryker disable next-line ArrayDeclaration: refs and state setters are stable; any list is equivalent
   }, []);
 
   // Identity-stable, so a caller may put it in a dependency array.

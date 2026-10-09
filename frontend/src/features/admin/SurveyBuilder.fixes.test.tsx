@@ -134,10 +134,12 @@ const SAVED = {
 
 function deferred<T>() {
   let resolve!: (v: T) => void;
-  const promise = new Promise<T>((res) => {
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
     resolve = res;
+    reject = rej;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 function GoTo({ to }: { to: string }) {
@@ -455,6 +457,54 @@ describe("SurveyBuilder — a survey load that outlives its route", () => {
     });
     expect(screen.getByLabelText(/Survey Name/)).toHaveValue("Second");
     expect(screen.queryByDisplayValue("First")).not.toBeInTheDocument();
+  });
+
+  it("does not show the previous survey's failure once the route moved on", async () => {
+    const first = deferred<object>();
+    mockApi.on("get", "/surveys/survey-7", () => first.promise);
+    mockApi.on("get", "/surveys/survey-8", { ...SAVED, id: "survey-8", name: "Second" });
+    const { user } = renderBuilder("/admin/surveys/survey-7");
+    await waitFor(() => expect(mockApi.callsOf("get", "/surveys/survey-7")).toHaveLength(1));
+
+    await user.click(screen.getByRole("button", { name: "go /admin/surveys/survey-8" }));
+    await waitFor(() => expect(screen.getByLabelText(/Survey Name/)).toHaveValue("Second"));
+
+    await act(async () => {
+      first.reject(new Error("survey-7 is gone"));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(screen.queryByText("survey-7 is gone")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Survey Name/)).toHaveValue("Second");
+  });
+
+  it("keeps the spinner while the next survey loads when the one left settles first", async () => {
+    const first = deferred<object>();
+    const second = deferred<object>();
+    mockApi.on("get", "/surveys/survey-7", () => first.promise);
+    mockApi.on("get", "/surveys/survey-8", () => second.promise);
+    const { user } = renderBuilder("/admin/surveys/survey-7");
+    await waitFor(() => expect(mockApi.callsOf("get", "/surveys/survey-7")).toHaveLength(1));
+
+    await user.click(screen.getByRole("button", { name: "go /admin/surveys/survey-8" }));
+    await waitFor(() => expect(mockApi.callsOf("get", "/surveys/survey-8")).toHaveLength(1));
+
+    // The survey the route left answers first: that must not end the wait
+    // for the one on screen.
+    await act(async () => {
+      first.resolve({ ...SAVED, name: "First" });
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Survey Name/)).not.toBeInTheDocument();
+
+    await act(async () => {
+      second.resolve({ ...SAVED, id: "survey-8", name: "Second" });
+    });
+    await waitFor(() => expect(screen.getByLabelText(/Survey Name/)).toHaveValue("Second"));
   });
 });
 
