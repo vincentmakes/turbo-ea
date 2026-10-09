@@ -973,6 +973,13 @@ describe("AssessmentViewer — states in the user's language", () => {
     const okta = screen.getByText("Okta").closest(".MuiPaper-root") as HTMLElement;
     expect(within(okta).getByText("Aufwand: Mittel")).toBeInTheDocument();
     expect(screen.queryByText(/ effort$/)).not.toBeInTheDocument();
+    // Both effort chips keep their compact size.
+    for (const chip of [
+      within(einstein).getByText("Aufwand: Niedrig").closest(".MuiChip-root"),
+      within(okta).getByText("Aufwand: Mittel").closest(".MuiChip-root"),
+    ]) {
+      expect(chip).toHaveStyle({ fontSize: "10px", height: "20px" });
+    }
   });
 });
 

@@ -908,6 +908,11 @@ describe("TurboLensDuplicates — statuses, priorities and efforts in the user's
     expect(chipTexts(legacy).slice(0, 2)).toEqual(["Hoch", "Kritisch"]);
     const wiki = screen.getByText("Wiki").closest(".MuiCard-root") as HTMLElement;
     expect(chipTexts(wiki).slice(0, 2)).toEqual(["Mittel", "Niedrig"]);
+    // The effort and priority chips keep their compact type size.
+    expect(within(legacy).getByText("Hoch").closest(".MuiChip-root")).toHaveStyle({ fontSize: "10px" });
+    expect(within(legacy).getByText("Kritisch").closest(".MuiChip-root")).toHaveStyle({
+      fontSize: "10px",
+    });
   });
 
   it("gives an opportunity with no priority the priority of the group it is listed under", async () => {
