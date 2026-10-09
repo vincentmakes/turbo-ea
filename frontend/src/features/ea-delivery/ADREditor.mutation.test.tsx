@@ -600,7 +600,9 @@ describe("ADREditor — workflow actions", () => {
     await user.click(screen.getByRole("button", { name: /New Revision/ }));
     const toast = await screen.findByText("New revision created");
     await waitFor(() => expect(location()).toBe("/ea-delivery/adr/adr-rev"));
-    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    // The spinner follows the URL by an effect, so wait for it rather than read
+    // it in the same tick (a loaded runner showed the old decision there still).
+    expect(await screen.findByRole("progressbar")).toBeInTheDocument();
     expect(toast).toBeInTheDocument();
 
     reload.resolve({ ...signed, id: "adr-rev" });
