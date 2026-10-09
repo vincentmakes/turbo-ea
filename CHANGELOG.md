@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.158.11] - 2026-10-09
+
+### Fixed
+- The **Compliance scan finished** notification opens GRC → Compliance, where the findings are. It still pointed at a TurboLens tab that no longer exists and opened the TurboLens dashboard.
+
 ## [2.158.1] - 2026-10-09
 
 ### Fixed
