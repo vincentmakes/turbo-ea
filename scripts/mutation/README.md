@@ -203,6 +203,23 @@ Each of these was found the hard way while wiring it up; keep them.
   yet, asks git what changed since the commit mutmut's stats were built at,
   fetching that commit into the shallow checkout, and treats every test
   module as changed if git cannot say.
+- **A new function is linked to the tests that already run it.** mutmut
+  records the functions a test runs once, the first time it sees the test,
+  and the PR jobs use the nightly's map. A function written after that is
+  linked only to tests that are new too, so a helper extracted from code the
+  existing tests already ran scored "no tests" on every mutant, in its PR
+  and every night after (#1222). Before naming, `relink_untested` takes each
+  function in scope that the map links to no test, finds the tests linked to
+  the functions that call it (resolved through imports, `self`/`cls` and
+  module attributes, never a bare `obj.name`, which would make every `d.get`
+  a caller of a new `get`; up through three levels of callers linked to
+  none) and the tests of its module, narrowed to the test modules named
+  after it — a route handler is a caller mutmut never links, being
+  decorated — and drops their durations from `mutmut-stats.json`: mutmut
+  then takes them for new and collects them again. A shard also resets the function's "no tests"
+  verdicts so they are named. Each function is tried once per version of its
+  code (mutmut's own hash, kept in `mutants/mutmut-relinked.json`), so one no
+  test reaches costs one extra stats pass, not one a night.
 - **`TEST_DB_REQUIRED=1`.** `backend/tests/conftest.py` skips every database
   test when Postgres is unreachable. Under mutmut that reads as "nothing kills
   anything" and still exits 0, so the mutation jobs turn the skip into a
