@@ -195,6 +195,15 @@ def verify_id_token(token: str, client_id: str, jwks_uri: str, issuer: str) -> d
 # ---------------------------------------------------------------------------
 
 
+def _error_details(response: httpx.Response) -> dict:
+    """The JSON object an identity provider put in an error response, else ``{}``."""
+    try:
+        body = response.json()
+    except ValueError:  # an error page or an empty body
+        return {}
+    return body if isinstance(body, dict) else {}
+
+
 async def exchange_code_for_claims(
     db: AsyncSession, code: str, redirect_uri: str
 ) -> tuple[dict, dict, str]:
@@ -269,11 +278,7 @@ async def exchange_code_for_claims(
         raise HTTPException(502, "SSO authentication failed. Identity provider is unavailable.")
 
     if token_response.status_code != 200:
-        content_type = token_response.headers.get(
-            "content-type",  # pragma: no mutate, header names are case-insensitive
-            "",  # pragma: no mutate, a missing header is not JSON, whatever it defaults to
-        )
-        error_data = token_response.json() if content_type.startswith("application/json") else {}
+        error_data = _error_details(token_response)
         error_desc = error_data.get("error_description", "Token exchange failed")
         error_code = error_data.get("error", "unknown")
         logger.error(
