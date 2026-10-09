@@ -210,39 +210,18 @@ async def _resolve_active_catalogue(
     *,
     locale: str = "en",
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    bundled_flat, bundled_meta = _bundled_payload(locale=locale)
-    cached = await common.get_cached_remote(db, SETTINGS_KEY)
-    if cached and common.version_tuple(cached.get("catalogue_version", "0")) > common.version_tuple(
-        bundled_meta["catalogue_version"]
-    ):
-        # Cached data is the raw nested list — flatten then localize via the
-        # cached i18n table (translations are keyed by VS-N or VS-N.M id).
-        cached_flat = _flatten_streams(list(cached["data"]))
-        cached_i18n = cached.get("i18n") or {}
-        cached_locales = set(cached_i18n.keys())
-        bundled_locales = set(_bundled_available_locales())
-        available = sorted({"en"} | cached_locales | bundled_locales)
-        effective = common.resolve_effective_locale(locale, available)
-        if effective != "en":
-            table = cached_i18n.get(effective)
-            if table:
-                cached_flat = common.localize_flat_with_table(cached_flat, table)
-        return cached_flat, {
-            "catalogue_version": cached["catalogue_version"],
-            "schema_version": str(cached.get("schema_version", "")),
-            "generated_at": cached.get("generated_at"),
-            "value_stream_count": cached.get("value_stream_count", len(cached["data"])),
-            "source": "remote",
-            "fetched_at": cached.get("fetched_at"),
-            "bundled_version": bundled_meta["catalogue_version"],
-            "available_locales": available,
-            "active_locale": effective,
-        }
-    return bundled_flat, {
-        **bundled_meta,
-        "source": "bundled",
-        "bundled_version": bundled_meta["catalogue_version"],
-    }
+    # The cache holds the raw nested list: flatten it, then localize by
+    # VS-N / VS-N.M id like the other two catalogues.
+    active = await common.resolve_active_catalogue(
+        db,
+        cache_key=SETTINGS_KEY,
+        locale=locale,
+        bundled=_bundled_payload(locale=locale),
+        bundled_locales=_bundled_available_locales(),
+        count_key="value_stream_count",
+        flatten=_flatten_streams,
+    )
+    return active.flat, active.meta
 
 
 # ---------------------------------------------------------------------------
