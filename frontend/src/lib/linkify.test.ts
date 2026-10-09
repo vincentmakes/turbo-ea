@@ -137,6 +137,9 @@ describe("hasLink / isLinkableHref", () => {
     expect(isLinkableHref("mailto:ops@a.io")).toBe(true);
     expect(isLinkableHref(" https://a.io")).toBe(true);
     expect(isLinkableHref("javascript:alert(1)")).toBe(false);
+    // The scheme must start the href, not merely appear in it.
+    expect(isLinkableHref("javascript:alert('https://a.io')")).toBe(false);
+    expect(isLinkableHref("x-mailto:ops@a.io")).toBe(false);
     expect(isLinkableHref("/cards/1")).toBe(false);
     expect(isLinkableHref("")).toBe(false);
   });

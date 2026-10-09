@@ -39,11 +39,12 @@ export function fillRowIndices(
   targetIndex: number,
   rowCount: number,
 ): number[] {
-  if (rowCount <= 0) return [];
+  // An empty grid clamps both ends to -1 and a drag back onto the anchor
+  // leaves the two equal: either way both loops below emit nothing.
   const anchor = clamp(anchorIndex, 0, rowCount - 1);
   const target = clamp(targetIndex, 0, rowCount - 1);
-  if (target === anchor) return [];
   const indices: number[] = [];
+  // Stryker disable next-line EqualityOperator: at target === anchor both branches emit nothing
   if (target > anchor) {
     for (let i = anchor + 1; i <= target; i++) indices.push(i);
   } else {
@@ -198,7 +199,7 @@ export async function runWithConcurrency<T, R>(
   onProgress?: (done: number, total: number) => void,
 ): Promise<PromiseSettledResult<R>[]> {
   const total = items.length;
-  const results = new Array<PromiseSettledResult<R>>(total);
+  const results: PromiseSettledResult<R>[] = [];
   if (total === 0) {
     onProgress?.(0, 0);
     return results;

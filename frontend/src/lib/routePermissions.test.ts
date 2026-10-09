@@ -94,6 +94,11 @@ const KNOWN_PERMISSIONS = new Set([
 ]);
 
 describe("permissionForPath", () => {
+  it("is undefined for a path the table does not gate", () => {
+    expect(permissionForPath("/todos")).toBeUndefined();
+    expect(permissionForPath("/no/such/page")).toBeUndefined();
+  });
+
   it("resolves a concrete path", () => {
     expect(permissionForPath("/ppm")).toBe("ppm.view");
     expect(permissionForPath("/ppm/abc-123")).toBe("ppm.view");

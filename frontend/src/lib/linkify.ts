@@ -19,26 +19,18 @@ export type LinkToken =
   | { type: "text"; value: string }
   | { type: "link"; value: string; href: string };
 
+// The patterns below are written where they are used rather than as module
+// constants: a module-level value is built while the file loads, outside any
+// test, so a mutation test cannot tell which test checks it.
+
 /**
  * What an `href` may be once it exists — on a stored anchor or a `url`-typed
  * value. `mailto:` is allowed here (the url field accepts it) but is never
- * *detected* in prose; see `URL_RE`.
+ * *detected* in prose; see `splitLinks`.
  */
-export const LINKABLE_HREF = /^(?:https?:\/\/|mailto:)/i;
-
 export function isLinkableHref(href: string): boolean {
-  return LINKABLE_HREF.test(href.trim());
+  return /^(?:https?:\/\/|mailto:)/i.test(href.trim());
 }
-
-/**
- * A scheme at a word boundary, running to whitespace, an angle bracket, a
- * quote or a backtick. Trailing punctuation is trimmed afterwards — the regex
- * stays a single greedy class so it cannot backtrack catastrophically on a
- * very long URL.
- */
-const URL_RE = /\bhttps?:\/\/[^\s<>"'`]+/gi;
-
-const TRAILING_PUNCT = new Set([".", ",", ";", ":", "!", "?"]);
 
 function count(s: string, ch: string): number {
   let n = 0;
@@ -55,9 +47,10 @@ function count(s: string, ch: string): number {
 function trimTrailing(raw: string): [url: string, rest: string] {
   let url = raw;
   for (;;) {
+    // A match starts with its scheme, which trimming never reaches, so `url`
+    // is never emptied.
     const last = url[url.length - 1];
-    if (last === undefined) break;
-    if (TRAILING_PUNCT.has(last)) {
+    if (".,;:!?".includes(last)) {
       url = url.slice(0, -1);
       continue;
     }
@@ -86,6 +79,9 @@ function isBareScheme(url: string): boolean {
  */
 export function splitLinks(text: string): LinkToken[] {
   const lower = text.toLowerCase();
+  // A fast path: without a scheme the scan below finds nothing and returns
+  // this same single token.
+  // Stryker disable next-line ConditionalExpression,LogicalOperator,StringLiteral,BlockStatement: a fast path, same result as the scan
   if (!lower.includes("http://") && !lower.includes("https://")) {
     return [{ type: "text", value: text }];
   }
@@ -99,7 +95,11 @@ export function splitLinks(text: string): LinkToken[] {
     else tokens.push({ type: "text", value });
   };
 
-  for (const m of text.matchAll(URL_RE)) {
+  // A scheme at a word boundary, running to whitespace, an angle bracket, a
+  // quote or a backtick. Trailing punctuation is trimmed afterwards — the
+  // pattern stays a single greedy class so it cannot backtrack
+  // catastrophically on a very long URL.
+  for (const m of text.matchAll(/\bhttps?:\/\/[^\s<>"'`]+/gi)) {
     const start = m.index ?? 0;
     const [url, rest] = trimTrailing(m[0]);
     pushText(text.slice(cursor, start));
@@ -112,8 +112,6 @@ export function splitLinks(text: string): LinkToken[] {
     cursor = start + m[0].length;
   }
   pushText(text.slice(cursor));
-
-  if (tokens.length === 0) return [{ type: "text", value: text }];
   return tokens;
 }
 
