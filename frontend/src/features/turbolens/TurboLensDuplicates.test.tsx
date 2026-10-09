@@ -279,7 +279,7 @@ describe("TurboLensDuplicates — duplicate clusters", () => {
 
     await screen.findByText("CRM overlap");
     const crm = clusterCard("CRM overlap");
-    expect(within(crm).getByText("pending")).toBeInTheDocument();
+    expect(within(crm).getByText("Pending")).toBeInTheDocument();
     expect(within(crm).getByText("Application")).toBeInTheDocument();
     expect(within(crm).getByText("Sales")).toHaveClass("MuiChip-label");
     expect(within(crm).getByText("Members")).toBeInTheDocument();
@@ -295,7 +295,7 @@ describe("TurboLensDuplicates — duplicate clusters", () => {
     const docs = clusterCard("Doc tools");
     expect(within(docs).queryByText("Members")).not.toBeInTheDocument();
     expect(Array.from(docs.querySelectorAll(".MuiChip-root")).map((c) => c.textContent)).toEqual([
-      "dismissed",
+      "Dismissed",
       "Application",
     ]);
 
@@ -358,7 +358,7 @@ describe("TurboLensDuplicates — duplicate clusters", () => {
     expect(within(crm).queryByLabelText("Confirm duplicate")).not.toBeInTheDocument();
     finishPatch();
 
-    await waitFor(() => expect(within(clusterCard("CRM overlap")).getByText("confirmed")).toBeInTheDocument());
+    await waitFor(() => expect(within(clusterCard("CRM overlap")).getByText("Confirmed")).toBeInTheDocument());
     expect(mockApi.callsOf("patch", STATUS_URL)).toEqual([
       { method: "patch", path: "/turbolens/duplicates/c1/status", body: { status: "confirmed" } },
     ]);
@@ -369,10 +369,10 @@ describe("TurboLensDuplicates — duplicate clusters", () => {
     mockApi.on("patch", STATUS_URL, undefined);
     await user.click(action(clusterCard("CRM overlap"), "Investigate"));
     await waitFor(() =>
-      expect(within(clusterCard("CRM overlap")).getByText("investigating")).toBeInTheDocument(),
+      expect(within(clusterCard("CRM overlap")).getByText("Investigating")).toBeInTheDocument(),
     );
     await user.click(action(clusterCard("CRM overlap"), "Dismiss"));
-    await waitFor(() => expect(within(clusterCard("CRM overlap")).getByText("dismissed")).toBeInTheDocument());
+    await waitFor(() => expect(within(clusterCard("CRM overlap")).getByText("Dismissed")).toBeInTheDocument());
     expect(mockApi.callsOf("patch", STATUS_URL).map((c) => c.body)).toEqual([
       { status: "confirmed" },
       { status: "investigating" },
@@ -390,7 +390,7 @@ describe("TurboLensDuplicates — duplicate clusters", () => {
     await user.click(action(clusterCard("CRM overlap"), "Dismiss"));
 
     expect(await screen.findByText("PATCH /turbolens/duplicates/c1/status failed")).toBeInTheDocument();
-    expect(within(clusterCard("CRM overlap")).getByText("pending")).toBeInTheDocument();
+    expect(within(clusterCard("CRM overlap")).getByText("Pending")).toBeInTheDocument();
     expect(action(clusterCard("CRM overlap"), "Dismiss")).toBeEnabled();
 
     await user.click(closeAlert("PATCH /turbolens/duplicates/c1/status failed"));
@@ -488,8 +488,8 @@ describe("TurboLensDuplicates — modernization", () => {
     expect(screen.getByText("2 opportunities")).toBeInTheDocument();
 
     const legacy = screen.getByText("Legacy CRM").closest(".MuiCard-root") as HTMLElement;
-    expect(within(legacy).getByText("high")).toBeInTheDocument(); // effort
-    expect(within(legacy).getByText("critical")).toBeInTheDocument(); // priority
+    expect(within(legacy).getByText("High")).toBeInTheDocument(); // effort
+    expect(within(legacy).getByText("Critical")).toBeInTheDocument(); // priority
     expect(within(legacy).getByText("rehost")).toBeInTheDocument();
     expect(within(legacy).getByText("COBOL on z/OS")).toBeInTheDocument();
     expect(within(legacy).getByText("Move to SaaS")).toBeInTheDocument();
@@ -848,5 +848,97 @@ describe("TurboLensDuplicates — every counted opportunity is listed", () => {
     expect(await screen.findAllByText("1 Möglichkeit")).toHaveLength(3);
     expect(screen.getByText("2 Möglichkeiten")).toBeInTheDocument();
     expect(screen.queryByText(/opportunit/)).not.toBeInTheDocument();
+  });
+});
+
+describe("TurboLensDuplicates — statuses, priorities and efforts in the user's language", () => {
+  afterEach(async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en");
+    });
+  });
+
+  function chipTexts(card: HTMLElement): string[] {
+    return Array.from(card.querySelectorAll(".MuiChip-root")).map((c) => c.textContent ?? "");
+  }
+
+  it("shows a status outside the known ones as it came, and never a key path", async () => {
+    mockApi.on("get", CLUSTERS_URL, [
+      cluster({ id: "c7", cluster_name: "Archived pair", status: "archived" }),
+      cluster({ id: "c8", cluster_name: "Statusless pair", status: "" }),
+    ]);
+    mockApi.on("get", MODS_URL, []);
+    renderTab();
+
+    await screen.findByText("Archived pair");
+    expect(chipTexts(clusterCard("Archived pair"))[0]).toBe("archived");
+    expect(clusterCard("Statusless pair").textContent).not.toMatch(/turbolens_/);
+  });
+
+  it("labels a cluster's status chip in the user's language", async () => {
+    mockApi.on("get", CLUSTERS_URL, CLUSTERS);
+    mockApi.on("get", MODS_URL, []);
+    renderTab();
+
+    await screen.findByText("CRM overlap");
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+    expect(await within(clusterCard("CRM overlap")).findByText("Ausstehend")).toBeInTheDocument();
+    expect(within(clusterCard("Database overlap")).getByText("Bestätigt")).toBeInTheDocument();
+    expect(within(clusterCard("Doc tools")).getByText("Abgelehnt")).toBeInTheDocument();
+    expect(screen.queryByText(/^(pending|confirmed|dismissed)$/)).not.toBeInTheDocument();
+  });
+
+  it("labels each opportunity's priority group, priority and effort in the user's language", async () => {
+    mockApi.on("get", CLUSTERS_URL, []);
+    mockApi.on("get", MODS_URL, MODS);
+    const { user } = renderTab();
+
+    await user.click(await screen.findByRole("tab", { name: "Modernization (5)" }));
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+    const headers = await screen.findAllByText(/^(KRITISCH|HOCH|MITTEL|NIEDRIG)$/);
+    expect(headers.map((h) => h.textContent)).toEqual(["KRITISCH", "HOCH", "MITTEL", "NIEDRIG"]);
+    expect(screen.queryByText(/^(CRITICAL|HIGH|MEDIUM|LOW)$/i)).not.toBeInTheDocument();
+
+    // Effort first, then priority.
+    const legacy = screen.getByText("Legacy CRM").closest(".MuiCard-root") as HTMLElement;
+    expect(chipTexts(legacy).slice(0, 2)).toEqual(["Hoch", "Kritisch"]);
+    const wiki = screen.getByText("Wiki").closest(".MuiCard-root") as HTMLElement;
+    expect(chipTexts(wiki).slice(0, 2)).toEqual(["Mittel", "Niedrig"]);
+  });
+
+  it("gives an opportunity with no priority the priority of the group it is listed under", async () => {
+    mockApi.on("get", CLUSTERS_URL, []);
+    mockApi.on("get", MODS_URL, MODS);
+    const { user } = renderTab();
+
+    await user.click(await screen.findByRole("tab", { name: "Modernization (5)" }));
+    const unnamed = screen.getByText("Upgrade to v19").closest(".MuiCard-root") as HTMLElement;
+    expect(chipTexts(unnamed).slice(0, 2)).toEqual(["Low", "Medium"]);
+    expect(within(unnamed).getByText("Medium").closest(".MuiChip-root")).toHaveClass("MuiChip-colorWarning");
+  });
+
+  it("shows a priority or effort outside the known ones as the AI returned it, and no chip for a missing effort", async () => {
+    mockApi.on("get", CLUSTERS_URL, []);
+    mockApi.on("get", MODS_URL, [
+      modernization({ id: "u1", card_name: "Mainframe", priority: "urgent", effort: "huge", modernization_type: "" }),
+      modernization({ id: "u2", card_name: "Fax server", priority: "low", effort: "", modernization_type: "" }),
+    ]);
+    const { user } = renderTab();
+
+    await user.click(await screen.findByRole("tab", { name: "Modernization (2)" }));
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+    expect(await screen.findByText("URGENT")).toBeInTheDocument();
+    const mainframe = screen.getByText("Mainframe").closest(".MuiCard-root") as HTMLElement;
+    expect(chipTexts(mainframe).slice(0, 2)).toEqual(["huge", "urgent"]);
+    const fax = screen.getByText("Fax server").closest(".MuiCard-root") as HTMLElement;
+    expect(chipTexts(fax)[0]).toBe("Niedrig");
+    expect(fax.textContent).not.toMatch(/turbolens_/);
+    expect(mainframe.textContent).not.toMatch(/turbolens_/);
   });
 });

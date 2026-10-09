@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - TurboLens: every counted modernization opportunity is listed, and the "unknown" type filter shows the untyped entries.
 - TurboLens Architect: a question with no usable options can be answered in free text, so the round can always be submitted, and an assessment resumed by link reads as saved.
 - TurboLens: the diagram badges, counts and assessment viewer messages are translated, with plurals.
+- TurboLens: a duplicate cluster's status and a modernization opportunity's priority and effort are shown in the user's language instead of as raw values, and an opportunity without a priority shows the priority of the group it is listed under.
+- TurboLens Resolution: the vendor type filter lists its types in the alphabetical order of the names shown, not of the internal keys.
+- TurboLens Resolution: "Products / Modules" counts only products and modules, no longer platforms and untyped entries.
+- TurboLens: opening another assessment no longer keeps showing the previous one's title in the browser tab while it loads or when it cannot be loaded.
+- TurboLens Architect: a proposed relation missing an end is no longer listed under the name of an unrelated proposed card; like the diagram, the list leaves it out.
+- TurboLens Architect: the Create Initiative dialog no longer lists, counts or sends a proposed relation missing an end, so it shows the same relations as the target architecture, and it no longer fails to open when the AI proposes a new card without an id.
+- TurboLens Architect: the integration effort of a recommended product or dependency option is shown in the user's language instead of as the raw value.
+- TurboLens Architect: the Create Initiative dialog names each new card's type by its label instead of its internal key.
+- TurboLens Architect: committing an assessment no longer fails when the AI proposed a card without an id, and a relation with an unset end is never attached to an existing card whose id came back empty.
 
 ## [2.157.4] - 2026-10-08
 

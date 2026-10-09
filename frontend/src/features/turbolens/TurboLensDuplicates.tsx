@@ -48,6 +48,10 @@ const STATUS_KEYS = ["pending", "confirmed", "investigating", "dismissed"] as co
 
 export default function TurboLensDuplicates() {
   const { t } = useTranslation("admin");
+  // A status, priority or effort outside the known vocabulary (the AI's
+  // answer) still shows, as it came — never as a key path.
+  const valueLabel = (prefix: string, value: string) =>
+    value ? t(`${prefix}${value}`, { defaultValue: value }) : value;
   const { types } = useMetamodel();
   const resolveTypeLabel = useTypeLabel();
   const typeLabel = useCallback(
@@ -360,7 +364,7 @@ export default function TurboLensDuplicates() {
                           {cluster.cluster_name}
                         </Typography>
                         <Chip
-                          label={cluster.status}
+                          label={valueLabel("turbolens_status_", cluster.status)}
                           size="small"
                           color={statusColor(cluster.status)}
                         />
@@ -557,7 +561,7 @@ export default function TurboLensDuplicates() {
                   <Box key={priority}>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
                       <Chip
-                        label={priority.toUpperCase()}
+                        label={valueLabel("turbolens_priority_", priority).toUpperCase()}
                         size="small"
                         color={priorityColor(priority)}
                         sx={{ fontWeight: 700 }}
@@ -576,8 +580,11 @@ export default function TurboLensDuplicates() {
                                   {m.card_name || "-"}
                                 </Typography>
                                 <Stack direction="row" spacing={0.5}>
-                                  <Chip label={m.effort} size="small" color={effortColor(m.effort)} variant="outlined" sx={{ fontSize: 10 }} />
-                                  <Chip label={m.priority} size="small" color={priorityColor(m.priority)} sx={{ fontSize: 10 }} />
+                                  {m.effort && (
+                                    <Chip label={valueLabel("turbolens_effort_", m.effort)} size="small" color={effortColor(m.effort)} variant="outlined" sx={{ fontSize: 10 }} />
+                                  )}
+                                  {/* No priority → the group it is listed under. */}
+                                  <Chip label={valueLabel("turbolens_priority_", m.priority || "medium")} size="small" color={priorityColor(m.priority || "medium")} sx={{ fontSize: 10 }} />
                                 </Stack>
                               </Stack>
                               <Chip label={m.modernization_type} size="small" variant="outlined" color="info" sx={{ mb: 1 }} />

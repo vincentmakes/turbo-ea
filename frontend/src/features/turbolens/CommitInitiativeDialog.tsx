@@ -18,6 +18,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { api } from "@/api/client";
 import type {
@@ -63,6 +64,7 @@ export default function CommitInitiativeDialog({
   const { t } = useTranslation("admin");
   const { types } = useMetamodel();
   const subtypeLabel = useCardSubtypeLabel();
+  const typeLabel = useTypeLabel();
 
   const [name, setName] = useState(
     buildInitiativeName(requirement, selectedOption),
@@ -85,9 +87,10 @@ export default function CommitInitiativeDialog({
   const [error, setError] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
-  // Only show non-disabled new cards
+  // Only show non-disabled new cards. One that came back without an id
+  // cannot be selected, renamed or committed — all of that goes by id.
   const newCards = useMemo(
-    () => capabilityMapping.proposedCards.filter((c) => c.isNew && !c.disabled),
+    () => capabilityMapping.proposedCards.filter((c) => c.isNew && !c.disabled && c.id),
     [capabilityMapping],
   );
 
@@ -101,14 +104,24 @@ export default function CommitInitiativeDialog({
     [capabilityMapping],
   );
 
+  // A relation missing an end is not a relation: like the target
+  // architecture's list, the dialog neither lists, counts nor commits it.
+  // Each keeps its index in the mapping, which is what the commit sends.
+  const listedRels = useMemo(
+    () =>
+      capabilityMapping.proposedRelations
+        .map((rel, i) => ({ rel, i }))
+        .filter(({ rel }) => rel.sourceId && rel.targetId),
+    [capabilityMapping.proposedRelations],
+  );
+
   // Initialise selection + names from Phase 5 state
   useEffect(() => {
     setSelectedCards(new Set(newCards.map((c) => c.id)));
     // Pre-select relations not involving disabled cards
     setSelectedRels(
       new Set(
-        capabilityMapping.proposedRelations
-          .map((rel, i) => ({ rel, i }))
+        listedRels
           .filter(
             ({ rel }) =>
               !disabledCardIds.has(rel.sourceId) &&
@@ -123,7 +136,7 @@ export default function CommitInitiativeDialog({
       names.set(card.id, card.name);
     }
     setCardNames(names);
-  }, [newCards, capabilityMapping.proposedRelations, disabledCardIds, capabilityMapping.proposedCards]);
+  }, [newCards, listedRels, disabledCardIds, capabilityMapping.proposedCards]);
 
   const toggleCard = (id: string) => {
     setSelectedCards((prev) => {
@@ -137,7 +150,7 @@ export default function CommitInitiativeDialog({
       // Auto-toggle relations involving this card
       setSelectedRels((prevRels) => {
         const nextRels = new Set(prevRels);
-        capabilityMapping.proposedRelations.forEach((rel, i) => {
+        listedRels.forEach(({ rel, i }) => {
           if (rel.sourceId === id || rel.targetId === id) {
             if (wasSelected) {
               nextRels.delete(i);
@@ -569,7 +582,7 @@ export default function CommitInitiativeDialog({
                         </Typography>
                       )}
                       <Chip
-                        label={card.cardTypeKey}
+                        label={ti ? typeLabel(ti) : card.cardTypeKey}
                         size="small"
                         variant="outlined"
                         sx={{ fontSize: 10, height: 18 }}
@@ -581,7 +594,7 @@ export default function CommitInitiativeDialog({
             </Box>
 
             {/* --- Proposed Relations --- */}
-            {capabilityMapping.proposedRelations.length > 0 && (
+            {listedRels.length > 0 && (
               <Box>
                 <Typography
                   variant="subtitle2"
@@ -590,11 +603,11 @@ export default function CommitInitiativeDialog({
                 >
                   {t("turbolens_commit_select_relations")} (
                   {selectedRels.size}/
-                  {capabilityMapping.proposedRelations.length})
+                  {listedRels.length})
                 </Typography>
                 <Stack spacing={0.3}>
-                  {capabilityMapping.proposedRelations.map(
-                    (rel: ProposedRelation, i: number) => {
+                  {listedRels.map(
+                    ({ rel, i }: { rel: ProposedRelation; i: number }) => {
                       // Check if either endpoint is a deselected new card
                       const srcNewCard = newCards.find(
                         (c) => c.id === rel.sourceId,

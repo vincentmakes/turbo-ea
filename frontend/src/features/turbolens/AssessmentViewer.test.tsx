@@ -336,7 +336,7 @@ describe("AssessmentViewer — a saved assessment", () => {
     expect(within(einstein).getByText("+ Integrated")).toBeInTheDocument();
     expect(within(einstein).getByText("- Costly")).toBeInTheDocument();
     expect(within(einstein).getByText("$50k/yr")).toBeInTheDocument();
-    expect(within(einstein).getByText("low effort")).toBeInTheDocument();
+    expect(within(einstein).getByText("Low effort")).toBeInTheDocument();
     const madkudu = within(lead).getByText("MadKudu").closest(".MuiPaper-root") as HTMLElement;
     expect(within(madkudu).queryByText("Selected")).not.toBeInTheDocument();
 
@@ -366,7 +366,7 @@ describe("AssessmentViewer — a saved assessment", () => {
     expect(within(okta).getByText("+ Mature")).toBeInTheDocument();
     expect(within(okta).getByText("- Price")).toBeInTheDocument();
     expect(within(okta).getByText("$10k/yr")).toBeInTheDocument();
-    expect(within(okta).getByText("medium effort")).toBeInTheDocument();
+    expect(within(okta).getByText("Medium effort")).toBeInTheDocument();
     const entra = within(idp).getByText("Entra ID").closest(".MuiPaper-root") as HTMLElement;
     expect(within(entra).getByText("Selected")).toBeInTheDocument();
 
@@ -701,6 +701,36 @@ describe("AssessmentViewer — loading by route", () => {
     expect(await screen.findByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
   });
 
+  it("drops the assessment it left, title and tab subject, when the next one cannot be loaded", async () => {
+    mockApi.on("get", URL_A1, assessment());
+    let failSecond: (err: Error) => void = () => {};
+    mockApi.on(
+      "get",
+      "/turbolens/assessments/a-2",
+      () => new Promise<TurboLensAssessment>((_, reject) => (failSecond = reject)),
+    );
+    const { user } = renderWithProviders(
+      <>
+        <AssessmentViewer />
+        <Jump />
+        <Probe />
+      </>,
+      { route: "/turbolens/assessments/a-1", routes: [{ path: "/turbolens/assessments/:id" }] },
+    );
+
+    await screen.findByRole("heading", { name: "CRM replacement" });
+    await waitFor(() => expect(screen.getByTestId("subject")).toHaveTextContent("CRM replacement"));
+    await user.click(screen.getByRole("button", { name: "jump" }));
+    // While the next one is on its way, the tab no longer names the one it left.
+    await waitFor(() => expect(mockApi.callsOf("get", "/turbolens/assessments/a-2")).toHaveLength(1));
+    await waitFor(() => expect(screen.getByTestId("subject")).toHaveTextContent(/^$/));
+
+    await act(async () => failSecond(new Error("Gone")));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Gone");
+    expect(screen.queryByText("CRM replacement")).not.toBeInTheDocument();
+    expect(screen.getByTestId("subject")).toHaveTextContent(/^$/);
+  });
+
   it("ignores a failure of the assessment it left", async () => {
     let failFirst: (err: Error) => void = () => {};
     mockApi.on("get", URL_A1, () => new Promise<TurboLensAssessment>((_, reject) => (failFirst = reject)));
@@ -931,6 +961,48 @@ describe("AssessmentViewer — states in the user's language", () => {
     renderViewer();
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Bewertung nicht gefunden");
+  });
+
+  it("names a product's and a dependency option's integration effort", async () => {
+    await inGerman();
+    mockApi.on("get", URL_A1, assessment());
+    renderViewer();
+
+    const einstein = (await screen.findByText("Einstein")).closest(".MuiPaper-root") as HTMLElement;
+    expect(within(einstein).getByText("Aufwand: Niedrig")).toBeInTheDocument();
+    const okta = screen.getByText("Okta").closest(".MuiPaper-root") as HTMLElement;
+    expect(within(okta).getByText("Aufwand: Mittel")).toBeInTheDocument();
+    expect(screen.queryByText(/ effort$/)).not.toBeInTheDocument();
+  });
+});
+
+describe("AssessmentViewer — an integration effort the AI named otherwise", () => {
+  it("shows it as it came", async () => {
+    const gaps = SESSION.gapResult.gaps;
+    const deps = SESSION.depsResult.dependencies;
+    mockApi.on(
+      "get",
+      URL_A1,
+      assessment({
+        session_data: {
+          ...SESSION,
+          gapResult: {
+            ...SESSION.gapResult,
+            gaps: [{ ...gaps[0], recommendations: [{ name: "Einstein", integrationEffort: "extreme" }] }],
+          },
+          depsResult: {
+            ...SESSION.depsResult,
+            dependencies: [{ ...deps[0], options: [{ name: "Okta", integrationEffort: "trivial" }] }],
+          },
+        },
+      }),
+    );
+    renderViewer();
+
+    const einstein = (await screen.findByText("Einstein")).closest(".MuiPaper-root") as HTMLElement;
+    expect(within(einstein).getByText("extreme effort")).toBeInTheDocument();
+    const okta = screen.getByText("Okta").closest(".MuiPaper-root") as HTMLElement;
+    expect(within(okta).getByText("trivial effort")).toBeInTheDocument();
   });
 });
 

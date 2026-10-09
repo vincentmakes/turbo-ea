@@ -38,6 +38,7 @@ import CommitInitiativeDialog from "./CommitInitiativeDialog";
 import {
   urgencyColor,
   effortColor,
+  effortLabel,
   approachColor,
   ARCHITECT_STEPS,
   phaseToStepIndex,
@@ -587,7 +588,9 @@ function GapsView({
                         )}
                         {rec.integrationEffort && (
                           <Chip
-                            label={`${rec.integrationEffort} ${t("turbolens_arch_effort")}`}
+                            label={t("turbolens_arch_effort_chip", {
+                              effort: effortLabel(t, rec.integrationEffort),
+                            })}
                             size="small"
                             color={effortColor(rec.integrationEffort)}
                             variant="outlined"
@@ -2258,7 +2261,9 @@ export default function TurboLensArchitect() {
                                     )}
                                     {opt.integrationEffort && (
                                       <Chip
-                                        label={`${t("turbolens_arch_effort")}: ${opt.integrationEffort}`}
+                                        label={t("turbolens_arch_effort_option_chip", {
+                                          effort: effortLabel(t, opt.integrationEffort),
+                                        })}
                                         size="small"
                                         color={effortColor(opt.integrationEffort)}
                                         sx={{ fontSize: 10, height: 20 }}
@@ -2308,6 +2313,11 @@ export default function TurboLensArchitect() {
           capabilityMapping &&
           (() => {
             const merged = buildMergedGraph(capabilityMapping);
+            // A relation missing an end is not a relation: the diagram draws
+            // nothing for it, and neither does the list.
+            const listedRelations = capabilityMapping.proposedRelations.filter(
+              (rel) => rel.sourceId && rel.targetId,
+            );
             return (
               <>
                 {capabilityMapping.summary && (
@@ -2594,7 +2604,7 @@ export default function TurboLensArchitect() {
                 </Grid>
 
                 {/* Proposed relations */}
-                {capabilityMapping.proposedRelations.length > 0 && (
+                {listedRelations.length > 0 && (
                   <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
                     <Typography
                       variant="subtitle2"
@@ -2610,10 +2620,10 @@ export default function TurboLensArchitect() {
                         }}
                       />
                       {t("turbolens_architect_proposed_relations")} (
-                      {capabilityMapping.proposedRelations.length})
+                      {listedRelations.length})
                     </Typography>
                     <Stack spacing={0.3}>
-                      {capabilityMapping.proposedRelations.map((rel, i) => {
+                      {listedRelations.map((rel, i) => {
                         const srcCard = capabilityMapping.proposedCards.find(
                           (c) => c.id === rel.sourceId,
                         );

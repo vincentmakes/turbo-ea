@@ -176,6 +176,22 @@ describe("TurboLensResolution", () => {
     expect(kpiValue("Avg Confidence")).toBe("68%");
   });
 
+  it("counts only products and modules as products / modules", async () => {
+    mockApi.on("get", LIST_URL, [
+      ...HIERARCHY,
+      entry({ id: "p", canonical_name: "Cloud Platform", vendor_type: "platform" }),
+      entry({ id: "k", canonical_name: "Mystery", vendor_type: "unknown" }),
+      entry({ id: "u", canonical_name: "Untyped", vendor_type: "" }),
+      entry({ id: "r", canonical_name: "Resell Co", vendor_type: "reseller" }),
+    ]);
+    renderTab();
+
+    await screen.findByText("Vendor Hierarchy (8)");
+    // Hana Cloud (product) and Widget Module (module) only.
+    expect(kpiValue("Products / Modules")).toBe("2");
+    expect(kpiValue("Canonical Vendors")).toBe("2");
+  });
+
   it("reports 0% confidence when no entry carries one", async () => {
     mockApi.on("get", LIST_URL, [WIDGET]);
     renderTab();
@@ -570,7 +586,8 @@ describe("TurboLensResolution — vendor type labels", () => {
     await user.click(screen.getAllByRole("combobox")[0]);
     const [all, ...typeOptions] = screen.getAllByRole("option").map((o) => o.textContent);
     expect(all).toBe("Alle");
-    expect(typeOptions.sort()).toEqual(["Anbieter", "Modul", "Plattform", "Produkt", "Unbekannt"]);
+    // In the order of the names the user reads, not of the keys behind them.
+    expect(typeOptions).toEqual(["Anbieter", "Modul", "Plattform", "Produkt", "Unbekannt"]);
   });
 
   it("shows a type it has no name for as it came", async () => {

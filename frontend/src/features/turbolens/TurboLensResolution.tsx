@@ -53,7 +53,10 @@ export default function TurboLensResolution() {
   const [sortBy, setSortBy] = useState<SortKey>("linked");
   const { startPolling, polling: pollActive } = useAnalysisPolling(() => loadHierarchy(), (msg) => setError(msg));
   // A type the resolver did not name is shown as it came.
-  const vendorTypeLabel = (tp: string) => t(`turbolens_vendor_type_${tp}`, { defaultValue: tp });
+  const vendorTypeLabel = useCallback(
+    (tp: string) => t(`turbolens_vendor_type_${tp}`, { defaultValue: tp }),
+    [t],
+  );
 
   const loadHierarchy = useCallback(async () => {
     setLoading(true);
@@ -91,8 +94,9 @@ export default function TurboLensResolution() {
   // Derived data
   const allTypes = useMemo(() => {
     const types = new Set(hierarchy.map(v => v.vendor_type || "unknown"));
-    return Array.from(types).sort();
-  }, [hierarchy]);
+    // In the order of the names the user reads, not of the keys behind them.
+    return Array.from(types).sort((a, b) => vendorTypeLabel(a).localeCompare(vendorTypeLabel(b)));
+  }, [hierarchy, vendorTypeLabel]);
 
   const allCategories = useMemo(() => {
     const cats = new Set(hierarchy.map(v => v.category).filter(Boolean) as string[]);
@@ -128,7 +132,9 @@ export default function TurboLensResolution() {
 
   // KPI calculations
   const canonicalVendors = hierarchy.filter(v => v.vendor_type === "vendor").length;
-  const productsModules = hierarchy.filter(v => v.vendor_type !== "vendor").length;
+  const productsModules = hierarchy.filter(
+    v => v.vendor_type === "product" || v.vendor_type === "module",
+  ).length;
   const totalLinked = hierarchy.reduce((s, v) => s + v.app_count + v.itc_count, 0);
   const withConfidence = hierarchy.filter(v => v.confidence != null);
   const avgConfidence = withConfidence.length > 0

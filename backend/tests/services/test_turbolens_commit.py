@@ -285,6 +285,50 @@ class TestExecuteCommit:
             "initiative_id": str(initiative.id),
         }
 
+    async def test_an_unset_id_or_relation_end_is_skipped_not_fatal(self, db, env):
+        # The mapping is model output: a proposed card can come back with no
+        # id (or an empty one) and a relation with an end left unset. Neither
+        # may fail the commit, and an unset end must never resolve to a card
+        # whose id happens to be empty.
+        stray = await create_card(db, card_type="ITComponent", name="Stray")
+        session = env["assessment"].session_data
+        mapping = session["capabilityMapping"]
+        stray_ref = {"cardTypeKey": "ITComponent", "isNew": False, "existingCardId": str(stray.id)}
+        env["assessment"].session_data = {
+            **session,
+            "capabilityMapping": {
+                **mapping,
+                "capabilities": [
+                    *mapping["capabilities"],
+                    {"id": "", "existingCardId": str(stray.id), "isNew": False},
+                ],
+                "proposedCards": [
+                    *mapping["proposedCards"],
+                    {"name": "No id", "cardTypeKey": "Application", "isNew": True},
+                    {**stray_ref, "id": "", "name": "Stray"},
+                    {**stray_ref, "name": "Stray again"},
+                ],
+                "proposedRelations": [
+                    *mapping["proposedRelations"],
+                    {"sourceId": "new_app_1", "targetId": "", "relationType": "relAppToITC"},
+                    {"sourceId": "new_app_1", "relationType": "relAppToITC"},
+                ],
+            },
+        }
+        last = len(mapping["proposedRelations"])
+        data = {
+            **env["data"],
+            "selected_relation_indices": [
+                *env["data"]["selected_relation_indices"],
+                last,
+                last + 1,
+            ],
+        }
+        out = await execute_commit(db, str(env["run"].id), data)
+        assert out["card_count"] == 3 and out["relation_count"] == 3
+        assert "No id" not in await _cards(db)
+        assert not any(stray.id in (s, t) for _, s, t in await _relations(db))
+
     async def test_a_missing_assessment_is_an_error(self, db, env):
         data = {**env["data"], "assessment_id": str(uuid.uuid4())}
         with pytest.raises(ValueError, match="Assessment not found"):

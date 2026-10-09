@@ -767,6 +767,48 @@ describe("ArchitectureDiagram — translated labels", () => {
     expect(screen.getByText("2 components · 1 integration")).toBeInTheDocument();
   });
 
+  it("names an integration's direction on its edge in the user's language", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+    renderDiagram({
+      ...ARCH,
+      integrations: [
+        ...(ARCH.integrations ?? []),
+        // A direction it has no name for is shown as it came.
+        { from: "HubSpot CRM", to: "Event Bus", protocol: "Kafka", direction: "streaming" },
+        { from: "Customer Portal", to: "Event Bus", direction: "batch" },
+      ],
+    });
+
+    expect(screen.getAllByTestId("edge-label").map((l) => l.textContent)).toEqual([
+      "REST, asynchron",
+      "GraphQL",
+      "bidirektional",
+      "Kafka, streaming",
+      "Batch",
+    ]);
+    expect(edgeOf("arch-0", "arch-2").data).toMatchObject({ label: "REST, asynchron", direction: "async" });
+  });
+
+  it("renames an integration's direction when the user switches language", async () => {
+    renderDiagram();
+    expect(screen.getAllByTestId("edge-label").map((l) => l.textContent)).toEqual([
+      "REST, async",
+      "GraphQL",
+      "bidirectional",
+    ]);
+
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+    expect(screen.getAllByTestId("edge-label").map((l) => l.textContent)).toEqual([
+      "REST, asynchron",
+      "GraphQL",
+      "bidirektional",
+    ]);
+  });
+
   it("names the badges and the summary chip in the user's language", async () => {
     await act(async () => {
       await i18n.changeLanguage("de");

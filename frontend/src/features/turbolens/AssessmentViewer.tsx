@@ -27,7 +27,7 @@ import type {
 } from "@/types";
 import type { GNode, GEdge } from "@/features/reports/layeredDependencyLayout";
 import LayeredDependencyView from "@/features/reports/LayeredDependencyView";
-import { approachColor, effortColor, urgencyColor } from "./utils";
+import { approachColor, effortColor, effortLabel, urgencyColor } from "./utils";
 
 interface MergedGraph {
   nodes: GNode[];
@@ -150,6 +150,9 @@ export default function AssessmentViewer() {
   useAbortableEffect(
     async ({ signal, isCurrent }) => {
       if (!id) return;
+      // Nothing of the assessment the route left survives the move, not even
+      // as the tab's subject while the next one loads or fails.
+      setAssessment(null);
       setLoading(true);
       setError(null);
       try {
@@ -473,7 +476,7 @@ export default function AssessmentViewer() {
                                     <Chip label={rec.estimatedCost} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />
                                   )}
                                   {rec.integrationEffort && (
-                                    <Chip label={`${rec.integrationEffort} ${t("turbolens_arch_effort")}`} size="small" color={effortColor(rec.integrationEffort)} variant="outlined" sx={{ fontSize: 10, height: 20 }} />
+                                    <Chip label={t("turbolens_arch_effort_chip", { effort: effortLabel(t, rec.integrationEffort) })} size="small" color={effortColor(rec.integrationEffort)} variant="outlined" sx={{ fontSize: 10, height: 20 }} />
                                   )}
                                 </Stack>
                               </Paper>
@@ -576,7 +579,7 @@ export default function AssessmentViewer() {
                                     <Chip label={opt.estimatedCost} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />
                                   )}
                                   {opt.integrationEffort && (
-                                    <Chip label={`${opt.integrationEffort} ${t("turbolens_arch_effort")}`} size="small" color={effortColor(opt.integrationEffort)} variant="outlined" sx={{ fontSize: 10, height: 20 }} />
+                                    <Chip label={t("turbolens_arch_effort_chip", { effort: effortLabel(t, opt.integrationEffort) })} size="small" color={effortColor(opt.integrationEffort)} variant="outlined" sx={{ fontSize: 10, height: 20 }} />
                                   )}
                                 </Stack>
                               </Paper>

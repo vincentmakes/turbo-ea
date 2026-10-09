@@ -8,7 +8,7 @@
  * the commit dialog are stubbed with components that record their props.
  */
 import type { ComponentProps } from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { useLocation } from "react-router";
 
@@ -32,7 +32,8 @@ vi.mock("@/features/turbolens/CommitInitiativeDialog", () => ({
 
 import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
-import { renderWithProviders } from "@/test/render";
+import { renderWithProviders, wrapWithProviders } from "@/test/render";
+import i18n from "@/i18n";
 import { CARD_TYPES, RELATION_TYPES } from "@/test/fixtures/metamodel";
 import type { ArchSolutionOption, CapabilityMappingResult } from "@/types";
 import type { GEdge, GNode } from "@/features/reports/layeredDependencyLayout";
@@ -404,5 +405,135 @@ describe("TurboLensArchitect — relation ends the diagram cannot place", () => 
     expect(edges.map((e) => [e.source, e.target])).toEqual([["pc-1", "cap-new-1"]]);
     // The card itself is still drawn, unconnected, as landscape context.
     expect(nodes.map((n) => n.name)).toEqual(["FraudShield", "Legacy Billing", "Fraud Detection"]);
+  });
+
+  it("lists, like the diagram draws, no relation missing an end — nor names the end after a card without an id", () => {
+    startAt(5, {
+      capabilityMapping: {
+        ...MAPPING,
+        proposedCards: [
+          ...MAPPING.proposedCards,
+          { name: "Legacy Billing", cardTypeKey: "Application", isNew: false },
+          { id: "", name: "Blank Id", cardTypeKey: "Application", isNew: false },
+        ],
+        capabilities: [...MAPPING.capabilities, { name: "Nameless Capability", isNew: true }],
+        proposedRelations: [
+          { targetId: "cap-new-1", relationType: "relAppToBC" },
+          { sourceId: "pc-1", relationType: "relAppToITC" },
+          { sourceId: "", targetId: "cap-new-1", relationType: "relAppToBC" },
+          ...MAPPING.proposedRelations,
+        ],
+      },
+    });
+
+    expect(lastLdv().edges.map((e) => [e.source, e.target])).toEqual([["pc-1", "cap-new-1"]]);
+    const heading = screen.getByText(/^Proposed New Relations/);
+    const rels = heading.closest(".MuiPaper-outlined") as HTMLElement;
+    expect(heading).toHaveTextContent("Proposed New Relations (1)");
+    expect(Array.from(rels.querySelectorAll(".MuiStack-root .MuiStack-root")).map((l) => l.textContent)).toEqual([
+      "FraudShieldarrow_forwardFraud Detection",
+    ]);
+  });
+
+  it("shows no relations list when no proposed relation has both ends", () => {
+    startAt(5, {
+      capabilityMapping: {
+        ...MAPPING,
+        proposedRelations: [{ sourceId: "pc-1", relationType: "relAppToITC" }],
+      },
+    });
+
+    // The target architecture is shown, without a relations list.
+    expect(screen.getAllByText("FraudShield").length).toBeGreaterThan(0);
+    expect(screen.getByText(/^Proposed New Cards/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Proposed New Relations/)).not.toBeInTheDocument();
+  });
+});
+
+describe("TurboLensArchitect — relation types that arrive after the wizard", () => {
+  it("builds the target architecture with the relation types once the metamodel has loaded them", () => {
+    // The metamodel has not resolved its relation types yet on the first render.
+    withMetamodel(CARD_TYPES, []);
+    sessionStorage.setItem(
+      SESSION_KEY,
+      JSON.stringify(
+        sessionAt(5, {
+          capabilityMapping: {
+            ...MAPPING,
+            // Written capability → application, against the metamodel's direction, with no verb of its own.
+            proposedRelations: [{ sourceId: "cap-new-1", targetId: "pc-1", relationType: "relAppToBC" }],
+          },
+        }),
+      ),
+    );
+    const route = "/turbolens?tab=architect";
+    const { rerender } = renderWithProviders(<TurboLensArchitect />, { route });
+    const drawn = () => lastLdv().edges.map((e) => [e.source, e.target, e.label, e.reverse_label]);
+    expect(drawn()).toEqual([["cap-new-1", "pc-1", undefined, undefined]]);
+
+    withMetamodel(CARD_TYPES, RELATION_TYPES);
+    // The metamodel hook resolving re-renders the page.
+    rerender(wrapWithProviders(<TurboLensArchitect />, { route }));
+
+    // Turned to the metamodel's direction and labelled with its verbs.
+    expect(drawn()).toEqual([["pc-1", "cap-new-1", "supports", "is supported by"]]);
+  });
+});
+
+describe("TurboLensArchitect — integration effort in the user's language", () => {
+  afterEach(async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en");
+    });
+  });
+
+  async function inGerman() {
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+  }
+
+  it("names a recommended product's effort, and one the AI named otherwise as it came", async () => {
+    startAt(3.5, {
+      gapResult: {
+        gaps: [
+          {
+            capability: "Fraud scoring",
+            recommendations: [
+              { name: "Acme Fraud", integrationEffort: "low" },
+              { name: "Beta Fraud", integrationEffort: "extreme" },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(screen.getByText("Low effort")).toBeInTheDocument();
+    expect(screen.getByText("extreme effort")).toBeInTheDocument();
+    await inGerman();
+    expect(await screen.findByText("Aufwand: Niedrig")).toBeInTheDocument();
+    expect(screen.getByText("Aufwand: extreme")).toBeInTheDocument();
+  });
+
+  it("names a dependency option's effort, and one the AI named otherwise as it came", async () => {
+    startAt(4, {
+      depsResult: {
+        dependencies: [
+          {
+            need: "Identity provider",
+            options: [
+              { name: "Okta", integrationEffort: "medium" },
+              { name: "Keycloak", integrationEffort: "trivial" },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(screen.getByText("effort: Medium")).toBeInTheDocument();
+    expect(screen.getByText("effort: trivial")).toBeInTheDocument();
+    await inGerman();
+    expect(await screen.findByText("Aufwand: Mittel")).toBeInTheDocument();
+    expect(screen.getByText("Aufwand: trivial")).toBeInTheDocument();
   });
 });

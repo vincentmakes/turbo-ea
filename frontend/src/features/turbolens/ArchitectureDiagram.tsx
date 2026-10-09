@@ -302,7 +302,8 @@ const edgeTypes = { archEdge: ArchEdge };
 
 function buildArchFlow(
   arch: ArchitectureResult,
-  typeMap?: Map<string, { color: string; icon: string }>,
+  typeMap: Map<string, { color: string; icon: string }> | undefined,
+  directionLabel: (direction: string) => string,
 ): { nodes: Node[]; edges: Edge[] } {
   const layers = arch.layers ?? [];
   const integrations = arch.integrations ?? [];
@@ -484,7 +485,7 @@ function buildArchFlow(
 
     const labelParts: string[] = [];
     if (re.intg.protocol) labelParts.push(re.intg.protocol);
-    if (re.intg.direction && re.intg.direction !== "sync") labelParts.push(re.intg.direction);
+    if (re.intg.direction && re.intg.direction !== "sync") labelParts.push(directionLabel(re.intg.direction));
     const edgeLabel = labelParts.join(", ") || "";
 
     return {
@@ -529,7 +530,14 @@ function ArchitectureDiagramInner({ arch, types }: { arch: ArchitectureResult; t
     return m;
   }, [types]);
 
-  const { nodes, edges } = useMemo(() => buildArchFlow(arch, typeMap), [arch, typeMap]);
+  const { nodes, edges } = useMemo(
+    () =>
+      buildArchFlow(arch, typeMap, (direction) =>
+        // A direction it has no name for is shown as it came.
+        t(`turbolens_arch_direction_${direction}`, { defaultValue: direction }),
+      ),
+    [arch, typeMap, t],
+  );
 
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
