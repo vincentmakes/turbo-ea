@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.158.3] - 2026-10-09
+
+### Changed
+- Sign-in, single sign-on, trusted-proxy sign-in and published-resource access: redundant checks removed and one cookie definition shared by setting and clearing the session cookie, with no change to who can sign in or what they reach. An identity provider's error details are now read from any JSON object it returns, whatever content type it declares.
+
+## [2.158.1] - 2026-10-09
+
+### Fixed
+- A page that finished loading just after the card types arrived for another part of the screen could show no card types until it was reloaded — most visibly an empty Type list in the diagram editor's **Create New Card**. Every part of the page now gets the types however the loading interleaves.
+
 ## [2.158.0] - 2026-10-09
 
 ### Added
