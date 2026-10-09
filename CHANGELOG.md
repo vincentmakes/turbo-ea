@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.157.11] - 2026-10-09
+
+### Security
+- A very long numeric-looking value in a cost or number field no longer stalls the server or a report. Checking such a value took time that grew with the square of its length, so one save carrying tens of thousands of digits could hold up every other request for a minute; the check now takes time in proportion to the length and accepts exactly the same values.
+
 ## [2.157.10] - 2026-10-09
 
 ### Fixed

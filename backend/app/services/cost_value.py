@@ -19,7 +19,13 @@ from __future__ import annotations
 import math
 import re
 
-_DECIMAL = re.compile(r"^\s*[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?\s*$")
+# Every repetition is unambiguous: the digits before a point can only be split
+# one way. ``\d+\.?\d*`` could split a run of digits between its two halves in
+# n ways, so a long digit string that failed at its last character backtracked
+# quadratically (16 000 digits held the event loop for six seconds), and the
+# write path runs this on request input. ``\d+(?:\.\d*)?`` accepts the same
+# strings in linear time.
+_DECIMAL = re.compile(r"^\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s*$")
 
 
 def is_numeric_text(value: object) -> bool:

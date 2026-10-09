@@ -49,6 +49,7 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { applyScope, useCardScope } from "@/hooks/useCardScope";
 import CardScopeFilter from "@/components/CardScopeFilter";
 import type { CardScopeOption } from "@/components/CardScopeDialog";
+import { costValue } from "@/lib/costValue";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -190,23 +191,6 @@ interface ProcNode extends ProcItem {
   deepCost: number;
   deepUniqueApps: Map<string, AppData>;
   deepDataObjects: Map<string, DataObjRef>;
-}
-
-/**
- * A cost attribute as a number, or 0. Cost fields carry no numeric check on
- * write, so a value can arrive as text: a numeric string counts (as the
- * backend's `total_app_cost` reads it), anything else counts as nothing —
- * never a string concatenated into the sum.
- */
-// A plain decimal, as the backend's `cost_value` reads it: digits, one point,
-// an optional exponent, surrounding whitespace. Not everything `Number()`
-// parses — `"0x10"` is not a cost — so the two roll-ups agree.
-const PLAIN_DECIMAL = /^\s*[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?\s*$/;
-
-function costValue(v: unknown): number {
-  const n =
-    typeof v === "number" ? v : typeof v === "string" && PLAIN_DECIMAL.test(v) ? Number(v) : NaN;
-  return Number.isFinite(n) ? n : 0;
 }
 
 function buildTree(
