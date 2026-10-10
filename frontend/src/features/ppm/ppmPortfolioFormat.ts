@@ -14,6 +14,9 @@ export const RAG: Record<string, string> = {
   offTrack: "#d32f2f",
 };
 
+/** A health dot with no report behind it, or a value the board does not know. */
+export const RAG_NONE = "#bdbdbd";
+
 export const RAG_LABEL: Record<string, string> = {
   onTrack: "health_onTrack",
   atRisk: "health_atRisk",

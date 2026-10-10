@@ -5,9 +5,9 @@
  * click, so a future edit cannot leave a pointer affordance on a dead row.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, render, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router";
 import { setViewportWidth } from "@/test/matchMedia";
 import PpmPortfolioView from "./PpmPortfolioView";
 import type { PpmPortfolioItem, PpmPortfolioDashboard } from "@/types";
@@ -217,5 +217,287 @@ describe("PpmPortfolioView chrome", () => {
   it("suppresses the heading inside a portal, which has its own header", () => {
     renderBoard({ showTitle: false });
     expect(screen.queryByText(HEADING)).toBeNull();
+  });
+});
+
+describe("PpmPortfolioView groups", () => {
+  const GROUPED: PpmPortfolioItem = { ...ITEM, group_id: "org-1", group_name: "Sales" };
+  const UNGROUPED: PpmPortfolioItem = {
+    ...ITEM,
+    id: "22222222-2222-2222-2222-222222222222",
+    name: "Data Platform",
+  };
+
+  it("collapses a group's rows and totals on the desktop grid, and expands them again", () => {
+    renderBoard({ items: [GROUPED, UNGROUPED] });
+    expect(screen.getByText("Sales")).toBeTruthy();
+    expect(screen.getAllByText("— 1 project")).toHaveLength(2);
+    expect(screen.getAllByText(/Totals/)).toHaveLength(2);
+
+    fireEvent.click(screen.getByText("Sales"));
+    expect(screen.queryByText("ERP Replacement")).toBeNull();
+    expect(screen.getAllByText(/Totals/)).toHaveLength(1);
+    // The other group is untouched.
+    expect(screen.getByText("Data Platform")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("Sales"));
+    expect(screen.getByText("ERP Replacement")).toBeTruthy();
+    expect(screen.getAllByText(/Totals/)).toHaveLength(2);
+  });
+
+  it("lists the ungrouped initiatives last, under their own heading", () => {
+    renderBoard({ items: [UNGROUPED, GROUPED] });
+    const headings = screen.getAllByText(/^(Sales|Ungrouped)$/).map((el) => el.textContent);
+    expect(headings).toEqual(["Sales", "Ungrouped"]);
+  });
+
+  it("collapses a group on the mobile list too", () => {
+    setViewportWidth(400);
+    renderBoard({ items: [GROUPED] });
+    expect(screen.getByText("ERP Replacement")).toBeTruthy();
+    fireEvent.click(screen.getByText("Sales"));
+    expect(screen.queryByText("ERP Replacement")).toBeNull();
+    fireEvent.click(screen.getByText("— 1 project"));
+    expect(screen.getByText("ERP Replacement")).toBeTruthy();
+  });
+});
+
+describe("PpmPortfolioView report preview", () => {
+  it("shows the latest report's summary, accomplishments and next steps on hover", () => {
+    renderBoard();
+    fireEvent.mouseEnter(screen.getByText("Feb-26"));
+    expect(screen.getByText("Reporter: Dana Fischer")).toBeTruthy();
+    for (const text of [
+      "Summary",
+      "Vendor selection under way",
+      "Accomplishments",
+      "Shortlist agreed",
+      "Next Steps",
+      "Contract negotiation",
+    ]) {
+      expect(screen.getByText(text)).toBeTruthy();
+    }
+  });
+
+  it("leaves out each section the report does not fill in", () => {
+    renderBoard({
+      items: [
+        {
+          ...ITEM,
+          latest_report: {
+            ...ITEM.latest_report!,
+            summary: null,
+            accomplishments: "Shortlist agreed",
+            next_steps: "",
+          },
+        },
+      ],
+    });
+    fireEvent.mouseEnter(screen.getByText("Feb-26"));
+    expect(screen.getByText("Shortlist agreed")).toBeTruthy();
+    expect(screen.queryByText("Summary")).toBeNull();
+    expect(screen.queryByText("Next Steps")).toBeNull();
+  });
+});
+
+/** Renders the router's current query string, so a test can read the URL the board wrote. */
+function LocationProbe() {
+  const { search } = useLocation();
+  return <output data-testid="location">{search}</output>;
+}
+
+function renderAt(url: string, props: Partial<React.ComponentProps<typeof PpmPortfolioView>> = {}) {
+  return render(
+    <MemoryRouter initialEntries={[url]}>
+      <PpmPortfolioView
+        items={[ITEM]}
+        dashboard={DASHBOARD}
+        groupOptions={[]}
+        subtypeDefs={[{ key: "Project", label: "Project" }]}
+        loading={false}
+        {...props}
+      />
+      <LocationProbe />
+    </MemoryRouter>,
+  );
+}
+
+const location = () => screen.getByTestId("location").textContent;
+
+const EPIC: PpmPortfolioItem = {
+  ...ITEM,
+  id: "33333333-3333-3333-3333-333333333333",
+  name: "Data Platform",
+  subtype: "Epic",
+};
+
+describe("PpmPortfolioView filters", () => {
+  const selects = () => screen.getAllByRole("combobox");
+  const pick = (select: HTMLElement, option: string) => {
+    fireEvent.mouseDown(select);
+    fireEvent.click(screen.getByRole("option", { name: option }));
+  };
+
+  it("narrows the rows to a search and carries it in the URL", () => {
+    renderAt("/", { items: [ITEM, EPIC] });
+    const box = screen.getByPlaceholderText("Search initiatives...");
+    fireEvent.change(box, { target: { value: "data" } });
+    expect(screen.queryByText("ERP Replacement")).toBeNull();
+    expect(screen.getByText("Data Platform")).toBeTruthy();
+    expect(location()).toBe("?search=data");
+
+    fireEvent.change(box, { target: { value: "" } });
+    expect(screen.getByText("ERP Replacement")).toBeTruthy();
+    expect(location()).toBe("");
+  });
+
+  it("narrows the rows to a subtype", () => {
+    renderAt("/", { items: [ITEM, EPIC] });
+    pick(selects()[1], "Epic");
+    expect(screen.queryByText("ERP Replacement")).toBeNull();
+    expect(screen.getByText("Data Platform")).toBeTruthy();
+    expect(location()).toBe("?subtype=Epic");
+  });
+
+  it("regroups on a new grouping and tells its container", () => {
+    const onGroupByChange = vi.fn();
+    renderAt("/", {
+      groupOptions: [
+        { type_key: "Organization", label: "Organization" },
+        { type_key: "Platform", label: "Platform" },
+      ],
+      onGroupByChange,
+    });
+    pick(selects()[0], "Platform");
+    expect(onGroupByChange).toHaveBeenCalledWith("Platform");
+    expect(selects()[0]).toHaveTextContent("Platform");
+    expect(location()).toBe("?groupBy=Platform");
+  });
+
+  it("opens on the filters the URL carries", () => {
+    renderAt("/?search=erp&subtype=Project", { items: [ITEM, EPIC] });
+    expect(screen.getByText("ERP Replacement")).toBeTruthy();
+    expect(screen.queryByText("Data Platform")).toBeNull();
+    expect(screen.getByPlaceholderText("Search initiatives...")).toHaveValue("erp");
+  });
+
+  it("says so when nothing matches", () => {
+    renderAt("/", { items: [ITEM] });
+    expect(screen.queryByText("No initiatives found")).toBeNull();
+    fireEvent.change(screen.getByPlaceholderText("Search initiatives..."), {
+      target: { value: "zzz" },
+    });
+    expect(screen.getByText("No initiatives found")).toBeTruthy();
+  });
+});
+
+describe("PpmPortfolioView desktop row", () => {
+  it("names the project manager", () => {
+    renderBoard();
+    expect(screen.getByText("Dana Fischer")).toBeTruthy();
+  });
+
+  it("opens the initiative from its timeline bar", () => {
+    const onOpen = vi.fn();
+    renderBoard({ onOpen });
+    fireEvent.click(screen.getByLabelText("2026-01-01 \u2192 2026-12-31"));
+    expect(onOpen).toHaveBeenCalledWith(ITEM);
+  });
+
+  it("draws no bar for an initiative without dates", () => {
+    renderBoard({ items: [{ ...ITEM, start_date: null }] });
+    expect(screen.getByText("ERP Replacement")).toBeTruthy();
+    expect(screen.queryByLabelText(/\u2192/)).toBeNull();
+  });
+
+  it("labels the health counts beside the KPI dots", () => {
+    renderBoard();
+    expect(screen.getByText("At Risk")).toBeTruthy();
+  });
+});
+
+describe("PpmPortfolioView mobile card", () => {
+  beforeEach(() => setViewportWidth(400));
+
+  it("opens the initiative from its name, and its reports from the report date", () => {
+    const onOpen = vi.fn();
+    renderBoard({ onOpen });
+    fireEvent.click(screen.getByText("ERP Replacement"));
+    expect(onOpen).toHaveBeenLastCalledWith(ITEM, "detail");
+    fireEvent.click(screen.getByText("Feb-26"));
+    expect(onOpen).toHaveBeenLastCalledWith(ITEM, "reports");
+  });
+
+  it("shows the subtype, the manager and both cost bars", () => {
+    renderBoard({ items: [{ ...ITEM, opex_planned: 400, opex_actual: 100 }] });
+    expect(screen.getByText("Project")).toBeTruthy();
+    expect(screen.getByText("Dana Fischer")).toBeTruthy();
+    expect(screen.getByText("CapEx")).toBeTruthy();
+    expect(screen.getByText("OpEx")).toBeTruthy();
+  });
+
+  it("leaves out the subtype and the cost bars when there are none", () => {
+    renderBoard({
+      items: [{ ...ITEM, subtype: null, capex_planned: 0, capex_actual: null }],
+    });
+    expect(screen.queryByText("Project")).toBeNull();
+    expect(screen.queryByText("CapEx")).toBeNull();
+  });
+
+  it("renders a card with no manager", () => {
+    renderBoard({ items: [{ ...ITEM, stakeholders: [] }] });
+    expect(screen.getByText("ERP Replacement")).toBeTruthy();
+    expect(screen.queryByText("Dana Fischer")).toBeNull();
+  });
+
+  it("drops the KPI health labels and keeps the counts", () => {
+    renderBoard();
+    expect(screen.queryByText("At Risk")).toBeNull();
+  });
+
+  it("says so when nothing matches", () => {
+    renderBoard({ items: [] });
+    expect(screen.getByText("No initiatives found")).toBeTruthy();
+  });
+});
+
+describe("PpmPortfolioView report preview timing", () => {
+  const SUMMARY = "Vendor selection under way";
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const settle = () =>
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+  it("closes shortly after the pointer leaves the date", () => {
+    renderBoard();
+    fireEvent.mouseEnter(screen.getByText("Feb-26"));
+    expect(screen.getByText(SUMMARY)).toBeTruthy();
+    fireEvent.mouseLeave(screen.getByText("Feb-26"));
+    settle();
+    expect(screen.queryByText(SUMMARY)).toBeNull();
+  });
+
+  it("stays open when the pointer comes back to the date in time", () => {
+    renderBoard();
+    const date = screen.getByText("Feb-26");
+    fireEvent.mouseEnter(date);
+    fireEvent.mouseLeave(date);
+    fireEvent.mouseEnter(date);
+    settle();
+    expect(screen.getByText(SUMMARY)).toBeTruthy();
+  });
+
+  it("stays open while the pointer is over the preview itself", () => {
+    renderBoard();
+    const date = screen.getByText("Feb-26");
+    fireEvent.mouseEnter(date);
+    fireEvent.mouseLeave(date);
+    fireEvent.mouseEnter(screen.getByText(SUMMARY).closest(".MuiPopover-paper")!);
+    settle();
+    expect(screen.getByText(SUMMARY)).toBeTruthy();
   });
 });

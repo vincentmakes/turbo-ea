@@ -98,3 +98,4 @@ mcp = 97
 "frontend/src/features/reports/matrixExport.ts" = 98     # the Matrix print summary and export sheets
 "frontend/src/features/ppm/ppmGanttModel.ts" = 96       # the project Gantt's rows, dates and dependency rules
 "frontend/src/features/web-portals/portalViewerState.ts" = 97  # which fields and relations a public portal shows
+"frontend/src/features/ppm/ppmPortfolioModel.ts" = 98    # the PPM portfolio board's filters, bars, totals and export
