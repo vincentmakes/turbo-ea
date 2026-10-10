@@ -414,7 +414,9 @@ describe("ProcessFlowTab loading", () => {
     });
     renderTab({ initialSubTab: 2 });
     expect(await screen.findByText("Loading archived flows...")).toBeInTheDocument();
-    expect(seen).toHaveLength(1);
+    // The message is up from the first render; the request follows once the
+    // permissions have loaded, so wait for it rather than read it in this tick.
+    await waitFor(() => expect(seen).toHaveLength(1));
     expect(seen[0]).not.toMatch(/Revision/);
     await act(async () => {
       archive.resolve(ARCHIVED);
