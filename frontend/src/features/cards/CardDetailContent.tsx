@@ -50,9 +50,22 @@ import {
 } from "@/lib/extensionHost";
 import SoAWTab from "@/features/cards/sections/SoAWTab";
 import {
+  allFieldsHidden,
+  buildSectionOrder,
+  calculatedFieldKeys,
+  customSectionsOf,
+  hiddenFieldKeys as hiddenFieldKeysOf,
   makeSectionConfigReader,
   sectionDefaultExpanded,
 } from "@/features/cards/sectionConfig";
+import {
+  CARD_TAB_LABEL_KEYS,
+  cardTabKeys,
+  notesVisit,
+  resolveCardTab,
+  visibleExtensionTabs,
+  type CardTabKey,
+} from "@/features/cards/cardTabs";
 import type {
   ArchitectureDecision,
   Card,
@@ -69,8 +82,8 @@ interface Props {
   showBpmTabs?: boolean;
   /** Show PPM tab for Initiative cards (default true) */
   showPpmTab?: boolean;
-  /** Initial tab index (default 0) */
-  initialTab?: number;
+  /** Tab to open: its key (`"resources"`), or an index for older links (`1`). */
+  initialTab?: number | string;
   /** Initial sub-tab for Process Flow tab */
   initialSubTab?: number;
   /** Extra content rendered before tabs (e.g. archive banner, action buttons) */
@@ -159,10 +172,6 @@ export default function CardDetailContent({
     };
   }, [card.id, grcEnabled, canViewRisks, canViewCompliance]);
 
-  const showRisksTab = grcEnabled && canViewRisks && (risksCount === null || risksCount > 0);
-  const showComplianceTab =
-    grcEnabled && canViewCompliance && (complianceCount === null || complianceCount > 0);
-
   // Card-scoped ADR count. Same `null = loading` convention as above, but ADRs
   // are not GRC-gated so this lives in its own effect. Unlike Risks the tab
   // also stays visible on an empty card for users who may link/create ADRs —
@@ -190,15 +199,13 @@ export default function CardDetailContent({
     };
   }, [card.id, canViewAdr]);
 
-  const showAdrsTab =
-    canViewAdr && (adrCount === null || adrCount > 0 || perms.can_manage_adr_links);
-
-  const [tab, setTab] = useState(initialTab);
+  // The tab the user asked for: a key, or an index from an older deep link.
+  const [requestedTab, setRequestedTab] = useState<number | string>(initialTab);
   const [relRefresh, setRelRefresh] = useState(0);
 
   // Reset tab when card changes
   useEffect(() => {
-    setTab(initialTab);
+    setRequestedTab(initialTab);
   }, [card.id, initialTab]);
 
   const typeConfig = getType(card.type);
@@ -215,20 +222,11 @@ export default function CardDetailContent({
   ).filter((f) => !isCalculated(card.type, f.key) && !autoFieldKeys.includes(f.key));
 
   // Calculated field keys (includes auto-computed PPM fields)
-  let calcFieldKeys: string[] = [];
-  try {
-    for (const section of typeConfig?.fields_schema || []) {
-      for (const field of section.fields || []) {
-        if (isCalculated(card.type, field.key)) calcFieldKeys.push(field.key);
-      }
-    }
-  } catch (err) {
-    console.error("[CardDetailContent] calcFieldKeys error", err);
-    calcFieldKeys = [];
-  }
-  if (autoFieldKeys.length > 0) {
-    calcFieldKeys = [...new Set([...calcFieldKeys, ...autoFieldKeys])];
-  }
+  const calcFieldKeys = calculatedFieldKeys(
+    typeConfig?.fields_schema,
+    (key) => isCalculated(card.type, key),
+    autoFieldKeys,
+  );
 
   // Extensions may hide specific card fields at render time (display-only,
   // ungated, never deletes stored values). Each registered provider renders as
@@ -250,23 +248,14 @@ export default function CardDetailContent({
   // Determine hidden fields: subtype hidden_fields ∪ every currently-registered
   // extension provider's reported keys. Reports from an extension that is no
   // longer registered are ignored (its slot is gone).
-  const hiddenFieldKeys: Set<string> = (() => {
-    const set = new Set<string>();
-    if (card.subtype && typeConfig?.subtypes) {
-      const st = typeConfig.subtypes.find((s) => s.key === card.subtype);
-      for (const k of st?.hidden_fields ?? []) set.add(k);
-    }
-    const active = new Set(fieldVisibilityProviders.map((p) => p.extKey));
-    for (const [extKey, keys] of Object.entries(extHiddenByKey)) {
-      if (!active.has(extKey)) continue;
-      for (const k of keys) set.add(k);
-    }
-    return set;
-  })();
-
-  const customSections = (typeConfig?.fields_schema || []).filter(
-    (s) => s.section !== "__description",
+  const hiddenFieldKeys = hiddenFieldKeysOf(
+    typeConfig?.subtypes,
+    card.subtype,
+    extHiddenByKey,
+    fieldVisibilityProviders.map((p) => p.extKey),
   );
+
+  const customSections = customSectionsOf(typeConfig?.fields_schema);
   const descExtraSection = (typeConfig?.fields_schema || []).find(
     (s) => s.section === "__description",
   );
@@ -282,42 +271,10 @@ export default function CardDetailContent({
   const secExpanded = sectionCfg.expanded;
   const secHidden = sectionCfg.hidden;
 
-  // Build section order from config or default
-  const sectionOrder = (() => {
-    const raw = (sc as Record<string, unknown>).__order as string[] | undefined;
-    if (raw && Array.isArray(raw) && raw.length > 0) {
-      const customKeys = customSections.map((_, i) => `custom:${i}`);
-      const existing = new Set(raw);
-      const result = [...raw];
-      for (const k of customKeys) {
-        if (!existing.has(k)) result.push(k);
-      }
-      // Inject "successors" before "relations" if not already present
-      if (!existing.has("successors") && typeConfig?.has_successors) {
-        const relIdx = result.indexOf("relations");
-        if (relIdx >= 0) result.splice(relIdx, 0, "successors");
-        else result.push("successors");
-      }
-      // Inject "tags" before "relations" if not already present
-      if (!existing.has("tags")) {
-        const relIdx = result.indexOf("relations");
-        if (relIdx >= 0) result.splice(relIdx, 0, "tags");
-        else result.push("tags");
-      }
-      return result.filter((k) => {
-        if (k === "hierarchy" && !typeConfig?.has_hierarchy) return false;
-        if (k === "successors" && !typeConfig?.has_successors) return false;
-        return true;
-      });
-    }
-    const order: string[] = ["description", "eol", "lifecycle"];
-    customSections.forEach((_, i) => order.push(`custom:${i}`));
-    if (typeConfig?.has_hierarchy) order.push("hierarchy");
-    if (typeConfig?.has_successors) order.push("successors");
-    order.push("tags");
-    order.push("relations");
-    return order;
-  })();
+  const sectionOrder = buildSectionOrder(sc as Record<string, unknown>, customSections.length, {
+    hierarchy: !!typeConfig?.has_hierarchy,
+    successors: !!typeConfig?.has_successors,
+  });
 
   const handleUpdate = useCallback(
     async (updates: Record<string, unknown>) => {
@@ -467,13 +424,7 @@ export default function CardDetailContent({
       const section = customSections[idx];
       if (!section) return null;
       // Skip section if all its fields are hidden for the active subtype
-      if (
-        hiddenFieldKeys.size > 0 &&
-        section.fields.length > 0 &&
-        section.fields.every((f) => hiddenFieldKeys.has(f.key))
-      ) {
-        return null;
-      }
+      if (allFieldsHidden(section, hiddenFieldKeys)) return null;
       return (
         <ErrorBoundary key={key} label={section.section}>
           <AttributeSection
@@ -494,75 +445,43 @@ export default function CardDetailContent({
     return null;
   };
 
-  const isBpm = showBpmTabs && card.type === "BusinessProcess";
-  const isPpm = showPpmTab && ppmEnabled && card.type === "Initiative";
-  const isSoaw = card.type === "Initiative";
-
-  // BPM adds 2 tabs after Card; SoAW adds 1 tab after Card (only one of these
-  // ever fires — a card has exactly one type). PPM tab goes at the very end.
-  const bpmOffset = isBpm ? 2 : 0;
-  const soawOffset = isSoaw ? 1 : 0;
-  const extraOffset = bpmOffset + soawOffset;
-  const commentsIdx = 1 + extraOffset;
-  const todosIdx = 2 + extraOffset;
-  const stakeholdersIdx = 3 + extraOffset;
-  const resourcesIdx = 4 + extraOffset;
-  const adrsTabOffset = showAdrsTab ? 1 : 0;
-  const adrsIdx = showAdrsTab ? 5 + extraOffset : -1;
-  const risksTabOffset = showRisksTab ? 1 : 0;
-  const risksIdx = showRisksTab ? 5 + extraOffset + adrsTabOffset : -1;
-  const complianceTabOffset = showComplianceTab ? 1 : 0;
-  const complianceIdx = showComplianceTab
-    ? 5 + extraOffset + adrsTabOffset + risksTabOffset
-    : -1;
-  const historyIdx =
-    5 + extraOffset + adrsTabOffset + risksTabOffset + complianceTabOffset;
-  const ppmTabIdx = isPpm ? historyIdx + 1 : -1;
-  // SoAW tab index = 1 when Initiative (no BPM); slots in right after Card.
-  const soawTabIdx = isSoaw ? 1 + bpmOffset : -1;
+  const tabKeys = cardTabKeys({
+    cardType: card.type,
+    showBpmTabs,
+    showPpmTab,
+    ppmEnabled,
+    grcEnabled,
+    canViewRisks,
+    risksCount,
+    canViewCompliance,
+    complianceCount,
+    canViewAdr,
+    adrCount,
+    canManageAdrLinks: perms.can_manage_adr_links,
+  });
 
   // Extension-contributed tabs render at the very end of the strip,
   // filtered by card type (appliesTo) and app-level permission.
   const uiExtensions = useExtensionUI();
-  const extensionTabs = uiExtensions.flatMap(({ key, plugin }) =>
-    (plugin.cardTabs ?? [])
-      .filter((def) => !def.appliesTo || def.appliesTo.includes(card.type))
-      .filter((def) => !def.permission || hasPermission(user?.permissions, def.permission))
-      .map((def) => ({ extKey: key, def })),
+  const extensionTabs = visibleExtensionTabs(uiExtensions, card.type, (permission) =>
+    hasPermission(user?.permissions, permission),
   );
-  const extensionTabBase = historyIdx + 1 + (isPpm ? 1 : 0);
+  // A tab that vanished (a count settled at 0) or never existed opens the
+  // Card tab rather than leaving the strip with no selection.
+  const tab = resolveCardTab(requestedTab, [
+    ...tabKeys,
+    ...extensionTabs.map((x) => x.value),
+  ]);
 
   const { hasUpdates, noteVisit } = useCardTabActivity(card.id, user?.id);
-
-  const tabKeyForIndex = (idx: number): string | null => {
-    if (idx === 0) return "card";
-    if (isBpm && idx === 1) return "processFlow";
-    if (isBpm && idx === 2) return "assessments";
-    if (isSoaw && idx === soawTabIdx) return "soaw";
-    if (idx === commentsIdx) return "comments";
-    if (idx === todosIdx) return "todos";
-    if (idx === stakeholdersIdx) return "stakeholders";
-    if (idx === resourcesIdx) return "resources";
-    if (showAdrsTab && idx === adrsIdx) return "adrs";
-    if (showRisksTab && idx === risksIdx) return "risks";
-    if (showComplianceTab && idx === complianceIdx) return "compliance";
-    if (idx === historyIdx) return "history";
-    if (isPpm && idx === ppmTabIdx) return "ppm";
-    return null;
-  };
 
   // Note which tabs the user has opened during this visit. The dots stay
   // visible for the whole visit — noteVisit buffers the timestamps and the
   // hook flushes them to localStorage on unmount / beforeunload so the
-  // *next* visit starts fresh. PPM tab is excluded — clicking it navigates
-  // away rather than rendering inline.
+  // *next* visit starts fresh.
   useEffect(() => {
-    const key = tabKeyForIndex(tab);
-    if (key && key !== "ppm") noteVisit(key);
-    // tabKeyForIndex captures index offsets; re-running when any of them shift
-    // keeps the active key in sync.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, card.id, isBpm, isSoaw, showAdrsTab, showRisksTab, showComplianceTab, noteVisit]);
+    if (notesVisit(tab)) noteVisit(tab);
+  }, [tab, card.id, noteVisit]);
 
   const renderTabLabel = (key: string, label: string) => {
     if (!hasUpdates(key)) return label;
@@ -627,39 +546,27 @@ export default function CardDetailContent({
 
       <Tabs
         value={tab}
-        onChange={(_, v) => {
-          if (isPpm && v === ppmTabIdx) {
+        onChange={(_, v: string) => {
+          if (v === "ppm") {
             navigate(`/ppm/${card.id}`);
             return;
           }
-          setTab(v);
+          setRequestedTab(v);
         }}
         variant="scrollable"
         scrollButtons="auto"
         allowScrollButtonsMobile
         sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
       >
-        <Tab label={renderTabLabel("card", t("tabs.card"))} />
-        {isBpm && <Tab label={renderTabLabel("processFlow", t("tabs.processFlow"))} />}
-        {isBpm && <Tab label={renderTabLabel("assessments", t("tabs.assessments"))} />}
-        {isSoaw && <Tab label={renderTabLabel("soaw", t("tabs.soaw"))} />}
-        <Tab label={renderTabLabel("comments", t("tabs.comments"))} />
-        <Tab label={renderTabLabel("todos", t("tabs.todos"))} />
-        <Tab label={renderTabLabel("stakeholders", t("tabs.stakeholders"))} />
-        <Tab label={renderTabLabel("resources", t("tabs.resources"))} />
-        {showAdrsTab && <Tab label={renderTabLabel("adrs", t("tabs.adrs"))} />}
-        {showRisksTab && <Tab label={renderTabLabel("risks", t("tabs.risks"))} />}
-        {showComplianceTab && (
-          <Tab label={renderTabLabel("compliance", t("tabs.compliance"))} />
-        )}
-        <Tab label={renderTabLabel("history", t("tabs.history"))} />
-        {isPpm && <Tab label={renderTabLabel("ppm", t("tabs.ppm"))} />}
-        {extensionTabs.map(({ extKey, def }) => (
-          <Tab key={`ext:${extKey}:${def.id}`} label={def.label} />
+        {tabKeys.map((key: CardTabKey) => (
+          <Tab key={key} value={key} label={renderTabLabel(key, t(CARD_TAB_LABEL_KEYS[key]))} />
+        ))}
+        {extensionTabs.map(({ def, value }) => (
+          <Tab key={value} value={value} label={def.label} />
         ))}
       </Tabs>
 
-      {tab === 0 && (
+      {tab === "card" && (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           {missingMandatory.length > 0 && (
             <Alert severity="warning">
@@ -676,7 +583,7 @@ export default function CardDetailContent({
           )}
         </Box>
       )}
-      {isBpm && tab === 1 && (
+      {tab === "processFlow" && (
         <ErrorBoundary label="Process Flow">
           <MuiCard>
             <CardContent>
@@ -689,7 +596,7 @@ export default function CardDetailContent({
           </MuiCard>
         </ErrorBoundary>
       )}
-      {isSoaw && tab === soawTabIdx && (
+      {tab === "soaw" && (
         <ErrorBoundary label="SoAW">
           <MuiCard>
             <CardContent>
@@ -698,7 +605,7 @@ export default function CardDetailContent({
           </MuiCard>
         </ErrorBoundary>
       )}
-      {isBpm && tab === 2 && (
+      {tab === "assessments" && (
         <ErrorBoundary label="Assessments">
           <MuiCard>
             <CardContent>
@@ -707,7 +614,7 @@ export default function CardDetailContent({
           </MuiCard>
         </ErrorBoundary>
       )}
-      {tab === commentsIdx && (
+      {tab === "comments" && (
         <ErrorBoundary label="Comments">
           <MuiCard>
             <CardContent>
@@ -720,7 +627,7 @@ export default function CardDetailContent({
           </MuiCard>
         </ErrorBoundary>
       )}
-      {tab === todosIdx && (
+      {tab === "todos" && (
         <ErrorBoundary label="Todos">
           <MuiCard>
             <CardContent>
@@ -729,7 +636,7 @@ export default function CardDetailContent({
           </MuiCard>
         </ErrorBoundary>
       )}
-      {tab === stakeholdersIdx && (
+      {tab === "stakeholders" && (
         <ErrorBoundary label="Stakeholders">
           <MuiCard>
             <CardContent>
@@ -744,7 +651,7 @@ export default function CardDetailContent({
           </MuiCard>
         </ErrorBoundary>
       )}
-      {tab === resourcesIdx && (
+      {tab === "resources" && (
         <ErrorBoundary label="Resources">
           <MuiCard>
             <CardContent>
@@ -757,7 +664,7 @@ export default function CardDetailContent({
           </MuiCard>
         </ErrorBoundary>
       )}
-      {showAdrsTab && tab === adrsIdx && (
+      {tab === "adrs" && (
         <ErrorBoundary label="ADRs">
           <MuiCard>
             <CardContent>
@@ -771,7 +678,7 @@ export default function CardDetailContent({
           </MuiCard>
         </ErrorBoundary>
       )}
-      {showRisksTab && tab === risksIdx && (
+      {tab === "risks" && (
         <ErrorBoundary label="Risks">
           <MuiCard>
             <CardContent>
@@ -780,7 +687,7 @@ export default function CardDetailContent({
           </MuiCard>
         </ErrorBoundary>
       )}
-      {showComplianceTab && tab === complianceIdx && (
+      {tab === "compliance" && (
         <ErrorBoundary label="Compliance">
           <MuiCard>
             <CardContent>
@@ -789,7 +696,7 @@ export default function CardDetailContent({
           </MuiCard>
         </ErrorBoundary>
       )}
-      {tab === historyIdx && (
+      {tab === "history" && (
         <ErrorBoundary label="History">
           <MuiCard>
             <CardContent>
@@ -798,9 +705,9 @@ export default function CardDetailContent({
           </MuiCard>
         </ErrorBoundary>
       )}
-      {extensionTabs.map(({ extKey, def }, i) =>
-        tab === extensionTabBase + i ? (
-          <ExtensionBoundary key={`ext:${extKey}:${def.id}`} extensionKey={extKey}>
+      {extensionTabs.map(({ extKey, def, value }) =>
+        tab === value ? (
+          <ExtensionBoundary key={value} extensionKey={extKey}>
             <MuiCard>
               <CardContent>
                 <def.component cardId={card.id} cardType={card.type} />

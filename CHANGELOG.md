@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.158.11] - 2026-10-10
+
+### Fixed
+- Admin → Resources: the link from a file or link to its card opens the card's **Resources** tab; it opened the Card tab.
+- Card detail: the open tab stays open when a tab before it (ADRs, Risks, Compliance) appears or disappears as its count loads; the selection used to move to the neighbouring tab.
+
+### Changed
+- Internal clean-up of card detail and its History tab: the rules that decide the tab strip, the section order and the history rows moved into modules with tests of their own, and the Card Layout editor takes its section order from the same function as the card.
+
 ## [2.158.9] - 2026-10-10
 
 ### Changed

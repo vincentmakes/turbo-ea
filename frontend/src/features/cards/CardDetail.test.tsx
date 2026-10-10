@@ -199,9 +199,9 @@ beforeEach(() => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function renderCardDetail(cardId = "card-1") {
+function renderCardDetail(cardId = "card-1", search = "") {
   return render(
-    <MemoryRouter initialEntries={[`/cards/${cardId}`]}>
+    <MemoryRouter initialEntries={[`/cards/${cardId}${search}`]}>
       <Routes>
         <Route path="/cards/:id" element={<CardDetail />} />
         <Route path="/inventory" element={<div data-testid="inventory-page" />} />
@@ -291,6 +291,22 @@ describe("CardDetail", () => {
     expect(screen.getByRole("tab", { name: /todos/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /stakeholders/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /history/i })).toBeInTheDocument();
+  });
+
+  it("opens the tab a link names by key (Admin → Resources links ?tab=resources)", async () => {
+    // The link used to open the Card tab: the page read ?tab as a number.
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve(mockCard);
+    });
+
+    renderCardDetail("card-1", "?tab=resources");
+
+    expect(await screen.findByTestId("resources-tab")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /resources/i })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   it("renders extra tabs for BusinessProcess type", async () => {
