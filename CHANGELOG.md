@@ -5,10 +5,10 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.158.15] - 2026-10-09
+## [2.158.15] - 2026-10-10
 
 ### Changed
-- Internal clean-up of the Process Navigator: its tree, filter, zoom, URL, row and reordering rules moved into one module with tests of their own; nothing a user sees changes.
+- Internal clean-up of the Process Navigator, the Matrix report, the project Gantt and the public portal: the rules that decide what each one shows moved into modules with tests of their own; nothing a user sees changes.
 
 ## [2.158.1] - 2026-10-09
 

@@ -89,3 +89,5 @@ mcp = 68
 "frontend/src/components/grid/dragFill.ts" = 92
 "frontend/src/features/reports/portfolioHelpers.ts" = 88
 "frontend/src/features/bpm/processNavigatorState.ts" = 98  # the Process Navigator's tree, URL and reorder rules
+"frontend/src/features/reports/matrixState.ts" = 98      # which cards and relations the Matrix shows
+"frontend/src/features/reports/matrixExport.ts" = 98     # the Matrix print summary and export sheets
