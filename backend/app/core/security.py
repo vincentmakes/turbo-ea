@@ -18,6 +18,12 @@ PORTAL_ISS = "turbo-ea-portal"
 PORTAL_AUD = "turbo-ea-portal"
 
 
+def _sign(payload: dict) -> str:
+    return jwt.encode(
+        payload, settings.SECRET_KEY, algorithm=ALGORITHM
+    )  # pragma: no mutate, HS256 is PyJWT's default too
+
+
 def create_access_token(
     user_id: uuid.UUID,
     role: str = "member",
@@ -35,7 +41,7 @@ def create_access_token(
     }
     if impersonated_role:
         payload["impersonated_role"] = impersonated_role
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
+    return _sign(payload)
 
 
 def decode_access_token(token: str) -> dict | None:
@@ -83,7 +89,7 @@ def create_portal_token(
         "iss": PORTAL_ISS,
         "aud": PORTAL_AUD,
     }
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
+    return _sign(payload)
 
 
 def decode_portal_token(token: str) -> dict | None:
