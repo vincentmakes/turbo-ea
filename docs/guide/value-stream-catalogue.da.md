@@ -20,7 +20,7 @@ Klik på brugerikonet i øverste højre hjørne af appen, udvid **Reference Cata
 
 Marker afkrydsningsfeltet ved siden af en strøm eller et trin for at føje det til valget. Valget kaskaderer på samme måde som de andre kataloger. **Når du vælger et trin, hentes den overordnede strøm automatisk med** ved import, så du ikke ender med forældreløse trin — selv hvis du ikke selv har markeret strømmen.
 
-Strømme og trin, der **allerede findes** i dit lager, vises med et **grønt fluebensikon** i stedet for et afkrydsningsfelt.
+Strømme og trin, der **allerede findes** i dit lager, vises med et **grønt fluebensikon** i stedet for et afkrydsningsfelt. Matching foretrækker `attributes.catalogueId`-stemplet fra en tidligere import og falder tilbage til et case-uafhængigt match på visningsnavn, undtagen for et navn, som to poster deler, fx et trin, der findes i to strømme: en sådan post genkendes kun på sit `catalogueId`.
 
 ## Masseoprettelse af kort
 

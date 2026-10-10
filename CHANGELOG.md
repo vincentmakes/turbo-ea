@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.158.10] - 2026-10-10
+
+### Fixed
+- Reference catalogues: an entry whose name another entry of the same catalogue shares (a stage that appears in two value streams, a capability or process repeated in two branches) is no longer taken for the card already imported under that name. Importing the second branch used to skip the entry and move the existing card under the new branch.
+- Reference catalogues: re-parenting an existing card during a catalogue import is now recorded on the card's History tab.
+- Capability Catalogue: an outdated cached catalogue no longer lends its macro capabilities to the newer catalogue bundled with Turbo EA, and the update check reports the bundled catalogue as the active source when the cached one is older.
+- Extensions: a scheduled job whose cron expression can never fire (such as 31 February), or whose interval is zero or negative, is skipped at startup with an error instead of retrying without pause and filling the log.
+
+### Changed
+- Internal clean-up of the three reference catalogues and the extension job scheduler: duplicated import code moved into shared, tested helpers.
+
 ## [2.158.9] - 2026-10-10
 
 ### Changed

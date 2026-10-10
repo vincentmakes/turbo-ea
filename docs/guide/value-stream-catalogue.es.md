@@ -20,7 +20,7 @@ Pulse el icono de usuario en la esquina superior derecha de la aplicación, desp
 
 Marque la casilla junto a una cadena o etapa para añadirla a la selección. La selección cascadea igual que en los demás catálogos. **Seleccionar una etapa arrastra automáticamente su cadena padre** en el momento del import, así que nunca terminará con etapas huérfanas — aunque no haya marcado la cadena.
 
-Las cadenas y etapas que **ya existen** en su inventario aparecen con un **icono de visto verde** en lugar de casilla.
+Las cadenas y etapas que **ya existen** en su inventario aparecen con un **icono de visto verde** en lugar de casilla. La coincidencia prefiere el sello `attributes.catalogueId` que dejó una importación anterior y, en su defecto, compara el nombre visible sin distinguir mayúsculas, salvo cuando dos entradas comparten el nombre, como una etapa que aparece en dos cadenas: esa entrada solo se reconoce por su `catalogueId`.
 
 ## Crear tarjetas en masa
 

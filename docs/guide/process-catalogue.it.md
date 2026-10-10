@@ -19,7 +19,7 @@ Cliccate sull'icona utente in alto a destra nell'app, espandete **Cataloghi di r
 
 Spuntate la casella accanto a un processo per aggiungerlo alla selezione. La selezione si propaga nel sottoalbero come nel catalogo delle capacità — spuntare un nodo aggiunge quel nodo e tutti i discendenti selezionabili; togliere la spunta rimuove lo stesso sottoalbero. Gli antenati non vengono mai toccati.
 
-I processi che **esistono già** nel vostro inventario compaiono con un'**icona di spunta verde** al posto della casella. L'abbinamento privilegia il marchio `attributes.catalogueId` lasciato da un import precedente e, in mancanza, ricade su un confronto del nome senza distinzione maiuscole/minuscole.
+I processi che **esistono già** nel vostro inventario compaiono con un'**icona di spunta verde** al posto della casella. L'abbinamento privilegia il marchio `attributes.catalogueId` lasciato da un import precedente e, in mancanza, ricade su un confronto del nome senza distinzione maiuscole/minuscole. Un nome condiviso da due voci del catalogo — il catalogo ripete alcuni nomi in rami diversi — non viene mai abbinato per nome; una voce del genere è riconosciuta solo dal suo `catalogueId`.
 
 ## Creare carte in massa
 

@@ -19,7 +19,7 @@ Click the user icon in the top-right corner of the app, expand **Reference Catal
 
 Tick the checkbox next to any process to add it to the selection. Selection cascades down the subtree the same way as the capability catalogue — ticking a node adds it plus every selectable descendant; unticking removes the same subtree. Ancestors are never touched.
 
-Processes that **already exist** in your inventory appear with a **green check icon** instead of a checkbox. Matching prefers the `attributes.catalogueId` stamp left by a previous import and falls back to a case-insensitive display-name match.
+Processes that **already exist** in your inventory appear with a **green check icon** instead of a checkbox. Matching prefers the `attributes.catalogueId` stamp left by a previous import and falls back to a case-insensitive display-name match. A name that two catalogue entries share — the catalogue repeats some names in different branches — never matches by name; such an entry is recognised by its `catalogueId` only.
 
 ## Mass-creating cards
 

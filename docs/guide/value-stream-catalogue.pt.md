@@ -20,7 +20,7 @@ Clique no ícone de utilizador no canto superior direito da aplicação, expanda
 
 Marque a caixa junto a uma cadeia ou etapa para a adicionar à seleção. A seleção propaga-se em cascata como nos restantes catálogos. **Selecionar uma etapa arrasta automaticamente a cadeia-mãe** no momento da importação, pelo que não ficará com etapas órfãs — mesmo que não tenha marcado a cadeia.
 
-As cadeias e etapas que **já existem** no seu inventário aparecem com um **visto verde** em vez de uma caixa.
+As cadeias e etapas que **já existem** no seu inventário aparecem com um **visto verde** em vez de uma caixa. A correspondência prefere a marca `attributes.catalogueId` deixada por uma importação anterior e, na ausência dela, compara o nome visível sem distinguir maiúsculas, exceto quando duas entradas partilham o nome, como uma etapa presente em duas cadeias: essa entrada só é reconhecida pelo seu `catalogueId`.
 
 ## Criar cartas em massa
 

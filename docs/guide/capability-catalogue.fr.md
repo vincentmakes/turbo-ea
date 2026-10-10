@@ -27,7 +27,7 @@ Décocher un seul enfant ne retire donc que cet enfant et ce qui se trouve en de
 
 La page s'aligne automatiquement sur le thème clair/sombre de l'application — en mode sombre, la même mise en page neutre s'affiche sur un papier `#1e1e1e` avec un texte et des accents lavande.
 
-Les capacités qui **existent déjà** dans votre inventaire apparaissent avec une **icône de coche verte** à la place de la case à cocher. Elles ne peuvent pas être sélectionnées — vous ne pouvez jamais créer deux fois la même Business Capability via le catalogue. Le rapprochement privilégie le marqueur `attributes.catalogueId` posé par un import précédent (la coche verte survit aux modifications de nom d'affichage) et, à défaut, recourt à une comparaison du nom d'affichage insensible à la casse pour les fiches que vous avez créées à la main.
+Les capacités qui **existent déjà** dans votre inventaire apparaissent avec une **icône de coche verte** à la place de la case à cocher. Elles ne peuvent pas être sélectionnées — vous ne pouvez jamais créer deux fois la même Business Capability via le catalogue. Le rapprochement privilégie le marqueur `attributes.catalogueId` posé par un import précédent (la coche verte survit aux modifications de nom d'affichage) et, à défaut, recourt à une comparaison du nom d'affichage insensible à la casse pour les fiches que vous avez créées à la main. Un nom partagé par deux entrées du catalogue — le catalogue répète certains noms dans différentes branches — n'est jamais rapproché par le nom ; une telle entrée n'est reconnue que par son `catalogueId`.
 
 ## Création en masse de fiches
 

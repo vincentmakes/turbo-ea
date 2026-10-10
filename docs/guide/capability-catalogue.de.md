@@ -27,7 +27,7 @@ Das Deaktivieren eines einzelnen Kindes entfernt also nur dieses Kind und alles 
 
 Die Seite übernimmt automatisch das app-weite Hell-/Dunkelschema — der Dunkelmodus zeigt dasselbe neutrale Layout auf `#1e1e1e`-Papier mit lavendelfarbenem Text und Akzenten.
 
-Capabilities, die in Ihrem Inventar **bereits existieren**, erscheinen mit einem **grünen Häkchen-Symbol** anstelle eines Kontrollkästchens. Sie können nicht ausgewählt werden — Sie erzeugen über den Katalog nie zweimal dieselbe Business Capability. Beim Abgleich wird zuerst der `attributes.catalogueId`-Stempel eines vorherigen Imports geprüft (so überlebt das grüne Häkchen Namensänderungen), und es wird auf einen Vergleich des Anzeigenamens (Groß-/Kleinschreibung-unabhängig) zurückgegriffen, falls Sie die Karte von Hand erstellt haben.
+Capabilities, die in Ihrem Inventar **bereits existieren**, erscheinen mit einem **grünen Häkchen-Symbol** anstelle eines Kontrollkästchens. Sie können nicht ausgewählt werden — Sie erzeugen über den Katalog nie zweimal dieselbe Business Capability. Beim Abgleich wird zuerst der `attributes.catalogueId`-Stempel eines vorherigen Imports geprüft (so überlebt das grüne Häkchen Namensänderungen), und es wird auf einen Vergleich des Anzeigenamens (Groß-/Kleinschreibung-unabhängig) zurückgegriffen, falls Sie die Karte von Hand erstellt haben. Ein Name, den zwei Katalogeinträge teilen — der Katalog wiederholt manche Namen in verschiedenen Zweigen —, wird nie per Name abgeglichen; ein solcher Eintrag wird nur über seine `catalogueId` erkannt.
 
 ## Massenanlage von Karten
 

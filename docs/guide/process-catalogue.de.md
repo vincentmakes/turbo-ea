@@ -19,7 +19,7 @@ Klicken Sie oben rechts in der App auf das Benutzersymbol, klappen Sie im Menü 
 
 Setzen Sie das Häkchen neben einem Prozess, um ihn zur Auswahl hinzuzufügen. Die Auswahl kaskadiert wie im Capability-Katalog nach unten — ein Häkchen fügt den Knoten plus alle auswählbaren Nachfahren hinzu, ein Entfernen entfernt denselben Teilbaum. Vorfahren werden niemals berührt.
 
-Prozesse, die **bereits existieren**, erscheinen mit einem **grünen Häkchen** statt einer Checkbox. Der Abgleich nutzt vorzugsweise den `attributes.catalogueId`-Stempel aus früheren Importen und fällt sonst auf einen Namensvergleich (ohne Groß-/Kleinschreibung) zurück.
+Prozesse, die **bereits existieren**, erscheinen mit einem **grünen Häkchen** statt einer Checkbox. Der Abgleich nutzt vorzugsweise den `attributes.catalogueId`-Stempel aus früheren Importen und fällt sonst auf einen Namensvergleich (ohne Groß-/Kleinschreibung) zurück. Ein Name, den zwei Katalogeinträge teilen — der Katalog wiederholt manche Namen in verschiedenen Zweigen —, wird nie per Name abgeglichen; ein solcher Eintrag wird nur über seine `catalogueId` erkannt.
 
 ## Karten gebündelt anlegen
 

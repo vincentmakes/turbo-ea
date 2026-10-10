@@ -9,12 +9,14 @@ auto-linked to existing capability and process cards via `relBizCtxToBC`
 from __future__ import annotations
 
 import types
+import uuid
 from typing import Any
 
 import pytest
 from sqlalchemy import select
 
 from app.models.card import Card
+from app.models.event import Event
 from app.models.relation import Relation
 from app.services import catalogue_common as common
 from tests.conftest import create_card, create_user
@@ -363,3 +365,144 @@ async def test_a_cached_table_wins_over_the_bundled_one(db, monkeypatch):
     assert {n["id"]: n for n in english["value_streams"]}["VS-10"]["name"] == (
         "Acquire-to-Retire v3"
     )
+
+
+# ---------------------------------------------------------------------------
+# A stage name two streams share (the 2026.9 wheel has 7 such names)
+# ---------------------------------------------------------------------------
+
+
+def _two_streams_sharing_a_stage_name() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "VS-30",
+            "name": "Hire to Retire",
+            "stages": [{"id": "VS-30.20", "stage_order": 20, "stage_name": "Application Intake"}],
+        },
+        {
+            "id": "VS-50",
+            "name": "Quote to Bind",
+            "stages": [{"id": "VS-50.10", "stage_order": 10, "stage_name": "Application Intake"}],
+        },
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_stage_name_another_stream_shares_is_not_that_streams_card(db, monkeypatch):
+    """Importing one stream's "Application Intake" used to mark the other
+    stream's stage of the same name as already imported; importing that stream
+    then skipped its stage and moved the first stream's stage card under it."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    monkeypatch.setattr(common, "load_bundled_value_streams_raw", _two_streams_sharing_a_stage_name)
+    user = await create_user(db, email="vs-dup@x.com")
+    first = await svc.import_value_streams(db, user=user, catalogue_ids=["VS-30.20"])
+    ids = {c["catalogue_id"]: c["card_id"] for c in first["created"]}
+    assert list(ids) == ["VS-30", "VS-30.20"]
+
+    payload = await svc.get_catalogue_payload(db)
+    existing = {n["id"]: n["existing_card_id"] for n in payload["value_streams"]}
+    assert existing == {
+        "VS-30": ids["VS-30"],
+        "VS-30.20": ids["VS-30.20"],
+        "VS-50": None,
+        "VS-50.10": None,
+    }
+
+    second = await svc.import_value_streams(db, user=user, catalogue_ids=["VS-50.10"])
+    assert [c["catalogue_id"] for c in second["created"]] == ["VS-50", "VS-50.10"]
+    assert second["skipped"] == []
+    assert second["relinked"] == []
+    first_stage = await db.get(Card, uuid.UUID(ids["VS-30.20"]))
+    await db.refresh(first_stage)
+    assert str(first_stage.parent_id) == ids["VS-30"]
+
+
+@pytest.mark.asyncio
+async def test_imported_stream_and_stage_attributes(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    user = await create_user(db, email="vs-attrs@x.com")
+    result = await svc.import_value_streams(db, user=user, catalogue_ids=["VS-10.20"])
+    ids = {c["catalogue_id"]: c["card_id"] for c in result["created"]}
+    assert list(ids) == ["VS-10", "VS-10.20"]
+    stream = await db.get(Card, uuid.UUID(ids["VS-10"]))
+    stage = await db.get(Card, uuid.UUID(ids["VS-10.20"]))
+    stream_attrs = dict(stream.attributes)
+    stage_attrs = dict(stage.attributes)
+    imported_at = stream_attrs.pop("catalogueImportedAt")
+    assert isinstance(imported_at, str) and imported_at.startswith("20")
+    assert stage_attrs.pop("catalogueImportedAt") == imported_at
+    assert stream_attrs == {
+        "catalogueId": "VS-10",
+        "catalogueVersion": "2.0.0",
+        "valueStreamLevel": "Stream",
+        "industries": ["Cross-Industry"],
+        "stageCount": 2,
+    }
+    # The stage inherits the stream's industries and carries its variant.
+    assert stage_attrs == {
+        "catalogueId": "VS-10.20",
+        "catalogueVersion": "2.0.0",
+        "valueStreamLevel": "Stage",
+        "stageOrder": 2,
+        "stageName": "Asset Construction",
+        "industries": ["Cross-Industry"],
+        "industryVariant": "Manufacturing",
+        "capabilityIds": ["BC-2"],
+    }
+    assert (stream.type, stream.subtype, stream.name) == (
+        "BusinessContext",
+        "valueStream",
+        "Acquire-to-Retire",
+    )
+    assert stage.name == "Asset Construction (Manufacturing)"
+    assert stream.description == "Asset lifecycle stream"
+    assert stage.created_by == user.id
+
+
+@pytest.mark.asyncio
+async def test_a_stage_order_of_zero_is_kept(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    streams = [
+        {"id": "VS-1", "name": "S", "stages": [{"id": "VS-1.0", "stage_order": 0}]},
+    ]
+    monkeypatch.setattr(common, "load_bundled_value_streams_raw", lambda: streams)
+    user = await create_user(db, email="vs-zero@x.com")
+    result = await svc.import_value_streams(db, user=user, catalogue_ids=["VS-1.0"])
+    ids = {c["catalogue_id"]: c["card_id"] for c in result["created"]}
+    stage = await db.get(Card, uuid.UUID(ids["VS-1.0"]))
+    assert stage.attributes["stageOrder"] == 0
+    # a stage with no name of its own falls back to its catalogue id
+    assert stage.name == "VS-1.0"
+
+
+@pytest.mark.asyncio
+async def test_an_existing_stage_moves_under_its_new_stream_and_says_so(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    user = await create_user(db, email="vs-relink@x.com")
+    stage = await create_card(
+        db,
+        card_type="BusinessContext",
+        subtype="valueStream",
+        name="Renamed stage",
+        user_id=user.id,
+        attributes={"catalogueId": "VS-10.10"},
+    )
+    result = await svc.import_value_streams(db, user=user, catalogue_ids=["VS-10"])
+    stream_id = {c["catalogue_id"]: c["card_id"] for c in result["created"]}["VS-10"]
+    assert result["relinked"] == [
+        {"catalogue_id": "VS-10.10", "card_id": str(stage.id), "new_parent_card_id": stream_id}
+    ]
+    await db.refresh(stage)
+    assert str(stage.parent_id) == stream_id
+    events = (await db.execute(select(Event).where(Event.card_id == stage.id))).scalars().all()
+    assert [(e.event_type, e.data["changes"]) for e in events] == [
+        ("card.updated", {"parent_id": {"old": None, "new": stream_id}})
+    ]

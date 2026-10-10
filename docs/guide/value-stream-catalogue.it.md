@@ -20,7 +20,7 @@ Cliccate sull'icona utente in alto a destra nell'app, espandete **Cataloghi di r
 
 Spuntate la casella accanto a un flusso o a una fase per aggiungerli alla selezione. La selezione si propaga come negli altri cataloghi. **Selezionare una fase trascina automaticamente il suo flusso padre** al momento dell'import, in modo da non lasciare fasi orfane — anche se non avete spuntato il flusso.
 
-Flussi e fasi che **esistono già** nel vostro inventario compaiono con un'**icona di spunta verde** al posto della casella.
+Flussi e fasi che **esistono già** nel vostro inventario compaiono con un'**icona di spunta verde** al posto della casella. L'abbinamento privilegia il marchio `attributes.catalogueId` lasciato da un import precedente e, in mancanza, confronta il nome visualizzato senza distinzione tra maiuscole e minuscole, tranne per un nome condiviso da due voci, come una fase presente in due flussi: una voce del genere è riconosciuta solo dal suo `catalogueId`.
 
 ## Creare carte in massa
 

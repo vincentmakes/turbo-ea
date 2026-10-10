@@ -19,7 +19,7 @@ Clique no ícone de utilizador no canto superior direito da aplicação, expanda
 
 Marque a caixa junto a um processo para o adicionar à seleção. A seleção propaga-se em cascata pelo subárvore como no catálogo de capacidades — marcar um nó adiciona esse nó e todos os descendentes selecionáveis; desmarcar remove a mesma subárvore. Os ascendentes nunca são tocados.
 
-Os processos que **já existem** no seu inventário aparecem com um **visto verde** em vez de uma caixa. A correspondência prefere a marca `attributes.catalogueId` deixada por um import anterior e, na ausência dela, recorre a uma comparação de nome sem distinguir maiúsculas.
+Os processos que **já existem** no seu inventário aparecem com um **visto verde** em vez de uma caixa. A correspondência prefere a marca `attributes.catalogueId` deixada por um import anterior e, na ausência dela, recorre a uma comparação de nome sem distinguir maiúsculas. Um nome partilhado por duas entradas do catálogo — o catálogo repete alguns nomes em ramos diferentes — nunca é comparado pelo nome; essa entrada só é reconhecida pelo seu `catalogueId`.
 
 ## Criar cartas em massa
 
