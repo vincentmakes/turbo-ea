@@ -40,9 +40,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.relation import Relation
-from app.services import card_write_service
+from app.models.user import User
 from app.services.card_reference import ReferenceAllocator
-from app.services.card_write_service import WriteActor
 from app.services.event_bus import event_bus
 
 logger = logging.getLogger(__name__)
@@ -565,7 +564,7 @@ PARENT_NOT_IMPORTED = "parent not imported"
 
 async def create_catalogue_card(
     db: AsyncSession,
-    actor: WriteActor,
+    user: User,
     *,
     type_key: str,
     name: str,
@@ -587,12 +586,19 @@ async def create_catalogue_card(
     of that. A row the write path refuses rolls back alone and comes back as
     ``(None, reason)``, so one taken name cannot fail a 500-card batch — the
     bulk-create shape. ``reason`` is empty when the card was created.
+
+    ``card_write_service`` is imported here, not at module level: it reaches
+    ``extensions.bundle`` through ``card_approval`` → ``notification_service``,
+    and ``bundle`` imports ``version_tuple`` from this module, so a top-level
+    import closes a cycle that breaks whichever side is imported first.
     """
+    from app.services import card_write_service
+
     savepoint = await db.begin_nested()
     try:
         card = await card_write_service.create_card(
             db,
-            actor,
+            card_write_service.WriteActor.from_user(user),
             type_key=type_key,
             name=name,
             subtype=subtype,

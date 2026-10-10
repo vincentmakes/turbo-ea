@@ -299,11 +299,10 @@ class TestImportPathsRecordThemselves:
         and nothing reached the History tab."""
         from app.services import catalogue_common as common
         from app.services.card_reference import ReferenceAllocator
-        from app.services.card_write_service import WriteActor
 
         card, reason = await common.create_catalogue_card(
             db,
-            WriteActor.from_user(env["user"]),
+            env["user"],
             type_key="Application",
             name="Imported entry",
             subtype=None,

@@ -198,7 +198,6 @@ async def import_processes(
     created_in_batch: set[str] = set()
     now = common.now_iso()
     user_id = user.id
-    actor = common.WriteActor.from_user(user)
     allocator = common.ReferenceAllocator()
 
     for proc in ordered:
@@ -219,7 +218,7 @@ async def import_processes(
             continue
         card, reason = await common.create_catalogue_card(
             db,
-            actor,
+            user,
             type_key=BUSINESS_PROCESS_TYPE,
             name=proc["name"],
             subtype=LEVEL_TO_SUBTYPE.get(int(proc["level"]), "process"),

@@ -721,7 +721,7 @@ class TestCreateCatalogueCard:
         )
         card, reason = await common.create_catalogue_card(
             db,
-            common.WriteActor.from_user(user),
+            user,
             type_key="BusinessCapability",
             name="Child",
             subtype=None,
@@ -747,11 +747,10 @@ class TestCreateCatalogueCard:
     async def test_a_refused_row_rolls_back_alone_and_names_the_reason(self, db):
         user = await create_user(db, email="cc2@x.com")
         taken = await create_card(db, card_type="BusinessCapability", name="Taken", user_id=user.id)
-        actor = common.WriteActor.from_user(user)
         allocator = common.ReferenceAllocator()
         card, reason = await common.create_catalogue_card(
             db,
-            actor,
+            user,
             type_key="BusinessCapability",
             name="Taken",
             subtype=None,
@@ -765,7 +764,7 @@ class TestCreateCatalogueCard:
         # The transaction is still usable: the next row goes through.
         after, reason_after = await common.create_catalogue_card(
             db,
-            actor,
+            user,
             type_key="BusinessCapability",
             name="Free",
             subtype=None,

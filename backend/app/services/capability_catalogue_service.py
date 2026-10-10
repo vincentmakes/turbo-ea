@@ -292,7 +292,6 @@ async def import_capabilities(
     created_in_batch: set[str] = set()
     now = common.now_iso()
     user_id = user.id
-    actor = common.WriteActor.from_user(user)
     allocator = common.ReferenceAllocator()
 
     for cap in ordered:
@@ -316,7 +315,7 @@ async def import_capabilities(
         )
         card, reason = await common.create_catalogue_card(
             db,
-            actor,
+            user,
             type_key=BUSINESS_CAPABILITY_TYPE,
             name=cap["name"],
             subtype=None,

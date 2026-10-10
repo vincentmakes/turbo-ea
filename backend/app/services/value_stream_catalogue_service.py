@@ -367,7 +367,6 @@ async def import_value_streams(
     created_in_batch: set[str] = set()
     now = common.now_iso()
     user_id = user.id
-    actor = common.WriteActor.from_user(user)
     allocator = common.ReferenceAllocator()
 
     for node in ordered:
@@ -393,7 +392,7 @@ async def import_value_streams(
 
         card, reason = await common.create_catalogue_card(
             db,
-            actor,
+            user,
             type_key=VALUE_STREAM_TYPE,
             name=node.get("name") or node.get("stage_name") or node["id"],
             subtype=VALUE_STREAM_SUBTYPE,
