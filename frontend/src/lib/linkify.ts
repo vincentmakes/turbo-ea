@@ -79,9 +79,9 @@ function isBareScheme(url: string): boolean {
  */
 export function splitLinks(text: string): LinkToken[] {
   const lower = text.toLowerCase();
-  // A fast path: without a scheme the scan below finds nothing and returns
-  // this same single token.
-  // Stryker disable next-line ConditionalExpression,LogicalOperator,StringLiteral,BlockStatement: a fast path, same result as the scan
+  // Without a scheme the scan below finds nothing. For non-empty text it
+  // would build this same single token; for "" it would build none, so this
+  // branch is also what keeps the one-token contract above.
   if (!lower.includes("http://") && !lower.includes("https://")) {
     return [{ type: "text", value: text }];
   }

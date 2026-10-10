@@ -181,9 +181,8 @@ export function extractRelSubtypes(
 /* ------------------------------------------------------------------ */
 
 export function parseDate(s: string | undefined): number | null {
-  // Stryker disable next-line ConditionalExpression: new Date of nothing is an invalid date, null either way
-  if (!s) return null;
-  const d = new Date(s);
+  // An absent or empty value is an invalid date like any other unparsable one.
+  const d = new Date(s ?? "");
   return isNaN(d.getTime()) ? null : d.getTime();
 }
 
@@ -477,18 +476,16 @@ export function matchesStaticFilters(
     return false;
   }
   // Tag filters (OR within a group, AND across groups) — bucket the flat
-  // selection by tag_group_id before matching.
-  // Stryker disable next-line ConditionalExpression,EqualityOperator,BlockStatement: a fast path; with nothing selected every group is skipped below
-  if (filters.tagFilterIds.length > 0) {
-    const appTagIds = new Set(app.tag_ids);
-    const selectedSet = new Set(filters.tagFilterIds);
-    for (const group of filters.tagGroups) {
-      const pickedInGroup = group.tags
-        .filter((tag) => selectedSet.has(tag.id))
-        .map((tag) => tag.id);
-      if (pickedInGroup.length === 0) continue;
-      if (!pickedInGroup.some((id) => appTagIds.has(id))) return false;
-    }
+  // selection by tag_group_id before matching. With nothing selected no group
+  // has a pick, so every group is skipped.
+  const appTagIds = new Set(app.tag_ids);
+  const selectedSet = new Set(filters.tagFilterIds);
+  for (const group of filters.tagGroups) {
+    const pickedInGroup = group.tags
+      .filter((tag) => selectedSet.has(tag.id))
+      .map((tag) => tag.id);
+    if (pickedInGroup.length === 0) continue;
+    if (!pickedInGroup.some((id) => appTagIds.has(id))) return false;
   }
   if (
     filters.search &&

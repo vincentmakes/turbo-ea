@@ -64,12 +64,9 @@ function autolinkTextNodes(html: string): string {
     targets.push(t);
   }
   for (const t of targets) {
-    const tokens = splitLinks(t.data);
-    // A fast path: rebuilding a lone text token gives the same DOM.
-    // Stryker disable next-line ConditionalExpression,LogicalOperator,StringLiteral: a fast path, same DOM
-    if (tokens.length === 1 && tokens[0].type === "text") continue;
+    // A node with no link rebuilds as one identical text node.
     const frag = doc.createDocumentFragment();
-    for (const tok of tokens) {
+    for (const tok of splitLinks(t.data)) {
       if (tok.type === "text") {
         frag.append(doc.createTextNode(tok.value));
       } else {
