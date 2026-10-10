@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - Sign-in, single sign-on, trusted-proxy sign-in and published-resource access: redundant checks removed and one cookie definition shared by setting and clearing the session cookie, with no change to who can sign in or what they reach. An identity provider's error details are now read from any JSON object it returns, whatever content type it declares.
 
+## [2.158.2] - 2026-10-09
+
+### Changed
+- Calculated fields, permission checks and the card read scope: unreachable branches and unused parameters removed, with no change to what a formula computes or what a role may see or do.
+
 ## [2.158.1] - 2026-10-09
 
 ### Fixed
