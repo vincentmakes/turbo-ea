@@ -460,8 +460,10 @@ async def test_a_rejected_code_logs_the_providers_error(config, client_kwargs, c
         httpx.Response(400, json={}),
         httpx.Response(400, content=b"plain"),  # no content-type at all
         httpx.Response(400, text="<b>x</b>", headers={"content-type": "text/html"}),
+        httpx.Response(400, json=["invalid_grant"]),  # JSON, but not an object
+        httpx.Response(400, text="400"),  # a bare number parses as JSON
     ],
-    ids=["json-without-fields", "no-content-type", "html"],
+    ids=["json-without-fields", "no-content-type", "html", "json-list", "plain-number"],
 )
 async def test_a_rejected_code_without_details(config, client_kwargs, caplog, response):
     client_kwargs.handler = lambda r: response

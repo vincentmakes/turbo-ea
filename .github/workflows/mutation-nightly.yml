@@ -35,7 +35,9 @@ on:
   workflow_dispatch:
     inputs:
       budget:
-        description: Minutes each shard may spend mutating before it stops cleanly.
+        description: >-
+          Minutes each shard may spend mutating before it stops cleanly. At most
+          about 320: the two halves plus setup must fit the 360-minute job.
         type: number
         default: 280
   pull_request:
@@ -65,7 +67,7 @@ jobs:
   backend:
     name: Backend mutation (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
-    timeout-minutes: 340
+    timeout-minutes: 360 # GitHub's maximum; the budget input is the real limit
     strategy:
       fail-fast: false
       matrix:
@@ -115,6 +117,11 @@ jobs:
       # even an always() one, so without the checkpoint its whole night is
       # gone and the report has no records file for the shard. Each half
       # re-runs mutmut's clean test (~20 min), which is why there is only one.
+      # A clean test that fails (a test failing on unmutated code) fails the
+      # half; the checkpoint and the second half still run, as in the frontend
+      # job, so an intermittent one costs half a night, not all of it. The
+      # tests it failed on are named as annotations and in
+      # mutation-harness-backend-N.json, which the report job renders.
       # `ulimit -v` caps every forked pytest child, so a runaway mutant hits
       # MemoryError (and is killed) instead of exhausting the runner.
       # A dispatched run hands the budget input over as "280.0", which bash's
@@ -124,21 +131,28 @@ jobs:
         run: >-
           python3 -c 'import os; print("HALF_BUDGET=%g" % (float(os.environ["BUDGET"]) / 2))'
           >> "$GITHUB_ENV"
+      # `steps.first-half.outcome != 'skipped'`: a setup step that failed (a
+      # registry refusing the Postgres image, say) skips the first half, and
+      # then there is nothing to checkpoint or resume.
       - name: Mutate shard ${{ matrix.shard }}, first half of the budget
+        id: first-half
         run: |
           ulimit -v "$MUTMUT_VMEM_KB"
           python scripts/mutation/mutmut_scope.py run --suite backend --shard "$SHARD" \
-            --budget "$HALF_BUDGET" --max-children 4
+            --budget "$HALF_BUDGET" --max-children 4 \
+            --harness "mutation-harness-backend-${{ matrix.shard }}.json"
       - name: Checkpoint the shard's verdicts
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         run: >-
           python scripts/mutation/mutmut_scope.py collect --suite backend --shard "$SHARD"
           --output "mutation-records-backend-${{ matrix.shard }}.json"
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: env.SAVE_CACHE == 'true'
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' && env.SAVE_CACHE == 'true' }}
         with:
           path: .mutation/backend/backend
           key: mutmut-backend-shard${{ matrix.shard }}-${{ github.run_id }}-checkpoint
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         with:
           name: mutation-records-backend-${{ matrix.shard }}
           path: mutation-records-backend-${{ matrix.shard }}.json
@@ -146,10 +160,12 @@ jobs:
           retention-days: 3
           overwrite: true
       - name: Mutate shard ${{ matrix.shard }}, second half of the budget
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         run: |
           ulimit -v "$MUTMUT_VMEM_KB"
           python scripts/mutation/mutmut_scope.py run --suite backend --shard "$SHARD" \
-            --budget "$HALF_BUDGET" --max-children 4
+            --budget "$HALF_BUDGET" --max-children 4 \
+            --harness "mutation-harness-backend-${{ matrix.shard }}.json"
       - name: Collect the shard's verdicts
         if: always()
         run: >-
@@ -168,6 +184,15 @@ jobs:
           if-no-files-found: warn
           retention-days: 3
           overwrite: true
+      # The tests the clean test failed on, if any (see harness.py); the
+      # report job names them at the top of its summary and of the issue.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mutation-harness-backend-${{ matrix.shard }}
+          path: mutation-harness-backend-${{ matrix.shard }}.json
+          if-no-files-found: ignore
+          retention-days: 3
 
   mcp:
     name: MCP mutation
@@ -193,7 +218,7 @@ jobs:
         run: |
           ulimit -v "$MUTMUT_VMEM_KB"
           python scripts/mutation/mutmut_scope.py run --suite mcp --shard 1/1 \
-            --budget "$BUDGET" --max-children 4
+            --budget "$BUDGET" --max-children 4 --harness mutation-harness-mcp-1.json
       - name: Collect the verdicts
         if: always()
         run: >-
@@ -211,6 +236,13 @@ jobs:
           path: mutation-records-mcp-1.json
           if-no-files-found: warn
           retention-days: 3
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mutation-harness-mcp-1
+          path: mutation-harness-mcp-1.json
+          if-no-files-found: ignore
+          retention-days: 3
 
   # StrykerJS alone cannot resume: it writes its incremental file only when a
   # run completes. `stryker_scope.py nightly` splits each shard into stable
@@ -220,7 +252,7 @@ jobs:
   frontend:
     name: Frontend mutation (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
-    timeout-minutes: 340
+    timeout-minutes: 360 # GitHub's maximum; the budget input is the real limit
     strategy:
       fail-fast: false
       matrix:
@@ -259,6 +291,7 @@ jobs:
           python3 -c 'import os; print("HALF_BUDGET=%g" % (float(os.environ["BUDGET"]) / 2))'
           >> "$GITHUB_ENV"
       - name: Mutate shard ${{ matrix.shard }}, first half of the budget
+        id: first-half
         env:
           GITHUB_STEP_SUMMARY: /dev/null
         run: |
@@ -267,21 +300,25 @@ jobs:
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then limit="--max-chunks 1"; fi
           # shellcheck disable=SC2086
           python3 scripts/mutation/stryker_scope.py nightly --shard "$SHARD" \
-            --budget "$HALF_BUDGET" --state "$STATE" $limit
+            --budget "$HALF_BUDGET" --state "$STATE" $limit \
+            --harness "mutation-harness-frontend-${{ matrix.shard }}.json"
       # A chunk that fails fails the step only after every other chunk ran, so
-      # the checkpoint and the second half still run; only a cancel stops them.
+      # the checkpoint and the second half still run; only a cancel, or a setup
+      # step that failed before the first half could run, stops them.
+      # What failed it — the tests of its initial run — is named as annotations
+      # and in mutation-harness-frontend-N.json, which the report job renders.
       - name: Checkpoint the shard's verdicts
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         run: >-
           python3 scripts/mutation/stryker_scope.py collect --state "$STATE" --shard "$SHARD"
           --output "mutation-records-frontend-${{ matrix.shard }}.json"
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ !cancelled() && env.SAVE_CACHE == 'true' }}
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' && env.SAVE_CACHE == 'true' }}
         with:
           path: frontend/reports/nightly
           key: stryker-frontend-shard${{ matrix.shard }}-${{ github.run_id }}-checkpoint
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         with:
           name: mutation-records-frontend-${{ matrix.shard }}
           path: mutation-records-frontend-${{ matrix.shard }}.json
@@ -289,7 +326,7 @@ jobs:
           retention-days: 3
           overwrite: true
       - name: Mutate shard ${{ matrix.shard }}, second half of the budget
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         env:
           GITHUB_STEP_SUMMARY: /dev/null
         run: |
@@ -297,7 +334,8 @@ jobs:
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then limit="--max-chunks 1"; fi
           # shellcheck disable=SC2086
           python3 scripts/mutation/stryker_scope.py nightly --shard "$SHARD" \
-            --budget "$HALF_BUDGET" --state "$STATE" $limit
+            --budget "$HALF_BUDGET" --state "$STATE" $limit \
+            --harness "mutation-harness-frontend-${{ matrix.shard }}.json"
       - name: Collect the shard's verdicts
         if: always()
         run: >-
@@ -316,6 +354,13 @@ jobs:
           if-no-files-found: warn
           retention-days: 3
           overwrite: true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mutation-harness-frontend-${{ matrix.shard }}
+          path: mutation-harness-frontend-${{ matrix.shard }}.json
+          if-no-files-found: ignore
+          retention-days: 3
 
   report:
     name: Mutation report
@@ -336,6 +381,18 @@ jobs:
           pattern: mutation-records-*
           merge-multiple: true
           path: records
+      # Uploaded only by a shard where a test failed on unmutated code.
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: mutation-harness-*
+          merge-multiple: true
+          path: harness
+      # First, so the section tops the summary: a chunk such a test failed
+      # measured nothing, and that is the morning's first job, not the score.
+      - name: Name the tests that failed on unmutated code
+        run: >-
+          python3 scripts/mutation/harness.py report --dir harness
+          --summary "$GITHUB_STEP_SUMMARY" --output harness.md
       - name: The previous night's baseline
         if: env.SAVE_CACHE == 'true'
         run: |
@@ -387,12 +444,16 @@ jobs:
         if: always()
         with:
           name: mutation-survivors
-          path: survivors.md
+          path: |
+            survivors.md
+            harness.md
           retention-days: 30
       - name: Update the survivors issue
         if: env.SAVE_CACHE == 'true'
         run: |
           {
+            # the harness failures first: a race to fix today, above the backlog
+            if [ -f harness.md ]; then cat harness.md; echo; fi
             echo "Surviving mutants in the existing code, refreshed by every run of"
             echo "\`mutation-nightly.yml\` ([latest run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID))."
             echo "Each one is a change to the code that no test notices. Work through them"
