@@ -488,5 +488,8 @@ class TestMountRoutersFailSoft:
         api_router = APIRouter()
         mount_extension_routers(api_router, report)
         assert [(f.key, f.error) for f in report.failed] == [("bad", "no router")]
-        assert [r.path for r in api_router.routes] == ["/ext/ok/ping"]
-        assert api_router.routes[0].tags == ["ext:ok"]
+        app = FastAPI()
+        app.include_router(api_router)
+        paths = app.openapi()["paths"]
+        assert list(paths) == ["/ext/ok/ping"]
+        assert paths["/ext/ok/ping"]["get"]["tags"] == ["ext:ok"]

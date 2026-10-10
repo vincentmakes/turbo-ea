@@ -232,7 +232,7 @@ async def get_catalogue_payload(
 
 
 def _is_macro(node: dict[str, Any]) -> bool:
-    return node["id"].startswith(MACRO_ID_PREFIX)
+    return str(node["id"]).startswith(MACRO_ID_PREFIX)
 
 
 async def _existing_cards(
