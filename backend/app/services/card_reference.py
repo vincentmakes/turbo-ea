@@ -153,6 +153,33 @@ async def next_reference(db: AsyncSession, card_type: CardType) -> str | None:
     return await next_reference_for_prefix(db, _prefix(cfg), _start(cfg), _padding(cfg))
 
 
+class ReferenceAllocator:
+    """Hand out consecutive references across a batch with one global scan per prefix.
+
+    ``next_reference`` scans every ``cards.reference`` on each call, which is
+    right for one card and wrong for a 500-card import. The Excel importer
+    (``POST /cards/bulk-create``) and the reference-catalogue imports share
+    this instead: cards sharing a prefix stay contiguous, and a row rolled
+    back after its number was taken leaves a gap, which is acceptable by
+    design.
+    """
+
+    def __init__(self) -> None:
+        self._next: dict[str, int] = {}
+
+    async def assign(self, db: AsyncSession, card: Card, card_type: CardType | None) -> None:
+        """Set ``card.reference`` for an ``auto``-mode type; leave it NULL otherwise."""
+        if card_type is None or get_mode(card_type) != "auto":
+            return
+        cfg = _cfg(card_type)
+        prefix = _prefix(cfg)
+        if prefix not in self._next:
+            self._next[prefix] = await scan_highest_for_prefix(db, prefix, _start(cfg))
+        n = self._next[prefix] + 1
+        self._next[prefix] = n
+        card.reference = format_reference(prefix, _padding(cfg), n)
+
+
 async def backfill_references_for_type(db: AsyncSession, card_type: CardType) -> int:
     """Assign references to existing ID-less cards of an ``auto``-mode type.
 

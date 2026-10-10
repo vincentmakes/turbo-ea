@@ -39,6 +39,7 @@ Bei Bestätigung führt Turbo EA Folgendes aus:
 - **Behält die Kataloghierarchie** automatisch — wenn sowohl der Eltern- als auch der Kindknoten ausgewählt ist (oder der Elternknoten lokal bereits existiert), wird `parent_id` der neuen Kindkarte korrekt verdrahtet.
 - **Überspringt vorhandene Treffer** stillschweigend. Der Ergebnisdialog zeigt, wie viele Karten erstellt und wie viele übersprungen wurden.
 - Stempelt jede neue Karte in `attributes` mit `catalogueId`, `catalogueVersion`, `catalogueImportedAt` und `capabilityLevel`, sodass die Herkunft nachvollziehbar bleibt.
+- Legt jede Karte so an, wie es das Kartenformular tut: Sie erhält einen Eintrag im Verlauf, ihre Ebene in Ihrer eigenen Hierarchie (`capabilityLevel` folgt der Position der Karte — eine ohne ihr Katalog-Elternelement importierte Capability ist eine L1-Wurzelkarte), eine Referenznummer, wenn Business Capability automatische Referenzen verwendet, und einen Datenqualitätswert. Ein Eintrag, dessen Namen bereits eine andere Business-Capability-Karte auf derselben Ebene trägt, wird **gemeldet und nicht importiert**, ebenso die Einträge darunter; der Ergebnisdialog listet sie mit dem Grund auf.
 
 Den gleichen Import erneut auszuführen ist sicher — er ist idempotent.
 

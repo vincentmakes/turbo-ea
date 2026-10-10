@@ -19,7 +19,7 @@ from app.models.card import Card
 from app.models.event import Event
 from app.models.relation import Relation
 from app.services import catalogue_common as common
-from tests.conftest import create_card, create_user
+from tests.conftest import create_card, create_card_type, create_user
 
 # ---------------------------------------------------------------------------
 # Fake catalogue
@@ -506,3 +506,27 @@ async def test_an_existing_stage_moves_under_its_new_stream_and_says_so(db, monk
     assert [(e.event_type, e.data["changes"]) for e in events] == [
         ("card.updated", {"parent_id": {"old": None, "new": stream_id}})
     ]
+
+
+@pytest.mark.asyncio
+async def test_imported_streams_and_stages_record_their_creation_and_level(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.models.event import Event
+    from app.services import value_stream_catalogue_service as svc
+
+    await create_card_type(db, key="BusinessContext", label="Business Context", has_hierarchy=True)
+    user = await create_user(db, email="vs-path@x.com")
+    # A stage alone pulls its stream in first, so two cards land: stream, stage.
+    result = await svc.import_value_streams(db, user=user, catalogue_ids=["VS-10.10"])
+
+    assert [c["catalogue_id"] for c in result["created"]] == ["VS-10", "VS-10.10"]
+    assert result["failed"] == []
+    stream, stage = [
+        (await db.execute(select(Card).where(Card.id == uuid.UUID(c["card_id"])))).scalar_one()
+        for c in result["created"]
+    ]
+    assert stage.parent_id == stream.id
+    assert (stream.attributes["hierarchyLevel"], stage.attributes["hierarchyLevel"]) == (1, 2)
+    for card in (stream, stage):
+        events = (await db.execute(select(Event).where(Event.card_id == card.id))).scalars().all()
+        assert [(e.event_type, e.user_id) for e in events] == [("card.created", user.id)]

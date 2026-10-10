@@ -35,7 +35,7 @@ On confirmation, Turbo EA:
 - Skips any cross-references whose target card doesn't yet exist; the source IDs are stored on the stage's attributes (`capabilityIds`, `processIds`) so you can wire them later by importing the missing artefacts.
 - Stamps stage cards with `stageOrder`, `stageName`, `industryVariant`, `notes`, and the original `capabilityIds` / `processIds` lists.
 
-Skipped, created, and re-linked counts are reported the same way as for the capability catalogue. Imports are idempotent.
+Skipped, created, and re-linked counts are reported the same way as for the capability catalogue. Imports are idempotent. Each card is created the way the card form creates it — with a History entry, its level in your hierarchy, a reference number when Business Context uses automatic references and a data-quality score — and an entry whose name another Business Context card already uses at the same level is reported and not imported, together with the entries beneath it; the result dialog lists them with the reason. The import is gated by the Create permission on Business Context cards, the type it creates.
 
 ## Detail view
 

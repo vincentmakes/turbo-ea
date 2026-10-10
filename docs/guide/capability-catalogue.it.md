@@ -39,6 +39,7 @@ Alla conferma, Turbo EA:
 - **Preserva automaticamente la gerarchia del catalogo** — quando sia il genitore sia il figlio sono selezionati (oppure il genitore esiste già localmente), il `parent_id` della nuova carta figlio è collegato alla carta corretta.
 - **Salta in silenzio le corrispondenze esistenti**. La finestra di risultato mostra quante carte sono state create e quante saltate.
 - Marca gli `attributes` di ogni nuova carta con `catalogueId`, `catalogueVersion`, `catalogueImportedAt` e `capabilityLevel`, in modo da poter risalire alla loro origine.
+- Crea ogni carta come fa il modulo della carta: riceve una voce nella cronologia, il suo livello nella tua gerarchia (`capabilityLevel` segue la posizione della carta — una capacità importata senza il suo genitore di catalogo è una carta radice L1), un numero di riferimento quando Business Capability usa i riferimenti automatici e un punteggio di qualità dei dati. Una voce il cui nome è già usato da un'altra carta Business Capability allo stesso livello viene **segnalata e non importata**, insieme alle voci sottostanti; la finestra di risultato le elenca con il motivo.
 
 Eseguire di nuovo la stessa importazione è sicuro — è idempotente.
 

@@ -740,9 +740,15 @@ async def create_card(
     alias: str | None = None,
     strict_attributes: bool = False,
     dry_run: bool = False,
+    reference_allocator: card_reference.ReferenceAllocator | None = None,
 ) -> Card:
     """Create one card with full validation and side effects; returns the
-    flushed (uncommitted) row. Caller owns permission checks + the commit."""
+    flushed (uncommitted) row. Caller owns permission checks + the commit.
+
+    ``reference_allocator`` lets a batch (the reference-catalogue imports)
+    number its cards with one global scan per prefix instead of one per
+    card; without it the reference is allocated exactly as before.
+    """
     await _validate_url_attributes(db, type_key, attributes or {})
     await _validate_percentage_attributes(db, type_key, attributes or {})
     await _validate_cost_attributes(db, type_key, attributes or {})
@@ -775,7 +781,10 @@ async def create_card(
     card_type_row = (
         await db.execute(select(CardType).where(CardType.key == type_key))
     ).scalar_one_or_none()
-    await _assign_reference_on_create(db, card, card_type_row)
+    if reference_allocator is not None:
+        await reference_allocator.assign(db, card, card_type_row)
+    else:
+        await _assign_reference_on_create(db, card, card_type_row)
 
     # Guard: hierarchy depth limit for BusinessCapability
     if card.parent_id:

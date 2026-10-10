@@ -39,6 +39,7 @@ Turbo EA 自带 **[Business Capability Reference Catalogue](https://catalog.turb
 - **自动保留目录层级** —— 当父节点与子节点同时被选中（或父节点本地已存在）时，新子卡片的 `parent_id` 会被正确接到对应卡片上。
 - **静默跳过已存在的匹配项**。结果对话框会显示有多少张被创建、多少张被跳过。
 - 在每张新卡片的 `attributes` 上盖上 `catalogueId`、`catalogueVersion`、`catalogueImportedAt` 和 `capabilityLevel`，便于追溯来源。
+- 以卡片表单相同的方式创建每张卡片：它会获得一条历史记录、在你自己层级中的级别（`capabilityLevel` 跟随卡片的位置——没有目录父项而导入的能力是 L1 根卡片）、在 Business Capability 使用自动引用编号时的引用编号，以及数据质量评分。名称已被同一级别另一张 Business Capability 卡片使用的条目会**被报告而不导入**，其下的条目亦然；结果对话框会连同原因一并列出。
 
 重复执行同一次导入是安全的——它是幂等的。
 

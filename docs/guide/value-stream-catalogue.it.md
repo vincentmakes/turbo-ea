@@ -35,7 +35,7 @@ Alla conferma, Turbo EA:
 - salta i riferimenti incrociati la cui carta di destinazione non esiste ancora; gli id di origine restano salvati negli attributi della fase (`capabilityIds`, `processIds`) così potrete collegarli più tardi importando gli artefatti mancanti;
 - timbra le carte di fase con `stageOrder`, `stageName`, `industryVariant`, `notes` e le liste originali `capabilityIds` / `processIds`.
 
-I conteggi di saltati, creati e ri-collegati sono riportati come per il catalogo delle capacità. Gli import sono idempotenti.
+I conteggi di saltati, creati e ri-collegati sono riportati come per il catalogo delle capacità. Gli import sono idempotenti. Ogni carta viene creata come fa il modulo della carta — con una voce nella cronologia, il suo livello nella tua gerarchia, un numero di riferimento quando Business Context usa i riferimenti automatici e un punteggio di qualità dei dati — e una voce il cui nome è già usato da un'altra carta Business Context allo stesso livello viene segnalata e non importata, insieme alle voci sottostanti; la finestra di risultato le elenca con il motivo. L'import è soggetto al permesso Crea sulle carte Business Context, il tipo che crea.
 
 ## Vista dettaglio
 

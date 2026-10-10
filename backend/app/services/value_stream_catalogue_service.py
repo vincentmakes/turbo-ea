@@ -30,7 +30,6 @@ from typing import Any
 import turbo_ea_capabilities as catalogue_pkg
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.card import Card
 from app.models.user import User
 from app.services import catalogue_common as common
 
@@ -334,6 +333,10 @@ async def import_value_streams(
     payload is already flattened into the standard `parent_id`-bearing
     shape, so the existing `bfs_order_by_parent` helper handles this when
     we enrich the requested set with the parent ids of any selected stages.
+
+    Every card goes through the shared write path
+    (``common.create_catalogue_card``); a refused row and the stages below
+    it land in ``failed``. Stages only: the route commits.
     """
     flat, meta = await _resolve_active_catalogue(db, locale=locale)
     by_id = {n["id"]: n for n in flat}
@@ -358,10 +361,14 @@ async def import_value_streams(
 
     created: list[dict[str, str]] = []
     skipped: list[dict[str, str]] = []
+    failed: list[dict[str, str]] = []
+    failed_ids: set[str] = set()
     auto_relations_total = 0
     created_in_batch: set[str] = set()
     now = common.now_iso()
     user_id = user.id
+    actor = common.WriteActor.from_user(user)
+    allocator = common.ReferenceAllocator()
 
     for node in ordered:
         if node["id"] in pre_existing_ids:
@@ -375,23 +382,30 @@ async def import_value_streams(
             continue
 
         cat_parent = node.get("parent_id")
+        if cat_parent in failed_ids:
+            failed.append({"catalogue_id": node["id"], "reason": common.PARENT_NOT_IMPORTED})
+            failed_ids.add(node["id"])
+            continue
         is_stream = node["level"] == LEVEL_STREAM
         attrs = (
             _stream_attributes(node, meta, now) if is_stream else _stage_attributes(node, meta, now)
         )
 
-        card = Card(
-            type=VALUE_STREAM_TYPE,
-            subtype=VALUE_STREAM_SUBTYPE,
+        card, reason = await common.create_catalogue_card(
+            db,
+            actor,
+            type_key=VALUE_STREAM_TYPE,
             name=node.get("name") or node.get("stage_name") or node["id"],
+            subtype=VALUE_STREAM_SUBTYPE,
             description=node.get("description"),
             parent_id=catalogue_id_to_card_id.get(cat_parent) if cat_parent else None,
             attributes=attrs,
-            created_by=user_id,
-            updated_by=user_id,
+            allocator=allocator,
         )
-        db.add(card)
-        await db.flush()
+        if card is None:
+            failed.append({"catalogue_id": node["id"], "reason": reason})
+            failed_ids.add(node["id"])
+            continue
         catalogue_id_to_card_id[node["id"]] = str(card.id)
 
         if not is_stream:
@@ -416,10 +430,10 @@ async def import_value_streams(
         user_id=user_id,
     )
 
-    await db.commit()
     return {
         "created": created,
         "skipped": skipped,
+        "failed": failed,
         "relinked": relinked,
         "auto_relations_created": auto_relations_total,
         "catalogue_version": meta.get("catalogue_version"),

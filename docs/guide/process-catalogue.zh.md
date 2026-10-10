@@ -32,7 +32,7 @@ Turbo EA 内置「**业务流程参考目录**」——一棵以 APQC-PCF 为基
 - **自动创建 `relProcessToBC`(支持)关系**,指向流程 `realizes_capability_ids` 中列出的每一张已存在的 `BusinessCapability` 卡片。结果对话框会汇报落地的自动关系数量;尚未存在于库存中的目标会被静默跳过。导入缺失的能力之后再次运行该导入是安全的——源 ID 已记录在卡片上,必要时可手动重新关联;
 - 在每张新卡片上加盖 `catalogueId`、`catalogueVersion`、`catalogueImportedAt`、`processLevel`(`L1`..`L4`),以及来自目录的 `frameworkRefs`、`industry`、`references`、`inScope`、`outOfScope`、`realizesCapabilityIds`。
 
-跳过、创建和重新关联的计数与能力目录采用同样的方式汇报。导入是幂等的——重复运行不会生成重复卡片。
+跳过、创建和重新关联的计数与能力目录采用同样的方式汇报。导入是幂等的——重复运行不会生成重复卡片。每张卡片都以卡片表单相同的方式创建——带有历史记录、在你层级中的级别、在 Business Process 使用自动引用编号时的引用编号以及数据质量评分——名称已被同一级别另一张 Business Process 卡片使用的条目会被报告而不导入，其下的条目亦然；结果对话框会连同原因一并列出。
 
 ## 详情视图
 

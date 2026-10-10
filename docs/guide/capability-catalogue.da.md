@@ -39,6 +39,7 @@ Ved bekræftelse vil Turbo EA:
 - **Bevare kataloghierarkiet** automatisk — når både forælderen og barnet er valgt (eller forælderen allerede findes lokalt), forbindes det nye barnekorts `parent_id` til det rigtige kort.
 - **Springe eksisterende match over** uden at gøre opmærksom på det. Resultatdialogen viser, hvor mange der blev oprettet, og hvor mange der blev sprunget over.
 - Stemple hvert nyt korts `attributes` med `catalogueId`, `catalogueVersion`, `catalogueImportedAt` og `capabilityLevel`, så du kan spore, hvor det kom fra.
+- Opretter hvert kort på samme måde som kortformularen: det får en post i historikken, sit niveau i dit eget hierarki (`capabilityLevel` følger kortets placering — en kompetence importeret uden sin katalogforælder er et L1-rodkort), et referencenummer, når Business Capability bruger automatiske referencer, og en datakvalitetsscore. En post, hvis navn allerede bruges af et andet Business Capability-kort på samme niveau, **rapporteres og importeres ikke**, og det samme gælder posterne under den; resultatdialogen lister dem med årsagen.
 
 Det er sikkert at køre den samme import igen — den er idempotent.
 

@@ -32,7 +32,7 @@ Dès qu'un processus est sélectionné, un bouton fixé en bas de page **Créer 
 - **crée automatiquement des relations `relProcessToBC` (« supporte »)** vers chaque fiche `BusinessCapability` existante mentionnée dans `realizes_capability_ids` du processus. La boîte de dialogue de résultat indique combien d'auto-relations ont été créées ; les cibles encore absentes de l'inventaire sont ignorées en silence. Relancer l'import après avoir ajouté les capacités manquantes est sans danger — ces identifiants sources sont conservés sur la fiche pour un re-link manuel ultérieur ;
 - estampille chaque nouvelle fiche avec `catalogueId`, `catalogueVersion`, `catalogueImportedAt`, `processLevel` (`L1`..`L4`), et les `frameworkRefs`, `industry`, `references`, `inScope`, `outOfScope`, `realizesCapabilityIds` issus du catalogue.
 
-Les compteurs « ignoré », « créé » et « ré-lié » sont rapportés comme pour le catalogue de capacités. Les imports sont idempotents — relancer ne crée pas de doublons.
+Les compteurs « ignoré », « créé » et « ré-lié » sont rapportés comme pour le catalogue de capacités. Les imports sont idempotents — relancer ne crée pas de doublons. Chaque fiche est créée comme le fait le formulaire de fiche — avec une entrée dans l'historique, son niveau dans votre hiérarchie, un numéro de référence lorsque Business Process utilise les références automatiques et un score de qualité des données — et une entrée dont le nom est déjà porté par une autre fiche Business Process au même niveau est signalée et non importée, de même que les entrées situées en dessous ; la boîte de dialogue de résultat les liste avec la raison.
 
 ## Vue détail
 

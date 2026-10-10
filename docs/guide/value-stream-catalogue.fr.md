@@ -35,7 +35,7 @@ Dès qu'une chaîne ou une étape est sélectionnée, un bouton fixé en bas de 
 - ignore les renvois croisés dont la fiche cible n'existe pas encore ; les identifiants source restent stockés dans les attributs de l'étape (`capabilityIds`, `processIds`) afin que vous puissiez les câbler plus tard, en important les artefacts manquants ;
 - estampille les fiches d'étape avec `stageOrder`, `stageName`, `industryVariant`, `notes`, ainsi que les listes originales `capabilityIds` / `processIds`.
 
-Les compteurs « ignoré », « créé » et « ré-lié » sont rapportés comme pour le catalogue de capacités. Les imports sont idempotents.
+Les compteurs « ignoré », « créé » et « ré-lié » sont rapportés comme pour le catalogue de capacités. Les imports sont idempotents. Chaque fiche est créée comme le fait le formulaire de fiche — avec une entrée dans l'historique, son niveau dans votre hiérarchie, un numéro de référence lorsque Business Context utilise les références automatiques et un score de qualité des données — et une entrée dont le nom est déjà porté par une autre fiche Business Context au même niveau est signalée et non importée, de même que les entrées situées en dessous ; la boîte de dialogue de résultat les liste avec la raison. L'import est soumis à la permission Créer sur les fiches Business Context, le type qu'il crée.
 
 ## Vue détail
 

@@ -32,7 +32,7 @@ Ved bekræftelse vil Turbo EA:
 - **Auto-oprette `relProcessToBC` (understøtter) relationer** til hvert eksisterende `BusinessCapability`-kort, der er listet i processens `realizes_capability_ids`. Resultatdialogen rapporterer, hvor mange auto-relationer der landede; mål, der endnu ikke findes i dit lager, springes stille over. Genkørsel af importen efter senere at have importeret de manglende kompetencer er sikker — disse kilde-ID'er gemmes på kortet, så du kan re-linke manuelt om nødvendigt.
 - Stemple hvert nyt korts `attributes` med `catalogueId`, `catalogueVersion`, `catalogueImportedAt`, `processLevel` (`L1`..`L4`), og kilden `frameworkRefs`, `industry`, `references`, `inScope`, `outOfScope`, `realizesCapabilityIds` fra kataloget.
 
-Tællinger af sprunget over, oprettet og re-linket rapporteres på samme måde som for kompetencekataloget. Importer er idempotente — genkørsel duplikerer ikke kort.
+Tællinger af sprunget over, oprettet og re-linket rapporteres på samme måde som for kompetencekataloget. Importer er idempotente — genkørsel duplikerer ikke kort. Hvert kort oprettes på samme måde som kortformularen gør det — med en post i historikken, sit niveau i dit hierarki, et referencenummer, når Business Process bruger automatiske referencer, og en datakvalitetsscore — og en post, hvis navn allerede bruges af et andet Business Process-kort på samme niveau, rapporteres og importeres ikke, og det samme gælder posterne under den; resultatdialogen lister dem med årsagen.
 
 ## Detaljevisning
 

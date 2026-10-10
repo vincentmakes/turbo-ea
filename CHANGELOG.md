@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - Admin → Resources: the link from a file or link to its card opens the card's **Resources** tab; it opened the Card tab.
 - Card detail: the open tab stays open when a tab before it (ADRs, Risks, Compliance) appears or disappears as its count loads; the selection used to move to the neighbouring tab.
+- Reference catalogues: imported cards now record their creation in History, get their level in your hierarchy, a reference number when the type uses automatic references and a data-quality score; an entry whose name another card already uses at the same level is reported instead of creating a duplicate, and the capability level of a card imported without its parent follows your hierarchy.
+- Reference catalogues: checking for or fetching a catalogue update no longer keeps a database connection out of the pool while PyPI answers.
+- Reference catalogues: a catalogue update from the online store reports a release published without a wheel as such instead of failing with a generic fetch error.
+- Value Stream Catalogue: the import is gated by the Create permission on Business Context cards, the type it creates.
 
 ### Changed
 - Internal clean-up of card detail and its History tab: the rules that decide the tab strip, the section order and the history rows moved into modules with tests of their own, and the Card Layout editor takes its section order from the same function as the card.

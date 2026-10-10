@@ -35,7 +35,7 @@ Ao confirmar, o Turbo EA:
 - ignora referências cruzadas cuja carta-alvo ainda não exista; os ids de origem ficam guardados nos atributos da etapa (`capabilityIds`, `processIds`) para que possa ligá-los depois ao importar os artefactos em falta;
 - carimba as cartas de etapa com `stageOrder`, `stageName`, `industryVariant`, `notes` e as listas originais `capabilityIds` / `processIds`.
 
-Os totais de saltados, criados e religados são reportados como para o catálogo de capacidades. As importações são idempotentes.
+Os totais de saltados, criados e religados são reportados como para o catálogo de capacidades. As importações são idempotentes. Cada carta é criada como o formulário de carta o faz — com uma entrada no histórico, o seu nível na sua hierarquia, um número de referência quando Business Context usa referências automáticas e uma pontuação de qualidade de dados — e uma entrada cujo nome já é usado por outra carta Business Context no mesmo nível é reportada e não importada, bem como as entradas abaixo dela; o diálogo de resultado lista-as com o motivo. A importação está sujeita à permissão Criar em cartas Business Context, o tipo que cria.
 
 ## Vista de detalhe
 

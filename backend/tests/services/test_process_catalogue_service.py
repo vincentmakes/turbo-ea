@@ -22,7 +22,7 @@ from sqlalchemy import select
 from app.models.card import Card
 from app.models.relation import Relation
 from app.services import catalogue_common as common
-from tests.conftest import create_card, create_user
+from tests.conftest import create_card, create_card_type, create_user
 
 # ---------------------------------------------------------------------------
 # Fake catalogue
@@ -407,6 +407,27 @@ async def test_imported_process_attributes_and_subtype(db, monkeypatch):
     }
     # APQC L4 ("Activity") has no subtype of its own and lands as a process
     assert card.subtype == "process"
+
+
+@pytest.mark.asyncio
+async def test_imported_processes_record_their_creation_and_level(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.models.event import Event
+    from app.services import process_catalogue_service as svc
+
+    await create_card_type(db, key="BusinessProcess", label="Business Process", has_hierarchy=True)
+    user = await create_user(db, email="proc-path@x.com")
+    result = await svc.import_processes(db, user=user, catalogue_ids=["BP-100", "BP-100.10"])
+
+    assert [c["catalogue_id"] for c in result["created"]] == ["BP-100", "BP-100.10"]
+    assert result["failed"] == []
+    for level, created in enumerate(result["created"], start=1):
+        card = (
+            await db.execute(select(Card).where(Card.id == uuid.UUID(created["card_id"])))
+        ).scalar_one()
+        assert card.attributes["hierarchyLevel"] == level
+        events = (await db.execute(select(Event).where(Event.card_id == card.id))).scalars().all()
+        assert [(e.event_type, e.user_id) for e in events] == [("card.created", user.id)]
 
 
 def test_bundled_payload_counts_from_the_package_constant(monkeypatch):
