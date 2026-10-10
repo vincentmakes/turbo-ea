@@ -304,6 +304,86 @@ class TestGate:
         now = [rec("killed", line=1), rec("survived", line=2)]
         assert any("x.py" in line for line in gate.regressions(now, before))
         assert gate.regressions(before, before) == []
+        assert gate.dropped_files(now, before) == [("backend/app/x.py", 100.0, 50.0)]
+        assert gate.regressions(now, before)[-1] == "| `backend/app/x.py` | 100.0% | 50.0% |"
+
+    def test_status_summarises_a_complete_suite_in_one_line(self):
+        records = [rec("killed", line=n) for n in range(1, 11)] + [rec("survived", line=11)]
+        records += [rec("killed", file="backend/app/critical.py", line=n) for n in (1, 2)]
+        (line,) = gate.status(records, "backend", FLOORS, previous=records)
+        assert line.startswith("- **backend**: 92.3% of 13 mutants killed; floor 50% — pass.")
+        assert "Critical modules: 1 of 1 at or above floor." in line
+        assert line.endswith("No file's score fell since the previous run.")
+
+    def test_status_reports_baseline_progress_and_modules_still_to_measure(self):
+        records = [
+            rec("killed", line=1),
+            rec("pending", line=2),
+            rec("pending", line=3),
+            rec("killed", file="backend/app/critical.py", line=1),
+            rec("pending", file="backend/app/critical.py", line=2),
+        ]
+        (line,) = gate.status(records, "backend", FLOORS, allow_pending=True)
+        assert "baseline 40% measured (3 mutants left for the next run)" in line
+        assert "100.0% of those measured killed; the 50% floor applies once complete" in line
+        assert "Critical modules: 0 of 1 at or above floor; 1 still to measure." in line
+        assert "previous run" not in line  # nothing to compare with yet
+
+    def test_status_names_a_breached_module_and_the_files_that_fell(self):
+        before = [
+            rec("killed", line=1),
+            rec("killed", line=2),
+            rec("killed", file="backend/app/critical.py", line=1),
+        ]
+        now = [
+            rec("killed", line=1),
+            rec("survived", line=2),
+            rec("survived", file="backend/app/critical.py", line=1),
+        ]
+        (line,) = gate.status(now, "backend", FLOORS, previous=before)
+        assert "33.3% of 3 mutants killed; floor 50% — **FAIL**." in line
+        assert (
+            "0 of 1 at or above floor; below floor: `backend/app/critical.py` (0.0% < 80%)." in line
+        )
+        assert line.endswith(
+            "Score fell since the previous run: `backend/app/critical.py` (100.0% → 0.0%), "
+            "`backend/app/x.py` (100.0% → 50.0%)."
+        )
+
+    def test_status_flags_a_floored_module_nothing_measured(self):
+        (line,) = gate.status([rec("killed")], "backend", FLOORS)
+        assert "not measured (check): `backend/app/critical.py`" in line
+        (line,) = gate.status([rec("killed", file="mcp-server/x.py")], "mcp", FLOORS)
+        assert "Critical modules: none floored." in line
+
+    def test_status_treats_an_unfinished_run_as_incomplete_without_allow_pending(self):
+        (line,) = gate.status([rec("killed"), rec("pending", line=2)], "backend", FLOORS)
+        assert "**incomplete run**: 1 mutant(s) were never tested; 1 of the 1 tested" in line
+
+    def test_main_writes_the_status_file_for_suite_scope_only(self, tmp_path):
+        records = [rec("killed"), rec("killed", file="backend/app/critical.py")]
+        path = write(tmp_path, "r.json", records)
+        status = tmp_path / "status.md"
+        args = ["--records", str(path), "--floors", str(floors_file(tmp_path))]
+        assert (
+            gate.main(["--suite", "backend", "--scope", "suite", "--status", str(status), *args])
+            == 0
+        )
+        assert status.read_text().startswith(
+            "- **backend**: 100.0% of 2 mutants killed; floor 50% — pass."
+        )
+        # appended, one line per suite, as the nightly calls it three times
+        assert (
+            gate.main(["--suite", "backend", "--scope", "suite", "--status", str(status), *args])
+            == 0
+        )
+        assert status.read_text().count("- **backend**") == 2
+        status.unlink()
+        assert (
+            gate.main(["--suite", "backend", "--scope", "diff", "--status", str(status), *args])
+            == 0
+        )
+        assert not status.exists()
 
     @pytest.mark.parametrize(
         "patch",

@@ -174,7 +174,7 @@ def test_every_shard_names_the_tests_that_failed_on_unmutated_code(job, harness,
     assert '--summary "$GITHUB_STEP_SUMMARY" --output harness.md' in report
     # the section tops both the summary and the issue
     assert report.index("harness.py report") < report.index("Score every suite")
-    assert report.index("cat harness.md") < report.index('echo "Surviving mutants')
+    assert report.index("cat harness.md") < report.index('echo "**Nightly mutation report**')
     assert "harness.md" in report[report.index("name: mutation-survivors") :]
 
 
@@ -239,9 +239,40 @@ def test_the_nightly_report_runs_after_failed_shards_and_uses_the_gate():
     assert "if: always()" in body
     assert 'gate.py --suite "$suite" --scope suite --allow-pending' in body
     assert "issues: write" in body
-    assert "ISSUE_TITLE: Mutation survivors (nightly)" in body
+    assert 'ISSUE_TITLE: "Mutation nightly: survivors by module"' in body
     # the job only fails after the issue and artifacts are written
     assert body.index("Update the survivors issue") < body.index("Fail when a suite")
+
+
+def test_the_nightly_issue_opens_with_the_status_and_says_what_it_is():
+    """The issue is a report, not a bug list: its first screen says whether a
+    floor holds, how far the baseline is and what fell, before any module."""
+    body = jobs(NIGHTLY)["report"]
+    score = body[body.index("Score every suite") : body.index("Update the survivors issue")]
+    assert "--status status.md" in score
+    assert ": > status.md" in score
+    # the verdict reaches the issue step through a file, never `${{ steps.* }}`
+    assert 'echo "$failed" > floors-breached' in score
+    issue = body[body.index("Update the survivors issue") : body.index("Fail when a suite")]
+    assert "${{ steps." not in issue
+    assert "cat floors-breached" in issue
+    assert "not a bug list" in issue
+    assert "rewrites this body" in issue
+    assert issue.index('echo "## Status"') < issue.index("cat status.md")
+    assert issue.index("cat status.md") < issue.index('echo "## Survivors by module"')
+    assert issue.index('echo "## Survivors by module"') < issue.index("cat survivors.md")
+    assert "status.md" in body[body.index("name: mutation-survivors") :]
+
+
+def test_the_nightly_renames_its_old_issue_instead_of_opening_a_second():
+    body = jobs(NIGHTLY)["report"]
+    assert "LEGACY_ISSUE_TITLE: Mutation survivors (nightly)" in body
+    issue = body[body.index("Update the survivors issue") : body.index("Fail when a suite")]
+    assert issue.index("env.ISSUE_TITLE") < issue.index("env.LEGACY_ISSUE_TITLE")
+    assert issue.index("env.LEGACY_ISSUE_TITLE") < issue.index(
+        '--title "$ISSUE_TITLE" --body-file body.md'
+    )
+    assert issue.count("gh issue create") == 1
 
 
 def test_the_nightly_alone_may_write_issues():

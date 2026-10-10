@@ -66,8 +66,12 @@ just new lines.
   against the `[suite]` floor and each `[modules]` floor. A floor applies once
   everything it covers is measured; until then the summary shows baseline
   progress. It names files whose score fell since the previous night.
-- It keeps one open issue, **Mutation survivors (nightly)**, with the current
-  backlog: critical modules first, then by survivor count, per function.
+- It keeps one open issue, **Mutation nightly: survivors by module**. It opens
+  with a status block (each suite's score against its floor or its baseline
+  progress, the critical modules, the files whose score fell since the previous
+  run), then the backlog: critical modules first, then by survivor count, per
+  function. Every run rewrites the body, so it is a report, not a bug list and
+  not a place for notes: those go in a comment, a pragma or a floor.
 - The PR jobs restore the nightly's mutmut cache. That is what spares them
   mutmut's stats pass, a **serial** run of the whole suite that maps each test
   to the functions it reaches (about an hour for the backend on a runner).
