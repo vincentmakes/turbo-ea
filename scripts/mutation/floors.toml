@@ -102,3 +102,4 @@ mcp = 97
 "frontend/src/features/cards/cardTabs.ts" = 89            # which tabs card detail shows, and in which order
 "frontend/src/features/cards/sections/historyChanges.ts" = 90  # how the History tab reads an event
 "frontend/src/features/cards/sectionConfig.ts" = 94        # the card page's section order and hidden fields
+"frontend/src/features/reports/ldvViewModel.ts" = 91   # the Layered Dependency View's card, line and canvas rules
