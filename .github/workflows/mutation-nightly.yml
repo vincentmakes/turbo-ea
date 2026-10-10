@@ -16,8 +16,9 @@
 # `gate.py --scope suite --allow-pending` against the [suite] and [modules]
 # floors in scripts/mutation/floors.toml (a floor applies once everything it
 # covers is measured), names the files whose score fell since the previous
-# night, and keeps ONE open issue, "Mutation survivors (nightly)", holding the
-# current survivor backlog — the list the test-hardening PRs work through.
+# night, and keeps ONE open issue, "Mutation nightly: survivors by module",
+# that opens with each suite's status and then holds the current survivor
+# backlog — the list the test-hardening PRs work through.
 #
 # On a pull request that edits this file the run is a smoke test of the
 # plumbing: a short budget, informational, no cache saved, no issue touched.
@@ -377,7 +378,10 @@ jobs:
       issues: write # the survivors issue
     env:
       GH_TOKEN: ${{ github.token }}
-      ISSUE_TITLE: Mutation survivors (nightly)
+      ISSUE_TITLE: "Mutation nightly: survivors by module"
+      # The title the issue carried before its status block existed. An open
+      # issue still named this way is renamed in place, never duplicated.
+      LEGACY_ISSUE_TITLE: Mutation survivors (nightly)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
@@ -413,6 +417,7 @@ jobs:
           if [ "$SAVE_CACHE" != "true" ]; then informational="--informational"; fi
           failed=0
           : > survivors.md
+          : > status.md
           # A shard whose records never arrived would silently drop its files
           # from the score, so the count is checked first.
           for pair in "backend:${{ needs.backend.outputs.count }}" "mcp:1" \
@@ -432,12 +437,15 @@ jobs:
               --records records/mutation-records-"$suite"-*.json \
               --previous previous/mutation-records-"$suite"-*.json \
               --summary "$GITHUB_STEP_SUMMARY" --survivors "survivors-$suite.md" \
-              $informational || failed=1
+              --status status.md $informational || failed=1
             if [ -f "survivors-$suite.md" ]; then
               { cat "survivors-$suite.md"; echo; } >> survivors.md
             fi
           done
           echo "failed=$failed" >> "$GITHUB_OUTPUT"
+          # The issue step reads the verdict from a file: a step output
+          # interpolated into a script is what the workflow tests forbid.
+          echo "$failed" > floors-breached
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
@@ -450,6 +458,7 @@ jobs:
           name: mutation-survivors
           path: |
             survivors.md
+            status.md
             harness.md
           retention-days: 30
       - name: Update the survivors issue
@@ -458,13 +467,26 @@ jobs:
           {
             # the harness failures first: a race to fix today, above the backlog
             if [ -f harness.md ]; then cat harness.md; echo; fi
-            echo "Surviving mutants in the existing code, refreshed by every run of"
-            echo "\`mutation-nightly.yml\` ([latest run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID))."
-            echo "Each one is a change to the code that no test notices. Work through them"
-            echo "critical modules first: add the assertion it exposes, delete the code it proves"
-            echo "dead, or mark a genuinely equivalent one with a reasoned pragma"
-            echo "(\`scripts/mutation/README.md\`). Raise the module's floor in"
-            echo "\`scripts/mutation/floors.toml\` in the same PR."
+            echo "**Nightly mutation report** for [this run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)."
+            echo "This is not a bug list. Each entry below is a *surviving mutant*: a change to the"
+            echo "code that no test notices. A confirmed bug is filed as its own issue. Work through"
+            echo "the survivors critical modules first: add the assertion it exposes, delete the code"
+            echo "it proves dead, or mark a genuinely equivalent one with a reasoned pragma"
+            echo "(\`scripts/mutation/README.md\`), and raise the module's floor in"
+            echo "\`scripts/mutation/floors.toml\` in the same PR. Every run rewrites this body, so a"
+            echo "note that must persist goes in a comment, a pragma or a floor."
+            echo
+            echo "## Status"
+            echo
+            if [ "$(cat floors-breached 2>/dev/null)" = "0" ]; then
+              echo "All floors are holding."
+            else
+              echo "**A floor is breached, or a shard's records are missing**; see the suite lines."
+            fi
+            echo
+            cat status.md
+            echo
+            echo "## Survivors by module"
             echo
             cat survivors.md
           } > body.md
@@ -479,6 +501,13 @@ jobs:
             --json number,title --jq ".[] | select(.title == env.ISSUE_TITLE) | .number" | head -n 1)"
           if [ -n "$number" ]; then
             gh issue edit "$number" --body-file body.md
+            exit 0
+          fi
+          number="$(gh issue list --state open --search "\"$LEGACY_ISSUE_TITLE\" in:title" \
+            --json number,title --jq ".[] | select(.title == env.LEGACY_ISSUE_TITLE) | .number" | head -n 1)"
+          if [ -n "$number" ]; then
+            # the issue from before the status block led it: renamed in place
+            gh issue edit "$number" --title "$ISSUE_TITLE" --body-file body.md
           else
             gh issue create --title "$ISSUE_TITLE" --body-file body.md
           fi
