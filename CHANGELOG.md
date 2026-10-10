@@ -7,11 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [2.158.6] - 2026-10-09
 
-### Fixed
-- Value Stream Catalogue: after the catalogue is updated from the online store, a catalogue fetched before translations were cached with it is shown in your language again, as the Capability and Process catalogues already were, instead of in English.
-
 ### Changed
 - The three reference catalogues (capabilities, processes, value streams) now choose between the bundled and the downloaded catalogue in one shared place, so they cannot drift apart again.
+
+### Fixed
+- Value Stream Catalogue: after the catalogue is updated from the online store, a catalogue fetched before translations were cached with it is shown in your language again, as the Capability and Process catalogues already were, instead of in English.
+- Workspace transfer: a card's reference number (such as `APP-0042`) now travels with it. The export left the column empty, so cards imported into another instance arrived without their original reference.
 
 ## [2.158.3] - 2026-10-09
 
