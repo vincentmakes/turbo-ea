@@ -5,10 +5,13 @@ These tests do NOT require a database; they exercise pure functions only.
 
 from __future__ import annotations
 
+import os
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
 import jwt
+import pytest
 
 from app.config import settings
 from app.core.security import (
@@ -27,6 +30,36 @@ from app.core.security import (
 # ---------------------------------------------------------------------------
 # JWT — create_access_token
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def host_clock_ahead_of_utc():
+    """A host whose local time is UTC+9, so a naive ``now()`` would be nine hours off."""
+    previous = os.environ.get("TZ")
+    os.environ["TZ"] = "JST-9"
+    time.tzset()
+    yield
+    if previous is None:
+        del os.environ["TZ"]
+    else:
+        os.environ["TZ"] = previous
+    time.tzset()
+
+
+def _issued_at(token: str) -> int:
+    return jwt.decode(token, options={"verify_signature": False})["iat"]
+
+
+class TestTokensAreStampedInUtc:
+    def test_a_session_token(self, host_clock_ahead_of_utc):
+        before = int(time.time())
+        iat = _issued_at(create_access_token(uuid.uuid4()))
+        assert before <= iat <= time.time()
+
+    def test_a_portal_token(self, host_clock_ahead_of_utc):
+        before = int(time.time())
+        iat = _issued_at(create_portal_token(uuid.uuid4(), "slug"))
+        assert before <= iat <= time.time()
 
 
 class TestCreateAccessToken:

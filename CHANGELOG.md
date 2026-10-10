@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.158.3] - 2026-10-09
+
+### Changed
+- Sign-in, single sign-on, trusted-proxy sign-in and published-resource access: redundant checks removed and one cookie definition shared by setting and clearing the session cookie, with no change to who can sign in or what they reach. An identity provider's error details are now read from any JSON object it returns, whatever content type it declares.
+
 ## [2.158.2] - 2026-10-09
 
 ### Changed
