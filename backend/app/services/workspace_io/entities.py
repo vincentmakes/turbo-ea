@@ -179,14 +179,7 @@ def _decode_asset(raw: bytes | None, kind: str) -> Any:
 
 def build_card_ref(card: Any, card_map: dict[Any, Any]) -> str:
     """Full ``parent_path / name`` reference for a card (root→name, escaped)."""
-    segments: list[str] = []
-    seen: set[Any] = set()
-    current = card_map.get(card.parent_id) if card.parent_id else None
-    while current is not None and current.id not in seen and len(segments) < schema.MAX_PATH_DEPTH:
-        seen.add(current.id)
-        segments.insert(0, current.name)
-        current = card_map.get(current.parent_id) if current.parent_id else None
-    return schema.build_ref_string(segments, card.name)
+    return schema.build_ref_string(schema.ancestor_names(card, card_map), card.name)
 
 
 # ---------------------------------------------------------------------------

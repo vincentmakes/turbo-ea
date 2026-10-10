@@ -1461,3 +1461,131 @@ async def test_import_stores_a_backwards_relation_in_its_type_direction(db):
     )
     assert [(r.source_id, r.target_id) for r in rels] == [(gadget.id, port.id)]
     assert rels[0].attributes == {"flowDirection": "forward"}
+
+
+async def test_card_reference_survives_export_and_reimport(db):
+    """``reference`` was in ``CARD_COLUMNS`` and read by the applier, but the
+    exporter never wrote it: a moved or restored card lost its human-readable
+    id. Every card column now comes off the card."""
+    user = await create_user(db, email="ref@test.com", role="admin")
+    await create_card_type(db, key="Application", label="Application")
+    await create_card(
+        db,
+        card_type="Application",
+        name="Billing",
+        user_id=user.id,
+        attributes={"criticality": "high"},
+    )
+    card = (await db.execute(select(Card).where(Card.name == "Billing"))).scalar_one()
+    card.reference = "APP-0042"
+    card.alias = "BIL"
+    card.external_id = "ext-7"
+    await db.flush()
+
+    raw = await build_bundle(db)
+    row = next(r for r in parse_bundle(raw).rows(schema.SHEET_CARDS) if r["name"] == "Billing")
+    assert (row["reference"], row["alias"], row["external_id"]) == ("APP-0042", "BIL", "ext-7")
+
+    await db.execute(delete(Card).where(Card.name == "Billing"))
+    await db.flush()
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    restored = (await db.execute(select(Card).where(Card.name == "Billing"))).scalar_one()
+    assert (restored.reference, restored.alias, restored.external_id) == (
+        "APP-0042",
+        "BIL",
+        "ext-7",
+    )
+
+
+async def _billing_bundle_then_a_clash(db, reference_config):
+    """A bundle holding Billing as ``APP-0042``, imported after another card has
+    taken that reference: what the applier does with the clash depends on the
+    type's reference config."""
+    user = await create_user(db, email="clash@test.com", role="admin")
+    ct = await create_card_type(db, key="Application", label="Application")
+    ct.reference_config = reference_config
+    await create_card(db, card_type="Application", name="Billing", user_id=user.id)
+    billing = (await db.execute(select(Card).where(Card.name == "Billing"))).scalar_one()
+    billing.reference = "APP-0042"
+    await db.flush()
+    raw = await build_bundle(db)
+
+    await db.execute(delete(Card).where(Card.name == "Billing"))
+    await create_card(db, card_type="Application", name="Other", user_id=user.id)
+    other = (await db.execute(select(Card).where(Card.name == "Other"))).scalar_one()
+    other.reference = "APP-0042"
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    restored = (await db.execute(select(Card).where(Card.name == "Billing"))).scalar_one()
+    await db.refresh(other)
+    assert other.reference == "APP-0042"
+    return restored
+
+
+async def test_a_taken_reference_is_renumbered_from_the_type_series(db):
+    """Importing ``APP-0042`` where another card already holds it: an ``auto``
+    type gives the imported card the next number of its series, and the card
+    that held the reference keeps it."""
+    restored = await _billing_bundle_then_a_clash(
+        db, {"mode": "auto", "prefix": "APP-", "start": 1, "padding": 4}
+    )
+    assert restored.reference == "APP-0043"
+
+
+async def test_a_taken_reference_is_dropped_when_the_type_numbers_nothing(db):
+    """The same clash on a type whose references are off: the imported card
+    lands without one rather than failing the import."""
+    restored = await _billing_bundle_then_a_clash(db, {"mode": "off"})
+    assert restored.reference is None
+
+
+async def test_card_tags_and_relations_carry_full_card_paths(db):
+    """The CardTags and Relations rows name each card by its full path, and
+    an import into a landscape that lost them puts both back on the right
+    cards. Re-importing into the same instance skips every row, so only a
+    removal in between proves the refs resolve."""
+    from app.models.tag import CardTag, Tag, TagGroup
+    from tests.conftest import create_relation_type
+
+    user = await create_user(db, email="paths@test.com", role="admin")
+    await create_card_type(db, key="Application", label="Application", has_hierarchy=True)
+    await create_card_type(db, key="ITComponent", label="IT Component")
+    await create_relation_type(db, key="app_to_itc")
+    parent = await create_card(db, card_type="Application", name="Sales/EMEA", user_id=user.id)
+    child = await create_card(
+        db, card_type="Application", name="CRM", parent_id=parent.id, user_id=user.id
+    )
+    # Another card with the same name elsewhere: only the path tells them apart.
+    await create_card(db, card_type="Application", name="CRM", user_id=user.id)
+    db_card = await create_card(db, card_type="ITComponent", name="Postgres", user_id=user.id)
+    group = TagGroup(name="Scope")
+    db.add(group)
+    await db.flush()
+    tag = Tag(tag_group_id=group.id, name="In scope")
+    db.add(tag)
+    await db.flush()
+    db.add(CardTag(card_id=child.id, tag_id=tag.id))
+    db.add(Relation(type="app_to_itc", source_id=child.id, target_id=db_card.id, attributes={}))
+    await db.flush()
+
+    raw = await build_bundle(db)
+    bundle = parse_bundle(raw)
+    (tag_row,) = bundle.rows(schema.SHEET_CARD_TAGS)
+    assert (tag_row["card_type"], tag_row["card_ref"]) == ("Application", "Sales\\/EMEA / CRM")
+    assert (tag_row["group_name"], tag_row["tag_name"]) == ("Scope", "In scope")
+    (rel_row,) = bundle.rows(schema.SHEET_RELATIONS)
+    assert (rel_row["source_type"], rel_row["source_ref"]) == ("Application", "Sales\\/EMEA / CRM")
+    assert (rel_row["target_type"], rel_row["target_ref"]) == ("ITComponent", "Postgres")
+
+    await db.execute(delete(CardTag))
+    await db.execute(delete(Relation))
+    await db.flush()
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    tagged = (await db.execute(select(CardTag.card_id))).scalars().all()
+    assert tagged == [child.id]
+    (rel,) = (await db.execute(select(Relation))).scalars().all()
+    assert (rel.source_id, rel.target_id) == (child.id, db_card.id)

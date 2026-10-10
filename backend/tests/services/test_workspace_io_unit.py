@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import uuid
+from types import SimpleNamespace
+
 import openpyxl
 
 from app.services.workspace_io import bundle as bundle_io
-from app.services.workspace_io import schema
+from app.services.workspace_io import entities, schema
+from app.services.workspace_io import exporter as exp
 from app.services.workspace_io.secrets import strip_secrets
 
 # ---------------------------------------------------------------------------
@@ -316,3 +320,114 @@ def test_a_corrupt_file_on_disk_is_reported_as_a_bad_bundle(tmp_path):
     path.write_bytes(b"not a zip at all")
     with pytest.raises(BundleFormatError, match="not a valid .zip"):
         bundle_io.parse_bundle(path)
+
+
+# ---------------------------------------------------------------------------
+# Card rows and their ancestor walk
+# ---------------------------------------------------------------------------
+
+
+def _card(name, parent=None, **fields):
+    return SimpleNamespace(
+        id=uuid.uuid4(),
+        name=name,
+        parent_id=parent.id if parent is not None else None,
+        **fields,
+    )
+
+
+def test_ancestor_names_run_root_first():
+    root = _card("Europe")
+    mid = _card("Germany", root)
+    leaf = _card("Berlin", mid)
+    by_id = {c.id: c for c in (root, mid, leaf)}
+    assert schema.ancestor_names(leaf, by_id) == ["Europe", "Germany"]
+    assert schema.ancestor_names(root, by_id) == []
+
+
+def test_ancestor_names_stop_at_an_ancestor_not_exported():
+    archived = _card("Archived root")
+    mid = _card("Kept", archived)
+    leaf = _card("Leaf", mid)
+    assert schema.ancestor_names(leaf, {c.id: c for c in (mid, leaf)}) == ["Kept"]
+
+
+def test_ancestor_names_stop_at_a_cycle():
+    a = _card("A")
+    b = _card("B", a)
+    a.parent_id = b.id
+    leaf = _card("Leaf", b)
+    assert schema.ancestor_names(leaf, {c.id: c for c in (a, b, leaf)}) == ["A", "B"]
+
+
+def test_ancestor_names_stop_at_the_depth_limit():
+    chain = [_card("L0")]
+    for i in range(1, schema.MAX_PATH_DEPTH + 3):
+        chain.append(_card(f"L{i}", chain[-1]))
+    by_id = {c.id: c for c in chain}
+    names = schema.ancestor_names(chain[-1], by_id)
+    assert len(names) == schema.MAX_PATH_DEPTH
+    assert names[-1] == chain[-2].name  # the nearest ancestors are the ones kept
+
+
+def test_card_ref_escapes_every_segment():
+    parent = _card("SAP S/4HANA")
+    leaf = _card("Back\\Office", parent)
+    assert entities.build_card_ref(leaf, {parent.id: parent, leaf.id: leaf}) == (
+        "SAP S\\/4HANA / Back\\\\Office"
+    )
+
+
+def test_card_record_carries_every_card_column():
+    parent = _card("Sales/EMEA")
+    card = _card(
+        "Billing",
+        parent,
+        type="Application",
+        parent_label="Region",
+        subtype="businessApplication",
+        description="Bills customers",
+        external_id="ext-7",
+        reference="APP-0042",
+        alias="BIL",
+        approval_status="APPROVED",
+        status="ACTIVE",
+        lifecycle={"active": "2024-01-01"},
+        attributes={"criticality": "high"},
+    )
+    record = exp._card_record(card, {parent.id: parent, card.id: card})
+    assert record == {
+        "type": "Application",
+        "name": "Billing",
+        "parent_path": "Sales\\/EMEA",
+        "parent_label": "Region",
+        "subtype": "businessApplication",
+        "description": "Bills customers",
+        "external_id": "ext-7",
+        "reference": "APP-0042",
+        "alias": "BIL",
+        "approval_status": "APPROVED",
+        "status": "ACTIVE",
+        "lifecycle": {"active": "2024-01-01"},
+        "attributes": {"criticality": "high"},
+    }
+    assert set(record) == set(exp.CARD_COLUMNS)
+
+
+def test_card_record_writes_empty_dicts_for_missing_json():
+    card = _card(
+        "Bare",
+        type="Application",
+        parent_label=None,
+        subtype=None,
+        description=None,
+        external_id=None,
+        reference=None,
+        alias=None,
+        approval_status="DRAFT",
+        status="ACTIVE",
+        lifecycle=None,
+        attributes=None,
+    )
+    record = exp._card_record(card, {card.id: card})
+    assert (record["parent_path"], record["lifecycle"], record["attributes"]) == ("", {}, {})

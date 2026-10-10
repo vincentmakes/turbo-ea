@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.158.6] - 2026-10-09
+
+### Changed
+- The three reference catalogues (capabilities, processes, value streams) now choose between the bundled and the downloaded catalogue in one shared place, so they cannot drift apart again.
+- Surveys: a **not equals** attribute filter now also reaches cards where that field is empty, so "Risk not equals Low" means every card whose risk is not Low. It used to leave out cards with no value at all.
+
+### Fixed
+- Value Stream Catalogue: after the catalogue is updated from the online store, a catalogue fetched before translations were cached with it is shown in your language again, as the Capability and Process catalogues already were, instead of in English.
+- Workspace transfer: a card's reference number (such as `APP-0042`) now travels with it. The export left the column empty, so cards imported into another instance arrived without their original reference.
+- API: saving a bookmark's sharing through `PATCH /bookmarks/{id}` returns the share list it just saved. The response repeated the previous list; the app itself reloads the list, so the screen was always right.
+
 ## [2.158.5] - 2026-10-09
 
 ### Changed
