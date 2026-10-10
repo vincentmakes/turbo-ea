@@ -43,6 +43,14 @@ a set of mutant-name patterns, never on nothing: without names mutmut's
   (``reopen_survivors``), judged by a digest of the test modules kept in the
   cached ``mutants/``.
 
+Both then make sure a function in scope that mutmut's cached map links to no
+test is not scored "no tests" for the wrong reason (``relink_untested``).
+mutmut records which functions a test runs once, the first time it sees the
+test, so a function written after that — a helper extracted from code the
+existing tests already run — is linked only to tests that are new as well.
+Its callers' tests and its module's are made to look new so mutmut collects
+them again; once per version of the function's code.
+
 ``collect`` reads ``mutmut results`` and writes the records ``gate.py``
 scores; with ``--changed`` it keeps only mutants on a changed line, with
 ``--shard`` only the shard's files.
@@ -121,6 +129,10 @@ _GENERATE_ONLY = "mutmut_scope.generate_only__mutmut_0"
 TESTS_DIGEST = "mutmut-tests-digest.json"
 # Verdicts a new test can change: survived (0) and no tests (33).
 _REOPENABLE = (0, 33)
+# Beside it: the functions relink_untested has tried, by their code's hash.
+RELINKED = "mutmut-relinked.json"
+# How many levels of callers relink_untested goes up for a function's tests.
+RELINK_DEPTH = 3
 
 
 # ── configuration ────────────────────────────────────────────────────────────
@@ -672,6 +684,234 @@ def reopen_survivors(directory: Path, files: list[str]) -> int:
     return reopened
 
 
+def _import_source(module: str, is_package: bool, node: ast.ImportFrom) -> str:
+    """The absolute module a ``from … import`` reads from, relative ones included."""
+    if not node.level:
+        return node.module or ""
+    base = module.split(".") if is_package else module.split(".")[:-1]
+    base = base[: len(base) - (node.level - 1)]
+    return ".".join([*base, node.module] if node.module else base)
+
+
+def _dotted(node: ast.expr) -> str | None:
+    """``a.b.c`` for a chain of names, else None."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        inner = _dotted(node.value)
+        return f"{inner}.{node.attr}" if inner else None
+    return None
+
+
+def call_index(directory: Path, files: list[str]) -> dict[str, set[str]]:
+    """Each function mutmut mutates in ``files``, by its mangled name → the
+    mangled names of the functions and methods it refers to: ``f`` defined
+    or imported by name, ``module.f`` through an imported module,
+    ``self.m`` / ``cls.m`` and ``Class.m``. An attribute of any other object
+    names nothing for certain, so ``d.get`` does not make a caller of every
+    new function called ``get``. Imports are read wherever they sit, local
+    ones included."""
+    index: dict[str, set[str]] = {}
+    for rel in files:
+        try:
+            tree = ast.parse((directory / rel).read_text("utf-8"))
+        except (OSError, SyntaxError):
+            continue
+        module = module_of(rel)
+        functions: dict[str, str] = {}  # local name → mangled function
+        modules: dict[str, str] = {}  # local dotted name → module
+        classes: dict[str, tuple[str, str]] = {}  # local name → (module, class)
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                functions[node.name] = f"{module}.x_{node.name}"
+            elif isinstance(node, ast.ClassDef):
+                classes[node.name] = (module, node.name)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    modules[alias.asname or alias.name] = alias.name
+            elif isinstance(node, ast.ImportFrom):
+                source = _import_source(module, rel.endswith("__init__.py"), node)
+                for alias in node.names:
+                    local = alias.asname or alias.name
+                    # whichever ``alias.name`` turns out to be
+                    functions[local] = f"{source}.x_{alias.name}"
+                    modules[local] = f"{source}.{alias.name}"
+                    classes[local] = (source, alias.name)
+
+        def refers_to(body: ast.AST, cls: str | None) -> set[str]:
+            found = set()
+            for sub in ast.walk(body):
+                if isinstance(sub, ast.Name) and sub.id in functions:
+                    found.add(functions[sub.id])
+                elif isinstance(sub, ast.Attribute):
+                    owner = _dotted(sub.value)
+                    if cls and owner in ("self", "cls"):
+                        found.add(f"{module}.x{CLASS_SEP}{cls}{CLASS_SEP}{sub.attr}")
+                    elif owner in modules:
+                        found.add(f"{modules[owner]}.x_{sub.attr}")
+                    if owner in classes:
+                        source, name = classes[owner]
+                        found.add(f"{source}.x{CLASS_SEP}{name}{CLASS_SEP}{sub.attr}")
+            return found
+
+        for node in tree.body:
+            candidates = [(node, None)]
+            if isinstance(node, ast.ClassDef):
+                candidates = [(child, node.name) for child in node.body]
+            for child, cls in candidates:
+                if not isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+                    continue
+                if not is_mutated(child):
+                    continue
+                key = f"x{CLASS_SEP}{cls}{CLASS_SEP}{child.name}" if cls else f"x_{child.name}"
+                index[f"{module}.{key}"] = refers_to(child, cls)
+    # an imported name was taken for each thing it could be; keep what it is
+    known = set(index)
+    return {key: refers & known for key, refers in index.items()}
+
+
+def caller_tests(
+    function: str,
+    index: dict[str, set[str]],
+    tests_by_function: dict[str, list[str]],
+    depth: int = RELINK_DEPTH,
+) -> set[str]:
+    """The tests mutmut links to the functions that call ``function``, going
+    up through callers that are linked to none themselves (a new helper that
+    only another new helper calls) for ``depth`` levels."""
+    callers_of: dict[str, set[str]] = {}
+    for key, callees in index.items():
+        for callee in callees:
+            callers_of.setdefault(callee, set()).add(key)
+    found: set[str] = set()
+    seen = {function}
+    frontier = {function}
+    for _ in range(depth):
+        above = set()
+        for callee in frontier:
+            for caller in callers_of.get(callee, set()) - seen:
+                seen.add(caller)
+                tests = tests_by_function.get(caller)
+                if tests:
+                    found.update(tests)
+                else:
+                    above.add(caller)
+        frontier = above
+    return found
+
+
+def module_tests(function: str, tests_by_function: dict[str, list[str]]) -> set[str]:
+    """The tests mutmut links to any function of ``function``'s module,
+    narrowed to the test modules named after it when there are any."""
+    module = function.rpartition(".")[0]
+    found = {
+        test
+        for key, tests in tests_by_function.items()
+        if key.rpartition(".")[0] == module
+        for test in tests
+    }
+    stem = module.rpartition(".")[2]
+    named = {test for test in found if stem in Path(test.split("::", 1)[0]).stem}
+    return named or found
+
+
+def relink_untested(directory: Path, functions: set[str], files: list[str]) -> set[str]:
+    """Have mutmut collect again the stats of the tests that probably run the
+    functions of ``functions`` its cached map links to no test; return the
+    functions that found some.
+
+    mutmut collects a test's stats once, the first time it sees the test, and
+    records only the functions that existed then. A function added later is
+    linked to no test but a new one: a helper extracted from code the
+    existing tests already run scored "no tests" on every mutant, in the PR
+    job and every night after (the cached map is the nightly's). Dropping a
+    test's duration is what makes mutmut take it for new on its next run and
+    collect it again. Which tests: those linked to the functions that call it
+    (``caller_tests``) and those of its module (``module_tests``), since a
+    route handler is a caller mutmut never links, being decorated.
+
+    Each function is tried once per version of its code, by mutmut's own
+    hash, kept in ``mutants/`` beside the stats: one that no test reaches
+    then costs a single extra stats pass, not one a night.
+    """
+    mutants = directory / "mutants"
+    stats_file = mutants / "mutmut-stats.json"
+    if not functions or not stats_file.is_file():
+        return set()
+    stats = json.loads(stats_file.read_text("utf-8"))
+    tests_by_function = stats.get("tests_by_mangled_function_name", {})
+    hashes = stats.get("function_hashes", {})
+    tried_file = mutants / RELINKED
+    tried = json.loads(tried_file.read_text("utf-8")) if tried_file.is_file() else {}
+    untested = sorted(
+        f
+        for f in functions
+        if not tests_by_function.get(f) and (f not in tried or tried[f] != hashes.get(f))
+    )
+    if not untested:
+        return set()
+    index = call_index(directory, files)
+    relinked: set[str] = set()
+    dropped: set[str] = set()
+    for function in untested:
+        tests = caller_tests(function, index, tests_by_function)
+        tests |= module_tests(function, tests_by_function)
+        tried[function] = hashes.get(function)
+        if tests:
+            relinked.add(function)
+            dropped |= tests
+    durations = stats.get("duration_by_test", {})
+    for test in dropped:
+        durations.pop(test, None)
+    stats_file.write_text(json.dumps(stats), "utf-8")
+    tried_file.write_text(json.dumps(tried, indent=1, sort_keys=True), "utf-8")
+    if relinked:
+        print(
+            f"{len(dropped)} test(s) to collect again: they probably run {len(relinked)} "
+            "function(s) mutmut's cached map links to no test."
+        )
+    return relinked
+
+
+def untested_functions(directory: Path, files: list[str]) -> set[str]:
+    """The functions of ``files`` with a mutant still unchecked or scored
+    "no tests"."""
+    found: set[str] = set()
+    for rel in files:
+        meta = directory / "mutants" / f"{rel}.meta"
+        if not meta.is_file():
+            continue
+        verdicts = json.loads(meta.read_text("utf-8")).get("exit_code_by_key", {})
+        found |= {
+            name.rpartition("__mutmut_")[0] for name, code in verdicts.items() if code in (None, 33)
+        }
+    return found
+
+
+def reset_no_tests(directory: Path, files: list[str], functions: set[str]) -> int:
+    """Reset to unchecked the "no tests" verdicts of ``functions``; return how
+    many, so ``unchecked_patterns`` names them again."""
+    reset = 0
+    for rel in files:
+        meta = directory / "mutants" / f"{rel}.meta"
+        if not meta.is_file():
+            continue
+        data = json.loads(meta.read_text("utf-8"))
+        verdicts = data.get("exit_code_by_key", {})
+        stale = [
+            name
+            for name, code in verdicts.items()
+            if code == 33 and name.rpartition("__mutmut_")[0] in functions
+        ]
+        if stale:
+            for name in stale:
+                verdicts[name] = None
+            meta.write_text(json.dumps(data), "utf-8")
+            reset += len(stale)
+    return reset
+
+
 def changed_line_mutants(suite: str, changed: dict, repo: Path = REPO) -> list[str] | None:
     """The generated mutants that ``collect`` would score for this change —
     on a changed line of a touched function — or None when a changed file
@@ -726,11 +966,20 @@ def run(
             if names:
                 print(f"{len(names)} mutant(s) on changed lines.")
                 patterns = names
+            relink_untested(
+                directory,
+                {p.rpartition("__mutmut_")[0] for p in patterns},
+                mutable_files(suite, repo),
+            )
         else:
             in_scope = shard_files(suite, shard, repo) if shard else mutable_files(suite, repo)
             reopened = reopen_survivors(directory, in_scope)
             if reopened:
                 print(f"{reopened} survivor(s) reopened: a test that runs them changed.")
+            relinked = relink_untested(
+                directory, untested_functions(directory, in_scope), mutable_files(suite, repo)
+            )
+            reset_no_tests(directory, in_scope, relinked)
             patterns = unchecked_patterns(directory, in_scope)
             if not patterns:
                 print(f"Every {suite} mutant in this scope has a verdict.")
