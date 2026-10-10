@@ -40,11 +40,11 @@ from app.services.calculation_ppm import (
     INITIATIVE_TYPE,
     build_ppm_map,
     empty_ppm,
-    fiscal_year_for,
     get_fiscal_year_start,
     needs_ppm,
 )
 from app.services.derived_writes import derived_maintenance
+from app.services.fiscal_year import current_fiscal_year
 from app.services.hierarchy import compute_hierarchy_level
 
 logger = logging.getLogger("turboea.calculations")
@@ -315,10 +315,8 @@ async def build_shared_context(
             }
         )
         wrappers.append((entry, other_card))
-        if rel.type not in relations:
-            relations[rel.type] = []
         relations[rel.type].append(entry)
-        relation_count[rel.type] = relation_count.get(rel.type, 0) + 1
+        relation_count[rel.type] += 1
 
     # Children (hierarchical)
     children_result = await db.execute(
@@ -375,12 +373,12 @@ async def build_shared_context(
         initiative_ids = [c.id for _entry, c in wrappers if c.type == INITIATIVE_TYPE]
         if card.type == INITIATIVE_TYPE:
             initiative_ids.append(card.id)
+        # Answers for every id it is given, an Initiative without lines included.
         aggregates = await build_ppm_map(db, initiative_ids, start_month=fiscal_year_start)
-        blank = empty_ppm(fiscal_year_for(datetime.now(timezone.utc).date(), fiscal_year_start))
         for entry, other in wrappers:
             if other.type == INITIATIVE_TYPE:
-                entry["ppm"] = aggregates.get(str(other.id), blank)
-        ppm = aggregates.get(str(card.id), blank)
+                entry["ppm"] = aggregates[str(other.id)]
+        ppm = aggregates.get(str(card.id)) or empty_ppm(current_fiscal_year(fiscal_year_start))
 
     return {
         "ppm": _DotDict(ppm),
@@ -426,17 +424,9 @@ def compose_context(shared: dict[str, Any], card: Card) -> dict[str, Any]:
     return {**shared, "data": card_data(card)}
 
 
-async def _build_context(
-    db: AsyncSession,
-    card: Card,
-    *,
-    needs_ppm_data: bool = False,
-    fiscal_year_start: int | None = None,
-) -> dict[str, Any]:
+async def _build_context(db: AsyncSession, card: Card, *, needs_ppm_data: bool) -> dict[str, Any]:
     """Full evaluation context for a single card."""
-    shared = await build_shared_context(
-        db, card, needs_ppm_data=needs_ppm_data, fiscal_year_start=fiscal_year_start
-    )
+    shared = await build_shared_context(db, card, needs_ppm_data=needs_ppm_data)
     return compose_context(shared, card)
 
 
@@ -564,12 +554,11 @@ def _evaluate_formula(
         operators=NULL_SAFE_OPERATORS if blanks_as_zero else None,  # None → defaults
     )
 
-    result = None
+    # `lines` is not empty, so the loop always binds `result`.
     for var_name, expression in lines:
-        value = evaluator.eval(expression)
+        result = evaluator.eval(expression)
         if var_name:
-            evaluator.names[var_name] = value
-        result = value
+            evaluator.names[var_name] = result
 
     return result
 
@@ -599,7 +588,7 @@ def describe_error(exc: Exception, formula: str, context: dict[str, Any] | None)
     all, when the engine knew exactly which field was missing.
     """
     if isinstance(exc, NameNotDefined):
-        name = getattr(exc, "name", "") or ""
+        name = exc.name
         data = (context or {}).get("data") or {}
         if name and name in data:
             return f"Unknown name '{name}' — card fields are read as 'data.{name}'"
@@ -637,50 +626,56 @@ def describe_error(exc: Exception, formula: str, context: dict[str, Any] | None)
     return f"Evaluation error ({type(exc).__name__})"
 
 
-async def execute_calculation(
-    db: AsyncSession,
-    calc: Calculation,
-    card: Card,
-    *,
-    shared: dict[str, Any] | None = None,
+def _failed(
+    calc: Calculation, card: Card, exc: Exception, context: dict[str, Any] | None
+) -> tuple[bool, str]:
+    """Log a failed calculation and say why in words its author can act on."""
+    logger.warning(
+        "Calculation '%s' failed for card %s: %s: %s",
+        calc.name,
+        card.id,
+        type(exc).__name__,
+        exc,
+    )
+    return False, describe_error(exc, calc.formula, context)
+
+
+def apply_calculation(
+    calc: Calculation, card: Card, context: dict[str, Any]
 ) -> tuple[bool, str | None]:
-    """Execute a single calculation for a single card.
+    """Evaluate one calculation against a built context and write its result.
 
-    Returns (success: bool, error_message: str | None).
-    Updates the card's attributes in-place (caller must commit).
-
-    ``shared`` lets a caller running several calculations over one card build
-    the invariant roots once (see ``run_calculations_for_card``). Omitted, this
-    builds its own — so single-calculation callers such as the Test endpoint
-    need no special handling.
+    Returns (success, error_message) and updates the card's attributes in
+    place (the caller commits). A ``None`` result removes the target field.
     """
-    context: dict[str, Any] | None = None
     try:
-        if shared is None:
-            context = await _build_context(db, card, needs_ppm_data=needs_ppm(calc.formula))
-        else:
-            context = compose_context(shared, card)
         result = _evaluate_formula(calc.formula, context, blanks_as_zero=bool(calc.blanks_as_zero))
-
-        # Write result to card attributes
-        attrs = dict(card.attributes or {})
-        if result is None:
-            attrs.pop(calc.target_field_key, None)
-        else:
-            attrs[calc.target_field_key] = result
-        card.attributes = attrs
-
-        return True, None
-
     except Exception as e:
-        logger.warning(
-            "Calculation '%s' failed for card %s: %s: %s",
-            calc.name,
-            card.id,
-            type(e).__name__,
-            e,
-        )
-        return False, describe_error(e, calc.formula, context)
+        return _failed(calc, card, e, context)
+
+    attrs = dict(card.attributes or {})
+    if result is None:
+        attrs.pop(calc.target_field_key, None)
+    else:
+        attrs[calc.target_field_key] = result
+    card.attributes = attrs
+    return True, None
+
+
+async def execute_calculation(
+    db: AsyncSession, calc: Calculation, card: Card
+) -> tuple[bool, str | None]:
+    """Execute a single calculation for a single card, building its context.
+
+    For a caller running one calculation, such as the Test endpoint;
+    ``run_calculations_for_card`` builds the shared roots once and calls
+    ``apply_calculation`` for each.
+    """
+    try:
+        context = await _build_context(db, card, needs_ppm_data=needs_ppm(calc.formula))
+    except Exception as e:
+        return _failed(calc, card, e, None)
+    return apply_calculation(calc, card, context)
 
 
 async def run_calculations_for_card(
@@ -734,7 +729,7 @@ async def run_calculations_for_card(
 
     results = []
     for calc in calcs:
-        success, error = await execute_calculation(db, calc, card, shared=shared)
+        success, error = apply_calculation(calc, card, compose_context(shared, card))
 
         # Update calculation metadata. `last_error` is only assigned when it
         # actually changes: these rows are shared by every card of the type, and
@@ -750,7 +745,7 @@ async def run_calculations_for_card(
                 "name": calc.name,
                 "target_field": calc.target_field_key,
                 "success": success,
-                "error": error if not success else None,
+                "error": error,
             }
         )
 
@@ -818,7 +813,7 @@ async def run_calculations_for_type(
 
                 error_count += 1
                 report["failed"] += 1
-                message = r["error"] or "Evaluation error"
+                message = r["error"]
                 group = failures[calc_id].get(message)
                 if group is None:
                     group = failures[calc_id][message] = {
@@ -943,11 +938,11 @@ async def validate_formula(formula: str, target_type_key: str, db: AsyncSession)
         for section in card_type.fields_schema or []:
             for field in section.get("fields", []):
                 key = field["key"]
-                ftype = field.get("type", "text")
+                ftype = field.get("type")
                 if ftype == "boolean":
                     dummy_data[key] = False
                 elif ftype in ("single_select", "multiple_select"):
-                    opts = field.get("options", [])
+                    opts = field.get("options")
                     dummy_data[key] = opts[0]["key"] if opts else None
                 elif ftype == "percentage":
                     # Mid-range so a formula that divides by (100 - x) or
@@ -1022,9 +1017,10 @@ async def detect_cycles(db: AsyncSession, new_calc: Calculation) -> list[str] | 
 
     # DFS cycle detection
     def has_cycle(node: str, visited: set, stack: set) -> list[str] | None:
-        visited.add(node)
+        # `visited` only spares re-walking a finished subtree; `stack` finds the cycle.
+        visited.add(node)  # pragma: no mutate, prunes re-walks, never changes the answer
         stack.add(node)
-        for dep in graph.get(node, set()):
+        for dep in graph[node]:
             if dep in graph:  # dep is also a calculated field
                 if dep in stack:
                     return [dep, node]

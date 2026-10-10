@@ -8,6 +8,7 @@ expected answer, so a change to any key, branch or default is noticed.
 
 from __future__ import annotations
 
+import logging
 import operator
 import uuid
 
@@ -92,6 +93,7 @@ class TestValidateFormulaDummyCard:
             ("data.approval_status", "DRAFT"),
             ("data.subtype", None),
             ("data.reference", "TEST-1"),
+            ("data.lifecycle.active", None),
             ("parent.name", "Parent"),
             ("parent.type", "Application"),
             ("parent.subtype", None),
@@ -104,6 +106,15 @@ class TestValidateFormulaDummyCard:
     )
     async def test_preview(self, db, app_type, formula, expected):
         assert await preview(db, formula) == expected
+
+    async def test_the_dummy_card_has_the_shape_of_a_real_one(self, db, app_type):
+        # A formula indexing a built-in (`data["subtype"]`) must validate as it
+        # runs, so the dummy carries every key a real card's view does.
+        card = await create_card(db, card_type="Application", name="CRM")
+        data = await preview(db, "data")
+        assert set(card_data(card)) <= set(data)
+        assert (data["subtype"], data["lifecycle"]) == (None, {})
+        assert set(await preview(db, "parent")) == {"id", "name", "type", "subtype", "attributes"}
 
     async def test_lint_warnings_ride_along_with_a_valid_answer(self, db, app_type):
         result = await validate_formula(LINT_FORMULA, "Application", db)
@@ -152,6 +163,22 @@ class TestValidateFormulaRefusals:
             "Fields are referenced by key, not by the label shown on the card."
         )
 
+    async def test_a_hint_can_name_another_calculations_target(self, db, app_type):
+        db.add(
+            Calculation(
+                name="c",
+                formula="1",
+                target_type_key="Application",
+                target_field_key="riskScore",
+            )
+        )
+        await db.flush()
+        result = await validate_formula("data.riskscore + 1", "Application", db)
+        assert result["error"] == (
+            "Formula reads 'riskscore' (did you mean 'riskScore'?), which does not exist on "
+            "Application. Fields are referenced by key, not by the label shown on the card."
+        )
+
     async def test_a_target_of_another_calculation_counts_as_known(self, db, app_type):
         db.add(
             Calculation(
@@ -171,6 +198,22 @@ class TestValidateFormulaRefusals:
     async def test_an_empty_formula(self, db, app_type):
         result = await validate_formula("   ", "Application", db)
         assert result == {"valid": False, "error": "Formula is empty", "warnings": []}
+
+    async def test_arithmetic_on_an_empty_value_is_explained_and_logged(self, db, app_type, caplog):
+        with caplog.at_level(logging.WARNING, logger="turboea.calculations"):
+            result = await validate_formula("None + 1", "Application", db)
+        assert result == {
+            "valid": False,
+            "error": (
+                "An empty value is used and the formula does arithmetic on them. Wrap them in "
+                "COALESCE(field, 0), or switch on 'Treat blank numbers as zero'."
+            ),
+            "warnings": [],
+        }
+        assert [r.getMessage() for r in caplog.records] == [
+            "Formula validation failed: TypeError: "
+            "unsupported operand type(s) for +: 'NoneType' and 'int'"
+        ]
 
 
 class TestDescribeError:
@@ -277,7 +320,43 @@ class TestNullSafeOperators:
         assert _null_safe_unary(lambda v: v + 10)(None) == 10
 
 
+class TestBaseContextRoots:
+    def test_the_inert_defaults(self):
+        from app.services.calculation_ppm import empty_ppm
+
+        assert base_context_roots() == {
+            "data": {},
+            "relations": {},
+            "relation_count": {},
+            "children": [],
+            "children_count": 0,
+            "parent": None,
+            "hierarchy_level": 1,
+            "ppm": empty_ppm(),
+            "None": None,
+            "True": True,
+            "False": False,
+        }
+
+    def test_an_override_replaces_only_its_root(self):
+        roots = base_context_roots(hierarchy_level=3, parent={"id": "p"})
+        assert (roots["hierarchy_level"], roots["parent"]) == (3, {"id": "p"})
+        assert (roots["children_count"], roots["True"]) == (0, True)
+
+
 class TestCardData:
+    async def test_the_whole_view_of_a_card_without_attributes(self, db, app_type):
+        card = await create_card(db, card_type="Application", name="CRM", subtype="saas")
+        assert card_data(card) == {
+            "name": "CRM",
+            "description": None,
+            "status": "ACTIVE",
+            "approval_status": "DRAFT",
+            "subtype": "saas",
+            "reference": card.reference,
+            "lifecycle": {},
+        }
+
     async def test_built_ins_and_attributes(self, db, app_type):
         card = await create_card(
             db,
@@ -320,6 +399,40 @@ class TestExecuteCalculation:
         ok, _ = await execute_calculation(db, await self._calc("IF(1 == 2, 1, None)"), card)
         assert ok is True
         assert card.attributes == {"k": 1}
+
+    async def test_a_none_result_on_a_card_that_never_had_the_field(self, db, app_type):
+        card = await create_card(db, card_type="Application", attributes={"k": 1})
+        assert await execute_calculation(db, await self._calc("None"), card) == (True, None)
+        assert card.attributes == {"k": 1}
+
+    async def test_a_failure_is_logged_with_the_calculation_and_the_card(
+        self, db, app_type, caplog
+    ):
+        card = await create_card(db, card_type="Application", attributes={"num": 0})
+        with caplog.at_level(logging.WARNING, logger="turboea.calculations"):
+            result = await execute_calculation(db, await self._calc("1 / data.num"), card)
+        assert result == (False, "Division by zero")
+        assert [r.getMessage() for r in caplog.records] == [
+            f"Calculation 'c' failed for card {card.id}: ZeroDivisionError: division by zero"
+        ]
+
+    async def test_a_context_that_cannot_be_built_is_a_failure(
+        self, db, app_type, monkeypatch, caplog
+    ):
+        from app.services import calculation_engine
+
+        async def broken(*args, **kwargs):
+            raise RuntimeError("db gone")
+
+        monkeypatch.setattr(calculation_engine, "build_shared_context", broken)
+        card = await create_card(db, card_type="Application", attributes={"k": 1})
+        with caplog.at_level(logging.WARNING, logger="turboea.calculations"):
+            result = await execute_calculation(db, await self._calc("1"), card)
+        assert result == (False, "Evaluation error (RuntimeError)")
+        assert card.attributes == {"k": 1}
+        assert [r.getMessage() for r in caplog.records] == [
+            f"Calculation 'c' failed for card {card.id}: RuntimeError: db gone"
+        ]
 
     async def test_blanks_as_zero(self, db, app_type):
         card = await create_card(db, card_type="Application", attributes={})
@@ -409,6 +522,14 @@ class TestDetectCycles:
         await self._active(db, "c", "data.d")
         await self._active(db, "d", "data.plain")
         assert await detect_cycles(db, self._new("a", "data.b + data.c")) is None
+
+    async def test_a_field_met_twice_in_one_walk_is_not_a_cycle(self, db):
+        # "a" reads "b" and "d", and "b" reads "d" too, so the walk from "a"
+        # meets "d" again after finishing it. Stored first, "a" is where the
+        # walk starts: a sequential scan returns rows in insertion order.
+        await self._active(db, "a", "data.b + data.d")
+        await self._active(db, "b", "data.d")
+        assert await detect_cycles(db, self._new("d", "data.plain")) is None
 
 
 class TestSharedContext:
@@ -569,6 +690,16 @@ class TestSharedContext:
         ]
         assert shared["relation_count"] == {"relAppToInterface": 2}
 
+    async def test_a_parent_chain_looping_back_to_the_card_stops_there(self, db):
+        from app.services.calculation_engine import build_shared_context
+
+        await create_card_type(db, key="Application", label="Application")
+        card = await create_card(db, card_type="Application", name="C")
+        parent = await create_card(db, card_type="Application", name="P", parent_id=card.id)
+        card.parent_id = parent.id
+        await db.flush()
+        assert (await build_shared_context(db, card))["hierarchy_level"] == 2
+
     async def test_an_archived_parent_reads_as_none(self, db):
         from app.services.calculation_engine import build_shared_context
 
@@ -578,7 +709,43 @@ class TestSharedContext:
         assert (await build_shared_context(db, card))["parent"] is None
 
 
+def _count_fiscal_year_reads(monkeypatch) -> list[int]:
+    from app.services import calculation_engine
+
+    reads: list[int] = []
+
+    async def counting(_db):
+        reads.append(1)
+        return 1
+
+    monkeypatch.setattr(calculation_engine, "get_fiscal_year_start", counting)
+    return reads
+
+
+def _ppm_calc(target="total") -> Calculation:
+    return Calculation(
+        name="Ppm",
+        formula="ppm.totalBudget",
+        target_type_key="Application",
+        target_field_key=target,
+        is_active=True,
+        execution_order=0,
+    )
+
+
 class TestRunCalculationsForType:
+    async def test_the_fiscal_year_start_is_read_once_per_run(self, db, app_type, monkeypatch):
+        from app.services.calculation_engine import run_calculations_for_type
+
+        reads = _count_fiscal_year_reads(monkeypatch)
+        db.add(_ppm_calc())
+        await db.flush()
+        for name in ("One", "Two"):
+            await create_card(db, card_type="Application", name=name)
+        report = await run_calculations_for_type(db, "Application")
+        assert report["calculations_succeeded"] == 2
+        assert reads == [1]
+
     async def test_the_grouped_report(self, db):
         from sqlalchemy import select
 
@@ -696,6 +863,61 @@ class TestRunCalculationsForCard:
         assert card.attributes == {"first": 10, "second": 11}
         assert first.last_run_at is not None
         assert first.last_run_at.tzinfo is not None
+
+    async def test_equal_orders_run_oldest_first(self, db, app_type):
+        from datetime import datetime, timezone
+
+        from app.services.calculation_engine import run_calculations_for_card
+
+        # Stored first, so a scan without the tie-break would return it first.
+        newer = self._calc("Newer", "2", "b", order=1)
+        newer.created_at = datetime(2026, 1, 2, tzinfo=timezone.utc)
+        db.add(newer)
+        await db.flush()
+        older = self._calc("Older", "1", "a", order=1)
+        older.created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        db.add(older)
+        await db.flush()
+        card = await create_card(db, card_type="Application", attributes={})
+        results = await run_calculations_for_card(db, card)
+        assert [r["name"] for r in results] == ["Older", "Newer"]
+
+    async def test_the_surroundings_are_read_once_for_every_calculation(
+        self, db, app_type, monkeypatch
+    ):
+        from app.services import calculation_engine
+
+        built = []
+        real = calculation_engine.build_shared_context
+
+        async def counting(*args, **kwargs):
+            built.append(kwargs)
+            return await real(*args, **kwargs)
+
+        monkeypatch.setattr(calculation_engine, "build_shared_context", counting)
+        db.add_all(
+            [
+                self._calc("A", "children_count + 1", "a", order=0),
+                self._calc("B", "data.a + 1", "b", order=1),
+            ]
+        )
+        await db.flush()
+        card = await create_card(db, card_type="Application", attributes={})
+        results = await calculation_engine.run_calculations_for_card(db, card)
+        assert [r["success"] for r in results] == [True, True]
+        assert card.attributes == {"a": 1, "b": 2}
+        assert len(built) == 1
+
+    async def test_a_fiscal_year_start_given_is_not_read_again(self, db, app_type, monkeypatch):
+        from app.services.calculation_engine import run_calculations_for_card
+
+        reads = _count_fiscal_year_reads(monkeypatch)
+        db.add(_ppm_calc())
+        await db.flush()
+        card = await create_card(db, card_type="Application", attributes={})
+        [result] = await run_calculations_for_card(db, card, fiscal_year_start=4)
+        assert result["success"] is True
+        assert reads == []
 
     async def test_last_error_follows_the_latest_run(self, db, app_type):
         from app.services.calculation_engine import run_calculations_for_card

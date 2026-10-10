@@ -266,6 +266,11 @@ class TestFILTER:
         result = _FILTER(items, "attributes.risk", "high")
         assert len(result) == 1
 
+    def test_filter_a_path_through_a_non_dict_reads_as_none(self):
+        items = [{"attributes": "flat"}]
+        assert _FILTER(items, "attributes.risk", None) == items
+        assert _FILTER(items, "attributes.risk", "") == []
+
 
 class TestMAPSCORE:
     def test_maps_value(self):

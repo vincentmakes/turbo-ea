@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - Internal clean-up of the Process Navigator, the Matrix report, the project Gantt and the public portal: the rules that decide what each one shows moved into modules with tests of their own; nothing a user sees changes.
 
+## [2.158.2] - 2026-10-09
+
+### Changed
+- Calculated fields, permission checks and the card read scope: unreachable branches and unused parameters removed, with no change to what a formula computes or what a role may see or do.
+
 ## [2.158.1] - 2026-10-09
 
 ### Fixed
