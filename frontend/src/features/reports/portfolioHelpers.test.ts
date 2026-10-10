@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as filterSelect from "@/components/FilterSelect";
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
+import * as relationSort from "@/lib/relationSort";
 import {
   appColorBucket,
   buildColorLegend,
@@ -97,6 +99,11 @@ function baseFilters(over: Partial<FilterState> = {}): FilterState {
   };
 }
 
+/* ----- fixtures resolved per test ----- */
+// The describes below resolve their Color By in `beforeEach`, never at the top
+// of the describe: code that runs while vitest collects a file runs with no
+// mutant active, so a mutant only it reaches can never be killed.
+
 /* ----- extractRelSubtypes ----- */
 
 describe("extractRelSubtypes", () => {
@@ -119,7 +126,10 @@ describe("extractRelSubtypes", () => {
 /* ----- resolveColorBy + appColorBucket ----- */
 
 describe("resolveColorBy / appColorBucket (relation subtype)", () => {
-  const res = resolveColorBy(`${REL_SUBTYPE_PREFIX}${usageSub.composite}`, [], [usageSub]);
+  let res: ReturnType<typeof resolveColorBy>;
+  beforeEach(() => {
+    res = resolveColorBy(`${REL_SUBTYPE_PREFIX}${usageSub.composite}`, [], [usageSub]);
+  });
 
   it("resolves a rel: key to the matching subtype", () => {
     expect(res).toEqual({ kind: "rel", sub: usageSub });
@@ -153,7 +163,10 @@ describe("resolveColorBy / appColorBucket (relation subtype)", () => {
 });
 
 describe("appColorBucket per group-member (memberId)", () => {
-  const res = resolveColorBy(`${REL_SUBTYPE_PREFIX}${usageSub.composite}`, [], [usageSub]);
+  let res: ReturnType<typeof resolveColorBy>;
+  beforeEach(() => {
+    res = resolveColorBy(`${REL_SUBTYPE_PREFIX}${usageSub.composite}`, [], [usageSub]);
+  });
 
   // An app owned by Org A but used by Org B: under each group it should show
   // the value of that specific relation — never the aggregate "Multiple".
@@ -192,7 +205,10 @@ describe("appColorBucket per group-member (memberId)", () => {
 });
 
 describe("appColorBucket (own field + none)", () => {
-  const res = resolveColorBy("usageType", [usageTypeField], []);
+  let res: ReturnType<typeof resolveColorBy>;
+  beforeEach(() => {
+    res = resolveColorBy("usageType", [usageTypeField], []);
+  });
 
   it("colors by an own single_select field value", () => {
     const a = { ...app("a"), attributes: { usageType: "user" } };
@@ -209,7 +225,10 @@ describe("appColorBucket (own field + none)", () => {
 /* ----- segments + legend ----- */
 
 describe("buildColorSegments / buildColorLegend (relation subtype)", () => {
-  const res = resolveColorBy(`${REL_SUBTYPE_PREFIX}${usageSub.composite}`, [], [usageSub]);
+  let res: ReturnType<typeof resolveColorBy>;
+  beforeEach(() => {
+    res = resolveColorBy(`${REL_SUBTYPE_PREFIX}${usageSub.composite}`, [], [usageSub]);
+  });
   const apps = [
     app("a", [orgRel("owner")]),
     app("b", [orgRel("user")]),
@@ -725,5 +744,71 @@ describe("filters that must look at the right relation and date", () => {
     const blank = app("a", [{ ...orgRel(undefined), attributes: { usageType: "" } }]);
     const empty = baseFilters({ relSubtypeFilters: { [usageSub.composite]: [EMPTY_FILTER_KEY] } });
     expect(matchesStaticFilters(blank, empty)).toBe(true);
+  });
+});
+
+describe("details the mutation run found unpinned", () => {
+  it("offers only a relation type's single_select attributes", () => {
+    const note: FieldDef = { key: "note", label: "Note", type: "text" };
+    const mixed: RelTypeDef = { ...orgUsesApp, attributes_schema: [note, usageTypeField] };
+    expect(extractRelSubtypes([mixed], "Application")).toEqual([
+      { relType: mixed, field: usageTypeField },
+    ]);
+  });
+
+  it("segments nothing for no apps", () => {
+    const res = resolveColorBy("usageType", [usageTypeField], []);
+    expect(buildColorSegments([], res, LABELS)).toEqual([]);
+  });
+
+  // A stored value or id spelled like the "(empty)" sentinel is data, not an
+  // empty slot: selecting "(empty)" alone must not match it.
+  const SENTINEL = EMPTY_FILTER_KEY;
+
+  it("an attribute equal to the sentinel matches only a real selection of it", () => {
+    const a: AppData = { ...app("a"), attributes: { tier: SENTINEL } };
+    const onlyEmpty = baseFilters({ attributeFilters: { tier: [EMPTY_FILTER_KEY] } });
+    expect(matchesStaticFilters(a, onlyEmpty)).toBe(false);
+  });
+
+  it("a related id equal to the sentinel is not the empty selection", () => {
+    const a = app("a", [{ ...orgRel("owner"), related_id: SENTINEL }]);
+    const onlyEmpty = baseFilters({ relationFilters: { Organization: [EMPTY_FILTER_KEY] } });
+    expect(matchesStaticFilters(a, onlyEmpty)).toBe(false);
+  });
+
+  it("a subtype value equal to the sentinel is not the empty selection", () => {
+    const a = app("a", [orgRel(SENTINEL, "orgA")]);
+    const onlyEmpty = { [usageSub.composite]: [EMPTY_FILTER_KEY] };
+    expect(matchesStaticFilters(a, baseFilters({ relSubtypeFilters: onlyEmpty }))).toBe(false);
+    expect(relationMemberMatchesSubtypeFilters(a, "orgA", onlyEmpty, [usageSub])).toBe(false);
+  });
+});
+
+describe("relSubtypeComposite", () => {
+  it("joins the relation type and the field with ::, the key saved reports store", () => {
+    expect(relSubtypeComposite("relOrgToApp", "usageType")).toBe("relOrgToApp::usageType");
+  });
+});
+
+describe("exported constants", () => {
+  // Read from a fresh load of the module: a constant is built while the file
+  // loads, which for the copy imported above happened outside any test. Its
+  // dependencies are handed in already loaded, so only this module re-runs.
+  it("keep the Color By prefix saved reports store, and three distinct colours", async () => {
+    vi.resetModules();
+    vi.doMock("@/components/FilterSelect", () => filterSelect);
+    vi.doMock("@/lib/relationSort", () => relationSort);
+    try {
+      const fresh = await import("./portfolioHelpers");
+      expect(fresh.REL_SUBTYPE_PREFIX).toBe("rel:");
+      const colours = [fresh.UNSET_COLOR, fresh.DEFAULT_APP_COLOR, fresh.MULTIPLE_COLOR];
+      for (const c of colours) expect(c).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(new Set(colours).size).toBe(3);
+    } finally {
+      vi.doUnmock("@/components/FilterSelect");
+      vi.doUnmock("@/lib/relationSort");
+      vi.resetModules();
+    }
   });
 });

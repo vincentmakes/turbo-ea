@@ -1,6 +1,7 @@
 import DOMPurify from "dompurify";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import * as linkify from "./linkify";
 import { sanitizeRichHtml } from "./richHtml";
 
 function anchors(html: string): HTMLAnchorElement[] {
@@ -10,6 +11,26 @@ function anchors(html: string): HTMLAnchorElement[] {
 }
 
 describe("sanitizeRichHtml", () => {
+  it("builds its private sanitiser once, so the hook is added once", async () => {
+    vi.resetModules();
+    const actual = await vi.importActual<typeof import("dompurify")>("dompurify");
+    const create = vi.fn((w: Window) => actual.default(w));
+    vi.doMock("dompurify", () => ({ default: create }));
+    // The module already loaded, not a fresh evaluation: a test that runs
+    // linkify's module body would make its constants look test-covered.
+    vi.doMock("./linkify", () => linkify);
+    try {
+      const { sanitizeRichHtml: fresh } = await import("./richHtml");
+      fresh("<p>one</p>");
+      fresh("<p>two</p>");
+      expect(create).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.doUnmock("dompurify");
+      vi.doUnmock("./linkify");
+      vi.resetModules();
+    }
+  });
+
   it("returns an empty string for nothing", () => {
     expect(sanitizeRichHtml("")).toBe("");
     expect(sanitizeRichHtml(null)).toBe("");
