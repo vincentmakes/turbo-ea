@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Bundled Ollama (`AI_AUTO_CONFIGURE=true`): the configured model is now downloaded at startup even when another size of the same model is installed. With `gemma3:27b` present, `gemma3:4b` was taken as already available and never pulled, so AI suggestions failed until it was pulled by hand.
 - The **Compliance scan finished** notification opens GRC → Compliance, where the findings are. It still pointed at a TurboLens tab that no longer exists and opened the TurboLens dashboard.
 
+## [2.158.4] - 2026-10-09
+
+### Changed
+- Workspace import, platform migration, audit-log rollback, file uploads, card writes, process step ordering, extension job schedules, fiscal years, card health flags and relation direction: unreachable branches and duplicated checks removed, with no change to what any of them does.
+- Bulk relation changes (the spreadsheet import's relations, the MCP relation tool) now find, create and update a relation through the same code as a single relation edit, so the two cannot drift apart.
+- Internal clean-up of the link, rich-text, route-permission, drag-fill and portfolio-report helpers: checks that could never change an answer are gone; nothing a user sees changes.
+- Internal clean-up of the Process Navigator, the Matrix report, the project Gantt and the public portal: the rules that decide what each one shows moved into modules with tests of their own; nothing a user sees changes.
+
 ## [2.158.3] - 2026-10-09
 
 ### Changed

@@ -27,7 +27,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import (
@@ -155,14 +155,10 @@ def _update_if_changed(current: Any, data: dict[str, Any], cols, sr: SectionResu
     """Write only the columns that actually differ. Counts the row as
     ``updated`` when something changed and ``skipped`` when it's identical, so
     re-importing an unchanged export into the same instance is a true no-op."""
-    changed = False
-    for col in cols:
-        # A column the bundle does not carry is left alone — see _coerce.
-        if col not in data:
-            continue
-        if getattr(current, col) != data[col]:
-            setattr(current, col, data[col])
-            changed = True
+    # A column the bundle does not carry is left alone — see _coerce.
+    changed = [c for c in cols if c in data and getattr(current, c) != data[c]]
+    for col in changed:
+        setattr(current, col, data[col])
     if changed:
         sr.updated += 1
     else:
@@ -247,23 +243,14 @@ async def _run(
         # preserve UUIDs; module rows do, so intra-module FKs copy verbatim.
         wanted_entity_sections = [ent for ent in ENTITY_SECTIONS if _wanted(ent.sheet)]
         needs_resolver = bool(wanted_entity_sections) or _wanted(SHEET_DIAGRAM_CARDS)
-        ent_resolver = None
-        email_to_id: dict[str, uuid.UUID] = {}
+        # Only these sections read the card resolver and the email map, so
+        # nothing is loaded for a run that applies none of them.
         if needs_resolver or _wanted(SHEET_BOOKMARK_SHARES):
-            all_types = {str(k) for (k,) in (await db.execute(select(CardType.key))).all()}
-            ent_resolver = await CardResolver.load(db, all_types)
-            email_to_id = {
-                u.email.lower(): u.id for u in (await db.execute(select(User))).scalars().all()
-            }
+            ent_resolver, email_to_id = await _load_entity_context(db)
         for ent in wanted_entity_sections:
-            # needs_resolver is True whenever this loop has items, so the
-            # resolver was loaded above.
-            assert ent_resolver is not None
             sr = SectionResult(sheet=ent.sheet)
             result.sections.append(sr)
-            await apply_entity_section(
-                db, ent, bundle, sr, ent_resolver, email_to_id, dry_run=dry_run
-            )
+            await apply_entity_section(db, ent, bundle, sr, ent_resolver, email_to_id)
 
         if _wanted(SHEET_DIAGRAM_CARDS):
             sr = SectionResult(sheet=SHEET_DIAGRAM_CARDS)
@@ -298,8 +285,7 @@ async def _run(
         }:
             await _finalize_cards(db)
     finally:
-        if dry_run:
-            assert root is not None
+        if root is not None:
             await root.rollback()
 
     if not dry_run:
@@ -313,6 +299,14 @@ async def _run(
         PermissionService.invalidate_srd_cache()
         PermissionService.invalidate_type_permission_cache()
     return result
+
+
+async def _load_entity_context(db) -> tuple[CardResolver, dict[str, uuid.UUID]]:
+    """The card resolver and email → user id map the entity sections share."""
+    all_types = {str(k) for (k,) in (await db.execute(select(CardType.key))).all()}
+    resolver = await CardResolver.load(db, all_types)
+    users = (await db.execute(select(User))).scalars().all()
+    return resolver, {u.email.lower(): u.id for u in users}
 
 
 async def _apply_diagram_cards(db, bundle: WorkspaceBundle, sr: SectionResult, resolver) -> None:
@@ -441,7 +435,8 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
             sr.created += 1
         else:
             # Never flip a built-in type's identity; merge mutable schema only.
-            cols = [c for c in exp.CARD_TYPE_COLUMNS if c not in ("key", "built_in")]
+            # (The row was matched by key, so the key itself never differs.)
+            cols = [c for c in exp.CARD_TYPE_COLUMNS if c != "built_in"]
             _update_if_changed(current, data, cols, sr)
     await db.flush()
 
@@ -466,7 +461,8 @@ async def _apply_relation_types(
             existing[key] = rt
             sr.created += 1
         else:
-            cols = [c for c in exp.RELATION_TYPE_COLUMNS if c not in ("key", "built_in")]
+            # Matched by key, so only the built-in flag needs keeping out.
+            cols = [c for c in exp.RELATION_TYPE_COLUMNS if c != "built_in"]
             _update_if_changed(current, data, cols, sr)
     await db.flush()
 
@@ -538,8 +534,8 @@ async def _apply_tag_groups(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
             existing[name] = g
             sr.created += 1
         else:
-            cols = [c for c in exp.TAG_GROUP_COLUMNS if c != "name"]
-            _update_if_changed(current, data, cols, sr)
+            # Matched by name, so the name itself never differs.
+            _update_if_changed(current, data, exp.TAG_GROUP_COLUMNS, sr)
     await db.flush()
 
 
@@ -594,7 +590,7 @@ async def _apply_tags(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: b
 
 async def _apply_users(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
     valid_roles = {r for (r,) in (await db.execute(select(Role.key))).all()}
-    existing = {u.email.lower(): u for u in (await db.execute(select(User))).scalars().all()}
+    existing = {u.email.lower() for u in (await db.execute(select(User))).scalars().all()}
     for row in bundle.rows(schema.SHEET_USERS):
         email = (row.get("email") or "").strip()
         if not email:
@@ -613,10 +609,9 @@ async def _apply_users(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: 
             is_active=False,  # synthetic users land deactivated; admin enables them
             auth_provider=row.get("auth_provider") or "local",
             locale=row.get("locale") or "en",
-            password_hash=None,
         )
         db.add(user)
-        existing[email.lower()] = user
+        existing.add(email.lower())
         sr.created += 1
     await db.flush()
 
@@ -631,7 +626,7 @@ async def _apply_settings(db, bundle: WorkspaceBundle, sr: SectionResult, dry_ru
         await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     ).scalar_one_or_none()
     if row_obj is None:
-        row_obj = AppSettings(id="default", general_settings={}, email_settings={})
+        row_obj = AppSettings()  # the singleton: its id and both blobs take their defaults
         db.add(row_obj)
 
     # The exporter serialises every Settings ``value`` cell as JSON (dicts for
@@ -831,9 +826,9 @@ def _make_cards_applier(user: User):
                 if resolved_reference:
                     clash = (
                         await db.execute(
-                            select(Card.id).where(Card.reference == resolved_reference).limit(1)
+                            select(exists().where(Card.reference == resolved_reference))
                         )
-                    ).first() is not None
+                    ).scalar()
                     if clash:
                         ct = (
                             await db.execute(select(CardType).where(CardType.key == type_key))
@@ -843,7 +838,7 @@ def _make_cards_applier(user: User):
                             cfg = ct.reference_config or {}
                             resolved_reference = await card_reference.next_reference_for_prefix(
                                 db,
-                                str(cfg.get("prefix", "") or ""),
+                                str(cfg.get("prefix") or ""),
                                 int(cfg.get("start", card_reference.DEFAULT_START)),
                                 int(cfg.get("padding", card_reference.DEFAULT_PADDING)),
                             )
@@ -937,8 +932,8 @@ async def _apply_card_tags(db, bundle: WorkspaceBundle, sr: SectionResult, dry_r
             )
             continue
         tag = tag_index.get((group.id, row.get("tag_name")))
-        res = resolver.resolve(ctype, cref) if cref else None
-        if tag is None or res is None or res.status != "resolved":
+        res = resolver.resolve(ctype, cref)
+        if tag is None or res.status != "resolved":
             sr.conflict += 1
             sr.errors.append(
                 f"card tag {row.get('tag_name')!r}: tag or card {cref!r} unresolved — skipped"
@@ -971,13 +966,14 @@ async def _apply_relations(db, bundle: WorkspaceBundle, sr: SectionResult, dry_r
     for row in rows:
         data = _coerce(row, exp.RELATION_COLUMNS, exp.RELATION_JSON)
         rtype = data.get("type")
-        s_res = resolver.resolve(
-            str(data.get("source_type") or ""), str(data.get("source_ref") or "")
-        )
-        t_res = resolver.resolve(
-            str(data.get("target_type") or ""), str(data.get("target_ref") or "")
-        )
-        if not rtype or s_res.status != "resolved" or t_res.status != "resolved":
+        ends = [data.get(k) for k in ("source_type", "source_ref", "target_type", "target_ref")]
+        resolved = rtype and all(ends)
+        if resolved:
+            source_type, source_ref, target_type, target_ref = (str(e) for e in ends)
+            s_res = resolver.resolve(source_type, source_ref)
+            t_res = resolver.resolve(target_type, target_ref)
+            resolved = s_res.status == "resolved" and t_res.status == "resolved"
+        if not resolved:
             sr.conflict += 1
             sr.errors.append(
                 f"relation {rtype!r}: endpoint(s) unresolved "
@@ -990,8 +986,8 @@ async def _apply_relations(db, bundle: WorkspaceBundle, sr: SectionResult, dry_r
             rt_by_key.get(rtype),
             s_res.card_id,
             t_res.card_id,
-            str(data.get("source_type") or ""),
-            str(data.get("target_type") or ""),
+            source_type,
+            target_type,
         )
         key = (rtype, source_id, target_id)
         if key in existing:

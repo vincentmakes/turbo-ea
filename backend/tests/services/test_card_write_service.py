@@ -16,6 +16,7 @@ from sqlalchemy import select
 
 from app.models.event import Event
 from app.models.notification import Notification
+from app.models.relation import Relation
 from app.models.stakeholder import Stakeholder
 from app.services import card_write_service as svc
 from app.services.card_write_service import WriteActor
@@ -196,6 +197,73 @@ class TestUpsertRelation:
         assert rel2.id == rel.id
         assert reused2 is True and changed2 == ["description"]
         assert rel2.description == "now described"
+
+
+class TestRelationHelpers:
+    """The row lookup, insert and merge shared by ``upsert_relation`` and the
+    bulk relation route."""
+
+    async def test_find_relation_keys_on_type_source_and_target(self, db, env):
+        await create_relation_type(db, key="app_hosts_itc")
+        app = await create_card(db, card_type="Application", name="Src")
+        other_app = await create_card(db, card_type="Application", name="Other")
+        itc = await create_card(db, card_type="ITComponent", name="Tgt")
+        other_itc = await create_card(db, card_type="ITComponent", name="Other Tgt")
+        rel = svc.add_relation(
+            db,
+            type_key="app_to_itc",
+            source_id=app.id,
+            target_id=itc.id,
+            attributes=None,
+            description=None,
+        )
+        await db.flush()
+        assert await svc.find_relation(db, "app_to_itc", app.id, itc.id) is rel
+        assert await svc.find_relation(db, "app_hosts_itc", app.id, itc.id) is None
+        assert await svc.find_relation(db, "app_to_itc", other_app.id, itc.id) is None
+        assert await svc.find_relation(db, "app_to_itc", app.id, other_itc.id) is None
+        # Never oriented here: the caller turns the pair first.
+        assert await svc.find_relation(db, "app_to_itc", itc.id, app.id) is None
+
+    async def test_add_relation_stages_the_row_with_empty_attributes(self, db, env):
+        app = await create_card(db, card_type="Application", name="Src")
+        itc = await create_card(db, card_type="ITComponent", name="Tgt")
+        rel = svc.add_relation(
+            db,
+            type_key="app_to_itc",
+            source_id=app.id,
+            target_id=itc.id,
+            attributes=None,
+            description="Runs on",
+        )
+        assert rel in db.new
+        assert (rel.type, rel.source_id, rel.target_id) == ("app_to_itc", app.id, itc.id)
+        assert rel.attributes == {}
+        assert rel.description == "Runs on"
+
+    def test_merge_overwrites_what_was_supplied(self):
+        rel = Relation(attributes={"a": 1, "b": 2}, description="old")
+        changed = svc.merge_relation_fields(rel, attributes={"a": 3}, description="new")
+        assert changed == ["attributes", "description"]
+        assert rel.attributes == {"a": 3}  # replaced whole, not merged key by key
+        assert rel.description == "new"
+
+    def test_merge_leaves_none_alone(self):
+        rel = Relation(attributes={"a": 1}, description="kept")
+        assert svc.merge_relation_fields(rel, attributes=None, description=None) == []
+        assert (rel.attributes, rel.description) == ({"a": 1}, "kept")
+
+    def test_merge_reports_no_change_for_equal_values(self):
+        rel = Relation(attributes={"a": 1}, description="same")
+        assert svc.merge_relation_fields(rel, attributes={"a": 1}, description="same") == []
+
+    def test_merge_treats_missing_attributes_as_empty(self):
+        rel = Relation(attributes=None, description=None)
+        assert svc.merge_relation_fields(rel, attributes={}, description=None) == []
+        assert svc.merge_relation_fields(rel, attributes={"a": 1}, description="") == [
+            "attributes",
+            "description",
+        ]
 
 
 class TestNoCommit:

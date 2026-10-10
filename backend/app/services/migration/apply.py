@@ -42,7 +42,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -288,7 +288,6 @@ async def _apply_single_card(
 
     if staged.action == "create":
         card = Card(
-            id=uuid.uuid4(),
             type=payload["type"],
             subtype=payload.get("subtype"),
             name=payload["name"],
@@ -448,7 +447,6 @@ async def _upsert_identity_map(
     if existing is None:
         db.add(
             IdentityMap(
-                id=uuid.uuid4(),
                 source_id=staged.source_id,
                 source_type=staged.source_type,
                 entity_kind="card",
@@ -493,15 +491,13 @@ def _topo_sort(rows: list[StagedRecord]) -> list[StagedRecord]:
     # Subsequent rounds: drain until empty or stalled.
     while pending:
         next_pending: list[StagedRecord] = []
-        progress = False
         for r in pending:
             if r.parent_source_id in placed:
                 out.append(r)
                 placed.add(r.source_id)
-                progress = True
             else:
                 next_pending.append(r)
-        if not progress:
+        if len(next_pending) == len(pending):  # nothing placed this round
             logger.warning(
                 "migration apply: cycle detected in card parent chain, "
                 "appending %d rows in arrival order",
@@ -674,15 +670,12 @@ async def _apply_card_tag_pass(
                 staged.error_message = "Endpoint not resolved (card or tag missing)"
                 continue
             # Idempotent — don't double-insert.
-            existing = (
+            linked = (
                 await db.execute(
-                    select(CardTag).where(
-                        CardTag.card_id == card_uuid,
-                        CardTag.tag_id == tag_uuid,
-                    )
+                    select(exists().where(CardTag.card_id == card_uuid, CardTag.tag_id == tag_uuid))
                 )
-            ).first()
-            if existing is not None:
+            ).scalar()
+            if linked:
                 counts["skipped"] += 1
                 staged.status = "applied"
                 continue
@@ -767,7 +760,6 @@ async def _apply_relation_pass(
                     counts["updated"] += 1
                 else:
                     rel = Relation(
-                        id=uuid.uuid4(),
                         type=payload["tea_type"],
                         source_id=src_uuid,
                         target_id=tgt_uuid,
@@ -847,7 +839,6 @@ async def _upsert_identity_map_kind(
     if existing is None:
         db.add(
             IdentityMap(
-                id=uuid.uuid4(),
                 source_id=staged.source_id,
                 source_type=staged.source_type,
                 entity_kind=entity_kind,
@@ -922,8 +913,7 @@ async def _apply_metamodel_type_pass(
                 built_in=False,
                 has_hierarchy=True,
                 has_successors=True,
-                fields_schema=[],
-                subtypes=[{"key": s, "label": s} for s in subtypes] if subtypes else [],
+                subtypes=[{"key": s, "label": s} for s in subtypes],
             )
             db.add(new_type)
             await db.flush()
@@ -1103,8 +1093,7 @@ async def _apply_metamodel_relation_type_pass(
                 label=payload.get("label") or key,
                 reverse_label=payload.get("label") or key,
                 source_type_key=src,
-                target_type_key=tgt,
-                cardinality="n:m",
+                target_type_key=tgt,  # cardinality takes its default, "n:m"
                 attributes_schema=payload.get("attributes_schema") or [],
                 built_in=False,
             )
@@ -1165,9 +1154,8 @@ async def _apply_user_pass(
                 id=uuid.uuid4(),
                 email=email,
                 display_name=payload.get("display_name") or email,
-                role="member",
                 is_active=False,  # deactivated until admin activates
-                auth_provider="local",
+                # role and auth_provider take their defaults: "member", "local"
             )
             db.add(new_user)
             await db.flush()
@@ -1316,8 +1304,7 @@ async def _apply_document_pass(
                 card_id=card_uuid,
                 name=payload["name"],
                 url=payload.get("url"),
-                type="link",
-                created_by=user.id,
+                created_by=user.id,  # type takes its default, "link"
             )
             db.add(doc)
             await db.flush()
@@ -1460,7 +1447,7 @@ async def _apply_comment_pass(
                 card_id=card_uuid,
                 user_id=author_uuid,
                 content=payload["body"],
-                parent_id=None,  # threading intentionally flattened
+                # No parent_id: threading is intentionally flattened.
             )
             db.add(comment)
             await db.flush()

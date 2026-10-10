@@ -39,18 +39,16 @@ export function fillRowIndices(
   targetIndex: number,
   rowCount: number,
 ): number[] {
-  if (rowCount <= 0) return [];
+  // An empty grid clamps both ends to -1 and a drag back onto the anchor
+  // leaves the two equal: either way the only row in the span is the anchor.
   const anchor = clamp(anchorIndex, 0, rowCount - 1);
   const target = clamp(targetIndex, 0, rowCount - 1);
-  if (target === anchor) return [];
+  // Always emitted top-to-bottom, whichever way the finger travelled. Every
+  // consumer — the marquee, the confirm dialog's count, the write loop —
+  // wants display order.
   const indices: number[] = [];
-  if (target > anchor) {
-    for (let i = anchor + 1; i <= target; i++) indices.push(i);
-  } else {
-    // Still emitted top-to-bottom. Every consumer — the marquee, the confirm
-    // dialog's count, the write loop — wants display order, not the order the
-    // finger happened to travel in.
-    for (let i = target; i < anchor; i++) indices.push(i);
+  for (let i = Math.min(anchor, target); i <= Math.max(anchor, target); i++) {
+    if (i !== anchor) indices.push(i);
   }
   return indices;
 }
@@ -198,7 +196,7 @@ export async function runWithConcurrency<T, R>(
   onProgress?: (done: number, total: number) => void,
 ): Promise<PromiseSettledResult<R>[]> {
   const total = items.length;
-  const results = new Array<PromiseSettledResult<R>>(total);
+  const results: PromiseSettledResult<R>[] = [];
   if (total === 0) {
     onProgress?.(0, 0);
     return results;
