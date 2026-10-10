@@ -111,10 +111,10 @@ class CardReadScope:
         """
         role_key = effective_role_key(user)
         role_data = await PermissionService.load_role(db, role_key)
-        perms = (role_data or {}).get("permissions", {}) or {}
+        perms = (role_data or {}).get("permissions") or {}
         if perms.get("*"):
             return cls.everything()
-        base_view = bool(perms.get(VIEW_PERMISSION, False))
+        base_view = bool(perms.get(VIEW_PERMISSION))
 
         denied: set[str] = set()
         allowed: set[str] = set()
@@ -171,8 +171,6 @@ class CardReadScope:
         """Python twin of ``clause`` for rows that are already loaded."""
         if self.type_readable(type_key, mode=mode):
             return True
-        if card_id is None or not self.stakeholder_card_ids:
-            return False
         if isinstance(card_id, str):
             try:
                 card_id = uuid.UUID(card_id)
@@ -230,7 +228,12 @@ class CardReadScope:
     async def readable_card_ids(
         self, db: AsyncSession, ids: Iterable[uuid.UUID], *, mode: ReadMode
     ) -> set[uuid.UUID]:
-        """The subset of ``ids`` this scope may read (unknown ids are dropped)."""
+        """The subset of ``ids`` this scope may read.
+
+        An unrestricted scope answers without a query and returns ``ids`` as
+        given; only a scope that has to look the cards up drops ids that match
+        no card. A caller that needs the cards to exist checks that itself.
+        """
         id_set = {i for i in ids if i is not None}
         if not id_set:
             return set()
@@ -291,7 +294,7 @@ async def _stakeholder_readable_ids(
     """
     q = (
         select(Stakeholder.card_id, Card.type, Stakeholder.role)
-        .join(Card, Card.id == Stakeholder.card_id)
+        .join(Card)
         .where(Stakeholder.user_id == user.id)
     )
     if base_view:
@@ -317,11 +320,9 @@ def event_read_filters(read_scope: CardReadScope) -> tuple[ColumnElement[bool], 
     relation event whose peer (``peer_type`` / ``peer_id``) is hidden.
     Card-less events are kept. Empty when unrestricted (module mode).
     """
-    if read_scope.is_unrestricted(mode="module"):
-        return ()
     event_card = aliased(Card)
     card_ok = read_scope.clause(event_card, mode="module")
-    if card_ok is None:  # cannot happen past the unrestricted check above; keeps mypy honest
+    if card_ok is None:  # unrestricted in module mode: nothing to filter
         return ()
     filters: list[ColumnElement[bool]] = [
         or_(Event.card_id.is_(None), Event.card_id.in_(select(event_card.id).where(card_ok)))
@@ -357,8 +358,6 @@ async def scrub_event_payloads(
     everything else is returned as stored.
     """
     payloads = list(payloads)
-    if read_scope.is_unrestricted(mode="module"):
-        return payloads
     candidates: set[uuid.UUID] = set()
     for data in payloads:
         if not isinstance(data, dict):

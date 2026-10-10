@@ -758,6 +758,49 @@ class TestMutmutRunAndCollect:
         assert mutmut_scope.run("backend", {"backend/app/x.py": [[8, 8]]}, 2, suite_repo) == 2
         assert len(calls) == 1
 
+    def test_a_pr_relinks_the_functions_of_the_mutants_it_names(self, suite_repo, monkeypatch):
+        calls, seen = [], []
+        self.fake_mutmut(monkeypatch, calls, on_generate=write_generated)
+        monkeypatch.setattr(
+            mutmut_scope,
+            "relink_untested",
+            lambda d, functions, files: seen.append((len(calls), functions, files)) or set(),
+        )
+        assert mutmut_scope.run("backend", {"backend/app/x.py": [[8, 8]]}, 2, suite_repo) == 0
+        # after generating, before testing, with every mutable file to find callers in
+        assert seen == [(1, {"app.x.x_plain"}, ["app/x.py"])]
+        assert len(calls) == 2
+
+    def test_a_shard_names_a_no_tests_function_again_once_relinked(
+        self, suite_repo, monkeypatch, capsys
+    ):
+        """No test was linked to ``plain`` when mutmut collected them: its
+        module's tests are collected again and its mutants named."""
+        calls = []
+
+        def stats(directory):
+            (directory / "mutants").mkdir(exist_ok=True)
+            (directory / "mutants" / "mutmut-stats.json").write_text(
+                json.dumps(
+                    {
+                        "tests_by_mangled_function_name": {
+                            "app.x.xǁThingǁmethod": ["tests/test_x.py::test_method"]
+                        },
+                        "duration_by_test": {"tests/test_x.py::test_method": 0.5},
+                        "function_hashes": {"app.x.x_plain": "h1"},
+                    }
+                )
+            )
+
+        meta = {"app.x.x_plain__mutmut_1": 33, "app.x.xǁThingǁmethod__mutmut_1": 1}
+        self.fake_mutmut(monkeypatch, calls, meta=meta, on_generate=stats)
+        assert mutmut_scope.run("backend", None, 2, suite_repo, shard="1/1", budget=5) == 0
+        assert calls[-1][0] == ("run", "--max-children", "2", "app.x.x_plain__mutmut_*")
+        directory = suite_repo / "backend"
+        data = json.loads((directory / "mutants" / "mutmut-stats.json").read_text())
+        assert data["duration_by_test"] == {}
+        assert "1 test(s) to collect again" in capsys.readouterr().out
+
     def test_run_and_collect_pick_the_same_mutants(self, suite_repo, monkeypatch):
         write_generated(suite_repo / "backend")
         changed = {"backend/app/x.py": [[8, 10], [23, 23]]}
@@ -981,6 +1024,260 @@ class TestReopenSurvivors:
         assert list(first) == ["tests/api/test_a.py"]
         (suite / "tests" / "api" / "test_a.py").write_text("B")
         assert mutmut_scope.tests_digest(suite) != first
+
+
+RELINK_SVC = textwrap.dedent(
+    """\
+    def route_like(x):
+        return helper(x) + 1
+
+
+    def helper(x):
+        return inner(x)
+
+
+    def inner(x):
+        return x * 2
+
+
+    def lonely(x):
+        return x
+
+
+    class Box:
+        def open(self):
+            return self.unpack()
+
+        def unpack(self):
+            return 1
+
+
+    @decorator
+    def handler():
+        return lonely(1)
+    """
+)
+RELINK_OTHER = textwrap.dedent(
+    """\
+    from app import svc
+
+
+    def uses(x):
+        return svc.helper(x)
+
+
+    def alone():
+        return 0
+    """
+)
+
+
+class TestRelinkUntested:
+    """mutmut records a test's functions once, the first time it sees the
+    test: a helper extracted from code the existing tests run scored "no
+    tests" on every mutant, in the PR job and every night after (#1222's
+    ``_require_cardinality_room``, 2026-10-09)."""
+
+    TESTS_BY_FUNCTION = {
+        "app.svc.x_route_like": ["tests/test_svc.py::test_route"],
+        "app.svc.xǁBoxǁopen": ["tests/test_box.py::test_open"],
+        "app.other.x_uses": ["tests/test_misc.py::test_uses"],
+    }
+    DURATIONS = {
+        "tests/test_svc.py::test_route": 0.1,
+        "tests/test_box.py::test_open": 0.1,
+        "tests/test_misc.py::test_uses": 0.1,
+        "tests/test_unrelated.py::test_x": 0.1,
+    }
+    FILES = ["app/other.py", "app/svc.py"]
+
+    @pytest.fixture
+    def suite(self, tmp_path):
+        suite = tmp_path / "suite"
+        (suite / "app").mkdir(parents=True)
+        (suite / "app" / "svc.py").write_text(RELINK_SVC)
+        (suite / "app" / "other.py").write_text(RELINK_OTHER)
+        (suite / "mutants").mkdir()
+        self.write_stats(suite, dict(self.DURATIONS), {})
+        return suite
+
+    def write_stats(self, suite, durations, hashes):
+        (suite / "mutants" / "mutmut-stats.json").write_text(
+            json.dumps(
+                {
+                    "tests_by_mangled_function_name": self.TESTS_BY_FUNCTION,
+                    "duration_by_test": durations,
+                    "function_hashes": hashes,
+                }
+            )
+        )
+
+    @staticmethod
+    def durations(suite):
+        stats = json.loads((suite / "mutants" / "mutmut-stats.json").read_text())
+        return set(stats["duration_by_test"])
+
+    def relink(self, suite, *functions):
+        return mutmut_scope.relink_untested(suite, set(functions), self.FILES)
+
+    def test_the_tests_of_its_callers_are_collected_again(self, suite):
+        """Called by name in one module and as ``svc.helper`` in another."""
+        assert self.relink(suite, "app.svc.x_helper") == {"app.svc.x_helper"}
+        assert self.durations(suite) == {
+            "tests/test_box.py::test_open",
+            "tests/test_unrelated.py::test_x",
+        }
+
+    def test_callers_with_no_tests_of_their_own_are_gone_through(self, suite):
+        assert self.relink(suite, "app.svc.x_inner") == {"app.svc.x_inner"}
+        assert self.durations(suite) == {
+            "tests/test_box.py::test_open",
+            "tests/test_unrelated.py::test_x",
+        }
+
+    def test_the_depth_bounds_the_walk_up_the_callers(self, suite):
+        stats = json.loads((suite / "mutants" / "mutmut-stats.json").read_text())
+        index = mutmut_scope.call_index(suite, self.FILES)
+        tests = stats["tests_by_mangled_function_name"]
+        assert mutmut_scope.caller_tests("app.svc.x_inner", index, tests, depth=1) == set()
+        assert mutmut_scope.caller_tests("app.svc.x_inner", index, tests, depth=2) == {
+            "tests/test_svc.py::test_route",
+            "tests/test_misc.py::test_uses",
+        }
+
+    def test_a_method_is_found_through_self(self, suite):
+        assert self.relink(suite, "app.svc.xǁBoxǁunpack") == {"app.svc.xǁBoxǁunpack"}
+        assert "tests/test_box.py::test_open" not in self.durations(suite)
+
+    def test_its_module_s_tests_count_with_its_callers(self, suite):
+        """``unpack`` is called by ``open`` and may be reached from a handler
+        mutmut never links: the tests named after its module run too."""
+        assert self.relink(suite, "app.svc.xǁBoxǁunpack") == {"app.svc.xǁBoxǁunpack"}
+        assert self.durations(suite) == {
+            "tests/test_misc.py::test_uses",
+            "tests/test_unrelated.py::test_x",
+        }
+
+    def test_no_caller_still_finds_the_tests_named_after_its_module(self, suite):
+        """``lonely``'s only caller is a decorated handler, which mutmut
+        neither mutates nor links to a test."""
+        assert self.relink(suite, "app.svc.x_lonely") == {"app.svc.x_lonely"}
+        assert self.durations(suite) == set(self.DURATIONS) - {"tests/test_svc.py::test_route"}
+
+    def test_without_tests_named_after_it_the_whole_module_s_tests(self, suite):
+        assert self.relink(suite, "app.other.x_alone") == {"app.other.x_alone"}
+        assert self.durations(suite) == set(self.DURATIONS) - {"tests/test_misc.py::test_uses"}
+
+    def test_a_function_already_linked_to_a_test_is_left_alone(self, suite):
+        before = (suite / "mutants" / "mutmut-stats.json").read_text()
+        assert self.relink(suite, "app.svc.x_route_like") == set()
+        assert (suite / "mutants" / "mutmut-stats.json").read_text() == before
+        assert not (suite / "mutants" / mutmut_scope.RELINKED).exists()
+
+    def test_a_function_is_tried_once_per_version_of_its_code(self, suite):
+        self.write_stats(suite, dict(self.DURATIONS), {"app.svc.x_lonely": "h1"})
+        assert self.relink(suite, "app.svc.x_lonely") == {"app.svc.x_lonely"}
+        tried = json.loads((suite / "mutants" / mutmut_scope.RELINKED).read_text())
+        assert tried == {"app.svc.x_lonely": "h1"}
+        # mutmut collected the tests again and still linked none to it
+        self.write_stats(suite, dict(self.DURATIONS), {"app.svc.x_lonely": "h1"})
+        assert self.relink(suite, "app.svc.x_lonely") == set()
+        assert self.durations(suite) == set(self.DURATIONS)
+        # its code changed: worth another try
+        self.write_stats(suite, dict(self.DURATIONS), {"app.svc.x_lonely": "h2"})
+        assert self.relink(suite, "app.svc.x_lonely") == {"app.svc.x_lonely"}
+
+    def test_a_function_nothing_can_reach_is_remembered_too(self, suite):
+        (suite / "app" / "solo.py").write_text("def solo():\n    return 1\n")
+        assert mutmut_scope.relink_untested(suite, {"app.solo.x_solo"}, ["app/solo.py"]) == set()
+        assert self.durations(suite) == set(self.DURATIONS)
+        tried = json.loads((suite / "mutants" / mutmut_scope.RELINKED).read_text())
+        assert tried == {"app.solo.x_solo": None}
+
+    def test_no_stats_means_nothing_to_relink(self, tmp_path):
+        suite = tmp_path / "suite"
+        (suite / "mutants").mkdir(parents=True)
+        assert mutmut_scope.relink_untested(suite, {"app.svc.x_helper"}, []) == set()
+
+    def test_the_index_resolves_what_each_function_refers_to(self, suite):
+        index = mutmut_scope.call_index(suite, [*self.FILES, "app/missing.py"])
+        assert "app.svc.x_handler" not in index  # decorated: never mutated
+        assert index["app.svc.x_route_like"] == {"app.svc.x_helper"}
+        assert index["app.svc.xǁBoxǁopen"] == {"app.svc.xǁBoxǁunpack"}
+        assert index["app.other.x_uses"] == {"app.svc.x_helper"}
+
+    def test_an_attribute_of_any_other_object_is_no_call(self, suite):
+        """``d.get`` is not a call of every new function named ``get``: that
+        would collect half the suite again for one helper."""
+        (suite / "app" / "other.py").write_text(
+            RELINK_OTHER + "\n\ndef reads(d):\n    return d.get('k'), d.helper\n"
+        )
+        index = mutmut_scope.call_index(suite, self.FILES)
+        assert index["app.other.x_reads"] == set()
+
+    def test_imports_resolve_wherever_they_sit(self, tmp_path):
+        suite = tmp_path / "suite"
+        (suite / "pkg" / "sub").mkdir(parents=True)
+        (suite / "pkg" / "sub" / "__init__.py").write_text(
+            "from .leaf import fn as alias\n\n\ndef top():\n    return alias()\n"
+        )
+        (suite / "pkg" / "sub" / "mod.py").write_text(
+            textwrap.dedent(
+                """\
+                import pkg.other
+                import pkg.third as third
+                from ..base import Base
+
+
+                def local():
+                    from . import leaf
+
+                    return leaf.fn(), pkg.other.go(), third.run(), Base.make()
+                """
+            )
+        )
+        (suite / "pkg" / "sub" / "leaf.py").write_text("def fn():\n    return 1\n")
+        (suite / "pkg" / "other.py").write_text("def go():\n    return 1\n")
+        (suite / "pkg" / "third.py").write_text("def run():\n    return 1\n")
+        (suite / "pkg" / "base.py").write_text(
+            "class Base:\n    @classmethod\n    def make(cls):\n        return cls()\n"
+        )
+        files = [
+            "pkg/base.py",
+            "pkg/other.py",
+            "pkg/sub/__init__.py",
+            "pkg/sub/leaf.py",
+            "pkg/sub/mod.py",
+            "pkg/third.py",
+        ]
+        index = mutmut_scope.call_index(suite, files)
+        assert index["pkg.sub.x_top"] == {"pkg.sub.leaf.x_fn"}
+        assert index["pkg.sub.mod.x_local"] == {
+            "pkg.sub.leaf.x_fn",
+            "pkg.other.x_go",
+            "pkg.third.x_run",
+            "pkg.base.xǁBaseǁmake",
+        }
+
+    def test_untested_functions_and_resetting_their_no_tests_verdicts(self, tmp_path):
+        verdicts = {
+            "app.x.x_plain__mutmut_1": 33,
+            "app.x.x_plain__mutmut_2": 1,
+            "app.x.x_other__mutmut_1": None,
+            "app.x.x_kept__mutmut_1": 33,
+            "app.x.x_done__mutmut_1": 0,
+        }
+        suite = survivors_suite(tmp_path, verdicts, {}, {})
+        assert mutmut_scope.untested_functions(suite, ["app/x.py", "app/y.py"]) == {
+            "app.x.x_plain",
+            "app.x.x_other",
+            "app.x.x_kept",
+        }
+        reset = mutmut_scope.reset_no_tests(
+            suite, ["app/x.py", "app/y.py"], {"app.x.x_plain", "app.x.x_other"}
+        )
+        assert reset == 1
+        assert verdicts_of(suite) == {**verdicts, "app.x.x_plain__mutmut_1": None}
 
 
 class TestTestsChangedSince:

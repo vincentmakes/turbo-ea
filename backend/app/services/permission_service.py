@@ -74,13 +74,9 @@ class PermissionService:
         role = result.scalar_one_or_none()
         if role:
             role_dict = {
-                "key": role.key,
                 "label": role.label,
                 "color": role.color,
-                "permissions": dict(role.permissions) if role.permissions else {},
-                "is_system": role.is_system,
-                "is_default": role.is_default,
-                "is_archived": role.is_archived,
+                "permissions": dict(role.permissions or {}),
             }
             PermissionService._role_cache[role_key] = (role_dict, now)
             return role_dict
@@ -150,7 +146,7 @@ class PermissionService:
         role_data = await PermissionService.load_role(db, role_key)
         if not role_data:
             return False
-        perms = role_data.get("permissions", {})
+        perms = role_data["permissions"]
         if perms.get("*"):
             return True
         if card_type_key:
@@ -158,7 +154,7 @@ class PermissionService:
             decision = type_cell_decision(overrides.get(role_key), permission)
             if decision is not None:
                 return decision
-        return bool(perms.get(permission, False))
+        return bool(perms.get(permission))
 
     @staticmethod
     async def is_type_denied(db: AsyncSession, user: User, permission: str, type_key: str) -> bool:
@@ -175,7 +171,7 @@ class PermissionService:
         role_data = await PermissionService.load_role(db, role_key)
         if not role_data:
             return False
-        if role_data.get("permissions", {}).get("*"):
+        if role_data["permissions"].get("*"):
             return False
         overrides = await PermissionService.load_type_role_permissions(db, type_key)
         return type_cell_decision(overrides.get(role_key), permission) is False
@@ -190,7 +186,7 @@ class PermissionService:
         admin is never overridden, so there is nothing to send.
         """
         role_data = await PermissionService.load_role(db, role_key)
-        if not role_data or role_data.get("permissions", {}).get("*"):
+        if not role_data or role_data["permissions"].get("*"):
             return {}
         all_overrides = await PermissionService.load_all_type_role_permissions(db)
         out: dict[str, dict] = {}
@@ -234,7 +230,7 @@ class PermissionService:
 
         for (role_key,) in stakeholder_result.all():
             perms = await PermissionService.stakeholder_role_permissions(db, type_key, role_key)
-            if perms and perms.get(permission, False):
+            if perms and perms.get(permission):
                 return True
         return False
 
@@ -370,7 +366,7 @@ class PermissionService:
         # Get user's app-level permissions (honours an active role-
         # impersonation session — see ``_effective_role`` doc).
         role_data = await PermissionService.load_role(db, _effective_role(user))
-        app_perms = role_data.get("permissions", {}) if role_data else {}
+        app_perms = role_data["permissions"] if role_data else {}
 
         # Get card type
         type_key = await PermissionService._card_type_key(db, card_id)
@@ -381,7 +377,7 @@ class PermissionService:
         role_overrides: dict[str, bool] = {}
         if type_key:
             all_overrides = await PermissionService.load_type_role_permissions(db, type_key)
-            role_overrides = all_overrides.get(_effective_role(user), {}) or {}
+            role_overrides = all_overrides.get(_effective_role(user)) or {}
 
         # Get user stakeholder roles on this card
         stakeholder_result = await db.execute(
@@ -403,7 +399,7 @@ class PermissionService:
                             card_level[k] = True
 
         # Compute effective permissions (union of app-level and card-level)
-        is_admin = app_perms.get("*", False)
+        is_admin = bool(app_perms.get("*"))
 
         def _app(key: str) -> bool:
             """The role's app-level grant for ``key``, after per-type overrides.
@@ -415,7 +411,7 @@ class PermissionService:
             decision = type_cell_decision(role_overrides, key)
             if decision is not None:
                 return decision
-            return bool(app_perms.get(key, False))
+            return bool(app_perms.get(key))
 
         effective = {
             "can_view": is_admin or _app("inventory.view") or card_level.get("card.view", False),
@@ -488,7 +484,8 @@ class PermissionService:
         The all-types map is always dropped, whatever ``type_key`` names: it
         holds every type's cells, so one type's edit makes all of it stale.
         """
-        PermissionService._all_type_perm_cache = None
+        # Read only for truthiness, so any falsy value forces the reload.
+        PermissionService._all_type_perm_cache = None  # pragma: no mutate, falsy is enough
         if type_key:
             PermissionService._type_perm_cache.pop(type_key, None)
         else:
