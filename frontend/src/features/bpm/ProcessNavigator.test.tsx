@@ -71,7 +71,8 @@ vi.mock("react-router", async () => {
 });
 
 import { api } from "@/api/client";
-import ProcessNavigator, { ATTR_COLORS } from "./ProcessNavigator";
+import ProcessNavigator from "./ProcessNavigator";
+import { ATTR_COLORS } from "./processNavigatorState";
 
 /*
  * Regression guard for issue #762.

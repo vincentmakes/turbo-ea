@@ -172,7 +172,8 @@ def _parse_workbook(wb: Any) -> MigrationSnapshot:
     # Tag-group + tag dicts go through their own sheets but FS rows
     # reference tags by ``<groupName>:<tagName>`` — build the inverse
     # lookup so we can populate ``SourceEntity.tags`` with stable ids.
-    tag_groups: dict[str, dict[str, Any]] = {}
+    # Group name → its selection mode, the one group attribute a tag carries.
+    tag_group_modes: dict[str, str] = {}
     tag_records: list[Tag] = []
     tag_by_group_and_name: dict[tuple[str, str], str] = {}
 
@@ -211,14 +212,8 @@ def _parse_workbook(wb: Any) -> MigrationSnapshot:
     if "TagGroups" in wb.sheetnames:
         for row in _data_rows(wb["TagGroups"], skip_label_row=True):
             name = _str_or_none(row.get("name"))
-            if not name:
-                continue
-            tag_groups[name] = {
-                "source_id": _str_or_none(row.get("id")) or name,
-                "name": name,
-                "mode": _str_or_none(row.get("mode")) or "MULTIPLE",
-                "restrict_to_types": _str_or_none(row.get("restrictToFactSheetTypes")),
-            }
+            if name:
+                tag_group_modes[name] = _str_or_none(row.get("mode")) or "MULTIPLE"
 
     if "Tags" in wb.sheetnames:
         for row in _data_rows(wb["Tags"], skip_label_row=True):
@@ -229,13 +224,12 @@ def _parse_workbook(wb: Any) -> MigrationSnapshot:
             group_name = _str_or_none(row.get("tagGroupId"))
             if not (tag_id and name and group_name):
                 continue
-            group_info = tag_groups.get(group_name) or {}
             tag_records.append(
                 Tag(
                     source_id=tag_id,
                     name=name,
                     group_name=group_name,
-                    group_mode=group_info.get("mode") or "MULTIPLE",
+                    group_mode=tag_group_modes.get(group_name, "MULTIPLE"),
                     color=_str_or_none(row.get("backgroundColor")),
                 )
             )

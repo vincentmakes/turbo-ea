@@ -81,24 +81,6 @@ def _bundled_payload(*, locale: str = "en") -> tuple[list[dict[str, Any]], dict[
     return flat, meta
 
 
-def _localize_via_bundled_package(
-    flat: list[dict[str, Any]],
-    *,
-    locale: str,
-) -> list[dict[str, Any]]:
-    """Fallback localizer for cached payloads that pre-date i18n caching.
-
-    Reads ``data/i18n/<locale>.json`` and overlays it on the cached
-    entries by id, same approach as the bundled path.
-    """
-    if locale == "en":
-        return flat
-    table = common.bundled_i18n_table(locale)
-    if not table:
-        return flat
-    return common.localize_flat_with_table(flat, table)
-
-
 def _macro_to_capability_entry(macro: dict[str, Any]) -> dict[str, Any]:
     """Project a macro definition into the same shape as a flat capability
     entry so it can sit alongside L1s in the payload.
@@ -206,69 +188,28 @@ async def _resolve_active_catalogue(
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Return (capabilities_flat, version_meta) honouring the remote override.
 
-    Cached remote wins only if its version is strictly greater than bundled.
-    Localization tables come from the cached i18n blob (newer caches), or
-    fall back to the bundled package's `localized()` (older caches).
+    Remote or bundled is decided in ``catalogue_common.resolve_active_catalogue``,
+    shared with the process and value-stream catalogues.
 
     Macros are injected here — once at the single source of truth — so the
     GET payload and `import_capabilities` see the same flat list with the
     same parent_id rewriting. Doing it anywhere else (e.g. only in
     `get_catalogue_payload`) would silently no-op the auto-relink path of
-    pre-existing L1 cards on macro import.
+    pre-existing L1 cards on macro import. They are localized with the same
+    table as the capabilities: entries are keyed by id, so macro ids
+    (``MC-*``) and capability ids (``BC-*``) coexist cleanly.
     """
-    bundled_flat, bundled_meta = _bundled_payload(locale=locale)
-    cached = await common.get_cached_remote(db, SETTINGS_KEY)
-    macros = _resolve_active_macros(cached)
-    # Localize macros via the same i18n table — entries are keyed by id, so
-    # macro ids (``MC-*``) and capability ids (``BC-*``) coexist cleanly.
-    if cached and common.version_tuple(cached.get("catalogue_version", "0")) > common.version_tuple(
-        bundled_meta["catalogue_version"]
-    ):
-        cached_data = list(cached["data"])
-        cached_i18n = cached.get("i18n") or {}
-        cached_locales = set(cached_i18n.keys())
-        bundled_locales = set(_bundled_available_locales())
-        available = sorted({"en"} | cached_locales | bundled_locales)
-        effective = common.resolve_effective_locale(locale, available)
-        macros_localized = macros
-        if effective != "en":
-            table = cached_i18n.get(effective)
-            if table:
-                cached_data = common.localize_flat_with_table(cached_data, table)
-                macros_localized = common.localize_flat_with_table(macros, table)
-            else:
-                cached_data = _localize_via_bundled_package(cached_data, locale=effective)
-                macros_localized = _localize_via_bundled_package(macros, locale=effective)
-        merged, warnings = _inject_macros(cached_data, macros_localized)
-        return merged, {
-            "catalogue_version": cached["catalogue_version"],
-            "schema_version": str(cached.get("schema_version", "")),
-            "generated_at": cached.get("generated_at"),
-            "node_count": cached.get("node_count", len(cached["data"])),
-            "macro_count": len(macros_localized),
-            "macro_warnings": warnings,
-            "source": "remote",
-            "fetched_at": cached.get("fetched_at"),
-            "bundled_version": bundled_meta["catalogue_version"],
-            "available_locales": available,
-            "active_locale": effective,
-        }
-    # Bundled path — macros come from the wheel; localize via the same
-    # bundled i18n table that handled the capabilities flat above.
-    effective_locale = bundled_meta.get("active_locale", "en")
-    macros_localized = macros
-    if effective_locale != "en" and macros:
-        table = common.bundled_i18n_table(effective_locale)
-        if table:
-            macros_localized = common.localize_flat_with_table(macros, table)
-    merged, warnings = _inject_macros(bundled_flat, macros_localized)
-    return merged, {
-        **bundled_meta,
-        "macro_count": len(macros_localized),
-        "macro_warnings": warnings,
-        "source": "bundled",
-        "bundled_version": bundled_meta["catalogue_version"],
-    }
+    active = await common.resolve_active_catalogue(
+        db,
+        cache_key=SETTINGS_KEY,
+        locale=locale,
+        bundled=_bundled_payload(locale=locale),
+        bundled_locales=_bundled_available_locales(),
+        count_key="node_count",
+    )
+    macros = active.localize(_resolve_active_macros(active.cached))
+    merged, warnings = _inject_macros(active.flat, macros)
+    return merged, {**active.meta, "macro_count": len(macros), "macro_warnings": warnings}
 
 
 # ---------------------------------------------------------------------------

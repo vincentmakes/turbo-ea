@@ -39,6 +39,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
 
 AUTH_COOKIE = "access_token"
+# Shared by setting and deleting the cookie: a delete that names another path
+# or SameSite leaves the original in place. SameSite=Lax is the CSRF control.
+_AUTH_COOKIE_FLAGS = {"httponly": True, "samesite": "lax", "path": "/api"}
+_FORWARDED_PROTO = "x-forwarded-proto"
 
 
 def _is_secure_request(request: Request) -> bool:
@@ -49,7 +53,7 @@ def _is_secure_request(request: Request) -> bool:
     Secure=True for 'production' environments that run behind plain HTTP
     (e.g. local-network deployments without TLS).
     """
-    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    forwarded_proto = request.headers.get(_FORWARDED_PROTO)
     return forwarded_proto == "https" or request.url.scheme == "https"
 
 
@@ -64,23 +68,15 @@ def _set_auth_cookie(response: Response, token: str, *, secure: bool) -> None:
     response.set_cookie(
         key=AUTH_COOKIE,
         value=token,
-        httponly=True,
-        samesite="lax",
         secure=secure,
-        path="/api",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        **_AUTH_COOKIE_FLAGS,
     )
 
 
 def _clear_auth_cookie(response: Response, *, secure: bool) -> None:
     """Delete the auth cookie."""
-    response.delete_cookie(
-        key=AUTH_COOKIE,
-        httponly=True,
-        samesite="lax",
-        secure=secure,
-        path="/api",
-    )
+    response.delete_cookie(key=AUTH_COOKIE, secure=secure, **_AUTH_COOKIE_FLAGS)
 
 
 # ---------------------------------------------------------------------------
@@ -197,14 +193,15 @@ async def _provision_federated_user(
             role = invitation.role
             await db.delete(invitation)
 
+    signed_in_at = datetime.now(timezone.utc)  # pragma: no mutate, asyncpg reads naive as local
+    # No password_hash: a federated account never signs in with a password.
     user = User(
         email=email,
         display_name=display_name or email.split("@")[0],
-        password_hash=None,
         role=role,
         auth_provider="sso",
         sso_subject_id=subject_id,
-        last_login=datetime.now(timezone.utc),
+        last_login=signed_in_at,
     )
     db.add(user)
     await db.commit()
@@ -548,7 +545,7 @@ async def _local_login_available(db: AsyncSession) -> bool:
     their password.
     """
     local_count = await db.execute(
-        select(func.count(User.id)).where(
+        select(func.count()).where(
             User.auth_provider != "sso",
             User.is_active.is_(True),
         )
@@ -977,7 +974,7 @@ def _resolve_app_base_url(request: Request) -> str:
        `app_config._app_base_url`).
     2. The current request's base URL (works for direct deployments).
     """
-    explicit = getattr(settings, "_app_base_url", "") or ""
+    explicit = settings._app_base_url
     if explicit:
         return explicit.rstrip("/")
     return str(request.base_url).rstrip("/")

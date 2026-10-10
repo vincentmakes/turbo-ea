@@ -333,7 +333,7 @@ async def record_child_strategy_effects(
     rows = await db.execute(select(Card).where(Card.id.in_(list(touched))))
     children = {c.id: c for c in rows.scalars().all()}
 
-    for child_id in sorted(touched, key=str):
+    for child_id in sorted(touched):
         child = children.get(child_id)
         if child is None:
             continue

@@ -17,8 +17,11 @@ Flow:
 
 from __future__ import annotations
 
+import base64
 import hashlib
+import json
 import logging
+import re
 import secrets
 import time
 from dataclasses import dataclass, field
@@ -230,7 +233,7 @@ async def register_client(request: Request) -> Response:
 
 
 def _redirect_uri_registered(
-    client: RegisteredClient | None, redirect_uri: str
+    client: RegisteredClient | None, redirect_uri: str | None
 ) -> bool:
     """True iff ``redirect_uri`` is an exact match of a URI the client
     registered, or of an operator-configured static allowlist entry.
@@ -253,13 +256,14 @@ async def authorize(request: Request) -> Response:
     store.cleanup_expired()
 
     params = request.query_params
-    response_type = params.get("response_type", "")
+    # An absent parameter fails the same checks an empty one would.
+    response_type = params.get("response_type")
     client_id = params.get("client_id", "")
-    redirect_uri = params.get("redirect_uri", "")
+    redirect_uri = params.get("redirect_uri")
     scope = params.get("scope", "mcp:read")
     state = params.get("state", "")
-    code_challenge = params.get("code_challenge", "")
-    code_challenge_method = params.get("code_challenge_method", "")
+    code_challenge = params.get("code_challenge")
+    code_challenge_method = params.get("code_challenge_method")
 
     if response_type != "code":
         return JSONResponse({"error": "unsupported_response_type"}, status_code=400)
@@ -292,8 +296,8 @@ async def authorize(request: Request) -> Response:
             status_code=503,
         )
 
-    # Store pending auth
-    internal_state = secrets.token_urlsafe(32)
+    # Store pending auth (token_urlsafe's default is 32 random bytes)
+    internal_state = secrets.token_urlsafe()
     store.pending[internal_state] = PendingAuth(
         client_id=client_id,
         redirect_uri=redirect_uri,
@@ -326,19 +330,13 @@ async def authorize(request: Request) -> Response:
 
 
 def _estimate_jwt_expiry(token: str) -> float:
-    """Decode the Turbo EA JWT payload (without verification) to extract exp."""
-    import base64
-    import json
-
+    """The ``exp`` of a Turbo EA JWT, read without verification; an hour from
+    now when the token has none or cannot be read at all."""
     try:
-        parts = token.split(".")
-        if len(parts) != 3:
-            return time.time() + 3600
-        # Pad the base64 payload
-        payload_b64 = parts[1] + "=" * (4 - len(parts[1]) % 4)
-        payload = json.loads(base64.urlsafe_b64decode(payload_b64))
-        return float(payload.get("exp", time.time() + 3600))
-    except Exception:
+        _, payload, _ = token.split(".")
+        # base64url drops its padding; the decoder ignores any surplus "=".
+        return float(json.loads(base64.urlsafe_b64decode(payload + "=="))["exp"])
+    except Exception:  # noqa: BLE001 — any unreadable token gets the default
         return time.time() + 3600
 
 
@@ -358,8 +356,8 @@ async def sso_callback(request: Request) -> Response:
             status_code=403,
         )
 
-    sso_code = params.get("code", "")
-    internal_state = params.get("state", "")
+    sso_code = params.get("code")
+    internal_state = params.get("state")
 
     if not sso_code or not internal_state:
         return JSONResponse({"error": "invalid_request"}, status_code=400)
@@ -392,7 +390,7 @@ async def sso_callback(request: Request) -> Response:
             f"{pending.redirect_uri}?{error_params}", status_code=302
         )
 
-    turbo_jwt = data.get("access_token", "")
+    turbo_jwt = data.get("access_token")
     if not turbo_jwt:
         error_params = urlencode(
             {
@@ -429,13 +427,25 @@ async def sso_callback(request: Request) -> Response:
 # ── Token endpoint ──────────────────────────────────────────────────────────
 
 
-def _verify_pkce(code_verifier: str, code_challenge: str) -> bool:
-    """Verify PKCE S256: SHA256(verifier) == challenge."""
-    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
-    import base64
+# RFC 7636 §4.1: a code verifier is made of the unreserved characters only.
+_VERIFIER_ALPHABET = re.compile(r"[A-Za-z0-9\-._~]+")
 
-    computed = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
-    return secrets.compare_digest(computed, code_challenge)
+
+def _verify_pkce(code_verifier: str, code_challenge: str) -> bool:
+    """Verify PKCE S256: SHA256(verifier) == challenge.
+
+    A verifier with a character outside RFC 7636's alphabet — a non-ASCII one
+    among them — never matches, whatever challenge was computed for it; and the
+    challenge is compared as bytes, so one outside ASCII fails rather than
+    raising."""
+    if not _VERIFIER_ALPHABET.fullmatch(code_verifier):
+        return False
+    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+    encoded = base64.urlsafe_b64encode(digest)
+    # A SHA-256 digest's last base64url character is never an X (its low two
+    # bits are always zero), so a strip set that gained an X strips the same.
+    computed = encoded.rstrip(b"=").decode()  # pragma: no mutate, never ends in X
+    return secrets.compare_digest(computed.encode(), code_challenge.encode())
 
 
 async def token_endpoint(request: Request) -> Response:
@@ -449,7 +459,7 @@ async def token_endpoint(request: Request) -> Response:
         except Exception:
             return JSONResponse({"error": "invalid_request"}, status_code=400)
 
-    grant_type = body.get("grant_type", "")
+    grant_type = body.get("grant_type")
 
     if grant_type == "authorization_code":
         return await _handle_code_exchange(body)
@@ -462,7 +472,7 @@ async def token_endpoint(request: Request) -> Response:
 async def _handle_code_exchange(body: dict) -> Response:
     """Exchange authorization code for access + refresh tokens."""
     code = body.get("code", "")
-    code_verifier = body.get("code_verifier", "")
+    code_verifier = body.get("code_verifier")
     redirect_uri = body.get("redirect_uri", "")
 
     auth_code = store.codes.get(code)
@@ -474,7 +484,7 @@ async def _handle_code_exchange(body: dict) -> Response:
 
     if auth_code.used:
         # Code replay — revoke any tokens issued from this code
-        store.codes.pop(code, None)
+        del store.codes[code]
         return JSONResponse(
             {"error": "invalid_grant", "error_description": "Code already used"},
             status_code=400,
@@ -488,7 +498,7 @@ async def _handle_code_exchange(body: dict) -> Response:
     # §4.1.3). Combined with PKCE, this means an intercepted code is useless to
     # anyone who did not initiate the original, validated authorize request.
     if redirect_uri != auth_code.redirect_uri:
-        store.codes.pop(code, None)
+        del store.codes[code]
         return JSONResponse(
             {
                 "error": "invalid_grant",
@@ -498,9 +508,9 @@ async def _handle_code_exchange(body: dict) -> Response:
         )
 
     # If the client identified itself, it must match the code's client.
-    req_client_id = body.get("client_id", "")
+    req_client_id = body.get("client_id")
     if req_client_id and req_client_id != auth_code.client_id:
-        store.codes.pop(code, None)
+        del store.codes[code]
         return JSONResponse(
             {
                 "error": "invalid_grant",
@@ -511,14 +521,14 @@ async def _handle_code_exchange(body: dict) -> Response:
 
     # Validate PKCE
     if not code_verifier or not _verify_pkce(code_verifier, auth_code.code_challenge):
-        store.codes.pop(code, None)
+        del store.codes[code]
         return JSONResponse(
             {"error": "invalid_grant", "error_description": "PKCE verification failed"},
             status_code=400,
         )
 
     # Clean up the code
-    store.codes.pop(code, None)
+    del store.codes[code]
 
     # Issue our tokens
     access_token = secrets.token_urlsafe(48)
@@ -556,7 +566,7 @@ async def _handle_refresh(body: dict) -> Response:
 
     old_entry = store.tokens.get(old_access)
     if not old_entry:
-        store.refresh_tokens.pop(refresh_token, None)
+        del store.refresh_tokens[refresh_token]
         return JSONResponse(
             {"error": "invalid_grant", "error_description": "Token entry not found"},
             status_code=400,

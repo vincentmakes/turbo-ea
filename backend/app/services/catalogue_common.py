@@ -25,6 +25,8 @@ import json
 import logging
 import os
 import zipfile
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from importlib.resources import as_file, files
 from typing import Any
@@ -179,6 +181,91 @@ async def get_cached_remote(db: AsyncSession, key: str) -> dict[str, Any] | None
     if not isinstance(cached, dict) or not cached.get("data"):
         return None
     return cached
+
+
+Flat = list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class ActiveCatalogue:
+    """The catalogue a payload or an import works from, remote or bundled."""
+
+    flat: Flat
+    meta: dict[str, Any]
+    # Applies the same locale to another list (the capability macros).
+    localize: Callable[[Flat], Flat]
+    # The cached remote row as read, whichever source won.
+    cached: dict[str, Any] | None
+
+
+def localize_via_bundled_table(flat: Flat, locale: str) -> Flat:
+    """Overlay the bundled package's table for ``locale``; ``en`` is the source."""
+    table = bundled_i18n_table(locale)
+    return localize_flat_with_table(flat, table) if table else flat
+
+
+async def resolve_active_catalogue(
+    db: AsyncSession,
+    *,
+    cache_key: str,
+    locale: str,
+    bundled: tuple[Flat, dict[str, Any]],
+    bundled_locales: Iterable[str],
+    count_key: str,
+    flatten: Callable[[Flat], Flat] = list,
+) -> ActiveCatalogue:
+    """The catalogue to serve, honouring a newer cached remote.
+
+    The cached remote wins only when its version is strictly greater than the
+    bundled one. It is localized from its own i18n table for the requested
+    locale or, for a cache stored before i18n tables were cached, from the
+    bundled package's table, so every catalogue translates the same way.
+    """
+    bundled_flat, bundled_meta = bundled
+    cached = await get_cached_remote(db, cache_key)
+    if cached is None or version_tuple(cached.get("catalogue_version", "0")) <= version_tuple(
+        bundled_meta["catalogue_version"]
+    ):
+        active_locale = bundled_meta.get("active_locale", "en")
+        return ActiveCatalogue(
+            flat=bundled_flat,
+            meta={
+                **bundled_meta,
+                "source": "bundled",
+                "bundled_version": bundled_meta["catalogue_version"],
+            },
+            localize=lambda flat: localize_via_bundled_table(flat, active_locale),
+            cached=cached,
+        )
+
+    cached_i18n = cached.get("i18n") or {}
+    available = sorted({"en"} | set(cached_i18n) | set(bundled_locales))
+    effective = resolve_effective_locale(locale, available)
+    table = cached_i18n.get(effective)
+
+    def localize(flat: Flat) -> Flat:
+        if effective == "en":
+            return flat
+        if table:
+            return localize_flat_with_table(flat, table)
+        return localize_via_bundled_table(flat, effective)
+
+    return ActiveCatalogue(
+        flat=localize(flatten(list(cached["data"]))),
+        meta={
+            "catalogue_version": cached["catalogue_version"],
+            "schema_version": str(cached.get("schema_version", "")),
+            "generated_at": cached.get("generated_at"),
+            count_key: cached.get(count_key, len(cached["data"])),
+            "source": "remote",
+            "fetched_at": cached.get("fetched_at"),
+            "bundled_version": bundled_meta["catalogue_version"],
+            "available_locales": available,
+            "active_locale": effective,
+        },
+        localize=localize,
+        cached=cached,
+    )
 
 
 async def set_cached_remote(db: AsyncSession, updates: dict[str, dict[str, Any]]) -> None:

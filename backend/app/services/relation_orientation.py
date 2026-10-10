@@ -55,10 +55,9 @@ def runs_against_type(
     cannot judge is left exactly as it was sent. Mirrors ``runsAgainstType`` in
     ``frontend/src/lib/relationSort.ts``.
     """
-    if rt is None or not source_type or not target_type:
+    if rt is None or rt.source_type_key == rt.target_type_key:
         return False
-    if rt.source_type_key == rt.target_type_key:
-        return False
+    # An unknown end (None) never equals a type key, so it reads as "not against".
     return source_type == rt.target_type_key and target_type == rt.source_type_key
 
 

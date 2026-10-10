@@ -111,6 +111,11 @@ class TestVerbs:
         assert wire.last.method == "DELETE"
         assert str(wire.last.url) == f"{BASE}/api/v1/things/1"
         assert wire.last.headers["authorization"] == "Bearer t"
+        assert wire.timeouts == [30.0]
+
+    def test_only_trailing_slashes_come_off_the_base_url(self, monkeypatch):
+        monkeypatch.setattr(api_client, "TURBO_EA_URL", "http://BACKENDX//")
+        assert TurboEAClient("t")._base == "http://BACKENDX/api/v1"
 
     @pytest.mark.parametrize("verb", ["get", "post", "put", "patch", "delete"])
     @pytest.mark.asyncio
@@ -155,6 +160,17 @@ class TestMultipart:
     @pytest.mark.asyncio
     async def test_post_file_uses_the_default_field(self, wire):
         await TurboEAClient("t").post_file("/x", "a.png", b"PNG", "image/png")
+        assert b'name="file"; filename="a.png"' in wire.last.content
+
+    @pytest.mark.asyncio
+    async def test_post_file_sends_to_its_path_under_its_field(self, wire):
+        await TurboEAClient("t").post_file("/cards/1/logo", "a.png", b"PNG", "image/png", "logo")
+        assert str(wire.last.url) == f"{BASE}/api/v1/cards/1/logo"
+        assert b'name="logo"; filename="a.png"' in wire.last.content
+
+    @pytest.mark.asyncio
+    async def test_post_multipart_names_a_file_file_by_default(self, wire):
+        await TurboEAClient("t").post_multipart("/x", file=("a.png", b"PNG", "image/png"))
         assert b'name="file"; filename="a.png"' in wire.last.content
 
     @pytest.mark.asyncio

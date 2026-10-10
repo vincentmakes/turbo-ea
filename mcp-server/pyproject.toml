@@ -44,9 +44,9 @@ source = ["turbo_ea_mcp"]
 omit = ["turbo_ea_mcp/__main__.py"]
 
 [tool.coverage.report]
-# A floor just under the measured total (77% on 2026-10-01); raise it in any
+# A floor just under the measured total (90% on 2026-10-09); raise it in any
 # PR that lifts the number, never lower it.
-fail_under = 76
+fail_under = 88
 show_missing = true
 skip_covered = true
 

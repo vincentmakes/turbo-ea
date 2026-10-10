@@ -11,6 +11,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Admin dashboard: **Approval pipeline by type** and **Stakeholder coverage by type** name each card type in the user's language, as the rest of the app does; they showed the English name whatever the language.
 - Workspace dashboard: when **My Open Todos**, **My Pending Surveys** or **Recent activity on my cards** cannot load, the section shows its empty state instead of leaving an unhandled error behind in the browser.
 
+## [2.158.7] - 2026-10-10
+
+### Fixed
+- MCP server: a sign-in whose PKCE code verifier contains a character outside the RFC 7636 alphabet — a non-ASCII one among them — is refused with the standard `invalid_grant` answer; a non-ASCII verifier used to end in a server error.
+
+### Changed
+- MCP server: an unused internal helper is removed and the stdio mode starts its token refresh more simply; nothing a user sees changes.
+
+## [2.158.6] - 2026-10-09
+
+### Changed
+- The three reference catalogues (capabilities, processes, value streams) now choose between the bundled and the downloaded catalogue in one shared place, so they cannot drift apart again.
+- Surveys: a **not equals** attribute filter now also reaches cards where that field is empty, so "Risk not equals Low" means every card whose risk is not Low. It used to leave out cards with no value at all.
+
+### Fixed
+- Value Stream Catalogue: after the catalogue is updated from the online store, a catalogue fetched before translations were cached with it is shown in your language again, as the Capability and Process catalogues already were, instead of in English.
+- Workspace transfer: a card's reference number (such as `APP-0042`) now travels with it. The export left the column empty, so cards imported into another instance arrived without their original reference.
+- API: saving a bookmark's sharing through `PATCH /bookmarks/{id}` returns the share list it just saved. The response repeated the previous list; the app itself reloads the list, so the screen was always right.
+
+## [2.158.5] - 2026-10-09
+
+### Changed
+- TurboLens Architecture AI: an older, unused way of generating the target architecture was removed; the wizard already used the capability-mapping step.
+
+### Fixed
+- TurboLens Architecture AI: when the model gave a proposed card the id of an existing card, the relations of a different proposal could be moved onto the wrong existing card in the target architecture. Each relation now stays on the card it was drawn to.
+- Bundled Ollama (`AI_AUTO_CONFIGURE=true`): the configured model is now downloaded at startup even when another size of the same model is installed. With `gemma3:27b` present, `gemma3:4b` was taken as already available and never pulled, so AI suggestions failed until it was pulled by hand.
+- The **Compliance scan finished** notification opens GRC → Compliance, where the findings are. It still pointed at a TurboLens tab that no longer exists and opened the TurboLens dashboard.
+
+## [2.158.4] - 2026-10-09
+
+### Changed
+- Workspace import, platform migration, audit-log rollback, file uploads, card writes, process step ordering, extension job schedules, fiscal years, card health flags and relation direction: unreachable branches and duplicated checks removed, with no change to what any of them does.
+- Bulk relation changes (the spreadsheet import's relations, the MCP relation tool) now find, create and update a relation through the same code as a single relation edit, so the two cannot drift apart.
+- Internal clean-up of the link, rich-text, route-permission, drag-fill and portfolio-report helpers: checks that could never change an answer are gone; nothing a user sees changes.
+- Internal clean-up of the Process Navigator, the Matrix report, the project Gantt and the public portal: the rules that decide what each one shows moved into modules with tests of their own; nothing a user sees changes.
+
+## [2.158.3] - 2026-10-09
+
+### Changed
+- Sign-in, single sign-on, trusted-proxy sign-in and published-resource access: redundant checks removed and one cookie definition shared by setting and clearing the session cookie, with no change to who can sign in or what they reach. An identity provider's error details are now read from any JSON object it returns, whatever content type it declares.
+
+## [2.158.2] - 2026-10-09
+
+### Changed
+- Calculated fields, permission checks and the card read scope: unreachable branches and unused parameters removed, with no change to what a formula computes or what a role may see or do.
+
 ## [2.158.1] - 2026-10-09
 
 ### Fixed

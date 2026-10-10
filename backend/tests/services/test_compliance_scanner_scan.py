@@ -479,3 +479,83 @@ class TestRunComplianceScan:
         # Unconfigured AI: the one finding is the "configure AI" placeholder.
         (row,) = await _findings(db)
         assert row.category == "configuration" and fake_call_ai.calls == []
+
+
+class TestScanContracts:
+    """What a finished scan hands the user: the notification, the progress
+    phases, and findings whose missing text never reaches a row as NULL."""
+
+    async def test_the_notification_opens_the_compliance_tab(self, db, landscape, fake_call_ai):
+        await ai_settings(db)
+        admin, copilot, erp = landscape["admin"], landscape["copilot"], landscape["erp"]
+        _script(fake_call_ai, str(copilot.id), str(erp.id))
+        run = await create_analysis_run(db, status="running", user_id=admin.id)
+        await run_compliance_scan(db, run.id, str(admin.id))
+
+        note = (
+            await db.execute(select(Notification).where(Notification.user_id == admin.id))
+        ).scalar_one()
+        assert (note.type, note.title, note.link) == (
+            "security_scan_complete",
+            "Compliance scan finished",
+            "/grc?tab=compliance",  # TurboLens has no compliance tab any more
+        )
+        assert note.data == {
+            "compliance_count": 4,
+            "regulations": [EU_AI_ACT_KEY, "gdpr"],
+            "scan": "compliance",
+        }
+
+    async def test_the_progress_phases_in_order(self, db, landscape, fake_call_ai, monkeypatch):
+        await ai_settings(db)
+        copilot, erp = landscape["copilot"], landscape["erp"]
+        _script(fake_call_ai, str(copilot.id), str(erp.id))
+        seen: list[tuple] = []
+
+        def recorder(_db, run_id):
+            async def cb(phase, current, total, note=""):
+                seen.append((run_id, phase, current, total, note))
+
+            return cb
+
+        monkeypatch.setattr(compliance_scanner, "_progress_cb", recorder)
+        run = await create_analysis_run(db, status="running")
+        await run_compliance_scan(db, str(run.id), None)
+
+        assert {entry[0] for entry in seen} == {run.id}
+        phases = [entry[1:] for entry in seen]
+        assert phases[0] == ("loading_cards", 0, 0, "")
+        assert phases[-3:] == [
+            ("regulation", 1, 2, EU_AI_ACT_KEY),
+            ("regulation", 2, 2, "gdpr"),
+            ("persisting_compliance_findings", 0, 4, ""),
+        ]
+        assert ("ai_detection", 1, 1, "") in phases
+
+    async def test_missing_text_from_the_model_is_stored_empty(self, db, landscape, fake_call_ai):
+        await ai_settings(db)
+        fake_call_ai.route(
+            contains="Regulation: GDPR.",
+            text=[{"requirement": None, "gap_description": None, "evidence": None}],
+        )
+        run = await create_analysis_run(db, status="running")
+        await run_compliance_scan(db, run.id, None, regulations=["gdpr"])
+        (row,) = await _findings(db)
+        assert (row.requirement, row.gap_description, row.evidence, row.remediation) == (
+            "",
+            "",
+            None,
+            None,
+        )
+        assert (row.scope_type, row.status, row.severity, row.category) == (
+            "landscape",
+            "review_needed",
+            "info",
+            "",
+        )
+        assert (row.ai_detected, row.auto_resolved, row.decision) == (False, False, "new")
+
+        # A re-run of the same answer matches the stored row instead of adding one.
+        second = await create_analysis_run(db, status="running")
+        await run_compliance_scan(db, second.id, None, regulations=["gdpr"])
+        assert [r.id for r in await _findings(db)] == [row.id]

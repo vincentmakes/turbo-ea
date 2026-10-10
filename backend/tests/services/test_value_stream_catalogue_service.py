@@ -259,3 +259,107 @@ async def test_import_idempotent_on_rerun(db, monkeypatch):
     second = await svc.import_value_streams(db, user=user, catalogue_ids=["VS-10", "VS-10.10"])
     assert second["created"] == []
     assert len(second["skipped"]) == 2
+
+
+async def _cache_remote(db, svc, **extra):
+    await common.set_cached_remote(
+        db,
+        {
+            svc.SETTINGS_KEY: {
+                "data": [dict(_FAKE_VALUE_STREAMS[0], name="Acquire-to-Retire v3")],
+                "catalogue_version": "9.0.0",  # newer than the fake bundled 2.0.0
+                "schema_version": "2",
+                "generated_at": "2026-10-01T00:00:00Z",
+                "fetched_at": "2026-10-02T00:00:00Z",
+                **extra,
+            }
+        },
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_newer_cached_catalogue_is_flattened_and_described(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    await _cache_remote(db, svc)
+    payload = await svc.get_catalogue_payload(db)
+    by_id = {n["id"]: n for n in payload["value_streams"]}
+    assert by_id["VS-10"]["name"] == "Acquire-to-Retire v3"
+    assert by_id["VS-10.20"]["parent_id"] == "VS-10"
+    version = payload["version"]
+    assert (version["source"], version["catalogue_version"], version["bundled_version"]) == (
+        "remote",
+        "9.0.0",
+        "2.0.0",
+    )
+    assert version["value_stream_count"] == 1  # counted from the data when not stored
+    assert {k: version[k] for k in ("schema_version", "generated_at", "fetched_at")} == {
+        "schema_version": "2",
+        "generated_at": "2026-10-01T00:00:00Z",
+        "fetched_at": "2026-10-02T00:00:00Z",
+    }
+    assert version["available_locales"] == ["en"]
+    assert version["active_locale"] == "en"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cached_version", ["2.0.0", "1.9.9"])
+async def test_a_cache_no_newer_than_the_wheel_is_ignored(db, monkeypatch, cached_version):
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    await _cache_remote(db, svc, catalogue_version=cached_version)
+    payload = await svc.get_catalogue_payload(db)
+    names = {n["name"] for n in payload["value_streams"]}
+    assert "Acquire-to-Retire v3" not in names
+    assert (payload["version"]["source"], payload["version"]["bundled_version"]) == (
+        "bundled",
+        "2.0.0",
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_stored_count_is_reported_as_stored(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    await _cache_remote(db, svc, value_stream_count=42)
+    payload = await svc.get_catalogue_payload(db)
+    assert payload["version"]["value_stream_count"] == 42
+
+
+@pytest.mark.asyncio
+async def test_a_cached_catalogue_without_tables_takes_the_bundled_translations(db, monkeypatch):
+    # A cache stored before i18n tables were cached translates like the
+    # capability and process catalogues: from the bundled package's table.
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    svc.catalogue_pkg.available_locales = lambda: ("en", "fr")
+    tables = {"fr": {"VS-10": {"name": "Acquérir-à-retirer"}}}
+    monkeypatch.setattr(common, "bundled_i18n_table", lambda locale: tables.get(locale))
+    await _cache_remote(db, svc)
+    payload = await svc.get_catalogue_payload(db, locale="fr")
+    by_id = {n["id"]: n for n in payload["value_streams"]}
+    assert by_id["VS-10"]["name"] == "Acquérir-à-retirer"
+    assert payload["version"]["active_locale"] == "fr"
+
+
+@pytest.mark.asyncio
+async def test_a_cached_table_wins_over_the_bundled_one(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    monkeypatch.setattr(
+        common, "bundled_i18n_table", lambda locale: {"VS-10": {"name": "from the wheel"}}
+    )
+    await _cache_remote(db, svc, i18n={"de": {"VS-10": {"name": "Anschaffen bis Ausmustern"}}})
+    payload = await svc.get_catalogue_payload(db, locale="de-CH")
+    by_id = {n["id"]: n for n in payload["value_streams"]}
+    assert by_id["VS-10"]["name"] == "Anschaffen bis Ausmustern"
+    assert payload["version"]["active_locale"] == "de"
+    english = await svc.get_catalogue_payload(db, locale="en")
+    assert {n["id"]: n for n in english["value_streams"]}["VS-10"]["name"] == (
+        "Acquire-to-Retire v3"
+    )

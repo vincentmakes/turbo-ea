@@ -24,7 +24,7 @@
  */
 import createDOMPurify from "dompurify";
 
-import { LINKABLE_HREF, splitLinks } from "./linkify";
+import { isLinkableHref, splitLinks } from "./linkify";
 
 type Purifier = ReturnType<typeof createDOMPurify>;
 
@@ -35,8 +35,9 @@ function getPurifier(): Purifier {
   const p = createDOMPurify(window);
   p.addHook("afterSanitizeAttributes", (node) => {
     if (node.nodeName !== "A") return;
+    // Stryker disable next-line StringLiteral: an absent href is unlinkable whatever it defaults to
     const href = node.getAttribute("href") ?? "";
-    if (!LINKABLE_HREF.test(href.trim())) {
+    if (!isLinkableHref(href)) {
       node.removeAttribute("href");
       node.removeAttribute("target");
       node.removeAttribute("rel");
@@ -58,14 +59,14 @@ function autolinkTextNodes(html: string): string {
   const targets: Text[] = [];
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
     const t = n as Text;
+    // Stryker disable next-line OptionalChaining: a text node under <body> always has a parent element
     if (t.parentElement?.closest("a")) continue;
     targets.push(t);
   }
   for (const t of targets) {
-    const tokens = splitLinks(t.data);
-    if (tokens.length === 1 && tokens[0].type === "text") continue;
+    // A node with no link rebuilds as one identical text node.
     const frag = doc.createDocumentFragment();
-    for (const tok of tokens) {
+    for (const tok of splitLinks(t.data)) {
       if (tok.type === "text") {
         frag.append(doc.createTextNode(tok.value));
       } else {

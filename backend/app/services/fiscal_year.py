@@ -28,7 +28,7 @@ def _fiscal_year(year: int, month: int, start_month: int) -> int:
     Note the ``start_month > 1`` guard. Without it every date would land in
     ``year + 1`` on a January start, because ``month >= 1`` is always true.
     """
-    return year + (1 if 1 < start_month <= 12 and month >= start_month else 0)
+    return year + (1 if start_month > 1 and month >= start_month else 0)
 
 
 # Overloaded so a caller holding a real date gets an ``int`` back, not an
@@ -75,5 +75,6 @@ async def get_fiscal_year_start(db: AsyncSession) -> int:
         await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     ).scalar_one_or_none()
     general = (row.general_settings if row else None) or {}
-    month = general.get("fiscalYearStart", 1)
-    return month if isinstance(month, int) and 1 <= month <= 12 else 1
+    month = general.get("fiscalYearStart")
+    # January is the default either way, so only 2-12 needs reading.
+    return month if isinstance(month, int) and 2 <= month <= 12 else 1

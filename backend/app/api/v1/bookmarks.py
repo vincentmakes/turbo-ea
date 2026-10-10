@@ -25,10 +25,14 @@ VALID_VISIBILITY = {"private", "public", "shared"}
 
 
 async def _load_bookmark(db: AsyncSession, bookmark_id: uuid.UUID) -> Bookmark | None:
+    # ``populate_existing``: the share rows are written through the junction
+    # table, so a bookmark already in the session would otherwise keep the
+    # share list it was loaded with and the response would repeat it.
     result = await db.execute(
         select(Bookmark)
         .options(selectinload(Bookmark.shared_with_users))
         .where(Bookmark.id == bookmark_id)
+        .execution_options(populate_existing=True)
     )
     bm = result.scalar_one_or_none()
     if bm:

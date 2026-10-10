@@ -60,7 +60,6 @@ import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import ColumnCountPicker from "@/components/ColumnCountPicker";
 import {
   columnGridProps,
-  isColumnCount,
   nestedColumns,
   nestedGridProps,
   DEFAULT_COLUMNS,
@@ -75,7 +74,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { formatDateWith, getCachedDateFormat } from "@/hooks/useDateFormat";
 import { getPhaseLabels } from "@/lib/lifecyclePhases";
 import { useProcessTypeOptions } from "./useProcessTypeOptions";
-import type { ProcessTypeOption } from "./useProcessTypeOptions";
 import {
   FULL_CAPABILITIES,
   ProcessNavigatorProvider,
@@ -92,62 +90,39 @@ import type {
 } from "./ProcessNavigatorContext";
 import type { ProcessElement, ProcessFlowVersion } from "@/types";
 import { readableTextColor } from "@/lib/color";
+import {
+  ATTR_COLORS,
+  DEFAULT_LEVEL,
+  UNSET_COLOR,
+  buildTree,
+  filterTreeByOrgs,
+  findNode,
+  flatCollect,
+  getCardColor,
+  getMaxLevel,
+  groupByLane,
+  groupHouseRows,
+  legendItems,
+  loadOpeningConfig,
+  matchingIds,
+  matrixCell,
+  moveRow,
+  nameMatches,
+  nameOrId,
+  orderRows,
+  readOpeningState,
+  reorderSiblings,
+  stateToParams,
+  STORAGE_KEY,
+  zoomInto,
+  type ColorOverlay,
+  type ProcItem,
+  type ProcNode,
+  type RefItem,
+  type ViewMode,
+} from "./processNavigatorState";
 
 const LazyBpmnViewer = lazy(() => import("./BpmnViewer"));
-
-/* ================================================================== */
-/*  Types                                                              */
-/* ================================================================== */
-
-interface AppData {
-  id: string;
-  name: string;
-  subtype?: string;
-  attributes?: Record<string, unknown>;
-  lifecycle?: Record<string, string>;
-  rel_attributes?: Record<string, unknown>;
-}
-
-interface DataObjRef {
-  id: string;
-  name: string;
-}
-
-interface ProcItem {
-  id: string;
-  name: string;
-  subtype?: string;
-  parent_id: string | null;
-  /** Carried by the public process map, so a portal drawer needs no card fetch. */
-  description?: string;
-  attributes?: Record<string, unknown>;
-  lifecycle?: Record<string, string>;
-  app_count: number;
-  total_cost: number;
-  apps: AppData[];
-  data_objects: DataObjRef[];
-  org_ids: string[];
-  ctx_ids: string[];
-  has_diagram?: boolean;
-  element_count?: number;
-}
-
-interface RefItem {
-  id: string;
-  name: string;
-}
-
-interface ProcNode extends ProcItem {
-  children: ProcNode[];
-  level: number;
-  deepAppCount: number;
-  deepUniqueApps: Map<string, AppData>;
-  deepDataObjects: Map<string, DataObjRef>;
-}
-
-
-type ColorOverlay = "processType" | "maturity" | "automationLevel" | "riskLevel";
-type ViewMode = "house" | "matrix" | "dependencies";
 
 /* ================================================================== */
 /*  Constants                                                          */
@@ -159,151 +134,6 @@ const OVERLAY_OPTIONS: { key: ColorOverlay; labelKey: string; icon: string }[] =
   { key: "automationLevel", labelKey: "navigator.overlayAutomation", icon: "precision_manufacturing" },
   { key: "riskLevel", labelKey: "navigator.overlayRisk", icon: "warning" },
 ];
-
-// Exported for the issue #762 regression test (key parity with the seeded
-// automationLevel options); it is a plain constant, not a component.
-// processType is deliberately absent: its labels/colors are admin-editable
-// metamodel data, resolved via useProcessTypeOptions (issue #857).
-// eslint-disable-next-line react-refresh/only-export-components
-export const ATTR_COLORS: Record<string, Record<string, { label: string; color: string }>> = {
-  maturity: {
-    initial: { label: "1-Initial", color: "#d32f2f" },
-    managed: { label: "2-Managed", color: "#f57c00" },
-    defined: { label: "3-Defined", color: "#fbc02d" },
-    measured: { label: "4-Measured", color: "#66bb6a" },
-    optimized: { label: "5-Optimized", color: "#2e7d32" },
-  },
-  automationLevel: {
-    manual: { label: "Manual", color: "#d32f2f" },
-    partiallyAutomated: { label: "Partial", color: "#f57c00" },
-    fullyAutomated: { label: "Fully Auto", color: "#2e7d32" },
-  },
-  riskLevel: {
-    low: { label: "Low", color: "#66bb6a" },
-    medium: { label: "Medium", color: "#fbc02d" },
-    high: { label: "High", color: "#f57c00" },
-    critical: { label: "Critical", color: "#d32f2f" },
-  },
-};
-
-
-/* ================================================================== */
-/*  Tree builder                                                       */
-/* ================================================================== */
-
-function buildTree(items: ProcItem[]): ProcNode[] {
-  const nodeMap = new Map<string, ProcNode>();
-  for (const item of items) {
-    nodeMap.set(item.id, {
-      ...item,
-      children: [],
-      level: 0,
-      deepAppCount: 0,
-      deepUniqueApps: new Map(),
-      deepDataObjects: new Map(),
-    });
-  }
-
-  const roots: ProcNode[] = [];
-  for (const node of nodeMap.values()) {
-    if (node.parent_id && nodeMap.has(node.parent_id)) {
-      nodeMap.get(node.parent_id)!.children.push(node);
-    } else {
-      roots.push(node);
-    }
-  }
-
-  function sortNodes(a: ProcNode, b: ProcNode) {
-    const oa = (a.attributes?.sortOrder as number) ?? 999;
-    const ob = (b.attributes?.sortOrder as number) ?? 999;
-    if (oa !== ob) return oa - ob;
-    return a.name.localeCompare(b.name);
-  }
-  function setLevel(nodes: ProcNode[], lvl: number) {
-    for (const n of nodes) {
-      n.level = lvl;
-      n.children.sort(sortNodes);
-      setLevel(n.children, lvl + 1);
-    }
-  }
-  roots.sort(sortNodes);
-  setLevel(roots, 1);
-
-  function propagate(n: ProcNode) {
-    const appMap = new Map<string, AppData>();
-    const doMap = new Map<string, DataObjRef>();
-    for (const a of n.apps) appMap.set(a.id, a);
-    for (const d of n.data_objects) doMap.set(d.id, d);
-    for (const ch of n.children) {
-      propagate(ch);
-      for (const [id, a] of ch.deepUniqueApps) appMap.set(id, a);
-      for (const [id, d] of ch.deepDataObjects) doMap.set(id, d);
-    }
-    n.deepUniqueApps = appMap;
-    n.deepDataObjects = doMap;
-    n.deepAppCount = appMap.size;
-  }
-  for (const r of roots) propagate(r);
-
-  return roots;
-}
-
-function getMaxLevel(nodes: ProcNode[]): number {
-  let mx = 0;
-  function walk(ns: ProcNode[]) {
-    for (const n of ns) {
-      mx = Math.max(mx, n.level);
-      walk(n.children);
-    }
-  }
-  walk(nodes);
-  return mx;
-}
-
-function findNode(nodes: ProcNode[], id: string): ProcNode | null {
-  for (const n of nodes) {
-    if (n.id === id) return n;
-    const found = findNode(n.children, id);
-    if (found) return found;
-  }
-  return null;
-}
-
-function getAncestors(nodes: ProcNode[], id: string): ProcNode[] {
-  function search(ns: ProcNode[], path: ProcNode[]): ProcNode[] | null {
-    for (const n of ns) {
-      const cur = [...path, n];
-      if (n.id === id) return cur;
-      const found = search(n.children, cur);
-      if (found) return found;
-    }
-    return null;
-  }
-  return search(nodes, []) ?? [];
-}
-
-function flatCollect(nodes: ProcNode[]): ProcNode[] {
-  const result: ProcNode[] = [];
-  function walk(ns: ProcNode[]) {
-    for (const n of ns) {
-      result.push(n);
-      walk(n.children);
-    }
-  }
-  walk(nodes);
-  return result;
-}
-
-function getCardColor(
-  node: ProcNode,
-  overlay: ColorOverlay,
-  resolveProcessType: (key: string | null | undefined) => ProcessTypeOption,
-): string {
-  const val = (node.attributes || {})[overlay] as string | undefined;
-  if (!val) return "#bdbdbd";
-  if (overlay === "processType") return resolveProcessType(val).color;
-  return ATTR_COLORS[overlay]?.[val]?.color ?? "#bdbdbd";
-}
 
 /* ================================================================== */
 /*  Process House Card                                                 */
@@ -359,8 +189,7 @@ function HouseCard({
   const subtypeLabel = stDef ? stLabel(stDef) : null;
 
   // Search highlight
-  const matchesSearch =
-    !search || node.name.toLowerCase().includes(search.toLowerCase());
+  const matchesSearch = nameMatches(node.name, search);
   const opacity = search && !matchesSearch ? 0.3 : 1;
 
   // A card is nested if rowType is a parent UUID (not a process-type row key)
@@ -1110,12 +939,7 @@ function DrawerSteps({
       </Box>
     );
 
-  // Group by lane
-  const lanes = new Map<string, NavigatorStep[]>();
-  for (const el of elements) {
-    const lane = el.lane_name || t("navigator.defaultLane");
-    lanes.set(lane, [...(lanes.get(lane) || []), el]);
-  }
+  const lanes = groupByLane(elements, t("navigator.defaultLane"));
 
   return (
     <Box>
@@ -1933,25 +1757,21 @@ function MatrixView({
                 {r.name}
               </TableCell>
               {data.columns.map((c) => {
-                const matches = data.cells.filter(
-                  (x) => x.process_id === r.id && x.application_id === c.id,
-                );
+                const { links, viaElement } = matrixCell(data.cells, r.id, c.id);
                 return (
                   <TableCell key={c.id} align="center">
-                    {matches.length > 0 && (
+                    {links.length > 0 && (
                       <Tooltip
-                        title={matches
+                        title={links
                           .map((x) =>
                             x.source === "element" ? `${t("reports.element")}: ${x.element_name}` : t("reports.relation"),
                           )
                           .join(", ")}
                       >
                         <Chip
-                          label={matches.some((x) => x.source === "element") ? "E" : "R"}
+                          label={viaElement ? "E" : "R"}
                           size="small"
-                          color={
-                            matches.some((x) => x.source === "element") ? "secondary" : "primary"
-                          }
+                          color={viaElement ? "secondary" : "primary"}
                         />
                       </Tooltip>
                     )}
@@ -2020,15 +1840,13 @@ function DependenciesView({ onNavigate }: { onNavigate: (id: string) => void }) 
           </TableHead>
           <TableBody>
             {data.edges.map((e) => {
-              const src = data.nodes.find((n) => n.id === e.source);
-              const tgt = data.nodes.find((n) => n.id === e.target);
               return (
                 <TableRow key={e.id} hover>
                   <TableCell
                     sx={{ cursor: "pointer", color: "primary.main" }}
                     onClick={() => onNavigate(e.source)}
                   >
-                    {src?.name || e.source}
+                    {nameOrId(data.nodes, e.source)}
                   </TableCell>
                   <TableCell align="center">
                     <MaterialSymbol icon="arrow_forward" size={18} />
@@ -2037,7 +1855,7 @@ function DependenciesView({ onNavigate }: { onNavigate: (id: string) => void }) 
                     sx={{ cursor: "pointer", color: "primary.main" }}
                     onClick={() => onNavigate(e.target)}
                   >
-                    {tgt?.name || e.target}
+                    {nameOrId(data.nodes, e.target)}
                   </TableCell>
                 </TableRow>
               );
@@ -2109,10 +1927,7 @@ function LevelIndicator({
 function OverlayLegend({ overlay }: { overlay: ColorOverlay }) {
   const { t } = useTranslation(["bpm", "common"]);
   const { options: processTypeOptions } = useNavigatorMeta().processTypes;
-  const items =
-    overlay === "processType"
-      ? processTypeOptions.map(({ label, color }) => ({ label, color }))
-      : Object.values(ATTR_COLORS[overlay] ?? {});
+  const items = legendItems(overlay, processTypeOptions);
   if (items.length === 0) return null;
 
   return (
@@ -2139,7 +1954,7 @@ function OverlayLegend({ overlay }: { overlay: ColorOverlay }) {
             width: 10,
             height: 10,
             borderRadius: "50%",
-            bgcolor: "#bdbdbd",
+            bgcolor: UNSET_COLOR,
             flexShrink: 0,
           }}
         />
@@ -2181,54 +1996,20 @@ export function ProcessNavigatorBody() {
   const [reordering, setReordering] = useState(false);
   const [rowOrder, setRowOrder] = useState<string[]>(["management", "core", "support"]);
 
-  // ── Load defaults from localStorage (URL params take priority) ──
-  const STORAGE_KEY = "turboea-report:process-navigator";
-  const [localConfig] = useState<Record<string, unknown> | null>(() => {
-    // A portal visitor gets the opening state its administrator configured, and
-    // nothing is remembered — a reload returns to it. Same contract as the
-    // published PPM board.
-    //
-    // Mapped onto the stored-preference key names rather than spread verbatim:
-    // the readers below look for `displayLevel`, so passing the capability's
-    // `level` through unchanged would silently ignore a configured opening level.
-    if (!caps.persistPreferences) {
-      const init = caps.initial;
-      if (!init) return null;
-      return {
-        displayLevel: init.level,
-        overlay: init.overlay,
-        columns: init.columns,
-      };
-    }
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch { /* ignore */ }
-    return null;
-  });
-
-  // ── URL-synced state (with localStorage fallback) ──
-  const hasUrlParams = searchParams.toString().length > 0;
-  const viewParam = (searchParams.get("view") as ViewMode) || (!hasUrlParams && localConfig?.viewMode as ViewMode) || "house";
-  const searchParam = searchParams.get("search") || "";
-  const levelParam = parseInt(searchParams.get("level") || (!hasUrlParams && localConfig?.displayLevel != null ? String(localConfig.displayLevel) : "2"), 10);
-  const overlayParam = (searchParams.get("overlay") as ColorOverlay) || (!hasUrlParams && localConfig?.overlay as ColorOverlay) || "processType";
-  const colsRaw = searchParams.get("cols") ?? (!hasUrlParams ? localConfig?.columns : undefined);
-  const colsNum = Number(colsRaw);
-  const colsParam: ColumnCount = isColumnCount(colsNum) ? colsNum : DEFAULT_COLUMNS;
-  const zoomParam = searchParams.get("zoom") || null;
-  const drawerParam = searchParams.get("open") || null;
-
-  const [viewMode, setViewMode] = useState<ViewMode>(viewParam);
-  const [search, setSearch] = useState(searchParam);
-  const [displayLevel, setDisplayLevel] = useState(levelParam);
-  const [overlay, setOverlay] = useState<ColorOverlay>(overlayParam);
-  const [columns, setColumns] = useState<ColumnCount>(colsParam);
-  const [zoomNodeId, setZoomNodeId] = useState<string | null>(zoomParam);
+  // ── Opening state: the URL, else stored preferences, else the defaults ──
+  const [opening] = useState(() =>
+    readOpeningState(searchParams, loadOpeningConfig(caps)),
+  );
+  const [viewMode, setViewMode] = useState<ViewMode>(opening.viewMode);
+  const [search, setSearch] = useState(opening.search);
+  const [displayLevel, setDisplayLevel] = useState(opening.displayLevel);
+  const [overlay, setOverlay] = useState<ColorOverlay>(opening.overlay);
+  const [columns, setColumns] = useState<ColumnCount>(opening.columns);
+  const [zoomNodeId, setZoomNodeId] = useState<string | null>(opening.zoomNodeId);
   const [drawerNode, setDrawerNode] = useState<ProcNode | null>(null);
   // The `?open=` the page was opened with, held until the map has loaded so the
   // URL sync below cannot erase it first.
-  const [pendingOpen, setPendingOpen] = useState<string | null>(drawerParam);
+  const [pendingOpen, setPendingOpen] = useState<string | null>(opening.openId);
   const [flowNode, setFlowNode] = useState<ProcNode | null>(null);
   const [orgFilter, setOrgFilter] = useState<RefItem[]>([]);
 
@@ -2261,32 +2042,16 @@ export function ProcessNavigatorBody() {
   // ── Organization filter ──
   const orgFilterIds = useMemo(() => new Set(orgFilter.map((o) => o.id)), [orgFilter]);
 
-  const filteredTree = useMemo(() => {
-    if (orgFilterIds.size === 0) return fullTree;
-    // A process matches if it or any descendant is linked to a selected org
-    function nodeMatchesOrg(n: ProcNode): boolean {
-      if (n.org_ids.some((oid) => orgFilterIds.has(oid))) return true;
-      return n.children.some(nodeMatchesOrg);
-    }
-    function filterChildren(nodes: ProcNode[]): ProcNode[] {
-      return nodes
-        .filter(nodeMatchesOrg)
-        .map((n) => ({ ...n, children: filterChildren(n.children) }));
-    }
-    return filterChildren(fullTree);
-  }, [fullTree, orgFilterIds]);
+  const filteredTree = useMemo(
+    () => filterTreeByOrgs(fullTree, orgFilterIds),
+    [fullTree, orgFilterIds],
+  );
 
   // ── Zoom / breadcrumbs ──
-  const { displayTree, breadcrumbs } = useMemo(() => {
-    if (!zoomNodeId) return { displayTree: filteredTree, breadcrumbs: [] as ProcNode[] };
-    const ancestors = getAncestors(filteredTree, zoomNodeId);
-    const zoomNode = findNode(filteredTree, zoomNodeId);
-    if (!zoomNode) return { displayTree: filteredTree, breadcrumbs: [] as ProcNode[] };
-    return {
-      displayTree: zoomNode.children.length > 0 ? zoomNode.children : [zoomNode],
-      breadcrumbs: ancestors,
-    };
-  }, [filteredTree, zoomNodeId]);
+  const { displayTree, breadcrumbs } = useMemo(
+    () => zoomInto(filteredTree, zoomNodeId),
+    [filteredTree, zoomNodeId],
+  );
 
   // ── Open drawer from URL param, once the map is in ──
   useEffect(() => {
@@ -2304,15 +2069,15 @@ export function ProcessNavigatorBody() {
 
   // ── Sync state → URL ──
   useEffect(() => {
-    const params: Record<string, string> = {};
-    if (viewMode !== "house") params.view = viewMode;
-    if (search) params.search = search;
-    if (displayLevel !== 2) params.level = String(displayLevel);
-    if (overlay !== "processType") params.overlay = overlay;
-    if (columns !== DEFAULT_COLUMNS) params.cols = String(columns);
-    if (zoomNodeId) params.zoom = zoomNodeId;
-    const openId = drawerNode?.id ?? pendingOpen;
-    if (openId) params.open = openId;
+    const params = stateToParams({
+      viewMode,
+      search,
+      displayLevel,
+      overlay,
+      columns,
+      zoomNodeId,
+      openId: drawerNode?.id ?? pendingOpen,
+    });
     setSearchParams(params, { replace: true });
   }, [viewMode, search, displayLevel, overlay, columns, zoomNodeId, drawerNode, pendingOpen, setSearchParams]);
 
@@ -2327,21 +2092,21 @@ export function ProcessNavigatorBody() {
         columns,
       }));
     } catch { /* ignore */ }
-  }, [viewMode, displayLevel, overlay, columns, STORAGE_KEY, caps.persistPreferences]);
+  }, [viewMode, displayLevel, overlay, columns, caps.persistPreferences]);
 
   // ── Reset all parameters to defaults ──
   const handleReset = useCallback(() => {
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
     setViewMode("house");
     setSearch("");
-    setDisplayLevel(2);
+    setDisplayLevel(DEFAULT_LEVEL);
     setOverlay("processType");
     setColumns(DEFAULT_COLUMNS);
     setZoomNodeId(null);
     setDrawerNode(null);
     setPendingOpen(null);
     setOrgFilter([]);
-  }, [STORAGE_KEY]);
+  }, []);
 
   // ── Keyboard shortcuts ──
   useEffect(() => {
@@ -2395,58 +2160,32 @@ export function ProcessNavigatorBody() {
     resolve: resolveProcessType,
   } = meta.processTypes;
 
-  const houseRows = useMemo(() => {
-    const rows: Record<string, ProcNode[]> = {};
-    for (const opt of ptOptions) rows[opt.key] = [];
-    // A hidden default type gets a row only when processes land in it (below).
-    for (const node of displayTree) {
-      const pType = (node.attributes?.processType as string) || ptDefaultKey;
-      // Unknown / hidden keys get their own synthetic row instead of being
-      // silently folded into the default row.
-      if (!rows[pType]) rows[pType] = [];
-      rows[pType].push(node);
-    }
-    return rows;
-  }, [displayTree, ptOptions, ptDefaultKey]);
+  const houseRows = useMemo(
+    () => groupHouseRows(displayTree, ptOptions.map((o) => o.key), ptDefaultKey),
+    [displayTree, ptOptions, ptDefaultKey],
+  );
 
-  // Persisted order first (stale keys dropped), then any option or
-  // data-derived row key it doesn't cover yet, in metamodel order.
-  const effectiveRowOrder = useMemo(() => {
-    const known = new Set(Object.keys(houseRows));
-    const order: string[] = [];
-    for (const key of [...rowOrder, ...ptOptions.map((o) => o.key), ...Object.keys(houseRows)]) {
-      if (known.has(key) && !order.includes(key)) order.push(key);
-    }
-    return order;
-  }, [rowOrder, ptOptions, houseRows]);
+  const effectiveRowOrder = useMemo(
+    () => orderRows(rowOrder, ptOptions.map((o) => o.key), Object.keys(houseRows)),
+    [rowOrder, ptOptions, houseRows],
+  );
 
   // ── Drag-and-drop reorder for cards (admin only) ──
   const dragRef = useRef<{ id: string; rowType: string } | null>(null);
   const handleDragDrop = useCallback(
     async (dragId: string, dropId: string, rowType: string) => {
-      if (!data || reordering || dragId === dropId) return;
-
+      if (!data || reordering) return;
       // rowType is either a process-type row key (e.g. "management")
       // or a parent node ID (for leaf cards inside a container).
-      const isProcessRow = effectiveRowOrder.includes(rowType);
-      const siblings = data
-        .filter((d) => isProcessRow
-          ? (!d.parent_id && ((d.attributes?.processType as string) || ptDefaultKey) === rowType)
-          : d.parent_id === rowType)
-        .sort((a, b) => {
-          const oa = (a.attributes?.sortOrder as number) ?? 999;
-          const ob = (b.attributes?.sortOrder as number) ?? 999;
-          if (oa !== ob) return oa - ob;
-          return a.name.localeCompare(b.name);
-        });
-
-      const fromIdx = siblings.findIndex((s) => s.id === dragId);
-      const toIdx = siblings.findIndex((s) => s.id === dropId);
-      if (fromIdx < 0 || toIdx < 0) return;
-
-      const reordered = [...siblings];
-      const [moved] = reordered.splice(fromIdx, 1);
-      reordered.splice(toIdx, 0, moved);
+      const reordered = reorderSiblings(
+        data,
+        dragId,
+        dropId,
+        rowType,
+        effectiveRowOrder.includes(rowType),
+        ptDefaultKey,
+      );
+      if (!reordered) return;
 
       if (!source.reorderCards) return;
       setReordering(true);
@@ -2465,11 +2204,8 @@ export function ProcessNavigatorBody() {
   // ── Row reorder (admin) ──
   const handleMoveRow = useCallback(
     async (rowType: string, direction: "up" | "down") => {
-      const idx = effectiveRowOrder.indexOf(rowType);
-      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-      if (idx < 0 || swapIdx < 0 || swapIdx >= effectiveRowOrder.length) return;
-      const newOrder = [...effectiveRowOrder];
-      [newOrder[idx], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[idx]];
+      const newOrder = moveRow(effectiveRowOrder, rowType, direction);
+      if (!newOrder) return;
       setRowOrder(newOrder);
       // Persist to backend
       try {
@@ -2482,26 +2218,7 @@ export function ProcessNavigatorBody() {
   );
 
   // ── Search filter for house view ──
-  const searchLower = search.toLowerCase();
-  const matchedIds = useMemo(() => {
-    if (!searchLower) return null;
-    const ids = new Set<string>();
-    for (const n of allFlat) {
-      if (n.name.toLowerCase().includes(searchLower)) {
-        ids.add(n.id);
-        // Also add ancestors so container is visible
-        let cur: ProcNode | null = n;
-        while (cur?.parent_id) {
-          const parent = allFlat.find((p) => p.id === cur!.parent_id);
-          if (parent) {
-            ids.add(parent.id);
-            cur = parent;
-          } else break;
-        }
-      }
-    }
-    return ids;
-  }, [searchLower, allFlat]);
+  const matchedIds = useMemo(() => matchingIds(allFlat, search), [search, allFlat]);
 
   const totalProcesses = allFlat.length;
   const matchCount = matchedIds ? matchedIds.size : totalProcesses;

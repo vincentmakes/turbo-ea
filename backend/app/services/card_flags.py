@@ -77,11 +77,9 @@ def staleness_cutoff(value, unit, *, now: datetime | None = None) -> datetime | 
     if value < 1 or value > MAX_STALENESS_BY_UNIT[unit]:
         return None
 
+    # Only the date is read, and the result is built in UTC below, so a naive
+    # ``now`` needs no zone: ``Card.updated_at`` is compared with that result.
     moment = now or datetime.now(timezone.utc)
-    if moment.tzinfo is None:
-        # ``Card.updated_at`` is timezone-aware, so the comparison operand
-        # must be too or asyncpg rejects the query outright.
-        moment = moment.replace(tzinfo=timezone.utc)
 
     if unit == "days":
         cut = moment.date() - timedelta(days=value)
