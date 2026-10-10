@@ -24,8 +24,10 @@ import io
 import json
 import logging
 import os
+import uuid
 import zipfile
-from collections.abc import Callable, Iterable
+from collections import Counter
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from importlib.resources import as_file, files
@@ -35,8 +37,9 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.app_settings import AppSettings
 from app.models.card import Card
+from app.models.relation import Relation
+from app.services.event_bus import event_bus
 
 logger = logging.getLogger(__name__)
 
@@ -159,16 +162,6 @@ def localize_flat_with_table(
 # ---------------------------------------------------------------------------
 
 
-async def get_app_settings(db: AsyncSession) -> AppSettings:
-    res = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-    settings: AppSettings | None = res.scalar_one_or_none()
-    if settings is None:
-        settings = AppSettings(id="default", general_settings={})
-        db.add(settings)
-        await db.flush()
-    return settings
-
-
 async def get_cached_remote(db: AsyncSession, key: str) -> dict[str, Any] | None:
     """Read a cached-remote payload from its `catalogue_cache` row.
 
@@ -194,8 +187,17 @@ class ActiveCatalogue:
     meta: dict[str, Any]
     # Applies the same locale to another list (the capability macros).
     localize: Callable[[Flat], Flat]
-    # The cached remote row as read, whichever source won.
-    cached: dict[str, Any] | None
+    # The cached remote row when it is the source being served, else None. A
+    # cache that lost to a newer bundled wheel is stale, and nothing derived
+    # from it (the capability macros) may be served beside the bundled list.
+    remote: dict[str, Any] | None
+
+
+def remote_wins(cached: dict[str, Any] | None, bundled_version: str) -> bool:
+    """A cached remote is served only when strictly newer than the bundled wheel."""
+    return cached is not None and version_tuple(
+        cached.get("catalogue_version", "0")
+    ) > version_tuple(bundled_version)
 
 
 def localize_via_bundled_table(flat: Flat, locale: str) -> Flat:
@@ -223,9 +225,7 @@ async def resolve_active_catalogue(
     """
     bundled_flat, bundled_meta = bundled
     cached = await get_cached_remote(db, cache_key)
-    if cached is None or version_tuple(cached.get("catalogue_version", "0")) <= version_tuple(
-        bundled_meta["catalogue_version"]
-    ):
+    if cached is None or not remote_wins(cached, bundled_meta["catalogue_version"]):
         active_locale = bundled_meta.get("active_locale", "en")
         return ActiveCatalogue(
             flat=bundled_flat,
@@ -235,7 +235,7 @@ async def resolve_active_catalogue(
                 "bundled_version": bundled_meta["catalogue_version"],
             },
             localize=lambda flat: localize_via_bundled_table(flat, active_locale),
-            cached=cached,
+            remote=None,
         )
 
     cached_i18n = cached.get("i18n") or {}
@@ -264,7 +264,7 @@ async def resolve_active_catalogue(
             "active_locale": effective,
         },
         localize=localize,
-        cached=cached,
+        remote=cached,
     )
 
 
@@ -455,6 +455,216 @@ async def existing_card_index_by_catalogue_id(
     return out
 
 
+def bundled_payload(
+    pkg: Any,
+    *,
+    locale: str,
+    raw: list[dict[str, Any]],
+    count_key: str,
+    count: int | None = None,
+    flatten: Callable[[Flat], Flat] = list,
+) -> tuple[Flat, dict[str, Any]]:
+    """A catalogue's bundled flat list, localized, and its version meta.
+
+    ``pkg`` is the installed ``turbo_ea_capabilities`` module as the calling
+    service sees it, ``raw`` the artefact as read from the wheel. ``count``
+    defaults to the length of the flat list.
+    """
+    available = list(pkg.available_locales())
+    effective = resolve_effective_locale(locale, available)
+    flat = flatten(raw)
+    if effective != "en":
+        table = bundled_i18n_table(effective)
+        if table:
+            flat = localize_flat_with_table(flat, table)
+    return flat, {
+        "catalogue_version": pkg.VERSION,
+        "schema_version": str(pkg.SCHEMA_VERSION),
+        "generated_at": pkg.GENERATED_AT,
+        count_key: len(flat) if count is None else count,
+        "available_locales": available,
+        "active_locale": effective,
+    }
+
+
+async def english_index(
+    resolve: Callable[..., Awaitable[tuple[Flat, dict[str, Any]]]],
+    db: AsyncSession,
+    flat: Flat,
+    meta: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    """``{entry id: entry}`` of the catalogue in English, the language names match on.
+
+    ``resolve`` is the calling service's own active-catalogue resolver; it is
+    asked again only when ``flat`` is in another language.
+    """
+    if meta.get("active_locale", "en") == "en":
+        return {node["id"]: node for node in flat}
+    english_flat, _ = await resolve(db, locale="en")
+    return {node["id"]: node for node in english_flat}
+
+
+async def match_existing_cards(
+    db: AsyncSession,
+    *,
+    flat: Flat,
+    english: dict[str, dict[str, Any]],
+    card_type: str,
+    subtypes: tuple[str, ...] | None = None,
+    by_id_only: Callable[[dict[str, Any]], bool] = lambda node: False,
+) -> dict[str, str]:
+    """``{catalogue id: card id}`` for every entry a card already stands for.
+
+    One definition for the browser's green tick and for the import's skip, so
+    the two cannot disagree. An entry matches a card by ``attributes.catalogueId``
+    first, which survives renames. Failing that it matches by its canonical
+    English name, but only when no other entry of the catalogue carries the
+    same name. The catalogues repeat names across branches (157 capability
+    names, 6 process names, 7 value-stream stage names in the 2026.9 wheel),
+    and a name shared by two entries tied both to one card: importing the
+    second branch skipped its entry, created that entry's children under the
+    first branch's card, and re-parented that card under the second branch.
+    ``by_id_only`` names entries that never match by name (macro capabilities).
+    """
+    name_index = await existing_card_index_by_name(db, card_type=card_type, subtypes=subtypes)
+    cat_id_index = await existing_card_index_by_catalogue_id(
+        db, card_type=card_type, subtypes=subtypes
+    )
+    names = {
+        node["id"]: normalize_name(english.get(node["id"], node).get("name") or "") for node in flat
+    }
+    repeats = Counter(names.values())
+    matches: dict[str, str] = {}
+    for node in flat:
+        existing = cat_id_index.get(node["id"])
+        name = names[node["id"]]
+        if existing is None and name and repeats[name] == 1 and not by_id_only(node):
+            existing = name_index.get(name)
+        if existing:
+            matches[node["id"]] = existing
+    return matches
+
+
+async def card_lookup(db: AsyncSession, card_type: str) -> dict[str, str]:
+    """``{catalogue id or normalised name: card id}`` for the cards a relation targets.
+
+    Catalogue ids (``BC-*``, ``BP-*``) and normalised English names live in
+    disjoint key spaces, so one dict serves both; a catalogue id wins.
+    """
+    cat_id_index = await existing_card_index_by_catalogue_id(db, card_type=card_type)
+    name_index = await existing_card_index_by_name(db, card_type=card_type)
+    return {**name_index, **cat_id_index}
+
+
+async def add_relation_once(
+    db: AsyncSession,
+    *,
+    relation_type: str,
+    source_id: uuid.UUID,
+    target_id: uuid.UUID,
+) -> bool:
+    """Stage the relation unless an identical one exists; True when one was added.
+
+    Each caller passes the ends in the relation type's own direction.
+    """
+    exists = await db.execute(
+        select(Relation.id).where(
+            Relation.type == relation_type,
+            Relation.source_id == source_id,
+            Relation.target_id == target_id,
+        )
+    )
+    if exists.scalar_one_or_none() is not None:
+        return False
+    db.add(Relation(type=relation_type, source_id=source_id, target_id=target_id, attributes={}))
+    return True
+
+
+async def relink_pre_existing(
+    db: AsyncSession,
+    *,
+    pre_existing: Iterable[str],
+    by_id: dict[str, dict[str, Any]],
+    created_in_batch: set[str],
+    card_ids: dict[str, str],
+    user_id: uuid.UUID,
+) -> list[dict[str, str]]:
+    """Move each existing card under its catalogue parent when this import created it.
+
+    The move is recorded on the card's History tab: it changes the card, and
+    a card whose Modified date moved with nothing in its history is one nobody
+    can triage (CLAUDE.md, *A write path that can move cards.updated_at…*).
+    """
+    relinked: list[dict[str, str]] = []
+    for cat_id in sorted(pre_existing):
+        node = by_id.get(cat_id)
+        if node is None:
+            continue
+        cat_parent = node.get("parent_id")
+        if not cat_parent or cat_parent not in created_in_batch:
+            continue
+        card = await db.get(Card, uuid.UUID(card_ids[cat_id]))
+        if card is None:
+            continue
+        new_parent = uuid.UUID(card_ids[cat_parent])
+        old_parent = card.parent_id
+        card.parent_id = new_parent
+        card.updated_by = user_id
+        await db.flush()
+        await event_bus.publish(
+            "card.updated",
+            {
+                "id": str(card.id),
+                "changes": {
+                    "parent_id": {
+                        "old": str(old_parent) if old_parent else None,
+                        "new": str(new_parent),
+                    }
+                },
+            },
+            db=db,
+            card_id=card.id,
+            user_id=user_id,
+        )
+        relinked.append(
+            {
+                "catalogue_id": cat_id,
+                "card_id": card_ids[cat_id],
+                "new_parent_card_id": card_ids[cat_parent],
+            }
+        )
+    return relinked
+
+
+def catalogue_attributes(
+    node: dict[str, Any],
+    meta: dict[str, Any],
+    now: str,
+    level: tuple[str, str],
+    copied: Iterable[tuple[str, str]] = (),
+) -> dict[str, Any]:
+    """The attributes every imported card carries, plus ``copied`` node fields.
+
+    ``level`` is the ``(attribute key, value)`` naming the card's catalogue
+    level; ``copied`` maps a node field to the attribute that keeps it when
+    the node's value is truthy (a list is copied, never shared). A field
+    whose zero is meaningful, such as a stage order, is the caller's to add.
+    """
+    attrs: dict[str, Any] = {
+        "catalogueId": node["id"],
+        "catalogueVersion": meta.get("catalogue_version"),
+        "catalogueImportedAt": now,
+        level[0]: level[1],
+    }
+    if meta.get("active_locale", "en") != "en":
+        attrs["catalogueLocale"] = meta["active_locale"]
+    for field, key in copied:
+        value = node.get(field)
+        if value:
+            attrs[key] = list(value) if isinstance(value, list) else value
+    return attrs
+
+
 # ---------------------------------------------------------------------------
 # Wheel fetch + extraction
 # ---------------------------------------------------------------------------
@@ -606,12 +816,8 @@ async def check_remote_version_for(
     artefact even though all three caches are filled by the same wheel.
     """
     cached = await get_cached_remote(db, cache_key)
-    active_version = (
-        cached["catalogue_version"]
-        if cached
-        and version_tuple(cached.get("catalogue_version", "0")) > version_tuple(bundled_version)
-        else bundled_version
-    )
+    serving_remote = remote_wins(cached, bundled_version)
+    active_version = cached["catalogue_version"] if cached and serving_remote else bundled_version
 
     remote_meta: dict[str, Any] | None = None
     error: str | None = None
@@ -642,7 +848,7 @@ async def check_remote_version_for(
 
     return {
         "active_version": active_version,
-        "active_source": "remote" if cached else "bundled",
+        "active_source": "remote" if serving_remote else "bundled",
         "bundled_version": bundled_version,
         "cached_remote_version": cached["catalogue_version"] if cached else None,
         "remote": remote_meta,

@@ -20,7 +20,7 @@ Cliquez sur l'icône utilisateur en haut à droite de l'application, dépliez **
 
 Cochez la case d'une chaîne ou d'une étape pour l'ajouter à la sélection. La sélection cascade comme dans les autres catalogues. **Sélectionner une étape entraîne automatiquement sa chaîne parente** au moment de l'import, vous ne vous retrouverez donc jamais avec des étapes orphelines — même si vous n'avez pas coché la chaîne elle-même.
 
-Les chaînes et étapes qui **existent déjà** dans votre inventaire apparaissent avec une **coche verte** au lieu d'une case.
+Les chaînes et étapes qui **existent déjà** dans votre inventaire apparaissent avec une **coche verte** au lieu d'une case. La correspondance privilégie le tampon `attributes.catalogueId` posé par un précédent import et retombe sur une comparaison du nom affiché insensible à la casse, sauf pour un nom partagé par deux entrées, comme une étape présente dans deux chaînes : une telle entrée n'est reconnue que par son `catalogueId`.
 
 ## Créer des fiches en masse
 

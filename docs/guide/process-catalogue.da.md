@@ -19,7 +19,7 @@ Klik på brugerikonet øverst til højre i appen, udvid **Referencekataloger** i
 
 Sæt flueben i afkrydsningsfeltet ud for en hvilken som helst proces for at tilføje den til markeringen. Markering kaskaderer ned ad undertræet på samme måde som kompetencekataloget — at sætte flueben i en node tilføjer den plus enhver valgbar efterkommer; at fjerne fluebenet fjerner det samme undertræ. Forfædre berøres aldrig.
 
-Processer, der **allerede findes** i dit lager, vises med et **grønt fluebenikon** i stedet for et afkrydsningsfelt. Matching foretrækker `attributes.catalogueId`-stemplet, der er efterladt af en tidligere import, og falder tilbage til et case-uafhængigt visningsnavnsmatch.
+Processer, der **allerede findes** i dit lager, vises med et **grønt fluebenikon** i stedet for et afkrydsningsfelt. Matching foretrækker `attributes.catalogueId`-stemplet, der er efterladt af en tidligere import, og falder tilbage til et case-uafhængigt visningsnavnsmatch. Et navn, som to katalogposter deler — kataloget gentager nogle navne i forskellige grene — matches aldrig på navn; en sådan post genkendes kun på sit `catalogueId`.
 
 ## Masseoprettelse af kort
 

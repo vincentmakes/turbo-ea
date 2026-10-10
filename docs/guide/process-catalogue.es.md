@@ -19,7 +19,7 @@ Pulse el icono de usuario en la esquina superior derecha de la aplicación, desp
 
 Marque la casilla junto a un proceso para añadirlo a la selección. La selección cascadea por el subárbol igual que en el catálogo de capacidades — marcar un nodo añade ese nodo más todos sus descendientes seleccionables; desmarcarlo elimina ese mismo subárbol. Los ancestros nunca se tocan.
 
-Los procesos que **ya existen** en su inventario aparecen con un **icono de visto verde** en lugar de casilla. La coincidencia prefiere el sello `attributes.catalogueId` que dejó un import anterior y, en su defecto, recurre a una comparación de nombre sin distinguir mayúsculas.
+Los procesos que **ya existen** en su inventario aparecen con un **icono de visto verde** en lugar de casilla. La coincidencia prefiere el sello `attributes.catalogueId` que dejó un import anterior y, en su defecto, recurre a una comparación de nombre sin distinguir mayúsculas. Un nombre que comparten dos entradas del catálogo —el catálogo repite algunos nombres en ramas distintas— nunca se compara por nombre; esa entrada solo se reconoce por su `catalogueId`.
 
 ## Crear tarjetas en masa
 

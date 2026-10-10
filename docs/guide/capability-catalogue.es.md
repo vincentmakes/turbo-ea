@@ -27,7 +27,7 @@ Desmarcar un único hijo solo elimina ese hijo y lo que tenga debajo — el padr
 
 La página adopta automáticamente el tema claro/oscuro de la aplicación — en modo oscuro se muestra el mismo diseño neutro sobre papel `#1e1e1e` con texto y acentos en color lavanda.
 
-Las capacidades que **ya existen** en su inventario aparecen con un **icono de marca verde** en lugar de una casilla. No pueden seleccionarse — nunca podrá crear dos veces la misma Business Capability a través del catálogo. La detección prioriza la marca `attributes.catalogueId` dejada por una importación previa (de modo que la marca verde sobrevive a cambios del nombre visible) y recurre a una comparación del nombre visible insensible a mayúsculas/minúsculas para las tarjetas creadas a mano.
+Las capacidades que **ya existen** en su inventario aparecen con un **icono de marca verde** en lugar de una casilla. No pueden seleccionarse — nunca podrá crear dos veces la misma Business Capability a través del catálogo. La detección prioriza la marca `attributes.catalogueId` dejada por una importación previa (de modo que la marca verde sobrevive a cambios del nombre visible) y recurre a una comparación del nombre visible insensible a mayúsculas/minúsculas para las tarjetas creadas a mano. Un nombre que comparten dos entradas del catálogo —el catálogo repite algunos nombres en ramas distintas— nunca se compara por nombre; esa entrada solo se reconoce por su `catalogueId`.
 
 ## Creación masiva de tarjetas
 

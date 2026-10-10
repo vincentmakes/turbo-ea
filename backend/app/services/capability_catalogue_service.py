@@ -18,11 +18,9 @@ existing-card lookup, wheel extraction) live in `catalogue_common`.
 from __future__ import annotations
 
 import logging
-import uuid
 from typing import Any
 
 import turbo_ea_capabilities as catalogue_pkg
-from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
@@ -42,6 +40,14 @@ SETTINGS_KEY: str = common.CAPABILITY_CACHE_KEY
 MACRO_LEVEL: int = 0
 MACRO_CAPABILITY_LEVEL_KEY: str = "Macro"
 MACRO_ID_PREFIX: str = "MC-"
+
+# Catalogue fields an imported card keeps as attributes, when present.
+_COPIED_ATTRIBUTES: tuple[tuple[str, str], ...] = (
+    ("aliases", "aliases"),
+    ("industry", "industry"),
+    ("tags", "tags"),
+    ("deprecated", "deprecated"),
+)
 
 
 # ---------------------------------------------------------------------------
@@ -63,22 +69,13 @@ def _bundled_payload(*, locale: str = "en") -> tuple[list[dict[str, Any]], dict[
     here means a future stricter validator on any artefact type cannot
     break Turbo EA's catalogue endpoints.
     """
-    available = _bundled_available_locales()
-    effective = common.resolve_effective_locale(locale, available)
-    flat = common.load_bundled_capabilities_raw()
-    if effective != "en":
-        table = common.bundled_i18n_table(effective)
-        if table:
-            flat = common.localize_flat_with_table(flat, table)
-    meta = {
-        "catalogue_version": catalogue_pkg.VERSION,
-        "schema_version": str(catalogue_pkg.SCHEMA_VERSION),
-        "generated_at": catalogue_pkg.GENERATED_AT,
-        "node_count": getattr(catalogue_pkg, "NODE_COUNT", len(flat)),
-        "available_locales": list(available),
-        "active_locale": effective,
-    }
-    return flat, meta
+    return common.bundled_payload(
+        catalogue_pkg,
+        locale=locale,
+        raw=common.load_bundled_capabilities_raw(),
+        count_key="node_count",
+        count=getattr(catalogue_pkg, "NODE_COUNT", None),
+    )
 
 
 def _macro_to_capability_entry(macro: dict[str, Any]) -> dict[str, Any]:
@@ -136,9 +133,7 @@ def _inject_macros(
     claimed_by: dict[str, str] = {}
     warnings: list[str] = []
     for macro in macros:
-        macro_id = macro.get("id")
-        if not macro_id:
-            continue
+        macro_id = macro["id"]
         for cap_id in macro.get("capability_ids") or []:
             if cap_id in claimed_by:
                 warnings.append(
@@ -168,14 +163,14 @@ def _bundled_macros() -> list[dict[str, Any]]:
     return common.load_bundled_macros_raw()
 
 
-def _resolve_active_macros(cached: dict[str, Any] | None) -> list[dict[str, Any]]:
-    """Pick macros from the cached remote when active, else the bundled wheel.
+def _resolve_active_macros(remote: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Macros from the cached remote when it is the source served, else the bundled wheel.
 
-    Mirrors `_resolve_active_catalogue` selection logic so macros stay in
-    sync with the capabilities payload they group.
+    ``remote`` is ``ActiveCatalogue.remote``: None whenever the bundled wheel
+    won, so a stale cache's macros never regroup a newer bundled list.
     """
-    if cached is not None:
-        cached_macros = cached.get("macros")
+    if remote is not None:
+        cached_macros = remote.get("macros")
         if isinstance(cached_macros, list):
             return cached_macros
     return _bundled_macros()
@@ -207,7 +202,7 @@ async def _resolve_active_catalogue(
         bundled_locales=_bundled_available_locales(),
         count_key="node_count",
     )
-    macros = active.localize(_resolve_active_macros(active.cached))
+    macros = active.localize(_resolve_active_macros(active.remote))
     merged, warnings = _inject_macros(active.flat, macros)
     return merged, {**active.meta, "macro_count": len(macros), "macro_warnings": warnings}
 
@@ -231,28 +226,29 @@ async def get_catalogue_payload(
     English name.
     """
     flat, meta = await _resolve_active_catalogue(db, locale=locale)
-    name_index = await common.existing_card_index_by_name(db, card_type=BUSINESS_CAPABILITY_TYPE)
-    cat_id_index = await common.existing_card_index_by_catalogue_id(
-        db, card_type=BUSINESS_CAPABILITY_TYPE
-    )
-    english_names: dict[str, str] | None = None
-    if meta.get("active_locale", "en") != "en":
-        english_flat, _ = await _resolve_active_catalogue(db, locale="en")
-        english_names = {c["id"]: c["name"] for c in english_flat}
-    annotated: list[dict[str, Any]] = []
-    for cap in flat:
-        cap_id = cap["id"]
-        # Macros: match by catalogueId only. A customer might already have a
-        # card named e.g. "Enterprise Governance & Risk" that has nothing to
-        # do with macro MC-10; falling back to name-match would silently
-        # re-link unrelated L1s under it on the next macro import.
-        if cap_id.startswith(MACRO_ID_PREFIX):
-            existing = cat_id_index.get(cap_id)
-        else:
-            match_name = (english_names or {}).get(cap_id, cap["name"])
-            existing = cat_id_index.get(cap_id) or name_index.get(common.normalize_name(match_name))
-        annotated.append({**cap, "existing_card_id": existing})
+    existing = await _existing_cards(db, flat, meta)
+    annotated = [{**cap, "existing_card_id": existing.get(cap["id"])} for cap in flat]
     return {"version": meta, "capabilities": annotated}
+
+
+def _is_macro(node: dict[str, Any]) -> bool:
+    return str(node["id"]).startswith(MACRO_ID_PREFIX)
+
+
+async def _existing_cards(
+    db: AsyncSession, flat: list[dict[str, Any]], meta: dict[str, Any]
+) -> dict[str, str]:
+    # Macros match by catalogueId only. A customer might already have a card
+    # named e.g. "Enterprise Governance & Risk" that has nothing to do with
+    # macro MC-10; a name match would silently re-link unrelated L1s under it
+    # on the next macro import.
+    return await common.match_existing_cards(
+        db,
+        flat=flat,
+        english=await common.english_index(_resolve_active_catalogue, db, flat, meta),
+        card_type=BUSINESS_CAPABILITY_TYPE,
+        by_id_only=_is_macro,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -269,8 +265,9 @@ async def import_capabilities(
 ) -> dict[str, Any]:
     """Bulk-create BusinessCapability cards for the given catalogue ids.
 
-    - Skips any catalogue id whose name already matches an existing active
-      BusinessCapability card (idempotent).
+    - Skips any catalogue id an active BusinessCapability card already stands
+      for (idempotent): matched by catalogueId, or by an English name no
+      other catalogue entry shares (``common.match_existing_cards``).
     - Wires `parent_id` to existing matches OR to siblings created in this
       same call so the catalogue hierarchy is reproduced.
     - Re-parents existing children whose new catalogue parent was just
@@ -278,37 +275,14 @@ async def import_capabilities(
     """
     flat, meta = await _resolve_active_catalogue(db, locale=locale)
     by_id = {c["id"]: c for c in flat}
-    if meta.get("active_locale", "en") != "en":
-        english_flat, _ = await _resolve_active_catalogue(db, locale="en")
-        english_by_id = {c["id"]: c for c in english_flat}
-    else:
-        english_by_id = by_id
-    name_index = await common.existing_card_index_by_name(db, card_type=BUSINESS_CAPABILITY_TYPE)
-    cat_id_index = await common.existing_card_index_by_catalogue_id(
-        db, card_type=BUSINESS_CAPABILITY_TYPE
-    )
-
-    catalogue_id_to_card_id: dict[str, str] = {}
-    for cap in flat:
-        cap_id = cap["id"]
-        # Macros: match by catalogueId only (see get_catalogue_payload for why).
-        if cap_id.startswith(MACRO_ID_PREFIX):
-            existing_card_id = cat_id_index.get(cap_id)
-        else:
-            english_name = english_by_id.get(cap_id, cap)["name"]
-            existing_card_id = cat_id_index.get(cap_id) or name_index.get(
-                common.normalize_name(english_name)
-            )
-        if existing_card_id:
-            catalogue_id_to_card_id[cap_id] = existing_card_id
-    pre_existing_ids: set[str] = set(catalogue_id_to_card_id.keys())
+    catalogue_id_to_card_id = await _existing_cards(db, flat, meta)
+    pre_existing_ids: set[str] = set(catalogue_id_to_card_id)
 
     requested = {cid for cid in catalogue_ids if cid in by_id}
     ordered = common.bfs_order_by_parent(requested, by_id)
 
     created: list[dict[str, str]] = []
     skipped: list[dict[str, str]] = []
-    relinked: list[dict[str, str]] = []
     created_in_batch: set[str] = set()
     now = common.now_iso()
     user_id = user.id
@@ -324,73 +298,35 @@ async def import_capabilities(
             )
             continue
 
-        parent_card_id: Any = None
         cat_parent = cap.get("parent_id")
-        if cat_parent and cat_parent in catalogue_id_to_card_id:
-            parent_card_id = catalogue_id_to_card_id[cat_parent]
-
         level_key = (
             MACRO_CAPABILITY_LEVEL_KEY if cap["level"] == MACRO_LEVEL else f"L{cap['level']}"
         )
-        attrs: dict[str, Any] = {
-            "catalogueId": cap["id"],
-            "catalogueVersion": meta.get("catalogue_version"),
-            "catalogueImportedAt": now,
-            "capabilityLevel": level_key,
-        }
-        if meta.get("active_locale", "en") != "en":
-            attrs["catalogueLocale"] = meta["active_locale"]
-        if cap.get("aliases"):
-            attrs["aliases"] = list(cap["aliases"])
-        if cap.get("industry"):
-            attrs["industry"] = cap["industry"]
-        if cap.get("tags"):
-            attrs["tags"] = list(cap["tags"])
-        if cap.get("deprecated"):
-            attrs["deprecated"] = True
-
         card = Card(
             type=BUSINESS_CAPABILITY_TYPE,
             name=cap["name"],
             description=cap.get("description"),
-            parent_id=parent_card_id,
-            attributes=attrs,
+            parent_id=catalogue_id_to_card_id.get(cat_parent) if cat_parent else None,
+            attributes=common.catalogue_attributes(
+                cap, meta, now, ("capabilityLevel", level_key), _COPIED_ATTRIBUTES
+            ),
             created_by=user_id,
             updated_by=user_id,
         )
         db.add(card)
         await db.flush()
         catalogue_id_to_card_id[cap["id"]] = str(card.id)
-        name_index[common.normalize_name(cap["name"])] = str(card.id)
-        english_name = english_by_id.get(cap["id"], cap)["name"]
-        if english_name and english_name != cap["name"]:
-            name_index[common.normalize_name(english_name)] = str(card.id)
         created.append({"catalogue_id": cap["id"], "card_id": str(card.id)})
         created_in_batch.add(cap["id"])
 
-    for cat_id in pre_existing_ids:
-        cap_data = by_id.get(cat_id)
-        if cap_data is None:
-            continue
-        cat_parent = cap_data.get("parent_id")
-        if not cat_parent or cat_parent not in created_in_batch:
-            continue
-        existing_card_id = catalogue_id_to_card_id[cat_id]
-        new_parent_card_id = catalogue_id_to_card_id[cat_parent]
-        existing_uuid = uuid.UUID(existing_card_id)
-        new_parent_uuid = uuid.UUID(new_parent_card_id)
-        await db.execute(
-            update(Card)
-            .where(Card.id == existing_uuid)
-            .values(parent_id=new_parent_uuid, updated_by=user_id)
-        )
-        relinked.append(
-            {
-                "catalogue_id": cat_id,
-                "card_id": existing_card_id,
-                "new_parent_card_id": new_parent_card_id,
-            }
-        )
+    relinked = await common.relink_pre_existing(
+        db,
+        pre_existing=pre_existing_ids,
+        by_id=by_id,
+        created_in_batch=created_in_batch,
+        card_ids=catalogue_id_to_card_id,
+        user_id=user_id,
+    )
 
     await db.commit()
     macro_warnings = list(meta.get("macro_warnings") or [])

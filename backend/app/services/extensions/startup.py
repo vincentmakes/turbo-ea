@@ -16,7 +16,11 @@ from sqlalchemy import select
 
 from app.database import async_session
 from app.services.extensions.events import start_extension_event_dispatchers
-from app.services.extensions.jobs import build_context, start_extension_jobs
+from app.services.extensions.jobs import (
+    build_context,
+    extension_may_run,
+    start_extension_jobs,
+)
 from app.services.extensions.loader import LoadReport
 from app.services.extensions.migrations import run_extension_migrations
 from app.services.extensions.notification_channels import start_notification_channels
@@ -69,15 +73,7 @@ async def initialize_extensions(report: LoadReport) -> list[asyncio.Task]:
     if not report.loaded and not report.failed:
         return []
 
-    should_run = {
-        ext.key: (
-            (info := extension_registry.get(ext.key)) is not None
-            and info.enabled
-            and info.status not in ("removed", "disabled", "failed")
-            and extension_registry.entitlement(ext.key).usable
-        )
-        for ext in report.loaded
-    }
+    should_run = {ext.key: extension_may_run(ext.key) for ext in report.loaded}
 
     migration_errors = await run_extension_migrations(report, should_run=should_run)
     if migration_errors:

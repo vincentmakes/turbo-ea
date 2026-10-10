@@ -12,6 +12,7 @@ from __future__ import annotations
 import io
 import json
 import types
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -1545,3 +1546,93 @@ async def test_a_newer_cached_catalogue_brings_its_own_macros(db, monkeypatch):
     )
     payload = await svc.get_catalogue_payload(db)
     assert payload["version"]["macro_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_a_stale_cached_catalogue_does_not_lend_its_macros(db, monkeypatch):
+    """A cache older than the bundled wheel is not served, so neither are its
+    macros: they would regroup the newer bundled capabilities."""
+    _install_fake_pkg(monkeypatch, macros=_FAKE_MACROS)
+    from app.services import capability_catalogue_service as svc
+
+    finance = {"id": "BC-2", "name": "Finance", "level": 1, "parent_id": None}
+    stale_macro = {"id": "MC-99", "name": "From a stale cache", "capability_ids": ["BC-2"]}
+    await common.set_cached_remote(
+        db,
+        {
+            svc.SETTINGS_KEY: {
+                "data": [finance],
+                "catalogue_version": "0.9.0",
+                "macros": [stale_macro],
+            }
+        },
+    )
+    payload = await svc.get_catalogue_payload(db)
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+    assert payload["version"]["source"] == "bundled"
+    assert "MC-99" not in by_id
+    assert by_id["BC-2"]["parent_id"] == "MC-20"
+    assert payload["version"]["macro_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_imported_capability_attributes(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    caps = [
+        {
+            "id": "BC-7",
+            "name": "Claims Handling",
+            "level": 2,
+            "parent_id": None,
+            "description": "Handle claims",
+            "aliases": ["Claims"],
+            "industry": "Insurance",
+            "tags": ["core"],
+            "deprecated": True,
+            "references": ["https://example.invalid"],
+        }
+    ]
+    monkeypatch.setattr(common, "load_bundled_capabilities_raw", lambda: list(caps))
+    user = await create_user(db, email="cap-attrs@x.com")
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["BC-7"])
+    card_id = {c["catalogue_id"]: c["card_id"] for c in result["created"]}["BC-7"]
+    card = (await db.execute(select(Card).where(Card.id == uuid.UUID(card_id)))).scalar_one()
+    attrs = dict(card.attributes)
+    assert isinstance(attrs.pop("catalogueImportedAt"), str)
+    # references are not carried on capability cards; everything else is
+    assert attrs == {
+        "catalogueId": "BC-7",
+        "catalogueVersion": "1.2.3",
+        "capabilityLevel": "L2",
+        "aliases": ["Claims"],
+        "industry": "Insurance",
+        "tags": ["core"],
+        "deprecated": True,
+    }
+    assert (card.name, card.description, card.parent_id) == (
+        "Claims Handling",
+        "Handle claims",
+        None,
+    )
+    assert result["relinked"] == []
+    assert result["warnings"] == []
+
+
+def test_bundled_payload_counts_from_the_package_constant(monkeypatch):
+    # The wheel's NODE_COUNT is the count shown; a wheel without one counts the list.
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    monkeypatch.setattr(svc.catalogue_pkg, "NODE_COUNT", 99)
+    assert svc._bundled_payload()[1]["node_count"] == 99
+    monkeypatch.delattr(svc.catalogue_pkg, "NODE_COUNT")
+    assert svc._bundled_payload()[1]["node_count"] == len(_FAKE_CATALOGUE)
+
+
+def test_a_macro_is_known_by_its_id_prefix():
+    from app.services import capability_catalogue_service as svc
+
+    assert svc._is_macro({"id": "MC-1"}) is True
+    assert svc._is_macro({"id": "BC-1"}) is False

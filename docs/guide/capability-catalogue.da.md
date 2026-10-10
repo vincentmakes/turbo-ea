@@ -27,7 +27,7 @@ Når du derfor afmarkerer et enkelt barn, fjernes kun det barn og det, der ligge
 
 Siden tilpasser sig automatisk app'ens lyse/mørke tema — mørk tilstand gengiver det samme neutrale layout på `#1e1e1e`-papir med løftet-lavendel-tekst og accenter.
 
-Kompetencer, der **allerede findes** i dit lager, vises med et **grønt fluebensikon** i stedet for et afkrydsningsfelt. De kan ikke vælges — du kan aldrig oprette den samme Business Capability to gange via kataloget. Matchning foretrækker stemplet `attributes.catalogueId` efterladt af en tidligere import (så det grønne flueben overlever ændringer af visningsnavn) og falder tilbage til en case-uafhængig visningsnavn-matchning for kort, du har oprettet i hånden.
+Kompetencer, der **allerede findes** i dit lager, vises med et **grønt fluebensikon** i stedet for et afkrydsningsfelt. De kan ikke vælges — du kan aldrig oprette den samme Business Capability to gange via kataloget. Matchning foretrækker stemplet `attributes.catalogueId` efterladt af en tidligere import (så det grønne flueben overlever ændringer af visningsnavn) og falder tilbage til en case-uafhængig visningsnavn-matchning for kort, du har oprettet i hånden. Et navn, som to katalogposter deler — kataloget gentager nogle navne i forskellige grene — matches aldrig på navn; en sådan post genkendes kun på sit `catalogueId`.
 
 ## Masseoprettelse af kort
 

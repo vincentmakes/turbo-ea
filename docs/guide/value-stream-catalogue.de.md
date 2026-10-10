@@ -20,7 +20,7 @@ Klicken Sie oben rechts in der App auf das Benutzersymbol, klappen Sie im Menü 
 
 Setzen Sie das Häkchen neben einem Stream oder einer Stage, um sie zur Auswahl hinzuzufügen. Die Auswahl kaskadiert wie in den anderen Katalogen. **Das Auswählen einer Stage zieht beim Import automatisch ihren übergeordneten Stream mit**, sodass keine verwaisten Stages entstehen — selbst wenn Sie den Stream selbst nicht angekreuzt haben.
 
-Streams und Stages, die **bereits existieren**, erscheinen mit einem **grünen Häkchen** statt einer Checkbox.
+Streams und Stages, die **bereits existieren**, erscheinen mit einem **grünen Häkchen** statt einer Checkbox. Beim Abgleich wird zuerst der `attributes.catalogueId`-Stempel eines vorherigen Imports geprüft, danach der Anzeigename ohne Beachtung der Groß-/Kleinschreibung — außer bei einem Namen, den zwei Einträge teilen, etwa einer Stage, die in zwei Streams vorkommt: Ein solcher Eintrag wird nur über seine `catalogueId` erkannt.
 
 ## Karten gebündelt anlegen
 

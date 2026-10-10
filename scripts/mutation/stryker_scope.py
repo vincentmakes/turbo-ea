@@ -19,29 +19,40 @@ and nothing when no such file changed. Stryker's ``--mutate`` replaces the
 config's list entirely, which is what scopes the run to those lines.
 
 ``shard`` prints the same kind of value for slice K of N of everything the
-config selects, dealt largest-first by size like the backend's test shards, so
-the nightly can spread the whole frontend over N runners.
+config selects, so the nightly can spread the whole frontend over N runners.
+
+The deal is by a hash of the path, never by size: a file belongs to one of
+``N * CHUNKS`` global chunks, ``crc32(path) % (N * CHUNKS)``, and global chunk
+``g`` is chunk ``g // N`` of shard ``g % N + 1``. A file therefore keeps its
+shard and its chunk for as long as its path and the shard count do, whatever
+happens to the size of any other file. The size-balanced deal this replaced
+re-dealt most files every night (436 of 528 between two runs), and since each
+shard caches its own state, a file that moved was scored from whatever report
+its new shard happened to hold, weeks old or from before its tests existed.
 
 ``nightly`` makes a shard RESUMABLE, which Stryker alone is not: it writes
 its incremental file only when a whole run completes, so a cold shard that
 overran its budget would lose every result, every night. The shard's files are
-split into ``CHUNKS`` stable chunks (by a hash of the path, so a new file never
-moves the others), each with its own incremental file and last report in the
-cached ``--state`` directory. Chunks run oldest-report-first until the budget
-is spent; a chunk cut off by the budget keeps its previous report. A chunk
-whose last report was made from the same inputs (``inputs_digest``: every file
-under ``src/`` plus the lockfile and the Stryker/Vitest/TypeScript configs) is
-skipped: Stryker pays a full dry run per chunk even when it reuses every
-result, which on a quiet night was hours per shard spent re-running nothing,
-and the second half of the budget walked every chunk the first half had just
-finished.
+split into ``CHUNKS`` stable chunks (above), each with its own incremental
+file and last report in the cached ``--state`` directory. Chunks run
+oldest-report-first until the budget is spent; a chunk cut off by the budget
+keeps its previous report. A chunk whose last report was made from the same
+inputs (``inputs_digest``: every file under ``src/`` plus the lockfile and the
+Stryker/Vitest/TypeScript configs) is skipped: Stryker pays a full dry run per
+chunk even when it reuses every result, which on a quiet night was hours per
+shard spent re-running nothing, and the second half of the budget walked every
+chunk the first half had just finished.
 
 ``collect`` reads a report (mutation-testing-report-schema) and writes the
 records ``gate.py`` scores; with ``--changed`` it keeps only mutants whose
 location overlaps a changed line, so a mutant the incremental file carried
 over from elsewhere in the file never counts. With ``--state`` it merges the
 chunk reports of a shard and adds a ``pending`` record for every shard file no
-chunk has measured yet, so the gate shows the baseline's progress.
+chunk has measured yet, so the gate shows the baseline's progress. A chunk's
+report is read only for the files that chunk holds now: Stryker's incremental
+mode copies every mutant of a file that has left the run into the new report
+("so they aren't forgotten"), and without the filter those stale verdicts
+would score a file the chunk never tested.
 
 A chunk whose Stryker run fails is failed by a test that failed on UNMUTATED
 code in Stryker's initial run (or, rarely, by Stryker itself). ``nightly``
@@ -187,25 +198,42 @@ def mutable_files(frontend: Path = FRONTEND, config_path: Path = CONFIG) -> list
     return sorted(found)
 
 
-def shard_files(shard: str, frontend: Path = FRONTEND, config_path: Path = CONFIG) -> list[str]:
+def parse_shard(shard: str) -> tuple[int, int]:
     index, _, count = shard.partition("/")
     k, n = int(index), int(count)
     if n < 1 or not 1 <= k <= n:
         raise ValueError(f"--shard expects K/N with 1 <= K <= N, got {shard!r}")
-    files = mutable_files(frontend, config_path)
-    sizes = {rel: (frontend / rel).stat().st_size for rel in files}
-    load = [0] * n
-    mine = []
-    for rel in sorted(files, key=lambda r: (-sizes[r], r)):
-        lightest = min(range(n), key=lambda i: (load[i], i))
-        load[lightest] += sizes[rel]
-        if lightest == k - 1:
-            mine.append(rel)
-    return sorted(mine)
+    return k, n
 
 
-def chunk_of(path: str, chunks: int | None = None) -> int:
-    return zlib.crc32(path.encode("utf-8")) % (chunks or CHUNKS)
+def _global_chunk(path: str, shards: int, chunks: int | None) -> int:
+    return zlib.crc32(path.encode("utf-8")) % (shards * (chunks or CHUNKS))
+
+
+def shard_of(path: str, shards: int, chunks: int | None = None) -> int:
+    """The shard (1-based) a file belongs to; it depends on nothing but its path."""
+    return _global_chunk(path, shards, chunks) % shards + 1
+
+
+def chunk_of(path: str, chunks: int | None = None, shards: int = 1) -> int:
+    """The file's chunk inside its shard; with one shard, ``crc32 % chunks``."""
+    return _global_chunk(path, shards, chunks) // shards
+
+
+def shard_files(shard: str, frontend: Path = FRONTEND, config_path: Path = CONFIG) -> list[str]:
+    k, n = parse_shard(shard)
+    return [rel for rel in mutable_files(frontend, config_path) if shard_of(rel, n) == k]
+
+
+def shard_chunks(
+    shard: str, frontend: Path = FRONTEND, config_path: Path = CONFIG
+) -> dict[int, list[str]]:
+    """A shard's files grouped by chunk, each list sorted."""
+    _, n = parse_shard(shard)
+    groups: dict[int, list[str]] = {}
+    for rel in shard_files(shard, frontend, config_path):
+        groups.setdefault(chunk_of(rel, shards=n), []).append(rel)
+    return groups
 
 
 def shard_index(shard: str) -> str:
@@ -324,9 +352,7 @@ def nightly(
     ``harness_path``, as entries appended to that file for the report job.
     """
     state.mkdir(parents=True, exist_ok=True)
-    groups: dict[int, list[str]] = {}
-    for rel in shard_files(shard, frontend, config_path):
-        groups.setdefault(chunk_of(rel), []).append(rel)
+    groups = shard_chunks(shard, frontend, config_path)
 
     def last_report(chunk: int) -> float:
         path = _report_path(state, shard, chunk)
@@ -397,14 +423,31 @@ def nightly(
     return 0
 
 
-def merged_report(state: Path, shard: str) -> dict:
-    """The newest result for every file across a shard's chunk reports."""
+def _relative(name: str, frontend: Path) -> str:
+    path = Path(name)
+    return path.relative_to(frontend).as_posix() if path.is_absolute() else path.as_posix()
+
+
+def merged_report(
+    state: Path, shard: str, frontend: Path = FRONTEND, config_path: Path = CONFIG
+) -> dict:
+    """The newest result for every file of a shard, each from the chunk that holds it.
+
+    A chunk's report speaks only for the files the chunk holds now. Stryker's
+    incremental mode carries the old mutants of a file that left the run into
+    the new report, so the same file can appear in the report of a chunk that
+    never tested it; those entries are dropped here.
+    """
+    members = {c: set(files) for c, files in shard_chunks(shard, frontend, config_path).items()}
+    prefix = f"chunk-{shard_index(shard)}-"
     files: dict = {}
-    paths = sorted(
-        state.glob(f"chunk-{shard_index(shard)}-*.mutation.json"), key=lambda p: p.stat().st_mtime
-    )
+    paths = sorted(state.glob(f"{prefix}*.mutation.json"), key=lambda p: p.stat().st_mtime)
     for path in paths:  # oldest first, so a newer report of a file wins
-        files.update(json.loads(path.read_text("utf-8")).get("files", {}))
+        chunk = int(path.name[len(prefix) : -len(".mutation.json")])
+        own = members.get(chunk, set())
+        for name, entry in json.loads(path.read_text("utf-8")).get("files", {}).items():
+            if _relative(name, frontend) in own:
+                files[name] = entry
     return {"files": files}
 
 
@@ -412,12 +455,7 @@ def collect_state(
     state: Path, shard: str, frontend: Path = FRONTEND, config_path: Path = CONFIG
 ) -> list[dict]:
     mine = shard_files(shard, frontend, config_path)
-    report = merged_report(state, shard)
-    report["files"] = {
-        k: v
-        for k, v in report["files"].items()
-        if (Path(k).relative_to(frontend).as_posix() if Path(k).is_absolute() else k) in mine
-    }
+    report = merged_report(state, shard, frontend, config_path)
     records = collect(report, None, frontend)
     measured = {r["file"] for r in records}
     for rel in mine:
