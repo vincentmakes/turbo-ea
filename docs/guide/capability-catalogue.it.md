@@ -27,7 +27,7 @@ Deselezionare un singolo figlio rimuove quindi soltanto quel figlio e ciò che s
 
 La pagina adotta automaticamente il tema chiaro/scuro dell'app — in modalità scura viene reso lo stesso layout neutro su carta `#1e1e1e` con testo e accenti color lavanda.
 
-Le capacità che **esistono già** nel proprio inventario appaiono con un'**icona di spunta verde** invece di una casella. Non possono essere selezionate — non si potrà mai creare due volte la stessa Business Capability tramite il catalogo. La corrispondenza preferisce il marcatore `attributes.catalogueId` lasciato da un'importazione precedente (così la spunta verde sopravvive alle modifiche del nome visualizzato) e ricade su un confronto del nome visualizzato insensibile alle maiuscole per le carte create a mano.
+Le capacità che **esistono già** nel proprio inventario appaiono con un'**icona di spunta verde** invece di una casella. Non possono essere selezionate — non si potrà mai creare due volte la stessa Business Capability tramite il catalogo. La corrispondenza preferisce il marcatore `attributes.catalogueId` lasciato da un'importazione precedente (così la spunta verde sopravvive alle modifiche del nome visualizzato) e ricade su un confronto del nome visualizzato insensibile alle maiuscole per le carte create a mano. Un nome condiviso da due voci del catalogo — il catalogo ripete alcuni nomi in rami diversi — non viene mai abbinato per nome; una voce del genere è riconosciuta solo dal suo `catalogueId`.
 
 ## Creazione massiva delle carte
 

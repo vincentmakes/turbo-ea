@@ -27,7 +27,7 @@ Desmarcar um único filho remove apenas esse filho e o que estiver abaixo — o 
 
 A página adopta automaticamente o tema claro/escuro da aplicação — no modo escuro é apresentado o mesmo layout neutro sobre papel `#1e1e1e` com texto e destaques em cor lavanda.
 
-As capacidades que **já existem** no seu inventário aparecem com um **ícone de visto verde** em vez de uma caixa. Não podem ser selecionadas — nunca poderá criar duas vezes a mesma Business Capability através do catálogo. A correspondência prefere a marca `attributes.catalogueId` deixada por uma importação anterior (assim o visto verde sobrevive às alterações do nome visível) e recorre a uma comparação do nome visível insensível a maiúsculas para as cartas criadas à mão.
+As capacidades que **já existem** no seu inventário aparecem com um **ícone de visto verde** em vez de uma caixa. Não podem ser selecionadas — nunca poderá criar duas vezes a mesma Business Capability através do catálogo. A correspondência prefere a marca `attributes.catalogueId` deixada por uma importação anterior (assim o visto verde sobrevive às alterações do nome visível) e recorre a uma comparação do nome visível insensível a maiúsculas para as cartas criadas à mão. Um nome partilhado por duas entradas do catálogo — o catálogo repete alguns nomes em ramos diferentes — nunca é comparado pelo nome; essa entrada só é reconhecida pelo seu `catalogueId`.
 
 ## Criação em massa de cartas
 

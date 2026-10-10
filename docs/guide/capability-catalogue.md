@@ -27,7 +27,7 @@ So unticking a single child only removes that child and what's below — its par
 
 The page picks up the app-wide light/dark theme automatically — dark mode renders the same neutral layout on `#1e1e1e` paper with lifted-lavender text and accents.
 
-Capabilities that **already exist** in your inventory appear with a **green check icon** instead of a checkbox. They cannot be selected — you can never create the same Business Capability twice through the catalogue. Matching prefers the `attributes.catalogueId` stamp left by a previous import (so the green tick survives display-name edits) and falls back to a case-insensitive display-name match for cards you created by hand.
+Capabilities that **already exist** in your inventory appear with a **green check icon** instead of a checkbox. They cannot be selected — you can never create the same Business Capability twice through the catalogue. Matching prefers the `attributes.catalogueId` stamp left by a previous import (so the green tick survives display-name edits) and falls back to a case-insensitive display-name match for cards you created by hand. A name that two catalogue entries share — the catalogue repeats some names in different branches — never matches by name; such an entry is recognised by its `catalogueId` only.
 
 ## Mass-creating cards
 

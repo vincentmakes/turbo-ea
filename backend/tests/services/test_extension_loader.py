@@ -8,9 +8,11 @@ the entitlement gate, and the sequential migration runner.
 from __future__ import annotations
 
 import base64
+import copy
 import json
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
@@ -19,6 +21,8 @@ from httpx import ASGITransport, AsyncClient
 from app.core import permissions as perm_registry
 from app.services.extensions.license import Entitlement, LicenseDocument
 from app.services.extensions.loader import (
+    LoadedExtension,
+    LoadReport,
     load_extensions,
     merge_extension_permissions,
     mount_extension_routers,
@@ -389,3 +393,100 @@ class TestMigrationRunner:
                 )
             ).scalar_one()
         assert count == 0
+
+
+# ---------------------------------------------------------------------------
+# Fail-soft paths, with stand-in extension instances (no wheel needed)
+# ---------------------------------------------------------------------------
+
+
+def _report_with(**instances) -> LoadReport:
+    return LoadReport(
+        loaded=[
+            LoadedExtension(
+                key=key,
+                manifest={},
+                directory=Path("."),
+                instance=None if spec is None else SimpleNamespace(**spec),
+            )
+            for key, spec in instances.items()
+        ]
+    )
+
+
+@pytest.fixture
+def pristine_permissions():
+    before_keys = set(perm_registry.ALL_APP_PERMISSION_KEYS)
+    before_group = copy.deepcopy(perm_registry.APP_PERMISSIONS.get("extensions"))
+    yield
+    perm_registry.ALL_APP_PERMISSION_KEYS.clear()
+    perm_registry.ALL_APP_PERMISSION_KEYS.update(before_keys)
+    if before_group is None:
+        perm_registry.APP_PERMISSIONS.pop("extensions", None)
+    else:
+        perm_registry.APP_PERMISSIONS["extensions"] = before_group
+
+
+class TestMergePermissionsFailSoft:
+    def test_a_raising_provider_is_quarantined_and_the_rest_merge(self, pristine_permissions):
+        def boom():
+            raise RuntimeError("x" * 1500)
+
+        report = _report_with(
+            bad={"get_permissions": boom},
+            none={"get_permissions": lambda: None},
+            ok={"get_permissions": lambda: {"ext.ok.view": "View OK", "ext.bad.view": "steal"}},
+            content=None,
+        )
+        merge_extension_permissions(report)
+        assert [(f.key, len(f.error)) for f in report.failed] == [("bad", 1000)]
+        assert perm_registry.APP_PERMISSIONS["extensions"] == {
+            "label": "Extensions",
+            "permissions": {"ext.ok.view": "View OK"},
+        }
+        assert "ext.ok.view" in perm_registry.ALL_APP_PERMISSION_KEYS
+        assert "ext.bad.view" not in perm_registry.ALL_APP_PERMISSION_KEYS
+
+    def test_nothing_declared_creates_no_group(self, pristine_permissions):
+        perm_registry.APP_PERMISSIONS.pop("extensions", None)
+        merge_extension_permissions(_report_with(quiet={"get_permissions": lambda: {}}))
+        assert "extensions" not in perm_registry.APP_PERMISSIONS
+
+    def test_a_second_extension_adds_to_the_existing_group(self, pristine_permissions):
+        perm_registry.APP_PERMISSIONS["extensions"] = {
+            "label": "Extensions",
+            "permissions": {"ext.first.view": "First"},
+        }
+        merge_extension_permissions(
+            _report_with(second={"get_permissions": lambda: {"ext.second.view": "Second"}})
+        )
+        assert perm_registry.APP_PERMISSIONS["extensions"]["permissions"] == {
+            "ext.first.view": "First",
+            "ext.second.view": "Second",
+        }
+
+
+class TestMountRoutersFailSoft:
+    def test_a_raising_or_empty_router_is_skipped(self):
+        from fastapi import APIRouter
+
+        def boom():
+            raise RuntimeError("no router")
+
+        served = APIRouter()
+
+        @served.get("/ping")
+        async def ping():
+            return {"ok": True}
+
+        report = _report_with(
+            bad={"get_router": boom},
+            empty={"get_router": lambda: None},
+            ok={"get_router": lambda: served},
+            content=None,
+        )
+        api_router = APIRouter()
+        mount_extension_routers(api_router, report)
+        assert [(f.key, f.error) for f in report.failed] == [("bad", "no router")]
+        assert [r.path for r in api_router.routes] == ["/ext/ok/ping"]
+        assert api_router.routes[0].tags == ["ext:ok"]

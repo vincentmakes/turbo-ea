@@ -19,7 +19,7 @@ Cliquez sur l'icône utilisateur en haut à droite de l'application, dépliez **
 
 Cochez la case d'un processus pour l'ajouter à la sélection. La sélection cascade dans le sous-arbre comme dans le catalogue de capacités — cocher un nœud ajoute ce nœud plus tous ses descendants sélectionnables ; décocher retire ce même sous-arbre. Les ancêtres ne sont jamais touchés.
 
-Les processus qui **existent déjà** dans votre inventaire apparaissent avec une **coche verte** au lieu d'une case. La correspondance privilégie le tampon `attributes.catalogueId` posé par un précédent import et retombe sur une comparaison de nom insensible à la casse.
+Les processus qui **existent déjà** dans votre inventaire apparaissent avec une **coche verte** au lieu d'une case. La correspondance privilégie le tampon `attributes.catalogueId` posé par un précédent import et retombe sur une comparaison de nom insensible à la casse. Un nom partagé par deux entrées du catalogue — le catalogue répète certains noms dans différentes branches — n'est jamais rapproché par le nom ; une telle entrée n'est reconnue que par son `catalogueId`.
 
 ## Créer des fiches en masse
 

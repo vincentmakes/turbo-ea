@@ -13,6 +13,7 @@ fixture so the suite never needs the real wheel installed.
 from __future__ import annotations
 
 import types
+import uuid
 from typing import Any
 
 import pytest
@@ -358,3 +359,51 @@ async def test_a_cache_without_a_version_is_ignored(db, monkeypatch):
     payload = await svc.get_catalogue_payload(db)
     assert payload["version"]["source"] == "bundled"
     assert "Unversioned" not in {p["name"] for p in payload["processes"]}
+
+
+@pytest.mark.asyncio
+async def test_imported_process_attributes_and_subtype(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import process_catalogue_service as svc
+
+    procs = [
+        {
+            "id": "BP-9.1.1.1",
+            "name": "Log the claim",
+            "level": 4,
+            "parent_id": None,
+            "description": "An activity",
+            "aliases": ["Claim intake"],
+            "industry": "Insurance",
+            "references": ["https://example.invalid/apqc"],
+            "framework_refs": [{"framework": "APQC-PCF", "external_id": "9.1.1.1"}],
+            "realizes_capability_ids": ["BC-404"],
+            "in_scope": ["Phone"],
+            "out_of_scope": ["Fraud"],
+            "deprecated": True,
+        }
+    ]
+    monkeypatch.setattr(common, "load_bundled_processes_raw", lambda: list(procs))
+    user = await create_user(db, email="proc-attrs@x.com")
+    result = await svc.import_processes(db, user=user, catalogue_ids=["BP-9.1.1.1"])
+    # BC-404 has no card, so no relation is created for it
+    assert result["auto_relations_created"] == 0
+    card_id = result["created"][0]["card_id"]
+    card = (await db.execute(select(Card).where(Card.id == uuid.UUID(card_id)))).scalar_one()
+    attrs = dict(card.attributes)
+    assert isinstance(attrs.pop("catalogueImportedAt"), str)
+    assert attrs == {
+        "catalogueId": "BP-9.1.1.1",
+        "catalogueVersion": "2.0.0",
+        "processLevel": "L4",
+        "aliases": ["Claim intake"],
+        "industry": "Insurance",
+        "references": ["https://example.invalid/apqc"],
+        "frameworkRefs": [{"framework": "APQC-PCF", "external_id": "9.1.1.1"}],
+        "realizesCapabilityIds": ["BC-404"],
+        "inScope": ["Phone"],
+        "outOfScope": ["Fraud"],
+        "deprecated": True,
+    }
+    # APQC L4 ("Activity") has no subtype of its own and lands as a process
+    assert card.subtype == "process"

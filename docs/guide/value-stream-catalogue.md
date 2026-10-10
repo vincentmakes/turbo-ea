@@ -20,7 +20,7 @@ Click the user icon in the top-right corner of the app, expand **Reference Catal
 
 Tick the checkbox next to any stream or stage to add it to the selection. Selection cascades the same way as the other catalogues. **Selecting a stage automatically pulls in its parent stream** at import time, so you don't end up with orphaned stages — even if you haven't ticked the stream yourself.
 
-Streams and stages that **already exist** in your inventory appear with a **green check icon** instead of a checkbox.
+Streams and stages that **already exist** in your inventory appear with a **green check icon** instead of a checkbox. Matching prefers the `attributes.catalogueId` stamp left by a previous import and falls back to a case-insensitive display-name match, except for a name that two entries share, such as a stage that appears in two streams: that entry matches by its `catalogueId` only.
 
 ## Mass-creating cards
 
