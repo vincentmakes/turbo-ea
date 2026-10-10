@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - TurboLens Architecture AI: when the model gave a proposed card the id of an existing card, the relations of a different proposal could be moved onto the wrong existing card in the target architecture. Each relation now stays on the card it was drawn to.
 - Bundled Ollama (`AI_AUTO_CONFIGURE=true`): the configured model is now downloaded at startup even when another size of the same model is installed. With `gemma3:27b` present, `gemma3:4b` was taken as already available and never pulled, so AI suggestions failed until it was pulled by hand.
+- The **Compliance scan finished** notification opens GRC → Compliance, where the findings are. It still pointed at a TurboLens tab that no longer exists and opened the TurboLens dashboard.
 
 ## [2.158.3] - 2026-10-09
 
