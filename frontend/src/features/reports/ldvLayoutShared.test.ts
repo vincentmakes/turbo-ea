@@ -17,9 +17,12 @@ import {
   MAX_COLS,
   PAD,
   alignLanesX,
+  flowMarkers,
   layoutGroup,
   orientEdgesToRelationTypes,
   readFlowDir,
+  relationSevered,
+  routeEdgeData,
   transposeRow,
   typeCategory,
   typeColor,
@@ -253,5 +256,97 @@ describe("alignLanesX", () => {
   it("copes with an empty lane in the stack", () => {
     const out = alignLanesX([laneOf(["a"]), { positioned: [], hGap: 40 }], [], []);
     expect(out[1]).toEqual({ positioned: [], innerW: 0, offsetX: expect.any(Number) });
+  });
+});
+
+describe("flowMarkers", () => {
+  const grey = { type: "arrowclosed", color: "#888" };
+  const red = { type: "arrowclosed", color: "#d32f2f" };
+
+  it("points at the target for forward or unset flow, and nowhere else", () => {
+    expect(flowMarkers(undefined, false)).toStrictEqual({ markerEnd: grey });
+    expect(flowMarkers("forward", false)).toStrictEqual({ markerEnd: grey });
+  });
+
+  it("points at the source for reverse flow and at both ends for bidirectional", () => {
+    expect(flowMarkers("reverse", false)).toStrictEqual({ markerStart: grey });
+    expect(flowMarkers("bidirectional", false)).toStrictEqual({
+      markerStart: grey,
+      markerEnd: grey,
+    });
+  });
+
+  it("draws both ends on a connector merging relations that run both ways", () => {
+    expect(flowMarkers(undefined, false, true)).toStrictEqual({
+      markerStart: grey,
+      markerEnd: grey,
+    });
+    expect(flowMarkers("reverse", false, true)).toStrictEqual({
+      markerStart: grey,
+      markerEnd: grey,
+    });
+  });
+
+  it("reddens the arrowheads of a severed relation", () => {
+    expect(flowMarkers("bidirectional", true)).toStrictEqual({
+      markerStart: red,
+      markerEnd: red,
+    });
+    expect(flowMarkers(undefined, true)).toStrictEqual({ markerEnd: red });
+  });
+});
+
+describe("relationSevered", () => {
+  const states = new Map<string, string | undefined>([
+    ["gone", "retired"],
+    ["new", "arriving"],
+    ["later", "planned"],
+    ["here", undefined],
+  ]);
+
+  it("is severed when either card is retired at the viewed date", () => {
+    expect(relationSevered(states, "gone", "here")).toBe(true);
+    expect(relationSevered(states, "here", "gone")).toBe(true);
+  });
+
+  it("is not severed by arriving, planned, unchanged or unknown cards", () => {
+    expect(relationSevered(states, "new", "later")).toBe(false);
+    expect(relationSevered(states, "here", "missing")).toBe(false);
+  });
+});
+
+describe("routeEdgeData", () => {
+  const base = {
+    sourceHandle: "b-2",
+    targetHandle: "t-3",
+    pathOffset: 26,
+    minOffset: 14,
+    labelT: 0.2,
+  };
+
+  it("carries the offsets and label position, never the handles", () => {
+    expect(routeEdgeData(base)).toStrictEqual({ pathOffset: 26, minOffset: 14, labelT: 0.2 });
+  });
+
+  it("carries a pinned centre line, zero included", () => {
+    expect(routeEdgeData({ ...base, centerY: 0 })).toStrictEqual({
+      pathOffset: 26,
+      minOffset: 14,
+      labelT: 0.2,
+      centerY: 0,
+    });
+  });
+
+  it("carries a channel route's waypoints with its anchors", () => {
+    const anchors = { sx: 1, sy: 2, tx: 3, ty: 4 };
+    expect(
+      routeEdgeData({ ...base, waypoints: [{ x: 10, y: 20 }], anchors }),
+    ).toStrictEqual({
+      pathOffset: 26,
+      minOffset: 14,
+      labelT: 0.2,
+      waypoints: [{ x: 10, y: 20 }],
+      anchors: { sx: 1, sy: 2, tx: 3, ty: 4 },
+    });
   });
 });

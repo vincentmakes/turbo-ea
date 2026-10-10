@@ -976,3 +976,52 @@ describe("stripEdgeLabels with aggregate connectors", () => {
     expect((stripped.data as { relLabel: string; count: number }).count).toBe(4);
   });
 });
+
+describe("buildLdvFlow arrowheads", () => {
+  const grey = { type: "arrowclosed", color: "#888" };
+  const red = { type: "arrowclosed", color: "#d32f2f" };
+  const nodes: GNode[] = [
+    { id: "a", name: "A", type: "Application" },
+    { id: "b", name: "B", type: "ITComponent" },
+    { id: "c", name: "C", type: "ITComponent", changeState: "retired" },
+    { id: "d", name: "D", type: "ITComponent" },
+  ];
+  const markers = (e: { markerStart?: unknown; markerEnd?: unknown }) => ({
+    start: e.markerStart,
+    end: e.markerEnd,
+  });
+
+  it("draws each line's flow direction, and reddens one to a retired card", () => {
+    const { edges } = buildLdvFlow(
+      nodes,
+      [
+        {
+          source: "a",
+          target: "b",
+          type: "uses",
+          label: "uses",
+          attributes: { flowDirection: "reverse" },
+        },
+        { source: "a", target: "c", type: "runs", label: "runs" },
+        {
+          source: "a",
+          target: "d",
+          type: "feeds",
+          label: "feeds",
+          attributes: { flowDirection: "bidirectional" },
+        },
+      ],
+      TYPES,
+    );
+    expect(edges.map(markers)).toEqual([
+      { start: grey, end: undefined },
+      { start: undefined, end: red },
+      { start: grey, end: grey },
+    ]);
+    expect(edges.map((e) => (e.data as { severed?: boolean }).severed)).toEqual([
+      false,
+      true,
+      false,
+    ]);
+  });
+});

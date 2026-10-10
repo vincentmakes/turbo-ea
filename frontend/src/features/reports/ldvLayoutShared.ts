@@ -14,6 +14,7 @@ import { runsAgainstType } from "@/lib/relationSort";
 import { LAYER_COLORS } from "@/theme/tokens";
 import type { CardType } from "@/types";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
+import type { LdvRoute } from "./ldvEdgeRouting";
 import { cardSizes, LDV_NODE_W, type SizeLookup } from "./ldvHandles";
 
 
@@ -203,6 +204,67 @@ export type FlowDir = "bidirectional" | "forward" | "reverse";
 export function readFlowDir(attrs: Record<string, unknown> | undefined): FlowDir | undefined {
   const v = attrs?.flowDirection;
   return v === "bidirectional" || v === "forward" || v === "reverse" ? v : undefined;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Edge assembly (shared by the plain and the aggregate layouts)      */
+/* ------------------------------------------------------------------ */
+
+/** An arrowhead's grey. */
+export const ARROW_COLOR = "#888";
+/** An arrowhead's red on a relation severed at the viewed date. */
+export const SEVERED_ARROW_COLOR = "#d32f2f";
+
+export interface LdvArrow {
+  type: "arrowclosed";
+  color: string;
+}
+
+/**
+ * Where a line's arrowheads go — the flow direction drawn:
+ *  - forward, or unset (the historical default): at the target end only
+ *  - reverse: at the source end only — data flows target → source
+ *  - bidirectional: at both ends
+ * A connector merging relations that run both ways (`bothWays`) also takes
+ * both. Ends with no arrowhead are absent, not `undefined`.
+ */
+export function flowMarkers(
+  flow: FlowDir | undefined,
+  severed: boolean,
+  bothWays = false,
+): { markerStart?: LdvArrow; markerEnd?: LdvArrow } {
+  const arrow: LdvArrow = {
+    type: "arrowclosed",
+    color: severed ? SEVERED_ARROW_COLOR : ARROW_COLOR,
+  };
+  const start = bothWays || flow === "reverse" || flow === "bidirectional";
+  const end = bothWays || flow !== "reverse";
+  return {
+    ...(start ? { markerStart: arrow } : {}),
+    ...(end ? { markerEnd: arrow } : {}),
+  };
+}
+
+/** Whether a relation is severed at the viewed date: either of its cards is retired there. */
+export function relationSevered(
+  changeStateById: ReadonlyMap<string, string | undefined>,
+  source: string,
+  target: string,
+): boolean {
+  return changeStateById.get(source) === "retired" || changeStateById.get(target) === "retired";
+}
+
+/** The routing a line carries from the router into its edge data. */
+export function routeEdgeData(
+  route: LdvRoute,
+): Pick<LdvRoute, "pathOffset" | "minOffset" | "labelT" | "centerY" | "waypoints" | "anchors"> {
+  return {
+    pathOffset: route.pathOffset,
+    minOffset: route.minOffset,
+    labelT: route.labelT,
+    ...(route.centerY !== undefined ? { centerY: route.centerY } : {}),
+    ...(route.waypoints ? { waypoints: route.waypoints, anchors: route.anchors } : {}),
+  };
 }
 
 /**

@@ -12,6 +12,7 @@ import { describe, it, expect } from "vitest";
 import { buildLdvAggregateFlow, type LdvAggregateBy, type LdvClusterData } from "./ldvAggregate";
 import demo from "./__fixtures__/demoDependencies.json";
 import type { GNode, GEdge, LdvEdgeData } from "./layeredDependencyLayout";
+import { handleBaseId } from "./ldvViewModel";
 import type { CardType } from "@/types";
 
 function makeType(overrides: Partial<CardType> & { key: string }): CardType {
@@ -473,7 +474,9 @@ describe("one line per pair, on the demo landscape", () => {
       it(`never lets two connectors leave one node from the same point (${label})`, () => {
         // A handle is a point on the node's border; two connectors on the same
         // handle with the same stagger would coincide for their first stretch,
-        // which is exactly what a duplicate line looks like.
+        // which is exactly what a duplicate line looks like. A mirrored handle
+        // (`ts-N`, `bt-N`) is the same point as its base (`t-N`, `b-N`), so the
+        // key is the point, not the handle's name.
         const flow = buildLdvAggregateFlow(nodes, edges, types, level, withCentre ? centre : undefined);
         const seen = new Set<string>();
         for (const e of flow.edges) {
@@ -483,7 +486,7 @@ describe("one line per pair, on the demo landscape", () => {
             [e.source, e.sourceHandle],
             [e.target, e.targetHandle],
           ] as const) {
-            const key = `${node}|${handle}|${d.pathOffset ?? 0}`;
+            const key = `${node}|${handleBaseId(String(handle))}|${d.pathOffset ?? 0}`;
             expect(seen.has(key) ? `two connectors share ${key}` : "distinct").toBe("distinct");
             seen.add(key);
           }
@@ -524,5 +527,68 @@ describe("one line per pair, on the demo landscape", () => {
     expect(top).toBeGreaterThan(0);
     expect(bottom).toBeGreaterThan(0);
     expect(Math.max(top, bottom)).toBeLessThanOrEqual(5);
+  });
+});
+
+describe("connector arrowheads", () => {
+  const grey = { type: "arrowclosed", color: "#888" };
+  const red = { type: "arrowclosed", color: "#d32f2f" };
+  const markers = (e: { markerStart?: unknown; markerEnd?: unknown }) => ({
+    start: e.markerStart,
+    end: e.markerEnd,
+  });
+
+  it("points both ways when the merged relations run both ways", () => {
+    const flow = buildLdvAggregateFlow(
+      [
+        card("a1", "Application"),
+        card("a2", "Application"),
+        card("i1", "ITComponent"),
+        card("i2", "ITComponent"),
+      ],
+      [
+        { source: "a1", target: "i1", type: "uses", label: "uses" },
+        { source: "i2", target: "a2", type: "feeds", label: "feeds" },
+      ],
+      TYPES,
+      "type",
+    );
+    expect(flow.edges.map(markers)).toEqual([{ start: grey, end: grey }]);
+    expect(edgeData(flow.edges[0]).flowDirection).toBeUndefined();
+  });
+
+  it("carries one relation type's flow direction onto its connector", () => {
+    const reverse = { flowDirection: "reverse" };
+    const flow = buildLdvAggregateFlow(
+      [
+        card("a1", "Application"),
+        card("a2", "Application"),
+        card("i1", "ITComponent"),
+        card("i2", "ITComponent"),
+      ],
+      [
+        { source: "a1", target: "i1", type: "uses", label: "uses", attributes: reverse },
+        { source: "a2", target: "i2", type: "uses", label: "uses", attributes: reverse },
+      ],
+      TYPES,
+      "type",
+    );
+    expect(flow.edges.map(markers)).toEqual([{ start: grey, end: undefined }]);
+    expect(edgeData(flow.edges[0]).flowDirection).toBe("reverse");
+  });
+
+  it("reddens a connector whose every relation is severed", () => {
+    const retired = (id: string): GNode => ({ ...card(id, "ITComponent"), changeState: "retired" });
+    const flow = buildLdvAggregateFlow(
+      [card("a1", "Application"), card("a2", "Application"), retired("i1"), retired("i2")],
+      [
+        { source: "a1", target: "i1", type: "uses", label: "uses" },
+        { source: "i2", target: "a2", type: "feeds", label: "feeds" },
+      ],
+      TYPES,
+      "type",
+    );
+    expect(flow.edges.map(markers)).toEqual([{ start: red, end: red }]);
+    expect(edgeData(flow.edges[0]).severed).toBe(true);
   });
 });
