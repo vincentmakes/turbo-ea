@@ -21,6 +21,7 @@ import base64
 import hashlib
 import json
 import logging
+import re
 import secrets
 import time
 from dataclasses import dataclass, field
@@ -426,13 +427,20 @@ async def sso_callback(request: Request) -> Response:
 # ── Token endpoint ──────────────────────────────────────────────────────────
 
 
+# RFC 7636 §4.1: a code verifier is made of the unreserved characters only.
+_VERIFIER_ALPHABET = re.compile(r"[A-Za-z0-9\-._~]+")
+
+
 def _verify_pkce(code_verifier: str, code_challenge: str) -> bool:
     """Verify PKCE S256: SHA256(verifier) == challenge.
 
-    Encoded as UTF-8 and compared as bytes, so a verifier or a challenge
-    outside ASCII (which RFC 7636 does not allow) fails to match rather than
+    A verifier with a character outside RFC 7636's alphabet — a non-ASCII one
+    among them — never matches, whatever challenge was computed for it; and the
+    challenge is compared as bytes, so one outside ASCII fails rather than
     raising."""
-    digest = hashlib.sha256(code_verifier.encode()).digest()
+    if not _VERIFIER_ALPHABET.fullmatch(code_verifier):
+        return False
+    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
     encoded = base64.urlsafe_b64encode(digest)
     # A SHA-256 digest's last base64url character is never an X (its low two
     # bits are always zero), so a strip set that gained an X strips the same.

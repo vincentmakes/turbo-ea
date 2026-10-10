@@ -54,11 +54,20 @@ def _payload(data) -> str:
 
 
 class TestVerifyPkce:
-    def test_a_non_ascii_verifier_fails_to_match_instead_of_raising(self):
+    def test_a_non_ascii_verifier_is_refused_instead_of_raising(self):
         verifier = "vérifier-ünïcode"
         assert _verify_pkce(verifier, _challenge("verifier-unicode")) is False
-        # its own UTF-8 hash is the only thing it could match
+        # not even a challenge computed over its own UTF-8 bytes lets it in
+        assert _verify_pkce(verifier, _challenge(verifier)) is False
+
+    @pytest.mark.parametrize("verifier", ["with space", "plus+sign", "slash/ed", "", "a=b"])
+    def test_a_verifier_outside_the_rfc_alphabet_never_matches(self, verifier):
+        assert _verify_pkce(verifier, _challenge(verifier)) is False
+
+    def test_the_whole_unreserved_alphabet_is_allowed(self):
+        verifier = "AZaz09-._~" * 5
         assert _verify_pkce(verifier, _challenge(verifier)) is True
+        assert _verify_pkce(verifier, _challenge(verifier + "x")) is False
 
     def test_a_non_ascii_challenge_fails_to_match_instead_of_raising(self):
         assert _verify_pkce("verifier", "chällenge") is False

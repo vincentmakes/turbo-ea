@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
-import itertools
 import socket
 import time
 from collections.abc import Callable
@@ -197,8 +196,9 @@ async def fetch_logo(url: str, sniff: SniffFn) -> tuple[bytes, str]:
         )
 
     current = url
-    # Bounded by the redirect check below: hop MAX_REDIRECTS returns or raises.
-    for hop in itertools.count():
+    # Hop MAX_REDIRECTS returns or raises below, so the range is one wider than
+    # the loop ever runs — a bound of its own, not the one that stops it.
+    for hop in range(MAX_REDIRECTS + 1):
         host = _check_url(current)
         # Blocking, but bounded and cached by the resolver; a thread keeps a
         # slow DNS answer from stalling the event loop for the whole batch.
@@ -245,7 +245,7 @@ async def fetch_logo(url: str, sniff: SniffFn) -> tuple[bytes, str]:
                 "raster image file.",
             )
         return data, mime
-    raise AssertionError("unreachable")  # pragma: no mutate, never reached  # pragma: no cover
+    raise AssertionError  # pragma: no mutate, unreachable  # pragma: no cover
 
 
 class _FetchCache:
