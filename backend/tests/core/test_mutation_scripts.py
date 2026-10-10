@@ -29,6 +29,7 @@ sys.path.insert(0, str(SCRIPTS))
 
 changed_lines = importlib.import_module("changed_lines")
 gate = importlib.import_module("gate")
+harness = importlib.import_module("harness")
 mutmut_scope = importlib.import_module("mutmut_scope")
 stryker_scope = importlib.import_module("stryker_scope")
 shadow_root = importlib.import_module("shadow_root")
@@ -853,6 +854,66 @@ class TestMutmutRunAndCollect:
         )
         assert mutmut_scope.run("backend", None, 2, suite_repo) == 1
 
+    @staticmethod
+    def failing_clean_test(monkeypatch, stdout: str):
+        """A shard never generated before (so it names whole files) whose run
+        then ends non-zero with ``stdout`` — mutmut's clean test failing."""
+
+        def fake(d, *a, stream=False, budget=None):
+            if a[-1] == mutmut_scope._GENERATE_ONLY:
+                err = f"AssertionError: {mutmut_scope._NOTHING_MATCHES}"
+                return subprocess.CompletedProcess(a, 1, "", err)
+            return subprocess.CompletedProcess(a, 1, stdout, "")
+
+        monkeypatch.setattr(mutmut_scope, "mutmut", fake)
+
+    def test_a_failed_clean_test_names_its_tests_and_still_fails(
+        self, suite_repo, monkeypatch, capsys
+    ):
+        self.failing_clean_test(
+            monkeypatch,
+            "collected 3 items\n"
+            "FAILED tests/test_a.py::test_x - AssertionError: assert 1 == 2\n"
+            "ERROR tests/test_b.py - ImportError: no module named z\n"
+            "1 failed, 1 error in 2.0s\n",
+        )
+        out = suite_repo / "harness.json"
+        code = mutmut_scope.run("backend", None, 2, suite_repo, shard="1/1", harness_path=out)
+        assert code == 1
+        printed = capsys.readouterr().out
+        assert (
+            "::error::backend shard 1/1: mutmut's clean test failed on unmutated code; "
+            "this run measured nothing"
+        ) in printed
+        assert (
+            "::error::backend shard 1/1: failed on unmutated code in mutmut's clean test: "
+            "tests/test_a.py::test_x — AssertionError: assert 1 == 2"
+        ) in printed
+        entries = json.loads(out.read_text())
+        assert [(e["kind"], e["test"], e["chunk"]) for e in entries] == [
+            ("test", "tests/test_a.py::test_x", None),
+            ("error", "tests/test_b.py", None),
+        ]
+        assert entries[1]["message"] == "ImportError: no module named z"
+
+    def test_a_run_that_dies_without_a_failed_test_is_named_too(
+        self, suite_repo, monkeypatch, capsys
+    ):
+        self.failing_clean_test(monkeypatch, "Segmentation fault\n")
+        out = suite_repo / "harness.json"
+        assert mutmut_scope.run("backend", None, 2, suite_repo, shard="1/1", harness_path=out) == 1
+        [entry] = json.loads(out.read_text())
+        assert entry["kind"] == "error" and entry["test"] == ""
+        assert entry["message"] == "mutmut exited 1 before any verdict; see the step log"
+        assert "::error::backend shard 1/1: failed on unmutated code" in capsys.readouterr().out
+
+    def test_a_budget_stop_writes_no_harness_file(self, tmp_path, monkeypatch):
+        stand_in = "import time; print('started', flush=True); time.sleep(60)"
+        monkeypatch.setattr(mutmut_scope, "MUTMUT", [sys.executable, "-c", stand_in])
+        result = mutmut_scope.mutmut(tmp_path, stream=True, budget=0.02)
+        assert result.returncode == 0  # so ``run`` never reaches the harness report
+        assert harness.pytest_failures(result.stdout) == []
+
     def test_collect_keeps_only_mutants_on_changed_lines(self, suite_repo, monkeypatch):
         on_line = mutmut_style_diff(SOURCE, 6, 10, 8, "if a < b:", "if a <= b:")
         off_line = mutmut_style_diff(SOURCE, 6, 10, 10, "return b", "return None")
@@ -1452,6 +1513,176 @@ class TestShadowRoot:
             assert source in shadow_root.mutmut_owned(REPO / suite)
 
 
+# ── harness: the tests that failed on unmutated code ────────────────────────
+
+STRYKER_FAILED_BLOCK = (
+    "\x1b[32m21:14:02 (1234) INFO DryRunExecutor\x1b[39m Starting initial test run "
+    '(vitest test runner with "perTest" coverage analysis). This may take a while.\n'
+    "\x1b[91m21:14:03 (1234) ERROR DryRunExecutor\x1b[39m One or more tests failed in the "
+    "initial test run:\n"
+    "\tPpmProjectDetail switching initiatives mounts a fresh cost tab\n"
+    "\t\texpected 1 to be 2\n"
+    "\tCardDetail shows a plain subtype label\n"
+    "\t\tUnable to find an element with the text: Business Application.\n"
+    "Ignored nodes: comments, script, style\n"
+    "<body>\n"
+    "\x1b[91m21:14:03 (1234) ERROR Stryker\x1b[39m There were failed tests in the initial "
+    "test run.\n"
+    "ConfigError: There were failed tests in the initial test run.\n"
+)
+
+
+class TestHarness:
+    def test_a_stryker_block_yields_one_entry_per_test(self):
+        found = harness.stryker_dry_run_failures(STRYKER_FAILED_BLOCK)
+        assert found == [
+            {
+                "kind": "test",
+                "test": "PpmProjectDetail switching initiatives mounts a fresh cost tab",
+                "message": "expected 1 to be 2",
+            },
+            {
+                "kind": "test",
+                "test": "CardDetail shows a plain subtype label",
+                # the message's own extra lines carry no tab and still belong to it
+                "message": "Unable to find an element with the text: Business Application.\n"
+                "Ignored nodes: comments, script, style\n<body>",
+            },
+        ]
+
+    def test_the_other_initial_run_outcomes(self):
+        errored = (
+            "21:14:03 (1) ERROR DryRunExecutor One or more tests resulted in an error:\n"
+            "\tTest runner crashed. Tried twice to restart it without any luck.\n"
+            "21:14:03 (1) ERROR Stryker Unexpected error occurred while running Stryker\n"
+        )
+        assert harness.stryker_dry_run_failures(errored) == [
+            {
+                "kind": "error",
+                "test": "",
+                "message": "Test runner crashed. Tried twice to restart it without any luck.",
+            }
+        ]
+        timed_out = "21:14:03 (1) ERROR DryRunExecutor Initial test run timed out!\n"
+        assert harness.stryker_dry_run_failures(timed_out) == [
+            {"kind": "timeout", "test": "", "message": harness.TIMED_OUT}
+        ]
+        assert harness.stryker_dry_run_failures("21:14:03 (1) INFO Stryker Done in 3 s\n") == []
+        assert harness.stryker_dry_run_failures("") == []
+
+    def test_pytest_summary_lines(self):
+        output = (
+            "tests/test_a.py::test_x FAILED\n"
+            "PASSED tests/test_d.py::test_ok\n"
+            "\x1b[31mFAILED\x1b[0m tests/test_a.py::test_x - AssertionError: 1 != 2\n"
+            "ERROR tests/test_b.py - ImportError: no module\n"
+            "FAILED tests/test_c.py::test_p[a b - c]\n"
+            "FAILED tests/test_a.py::test_x - AssertionError: 1 != 2\n"
+            "1 failed in 0.1s\n"
+        )
+        assert harness.pytest_failures(output) == [
+            {
+                "kind": "test",
+                "test": "tests/test_a.py::test_x",
+                "message": "AssertionError: 1 != 2",
+            },
+            {"kind": "error", "test": "tests/test_b.py", "message": "ImportError: no module"},
+            {"kind": "test", "test": "tests/test_c.py::test_p[a b - c]", "message": ""},
+        ]
+
+    def test_an_annotation_is_one_escaped_line(self, capsys):
+        e = harness.entry("frontend", "3/8", 7, "test", "Page renders", "line one\nline %two\r")
+        harness.annotate(e, "Stryker's initial test run")
+        lines = capsys.readouterr().out.splitlines()
+        assert lines == [
+            "::error::frontend shard 3/8 chunk 7: failed on unmutated code in Stryker's "
+            "initial test run: Page renders — line one"
+        ]
+        e = harness.entry("backend", None, None, "error", "", "mutmut exited 1 %")
+        harness.annotate(e, "mutmut's clean test")
+        assert capsys.readouterr().out == (
+            "::error::backend: failed on unmutated code in mutmut's clean test: "
+            "(initial test run error) — mutmut exited 1 %25\n"
+        )
+
+    def test_entry_refuses_an_unknown_kind(self):
+        with pytest.raises(ValueError):
+            harness.entry("frontend", "1/1", 0, "flaky", "t", "m")
+
+    def test_append_extends_the_file_both_halves_write(self, tmp_path):
+        path = tmp_path / "h.json"
+        harness.append(path, [])
+        assert not path.exists()
+        first = harness.entry("frontend", "1/8", 2, "test", "t", "m", ["src/a.ts"])
+        harness.append(path, [first])
+        harness.append(path, [harness.entry("frontend", "1/8", 2, "test", "t", "m again")])
+        entries = json.loads(path.read_text())
+        assert [e["message"] for e in entries] == ["m", "m again"]
+        assert entries[0]["files"] == ["src/a.ts"]
+
+    def test_render_counts_repeats_and_names_the_reproduction(self):
+        assert harness.render([]) == []
+        entries = [
+            harness.entry(
+                "frontend", "3/8", 7, "test", "Page | renders", "expected 1\nto be 2", ["src/p.ts"]
+            ),
+            harness.entry(
+                "frontend", "3/8", 7, "test", "Page | renders", "expected 1 to be 2", ["src/p.ts"]
+            ),
+            harness.entry(
+                "backend", "5/6", None, "test", "tests/test_a.py::test_x", "AssertionError"
+            ),
+            harness.entry("backend", "5/6", None, "error", "", "mutmut exited 1"),
+        ]
+        text = "\n".join(harness.render(entries))
+        assert text.startswith("## Tests that failed on unmutated code under the harness")
+        assert "3 test(s) failed" in text
+        assert "| backend | 5/6 | – | `(initial test run error)` | mutmut exited 1 | 1× |" in text
+        assert "| backend | 5/6 | – | `tests/test_a.py::test_x` | AssertionError | 1× |" in text
+        assert (
+            "| frontend | 3/8 | 7 | `Page \\| renders` | expected 1 "
+            "(reproduce: `make mutation-frontend FILE=src/p.ts`) | 2× |"
+        ) in text
+        assert "Fix the race the same day" in text
+
+    def test_report_writes_the_output_only_when_something_failed(self, tmp_path, capsys):
+        d = tmp_path / "harness"
+        summary, out = tmp_path / "summary.md", tmp_path / "harness.md"
+        assert (
+            harness.main(
+                ["report", "--dir", str(d), "--summary", str(summary), "--output", str(out)]
+            )
+            == 0
+        )
+        assert not out.exists() and not summary.exists()
+        assert "No test failed on unmutated code" in capsys.readouterr().out
+        d.mkdir()
+        harness.append(
+            d / "mutation-harness-frontend-3.json",
+            [harness.entry("frontend", "3/8", 7, "test", "Page renders", "expected 1 to be 2")],
+        )
+        harness.append(
+            d / "mutation-harness-backend-5.json",
+            [harness.entry("backend", "5/6", None, "test", "tests/test_a.py::test_x", "boom")],
+        )
+        assert (
+            harness.main(
+                ["report", "--dir", str(d), "--summary", str(summary), "--output", str(out)]
+            )
+            == 0
+        )
+        printed = capsys.readouterr().out
+        assert "::warning::2 test failure(s) on unmutated code under the harness" in printed
+        assert out.read_text() == summary.read_text()
+        assert (
+            "`Page renders`" in out.read_text() and "`tests/test_a.py::test_x`" in out.read_text()
+        )
+        (d / "mutation-harness-mcp-1.json").write_text("not json")
+        assert harness.main(["report", "--dir", str(d)]) == 2
+        (d / "mutation-harness-mcp-1.json").write_text('[{"kind": "flaky", "test": "t"}]')
+        assert harness.main(["report", "--dir", str(d)]) == 2
+
+
 # ── stryker nightly: resumable chunks ───────────────────────────────────────
 
 FAKE_STRYKER = """
@@ -1461,6 +1692,16 @@ files = args[args.index("--mutate") + 1].split(",")
 if any("slow" in f for f in files):
     time.sleep(60)
 if any("broken" in f for f in files):
+    # Stryker 10's initial-run failure, coloured prefix and all
+    print("\\x1b[91m21:14:03 (1234) ERROR DryRunExecutor\\x1b[39m One or more tests failed"
+          " in the initial test run:")
+    print("\\tPage renders the thing")
+    print("\\t\\texpected 1 to be 2")
+    print("\\x1b[91m21:14:03 (1234) ERROR Stryker\\x1b[39m There were failed tests in the"
+          " initial test run.")
+    sys.exit(1)
+if any("crash" in f for f in files):
+    print("Error: ENOENT")
     sys.exit(1)
 report = {"files": {f: {"source": "x\\n", "mutants": [
     {"id": "1", "mutatorName": "M", "replacement": "y", "status": "Killed",
@@ -1525,6 +1766,67 @@ class TestStrykerNightly:
         state = tmp_path / "state"
         assert stryker_scope.nightly("1/1", 30, state, fe, config) == 1
         assert list(state.glob("*.mutation.json"))  # the other chunk still landed
+
+    def test_a_failing_chunk_names_the_test_its_initial_run_failed_on(
+        self, frontend_repo, tmp_path, capsys
+    ):
+        """The name used to sit thousands of lines deep in Stryker's output."""
+        fe, config = frontend_repo
+        (fe / "src" / "broken.ts").write_text("x\n")
+        state = tmp_path / "state"
+        out = tmp_path / "harness.json"
+        assert stryker_scope.nightly("1/1", 30, state, fe, config, harness_path=out) == 1
+        printed = capsys.readouterr().out
+        chunk = stryker_scope.chunk_of("src/broken.ts", 2)
+        size = len(
+            [
+                f
+                for f in stryker_scope.shard_files("1/1", fe, config)
+                if stryker_scope.chunk_of(f, 2) == chunk
+            ]
+        )
+        assert (
+            f"chunk {chunk} ({size} files): failed — initial test run: Page renders the thing"
+            in (printed)
+        )
+        assert (
+            "::error::frontend shard 1/1 chunk "
+            f"{chunk}: failed on unmutated code in Stryker's initial test run: "
+            "Page renders the thing — expected 1 to be 2"
+        ) in printed
+        [entry] = json.loads(out.read_text())
+        assert entry["suite"] == "frontend" and entry["shard"] == "1/1"
+        assert entry["chunk"] == chunk and entry["kind"] == "test"
+        assert entry["test"] == "Page renders the thing"
+        assert entry["message"] == "expected 1 to be 2"
+        assert "src/broken.ts" in entry["files"] and len(entry["files"]) == size
+        assert entry["at"].endswith("Z")
+
+    def test_a_chunk_stryker_itself_failed_is_still_named(self, frontend_repo, tmp_path, capsys):
+        fe, config = frontend_repo
+        (fe / "src" / "crash.ts").write_text("x\n")
+        state = tmp_path / "state"
+        out = tmp_path / "harness.json"
+        assert stryker_scope.nightly("1/1", 30, state, fe, config, harness_path=out) == 1
+        chunk = stryker_scope.chunk_of("src/crash.ts", 2)
+        size = len(
+            [
+                f
+                for f in stryker_scope.shard_files("1/1", fe, config)
+                if stryker_scope.chunk_of(f, 2) == chunk
+            ]
+        )
+        assert f"chunk {chunk} ({size} files): failed\n" in capsys.readouterr().out
+        [entry] = json.loads(out.read_text())
+        assert entry["kind"] == "unknown" and entry["test"] == ""
+        assert "see the step log" in entry["message"]
+
+    def test_a_good_chunk_writes_no_harness_file(self, frontend_repo, tmp_path):
+        fe, config = frontend_repo
+        out = tmp_path / "harness.json"
+        state = tmp_path / "state"
+        assert stryker_scope.nightly("1/1", 30, state, fe, config, harness_path=out) == 0
+        assert not out.exists()
 
     def test_the_budget_stops_a_chunk_and_keeps_its_previous_report(
         self, frontend_repo, tmp_path, monkeypatch, capsys

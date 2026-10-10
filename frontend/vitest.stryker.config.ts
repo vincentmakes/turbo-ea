@@ -11,6 +11,11 @@
 // It also sets MUTATION_SANDBOX: a test that reads src/ as text would read the
 // instrumented copy of whatever this run mutates, so the scans wrapped in
 // `describeSourceScan` / `itSourceScan` (src/test/sourceScan.ts) skip here.
+//
+// And it adds src/test/mutationSandbox.ts to the setup files: the sandbox's
+// own wait budget for Testing Library's `findBy*` / `waitFor`, longer than the
+// normal suite's, because the instrumented single-thread initial run renders
+// several times slower (see the module).
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { configDefaults, defineConfig, mergeConfig } from "vitest/config";
@@ -32,6 +37,8 @@ export default mergeConfig(
     test: {
       exclude: [...configDefaults.exclude, ...pinsTimeZone],
       env: { MUTATION_SANDBOX: "1" },
+      // mergeConfig concatenates arrays, so the base setup file stays first.
+      setupFiles: ["./src/test/mutationSandbox.ts"],
     },
   }),
 );
