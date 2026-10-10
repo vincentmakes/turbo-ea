@@ -36,6 +36,11 @@ describe("fillRowIndices", () => {
   it("is empty for an empty grid", () => {
     expect(fillRowIndices(0, 4, 0)).toEqual([]);
   });
+
+  it("clamps an anchor past the last row to the last row", () => {
+    expect(fillRowIndices(10, 0, 5)).toEqual([0, 1, 2, 3]);
+    expect(fillRowIndices(-3, 2, 5)).toEqual([1, 2]);
+  });
 });
 
 describe("fillDirection", () => {
@@ -374,5 +379,21 @@ describe("dragFill edges", () => {
     const container = document.createElement("div");
     container.innerHTML = `<div row-index="0"><div col-id='a"b\\c'>cell</div></div>`;
     expect(findCellElement(container, 0, 'a"b\\c')?.textContent).toBe("cell");
+  });
+});
+
+describe("class names", () => {
+  // Read from a fresh load of the module: the constants are built while the
+  // file loads, which for the copy imported above happened outside any test.
+  it("are three distinct CSS class names, since they become selectors", async () => {
+    vi.resetModules();
+    try {
+      const fresh = await import("./dragFill");
+      const names = [fresh.FILL_PREVIEW_CLASS, fresh.FILL_HANDLE_CLASS, fresh.FILL_MARQUEE_CLASS];
+      for (const n of names) expect(n).toMatch(/^[a-z][a-z-]*$/);
+      expect(new Set(names).size).toBe(3);
+    } finally {
+      vi.resetModules();
+    }
   });
 });

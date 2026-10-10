@@ -38,7 +38,7 @@ async def create_batch(
     tool_name: str,
     actor: User | None,
     origin: str,
-    dry_run: bool,
+    dry_run: bool = False,
     confirm_token: str | None = None,
 ) -> MutationBatch:
     """Open a new batch row. The caller is responsible for setting
