@@ -15,6 +15,7 @@ from app.models.turbolens import TurboLensVendorAnalysis
 from app.services.turbolens_architect import (
     ARCHITECT_PERSONA,
     _build_persona_with_principles,
+    _deduplicate_existing_cards,
     _load_existing_cards_context,
     _load_metamodel_types_context,
     _load_objective_names,
@@ -23,7 +24,6 @@ from app.services.turbolens_architect import (
     load_landscape,
     phase1_questions,
     phase2_questions,
-    phase3_architecture,
     phase3_capability_mapping,
     phase3_deps,
     phase3_gaps,
@@ -387,67 +387,106 @@ class TestCapabilityMapping:
         assert out["proposedCards"] == [] and out["proposedRelations"] == []
 
 
-class TestLegacyArchitecture:
-    async def test_a_truncated_structure_is_completed_by_a_retry(self, db, landscape, fake_call_ai):
-        first = {
-            "title": "T",
-            "layers": [
+class TestDeduplicateExistingCards:
+    """A card the model proposes as new but the landscape already holds becomes
+    a reference to the existing card, and every edge follows it."""
+
+    async def _existing(self, db):
+        await create_card_type(db, key="Application", label="Application")
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_card_type(db, key="Initiative", label="Initiative")
+        crm = await create_card(db, card_type="Application", name="Salesforce CRM")
+        await create_card(db, card_type="Application", name="Retired", status="ARCHIVED")
+        await create_card(db, card_type="Initiative", name="Migration")
+        return crm
+
+    async def test_a_proposed_duplicate_becomes_the_existing_card(self, db):
+        crm = await self._existing(db)
+        parsed = {
+            "proposedCards": [
                 {
-                    "name": "L",
-                    "components": [
-                        {"name": "Billing", "type": "recommended"},
-                        {"name": "sap hana", "product": "SAP HANA", "type": "recommended"},
-                        {"name": "Brand New", "type": "new"},
-                    ],
-                }
+                    "id": "new-1",
+                    "name": "  salesforce crm ",
+                    "cardTypeKey": "Application",
+                    "isNew": True,
+                },
+                {"id": "new-2", "name": "Gateway", "cardTypeKey": "ITComponent", "isNew": True},
             ],
-            "gaps": [],
-            "integrations": [],
-            "risks": [],
-            "nextSteps": [],
+            "proposedRelations": [
+                {"sourceId": "new-1", "targetId": "new-2"},
+                {"sourceId": "new-2", "targetId": "other"},
+            ],
+            "capabilities": [{"id": "new-1", "isNew": True}, {"id": "cap-9", "isNew": True}],
         }
-        fake_call_ai.queue(first, truncated=True)
-        fake_call_ai.queue({"gaps": [{"capability": "x"}], "risks": [{"risk": "r"}]})
-        option = {"title": "Opt", "impactPreview": {"newComponents": [{"name": "N"}]}}
-        out = await phase3_architecture(db, "req", [{"question": "q", "answer": "a"}], option)
-        assert out["gaps"] == [{"capability": "x"}] and out["risks"] == [{"risk": "r"}]
-        assert out["integrations"] == [] and out["nextSteps"] == []
-        comps = {c["name"]: c for c in out["layers"][0]["components"]}
-        assert (
-            comps["Billing"]["existsInLandscape"] is True and comps["Billing"]["type"] == "existing"
-        )
-        assert comps["sap hana"]["existsInLandscape"] is True  # starts with the vendor's first word
-        assert (
-            comps["Brand New"]["existsInLandscape"] is False and comps["Brand New"]["type"] == "new"
-        )
+        await _deduplicate_existing_cards(db, parsed)
+        assert parsed["proposedCards"] == [
+            {
+                "id": str(crm.id),
+                "name": "Salesforce CRM",
+                "cardTypeKey": "Application",
+                "isNew": False,
+                "existingCardId": str(crm.id),
+            },
+            {"id": "new-2", "name": "Gateway", "cardTypeKey": "ITComponent", "isNew": True},
+        ]
+        assert parsed["proposedRelations"] == [
+            {"sourceId": str(crm.id), "targetId": "new-2"},
+            {"sourceId": "new-2", "targetId": "other"},
+        ]
+        assert parsed["capabilities"] == [
+            {"id": str(crm.id), "isNew": False, "existingCardId": str(crm.id)},
+            {"id": "cap-9", "isNew": True},
+        ]
 
-        first_prompt, first_tokens, _ = fake_call_ai.calls[0]
-        assert first_tokens == 8000
-        assert "=== SELECTED SOLUTION APPROACH (from Phase 3a options) ===" in first_prompt
-        assert "  + ADD: N [Application]" in first_prompt
-        retry_prompt, retry_tokens, _ = fake_call_ai.calls[1]
-        assert retry_tokens == 6000
-        assert (
-            "Generate ONLY the missing sections: gaps, integrations, risks, nextSteps"
-            in retry_prompt
-        )
-
-    async def test_a_failed_retry_keeps_the_partial_result(self, db, landscape, fake_call_ai):
-        fake_call_ai.queue({"title": "T", "layers": []}, truncated=True)
-        fake_call_ai.route(raises=RuntimeError("down"))
-        assert await phase3_architecture(db, "req", []) == {"title": "T", "layers": []}
-        assert len(fake_call_ai.calls) == 2
-
-    async def test_a_complete_answer_needs_no_retry(self, db, landscape, fake_call_ai):
-        complete = {
-            "layers": [{"name": "L", "components": [{"name": "crm", "type": "recommended"}]}],
-            "gaps": [{}],
-            "integrations": [{}],
-            "risks": [{}],
-            "nextSteps": [{}],
+    async def test_a_second_proposal_of_the_same_card_is_dropped(self, db):
+        crm = await self._existing(db)
+        parsed = {
+            "proposedCards": [
+                {"id": "a", "name": "Salesforce CRM", "cardTypeKey": "Application", "isNew": True},
+                {"id": "b", "name": "SALESFORCE CRM", "cardTypeKey": "Application", "isNew": True},
+            ],
+            "proposedRelations": [{"sourceId": "b", "targetId": "a"}],
         }
-        fake_call_ai.queue(complete, truncated=True)
-        out = await phase3_architecture(db, "req", [])
-        assert len(fake_call_ai.calls) == 1
-        assert out["layers"][0]["components"][0]["type"] == "existing"
-        assert "SELECTED SOLUTION APPROACH" not in fake_call_ai.calls[0][0]
+        await _deduplicate_existing_cards(db, parsed)
+        assert [c["id"] for c in parsed["proposedCards"]] == [str(crm.id)]
+        assert parsed["proposedRelations"] == [{"sourceId": str(crm.id), "targetId": str(crm.id)}]
+
+    async def test_only_a_live_card_of_a_looked_up_type_and_the_same_type_matches(self, db):
+        await self._existing(db)
+        proposed = [
+            {"id": "t", "name": "Salesforce CRM", "cardTypeKey": "ITComponent", "isNew": True},
+            {"id": "r", "name": "Retired", "cardTypeKey": "Application", "isNew": True},
+            {"id": "i", "name": "Migration", "cardTypeKey": "Initiative", "isNew": True},
+            {"id": "o", "name": "Salesforce CRM", "cardTypeKey": "Application", "isNew": False},
+        ]
+        parsed = {
+            "proposedCards": [dict(c) for c in proposed],
+            "proposedRelations": [{"sourceId": "t", "targetId": "r"}],
+        }
+        await _deduplicate_existing_cards(db, parsed)
+        assert parsed == {
+            "proposedCards": proposed,
+            "proposedRelations": [{"sourceId": "t", "targetId": "r"}],
+        }
+
+    async def test_a_proposal_labelled_with_an_existing_id_keeps_each_edge_on_its_card(self, db):
+        crm = await self._existing(db)
+        erp = await create_card(db, card_type="Application", name="SAP ERP")
+        # The model labelled its second proposal with the CRM's own id. "x" is
+        # the CRM and the CRM-labelled proposal is the ERP: each edge stays on
+        # the card it was drawn to, rather than following x -> CRM -> ERP.
+        parsed = {
+            "proposedCards": [
+                {"id": "x", "name": "Salesforce CRM", "cardTypeKey": "Application", "isNew": True},
+                {"id": str(crm.id), "name": "SAP ERP", "cardTypeKey": "Application", "isNew": True},
+            ],
+            "proposedRelations": [
+                {"sourceId": "x", "targetId": "y"},
+                {"sourceId": str(crm.id), "targetId": "y"},
+            ],
+        }
+        await _deduplicate_existing_cards(db, parsed)
+        assert parsed["proposedRelations"] == [
+            {"sourceId": str(crm.id), "targetId": "y"},
+            {"sourceId": str(erp.id), "targetId": "y"},
+        ]

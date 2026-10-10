@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.158.5] - 2026-10-09
+
+### Changed
+- TurboLens Architecture AI: an older, unused way of generating the target architecture was removed; the wizard already used the capability-mapping step.
+
+### Fixed
+- TurboLens Architecture AI: when the model gave a proposed card the id of an existing card, the relations of a different proposal could be moved onto the wrong existing card in the target architecture. Each relation now stays on the card it was drawn to.
+- Bundled Ollama (`AI_AUTO_CONFIGURE=true`): the configured model is now downloaded at startup even when another size of the same model is installed. With `gemma3:27b` present, `gemma3:4b` was taken as already available and never pulled, so AI suggestions failed until it was pulled by hand.
+- The **Compliance scan finished** notification opens GRC → Compliance, where the findings are. It still pointed at a TurboLens tab that no longer exists and opened the TurboLens dashboard.
+
 ## [2.158.4] - 2026-10-09
 
 ### Changed
