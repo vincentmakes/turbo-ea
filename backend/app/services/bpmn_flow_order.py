@@ -68,15 +68,15 @@ def order_flow_nodes(
     # message flow needs lifting.
     edges_of: dict[str | None, set[tuple[str, str]]] = {}
     for source, target in edges:
-        # The stated contract, though _order_within would drop these edges anyway.
-        outside = source not in known or target not in known  # pragma: no mutate, see comment above
-        if outside or source == target:  # pragma: no mutate, see comment above
+        # An endpoint outside ``node_ids`` needs no check here: it lifts to
+        # itself and _order_within keeps only edges between siblings.
+        if source == target:
             continue
         container = _lowest_common_container(source, target, parent_of, known)
         lifted_source = _lift(source, container, parent_of, known)
         lifted_target = _lift(target, container, parent_of, known)
         # Keeps the edge set typed; a None end is never a sibling either.
-        if lifted_source is None or lifted_target is None:  # pragma: no mutate, see above
+        if lifted_source is None or lifted_target is None:
             continue
         if lifted_source == lifted_target:
             continue
