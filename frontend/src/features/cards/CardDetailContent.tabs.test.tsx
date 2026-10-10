@@ -171,16 +171,19 @@ describe("CardDetailContent tab strip", () => {
   it("gives a process its flow and assessment tabs and opens an index link on the flow", async () => {
     useType(typeFor("BusinessProcess"));
     renderCard(cardOf("BusinessProcess"), 1);
-    expect(tabNames()).toEqual([
-      "Card",
-      "Process Flow",
-      "Assessments",
-      "Comments",
-      "Todos",
-      "Stakeholders",
-      "Resources",
-      "History",
-    ]);
+    // The ADR tab shows while its count loads, so read the strip once it settles.
+    await waitFor(() =>
+      expect(tabNames()).toEqual([
+        "Card",
+        "Process Flow",
+        "Assessments",
+        "Comments",
+        "Todos",
+        "Stakeholders",
+        "Resources",
+        "History",
+      ]),
+    );
     expect(selectedTab()).toBe("Process Flow");
     expect(await screen.findByTestId("panel-processFlow")).toBeInTheDocument();
     await waitFor(() => expect(noteVisit).toHaveBeenCalledWith("processFlow"));
@@ -250,16 +253,18 @@ describe("CardDetailContent tab strip", () => {
     flags.ppmEnabled = true;
     useType(typeFor("Initiative"));
     renderCard(cardOf("Initiative"));
-    expect(tabNames()).toEqual([
-      "Card",
-      "SoAW",
-      "Comments",
-      "Todos",
-      "Stakeholders",
-      "Resources",
-      "History",
-      "PPM",
-    ]);
+    await waitFor(() =>
+      expect(tabNames()).toEqual([
+        "Card",
+        "SoAW",
+        "Comments",
+        "Todos",
+        "Stakeholders",
+        "Resources",
+        "History",
+        "PPM",
+      ]),
+    );
     fireEvent.click(screen.getByRole("tab", { name: "SoAW" }));
     expect(await screen.findByTestId("panel-soaw")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "PPM" }));
