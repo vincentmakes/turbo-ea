@@ -248,7 +248,11 @@ jobs:
   # run completes. `stryker_scope.py nightly` splits each shard into stable
   # chunks, each with its own incremental file and last report in a cached
   # state directory, and runs them oldest-first until the budget is spent, so
-  # the frontend baseline also builds up over several nights.
+  # the frontend baseline also builds up over several nights. Files are dealt
+  # to shards and chunks by a hash of their path, so a file keeps its shard,
+  # and with it its cached verdicts, from one night to the next. The `v2` in
+  # the cache key retired the state built under the old size-balanced deal,
+  # which moved most files to another shard every night.
   frontend:
     name: Frontend mutation (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
@@ -276,8 +280,8 @@ jobs:
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: frontend/reports/nightly
-          key: stryker-frontend-shard${{ matrix.shard }}-${{ github.run_id }}
-          restore-keys: stryker-frontend-shard${{ matrix.shard }}-
+          key: stryker-frontend-v2-shard${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: stryker-frontend-v2-shard${{ matrix.shard }}-
       # Two halves with a checkpoint between, for the reason the backend job
       # gives. A chunk's state is written when the chunk finishes, so the
       # checkpoint keeps every chunk the first half completed. The summary
@@ -316,7 +320,7 @@ jobs:
         if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' && env.SAVE_CACHE == 'true' }}
         with:
           path: frontend/reports/nightly
-          key: stryker-frontend-shard${{ matrix.shard }}-${{ github.run_id }}-checkpoint
+          key: stryker-frontend-v2-shard${{ matrix.shard }}-${{ github.run_id }}-checkpoint
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         with:
@@ -345,7 +349,7 @@ jobs:
         if: always() && env.SAVE_CACHE == 'true'
         with:
           path: frontend/reports/nightly
-          key: stryker-frontend-shard${{ matrix.shard }}-${{ github.run_id }}
+          key: stryker-frontend-v2-shard${{ matrix.shard }}-${{ github.run_id }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:

@@ -55,7 +55,13 @@ just new lines.
   incremental file and last report, runs them oldest first until the budget
   is spent, and lets a chunk cut off by the budget keep its previous report.
   A chunk whose last report was made from the same inputs is skipped (see
-  below).
+  below). Frontend files are dealt to shards and chunks by a hash of their
+  path, never by size, so a file stays where its cached verdicts are; a
+  size-balanced deal moved most files to another shard every night, where
+  they were scored from whatever old report that shard held. A chunk's
+  report is read only for the files the chunk holds now, because Stryker's
+  incremental mode copies the old mutants of a file that left the run into
+  every later report.
 - The `report` job runs `gate.py --scope suite --allow-pending` per suite
   against the `[suite]` floor and each `[modules]` floor. A floor applies once
   everything it covers is measured; until then the summary shows baseline
