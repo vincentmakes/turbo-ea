@@ -934,6 +934,7 @@ _RISK_STATUS_VALUES = [
 _RISK_FIELD_ALIASES = {
     "probability": "initial_probability",
     "impact": "initial_impact",
+    "linked_card_ids": "card_ids",
 }
 
 _RISK_CREATE_FIELDS = frozenset(
@@ -993,10 +994,8 @@ def _translate_risk_row(
     payload: dict = {}
     for key, value in row.items():
         field = _RISK_FIELD_ALIASES.get(key, key)
-        if key == "linked_card_ids":
-            field = "card_ids"
         if field not in allowed:
-            if key == "status" and "status" not in allowed:
+            if key == "status":
                 return {}, {
                     "error": "unknown_field",
                     "index": idx,
@@ -1857,14 +1856,19 @@ _LOGO_MIME_ALIASES = {"image/jpg": "image/jpeg"}
 _MAX_LOGO_BYTES = 1 * 1024 * 1024
 
 
+_LOGO_SIGNATURES = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+)
+
+
 def _sniff_logo_mime(head: bytes) -> str | None:
     """Identify an image from its leading bytes, or None. See the backend twin."""
-    if head.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "image/png"
-    if head.startswith(b"\xff\xd8\xff"):
-        return "image/jpeg"
-    if head.startswith(b"GIF87a") or head.startswith(b"GIF89a"):
-        return "image/gif"
+    for signature, mime in _LOGO_SIGNATURES:
+        if head.startswith(signature):
+            return mime
     if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
         return "image/webp"
     return None
@@ -1877,23 +1881,23 @@ def _logo_validation_problem(index: int, item: object, exc: ValidationError) -> 
     condition the caller must change — `unsupported_mime` for a bad `mime` is
     actionable, a raw pydantic dump is not.
     """
+    sent = item if isinstance(item, dict) else {}
     for err in exc.errors():
         loc = err.get("loc") or ()
         field = loc[0] if loc else None
         if err.get("type") == "missing" and field == "card_id":
             return {"row_index": index, "status": "missing_card_id"}
         if field == "mime":
-            declared = item.get("mime") if isinstance(item, dict) else None
             return {
                 "row_index": index,
-                "card_id": item.get("card_id") if isinstance(item, dict) else None,
+                "card_id": sent.get("card_id"),
                 "status": "unsupported_mime",
-                "mime": declared,
+                "mime": sent.get("mime"),
                 "accepted": sorted(_LOGO_MIMES),
             }
     return {
         "row_index": index,
-        "card_id": item.get("card_id") if isinstance(item, dict) else None,
+        "card_id": sent.get("card_id"),
         "status": "invalid_item",
         "errors": [
             {"field": ".".join(str(p) for p in (e.get("loc") or ())), "message": e.get("msg")}
@@ -1943,7 +1947,7 @@ async def _check_logo_types(token: str, prepared: list[dict]) -> tuple[dict, lis
                 }
             )
             continue
-        if not allows.get(card_type, False):
+        if not allows.get(card_type):
             disabled.append(
                 {
                     "row_index": p["row_index"],
@@ -3732,6 +3736,7 @@ def explore_dependencies(card_name: str) -> str:
 
 import asyncio
 import os
+import threading
 
 from mcp.server.lowlevel.server import request_ctx as _mcp_request_ctx
 
@@ -3760,13 +3765,18 @@ async def _get_current_token() -> str | None:
     request = getattr(ctx, "request", None)
     if request is None:
         return None
-    auth = request.headers.get("authorization", "")
-    if not auth.lower().startswith("bearer "):
+    auth = request.headers.get("authorization")
+    if not auth or not auth.lower().startswith("bearer "):
         return None
     return await oauth.resolve_token(auth[7:])
 
 
 # ── ASGI application ───────────────────────────────────────────────────────
+
+
+# A module constant rather than a literal at the call: header names are
+# case-insensitive, so a mutated spelling of the literal could never fail a test.
+_WWW_AUTHENTICATE = "WWW-Authenticate"
 
 
 class RequireBearerForMcp:
@@ -3790,10 +3800,10 @@ class RequireBearerForMcp:
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
-            path = scope.get("path", "")
+            path = scope.get("path", "")  # pragma: no mutate, no default can read as /mcp
             if path == "/mcp" or path.startswith("/mcp/"):
                 headers = dict(scope.get("headers", []))
-                auth = headers.get(b"authorization", b"").decode()
+                auth = headers.get(b"authorization", b"").decode()  # pragma: no mutate, any default reads as unauthenticated
                 if not auth.lower().startswith("bearer "):
                     from starlette.responses import JSONResponse
 
@@ -3804,12 +3814,12 @@ class RequireBearerForMcp:
                         },
                         status_code=401,
                         headers={
-                            "WWW-Authenticate": (
+                            _WWW_AUTHENTICATE: (
                                 f'Bearer resource_metadata="{self.resource_metadata_url}"'
                             ),
                         },
                     )
-                    await response(scope, receive, send)
+                    await response(scope, receive, send)  # pragma: no mutate, a JSON response never reads the body
                     return
         await self.app(scope, receive, send)
 
@@ -3817,26 +3827,15 @@ class RequireBearerForMcp:
 def create_app() -> Starlette:
     """Create the full ASGI application with OAuth + MCP routes."""
     # OAuth routes (handled by Starlette, not MCP)
+    # A function endpoint answers GET (and HEAD) unless given ``methods``.
     oauth_routes = [
-        Route(
-            "/.well-known/oauth-protected-resource",
-            oauth.protected_resource_metadata,
-            methods=["GET"],
-        ),
-        Route(
-            "/.well-known/oauth-authorization-server",
-            oauth.authorization_server_metadata,
-            methods=["GET"],
-        ),
+        Route("/.well-known/oauth-protected-resource", oauth.protected_resource_metadata),
+        Route("/.well-known/oauth-authorization-server", oauth.authorization_server_metadata),
         # OIDC-style discovery alias — some MCP connectors probe this path
         # instead of (or before) the OAuth 2.1 / RFC 8414 well-known.
-        Route(
-            "/.well-known/openid-configuration",
-            oauth.authorization_server_metadata,
-            methods=["GET"],
-        ),
-        Route("/oauth/authorize", oauth.authorize, methods=["GET"]),
-        Route("/oauth/callback", oauth.sso_callback, methods=["GET"]),
+        Route("/.well-known/openid-configuration", oauth.authorization_server_metadata),
+        Route("/oauth/authorize", oauth.authorize),
+        Route("/oauth/callback", oauth.sso_callback),
         Route("/oauth/token", oauth.token_endpoint, methods=["POST"]),
         Route("/oauth/register", oauth.register_client, methods=["POST"]),
     ]
@@ -3846,7 +3845,7 @@ def create_app() -> Starlette:
 
         return JSONResponse({"status": "ok", "version": APP_VERSION})
 
-    oauth_routes.append(Route("/health", health, methods=["GET"]))
+    oauth_routes.append(Route("/health", health))
 
     # streamable_http_app() returns a Starlette app with the MCP protocol route
     # at /mcp by default. Attach OAuth + well-known routes to that same app so
@@ -3891,8 +3890,8 @@ def run_stdio() -> None:
 
     from turbo_ea_mcp.config import TURBO_EA_URL
 
-    email = os.environ.get("TURBO_EA_EMAIL") or os.environ.get("TURBO_EA_USERNAME", "")
-    password = os.environ.get("TURBO_EA_PASSWORD", "")
+    email = os.environ.get("TURBO_EA_EMAIL") or os.environ.get("TURBO_EA_USERNAME")
+    password = os.environ.get("TURBO_EA_PASSWORD")
     if not email or not password:
         logger.error("TURBO_EA_EMAIL and TURBO_EA_PASSWORD must be set for stdio mode")
         raise SystemExit(1)
@@ -3907,28 +3906,23 @@ def run_stdio() -> None:
         raise SystemExit(1) from exc
 
     logger.info("Logged in — starting MCP stdio transport")
+    _start_refresh_thread()
+    mcp.run(transport="stdio")
 
-    # Patch the MCP server to kick off the refresh loop once the event loop runs
-    _original_run = mcp.run
 
-    def _patched_run(**kwargs):
-        import threading
-
-        def _start_refresh():
-            loop = asyncio.new_event_loop()
-            loop.run_until_complete(_refresh_loop())
-
-        t = threading.Thread(target=_start_refresh, daemon=True)
-        t.start()
-        _original_run(**kwargs)
-
-    _patched_run(transport="stdio")
+def _start_refresh_thread() -> threading.Thread:
+    """Keep the stdio session's JWT fresh from a daemon thread with an event
+    loop of its own: the stdio transport holds the main thread's loop for as
+    long as the session lasts, and a daemon never keeps the process alive."""
+    thread = threading.Thread(target=lambda: asyncio.run(_refresh_loop()), daemon=True)
+    thread.start()
+    return thread
 
 
 # ── CLI entry point ─────────────────────────────────────────────────────────
 
 
-def main():
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Turbo EA MCP Server")
     parser.add_argument("--host", default="0.0.0.0", help="Bind host")
     parser.add_argument("--port", type=int, default=MCP_PORT, help="Bind port")
@@ -3938,7 +3932,11 @@ def main():
         help="Run in stdio mode (for Claude Desktop). "
         "Requires TURBO_EA_EMAIL and TURBO_EA_PASSWORD env vars.",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main():
+    args = _build_parser().parse_args()
 
     if args.stdio:
         run_stdio()

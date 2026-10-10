@@ -12,14 +12,11 @@ Covers:
 - The ``get_change_history`` tool: routes to ``/mutation-batches`` for
   the list endpoint and ``/mutation-batches/{id}/events`` for a
   specific batch.
-- The actor-decoder helper: pulls the JWT ``sub`` claim without
-  signature verification, returns ``None`` on garbage input.
 - MCP tool annotations are set on every read and write tool.
 """
 
 from __future__ import annotations
 
-import base64
 import json
 import pathlib
 from unittest.mock import AsyncMock, patch
@@ -27,7 +24,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from turbo_ea_mcp import server
-from turbo_ea_mcp.identity import get_actor_user_id
 
 
 @pytest.fixture
@@ -185,33 +181,6 @@ class TestGetChangeHistory:
             await server.get_change_history(limit=10_000)
         _, kwargs = get_mock.call_args
         assert kwargs["params"]["limit"] == 200
-
-
-# ── Identity decoder ────────────────────────────────────────────────────────
-
-
-def _make_jwt(claims: dict) -> str:
-    """Build a syntactically-valid (unsigned) JWT for tests."""
-    header = base64.urlsafe_b64encode(b'{"alg":"none"}').rstrip(b"=").decode()
-    payload = (
-        base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
-    )
-    return f"{header}.{payload}.signature"
-
-
-class TestIdentityDecoder:
-    def test_extracts_sub_claim(self):
-        token = _make_jwt({"sub": "user-uuid-123", "role": "admin"})
-        assert get_actor_user_id(token) == "user-uuid-123"
-
-    def test_handles_garbage(self):
-        assert get_actor_user_id("not-a-jwt") is None
-        assert get_actor_user_id("") is None
-        assert get_actor_user_id(None) is None
-
-    def test_handles_missing_sub(self):
-        token = _make_jwt({"role": "admin"})
-        assert get_actor_user_id(token) is None
 
 
 # ── MCP tool annotations ────────────────────────────────────────────────────

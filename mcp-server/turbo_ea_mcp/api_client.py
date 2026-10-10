@@ -20,6 +20,10 @@ T = TypeVar("T")
 # figure (#1093).
 CARD_IDS_CHUNK = 200
 
+# Module constant, not a literal at the call: httpx header lookups ignore
+# case, so a mutated spelling of the literal could never fail a test.
+_CONTENT_TYPE = "content-type"
+
 
 def chunked(items: Sequence[T], size: int) -> list[list[T]]:
     """Split ``items`` into consecutive lists of at most ``size``."""
@@ -182,7 +186,7 @@ class TurboEAClient:
                 params=params,
             )
             _raise_for_status_with_detail(resp)
-            return resp.content, resp.headers.get("content-type", "").split(";")[0].strip()
+            return resp.content, resp.headers.get(_CONTENT_TYPE, "").split(";")[0].strip()
 
     async def put(self, path: str, json: dict | None = None) -> dict | list:
         async with httpx.AsyncClient(timeout=30.0) as client:
