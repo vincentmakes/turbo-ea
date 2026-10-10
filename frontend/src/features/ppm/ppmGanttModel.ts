@@ -173,7 +173,6 @@ export function deriveRange(
 
 /** Where a new item starts by default: today when it falls in the range, else the range's start. */
 export function defaultNewDate(range: { start: Date; end: Date }, now: Date = new Date()): string {
-  // Stryker disable next-line EqualityOperator: at now == range.start both branches name the same day
   return toIsoDate(now >= range.start && now <= range.end ? now : range.start);
 }
 
@@ -374,7 +373,6 @@ export function buildGanttRows({
       continue;
     }
     let end = endOfDay(parseDate(w.end_date, range.end));
-    // Stryker disable next-line EqualityOperator: end is 23:59:59.999 and start midnight, so they are never equal
     if (end <= start) {
       end = endOfDay(start);
       end.setDate(end.getDate() + 7);
@@ -392,7 +390,6 @@ export function buildGanttRows({
     const id = ganttIdOf("task", tk.id);
     const start = startOfLocalDay(parseDate(tk.start_date, parseDate(tk.created_at, range.start)));
     let end = endOfDay(parseDate(tk.due_date, new Date(start.getTime() + 7 * DAY_MS)));
-    // Stryker disable next-line EqualityOperator: end is 23:59:59.999 and start midnight, so they are never equal
     if (end <= start) {
       end = endOfDay(start);
       end.setDate(end.getDate() + 1);

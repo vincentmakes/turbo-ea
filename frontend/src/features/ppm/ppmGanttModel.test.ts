@@ -501,9 +501,42 @@ describe("rows", () => {
       parent: "wbs-w1",
       dependencies: undefined,
       isDisabled: false,
-      styles: TASK_STATUS_BAR_COLORS.in_progress,
+      styles: {
+        barBackgroundColor: "#90caf9",
+        barProgressColor: "#1976d2",
+        barBackgroundSelectedColor: "#1565c0",
+        barProgressSelectedColor: "#1976d2",
+      },
     });
-    expect(TASK_STATUS_BAR_COLORS.in_progress.barBackgroundColor).toBe("#90caf9");
+  });
+
+  it("colours a bar by task status, with the standard board palette", () => {
+    expect(TASK_STATUS_BAR_COLORS).toEqual({
+      todo: {
+        barBackgroundColor: "#9e9e9e",
+        barProgressColor: "#757575",
+        barBackgroundSelectedColor: "#757575",
+        barProgressSelectedColor: "#616161",
+      },
+      in_progress: {
+        barBackgroundColor: "#90caf9",
+        barProgressColor: "#1976d2",
+        barBackgroundSelectedColor: "#1565c0",
+        barProgressSelectedColor: "#1976d2",
+      },
+      done: {
+        barBackgroundColor: "#a5d6a7",
+        barProgressColor: "#2e7d32",
+        barBackgroundSelectedColor: "#1b5e20",
+        barProgressSelectedColor: "#2e7d32",
+      },
+      blocked: {
+        barBackgroundColor: "#d32f2f",
+        barProgressColor: "#c62828",
+        barBackgroundSelectedColor: "#b71c1c",
+        barProgressSelectedColor: "#c62828",
+      },
+    });
   });
 
   it("starts an undated task on the day it was created, for a week", () => {
@@ -530,8 +563,10 @@ describe("rows", () => {
 
   it("colours a task of an unknown status as to-do", () => {
     const [row] = rows([], [task("t1", { status: "weird" as never })]);
-    expect(row).toMatchObject({ styles: TASK_STATUS_BAR_COLORS.todo, progress: 0 });
-    expect(TASK_STATUS_BAR_COLORS.todo.barBackgroundColor).toBe("#9e9e9e");
+    expect(row).toMatchObject({
+      styles: { barBackgroundColor: "#9e9e9e", barProgressColor: "#757575" },
+      progress: 0,
+    });
   });
 
   it("lists WBS items, then tasks, then the empty row", () => {

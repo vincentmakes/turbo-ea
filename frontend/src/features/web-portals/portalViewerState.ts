@@ -88,7 +88,6 @@ export function portalFields(portal: PublicPortal | null): PortalFields {
   const all = portal?.type_info?.fields_schema?.flatMap((s) => s.fields) ?? [];
   const toggles = portalToggles(portal);
   const card = all.filter((f, idx) => isVisible(toggles, `field:${f.key}`, "card", idx < 3));
-  // Stryker disable next-line StringLiteral: isVisible reads any mode but "card" as the detail panel
   const detail = all.filter((f) => isVisible(toggles, `field:${f.key}`, "detail", true));
   const filterable = all.filter(
     (f) =>

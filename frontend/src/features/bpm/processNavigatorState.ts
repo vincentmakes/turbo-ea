@@ -271,7 +271,6 @@ export function loadOpeningConfig(
   }
   try {
     const raw = storage().getItem(STORAGE_KEY);
-    // Stryker disable next-line ConditionalExpression: JSON.parse(null) is null and JSON.parse("") throws into the catch, so the guard only spares a parse
     if (raw) return JSON.parse(raw);
   } catch {
     /* unreadable storage or a corrupt entry: open with the defaults */
