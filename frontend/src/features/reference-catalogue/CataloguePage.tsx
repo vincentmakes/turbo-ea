@@ -173,10 +173,11 @@ export default function CataloguePage({ config }: Props) {
     }
     setImportProgress({ done: 0, total: batches.length });
 
-    const aggregate: ImportResult = {
+    const aggregate: ImportResult & { failed: NonNullable<ImportResult["failed"]> } = {
       created: [],
       skipped: [],
       relinked: [],
+      failed: [],
       catalogue_version: null,
       auto_relations_created: 0,
     };
@@ -190,6 +191,8 @@ export default function CataloguePage({ config }: Props) {
         aggregate.created.push(...r.created);
         aggregate.skipped.push(...r.skipped);
         aggregate.relinked.push(...r.relinked);
+        // A backend older than 2.158.11 sends no `failed` list.
+        aggregate.failed.push(...(r.failed ?? []));
         aggregate.catalogue_version = r.catalogue_version;
         if (r.auto_relations_created) {
           aggregate.auto_relations_created =
@@ -254,6 +257,7 @@ export default function CataloguePage({ config }: Props) {
 
   const v = payload.version;
   const totalCount = v.node_count ?? v.process_count ?? v.value_stream_count ?? nodes.length;
+  const failedEntries = importResult?.failed ?? [];
   const sourceLabel =
     v.source === "remote"
       ? t(`cards:${ns}.sourceRemote`, { version: v.bundled_version })
@@ -433,6 +437,23 @@ export default function CataloguePage({ config }: Props) {
                   relinked: importResult.relinked.length,
                 })}
               </Alert>
+              {/* The server refuses an entry whose name another card of the
+                  type already uses at the same level, and reports the entries
+                  beneath a refused parent too; each comes back with its reason. */}
+              {failedEntries.length > 0 && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  {t(`cards:${ns}.importFailedBody`, { count: failedEntries.length })}
+                  <Box component="ul" sx={{ m: 0, mt: 1, pl: 2.5 }}>
+                    {failedEntries.map((f) => (
+                      <li key={f.catalogue_id}>
+                        <Typography variant="body2" component="span">
+                          <strong>{f.catalogue_id}</strong> — {f.reason}
+                        </Typography>
+                      </li>
+                    ))}
+                  </Box>
+                </Alert>
+              )}
               {/* Per-catalogue services emit `auto_relations_created` —
                   surface it as a secondary line so the user can see how
                   many cross-references landed automatically. */}

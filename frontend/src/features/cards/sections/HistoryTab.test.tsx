@@ -186,3 +186,106 @@ describe("HistoryTab — file attachment replace and edit (#1166)", () => {
     expect(screen.getByText("security")).toBeInTheDocument();
   });
 });
+
+describe("HistoryTab — event detail lines", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function event(id: string, event_type: string, data: Record<string, unknown>) {
+    return {
+      id,
+      event_type,
+      created_at: "2026-10-10T09:00:00Z",
+      user_id: "u1",
+      user_display_name: "Ann",
+      data,
+    };
+  }
+
+  it("links a relation's peer card and shows the verb", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      event("e1", "relation.created", {
+        directional_label: "is supported by",
+        direction: "outgoing",
+        peer_id: "peer-9",
+        peer_name: "Oracle DB",
+        peer_type: "Application",
+      }),
+    ]);
+    renderTab();
+    expect(await screen.findByText("is supported by")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Oracle DB" })).toHaveAttribute(
+      "href",
+      "/cards/peer-9",
+    );
+  });
+
+  it("links a risk by its reference and shows its level", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      event("e2", "risk.added", {
+        reference: "R-000042",
+        title: "Single point of failure",
+        level: "High",
+        link: "/grc/risks/r42",
+      }),
+    ]);
+    renderTab();
+    expect(await screen.findByRole("link", { name: "R-000042" })).toHaveAttribute(
+      "href",
+      "/grc/risks/r42",
+    );
+    expect(screen.getByText("high")).toBeInTheDocument();
+    expect(screen.getByText("Single point of failure")).toBeInTheDocument();
+  });
+
+  it("links an added document in a new tab", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      event("e3", "document.added", { name: "Runbook", url: "https://example.invalid/rb" }),
+    ]);
+    renderTab();
+    const link = await screen.findByRole("link", { name: "Runbook" });
+    expect(link).toHaveAttribute("href", "https://example.invalid/rb");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("shows a withdrawn flow's revision and its reason in full", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      event("e4", "process_flow.withdrawn", { revision: 4, reason: "Wrong lane owner" }),
+    ]);
+    renderTab();
+    expect(await screen.findByText(/Wrong lane owner/)).toBeInTheDocument();
+    expect(screen.getByText("Revision 4")).toBeInTheDocument();
+  });
+
+  it("shows an event type this build does not know by its raw name", async () => {
+    vi.mocked(api.get).mockResolvedValue([event("e5", "card.teleported", { summary: "Moved" })]);
+    renderTab();
+    expect(await screen.findByText("card.teleported")).toBeInTheDocument();
+    expect(screen.getByText("Moved")).toBeInTheDocument();
+  });
+
+  it("shows one row per changed attribute, dropping the unchanged ones", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      event("e6", "card.updated", {
+        changes: {
+          attributes: {
+            old: { cost: 10, keep: "same" },
+            new: { cost: 20, keep: "same" },
+          },
+        },
+      }),
+    ]);
+    renderTab();
+    expect(await screen.findByText("cost")).toBeInTheDocument();
+    expect(screen.getByText("10")).toBeInTheDocument();
+    expect(screen.getByText("20")).toBeInTheDocument();
+    expect(screen.queryByText("keep")).not.toBeInTheDocument();
+  });
+
+  it("says so when the card has no history", async () => {
+    vi.mocked(api.get).mockResolvedValue([]);
+    renderTab();
+    expect(await screen.findByText(/no history/i)).toBeInTheDocument();
+  });
+});

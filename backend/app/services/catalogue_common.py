@@ -24,19 +24,25 @@ import io
 import json
 import logging
 import os
+import uuid
 import zipfile
-from collections.abc import Callable, Iterable
+from collections import Counter
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from importlib.resources import as_file, files
 from typing import Any
 
 import httpx
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.app_settings import AppSettings
 from app.models.card import Card
+from app.models.relation import Relation
+from app.models.user import User
+from app.services.card_reference import ReferenceAllocator
+from app.services.event_bus import event_bus
 
 logger = logging.getLogger(__name__)
 
@@ -159,16 +165,6 @@ def localize_flat_with_table(
 # ---------------------------------------------------------------------------
 
 
-async def get_app_settings(db: AsyncSession) -> AppSettings:
-    res = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-    settings: AppSettings | None = res.scalar_one_or_none()
-    if settings is None:
-        settings = AppSettings(id="default", general_settings={})
-        db.add(settings)
-        await db.flush()
-    return settings
-
-
 async def get_cached_remote(db: AsyncSession, key: str) -> dict[str, Any] | None:
     """Read a cached-remote payload from its `catalogue_cache` row.
 
@@ -194,8 +190,17 @@ class ActiveCatalogue:
     meta: dict[str, Any]
     # Applies the same locale to another list (the capability macros).
     localize: Callable[[Flat], Flat]
-    # The cached remote row as read, whichever source won.
-    cached: dict[str, Any] | None
+    # The cached remote row when it is the source being served, else None. A
+    # cache that lost to a newer bundled wheel is stale, and nothing derived
+    # from it (the capability macros) may be served beside the bundled list.
+    remote: dict[str, Any] | None
+
+
+def remote_wins(cached: dict[str, Any] | None, bundled_version: str) -> bool:
+    """A cached remote is served only when strictly newer than the bundled wheel."""
+    return cached is not None and version_tuple(
+        cached.get("catalogue_version", "0")
+    ) > version_tuple(bundled_version)
 
 
 def localize_via_bundled_table(flat: Flat, locale: str) -> Flat:
@@ -223,9 +228,7 @@ async def resolve_active_catalogue(
     """
     bundled_flat, bundled_meta = bundled
     cached = await get_cached_remote(db, cache_key)
-    if cached is None or version_tuple(cached.get("catalogue_version", "0")) <= version_tuple(
-        bundled_meta["catalogue_version"]
-    ):
+    if cached is None or not remote_wins(cached, bundled_meta["catalogue_version"]):
         active_locale = bundled_meta.get("active_locale", "en")
         return ActiveCatalogue(
             flat=bundled_flat,
@@ -235,7 +238,7 @@ async def resolve_active_catalogue(
                 "bundled_version": bundled_meta["catalogue_version"],
             },
             localize=lambda flat: localize_via_bundled_table(flat, active_locale),
-            cached=cached,
+            remote=None,
         )
 
     cached_i18n = cached.get("i18n") or {}
@@ -264,7 +267,7 @@ async def resolve_active_catalogue(
             "active_locale": effective,
         },
         localize=localize,
-        cached=cached,
+        remote=cached,
     )
 
 
@@ -455,6 +458,276 @@ async def existing_card_index_by_catalogue_id(
     return out
 
 
+def bundled_payload(
+    pkg: Any,
+    *,
+    locale: str,
+    raw: list[dict[str, Any]],
+    count_key: str,
+    count: int | None = None,
+    flatten: Callable[[Flat], Flat] = list,
+) -> tuple[Flat, dict[str, Any]]:
+    """A catalogue's bundled flat list, localized, and its version meta.
+
+    ``pkg`` is the installed ``turbo_ea_capabilities`` module as the calling
+    service sees it, ``raw`` the artefact as read from the wheel. ``count``
+    defaults to the length of the flat list.
+    """
+    available = list(pkg.available_locales())
+    effective = resolve_effective_locale(locale, available)
+    flat = flatten(raw)
+    if effective != "en":
+        table = bundled_i18n_table(effective)
+        if table:
+            flat = localize_flat_with_table(flat, table)
+    return flat, {
+        "catalogue_version": pkg.VERSION,
+        "schema_version": str(pkg.SCHEMA_VERSION),
+        "generated_at": pkg.GENERATED_AT,
+        count_key: len(flat) if count is None else count,
+        "available_locales": available,
+        "active_locale": effective,
+    }
+
+
+async def english_index(
+    resolve: Callable[..., Awaitable[tuple[Flat, dict[str, Any]]]],
+    db: AsyncSession,
+    flat: Flat,
+    meta: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    """``{entry id: entry}`` of the catalogue in English, the language names match on.
+
+    ``resolve`` is the calling service's own active-catalogue resolver; it is
+    asked again only when ``flat`` is in another language.
+    """
+    if meta.get("active_locale", "en") == "en":
+        return {node["id"]: node for node in flat}
+    english_flat, _ = await resolve(db, locale="en")
+    return {node["id"]: node for node in english_flat}
+
+
+async def match_existing_cards(
+    db: AsyncSession,
+    *,
+    flat: Flat,
+    english: dict[str, dict[str, Any]],
+    card_type: str,
+    subtypes: tuple[str, ...] | None = None,
+    by_id_only: Callable[[dict[str, Any]], bool] = lambda node: False,
+) -> dict[str, str]:
+    """``{catalogue id: card id}`` for every entry a card already stands for.
+
+    One definition for the browser's green tick and for the import's skip, so
+    the two cannot disagree. An entry matches a card by ``attributes.catalogueId``
+    first, which survives renames. Failing that it matches by its canonical
+    English name, but only when no other entry of the catalogue carries the
+    same name. The catalogues repeat names across branches (157 capability
+    names, 6 process names, 7 value-stream stage names in the 2026.9 wheel),
+    and a name shared by two entries tied both to one card: importing the
+    second branch skipped its entry, created that entry's children under the
+    first branch's card, and re-parented that card under the second branch.
+    ``by_id_only`` names entries that never match by name (macro capabilities).
+    """
+    name_index = await existing_card_index_by_name(db, card_type=card_type, subtypes=subtypes)
+    cat_id_index = await existing_card_index_by_catalogue_id(
+        db, card_type=card_type, subtypes=subtypes
+    )
+    names = {
+        node["id"]: normalize_name(english.get(node["id"], node).get("name") or "") for node in flat
+    }
+    repeats = Counter(names.values())
+    matches: dict[str, str] = {}
+    for node in flat:
+        existing = cat_id_index.get(node["id"])
+        name = names[node["id"]]
+        if existing is None and name and repeats[name] == 1 and not by_id_only(node):
+            existing = name_index.get(name)
+        if existing:
+            matches[node["id"]] = existing
+    return matches
+
+
+async def card_lookup(db: AsyncSession, card_type: str) -> dict[str, str]:
+    """``{catalogue id or normalised name: card id}`` for the cards a relation targets.
+
+    Catalogue ids (``BC-*``, ``BP-*``) and normalised English names live in
+    disjoint key spaces, so one dict serves both; a catalogue id wins.
+    """
+    cat_id_index = await existing_card_index_by_catalogue_id(db, card_type=card_type)
+    name_index = await existing_card_index_by_name(db, card_type=card_type)
+    return {**name_index, **cat_id_index}
+
+
+PARENT_NOT_IMPORTED = "parent not imported"
+
+
+async def create_catalogue_card(
+    db: AsyncSession,
+    user: User,
+    *,
+    type_key: str,
+    name: str,
+    subtype: str | None,
+    description: str | None,
+    parent_id: str | None,
+    attributes: dict[str, Any],
+    allocator: ReferenceAllocator,
+) -> tuple[Card | None, str]:
+    """Create one imported card through the shared write path, in its own savepoint.
+
+    A catalogue card takes the road every other card takes
+    (``card_write_service.create_card``): validation, the sibling-name check,
+    its reference when the type numbers cards automatically, the hierarchy
+    depth guard and level sync, calculations, data quality and the
+    ``card.created`` event that puts it in the History tab (CLAUDE.md, *A
+    write path that can move cards.updated_at must also persist a card
+    event*). The imports used to build ``Card`` rows directly and got none
+    of that. A row the write path refuses rolls back alone and comes back as
+    ``(None, reason)``, so one taken name cannot fail a 500-card batch — the
+    bulk-create shape. ``reason`` is empty when the card was created.
+
+    ``card_write_service`` is imported here, not at module level: it reaches
+    ``extensions.bundle`` through ``card_approval`` → ``notification_service``,
+    and ``bundle`` imports ``version_tuple`` from this module, so a top-level
+    import closes a cycle that breaks whichever side is imported first.
+    """
+    from app.services import card_write_service
+
+    savepoint = await db.begin_nested()
+    try:
+        card = await card_write_service.create_card(
+            db,
+            card_write_service.WriteActor.from_user(user),
+            type_key=type_key,
+            name=name,
+            subtype=subtype,
+            description=description,
+            parent_id=uuid.UUID(parent_id) if parent_id else None,
+            attributes=attributes,
+            reference_allocator=allocator,
+        )
+    except HTTPException as exc:
+        await savepoint.rollback()
+        # The sibling-name check raises a structured detail whose ``message``
+        # is what the API client shows; other refusals are plain strings.
+        detail = exc.detail
+        if isinstance(detail, dict) and isinstance(detail.get("message"), str):
+            return None, detail["message"]
+        return None, str(detail)
+    await savepoint.commit()
+    return card, ""
+
+
+async def add_relation_once(
+    db: AsyncSession,
+    *,
+    relation_type: str,
+    source_id: uuid.UUID,
+    target_id: uuid.UUID,
+) -> bool:
+    """Stage the relation unless an identical one exists; True when one was added.
+
+    Each caller passes the ends in the relation type's own direction.
+    """
+    exists = await db.execute(
+        select(Relation.id).where(
+            Relation.type == relation_type,
+            Relation.source_id == source_id,
+            Relation.target_id == target_id,
+        )
+    )
+    if exists.scalar_one_or_none() is not None:
+        return False
+    db.add(Relation(type=relation_type, source_id=source_id, target_id=target_id, attributes={}))
+    return True
+
+
+async def relink_pre_existing(
+    db: AsyncSession,
+    *,
+    pre_existing: Iterable[str],
+    by_id: dict[str, dict[str, Any]],
+    created_in_batch: set[str],
+    card_ids: dict[str, str],
+    user_id: uuid.UUID,
+) -> list[dict[str, str]]:
+    """Move each existing card under its catalogue parent when this import created it.
+
+    The move is recorded on the card's History tab: it changes the card, and
+    a card whose Modified date moved with nothing in its history is one nobody
+    can triage (CLAUDE.md, *A write path that can move cards.updated_at…*).
+    """
+    relinked: list[dict[str, str]] = []
+    for cat_id in sorted(pre_existing):
+        node = by_id.get(cat_id)
+        if node is None:
+            continue
+        cat_parent = node.get("parent_id")
+        if not cat_parent or cat_parent not in created_in_batch:
+            continue
+        card = await db.get(Card, uuid.UUID(card_ids[cat_id]))
+        if card is None:
+            continue
+        new_parent = uuid.UUID(card_ids[cat_parent])
+        old_parent = card.parent_id
+        card.parent_id = new_parent
+        card.updated_by = user_id
+        await db.flush()
+        await event_bus.publish(
+            "card.updated",
+            {
+                "id": str(card.id),
+                "changes": {
+                    "parent_id": {
+                        "old": str(old_parent) if old_parent else None,
+                        "new": str(new_parent),
+                    }
+                },
+            },
+            db=db,
+            card_id=card.id,
+            user_id=user_id,
+        )
+        relinked.append(
+            {
+                "catalogue_id": cat_id,
+                "card_id": card_ids[cat_id],
+                "new_parent_card_id": card_ids[cat_parent],
+            }
+        )
+    return relinked
+
+
+def catalogue_attributes(
+    node: dict[str, Any],
+    meta: dict[str, Any],
+    now: str,
+    level: tuple[str, str],
+    copied: Iterable[tuple[str, str]] = (),
+) -> dict[str, Any]:
+    """The attributes every imported card carries, plus ``copied`` node fields.
+
+    ``level`` is the ``(attribute key, value)`` naming the card's catalogue
+    level; ``copied`` maps a node field to the attribute that keeps it when
+    the node's value is truthy (a list is copied, never shared). A field
+    whose zero is meaningful, such as a stage order, is the caller's to add.
+    """
+    attrs: dict[str, Any] = {
+        "catalogueId": node["id"],
+        "catalogueVersion": meta.get("catalogue_version"),
+        "catalogueImportedAt": now,
+        level[0]: level[1],
+    }
+    if meta.get("active_locale", "en") != "en":
+        attrs["catalogueLocale"] = meta["active_locale"]
+    for field, key in copied:
+        value = node.get(field)
+        if value:
+            attrs[key] = list(value) if isinstance(value, list) else value
+    return attrs
+
+
 # ---------------------------------------------------------------------------
 # Wheel fetch + extraction
 # ---------------------------------------------------------------------------
@@ -463,9 +736,11 @@ async def existing_card_index_by_catalogue_id(
 def wheel_url_from_pypi_payload(payload: dict[str, Any]) -> tuple[str, str]:
     """Pick the wheel artefact URL and version from a PyPI JSON response.
 
-    Falls back to a sdist if no wheel is published — the extraction logic
-    only depends on the `data/*.json` paths which both distribution formats
-    use.
+    Only a wheel will do. The extractor reads the wheel's zip layout and its
+    ``turbo_ea_capabilities/data/*.json`` paths; an sdist is a ``.tar.gz``
+    with everything under a ``<name>-<version>/`` folder, so it has neither
+    the container nor the paths. This used to fall back to the sdist, which
+    then failed inside ``zipfile`` and surfaced as a generic fetch error.
     """
     info = payload.get("info") or {}
     version = info.get("version")
@@ -473,11 +748,9 @@ def wheel_url_from_pypi_payload(payload: dict[str, Any]) -> tuple[str, str]:
         raise ValueError("PyPI response missing info.version")
     urls = payload.get("urls") or []
     wheel = next((u for u in urls if u.get("packagetype") == "bdist_wheel"), None)
-    fallback = next((u for u in urls if u.get("packagetype") == "sdist"), None)
-    chosen = wheel or fallback
-    if not chosen or not chosen.get("url"):
-        raise ValueError(f"PyPI did not list a downloadable artefact for {PYPI_PROJECT_NAME}")
-    return str(chosen["url"]), version
+    if not wheel or not wheel.get("url"):
+        raise ValueError(f"PyPI lists no wheel for {PYPI_PROJECT_NAME} {version}")
+    return str(wheel["url"]), version
 
 
 async def fetch_wheel_from_pypi() -> tuple[bytes, str]:
@@ -485,7 +758,7 @@ async def fetch_wheel_from_pypi() -> tuple[bytes, str]:
 
     Returns `(wheel_bytes, pypi_version)`. Caller is responsible for
     extracting + caching. Raises `httpx.HTTPError` / `ValueError` on
-    upstream issues.
+    upstream issues, a release published without a wheel included.
     """
     async with httpx.AsyncClient(
         timeout=CATALOGUE_FETCH_TIMEOUT_SECONDS, follow_redirects=True
@@ -604,15 +877,13 @@ async def check_remote_version_for(
     `catalogue_pkg.VERSION`. `cache_key` selects which cached-remote payload
     to compare against, so the "update available" badge reflects the right
     artefact even though all three caches are filled by the same wheel.
-    """
-    cached = await get_cached_remote(db, cache_key)
-    active_version = (
-        cached["catalogue_version"]
-        if cached
-        and version_tuple(cached.get("catalogue_version", "0")) > version_tuple(bundled_version)
-        else bundled_version
-    )
 
+    The PyPI probe runs BEFORE the cache read. The route hands its pooled
+    connection back (``await db.commit()``) before calling this, and a query
+    issued ahead of the probe would take it out again for the whole 30 s
+    round-trip (CLAUDE.md, *Never hold a database session across work that
+    is not database work*).
+    """
     remote_meta: dict[str, Any] | None = None
     error: str | None = None
     try:
@@ -634,6 +905,10 @@ async def check_remote_version_for(
         logger.exception("PyPI version check failed")
         error = "Could not reach PyPI"
 
+    cached = await get_cached_remote(db, cache_key)
+    serving_remote = remote_wins(cached, bundled_version)
+    active_version = cached["catalogue_version"] if cached and serving_remote else bundled_version
+
     update_available = False
     if remote_meta and "catalogue_version" in remote_meta:
         update_available = version_tuple(remote_meta["catalogue_version"]) > version_tuple(
@@ -642,7 +917,7 @@ async def check_remote_version_for(
 
     return {
         "active_version": active_version,
-        "active_source": "remote" if cached else "bundled",
+        "active_source": "remote" if serving_remote else "bundled",
         "bundled_version": bundled_version,
         "cached_remote_version": cached["catalogue_version"] if cached else None,
         "remote": remote_meta,
@@ -659,6 +934,11 @@ async def fetch_and_cache_all(db: AsyncSession) -> dict[str, Any]:
     streams, so any of the three "Fetch update" admin actions only needs
     to call this once. The return value includes per-artefact counts so
     each route can surface a domain-appropriate summary.
+
+    Stages the cache rows in the caller's transaction and never commits:
+    the route commits once the download is over, so the pooled connection
+    is not held across the PyPI round-trip (the route also commits BEFORE
+    calling this, for the same reason).
     """
     wheel_bytes, pypi_version = await fetch_wheel_from_pypi()
     artefacts = extract_all_catalogues_from_wheel(wheel_bytes)
@@ -712,7 +992,6 @@ async def fetch_and_cache_all(db: AsyncSession) -> dict[str, Any]:
 
     if updates:
         await set_cached_remote(db, updates)
-    await db.commit()
 
     return {
         "catalogue_version": catalogue_version,

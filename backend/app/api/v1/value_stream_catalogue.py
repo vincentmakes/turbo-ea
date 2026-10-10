@@ -51,7 +51,9 @@ async def get_catalogue(
 async def import_value_streams(
     payload: ImportRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_permission("inventory.create", card_type_key="ValueStream")),
+    # Gated on the type the import creates. It named a `ValueStream` type that
+    # does not exist, so a per-type Create deny on Business Context never applied.
+    user: User = Depends(require_permission("inventory.create", card_type_key="BusinessContext")),
 ):
     """Create BusinessContext / valueStream cards for selected streams or
     stages. Selecting a stage automatically pulls in its parent stream so
@@ -59,12 +61,15 @@ async def import_value_streams(
     relProcessToBizCtx relations to any matching capability/process cards.
     """
     effective_locale = (payload.locale or user.locale or "en").strip() or "en"
-    return await svc.import_value_streams(
+    result = await svc.import_value_streams(
         db,
         user=user,
         catalogue_ids=payload.catalogue_ids,
         locale=effective_locale,
     )
+    # The service stages its rows and never commits a session it was handed.
+    await db.commit()
+    return result
 
 
 @router.get("/update-status")
@@ -72,6 +77,11 @@ async def update_status(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_permission("admin.metamodel")),
 ):
+    # The permission check used this request's session, so a pooled connection
+    # is already checked out. Hand it back before the PyPI round-trip:
+    # ``get_db`` is a yield-dependency that would otherwise pin it until the
+    # response is sent.
+    await db.commit()
     return await svc.check_remote_version(db)
 
 
@@ -80,8 +90,17 @@ async def update_fetch(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_permission("admin.metamodel")),
 ):
+    # The permission check used this request's session, so a pooled connection
+    # is already checked out. Hand it back before the PyPI round-trip:
+    # ``get_db`` is a yield-dependency that would otherwise pin it until the
+    # response is sent.
+    await db.commit()
     try:
-        return await svc.fetch_remote_catalogue(db)
+        result = await svc.fetch_remote_catalogue(db)
+        # The helper stages the cache rows and never commits a session it was
+        # handed; the write is committed here, once the download is over.
+        await db.commit()
+        return result
     except Exception:
         logger.exception("Value-stream catalogue fetch failed")
         raise HTTPException(status_code=502, detail="Catalogue fetch failed")

@@ -39,7 +39,7 @@ vi.mock("@/features/cards/CardDetailContent", () => ({
   default: (props: {
     card: { name: string; description?: string; attributes?: Record<string, unknown> };
     beforeTabs?: ReactNode;
-    initialTab?: number;
+    initialTab?: number | string;
     initialSubTab?: number;
     autoFieldKeys?: string[];
     onAiSuggest?: () => void;
@@ -260,10 +260,12 @@ describe("CardDetail — loading and deep links", () => {
     await waitFor(() => expect(location()).toBe("/cards/c1"));
   });
 
-  it("falls back to the first tab for an unparseable tab number", async () => {
+  it("hands a non-numeric tab on as a key and drops an unparseable sub-tab", async () => {
+    // The content resolves the key against its own tab strip and opens the
+    // Card tab for one it does not carry (cardTabs.test.ts, resolveCardTab).
     renderPage("/cards/c1?tab=abc&subtab=zz");
     await waitFor(() => expect(screen.getByTestId("content")).toHaveAttribute("data-subtab", "0"));
-    expect(screen.getByTestId("content")).toHaveAttribute("data-tab", "0");
+    expect(screen.getByTestId("content")).toHaveAttribute("data-tab", "abc");
   });
 
   it("keeps the default permissions when the permission probe fails", async () => {

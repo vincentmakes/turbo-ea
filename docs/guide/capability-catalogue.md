@@ -27,7 +27,7 @@ So unticking a single child only removes that child and what's below — its par
 
 The page picks up the app-wide light/dark theme automatically — dark mode renders the same neutral layout on `#1e1e1e` paper with lifted-lavender text and accents.
 
-Capabilities that **already exist** in your inventory appear with a **green check icon** instead of a checkbox. They cannot be selected — you can never create the same Business Capability twice through the catalogue. Matching prefers the `attributes.catalogueId` stamp left by a previous import (so the green tick survives display-name edits) and falls back to a case-insensitive display-name match for cards you created by hand.
+Capabilities that **already exist** in your inventory appear with a **green check icon** instead of a checkbox. They cannot be selected — you can never create the same Business Capability twice through the catalogue. Matching prefers the `attributes.catalogueId` stamp left by a previous import (so the green tick survives display-name edits) and falls back to a case-insensitive display-name match for cards you created by hand. A name that two catalogue entries share — the catalogue repeats some names in different branches — never matches by name; such an entry is recognised by its `catalogueId` only.
 
 ## Mass-creating cards
 
@@ -39,6 +39,7 @@ On confirmation, Turbo EA:
 - **Preserves the catalogue hierarchy** automatically — when both the parent and the child are selected (or the parent already exists locally), the new child card's `parent_id` is wired to the right card.
 - **Skips existing matches** silently. The result dialog shows how many were created and how many were skipped.
 - Stamps each new card's `attributes` with `catalogueId`, `catalogueVersion`, `catalogueImportedAt`, and `capabilityLevel` so you can trace where it came from.
+- Creates each card the way the card form does, so it gets a History entry, its level in your own hierarchy (`capabilityLevel` follows the card's position — a capability imported without its catalogue parent is an L1 root card), a reference number when Business Capability uses automatic references, and a data-quality score. An entry whose name another Business Capability card already uses at the same level is **reported and not imported**, together with the entries beneath it; the result dialog lists them with the reason.
 
 Re-running the same import is safe — it's idempotent.
 

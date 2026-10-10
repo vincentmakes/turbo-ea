@@ -14,11 +14,13 @@ import difflib
 import fnmatch
 import importlib
 import json
+import os
 import subprocess
 import sys
 import textwrap
 import time
 import tomllib
+import zlib
 from pathlib import Path
 
 import pytest
@@ -1468,6 +1470,30 @@ class TestStrykerScope:
         assert stryker_scope.chunk_of("src/lib/a.ts") == stryker_scope.chunk_of("src/lib/a.ts")
         assert 0 <= stryker_scope.chunk_of("src/lib/a.ts") < stryker_scope.CHUNKS
 
+    def test_one_shard_chunks_by_the_plain_path_hash(self):
+        # With one shard the chunk is crc32(path) % CHUNKS, so the single-shard
+        # tests and any state built that way keep their meaning.
+        for path in ("src/lib/a.ts", "src/features/x/Y.tsx", "scripts/merge-lcov.mjs"):
+            crc = zlib.crc32(path.encode("utf-8"))
+            assert stryker_scope.chunk_of(path, 16) == crc % 16
+            assert stryker_scope.chunk_of(path, 16, shards=1) == crc % 16
+            assert stryker_scope.shard_of(path, 1, 16) == 1
+
+    def test_a_global_chunk_belongs_to_one_shard_and_one_chunk(self):
+        # crc32("src/lib/a.ts") % (8 * 16) is the global chunk g; it is chunk
+        # g // 8 of shard g % 8 + 1.
+        path = "src/lib/a.ts"
+        g = zlib.crc32(path.encode("utf-8")) % 128
+        assert stryker_scope.shard_of(path, 8, 16) == g % 8 + 1
+        assert stryker_scope.chunk_of(path, 16, shards=8) == g // 8
+        assert 0 <= stryker_scope.chunk_of(path, 16, shards=8) < 16
+
+    def test_shard_strings_are_validated(self):
+        assert stryker_scope.parse_shard("3/8") == (3, 8)
+        for bad in ("0/8", "9/8", "1/0"):
+            with pytest.raises(ValueError, match="1 <= K <= N"):
+                stryker_scope.parse_shard(bad)
+
     def test_globs(self):
         regex = stryker_scope.glob_to_regex("src/**/*.{ts,tsx}")
         assert regex.match("src/a.ts") and regex.match("src/x/y/b.tsx")
@@ -1730,7 +1756,108 @@ def frontend_repo(tmp_path, monkeypatch):
     return fe, config
 
 
+class TestStrykerStableDeal:
+    """A file keeps its shard and chunk whatever happens to other files.
+
+    The size-balanced deal this replaced moved most frontend files to another
+    shard every night, where each was scored from whatever old report that
+    shard's cache held (436 of 528 files moved between two nightly runs).
+    """
+
+    @staticmethod
+    def _deal(fe, config, shards=4):
+        return {
+            rel: (k, stryker_scope.chunk_of(rel, shards=shards))
+            for k in range(1, shards + 1)
+            for rel in stryker_scope.shard_files(f"{k}/{shards}", fe, config)
+        }
+
+    def test_growing_one_file_and_adding_another_moves_no_file(self, frontend_repo):
+        fe, config = frontend_repo
+        for name in ("e", "f", "g", "h", "i", "j"):
+            (fe / "src" / f"{name}.ts").write_text("export const x = 1;\n")
+        before = self._deal(fe, config)
+        (fe / "src" / "a.ts").write_text("export const x = 1;\n" * 500)
+        (fe / "src" / "new.ts").write_text("export const y = 2;\n")
+        after = self._deal(fe, config)
+        assert {rel: after[rel] for rel in before} == before
+        assert after["src/new.ts"] == (
+            stryker_scope.shard_of("src/new.ts", 4),
+            stryker_scope.chunk_of("src/new.ts", shards=4),
+        )
+
+    def test_shards_partition_the_files(self, frontend_repo):
+        fe, config = frontend_repo
+        for name in ("e", "f", "g", "h"):
+            (fe / "src" / f"{name}.ts").write_text("export const x = 1;\n")
+        dealt = [stryker_scope.shard_files(f"{k}/3", fe, config) for k in (1, 2, 3)]
+        every = stryker_scope.mutable_files(fe, config)
+        assert sorted(f for files in dealt for f in files) == every
+        for k, files in enumerate(dealt, start=1):
+            assert all(stryker_scope.shard_of(f, 3) == k for f in files)
+
+    def test_shard_chunks_groups_a_shard_by_chunk(self, frontend_repo):
+        fe, config = frontend_repo
+        groups = stryker_scope.shard_chunks("1/1", fe, config)
+        assert sorted(f for files in groups.values() for f in files) == [
+            f"src/{n}.ts" for n in ("a", "b", "c", "d")
+        ]
+        for chunk, files in groups.items():
+            assert all(stryker_scope.chunk_of(f) == chunk for f in files)
+
+
 class TestStrykerNightly:
+    def test_a_chunk_report_speaks_only_for_its_own_files(self, frontend_repo, tmp_path):
+        # Stryker's incremental mode copies the old mutants of a file that left
+        # the run into the new report. Such an entry must not score the file:
+        # here src/a.ts is "carried" into the report of a chunk that does not
+        # hold it, with a verdict its own chunk never produced.
+        fe, config = frontend_repo
+        state = tmp_path / "state"
+        assert stryker_scope.nightly("1/1", 30, state, fe, config) == 0
+        own = stryker_scope.chunk_of("src/a.ts")
+        other = 1 - own
+        report_path = state / f"chunk-1-{other}.mutation.json"
+        report = json.loads(report_path.read_text())
+        report["files"]["src/a.ts"] = {
+            "source": "x\n",
+            "mutants": [
+                {
+                    "id": "src/a.ts@1:1-1:2\nM: y",
+                    "mutatorName": "M",
+                    "replacement": "y",
+                    "status": "NoCoverage",
+                    "location": {
+                        "start": {"line": 1, "column": 1},
+                        "end": {"line": 1, "column": 2},
+                    },
+                }
+            ],
+        }
+        report_path.write_text(json.dumps(report))
+        # make the carrying report the newest, so only the filter can stop it
+        os.utime(report_path, (time.time() + 60, time.time() + 60))
+        records = stryker_scope.collect_state(state, "1/1", fe, config)
+        a = [r for r in records if r["file"] == "frontend/src/a.ts"]
+        assert [(r["status"], r["raw_status"]) for r in a] == [("killed", "Killed")]
+
+    def test_a_file_only_a_foreign_chunk_reports_is_pending(self, frontend_repo, tmp_path):
+        fe, config = frontend_repo
+        state = tmp_path / "state"
+        own = stryker_scope.chunk_of("src/a.ts")
+        other = 1 - own
+        assert stryker_scope.nightly("1/1", 30, state, fe, config) == 0
+        (state / f"chunk-1-{own}.mutation.json").unlink()
+        report_path = state / f"chunk-1-{other}.mutation.json"
+        report = json.loads(report_path.read_text())
+        report["files"]["src/a.ts"] = {"source": "x\n", "mutants": []}
+        report_path.write_text(json.dumps(report))
+        records = stryker_scope.collect_state(state, "1/1", fe, config)
+        a = [r for r in records if r["file"] == "frontend/src/a.ts"]
+        assert [(r["status"], r["raw_status"]) for r in a] == [
+            ("pending", "not measured yet (whole file)")
+        ]
+
     def test_every_chunk_runs_and_collect_merges_them(self, frontend_repo, tmp_path):
         fe, config = frontend_repo
         state = tmp_path / "state"

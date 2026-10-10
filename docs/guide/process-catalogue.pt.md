@@ -19,7 +19,7 @@ Clique no ícone de utilizador no canto superior direito da aplicação, expanda
 
 Marque a caixa junto a um processo para o adicionar à seleção. A seleção propaga-se em cascata pelo subárvore como no catálogo de capacidades — marcar um nó adiciona esse nó e todos os descendentes selecionáveis; desmarcar remove a mesma subárvore. Os ascendentes nunca são tocados.
 
-Os processos que **já existem** no seu inventário aparecem com um **visto verde** em vez de uma caixa. A correspondência prefere a marca `attributes.catalogueId` deixada por um import anterior e, na ausência dela, recorre a uma comparação de nome sem distinguir maiúsculas.
+Os processos que **já existem** no seu inventário aparecem com um **visto verde** em vez de uma caixa. A correspondência prefere a marca `attributes.catalogueId` deixada por um import anterior e, na ausência dela, recorre a uma comparação de nome sem distinguir maiúsculas. Um nome partilhado por duas entradas do catálogo — o catálogo repete alguns nomes em ramos diferentes — nunca é comparado pelo nome; essa entrada só é reconhecida pelo seu `catalogueId`.
 
 ## Criar cartas em massa
 
@@ -32,7 +32,7 @@ Ao confirmar, o Turbo EA:
 - **cria automaticamente relações `relProcessToBC` (suporta)** para cada carta `BusinessCapability` existente listada em `realizes_capability_ids` do processo. O diálogo de resultado indica quantas auto-relações foram criadas; os destinos que ainda não existem no inventário são ignorados em silêncio. Voltar a executar o import depois de adicionar as capacidades em falta é seguro — os ids de origem ficam guardados no cartão, permitindo religar manualmente mais tarde se necessário;
 - carimba cada novo cartão com `catalogueId`, `catalogueVersion`, `catalogueImportedAt`, `processLevel` (`L1`..`L4`) e os `frameworkRefs`, `industry`, `references`, `inScope`, `outOfScope`, `realizesCapabilityIds` do catálogo.
 
-Os totais de saltados, criados e religados são reportados tal como para o catálogo de capacidades. Os imports são idempotentes — repeti-los não gera duplicados.
+Os totais de saltados, criados e religados são reportados tal como para o catálogo de capacidades. Os imports são idempotentes — repeti-los não gera duplicados. Cada carta é criada como o formulário de carta o faz — com uma entrada no histórico, o seu nível na sua hierarquia, um número de referência quando Business Process usa referências automáticas e uma pontuação de qualidade de dados — e uma entrada cujo nome já é usado por outra carta Business Process no mesmo nível é reportada e não importada, bem como as entradas abaixo dela; o diálogo de resultado lista-as com o motivo.
 
 ## Vista de detalhe
 

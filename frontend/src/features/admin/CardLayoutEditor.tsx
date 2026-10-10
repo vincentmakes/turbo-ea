@@ -50,7 +50,11 @@ import { CSS } from "@dnd-kit/utilities";
 
 import type { CardType, SectionDef, FieldDef, SectionConfig, TranslationMap } from "@/types";
 import { useResolveLabel, useFieldLabel } from "@/hooks/useResolveLabel";
-import { isSectionCollapsedByDefault } from "@/features/cards/sectionConfig";
+import {
+  buildSectionOrder,
+  customSectionsOf,
+  isSectionCollapsedByDefault,
+} from "@/features/cards/sectionConfig";
 import { LOCALE_LABELS, SUPPORTED_LOCALES } from "@/i18n";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -71,46 +75,7 @@ const BUILTIN_SECTIONS: { key: string; labelKey: string; icon: string; onlyIf?: 
 // header shows the same weight badge as fields (mirrors __dataQuality buckets).
 const DQ_SECTION_KEYS = new Set(["description", "lifecycle", "relations"]);
 
-const DEFAULT_ORDER = ["description", "eol", "lifecycle", "__custom__", "hierarchy", "successors", "tags", "relations"];
-
 // ── Helpers ──────────────────────────────────────────────────────
-
-function getSectionOrder(cfg: Record<string, SectionConfig>, customSections: SectionDef[], hasHierarchy: boolean, hasSuccessors: boolean): string[] {
-  const raw = cfg?.__order as unknown as string[] | undefined;
-  if (raw && Array.isArray(raw) && raw.length > 0) {
-    const customKeys = customSections.map((_, i) => `custom:${i}`);
-    const existing = new Set(raw);
-    const result = [...raw];
-    for (const k of customKeys) { if (!existing.has(k)) result.push(k); }
-    // Inject "successors" before "relations" if not already present
-    if (!existing.has("successors") && hasSuccessors) {
-      const relIdx = result.indexOf("relations");
-      if (relIdx >= 0) result.splice(relIdx, 0, "successors");
-      else result.push("successors");
-    }
-    // Same for "tags" — it postdates the saved orders of existing installs, and
-    // CardDetailContent injects it the same way, so the editor must list it or
-    // the card would render a section the admin cannot see or configure.
-    if (!existing.has("tags")) {
-      const relIdx = result.indexOf("relations");
-      if (relIdx >= 0) result.splice(relIdx, 0, "tags");
-      else result.push("tags");
-    }
-    return result.filter((k) => {
-      if (k === "hierarchy" && !hasHierarchy) return false;
-      if (k === "successors" && !hasSuccessors) return false;
-      return true;
-    });
-  }
-  const order: string[] = [];
-  for (const key of DEFAULT_ORDER) {
-    if (key === "__custom__") customSections.forEach((_, i) => order.push(`custom:${i}`));
-    else if (key === "hierarchy" && !hasHierarchy) { /* skip */ }
-    else if (key === "successors" && !hasSuccessors) { /* skip */ }
-    else order.push(key);
-  }
-  return order;
-}
 
 function getSectionInfo(key: string, customSections: SectionDef[], type: CardType) {
   if (key.startsWith("custom:")) {
@@ -1160,8 +1125,13 @@ export default function CardLayoutEditor({
   const { t } = useTranslation(["admin", "common"]);
   const secCfg = (cardType.section_config || {}) as Record<string, SectionConfig> & { __order?: string[]; __dataQuality?: Record<string, number> };
   const dqConfig = secCfg.__dataQuality || {};
-  const customSections = cardType.fields_schema.filter((s) => s.section !== "__description");
-  const sectionOrder = getSectionOrder(secCfg, customSections, cardType.has_hierarchy, cardType.has_successors);
+  const customSections = customSectionsOf(cardType.fields_schema);
+  // The same order card detail renders (buildSectionOrder), so the editor
+  // never lists the sections in an order the card does not show.
+  const sectionOrder = buildSectionOrder(secCfg, customSections.length, {
+    hierarchy: !!cardType.has_hierarchy,
+    successors: !!cardType.has_successors,
+  });
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
     const initial = new Set<string>();

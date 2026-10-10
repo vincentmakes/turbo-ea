@@ -27,7 +27,7 @@ Når du derfor afmarkerer et enkelt barn, fjernes kun det barn og det, der ligge
 
 Siden tilpasser sig automatisk app'ens lyse/mørke tema — mørk tilstand gengiver det samme neutrale layout på `#1e1e1e`-papir med løftet-lavendel-tekst og accenter.
 
-Kompetencer, der **allerede findes** i dit lager, vises med et **grønt fluebensikon** i stedet for et afkrydsningsfelt. De kan ikke vælges — du kan aldrig oprette den samme Business Capability to gange via kataloget. Matchning foretrækker stemplet `attributes.catalogueId` efterladt af en tidligere import (så det grønne flueben overlever ændringer af visningsnavn) og falder tilbage til en case-uafhængig visningsnavn-matchning for kort, du har oprettet i hånden.
+Kompetencer, der **allerede findes** i dit lager, vises med et **grønt fluebensikon** i stedet for et afkrydsningsfelt. De kan ikke vælges — du kan aldrig oprette den samme Business Capability to gange via kataloget. Matchning foretrækker stemplet `attributes.catalogueId` efterladt af en tidligere import (så det grønne flueben overlever ændringer af visningsnavn) og falder tilbage til en case-uafhængig visningsnavn-matchning for kort, du har oprettet i hånden. Et navn, som to katalogposter deler — kataloget gentager nogle navne i forskellige grene — matches aldrig på navn; en sådan post genkendes kun på sit `catalogueId`.
 
 ## Masseoprettelse af kort
 
@@ -39,6 +39,7 @@ Ved bekræftelse vil Turbo EA:
 - **Bevare kataloghierarkiet** automatisk — når både forælderen og barnet er valgt (eller forælderen allerede findes lokalt), forbindes det nye barnekorts `parent_id` til det rigtige kort.
 - **Springe eksisterende match over** uden at gøre opmærksom på det. Resultatdialogen viser, hvor mange der blev oprettet, og hvor mange der blev sprunget over.
 - Stemple hvert nyt korts `attributes` med `catalogueId`, `catalogueVersion`, `catalogueImportedAt` og `capabilityLevel`, så du kan spore, hvor det kom fra.
+- Opretter hvert kort på samme måde som kortformularen: det får en post i historikken, sit niveau i dit eget hierarki (`capabilityLevel` følger kortets placering — en kompetence importeret uden sin katalogforælder er et L1-rodkort), et referencenummer, når Business Capability bruger automatiske referencer, og en datakvalitetsscore. En post, hvis navn allerede bruges af et andet Business Capability-kort på samme niveau, **rapporteres og importeres ikke**, og det samme gælder posterne under den; resultatdialogen lister dem med årsagen.
 
 Det er sikkert at køre den samme import igen — den er idempotent.
 

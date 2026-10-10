@@ -69,12 +69,6 @@ class LoadReport:
     loaded: list[LoadedExtension] = field(default_factory=list)
     failed: list[FailedExtension] = field(default_factory=list)
 
-    def get(self, key: str) -> LoadedExtension | None:
-        for ext in self.loaded:
-            if ext.key == key:
-                return ext
-        return None
-
 
 def _verify_installed_dir(ext_dir: Path) -> dict[str, Any]:
     """Re-verify an installed extension's signature, compat, and on-disk files.

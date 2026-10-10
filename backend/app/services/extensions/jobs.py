@@ -23,7 +23,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.core.encryption import decrypt_value, encrypt_value
 from app.database import async_session
 from app.services.extensions.adr_bridge import ExtensionDecisions
-from app.services.extensions.cron import CronError, next_fire, validate_cron
+from app.services.extensions.cron import CronError, next_fire
 from app.services.extensions.data_service import ExtensionData, open_context_batch
 from app.services.extensions.loader import LoadReport
 from app.services.extensions.notify_bridge import ExtensionNotify
@@ -176,41 +176,55 @@ def build_context(key: str) -> ExtensionContext:
     return ctx
 
 
-def _job_may_run(key: str) -> bool:
+def extension_may_run(key: str) -> bool:
+    """Whether an extension is enabled, healthy and licensed right now.
+
+    The one predicate startup gates migrations, ``on_startup`` and job
+    scheduling on, and every job tick re-checks, so disabling an extension
+    or letting its license lapse pauses its jobs with no restart.
+    """
     info = extension_registry.get(key)
     if info is None or not info.enabled or info.status in ("removed", "disabled", "failed"):
         return False
     return extension_registry.entitlement(key).usable
 
 
-def validate_job_schedule(job: ExtensionJob) -> str | None:
+def validate_job_schedule(job: ExtensionJob, now: datetime | None = None) -> str | None:
     """Return a problem string when the job's schedule is invalid, else None.
 
-    Exactly one of ``interval_seconds`` / ``cron`` must be set; a cron
-    expression must parse. Kept as a pure helper so startup can skip (never
-    crash on) a misdeclared job and tests can pin the rule.
+    Exactly one of ``interval_seconds`` / ``cron`` must be set; an interval
+    must be positive, and a cron expression must parse AND fire at least once
+    in the next search window (``"0 0 31 2 *"``, February 31st, parses but
+    never fires). A schedule that cannot fire used to reach the job loop,
+    where ``next_fire`` raised before the loop's sleep, so the loop logged
+    and retried with no pause at all, forever. Kept pure so startup can skip
+    (never crash on) a misdeclared job and tests can pin the rule.
     """
-    has_interval = job.interval_seconds is not None
-    has_cron = job.cron is not None
-    if has_interval == has_cron:
+    if (job.interval_seconds is None) == (job.cron is None):
         return "exactly one of interval_seconds / cron must be set"
-    if has_cron:
-        try:
-            validate_cron(job.cron or "")
-        except CronError as e:
-            return str(e)
+    if job.interval_seconds is not None:
+        if job.interval_seconds <= 0:
+            return f"interval_seconds must be positive, got {job.interval_seconds}"
+        return None
+    try:
+        next_fire(job.cron or "", now or datetime.now(UTC))
+    except CronError as e:
+        return str(e)
     return None
+
+
+def next_sleep_seconds(job: ExtensionJob, now: datetime) -> float:
+    """How long a job's loop sleeps before its next run: never under a second."""
+    if job.cron is not None:
+        return max(1.0, (next_fire(job.cron, now) - now).total_seconds())
+    return float(max(1, int(job.interval_seconds or 1)))
 
 
 async def _job_loop(key: str, job: ExtensionJob, ctx: ExtensionContext) -> None:
     while True:
         try:
-            if job.cron is not None:
-                fire_at = next_fire(job.cron, datetime.now(UTC))
-                await asyncio.sleep(max(1.0, (fire_at - datetime.now(UTC)).total_seconds()))
-            else:
-                await asyncio.sleep(max(1, int(job.interval_seconds or 1)))
-            if not _job_may_run(key):
+            await asyncio.sleep(next_sleep_seconds(job, datetime.now(UTC)))
+            if not extension_may_run(key):
                 continue
             await job.run(ctx)
         except asyncio.CancelledError:
@@ -219,9 +233,13 @@ async def _job_loop(key: str, job: ExtensionJob, ctx: ExtensionContext) -> None:
             logger.exception("Extension %s job %s failed — retrying next tick", key, job.name)
 
 
-def start_extension_jobs(report: LoadReport) -> list[asyncio.Task]:
-    """Spawn a loop task per declared job. Caller cancels them on shutdown."""
-    tasks: list[asyncio.Task] = []
+def plan_jobs(report: LoadReport) -> list[tuple[str, ExtensionJob]]:
+    """``(extension key, job)`` for every job a loaded extension may schedule.
+
+    Skips an extension with no instance or whose ``get_jobs()`` raises, and a
+    job whose schedule ``validate_job_schedule`` refuses, logging each.
+    """
+    planned: list[tuple[str, ExtensionJob]] = []
     for ext in report.loaded:
         if ext.instance is None:
             continue
@@ -230,7 +248,6 @@ def start_extension_jobs(report: LoadReport) -> list[asyncio.Task]:
         except Exception:  # noqa: BLE001
             logger.exception("Extension %s get_jobs() failed", ext.key)
             continue
-        ctx = build_context(ext.key)
         for job in jobs:
             problem = validate_job_schedule(job)
             if problem:
@@ -241,14 +258,20 @@ def start_extension_jobs(report: LoadReport) -> list[asyncio.Task]:
                     problem,
                 )
                 continue
-            task = asyncio.create_task(
-                _job_loop(ext.key, job, ctx), name=f"ext:{ext.key}:{job.name}"
-            )
-            tasks.append(task)
-            logger.info(
-                "Started extension job %s/%s (%s)",
-                ext.key,
-                job.name,
-                f"cron {job.cron}" if job.cron else f"every {job.interval_seconds}s",
-            )
+            planned.append((ext.key, job))
+    return planned
+
+
+def start_extension_jobs(report: LoadReport) -> list[asyncio.Task]:
+    """Spawn a loop task per declared job. Caller cancels them on shutdown."""
+    tasks: list[asyncio.Task] = []
+    for key, job in plan_jobs(report):
+        ctx = build_context(key)
+        tasks.append(asyncio.create_task(_job_loop(key, job, ctx), name=f"ext:{key}:{job.name}"))
+        logger.info(
+            "Started extension job %s/%s (%s)",
+            key,
+            job.name,
+            f"cron {job.cron}" if job.cron else f"every {job.interval_seconds}s",
+        )
     return tasks

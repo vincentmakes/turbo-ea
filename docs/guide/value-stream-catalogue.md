@@ -20,7 +20,7 @@ Click the user icon in the top-right corner of the app, expand **Reference Catal
 
 Tick the checkbox next to any stream or stage to add it to the selection. Selection cascades the same way as the other catalogues. **Selecting a stage automatically pulls in its parent stream** at import time, so you don't end up with orphaned stages — even if you haven't ticked the stream yourself.
 
-Streams and stages that **already exist** in your inventory appear with a **green check icon** instead of a checkbox.
+Streams and stages that **already exist** in your inventory appear with a **green check icon** instead of a checkbox. Matching prefers the `attributes.catalogueId` stamp left by a previous import and falls back to a case-insensitive display-name match, except for a name that two entries share, such as a stage that appears in two streams: that entry matches by its `catalogueId` only.
 
 ## Mass-creating cards
 
@@ -35,7 +35,7 @@ On confirmation, Turbo EA:
 - Skips any cross-references whose target card doesn't yet exist; the source IDs are stored on the stage's attributes (`capabilityIds`, `processIds`) so you can wire them later by importing the missing artefacts.
 - Stamps stage cards with `stageOrder`, `stageName`, `industryVariant`, `notes`, and the original `capabilityIds` / `processIds` lists.
 
-Skipped, created, and re-linked counts are reported the same way as for the capability catalogue. Imports are idempotent.
+Skipped, created, and re-linked counts are reported the same way as for the capability catalogue. Imports are idempotent. Each card is created the way the card form creates it — with a History entry, its level in your hierarchy, a reference number when Business Context uses automatic references and a data-quality score — and an entry whose name another Business Context card already uses at the same level is reported and not imported, together with the entries beneath it; the result dialog lists them with the reason. The import is gated by the Create permission on Business Context cards, the type it creates.
 
 ## Detail view
 

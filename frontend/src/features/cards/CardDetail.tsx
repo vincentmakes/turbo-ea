@@ -82,7 +82,7 @@ export default function CardDetail() {
   // Browser tab title; falls back to the route's «Card» label while loading,
   // and follows an inline rename without a reload.
   usePageSubject(card?.name);
-  const [initialTab, setInitialTab] = useState(0);
+  const [initialTab, setInitialTab] = useState<number | string>(0);
   const [initialSubTab, setInitialSubTab] = useState<number | undefined>(undefined);
   const [error, setError] = useState("");
   const [perms, setPerms] = useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
@@ -203,11 +203,12 @@ export default function CardDetail() {
     setApprovalBlock(null);
     setSubtypeError("");
     setLogoError("");
-    // Read tab from URL search params (e.g. ?tab=1&subtab=1)
+    // Read tab from URL search params: a tab key (?tab=resources) or, for
+    // older links, an index (?tab=1&subtab=1). CardDetailContent resolves it.
     const urlTab = searchParams.get("tab");
     const urlSubTab = searchParams.get("subtab");
     if (urlTab) {
-      setInitialTab(parseInt(urlTab, 10) || 0);
+      setInitialTab(urlTab);
       // Clear the query params so they don't persist on navigation
       setSearchParams({}, { replace: true });
     } else {

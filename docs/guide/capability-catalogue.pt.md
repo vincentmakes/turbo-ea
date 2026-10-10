@@ -27,7 +27,7 @@ Desmarcar um único filho remove apenas esse filho e o que estiver abaixo — o 
 
 A página adopta automaticamente o tema claro/escuro da aplicação — no modo escuro é apresentado o mesmo layout neutro sobre papel `#1e1e1e` com texto e destaques em cor lavanda.
 
-As capacidades que **já existem** no seu inventário aparecem com um **ícone de visto verde** em vez de uma caixa. Não podem ser selecionadas — nunca poderá criar duas vezes a mesma Business Capability através do catálogo. A correspondência prefere a marca `attributes.catalogueId` deixada por uma importação anterior (assim o visto verde sobrevive às alterações do nome visível) e recorre a uma comparação do nome visível insensível a maiúsculas para as cartas criadas à mão.
+As capacidades que **já existem** no seu inventário aparecem com um **ícone de visto verde** em vez de uma caixa. Não podem ser selecionadas — nunca poderá criar duas vezes a mesma Business Capability através do catálogo. A correspondência prefere a marca `attributes.catalogueId` deixada por uma importação anterior (assim o visto verde sobrevive às alterações do nome visível) e recorre a uma comparação do nome visível insensível a maiúsculas para as cartas criadas à mão. Um nome partilhado por duas entradas do catálogo — o catálogo repete alguns nomes em ramos diferentes — nunca é comparado pelo nome; essa entrada só é reconhecida pelo seu `catalogueId`.
 
 ## Criação em massa de cartas
 
@@ -39,6 +39,7 @@ Após a confirmação, o Turbo EA:
 - **Preserva automaticamente a hierarquia do catálogo** — quando o pai e o filho estão ambos selecionados (ou o pai já existe localmente), o `parent_id` da nova carta filha é ligado à carta certa.
 - **Ignora silenciosamente as correspondências existentes**. O diálogo de resultado indica quantas foram criadas e quantas foram ignoradas.
 - Carimba os `attributes` de cada nova carta com `catalogueId`, `catalogueVersion`, `catalogueImportedAt` e `capabilityLevel` para que possa rastrear a sua origem.
+- Cria cada carta como o formulário de carta o faz: recebe uma entrada no histórico, o seu nível na sua própria hierarquia (`capabilityLevel` segue a posição da carta — uma capacidade importada sem o seu pai de catálogo é uma carta raiz L1), um número de referência quando Business Capability usa referências automáticas e uma pontuação de qualidade de dados. Uma entrada cujo nome já é usado por outra carta Business Capability no mesmo nível é **reportada e não importada**, bem como as entradas abaixo dela; o diálogo de resultado lista-as com o motivo.
 
 Voltar a executar a mesma importação é seguro — é idempotente.
 

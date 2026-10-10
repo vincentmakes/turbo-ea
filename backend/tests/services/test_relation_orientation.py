@@ -227,8 +227,7 @@ _CONSTRUCTOR = re.compile(r"\b(?:Relation|add_relation)\(")
 # relation type is chosen to match the ends, so there is nothing to turn.
 _FIXED_DIRECTION = {
     "services/element_relation_sync.py": "a process always links out to its elements' cards",
-    "services/process_catalogue_service.py": "catalogue imports link in the type's own direction",
-    "services/value_stream_catalogue_service.py": "catalogue imports use the type's direction",
+    "services/catalogue_common.py": "catalogue imports pass each type's own direction",
     "services/seed_demo.py": "demo data; test_seed_demo.py checks it against the metamodel",
     "services/seed_demo_bpm.py": "demo data; test_seed_demo.py checks it against the metamodel",
 }

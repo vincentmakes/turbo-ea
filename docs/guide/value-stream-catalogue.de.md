@@ -20,7 +20,7 @@ Klicken Sie oben rechts in der App auf das Benutzersymbol, klappen Sie im Menü 
 
 Setzen Sie das Häkchen neben einem Stream oder einer Stage, um sie zur Auswahl hinzuzufügen. Die Auswahl kaskadiert wie in den anderen Katalogen. **Das Auswählen einer Stage zieht beim Import automatisch ihren übergeordneten Stream mit**, sodass keine verwaisten Stages entstehen — selbst wenn Sie den Stream selbst nicht angekreuzt haben.
 
-Streams und Stages, die **bereits existieren**, erscheinen mit einem **grünen Häkchen** statt einer Checkbox.
+Streams und Stages, die **bereits existieren**, erscheinen mit einem **grünen Häkchen** statt einer Checkbox. Beim Abgleich wird zuerst der `attributes.catalogueId`-Stempel eines vorherigen Imports geprüft, danach der Anzeigename ohne Beachtung der Groß-/Kleinschreibung — außer bei einem Namen, den zwei Einträge teilen, etwa einer Stage, die in zwei Streams vorkommt: Ein solcher Eintrag wird nur über seine `catalogueId` erkannt.
 
 ## Karten gebündelt anlegen
 
@@ -35,7 +35,7 @@ Bei der Bestätigung legt Turbo EA:
 - Querverweise, deren Zielkarte noch nicht existiert, werden übersprungen; die Quell-IDs bleiben in den Stage-Attributen (`capabilityIds`, `processIds`) erhalten, sodass Sie sie später nach dem Import der fehlenden Artefakte verknüpfen können.
 - Stage-Karten werden mit `stageOrder`, `stageName`, `industryVariant`, `notes` sowie den ursprünglichen `capabilityIds`- / `processIds`-Listen gestempelt.
 
-Übersprungene, erstellte und neu verknüpfte Anzahlen werden gleich wie im Capability-Katalog gemeldet. Imports sind idempotent.
+Übersprungene, erstellte und neu verknüpfte Anzahlen werden gleich wie im Capability-Katalog gemeldet. Imports sind idempotent. Jede Karte wird so angelegt, wie es das Kartenformular tut — mit einem Eintrag im Verlauf, ihrer Ebene in Ihrer Hierarchie, einer Referenznummer, wenn Business Context automatische Referenzen verwendet, und einem Datenqualitätswert —, und ein Eintrag, dessen Namen bereits eine andere Business Context-Karte auf derselben Ebene trägt, wird gemeldet und nicht importiert, ebenso die Einträge darunter; der Ergebnisdialog listet sie mit dem Grund auf. Der Import ist an die Berechtigung „Erstellen“ für Business-Context-Karten gebunden, den Typ, den er anlegt.
 
 ## Detailansicht
 

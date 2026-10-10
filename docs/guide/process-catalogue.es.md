@@ -19,7 +19,7 @@ Pulse el icono de usuario en la esquina superior derecha de la aplicación, desp
 
 Marque la casilla junto a un proceso para añadirlo a la selección. La selección cascadea por el subárbol igual que en el catálogo de capacidades — marcar un nodo añade ese nodo más todos sus descendientes seleccionables; desmarcarlo elimina ese mismo subárbol. Los ancestros nunca se tocan.
 
-Los procesos que **ya existen** en su inventario aparecen con un **icono de visto verde** en lugar de casilla. La coincidencia prefiere el sello `attributes.catalogueId` que dejó un import anterior y, en su defecto, recurre a una comparación de nombre sin distinguir mayúsculas.
+Los procesos que **ya existen** en su inventario aparecen con un **icono de visto verde** en lugar de casilla. La coincidencia prefiere el sello `attributes.catalogueId` que dejó un import anterior y, en su defecto, recurre a una comparación de nombre sin distinguir mayúsculas. Un nombre que comparten dos entradas del catálogo —el catálogo repite algunos nombres en ramas distintas— nunca se compara por nombre; esa entrada solo se reconoce por su `catalogueId`.
 
 ## Crear tarjetas en masa
 
@@ -32,7 +32,7 @@ Al confirmar, Turbo EA:
 - **crea automáticamente relaciones `relProcessToBC` (soporta)** hacia cada tarjeta `BusinessCapability` existente listada en `realizes_capability_ids` del proceso. El diálogo de resultado indica cuántas auto-relaciones se generaron; los destinos que aún no existen en el inventario se omiten en silencio. Volver a ejecutar el import tras añadir las capacidades faltantes es seguro — los IDs de origen quedan guardados en la tarjeta, lo que permite re-vincular manualmente más tarde si hace falta;
 - sella cada tarjeta nueva con `catalogueId`, `catalogueVersion`, `catalogueImportedAt`, `processLevel` (`L1`..`L4`) y los `frameworkRefs`, `industry`, `references`, `inScope`, `outOfScope`, `realizesCapabilityIds` del catálogo.
 
-Los recuentos de saltadas, creadas y re-vinculadas se reportan igual que en el catálogo de capacidades. Los imports son idempotentes — repetirlos no crea duplicados.
+Los recuentos de saltadas, creadas y re-vinculadas se reportan igual que en el catálogo de capacidades. Los imports son idempotentes — repetirlos no crea duplicados. Cada tarjeta se crea igual que con el formulario de tarjeta — con una entrada en el historial, su nivel en tu jerarquía, un número de referencia cuando Business Process usa referencias automáticas y una puntuación de calidad de datos — y una entrada cuyo nombre ya usa otra tarjeta Business Process en el mismo nivel se reporta y no se importa, junto con las entradas situadas debajo; el diálogo de resultado las lista con el motivo.
 
 ## Vista detalle
 

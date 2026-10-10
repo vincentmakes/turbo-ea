@@ -27,7 +27,7 @@ Deselezionare un singolo figlio rimuove quindi soltanto quel figlio e ciò che s
 
 La pagina adotta automaticamente il tema chiaro/scuro dell'app — in modalità scura viene reso lo stesso layout neutro su carta `#1e1e1e` con testo e accenti color lavanda.
 
-Le capacità che **esistono già** nel proprio inventario appaiono con un'**icona di spunta verde** invece di una casella. Non possono essere selezionate — non si potrà mai creare due volte la stessa Business Capability tramite il catalogo. La corrispondenza preferisce il marcatore `attributes.catalogueId` lasciato da un'importazione precedente (così la spunta verde sopravvive alle modifiche del nome visualizzato) e ricade su un confronto del nome visualizzato insensibile alle maiuscole per le carte create a mano.
+Le capacità che **esistono già** nel proprio inventario appaiono con un'**icona di spunta verde** invece di una casella. Non possono essere selezionate — non si potrà mai creare due volte la stessa Business Capability tramite il catalogo. La corrispondenza preferisce il marcatore `attributes.catalogueId` lasciato da un'importazione precedente (così la spunta verde sopravvive alle modifiche del nome visualizzato) e ricade su un confronto del nome visualizzato insensibile alle maiuscole per le carte create a mano. Un nome condiviso da due voci del catalogo — il catalogo ripete alcuni nomi in rami diversi — non viene mai abbinato per nome; una voce del genere è riconosciuta solo dal suo `catalogueId`.
 
 ## Creazione massiva delle carte
 
@@ -39,6 +39,7 @@ Alla conferma, Turbo EA:
 - **Preserva automaticamente la gerarchia del catalogo** — quando sia il genitore sia il figlio sono selezionati (oppure il genitore esiste già localmente), il `parent_id` della nuova carta figlio è collegato alla carta corretta.
 - **Salta in silenzio le corrispondenze esistenti**. La finestra di risultato mostra quante carte sono state create e quante saltate.
 - Marca gli `attributes` di ogni nuova carta con `catalogueId`, `catalogueVersion`, `catalogueImportedAt` e `capabilityLevel`, in modo da poter risalire alla loro origine.
+- Crea ogni carta come fa il modulo della carta: riceve una voce nella cronologia, il suo livello nella tua gerarchia (`capabilityLevel` segue la posizione della carta — una capacità importata senza il suo genitore di catalogo è una carta radice L1), un numero di riferimento quando Business Capability usa i riferimenti automatici e un punteggio di qualità dei dati. Una voce il cui nome è già usato da un'altra carta Business Capability allo stesso livello viene **segnalata e non importata**, insieme alle voci sottostanti; la finestra di risultato le elenca con il motivo.
 
 Eseguire di nuovo la stessa importazione è sicuro — è idempotente.
 

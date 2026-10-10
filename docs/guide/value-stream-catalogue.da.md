@@ -20,7 +20,7 @@ Klik på brugerikonet i øverste højre hjørne af appen, udvid **Reference Cata
 
 Marker afkrydsningsfeltet ved siden af en strøm eller et trin for at føje det til valget. Valget kaskaderer på samme måde som de andre kataloger. **Når du vælger et trin, hentes den overordnede strøm automatisk med** ved import, så du ikke ender med forældreløse trin — selv hvis du ikke selv har markeret strømmen.
 
-Strømme og trin, der **allerede findes** i dit lager, vises med et **grønt fluebensikon** i stedet for et afkrydsningsfelt.
+Strømme og trin, der **allerede findes** i dit lager, vises med et **grønt fluebensikon** i stedet for et afkrydsningsfelt. Matching foretrækker `attributes.catalogueId`-stemplet fra en tidligere import og falder tilbage til et case-uafhængigt match på visningsnavn, undtagen for et navn, som to poster deler, fx et trin, der findes i to strømme: en sådan post genkendes kun på sit `catalogueId`.
 
 ## Masseoprettelse af kort
 
@@ -35,7 +35,7 @@ Ved bekræftelse vil Turbo EA:
 - Springe alle krydsreferencer over, hvis målkortet endnu ikke findes; kilde-id'erne gemmes i trinnets egenskaber (`capabilityIds`, `processIds`), så du kan forbinde dem senere ved at importere de manglende artefakter.
 - Stemple trinkort med `stageOrder`, `stageName`, `industryVariant`, `notes` og de oprindelige `capabilityIds` / `processIds`-lister.
 
-Antal sprungne, oprettede og gen-linkede rapporteres på samme måde som for kompetencekataloget. Importer er idempotente.
+Antal sprungne, oprettede og gen-linkede rapporteres på samme måde som for kompetencekataloget. Importer er idempotente. Hvert kort oprettes på samme måde som kortformularen gør det — med en post i historikken, sit niveau i dit hierarki, et referencenummer, når Business Context bruger automatiske referencer, og en datakvalitetsscore — og en post, hvis navn allerede bruges af et andet Business Context-kort på samme niveau, rapporteres og importeres ikke, og det samme gælder posterne under den; resultatdialogen lister dem med årsagen. Importen kræver tilladelsen Opret på Business Context-kort, den type den opretter.
 
 ## Detaljevisning
 

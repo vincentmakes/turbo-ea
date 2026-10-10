@@ -99,3 +99,6 @@ mcp = 97
 "frontend/src/features/ppm/ppmGanttModel.ts" = 96       # the project Gantt's rows, dates and dependency rules
 "frontend/src/features/web-portals/portalViewerState.ts" = 97  # which fields and relations a public portal shows
 "frontend/src/features/ppm/ppmPortfolioModel.ts" = 98    # the PPM portfolio board's filters, bars, totals and export
+"frontend/src/features/cards/cardTabs.ts" = 89            # which tabs card detail shows, and in which order
+"frontend/src/features/cards/sections/historyChanges.ts" = 90  # how the History tab reads an event
+"frontend/src/features/cards/sectionConfig.ts" = 94        # the card page's section order and hidden fields

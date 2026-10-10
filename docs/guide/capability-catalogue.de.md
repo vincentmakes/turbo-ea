@@ -27,7 +27,7 @@ Das Deaktivieren eines einzelnen Kindes entfernt also nur dieses Kind und alles 
 
 Die Seite übernimmt automatisch das app-weite Hell-/Dunkelschema — der Dunkelmodus zeigt dasselbe neutrale Layout auf `#1e1e1e`-Papier mit lavendelfarbenem Text und Akzenten.
 
-Capabilities, die in Ihrem Inventar **bereits existieren**, erscheinen mit einem **grünen Häkchen-Symbol** anstelle eines Kontrollkästchens. Sie können nicht ausgewählt werden — Sie erzeugen über den Katalog nie zweimal dieselbe Business Capability. Beim Abgleich wird zuerst der `attributes.catalogueId`-Stempel eines vorherigen Imports geprüft (so überlebt das grüne Häkchen Namensänderungen), und es wird auf einen Vergleich des Anzeigenamens (Groß-/Kleinschreibung-unabhängig) zurückgegriffen, falls Sie die Karte von Hand erstellt haben.
+Capabilities, die in Ihrem Inventar **bereits existieren**, erscheinen mit einem **grünen Häkchen-Symbol** anstelle eines Kontrollkästchens. Sie können nicht ausgewählt werden — Sie erzeugen über den Katalog nie zweimal dieselbe Business Capability. Beim Abgleich wird zuerst der `attributes.catalogueId`-Stempel eines vorherigen Imports geprüft (so überlebt das grüne Häkchen Namensänderungen), und es wird auf einen Vergleich des Anzeigenamens (Groß-/Kleinschreibung-unabhängig) zurückgegriffen, falls Sie die Karte von Hand erstellt haben. Ein Name, den zwei Katalogeinträge teilen — der Katalog wiederholt manche Namen in verschiedenen Zweigen —, wird nie per Name abgeglichen; ein solcher Eintrag wird nur über seine `catalogueId` erkannt.
 
 ## Massenanlage von Karten
 
@@ -39,6 +39,7 @@ Bei Bestätigung führt Turbo EA Folgendes aus:
 - **Behält die Kataloghierarchie** automatisch — wenn sowohl der Eltern- als auch der Kindknoten ausgewählt ist (oder der Elternknoten lokal bereits existiert), wird `parent_id` der neuen Kindkarte korrekt verdrahtet.
 - **Überspringt vorhandene Treffer** stillschweigend. Der Ergebnisdialog zeigt, wie viele Karten erstellt und wie viele übersprungen wurden.
 - Stempelt jede neue Karte in `attributes` mit `catalogueId`, `catalogueVersion`, `catalogueImportedAt` und `capabilityLevel`, sodass die Herkunft nachvollziehbar bleibt.
+- Legt jede Karte so an, wie es das Kartenformular tut: Sie erhält einen Eintrag im Verlauf, ihre Ebene in Ihrer eigenen Hierarchie (`capabilityLevel` folgt der Position der Karte — eine ohne ihr Katalog-Elternelement importierte Capability ist eine L1-Wurzelkarte), eine Referenznummer, wenn Business Capability automatische Referenzen verwendet, und einen Datenqualitätswert. Ein Eintrag, dessen Namen bereits eine andere Business-Capability-Karte auf derselben Ebene trägt, wird **gemeldet und nicht importiert**, ebenso die Einträge darunter; der Ergebnisdialog listet sie mit dem Grund auf.
 
 Den gleichen Import erneut auszuführen ist sicher — er ist idempotent.
 

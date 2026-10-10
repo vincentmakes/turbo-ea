@@ -84,6 +84,10 @@ export interface ImportResult {
   created: { catalogue_id: string; card_id: string }[];
   skipped: { catalogue_id: string; card_id: string; reason: string }[];
   relinked: { catalogue_id: string; card_id: string; new_parent_card_id: string }[];
+  /** Entries the card write path refused (a name another card already uses at
+   *  the same level) and the entries beneath a refused parent, with the reason
+   *  the server gave. Absent from a backend older than 2.158.11. */
+  failed?: { catalogue_id: string; reason: string }[];
   catalogue_version: string | null;
   /** Optional — only the process and value-stream services emit it. */
   auto_relations_created?: number;

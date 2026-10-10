@@ -19,7 +19,7 @@ Cliccate sull'icona utente in alto a destra nell'app, espandete **Cataloghi di r
 
 Spuntate la casella accanto a un processo per aggiungerlo alla selezione. La selezione si propaga nel sottoalbero come nel catalogo delle capacità — spuntare un nodo aggiunge quel nodo e tutti i discendenti selezionabili; togliere la spunta rimuove lo stesso sottoalbero. Gli antenati non vengono mai toccati.
 
-I processi che **esistono già** nel vostro inventario compaiono con un'**icona di spunta verde** al posto della casella. L'abbinamento privilegia il marchio `attributes.catalogueId` lasciato da un import precedente e, in mancanza, ricade su un confronto del nome senza distinzione maiuscole/minuscole.
+I processi che **esistono già** nel vostro inventario compaiono con un'**icona di spunta verde** al posto della casella. L'abbinamento privilegia il marchio `attributes.catalogueId` lasciato da un import precedente e, in mancanza, ricade su un confronto del nome senza distinzione maiuscole/minuscole. Un nome condiviso da due voci del catalogo — il catalogo ripete alcuni nomi in rami diversi — non viene mai abbinato per nome; una voce del genere è riconosciuta solo dal suo `catalogueId`.
 
 ## Creare carte in massa
 
@@ -32,7 +32,7 @@ Alla conferma, Turbo EA:
 - **crea automaticamente relazioni `relProcessToBC` (supporta)** verso ogni carta `BusinessCapability` esistente elencata in `realizes_capability_ids` del processo. Il dialogo di esito indica quante auto-relazioni sono state generate; i target ancora assenti dall'inventario vengono saltati in silenzio. Rieseguire l'import dopo aver aggiunto le capacità mancanti è sicuro — gli id di origine restano sulla carta, così potete ricollegarli manualmente in seguito;
 - timbra ogni carta nuova con `catalogueId`, `catalogueVersion`, `catalogueImportedAt`, `processLevel` (`L1`..`L4`) e i `frameworkRefs`, `industry`, `references`, `inScope`, `outOfScope`, `realizesCapabilityIds` provenienti dal catalogo.
 
-I conteggi di saltati, creati e ri-collegati sono riportati come per il catalogo delle capacità. Gli import sono idempotenti — rieseguirli non genera duplicati.
+I conteggi di saltati, creati e ri-collegati sono riportati come per il catalogo delle capacità. Gli import sono idempotenti — rieseguirli non genera duplicati. Ogni carta viene creata come fa il modulo della carta — con una voce nella cronologia, il suo livello nella tua gerarchia, un numero di riferimento quando Business Process usa i riferimenti automatici e un punteggio di qualità dei dati — e una voce il cui nome è già usato da un'altra carta Business Process allo stesso livello viene segnalata e non importata, insieme alle voci sottostanti; la finestra di risultato le elenca con il motivo.
 
 ## Vista dettaglio
 

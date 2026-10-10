@@ -27,7 +27,7 @@ Turbo EA 自带 **[Business Capability Reference Catalogue](https://catalog.turb
 
 页面会自动跟随应用的浅色/深色主题——深色模式下，相同的中性版式呈现在 `#1e1e1e` 纸面上，文字和点缀使用淡紫色调。
 
-清单中**已存在**的能力会显示**绿色勾号图标**而非复选框，无法被选择——您不可能通过目录两次创建同一个 Business Capability。匹配优先使用上次导入留下的 `attributes.catalogueId` 标记（这样即使显示名被改动，绿色勾号也能保留），若卡片是您手工创建的，则回退到不区分大小写的显示名匹配。
+清单中**已存在**的能力会显示**绿色勾号图标**而非复选框，无法被选择——您不可能通过目录两次创建同一个 Business Capability。匹配优先使用上次导入留下的 `attributes.catalogueId` 标记（这样即使显示名被改动，绿色勾号也能保留），若卡片是您手工创建的，则回退到不区分大小写的显示名匹配。若某个名称被目录中的两个条目共用（目录会在不同分支中重复某些名称），则不会按名称匹配；此类条目只通过其 `catalogueId` 识别。
 
 ## 批量创建卡片
 
@@ -39,6 +39,7 @@ Turbo EA 自带 **[Business Capability Reference Catalogue](https://catalog.turb
 - **自动保留目录层级** —— 当父节点与子节点同时被选中（或父节点本地已存在）时，新子卡片的 `parent_id` 会被正确接到对应卡片上。
 - **静默跳过已存在的匹配项**。结果对话框会显示有多少张被创建、多少张被跳过。
 - 在每张新卡片的 `attributes` 上盖上 `catalogueId`、`catalogueVersion`、`catalogueImportedAt` 和 `capabilityLevel`，便于追溯来源。
+- 以卡片表单相同的方式创建每张卡片：它会获得一条历史记录、在你自己层级中的级别（`capabilityLevel` 跟随卡片的位置——没有目录父项而导入的能力是 L1 根卡片）、在 Business Capability 使用自动引用编号时的引用编号，以及数据质量评分。名称已被同一级别另一张 Business Capability 卡片使用的条目会**被报告而不导入**，其下的条目亦然；结果对话框会连同原因一并列出。
 
 重复执行同一次导入是安全的——它是幂等的。
 

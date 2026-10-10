@@ -19,7 +19,7 @@ Klicken Sie oben rechts in der App auf das Benutzersymbol, klappen Sie im Menü 
 
 Setzen Sie das Häkchen neben einem Prozess, um ihn zur Auswahl hinzuzufügen. Die Auswahl kaskadiert wie im Capability-Katalog nach unten — ein Häkchen fügt den Knoten plus alle auswählbaren Nachfahren hinzu, ein Entfernen entfernt denselben Teilbaum. Vorfahren werden niemals berührt.
 
-Prozesse, die **bereits existieren**, erscheinen mit einem **grünen Häkchen** statt einer Checkbox. Der Abgleich nutzt vorzugsweise den `attributes.catalogueId`-Stempel aus früheren Importen und fällt sonst auf einen Namensvergleich (ohne Groß-/Kleinschreibung) zurück.
+Prozesse, die **bereits existieren**, erscheinen mit einem **grünen Häkchen** statt einer Checkbox. Der Abgleich nutzt vorzugsweise den `attributes.catalogueId`-Stempel aus früheren Importen und fällt sonst auf einen Namensvergleich (ohne Groß-/Kleinschreibung) zurück. Ein Name, den zwei Katalogeinträge teilen — der Katalog wiederholt manche Namen in verschiedenen Zweigen —, wird nie per Name abgeglichen; ein solcher Eintrag wird nur über seine `catalogueId` erkannt.
 
 ## Karten gebündelt anlegen
 
@@ -32,7 +32,7 @@ Bei der Bestätigung legt Turbo EA:
 - **Automatisch `relProcessToBC`-Beziehungen (unterstützt)** zu jeder existierenden `BusinessCapability`-Karte aus der Liste `realizes_capability_ids` des Prozesses an. Der Ergebnisdialog meldet, wie viele Beziehungen erstellt wurden; Ziele, die noch nicht im Inventar sind, werden stillschweigend übersprungen. Ein erneuter Import nach dem Anlegen der fehlenden Capabilities ist sicher — die Quell-IDs sind auf der Karte gespeichert, sodass Sie bei Bedarf manuell nachverknüpfen können.
 - jede neue Karte mit `catalogueId`, `catalogueVersion`, `catalogueImportedAt`, `processLevel` (`L1`..`L4`) sowie den `frameworkRefs`, `industry`, `references`, `inScope`, `outOfScope`, `realizesCapabilityIds` aus dem Katalog stempelt.
 
-Übersprungene, erstellte und neu verknüpfte Anzahlen werden gleich wie im Capability-Katalog gemeldet. Imports sind idempotent — ein erneutes Ausführen erzeugt keine Duplikate.
+Übersprungene, erstellte und neu verknüpfte Anzahlen werden gleich wie im Capability-Katalog gemeldet. Imports sind idempotent — ein erneutes Ausführen erzeugt keine Duplikate. Jede Karte wird so angelegt, wie es das Kartenformular tut — mit einem Eintrag im Verlauf, ihrer Ebene in Ihrer Hierarchie, einer Referenznummer, wenn Business Process automatische Referenzen verwendet, und einem Datenqualitätswert —, und ein Eintrag, dessen Namen bereits eine andere Business Process-Karte auf derselben Ebene trägt, wird gemeldet und nicht importiert, ebenso die Einträge darunter; der Ergebnisdialog listet sie mit dem Grund auf.
 
 ## Detailansicht
 
