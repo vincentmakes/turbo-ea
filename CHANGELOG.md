@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.158.9] - 2026-10-10
+
+### Changed
+- Internal clean-up of the PPM portfolio board, in the app and on a web portal: the rules that decide what it shows moved into a module with tests of its own; nothing a user sees changes.
+
 ## [2.158.8] - 2026-10-10
 
 ### Fixed

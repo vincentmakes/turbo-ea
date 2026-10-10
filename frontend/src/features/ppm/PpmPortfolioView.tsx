@@ -17,7 +17,15 @@
  * metamodel with.
  */
 
-import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
+import {
+  Fragment,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import type { ReactNode, RefObject } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -38,13 +46,13 @@ import { useTheme, alpha } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { toIsoDate, toLocalDate } from "@/lib/dates";
+import { toIsoDate } from "@/lib/dates";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { typeLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import type { InlineEntityLike } from "@/hooks/useResolveLabel";
 import type { PrintParam } from "@/features/reports/ReportShell";
-import type { ExportColumn, ReportExportData } from "@/features/reports/reportExport";
+import type { ReportExportData } from "@/features/reports/reportExport";
 import type {
   PpmPortfolioItem,
   PpmPortfolioDashboard,
@@ -53,17 +61,38 @@ import type {
 } from "@/types";
 import {
   RAG,
-  RAG_LABEL,
   fmtQuarter,
   fmtMonthYear,
   getQuarters,
-  fmtK,
-  costUnit,
   COST_BAR_COLOR,
   COST_BAR_OVER,
   BOARD_MAX_WIDTH,
   BOARD_GUTTER,
 } from "./ppmPortfolioFormat";
+import {
+  barModel,
+  buildPortfolioExport,
+  buildPrintParams,
+  costBarModel,
+  filterItems,
+  filterSearchParams,
+  groupItems,
+  groupTotals,
+  groupTypeLabel,
+  hasAnyCost,
+  healthLabelKey,
+  money,
+  nowPct,
+  pctOf,
+  portfolioWindow,
+  projectManager,
+  ragColor,
+  subtypeKeys,
+  subtypeName,
+  toggleCollapsed,
+  visibleQuarterLabels,
+} from "./ppmPortfolioModel";
+
 /** Mini cost bar matching the design: bar on top, label "578/1,350 kCHF" below */
 function CostBar({
   actual,
@@ -76,20 +105,16 @@ function CostBar({
   currency: string;
   label?: string;
 }) {
-  if (!planned && !actual) {
+  const bar = costBarModel(actual, planned, currency);
+  if (!bar) {
     return (
       <Typography variant="caption" color="text.disabled">
         &mdash;
       </Typography>
     );
   }
-  const overBudget = actual > planned && planned > 0;
+  const { overBudget } = bar;
   const barColor = overBudget ? COST_BAR_OVER : COST_BAR_COLOR;
-  const pct = planned > 0 ? (actual / planned) * 100 : 0;
-  const unit = costUnit(planned, actual, currency);
-  const useK = Math.abs(planned) >= 1_000 || Math.abs(actual) >= 1_000;
-  const aVal = useK ? fmtK(actual) : String(Math.round(actual));
-  const pVal = useK ? fmtK(planned) : String(Math.round(planned));
 
   return (
     <Box sx={{ width: "100%", minWidth: 90 }}>
@@ -109,7 +134,7 @@ function CostBar({
             left: 0,
             top: 0,
             height: "100%",
-            width: `${Math.min(pct, 100)}%`,
+            width: `${bar.fillPct}%`,
             bgcolor: barColor,
             borderRadius: 5,
             zIndex: 1,
@@ -122,7 +147,7 @@ function CostBar({
               left: 0,
               top: 0,
               height: "100%",
-              width: `${Math.min(pct, 130)}%`,
+              width: `${bar.overPct}%`,
               bgcolor: COST_BAR_OVER,
               borderRadius: 5,
               zIndex: 0,
@@ -143,7 +168,81 @@ function CostBar({
           whiteSpace: "nowrap",
         }}
       >
-        {aVal}/{pVal} {unit}
+        {bar.actualText}/{bar.plannedText} {bar.unit}
+      </Typography>
+    </Box>
+  );
+}
+
+/** A group's banner row: click anywhere on it to collapse or expand the group. */
+function GroupHeader({
+  name,
+  count,
+  collapsed,
+  onToggle,
+}: {
+  name: string;
+  count: number;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const { t } = useTranslation("ppm");
+  const theme = useTheme();
+  return (
+    <Box
+      data-export-row
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        px: 1,
+        py: 0.75,
+        bgcolor:
+          theme.palette.mode === "dark"
+            ? alpha(theme.palette.primary.main, 0.2)
+            : theme.palette.primary.dark,
+        borderBottom: `1px solid ${theme.palette.divider}`,
+        cursor: "pointer",
+      }}
+      onClick={onToggle}
+    >
+      <IconButton
+        size="small"
+        sx={{
+          mr: 0.5,
+          color: theme.palette.mode === "dark" ? "text.primary" : "#fff",
+        }}
+      >
+        <MaterialSymbol
+          icon={collapsed ? "chevron_right" : "expand_more"}
+          size={18}
+        />
+      </IconButton>
+      <MaterialSymbol
+        icon="folder"
+        size={18}
+        style={{
+          marginRight: 6,
+          color: theme.palette.mode === "dark" ? undefined : "#fff",
+        }}
+      />
+      <Typography
+        variant="body2"
+        fontWeight={700}
+        sx={{ color: theme.palette.mode === "dark" ? "text.primary" : "#fff" }}
+      >
+        {name}
+      </Typography>
+      <Typography
+        variant="body2"
+        sx={{
+          ml: 1,
+          color:
+            theme.palette.mode === "dark"
+              ? "text.secondary"
+              : alpha("#fff", 0.8),
+        }}
+      >
+        &mdash; {t("projectCount", { count })}
       </Typography>
     </Box>
   );
@@ -236,30 +335,19 @@ export default function PpmPortfolioView({
     ? { cursor: "pointer", "&:hover": { textDecoration: "underline" } }
     : undefined;
 
-  /**
-   * Cost figures are optional: a web portal can be configured to withhold them,
-   * in which case they arrive as null. `CostBar` already renders an em-dash when
-   * both sides are zero, so a withheld figure and an unrecorded one look the
-   * same — which is the honest rendering for both.
-   */
-  const money = (n: number | null | undefined): number => n ?? 0;
-
   // Sync filters to URL
   useEffect(() => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      // Only a departure from the opening state is worth carrying in the URL —
-      // comparing against the defaults keeps a portal's configured grouping out
-      // of the address bar, and clearing a configured subtype drops the param
-      // rather than writing an empty one that would read back as "unset".
-      if (groupBy && groupBy !== initialGroupBy) next.set("groupBy", groupBy);
-      else next.delete("groupBy");
-      if (search) next.set("search", search);
-      else next.delete("search");
-      if (subtypeFilter && subtypeFilter !== initialSubtype) next.set("subtype", subtypeFilter);
-      else next.delete("subtype");
-      return next;
-    }, { replace: true });
+    setSearchParams(
+      (prev) =>
+        filterSearchParams(prev, {
+          groupBy,
+          search,
+          subtype: subtypeFilter,
+          initialGroupBy,
+          initialSubtype,
+        }),
+      { replace: true },
+    );
   }, [groupBy, search, subtypeFilter, initialGroupBy, initialSubtype, setSearchParams]);
 
   // ── Report hover popover state ──
@@ -273,22 +361,14 @@ export default function PpmPortfolioView({
   const pruneQuarterLabels = useCallback(() => {
     const container = timelineRef.current;
     if (!container) return;
-    const labels = Array.from(
-      container.querySelectorAll<HTMLElement>("[data-qlabel]"),
+    const labels = Array.from(container.querySelectorAll<HTMLElement>("[data-qlabel]"));
+    const visible = visibleQuarterLabels(
+      labels.map((el) => el.getBoundingClientRect()),
+      container.getBoundingClientRect().right,
     );
-    if (!labels.length) return;
-    const GAP = 4; // minimum px between labels
-    let lastRight = -Infinity;
-    const containerRight = container.getBoundingClientRect().right;
-    for (const el of labels) {
-      const r = el.getBoundingClientRect();
-      if (r.left < lastRight + GAP || r.right > containerRight) {
-        el.style.visibility = "hidden";
-      } else {
-        el.style.visibility = "visible";
-        lastRight = r.right;
-      }
-    }
+    labels.forEach((el, i) => {
+      el.style.visibility = visible[i] ? "visible" : "hidden";
+    });
   }, []);
 
   useLayoutEffect(pruneQuarterLabels);
@@ -317,173 +397,66 @@ export default function PpmPortfolioView({
   };
 
   const now = new Date();
-  const windowStart = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-  const windowEnd = new Date(now.getFullYear(), now.getMonth() + 14, 0);
-  const windowMs = windowEnd.getTime() - windowStart.getTime();
+  const timeline = portfolioWindow(now);
+  const nowLeft = nowPct(timeline, now);
 
-  const quarters = useMemo(() => getQuarters(windowStart, 20), []);
+  // The quarter labels are laid out once, for the window the board opened on.
+  const quarters = useMemo(() => getQuarters(portfolioWindow(new Date()).start, 20), []);
 
-
-  const resolveSubtype = (key: string | null | undefined): string => {
-    if (!key) return "\u2014";
-    const def = (subtypeDefs || []).find((d) => d.key === key);
-    return stLabel(def) || key;
-  };
-
-  const subtypes = useMemo(
-    () => [...new Set(items.map((i) => i.subtype).filter(Boolean))],
-    [items],
+  const resolveSubtype = useCallback(
+    (key: string | null | undefined) => subtypeName(key, subtypeDefs, stLabel),
+    [subtypeDefs, stLabel],
   );
 
-  const filtered = useMemo(() => {
-    let list = items;
-    if (search) {
-      const s = search.toLowerCase();
-      list = list.filter((i) => i.name.toLowerCase().includes(s));
-    }
-    if (subtypeFilter) {
-      list = list.filter((i) => i.subtype === subtypeFilter);
-    }
-    return list;
-  }, [items, search, subtypeFilter]);
+  const subtypes = useMemo(() => subtypeKeys(items), [items]);
 
-  const groups = useMemo(() => {
-    const map = new Map<string, { name: string; items: PpmPortfolioItem[] }>();
-    const ungrouped: PpmPortfolioItem[] = [];
-    for (const item of filtered) {
-      if (item.group_id && item.group_name) {
-        if (!map.has(item.group_id)) {
-          map.set(item.group_id, { name: item.group_name, items: [] });
-        }
-        map.get(item.group_id)!.items.push(item);
-      } else {
-        ungrouped.push(item);
-      }
-    }
-    const result = [...map.entries()].sort((a, b) =>
-      a[1].name.localeCompare(b[1].name),
-    );
-    if (ungrouped.length) {
-      result.push(["__ungrouped", { name: t("noGroup"), items: ungrouped }]);
-    }
-    return result;
-  }, [filtered, t]);
+  const filtered = useMemo(
+    () => filterItems(items, search, subtypeFilter),
+    [items, search, subtypeFilter],
+  );
 
-  const pctOf = (dateStr: string | null) => {
-    // `windowStart` and `now` below are local Dates, so the date-only argument
-    // has to be parsed locally too or the two baselines disagree (#1016).
-    const d = toLocalDate(dateStr);
-    if (!d) return null;
-    return Math.max(0, Math.min(100, ((d.getTime() - windowStart.getTime()) / windowMs) * 100));
-  };
-
-  const nowPct = ((now.getTime() - windowStart.getTime()) / windowMs) * 100;
+  const groups = useMemo(() => groupItems(filtered, t("noGroup")), [filtered, t]);
 
   // ── Print / export ──
-  const groupTypeLabel = useMemo(() => {
-    const opt = groupOptions.find((o) => o.type_key === groupBy);
-    return opt
-      ? typeLabel({ key: opt.type_key, label: opt.label, translations: opt.translations }, i18n.language)
-      : groupBy;
-  }, [groupOptions, groupBy, i18n.language]);
-
-  const printParams: PrintParam[] = useMemo(
-    () => [
-      { label: t("groupBy"), value: groupTypeLabel },
-      { label: t("subtype"), value: subtypeFilter ? resolveSubtype(subtypeFilter) : "" },
-      { label: t("common:actions.search", "Search"), value: search },
-    ],
-    [t, groupTypeLabel, subtypeFilter, search], // eslint-disable-line react-hooks/exhaustive-deps
+  const groupLabel = useMemo(
+    () => groupTypeLabel(groupOptions, groupBy, i18n.language),
+    [groupOptions, groupBy, i18n.language],
   );
 
-  const healthLabel = (value: string | null | undefined): string =>
-    value ? t(RAG_LABEL[value] || "health_noReport") : t("health_noReport");
+  const printParams: PrintParam[] = useMemo(
+    () =>
+      buildPrintParams(
+        { groupTypeLabel: groupLabel, subtype: subtypeFilter, search },
+        t,
+        resolveSubtype,
+      ),
+    [t, groupLabel, subtypeFilter, search, resolveSubtype],
+  );
 
-  /**
-   * Real tabular data for the XLSX export. Built from the same grouped,
-   * filtered rows the grid renders, so the workbook always matches what is
-   * on screen — rather than scraping the DOM, which would only ever see the
-   * Gantt bars and mini cost bars as unreadable markup.
-   */
-  const buildExportData = useCallback((): ReportExportData => {
-    const columns: ExportColumn[] = [
-      { key: "group", label: groupTypeLabel, type: "text" },
-      { key: "name", label: t("initiativeName"), type: "text" },
-      { key: "subtype", label: t("subtype"), type: "text" },
-      { key: "pm", label: t("projectManager"), type: "text" },
-      { key: "start", label: t("startDate"), type: "date" },
-      { key: "end", label: t("endDate"), type: "date" },
-      { key: "schedule", label: t("health_schedule"), type: "text" },
-      { key: "cost", label: t("health_cost"), type: "text" },
-      { key: "scope", label: t("health_scope"), type: "text" },
-      { key: "capexPlanned", label: `${t("capex")} — ${t("planned")}`, type: "currency" },
-      { key: "capexActual", label: `${t("capex")} — ${t("actual")}`, type: "currency" },
-      { key: "opexPlanned", label: `${t("opex")} — ${t("planned")}`, type: "currency" },
-      { key: "opexActual", label: `${t("opex")} — ${t("actual")}`, type: "currency" },
-      { key: "lastReport", label: t("lastReport", "Report"), type: "date" },
-    ];
-
-    const rows: Record<string, unknown>[] = [];
-    for (const [, group] of groups) {
-      for (const item of group.items) {
-        const rep = item.latest_report;
-        const pm =
-          item.stakeholders.find((sh) => sh.role_key === "itProjectManager") ||
-          item.stakeholders.find((sh) => sh.role_key === "responsible");
-        rows.push({
-          group: group.name,
-          name: item.name,
-          subtype: item.subtype ? resolveSubtype(item.subtype) : "",
-          pm: pm?.display_name || "",
-          start: item.start_date || "",
-          end: item.end_date || "",
-          schedule: healthLabel(rep?.schedule_health),
-          cost: healthLabel(rep?.cost_health),
-          scope: healthLabel(rep?.scope_health),
-          capexPlanned: item.capex_planned ?? "",
-          capexActual: item.capex_actual ?? "",
-          opexPlanned: item.opex_planned ?? "",
-          opexActual: item.opex_actual ?? "",
-          lastReport: rep ? (rep.report_date as unknown as string) : "",
-        });
-      }
-    }
-
-    return {
-      title: t("title"),
-      filterSummary: printParams.filter((p) => p.value),
-      chartNode: chartRef.current,
-      paginateRowSelector: "[data-export-row]",
-      sheets: [{ name: t("tabs.portfolio"), columns, rows }],
-    };
-  }, [groups, groupTypeLabel, printParams, t]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  const buildExportData = useCallback(
+    (): ReportExportData =>
+      buildPortfolioExport(
+        { groups, groupTypeLabel: groupLabel, printParams, chartNode: chartRef.current },
+        t,
+        resolveSubtype,
+      ),
+    [groups, groupLabel, printParams, t, resolveSubtype],
+  );
 
   // ── Desktop: Gantt timeline bar ──
   const renderBar = (item: PpmPortfolioItem) => {
-    const startPct = pctOf(item.start_date);
-    const endPct = pctOf(item.end_date);
-    if (startPct === null || endPct === null) return null;
-    const width = Math.max(endPct - startPct, 0.5);
-    const barColor =
-      item.latest_report?.schedule_health === "offTrack"
-        ? RAG.offTrack
-        : item.latest_report?.schedule_health === "atRisk"
-          ? RAG.atRisk
-          : COST_BAR_COLOR;
-    const clippedLeft = startPct <= 0;
-    const clippedRight = endPct >= 100;
-    const borderRadius = `${clippedLeft ? 0 : 8}px ${clippedRight ? 0 : 8}px ${clippedRight ? 0 : 8}px ${clippedLeft ? 0 : 8}px`;
+    const bar = barModel(item, timeline);
+    if (!bar) return null;
     return (
       <Tooltip title={`${item.start_date} \u2192 ${item.end_date}`}>
         <Box
           sx={{
             position: "absolute",
-            left: `${startPct}%`,
-            width: `${width}%`,
+            left: `${bar.left}%`,
+            width: `${bar.width}%`,
             height: 16,
-            borderRadius,
-            bgcolor: barColor,
+            borderRadius: bar.borderRadius,
+            bgcolor: bar.color,
             opacity: 0.9,
             top: "50%",
             transform: "translateY(-50%)",
@@ -502,7 +475,7 @@ export default function PpmPortfolioView({
         width: size,
         height: size,
         borderRadius: "50%",
-        bgcolor: value ? RAG[value] || "#bdbdbd" : "#bdbdbd",
+        bgcolor: ragColor(value),
         border: value ? undefined : `1px solid ${theme.palette.divider}`,
         flexShrink: 0,
       }}
@@ -512,9 +485,7 @@ export default function PpmPortfolioView({
   // ── Desktop: grid row ──
   const renderRow = (item: PpmPortfolioItem) => {
     const rep = item.latest_report;
-    const pm =
-      item.stakeholders.find((s) => s.role_key === "itProjectManager") ||
-      item.stakeholders.find((s) => s.role_key === "responsible");
+    const pm = projectManager(item.stakeholders);
 
     const plan = `${fmtQuarter(item.start_date)} / ${fmtQuarter(item.end_date)}`;
 
@@ -567,7 +538,7 @@ export default function PpmPortfolioView({
           <Box
             sx={{
               position: "absolute",
-              left: `${nowPct}%`,
+              left: `${nowLeft}%`,
               top: 0,
               bottom: 0,
               width: 1.5,
@@ -641,9 +612,7 @@ export default function PpmPortfolioView({
   // ── Mobile: card row ──
   const renderMobileCard = (item: PpmPortfolioItem) => {
     const rep = item.latest_report;
-    const pm =
-      item.stakeholders.find((s) => s.role_key === "itProjectManager") ||
-      item.stakeholders.find((s) => s.role_key === "responsible");
+    const pm = projectManager(item.stakeholders);
     const plan = `${fmtQuarter(item.start_date)} \u2013 ${fmtQuarter(item.end_date)}`;
 
     return (
@@ -735,10 +704,7 @@ export default function PpmPortfolioView({
         </Box>
 
         {/* Row 4: Cost bars side by side */}
-        {(money(item.capex_planned) > 0 ||
-          money(item.capex_actual) > 0 ||
-          money(item.opex_planned) > 0 ||
-          money(item.opex_actual) > 0) && (
+        {hasAnyCost(item) && (
           <Box display="flex" gap={2} mt={0.75}>
             <Box flex={1}>
               <CostBar
@@ -763,12 +729,9 @@ export default function PpmPortfolioView({
   };
 
   /** Group totals row (desktop only) */
-  const renderGroupTotals = (groupItems: PpmPortfolioItem[]) => {
-    const totCapexP = groupItems.reduce((s, i) => s + money(i.capex_planned), 0);
-    const totCapexA = groupItems.reduce((s, i) => s + money(i.capex_actual), 0);
-    const totOpexP = groupItems.reduce((s, i) => s + money(i.opex_planned), 0);
-    const totOpexA = groupItems.reduce((s, i) => s + money(i.opex_actual), 0);
-    if (!totCapexP && !totCapexA && !totOpexP && !totOpexA) return null;
+  const renderGroupTotals = (members: PpmPortfolioItem[]) => {
+    const totals = groupTotals(members);
+    if (!totals) return null;
 
     return (
       <Box
@@ -794,10 +757,10 @@ export default function PpmPortfolioView({
         <Box />
         <Box />
         <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
-          <CostBar actual={totCapexA} planned={totCapexP} currency={currency} />
+          <CostBar actual={totals.capexActual} planned={totals.capexPlanned} currency={currency} />
         </Box>
         <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
-          <CostBar actual={totOpexA} planned={totOpexP} currency={currency} />
+          <CostBar actual={totals.opexActual} planned={totals.opexPlanned} currency={currency} />
         </Box>
         <Box />
       </Box>
@@ -841,7 +804,7 @@ export default function PpmPortfolioView({
         >
           <MenuItem value="">{t("common:all", "All")}</MenuItem>
           {subtypes.map((s) => (
-            <MenuItem key={s} value={s!}>
+            <MenuItem key={s} value={s}>
               {resolveSubtype(s)}
             </MenuItem>
           ))}
@@ -962,7 +925,7 @@ export default function PpmPortfolioView({
               }}
             >
               {quarters.map((q) => {
-                const leftPct = pctOf(toIsoDate(q.start)) ?? 0;
+                const leftPct = pctOf(timeline, toIsoDate(q.start)) ?? 0;
                 return (
                   <Typography
                     key={q.label}
@@ -1037,70 +1000,12 @@ export default function PpmPortfolioView({
             const isCollapsed = collapsed.has(groupId);
             return (
               <Box key={groupId}>
-                {/* Group header */}
-                <Box
-                  data-export-row
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    px: 1,
-                    py: 0.75,
-                    bgcolor:
-                      theme.palette.mode === "dark"
-                        ? alpha(theme.palette.primary.main, 0.2)
-                        : theme.palette.primary.dark,
-                    borderBottom: `1px solid ${theme.palette.divider}`,
-                    cursor: "pointer",
-                  }}
-                  onClick={() => {
-                    setCollapsed((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(groupId)) next.delete(groupId);
-                      else next.add(groupId);
-                      return next;
-                    });
-                  }}
-                >
-                  <IconButton
-                    size="small"
-                    sx={{
-                      mr: 0.5,
-                      color: theme.palette.mode === "dark" ? "text.primary" : "#fff",
-                    }}
-                  >
-                    <MaterialSymbol
-                      icon={isCollapsed ? "chevron_right" : "expand_more"}
-                      size={18}
-                    />
-                  </IconButton>
-                  <MaterialSymbol
-                    icon="folder"
-                    size={18}
-                    style={{
-                      marginRight: 6,
-                      color: theme.palette.mode === "dark" ? undefined : "#fff",
-                    }}
-                  />
-                  <Typography
-                    variant="body2"
-                    fontWeight={700}
-                    sx={{ color: theme.palette.mode === "dark" ? "text.primary" : "#fff" }}
-                  >
-                    {group.name}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      ml: 1,
-                      color:
-                        theme.palette.mode === "dark"
-                          ? "text.secondary"
-                          : alpha("#fff", 0.8),
-                    }}
-                  >
-                    &mdash; {t("projectCount", { count: group.items.length })}
-                  </Typography>
-                </Box>
+                <GroupHeader
+                  name={group.name}
+                  count={group.items.length}
+                  collapsed={isCollapsed}
+                  onToggle={() => setCollapsed((prev) => toggleCollapsed(prev, groupId))}
+                />
                 {!isCollapsed &&
                   group.items.map((item) => renderRow(item))}
                 {!isCollapsed && renderGroupTotals(group.items)}
@@ -1128,69 +1033,12 @@ export default function PpmPortfolioView({
               const isCollapsed = collapsed.has(groupId);
               return (
                 <Box key={groupId}>
-                  <Box
-                    data-export-row
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      px: 1,
-                      py: 0.75,
-                      bgcolor:
-                        theme.palette.mode === "dark"
-                          ? alpha(theme.palette.primary.main, 0.2)
-                          : theme.palette.primary.dark,
-                      borderBottom: `1px solid ${theme.palette.divider}`,
-                      cursor: "pointer",
-                    }}
-                    onClick={() => {
-                      setCollapsed((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(groupId)) next.delete(groupId);
-                        else next.add(groupId);
-                        return next;
-                      });
-                    }}
-                  >
-                    <IconButton
-                      size="small"
-                      sx={{
-                        mr: 0.5,
-                        color: theme.palette.mode === "dark" ? "text.primary" : "#fff",
-                      }}
-                    >
-                      <MaterialSymbol
-                        icon={isCollapsed ? "chevron_right" : "expand_more"}
-                        size={18}
-                      />
-                    </IconButton>
-                    <MaterialSymbol
-                      icon="folder"
-                      size={18}
-                      style={{
-                        marginRight: 6,
-                        color: theme.palette.mode === "dark" ? undefined : "#fff",
-                      }}
-                    />
-                    <Typography
-                      variant="body2"
-                      fontWeight={700}
-                      sx={{ color: theme.palette.mode === "dark" ? "text.primary" : "#fff" }}
-                    >
-                      {group.name}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        ml: 1,
-                        color:
-                          theme.palette.mode === "dark"
-                            ? "text.secondary"
-                            : alpha("#fff", 0.8),
-                      }}
-                    >
-                      &mdash; {t("projectCount", { count: group.items.length })}
-                    </Typography>
-                  </Box>
+                  <GroupHeader
+                    name={group.name}
+                    count={group.items.length}
+                    collapsed={isCollapsed}
+                    onToggle={() => setCollapsed((prev) => toggleCollapsed(prev, groupId))}
+                  />
                   {!isCollapsed &&
                     group.items.map((item) => renderMobileCard(item))}
                 </Box>
@@ -1254,7 +1102,7 @@ export default function PpmPortfolioView({
                     <Typography
                       variant="caption"
                       sx={{ fontSize: "0.7rem", lineHeight: 1.2 }}
-                      title={t(RAG_LABEL[value] || "health_noReport")}
+                      title={t(healthLabelKey(value))}
                     >
                       {label}
                     </Typography>
@@ -1263,70 +1111,35 @@ export default function PpmPortfolioView({
               })}
             </Box>
 
-            {/* Summary */}
-            {hoveredReport.summary && (
-              <>
-                <Divider sx={{ my: 1 }} />
-                <Typography variant="caption" fontWeight={600} display="block">
-                  {t("summary")}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                  }}
-                >
-                  {hoveredReport.summary}
-                </Typography>
-              </>
-            )}
-
-            {/* Accomplishments */}
-            {hoveredReport.accomplishments && (
-              <>
-                <Divider sx={{ my: 1 }} />
-                <Typography variant="caption" fontWeight={600} display="block">
-                  {t("accomplishments")}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                  }}
-                >
-                  {hoveredReport.accomplishments}
-                </Typography>
-              </>
-            )}
-
-            {/* Next Steps */}
-            {hoveredReport.next_steps && (
-              <>
-                <Divider sx={{ my: 1 }} />
-                <Typography variant="caption" fontWeight={600} display="block">
-                  {t("nextSteps")}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                  }}
-                >
-                  {hoveredReport.next_steps}
-                </Typography>
-              </>
+            {/* Summary, accomplishments and next steps, three lines each */}
+            {(
+              [
+                ["summary", hoveredReport.summary],
+                ["accomplishments", hoveredReport.accomplishments],
+                ["nextSteps", hoveredReport.next_steps],
+              ] as const
+            ).map(
+              ([labelKey, text]) =>
+                text && (
+                  <Fragment key={labelKey}>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="caption" fontWeight={600} display="block">
+                      {t(labelKey)}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{
+                        display: "-webkit-box",
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {text}
+                    </Typography>
+                  </Fragment>
+                ),
             )}
           </Box>
         )}
