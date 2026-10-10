@@ -297,7 +297,9 @@ describe("stroke width", () => {
     expect(connectorWidth(0)).toBe(1.6);
     expect(connectorWidth(2)).toBe(2.6);
     expect(connectorWidth(4)).toBe(3.6);
-    expect(connectorWidth(7)).toBeCloseTo(1.6 + Math.log2(7), 10);
+    // log2(6) ≈ 2.585 is under the 2.8 cap; log2(7) ≈ 2.807 is over it.
+    expect(connectorWidth(6)).toBeCloseTo(1.6 + Math.log2(6), 10);
+    expect(connectorWidth(7)).toBeCloseTo(4.4, 10);
     expect(connectorWidth(8)).toBeCloseTo(4.4, 10);
     expect(connectorWidth(1000)).toBeCloseTo(4.4, 10);
   });
