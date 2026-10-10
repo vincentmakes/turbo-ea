@@ -5,7 +5,7 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.158.12] - 2026-10-09
+## [2.158.7] - 2026-10-10
 
 ### Fixed
 - MCP server: a sign-in whose PKCE code verifier contains a character outside the RFC 7636 alphabet — a non-ASCII one among them — is refused with the standard `invalid_grant` answer; a non-ASCII verifier used to end in a server error.
