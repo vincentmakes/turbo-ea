@@ -539,16 +539,14 @@ class SyncEngine:
 
         # Step 5: Stage or apply directly
         if skip_staging and action != "skip":
-            # Apply directly without writing staged records
+            # Apply directly without writing staged records. The record is a
+            # transient carrier, never added to the session: the apply helpers
+            # read only the SNOW record, its sys_id, the matched card and the diff.
             fake_staged = SnowStagedRecord(
-                sync_run_id=run.id,
-                mapping_id=mapping.id,
                 snow_sys_id=sys_id,
                 snow_data=record,
                 card_id=card_id,
-                action=action,
                 diff=diff,
-                status="applied",
             )
             if action == "create":
                 await self._apply_create(fake_staged, mapping, field_mappings, run.created_by)

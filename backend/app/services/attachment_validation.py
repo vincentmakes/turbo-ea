@@ -53,6 +53,13 @@ _UTF16_BOMS = (b"\xff\xfe", b"\xfe\xff")
 # An RFC 5322 header field: "Received:", "From:", "X-Mailer:" …
 _EML_FIRST_LINE = re.compile(rb"^[A-Za-z][A-Za-z0-9-]*:[ \t]")
 
+# Leading signatures. Named here rather than written inline so each is spelled
+# once, byte for byte.
+_OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+_GZIP_MAGIC = b"\x1f\x8b"
+_PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+_JPEG_MAGIC = b"\xff\xd8\xff"
+
 
 def _is_pdf(head: bytes) -> bool:
     return b"%PDF-" in head[:1024]
@@ -65,11 +72,11 @@ def _is_zip(head: bytes) -> bool:
 
 
 def _is_ole2(head: bytes) -> bool:
-    return head.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1")
+    return head.startswith(_OLE2_MAGIC)
 
 
 def _is_gzip(head: bytes) -> bool:
-    return head[:2] == b"\x1f\x8b"
+    return head[:2] == _GZIP_MAGIC
 
 
 def _is_tar(head: bytes) -> bool:
@@ -83,11 +90,11 @@ def _is_7z(head: bytes) -> bool:
 
 
 def _is_png(head: bytes) -> bool:
-    return head.startswith(b"\x89PNG\r\n\x1a\n")
+    return head.startswith(_PNG_MAGIC)
 
 
 def _is_jpeg(head: bytes) -> bool:
-    return head.startswith(b"\xff\xd8\xff")
+    return head.startswith(_JPEG_MAGIC)
 
 
 def _is_gif(head: bytes) -> bool:
@@ -134,8 +141,8 @@ def _is_svg(head: bytes) -> bool:
 def _is_eml(head: bytes) -> bool:
     if not _is_text(head):
         return False
-    first_line = _text_body(head).split(b"\n", 1)[0]
-    return bool(_EML_FIRST_LINE.match(first_line))
+    # The pattern cannot cross a line break, so matching the body tests its first line.
+    return bool(_EML_FIRST_LINE.match(_text_body(head)))
 
 
 # ---------------------------------------------------------------------------
@@ -217,7 +224,9 @@ def extension_of(filename: str) -> str:
     ``archive.tar.gz`` is ``.gz``, which is what makes a tarball land on the
     gzip row without a special case.
     """
-    name = (filename or "").strip().rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    if not filename:
+        return ""
+    name = filename.strip().rpartition("/")[2].rpartition("\\")[2]
     dot = name.rfind(".")
     if dot <= 0 or dot == len(name) - 1:
         return ""

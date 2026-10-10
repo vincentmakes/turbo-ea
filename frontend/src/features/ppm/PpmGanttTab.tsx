@@ -29,7 +29,6 @@ import type {
   OnDateChange,
   OnProgressChange,
   OnRelationChange,
-  Dependency,
   TaskOrEmpty,
   Column,
   ColumnProps,
@@ -47,93 +46,36 @@ import { brand } from "@/theme/tokens";
 import PpmWbsDialog from "./PpmWbsDialog";
 import PpmTaskDialog from "./PpmTaskDialog";
 import GanttAddItemMenu from "./GanttAddItemMenu";
-import { TASK_PROGRESS_MARKS, percentFromStatus, statusFromPercent } from "./taskProgress";
-import type { PpmDependency, PpmWbs, PpmTask, PpmTaskStatus } from "@/types";
-import { startOfLocalDay, toIsoDate, toLocalDate } from "@/lib/dates";
+import { TASK_PROGRESS_MARKS, statusFromPercent } from "./taskProgress";
+import type { PpmDependency, PpmWbs, PpmTask } from "@/types";
+import { toIsoDate } from "@/lib/dates";
 import { buildGanttArrowPath } from "./ganttArrowPath";
-
-/** Bar colors per task status — reuses the standard palette from PpmTaskBoard. */
-const TASK_STATUS_BAR_COLORS: Record<
-  PpmTaskStatus,
-  {
-    barBackgroundColor: string;
-    barProgressColor: string;
-    barBackgroundSelectedColor: string;
-    barProgressSelectedColor: string;
-  }
-> = {
-  todo: {
-    barBackgroundColor: "#9e9e9e",
-    barProgressColor: "#757575",
-    barBackgroundSelectedColor: "#757575",
-    barProgressSelectedColor: "#616161",
-  },
-  in_progress: {
-    barBackgroundColor: "#90caf9",
-    barProgressColor: "#1976d2",
-    barBackgroundSelectedColor: "#1565c0",
-    barProgressSelectedColor: "#1976d2",
-  },
-  done: {
-    barBackgroundColor: "#a5d6a7",
-    barProgressColor: "#2e7d32",
-    barBackgroundSelectedColor: "#1b5e20",
-    barProgressSelectedColor: "#2e7d32",
-  },
-  blocked: {
-    barBackgroundColor: "#d32f2f",
-    barProgressColor: "#c62828",
-    barBackgroundSelectedColor: "#b71c1c",
-    barProgressSelectedColor: "#c62828",
-  },
-};
-
-/** Ordered view scale used by both the picker and the +/- zoom buttons.
- *  Index 0 = most zoomed-in (Day), last = most zoomed-out (Year). */
-const VIEW_SCALE: ViewMode[] = [
-  ViewMode.Day,
-  ViewMode.Week,
-  ViewMode.Month,
-  ViewMode.QuarterYear,
-  ViewMode.Year,
-];
-
-const VIEW_MODE_KEY = "ppm.gantt.viewMode";
-/** Per-initiative key — the centre date the user last had the viewport
- *  scrolled to, persisted as an ISO string so we restore the same focus
- *  on next visit. Different initiatives remember independent positions. */
-const VIEW_CENTER_KEY_PREFIX = "ppm.gantt.viewCenter.";
-
-function loadInitialViewMode(): ViewMode {
-  try {
-    const raw = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
-    if (raw && VIEW_SCALE.includes(raw)) return raw;
-  } catch {
-    /* localStorage unavailable */
-  }
-  // No stored preference. A phone-width viewport cannot show a useful Week
-  // scale (columnWidth 200 against ~180px of chart once the task list is
-  // subtracted), so start zoomed out. A stored choice always wins — this only
-  // moves the default. Raw innerWidth because this runs in a useState
-  // initializer, outside any hook (same posture as AppLayout's px queries).
-  const narrow = typeof window !== "undefined" && window.innerWidth < 900;
-  return narrow ? ViewMode.QuarterYear : ViewMode.Week;
-}
-
-/** Convert a Gantt task id ("task-uuid" / "wbs-uuid") to the API's
- *  (kind, id) pair. Returns null for the placeholder __empty__ row. */
-function parseGanttId(
-  ganttId: string,
-): { kind: "task" | "wbs"; id: string } | null {
-  if (ganttId.startsWith("task-")) return { kind: "task", id: ganttId.slice(5) };
-  if (ganttId.startsWith("wbs-")) return { kind: "wbs", id: ganttId.slice(4) };
-  return null;
-}
-
-/** Build the gantt task id for a (kind, id) pair from a PpmDependency. */
-function depEndpointToGanttId(kind: "task" | "wbs", id: string): string {
-  return `${kind}-${id}`;
-}
+import {
+  EMPTY_ROW_ID,
+  VIEW_CENTER_KEY_PREFIX,
+  VIEW_MODE_KEY,
+  VIEW_SCALE,
+  alignTaskPatch,
+  alignWbsPatch,
+  addDaysIso,
+  buildGanttRows,
+  buildRowMeta,
+  checkIsWeekend,
+  dateAtPixel,
+  defaultNewDate as defaultNewDateFor,
+  dependenciesBySuccessor,
+  dependencyFromDrag,
+  deriveRange,
+  endDateOf,
+  ganttIdOf,
+  geometryFor,
+  getParentIds,
+  leftEdgeFor,
+  loadInitialViewMode,
+  parseDate,
+  roundToDay,
+  zoomBounds,
+} from "./ppmGanttModel";
 
 /** Geometry passed from parent to the dependency overlay.
  *  Coordinates are already in the overlay's local SVG coordinate system
@@ -242,131 +184,9 @@ function DependencyArrowOverlay({
   );
 }
 
-/** Per-viewMode geometry: column width in pixels and approximate
- *  calendar units per column (in days). Used both for our
- *  measurements and for the lib's pixel-per-date scaling — they
- *  must match the columnWidth we pass via the `distances` prop. */
-function geometryFor(mode: ViewMode): { colWidth: number; daysPerCol: number } {
-  switch (mode) {
-    case ViewMode.Day:
-      return { colWidth: 32, daysPerCol: 1 };
-    case ViewMode.Week:
-      return { colWidth: 200, daysPerCol: 7 };
-    case ViewMode.Month:
-      return { colWidth: 300, daysPerCol: 30.44 };
-    case ViewMode.QuarterYear:
-      return { colWidth: 180, daysPerCol: 91.31 };
-    case ViewMode.Year:
-      return { colWidth: 240, daysPerCol: 365.25 };
-    default:
-      return { colWidth: 200, daysPerCol: 7 };
-  }
-}
-
-/** Extra metadata for Gantt rows, keyed by gantt task id (e.g. "wbs-xxx", "task-xxx"). */
-interface GanttRowMeta {
-  completion: number;
-  assigneeName: string | null;
-  hasChildren: boolean;
-}
-
 interface Props {
   initiativeId: string;
   card?: { attributes?: Record<string, unknown> };
-}
-
-/** Derive timeline range from initiative card dates or sensible defaults. */
-function deriveRange(card?: { attributes?: Record<string, unknown> }): {
-  start: Date;
-  end: Date;
-} {
-  const now = new Date();
-  let start = new Date(now);
-  start.setDate(start.getDate() - 14);
-  let end = new Date(now);
-  end.setDate(end.getDate() + 90);
-  if (card?.attributes) {
-    const s = card.attributes.startDate;
-    const e = card.attributes.endDate;
-    if (typeof s === "string" && s) {
-      const d = parseDate(s, start);
-      if (d !== start) start = d;
-    }
-    if (typeof e === "string" && e) {
-      const d = parseDate(e, end);
-      if (d !== end) end = d;
-    }
-  }
-  return { start, end };
-}
-
-/** Parse a date string as a local-timezone date at start-of-day.
- *
- *  The date-only handling lives in `@/lib/dates` — this used to carry a private
- *  copy of it, one of three that had grown across the app before that module
- *  existed (#1016). */
-function parseDate(s: string | null, fallback: Date): Date {
-  const d = toLocalDate(s);
-  return d ? startOfLocalDay(d) : fallback;
-}
-
-/** Snap a Date to end-of-day (23:59:59.999) in local timezone. */
-function endOfDay(d: Date): Date {
-  const r = new Date(d);
-  r.setHours(23, 59, 59, 999);
-  return r;
-}
-
-/** Add a number of whole days to a "YYYY-MM-DD" string and return the same
- *  ISO format. Used by the FS-dependency align action so the successor
- *  starts on the calendar day AFTER the predecessor finishes (the natural
- *  reading of finish-to-start: pred ends day X, succ starts day X+1). */
-function addDaysIso(iso: string, days: number): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  if (!m) return iso;
-  const d = new Date(+m[1], +m[2] - 1, +m[3]);
-  d.setDate(d.getDate() + days);
-  return toIsoDate(d);
-}
-
-/** Whole-day difference `to - from` between two ISO dates. Returned as
- *  signed integer days, suitable for feeding back into `addDaysIso`. */
-function daysBetweenIso(from: string, to: string): number {
-  const a = /^(\d{4})-(\d{2})-(\d{2})/.exec(from);
-  const b = /^(\d{4})-(\d{2})-(\d{2})/.exec(to);
-  if (!a || !b) return 0;
-  const da = new Date(+a[1], +a[2] - 1, +a[3]);
-  const db = new Date(+b[1], +b[2] - 1, +b[3]);
-  return Math.round((db.getTime() - da.getTime()) / 86_400_000);
-}
-
-/** Round a date to day boundaries during drag/resize.
- *  The library passes (date, viewMode, dateExtremity, action). Snap start→00:00, end→23:59. */
-function roundToDay(
-  date: Date,
-  _viewMode?: ViewMode,
-  dateExtremity?: string,
-): Date {
-  if (dateExtremity === "endOfTask") return endOfDay(date);
-  return startOfLocalDay(date);
-}
-
-/** Check if a date falls on Saturday or Sunday (unused params from library API). */
-function checkIsWeekend(date: Date): boolean {
-  const day = date.getDay();
-  return day === 0 || day === 6;
-}
-
-/** Build a set of WBS IDs that have at least one child. */
-function getParentIds(wbsList: PpmWbs[], tasks: PpmTask[]): Set<string> {
-  const ids = new Set<string>();
-  for (const w of wbsList) {
-    if (w.parent_id) ids.add(w.parent_id);
-  }
-  for (const t of tasks) {
-    if (t.wbs_id) ids.add(t.wbs_id);
-  }
-  return ids;
 }
 
 export default function PpmGanttTab({ initiativeId, card }: Props) {
@@ -378,7 +198,9 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   const [tasks, setTasks] = useState<PpmTask[]>([]);
   const [dependencies, setDependencies] = useState<PpmDependency[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, _setViewMode] = useState<ViewMode>(() => loadInitialViewMode());
+  const [viewMode, _setViewMode] = useState<ViewMode>(() =>
+    loadInitialViewMode(window.innerWidth),
+  );
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [snack, setSnack] = useState<string>("");
   /** Optional action button shown next to the snackbar message (e.g.
@@ -445,14 +267,10 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     }
     if (!ref) return undefined;
 
-    // Days per pixel for the current scale. Approximate for Month/
-    // Quarter/Year since calendar months and years vary slightly in
-    // length — close enough for an anchor (we just need the right
-    // ballpark date for the lib's setViewDate to scroll to).
-    const { colWidth, daysPerCol } = geometryFor(viewMode);
-    const daysPerPx = daysPerCol / colWidth;
-    const dayDelta = (centerX - (ref as Ref).x) * daysPerPx;
-    return new Date((ref as Ref).date.getTime() + dayDelta * 86400000);
+    // Days per pixel are approximate for Month/Quarter/Year since calendar
+    // months and years vary slightly in length — close enough for an anchor
+    // (we just need the right ballpark date for the lib's setViewDate).
+    return dateAtPixel(ref as Ref, centerX, viewMode);
   }, [tasks, wbsList, viewMode]);
 
   /** Persist scale changes so they survive a reload, and keep the user's
@@ -475,9 +293,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       const root = ganttRef.current?.querySelector("[class*='ganttTaskRoot_']");
       const viewportPx =
         root instanceof Element ? root.getBoundingClientRect().width : 0;
-      const { colWidth, daysPerCol } = geometryFor(mode);
-      const halfDays = (viewportPx / 2) * (daysPerCol / colWidth);
-      const leftEdge = new Date(centerDate.getTime() - halfDays * 86400000);
+      const leftEdge = leftEdgeFor(centerDate, viewportPx, mode);
       _setViewMode(mode);
       // Force a NEW Date reference even if equal, so the lib re-scrolls
       // (the prop is reference-compared, not value-compared).
@@ -492,8 +308,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   );
 
   const viewIndex = VIEW_SCALE.indexOf(viewMode);
-  const canZoomIn = viewIndex > 0;
-  const canZoomOut = viewIndex >= 0 && viewIndex < VIEW_SCALE.length - 1;
+  const { canZoomIn, canZoomOut } = zoomBounds(viewMode);
 
   // WBS dialog state
   const [wbsDialogOpen, setWbsDialogOpen] = useState(false);
@@ -508,12 +323,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   const [preselectedWbsId, setPreselectedWbsId] = useState<string>("");
 
   /** Compute a sensible default start date for new items: today if in range, else range start. */
-  const defaultNewDate = useMemo(() => {
-    const now = new Date();
-    const range = deriveRange(card);
-    if (now >= range.start && now <= range.end) return toIsoDate(now);
-    return toIsoDate(range.start);
-  }, [card]);
+  const defaultNewDate = useMemo(() => defaultNewDateFor(deriveRange(card)), [card]);
 
   // Today button → scroll gantt to current date
   const [viewDate, setViewDate] = useState<Date | undefined>();
@@ -571,10 +381,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       const viewportPx =
         root instanceof Element ? root.getBoundingClientRect().width : 0;
       if (viewportPx === 0) return;
-      const { colWidth, daysPerCol } = geometryFor(viewMode);
-      const halfDays = (viewportPx / 2) * (daysPerCol / colWidth);
-      const leftEdge = new Date(centerDate.getTime() - halfDays * 86400000);
-      setViewDate(new Date(leftEdge.getTime()));
+      setViewDate(leftEdgeFor(centerDate, viewportPx, viewMode));
       restoredCenterRef.current = true;
     }, 50);
     return () => window.clearTimeout(tid);
@@ -616,130 +423,32 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   /** Per-successor list of arrows the library should draw.
    *  Library shape: { sourceId, sourceTarget: "endOfTask", ownTarget: "startOfTask" }
    *  for finish-to-start. */
-  const depsBySuccessor = useMemo(() => {
-    const map = new Map<string, Dependency[]>();
-    for (const d of dependencies) {
-      const succGanttId = depEndpointToGanttId(d.succ_kind, d.succ_id);
-      const predGanttId = depEndpointToGanttId(d.pred_kind, d.pred_id);
-      const arr = map.get(succGanttId) ?? [];
-      arr.push({
-        sourceId: predGanttId,
-        sourceTarget: "endOfTask",
-        ownTarget: "startOfTask",
-      });
-      map.set(succGanttId, arr);
-    }
-    return map;
-  }, [dependencies]);
+  const depsBySuccessor = useMemo(() => dependenciesBySuccessor(dependencies), [dependencies]);
 
   /** Map WBS + Tasks → gantt-task-react Task[] with trailing empty row. */
-  const ganttTasks: TaskOrEmpty[] = useMemo(() => {
-    const items: TaskOrEmpty[] = [];
-    const defStart = timelineRange.start;
-    const defEnd = timelineRange.end;
-
-    // WBS items as "project" or "milestone" type
-    for (const w of wbsList) {
-      const wbsId = `wbs-${w.id}`;
-      const start = startOfLocalDay(parseDate(w.start_date, defStart));
-      const deps = depsBySuccessor.get(wbsId);
-      if (w.is_milestone) {
-        items.push({
-          id: wbsId,
-          name: w.title,
-          type: "milestone",
-          start,
-          end: start,
-          progress: w.completion,
-          parent: w.parent_id ? `wbs-${w.parent_id}` : undefined,
-          dependencies: deps,
-          isDisabled: false,
-        });
-      } else {
-        let end = endOfDay(parseDate(w.end_date, defEnd));
-        if (end <= start) {
-          end = endOfDay(new Date(start));
-          end.setDate(end.getDate() + 7);
-        }
-        items.push({
-          id: wbsId,
-          name: w.title,
-          type: "project",
-          start,
-          end,
-          progress: w.completion,
-          parent: w.parent_id ? `wbs-${w.parent_id}` : undefined,
-          hideChildren: collapsed.has(w.id),
-          dependencies: deps,
-          isDisabled: false,
-          styles: {
-            projectBackgroundColor: theme.palette.primary.light,
-            projectProgressColor: theme.palette.primary.main,
-            projectBackgroundSelectedColor: theme.palette.primary.dark,
-            projectProgressSelectedColor: theme.palette.primary.main,
-          },
-        });
-      }
-    }
-
-    // Tasks as "task" type
-    for (const tk of tasks) {
-      const taskId = `task-${tk.id}`;
-      const start = startOfLocalDay(
-        parseDate(tk.start_date, parseDate(tk.created_at, defStart)),
-      );
-      let end = endOfDay(
-        parseDate(tk.due_date, new Date(start.getTime() + 7 * 86400000)),
-      );
-      if (end <= start) {
-        end = endOfDay(new Date(start));
-        end.setDate(end.getDate() + 1);
-      }
-      const progress = percentFromStatus(tk.status);
-      const barColors = TASK_STATUS_BAR_COLORS[tk.status] ?? TASK_STATUS_BAR_COLORS.todo;
-      items.push({
-        id: taskId,
-        name: tk.title,
-        type: "task",
-        start,
-        end,
-        progress,
-        parent: tk.wbs_id ? `wbs-${tk.wbs_id}` : undefined,
-        dependencies: depsBySuccessor.get(taskId),
-        isDisabled: false,
-        styles: barColors,
-      });
-    }
-
-    // Always add an empty row at the bottom for creating new items
-    items.push({
-      id: "__empty__",
-      type: "empty",
-      name: "",
-    });
-
-    return items;
-  }, [wbsList, tasks, collapsed, theme, timelineRange, depsBySuccessor]);
+  const ganttTasks: TaskOrEmpty[] = useMemo(
+    () =>
+      buildGanttRows({
+        wbsList,
+        tasks,
+        dependencies: depsBySuccessor,
+        collapsed,
+        range: timelineRange,
+        projectStyles: {
+          projectBackgroundColor: theme.palette.primary.light,
+          projectProgressColor: theme.palette.primary.main,
+          projectBackgroundSelectedColor: theme.palette.primary.dark,
+          projectProgressSelectedColor: theme.palette.primary.main,
+        },
+      }),
+    [wbsList, tasks, collapsed, theme, timelineRange, depsBySuccessor],
+  );
 
   /** Metadata map for custom Gantt columns (completion, assignee). */
-  const rowMeta = useMemo(() => {
-    const map = new Map<string, GanttRowMeta>();
-    for (const w of wbsList) {
-      map.set(`wbs-${w.id}`, {
-        completion: w.completion,
-        assigneeName: w.assignee_name,
-        hasChildren: parentIds.has(w.id),
-      });
-    }
-    for (const tk of tasks) {
-      map.set(`task-${tk.id}`, {
-        completion: percentFromStatus(tk.status),
-        assigneeName: tk.assignee_name,
-        hasChildren: false,
-      });
-    }
-    return map;
-  }, [wbsList, tasks, parentIds]);
+  const rowMeta = useMemo(
+    () => buildRowMeta(wbsList, tasks, parentIds),
+    [wbsList, tasks, parentIds],
+  );
 
   const handleDateChange: OnDateChange = useCallback(
     async (task) => {
@@ -801,14 +510,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   /** Lookup helpers — read end-/start-dates from our state, accounting
    *  for milestones (where start == end). Returns ISO date string or null. */
   const getEndDate = useCallback(
-    (kind: "task" | "wbs", id: string): string | null => {
-      if (kind === "task") {
-        return tasks.find((tk) => tk.id === id)?.due_date ?? null;
-      }
-      const w = wbsList.find((w) => w.id === id);
-      if (!w) return null;
-      return w.is_milestone ? w.start_date : w.end_date;
-    },
+    (kind: "task" | "wbs", id: string): string | null => endDateOf(kind, id, tasks, wbsList),
     [tasks, wbsList],
   );
 
@@ -823,26 +525,10 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       try {
         if (succKind === "task") {
           const tk = tasks.find((t2) => t2.id === succId);
-          const patch: Record<string, string> = { start_date: newStart };
-          if (tk?.start_date && tk?.due_date) {
-            const delta = daysBetweenIso(tk.start_date, newStart);
-            patch.due_date = addDaysIso(tk.due_date, delta);
-          } else if (tk?.due_date && tk.due_date < newStart) {
-            patch.due_date = newStart;
-          }
-          await api.patch(`/ppm/tasks/${succId}`, patch);
+          await api.patch(`/ppm/tasks/${succId}`, alignTaskPatch(tk, newStart));
         } else {
           const w = wbsList.find((w2) => w2.id === succId);
-          const patch: Record<string, string> = { start_date: newStart };
-          if (w?.is_milestone) {
-            patch.end_date = newStart;
-          } else if (w?.start_date && w?.end_date) {
-            const delta = daysBetweenIso(w.start_date, newStart);
-            patch.end_date = addDaysIso(w.end_date, delta);
-          } else if (w?.end_date && w.end_date < newStart) {
-            patch.end_date = newStart;
-          }
-          await api.patch(`/ppm/wbs/${succId}`, patch);
+          await api.patch(`/ppm/wbs/${succId}`, alignWbsPatch(w, newStart));
         }
         await loadData();
       } catch {
@@ -867,11 +553,9 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       const [toTask] = to;
       // We only model FS today: predecessor's "endOfTask" → successor's "startOfTask".
       // If the user dragged backwards (left dot first, right dot second), swap roles.
-      const [predTask, succTask] =
-        fromTarget === "endOfTask" ? [fromTask, toTask] : [toTask, fromTask];
-      const pred = parseGanttId(predTask.id);
-      const succ = parseGanttId(succTask.id);
-      if (!pred || !succ) return;
+      const link = dependencyFromDrag(fromTask.id, fromTarget, toTask.id);
+      if (!link) return;
+      const { pred, succ } = link;
       try {
         await api.post(`/ppm/initiatives/${initiativeId}/dependencies`, {
           pred_kind: pred.kind,
@@ -1077,7 +761,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       };
       const handleNameClick = (e: React.MouseEvent<HTMLDivElement>) => {
         e.stopPropagation();
-        if (task.id === "__empty__") {
+        if (task.id === EMPTY_ROW_ID) {
           // useState setters are referentially stable, so the memo below
           // keeps `openDialogForId` as its only dependency.
           setEmptyRowMenuAnchor(e.currentTarget);
@@ -1118,7 +802,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             onClick={handleNameClick}
             title={task.name}
           >
-            {task.name || (task.id === "__empty__" ? "+" : "")}
+            {task.name || (task.id === EMPTY_ROW_ID ? "+" : "")}
           </div>
         </div>
       );
@@ -1264,22 +948,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     [t, NameCell, CompletionCell, AssigneeCell, isNarrow],
   );
 
-  const columnWidth = useMemo(() => {
-    switch (viewMode) {
-      case ViewMode.Day:
-        return 32;
-      case ViewMode.Week:
-        return 200;
-      case ViewMode.Month:
-        return 300;
-      case ViewMode.QuarterYear:
-        return 180;
-      case ViewMode.Year:
-        return 240;
-      default:
-        return 200;
-    }
-  }, [viewMode]);
+  // The same width findCenterAnchorDate and leftEdgeFor measure with.
+  const columnWidth = geometryFor(viewMode).colWidth;
 
   /**
    * Context menu dismiss workaround: the library's ContextMenu uses floating-ui
@@ -1721,8 +1391,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       "[class*='barBackground_'], [class*='projectBackground_'], [class*='milestoneBackground_']";
 
     for (const d of dependencies) {
-      const predId = `${d.pred_kind === "task" ? "task" : "wbs"}-${d.pred_id}`;
-      const succId = `${d.succ_kind === "task" ? "task" : "wbs"}-${d.succ_id}`;
+      const predId = ganttIdOf(d.pred_kind, d.pred_id);
+      const succId = ganttIdOf(d.succ_kind, d.succ_id);
       const predEl = el.querySelector(`[id="${predId}"]`);
       const succEl = el.querySelector(`[id="${succId}"]`);
       if (!predEl || !succEl) continue;

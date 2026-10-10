@@ -567,10 +567,10 @@ async def assess_regulation(
                 "card_id": card_uuid,
                 "scope_type": scope_type,
                 "category": (item.get("category") or "")[:64],
-                "requirement": item.get("requirement", ""),
+                "requirement": item.get("requirement") or "",
                 "status": (item.get("status") or "review_needed"),
                 "severity": (item.get("severity") or "info"),
-                "gap_description": item.get("gap_description", ""),
+                "gap_description": item.get("gap_description") or "",
                 "evidence": item.get("evidence") or None,
                 "remediation": item.get("remediation") or None,
                 "ai_detected": ai_detected,
@@ -827,37 +827,37 @@ async def run_compliance_scan(
     }
 
     seen_keys: set[str] = set()
+    # Every row comes from ``assess_regulation``, which emits every key
+    # already normalised, so the rows are read as they are.
     for f in compliance_rows:
         key = compute_finding_key(
-            f.get("scope_type") or "landscape",
-            f.get("card_id"),
+            f["scope_type"],
+            f["card_id"],
             f["regulation"],
-            f.get("regulation_article"),
-            f.get("requirement") or "",
+            f["regulation_article"],
+            f["requirement"],
         )
         seen_keys.add(key)
         row = existing_by_key.get(key)
         if row is None:
             db.add(
                 TurboLensComplianceFinding(
-                    id=uuid_mod.uuid4(),
                     run_id=run_uuid,
                     regulation=f["regulation"],
-                    regulation_article=f.get("regulation_article"),
-                    card_id=f.get("card_id"),
-                    scope_type=f.get("scope_type") or "landscape",
-                    category=f.get("category") or "",
-                    requirement=f.get("requirement") or "",
-                    status=f.get("status") or "review_needed",
-                    severity=f.get("severity") or "info",
-                    gap_description=f.get("gap_description") or "",
-                    evidence=f.get("evidence"),
-                    remediation=f.get("remediation"),
-                    ai_detected=bool(f.get("ai_detected")),
+                    regulation_article=f["regulation_article"],
+                    card_id=f["card_id"],
+                    scope_type=f["scope_type"],
+                    category=f["category"],
+                    requirement=f["requirement"],
+                    status=f["status"],
+                    severity=f["severity"],
+                    gap_description=f["gap_description"],
+                    evidence=f["evidence"],
+                    remediation=f["remediation"],
+                    ai_detected=f["ai_detected"],
                     finding_key=key,
                     decision="new",
                     last_seen_run_id=run_uuid,
-                    auto_resolved=False,
                 )
             )
         else:
@@ -899,7 +899,7 @@ async def run_compliance_scan(
                     f"{len(compliance_rows)} compliance finding(s) across "
                     f"{len(reg_keys)} regulation(s)."
                 ),
-                link="/turbolens?tab=security",
+                link="/grc?tab=compliance",
                 data={
                     "compliance_count": len(compliance_rows),
                     "regulations": reg_keys,

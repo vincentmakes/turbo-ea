@@ -49,6 +49,20 @@ import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { failureMessage, wordFailure } from "@/lib/failureMessage";
 import { buildAuthorizeUrl, newNonce } from "@/lib/publicSso";
 import PortalPpmPortfolio from "./PortalPpmPortfolio";
+import {
+  cardQueryParams,
+  detailRelationGroups,
+  fieldsWithValues,
+  hasActiveFilters as anyFilterSet,
+  isVisible,
+  portalFields,
+  portalRelationTypes,
+  portalSilentKey,
+  portalToggles,
+  relatedTypeKeys,
+  relationFilterLabel,
+  tileRelations,
+} from "./portalViewerState";
 import { BOARD_MAX_WIDTH, BOARD_GUTTER } from "@/features/ppm/ppmPortfolioFormat";
 import type {
   PublicPortal,
@@ -76,48 +90,6 @@ const QUALITY_CHIP_FG: Record<DataQualityBand, string> = {
   partial: "#e65100",
   minimal: "#c62828",
 };
-
-interface ToggleEntry {
-  card: boolean;
-  detail: boolean;
-}
-type Toggles = Record<string, ToggleEntry>;
-
-const DEFAULT_CARD: Record<string, boolean> = {
-  description: true,
-  lifecycle: true,
-  tags: true,
-  subscribers: true,
-  data_quality: true,
-  approval_status: false,
-};
-
-const DEFAULT_DETAIL: Record<string, boolean> = {
-  description: true,
-  lifecycle: true,
-  tags: true,
-  subscribers: true,
-  data_quality: true,
-  approval_status: true,
-};
-
-function isVisible(
-  toggles: Toggles | undefined,
-  key: string,
-  mode: "card" | "detail",
-  fallback: boolean,
-): boolean {
-  const entry = toggles?.[key];
-  if (entry) return mode === "card" ? entry.card : entry.detail;
-  const defaults = mode === "card" ? DEFAULT_CARD : DEFAULT_DETAIL;
-  return defaults[key] ?? fallback;
-}
-
-function portalSilentKey(slug: string): string {
-  // Keyed by resource kind as well as slug — SsoCallback now serves both
-  // portals and published diagrams and writes the same key on failure.
-  return `portal_silent_portal_${slug}`;
-}
 
 // Send the browser to the IdP to authenticate a portal visitor. A portal is
 // always a top-level page on this origin (it is never framed by another site),
@@ -425,24 +397,13 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
     if (gate?.sso && slug) doSsoRedirect(gate.sso, slug, false);
   }, [gate, slug]);
 
-  // Derive visible relation types from card_config toggles (rel:key entries)
-  const relToggles = portal?.card_config
-    ? ((portal.card_config as Record<string, unknown>).toggles as Toggles) || {}
-    : {};
-  const visibleRelTypes = (portal?.relation_types || []).filter((rt) => {
-    const entry = relToggles[`rel:${rt.key}`];
-    return entry && (entry.card || entry.detail);
-  });
-  // Subset visible on card specifically
-  const cardRelTypes = visibleRelTypes.filter((rt) => {
-    const entry = relToggles[`rel:${rt.key}`];
-    return entry?.card;
-  });
-  // Subset visible on detail specifically
-  const detailRelTypes = visibleRelTypes.filter((rt) => {
-    const entry = relToggles[`rel:${rt.key}`];
-    return entry?.detail;
-  });
+  // The relation types turned on through card_config's `rel:<key>` toggles:
+  // anywhere, on a tile, in the detail panel.
+  const {
+    visible: visibleRelTypes,
+    card: cardRelTypes,
+    detail: detailRelTypes,
+  } = portalRelationTypes(portal);
 
   // Stable key for effect dependency
   const visibleRelKeysStr = visibleRelTypes.map((r) => r.key).join(",");
@@ -450,15 +411,12 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
   // Fetch relation options (cards of each related type) for filter dropdowns
   useEffect(() => {
     if (!slug || !visibleRelTypes.length) return;
-    const seen = new Set<string>();
-    visibleRelTypes.forEach((rt) => {
-      if (seen.has(rt.other_type_key)) return;
-      seen.add(rt.other_type_key);
+    relatedTypeKeys(visibleRelTypes).forEach((typeKey) => {
       publicGet<{ id: string; name: string }[]>(
-        `/web-portals/public/${slug}/relation-options?type_key=${rt.other_type_key}`
+        `/web-portals/public/${slug}/relation-options?type_key=${typeKey}`
       )
         .then((opts) =>
-          setRelationOptions((prev) => ({ ...prev, [rt.other_type_key]: opts }))
+          setRelationOptions((prev) => ({ ...prev, [typeKey]: opts }))
         )
         // Best-effort: a filter whose options failed to load is simply not
         // offered (it has none), and the cards still load without it.
@@ -479,30 +437,19 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
         setFsLoading(true);
         setCardsError("");
         try {
-          const params = new URLSearchParams();
-          if (search) params.set("search", search);
-          if (subtype) params.set("subtype", subtype);
-          const activeAttrFilters = Object.fromEntries(
-            Object.entries(attrFilters).filter(([, v]) => v !== "")
-          );
-          if (Object.keys(activeAttrFilters).length > 0) {
-            params.set("attr_filters", JSON.stringify(activeAttrFilters));
-          }
-          const activeRelFilters = Object.fromEntries(
-            Object.entries(relationFilters).filter(([, v]) => v !== "")
-          );
-          if (Object.keys(activeRelFilters).length > 0) {
-            params.set("relation_filters", JSON.stringify(activeRelFilters));
-          }
-          if (tagFilter.length > 0) {
-            params.set("tag_ids", tagFilter.join(","));
-          }
-          params.set("page", String(page));
-          params.set("page_size", String(pageSize));
-          params.set("sort_by", sortBy);
-          params.set("sort_dir", sortDir);
+          const params = cardQueryParams({
+            search,
+            subtype,
+            attrFilters,
+            relationFilters,
+            tagFilter,
+            page,
+            pageSize,
+            sortBy,
+            sortDir,
+          });
           const data = await publicGet<PortalCardListResponse>(
-            `/web-portals/public/${slug}/cards?${params.toString()}`,
+            `/web-portals/public/${slug}/cards?${params}`,
             // Stryker disable next-line ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
             { signal },
           );
@@ -537,36 +484,19 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
 
   const totalPages = Math.ceil(total / pageSize);
 
-  const allFields =
-    portal?.type_info?.fields_schema?.flatMap((s) => s.fields) || [];
-  const cardToggles = (portal?.card_config as Record<string, unknown>)?.toggles as Toggles | undefined;
-
-  // Card-level visible fields: respect per-field toggles, fallback to first 3
-  const cardVisibleFields = allFields.filter((f, idx) =>
-    isVisible(cardToggles, `field:${f.key}`, "card", idx < 3)
-  );
-  // Detail-level visible fields
-  const detailVisibleFields = allFields.filter((f) =>
-    isVisible(cardToggles, `field:${f.key}`, "detail", true)
-  );
+  // The fields on a tile (per toggle, else the first three), in the detail
+  // panel (per toggle, else all), and the select fields offered as filters.
+  const {
+    card: cardVisibleFields,
+    detail: detailVisibleFields,
+    filterable: filterableFields,
+  } = portalFields(portal);
+  const cardToggles = portalToggles(portal);
 
   const show = (key: string, mode: "card" | "detail", fallback = true) =>
     isVisible(cardToggles, key, mode, fallback);
 
-  // Filterable fields: select-type fields that are visible on card or detail
-  const filterableFields = allFields.filter(
-    (f) =>
-      (f.type === "single_select" || f.type === "multiple_select") &&
-      f.options &&
-      f.options.length > 0 &&
-      (cardVisibleFields.includes(f) || detailVisibleFields.includes(f))
-  );
-
-  const hasActiveFilters =
-    subtype !== "" ||
-    Object.values(attrFilters).some((v) => v !== "") ||
-    Object.values(relationFilters).some((v) => v !== "") ||
-    tagFilter.length > 0;
+  const hasActiveFilters = anyFilterSet({ subtype, attrFilters, relationFilters, tagFilter });
 
   if (loading || signingIn) {
     return (
@@ -912,24 +842,9 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
               {visibleRelTypes.map((rt) => {
                 const opts = relationOptions[rt.other_type_key] || [];
                 if (opts.length === 0) return null;
-                // The filter state is keyed by relation type, but the label was
-                // the CARD type — so two relation types reaching one card type
-                // rendered two identical dropdowns. Add the verb to tell them
-                // apart; a lone relation keeps the plain type label.
-                const sharesPair =
-                  visibleRelTypes.filter((o) => o.other_type_key === rt.other_type_key)
-                    .length > 1;
-                // The verb from the PORTAL type's end. A self-referencing type
-                // has this filter matching either direction (the backend unions
-                // them), so it carries both verbs; "is the source the other
-                // type" alone is true at both of its ends and read inverted.
-                const selfPair = rt.source_type_key === rt.target_type_key;
-                const relVerb = selfPair
-                  ? `${relLabel(rt)} / ${relLabel(rt, true)}`
-                  : rt.source_type_key === rt.other_type_key
-                    ? relLabel(rt, true)
-                    : relLabel(rt);
-                const relFilterLabel = sharesPair ? `${rt.other_type_label} · ${relVerb}` : rt.other_type_label;
+                // The filter state is keyed by relation type, so two relation
+                // types reaching one card type add their verb to tell apart.
+                const relFilterLabel = relationFilterLabel(rt, visibleRelTypes, relLabel);
                 return (
                   <TextField
                     key={rt.key}
@@ -1252,19 +1167,9 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
 
                     {/* Card-level relations */}
                     {cardRelTypes.length > 0 && card.relations.length > 0 && (() => {
-                      const cardRelKeys = new Set(cardRelTypes.map((r) => r.key));
-                      // One chip per related CARD, not per relation: a card
-                      // reached through two relation types rendered twice, and
-                      // the "+N" counted relations rather than cards. The tile
-                      // names *what* this card is connected to; the verbs are on
-                      // the detail panel.
-                      const seenRelated = new Set<string>();
-                      const visible = card.relations.filter((r) => {
-                        if (!cardRelKeys.has(r.type)) return false;
-                        if (seenRelated.has(r.related_id)) return false;
-                        seenRelated.add(r.related_id);
-                        return true;
-                      });
+                      // One chip per related CARD, not per relation, so the
+                      // "+N" counts cards; the verbs are in the detail panel.
+                      const visible = tileRelations(card, cardRelTypes);
                       if (visible.length === 0) return null;
                       return (
                         <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap", mt: 1.5 }}>
@@ -1532,15 +1437,13 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                     here too. Rendering that section by its raw name printed a
                     `__DESCRIPTION` heading to visitors. */}
                 {(() => {
-                  const detailKeys = new Set(detailVisibleFields.map((f) => f.key));
-                  const hasValue = (key: string) => {
-                    const v = selectedFs.attributes?.[key];
-                    return v !== undefined && v !== null && v !== "";
-                  };
-                  const descriptionFields = (portal.type_info?.fields_schema ?? [])
-                    .filter((s) => s.section === "__description")
-                    .flatMap((s) => s.fields)
-                    .filter((f) => detailKeys.has(f.key) && hasValue(f.key));
+                  const descriptionFields = fieldsWithValues(
+                    (portal.type_info?.fields_schema ?? [])
+                      .filter((s) => s.section === "__description")
+                      .flatMap((s) => s.fields),
+                    detailVisibleFields,
+                    selectedFs,
+                  );
                   const showText = show("description", "detail") && !!selectedFs.description;
                   if (!showText && descriptionFields.length === 0) return null;
                   return (
@@ -1600,15 +1503,12 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                 {/* Attributes */}
                 {portal.type_info?.fields_schema?.map((section) => {
                   if (section.section === "__description") return null;
-                  const detailFieldKeys = new Set(detailVisibleFields.map((f) => f.key));
-                  const fieldsWithValues = section.fields.filter(
-                    (f) =>
-                      detailFieldKeys.has(f.key) &&
-                      selectedFs.attributes?.[f.key] !== undefined &&
-                      selectedFs.attributes?.[f.key] !== null &&
-                      selectedFs.attributes?.[f.key] !== ""
+                  const sectionFields = fieldsWithValues(
+                    section.fields,
+                    detailVisibleFields,
+                    selectedFs,
                   );
-                  if (fieldsWithValues.length === 0) return null;
+                  if (sectionFields.length === 0) return null;
                   return (
                     <Box key={section.section} sx={{ mb: 3 }}>
                       <Typography
@@ -1631,7 +1531,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                           gap: 2,
                         }}
                       >
-                        {fieldsWithValues.map((field) => (
+                        {sectionFields.map((field) => (
                           <Box key={field.key}>
                             <Typography
                               variant="caption"
@@ -1760,30 +1660,15 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
 
                 {/* Relations — only show detail-visible relation types */}
                 {detailRelTypes.length > 0 && selectedFs.relations.length > 0 && (() => {
-                  const detailRelKeys = new Set(detailRelTypes.map((r) => r.key));
-                  const visibleRels = selectedFs.relations.filter((r) => detailRelKeys.has(r.type));
-                  if (visibleRels.length === 0) return null;
-
-                  // Group by RELATION TYPE + direction, not by the rendered verb:
-                  // several relation types may share a card-type pair, and two of
-                  // them can carry the same verb (or the same translation in some
-                  // locale), which silently merged them into one section — and
-                  // that string was the React key too.
-                  const grouped = new Map<
-                    string,
-                    { label: string; rels: typeof visibleRels }
-                  >();
-                  for (const rel of visibleRels) {
-                    const rt = portal.relation_types.find((r) => r.key === rel.type);
-                    const label =
-                      rel.direction === "outgoing"
-                        ? (rt ? relLabel(rt) : rel.type)
-                        : (rt ? relLabel(rt, true) : rel.type);
-                    const groupKey = `${rel.type}|${rel.direction}`;
-                    const bucket = grouped.get(groupKey);
-                    if (bucket) bucket.rels.push(rel);
-                    else grouped.set(groupKey, { label, rels: [rel] });
-                  }
+                  // Grouped by relation type + direction, never by the verb two
+                  // types (or one translation) can share.
+                  const grouped = detailRelationGroups(
+                    selectedFs,
+                    detailRelTypes,
+                    portal.relation_types,
+                    relLabel,
+                  );
+                  if (grouped.length === 0) return null;
 
                   return (
                     <Box sx={{ mb: 3 }}>
@@ -1800,7 +1685,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                       >
                         {t("portal.relatedItems")}
                       </Typography>
-                      {[...grouped].map(([groupKey, { label, rels }]) => (
+                      {grouped.map(({ key: groupKey, label, relations: rels }) => (
                         <Box key={groupKey} sx={{ mb: 2 }}>
                           <Typography
                             variant="caption"

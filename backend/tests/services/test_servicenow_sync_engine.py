@@ -578,6 +578,119 @@ class TestPush:
         assert await _identity_rows(db) == {}
 
 
+class TestPushExact:
+    async def test_the_run_records_who_and_when(self, db, env, monkeypatch):
+        await _card(db, env, "X", attributes={"owner": "Ann"})
+        engine, _ = _engine(db, monkeypatch, snow_table_handler())
+        run = await engine.push_sync(env["mapping"], env["fms"], user_id=env["admin"].id)
+        assert (run.created_by, run.connection_id, run.mapping_id) == (
+            env["admin"].id,
+            env["conn"].id,
+            env["mapping"].id,
+        )
+        assert run.completed_at is not None and run.completed_at.tzinfo is not None
+        assert run.error_message is None
+
+    async def test_without_outbound_fields_the_run_is_stamped_complete(self, db, env, monkeypatch):
+        engine, _ = _engine(db, monkeypatch, snow_table_handler())
+        inbound_only = [fm for fm in env["fms"] if fm.direction != "turbo_leads"]
+        run = await engine.push_sync(env["mapping"], inbound_only)
+        assert run.completed_at is not None
+
+    async def test_only_active_cards_of_the_mapped_type_are_pushed(self, db, env, monkeypatch):
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_card(
+            db, card_type="ITComponent", name="Other type", attributes={"owner": "Zed"}
+        )
+        await _card(db, env, "App", attributes={"owner": "Ann"})
+        engine, seen = _engine(db, monkeypatch, snow_table_handler())
+        run = await engine.push_sync(env["mapping"], env["fms"])
+        assert run.stats["processed"] == 1
+        assert [json.loads(r.content) for r in seen if r.method == "POST"] == [{"owned_by": "Ann"}]
+
+    async def test_an_identity_row_of_another_mapping_is_not_this_ones(self, db, env, monkeypatch):
+        card = await _card(db, env, "App", attributes={"owner": "Ann"})
+        other_mapping = SnowMapping(
+            connection_id=env["conn"].id, card_type_key="Application", snow_table="cmdb_ci"
+        )
+        db.add(other_mapping)
+        await db.flush()
+        db.add(
+            SnowIdentityMap(
+                connection_id=env["conn"].id,
+                mapping_id=other_mapping.id,
+                card_id=card.id,
+                snow_sys_id=S4,
+                snow_table="cmdb_ci",
+            )
+        )
+        await db.flush()
+        engine, seen = _engine(db, monkeypatch, snow_table_handler(created_sys_id=S9))
+        run = await engine.push_sync(env["mapping"], env["fms"])
+        assert (run.stats["created"], run.stats["updated"]) == (1, 0)
+        assert [r.method for r in seen] == ["POST"]
+
+    async def test_a_create_without_a_sys_id_maps_nothing(self, db, env, monkeypatch):
+        await _card(db, env, "App", attributes={"owner": "Ann"})
+        engine, _ = _engine(db, monkeypatch, snow_table_handler(created_sys_id=""))
+        run = await engine.push_sync(env["mapping"], env["fms"])
+        assert run.stats["created"] == 1
+        assert await _identity_rows(db) == {}
+
+    async def test_the_card_fields_are_pushed_with_empty_defaults(self, db, env, monkeypatch):
+        await _card(db, env, "App", description=None, lifecycle=None)
+        outbound = [
+            SnowFieldMapping(
+                mapping_id=env["mapping"].id,
+                turbo_field=turbo,
+                snow_field=snow_field,
+                direction="turbo_leads",
+            )
+            for turbo, snow_field in (
+                ("name", "name"),
+                ("description", "short_description"),
+                ("lifecycle.active", "install_date"),
+            )
+        ]
+        engine, seen = _engine(db, monkeypatch, snow_table_handler())
+        await engine.push_sync(env["mapping"], outbound)
+        (post,) = [r for r in seen if r.method == "POST"]
+        body = json.loads(post.content)
+        assert body["name"] == "App"
+        assert body["short_description"] == ""
+
+    async def test_a_failing_card_is_logged_with_its_id(self, db, env, monkeypatch, caplog):
+        card = await _card(db, env, "X", attributes={"owner": "Ann"})
+        engine, _ = _engine(db, monkeypatch, snow_table_handler(fail_status=500))
+        await engine.push_sync(env["mapping"], env["fms"])
+        (record,) = [r for r in caplog.records if r.getMessage().startswith("Push failed")]
+        assert record.getMessage().startswith(f"Push failed for card {card.id}: ")
+
+    async def test_a_failure_outside_the_card_loop_fails_the_run(
+        self, db, env, monkeypatch, caplog
+    ):
+        await _card(db, env, "X", attributes={"owner": "Ann"})
+        engine, seen = _engine(db, monkeypatch, snow_table_handler())
+        real_execute = db.execute
+
+        async def execute(statement, *args, **kwargs):
+            if "servicenow_identity_map" in str(statement):
+                raise RuntimeError("database went away")
+            return await real_execute(statement, *args, **kwargs)
+
+        monkeypatch.setattr(db, "execute", execute)
+        run = await engine.push_sync(env["mapping"], env["fms"])
+        monkeypatch.setattr(db, "execute", real_execute)
+
+        assert run.status == "failed"
+        assert run.error_message == "Push sync operation failed"
+        assert run.completed_at is not None
+        assert seen == []
+        assert f"Push sync run {run.id} failed: database went away" in [
+            r.getMessage() for r in caplog.records
+        ]
+
+
 # ---------------------------------------------------------------------------
 # REST client (no database)
 # ---------------------------------------------------------------------------

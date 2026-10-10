@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import case, exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
@@ -512,6 +512,47 @@ async def bulk_relations(
     )
 
 
+_PendingEvent = tuple[str, Relation, Card | None, Card | None, dict | None]
+
+
+async def _pending_event(
+    db: AsyncSession, event_type: str, rel: Relation, extra: dict | None = None
+) -> _PendingEvent:
+    """A relation event to emit once the batch has settled, with both ends loaded."""
+    return (
+        event_type,
+        rel,
+        await db.get(Card, rel.source_id),
+        await db.get(Card, rel.target_id),
+        extra,
+    )
+
+
+async def _require_cardinality_room(
+    db: AsyncSession, rt: RelationType, source_id: uuid.UUID, target_id: uuid.UUID
+) -> None:
+    """Refuse a new relation its type's cardinality has no room for.
+
+    ``1:1`` and ``1:n`` allow one relation of the type per source; ``1:1``
+    also allows one per target. ``n:m`` is unconstrained. Only the bulk path
+    applies this: ``POST /relations`` carries no cardinality guard, and the
+    card detail dialog enforces the same rule client-side.
+    """
+    if rt.cardinality in ("1:1", "1:n") and await db.scalar(
+        select(exists().where(Relation.type == rt.key, Relation.source_id == source_id))
+    ):
+        raise HTTPException(
+            422,
+            f"Cardinality {rt.cardinality} forbids a second '{rt.key}' relation from this source",
+        )
+    if rt.cardinality == "1:1" and await db.scalar(
+        select(exists().where(Relation.type == rt.key, Relation.target_id == target_id))
+    ):
+        raise HTTPException(
+            422, f"Cardinality 1:1 forbids a second '{rt.key}' relation to this target"
+        )
+
+
 async def apply_relation_operations(
     db: AsyncSession,
     operations: list[RelationBulkOperation],
@@ -525,9 +566,12 @@ async def apply_relation_operations(
 
     The caller owns the transaction lifecycle (savepoint / commit / rollback)
     — this helper never commits. A fresh ``CardResolver`` is loaded here, so
-    when the caller created cards earlier in the same session (the combined
-    ``/cards/bulk-create`` path), name/path refs resolve against those
-    just-created cards too. Events are emitted only when ``dry_run`` is False.
+    name/path refs resolve against cards created earlier in the same session.
+    The row lookup, the insert and the field merge are
+    ``card_write_service``'s, shared with ``POST /relations``; what stays here
+    is what a batch needs: cardinality guards, one recalculation per touched
+    card rather than per operation, and events only once every write has
+    settled. Events are emitted only when ``dry_run`` is False.
 
     ``read_scope`` (module mode) makes a card hidden from the caller resolve as
     missing, whether it was referenced by name or by id.
@@ -555,7 +599,7 @@ async def apply_relation_operations(
     deleted = 0
     failed = 0
     impacted_cards: set[uuid.UUID] = set()
-    events_to_emit: list[tuple[str, Relation, Card | None, Card | None, dict | None]] = []
+    events_to_emit: list[_PendingEvent] = []
 
     for op in operations:
         # Per-op savepoint so a single failing op (e.g. a relation whose
@@ -567,7 +611,7 @@ async def apply_relation_operations(
         op_sp = await db.begin_nested()
         # Bookkeeping collected inside the savepoint and only committed to the
         # batch-level accumulators on success (in the `else` branch).
-        op_events: list = []
+        op_events: list[_PendingEvent] = []
         op_impacted: list[uuid.UUID] = []
         op_result: RelationBulkResult
         try:
@@ -578,9 +622,6 @@ async def apply_relation_operations(
                 raise HTTPException(422, f"Unknown relation type: {op.type}")
             source_id = _resolve_ref_input(op.source, rt_def, endpoint="source", resolver=resolver)
             target_id = _resolve_ref_input(op.target, rt_def, endpoint="target", resolver=resolver)
-            # Name refs are type-checked above; id refs are not, so turn a pair
-            # sent the other way round before the lookup, the delete and the
-            # cardinality guards all key on it (#1140).
             if check_ids:
                 assert read_scope is not None
                 readable = await read_scope.readable_card_ids(
@@ -588,97 +629,41 @@ async def apply_relation_operations(
                 )
                 if source_id not in readable or target_id not in readable:
                     raise HTTPException(404, "Card not found")
+            # Name refs are type-checked above; id refs are not, so turn a pair
+            # sent the other way round before the lookup, the delete and the
+            # cardinality guards all key on it (#1140).
             source_id, target_id = await orient_endpoints(db, rt_def, source_id, target_id)
 
-            # Look up an existing relation of this (type, source, target).
-            existing = await db.execute(
-                select(Relation)
-                .where(
-                    Relation.type == op.type,
-                    Relation.source_id == source_id,
-                    Relation.target_id == target_id,
-                )
-                .options(selectinload(Relation.source), selectinload(Relation.target))
-            )
-            rel = existing.scalar_one_or_none()
+            rel = await card_write_service.find_relation(db, op.type, source_id, target_id)
 
             if op.action == "delete":
                 if rel is None:
                     op_result = RelationBulkResult(row_index=op.row_index, status="noop")
                 else:
-                    source_card = await db.get(Card, rel.source_id)
-                    target_card = await db.get(Card, rel.target_id)
-                    op_events.append(("relation.deleted", rel, source_card, target_card, None))
+                    op_events.append(await _pending_event(db, "relation.deleted", rel))
                     await db.delete(rel)
                     await db.flush()
                     op_impacted += [source_id, target_id]
                     op_result = RelationBulkResult(row_index=op.row_index, status="deleted")
             else:
-                # Upsert path.
                 if rel is None:
-                    # Cardinality guards: 1:1 forbids a second relation of the
-                    # same type from this source or to this target; 1:n forbids
-                    # a second relation from the same source.
-                    if rt_def.cardinality in ("1:1", "1:n"):
-                        existing_src = await db.scalar(
-                            select(func.count(Relation.id)).where(
-                                Relation.type == op.type, Relation.source_id == source_id
-                            )
-                        )
-                        if existing_src and existing_src > 0:
-                            raise HTTPException(
-                                422,
-                                f"Cardinality {rt_def.cardinality} forbids a second '{op.type}' "
-                                "relation from this source",
-                            )
-                    if rt_def.cardinality == "1:1":
-                        existing_tgt = await db.scalar(
-                            select(func.count(Relation.id)).where(
-                                Relation.type == op.type, Relation.target_id == target_id
-                            )
-                        )
-                        if existing_tgt and existing_tgt > 0:
-                            raise HTTPException(
-                                422,
-                                f"Cardinality 1:1 forbids a second '{op.type}' relation "
-                                "to this target",
-                            )
-
-                    rel = Relation(
-                        type=op.type,
+                    await _require_cardinality_room(db, rt_def, source_id, target_id)
+                    rel = card_write_service.add_relation(
+                        db,
+                        type_key=op.type,
                         source_id=source_id,
                         target_id=target_id,
-                        attributes=op.attributes or {},
+                        attributes=op.attributes,
                         description=op.description,
                     )
-                    db.add(rel)
                     await db.flush()
-                    # Reload with source/target for the event payload.
-                    refetched = await db.execute(
-                        select(Relation)
-                        .where(Relation.id == rel.id)
-                        .options(selectinload(Relation.source), selectinload(Relation.target))
+                    op_events.append(await _pending_event(db, "relation.created", rel))
+                elif changed := card_write_service.merge_relation_fields(
+                    rel, attributes=op.attributes, description=op.description
+                ):
+                    op_events.append(
+                        await _pending_event(db, "relation.updated", rel, {"fields": changed})
                     )
-                    rel = refetched.scalar_one()
-                    op_events.append(("relation.created", rel, rel.source, rel.target, None))
-                else:
-                    changed: list[str] = []
-                    if op.attributes is not None and op.attributes != (rel.attributes or {}):
-                        rel.attributes = op.attributes
-                        changed.append("attributes")
-                    if op.description is not None and op.description != rel.description:
-                        rel.description = op.description
-                        changed.append("description")
-                    if changed:
-                        op_events.append(
-                            (
-                                "relation.updated",
-                                rel,
-                                rel.source,
-                                rel.target,
-                                {"fields": changed},
-                            )
-                        )
 
                 op_impacted += [source_id, target_id]
                 op_result = RelationBulkResult(

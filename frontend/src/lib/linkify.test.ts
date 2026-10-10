@@ -6,6 +6,11 @@ const link = (value: string) => ({ type: "link", value, href: value });
 const text = (value: string) => ({ type: "text", value });
 
 describe("splitLinks", () => {
+  it("gives empty text its one text token too", () => {
+    // The scan alone would build no token at all; callers rely on exactly one.
+    expect(splitLinks("")).toEqual([{ type: "text", value: "" }]);
+  });
+
   it("returns one identity text token when there is nothing to link", () => {
     const input = "Plain prose, e.g. with punctuation. No addresses here.";
     expect(splitLinks(input)).toEqual([text(input)]);
@@ -137,6 +142,9 @@ describe("hasLink / isLinkableHref", () => {
     expect(isLinkableHref("mailto:ops@a.io")).toBe(true);
     expect(isLinkableHref(" https://a.io")).toBe(true);
     expect(isLinkableHref("javascript:alert(1)")).toBe(false);
+    // The scheme must start the href, not merely appear in it.
+    expect(isLinkableHref("javascript:alert('https://a.io')")).toBe(false);
+    expect(isLinkableHref("x-mailto:ops@a.io")).toBe(false);
     expect(isLinkableHref("/cards/1")).toBe(false);
     expect(isLinkableHref("")).toBe(false);
   });

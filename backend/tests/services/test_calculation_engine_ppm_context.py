@@ -7,11 +7,18 @@ related Initiative's PPM data is reachable through ``PLUCK``.
 
 from __future__ import annotations
 
+import uuid
 from datetime import date
 
 from app.models.app_settings import AppSettings
-from app.services.calculation_engine import _build_context, _evaluate_formula
+from app.models.calculation import Calculation
+from app.services.calculation_engine import (
+    _build_context,
+    _evaluate_formula,
+    execute_calculation,
+)
 from app.services.calculation_ppm import build_ppm_map
+from app.services.fiscal_year import current_fiscal_year
 from tests.conftest import (
     create_budget_line,
     create_card,
@@ -107,11 +114,13 @@ class TestPpmRoot:
         assert by_year[2026]["capexActual"] == 7
 
     async def test_non_initiative_card_gets_a_zeroed_payload(self, db):
+        await _set_fiscal_year_start(db, 4)
         await create_card_type(db, key="Application", label="Application")
         card = await create_card(db, card_type="Application", name="App")
         context = await _build_context(db, card, needs_ppm_data=True)
         assert context["ppm"]["totalBudget"] == 0.0
         assert context["ppm"]["byYear"] == []
+        assert context["ppm"]["currentFiscalYear"] == current_fiscal_year(4)
         assert _evaluate_formula("ppm.capexBudget + 1", context) == 1
 
     async def test_lazy_build_leaves_the_root_zeroed(self, db):
@@ -161,6 +170,35 @@ class TestPpmOnRelatedCards:
         assert (
             _evaluate_formula('SUM(PLUCK(relations.relAppToITC, "ppm.capexBudget"))', context) == 0
         )
+
+
+class TestPpmOnTheHierarchy:
+    async def test_parent_and_child_initiatives_carry_their_figures(self, db):
+        parent = await _initiative_with_ppm(db, name="Programme")
+        card = await create_card(db, card_type="Initiative", name="Project", parent_id=parent.id)
+        child = await create_card(db, card_type="Initiative", name="Epic", parent_id=card.id)
+        await create_budget_line(
+            db, initiative_id=child.id, fiscal_year=2025, category="opex", amount=40
+        )
+        context = await _build_context(db, card, needs_ppm_data=True)
+        assert _evaluate_formula("parent.ppm.capexBudget", context) == 300
+        assert _evaluate_formula('SUM(PLUCK(children, "ppm.opexBudget"))', context) == 40
+        # The card itself is an Initiative with no lines of its own.
+        assert context["ppm"]["totalBudget"] == 0
+
+
+class TestExecuteWithoutASharedContext:
+    async def test_a_ppm_formula_builds_its_own_figures(self, db):
+        card = await _initiative_with_ppm(db)
+        calc = Calculation(
+            id=uuid.uuid4(),
+            name="c",
+            formula="ppm.capexBudget",
+            target_type_key="Initiative",
+            target_field_key="capex",
+        )
+        assert await execute_calculation(db, calc, card) == (True, None)
+        assert card.attributes == {"capex": 300}
 
 
 class TestDeliveryFigures:

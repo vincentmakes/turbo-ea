@@ -20,6 +20,7 @@ The workbook is the source of truth for references; asset-owning sheets carry an
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from app.models.calculation import Calculation
 from app.models.compliance_regulation import ComplianceRegulation
@@ -126,6 +127,23 @@ def _unescape_segment(seg: str) -> str:
 def build_ref_string(parent_segments: list[str], name: str) -> str:
     """Build the ``CardResolver``-compatible ref (``parent / path / name``)."""
     return PATH_SEP.join(encode_path_segment(s) for s in [*parent_segments, name])
+
+
+def ancestor_names(card: Any, card_map: dict[Any, Any]) -> list[str]:
+    """Names of ``card``'s ancestors in ``card_map``, root first.
+
+    The one parent walk behind every exported ``parent_path`` cell and card
+    ref. It stops at an ancestor missing from ``card_map`` (archived and not
+    exported), at a cycle, and at ``MAX_PATH_DEPTH``.
+    """
+    segments: list[str] = []
+    seen: set[Any] = set()
+    current = card_map.get(card.parent_id)
+    while current is not None and current.id not in seen and len(segments) < MAX_PATH_DEPTH:
+        seen.add(current.id)
+        segments.insert(0, current.name)
+        current = card_map.get(current.parent_id)
+    return segments
 
 
 # ---------------------------------------------------------------------------

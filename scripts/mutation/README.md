@@ -133,6 +133,11 @@ In this order:
 
    The Python separator is a **comma**. mutmut splits its pragma on one, so
    `# pragma: no mutate block: why` silently degrades to a single-line pragma.
+   And mutmut reads a trailing pragma only at the **end of a statement** (or a
+   compound header such as `if …:`), where it covers mutants anchored on the
+   statement's first line. One after an argument inside a multi-line call is
+   not read at all and suppresses nothing; split the equivalent value into a
+   statement of its own, or restructure so the mutant cannot exist.
    Stryker takes the reason after a colon. Every suppression carries a reason
    of real words (`test_mutation_pragmas.py` checks), and the PR's Test Plan
    names it.
@@ -203,6 +208,23 @@ Each of these was found the hard way while wiring it up; keep them.
   yet, asks git what changed since the commit mutmut's stats were built at,
   fetching that commit into the shallow checkout, and treats every test
   module as changed if git cannot say.
+- **A new function is linked to the tests that already run it.** mutmut
+  records the functions a test runs once, the first time it sees the test,
+  and the PR jobs use the nightly's map. A function written after that is
+  linked only to tests that are new too, so a helper extracted from code the
+  existing tests already ran scored "no tests" on every mutant, in its PR
+  and every night after (#1222). Before naming, `relink_untested` takes each
+  function in scope that the map links to no test, finds the tests linked to
+  the functions that call it (resolved through imports, `self`/`cls` and
+  module attributes, never a bare `obj.name`, which would make every `d.get`
+  a caller of a new `get`; up through three levels of callers linked to
+  none) and the tests of its module, narrowed to the test modules named
+  after it — a route handler is a caller mutmut never links, being
+  decorated — and drops their durations from `mutmut-stats.json`: mutmut
+  then takes them for new and collects them again. A shard also resets the function's "no tests"
+  verdicts so they are named. Each function is tried once per version of its
+  code (mutmut's own hash, kept in `mutants/mutmut-relinked.json`), so one no
+  test reaches costs one extra stats pass, not one a night.
 - **`TEST_DB_REQUIRED=1`.** `backend/tests/conftest.py` skips every database
   test when Postgres is unreachable. Under mutmut that reads as "nothing kills
   anything" and still exits 0, so the mutation jobs turn the skip into a
@@ -230,7 +252,30 @@ Each of these was found the hard way while wiring it up; keep them.
   too early). Raising a timeout fixes neither, and the test is never
   excluded to get past it. Three ADREditor runs failed this way: the editor
   rendered its confirmation toast inside both its loading branch and its
-  loaded page, so navigating to a new decision remounted it.
+  loaded page, so navigating to a new decision remounted it. The sandbox
+  does have a wait budget of its own: `src/test/mutationSandbox.ts` gives
+  Testing Library's `findBy*` / `waitFor` 5 s there instead of the suite's
+  1 s, because the instrumented single-thread run renders several times
+  slower and a correct `findByText` on a large page ran out of 1 s with no
+  race anywhere (CardDetail, 2026-10-08). The normal suite keeps 1 s, so a
+  slow render still fails a PR; a test that still fails in the sandbox has
+  a race.
+- **A test that fails on unmutated code is named, and the shard stays red.**
+  Every red nightly of October 2026 was one such test — Stryker's initial
+  run of a chunk, or mutmut's clean test of a shard — and its name sat
+  thousands of lines deep in the output, past the 5,000 lines the Actions
+  log API returns. `stryker_scope.py nightly` and `mutmut_scope.py run` now
+  read the names off their tool's output (`harness.py`), print one
+  `::error::` annotation per test, say so on the chunk's status line and
+  append the entries to `mutation-harness-<suite>-<shard>.json`, which the
+  shard uploads; the report job renders every such file at the top of its
+  summary and of the survivors issue (both halves append, so a test that
+  failed twice shows "2×", a deterministic failure rather than a one-off).
+  The chunk and the shard job still fail — a chunk that measured nothing is
+  not a pass — and nothing is retried: the section exists so the morning's
+  job is the fix, not the dig. The backend's checkpoint and second half now
+  run after a failed first half too, as the frontend's always did, so an
+  intermittent clean-test failure costs half a night rather than all of it.
 - **Static mutants are ignored** (`ignoreStatic`). A mutant in a module-level
   initialiser (`ROUTE_PERMISSIONS`, a lookup table, a constant) runs once at
   import, so Stryker cannot tell which tests cover it and reruns the whole
@@ -266,7 +311,10 @@ Each of these was found the hard way while wiring it up; keep them.
   each backend and frontend shard's budget into two halves. Between them a
   checkpoint saves the cache under `…-<run id>-checkpoint` and uploads the
   records (`overwrite: true`). Each half costs one more mutmut clean test,
-  about 20 minutes, which is why there are two halves and not more.
+  about 20 minutes, which is why there are two halves and not more. The
+  shard jobs' `timeout-minutes` is GitHub's maximum, 360, so the budget
+  input is the only limit: a dispatched run can take it to about 320 (two
+  halves plus setup).
 - **mutmut's children are memory-capped.** The nightly runs mutmut under
   `ulimit -v` (`MUTMUT_VMEM_KB`). A mutant that allocates without bound then
   dies of `MemoryError`, which counts as killed, instead of starving the runner
@@ -316,6 +364,7 @@ Each of these was found the hard way while wiring it up; keep them.
 | `mutmut_scope.py` | runs mutmut (PR, shard, files) and turns its results into records |
 | `stryker_scope.py` | `--mutate` value for a change; the chunked, resumable nightly; Stryker reports to records |
 | `gate.py` | the one scorer: floors, summaries, survivor backlog, regressions |
+| `harness.py` | names the tests that failed on unmutated code (Stryker's initial run, mutmut's clean test); the nightly's annotations, `mutation-harness-*.json` and the report section |
 | `shadow_root.py` | the symlinked mirror mutmut's copy runs inside |
 | `floors.toml` | every floor |
 

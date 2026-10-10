@@ -1109,6 +1109,7 @@ async def test_cached_remote_payload_falls_back_to_bundled_translations(db, monk
     # Bundled fake ships an FR translation for BC-1; cached path picks it up.
     assert by_id["BC-1"]["name"] == "Gestion de la clientèle"
     assert payload["version"]["active_locale"] == "fr"
+    assert payload["version"]["node_count"] == 1
 
 
 @pytest.mark.asyncio
@@ -1511,3 +1512,36 @@ async def test_macro_localized_via_existing_i18n_table(db, monkeypatch):
     assert by_id["MC-10"]["description"] == "Regroupement client"
     # And the capability claimed by the macro still gets its parent rewritten.
     assert by_id["BC-1"]["parent_id"] == "MC-10"
+
+
+@pytest.mark.asyncio
+async def test_a_newer_cached_catalogue_brings_its_own_macros(db, monkeypatch):
+    """The macros come from the same source as the capabilities they group: a
+    newer cached catalogue's own list wins over the wheel's, even when empty."""
+    _install_fake_pkg(monkeypatch, macros=_FAKE_MACROS)
+    from app.services import capability_catalogue_service as svc
+
+    finance = {"id": "BC-2", "name": "Finance", "level": 1, "parent_id": None}
+    cached_macro = {**_FAKE_MACROS[1], "id": "MC-99", "name": "From the store"}
+    await common.set_cached_remote(
+        db,
+        {
+            svc.SETTINGS_KEY: {
+                "data": [finance],
+                "catalogue_version": "9.9.9",
+                "macros": [cached_macro],
+            }
+        },
+    )
+    payload = await svc.get_catalogue_payload(db)
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+    assert by_id["MC-99"]["name"] == "From the store"
+    assert "MC-10" not in by_id
+    assert payload["version"]["macro_count"] == 1
+
+    await common.set_cached_remote(
+        db,
+        {svc.SETTINGS_KEY: {"data": [finance], "catalogue_version": "9.9.9", "macros": []}},
+    )
+    payload = await svc.get_catalogue_payload(db)
+    assert payload["version"]["macro_count"] == 0

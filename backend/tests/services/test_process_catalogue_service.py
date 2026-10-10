@@ -292,3 +292,69 @@ async def test_import_persists_framework_refs_and_attributes(db, monkeypatch):
         {"framework": "APQC-PCF", "external_id": "10.0", "version": "8.0", "url": None}
     ]
     assert row.attributes["realizesCapabilityIds"] == ["BC-1"]
+
+
+# ---------------------------------------------------------------------------
+# A newer catalogue cached from the store
+# ---------------------------------------------------------------------------
+
+
+async def _cache_processes(db, svc, **extra):
+    await common.set_cached_remote(
+        db,
+        {
+            svc.SETTINGS_KEY: {
+                "data": [dict(_FAKE_PROCESSES[0], name="Acquire Assets v9")],
+                "catalogue_version": "9.0.0",
+                "generated_at": "2026-10-01T00:00:00Z",
+                "fetched_at": "2026-10-02T00:00:00Z",
+                **extra,
+            }
+        },
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_newer_cached_catalogue_is_served_and_described(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import process_catalogue_service as svc
+
+    await _cache_processes(db, svc, process_count=7)
+    payload = await svc.get_catalogue_payload(db)
+    assert [p["name"] for p in payload["processes"]] == ["Acquire Assets v9"]
+    assert payload["version"] == {
+        "catalogue_version": "9.0.0",
+        "schema_version": "",  # the cache stored none
+        "generated_at": "2026-10-01T00:00:00Z",
+        "process_count": 7,
+        "source": "remote",
+        "fetched_at": "2026-10-02T00:00:00Z",
+        "bundled_version": "2.0.0",
+        "available_locales": ["en"],
+        "active_locale": "en",
+    }
+
+
+@pytest.mark.asyncio
+async def test_a_cached_catalogue_is_served_in_the_requested_language(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import process_catalogue_service as svc
+
+    await _cache_processes(db, svc, i18n={"fr": {"BP-100": {"name": "Acquérir des actifs"}}})
+    payload = await svc.get_catalogue_payload(db, locale="fr")
+    assert [p["name"] for p in payload["processes"]] == ["Acquérir des actifs"]
+    assert payload["version"]["active_locale"] == "fr"
+    assert payload["version"]["available_locales"] == ["en", "fr"]
+
+
+@pytest.mark.asyncio
+async def test_a_cache_without_a_version_is_ignored(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import process_catalogue_service as svc
+
+    await common.set_cached_remote(
+        db, {svc.SETTINGS_KEY: {"data": [dict(_FAKE_PROCESSES[0], name="Unversioned")]}}
+    )
+    payload = await svc.get_catalogue_payload(db)
+    assert payload["version"]["source"] == "bundled"
+    assert "Unversioned" not in {p["name"] for p in payload["processes"]}

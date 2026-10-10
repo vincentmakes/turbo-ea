@@ -48,8 +48,6 @@ import {
   buildTree,
   pruneTreeToDepth,
   getLeafNodes,
-  buildColumnHeaderRows,
-  buildRowHeaderLayout,
   buildAllNodesMap,
   filterRelatedSubtrees,
 } from "./matrixHierarchy";
@@ -62,39 +60,39 @@ import {
   getCell,
   relatedCardIds,
 } from "./matrixCells";
+import { buildValueIndex } from "./matrixDimensions";
 import {
-  type MatrixValue,
-  buildValueIndex,
-} from "./matrixDimensions";
+  CELL_MODES,
+  EMPTY_FILTERS,
+  activeFilterCount as countActiveFilters,
+  axisHasHierarchy,
+  cellTitle as describeCell,
+  cellValues,
+  columnHeaderRowsFor,
+  coveragePercent,
+  directionBorder as directionBorderFor,
+  effectiveDepth,
+  effectiveSort,
+  flatLeafNodes,
+  heatColor,
+  hoveredIds,
+  legendGroups as legendGroupsFor,
+  matrixPath as buildMatrixPath,
+  pairRelationTypes as pairRelationTypesOf,
+  parentsWithOwnRelations,
+  relationCounts,
+  rowHeaderLayoutFor,
+  sanitiseFilters,
+  searchedIds,
+  stepDepth,
+  totalRelations as countRelations,
+  visibleIds,
+  type CellMode,
+  type SortMode,
+} from "./matrixState";
+import { buildGridSheet, buildPrintParams, buildRelationsSheet } from "./matrixExport";
 
 type MatrixData = MatrixPayload;
-
-type CellMode = "exists" | "count" | "codes" | "labels";
-type SortMode = "alpha" | "count" | "hierarchy";
-
-const CELL_MODES: CellMode[] = ["exists", "count", "codes", "labels"];
-const DIRECTIONS = ["any", "forward", "reverse"] as const;
-
-const HEAT_COLORS_LIGHT = [
-  "#e3f2fd", "#bbdefb", "#90caf9", "#64b5f6", "#42a5f5",
-  "#2196f3", "#1e88e5", "#1976d2", "#1565c0", "#0d47a1",
-];
-
-const HEAT_COLORS_DARK = [
-  "#0d2137", "#0d3054", "#0a3d6e", "#0d4a88", "#10579e",
-  "#1565c0", "#1976d2", "#1e88e5", "#2196f3", "#42a5f5",
-];
-
-function heatColor(
-  value: number, max: number, paperBg: string, isDark: boolean,
-): string {
-  if (max <= 0 || value <= 0) return paperBg;
-  const scale = isDark ? HEAT_COLORS_DARK : HEAT_COLORS_LIGHT;
-  const idx = Math.min(
-    Math.floor((value / max) * (scale.length - 1)), scale.length - 1,
-  );
-  return scale[idx];
-}
 
 // Styling constants
 const ROW_HEADER_COL_WIDTH = 140;
@@ -120,34 +118,6 @@ const LARGE_GRID_CELLS = 30_000;
 
 /** Glyphs that fit a dense cell before it has to fall back to "+n". */
 const MAX_DENSE_GLYPHS = 4;
-
-const EMPTY_FILTERS: MatrixFilterState = { relationTypes: [], attrValues: {}, direction: "any" };
-
-/** Coerce a persisted filter blob back into a usable state, dropping anything malformed. */
-function sanitiseFilters(raw: unknown): MatrixFilterState {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return EMPTY_FILTERS;
-  const cfg = raw as Record<string, unknown>;
-  const relationTypes = Array.isArray(cfg.relationTypes)
-    ? cfg.relationTypes.filter((v): v is string => typeof v === "string")
-    : [];
-  const attrValues: Record<string, string[]> = {};
-  if (cfg.attrValues && typeof cfg.attrValues === "object" && !Array.isArray(cfg.attrValues)) {
-    for (const [key, value] of Object.entries(cfg.attrValues as Record<string, unknown>)) {
-      if (!Array.isArray(value)) continue;
-      const values = value.filter((v): v is string => typeof v === "string");
-      if (values.length > 0) attrValues[key] = values;
-    }
-  }
-  const direction = DIRECTIONS.includes(cfg.direction as (typeof DIRECTIONS)[number])
-    ? (cfg.direction as MatrixFilterState["direction"])
-    : "any";
-  return { relationTypes, attrValues, direction };
-}
-
-/** Case-insensitive name match, used by the row/column quick-search. */
-function matchesSearch(name: string, query: string): boolean {
-  return name.toLowerCase().includes(query.toLowerCase());
-}
 
 // Depth control icon button styles
 const DEPTH_ICON_SIZE = 22;
@@ -351,21 +321,10 @@ export default function MatrixReport() {
   // Keys and values are sorted so two equivalent filter sets always produce the
   // same path — otherwise a re-render that rebuilt the object in a different
   // key order would look like a new query and refetch.
-  const matrixPath = useMemo(() => {
-    const params = new URLSearchParams();
-    params.set("row_type", rowType);
-    params.set("col_type", colType);
-    if (filters.relationTypes.length > 0) {
-      params.set("relation_types", [...filters.relationTypes].sort().join(","));
-    }
-    for (const key of Object.keys(filters.attrValues).sort()) {
-      for (const value of [...(filters.attrValues[key] ?? [])].sort()) {
-        params.append("attr", `${key}:${value}`);
-      }
-    }
-    if (filters.direction !== "any") params.set("direction", filters.direction);
-    return `/reports/matrix?${params.toString()}`;
-  }, [rowType, colType, filters]);
+  const matrixPath = useMemo(
+    () => buildMatrixPath(rowType, colType, filters),
+    [rowType, colType, filters],
+  );
 
   // The axis labels and filter chips below render from the current state, so
   // data for a previous query must never survive: it would draw a complete,
@@ -411,10 +370,7 @@ export default function MatrixReport() {
   // the filter bar, the legend, the cells and the export can show is derived
   // from these types' own `attributes_schema`; no attribute is named in code.
   const pairRelationTypes = useMemo(
-    () => relationTypes.filter(
-      (rt) => (rt.source_type_key === rowType && rt.target_type_key === colType)
-        || (rt.source_type_key === colType && rt.target_type_key === rowType),
-    ),
+    () => pairRelationTypesOf(relationTypes, rowType, colType),
     [relationTypes, rowType, colType],
   );
 
@@ -437,19 +393,14 @@ export default function MatrixReport() {
 
   // Row/column quick-search. An ancestor whose descendant matches survives, so
   // searching never orphans a branch of the hierarchy.
-  const searchedRowIds = useMemo(() => {
-    if (!debouncedRowSearch.trim() || !data) return null;
-    return new Set(
-      data.rows.filter((r) => matchesSearch(r.name, debouncedRowSearch)).map((r) => r.id),
-    );
-  }, [data, debouncedRowSearch]);
-
-  const searchedColIds = useMemo(() => {
-    if (!debouncedColSearch.trim() || !data) return null;
-    return new Set(
-      data.columns.filter((c) => matchesSearch(c.name, debouncedColSearch)).map((c) => c.id),
-    );
-  }, [data, debouncedColSearch]);
+  const searchedRowIds = useMemo(
+    () => searchedIds(data?.rows ?? null, debouncedRowSearch),
+    [data, debouncedRowSearch],
+  );
+  const searchedColIds = useMemo(
+    () => searchedIds(data?.columns ?? null, debouncedColSearch),
+    [data, debouncedColSearch],
+  );
 
   // Scope each axis to chosen cards and everything beneath them (#954).
   // `/reports/matrix` guarantees complete card lists with intact parent chains
@@ -483,26 +434,18 @@ export default function MatrixReport() {
   // Prefer the metamodel over the data: a hierarchical type whose cards have no
   // parent yet still deserves the option, and the answer must not flip while a
   // fetch is in flight (which would leave the Select on a value it no longer offers).
-  const rowHasHierarchy = types.find((t) => t.key === rowType)?.has_hierarchy
-    ?? (data ? scopedRowItems.some((r) => r.parent_id !== null) : false);
-  const colHasHierarchy = types.find((t) => t.key === colType)?.has_hierarchy
-    ?? (data ? scopedColItems.some((c) => c.parent_id !== null) : false);
+  const rowHasHierarchy = axisHasHierarchy(types, rowType, data ? scopedRowItems : null);
+  const colHasHierarchy = axisHasHierarchy(types, colType, data ? scopedColItems : null);
 
   // Effective depth (clamped to actual max)
-  const effectiveRowDepth = rowTreeFull ? Math.min(
-    rowExpandedDepth === Infinity ? rowTreeFull.maxDepth : rowExpandedDepth,
-    rowTreeFull.maxDepth,
-  ) : 0;
-  const effectiveColDepth = colTreeFull ? Math.min(
-    colExpandedDepth === Infinity ? colTreeFull.maxDepth : colExpandedDepth,
-    colTreeFull.maxDepth,
-  ) : 0;
+  const effectiveRowDepth = effectiveDepth(rowTreeFull, rowExpandedDepth);
+  const effectiveColDepth = effectiveDepth(colTreeFull, colExpandedDepth);
 
   // A hierarchy sort only exists on an axis with a hierarchy. Anywhere else —
   // the initial default on a flat type, a restored config, a flat type picked
   // after a hierarchical one — it reads as A → Z.
-  const sortRows: SortMode = rowSort === "hierarchy" && !rowHasHierarchy ? "alpha" : rowSort;
-  const sortCols: SortMode = colSort === "hierarchy" && !colHasHierarchy ? "alpha" : colSort;
+  const sortRows = effectiveSort(rowSort, rowHasHierarchy);
+  const sortCols = effectiveSort(colSort, colHasHierarchy);
 
   // Auto-persist config to localStorage. Declared down here because its
   // dependency array — evaluated eagerly — names the sorts read just above.
@@ -512,57 +455,26 @@ export default function MatrixReport() {
 
   // Relations per card, straight off the payload's edges — one pass over the
   // data rather than a full grid walk per axis.
-  const { cardRowCounts, cardColCounts } = useMemo(() => {
-    const rows = new Map<string, number>();
-    const cols = new Map<string, number>();
-    for (const i of data?.intersections ?? []) {
-      const n = (i.e ?? []).length;
-      if (n === 0) continue;
-      rows.set(i.row_id, (rows.get(i.row_id) ?? 0) + n);
-      cols.set(i.col_id, (cols.get(i.col_id) ?? 0) + n);
-    }
-    return { cardRowCounts: rows, cardColCounts: cols };
-  }, [data]);
+  const { rows: cardRowCounts, cols: cardColCounts } = useMemo(
+    () => relationCounts(data?.intersections ?? []),
+    [data],
+  );
 
   // Which cards may appear at all. Coverage (hide-unrelated / only-gaps) and
   // search intersect: searching inside a filtered view narrows it further
   // rather than reopening what the filter closed.
-  const buildVisibleIds = (
-    all: { id: string }[] | undefined,
-    related: Set<string>,
-    searched: Set<string> | null,
-  ): Set<string> | null => {
-    let ids: Set<string> | null = null;
-    if (hideEmpty) ids = related;
-    else if (showOnlyGaps) ids = new Set((all ?? []).filter((c) => !related.has(c.id)).map((c) => c.id));
-    if (searched) ids = ids ? new Set([...searched].filter((id) => ids!.has(id))) : searched;
-    return ids;
-  };
-
   const visibleRowIds = useMemo(
-    () => buildVisibleIds(scopedRowItems, relatedRowIds, searchedRowIds),
-    [scopedRowItems, relatedRowIds, searchedRowIds, hideEmpty, showOnlyGaps], // eslint-disable-line react-hooks/exhaustive-deps
+    () => visibleIds(scopedRowItems, relatedRowIds, searchedRowIds, { hideEmpty, showOnlyGaps }),
+    [scopedRowItems, relatedRowIds, searchedRowIds, hideEmpty, showOnlyGaps],
   );
   const visibleColIds = useMemo(
-    () => buildVisibleIds(scopedColItems, relatedColIds, searchedColIds),
-    [scopedColItems, relatedColIds, searchedColIds, hideEmpty, showOnlyGaps], // eslint-disable-line react-hooks/exhaustive-deps
+    () => visibleIds(scopedColItems, relatedColIds, searchedColIds, { hideEmpty, showOnlyGaps }),
+    [scopedColItems, relatedColIds, searchedColIds, hideEmpty, showOnlyGaps],
   );
 
   // Cards that carry relations of their own AND have children. A card like that
   // is otherwise only a group header spanning its children, with no cell row of
   // its own, so its relations would have nowhere to land.
-  const parentsWithOwnRelations = (
-    tree: ReturnType<typeof buildTree> | null,
-    related: Set<string>,
-  ): Set<string> => {
-    const ids = new Set<string>();
-    if (!tree) return ids;
-    for (const id of related) {
-      if ((tree.allNodes.get(id)?.children.length ?? 0) > 0) ids.add(id);
-    }
-    return ids;
-  };
-
   const rowSelfIds = useMemo(
     () => parentsWithOwnRelations(rowTreeFull, relatedRowIds),
     [rowTreeFull, relatedRowIds],
@@ -594,39 +506,21 @@ export default function MatrixReport() {
   }, [colTreeFull, effectiveColDepth, sortCols, visibleColIds, colSelfIds]);
 
   // Get pruned leaf nodes
-  const leafRowNodes = useMemo(() => {
-    if (prunedRowRoots) return getLeafNodes(prunedRowRoots);
-    if (!data) return [];
-    const items = visibleRowIds
-      ? scopedRowItems.filter((r) => visibleRowIds.has(r.id))
-      : [...scopedRowItems];
-    if (sortRows === "count") {
-      items.sort((a, b) => (cardRowCounts.get(b.id) ?? 0) - (cardRowCounts.get(a.id) ?? 0));
-    } else {
-      items.sort((a, b) => a.name.localeCompare(b.name));
-    }
-    return items.map((item): TreeNode => ({
-      item, children: [], depth: 0, leafCount: 1,
-      leafDescendants: [item.id], isPrunedGroup: false, originalLeafCount: 1,
-    }));
-  }, [prunedRowRoots, data, scopedRowItems, sortRows, cardRowCounts, visibleRowIds]);
+  const leafRowNodes = useMemo(
+    () =>
+      prunedRowRoots
+        ? getLeafNodes(prunedRowRoots)
+        : flatLeafNodes(scopedRowItems, visibleRowIds, sortRows, cardRowCounts),
+    [prunedRowRoots, scopedRowItems, sortRows, cardRowCounts, visibleRowIds],
+  );
 
-  const leafColNodes = useMemo(() => {
-    if (prunedColRoots) return getLeafNodes(prunedColRoots);
-    if (!data) return [];
-    const items = visibleColIds
-      ? scopedColItems.filter((c) => visibleColIds.has(c.id))
-      : [...scopedColItems];
-    if (sortCols === "count") {
-      items.sort((a, b) => (cardColCounts.get(b.id) ?? 0) - (cardColCounts.get(a.id) ?? 0));
-    } else {
-      items.sort((a, b) => a.name.localeCompare(b.name));
-    }
-    return items.map((item): TreeNode => ({
-      item, children: [], depth: 0, leafCount: 1,
-      leafDescendants: [item.id], isPrunedGroup: false, originalLeafCount: 1,
-    }));
-  }, [prunedColRoots, data, scopedColItems, sortCols, cardColCounts, visibleColIds]);
+  const leafColNodes = useMemo(
+    () =>
+      prunedColRoots
+        ? getLeafNodes(prunedColRoots)
+        : flatLeafNodes(scopedColItems, visibleColIds, sortCols, cardColCounts),
+    [prunedColRoots, scopedColItems, sortCols, cardColCounts, visibleColIds],
+  );
 
   // Node maps for aggregation lookups
   const allRowNodesMap = useMemo(
@@ -639,24 +533,18 @@ export default function MatrixReport() {
   );
 
   // Column header rows (multi-row <thead>)
-  const columnHeaderRows = useMemo(() => {
-    if (prunedColRoots && sortCols === "hierarchy" && colTreeFull && colTreeFull.maxDepth > 0) {
-      return buildColumnHeaderRows(prunedColRoots, effectiveColDepth);
-    }
-    return [leafColNodes.map((node) => ({
-      node, colspan: 1, rowspan: 1, isLeaf: true, isPrunedGroup: false,
-    }))];
-  }, [prunedColRoots, leafColNodes, sortCols, effectiveColDepth, colTreeFull]);
+  const columnHeaderRows = useMemo(
+    () =>
+      columnHeaderRowsFor(prunedColRoots, colTreeFull?.maxDepth ?? 0, effectiveColDepth, leafColNodes),
+    [prunedColRoots, leafColNodes, effectiveColDepth, colTreeFull],
+  );
 
   // Row header layout (multi-column)
-  const rowHeaderLayout = useMemo(() => {
-    if (prunedRowRoots && sortRows === "hierarchy" && rowTreeFull && rowTreeFull.maxDepth > 0) {
-      return buildRowHeaderLayout(prunedRowRoots, effectiveRowDepth);
-    }
-    return leafRowNodes.map((node) => [{
-      node, rowspan: 1, isLeaf: true, isPrunedGroup: false,
-    }]);
-  }, [prunedRowRoots, leafRowNodes, sortRows, effectiveRowDepth, rowTreeFull]);
+  const rowHeaderLayout = useMemo(
+    () =>
+      rowHeaderLayoutFor(prunedRowRoots, rowTreeFull?.maxDepth ?? 0, effectiveRowDepth, leafRowNodes),
+    [prunedRowRoots, leafRowNodes, effectiveRowDepth, rowTreeFull],
+  );
 
   // Number of row header columns & column header rows
   const numRowHeaderCols = rowHeaderLayout.length > 0 ? rowHeaderLayout[0].length : 1;
@@ -675,22 +563,15 @@ export default function MatrixReport() {
   const grandTotal = cellMatrix.grandTotal;
 
   // Stats — counts reflect the visible (filtered) set
-  const totalRelations = useMemo(() => {
-    const rows = rowScope.closure;
-    const cols = colScope.closure;
-    return (data?.intersections ?? []).reduce((sum, i) => {
-      if (rows && !rows.has(i.row_id)) return sum;
-      if (cols && !cols.has(i.col_id)) return sum;
-      return sum + (i.e ?? []).length;
-    }, 0);
-  }, [data, rowScope.closure, colScope.closure]);
+  const totalRelations = useMemo(
+    () => countRelations(data?.intersections ?? [], rowScope.closure, colScope.closure),
+    [data, rowScope.closure, colScope.closure],
+  );
   // Counted off the scoped axes, not the raw payload: a KPI reporting the
   // whole axis next to a scoped grid is wrong in the most convincing way.
   const visibleRowCount = visibleRowIds ? visibleRowIds.size : scopedRowItems.length;
   const visibleColCount = visibleColIds ? visibleColIds.size : scopedColItems.length;
-  const maxPossible = visibleRowCount * visibleColCount;
-  const populatedCells = cellMatrix.cells.size;
-  const coverage = maxPossible > 0 ? ((populatedCells / maxPossible) * 100).toFixed(1) : "0";
+  const coverage = coveragePercent(cellMatrix.cells.size, visibleRowCount, visibleColCount);
 
   // Coverage gaps, over the whole axis rather than the visible slice: a card is
   // uncovered because nothing links to it, not because it scrolled off.
@@ -699,21 +580,14 @@ export default function MatrixReport() {
 
   const gridCellCount = leafRowNodes.length * leafColNodes.length;
 
-  // Hover helpers
-  const getHoveredRowIds = (id: string | null): Set<string> => {
-    if (!id) return new Set();
-    const node = allRowNodesMap.get(id);
-    if (node && node.leafDescendants.length > 0) return new Set(node.leafDescendants);
-    return new Set([id]);
-  };
-  const getHoveredColIds = (id: string | null): Set<string> => {
-    if (!id) return new Set();
-    const node = allColNodesMap.get(id);
-    if (node && node.leafDescendants.length > 0) return new Set(node.leafDescendants);
-    return new Set([id]);
-  };
-  const hoveredRowIds = useMemo(() => getHoveredRowIds(hoveredRow), [hoveredRow, allRowNodesMap]); // eslint-disable-line react-hooks/exhaustive-deps
-  const hoveredColIds = useMemo(() => getHoveredColIds(hoveredCol), [hoveredCol, allColNodesMap]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hoveredRowIds = useMemo(
+    () => hoveredIds(hoveredRow, allRowNodesMap),
+    [hoveredRow, allRowNodesMap],
+  );
+  const hoveredColIds = useMemo(
+    () => hoveredIds(hoveredCol, allColNodesMap),
+    [hoveredCol, allColNodesMap],
+  );
 
   const handleCellClick = (
     e: React.MouseEvent<HTMLTableCellElement>,
@@ -731,37 +605,18 @@ export default function MatrixReport() {
   const rowLabel = typeLabel(rowMeta) || rowType;
   const colLabel = typeLabel(colMeta) || colType;
 
-  const valuesOf = (cell: CellDatum): MatrixValue[] =>
-    cell.valueIds.map((id) => valueIndex.byId.get(id)).filter((v): v is MatrixValue => !!v);
+  const valuesOf = (cell: CellDatum) => cellValues(cell, valueIndex);
 
   /**
-   * A cell's whole story as plain text. Built per cell in the render pass and
-   * handed to the native `title` attribute rather than a MUI `<Tooltip>` — a
+   * Handed to the native `title` attribute rather than a MUI `<Tooltip>` — a
    * wide matrix has tens of thousands of cells, and a component each would cost
    * far more than the hover is worth.
    */
-  const cellTitle = (
-    rowNode: TreeNode,
-    colNode: TreeNode,
-    cell: CellDatum,
-    isAggregated: boolean,
-  ): string => {
-    const lines = [`${rowNode.item.name} × ${colNode.item.name}`];
-    lines.push(t("matrix.relations", { count: cell.count }));
-    if (isAggregated) lines.push(t("matrix.aggregatedHint"));
-    const values = valuesOf(cell);
-    if (values.length > 0) lines.push(values.map((v) => v.label).join(", "));
-    if (cell.dirMask === (DIR_FORWARD | DIR_REVERSE)) lines.push(t("matrix.directionBoth"));
-    else if (cell.dirMask === DIR_REVERSE) lines.push(t("matrix.directionReverse"));
-    else if (cell.dirMask === DIR_FORWARD) lines.push(t("matrix.directionForward"));
-    return lines.join("\n");
-  };
+  const cellTitle = (rowNode: TreeNode, colNode: TreeNode, cell: CellDatum, isAggregated: boolean) =>
+    describeCell(rowNode.item.name, colNode.item.name, cell, isAggregated, valuesOf(cell), t);
 
-  const directionBorder = (dirMask: number, side: "left" | "right"): string | undefined => {
-    if (dirMask === 0) return undefined;
-    const wants = side === "left" ? DIR_FORWARD : DIR_REVERSE;
-    return dirMask & wants ? `2px solid ${theme.palette.primary.main}` : undefined;
-  };
+  const directionBorder = (dirMask: number, side: "left" | "right") =>
+    directionBorderFor(dirMask, side, theme.palette.primary.main);
 
   /** Glyphs (dense) or chips (wide) for the values behind a cell. */
   const renderCellValues = (cell: CellDatum, mode: CellMode) => {
@@ -845,85 +700,40 @@ export default function MatrixReport() {
     if (rowType !== colType) setFilters(EMPTY_FILTERS);
   };
 
-  const sortModeLabel = (m: SortMode) => m === "alpha" ? t("matrix.alphaSort") : m === "count" ? t("matrix.byCount") : t("matrix.hierarchy");
-  const cellModeLabel = (m: CellMode) => ({
-    exists: t("matrix.existsDot"),
-    count: t("matrix.countHeatmap"),
-    codes: t("matrix.codes"),
-    labels: t("matrix.labels"),
-  })[m];
-  const directionLabel = (d: MatrixFilterState["direction"]) => ({
-    any: t("matrix.directionAny"),
-    forward: t("matrix.directionForward"),
-    reverse: t("matrix.directionReverse"),
-  })[d];
+  const activeFilterCount = countActiveFilters(filters);
 
-  const activeFilterCount = (filters.relationTypes.length > 0 ? 1 : 0)
-    + Object.values(filters.attrValues).filter((v) => v.length > 0).length
-    + (filters.direction !== "any" ? 1 : 0);
+  const labels = { t, relationLabel, fieldLabel };
 
-  const printParams = useMemo(() => {
-    const params: { label: string; value: string }[] = [];
-    params.push({ label: t("matrix.rows"), value: rowLabel });
-    params.push({ label: t("matrix.columns"), value: colLabel });
-    if (rowScope.effectiveScopeIds.length > 0) {
-      params.push({
-        label: t("matrix.scopeRows"),
-        value: t("matrix.scopeCountRows", { count: rowScope.effectiveScopeIds.length }),
-      });
-    }
-    if (colScope.effectiveScopeIds.length > 0) {
-      params.push({
-        label: t("matrix.scopeCols"),
-        value: t("matrix.scopeCountCols", { count: colScope.effectiveScopeIds.length }),
-      });
-    }
-    params.push({ label: t("matrix.cell"), value: cellModeLabel(cellMode) });
-    params.push({ label: t("matrix.sortRows"), value: sortModeLabel(sortRows) });
-    params.push({ label: t("matrix.sortColumns"), value: sortModeLabel(sortCols) });
-    if (hideEmpty) params.push({ label: t("matrix.hideUnrelated"), value: t("matrix.on") });
-    if (showOnlyGaps) params.push({ label: t("matrix.showOnlyGaps"), value: t("matrix.on") });
-    if (filters.relationTypes.length > 0) {
-      params.push({
-        label: t("matrix.relationType"),
-        value: filters.relationTypes
-          .map((key) => {
-            const rt = pairRelationTypes.find((r) => r.key === key);
-            return rt ? relationLabel(rt) : key;
-          })
-          .join(", "),
-      });
-    }
-    for (const [dimensionId, values] of Object.entries(filters.attrValues)) {
-      if (values.length === 0) continue;
-      const dim = valueIndex.dimensions.find((d) => d.id === dimensionId);
-      // A flag filters on "true" / "false" (the filter bar's Yes / No); only an
-      // enum's values are options with labels of their own.
-      const valueLabel = (v: string) =>
-        dim?.kind === "flag"
-          ? t(v === "true" ? "common:labels.yes" : "common:labels.no")
-          : (valueIndex.byId.get(`${dimensionId}:${v}`)?.label ?? v);
-      params.push({
-        label: dim ? fieldLabel(dim.field) : dimensionId,
-        value: values.map(valueLabel).join(", "),
-      });
-    }
-    if (filters.direction !== "any") {
-      params.push({ label: t("matrix.direction"), value: directionLabel(filters.direction) });
-    }
-    return params;
-  }, [rowLabel, colLabel, cellMode, sortRows, sortCols, hideEmpty, showOnlyGaps, filters, pairRelationTypes, valueIndex, t]); // eslint-disable-line react-hooks/exhaustive-deps
+  const printParams = useMemo(
+    () =>
+      buildPrintParams(
+        {
+          rowLabel,
+          colLabel,
+          rowScopeCount: rowScope.effectiveScopeIds.length,
+          colScopeCount: colScope.effectiveScopeIds.length,
+          cellMode,
+          sortRows,
+          sortCols,
+          hideEmpty,
+          showOnlyGaps,
+          filters,
+          pairRelationTypes,
+          valueIndex,
+        },
+        labels,
+      ),
+    [rowLabel, colLabel, cellMode, sortRows, sortCols, hideEmpty, showOnlyGaps, filters, pairRelationTypes, valueIndex, t], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   /**
    * Legend entries, grouped per relation type. Only rendered by the value-bearing
    * cell modes — a dot or a count explains itself.
    */
-  const legendGroups = useMemo(() => {
-    if (cellMode !== "codes" && cellMode !== "labels") return [];
-    return pairRelationTypes
-      .map((rt) => ({ rt, values: valueIndex.byRelationType.get(rt.key) ?? [] }))
-      .filter((g) => g.values.length > 0);
-  }, [cellMode, pairRelationTypes, valueIndex]);
+  const legendGroups = useMemo(
+    () => legendGroupsFor(cellMode, pairRelationTypes, valueIndex),
+    [cellMode, pairRelationTypes, valueIndex],
+  );
 
   /**
    * Two sheets, both built from data structures rather than scraped from the
@@ -933,94 +743,26 @@ export default function MatrixReport() {
    * new admin-defined dimension appears in the export with no code change.
    */
   const buildMatrixExportData = useCallback((): ReportExportData => {
-    const gridColumns = [
-      { key: "row", label: rowLabel },
-      ...leafColNodes.map((node, i) => ({ key: `c${i}`, label: node.item.name })),
-      { key: "total", label: t("matrix.total"), type: "number" as const },
-    ];
-    const gridRows = leafRowNodes.map((rowNode, rowIdx) => {
-      const record: Record<string, string | number> = { row: rowNode.item.name };
-      leafColNodes.forEach((_, colIdx) => {
-        const cell = getCell(cellMatrix, rowIdx, colIdx);
-        if (cell.count === 0) {
-          record[`c${colIdx}`] = "";
-        } else if (cellMode === "codes") {
-          record[`c${colIdx}`] = valuesOf(cell).map((v) => v.code).join(" ") || String(cell.count);
-        } else if (cellMode === "labels") {
-          record[`c${colIdx}`] = valuesOf(cell).map((v) => v.label).join(", ") || String(cell.count);
-        } else if (cellMode === "count") {
-          record[`c${colIdx}`] = cell.count;
-        } else {
-          record[`c${colIdx}`] = "●";
-        }
-      });
-      record.total = cellMatrix.rowTotals[rowIdx] ?? 0;
-      return record;
-    });
-
-    // One column per dimension actually declared on the relation types in play.
-    const edgeDimensions = valueIndex.dimensions;
-    const edgeColumns = [
-      { key: "rowCard", label: rowLabel },
-      { key: "colCard", label: colLabel },
-      { key: "relationType", label: t("matrix.relationType") },
-      { key: "direction", label: t("matrix.direction") },
-      ...edgeDimensions.map((d) => ({
-        key: d.id,
-        label: pairRelationTypes.length > 1
-          ? `${relationLabel(relationTypes.find((r) => r.key === d.relationTypeKey)!)} · ${fieldLabel(d.field)}`
-          : fieldLabel(d.field),
-      })),
-    ];
-
-    const rowNames = new Map((data?.rows ?? []).map((r) => [r.id, r.name]));
-    const colNames = new Map((data?.columns ?? []).map((c) => [c.id, c.name]));
-    const visibleRows = new Set(leafRowNodes.flatMap((n) => n.leafDescendants));
-    const visibleCols = new Set(leafColNodes.flatMap((n) => n.leafDescendants));
-    const relationTypeKeys = data?.relation_types ?? [];
-    const attrSets = data?.attr_sets ?? [];
-
-    const edgeRows: Record<string, string>[] = [];
-    for (const intersection of data?.intersections ?? []) {
-      if (!visibleRows.has(intersection.row_id) || !visibleCols.has(intersection.col_id)) continue;
-      for (const [rtIdx, orientation, attrIdx] of intersection.e ?? []) {
-        const rtKey = relationTypeKeys[rtIdx];
-        const rt = pairRelationTypes.find((r) => r.key === rtKey);
-        const attributes = attrSets[attrIdx] ?? {};
-        const record: Record<string, string> = {
-          rowCard: rowNames.get(intersection.row_id) ?? "",
-          colCard: colNames.get(intersection.col_id) ?? "",
-          // Read the verb from the row's point of view, so the sheet says what
-          // the row card does rather than what some other card does to it.
-          relationType: rt ? relationLabel(rt, orientation === "r") : (rtKey ?? ""),
-          direction: orientation === "r"
-            ? t("matrix.directionReverse")
-            : t("matrix.directionForward"),
-        };
-        for (const dim of edgeDimensions) {
-          if (dim.relationTypeKey !== rtKey) continue;
-          const raw = attributes[dim.field.key];
-          if (raw === undefined || raw === null || raw === "") continue;
-          if (dim.kind === "flag") {
-            record[dim.id] = raw === true ? t("common:labels.yes") : t("common:labels.no");
-          } else if (dim.kind === "enum") {
-            record[dim.id] = valueIndex.byId.get(`${dim.id}:${raw}`)?.label ?? String(raw);
-          } else {
-            record[dim.id] = String(raw);
-          }
-        }
-        edgeRows.push(record);
-      }
-    }
-
+    const input = {
+      data,
+      rowLabel,
+      colLabel,
+      leafRows: leafRowNodes,
+      leafCols: leafColNodes,
+      cellMatrix,
+      cellMode,
+      valueIndex,
+      pairRelationTypes,
+      relationTypes,
+    };
     return {
       title: t("matrix.title"),
       subtitle: `${rowLabel} × ${colLabel}`,
       filterSummary: printParams,
       chartNode: chartRef.current,
       sheets: [
-        { name: t("matrix.exportGridSheet"), columns: gridColumns, rows: gridRows },
-        { name: t("matrix.exportRelationsSheet"), columns: edgeColumns, rows: edgeRows },
+        { name: t("matrix.exportGridSheet"), ...buildGridSheet(input, t) },
+        { name: t("matrix.exportRelationsSheet"), ...buildRelationsSheet(input, labels) },
       ],
     };
   }, [data, leafRowNodes, leafColNodes, cellMatrix, cellMode, valueIndex, pairRelationTypes, relationTypes, rowLabel, colLabel, printParams, chartRef, relationLabel, fieldLabel, t]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1328,7 +1070,7 @@ export default function MatrixReport() {
                             <Tooltip title={t("matrix.collapseRows")}>
                               <span
                                 style={depthBtnStyle(effectiveRowDepth <= 0)}
-                                onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth > 0) setRowExpandedDepth((p) => Math.max(0, Math.min(p, rowTreeFull!.maxDepth) - 1)); }}
+                                onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth > 0) setRowExpandedDepth((p) => stepDepth(p, rowTreeFull!.maxDepth, -1)); }}
                               >
                                 <MaterialSymbol icon="do_not_disturb_on" size={DEPTH_ICON_SIZE} color={depthIconColor} />
                               </span>
@@ -1337,7 +1079,7 @@ export default function MatrixReport() {
                             <Tooltip title={t("matrix.expandRows")}>
                               <span
                                 style={depthBtnStyle(effectiveRowDepth >= rowTreeFull!.maxDepth)}
-                                onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth < rowTreeFull!.maxDepth) setRowExpandedDepth((p) => Math.min(rowTreeFull!.maxDepth, (p === Infinity ? rowTreeFull!.maxDepth : p) + 1)); }}
+                                onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth < rowTreeFull!.maxDepth) setRowExpandedDepth((p) => stepDepth(p, rowTreeFull!.maxDepth, 1)); }}
                               >
                                 <MaterialSymbol icon="add_circle" size={DEPTH_ICON_SIZE} color={depthIconColor} />
                               </span>
@@ -1359,7 +1101,7 @@ export default function MatrixReport() {
                             <Tooltip title={t("matrix.collapseColumns")} placement="right">
                               <span
                                 style={depthBtnStyle(effectiveColDepth <= 0)}
-                                onClick={(e) => { e.stopPropagation(); if (effectiveColDepth > 0) setColExpandedDepth((p) => Math.max(0, Math.min(p, colTreeFull!.maxDepth) - 1)); }}
+                                onClick={(e) => { e.stopPropagation(); if (effectiveColDepth > 0) setColExpandedDepth((p) => stepDepth(p, colTreeFull!.maxDepth, -1)); }}
                               >
                                 <MaterialSymbol icon="do_not_disturb_on" size={DEPTH_ICON_SIZE} color={depthIconColor} />
                               </span>
@@ -1368,7 +1110,7 @@ export default function MatrixReport() {
                             <Tooltip title={t("matrix.expandColumns")} placement="right">
                               <span
                                 style={depthBtnStyle(effectiveColDepth >= colTreeFull!.maxDepth)}
-                                onClick={(e) => { e.stopPropagation(); if (effectiveColDepth < colTreeFull!.maxDepth) setColExpandedDepth((p) => Math.min(colTreeFull!.maxDepth, (p === Infinity ? colTreeFull!.maxDepth : p) + 1)); }}
+                                onClick={(e) => { e.stopPropagation(); if (effectiveColDepth < colTreeFull!.maxDepth) setColExpandedDepth((p) => stepDepth(p, colTreeFull!.maxDepth, 1)); }}
                               >
                                 <MaterialSymbol icon="add_circle" size={DEPTH_ICON_SIZE} color={depthIconColor} />
                               </span>

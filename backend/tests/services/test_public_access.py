@@ -282,7 +282,9 @@ class TestBuildSsoGateConfig:
         self._sso(monkeypatch, sso)
         with caplog.at_level(logging.ERROR, logger=public_access.__name__):
             assert await build_sso_gate_config("DB", context="portal x") is None
-        assert "Failed to build SSO gate config for portal x" in caplog.text
+        assert [r.getMessage() for r in caplog.records] == [
+            "Failed to build SSO gate config for portal x"
+        ]
 
     async def test_failed_discovery_returns_none(self, monkeypatch):
         async def discover(url):
@@ -350,8 +352,10 @@ class TestSetAccessCookie:
         assert attrs["samesite"] == "lax"
         assert "secure" not in attrs
         assert "partitioned" not in header.lower()
-        assert "falling back to SameSite=Lax" in caplog.text
-        assert "/d" in caplog.text
+        assert [r.getMessage() for r in caplog.records] == [
+            "Cross-site session cookie requested over plain HTTP for /d; falling back to "
+            "SameSite=Lax. An SSO-gated diagram embedded in another site needs HTTPS."
+        ]
 
 
 class TestMarkPartitioned:
@@ -412,6 +416,9 @@ class TestNormalise:
     @pytest.mark.parametrize("domains", [None, [], ["", "  "], [None]])
     def test_empty_domains_become_none(self, domains):
         assert normalise_email_domains(domains) is None
+
+    def test_only_the_at_sign_is_stripped_from_the_front(self):
+        assert normalise_email_domains(["@xerox.com", "x.org"]) == ["x.org", "xerox.com"]
 
     def test_domains_are_lowercased_stripped_deduplicated_and_sorted(self):
         assert normalise_email_domains(["@B.com", " a.org ", "b.com", "", "A.ORG"]) == [

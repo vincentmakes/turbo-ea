@@ -159,7 +159,7 @@ def check_shared_secret(request: Request) -> None:
             "platform's own header sanitisation as the control.",
         )
 
-    presented = request.headers.get(settings.PROXY_AUTH_SECRET_HEADER.lower(), "")
+    presented = request.headers.get(settings.PROXY_AUTH_SECRET_HEADER)
     if not presented or not _secrets.compare_digest(presented, expected):
         raise HTTPException(401, "Proxy authentication failed.")
 
@@ -178,8 +178,8 @@ def _decode_azure_principal(raw: str) -> dict:
     lookups are unaffected: ``_first_claim`` already takes ``value[0]`` for a list.
     """
     try:
-        padded = raw + "=" * (-len(raw) % 4)
-        decoded = base64.b64decode(padded)
+        # App Service may strip the padding; b64decode ignores any beyond what it needs.
+        decoded = base64.b64decode(raw + "==")
         payload = json.loads(decoded)
     except (binascii.Error, ValueError, UnicodeDecodeError) as exc:
         raise HTTPException(401, "Malformed proxy identity header.") from exc
@@ -308,7 +308,7 @@ def _check_domain(email: str) -> None:
             "TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS, or "
             "TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN=true to accept any domain.",
         )
-    domain = email.rsplit("@", 1)[-1].lower()
+    domain = email.rpartition("@")[2].lower()
     if domain not in allowed:
         raise HTTPException(403, "Sign-in is restricted to approved email domains.")
 
@@ -323,7 +323,7 @@ def resolve_identity(request: Request) -> ProxyIdentity:
     verified = False
 
     if settings.PROXY_AUTH_MODE == "azure_easyauth":
-        id_token = request.headers.get(AZURE_ID_TOKEN_HEADER, "")
+        id_token = request.headers.get(AZURE_ID_TOKEN_HEADER)
         if verify:
             # Fail-closed. Falling back to the claims header here would mean an
             # attacker need only omit the token to reach the unverified path.
@@ -337,7 +337,7 @@ def resolve_identity(request: Request) -> ProxyIdentity:
             claims = _verify_forwarded_id_token(id_token)
             verified = True
         else:
-            raw = request.headers.get(AZURE_PRINCIPAL_HEADER, "")
+            raw = request.headers.get(AZURE_PRINCIPAL_HEADER)
             if raw:
                 claims = _decode_azure_principal(raw)
 
@@ -358,12 +358,12 @@ def resolve_identity(request: Request) -> ProxyIdentity:
                 "Proxy id-token verification is only supported in azure_easyauth mode. "
                 "Turn off TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN for header mode.",
             )
-        email = request.headers.get(settings.PROXY_AUTH_EMAIL_HEADER.lower(), "").strip()
-        display_name = request.headers.get(settings.PROXY_AUTH_NAME_HEADER.lower(), "").strip()
-        subject_id = request.headers.get(settings.PROXY_AUTH_SUBJECT_HEADER.lower(), "").strip()
+        email = request.headers.get(settings.PROXY_AUTH_EMAIL_HEADER, "").strip()
+        display_name = request.headers.get(settings.PROXY_AUTH_NAME_HEADER, "").strip()
+        subject_id = request.headers.get(settings.PROXY_AUTH_SUBJECT_HEADER, "").strip()
         # oauth2-proxy et al. carry group / role membership as one comma-separated
         # header rather than a claim set.
-        raw_roles = request.headers.get(settings.PROXY_AUTH_ROLE_HEADER.lower(), "")
+        raw_roles = request.headers.get(settings.PROXY_AUTH_ROLE_HEADER, "")
         roles = tuple(r.strip() for r in raw_roles.split(",") if r.strip())
 
     if not email:
@@ -374,7 +374,7 @@ def resolve_identity(request: Request) -> ProxyIdentity:
     # An id token may say the address is unverified. The SSO callback does not
     # check this, but the portal gate does (public_access.resolve_sso_visitor_email)
     # and the stricter behaviour is the right one for a path that creates accounts.
-    email_verified = claims.get("email_verified") if claims else None
+    email_verified = claims.get("email_verified")
     if email_verified is False:
         raise HTTPException(403, "Your email address is not verified with the identity provider.")
 

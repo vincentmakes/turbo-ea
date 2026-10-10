@@ -84,58 +84,20 @@ def _bundled_payload(*, locale: str = "en") -> tuple[list[dict[str, Any]], dict[
     return flat, meta
 
 
-def _localize_via_bundled_package(
-    flat: list[dict[str, Any]],
-    *,
-    locale: str,
-) -> list[dict[str, Any]]:
-    """Fallback localizer for cached payloads pre-dating i18n caching."""
-    if locale == "en":
-        return flat
-    table = common.bundled_i18n_table(locale)
-    if not table:
-        return flat
-    return common.localize_flat_with_table(flat, table)
-
-
 async def _resolve_active_catalogue(
     db: AsyncSession,
     *,
     locale: str = "en",
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    bundled_flat, bundled_meta = _bundled_payload(locale=locale)
-    cached = await common.get_cached_remote(db, SETTINGS_KEY)
-    if cached and common.version_tuple(cached.get("catalogue_version", "0")) > common.version_tuple(
-        bundled_meta["catalogue_version"]
-    ):
-        cached_data = list(cached["data"])
-        cached_i18n = cached.get("i18n") or {}
-        cached_locales = set(cached_i18n.keys())
-        bundled_locales = set(_bundled_available_locales())
-        available = sorted({"en"} | cached_locales | bundled_locales)
-        effective = common.resolve_effective_locale(locale, available)
-        if effective != "en":
-            table = cached_i18n.get(effective)
-            if table:
-                cached_data = common.localize_flat_with_table(cached_data, table)
-            else:
-                cached_data = _localize_via_bundled_package(cached_data, locale=effective)
-        return cached_data, {
-            "catalogue_version": cached["catalogue_version"],
-            "schema_version": str(cached.get("schema_version", "")),
-            "generated_at": cached.get("generated_at"),
-            "process_count": cached.get("process_count", len(cached["data"])),
-            "source": "remote",
-            "fetched_at": cached.get("fetched_at"),
-            "bundled_version": bundled_meta["catalogue_version"],
-            "available_locales": available,
-            "active_locale": effective,
-        }
-    return bundled_flat, {
-        **bundled_meta,
-        "source": "bundled",
-        "bundled_version": bundled_meta["catalogue_version"],
-    }
+    active = await common.resolve_active_catalogue(
+        db,
+        cache_key=SETTINGS_KEY,
+        locale=locale,
+        bundled=_bundled_payload(locale=locale),
+        bundled_locales=_bundled_available_locales(),
+        count_key="process_count",
+    )
+    return active.flat, active.meta
 
 
 # ---------------------------------------------------------------------------

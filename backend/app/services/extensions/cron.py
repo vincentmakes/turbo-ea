@@ -63,7 +63,8 @@ class _CronSpec:
 def _parse_field(raw: str, name: str, lo: int, hi: int) -> tuple[frozenset[int], bool]:
     """Return ``(values, restricted)`` — restricted is False only for ``*``."""
     values: set[int] = set()
-    restricted = True
+    # Only a bare "*" leaves the field unrestricted; "*/2" and "1-31" do not.
+    restricted = raw.strip() != "*"
     for part in raw.split(","):
         part = part.strip()
         if not part:
@@ -78,8 +79,6 @@ def _parse_field(raw: str, name: str, lo: int, hi: int) -> tuple[frozenset[int],
             if step < 1:
                 raise CronError(f"{name}: step must be >= 1 in {raw!r}")
         if part == "*":
-            if step == 1 and raw.strip() == "*":
-                restricted = False
             start, end = lo, hi
         elif "-" in part:
             a, _, b = part.partition("-")
@@ -96,9 +95,8 @@ def _parse_field(raw: str, name: str, lo: int, hi: int) -> tuple[frozenset[int],
             raise CronError(f"{name}: inverted range in {raw!r}")
         if start < lo or end > hi:
             raise CronError(f"{name}: value out of range {lo}-{hi} in {raw!r}")
+        # start <= end, so every part adds at least ``start``: never empty.
         values.update(range(start, end + 1, step))
-    if not values:
-        raise CronError(f"{name}: no values in {raw!r}")
     return frozenset(values), restricted
 
 
@@ -107,7 +105,7 @@ def _parse(expr: str) -> _CronSpec:
     if len(fields) != 5:
         raise CronError(f"cron expression must have 5 fields, got {len(fields)}: {expr!r}")
     parsed: list[tuple[frozenset[int], bool]] = []
-    for raw, (name, lo, hi) in zip(fields, _FIELD_RANGES, strict=True):
+    for raw, (name, lo, hi) in zip(fields, _FIELD_RANGES):  # five of each, checked above
         parsed.append(_parse_field(raw, name, lo, hi))
     (minutes, _), (hours, _), (dom, dom_r), (months, _), (dow_raw, dow_r) = parsed
     # Fold cron's Sunday=7 alias onto 0.
