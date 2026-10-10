@@ -1618,3 +1618,21 @@ async def test_imported_capability_attributes(db, monkeypatch):
     )
     assert result["relinked"] == []
     assert result["warnings"] == []
+
+
+def test_bundled_payload_counts_from_the_package_constant(monkeypatch):
+    # The wheel's NODE_COUNT is the count shown; a wheel without one counts the list.
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    monkeypatch.setattr(svc.catalogue_pkg, "NODE_COUNT", 99)
+    assert svc._bundled_payload()[1]["node_count"] == 99
+    monkeypatch.delattr(svc.catalogue_pkg, "NODE_COUNT")
+    assert svc._bundled_payload()[1]["node_count"] == len(_FAKE_CATALOGUE)
+
+
+def test_a_macro_is_known_by_its_id_prefix():
+    from app.services import capability_catalogue_service as svc
+
+    assert svc._is_macro({"id": "MC-1"}) is True
+    assert svc._is_macro({"id": "BC-1"}) is False

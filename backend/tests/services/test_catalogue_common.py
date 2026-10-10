@@ -505,6 +505,36 @@ class TestMatchExistingCards:
         )
         assert matches == {"VS-1": str(stream.id)}
 
+    async def test_subtypes_narrow_the_catalogue_id_match_too(self, db):
+        user = await create_user(db, email="m6@x.com")
+        await create_card(
+            db,
+            card_type="BusinessContext",
+            name="Renamed elsewhere",
+            user_id=user.id,
+            attributes={"catalogueId": "VS-1"},
+        )
+        flat = [{"id": "VS-1", "name": "Order to Cash"}]
+        matches = await common.match_existing_cards(
+            db,
+            flat=flat,
+            english={n["id"]: n for n in flat},
+            card_type="BusinessContext",
+            subtypes=("valueStream",),
+        )
+        assert matches == {}
+
+    async def test_an_entry_missing_from_the_english_index_keeps_its_own_name(self, db):
+        user = await create_user(db, email="m7@x.com")
+        card = await create_card(
+            db, card_type="BusinessCapability", name="Billing", user_id=user.id
+        )
+        flat = [{"id": "BC-1", "name": "Billing"}]
+        matches = await common.match_existing_cards(
+            db, flat=flat, english={}, card_type="BusinessCapability"
+        )
+        assert matches == {"BC-1": str(card.id)}
+
 
 class TestEnglishIndex:
     async def test_an_english_payload_is_its_own_index(self, db):
@@ -597,6 +627,40 @@ class TestRelinkPreExisting:
         event = (await db.execute(select(Event).where(Event.card_id == child.id))).scalar_one()
         assert event.data["changes"] == {"parent_id": {"old": None, "new": str(parent.id)}}
 
+    async def test_skipped_entries_do_not_stop_the_ones_after_them(self, db):
+        # Entries are walked in sorted order. An unknown id, one whose parent
+        # this import did not create and one whose card is gone all sort
+        # before the card that moves, and each is skipped, not the end.
+        owner = await create_user(db, email="r4@x.com")
+        importer = await create_user(db, email="r5@x.com")
+        child = await create_card(db, card_type="BusinessCapability", name="D", user_id=owner.id)
+        parent = await create_card(db, card_type="BusinessCapability", name="P", user_id=owner.id)
+        relinked = await common.relink_pre_existing(
+            db,
+            pre_existing={"A-unknown", "B-kept", "C-gone", "D"},
+            by_id={
+                "B-kept": {"id": "B-kept", "parent_id": "OLD"},
+                "C-gone": {"id": "C-gone", "parent_id": "P"},
+                "D": {"id": "D", "parent_id": "P"},
+            },
+            created_in_batch={"P"},
+            card_ids={
+                "B-kept": str(uuid.uuid4()),
+                "C-gone": str(uuid.uuid4()),
+                "D": str(child.id),
+                "P": str(parent.id),
+            },
+            user_id=importer.id,
+        )
+        assert relinked == [
+            {"catalogue_id": "D", "card_id": str(child.id), "new_parent_card_id": str(parent.id)}
+        ]
+        await db.refresh(child)
+        assert (child.parent_id, child.updated_by) == (parent.id, importer.id)
+        event = (await db.execute(select(Event).where(Event.card_id == child.id))).scalar_one()
+        assert event.data["id"] == str(child.id)
+        assert event.user_id == importer.id
+
     async def test_nothing_moves_unless_the_parent_was_created_now(self, db):
         user = await create_user(db, email="r3@x.com")
         child = await create_card(db, card_type="BusinessCapability", name="C", user_id=user.id)
@@ -638,6 +702,32 @@ class TestAddRelationOnce:
         await db.flush()
         assert await common.add_relation_once(
             db, relation_type="relTwo", source_id=a.id, target_id=b.id
+        )
+
+    async def test_the_same_type_to_another_card_is_its_own_row(self, db):
+        user = await create_user(db, email="a3@x.com")
+        proc = await create_card(db, card_type="BusinessProcess", name="P1", user_id=user.id)
+        other_proc = await create_card(db, card_type="BusinessProcess", name="P2", user_id=user.id)
+        cap = await create_card(db, card_type="BusinessCapability", name="C1", user_id=user.id)
+        other_cap = await create_card(
+            db, card_type="BusinessCapability", name="C2", user_id=user.id
+        )
+        rel = "relProcessToBC"
+        assert await common.add_relation_once(
+            db, relation_type=rel, source_id=proc.id, target_id=cap.id
+        )
+        await db.flush()
+        assert await common.add_relation_once(
+            db, relation_type=rel, source_id=other_proc.id, target_id=cap.id
+        )
+        await db.flush()
+        assert await common.add_relation_once(
+            db, relation_type=rel, source_id=proc.id, target_id=other_cap.id
+        )
+        await db.flush()
+        rows = (await db.execute(select(Relation.source_id, Relation.target_id))).all()
+        assert sorted(tuple(r) for r in rows) == sorted(
+            [(proc.id, cap.id), (other_proc.id, cap.id), (proc.id, other_cap.id)]
         )
 
 

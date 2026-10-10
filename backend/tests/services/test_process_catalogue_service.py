@@ -407,3 +407,14 @@ async def test_imported_process_attributes_and_subtype(db, monkeypatch):
     }
     # APQC L4 ("Activity") has no subtype of its own and lands as a process
     assert card.subtype == "process"
+
+
+def test_bundled_payload_counts_from_the_package_constant(monkeypatch):
+    # The wheel's PROCESS_COUNT is the count shown; a wheel without one counts the list.
+    _install_fake_pkg(monkeypatch)
+    from app.services import process_catalogue_service as svc
+
+    monkeypatch.setattr(svc.catalogue_pkg, "PROCESS_COUNT", 77)
+    assert svc._bundled_payload()[1]["process_count"] == 77
+    monkeypatch.delattr(svc.catalogue_pkg, "PROCESS_COUNT")
+    assert svc._bundled_payload()[1]["process_count"] == len(_FAKE_PROCESSES)
