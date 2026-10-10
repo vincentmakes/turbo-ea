@@ -744,6 +744,41 @@ class TestCreateCatalogueCard:
         events = (await db.execute(select(Event).where(Event.card_id == card.id))).scalars().all()
         assert [(e.event_type, e.user_id) for e in events] == [("card.created", user.id)]
 
+    async def test_a_plain_string_refusal_is_returned_as_is(self, db):
+        """Not every refusal is the sibling-name dict: the hierarchy depth guard
+        raises a plain string, which comes back untouched, and the flushed row
+        is gone with the savepoint."""
+        user = await create_user(db, email="cc3@x.com")
+        parent = None
+        for level in range(1, 6):
+            parent = await create_card(
+                db,
+                card_type="BusinessCapability",
+                name=f"L{level}",
+                user_id=user.id,
+                parent_id=parent.id if parent is not None else None,
+            )
+        assert parent is not None
+
+        card, reason = await common.create_catalogue_card(
+            db,
+            user,
+            type_key="BusinessCapability",
+            name="Too deep",
+            subtype=None,
+            description=None,
+            parent_id=str(parent.id),
+            attributes={"catalogueId": "BC-deep"},
+            allocator=common.ReferenceAllocator(),
+        )
+
+        assert card is None
+        assert reason.startswith(
+            "Cannot set parent: hierarchy would exceed maximum depth of 5 levels"
+        )
+        rows = (await db.execute(select(Card).where(Card.name == "Too deep"))).scalars().all()
+        assert rows == []
+
     async def test_a_refused_row_rolls_back_alone_and_names_the_reason(self, db):
         user = await create_user(db, email="cc2@x.com")
         taken = await create_card(db, card_type="BusinessCapability", name="Taken", user_id=user.id)
