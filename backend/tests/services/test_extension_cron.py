@@ -150,6 +150,8 @@ class TestParseErrorsNameTheField:
             ("* * * 5-3 *", "month: inverted range in '5-3'"),
             ("* * * * 8", "day-of-week: value out of range 0-7 in '8'"),
             ("60 * * * *", "minute: value out of range 0-59 in '60'"),
+            # The range splits at its first "-": a negative start is no range at all.
+            ("-1-5 * * * *", "minute: bad range in '-1-5'"),
         ],
     )
     def test_message(self, expr, message):
@@ -186,3 +188,21 @@ class TestTimezones:
         result = next_fire("* * * * *", after)
         assert result == datetime(2026, 1, 1, 10, 1, tzinfo=UTC)
         assert (result.second, result.microsecond) == (0, 0)
+
+    def test_the_host_clock_zone_plays_no_part(self):
+        import os
+        import time
+        from datetime import timedelta, timezone
+
+        previous = os.environ.get("TZ")
+        os.environ["TZ"] = "JST-9"  # a host nine hours ahead of UTC
+        time.tzset()
+        try:
+            after = datetime(2026, 1, 1, 10, 0, tzinfo=timezone(timedelta(hours=2)))
+            assert next_fire("0 9 * * *", after) == datetime(2026, 1, 1, 9, 0, tzinfo=UTC)
+        finally:
+            if previous is None:
+                del os.environ["TZ"]
+            else:
+                os.environ["TZ"] = previous
+            time.tzset()

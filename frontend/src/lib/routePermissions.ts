@@ -130,8 +130,6 @@ export const INTENTIONALLY_UNGATED: string[] = [
   "*",
 ];
 
-/** Route patterns wrapped in a `matchRoutes`-compatible shape, built once. */
-const MATCHABLE = ROUTE_PERMISSIONS.map((r) => ({ path: r.path }));
 
 /**
  * The permission a pathname requires, or `undefined` when it is ungated.
@@ -141,11 +139,12 @@ const MATCHABLE = ROUTE_PERMISSIONS.map((r) => ({ path: r.path }));
  * without the table having to be hand-ordered.
  */
 export function permissionForPath(pathname: string): string | string[] | undefined {
-  const matches = matchRoutes(MATCHABLE, pathname);
-  if (!matches || matches.length === 0) return undefined;
+  // The table entries are route objects themselves, so the match hands back
+  // the entry it matched; null when nothing does.
+  const matches = matchRoutes(ROUTE_PERMISSIONS, pathname);
+  if (!matches) return undefined;
   // matchRoutes ranks best-first for a flat route array.
-  const matched = matches[matches.length - 1].route as { path?: string };
-  return ROUTE_PERMISSIONS.find((r) => r.path === matched.path)?.permission;
+  return matches[matches.length - 1].route.permission;
 }
 
 /**

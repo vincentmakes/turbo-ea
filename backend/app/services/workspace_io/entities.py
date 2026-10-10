@@ -295,10 +295,12 @@ async def apply_entity_section(
     sr: Any,
     resolver: CardResolver,
     email_to_id: dict[str, Any],
-    *,
-    dry_run: bool,
 ) -> None:
-    """Create rows for a section, preserving PKs and resolving card/user FKs."""
+    """Create rows for a section, preserving PKs and resolving card/user FKs.
+
+    A dry run needs nothing of its own here: ``_run`` wraps the whole preview
+    in one savepoint and rolls it back.
+    """
     rows = bundle.rows(section.sheet)
     if not rows:
         return

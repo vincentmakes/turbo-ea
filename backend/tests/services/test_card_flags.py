@@ -273,3 +273,23 @@ def test_without_a_now_the_cutoff_counts_from_today_in_utc(monkeypatch):
 
     monkeypatch.setattr(card_flags, "datetime", _UtcOnlyClock)
     assert staleness_cutoff(30, "days") == datetime(2025, 9, 1, tzinfo=timezone.utc)
+
+
+# _jsonb_present — FALSE, never NULL, so it stays safe to negate
+
+
+async def test_a_jsonb_member_is_present_only_when_it_holds_text(db):
+    from sqlalchemy import cast, literal, select
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    from app.services.card_flags import _jsonb_present
+
+    doc = cast(literal('{"set": "x", "null": null, "empty": ""}'), JSONB)
+    row = (
+        await db.execute(
+            select(*(_jsonb_present(doc[key]) for key in ("set", "missing", "null", "empty")))
+        )
+    ).one()
+    # An absent member answers FALSE, not SQL NULL: a NULL here would vanish
+    # under NOT and turn "nothing recorded" filters into "nothing found".
+    assert tuple(row) == (True, False, False, False)

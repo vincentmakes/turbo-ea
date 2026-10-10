@@ -595,6 +595,16 @@ async def _auto_configure_ai() -> None:
         logger.info("[ai] Auto-configured AI: provider=%s  model=%s", provider_url, model)
 
 
+def _ollama_has_model(available: list[str], model: str) -> bool:
+    """Whether Ollama's ``/api/tags`` list holds exactly ``model``.
+
+    Ollama lists every model with its tag, and a name given without one
+    means ``:latest``. Another size of the same family (``gemma3:27b`` for
+    ``gemma3:4b``) is a different model and does not count.
+    """
+    return (model if ":" in model else f"{model}:latest") in available
+
+
 async def _ensure_ollama_model() -> None:
     """Background task: pull the configured model if Ollama doesn't have it yet.
 
@@ -635,8 +645,7 @@ async def _ensure_ollama_model() -> None:
             resp = await client.get(tags_url)
             resp.raise_for_status()
             available = [m.get("name", "") for m in resp.json().get("models", [])]
-            # Check both exact match and name without tag (e.g. "gemma3:4b" or "gemma3")
-            if any(model in m or m.startswith(model.split(":")[0]) for m in available):
+            if _ollama_has_model(available, model):
                 logger.info("[ai] Model '%s' already available in Ollama", model)
                 return
     except httpx.HTTPError as exc:

@@ -134,3 +134,7 @@ class TestEdgeFiltering:
         )
         assert order.index("b") < order.index("a")
         assert order.index("S") < order.index("x")
+
+    def test_an_edge_with_an_unknown_end_listed_first(self):
+        for unknown in [("a", "ghost"), ("ghost", "a"), ("ghost", "phantom")]:
+            assert order_flow_nodes(["a", "b"], [unknown, ("b", "a")], {}) == ["b", "a"]
