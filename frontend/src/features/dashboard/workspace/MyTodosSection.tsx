@@ -34,6 +34,8 @@ export default function MyTodosSection() {
     api
       .get<TodoRow[]>("/todos?status=open&assigned_only=true")
       .then((rows) => setTodos(rows.slice(0, MAX_VISIBLE)))
+      // A failed load leaves the empty list the section starts with.
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
