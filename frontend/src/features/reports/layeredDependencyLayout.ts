@@ -21,10 +21,13 @@ import {
   DRAG_ROOM,
   GROUP_GAP,
   LABEL_H,
+  flowMarkers,
   PAD,
   layoutGroup,
   type PositionedNode,
   readFlowDir,
+  relationSevered,
+  routeEdgeData,
   typeCategory,
   typeColor,
   typeIcon,
@@ -597,18 +600,8 @@ export function buildLdvFlow(
   );
 
   const rfEdges: Edge[] = oriented.map((e, i) => {
-    // Arrowheads encode flow direction:
-    //  - forward (default semantics): arrow at target end only
-    //  - reverse: arrow at source end only — data flows target → source
-    //  - bidirectional: arrows on both ends
-    //  - unset: keep the historical default (markerEnd only)
-    const severed =
-      changeStateById.get(e.source) === "retired" || changeStateById.get(e.target) === "retired";
-    const arrow = { type: "arrowclosed" as const, color: severed ? "#d32f2f" : "#888" };
-    const markerStart =
-      e.flowDirection === "reverse" || e.flowDirection === "bidirectional" ? arrow : undefined;
-    const markerEnd =
-      e.flowDirection === "reverse" ? undefined : arrow;
+    // Arrowheads encode flow direction (see flowMarkers).
+    const severed = relationSevered(changeStateById, e.source, e.target);
     return {
       id: `ldve-${i}`,
       source: e.source,
@@ -623,17 +616,10 @@ export function buildLdvFlow(
         flowDirection: e.flowDirection,
         description: e.description,
         severed,
-        pathOffset: routes[i].pathOffset,
-        minOffset: routes[i].minOffset,
-        labelT: routes[i].labelT,
-        ...(routes[i].centerY !== undefined ? { centerY: routes[i].centerY } : {}),
-        ...(routes[i].waypoints
-          ? { waypoints: routes[i].waypoints, anchors: routes[i].anchors }
-          : {}),
+        ...routeEdgeData(routes[i]),
       } satisfies LdvEdgeData,
       animated: false,
-      ...(markerStart ? { markerStart } : {}),
-      ...(markerEnd ? { markerEnd } : {}),
+      ...flowMarkers(e.flowDirection, severed),
     };
   });
 

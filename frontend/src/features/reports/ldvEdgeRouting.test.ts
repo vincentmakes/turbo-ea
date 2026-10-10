@@ -649,6 +649,92 @@ describe("routeLdvEdges vertical de-overlap", () => {
 /*  Export routing                                                     */
 /* ------------------------------------------------------------------ */
 
+describe("routeLdvEdges label spread", () => {
+  // Several relation types between one pair: their lines run side by side on
+  // handles 36–40 px apart, so their labels' midpoints are as close.
+  const pair = { s: { x: 0, y: 0 }, t: { x: 0, y: 300 } };
+  const lanes = { s: "A", t: "B" };
+  const labelled = (label: string): OrientedEdge => ({
+    source: "s",
+    target: "t",
+    relLabel: label,
+    flipped: false,
+  });
+
+  it("spreads labels within 80 px of the first to 0.2 / 0.5 / 0.8, left to right", () => {
+    // Midpoints at x -76, -40, 0 and 40: the first three cluster; the fourth
+    // is 116 px from the first and keeps the middle.
+    const { routes } = route(
+      [labelled("a"), labelled("b"), labelled("c"), labelled("d")],
+      pair,
+      lanes,
+    );
+    expect(routes.map((r) => r.sourceHandle)).toEqual(["b-1", "b-2", "b-3", "b-4"]);
+    expect(routes.map((r) => r.labelT)).toEqual([0.2, 0.5, 0.8, 0.5]);
+  });
+
+  it("spreads a cluster of two to 0.2 and 0.8", () => {
+    // Midpoints at x -40, 0 and 40: the third is exactly 80 px from the first.
+    const { routes } = route([labelled("a"), labelled("b"), labelled("c")], pair, lanes);
+    expect(routes.map((r) => r.labelT)).toEqual([0.2, 0.8, 0.5]);
+  });
+
+  it("leaves unlabelled lines out of a cluster", () => {
+    // The two labelled lines are 80 px apart, not less, and the unlabelled
+    // one between them joins nothing.
+    const { routes } = route([labelled("a"), labelled(""), labelled("c")], pair, lanes);
+    expect(routes.map((r) => r.labelT)).toEqual([0.5, 0.5, 0.5]);
+  });
+
+  it("nudges a spread label off a card toward the middle of its line", () => {
+    // 50 px between the cards: a label at 0.2 or 0.8 would sit on a card, so
+    // each moves 40 % of the way to 0.5 — once is enough here.
+    const { routes } = route(
+      [labelled("a"), labelled("b"), labelled("c")],
+      { s: { x: 0, y: 0 }, t: { x: 0, y: 130 } },
+      lanes,
+    );
+    expect(routes[0].labelT).toBeCloseTo(0.32, 10);
+    expect(routes[1].labelT).toBeCloseTo(0.68, 10);
+    expect(routes[2].labelT).toBe(0.5);
+  });
+
+  it("nudges at most five times on cards too close to clear", () => {
+    const { routes } = route(
+      [labelled("a"), labelled("b"), labelled("c")],
+      { s: { x: 0, y: 0 }, t: { x: 0, y: 110 } },
+      lanes,
+    );
+    // 0.2 → 0.32 → 0.392 → 0.4352 → 0.46112 → 0.476672: five steps, then it stops.
+    expect(routes[0].labelT).toBeCloseTo(0.476672, 10);
+    expect(routes[1].labelT).toBeCloseTo(0.523328, 10);
+  });
+});
+
+describe("routeLdvEdges obstruction clearance", () => {
+  // A diagonal line from s's bottom (x 76) to t's top (x 224); its middle is
+  // x 150. A card in t's row overlaps it and cannot be channel-routed around.
+  const lanes = { s: "A", m: "B", t: "B" };
+
+  it("asks for half the card's width plus 30 when the card is centred on the line", () => {
+    const { routes } = route(
+      [edge("s", "t")],
+      { s: { x: 0, y: 0 }, m: { x: 150, y: 280 }, t: { x: 300, y: 300 } },
+      lanes,
+    );
+    expect(routes[0].minOffset).toBe(130);
+  });
+
+  it("asks for less the further the card sits from the line's middle", () => {
+    const { routes } = route(
+      [edge("s", "t")],
+      { s: { x: 0, y: 0 }, m: { x: 200, y: 280 }, t: { x: 300, y: 300 } },
+      lanes,
+    );
+    expect(routes[0].minOffset).toBe(80);
+  });
+});
+
 describe("exportRoute", () => {
   const sourceCentre = { x: 0, y: 0 };
   const targetCentre = { x: 0, y: 400 };

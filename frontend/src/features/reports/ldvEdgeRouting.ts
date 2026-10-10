@@ -22,7 +22,6 @@ import {
   handleOffset,
   LDV_HANDLE_FRACTIONS,
   LDV_NODE_W,
-  LDV_NODE_H,
   type SizeLookup,
 } from "./ldvHandles";
 import {
@@ -116,22 +115,6 @@ export function absolutePosition(node: Node, byId: Map<string, Node>): XY {
     parentId = parent.parentId;
   }
   return { x, y };
-}
-
-/**
- * Absolute center of every card node (child positions are relative to their
- * parent). Works on layout output and on live nodes after a drag alike.
- */
-export function computeAbsPos(nodes: Node[]): Map<string, XY> {
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const abs = new Map<string, XY>();
-  for (const n of nodes) {
-    if (n.type === "ldvNode" && n.parentId) {
-      const { x, y } = absolutePosition(n, byId);
-      abs.set(n.id, { x: x + LDV_NODE_W / 2, y: y + LDV_NODE_H / 2 });
-    }
-  }
-  return abs;
 }
 
 /* ------------------------------------------------------------------ */

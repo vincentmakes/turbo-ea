@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.158.12] - 2026-10-10
+
+### Changed
+- Internal clean-up of the Layered Dependency View (the Dependencies report, a card's dependency section and TurboLens assessments): the rules that decide how its cards and lines look and behave moved into a module with tests of its own, and its two layouts now build arrowheads and line routing with one shared helper; nothing a user sees changes.
+
 ## [2.158.9] - 2026-10-10
 
 ### Changed

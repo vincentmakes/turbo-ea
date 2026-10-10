@@ -77,7 +77,7 @@ import "@xyflow/react/dist/style.css";
 import { useTypeLabel, useFieldLabel } from "@/hooks/useResolveLabel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useLdvSettings, toCardLabels, type LdvBackgroundStyle } from "./ldvDisplaySettings";
+import { useLdvSettings, toCardLabels } from "./ldvDisplaySettings";
 import type { CardType } from "@/types";
 import { buildLdvDiagramXml } from "@/features/diagrams/drawio-shapes";
 import { collectDiagramInputs } from "./ldvDiagramExport";
@@ -122,21 +122,34 @@ import LinkChangeIcon from "./LinkChangeIcon";
 import { isPresentAtDate } from "./timelineRange";
 import type { TimelineChange } from "./timelineRange";
 import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
-
-/* ------------------------------------------------------------------ */
-/*  Card display settings (persisted, shared store)                    */
-/* ------------------------------------------------------------------ */
-
-type BackgroundStyle = LdvBackgroundStyle;
-
-/** Lifecycle-phase → dot colour (hex, theme-independent). Mirrors LifecycleBadge. */
-const PHASE_DOT: Record<string, string> = {
-  plan: "#9e9e9e",
-  phaseIn: "#1976d2",
-  active: "#2e7d32",
-  phaseOut: "#ed6c02",
-  endOfLife: "#d32f2f",
-};
+import {
+  cardBorder,
+  cardClickAction,
+  cardTint as tintOf,
+  changeAccent,
+  changeBadge,
+  countByType,
+  DOT_INSET,
+  edgeColors,
+  edgeIsActive,
+  edgeLabelWidth,
+  edgeStrokeWidth,
+  exportFileName,
+  handleOffset,
+  handleStyle,
+  hidesCardsOnView,
+  movedBeyondClick,
+  nameLineClamp,
+  nextBackground,
+  paintOrder,
+  phaseDotColor,
+  placeEdgeLabel,
+  safeTypeColor,
+  touchesHovered,
+  truncateEdgeLabel,
+  typeIconPlacement,
+  type InteractionMode,
+} from "./ldvViewModel";
 
 /* Obstacle boxes (cards + group-label strips) that edge labels must avoid.
    Computed once per render in the parent (`computeObstacles`, ldvObstacles.ts)
@@ -157,19 +170,6 @@ const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
 // under it (see TEXT_TOP_WITH_LOGO).
 const LOGO_SIZE = 22;
 const LOGO_INSET = 4;
-
-/**
- * Where the type icon sits when a logo has taken the top-left corner: on the
- * card's top edge, immediately LEFT of the lifecycle dot.
- *
- * The dot is 9px wide with a 1.5px border, inset 6px from the right, so this
- * clears it by 3px. Computed rather than written as a literal so the two can
- * never drift apart — and applied only when a dot is actually drawn, since
- * reserving room for one that isn't there would leave the icon floating.
- */
-const DOT_INSET = 6;
-const DOT_BOX = 9 + 1.5 * 2;
-const TYPE_ICON_RIGHT_BESIDE_DOT = DOT_INSET + DOT_BOX + 3;
 
 /**
  * Where the card's text starts when a logo is present: clear of the top band
@@ -220,22 +220,18 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const isDark = theme.palette.mode === "dark";
   // Fall back to a neutral grey if the type colour isn't a #rrggbb hex, so the
   // tint maths below can't produce rgb(NaN,…).
-  const color = /^#[0-9a-fA-F]{6}$/.test(data.typeColor) ? data.typeColor : "#9e9e9e";
+  const color = safeTypeColor(data.typeColor);
   // Lightened version for borders and caption text — keeps darker
   // card-type colors (BusinessCapability navy, DataObject purple, etc.)
   // readable against the dark-theme paper.
   const accent = readableTypeColor(color, isDark);
 
-  // Light tint for background
-  const r = parseInt(color.slice(1, 3), 16);
-  const g = parseInt(color.slice(3, 5), 16);
-  const b = parseInt(color.slice(5, 7), 16);
   // The card's tint. In dark mode this used to BE the background — a 12% wash
   // with nothing behind it, so the canvas grid and every edge crossing under a
   // card showed straight through. The tint is now layered over an opaque
   // `background.paper` (see `sx` below), which is what light mode already did
   // by mixing toward white rather than going translucent.
-  const tint = isDark ? `rgba(${r},${g},${b},0.22)` : `rgba(${r},${g},${b},0.12)`;
+  const cardTint = tintOf(color, isDark, data.proposed === true);
 
   // The whole name. It used to be cut at 26 characters here, in JavaScript,
   // before CSS ever saw it \u2014 which is why a long name stayed truncated however
@@ -256,7 +252,7 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const extraLines = (data.extraLines as DisplayLine[] | undefined) ?? [];
   const showType = data.showType !== false;
   const detailText = (data.detailText as string | undefined) ?? data.name;
-  const dotColor = lifecyclePhase ? PHASE_DOT[lifecyclePhase] ?? "#9e9e9e" : null;
+  const dotColor = phaseDotColor(lifecyclePhase);
   // Minimalistic hierarchy affordances: a hidden parent (above) / hidden
   // children (below) the card can surface via the Reveal toolbar tools.
   const hiddenParent = data.hiddenParent === true;
@@ -269,14 +265,7 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   // or leaves is the timeline's job to say, not the diagram's. Only a card drawn
   // despite not being there is decorated: ghosted and badged.
   const present = isPresentAtDate(changeState);
-  const cardTint = data.proposed ? `rgba(${r},${g},${b},0.06)` : tint;
-
-  const changeColor =
-    changeState === "arriving" || changeState === "planned"
-      ? TIMELINE_COLORS.future
-      : changeState === "retired"
-        ? STATUS_COLORS.error
-        : null;
+  const changeColor = changeAccent(changeState);
   // Stays put while a neighbour comes or goes at the mark being stood on. Only
   // ever set on a card that is not itself changing there, so these never share a
   // corner with a state badge.
@@ -284,26 +273,9 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const lostLink = data.lostLink === true;
   // The NEW badge owns the top-edge slot when both would render (TurboLens
   // proposed cards never carry changeState today, but precedence is explicit).
-  const futureOnTop = changeState === "planned" && !data.proposed;
+  const badge = changeBadge(changeState, present, data.proposed === true);
 
   const usedSet = useMemo(() => new Set(data.usedHandles ?? []), [data.usedHandles]);
-  const hs = (id: string, extra?: React.CSSProperties) => {
-    // Mirrored handles (ts-N, bt-N) share visibility with their base (t-N, b-N)
-    const baseId = id.startsWith("ts-")
-      ? "t-" + id.slice(3)
-      : id.startsWith("bt-")
-        ? "b-" + id.slice(3)
-        : id;
-    const isUsed = usedSet.has(id) || usedSet.has(baseId);
-    return {
-      background: isUsed ? color : "transparent",
-      width: 5,
-      height: 5,
-      border: "none",
-      opacity: isUsed ? 1 : 0,
-      ...extra,
-    } as const;
-  };
 
   /* ---- Click + long-press via pointer events ---- */
   /* React Flow v12 swallows click events on custom nodes, but pointer
@@ -350,7 +322,7 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
     (e: React.PointerEvent) => {
       const d = downPos.current;
       if (!d) return;
-      if (Math.abs(e.clientX - d.x) > 5 || Math.abs(e.clientY - d.y) > 5) {
+      if (movedBeyondClick(d, { x: e.clientX, y: e.clientY })) {
         clearTimer();
         downPos.current = null;
       }
@@ -369,7 +341,7 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
       const d = downPos.current;
       downPos.current = null;
       if (!d) return;
-      if (Math.abs(e.clientX - d.x) > 5 || Math.abs(e.clientY - d.y) > 5) return;
+      if (movedBeyondClick(d, { x: e.clientX, y: e.clientY })) return;
       // Stop propagation so React Flow doesn't also fire its own click handler
       e.stopPropagation();
       if (onClick && nodeId) onClick(nodeId, d.shift);
@@ -412,13 +384,7 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         // An arriving card is here, so it keeps a solid border and wears the
         // future accent as its only cue — the quiet hint that it is new. Dashes
         // are reserved for cards that are NOT in this date's landscape.
-        border: changeColor
-          ? present
-            ? `2px solid ${changeColor}`
-            : `2px dashed ${changeColor}`
-          : data.proposed
-            ? `2px dashed ${accent}`
-            : `1.5px solid ${accent}`,
+        border: cardBorder(changeColor, present, data.proposed === true, accent),
         // Opaque base + the tint as a layer on top: a card is a solid object,
         // and anything showing through it reads as a rendering fault rather
         // than as depth. `background-image` composites over `background-color`,
@@ -501,9 +467,7 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
             opacity: 0.9,
             pointerEvents: "none",
             top: 5,
-            ...(logoUrl
-              ? { right: dotColor ? TYPE_ICON_RIGHT_BESIDE_DOT : DOT_INSET }
-              : { left: 6 }),
+            ...typeIconPlacement(logoUrl !== null, dotColor !== null),
           }}
         >
           <MaterialSymbol icon={data.typeIcon} size={16} color={accent} />
@@ -585,20 +549,16 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           landscape. Planned cards take the prominent top-edge slot (unless a NEW
           badge holds it); retired cards keep bottom-right. An arriving card is
           simply here, so it carries no badge. */}
-      {changeState && changeColor && !present && (
+      {badge && changeColor && (
         <Box sx={{
           position: "absolute",
-          ...(futureOnTop ? { top: -8, left: 8 } : { bottom: -8, right: 8 }),
+          ...(badge.onTop ? { top: -8, left: 8 } : { bottom: -8, right: 8 }),
           bgcolor: changeColor, color: "#fff",
           fontSize: 9, fontWeight: 700, lineHeight: 1,
           px: 0.7, py: 0.25, borderRadius: "4px",
           textTransform: "uppercase", letterSpacing: 0.5,
         }}>
-          {t(
-            changeState === "planned"
-              ? "dependency.plannedBadge"
-              : "dependency.retiredBadge",
-          )}
+          {t(badge.labelKey)}
         </Box>
       )}
       {/* What the mark does to this card's connections: blue where one is gained,
@@ -669,12 +629,7 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           type={spec.kind}
           position={HANDLE_POSITIONS[spec.side]}
           id={spec.id}
-          style={hs(
-            spec.id,
-            spec.side === "top" || spec.side === "bottom"
-              ? { left: `${spec.frac * 100}%` }
-              : undefined,
-          )}
+          style={handleStyle(spec.id, usedSet, color, handleOffset(spec))}
         />
       ))}
       {/* The card's text, centred on the CARD and using its whole width — the
@@ -706,7 +661,7 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
             // normally, one when the reader has switched on two extra fields.
             // Without this a full card spills past its own border, which
             // nothing clips (the badges deliberately overhang it).
-            WebkitLineClamp: extraLines.length > 1 ? 1 : 2,
+            WebkitLineClamp: nameLineClamp(extraLines.length),
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
             wordBreak: "break-word",
@@ -867,21 +822,16 @@ const LdvEdgeComponent = memo(
   }: EdgeProps) => {
     const theme = useTheme();
     const edgeData = data as LdvEdgeData | undefined;
-    const connectedToHovered = edgeData?.connectedToHovered ?? false;
     // Use parent-managed hover state to prevent stale highlights when
     // React Flow reorders SVG elements (local useState would go stale).
-    const isHovered = edgeData?.isHovered === true;
-    const active = edgeData?.highlightMode
-      ? connectedToHovered
-      : isHovered || connectedToHovered;
+    const active = edgeIsActive(edgeData ?? {});
     const isDark = theme.palette.mode === "dark";
     // A severed edge (one endpoint retired at the viewed date) keeps the error
     // colour even while hovered — the highlight bumps its width instead, so
     // "this dependency is going away" never reads as a healthy blue link.
     const severed = edgeData?.severed === true;
-    const baseColor = severed ? STATUS_COLORS.error : isDark ? "#aaa" : "#777";
-    const hoverColor = severed ? STATUS_COLORS.error : isDark ? "#4fc3f7" : "#1976d2";
-    const color = active ? hoverColor : baseColor;
+    const colors = edgeColors(active, severed, isDark);
+    const color = colors.stroke;
 
     // Channel-routed edges carry an orthogonal waypoint polyline that dodges
     // the rows of cards between their endpoints; `liveWaypointPolyline` honours
@@ -920,13 +870,6 @@ const LdvEdgeComponent = memo(
 
     const label = edgeData?.relLabel || "";
     const labelT = edgeData?.labelT ?? 0.5;
-    const labelBg = isDark ? "#121212" : "#ffffff";
-    const labelColor = active
-      ? (isDark ? "#4fc3f7" : "#1976d2")
-      : (isDark ? "#aaa" : "#666");
-    const labelBorder = active
-      ? (isDark ? "#4fc3f7" : "#1976d2")
-      : (isDark ? "#444" : "#ccc");
 
     // Node + group-label bounding boxes for label-overlap avoidance, computed
     // once in the parent and shared via context (see LdvObstaclesContext).
@@ -942,71 +885,30 @@ const LdvEdgeComponent = memo(
     // verb, and with the verbs hidden the count is all the line has left to say.
     const mergedCount = edgeData?.count;
     const countText = mergedCount !== undefined ? String(mergedCount) : "";
-    const maxChars = 24;
-    const displayLabel = label.length > maxChars
-      ? label.slice(0, maxChars - 1) + "\u2026"
-      : label;
+    const displayLabel = truncateEdgeLabel(label);
     // A connector's count is a filled pill beside the verb, wider than the
     // bracketed text it replaces.
-    const labelW =
-      displayLabel.length * 6.5 + 16 + (flowDir ? 17 : 0) + (countText ? countText.length * 7 + 14 : 0);
+    const labelW = edgeLabelWidth(displayLabel, Boolean(flowDir), countText);
     // A connector standing for N relations is ONE heavy solid line, never the
     // dotted idle style — a 1.2 px dotted line is what the eye reads as several
     // thin lines running together, which is the picture aggregating exists to
     // replace. Width grows with the count so "one heavy line = many relations"
     // reads at fit-to-screen, as in the #1117 sketch.
     const isConnector = mergedCount !== undefined;
-    const connectorWidth = isConnector
-      ? 1.6 + Math.min(2.8, Math.log2(Math.max(1, mergedCount)))
-      : 0;
-    const labelH = 20;
-    const margin = 6;
 
     useEffect(() => {
       const el = pathRef.current;
       if (!el || (!label && !countText)) return;
       el.setAttribute("d", path);
       const total = el.getTotalLength();
-
-      // Check if a point overlaps any node
-      const overlaps = (px: number, py: number) => {
-        const lx1 = px - labelW / 2 - margin;
-        const lx2 = px + labelW / 2 + margin;
-        const ly1 = py - labelH / 2 - margin;
-        const ly2 = py + labelH / 2 + margin;
-        for (const b of obstacleBounds) {
-          if (lx1 < b.x2 && lx2 > b.x1 && ly1 < b.y2 && ly2 > b.y1) return true;
-        }
-        return false;
-      };
-
-      // Try the preferred position first
-      const preferred = el.getPointAtLength(total * labelT);
-      if (!overlaps(preferred.x, preferred.y)) {
-        setLabelPos({ x: preferred.x, y: preferred.y });
-        return;
-      }
-
-      // Sample 20 positions along the path, find the one closest to labelT
-      // that doesn't overlap any node. Skip the ends (near source/target nodes).
-      let bestPt: { x: number; y: number } | null = null;
-      let bestDist = Infinity;
-      const steps = 20;
-      for (let i = 1; i < steps; i++) {
-        const t = i / steps;
-        if (t < 0.08 || t > 0.92) continue; // skip near endpoints
+      const at = (t: number) => {
         const pt = el.getPointAtLength(total * t);
-        if (!overlaps(pt.x, pt.y)) {
-          const dist = Math.abs(t - labelT);
-          if (dist < bestDist) {
-            bestDist = dist;
-            bestPt = { x: pt.x, y: pt.y };
-          }
-        }
-      }
-
-      setLabelPos(bestPt ?? { x: preferred.x, y: preferred.y });
-    }, [path, labelT, label, countText, obstacleBounds, labelW, labelH]);
+        return { x: pt.x, y: pt.y };
+      };
+      setLabelPos(
+        placeEdgeLabel(at, labelT, { width: labelW, height: 20, margin: 6 }, obstacleBounds),
+      );
+    }, [path, labelT, label, countText, obstacleBounds, labelW]);
 
     const finalLx = labelPos?.x ?? lx;
     const finalLy = labelPos?.y ?? ly;
@@ -1040,13 +942,7 @@ const LdvEdgeComponent = memo(
           markerStart={markerStart}
           style={{
             stroke: color,
-            strokeWidth: isConnector
-              ? active
-                ? connectorWidth + 0.8
-                : connectorWidth
-              : active
-                ? 2
-                : 1.2,
+            strokeWidth: edgeStrokeWidth(mergedCount, active),
             ...(isConnector
               ? ldvEdgeStroke("solid", { active, severed })
               : ldvEdgeStroke(edgeData?.lineStyle, { active, severed })),
@@ -1062,10 +958,10 @@ const LdvEdgeComponent = memo(
                 pointerEvents: "none",
                 fontSize: 10,
                 fontFamily: "inherit",
-                color: labelColor,
-                background: labelBg,
+                color: colors.label,
+                background: colors.labelBackground,
                 opacity: active ? 1 : 0.8,
-                border: `1px solid ${labelBorder}`,
+                border: `1px solid ${colors.labelBorder}`,
                 borderRadius: 4,
                 padding: "2px 6px",
                 whiteSpace: "nowrap",
@@ -1245,11 +1141,10 @@ function LayeredDependencyInner({
   /* ---- Card types on the view, counted BEFORE the type filter ----
      The Card types menu lists these, so a type the reader has switched off is
      still listed, with the number of cards ticking it would bring back. */
-  const typeCounts = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const n of lifecycleFiltered.nodes) m.set(n.type, (m.get(n.type) ?? 0) + 1);
-    return m;
-  }, [lifecycleFiltered.nodes]);
+  const typeCounts = useMemo(
+    () => countByType(lifecycleFiltered.nodes),
+    [lifecycleFiltered.nodes],
+  );
 
   const hiddenTypes = useMemo(
     () => new Set(settings.hiddenTypeKeys),
@@ -1371,11 +1266,9 @@ function LayeredDependencyInner({
   const [settingsAnchor, setSettingsAnchor] = useState<HTMLElement | null>(null);
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null);
 
-  /* ---- Background style cycle (lines → dots → none) ---- */
+  /* ---- Background style cycle (dots → lines → none) ---- */
   const cycleBackground = useCallback(() => {
-    const order: BackgroundStyle[] = ["dots", "lines", "none"];
-    const idx = order.indexOf(settings.background);
-    updateSettings({ background: order[(idx + 1) % order.length] });
+    updateSettings({ background: nextBackground(settings.background) });
   }, [settings.background, updateSettings]);
 
   /* ---- Full view reset: clears exploration (expand + reveals) via the
@@ -1453,7 +1346,7 @@ function LayeredDependencyInner({
           transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`,
         },
       };
-      const fname = `${(centerName || "dependency").replace(/[^\w.-]+/g, "_")}.${format}`;
+      const fname = exportFileName(centerName, format);
       try {
         // Download via a Blob (not a data URL): file-saver honours the filename
         // for Blobs through URL.createObjectURL, so the .png/.svg extension is
@@ -1575,7 +1468,6 @@ function LayeredDependencyInner({
 
   // Interaction mode: "normal" (default), "highlight" (sticky hover),
   // "expand" (add all neighbours), "parents"/"children" (add hierarchy parent/children)
-  type InteractionMode = "normal" | "highlight" | "expand" | "parents" | "children";
   const [mode, setMode] = useState<InteractionMode>("normal");
   // Ref so the node-level click callback always reads the latest mode
   const modeRef = useRef<InteractionMode>(mode);
@@ -1591,19 +1483,21 @@ function LayeredDependencyInner({
   // uses modeRef so the callback always reads the latest mode.
   const handleLdvNodeClick = useCallback(
     (nodeId: string, shiftKey: boolean) => {
-      const currentMode = modeRef.current;
-      if (currentMode === "highlight") {
+      const action = cardClickAction(modeRef.current, shiftKey, {
+        expand: Boolean(onNodeExpand),
+        reveal: Boolean(onNodeReveal),
+        recentre: Boolean(onNodeShiftClick),
+      });
+      if (action.kind === "toggleHighlight") {
         if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
         setHoveredNode((prev) => (prev === nodeId ? null : nodeId));
-      } else if (currentMode === "expand" && onNodeExpand) {
-        onNodeExpand(nodeId);
-      } else if (currentMode === "parents" && onNodeReveal) {
-        onNodeReveal(nodeId, "parents");
-      } else if (currentMode === "children" && onNodeReveal) {
-        onNodeReveal(nodeId, "children");
-      } else if (shiftKey && onNodeShiftClick) {
+      } else if (action.kind === "expand") {
+        onNodeExpand?.(nodeId);
+      } else if (action.kind === "reveal") {
+        onNodeReveal?.(nodeId, action.direction);
+      } else if (action.kind === "recentre") {
         setHoveredNode(null);
-        onNodeShiftClick(nodeId);
+        onNodeShiftClick?.(nodeId);
       } else {
         setHoveredNode(null);
         onNodeClick(nodeId);
@@ -1822,21 +1716,18 @@ function LayeredDependencyInner({
   // Inject hover state + callbacks into edges + reorder for z-index
   const orderedEdges = useMemo(() => {
     const base = settings.showRelationLabels ? rfEdges : stripEdgeLabels(rfEdges);
-    let result = base.map((e) => {
+    const result = base.map((e) => {
       const cbs = getEdgeHoverCbs(e.id);
       return {
         ...e,
         data: {
           ...e.data,
-          connectedToHovered: hoveredNode
-            ? e.source === hoveredNode ||
-              e.target === hoveredNode ||
-              // A connector stays lit when the hovered card is one of the
-              // relations it merged, not just when a whole box is hovered.
-              ((e.data as LdvEdgeData | undefined)?.members ?? []).some(
-                (m) => m.source === hoveredNode || m.target === hoveredNode,
-              )
-            : false,
+          // A connector stays lit when the hovered card is one of the
+          // relations it merged, not just when a whole box is hovered.
+          connectedToHovered: touchesHovered(
+            { source: e.source, target: e.target, data: e.data as LdvEdgeData | undefined },
+            hoveredNode,
+          ),
           isHovered: e.id === hoveredEdge,
           highlightMode,
           lineStyle: settings.edgeLineStyle,
@@ -1845,16 +1736,7 @@ function LayeredDependencyInner({
         },
       };
     });
-    if (hoveredEdge) {
-      const rest = result.filter((e) => e.id !== hoveredEdge);
-      const h = result.find((e) => e.id === hoveredEdge);
-      result = h ? [...rest, h] : result;
-    } else if (hoveredNode) {
-      const notConn = result.filter((e) => !e.data.connectedToHovered);
-      const conn = result.filter((e) => e.data.connectedToHovered);
-      result = [...notConn, ...conn];
-    }
-    return result;
+    return paintOrder(result, hoveredEdge, hoveredNode);
   }, [
     rfEdges,
     hoveredEdge,
@@ -1880,7 +1762,7 @@ function LayeredDependencyInner({
     // This early return renders no toolbar, so a reader who hid every type on
     // the canvas would have no way back to the button that hid them. Offer the
     // escape hatch here whenever the filter is what emptied the view.
-    const hidSomething = [...hiddenTypes].some((k) => typeCounts.has(k));
+    const hidSomething = hidesCardsOnView(hiddenTypes, typeCounts);
     return (
       <Paper variant="outlined" sx={{ p: 6, textAlign: "center", borderRadius: 2 }}>
         <Typography color="text.disabled">{t("dependency.ldvNoData")}</Typography>

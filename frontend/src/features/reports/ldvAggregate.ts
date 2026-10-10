@@ -43,9 +43,12 @@ import type {
 } from "./layeredDependencyLayout";
 import {
   CATEGORY_COLORS,
+  flowMarkers,
   layoutGroup,
   type PositionedNode,
   readFlowDir,
+  relationSevered,
+  routeEdgeData,
   typeCategory,
   typeColor,
   typeIcon,
@@ -290,8 +293,7 @@ export function buildLdvAggregateFlow(
     const line = `${verb}: ${nodeById.get(e.source)?.name ?? e.source} → ${
       nodeById.get(e.target)?.name ?? e.target
     }${suffix}`;
-    const severed =
-      changeStateById.get(e.source) === "retired" || changeStateById.get(e.target) === "retired";
+    const severed = relationSevered(changeStateById, e.source, e.target);
     const forward = ms === lo;
     const acc = merged.get(key);
     if (acc) {
@@ -553,10 +555,6 @@ export function buildLdvAggregateFlow(
       // several merged, or with relations running both ways, the arrowheads
       // below say it instead.
       const flow = !bothWays && singleType && m.flows.size === 1 ? [...m.flows][0] : undefined;
-      const arrow = { type: "arrowclosed" as const, color: m.allSevered ? "#d32f2f" : "#888" };
-      const markerStart =
-        bothWays || flow === "reverse" || flow === "bidirectional" ? arrow : undefined;
-      const markerEnd = !bothWays && flow === "reverse" ? undefined : arrow;
       const shown = m.lines.slice(0, MAX_TOOLTIP_LINES);
       const rest = m.lines.length - shown.length;
       const description =
@@ -577,17 +575,10 @@ export function buildLdvAggregateFlow(
           flowDirection: flow,
           description,
           severed: m.allSevered,
-          pathOffset: routes[i].pathOffset,
-          minOffset: routes[i].minOffset,
-          labelT: routes[i].labelT,
-          ...(routes[i].centerY !== undefined ? { centerY: routes[i].centerY } : {}),
-          ...(routes[i].waypoints
-            ? { waypoints: routes[i].waypoints, anchors: routes[i].anchors }
-            : {}),
+          ...routeEdgeData(routes[i]),
         } satisfies LdvEdgeData,
         animated: false,
-        ...(markerStart ? { markerStart } : {}),
-        ...(markerEnd ? { markerEnd } : {}),
+        ...flowMarkers(flow, m.allSevered, bothWays),
       });
     });
   }
@@ -639,12 +630,7 @@ export function buildLdvAggregateFlow(
     collect(usedHandles);
 
     oriented.forEach((e, i) => {
-      const severed =
-        changeStateById.get(e.source) === "retired" || changeStateById.get(e.target) === "retired";
-      const arrow = { type: "arrowclosed" as const, color: severed ? "#d32f2f" : "#888" };
-      const markerStart =
-        e.flowDirection === "reverse" || e.flowDirection === "bidirectional" ? arrow : undefined;
-      const markerEnd = e.flowDirection === "reverse" ? undefined : arrow;
+      const severed = relationSevered(changeStateById, e.source, e.target);
       rfEdges.push({
         id: `ldve-${i}`,
         source: e.source,
@@ -660,17 +646,10 @@ export function buildLdvAggregateFlow(
           description: e.description,
           severed,
           members: [{ source: e.source, target: e.target }],
-          pathOffset: routes[i].pathOffset,
-          minOffset: routes[i].minOffset,
-          labelT: routes[i].labelT,
-          ...(routes[i].centerY !== undefined ? { centerY: routes[i].centerY } : {}),
-          ...(routes[i].waypoints
-            ? { waypoints: routes[i].waypoints, anchors: routes[i].anchors }
-            : {}),
+          ...routeEdgeData(routes[i]),
         } satisfies LdvEdgeData,
         animated: false,
-        ...(markerStart ? { markerStart } : {}),
-        ...(markerEnd ? { markerEnd } : {}),
+        ...flowMarkers(e.flowDirection, severed),
       });
     });
   }
