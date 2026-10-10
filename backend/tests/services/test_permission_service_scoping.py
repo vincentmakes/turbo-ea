@@ -12,6 +12,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import select
 
 from app.models.card_type import CardType
@@ -243,6 +244,32 @@ async def test_the_all_types_cache(db, world, clock):
     assert await PermissionService.load_all_type_role_permissions(db) == {"Application": {}}
 
 
+async def test_invalidating_one_type_drops_it_and_the_all_types_map(db, world, clock):
+    ct = await app_type(db)
+    other = await create_card_type(db, key="Other", label="Other")
+    ct.role_permissions = {"plain": {"a": True}}
+    other.role_permissions = {"plain": {"b": True}}
+    await db.flush()
+    for key in ("Application", "Other"):
+        await PermissionService.load_type_role_permissions(db, key)
+    await PermissionService.load_all_type_role_permissions(db)
+    ct.role_permissions = {}
+    other.role_permissions = {}
+    await db.flush()
+
+    PermissionService.invalidate_type_permission_cache("Application")
+    assert await PermissionService.load_type_role_permissions(db, "Application") == {}
+    assert await PermissionService.load_type_role_permissions(db, "Other") == {
+        "plain": {"b": True}
+    }  # another type's entry stays cached
+    assert await PermissionService.load_all_type_role_permissions(db) == {
+        "Application": {},
+        "Other": {},
+    }
+    # A type nobody has read is not an error.
+    PermissionService.invalidate_type_permission_cache("NeverRead")
+
+
 async def test_the_stakeholder_role_cache(db, world, clock):
     assert await PermissionService.stakeholder_role_permissions(db, "Application", "owner") == {
         "card.edit": True
@@ -279,3 +306,86 @@ async def test_an_archived_stakeholder_role_grants_nothing(db, world):
     assert (
         await PermissionService.stakeholder_role_permissions(db, "Application", "watcher") is None
     )
+
+
+async def test_the_role_cache(db, world, clock):
+    role = (await db.execute(select(ps.Role).where(ps.Role.key == "plain"))).scalar_one()
+    assert await PermissionService.load_role(db, "plain") == {
+        "label": "Plain",
+        "color": role.color,
+        "permissions": {"inventory.view": False},
+    }
+    role.label = "Renamed"
+    await db.flush()
+    clock[0] += PermissionService.CACHE_TTL - 1
+    assert (await PermissionService.load_role(db, "plain"))["label"] == "Plain"  # still cached
+    # another role is its own entry
+    assert (await PermissionService.load_role(db, "admin"))["label"] == "Admin"
+    clock[0] += 1  # exactly CACHE_TTL after the read
+    assert (await PermissionService.load_role(db, "plain"))["label"] == "Renamed"
+
+
+async def test_a_role_stored_with_null_permissions_grants_nothing(db, world):
+    role = (await db.execute(select(ps.Role).where(ps.Role.key == "plain"))).scalar_one()
+    role.permissions = None
+    await db.flush()
+    assert (await PermissionService.load_role(db, "plain"))["permissions"] == {}
+    assert await PermissionService.has_app_permission(db, world["me"], "inventory.view") is False
+
+
+# ── check_permission: the card's type is looked up once, and only when needed ──
+
+
+@pytest.fixture
+def type_lookups(monkeypatch):
+    """Count ``_card_type_key`` calls, still answering from the database."""
+    calls: list[uuid.UUID | None] = []
+    real = PermissionService._card_type_key
+
+    async def counted(db, card_id):
+        calls.append(card_id)
+        return await real(db, card_id)
+
+    monkeypatch.setattr(PermissionService, "_card_type_key", staticmethod(counted))
+    return calls
+
+
+async def test_the_card_type_is_resolved_once_for_both_branches(db, world, type_lookups):
+    me, card = world["me"], world["cards"][0]
+    await hold(db, card, me, "owner")
+    assert await PermissionService.check_permission(db, me, "inventory.edit", card.id, "card.edit")
+    assert type_lookups == [card.id]
+
+
+async def test_a_type_the_caller_passes_is_not_looked_up_again(db, world, type_lookups):
+    me, card = world["me"], world["cards"][0]
+    await hold(db, card, me, "owner")
+    assert await PermissionService.check_permission(
+        db, me, "inventory.edit", card.id, "card.edit", card_type_key="Application"
+    )
+    assert type_lookups == []
+
+
+async def test_without_a_card_no_stakeholder_check_runs(db, world, monkeypatch):
+    async def must_not_run(*args, **kwargs):
+        raise AssertionError("no card, so no stakeholder lookup")
+
+    monkeypatch.setattr(PermissionService, "has_card_permission", staticmethod(must_not_run))
+    me = world["me"]
+    assert await PermissionService.check_permission(db, me, "inventory.edit") is False
+    assert (
+        await PermissionService.check_permission(db, me, "inventory.edit", None, "card.edit")
+        is False
+    )
+
+
+# ── require_permission: the card branch, and what a refusal says ────────────
+
+
+async def test_require_permission_admits_a_stakeholder_on_that_card(db, world):
+    me, (c0, c1, _) = world["me"], world["cards"]
+    await hold(db, c0, me, "owner")
+    await PermissionService.require_permission(db, me, "inventory.edit", c0.id, "card.edit")
+    with pytest.raises(HTTPException) as refused:
+        await PermissionService.require_permission(db, me, "inventory.edit", c1.id, "card.edit")
+    assert (refused.value.status_code, refused.value.detail) == (403, "Insufficient permissions")

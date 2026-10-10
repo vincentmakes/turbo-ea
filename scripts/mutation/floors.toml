@@ -38,14 +38,16 @@ mcp = 68
 
 # Backend, measured file by file with mutmut_scope.py on 2026-10-05 after the
 # test-hardening passes. Each floor sits about 2 points under its score.
+# card_read_scope, calculation_engine and permission_service were re-measured
+# on 2026-10-09 at 100% after the survivor pass of #1184.
 "backend/app/core/security.py" = 95                   # JWTs, portal tokens, the res claim
 "backend/app/core/permissions.py" = 98                # permission registry, type cells
 "backend/app/core/encryption.py" = 98                 # Fernet secrets at rest
 "backend/app/services/public_access.py" = 92          # SSO gate, visitor email, cookies
-"backend/app/services/card_read_scope.py" = 92        # the one card read scope
+"backend/app/services/card_read_scope.py" = 98        # the one card read scope
 "backend/app/services/attachment_validation.py" = 89  # uploads are what their bytes say
 "backend/app/services/relation_orientation.py" = 96   # relations in their type's direction
-"backend/app/services/calculation_engine.py" = 90     # the formula engine
+"backend/app/services/calculation_engine.py" = 98     # the formula engine
 "backend/app/services/risk_service.py" = 92           # risk register metrics and seeding
 "backend/app/services/lifecycle.py" = 98              # does this card's cost count
 "backend/app/services/fiscal_year.py" = 88
@@ -72,7 +74,7 @@ mcp = 68
 "backend/app/services/card_approval.py" = 97          # approval breaks and their fan-out
 
 # Authorization, measured in full by the nightly on 2026-10-08 at 93.0%.
-"backend/app/services/permission_service.py" = 91     # app, type-cell and stakeholder grants
+"backend/app/services/permission_service.py" = 98     # app, type-cell and stakeholder grants
 
 # Workspace transfer, measured 2026-10-08 after the applier pass.
 "backend/app/services/workspace_io/applier.py" = 95   # importing a whole workspace bundle
