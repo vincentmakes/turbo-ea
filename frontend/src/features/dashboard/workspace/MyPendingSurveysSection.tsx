@@ -27,6 +27,8 @@ export default function MyPendingSurveysSection() {
     api
       .get<MySurveyItem[]>("/surveys/my")
       .then((rows) => setSurveys(rows.slice(0, MAX_VISIBLE)))
+      // A failed load leaves the empty list the section starts with.
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
