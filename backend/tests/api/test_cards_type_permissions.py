@@ -356,3 +356,32 @@ class TestCatalogueImporterGate:
         # Past the permission gate — whatever the importer then makes of an
         # empty selection is not this test's concern.
         assert response.status_code != 403
+
+    async def test_value_stream_import_is_gated_on_the_type_it_creates(self, client, db, env):
+        """The value-stream importer creates Business Context cards. It used to
+        name a `ValueStream` type that does not exist, so a Create deny on
+        Business Context never reached it."""
+        await create_card_type(db, key="BusinessContext", label="Business Context")
+        PermissionService.invalidate_type_permission_cache()
+        await set_overrides(db, "BusinessContext", {"member": {"inventory.create": False}})
+
+        response = await client.post(
+            "/api/v1/value-stream-catalogue/import",
+            json={"ids": ["anything"]},
+            headers=auth_headers(env["member"]),
+        )
+        assert response.status_code == 403
+
+    async def test_value_stream_import_allowed_when_business_context_grants_create(
+        self, client, db, env
+    ):
+        await create_card_type(db, key="BusinessContext", label="Business Context")
+        PermissionService.invalidate_type_permission_cache()
+        await set_overrides(db, "BusinessContext", {"viewer": {"inventory.create": True}})
+
+        response = await client.post(
+            "/api/v1/value-stream-catalogue/import",
+            json={"ids": []},
+            headers=auth_headers(env["viewer"]),
+        )
+        assert response.status_code != 403

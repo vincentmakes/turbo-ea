@@ -332,3 +332,113 @@ def test_surveys_bridge_delivers_after_the_write_session_closed():
     write_at = body.find("await self._write(")
     assert deliver_at != -1 and write_at != -1
     assert deliver_at > write_at, "delivery must follow the committed write, never precede it"
+
+
+# ---------------------------------------------------------------------------
+# The reference catalogues' PyPI probe and download
+# ---------------------------------------------------------------------------
+
+_CATALOGUE_ROUTES = [
+    "app/api/v1/capability_catalogue.py",
+    "app/api/v1/process_catalogue.py",
+    "app/api/v1/value_stream_catalogue.py",
+]
+
+
+@pytest.mark.parametrize("module", _CATALOGUE_ROUTES)
+def test_update_status_releases_the_request_session_before_the_probe(module):
+    """``GET …/update-status`` probes PyPI with a 30 s timeout.
+
+    The permission check has already used the request's session, so without a
+    commit before the call ``get_db`` keeps that connection checked out for the
+    whole probe.
+    """
+    body = _function_source(module, "update_status")
+    call_at = body.find("await svc.check_remote_version(")
+    assert call_at != -1, "the endpoint must be the one asking for the remote version"
+    assert body.rfind("await db.commit()", 0, call_at) != -1, (
+        f"{module}: update_status must `await db.commit()` before "
+        "svc.check_remote_version — the commit hands the connection back."
+    )
+
+
+@pytest.mark.parametrize("module", _CATALOGUE_ROUTES)
+def test_update_fetch_releases_the_session_and_commits_the_cache_itself(module):
+    """``POST …/update-fetch`` downloads a multi-megabyte wheel from PyPI.
+
+    Same rule before the download, and the write after it is the route's to
+    commit: the helper stages the cache rows in the session it was handed and
+    must not commit it (CLAUDE.md, *A helper must never commit or roll back a
+    session it was handed*).
+    """
+    body = _function_source(module, "update_fetch")
+    call_at = body.find("await svc.fetch_remote_catalogue(")
+    assert call_at != -1, "the endpoint must be the one fetching the catalogue"
+    assert body.rfind("await db.commit()", 0, call_at) != -1, (
+        f"{module}: update_fetch must `await db.commit()` before svc.fetch_remote_catalogue."
+    )
+    assert body.find("await db.commit()", call_at) != -1, (
+        f"{module}: update_fetch must `await db.commit()` after the fetch — "
+        "the helper no longer commits the cache rows it staged."
+    )
+
+
+def test_the_version_probe_asks_pypi_before_it_reads_the_cache():
+    """``check_remote_version_for`` is called on a session whose connection the
+    route has just handed back; a cache read ahead of the probe would take it
+    out again for the whole round-trip."""
+    body = _function_source("app/services/catalogue_common.py", "check_remote_version_for")
+    probe_at = body.find("client.get(PYPI_INDEX_URL")
+    read_at = body.find("await get_cached_remote(")
+    assert probe_at != -1 and read_at != -1
+    assert probe_at < read_at, (
+        "check_remote_version_for must probe PyPI before reading the cache — "
+        "the read re-acquires the connection the route just released."
+    )
+
+
+def test_the_catalogue_fetch_helper_never_commits():
+    body = _function_source("app/services/catalogue_common.py", "fetch_and_cache_all")
+    assert "db.commit()" not in body, (
+        "fetch_and_cache_all must leave the commit to the route: it was handed the session."
+    )
+
+
+@pytest.mark.parametrize(
+    ("module", "func", "call"),
+    [
+        (
+            "app/api/v1/capability_catalogue.py",
+            "import_capabilities",
+            "await svc.import_capabilities(",
+        ),
+        ("app/api/v1/process_catalogue.py", "import_processes", "await svc.import_processes("),
+        (
+            "app/api/v1/value_stream_catalogue.py",
+            "import_value_streams",
+            "await svc.import_value_streams(",
+        ),
+    ],
+)
+def test_the_import_routes_commit_what_their_service_staged(module, func, call):
+    body = _function_source(module, func)
+    call_at = body.find(call)
+    assert call_at != -1, "the route must be the one running the import"
+    assert body.find("await db.commit()", call_at) != -1, (
+        f"{module}: {func} must `await db.commit()` after the import — the service "
+        "stages its cards and never commits a session it was handed."
+    )
+
+
+@pytest.mark.parametrize(
+    ("module", "func"),
+    [
+        ("app/services/capability_catalogue_service.py", "import_capabilities"),
+        ("app/services/process_catalogue_service.py", "import_processes"),
+        ("app/services/value_stream_catalogue_service.py", "import_value_streams"),
+    ],
+)
+def test_the_catalogue_imports_never_commit(module, func):
+    assert "db.commit()" not in _function_source(module, func), (
+        f"{func} was handed its session by the route; the route commits."
+    )

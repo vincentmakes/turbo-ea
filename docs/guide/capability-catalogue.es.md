@@ -39,6 +39,7 @@ Tras la confirmación, Turbo EA:
 - **Preserva automáticamente la jerarquía del catálogo** — cuando padre e hijo están ambos seleccionados (o el padre ya existe localmente), el `parent_id` de la nueva tarjeta hija se conecta a la tarjeta correcta.
 - **Omite silenciosamente las coincidencias existentes**. El diálogo de resultado indica cuántas se crearon y cuántas se omitieron.
 - Estampa los `attributes` de cada tarjeta nueva con `catalogueId`, `catalogueVersion`, `catalogueImportedAt` y `capabilityLevel` para que pueda rastrear su procedencia.
+- Crea cada tarjeta igual que el formulario de tarjeta: recibe una entrada en el historial, su nivel en tu propia jerarquía (`capabilityLevel` sigue la posición de la tarjeta — una capacidad importada sin su padre de catálogo es una tarjeta raíz L1), un número de referencia cuando Business Capability usa referencias automáticas y una puntuación de calidad de datos. Una entrada cuyo nombre ya usa otra tarjeta Business Capability en el mismo nivel se **reporta y no se importa**, junto con las entradas situadas debajo; el diálogo de resultado las lista con el motivo.
 
 Volver a ejecutar la misma importación es seguro — es idempotente.
 

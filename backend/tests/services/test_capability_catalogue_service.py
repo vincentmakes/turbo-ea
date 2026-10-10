@@ -21,7 +21,7 @@ from sqlalchemy import select
 
 from app.models.card import Card
 from app.services import catalogue_common as common
-from tests.conftest import create_card, create_user
+from tests.conftest import create_card, create_card_type, create_user
 
 # ---------------------------------------------------------------------------
 # Fake catalogue package
@@ -229,7 +229,9 @@ async def test_import_creates_hierarchy_and_skips_existing(db, monkeypatch):
     assert len(rows) == 1
     new_child = rows[0]
     assert str(new_child.parent_id) == str(existing_parent.id)
-    assert new_child.attributes["capabilityLevel"] == "L3"
+    # Its level is its depth in THIS hierarchy: the existing parent is a root
+    # card, so the catalogue's L3 lands as L2, as any card created under it would.
+    assert new_child.attributes["capabilityLevel"] == "L2"
     assert new_child.attributes["catalogueVersion"] == "1.2.3"
 
 
@@ -881,18 +883,18 @@ async def test_fetch_remote_catalogue_downloads_wheel_from_pypi(db, monkeypatch)
 
 
 @pytest.mark.asyncio
-async def test_fetch_remote_catalogue_falls_back_to_sdist_when_no_wheel(db, monkeypatch):
-    """If a release ships an sdist but no wheel (rare, but legal on PyPI),
-    the extractor still works because the `.tar.gz` carries the same JSON
-    paths. We exercise the fallback by serving the wheel bytes through an
-    sdist-typed URL — same payload, different `packagetype`."""
+async def test_fetch_remote_catalogue_refuses_a_release_without_a_wheel(db, monkeypatch):
+    """A release published with only an sdist cannot be read: the extractor
+    needs the wheel's zip layout. The fetch says so by name, downloads
+    nothing, and leaves the cache as it was."""
     _install_fake_pkg(monkeypatch)
     from app.services import capability_catalogue_service as svc
 
-    wheel_bytes = _build_fake_wheel(version="1.5.0")
     sdist_url = "https://files.pythonhosted.org/packages/cc/dd/turbo_ea_capabilities-1.5.0.tar.gz"
+    requested: list[str] = []
 
     def route(url: str) -> _FakeHttpResponse:
+        requested.append(url)
         if url == common.PYPI_INDEX_URL:
             return _FakeHttpResponse(
                 json_data={
@@ -900,14 +902,14 @@ async def test_fetch_remote_catalogue_falls_back_to_sdist_when_no_wheel(db, monk
                     "urls": [{"packagetype": "sdist", "url": sdist_url}],
                 }
             )
-        if url == sdist_url:
-            return _FakeHttpResponse(content=wheel_bytes)
         raise AssertionError(f"unexpected URL {url}")
 
     monkeypatch.setattr(common.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
 
-    result = await svc.fetch_remote_catalogue(db)
-    assert result["catalogue_version"] == "1.5.0"
+    with pytest.raises(ValueError, match="PyPI lists no wheel for turbo-ea-capabilities 1.5.0"):
+        await svc.fetch_remote_catalogue(db)
+    assert requested == [common.PYPI_INDEX_URL]
+    assert await common.get_cached_remote(db, common.CAPABILITY_CACHE_KEY) is None
 
 
 @pytest.mark.asyncio
@@ -1376,6 +1378,12 @@ async def test_macro_matched_by_catalogue_id_only_not_by_name(db, monkeypatch):
     `catalogueId`. Otherwise the next macro import would silently re-parent
     every unrelated L1 (whose capability_ids include "BC-1") under the
     customer's pre-existing card.
+
+    The import goes through the shared card write path, which refuses a
+    second root card of the type with the same name — as the Create dialog
+    and the Excel importer do. So the macro is offered, and on import it is
+    *reported* rather than created or matched: the customer's card stays as
+    it is, and nothing is re-parented under it.
     """
     _install_fake_pkg(monkeypatch, macros=_FAKE_MACROS)
     from app.services import capability_catalogue_service as svc
@@ -1394,16 +1402,26 @@ async def test_macro_matched_by_catalogue_id_only_not_by_name(db, monkeypatch):
     by_id = {c["id"]: c for c in payload["capabilities"]}
     assert by_id["MC-10"]["existing_card_id"] is None
 
-    # POST import must create the macro as a NEW card, not skip on the
-    # name match.
+    # POST import must not skip on the name match, and must not create a
+    # same-named sibling either: the row is reported with the write path's
+    # own reason.
     result = await svc.import_capabilities(db, user=user, catalogue_ids=["MC-10"])
-    assert len(result["created"]) == 1
-    macro_card = (
+    assert result["created"] == []
+    assert result["skipped"] == []
+    assert [f["catalogue_id"] for f in result["failed"]] == ["MC-10"]
+    reason = result["failed"][0]["reason"]
+    assert reason.startswith('A card of type BusinessCapability named "Customer Experience"')
+    assert str(unrelated_card.id) in reason
+
+    macro_cards = (
         (await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "MC-10")))
         .scalars()
-        .one()
+        .all()
     )
-    assert macro_card.id != unrelated_card.id
+    assert macro_cards == []
+    await db.refresh(unrelated_card)
+    assert unrelated_card.parent_id is None
+    assert "catalogueId" not in (unrelated_card.attributes or {})
 
 
 @pytest.mark.asyncio
@@ -1605,7 +1623,9 @@ async def test_imported_capability_attributes(db, monkeypatch):
     assert attrs == {
         "catalogueId": "BC-7",
         "catalogueVersion": "1.2.3",
-        "capabilityLevel": "L2",
+        # Imported without its parent, the card is a root card here: L1, whatever
+        # the catalogue called it (BC-7 keeps saying where it came from).
+        "capabilityLevel": "L1",
         "aliases": ["Claims"],
         "industry": "Insurance",
         "tags": ["core"],
@@ -1618,6 +1638,82 @@ async def test_imported_capability_attributes(db, monkeypatch):
     )
     assert result["relinked"] == []
     assert result["warnings"] == []
+    assert result["failed"] == []
+
+
+@pytest.mark.asyncio
+async def test_import_writes_cards_through_the_shared_write_path(db, monkeypatch):
+    """What every other create gets, an import now gets too: a reference when
+    the type numbers cards, the hierarchy level, a data-quality score and a
+    History entry. Needs the type row, which the bare test database lacks."""
+    _install_fake_pkg(monkeypatch)
+    from app.models.event import Event
+    from app.services import capability_catalogue_service as svc
+
+    ct = await create_card_type(
+        db,
+        key="BusinessCapability",
+        label="Business Capability",
+        has_hierarchy=True,
+        fields_schema=[
+            {
+                "section": "Catalogue",
+                "fields": [{"key": "industry", "label": "Industry", "type": "text", "weight": 1}],
+            }
+        ],
+    )
+    ct.reference_config = {"mode": "auto", "prefix": "BC-", "start": 1, "padding": 4}
+    await db.flush()
+    user = await create_user(db, email="path@x.com")
+
+    result = await svc.import_capabilities(
+        db, user=user, catalogue_ids=["BC-1", "BC-1.1", "BC-1.1.1"]
+    )
+    assert [c["catalogue_id"] for c in result["created"]] == ["BC-1", "BC-1.1", "BC-1.1.1"]
+    assert result["failed"] == []
+    ids = [uuid.UUID(c["card_id"]) for c in result["created"]]
+    cards = [(await db.execute(select(Card).where(Card.id == i))).scalar_one() for i in ids]
+
+    assert [c.reference for c in cards] == ["BC-0001", "BC-0002", "BC-0003"]
+    assert [c.attributes["hierarchyLevel"] for c in cards] == [1, 2, 3]
+    assert [c.attributes["capabilityLevel"] for c in cards] == ["L1", "L2", "L3"]
+    # BC-1.1 carries an industry, the one weighted field; BC-1 carries none.
+    assert cards[1].data_quality > cards[0].data_quality
+    for c in cards:
+        events = (await db.execute(select(Event).where(Event.card_id == c.id))).scalars().all()
+        assert [(e.event_type, e.user_id) for e in events] == [("card.created", user.id)]
+
+
+@pytest.mark.asyncio
+async def test_a_refused_entry_and_the_entries_below_it_are_reported(db, monkeypatch):
+    """A name two catalogue entries share never matches a card by name (#1241),
+    so importing such an entry where a card of that name already sits at the
+    same level is refused like any duplicate sibling — reported, not created,
+    and not silently rooted. Its children are reported with it rather than
+    landing as root cards."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    caps = [
+        {"id": "BC-8", "name": "Shared Name", "level": 1, "parent_id": None},
+        {"id": "BC-9", "name": "Shared Name", "level": 1, "parent_id": None},
+        {"id": "BC-9.1", "name": "Under Nine", "level": 2, "parent_id": "BC-9"},
+    ]
+    monkeypatch.setattr(common, "load_bundled_capabilities_raw", lambda: list(caps))
+    user = await create_user(db, email="refused@x.com")
+    mine = await create_card(
+        db, card_type="BusinessCapability", name="Shared Name", user_id=user.id
+    )
+
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["BC-9", "BC-9.1"])
+
+    assert result["created"] == []
+    assert result["skipped"] == []
+    assert [f["catalogue_id"] for f in result["failed"]] == ["BC-9", "BC-9.1"]
+    assert "Shared Name" in result["failed"][0]["reason"]
+    assert result["failed"][1]["reason"] == "parent not imported"
+    rows = (await db.execute(select(Card).where(Card.type == "BusinessCapability"))).scalars().all()
+    assert [(r.id, r.attributes.get("catalogueId")) for r in rows] == [(mine.id, None)]
 
 
 def test_bundled_payload_counts_from_the_package_constant(monkeypatch):

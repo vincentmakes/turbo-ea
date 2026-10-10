@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
 import type { EventEntry } from "@/types";
+import type { CardTabKey } from "@/features/cards/cardTabs";
 
 const STORAGE_KEY = "turbo-ea.cardTabsSeen";
 const LRU_CAP = 200;
@@ -10,7 +11,8 @@ const HISTORY_PAGE_SIZE = 50;
 // baseline for tabs the user has never explicitly opened.
 const FIRST_VISIT_KEY = "__first";
 
-const EVENT_TAB_MAP: Record<string, string> = {
+// Keys are card tabs (`cardTabs.ts`), so a tab renamed there fails to compile here.
+const EVENT_TAB_MAP: Record<string, CardTabKey> = {
   "comment.created": "comments",
   "stakeholder.added": "stakeholders",
   "stakeholder.role_changed": "stakeholders",

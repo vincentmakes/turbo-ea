@@ -35,7 +35,7 @@ Bei der Bestätigung legt Turbo EA:
 - Querverweise, deren Zielkarte noch nicht existiert, werden übersprungen; die Quell-IDs bleiben in den Stage-Attributen (`capabilityIds`, `processIds`) erhalten, sodass Sie sie später nach dem Import der fehlenden Artefakte verknüpfen können.
 - Stage-Karten werden mit `stageOrder`, `stageName`, `industryVariant`, `notes` sowie den ursprünglichen `capabilityIds`- / `processIds`-Listen gestempelt.
 
-Übersprungene, erstellte und neu verknüpfte Anzahlen werden gleich wie im Capability-Katalog gemeldet. Imports sind idempotent.
+Übersprungene, erstellte und neu verknüpfte Anzahlen werden gleich wie im Capability-Katalog gemeldet. Imports sind idempotent. Jede Karte wird so angelegt, wie es das Kartenformular tut — mit einem Eintrag im Verlauf, ihrer Ebene in Ihrer Hierarchie, einer Referenznummer, wenn Business Context automatische Referenzen verwendet, und einem Datenqualitätswert —, und ein Eintrag, dessen Namen bereits eine andere Business Context-Karte auf derselben Ebene trägt, wird gemeldet und nicht importiert, ebenso die Einträge darunter; der Ergebnisdialog listet sie mit dem Grund auf. Der Import ist an die Berechtigung „Erstellen“ für Business-Context-Karten gebunden, den Typ, den er anlegt.
 
 ## Detailansicht
 

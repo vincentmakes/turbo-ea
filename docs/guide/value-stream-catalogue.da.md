@@ -35,7 +35,7 @@ Ved bekræftelse vil Turbo EA:
 - Springe alle krydsreferencer over, hvis målkortet endnu ikke findes; kilde-id'erne gemmes i trinnets egenskaber (`capabilityIds`, `processIds`), så du kan forbinde dem senere ved at importere de manglende artefakter.
 - Stemple trinkort med `stageOrder`, `stageName`, `industryVariant`, `notes` og de oprindelige `capabilityIds` / `processIds`-lister.
 
-Antal sprungne, oprettede og gen-linkede rapporteres på samme måde som for kompetencekataloget. Importer er idempotente.
+Antal sprungne, oprettede og gen-linkede rapporteres på samme måde som for kompetencekataloget. Importer er idempotente. Hvert kort oprettes på samme måde som kortformularen gør det — med en post i historikken, sit niveau i dit hierarki, et referencenummer, når Business Context bruger automatiske referencer, og en datakvalitetsscore — og en post, hvis navn allerede bruges af et andet Business Context-kort på samme niveau, rapporteres og importeres ikke, og det samme gælder posterne under den; resultatdialogen lister dem med årsagen. Importen kræver tilladelsen Opret på Business Context-kort, den type den opretter.
 
 ## Detaljevisning
 

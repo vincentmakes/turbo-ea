@@ -293,6 +293,35 @@ class TestImportPathsRecordThemselves:
         assert events[0].data["source"] == "migration"
         assert events[0].data["source_type"] == "leanix"
 
+    async def test_catalogue_import_records_a_create(self, db, env):
+        """The three reference-catalogue imports create their cards through
+        ``create_catalogue_card``; before it they built ``Card`` rows by hand
+        and nothing reached the History tab."""
+        from app.services import catalogue_common as common
+        from app.services.card_reference import ReferenceAllocator
+
+        card, reason = await common.create_catalogue_card(
+            db,
+            env["user"],
+            type_key="Application",
+            name="Imported entry",
+            subtype=None,
+            description=None,
+            parent_id=None,
+            attributes={"catalogueId": "BC-1"},
+            allocator=ReferenceAllocator(),
+        )
+        assert reason == ""
+        assert card is not None
+
+        events = await _events_for(db, card.id)
+        assert [(e.event_type, e.user_id) for e in events] == [("card.created", env["user"].id)]
+        assert events[0].data == {
+            "id": str(card.id),
+            "type": "Application",
+            "name": "Imported entry",
+        }
+
     async def test_migration_apply_records_an_update(self, db, env):
         from app.models.migration import StagedRecord
         from app.services.migration.apply import _apply_single_card

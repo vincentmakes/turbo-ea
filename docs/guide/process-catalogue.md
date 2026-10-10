@@ -32,7 +32,7 @@ On confirmation, Turbo EA:
 - **Auto-creates `relProcessToBC` (supports) relations** to every existing `BusinessCapability` card listed in the process's `realizes_capability_ids`. The result dialog reports how many auto-relations landed; targets that don't yet exist in your inventory are skipped silently. Re-running the import after later importing the missing capabilities is safe — those source IDs are stored on the card so you can re-link manually if needed.
 - Stamps each new card's `attributes` with `catalogueId`, `catalogueVersion`, `catalogueImportedAt`, `processLevel` (`L1`..`L4`), and the source `frameworkRefs`, `industry`, `references`, `inScope`, `outOfScope`, `realizesCapabilityIds` from the catalogue.
 
-Skipped, created, and re-linked counts are reported the same way as for the capability catalogue. Imports are idempotent — re-running won't duplicate cards.
+Skipped, created, and re-linked counts are reported the same way as for the capability catalogue. Imports are idempotent — re-running won't duplicate cards. Each card is created the way the card form creates it — with a History entry, its level in your hierarchy, a reference number when Business Process uses automatic references and a data-quality score — and an entry whose name another Business Process card already uses at the same level is reported and not imported, together with the entries beneath it; the result dialog lists them with the reason.
 
 ## Detail view
 

@@ -23,7 +23,6 @@ from typing import Any
 import turbo_ea_capabilities as catalogue_pkg
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.card import Card
 from app.models.user import User
 from app.services import catalogue_common as common
 
@@ -272,6 +271,11 @@ async def import_capabilities(
       same call so the catalogue hierarchy is reproduced.
     - Re-parents existing children whose new catalogue parent was just
       created in this batch.
+    - Creates every card through the shared write path
+      (``common.create_catalogue_card``); a row it refuses — a name another
+      card already uses at that level — is reported in ``failed`` together
+      with the entries below it, and the rest of the batch goes on. Stages
+      only: the route commits.
     """
     flat, meta = await _resolve_active_catalogue(db, locale=locale)
     by_id = {c["id"]: c for c in flat}
@@ -283,9 +287,12 @@ async def import_capabilities(
 
     created: list[dict[str, str]] = []
     skipped: list[dict[str, str]] = []
+    failed: list[dict[str, str]] = []
+    failed_ids: set[str] = set()
     created_in_batch: set[str] = set()
     now = common.now_iso()
     user_id = user.id
+    allocator = common.ReferenceAllocator()
 
     for cap in ordered:
         if cap["id"] in pre_existing_ids:
@@ -299,22 +306,30 @@ async def import_capabilities(
             continue
 
         cat_parent = cap.get("parent_id")
+        if cat_parent in failed_ids:
+            failed.append({"catalogue_id": cap["id"], "reason": common.PARENT_NOT_IMPORTED})
+            failed_ids.add(cap["id"])
+            continue
         level_key = (
             MACRO_CAPABILITY_LEVEL_KEY if cap["level"] == MACRO_LEVEL else f"L{cap['level']}"
         )
-        card = Card(
-            type=BUSINESS_CAPABILITY_TYPE,
+        card, reason = await common.create_catalogue_card(
+            db,
+            user,
+            type_key=BUSINESS_CAPABILITY_TYPE,
             name=cap["name"],
+            subtype=None,
             description=cap.get("description"),
             parent_id=catalogue_id_to_card_id.get(cat_parent) if cat_parent else None,
             attributes=common.catalogue_attributes(
                 cap, meta, now, ("capabilityLevel", level_key), _COPIED_ATTRIBUTES
             ),
-            created_by=user_id,
-            updated_by=user_id,
+            allocator=allocator,
         )
-        db.add(card)
-        await db.flush()
+        if card is None:
+            failed.append({"catalogue_id": cap["id"], "reason": reason})
+            failed_ids.add(cap["id"])
+            continue
         catalogue_id_to_card_id[cap["id"]] = str(card.id)
         created.append({"catalogue_id": cap["id"], "card_id": str(card.id)})
         created_in_batch.add(cap["id"])
@@ -328,11 +343,11 @@ async def import_capabilities(
         user_id=user_id,
     )
 
-    await db.commit()
     macro_warnings = list(meta.get("macro_warnings") or [])
     return {
         "created": created,
         "skipped": skipped,
+        "failed": failed,
         "relinked": relinked,
         "catalogue_version": meta.get("catalogue_version"),
         "warnings": macro_warnings,

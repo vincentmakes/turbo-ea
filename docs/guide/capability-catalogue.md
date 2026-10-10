@@ -39,6 +39,7 @@ On confirmation, Turbo EA:
 - **Preserves the catalogue hierarchy** automatically — when both the parent and the child are selected (or the parent already exists locally), the new child card's `parent_id` is wired to the right card.
 - **Skips existing matches** silently. The result dialog shows how many were created and how many were skipped.
 - Stamps each new card's `attributes` with `catalogueId`, `catalogueVersion`, `catalogueImportedAt`, and `capabilityLevel` so you can trace where it came from.
+- Creates each card the way the card form does, so it gets a History entry, its level in your own hierarchy (`capabilityLevel` follows the card's position — a capability imported without its catalogue parent is an L1 root card), a reference number when Business Capability uses automatic references, and a data-quality score. An entry whose name another Business Capability card already uses at the same level is **reported and not imported**, together with the entries beneath it; the result dialog lists them with the reason.
 
 Re-running the same import is safe — it's idempotent.
 

@@ -35,7 +35,7 @@ Al confirmar, Turbo EA:
 - omite las referencias cruzadas cuya tarjeta destino aún no existe; los identificadores de origen quedan guardados en los atributos de la etapa (`capabilityIds`, `processIds`) para que pueda enlazarlos después al importar los artefactos faltantes;
 - sella las tarjetas de etapa con `stageOrder`, `stageName`, `industryVariant`, `notes` y las listas originales `capabilityIds` / `processIds`.
 
-Los recuentos de saltadas, creadas y re-vinculadas se reportan igual que en el catálogo de capacidades. Los imports son idempotentes.
+Los recuentos de saltadas, creadas y re-vinculadas se reportan igual que en el catálogo de capacidades. Los imports son idempotentes. Cada tarjeta se crea igual que con el formulario de tarjeta — con una entrada en el historial, su nivel en tu jerarquía, un número de referencia cuando Business Context usa referencias automáticas y una puntuación de calidad de datos — y una entrada cuyo nombre ya usa otra tarjeta Business Context en el mismo nivel se reporta y no se importa, junto con las entradas situadas debajo; el diálogo de resultado las lista con el motivo. El import está sujeto al permiso Crear sobre tarjetas Business Context, el tipo que crea.
 
 ## Vista detalle
 

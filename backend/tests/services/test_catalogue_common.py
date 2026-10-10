@@ -15,8 +15,10 @@ import zipfile
 from typing import Any
 
 import httpx
+import pytest
 from sqlalchemy import select
 
+from app.models.card import Card
 from app.models.event import Event
 from app.models.relation import Relation
 from app.services import catalogue_common as common
@@ -260,6 +262,40 @@ class TestExtractAllCataloguesFromWheel:
 def _pypi(version: str | None, wheel_url: str = "https://files.invalid/w.whl") -> dict:
     info = {"version": version} if version is not None else {}
     return {"info": info, "urls": [{"packagetype": "bdist_wheel", "url": wheel_url}]}
+
+
+class TestWheelUrlFromPypiPayload:
+    def test_the_wheel_is_chosen_whatever_its_position(self):
+        sdist = {"packagetype": "sdist", "url": "https://files.invalid/w.tar.gz"}
+        wheel = {"packagetype": "bdist_wheel", "url": "https://files.invalid/w.whl"}
+        payload = {"info": {"version": "2.1.0"}, "urls": [sdist, wheel]}
+        assert common.wheel_url_from_pypi_payload(payload) == (
+            "https://files.invalid/w.whl",
+            "2.1.0",
+        )
+
+    def test_a_release_with_only_an_sdist_is_refused_by_name(self):
+        payload = {
+            "info": {"version": "2.1.0"},
+            "urls": [{"packagetype": "sdist", "url": "https://files.invalid/w.tar.gz"}],
+        }
+        with pytest.raises(ValueError) as exc:
+            common.wheel_url_from_pypi_payload(payload)
+        assert str(exc.value) == "PyPI lists no wheel for turbo-ea-capabilities 2.1.0"
+
+    def test_a_wheel_entry_without_a_url_counts_as_no_wheel(self):
+        payload = {"info": {"version": "2.1.0"}, "urls": [{"packagetype": "bdist_wheel"}]}
+        with pytest.raises(ValueError, match="lists no wheel"):
+            common.wheel_url_from_pypi_payload(payload)
+        with pytest.raises(ValueError, match="lists no wheel"):
+            common.wheel_url_from_pypi_payload({"info": {"version": "2.1.0"}})
+
+    def test_a_payload_without_a_version_is_refused_first(self):
+        with pytest.raises(ValueError) as exc:
+            common.wheel_url_from_pypi_payload(_pypi(None))
+        assert str(exc.value) == "PyPI response missing info.version"
+        with pytest.raises(ValueError, match="missing info.version"):
+            common.wheel_url_from_pypi_payload(_pypi(""))
 
 
 class TestCheckRemoteVersion:
@@ -675,6 +711,106 @@ class TestRelinkPreExisting:
         assert relinked == []
         await db.refresh(child)
         assert child.parent_id is None
+
+
+class TestCreateCatalogueCard:
+    async def test_a_created_card_takes_the_write_path(self, db):
+        user = await create_user(db, email="cc1@x.com")
+        parent = await create_card(
+            db, card_type="BusinessCapability", name="Parent", user_id=user.id
+        )
+        card, reason = await common.create_catalogue_card(
+            db,
+            user,
+            type_key="BusinessCapability",
+            name="Child",
+            subtype=None,
+            description="d",
+            parent_id=str(parent.id),
+            attributes={"catalogueId": "BC-1.1", "capabilityLevel": "L5"},
+            allocator=common.ReferenceAllocator(),
+        )
+        assert reason == ""
+        assert card is not None
+        # The string id the imports carry arrives as a UUID, and the level the
+        # catalogue claimed gives way to the card's real depth.
+        assert card.parent_id == parent.id
+        assert card.attributes["capabilityLevel"] == "L2"
+        assert (card.created_by, card.updated_by, card.approval_status) == (
+            user.id,
+            user.id,
+            "DRAFT",
+        )
+        events = (await db.execute(select(Event).where(Event.card_id == card.id))).scalars().all()
+        assert [(e.event_type, e.user_id) for e in events] == [("card.created", user.id)]
+
+    async def test_a_plain_string_refusal_is_returned_as_is(self, db):
+        """Not every refusal is the sibling-name dict: the hierarchy depth guard
+        raises a plain string, which comes back untouched, and the flushed row
+        is gone with the savepoint."""
+        user = await create_user(db, email="cc3@x.com")
+        parent = None
+        for level in range(1, 6):
+            parent = await create_card(
+                db,
+                card_type="BusinessCapability",
+                name=f"L{level}",
+                user_id=user.id,
+                parent_id=parent.id if parent is not None else None,
+            )
+        assert parent is not None
+
+        card, reason = await common.create_catalogue_card(
+            db,
+            user,
+            type_key="BusinessCapability",
+            name="Too deep",
+            subtype=None,
+            description=None,
+            parent_id=str(parent.id),
+            attributes={"catalogueId": "BC-deep"},
+            allocator=common.ReferenceAllocator(),
+        )
+
+        assert card is None
+        assert reason.startswith(
+            "Cannot set parent: hierarchy would exceed maximum depth of 5 levels"
+        )
+        rows = (await db.execute(select(Card).where(Card.name == "Too deep"))).scalars().all()
+        assert rows == []
+
+    async def test_a_refused_row_rolls_back_alone_and_names_the_reason(self, db):
+        user = await create_user(db, email="cc2@x.com")
+        taken = await create_card(db, card_type="BusinessCapability", name="Taken", user_id=user.id)
+        allocator = common.ReferenceAllocator()
+        card, reason = await common.create_catalogue_card(
+            db,
+            user,
+            type_key="BusinessCapability",
+            name="Taken",
+            subtype=None,
+            description=None,
+            parent_id=None,
+            attributes={},
+            allocator=allocator,
+        )
+        assert card is None
+        assert "Taken" in reason and "{" not in reason
+        # The transaction is still usable: the next row goes through.
+        after, reason_after = await common.create_catalogue_card(
+            db,
+            user,
+            type_key="BusinessCapability",
+            name="Free",
+            subtype=None,
+            description=None,
+            parent_id=None,
+            attributes={},
+            allocator=allocator,
+        )
+        assert reason_after == "" and after is not None
+        named = (await db.execute(select(Card.id).where(Card.name == "Taken"))).scalars().all()
+        assert named == [taken.id]
 
 
 class TestAddRelationOnce:

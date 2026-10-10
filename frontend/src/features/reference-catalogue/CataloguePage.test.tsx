@@ -280,6 +280,54 @@ describe("CataloguePage — import", () => {
     expect(await screen.findByTestId("location")).toHaveTextContent("/inventory?type=BusinessCapability");
   });
 
+  it("lists the entries the server refused, with their reasons", async () => {
+    const reason = 'A card of type BusinessCapability named "Sales" already exists at this level (existing card: ca4d0000-0000-4000-8000-000000000009).';
+    mockApi.on("post", "/capability-catalogue/import", (_path, body) => {
+      const ids = (body as { catalogue_ids: string[] }).catalogue_ids;
+      const result: ImportResult = {
+        created: ids.filter((id) => id !== "BC-2").map((id) => ({ catalogue_id: id, card_id: `card-${id}` })),
+        skipped: [],
+        relinked: [],
+        failed: [{ catalogue_id: "BC-2", reason }],
+        catalogue_version: "2026.4",
+      };
+      return result;
+    });
+    const { user } = renderPage();
+    const dialog = await selectAndOpenImport(user);
+    await user.click(within(dialog).getByRole("button", { name: t("confirmCreate") }));
+
+    const done = await screen.findByRole("dialog", { name: t("importDoneTitle") });
+    expect(done).toHaveTextContent(t("importDoneBody", { created: 2, skipped: 0, relinked: 0 }));
+    expect(done).toHaveTextContent(t("importFailedBody", { count: 1 }));
+    expect(done).toHaveTextContent(`BC-2 — ${reason}`);
+    // The catalogue reloads as after any import, so the cards that did land show as existing.
+    await waitFor(() => expect(mockApi.callsOf("get", "/capability-catalogue?locale=en")).toHaveLength(2));
+  });
+
+  it("renders a result from a backend that sends no failed list", async () => {
+    mockApi.on("post", "/capability-catalogue/import", (_path, body) => {
+      const ids = (body as { catalogue_ids: string[] }).catalogue_ids;
+      // A backend older than 2.158.11: no `failed` key at all.
+      const result: Omit<ImportResult, "failed"> = {
+        created: ids.map((id) => ({ catalogue_id: id, card_id: `card-${id}` })),
+        skipped: [],
+        relinked: [],
+        catalogue_version: "2026.4",
+      };
+      return result;
+    });
+    const { user } = renderPage();
+    const dialog = await selectAndOpenImport(user);
+    await user.click(within(dialog).getByRole("button", { name: t("confirmCreate") }));
+
+    const done = await screen.findByRole("dialog", { name: t("importDoneTitle") });
+    expect(done).toHaveTextContent(t("importDoneBody", { created: 3, skipped: 0, relinked: 0 }));
+    // Only the summary alert: no warning block and no list of refused entries.
+    expect(within(done).getAllByRole("alert")).toHaveLength(1);
+    expect(within(done).queryAllByRole("list")).toHaveLength(0);
+  });
+
   it("closes the summary and forgets it", async () => {
     const { user } = renderPage();
     const dialog = await selectAndOpenImport(user);

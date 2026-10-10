@@ -39,6 +39,7 @@ Sur confirmation, Turbo EA :
 - **Préserve automatiquement la hiérarchie du catalogue** — lorsque le parent et l'enfant sont tous deux sélectionnés (ou que le parent existe déjà localement), le `parent_id` de la nouvelle fiche enfant est câblé sur la bonne fiche.
 - **Ignore silencieusement les correspondances existantes**. La boîte de dialogue de résultat indique combien de fiches ont été créées et combien ont été ignorées.
 - Estampille les `attributes` de chaque nouvelle fiche avec `catalogueId`, `catalogueVersion`, `catalogueImportedAt` et `capabilityLevel` afin que vous puissiez retracer son origine.
+- Crée chaque fiche comme le fait le formulaire de fiche : elle reçoit une entrée dans l'historique, son niveau dans votre propre hiérarchie (`capabilityLevel` suit la position de la fiche — une capacité importée sans son parent de catalogue est une fiche racine L1), un numéro de référence lorsque Business Capability utilise les références automatiques, et un score de qualité des données. Une entrée dont le nom est déjà porté par une autre fiche Business Capability au même niveau est **signalée et non importée**, de même que les entrées situées en dessous ; la boîte de dialogue de résultat les liste avec la raison.
 
 Relancer le même import est sûr — il est idempotent.
 

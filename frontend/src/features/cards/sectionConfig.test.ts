@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 
 import {
+  allFieldsHidden,
+  buildSectionOrder,
+  calculatedFieldKeys,
+  customSectionsOf,
+  hiddenFieldKeys,
   isSectionCollapsedByDefault,
   makeSectionConfigReader,
   sectionDefaultExpanded,
@@ -165,5 +170,153 @@ describe("makeSectionConfigReader", () => {
     expect(sec.expanded("description", true)).toBe(true);
     expect(sec.raw("eol")).toBeUndefined();
     expect(sec.hidden("lifecycle")).toBe(false);
+  });
+});
+
+describe("buildSectionOrder", () => {
+  const none = { hierarchy: false, successors: false };
+  const both = { hierarchy: true, successors: true };
+
+  it("uses the built-in order when none is stored", () => {
+    expect(buildSectionOrder({}, 2, both)).toEqual([
+      "description",
+      "eol",
+      "lifecycle",
+      "custom:0",
+      "custom:1",
+      "hierarchy",
+      "successors",
+      "tags",
+      "relations",
+    ]);
+  });
+
+  it("leaves hierarchy and successors out of the built-in order for a type without them", () => {
+    expect(buildSectionOrder(undefined, 0, none)).toEqual([
+      "description",
+      "eol",
+      "lifecycle",
+      "tags",
+      "relations",
+    ]);
+  });
+
+  it("treats an empty stored order as none", () => {
+    expect(buildSectionOrder({ __order: [] }, 0, none)).toEqual([
+      "description",
+      "eol",
+      "lifecycle",
+      "tags",
+      "relations",
+    ]);
+  });
+
+  it("keeps a stored order and appends the custom sections it does not name", () => {
+    const sc = { __order: ["relations", "custom:1", "tags", "description"] };
+    expect(buildSectionOrder(sc, 3, none)).toEqual([
+      "relations",
+      "custom:1",
+      "tags",
+      "description",
+      "custom:0",
+      "custom:2",
+    ]);
+  });
+
+  it("splices successors, then tags, in just before relations", () => {
+    const sc = { __order: ["description", "relations", "lifecycle"] };
+    expect(buildSectionOrder(sc, 0, both)).toEqual([
+      "description",
+      "successors",
+      "tags",
+      "relations",
+      "lifecycle",
+    ]);
+  });
+
+  it("appends them when the stored order has no relations", () => {
+    const sc = { __order: ["description"] };
+    expect(buildSectionOrder(sc, 0, both)).toEqual(["description", "successors", "tags"]);
+  });
+
+  it("never adds successors to a type that has none, and never moves a stored one", () => {
+    expect(buildSectionOrder({ __order: ["relations"] }, 0, none)).toEqual(["tags", "relations"]);
+    const stored = { __order: ["successors", "tags", "relations"] };
+    expect(buildSectionOrder(stored, 0, both)).toEqual(["successors", "tags", "relations"]);
+  });
+
+  it("drops a stored hierarchy or successors the type no longer has", () => {
+    const sc = { __order: ["hierarchy", "successors", "tags", "relations"] };
+    expect(buildSectionOrder(sc, 0, none)).toEqual(["tags", "relations"]);
+    expect(buildSectionOrder(sc, 0, { hierarchy: true, successors: false })).toEqual([
+      "hierarchy",
+      "tags",
+      "relations",
+    ]);
+  });
+});
+
+describe("customSectionsOf", () => {
+  it("drops the description extras section", () => {
+    const schema: SectionDef[] = [
+      { section: "__description", fields: [] },
+      { section: "Commercials", fields: [] },
+    ];
+    expect(customSectionsOf(schema).map((s) => s.section)).toEqual(["Commercials"]);
+    expect(customSectionsOf(undefined)).toEqual([]);
+  });
+});
+
+describe("hiddenFieldKeys", () => {
+  const subtypes = [
+    { key: "saas", hidden_fields: ["hosting", "region"] },
+    { key: "onprem" },
+  ];
+
+  it("hides the active subtype's fields", () => {
+    expect([...hiddenFieldKeys(subtypes, "saas", {}, [])]).toEqual(["hosting", "region"]);
+    expect([...hiddenFieldKeys(subtypes, "onprem", {}, [])]).toEqual([]);
+    expect([...hiddenFieldKeys(subtypes, null, {}, [])]).toEqual([]);
+    expect([...hiddenFieldKeys(undefined, "saas", {}, [])]).toEqual([]);
+  });
+
+  it("adds what registered extensions report and ignores the rest", () => {
+    const reported = { acme: ["cost"], gone: ["owner"] };
+    expect([...hiddenFieldKeys(subtypes, "saas", reported, ["acme"])]).toEqual([
+      "hosting",
+      "region",
+      "cost",
+    ]);
+  });
+});
+
+describe("allFieldsHidden", () => {
+  const section = (keys: string[]): SectionDef =>
+    ({ section: "S", fields: keys.map((key) => ({ key })) }) as unknown as SectionDef;
+
+  it("is true only when every field of a non-empty section is hidden", () => {
+    expect(allFieldsHidden(section(["a", "b"]), new Set(["a", "b", "c"]))).toBe(true);
+    expect(allFieldsHidden(section(["a", "b"]), new Set(["a"]))).toBe(false);
+    expect(allFieldsHidden(section([]), new Set(["a"]))).toBe(false);
+  });
+});
+
+describe("calculatedFieldKeys", () => {
+  const schema = [
+    { section: "A", fields: [{ key: "total" }, { key: "name" }] },
+    { section: "B", fields: [{ key: "score" }] },
+  ] as unknown as SectionDef[];
+
+  it("lists calculated fields, then auto fields not already among them", () => {
+    const calc = (k: string) => k === "total" || k === "score";
+    expect(calculatedFieldKeys(schema, calc, ["costActual", "total"])).toEqual([
+      "total",
+      "score",
+      "costActual",
+    ]);
+  });
+
+  it("is empty with no schema and no auto fields", () => {
+    expect(calculatedFieldKeys(undefined, () => true, [])).toEqual([]);
   });
 });

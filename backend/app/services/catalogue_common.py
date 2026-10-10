@@ -34,11 +34,14 @@ from importlib.resources import as_file, files
 from typing import Any
 
 import httpx
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.relation import Relation
+from app.models.user import User
+from app.services.card_reference import ReferenceAllocator
 from app.services.event_bus import event_bus
 
 logger = logging.getLogger(__name__)
@@ -556,6 +559,66 @@ async def card_lookup(db: AsyncSession, card_type: str) -> dict[str, str]:
     return {**name_index, **cat_id_index}
 
 
+PARENT_NOT_IMPORTED = "parent not imported"
+
+
+async def create_catalogue_card(
+    db: AsyncSession,
+    user: User,
+    *,
+    type_key: str,
+    name: str,
+    subtype: str | None,
+    description: str | None,
+    parent_id: str | None,
+    attributes: dict[str, Any],
+    allocator: ReferenceAllocator,
+) -> tuple[Card | None, str]:
+    """Create one imported card through the shared write path, in its own savepoint.
+
+    A catalogue card takes the road every other card takes
+    (``card_write_service.create_card``): validation, the sibling-name check,
+    its reference when the type numbers cards automatically, the hierarchy
+    depth guard and level sync, calculations, data quality and the
+    ``card.created`` event that puts it in the History tab (CLAUDE.md, *A
+    write path that can move cards.updated_at must also persist a card
+    event*). The imports used to build ``Card`` rows directly and got none
+    of that. A row the write path refuses rolls back alone and comes back as
+    ``(None, reason)``, so one taken name cannot fail a 500-card batch — the
+    bulk-create shape. ``reason`` is empty when the card was created.
+
+    ``card_write_service`` is imported here, not at module level: it reaches
+    ``extensions.bundle`` through ``card_approval`` → ``notification_service``,
+    and ``bundle`` imports ``version_tuple`` from this module, so a top-level
+    import closes a cycle that breaks whichever side is imported first.
+    """
+    from app.services import card_write_service
+
+    savepoint = await db.begin_nested()
+    try:
+        card = await card_write_service.create_card(
+            db,
+            card_write_service.WriteActor.from_user(user),
+            type_key=type_key,
+            name=name,
+            subtype=subtype,
+            description=description,
+            parent_id=uuid.UUID(parent_id) if parent_id else None,
+            attributes=attributes,
+            reference_allocator=allocator,
+        )
+    except HTTPException as exc:
+        await savepoint.rollback()
+        # The sibling-name check raises a structured detail whose ``message``
+        # is what the API client shows; other refusals are plain strings.
+        detail = exc.detail
+        if isinstance(detail, dict) and isinstance(detail.get("message"), str):
+            return None, detail["message"]
+        return None, str(detail)
+    await savepoint.commit()
+    return card, ""
+
+
 async def add_relation_once(
     db: AsyncSession,
     *,
@@ -673,9 +736,11 @@ def catalogue_attributes(
 def wheel_url_from_pypi_payload(payload: dict[str, Any]) -> tuple[str, str]:
     """Pick the wheel artefact URL and version from a PyPI JSON response.
 
-    Falls back to a sdist if no wheel is published — the extraction logic
-    only depends on the `data/*.json` paths which both distribution formats
-    use.
+    Only a wheel will do. The extractor reads the wheel's zip layout and its
+    ``turbo_ea_capabilities/data/*.json`` paths; an sdist is a ``.tar.gz``
+    with everything under a ``<name>-<version>/`` folder, so it has neither
+    the container nor the paths. This used to fall back to the sdist, which
+    then failed inside ``zipfile`` and surfaced as a generic fetch error.
     """
     info = payload.get("info") or {}
     version = info.get("version")
@@ -683,11 +748,9 @@ def wheel_url_from_pypi_payload(payload: dict[str, Any]) -> tuple[str, str]:
         raise ValueError("PyPI response missing info.version")
     urls = payload.get("urls") or []
     wheel = next((u for u in urls if u.get("packagetype") == "bdist_wheel"), None)
-    fallback = next((u for u in urls if u.get("packagetype") == "sdist"), None)
-    chosen = wheel or fallback
-    if not chosen or not chosen.get("url"):
-        raise ValueError(f"PyPI did not list a downloadable artefact for {PYPI_PROJECT_NAME}")
-    return str(chosen["url"]), version
+    if not wheel or not wheel.get("url"):
+        raise ValueError(f"PyPI lists no wheel for {PYPI_PROJECT_NAME} {version}")
+    return str(wheel["url"]), version
 
 
 async def fetch_wheel_from_pypi() -> tuple[bytes, str]:
@@ -695,7 +758,7 @@ async def fetch_wheel_from_pypi() -> tuple[bytes, str]:
 
     Returns `(wheel_bytes, pypi_version)`. Caller is responsible for
     extracting + caching. Raises `httpx.HTTPError` / `ValueError` on
-    upstream issues.
+    upstream issues, a release published without a wheel included.
     """
     async with httpx.AsyncClient(
         timeout=CATALOGUE_FETCH_TIMEOUT_SECONDS, follow_redirects=True
@@ -814,11 +877,13 @@ async def check_remote_version_for(
     `catalogue_pkg.VERSION`. `cache_key` selects which cached-remote payload
     to compare against, so the "update available" badge reflects the right
     artefact even though all three caches are filled by the same wheel.
-    """
-    cached = await get_cached_remote(db, cache_key)
-    serving_remote = remote_wins(cached, bundled_version)
-    active_version = cached["catalogue_version"] if cached and serving_remote else bundled_version
 
+    The PyPI probe runs BEFORE the cache read. The route hands its pooled
+    connection back (``await db.commit()``) before calling this, and a query
+    issued ahead of the probe would take it out again for the whole 30 s
+    round-trip (CLAUDE.md, *Never hold a database session across work that
+    is not database work*).
+    """
     remote_meta: dict[str, Any] | None = None
     error: str | None = None
     try:
@@ -839,6 +904,10 @@ async def check_remote_version_for(
     except (httpx.HTTPError, ValueError):
         logger.exception("PyPI version check failed")
         error = "Could not reach PyPI"
+
+    cached = await get_cached_remote(db, cache_key)
+    serving_remote = remote_wins(cached, bundled_version)
+    active_version = cached["catalogue_version"] if cached and serving_remote else bundled_version
 
     update_available = False
     if remote_meta and "catalogue_version" in remote_meta:
@@ -865,6 +934,11 @@ async def fetch_and_cache_all(db: AsyncSession) -> dict[str, Any]:
     streams, so any of the three "Fetch update" admin actions only needs
     to call this once. The return value includes per-artefact counts so
     each route can surface a domain-appropriate summary.
+
+    Stages the cache rows in the caller's transaction and never commits:
+    the route commits once the download is over, so the pooled connection
+    is not held across the PyPI round-trip (the route also commits BEFORE
+    calling this, for the same reason).
     """
     wheel_bytes, pypi_version = await fetch_wheel_from_pypi()
     artefacts = extract_all_catalogues_from_wheel(wheel_bytes)
@@ -918,7 +992,6 @@ async def fetch_and_cache_all(db: AsyncSession) -> dict[str, Any]:
 
     if updates:
         await set_cached_remote(db, updates)
-    await db.commit()
 
     return {
         "catalogue_version": catalogue_version,

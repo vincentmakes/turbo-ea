@@ -62,12 +62,15 @@ async def import_processes(
     if the target capability hasn't been imported yet).
     """
     effective_locale = (payload.locale or user.locale or "en").strip() or "en"
-    return await svc.import_processes(
+    result = await svc.import_processes(
         db,
         user=user,
         catalogue_ids=payload.catalogue_ids,
         locale=effective_locale,
     )
+    # The service stages its rows and never commits a session it was handed.
+    await db.commit()
+    return result
 
 
 @router.get("/update-status")
@@ -76,6 +79,11 @@ async def update_status(
     user: User = Depends(require_permission("admin.metamodel")),
 ):
     """Compare the bundled/cached process catalogue against PyPI."""
+    # The permission check used this request's session, so a pooled connection
+    # is already checked out. Hand it back before the PyPI round-trip:
+    # ``get_db`` is a yield-dependency that would otherwise pin it until the
+    # response is sent.
+    await db.commit()
     return await svc.check_remote_version(db)
 
 
@@ -85,8 +93,17 @@ async def update_fetch(
     user: User = Depends(require_permission("admin.metamodel")),
 ):
     """Download the latest wheel from PyPI. Hydrates all three caches."""
+    # The permission check used this request's session, so a pooled connection
+    # is already checked out. Hand it back before the PyPI round-trip:
+    # ``get_db`` is a yield-dependency that would otherwise pin it until the
+    # response is sent.
+    await db.commit()
     try:
-        return await svc.fetch_remote_catalogue(db)
+        result = await svc.fetch_remote_catalogue(db)
+        # The helper stages the cache rows and never commits a session it was
+        # handed; the write is committed here, once the download is over.
+        await db.commit()
+        return result
     except Exception:
         logger.exception("Process catalogue fetch failed")
         raise HTTPException(status_code=502, detail="Catalogue fetch failed")

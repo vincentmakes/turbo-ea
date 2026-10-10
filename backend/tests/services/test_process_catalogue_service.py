@@ -22,7 +22,7 @@ from sqlalchemy import select
 from app.models.card import Card
 from app.models.relation import Relation
 from app.services import catalogue_common as common
-from tests.conftest import create_card, create_user
+from tests.conftest import create_card, create_card_type, create_user
 
 # ---------------------------------------------------------------------------
 # Fake catalogue
@@ -409,6 +409,27 @@ async def test_imported_process_attributes_and_subtype(db, monkeypatch):
     assert card.subtype == "process"
 
 
+@pytest.mark.asyncio
+async def test_imported_processes_record_their_creation_and_level(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.models.event import Event
+    from app.services import process_catalogue_service as svc
+
+    await create_card_type(db, key="BusinessProcess", label="Business Process", has_hierarchy=True)
+    user = await create_user(db, email="proc-path@x.com")
+    result = await svc.import_processes(db, user=user, catalogue_ids=["BP-100", "BP-100.10"])
+
+    assert [c["catalogue_id"] for c in result["created"]] == ["BP-100", "BP-100.10"]
+    assert result["failed"] == []
+    for level, created in enumerate(result["created"], start=1):
+        card = (
+            await db.execute(select(Card).where(Card.id == uuid.UUID(created["card_id"])))
+        ).scalar_one()
+        assert card.attributes["hierarchyLevel"] == level
+        events = (await db.execute(select(Event).where(Event.card_id == card.id))).scalars().all()
+        assert [(e.event_type, e.user_id) for e in events] == [("card.created", user.id)]
+
+
 def test_bundled_payload_counts_from_the_package_constant(monkeypatch):
     # The wheel's PROCESS_COUNT is the count shown; a wheel without one counts the list.
     _install_fake_pkg(monkeypatch)
@@ -418,3 +439,42 @@ def test_bundled_payload_counts_from_the_package_constant(monkeypatch):
     assert svc._bundled_payload()[1]["process_count"] == 77
     monkeypatch.delattr(svc.catalogue_pkg, "PROCESS_COUNT")
     assert svc._bundled_payload()[1]["process_count"] == len(_FAKE_PROCESSES)
+
+
+@pytest.mark.asyncio
+async def test_a_refused_process_and_the_entries_below_it_are_reported(db, monkeypatch):
+    """Two catalogue entries sharing a name never match a card by name (#1241),
+    so importing the second where a card of that name already sits at root is
+    refused by the write path — reported, not created — and its children are
+    reported with it instead of landing as root cards."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import process_catalogue_service as svc
+
+    base = _FAKE_PROCESSES[0]
+    procs = [
+        dict(base, id="BP-200", name="Shared Process", parent_id=None, realizes_capability_ids=[]),
+        dict(base, id="BP-201", name="Shared Process", parent_id=None, realizes_capability_ids=[]),
+        dict(
+            base,
+            id="BP-201.10",
+            name="Under 201",
+            level=2,
+            parent_id="BP-201",
+            realizes_capability_ids=[],
+        ),
+    ]
+    monkeypatch.setattr(common, "load_bundled_processes_raw", lambda: list(procs))
+    user = await create_user(db, email="refused-proc@x.com")
+    mine = await create_card(
+        db, card_type="BusinessProcess", name="Shared Process", user_id=user.id
+    )
+
+    result = await svc.import_processes(db, user=user, catalogue_ids=["BP-201", "BP-201.10"])
+
+    assert result["created"] == []
+    assert result["skipped"] == []
+    assert [f["catalogue_id"] for f in result["failed"]] == ["BP-201", "BP-201.10"]
+    assert "Shared Process" in result["failed"][0]["reason"]
+    assert result["failed"][1]["reason"] == "parent not imported"
+    rows = (await db.execute(select(Card).where(Card.type == "BusinessProcess"))).scalars().all()
+    assert [(r.id, r.attributes.get("catalogueId")) for r in rows] == [(mine.id, None)]

@@ -19,7 +19,7 @@ from app.models.card import Card
 from app.models.event import Event
 from app.models.relation import Relation
 from app.services import catalogue_common as common
-from tests.conftest import create_card, create_user
+from tests.conftest import create_card, create_card_type, create_user
 
 # ---------------------------------------------------------------------------
 # Fake catalogue
@@ -506,3 +506,64 @@ async def test_an_existing_stage_moves_under_its_new_stream_and_says_so(db, monk
     assert [(e.event_type, e.data["changes"]) for e in events] == [
         ("card.updated", {"parent_id": {"old": None, "new": stream_id}})
     ]
+
+
+@pytest.mark.asyncio
+async def test_imported_streams_and_stages_record_their_creation_and_level(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.models.event import Event
+    from app.services import value_stream_catalogue_service as svc
+
+    await create_card_type(db, key="BusinessContext", label="Business Context", has_hierarchy=True)
+    user = await create_user(db, email="vs-path@x.com")
+    # A stage alone pulls its stream in first, so two cards land: stream, stage.
+    result = await svc.import_value_streams(db, user=user, catalogue_ids=["VS-10.10"])
+
+    assert [c["catalogue_id"] for c in result["created"]] == ["VS-10", "VS-10.10"]
+    assert result["failed"] == []
+    stream, stage = [
+        (await db.execute(select(Card).where(Card.id == uuid.UUID(c["card_id"])))).scalar_one()
+        for c in result["created"]
+    ]
+    assert stage.parent_id == stream.id
+    assert (stream.attributes["hierarchyLevel"], stage.attributes["hierarchyLevel"]) == (1, 2)
+    for card in (stream, stage):
+        events = (await db.execute(select(Event).where(Event.card_id == card.id))).scalars().all()
+        assert [(e.event_type, e.user_id) for e in events] == [("card.created", user.id)]
+
+
+@pytest.mark.asyncio
+async def test_a_refused_stream_and_its_stages_are_reported(db, monkeypatch):
+    """Two streams sharing a name never match a card by name (#1241), so
+    importing the second where a Business Context card of that name already
+    sits at root is refused by the write path — reported, not created — and
+    its stages are reported with it instead of landing as root cards."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    base = _FAKE_VALUE_STREAMS[0]
+    stage = base["stages"][0]
+    streams = [
+        dict(base, id="VS-80", name="Shared Stream", stages=[]),
+        dict(
+            base,
+            id="VS-81",
+            name="Shared Stream",
+            stages=[
+                dict(stage, id="VS-81.10", stage_name="Under 81", capability_ids=[], process_ids=[])
+            ],
+        ),
+    ]
+    monkeypatch.setattr(common, "load_bundled_value_streams_raw", lambda: list(streams))
+    user = await create_user(db, email="refused-vs@x.com")
+    mine = await create_card(db, card_type="BusinessContext", name="Shared Stream", user_id=user.id)
+
+    result = await svc.import_value_streams(db, user=user, catalogue_ids=["VS-81", "VS-81.10"])
+
+    assert result["created"] == []
+    assert result["skipped"] == []
+    assert [f["catalogue_id"] for f in result["failed"]] == ["VS-81", "VS-81.10"]
+    assert "Shared Stream" in result["failed"][0]["reason"]
+    assert result["failed"][1]["reason"] == "parent not imported"
+    rows = (await db.execute(select(Card).where(Card.type == "BusinessContext"))).scalars().all()
+    assert [(r.id, r.attributes.get("catalogueId")) for r in rows] == [(mine.id, None)]

@@ -24,7 +24,6 @@ from typing import Any
 import turbo_ea_capabilities as catalogue_pkg
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.card import Card
 from app.models.user import User
 from app.services import catalogue_common as common
 
@@ -178,6 +177,9 @@ async def import_processes(
     - for each newly-created card, auto-create `relProcessToBC` relations
       for the entries in `realizes_capability_ids` whose target BC card
       exists (matched by `attributes.catalogueId` or English name)
+    - every card goes through the shared write path
+      (``common.create_catalogue_card``); a refused row and the entries
+      below it land in ``failed``. Stages only: the route commits.
     """
     flat, meta = await _resolve_active_catalogue(db, locale=locale)
     by_id = {p["id"]: p for p in flat}
@@ -190,10 +192,13 @@ async def import_processes(
 
     created: list[dict[str, str]] = []
     skipped: list[dict[str, str]] = []
+    failed: list[dict[str, str]] = []
+    failed_ids: set[str] = set()
     auto_relations_total = 0
     created_in_batch: set[str] = set()
     now = common.now_iso()
     user_id = user.id
+    allocator = common.ReferenceAllocator()
 
     for proc in ordered:
         if proc["id"] in pre_existing_ids:
@@ -207,20 +212,27 @@ async def import_processes(
             continue
 
         cat_parent = proc.get("parent_id")
-        card = Card(
-            type=BUSINESS_PROCESS_TYPE,
-            subtype=LEVEL_TO_SUBTYPE.get(int(proc["level"]), "process"),
+        if cat_parent in failed_ids:
+            failed.append({"catalogue_id": proc["id"], "reason": common.PARENT_NOT_IMPORTED})
+            failed_ids.add(proc["id"])
+            continue
+        card, reason = await common.create_catalogue_card(
+            db,
+            user,
+            type_key=BUSINESS_PROCESS_TYPE,
             name=proc["name"],
+            subtype=LEVEL_TO_SUBTYPE.get(int(proc["level"]), "process"),
             description=proc.get("description"),
             parent_id=catalogue_id_to_card_id.get(cat_parent) if cat_parent else None,
             attributes=common.catalogue_attributes(
                 proc, meta, now, ("processLevel", f"L{proc['level']}"), _COPIED_ATTRIBUTES
             ),
-            created_by=user_id,
-            updated_by=user_id,
+            allocator=allocator,
         )
-        db.add(card)
-        await db.flush()
+        if card is None:
+            failed.append({"catalogue_id": proc["id"], "reason": reason})
+            failed_ids.add(proc["id"])
+            continue
         catalogue_id_to_card_id[proc["id"]] = str(card.id)
 
         auto_relations_total += await _create_realizes_relations(
@@ -242,10 +254,10 @@ async def import_processes(
         user_id=user_id,
     )
 
-    await db.commit()
     return {
         "created": created,
         "skipped": skipped,
+        "failed": failed,
         "relinked": relinked,
         "auto_relations_created": auto_relations_total,
         "catalogue_version": meta.get("catalogue_version"),

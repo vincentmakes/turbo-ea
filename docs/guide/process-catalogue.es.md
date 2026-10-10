@@ -32,7 +32,7 @@ Al confirmar, Turbo EA:
 - **crea automáticamente relaciones `relProcessToBC` (soporta)** hacia cada tarjeta `BusinessCapability` existente listada en `realizes_capability_ids` del proceso. El diálogo de resultado indica cuántas auto-relaciones se generaron; los destinos que aún no existen en el inventario se omiten en silencio. Volver a ejecutar el import tras añadir las capacidades faltantes es seguro — los IDs de origen quedan guardados en la tarjeta, lo que permite re-vincular manualmente más tarde si hace falta;
 - sella cada tarjeta nueva con `catalogueId`, `catalogueVersion`, `catalogueImportedAt`, `processLevel` (`L1`..`L4`) y los `frameworkRefs`, `industry`, `references`, `inScope`, `outOfScope`, `realizesCapabilityIds` del catálogo.
 
-Los recuentos de saltadas, creadas y re-vinculadas se reportan igual que en el catálogo de capacidades. Los imports son idempotentes — repetirlos no crea duplicados.
+Los recuentos de saltadas, creadas y re-vinculadas se reportan igual que en el catálogo de capacidades. Los imports son idempotentes — repetirlos no crea duplicados. Cada tarjeta se crea igual que con el formulario de tarjeta — con una entrada en el historial, su nivel en tu jerarquía, un número de referencia cuando Business Process usa referencias automáticas y una puntuación de calidad de datos — y una entrada cuyo nombre ya usa otra tarjeta Business Process en el mismo nivel se reporta y no se importa, junto con las entradas situadas debajo; el diálogo de resultado las lista con el motivo.
 
 ## Vista detalle
 
