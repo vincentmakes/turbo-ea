@@ -44,9 +44,10 @@ def test_each_suite_has_a_diff_scoped_pr_gate(job_id, name, suite):
     assert f"name: {name}\n" in body
     assert "needs: changes" in body
     assert (
-        f"if: github.event_name == 'pull_request' && needs.changes.outputs.{suite} == 'true'"
-        in body
-    )
+        "if: >-\n      github.event_name == 'pull_request' &&\n"
+        f"      (needs.changes.outputs.{suite} == 'true'"
+        " || needs.changes.outputs.mutation == 'true')\n"
+    ) in body
     assert "fetch-depth: 0" in body  # changed_lines.py needs the merge base
     assert "scripts/mutation/changed_lines.py" in body
     assert f"scripts/mutation/gate.py --suite {suite} --scope diff" in body
@@ -77,11 +78,41 @@ def test_no_mutation_job_interpolates_step_output_into_a_script():
             )
 
 
-@pytest.mark.parametrize("filter_name", ["backend", "frontend", "mcp"])
-def test_a_change_to_the_scripts_reruns_every_gate(filter_name):
-    rest = CI.read_text().split(f"            {filter_name}:\n", 1)[1]
-    entries = re.match(r"((?:              .*\n)+)", rest).group(1)
-    assert "'scripts/mutation/**'" in entries
+def _filter_entries(name: str) -> str:
+    rest = CI.read_text().split(f"            {name}:\n", 1)[1]
+    return re.match(r"((?:              .*\n)+)", rest).group(1)
+
+
+def test_a_change_to_the_scripts_has_its_own_filter():
+    # The scripts and floors are read by the three mutation jobs and tested by
+    # Backend Unit Tests, and by nothing else: a floor bump booted every suite
+    # while the path sat in the backend, frontend and mcp filters.
+    assert _filter_entries("mutation") == "              - 'scripts/mutation/**'\n"
+    for name in ("backend", "frontend", "mcp"):
+        assert "scripts/mutation" not in _filter_entries(name)
+    assert (
+        "      mutation: ${{ steps.filter.outputs.mutation == 'true'"
+        " || steps.filter.outputs.ci == 'true' }}\n"
+    ) in CI.read_text()
+
+
+@pytest.mark.parametrize(
+    "job_id", ["backend-test-unit", "backend-mutation", "mcp-mutation", "frontend-mutation"]
+)
+def test_a_change_to_the_scripts_reruns_every_gate(job_id):
+    assert "needs.changes.outputs.mutation == 'true'" in jobs(CI)[job_id]
+
+
+def test_nothing_else_runs_on_a_change_to_the_scripts():
+    readers = {
+        job_id for job_id, body in jobs(CI).items() if "needs.changes.outputs.mutation" in body
+    }
+    assert readers == {
+        "backend-test-unit",
+        "backend-mutation",
+        "mcp-mutation",
+        "frontend-mutation",
+    }
 
 
 @pytest.mark.parametrize(

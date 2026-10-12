@@ -153,7 +153,7 @@ def test_the_frontend_aggregate_folds_in_the_browser_coverage_only_from_a_green_
     # too — otherwise the merged floor and the badge would swing with the path
     # filter. The e2e filter is therefore frontend/** plus its own inputs, and
     # the job gates on it alone: the wider `frontend` filter also fires for
-    # scripts/mutation/**, which cannot move the figure and must not boot the
+    # the audit-ci config, which cannot move the figure and must not boot the
     # browser suite.
     assert "    if: needs.changes.outputs.e2e == 'true'\n" in e2e
     rest = CI.read_text().split("            e2e:\n", 1)[1]

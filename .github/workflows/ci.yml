@@ -30,6 +30,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend == 'true' || steps.filter.outputs.ci == 'true' }}
       frontend: ${{ steps.filter.outputs.frontend == 'true' || steps.filter.outputs.ci == 'true' }}
       mcp: ${{ steps.filter.outputs.mcp == 'true' || steps.filter.outputs.ci == 'true' }}
+      mutation: ${{ steps.filter.outputs.mutation == 'true' || steps.filter.outputs.ci == 'true' }}
       docs: ${{ steps.filter.outputs.docs == 'true' || steps.filter.outputs.ci == 'true' }}
       devcontainer: ${{ steps.filter.outputs.devcontainer == 'true' || steps.filter.outputs.ci == 'true' }}
       helm: ${{ steps.filter.outputs.helm == 'true' || steps.filter.outputs.ci == 'true' }}
@@ -61,15 +62,16 @@ jobs:
             backend:
               - 'backend/**'
               - 'scripts/dump_openapi.py'
-              # The mutation gate's scripts and floors (backend-mutation;
-              # their unit tests live in backend/tests/core).
-              - 'scripts/mutation/**'
             frontend:
               - 'frontend/**'
               - '.github/audit-ci.jsonc'
-              - 'scripts/mutation/**'
             mcp:
               - 'mcp-server/**'
+            # The mutation gate's own scripts and floors. They are read by the
+            # three mutation jobs and tested by Backend Unit Tests (their tests
+            # live in backend/tests/core and tests/services), and by nothing
+            # else, so a change here runs those four jobs and not the suites.
+            mutation:
               - 'scripts/mutation/**'
             docs:
               - 'docs/**'
@@ -98,10 +100,9 @@ jobs:
             # figure Frontend Tests enforces (merged with the unit suite's),
             # so it runs on ANY frontend change, not only on the five widget
             # features it drives — but not on the `frontend` filter above
-            # as a whole: that one also carries scripts/mutation/** and the
-            # audit-ci config for the mutation and audit jobs, neither of
-            # which can move the figure. The Dockerfile pins the DrawIO tag
-            # the suite installs.
+            # as a whole: that one also carries the audit-ci config for the
+            # audit job, which cannot move the figure. The Dockerfile pins
+            # the DrawIO tag the suite installs.
             e2e:
               - 'frontend/**'
               - 'scripts/e2e/**'
@@ -130,7 +131,7 @@ jobs:
   backend-test-unit:
     name: Backend Unit Tests
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.mutation == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -590,7 +591,7 @@ jobs:
     # coverage alone when it failed or was skipped — a red browser suite is
     # Frontend E2E's own required check, and it is skipped only on a change
     # that cannot move the frontend figure (the `frontend` filter is wider
-    # than the `e2e` one by scripts/mutation/** and the audit-ci config).
+    # than the `e2e` one by the audit-ci config).
     needs: [changes, frontend-test-shards, frontend-e2e]
     if: always() && needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
@@ -723,7 +724,7 @@ jobs:
     # coverage is part of the figure Frontend Tests enforces and the README
     # badge shows, so it runs wherever a frontend change can move that
     # figure. A PR the `frontend` filter catches for other reasons
-    # (scripts/mutation/**) skips it, and the aggregate then merges unit
+    # (the audit-ci config) skips it, and the aggregate then merges unit
     # coverage alone. It finishes minutes before the unit shards, so the
     # critical path is unchanged.
     if: needs.changes.outputs.e2e == 'true'
@@ -975,7 +976,9 @@ jobs:
   backend-mutation:
     name: Backend Mutation Tests
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.backend == 'true'
+    if: >-
+      github.event_name == 'pull_request' &&
+      (needs.changes.outputs.backend == 'true' || needs.changes.outputs.mutation == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 150
     services:
@@ -1044,7 +1047,9 @@ jobs:
   mcp-mutation:
     name: MCP Mutation Tests
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.mcp == 'true'
+    if: >-
+      github.event_name == 'pull_request' &&
+      (needs.changes.outputs.mcp == 'true' || needs.changes.outputs.mutation == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -1092,7 +1097,9 @@ jobs:
   frontend-mutation:
     name: Frontend Mutation Tests
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.frontend == 'true'
+    if: >-
+      github.event_name == 'pull_request' &&
+      (needs.changes.outputs.frontend == 'true' || needs.changes.outputs.mutation == 'true')
     runs-on: ubuntu-latest
     # Stryker's single-threaded dry run alone may take up to its
     # dryRunTimeoutMinutes (60, stryker.config.json) on a widely imported
