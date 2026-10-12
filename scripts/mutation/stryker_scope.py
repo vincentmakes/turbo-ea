@@ -82,6 +82,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import harness  # noqa: E402
 from changed_lines import touches  # noqa: E402
+from gate import UNMEASURED_FILE  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 FRONTEND = REPO / "frontend"
@@ -323,6 +324,30 @@ def _run_chunk(
     return status, "".join(tail)
 
 
+def _results_in(incremental: Path) -> int:
+    """How many mutants an incremental report holds a verdict for.
+
+    Stryker writes one when a run completes and, interrupted, a partial one
+    with what it had tested so far, which the next run of the chunk picks up.
+    A chunk cut by the budget has therefore still made progress when this
+    number grew.
+    """
+    try:
+        report = json.loads(incremental.read_text("utf-8"))
+    except (OSError, ValueError):
+        return 0
+    files = report.get("files") if isinstance(report, dict) else None
+    if not isinstance(files, dict):
+        return 0
+    return sum(
+        1
+        for entry in files.values()
+        if isinstance(entry, dict)
+        for mutant in entry.get("mutants") or []
+        if isinstance(mutant, dict) and mutant.get("status") not in (None, "Pending")
+    )
+
+
 def _failed_status(found: list[dict]) -> str:
     """The status line's detail for a failed chunk, from what its output said."""
     tests = [f["test"] for f in found if f["kind"] == "test"]
@@ -378,6 +403,7 @@ def nightly(
             print(f"Budget spent; {len(order) - order.index(chunk)} chunk(s) wait for next run.")
             break
         incremental = state / f"chunk-{shard_index(shard)}-{chunk}.incremental.json"
+        results_before = _results_in(incremental)
         outcome, output = _run_chunk(groups[chunk], incremental.resolve(), remaining, frontend)
         if outcome == "failed":
             found = harness.stryker_dry_run_failures(output)
@@ -409,12 +435,21 @@ def nightly(
             recorded.write_text(inputs)
         else:
             print("Budget spent mid-chunk; it keeps its previous report.")
-            if remaining >= budget * 60 * 0.9:
-                # It had (nearly) the whole night and still did not finish, so
-                # it never will: the chunk count needs raising.
+            results = _results_in(incremental)
+            if results > results_before:
+                # Stryker saved what it had tested, and the next run resumes
+                # from there: a chunk that grows by a budget finishes.
+                print(
+                    f"{results} mutant(s) measured so far, {results - results_before} in this "
+                    "run; the next run resumes from them."
+                )
+            elif remaining >= budget * 60 * 0.9:
+                # It had (nearly) the whole budget and measured nothing it can
+                # keep, so it never will: the chunk count needs raising.
                 print(
                     f"::warning::chunk {chunk} of shard {shard} cannot finish within one "
-                    "budget; raise CHUNKS in scripts/mutation/stryker_scope.py"
+                    "budget: it measured nothing new; raise CHUNKS in "
+                    "scripts/mutation/stryker_scope.py"
                 )
             break
     if failed:
@@ -467,7 +502,7 @@ def collect_state(
                     "function": None,
                     "line": None,
                     "status": "pending",
-                    "raw_status": "not measured yet (whole file)",
+                    "raw_status": UNMEASURED_FILE,
                     "id": rel,
                 }
             )

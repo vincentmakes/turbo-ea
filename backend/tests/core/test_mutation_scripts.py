@@ -360,6 +360,62 @@ class TestGate:
         (line,) = gate.status([rec("killed"), rec("pending", line=2)], "backend", FLOORS)
         assert "**incomplete run**: 1 mutant(s) were never tested; 1 of the 1 tested" in line
 
+    @staticmethod
+    def unmeasured(file):
+        return rec("pending", file=file, line=None, raw=gate.UNMEASURED_FILE, function=None)
+
+    def test_a_file_no_chunk_has_measured_counts_as_a_file(self):
+        # Nightly run 31 read "98126 of 98279 mutants measured (100%)" with
+        # 153 whole files still unmeasured: each file's one placeholder record
+        # was counted as one mutant.
+        records = [
+            rec("killed", line=1),
+            rec("survived", line=2),
+            rec("pending", line=3, raw="not checked"),
+            self.unmeasured("backend/app/y.py"),
+            self.unmeasured("backend/app/critical.py"),
+        ]
+        text = "\n".join(gate.judge(records, "backend", "suite", FLOORS, True).lines)
+        assert (
+            "Baseline in progress: 2 mutants measured; 2 files not measured yet and "
+            "1 mutant still to test, left for the next run. 50.0% of those measured "
+            "were killed."
+        ) in text
+        assert "of 5 mutants" not in text
+        assert "| `backend/app/critical.py` | n/a so far | 80% | not measured yet |" in text
+        (line,) = gate.status(records, "backend", FLOORS, allow_pending=True)
+        assert (
+            "baseline in progress (2 files not measured yet, 1 mutant still to test); "
+            "50.0% of those measured killed"
+        ) in line
+        assert "Critical modules: 0 of 1 at or above floor; 1 still to measure." in line
+
+    def test_only_unmeasured_files_left(self):
+        records = [rec("killed", line=1), self.unmeasured("backend/app/y.py")]
+        text = "\n".join(gate.judge(records, "backend", "suite", FLOORS, True).lines)
+        assert "Baseline in progress: 1 mutant measured; 1 file not measured yet, left" in text
+        (line,) = gate.status(records, "backend", FLOORS, allow_pending=True)
+        assert "baseline in progress (1 file not measured yet);" in line
+
+    def test_a_module_with_mutants_left_reports_them(self):
+        records = [
+            rec("survived", file="backend/app/critical.py"),
+            rec("pending", file="backend/app/critical.py", line=2, raw="not checked"),
+        ]
+        text = "\n".join(gate.judge(records, "backend", "suite", FLOORS, True).lines)
+        assert "| `backend/app/critical.py` | 0.0% so far | 80% | 1 still to measure |" in text
+
+    def test_a_nearly_finished_baseline_never_reads_100_percent(self):
+        records = [rec("killed", line=n) for n in range(1, 1000)]
+        records.append(rec("pending", line=1000, raw="not checked"))
+        text = "\n".join(gate.judge(records, "backend", "suite", FLOORS, True).lines)
+        assert "999 of 1000 mutants measured (99%)" in text
+        (line,) = gate.status(records, "backend", FLOORS, allow_pending=True)
+        assert "baseline 99% measured (1 mutant left for the next run)" in line
+
+    def test_stryker_writes_the_placeholder_gate_counts(self):
+        assert stryker_scope.UNMEASURED_FILE is gate.UNMEASURED_FILE
+
     def test_main_writes_the_status_file_for_suite_scope_only(self, tmp_path):
         records = [rec("killed"), rec("killed", file="backend/app/critical.py")]
         path = write(tmp_path, "r.json", records)
@@ -1795,6 +1851,15 @@ FAKE_STRYKER = """
 import json, pathlib, sys, time
 args = sys.argv[1:]
 files = args[args.index("--mutate") + 1].split(",")
+if any("partial" in f for f in files):
+    # what Stryker does when stopped mid-run: save what it has tested so far
+    # to the incremental file, which the next run of the chunk resumes from
+    inc = pathlib.Path(args[args.index("--incrementalFile") + 1])
+    saved = json.loads(inc.read_text()) if inc.exists() else {"files": {}}
+    entry = saved["files"].setdefault(files[0], {"source": "x\\n", "mutants": []})
+    entry["mutants"].append({"id": str(len(entry["mutants"])), "status": "Killed"})
+    inc.write_text(json.dumps(saved))
+    time.sleep(60)
 if any("slow" in f for f in files):
     time.sleep(60)
 if any("broken" in f for f in files):
@@ -2052,10 +2117,113 @@ class TestStrykerNightly:
         assert stryker_scope.nightly("1/1", 0.02, state, fe, config) == 0
         assert time.monotonic() - started < 30  # stopped, not waited out
         assert previous.read_text() == '{"files": {}}'
-        # it had the whole budget and still did not finish: say so
-        assert "cannot finish within one budget" in capsys.readouterr().out
+        # it had the whole budget and measured nothing it can keep: say so
+        assert "cannot finish within one budget: it measured nothing new" in capsys.readouterr().out
         # and it is not marked as measured from today's inputs
         assert not (state / "chunk-1-0.inputs").exists()
+
+    def test_a_chunk_cut_after_saving_progress_resumes_without_a_warning(
+        self, frontend_repo, tmp_path, monkeypatch, capsys
+    ):
+        # Nightly run 31 warned "raise CHUNKS" for a chunk that had reached 90%:
+        # Stryker saves a partial incremental report when stopped, and the next
+        # half resumed it. Raising CHUNKS re-deals every file and throws that
+        # progress away, so a chunk that grows is not one to warn about.
+        fe, config = frontend_repo
+        for name in ("a", "b", "c", "d"):
+            (fe / "src" / f"{name}.ts").unlink()
+        (fe / "src" / "partial.ts").write_text("x\n")
+        monkeypatch.setattr(stryker_scope, "CHUNKS", 1)
+        monkeypatch.setattr(stryker_scope, "MIN_CHUNK_SECONDS", 0)
+        state = tmp_path / "state"
+        assert stryker_scope.nightly("1/1", 0.02, state, fe, config) == 0
+        out = capsys.readouterr().out
+        assert "1 mutant(s) measured so far, 1 in this run; the next run resumes" in out
+        assert "cannot finish" not in out
+        assert stryker_scope.nightly("1/1", 0.02, state, fe, config) == 0
+        out = capsys.readouterr().out
+        assert "2 mutant(s) measured so far, 1 in this run" in out
+        assert "cannot finish" not in out
+        # still unfinished, so never marked as measured from these inputs
+        assert not (state / "chunk-1-0.inputs").exists()
+        assert not (state / "chunk-1-0.mutation.json").exists()
+
+    def test_a_cut_chunk_that_saved_nothing_new_still_warns(
+        self, frontend_repo, tmp_path, monkeypatch, capsys
+    ):
+        # A partial report that only repeats what the last run kept is not
+        # progress: the chunk would be cut at the same point every night.
+        fe, config = frontend_repo
+        for name in ("a", "b", "c", "d"):
+            (fe / "src" / f"{name}.ts").unlink()
+        (fe / "src" / "slow.ts").write_text("x\n")
+        monkeypatch.setattr(stryker_scope, "CHUNKS", 1)
+        monkeypatch.setattr(stryker_scope, "MIN_CHUNK_SECONDS", 0)
+        state = tmp_path / "state"
+        state.mkdir()
+        kept = {"files": {"src/slow.ts": {"mutants": [{"id": "1", "status": "Killed"}]}}}
+        (state / "chunk-1-0.incremental.json").write_text(json.dumps(kept))
+        assert stryker_scope.nightly("1/1", 0.02, state, fe, config) == 0
+        out = capsys.readouterr().out
+        assert "cannot finish within one budget: it measured nothing new" in out
+        assert "measured so far" not in out
+
+    def test_a_chunk_cut_late_in_the_budget_does_not_warn(
+        self, frontend_repo, tmp_path, monkeypatch, capsys
+    ):
+        # It started with little of the budget left; that says nothing about
+        # whether it fits in a whole one.
+        fe, config = frontend_repo
+        for name in ("a", "b", "c", "d"):
+            (fe / "src" / f"{name}.ts").unlink()
+        (fe / "src" / "slow.ts").write_text("x\n")
+        monkeypatch.setattr(stryker_scope, "CHUNKS", 1)
+        monkeypatch.setattr(stryker_scope, "MIN_CHUNK_SECONDS", 0)
+        ticks = iter([0.0, 0.2 * 60])  # the deadline is set, then 20% of a minute passed
+
+        def clock():
+            return next(ticks, time.monotonic())
+
+        assert stryker_scope.nightly("1/1", 0.2, tmp_path / "state", fe, config, clock=clock) == 0
+        out = capsys.readouterr().out
+        assert "Budget spent mid-chunk" in out
+        assert "cannot finish" not in out
+
+
+class TestStrykerResultsIn:
+    def test_counts_the_mutants_with_a_verdict(self, tmp_path):
+        path = tmp_path / "inc.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "files": {
+                        "a.ts": {
+                            "mutants": [
+                                {"status": "Killed"},
+                                {"status": "Survived"},
+                                {"status": "Pending"},
+                                {"id": "no status"},
+                            ]
+                        },
+                        "b.ts": {"mutants": [{"status": "NoCoverage"}]},
+                        "c.ts": {},
+                    },
+                    "testFiles": {"a.test.ts": {"tests": [{"status": "Killed"}]}},
+                }
+            )
+        )
+        assert stryker_scope._results_in(path) == 3
+
+    @pytest.mark.parametrize(
+        "content",
+        [None, "", "not json", "[]", '{"files": []}', '{"files": {"a.ts": []}}'],
+        ids=["missing", "empty", "garbage", "list", "files-list", "entry-list"],
+    )
+    def test_anything_unreadable_holds_nothing(self, tmp_path, content):
+        path = tmp_path / "inc.json"
+        if content is not None:
+            path.write_text(content)
+        assert stryker_scope._results_in(path) == 0
 
 
 class TestStrykerNightlySkipsUnchangedChunks:

@@ -49,11 +49,16 @@ just new lines.
   functions still unchecked (see below). Once the baseline is complete, only
   functions that changed are re-tested, plus the survivors that a changed
   test runs.
-  Stryker alone cannot resume, because it writes its incremental file only
-  when a whole run completes. `stryker_scope.py nightly` therefore splits
-  each frontend shard into stable chunks of files, each with its own
-  incremental file and last report, runs them oldest first until the budget
-  is spent, and lets a chunk cut off by the budget keep its previous report.
+  Stryker writes its report only when a whole run completes, and when it is
+  stopped it saves only a partial incremental file (the mutants it tested so
+  far), so `stryker_scope.py nightly` splits each frontend shard into stable
+  chunks of files, each with its own incremental file and last report, runs
+  them oldest first until the budget is spent, and lets a chunk cut off by
+  the budget keep its previous report. The cut chunk's next run resumes from
+  its partial incremental file, so it still finishes as long as each budget
+  adds to it; the nightly warns "raise CHUNKS" only when a chunk had (nearly)
+  a whole budget and measured nothing new, since raising `CHUNKS` re-deals
+  every file and throws that progress away.
   A chunk whose last report was made from the same inputs is skipped (see
   below). Frontend files are dealt to shards and chunks by a hash of their
   path, never by size, so a file stays where its cached verdicts are; a
@@ -65,7 +70,11 @@ just new lines.
 - The `report` job runs `gate.py --scope suite --allow-pending` per suite
   against the `[suite]` floor and each `[modules]` floor. A floor applies once
   everything it covers is measured; until then the summary shows baseline
-  progress. It names files whose score fell since the previous night.
+  progress. A frontend file no chunk has measured yet is one placeholder
+  record (`gate.UNMEASURED_FILE`) standing for an unknown number of mutants,
+  so progress counts such files apart from the mutants still to test and
+  gives no percentage while any is left (a floored one otherwise, so it never
+  reads 100% early). It names files whose score fell since the previous night.
 - It keeps one open issue, **Mutation nightly: survivors by module**. It opens
   with a status block (each suite's score against its floor or its baseline
   progress, the critical modules, the files whose score fell since the previous

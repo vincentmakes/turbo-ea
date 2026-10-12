@@ -50,6 +50,10 @@ DEFAULT_FLOORS = HERE / "floors.toml"
 SUITES = ("backend", "frontend", "mcp")
 STATUSES = ("killed", "survived", "excluded", "pending")
 SUMMARY_SURVIVOR_LIMIT = 50
+#: The one record stryker_scope writes for a file no chunk has measured yet. It
+#: stands for every mutant of that file, a number nobody knows until it runs, so
+#: it is counted as a file and never as one mutant.
+UNMEASURED_FILE = "not measured yet (whole file)"
 
 
 @dataclass
@@ -132,6 +136,25 @@ def fmt(score: float | None) -> str:
     return "n/a" if score is None else f"{score:.1f}%"
 
 
+def unmeasured_file(record: dict) -> bool:
+    return record["status"] == "pending" and record.get("raw_status") == UNMEASURED_FILE
+
+
+def remaining(records: list[dict], total: Tally) -> tuple[int, int]:
+    """``(mutants still to test, files not measured yet)`` of a partial run."""
+    files = sum(1 for record in records if unmeasured_file(record))
+    return total.pending - files, files
+
+
+def share_measured(measured: int, mutants_left: int) -> int:
+    # Floored, so a baseline with anything left never reads 100%.
+    return int(100 * measured / (measured + mutants_left)) if measured + mutants_left else 0
+
+
+def plural(count: int, word: str) -> str:
+    return f"{count} {word}" if count == 1 else f"{count} {word}s"
+
+
 def judge(
     records: list[dict], suite: str, scope: str, floors: dict, allow_pending: bool = False
 ) -> Verdict:
@@ -170,12 +193,26 @@ def judge(
         floor = floors["suite"][suite]
         measured = total.scored + total.excluded
         if partial:
-            share = 100.0 * measured / (measured + total.pending)
+            mutants_left, files_left = remaining(records, total)
+            if files_left:
+                # How many mutants an unmeasured file holds is unknown, so
+                # there is no share to give.
+                left = [plural(files_left, "file") + " not measured yet"]
+                if mutants_left:
+                    left.append(plural(mutants_left, "mutant") + " still to test")
+                head = (
+                    f"Baseline in progress: {plural(measured, 'mutant')} measured; "
+                    f"{' and '.join(left)}, left for the next run."
+                )
+            else:
+                head = (
+                    f"Baseline in progress: {measured} of {measured + mutants_left} mutants "
+                    f"measured ({share_measured(measured, mutants_left)}%); the rest resume "
+                    "on the next run."
+                )
             lines.append(
-                f"Baseline in progress: {measured} of {measured + total.pending} mutants "
-                f"measured ({share:.0f}%); the rest resume on the next run. "
-                f"{fmt(total.score)} of those measured were killed. The {floor}% suite "
-                "floor applies once the baseline is complete."
+                f"{head} {fmt(total.score)} of those measured were killed. The {floor}% "
+                "suite floor applies once the baseline is complete."
             )
         else:
             passed = total.score is None or total.score >= floor
@@ -197,9 +234,14 @@ def judge(
                 passed = passed and partial
                 continue
             if t.pending:
+                todo = (
+                    "not measured yet"
+                    if t.scored + t.excluded == 0
+                    and any(unmeasured_file(r) for r in records if r["file"] == module)
+                    else f"{t.pending} still to measure"
+                )
                 module_rows.append(
-                    f"| `{module}` | {fmt(t.score)} so far | {module_floor}% | "
-                    f"{t.pending} still to measure |"
+                    f"| `{module}` | {fmt(t.score)} so far | {module_floor}% | {todo} |"
                 )
                 continue
             ok = t.score is None or t.score >= module_floor
@@ -339,11 +381,20 @@ def status(
             f"{total.killed} of the {total.scored} tested were killed"
         )
     elif partial:
-        share = 100.0 * measured / (measured + total.pending)
+        mutants_left, files_left = remaining(records, total)
+        if files_left:
+            left = [plural(files_left, "file") + " not measured yet"]
+            if mutants_left:
+                left.append(plural(mutants_left, "mutant") + " still to test")
+            progress = f"baseline in progress ({', '.join(left)})"
+        else:
+            progress = (
+                f"baseline {share_measured(measured, mutants_left)}% measured "
+                f"({plural(mutants_left, 'mutant')} left for the next run)"
+            )
         head = (
-            f"baseline {share:.0f}% measured ({total.pending} mutants left for the next run); "
-            f"{fmt(total.score)} of those measured killed; the {floor}% floor applies once "
-            "complete"
+            f"{progress}; {fmt(total.score)} of those measured killed; the {floor}% floor "
+            "applies once complete"
         )
     else:
         ok = total.score is None or total.score >= floor
