@@ -109,6 +109,21 @@ Panelet har ingen handlinger. Poster kan hverken redigeres eller slettes.
 | `bad_password` | Adgangskoden er forkert |
 | `inactive` | Kontoen er deaktiveret |
 
+**Årsagskoder** for `auth.sso.failed`, `auth.proxy_session.failed`, `auth.password.set` og `auth.password.reset`:
+
+| Årsag | Betydning |
+|-------|-----------|
+| `expired` | Kontoens tidsbegrænsede adgang er udløbet |
+| `hd_mismatch` | Google-kontoen tilhører et domæne, der ikke er tilladt |
+| `no_email` | Identitetsudbyderen returnerede ingen e-mailadresse |
+| `no_subject` | Identitetsudbyderen returnerede intet subjekt-id |
+| `local_account` | En lokal adgangskodekonto bruger allerede den e-mail |
+| `no_account` | Der findes ingen konto, og konti oprettes ikke automatisk |
+| `exchange_failed` | Identitetsudbyderen fuldførte ikke login |
+| `unauthenticated` | Den omvendte proxy godkendte ikke anmodningen |
+| `identity_rejected` | Den videresendte identitet blev afvist (domæne eller ubekræftet e-mail) |
+| `invalid_token` | Invitations- eller nulstillingslinket var ugyldigt eller er udløbet |
+
 En stribe `unknown_user`-fejl fra én IP-adresse er sådan, password spraying ser ud; en række `bad_password` mod én konto efterfulgt af `auth.login.locked` er et forsøg på at gætte den kontos adgangskode.
 
 ## Hvad der ikke registreres

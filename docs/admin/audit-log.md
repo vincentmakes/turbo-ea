@@ -109,6 +109,21 @@ The drawer has no actions. Entries cannot be edited or deleted.
 | `bad_password` | The password is wrong |
 | `inactive` | The account is deactivated |
 
+**Reason codes** on `auth.sso.failed`, `auth.proxy_session.failed`, `auth.password.set` and `auth.password.reset`:
+
+| Reason | Meaning |
+|--------|---------|
+| `expired` | The account's time-limited access has ended |
+| `hd_mismatch` | The Google account belongs to a domain that is not allowed |
+| `no_email` | The identity provider returned no email address |
+| `no_subject` | The identity provider returned no subject identifier |
+| `local_account` | A local password account already uses that email |
+| `no_account` | No account exists and accounts are not created automatically |
+| `exchange_failed` | The identity provider did not complete the sign-in |
+| `unauthenticated` | The reverse proxy did not authenticate the request |
+| `identity_rejected` | The forwarded identity was rejected (domain or unverified email) |
+| `invalid_token` | The invitation or reset link was invalid or has expired |
+
 A burst of `unknown_user` failures from one IP address is what password spraying looks like; a run of `bad_password` against one account followed by `auth.login.locked` is a guessing attempt against that account.
 
 ## What is not recorded

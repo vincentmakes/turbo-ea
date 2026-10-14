@@ -109,6 +109,21 @@ El panel no tiene acciones. Las entradas no se pueden editar ni eliminar.
 | `bad_password` | La contraseña es incorrecta |
 | `inactive` | La cuenta está desactivada |
 
+**Códigos de motivo** de `auth.sso.failed`, `auth.proxy_session.failed`, `auth.password.set` y `auth.password.reset`:
+
+| Motivo | Significado |
+|--------|-------------|
+| `expired` | El acceso temporal de la cuenta ha terminado |
+| `hd_mismatch` | La cuenta de Google pertenece a un dominio no permitido |
+| `no_email` | El proveedor de identidad no devolvió ninguna dirección de correo |
+| `no_subject` | El proveedor de identidad no devolvió ningún identificador de sujeto |
+| `local_account` | Una cuenta local con contraseña ya usa ese correo |
+| `no_account` | No existe ninguna cuenta y las cuentas no se crean automáticamente |
+| `exchange_failed` | El proveedor de identidad no completó el inicio de sesión |
+| `unauthenticated` | El proxy inverso no autenticó la solicitud |
+| `identity_rejected` | La identidad transmitida fue rechazada (dominio o correo no verificado) |
+| `invalid_token` | El enlace de invitación o de restablecimiento no era válido o ha caducado |
+
 Una ráfaga de fallos `unknown_user` desde una misma dirección IP es el aspecto de un ataque de *password spraying*; una serie de `bad_password` contra una cuenta seguida de `auth.login.locked` es un intento de adivinar la contraseña de esa cuenta.
 
 ## Qué no se registra

@@ -109,6 +109,21 @@ Die Leiste bietet keine Aktionen. Einträge können weder bearbeitet noch gelös
 | `bad_password` | Das Passwort ist falsch |
 | `inactive` | Das Konto ist deaktiviert |
 
+**Grundcodes** bei `auth.sso.failed`, `auth.proxy_session.failed`, `auth.password.set` und `auth.password.reset`:
+
+| Grund | Bedeutung |
+|-------|-----------|
+| `expired` | Der zeitlich begrenzte Zugang des Kontos ist abgelaufen |
+| `hd_mismatch` | Das Google-Konto gehört zu einer nicht zugelassenen Domäne |
+| `no_email` | Der Identitätsanbieter hat keine E-Mail-Adresse zurückgegeben |
+| `no_subject` | Der Identitätsanbieter hat keine Subjektkennung zurückgegeben |
+| `local_account` | Ein lokales Passwortkonto verwendet diese E-Mail-Adresse bereits |
+| `no_account` | Es gibt kein Konto, und Konten werden nicht automatisch angelegt |
+| `exchange_failed` | Der Identitätsanbieter hat die Anmeldung nicht abgeschlossen |
+| `unauthenticated` | Der Reverse-Proxy hat die Anfrage nicht authentifiziert |
+| `identity_rejected` | Die weitergereichte Identität wurde abgelehnt (Domäne oder unbestätigte E-Mail) |
+| `invalid_token` | Der Einladungs- oder Zurücksetzungslink war ungültig oder ist abgelaufen |
+
 Eine Häufung von `unknown_user`-Fehlschlägen von einer IP-Adresse ist das Muster von Password Spraying; eine Reihe von `bad_password` gegen ein Konto, gefolgt von `auth.login.locked`, ist ein Rateversuch gegen dieses Konto.
 
 ## Was nicht aufgezeichnet wird

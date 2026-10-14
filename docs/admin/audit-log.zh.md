@@ -109,6 +109,21 @@
 | `bad_password` | 密码错误 |
 | `inactive` | 该账户已被停用 |
 
+`auth.sso.failed`, `auth.proxy_session.failed`, `auth.password.set` 和 `auth.password.reset` 的**原因代码**：
+
+| 原因 | 含义 |
+|------|------|
+| `expired` | 该账户的限时访问已结束 |
+| `hd_mismatch` | 该 Google 账户属于不允许的域名 |
+| `no_email` | 身份提供商未返回邮箱地址 |
+| `no_subject` | 身份提供商未返回主体标识符 |
+| `local_account` | 已有一个本地密码账户使用该邮箱 |
+| `no_account` | 账户不存在，且不会自动创建账户 |
+| `exchange_failed` | 身份提供商未完成登录 |
+| `unauthenticated` | 反向代理未对请求进行身份验证 |
+| `identity_rejected` | 转发的身份被拒绝（域名或邮箱未验证） |
+| `invalid_token` | 邀请或重置链接无效或已过期 |
+
 来自同一 IP 地址的一连串 `unknown_user` 失败就是「密码喷洒」（password spraying）的样子；针对同一账户的一系列 `bad_password`，随后出现 `auth.login.locked`，则是针对该账户的猜测尝试。
 
 ## 不记录的内容

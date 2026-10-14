@@ -109,6 +109,21 @@ Il pannello non offre azioni. Le voci non si possono modificare né eliminare.
 | `bad_password` | La password è errata |
 | `inactive` | L'account è disattivato |
 
+**Codici di motivo** di `auth.sso.failed`, `auth.proxy_session.failed`, `auth.password.set` e `auth.password.reset`:
+
+| Motivo | Significato |
+|--------|-------------|
+| `expired` | L'accesso a tempo limitato dell'account è terminato |
+| `hd_mismatch` | L'account Google appartiene a un dominio non consentito |
+| `no_email` | Il provider di identità non ha restituito alcun indirizzo e-mail |
+| `no_subject` | Il provider di identità non ha restituito alcun identificativo del soggetto |
+| `local_account` | Un account locale con password usa già quell'e-mail |
+| `no_account` | Non esiste alcun account e gli account non vengono creati automaticamente |
+| `exchange_failed` | Il provider di identità non ha completato l'accesso |
+| `unauthenticated` | Il proxy inverso non ha autenticato la richiesta |
+| `identity_rejected` | L'identità inoltrata è stata rifiutata (dominio o e-mail non verificata) |
+| `invalid_token` | Il collegamento di invito o di reimpostazione non era valido o è scaduto |
+
 Una raffica di errori `unknown_user` da un unico indirizzo IP è l'aspetto di un attacco di *password spraying*; una serie di `bad_password` contro un account seguita da `auth.login.locked` è un tentativo di indovinare la password di quell'account.
 
 ## Che cosa non viene registrato

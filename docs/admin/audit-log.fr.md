@@ -109,6 +109,21 @@ Le panneau ne propose aucune action. Les entrées ne peuvent être ni modifiées
 | `bad_password` | Le mot de passe est erroné |
 | `inactive` | Le compte est désactivé |
 
+**Codes de motif** de `auth.sso.failed`, `auth.proxy_session.failed`, `auth.password.set` et `auth.password.reset` :
+
+| Motif | Signification |
+|-------|---------------|
+| `expired` | L'accès limité dans le temps du compte a pris fin |
+| `hd_mismatch` | Le compte Google appartient à un domaine non autorisé |
+| `no_email` | Le fournisseur d'identité n'a renvoyé aucune adresse e-mail |
+| `no_subject` | Le fournisseur d'identité n'a renvoyé aucun identifiant de sujet |
+| `local_account` | Un compte local avec mot de passe utilise déjà cette adresse e-mail |
+| `no_account` | Aucun compte n'existe et les comptes ne sont pas créés automatiquement |
+| `exchange_failed` | Le fournisseur d'identité n'a pas terminé la connexion |
+| `unauthenticated` | Le proxy inverse n'a pas authentifié la requête |
+| `identity_rejected` | L'identité transmise a été refusée (domaine ou e-mail non vérifié) |
+| `invalid_token` | Le lien d'invitation ou de réinitialisation était invalide ou a expiré |
+
 Une rafale d'échecs `unknown_user` depuis une même adresse IP est la signature d'une pulvérisation de mots de passe (password spraying) ; une série de `bad_password` contre un compte suivie de `auth.login.locked` est une tentative de devinette contre ce compte.
 
 ## Ce qui n'est pas enregistré
