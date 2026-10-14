@@ -70,4 +70,4 @@ def user_agent(request: Any) -> str | None:
     raw = request.headers.get("User-Agent")
     if not raw:
         return None
-    return raw[:USER_AGENT_MAX_LENGTH]
+    return str(raw)[:USER_AGENT_MAX_LENGTH]
