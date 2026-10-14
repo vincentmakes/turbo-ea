@@ -416,7 +416,9 @@ async def _load_remap_context(
             str(row.get("source_type") or ""),
             str(row.get("target_type") or ""),
         )
-        rel_id = ctx.relations_by_ends.get((row.get("type"), str(source_id), str(target_id)))
+        rel_id = ctx.relations_by_ends.get(
+            (str(row.get("type") or ""), str(source_id), str(target_id))
+        )
         return uuid.UUID(rel_id) if rel_id else None
 
     rm.backfill(bundle.rows(schema.SHEET_RELATIONS), id_map, rm.RELATIONS, _resolve_relation)
@@ -1094,7 +1096,7 @@ async def _archived_card_match(
         keys.append(Card.external_id == str(external_id))
     if not keys:
         return None
-    return (
+    found: uuid.UUID | None = (
         (
             await db.execute(
                 select(Card.id)
@@ -1110,6 +1112,7 @@ async def _archived_card_match(
         .scalars()
         .first()
     )
+    return found
 
 
 async def _card_by_external_id(db, type_key: str, external_id: str):

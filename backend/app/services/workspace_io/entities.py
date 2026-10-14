@@ -446,7 +446,7 @@ async def apply_entity_section(
             continue
         current = existing_by_pk.get(pk_vals)
         if current is not None:
-            if rewrite is not None:
+            if rewrite is not None and remap is not None:
                 original = {c: copy.deepcopy(kwargs.get(c)) for c in section.id_bearing_columns}
                 tally = rewrite(kwargs, remap)
                 if heal_row(current, original, kwargs, section.id_bearing_columns, tally):
@@ -455,7 +455,7 @@ async def apply_entity_section(
             sr.skip("already_present")
             continue
 
-        if rewrite is not None:
+        if rewrite is not None and remap is not None:
             sr.note_references(rewrite(kwargs, remap))
         obj = model(**kwargs)
         db.add(obj)
