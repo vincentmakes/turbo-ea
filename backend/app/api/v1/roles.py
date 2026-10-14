@@ -19,6 +19,7 @@ from app.core.permissions import (
 from app.database import get_db
 from app.models.role import Role
 from app.models.user import User
+from app.services import audit_log
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/roles", tags=["roles"])
@@ -117,6 +118,58 @@ def _role_response(role: Role, user_count: int | None = None, *, full: bool = Tr
         if user_count is not None:
             data["user_count"] = user_count
     return data
+
+
+ROLE_AUDIT_FIELDS = ("label", "color", "permissions", "is_default", "sort_order")
+
+
+def permission_changes(
+    old: dict[str, bool] | None, new: dict[str, bool] | None
+) -> dict[str, dict[str, bool]]:
+    """``{"old": {...}, "new": {...}}`` restricted to the permission keys that changed.
+
+    A role's matrix has ~70 keys; an audit row that copied it whole on every
+    save would bury the one flag that moved. An absent key reads as ``False``
+    (that is how ``PermissionService`` evaluates it), so adding a key as
+    ``False`` is not a change. Empty when nothing changed.
+    """
+    old = old or {}
+    new = new or {}
+    changed = sorted(
+        k for k in set(old) | set(new) if bool(old.get(k, False)) != bool(new.get(k, False))
+    )
+    if not changed:
+        return {}
+    return {
+        "old": {k: bool(old.get(k, False)) for k in changed},
+        "new": {k: bool(new.get(k, False)) for k in changed},
+    }
+
+
+def role_changes(before: dict, after: dict) -> dict:
+    """The ``details`` of an ``admin.role.updated`` row: a ``diff`` of the role's
+    audited fields, with ``permissions`` narrowed to the keys that changed."""
+    changes = audit_log.diff(
+        before, after, keys=[k for k in ROLE_AUDIT_FIELDS if k != "permissions"]
+    )
+    perms = permission_changes(before.get("permissions"), after.get("permissions"))
+    if perms:
+        changes["permissions"] = perms
+    return changes
+
+
+def _role_snapshot(role: Role) -> dict:
+    return {
+        "label": role.label,
+        "color": role.color,
+        "permissions": dict(role.permissions or {}),
+        "is_default": role.is_default,
+        "sort_order": role.sort_order,
+    }
+
+
+def _role_target(role: Role) -> tuple[str, str, str]:
+    return ("role", role.key, role.label)
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +271,18 @@ async def create_role(
         is_system=False,
     )
     db.add(role)
+    await audit_log.record(
+        db,
+        action="admin.role.created",
+        category="admin",
+        actor=user,
+        target=_role_target(role),
+        details={
+            "color": body.color,
+            "is_default": body.is_default,
+            "permissions": {k: v for k, v in sorted(body.permissions.items()) if v},
+        },
+    )
     await db.commit()
     await db.refresh(role)
     PermissionService.invalidate_role_cache(body.key)
@@ -266,9 +331,19 @@ async def update_role(
         for r in existing_defaults.scalars().all():
             r.is_default = False
 
+    before = _role_snapshot(role)
     for field, value in data.items():
         setattr(role, field, value)
 
+    details = role_changes(before, _role_snapshot(role))
+    await audit_log.record(
+        db,
+        action="admin.role.updated",
+        category="admin",
+        actor=user,
+        target=_role_target(role),
+        details=details,
+    )
     await db.commit()
     await db.refresh(role)
     PermissionService.invalidate_role_cache(key)
@@ -304,6 +379,14 @@ async def archive_role(
     role.is_archived = True
     role.archived_at = datetime.now(timezone.utc)
     role.archived_by = user.id
+    await audit_log.record(
+        db,
+        action="admin.role.archived",
+        category="admin",
+        actor=user,
+        target=_role_target(role),
+        details={"affected_users_count": affected_users_count},
+    )
     await db.commit()
     await db.refresh(role)
     PermissionService.invalidate_role_cache(key)
@@ -332,6 +415,9 @@ async def restore_role(
     role.is_archived = False
     role.archived_at = None
     role.archived_by = None
+    await audit_log.record(
+        db, action="admin.role.restored", category="admin", actor=user, target=_role_target(role)
+    )
     await db.commit()
     await db.refresh(role)
     PermissionService.invalidate_role_cache(key)

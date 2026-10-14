@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import require_permission
 from app.database import get_db
 from app.models.user import User
+from app.services import audit_log
 from app.services import principles_catalogue_service as svc
 
 logger = logging.getLogger(__name__)
@@ -51,4 +52,19 @@ async def import_principles(
     Idempotent: catalogue ids that already exist as a principle (matched by
     `catalogue_id`) are skipped and reported in the `skipped` list.
     """
-    return await svc.import_principles(db, catalogue_ids=payload.catalogue_ids)
+    result = await svc.import_principles(db, catalogue_ids=payload.catalogue_ids)
+    # The service commits the import; the audit row is a second, small commit.
+    await audit_log.record(
+        db,
+        action="admin.principle.imported",
+        category="admin",
+        actor=user,
+        target=("principles_catalogue", result.get("catalogue_version"), None),
+        details={
+            "count": len(result["created"]),
+            "skipped": len(result["skipped"]),
+            "catalogue_ids": [row["catalogue_id"] for row in result["created"]],
+        },
+    )
+    await db.commit()
+    return result

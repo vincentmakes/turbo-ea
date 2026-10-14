@@ -5,7 +5,7 @@ Le **Journal d'audit**, sous **Admin → Paramètres → Journal d'audit** (`/ad
 | Sous-onglet | URL | Ce qu'il enregistre |
 |-------------|-----|---------------------|
 | **Modifications** | `/admin/settings?tab=audit-log` | Chaque écriture dans le paysage — fiches, relations, risques, étiquettes, rôles de parties prenantes, brouillons de décision —, regroupée en lots de mutations, avec le diff de chaque événement et une **annulation (Rollback)** |
-| **Sécurité et administration** | `/admin/settings?tab=audit-log&view=security` | Connexions et déconnexions, tentatives échouées, verrouillages, sessions SSO et proxy, événements de mot de passe et emprunt de rôle |
+| **Sécurité et administration** | `/admin/settings?tab=audit-log&view=security` | Connexions et déconnexions, tentatives échouées, verrouillages, sessions SSO et proxy, événements de mot de passe, emprunt de rôle et chaque action administrative |
 
 Les deux sont séparés à dessein. **Modifications** est un outil de travail — il sert à voir et à annuler une écriture erronée — et ne conserve qu'un historique court. **Sécurité et administration** est une piste de preuves : ses entrées ne peuvent être ni modifiées ni supprimées, et elle est conservée un an par défaut.
 
@@ -39,10 +39,11 @@ Le sous-onglet **Sécurité et administration** liste une entrée par action aya
 - verrouillages de compte après des échecs répétés ;
 - inscriptions, ainsi que les mots de passe définis, réinitialisés ou modifiés ;
 - emprunt de rôle — un administrateur qui démarre puis arrête **Voir en tant que rôle…** ;
+- les actions administratives — modifications des utilisateurs, des rôles, des paramètres, du métamodèle, des tags, des calculs, des extensions, des imports, des intégrations, des portails publics et des diagrammes publiés, des enquêtes et de l'accès opérateur (voir [Actions administratives](#administrative-actions)) ;
 - les exports de ce journal lui-même.
 
 !!! note "Dans la prochaine version"
-    Les **actions administratives** — modifications des utilisateurs, des rôles, des paramètres, du métamodèle, des extensions, des imports et des intégrations — et les **exports de données** (exports CSV/JSON de l'inventaire, exports de workspace et de migration) seront enregistrés dans ce même journal dans la prochaine version.
+    Les **exports de données** (exports CSV/JSON de l'inventaire, exports de workspace et de migration) seront enregistrés dans ce même journal dans la prochaine version.
 
 ### Colonnes
 
@@ -125,6 +126,26 @@ Le panneau ne propose aucune action. Les entrées ne peuvent être ni modifiées
 | `invalid_token` | Le lien d'invitation ou de réinitialisation était invalide ou a expiré |
 
 Une rafale d'échecs `unknown_user` depuis une même adresse IP est la signature d'une pulvérisation de mots de passe (password spraying) ; une série de `bad_password` contre un compte suivie de `auth.login.locked` est une tentative de devinette contre ce compte.
+
+### Actions administratives { #administrative-actions }
+
+Chaque modification qu'un administrateur apporte à la configuration de l'instance est enregistrée dans la catégorie `admin`. L'**acteur** est l'administrateur, la **cible** est l'objet modifié — un utilisateur, un rôle, un paramètre, un type de fiche — avec son nom tel qu'il était à ce moment-là, et les **détails** indiquent ce qui a changé sous forme d'anciennes et de nouvelles valeurs, limitées aux champs réellement modifiés. Deux règles s'appliquent à chaque entrée :
+
+- **Les secrets sont masqués.** Un mot de passe SMTP, un secret client SSO, une clé de fournisseur d'IA, un identifiant ServiceNow ou toute autre valeur secrète est écrit `***` : l'entrée montre qu'il a changé, jamais ce qu'il était ni ce qu'il est devenu.
+- **Aucun texte de licence ni identifiant n'est jamais stocké.** Une licence d'extension est identifiée, pas copiée, et un mot de passe qu'un administrateur définit pour un utilisateur est enregistré comme modifié, jamais avec sa valeur.
+
+| Domaine | Actions | Ce qui est enregistré |
+|------|---------|------------------|
+| **Utilisateurs et rôles** | `admin.user.created`, `.updated`, `.deleted`, `.bulk_updated`, `.bulk_deleted`, `.unlocked`; `admin.user.invitation.resent`, `.deleted`; `admin.role.created`, `.updated`, `.archived`, `.restored`; `admin.stakeholder_role.created`, `.updated`, `.deleted`, `.archived`, `.restored` | Comptes créés, modifiés, activés ou désactivés, supprimés (un par un ou en masse) et déverrouillés, avec les champs modifiés — rôle, e-mail, nom, état actif ; invitations renvoyées ou révoquées ; rôles applicatifs et rôles de parties prenantes par type, avec les permissions accordées ou retirées |
+| **Paramètres** | `admin.settings.updated` | Une entrée par paramètre enregistré — e-mail, authentification et SSO, inscription, IA, MCP, langues, activation des modules, image de marque, logo et favicon, durées de conservation. La cible est le paramètre ; les détails sont son ancienne et sa nouvelle valeur, secrets masqués |
+| **Métamodèle** | `admin.metamodel.type.*` (including `.references_generated`), `admin.metamodel.relation_type.*`, `admin.metamodel.resource_type.*`, `admin.principle.*` (including `.imported`), `admin.regulation.*` | Types de fiches, types de relations et types de ressources créés, modifiés, supprimés ou restaurés, avec les propriétés modifiées ; références de fiches générées pour un type ; principes EA, y compris ceux importés depuis le catalogue ; réglementations de conformité |
+| **Tags et calculs** | `admin.tag_group.*`, `admin.tag.*`, `admin.calculation.*` | Groupes de tags et tags ; champs calculés créés, modifiés, supprimés, activés ou désactivés, avec l'ancienne et la nouvelle formule, et l'exécution d'un calcul sur toutes les fiches (`.recalculated`) |
+| **Extensions** | `admin.extension.install.uploaded`, `.applied`, `.discarded`; `admin.extension.store.claimed`, `.refreshed`, `.installed`; `admin.extension.enabled`, `.disabled`, `.uninstalled`; `admin.extension.license.updated`, `.removed` | Paquets téléversés, installés ou abandonnés ; licences et téléchargements depuis la boutique d'extensions ; extensions activées, désactivées et désinstallées ; licence remplacée ou supprimée — avec l'extension et sa version, jamais le texte de la licence |
+| **Transfert de workspace et migration** | `admin.workspace.import.uploaded`, `.applied`, `.completed`, `.discarded`; `admin.migration.uploaded`, `.field_mappings.updated`, `.applied`, `.deleted` | Un [paquet de workspace](workspace-transfer.md) téléversé, son import lancé, terminé ou abandonné ; une [migration de plateforme](migration.md) téléversée, ses correspondances de champs modifiées, appliquée ou supprimée |
+| **Intégrations** | `admin.servicenow.connection.*`, `admin.servicenow.mapping.*`, `admin.servicenow.sync.pulled`, `.pushed`, `.applied` | Connexions ServiceNow, identifiants masqués, et correspondances ; chaque récupération, envoi et application d'enregistrements en attente |
+| **Exposition publique** | `admin.web_portal.created`, `.updated`, `.deleted`; `admin.diagram.published`, `.unpublished` | [Portails web](web-portals.md) et diagrammes publiés — tout ce qui rend des données accessibles sans compte |
+| **Enquêtes** | `admin.survey.sent`, `admin.survey.closed` | Une enquête envoyée à ses destinataires, ou clôturée |
+| **Accès opérateur** | `admin.ops.rescue_access.granted`, `.revoked` | Accès de secours accordé ou révoqué via l'[API d'exploitation](ops-api.md), enregistré à côté des événements `ops.*` existants |
 
 ## Ce qui n'est pas enregistré
 

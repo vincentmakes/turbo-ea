@@ -30,6 +30,7 @@ from app.api.deps import get_current_user
 from app.database import async_session, get_db
 from app.models.user import User
 from app.models.workspace_transfer import WorkspaceTransfer
+from app.services import audit_log
 from app.services.permission_service import PermissionService
 from app.services.workspace_io import (
     WorkspaceBundle,
@@ -192,6 +193,14 @@ async def upload_workspace(
         created_by=user.id,
     )
     db.add(transfer)
+    await audit_log.record(
+        db,
+        action="admin.workspace.import.uploaded",
+        category="admin",
+        actor=user,
+        target=("workspace_transfer", str(transfer.id), transfer.filename),
+        details={"transfer_id": str(transfer.id), "file_size": size},
+    )
     await db.commit()
     await db.refresh(transfer)
 
@@ -224,6 +233,14 @@ async def apply_workspace_transfer(
             status_code=400, detail=f"Cannot apply transfer in status {transfer.status!r}"
         )
     transfer.status = "applying"
+    await audit_log.record(
+        db,
+        action="admin.workspace.import.applied",
+        category="admin",
+        actor=user,
+        target=("workspace_transfer", str(transfer.id), transfer.filename),
+        details={"transfer_id": str(transfer.id)},
+    )
     await db.commit()
     await db.refresh(transfer)
     background_tasks.add_task(_apply_job, str(transfer.id), str(user.id))
@@ -243,6 +260,14 @@ async def delete_workspace_transfer(
             Path(transfer.storage_path).unlink(missing_ok=True)
         except OSError:
             logger.warning("Could not delete bundle file %s", transfer.storage_path)
+    await audit_log.record(
+        db,
+        action="admin.workspace.import.discarded",
+        category="admin",
+        actor=user,
+        target=("workspace_transfer", str(transfer.id), transfer.filename),
+        details={"transfer_id": str(transfer.id), "status": transfer.status},
+    )
     await db.delete(transfer)
     await db.commit()
 
@@ -352,6 +377,9 @@ async def _preview_job(transfer_id_str: str, user_id_str: str) -> None:
 async def _apply_job(transfer_id_str: str, user_id_str: str) -> None:
     storage_path = await _claim_bundle_path(transfer_id_str, user_id_str, "Apply")
     if storage_path is None:
+        await _record_import_completed(
+            transfer_id_str, user_id_str, "failure", {"reason": "bundle_or_user_missing"}
+        )
         return
 
     # Parsed with no database connection held.
@@ -360,7 +388,14 @@ async def _apply_job(transfer_id_str: str, user_id_str: str) -> None:
     except Exception as exc:  # noqa: BLE001
         logger.exception("workspace apply job failed")
         await _fail(transfer_id_str, str(exc)[:1000])
+        await _record_import_completed(
+            transfer_id_str, user_id_str, "failure", {"error": str(exc)[:500]}
+        )
         return
+
+    # What the audit row says about the run, recorded once the apply session
+    # has closed (``None`` when there is nothing to record).
+    completion: tuple[str, dict] | None = None
 
     # ``apply_bundle`` stays one atomic transaction — it must remain
     # all-or-nothing, so nothing inside it is committed early. The bundle stays
@@ -387,12 +422,56 @@ async def _apply_job(transfer_id_str: str, user_id_str: str) -> None:
                 if result.total_failed:
                     transfer.error_message = f"{result.total_failed} section error(s) — see result"
                 await db.commit()
+                completion = (
+                    "success" if result.total_failed == 0 else "failure",
+                    {"totals": result.as_dict()["totals"]},
+                )
             except Exception as exc:  # noqa: BLE001
                 logger.exception("workspace apply job failed")
                 await db.rollback()
                 await _fail(transfer_id_str, str(exc)[:1000])
+                completion = ("failure", {"error": str(exc)[:500]})
     finally:
         bundle.close()
+    if completion is not None:
+        await _record_import_completed(transfer_id_str, user_id_str, *completion)
+
+
+async def _record_import_completed(
+    transfer_id_str: str, user_id_str: str, outcome: str, details: dict
+) -> None:
+    """Record ``admin.workspace.import.completed`` in a short session of its own.
+
+    The job runs after its request has returned, so there is no request
+    context: the actor is the user who asked for the apply (``None`` when that
+    account no longer exists) and the origin stamps ``system``. Opened only
+    after the apply session has closed, so the job never holds two pooled
+    connections, and committed on its own so a failed apply — whose own
+    transaction was rolled back — still leaves its row.
+    """
+    async with async_session() as db:
+        transfer = (
+            await db.execute(
+                select(WorkspaceTransfer).where(WorkspaceTransfer.id == uuid.UUID(transfer_id_str))
+            )
+        ).scalar_one_or_none()
+        actor = (
+            await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
+        ).scalar_one_or_none()
+        await audit_log.record(
+            db,
+            action="admin.workspace.import.completed",
+            category="admin",
+            outcome=outcome,
+            actor=actor,
+            target=(
+                "workspace_transfer",
+                transfer_id_str,
+                transfer.filename if transfer is not None else None,
+            ),
+            details={"transfer_id": transfer_id_str, **details},
+        )
+        await db.commit()
 
 
 async def _fail(transfer_id_str: str, message: str) -> None:

@@ -27,7 +27,7 @@ from app.core.ops_auth import verify_ops_request
 from app.database import get_db
 from app.models.card import Card
 from app.models.user import User
-from app.services import notification_service
+from app.services import audit_log, notification_service
 from app.services.event_bus import event_bus
 
 logger = logging.getLogger(__name__)
@@ -151,6 +151,25 @@ async def create_rescue_access(body: RescueAccessRequest, db: AsyncSession = Dep
         db=db,
         user_id=user.id,
     )
+    # Dual-write: the ``ops.*`` event above is what docs/admin/ops-api.md
+    # promises; the Security log row is where an auditor looks. No actor — the
+    # caller is the control plane, authenticated by signature, not a user. The
+    # setup token is never part of either.
+    await audit_log.record(
+        db,
+        action="admin.ops.rescue_access.granted",
+        category="admin",
+        subject_email=email,
+        target=("user", str(user.id), email),
+        details={
+            "request_id": body.request_id,
+            "operator_email": body.operator_email,
+            "operator_name": body.operator_name,
+            "reason": body.reason,
+            "break_glass": body.break_glass,
+            "expires_at": body.expires_at.isoformat(),
+        },
+    )
     await _notify_admins(
         db,
         title=f"Operator admin access granted ({kind})",
@@ -183,6 +202,14 @@ async def revoke_rescue_access(body: RescueAccessRevoke, db: AsyncSession = Depe
             data={"request_id": body.request_id, "rescue_user_id": str(user.id)},
             db=db,
             user_id=user.id,
+        )
+        await audit_log.record(
+            db,
+            action="admin.ops.rescue_access.revoked",
+            category="admin",
+            subject_email=email,
+            target=("user", str(user.id), email),
+            details={"request_id": body.request_id},
         )
         await _notify_admins(
             db,

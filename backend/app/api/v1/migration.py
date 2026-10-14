@@ -66,6 +66,7 @@ from app.database import async_session, get_db
 from app.models.card_type import CardType
 from app.models.migration import Migration, StagedRecord
 from app.models.user import User
+from app.services import audit_log
 from app.services.migration.apply import apply_migration
 from app.services.migration.export_snapshot import build_export_snapshot
 from app.services.migration.registry import SOURCES, get_source
@@ -307,6 +308,20 @@ async def export_workspace(
     )
 
 
+def _audit_target(m: Migration) -> tuple[str, str, str]:
+    """The ``(type, id, label)`` an audit row names a migration by: its source
+    platform's label, so the Security log reads "SAP LeanIX", not "leanix"."""
+    try:
+        label = get_source(m.source_type).label
+    except KeyError:
+        label = m.source_type
+    return ("migration", str(m.id), label)
+
+
+def _mapped_field_count(mappings: dict | None) -> int:
+    return sum(len(v) for v in (mappings or {}).values() if isinstance(v, dict))
+
+
 @router.post("/upload", response_model=MigrationOut, status_code=201)
 async def upload_snapshot(
     background_tasks: BackgroundTasks,
@@ -366,6 +381,19 @@ async def upload_snapshot(
         created_by=user.id,
     )
     db.add(migration)
+    await audit_log.record(
+        db,
+        action="admin.migration.uploaded",
+        category="admin",
+        actor=user,
+        target=_audit_target(migration),
+        details={
+            "name": name,
+            "source_type": source.key,
+            "file_size": len(raw),
+            "include_archived": bool(include_archived),
+        },
+    )
     await db.commit()
     await db.refresh(migration)
 
@@ -719,6 +747,7 @@ async def update_field_mappings(
         if kept:
             cleaned[native_type] = kept
 
+    old_mapped = _mapped_field_count(m.field_mappings)
     m.field_mappings = cleaned
     flag_jsonb_modified(m, "field_mappings")
     # The mapping affects what the user expects to see on /apply — bump
@@ -726,6 +755,17 @@ async def update_field_mappings(
     # affordance keeps working.
     if m.status == "parsed":
         m.status = "previewed"
+    await audit_log.record(
+        db,
+        action="admin.migration.field_mappings.updated",
+        category="admin",
+        actor=user,
+        target=_audit_target(m),
+        details={
+            "types": sorted(cleaned),
+            "mapped_fields": {"old": old_mapped, "new": _mapped_field_count(cleaned)},
+        },
+    )
     await db.commit()
     await db.refresh(m)
     return _migration_to_out(m)
@@ -746,6 +786,14 @@ async def apply_migration_endpoint(
             detail=f"Cannot apply migration in status {m.status!r}",
         )
     m.status = "applying"
+    await audit_log.record(
+        db,
+        action="admin.migration.applied",
+        category="admin",
+        actor=user,
+        target=_audit_target(m),
+        details={"name": m.name, "source_type": m.source_type},
+    )
     await db.commit()
     # Without an explicit refresh the commit expires every attribute on
     # ``m`` and the trailing ``_migration_to_out(m)`` triggers a sync
@@ -824,6 +872,14 @@ async def delete_migration(
             Path(m.storage_path).unlink(missing_ok=True)
         except OSError:
             logger.exception("Failed to remove snapshot file %s", m.storage_path)
+    await audit_log.record(
+        db,
+        action="admin.migration.deleted",
+        category="admin",
+        actor=user,
+        target=_audit_target(m),
+        details={"name": m.name, "status": m.status},
+    )
     await db.delete(m)
     await db.commit()
 

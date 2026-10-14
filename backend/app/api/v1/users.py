@@ -109,7 +109,21 @@ def _user_response(u: User) -> dict:
         "ui_preferences": u.ui_preferences or DEFAULT_UI_PREFERENCES,
         "created_at": u.created_at.isoformat() if u.created_at else None,
         "last_login": u.last_login.isoformat() if u.last_login else None,
+        # Lockout state (5 failed sign-ins lock an account for 15 minutes), so
+        # the Users screen can show a Locked chip and offer Unlock. Admin-only
+        # payload: never in ``_user_response_lite``.
+        "locked_until": u.locked_until.isoformat() if u.locked_until else None,
+        "failed_login_attempts": u.failed_login_attempts or 0,
     }
+
+
+# The account fields whose old/new values an ``admin.user.updated`` row carries.
+# Never the password: its change is recorded as a masked marker instead.
+USER_AUDIT_FIELDS = ("role", "is_active", "email", "display_name", "auth_provider", "locale")
+
+
+def _user_target(u: User) -> tuple[str, str, str]:
+    return ("user", str(u.id), u.email)
 
 
 def _user_response_lite(u: User) -> dict:
@@ -256,6 +270,15 @@ async def resend_invitation_by_invitation(
             "settings before resending.",
         )
 
+    await audit_log.record(
+        db,
+        action="admin.user.invitation.resent",
+        category="admin",
+        actor=current_user,
+        subject_email=inv.email,
+        target=("invitation", str(inv.id), inv.email),
+    )
+    await db.commit()
     return {"email_sent": True, "sent_to": inv.email}
 
 
@@ -275,6 +298,15 @@ async def delete_invitation(
     if not inv:
         raise HTTPException(404, "Invitation not found")
 
+    await audit_log.record(
+        db,
+        action="admin.user.invitation.deleted",
+        category="admin",
+        actor=current_user,
+        subject_email=inv.email,
+        target=("invitation", str(inv.id), inv.email),
+        details={"role": inv.role},
+    )
     await db.delete(inv)
     await db.commit()
 
@@ -467,10 +499,28 @@ async def bulk_update_users(
                 "Keep at least one user with the admin role and active status.",
             )
 
+    changed: dict[str, dict] = {}
     for u in users:
+        before = {field: getattr(u, field) for field in data}
         for field, value in data.items():
             setattr(u, field, value)
+        user_changes = audit_log.diff(before, data)
+        if user_changes:
+            changed[u.email] = user_changes
 
+    await audit_log.record(
+        db,
+        action="admin.user.bulk_updated",
+        category="admin",
+        actor=current_user,
+        target=("users", None, f"{len(users)} users"),
+        details={
+            "count": len(users),
+            "user_ids": [str(u.id) for u in users],
+            "fields": data,
+            "changes": changed,
+        },
+    )
     await db.commit()
 
     refreshed = await db.execute(select(User).where(User.id.in_(target_uuids)))
@@ -525,6 +575,20 @@ async def bulk_delete_users(
             "Bulk delete would remove the last admin user. "
             "Keep at least one user with the admin role.",
         )
+
+    await audit_log.record(
+        db,
+        action="admin.user.bulk_deleted",
+        category="admin",
+        actor=current_user,
+        target=("users", None, f"{len(deletable)} users"),
+        details={
+            "count": len(deletable),
+            "user_ids": [str(u.id) for u in deletable],
+            "emails": [u.email for u in deletable],
+            "skipped": len(skipped),
+        },
+    )
 
     deleted_count = 0
     for u in deletable:
@@ -673,6 +737,22 @@ async def create_user(
         )
         db.add(sso_inv)
 
+    # Flush first so the row has its id for the audit target.
+    await db.flush()
+    await audit_log.record(
+        db,
+        action="admin.user.created",
+        category="admin",
+        actor=current_user,
+        subject_email=email,
+        target=_user_target(u),
+        details={
+            "role": body.role,
+            "auth_provider": auth_provider,
+            "invited": body.send_email,
+            "password_set": bool(body.password),
+        },
+    )
     await db.commit()
     await db.refresh(u)
 
@@ -764,6 +844,8 @@ async def update_user(
     # Read before ``password`` is popped below. An administrator setting someone
     # else's password is an admin action, not this one.
     changes_own_password = is_self and "password" in data
+    sets_password = "password" in data
+    before = {field: getattr(u, field) for field in USER_AUDIT_FIELDS}
 
     # Non-admin can only update own display_name, password, and locale
     if not is_admin:
@@ -846,6 +928,67 @@ async def update_user(
         await audit_log.record(
             db, action="auth.password.changed", category="auth", actor=current_user
         )
+    after = {field: getattr(u, field) for field in USER_AUDIT_FIELDS}
+    details: dict = audit_log.diff(before, after, keys=USER_AUDIT_FIELDS)
+    if sets_password and not changes_own_password:
+        # An administrator set someone else's password: say so, never what to.
+        details["password"] = {"old": audit_log.MASK, "new": audit_log.MASK}
+    if details:
+        await audit_log.record(
+            db,
+            action="admin.user.updated",
+            category="admin",
+            actor=current_user,
+            subject_email=u.email,
+            target=_user_target(u),
+            details=details,
+        )
+    await db.commit()
+    return _user_response(u)
+
+
+@router.post("/{user_id}/unlock")
+async def unlock_user(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin only — lift a sign-in lockout before it expires.
+
+    Five failed password attempts lock an account for 15 minutes
+    (``auth.login``). This clears the failure counter and the lock so the user
+    can sign in again at once, and records ``admin.user.unlocked`` with what
+    was cleared.
+    """
+    await PermissionService.require_permission(db, current_user, "admin.users")
+
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError as exc:
+        raise HTTPException(404, "User not found") from exc
+    result = await db.execute(select(User).where(User.id == uid))
+    u = result.scalar_one_or_none()
+    if not u:
+        raise HTTPException(404, "User not found")
+
+    details = {
+        "failed_login_attempts": {"old": u.failed_login_attempts or 0, "new": 0},
+        "locked_until": {
+            "old": u.locked_until.isoformat() if u.locked_until else None,
+            "new": None,
+        },
+    }
+    u.failed_login_attempts = 0
+    u.locked_until = None
+    await audit_log.record(
+        db,
+        action="admin.user.unlocked",
+        category="admin",
+        actor=current_user,
+        subject_email=u.email,
+        target=_user_target(u),
+        details=details,
+    )
     await db.commit()
     return _user_response(u)
 
@@ -883,6 +1026,15 @@ async def delete_user(
     # reports, notifications, survey responses), so PostgreSQL handles the
     # fan-out. Also remove any pending SSO invitation for the same email so
     # the row doesn't survive and re-grant the role on next SSO login.
+    await audit_log.record(
+        db,
+        action="admin.user.deleted",
+        category="admin",
+        actor=current_user,
+        subject_email=u.email,
+        target=_user_target(u),
+        details={"role": u.role, "display_name": u.display_name},
+    )
     await db.execute(delete(SsoInvitation).where(SsoInvitation.email == u.email))
     await db.delete(u)
     await db.commit()

@@ -27,7 +27,7 @@ from app.models.resource_type import ResourceType
 from app.models.role import Role
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
-from app.services import card_reference
+from app.services import audit_log, card_reference
 from app.services.extensions.registry import extension_registry
 from app.services.hierarchy import (
     HIERARCHY_LEVEL_KEY,
@@ -48,6 +48,77 @@ logger = logging.getLogger("turboea.metamodel")
 router = APIRouter(prefix="/metamodel", tags=["metamodel"])
 
 _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+# ── Security & admin audit log ─────────────────────────────────────────
+#
+# Every metamodel write records one ``admin.*`` row (``services/audit_log``).
+# The big JSON columns (a type's ``fields_schema`` can run to hundreds of
+# fields) are summarised by size rather than stored whole, so an audit row stays
+# small; the scalar columns are diffed in full.
+
+_TYPE_AUDIT_SCALARS = (
+    "label",
+    "description",
+    "icon",
+    "color",
+    "category",
+    "has_hierarchy",
+    "has_successors",
+    "allow_card_logo",
+    "sort_order",
+    "is_hidden",
+    "reference_config",
+)
+_TYPE_AUDIT_SUMMARISED = (
+    "subtypes",
+    "hierarchy_labels",
+    "fields_schema",
+    "stakeholder_roles",
+    "section_config",
+    "translations",
+    "role_permissions",
+)
+_RELATION_TYPE_AUDIT_SCALARS = (
+    "label",
+    "reverse_label",
+    "description",
+    "cardinality",
+    "sort_order",
+    "is_hidden",
+    "source_type_key",
+    "target_type_key",
+    "source_visible",
+    "source_mandatory",
+    "target_visible",
+    "target_mandatory",
+)
+_RELATION_TYPE_AUDIT_SUMMARISED = ("attributes_schema", "translations")
+
+
+def _json_size(value: object) -> int:
+    """How many entries a JSON list/object holds (0 for anything else)."""
+    return len(value) if isinstance(value, (list, dict)) else 0
+
+
+def _audit_snapshot(obj: object, fields: tuple[str, ...]) -> dict:
+    """A detached copy of ``fields`` so a later in-place edit cannot alter it."""
+    return {f: copy.deepcopy(getattr(obj, f, None)) for f in fields}
+
+
+def _audit_changes(
+    before: dict, after: dict, summarised: tuple[str, ...] = ()
+) -> dict[str, dict[str, object]]:
+    """``audit_log.diff`` of two snapshots, with every ``summarised`` column that
+    changed reported as ``{"old": <entry count>, "new": <entry count>}``."""
+    changes = audit_log.diff(before, after)
+    for key in summarised:
+        if key in changes:
+            changes[key] = {
+                "old": _json_size(changes[key]["old"]),
+                "new": _json_size(changes[key]["new"]),
+            }
+    return changes
 
 
 def _validate_color(body: dict) -> None:
@@ -661,6 +732,14 @@ async def generate_references(
     if card_reference.get_mode(card_type) != "auto":
         raise HTTPException(400, "Card ID generation is not enabled for this type.")
     generated = await card_reference.backfill_references_for_type(db, card_type)
+    await audit_log.record(
+        db,
+        action="admin.metamodel.type.references_generated",
+        category="admin",
+        actor=user,
+        target=("card_type", card_type.key, card_type.label),
+        details={"generated": generated},
+    )
     await db.commit()
     return {"generated": generated}
 
@@ -891,6 +970,18 @@ async def create_type(
         # Auto-provide the lineage relation type so the card detail lineage
         # section renders (issue #729).
         await _ensure_successor_relation_type(db, t.key)
+    await audit_log.record(
+        db,
+        action="admin.metamodel.type.created",
+        category="admin",
+        actor=user,
+        target=("card_type", t.key, t.label),
+        details={
+            "category": t.category,
+            "has_hierarchy": t.has_hierarchy,
+            "fields": sum(len(s.get("fields") or []) for s in t.fields_schema or []),
+        },
+    )
     await db.commit()
     await db.refresh(t)
     # A lookup of this key before it existed cached "no overrides"; drop it so
@@ -932,6 +1023,9 @@ async def update_type(
                     f"Cannot remove roles that are in use: {details}. "
                     "Remove the stakeholder assignments first.",
                 )
+
+    audit_fields = _TYPE_AUDIT_SCALARS + _TYPE_AUDIT_SUMMARISED
+    audit_before = _audit_snapshot(t, audit_fields)
 
     # ── Clean up card attributes when fields or options are removed ──
     if "fields_schema" in body:
@@ -1042,6 +1136,16 @@ async def update_type(
     if "role_permissions" in body:
         t.role_permissions = await _validated_role_permissions(db, body["role_permissions"])
 
+    await audit_log.record(
+        db,
+        action="admin.metamodel.type.updated",
+        category="admin",
+        actor=user,
+        target=("card_type", t.key, t.label),
+        details=_audit_changes(
+            audit_before, _audit_snapshot(t, audit_fields), _TYPE_AUDIT_SUMMARISED
+        ),
+    )
     await db.commit()
     await db.refresh(t)
 
@@ -1085,6 +1189,14 @@ async def delete_type(
     if t.built_in:
         # Soft-delete built-in types
         t.is_hidden = True
+        await audit_log.record(
+            db,
+            action="admin.metamodel.type.deleted",
+            category="admin",
+            actor=user,
+            target=("card_type", key, t.label),
+            details={"mode": "hidden", "card_count": instance_count},
+        )
         await db.commit()
         PermissionService.invalidate_type_permission_cache(key)
         return {"status": "hidden", "key": key, "instance_count": instance_count}
@@ -1107,9 +1219,19 @@ async def delete_type(
             (RelationType.source_type_key == key) | (RelationType.target_type_key == key)
         )
     )
+    removed_relation_types = []
     for rt in rel_result.scalars().all():
+        removed_relation_types.append(rt.key)
         await db.delete(rt)
 
+    await audit_log.record(
+        db,
+        action="admin.metamodel.type.deleted",
+        category="admin",
+        actor=user,
+        target=("card_type", key, t.label),
+        details={"mode": "deleted", "relation_types_removed": sorted(removed_relation_types)},
+    )
     await db.delete(t)
     await db.commit()
     PermissionService.invalidate_type_permission_cache(key)
@@ -1313,6 +1435,14 @@ async def create_relation_type(
         target_mandatory=body.get("target_mandatory", False),
     )
     db.add(rt)
+    await audit_log.record(
+        db,
+        action="admin.metamodel.relation_type.created",
+        category="admin",
+        actor=user,
+        target=("relation_type", rt.key, rt.label),
+        details={"source_type_key": rt.source_type_key, "target_type_key": rt.target_type_key},
+    )
     await db.commit()
     await db.refresh(rt)
     return _serialize_relation_type(rt)
@@ -1348,6 +1478,9 @@ async def update_relation_type(
                 if not exists.scalar_one_or_none():
                     raise HTTPException(400, f"Type '{body[fk]}' does not exist")
 
+    audit_fields = _RELATION_TYPE_AUDIT_SCALARS + _RELATION_TYPE_AUDIT_SUMMARISED
+    audit_before = _audit_snapshot(r, audit_fields)
+
     updatable = [
         "label",
         "reverse_label",
@@ -1382,6 +1515,16 @@ async def update_relation_type(
 
     _sync_english_verb_translations(r, body)
 
+    await audit_log.record(
+        db,
+        action="admin.metamodel.relation_type.updated",
+        category="admin",
+        actor=user,
+        target=("relation_type", r.key, r.label),
+        details=_audit_changes(
+            audit_before, _audit_snapshot(r, audit_fields), _RELATION_TYPE_AUDIT_SUMMARISED
+        ),
+    )
     await db.commit()
     await db.refresh(r)
     return _serialize_relation_type(r)
@@ -1438,6 +1581,18 @@ async def delete_relation_type(
     if instance_count > 0:
         await db.execute(Relation.__table__.delete().where(Relation.type == key))
 
+    await audit_log.record(
+        db,
+        action="admin.metamodel.relation_type.deleted",
+        category="admin",
+        actor=user,
+        target=("relation_type", key, r.label),
+        details={
+            "mode": "hidden" if r.built_in else "deleted",
+            "instances_removed": instance_count,
+        },
+    )
+
     if r.built_in:
         # Soft-delete built-in types so they can be restored from the seed
         r.is_hidden = True
@@ -1463,6 +1618,13 @@ async def restore_relation_type(
         raise HTTPException(400, "Relation type is not hidden")
 
     r.is_hidden = False
+    await audit_log.record(
+        db,
+        action="admin.metamodel.relation_type.restored",
+        category="admin",
+        actor=user,
+        target=("relation_type", key, r.label),
+    )
     await db.commit()
     await db.refresh(r)
     return _serialize_relation_type(r)
@@ -1533,6 +1695,14 @@ async def create_principle(
         sort_order=body.sort_order,
     )
     db.add(p)
+    await audit_log.record(
+        db,
+        action="admin.principle.created",
+        category="admin",
+        actor=user,
+        target=("principle", str(p.id), p.title),
+        details={"is_active": p.is_active},
+    )
     await db.commit()
     await db.refresh(p)
     return _serialize_principle(p)
@@ -1552,8 +1722,17 @@ async def update_principle(
     if not p:
         raise HTTPException(404, "Principle not found")
     updates = body.model_dump(exclude_unset=True)
+    changes = audit_log.diff(p, updates)
     for k, v in updates.items():
         setattr(p, k, v)
+    await audit_log.record(
+        db,
+        action="admin.principle.updated",
+        category="admin",
+        actor=user,
+        target=("principle", str(p.id), p.title),
+        details=changes,
+    )
     await db.commit()
     await db.refresh(p)
     return _serialize_principle(p)
@@ -1567,7 +1746,21 @@ async def delete_principle(
 ):
     """Delete an EA principle (admin only)."""
     await PermissionService.require_permission(db, user, "admin.metamodel")
-    await db.execute(delete(EAPrinciple).where(EAPrinciple.id == uuid.UUID(principle_id)))
+    pid = uuid.UUID(principle_id)
+    title = (
+        await db.execute(select(EAPrinciple.title).where(EAPrinciple.id == pid))
+    ).scalar_one_or_none()
+    await db.execute(delete(EAPrinciple).where(EAPrinciple.id == pid))
+    if title is not None:
+        # Deleting an id that does not exist is a 204 no-op; only a real
+        # deletion is an admin action worth a row.
+        await audit_log.record(
+            db,
+            action="admin.principle.deleted",
+            category="admin",
+            actor=user,
+            target=("principle", str(pid), title),
+        )
     await db.commit()
 
 
@@ -1651,6 +1844,14 @@ async def create_compliance_regulation(
         translations=body.translations or {},
     )
     db.add(r)
+    await audit_log.record(
+        db,
+        action="admin.regulation.created",
+        category="admin",
+        actor=user,
+        target=("regulation", r.key, r.label),
+        details={"is_enabled": r.is_enabled},
+    )
     await db.commit()
     await db.refresh(r)
     return _serialize_regulation(r)
@@ -1680,8 +1881,17 @@ async def update_compliance_regulation(
         updates["label"] = updates["label"].strip()
     if "translations" in updates and updates["translations"] is None:
         updates["translations"] = {}
+    changes = audit_log.diff(r, updates)
     for k, v in updates.items():
         setattr(r, k, v)
+    await audit_log.record(
+        db,
+        action="admin.regulation.updated",
+        category="admin",
+        actor=user,
+        target=("regulation", r.key, r.label),
+        details=changes,
+    )
     await db.commit()
     await db.refresh(r)
     return _serialize_regulation(r)
@@ -1710,6 +1920,13 @@ async def delete_compliance_regulation(
             400,
             "Built-in regulations cannot be deleted — toggle is_enabled to disable instead.",
         )
+    await audit_log.record(
+        db,
+        action="admin.regulation.deleted",
+        category="admin",
+        actor=user,
+        target=("regulation", r.key, r.label),
+    )
     await db.delete(r)
     await db.commit()
 
@@ -1810,6 +2027,14 @@ async def create_resource_type(
         translations=body.translations or {},
     )
     db.add(r)
+    await audit_log.record(
+        db,
+        action="admin.metamodel.resource_type.created",
+        category="admin",
+        actor=user,
+        target=("resource_type", str(r.id), r.label),
+        details={"kind": r.kind, "key": r.key},
+    )
     await db.commit()
     await db.refresh(r)
     return _serialize_resource_type(r)
@@ -1839,8 +2064,17 @@ async def update_resource_type(
         updates["label"] = updates["label"].strip()
     if "translations" in updates and updates["translations"] is None:
         updates["translations"] = {}
+    changes = audit_log.diff(r, updates)
     for k, v in updates.items():
         setattr(r, k, v)
+    await audit_log.record(
+        db,
+        action="admin.metamodel.resource_type.updated",
+        category="admin",
+        actor=user,
+        target=("resource_type", str(r.id), r.label),
+        details=changes,
+    )
     await db.commit()
     await db.refresh(r)
     return _serialize_resource_type(r)
@@ -1868,5 +2102,13 @@ async def delete_resource_type(
             400,
             "Built-in resource types cannot be deleted — toggle is_enabled to disable instead.",
         )
+    await audit_log.record(
+        db,
+        action="admin.metamodel.resource_type.deleted",
+        category="admin",
+        actor=user,
+        target=("resource_type", str(r.id), r.label),
+        details={"kind": r.kind, "key": r.key},
+    )
     await db.delete(r)
     await db.commit()

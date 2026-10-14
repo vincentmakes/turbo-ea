@@ -523,3 +523,71 @@ class TestDelete:
         assert resp.status_code == 403
         resp = await client.delete(f"{BASE}/{uuid.uuid4()}", headers=auth_headers(env["admin"]))
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Security & admin audit log
+# ---------------------------------------------------------------------------
+
+
+async def _audit_rows(db, prefix: str = "admin.migration."):
+    """Discard what a request flushed but never committed, then read the log."""
+    from app.models.audit_log import AuditLogEntry
+
+    await db.rollback()
+    result = await db.execute(
+        select(AuditLogEntry)
+        .where(AuditLogEntry.action.like(f"{prefix}%"))
+        .order_by(AuditLogEntry.created_at)
+    )
+    return list(result.scalars().all())
+
+
+class TestAudit:
+    async def test_upload_is_recorded_once_per_new_snapshot(self, client, db, env):
+        admin_id = env["admin"].id
+        first = await _upload(client, env["admin"])
+        assert first.status_code == 201, first.text
+        # The same bytes again return the existing migration and record nothing.
+        await _upload(client, env["admin"])
+
+        [row] = await _audit_rows(db)
+        assert row.action == "admin.migration.uploaded"
+        assert row.actor_user_id == admin_id and row.category == "admin"
+        assert (row.target_type, row.target_id, row.target_label) == (
+            "migration",
+            first.json()["id"],
+            "In-memory source",
+        )
+        assert row.details["source_type"] == "inmem"
+        assert row.details["name"] == "Q3 export"
+
+    async def test_mappings_apply_and_delete_are_recorded(self, client, db, env, staged):
+        mid = str(staged.id)
+        headers = auth_headers(env["admin"])
+        resp = await client.put(
+            f"{BASE}/{mid}/field-mappings",
+            json={"field_mappings": {"Application": {"regions": "regions", "x": ""}}},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        resp = await client.post(f"{BASE}/{mid}/apply", headers=headers)
+        assert resp.status_code == 202
+        resp = await client.delete(f"{BASE}/{mid}", headers=headers)
+        assert resp.status_code == 204
+
+        mappings, applied, deleted = await _audit_rows(db)
+        assert mappings.action == "admin.migration.field_mappings.updated"
+        assert mappings.details == {
+            "types": ["Application"],
+            "mapped_fields": {"old": 0, "new": 1},
+        }
+        assert applied.action == "admin.migration.applied"
+        assert applied.target_id == mid and applied.target_label == "In-memory source"
+        assert deleted.action == "admin.migration.deleted"
+        assert deleted.details["status"] == "applied"
+
+    async def test_a_refused_apply_records_nothing(self, client, db, env, staged):
+        resp = await client.post(f"{BASE}/{staged.id}/apply", headers=auth_headers(env["viewer"]))
+        assert resp.status_code == 403
+        assert await _audit_rows(db) == []

@@ -101,6 +101,8 @@ class TestListUsers:
         "created_at",
         "locale",
         "ui_preferences",
+        "locked_until",
+        "failed_login_attempts",
     }
 
     async def test_admin_gets_full_payload(self, client, db, users_env):
@@ -1046,3 +1048,98 @@ class TestUiPreferences:
         )
         assert resp.status_code == 200
         assert "diagram_libraries" not in resp.json()
+
+
+# -------------------------------------------------------------------
+# Sign-in lockout: visible to admins, and liftable
+# -------------------------------------------------------------------
+
+
+async def _lock(db, user, *, attempts=5, minutes=15):
+    from datetime import datetime, timedelta, timezone
+
+    user.failed_login_attempts = attempts
+    user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=minutes)
+    await db.flush()
+    return user.locked_until
+
+
+async def test_admin_payload_exposes_lockout_state(client, db, users_env):
+    locked_until = await _lock(db, users_env["member"])
+    resp = await client.get(
+        f"/api/v1/users/{users_env['member'].id}", headers=auth_headers(users_env["admin"])
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["failed_login_attempts"] == 5
+    assert body["locked_until"] == locked_until.isoformat()
+
+    # The lite payload other users see carries neither.
+    resp = await client.get(
+        f"/api/v1/users/{users_env['admin'].id}", headers=auth_headers(users_env["member"])
+    )
+    assert "locked_until" not in resp.json()
+    assert "failed_login_attempts" not in resp.json()
+
+
+async def test_unlock_clears_lockout_and_records(client, db, users_env):
+    from sqlalchemy import select
+
+    from app.models.audit_log import AuditLogEntry
+    from app.models.user import User
+
+    member = users_env["member"]
+    member_id, admin_id = member.id, users_env["admin"].id
+    locked_until = await _lock(db, member, attempts=7)
+    headers = auth_headers(users_env["admin"])
+
+    resp = await client.post(f"/api/v1/users/{member_id}/unlock", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["locked_until"] is None
+    assert body["failed_login_attempts"] == 0
+
+    # Read back what the route committed, not what it merely flushed.
+    await db.rollback()
+    stored = (await db.execute(select(User).where(User.id == member_id))).scalar_one()
+    assert stored.failed_login_attempts == 0
+    assert stored.locked_until is None
+    [row] = (
+        (
+            await db.execute(
+                select(AuditLogEntry).where(AuditLogEntry.action == "admin.user.unlocked")
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert (row.category, row.outcome) == ("admin", "success")
+    assert row.actor_user_id == admin_id
+    assert row.subject_email == "member@test.com"
+    assert (row.target_type, row.target_id, row.target_label) == (
+        "user",
+        str(member_id),
+        "member@test.com",
+    )
+    assert row.details == {
+        "failed_login_attempts": {"old": 7, "new": 0},
+        "locked_until": {"old": locked_until.isoformat(), "new": None},
+    }
+
+
+async def test_unlock_requires_admin_users(client, db, users_env):
+    await _lock(db, users_env["viewer"])
+    resp = await client.post(
+        f"/api/v1/users/{users_env['viewer'].id}/unlock",
+        headers=auth_headers(users_env["member"]),
+    )
+    assert resp.status_code == 403
+    assert users_env["viewer"].failed_login_attempts == 5
+
+
+@pytest.mark.parametrize("user_id", [str(uuid.uuid4()), "not-a-uuid"])
+async def test_unlock_unknown_user_is_404(client, db, users_env, user_id):
+    resp = await client.post(
+        f"/api/v1/users/{user_id}/unlock", headers=auth_headers(users_env["admin"])
+    )
+    assert resp.status_code == 404

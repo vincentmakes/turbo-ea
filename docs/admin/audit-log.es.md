@@ -5,7 +5,7 @@ El **Registro de auditoría**, en **Admin → Configuración → Registro de aud
 | Subpestaña | URL | Qué registra |
 |------------|-----|--------------|
 | **Cambios** | `/admin/settings?tab=audit-log` | Cada escritura en el panorama — fichas, relaciones, riesgos, etiquetas, roles de partes interesadas, borradores de decisión —, agrupada en lotes de mutación, con un diff por evento y un **Revertir (Rollback)** |
-| **Seguridad y administración** | `/admin/settings?tab=audit-log&view=security` | Inicios y cierres de sesión, intentos fallidos, bloqueos, sesiones SSO y de proxy, eventos de contraseña y suplantación de rol |
+| **Seguridad y administración** | `/admin/settings?tab=audit-log&view=security` | Inicios y cierres de sesión, intentos fallidos, bloqueos, sesiones SSO y de proxy, eventos de contraseña, suplantación de rol y cada acción administrativa |
 
 Las dos están separadas a propósito. **Cambios** es una herramienta de trabajo — existe para que pueda ver y deshacer una escritura errónea — y conserva un historial corto. **Seguridad y administración** es un rastro de evidencias: sus entradas no se pueden editar ni eliminar, y se conserva un año por defecto.
 
@@ -39,10 +39,11 @@ La subpestaña **Seguridad y administración** muestra una entrada por cada acci
 - bloqueos de cuenta tras fallos repetidos;
 - registros de cuentas, y contraseñas establecidas, restablecidas o cambiadas;
 - suplantación de rol — un administrador que inicia y detiene **Ver como rol…**;
+- acciones administrativas — cambios en usuarios, roles, ajustes, el metamodelo, etiquetas, cálculos, extensiones, importaciones, integraciones, portales públicos y diagramas publicados, encuestas y el acceso de operador (consulte [Acciones administrativas](#administrative-actions));
 - exportaciones de este mismo registro.
 
 !!! note "En la próxima versión"
-    Las **acciones administrativas** — cambios en usuarios, roles, configuración, el metamodelo, extensiones, importaciones e integraciones — y las **exportaciones de datos** (exportaciones CSV/JSON del inventario, exportaciones de workspace y de migración) se registrarán en este mismo registro en la próxima versión.
+    Las **exportaciones de datos** (exportaciones CSV/JSON del inventario, exportaciones de espacio de trabajo y de migración) se registrarán en este mismo registro en la próxima versión.
 
 ### Columnas
 
@@ -125,6 +126,26 @@ El panel no tiene acciones. Las entradas no se pueden editar ni eliminar.
 | `invalid_token` | El enlace de invitación o de restablecimiento no era válido o ha caducado |
 
 Una ráfaga de fallos `unknown_user` desde una misma dirección IP es el aspecto de un ataque de *password spraying*; una serie de `bad_password` contra una cuenta seguida de `auth.login.locked` es un intento de adivinar la contraseña de esa cuenta.
+
+### Acciones administrativas { #administrative-actions }
+
+Cada cambio que un administrador hace en la configuración de la instancia se registra en la categoría `admin`. El **actor** es el administrador, el **objetivo** es el objeto modificado — un usuario, un rol, un ajuste, un tipo de ficha — con su nombre tal como era en ese momento, y los **detalles** indican qué cambió como valores antiguos y nuevos, limitados a los campos que cambiaron realmente. Dos reglas se aplican a cada entrada:
+
+- **Los secretos se enmascaran.** Una contraseña SMTP, un secreto de cliente SSO, una clave de proveedor de IA, una credencial de ServiceNow o cualquier otro valor secreto se escribe como `***`: la entrada muestra que cambió, nunca lo que era ni lo que pasó a ser.
+- **Nunca se almacena el texto de una licencia ni una credencial.** Una licencia de extensión se identifica, no se copia, y una contraseña que un administrador establece para un usuario se registra como cambiada, nunca con su valor.
+
+| Área | Acciones | Qué se registra |
+|------|---------|------------------|
+| **Usuarios y roles** | `admin.user.created`, `.updated`, `.deleted`, `.bulk_updated`, `.bulk_deleted`, `.unlocked`; `admin.user.invitation.resent`, `.deleted`; `admin.role.created`, `.updated`, `.archived`, `.restored`; `admin.stakeholder_role.created`, `.updated`, `.deleted`, `.archived`, `.restored` | Cuentas creadas, editadas, activadas o desactivadas, eliminadas (una a una o en bloque) y desbloqueadas, con los campos cambiados — rol, correo electrónico, nombre, estado activo; invitaciones reenviadas o revocadas; roles de aplicación y roles de partes interesadas por tipo, con los permisos concedidos o retirados |
+| **Ajustes** | `admin.settings.updated` | Una entrada por cada ajuste guardado — correo electrónico, autenticación y SSO, registro, IA, MCP, idiomas, activación de módulos, marca, logotipo y favicon, periodos de retención. El objetivo es el ajuste; los detalles son su valor antiguo y nuevo, con los secretos enmascarados |
+| **Metamodelo** | `admin.metamodel.type.*` (including `.references_generated`), `admin.metamodel.relation_type.*`, `admin.metamodel.resource_type.*`, `admin.principle.*` (including `.imported`), `admin.regulation.*` | Tipos de ficha, tipos de relación y tipos de recurso creados, cambiados, eliminados o restaurados, con las propiedades cambiadas; referencias de fichas generadas para un tipo; principios EA, incluidos los importados del catálogo; regulaciones de cumplimiento |
+| **Etiquetas y cálculos** | `admin.tag_group.*`, `admin.tag.*`, `admin.calculation.*` | Grupos de etiquetas y etiquetas; campos calculados creados, cambiados, eliminados, activados o desactivados, con la fórmula antigua y la nueva, y la ejecución de un cálculo sobre todas las fichas (`.recalculated`) |
+| **Extensiones** | `admin.extension.install.uploaded`, `.applied`, `.discarded`; `admin.extension.store.claimed`, `.refreshed`, `.installed`; `admin.extension.enabled`, `.disabled`, `.uninstalled`; `admin.extension.license.updated`, `.removed` | Paquetes subidos, instalados o descartados; licencias y descargas de la tienda de extensiones; extensiones habilitadas, deshabilitadas y desinstaladas; la licencia sustituida o eliminada — con la extensión y su versión, nunca el texto de la licencia |
+| **Transferencia de espacio de trabajo y migración** | `admin.workspace.import.uploaded`, `.applied`, `.completed`, `.discarded`; `admin.migration.uploaded`, `.field_mappings.updated`, `.applied`, `.deleted` | Un [paquete de espacio de trabajo](workspace-transfer.md) subido, su importación iniciada, completada o descartada; una [migración de plataforma](migration.md) subida, sus asignaciones de campos editadas, aplicada o eliminada |
+| **Integraciones** | `admin.servicenow.connection.*`, `admin.servicenow.mapping.*`, `admin.servicenow.sync.pulled`, `.pushed`, `.applied` | Conexiones de ServiceNow, con las credenciales enmascaradas, y asignaciones; cada extracción, envío y aplicación de registros preparados |
+| **Exposición pública** | `admin.web_portal.created`, `.updated`, `.deleted`; `admin.diagram.published`, `.unpublished` | [Portales web](web-portals.md) y diagramas publicados — todo lo que hace que los datos sean accesibles sin una cuenta |
+| **Encuestas** | `admin.survey.sent`, `admin.survey.closed` | Una encuesta enviada a sus destinatarios, o cerrada |
+| **Acceso de operador** | `admin.ops.rescue_access.granted`, `.revoked` | Acceso de rescate concedido o revocado a través de la [API de operaciones](ops-api.md), registrado junto a los eventos `ops.*` existentes |
 
 ## Qué no se registra
 

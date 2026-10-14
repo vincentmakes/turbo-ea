@@ -41504,6 +41504,47 @@
         ]
       }
     },
+    "/api/v1/users/{user_id}/unlock": {
+      "post": {
+        "description": "Admin only \u2014 lift a sign-in lockout before it expires.\n\nFive failed password attempts lock an account for 15 minutes\n(``auth.login``). This clears the failure counter and the lock so the user\ncan sign in again at once, and records ``admin.user.unlocked`` with what\nwas cleared.",
+        "operationId": "unlock_user_api_v1_users__user_id__unlock_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unlock User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
     "/api/v1/value-stream-catalogue": {
       "get": {
         "description": "Return the full active value-stream catalogue, flattened to a\nparent-stream + child-stage tree so the existing browser UI can render\nit. Each node is annotated with `existing_card_id`.",

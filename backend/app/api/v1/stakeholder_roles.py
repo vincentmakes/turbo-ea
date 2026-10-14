@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.api.v1.roles import permission_changes
 from app.core.permissions import (
     ALL_CARD_PERMISSION_KEYS,
     CARD_PERMISSIONS,
@@ -23,11 +24,39 @@ from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.survey import Survey
 from app.models.user import User
+from app.services import audit_log
 from app.services.card_read_scope import CardReadScope
 from app.services.data_quality import rescore_card_type
 from app.services.permission_service import PermissionService
 
 router = APIRouter(tags=["stakeholder-roles"])
+
+# Fields whose old/new an ``admin.stakeholder_role.updated`` row carries;
+# ``permissions`` is narrowed to the keys that changed (``permission_changes``).
+SRD_AUDIT_FIELDS = ("label", "color", "sort_order", "counts_for_quality")
+
+
+def _srd_target(type_key: str, srd: StakeholderRoleDefinition) -> tuple[str, str, str]:
+    return ("stakeholder_role", f"{type_key}:{srd.key}", srd.label)
+
+
+async def _audit_srd(
+    db: AsyncSession,
+    user: User,
+    action: str,
+    type_key: str,
+    srd: StakeholderRoleDefinition,
+    details: dict | None = None,
+) -> None:
+    await audit_log.record(
+        db,
+        action=f"admin.stakeholder_role.{action}",
+        category="admin",
+        actor=user,
+        target=_srd_target(type_key, srd),
+        details=details,
+    )
+
 
 # Stakeholder role keys follow the same camelCase grammar as every other
 # metamodel key (card types, fields, options, relation types, subtypes) — see
@@ -431,6 +460,18 @@ async def create_stakeholder_role(
         translations=body.translations,
     )
     db.add(srd)
+    await _audit_srd(
+        db,
+        user,
+        "created",
+        type_key,
+        srd,
+        {
+            "color": body.color,
+            "counts_for_quality": body.counts_for_quality,
+            "permissions": {k: v for k, v in sorted(body.permissions.items()) if v},
+        },
+    )
     # A counting role is a data-quality slot for every card of this type, so
     # adding one moves the denominator instance-wide. See `rescore_card_type`.
     if body.counts_for_quality:
@@ -467,6 +508,8 @@ async def update_stakeholder_role(
         raise HTTPException(400, "Cannot edit an archived stakeholder role. Restore it first.")
 
     data = body.model_dump(exclude_unset=True)
+    before = {field: getattr(srd, field) for field in SRD_AUDIT_FIELDS}
+    permissions_before = dict(srd.permissions or {})
 
     # ── Re-key ────────────────────────────────────────────────────────────────
     # Allowed only while the role is unused, which is what keeps this a
@@ -511,6 +554,13 @@ async def update_stakeholder_role(
         await db.flush()
         await rescore_card_type(db, type_key)
 
+    details: dict = audit_log.diff(before, srd, keys=SRD_AUDIT_FIELDS)
+    if new_key:
+        details["key"] = {"old": role_key, "new": new_key}
+    perms = permission_changes(permissions_before, srd.permissions)
+    if perms:
+        details["permissions"] = perms
+    await _audit_srd(db, user, "updated", type_key, srd, details)
     await db.commit()
     await db.refresh(srd)
     PermissionService.invalidate_srd_cache(type_key, role_key)
@@ -551,6 +601,7 @@ async def delete_stakeholder_role(
         raise HTTPException(409, blocker)
 
     counted = srd.counts_for_quality
+    await _audit_srd(db, user, "deleted", type_key, srd)
     await db.delete(srd)
     await _rewrite_jsonb_role(db, type_key, role_key, None)
     if counted:
@@ -599,6 +650,9 @@ async def archive_stakeholder_role(
     srd.is_archived = True
     srd.archived_at = datetime.now(timezone.utc)
     srd.archived_by = user.id
+    await _audit_srd(
+        db, user, "archived", type_key, srd, {"affected_stakeholders_count": affected_count}
+    )
     # Archiving a counting role drops it out of the data-quality slot, which
     # can leave cards whose only assignment was under that role incomplete.
     if srd.counts_for_quality:
@@ -638,6 +692,7 @@ async def restore_stakeholder_role(
     srd.is_archived = False
     srd.archived_at = None
     srd.archived_by = None
+    await _audit_srd(db, user, "restored", type_key, srd)
     if srd.counts_for_quality:
         await db.flush()
         await rescore_card_type(db, type_key)

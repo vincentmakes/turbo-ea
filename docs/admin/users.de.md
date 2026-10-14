@@ -133,3 +133,9 @@ Klicken Sie auf das **Umschaltsymbol** in der Aktionen-Spalte, um einen Benutzer
 - Können sich nicht anmelden
 - Behalten ihre Daten (Karten, Kommentare, Verlauf) zu Prüfungszwecken
 - Können jederzeit reaktiviert werden
+
+#### Kontosperrung
+
+Fünf fehlgeschlagene Passwortanmeldungen in Folge sperren ein lokales Konto für **15 Minuten**; bis dahin wird selbst das richtige Passwort abgelehnt. Die Sperre hebt sich nach Ablauf der 15 Minuten von selbst auf, und eine erfolgreiche Anmeldung setzt den Zähler zurück.
+
+Solange ein Konto gesperrt ist, zeigt seine Zeile in der Benutzertabelle einen Chip **Gesperrt** — fahren Sie mit der Maus darüber, um zu sehen, wann die Sperre endet — und die Spalte Aktionen bietet **Entsperren** an. Entsperren hebt die Sperre auf und setzt den Fehlerzähler sofort zurück, sodass sich der Benutzer direkt anmelden kann. Jede Sperrung wird im [Audit-Log](audit-log.md) als `auth.login.locked` erfasst, jede Entsperrung als `admin.user.unlocked`.

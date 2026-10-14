@@ -613,3 +613,77 @@ class TestRecalculateReport:
             f"{BASE}/recalculate/Application", headers=auth_headers(calc_env["member"])
         )
         assert resp.status_code == 403
+
+
+# -------------------------------------------------------------------
+# Security & admin audit log
+# -------------------------------------------------------------------
+
+
+async def _audit_rows(db, prefix: str):
+    """Discard what a request flushed but never committed, then read the log."""
+    from sqlalchemy import select
+
+    from app.models.audit_log import AuditLogEntry
+
+    await db.rollback()
+    result = await db.execute(
+        select(AuditLogEntry)
+        .where(AuditLogEntry.action.like(f"{prefix}%"))
+        .order_by(AuditLogEntry.created_at)
+    )
+    return list(result.scalars().all())
+
+
+class TestCalculationAudit:
+    async def test_lifecycle_is_recorded(self, client, db, calc_env):
+        admin = calc_env["admin"]
+        admin_id, headers = admin.id, auth_headers(admin)
+        await create_card(db, card_type="Application", name="App", user_id=admin_id)
+
+        created = await client.post(
+            "/api/v1/calculations",
+            json={
+                "name": "Total Cost",
+                "target_type_key": "Application",
+                "target_field_key": "costTotalAnnual",
+                "formula": "42",
+            },
+            headers=headers,
+        )
+        calc_id = created.json()["id"]
+        await client.patch(
+            f"/api/v1/calculations/{calc_id}", json={"formula": "43"}, headers=headers
+        )
+        await client.post(f"/api/v1/calculations/{calc_id}/activate", headers=headers)
+        recalc = await client.post("/api/v1/calculations/recalculate/Application", headers=headers)
+        assert recalc.status_code == 200, recalc.text
+        await client.post(f"/api/v1/calculations/{calc_id}/deactivate", headers=headers)
+        await client.delete(f"/api/v1/calculations/{calc_id}", headers=headers)
+
+        rows = await _audit_rows(db, "admin.calculation.")
+        assert [r.action.rsplit(".", 1)[1] for r in rows] == [
+            "created",
+            "updated",
+            "activated",
+            "recalculated",
+            "deactivated",
+            "deleted",
+        ]
+        assert all(r.actor_user_id == admin_id and r.category == "admin" for r in rows)
+        assert rows[0].target_id == calc_id and rows[0].target_label == "Total Cost"
+        assert rows[0].details["formula"] == "42"
+        assert rows[1].details == {"formula": {"old": "42", "new": "43"}}
+        assert rows[3].target_id == "Application"
+        assert rows[3].details["type_key"] == "Application"
+        assert rows[3].details["cards"] == recalc.json()["cards_processed"] == 1
+
+    async def test_probes_record_nothing(self, client, db, calc_env):
+        headers = auth_headers(calc_env["admin"])
+        resp = await client.post(
+            "/api/v1/calculations/validate",
+            json={"formula": "1 + 1", "target_type_key": "Application"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert await _audit_rows(db, "admin.") == []

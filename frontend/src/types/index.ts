@@ -30,6 +30,11 @@ export interface User {
   ui_preferences?: UiPreferences | null;
   impersonated_role?: string | null;
   impersonated_role_label?: string | null;
+  /** Admin listing only (`GET /users`): set while five failed passwords keep
+   *  the account locked; a past value means the lock has lapsed. */
+  locked_until?: string | null;
+  /** Admin listing only: consecutive failed sign-ins since the last success. */
+  failed_login_attempts?: number;
 }
 
 export interface AppRole {

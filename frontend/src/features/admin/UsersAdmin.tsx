@@ -61,6 +61,7 @@ import {
   excludeSelfFromBulkRoleChange,
   excludeSelfFromBulkDeactivate,
 } from "./users/userSelfGuards";
+import { isLocked } from "./users/userLockout";
 
 interface CreateUserFormState {
   email: string;
@@ -554,6 +555,27 @@ export default function UsersAdmin() {
     [t],
   );
 
+  // --- Unlock an account locked by failed sign-ins ---
+  const handleUnlock = useCallback(
+    async (user: User) => {
+      setSuccess(null);
+      setError(null);
+      setWarning(null);
+      try {
+        await api.post(`/users/${user.id}/unlock`, {});
+        setSuccess(t("users.unlockSuccess", { name: user.display_name }));
+        await fetchUsers();
+      } catch (err) {
+        setError(
+          t("users.unlockFailed", {
+            error: err instanceof Error ? err.message : t("common:errors.generic"),
+          }),
+        );
+      }
+    },
+    [t, fetchUsers],
+  );
+
   // --- Delete invitation ---
   const handleDeleteInvitation = useCallback(
     async (inv: SsoInvitation) => {
@@ -667,6 +689,7 @@ export default function UsersAdmin() {
           const u = p.data;
           if (!u) return null;
           const inv = getInvitation(u);
+          const locked = isLocked(u);
           return (
             <Box
               sx={{
@@ -686,10 +709,33 @@ export default function UsersAdmin() {
               >
                 {p.value}
               </Typography>
+              {locked && (
+                <Tooltip
+                  title={t("users.lockedUntil", {
+                    time: formatDateTime(u.locked_until),
+                  })}
+                >
+                  <Chip
+                    size="small"
+                    color="warning"
+                    variant="outlined"
+                    icon={<MaterialSymbol icon="lock" size={14} />}
+                    label={t("users.locked")}
+                    sx={{ flexShrink: 0 }}
+                  />
+                </Tooltip>
+              )}
               <Box
                 sx={{ display: "flex", gap: 0.25, alignItems: "center", flexShrink: 0 }}
                 onClick={(e) => e.stopPropagation()}
               >
+                {locked && (
+                  <Tooltip title={t("users.unlock")}>
+                    <IconButton size="small" color="warning" onClick={() => handleUnlock(u)}>
+                      <MaterialSymbol icon="lock_open" size={18} />
+                    </IconButton>
+                  </Tooltip>
+                )}
                 <Tooltip title={t("users.editTooltip")}>
                   <IconButton size="small" onClick={() => openEdit(u)}>
                     <MaterialSymbol icon="edit" size={18} />
@@ -987,6 +1033,7 @@ export default function UsersAdmin() {
       userStatus,
       handleResendInvitationRow,
       handleDeleteInvitation,
+      handleUnlock,
     ],
   );
 

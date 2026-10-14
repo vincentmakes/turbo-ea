@@ -17,7 +17,7 @@ from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.survey import Survey, SurveyResponse
 from app.models.user import User
-from app.services import notification_service, survey_service
+from app.services import audit_log, notification_service, survey_service
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.relation_orientation import direction_for
@@ -534,7 +534,7 @@ async def send_survey(
     if not survey.target_roles:
         raise HTTPException(400, "Survey must target at least one stakeholder role")
 
-    targets, _matched = await survey_service.resolve_targets(db, survey)
+    targets, matched = await survey_service.resolve_targets(db, survey)
     if not targets:
         raise HTTPException(
             400,
@@ -551,6 +551,21 @@ async def send_survey(
     activation = await survey_service.activate_survey(db, survey, targets, actor_id=user.id)
     created = activation.created
     recipients = activation.recipients
+    await audit_log.record(
+        db,
+        action="admin.survey.sent",
+        category="admin",
+        actor=user,
+        target=("survey", str(survey.id), survey.name),
+        details={
+            "target_type_key": survey.target_type_key,
+            "target_roles": list(survey.target_roles or []),
+            "matched_cards": len(matched),
+            "cards": len(targets),
+            "users": len({u["user_id"] for t in targets for u in t["users"]}),
+            "requests": created,
+        },
+    )
     await db.commit()
 
     background_tasks.add_task(
@@ -590,6 +605,14 @@ async def close_survey(
 
     survey.status = "closed"
     survey.closed_at = datetime.now(timezone.utc)
+    await audit_log.record(
+        db,
+        action="admin.survey.closed",
+        category="admin",
+        actor=user,
+        target=("survey", str(survey.id), survey.name),
+        details={"target_type_key": survey.target_type_key},
+    )
     await db.commit()
     result = await db.execute(
         select(Survey).where(Survey.id == survey.id).options(selectinload(Survey.creator))

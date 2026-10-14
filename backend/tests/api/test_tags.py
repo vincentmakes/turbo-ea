@@ -579,3 +579,99 @@ class TestDeleteTag:
             headers=auth_headers(admin),
         )
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------
+# Security & admin audit log
+# ---------------------------------------------------------------
+
+
+async def _audit_rows(db, prefix: str):
+    """Discard what a request flushed but never committed, then read the log."""
+    from sqlalchemy import select
+
+    from app.models.audit_log import AuditLogEntry
+
+    await db.rollback()
+    result = await db.execute(
+        select(AuditLogEntry)
+        .where(AuditLogEntry.action.like(f"{prefix}%"))
+        .order_by(AuditLogEntry.created_at)
+    )
+    return list(result.scalars().all())
+
+
+class TestTagAudit:
+    async def test_group_and_tag_lifecycle_is_recorded(self, client, db, tags_env):
+        admin = tags_env["admin"]
+        admin_id, headers = admin.id, auth_headers(admin)
+
+        group = await client.post(
+            "/api/v1/tag-groups", json={"name": "Region", "mode": "single"}, headers=headers
+        )
+        gid = group.json()["id"]
+        await client.patch(
+            f"/api/v1/tag-groups/{gid}",
+            json={"name": "Regions", "mandatory": True},
+            headers=headers,
+        )
+        tag = await client.post(
+            f"/api/v1/tag-groups/{gid}/tags", json={"name": "EMEA"}, headers=headers
+        )
+        tid = tag.json()["id"]
+        await client.patch(
+            f"/api/v1/tag-groups/{gid}/tags/{tid}", json={"color": "#112233"}, headers=headers
+        )
+        await client.delete(f"/api/v1/tag-groups/{gid}/tags/{tid}", headers=headers)
+        await client.delete(f"/api/v1/tag-groups/{gid}", headers=headers)
+
+        groups = await _audit_rows(db, "admin.tag_group.")
+        assert [r.action for r in groups] == [
+            "admin.tag_group.created",
+            "admin.tag_group.updated",
+            "admin.tag_group.deleted",
+        ]
+        assert all(r.actor_user_id == admin_id and r.category == "admin" for r in groups)
+        assert all(r.target_type == "tag_group" and r.target_id == gid for r in groups)
+        assert groups[1].details == {
+            "name": {"old": "Region", "new": "Regions"},
+            "mandatory": {"old": False, "new": True},
+        }
+
+        tags = await _audit_rows(db, "admin.tag.")
+        assert [r.action for r in tags] == [
+            "admin.tag.created",
+            "admin.tag.updated",
+            "admin.tag.deleted",
+        ]
+        assert tags[0].target_label == "EMEA"
+        assert tags[1].details == {"color": {"old": None, "new": "#112233"}}
+
+    async def test_card_tag_links_are_content_not_admin_actions(self, client, db, tags_env):
+        admin = tags_env["admin"]
+        headers = auth_headers(admin)
+        card_id = str(tags_env["card"].id)
+        group = await client.post(
+            "/api/v1/tag-groups", json={"name": "Env", "mode": "multi"}, headers=headers
+        )
+        tag = await client.post(
+            f"/api/v1/tag-groups/{group.json()['id']}/tags", json={"name": "Prod"}, headers=headers
+        )
+        tid = tag.json()["id"]
+        await db.rollback()
+        before = len(await _audit_rows(db, "admin."))
+
+        resp = await client.post(f"/api/v1/cards/{card_id}/tags", json=[tid], headers=headers)
+        assert resp.status_code == 201, resp.text
+        await client.delete(f"/api/v1/cards/{card_id}/tags/{tid}", headers=headers)
+
+        assert len(await _audit_rows(db, "admin.")) == before
+
+    async def test_viewer_is_refused_and_nothing_is_recorded(self, client, db, tags_env):
+        resp = await client.post(
+            "/api/v1/tag-groups",
+            json={"name": "Nope", "mode": "single"},
+            headers=auth_headers(tags_env["viewer"]),
+        )
+        assert resp.status_code == 403
+        assert await _audit_rows(db, "admin.") == []

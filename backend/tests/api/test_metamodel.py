@@ -1766,3 +1766,238 @@ class TestHierarchyLinkLabels:
 
         await db.refresh(child)
         assert child.parent_label == "commercial"
+
+
+# ---------------------------------------------------------------------------
+# Security & admin audit log — every metamodel write records one admin.* row
+# ---------------------------------------------------------------------------
+
+
+async def _audit_rows(db, prefix: str):
+    """Roll back whatever a request flushed but never committed, then read the
+    audit log: what survives is exactly what the route committed. ORM
+    instances are expired by the rollback, so tests capture ids first."""
+    from app.models.audit_log import AuditLogEntry
+
+    await db.rollback()
+    result = await db.execute(
+        select(AuditLogEntry)
+        .where(AuditLogEntry.action.like(f"{prefix}%"))
+        .order_by(AuditLogEntry.created_at)
+    )
+    return list(result.scalars().all())
+
+
+class TestMetamodelAudit:
+    async def test_type_create_update_delete(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        admin_id, headers = admin.id, auth_headers(admin)
+
+        resp = await client.post(
+            "/api/v1/metamodel/types",
+            json={
+                "key": "AuditType",
+                "label": "Audit Type",
+                "fields_schema": [{"section": "S", "fields": [{"key": "a", "type": "text"}]}],
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        resp = await client.patch(
+            "/api/v1/metamodel/types/AuditType",
+            json={
+                "label": "Audited",
+                "fields_schema": [
+                    {
+                        "section": "S",
+                        "fields": [{"key": "a", "type": "text"}, {"key": "b", "type": "text"}],
+                    }
+                ],
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        resp = await client.delete("/api/v1/metamodel/types/AuditType", headers=headers)
+        assert resp.status_code == 200
+
+        created, updated, deleted = await _audit_rows(db, "admin.metamodel.type.")
+        assert created.action == "admin.metamodel.type.created"
+        assert created.category == "admin" and created.outcome == "success"
+        assert created.actor_user_id == admin_id
+        assert (created.target_type, created.target_id, created.target_label) == (
+            "card_type",
+            "AuditType",
+            "Audit Type",
+        )
+        assert created.details["fields"] == 1
+
+        assert updated.action == "admin.metamodel.type.updated"
+        assert updated.target_label == "Audited"
+        assert updated.details["label"] == {"old": "Audit Type", "new": "Audited"}
+        # The schema is summarised by section count, never stored whole.
+        assert updated.details["fields_schema"] == {"old": 1, "new": 1}
+        assert "description" not in updated.details
+
+        assert deleted.action == "admin.metamodel.type.deleted"
+        assert deleted.details["mode"] == "deleted"
+
+    async def test_built_in_type_delete_records_the_soft_delete(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="BuiltIn", label="Built In", built_in=True)
+        resp = await client.delete("/api/v1/metamodel/types/BuiltIn", headers=auth_headers(admin))
+        assert resp.json()["status"] == "hidden"
+        [row] = await _audit_rows(db, "admin.metamodel.type.")
+        assert row.details == {"mode": "hidden", "card_count": 0}
+
+    async def test_a_refused_write_records_nothing(self, client, db, metamodel_env):
+        resp = await client.post(
+            "/api/v1/metamodel/types",
+            json={"key": "Nope", "label": "Nope"},
+            headers=auth_headers(metamodel_env["viewer"]),
+        )
+        assert resp.status_code == 403
+        assert await _audit_rows(db, "admin.") == []
+
+    async def test_relation_type_lifecycle(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        headers = auth_headers(admin)
+        await create_card_type(db, key="Application", label="Application")
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_relation_type(db, key="relBuiltIn", label="uses", built_in=True)
+
+        resp = await client.post(
+            "/api/v1/metamodel/relation-types",
+            json={
+                "key": "relAudit",
+                "label": "runs on",
+                "source_type_key": "Application",
+                "target_type_key": "ITComponent",
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        resp = await client.patch(
+            "/api/v1/metamodel/relation-types/relAudit",
+            json={"label": "is hosted on"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert (
+            await client.delete("/api/v1/metamodel/relation-types/relAudit", headers=headers)
+        ).status_code == 200
+        assert (
+            await client.delete("/api/v1/metamodel/relation-types/relBuiltIn", headers=headers)
+        ).status_code == 200
+        assert (
+            await client.post(
+                "/api/v1/metamodel/relation-types/relBuiltIn/restore", headers=headers
+            )
+        ).status_code == 200
+
+        rows = await _audit_rows(db, "admin.metamodel.relation_type.")
+        assert [r.action.rsplit(".", 1)[1] for r in rows] == [
+            "created",
+            "updated",
+            "deleted",
+            "deleted",
+            "restored",
+        ]
+        assert rows[0].details == {
+            "source_type_key": "Application",
+            "target_type_key": "ITComponent",
+        }
+        assert rows[1].details["label"] == {"old": "runs on", "new": "is hosted on"}
+        assert rows[2].details["mode"] == "deleted"
+        assert rows[3].details["mode"] == "hidden"
+        assert rows[4].target_id == "relBuiltIn"
+
+    async def test_principles_regulations_and_resource_types(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        headers = auth_headers(admin)
+
+        principle = await client.post(
+            "/api/v1/metamodel/principles", json={"title": "Reuse first"}, headers=headers
+        )
+        pid = principle.json()["id"]
+        await client.patch(
+            f"/api/v1/metamodel/principles/{pid}", json={"title": "Reuse"}, headers=headers
+        )
+        await client.delete(f"/api/v1/metamodel/principles/{pid}", headers=headers)
+
+        reg = await client.post(
+            "/api/v1/metamodel/compliance-regulations",
+            json={"key": "audit_reg", "label": "Audit Reg"},
+            headers=headers,
+        )
+        rid = reg.json()["id"]
+        await client.patch(
+            f"/api/v1/metamodel/compliance-regulations/{rid}",
+            json={"is_enabled": False},
+            headers=headers,
+        )
+        await client.delete(f"/api/v1/metamodel/compliance-regulations/{rid}", headers=headers)
+
+        rt = await client.post(
+            "/api/v1/metamodel/resource-types",
+            json={"kind": "link_type", "key": "audit_wiki", "label": "Wiki"},
+            headers=headers,
+        )
+        rtid = rt.json()["id"]
+        await client.patch(
+            f"/api/v1/metamodel/resource-types/{rtid}", json={"label": "Wiki page"}, headers=headers
+        )
+        await client.delete(f"/api/v1/metamodel/resource-types/{rtid}", headers=headers)
+
+        principles = await _audit_rows(db, "admin.principle.")
+        assert [r.action for r in principles] == [
+            "admin.principle.created",
+            "admin.principle.updated",
+            "admin.principle.deleted",
+        ]
+        assert principles[1].details == {"title": {"old": "Reuse first", "new": "Reuse"}}
+        assert principles[2].target_label == "Reuse"
+
+        regulations = await _audit_rows(db, "admin.regulation.")
+        assert [r.action for r in regulations] == [
+            "admin.regulation.created",
+            "admin.regulation.updated",
+            "admin.regulation.deleted",
+        ]
+        assert regulations[1].details == {"is_enabled": {"old": True, "new": False}}
+        assert regulations[0].target_id == "audit_reg"
+
+        resource = await _audit_rows(db, "admin.metamodel.resource_type.")
+        assert [r.action.rsplit(".", 1)[1] for r in resource] == ["created", "updated", "deleted"]
+        assert resource[1].details == {"label": {"old": "Wiki", "new": "Wiki page"}}
+        assert resource[2].details == {"kind": "link_type", "key": "audit_wiki"}
+
+    async def test_deleting_an_unknown_principle_records_nothing(self, client, db, metamodel_env):
+        import uuid as _uuid
+
+        resp = await client.delete(
+            f"/api/v1/metamodel/principles/{_uuid.uuid4()}",
+            headers=auth_headers(metamodel_env["admin"]),
+        )
+        assert resp.status_code == 204
+        assert await _audit_rows(db, "admin.principle.") == []
+
+    async def test_generate_references(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(
+            db,
+            key="Application",
+            label="Application",
+        )
+        ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+        ct.reference_config = {"mode": "auto", "prefix": "APP-", "start": 1, "padding": 0}
+        await create_card(db, card_type="Application", name="One", user_id=admin.id)
+        await db.flush()
+
+        resp = await client.post(
+            "/api/v1/metamodel/types/Application/generate-references",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        [row] = await _audit_rows(db, "admin.metamodel.type.references_generated")
+        assert row.details == {"generated": resp.json()["generated"]}
+        assert row.target_id == "Application"

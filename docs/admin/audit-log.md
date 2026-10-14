@@ -5,7 +5,7 @@ The **Audit log** at **Admin → Settings → Audit log** (`/admin/settings?tab=
 | Sub-tab | URL | What it records |
 |---------|-----|-----------------|
 | **Changes** | `/admin/settings?tab=audit-log` | Every write to the landscape — cards, relations, risks, tags, stakeholder roles, draft decisions — grouped into mutation batches, with a per-event diff and a **Rollback** |
-| **Security & admin** | `/admin/settings?tab=audit-log&view=security` | Sign-ins and sign-outs, failed attempts, lockouts, SSO and proxy sessions, password events and role impersonation |
+| **Security & admin** | `/admin/settings?tab=audit-log&view=security` | Sign-ins and sign-outs, failed attempts, lockouts, SSO and proxy sessions, password events, role impersonation and every administrative action |
 
 The two are kept apart on purpose. **Changes** is a working tool — it exists so you can see and undo a bad write — and it keeps a short history. **Security & admin** is an evidence trail: its entries cannot be edited or deleted, and it is kept for a year by default.
 
@@ -39,10 +39,11 @@ The **Security & admin** sub-tab lists one entry per security-relevant action, n
 - account lockouts after repeated failures;
 - registrations, and passwords being set, reset or changed;
 - role impersonation — an administrator starting and stopping **View as role…**;
+- administrative actions — changes to users, roles, settings, the metamodel, tags, calculations, extensions, imports, integrations, public portals and published diagrams, surveys and operator access (see [Administrative actions](#administrative-actions));
 - exports of this log itself.
 
 !!! note "Coming in the next release"
-    **Administrative actions** — changes to users, roles, settings, the metamodel, extensions, imports and integrations — and **data exports** (inventory CSV/JSON exports, workspace and migration exports) will be recorded in this same log in the next release.
+    **Data exports** (inventory CSV/JSON exports, workspace and migration exports) will be recorded in this same log in the next release.
 
 ### Columns
 
@@ -125,6 +126,26 @@ The drawer has no actions. Entries cannot be edited or deleted.
 | `invalid_token` | The invitation or reset link was invalid or has expired |
 
 A burst of `unknown_user` failures from one IP address is what password spraying looks like; a run of `bad_password` against one account followed by `auth.login.locked` is a guessing attempt against that account.
+
+### Administrative actions
+
+Every change an administrator makes to how the instance is configured is recorded in the `admin` category. The **actor** is the administrator, the **target** is the object changed — a user, a role, a setting, a card type — with its name as it was at that moment, and the **details** list what changed as old and new values, limited to the fields that actually changed. Two rules hold for every entry:
+
+- **Secrets are masked.** An SMTP password, an SSO client secret, an AI provider key, a ServiceNow credential or any other secret value is written as `***`: the entry shows that it changed, never what it was or what it became.
+- **No license text or credential is ever stored.** An extension license is identified, not copied, and a password an administrator sets for a user is recorded as changed, never with its value.
+
+| Area | Actions | What is recorded |
+|------|---------|------------------|
+| **Users & roles** | `admin.user.created`, `.updated`, `.deleted`, `.bulk_updated`, `.bulk_deleted`, `.unlocked`; `admin.user.invitation.resent`, `.deleted`; `admin.role.created`, `.updated`, `.archived`, `.restored`; `admin.stakeholder_role.created`, `.updated`, `.deleted`, `.archived`, `.restored` | Accounts created, edited, activated or deactivated, deleted (one by one or in bulk) and unlocked, with the changed fields — role, email, name, active state; invitations re-sent or revoked; application roles and per-type stakeholder roles, with the permissions granted or removed |
+| **Settings** | `admin.settings.updated` | One entry per setting saved — email, authentication and SSO, registration, AI, MCP, languages, module toggles, branding, logo and favicon, retention periods. The target is the setting; the details are its old and new value, with secrets masked |
+| **Metamodel** | `admin.metamodel.type.*` (including `.references_generated`), `admin.metamodel.relation_type.*`, `admin.metamodel.resource_type.*`, `admin.principle.*` (including `.imported`), `admin.regulation.*` | Card types, relation types and resource types created, changed, deleted or restored, with the changed properties; card references generated for a type; EA principles, including those imported from the catalogue; compliance regulations |
+| **Tags & calculations** | `admin.tag_group.*`, `admin.tag.*`, `admin.calculation.*` | Tag groups and tags; calculated fields created, changed, deleted, activated or deactivated, with the old and new formula, and a calculation run over all cards (`.recalculated`) |
+| **Extensions** | `admin.extension.install.uploaded`, `.applied`, `.discarded`; `admin.extension.store.claimed`, `.refreshed`, `.installed`; `admin.extension.enabled`, `.disabled`, `.uninstalled`; `admin.extension.license.updated`, `.removed` | Bundles uploaded, installed or discarded; licenses and downloads from the Extension Store; extensions enabled, disabled and uninstalled; the license replaced or removed — with the extension and its version, never the license text |
+| **Workspace transfer & migration** | `admin.workspace.import.uploaded`, `.applied`, `.completed`, `.discarded`; `admin.migration.uploaded`, `.field_mappings.updated`, `.applied`, `.deleted` | A [workspace bundle](workspace-transfer.md) uploaded, its import started, finished or discarded; a [platform migration](migration.md) uploaded, its field mappings edited, applied or deleted |
+| **Integrations** | `admin.servicenow.connection.*`, `admin.servicenow.mapping.*`, `admin.servicenow.sync.pulled`, `.pushed`, `.applied` | ServiceNow connections, with credentials masked, and mappings; every pull, push and apply of staged records |
+| **Public exposure** | `admin.web_portal.created`, `.updated`, `.deleted`; `admin.diagram.published`, `.unpublished` | [Web portals](web-portals.md) and published diagrams — everything that makes data reachable without an account |
+| **Surveys** | `admin.survey.sent`, `admin.survey.closed` | A survey sent to its recipients, or closed |
+| **Operator access** | `admin.ops.rescue_access.granted`, `.revoked` | Rescue access granted or revoked through the [operations API](ops-api.md), recorded alongside the existing `ops.*` events |
 
 ## What is not recorded
 

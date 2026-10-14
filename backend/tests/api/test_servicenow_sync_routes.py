@@ -620,3 +620,147 @@ class TestRunsAndApply:
         _no_client(monkeypatch)
         resp = await client.post(f"{BASE}/sync/runs/{pull_id}/apply", headers=env["headers"])
         assert resp.status_code == 502
+
+
+# ---------------------------------------------------------------------------
+# Security & admin audit log
+# ---------------------------------------------------------------------------
+
+
+async def _audit_rows(db, prefix: str = "admin.servicenow."):
+    """Discard what a request flushed but never committed, then read the log."""
+    from app.models.audit_log import AuditLogEntry
+
+    await db.rollback()
+    result = await db.execute(
+        select(AuditLogEntry)
+        .where(AuditLogEntry.action.like(f"{prefix}%"))
+        .order_by(AuditLogEntry.created_at)
+    )
+    return list(result.scalars().all())
+
+
+NEW_PASSWORD = "Sn0w-Audit-S3cret!"
+NEW_CLIENT_SECRET = "oauth-client-secret-value-123"
+
+
+class TestAudit:
+    async def test_connection_crud_never_records_credentials(self, client, db, env):
+        conn_id = env["conn_id"]
+        admin_id = env["admin"].id
+        headers = env["headers"]
+        resp = await client.patch(
+            f"{BASE}/connections/{conn_id}",
+            json={"name": "SNOW prod", "password": NEW_PASSWORD},
+            headers=headers,
+        )
+        assert resp.status_code == 200, resp.text
+        # The masked placeholder the UI echoes back is not a credential change.
+        resp = await client.patch(
+            f"{BASE}/connections/{conn_id}", json={"password": "--------"}, headers=headers
+        )
+        assert resp.status_code == 200
+        second = await client.post(
+            f"{BASE}/connections",
+            json={
+                "name": "OAuth",
+                "instance_url": INSTANCE,
+                "auth_type": "oauth2",
+                "client_id": "cid",
+                "client_secret": NEW_CLIENT_SECRET,
+            },
+            headers=headers,
+        )
+        assert second.status_code == 200, second.text
+        resp = await client.delete(f"{BASE}/connections/{second.json()['id']}", headers=headers)
+        assert resp.status_code == 200
+
+        rows = await _audit_rows(db, "admin.servicenow.connection.")
+        assert [r.action.rsplit(".", 1)[1] for r in rows] == [
+            "created",  # the fixture's connection
+            "updated",
+            "updated",
+            "created",
+            "deleted",
+        ]
+        assert all(r.actor_user_id == admin_id and r.category == "admin" for r in rows)
+        assert rows[0].target_id == conn_id
+        assert rows[0].details == {"instance_url": INSTANCE, "auth_type": "basic"}
+        assert rows[1].details == {
+            "name": {"old": "SNOW", "new": "SNOW prod"},
+            "credentials_changed": True,
+        }
+        assert rows[2].details == {"credentials_changed": False}
+        for row in rows:
+            dumped = repr((row.details, row.target_label, row.target_id, row.subject_email))
+            assert NEW_PASSWORD not in dumped
+            assert NEW_CLIENT_SECRET not in dumped
+            assert "enc:" not in dumped
+
+    async def test_mapping_update_and_delete(self, client, db, env):
+        mid = env["mapping_id"]
+        headers = env["headers"]
+        resp = await client.patch(
+            f"{BASE}/mappings/{mid}",
+            json={
+                "sync_mode": "additive",
+                "field_mappings": [{"turbo_field": "name", "snow_field": "name"}],
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200, resp.text
+        resp = await client.delete(f"{BASE}/mappings/{mid}", headers=headers)
+        assert resp.status_code == 200
+
+        created, updated, deleted = await _audit_rows(db, "admin.servicenow.mapping.")
+        assert created.target_id == mid
+        assert created.target_label == "cmdb_ci_appl → Application"
+        assert created.details["field_mappings"] == 4
+        assert updated.details["field_mappings"] == {"old": 4, "new": 1}
+        assert updated.details["sync_mode"]["new"] == "additive"
+        assert deleted.details == {"connection_id": env["conn_id"]}
+
+    async def test_syncs_and_apply_are_recorded(self, client, db, env, monkeypatch):
+        _swappable(monkeypatch, snow_table_handler(records=[_rec(S1, "Billing")]))
+        mid = env["mapping_id"]
+        pull = await client.post(f"{BASE}/sync/pull/{mid}?auto_apply=false", headers=env["headers"])
+        push = await client.post(f"{BASE}/sync/push/{mid}", headers=env["headers"])
+        applied = await client.post(
+            f"{BASE}/sync/runs/{pull.json()['id']}/apply", headers=env["headers"]
+        )
+        assert applied.status_code == 200, applied.text
+
+        pulled, pushed, applied_row = await _audit_rows(db, "admin.servicenow.sync.")
+        assert pulled.action == "admin.servicenow.sync.pulled"
+        assert pulled.outcome == "success" and pulled.target_id == mid
+        assert pulled.details["run_id"] == pull.json()["id"]
+        assert pulled.details["auto_apply"] is False
+        assert pushed.action == "admin.servicenow.sync.pushed"
+        assert pushed.details["run_id"] == push.json()["id"]
+        assert applied_row.action == "admin.servicenow.sync.applied"
+        assert applied_row.details["applied"] == applied.json()["applied"]
+
+    async def test_a_failed_sync_is_recorded_as_a_failure(self, client, db, env, monkeypatch):
+        admin_id = env["admin"].id
+        monkeypatch.setattr(snow_api, "SyncEngine", _ExplodingEngine)
+        _swappable(monkeypatch, snow_table_handler())
+        mid = env["mapping_id"]
+        resp = await client.post(f"{BASE}/sync/pull/{mid}", headers=env["headers"])
+        assert resp.status_code == 502
+        resp = await client.post(f"{BASE}/sync/push/{mid}", headers=env["headers"])
+        assert resp.status_code == 502
+
+        pulled, pushed = await _audit_rows(db, "admin.servicenow.sync.")
+        assert (pulled.action, pulled.outcome) == ("admin.servicenow.sync.pulled", "failure")
+        assert (pushed.action, pushed.outcome) == ("admin.servicenow.sync.pushed", "failure")
+        assert pulled.actor_user_id == admin_id and pulled.target_id == mid
+
+    async def test_probes_record_nothing(self, client, db, env, monkeypatch):
+        _swappable(monkeypatch, snow_table_handler(tables=[{"name": "x"}], records=[]))
+        await client.post(f"{BASE}/connections/{env['conn_id']}/test", headers=env["headers"])
+        await client.post(f"{BASE}/mappings/{env['mapping_id']}/preview", headers=env["headers"])
+        rows = await _audit_rows(db)
+        assert {r.action for r in rows} == {
+            "admin.servicenow.connection.created",
+            "admin.servicenow.mapping.created",
+        }

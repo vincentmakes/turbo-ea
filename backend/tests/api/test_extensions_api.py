@@ -1899,3 +1899,178 @@ class TestInstanceBinding:
         got = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
         assert got.status_code == 200
         assert _instance in (got.json()["problem"] or "")
+
+
+# ---------------------------------------------------------------------------
+# Security & admin audit log
+# ---------------------------------------------------------------------------
+
+
+async def _audit_rows(db, prefix: str = "admin.extension."):
+    """Discard what a request flushed but never committed, then read the log."""
+    from app.models.audit_log import AuditLogEntry
+
+    await db.rollback()
+    result = await db.execute(
+        select(AuditLogEntry)
+        .where(AuditLogEntry.action.like(f"{prefix}%"))
+        .order_by(AuditLogEntry.created_at)
+    )
+    return list(result.scalars().all())
+
+
+RENEWAL_KEY = "rk_auditsecret0123456"
+CLAIM_TOKEN = "tok_auditclaim0123456789"
+
+
+def _never_leaks(rows, *secrets: str) -> None:
+    for row in rows:
+        dumped = json.dumps(row.details)
+        for secret in secrets:
+            assert secret not in dumped, f"{row.action} stored a secret: {dumped}"
+
+
+class TestExtensionAudit:
+    async def test_license_update_and_removal_never_store_the_license(self, client, db, vendor):
+        admin = await make_admin(db)
+        admin_id, headers = admin.id, auth_headers(admin)
+        text = make_license_text(vendor, renewal_key=RENEWAL_KEY)
+        signature = json.loads(text)["signature"]
+
+        res = await client.put(
+            "/api/v1/admin/extensions/license", json={"text": text}, headers=headers
+        )
+        assert res.status_code == 200, res.text
+        res = await client.delete("/api/v1/admin/extensions/license", headers=headers)
+        assert res.status_code == 204
+
+        updated, removed = await _audit_rows(db, "admin.extension.license.")
+        assert updated.action == "admin.extension.license.updated"
+        assert updated.actor_user_id == admin_id and updated.category == "admin"
+        assert (updated.target_type, updated.target_label) == ("license", "ACME Corp")
+        assert updated.details["entitlements"] == ["sample-ext"]
+        assert updated.details["licensee"] == "ACME Corp"
+        assert removed.action == "admin.extension.license.removed"
+        assert removed.details["entitlements"] == ["sample-ext"]
+        _never_leaks([updated, removed], RENEWAL_KEY, signature, json.loads(text)["payload"])
+
+    async def test_a_refused_license_records_nothing(self, client, db, vendor):
+        admin = await make_admin(db)
+        attacker, _ = make_keypair()
+        res = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(attacker)},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 400
+        assert await _audit_rows(db) == []
+
+    async def test_install_lifecycle_enable_disable_uninstall(self, client, db, vendor):
+        admin = await make_admin(db)
+        headers = auth_headers(admin)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},
+            headers=headers,
+        )
+        install = await upload_and_preview(client, db, admin, vendor)
+        install_id = str(install.id)
+        res = await client.post(
+            f"/api/v1/admin/extensions/install/{install_id}/apply", headers=headers
+        )
+        assert res.status_code == 202, res.text
+        await ext_api.run_apply(db, install, admin)
+        for enabled in (False, True):
+            res = await client.put(
+                "/api/v1/admin/extensions/sample-ext/enabled",
+                json={"enabled": enabled},
+                headers=headers,
+            )
+            assert res.status_code == 200
+        res = await client.delete("/api/v1/admin/extensions/sample-ext", headers=headers)
+        assert res.status_code == 200
+
+        rows = await _audit_rows(db, "admin.extension.")
+        actions = [r.action for r in rows if not r.action.startswith("admin.extension.license")]
+        assert actions == [
+            "admin.extension.install.uploaded",
+            "admin.extension.install.applied",
+            "admin.extension.disabled",
+            "admin.extension.enabled",
+            "admin.extension.uninstalled",
+        ]
+        by_action = {r.action: r for r in rows}
+        assert by_action["admin.extension.install.uploaded"].details["install_id"] == install_id
+        applied = by_action["admin.extension.install.applied"]
+        assert (applied.target_type, applied.target_id) == ("extension", "sample-ext")
+        assert applied.details["install_id"] == install_id
+        assert by_action["admin.extension.uninstalled"].target_id == "sample-ext"
+
+    async def test_discarding_an_upload_is_recorded(self, client, db, vendor):
+        admin = await make_admin(db)
+        install = await upload_and_preview(client, db, admin, vendor)
+        install_id = str(install.id)
+        res = await client.delete(
+            f"/api/v1/admin/extensions/install/{install_id}", headers=auth_headers(admin)
+        )
+        assert res.status_code == 204
+        [row] = await _audit_rows(db, "admin.extension.install.discarded")
+        assert row.details["install_id"] == install_id
+        assert row.target_id == "sample-ext"
+
+    async def test_store_claim_records_only_an_applied_license(
+        self, client, db, vendor, monkeypatch
+    ):
+        admin = await make_admin(db)
+        headers = auth_headers(admin)
+        # A pending claim commits nothing, and reading the log rolls back:
+        # make the admin durable first.
+        await db.commit()
+        mock_store(monkeypatch, catalog=catalog_payload(), claim={"status": "pending"})
+        res = await client.post(
+            "/api/v1/admin/extensions/store/claim", json={"token": CLAIM_TOKEN}, headers=headers
+        )
+        assert res.json()["status"] == "pending"
+        assert await _audit_rows(db, "admin.extension.store.") == []
+
+        text = make_license_text(vendor, renewal_key=RENEWAL_KEY)
+        mock_store(
+            monkeypatch, catalog=catalog_payload(), claim={"status": "applied", "license": text}
+        )
+        res = await client.post(
+            "/api/v1/admin/extensions/store/claim", json={"token": CLAIM_TOKEN}, headers=headers
+        )
+        assert res.json()["status"] == "applied"
+        [row] = await _audit_rows(db, "admin.extension.store.")
+        assert row.action == "admin.extension.store.claimed"
+        assert row.details["entitlements"] == ["sample-ext"]
+        _never_leaks([row], CLAIM_TOKEN, RENEWAL_KEY, json.loads(text)["signature"])
+
+    async def test_store_refresh_and_install(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        headers = auth_headers(admin)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor, renewal_key=RENEWAL_KEY)},
+            headers=headers,
+        )
+        raw = build_teax(vendor, files={"content/pack.json": json.dumps(CONTENT_PACK).encode()})
+        mock_store(
+            monkeypatch,
+            catalog=catalog_payload(),
+            bundles={"/bundles/sample-ext-1.0.0.teax": raw},
+        )
+        res = await client.post("/api/v1/admin/extensions/store/refresh-license", headers=headers)
+        assert res.json() == {"refreshed": False}
+        res = await client.post(
+            "/api/v1/admin/extensions/store/install", json={"key": "sample-ext"}, headers=headers
+        )
+        assert res.status_code == 202, res.text
+
+        refreshed, installed = await _audit_rows(db, "admin.extension.store.")
+        assert refreshed.action == "admin.extension.store.refreshed"
+        assert refreshed.details == {"refreshed": False}
+        assert installed.action == "admin.extension.store.installed"
+        assert (installed.target_id, installed.target_label) == ("sample-ext", "Sample Extension")
+        assert installed.details["install_id"] == res.json()["id"]
+        _never_leaks([refreshed, installed], RENEWAL_KEY)

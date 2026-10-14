@@ -133,3 +133,9 @@ Haga clic en el **icono de alternancia** en la columna de Acciones para activar 
 - No pueden iniciar sesión
 - Conservan sus datos (fichas, comentarios, historial) para fines de auditoría
 - Pueden ser reactivados en cualquier momento
+
+#### Bloqueo de cuenta
+
+Cinco inicios de sesión con contraseña fallidos seguidos bloquean una cuenta local durante **15 minutos**; hasta entonces se rechaza incluso la contraseña correcta. El bloqueo se levanta solo cuando pasan los 15 minutos, y un inicio de sesión correcto pone el contador a cero.
+
+Mientras una cuenta está bloqueada, su fila en la tabla de usuarios muestra una etiqueta **Bloqueado** — pase el cursor por encima para ver cuándo termina el bloqueo — y la columna Acciones ofrece **Desbloquear**. Desbloquear elimina el bloqueo y pone a cero el contador de fallos de inmediato, de modo que el usuario puede iniciar sesión enseguida. Cada bloqueo se registra en el [registro de auditoría](audit-log.md) como `auth.login.locked`, y cada desbloqueo como `admin.user.unlocked`.

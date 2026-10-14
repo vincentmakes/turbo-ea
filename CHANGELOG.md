@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.160.0] - 2026-10-14
+
+### Added
+- **Administrative actions in the Security & admin log** ([#1185](https://github.com/vincentmakes/turbo-ea/discussions/1185)): changes to users, roles, stakeholder roles, every setting (with secrets masked), the metamodel, tags, calculations, extensions, workspace transfer, platform migration, ServiceNow, web portals, diagram publishing, surveys and operator rescue access are now recorded, with who made them and the old and new values.
+- **Locked indicator and Unlock action** on the Users page: an account locked by repeated failed sign-ins shows a Locked chip with the time the lock ends, and an administrator can unlock it at once.
+
 ## [2.159.0] - 2026-10-14
 
 ### Added

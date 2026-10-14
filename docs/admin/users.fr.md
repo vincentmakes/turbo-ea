@@ -133,3 +133,9 @@ Cliquez sur l'**icône de bascule** dans la colonne Actions pour activer ou dés
 - Ne peuvent pas se connecter
 - Conservent leurs données (fiches, commentaires, historique) à des fins d'audit
 - Peuvent être réactivés à tout moment
+
+#### Verrouillage de compte
+
+Cinq échecs de connexion par mot de passe consécutifs verrouillent un compte local pendant **15 minutes** ; jusque-là, même le bon mot de passe est refusé. Le verrouillage se lève de lui-même au bout des 15 minutes, et une connexion réussie remet le compteur à zéro.
+
+Tant qu'un compte est verrouillé, sa ligne dans le tableau des utilisateurs affiche une puce **Verrouillé** — survolez-la pour voir quand le verrouillage prend fin — et la colonne Actions propose **Déverrouiller**. Déverrouiller lève le verrouillage et remet le compteur d'échecs à zéro immédiatement, afin que l'utilisateur puisse se connecter tout de suite. Chaque verrouillage est enregistré dans le [journal d'audit](audit-log.md) sous `auth.login.locked`, et chaque déverrouillage sous `admin.user.unlocked`.

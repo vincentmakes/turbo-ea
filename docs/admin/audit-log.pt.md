@@ -5,7 +5,7 @@ O **Registro de auditoria**, em **Admin → Configurações → Registro de audi
 | Subaba | URL | O que registra |
 |--------|-----|----------------|
 | **Alterações** | `/admin/settings?tab=audit-log` | Cada escrita no panorama — cards, relações, riscos, etiquetas, papéis de partes interessadas, rascunhos de decisão —, agrupada em lotes de mutação, com um diff por evento e um **Reverter (Rollback)** |
-| **Segurança e administração** | `/admin/settings?tab=audit-log&view=security` | Entradas e saídas, tentativas com falha, bloqueios, sessões SSO e de proxy, eventos de senha e personificação de papel |
+| **Segurança e administração** | `/admin/settings?tab=audit-log&view=security` | Entradas e saídas, tentativas falhadas, bloqueios, sessões SSO e de proxy, eventos de senha, personificação de papel e cada ação administrativa |
 
 As duas são separadas de propósito. **Alterações** é uma ferramenta de trabalho — existe para que você veja e desfaça uma escrita errada — e mantém um histórico curto. **Segurança e administração** é uma trilha de evidências: suas entradas não podem ser editadas nem excluídas, e ela é mantida por um ano por padrão.
 
@@ -39,10 +39,11 @@ A subaba **Segurança e administração** lista uma entrada para cada ação rel
 - bloqueios de conta após falhas repetidas;
 - cadastros, e senhas definidas, redefinidas ou alteradas;
 - personificação de papel — um administrador que inicia e encerra **Ver como papel…**;
+- ações administrativas — alterações em usuários, papéis, configurações, metamodelo, tags, cálculos, extensões, importações, integrações, portais públicos e diagramas publicados, pesquisas e acesso do operador (veja [Ações administrativas](#administrative-actions));
 - exportações deste próprio registro.
 
 !!! note "Na próxima versão"
-    As **ações administrativas** — alterações em usuários, papéis, configurações, metamodelo, extensões, importações e integrações — e as **exportações de dados** (exportações CSV/JSON do inventário, exportações de workspace e de migração) serão registradas neste mesmo registro na próxima versão.
+    As **exportações de dados** (exportações CSV/JSON do inventário, exportações de workspace e de migração) serão registradas neste mesmo registro na próxima versão.
 
 ### Colunas
 
@@ -125,6 +126,26 @@ O painel não tem ações. As entradas não podem ser editadas nem excluídas.
 | `invalid_token` | A ligação de convite ou de reposição era inválida ou expirou |
 
 Uma rajada de falhas `unknown_user` vindas de um mesmo endereço IP é a cara de um ataque de *password spraying*; uma sequência de `bad_password` contra uma conta seguida de `auth.login.locked` é uma tentativa de adivinhar a senha dessa conta.
+
+### Ações administrativas { #administrative-actions }
+
+Cada alteração que um administrador faz na configuração da instância é registrada na categoria `admin`. O **ator** é o administrador, o **alvo** é o objeto alterado — um usuário, um papel, uma configuração, um tipo de ficha — com o nome que tinha naquele momento, e os **detalhes** indicam o que mudou como valores antigos e novos, limitados aos campos que realmente mudaram. Duas regras valem para cada entrada:
+
+- **Os segredos são mascarados.** Uma senha SMTP, um segredo de cliente SSO, uma chave de provedor de IA, uma credencial do ServiceNow ou qualquer outro valor secreto é escrito como `***`: a entrada mostra que ele mudou, nunca o que era nem o que passou a ser.
+- **Nunca são armazenados o texto de uma licença nem uma credencial.** Uma licença de extensão é identificada, não copiada, e uma senha que um administrador define para um usuário é registrada como alterada, nunca com o seu valor.
+
+| Área | Ações | O que é registrado |
+|------|---------|------------------|
+| **Usuários e papéis** | `admin.user.created`, `.updated`, `.deleted`, `.bulk_updated`, `.bulk_deleted`, `.unlocked`; `admin.user.invitation.resent`, `.deleted`; `admin.role.created`, `.updated`, `.archived`, `.restored`; `admin.stakeholder_role.created`, `.updated`, `.deleted`, `.archived`, `.restored` | Contas criadas, editadas, ativadas ou desativadas, excluídas (uma a uma ou em massa) e desbloqueadas, com os campos alterados — papel, e-mail, nome, estado ativo; convites reenviados ou revogados; papéis da aplicação e papéis de partes interessadas por tipo, com as permissões concedidas ou retiradas |
+| **Configurações** | `admin.settings.updated` | Uma entrada por configuração salva — e-mail, autenticação e SSO, registro, IA, MCP, idiomas, ativação de módulos, identidade visual, logotipo e favicon, períodos de retenção. O alvo é a configuração; os detalhes são o seu valor antigo e novo, com os segredos mascarados |
+| **Metamodelo** | `admin.metamodel.type.*` (including `.references_generated`), `admin.metamodel.relation_type.*`, `admin.metamodel.resource_type.*`, `admin.principle.*` (including `.imported`), `admin.regulation.*` | Tipos de ficha, tipos de relação e tipos de recurso criados, alterados, excluídos ou restaurados, com as propriedades alteradas; referências de fichas geradas para um tipo; princípios EA, incluindo os importados do catálogo; regulamentações de conformidade |
+| **Tags e cálculos** | `admin.tag_group.*`, `admin.tag.*`, `admin.calculation.*` | Grupos de tags e tags; campos calculados criados, alterados, excluídos, ativados ou desativados, com a fórmula antiga e a nova, e a execução de um cálculo em todas as fichas (`.recalculated`) |
+| **Extensões** | `admin.extension.install.uploaded`, `.applied`, `.discarded`; `admin.extension.store.claimed`, `.refreshed`, `.installed`; `admin.extension.enabled`, `.disabled`, `.uninstalled`; `admin.extension.license.updated`, `.removed` | Pacotes enviados, instalados ou descartados; licenças e downloads da loja de extensões; extensões ativadas, desativadas e desinstaladas; a licença substituída ou removida — com a extensão e a sua versão, nunca o texto da licença |
+| **Transferência de workspace e migração** | `admin.workspace.import.uploaded`, `.applied`, `.completed`, `.discarded`; `admin.migration.uploaded`, `.field_mappings.updated`, `.applied`, `.deleted` | Um [pacote de workspace](workspace-transfer.md) enviado, a sua importação iniciada, concluída ou descartada; uma [migração de plataforma](migration.md) enviada, os seus mapeamentos de campos editados, aplicada ou excluída |
+| **Integrações** | `admin.servicenow.connection.*`, `admin.servicenow.mapping.*`, `admin.servicenow.sync.pulled`, `.pushed`, `.applied` | Conexões do ServiceNow, com as credenciais mascaradas, e mapeamentos; cada pull, push e aplicação de registros preparados |
+| **Exposição pública** | `admin.web_portal.created`, `.updated`, `.deleted`; `admin.diagram.published`, `.unpublished` | [Portais web](web-portals.md) e diagramas publicados — tudo o que torna os dados acessíveis sem uma conta |
+| **Pesquisas** | `admin.survey.sent`, `admin.survey.closed` | Uma pesquisa enviada aos destinatários, ou encerrada |
+| **Acesso do operador** | `admin.ops.rescue_access.granted`, `.revoked` | Acesso de resgate concedido ou revogado pela [API de operações](ops-api.md), registrado junto aos eventos `ops.*` existentes |
 
 ## O que não é registrado
 

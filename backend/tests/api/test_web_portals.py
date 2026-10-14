@@ -244,3 +244,81 @@ class TestPublicPortal:
     async def test_public_portal_nonexistent_slug(self, client, db, portals_env):
         resp = await client.get("/api/v1/web-portals/public/no-such-slug")
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Security & admin audit log — a portal is public exposure
+# ---------------------------------------------------------------------------
+
+
+async def _audit_rows(db, prefix: str = "admin.web_portal."):
+    """Discard what a request flushed but never committed, then read the log."""
+    from sqlalchemy import select
+
+    from app.models.audit_log import AuditLogEntry
+
+    await db.rollback()
+    result = await db.execute(
+        select(AuditLogEntry)
+        .where(AuditLogEntry.action.like(f"{prefix}%"))
+        .order_by(AuditLogEntry.created_at)
+    )
+    return list(result.scalars().all())
+
+
+class TestPortalAudit:
+    async def test_create_update_delete_are_recorded(self, client, db, portals_env):
+        admin = portals_env["admin"]
+        admin_id, headers = admin.id, auth_headers(admin)
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "App Catalog",
+                "slug": "app-catalog",
+                "card_type": "Application",
+                "is_published": True,
+            },
+            headers=headers,
+        )
+        pid = resp.json()["id"]
+        await client.patch(
+            f"/api/v1/web-portals/{pid}",
+            json={"is_published": False, "filters": {"subtypes": ["x"]}},
+            headers=headers,
+        )
+        await client.delete(f"/api/v1/web-portals/{pid}", headers=headers)
+
+        created, updated, deleted = await _audit_rows(db)
+        assert created.action == "admin.web_portal.created"
+        assert created.actor_user_id == admin_id and created.category == "admin"
+        assert (created.target_type, created.target_id, created.target_label) == (
+            "web_portal",
+            pid,
+            "App Catalog",
+        )
+        assert created.details["slug"] == "app-catalog"
+        assert created.details["is_published"] is True
+        assert created.details["access_mode"] == "public"
+
+        assert updated.action == "admin.web_portal.updated"
+        assert updated.details["slug"] == "app-catalog"
+        assert updated.details["is_published"] == {"old": True, "new": False}
+        # A configuration blob is summarised by size, not stored.
+        assert set(updated.details["filters"]) == {"old", "new"}
+        assert isinstance(updated.details["filters"]["new"], int)
+
+        assert deleted.action == "admin.web_portal.deleted"
+        assert deleted.details == {
+            "slug": "app-catalog",
+            "is_published": False,
+            "access_mode": "public",
+        }
+
+    async def test_viewer_is_refused_and_nothing_is_recorded(self, client, db, portals_env):
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={"name": "X", "slug": "x", "card_type": "Application"},
+            headers=auth_headers(portals_env["viewer"]),
+        )
+        assert resp.status_code == 403
+        assert await _audit_rows(db) == []

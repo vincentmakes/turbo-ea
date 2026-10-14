@@ -1802,3 +1802,64 @@ class TestSkippedCards:
         )
         assert send.status_code == 200, send.json()
         assert send.json()["targets_created"] == body["total_requests"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Security & admin audit log
+# ---------------------------------------------------------------------------
+
+
+async def _audit_rows(db, prefix: str = "admin.survey."):
+    """Discard what a request flushed but never committed, then read the log."""
+    from app.models.audit_log import AuditLogEntry
+
+    await db.rollback()
+    result = await db.execute(
+        select(AuditLogEntry)
+        .where(AuditLogEntry.action.like(f"{prefix}%"))
+        .order_by(AuditLogEntry.created_at)
+    )
+    return list(result.scalars().all())
+
+
+class TestSurveyAudit:
+    async def test_send_and_close_are_recorded(self, client, db, survey_env):
+        admin = survey_env["admin"]
+        admin_id, headers = admin.id, auth_headers(admin)
+        survey_id = (await _create_draft_survey(client, admin))["id"]
+
+        sent = await client.post(f"/api/v1/surveys/{survey_id}/send", headers=headers)
+        assert sent.status_code == 200, sent.text
+        closed = await client.post(f"/api/v1/surveys/{survey_id}/close", headers=headers)
+        assert closed.status_code == 200
+
+        sent_row, closed_row = await _audit_rows(db)
+        assert sent_row.action == "admin.survey.sent"
+        assert sent_row.actor_user_id == admin_id and sent_row.category == "admin"
+        assert (sent_row.target_type, sent_row.target_id, sent_row.target_label) == (
+            "survey",
+            survey_id,
+            "Workflow Test Survey",
+        )
+        assert sent_row.details["target_type_key"] == "Application"
+        assert sent_row.details["cards"] == 1
+        assert sent_row.details["requests"] == sent.json()["targets_created"]
+        assert closed_row.action == "admin.survey.closed"
+        assert closed_row.target_id == survey_id
+
+    async def test_drafting_and_responding_are_not_admin_actions(self, client, db, survey_env):
+        admin = survey_env["admin"]
+        survey_id = (await _create_draft_survey(client, admin))["id"]
+        await client.patch(
+            f"/api/v1/surveys/{survey_id}", json={"name": "Renamed"}, headers=auth_headers(admin)
+        )
+        assert await _audit_rows(db) == []
+
+    async def test_a_refused_send_records_nothing(self, client, db, survey_env):
+        admin = survey_env["admin"]
+        survey_id = (await _create_draft_survey(client, admin))["id"]
+        resp = await client.post(
+            f"/api/v1/surveys/{survey_id}/send", headers=auth_headers(survey_env["viewer"])
+        )
+        assert resp.status_code == 403
+        assert await _audit_rows(db) == []

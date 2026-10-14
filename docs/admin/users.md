@@ -132,3 +132,9 @@ Click the **toggle icon** in the Actions column to activate or deactivate a user
 - Cannot log in
 - Retain their data (cards, comments, history) for audit purposes
 - Can be reactivated at any time
+
+#### Account Lockout
+
+Five failed password sign-ins in a row lock a local account for **15 minutes**; until then even the right password is refused. The lock lifts on its own when the 15 minutes are up, and a successful sign-in resets the count.
+
+While an account is locked, its row in the user table shows a **Locked** chip — hover it to see when the lock ends — and the Actions column offers **Unlock**. Unlock clears the lock and the failure count at once, so the user can sign in straight away. Each lockout is recorded in the [Audit log](audit-log.md) as `auth.login.locked`, and each unlock as `admin.user.unlocked`.

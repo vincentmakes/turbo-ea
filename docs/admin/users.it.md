@@ -132,3 +132,9 @@ Cliccate sull'**icona toggle** nella colonna Azioni per attivare o disattivare u
 - Non possono effettuare il login
 - Mantengono i propri dati (card, commenti, cronologia) per scopi di audit
 - Possono essere riattivati in qualsiasi momento
+
+#### Blocco dell'account
+
+Cinque accessi con password falliti di seguito bloccano un account locale per **15 minuti**; fino ad allora viene rifiutata anche la password corretta. Il blocco si rimuove da solo allo scadere dei 15 minuti, e un accesso riuscito azzera il conteggio.
+
+Finché un account è bloccato, la sua riga nella tabella utenti mostra un chip **Bloccato** — passaci sopra con il mouse per vedere quando termina il blocco — e la colonna Azioni offre **Sblocca**. Sblocca rimuove il blocco e azzera subito il conteggio degli errori, così l'utente può accedere immediatamente. Ogni blocco viene registrato nel [registro di audit](audit-log.md) come `auth.login.locked`, e ogni sblocco come `admin.user.unlocked`.

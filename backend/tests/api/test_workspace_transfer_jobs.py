@@ -242,3 +242,78 @@ class TestRoutes:
 
 async def _noop(*args, **kwargs):
     return None
+
+
+# ---------------------------------------------------------------------------
+# Security & admin audit log
+# ---------------------------------------------------------------------------
+
+
+async def _audit_rows(db, prefix: str = "admin.workspace."):
+    """Discard what a request flushed but never committed, then read the log."""
+    from app.models.audit_log import AuditLogEntry
+
+    await db.rollback()
+    result = await db.execute(
+        select(AuditLogEntry)
+        .where(AuditLogEntry.action.like(f"{prefix}%"))
+        .order_by(AuditLogEntry.created_at)
+    )
+    return list(result.scalars().all())
+
+
+class TestAudit:
+    async def test_upload_apply_and_completion_are_recorded(self, client, db, env):
+        admin_id = env["admin"].id
+        transfer_id = (await _upload(client, env["admin"], env["bundle"])).json()["id"]
+        resp = await client.post(
+            f"{IMPORT}/{transfer_id}/apply", headers=auth_headers(env["admin"])
+        )
+        assert resp.status_code == 202
+
+        uploaded, applied, completed = await _audit_rows(db)
+        assert uploaded.action == "admin.workspace.import.uploaded"
+        assert uploaded.target_id == transfer_id and uploaded.target_label == "workspace.zip"
+        assert applied.action == "admin.workspace.import.applied"
+        assert applied.details == {"transfer_id": transfer_id}
+        assert applied.actor_user_id == admin_id
+        # The job has no request: the actor is the user who asked for the apply.
+        assert completed.action == "admin.workspace.import.completed"
+        assert completed.outcome == "success"
+        assert completed.actor_user_id == admin_id
+        assert completed.details["transfer_id"] == transfer_id
+        assert completed.details["totals"]["failed"] == 0
+
+    async def test_a_failed_apply_records_a_failure(self, client, db, env, monkeypatch):
+        transfer_id = (await _upload(client, env["admin"], env["bundle"])).json()["id"]
+
+        async def boom(db_, bundle, user):
+            raise RuntimeError("apply exploded")
+
+        monkeypatch.setattr(workspace_api, "apply_bundle", boom)
+        await client.post(f"{IMPORT}/{transfer_id}/apply", headers=auth_headers(env["admin"]))
+
+        [completed] = await _audit_rows(db, "admin.workspace.import.completed")
+        assert completed.outcome == "failure"
+        assert completed.details == {"transfer_id": transfer_id, "error": "apply exploded"}
+
+    async def test_a_vanished_user_records_a_failure_with_no_actor(self, client, db, env):
+        transfer_id = (await _upload(client, env["admin"], env["bundle"])).json()["id"]
+
+        await workspace_api._apply_job(transfer_id, str(uuid.uuid4()))
+
+        [completed] = await _audit_rows(db, "admin.workspace.import.completed")
+        assert completed.outcome == "failure"
+        assert completed.actor_user_id is None
+        # Called outside any request, as the background runner does.
+        assert completed.origin == "system"
+        assert completed.details["reason"] == "bundle_or_user_missing"
+
+    async def test_discard_is_recorded(self, client, db, env):
+        transfer_id = (await _upload(client, env["admin"], env["bundle"])).json()["id"]
+        resp = await client.delete(f"{IMPORT}/{transfer_id}", headers=auth_headers(env["admin"]))
+        assert resp.status_code == 204
+
+        [row] = await _audit_rows(db, "admin.workspace.import.discarded")
+        assert row.target_id == transfer_id
+        assert row.details["status"] == "previewed"

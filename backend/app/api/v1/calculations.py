@@ -12,6 +12,7 @@ from app.database import get_db
 from app.models.calculation import Calculation
 from app.models.card import Card
 from app.models.user import User
+from app.services import audit_log
 from app.services.calculation_engine import (
     MAX_FORMULA_LENGTH,
     detect_cycles,
@@ -223,6 +224,19 @@ async def create_calculation(
         created_by=user.id,
     )
     db.add(calc)
+    await db.flush()
+    await audit_log.record(
+        db,
+        action="admin.calculation.created",
+        category="admin",
+        actor=user,
+        target=("calculation", str(calc.id), calc.name),
+        details={
+            "target_type_key": calc.target_type_key,
+            "target_field_key": calc.target_field_key,
+            "formula": calc.formula,
+        },
+    )
     await db.commit()
     await db.refresh(calc)
     return _to_response(calc)
@@ -265,6 +279,7 @@ async def update_calculation(
         if problem:
             raise HTTPException(400, problem)
 
+    changes = audit_log.diff(calc, updates)
     for field, value in updates.items():
         setattr(calc, field, value)
 
@@ -277,6 +292,14 @@ async def update_calculation(
                 f"Formula update would create a dependency cycle: {' -> '.join(cycle)}",
             )
 
+    await audit_log.record(
+        db,
+        action="admin.calculation.updated",
+        category="admin",
+        actor=user,
+        target=("calculation", str(calc.id), calc.name),
+        details=changes,
+    )
     await db.commit()
     await db.refresh(calc)
     return _to_response(calc)
@@ -293,6 +316,14 @@ async def delete_calculation(
     calc = result.scalar_one_or_none()
     if not calc:
         raise HTTPException(404, "Calculation not found")
+    await audit_log.record(
+        db,
+        action="admin.calculation.deleted",
+        category="admin",
+        actor=user,
+        target=("calculation", str(calc.id), calc.name),
+        details={"target_type_key": calc.target_type_key, "was_active": calc.is_active},
+    )
     await db.delete(calc)
     await db.commit()
 
@@ -321,6 +352,13 @@ async def activate_calculation(
         )
 
     calc.is_active = True
+    await audit_log.record(
+        db,
+        action="admin.calculation.activated",
+        category="admin",
+        actor=user,
+        target=("calculation", str(calc.id), calc.name),
+    )
     await db.commit()
     await db.refresh(calc)
     return _to_response(calc)
@@ -338,6 +376,13 @@ async def deactivate_calculation(
     if not calc:
         raise HTTPException(404, "Calculation not found")
     calc.is_active = False
+    await audit_log.record(
+        db,
+        action="admin.calculation.deactivated",
+        category="admin",
+        actor=user,
+        target=("calculation", str(calc.id), calc.name),
+    )
     await db.commit()
     await db.refresh(calc)
     return _to_response(calc)
@@ -411,4 +456,20 @@ async def recalculate_type(
     without testing the formula against every card by hand.
     """
     await PermissionService.require_permission(db, user, "admin.metamodel")
-    return await run_calculations_for_type(db, type_key)
+    report = await run_calculations_for_type(db, type_key)
+    # The engine commits its own run; the audit row is a second, small commit.
+    await audit_log.record(
+        db,
+        action="admin.calculation.recalculated",
+        category="admin",
+        actor=user,
+        target=("card_type", type_key, type_key),
+        details={
+            "type_key": type_key,
+            "cards": report["cards_processed"],
+            "succeeded": report["calculations_succeeded"],
+            "failed": report["calculations_failed"],
+        },
+    )
+    await db.commit()
+    return report

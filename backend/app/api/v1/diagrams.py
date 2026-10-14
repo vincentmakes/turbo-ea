@@ -23,6 +23,7 @@ from app.models.diagram import Diagram, diagram_cards
 from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import diagram_group_members
 from app.models.user import User
+from app.services import audit_log
 from app.services.card_read_scope import CardReadScope
 from app.services.diagram_legend import build_public_legend
 from app.services.drawio_refs import extract_card_refs
@@ -622,6 +623,18 @@ def _publish_state(d: Diagram) -> dict:
     }
 
 
+def slug_hint(slug: str | None) -> str | None:
+    """The first characters of a published diagram's slug, for the audit log.
+
+    A ``public`` diagram's slug *is* its access link, and the audit row is also
+    shipped as a JSON log line, so the full value never leaves the instance:
+    enough of it to tell links apart, never enough to open one.
+    """
+    if not slug:
+        return None
+    return slug[:8] + "…"
+
+
 @router.post("/{diagram_id}/publish")
 async def publish_diagram(
     diagram_id: str,
@@ -653,9 +666,23 @@ async def publish_diagram(
     if not d.public_slug:
         d.public_slug = secrets.token_urlsafe(24)
 
+    was_published = bool(d.is_published)
     d.is_published = True
     d.access_mode = mode
     d.allowed_email_domains = normalise_email_domains(body.allowed_email_domains)
+    await audit_log.record(
+        db,
+        action="admin.diagram.published",
+        category="admin",
+        actor=user,
+        target=("diagram", str(d.id), d.name),
+        details={
+            "slug_prefix": slug_hint(d.public_slug),
+            "access_mode": d.access_mode,
+            "allowed_email_domains": d.allowed_email_domains or [],
+            "was_published": was_published,
+        },
+    )
     await db.commit()
     await db.refresh(d)
     return _publish_state(d)
@@ -678,7 +705,16 @@ async def unpublish_diagram(
     d = result.scalar_one_or_none()
     if not d:
         raise HTTPException(404, "Diagram not found")
+    was_published = bool(d.is_published)
     d.is_published = False
+    await audit_log.record(
+        db,
+        action="admin.diagram.unpublished",
+        category="admin",
+        actor=user,
+        target=("diagram", str(d.id), d.name),
+        details={"slug_prefix": slug_hint(d.public_slug), "was_published": was_published},
+    )
     await db.commit()
     await db.refresh(d)
     return _publish_state(d)

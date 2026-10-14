@@ -132,3 +132,9 @@ Klik på **omskifterikonet** i kolonnen Handlinger for at aktivere eller deaktiv
 - Kan ikke logge ind
 - Bevarer deres data (kort, kommentarer, historik) til revisionsformål
 - Kan genaktiveres til enhver tid
+
+#### Kontolåsning
+
+Fem mislykkede logins med adgangskode i træk låser en lokal konto i **15 minutter**; indtil da afvises selv den rigtige adgangskode. Låsningen ophæves af sig selv, når de 15 minutter er gået, og et vellykket login nulstiller tælleren.
+
+Mens en konto er låst, viser dens række i brugertabellen en **Låst**-chip — hold musen over den for at se, hvornår låsningen ophører — og kolonnen Handlinger tilbyder **Lås op**. Lås op fjerner låsningen og nulstiller fejltælleren med det samme, så brugeren kan logge ind med det samme. Hver låsning registreres i [revisionsloggen](audit-log.md) som `auth.login.locked`, og hver oplåsning som `admin.user.unlocked`.

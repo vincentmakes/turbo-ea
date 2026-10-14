@@ -5,7 +5,7 @@
 | Underfane | URL | Hvad den registrerer |
 |-----------|-----|----------------------|
 | **Ændringer** | `/admin/settings?tab=audit-log` | Hver skrivning til landskabet — kort, relationer, risici, tags, interessentroller, beslutningsudkast — samlet i mutationsbatches, med en diff pr. hændelse og en **Rul tilbage** |
-| **Sikkerhed og administration** | `/admin/settings?tab=audit-log&view=security` | Logins og logouts, mislykkede forsøg, spærringer, SSO- og proxysessioner, adgangskodehændelser og rolleovertagelse |
+| **Sikkerhed og administration** | `/admin/settings?tab=audit-log&view=security` | Log ind og log ud, mislykkede forsøg, låsninger, SSO- og proxysessioner, adgangskodehændelser, rolleefterligning og hver administrativ handling |
 
 De to er bevidst holdt adskilt. **Ændringer** er et arbejdsværktøj — det findes, så du kan se og fortryde en forkert skrivning — og gemmer kun en kort historik. **Sikkerhed og administration** er et bevisspor: dens poster kan hverken redigeres eller slettes, og den gemmes som standard i et år.
 
@@ -39,10 +39,11 @@ Underfanen **Sikkerhed og administration** viser én post pr. sikkerhedsrelevant
 - spærring af konti efter gentagne fejl;
 - registreringer samt adgangskoder, der angives, nulstilles eller ændres;
 - rolleovertagelse — en administrator, der starter og stopper **Vis som rolle…**;
+- administrative handlinger — ændringer af brugere, roller, indstillinger, metamodellen, tags, beregninger, udvidelser, importer, integrationer, offentlige portaler og publicerede diagrammer, undersøgelser og operatøradgang (se [Administrative handlinger](#administrative-actions));
 - eksport af selve denne log.
 
-!!! note "Kommer i næste version"
-    **Administrative handlinger** — ændringer af brugere, roller, indstillinger, metamodellen, udvidelser, importer og integrationer — og **dataeksport** (CSV-/JSON-eksport af inventaret, eksport af arbejdsområde og migrering) registreres i den samme log fra næste version.
+!!! note "I næste version"
+    **Dataeksport** (CSV/JSON-eksport af inventaret, workspace- og migreringseksport) vil blive registreret i denne samme log i næste version.
 
 ### Kolonner
 
@@ -125,6 +126,26 @@ Panelet har ingen handlinger. Poster kan hverken redigeres eller slettes.
 | `invalid_token` | Invitations- eller nulstillingslinket var ugyldigt eller er udløbet |
 
 En stribe `unknown_user`-fejl fra én IP-adresse er sådan, password spraying ser ud; en række `bad_password` mod én konto efterfulgt af `auth.login.locked` er et forsøg på at gætte den kontos adgangskode.
+
+### Administrative handlinger { #administrative-actions }
+
+Hver ændring, en administrator foretager i instansens konfiguration, registreres i kategorien `admin`. **Aktøren** er administratoren, **målet** er det ændrede objekt — en bruger, en rolle, en indstilling, en korttype — med det navn, det havde på det tidspunkt, og **detaljerne** viser, hvad der ændrede sig, som gamle og nye værdier, begrænset til de felter, der faktisk ændrede sig. To regler gælder for hver post:
+
+- **Hemmeligheder maskeres.** En SMTP-adgangskode, en SSO-klienthemmelighed, en AI-udbydernøgle, et ServiceNow-loginoplysning eller enhver anden hemmelig værdi skrives som `***`: posten viser, at den ændrede sig, aldrig hvad den var eller blev.
+- **Hverken licenstekst eller loginoplysninger gemmes nogensinde.** En udvidelseslicens identificeres, den kopieres ikke, og en adgangskode, som en administrator sætter for en bruger, registreres som ændret, aldrig med sin værdi.
+
+| Område | Handlinger | Hvad der registreres |
+|------|---------|------------------|
+| **Brugere og roller** | `admin.user.created`, `.updated`, `.deleted`, `.bulk_updated`, `.bulk_deleted`, `.unlocked`; `admin.user.invitation.resent`, `.deleted`; `admin.role.created`, `.updated`, `.archived`, `.restored`; `admin.stakeholder_role.created`, `.updated`, `.deleted`, `.archived`, `.restored` | Konti, der oprettes, redigeres, aktiveres eller deaktiveres, slettes (en ad gangen eller samlet) og låses op, med de ændrede felter — rolle, e-mail, navn, aktiv status; invitationer sendt igen eller tilbagekaldt; applikationsroller og interessentroller pr. type, med de tildelte eller fjernede tilladelser |
+| **Indstillinger** | `admin.settings.updated` | Én post pr. gemt indstilling — e-mail, godkendelse og SSO, registrering, AI, MCP, sprog, modulkontakter, branding, logo og favicon, opbevaringsperioder. Målet er indstillingen; detaljerne er dens gamle og nye værdi, med hemmeligheder maskeret |
+| **Metamodel** | `admin.metamodel.type.*` (including `.references_generated`), `admin.metamodel.relation_type.*`, `admin.metamodel.resource_type.*`, `admin.principle.*` (including `.imported`), `admin.regulation.*` | Korttyper, relationstyper og ressourcetyper, der oprettes, ændres, slettes eller gendannes, med de ændrede egenskaber; kortreferencer genereret for en type; EA-principper, også dem importeret fra kataloget; compliance-reguleringer |
+| **Tags og beregninger** | `admin.tag_group.*`, `admin.tag.*`, `admin.calculation.*` | Taggrupper og tags; beregnede felter, der oprettes, ændres, slettes, aktiveres eller deaktiveres, med den gamle og den nye formel, og en kørsel af en beregning på alle kort (`.recalculated`) |
+| **Udvidelser** | `admin.extension.install.uploaded`, `.applied`, `.discarded`; `admin.extension.store.claimed`, `.refreshed`, `.installed`; `admin.extension.enabled`, `.disabled`, `.uninstalled`; `admin.extension.license.updated`, `.removed` | Pakker, der uploades, installeres eller kasseres; licenser og downloads fra udvidelsesbutikken; udvidelser, der aktiveres, deaktiveres og afinstalleres; licensen udskiftet eller fjernet — med udvidelsen og dens version, aldrig licensteksten |
+| **Workspace-overførsel og migrering** | `admin.workspace.import.uploaded`, `.applied`, `.completed`, `.discarded`; `admin.migration.uploaded`, `.field_mappings.updated`, `.applied`, `.deleted` | En uploadet [workspace-pakke](workspace-transfer.md), hvis import startes, fuldføres eller kasseres; en uploadet [platformmigrering](migration.md), hvis feltmapninger redigeres, og som anvendes eller slettes |
+| **Integrationer** | `admin.servicenow.connection.*`, `admin.servicenow.mapping.*`, `admin.servicenow.sync.pulled`, `.pushed`, `.applied` | ServiceNow-forbindelser, med loginoplysninger maskeret, og mapninger; hver hentning, afsendelse og anvendelse af klargjorte poster |
+| **Offentlig eksponering** | `admin.web_portal.created`, `.updated`, `.deleted`; `admin.diagram.published`, `.unpublished` | [Web-portaler](web-portals.md) og publicerede diagrammer — alt, der gør data tilgængelige uden en konto |
+| **Undersøgelser** | `admin.survey.sent`, `admin.survey.closed` | En undersøgelse sendt til modtagerne, eller lukket |
+| **Operatøradgang** | `admin.ops.rescue_access.granted`, `.revoked` | Nødadgang tildelt eller tilbagekaldt via [drifts-API'et](ops-api.md), registreret ved siden af de eksisterende `ops.*`-hændelser |
 
 ## Hvad der ikke registreres
 

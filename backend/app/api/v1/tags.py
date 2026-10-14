@@ -12,6 +12,7 @@ from app.database import get_db
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.schemas.common import TagCreate, TagGroupCreate, TagGroupUpdate, TagUpdate
+from app.services import audit_log
 from app.services.data_quality import rescore_cards
 from app.services.permission_service import PermissionService
 from app.services.tag_service import publish_tag_event as _publish_tag_event
@@ -71,6 +72,19 @@ async def create_tag_group(
         restrict_to_types=body.restrict_to_types,
     )
     db.add(group)
+    await db.flush()
+    await audit_log.record(
+        db,
+        action="admin.tag_group.created",
+        category="admin",
+        actor=user,
+        target=("tag_group", str(group.id), group.name),
+        details={
+            "mode": group.mode,
+            "mandatory": group.mandatory,
+            "restrict_to_types": group.restrict_to_types,
+        },
+    )
     await db.commit()
     await db.refresh(group)
     return {"id": str(group.id), "name": group.name}
@@ -87,8 +101,18 @@ async def update_tag_group(
     group = await db.get(TagGroup, uuid.UUID(group_id))
     if group is None:
         raise HTTPException(status_code=404, detail="Tag group not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    changes = audit_log.diff(group, updates)
+    for field, value in updates.items():
         setattr(group, field, value)
+    await audit_log.record(
+        db,
+        action="admin.tag_group.updated",
+        category="admin",
+        actor=user,
+        target=("tag_group", str(group.id), group.name),
+        details=changes,
+    )
     await db.commit()
     await db.refresh(group)
     return {
@@ -111,6 +135,13 @@ async def delete_tag_group(
     group = await db.get(TagGroup, uuid.UUID(group_id))
     if group is None:
         raise HTTPException(status_code=404, detail="Tag group not found")
+    await audit_log.record(
+        db,
+        action="admin.tag_group.deleted",
+        category="admin",
+        actor=user,
+        target=("tag_group", str(group.id), group.name),
+    )
     await db.delete(group)
     await db.commit()
 
@@ -130,6 +161,15 @@ async def create_tag(
         color=body.color,
     )
     db.add(tag)
+    await db.flush()
+    await audit_log.record(
+        db,
+        action="admin.tag.created",
+        category="admin",
+        actor=user,
+        target=("tag", str(tag.id), tag.name),
+        details={"tag_group_id": str(tag.tag_group_id), "color": tag.color},
+    )
     await db.commit()
     await db.refresh(tag)
     return {
@@ -158,8 +198,18 @@ async def update_tag(
     tag = result.scalar_one_or_none()
     if tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    changes = audit_log.diff(tag, updates)
+    for field, value in updates.items():
         setattr(tag, field, value)
+    await audit_log.record(
+        db,
+        action="admin.tag.updated",
+        category="admin",
+        actor=user,
+        target=("tag", str(tag.id), tag.name),
+        details=changes,
+    )
     await db.commit()
     await db.refresh(tag)
     return {
@@ -188,6 +238,14 @@ async def delete_tag(
     tag = result.scalar_one_or_none()
     if tag is None:
         raise HTTPException(status_code=404, detail="Tag not found")
+    await audit_log.record(
+        db,
+        action="admin.tag.deleted",
+        category="admin",
+        actor=user,
+        target=("tag", str(tag.id), tag.name),
+        details={"tag_group_id": str(tag.tag_group_id)},
+    )
     await db.delete(tag)
     await db.commit()
 

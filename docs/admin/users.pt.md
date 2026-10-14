@@ -133,3 +133,9 @@ Clique no **ícone de alternância** na coluna de Ações para ativar ou desativ
 - Não podem fazer login
 - Mantêm seus dados (cards, comentários, histórico) para fins de auditoria
 - Podem ser reativados a qualquer momento
+
+#### Bloqueio de conta
+
+Cinco entradas com senha falhadas seguidas bloqueiam uma conta local por **15 minutos**; até lá, até a senha correta é recusada. O bloqueio é removido sozinho quando os 15 minutos terminam, e uma entrada bem-sucedida zera a contagem.
+
+Enquanto uma conta está bloqueada, a sua linha na tabela de usuários mostra um chip **Bloqueado** — passe o cursor sobre ele para ver quando o bloqueio termina — e a coluna Ações oferece **Desbloquear**. Desbloquear remove o bloqueio e zera a contagem de falhas imediatamente, para que o usuário possa entrar logo. Cada bloqueio é registrado no [registro de auditoria](audit-log.md) como `auth.login.locked`, e cada desbloqueio como `admin.user.unlocked`.

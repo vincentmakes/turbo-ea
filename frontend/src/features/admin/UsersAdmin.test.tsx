@@ -542,6 +542,85 @@ describe("UsersAdmin — row actions", () => {
   });
 });
 
+describe("UsersAdmin — account lockout", () => {
+  const LOCKED_UNTIL = new Date(Date.now() + 15 * 60_000).toISOString();
+  const LOCKED_MEMBER: User = { ...MEMBER_USER, locked_until: LOCKED_UNTIL, failed_login_attempts: 5 };
+  const LAPSED_MEMBER: User = {
+    ...MEMBER_USER,
+    locked_until: "2020-01-01T00:00:00Z",
+    failed_login_attempts: 5,
+  };
+
+  function serveUsers(member: User) {
+    mockApi.on("get", USERS_PATH, () => PAGE_USERS.map((u) => (u.id === member.id ? member : u)));
+  }
+
+  it("shows the Locked chip, with the lock's end time, only while the lock is in force", async () => {
+    serveUsers(LOCKED_MEMBER);
+    renderPage();
+    await loaded();
+
+    renderCell("display_name", rowById(MEMBER_USER.id)!);
+    expect(screen.getByText(t("admin:users.locked"))).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(t("admin:users.lockedUntil", { time: `DT[${LOCKED_UNTIL}]` })),
+    ).toBeInTheDocument();
+    expect(labelled(t("admin:users.unlock"))).toBeInTheDocument();
+
+    // A lapsed lock and a never-locked row show neither the chip nor Unlock.
+    renderCell("display_name", LAPSED_MEMBER);
+    expect(screen.queryByText(t("admin:users.locked"))).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(t("admin:users.unlock"))).not.toBeInTheDocument();
+    renderCell("display_name", VIEWER_USER);
+    expect(screen.queryByText(t("admin:users.locked"))).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(t("admin:users.unlock"))).not.toBeInTheDocument();
+  });
+
+  it("unlocks through the API, reloads the list and the chip disappears", async () => {
+    serveUsers(LOCKED_MEMBER);
+    const unlocked: User = { ...MEMBER_USER, locked_until: null, failed_login_attempts: 0 };
+    mockApi.on("post", `/users/${MEMBER_USER.id}/unlock`, () => {
+      serveUsers(unlocked);
+      return unlocked;
+    });
+    const { user } = renderPage();
+    await loaded();
+    expect(mockApi.callsOf("get", USERS_PATH)).toHaveLength(1);
+
+    renderCell("display_name", rowById(MEMBER_USER.id)!);
+    await user.click(labelled(t("admin:users.unlock")));
+
+    await waitFor(() =>
+      expect(mockApi.callsOf("post", `/users/${MEMBER_USER.id}/unlock`)).toHaveLength(1),
+    );
+    await waitFor(() => expect(mockApi.callsOf("get", USERS_PATH)).toHaveLength(2));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      t("admin:users.unlockSuccess", { name: MEMBER_USER.display_name }),
+    );
+    await waitFor(() => expect(rowById(MEMBER_USER.id)?.locked_until).toBeNull());
+
+    renderCell("display_name", rowById(MEMBER_USER.id)!);
+    expect(screen.queryByText(t("admin:users.locked"))).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(t("admin:users.unlock"))).not.toBeInTheDocument();
+  });
+
+  it("reports a failed unlock and keeps the lock", async () => {
+    serveUsers(LOCKED_MEMBER);
+    mockApi.fail("post", `/users/${MEMBER_USER.id}/unlock`, 500, "boom");
+    const { user } = renderPage();
+    await loaded();
+
+    renderCell("display_name", rowById(MEMBER_USER.id)!);
+    await user.click(labelled(t("admin:users.unlock")));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      t("admin:users.unlockFailed", { error: `POST /users/${MEMBER_USER.id}/unlock failed` }),
+    );
+    expect(mockApi.callsOf("get", USERS_PATH)).toHaveLength(1);
+    expect(rowById(MEMBER_USER.id)?.locked_until).toBe(LOCKED_UNTIL);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Create user
 // ---------------------------------------------------------------------------

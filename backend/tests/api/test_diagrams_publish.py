@@ -534,3 +534,78 @@ class TestWorkspaceTransferSafety:
         section = next(s for s in ENTITY_SECTIONS if s.sheet == "Diagrams")
         for col in ("is_published", "public_slug", "access_mode", "allowed_email_domains"):
             assert col in section.exclude_columns, f"{col} would transfer between instances"
+
+
+# ---------------------------------------------------------------------------
+# Security & admin audit log — publishing exposes a diagram outside the app
+# ---------------------------------------------------------------------------
+
+
+async def _audit_rows(db, prefix: str = "admin.diagram."):
+    """Discard what a request flushed but never committed, then read the log."""
+    from sqlalchemy import select
+
+    from app.models.audit_log import AuditLogEntry
+
+    await db.rollback()
+    result = await db.execute(
+        select(AuditLogEntry)
+        .where(AuditLogEntry.action.like(f"{prefix}%"))
+        .order_by(AuditLogEntry.created_at)
+    )
+    return list(result.scalars().all())
+
+
+class TestPublishAudit:
+    async def test_publish_and_unpublish_are_recorded(self, client, db, publish_env):
+        admin = publish_env["admin"]
+        admin_id, headers = admin.id, auth_headers(admin)
+        diagram_id = await _make_diagram(client, admin, name="Landscape")
+
+        resp = await client.post(
+            f"/api/v1/diagrams/{diagram_id}/publish",
+            json={"access_mode": "sso", "allowed_email_domains": ["Company.com"]},
+            headers=headers,
+        )
+        assert resp.status_code == 200, resp.text
+        slug = resp.json()["public_slug"]
+        resp = await client.delete(f"/api/v1/diagrams/{diagram_id}/publish", headers=headers)
+        assert resp.status_code == 200
+
+        published, unpublished = await _audit_rows(db)
+        assert published.action == "admin.diagram.published"
+        assert published.actor_user_id == admin_id and published.category == "admin"
+        assert (published.target_type, published.target_id, published.target_label) == (
+            "diagram",
+            diagram_id,
+            "Landscape",
+        )
+        assert published.details == {
+            "slug_prefix": slug[:8] + "…",
+            "access_mode": "sso",
+            "allowed_email_domains": ["company.com"],
+            "was_published": False,
+        }
+        assert unpublished.action == "admin.diagram.unpublished"
+        assert unpublished.details == {"slug_prefix": slug[:8] + "…", "was_published": True}
+
+    async def test_editing_a_diagram_is_not_an_admin_action(self, client, db, publish_env):
+        admin = publish_env["admin"]
+        diagram_id = await _make_diagram(client, admin)
+        resp = await client.patch(
+            f"/api/v1/diagrams/{diagram_id}", json={"name": "Renamed"}, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200
+        assert await _audit_rows(db) == []
+
+    async def test_member_without_publish_is_refused_and_nothing_recorded(
+        self, client, db, publish_env
+    ):
+        diagram_id = await _make_diagram(client, publish_env["admin"])
+        resp = await client.post(
+            f"/api/v1/diagrams/{diagram_id}/publish",
+            json={"access_mode": "public"},
+            headers=auth_headers(publish_env["member"]),
+        )
+        assert resp.status_code == 403
+        assert await _audit_rows(db) == []
