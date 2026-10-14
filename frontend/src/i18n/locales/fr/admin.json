@@ -597,6 +597,7 @@
   "settings.dataManagement.auditRetention.description": "Choisissez combien de temps les entrées de connexion, de déconnexion, de tentatives échouées et les autres entrées de sécurité sont conservées dans Paramètres → Journal d'audit → Sécurité et administration. Une tâche quotidienne en arrière-plan supprime les entrées plus anciennes. Définissez la valeur sur 0 jour pour les conserver indéfiniment.",
   "settings.dataManagement.auditRetention.retentionDays": "Durée de conservation (jours)",
   "settings.dataManagement.auditRetention.retentionHelp": "0 = conserver indéfiniment. Maximum 3650 jours.",
+  "settings.dataManagement.auditRetention.rangeError": "Saisissez un nombre entier de jours compris entre 0 et {{max}} pour la conservation du journal de sécurité et d'administration.",
   "settings.dataManagement.auditRetention.keepIndefinitely": "Conserver les entrées de sécurité indéfiniment",
   "settings.dataManagement.auditRetention.savedSuccess": "Conservation du journal de sécurité et d'administration mise à jour",
   "settings.ai.title": "Fonctionnalités IA",

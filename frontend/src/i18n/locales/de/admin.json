@@ -598,6 +598,7 @@
   "settings.dataManagement.auditRetention.description": "Legen Sie fest, wie lange Anmelde-, Abmelde-, Fehlversuchs- und andere Sicherheitseinträge unter Einstellungen → Prüfprotokoll → Sicherheit & Verwaltung aufbewahrt werden. Ein täglicher Hintergrundprozess löscht ältere Einträge. Setzen Sie den Wert auf 0 Tage, um sie unbegrenzt aufzubewahren.",
   "settings.dataManagement.auditRetention.retentionDays": "Aufbewahrungsdauer (Tage)",
   "settings.dataManagement.auditRetention.retentionHelp": "0 = unbegrenzt aufbewahren. Maximal 3650 Tage.",
+  "settings.dataManagement.auditRetention.rangeError": "Geben Sie für die Aufbewahrung des Sicherheits- und Verwaltungsprotokolls eine ganze Zahl von Tagen zwischen 0 und {{max}} ein.",
   "settings.dataManagement.auditRetention.keepIndefinitely": "Sicherheitseinträge unbegrenzt aufbewahren",
   "settings.dataManagement.auditRetention.savedSuccess": "Aufbewahrung des Sicherheits- und Verwaltungsprotokolls aktualisiert",
   "settings.ai.title": "KI-Funktionen",

@@ -38,6 +38,7 @@ import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
 import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
 import { arrayFacetBinding } from "@/components/grid/facetColumnSync";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
+import { dayRangeParams } from "@/lib/dayRange";
 import { api, isAbortError } from "@/api/client";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
@@ -81,12 +82,9 @@ export function securityLogFilterParams(f: SecurityLogFilters): URLSearchParams 
   if (actor) params.set(UUID_RE.test(actor) ? "actor_user_id" : "actor_email", actor);
   if (f.q.trim()) params.set("q", f.q.trim());
   if (f.ip.trim()) params.set("ip", f.ip.trim());
-  if (f.dateFrom) params.set("since", new Date(f.dateFrom).toISOString());
-  if (f.dateTo) {
-    const end = new Date(f.dateTo);
-    end.setHours(23, 59, 59, 999);
-    params.set("until", end.toISOString());
-  }
+  const { since, until } = dayRangeParams(f.dateFrom, f.dateTo);
+  if (since) params.set("since", since);
+  if (until) params.set("until", until);
   return params;
 }
 
@@ -332,8 +330,10 @@ export default function SecurityLogAdmin() {
         get: () => single(filtersRef.current[key]),
         set: (v) => setFilters((p) => ({ ...p, [key]: v[0] ?? "" })),
         columnFilter: false,
+        // The actor box takes an email substring, so "Show matching" writes
+        // the row's email there — never the UUID. No email, no facet.
         ...(key === "actor"
-          ? { toFacetValue: (ctx) => ctx.data?.actor_user_id ?? null }
+          ? { toFacetValue: (ctx) => ctx.data?.actor_email || null }
           : key === "ip"
             ? {}
             : { toFacetValue: (ctx) => (ctx.data ? String(ctx.data[key]) : null) }),

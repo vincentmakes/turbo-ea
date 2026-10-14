@@ -597,6 +597,7 @@
   "settings.dataManagement.auditRetention.description": "Escolha durante quanto tempo as entradas de início e fim de sessão, de tentativas falhadas e outras entradas de segurança são mantidas em Configurações → Registo de auditoria → Segurança e administração. Uma tarefa diária em segundo plano elimina as entradas mais antigas. Defina o valor como 0 dias para as manter indefinidamente.",
   "settings.dataManagement.auditRetention.retentionDays": "Período de retenção (dias)",
   "settings.dataManagement.auditRetention.retentionHelp": "0 = manter indefinidamente. Máximo de 3650 dias.",
+  "settings.dataManagement.auditRetention.rangeError": "Insira um número inteiro de dias entre 0 e {{max}} para a retenção do registo de segurança e administração.",
   "settings.dataManagement.auditRetention.keepIndefinitely": "Manter as entradas de segurança indefinidamente",
   "settings.dataManagement.auditRetention.savedSuccess": "Retenção do registo de segurança e administração atualizada",
   "settings.ai.title": "Funcionalidades de IA",

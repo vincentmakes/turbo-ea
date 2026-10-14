@@ -42,6 +42,7 @@ import {
 } from "@/hooks/useArchiveRetentionDays";
 import {
   DEFAULT_AUDIT_LOG_RETENTION_DAYS,
+  MAX_AUDIT_LOG_RETENTION_DAYS,
   invalidateAuditLogRetentionDays,
 } from "@/hooks/useAuditLogRetentionDays";
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
@@ -721,8 +722,12 @@ function GeneralTab() {
 
   const handleAuditRetentionSave = async () => {
     const parsed = Number(auditRetentionInput);
-    if (!Number.isInteger(parsed) || parsed < 0 || parsed > MAX_ARCHIVE_RETENTION_DAYS) {
-      setError(t("settings.dataManagement.invalid", { max: MAX_ARCHIVE_RETENTION_DAYS }));
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > MAX_AUDIT_LOG_RETENTION_DAYS) {
+      setError(
+        t("settings.dataManagement.auditRetention.rangeError", {
+          max: MAX_AUDIT_LOG_RETENTION_DAYS,
+        }),
+      );
       return;
     }
     setSavingAuditRetention(true);
@@ -1436,7 +1441,9 @@ function GeneralTab() {
       {/* Security & admin log retention */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-          <MaterialSymbol icon="admin_panel_settings" size={22} color="#555" />
+          <Box component="span" sx={{ display: "inline-flex", color: "text.secondary" }}>
+            <MaterialSymbol icon="admin_panel_settings" size={22} />
+          </Box>
           <Typography variant="h6" fontWeight={600}>
             {t("settings.dataManagement.auditRetention.title")}
           </Typography>
@@ -1476,7 +1483,7 @@ function GeneralTab() {
             value={auditRetentionInput}
             onChange={(e) => setAuditRetentionInput(e.target.value)}
             disabled={savingAuditRetention || auditRetentionInput.trim() === "0"}
-            inputProps={{ min: 0, max: 3650 }}
+            inputProps={{ min: 0, max: MAX_AUDIT_LOG_RETENTION_DAYS }}
             helperText={t("settings.dataManagement.auditRetention.retentionHelp")}
             sx={{ minWidth: 220 }}
           />

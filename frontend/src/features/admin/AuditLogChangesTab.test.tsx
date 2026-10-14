@@ -324,10 +324,11 @@ describe("AuditLogChangesTab — filters", () => {
 
     await user.click(screen.getByTestId("sb-dates"));
     await waitFor(() => expect(mockApi.callsOf("get", LIST_PATH)).toHaveLength(4));
-    const end = new Date("2026-03-05");
-    end.setHours(23, 59, 59, 999);
-    expect(listQuery(3).get("since")).toBe(new Date("2026-03-01").toISOString());
-    expect(listQuery(3).get("until")).toBe(end.toISOString());
+    // Local days: start of the 1st, end of the 5th.
+    expect(listQuery(3).get("since")).toBe(new Date(2026, 2, 1).toISOString());
+    expect(listQuery(3).get("until")).toBe(
+      new Date(2026, 2, 5, 23, 59, 59, 999).toISOString(),
+    );
     expect(listQuery(3).get("page")).toBe("1");
 
     await user.click(screen.getByTestId("sb-clear"));

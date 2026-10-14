@@ -598,6 +598,7 @@
   "settings.dataManagement.auditRetention.description": "Укажите, как долго записи о входах, выходах, неудачных попытках и другие записи безопасности хранятся в разделе «Настройки → Журнал аудита → Безопасность и администрирование». Ежедневная фоновая задача удаляет более старые записи. Укажите 0 дней, чтобы хранить их бессрочно.",
   "settings.dataManagement.auditRetention.retentionDays": "Срок хранения (дни)",
   "settings.dataManagement.auditRetention.retentionHelp": "0 = хранить бессрочно. Максимум 3650 дней.",
+  "settings.dataManagement.auditRetention.rangeError": "Введите целое число дней от 0 до {{max}} для срока хранения журнала безопасности и администрирования.",
   "settings.dataManagement.auditRetention.keepIndefinitely": "Хранить записи безопасности бессрочно",
   "settings.dataManagement.auditRetention.savedSuccess": "Срок хранения журнала безопасности и администрирования обновлён",
   "settings.ai.title": "Возможности ИИ",

@@ -598,6 +598,7 @@
   "settings.dataManagement.auditRetention.description": "Choose how long sign-in, sign-out, failed-attempt and other security entries are kept in Settings → Audit log → Security & admin. A daily background job deletes older entries. Set the value to 0 days to keep them indefinitely.",
   "settings.dataManagement.auditRetention.retentionDays": "Retention period (days)",
   "settings.dataManagement.auditRetention.retentionHelp": "0 = keep indefinitely. Maximum 3650 days.",
+  "settings.dataManagement.auditRetention.rangeError": "Enter a whole number of days between 0 and {{max}} for the security & admin log retention.",
   "settings.dataManagement.auditRetention.keepIndefinitely": "Keep security entries indefinitely",
   "settings.dataManagement.auditRetention.savedSuccess": "Security & admin log retention updated",
   "settings.ai.title": "AI Capabilities",

@@ -18,6 +18,8 @@ import { useState, useEffect, useCallback } from "react";
 import { api } from "@/api/client";
 
 export const DEFAULT_AUDIT_LOG_RETENTION_DAYS = 365;
+/** Upper bound the server accepts for the audit-log window (10 years). */
+export const MAX_AUDIT_LOG_RETENTION_DAYS = 3650;
 export const DEFAULT_MUTATION_BATCH_RETENTION_DAYS = 15;
 
 export interface AuditRetention {

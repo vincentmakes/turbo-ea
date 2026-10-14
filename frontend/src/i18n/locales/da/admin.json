@@ -598,6 +598,7 @@
   "settings.dataManagement.auditRetention.description": "Vælg, hvor længe log ind-, log ud-, fejlforsøgs- og andre sikkerhedsposter opbevares under Indstillinger → Auditlog → Sikkerhed og administration. Et dagligt baggrundsjob sletter ældre poster. Sæt værdien til 0 dage for at opbevare dem på ubestemt tid.",
   "settings.dataManagement.auditRetention.retentionDays": "Opbevaringsperiode (dage)",
   "settings.dataManagement.auditRetention.retentionHelp": "0 = opbevar på ubestemt tid. Maksimalt 3650 dage.",
+  "settings.dataManagement.auditRetention.rangeError": "Angiv et helt antal dage mellem 0 og {{max}} for opbevaring af sikkerheds- og administrationsloggen.",
   "settings.dataManagement.auditRetention.keepIndefinitely": "Opbevar sikkerhedsposter på ubestemt tid",
   "settings.dataManagement.auditRetention.savedSuccess": "Opbevaring af sikkerheds- og administrationslog opdateret",
   "settings.ai.title": "AI-funktioner",

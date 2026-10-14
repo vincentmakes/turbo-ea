@@ -45,6 +45,7 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { useAuditLogRetentionDays } from "@/hooks/useAuditLogRetentionDays";
+import { dayRangeParams } from "@/lib/dayRange";
 import AuditLogBatchDrawer, {
   originColor,
   statusOf,
@@ -243,17 +244,10 @@ export default function AuditLogChangesTab() {
       if (filters.origins.length === 1) params.set("origin", filters.origins[0]);
       if (filters.toolName.trim())
         params.set("tool_name", filters.toolName.trim());
-      if (filters.dateFrom) {
-        // Backend expects ISO datetime; treat the picker's date as
-        // start-of-day in the user's timezone.
-        params.set("since", new Date(filters.dateFrom).toISOString());
-      }
-      if (filters.dateTo) {
-        // End-of-day for the upper bound so the picked day is inclusive.
-        const end = new Date(filters.dateTo);
-        end.setHours(23, 59, 59, 999);
-        params.set("until", end.toISOString());
-      }
+      // The picker's days, in the user's timezone, both inclusive.
+      const { since, until } = dayRangeParams(filters.dateFrom, filters.dateTo);
+      if (since) params.set("since", since);
+      if (until) params.set("until", until);
       const data = await api.get<{
         items: AuditBatch[];
         total: number;

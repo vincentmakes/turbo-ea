@@ -597,6 +597,7 @@
   "settings.dataManagement.auditRetention.description": "选择登录、登出、失败尝试及其他安全条目在「设置 → 审计日志 → 安全与管理」中保留多长时间。每日后台任务会删除更早的条目。将值设为 0 天即可永久保留。",
   "settings.dataManagement.auditRetention.retentionDays": "保留期（天）",
   "settings.dataManagement.auditRetention.retentionHelp": "0 = 永久保留。最多 3650 天。",
+  "settings.dataManagement.auditRetention.rangeError": "安全与管理日志保留期请输入 0 到 {{max}} 之间的整数天数。",
   "settings.dataManagement.auditRetention.keepIndefinitely": "永久保留安全条目",
   "settings.dataManagement.auditRetention.savedSuccess": "安全与管理日志保留期已更新",
   "settings.ai.title": "AI 功能",

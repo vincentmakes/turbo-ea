@@ -598,6 +598,7 @@
   "settings.dataManagement.auditRetention.description": "اختر مدة الاحتفاظ بإدخالات تسجيل الدخول والخروج والمحاولات الفاشلة وغيرها من إدخالات الأمان في الإعدادات ← سجل التدقيق ← الأمان والإدارة. تحذف مهمة يومية تعمل في الخلفية الإدخالات الأقدم. اضبط القيمة على 0 يوم للاحتفاظ بها إلى أجل غير مسمى.",
   "settings.dataManagement.auditRetention.retentionDays": "مدة الاحتفاظ (بالأيام)",
   "settings.dataManagement.auditRetention.retentionHelp": "0 = الاحتفاظ إلى أجل غير مسمى. الحد الأقصى 3650 يومًا.",
+  "settings.dataManagement.auditRetention.rangeError": "أدخل عددًا صحيحًا من الأيام بين 0 و{{max}} لمدة الاحتفاظ بسجل الأمان والإدارة.",
   "settings.dataManagement.auditRetention.keepIndefinitely": "الاحتفاظ بإدخالات الأمان إلى أجل غير مسمى",
   "settings.dataManagement.auditRetention.savedSuccess": "تم تحديث مدة الاحتفاظ بسجل الأمان والإدارة",
   "settings.ai.title": "قدرات الذكاء الاصطناعي",

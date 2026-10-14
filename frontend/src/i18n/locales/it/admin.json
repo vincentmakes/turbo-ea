@@ -598,6 +598,7 @@
   "settings.dataManagement.auditRetention.description": "Scegli per quanto tempo conservare le voci di accesso, disconnessione, tentativi falliti e le altre voci di sicurezza in Impostazioni → Registro di audit → Sicurezza e amministrazione. Un processo giornaliero in background elimina le voci più vecchie. Imposta il valore a 0 giorni per conservarle a tempo indeterminato.",
   "settings.dataManagement.auditRetention.retentionDays": "Periodo di conservazione (giorni)",
   "settings.dataManagement.auditRetention.retentionHelp": "0 = conserva a tempo indeterminato. Massimo 3650 giorni.",
+  "settings.dataManagement.auditRetention.rangeError": "Inserisci un numero intero di giorni compreso tra 0 e {{max}} per la conservazione del registro di sicurezza e amministrazione.",
   "settings.dataManagement.auditRetention.keepIndefinitely": "Conserva le voci di sicurezza a tempo indeterminato",
   "settings.dataManagement.auditRetention.savedSuccess": "Conservazione del registro di sicurezza e amministrazione aggiornata",
   "settings.ai.title": "Funzionalità IA",

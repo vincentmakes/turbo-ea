@@ -113,6 +113,7 @@ import { invalidateCache as invalidateMetamodel } from "@/hooks/useMetamodel";
 import { invalidateDateFormat, DEFAULT_DATE_FORMAT } from "@/hooks/useDateFormat";
 import { invalidateGrcEnabled } from "@/hooks/useGrcEnabled";
 import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
+import { MAX_AUDIT_LOG_RETENTION_DAYS } from "@/hooks/useAuditLogRetentionDays";
 import { mockApi } from "@/test/apiMock";
 import { installCanvas } from "@/test/dom";
 import { hookState } from "@/test/hooks";
@@ -655,7 +656,40 @@ describe("SettingsAdmin — security & admin log retention", () => {
     await user.type(input, "3651");
     await user.click(card.getByRole("button", { name: endsWith(tc("actions.save")) }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      t("settings.dataManagement.invalid", { max: 3650 }),
+      t("settings.dataManagement.auditRetention.rangeError", {
+        max: MAX_AUDIT_LOG_RETENTION_DAYS,
+      }),
+    );
+    expect(mockApi.callsOf("patch")).toHaveLength(0);
+  });
+
+  it("accepts the upper bound and caps the input at it", async () => {
+    const { user } = await renderGeneral();
+    mockApi.on("patch", "/settings/audit-log-retention-days", {});
+    const card = section(title());
+    const input = card.getByRole("spinbutton");
+    expect(input).toHaveAttribute("max", String(MAX_AUDIT_LOG_RETENTION_DAYS));
+    expect(input).toHaveAttribute("min", "0");
+    await user.clear(input);
+    await user.type(input, String(MAX_AUDIT_LOG_RETENTION_DAYS));
+    await user.click(card.getByRole("button", { name: endsWith(tc("actions.save")) }));
+    await screen.findByText(t("settings.dataManagement.auditRetention.savedSuccess"));
+    expect(mockApi.callsOf("patch", "/settings/audit-log-retention-days")[0].body).toEqual({
+      days: MAX_AUDIT_LOG_RETENTION_DAYS,
+    });
+  });
+
+  it.each(["-1", "2.5"])("rejects %s without calling the API", async (value) => {
+    const { user } = await renderGeneral();
+    const card = section(title());
+    const input = card.getByRole("spinbutton");
+    await user.clear(input);
+    await user.type(input, value);
+    await user.click(card.getByRole("button", { name: endsWith(tc("actions.save")) }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      t("settings.dataManagement.auditRetention.rangeError", {
+        max: MAX_AUDIT_LOG_RETENTION_DAYS,
+      }),
     );
     expect(mockApi.callsOf("patch")).toHaveLength(0);
   });

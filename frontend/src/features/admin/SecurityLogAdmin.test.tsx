@@ -241,10 +241,9 @@ describe("securityLogFilterParams", () => {
     expect(p.get("actor_user_id")).toBe(ACTOR_ID);
     expect(p.has("actor_email")).toBe(false);
     expect(p.get("ip")).toBe("10.0.0.1");
-    expect(p.get("since")).toBe(new Date("2026-03-01").toISOString());
-    const end = new Date("2026-03-05");
-    end.setHours(23, 59, 59, 999);
-    expect(p.get("until")).toBe(end.toISOString());
+    // The picker's days are local days: start of the 1st, end of the 5th.
+    expect(p.get("since")).toBe(new Date(2026, 2, 1).toISOString());
+    expect(p.get("until")).toBe(new Date(2026, 2, 5, 23, 59, 59, 999).toISOString());
   });
 
   it("sends a non-id actor as an email filter and skips blank text", () => {
@@ -420,7 +419,8 @@ describe("SecurityLogAdmin — filters drive the query string", () => {
     await loaded();
     await user.click(screen.getByTestId("sb-dates"));
     await waitFor(() => expect(lastQuery().has("until")).toBe(true));
-    expect(lastQuery().get("since")).toBe(new Date("2026-03-01").toISOString());
+    expect(lastQuery().get("since")).toBe(new Date(2026, 2, 1).toISOString());
+    expect(lastQuery().get("until")).toBe(new Date(2026, 2, 5, 23, 59, 59, 999).toISOString());
   });
 
   it("returns to page 1 when a filter changes on a later page", async () => {
@@ -454,7 +454,7 @@ describe("SecurityLogAdmin — filters drive the query string", () => {
     expect(gridStub.api().getFilterModel()).toEqual({});
   });
 
-  it("Show matching on an actor cell filters by the actor's user id", async () => {
+  it("Show matching on an actor cell filters by the actor's email", async () => {
     const { user } = renderPage();
     await loaded();
     const props = gridStub.lastProps();
@@ -465,8 +465,28 @@ describe("SecurityLogAdmin — filters drive the query string", () => {
     });
     const menu = await screen.findByRole("menu");
     await user.click(within(menu).getByText(i18n.t("common:grid.showMatching") as string));
-    await waitFor(() => expect(lastQuery().get("actor_user_id")).toBe(ACTOR_ID));
-    expect(JSON.parse(screen.getByTestId("sb-filters").textContent!).actor).toBe(ACTOR_ID);
+    await waitFor(() => expect(lastQuery().get("actor_email")).toBe("dana@example.com"));
+    expect(lastQuery().has("actor_user_id")).toBe(false);
+    expect(JSON.parse(screen.getByTestId("sb-filters").textContent!).actor).toBe(
+      "dana@example.com",
+    );
+  });
+
+  it("an actor cell with no email offers no actor facet", async () => {
+    const { user } = renderPage();
+    await loaded();
+    const props = gridStub.lastProps();
+    const def = { ...props.defaultColDef, ...gridStub.colDef("actor_email") };
+    const column = { getColId: () => "actor_email", getColDef: () => def };
+    await act(async () => {
+      props.onCellContextMenu({ column, node: { data: FAILED }, event: { clientX: 10, clientY: 10 } });
+    });
+    // The blank cell falls back to a plain column filter; the facet stays unset.
+    const menu = await screen.findByRole("menu");
+    await user.click(within(menu).getByText(i18n.t("common:grid.showMatching") as string));
+    expect(JSON.parse(screen.getByTestId("sb-filters").textContent!).actor).toBe("");
+    expect(lastQuery().has("actor_email")).toBe(false);
+    expect(lastQuery().has("actor_user_id")).toBe(false);
   });
 });
 
