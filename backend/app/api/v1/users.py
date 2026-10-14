@@ -20,6 +20,7 @@ from app.models.user import (
     NOTIFICATION_TYPE_SPECS,
     User,
 )
+from app.services import audit_log
 from app.services.extensions import notification_channels, notification_types
 from app.services.permission_service import PermissionService
 from app.services.sso_service import get_sso_config
@@ -760,6 +761,9 @@ async def update_user(
         raise HTTPException(404, "User not found")
 
     data = body.model_dump(exclude_unset=True)
+    # Read before ``password`` is popped below. An administrator setting someone
+    # else's password is an admin action, not this one.
+    changes_own_password = is_self and "password" in data
 
     # Non-admin can only update own display_name, password, and locale
     if not is_admin:
@@ -838,6 +842,10 @@ async def update_user(
     for field, value in data.items():
         setattr(u, field, value)
 
+    if changes_own_password:
+        await audit_log.record(
+            db, action="auth.password.changed", category="auth", actor=current_user
+        )
     await db.commit()
     return _user_response(u)
 

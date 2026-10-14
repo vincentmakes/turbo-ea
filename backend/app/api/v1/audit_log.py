@@ -109,6 +109,7 @@ def build_filters(
     action: str | None = None,
     outcome: str | None = None,
     actor_user_id: uuid.UUID | None = None,
+    actor_email: str | None = None,
     q: str | None = None,
     ip: str | None = None,
     since: datetime | None = None,
@@ -116,20 +117,30 @@ def build_filters(
 ) -> list[Any]:
     """The ``WHERE`` clauses for one set of list / export filters.
 
-    ``action`` is a prefix (``auth.login`` matches every sign-in action), ``q``
-    a case-insensitive substring over the actor email, the subject email and
-    the target label; both escape ``%`` / ``_`` so user input is never a LIKE
-    pattern. ``since`` / ``until`` are inclusive.
+    ``action`` is an exact key (``auth.login.failed``) unless it ends with a
+    dot, which makes it a prefix (``auth.login.`` matches every sign-in
+    action) — exact by default so a key never matches its own longer
+    siblings (``auth.password.reset`` vs ``auth.password.reset_requested``).
+    ``actor_email`` and ``q`` are case-insensitive substrings — ``q`` over the
+    actor email, the subject email and the target label. Every LIKE escapes
+    ``%`` / ``_`` so user input is never a pattern. ``since`` / ``until`` are
+    inclusive.
     """
     filters: list[Any] = []
     if category:
         filters.append(AuditLogEntry.category == category)
     if action:
-        filters.append(AuditLogEntry.action.startswith(action, autoescape=True))
+        if action.endswith("."):
+            filters.append(AuditLogEntry.action.startswith(action, autoescape=True))
+        else:
+            filters.append(AuditLogEntry.action == action)
     if outcome:
         filters.append(AuditLogEntry.outcome == outcome)
     if actor_user_id:
         filters.append(AuditLogEntry.actor_user_id == actor_user_id)
+    actor_term = (actor_email or "").strip()
+    if actor_term:
+        filters.append(AuditLogEntry.actor_email.icontains(actor_term, autoescape=True))
     term = (q or "").strip()
     if term:
         filters.append(
@@ -203,6 +214,7 @@ async def list_audit_log(
     action: str | None = Query(None),
     outcome: str | None = Query(None),
     actor_user_id: uuid.UUID | None = Query(None),
+    actor_email: str | None = Query(None),
     q: str | None = Query(None),
     ip: str | None = Query(None),
     since: datetime | None = Query(None),
@@ -218,6 +230,7 @@ async def list_audit_log(
         action=action,
         outcome=outcome,
         actor_user_id=actor_user_id,
+        actor_email=actor_email,
         q=q,
         ip=ip,
         since=since,
@@ -258,6 +271,7 @@ async def export_audit_log(
     action: str | None = Query(None),
     outcome: str | None = Query(None),
     actor_user_id: uuid.UUID | None = Query(None),
+    actor_email: str | None = Query(None),
     q: str | None = Query(None),
     ip: str | None = Query(None),
     since: datetime | None = Query(None),
@@ -274,6 +288,7 @@ async def export_audit_log(
         action=action,
         outcome=outcome,
         actor_user_id=actor_user_id,
+        actor_email=actor_email,
         q=q,
         ip=ip,
         since=since,

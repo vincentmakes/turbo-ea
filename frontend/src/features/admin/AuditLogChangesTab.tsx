@@ -1,0 +1,683 @@
+/**
+ * AuditLogChangesTab — the **Changes** sub-tab of the Audit log: an admin
+ * view over the mutation-batch ledger
+ * (`GET /api/v1/mutation-batches`). Mirrors the AG Grid layout used by
+ * the Risk Register and Users-management pages: collapsible filter
+ * sidebar on the left, AG Grid Community on the right, side drawer
+ * for batch detail + rollback. Filter / column-visibility prefs are
+ * persisted under `turboea.auditlog.prefs` in localStorage so admins
+ * don't keep re-toggling them.
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { AgGridReact } from "ag-grid-react";
+import type {
+  ColDef,
+  ICellRendererParams,
+  RowClickedEvent,
+} from "ag-grid-community";
+import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import FormControl from "@mui/material/FormControl";
+import IconButton from "@mui/material/IconButton";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import Pagination from "@mui/material/Pagination";
+import Select from "@mui/material/Select";
+import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
+import MaterialSymbol from "@/components/MaterialSymbol";
+import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import { useColumnOrder } from "@/components/grid/useColumnOrder";
+import { colIdOf, isOrderableColumn } from "@/components/grid/columnOrder";
+import type { ColumnOrderItem } from "@/components/grid/ColumnOrderSection";
+import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
+import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
+import { arrayFacetBinding } from "@/components/grid/facetColumnSync";
+import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
+import { api, isAbortError } from "@/api/client";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
+import { useDateFormat } from "@/hooks/useDateFormat";
+import { useThemeMode } from "@/hooks/useThemeMode";
+import { useIsRtl } from "@/hooks/useIsRtl";
+import { useAuditLogRetentionDays } from "@/hooks/useAuditLogRetentionDays";
+import AuditLogBatchDrawer, {
+  originColor,
+  statusOf,
+} from "./AuditLogBatchDrawer";
+import AuditLogFilterSidebar, {
+  AUDIT_GRID_COLUMNS,
+  EMPTY_AUDIT_FILTERS,
+  LOCKED_AUDIT_COLUMNS,
+  type AuditLogFilters,
+} from "./AuditLogFilterSidebar";
+import type { AuditBatch } from "./AuditLogTypes";
+
+// ──────────────────────────────────────────────────────────────────────────
+// localStorage prefs (filters + visible columns + sidebar state)
+// ──────────────────────────────────────────────────────────────────────────
+
+const ALL_AUDIT_COLUMN_IDS = AUDIT_GRID_COLUMNS.map((c) => c.id);
+const AUDIT_PREFS_STORAGE_KEY = "turboea.auditlog.prefs";
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200] as const;
+const DEFAULT_PAGE_SIZE = 50;
+
+interface AuditPrefs {
+  filtersCollapsed: boolean;
+  sidebarWidth: number;
+  visibleColumns: string[];
+  /** colIds frozen to the leading edge via the header pin. */
+  frozenColumns: string[];
+  /** colId order, owned by `useColumnOrder` (header drag + Columns tab). */
+  columnOrder: string[];
+  pageSize: number;
+}
+
+function loadAuditPrefs(): AuditPrefs {
+  const defaults: AuditPrefs = {
+    filtersCollapsed: false,
+    sidebarWidth: 280,
+    visibleColumns: ALL_AUDIT_COLUMN_IDS,
+    frozenColumns: [],
+    columnOrder: [],
+    pageSize: DEFAULT_PAGE_SIZE,
+  };
+  try {
+    const raw = localStorage.getItem(AUDIT_PREFS_STORAGE_KEY);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw) as Partial<AuditPrefs>;
+    return {
+      filtersCollapsed: !!parsed.filtersCollapsed,
+      sidebarWidth:
+        typeof parsed.sidebarWidth === "number" ? parsed.sidebarWidth : 280,
+      visibleColumns:
+        Array.isArray(parsed.visibleColumns) && parsed.visibleColumns.length
+          ? Array.from(
+              new Set([
+                ...LOCKED_AUDIT_COLUMNS,
+                ...parsed.visibleColumns.filter(
+                  (id): id is string =>
+                    typeof id === "string" && ALL_AUDIT_COLUMN_IDS.includes(id),
+                ),
+              ]),
+            )
+          : ALL_AUDIT_COLUMN_IDS,
+      frozenColumns: Array.isArray(parsed.frozenColumns)
+        ? parsed.frozenColumns.filter(
+            (id): id is string =>
+              typeof id === "string" && ALL_AUDIT_COLUMN_IDS.includes(id),
+          )
+        : [],
+      columnOrder: Array.isArray(parsed.columnOrder)
+        ? parsed.columnOrder.filter(
+            (id): id is string =>
+              typeof id === "string" && ALL_AUDIT_COLUMN_IDS.includes(id),
+          )
+        : [],
+      pageSize:
+        typeof parsed.pageSize === "number" &&
+        (PAGE_SIZE_OPTIONS as readonly number[]).includes(parsed.pageSize)
+          ? parsed.pageSize
+          : DEFAULT_PAGE_SIZE,
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+function saveAuditPrefs(p: AuditPrefs) {
+  try {
+    localStorage.setItem(AUDIT_PREFS_STORAGE_KEY, JSON.stringify(p));
+  } catch {
+    // localStorage may be full or disabled — ignore.
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Component
+// ──────────────────────────────────────────────────────────────────────────
+
+export default function AuditLogChangesTab() {
+  const { t } = useTranslation("admin");
+  const { mode } = useThemeMode();
+  const isRtl = useIsRtl();
+  const { formatDateTime } = useDateFormat();
+  const { mutationBatchRetentionDays } = useAuditLogRetentionDays();
+  const gridRef = useRef<AgGridReact<AuditBatch> | null>(null);
+
+  const initialPrefs = useMemo(() => loadAuditPrefs(), []);
+
+  const [batches, setBatches] = useState<AuditBatch[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [filters, setFilters] = useState<AuditLogFilters>(EMPTY_AUDIT_FILTERS);
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    initialPrefs.filtersCollapsed,
+  );
+  const [sidebarWidth, setSidebarWidth] = useState(initialPrefs.sidebarWidth);
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
+    new Set(initialPrefs.visibleColumns),
+  );
+  const [frozenColumns, setFrozenColumns] = useState<string[]>(
+    initialPrefs.frozenColumns,
+  );
+  const [columnOrderIds, setColumnOrderIds] = useState<string[]>(
+    initialPrefs.columnOrder,
+  );
+  // Per-column freeze toggles in the header, persisted with the other prefs.
+  const columnFreeze = useColumnFreeze<AuditBatch>(gridRef, {
+    frozen: frozenColumns,
+    onFrozenChange: setFrozenColumns,
+  });
+  // Column order — from the Columns tab's drag handles and from dragging a
+  // column header, which both land here.
+  const columnOrder = useColumnOrder<AuditBatch>(gridRef, {
+    order: columnOrderIds,
+    onOrderChange: setColumnOrderIds,
+  });
+  // One drag can move a column *and* pin it; capture both at drag end.
+  const handleDragStopped = useCallback(() => {
+    columnOrder.syncFromGrid();
+    columnFreeze.syncFrozenFromGrid();
+  }, [columnOrder, columnFreeze]);
+
+  // Server-side pagination. AG Grid Community lacks the enterprise
+  // server-side row model, so we drive page changes ourselves and let
+  // the grid render whichever page it just received.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(initialPrefs.pageSize);
+
+  const [drawerBatch, setDrawerBatch] = useState<AuditBatch | null>(null);
+
+  // Persist prefs on any change.
+  useEffect(() => {
+    saveAuditPrefs({
+      filtersCollapsed: sidebarCollapsed,
+      sidebarWidth,
+      visibleColumns: Array.from(visibleColumns),
+      frozenColumns,
+      columnOrder: columnOrderIds,
+      pageSize,
+    });
+  }, [
+    sidebarCollapsed,
+    sidebarWidth,
+    visibleColumns,
+    frozenColumns,
+    columnOrderIds,
+    pageSize,
+  ]);
+
+  const resetVisibleColumns = useCallback(() => {
+    setVisibleColumns(new Set(ALL_AUDIT_COLUMN_IDS));
+  }, []);
+
+  // Reset to page 1 whenever a filter or page-size changes — otherwise
+  // the user can land on "page 5 of 3 results" after a stricter filter.
+  useEffect(() => {
+    setPage(1);
+  }, [filters, pageSize]);
+
+  // ── Data fetch ─────────────────────────────────────────────────────────
+  // Through the request guard: a filter or page-size change while on a later
+  // page issues the page-reset re-query right behind the stale one, and only
+  // the latest reply may land (the request-hook rule in CLAUDE.md, #882).
+  const { run } = useLatestRequest();
+  const load = useCallback(
+    () =>
+      run(async ({ signal, isCurrent }) => {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(pageSize),
+      });
+      // Single-value filters that the backend supports natively.
+      if (filters.origins.length === 1) params.set("origin", filters.origins[0]);
+      if (filters.toolName.trim())
+        params.set("tool_name", filters.toolName.trim());
+      if (filters.dateFrom) {
+        // Backend expects ISO datetime; treat the picker's date as
+        // start-of-day in the user's timezone.
+        params.set("since", new Date(filters.dateFrom).toISOString());
+      }
+      if (filters.dateTo) {
+        // End-of-day for the upper bound so the picked day is inclusive.
+        const end = new Date(filters.dateTo);
+        end.setHours(23, 59, 59, 999);
+        params.set("until", end.toISOString());
+      }
+      const data = await api.get<{
+        items: AuditBatch[];
+        total: number;
+        page: number;
+        page_size: number;
+      }>(`/mutation-batches?${params.toString()}`, { signal });
+      if (!isCurrent()) return;
+      setBatches(data.items);
+      setTotal(data.total);
+    } catch (err) {
+      if (!isCurrent() || isAbortError(err)) return;
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (isCurrent()) setLoading(false);
+    }
+      }),
+    [run, filters, page, pageSize],
+  );
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // ── Client-side filtering for the multi-value / search-y filters ──────
+  const filteredRows = useMemo(() => {
+    return batches.filter((b) => {
+      if (
+        filters.origins.length > 1 &&
+        !filters.origins.includes(b.origin as never)
+      ) {
+        return false;
+      }
+      if (filters.statuses.length > 0) {
+        const s = statusOf(b).key;
+        if (!filters.statuses.includes(s)) return false;
+      }
+      if (filters.search.trim()) {
+        const q = filters.search.trim().toLowerCase();
+        const hay = `${b.tool_name} ${b.actor_display_name ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [batches, filters]);
+
+  // ── AG Grid wiring ────────────────────────────────────────────────────
+  const defaultColDef: ColDef = useMemo(
+    () => ({
+      sortable: true,
+      filter: true,
+      resizable: true,
+      headerComponentParams: columnFreeze.headerComponentParams,
+    }),
+    [columnFreeze.headerComponentParams],
+  );
+
+  // "Show matching" also selects the value in the filter sidebar.
+  //
+  // Origin mirrors into both: the facet becomes a server query param, so it
+  // narrows the whole dataset rather than just the loaded page. Status is
+  // facet-only (`columnFilter: false`) because its column renders the
+  // *translated* label — an equals filter on that text would be stranded by a
+  // locale switch, while the facet keys on the raw status.
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const facetBindings = useMemo(
+    () => ({
+      origin: arrayFacetBinding<AuditBatch>({
+        get: () => filtersRef.current.origins,
+        set: (v) => setFilters((p) => ({ ...p, origins: v as AuditLogFilters["origins"] })),
+      }),
+      status_derived: arrayFacetBinding<AuditBatch>({
+        toFacetValue: (ctx) => (ctx.data ? statusOf(ctx.data).key : null),
+        get: () => filtersRef.current.statuses,
+        set: (v) => setFilters((p) => ({ ...p, statuses: v as AuditLogFilters["statuses"] })),
+        columnFilter: false,
+      }),
+    }),
+    [],
+  );
+  const facetSync = useFacetColumnSync<AuditBatch>(gridRef, {
+    bindings: facetBindings,
+    facetState: filters,
+  });
+
+  // Right-click / long-press cell menu. Column filters on this grid narrow
+  // the loaded page only (the list is server-paginated) — the pre-existing
+  // semantic of its filter popups, unchanged here.
+  const cellMenu = useCellContextMenu<AuditBatch>(gridRef, {
+    excludeColumns: (colId) => colId === "actions",
+    facetSync: facetSync.cellMenu,
+  });
+
+  const columnDefs: ColDef<AuditBatch>[] = useMemo(
+    () => [
+      {
+        field: "created_at",
+        colId: "created_at",
+        headerName: t("auditLog.columns.when"),
+        width: 180,
+        sort: "desc",
+        // Custom comparator — the stock one can't parse ISO-string cells.
+        ...dateColumnFilterDef,
+        valueFormatter: (p) => (p.value ? formatDateTime(p.value as string) : ""),
+      },
+      {
+        field: "tool_name",
+        colId: "tool_name",
+        headerName: t("auditLog.columns.tool"),
+        flex: 1,
+        minWidth: 200,
+        filter: "agTextColumnFilter",
+        cellRenderer: (p: ICellRendererParams<AuditBatch, string>) => (
+          <code style={{ fontSize: 12 }}>{p.value}</code>
+        ),
+      },
+      {
+        field: "origin",
+        colId: "origin",
+        headerName: t("auditLog.columns.origin"),
+        width: 130,
+        filter: "agSetColumnFilter",
+        cellRenderer: (p: ICellRendererParams<AuditBatch, string>) =>
+          p.value ? (
+            <Chip
+              size="small"
+              label={p.value}
+              color={originColor(p.value)}
+              variant={p.value === "mcp" ? "filled" : "outlined"}
+            />
+          ) : null,
+      },
+      {
+        field: "actor_display_name",
+        colId: "actor_display_name",
+        headerName: t("auditLog.columns.actor"),
+        width: 180,
+        filter: "agTextColumnFilter",
+        valueFormatter: (p) =>
+          (p.value as string | null) ?? t("auditLog.batch.emptyValue"),
+      },
+      {
+        colId: "status_derived",
+        headerName: t("auditLog.columns.status"),
+        width: 150,
+        filter: "agSetColumnFilter",
+        valueGetter: (p) => (p.data ? t(statusOf(p.data).labelKey) : ""),
+        cellRenderer: (p: ICellRendererParams<AuditBatch>) => {
+          if (!p.data) return null;
+          const s = statusOf(p.data);
+          const color: "success" | "default" | "warning" =
+            s.key === "committed"
+              ? "success"
+              : s.key === "dry_run"
+                ? "default"
+                : "warning";
+          return (
+            <Chip
+              size="small"
+              label={t(s.labelKey)}
+              color={color}
+              variant="outlined"
+            />
+          );
+        },
+      },
+      {
+        colId: "event_count",
+        headerName: t("auditLog.columns.events"),
+        width: 100,
+        filter: "agNumberColumnFilter",
+        valueGetter: (p) => {
+          // Best-effort: `summary` carries per-row counts when the
+          // wrapper recorded them — `writes` is what an extension batch
+          // scope stamps. Falls back to "—" otherwise; the exact event
+          // count is in the drawer.
+          const s = (p.data?.summary ?? {}) as Record<string, unknown>;
+          const candidates = [s.created, s.updated, s.would_update, s.rows, s.writes];
+          const n = candidates.find((v) => typeof v === "number") as
+            | number
+            | undefined;
+          return typeof n === "number" ? n : null;
+        },
+        valueFormatter: (p) =>
+          p.value == null ? t("auditLog.batch.emptyValue") : String(p.value),
+      },
+      {
+        colId: "actions",
+        headerName: "",
+        width: 140,
+        sortable: false,
+        filter: false,
+        resizable: false,
+        suppressMovable: true,
+        cellRenderer: (p: ICellRendererParams<AuditBatch>) => {
+          if (!p.data) return null;
+          const canRollback = !!p.data.committed_at;
+          return (
+            <Tooltip
+              title={
+                canRollback
+                  ? t("auditLog.rowActions.rollbackTooltip")
+                  : t("auditLog.rowActions.viewTooltip")
+              }
+            >
+              <span>
+                <Button
+                  size="small"
+                  color={canRollback ? "error" : "inherit"}
+                  variant="outlined"
+                  startIcon={
+                    <MaterialSymbol
+                      icon={canRollback ? "undo" : "visibility"}
+                      size={16}
+                    />
+                  }
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDrawerBatch(p.data!);
+                  }}
+                  sx={{ textTransform: "none" }}
+                >
+                  {canRollback
+                    ? t("auditLog.rowActions.rollback")
+                    : t("auditLog.rowActions.view")}
+                </Button>
+              </span>
+            </Tooltip>
+          );
+        },
+      },
+    ],
+    [formatDateTime, t],
+  );
+
+  const visibleColumnDefs = useMemo<ColDef<AuditBatch>[]>(
+    () =>
+      columnOrder.applyOrder(
+        columnFreeze.applyFrozen(
+          columnDefs.map((c) => {
+            const id = c.colId ?? c.field ?? "";
+            return { ...c, hide: id ? !visibleColumns.has(id) : false };
+          }),
+        ),
+      ),
+    [columnDefs, visibleColumns, columnFreeze, columnOrder],
+  );
+
+  // Feeds the Columns tab's "Column order" section: only the columns actually
+  // on screen, built from the grid's own defs so the ids can never drift.
+  const columnOrderItems = useMemo<ColumnOrderItem[]>(() => {
+    const labels = new Map(AUDIT_GRID_COLUMNS.map((c) => [c.id, t(c.labelKey)]));
+    return visibleColumnDefs
+      .filter((c) => !c.hide && isOrderableColumn(c))
+      .map((c) => {
+        const id = colIdOf(c);
+        return { colId: id, label: labels.get(id) ?? id };
+      });
+  }, [visibleColumnDefs, t]);
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mb: 1.5 }}
+      >
+        <Box>
+          <Typography variant="h6" fontWeight={700}>
+            {t("auditLog.title")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t("auditLog.description", {
+              token: t("auditLog.unsupportedEventsToken"),
+            })}
+          </Typography>
+        </Box>
+        <Tooltip title={t("auditLog.refresh")}>
+          <IconButton size="small" onClick={load} disabled={loading}>
+            <MaterialSymbol icon="refresh" />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
+          {error}
+        </Alert>
+      )}
+
+      <Box sx={{ display: "flex", flex: 1, minHeight: 480, gap: 1.5 }}>
+        <AuditLogFilterSidebar
+          filters={filters}
+          onFiltersChange={setFilters}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
+          width={sidebarWidth}
+          onWidthChange={setSidebarWidth}
+          visibleColumns={visibleColumns}
+          frozenColumns={columnFreeze.frozenColumns}
+          onToggleFrozen={columnFreeze.toggleFrozen}
+          onVisibleColumnsChange={setVisibleColumns}
+          onResetColumns={resetVisibleColumns}
+          columnOrderItems={columnOrderItems}
+          columnOrder={columnOrder.orderedIds}
+          onColumnOrderChange={setColumnOrderIds}
+          onResetColumnOrder={columnOrder.resetOrder}
+        />
+
+        <Box
+          sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}
+        >
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ mb: 1.5, flexWrap: "wrap", gap: 1 }}
+          >
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <Typography variant="subtitle1" fontWeight={700}>
+                {t("auditLog.mutationBatches")}
+              </Typography>
+              <Chip
+                size="small"
+                label={
+                  total === 0
+                    ? t("auditLog.noBatches")
+                    : t("auditLog.rangeOfTotal", {
+                        start: (page - 1) * pageSize + 1,
+                        end: Math.min(page * pageSize, total),
+                        total,
+                      })
+                }
+                sx={{ bgcolor: "action.hover", fontWeight: 500 }}
+              />
+              <Tooltip
+                title={t("auditLog.retentionTooltip", { days: mutationBatchRetentionDays })}
+                placement="right"
+              >
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  icon={<MaterialSymbol icon="schedule" size={14} />}
+                  label={t("auditLog.retentionChip", { days: mutationBatchRetentionDays })}
+                  sx={{ fontWeight: 500 }}
+                />
+              </Tooltip>
+            </Stack>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel id="audit-page-size-label">
+                {t("auditLog.perPage")}
+              </InputLabel>
+              <Select
+                labelId="audit-page-size-label"
+                label={t("auditLog.perPage")}
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+              >
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <MenuItem key={n} value={n}>
+                    {n}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Stack>
+
+          <Box
+            ref={columnFreeze.containerRef}
+            {...cellMenu.containerProps}
+            sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx, ...cellMenu.sx }}
+          >
+            <AgGridReact<AuditBatch>
+              theme={mode === "dark" ? gridThemeDark : gridThemeLight}
+              key={isRtl ? "rtl" : "ltr"}
+              enableRtl={isRtl}
+              ref={gridRef}
+              rowData={filteredRows}
+              columnDefs={visibleColumnDefs}
+              defaultColDef={defaultColDef}
+              loading={loading}
+              animateRows
+              getRowId={(p) => p.data.id}
+              onDragStopped={handleDragStopped}
+              onRowClicked={(e: RowClickedEvent<AuditBatch>) => {
+                if (e.data) setDrawerBatch(e.data);
+              }}
+              {...cellMenu.gridProps}
+            />
+          </Box>
+          {cellMenu.menu}
+
+          {total > pageSize && (
+            <Stack
+              direction="row"
+              justifyContent="center"
+              sx={{ mt: 1.5 }}
+            >
+              <Pagination
+                count={Math.max(1, Math.ceil(total / pageSize))}
+                page={page}
+                onChange={(_, p) => setPage(p)}
+                size="small"
+                shape="rounded"
+                showFirstButton
+                showLastButton
+              />
+            </Stack>
+          )}
+        </Box>
+      </Box>
+
+      <AuditLogBatchDrawer
+        batch={drawerBatch}
+        open={drawerBatch !== null}
+        onClose={() => setDrawerBatch(null)}
+        onRolledBack={() => {
+          // Reload so the new rollback batch appears and the
+          // original's conflict state updates.
+          load();
+          // Keep the drawer open — admin can inspect the resulting events.
+        }}
+      />
+    </Box>
+  );
+}

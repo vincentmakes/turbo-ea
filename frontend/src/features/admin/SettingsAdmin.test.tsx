@@ -28,6 +28,7 @@ const h = vi.hoisted(() => ({
   invalidateAppTitle: vi.fn(),
   invalidateSponsorButtonEnabled: vi.fn(),
   invalidateArchiveRetentionDays: vi.fn(),
+  invalidateAuditLogRetentionDays: vi.fn(),
   invalidateLoginBranding: vi.fn(),
   localesInvalidate: vi.fn(),
   /** Stable array — the page keys an effect on its identity. */
@@ -63,6 +64,12 @@ vi.mock("@/hooks/useArchiveRetentionDays", async () => {
     "@/hooks/useArchiveRetentionDays",
   );
   return { ...actual, invalidateArchiveRetentionDays: h.invalidateArchiveRetentionDays };
+});
+vi.mock("@/hooks/useAuditLogRetentionDays", async () => {
+  const actual = await vi.importActual<typeof import("@/hooks/useAuditLogRetentionDays")>(
+    "@/hooks/useAuditLogRetentionDays",
+  );
+  return { ...actual, invalidateAuditLogRetentionDays: h.invalidateAuditLogRetentionDays };
 });
 vi.mock("@/hooks/useLoginBranding", async () => {
   const actual = await vi.importActual<typeof import("@/hooks/useLoginBranding")>(
@@ -139,6 +146,7 @@ const BOOTSTRAP = {
   enabled_locales: [...SUPPORTED_LOCALES],
   fiscal_year_start: 1,
   archive_retention_days: 30,
+  audit_log_retention_days: 365 as number | undefined,
   login_tagline: "Welcome",
   login_tagline_hidden: false,
   login_help_text: "",
@@ -588,6 +596,88 @@ describe("SettingsAdmin — archived-card retention", () => {
       t("settings.dataManagement.invalid", { max: 3650 }),
     );
     expect(mockApi.callsOf("patch")).toHaveLength(0);
+  });
+});
+
+describe("SettingsAdmin — security & admin log retention", () => {
+  const title = () => t("settings.dataManagement.auditRetention.title");
+
+  it("shows the stored window and saves a new one, broadcasting it", async () => {
+    scriptLoad({ bootstrap: { audit_log_retention_days: 180 } });
+    const { user } = await renderGeneral();
+    mockApi.on("patch", "/settings/audit-log-retention-days", {});
+    const card = section(title());
+    expect(card.getByText(t("settings.dataManagement.daysChip", { count: 180 }))).toBeInTheDocument();
+    const save = card.getByRole("button", { name: endsWith(tc("actions.save")) });
+    expect(save).toBeDisabled();
+
+    const input = card.getByRole("spinbutton", {
+      name: t("settings.dataManagement.auditRetention.retentionDays"),
+    });
+    expect(input).toHaveValue(180);
+    await user.clear(input);
+    await user.type(input, "730");
+    await user.click(save);
+
+    await screen.findByText(t("settings.dataManagement.auditRetention.savedSuccess"));
+    expect(mockApi.callsOf("patch", "/settings/audit-log-retention-days")[0].body).toEqual({ days: 730 });
+    expect(h.invalidateAuditLogRetentionDays).toHaveBeenCalledWith(730);
+    expect(card.getByText(t("settings.dataManagement.daysChip", { count: 730 }))).toBeInTheDocument();
+    // The archived-card window is a different setting and stays untouched.
+    expect(mockApi.callsOf("patch", "/settings/archive-retention-days")).toHaveLength(0);
+  });
+
+  it("'keep indefinitely' writes 0 and shows the warning chip; unchecking restores the default", async () => {
+    const { user } = await renderGeneral();
+    mockApi.on("patch", "/settings/audit-log-retention-days", {});
+    const card = section(title());
+    const keep = card.getByRole("checkbox", {
+      name: t("settings.dataManagement.auditRetention.keepIndefinitely"),
+    });
+    await user.click(keep);
+    expect(card.getByRole("spinbutton")).toBeDisabled();
+    await user.click(keep);
+    expect(card.getByRole("spinbutton")).toHaveValue(365);
+    await user.click(keep);
+    await user.click(card.getByRole("button", { name: endsWith(tc("actions.save")) }));
+
+    await screen.findByText(t("settings.dataManagement.auditRetention.savedSuccess"));
+    expect(mockApi.callsOf("patch", "/settings/audit-log-retention-days")[0].body).toEqual({ days: 0 });
+    expect(h.invalidateAuditLogRetentionDays).toHaveBeenCalledWith(0);
+    expect(card.getByText(t("settings.dataManagement.indefiniteChip"))).toBeInTheDocument();
+  });
+
+  it("rejects an out-of-range value without calling the API", async () => {
+    const { user } = await renderGeneral();
+    const card = section(title());
+    const input = card.getByRole("spinbutton");
+    await user.clear(input);
+    await user.type(input, "3651");
+    await user.click(card.getByRole("button", { name: endsWith(tc("actions.save")) }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      t("settings.dataManagement.invalid", { max: 3650 }),
+    );
+    expect(mockApi.callsOf("patch")).toHaveLength(0);
+  });
+
+  it("surfaces a failed save and keeps the stored value", async () => {
+    const { user } = await renderGeneral();
+    mockApi.fail("patch", "/settings/audit-log-retention-days", 403, "Forbidden");
+    const card = section(title());
+    const input = card.getByRole("spinbutton");
+    await user.clear(input);
+    await user.type(input, "30");
+    await user.click(card.getByRole("button", { name: endsWith(tc("actions.save")) }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(h.invalidateAuditLogRetentionDays).not.toHaveBeenCalled();
+    expect(card.getByText(t("settings.dataManagement.daysChip", { count: 365 }))).toBeInTheDocument();
+  });
+
+  it("falls back to the default when an older backend omits the field", async () => {
+    scriptLoad({ bootstrap: { audit_log_retention_days: undefined } });
+    await renderGeneral();
+    const card = section(title());
+    expect(card.getByRole("spinbutton")).toHaveValue(365);
   });
 });
 

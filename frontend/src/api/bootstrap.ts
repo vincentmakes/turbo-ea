@@ -29,6 +29,7 @@ import { invalidateGrcEnabled } from "@/hooks/useGrcEnabled";
 import { invalidateSponsorButtonEnabled } from "@/hooks/useSponsorButtonEnabled";
 import { invalidatePpmEnabled } from "@/hooks/usePpmEnabled";
 import { invalidateArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
+import { invalidateAuditLogRetentionDays } from "@/hooks/useAuditLogRetentionDays";
 import { invalidateFiscalYearStart } from "@/hooks/useFiscalYearStart";
 import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
 import { invalidateEnabledLocalesGlobal } from "@/hooks/useEnabledLocales";
@@ -52,6 +53,8 @@ type BootstrapResponse = {
   enabled_locales: string[];
   fiscal_year_start: number;
   archive_retention_days: number;
+  audit_log_retention_days: number;
+  mutation_batch_retention_days: number;
   bpm_row_order: string[];
   show_principles_tab: boolean;
   compliance_regulations: ComplianceRegulation[];
@@ -98,6 +101,18 @@ export function primeBootstrap(): Promise<void> {
 
       if (typeof r.archive_retention_days === "number") {
         invalidateArchiveRetentionDays(r.archive_retention_days);
+      }
+
+      // The hook ignores whichever of the two is missing or non-numeric, so an
+      // older backend without these fields leaves the defaults in place.
+      if (
+        typeof r.audit_log_retention_days === "number" ||
+        typeof r.mutation_batch_retention_days === "number"
+      ) {
+        invalidateAuditLogRetentionDays({
+          auditLogRetentionDays: r.audit_log_retention_days,
+          mutationBatchRetentionDays: r.mutation_batch_retention_days,
+        });
       }
 
       if (typeof r.fiscal_year_start === "number") {

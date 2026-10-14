@@ -17115,6 +17115,22 @@
           },
           {
             "in": "query",
+            "name": "actor_email",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor Email"
+            }
+          },
+          {
+            "in": "query",
             "name": "q",
             "required": false,
             "schema": {
@@ -17325,6 +17341,22 @@
                 }
               ],
               "title": "Actor User Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "actor_email",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor Email"
             }
           },
           {
@@ -19309,7 +19341,7 @@
     },
     "/api/v1/auth/logout": {
       "post": {
-        "description": "Clear the auth cookie.",
+        "description": "Clear the auth cookie, recording ``auth.logout`` when a session resolved.\n\nA sign-out without a valid session (no cookie, an expired token) records\nnothing: there is nobody to attribute it to. The cookie is cleared either way.",
         "operationId": "logout_api_v1_auth_logout_post",
         "responses": {
           "200": {
@@ -19517,7 +19549,7 @@
     },
     "/api/v1/auth/sso/callback": {
       "post": {
-        "description": "Exchange an authorization code from an SSO provider for a Turbo EA JWT.",
+        "description": "Exchange an authorization code from an SSO provider for a Turbo EA JWT.\n\nEvery refusal is recorded as ``auth.sso.failed`` with the provider and a\nreason code; a sign-in as ``auth.sso.succeeded``.",
         "operationId": "sso_callback_api_v1_auth_sso_callback_post",
         "requestBody": {
           "content": {

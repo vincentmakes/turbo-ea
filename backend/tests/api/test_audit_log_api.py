@@ -140,10 +140,31 @@ class TestList:
     async def test_filter_category(self, client, admin_user, seeded):
         assert _actions(await _list(client, admin_user, category="admin")) == ["admin.role.updated"]
 
-    async def test_filter_action_is_a_prefix(self, client, admin_user, seeded):
-        body = await _list(client, admin_user, action="auth.login")
+    async def test_filter_action_is_exact_unless_it_ends_with_a_dot(
+        self, client, admin_user, seeded
+    ):
+        # The sidebar sends full keys, and a key must not match its longer
+        # siblings (auth.password.reset vs auth.password.reset_requested).
+        assert _actions(await _list(client, admin_user, action="auth.login.failed")) == [
+            "auth.login.failed"
+        ]
+        assert (await _list(client, admin_user, action="auth.login"))["total"] == 0
+        # A trailing dot asks for the whole family.
+        body = await _list(client, admin_user, action="auth.login.")
         assert _actions(body) == ["auth.login.succeeded", "auth.login.failed"]
         assert (await _list(client, admin_user, action="login"))["total"] == 0
+
+    async def test_filter_actor_email_is_a_case_insensitive_substring(
+        self, client, admin_user, seeded
+    ):
+        stem = admin_user.email.split("@")[0].upper()
+        body = await _list(client, admin_user, actor_email=stem)
+        assert _actions(body) == [
+            "access.export.cards",
+            "admin.role.updated",
+            "auth.login.succeeded",
+        ]
+        assert (await _list(client, admin_user, actor_email="nobody"))["total"] == 0
 
     async def test_filter_action_escapes_like_wildcards(self, client, admin_user, seeded):
         assert (await _list(client, admin_user, action="auth%"))["total"] == 0
@@ -284,33 +305,41 @@ def _sql(clause) -> str:
 def test_no_filters_means_no_clauses():
     assert audit_routes.build_filters() == []
     assert audit_routes.build_filters(q="   ") == []
+    assert audit_routes.build_filters(actor_email="   ") == []
+
+
+def test_action_without_a_trailing_dot_is_an_exact_match():
+    (clause,) = audit_routes.build_filters(action="auth.password.reset")
+    assert _sql(clause) == "audit_log.action = 'auth.password.reset'"
 
 
 def test_every_filter_contributes_one_clause():
     actor = uuid.uuid4()
     clauses = audit_routes.build_filters(
         category="auth",
-        action="auth.login",
+        action="auth.login.",
         outcome="failure",
         actor_user_id=actor,
+        actor_email="bob@x",
         q="bob",
         ip=" 10.0.0.1 ",
         since=BASE,
         until=BASE + timedelta(days=1),
     )
     rendered = [_sql(c) for c in clauses]
-    assert len(rendered) == 8
+    assert len(rendered) == 9
     assert rendered[0] == "audit_log.category = 'auth'"
-    assert rendered[1] == "audit_log.action LIKE 'auth.login' || '%%' ESCAPE '/'"
+    assert rendered[1] == "audit_log.action LIKE 'auth.login.' || '%%' ESCAPE '/'"
     assert rendered[2] == "audit_log.outcome = 'failure'"
     assert str(actor) in rendered[3]
-    assert rendered[4] == " OR ".join(
+    assert rendered[4] == "audit_log.actor_email ILIKE '%%' || 'bob@x' || '%%' ESCAPE '/'"
+    assert rendered[5] == " OR ".join(
         f"(audit_log.{col} ILIKE '%%' || 'bob' || '%%' ESCAPE '/')"
         for col in ("actor_email", "subject_email", "target_label")
     )
-    assert rendered[5] == "audit_log.ip = '10.0.0.1'"
-    assert ">=" in rendered[6] and "2026-10-01" in rendered[6]
-    assert "<=" in rendered[7] and "2026-10-02" in rendered[7]
+    assert rendered[6] == "audit_log.ip = '10.0.0.1'"
+    assert ">=" in rendered[7] and "2026-10-01" in rendered[7]
+    assert "<=" in rendered[8] and "2026-10-02" in rendered[8]
 
 
 def test_query_orders_newest_first_with_an_id_tie_break():

@@ -40,6 +40,10 @@ import {
   invalidateArchiveRetentionDays,
   DEFAULT_ARCHIVE_RETENTION_DAYS,
 } from "@/hooks/useArchiveRetentionDays";
+import {
+  DEFAULT_AUDIT_LOG_RETENTION_DAYS,
+  invalidateAuditLogRetentionDays,
+} from "@/hooks/useAuditLogRetentionDays";
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
 import { useNavbarStyle } from "@/hooks/useNavbarStyle";
 import NavbarStyleCard from "./NavbarStyleCard";
@@ -163,6 +167,8 @@ interface GeneralSettingsBootstrap {
   enabled_locales: string[];
   fiscal_year_start: number;
   archive_retention_days: number;
+  /** Absent on a backend older than the security & admin log. */
+  audit_log_retention_days?: number;
   login_tagline: string;
   login_tagline_hidden: boolean;
   login_help_text: string;
@@ -284,6 +290,15 @@ function GeneralTab() {
   );
   const [savingArchiveRetention, setSavingArchiveRetention] = useState(false);
 
+  // Security & admin log retention (days; 0 = keep indefinitely)
+  const [auditRetentionDays, setAuditRetentionDays] = useState<number>(
+    DEFAULT_AUDIT_LOG_RETENTION_DAYS,
+  );
+  const [auditRetentionInput, setAuditRetentionInput] = useState<string>(
+    String(DEFAULT_AUDIT_LOG_RETENTION_DAYS),
+  );
+  const [savingAuditRetention, setSavingAuditRetention] = useState(false);
+
   // Enabled locales state
   const { enabledLocales: cachedLocales, invalidateEnabledLocales } = useEnabledLocales();
   const [enabledLocales, setEnabledLocales] = useState<SupportedLocale[]>([...SUPPORTED_LOCALES]);
@@ -364,6 +379,10 @@ function GeneralTab() {
         setFiscalYearStart(general.fiscal_year_start);
         setArchiveRetentionDays(general.archive_retention_days);
         setArchiveRetentionInput(String(general.archive_retention_days));
+        if (typeof general.audit_log_retention_days === "number") {
+          setAuditRetentionDays(general.audit_log_retention_days);
+          setAuditRetentionInput(String(general.audit_log_retention_days));
+        }
         setAppTitle(general.app_title || DEFAULT_APP_TITLE);
         const fmt = (DATE_FORMAT_OPTIONS as string[]).includes(general.date_format)
           ? (general.date_format as DateFormatKey)
@@ -697,6 +716,27 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingArchiveRetention(false);
+    }
+  };
+
+  const handleAuditRetentionSave = async () => {
+    const parsed = Number(auditRetentionInput);
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > MAX_ARCHIVE_RETENTION_DAYS) {
+      setError(t("settings.dataManagement.invalid", { max: MAX_ARCHIVE_RETENTION_DAYS }));
+      return;
+    }
+    setSavingAuditRetention(true);
+    setError("");
+    try {
+      await api.patch("/settings/audit-log-retention-days", { days: parsed });
+      setAuditRetentionDays(parsed);
+      setAuditRetentionInput(String(parsed));
+      invalidateAuditLogRetentionDays(parsed);
+      setSnack(t("settings.dataManagement.auditRetention.savedSuccess"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingAuditRetention(false);
     }
   };
 
@@ -1389,6 +1429,65 @@ function GeneralTab() {
             disabled={savingArchiveRetention || archiveRetentionInput === String(archiveRetentionDays)}
           >
             {savingArchiveRetention ? t("common:labels.loading") : t("common:actions.save")}
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* Security & admin log retention */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="admin_panel_settings" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.dataManagement.auditRetention.title")}
+          </Typography>
+          <Chip
+            label={
+              auditRetentionDays === 0
+                ? t("settings.dataManagement.indefiniteChip")
+                : t("settings.dataManagement.daysChip", { count: auditRetentionDays })
+            }
+            size="small"
+            color={auditRetentionDays === 0 ? "warning" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.dataManagement.auditRetention.description")}
+        </Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={auditRetentionInput.trim() === "0"}
+              onChange={(e) =>
+                setAuditRetentionInput(
+                  e.target.checked ? "0" : String(DEFAULT_AUDIT_LOG_RETENTION_DAYS),
+                )
+              }
+              disabled={savingAuditRetention}
+            />
+          }
+          label={t("settings.dataManagement.auditRetention.keepIndefinitely")}
+        />
+        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2, mt: 1 }}>
+          <TextField
+            type="number"
+            size="small"
+            label={t("settings.dataManagement.auditRetention.retentionDays")}
+            value={auditRetentionInput}
+            onChange={(e) => setAuditRetentionInput(e.target.value)}
+            disabled={savingAuditRetention || auditRetentionInput.trim() === "0"}
+            inputProps={{ min: 0, max: 3650 }}
+            helperText={t("settings.dataManagement.auditRetention.retentionHelp")}
+            sx={{ minWidth: 220 }}
+          />
+          <Button
+            variant="contained"
+            startIcon={<MaterialSymbol icon="save" size={18} />}
+            sx={{ textTransform: "none", mt: 0.25 }}
+            onClick={handleAuditRetentionSave}
+            disabled={savingAuditRetention || auditRetentionInput === String(auditRetentionDays)}
+          >
+            {savingAuditRetention ? t("common:labels.loading") : t("common:actions.save")}
           </Button>
         </Box>
       </Paper>

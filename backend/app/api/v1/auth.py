@@ -3,13 +3,14 @@ from __future__ import annotations
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Any, NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_optional_user
 from app.config import settings
 from app.core.rate_limit import limiter
 from app.core.security import create_access_token, hash_password, verify_password
@@ -23,7 +24,7 @@ from app.schemas.auth import (
     TokenResponse,
     UserResponse,
 )
-from app.services import email_service, proxy_auth_service, sso_service
+from app.services import audit_log, email_service, proxy_auth_service, sso_service
 
 # SSO / OIDC machinery lives in ``app.services.sso_service`` so more than one
 # route module can reuse it (user login here, SSO-gated portals in
@@ -80,6 +81,79 @@ def _clear_auth_cookie(response: Response, *, secure: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Security audit log (``services/audit_log.py``)
+# ---------------------------------------------------------------------------
+
+_LOGIN_FAILED = "auth.login.failed"
+_SSO_FAILED = "auth.sso.failed"
+_PROXY_FAILED = "auth.proxy_session.failed"
+
+# What a refusal from ``_provision_federated_user`` means, by its status code.
+_PROVISION_REASONS = {409: "local_account", 403: "no_account"}
+
+
+async def _fail(
+    db: AsyncSession,
+    status_code: int,
+    detail: Any,
+    *,
+    action: str,
+    subject_email: str | None = None,
+    actor: User | None = None,
+    details: dict[str, Any] | None = None,
+) -> NoReturn:
+    """Record a refused authentication attempt, commit it, then raise.
+
+    ``get_db`` never commits, so an audit row flushed on a path that then raises
+    is rolled back with the request — and a failed sign-in that leaves no trace
+    is exactly what the audit log exists to prevent. Every recorded failure of
+    the auth routes goes through here, so the commit cannot be forgotten on one
+    branch, and the response is the very ``HTTPException(status_code, detail)``
+    the route raised before the log existed. The commit also persists what the
+    route had pending, which is intended: on a wrong password that is the
+    failed-attempt counter and the lockout.
+
+    This is the one deliberate exception to "a helper never commits a session it
+    was handed": it is not a reusable helper but the tail of a request that is
+    about to end in an error. ``tests/services/test_auth_audit_guard.py`` pins
+    both its shape and that no recording route raises around it.
+    """
+    await audit_log.record(
+        db,
+        action=action,
+        category="auth",
+        outcome="failure",
+        actor=actor,
+        subject_email=subject_email,
+        details=details,
+    )
+    await db.commit()
+    raise HTTPException(status_code, detail)
+
+
+def _session_block(user: User) -> tuple[str, str] | None:
+    """Why ``user`` may not be handed a session: ``(reason, detail)``, or None.
+
+    The reason is the audit log's code; the detail is the 403 body. Shared by
+    ``_issue_session`` and the routes that record the refusal before calling it.
+    """
+    if not user.is_active:
+        return "inactive", "Account disabled"
+    if user.access_expires_at is not None and user.access_expires_at < datetime.now(timezone.utc):
+        return "expired", "Account access has expired"
+    return None
+
+
+async def _federated_user_exists(db: AsyncSession, *, subject_id: str, email: str) -> bool:
+    """Whether ``_provision_federated_user`` would find an account rather than
+    create one — what the audit row's ``created`` flag reports."""
+    result = await db.execute(
+        select(User.id).where(or_(User.sso_subject_id == subject_id, User.email == email)).limit(1)
+    )
+    return result.first() is not None
+
+
+# ---------------------------------------------------------------------------
 # Standard auth endpoints
 # ---------------------------------------------------------------------------
 
@@ -112,10 +186,9 @@ def _issue_session(request: Request, response: Response, user: User) -> TokenRes
     token without checking it produces a token that 401s on the very next call —
     and with an auto-signin frontend that becomes a tight mint/401/retry loop.
     """
-    if not user.is_active:
-        raise HTTPException(403, "Account disabled")
-    if user.access_expires_at is not None and user.access_expires_at < datetime.now(timezone.utc):
-        raise HTTPException(403, "Account access has expired")
+    blocked = _session_block(user)
+    if blocked is not None:
+        raise HTTPException(403, blocked[1])
     token = create_access_token(user.id, user.role)
     _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
@@ -334,6 +407,15 @@ async def register(
         auth_provider="local",
     )
     db.add(user)
+    # Flushed first so the audit row can snapshot the new user's id.
+    await db.flush()
+    await audit_log.record(
+        db,
+        action="auth.register",
+        category="auth",
+        actor=user,
+        details={"role": role, "first_user": is_first_user},
+    )
     await db.commit()
     await db.refresh(user)
     token = create_access_token(user.id, user.role)
@@ -351,31 +433,103 @@ async def login(
 ):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
+    # Every refusal below is recorded as ``auth.login.failed`` with a reason code
+    # (docs/admin/audit-log.md lists them). The response bodies are unchanged, so
+    # the reason is visible to an administrator and never to the caller.
     if not user:
-        raise HTTPException(401, "Invalid credentials")
+        await _fail(
+            db,
+            401,
+            "Invalid credentials",
+            action=_LOGIN_FAILED,
+            subject_email=body.email,
+            details={"reason": "unknown_user"},
+        )
     # Block password login for SSO-only users
     if user.auth_provider == "sso":
-        raise HTTPException(403, "This account uses SSO authentication. Please sign in via SSO.")
+        await _fail(
+            db,
+            403,
+            "This account uses SSO authentication. Please sign in via SSO.",
+            action=_LOGIN_FAILED,
+            subject_email=body.email,
+            actor=user,
+            details={"reason": "sso_account"},
+        )
     if not user.password_hash:
         # Local account with no password — shouldn't happen for new accounts (password
         # is mandatory at creation when SSO is disabled) but legacy data can have it.
         # Don't leak any detail beyond the standard 401 response.
-        raise HTTPException(401, "Invalid credentials")
+        await _fail(
+            db,
+            401,
+            "Invalid credentials",
+            action=_LOGIN_FAILED,
+            subject_email=body.email,
+            actor=user,
+            details={"reason": "no_password"},
+        )
 
     # ── M5: Account lockout check ──
     if user.locked_until and user.locked_until > datetime.now(timezone.utc):
-        raise HTTPException(423, "Account temporarily locked. Try again later.")
+        await _fail(
+            db,
+            423,
+            "Account temporarily locked. Try again later.",
+            action=_LOGIN_FAILED,
+            subject_email=body.email,
+            actor=user,
+            details={"reason": "locked", "locked_until": user.locked_until.isoformat()},
+        )
 
     if not verify_password(body.password, user.password_hash):
-        user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
-        if user.failed_login_attempts >= 5:
+        attempts = (user.failed_login_attempts or 0) + 1
+        user.failed_login_attempts = attempts
+        failure = {"reason": "bad_password", "attempts": attempts}
+        if attempts >= 5:
             user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
             logger.warning("Account locked due to repeated failed logins: %s", user.email)
-        await db.commit()
-        raise HTTPException(401, "Invalid credentials")
+            # The attempt that trips the lock is still a failed attempt: record it,
+            # then let the lockout row be the one ``_fail`` commits, so the log
+            # reads failure first, lockout second.
+            await audit_log.record(
+                db,
+                action=_LOGIN_FAILED,
+                category="auth",
+                outcome="failure",
+                actor=user,
+                subject_email=body.email,
+                details=failure,
+            )
+            await _fail(
+                db,
+                401,
+                "Invalid credentials",
+                action="auth.login.locked",
+                subject_email=body.email,
+                actor=user,
+                details={"locked_until": user.locked_until.isoformat(), "attempts": attempts},
+            )
+        await _fail(
+            db,
+            401,
+            "Invalid credentials",
+            action=_LOGIN_FAILED,
+            subject_email=body.email,
+            actor=user,
+            details=failure,
+        )
 
     if not user.is_active:
-        raise HTTPException(403, "Account disabled")
+        await _fail(
+            db,
+            403,
+            "Account disabled",
+            action=_LOGIN_FAILED,
+            subject_email=body.email,
+            actor=user,
+            details={"reason": "inactive"},
+        )
 
     # Reset failed attempts on successful login
     user.failed_login_attempts = 0
@@ -387,6 +541,13 @@ async def login(
     # Idempotent for subsequent logins — deletes nothing.
     if first_login:
         await db.execute(delete(SsoInvitation).where(SsoInvitation.email == user.email))
+    await audit_log.record(
+        db,
+        action="auth.login.succeeded",
+        category="auth",
+        actor=user,
+        details={"first_login": first_login},
+    )
     await db.commit()
 
     token = create_access_token(user.id, user.role)
@@ -482,6 +643,15 @@ async def impersonate_role(
     if role.is_archived:
         raise HTTPException(400, "Role is archived")
 
+    await audit_log.record(
+        db,
+        action="auth.impersonation.started",
+        category="auth",
+        actor=user,
+        target=("role", role.key, role.label),
+    )
+    await db.commit()
+
     token = create_access_token(user.id, user.role, impersonated_role=target)
     _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
@@ -491,6 +661,7 @@ async def impersonate_role(
 async def stop_impersonating(
     request: Request,
     response: Response,
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """End a role-impersonation session.
@@ -509,6 +680,22 @@ async def stop_impersonating(
     payload = decode_access_token(raw_token) if raw_token else None
     if not payload or not payload.get("impersonated_role"):
         raise HTTPException(400, "No active impersonation session")
+
+    from app.models.role import Role
+
+    role_key = payload["impersonated_role"]
+    role = (await db.execute(select(Role).where(Role.key == role_key))).scalar_one_or_none()
+    # The middleware has already stamped this request as impersonated, so the
+    # row also carries the impersonator and the role being left.
+    await audit_log.record(
+        db,
+        action="auth.impersonation.stopped",
+        category="auth",
+        actor=user,
+        target=("role", role_key, role.label if role is not None else role_key),
+    )
+    await db.commit()
+
     token = create_access_token(user.id, user.role)
     _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
@@ -655,10 +842,23 @@ async def sso_callback(
     body: SsoCallbackRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Exchange an authorization code from an SSO provider for a Turbo EA JWT."""
-    claims, sso, provider = await sso_service.exchange_code_for_claims(
-        db, body.code, body.redirect_uri
-    )
+    """Exchange an authorization code from an SSO provider for a Turbo EA JWT.
+
+    Every refusal is recorded as ``auth.sso.failed`` with the provider and a
+    reason code; a sign-in as ``auth.sso.succeeded``.
+    """
+    try:
+        claims, sso, provider = await sso_service.exchange_code_for_claims(
+            db, body.code, body.redirect_uri
+        )
+    except HTTPException as exc:
+        await _fail(
+            db,
+            exc.status_code,
+            exc.detail,
+            action=_SSO_FAILED,
+            details={"provider": None, "reason": "exchange_failed"},
+        )
 
     # Microsoft carries the stable object id in "oid"; every other provider
     # uses "sub" (mirrors provider_cfg["subject_claim"]).
@@ -668,31 +868,86 @@ async def sso_callback(
     sso_subject_id = claims.get(subject_claim) or claims.get("sub")
     email = claims.get("email") or claims.get("preferred_username", "")
     display_name = claims.get("name", "")
+    # The address the identity provider asserted, as the audit log records it
+    # (normalised the way provisioning normalises it below).
+    claimed_email = email.lower().strip() if email else None
 
     # Google: validate hosted domain if configured
     if provider == "google" and sso.get("domain"):
         token_hd = claims.get("hd", "")
         if token_hd != sso["domain"]:
-            raise HTTPException(
+            await _fail(
+                db,
                 403,
                 f"Sign-in restricted to {sso['domain']} accounts.",
+                action=_SSO_FAILED,
+                subject_email=claimed_email,
+                details={"provider": provider, "reason": "hd_mismatch"},
             )
 
     if not email:
-        raise HTTPException(401, "No email claim in SSO token. Ensure email scope is granted.")
+        await _fail(
+            db,
+            401,
+            "No email claim in SSO token. Ensure email scope is granted.",
+            action=_SSO_FAILED,
+            details={"provider": provider, "reason": "no_email"},
+        )
     if not sso_subject_id:
-        raise HTTPException(401, "No subject identifier found in SSO token.")
+        await _fail(
+            db,
+            401,
+            "No subject identifier found in SSO token.",
+            action=_SSO_FAILED,
+            subject_email=claimed_email,
+            details={"provider": provider, "reason": "no_subject"},
+        )
 
     email = email.lower().strip()
 
-    user = await _provision_federated_user(
+    existed = await _federated_user_exists(db, subject_id=sso_subject_id, email=email)
+    try:
+        user = await _provision_federated_user(
+            db,
+            email=email,
+            subject_id=sso_subject_id,
+            display_name=display_name,
+            allow_create=True,
+            honour_invitation=True,
+        )
+    except HTTPException as exc:
+        await _fail(
+            db,
+            exc.status_code,
+            exc.detail,
+            action=_SSO_FAILED,
+            subject_email=email,
+            details={
+                "provider": provider,
+                "reason": _PROVISION_REASONS.get(exc.status_code, "no_account"),
+            },
+        )
+
+    blocked = _session_block(user)
+    if blocked is not None:
+        await _fail(
+            db,
+            403,
+            blocked[1],
+            action=_SSO_FAILED,
+            subject_email=email,
+            actor=user,
+            details={"provider": provider, "reason": blocked[0]},
+        )
+
+    await audit_log.record(
         db,
-        email=email,
-        subject_id=sso_subject_id,
-        display_name=display_name,
-        allow_create=True,
-        honour_invitation=True,
+        action="auth.sso.succeeded",
+        category="auth",
+        actor=user,
+        details={"provider": provider, "subject": sso_subject_id, "created": not existed},
     )
+    await db.commit()
     return _issue_session(request, response, user)
 
 
@@ -734,22 +989,68 @@ async def proxy_session(
     if not proxy_auth_service.is_enabled():
         raise HTTPException(status_code=404, detail="Not Found")
 
+    # Refusals are recorded as ``auth.proxy_session.failed``. A 5xx from either
+    # check is an operator misconfiguration, not a sign-in attempt, and is not.
+    #
     # Before any claim parsing, so a forged principal header never reaches the
     # decoder.
-    proxy_auth_service.check_shared_secret(request)
+    try:
+        proxy_auth_service.check_shared_secret(request)
+    except HTTPException as exc:
+        if exc.status_code >= 500:
+            raise
+        await _fail(
+            db,
+            exc.status_code,
+            exc.detail,
+            action=_PROXY_FAILED,
+            details={"reason": "unauthenticated"},
+        )
 
-    identity = proxy_auth_service.resolve_identity(request)
+    try:
+        identity = proxy_auth_service.resolve_identity(request)
+    except HTTPException as exc:
+        if exc.status_code >= 500:
+            raise
+        await _fail(
+            db,
+            exc.status_code,
+            exc.detail,
+            action=_PROXY_FAILED,
+            details={
+                "reason": "unauthenticated" if exc.status_code == 401 else "identity_rejected"
+            },
+        )
 
     # An unverified header may sign in an existing user but must never create one.
     # A verified identity came from a signature-checked id token, so it may.
-    user = await _provision_federated_user(
-        db,
-        email=identity.email,
-        subject_id=identity.subject_id,
-        display_name=identity.display_name,
-        allow_create=identity.verified or _is_bootstrap_admin(identity.email),
-        honour_invitation=False,
-    )
+    existed = await _federated_user_exists(db, subject_id=identity.subject_id, email=identity.email)
+    try:
+        user = await _provision_federated_user(
+            db,
+            email=identity.email,
+            subject_id=identity.subject_id,
+            display_name=identity.display_name,
+            allow_create=identity.verified or _is_bootstrap_admin(identity.email),
+            honour_invitation=False,
+        )
+    except HTTPException as exc:
+        await _fail(
+            db,
+            exc.status_code,
+            exc.detail,
+            action=_PROXY_FAILED,
+            subject_email=identity.email,
+            details={"reason": _PROVISION_REASONS.get(exc.status_code, "no_account")},
+        )
+
+    # What the ``auth.proxy_session.succeeded`` row reports (plus ``role`` when the
+    # sign-in below changes it).
+    success: dict[str, Any] = {
+        "subject": identity.subject_id,
+        "verified": identity.verified,
+        "created": not existed,
+    }
 
     # Role assignment, re-asserted on every sign-in. Two things live here: the
     # first-admin bootstrap (a proxy-auth-only install has no other route to an
@@ -762,6 +1063,7 @@ async def proxy_session(
     # _issue_session then mints the JWT from the corrected role.
     desired_role = await _resolve_proxy_role(db, identity)
     if desired_role and user.role != desired_role:
+        success["role"] = {"old": user.role, "new": desired_role}
         # Logged because a demotion is otherwise invisible: the map is authoritative,
         # so a role granted by hand in the Users admin is reverted here, and this
         # line is what answers "why did I lose admin?".
@@ -775,6 +1077,22 @@ async def proxy_session(
         await db.commit()
         await db.refresh(user)
 
+    blocked = _session_block(user)
+    if blocked is not None:
+        await _fail(
+            db,
+            403,
+            blocked[1],
+            action=_PROXY_FAILED,
+            subject_email=identity.email,
+            actor=user,
+            details={"reason": blocked[0]},
+        )
+
+    await audit_log.record(
+        db, action="auth.proxy_session.succeeded", category="auth", actor=user, details=success
+    )
+    await db.commit()
     return _issue_session(request, response, user)
 
 
@@ -821,7 +1139,13 @@ async def set_password(
     result = await db.execute(select(User).where(User.password_setup_token == body.token))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(404, "Invalid or expired setup token")
+        await _fail(
+            db,
+            404,
+            "Invalid or expired setup token",
+            action="auth.password.set",
+            details={"reason": "invalid_token"},
+        )
 
     user.password_hash = hash_password(body.password)
     user.password_setup_token = None
@@ -833,6 +1157,7 @@ async def set_password(
     # row for tidiness (#539).
     user.last_login = datetime.now(timezone.utc)
     await db.execute(delete(SsoInvitation).where(SsoInvitation.email == user.email))
+    await audit_log.record(db, action="auth.password.set", category="auth", actor=user)
     await db.commit()
 
     token = create_access_token(user.id, user.role)
@@ -841,8 +1166,20 @@ async def set_password(
 
 
 @router.post("/logout")
-async def logout(request: Request, response: Response):
-    """Clear the auth cookie."""
+async def logout(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
+):
+    """Clear the auth cookie, recording ``auth.logout`` when a session resolved.
+
+    A sign-out without a valid session (no cookie, an expired token) records
+    nothing: there is nobody to attribute it to. The cookie is cleared either way.
+    """
+    if user is not None:
+        await audit_log.record(db, action="auth.logout", category="auth", actor=user)
+        await db.commit()
     _clear_auth_cookie(response, secure=_is_secure_request(request))
     return {"ok": True}
 
@@ -1002,6 +1339,16 @@ async def forgot_password(
     SSO-only accounts (no password, marked `auth_provider="sso"`) get nothing.
     """
     raw_email = (body.email or "").strip().lower()
+    # Recorded before the account is looked up, identically for every address
+    # and always as a success: the row says what was typed, never whether an
+    # account answered to it (the same anti-enumeration rule as the response).
+    await audit_log.record(
+        db,
+        action="auth.password.reset_requested",
+        category="auth",
+        subject_email=raw_email or None,
+    )
+    await db.commit()
     if not raw_email:
         # Treat missing email same as unknown — anti-enumeration.
         return {"ok": True}
@@ -1084,14 +1431,34 @@ async def reset_password(
         )
 
     if not body.token:
-        raise HTTPException(404, "Invalid or expired reset token")
+        await _fail(
+            db,
+            404,
+            "Invalid or expired reset token",
+            action="auth.password.reset",
+            details={"reason": "invalid_token"},
+        )
 
     result = await db.execute(select(User).where(User.password_reset_token == body.token))
     user = result.scalar_one_or_none()
     if not user or not user.password_reset_expires_at:
-        raise HTTPException(404, "Invalid or expired reset token")
+        await _fail(
+            db,
+            404,
+            "Invalid or expired reset token",
+            action="auth.password.reset",
+            details={"reason": "invalid_token"},
+        )
     if user.password_reset_expires_at < datetime.now(timezone.utc):
-        raise HTTPException(404, "Invalid or expired reset token")
+        # An expired link still names its account, so the row can say whose.
+        await _fail(
+            db,
+            404,
+            "Invalid or expired reset token",
+            action="auth.password.reset",
+            subject_email=user.email,
+            details={"reason": "invalid_token"},
+        )
 
     user.password_hash = hash_password(body.password)
     user.password_reset_token = None
@@ -1100,6 +1467,7 @@ async def reset_password(
     # control of their inbox.
     user.failed_login_attempts = 0
     user.locked_until = None
+    await audit_log.record(db, action="auth.password.reset", category="auth", actor=user)
     await db.commit()
 
     return {"ok": True}
