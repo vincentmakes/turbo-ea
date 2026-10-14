@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     adr,
     ai_suggest,
+    audit_log,
     auth,
     bookmarks,
     bpm,
@@ -72,6 +73,7 @@ api_router.include_router(soaw.router)
 api_router.include_router(eol.router)
 api_router.include_router(events.router)
 api_router.include_router(mutation_batches.router)
+api_router.include_router(audit_log.router)
 api_router.include_router(users.router)
 api_router.include_router(notifications.router)
 api_router.include_router(surveys.router)

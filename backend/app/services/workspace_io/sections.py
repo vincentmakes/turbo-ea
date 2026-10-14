@@ -6,6 +6,12 @@ Listed in dependency order: a section's intra-module parents come first
 ``RiskCard``/``RiskMitigationTask`` before the occurrences; ``ArchitectureDecision``
 before its card links; ``Survey`` before ``SurveyResponse``). Cards and relations
 are applied earlier by the bespoke core sections, so card FKs always resolve.
+
+Deliberately absent: ``events``, ``mutation_batches`` and ``audit_log``. They are
+this instance's own history — who changed what, who signed in, which admin
+touched which setting — not workspace content. Copying the security audit log
+(``audit_log``, migration 154) onto another instance would forge that instance's
+sign-in and admin record, so it is never exported and never imported.
 """
 
 from __future__ import annotations

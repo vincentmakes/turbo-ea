@@ -94,6 +94,18 @@ class Settings:
     # the ``MUTATION_BATCH_RETENTION_DAYS`` env var.
     MUTATION_BATCH_RETENTION_DAYS: int = int(os.getenv("MUTATION_BATCH_RETENTION_DAYS", "15"))
 
+    # Whether the backend may trust the ``X-Real-IP`` header for the client
+    # address it records in the security audit log (``core/request_context``).
+    # Only safe when every request reaches the backend through the bundled edge
+    # nginx, which overwrites ``X-Real-IP`` with ``$remote_addr`` on every
+    # proxied location — otherwise a client could forge its own address. The
+    # backend image sets it to true; a bare ``uvicorn`` in development does not.
+    TRUST_PROXY_HEADERS: bool = os.getenv("TRUST_PROXY_HEADERS", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
     RESET_DB: bool = os.getenv("RESET_DB", "").lower() in ("1", "true", "yes")
     SEED_DEMO: bool = os.getenv("SEED_DEMO", "").lower() in ("1", "true", "yes")
     SEED_BPM: bool = os.getenv("SEED_BPM", "").lower() in ("1", "true", "yes")

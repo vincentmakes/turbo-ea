@@ -618,3 +618,93 @@ class TestArchiveRetentionDays:
             headers=auth_headers(member),
         )
         assert resp.status_code == 403
+
+
+class TestAuditLogRetentionDays:
+    async def test_get_default_is_365(self, client, db, ext_settings_env):
+        resp = await client.get(
+            "/api/v1/settings/audit-log-retention-days",
+            headers=auth_headers(ext_settings_env["viewer"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"days": 365}
+
+    async def test_get_requires_a_session(self, client, db, ext_settings_env):
+        resp = await client.get("/api/v1/settings/audit-log-retention-days")
+        assert resp.status_code == 401
+
+    async def test_bootstrap_includes_both_retentions(
+        self, client, db, ext_settings_env, monkeypatch
+    ):
+        from app.config import settings as app_config
+
+        monkeypatch.setattr(app_config, "MUTATION_BATCH_RETENTION_DAYS", 7)
+        resp = await client.get("/api/v1/settings/bootstrap")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["audit_log_retention_days"] == 365
+        assert body["mutation_batch_retention_days"] == 7
+
+    async def test_bootstrap_mutation_batch_retention_is_at_least_a_day(
+        self, client, db, ext_settings_env, monkeypatch
+    ):
+        from app.config import settings as app_config
+
+        monkeypatch.setattr(app_config, "MUTATION_BATCH_RETENTION_DAYS", 0)
+        resp = await client.get("/api/v1/settings/bootstrap")
+        assert resp.json()["mutation_batch_retention_days"] == 1
+
+    async def test_admin_can_set_retention(self, client, db, ext_settings_env):
+        admin = ext_settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/audit-log-retention-days",
+            json={"days": 90},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"days": 90}
+
+        get_resp = await client.get(
+            "/api/v1/settings/audit-log-retention-days", headers=auth_headers(admin)
+        )
+        assert get_resp.json()["days"] == 90
+        boot = await client.get("/api/v1/settings/bootstrap")
+        assert boot.json()["audit_log_retention_days"] == 90
+
+    async def test_zero_means_forever(self, client, db, ext_settings_env):
+        admin = ext_settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/audit-log-retention-days",
+            json={"days": 0},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["days"] == 0
+        boot = await client.get("/api/v1/settings/bootstrap")
+        assert boot.json()["audit_log_retention_days"] == 0
+
+    async def test_the_maximum_is_accepted(self, client, db, ext_settings_env):
+        resp = await client.patch(
+            "/api/v1/settings/audit-log-retention-days",
+            json={"days": 3650},
+            headers=auth_headers(ext_settings_env["admin"]),
+        )
+        assert resp.status_code == 200
+
+    @pytest.mark.parametrize("days", [-1, 3651])
+    async def test_out_of_range_rejected(self, client, db, ext_settings_env, days):
+        resp = await client.patch(
+            "/api/v1/settings/audit-log-retention-days",
+            json={"days": days},
+            headers=auth_headers(ext_settings_env["admin"]),
+        )
+        assert resp.status_code == 422
+        assert "between 0 and 3650" in resp.json()["detail"]
+
+    async def test_member_cannot_set_retention(self, client, db, ext_settings_env):
+        resp = await client.patch(
+            "/api/v1/settings/audit-log-retention-days",
+            json={"days": 90},
+            headers=auth_headers(ext_settings_env["member"]),
+        )
+        assert resp.status_code == 403

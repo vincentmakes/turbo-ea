@@ -1,6 +1,7 @@
 from app.models.app_settings import AppSettings
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.audit_log import AuditLogEntry
 from app.models.base import Base
 from app.models.bookmark import Bookmark
 from app.models.calculation import Calculation
@@ -161,4 +162,5 @@ __all__ = [
     "UserFavorite",
     "ResourceType",
     "OpsRequestNonce",
+    "AuditLogEntry",
 ]

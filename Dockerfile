@@ -69,6 +69,11 @@ RUN { python -m pip uninstall -y pip 2>/dev/null || true; } && \
 # non-root backend (cap_drop: ALL) then cannot write any upload.
 RUN mkdir -p /app/data && chown -R ${APP_UID}:${APP_GID} /app
 
+# The backend is only ever reached through the edge nginx, which overwrites
+# X-Real-IP with $remote_addr on every proxied location, so the security audit
+# log may record that header as the client address (core/request_context.py).
+ENV TRUST_PROXY_HEADERS=true
+
 USER ${APP_UID}:${APP_GID}
 
 EXPOSE 8000

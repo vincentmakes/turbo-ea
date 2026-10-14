@@ -15,6 +15,8 @@ import pytest
 from sqlalchemy import select
 
 from app import main
+from app.models.app_settings import AppSettings
+from app.models.audit_log import AuditLogEntry
 from app.models.kpi_snapshot import KpiSnapshot
 from app.models.mutation_batch import MutationBatch
 from app.models.ops_nonce import OpsRequestNonce
@@ -55,6 +57,56 @@ class TestPurgeMutationBatchesOnce:
         assert await main._purge_mutation_batches_once(db, now=NOW) == 1
         left = (await db.execute(select(MutationBatch.tool_name))).scalars().all()
         assert left == ["half a day"]
+
+
+def _audit_row(action, created_at):
+    return AuditLogEntry(category="auth", action=action, outcome="success", created_at=created_at)
+
+
+async def _set_audit_retention(db, days):
+    row = await db.get(AppSettings, "default")
+    if row is None:
+        row = AppSettings(id="default", general_settings={})
+        db.add(row)
+    row.general_settings = {**(row.general_settings or {}), "auditLogRetentionDays": days}
+    await db.flush()
+
+
+class TestPurgeAuditLogOnce:
+    async def test_deletes_past_window(self, db):
+        await _set_audit_retention(db, 30)
+        db.add_all(
+            [
+                _audit_row("old", NOW - timedelta(days=31)),
+                _audit_row("edge", NOW - timedelta(days=30)),
+                _audit_row("fresh", NOW - timedelta(days=29)),
+            ]
+        )
+        await db.flush()
+        assert await main._purge_audit_log_once(db, now=NOW) == 2
+        left = (await db.execute(select(AuditLogEntry.action))).scalars().all()
+        assert left == ["fresh"]
+        assert await main._purge_audit_log_once(db, now=NOW) == 0
+
+    async def test_zero_keeps_forever(self, db):
+        await _set_audit_retention(db, 0)
+        db.add(_audit_row("ancient", NOW - timedelta(days=5000)))
+        await db.flush()
+        assert await main._purge_audit_log_once(db, now=NOW) == 0
+        left = (await db.execute(select(AuditLogEntry.action))).scalars().all()
+        assert left == ["ancient"]
+
+    async def test_defaults_to_a_year_without_a_settings_row(self, db):
+        db.add_all(
+            [
+                _audit_row("last year", NOW - timedelta(days=366)),
+                _audit_row("this year", NOW - timedelta(days=364)),
+            ]
+        )
+        await db.flush()
+        assert await main._purge_audit_log_once(db, now=NOW) == 1
+        left = (await db.execute(select(AuditLogEntry.action))).scalars().all()
+        assert left == ["this year"]
 
 
 class TestOpsAccessMaintenanceOnce:
@@ -184,6 +236,14 @@ LOOPS = [
         [240, 86400],
     ),
     (
+        main._purge_audit_log_loop,
+        "app.main._purge_audit_log_once",
+        lambda: AsyncMock(return_value=0),
+        [None, None],  # seconds until 04:00 UTC, twice
+        "Error in audit log purge loop",
+        [None, 3600],
+    ),
+    (
         main._promote_recurring_tasks_loop,
         "app.services.risk_mitigation_task_service.promote_scheduled_occurrences",
         lambda: AsyncMock(return_value=2),
@@ -248,6 +308,20 @@ async def test_the_daily_loops_wake_at_their_hour(db, patched_async_session, mon
         await main._kpi_snapshot_loop()
     now = datetime.now(timezone.utc)
     target = now.replace(hour=main._KPI_SNAPSHOT_HOUR_UTC, minute=0, second=0, microsecond=0)
+    if target <= now:
+        target += timedelta(days=1)
+    assert abs(fake_asyncio.sleeps[0] - (target - now).total_seconds()) < 5
+
+
+async def test_the_audit_purge_wakes_at_four(db, patched_async_session, monkeypatch):
+    assert main._AUDIT_PURGE_HOUR_UTC == 4
+    fake_asyncio = one_shot_asyncio()
+    monkeypatch.setattr(main, "asyncio", fake_asyncio)
+    monkeypatch.setattr("app.main._purge_audit_log_once", AsyncMock(return_value=0))
+    with pytest.raises(asyncio.CancelledError):
+        await main._purge_audit_log_loop()
+    now = datetime.now(timezone.utc)
+    target = now.replace(hour=4, minute=0, second=0, microsecond=0)
     if target <= now:
         target += timedelta(days=1)
     assert abs(fake_asyncio.sleeps[0] - (target - now).total_seconds()) < 5

@@ -18,6 +18,7 @@ from app.models.compliance_regulation import ComplianceRegulation
 from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
 from app.models.user import User
+from app.services import audit_log
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
 from app.services.app_identity import DEFAULT_APP_TITLE
 from app.services.bedrock import is_valid_region
@@ -95,6 +96,12 @@ DEFAULT_CURRENCY = "USD"
 # ``_PURGE_RETENTION_DAYS`` fallback in ``app.main``.
 DEFAULT_ARCHIVE_RETENTION_DAYS = 30
 MAX_ARCHIVE_RETENTION_DAYS = 3650  # ~10 years
+
+# Rows of the security & admin audit log (``audit_log``) are purged daily after
+# this many days by default; ``0`` keeps them forever. The values live in
+# ``services/audit_log.py`` beside the purge's own reader.
+DEFAULT_AUDIT_LOG_RETENTION_DAYS = audit_log.DEFAULT_RETENTION_DAYS
+MAX_AUDIT_LOG_RETENTION_DAYS = audit_log.MAX_RETENTION_DAYS
 
 DEFAULT_DATE_FORMAT = "DD MMM YYYY"
 ALLOWED_DATE_FORMATS = {
@@ -246,6 +253,10 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "archive_retention_days": general.get(
             "archiveRetentionDays", DEFAULT_ARCHIVE_RETENTION_DAYS
         ),
+        "audit_log_retention_days": audit_log.retention_days(general),
+        # Env-configured (``MUTATION_BATCH_RETENTION_DAYS``), not an admin
+        # setting — carried so the Audit log's Changes tab can name it.
+        "mutation_batch_retention_days": max(1, app_config.MUTATION_BATCH_RETENTION_DAYS),
         "bpm_row_order": general.get("bpmRowOrder", ["management", "core", "support"]),
         "show_principles_tab": general.get("showPrinciplesTab", True),
         "compliance_regulations": compliance_regulations,
@@ -1205,6 +1216,52 @@ async def update_archive_retention_days(
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
     general["archiveRetentionDays"] = body.days
+    row.general_settings = general
+    await db.commit()
+
+    return {"days": body.days}
+
+
+class AuditLogRetentionPayload(BaseModel):
+    days: int  # days to keep security & admin audit log rows; 0 = keep forever
+
+
+@router.get("/audit-log-retention-days")
+async def get_audit_log_retention_days(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Days a security & admin audit log row is kept before the daily purge.
+
+    ``0`` means rows are kept forever.
+    """
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"days": audit_log.retention_days(general)}
+
+
+@router.patch("/audit-log-retention-days")
+async def update_audit_log_retention_days(
+    body: AuditLogRetentionPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — set how long security & admin audit log rows are kept.
+
+    ``0`` disables the purge. The daily purge re-reads the value on every run,
+    so the change takes effect without a restart.
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+    if body.days < 0 or body.days > MAX_AUDIT_LOG_RETENTION_DAYS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Days must be between 0 and {MAX_AUDIT_LOG_RETENTION_DAYS}",
+        )
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general[audit_log.RETENTION_SETTING_KEY] = body.days
     row.general_settings = general
     await db.commit()
 
