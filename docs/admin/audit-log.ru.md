@@ -138,6 +138,7 @@ docker compose logs -f backend | grep turbo_ea.audit
 
 | Поле | Содержимое |
 |------|------------|
+| `audit_id`, `created_at` | Идентификатор записи и момент её записи |
 | `category`, `action`, `outcome` | Что произошло и удалось ли это |
 | `actor_user_id`, `actor_email` | Кто это сделал |
 | `subject_email` | Затронутая учётная запись |

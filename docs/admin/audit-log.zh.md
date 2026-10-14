@@ -138,6 +138,7 @@ docker compose logs -f backend | grep turbo_ea.audit
 
 | 字段 | 内容 |
 |------|------|
+| `audit_id`、`created_at` | 条目的标识符及其写入时间 |
 | `category`、`action`、`outcome` | 发生了什么，以及是否成功 |
 | `actor_user_id`、`actor_email` | 谁执行的 |
 | `subject_email` | 所涉及的账户 |

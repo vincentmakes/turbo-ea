@@ -138,6 +138,7 @@ Hver linje har de samme felter som posten:
 
 | Felt | Indhold |
 |------|---------|
+| `audit_id`, `created_at` | Postens id og tidspunktet, hvor den blev skrevet |
 | `category`, `action`, `outcome` | Hvad der skete, og om det lykkedes |
 | `actor_user_id`, `actor_email` | Hvem der gjorde det |
 | `subject_email` | Den berørte konto |
