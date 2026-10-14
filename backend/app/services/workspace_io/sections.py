@@ -43,6 +43,7 @@ from app.models.survey import Survey, SurveyResponse
 from app.models.todo import Todo
 from app.models.turbolens import TurboLensAnalysisRun, TurboLensComplianceFinding
 from app.models.web_portal import WebPortal
+from app.services.workspace_io import remap
 from app.services.workspace_io.entities import EntitySection
 
 # Sheet name for the bespoke Diagram↔Card association (handled like CardTags).
@@ -72,6 +73,9 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         Todo,
         card_fk_columns=("card_id",),
         user_fk_columns=("assigned_to", "created_by"),
+        # An in-app link: /cards/{id}, /ppm/{id}?tab=…
+        rewrite=remap.rewrite_todo_row,
+        id_bearing_columns=("link",),
     ),
     EntitySection(
         "FileAttachments",
@@ -108,6 +112,10 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
             "access_mode",
             "allowed_email_domains",
         ),
+        # Every card cell carries cardId="<uuid>" and every synced edge
+        # relationId="<uuid>" (#1246).
+        rewrite=remap.rewrite_diagram_row,
+        id_bearing_columns=("data",),
     ),
     # Diagram groups (shared) + per-user favorites. After Diagrams so the
     # favorites' diagram_id (an intra-module FK, preserved verbatim) resolves.
@@ -120,6 +128,9 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         card_fk_columns=("process_id",),
         user_fk_columns=("created_by",),
         asset_columns=(("bpmn_xml", "text", "bpmn"), ("svg_thumbnail", "text", "svg")),
+        # calledElement / turboea:processRef name a BusinessProcess card.
+        rewrite=remap.rewrite_process_diagram_row,
+        id_bearing_columns=("bpmn_xml",),
     ),
     EntitySection(
         "ProcessElements",
@@ -131,6 +142,9 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
             "it_component_id",
             "business_process_id",
         ),
+        # A copy of the called process's card id out of the XML.
+        rewrite=remap.rewrite_process_element_row,
+        id_bearing_columns=("called_element",),
     ),
     # After ProcessElements so the junction's element_id (an intra-module FK,
     # preserved verbatim) resolves; organization_id is remapped by card ref.
@@ -153,6 +167,9 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         user_fk_columns=("created_by", "submitted_by", "approved_by", "withdrawn_by"),
         self_parent_column="based_on_id",
         asset_columns=(("bpmn_xml", "text", "bpmn"), ("svg_thumbnail", "text", "svg")),
+        # The XML as above, plus a draft's per-step card links.
+        rewrite=remap.rewrite_flow_version_row,
+        id_bearing_columns=("bpmn_xml", "draft_element_links"),
     ),
     EntitySection(
         "ProcessAssessments",
@@ -218,6 +235,9 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         TurboLensComplianceFinding,
         card_fk_columns=("card_id",),
         user_fk_columns=("reviewed_by",),
+        # A hash over the card id: a copied key never matches a re-scan.
+        rewrite=remap.refresh_finding_key_row,
+        id_bearing_columns=("finding_key",),
     ),
     # --- Governance / delivery -------------------------------------------
     EntitySection(
@@ -235,14 +255,43 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         self_parent_column="parent_id",
     ),
     # --- Saved views + surveys -------------------------------------------
-    EntitySection("SavedReports", SavedReport, user_fk_columns=("owner_id",)),
-    EntitySection("Bookmarks", Bookmark, user_fk_columns=("user_id",)),
-    EntitySection("WebPortals", WebPortal, user_fk_columns=("created_by",)),
-    EntitySection("Surveys", Survey, user_fk_columns=("created_by",)),
+    # Report scopes and filters, survey targets, portal and bookmark tag
+    # filters all hold card or tag ids.
+    EntitySection(
+        "SavedReports",
+        SavedReport,
+        user_fk_columns=("owner_id",),
+        rewrite=remap.rewrite_saved_report_row,
+        id_bearing_columns=("config",),
+    ),
+    EntitySection(
+        "Bookmarks",
+        Bookmark,
+        user_fk_columns=("user_id",),
+        rewrite=remap.rewrite_bookmark_row,
+        id_bearing_columns=("filters",),
+    ),
+    EntitySection(
+        "WebPortals",
+        WebPortal,
+        user_fk_columns=("created_by",),
+        rewrite=remap.rewrite_portal_row,
+        id_bearing_columns=("filters",),
+    ),
+    EntitySection(
+        "Surveys",
+        Survey,
+        user_fk_columns=("created_by",),
+        rewrite=remap.rewrite_survey_row,
+        id_bearing_columns=("target_filters",),
+    ),
     EntitySection(
         "SurveyResponses",
         SurveyResponse,
         card_fk_columns=("card_id",),
         user_fk_columns=("user_id",),
+        # A relation answer is a list of {id, name} card refs.
+        rewrite=remap.rewrite_survey_response_row,
+        id_bearing_columns=("responses",),
     ),
 )

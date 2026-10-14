@@ -1663,7 +1663,7 @@ async def update_diagram(
 # the user a preview before persisting.
 
 
-# Regex mirror of `_CARD_ID_RE` in backend/app/api/v1/diagrams.py — used to
+# Regex mirror of `CARD_ID_RE` in backend/app/services/drawio_refs.py — used to
 # preview which existing cards a DrawIO XML payload would link.
 _DRAWIO_CARD_ID_RE = re.compile(r'cardId="([0-9a-fA-F-]{36})"')
 

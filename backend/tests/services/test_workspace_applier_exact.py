@@ -77,9 +77,12 @@ def test_a_section_reports_at_most_fifty_errors_and_a_copy_of_its_reasons():
         "errors": [f"e{i}" for i in range(50)],
         "errors_total": 60,
         "skip_reasons": {"identical": 1},
+        "references": {},
     }
     report["skip_reasons"]["x"] = 1
     assert sr.skip_reasons == {"identical": 1}
+    report["references"]["x"] = 1
+    assert sr.references == {}
 
 
 def test_an_apply_result_totals_its_sections():

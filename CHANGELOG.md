@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.158.13] - 2026-10-14
+
+### Fixed
+- **Diagrams imported through Workspace Transfer show their cards again** ([#1246](https://github.com/vincentmakes/turbo-ea/issues/1246)). Cards, relations and tags land on the target instance under new internal ids, but a diagram kept the source's ids, so every card on it read as deleted and hovering a card found nothing. Every reference is now translated on import: the cards and relations drawn on a diagram, a process flow's linked cards and called processes, draft flows, saved-report scopes and filters, survey targets and answers, portal and saved-view tag filters, to-do links and compliance findings, which now keep their review decisions on the next scan. The import preview shows what was translated per section. A bundle exported by an earlier version relinks its diagrams by card type and name, and importing the same bundle again repairs an instance that imported before this fix.
+- **Re-importing a bundle that includes archived cards no longer duplicates them**, and relations, comments, stakeholders and other links on archived cards now transfer instead of being reported as conflicts.
+
 ## [2.158.12] - 2026-10-10
 
 ### Changed

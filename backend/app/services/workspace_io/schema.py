@@ -30,8 +30,16 @@ from app.models.role import Role
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 
 # Bump when the on-disk shape changes incompatibly. The importer refuses a
-# bundle whose major version it does not understand.
+# bundle whose major version it does not understand. An *added* column is not
+# incompatible — every reader ignores a column it does not know and treats one
+# a bundle lacks as "nothing to say" — so ``source_id`` (#1246) did not bump it:
+# a bump would refuse every bundle exported before it.
 FORMAT_VERSION = "1"
+
+# The id a card, relation or tag row had on the exporting instance. Never
+# written to a row (those land under new primary keys); the importer maps it to
+# the target's id to translate the ids other rows hold inside their blobs.
+SOURCE_ID_COLUMN = "source_id"
 
 WORKBOOK_NAME = "workspace.xlsx"
 MANIFEST_NAME = "manifest.json"

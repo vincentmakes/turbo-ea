@@ -367,6 +367,8 @@ async def test_process_element_organizations_roundtrip(db):
         await db.execute(select(ProcessElement).where(ProcessElement.id == elem_id))
     ).scalar_one()
     assert restored_elem.business_process_id == callee.id
+    # Same instance, so the callee kept its id; the copy following a callee to
+    # a new id on another instance is pinned in test_workspace_io_id_remap.py.
     assert restored_elem.called_element == str(callee.id)
 
 
@@ -403,7 +405,12 @@ async def test_large_json_blob_survives_export_import(db):
 async def test_diagram_with_card_link_roundtrips(db):
     """A DrawIO diagram (XML extracted to a .drawio asset) and its card link
     survive export → delete → re-import (regression for the diagram-cards
-    UUID bug)."""
+    UUID bug).
+
+    The cards stay in place here, so their ids never change: this pins the
+    junction and the asset round-trip only. The ids *inside* the XML following
+    the cards to new primary keys (#1246) is
+    ``test_workspace_io_id_remap.py``."""
     from app.models.diagram import Diagram, diagram_cards
 
     user = await create_user(db, email="dia@test.com", role="admin")

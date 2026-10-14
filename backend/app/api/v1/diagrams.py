@@ -25,6 +25,7 @@ from app.models.diagram_group import diagram_group_members
 from app.models.user import User
 from app.services.card_read_scope import CardReadScope
 from app.services.diagram_legend import build_public_legend
+from app.services.drawio_refs import extract_card_refs
 from app.services.permission_service import PermissionService
 from app.services.public_access import (
     PUBLIC_ACCESS_COOKIE,
@@ -37,17 +38,9 @@ from app.services.public_access import (
 
 router = APIRouter(prefix="/diagrams", tags=["diagrams"])
 
-# Regex to pull cardId values out of DrawIO XML <object> elements.
-# Faster than full XML parsing and safe here because the attribute value is a UUID.
-_CARD_ID_RE = re.compile(r'cardId="([0-9a-fA-F-]{36})"')
-
-
-def _extract_card_refs(data: dict | None) -> list[str]:
-    """Return deduplicated list of card UUIDs found in diagram XML."""
-    xml = (data or {}).get("xml", "")
-    if not xml:
-        return []
-    return list(dict.fromkeys(_CARD_ID_RE.findall(xml)))
+# The cardId pattern lives in a service module: workspace transfer rewrites the
+# same ids when cards land under new ones on another instance.
+_extract_card_refs = extract_card_refs
 
 
 # Turbo EA's own bookkeeping attributes on DrawIO cells. They are what make a

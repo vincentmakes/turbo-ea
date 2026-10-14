@@ -46,12 +46,15 @@ A few other things stay behind by design:
 3. Turbo EA parses the bundle and shows a **dry-run preview** — a per-section table of how many entities would be created, updated, skipped, or are in conflict. Nothing is written yet.
 4. Review the preview, then click **Apply import**.
 
-Import is **idempotent**: metamodel and configuration are matched by key, cards by external id or by type + hierarchy path, and users by email. Re-importing the same bundle is safe — already-present entities are skipped rather than duplicated. Existing built-in metamodel types keep their identity; only their editable schema is merged.
+Import is **idempotent**: metamodel and configuration are matched by key, cards by external id or by type + hierarchy path, and users by email. Re-importing the same bundle is safe — already-present entities are skipped rather than duplicated. Existing built-in metamodel types keep their identity; only their editable schema is merged. This also holds for archived cards included in the bundle: they are recognised rather than created again.
 
 ### Reading the preview
 
 - **Skipped means "already present — no action needed."** On a fresh install you will typically see skips for content that ships with Turbo EA (stakeholder roles, resource types, default settings) because the bundle's copy is identical to what the target already has. Expand a section row (the arrow on the left) to see the per-reason breakdown and any conflict or failure messages.
 - **Version advisory.** The preview shows which Turbo EA version the bundle was exported from and warns when it differs from the importing instance. The warning is advisory — the import still runs — but exporting and importing on the same version is the safest path.
+- **References follow the cards.** Cards, relations and tags get new internal ids on the target. Everything that refers to them — the cards and relations drawn on a diagram, a process flow's linked cards and called processes, a saved report's scope and filters, a survey's targets and answers, the tag filter of a portal or saved view, a to-do's link — is translated to the target's ids. Expand a section to see its **References** breakdown. An entry counted as *not in the bundle* points at a card that was archived or deleted on the source, and is left as it was; tick **Include archived cards** when exporting to bring archived cards and everything linked to them along.
+- **Bundles from an earlier version.** A bundle exported before Turbo EA 2.158.13 does not carry internal ids. Its diagrams are relinked by card type and name, using the cards each diagram is linked to to tell apart two cards with the same name; a shape that still matches several cards is left unchanged and named in the messages. The other references in such a bundle cannot be translated, so re-export from the source on 2.158.13 or later if you can.
+- **Repairing an earlier import.** If you imported a bundle with an earlier version and its diagrams now show their cards as deleted, import the same bundle again. Rows still exactly as the first import left them are repaired and counted as *Rows from an earlier import repaired*; anything edited since is left alone.
 
 ## After importing
 

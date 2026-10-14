@@ -141,6 +141,22 @@ RELATION_JSON = frozenset({"attributes"})
 
 CARD_TAG_COLUMNS = ("card_type", "card_ref", "group_name", "tag_name")
 
+# What the three sheets actually carry: the value columns above plus the row's
+# own id on the exporting instance. Cards, relations and tags land under new
+# primary keys on the target, so the id is never written to a row — it is how
+# the importer translates the ids other rows hold *inside* a blob (a diagram's
+# cardId, a draft flow's links, a report's scope; #1246). Relations also carry
+# their two cards' ids so an end resolves even where no reference can reach it
+# (an archived card is invisible to the reference resolver).
+CARD_SHEET_COLUMNS = (*CARD_COLUMNS, schema.SOURCE_ID_COLUMN)
+RELATION_SHEET_COLUMNS = (
+    *RELATION_COLUMNS,
+    schema.SOURCE_ID_COLUMN,
+    "source_card_id",
+    "target_card_id",
+)
+TAG_SHEET_COLUMNS = (*TAG_COLUMNS, schema.SOURCE_ID_COLUMN)
+
 _MIME_EXT = {
     "image/png": "png",
     "image/jpeg": "jpg",
@@ -168,6 +184,7 @@ def _card_record(card: Card, by_id: dict[Any, Card]) -> dict[str, Any]:
     record["parent_path"] = schema.encode_path(schema.ancestor_names(card, by_id))
     record["lifecycle"] = card.lifecycle or {}
     record["attributes"] = card.attributes or {}
+    record[schema.SOURCE_ID_COLUMN] = str(card.id)
     return record
 
 
@@ -223,7 +240,7 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
     tags = (await db.execute(select(Tag))).scalars().all()
     _emit(
         schema.SHEET_TAGS,
-        TAG_COLUMNS,
+        TAG_SHEET_COLUMNS,
         frozenset(),
         [
             {
@@ -234,6 +251,7 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
                 "description": t.description,
                 "color": t.color,
                 "sort_order": t.sort_order,
+                schema.SOURCE_ID_COLUMN: str(t.id),
             }
             for t in tags
         ],
@@ -284,7 +302,7 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
     cards = (await db.execute(card_query)).scalars().all()
     by_id = {c.id: c for c in cards}
     card_records = [_card_record(c, by_id) for c in cards]
-    _emit(schema.SHEET_CARDS, CARD_COLUMNS, CARD_JSON, card_records)
+    _emit(schema.SHEET_CARDS, CARD_SHEET_COLUMNS, CARD_JSON, card_records)
 
     # --- Card tags ------------------------------------------------------
     tag_by_id = {t.id: t for t in tags}
@@ -323,9 +341,12 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
                 "target_ref": entities.build_card_ref(tgt, by_id),
                 "description": rel.description,
                 "attributes": rel.attributes or {},
+                schema.SOURCE_ID_COLUMN: str(rel.id),
+                "source_card_id": str(src.id),
+                "target_card_id": str(tgt.id),
             }
         )
-    _emit(schema.SHEET_RELATIONS, RELATION_COLUMNS, RELATION_JSON, relation_records)
+    _emit(schema.SHEET_RELATIONS, RELATION_SHEET_COLUMNS, RELATION_JSON, relation_records)
 
     # --- Generic entity sections (module + card-context tables) ---------
     full_card_map = {c.id: c for c in (await db.execute(select(Card))).scalars().all()}

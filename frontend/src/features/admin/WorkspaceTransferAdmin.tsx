@@ -39,6 +39,9 @@ interface SectionResult {
   errors: string[];
   errors_total?: number;
   skip_reasons?: Record<string, number>;
+  /** What translating the card / relation / tag ids inside this section's
+   *  diagrams, reports, filters … did (remapped, relinked_by_name, …). */
+  references?: Record<string, number>;
 }
 
 interface TransferReport {
@@ -437,7 +440,8 @@ function ReportTable({ report, t }: { report: TransferReport; t: Translate }) {
 function SectionRow({ section: s, t }: { section: SectionResult; t: Translate }) {
   const [open, setOpen] = useState(false);
   const reasons = Object.entries(s.skip_reasons ?? {});
-  const hasDetails = reasons.length > 0 || s.errors.length > 0;
+  const references = Object.entries(s.references ?? {});
+  const hasDetails = reasons.length > 0 || references.length > 0 || s.errors.length > 0;
   const errorsTotal = s.errors_total ?? s.errors.length;
   return (
     <Fragment>
@@ -469,6 +473,18 @@ function SectionRow({ section: s, t }: { section: SectionResult; t: Translate })
           <TableCell colSpan={7} sx={{ py: 0, border: 0 }}>
             <Collapse in={open} timeout="auto" unmountOnExit>
               <Box sx={{ py: 1, pl: 5 }}>
+                {references.length > 0 && (
+                  <Box sx={{ mb: reasons.length || s.errors.length ? 1 : 0 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("workspaceTransfer.report.references", "References")}
+                    </Typography>
+                    {references.map(([key, count]) => (
+                      <Typography key={key} variant="body2">
+                        {t(`workspaceTransfer.report.ref.${key}`, key)} × {count}
+                      </Typography>
+                    ))}
+                  </Box>
+                )}
                 {reasons.length > 0 && (
                   <Box sx={{ mb: s.errors.length ? 1 : 0 }}>
                     <Typography variant="caption" color="text.secondary">

@@ -13,19 +13,30 @@ original primary key on import, so every *intra-module* foreign key (a task's
 resolves verbatim with no remapping. Only three things need translation:
 
 * **card FKs** — a column pointing at ``cards.id``. Exported as ``{col}__ref`` +
-  ``{col}__type`` (full ``parent_path / name``); resolved via ``CardResolver`` on
-  import. Cards do *not* preserve UUIDs (they're matched/created by the bespoke
-  cards section).
+  ``{col}__type`` (full ``parent_path / name``) plus ``{col}__id`` (the card's id
+  on the source). On import the id is looked up in the cards pass's
+  :class:`~app.services.workspace_io.remap.IdMap` first, the reference through
+  ``CardResolver`` second. Cards do *not* preserve UUIDs (they're
+  matched/created by the bespoke cards section), and the resolver sees ACTIVE
+  cards only, so the id is what lets a row reach an archived card.
 * **user FKs** — a column pointing at ``users.id``. Exported as ``{col}__email``;
   resolved via the email→id map on import.
 * **binary/large assets** — ``LargeBinary``, or a Text/JSONB column holding
   diagram/BPMN XML. Offloaded to ``assets/<sheet>/<pk>__<col>`` in the zip.
 
-Idempotency: a row whose preserved PK already exists on the target is skipped.
+A section that stores card, relation or tag ids *inside* a value column (a
+diagram's XML, a report's config, …) declares a ``rewrite`` and lists those
+columns in ``id_bearing_columns``; see :mod:`remap`.
+
+Idempotency: a row whose preserved PK already exists on the target is skipped
+— unless it is still exactly what an earlier import wrote and only its
+embedded ids were stale, in which case it is healed (see
+:func:`apply_entity_section`).
 """
 
 from __future__ import annotations
 
+import copy
 import json
 import uuid as uuid_mod
 from dataclasses import dataclass
@@ -40,6 +51,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.card_resolver import CardResolver
 from app.services.workspace_io import schema
 from app.services.workspace_io.bundle import WorkspaceBundle
+from app.services.workspace_io.remap import (
+    CARDS,
+    RemapContext,
+    RewriteTally,
+    RowRewriter,
+)
 
 _TIMESTAMP_COLUMNS = frozenset({"created_at", "updated_at"})
 
@@ -71,6 +88,15 @@ class EntitySection:
     # only analysis runs referenced by a compliance finding). Import is
     # unaffected — whatever rows are in the bundle are applied.
     export_where: Any = None
+    # Translates the card / relation / tag ids a row holds inside its value
+    # columns from the source instance's to the target's (#1246). Runs on the
+    # row's import kwargs — card FKs already resolved — just before insert.
+    rewrite: RowRewriter | None = None
+    # The columns ``rewrite`` reads and writes. A skipped row is healed only
+    # when these are still exactly what the bundle carries.
+    # ``test_workspace_io_id_bearing_columns`` requires every JSON / text /
+    # asset column to be listed here or allowlisted with a reason.
+    id_bearing_columns: tuple[str, ...] = ()
 
     def value_columns(self) -> list[str]:
         managed = (
@@ -89,7 +115,7 @@ class EntitySection:
     def header(self) -> list[str]:
         cols = list(self.value_columns())
         for c in self.card_fk_columns:
-            cols += [f"{c}__ref", f"{c}__type"]
+            cols += [f"{c}__ref", f"{c}__type", f"{c}__id"]
         for c in self.user_fk_columns:
             cols.append(f"{c}__email")
         for c, _kind, _ext in self.asset_columns:
@@ -219,6 +245,7 @@ async def export_entity_section(
             card = card_map.get(cid) if cid else None
             out[f"{col}__ref"] = build_card_ref(card, card_map) if card else None
             out[f"{col}__type"] = card.type if card else None
+            out[f"{col}__id"] = str(card.id) if card else None
         for col in section.user_fk_columns:
             uid = getattr(obj, col)
             out[f"{col}__email"] = user_email.get(uid) if uid else None
@@ -288,6 +315,53 @@ def _topo_rows(rows: list[dict[str, Any]], section: EntitySection) -> list[dict[
     return ordered
 
 
+def resolve_card_fk(
+    row: dict[str, Any],
+    col: str,
+    resolver: CardResolver,
+    remap: RemapContext | None,
+) -> tuple[bool, Any]:
+    """Resolve one card FK cell pair → ``(present, card_id or None)``.
+
+    ``present`` is False when the bundle names no card at all. The source id is
+    tried first — it is exact and reaches archived cards — then the reference.
+    """
+    source_id = row.get(f"{col}__id")
+    ref = row.get(f"{col}__ref")
+    ctype = row.get(f"{col}__type")
+    if remap is not None and source_id:
+        mapped = remap.ids.lookup(CARDS, source_id)
+        if mapped is not None:
+            return True, uuid_mod.UUID(mapped)
+    if not (ref and ctype):
+        return False, None
+    res = resolver.resolve(str(ctype), str(ref))
+    return True, res.card_id if res.status == "resolved" else None
+
+
+def heal_row(
+    obj: Any,
+    original: dict[str, Any],
+    rewritten: dict[str, Any],
+    columns: tuple[str, ...],
+    tally: RewriteTally,
+) -> bool:
+    """Write the translated ids onto a row an earlier import left stale.
+
+    Only when the rewrite changed something and every id-bearing column on the
+    stored row is still byte-for-byte what the bundle carries: a row anyone has
+    edited since is theirs, and a re-import into the instance the bundle came
+    from rewrites nothing, so it stays the no-op it always was.
+    """
+    if not columns or not tally.changed():
+        return False
+    if any(getattr(obj, col) != original.get(col) for col in columns):
+        return False
+    for col in columns:
+        setattr(obj, col, rewritten.get(col))
+    return True
+
+
 async def apply_entity_section(
     db: AsyncSession,
     section: EntitySection,
@@ -295,6 +369,7 @@ async def apply_entity_section(
     sr: Any,
     resolver: CardResolver,
     email_to_id: dict[str, Any],
+    remap: RemapContext | None = None,
 ) -> None:
     """Create rows for a section, preserving PKs and resolving card/user FKs.
 
@@ -307,11 +382,12 @@ async def apply_entity_section(
     model = section.model
     pk_cols = section.pk_columns()
     value_cols = section.value_columns()
+    rewrite = section.rewrite if remap is not None else None
 
-    existing_pks: set[tuple] = set()
+    existing_by_pk: dict[tuple, Any] = {}
     existing_objs: list[Any] = list((await db.execute(sa.select(model))).scalars().all())
     for obj in existing_objs:
-        existing_pks.add(tuple(getattr(obj, c) for c in pk_cols))
+        existing_by_pk[tuple(getattr(obj, c) for c in pk_cols)] = obj
 
     for row in _topo_rows(rows, section):
         # Build the full row first — a PK column can itself be a card FK (the
@@ -323,19 +399,12 @@ async def apply_entity_section(
 
         unresolved: str | None = None
         for col in section.card_fk_columns:
-            ref = row.get(f"{col}__ref")
-            ctype = row.get(f"{col}__type")
-            if ref and ctype:
-                res = resolver.resolve(str(ctype), str(ref))
-                if res.status == "resolved":
-                    kwargs[col] = res.card_id
-                elif _nullable(model, col):
-                    kwargs[col] = None
-                else:
-                    unresolved = f"card {col} = {ref!r} ({ctype})"
-                    break
+            present, card_id = resolve_card_fk(row, col, resolver, remap)
+            if card_id is not None or not present or _nullable(model, col):
+                kwargs[col] = card_id
             else:
-                kwargs[col] = None
+                unresolved = f"card {col} = {row.get(f'{col}__ref')!r} ({row.get(f'{col}__type')})"
+                break
         if unresolved:
             sr.conflict += 1
             sr.errors.append(f"{section.sheet}: required {unresolved} not found — row skipped")
@@ -375,11 +444,21 @@ async def apply_entity_section(
         if any(v is None for v in pk_vals):
             sr.failed += 1
             continue
-        if pk_vals in existing_pks:
+        current = existing_by_pk.get(pk_vals)
+        if current is not None:
+            if rewrite is not None:
+                original = {c: copy.deepcopy(kwargs.get(c)) for c in section.id_bearing_columns}
+                tally = rewrite(kwargs, remap)
+                if heal_row(current, original, kwargs, section.id_bearing_columns, tally):
+                    sr.note_references(tally, healed=True)
+                    continue
             sr.skip("already_present")
             continue
 
-        db.add(model(**kwargs))
-        existing_pks.add(pk_vals)
+        if rewrite is not None:
+            sr.note_references(rewrite(kwargs, remap))
+        obj = model(**kwargs)
+        db.add(obj)
+        existing_by_pk[pk_vals] = obj
         sr.created += 1
     await db.flush()

@@ -137,6 +137,75 @@ describe("WorkspaceTransferAdmin", () => {
     expect(screen.getByText(/× 30/)).toBeInTheDocument();
   });
 
+  async function previewWith(section: Record<string, unknown>) {
+    (api.upload as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "t3",
+      filename: "ws.zip",
+      status: "parsing",
+    });
+    (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "t3",
+      filename: "ws.zip",
+      status: "previewed",
+      diff: {
+        dry_run: true,
+        sections: [
+          {
+            sheet: "Diagrams",
+            created: 2,
+            updated: 0,
+            skipped: 0,
+            conflict: 0,
+            failed: 0,
+            errors: [],
+            ...section,
+          },
+        ],
+        totals: { created: 2, updated: 0, skipped: 0, conflict: 0, failed: 0 },
+      },
+    });
+    const { container } = render(<WorkspaceTransferAdmin />);
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(fileInput, new File(["zip"], "ws.zip"));
+    await waitFor(() => expect(screen.getByText("Diagrams")).toBeInTheDocument(), {
+      timeout: 4000,
+    });
+  }
+
+  it("breaks down what translating the ids inside a section did", async () => {
+    await previewWith({
+      references: { remapped: 12, relinked_by_name: 3, ambiguous: 1 },
+      errors: ["diagram card 'CRM' (Application) matches several cards"],
+    });
+    await userEvent.click(screen.getByLabelText("Toggle details"));
+    expect(screen.getByText("References")).toBeInTheDocument();
+    expect(
+      screen.getByText("Ids translated to this instance's cards, relations and tags × 12"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Diagram cards relinked by card type and name (older bundle) × 3"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Diagram card matching several cards — left unchanged × 1"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("diagram card 'CRM' (Application) matches several cards"),
+    ).toBeInTheDocument();
+  });
+
+  it("offers details for a section whose only news is its references", async () => {
+    await previewWith({ references: { healed: 2 } });
+    await userEvent.click(screen.getByLabelText("Toggle details"));
+    expect(screen.getByText("Rows from an earlier import repaired × 2")).toBeInTheDocument();
+    expect(screen.queryByText("Skip reasons")).not.toBeInTheDocument();
+  });
+
+  it("shows no details toggle when nothing was translated", async () => {
+    await previewWith({ references: {} });
+    expect(screen.queryByLabelText("Toggle details")).not.toBeInTheDocument();
+    expect(screen.queryByText("References")).not.toBeInTheDocument();
+  });
+
   it("re-primes the app caches once the apply completes", { timeout: 15000 }, async () => {
     (api.upload as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "t3",

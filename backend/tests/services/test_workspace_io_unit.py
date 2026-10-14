@@ -410,8 +410,10 @@ def test_card_record_carries_every_card_column():
         "status": "ACTIVE",
         "lifecycle": {"active": "2024-01-01"},
         "attributes": {"criticality": "high"},
+        "source_id": str(card.id),
     }
-    assert set(record) == set(exp.CARD_COLUMNS)
+    assert set(record) == set(exp.CARD_SHEET_COLUMNS)
+    assert set(exp.CARD_SHEET_COLUMNS) == {*exp.CARD_COLUMNS, "source_id"}
 
 
 def test_card_record_writes_empty_dicts_for_missing_json():
@@ -431,3 +433,15 @@ def test_card_record_writes_empty_dicts_for_missing_json():
     )
     record = exp._card_record(card, {card.id: card})
     assert (record["parent_path"], record["lifecycle"], record["attributes"]) == ("", {}, {})
+
+
+def test_a_card_matches_its_source_id_only_within_its_own_type():
+    from app.services.workspace_io import applier
+
+    cid = "aaaaaaaa-0000-0000-0000-000000000001"
+    here = {cid: "Application"}
+    assert applier._card_by_source_id(here, "Application", cid.upper()) == cid
+    assert applier._card_by_source_id(here, "Organization", cid) is None
+    assert applier._card_by_source_id(here, "Application", None) is None
+    assert applier._card_by_source_id(here, "Application", "not-an-id") is None
+    assert applier._card_by_source_id({}, "Application", cid) is None
