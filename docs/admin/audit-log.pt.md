@@ -91,7 +91,7 @@ O painel não tem ações. As entradas não podem ser editadas nem excluídas.
 | `auth.proxy_session.failed` | uma entrada pelo proxy reverso é recusada |
 | `auth.register` | um usuário cria uma conta pelo autocadastro |
 | `auth.password.set` | um usuário convidado define sua primeira senha |
-| `auth.password.reset_requested` | alguém pede um e-mail de redefinição de senha. Sempre registrada como sucesso e apenas com o endereço digitado, de modo que o registro nunca revela se essa conta existe |
+| `auth.password.reset_requested` | Alguém pede um e-mail de reposição da palavra-passe. Registado sempre como sucesso com o endereço escrito, para que a resposta não revele nada; os detalhes indicam se uma conta correspondeu e se foi enviado um e-mail |
 | `auth.password.reset` | uma senha é alterada por um link de redefinição |
 | `auth.password.changed` | um usuário conectado altera a própria senha |
 | `auth.impersonation.started` | um administrador inicia **Ver como papel…**. O alvo é o papel escolhido |
@@ -148,6 +148,8 @@ O backend também grava cada entrada como **uma linha JSON** no logger **`turbo_
 ```bash
 docker compose logs -f backend | grep turbo_ea.audit
 ```
+
+A linha é gravada no momento em que a entrada é registada. Se a transação do pedido falhar depois, a linha existe sem registo: a tabela é o registo oficial e o fluxo é o feed em tempo real.
 
 Cada linha traz os mesmos campos da entrada:
 

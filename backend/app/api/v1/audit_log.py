@@ -26,6 +26,7 @@ mutation score; the route bodies only wire them together.
 
 from __future__ import annotations
 
+import asyncio
 import csv
 import io
 import json
@@ -297,7 +298,6 @@ async def export_audit_log(
     entries = list(
         (await db.execute(filtered_query(filters).limit(AUDIT_EXPORT_MAX_ROWS))).scalars().all()
     )
-    body = build_csv(entries)
     await audit_log.record(
         db,
         action="access.audit_log.exported",
@@ -307,6 +307,10 @@ async def export_audit_log(
         details={"rows": len(entries)},
     )
     await db.commit()
+    # Up to AUDIT_EXPORT_MAX_ROWS rows of CSV is CPU work on the single event
+    # loop; the rows are already loaded and the commit has handed the
+    # connection back, so the thread touches no session.
+    body = await asyncio.to_thread(build_csv, entries)
     return Response(
         content=body,
         media_type="text/csv",

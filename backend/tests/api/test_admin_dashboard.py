@@ -204,20 +204,30 @@ class TestAdminDashboardReport:
 
 
 class TestAdminDashboardRecentActivity:
-    async def test_recent_activity_excludes_cardless_events(self, client, db):
+    async def test_recent_activity_keeps_ops_events(self, client, db):
+        """The admin summary's audience is admins, so it lists every event the
+        caller may read — ``ops.*`` and card-less ones included."""
         await create_role(db, key="admin", permissions={"*": True})
         await create_card_type(db, key="Application", label="Application")
         admin = await create_user(db, email="admin@test.com", role="admin")
         card = await create_card(db, card_type="Application", name="App", user_id=admin.id)
         db.add(Event(card_id=card.id, event_type="card.updated", user_id=admin.id, data={}))
-        db.add(Event(card_id=None, event_type="ops.export", user_id=admin.id, data={}))
+        db.add(
+            Event(
+                card_id=None,
+                event_type="ops.rescue_access_granted",
+                user_id=admin.id,
+                data={},
+            )
+        )
         await db.flush()
 
         resp = await client.get("/api/v1/reports/admin-dashboard", headers=auth_headers(admin))
         assert resp.status_code == 200
-        activity = resp.json()["recent_activity"]
-        assert [a["event_type"] for a in activity] == ["card.updated"]
-        assert activity[0]["card_id"] == str(card.id)
+        activity = {a["event_type"]: a for a in resp.json()["recent_activity"]}
+        assert set(activity) == {"card.updated", "ops.rescue_access_granted"}
+        assert activity["card.updated"]["card_id"] == str(card.id)
+        assert activity["ops.rescue_access_granted"]["card_id"] is None
 
 
 class TestStakeholderDirectory:

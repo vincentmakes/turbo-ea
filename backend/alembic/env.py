@@ -12,7 +12,11 @@ from app.models import Base  # noqa: F401 – ensures all models are registered
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Keep loggers the app created before Alembic ran: with the default
+    # (``disable_existing_loggers=True``) ``fileConfig`` disables every logger
+    # the ini does not name, so a boot that migrates or stamps would silence the
+    # ``turbo_ea.audit`` stream for the rest of the process.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 

@@ -91,7 +91,7 @@ Il pannello non offre azioni. Le voci non si possono modificare né eliminare.
 | `auth.proxy_session.failed` | un accesso tramite il reverse proxy viene rifiutato |
 | `auth.register` | un utente crea un account tramite l'auto-registrazione |
 | `auth.password.set` | un utente invitato imposta la sua prima password |
-| `auth.password.reset_requested` | qualcuno richiede un'email di reimpostazione della password. Registrata sempre come riuscita e solo con l'indirizzo digitato, così il registro non rivela mai se quell'account esiste |
+| `auth.password.reset_requested` | Qualcuno richiede un'e-mail di reimpostazione della password. Registrato sempre come successo con l'indirizzo digitato, così la risposta non rivela nulla; i dettagli indicano se un account corrispondeva e se è stata inviata un'e-mail |
 | `auth.password.reset` | una password viene cambiata tramite un link di reimpostazione |
 | `auth.password.changed` | un utente connesso cambia la propria password |
 | `auth.impersonation.started` | un amministratore avvia **Visualizza come ruolo…**. La destinazione è il ruolo scelto |
@@ -148,6 +148,8 @@ Il backend scrive inoltre ogni voce come **una riga JSON** sul logger **`turbo_e
 ```bash
 docker compose logs -f backend | grep turbo_ea.audit
 ```
+
+La riga viene scritta nel momento in cui la voce è registrata. Se la transazione della richiesta fallisce in seguito, la riga esiste senza record: la tabella è il registro, il flusso è il feed in tempo reale.
 
 Ogni riga riporta gli stessi campi della voce:
 

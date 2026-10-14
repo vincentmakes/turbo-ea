@@ -91,7 +91,7 @@ The drawer has no actions. Entries cannot be edited or deleted.
 | `auth.proxy_session.failed` | A reverse-proxy sign-in is refused |
 | `auth.register` | A user creates an account through self-registration |
 | `auth.password.set` | An invited user sets their first password |
-| `auth.password.reset_requested` | Someone asks for a password-reset email. Always recorded as a success with only the email address typed, so the log never reveals whether that account exists |
+| `auth.password.reset_requested` | Someone asks for a password-reset email. Always recorded as a success with the typed address, so the response reveals nothing; the details say whether an account matched and whether an email was sent |
 | `auth.password.reset` | A password is changed through a reset link |
 | `auth.password.changed` | A signed-in user changes their own password |
 | `auth.impersonation.started` | An administrator starts **View as role…**. The target is the role chosen |
@@ -148,6 +148,8 @@ Every entry is also written by the backend as **one JSON line** on the logger **
 ```bash
 docker compose logs -f backend | grep turbo_ea.audit
 ```
+
+The line is written when the entry is recorded. If the request's transaction fails afterwards, the line exists without a row, so the table is the record and the stream is the live feed.
 
 Each line carries the same fields as the entry:
 

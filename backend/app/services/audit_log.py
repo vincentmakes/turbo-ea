@@ -33,6 +33,12 @@ Rules for callers:
   by passing a raw settings diff. Mask in the caller too when in doubt.
 - **Rows are immutable.** Nothing updates or deletes one except the retention
   purge in ``app.main`` (``general_settings.auditLogRetentionDays``).
+- **The table is the record; the stream is the live feed.** The JSON line is
+  emitted when the entry is *recorded* (added and flushed), not when it is
+  committed — the logger cannot know whether the caller's transaction will
+  commit. A request whose transaction later fails or rolls back therefore
+  leaves a ``turbo_ea.audit`` line with no matching row. Reconcile against the
+  ``audit_log`` table, never the other way round.
 """
 
 from __future__ import annotations
@@ -183,8 +189,16 @@ def diff(old: Any, new: Any, *, keys: Iterable[str] | None = None) -> dict[str, 
     return changes
 
 
-def validate(category: str, outcome: str) -> None:
-    """Raise ``ValueError`` for a category or outcome the log does not know."""
+def validate(category: str, outcome: str, action: str) -> None:
+    """Raise ``ValueError`` for a category or outcome the log does not know, or
+    for an empty ``action``.
+
+    ``action`` is ``NOT NULL`` in ``audit_log`` and ``_clip`` turns an empty
+    string into ``None``, so an empty action would otherwise reach the INSERT
+    and fail the request with a 500 instead of failing here, at the caller.
+    """
+    if not isinstance(action, str) or not action.strip():
+        raise ValueError(f"An audit action is required; got {action!r}")
     if category not in CATEGORIES:
         raise ValueError(
             f"Unknown audit category {category!r}; expected one of {sorted(CATEGORIES)}"
@@ -235,7 +249,7 @@ def build_entry(
 ) -> AuditLogEntry:
     """Build (but do not add) the row ``record`` writes, stamped with the
     current request context. Pure apart from reading the contextvars."""
-    validate(category, outcome)
+    validate(category, outcome, action)
     client = request_client.get()
     ip, agent = client if client else (None, None)
     impersonation = request_impersonation.get()
@@ -305,7 +319,7 @@ async def record(
     ``subject_email`` the account acted upon; ``target`` a
     ``(type, id, label)`` tuple (shorter tuples pad with ``None``); ``details``
     a JSON-able mapping, redacted before it is stored. Raises ``ValueError`` on
-    an unknown ``category`` or ``outcome``.
+    an unknown ``category`` or ``outcome`` or an empty ``action``.
     """
     entry = build_entry(
         action=action,

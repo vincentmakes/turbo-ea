@@ -1339,60 +1339,62 @@ async def forgot_password(
     SSO-only accounts (no password, marked `auth_provider="sso"`) get nothing.
     """
     raw_email = (body.email or "").strip().lower()
-    # Recorded before the account is looked up, identically for every address
-    # and always as a success: the row says what was typed, never whether an
-    # account answered to it (the same anti-enumeration rule as the response).
+    user: User | None = None
+    if raw_email:
+        # A missing email is treated like an unknown one — anti-enumeration.
+        result = await db.execute(select(User).where(User.email == raw_email))
+        user = result.scalar_one_or_none()
+
+    email_sent = False
+    if user is not None and user.is_active and email_service._is_configured():
+        message: tuple[str, str, str] | None = None
+        base_url = _resolve_app_base_url(request)
+        app_title = email_service._get_app_title()
+
+        if user.password_hash is not None:
+            # Existing local password → reset flow.
+            token = secrets.token_urlsafe(32)
+            user.password_reset_token = token
+            user.password_reset_expires_at = datetime.now(timezone.utc) + PASSWORD_RESET_TTL
+            await db.commit()
+
+            reset_url = f"{base_url}/auth/reset-password?token={token}"
+            body_html, body_text = _build_reset_email_body(user.display_name, app_title, reset_url)
+            message = (f"[{app_title}] Reset your password", body_html, body_text)
+        elif user.auth_provider != "sso":
+            # Password-less local account → deliver a set-password link. Mint a
+            # setup token if the row somehow lacks one so the user is never stuck.
+            if not user.password_setup_token:
+                user.password_setup_token = generate_setup_token()
+                await db.commit()
+
+            setup_url = f"{base_url}/auth/set-password?token={user.password_setup_token}"
+            body_html, body_text = _build_setup_email_body(user.display_name, app_title, setup_url)
+            message = (f"[{app_title}] Set your password", body_html, body_text)
+        # else: SSO-only account — nothing to reset. Stay silent (anti-enumeration).
+
+        if message is not None:
+            subject, body_html, body_text = message
+            try:
+                await email_service.send_email(user.email, subject, body_html, body_text)
+                email_sent = True
+            except Exception:
+                # Email delivery failure must not leak via response status —
+                # the user still receives the generic success screen.
+                logger.exception("Failed to send password email to %s", user.email)
+
+    # Recorded once the outcome is known, always as a success, on every path.
+    # Anti-enumeration is a property of the *response*, which stays identical;
+    # the row is admin-only (``admin.audit_log``), so it may say truthfully
+    # whether an account answered to the typed address and whether mail left.
     await audit_log.record(
         db,
         action="auth.password.reset_requested",
         category="auth",
         subject_email=raw_email or None,
+        details={"account_matched": user is not None, "email_sent": email_sent},
     )
     await db.commit()
-    if not raw_email:
-        # Treat missing email same as unknown — anti-enumeration.
-        return {"ok": True}
-
-    result = await db.execute(select(User).where(User.email == raw_email))
-    user = result.scalar_one_or_none()
-
-    if user is None or not user.is_active or not email_service._is_configured():
-        return {"ok": True}
-
-    base_url = _resolve_app_base_url(request)
-    app_title = email_service._get_app_title()
-
-    if user.password_hash is not None:
-        # Existing local password → reset flow.
-        token = secrets.token_urlsafe(32)
-        user.password_reset_token = token
-        user.password_reset_expires_at = datetime.now(timezone.utc) + PASSWORD_RESET_TTL
-        await db.commit()
-
-        reset_url = f"{base_url}/auth/reset-password?token={token}"
-        body_html, body_text = _build_reset_email_body(user.display_name, app_title, reset_url)
-        subject = f"[{app_title}] Reset your password"
-    elif user.auth_provider != "sso":
-        # Password-less local account → deliver a set-password link. Mint a
-        # setup token if the row somehow lacks one so the user is never stuck.
-        if not user.password_setup_token:
-            user.password_setup_token = generate_setup_token()
-            await db.commit()
-
-        setup_url = f"{base_url}/auth/set-password?token={user.password_setup_token}"
-        body_html, body_text = _build_setup_email_body(user.display_name, app_title, setup_url)
-        subject = f"[{app_title}] Set your password"
-    else:
-        # SSO-only account — nothing to reset. Stay silent (anti-enumeration).
-        return {"ok": True}
-
-    try:
-        await email_service.send_email(user.email, subject, body_html, body_text)
-    except Exception:
-        # Email delivery failure must not leak via response status —
-        # the user still receives the generic success screen.
-        logger.exception("Failed to send password email to %s", user.email)
-
     return {"ok": True}
 
 

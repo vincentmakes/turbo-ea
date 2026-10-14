@@ -91,7 +91,7 @@ Panelet har ingen handlinger. Poster kan hverken redigeres eller slettes.
 | `auth.proxy_session.failed` | et login via reverse proxyen afvises |
 | `auth.register` | en bruger opretter en konto via selvregistrering |
 | `auth.password.set` | en inviteret bruger angiver sin første adgangskode |
-| `auth.password.reset_requested` | nogen beder om en e-mail til nulstilling af adgangskoden. Registreres altid som lykkedes og kun med den indtastede e-mailadresse, så loggen aldrig afslører, om kontoen findes |
+| `auth.password.reset_requested` | Nogen beder om en e-mail til nulstilling af adgangskode. Registreres altid som succes med den indtastede adresse, så svaret intet afslører; detaljerne angiver, om en konto matchede, og om der blev sendt en e-mail |
 | `auth.password.reset` | en adgangskode ændres via et nulstillingslink |
 | `auth.password.changed` | en indlogget bruger ændrer sin egen adgangskode |
 | `auth.impersonation.started` | en administrator starter **Vis som rolle…**. Målet er den valgte rolle |
@@ -148,6 +148,8 @@ Backend skriver desuden hver post som **én JSON-linje** på loggeren **`turbo_e
 ```bash
 docker compose logs -f backend | grep turbo_ea.audit
 ```
+
+Linjen skrives i det øjeblik posten registreres. Hvis forespørgslens transaktion derefter fejler, findes linjen uden en række: tabellen er optegnelsen, og strømmen er det løbende feed.
 
 Hver linje har de samme felter som posten:
 

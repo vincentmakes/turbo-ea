@@ -215,6 +215,27 @@ def test_eol_card_status_releases_the_request_session_first():
     )
 
 
+@pytest.mark.source_scan
+def test_audit_log_export_builds_the_csv_off_the_loop_after_the_commit():
+    """``GET /admin/audit-log/export`` renders up to 50k rows as CSV.
+
+    That is seconds of CPU on the single uvicorn event loop, so it runs in a
+    worker thread — and only once the export row is committed, so the request
+    session is not left idle in transaction while the thread works.
+    """
+    body = _function_source("app/api/v1/audit_log.py", "export_audit_log")
+    build_at = body.find("await asyncio.to_thread(build_csv, entries)")
+    assert build_at != -1, "the CSV must be built with asyncio.to_thread, off the event loop"
+    assert "build_csv(entries)" not in body.replace("asyncio.to_thread(build_csv, entries)", ""), (
+        "build_csv must not also be called inline on the event loop"
+    )
+    commit_at = body.rfind("await db.commit()", 0, build_at)
+    assert commit_at != -1, (
+        "export_audit_log must `await db.commit()` before building the CSV — the "
+        "commit records the export and hands the connection back."
+    )
+
+
 # ---------------------------------------------------------------------------
 # AI batch loops must not keep the transaction open across the LLM calls
 # ---------------------------------------------------------------------------

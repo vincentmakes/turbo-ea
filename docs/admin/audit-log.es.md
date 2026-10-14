@@ -91,7 +91,7 @@ El panel no tiene acciones. Las entradas no se pueden editar ni eliminar.
 | `auth.proxy_session.failed` | se rechaza un inicio de sesión a través del proxy inverso |
 | `auth.register` | un usuario crea una cuenta mediante el autorregistro |
 | `auth.password.set` | un usuario invitado establece su primera contraseña |
-| `auth.password.reset_requested` | alguien solicita un correo de restablecimiento de contraseña. Siempre se registra como un éxito y solo con la dirección escrita, de modo que el registro nunca revela si esa cuenta existe |
+| `auth.password.reset_requested` | Alguien solicita un correo de restablecimiento de contraseña. Siempre se registra como éxito con la dirección escrita, para que la respuesta no revele nada; los detalles indican si coincidió una cuenta y si se envió un correo |
 | `auth.password.reset` | se cambia una contraseña mediante un enlace de restablecimiento |
 | `auth.password.changed` | un usuario con sesión iniciada cambia su propia contraseña |
 | `auth.impersonation.started` | un administrador inicia **Ver como rol…**. El destino es el rol elegido |
@@ -148,6 +148,8 @@ El backend también escribe cada entrada como **una línea JSON** en el logger *
 ```bash
 docker compose logs -f backend | grep turbo_ea.audit
 ```
+
+La línea se escribe en el momento en que se registra la entrada. Si la transacción de la solicitud falla después, la línea existe sin fila: la tabla es el registro y el flujo es la señal en directo.
 
 Cada línea lleva los mismos campos que la entrada:
 

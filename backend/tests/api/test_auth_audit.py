@@ -574,9 +574,10 @@ class TestRegisterAndPasswords:
 
     async def test_reset_requested_for_unknown_email_is_success_shaped(self, client, db):
         await create_user(db, email="known@test.com", role="member")
+        send = AsyncMock(return_value=True)
         with (
             patch("app.api.v1.auth.email_service._is_configured", return_value=True),
-            patch("app.api.v1.auth.email_service.send_email", new=AsyncMock(return_value=True)),
+            patch("app.api.v1.auth.email_service.send_email", new=send),
         ):
             unknown = await client.post(
                 "/api/v1/auth/forgot-password", json={"email": " Nobody@Example.com "}
@@ -584,12 +585,14 @@ class TestRegisterAndPasswords:
             known = await client.post(
                 "/api/v1/auth/forgot-password", json={"email": "known@test.com"}
             )
+        # The response is what anti-enumeration protects: identical either way.
         assert unknown.status_code == known.status_code == 200
         assert unknown.json() == known.json() == {"ok": True}
+        assert send.await_count == 1
 
-        first, second = await _committed(db)
-        assert first.subject_email == "nobody@example.com"
-        assert second.subject_email == "known@test.com"
+        rows = {row.subject_email: row for row in await _committed(db)}
+        assert set(rows) == {"nobody@example.com", "known@test.com"}
+        first, second = rows["nobody@example.com"], rows["known@test.com"]
 
         def shape(row):
             return (
@@ -599,10 +602,10 @@ class TestRegisterAndPasswords:
                 row.actor_user_id,
                 row.actor_email,
                 row.target_type,
-                row.details,
             )
 
-        # Nothing but the typed address tells the two apart.
+        # Both are recorded as successes with no actor; only the admin-only
+        # details say whether an account answered and whether mail left.
         assert shape(first) == shape(second)
         assert shape(first) == (
             "auth",
@@ -611,8 +614,60 @@ class TestRegisterAndPasswords:
             None,
             None,
             None,
-            None,
         )
+        assert first.details == {"account_matched": False, "email_sent": False}
+        assert second.details == {"account_matched": True, "email_sent": True}
+
+    async def test_reset_requested_records_a_failed_send(self, client, db):
+        await create_user(db, email="bounce@test.com", role="member")
+        with (
+            patch("app.api.v1.auth.email_service._is_configured", return_value=True),
+            patch(
+                "app.api.v1.auth.email_service.send_email",
+                new=AsyncMock(side_effect=RuntimeError("smtp down")),
+            ),
+        ):
+            resp = await client.post(
+                "/api/v1/auth/forgot-password", json={"email": "bounce@test.com"}
+            )
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+
+        [row] = await _committed(db)
+        assert (row.action, row.outcome) == ("auth.password.reset_requested", "success")
+        assert row.subject_email == "bounce@test.com"
+        assert row.details == {"account_matched": True, "email_sent": False}
+
+    async def test_reset_requested_for_sso_account_sends_nothing(self, client, db):
+        user = await create_user(db, email="sso-reset@test.com", role="member")
+        user.password_hash = None
+        user.auth_provider = "sso"
+        await db.flush()
+        send = AsyncMock(return_value=True)
+        with (
+            patch("app.api.v1.auth.email_service._is_configured", return_value=True),
+            patch("app.api.v1.auth.email_service.send_email", new=send),
+        ):
+            resp = await client.post(
+                "/api/v1/auth/forgot-password", json={"email": "sso-reset@test.com"}
+            )
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+        send.assert_not_awaited()
+
+        [row] = await _committed(db)
+        assert row.subject_email == "sso-reset@test.com"
+        assert row.details == {"account_matched": True, "email_sent": False}
+
+    async def test_reset_requested_without_email_records_no_subject(self, client, db):
+        resp = await client.post("/api/v1/auth/forgot-password", json={"email": "   "})
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+
+        [row] = await _committed(db)
+        assert row.action == "auth.password.reset_requested"
+        assert row.subject_email is None
+        assert row.details == {"account_matched": False, "email_sent": False}
 
     async def test_reset_password_records(self, client, db):
         user = await create_user(db, email="reset@test.com", role="member")

@@ -91,7 +91,7 @@ Le panneau ne propose aucune action. Les entrées ne peuvent être ni modifiées
 | `auth.proxy_session.failed` | une connexion via le proxy inverse est refusée |
 | `auth.register` | un utilisateur crée un compte par auto-inscription |
 | `auth.password.set` | un utilisateur invité définit son premier mot de passe |
-| `auth.password.reset_requested` | quelqu'un demande un e-mail de réinitialisation du mot de passe. Toujours enregistrée comme un succès, avec la seule adresse saisie, de sorte que le journal ne révèle jamais si ce compte existe |
+| `auth.password.reset_requested` | Quelqu'un demande un e-mail de réinitialisation du mot de passe. Toujours enregistré comme un succès avec l'adresse saisie, pour que la réponse ne révèle rien ; les détails indiquent si un compte correspondait et si un e-mail a été envoyé |
 | `auth.password.reset` | un mot de passe est modifié via un lien de réinitialisation |
 | `auth.password.changed` | un utilisateur connecté modifie son propre mot de passe |
 | `auth.impersonation.started` | un administrateur démarre **Voir en tant que rôle…**. La cible est le rôle choisi |
@@ -148,6 +148,8 @@ Chaque entrée est aussi écrite par le backend sous forme d'**une ligne JSON** 
 ```bash
 docker compose logs -f backend | grep turbo_ea.audit
 ```
+
+La ligne est écrite au moment où l'entrée est enregistrée. Si la transaction de la requête échoue ensuite, la ligne existe sans enregistrement en base : la table fait foi, le flux est le fil en direct.
 
 Chaque ligne porte les mêmes champs que l'entrée :
 

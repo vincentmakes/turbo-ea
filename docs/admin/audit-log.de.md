@@ -91,7 +91,7 @@ Die Leiste bietet keine Aktionen. Einträge können weder bearbeitet noch gelös
 | `auth.proxy_session.failed` | eine Anmeldung über den Reverse Proxy abgewiesen wird |
 | `auth.register` | ein Benutzer per Selbstregistrierung ein Konto anlegt |
 | `auth.password.set` | ein eingeladener Benutzer sein erstes Passwort festlegt |
-| `auth.password.reset_requested` | jemand eine E-Mail zum Zurücksetzen des Passworts anfordert. Wird immer als Erfolg und nur mit der eingegebenen E-Mail-Adresse aufgezeichnet, sodass das Protokoll nie verrät, ob dieses Konto existiert |
+| `auth.password.reset_requested` | Jemand fordert eine E-Mail zum Zurücksetzen des Passworts an. Immer als Erfolg mit der eingegebenen Adresse erfasst, damit die Antwort nichts verrät; die Details nennen, ob ein Konto gefunden und ob eine E-Mail gesendet wurde |
 | `auth.password.reset` | ein Passwort über einen Zurücksetzungslink geändert wird |
 | `auth.password.changed` | ein angemeldeter Benutzer sein eigenes Passwort ändert |
 | `auth.impersonation.started` | eine Administratorin **Als Rolle anzeigen…** startet. Ziel ist die gewählte Rolle |
@@ -148,6 +148,8 @@ Jeder Eintrag wird vom Backend außerdem als **eine JSON-Zeile** über den Logge
 ```bash
 docker compose logs -f backend | grep turbo_ea.audit
 ```
+
+Die Zeile wird geschrieben, sobald der Eintrag erfasst wird. Schlägt die Transaktion der Anfrage danach fehl, existiert die Zeile ohne Datensatz: Die Tabelle ist die Aufzeichnung, der Stream der Live-Feed.
 
 Jede Zeile enthält dieselben Felder wie der Eintrag:
 

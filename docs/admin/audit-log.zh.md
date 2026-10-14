@@ -91,7 +91,7 @@
 | `auth.proxy_session.failed` | 通过反向代理的登录被拒绝 |
 | `auth.register` | 用户通过自助注册创建账户 |
 | `auth.password.set` | 受邀用户设置其第一个密码 |
-| `auth.password.reset_requested` | 有人请求密码重置邮件。始终记录为成功，且只记录所输入的电子邮件地址，因此日志绝不会透露该账户是否存在 |
+| `auth.password.reset_requested` | 有人请求密码重置邮件。始终以输入的地址记录为成功，因此响应不会泄露任何信息；详情中注明是否匹配到账户以及是否已发送邮件 |
 | `auth.password.reset` | 通过重置链接修改了密码 |
 | `auth.password.changed` | 已登录用户修改自己的密码 |
 | `auth.impersonation.started` | 管理员开始「以角色查看…」。目标是所选的角色 |
@@ -148,6 +148,8 @@
 ```bash
 docker compose logs -f backend | grep turbo_ea.audit
 ```
+
+该行在条目被记录的那一刻写入。如果请求的事务随后失败，这一行会存在而没有对应的数据行：表是正式记录，数据流是实时信息。
 
 每一行都带有与条目相同的字段：
 

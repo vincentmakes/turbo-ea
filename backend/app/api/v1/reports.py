@@ -147,9 +147,14 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
     # Recent Activity panel readable without extra round-trips.
     events_result = await db.execute(
         select(Event)
-        # Recent Activity is landscape activity: a card-less event (``ops.*``,
-        # system notices) is not, and would show a viewer what admins did.
-        .where(Event.card_id.isnot(None), *event_read_filters(read_scope))
+        # Recent Activity is landscape activity, card-less or not (a SoAW
+        # signature, a rollback). ``ops.*`` events are operator actions on the
+        # instance itself and would show a viewer what admins did, so they are
+        # the one family left out.
+        .where(
+            ~Event.event_type.startswith("ops.", autoescape=True),
+            *event_read_filters(read_scope),
+        )
         .options(selectinload(Event.user))
         .order_by(Event.created_at.desc())
         .limit(20)
@@ -557,8 +562,7 @@ async def admin_dashboard_summary(
     # ---- Recent system activity (50 events) ------------------------------
     sys_events_result = await db.execute(
         select(Event)
-        # Card events only — see the Recent Activity query in ``dashboard``.
-        .where(Event.card_id.isnot(None), *event_read_filters(await CardReadScope.load(db, user)))
+        .where(*event_read_filters(await CardReadScope.load(db, user)))
         .options(selectinload(Event.user))
         .order_by(Event.created_at.desc())
         .limit(50)

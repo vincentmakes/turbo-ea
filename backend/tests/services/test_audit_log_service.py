@@ -190,10 +190,25 @@ async def test_record_rejects_unknown_outcome():
     assert db.added == [] and db.flushes == 0
 
 
+@pytest.mark.parametrize("action", ["", "   ", "\t\n", None])
+async def test_record_rejects_empty_action(action):
+    db = FakeSession()
+    with pytest.raises(ValueError, match="action"):
+        await audit_log.record(db, action=action, category="auth")
+    assert db.added == [] and db.flushes == 0
+
+
+def test_validate_rejects_a_blank_action_with_a_valid_vocabulary():
+    with pytest.raises(ValueError, match="action is required"):
+        audit_log.validate("auth", "success", " ")
+    # A padded but non-empty action is accepted as given.
+    audit_log.validate("auth", "success", " auth.logout ")
+
+
 @pytest.mark.parametrize("category", sorted(audit_log.CATEGORIES))
 @pytest.mark.parametrize("outcome", sorted(audit_log.OUTCOMES))
 def test_every_known_category_and_outcome_validates(category, outcome):
-    audit_log.validate(category, outcome)
+    audit_log.validate(category, outcome, "auth.login.succeeded")
 
 
 def test_the_vocabularies_are_the_documented_ones():
