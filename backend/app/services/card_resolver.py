@@ -90,7 +90,9 @@ class CardResolver:
 
     Build once per request via `await CardResolver.load(db, type_keys)`,
     then call `resolve(type_key, ref)` repeatedly. Active (non-archived)
-    cards only — archived cards never match.
+    cards only — archived cards never match — unless the caller asks for
+    another ``status``: workspace import builds a second resolver over the
+    ARCHIVED cards so an archived row finds the card it already landed as.
     """
 
     def __init__(
@@ -111,6 +113,7 @@ class CardResolver:
         *,
         read_scope: CardReadScope | None = None,
         mode: ReadMode = "inventory",
+        status: str = "ACTIVE",
     ) -> CardResolver:
         """Fetch every active card whose type is in `type_keys` *and* every
         ancestor needed to build their parent paths. We over-fetch slightly
@@ -132,7 +135,7 @@ class CardResolver:
         result = await db.execute(
             select(Card.id, Card.parent_id, Card.type, Card.name).where(
                 Card.type.in_(type_keys),
-                Card.status == "ACTIVE",
+                Card.status == status,
                 *readable,
             )
         )

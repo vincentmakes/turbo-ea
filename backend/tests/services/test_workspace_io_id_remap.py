@@ -531,6 +531,17 @@ async def test_links_to_archived_cards_transfer_to_a_new_instance(db):
     older = await create_card(db, name="Older", status="ARCHIVED", user_id=user.id)
     await create_relation(db, type_key="relAppToApp", source_id=old.id, target_id=older.id)
     db.add(Comment(card_id=old.id, user_id=user.id, content="Retired in 2024"))
+    group = TagGroup(name="Hosting", mode="multi")
+    db.add(group)
+    await db.flush()
+    tag = Tag(tag_group_id=group.id, name="Legacy")
+    db.add(tag)
+    await db.flush()
+    db.add(CardTag(card_id=old.id, tag_id=tag.id))
+    diagram = Diagram(name="Retired", data={"xml": _card_xml([("v1", old)], [])})
+    db.add(diagram)
+    await db.flush()
+    await db.execute(diagram_cards.insert().values(diagram_id=diagram.id, card_id=old.id))
     await db.flush()
 
     raw = await build_bundle(db, include_archived=True)
@@ -545,6 +556,37 @@ async def test_links_to_archived_cards_transfer_to_a_new_instance(db):
     assert (rel.source_id, rel.target_id) == (new_old.id, new_older.id)
     comment = (await db.execute(select(Comment))).scalar_one()
     assert comment.card_id == new_old.id
+    # The tag and the diagram link reach the archived card through its id,
+    # like the diagram's own XML does.
+    assert (await db.execute(select(CardTag.card_id))).scalars().all() == [new_old.id]
+    (link,) = (await db.execute(select(diagram_cards))).all()
+    assert (link.diagram_id, link.card_id) == (diagram.id, new_old.id)
+    restored = (await db.execute(select(Diagram))).scalar_one()
+    assert f'cardId="{new_old.id}"' in restored.data["xml"]
+
+
+async def test_an_archived_card_without_a_reference_is_not_duplicated_across_instances(db):
+    """Instance B imported the bundle once; importing it again must find the
+    archived card it created, even with no reference or external id to go on."""
+    user = await create_user(db, email="arch5@test.com", role="admin")
+    await _metamodel(db)
+    await create_card(db, name="Old", status="ARCHIVED", user_id=user.id)
+    # Two archived "Twin"s under different parents: told apart by their path,
+    # the same rule an active row is matched by.
+    p1 = await create_card(db, name="Suite 1", user_id=user.id)
+    p2 = await create_card(db, name="Suite 2", user_id=user.id)
+    await create_card(db, name="Twin", status="ARCHIVED", parent_id=p1.id, user_id=user.id)
+    await create_card(db, name="Twin", status="ARCHIVED", parent_id=p2.id, user_id=user.id)
+
+    raw = await build_bundle(db, include_archived=True)
+    await _wipe(db)
+    first = await apply_bundle(db, parse_bundle(raw), user)
+    assert _section(first, schema.SHEET_CARDS).created == 5
+    second = await apply_bundle(db, parse_bundle(raw), user)
+    cards = _section(second, schema.SHEET_CARDS)
+    assert cards.created == 0, cards
+    assert cards.skip_reasons == {"already_present": 5}
+    assert len((await db.execute(select(Card))).scalars().all()) == 5
 
 
 async def test_a_source_id_of_another_type_does_not_match(db):
@@ -660,6 +702,12 @@ async def test_a_bundle_carries_every_rows_own_id(db):
     db.add(tag)
     db.add(Todo(description="x", card_id=crm.id))
     await db.flush()
+    db.add(CardTag(card_id=crm.id, tag_id=tag.id))
+    diagram = Diagram(name="D", data={"xml": "<x/>"})
+    db.add(diagram)
+    await db.flush()
+    await db.execute(diagram_cards.insert().values(diagram_id=diagram.id, card_id=crm.id))
+    await db.flush()
 
     bundle = parse_bundle(await build_bundle(db))
     cards = {r["name"]: r["source_id"] for r in bundle.rows(schema.SHEET_CARDS)}
@@ -675,3 +723,7 @@ async def test_a_bundle_carries_every_rows_own_id(db):
     (todo_row,) = bundle.rows("Todos")
     assert todo_row["card_id__id"] == str(crm.id)
     assert todo_row["card_id__ref"] == "CRM"
+    (card_tag_row,) = bundle.rows(schema.SHEET_CARD_TAGS)
+    assert (card_tag_row["card_ref"], card_tag_row["card_id"]) == ("CRM", str(crm.id))
+    (dc_row,) = bundle.rows("DiagramCards")
+    assert (dc_row["card_ref"], dc_row["card_id"]) == ("CRM", str(crm.id))

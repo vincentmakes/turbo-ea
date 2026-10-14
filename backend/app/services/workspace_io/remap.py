@@ -259,6 +259,32 @@ def map_dict_values(values: Any, table: dict[str, str], tally: RewriteTally) -> 
     return {k: map_id_list(v, table, tally) for k, v in values.items()}
 
 
+def replace_mapped_ids(value: Any, tables: tuple[dict[str, str], ...], tally: RewriteTally) -> Any:
+    """Replace, anywhere inside a JSON value, an id one of ``tables`` maps.
+
+    Shape-agnostic, so a key a report adds tomorrow is covered without being
+    listed. It cannot misfire: only an id the map knows is ever touched, and
+    those are random UUIDs. It also cannot report: a UUID it does not know may
+    be anything, so the named keys stay what counts ``unresolved`` and the walk
+    runs over the keys nobody named. Dict keys are left alone — a tag-group id
+    keying a filter is matched by name on import and has no map.
+    """
+    if isinstance(value, dict):
+        return {k: replace_mapped_ids(v, tables, tally) for k, v in value.items()}
+    if isinstance(value, list):
+        return [replace_mapped_ids(v, tables, tally) for v in value]
+    key = canonical_uuid(value) if isinstance(value, str) else None
+    if key is None:
+        return value
+    for table in tables:
+        target = table.get(key)
+        if target is not None:
+            if target != key:
+                tally.bump(REMAPPED)
+            return target
+    return value
+
+
 # ---------------------------------------------------------------------------
 # DrawIO
 # ---------------------------------------------------------------------------
@@ -291,6 +317,19 @@ def rewrite_drawio_xml(
         return f'{attr}="{map_id(value, table, tally)}"'
 
     return _DRAWIO_ID_ATTR_RE.sub(_sub, xml)
+
+
+def count_mapped_drawio_ids(xml: str, cards: dict[str, str], relations: dict[str, str]) -> int:
+    """How many ``cardId`` / ``relationId`` occurrences ``cards`` / ``relations``
+    would move — what a legacy diagram reports as ``remapped`` for the ids the
+    map alone knew, apart from the cells its name fallback placed."""
+    moved = 0
+    for match in _DRAWIO_ID_ATTR_RE.finditer(xml):
+        attr, value = match.group(1), match.group(2).lower()
+        target = (cards if attr == "cardId" else relations).get(value)
+        if target is not None and target != value:
+            moved += 1
+    return moved
 
 
 def is_compressed_drawio(xml: str) -> bool:
@@ -486,8 +525,12 @@ def rewrite_diagram_data(
             cards = {**cards, **infer_legacy_card_ids(scan, ctx, hints, tally)}
             resolved = {**{c: c for c in ctx.live_card_ids}, **cards}
             relations = {**relations, **infer_legacy_relation_ids(scan, resolved, ctx, tally)}
-        # The cells the fallback could not place are already counted; the
-        # rewrite itself must not count them a second time.
+        # The fallback has counted its own cells, placed or not; what the map
+        # alone moved is counted here, so the heal path can tell the row
+        # changed. The rewrite itself therefore counts nothing.
+        moved = count_mapped_drawio_ids(xml, ctx.ids.cards, ctx.ids.relations)
+        if moved:
+            tally.bump(REMAPPED, moved)
         data["xml"] = rewrite_drawio_xml(xml, cards, relations, RewriteTally())
     else:
         data["xml"] = rewrite_drawio_xml(xml, cards, relations, tally)
@@ -596,6 +639,23 @@ REPORT_CARD_ID_LIST_KEYS = ("scopeIds", "rowScopeIds", "colScopeIds", "filterOrg
 REPORT_CARD_ID_MAP_KEYS = ("relationFilters",)
 REPORT_TAG_ID_LIST_KEYS = ("tagFilterIds",)
 REPORT_TAG_ID_MAP_KEYS = ("tagFilters",)
+REPORT_KNOWN_KEYS = frozenset(
+    (
+        *REPORT_CARD_ID_KEYS,
+        *REPORT_CARD_ID_LIST_KEYS,
+        *REPORT_CARD_ID_MAP_KEYS,
+        *REPORT_TAG_ID_LIST_KEYS,
+        *REPORT_TAG_ID_MAP_KEYS,
+        "drillStack",
+    )
+)
+
+
+def _walk_unknown_keys(
+    out: dict[str, Any], known: frozenset[str] | set[str], ids: IdMap, tally: RewriteTally
+) -> dict[str, Any]:
+    tables = (ids.cards, ids.tags)
+    return {k: (v if k in known else replace_mapped_ids(v, tables, tally)) for k, v in out.items()}
 
 
 def rewrite_saved_report_config(config: Any, ids: IdMap, tally: RewriteTally) -> Any:
@@ -626,7 +686,7 @@ def rewrite_saved_report_config(config: Any, ids: IdMap, tally: RewriteTally) ->
                 frame = {**frame, "cardId": map_id(frame["cardId"], ids.cards, tally)}
             new_stack.append(frame)
         out["drillStack"] = new_stack
-    return out
+    return _walk_unknown_keys(out, REPORT_KNOWN_KEYS, ids, tally)
 
 
 def rewrite_saved_report_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTally:
@@ -652,7 +712,7 @@ def _rewrite_filter_keys(
     for key in tag_keys:
         if key in out:
             out[key] = map_id_list(out[key], ids.tags, tally)
-    return out
+    return _walk_unknown_keys(out, {*card_keys, *tag_keys}, ids, tally)
 
 
 def rewrite_survey_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTally:

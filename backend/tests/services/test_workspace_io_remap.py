@@ -646,10 +646,11 @@ def test_every_report_key_that_holds_an_id_is_translated():
         "tagFilters": {"group": [NEW_TAG]},
         "drillStack": [{"cardId": NEW_A, "cardName": "A"}, {"cardName": "no id"}, "x"],
         "cardTypeKey": "Application",
-        "attrFilters": {"status": [OLD_A]},  # not an id-bearing key
+        # Not a named key — but a mapped id is a mapped id wherever it sits.
+        "attrFilters": {"status": [NEW_A]},
     }
     assert config["center"] == OLD_A  # input untouched
-    assert tally.counts == {rm.REMAPPED: 11}
+    assert tally.counts == {rm.REMAPPED: 12}
 
 
 def test_card_and_tag_ids_are_looked_up_in_their_own_tables():
@@ -692,7 +693,7 @@ def test_survey_portal_and_bookmark_filters_are_translated():
     }
     kw = {"filters": {"tag_ids": [OLD_TAG], "card_ids": [OLD_A]}}
     rm.rewrite_portal_row(kw, _ctx())
-    assert kw["filters"] == {"tag_ids": [NEW_TAG], "card_ids": [OLD_A]}
+    assert kw["filters"] == {"tag_ids": [NEW_TAG], "card_ids": [NEW_A]}
     kw = {"filters": {"tagIds": [OLD_TAG], "relations": {"relX": ["Some App"]}}}
     rm.rewrite_bookmark_row(kw, _ctx())
     assert kw["filters"] == {"tagIds": [NEW_TAG], "relations": {"relX": ["Some App"]}}
@@ -798,3 +799,67 @@ def test_relation_answers_in_survey_responses_are_translated():
     partial = {"responses": {"f": {"confirmed": False}}}
     rm.rewrite_survey_response_row(partial, _ctx())
     assert partial == {"responses": {"f": {"confirmed": False}}}
+
+
+def test_a_legacy_diagram_counts_what_the_map_alone_translated():
+    """A legacy bundle's ids come from the map too (harvested called
+    processes, a backfilled row); the rewrite must report them or the heal
+    path cannot tell the row changed."""
+    ids = rm.IdMap()
+    ids.record(rm.CARDS, OLD_A, NEW_A)
+    ctx = rm.RemapContext(ids=ids, legacy=True)
+    data = {"xml": _model(_cell("v1", OLD_A))}
+    tally = rm.rewrite_diagram_row({"data": data}, ctx)
+    assert f'cardId="{NEW_A}"' in data["xml"]
+    assert tally.counts == {rm.REMAPPED: 1}
+    assert tally.changed()
+
+
+def test_a_mapped_id_is_replaced_wherever_a_config_holds_it():
+    """A key no report has today still translates; an unknown UUID is not an
+    id the walk can name, so it is neither touched nor counted."""
+    unknown = "12345678-1234-1234-1234-123456789abc"
+    tally = rm.RewriteTally()
+    config = {
+        "focusIds": [OLD_A, unknown],
+        "nested": {"deeper": {"card": OLD_B.upper()}},
+        "tag": OLD_TAG,
+        OLD_A: "a key is never an id",
+        "n": 3,
+        "flag": None,
+    }
+    out = rm.rewrite_saved_report_config(config, _ids(), tally)
+    assert out == {
+        "focusIds": [NEW_A, unknown],
+        "nested": {"deeper": {"card": NEW_B}},
+        "tag": NEW_TAG,
+        OLD_A: "a key is never an id",
+        "n": 3,
+        "flag": None,
+    }
+    assert tally.counts == {rm.REMAPPED: 3}
+    assert rm.replace_mapped_ids(OLD_A, (_ids().cards,), rm.RewriteTally()) == NEW_A
+    assert rm.replace_mapped_ids(7, (_ids().cards,), rm.RewriteTally()) == 7
+
+
+def test_a_filter_key_no_one_listed_still_translates():
+    kw = {"target_filters": {"owner_card_ids": [OLD_A]}}
+    assert rm.rewrite_survey_row(kw, _ctx()).counts == {rm.REMAPPED: 1}
+    assert kw["target_filters"] == {"owner_card_ids": [NEW_A]}
+
+
+def test_a_legacy_diagram_reports_the_maps_moves_apart_from_its_own():
+    """A diagram holding one card the map knows twice and one the name
+    fallback places: remapped counts the map's two occurrences, relinked the
+    fallback's one cell, and nothing twice."""
+    ids = rm.IdMap()
+    ids.record(rm.CARDS, OLD_A, NEW_A)
+    ctx = rm.RemapContext(
+        ids=ids, legacy=True, cards_by_type_name={("Application", "erp"): [NEW_B]}
+    )
+    data = {"xml": _model(_cell("v1", OLD_A), _cell("v2", OLD_A), _cell("v3", OLD_B, name="ERP"))}
+    tally = rm.rewrite_diagram_row({"data": data}, ctx)
+    assert tally.counts == {rm.REMAPPED: 2, rm.RELINKED_BY_NAME: 1}
+    assert data["xml"].count(f'cardId="{NEW_A}"') == 2
+    assert f'cardId="{NEW_B}"' in data["xml"]
+    assert rm.count_mapped_drawio_ids(data["xml"], ids.cards, {}) == 0

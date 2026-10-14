@@ -90,6 +90,9 @@ class SectionResult:
     # What translating the ids inside this section's blobs did (#1246):
     # remapped / relinked_by_name / unresolved / ambiguous / … / healed.
     references: dict[str, int] = field(default_factory=dict)
+    # How many of ``errors`` are reference notes (a diagram card the name
+    # fallback could not place). Capped so they cannot crowd out a row failure.
+    reference_notes: int = field(default=0, repr=False)
 
     def skip(self, reason: str = "already_present") -> None:
         self.skipped += 1
@@ -101,7 +104,10 @@ class SectionResult:
         update and is named as such."""
         for key, n in tally.counts.items():
             self.references[key] = self.references.get(key, 0) + n
-        self.errors.extend(tally.messages)
+        room = rm.MAX_MESSAGES - self.reference_notes
+        if room > 0 and tally.messages:
+            self.errors.extend(tally.messages[:room])
+            self.reference_notes += min(room, len(tally.messages))
         if healed:
             self.updated += 1
             self.references["healed"] = self.references.get("healed", 0) + 1
@@ -248,7 +254,7 @@ async def _run(
         (schema.SHEET_USERS, _apply_users),
         (schema.SHEET_SETTINGS, _apply_settings),
         (schema.SHEET_CARDS, _make_cards_applier(user, id_map)),
-        (schema.SHEET_CARD_TAGS, _apply_card_tags),
+        (schema.SHEET_CARD_TAGS, functools.partial(_apply_card_tags, id_map=id_map)),
         (schema.SHEET_RELATIONS, functools.partial(_apply_relations, id_map=id_map)),
     ]
 
@@ -282,7 +288,7 @@ async def _run(
         if _wanted(SHEET_DIAGRAM_CARDS):
             sr = SectionResult(sheet=SHEET_DIAGRAM_CARDS)
             result.sections.append(sr)
-            await _apply_diagram_cards(db, bundle, sr, ent_resolver)
+            await _apply_diagram_cards(db, bundle, sr, ent_resolver, id_map)
 
         if _wanted(SHEET_DIAGRAM_GROUP_MEMBERS):
             sr = SectionResult(sheet=SHEET_DIAGRAM_GROUP_MEMBERS)
@@ -334,6 +340,45 @@ async def _load_entity_context(db) -> tuple[CardResolver, dict[str, uuid.UUID]]:
     resolver = await CardResolver.load(db, all_types)
     users = (await db.execute(select(User))).scalars().all()
     return resolver, {u.email.lower(): u.id for u in users}
+
+
+def _card_end(
+    ids: rm.IdMap, resolver: CardResolver, ctype: Any, cref: Any, source_card_id: Any
+) -> uuid.UUID | None:
+    """The card a row names: by its id on the source first — exact, and the only
+    way to reach an archived card, which the reference resolver never sees —
+    then by reference."""
+    mapped = ids.lookup(rm.CARDS, source_card_id)
+    if mapped is not None:
+        return uuid.UUID(mapped)
+    if not ctype or not cref:
+        return None
+    res = resolver.resolve(str(ctype), str(cref))
+    return res.card_id if res.status == "resolved" else None
+
+
+def _relation_key(
+    row: dict[str, Any], ids: rm.IdMap, resolver: CardResolver, rt_by_key: dict[str, Any]
+) -> tuple[str, uuid.UUID, uuid.UUID] | None:
+    """``(type, source_id, target_id)`` for a Relations row, in the relation
+    type's direction — the one rule both the relations pass and the id-map
+    backfill resolve an end by. None when an end cannot be found."""
+    rtype = row.get("type")
+    source_type, source_ref, target_type, target_ref = (
+        row.get(k) for k in ("source_type", "source_ref", "target_type", "target_ref")
+    )
+    if not rtype or not all((source_type, source_ref, target_type, target_ref)):
+        return None
+    s_id = _card_end(ids, resolver, source_type, source_ref, row.get("source_card_id"))
+    t_id = _card_end(ids, resolver, target_type, target_ref, row.get("target_card_id"))
+    if s_id is None or t_id is None:
+        return None
+    # A bundle from an instance that still held a relation stored the other
+    # way round lands in the relation type's direction here (#1140).
+    source_id, target_id = oriented(
+        rt_by_key.get(str(rtype)), s_id, t_id, str(source_type), str(target_type)
+    )
+    return str(rtype), source_id, target_id
 
 
 def _card_row_ref(row: dict[str, Any]) -> str:
@@ -394,31 +439,18 @@ async def _load_remap_context(
     if not wants_diagrams:
         return ctx
     rt_by_key = {rt.key: rt for rt in (await db.execute(select(RelationType))).scalars().all()}
+    rel_rows = (
+        await db.execute(select(Relation.type, Relation.source_id, Relation.target_id, Relation.id))
+    ).all()
     ctx.relations_by_ends = {
-        (rel.type, str(rel.source_id), str(rel.target_id)): str(rel.id)
-        for rel in (await db.execute(select(Relation))).scalars().all()
+        (rel.type, str(rel.source_id), str(rel.target_id)): str(rel.id) for rel in rel_rows
     }
 
     def _resolve_relation(row: dict[str, Any]) -> uuid.UUID | None:
-        ends = []
-        for side in ("source", "target"):
-            mapped = id_map.lookup(rm.CARDS, row.get(f"{side}_card_id"))
-            if mapped is None:
-                found = _resolve(str(row.get(f"{side}_type") or ""), str(row.get(f"{side}_ref")))
-                mapped = str(found) if found is not None else None
-            if mapped is None:
-                return None
-            ends.append(uuid.UUID(mapped))
-        source_id, target_id = oriented(
-            rt_by_key.get(row.get("type")),
-            ends[0],
-            ends[1],
-            str(row.get("source_type") or ""),
-            str(row.get("target_type") or ""),
-        )
-        rel_id = ctx.relations_by_ends.get(
-            (str(row.get("type") or ""), str(source_id), str(target_id))
-        )
+        key = _relation_key(row, id_map, resolver, rt_by_key)
+        if key is None:
+            return None
+        rel_id = ctx.relations_by_ends.get((key[0], str(key[1]), str(key[2])))
         return uuid.UUID(rel_id) if rel_id else None
 
     rm.backfill(bundle.rows(schema.SHEET_RELATIONS), id_map, rm.RELATIONS, _resolve_relation)
@@ -431,15 +463,20 @@ async def _load_remap_context(
                 key = (c.type, (c.name or "").strip().lower())
                 ctx.cards_by_type_name.setdefault(key, []).append(str(c.id))
         for row in bundle.rows(SHEET_DIAGRAM_CARDS):
-            found = _resolve(str(row.get("card_type") or ""), str(row.get("card_ref") or ""))
+            found = _card_end(
+                id_map, resolver, row.get("card_type"), row.get("card_ref"), row.get("card_id")
+            )
             if found is not None and row.get("diagram_id"):
                 hints = ctx.diagram_card_hints.setdefault(str(row["diagram_id"]).lower(), set())
                 hints.add(str(found))
     return ctx
 
 
-async def _apply_diagram_cards(db, bundle: WorkspaceBundle, sr: SectionResult, resolver) -> None:
+async def _apply_diagram_cards(
+    db, bundle: WorkspaceBundle, sr: SectionResult, resolver, id_map: rm.IdMap | None = None
+) -> None:
     """Bespoke Diagram↔Card association (preserved diagram_id + resolved card)."""
+    ids = id_map if id_map is not None else rm.IdMap()
     rows = bundle.rows(SHEET_DIAGRAM_CARDS)
     if not rows:
         return
@@ -453,15 +490,15 @@ async def _apply_diagram_cards(db, bundle: WorkspaceBundle, sr: SectionResult, r
             sr.failed += 1
             continue
         diag_uuid = uuid.UUID(str(diagram_id))
-        res = resolver.resolve(str(ctype), str(cref))
-        if diag_uuid not in existing_diagrams or res.status != "resolved":
+        card_id = _card_end(ids, resolver, ctype, cref, row.get("card_id"))
+        if diag_uuid not in existing_diagrams or card_id is None:
             sr.conflict += 1
             continue
-        pair = (diag_uuid, res.card_id)
+        pair = (diag_uuid, card_id)
         if pair in existing:
             sr.skip("already_present")
             continue
-        await db.execute(diagram_cards.insert().values(diagram_id=diag_uuid, card_id=res.card_id))
+        await db.execute(diagram_cards.insert().values(diagram_id=diag_uuid, card_id=card_id))
         existing.add(pair)
         sr.created += 1
 
@@ -905,6 +942,11 @@ def _make_cards_applier(user: User, id_map: rm.IdMap | None = None):
         rows = bundle.rows(schema.SHEET_CARDS)
         type_keys: set[str] = {str(r["type"]) for r in rows if r.get("type")}
         resolver = await CardResolver.load(db, type_keys)
+        # Archived rows match the archived card they already landed as — the
+        # ACTIVE-only resolver above cannot see one — by the same path rule.
+        archived: CardResolver | None = None
+        if any(r.get("status") == "ARCHIVED" for r in rows):
+            archived = await CardResolver.load(db, type_keys, status="ARCHIVED")
 
         # Parents (shorter parent_path) before children — a valid topo order
         # for trees because a child's parent has exactly one fewer segment.
@@ -926,7 +968,7 @@ def _make_cards_applier(user: User, id_map: rm.IdMap | None = None):
                 sr.failed += 1
                 continue
             parent_path = data.get("parent_path") or ""
-            own_ref = schema.build_ref_string(schema.split_escaped_path(parent_path), name)
+            own_ref = _card_row_ref(data)
             external_id = data.get("external_id")
             source_id = row.get(schema.SOURCE_ID_COLUMN)
 
@@ -950,9 +992,9 @@ def _make_cards_applier(user: User, id_map: rm.IdMap | None = None):
                     ids.record(rm.CARDS, source_id, hit[0])
                     sr.skip("already_present")
                     continue
-            if data.get("status") == "ARCHIVED":
+            if archived is not None and data.get("status") == "ARCHIVED":
                 gone = await _archived_card_match(
-                    db, type_key, name, data.get("reference"), external_id
+                    db, archived, type_key, own_ref, data.get("reference"), external_id
                 )
                 if gone is not None:
                     ids.record(rm.CARDS, source_id, gone)
@@ -1079,16 +1121,28 @@ def _card_by_source_id(type_by_id: dict[str, str], type_key: str, source_id: Any
 
 
 async def _archived_card_match(
-    db, type_key: str, name: str, reference: Any, external_id: Any
+    db,
+    archived: CardResolver,
+    type_key: str,
+    own_ref: str,
+    reference: Any,
+    external_id: Any,
 ) -> uuid.UUID | None:
-    """An archived card the archived row already landed as on this instance.
+    """The archived card an archived row already landed as on this instance.
 
-    Matched on the same type and name plus the reference (carried verbatim on
-    import) or the external id. Without it every re-import of a bundle that
-    includes archived cards created each of them again, under a renumbered
-    reference. Only an archived row reaches this, so an archived card never
-    absorbs an active row — that rule stays with ``_card_by_external_id``.
+    Resolved by type + hierarchy path exactly like an active row; several
+    archived cards on the same path are told apart by the row's reference or
+    external id. Without it every re-import of a bundle that includes archived
+    cards created each of them again. Only an archived row reaches this, so an
+    archived card never absorbs an active row — that rule stays with
+    ``_card_by_external_id``.
     """
+    res = archived.resolve(type_key, own_ref)
+    if res.status == "resolved":
+        return res.card_id
+    if res.status != "ambiguous" or not res.candidates:
+        return None
+    candidate_ids = [c.id for c in res.candidates]
     keys = []
     if reference:
         keys.append(Card.reference == str(reference))
@@ -1096,23 +1150,14 @@ async def _archived_card_match(
         keys.append(Card.external_id == str(external_id))
     if not keys:
         return None
-    found: uuid.UUID | None = (
-        (
-            await db.execute(
-                select(Card.id)
-                .where(
-                    Card.type == type_key,
-                    Card.name == name,
-                    Card.status == "ARCHIVED",
-                    or_(*keys),
-                )
-                .order_by(Card.created_at, Card.id)
-            )
+    found = (
+        await db.execute(
+            select(Card.id)
+            .where(Card.id.in_(candidate_ids), or_(*keys))
+            .order_by(Card.created_at, Card.id)
         )
-        .scalars()
-        .first()
-    )
-    return found
+    ).first()
+    return uuid.UUID(str(found[0])) if found else None
 
 
 async def _card_by_external_id(db, type_key: str, external_id: str):
@@ -1132,7 +1177,15 @@ async def _card_by_external_id(db, type_key: str, external_id: str):
 # ---------------------------------------------------------------------------
 
 
-async def _apply_card_tags(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
+async def _apply_card_tags(
+    db,
+    bundle: WorkspaceBundle,
+    sr: SectionResult,
+    dry_run: bool,
+    *,
+    id_map: rm.IdMap | None = None,
+) -> None:
+    ids = id_map if id_map is not None else rm.IdMap()
     rows = bundle.rows(schema.SHEET_CARD_TAGS)
     type_keys: set[str] = {str(r["card_type"]) for r in rows if r.get("card_type")}
     resolver = await CardResolver.load(db, type_keys)
@@ -1154,18 +1207,18 @@ async def _apply_card_tags(db, bundle: WorkspaceBundle, sr: SectionResult, dry_r
             )
             continue
         tag = tag_index.get((group.id, row.get("tag_name")))
-        res = resolver.resolve(ctype, cref)
-        if tag is None or res.status != "resolved":
+        card_id = _card_end(ids, resolver, ctype, cref, row.get("card_id"))
+        if tag is None or card_id is None:
             sr.conflict += 1
             sr.errors.append(
                 f"card tag {row.get('tag_name')!r}: tag or card {cref!r} unresolved — skipped"
             )
             continue
-        link = (res.card_id, tag.id)
+        link = (card_id, tag.id)
         if link in existing_links:
             sr.skip("already_present")
             continue
-        db.add(CardTag(card_id=res.card_id, tag_id=tag.id))
+        db.add(CardTag(card_id=card_id, tag_id=tag.id))
         existing_links.add(link)
         sr.created += 1
     await db.flush()
@@ -1194,40 +1247,17 @@ async def _apply_relations(
         for rel in (await db.execute(select(Relation))).scalars().all()
     }
 
-    def _end(ctype: Any, cref: Any, source_card_id: Any) -> uuid.UUID | None:
-        # The card's id from the cards pass first — exact, and the only way to
-        # reach an archived card — then the reference.
-        mapped = ids.lookup(rm.CARDS, source_card_id)
-        if mapped is not None:
-            return uuid.UUID(mapped)
-        res = resolver.resolve(str(ctype), str(cref))
-        return res.card_id if res.status == "resolved" else None
-
     for row in rows:
         data = _coerce(row, exp.RELATION_COLUMNS, exp.RELATION_JSON)
-        rtype = data.get("type")
-        ends = [data.get(k) for k in ("source_type", "source_ref", "target_type", "target_ref")]
-        s_id = t_id = None
-        if rtype and all(ends):
-            source_type, source_ref, target_type, target_ref = (str(e) for e in ends)
-            s_id = _end(source_type, source_ref, row.get("source_card_id"))
-            t_id = _end(target_type, target_ref, row.get("target_card_id"))
-        if s_id is None or t_id is None:
+        resolved = _relation_key({**row, **data}, ids, resolver, rt_by_key)
+        if resolved is None:
             sr.conflict += 1
             sr.errors.append(
-                f"relation {rtype!r}: endpoint(s) unresolved "
+                f"relation {data.get('type')!r}: endpoint(s) unresolved "
                 f"({data.get('source_ref')!r} -> {data.get('target_ref')!r})"
             )
             continue
-        # A bundle from an instance that still held a relation stored the other
-        # way round lands in the relation type's direction here (#1140).
-        source_id, target_id = oriented(
-            rt_by_key.get(rtype),
-            s_id,
-            t_id,
-            source_type,
-            target_type,
-        )
+        rtype, source_id, target_id = resolved
         key = (rtype, source_id, target_id)
         if key in existing:
             ids.record(rm.RELATIONS, row.get(schema.SOURCE_ID_COLUMN), existing[key])

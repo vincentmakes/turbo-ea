@@ -139,7 +139,8 @@ RELATION_COLUMNS = (
 )
 RELATION_JSON = frozenset({"attributes"})
 
-CARD_TAG_COLUMNS = ("card_type", "card_ref", "group_name", "tag_name")
+# ``card_id`` is the card's id on the source (see the sheet columns below).
+CARD_TAG_COLUMNS = ("card_type", "card_ref", "group_name", "tag_name", "card_id")
 
 # What the three sheets actually carry: the value columns above plus the row's
 # own id on the exporting instance. Cards, relations and tags land under new
@@ -320,6 +321,7 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
                 "card_ref": entities.build_card_ref(card, by_id),
                 "group_name": group.name if group else "",
                 "tag_name": tag.name,
+                "card_id": str(card.id),
             }
         )
     _emit(schema.SHEET_CARD_TAGS, CARD_TAG_COLUMNS, frozenset(), card_tag_records)
@@ -369,10 +371,15 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
                 "diagram_id": str(row.diagram_id),
                 "card_type": card.type,
                 "card_ref": entities.build_card_ref(card, full_card_map),
+                "card_id": str(card.id),
             }
         )
     bundle_io.write_sheet(
-        wb, SHEET_DIAGRAM_CARDS, ["diagram_id", "card_type", "card_ref"], dc_rows, assets
+        wb,
+        SHEET_DIAGRAM_CARDS,
+        ["diagram_id", "card_type", "card_ref", "card_id"],
+        dc_rows,
+        assets,
     )
     section_counts[SHEET_DIAGRAM_CARDS] = len(dc_rows)
 

@@ -100,6 +100,17 @@ async def test_resolver_archived_cards_are_excluded(db, resolver_env):
     assert outcome.status == "missing"
 
 
+async def test_resolver_over_archived_cards_sees_only_those(db, resolver_env):
+    """``status="ARCHIVED"`` flips the filter: the archived card resolves,
+    its active siblings do not — workspace import matches an archived row
+    against the archived card it already landed as this way."""
+    resolver_env["erp"].status = "ARCHIVED"
+    await db.flush()
+    resolver = await CardResolver.load(db, {"Application"}, status="ARCHIVED")
+    assert resolver.resolve("Application", "ERP").card_id == resolver_env["erp"].id
+    assert resolver.resolve("Application", "CRM").status == "missing"
+
+
 async def test_find_card_by_path_helper(db, resolver_env):
     """The convenience helper should match the resolver's behaviour."""
     outcome = await find_card_by_path(db, "Application", ["NexaTech", "Sales"], "CRM")
